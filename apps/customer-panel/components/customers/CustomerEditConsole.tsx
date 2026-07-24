@@ -28,10 +28,10 @@ function formAddresses(customer: CustomerDetail) {
   }));
 }
 
-export function CustomerEditConsole({ customerId }: Readonly<{ customerId: string }>) {
+export function CustomerEditConsole({ customerId, initialCustomer, initialError = "" }: Readonly<{ customerId: string; initialCustomer?: CustomerDetail; initialError?: string }>) {
   const router = useRouter();
-  const [customer, setCustomer] = useState<CustomerDetail | null>(null);
-  const [error, setError] = useState("");
+  const [customer, setCustomer] = useState<CustomerDetail | null>(initialCustomer ?? null);
+  const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
   const requestSequence = useRef(0);
 
@@ -50,9 +50,10 @@ export function CustomerEditConsole({ customerId }: Readonly<{ customerId: strin
   }, [customerId, requestSequence]);
 
   useEffect(() => {
+    if (initialCustomer || initialError) return;
     void load();
     return () => { requestSequence.current += 1; };
-  }, [load, requestSequence]);
+  }, [initialCustomer, initialError, load, requestSequence]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

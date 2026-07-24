@@ -647,7 +647,7 @@
 .action,
 .primaryAction {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 3rem;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-strong);

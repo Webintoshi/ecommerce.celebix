@@ -1,4 +1,4 @@
-import assert from"node:assert/strict";import test from"node:test";import{createMerchantAdminApi}from"./client.ts";const NOW="2026-07-22T19:00:00.000Z",ID="71000000-0000-4000-8000-000000000001",OP="72000000-0000-4000-8000-000000000001";
+import assert from"node:assert/strict";import test from"node:test";import{MERCHANT_ADMIN_PROVIDER_RECORD_KINDS,MERCHANT_ADMIN_RECORD_KINDS,type MerchantAdminProviderRecordKind}from"@celebix/saas-contracts";import{createMerchantAdminApi}from"./client.ts";const NOW="2026-07-22T19:00:00.000Z",ID="71000000-0000-4000-8000-000000000001",OP="72000000-0000-4000-8000-000000000001";
 function providerKindTypeBoundary(api:ReturnType<typeof createMerchantAdminApi>){if(false){
  // @ts-expect-error non-provider records must not compile at the browser provider list boundary
  void api.providerJobs("discount");
@@ -25,4 +25,50 @@ test("provider client exposes only list prepare and cancel preparation commands"
   `/api/merchant-admin/provider-jobs/marketplace_connection/${JOB}/cancel`,
  ]);
  assert.equal(JSON.stringify(calls).match(/send|success|complete/i),null);
+});
+
+test("merchant family client executes exact CRUD for every finite kind and every provider preparation kind", async () => {
+ const JOB="73000000-0000-4000-8000-000000000002";
+ const calls:Array<{path:string;init?:RequestInit}>=[];
+ const api=createMerchantAdminApi((async(input,init)=>{
+  const path=String(input);
+  calls.push({path,init});
+  const providerMatch=/^\/api\/merchant-admin\/provider-jobs\/([^/]+)(?:\/([^/]+)\/cancel)?$/.exec(path);
+  if(providerMatch){
+   const recordKind=providerMatch[1]as MerchantAdminProviderRecordKind;
+   const action=recordKind==="marketplace_connection"?"synchronization":recordKind==="invoice_integration"?"reconciliation":recordKind==="indexing_request"?"indexing":"delivery";
+   if(init?.method!=="POST")return response({items:[{id:JOB,recordId:ID,recordKind,action,status:"awaiting_provider_activation",version:1,requestedAt:NOW,updatedAt:NOW}]});
+   return response({id:JOB,recordId:ID,recordKind,action,status:providerMatch[2]?"cancelled":"awaiting_provider_activation",version:providerMatch[2]?2:1,updatedAt:NOW,replayed:false});
+  }
+  const recordMatch=/^\/api\/merchant-admin\/records\/([^/]+)(?:\/([^/]+))?(?:\/archive)?$/.exec(path);
+  assert.ok(recordMatch,path);
+  const recordKind=recordMatch[1]!;
+  if(init?.method!=="POST"){
+   const value={id:ID,kind:recordKind,name:`${recordKind} fixture`,config:{},status:"active",version:1,createdAt:NOW,updatedAt:NOW};
+   return response(recordMatch[2]?value:{items:[value]});
+  }
+  if(path.endsWith("/archive"))return response({id:ID,kind:recordKind,status:"archived",version:3,updatedAt:NOW,replayed:false});
+  const body=JSON.parse(String(init?.body))as{recordId?:string};
+  return response({id:ID,kind:recordKind,status:"active",version:body.recordId?2:1,updatedAt:NOW,replayed:false});
+ })as typeof fetch,()=>OP);
+
+ for(const recordKind of MERCHANT_ADMIN_RECORD_KINDS){
+  assert.equal((await api.records(recordKind))[0]?.kind,recordKind);
+  assert.equal((await api.record(recordKind,ID)).kind,recordKind);
+  assert.equal((await api.save(recordKind,{name:`${recordKind} create`,config:{},status:"active"})).version,1);
+  assert.equal((await api.save(recordKind,{recordId:ID,expectedVersion:1,name:`${recordKind} update`,config:{},status:"active"})).version,2);
+  assert.equal((await api.archive(recordKind,ID,2)).status,"archived");
+ }
+ for(const recordKind of MERCHANT_ADMIN_PROVIDER_RECORD_KINDS){
+  assert.equal((await api.providerJobs(recordKind))[0]?.recordKind,recordKind);
+  assert.equal((await api.prepareProviderJob(recordKind,ID,1)).status,"awaiting_provider_activation");
+  assert.equal((await api.cancelProviderJob(recordKind,JOB,1)).status,"cancelled");
+ }
+ assert.equal(calls.length,MERCHANT_ADMIN_RECORD_KINDS.length*5+MERCHANT_ADMIN_PROVIDER_RECORD_KINDS.length*3);
+ for(const recordKind of MERCHANT_ADMIN_RECORD_KINDS){
+  assert.equal(calls.some(({path})=>path===`/api/merchant-admin/records/${recordKind}/${ID}`),true,recordKind);
+  assert.equal(calls.some(({path})=>path===`/api/merchant-admin/records/${recordKind}/${ID}/archive`),true,recordKind);
+ }
+ for(const recordKind of MERCHANT_ADMIN_PROVIDER_RECORD_KINDS)assert.equal(calls.some(({path})=>path===`/api/merchant-admin/provider-jobs/${recordKind}/${JOB}/cancel`),true,recordKind);
+ assert.equal(calls.every(({init})=>init?.credentials==="same-origin"&&init.cache==="no-store"),true);
 });

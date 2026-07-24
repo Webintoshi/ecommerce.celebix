@@ -1,16 +1,52 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import type {
+  CustomerTag,
+  CustomerDetail,
+  InventoryCount,
+  InventoryTransfer,
+  PriceList,
+  PurchaseOrder,
+} from "@celebix/saas-contracts";
 
+import { AnalyticsDashboard } from "@/components/analytics/AnalyticsDashboard";
+import { CatalogExtraPreview } from "@/components/catalog-admin/CatalogExtraPreview";
+import { CatalogImportPreparationConsole } from "@/components/catalog-admin/CatalogImportPreparationConsole";
+import { ProductListConsole } from "@/components/catalog/ProductListConsole";
+import { CustomerEditConsole } from "@/components/customers/CustomerEditConsole";
+import { PanelDashboardPresentation } from "@/components/dashboard/PanelDashboardHomeView";
 import {
-  PanelActionButton,
-  PanelDataTable,
-  PanelMetricCard,
-  PanelPageHeader,
-  PanelPageShell,
-  PanelPanel,
-} from "@/components/panel/PanelPageShell";
+  InventoryCountConsole,
+  InventoryCountPresentation,
+} from "@/components/inventory/InventoryCountConsole";
+import {
+  InventoryTransferConsole,
+  InventoryTransferPresentation,
+} from "@/components/inventory/InventoryTransferConsole";
+import {
+  PurchasingConsole,
+  PurchasingDetailPresentation,
+} from "@/components/inventory/PurchasingConsole";
+import { MerchantModuleConsole } from "@/components/merchant-admin/MerchantModuleConsole";
+import { OrderPrintView } from "@/components/orders/OrderPrintView";
+import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { PanelShell } from "@/components/panel/PanelShell";
+import { PriceListConsole } from "@/components/pricing/PriceListConsole";
+import { readyAuthority } from "@/lib/panel-ui/authority-slice";
+import { createMerchantDashboardViewModel } from "@/lib/panel-ui/dashboard-model";
+import type { InventoryConsoleSnapshot } from "@/lib/inventory-ui/console-controller";
+
+const NOW = "2026-07-24T12:00:00.000Z";
+const ORDER_ID = "11111111-1111-4111-8111-111111111111";
+const CUSTOMER_ID = "22222222-2222-4222-8222-222222222222";
+const RESOURCE_ID = "33333333-3333-4333-8333-333333333333";
+const LOCATION_ID = "44444444-4444-4444-8444-444444444444";
+const DESTINATION_ID = "55555555-5555-4555-8555-555555555555";
+const LINE_ID = "66666666-6666-4666-8666-666666666666";
+const VARIANT_ID = "77777777-7777-4777-8777-777777777777";
+const COUNT_ID = "88888888-8888-4888-8888-888888888888";
+const TRANSFER_ID = "99999999-9999-4999-8999-999999999999";
+const PRICE_LIST_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 const MODEL = Object.freeze({
   storeSlug: "browser-kabul-magazasi",
@@ -21,93 +57,274 @@ const MODEL = Object.freeze({
   locale: "tr-TR",
 });
 
-type RouteDefinition = Readonly<{
-  title: string;
-  description: string;
-  fixture: string;
-}>;
+const DASHBOARD = createMerchantDashboardViewModel(
+  MODEL,
+  readyAuthority(Object.freeze({
+    totalProducts: 12,
+    activeProducts: 9,
+    draftProducts: 3,
+    productLimit: 100,
+    activeVariants: 18,
+    outOfStockVariants: 2,
+    productsWithoutMedia: 1,
+    activeMedia: 20,
+  }), NOW),
+  readyAuthority(Object.freeze({
+    totalOrders: 24,
+    pendingOrders: 4,
+    fulfilledOrders: 18,
+    revenueCents: 1_250_000,
+    currency: "TRY",
+    asOf: NOW,
+  }), NOW),
+);
 
-const ROUTES: Readonly<Record<string, RouteDefinition>> = Object.freeze({
-  "/": Object.freeze({ title: "Mağaza özeti", description: "Kalıcı mağaza kayıtlarından güvenli yönetim özeti.", fixture: "catalog-summary" }),
-  "/analytics": Object.freeze({ title: "Analitik", description: "Kalıcı sipariş, müşteri ve katalog kayıtlarının aylık özeti.", fixture: "analytics-dashboard" }),
-  "/orders/ORDER_ID/print": Object.freeze({ title: "Sipariş belgesi", description: "Kalıcı sipariş kaydının yazdırılabilir görünümü.", fixture: "order-detail" }),
-  "/customers/CUSTOMER_ID/edit": Object.freeze({ title: "Müşteriyi düzenle", description: "İletişim ve kanal izinlerini sürümlü kayda göre düzenleyin.", fixture: "customer-detail" }),
-  "/products/extras/RESOURCE_ID/preview": Object.freeze({ title: "Ekstra önizlemesi", description: "Katalog ekstra kaydının güvenli önizlemesi.", fixture: "catalog-extra" }),
-  "/products/purchasing": Object.freeze({ title: "Satın alma", description: "Kalıcı satın alma siparişlerini yönetin.", fixture: "purchase-orders" }),
-  "/products/inventory-counts": Object.freeze({ title: "Stok sayımları", description: "Depo sayım kayıtlarını ve farklarını inceleyin.", fixture: "inventory-counts" }),
-  "/products/transfers": Object.freeze({ title: "Stok transferleri", description: "Depolar arası kalıcı stok hareketlerini yönetin.", fixture: "inventory-transfers" }),
-  "/products/price-lists": Object.freeze({ title: "Fiyat listeleri", description: "Sürümlü fiyat listelerini ve kapsamlarını inceleyin.", fixture: "price-lists" }),
-  "/seo/products": Object.freeze({ title: "Ürün SEO", description: "Ürün arama görünürlüğü için kalıcı yapılandırma kayıtları.", fixture: "seo-product-entry" }),
-  "/products/shopify-converter": Object.freeze({ title: "Shopify dönüştürücü", description: "Yalnız seçilen yerel CSV için güvenli içe aktarma önizlemesi.", fixture: "import-preview" }),
-  "/products": Object.freeze({ title: "Ürün kataloğu", description: "Ürünleri, fiyatları ve stok durumlarını yönetin.", fixture: "catalog-products" }),
-  "/settings": Object.freeze({ title: "Ayarlar", description: "Mağaza yapılandırmasının kalıcı ve yetkili görünümü.", fixture: "settings" }),
-  "/products-evil": Object.freeze({ title: "Geçersiz rota", description: "Yakın eşleşme hiçbir korumalı menüyü etkinleştirmez.", fixture: "negative-route" }),
-});
+export const FIXTURE_PURCHASES = Object.freeze([
+  Object.freeze({
+    id: ORDER_ID,
+    locationId: LOCATION_ID,
+    supplierName: "Kalıcı Tedarikçi",
+    status: "ordered",
+    lines: Object.freeze([Object.freeze({
+      id: LINE_ID,
+      variantId: VARIANT_ID,
+      orderedQuantity: 5,
+      receivedQuantity: 3,
+      unitCostCents: 1250,
+      lineCostCents: 6250,
+    })]),
+    totalCostCents: 6250,
+    version: 3,
+    createdAt: NOW,
+    updatedAt: NOW,
+  }),
+] as const) satisfies readonly PurchaseOrder[];
 
-type FixtureDto = Readonly<{
-  badge: string;
-  metrics: readonly Readonly<{ label: string; value: string; detail: string }>[];
-  records: readonly Readonly<{ name: string; state: string; detail: string }>[];
-}>;
+export const FIXTURE_COUNTS = Object.freeze([
+  Object.freeze({
+    id: COUNT_ID,
+    locationId: LOCATION_ID,
+    status: "counting",
+    lines: Object.freeze([Object.freeze({
+      id: LINE_ID,
+      variantId: VARIANT_ID,
+      expectedQuantity: 7,
+      countedQuantity: 5,
+    })]),
+    version: 4,
+    createdAt: NOW,
+    updatedAt: NOW,
+  }),
+] as const) satisfies readonly InventoryCount[];
 
-function routeDefinition(pathname: string): RouteDefinition {
-  return ROUTES[pathname] ?? Object.freeze({
-    title: "Yerel kabul rotası",
-    description: "Bu güvenli yerel rota için desteklenen bir örnek görünüm yok.",
-    fixture: "negative-route",
+export const FIXTURE_TRANSFERS = Object.freeze([
+  Object.freeze({
+    id: TRANSFER_ID,
+    sourceLocationId: LOCATION_ID,
+    destinationLocationId: DESTINATION_ID,
+    status: "in_transit",
+    lines: Object.freeze([Object.freeze({
+      id: LINE_ID,
+      variantId: VARIANT_ID,
+      quantity: 2,
+    })]),
+    version: 2,
+    createdAt: NOW,
+    updatedAt: NOW,
+  }),
+] as const) satisfies readonly InventoryTransfer[];
+
+export const FIXTURE_PRICE_LISTS = Object.freeze([
+  Object.freeze({
+    id: PRICE_LIST_ID,
+    name: "Perakende TRY",
+    status: "draft",
+    items: Object.freeze([Object.freeze({ variantId: VARIANT_ID, priceCents: 1250 })]),
+    rules: Object.freeze([Object.freeze({ channel: "storefront", startsAt: NOW, priority: 10 })]),
+    version: 2,
+    createdAt: NOW,
+    updatedAt: NOW,
+  }),
+] as const) satisfies readonly PriceList[];
+
+const FIXTURE_TAGS = Object.freeze([]) satisfies readonly CustomerTag[];
+const FIXTURE_CUSTOMER = Object.freeze({
+  id: CUSTOMER_ID,
+  status: "active",
+  displayName: "Ada Yılmaz",
+  firstName: "Ada",
+  lastName: "Yılmaz",
+  email: "ada@example.test",
+  phone: "+905551112233",
+  orderCount: 1,
+  totalSpentCents: 12_500,
+  currency: "TRY",
+  tags: Object.freeze([]),
+  addresses: Object.freeze([]),
+  consents: Object.freeze([]),
+  notes: Object.freeze([]),
+  segments: Object.freeze([]),
+  version: 2,
+  createdAt: NOW,
+  updatedAt: NOW,
+}) satisfies CustomerDetail;
+type AcceptanceState = "loaded" | "empty" | "loading" | "error" | "unavailable" | "denied" | "conflict" | "replayed" | "verification_unavailable";
+
+function inventoryTruthState<RecordType>(
+  state: Exclude<AcceptanceState, "loaded" | "empty">,
+  record: RecordType,
+  messages: Readonly<Record<Exclude<AcceptanceState, "loaded" | "empty">, string>>,
+): InventoryConsoleSnapshot<RecordType> {
+  const phase = state === "unavailable" ? "error" : state;
+  return Object.freeze({
+    phase,
+    ...(state === "conflict" || state === "replayed" || state === "verification_unavailable"
+      ? { record }
+      : {}),
+    pending: false,
+    locked: state === "verification_unavailable",
+    message: messages[state],
   });
 }
 
-export function FullParityFixture({ pathname }: Readonly<{ pathname: string }>) {
-  const route = routeDefinition(pathname);
-  const [dto, setDto] = useState<FixtureDto>();
-  const [error, setError] = useState("");
-  const [query, setQuery] = useState("");
+function InventoryTruthFixture({ state }: Readonly<{ state: AcceptanceState }>) {
+  if (state === "loaded") return <InventoryCountConsole initialItems={FIXTURE_COUNTS} canManage />;
+  if (state === "empty") return <InventoryCountConsole initialItems={Object.freeze([])} canManage />;
+  const snapshot = inventoryTruthState(state, FIXTURE_COUNTS[0], Object.freeze({
+    loading: "Stok sayımı yükleniyor…",
+    error: "Stok sayımı yüklenemedi.",
+    unavailable: "Stok sayımı hizmeti kullanılamıyor.",
+    denied: "Bu stok sayımını görüntüleme yetkiniz yok.",
+    conflict: "Stok sayımı başka bir işlemle çakıştı.",
+    replayed: "İşlem daha önce tamamlandı; kalıcı kayıt yeniden yüklendi.",
+    verification_unavailable: "İşlem sonucu doğrulanamıyor. Tam sayfa yenileme gereklidir.",
+  }));
+  return (
+    <PanelPageShell>
+      <PanelPageHeader title="Stok sayımı ayrıntısı" description="Kalıcı stok sayımı doğruluk durumu." />
+      <InventoryCountPresentation
+        state={snapshot}
+        canManage
+        onStart={() => undefined}
+        onCommit={() => undefined}
+        onCancel={() => undefined}
+      />
+    </PanelPageShell>
+  );
+}
 
-  const load = useCallback(async () => {
-    setError("");
-    try {
-      const response = await fetch(`/api/fixture/${route.fixture}`, { credentials: "same-origin", cache: "no-store" });
-      if (!response.ok) throw new Error("fixture_unavailable");
-      setDto(await response.json() as FixtureDto);
-    } catch {
-      setDto(undefined);
-      setError("Yerel kabul verisi yüklenemedi.");
-    }
-  }, [route.fixture]);
+function PurchasingTruthFixture({ state }: Readonly<{ state: AcceptanceState }>) {
+  if (state === "loaded") return <PurchasingConsole initialItems={FIXTURE_PURCHASES} canManage />;
+  if (state === "empty") return <PurchasingConsole initialItems={Object.freeze([])} canManage />;
+  if (state === "denied") return <PurchasingConsole initialItems={Object.freeze([])} canRead={false} canManage={false} />;
+  const snapshot = inventoryTruthState(state, FIXTURE_PURCHASES[0], Object.freeze({
+    loading: "Satın alma kaydı yükleniyor…",
+    error: "Satın alma kaydı yüklenemedi.",
+    unavailable: "Satın alma hizmeti kullanılamıyor.",
+    denied: "Bu satın alma kaydını görüntüleme yetkiniz yok.",
+    conflict: "Satın alma kaydı başka bir işlemle çakıştı.",
+    replayed: "Satın alma işlemi daha önce tamamlandı; kalıcı kayıt yeniden yüklendi.",
+    verification_unavailable: "Satın alma işlemi sonucu doğrulanamıyor.",
+  }));
+  return (
+    <PanelPageShell>
+      <PanelPageHeader title="Satın alma ayrıntısı" description="Kalıcı satın alma doğruluk durumu." />
+      <PurchasingDetailPresentation state={snapshot} canManage onOrder={() => undefined} onCancel={() => undefined} />
+    </PanelPageShell>
+  );
+}
 
-  useEffect(() => { void load(); }, [load]);
+function TransferTruthFixture({ state }: Readonly<{ state: AcceptanceState }>) {
+  if (state === "loaded") return <InventoryTransferConsole initialItems={FIXTURE_TRANSFERS} canManage />;
+  if (state === "empty") return <InventoryTransferConsole initialItems={Object.freeze([])} canManage />;
+  if (state === "denied") return <InventoryTransferConsole initialItems={Object.freeze([])} canRead={false} canManage={false} />;
+  const snapshot = inventoryTruthState(state, FIXTURE_TRANSFERS[0], Object.freeze({
+    loading: "Stok transferi yükleniyor…",
+    error: "Stok transferi yüklenemedi.",
+    unavailable: "Stok transferi hizmeti kullanılamıyor.",
+    denied: "Bu stok transferini görüntüleme yetkiniz yok.",
+    conflict: "Stok transferi başka bir işlemle çakıştı.",
+    replayed: "Transfer işlemi daha önce tamamlandı; kalıcı kayıt yeniden yüklendi.",
+    verification_unavailable: "Transfer işlemi sonucu doğrulanamıyor.",
+  }));
+  return (
+    <PanelPageShell>
+      <PanelPageHeader title="Stok transferi ayrıntısı" description="Kalıcı stok transferi doğruluk durumu." />
+      <InventoryTransferPresentation state={snapshot} canManage onDispatch={() => undefined} onReceive={() => undefined} onCancel={() => undefined} />
+    </PanelPageShell>
+  );
+}
 
-  const normalized = query.trim().toLocaleLowerCase("tr-TR");
-  const records = dto?.records.filter((record) => !normalized || `${record.name} ${record.state} ${record.detail}`.toLocaleLowerCase("tr-TR").includes(normalized)) ?? [];
+function CustomerTruthFixture({ state }: Readonly<{ state: AcceptanceState }>) {
+  const errors: Partial<Record<AcceptanceState, string>> = Object.freeze({
+    denied: "Bu müşteriyi düzenleme yetkiniz yok.",
+    error: "Müşteri bilgileri yüklenemedi.",
+    unavailable: "Müşteri hizmeti şu anda kullanılamıyor.",
+    conflict: "Bu müşteri sizden önce güncellendi. En güncel kaydı yükleyip tekrar deneyin.",
+  });
+  const initialError = errors[state] ?? "";
+  return (
+    <CustomerEditConsole
+      customerId={CUSTOMER_ID}
+      initialCustomer={state === "loaded" || state === "conflict" ? FIXTURE_CUSTOMER : undefined}
+      initialError={initialError}
+    />
+  );
+}
 
+function PricingTruthFixture({ state }: Readonly<{ state: AcceptanceState }>) {
+  if (state === "loaded") return <PriceListConsole initialItems={FIXTURE_PRICE_LISTS} initialTags={FIXTURE_TAGS} canRead canManage />;
+  if (state === "empty") return <PriceListConsole initialItems={Object.freeze([])} initialTags={FIXTURE_TAGS} canRead canManage />;
+  if (state === "denied") return <PriceListConsole initialItems={Object.freeze([])} initialTags={FIXTURE_TAGS} canRead={false} canManage={false} />;
+  const phase = state === "unavailable" ? "unavailable" : state === "conflict" ? "conflict" : "error";
+  return <PriceListConsole initialItems={Object.freeze([])} initialTags={FIXTURE_TAGS} initialPhase={phase} canRead canManage />;
+}
+
+function TargetRouteSurface({ pathname, state }: Readonly<{ pathname: string; state: AcceptanceState }>) {
+  switch (pathname) {
+    case "/":
+      return <PanelDashboardPresentation dashboard={DASHBOARD} state="loaded" ordersState="loaded" onRefresh={() => undefined} />;
+    case "/analytics":
+      return <AnalyticsDashboard />;
+    case "/orders/ORDER_ID/print":
+      return <OrderPrintView orderId={ORDER_ID} />;
+    case "/customers/CUSTOMER_ID/edit":
+      return <CustomerTruthFixture state={state} />;
+    case "/products/extras/RESOURCE_ID/preview":
+      return <CatalogExtraPreview resourceId={RESOURCE_ID} />;
+    case "/products/purchasing":
+      return <PurchasingTruthFixture state={state} />;
+    case "/products/inventory-counts":
+      return <InventoryTruthFixture state={state} />;
+    case "/products/transfers":
+      return <TransferTruthFixture state={state} />;
+    case "/products/price-lists":
+      return <PricingTruthFixture state={state} />;
+    case "/seo/products":
+      return <MerchantModuleConsole kind="seo_product_entry" canManage />;
+    case "/products/shopify-converter":
+      return <CatalogImportPreparationConsole format="shopify_csv" title="Shopify dönüştürücü" description="Seçilen yerel CSV dosyasını güvenli önizlemeye hazırlayın." canImport={state !== "denied"} />;
+    case "/products":
+      return <ProductListConsole />;
+    case "/settings":
+      return <MerchantModuleConsole kind="general_setting" canManage />;
+    default:
+      return null;
+  }
+}
+
+export function FullParityFixture({
+  pathname,
+  state = "loaded",
+}: Readonly<{
+  pathname: string;
+  state?: AcceptanceState;
+}>) {
   return (
     <PanelShell model={MODEL}>
-      <PanelPageShell>
-        <div className="fixture-surface" data-route={pathname} data-loaded={dto ? "true" : "false"}>
-          <PanelPageHeader
-            title={route.title}
-            description={route.description}
-            actions={<PanelActionButton href={pathname} primary>Yerel görünümü yenile</PanelActionButton>}
-          />
-          {error ? <p className="fixture-error" role="alert">{error}</p> : null}
-          {!dto ? <p className="fixture-loading" role="status">Kalıcı görünüm hazırlanıyor…</p> : (
-            <>
-              <div className="fixture-metrics" aria-label="Doğrulanmış özet metrikleri">
-                {dto.metrics.map((metric) => <PanelMetricCard key={metric.label} {...metric} />)}
-              </div>
-              <PanelPanel title={dto.badge}>
-                <label className="fixture-filter">Kayıtlarda ara<input aria-label="Kayıtlarda ara" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-                <PanelDataTable label={`${route.title} kayıtları`}>
-                  <thead><tr><th scope="col">Kayıt</th><th scope="col">Durum</th><th scope="col">Yapılandırma</th><th scope="col">Güncelleme</th><th scope="col">İşlemler</th></tr></thead>
-                  <tbody>{records.map((record) => <tr key={`${record.name}:${record.state}`}><td>{record.name}</td><td>{record.state}</td><td>{record.detail}</td><td>Yerel kayıt</td><td>Salt okunur</td></tr>)}</tbody>
-                </PanelDataTable>
-                {records.length === 0 ? <p className="fixture-empty">Filtreyle eşleşen kalıcı kayıt yok.</p> : null}
-              </PanelPanel>
-            </>
-          )}
-        </div>
-      </PanelPageShell>
+      <section data-target-route={pathname} data-target-state={state}>
+        <TargetRouteSurface pathname={pathname} state={state} />
+      </section>
     </PanelShell>
   );
 }

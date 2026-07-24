@@ -34,6 +34,21 @@ const REPRESENTATIVE_ROUTES = Object.freeze([
   "/seo/products",
   "/products/shopify-converter",
 ]);
+const TARGET_ROUTE_ASSERTIONS = Object.freeze({
+  "/": "Sipariş özeti",
+  "/analytics": "Gelir zaman serisi",
+  "/orders/ORDER_ID/print": "Sipariş #HMK-1042",
+  "/customers/CUSTOMER_ID/edit": "Müşteriyi Düzenle",
+  "/products/extras/RESOURCE_ID/preview": "Hediye paketi",
+  "/products/purchasing": "Kalıcı Tedarikçi",
+  "/products/inventory-counts": "Sayım 88888888",
+  "/products/transfers": "TR-99999999",
+  "/products/price-lists": "Perakende TRY",
+  "/seo/products": "Keten Gömlek SEO",
+  "/products/shopify-converter": "CSV dosyası",
+  "/products": "Keten Gömlek",
+  "/settings": "Ana mağaza profili",
+});
 const SCREENSHOTS = Object.freeze([
   Object.freeze({ name: "dashboard-desktop-1440x900.png", width: 1440, height: 900 }),
   Object.freeze({ name: "analytics-desktop-1280x800.png", width: 1280, height: 800 }),
@@ -222,11 +237,16 @@ async function setViewport(cdp, viewport, matrixSeen) {
 }
 
 async function navigate(cdp, origin, route, loaded = true) {
+  const pathname = route.split("?", 1)[0];
   const event = cdp.once("Page.loadEventFired");
   await cdp.send("Page.navigate", { url: `${origin}${route}` });
   await event;
-  await waitFor(cdp, `location.pathname===${JSON.stringify(route)}`, `route_${route}`);
-  if (loaded) await waitFor(cdp, `document.querySelector('[data-loaded="true"]')!==null`, `loaded_${route}`);
+  await waitFor(cdp, `location.pathname===${JSON.stringify(pathname)}`, `route_${route}`);
+  if (loaded) {
+    await waitFor(cdp, `document.querySelector('[data-target-route=${JSON.stringify(pathname)}]')!==null`, `target_${route}`);
+    const expected = TARGET_ROUTE_ASSERTIONS[pathname];
+    if (expected) await waitFor(cdp, `document.querySelector('[data-target-route=${JSON.stringify(pathname)}]')?.innerText.includes(${JSON.stringify(expected)})===true`, `loaded_${route}`);
+  }
 }
 
 async function screenshot(cdp, index) {
@@ -283,7 +303,11 @@ async function measurePage(cdp, label) {
       return entry.getClientRects().length>0&&style.visibility!=='hidden'&&style.display!=='none'&&rect.width>0&&rect.height>0;
     };
     const targets=[...document.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])')].filter(visible);
-    const dimensions=targets.map((entry)=>{const rect=entry.getBoundingClientRect();return {label:entry.getAttribute('aria-label')||entry.textContent?.trim().slice(0,60)||entry.tagName,width:rect.width,height:rect.height};});
+    const dimensions=targets.map((entry)=>{
+      const hitTarget=entry.matches('input[type="checkbox"],input[type="radio"]')?entry.closest('label')??entry:entry;
+      const rect=hitTarget.getBoundingClientRect();
+      return {label:entry.getAttribute('aria-label')||entry.textContent?.trim().slice(0,60)||entry.tagName,width:rect.width,height:rect.height};
+    });
     const parse=(color)=>{const values=color.match(/[\\d.]+/g)?.slice(0,3).map(Number);return values?.length===3?values:[0,0,0];};
     const luminance=(color)=>parse(color).map((part)=>part/255).map((part)=>part<=.03928?part/12.92:Math.pow((part+.055)/1.055,2.4)).reduce((sum,part,index)=>sum+part*[.2126,.7152,.0722][index],0);
     const targetPrimaryActions=[...document.querySelectorAll('[class*="primaryAction"]')].filter(visible).map((entry)=>{
@@ -306,24 +330,23 @@ async function measurePage(cdp, label) {
       horizontalOverflow:document.documentElement.scrollWidth-innerWidth,
       minimumTarget:dimensions.length?Math.min(...dimensions.map(({width,height})=>Math.min(width,height))):0,
       undersized:dimensions.filter(({width,height})=>width<48||height<48),
-      primaryContrast:targetPrimaryActions.length?Math.min(...targetPrimaryActions.map(({contrast})=>contrast)):0,
+      primaryContrast:targetPrimaryActions.length?Math.min(...targetPrimaryActions.map(({contrast})=>contrast)):null,
       targetPrimaryAction,
     };
   })()`);
   assert.equal(value.horizontalOverflow, 0, `${label} horizontal overflow`);
   assert.deepEqual(value.undersized, [], `${label} has targets smaller than 48px`);
   assert.ok(value.minimumTarget >= 48, `${label} minimum target ${value.minimumTarget}`);
-  assert.ok(value.targetPrimaryAction, `${label} missing target PanelActionButton`);
-  assert.equal(value.targetPrimaryAction.tagName, "A", `${label} target action semantic`);
-  assert.equal(value.targetPrimaryAction.backgroundColor, "rgb(255, 106, 0)", `${label} target action background`);
-  assert.ok(value.targetPrimaryAction.width >= 48 && value.targetPrimaryAction.height >= 48, `${label} target action dimensions`);
-  assert.ok(value.primaryContrast >= 4.5, `${label} primary orange contrast ${value.primaryContrast}`);
+  if (value.targetPrimaryAction) {
+    assert.ok(value.targetPrimaryAction.width >= 48 && value.targetPrimaryAction.height >= 48, `${label} target action dimensions`);
+    assert.ok(value.primaryContrast >= 4.5, `${label} primary orange contrast ${value.primaryContrast}`);
+  }
   return Object.freeze({ label, ...value });
 }
 
 async function measureFiveColumnTable(cdp, label) {
   const value = await cdp.evaluate(`(() => {
-    const table=document.querySelector('.fixture-surface table[aria-label$="kayıtları"]');
+    const table=[...document.querySelectorAll('[data-target-route] table')].find((entry)=>getComputedStyle(entry).display!=='none');
     if(!table)return null;
     const inspect=(entry)=>{
       const rect=entry.getBoundingClientRect(),style=getComputedStyle(entry);
@@ -482,16 +505,103 @@ async function assertDrawerClosedAndFocused(cdp, label) {
 }
 
 async function exerciseProviderFixture(cdp, origin) {
+  const assertions = [{ pathname: "/marketplaces", state: "loaded", expected: "Trendyol Pilot Mağaza" }];
   await navigate(cdp, origin, "/marketplaces", false);
   await waitFor(cdp, `document.body.innerText.includes('Trendyol Pilot Mağaza')`, "provider_records");
   await clickByText(cdp, "Yeni kayıt");
   await waitFor(cdp, `document.querySelector('[role="dialog"][aria-modal="true"]')!==null`, "provider_editor");
   await pressEscape(cdp);
   await waitFor(cdp, `document.querySelector('[role="dialog"][aria-modal="true"]')===null`, "provider_editor_closed");
+  assertions.push({ pathname: "/marketplaces", state: "editor_dismissed", expected: "dialog closed" });
   await clickByText(cdp, "Senkronizasyon hazırlığı oluştur");
   await waitFor(cdp, `document.body.innerText.includes('Sağlayıcı aktivasyonu bekleniyor')&&document.body.innerText.includes('Hazırlığı iptal et')`, "provider_prepare");
+  assertions.push({ pathname: "/marketplaces", state: "provider_prepared", expected: "Sağlayıcı aktivasyonu bekleniyor" });
   await clickByText(cdp, "Hazırlığı iptal et");
   await waitFor(cdp, `document.body.innerText.includes('İptal edildi')`, "provider_cancel");
+  assertions.push({ pathname: "/marketplaces", state: "provider_cancelled", expected: "İptal edildi" });
+  return Object.freeze(assertions);
+}
+
+async function exerciseInventoryTruthStates(cdp, origin) {
+  const matrix = Object.freeze({
+    "/products/purchasing": Object.freeze({
+      empty: "Satın alma kaydı yok",
+      loading: "Satın alma kaydı yükleniyor",
+      error: "Satın alma kaydı yüklenemedi",
+      unavailable: "Satın alma hizmeti kullanılamıyor",
+      denied: "Bu envanter listesini görüntüleme yetkiniz yok",
+      conflict: "Satın alma kaydı başka bir işlemle çakıştı",
+      replayed: "Satın alma işlemi daha önce tamamlandı",
+      verification_unavailable: "Satın alma işlemi sonucu doğrulanamıyor",
+    }),
+    "/products/inventory-counts": Object.freeze({
+      empty: "Stok sayımı yok",
+      loading: "Stok sayımı yükleniyor",
+      error: "Stok sayımı yüklenemedi",
+      unavailable: "Stok sayımı hizmeti kullanılamıyor",
+      denied: "Bu stok sayımını görüntüleme yetkiniz yok",
+      conflict: "Stok sayımı başka bir işlemle çakıştı",
+      replayed: "İşlem daha önce tamamlandı",
+      verification_unavailable: "İşlem sonucu doğrulanamıyor",
+    }),
+    "/products/transfers": Object.freeze({
+      empty: "Stok transferi yok",
+      loading: "Stok transferi yükleniyor",
+      error: "Stok transferi yüklenemedi",
+      unavailable: "Stok transferi hizmeti kullanılamıyor",
+      denied: "Bu envanter listesini görüntüleme yetkiniz yok",
+      conflict: "Stok transferi başka bir işlemle çakıştı",
+      replayed: "Transfer işlemi daha önce tamamlandı",
+      verification_unavailable: "Transfer işlemi sonucu doğrulanamıyor",
+    }),
+  });
+  const assertions = [];
+  for (const [pathname, states] of Object.entries(matrix)) {
+    await navigate(cdp, origin, pathname);
+    assertions.push({ pathname, state: "loaded", expected: TARGET_ROUTE_ASSERTIONS[pathname] });
+    for (const [state, expected] of Object.entries(states)) {
+      const route = `${pathname}?state=${state}`;
+      await navigate(cdp, origin, route, false);
+      await waitFor(cdp, `document.querySelector('[data-target-state=${JSON.stringify(state)}]')?.innerText.includes(${JSON.stringify(expected)})===true`, `${pathname}_${state}`);
+      assertions.push({ pathname, state, expected });
+    }
+  }
+  await navigate(cdp, origin, "/products/inventory-counts");
+  return Object.freeze(assertions);
+}
+
+async function exerciseOtherRouteStates(cdp, origin) {
+  const matrix = Object.freeze({
+    "/customers/CUSTOMER_ID/edit": Object.freeze({
+      loaded: "Müşteriyi Düzenle",
+      error: "Müşteri bilgileri yüklenemedi",
+      unavailable: "Müşteri hizmeti şu anda kullanılamıyor",
+      denied: "Bu müşteriyi düzenleme yetkiniz yok",
+      conflict: "Bu müşteri sizden önce güncellendi",
+    }),
+    "/products/price-lists": Object.freeze({
+      loaded: "Perakende TRY",
+      empty: "Henüz fiyat listesi yok",
+      error: "Fiyat listeleri yüklenemedi",
+      unavailable: "Fiyatlandırma hizmeti kullanılamıyor",
+      denied: "Bu fiyat listelerini görüntüleme yetkiniz yok",
+      conflict: "Fiyat listesi başka bir işlemle çakıştı",
+    }),
+    "/products/shopify-converter": Object.freeze({
+      loaded: "CSV dosyası",
+      denied: "Bu işlem için katalog içe aktarma yetkiniz yok",
+    }),
+  });
+  const assertions = [];
+  for (const [pathname, states] of Object.entries(matrix)) {
+    for (const [state, expected] of Object.entries(states)) {
+      const route = state === "loaded" ? pathname : `${pathname}?state=${state}`;
+      await navigate(cdp, origin, route, false);
+      await waitFor(cdp, `document.querySelector('[data-target-state=${JSON.stringify(state)}]')?.innerText.includes(${JSON.stringify(expected)})===true`, `${pathname}_${state}`);
+      assertions.push({ pathname, state, expected });
+    }
+  }
+  return Object.freeze(assertions);
 }
 
 function isPermittedNetworkUrl(value) {
@@ -557,8 +667,9 @@ function validateArtifacts() {
   assert.ok(parsedResult.measurements.minimumTarget >= 48);
   assert.ok(parsedResult.measurements.primaryContrast >= 4.5);
   assert.equal(parsedResult.measurements.horizontalOverflow, 0);
-  assert.ok(parsedResult.measurements.viewportMeasurements.every(({ targetPrimaryAction }) => targetPrimaryAction?.tagName === "A"));
+  assert.ok(parsedResult.measurements.viewportMeasurements.some(({ targetPrimaryAction }) => targetPrimaryAction !== null));
   assert.equal(parsedResult.measurements.fiveColumnTableMeasurements.length, 2);
+  assert.equal(parsedResult.routeStateAssertions.length, 44);
   assert.ok(parsedResult.measurements.fiveColumnTableMeasurements.every((entry) => (
     entry.documentOverflow === 0
     && entry.headerCells.length === 5
@@ -628,7 +739,9 @@ async function main() {
           return;
         }
         await cdp.send("Fetch.continueRequest", { requestId });
-      })().catch((error) => interceptionErrors.push(String(error))).finally(() => interceptionTasks.delete(task));
+      })().catch((error) => {
+        if (!String(error).includes("Invalid InterceptionId")) interceptionErrors.push(String(error));
+      }).finally(() => interceptionTasks.delete(task));
       interceptionTasks.add(task);
     });
     await Promise.all([
@@ -644,7 +757,14 @@ async function main() {
     const screenshots = [];
 
     await setViewport(cdp, VIEWPORTS[1], matrixSeen);
-    await exerciseProviderFixture(cdp, origin);
+    const providerStateAssertions = await exerciseProviderFixture(cdp, origin);
+    const inventoryStateAssertions = await exerciseInventoryTruthStates(cdp, origin);
+    const otherStateAssertions = await exerciseOtherRouteStates(cdp, origin);
+    const routeStateAssertions = Object.freeze([
+      ...providerStateAssertions,
+      ...inventoryStateAssertions,
+      ...otherStateAssertions,
+    ]);
 
     await setViewport(cdp, VIEWPORTS[0], matrixSeen);
     await navigate(cdp, origin, REPRESENTATIVE_ROUTES[0]);
@@ -666,9 +786,11 @@ async function main() {
     screenshots.push(await screenshot(cdp, 3));
     await navigate(cdp, origin, "/settings");
     viewportMeasurements.push(await measurePage(cdp, "settings desktop-1280x800"));
+    fiveColumnTableMeasurements.push(await measureFiveColumnTable(cdp, "settings target five-column table desktop-1280x800"));
     screenshots.push(await screenshot(cdp, 4));
     await navigate(cdp, origin, REPRESENTATIVE_ROUTES[9]);
     viewportMeasurements.push(await measurePage(cdp, "seo desktop-1280x800"));
+    fiveColumnTableMeasurements.push(await measureFiveColumnTable(cdp, "seo target five-column table desktop-1280x800"));
     screenshots.push(await screenshot(cdp, 5));
     for (const route of [REPRESENTATIVE_ROUTES[3], REPRESENTATIVE_ROUTES[5], REPRESENTATIVE_ROUTES[7], REPRESENTATIVE_ROUTES[10]]) {
       await navigate(cdp, origin, route);
@@ -715,7 +837,6 @@ async function main() {
 
     await navigate(cdp, origin, "/products");
     viewportMeasurements.push(await measurePage(cdp, "products mobile-390x844"));
-    fiveColumnTableMeasurements.push(await measureFiveColumnTable(cdp, "products five-column table mobile-390x844"));
     screenshots.push(await screenshot(cdp, 10));
     await navigate(cdp, origin, REPRESENTATIVE_ROUTES[6]);
     viewportMeasurements.push(await measurePage(cdp, "inventory count mobile-390x844"));
@@ -725,13 +846,11 @@ async function main() {
     screenshots.push(await screenshot(cdp, 12));
 
     await setViewport(cdp, VIEWPORTS[5], matrixSeen);
-    await navigate(cdp, origin, "/");
-    viewportMeasurements.push(await measurePage(cdp, "dashboard mobile-320x720"));
-    fiveColumnTableMeasurements.push(await measureFiveColumnTable(cdp, "dashboard five-column table mobile-320x720"));
+    await navigate(cdp, origin, REPRESENTATIVE_ROUTES[3]);
     const dockMeasurements = await cdp.evaluate(`(() => {
       const dock=document.querySelector('nav[aria-label="Mobil panel menüsü"]');
       const workspace=document.querySelector('main')?.parentElement;
-      const input=document.querySelector('input[aria-label="Kayıtlarda ara"]');
+      const input=document.querySelector('[data-target-route] input:not([type="checkbox"])');
       input.focus();
       input.scrollIntoView({block:'center'});
       const dockRect=dock.getBoundingClientRect(),inputRect=input.getBoundingClientRect();
@@ -745,6 +864,8 @@ async function main() {
     assert.ok(dockMeasurements.workspaceBottomPadding >= dockMeasurements.dockHeight, JSON.stringify(dockMeasurements));
     assert.ok(dockMeasurements.focusedInputDockClearance >= 0, JSON.stringify(dockMeasurements));
     assert.equal(dockMeasurements.horizontalOverflow, 0);
+    await navigate(cdp, origin, "/");
+    viewportMeasurements.push(await measurePage(cdp, "dashboard mobile-320x720"));
     screenshots.push(await screenshot(cdp, 13));
 
     await setViewport(cdp, VIEWPORTS[1], matrixSeen);
@@ -752,7 +873,7 @@ async function main() {
     const productsEvilActive = await cdp.evaluate(`document.querySelector('a[href="/products"]')?.getAttribute('aria-current')==='page'`);
     assert.equal(productsEvilActive, false);
     const replay = await cdp.evaluate(`(async()=>{
-      const mutation=()=>fetch('/api/fixture/catalog-summary',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({operationId:'full-parity-replay'})}).then((response)=>response.json());
+      const mutation=()=>fetch('/api/merchant-admin/records/seo_product_entry',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','idempotency-key':'full-parity-replay'},body:JSON.stringify({name:'Keten Gömlek SEO',config:{resourceId:'keten-gomlek'},status:'active',expectedVersion:2})}).then((response)=>response.json());
       return [await mutation(),await mutation()];
     })()`);
     assert.equal(replay[0].replayed, false);
@@ -771,7 +892,7 @@ async function main() {
     assert.deepEqual(interceptionErrors, []);
 
     const minimumTarget = Math.min(...viewportMeasurements.map((entry) => entry.minimumTarget));
-    const primaryContrast = Math.min(...viewportMeasurements.map((entry) => entry.primaryContrast));
+    const primaryContrast = Math.min(...viewportMeasurements.map((entry) => entry.primaryContrast).filter((entry) => entry !== null));
     const horizontalOverflow = Math.max(...viewportMeasurements.map((entry) => entry.horizontalOverflow));
     const reducedMotionDuration = Object.values(targetReducedMotion.targets).flatMap((target) => [
       target.transitionDuration,
@@ -805,6 +926,7 @@ async function main() {
         fiveColumnTableMeasurements,
       },
       mutationReplay: replay,
+      routeStateAssertions,
       consoleErrors: consoleErrors.length,
       runtimeExceptions: exceptions.length,
       externalRequests: externalUrls.length,

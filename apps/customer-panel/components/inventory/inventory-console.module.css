@@ -35,6 +35,10 @@
 
 .desktopTable a,
 .cardHeading a {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
   color: #9a3412;
   font-weight: 750;
   text-decoration: none;

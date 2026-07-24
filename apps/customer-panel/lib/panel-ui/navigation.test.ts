@@ -133,6 +133,25 @@ test("navigation contains index and configuration surfaces but never create, edi
   assert.equal(hrefs.some((href) => /(?:^|\/)new(?:\/|$)|\/edit(?:\/|$)|\/preview(?:\/|$)|\/print(?:\/|$)|\[[^/]+\]/.test(href)), false);
 });
 
+test("legacy donor spellings stay inert while canonical safe targets remain navigable", () => {
+  const hrefs = new Set(PANEL_NAVIGATION.flatMap((item) => [
+    item.href,
+    ...(item.children ?? []).map((child) => child.href),
+  ]));
+  const decisions = [
+    { donor: "/ayarlar/ana-sayfa-vitrini", target: "/products/collections", title: "Koleksiyonlar" },
+    { donor: "/muhasabe", target: "/accounting", title: "Muhasebe" },
+    { donor: "/pazarlama/lucky-wheel", target: "/discounts/lucky-wheel", title: "Şans Çarkı" },
+  ] as const;
+
+  for (const { donor, target, title } of decisions) {
+    assert.equal(hrefs.has(donor as never), false, donor);
+    assert.deepEqual(activeLabels(donor), [], donor);
+    assert.equal(hrefs.has(target), true, target);
+    assert.equal(getPanelRoutePresentation(target).title, title, target);
+  }
+});
+
 test("matches decoded-safe exact segments and rejects malformed or separator encodings", () => {
   assert.equal(isPanelNavigationPathActive("/%70roducts", "/products"), true);
   assert.equal(isPanelNavigationPathActive("/products/%70rice-lists", "/products/price-lists"), true);

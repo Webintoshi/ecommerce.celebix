@@ -43,31 +43,63 @@ test("measures every responsive and accessibility invariant", async () => {
   assert.match(runner, /externalRequests/);
 });
 
-test("fixture exposes deterministic safe completed-route DTOs without external success claims", async () => {
-  const fixture = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/fixture/[...slug]/route.ts");
+test("fixture exposes deterministic production transport records without external success claims", async () => {
+  const fixture = [
+    await read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/[...slug]/route.ts"),
+    await read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/merchant-admin/[...slug]/route.ts"),
+  ].join("\n");
   for (const marker of [
-    "catalog-summary", "catalog-products", "analytics-dashboard", "order-detail",
-    "customer-detail", "catalog-extra", "purchase-orders", "inventory-counts",
-    "inventory-transfers", "price-lists", "seo-product-entry", "import-preview",
+    "analytics/dashboard", "orders/", "customers/", "catalog/admin/resources/extra/",
+    "catalog/products", "records/seo_product_entry", "records/general_setting",
     "replayed",
   ]) assert.match(fixture, new RegExp(marker));
   assert.doesNotMatch(fixture, /service_role|client_secret|access.?token|api.?key|synchronized|delivered|indexed/i);
   assert.doesNotMatch(fixture, /https?:\/\//i);
 });
 
-test("fixture delegates primary action geometry contrast and reduced motion to target components", async () => {
+test("fixture delegates geometry contrast and reduced motion to production target components", async () => {
   const [component, css, config, runner] = await Promise.all([
     read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/full-parity-fixture.tsx"),
     read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/fixture.css"),
     read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/next.config.mjs"),
     read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs"),
   ]);
-  assert.match(component, /PanelActionButton/);
-  assert.doesNotMatch(component, /data-primary-action|<button/);
+  assert.doesNotMatch(component, /FixtureDto|fixture-metrics|fixture-surface|PanelDataTable/);
+  assert.match(component, /data-target-route/);
+  assert.doesNotMatch(component, /data-primary-action/);
   assert.doesNotMatch(css, /data-primary-action|prefers-reduced-motion|transition-duration|animation-duration/);
   assert.match(runner, /targetPrimaryAction/);
   assert.match(runner, /targetReducedMotion/);
   assert.match(config, /devIndicators:\s*false/);
+});
+
+test("all eleven representative routes mount production components with deterministic client or state injection", async () => {
+  const fixture = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/full-parity-fixture.tsx");
+  for (const component of [
+    "PanelDashboardPresentation",
+    "AnalyticsDashboard",
+    "OrderPrintView",
+    "CustomerEditConsole",
+    "CatalogExtraPreview",
+    "PurchasingConsole",
+    "InventoryCountConsole",
+    "InventoryTransferConsole",
+    "PriceListConsole",
+    "MerchantModuleConsole",
+    "CatalogImportPreparationConsole",
+  ]) assert.match(fixture, new RegExp(`<${component}\\b`), component);
+  for (const route of [
+    "/", "/analytics", "/orders/ORDER_ID/print", "/customers/CUSTOMER_ID/edit",
+    "/products/extras/RESOURCE_ID/preview", "/products/purchasing",
+    "/products/inventory-counts", "/products/transfers", "/products/price-lists",
+    "/seo/products", "/products/shopify-converter",
+  ]) assert.ok(fixture.includes(JSON.stringify(route)), route);
+  assert.match(fixture, /initialItems=\{FIXTURE_PURCHASES\}/);
+  assert.match(fixture, /initialItems=\{FIXTURE_COUNTS\}/);
+  assert.match(fixture, /initialItems=\{FIXTURE_TRANSFERS\}/);
+  assert.match(fixture, /initialItems=\{FIXTURE_PRICE_LISTS\}/);
+  assert.match(fixture, /data-target-route=/);
+  assert.doesNotMatch(fixture, /FixtureDto|PanelDataTable|fixture-surface/);
 });
 
 test("runner blocks external requests before dispatch and accounts for web sockets", async () => {
@@ -94,16 +126,24 @@ test("runner validates exact decoded PNG and parsed JSON outputs", async () => {
   }
 });
 
-test("browser fixture measures a production-shaped five-column table", async () => {
+test("browser fixture measures real production five-column merchant tables", async () => {
   const [fixture, runner] = await Promise.all([
     read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/full-parity-fixture.tsx"),
     read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs"),
   ]);
-  for (const header of ["Kayıt", "Durum", "Yapılandırma", "Güncelleme", "İşlemler"]) {
-    assert.match(fixture, new RegExp(`<th scope="col">${header}</th>`));
-  }
-  assert.equal(fixture.match(/<th scope="col">/g)?.length, 5);
+  assert.match(fixture, /<MerchantModuleConsole kind="seo_product_entry"/);
+  assert.match(fixture, /<MerchantModuleConsole kind="general_setting"/);
+  assert.doesNotMatch(fixture, /<table|<th|PanelDataTable/);
   for (const marker of ["fiveColumnTableMeasurements", "headerCells", "bodyCells", "contentWidth", "MIN_TABLE_CELL_CONTENT_WIDTH"]) {
     assert.match(runner, new RegExp(marker));
   }
+});
+
+test("runner exercises inventory truth states through the production presentation DOM", async () => {
+  const runner = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs");
+  for (const marker of [
+    "TARGET_ROUTE_ASSERTIONS", "data-target-route", "data-target-state",
+    "empty", "loading", "error", "denied", "conflict", "replayed", "verification_unavailable",
+  ]) assert.match(runner, new RegExp(marker));
+  assert.doesNotMatch(runner, /fixture-surface|data-loaded/);
 });

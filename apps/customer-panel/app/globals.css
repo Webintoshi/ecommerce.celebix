@@ -47,7 +47,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .catalog-heading p, .page-heading p, .section-heading-row p { max-width: 650px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
 .heading-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .heading-actions { display: flex; flex-wrap: wrap; gap: 9px; }
-.button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: 16px; padding: 0 17px; cursor: pointer; font-size: 12px; font-weight: 750; transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.button { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: 16px; padding: 0 17px; cursor: pointer; font-size: 12px; font-weight: 750; transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease; }
 .button:hover:not(:disabled) { transform: translateY(-1px); }
 .button:disabled { cursor: wait; opacity: .6; }
 .button-primary { background: linear-gradient(90deg, var(--accent), #E45700); color: white; box-shadow: 0 14px 28px rgb(254 97 0 / 22%); }
@@ -70,7 +70,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .hemenaku-product-hero .catalog-heading, .hemenaku-detail-hero .catalog-heading, .hemenaku-form-hero > * { position: relative; z-index: 1; }
 .hemenaku-form-hero { padding-block: 28px; }
-.icon-only-button { width: 44px; padding: 0; color: var(--accent-dark); font-size: 20px; }
+.icon-only-button { width: 48px; padding: 0; color: var(--accent-dark); font-size: 20px; }
 .hemenaku-catalog-surface { display: grid; gap: 0; overflow: hidden; border: 1px solid rgb(254 97 0 / 10%); border-radius: 30px; background: linear-gradient(135deg, #fff, #fffdfb 65%, #faf5f0); box-shadow: 0 24px 70px rgb(72 36 8 / 8%); }
 .catalog-surface-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; border-bottom: 1px solid rgb(254 97 0 / 8%); padding: 25px 28px 20px; }
 .catalog-surface-heading > div { display: grid; gap: 6px; }
@@ -79,7 +79,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .catalog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid rgb(254 97 0 / 8%); background: #fcf6f0; padding: 14px 28px; }
 .segmented-control { display: flex; gap: 3px; border: 1px solid #eadfd5; border-radius: 18px; background: #f7f1eb; padding: 4px; }
-.segmented-control button { min-width: 94px; min-height: 36px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
+.segmented-control button { min-width: 94px; min-height: 48px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
 .segmented-control button.is-active { background: var(--surface); color: var(--text); box-shadow: 0 1px 5px rgb(24 24 20 / 10%); }
 .result-count { color: var(--muted); font-size: 11px; font-weight: 650; }
 .catalog-table-shell { overflow-x: auto; background: var(--surface); }
@@ -87,7 +87,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .catalog-table th { height: 50px; background: #fcf6f0; padding: 0 20px; color: #78716c; font-size: 9px; font-weight: 800; letter-spacing: .16em; text-align: left; text-transform: uppercase; }
 .catalog-table td { height: 82px; border-top: 1px solid #f0ebe6; padding: 12px 20px; font-size: 12px; }
 .catalog-table tbody tr:hover { background: #fffaf6; }
-.product-link { display: flex; align-items: center; gap: 12px; }
+.product-link { display: flex; min-height: 48px; align-items: center; gap: 12px; }
 .product-link > span:last-child { display: grid; gap: 3px; min-width: 0; }
 .product-link strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .product-link small { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
@@ -100,7 +100,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .version-badge { display: inline-flex; min-height: 23px; align-items: center; border: 1px solid var(--border); border-radius: 6px; background: #faf9f6; padding: 0 7px; color: #64635d; font-size: 10px; font-weight: 750; }
 .date-value { color: var(--muted); white-space: nowrap; }
 .row-actions { display: flex; justify-content: flex-end; gap: 5px; }
-.icon-button { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: white; color: #55544e; cursor: pointer; font-size: 14px; }
+.icon-button { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid var(--border); border-radius: 12px; background: white; color: #55544e; cursor: pointer; font-size: 14px; }
 .icon-button:hover { border-color: #aaa89f; color: var(--text); }
 .icon-button.danger:hover { border-color: #e2aaa8; color: var(--danger); }
 .load-more { justify-self: center; margin: 18px; }
