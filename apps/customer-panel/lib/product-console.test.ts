@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import * as React from "react";
+import { createElement, type ReactNode } from "react";
+import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 
 const ROOT = new URL("../", import.meta.url);
@@ -42,6 +45,172 @@ async function productionProductListModule() {
   };
   Function("require", "module", "exports", compiled)(requireStub, module, module.exports);
   return module.exports;
+}
+
+type MountedNode = Readonly<{
+  type: string;
+  props: Record<string, unknown>;
+  children: readonly (MountedNode | string)[];
+}>;
+
+function createHookRuntime() {
+  const slots: unknown[] = [];
+  let cursor = 0;
+  let dirty = true;
+  let latest: ReactNode;
+  const same = (left: readonly unknown[] | undefined, right: readonly unknown[]) =>
+    left !== undefined && left.length === right.length && left.every((value, index) => Object.is(value, right[index]));
+  const runtime = {
+    ...React,
+    useState<T>(initial: T | (() => T)) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = typeof initial === "function" ? (initial as () => T)() : initial;
+      const set = (next: T | ((current: T) => T)) => {
+        slots[index] = typeof next === "function" ? (next as (current: T) => T)(slots[index] as T) : next;
+        dirty = true;
+      };
+      return [slots[index] as T, set] as const;
+    },
+    useRef<T>(initial: T) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = { current: initial };
+      return slots[index] as { current: T };
+    },
+    useMemo<T>(factory: () => T, deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
+      if (!prior || !same(prior.deps, deps)) slots[index] = { deps: [...deps], value: factory() };
+      return (slots[index] as { value: T }).value;
+    },
+    useCallback<T extends (...args: never[]) => unknown>(callback: T, deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
+      if (!prior || !same(prior.deps, deps)) slots[index] = { deps: [...deps], value: callback };
+      return (slots[index] as { value: T }).value;
+    },
+    useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void } | undefined;
+      if (prior && same(prior.deps, deps)) return;
+      prior?.cleanup?.();
+      const cleanup = effect();
+      slots[index] = { deps: [...deps], ...(typeof cleanup === "function" ? { cleanup } : {}) };
+    },
+  } as unknown as typeof React;
+  return {
+    runtime,
+    async flush(component: () => ReactNode) {
+      for (let pass = 0; pass < 40; pass += 1) {
+        if (dirty || latest === undefined) {
+          dirty = false;
+          cursor = 0;
+          latest = component();
+        }
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (!dirty) return latest;
+      }
+      throw new Error("product_console_hook_flush_exhausted");
+    },
+  };
+}
+
+function mount(node: ReactNode): readonly (MountedNode | string)[] {
+  if (node === null || node === undefined || typeof node === "boolean") return [];
+  if (typeof node === "string" || typeof node === "number") return [String(node)];
+  if (Array.isArray(node)) return node.flatMap(mount);
+  if (!React.isValidElement<Record<string, unknown>>(node)) return [];
+  if (node.type === React.Fragment) return mount(node.props.children as ReactNode);
+  if (typeof node.type === "function") {
+    return mount((node.type as (props: Record<string, unknown>) => ReactNode)(node.props));
+  }
+  if (typeof node.type !== "string") return [];
+  const target = { isConnected: true, focus() {}, querySelectorAll() { return []; } };
+  const ref = (node.props as { ref?: unknown }).ref;
+  if (typeof ref === "function") ref(target);
+  else if (ref && typeof ref === "object" && "current" in ref) (ref as { current: unknown }).current = target;
+  return [Object.freeze({ type: node.type, props: node.props, children: mount(node.props.children as ReactNode) })];
+}
+
+function mountedNodes(tree: readonly (MountedNode | string)[]): MountedNode[] {
+  const nodes: MountedNode[] = [];
+  for (const child of tree) {
+    if (typeof child === "string") continue;
+    nodes.push(child, ...mountedNodes(child.children));
+  }
+  return nodes;
+}
+
+function mountedText(node: MountedNode | string): string {
+  return typeof node === "string" ? node : node.children.map(mountedText).join("");
+}
+
+function productFixture(id: string, status: "draft" | "active", version: number, title = `Ürün ${id}`) {
+  return Object.freeze({
+    id,
+    title,
+    slug: title.toLocaleLowerCase("tr-TR").replaceAll(" ", "-"),
+    status,
+    currency: "TRY",
+    createdAt: "2026-07-24T09:00:00.000Z",
+    updatedAt: `2026-07-24T09:00:0${version}.000Z`,
+    version,
+  });
+}
+
+const catalogSummary = Object.freeze({
+  totalProducts: 2,
+  activeProducts: 1,
+  draftProducts: 1,
+  productLimit: 100,
+  activeVariants: 2,
+  outOfStockVariants: 0,
+  productsWithoutMedia: 2,
+  activeMedia: 0,
+});
+
+async function createMountedProductConsole(api: Record<string, unknown>) {
+  const output = ts.transpileModule(await source("components/catalog/ProductListConsole.tsx"), {
+    compilerOptions: {
+      esModuleInterop: true,
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  const hooks = createHookRuntime();
+  const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+  const Link = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
+  class CompiledCatalogApiError extends Error {
+    constructor(readonly code: string) { super(code); }
+  }
+  const compiled = { exports: {} as Record<string, unknown> };
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return hooks.runtime;
+    if (specifier === "next/link") return Link;
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+    if (specifier === "@celebix/saas-contracts") return {};
+    if (specifier === "@/components/panel/PanelTopbarChrome") {
+      return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => createElement("aside", { "data-topbar": true }, actions) };
+    }
+    if (specifier === "@/lib/catalog-ui/client") {
+      return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
+    }
+    throw new Error(`unexpected_product_console_import:${specifier}`);
+  };
+  Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
+  const Console = compiled.exports.ProductListConsole as () => ReactNode;
+  assert.equal(typeof Console, "function");
+  return {
+    async render() { return mount(await hooks.flush(Console)); },
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((onResolve, onReject) => { resolve = onResolve; reject = onReject; });
+  return { promise, reject, resolve };
 }
 
 test("product routes stay behind the durable server panel access guard", async () => {
@@ -285,15 +454,19 @@ test("CSV export neutralizes spreadsheet formulas and control-leading cells befo
 
 test("product counters distinguish displayed, loaded and durable store totals", async () => {
   const production = await productionProductListModule() as {
-    productCountLabels: (displayed: number, loaded: number, storeTotal?: number) => readonly string[];
+    productCountLabels: (displayed: number, loaded: number, summaryState: "loading" | "ready" | "unavailable", storeTotal?: number) => readonly string[];
   };
   assert.deepEqual(
-    production.productCountLabels(3, 20, 61),
+    production.productCountLabels(3, 20, "ready", 61),
     ["3 görüntüleniyor", "20 yüklendi", "61 mağazada"],
   );
   assert.deepEqual(
-    production.productCountLabels(0, 0),
+    production.productCountLabels(0, 0, "loading"),
     ["0 görüntüleniyor", "0 yüklendi", "Mağaza toplamı yükleniyor"],
+  );
+  assert.deepEqual(
+    production.productCountLabels(3, 20, "unavailable"),
+    ["3 görüntüleniyor", "20 yüklendi", "Mağaza toplamı kullanılamıyor"],
   );
 });
 
@@ -303,6 +476,183 @@ test("dense product controls expose a 48px hit area without enlarging their visu
   assert.match(styles, /[.]catalog-checkbox-hit\s*\{[^}]*min-width:\s*48px[^}]*min-height:\s*48px/s);
   assert.match(styles, /[.]publish-switch\s*\{[^}]*min-width:\s*48px[^}]*min-height:\s*48px/s);
   assert.match(styles, /[.]icon-button\s*\{[^}]*width:\s*48px[^}]*height:\s*48px/s);
+});
+
+test("mounted product console renders all four commands in the <=1024 mobile fallback", async () => {
+  const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1);
+  const mounted = await createMountedProductConsole({
+    async listProducts() { return { items: [product] }; },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { return { product, variants: [] }; },
+    async updateProduct() { throw new Error("not used"); },
+    async archiveProduct() { throw new Error("not used"); },
+  });
+  const tree = await mounted.render();
+  const mobile = mountedNodes(tree).find((node) => node.props.className === "product-mobile-commandbar");
+  assert.ok(mobile);
+  for (const label of ["Sırala", "İçe Aktar", "Dışa Aktar", "Ürün Ekle"]) {
+    assert.match(mountedText(mobile), new RegExp(label));
+  }
+  const styles = await source("app/globals.css");
+  assert.match(styles, /@media \(max-width: 1024px\)[^]*[.]product-mobile-commandbar\s*\{[^}]*display:\s*flex/s);
+});
+
+test("mounted store-wide chips stay loading then unavailable instead of borrowing loaded-row counts", async () => {
+  const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1);
+  const summaryResult = deferred<typeof catalogSummary>();
+  const mounted = await createMountedProductConsole({
+    async listProducts() { return { items: [product] }; },
+    getDashboardSummary() { return summaryResult.promise; },
+    async getProduct() { return { product, variants: [] }; },
+    async updateProduct() { throw new Error("not used"); },
+    async archiveProduct() { throw new Error("not used"); },
+  });
+  let tree = await mounted.render();
+  let text = tree.map(mountedText).join(" ");
+  assert.match(text, /Mağaza toplamı yükleniyor/);
+  assert.doesNotMatch(text, /1 mağazada taslak|0 mağazada aktif/);
+  summaryResult.reject(new Error("summary unavailable"));
+  tree = await mounted.render();
+  text = tree.map(mountedText).join(" ");
+  assert.match(text, /Mağaza toplamı kullanılamıyor/);
+  assert.match(text, /Ürün 11111111/);
+  assert.doesNotMatch(text, /1 mağazada taslak|0 mağazada aktif/);
+});
+
+test("mounted bulk archive opens count-aware confirmation before the first versioned mutation", async () => {
+  const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 7);
+  const archives: Array<[string, number]> = [];
+  const mounted = await createMountedProductConsole({
+    async listProducts() { return { items: [product] }; },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { return { product, variants: [] }; },
+    async updateProduct() { throw new Error("not used"); },
+    async archiveProduct(id: string, version: number) { archives.push([id, version]); return { product }; },
+  });
+  let tree = await mounted.render();
+  let nodes = mountedNodes(tree);
+  const rowCheckbox = nodes.find((node) => node.type === "input" && String(node.props["aria-label"]).includes("ürününü seç"));
+  assert.ok(rowCheckbox);
+  (rowCheckbox.props.onChange as (event: unknown) => void)({ target: { checked: true } });
+  tree = await mounted.render();
+  nodes = mountedNodes(tree);
+  const action = nodes.find((node) => node.type === "select" && node.props["aria-label"] === "Toplu İşlemler");
+  assert.ok(action);
+  (action.props.onChange as (event: unknown) => void)({ target: { value: "archive" } });
+  tree = await mounted.render();
+  nodes = mountedNodes(tree);
+  const apply = nodes.find((node) => node.type === "button" && mountedText(node) === "Uygula");
+  assert.ok(apply);
+  (apply.props.onClick as () => void)();
+  tree = await mounted.render();
+  assert.equal(archives.length, 0, "opening confirmation must not archive");
+  assert.match(tree.map(mountedText).join(" "), /1 ürün arşivlenecek/);
+  nodes = mountedNodes(tree);
+  const confirm = nodes.find((node) => node.type === "button" && mountedText(node) === "1 ürünü arşivle");
+  assert.ok(confirm);
+  (confirm.props.onClick as () => void)();
+  await mounted.render();
+  assert.deepEqual(archives, [[product.id, 7]]);
+});
+
+test("mounted list suppresses an old filter response and canonical reload uses the latest filter", async () => {
+  const initial = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1, "Başlangıç");
+  const oldActive = productFixture("22222222-2222-4222-8222-222222222222", "active", 2, "Aktif Eski");
+  const currentDraft = productFixture("33333333-3333-4333-8333-333333333333", "draft", 3, "Taslak Güncel");
+  const activeResult = deferred<{ items: readonly unknown[] }>();
+  const draftResult = deferred<{ items: readonly unknown[] }>();
+  const listInputs: Array<Record<string, unknown>> = [];
+  let draftCalls = 0;
+  const mounted = await createMountedProductConsole({
+    listProducts(input: Record<string, unknown>) {
+      listInputs.push({ ...input });
+      if (input.status === "active") return activeResult.promise;
+      if (input.status === "draft" && draftCalls++ === 0) return draftResult.promise;
+      if (input.status === "draft") return Promise.resolve({ items: [currentDraft] });
+      return Promise.resolve({ items: [initial] });
+    },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct(id: string) {
+      const product = [initial, oldActive, currentDraft].find((candidate) => candidate.id === id)!;
+      return { product, variants: [] };
+    },
+    async updateProduct(_id: string, input: { product: { status: "draft" | "active" } }) {
+      return { product: { ...currentDraft, status: input.product.status, version: 4 } };
+    },
+    async archiveProduct() { throw new Error("not used"); },
+  });
+  let tree = await mounted.render();
+  let nodes = mountedNodes(tree);
+  const filter = nodes.find((node) => node.type === "button" && mountedText(node) === "Filtre");
+  assert.ok(filter);
+  (filter.props.onClick as () => void)();
+  tree = await mounted.render();
+  nodes = mountedNodes(tree);
+  const activeButton = nodes.find((node) => node.type === "button" && mountedText(node) === "Aktif");
+  const draftButton = nodes.find((node) => node.type === "button" && mountedText(node) === "Taslak");
+  assert.ok(activeButton && draftButton);
+  (activeButton.props.onClick as () => void)();
+  await mounted.render();
+  (draftButton.props.onClick as () => void)();
+  await mounted.render();
+  draftResult.resolve({ items: [currentDraft] });
+  tree = await mounted.render();
+  assert.match(tree.map(mountedText).join(" "), /Taslak Güncel/);
+  activeResult.resolve({ items: [oldActive] });
+  tree = await mounted.render();
+  assert.doesNotMatch(tree.map(mountedText).join(" "), /Aktif Eski/);
+
+  nodes = mountedNodes(tree);
+  const checkbox = nodes.find((node) => node.type === "input" && String(node.props["aria-label"]).includes("ürününü seç"));
+  assert.ok(checkbox);
+  (checkbox.props.onChange as (event: unknown) => void)({ target: { checked: true } });
+  tree = await mounted.render();
+  nodes = mountedNodes(tree);
+  const action = nodes.find((node) => node.type === "select" && node.props["aria-label"] === "Toplu İşlemler")!;
+  (action.props.onChange as (event: unknown) => void)({ target: { value: "active" } });
+  tree = await mounted.render();
+  const apply = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Uygula")!;
+  (apply.props.onClick as () => void)();
+  await mounted.render();
+  assert.deepEqual(listInputs.at(-1), { status: "draft" });
+});
+
+test("mounted canonical reload failure preserves partial counts and never claims reconciliation", async () => {
+  const first = productFixture("11111111-1111-4111-8111-111111111111", "draft", 5, "Başarısız ürün");
+  const second = productFixture("22222222-2222-4222-8222-222222222222", "draft", 8, "Tamamlanan ürün");
+  let reads = 0;
+  const mounted = await createMountedProductConsole({
+    async listProducts() {
+      reads += 1;
+      if (reads > 1) throw new Error("canonical unavailable");
+      return { items: [first, second] };
+    },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct(id: string) { return { product: id === first.id ? first : second, variants: [] }; },
+    async updateProduct(id: string) {
+      if (id === first.id) throw new Error("definitive first failure");
+      return { product: { ...second, status: "active", version: 9 } };
+    },
+    async archiveProduct() { throw new Error("not used"); },
+  });
+  let tree = await mounted.render();
+  let nodes = mountedNodes(tree);
+  const checkbox = nodes.find((node) => node.type === "input" && node.props["aria-label"] === "Görüntülenen tüm ürünleri seç")!;
+  (checkbox.props.onChange as (event: unknown) => void)({ target: { checked: true } });
+  tree = await mounted.render();
+  nodes = mountedNodes(tree);
+  const action = nodes.find((node) => node.type === "select" && node.props["aria-label"] === "Toplu İşlemler")!;
+  (action.props.onChange as (event: unknown) => void)({ target: { value: "active" } });
+  tree = await mounted.render();
+  const apply = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Uygula")!;
+  (apply.props.onClick as () => void)();
+  tree = await mounted.render();
+  const text = tree.map(mountedText).join(" ");
+  assert.match(text, /1 tamamlandı, 1 başarısız/);
+  assert.match(text, /uzlaştırma başarısız/i);
+  assert.match(text, /yeniden dene/i);
+  assert.doesNotMatch(text, /kalıcı mağaza durumuyla uzlaştırıldı/i);
+  assert.ok(mountedNodes(tree).some((node) => node.type === "button" && /yeniden dene/i.test(mountedText(node))));
 });
 
 test("detail and media surfaces retain versioned target commands", async () => {

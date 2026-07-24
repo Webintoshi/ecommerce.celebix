@@ -37,6 +37,13 @@ type BulkAction = "" | "active" | "draft" | "archive";
 type ProductRow = Readonly<{ product: Product; variant?: ProductVariant }>;
 type BulkCatalogApi = Pick<typeof catalogApi, "archiveProduct" | "updateProduct">;
 type LoadOptions = Readonly<{ cursor?: string; mutationToken?: number }>;
+type LoadResult = "applied" | "blocked" | "failed" | "stale";
+type SummaryState = "loading" | "ready" | "unavailable";
+type BulkOutcome = Readonly<{
+  completed: number;
+  failed: number;
+  reconciliation: "succeeded" | "failed";
+}>;
 
 const STATUS_LABELS = Object.freeze({ draft: "Taslak", active: "Aktif", archived: "Arşivlendi" });
 
@@ -65,12 +72,27 @@ export function csvCell(value: string | number) {
   return `"${neutralized.replaceAll('"', '""')}"`;
 }
 
-export function productCountLabels(displayed: number, loaded: number, storeTotal?: number): readonly string[] {
+export function productCountLabels(
+  displayed: number,
+  loaded: number,
+  summaryState: SummaryState,
+  storeTotal?: number,
+): readonly string[] {
   return Object.freeze([
     `${displayed} görüntüleniyor`,
     `${loaded} yüklendi`,
-    storeTotal === undefined ? "Mağaza toplamı yükleniyor" : `${storeTotal} mağazada`,
+    summaryState === "loading"
+      ? "Mağaza toplamı yükleniyor"
+      : summaryState === "unavailable" || storeTotal === undefined
+        ? "Mağaza toplamı kullanılamıyor"
+        : `${storeTotal} mağazada`,
   ]);
+}
+
+function storeMetricLabel(summaryState: SummaryState, value: number | undefined, label: string): string {
+  if (summaryState === "loading") return `— ${label} mağaza toplamı yükleniyor`;
+  if (summaryState === "unavailable" || value === undefined) return `— ${label} mağaza toplamı kullanılamıyor`;
+  return `${value} mağazada ${label.toLocaleLowerCase("tr-TR")}`;
 }
 
 export function requiresBulkConfirmation(action: string): boolean {
@@ -161,6 +183,7 @@ export function ProductListConsole() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [rows, setRows] = useState<readonly ProductRow[]>([]);
   const [summary, setSummary] = useState<CatalogDashboardSummary>();
+  const [summaryState, setSummaryState] = useState<SummaryState>("loading");
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [bulkAction, setBulkAction] = useState<BulkAction>("");
   const [nextCursor, setNextCursor] = useState<string>();
@@ -168,7 +191,8 @@ export function ProductListConsole() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [bulkOutcome, setBulkOutcome] = useState<Readonly<{ completed: number; failed: number }>>();
+  const [bulkOutcome, setBulkOutcome] = useState<BulkOutcome>();
+  const [rowsStale, setRowsStale] = useState(false);
   const [archiveCandidate, setArchiveCandidate] = useState<Product>();
   const [bulkArchiveConfirmation, setBulkArchiveConfirmation] = useState(false);
   const filterRef = useRef(filter);
@@ -180,32 +204,47 @@ export function ProductListConsole() {
   const refreshListButtonRef = useRef<HTMLButtonElement>(null);
   const wasArchiveDialogOpen = useRef(false);
 
-  const load = useCallback(async (options: LoadOptions = {}) => {
+  const load = useCallback(async (options: LoadOptions = {}): Promise<LoadResult> => {
     const sequence = options.mutationToken === undefined
       ? operationCoordinator.current.beginRead()
       : operationCoordinator.current.beginCanonicalRead(options.mutationToken);
-    if (sequence === null) return;
+    if (sequence === null) return "blocked";
     const cursor = options.cursor;
     cursor === undefined ? setLoading(true) : setLoadingMore(true);
+    if (cursor === undefined) setSummaryState("loading");
     if (options.mutationToken === undefined) setError("");
     try {
       const input = Object.freeze({
         ...(filterRef.current === "all" ? {} : { status: filterRef.current }),
         ...(cursor === undefined ? {} : { cursor }),
       });
-      const [result, nextSummary] = await Promise.all([
+      const [listOutcome, summaryOutcome] = await Promise.allSettled([
         catalogApi.listProducts(input),
         cursor === undefined ? catalogApi.getDashboardSummary() : Promise.resolve(undefined),
       ]);
+      if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
+      if (cursor === undefined) {
+        if (summaryOutcome.status === "fulfilled" && summaryOutcome.value !== undefined) {
+          setSummary(summaryOutcome.value);
+          setSummaryState("ready");
+        } else {
+          setSummary(undefined);
+          setSummaryState("unavailable");
+        }
+      }
+      if (listOutcome.status === "rejected") throw listOutcome.reason;
+      const result = listOutcome.value;
       const hydrated = await hydrateRows(result.items);
-      if (!operationCoordinator.current.isCurrentRead(sequence)) return;
+      if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
       setRows((current) => cursor === undefined ? hydrated : Object.freeze([...current, ...hydrated]));
-      if (nextSummary !== undefined) setSummary(nextSummary);
       setNextCursor(result.nextCursor);
       if (cursor === undefined) setSelected(Object.freeze([]));
+      setRowsStale(false);
+      return "applied";
     } catch (failure) {
-      if (!operationCoordinator.current.isCurrentRead(sequence)) return;
+      if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
       setError(safeMessage(failure));
+      return "failed";
     } finally {
       if (operationCoordinator.current.isCurrentRead(sequence)) {
         setLoading(false);
@@ -244,7 +283,7 @@ export function ProductListConsole() {
 
   const visibleIds = visibleRows.map(({ product }) => product.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
-  const countLabels = productCountLabels(visibleRows.length, rows.length, summary?.totalProducts);
+  const countLabels = productCountLabels(visibleRows.length, rows.length, summaryState, summary?.totalProducts);
 
   function closeArchiveDialog() {
     if (!busy) setArchiveCandidate(undefined);
@@ -282,15 +321,18 @@ export function ProductListConsole() {
     setBusy(true);
     setError("");
     setBulkOutcome(undefined);
+    let mutationCompleted = false;
     try {
       await catalogApi.archiveProduct(archiveCandidate.id, archiveCandidate.version);
+      mutationCompleted = true;
       setRows((current) => Object.freeze(current.filter((item) => item.product.id !== archiveCandidate.id)));
       setArchiveCandidate(undefined);
     } catch (failure) {
       setError(safeMessage(failure));
       setArchiveCandidate(undefined);
     } finally {
-      await load({ mutationToken });
+      const reconciliation = await load({ mutationToken });
+      if (mutationCompleted && reconciliation !== "applied") setRowsStale(true);
       operationCoordinator.current.endMutation(mutationToken);
       setBusy(false);
     }
@@ -302,18 +344,21 @@ export function ProductListConsole() {
     setBusy(true);
     setError("");
     setBulkOutcome(undefined);
+    let mutationCompleted = false;
     try {
       const result = await catalogApi.updateProduct(product.id, {
         expectedVersion: product.version,
         product: productFields(product, status),
       });
+      mutationCompleted = true;
       setRows((current) => Object.freeze(current.map((row) => (
         row.product.id === product.id ? Object.freeze({ ...row, product: result.product }) : row
       ))));
     } catch (failure) {
       setError(safeMessage(failure));
     } finally {
-      await load({ mutationToken });
+      const reconciliation = await load({ mutationToken });
+      if (mutationCompleted && reconciliation !== "applied") setRowsStale(true);
       operationCoordinator.current.endMutation(mutationToken);
       setBusy(false);
     }
@@ -329,13 +374,15 @@ export function ProductListConsole() {
     try {
       const targets = rows.filter(({ product }) => selected.includes(product.id));
       const outcome = await executeBulkProductAction(targets, bulkAction, catalogApi);
-      setBulkOutcome(outcome);
       setSelected(Object.freeze([]));
       setBulkArchiveConfirmation(false);
+      const reconciliation = await load({ mutationToken });
+      const reconciliationState = reconciliation === "applied" ? "succeeded" : "failed";
+      setBulkOutcome(Object.freeze({ ...outcome, reconciliation: reconciliationState }));
+      if (reconciliationState === "failed" && outcome.completed > 0) setRowsStale(true);
     } catch (failure) {
       setError(safeMessage(failure));
     } finally {
-      await load({ mutationToken });
       operationCoordinator.current.endMutation(mutationToken);
       setBusy(false);
     }
@@ -348,6 +395,10 @@ export function ProductListConsole() {
       return;
     }
     void executeConfirmedBulkAction();
+  }
+
+  async function retryStaleRows() {
+    await load();
   }
 
   function exportVisibleRows() {
@@ -391,9 +442,9 @@ export function ProductListConsole() {
       <div className="hemenaku-product-filters">
         <div className="product-stat-chips" aria-label="Ürün özeti">
           {countLabels.map((label) => <span key={label}>{label}</span>)}
-          <span>{summary?.activeProducts ?? rows.filter(({ product }) => product.status === "active").length} mağazada aktif</span>
-          <span>{summary?.draftProducts ?? rows.filter(({ product }) => product.status === "draft").length} mağazada taslak</span>
-          <span>{summary?.outOfStockVariants ?? 0} mağazada stoksuz varyant</span>
+          <span>{storeMetricLabel(summaryState, summary?.activeProducts, "Aktif")}</span>
+          <span>{storeMetricLabel(summaryState, summary?.draftProducts, "Taslak")}</span>
+          <span>{storeMetricLabel(summaryState, summary?.outOfStockVariants, "Stoksuz varyant")}</span>
         </div>
         <label className="product-search"><Search aria-hidden="true" /><span className="sr-only">Tabloda arama yapın</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tabloda arama yapın" aria-label="Ürün tablosunda ara" /></label>
         <button className={`command-button ${filterOpen ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
@@ -416,14 +467,15 @@ export function ProductListConsole() {
       </div>
 
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Bir sorun oluştu</strong><p>{error}</p></div><button className="button button-secondary" type="button" onClick={() => void load()}>Tekrar dene</button></div> : null}
-      {bulkOutcome ? <div className={`feedback ${bulkOutcome.failed > 0 ? "feedback-error" : "feedback-success"}`} role={bulkOutcome.failed > 0 ? "alert" : "status"}><div><strong>Toplu işlem sonucu</strong><p>{bulkOutcome.completed} tamamlandı, {bulkOutcome.failed} başarısız. Liste kalıcı mağaza durumuyla uzlaştırıldı.</p></div></div> : null}
+      {bulkOutcome ? <div className={`feedback ${bulkOutcome.failed > 0 || bulkOutcome.reconciliation === "failed" ? "feedback-error" : "feedback-success"}`} role={bulkOutcome.failed > 0 || bulkOutcome.reconciliation === "failed" ? "alert" : "status"}><div><strong>Toplu işlem sonucu</strong><p>{bulkOutcome.completed} tamamlandı, {bulkOutcome.failed} başarısız. {bulkOutcome.reconciliation === "succeeded" ? "Liste kalıcı mağaza durumuyla uzlaştırıldı." : "Kanonik uzlaştırma başarısız; görüntülenen satırlar güncel olmayabilir. Yeniden deneyin."}</p></div></div> : null}
+      {rowsStale ? <div id="product-stale-warning" className="feedback feedback-error" role="alert"><div><strong>Ürün satırları doğrulanamadı</strong><p>Uzlaştırma başarısız; görüntülenen satırlar güncel olmayabilir.</p></div><button className="button button-secondary" type="button" onClick={() => void retryStaleRows()} disabled={loading || busy}>Yeniden dene</button></div> : null}
 
       {loading ? (
         <div className="catalog-loading" role="status" aria-live="polite"><span className="spinner" aria-hidden="true" /> Ürünler güvenli mağaza bağlamından yükleniyor…</div>
       ) : visibleRows.length === 0 ? (
         <div className="empty-state"><span className="empty-state-mark" aria-hidden="true"><Package /></span><h2>Henüz ürün yok</h2><p>Filtrelerle eşleşen gerçek bir ürün bulunamadı.</p><Link className="button button-primary" href="/products/new">İlk ürünü oluştur</Link></div>
       ) : (
-        <div className="catalog-table-shell">
+        <div className="catalog-table-shell" data-stale={rowsStale ? "true" : undefined} aria-describedby={rowsStale ? "product-stale-warning" : undefined}>
           <table className="catalog-table">
             <thead><tr><th>Seç</th><th>Ürün</th><th>SKU</th><th>Fiyat</th><th>Stok</th><th>Durum</th><th>Yayında</th><th>İşlemler</th></tr></thead>
             <tbody>

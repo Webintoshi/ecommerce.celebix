@@ -125,6 +125,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .row-count-control { display: flex; align-items: center; gap: 8px; padding: 0 10px 0 13px; }
 .row-count-control select { border: 0; background: transparent; color: #344054; font-weight: 650; }
 .catalog-table-shell { overflow-x: auto; background: var(--surface); }
+.catalog-table-shell[data-stale="true"] { outline: 2px solid #D92D20; outline-offset: -2px; }
 .catalog-table { width: 100%; border-collapse: collapse; }
 .catalog-table th { height: 50px; background: #EEF2F6; padding: 0 14px; color: #475467; font-size: 11px; font-weight: 750; letter-spacing: 0; text-align: left; text-transform: none; }
 .catalog-table td { height: 78px; border-top: 1px solid #E3E8EF; padding: 10px 14px; color: #344054; font-size: 12px; vertical-align: middle; }
