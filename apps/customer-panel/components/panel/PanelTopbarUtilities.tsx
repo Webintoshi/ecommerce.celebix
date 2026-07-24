@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { Bell, ChevronRight, X } from "lucide-react";
+import { Bell, Bot, ChevronRight, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import styles from "./panel-shell.module.css";
@@ -47,13 +46,7 @@ export function PanelTopbarUtilities() {
       >
         <span>Bana Sorun</span>
         <span className={styles.topbarAssistantAvatar}>
-          <Image
-            src="/toshi/toshi-profile.webp"
-            width={48}
-            height={48}
-            alt="Toshi yapay zekâ mağaza asistanı"
-            priority
-          />
+          <Bot aria-hidden="true" />
         </span>
       </button>
       {helpOpen ? (
