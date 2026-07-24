@@ -5,12 +5,12 @@ import {
   parseOrderDashboardSummary,
   parseOrderListItem,
   parseProduct,
+  type Product,
 } from "@celebix/saas-contracts";
 
 import { projectToshiLocalReply } from "./response.ts";
 import type { ToshiLocalIntent, ToshiLocalReply } from "./types.ts";
 
-const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
 const CATALOG_SUMMARY_KEYS = Object.freeze([
   "activeMedia",
   "activeProducts",
@@ -21,6 +21,11 @@ const CATALOG_SUMMARY_KEYS = Object.freeze([
   "productsWithoutMedia",
   "totalProducts",
 ]);
+
+type CatalogSummary = Readonly<{
+  totalProducts: number;
+  outOfStockVariants: number;
+}>;
 
 export class ToshiLocalError extends Error {
   readonly code = "unavailable";
@@ -46,7 +51,7 @@ function count(value: unknown): number {
   return value;
 }
 
-function parseCatalogSummary(value: unknown): void {
+function parseCatalogSummary(value: unknown): CatalogSummary {
   const summary = record(value);
   if (summary === null || JSON.stringify(Object.keys(summary).sort()) !== JSON.stringify(CATALOG_SUMMARY_KEYS)) {
     throw new ToshiLocalError();
@@ -64,16 +69,32 @@ function parseCatalogSummary(value: unknown): void {
     outOfStockVariants > activeVariants ||
     productsWithoutMedia > totalProducts
   ) throw new ToshiLocalError();
+  return Object.freeze({ totalProducts, outOfStockVariants });
 }
 
-function parseSearchEnvelope(value: unknown, parser: (item: unknown) => unknown): void {
+function parseSearchEnvelope<T>(
+  value: unknown,
+  maximum: number,
+  cursorMaximum: number,
+  parser: (item: unknown) => T,
+): readonly T[] {
   const envelope = record(value);
   if (
-    envelope === null || !Array.isArray(envelope.items) || envelope.items.length > 10 ||
+    envelope === null || !Array.isArray(envelope.items) || envelope.items.length > maximum ||
     !["items", "items,nextCursor"].includes(Object.keys(envelope).sort().join(",")) ||
-    (envelope.nextCursor !== undefined && (typeof envelope.nextCursor !== "string" || !CURSOR.test(envelope.nextCursor)))
+    (envelope.nextCursor !== undefined && (
+      typeof envelope.nextCursor !== "string" ||
+      !new RegExp(`^[A-Za-z0-9_-]{1,${cursorMaximum}}$`).test(envelope.nextCursor)
+    ))
   ) throw new ToshiLocalError();
-  for (const item of envelope.items) parser(item);
+  return Object.freeze(envelope.items.map(parser));
+}
+
+function matchesProduct(product: Product, query: string): boolean {
+  const normalizedQuery = query.toLocaleLowerCase("tr-TR");
+  const sku = (product as Product & Readonly<{ sku?: unknown }>).sku;
+  return [product.title, product.slug, ...(typeof sku === "string" ? [sku] : [])]
+    .some((value) => value.toLocaleLowerCase("tr-TR").includes(normalizedQuery));
 }
 
 function unavailable(error: unknown): ToshiLocalError {
@@ -105,27 +126,27 @@ export function createToshiLocalClient(fetcher: typeof fetch = fetch): ToshiLoca
             read("/api/customers/summary", signal),
             read("/api/orders/abandoned-carts/summary", signal),
           ]);
-          parseCatalogSummary(catalog);
-          parseOrderDashboardSummary(orders);
-          parseCustomerSummary(customers);
-          parseAbandonedCartSummary(abandoned);
-          return projectToshiLocalReply(intent, null);
+          return projectToshiLocalReply(intent, {
+            catalog: parseCatalogSummary(catalog),
+            orders: parseOrderDashboardSummary(orders),
+            customers: parseCustomerSummary(customers),
+            abandoned: parseAbandonedCartSummary(abandoned),
+          });
         }
         case "pending_orders":
-          parseOrderDashboardSummary(await read("/api/orders/summary", signal));
-          return projectToshiLocalReply(intent, null);
+          return projectToshiLocalReply(intent, parseOrderDashboardSummary(await read("/api/orders/summary", signal)));
         case "low_stock":
-          parseCatalogSummary(await read("/api/catalog/summary", signal));
-          return projectToshiLocalReply(intent, null);
-        case "find_product":
-          parseSearchEnvelope(await read(`/api/catalog/products?${new URLSearchParams({ search: intent.query, limit: "10", status: "all" })}`, signal), parseProduct);
-          return projectToshiLocalReply(intent, null);
+          return projectToshiLocalReply(intent, parseCatalogSummary(await read("/api/catalog/summary", signal)));
+        case "find_product": {
+          const products = parseSearchEnvelope(await read("/api/catalog/products?pageSize=100", signal), 100, 2048, parseProduct)
+            .filter((product) => matchesProduct(product, intent.query))
+            .slice(0, 10);
+          return projectToshiLocalReply(intent, products);
+        }
         case "find_customer":
-          parseSearchEnvelope(await read(`/api/customers?${new URLSearchParams({ search: intent.query, limit: "10" })}`, signal), parseCustomerListItem);
-          return projectToshiLocalReply(intent, null);
+          return projectToshiLocalReply(intent, parseSearchEnvelope(await read(`/api/customers?${new URLSearchParams({ search: intent.query, pageSize: "10" })}`, signal), 10, 1024, parseCustomerListItem));
         case "find_order":
-          parseSearchEnvelope(await read(`/api/orders?${new URLSearchParams({ search: intent.query, limit: "10", sort: "updated_desc" })}`, signal), parseOrderListItem);
-          return projectToshiLocalReply(intent, null);
+          return projectToshiLocalReply(intent, parseSearchEnvelope(await read(`/api/orders?${new URLSearchParams({ search: intent.query, pageSize: "10", sort: "newest" })}`, signal), 10, 1024, parseOrderListItem));
         case "navigate":
         case "unsupported":
           return projectToshiLocalReply(intent, null);
