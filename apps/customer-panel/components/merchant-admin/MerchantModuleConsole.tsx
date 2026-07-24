@@ -60,6 +60,15 @@ function inputValue(record: MerchantAdminRecord | null, key: string) {
   return Array.isArray(current) ? current.join("\n") : "";
 }
 
+function enumListDefaultChecked(
+  record: MerchantAdminRecord | null,
+  key: string,
+  value: string,
+) {
+  const current = record?.config[key];
+  return Array.isArray(current) && current.includes(value);
+}
+
 function dateTimeInputSnapshot(
   config: Readonly<Record<string, MerchantAdminJson>> | undefined,
   key: string,
@@ -77,9 +86,9 @@ function dateTimeInputValue(record: MerchantAdminRecord | null, key: string) {
   return dateTimeInputSnapshot(record?.config, key)?.localValue ?? "";
 }
 
-function listLimit(field: MerchantModuleFieldDefinition) {
+function listLimit(field: MerchantModuleFieldDefinition): number {
   const limit = field.maxItems;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new TypeError("invalid_list_definition");
+  if (typeof limit !== "number" || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new TypeError("invalid_list_definition");
   return limit;
 }
 
@@ -97,7 +106,8 @@ function parseFormConfig(
     if (field.type === "enum-list") {
       const limit = listLimit(field);
       const values = data.getAll(field.key);
-      if (values.length < 1 || values.length > limit || !field.allowedValues || values.some((value) => typeof value !== "string" || !field.allowedValues.includes(value)) || new Set(values).size !== values.length) throw new TypeError("invalid_enum_list");
+      const allowedValues = field.allowedValues;
+      if (values.length < 1 || values.length > limit || !allowedValues || values.some((value) => typeof value !== "string" || !allowedValues.includes(value)) || new Set(values).size !== values.length) throw new TypeError("invalid_enum_list");
       entries[field.key] = Object.freeze([...values] as string[]);
       continue;
     }
@@ -599,7 +609,7 @@ export function MerchantModuleConsole({
                   <legend>{field.label}</legend>
                   {field.allowedValues?.map((value) => (
                     <label key={value}>
-                      <input name={field.key} type="checkbox" value={value} defaultChecked={Array.isArray(editing?.config[field.key]) && editing?.config[field.key]?.includes(value)} />
+                      <input name={field.key} type="checkbox" value={value} defaultChecked={enumListDefaultChecked(editing, field.key, value)} />
                       <span>{field.optionLabels?.[value] ?? value}</span>
                     </label>
                   ))}
