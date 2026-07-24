@@ -42,7 +42,7 @@ test("every donor route has a final evidenced decision", () => {
 test("provider-gated and legacy-rejected rows retain truthful canonical targets", () => {
   for (const entry of HEMENAKU_DONOR_PARITY) {
     if (entry.status === "provider_gated") {
-      assert.match(entry.evidenceTest, /merchant-admin-ui[/](?:client|presentation)[.]test|advanced-seo-console[.]test|merchant-admin-console[.]test/);
+      assert.match(entry.evidenceTest, /merchant-admin-ui[/](?:client|presentation|route-behavior)[.]test|advanced-seo-console[.]test|merchant-admin-console[.]test/);
       assert.equal(entry.actionSet.some((action) => /execute|send|deliver|synchron|index/u.test(action)), false);
       assert.ok(entry.actionSet.includes("prepare_provider_action"), entry.donorPath);
       assert.ok(entry.actionSet.includes("cancel_provider_preparation"), entry.donorPath);
@@ -91,7 +91,34 @@ test("AI preference is complete without claiming external generation", () => {
   assert.deepEqual(getDonorParityEntry("/ayarlar/yapay-zeka"), {
     donorPath: "/ayarlar/yapay-zeka", targetPath: "/settings/artificial-intelligence",
     status: "complete", authority: "merchant_admin",
-    evidenceTest: "apps/customer-panel/lib/merchant-admin-ui/presentation.test.ts#defines finite advanced SEO and AI preferences without a provider job",
+    evidenceTest: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states",
     actionSet: ["list_records", "read_exact_record", "create_record", "update_record", "archive_record"],
   });
+});
+
+test("static merchant hubs claim navigation only while marketing retains durable list authority", () => {
+  for (const donorPath of ["/ayarlar", "/ayarlar/tasarim", "/cms"]) {
+    assert.deepEqual(
+      getDonorParityEntry(donorPath)?.actionSet,
+      ["open_supported_destination"],
+      donorPath,
+    );
+  }
+  assert.deepEqual(
+    getDonorParityEntry("/pazarlama")?.actionSet,
+    ["list_records", "open_supported_destination"],
+  );
+});
+
+test("grouped merchant and customer taxonomy evidence executes route component client and handler behavior", () => {
+  const grouped = HEMENAKU_DONOR_PARITY.filter(({ authority, donorPath, actionSet }) =>
+    (authority === "merchant_admin" && actionSet.includes("list_records")) ||
+    donorPath === "/musteriler/etiketler" ||
+    donorPath === "/musteriler/segmentler",
+  );
+  assert.ok(grouped.length > 30);
+  for (const entry of grouped) {
+    assert.match(entry.evidenceTest, /route-behavior[.]test[.]ts#/u, entry.donorPath);
+    assert.doesNotMatch(entry.evidenceTest, /client[.]test[.]ts|route files expose only/u, entry.donorPath);
+  }
 });
