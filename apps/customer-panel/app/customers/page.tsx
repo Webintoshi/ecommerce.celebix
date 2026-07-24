@@ -1,5 +1,9 @@
-import { CustomerListConsole } from "@/components/customers/CustomerListConsole";
+import { isMerchantActionAllowed } from "@celebix/saas-contracts";
 
-export default function CustomersPage() {
-  return <CustomerListConsole />;
+import { CustomerListConsole } from "@/components/customers/CustomerListConsole";
+import { requireServerPanelAccess } from "@/lib/server-access";
+
+export default async function CustomersPage() {
+  const { tenantContext } = await requireServerPanelAccess();
+  return <CustomerListConsole canManage={isMerchantActionAllowed(tenantContext.membership.role, "customers.manage")} />;
 }

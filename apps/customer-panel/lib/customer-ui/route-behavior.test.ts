@@ -428,6 +428,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     const ListPage = await compilePage("/customers", "@/components/customers/CustomerListConsole", "CustomerListConsole", ListConsole, role);
     const listTree = await ListPage();
     const listElement = findElement(listTree, (element) => element.type === ListConsole);
+    assert.equal(listElement.props.canManage, true, "owner-list-server-manage-authority");
     const renderList = () => ListConsole(listElement.props);
     let listView = await listHooks.flush(renderList);
     assert.match(textOf(listView), /Ada Lovelace/u);
@@ -444,10 +445,34 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     assert.ok(paths.includes("/api/customers/export"));
     assert.deepEqual(downloads, ["musteriler-2026-07-22.csv"]);
 
-    for (const mode of ["success", "customer_conflict", "membership_denied", "unavailable", "replayed"] as const) {
+    role = "analyst";
+    paths.length = 0;
+    const analystListHooks = createHookRuntime();
+    const AnalystListConsole = await compileComponent("../../components/customers/CustomerListConsole.tsx", "CustomerListConsole", analystListHooks.runtime, api, (path) => pushes.push(path));
+    const AnalystListPage = await compilePage("/customers", "@/components/customers/CustomerListConsole", "CustomerListConsole", AnalystListConsole, role);
+    const analystListTree = await AnalystListPage();
+    const analystListElement = findElement(analystListTree, (element) => element.type === AnalystListConsole);
+    assert.equal(analystListElement.props.canManage, false, "analyst-list-server-manage-authority");
+    const analystListView = await analystListHooks.flush(() => AnalystListConsole(analystListElement.props));
+    const analystHrefs: string[] = [];
+    visitElements(analystListView, (element) => { if (typeof element.props.href === "string") analystHrefs.push(element.props.href); });
+    assert.equal(analystHrefs.includes("/customers/new"), false, "analyst-list-hides-create-destination");
+
+    paths.length = 0;
+    const analystNewHooks = createHookRuntime();
+    const AnalystFormConsole = await compileComponent("../../components/customers/CustomerFormConsole.tsx", "CustomerFormConsole", analystNewHooks.runtime, api, (path) => pushes.push(path));
+    const AnalystNewPage = await compilePage("/customers/new", "@/components/customers/CustomerFormConsole", "CustomerFormConsole", AnalystFormConsole, role);
+    const analystNewTree = await AnalystNewPage();
+    let analystFormMounted = false;
+    visitElements(analystNewTree, (element) => { if (element.type === AnalystFormConsole) analystFormMounted = true; });
+    assert.equal(analystFormMounted, false, "analyst-new-page-must-not-mount-mutation-component");
+    assert.match(textOf(analystNewTree), /yetkiniz yok/u, "analyst-new-page-visible-denial");
+    assert.equal(paths.length, 0, "analyst-new-page-makes-no-customer-api-call");
+
+    for (const mode of ["success", "customer_conflict", "unavailable", "replayed"] as const) {
       failure = mode === "success" || mode === "replayed" ? "none" : mode;
       replayed = mode === "replayed";
-      role = mode === "membership_denied" ? "analyst" : "store_owner";
+      role = "store_owner";
       stored = customer();
       paths.length = 0;
       repositoryCalls.length = 0;
@@ -478,9 +503,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
         assert.deepEqual(pushes, [], `${mode}:no-redirect`);
         const expected = mode === "customer_conflict"
           ? /başka bir kayıtla çakışıyor/u
-          : mode === "membership_denied"
-            ? /yetkiniz yok/u
-            : /şu anda kullanılamıyor/u;
+          : /şu anda kullanılamıyor/u;
         assert.match(textOf(view), expected, `${mode}:visible-create-error`);
       }
     }
