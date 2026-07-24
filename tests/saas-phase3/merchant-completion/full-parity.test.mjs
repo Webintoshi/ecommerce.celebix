@@ -123,7 +123,6 @@ function parseProductionAddedLines(diff) {
       currentPath &&
       inHunk &&
       rawLine.startsWith("+") &&
-      !rawLine.startsWith("+++") &&
       isProductionGatePath(currentPath)
     ) additions.push({ path: currentPath, kind, line: rawLine.slice(1) });
   }
@@ -220,6 +219,9 @@ function assertBrowserAuthoritySafe(candidate, source) {
   const guards = [
     /\b(?:TenantContext|storeId|tenantId|principalId|membershipId|planId)\b|x-(?:store|tenant|principal|membership|plan)-id/i,
     /supabase|\/api\/admin(?:\/|\b)|<iframe\b|dangerouslySetInnerHTML|\b(?:localStorage|sessionStorage)\b/i,
+    /\bdocument\s*[.]\s*cookie\b/i,
+    /["'`](?:authorization|cookie|x-panel-session-credential|x-database-role|x-database-url)["'`]/i,
+    /(?:^|[{,]\s*)(?:authorization|cookie)\s*:/im,
   ];
   for (const pattern of guards) {
     if (pattern.test(source)) throw new Error(`browser_authority:${candidate}`);
@@ -355,6 +357,7 @@ test("added-line parser covers added and modified production files only", () => 
     "@@ -1 +1 @@",
     "-const safe = true;",
     "+const storeId = \"modified-browser-authority\";",
+    "+++apiKey, clientSecret = \"literal-secret\";",
     " context with eyJremoved.context.value",
     "diff --git a/apps/customer-panel/lib/changed-client.test.ts b/apps/customer-panel/lib/changed-client.test.ts",
     "--- a/apps/customer-panel/lib/changed-client.test.ts",
@@ -365,8 +368,10 @@ test("added-line parser covers added and modified production files only", () => 
   assert.deepEqual(parsed, [
     { path: "apps/customer-panel/lib/new-client.ts", kind: "added", line: "const apiKey = \"added-secret-value\";" },
     { path: "apps/customer-panel/lib/changed-client.ts", kind: "modified", line: "const storeId = \"modified-browser-authority\";" },
+    { path: "apps/customer-panel/lib/changed-client.ts", kind: "modified", line: "++apiKey, clientSecret = \"literal-secret\";" },
   ]);
   assert.throws(() => assertProductionAddedLineSafe(parsed[0]), /raw_secret_literal/);
+  assert.throws(() => assertProductionAddedLineSafe(parsed[2]), /raw_secret_literal/);
   assert.throws(() => assertProductionAddedLineSafe({
     path: parsed[1].path,
     kind: parsed[1].kind,
@@ -380,7 +385,7 @@ test("browser closure includes changed helpers and rejects private browser autho
     ["apps/customer-panel/components/SemicolonEntry.tsx", "\"use client\";\nexport { client } from '@/lib/demo/client';"],
     ["apps/customer-panel/lib/demo/controller.ts", "export const controller = sessionStorage.getItem('draft');"],
     ["apps/customer-panel/lib/demo/client.ts", "export const client = fetch('/api/demo', { headers: { 'x-store-id': storeId } });"],
-    ["apps/customer-panel/lib/server-only.ts", "export const storeId = 'legitimate-server-authority';"],
+    ["apps/customer-panel/lib/server-only.ts", "export const storeId = 'legitimate-server-authority'; export const privateCookie = document.cookie;"],
   ]);
   const changed = new Set([
     "apps/customer-panel/lib/demo/controller.ts",
@@ -396,4 +401,20 @@ test("browser closure includes changed helpers and rejects private browser autho
   for (const candidate of browserReachableChangedModules(sources, changed)) {
     assert.throws(() => assertBrowserAuthoritySafe(candidate, sources.get(candidate)), /browser_authority/);
   }
+  for (const [surface, source] of [
+    ["document cookie", "export const value = document.cookie;"],
+    ["Authorization", "fetch('/api', { headers: { Authorization: credential } });"],
+    ["Cookie", "fetch('/api', { headers: { 'cOoKiE': credential } });"],
+    ["panel credential", "headers.set('X-Panel-Session-Credential', credential);"],
+    ["database role", "headers.append('x-database-role', role);"],
+    ["database URL", "fetch('/api', { headers: { 'X-Database-URL': databaseUrl } });"],
+  ]) assert.throws(
+    () => assertBrowserAuthoritySafe(`apps/customer-panel/lib/demo/${surface}.ts`, source),
+    /browser_authority/,
+    surface,
+  );
+  assert.doesNotThrow(() => assertBrowserAuthoritySafe(
+    "apps/customer-panel/lib/demo/public-headers.ts",
+    "const authorizationMessage = 'Giriş gerekli'; fetch('/api', { headers: { Accept: 'application/json', 'content-type': 'application/json' } });",
+  ));
 });
