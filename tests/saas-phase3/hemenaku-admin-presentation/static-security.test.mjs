@@ -204,9 +204,11 @@ test("exports donor-compatible page primitives and truthful dashboard geometry",
   assert.match(dashboard, /<YAxis allowDecimals=\{false\} \/>/);
   assert.match(dashboard, /<Bar dataKey="value" fill="#FF6A00" radius=\{\[8, 8, 0, 0\]\} \/>/);
   assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length >= 2, true);
-  assert.match(model, /analytics:\s*unsupportedAuthority\("analytics"\)/);
-  assert.match(model, /loadMerchantDashboardSummaries/);
-  assert.match(dashboard, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
+  assert.match(model, /function createAnalyticsDashboardViewModel/);
+  assert.match(model, /createMerchantDashboardSliceLoader/);
+  assert.match(dashboard, /createMerchantDashboardSliceLoader\(/);
+  assert.match(dashboard, /analyticsApi[.]dashboard\("month"\)/);
+  assert.doesNotMatch(`${model}\n${dashboard}`, /\b(?:visitors?|visitorCount|devices?|deviceBreakdown|trafficSources?|trafficBreakdown)\b/i);
   assert.match(dashboard, /abandonedCartApi[.]getSummary/);
   assert.match(dashboard, /customerApi[.]summary/);
   assert.match(dashboard, /dashboard\.orders\.value\.totalOrders/);
