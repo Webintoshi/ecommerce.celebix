@@ -132,7 +132,7 @@ test("route-depth mutations receive a concrete server-derived capability or serv
   assert.match(customerEdit, /return <CustomerEditConsole customerId=\{customerId\} \/>;/);
 });
 
-test("route-depth source keeps finite route bindings and canonical editor targets", async () => {
+test("route-depth source keeps finite routes, exact record reads, and complete relationship authority", async () => {
   const [catalogRoutes, merchantRoutes, catalogEditor, merchantEditor] = await Promise.all([
     read("apps/customer-panel/lib/catalog-admin-ui/resource-route.ts"),
     read("apps/customer-panel/lib/merchant-admin-ui/record-route.ts"),
@@ -142,9 +142,12 @@ test("route-depth source keeps finite route bindings and canonical editor target
 
   assert.match(catalogRoutes, /catalog_resource_route_invalid/);
   assert.match(merchantRoutes, /merchant_record_route_invalid/);
-  assert.match(catalogEditor, /catalogAdminApi\.resources\(kind\)/);
+  assert.match(catalogEditor, /catalogAdminApi\.resource\(kind, resourceId\)/);
+  assert.match(catalogEditor, /catalogApi\.listProducts\(\{ cursor \}\)/);
+  assert.match(catalogEditor, /productIds:\s*selectedProductIds/);
+  assert.match(catalogEditor, /unseenSelectedProductIds/);
   assert.match(catalogEditor, /expectedVersion:\s*resource\.version/);
-  assert.match(merchantEditor, /merchantAdminApi\.records\(kind\)/);
+  assert.match(merchantEditor, /merchantAdminApi\.record\(kind, recordId\)/);
   assert.match(merchantEditor, /expectedVersion:\s*record\.version/);
 });
 
