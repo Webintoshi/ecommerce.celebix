@@ -6,6 +6,7 @@ import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
+import type { OrderListItem } from "@celebix/saas-contracts";
 import {
   getPanelRoutePresentation,
   isPanelNavigationPathActive,
@@ -400,6 +401,8 @@ type DashboardPresentationInput = Readonly<{
   dashboard: ReturnType<typeof createMerchantDashboardViewModel>;
   state: "loading" | "loaded" | "error";
   analyticsState?: "loading" | "loaded" | "error";
+  recentOrders?: readonly OrderListItem[];
+  recentOrdersState?: "loading" | "loaded" | "error";
 }>;
 
 async function renderPanelDashboard(
@@ -1378,6 +1381,153 @@ test("dashboard presentation follows the ikas store-summary anatomy using only d
   assert.match(html, /href="\/orders"/);
   assert.doesNotMatch(html, /Oturum sayısı|Dönüşüm oranı|Ziyaretçi|Katalog dağılımı/);
   assert.doesNotMatch(html, /Etkin mağaza|Mağaza sahibi|free_starter|\/api\/admin/);
+});
+
+test("dashboard presents newest durable order rows with canonical detail actions", async () => {
+  const chrome = Object.freeze({ storeSlug: "pilot-store", membershipLabel: "Mağaza sahibi", planCode: "growth", planVersion: 3, entitlementStatus: "active", storefrontHostname: "pilot-store.celebix.site", locale: "tr-TR" });
+  const dashboard = createMerchantDashboardViewModel(chrome, unavailableAuthority(true));
+  const recentOrders = Object.freeze([
+    Object.freeze({
+      id: "11111111-1111-4111-8111-111111111111",
+      orderNumber: "HMK-1042",
+      source: "storefront",
+      customerName: "Ada Lovelace",
+      customerEmail: "ada@example.com",
+      currency: "TRY",
+      totalCents: 14_990,
+      status: "confirmed",
+      paymentStatus: "completed",
+      itemCount: 1,
+      createdAt: "2026-07-21T09:30:00.000Z",
+      updatedAt: "2026-07-21T09:30:00.000Z",
+      version: 4,
+    }),
+    Object.freeze({
+      id: "22222222-2222-4222-8222-222222222222",
+      orderNumber: "HMK-1041",
+      source: "quick_link",
+      customerName: "Grace Hopper",
+      customerEmail: "grace@example.com",
+      currency: "TRY",
+      totalCents: 8_500,
+      status: "preparing",
+      paymentStatus: "processing",
+      itemCount: 2,
+      createdAt: "2026-07-20T08:15:00.000Z",
+      updatedAt: "2026-07-20T08:15:00.000Z",
+      version: 2,
+    }),
+  ] satisfies readonly OrderListItem[]);
+
+  const html = await renderPanelDashboard(chrome, {
+    dashboard,
+    state: "error",
+    recentOrders,
+    recentOrdersState: "loaded",
+  });
+
+  assert.match(html, /Son siparişler/);
+  assert.ok(html.indexOf("HMK-1042") < html.indexOf("HMK-1041"));
+  for (const copy of ["Ada Lovelace", "Grace Hopper", "Onaylandı", "Hazırlanıyor", "Ödendi", "İşleniyor"]) {
+    assert.match(html, new RegExp(copy));
+  }
+  assert.match(html, /₺149,90/);
+  assert.match(html, /dateTime="2026-07-21T09:30:00[.]000Z"/);
+  assert.match(html, /href="\/orders\/11111111-1111-4111-8111-111111111111"/);
+  assert.doesNotMatch(html, /ada@example[.]com|grace@example[.]com|storeId|tenantId|principalId|membershipId/);
+  assert.match(
+    await source("components/dashboard/panel-dashboard.module.css"),
+    /[.]recentOrdersTable td:first-child a\s*\{[^}]*min-height:\s*48px;/,
+  );
+});
+
+test("dashboard home loads five newest orders through the existing same-origin order client", async () => {
+  const recentOrder = Object.freeze({
+    id: "11111111-1111-4111-8111-111111111111",
+    orderNumber: "HMK-1042",
+    source: "storefront",
+    customerName: "Ada Lovelace",
+    customerEmail: "ada@example.com",
+    currency: "TRY",
+    totalCents: 14_990,
+    status: "confirmed",
+    paymentStatus: "completed",
+    itemCount: 1,
+    createdAt: "2026-07-21T09:30:00.000Z",
+    updatedAt: "2026-07-21T09:30:00.000Z",
+    version: 4,
+  }) satisfies OrderListItem;
+  const listInputs: unknown[] = [];
+  const EmptyRoot: HookTestComponent = () => null;
+  const harness = createPanelInteractionHarness(EmptyRoot, {}, { activeElement: null });
+  const Wrapper: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("div", { ...props, children });
+  const PanelActionButton: HookTestComponent = ({ children, href }) => harness.jsxRuntime.jsx("a", { href, children });
+  const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+  const dashboardModel = Object.freeze({
+    title: "Özet",
+    description: "Kalıcı mağaza özeti",
+    chromeCards: Object.freeze([]),
+    catalog: Object.freeze({ state: "unavailable", retryable: true }),
+    orders: Object.freeze({ state: "unsupported", capability: "orders", retryable: false }),
+    carts: Object.freeze({ state: "unsupported", capability: "carts", retryable: false }),
+    customers: Object.freeze({ state: "unsupported", capability: "customers", retryable: false }),
+    analytics: Object.freeze({ state: "unsupported", capability: "analytics", retryable: false }),
+  });
+
+  const Home = await compileHookTestComponent(
+    "components/dashboard/PanelDashboardHomeView.tsx",
+    (specifier) => {
+      if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+      if (specifier === "react") return harness.react;
+      if (specifier === "lucide-react") return { CalendarDays: Icon, Globe2: Icon, PackageCheck: Icon, Store: Icon };
+      if (specifier === "recharts") return new Proxy({}, { get: () => Wrapper });
+      if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
+      if (specifier === "@/components/panel/PanelPageShell") return { PanelActionButton, PanelPageShell: Wrapper };
+      if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel: () => ({}) };
+      if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: Wrapper };
+      if (specifier === "@/lib/catalog-ui/client") return { catalogApi: { getDashboardSummary: async () => ({}) } };
+      if (specifier === "@/lib/order-ui/client") return {
+        orderApi: {
+          getDashboardSummary: async () => ({}),
+          async listOrders(input: unknown) {
+            listInputs.push(input);
+            return Object.freeze({ items: Object.freeze([recentOrder]) });
+          },
+        },
+      };
+      if (specifier === "@/lib/abandoned-cart-ui/client") return { abandonedCartApi: { getSummary: async () => ({}) } };
+      if (specifier === "@/lib/customer-ui/client") return { customerApi: { summary: async () => ({}) } };
+      if (specifier === "@/lib/panel-ui/dashboard-model") return {
+        createMerchantDashboardSliceLoader: () => ({ reload() {}, reloadAll() {}, dispose() {} }),
+        createMerchantDashboardViewModel: () => dashboardModel,
+      };
+      if (specifier === "./panel-dashboard.module.css") return styles;
+      throw new Error(`unexpected_dashboard_home_import:${specifier}`);
+    },
+  );
+  harness.setRoot(Home);
+  try {
+    harness.flush();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    harness.flush();
+
+    assert.deepEqual(listInputs, [{ pageSize: 5, sort: "newest" }]);
+    assert.equal(
+      harness.hosts().some((host) => host.type === "a"
+        && host.props.href === `/orders/${recentOrder.id}`
+        && host.props.children === recentOrder.orderNumber),
+      true,
+    );
+  } finally {
+    harness.unmount();
+  }
 });
 
 interface CssTestElement {

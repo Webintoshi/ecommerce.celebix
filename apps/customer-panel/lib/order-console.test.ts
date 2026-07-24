@@ -185,6 +185,12 @@ function createHookRuntime() {
       if (prior === undefined || !sameDeps(prior.deps, deps)) slots[index] = { deps: [...deps], value: callback };
       return (slots[index] as { value: T }).value;
     },
+    useMemo<T>(factory: () => T, deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
+      if (prior === undefined || !sameDeps(prior.deps, deps)) slots[index] = { deps: [...deps], value: factory() };
+      return (slots[index] as { value: T }).value;
+    },
     useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
       const index = cursor++;
       const prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void } | undefined;
@@ -262,12 +268,30 @@ function renderProps(state: "loading" | "loaded" | "error", items: readonly Orde
     search: "",
     status: "all",
     sort: "newest",
+    dateRange: "all",
+    payment: "all",
+    fulfillment: "all",
+    loadedCount: items.length,
+    visibleColumns: {
+      date: true,
+      customer: true,
+      status: true,
+      payment: true,
+      items: true,
+      source: true,
+      total: true,
+    },
     nextCursor: undefined,
     loadingMore: false,
     onRetry() {},
     onSearchChange() {},
     onStatusChange() {},
     onSortChange() {},
+    onDateRangeChange() {},
+    onPaymentChange() {},
+    onFulfillmentChange() {},
+    onColumnVisibilityChange() {},
+    onExport() {},
     onLoadMore() {},
   };
 }
@@ -419,7 +443,9 @@ test("order list renders a controlled loading state without records", async () =
   const html = renderToStaticMarkup(createElement(Presentation, renderProps("loading")));
   assert.match(html, /role="status"/);
   assert.match(html, /Siparişler yükleniyor/);
+  assert.match(html, /Sipariş kapsamı yükleniyor/u);
   assert.doesNotMatch(html, /HMK-1042/);
+  assert.match(html, /<button class="exportButton" type="button" disabled="">CSV Dışa Aktar<\/button>/u);
 });
 
 test("order list renders a truthful empty state without fake rows", async () => {
@@ -513,9 +539,110 @@ test("order list exposes search, status, sort, and cursor pagination controls", 
   assert.equal(Object.isFrozen(merged), true);
 });
 
+test("order list filters only loaded real DTOs by date, payment, and derived fulfillment", async () => {
+  const { exports } = await compileOrderModule("components/orders/OrderListConsole.tsx");
+  assert.equal(typeof exports.filterOrderListItems, "function");
+  const filterOrderListItems = exports.filterOrderListItems as (
+    items: readonly OrderListItem[],
+    filters: Readonly<{ dateRange: string; payment: string; fulfillment: string }>,
+    now: Date,
+  ) => readonly OrderListItem[];
+  const shipped = Object.freeze({
+    ...item,
+    id: ITEM_ID,
+    orderNumber: "HMK-1041",
+    status: "shipped" as const,
+    paymentStatus: "processing" as const,
+    createdAt: "2026-07-15T08:00:00.000Z",
+  });
+  const oldRefund = Object.freeze({
+    ...item,
+    id: EVENT_ID,
+    orderNumber: "HMK-0999",
+    status: "refunded" as const,
+    paymentStatus: "refunded" as const,
+    createdAt: "2026-06-01T08:00:00.000Z",
+  });
+  const orders = Object.freeze([item, shipped, oldRefund]);
+  const now = new Date("2026-07-21T12:00:00.000Z");
+
+  assert.deepEqual(
+    filterOrderListItems(orders, { dateRange: "last7", payment: "all", fulfillment: "all" }, now).map(({ orderNumber }) => orderNumber),
+    ["HMK-1042", "HMK-1041"],
+  );
+  assert.deepEqual(
+    filterOrderListItems(orders, { dateRange: "all", payment: "processing", fulfillment: "shipped" }, now).map(({ orderNumber }) => orderNumber),
+    ["HMK-1041"],
+  );
+  assert.deepEqual(
+    filterOrderListItems(orders, { dateRange: "all", payment: "refunded", fulfillment: "not_applicable" }, now).map(({ orderNumber }) => orderNumber),
+    ["HMK-0999"],
+  );
+  assert.equal(Object.isFrozen(filterOrderListItems(orders, { dateRange: "all", payment: "all", fulfillment: "all" }, now)), true);
+});
+
+test("order list CSV export serializes filtered DTO facts and escapes spreadsheet fields", async () => {
+  const { exports } = await compileOrderModule("components/orders/OrderListConsole.tsx");
+  assert.equal(typeof exports.serializeOrderListCsv, "function");
+  const serializeOrderListCsv = exports.serializeOrderListCsv as (items: readonly OrderListItem[]) => string;
+  const csv = serializeOrderListCsv([Object.freeze({
+    ...item,
+    customerName: "Ada, \"Analist\"",
+    customerEmail: "ada@example.com",
+    source: "quick_link" as const,
+  })]);
+
+  assert.match(csv, /^\uFEFFSipariş No,Tarih,Müşteri,E-posta,Durum,Ödeme,Teslimat,Kanal,Ürün Adedi,Toplam,Para Birimi\r\n/u);
+  assert.match(csv, /"Ada, ""Analist"""/u);
+  assert.match(csv, /Hızlı sipariş/u);
+  assert.match(csv, /Hazırlama bekliyor/u);
+  assert.doesNotMatch(csv, /storeId|tenantId|membershipId|principalId/u);
+
+  const untrustedCsv = serializeOrderListCsv([Object.freeze({
+    ...item,
+    customerName: "=HYPERLINK(\"https://example.invalid\")",
+  })]);
+  assert.match(untrustedCsv, /'=HYPERLINK/u);
+});
+
+test("order list renders usable local filters, column visibility, and truthful loaded-scope export", async () => {
+  const Presentation = await compilePresentation("components/orders/OrderListConsole.tsx", "OrderListPresentation");
+  const html = renderToStaticMarkup(createElement(Presentation, {
+    ...renderProps("loaded"),
+    nextCursor: "cursor_2",
+    loadedCount: 7,
+  }));
+
+  assert.match(html, /Tarih aralığı/u);
+  assert.match(html, /Son 7 gün/u);
+  assert.match(html, /Ödeme durumu/u);
+  assert.match(html, /Teslimat durumu/u);
+  assert.match(html, /Sütunlar/u);
+  assert.match(html, /Kanal sütununu göster/u);
+  assert.match(html, /CSV Dışa Aktar/u);
+  assert.match(html, /Filtreler yüklenen 7 sipariş üzerinde uygulanır/u);
+  assert.match(html, /Daha fazla yükledikçe kapsam genişler/u);
+  assert.match(html, /Teslimat filtresi sipariş durumundan türetilir/u);
+  assert.doesNotMatch(html, /Toplu durum|Seçilileri güncelle/u);
+});
+
+test("order list keeps cursor pagination usable when local filters have no loaded-page match", async () => {
+  const Presentation = await compilePresentation("components/orders/OrderListConsole.tsx", "OrderListPresentation");
+  const html = renderToStaticMarkup(createElement(Presentation, {
+    ...renderProps("loaded", []),
+    loadedCount: 20,
+    nextCursor: "cursor_2",
+  }));
+
+  assert.match(html, /Filtrelerle eşleşen sipariş yok/u);
+  assert.match(html, /Daha fazla sipariş yükle/u);
+});
+
 test("order console switches table and mobile cards exactly at 1024/1025 with 48px targets", async () => {
   const css = await source("components/orders/order-console.module.css");
   const list = await source("components/orders/OrderListConsole.tsx");
+
+  assert.match(css, /[.]columnPicker\s*>\s*div\s+label\s*\{[^}]*min-height:\s*48px/s);
   const Presentation = await compilePresentation("components/orders/OrderListConsole.tsx", "OrderListPresentation");
   const html = renderToStaticMarkup(createElement(Presentation, renderProps("loaded")));
   assert.match(list, /styles[.]desktopTable/);

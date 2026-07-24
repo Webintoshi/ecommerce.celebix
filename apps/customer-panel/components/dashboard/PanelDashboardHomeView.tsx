@@ -18,6 +18,9 @@ import {
   type AnalyticsPeriod,
   type CustomerSummary,
   type OrderDashboardSummary,
+  type OrderListItem,
+  type OrderPaymentStatus,
+  type OrderStatus,
 } from "@celebix/saas-contracts";
 
 import {
@@ -47,6 +50,24 @@ const PERIOD_LABELS: Readonly<Record<AnalyticsPeriod, string>> = Object.freeze({
   week: "Bu hafta",
   month: "Bu ay",
   year: "Bu yıl",
+});
+
+const ORDER_STATUS_LABELS: Readonly<Record<OrderStatus, string>> = Object.freeze({
+  pending: "Bekliyor",
+  confirmed: "Onaylandı",
+  preparing: "Hazırlanıyor",
+  shipped: "Kargoda",
+  delivered: "Teslim edildi",
+  cancelled: "İptal edildi",
+  refunded: "İade edildi",
+});
+
+const PAYMENT_STATUS_LABELS: Readonly<Record<OrderPaymentStatus, string>> = Object.freeze({
+  pending: "Ödeme bekliyor",
+  processing: "İşleniyor",
+  completed: "Ödendi",
+  failed: "Başarısız",
+  refunded: "İade edildi",
 });
 
 type LoadState = "loading" | "loaded" | "error";
@@ -131,6 +152,16 @@ function formatGeneratedAt(value: string): string {
     : value;
 }
 
+function formatOrderDate(value: string): string {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("tr-TR", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date)
+    : value;
+}
+
 function stateDetail(state: OptionalLoadState): string {
   if (state === "loading") return "Yükleniyor";
   if (state === "loaded") return "Kalıcı veriden";
@@ -160,8 +191,11 @@ interface DashboardPresentationProps {
   readonly onRefreshCarts?: () => void;
   readonly onRefreshCustomers?: () => void;
   readonly onRefreshAnalytics?: () => void;
+  readonly onRefreshRecentOrders?: () => void;
   readonly period?: AnalyticsPeriod;
   readonly onPeriodChange?: (period: AnalyticsPeriod) => void;
+  readonly recentOrders?: readonly OrderListItem[];
+  readonly recentOrdersState?: LoadState;
 }
 
 export function PanelDashboardPresentation(props: DashboardPresentationProps) {
@@ -502,6 +536,63 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
         </section>
       </div>
 
+      {props.recentOrdersState ? (
+        <section className={styles.recentOrders} aria-labelledby="recent-orders-title">
+          <header>
+            <div>
+              <h2 id="recent-orders-title">Son siparişler</h2>
+              <p>En yeni kalıcı sipariş kayıtları</p>
+            </div>
+            <PanelActionButton href="/orders">Tüm siparişler</PanelActionButton>
+          </header>
+          {props.recentOrdersState === "loading" ? (
+            <p className={styles.recentOrdersState} role="status">Son siparişler yükleniyor…</p>
+          ) : null}
+          {props.recentOrdersState === "error" ? (
+            <div className={styles.recentOrdersError} role="alert">
+              <span>Son siparişler şu anda kullanılamıyor.</span>
+              <SummaryRetryButton onRetry={props.onRefreshRecentOrders ?? props.onRefresh} />
+            </div>
+          ) : null}
+          {props.recentOrdersState === "loaded" ? (
+            (props.recentOrders?.length ?? 0) > 0 ? (
+              <div className={styles.recentOrdersViewport}>
+                <table className={styles.recentOrdersTable}>
+                  <caption className={styles.visuallyHidden}>En yeni siparişler</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Sipariş</th>
+                      <th scope="col">Müşteri</th>
+                      <th scope="col">Durum</th>
+                      <th scope="col">Ödeme</th>
+                      <th scope="col">Tutar</th>
+                      <th scope="col">Tarih</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {props.recentOrders?.map((order) => (
+                      <tr key={order.id}>
+                        <td>
+                          <PanelActionButton href={`/orders/${order.id}`}>{order.orderNumber}</PanelActionButton>
+                          <small>{order.itemCount.toLocaleString("tr-TR")} ürün</small>
+                        </td>
+                        <td>{order.customerName}</td>
+                        <td><span className={styles.orderStatus}>{ORDER_STATUS_LABELS[order.status]}</span></td>
+                        <td>{PAYMENT_STATUS_LABELS[order.paymentStatus]}</td>
+                        <td>{formatMoney(order.totalCents, order.currency)}</td>
+                        <td><time dateTime={order.createdAt}>{formatOrderDate(order.createdAt)}</time></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className={styles.recentOrdersState}>Henüz kalıcı sipariş bulunmuyor.</p>
+            )
+          ) : null}
+        </section>
+      ) : null}
+
       <div className={styles.operationsGrid}>
         <section className={styles.operationsPanel} aria-labelledby="todo-title">
           <header>
@@ -550,6 +641,10 @@ export function PanelDashboardHomeView() {
     () => unavailableOrders(false),
   );
   const [ordersState, setOrdersState] = useState<LoadState>("loading");
+  const [recentOrders, setRecentOrders] = useState<readonly OrderListItem[]>(
+    () => Object.freeze([]),
+  );
+  const [recentOrdersState, setRecentOrdersState] = useState<LoadState>("loading");
   const [carts, setCarts] = useState<AuthoritySlice<AbandonedCartSummary>>(
     () => unavailableCarts(false),
   );
@@ -565,6 +660,7 @@ export function PanelDashboardHomeView() {
   const [period, setPeriod] = useState<AnalyticsPeriod>("month");
   const analyticsPeriod = useRef<AnalyticsPeriod>("month");
   const loader = useRef<ReturnType<typeof createMerchantDashboardSliceLoader> | null>(null);
+  const recentOrdersReload = useRef<(() => void) | null>(null);
   const reload = useCallback(
     (slice: MerchantDashboardSlice) => loader.current?.reload(slice),
     [],
@@ -644,6 +740,34 @@ export function PanelDashboardHomeView() {
     };
   }, []);
 
+  useEffect(() => {
+    let disposed = false;
+    let generation = 0;
+    const load = () => {
+      const request = ++generation;
+      setRecentOrdersState("loading");
+      void orderApi.listOrders({ pageSize: 5, sort: "newest" }).then(
+        (result) => {
+          if (disposed || request !== generation) return;
+          setRecentOrders(result.items);
+          setRecentOrdersState("loaded");
+        },
+        () => {
+          if (disposed || request !== generation) return;
+          setRecentOrders(Object.freeze([]));
+          setRecentOrdersState("error");
+        },
+      );
+    };
+    recentOrdersReload.current = load;
+    load();
+    return () => {
+      disposed = true;
+      generation += 1;
+      if (recentOrdersReload.current === load) recentOrdersReload.current = null;
+    };
+  }, []);
+
   const changePeriod = useCallback((nextPeriod: AnalyticsPeriod) => {
     if (analyticsPeriod.current === nextPeriod) return;
     analyticsPeriod.current = nextPeriod;
@@ -669,8 +793,11 @@ export function PanelDashboardHomeView() {
       onRefreshCarts={() => reload("carts")}
       onRefreshCustomers={() => reload("customers")}
       onRefreshAnalytics={() => reload("analytics")}
+      onRefreshRecentOrders={() => recentOrdersReload.current?.()}
       onPeriodChange={changePeriod}
       period={period}
+      recentOrders={recentOrders}
+      recentOrdersState={recentOrdersState}
       state={state}
       ordersState={ordersState}
       cartsState={cartsState}

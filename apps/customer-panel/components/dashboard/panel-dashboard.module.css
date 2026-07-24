@@ -140,6 +140,7 @@
 .performancePanel,
 .bestSellers,
 .growthPanel,
+.recentOrders,
 .operationsPanel {
   min-width: 0;
   border: 1px solid #E6EAF0;
@@ -147,6 +148,85 @@
   background: #FFFFFF;
   box-shadow: 0 1px 2px rgb(18 25 38 / 3%);
 }
+
+.recentOrders {
+  min-width: 0;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.recentOrders > header {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #E6EAF0;
+  padding: .625rem 1.25rem;
+}
+
+.recentOrders > header > div { display: grid; min-width: 0; gap: .2rem; }
+.recentOrders h2,
+.recentOrders p { margin: 0; }
+.recentOrders h2 { color: #1F2937; font-size: 1rem; letter-spacing: -.02em; }
+.recentOrders header p { color: #697586; font-size: .75rem; }
+
+.recentOrdersViewport { min-width: 0; overflow-x: auto; }
+
+.recentOrdersTable {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+}
+
+.recentOrdersTable th,
+.recentOrdersTable td {
+  border-bottom: 1px solid #EEF1F5;
+  padding: .75rem 1rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.recentOrdersTable th {
+  background: #FAFBFC;
+  color: #697586;
+  font-size: .6875rem;
+  font-weight: 800;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+
+.recentOrdersTable td { color: #344054; font-size: .8125rem; }
+.recentOrdersTable tbody tr:last-child td { border-bottom: 0; }
+.recentOrdersTable td:first-child { display: grid; min-width: 0; gap: .2rem; }
+.recentOrdersTable td:first-child a { width: fit-content; min-height: 48px; padding: .35rem .625rem; }
+.recentOrdersTable td:first-child small { color: #7B8495; font-size: .6875rem; }
+.recentOrdersTable td:nth-child(2) { max-width: 220px; overflow-wrap: anywhere; }
+.recentOrdersTable td:nth-child(5) { font-weight: 800; white-space: nowrap; }
+.recentOrdersTable time { white-space: nowrap; }
+
+.orderStatus {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 999px;
+  background: #FFF1E8;
+  color: #B54708;
+  padding: .2rem .55rem;
+  font-size: .6875rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.recentOrdersState,
+.recentOrdersError {
+  min-height: 96px;
+  color: #697586;
+  font-size: .875rem;
+}
+
+.recentOrdersState { display: grid; place-items: center; padding: 1rem; }
+.recentOrdersError { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem; }
 
 .dashboardTopbarActions {
   display: flex;
@@ -470,6 +550,7 @@
   .productList li { grid-template-columns: auto minmax(0, 1fr); }
   .productList li > span:last-child { grid-column: 2; }
   .dashboardTopbarActions { display: none; }
+  .recentOrders > header { align-items: flex-start; }
   .operationsPanel { padding: 1rem; }
   .operationsPanel > header { align-items: flex-start; }
   .taskList li { align-items: flex-start; }

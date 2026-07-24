@@ -41,6 +41,121 @@
   padding: 1rem 1.25rem;
 }
 
+.filterToolbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(10rem, 1fr)) auto auto;
+  align-items: end;
+  gap: .75rem;
+  border-bottom: 1px solid #E8EDF4;
+  padding: 1rem 1.25rem;
+}
+
+.filterToolbar > label {
+  display: grid;
+  gap: .35rem;
+}
+
+.filterToolbar label > span {
+  color: #596273;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.filterToolbar select {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #DDE3EB;
+  border-radius: 8px;
+  background: #FFFFFF;
+  padding: 0 .9rem;
+  color: #1F2937;
+  font-size: .875rem;
+}
+
+.columnPicker {
+  position: relative;
+}
+
+.columnPicker summary,
+.exportButton {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #FFD7BF;
+  border-radius: 8px;
+  background: #FFFFFF;
+  padding: 0 1rem;
+  color: #B94B00;
+  cursor: pointer;
+  font-size: .8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.columnPicker summary {
+  list-style-position: inside;
+}
+
+.columnPicker[open] summary,
+.columnPicker summary:hover,
+.exportButton:hover {
+  background: #FFF7F2;
+}
+
+.columnPicker > div {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + .4rem);
+  right: 0;
+  display: grid;
+  min-width: 12rem;
+  gap: .2rem;
+  border: 1px solid #DDE3EB;
+  border-radius: 8px;
+  background: #FFFFFF;
+  box-shadow: 0 10px 30px rgb(17 24 39 / 12%);
+  padding: .5rem;
+}
+
+.columnPicker > div label {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: .65rem;
+  border-radius: 6px;
+  padding: 0 .55rem;
+  color: #374151;
+  cursor: pointer;
+  font-size: .8125rem;
+  font-weight: 650;
+}
+
+.columnPicker > div label:hover {
+  background: #F9F9F9;
+}
+
+.columnPicker input {
+  width: 18px;
+  height: 18px;
+  accent-color: #FF6A00;
+}
+
+.exportButton:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.scopeNote {
+  margin: 0;
+  border-bottom: 1px solid #E8EDF4;
+  background: #FFFCF9;
+  padding: .7rem 1.25rem;
+  color: #6B7280;
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
 .toolbar input,
 .toolbar select,
 .compactForm input,
@@ -202,6 +317,7 @@ button:disabled.primaryButton,
 @media (max-width: 1024px) {
   .desktopTable { display: none; }
   .toolbar { grid-template-columns: 1fr; }
+  .filterToolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detailHero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detailHero > div:nth-child(2) { border-right: 0; }
   .detailHero > div:nth-child(-n + 2) { border-bottom: 1px solid #E8EDF4; }
@@ -221,6 +337,10 @@ button:disabled.primaryButton,
   .detailHero > div:last-child { border-bottom: 0; }
   .cardFacts,
   .compactForm { grid-template-columns: 1fr; }
+  .filterToolbar { grid-template-columns: 1fr; }
+  .columnPicker summary,
+  .exportButton { width: 100%; }
+  .columnPicker > div { position: static; margin-top: .4rem; }
   .compactForm .wide,
   .compactForm button { grid-column: auto; }
   .itemList article { grid-template-columns: minmax(0, 1fr) auto; }
