@@ -1663,6 +1663,28 @@ function assertDesktopMinimumShellTargets(css: string): void {
   }
 }
 
+function assertPanelDataTableReadability(css: string): void {
+  const declarations = parseApplicableCss(css, 320);
+  const shell: CssTestElement = { tagName: "section", classNames: ["pageShell"] };
+  const scroll: CssTestElement = { tagName: "div", classNames: ["tableScroll"], parent: shell };
+  const table: CssTestElement = { tagName: "table", parent: scroll };
+  const row: CssTestElement = { tagName: "tr", parent: table };
+  const cells: readonly [string, CssTestElement][] = [
+    ["header", { tagName: "th", parent: row }],
+    ["cell", { tagName: "td", parent: row }],
+  ];
+  const layout = winningDeclaration(declarations, table, ["table-layout"]);
+  assert.equal(layout?.value, "fixed", "320px table layout");
+  for (const [label, cell] of cells) {
+    assert.equal(winningDeclaration(declarations, cell, ["text-align"])?.value, "left", `${label} alignment`);
+    assert.equal(winningDeclaration(declarations, cell, ["vertical-align"])?.value, "top", `${label} vertical alignment`);
+    assert.equal(winningDeclaration(declarations, cell, ["overflow-wrap"])?.value, "anywhere", `${label} wrapping`);
+    const padding = winningDeclaration(declarations, cell, ["padding"]);
+    assert.ok(padding, `${label} has no padding`);
+    assert.ok(lengthInPixels(padding.value) >= 8, `${label} padding is ${padding.value}`);
+  }
+}
+
 function assertSmallShellContrast(css: string): void {
   const elements = shellElements();
   const contrastCases: readonly [string, CssTestElement, number][] = [
@@ -1838,6 +1860,18 @@ test("desktop child navigation and logout keep an effective 48px minimum target"
     assert.throws(() => assertDesktopMinimumShellTargets(`${css}\n${override}`), expectedFailure);
   }
   assertDesktopMinimumShellTargets(css);
+});
+
+test("panel data table keeps aligned padded readable cells at 320px", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  assertPanelDataTableReadability(css);
+  for (const [override, expectedFailure] of [
+    [`.tableScroll th { text-align: center; }`, /header alignment/],
+    [`.tableScroll td { padding: 0.25rem; }`, /cell padding is 0\.25rem/],
+    [`.tableScroll table { table-layout: auto; }`, /320px table layout/],
+  ] as const) {
+    assert.throws(() => assertPanelDataTableReadability(`${css}\n${override}`), expectedFailure);
+  }
 });
 
 test("effective small shell text colors meet AA without weakening orange brand or focus tokens", async () => {
