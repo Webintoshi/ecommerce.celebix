@@ -21,6 +21,11 @@ type StoreSummary = Readonly<{
   abandoned: AbandonedCartSummary;
 }>;
 
+type ProductSearch = Readonly<{
+  products: readonly Product[];
+  truncated: boolean;
+}>;
+
 function source(label: string, href: ToshiLocalSource["href"]): ToshiLocalSource {
   return Object.freeze({ label, href });
 }
@@ -55,8 +60,8 @@ export function projectToshiLocalReply(intent: ToshiLocalIntent, payload: unknow
       return searchReply(intent.query, "müşteri", customers.map((customer) => customer.displayName), "Müşteriler", "/customers");
     }
     case "find_product": {
-      const products = payload as readonly Product[];
-      return searchReply(intent.query, "ürün", products.map((product) => product.title), "Ürünler", "/products");
+      const search = payload as ProductSearch;
+      return productSearchReply(intent.query, search.products.map((product) => product.title), search.truncated);
     }
     case "navigate": {
       const destinations = {
@@ -70,6 +75,13 @@ export function projectToshiLocalReply(intent: ToshiLocalIntent, payload: unknow
     }
     case "unsupported": return reply("Bu isteği yerel modda yapamıyorum. Yalnızca okuma ve gezinme komutlarını kullanabilirsiniz.");
   }
+}
+
+function productSearchReply(query: string, products: readonly string[], truncated: boolean): ToshiLocalReply {
+  const text = products.length === 0
+    ? `“${query}” için eşleşme bulunamadı${truncated ? "; daha fazla ürün olabilir" : ""}.`
+    : `“${query}” için ilk ${products.length} eşleşme: ${products.join(", ")}.${truncated ? " Daha fazla ürün olabilir." : ""}`;
+  return reply(text, [source("Ürünler", "/products")]);
 }
 
 function searchReply(

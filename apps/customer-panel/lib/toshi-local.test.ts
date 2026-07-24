@@ -6,13 +6,27 @@ import { createToshiLocalClient } from "./toshi-local/client.ts";
 import { projectToshiLocalReply } from "./toshi-local/response.ts";
 
 const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";
+const PRODUCT_ID_2 = "12111111-1111-4111-8111-111111111111";
+const PRODUCT_ID_3 = "13111111-1111-4111-8111-111111111111";
 const CUSTOMER_ID = "22222222-2222-4222-8222-222222222222";
 const ORDER_ID = "33333333-3333-4333-8333-333333333333";
 const NOW = "2026-07-24T10:00:00.000Z";
 
-const product = (title = "Krem Gömlek", slug = "krem-gomlek") => ({
-  id: PRODUCT_ID, storeId: PRODUCT_ID, title, slug, status: "active", currency: "TRY",
+function productId(index: number): string {
+  return `${String(index).padStart(8, "0")}-1111-4111-8111-111111111111`;
+}
+
+const product = (title = "Krem Gömlek", slug = "krem-gomlek", id = PRODUCT_ID) => ({
+  id, storeId: PRODUCT_ID, title, slug, status: "active", currency: "TRY",
   createdAt: NOW, updatedAt: NOW, version: 1,
+});
+const detail = (entry: ReturnType<typeof product>, sku?: string) => ({
+  product: entry,
+  variants: sku === undefined ? [] : [{
+    id: "44444444-4444-4444-8444-444444444444", productId: entry.id, storeId: PRODUCT_ID,
+    title: entry.title, sku, priceCents: 100, stockTracking: true, stockQuantity: 1,
+    status: "active", attributes: {}, createdAt: NOW, updatedAt: NOW, version: 1,
+  }],
 });
 const customer = {
   id: CUSTOMER_ID, status: "active", displayName: "Ada Lovelace", firstName: "Ada", lastName: "Lovelace",
@@ -82,8 +96,8 @@ test("projects deterministic frozen local replies and sources", () => {
 
 test("projects parsed local data into truthful deterministic Turkish replies", () => {
   assert.equal(
-    projectToshiLocalReply({ kind: "find_product", query: "KG-M-KREM" }, [product()]).text,
-    "“KG-M-KREM” için 1 ürün bulundu: Krem Gömlek.",
+    projectToshiLocalReply({ kind: "find_product", query: "KG-M-KREM" }, { products: [product()], truncated: false }).text,
+    "“KG-M-KREM” için ilk 1 eşleşme: Krem Gömlek.",
   );
   assert.equal(
     projectToshiLocalReply({ kind: "find_customer", query: "Ada" }, [customer]).text,
@@ -104,7 +118,9 @@ test("routes supported local reads through bounded same-origin JSON GET requests
       case "/api/orders/summary": return Response.json({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: "2026-07-24T10:00:00.000Z" });
       case "/api/customers/summary": return Response.json({ active: 2, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: "2026-07-24T10:00:00.000Z" });
       case "/api/orders/abandoned-carts/summary": return Response.json({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: "2026-07-24T10:00:00.000Z" });
-      case "/api/catalog/products?pageSize=100": return Response.json({ items: [product(), product("Yün Kazak", "yun-kazak")] });
+      case "/api/catalog/products?limit=20&status=active": return Response.json({ items: [product()] });
+      case "/api/catalog/products?limit=20&status=draft": return Response.json({ items: [] });
+      case `/api/catalog/products/${PRODUCT_ID}`: return Response.json(detail(product(), "KG-M-KREM"));
       case "/api/customers?search=Ada&pageSize=10": return Response.json({ items: [customer] });
       case "/api/orders?search=CBX-1042&pageSize=10&sort=newest": return Response.json({ items: [order] });
       default: throw new Error(`unexpected_path:${path}`);
@@ -127,11 +143,13 @@ test("routes supported local reads through bounded same-origin JSON GET requests
     client.execute({ kind: "find_order", query: "CBX-1042" }),
   ]);
 
-  assert.deepEqual(calls.map(([path]) => path), [
-    "/api/catalog/products?pageSize=100",
+  assert.deepEqual(calls.map(([path]) => path).sort(), [
+    "/api/catalog/products?limit=20&status=active",
+    "/api/catalog/products?limit=20&status=draft",
+    `/api/catalog/products/${PRODUCT_ID}`,
     "/api/customers?search=Ada&pageSize=10",
     "/api/orders?search=CBX-1042&pageSize=10&sort=newest",
-  ]);
+  ].sort());
   for (const [, init] of [...summaryCalls, ...calls]) {
     assert.deepEqual(init, {
       method: "GET",
@@ -150,20 +168,78 @@ test("returns the validated summary and bounded matching search results", async 
       case "/api/orders/summary": return Response.json({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: NOW });
       case "/api/customers/summary": return Response.json({ active: 2, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: NOW });
       case "/api/orders/abandoned-carts/summary": return Response.json({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: NOW });
-      case "/api/catalog/products?pageSize=100": return Response.json({ items: Array.from({ length: 11 }, (_, index) => product(`Krem Ürün ${index + 1}`, `krem-urun-${index + 1}`)) });
+      case "/api/catalog/products?limit=20&status=active": return Response.json({ items: Array.from({ length: 11 }, (_, index) => product(`Krem Ürün ${index + 1}`, `krem-urun-${index + 1}`, productId(index + 1))) });
+      case "/api/catalog/products?limit=20&status=draft": return Response.json({ items: [] });
+      default: {
+        const id = String(path).replace("/api/catalog/products/", "");
+        if (/^[0-9a-f-]{36}$/u.test(id)) return Response.json(detail(product("Krem Ürün", "krem-urun", id)));
+        throw new Error(`unexpected_path:${path}`);
+      }
       case "/api/customers?search=Ada&pageSize=10": return Response.json({ items: [customer] });
       case "/api/orders?search=CBX-1042&pageSize=10&sort=newest": return Response.json({ items: [order] });
-      default: throw new Error(`unexpected_path:${path}`);
     }
   });
 
   assert.equal((await client.execute({ kind: "store_summary" })).text, "Mağazada 2 ürün, 1 bekleyen sipariş, 2 aktif müşteri ve 1 terk edilmiş sepet var.");
   assert.equal((await client.execute({ kind: "pending_orders" })).text, "1 bekleyen sipariş var.");
   assert.equal((await client.execute({ kind: "low_stock" })).text, "Stokta olmayan 1 varyant var.");
-  assert.match((await client.execute({ kind: "find_product", query: "Krem" })).text, /^“Krem” için 10 ürün bulundu:/u);
+  assert.match((await client.execute({ kind: "find_product", query: "Krem" })).text, /^“Krem” için ilk 10 eşleşme:/u);
   assert.doesNotMatch((await client.execute({ kind: "find_product", query: "Krem" })).text, /Krem Ürün 11/u);
   assert.equal((await client.execute({ kind: "find_customer", query: "Ada" })).text, "“Ada” için 1 müşteri bulundu: Ada Lovelace.");
   assert.equal((await client.execute({ kind: "find_order", query: "CBX-1042" })).text, "“CBX-1042” için 1 sipariş bulundu: CBX-1042 (Ada Lovelace).");
+});
+
+test("scans bounded catalog pages and product details for later title and SKU matches", async () => {
+  const first = product("İlk Ürün", "ilk-urun", PRODUCT_ID);
+  const laterTitle = product("Geç Başlık", "gec-baslik", PRODUCT_ID_2);
+  const laterSku = product("Diğer Ürün", "diger-urun", PRODUCT_ID_3);
+  let inflightDetails = 0;
+  let maximumDetails = 0;
+  const client = createToshiLocalClient(async (path) => {
+    const value = String(path);
+    if (value === "/api/catalog/products?limit=20&status=active") return Response.json({ items: [first], nextCursor: "later" });
+    if (value === "/api/catalog/products?limit=20&status=active&cursor=later") return Response.json({ items: [laterTitle, laterSku] });
+    if (value === "/api/catalog/products?limit=20&status=draft") return Response.json({ items: [] });
+    const entries = new Map([
+      [`/api/catalog/products/${PRODUCT_ID}`, detail(first)],
+      [`/api/catalog/products/${PRODUCT_ID_2}`, detail(laterTitle)],
+      [`/api/catalog/products/${PRODUCT_ID_3}`, detail(laterSku, "SKU-LATE")],
+    ]);
+    const body = entries.get(value);
+    if (body === undefined) throw new Error(`unexpected_path:${path}`);
+    inflightDetails += 1;
+    maximumDetails = Math.max(maximumDetails, inflightDetails);
+    await Promise.resolve();
+    inflightDetails -= 1;
+    return Response.json(body);
+  });
+
+  assert.equal((await client.execute({ kind: "find_product", query: "Geç" })).text, "“Geç” için ilk 1 eşleşme: Geç Başlık.");
+  assert.equal((await client.execute({ kind: "find_product", query: "SKU-LATE" })).text, "“SKU-LATE” için ilk 1 eşleşme: Diğer Ürün.");
+  assert.ok(maximumDetails <= 4);
+});
+
+test("fails closed on a catalog cursor loop and labels a bounded zero-result scan as incomplete", async () => {
+  const loop = createToshiLocalClient(async (path) => {
+    const value = String(path);
+    if (value === "/api/catalog/products?limit=20&status=active") return Response.json({ items: [], nextCursor: "loop" });
+    if (value === "/api/catalog/products?limit=20&status=active&cursor=loop") return Response.json({ items: [], nextCursor: "loop" });
+    throw new Error(`unexpected_path:${path}`);
+  });
+  await assert.rejects(loop.execute({ kind: "find_product", query: "Krem" }), { name: "ToshiLocalError", code: "unavailable" });
+
+  const entries = [product("Yün", "yun", PRODUCT_ID), product("Pamuk", "pamuk", PRODUCT_ID_2), product("İpek", "ipek", PRODUCT_ID_3)];
+  const bounded = createToshiLocalClient(async (path) => {
+    const value = String(path);
+    const cursor = new URL(`https://panel.invalid${value}`).searchParams.get("cursor");
+    if (value.includes("status=active")) return Response.json({ items: [entries[cursor === null ? 0 : Number(cursor)]!], nextCursor: cursor === "2" ? "3" : String((cursor === null ? 0 : Number(cursor)) + 1) });
+    if (value.includes("status=draft")) return Response.json({ items: [] });
+    const id = value.replace("/api/catalog/products/", "");
+    const entry = entries.find((candidate) => candidate.id === id);
+    if (entry) return Response.json(detail(entry));
+    throw new Error(`unexpected_path:${path}`);
+  });
+  assert.equal((await bounded.execute({ kind: "find_product", query: "Krem" })).text, "“Krem” için eşleşme bulunamadı; daha fazla ürün olabilir.");
 });
 
 test("does not fetch for navigate or unsupported intents", async () => {

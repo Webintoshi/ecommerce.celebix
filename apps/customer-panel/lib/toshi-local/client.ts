@@ -5,7 +5,9 @@ import {
   parseOrderDashboardSummary,
   parseOrderListItem,
   parseProduct,
+  parseProductVariant,
   type Product,
+  type ProductVariant,
 } from "@celebix/saas-contracts";
 
 import { projectToshiLocalReply } from "./response.ts";
@@ -21,6 +23,12 @@ const CATALOG_SUMMARY_KEYS = Object.freeze([
   "productsWithoutMedia",
   "totalProducts",
 ]);
+const CATALOG_PAGE_SIZE = 20;
+const CATALOG_MAX_PAGES_PER_STATUS = 3;
+const CATALOG_MAX_PRODUCTS = 60;
+const CATALOG_MAX_VARIANTS_PER_PRODUCT = 100;
+const CATALOG_DETAIL_CONCURRENCY = 4;
+const RESULT_CAP = 10;
 
 type CatalogSummary = Readonly<{
   totalProducts: number;
@@ -72,12 +80,14 @@ function parseCatalogSummary(value: unknown): CatalogSummary {
   return Object.freeze({ totalProducts, outOfStockVariants });
 }
 
+type SearchEnvelope<T> = Readonly<{ items: readonly T[]; nextCursor?: string }>;
+
 function parseSearchEnvelope<T>(
   value: unknown,
   maximum: number,
   cursorMaximum: number,
   parser: (item: unknown) => T,
-): readonly T[] {
+): SearchEnvelope<T> {
   const envelope = record(value);
   if (
     envelope === null || !Array.isArray(envelope.items) || envelope.items.length > maximum ||
@@ -87,14 +97,51 @@ function parseSearchEnvelope<T>(
       !new RegExp(`^[A-Za-z0-9_-]{1,${cursorMaximum}}$`).test(envelope.nextCursor)
     ))
   ) throw new ToshiLocalError();
-  return Object.freeze(envelope.items.map(parser));
+  return Object.freeze({
+    items: Object.freeze(envelope.items.map(parser)),
+    ...(envelope.nextCursor === undefined ? {} : { nextCursor: envelope.nextCursor }),
+  });
 }
 
-function matchesProduct(product: Product, query: string): boolean {
+function matchesProduct(product: Product, variants: readonly ProductVariant[], query: string): boolean {
   const normalizedQuery = query.toLocaleLowerCase("tr-TR");
-  const sku = (product as Product & Readonly<{ sku?: unknown }>).sku;
-  return [product.title, product.slug, ...(typeof sku === "string" ? [sku] : [])]
+  return [product.title, product.slug, ...variants.flatMap((variant) => variant.sku === undefined ? [] : [variant.sku])]
     .some((value) => value.toLocaleLowerCase("tr-TR").includes(normalizedQuery));
+}
+
+function productPath(status: "active" | "draft", cursor?: string): string {
+  const query = new URLSearchParams({ limit: String(CATALOG_PAGE_SIZE), status });
+  if (cursor !== undefined) query.set("cursor", cursor);
+  return `/api/catalog/products?${query}`;
+}
+
+function parseProductDetail(value: unknown, expected: Product): Readonly<{ product: Product; variants: readonly ProductVariant[] }> {
+  const detail = record(value);
+  if (
+    detail === null || Object.keys(detail).sort().join(",") !== "product,variants" ||
+    !Array.isArray(detail.variants) || detail.variants.length > CATALOG_MAX_VARIANTS_PER_PRODUCT
+  ) throw new ToshiLocalError();
+  const product = parseProduct(detail.product);
+  const variants = Object.freeze(detail.variants.map(parseProductVariant));
+  if (
+    product.id !== expected.id || variants.some((variant) => variant.productId !== product.id)
+  ) throw new ToshiLocalError();
+  return Object.freeze({ product, variants });
+}
+
+async function mapBounded<T, R>(values: readonly T[], work: (value: T) => Promise<R>): Promise<readonly R[]> {
+  const output = new Array<R>(values.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    for (;;) {
+      const index = next;
+      next += 1;
+      if (index >= values.length) return;
+      output[index] = await work(values[index]!);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CATALOG_DETAIL_CONCURRENCY, values.length) }, worker));
+  return Object.freeze(output);
 }
 
 function unavailable(error: unknown): ToshiLocalError {
@@ -114,6 +161,40 @@ export function createToshiLocalClient(fetcher: typeof fetch = fetch): ToshiLoca
       throw new ToshiLocalError();
     }
     return response.json();
+  }
+
+  async function findProducts(query: string, signal?: AbortSignal): Promise<Readonly<{ products: readonly Product[]; truncated: boolean }>> {
+    const products: Product[] = [];
+    const productIds = new Set<string>();
+    let truncated = false;
+    for (const status of ["active", "draft"] as const) {
+      let cursor: string | undefined;
+      const cursors = new Set<string>();
+      for (let page = 0; page < CATALOG_MAX_PAGES_PER_STATUS; page += 1) {
+        const envelope = parseSearchEnvelope(await read(productPath(status, cursor), signal), CATALOG_PAGE_SIZE, 2048, parseProduct);
+        for (const product of envelope.items) {
+          if (productIds.has(product.id)) throw new ToshiLocalError();
+          productIds.add(product.id);
+          if (products.length === CATALOG_MAX_PRODUCTS) {
+            truncated = true;
+            break;
+          }
+          products.push(product);
+        }
+        if (truncated || envelope.nextCursor === undefined) break;
+        if (cursors.has(envelope.nextCursor)) throw new ToshiLocalError();
+        cursors.add(envelope.nextCursor);
+        if (page + 1 === CATALOG_MAX_PAGES_PER_STATUS) {
+          truncated = true;
+          break;
+        }
+        cursor = envelope.nextCursor;
+      }
+      if (truncated) break;
+    }
+    const details = await mapBounded(products, async (product) => parseProductDetail(await read(`/api/catalog/products/${product.id}`, signal), product));
+    const matches = details.filter((detail) => matchesProduct(detail.product, detail.variants, query)).map((detail) => detail.product);
+    return Object.freeze({ products: Object.freeze(matches.slice(0, RESULT_CAP)), truncated });
   }
 
   async function execute(intent: ToshiLocalIntent, signal?: AbortSignal): Promise<ToshiLocalReply> {
@@ -138,15 +219,12 @@ export function createToshiLocalClient(fetcher: typeof fetch = fetch): ToshiLoca
         case "low_stock":
           return projectToshiLocalReply(intent, parseCatalogSummary(await read("/api/catalog/summary", signal)));
         case "find_product": {
-          const products = parseSearchEnvelope(await read("/api/catalog/products?pageSize=100", signal), 100, 2048, parseProduct)
-            .filter((product) => matchesProduct(product, intent.query))
-            .slice(0, 10);
-          return projectToshiLocalReply(intent, products);
+          return projectToshiLocalReply(intent, await findProducts(intent.query, signal));
         }
         case "find_customer":
-          return projectToshiLocalReply(intent, parseSearchEnvelope(await read(`/api/customers?${new URLSearchParams({ search: intent.query, pageSize: "10" })}`, signal), 10, 1024, parseCustomerListItem));
+          return projectToshiLocalReply(intent, parseSearchEnvelope(await read(`/api/customers?${new URLSearchParams({ search: intent.query, pageSize: "10" })}`, signal), 10, 1024, parseCustomerListItem).items);
         case "find_order":
-          return projectToshiLocalReply(intent, parseSearchEnvelope(await read(`/api/orders?${new URLSearchParams({ search: intent.query, pageSize: "10", sort: "newest" })}`, signal), 10, 1024, parseOrderListItem));
+          return projectToshiLocalReply(intent, parseSearchEnvelope(await read(`/api/orders?${new URLSearchParams({ search: intent.query, pageSize: "10", sort: "newest" })}`, signal), 10, 1024, parseOrderListItem).items);
         case "navigate":
         case "unsupported":
           return projectToshiLocalReply(intent, null);
