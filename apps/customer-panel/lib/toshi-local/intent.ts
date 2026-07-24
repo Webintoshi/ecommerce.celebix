@@ -4,6 +4,9 @@ const UNSUPPORTED: ToshiLocalIntent = Object.freeze({ kind: "unsupported" });
 
 type Matcher = (normalized: string, input: string) => readonly ToshiLocalIntent[] | null;
 
+const SEARCH_PREFIX = /^(?:müşteri\s+bul|ürün\s+ara|sipariş\s+bul)\s+/u;
+const UNSAFE_OR_AMBIGUOUS_QUERY = /(?:^|\s)(?:mağaza\s+özeti|bekleyen\s+siparişler|düşük\s+stok|müşteri\s+bul|ürün\s+ara|sipariş\s+bul|ürünlere\s+git|siparişlere\s+git|müşterilere\s+git|ana\s+sayfaya\s+git|sil|silme|silmek|iptal|güncelle|değiştir|ekle|oluştur|kaldır|gönder|iade|ap[iı]\s*(?:anahtar\S*|key)|secret|token|şifre)(?:\s|$)/u;
+
 function record(intent: ToshiLocalIntent): readonly ToshiLocalIntent[] {
   return Object.freeze([Object.freeze(intent)]);
 }
@@ -25,6 +28,10 @@ function navigate(destination: ToshiDestination): Matcher {
     : null;
 }
 
+function isUnsafeOrAmbiguous(normalized: string): boolean {
+  return SEARCH_PREFIX.test(normalized) && UNSAFE_OR_AMBIGUOUS_QUERY.test(normalized.replace(SEARCH_PREFIX, ""));
+}
+
 const MATCHERS: readonly Matcher[] = Object.freeze([
   (normalized) => normalized === "mağaza özeti" ? record({ kind: "store_summary" }) : null,
   (normalized) => normalized === "bekleyen siparişler" ? record({ kind: "pending_orders" }) : null,
@@ -43,6 +50,7 @@ export function parseToshiLocalIntent(input: unknown): ToshiLocalIntent {
     return UNSUPPORTED;
   }
   const normalized = input.toLocaleLowerCase("tr-TR").replace(/\s+/gu, " ");
+  if (isUnsafeOrAmbiguous(normalized)) return UNSUPPORTED;
   const matches = MATCHERS.flatMap((matcher) => matcher(normalized, input) ?? []);
   return matches.length === 1 ? matches[0]! : UNSUPPORTED;
 }

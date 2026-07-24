@@ -11,12 +11,12 @@ function reply(text: string, sources: readonly ToshiLocalSource[] = []): ToshiLo
 export function projectToshiLocalReply(intent: ToshiLocalIntent, payload: unknown): ToshiLocalReply {
   void payload;
   switch (intent.kind) {
-    case "store_summary": return reply("Mağaza özetini gösteriyorum.", [source("Mağaza özeti", "/")]);
-    case "pending_orders": return reply("Bekleyen siparişleri gösteriyorum.", [source("Siparişler", "/orders")]);
-    case "low_stock": return reply("Düşük stoklu ürünleri gösteriyorum.", [source("Ürünler", "/products")]);
-    case "find_order": return reply(`“${intent.query}” için sipariş sonuçlarını gösteriyorum.`, [source("Siparişler", "/orders")]);
-    case "find_customer": return reply(`“${intent.query}” için müşteri sonuçlarını gösteriyorum.`, [source("Müşteriler", "/customers")]);
-    case "find_product": return reply(`“${intent.query}” için ürün sonuçlarını gösteriyorum.`, [source("Ürünler", "/products")]);
+    case "store_summary": return reply("Mağaza özeti için ana sayfaya gidebilirsiniz.", [source("Mağaza özeti", "/")]);
+    case "pending_orders": return reply("Bekleyen siparişler için Siparişler sayfasına gidebilirsiniz.", [source("Siparişler", "/orders")]);
+    case "low_stock": return reply("Düşük stok için Ürünler sayfasına gidebilirsiniz.", [source("Ürünler", "/products")]);
+    case "find_order": return reply(`“${intent.query}” için siparişlerde arama yapabilirsiniz.`, [source("Siparişler", "/orders")]);
+    case "find_customer": return reply(`“${intent.query}” için müşterilerde arama yapabilirsiniz.`, [source("Müşteriler", "/customers")]);
+    case "find_product": return reply(`“${intent.query}” için ürünlerde arama yapabilirsiniz.`, [source("Ürünler", "/products")]);
     case "navigate": {
       const destinations = {
         "/": ["Ana sayfayı açabilirsiniz.", "Ana sayfa"],

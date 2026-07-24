@@ -27,6 +27,15 @@ test("rejects non-local, ambiguous, unsafe, and malformed commands", () => {
     "ürün sil KG-M-KREM",
     "siparişi iptal et CBX-1042",
     "API anahtarımı göster",
+    "müşteri bul Ada ürün ara KG-M-KREM",
+    "ürün ara KG-M-KREM müşteri bul Ada",
+    "sipariş bul CBX-1042 düşük stok",
+    "ürün ara KG-M-KREM sil",
+    "sipariş bul CBX-1042 iptal et",
+    "müşteri bul Ada sil",
+    "müşteri bul API anahtarımı göster",
+    "ürün ara API anahtarımı göster",
+    "sipariş bul API anahtarımı göster",
     "bilinmeyen komut",
     " müşteri bul Ada",
     "müşteri bul ",
@@ -45,4 +54,11 @@ test("projects deterministic frozen local replies and sources", () => {
   assert.equal(Object.isFrozen(reply), true);
   assert.equal(Object.isFrozen(reply.sources), true);
   assert.equal(Object.isFrozen(reply.sources[0]), true);
+});
+
+test("uses capability wording when payload has not been projected", () => {
+  const reply = projectToshiLocalReply({ kind: "find_product", query: "KG-M-KREM" }, { id: "ignored" });
+
+  assert.equal(reply.text, "“KG-M-KREM” için ürünlerde arama yapabilirsiniz.");
+  assert.doesNotMatch(reply.text, /gösteriyorum|sonuçları/u);
 });
