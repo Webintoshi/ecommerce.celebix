@@ -199,6 +199,34 @@ test("browser acceptance serves the requested dark Celebix logo from the local t
   assert.doesNotMatch(route, /https?:\/\//);
 });
 
+test("browser acceptance mounts the real Toshi workspace behind the fixture panel shell", async () => {
+  const page = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/toshi/page.tsx");
+  assert.match(page, /import \{ ToshiWorkspace \} from "@\/components\/toshi\/ToshiWorkspace"/);
+  assert.match(page, /import \{ PanelShell \} from "@\/components\/panel\/PanelShell"/);
+  assert.match(page, /<PanelShell model=\{MODEL\}>[\s\S]*?<ToshiWorkspace \/>[\s\S]*?<\/PanelShell>/);
+  assert.match(page, /storeSlug:\s*"toshi-browser-test-store"/);
+  assert.doesNotMatch(page, /fetch\(|document[.]cookie|localStorage|sessionStorage|x-(?:tenant|store)-id|\/api\/admin|https?:\/\//i);
+});
+
+test("Toshi source and fixture surfaces contain no secret or browser authority channel", async () => {
+  const paths = [
+    "apps/customer-panel/app/toshi/page.tsx",
+    "apps/customer-panel/components/toshi/ToshiAssistant.tsx",
+    "apps/customer-panel/components/toshi/ToshiDrawer.tsx",
+    "apps/customer-panel/components/toshi/ToshiWorkspace.tsx",
+    "apps/customer-panel/lib/toshi-local/client.ts",
+    "apps/customer-panel/lib/toshi-local/intent.ts",
+    "apps/customer-panel/lib/toshi-local/response.ts",
+    "apps/customer-panel/lib/toshi-local/types.ts",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/toshi/page.tsx",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/[...slug]/route.ts",
+  ];
+  const combined = (await Promise.all(paths.map(read))).join("\n");
+  assert.doesNotMatch(combined, /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|sk-[A-Za-z0-9_-]+|postgres(?:ql)?:\/\/|v1[.]panel[.]|pb1[.]|bs1[.]/i);
+  assert.doesNotMatch(combined, /document[.]cookie|localStorage|sessionStorage|x-(?:tenant|store)-id|x-celebix|\/api\/admin|@supabase/i);
+  assert.doesNotMatch(combined, /(?:authorization|cookie)\s*:/i);
+});
+
 test("exports donor-compatible page primitives and truthful dashboard geometry", async () => {
   const source = await read("apps/customer-panel/components/panel/PanelPageShell.tsx");
   for (const name of ["PanelPageShell", "PanelPageHeader", "PanelPanel", "PanelToolbar", "PanelBadge", "PanelStatusBadge", "PanelMetricCard", "PanelDataTable", "PanelLoadingState", "PanelActionButton", "PanelEmptyState", "PanelSkeletonBlock"]) {

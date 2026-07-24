@@ -105,35 +105,168 @@ const EXTRA = Object.freeze({
   updatedAt: NOW,
 });
 
+const PRODUCT = Object.freeze({
+  id: RESOURCE_ID,
+  storeId: STORE_ID,
+  slug: "keten-gomlek",
+  title: "Keten Gömlek",
+  description: "Doğal keten gömlek.",
+  status: "draft",
+  currency: "TRY",
+  createdAt: NOW,
+  updatedAt: NOW,
+  version: 3,
+});
+
+const PRODUCT_VARIANT = Object.freeze({
+  id: "55555555-5555-4555-8555-555555555555",
+  productId: RESOURCE_ID,
+  storeId: STORE_ID,
+  title: "M / Krem",
+  sku: "KG-M-KREM",
+  priceCents: 11_000,
+  compareAtCents: 12_500,
+  stockTracking: true,
+  stockQuantity: 8,
+  status: "active",
+  attributes: Object.freeze({ beden: "M", renk: "Krem" }),
+  createdAt: NOW,
+  updatedAt: NOW,
+  version: 2,
+});
+
+// These records are deliberately and visibly test-only. They still travel through
+// the exact production Toshi read contracts; production components contain no seed data.
+const TOSHI_TEST_PRODUCT_ID = "77777777-7777-4777-8777-777777777777";
+const TOSHI_TEST_PRODUCT = Object.freeze({
+  id: TOSHI_TEST_PRODUCT_ID,
+  storeId: STORE_ID,
+  slug: "toshi-tarayici-test-urunu",
+  title: "Toshi Tarayıcı Test Ürünü",
+  description: "Yalnızca yerel tarayıcı kabul testi kaydı.",
+  status: "active",
+  currency: "TRY",
+  createdAt: NOW,
+  updatedAt: NOW,
+  version: 1,
+});
+const TOSHI_TEST_VARIANT = Object.freeze({
+  id: "88888888-8888-4888-8888-888888888888",
+  productId: TOSHI_TEST_PRODUCT_ID,
+  storeId: STORE_ID,
+  title: "Tarayıcı testi varyantı",
+  sku: "TOSHI-TEST-SKU",
+  priceCents: 10_000,
+  stockTracking: true,
+  stockQuantity: 0,
+  status: "active",
+  attributes: Object.freeze({ test: "browser" }),
+  createdAt: NOW,
+  updatedAt: NOW,
+  version: 1,
+});
+const TOSHI_TEST_CUSTOMER = Object.freeze({
+  id: "99999999-9999-4999-8999-999999999999",
+  status: "active",
+  displayName: "Toshi Tarayıcı Test Müşterisi",
+  firstName: "Toshi",
+  lastName: "Test Müşterisi",
+  email: "toshi-browser@example.test",
+  phone: "+905551112233",
+  orderCount: 1,
+  totalSpentCents: 25_000,
+  currency: "TRY",
+  tags: Object.freeze([]),
+  version: 1,
+  createdAt: NOW,
+  updatedAt: NOW,
+});
+const TOSHI_TEST_ORDER = Object.freeze({
+  id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  orderNumber: "TOSHI-TEST-1042",
+  source: "storefront",
+  customerName: "Toshi Tarayıcı Test Müşterisi",
+  customerEmail: "toshi-browser@example.test",
+  currency: "TRY",
+  totalCents: 25_000,
+  status: "pending",
+  paymentStatus: "pending",
+  itemCount: 1,
+  createdAt: NOW,
+  updatedAt: NOW,
+  version: 1,
+});
+
 async function route(context: { params: Promise<{ slug: string[] }> }) {
   return (await context.params).slug.join("/");
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ slug: string[] }> },
 ) {
   const slug = await route(context);
+  const search = new URL(request.url).searchParams;
   if (slug === "analytics/dashboard") return Response.json(ANALYTICS);
   if (slug === `orders/${ORDER_ID}`) return Response.json(ORDER);
   if (slug === `customers/${CUSTOMER_ID}`) return Response.json(CUSTOMER);
   if (slug === `catalog/admin/resources/extra/${RESOURCE_ID}`) return Response.json(EXTRA);
+  if (slug === "catalog/summary") return Response.json({
+    totalProducts: 1,
+    activeProducts: 1,
+    draftProducts: 0,
+    productLimit: 100,
+    activeVariants: 1,
+    outOfStockVariants: 1,
+    productsWithoutMedia: 1,
+    activeMedia: 0,
+  });
+  if (slug === "orders/summary") return Response.json({
+    totalOrders: 5,
+    pendingOrders: 2,
+    fulfilledOrders: 3,
+    revenueCents: 125_000,
+    currency: "TRY",
+    asOf: NOW,
+  });
+  if (slug === "customers/summary") return Response.json({
+    active: 7,
+    archived: 1,
+    consentedEmail: 4,
+    totalSpentCents: 125_000,
+    currency: "TRY",
+    asOf: NOW,
+  });
+  if (slug === "orders/abandoned-carts/summary") return Response.json({
+    abandoned: 1,
+    recovered: 2,
+    lostValueCents: 10_000,
+    recoveredValueCents: 20_000,
+    currency: "TRY",
+    asOf: NOW,
+  });
+  if (slug === `catalog/products/${TOSHI_TEST_PRODUCT_ID}`) return Response.json({
+    product: TOSHI_TEST_PRODUCT,
+    variants: [TOSHI_TEST_VARIANT],
+  });
+  if (slug === `catalog/products/${RESOURCE_ID}`) return Response.json({
+    product: PRODUCT,
+    variants: [PRODUCT_VARIANT],
+  });
   if (slug === "catalog/products") {
-    return Response.json({
-      items: [{
-        id: RESOURCE_ID,
-        storeId: STORE_ID,
-        slug: "keten-gomlek",
-        title: "Keten Gömlek",
-        description: "Doğal keten gömlek.",
-        status: "draft",
-        currency: "TRY",
-        createdAt: NOW,
-        updatedAt: NOW,
-        version: 3,
-      }],
-    });
+    if (search.get("limit") === "20" && search.size === 2) {
+      if (search.get("status") === "active") return Response.json({ items: [TOSHI_TEST_PRODUCT] });
+      if (search.get("status") === "draft") return Response.json({ items: [] });
+    }
+    return Response.json({ items: [PRODUCT] });
   }
+  if (slug === "customers" && search.get("pageSize") === "10" && search.get("search") && search.size === 2) {
+    return Response.json({ items: [TOSHI_TEST_CUSTOMER] });
+  }
+  if (
+    slug === "orders" && search.get("pageSize") === "10" && search.get("sort") === "newest" &&
+    search.get("search") && search.size === 3
+  ) return Response.json({ items: [TOSHI_TEST_ORDER] });
   if (slug === "inventory/locations") {
     return Response.json({
       items: [{

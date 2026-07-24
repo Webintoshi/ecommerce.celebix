@@ -811,6 +811,66 @@ test("Toshi conversation executes one abortable local command without seeded or 
   assert.match(workspace, /<ToshiAssistant mode="page"/);
 });
 
+test("Toshi browser fixture exposes only deterministic read DTOs through the production paths", async () => {
+  const { GET } = await import("../../../tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/[...slug]/route.ts");
+  async function get(path: string) {
+    const response = await GET(
+      new Request(`https://fixture.test/api/${path}`),
+      { params: Promise.resolve({ slug: path.split("?")[0]!.split("/") }) },
+    );
+    assert.equal(response.status, 200, path);
+    assert.equal(response.headers.get("content-type"), "application/json");
+    return response.json();
+  }
+
+  assert.deepEqual(await get("catalog/summary"), {
+    totalProducts: 1,
+    activeProducts: 1,
+    draftProducts: 0,
+    productLimit: 100,
+    activeVariants: 1,
+    outOfStockVariants: 1,
+    productsWithoutMedia: 1,
+    activeMedia: 0,
+  });
+  assert.deepEqual(await get("orders/summary"), {
+    totalOrders: 5,
+    pendingOrders: 2,
+    fulfilledOrders: 3,
+    revenueCents: 125_000,
+    currency: "TRY",
+    asOf: "2026-07-24T12:00:00.000Z",
+  });
+  assert.deepEqual(await get("customers/summary"), {
+    active: 7,
+    archived: 1,
+    consentedEmail: 4,
+    totalSpentCents: 125_000,
+    currency: "TRY",
+    asOf: "2026-07-24T12:00:00.000Z",
+  });
+  assert.deepEqual(await get("orders/abandoned-carts/summary"), {
+    abandoned: 1,
+    recovered: 2,
+    lostValueCents: 10_000,
+    recoveredValueCents: 20_000,
+    currency: "TRY",
+    asOf: "2026-07-24T12:00:00.000Z",
+  });
+
+  const activeProducts = await get("catalog/products?limit=20&status=active");
+  const draftProducts = await get("catalog/products?limit=20&status=draft");
+  assert.deepEqual(activeProducts.items.map((item: { title: string }) => item.title), ["Toshi Tarayıcı Test Ürünü"]);
+  assert.deepEqual(draftProducts, { items: [] });
+  const productId = activeProducts.items[0].id as string;
+  assert.equal((await get(`catalog/products/${productId}`)).variants[0].sku, "TOSHI-TEST-SKU");
+
+  const customers = await get("customers?search=Toshi&pageSize=10");
+  assert.deepEqual(customers.items.map((item: { displayName: string }) => item.displayName), ["Toshi Tarayıcı Test Müşterisi"]);
+  const orders = await get("orders?search=TOSHI-TEST-1042&pageSize=10&sort=newest");
+  assert.deepEqual(orders.items.map((item: { orderNumber: string }) => item.orderNumber), ["TOSHI-TEST-1042"]);
+});
+
 test("Toshi assistant denies blank submits, locks concurrent requests, and aborts on unmount", async () => {
   type ExecuteCall = Readonly<{ intent: unknown; signal: AbortSignal }>;
   const calls: ExecuteCall[] = [];
