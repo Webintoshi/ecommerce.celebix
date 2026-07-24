@@ -334,7 +334,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return ReactModule;
     if (specifier === "lucide-react") {
-      return { BadgeCheck: Icon, BadgeDollarSign: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, ChevronDown: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Palette: Icon, Phone: Icon, PieChart: Icon, Puzzle: Icon, ReceiptText: Icon, ScanBarcode: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, Users: Icon, Warehouse: Icon };
+      return { BadgeCheck: Icon, BadgeDollarSign: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, ChevronDown: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Palette: Icon, Percent: Icon, Phone: Icon, PieChart: Icon, Puzzle: Icon, ReceiptText: Icon, ScanBarcode: Icon, ScrollText: Icon, Search: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, Users: Icon, Warehouse: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
@@ -598,11 +598,67 @@ test("desktop shell carries exact donor tokens, fixed width, topbar, and support
   assert.match(css, /#2A2A2A/i);
   assert.match(css, /#F9F9F9/i);
   assert.match(css, /#FF6A00/i);
-  assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15rem;/);
-  assert.match(css, /\.workspace\s*\{[\s\S]*?margin-left:\s*15rem;/);
+  assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15[.]3125rem;/);
+  assert.match(css, /\.workspace\s*\{[\s\S]*?margin-left:\s*15[.]3125rem;/);
   assert.doesNotMatch(css, /width:\s*(?:15\.5|16)rem/);
   assert.match(css, /min-width:\s*1025px/);
   assert.match(layout, /panel-topbar-actions/);
+});
+
+test("desktop topbar matches the shared Hemenaku management-header anatomy on every route", async () => {
+  const layout = await source("components/panel/PanelLayoutClient.tsx");
+  const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
+  const styles = await source("components/panel/panel-shell.module.css");
+
+  assert.match(layout, />ORTAK ADMİN</);
+  assert.match(layout, /styles[.]desktopTopbarEyebrow/);
+  assert.match(layout, /styles[.]desktopTopbarTitle/);
+  assert.match(layout, /PanelTopbarUtilities/);
+  assert.match(utilities, /Bildirim merkezi/);
+  assert.match(utilities, /Bana Sorun/);
+  assert.match(utilities, /href="\/settings\/notifications"/);
+  assert.match(styles, /[.]desktopTopbar\s*\{[\s\S]*?min-height:\s*5[.]5rem;/);
+  assert.match(styles, /[.]desktopTopbarEyebrow\s*\{[\s\S]*?letter-spacing:/);
+  assert.match(styles, /[.]desktopTopbarUtilities\s*\{[\s\S]*?display:\s*flex;/);
+  assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
+});
+
+test("topbar launches the real Toshi identity without a remote or generated avatar", async () => {
+  const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
+  assert.match(utilities, /src="\/toshi\/toshi-profile[.]webp"/);
+  assert.match(utilities, /alt="Toshi yapay zekâ mağaza asistanı"/);
+  assert.doesNotMatch(utilities, /<Bot\b|https?:\/\//);
+});
+
+test("desktop sidebar matches the approved compact Celebix navigation anatomy", async () => {
+  const navigation = await renderPanelNavigation("/");
+  const sidebar = await source("components/panel/PanelSidebar.tsx");
+  const logout = await source("components/panel/LogoutButton.tsx");
+  const css = await source("components/panel/panel-shell.module.css");
+
+  assert.match(navigation, />Giriş</);
+  assert.match(navigation, />SEO Araçları</);
+  assert.doesNotMatch(navigation, />Özet</);
+  assert.doesNotMatch(navigation, />Analizler</);
+  assert.doesNotMatch(navigation, />Kurulum</);
+
+  assert.match(sidebar, /\/Logo\/celebix-beyaz-logo[.]svg/);
+  assert.match(sidebar, /styles[.]sidebarAccount/);
+  assert.match(sidebar, /styles[.]sidebarAvatar/);
+  assert.doesNotMatch(sidebar, /className=\{styles[.]merchantIdentity\}/);
+  assert.match(logout, /LogOut/);
+  assert.match(logout, /:\s*"Çıkış"/);
+  const navigationSource = await source("components/panel/PanelNavigation.tsx");
+  assert.match(navigationSource, /discounts:\s*Percent/);
+  assert.match(navigationSource, /content:\s*FileText/);
+  assert.match(navigationSource, /settings:\s*Settings/);
+  assert.match(navigationSource, /seo:\s*Search/);
+
+  assert.match(css, /\.brandMark\s*\{[\s\S]*?width:\s*8rem;/);
+  assert.match(css, /\.brandMark\s*\{[\s\S]*?background:\s*transparent;/);
+  assert.match(css, /\.navigationLabel\s*\{[\s\S]*?font-size:\s*0[.]9375rem;/);
+  assert.match(css, /\.sidebarFooter\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/);
+  assert.match(css, /\.sidebarAvatar\s*\{[\s\S]*?width:\s*1[.]75rem;/);
 });
 
 test("desktop navigation exposes accessible dropdown groups and opens only the active family initially", async () => {
@@ -638,15 +694,15 @@ test("desktop navigation exposes accessible dropdown groups and opens only the a
   }
 });
 
-test("sidebar uses the requested dark Celebix logo from a local immutable asset", async () => {
+test("sidebar uses the approved white Celebix logo from a local immutable asset", async () => {
   const sidebar = await source("components/panel/PanelSidebar.tsx");
-  assert.match(sidebar, /\/Logo\/celebix-koyu-logo[.]svg/);
+  assert.match(sidebar, /\/Logo\/celebix-beyaz-logo[.]svg/);
   assert.match(sidebar, /styles[.]brandMark/);
   assert.doesNotMatch(sidebar, /https?:\/\//);
 
-  const logo = await source("public/Logo/celebix-koyu-logo.svg");
-  assert.match(logo, /viewBox="0 0 2000 878"/);
-  assert.match(logo, /fill="#2B2B2B"/);
+  const logo = await source("public/Logo/celebix-beyaz-logo.svg");
+  assert.match(logo, /viewBox="240 240 1540 390"/);
+  assert.match(logo, /fill="#FAF9F9"/);
   assert.match(logo, /fill="#FE6100"/);
 });
 
@@ -693,6 +749,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
   });
   const PanelSidebar: HookTestComponent = () => harness.jsxRuntime.jsx("aside", {});
   const PanelMobileDock: HookTestComponent = () => harness.jsxRuntime.jsx("nav", {});
+  const PanelTopbarUtilities: HookTestComponent = () => harness.jsxRuntime.jsx("nav", {});
   const PanelTopbarChromeProvider: HookTestComponent = (props) => {
     bridge.publish = props.onChange as ChromePublisher;
     return props.children;
@@ -709,6 +766,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
         if (specifier === "./PanelMobileDock") return { PanelMobileDock };
         if (specifier === "./PanelSidebar") return { PanelSidebar };
         if (specifier === "./PanelTopbarChrome") return { PanelTopbarChromeProvider };
+        if (specifier === "./PanelTopbarUtilities") return { PanelTopbarUtilities };
         if (specifier === "./panel-shell.module.css") return styles;
         throw new Error(`unexpected_panel_layout_import:${specifier}`);
       },
@@ -741,11 +799,11 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
     bridge.publish({ title: "Köprü başlığı", subtitle: "Köprü açıklaması" });
     harness.flush();
     assert.equal(topbarText("strong"), "Köprü başlığı");
-    assert.equal(topbarText("span"), "Köprü açıklaması");
+    assert.equal(topbarText("span"), "ORTAK ADMİN");
 
     renderRoute("/setup");
     assert.equal(topbarText("strong"), "Kurulum durumu");
-    assert.equal(topbarText("span"), undefined);
+    assert.equal(topbarText("span"), "ORTAK ADMİN");
 
     assert.ok(bridge.publish);
     bridge.publish({ title: "Kurulum köprüsü" });
@@ -980,6 +1038,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
       },
     );
     const PanelTopbarChromeProvider: HookTestComponent = (providerProps) => providerProps.children;
+    const PanelTopbarUtilities: HookTestComponent = () => null;
     const PanelLayoutClient = await compileHookTestComponent(
       "components/panel/PanelLayoutClient.tsx",
       (specifier) => {
@@ -992,6 +1051,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
         if (specifier === "./PanelTopbarChrome") {
           return { PanelTopbarChromeProvider };
         }
+        if (specifier === "./PanelTopbarUtilities") return { PanelTopbarUtilities };
         if (specifier === "./panel-shell.module.css") return styles;
         throw new Error(`unexpected_panel_layout_import:${specifier}`);
       },
@@ -1902,7 +1962,11 @@ function shellElements() {
     root,
     shell,
     sidebar,
-    topbarSubtitle: { tagName: "span", parent: topbar } satisfies CssTestElement,
+    topbarSubtitle: {
+      tagName: "span",
+      classNames: ["desktopTopbarEyebrow"],
+      parent: topbar,
+    } satisfies CssTestElement,
   };
 }
 
@@ -2214,8 +2278,8 @@ test("shared panel data table keeps aligned padded readable cells without fixing
 test("effective small shell text colors meet AA without weakening orange brand or focus tokens", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   const sidebar = await source("components/panel/PanelSidebar.tsx");
-  const logo = await source("public/Logo/celebix-koyu-logo.svg");
-  assert.match(sidebar, /<Image src="\/Logo\/celebix-koyu-logo\.svg"/);
+  const logo = await source("public/Logo/celebix-beyaz-logo.svg");
+  assert.match(sidebar, /<Image src="\/Logo\/celebix-beyaz-logo\.svg"/);
   assert.match(logo, /fill="#FE6100"/i);
   for (const [override, expectedFailure] of [
     [
@@ -2226,7 +2290,7 @@ test("effective small shell text colors meet AA without weakening orange brand o
       `@media (min-width: 1025px) {
         .shell .desktopTopbar span { color: #9CA3AF; }
       }`,
-      /desktop topbar subtitle effective contrast is 2\.41:1/,
+      /desktop topbar subtitle effective contrast is 2\.53:1/,
     ],
     [
       `@media (max-width: 1024px) {
