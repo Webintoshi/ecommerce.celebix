@@ -9,6 +9,7 @@ import ts from "typescript";
 import {
   getPanelRoutePresentation,
   isPanelNavigationPathActive,
+  isPanelNavigationPathExact,
   PANEL_NAVIGATION,
 } from "./panel-ui/navigation.ts";
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
@@ -337,7 +338,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
     if (specifier === "@/lib/panel-ui/navigation") {
-      return { isPanelNavigationPathActive, PANEL_NAVIGATION };
+      return { isPanelNavigationPathActive, isPanelNavigationPathExact, PANEL_NAVIGATION };
     }
     if (specifier === "./panel-shell.module.css") {
       const styles = new Proxy({}, {
@@ -384,7 +385,7 @@ async function createInteractivePanelNavigation(pathname: string) {
       if (specifier === "next/link") return Link;
       if (specifier === "next/navigation") return { usePathname: () => pathname };
       if (specifier === "@/lib/panel-ui/navigation") {
-        return { isPanelNavigationPathActive, PANEL_NAVIGATION };
+        return { isPanelNavigationPathActive, isPanelNavigationPathExact, PANEL_NAVIGATION };
       }
       if (specifier === "./panel-shell.module.css") return styles;
       throw new Error(`unexpected_interactive_panel_navigation_import:${specifier}`);
@@ -506,7 +507,7 @@ async function renderPanelDashboard(
       return { usePanelChromeModel: () => model };
     }
     if (specifier === "@/components/panel/PanelTopbarChrome") {
-      return { PanelTopbarBridge: () => null };
+      return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => actions ?? null };
     }
     if (specifier === "@/lib/catalog-ui/client") {
       return { catalogApi: { getDashboardSummary: async () => undefined } };
@@ -759,7 +760,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
   }
 });
 
-test("create routes keep their index family current without exposing a create navigation child", async () => {
+test("create routes expose the exact donor-approved create navigation child", async () => {
   const html = await renderPanelNavigation("/products/new");
   const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
     .map(([link]) => ({
@@ -767,8 +768,16 @@ test("create routes keep their index family current without exposing a create na
       label: link.replace(/<[^>]*>/g, ""),
     }));
 
-  assert.deepEqual(currentLinks, [{ href: "/products", label: "Tüm ürünler" }]);
-  assert.doesNotMatch(html, /href="\/products\/new"/);
+  assert.deepEqual(currentLinks, [{ href: "/products/new", label: "Yeni ürün" }]);
+  assert.match(html, /href="\/products\/new"/);
+});
+
+test("detail routes keep their family open without claiming the index child as current", async () => {
+  const html = await renderPanelNavigation("/products/11111111-1111-4111-8111-111111111111");
+  const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)];
+  assert.deepEqual(currentLinks, []);
+  assert.match(html, /aria-label="Ürünler alt menüsünü kapat"/);
+  assert.match(html, /href="\/products"/);
 });
 
 test("content and settings hubs remain directly navigable", async () => {
@@ -821,15 +830,20 @@ test("mobile dock is exact, safe-area aware, 48px, reduced-motion, and breakpoin
   const dock = await source("components/panel/PanelMobileDock.tsx");
   const css = await source("components/panel/panel-shell.module.css");
   assert.match(dock, /label:\s*"Özet"/);
+  assert.match(dock, /label:\s*"Siparişler"/);
   assert.match(dock, /label:\s*"Ürünler"/);
   assert.match(dock, />Menü<\/span>/);
-  assert.doesNotMatch(dock, /Sipariş|Toshi|Müşteri|Bildirim/);
+  assert.doesNotMatch(dock, /Toshi|Müşteri|Bildirim/);
   assert.match(css, /max-width:\s*1024px/);
   assert.match(css, /min-width:\s*1025px/);
   assert.match(css, /env\(safe-area-inset-bottom/);
   assert.match(css, /--panel-keyboard-inset/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.doesNotMatch(css, /[.]desktopSidebar\s*,\s*[.]desktopTopbar\s*\{\s*display:\s*none/u);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopSidebar\s*\{\s*display:\s*none/u);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbar\s*\{[\s\S]*?display:\s*flex/u);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbar > div:last-child\s*\{[\s\S]*?display:\s*none/u);
 });
 
 test("crossing into desktop closes an open mobile drawer and releases its modal effects", async () => {
@@ -953,7 +967,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
       "components/panel/PanelMobileDock.tsx",
       (specifier) => {
         if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
-        if (specifier === "lucide-react") return { Home: Icon, Menu: Icon, Package: Icon };
+        if (specifier === "lucide-react") return { Home: Icon, Menu: Icon, Package: Icon, ShoppingBag: Icon };
         if (specifier === "next/link") return Link;
         if (specifier === "@/lib/panel-ui/navigation") {
           return { isPanelNavigationPathActive };
@@ -1155,6 +1169,9 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
   );
   assert.match(view, /analyticsApi[.]dashboard\(analyticsPeriod[.]current\)/);
   assert.match(view, /loader[.]current[?][.]reload\("analytics"\)/);
+  assert.match(view, /<Line[\s\S]*?isAnimationActive=\{false\}/);
+  assert.match(view, /className=\{styles[.]dashboardMobileActions\}/);
+  assert.match(await source("components/dashboard/panel-dashboard.module.css"), /@media \(max-width: 1024px\)[\s\S]*?[.]dashboardMobileActions\s*\{[\s\S]*?display:\s*flex/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
   assert.match(combined, /"\/analytics"/);
   assert.doesNotMatch(view, /provider(?:Data|Payload)|TenantContext/i);
@@ -1238,12 +1255,22 @@ test("dashboard presentation keeps the store-summary anatomy when analytics is u
   assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
   assert.match(html, /<h1 class="visuallyHidden">Mağaza özeti<\/h1>/);
   assert.match(html, /Satış özeti yüklenemedi/);
-  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 1);
+  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 0);
+  assert.match(html, /Doğrulanmış satış kanalı/);
+  assert.match(html, />Analitiği görüntüle</);
   assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
   for (const href of ["/analytics", "/products"]) {
     assert.match(html, new RegExp(`href="${href.replaceAll("/", "\\/")}"`));
   }
   assert.doesNotMatch(html, /Katalog dağılımı|Toplam ürün|Taslak ürün|\/api\/admin/);
+
+  const pendingDashboard = createMerchantDashboardViewModel(
+    Object.freeze({ ...chrome, storefrontHostname: undefined }),
+    readyAuthority(summary, "2026-07-20T12:00:00.000Z"),
+  );
+  const pendingHtml = await renderPanelDashboard(chrome, { dashboard: pendingDashboard, state: "loaded" });
+  assert.match(pendingHtml, /Satış kanalı bekleniyor/);
+  assert.doesNotMatch(pendingHtml, /Doğrulanmış satış kanalı/);
 });
 
 test("dashboard presentation renders one retry control without stale ready data", async () => {
@@ -1319,7 +1346,7 @@ test("dashboard presentation follows the ikas store-summary anatomy using only d
   const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded", analyticsState: "loaded" });
 
   for (const copy of [
-    "Tüm satış kanalları",
+    "Doğrulanmış satış kanalı",
     "Bu ay",
     "Toplam satış",
     "Sipariş sayısı",
@@ -1336,11 +1363,20 @@ test("dashboard presentation follows the ikas store-summary anatomy using only d
     "Atlas Kupa",
     "pilot-store.celebix.site",
     "3 sipariş işlem bekliyor",
+    "Hızlı sipariş",
+    "Ürün ekle",
+    "Yapılacaklar",
+    "3 sipariş işlem bekliyor",
+    "2 stok uyarısı",
+    "1 üründe medya eksik",
+    "Müşteri görünümü",
+    "Siparişleri görüntüle",
   ]) assert.match(html, new RegExp(copy, "i"));
+  assert.doesNotMatch(html, /Tüm operasyonlar/);
   assert.match(html, /aria-label="Mağaza performans metrikleri"/);
   assert.match(html, /aria-label="Kalıcı satış grafiği"/);
   assert.match(html, /href="\/orders"/);
-  assert.doesNotMatch(html, /Oturum sayısı|Dönüşüm oranı|Ziyaretçi|Katalog dağılımı|Hızlı işlemler/);
+  assert.doesNotMatch(html, /Oturum sayısı|Dönüşüm oranı|Ziyaretçi|Katalog dağılımı/);
   assert.doesNotMatch(html, /Etkin mağaza|Mağaza sahibi|free_starter|\/api\/admin/);
 });
 

@@ -181,6 +181,44 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
     props.dashboard.orders.state === "ready"
       ? props.dashboard.orders.value.pendingOrders
       : 0;
+  const catalog = props.dashboard.catalog.state === "ready"
+    ? props.dashboard.catalog.value
+    : undefined;
+  const carts = props.dashboard.carts.state === "ready"
+    ? props.dashboard.carts.value
+    : undefined;
+  const customers = props.dashboard.customers.state === "ready"
+    ? props.dashboard.customers.value
+    : undefined;
+  const outOfStockVariants = catalog?.metrics.find(
+    ({ key }) => key === "out-of-stock",
+  )?.value ?? 0;
+  const tasks = [
+    ...(pendingOrders > 0 ? [{
+      key: "orders",
+      label: `${pendingOrders.toLocaleString("tr-TR")} sipariş işlem bekliyor`,
+      detail: "Sipariş akışını gözden geçirin",
+      href: "/orders",
+    }] : []),
+    ...(outOfStockVariants > 0 ? [{
+      key: "stock",
+      label: `${outOfStockVariants.toLocaleString("tr-TR")} stok uyarısı`,
+      detail: "Satışa açık varyantları tamamlayın",
+      href: "/products",
+    }] : []),
+    ...((catalog?.productsWithoutMedia ?? 0) > 0 ? [{
+      key: "media",
+      label: `${catalog?.productsWithoutMedia.toLocaleString("tr-TR")} üründe medya eksik`,
+      detail: "Ürün görsellerini tamamlayın",
+      href: "/products",
+    }] : []),
+    ...((carts?.abandoned ?? 0) > 0 ? [{
+      key: "carts",
+      label: `${carts?.abandoned.toLocaleString("tr-TR")} terk edilen sepet`,
+      detail: `${formatMoney(carts?.lostValueCents ?? 0, carts?.currency ?? "TRY")} bekleyen değer`,
+      href: "/orders/abandoned-carts",
+    }] : []),
+  ] as const;
   const emptyValue = "—";
   const kpis = [
     {
@@ -232,19 +270,24 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
       <PanelTopbarBridge
         title={props.dashboard.title}
         subtitle={props.dashboard.description}
+        actions={(
+          <div className={styles.dashboardTopbarActions} aria-label="Hızlı işlemler">
+            <PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton>
+            <PanelActionButton href="/products/new" primary>Ürün ekle</PanelActionButton>
+          </div>
+        )}
       />
       <h1 className={styles.visuallyHidden}>Mağaza özeti</h1>
+      <nav className={styles.dashboardMobileActions} aria-label="Mobil hızlı işlemler">
+        <PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton>
+        <PanelActionButton href="/products/new" primary>Ürün ekle</PanelActionButton>
+      </nav>
 
       <div className={styles.summaryToolbar} aria-label="Mağaza özeti filtreleri">
-        <button
-          type="button"
-          className={styles.channelFilter}
-          disabled
-          aria-disabled="true"
-        >
+        <div className={styles.channelFilter}>
           <Globe2 aria-hidden="true" />
-          Tüm satış kanalları
-        </button>
+          {hasStorefront ? "Doğrulanmış satış kanalı" : "Satış kanalı bekleniyor"}
+        </div>
         <label className={styles.periodFilter}>
           <CalendarDays aria-hidden="true" />
           <span className={styles.visuallyHidden}>Dönem</span>
@@ -355,6 +398,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
                     strokeWidth={3}
                     dot={false}
                     activeDot={{ r: 5 }}
+                    isAnimationActive={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -389,7 +433,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
               {hasStorefront ? "Etkin" : "Bekliyor"}
             </span>
           </article>
-          <PanelActionButton href="/analytics">Tümünü görüntüle</PanelActionButton>
+          <PanelActionButton href="/analytics">Analitiği görüntüle</PanelActionButton>
         </div>
       </section>
 
@@ -455,6 +499,41 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
               <dd>{analytics ? analytics.growth.totalCustomers.toLocaleString("tr-TR") : emptyValue}</dd>
             </div>
           </dl>
+        </section>
+      </div>
+
+      <div className={styles.operationsGrid}>
+        <section className={styles.operationsPanel} aria-labelledby="todo-title">
+          <header>
+            <h2 id="todo-title">Yapılacaklar</h2>
+            <PanelActionButton href="/orders">Siparişleri görüntüle</PanelActionButton>
+          </header>
+          {tasks.length > 0 ? (
+            <ul className={styles.taskList}>
+              {tasks.map((task) => (
+                <li key={task.key}>
+                  <div>
+                    <strong>{task.label}</strong>
+                    <small>{task.detail}</small>
+                  </div>
+                  <PanelActionButton href={task.href}>Aç</PanelActionButton>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.operationsEmpty}>Bugün kritik aksiyon yok.</p>
+          )}
+        </section>
+
+        <section className={styles.operationsPanel} aria-labelledby="customer-view-title">
+          <header><h2 id="customer-view-title">Müşteri görünümü</h2></header>
+          <dl className={styles.customerFacts}>
+            <div><dt>Aktif müşteri</dt><dd>{customers ? customers.active.toLocaleString("tr-TR") : emptyValue}</dd></div>
+            <div><dt>E-posta izni</dt><dd>{customers ? customers.consentedEmail.toLocaleString("tr-TR") : emptyValue}</dd></div>
+            <div><dt>Toplam harcama</dt><dd>{customers ? formatMoney(customers.totalSpentCents, customers.currency) : emptyValue}</dd></div>
+            <div><dt>Terk edilen sepet</dt><dd>{carts ? carts.abandoned.toLocaleString("tr-TR") : emptyValue}</dd></div>
+          </dl>
+          <PanelActionButton href="/customers">Müşterileri görüntüle</PanelActionButton>
         </section>
       </div>
     </PanelPageShell>

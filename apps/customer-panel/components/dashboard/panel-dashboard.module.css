@@ -43,11 +43,6 @@
   flex: 0 0 auto;
 }
 
-.channelFilter:disabled {
-  cursor: not-allowed;
-  opacity: 1;
-}
-
 .periodFilter { padding-right: .25rem; }
 
 .periodFilter select {
@@ -61,7 +56,6 @@
   cursor: pointer;
 }
 
-.channelFilter:focus-visible,
 .periodFilter:focus-within,
 .retryButton:focus-visible {
   outline: 3px solid rgb(254 97 0 / 30%);
@@ -145,13 +139,106 @@
 
 .performancePanel,
 .bestSellers,
-.growthPanel {
+.growthPanel,
+.operationsPanel {
   min-width: 0;
   border: 1px solid #E6EAF0;
   border-radius: .5rem;
   background: #FFFFFF;
   box-shadow: 0 1px 2px rgb(18 25 38 / 3%);
 }
+
+.dashboardTopbarActions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.dashboardMobileActions {
+  display: none;
+  align-items: center;
+  gap: .75rem;
+}
+
+.operationsGrid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, .8fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.operationsPanel {
+  padding: 1.25rem;
+}
+
+.operationsPanel > header,
+.operationsPanel > header:first-child {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.operationsPanel h2,
+.taskList strong,
+.taskList small,
+.customerFacts dt,
+.customerFacts dd,
+.operationsEmpty { margin: 0; }
+
+.operationsPanel h2 {
+  color: #1F2937;
+  font-size: 1rem;
+  letter-spacing: -.02em;
+}
+
+.taskList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.taskList li {
+  display: flex;
+  min-width: 0;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid #EEF1F5;
+  padding: .65rem 0;
+}
+
+.taskList li:first-child { border-top: 0; }
+.taskList li > div { display: grid; min-width: 0; gap: .2rem; }
+.taskList strong { color: #344054; font-size: .875rem; }
+.taskList small { color: #7B8495; font-size: .75rem; }
+.taskList a { flex: 0 0 auto; }
+
+.customerFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  margin: 0 0 1rem;
+}
+
+.customerFacts div {
+  display: grid;
+  min-width: 0;
+  gap: .25rem;
+  border: 1px solid #EEF1F5;
+  border-radius: .5rem;
+  padding: .75rem;
+}
+
+.customerFacts dt { color: #7B8495; font-size: .75rem; font-weight: 700; }
+.customerFacts dd { color: #1F2937; font-size: 1rem; font-weight: 800; overflow-wrap: anywhere; }
+.operationsEmpty { min-height: 64px; color: #697586; font-size: .875rem; }
 
 .performancePanel { overflow: hidden; }
 .kpiViewport { min-width: 0; overflow-x: auto; }
@@ -353,11 +440,14 @@
 .growthPanel dd { margin: 0; color: #27303F; font-size: .875rem; font-weight: 800; text-align: right; overflow-wrap: anywhere; }
 
 @media (max-width: 1024px) {
+  .dashboardMobileActions { display: flex; }
+  .dashboardMobileActions > a { flex: 1; }
   .summaryToolbar { flex-wrap: wrap; }
   .updatedAt { width: 100%; margin-left: 0; }
   .readinessBanner { grid-template-columns: auto minmax(0, 1fr); }
   .readinessBanner > a { grid-column: 1 / -1; }
   .insightGrid { grid-template-columns: 1fr; }
+  .operationsGrid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
@@ -379,12 +469,18 @@
   .channelSummary > a { width: 100%; }
   .productList li { grid-template-columns: auto minmax(0, 1fr); }
   .productList li > span:last-child { grid-column: 2; }
+  .dashboardTopbarActions { display: none; }
+  .operationsPanel { padding: 1rem; }
+  .operationsPanel > header { align-items: flex-start; }
+  .taskList li { align-items: flex-start; }
+  .customerFacts { grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .summaryToolbar *,
   .performancePanel *,
-  .insightGrid * {
+  .insightGrid *,
+  .operationsGrid * {
     scroll-behavior: auto !important;
     animation-duration: .01ms !important;
     transition-duration: .01ms !important;

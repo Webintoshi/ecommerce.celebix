@@ -52,6 +52,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   isPanelNavigationPathActive,
+  isPanelNavigationPathExact,
   PANEL_NAVIGATION,
   type PanelNavigationHref,
   type PanelNavigationIcon,
@@ -114,10 +115,16 @@ function getCurrentNavigationHref(
 ): PanelNavigationHref | undefined {
   let currentHref: PanelNavigationHref | undefined;
   for (const item of NAVIGATION) {
-    const links = [item, ...(item.children ?? [])];
+    const hasIndexChild = item.children?.some((child) => child.href === item.href) ?? false;
+    const links = item.children?.length
+      ? [...(hasIndexChild ? [] : [item]), ...item.children]
+      : [item];
     for (const link of links) {
+      const indexChild = Boolean(item.children?.length && link.href === item.href);
       if (
-        isPanelNavigationPathActive(pathname, link.href) &&
+        (indexChild
+          ? isPanelNavigationPathExact(pathname, link.href)
+          : isPanelNavigationPathActive(pathname, link.href)) &&
         (!currentHref || link.href.length > currentHref.length)
       ) {
         currentHref = link.href;

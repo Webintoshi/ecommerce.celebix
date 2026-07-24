@@ -7,7 +7,9 @@ export type PanelNavigationHref =
   | "/customers"
   | "/customers/segments"
   | "/customers/tags"
+  | "/customers/new"
   | "/products"
+  | "/products/new"
   | "/products/collections"
   | "/products/brands"
   | "/products/attributes"
@@ -24,6 +26,7 @@ export type PanelNavigationHref =
   | "/products/shopify-converter"
   | "/products/bulk-upload"
   | "/discounts"
+  | "/discounts/new"
   | "/discounts/lucky-wheel"
   | "/marketing"
   | "/marketing/email"
@@ -140,10 +143,12 @@ const CUSTOMER_CHILDREN = Object.freeze([
   item("all-customers", "Tüm Müşteriler", "/customers", "customers"),
   item("customer-segments", "Segmentler", "/customers/segments", "segments"),
   item("customer-tags", "Etiketler", "/customers/tags", "tags"),
+  item("new-customer", "Yeni müşteri", "/customers/new", "customers"),
 ]);
 
 const CATALOG_CHILDREN = Object.freeze([
   item("products", "Tüm ürünler", "/products", "products"),
+  item("new-product", "Yeni ürün", "/products/new", "products"),
   item("collections", "Koleksiyonlar", "/products/collections", "collections"),
   item("brands", "Markalar", "/products/brands", "brands"),
   item("attributes", "Nitelikler", "/products/attributes", "attributes"),
@@ -163,6 +168,7 @@ const CATALOG_CHILDREN = Object.freeze([
 
 const DISCOUNT_CHILDREN = Object.freeze([
   item("all-discounts", "Tüm İndirimler", "/discounts", "discounts"),
+  item("new-discount", "Yeni indirim", "/discounts/new", "discounts"),
   item("lucky-wheel", "Şans Çarkı", "/discounts/lucky-wheel", "lucky-wheel"),
 ]);
 
@@ -381,6 +387,20 @@ function routeMatches(pathname: string, href: PanelNavigationHref): boolean {
     && hrefSegments.every((segment, index) => pathnameSegments[index] === segment);
 }
 
+export function isPanelNavigationPathExact(
+  pathname: string,
+  href: PanelNavigationHref,
+): boolean {
+  const pathnameSegments = decodedPathSegments(pathname);
+  const hrefSegments = decodedPathSegments(href);
+  return Boolean(
+    pathnameSegments
+    && hrefSegments
+    && pathnameSegments.length === hrefSegments.length
+    && hrefSegments.every((segment, index) => pathnameSegments[index] === segment),
+  );
+}
+
 const FAMILY_HREFS = new Set<PanelNavigationHref>(
   PANEL_NAVIGATION.filter(({ children }) => children?.length).map(({ href }) => href),
 );
@@ -426,11 +446,53 @@ function oneSegmentDescendant(pathname: string, base: string): string | null {
   return detail && !detail.includes("/") ? detail : null;
 }
 
+const DYNAMIC_TITLES = Object.freeze<readonly Readonly<{
+  pattern: readonly string[];
+  presentation: PanelRoutePresentation;
+}>[]>([
+  { pattern: ["customers", "*", "edit"], presentation: presentation("Müşteriyi düzenle") },
+  { pattern: ["products", "collections", "new"], presentation: presentation("Yeni koleksiyon") },
+  { pattern: ["products", "collections", "*", "edit"], presentation: presentation("Koleksiyonu düzenle") },
+  { pattern: ["products", "brands", "new"], presentation: presentation("Yeni marka") },
+  { pattern: ["products", "brands", "*", "edit"], presentation: presentation("Markayı düzenle") },
+  { pattern: ["products", "attributes", "new"], presentation: presentation("Yeni nitelik") },
+  { pattern: ["products", "attributes", "*", "edit"], presentation: presentation("Niteliği düzenle") },
+  { pattern: ["products", "extras", "new"], presentation: presentation("Yeni ekstra") },
+  { pattern: ["products", "extras", "*", "edit"], presentation: presentation("Ekstrayı düzenle") },
+  { pattern: ["products", "extras", "*", "preview"], presentation: presentation("Ekstra önizlemesi") },
+  { pattern: ["products", "definitions", "new"], presentation: presentation("Yeni tanımlama") },
+  { pattern: ["products", "definitions", "*", "edit"], presentation: presentation("Tanımlamayı düzenle") },
+  { pattern: ["products", "tags", "new"], presentation: presentation("Yeni etiket") },
+  { pattern: ["products", "tags", "*", "edit"], presentation: presentation("Etiketi düzenle") },
+  { pattern: ["products", "purchasing", "new"], presentation: presentation("Yeni satın alma") },
+  { pattern: ["products", "inventory-counts", "new"], presentation: presentation("Yeni stok sayımı") },
+  { pattern: ["products", "transfers", "new"], presentation: presentation("Yeni stok transferi") },
+  { pattern: ["products", "price-lists", "new"], presentation: presentation("Yeni fiyat listesi") },
+  { pattern: ["orders", "*", "print"], presentation: presentation("Siparişi yazdır") },
+  { pattern: ["discounts", "*", "edit"], presentation: presentation("İndirimi düzenle") },
+  { pattern: ["content", "blog", "new"], presentation: presentation("Yeni blog yazısı") },
+  { pattern: ["content", "blog", "*", "edit"], presentation: presentation("Blog yazısını düzenle") },
+  { pattern: ["content", "pages", "new"], presentation: presentation("Yeni sayfa") },
+  { pattern: ["content", "pages", "*", "edit"], presentation: presentation("Sayfayı düzenle") },
+  { pattern: ["content", "policies", "new"], presentation: presentation("Yeni politika") },
+  { pattern: ["content", "policies", "*", "edit"], presentation: presentation("Politikayı düzenle") },
+  { pattern: ["settings", "payment", "new"], presentation: presentation("Yeni ödeme ayarı") },
+  { pattern: ["settings", "payment", "*", "edit"], presentation: presentation("Ödeme ayarını düzenle") },
+]);
+
+function dynamicPresentation(pathname: string): PanelRoutePresentation | null {
+  const segments = pathname.slice(1).split("/");
+  return DYNAMIC_TITLES.find(({ pattern }) => pattern.length === segments.length
+    && pattern.every((segment, index) => segment === "*" || segment === segments[index]))?.presentation ?? null;
+}
+
 export function getPanelRoutePresentation(pathname: string): PanelRoutePresentation {
   const path = canonicalPath(pathname);
   if (!path) return PANEL_ROUTE_PRESENTATIONS.summary;
   const exact = TITLES[path];
   if (exact) return exact;
+  const dynamic = dynamicPresentation(path);
+  if (dynamic) return dynamic;
 
   const operation = ([
     ["/products/purchasing", PANEL_ROUTE_PRESENTATIONS.purchaseDetail],

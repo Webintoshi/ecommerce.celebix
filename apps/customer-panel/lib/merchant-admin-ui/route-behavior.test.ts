@@ -685,6 +685,23 @@ test("merchant route matrix invokes every actual page, production console, clien
     assert.ok(paths.includes(`/api/merchant-admin/records/${kind}`), `/marketing:${kind}`);
   }
   assert.match(textOf(marketingView).replace(/\s+/gu, " "), /E-posta 1 Kalıcı kampanya kaydı Yönet/u);
+  const readOnlyMarketingHooks = createHookRuntime();
+  const ReadOnlyMarketingOverview = await compileComponent(
+    "../../components/merchant-admin/MerchantMarketingOverview.tsx",
+    "MerchantMarketingOverview",
+    readOnlyMarketingHooks.runtime,
+    {
+      "@/components/panel/PanelPageShell": panelComponents(),
+      "@/lib/merchant-admin-ui/client": { MerchantAdminApiError, merchantAdminApi: api },
+    },
+  );
+  const readOnlyMarketingView = await readOnlyMarketingHooks.flush(() => ReadOnlyMarketingOverview({ canManage: false }));
+  const readOnlyDestinations: string[] = [];
+  visitElements(readOnlyMarketingView, (element) => {
+    if (typeof element.props.href === "string") readOnlyDestinations.push(element.props.href);
+  });
+  assert.deepEqual(readOnlyDestinations, ["/marketing/email", "/marketing/phone", "/marketing/whatsapp"]);
+  assert.match(textOf(readOnlyMarketingView).replace(/\s+/gu, " "), /E-posta 1 Kalıcı kampanya kaydı Görüntüle/u);
 });
 
 test("merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay", async () => {
@@ -958,13 +975,17 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
   const cases = [
     {
       route: "/settings",
+      title: "Ayarlar",
       module: "@/components/merchant-admin/MerchantFamilyOverview",
       exportName: "MerchantFamilyOverview",
       Component: FamilyOverview,
-      destinations: MERCHANT_MODULE_DEFINITIONS.filter(({ family }) => family === "settings").map(({ route }) => route),
+      destinations: MERCHANT_MODULE_DEFINITIONS
+        .filter(({ family }) => family === "settings")
+        .flatMap(({ route }) => route === "/settings/general" ? [route, "/settings/design"] : [route]),
     },
     {
       route: "/content",
+      title: "İçerik",
       module: "@/components/merchant-admin/MerchantFamilyOverview",
       exportName: "MerchantFamilyOverview",
       Component: FamilyOverview,
@@ -972,6 +993,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     },
     {
       route: "/settings/design",
+      title: null,
       module: "@/components/settings/DesignSettingsHub",
       exportName: "DesignSettingsHub",
       Component: DesignHub,
@@ -983,6 +1005,11 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     const pageTree = await Page();
     const componentElement = findElement(pageTree, (element) => element.type === entry.Component);
     const view = entry.Component(componentElement.props);
+    if (entry.title) {
+      const heading = findElement(view, (element) => element.props.title === entry.title);
+      assert.equal(heading.props.title, entry.title, `${entry.route}:visible-heading`);
+      assert.equal(typeof heading.props.description, "string", `${entry.route}:visible-description`);
+    }
     const destinations: string[] = [];
     visitElements(view, (element) => {
       if (typeof element.props.href === "string") destinations.push(element.props.href);

@@ -41,7 +41,9 @@ test("contains every and only currently working merchant destination", () => {
       "/customers",
       "/customers/segments",
       "/customers/tags",
+      "/customers/new",
       "/products",
+      "/products/new",
       "/products/collections",
       "/products/brands",
       "/products/attributes",
@@ -58,6 +60,7 @@ test("contains every and only currently working merchant destination", () => {
       "/products/shopify-converter",
       "/products/bulk-upload",
       "/discounts",
+      "/discounts/new",
       "/discounts/lucky-wheel",
       "/marketing",
       "/marketing/email",
@@ -102,13 +105,16 @@ test("contains every and only currently working merchant destination", () => {
   );
 });
 
-test("navigation contains index and configuration surfaces but never create, edit, detail, preview, or print routes", () => {
+test("navigation exposes donor-approved create shortcuts but never edit, detail, preview, or print routes", () => {
   const hrefs = PANEL_NAVIGATION.flatMap((item) => [
     item.href,
     ...(item.children ?? []).map((child) => child.href),
   ]);
   for (const href of [
     "/analytics",
+    "/customers/new",
+    "/products/new",
+    "/discounts/new",
     "/products/tags",
     "/products/barcode-labels",
     "/products/purchasing",
@@ -122,15 +128,12 @@ test("navigation contains index and configuration surfaces but never create, edi
     "/seo/products",
   ] as const) assert.equal(hrefs.includes(href), true, href);
   for (const forbidden of [
-    "/customers/new",
-    "/products/new",
-    "/discounts/new",
     "/products/price-lists/new",
     "/products/extras/resource/edit",
     "/products/extras/resource/preview",
     "/orders/order/print",
   ]) assert.equal(hrefs.includes(forbidden as never), false, forbidden);
-  assert.equal(hrefs.some((href) => /(?:^|\/)new(?:\/|$)|\/edit(?:\/|$)|\/preview(?:\/|$)|\/print(?:\/|$)|\[[^/]+\]/.test(href)), false);
+  assert.equal(hrefs.some((href) => /\/edit(?:\/|$)|\/preview(?:\/|$)|\/print(?:\/|$)|\[[^/]+\]/.test(href)), false);
 });
 
 test("legacy donor spellings stay inert while canonical safe targets remain navigable", () => {
@@ -218,7 +221,7 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
 });
 
 test("inventory operations are exact catalog destinations with safe detail descendants", () => {
@@ -450,6 +453,35 @@ test("keeps product presentations behind exact routes and a single-segment slash
       productTitles.has(getPanelRoutePresentation(pathname).title),
       false,
     );
+  }
+});
+
+test("presents every mounted create edit preview and print route truthfully on first paint", () => {
+  const cases = [
+    ["/customers/customer-123/edit", "Müşteriyi düzenle"],
+    ["/products/collections/new", "Yeni koleksiyon"],
+    ["/products/collections/collection-123/edit", "Koleksiyonu düzenle"],
+    ["/products/brands/new", "Yeni marka"],
+    ["/products/attributes/attribute-123/edit", "Niteliği düzenle"],
+    ["/products/extras/extra-123/preview", "Ekstra önizlemesi"],
+    ["/products/definitions/new", "Yeni tanımlama"],
+    ["/products/tags/tag-123/edit", "Etiketi düzenle"],
+    ["/products/purchasing/new", "Yeni satın alma"],
+    ["/products/inventory-counts/new", "Yeni stok sayımı"],
+    ["/products/transfers/new", "Yeni stok transferi"],
+    ["/products/price-lists/new", "Yeni fiyat listesi"],
+    ["/orders/order-123/print", "Siparişi yazdır"],
+    ["/discounts/discount-123/edit", "İndirimi düzenle"],
+    ["/content/blog/new", "Yeni blog yazısı"],
+    ["/content/blog/post-123/edit", "Blog yazısını düzenle"],
+    ["/content/pages/new", "Yeni sayfa"],
+    ["/content/policies/policy-123/edit", "Politikayı düzenle"],
+    ["/settings/payment/new", "Yeni ödeme ayarı"],
+    ["/settings/payment/payment-123/edit", "Ödeme ayarını düzenle"],
+  ] as const;
+
+  for (const [pathname, title] of cases) {
+    assert.equal(getPanelRoutePresentation(pathname).title, title, pathname);
   }
 });
 

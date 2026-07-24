@@ -44,6 +44,22 @@ test("analytics and typed storefront setting pages are server-authorized routes"
   }
 });
 
+test("analytics mounts one shared shell while orders keep their existing page-owned and print-safe boundaries", async () => {
+  const analyticsLayout = await readFile(new URL("../app/analytics/layout.tsx", import.meta.url), "utf8");
+  assert.match(analyticsLayout, /requireServerPanelAccess\(\)/);
+  assert.match(analyticsLayout, /<PanelShell tenantContext=\{tenantContext\}>\{children\}<\/PanelShell>/);
+  await assert.rejects(
+    readFile(new URL("../app/orders/layout.tsx", import.meta.url), "utf8"),
+    (error: NodeJS.ErrnoException) => error.code === "ENOENT",
+  );
+  for (const path of ["../app/orders/page.tsx", "../app/orders/[orderId]/page.tsx"] as const) {
+    const page = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(page, /<PanelShell model=\{createPanelChromeModel\(access[.]tenantContext\)\}>/);
+  }
+  const printPage = await readFile(new URL("../app/orders/[orderId]/print/page.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(printPage, /PanelShell|createPanelChromeModel/);
+});
+
 test("advanced SEO and AI pages expose only fixed server-authorized kinds", async () => {
   const pages = [
     ["../app/seo/geo-optimization/page.tsx", "seo_geo_profile", "integrations.manage"],
@@ -385,7 +401,7 @@ test("completed index and configuration routes have literal navigation destinati
     "/seo/products",
   ]) assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
   for (const href of ["/customers/new", "/products/new", "/discounts/new"]) {
-    assert.doesNotMatch(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
+    assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
   }
 });
 
