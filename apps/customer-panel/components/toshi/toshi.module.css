@@ -1,18 +1,20 @@
 .drawerLayer {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
   z-index: 80;
 }
 
-.backdrop {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  min-width: 48px;
-  min-height: 48px;
-  border: 0;
+.drawerLayer::backdrop {
   background: rgb(17 24 39 / 46%);
-  cursor: default;
 }
 
 .drawer {

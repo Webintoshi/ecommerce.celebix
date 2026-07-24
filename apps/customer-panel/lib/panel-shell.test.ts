@@ -45,13 +45,17 @@ interface HookInstance {
 interface HookTestDocumentState {
   activeElement: HookTestHost | null;
   canReceiveFocus?: (element: HookTestHost) => boolean;
+  modalRoot?: HookTestHost | null;
 }
 
 class HookTestHost {
   readonly children: HookTestHost[] = [];
+  closeCount = 0;
   focusCount = 0;
   focusAttemptCount = 0;
+  open = false;
   parent: HookTestHost | null = null;
+  showModalCount = 0;
 
   constructor(
     readonly type: string,
@@ -75,9 +79,24 @@ class HookTestHost {
 
   focus(): void {
     this.focusAttemptCount += 1;
+    if (this.documentState.modalRoot && !this.documentState.modalRoot.contains(this)) return;
     if (this.documentState.canReceiveFocus?.(this) === false) return;
     this.focusCount += 1;
     this.documentState.activeElement = this;
+  }
+
+  close(): void {
+    this.closeCount += 1;
+    this.open = false;
+    if (this.documentState.modalRoot === this) this.documentState.modalRoot = null;
+  }
+
+  showModal(): void {
+    assert.equal(this.type, "dialog", "showModal is only available on dialog hosts");
+    assert.equal(this.open, false, "dialog is already open");
+    this.showModalCount += 1;
+    this.open = true;
+    this.documentState.modalRoot = this;
   }
 
   querySelectorAll(): HookTestHost[] {
@@ -638,21 +657,133 @@ test("Toshi drawer is an accessible modal with complete close and focus-return b
   assert.match(utilities, /<ToshiDrawer[\s\S]*?open=\{helpOpen\}[\s\S]*?launcherRef=\{helpButtonRef\}[\s\S]*?onClose=/);
   assert.match(utilities, /aria-controls="toshi-assistant-drawer"/);
   assert.match(drawer, /id="toshi-assistant-drawer"/);
-  assert.match(drawer, /role="dialog"/);
+  assert.match(drawer, /<dialog/);
+  assert.match(drawer, /[.]showModal\(\)/);
   assert.match(drawer, /aria-modal="true"/);
   assert.match(drawer, /aria-labelledby="toshi-assistant-title"/);
-  assert.match(drawer, /event[.]key === "Escape"[\s\S]*?onClose\(\)/);
-  assert.match(drawer, /className=\{styles[.]backdrop\}[\s\S]*?onClick=\{onClose\}/);
+  assert.match(drawer, /onCancel=/);
+  assert.match(drawer, /event[.]target === event[.]currentTarget/);
+  assert.doesNotMatch(drawer, /<button[\s\S]*?styles[.]backdrop/);
   assert.match(drawer, /aria-label="Toshi asistanını kapat"[\s\S]*?onClick=\{onClose\}/);
   assert.match(drawer, /launcherRef[.]current[?][.]focus\(\)/);
   assert.match(drawer, /document[.]body[.]style[.]overflow = "hidden"/);
   assert.match(drawer, /href="\/toshi"/);
 
   assert.match(styles, /[.]drawer\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?width:\s*min\(27rem,\s*calc\(100vw - 1rem\)\)/);
+  assert.match(styles, /[.]drawerLayer::backdrop\s*\{/);
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)[\s\S]*?[.]drawer\s*\{[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100dvh;/);
   assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?[.]drawer\s*\{[\s\S]*?transition-duration:\s*0[.]01ms;/);
   assert.match(styles, /min-height:\s*48px/);
   assert.match(styles, /min-width:\s*48px/);
+});
+
+test("Toshi drawer native modal contains focus and closes by backdrop, Escape, and button", async () => {
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+
+  async function exerciseClose(method: "backdrop" | "button" | "escape") {
+    const documentState: HookTestDocumentState & { body: { style: { overflow: string } } } = {
+      activeElement: null,
+      body: { style: { overflow: "visible" } },
+      modalRoot: null,
+    };
+    Object.defineProperty(globalThis, "document", { configurable: true, value: documentState });
+    const launcher = new HookTestHost("button", { "aria-label": "Bana Sorun" }, documentState);
+    const outside = new HookTestHost("a", { href: "/products" }, documentState);
+    const EmptyRoot: HookTestComponent = () => null;
+    const harness = createPanelInteractionHarness(EmptyRoot, {}, documentState);
+    const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
+    const Image: HookTestComponent = (props) => harness.jsxRuntime.jsx("img", props);
+    const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
+    const ToshiAssistant: HookTestComponent = () => harness.jsxRuntime.jsx("form", {});
+    const ToshiDrawer = await compileHookTestComponent(
+      "components/toshi/ToshiDrawer.tsx",
+      (specifier) => {
+        if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+        if (specifier === "react") return harness.react;
+        if (specifier === "next/image") return Image;
+        if (specifier === "next/link") return Link;
+        if (specifier === "lucide-react") return { ArrowUpRight: Icon, X: Icon };
+        if (specifier === "./ToshiAssistant") return { ToshiAssistant };
+        if (specifier === "./toshi.module.css") return styles;
+        throw new Error(`unexpected_toshi_drawer_import:${specifier}`);
+      },
+    );
+    let open = true;
+    let closeCount = 0;
+    const Root: HookTestComponent = () => harness.jsxRuntime.jsx(ToshiDrawer, {
+      launcherRef: { current: launcher },
+      onClose() {
+        closeCount += 1;
+        open = false;
+        harness.setRoot(Root);
+      },
+      open,
+    });
+    harness.setRoot(Root);
+    harness.flush();
+
+    const dialog = harness.hosts().find((host) => host.type === "dialog");
+    const title = harness.hosts().find((host) => host.props.id === "toshi-assistant-title");
+    const closeButton = harness.hosts().find((host) => host.props["aria-label"] === "Toshi asistanını kapat");
+    const workspaceLink = harness.hosts().find((host) => host.type === "a" && host.props.href === "/toshi");
+    assert.ok(dialog);
+    assert.ok(title);
+    assert.ok(closeButton);
+    assert.ok(workspaceLink);
+    assert.equal(dialog.showModalCount, 1);
+    assert.equal(dialog.open, true);
+    assert.equal(documentState.modalRoot, dialog);
+    assert.equal(documentState.activeElement, title);
+    assert.equal(documentState.body.style.overflow, "hidden");
+    assert.equal(harness.hosts().some((host) => host.type === "button" && host.props.className === "backdrop"), false);
+
+    outside.focus();
+    assert.equal(outside.focusCount, 0, "native modal must make background controls inert");
+    assert.equal(documentState.activeElement, title);
+    workspaceLink.focus();
+    assert.equal(documentState.activeElement, workspaceLink, "Tab destination must remain inside the dialog");
+
+    if (method === "backdrop") {
+      (dialog.props.onClick as (event: { currentTarget: HookTestHost; target: HookTestHost }) => void)({
+        currentTarget: dialog,
+        target: dialog,
+      });
+    } else if (method === "button") {
+      (closeButton.props.onClick as () => void)();
+    } else {
+      let prevented = false;
+      (dialog.props.onCancel as (event: { preventDefault(): void }) => void)({
+        preventDefault() { prevented = true; },
+      });
+      assert.equal(prevented, true);
+    }
+    harness.flush();
+
+    assert.equal(closeCount, 1);
+    assert.equal(dialog.open, false);
+    assert.equal(dialog.closeCount, 1);
+    assert.equal(documentState.modalRoot, null);
+    assert.equal(documentState.body.style.overflow, "visible");
+    assert.equal(documentState.activeElement, launcher);
+    assert.equal(launcher.focusCount, 1);
+    harness.unmount();
+  }
+
+  try {
+    await exerciseClose("backdrop");
+    await exerciseClose("escape");
+    await exerciseClose("button");
+  } finally {
+    if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
+    else Reflect.deleteProperty(globalThis, "document");
+  }
 });
 
 test("Toshi conversation executes one abortable local command without seeded or mutation data", async () => {
@@ -678,6 +809,82 @@ test("Toshi conversation executes one abortable local command without seeded or 
   assert.match(assistant, />Ürünlere git</);
   assert.doesNotMatch(assistant, /storeId|tenantId|principalId|membershipId|planId|authorization|x-celebix|\/api\/admin/i);
   assert.match(workspace, /<ToshiAssistant mode="page"/);
+});
+
+test("Toshi assistant denies blank submits, locks concurrent requests, and aborts on unmount", async () => {
+  type ExecuteCall = Readonly<{ intent: unknown; signal: AbortSignal }>;
+  const calls: ExecuteCall[] = [];
+  let resolveExecute: ((value: { text: string; sources: readonly [] }) => void) | undefined;
+  const executePromise = new Promise<{ text: string; sources: readonly [] }>((resolve) => {
+    resolveExecute = resolve;
+  });
+  const EmptyRoot: HookTestComponent = () => null;
+  const harness = createPanelInteractionHarness(EmptyRoot, { mode: "drawer" }, { activeElement: null });
+  const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
+  const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+  const ToshiAssistant = await compileHookTestComponent(
+    "components/toshi/ToshiAssistant.tsx",
+    (specifier) => {
+      if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+      if (specifier === "react") return harness.react;
+      if (specifier === "next/link") return Link;
+      if (specifier === "lucide-react") return { ArrowRight: Icon, SendHorizonal: Icon };
+      if (specifier === "@/lib/toshi-local/client") return {
+        createToshiLocalClient: () => ({
+          execute(intent: unknown, signal: AbortSignal) {
+            calls.push({ intent, signal });
+            return executePromise;
+          },
+        }),
+      };
+      if (specifier === "@/lib/toshi-local/intent") return {
+        parseToshiLocalIntent: (command: string) => ({ command }),
+      };
+      if (specifier === "./toshi.module.css") return styles;
+      throw new Error(`unexpected_toshi_assistant_import:${specifier}`);
+    },
+  );
+  harness.setRoot(ToshiAssistant);
+  harness.flush();
+
+  const submit = () => {
+    const form = harness.hosts().find((host) => host.type === "form");
+    assert.ok(form);
+    return (form.props.onSubmit as (event: { preventDefault(): void }) => Promise<void>)({ preventDefault() {} });
+  };
+  const changeInput = (value: string) => {
+    const input = harness.hosts().find((host) => host.type === "input");
+    assert.ok(input);
+    (input.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } });
+    harness.flush();
+  };
+
+  await submit();
+  changeInput("   ");
+  await submit();
+  assert.equal(calls.length, 0, "blank and whitespace-only commands must not execute");
+
+  changeInput("bekleyen siparişler");
+  const firstSubmit = submit();
+  const duplicateSubmit = submit();
+  harness.flush();
+  assert.equal(calls.length, 1, "one request must own the pending turn");
+  assert.equal(calls[0]?.signal.aborted, false);
+  assert.equal(harness.hosts().find((host) => host.type === "input")?.props.disabled, true);
+  assert.equal(harness.hosts().find((host) => host.type === "button" && host.props.type === "submit")?.props.disabled, true);
+
+  await duplicateSubmit;
+  harness.unmount();
+  assert.equal(calls[0]?.signal.aborted, true, "unmount must abort the active request");
+  resolveExecute?.({ text: "Yanıt", sources: [] });
+  await firstSubmit;
 });
 
 test("desktop sidebar matches the approved compact Celebix navigation anatomy", async () => {

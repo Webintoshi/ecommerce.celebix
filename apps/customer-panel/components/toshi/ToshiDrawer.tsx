@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, X } from "lucide-react";
-import { type KeyboardEvent, type RefObject, useEffect, useRef } from "react";
+import { type MouseEvent, type RefObject, type SyntheticEvent, useEffect, useRef } from "react";
 
 import { ToshiAssistant } from "./ToshiAssistant";
 import styles from "./toshi.module.css";
@@ -17,14 +17,19 @@ export function ToshiDrawer({
   launcherRef: RefObject<HTMLButtonElement | null>;
   onClose(): void;
 }>) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    if (!dialog.open) dialog.showModal();
     titleRef.current?.focus();
     return () => {
+      if (dialog.open) dialog.close();
       document.body.style.overflow = previousOverflow;
       launcherRef.current?.focus();
     };
@@ -32,25 +37,27 @@ export function ToshiDrawer({
 
   if (!open) return null;
 
-  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape") onClose();
+  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault();
+    onClose();
+  }
+
+  function handleBackdropClick(event: MouseEvent<HTMLDialogElement>) {
+    if (event.target === event.currentTarget) onClose();
   }
 
   return (
-    <div className={styles.drawerLayer}>
-      <button
-        className={styles.backdrop}
-        type="button"
-        aria-label="Toshi asistanını kapat"
-        onClick={onClose}
-      />
+    <dialog
+      ref={dialogRef}
+      id="toshi-assistant-drawer"
+      className={styles.drawerLayer}
+      aria-modal="true"
+      aria-labelledby="toshi-assistant-title"
+      onCancel={handleCancel}
+      onClick={handleBackdropClick}
+    >
       <aside
-        id="toshi-assistant-drawer"
         className={styles.drawer}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="toshi-assistant-title"
-        onKeyDown={handleKeyDown}
       >
         <header className={styles.drawerHeader}>
           <Image
@@ -73,6 +80,6 @@ export function ToshiDrawer({
         </header>
         <ToshiAssistant mode="drawer" />
       </aside>
-    </div>
+    </dialog>
   );
 }
