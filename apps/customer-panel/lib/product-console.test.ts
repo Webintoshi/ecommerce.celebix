@@ -9,6 +9,41 @@ async function source(path: string) {
   return readFile(new URL(path, ROOT), "utf8");
 }
 
+async function productionProductListModule() {
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  const compiled = ts.transpileModule(list, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.React,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  const module = { exports: {} as Record<string, unknown> };
+  const fakeReact = Object.freeze({
+    createElement() { return null; },
+    useCallback: (value: unknown) => value,
+    useEffect() {},
+    useMemo: (value: () => unknown) => value(),
+    useRef: (value: unknown) => ({ current: value }),
+    useState: (value: unknown) => [value, () => undefined],
+  });
+  const requireStub = (specifier: string) => {
+    if (specifier === "react") return fakeReact;
+    if (specifier === "next/link") return () => null;
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => () => null });
+    if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
+    if (specifier === "@/lib/catalog-ui/client") {
+      class CatalogApiError extends Error {
+        code = "unavailable";
+      }
+      return { CatalogApiError, catalogApi: {} };
+    }
+    return {};
+  };
+  Function("require", "module", "exports", compiled)(requireStub, module, module.exports);
+  return module.exports;
+}
+
 test("product routes stay behind the durable server panel access guard", async () => {
   const layout = await source("app/products/layout.tsx");
   assert.match(layout, /requireServerPanelAccess/);
@@ -93,11 +128,12 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const styles = await source("app/globals.css");
-  assert.match(list, /hemenaku-product-hero/);
-  assert.match(list, /hemenaku-catalog-surface/);
+  assert.match(list, /donor-product-page/);
+  assert.match(list, /hemenaku-product-commandbar/);
+  assert.match(list, /hemenaku-product-filters/);
   assert.match(list, /data-presentation="hemenaku-product-list"/);
   assert.match(list, /aria-label="Ürün durumu filtresi"/);
-  assert.match(list, /Ürün kataloğu/);
+  assert.match(list, /PanelTopbarBridge title="Ürünler"/);
   assert.match(create, /hemenaku-wizard-stepper/);
   assert.match(create, /Temel Bilgiler/);
   assert.match(create, /Fiyat ve Stok/);
@@ -106,6 +142,167 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   assert.match(styles, /\.hemenaku-product-hero[^}]*border-radius:\s*30px/s);
   assert.match(styles, /\.catalog-form fieldset[^}]*border-radius:\s*28px/s);
   assert.doesNotMatch(`${list}\n${create}\n${detail}`, /\/api\/admin|\/admin\/urunler|category|image upload|seo|supabase/i);
+});
+
+test("product list follows the approved dense donor toolbar and table contract", async () => {
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  const styles = await source("app/globals.css");
+
+  for (const label of [
+    "Sırala",
+    "İçe Aktar",
+    "Dışa Aktar",
+    "Ürün Ekle",
+    "Tabloda arama yapın",
+    "Filtre",
+    "Tümünü seç",
+    "Toplu İşlemler",
+    "Uygula",
+    "Satır sayısı",
+    "SKU",
+    "Fiyat",
+    "Stok",
+    "Durum",
+    "İşlemler",
+  ]) assert.match(list, new RegExp(label));
+
+  assert.match(list, /PanelTopbarBridge/);
+  assert.match(list, /catalogApi[.]getDashboardSummary/);
+  assert.match(list, /catalogApi[.]getProduct/);
+  assert.match(list, /catalogApi[.]updateProduct/);
+  assert.match(list, /URL[.]createObjectURL/);
+  assert.match(list, /aria-label="Ürün tablosunda ara"/);
+  assert.match(list, /aria-label="Görüntülenen tüm ürünleri seç"/);
+  assert.match(styles, /[.]hemenaku-product-commandbar\s*\{/);
+  assert.match(styles, /[.]hemenaku-product-filters\s*\{/);
+  assert.match(styles, /[.]catalog-table th\s*\{[^}]*background:\s*#EEF2F6/s);
+  assert.doesNotMatch(list, /Ürün kataloğu|KATALOG GÖRÜNÜMÜ|Ürünlerinizi yönetin/);
+  assert.doesNotMatch(list, /\/api\/admin|\/admin\/urunler|document[.]cookie|localStorage|sessionStorage|supabase/i);
+});
+
+test("product list keeps every command available through the mobile fallback at the exact shell breakpoint", async () => {
+  const production = await productionProductListModule() as {
+    resolveProductActionPlacement: (viewportWidth: number) => "inline" | "topbar";
+  };
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  const styles = await source("app/globals.css");
+
+  assert.equal(production.resolveProductActionPlacement(320), "inline");
+  assert.equal(production.resolveProductActionPlacement(1024), "inline");
+  assert.equal(production.resolveProductActionPlacement(1025), "topbar");
+  assert.match(list, /className="product-mobile-commandbar"/);
+  assert.match(styles, /@media \(max-width: 1024px\)[^]*[.]product-mobile-commandbar\s*\{[^}]*display:\s*flex/s);
+  assert.match(styles, /[.]product-mobile-commandbar[^}]*[.]command-button[^}]*min-(?:width|height):\s*48px/s);
+});
+
+test("product operation coordinator suppresses stale reads and mutually excludes canonical mutations", async () => {
+  const production = await productionProductListModule() as {
+    createProductOperationCoordinator: () => {
+      beginRead: () => number | null;
+      beginMutation: () => number | null;
+      beginCanonicalRead: (mutation: number) => number | null;
+      endMutation: (mutation: number) => void;
+      isCurrentRead: (read: number) => boolean;
+    };
+  };
+  const coordinator = production.createProductOperationCoordinator();
+  const oldRead = coordinator.beginRead();
+  const currentRead = coordinator.beginRead();
+  assert.equal(typeof oldRead, "number");
+  assert.equal(typeof currentRead, "number");
+  assert.equal(coordinator.isCurrentRead(oldRead!), false);
+  assert.equal(coordinator.isCurrentRead(currentRead!), true);
+
+  const mutation = coordinator.beginMutation();
+  assert.equal(typeof mutation, "number");
+  assert.equal(coordinator.isCurrentRead(currentRead!), false);
+  assert.equal(coordinator.beginRead(), null);
+  assert.equal(coordinator.beginMutation(), null);
+  const canonicalRead = coordinator.beginCanonicalRead(mutation!);
+  assert.equal(typeof canonicalRead, "number");
+  assert.equal(coordinator.isCurrentRead(canonicalRead!), true);
+  coordinator.endMutation(mutation!);
+  assert.equal(typeof coordinator.beginRead(), "number");
+});
+
+test("bulk executor sends exact persisted versions and reports partial completion without stopping", async () => {
+  const production = await productionProductListModule() as {
+    executeBulkProductAction: (
+      targets: readonly { product: { id: string; version: number; status: string } }[],
+      action: "active" | "draft" | "archive",
+      api: {
+        archiveProduct: (id: string, version: number) => Promise<unknown>;
+        updateProduct: (id: string, input: { expectedVersion: number }) => Promise<unknown>;
+      },
+    ) => Promise<{ completed: number; failed: number }>;
+  };
+  const targets = [
+    { product: { id: "one", version: 7, status: "draft" } },
+    { product: { id: "two", version: 11, status: "draft" } },
+  ];
+  const updates: unknown[] = [];
+  const updateResult = await production.executeBulkProductAction(targets, "active", {
+    archiveProduct: async () => undefined,
+    updateProduct: async (id, input) => { updates.push([id, input.expectedVersion]); },
+  });
+  assert.deepEqual(updates, [["one", 7], ["two", 11]]);
+  assert.deepEqual(updateResult, { completed: 2, failed: 0 });
+
+  const archives: unknown[] = [];
+  const archiveResult = await production.executeBulkProductAction(targets, "archive", {
+    archiveProduct: async (id, version) => {
+      archives.push([id, version]);
+      if (id === "one") throw new Error("expected failure");
+    },
+    updateProduct: async () => undefined,
+  });
+  assert.deepEqual(archives, [["one", 7], ["two", 11]]);
+  assert.deepEqual(archiveResult, { completed: 1, failed: 1 });
+});
+
+test("bulk archive is count-aware and requires confirmation before the destructive executor", async () => {
+  const production = await productionProductListModule() as {
+    bulkArchiveConfirmationMessage: (count: number) => string;
+    requiresBulkConfirmation: (action: string) => boolean;
+  };
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  assert.equal(production.requiresBulkConfirmation("archive"), true);
+  assert.equal(production.requiresBulkConfirmation("active"), false);
+  assert.equal(production.bulkArchiveConfirmationMessage(3), "3 ürün arşivlenecek.");
+  assert.match(list, /setBulkArchiveConfirmation\(true\)/);
+  assert.match(list, /bulkArchiveConfirmationMessage\(selected\.length\)/);
+});
+
+test("CSV export neutralizes spreadsheet formulas and control-leading cells before quoting", async () => {
+  const production = await productionProductListModule() as { csvCell: (value: string | number) => string };
+  for (const dangerous of ["=2+3", "+cmd", "-10+20", "@SUM(A1:A2)", "\t=2+3", "\u0001payload", "  =2+3"]) {
+    const escaped = production.csvCell(dangerous);
+    assert.ok(escaped.startsWith('"\''), dangerous);
+    assert.ok(escaped.endsWith('"'), dangerous);
+  }
+  assert.equal(production.csvCell('normal "ürün"'), '"normal ""ürün"""');
+});
+
+test("product counters distinguish displayed, loaded and durable store totals", async () => {
+  const production = await productionProductListModule() as {
+    productCountLabels: (displayed: number, loaded: number, storeTotal?: number) => readonly string[];
+  };
+  assert.deepEqual(
+    production.productCountLabels(3, 20, 61),
+    ["3 görüntüleniyor", "20 yüklendi", "61 mağazada"],
+  );
+  assert.deepEqual(
+    production.productCountLabels(0, 0),
+    ["0 görüntüleniyor", "0 yüklendi", "Mağaza toplamı yükleniyor"],
+  );
+});
+
+test("dense product controls expose a 48px hit area without enlarging their visual glyphs", async () => {
+  const styles = await source("app/globals.css");
+  assert.match(styles, /[.]product-filter-panel button\s*\{[^}]*min-height:\s*48px/s);
+  assert.match(styles, /[.]catalog-checkbox-hit\s*\{[^}]*min-width:\s*48px[^}]*min-height:\s*48px/s);
+  assert.match(styles, /[.]publish-switch\s*\{[^}]*min-width:\s*48px[^}]*min-height:\s*48px/s);
+  assert.match(styles, /[.]icon-button\s*\{[^}]*width:\s*48px[^}]*height:\s*48px/s);
 });
 
 test("detail and media surfaces retain versioned target commands", async () => {
@@ -183,7 +380,7 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
   assert.match(list, /archiveProduct\(archiveCandidate\.id, archiveCandidate\.version\)/);
-  assert.match(list, /filter\(\(item\) => item\.id !== archiveCandidate\.id\)/);
+  assert.match(list, /filter\(\(item\) => item\.product\.id !== archiveCandidate\.id\)/);
   assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
   assert.match(detail, /createVariant\(productId, parsed\.value\)/);
   assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
