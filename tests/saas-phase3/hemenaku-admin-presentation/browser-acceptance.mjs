@@ -873,7 +873,7 @@ async function main() {
     const productsEvilActive = await cdp.evaluate(`document.querySelector('a[href="/products"]')?.getAttribute('aria-current')==='page'`);
     assert.equal(productsEvilActive, false);
     const replay = await cdp.evaluate(`(async()=>{
-      const mutation=()=>fetch('/api/merchant-admin/records/seo_product_entry',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','idempotency-key':'full-parity-replay'},body:JSON.stringify({name:'Keten Gömlek SEO',config:{resourceId:'keten-gomlek'},status:'active',expectedVersion:2})}).then((response)=>response.json());
+      const mutation=()=>fetch('/api/merchant-admin/records/seo_product_entry',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','idempotency-key':'72000000-0000-4000-8000-000000000099'},body:JSON.stringify({recordId:'74000000-0000-4000-8000-000000000001',name:'Keten Gömlek SEO',config:{resourceId:'71000000-0000-4000-8000-000000000099'},status:'active',expectedVersion:2})}).then((response)=>response.json());
       return [await mutation(),await mutation()];
     })()`);
     assert.equal(replay[0].replayed, false);

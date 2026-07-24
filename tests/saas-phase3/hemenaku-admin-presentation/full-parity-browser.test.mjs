@@ -57,6 +57,18 @@ test("fixture exposes deterministic production transport records without externa
   assert.doesNotMatch(fixture, /https?:\/\//i);
 });
 
+test("SEO replay fixture uses a canonical UUID and the production typed configuration validator", async () => {
+  const [runner, api] = await Promise.all([
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs"),
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/merchant-admin/[...slug]/route.ts"),
+  ]);
+  const resourceId = "71000000-0000-4000-8000-000000000099";
+  assert.ok(runner.includes(`resourceId:'${resourceId}'`));
+  assert.ok(api.includes("resourceId: PRODUCT_RESOURCE"));
+  assert.match(api, /merchantAdminConfig\(["']seo_product_entry["'],\s*body[.]config\)/u);
+  assert.doesNotMatch(`${runner}\n${api}`, /resourceId:\s*["']keten-gomlek["']/u);
+});
+
 test("fixture delegates geometry contrast and reduced motion to production target components", async () => {
   const [component, css, config, runner] = await Promise.all([
     read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/full-parity-fixture.tsx"),

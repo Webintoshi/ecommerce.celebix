@@ -1,7 +1,10 @@
+import { merchantAdminConfig } from "@celebix/saas-data";
+
 const NOW = "2026-07-22T19:00:00.000Z";
 const RECORD = "71000000-0000-4000-8000-000000000001";
 const JOB = "73000000-0000-4000-8000-000000000001";
 const SEO_RECORD = "74000000-0000-4000-8000-000000000001";
+const PRODUCT_RESOURCE = "71000000-0000-4000-8000-000000000099";
 const GENERAL_RECORD = "75000000-0000-4000-8000-000000000001";
 const operations = new Set<string>();
 let status: "awaiting_provider_activation" | "cancelled" | null = null;
@@ -11,7 +14,7 @@ function record() {
   return { id: RECORD, kind: "marketplace_connection", name: "Trendyol Pilot Mağaza", config: { provider: "trendyol", merchantReference: "pilot-42", syncEnabled: true }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
 }
 function seoRecord() {
-  return { id: SEO_RECORD, kind: "seo_product_entry", name: "Keten Gömlek SEO", config: { resourceId: "keten-gomlek", metaTitle: "Keten Gömlek", metaDescription: "Doğal keten gömlek.", canonicalPath: "/urunler/keten-gomlek" }, status: "active", version: 2, createdAt: NOW, updatedAt: NOW };
+  return { id: SEO_RECORD, kind: "seo_product_entry", name: "Keten Gömlek SEO", config: { resourceId: PRODUCT_RESOURCE, metaTitle: "Keten Gömlek", metaDescription: "Doğal keten gömlek.", canonicalPath: "/urunler/keten-gomlek" }, status: "active", version: 2, createdAt: NOW, updatedAt: NOW };
 }
 function generalRecord() {
   return { id: GENERAL_RECORD, kind: "general_setting", name: "Ana mağaza profili", config: { storeDisplayName: "Hemen Al", supportEmail: "destek@example.test", timezone: "Europe/Istanbul" }, status: "active", version: 2, createdAt: NOW, updatedAt: NOW };
@@ -38,10 +41,19 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
 }
 
 export async function POST(request: Request, context: { params: Promise<{ slug: string[] }> }) {
-  const slug = await segments(context), body = await request.json();
+  const slug = await segments(context), body = await request.json().catch(() => null);
   if (slug.join("/") === "records/seo_product_entry") {
     const operationId = request.headers.get("idempotency-key");
-    if (!operationId) return Response.json({ code: "invalid_input" }, { status: 400 });
+    if (
+      !body || typeof body !== "object" || Array.isArray(body) ||
+      Object.keys(body).sort().join(",") !== "config,expectedVersion,name,recordId,status" ||
+      body.recordId !== SEO_RECORD || body.expectedVersion !== 2 ||
+      typeof body.name !== "string" || body.name !== body.name.trim() ||
+      body.name.length < 1 || body.name.length > 160 || body.status !== "active" ||
+      !operationId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(operationId)
+    ) return Response.json({ code: "invalid_input" }, { status: 400 });
+    try { merchantAdminConfig("seo_product_entry", body.config); }
+    catch { return Response.json({ code: "invalid_input" }, { status: 400 }); }
     const replayed = operations.has(operationId);
     operations.add(operationId);
     return Response.json({ id: SEO_RECORD, kind: "seo_product_entry", status: "active", version: 2, updatedAt: NOW, replayed });
