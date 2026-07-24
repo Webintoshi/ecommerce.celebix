@@ -12,6 +12,10 @@ const BASE = "959de29d2ceb7a4ec8296f3f0b967fadbb3d1d61";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../");
 const SQL = "apps/owner/scripts/sql/saas";
+const FORBIDDEN_FIXTURE_IDS = Object.freeze([
+  ["10000000", "0000", "4000", "8000", "000000000001"].join("-"),
+  ["20000000", "0000", "4000", "8000", "000000000001"].join("-"),
+]);
 
 const git = (...args) => execFileSync("git", args, {
   cwd: ROOT,
@@ -84,8 +88,147 @@ async function findPostgresHarnesses(directory) {
   return harnesses.sort();
 }
 
+function isProductionGatePath(candidate) {
+  if (!/^(?:apps\/customer-panel|packages|apps\/owner\/scripts\/sql\/saas)\//.test(candidate)) return false;
+  return !/(?:^|\/)(?:tests?|__tests__|fixtures?|__fixtures__)(?:\/|$)|[.](?:test|spec|fixture)[.][cm]?[jt]sx?$/i.test(candidate);
+}
+
+function parseProductionAddedLines(diff) {
+  let currentPath = null;
+  let kind = "modified";
+  let inHunk = false;
+  const additions = [];
+  for (const rawLine of diff.split("\n")) {
+    const header = rawLine.match(/^diff --git a\/(.+) b\/(.+)$/);
+    if (header) {
+      currentPath = header[2];
+      kind = "modified";
+      inHunk = false;
+      continue;
+    }
+    if (rawLine.startsWith("new file mode ")) {
+      kind = "added";
+      continue;
+    }
+    if (rawLine.startsWith("deleted file mode ")) {
+      currentPath = null;
+      inHunk = false;
+      continue;
+    }
+    if (rawLine.startsWith("@@")) {
+      inHunk = true;
+      continue;
+    }
+    if (
+      currentPath &&
+      inHunk &&
+      rawLine.startsWith("+") &&
+      !rawLine.startsWith("+++") &&
+      isProductionGatePath(currentPath)
+    ) additions.push({ path: currentPath, kind, line: rawLine.slice(1) });
+  }
+  return additions;
+}
+
+function assertProductionAddedLineSafe({ path: candidate, line }) {
+  const guards = [
+    ["private_key", /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/i],
+    ["credential_url", /[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:[^\s/@]+@/i],
+    ["jwt", /\beyJ[A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}\b/],
+    ["raw_secret_literal", /\b(?:client[_-]?secret|service[_-]?role|api[_-]?key|access[_-]?token|private[_-]?key)\b\s*[:=]\s*["'`][^"'`]{8,}["'`]/i],
+    ["panel_credential", /\b(?:v1[.]panel|pb1|bs1)[.][A-Za-z0-9_-]{8,}/i],
+  ];
+  for (const [name, pattern] of guards) {
+    if (pattern.test(line)) throw new Error(`${name}:${candidate}`);
+  }
+  for (const forbiddenId of FORBIDDEN_FIXTURE_IDS) {
+    if (line.includes(forbiddenId)) throw new Error(`forbidden_fixture_id:${candidate}`);
+  }
+}
+
+function hasUseClientDirective(source) {
+  let remainder = String(source ?? "").replace(/^\uFEFF/, "");
+  while (true) {
+    remainder = remainder.trimStart();
+    if (remainder.startsWith("//")) {
+      const newline = remainder.indexOf("\n");
+      remainder = newline === -1 ? "" : remainder.slice(newline + 1);
+      continue;
+    }
+    if (remainder.startsWith("/*")) {
+      const end = remainder.indexOf("*/", 2);
+      if (end === -1) return false;
+      remainder = remainder.slice(end + 2);
+      continue;
+    }
+    break;
+  }
+  return /^["']use client["'](?:\s*;)?(?:\s|$)/.test(remainder);
+}
+
+function localModuleSpecifiers(source) {
+  const specifiers = new Set();
+  const staticImports = /(?:^|[;\n])\s*(?:import|export)\s+(?:type\s+)?(?:[^"'`;]*?\s+from\s+)?["']([^"'\n]+)["']/gm;
+  const dynamicImports = /\bimport\s*\(\s*["']([^"'\n]+)["']\s*\)/g;
+  for (const pattern of [staticImports, dynamicImports]) {
+    for (const match of source.matchAll(pattern)) specifiers.add(match[1]);
+  }
+  return [...specifiers];
+}
+
+function resolveLocalModule(fromPath, specifier, sources) {
+  let unresolved;
+  if (specifier.startsWith("@/")) {
+    unresolved = path.posix.join("apps/customer-panel", specifier.slice(2));
+  } else if (specifier.startsWith(".")) {
+    unresolved = path.posix.normalize(path.posix.join(path.posix.dirname(fromPath), specifier));
+  } else {
+    return null;
+  }
+  const extension = path.posix.extname(unresolved);
+  const base = /[.](?:c|m)?jsx?$/.test(extension) ? unresolved.slice(0, -extension.length) : unresolved;
+  const candidates = extension && !/[.](?:c|m)?jsx?$/.test(extension)
+    ? [unresolved]
+    : [
+        unresolved,
+        `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.jsx`, `${base}.mjs`, `${base}.cjs`,
+        `${base}/index.ts`, `${base}/index.tsx`, `${base}/index.js`, `${base}/index.jsx`,
+      ];
+  return candidates.find((candidate) => sources.has(candidate)) ?? null;
+}
+
+function browserReachableChangedModules(sources, changed) {
+  const queue = [...sources]
+    .filter(([, source]) => hasUseClientDirective(source))
+    .map(([candidate]) => candidate);
+  const visited = new Set();
+  while (queue.length > 0) {
+    const candidate = queue.shift();
+    if (!candidate || visited.has(candidate)) continue;
+    visited.add(candidate);
+    const source = sources.get(candidate);
+    if (source === undefined) continue;
+    for (const specifier of localModuleSpecifiers(source)) {
+      const resolved = resolveLocalModule(candidate, specifier, sources);
+      if (resolved && !visited.has(resolved)) queue.push(resolved);
+    }
+  }
+  return [...visited].filter((candidate) => changed.has(candidate)).sort();
+}
+
+function assertBrowserAuthoritySafe(candidate, source) {
+  const guards = [
+    /\b(?:TenantContext|storeId|tenantId|principalId|membershipId|planId)\b|x-(?:store|tenant|principal|membership|plan)-id/i,
+    /supabase|\/api\/admin(?:\/|\b)|<iframe\b|dangerouslySetInnerHTML|\b(?:localStorage|sessionStorage)\b/i,
+  ];
+  for (const pattern of guards) {
+    if (pattern.test(source)) throw new Error(`browser_authority:${candidate}`);
+  }
+}
+
 test("pins the approved implementation base and immutable donor", () => {
   assert.equal(git("rev-parse", `${BASE}^{commit}`), BASE);
+  assert.equal(git("merge-base", BASE, "HEAD"), BASE);
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
   assert.equal(changedPaths("apps/admin").length, 0);
 });
@@ -107,6 +250,7 @@ test("every donor route has one final evidenced parity decision", async () => {
     assert.match(evidenceFile ?? "", /[.]test[.]ts$/);
     assert.ok((evidenceName ?? "").length > 0, entry.donorPath);
     await access(path.join(ROOT, evidenceFile));
+    assert.match(await read(evidenceFile), new RegExp(evidenceName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), entry.donorPath);
   }
 });
 
@@ -123,49 +267,37 @@ test("dependency lockfiles donor and deployment surfaces stay outside the comple
   assert.deepEqual(forbiddenInfrastructure, []);
 });
 
-test("changed production client components contain no browser-owned SaaS authority", async () => {
-  const productionTypeScript = changedPaths("apps/customer-panel")
-    .filter((candidate) => /[.](?:ts|tsx)$/.test(candidate) && !/[.]test[.]/.test(candidate));
-  const clientComponents = [];
-  for (const candidate of productionTypeScript) {
-    const source = await read(candidate);
-    if (/^\s*["']use client["'];/m.test(source)) clientComponents.push([candidate, source]);
-  }
-  assert.ok(clientComponents.length > 0);
-  for (const [candidate, source] of clientComponents) {
-    assert.doesNotMatch(source, /\b(?:TenantContext|storeId|tenantId|principalId|membershipId|planId)\b|x-(?:store|tenant|principal|membership|plan)-id/i, candidate);
-    assert.doesNotMatch(source, /supabase|\/api\/admin(?:\/|\b)|<iframe\b|dangerouslySetInnerHTML|\b(?:localStorage|sessionStorage)\b/i, candidate);
-  }
+test("changed browser-reachable client graph contains no browser-owned SaaS authority", async () => {
+  const trackedSources = git("ls-files", "apps/customer-panel")
+    .split("\n")
+    .filter((candidate) => /[.](?:[cm]?[jt]sx?)$/.test(candidate) && !/[.](?:test|spec)[.]/.test(candidate));
+  const sources = new Map(await Promise.all(trackedSources.map(async (candidate) => [candidate, await read(candidate)])));
+  const changed = new Set(changedPaths("apps/customer-panel")
+    .filter((candidate) => /[.](?:[cm]?[jt]sx?)$/.test(candidate) && !/[.](?:test|spec)[.]/.test(candidate)));
+  const directChangedClients = [...changed].filter((candidate) => hasUseClientDirective(sources.get(candidate)));
+  const reachable = browserReachableChangedModules(sources, changed);
+  assert.ok(directChangedClients.length > 0);
+  assert.ok(reachable.length > directChangedClients.length);
+  assert.equal(reachable.some((candidate) => candidate.includes("/lib/") && !hasUseClientDirective(sources.get(candidate))), true);
+  for (const candidate of reachable) assertBrowserAuthoritySafe(candidate, sources.get(candidate));
 });
 
-test("new production authority contains no raw secret credential or forbidden fixture identity", async () => {
-  const additions = git(
+test("added lines in added and modified production files contain no raw secret or forbidden identity", () => {
+  const additions = parseProductionAddedLines(git(
     "diff",
-    "--name-only",
-    "--diff-filter=A",
+    "--unified=0",
+    "--no-ext-diff",
+    "--no-renames",
+    "--diff-filter=AM",
     `${BASE}...HEAD`,
     "--",
     "apps/customer-panel",
     "packages",
     SQL,
-  ).split("\n").filter((candidate) =>
-    candidate &&
-    !/[.]test[.]/.test(candidate) &&
-    !/(?:^|\/)(?:__fixtures__|fixtures?|tests?)(?:\/|$)/.test(candidate),
-  );
-  const forbiddenIds = Object.freeze([
-    ["10000000", "0000", "4000", "8000", "000000000001"].join("-"),
-    ["20000000", "0000", "4000", "8000", "000000000001"].join("-"),
-  ]);
-  for (const candidate of additions) {
-    const source = await read(candidate);
-    assert.doesNotMatch(source, /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/i, candidate);
-    assert.doesNotMatch(source, /[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:[^\s/@]+@/i, candidate);
-    assert.doesNotMatch(source, /\beyJ[A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}\b/, candidate);
-    assert.doesNotMatch(source, /\b(?:client[_-]?secret|service[_-]?role|api[_-]?key|access[_-]?token)\b\s*[:=]\s*["'][^"']{8,}["']/i, candidate);
-    assert.doesNotMatch(source, /\b(?:v1[.]panel|pb1|bs1)[.][A-Za-z0-9_-]{8,}/i, candidate);
-    for (const forbiddenId of forbiddenIds) assert.equal(source.includes(forbiddenId), false, candidate);
-  }
+  ));
+  assert.ok(additions.some(({ kind }) => kind === "added"));
+  assert.ok(additions.some(({ kind }) => kind === "modified"));
+  for (const addition of additions) assertProductionAddedLineSafe(addition);
 });
 
 test("completion manifest exactly pins migrations 038 through 047 including 042 through 047", async () => {
@@ -206,5 +338,62 @@ test("current Phase 3 PostgreSQL inventory is exactly 21 executable harnesses an
     );
     assert.match(source, totalMarker, harness);
     assert.match(source, /(?:main[(][)][.]catch|await main[(][)])/u, harness);
+  }
+});
+
+test("added-line parser covers added and modified production files only", () => {
+  const parsed = parseProductionAddedLines([
+    "diff --git a/apps/customer-panel/lib/new-client.ts b/apps/customer-panel/lib/new-client.ts",
+    "new file mode 100644",
+    "--- /dev/null",
+    "+++ b/apps/customer-panel/lib/new-client.ts",
+    "@@ -0,0 +1 @@",
+    "+const apiKey = \"added-secret-value\";",
+    "diff --git a/apps/customer-panel/lib/changed-client.ts b/apps/customer-panel/lib/changed-client.ts",
+    "--- a/apps/customer-panel/lib/changed-client.ts",
+    "+++ b/apps/customer-panel/lib/changed-client.ts",
+    "@@ -1 +1 @@",
+    "-const safe = true;",
+    "+const storeId = \"modified-browser-authority\";",
+    " context with eyJremoved.context.value",
+    "diff --git a/apps/customer-panel/lib/changed-client.test.ts b/apps/customer-panel/lib/changed-client.test.ts",
+    "--- a/apps/customer-panel/lib/changed-client.test.ts",
+    "+++ b/apps/customer-panel/lib/changed-client.test.ts",
+    "@@ -1 +1 @@",
+    "+const clientSecret = \"fixture-only-secret\";",
+  ].join("\n"));
+  assert.deepEqual(parsed, [
+    { path: "apps/customer-panel/lib/new-client.ts", kind: "added", line: "const apiKey = \"added-secret-value\";" },
+    { path: "apps/customer-panel/lib/changed-client.ts", kind: "modified", line: "const storeId = \"modified-browser-authority\";" },
+  ]);
+  assert.throws(() => assertProductionAddedLineSafe(parsed[0]), /raw_secret_literal/);
+  assert.throws(() => assertProductionAddedLineSafe({
+    path: parsed[1].path,
+    kind: parsed[1].kind,
+    line: "const privateKey = `-----BEGIN PRIVATE KEY-----`;",
+  }), /private_key/);
+});
+
+test("browser closure includes changed helpers and rejects private browser authority", () => {
+  const sources = new Map([
+    ["apps/customer-panel/components/Entry.tsx", "'use client'\nimport { controller } from '@/lib/demo/controller';"],
+    ["apps/customer-panel/components/SemicolonEntry.tsx", "\"use client\";\nexport { client } from '@/lib/demo/client';"],
+    ["apps/customer-panel/lib/demo/controller.ts", "export const controller = sessionStorage.getItem('draft');"],
+    ["apps/customer-panel/lib/demo/client.ts", "export const client = fetch('/api/demo', { headers: { 'x-store-id': storeId } });"],
+    ["apps/customer-panel/lib/server-only.ts", "export const storeId = 'legitimate-server-authority';"],
+  ]);
+  const changed = new Set([
+    "apps/customer-panel/lib/demo/controller.ts",
+    "apps/customer-panel/lib/demo/client.ts",
+    "apps/customer-panel/lib/server-only.ts",
+  ]);
+  assert.equal(hasUseClientDirective(sources.get("apps/customer-panel/components/Entry.tsx")), true);
+  assert.equal(hasUseClientDirective(sources.get("apps/customer-panel/components/SemicolonEntry.tsx")), true);
+  assert.deepEqual(browserReachableChangedModules(sources, changed), [
+    "apps/customer-panel/lib/demo/client.ts",
+    "apps/customer-panel/lib/demo/controller.ts",
+  ]);
+  for (const candidate of browserReachableChangedModules(sources, changed)) {
+    assert.throws(() => assertBrowserAuthoritySafe(candidate, sources.get(candidate)), /browser_authority/);
   }
 });
