@@ -143,6 +143,7 @@ Yeni PostgreSQL migration bir `merchant_indexnow_publications` tablosu ve tek pr
 - provider definition'ın `indexnow/indexing` olarak enabled olduğunu doğrular;
 - encrypted profile credential/version'ı kaydeder veya rotate eder;
 - derived verification value ile exact `https://<canonical-host>/<value>.txt` location'ı publication satırına bağlar;
+- browser'a dönen profile `publicConfig` içine yalnız safe `canonicalHostname` değerini koyar; verification value, filename ve full key location koymaz;
 - eski publication version'ını `retired` yapar;
 - immutable operation result kaydını yazar.
 
@@ -157,7 +158,7 @@ Publication tablosunda direct table privilege hiç kimseye verilmez. Raw verific
 - `revoked`: key file kalıcı kapanır; eski path yeniden açılamaz.
 - rotation: credential version ve publication version birlikte artar; eski exact path aynı transaction'da kapanır.
 
-IndexNow adapter profile validation sırasında public key location'ı fixed-timeout GET ile okur ve body'nin exact credential value olduğuna bakar. Redirect, non-200, wrong media type, oversized body, invalid UTF-8 veya content mismatch profile'ı active yapmaz.
+IndexNow adapter profile validation sırasında merchant-controlled canonical domain'e ağ isteği atmaz. Bunun yerine credential biçimini, profile safe public config'ini ve provisioning transaction'ının profile/publication/version eşleşmesini doğrular. Böylece custom-domain DNS rebinding veya SSRF yüzeyi oluşmaz. Public key-file'ın gerçekten dışarıdan erişilebilir olduğu storefront unit/integration testlerinde ve ayrıca yetkilendirilmiş staging browser kapısında doğrulanır; bu kapı geçmeden P1 tamamlanmış sayılmaz.
 
 ## 7. Immutable indexing payload
 
@@ -281,6 +282,7 @@ UI raw key, key filename, full keyLocation, credential version secret material v
 - IndexNow adapter yalnız explicit approved staging runtime registry'sine eklenir.
 - Key derivation/config parse hatası runtime'ı fail-closed yapar.
 - DNS veya redirect ile alternatif provider endpoint'e gidilmez; endpoint compile-time constant'tır.
+- Profile validation merchant/custom storefront hostname'ine outbound fetch yapmaz.
 - Key-file lookup alias domain üzerinden key döndürmez.
 - Direct table DML, cross-store function call, forged profile/publication version, wrong membership ve inactive plan reddedilir.
 - Credential plaintext buffer her validate/execute/reconcile sonrasında zero edilir.
