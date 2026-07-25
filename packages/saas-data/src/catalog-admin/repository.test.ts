@@ -125,3 +125,12 @@ test("unknown commit destroys the writer and performs one read-only recovery", a
 test("invalid cross-tenant or malformed input fails before SQL", async () => {
   await assert.rejects(() => repository(new Pool([])).saveResource({ tenantContext: tenant(), now: NOW, operationId: OP, kind: "collection", name: "X", slug: "x", config: {}, productIds: [PRODUCT, PRODUCT] }), (error: unknown) => error instanceof CatalogAdminRepositoryError && error.code === "invalid_input");
 });
+
+test("product import rejects slugs outside the durable product contract before SQL", async () => {
+  for (const slug of ["x", "ab", "a".repeat(101)]) {
+    await assert.rejects(
+      () => repository(new Pool([])).importProducts({ tenantContext: tenant(), now: NOW, operationId: OP, fileName: "urunler.csv", rows: [{ title: "Yeni Ürün", slug, priceCents: 12900, stockQuantity: 8 }] }),
+      (error: unknown) => error instanceof CatalogAdminRepositoryError && error.code === "invalid_input",
+    );
+  }
+});

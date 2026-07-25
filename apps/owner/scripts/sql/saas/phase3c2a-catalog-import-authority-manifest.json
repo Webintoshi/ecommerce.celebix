@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3c2a-202607260037-catalog-import-authority",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive_function_replacement",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Rollback restores the migration-035 catalog import function and is authorized only for disposable rehearsal.",
+  "artifacts": [
+    {
+      "id": "202607260037_catalog_import_authority_up",
+      "direction": "up",
+      "file": "202607260037_catalog_import_authority.up.sql",
+      "sha256": "fa84be128d46e28120f1d5b01d13d6d25fdaa2d96b8f746f2f48d25ed8693d0a",
+      "purpose": "Serialize catalog import replay and store product-limit authority while enforcing canonical persisted rows."
+    },
+    {
+      "id": "202607260037_catalog_import_authority_down",
+      "direction": "down",
+      "file": "202607260037_catalog_import_authority.down.sql",
+      "sha256": "91230f9c44fcdad0426e589d62c290e86b09feab6d971553cfc6dd96b4ee84ea",
+      "purpose": "Restore the migration-035 catalog import function during disposable rollback."
+    },
+    {
+      "id": "202607260037_catalog_import_authority_assertions",
+      "direction": "verify",
+      "file": "202607260037_catalog_import_authority_assertions.sql",
+      "sha256": "777939f24ccf800af70575f6fa71ffca5cac046bf1349c87c20a505a2b43a044",
+      "purpose": "Fail on lock ordering, canonical row validation or least-privilege drift."
+    }
+  ]
+}
