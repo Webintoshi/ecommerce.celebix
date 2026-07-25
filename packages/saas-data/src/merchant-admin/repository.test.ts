@@ -152,3 +152,13 @@ test("lists only exact bounded provider preparation projections",async()=>{
  assert.deepEqual(result,[{...job,profileId:null,providerCode:null,credentialVersion:null,attempt:0,safeProviderReference:null,outcomeCode:null}]);
  await assert.rejects(()=>repository(new Pool([])).prepareProviderJob({tenantContext:tenant(),now:NOW,operationId:OP,recordId:RECORD,expectedRecordVersion:1,kind:"discount" as never}),error=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
+
+test("queues one prepared provider job against an exact active profile version",async()=>{
+ const profileId="74000000-0000-4000-8000-000000000001";
+ const queued={id:RECORD,recordId:RECORD,recordKind:"marketplace_connection",action:"synchronization",status:"queued",profileId,providerCode:"fixture_provider",credentialVersion:2,attempt:0,safeProviderReference:null,outcomeCode:null,version:2,updatedAt:NOW.toISOString()};
+ const writer=new Client((text)=>text.includes("merchant_provider_queue")?[{outcome:"queued",result_payload:queued}]:[]);
+ const result=await repository(new Pool([writer])).queueProviderJob({tenantContext:tenant(),now:NOW,operationId:OP,jobId:RECORD,expectedJobVersion:1,profileId,expectedProfileVersion:3,kind:"marketplace_connection"});
+ assert.equal(result.status,"queued");
+ assert.equal(result.profileId,profileId);
+ assert.deepEqual(call(writer,"merchant_provider_queue").values.slice(-4),[RECORD,1,profileId,3]);
+});

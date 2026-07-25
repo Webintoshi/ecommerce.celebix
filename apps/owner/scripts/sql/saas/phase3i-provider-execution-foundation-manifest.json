@@ -316,12 +316,24 @@
     {
       "file": "202607250049_merchant_provider_profiles_assertions.sql",
       "sha256": "00e49f4bede3b5b50e023e3dbfeb96486509570dc3a540327ece892b71ef6fec"
+    },
+    {
+      "file": "202607250050_merchant_provider_execution.up.sql",
+      "sha256": "68686bd43d60ed1eb4e4782a392b8b0159c2b20a9cdbf1d77b65dae7f0d66ac1"
+    },
+    {
+      "file": "202607250050_merchant_provider_execution_assertions.sql",
+      "sha256": "bc6b9a6981b7c292e1cb01d1ddb37bcc1534cdbc62b70ba48d2c1ecfb5fda208"
     }
   ],
   "rollbackArtifacts": [
     {
       "file": "202607250049_merchant_provider_profiles.down.sql",
       "sha256": "15ddb6ea4fdb4d356d84cfdab8251c150bc84fdc0e6287dd815dd1260df878b0"
+    },
+    {
+      "file": "202607250050_merchant_provider_execution.down.sql",
+      "sha256": "b12cb9052736fece71a10aa80952f404ec504657b62e967e47eac7e301b5c1f3"
     }
   ],
   "externalConnections": 0,

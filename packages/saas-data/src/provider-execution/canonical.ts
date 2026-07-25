@@ -154,3 +154,7 @@ function stable(value: unknown): string {
 export function providerProfileFingerprint(kind: "save" | "disable" | "revoke", storeId: string, payload: unknown): string {
   return createHash("sha256").update(stable({ kind, storeId, payload }), "utf8").digest("hex");
 }
+
+export function providerWorkflowFingerprint(kind: "finalize" | "reconcile", payload: unknown): string {
+  return createHash("sha256").update(stable({ kind, payload }), "utf8").digest("hex");
+}
