@@ -124,7 +124,7 @@ export const MERCHANT_ADMIN_PROVIDER_JOB_STATUSES = Object.freeze([
 ] as const);
 ```
 
-Extend both `MerchantAdminProviderJob` and `MerchantAdminProviderJobMutationResult` with required `profileId`, `providerCode`, `credentialVersion`, `attempt`, `safeProviderReference` and `outcomeCode` fields, using `null` before execution. Add `parseMerchantProviderDescriptor` and `parseMerchantProviderProfile`. Extend both job parsers with the exact fields. Use `^[a-z][a-z0-9_]{0,63}$` for provider/outcome/field codes, byte-bounded strings, exact `secret: true`, unique field keys and recursively frozen arrays/config.
+Extend both `MerchantAdminProviderJob` and `MerchantAdminProviderJobMutationResult` with normalized required `profileId`, `providerCode`, `credentialVersion`, `attempt`, `safeProviderReference` and `outcomeCode` fields, using `null` before execution. During the additive migration window, the raw parser may omit this entire six-field group and must normalize it to `{ profileId: null, providerCode: null, credentialVersion: null, attempt: 0, safeProviderReference: null, outcomeCode: null }`; any partial group remains invalid. Migration 050 projections always emit the complete group. Add `parseMerchantProviderDescriptor` and `parseMerchantProviderProfile`. Extend both job parsers with the exact fields. Use `^[a-z][a-z0-9_]{0,63}$` for provider/outcome/field codes, byte-bounded strings, exact `secret: true`, unique field keys and recursively frozen arrays/config.
 
 - [ ] **Step 4: Run GREEN and package regression**
 
@@ -303,18 +303,19 @@ Expected: FAIL before scenario 1 because migration 049 is absent.
 
 ```sql
 CREATE TABLE saas.merchant_provider_definitions(
-  provider_code text PRIMARY KEY CHECK(provider_code ~ '^[a-z][a-z0-9_]{0,63}$'),
+  provider_code text NOT NULL CHECK(provider_code ~ '^[a-z][a-z0-9_]{0,63}$'),
   capability text NOT NULL CHECK(capability IN(
     'marketplace_sync','invoice_reconciliation','email_delivery',
     'phone_delivery','whatsapp_delivery','indexing')),
   enabled boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL
+  created_at timestamptz NOT NULL,
+  PRIMARY KEY(provider_code,capability)
 );
 
 CREATE TABLE saas.merchant_provider_profiles(
   id uuid PRIMARY KEY,
   store_id uuid NOT NULL REFERENCES saas.stores(id) ON DELETE RESTRICT,
-  provider_code text NOT NULL REFERENCES saas.merchant_provider_definitions(provider_code) ON DELETE RESTRICT,
+  provider_code text NOT NULL,
   capability text NOT NULL,
   public_config jsonb NOT NULL,
   masked_account_reference text NOT NULL,
@@ -332,6 +333,9 @@ CREATE TABLE saas.merchant_provider_profiles(
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   revoked_at timestamptz,
+  FOREIGN KEY(provider_code,capability)
+    REFERENCES saas.merchant_provider_definitions(provider_code,capability)
+    ON DELETE RESTRICT,
   UNIQUE(store_id,id),
   CHECK(updated_at >= created_at),
   CHECK((status='revoked')=(revoked_at IS NOT NULL)),
@@ -356,7 +360,7 @@ CREATE TABLE saas.merchant_provider_profile_operations(
 );
 ```
 
-Enable and force RLS on all three tables. Revoke table privileges from `PUBLIC`, `celebix_saas_app`, `celebix_saas_workflow` and `celebix_saas_host_resolver`. Add immutable guards to operation rows and provider definitions. Add a trigger requiring profile capability to equal the referenced definition capability because a plain foreign key on provider code alone cannot prove that pair.
+Enable and force RLS on all three tables. Revoke table privileges from `PUBLIC`, `celebix_saas_app`, `celebix_saas_workflow` and `celebix_saas_host_resolver`. Add immutable guards to operation rows and provider definitions. The composite foreign key must prove the exact provider-code/capability pair without relying on a trigger or a provider-code-only reference.
 
 - [ ] **Step 4: Add exact SECURITY DEFINER functions**
 
