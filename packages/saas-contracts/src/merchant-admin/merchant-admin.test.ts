@@ -3,14 +3,54 @@ import test from "node:test";
 import {
   MERCHANT_ADMIN_PROVIDER_ACTIONS,
   MERCHANT_ADMIN_PROVIDER_JOB_STATUSES,
+  MERCHANT_PROVIDER_CAPABILITIES,
+  MERCHANT_PROVIDER_PROFILE_STATUSES,
   MERCHANT_ADMIN_RECORD_KINDS,
   parseMerchantAdminConfig,
   parseMerchantAdminMutationResult,
   parseMerchantAdminProviderJob,
   parseMerchantAdminProviderJobMutationResult,
   parseMerchantAdminRecord,
+  parseMerchantProviderDescriptor,
+  parseMerchantProviderProfile,
 } from "./index.ts";
-const ID = "11111111-1111-4111-8111-111111111111", NOW = "2026-07-22T19:00:00.000Z";
+const ID = "11111111-1111-4111-8111-111111111111", PROFILE_ID = "22222222-2222-4222-8222-222222222222", NOW = "2026-07-22T19:00:00.000Z";
+
+function providerProfileFixture() {
+  return {
+    id: PROFILE_ID,
+    providerCode: "fixture_provider",
+    capability: "marketplace_sync",
+    publicConfig: { accountReference: "merchant-42" },
+    maskedAccountReference: "••••nt-42",
+    status: "active",
+    credentialVersion: 2,
+    version: 3,
+    lastValidatedAt: NOW,
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+}
+
+function providerJobFixture(status: string) {
+  const beforeExecution = status === "awaiting_provider_activation" || status === "cancelled";
+  return {
+    id: ID,
+    recordId: PROFILE_ID,
+    recordKind: "marketplace_connection",
+    action: "synchronization",
+    status,
+    profileId: beforeExecution ? null : PROFILE_ID,
+    providerCode: beforeExecution ? null : "fixture_provider",
+    credentialVersion: beforeExecution ? null : 2,
+    attempt: status === "queued" || beforeExecution ? 0 : 1,
+    safeProviderReference: status === "succeeded" ? "provider-ref-42" : null,
+    outcomeCode: ["succeeded", "retryable_failed", "permanently_failed", "provider_outcome_unknown", "reconciliation_required"].includes(status) ? "fixture_outcome" : null,
+    version: 1,
+    requestedAt: NOW,
+    updatedAt: NOW,
+  };
+}
 test("parses exact durable merchant module records", () => { const value = parseMerchantAdminRecord({ id: ID, kind: "discount", name: "Yaz indirimi", config: { discountType: "percent", value: 15 }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }); assert.equal(Object.isFrozen(value.config), true); assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 32); for (const hostile of [{ ...value, storeId: ID }, { ...value, config: { apiKey: "private" } }, { ...value, status: "deleted" }]) assert.throws(() => parseMerchantAdminRecord(hostile)); });
 test("typed settings expose only finite public configuration", () => {
   const configurations = {
@@ -76,7 +116,10 @@ test("provider preparation is explicit, immutable and cannot claim external succ
   assert.equal(job.status, "awaiting_provider_activation");
   assert.equal(Object.isFrozen(job), true);
   assert.deepEqual(MERCHANT_ADMIN_PROVIDER_ACTIONS, ["delivery", "synchronization", "reconciliation", "indexing"]);
-  assert.deepEqual(MERCHANT_ADMIN_PROVIDER_JOB_STATUSES, ["awaiting_provider_activation", "cancelled"]);
+  assert.deepEqual(MERCHANT_ADMIN_PROVIDER_JOB_STATUSES, [
+    "awaiting_provider_activation", "queued", "leased", "provider_outcome_unknown",
+    "reconciliation_required", "succeeded", "retryable_failed", "permanently_failed", "cancelled",
+  ]);
   for (const hostile of [
     { ...job, status: "completed" },
     { ...job, action: "send" },
@@ -99,4 +142,102 @@ test("provider preparation is explicit, immutable and cannot claim external succ
   assert.equal(mutation.replayed, false);
   assert.throws(() => parseMerchantAdminProviderJobMutationResult({ ...mutation, recordKind: "invoice_integration" }));
   assert.throws(() => parseMerchantAdminProviderJobMutationResult({ ...mutation, deliveryId: ID }));
+});
+
+test("provider profiles expose only masked durable authority", () => {
+  const profile = parseMerchantProviderProfile(providerProfileFixture());
+  assert.equal(Object.isFrozen(profile), true);
+  assert.equal(Object.isFrozen(profile.publicConfig), true);
+  assert.equal(profile.providerCode, "fixture_provider");
+  assert.doesNotMatch(JSON.stringify(profile), /secret|password|token|cipher|keyId/i);
+
+  assert.deepEqual(MERCHANT_PROVIDER_CAPABILITIES, [
+    "marketplace_sync", "invoice_reconciliation", "email_delivery",
+    "phone_delivery", "whatsapp_delivery", "indexing",
+  ]);
+  assert.deepEqual(MERCHANT_PROVIDER_PROFILE_STATUSES, [
+    "pending_validation", "active", "disabled", "rotation_required", "revoked",
+  ]);
+});
+
+test("provider profiles reject raw encrypted and unknown fields", () => {
+  const base = providerProfileFixture();
+  for (const hostile of [
+    { ...base, credential: "raw" },
+    { ...base, ciphertext: "private" },
+    { ...base, storeId: ID },
+    { ...base, providerCode: "fixture/provider" },
+    { ...base, status: "connected" },
+    { ...base, publicConfig: { accessToken: "private" } },
+  ]) assert.throws(() => parseMerchantProviderProfile(hostile), /merchant_admin_contract_invalid/);
+});
+
+test("provider descriptors are exact, deeply frozen and keep secret fields separate", () => {
+  const descriptor = parseMerchantProviderDescriptor({
+    providerCode: "fixture_provider",
+    capability: "marketplace_sync",
+    label: "Fixture Provider",
+    publicFields: [{ key: "account_reference", label: "Account reference" }],
+    credentialFields: [{ key: "api_secret", label: "API secret", secret: true }],
+  });
+  assert.equal(Object.isFrozen(descriptor), true);
+  assert.equal(Object.isFrozen(descriptor.publicFields), true);
+  assert.equal(Object.isFrozen(descriptor.publicFields[0]), true);
+  assert.equal(Object.isFrozen(descriptor.credentialFields[0]), true);
+  for (const hostile of [
+    { ...descriptor, credentialFields: [{ key: "api_secret", label: "API secret", secret: false }] },
+    { ...descriptor, publicFields: [{ key: "account_reference", label: "One" }, { key: "account_reference", label: "Two" }] },
+    { ...descriptor, publicFields: [{ key: "api_secret", label: "Collision" }] },
+    { ...descriptor, enabled: true },
+  ]) assert.throws(() => parseMerchantProviderDescriptor(hostile), /merchant_admin_contract_invalid/);
+});
+
+test("execution jobs parse every safe state without raw provider output", () => {
+  for (const status of MERCHANT_ADMIN_PROVIDER_JOB_STATUSES) {
+    assert.equal(parseMerchantAdminProviderJob(providerJobFixture(status)).status, status);
+  }
+  assert.throws(() => parseMerchantAdminProviderJob({
+    ...providerJobFixture("succeeded"),
+    rawResponse: { token: "private" },
+  }), /merchant_admin_contract_invalid/);
+
+  const legacy = parseMerchantAdminProviderJob({
+    id: ID,
+    recordId: PROFILE_ID,
+    recordKind: "marketplace_connection",
+    action: "synchronization",
+    status: "awaiting_provider_activation",
+    version: 1,
+    requestedAt: NOW,
+    updatedAt: NOW,
+  });
+  assert.deepEqual({
+    profileId: legacy.profileId,
+    providerCode: legacy.providerCode,
+    credentialVersion: legacy.credentialVersion,
+    attempt: legacy.attempt,
+    safeProviderReference: legacy.safeProviderReference,
+    outcomeCode: legacy.outcomeCode,
+  }, {
+    profileId: null,
+    providerCode: null,
+    credentialVersion: null,
+    attempt: 0,
+    safeProviderReference: null,
+    outcomeCode: null,
+  });
+
+  const partial = { ...providerJobFixture("queued") } as Record<string, unknown>;
+  delete partial.outcomeCode;
+  assert.throws(() => parseMerchantAdminProviderJob(partial), /merchant_admin_contract_invalid/);
+  assert.throws(() => parseMerchantAdminProviderJob({
+    ...providerJobFixture("queued"),
+    profileId: null,
+    providerCode: null,
+    credentialVersion: null,
+  }), /merchant_admin_contract_invalid/);
+  assert.throws(() => parseMerchantAdminProviderJob({
+    ...providerJobFixture("succeeded"),
+    outcomeCode: null,
+  }), /merchant_admin_contract_invalid/);
 });

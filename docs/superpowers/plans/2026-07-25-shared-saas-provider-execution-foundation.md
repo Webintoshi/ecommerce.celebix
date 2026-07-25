@@ -32,6 +32,7 @@
 - Modify: `packages/saas-contracts/src/merchant-admin/merchant-admin.test.ts:1-end`
 - Modify: `packages/saas-contracts/src/merchant-admin/index.ts:1-3`
 - Modify: `packages/saas-contracts/src/index.ts:95-123`
+- Modify: `packages/saas-contracts/src/contracts.test.ts:361-455` (frozen root export assertion only)
 
 **Interfaces:**
 - Consumes: existing `MerchantAdminProviderRecordKind`, `MerchantAdminProviderAction`, UUID and timestamp validation conventions.

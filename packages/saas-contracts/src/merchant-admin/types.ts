@@ -28,8 +28,46 @@ export const MERCHANT_ADMIN_PROVIDER_RECORD_KINDS = Object.freeze([
   "marketplace_connection", "invoice_integration", "indexing_request",
 ] as const satisfies readonly MerchantAdminRecordKind[]);
 export type MerchantAdminProviderRecordKind = (typeof MERCHANT_ADMIN_PROVIDER_RECORD_KINDS)[number];
+export const MERCHANT_PROVIDER_CAPABILITIES = Object.freeze([
+  "marketplace_sync", "invoice_reconciliation", "email_delivery",
+  "phone_delivery", "whatsapp_delivery", "indexing",
+] as const);
+export type MerchantProviderCapability = (typeof MERCHANT_PROVIDER_CAPABILITIES)[number];
+export const MERCHANT_PROVIDER_PROFILE_STATUSES = Object.freeze([
+  "pending_validation", "active", "disabled", "rotation_required", "revoked",
+] as const);
+export type MerchantProviderProfileStatus = (typeof MERCHANT_PROVIDER_PROFILE_STATUSES)[number];
+export interface MerchantProviderFieldDescriptor {
+  readonly key: string;
+  readonly label: string;
+}
+export interface MerchantProviderCredentialFieldDescriptor extends MerchantProviderFieldDescriptor {
+  readonly secret: true;
+}
+export interface MerchantProviderDescriptor {
+  readonly providerCode: string;
+  readonly capability: MerchantProviderCapability;
+  readonly label: string;
+  readonly publicFields: readonly Readonly<MerchantProviderFieldDescriptor>[];
+  readonly credentialFields: readonly Readonly<MerchantProviderCredentialFieldDescriptor>[];
+}
+export interface MerchantProviderProfile {
+  readonly id: string;
+  readonly providerCode: string;
+  readonly capability: MerchantProviderCapability;
+  readonly publicConfig: Readonly<Record<string, MerchantAdminJson>>;
+  readonly maskedAccountReference: string;
+  readonly status: MerchantProviderProfileStatus;
+  readonly credentialVersion: number;
+  readonly version: number;
+  readonly lastValidatedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
 export const MERCHANT_ADMIN_PROVIDER_JOB_STATUSES = Object.freeze([
-  "awaiting_provider_activation", "cancelled",
+  "awaiting_provider_activation", "queued", "leased", "provider_outcome_unknown",
+  "reconciliation_required", "succeeded", "retryable_failed",
+  "permanently_failed", "cancelled",
 ] as const);
 export type MerchantAdminProviderJobStatus = (typeof MERCHANT_ADMIN_PROVIDER_JOB_STATUSES)[number];
 export interface MerchantAdminProviderJob {
@@ -38,6 +76,12 @@ export interface MerchantAdminProviderJob {
   readonly recordKind: MerchantAdminProviderRecordKind;
   readonly action: MerchantAdminProviderAction;
   readonly status: MerchantAdminProviderJobStatus;
+  readonly profileId: string | null;
+  readonly providerCode: string | null;
+  readonly credentialVersion: number | null;
+  readonly attempt: number;
+  readonly safeProviderReference: string | null;
+  readonly outcomeCode: string | null;
   readonly version: number;
   readonly requestedAt: string;
   readonly updatedAt: string;
@@ -48,6 +92,12 @@ export interface MerchantAdminProviderJobMutationResult {
   readonly recordKind: MerchantAdminProviderRecordKind;
   readonly action: MerchantAdminProviderAction;
   readonly status: MerchantAdminProviderJobStatus;
+  readonly profileId: string | null;
+  readonly providerCode: string | null;
+  readonly credentialVersion: number | null;
+  readonly attempt: number;
+  readonly safeProviderReference: string | null;
+  readonly outcomeCode: string | null;
   readonly version: number;
   readonly updatedAt: string;
   readonly replayed: boolean;

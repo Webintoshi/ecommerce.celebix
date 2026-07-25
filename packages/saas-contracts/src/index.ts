@@ -188,12 +188,16 @@ export {
   MERCHANT_ADMIN_PROVIDER_ACTIONS,
   MERCHANT_ADMIN_PROVIDER_JOB_STATUSES,
   MERCHANT_ADMIN_PROVIDER_RECORD_KINDS,
+  MERCHANT_PROVIDER_CAPABILITIES,
+  MERCHANT_PROVIDER_PROFILE_STATUSES,
   parseMerchantAdminConfig,
   parseMerchantAdminEvent,
   parseMerchantAdminMutationResult,
   parseMerchantAdminProviderJob,
   parseMerchantAdminProviderJobMutationResult,
   parseMerchantAdminRecord,
+  parseMerchantProviderDescriptor,
+  parseMerchantProviderProfile,
 } from "./merchant-admin/index.ts";
 export type {
   MerchantAdminJson,
@@ -208,6 +212,12 @@ export type {
   MerchantAdminRecord,
   MerchantAdminRecordKind,
   MerchantAdminRecordStatus,
+  MerchantProviderCapability,
+  MerchantProviderCredentialFieldDescriptor,
+  MerchantProviderDescriptor,
+  MerchantProviderFieldDescriptor,
+  MerchantProviderProfile,
+  MerchantProviderProfileStatus,
 } from "./merchant-admin/index.ts";
 export type {
   BarcodeLabelRow,
