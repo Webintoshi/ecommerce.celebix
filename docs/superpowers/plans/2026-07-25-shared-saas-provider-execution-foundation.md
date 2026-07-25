@@ -152,6 +152,7 @@ git commit -m "feat(saas): define provider execution contracts"
 - Create: `packages/saas-data/src/provider-execution/credential-crypto.test.ts`
 - Create: `packages/saas-data/src/provider-execution/index.ts`
 - Modify: `packages/saas-data/src/index.ts:1-end`
+- Modify: `packages/saas-data/src/merchant-admin/repository.test.ts:148-154` (normalized legacy projection assertion only)
 
 **Interfaces:**
 - Consumes: Node `crypto`; 32-byte injected keys; profile/store/provider/capability/version authority.

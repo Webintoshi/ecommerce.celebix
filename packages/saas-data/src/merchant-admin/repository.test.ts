@@ -149,6 +149,6 @@ test("lists only exact bounded provider preparation projections",async()=>{
  const job={id:"73000000-0000-4000-8000-000000000001",recordId:RECORD,recordKind:"indexing_request",action:"indexing",status:"awaiting_provider_activation",version:1,requestedAt:NOW.toISOString(),updatedAt:NOW.toISOString()};
  const reader=new Client((text)=>text.includes("merchant_provider_list")?[{outcome:"listed",result_payload:{items:[job]}}]:[]);
  const result=await repository(new Pool([reader])).listProviderJobs({tenantContext:tenant(),now:NOW,kind:"indexing_request"});
- assert.deepEqual(result,[job]);
+ assert.deepEqual(result,[{...job,profileId:null,providerCode:null,credentialVersion:null,attempt:0,safeProviderReference:null,outcomeCode:null}]);
  await assert.rejects(()=>repository(new Pool([])).prepareProviderJob({tenantContext:tenant(),now:NOW,operationId:OP,recordId:RECORD,expectedRecordVersion:1,kind:"discount" as never}),error=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
