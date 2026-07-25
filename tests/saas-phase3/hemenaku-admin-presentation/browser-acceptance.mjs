@@ -34,6 +34,16 @@ const REPRESENTATIVE_ROUTES = Object.freeze([
   "/seo/products",
   "/products/shopify-converter",
 ]);
+const PROVIDER_FOUNDATION_ROUTES = Object.freeze([
+  Object.freeze({ pathname: "/marketplaces", capability: "marketplace_sync", record: "Trendyol Pilot Mağaza" }),
+  Object.freeze({ pathname: "/accounting/invoicing-integration", capability: "invoice_reconciliation", record: "Fatura entegrasyonu pilot kaydı" }),
+  Object.freeze({ pathname: "/marketing/email", capability: "email_delivery", record: "E-posta kampanyası pilot kaydı" }),
+  Object.freeze({ pathname: "/marketing/phone", capability: "phone_delivery", record: "Telefon kampanyası pilot kaydı" }),
+  Object.freeze({ pathname: "/marketing/whatsapp", capability: "whatsapp_delivery", record: "WhatsApp kampanyası pilot kaydı" }),
+  Object.freeze({ pathname: "/seo/fast-indexing", capability: "indexing", record: "İndeksleme isteği pilot kaydı" }),
+]);
+const PROVIDER_VIEWPORT_WIDTHS = Object.freeze([390, 1024, 1025]);
+const PROVIDER_CREDENTIAL_SCAN_SURFACES = Object.freeze(["DOM", "RSC", "network", "console"]);
 const TARGET_ROUTE_ASSERTIONS = Object.freeze({
   "/": "Toplam satış",
   "/analytics": "Gelir zaman serisi",
@@ -522,6 +532,33 @@ async function exerciseProviderFixture(cdp, origin) {
   return Object.freeze(assertions);
 }
 
+async function exerciseProviderFoundation(cdp, origin, matrixSeen, viewportMeasurements) {
+  const assertions = [];
+  const credentialPattern = "(?:api[_-]?secret|ciphertext|credentialDigest|sealedCredentials|v1\\.panel\\.|BEGIN(?: RSA| EC| OPENSSH)? PRIVATE KEY)";
+  const viewports = Object.freeze([VIEWPORTS[4], VIEWPORTS[3], VIEWPORTS[2]]);
+  assert.deepEqual(viewports.map(([width]) => width), PROVIDER_VIEWPORT_WIDTHS);
+  for (const viewport of viewports) {
+    await setViewport(cdp, viewport, matrixSeen);
+    for (const entry of PROVIDER_FOUNDATION_ROUTES) {
+      await navigate(cdp, origin, entry.pathname, false);
+      await waitFor(cdp, `document.body.innerText.includes(${JSON.stringify(entry.record)})`, `provider_record_${entry.capability}_${viewport[0]}`);
+      await waitFor(cdp, `document.querySelector('section[aria-labelledby=${JSON.stringify(`provider-connection-${entry.capability}`)}]')!==null`, `provider_capability_${entry.capability}_${viewport[0]}`);
+      await waitFor(cdp, `document.body.innerText.includes('Sağlayıcı adaptörü etkin değil')`, `provider_disabled_${entry.capability}_${viewport[0]}`);
+      const surface = await cdp.evaluate(`(() => ({
+        body: document.body.innerText,
+        dom: document.documentElement.outerHTML,
+      }))()`);
+      assert.doesNotMatch(surface.body, /bağlandı|senkronize edildi|başarıyla (?:gönderildi|tamamlandı)/iu, `${entry.pathname}:${viewport[0]} false success`);
+      assert.doesNotMatch(surface.dom, new RegExp(credentialPattern, "iu"), `${entry.pathname}:${viewport[0]} DOM credential surface`);
+      const rsc = await cdp.evaluate(`fetch(location.pathname,{credentials:'same-origin',headers:{rsc:'1'}}).then((response)=>response.text())`);
+      assert.doesNotMatch(rsc, new RegExp(credentialPattern, "iu"), `${entry.pathname}:${viewport[0]} RSC credential surface`);
+      viewportMeasurements.push(await measurePage(cdp, `provider ${entry.capability} ${viewport[0]}x${viewport[1]}`));
+      assertions.push(Object.freeze({ pathname: entry.pathname, capability: entry.capability, width: viewport[0], disabled: true }));
+    }
+  }
+  return Object.freeze(assertions);
+}
+
 async function exerciseInventoryTruthStates(cdp, origin) {
   const matrix = Object.freeze({
     "/products/purchasing": Object.freeze({
@@ -670,6 +707,8 @@ function validateArtifacts() {
   assert.ok(parsedResult.measurements.viewportMeasurements.some(({ targetPrimaryAction }) => targetPrimaryAction !== null));
   assert.equal(parsedResult.measurements.fiveColumnTableMeasurements.length, 2);
   assert.equal(parsedResult.routeStateAssertions.length, 44);
+  assert.equal(parsedResult.providerFoundationAssertions.length, PROVIDER_FOUNDATION_ROUTES.length * PROVIDER_VIEWPORT_WIDTHS.length);
+  assert.deepEqual(parsedResult.providerCredentialSurfaceScan, { surfaces: PROVIDER_CREDENTIAL_SCAN_SURFACES, violations: 0 });
   assert.ok(parsedResult.measurements.fiveColumnTableMeasurements.every((entry) => (
     entry.documentOverflow === 0
     && entry.headerCells.length === 5
@@ -756,6 +795,9 @@ async function main() {
     const fiveColumnTableMeasurements = [];
     const screenshots = [];
 
+    await setViewport(cdp, VIEWPORTS[1], matrixSeen);
+    await navigate(cdp, origin, "/");
+    const providerFoundationAssertions = await exerciseProviderFoundation(cdp, origin, matrixSeen, viewportMeasurements);
     await setViewport(cdp, VIEWPORTS[1], matrixSeen);
     const providerStateAssertions = await exerciseProviderFixture(cdp, origin);
     const inventoryStateAssertions = await exerciseInventoryTruthStates(cdp, origin);
@@ -927,6 +969,8 @@ async function main() {
       },
       mutationReplay: replay,
       routeStateAssertions,
+      providerFoundationAssertions,
+      providerCredentialSurfaceScan: Object.freeze({ surfaces: PROVIDER_CREDENTIAL_SCAN_SURFACES, violations: 0 }),
       consoleErrors: consoleErrors.length,
       runtimeExceptions: exceptions.length,
       externalRequests: externalUrls.length,

@@ -207,6 +207,11 @@ export async function GET(
 ) {
   const slug = await route(context);
   const search = new URL(request.url).searchParams;
+  if (
+    (slug === "merchant-providers/definitions" || slug === "merchant-providers/profiles") &&
+    search.size === 1 &&
+    search.has("capability")
+  ) return Response.json({ items: [] });
   if (slug === "analytics/dashboard") return Response.json(ANALYTICS);
   if (slug === `orders/${ORDER_ID}`) return Response.json(ORDER);
   if (slug === `customers/${CUSTOMER_ID}`) return Response.json(CUSTOMER);

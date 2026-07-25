@@ -325,6 +325,18 @@ function TargetRouteSurface({ pathname, state }: Readonly<{ pathname: string; st
       return <TransferTruthFixture state={state} />;
     case "/products/price-lists":
       return <PricingTruthFixture state={state} />;
+    case "/marketplaces":
+      return <MerchantModuleConsole kind="marketplace_connection" canManage />;
+    case "/accounting/invoicing-integration":
+      return <MerchantModuleConsole kind="invoice_integration" canManage />;
+    case "/marketing/email":
+      return <MerchantModuleConsole kind="email_campaign" canManage />;
+    case "/marketing/phone":
+      return <MerchantModuleConsole kind="phone_campaign" canManage />;
+    case "/marketing/whatsapp":
+      return <MerchantModuleConsole kind="whatsapp_campaign" canManage />;
+    case "/seo/fast-indexing":
+      return <MerchantModuleConsole kind="indexing_request" canManage />;
     case "/seo/products":
       return <MerchantModuleConsole kind="seo_product_entry" canManage />;
     case "/products/shopify-converter":

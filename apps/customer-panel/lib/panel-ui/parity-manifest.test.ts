@@ -20,6 +20,13 @@ test("maps every donor page to one canonical target decision", () => {
   assert.equal(new Set(HEMENAKU_DONOR_PARITY.map(({ donorPath }) => donorPath)).size, 86);
 });
 
+test("foundation does not promote provider routes before real sandbox proof", () => {
+  assert.equal(HEMENAKU_DONOR_PARITY.length, 86);
+  assert.equal(HEMENAKU_DONOR_PARITY.filter(({ status }) => status === "complete").length, 77);
+  assert.equal(HEMENAKU_DONOR_PARITY.filter(({ status }) => status === "provider_gated").length, 6);
+  assert.equal(HEMENAKU_DONOR_PARITY.filter(({ status }) => status === "legacy_rejected").length, 3);
+});
+
 test("every donor route has a final evidenced decision", () => {
   assert.equal(HEMENAKU_DONOR_PARITY.length, 86);
   assert.equal(HEMENAKU_DONOR_PARITY.some(({ status }) => status === "route_depth"), false);

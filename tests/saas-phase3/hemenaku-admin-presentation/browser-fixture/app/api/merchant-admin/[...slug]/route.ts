@@ -10,8 +10,23 @@ const operations = new Set<string>();
 let status: "awaiting_provider_activation" | "cancelled" | null = null;
 let version = 1;
 
+const PROVIDER_RECORDS = Object.freeze({
+  marketplace_connection: Object.freeze({ name: "Trendyol Pilot Mağaza", config: Object.freeze({ provider: "trendyol", merchantReference: "pilot-42", syncEnabled: true }) }),
+  invoice_integration: Object.freeze({ name: "Fatura entegrasyonu pilot kaydı", config: Object.freeze({ provider: "fixture", accountReference: "invoice-42", enabled: true }) }),
+  email_campaign: Object.freeze({ name: "E-posta kampanyası pilot kaydı", config: Object.freeze({ subject: "Kampanya", audience: "izinli-liste", content: "Yerel fixture içeriği" }) }),
+  phone_campaign: Object.freeze({ name: "Telefon kampanyası pilot kaydı", config: Object.freeze({ audience: "izinli-liste", script: "Yerel fixture arama metni" }) }),
+  whatsapp_campaign: Object.freeze({ name: "WhatsApp kampanyası pilot kaydı", config: Object.freeze({ audience: "izinli-liste", message: "Yerel fixture mesajı" }) }),
+  indexing_request: Object.freeze({ name: "İndeksleme isteği pilot kaydı", config: Object.freeze({ urls: "https://store.browser.test/urun", reason: "Yerel fixture doğrulaması" }) }),
+});
+type ProviderRecordKind = keyof typeof PROVIDER_RECORDS;
+
+function providerRecord(kind: ProviderRecordKind) {
+  const selected = PROVIDER_RECORDS[kind];
+  return { id: RECORD, kind, name: selected.name, config: selected.config, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
+}
+
 function record() {
-  return { id: RECORD, kind: "marketplace_connection", name: "Trendyol Pilot Mağaza", config: { provider: "trendyol", merchantReference: "pilot-42", syncEnabled: true }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
+  return providerRecord("marketplace_connection");
 }
 function seoRecord() {
   return { id: SEO_RECORD, kind: "seo_product_entry", name: "Keten Gömlek SEO", config: { resourceId: PRODUCT_RESOURCE, metaTitle: "Keten Gömlek", metaDescription: "Doğal keten gömlek.", canonicalPath: "/urunler/keten-gomlek" }, status: "active", version: 2, createdAt: NOW, updatedAt: NOW };
@@ -30,9 +45,14 @@ async function segments(context: { params: Promise<{ slug: string[] }> }) { retu
 
 export async function GET(_request: Request, context: { params: Promise<{ slug: string[] }> }) {
   const slug = await segments(context);
-  if (slug.join("/") === "records/marketplace_connection") return Response.json({ items: [record()] });
-  if (slug.join("/") === "events/marketplace_connection") return Response.json({ items: [] });
-  if (slug.join("/") === "provider-jobs/marketplace_connection") return Response.json({ items: status === null ? [] : [job()] });
+  const route = slug.join("/");
+  const providerMatch = /^(records|events|provider-jobs)\/([^/]+)$/.exec(route);
+  if (providerMatch && Object.hasOwn(PROVIDER_RECORDS, providerMatch[2]!)) {
+    const kind = providerMatch[2] as ProviderRecordKind;
+    if (providerMatch[1] === "records") return Response.json({ items: [providerRecord(kind)] });
+    if (providerMatch[1] === "events") return Response.json({ items: [] });
+    return Response.json({ items: kind === "marketplace_connection" && status !== null ? [job()] : [] });
+  }
   if (slug.join("/") === "records/seo_product_entry") return Response.json({ items: [seoRecord()] });
   if (slug.join("/") === "events/seo_product_entry") return Response.json({ items: [] });
   if (slug.join("/") === "records/general_setting") return Response.json({ items: [generalRecord()] });
