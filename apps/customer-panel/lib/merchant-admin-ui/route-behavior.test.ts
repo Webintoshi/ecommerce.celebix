@@ -293,7 +293,9 @@ async function compileConsole(react: typeof React, api: ReturnType<typeof create
     if (specifier === "lucide-react") return icons;
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
     if (specifier === "@/components/panel/PanelPageShell") return panelComponents();
+    if (specifier === "@/components/merchant-admin/ProviderConnectionPanel") return { ProviderConnectionPanel: (props: Record<string, unknown>) => createElement("section", { ...props, "data-provider-connection-panel": true }) };
     if (specifier === "@/lib/merchant-admin-ui/client") return { MerchantAdminApiError, merchantAdminApi: api };
+    if (specifier === "@/lib/provider-execution-ui/client") return { providerExecutionApi: { async profiles() { return Object.freeze([]); } } };
     if (specifier === "@/lib/merchant-admin-ui/record-route") return recordRoute;
     if (specifier === "@/lib/merchant-admin-ui/presentation") return presentation;
     if (specifier === "./merchant-module-console.module.css") return styles;
@@ -425,6 +427,12 @@ test("merchant route matrix invokes every actual page, production console, clien
         recordKind: input.kind,
         action: providerAction(input.kind),
         status: "awaiting_provider_activation" as const,
+        profileId: null,
+        providerCode: null,
+        credentialVersion: null,
+        attempt: 0,
+        safeProviderReference: null,
+        outcomeCode: null,
         version: 1,
         requestedAt: NOW,
         updatedAt: NOW,
@@ -442,6 +450,7 @@ test("merchant route matrix invokes every actual page, production console, clien
       const { requestedAt: _requestedAt, ...result } = next;
       return { ...result, replayed: false };
     },
+    async queueProviderJob() { throw new Error("unexpected_provider_queue"); },
   };
   const handlers = createMerchantAdminHttpHandlers({
     async resolveRuntime() {
@@ -784,6 +793,7 @@ test("merchant non-default route matrix invokes nine actual pages and exact crea
     },
     async archive() { throw new Error("unexpected_non_default_archive"); },
     async prepareProviderJob() { throw new Error("unexpected_non_default_prepare"); },
+    async queueProviderJob() { throw new Error("unexpected_non_default_queue"); },
     async cancelProviderJob() { throw new Error("unexpected_non_default_cancel"); },
   };
   const handlers = createMerchantAdminHttpHandlers({
@@ -954,6 +964,45 @@ test("merchant non-default route matrix invokes nine actual pages and exact crea
     Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
     Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
   }
+});
+
+test("provider connection panel renders masked active and truthful disabled states without credential echo", async () => {
+  const profile = {
+    id: "74000000-0000-4000-8000-000000000001", providerCode: "fixture_provider", capability: "marketplace_sync" as const,
+    publicConfig: { account_reference: "merchant-42" }, maskedAccountReference: "••••nt-42", status: "active" as const,
+    credentialVersion: 2, version: 3, lastValidatedAt: NOW, createdAt: NOW, updatedAt: NOW,
+  };
+  const descriptor = {
+    providerCode: "fixture_provider", capability: "marketplace_sync" as const, label: "Fixture Provider",
+    publicFields: [{ key: "account_reference", label: "Hesap" }],
+    credentialFields: [{ key: "api_secret", label: "API Secret", secret: true as const }],
+  };
+  async function render(definitions: readonly unknown[], profiles: readonly unknown[]) {
+    const hooks = createHookRuntime();
+    const Panel = await compileComponent(
+      "../../components/merchant-admin/ProviderConnectionPanel.tsx",
+      "ProviderConnectionPanel",
+      hooks.runtime,
+      {
+        "@celebix/saas-contracts": contracts,
+        "@/lib/provider-execution-ui/client": {
+          ProviderExecutionApiError: class extends Error {},
+          providerExecutionApi: {
+            async definitions() { return definitions; }, async profiles() { return profiles; },
+            async save() { throw new Error("unused"); }, async disable() { throw new Error("unused"); }, async revoke() { throw new Error("unused"); },
+          },
+        },
+      },
+    );
+    return hooks.flush(() => Panel({ capability: "marketplace_sync", canManage: true }));
+  }
+  const active = await render([descriptor], [profile]);
+  assert.match(textOf(active), /Fixture Provider/);
+  assert.match(textOf(active), /••••nt-42/);
+  assert.doesNotMatch(textOf(active), /api_secret|ciphertext|credentialDigest|storeId/);
+  const disabled = await render([], []);
+  assert.match(textOf(disabled), /Sağlayıcı adaptörü etkin değil/);
+  assert.doesNotMatch(textOf(disabled), /bağlandı|senkronize edildi|başarılı/iu);
 });
 
 test("static merchant hubs invoke actual pages and expose only canonical destination links", async () => {

@@ -7,6 +7,8 @@ import {
   parseMerchantAdminProviderJob,
   parseMerchantAdminProviderJobMutationResult,
   parseMerchantAdminRecord,
+  isMerchantActionAllowed,
+  type MerchantProviderCapability,
   type MerchantAdminProviderRecordKind,
   type MerchantAdminRecordKind,
   type TenantContext,
@@ -20,16 +22,18 @@ import {
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerMerchantAdminRuntime } from "../server-merchant-admin/runtime.ts";
+import type { ServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 
 const BASE = "/api/merchant-admin";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const STATUS: Readonly<Record<MerchantAdminErrorCode, number>> = Object.freeze({
   invalid_input: 400, unauthenticated: 401, membership_denied: 403,
   store_inactive: 403, feature_not_enabled: 403, record_not_found: 404,
+  profile_not_found: 404, provider_capability_mismatch: 409, provider_disabled: 409,
   invalid_transition: 409, version_conflict: 409, operation_mismatch: 409,
   operation_not_found: 404, durable_authority_invalid: 409, unavailable: 503,
 });
-type Deps = Readonly<{ resolveRuntime(): Promise<ServerMerchantAdminRuntime | null>; now(): Date; requestId(): string }>;
+type Deps = Readonly<{ resolveRuntime(): Promise<ServerMerchantAdminRuntime | null>; resolveProviderRuntime?(access: ServerMerchantAdminRuntime["access"]): Promise<ServerProviderExecutionRuntime | null>; now(): Date; requestId(): string }>;
 type Authorized = Readonly<{ runtime: ServerMerchantAdminRuntime; tenantContext: TenantContext; now: Date }>;
 
 function json(value: unknown, status = 200, extra?: HeadersInit) {
@@ -46,6 +50,7 @@ function privateHeaders(request: Request) { for (const [name] of request.headers
 function operation(request: Request) { const value = request.headers.get("idempotency-key"); return value && UUID.test(value) && !value.includes(",") ? value : null; }
 function kind(value: unknown): MerchantAdminRecordKind | null { return MERCHANT_ADMIN_RECORD_KINDS.includes(value as never) ? value as MerchantAdminRecordKind : null; }
 function providerKind(value: unknown): MerchantAdminProviderRecordKind | null { return MERCHANT_ADMIN_PROVIDER_RECORD_KINDS.includes(value as never) ? value as MerchantAdminProviderRecordKind : null; }
+function providerCapability(value: MerchantAdminProviderRecordKind): MerchantProviderCapability { const capabilities: Readonly<Record<MerchantAdminProviderRecordKind,MerchantProviderCapability>>=Object.freeze({marketplace_connection:"marketplace_sync",email_campaign:"email_delivery",phone_campaign:"phone_delivery",whatsapp_campaign:"whatsapp_delivery",invoice_integration:"invoice_reconciliation",indexing_request:"indexing"});return capabilities[value]; }
 function id(value: unknown) { return typeof value === "string" && UUID.test(value) ? value : null; }
 function version(value: unknown) { return Number.isSafeInteger(value) && (value as number) > 0 ? value as number : null; }
 
@@ -97,6 +102,7 @@ export function createMerchantAdminHttpHandlers(deps: Deps) {
     async save(request: Request, rawKind: string) { const recordKind = kind(rawKind), authorized = await authorize(deps, request, "POST", `${BASE}/records/${rawKind}`); if (isResponse(authorized)) return authorized; const operationId = operation(request), input = saveInput(await body(request)); return recordKind && operationId && input ? execute(() => authorized.runtime.merchantAdmin.save({ tenantContext: authorized.tenantContext, now: authorized.now, operationId, kind: recordKind, ...input }), parseMerchantAdminMutationResult) : error("invalid_input", 400); },
     async archive(request: Request, rawKind: string, rawId: string) { const recordKind = kind(rawKind), recordId = id(rawId), authorized = await authorize(deps, request, "POST", `${BASE}/records/${rawKind}/${rawId}/archive`); if (isResponse(authorized)) return authorized; const operationId = operation(request), parsed = exact(await body(request), ["expectedVersion"]), expectedVersion = parsed ? version(parsed.expectedVersion) : null; return recordKind && recordId && operationId && expectedVersion ? execute(() => authorized.runtime.merchantAdmin.archive({ tenantContext: authorized.tenantContext, now: authorized.now, operationId, recordId, expectedVersion }), parseMerchantAdminMutationResult) : error("invalid_input", 400); },
     async prepareProviderJob(request: Request, rawKind: string) { const recordKind = providerKind(rawKind), authorized = await authorize(deps, request, "POST", `${BASE}/provider-jobs/${rawKind}`); if (isResponse(authorized)) return authorized; const operationId = operation(request), parsed = exact(await body(request), ["recordId", "expectedRecordVersion"]), recordId = parsed ? id(parsed.recordId) : null, expectedRecordVersion = parsed ? version(parsed.expectedRecordVersion) : null; return recordKind && operationId && recordId && expectedRecordVersion ? execute(() => authorized.runtime.merchantAdmin.prepareProviderJob({ tenantContext: authorized.tenantContext, now: authorized.now, operationId, recordId, expectedRecordVersion, kind: recordKind }), parseMerchantAdminProviderJobMutationResult) : error("invalid_input", 400); },
+    async queueProviderJob(request: Request, rawKind: string, rawJobId: string) { const recordKind=providerKind(rawKind),jobId=id(rawJobId),authorized=await authorize(deps,request,"POST",`${BASE}/provider-jobs/${rawKind}/${rawJobId}/queue`);if(isResponse(authorized))return authorized;if(!recordKind||!jobId)return error("invalid_input",400);if(!isMerchantActionAllowed(authorized.tenantContext.membership.role,"integrations.manage"))return error("membership_denied",403);const operationId=operation(request),parsed=exact(await body(request),["expectedJobVersion","profileId","expectedProfileVersion"]),expectedJobVersion=parsed?version(parsed.expectedJobVersion):null,profileId=parsed?id(parsed.profileId):null,expectedProfileVersion=parsed?version(parsed.expectedProfileVersion):null;if(!operationId||!expectedJobVersion||!profileId||!expectedProfileVersion)return error("invalid_input",400);let providerRuntime;try{providerRuntime=deps.resolveProviderRuntime?await deps.resolveProviderRuntime(authorized.runtime.access):null}catch{return error("unavailable",503)}if(!providerRuntime||providerRuntime.registry.size===0)return error("unavailable",503);const capability=providerCapability(recordKind);let profiles;try{profiles=await providerRuntime.profiles.list({tenantContext:authorized.tenantContext,now:authorized.now,capability})}catch(caught){return caught instanceof MerchantAdminRepositoryError?repositoryError(caught):error("unavailable",503)}const profile=profiles.find((entry)=>entry.id===profileId);if(!profile)return error("profile_not_found",404);if(profile.capability!==capability)return error("provider_capability_mismatch",409);if(profile.status!=="active")return error("provider_disabled",409);if(profile.version!==expectedProfileVersion)return error("version_conflict",409);return execute(()=>authorized.runtime.merchantAdmin.queueProviderJob({tenantContext:authorized.tenantContext,now:authorized.now,operationId,jobId,expectedJobVersion,profileId,expectedProfileVersion,kind:recordKind}),parseMerchantAdminProviderJobMutationResult); },
     async cancelProviderJob(request: Request, rawKind: string, rawJobId: string) { const recordKind = providerKind(rawKind), jobId = id(rawJobId), authorized = await authorize(deps, request, "POST", `${BASE}/provider-jobs/${rawKind}/${rawJobId}/cancel`); if (isResponse(authorized)) return authorized; const operationId = operation(request), parsed = exact(await body(request), ["expectedVersion"]), expectedVersion = parsed ? version(parsed.expectedVersion) : null; return recordKind && jobId && operationId && expectedVersion ? execute(() => authorized.runtime.merchantAdmin.cancelProviderJob({ tenantContext: authorized.tenantContext, now: authorized.now, operationId, jobId, expectedVersion, kind: recordKind }), parseMerchantAdminProviderJobMutationResult) : error("invalid_input", 400); },
   });
 }

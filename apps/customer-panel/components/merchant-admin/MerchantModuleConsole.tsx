@@ -8,6 +8,8 @@ import {
   type MerchantAdminProviderRecordKind,
   type MerchantAdminRecord,
   type MerchantAdminRecordKind,
+  type MerchantProviderCapability,
+  type MerchantProviderProfile,
 } from "@celebix/saas-contracts";
 import {
   Archive,
@@ -41,7 +43,9 @@ import {
   PanelStatusBadge,
   PanelToolbar,
 } from "@/components/panel/PanelPageShell";
+import { ProviderConnectionPanel } from "@/components/merchant-admin/ProviderConnectionPanel";
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
+import { providerExecutionApi } from "@/lib/provider-execution-ui/client";
 import { createRouteFor, editRouteFor } from "@/lib/merchant-admin-ui/record-route";
 import {
   buildMerchantModuleSummary,
@@ -190,15 +194,33 @@ function ConfigSummary({ record }: { record: MerchantAdminRecord }) {
 }
 
 function providerJobStatus(job: MerchantAdminProviderJob) {
-  return job.status === "cancelled"
-    ? Object.freeze({ label: "İptal edildi", tone: "neutral" as const })
-    : Object.freeze({ label: "Sağlayıcı aktivasyonu bekleniyor", tone: "warning" as const });
+  if (job.status === "cancelled") return Object.freeze({ label: "İptal edildi", tone: "neutral" as const });
+  if (job.status === "succeeded") return Object.freeze({ label: "Tamamlandı", tone: "success" as const });
+  if (job.status === "permanently_failed") return Object.freeze({ label: "Kalıcı hata", tone: "danger" as const });
+  if (job.status === "provider_outcome_unknown") return Object.freeze({ label: "Sonuç doğrulanıyor — tekrar göndermeyin", tone: "warning" as const });
+  if (job.status === "reconciliation_required") return Object.freeze({ label: "Uzlaştırma gerekli", tone: "warning" as const });
+  if (job.status === "retryable_failed") return Object.freeze({ label: "Tekrar denenebilir", tone: "warning" as const });
+  if (job.status === "leased") return Object.freeze({ label: "İşleniyor", tone: "warning" as const });
+  if (job.status === "queued") return Object.freeze({ label: "Sırada", tone: "warning" as const });
+  return Object.freeze({ label: "Sağlayıcı aktivasyonu bekleniyor", tone: "warning" as const });
 }
 
 function toProviderRecordKind(kind: MerchantAdminRecordKind): MerchantAdminProviderRecordKind | null {
   return MERCHANT_ADMIN_PROVIDER_RECORD_KINDS.includes(kind as MerchantAdminProviderRecordKind)
     ? kind as MerchantAdminProviderRecordKind
     : null;
+}
+
+function capabilityForProviderKind(kind: MerchantAdminProviderRecordKind): MerchantProviderCapability {
+  const capabilities: Readonly<Record<MerchantAdminProviderRecordKind, MerchantProviderCapability>> = Object.freeze({
+    marketplace_connection: "marketplace_sync",
+    email_campaign: "email_delivery",
+    phone_campaign: "phone_delivery",
+    whatsapp_campaign: "whatsapp_delivery",
+    invoice_integration: "invoice_reconciliation",
+    indexing_request: "indexing",
+  });
+  return capabilities[kind];
 }
 
 export function MerchantModuleConsole({
@@ -212,9 +234,11 @@ export function MerchantModuleConsole({
 }) {
   const definition = getMerchantModuleDefinition(kind);
   const providerRecordKind = toProviderRecordKind(kind);
+  const providerCapability = providerRecordKind ? capabilityForProviderKind(providerRecordKind) : null;
   const [items, setItems] = useState<readonly MerchantAdminRecord[]>([]);
   const [events, setEvents] = useState<readonly MerchantAdminEvent[]>([]);
   const [providerJobs, setProviderJobs] = useState<readonly MerchantAdminProviderJob[]>([]);
+  const [providerProfiles, setProviderProfiles] = useState<readonly MerchantProviderProfile[]>([]);
   const [editing, setEditing] = useState<MerchantAdminRecord | null>(null);
   const [editorOpen, setEditorOpen] = useState(createFirst && canManage);
   const [loading, setLoading] = useState(true);
@@ -243,17 +267,21 @@ export function MerchantModuleConsole({
     setLoading(true);
     setError("");
     try {
-      const [records, audit, jobs] = await Promise.all([
+      const [records, audit, jobs, profiles] = await Promise.all([
         merchantAdminApi.records(kind),
         merchantAdminApi.events(kind),
         definition.workflow && providerRecordKind
           ? merchantAdminApi.providerJobs(providerRecordKind)
           : Promise.resolve(Object.freeze([]) as readonly MerchantAdminProviderJob[]),
+        definition.workflow && providerCapability
+          ? providerExecutionApi.profiles(providerCapability).catch(() => Object.freeze([]) as readonly MerchantProviderProfile[])
+          : Promise.resolve(Object.freeze([]) as readonly MerchantProviderProfile[]),
       ]);
       if (!mountedRef.current || loadVersionRef.current !== version) return;
       setItems(records);
       setEvents(audit);
       setProviderJobs(jobs);
+      setProviderProfiles(profiles);
     } catch (caught) {
       if (!mountedRef.current || loadVersionRef.current !== version) return;
       setError(
@@ -264,7 +292,7 @@ export function MerchantModuleConsole({
     } finally {
       if (mountedRef.current && loadVersionRef.current === version) setLoading(false);
     }
-  }, [definition.title, definition.workflow, kind, providerRecordKind]);
+  }, [definition.title, definition.workflow, kind, providerCapability, providerRecordKind]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -417,21 +445,48 @@ export function MerchantModuleConsole({
     }
   }
 
+  async function queueProviderJob(job: MerchantAdminProviderJob, profile: MerchantProviderProfile) {
+    if (!providerRecordKind || profile.status !== "active") return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await merchantAdminApi.queueProviderJob(providerRecordKind, job.id, job.version, profile.id, profile.version);
+      setMessage("Sağlayıcı işi doğrulanmış bağlantıyla sıraya alındı.");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof MerchantAdminApiError ? caught.message : "Sağlayıcı işi sıraya alınamadı.");
+    } finally { setBusy(false); }
+  }
+
   const waitingJobs = useMemo(
     () => new Map(providerJobs.filter(({ status }) => status === "awaiting_provider_activation").map((job) => [job.recordId, job] as const)),
     [providerJobs],
   );
+  const unknownJobs = useMemo(
+    () => new Map(providerJobs.filter(({ status }) => status === "provider_outcome_unknown" || status === "reconciliation_required").map((job) => [job.recordId, job] as const)),
+    [providerJobs],
+  );
+  const activeProviderProfile = providerProfiles.find((profile) => profile.capability === providerCapability && profile.status === "active");
 
   function providerControls(record: MerchantAdminRecord) {
     if (!definition.workflow) return null;
     const workflow = buildProviderWorkflowState(definition, record);
     if (!workflow) return null;
     const waiting = waitingJobs.get(record.id);
+    const unknown = unknownJobs.get(record.id);
+    if (unknown) return (
+      <div className={styles.workflowSummary} data-workflow-state={unknown.status}>
+        <div><CircleDashed aria-hidden="true" /><span>{providerJobStatus(unknown).label}</span></div>
+      </div>
+    );
     return (
       <div className={styles.workflowSummary} data-workflow-state={waiting ? "awaiting_provider_activation" : workflow.code}>
         <div><CircleDashed aria-hidden="true" /><span>{waiting ? "Sağlayıcı aktivasyonu bekleniyor" : workflow.label}</span></div>
         {workflow.missingFields.length ? <small>Eksik: {workflow.missingFields.join(", ")}</small> : null}
-        {canManage && waiting ? (
+        {canManage && waiting && activeProviderProfile ? (
+          <><button type="button" className={styles.workflowAction} disabled={busy} onClick={() => void queueProviderJob(waiting, activeProviderProfile)}><CircleDashed aria-hidden="true" /> Sıraya al</button><button type="button" className={styles.workflowCancel} disabled={busy} onClick={() => void cancelProviderJob(waiting)}><Ban aria-hidden="true" /> Hazırlığı iptal et</button></>
+        ) : canManage && waiting ? (
           <button type="button" className={styles.workflowCancel} disabled={busy} onClick={() => void cancelProviderJob(waiting)}><Ban aria-hidden="true" /> Hazırlığı iptal et</button>
         ) : canManage && workflow.canPrepare ? (
           <button type="button" className={styles.workflowAction} disabled={busy} onClick={() => void prepareProviderJob(record)}><CircleDashed aria-hidden="true" /> {definition.workflow.actionLabel} oluştur</button>
@@ -477,11 +532,13 @@ export function MerchantModuleConsole({
         <aside className={styles.providerNotice} aria-label="Sağlayıcı durumu">
           <ShieldCheck aria-hidden="true" />
           <div>
-            <strong>Harici çalıştırma kapalı</strong>
-            <p>{definition.notice} Bu ekranda yalnız doğrulanabilir hazırlık kaydı oluşturulur; gönderim, senkronizasyon veya başka bir ağ çağrısı yapılmaz.</p>
+            <strong>Doğrulanmış sağlayıcı bağlantısı gerekli</strong>
+            <p>{definition.notice} Hazırlık kaydı yalnız etkin ve doğrulanmış bir bağlantıyla iş kuyruğuna alınabilir.</p>
           </div>
         </aside>
       ) : definition.notice ? <p className={styles.notice}>{definition.notice}</p> : null}
+
+      {providerCapability ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
 
       {message ? <p className={styles.success} role="status">{message}</p> : null}
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
