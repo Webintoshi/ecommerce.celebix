@@ -1,8 +1,11 @@
 # Shared SaaS IndexNow Adapter Design
 
-**Status:** Kullanıcı tarafından yazılı olarak onaylandı  
-**Date:** 2026-07-25  
-**Implementation base:** `27cdddedf6d4e37c1410e335d49ca18547496e85`  
+**Status:** Kullanıcı tarafından yazılı olarak onaylandı
+
+**Date:** 2026-07-25
+
+**Implementation base:** `27cdddedf6d4e37c1410e335d49ca18547496e85`
+
 **Design branch:** `codex/saas-phase3-indexnow-adapter-design`
 
 ## 1. Amaç
@@ -50,7 +53,8 @@ IndexNow tamamlandığında çalışan özellik paritesi `78/86`, kapalı geçi�
 
 Celebix key'i üretir, profile credential olarak şifreler ve exact storefront host üzerinde yayınlar. Rotation, revocation, tenant binding ve idempotency merkezi authority tarafından yönetilir.
 
-**Avantajlar:** kullanıcı kurulumu yok; wrong-store riski atomik SQL ile kapanır; rotation tek yüzeyden yönetilir; shared storefront yapısına uyar.  
+**Avantajlar:** kullanıcı kurulumu yok; wrong-store riski atomik SQL ile kapanır; rotation tek yüzeyden yönetilir; shared storefront yapısına uyar.
+
 **Maliyet:** profile lifecycle ile public key publication arasında yeni dar bir PostgreSQL sözleşmesi gerekir.
 
 ### 4.2 Reddedilen: merchant-managed key file
@@ -358,4 +362,3 @@ P1 ancak aşağıdaki koşullar birlikte tamamlandığında kapanır:
 - disposable PostgreSQL backup/restore/rollback/reapply ve cleanup geçer;
 - ayrıca yetkilendirilmiş staging credential/publication revoke edilmiştir;
 - production connection, mutation, deploy ve merge sayıları `0` kalmıştır.
-
