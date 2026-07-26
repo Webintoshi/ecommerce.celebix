@@ -155,7 +155,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
                 <strong>{model.storeSlug}</strong><small>{model.membershipLabel}</small>
               </div>
               <div className={styles.drawerNavigation} onClick={handleNavigationClick}>
-                <PanelNavigation mode="drawer" />
+                <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} />
               </div>
               <div className={styles.sidebarFooter}><LogoutButton /></div>
             </motion.aside>
@@ -171,7 +171,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
       <div className={styles.merchantIdentity} aria-label="Etkin mağaza">
         <strong>{model.storeSlug}</strong><small>{model.membershipLabel}</small>
       </div>
-      <PanelNavigation mode={mode} />
+      <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} />
       <div className={styles.sidebarFooter}><LogoutButton /></div>
     </aside>
   );

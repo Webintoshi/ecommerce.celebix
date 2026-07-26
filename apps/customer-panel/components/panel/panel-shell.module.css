@@ -186,7 +186,7 @@
 .navigationGroupLabel {
   position: relative;
   display: flex;
-  min-height: 42px;
+  min-height: 48px;
   width: 100%;
   align-items: center;
   gap: 0.625rem;
@@ -281,7 +281,7 @@
 }
 
 .navigationChildren .navigationLink {
-  min-height: 32px;
+  min-height: 48px;
   border-radius: 0.7rem;
   padding-block: 0.375rem;
 }
@@ -319,7 +319,7 @@
 .sidebarFooter :global(.logout-button) {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: 48px;
   align-items: center;
   gap: 0.625rem;
   border: 0;

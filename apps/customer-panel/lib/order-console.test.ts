@@ -747,6 +747,7 @@ test("dashboard and order pages expose only durable order facts without private 
   const chrome = Object.freeze({
     storeSlug: "atlas-store", membershipLabel: "Mağaza sahibi", planCode: "free_starter", planVersion: 3,
     entitlementStatus: "active" as const, storefrontHostname: "atlas-store.celebix.site", locale: "tr-TR",
+    analyticsAvailable: false,
   });
   const view = dashboardModel.createMerchantDashboardViewModel(
     chrome,

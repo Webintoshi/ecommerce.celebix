@@ -7,6 +7,7 @@ import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 import {
   getPanelRoutePresentation,
+  getPanelNavigation,
   isPanelNavigationPathActive,
   PANEL_NAVIGATION,
 } from "./panel-ui/navigation.ts";
@@ -325,17 +326,17 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const Link = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) =>
     createElement("a", props, children);
   const compiledModule: {
-    exports: { PanelNavigation?: ComponentType<{ mode: "desktop" | "drawer" }> };
+    exports: { PanelNavigation?: ComponentType<{ mode: "desktop" | "drawer"; analyticsAvailable: boolean }> };
   } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "lucide-react") {
-      return { BadgeCheck: Icon, BadgePercent: Icon, Calculator: Icon, CirclePlus: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Phone: Icon, PieChart: Icon, Plus: Icon, Puzzle: Icon, ReceiptText: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, UserPlus: Icon, Users: Icon };
+      return { BadgeCheck: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, CirclePlus: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Phone: Icon, PieChart: Icon, Plus: Icon, Puzzle: Icon, ReceiptText: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, UserPlus: Icon, Users: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
     if (specifier === "@/lib/panel-ui/navigation") {
-      return { isPanelNavigationPathActive, PANEL_NAVIGATION };
+      return { isPanelNavigationPathActive, getPanelNavigation };
     }
     if (specifier === "./panel-shell.module.css") {
       const styles = new Proxy({}, {
@@ -355,7 +356,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
     compiledModule.exports,
   );
   assert.ok(compiledModule.exports.PanelNavigation);
-  return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop" }));
+  return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop", analyticsAvailable: false }));
 }
 
 type DashboardPresentationInput = Readonly<{
@@ -1091,6 +1092,7 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
     entitlementStatus: "active",
     storefrontHostname,
     locale: "tr-TR",
+    analyticsAvailable: false,
   }));
   const renderedValues = [...html.matchAll(/<strong>([^<]*)<\/strong>/g)]
     .map(([, value]) => value);
@@ -1116,6 +1118,7 @@ test("dashboard presentation renders exact ready catalog data and only real merc
     entitlementStatus: "active",
     storefrontHostname: "pilot-store.celebix.site",
     locale: "tr-TR",
+    analyticsAvailable: false,
   });
   const summary = Object.freeze({
     totalProducts: 4,
@@ -1154,6 +1157,7 @@ test("dashboard presentation renders one retry control without stale ready data"
     entitlementStatus: "active",
     storefrontHostname: "pilot-store.celebix.site",
     locale: "tr-TR",
+    analyticsAvailable: false,
   });
   const dashboard = createMerchantDashboardViewModel(chrome, unavailableAuthority(true));
   const html = await renderPanelDashboard(chrome, { dashboard, state: "error" });
@@ -1174,11 +1178,11 @@ test("dashboard presentation renders exact Umami metrics and server time series"
     visitsSeries: Object.freeze([Object.freeze({ at: "2026-07-26T00:00:00.000Z", value: 20 })]),
   });
   const dashboard = createMerchantDashboardViewModel(
-    { storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot.celebix.site", locale: "tr-TR" },
+    { storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot.celebix.site", locale: "tr-TR", analyticsAvailable: true },
     unavailableAuthority(true), undefined, undefined, undefined, readyAuthority(analytics, analytics.asOf),
   );
   const html = await renderPanelDashboard(dashboard.chromeCards.length ? {
-    storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot.celebix.site", locale: "tr-TR",
+    storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot.celebix.site", locale: "tr-TR", analyticsAvailable: true,
   } : assert.fail("chrome missing"), { dashboard, state: "error", analyticsState: "loaded" });
   assert.match(html, /Mağaza analizi/);
   assert.match(html, /Umami/);
@@ -1190,7 +1194,7 @@ test("dashboard presentation renders exact Umami metrics and server time series"
 });
 
 test("dashboard analytics preserves empty disabled and retryable error states", async () => {
-  const chrome = { storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active" as const, storefrontHostname: "pilot.celebix.site", locale: "tr-TR" };
+  const chrome = { storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active" as const, storefrontHostname: "pilot.celebix.site", locale: "tr-TR", analyticsAvailable: true };
   const states = [
     [emptyAuthority("Henüz doğrulanmış analiz verisi yok"), "loaded", /Henüz doğrulanmış analiz verisi yok/],
     [Object.freeze({ state: "locked" as const, feature: "analytics" }), "loaded", /Analytics özelliği kapalı/],
@@ -1852,4 +1856,20 @@ test("quick-order builder keeps private authority out of client props and advert
   assert.match(consoleSource, /aria-(?:label|live|modal)|role="dialog"/);
   assert.match(consoleSource, /onKeyDown|Escape/);
   assert.match(css, /min-(?:height|width):\s*48px/);
+});
+
+test("analytics page and navigation expose only runtime-gated safe client authority", async () => {
+  const [page, view, shell, navigation] = await Promise.all([
+    source("app/(panel)/analytics/page.tsx"),
+    source("components/analytics/PanelAnalyticsView.tsx"),
+    source("components/panel/PanelShell.tsx"),
+    source("components/panel/PanelNavigation.tsx"),
+  ]);
+  assert.match(page, /PanelAnalyticsView/);
+  assert.match(shell, /resolveDefaultServerAnalyticsRuntime/);
+  assert.match(shell, /entitledModel[.]analyticsAvailable\s*&&\s*runtimeAvailable/);
+  assert.match(navigation, /getPanelNavigation\(\{ analyticsAvailable \}\)/);
+  assert.match(view, /AbortController/);
+  assert.match(view, /aria-label="Analiz tarih aralığı"/);
+  assert.doesNotMatch(`${page}\n${view}\n${navigation}`, /TenantContext|websiteId|storeId|principalId|membershipId|UMAMI_(?:USERNAME|PASSWORD)/);
 });

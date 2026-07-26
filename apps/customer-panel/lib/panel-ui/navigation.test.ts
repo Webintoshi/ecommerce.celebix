@@ -5,6 +5,7 @@ import {
   PANEL_ROUTE_PRESENTATIONS,
   getPanelRoutePresentation,
   getPanelNavigationState,
+  getPanelNavigation,
   isPanelNavigationPathActive,
 } from "./navigation.ts";
 
@@ -63,6 +64,26 @@ test("contains every and only currently working merchant destination", () => {
     PANEL_NAVIGATION.map(({ label }) => label),
     ["Özet", "Siparişler", "Müşteriler", "Ürünler", "İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO", "Kurulum"],
   );
+});
+
+test("analytics navigation is immutable and visible only when available", () => {
+  const hidden = getPanelNavigation({ analyticsAvailable: false });
+  const visible = getPanelNavigation({ analyticsAvailable: true });
+  assert.equal(hidden.some(({ href }) => href === "/analytics"), false);
+  assert.equal(visible.filter(({ href }) => href === "/analytics").length, 1);
+  assert.equal(Object.isFrozen(visible), true);
+});
+
+test("selects analytics only for its exact safe path", () => {
+  assert.equal(isPanelNavigationPathActive("/analytics", "/analytics"), true);
+  for (const pathname of [
+    "/analytics-evil",
+    "/analytics/child",
+    "/analytics%2Fevil",
+    "/analytics?x=1",
+    "/analytics#x",
+  ]) assert.equal(isPanelNavigationPathActive(pathname, "/analytics"), false);
+  assert.equal(getPanelRoutePresentation("/analytics").title, "Analizler");
 });
 
 test("keeps the catalog parent active on exact descendants", () => {

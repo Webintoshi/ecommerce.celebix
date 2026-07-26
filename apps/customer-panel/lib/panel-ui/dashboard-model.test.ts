@@ -17,6 +17,7 @@ const chrome: PanelChromeModel = Object.freeze({
   entitlementStatus: "active",
   storefrontHostname: "atlas-store.celebix.site",
   locale: "tr-TR",
+  analyticsAvailable: false,
 });
 const summary = Object.freeze({
   totalProducts: 4,

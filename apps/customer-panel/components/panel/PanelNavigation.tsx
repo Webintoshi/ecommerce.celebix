@@ -42,13 +42,14 @@ import {
   Share2,
   Code2,
   Gauge,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   isPanelNavigationPathActive,
-  PANEL_NAVIGATION,
+  getPanelNavigation,
   type PanelNavigationHref,
   type PanelNavigationIcon,
   type PanelNavigationItem,
@@ -98,15 +99,15 @@ const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   code: Code2,
   indexing: Gauge,
   setup: Settings,
+  analytics: BarChart3,
 });
-
-const NAVIGATION: readonly PanelNavigationItem[] = PANEL_NAVIGATION;
 
 function getCurrentNavigationHref(
   pathname: string,
+  navigation: readonly PanelNavigationItem[],
 ): PanelNavigationHref | undefined {
   let currentHref: PanelNavigationHref | undefined;
-  for (const item of NAVIGATION) {
+  for (const item of navigation) {
     const links = item.children?.length ? item.children : [item];
     for (const link of links) {
       if (
@@ -144,15 +145,16 @@ function NavigationLink({
   );
 }
 
-export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
+export function PanelNavigation({ mode, analyticsAvailable }: { mode: "desktop" | "drawer"; analyticsAvailable: boolean }) {
   const pathname = usePathname() ?? "";
-  const currentHref = getCurrentNavigationHref(pathname);
+  const navigation = getPanelNavigation({ analyticsAvailable });
+  const currentHref = getCurrentNavigationHref(pathname, navigation);
   return (
     <nav
       className={styles.navigation}
       aria-label={mode === "drawer" ? "Mobil panel menüsü" : "Panel menüsü"}
     >
-      {NAVIGATION.map((item) =>
+      {navigation.map((item) =>
         item.children?.length ? (
           <section className={styles.navigationGroup} key={item.key}>
             <div

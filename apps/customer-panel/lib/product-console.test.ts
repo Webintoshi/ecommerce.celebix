@@ -77,7 +77,7 @@ test("merchant shell adopts the Hemenaku visual language without its dedicated a
   const styles = await source("components/panel/panel-shell.module.css");
   const globals = await source("app/globals.css");
   assert.match(shell, /PanelLayoutClient/);
-  assert.match(navigation, /PANEL_NAVIGATION/);
+  assert.match(navigation, /getPanelNavigation/);
   assert.match(navigation, /isPanelNavigationPathActive/);
   assert.match(styles, /#2A2A2A/i);
   assert.match(styles, /#F9F9F9/i);

@@ -50,6 +50,7 @@ test("projects only the exact display contract", () => {
     entitlementStatus: "active",
     storefrontHostname: "atlas-store.celebix.site",
     locale: "tr-TR",
+    analyticsAvailable: false,
   });
 });
 
@@ -73,9 +74,21 @@ test("returns an immutable projection", () => {
 test("chrome projection contains no enumerable authority graph", () => {
   const model = createPanelChromeModel(CONTEXT);
   assert.deepEqual(Object.keys(model).sort(), [
-    "entitlementStatus", "locale", "membershipLabel", "planCode",
+    "analyticsAvailable", "entitlementStatus", "locale", "membershipLabel", "planCode",
     "planVersion", "storeSlug", "storefrontHostname",
   ]);
+});
+
+test("projects only the analytics entitlement as a safe availability boolean", () => {
+  const enabled = createPanelChromeModel({
+    ...CONTEXT,
+    entitlements: {
+      ...CONTEXT.entitlements,
+      features: [...CONTEXT.entitlements.features, "analytics"],
+    },
+  });
+  assert.equal(enabled.analyticsAvailable, true);
+  assert.equal(createPanelChromeModel(CONTEXT).analyticsAvailable, false);
 });
 
 test("chrome rejects prototype and malformed hostname authority", () => {
