@@ -21,6 +21,7 @@ type StorefrontProxyDependencies = Readonly<{
   resolveMediaOrigin: () => string;
   authorizePaytrIframe: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
   now: () => Date;
+  resolveAnalytics?: (input: Readonly<{hostname:string;now:Date}>) => Promise<Readonly<{scriptOrigin:string;collectorOrigin:string}>|null>;
 }>;
 
 async function defaultIframeAuthorization(input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>): Promise<boolean> {
@@ -45,6 +46,13 @@ const DEFAULT_DEPENDENCIES: StorefrontProxyDependencies = Object.freeze({
   resolveMediaOrigin: defaultMediaOrigin,
   authorizePaytrIframe: defaultIframeAuthorization,
   now: () => new Date(),
+  async resolveAnalytics(input) {
+    const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
+    const runtime = await resolveDefaultPublicStorefrontRuntime();
+    if (!runtime?.analyticsCollector || !runtime.analytics) return null;
+    const tracker = await runtime.analytics.getTrackerConfig({ hostname: input.hostname, now: new Date(input.now) });
+    return tracker ? Object.freeze({ scriptOrigin: new URL(runtime.analyticsCollector.trackerScriptUrl).origin, collectorOrigin: runtime.analyticsCollector.collectorOrigin }) : null;
+  },
 });
 
 export function createStorefrontProxy(dependencies: StorefrontProxyDependencies) {
@@ -68,7 +76,10 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const nonce = randomBytes(18).toString("base64");
     const requestHeaders = new Headers(request.headers); requestHeaders.set("x-nonce", nonce);
     const response = NextResponse.next({ request: { headers: requestHeaders } });
-    const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src 'none'`;
+    let analytics:Readonly<{scriptOrigin:string;collectorOrigin:string}>|null=null;
+    if(dependencies.resolveAnalytics){try{analytics=await dependencies.resolveAnalytics({hostname:authority.hostname,now:dependencies.now()})}catch{analytics=null}}
+    const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"",connectDestination=analytics?.collectorOrigin??"'none'";
+    const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;
     let iframeAuthorized = false;
     if (exactTarget && pathname === "/odeme/hizli/odeme") {
       try {
@@ -77,7 +88,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
       } catch { iframeAuthorized = false; }
     }
     const csp = exactTarget && pathname === "/odeme/hizli"
-      ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src 'none'`
+      ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
       : iframeAuthorized
         ? PAYTR_IFRAME_CSP
         : defaultCsp;
