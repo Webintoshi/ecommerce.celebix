@@ -1,0 +1,1 @@
+import"server-only";import{randomUUID}from"node:crypto";import{resolveDefaultServerAnalyticsRuntime}from"../server-analytics/default.ts";import{createAnalyticsHttpHandlers}from"./handler.ts";export const defaultAnalyticsHandlers=createAnalyticsHttpHandlers({resolveRuntime:resolveDefaultServerAnalyticsRuntime,now:()=>new Date(),requestId:randomUUID,uuid:randomUUID});

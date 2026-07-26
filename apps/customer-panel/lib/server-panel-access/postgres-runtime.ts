@@ -12,6 +12,7 @@ import {
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
+  PostgresAnalyticsRepository,
 } from "@celebix/saas-data";
 import pg from "pg";
 
@@ -24,6 +25,7 @@ import { registerServerMerchantAdminRepository } from "../server-merchant-admin/
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
+import { registerServerAnalyticsRepository } from "../server-analytics/runtime.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
   parseQuickLinkServerConfig,
@@ -154,7 +156,15 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.quick_links_configure_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_revoke_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_reveal_credential(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
-        AND to_regprocedure('saas.quick_links_reveal_provider_configuration(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS quick_link_private_repository
+        AND to_regprocedure('saas.quick_links_reveal_provider_configuration(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS quick_link_private_repository,
+      to_regclass('saas.store_analytics_connections') IS NOT NULL
+        AND to_regclass('saas.analytics_connection_operations') IS NOT NULL
+        AND to_regclass('saas.analytics_delivery_outbox') IS NOT NULL
+        AND to_regprocedure('saas.analytics_connection_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.analytics_connection_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.analytics_connection_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.analytics_connection_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.analytics_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS analytics_repository
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -177,7 +187,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.customer_repository !== true ||
       row.catalog_admin_repository !== true ||
       row.merchant_admin_repository !== true ||
-      row.quick_link_repository !== true || row.quick_link_private_repository !== true
+      row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
+      row.analytics_repository !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
 }
@@ -255,6 +266,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const analyticsRepository = new PostgresAnalyticsRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
+      audit: () => undefined,
+    });
     const quickLinkRepositoryOptions = {
       pool,
       role: "celebix_saas_app" as const,
@@ -273,6 +291,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCustomerRepository(access, customerRepository);
     registerServerCatalogAdminRepository(access, catalogAdminRepository);
     registerServerMerchantAdminRepository(access, merchantAdminRepository);
+    registerServerAnalyticsRepository(access, analyticsRepository);
     registerServerQuickLinksRuntime(access, {
       links: quickLinkRepository,
       privateLinks: quickLinkPrivateRepository,
