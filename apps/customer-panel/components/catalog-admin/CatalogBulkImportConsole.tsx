@@ -46,6 +46,7 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const previewRequestRef = useRef(0);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -57,6 +58,7 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
   useEffect(() => { void loadHistory(); }, [loadHistory]);
 
   function clearPreview() {
+    previewRequestRef.current += 1;
     setPreview(null);
     setOperationId("");
     setCompleted(false);
@@ -80,6 +82,7 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
 
   async function previewFile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy !== "idle") return;
     const file = fileRef.current?.files?.[0];
     const format = file ? fileFormat(file) : null;
     const fileName = file ? safeFileName(file.name) : null;
@@ -87,19 +90,27 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
       setError("En fazla 512 KiB olan geçerli bir CSV, JSON veya XML dosyası seçin.");
       return;
     }
+    const requestId = ++previewRequestRef.current;
     setBusy("preview"); setError(""); setNotice("");
-    try { acceptPreview(parseCatalogImportSource(await file.text(), { provider, format }), format, fileName); }
-    catch { setError("Dosya seçilen platformun ürün biçimine uymuyor."); }
+    try {
+      const result = parseCatalogImportSource(await file.text(), { provider, format });
+      if (previewRequestRef.current !== requestId) return;
+      acceptPreview(result, format, fileName);
+    }
+    catch { if (previewRequestRef.current === requestId) setError("Dosya seçilen platformun ürün biçimine uymuyor."); }
     finally { setBusy("idle"); }
   }
 
   async function previewFeed(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy !== "idle") return;
+    const requestId = ++previewRequestRef.current;
     setBusy("preview"); setError(""); setNotice("");
     try {
       const result = await catalogAdminApi.previewFeed({ provider, url: feedUrl });
+      if (previewRequestRef.current !== requestId) return;
       acceptPreview(result, result.format, `feed-${provider}.${result.format}`);
-    } catch (caught) { setError(message(caught, "Feed güvenle alınamadı veya ürün biçimi geçersiz.")); }
+    } catch (caught) { if (previewRequestRef.current === requestId) setError(message(caught, "Feed güvenle alınamadı veya ürün biçimi geçersiz.")); }
     finally { setBusy("idle"); }
   }
 
@@ -136,16 +147,16 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
       {!canImport ? <p className={styles.error} role="alert">Bu mağazada toplu ürün aktarımı için yetkiniz yok.</p> : <>
         <section className={styles.importSection} aria-labelledby="platform-heading">
           <div className={styles.sectionHeading}><div><span>1. adım</span><h2 id="platform-heading">Platformunuzu seçin</h2><p>Kaynak sütunlarını doğru eşlemek için ürünleri dışa aktardığınız sistemi seçin.</p></div><button className={styles.secondaryButton} type="button" onClick={downloadTemplate}><Download size={18} aria-hidden />Şablonu indir</button></div>
-          <fieldset className={styles.providerGrid}><legend className={styles.srOnly}>Platform seçimi</legend>{CATALOG_IMPORT_PROVIDERS.map((item) => <label className={`${styles.providerCard} ${provider === item.id ? styles.providerSelected : ""}`} key={item.id}><input type="radio" name="provider" value={item.id} checked={provider === item.id} onChange={() => selectProvider(item.id)} /><strong>{item.label}</strong><small>{item.description}</small></label>)}</fieldset>
+          <fieldset className={styles.providerGrid} disabled={busy !== "idle"}><legend className={styles.srOnly}>Platform seçimi</legend>{CATALOG_IMPORT_PROVIDERS.map((item) => <label className={`${styles.providerCard} ${provider === item.id ? styles.providerSelected : ""}`} key={item.id}><input type="radio" name="provider" value={item.id} checked={provider === item.id} onChange={() => selectProvider(item.id)} /><strong>{item.label}</strong><small>{item.description}</small></label>)}</fieldset>
         </section>
 
         <section className={styles.importSection} aria-labelledby="source-heading">
           <div className={styles.sectionHeading}><div><span>2. adım</span><h2 id="source-heading">Ürün kaynağını ekleyin</h2><p>Dosyadan yükleme ve manuel feed aynı doğrulama kurallarını kullanır.</p></div></div>
           <div className={styles.sourceTabs} role="tablist" aria-label="Kaynak seçimi">
-            <button type="button" role="tab" aria-selected={sourceMode === "file"} className={sourceMode === "file" ? styles.tabActive : undefined} onClick={() => { setSourceMode("file"); clearPreview(); }}><FileSpreadsheet size={19} aria-hidden />Dosyadan yükle</button>
-            <button type="button" role="tab" aria-selected={sourceMode === "feed"} className={sourceMode === "feed" ? styles.tabActive : undefined} onClick={() => { setSourceMode("feed"); clearPreview(); }}><Link2 size={19} aria-hidden />Feed adresi</button>
+            <button type="button" role="tab" aria-selected={sourceMode === "file"} disabled={busy !== "idle"} className={sourceMode === "file" ? styles.tabActive : undefined} onClick={() => { setSourceMode("file"); clearPreview(); }}><FileSpreadsheet size={19} aria-hidden />Dosyadan yükle</button>
+            <button type="button" role="tab" aria-selected={sourceMode === "feed"} disabled={busy !== "idle"} className={sourceMode === "feed" ? styles.tabActive : undefined} onClick={() => { setSourceMode("feed"); clearPreview(); }}><Link2 size={19} aria-hidden />Feed adresi</button>
           </div>
-          {sourceMode === "file" ? <form className={styles.sourceForm} onSubmit={previewFile}><label htmlFor="catalog-import-file">CSV, JSON veya XML dosyası <small>En fazla 512 KiB · 100 ürün · ürün başına 50 varyant</small></label><input ref={fileRef} id="catalog-import-file" type="file" accept=".csv,.json,.xml,text/csv,application/json,application/xml,text/xml" required onChange={clearPreview} /><button className={styles.primary} disabled={busy !== "idle"}>{busy === "preview" ? "Doğrulanıyor…" : "Dosyayı önizle"}</button></form> : <form className={styles.sourceForm} onSubmit={previewFeed}><label htmlFor="catalog-feed-url">Güvenli HTTPS feed adresi <small>CSV, JSON veya XML · yönlendirmeler ve private ağlar otomatik denetlenir</small></label><input id="catalog-feed-url" type="url" inputMode="url" placeholder="https://feed.magazaniz.com/products.xml" value={feedUrl} onChange={(event) => { setFeedUrl(event.currentTarget.value); clearPreview(); }} required maxLength={2048} /><button className={styles.primary} disabled={busy !== "idle"}>{busy === "preview" ? "Feed doğrulanıyor…" : "Feed'i önizle"}</button></form>}
+          {sourceMode === "file" ? <form key="file" className={styles.sourceForm} onSubmit={previewFile}><label htmlFor="catalog-import-file">CSV, JSON veya XML dosyası <small>En fazla 512 KiB · 100 ürün · ürün başına 50 varyant</small></label><input ref={fileRef} id="catalog-import-file" type="file" accept=".csv,.json,.xml,text/csv,application/json,application/xml,text/xml" required disabled={busy !== "idle"} onChange={clearPreview} /><button className={styles.primary} disabled={busy !== "idle"}>{busy === "preview" ? "Doğrulanıyor…" : "Dosyayı önizle"}</button></form> : <form key="feed" className={styles.sourceForm} onSubmit={previewFeed}><label htmlFor="catalog-feed-url">Güvenli HTTPS feed adresi <small>CSV, JSON veya XML · yönlendirmeler ve private ağlar otomatik denetlenir</small></label><input id="catalog-feed-url" type="url" inputMode="url" placeholder="https://feed.magazaniz.com/products.xml" value={feedUrl} disabled={busy !== "idle"} onChange={(event) => { setFeedUrl(event.currentTarget.value); clearPreview(); }} required maxLength={2048} /><button className={styles.primary} disabled={busy !== "idle"}>{busy === "preview" ? "Feed doğrulanıyor…" : "Feed'i önizle"}</button></form>}
         </section>
 
         {preview ? <section className={styles.importSection} aria-labelledby="preview-heading">

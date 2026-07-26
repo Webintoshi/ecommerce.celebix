@@ -50,7 +50,9 @@ export function isPublicCatalogFeedAddress(value: string): boolean {
   if (!words) return false;
   const first = words[0]!;
   if ((first & 0xffc0) === 0xfe80 || (first & 0xfe00) === 0xfc00 || (first & 0xff00) === 0xff00) return false;
+  if (first === 0x2001 && words[1]! <= 0x01ff) return false;
   if (first === 0x2001 && words[1] === 0x0db8) return false;
+  if (first === 0x2002 || (first & 0xfff0) === 0x3ff0) return false;
   if (words.slice(0, 5).every((word) => word === 0) && words[5] === 0xffff) {
     return publicIpv4(`${words[6]! >> 8}.${words[6]! & 255}.${words[7]! >> 8}.${words[7]! & 255}`);
   }

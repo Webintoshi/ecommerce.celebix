@@ -16,6 +16,11 @@ test("bulk import console exposes the complete four-step file and feed workflow"
   assert.match(component, /importProducts/);
   assert.match(component, /role="alert"/);
   assert.match(component, /role="status"/);
+  assert.match(component, /<form key="file"/);
+  assert.match(component, /<form key="feed"/);
+  assert.match(component, /previewRequestRef/);
+  assert.match(component, /previewRequestRef\.current !== requestId/);
+  assert.match(component, /disabled=\{busy !== "idle"\}/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /@media \(max-width:\s*700px\)/);
   assert.match(css, /prefers-reduced-motion/);

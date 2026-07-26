@@ -35,7 +35,9 @@ test("all twelve Hemenaku platform adapters expose templates and canonical produ
     assert.equal(parsed.products.length, 1, provider);
     assert.equal(parsed.products[0]?.variants.length, 1, provider);
     assert.ok((parsed.products[0]?.variants[0]?.priceCents ?? 0) > 0, provider);
-    assert.match(buildCatalogImportTemplate(provider), /\n/);
+    const template = buildCatalogImportTemplate(provider);
+    assert.match(template, /\n/);
+    assert.equal(parseCatalogImportSource(template, { provider, format: "csv" }).products.length, 1, `${provider} template`);
   }
 
   assert.match(buildCatalogImportTemplate("shopify"), /^Handle,Title,/);
@@ -64,6 +66,29 @@ test("Shopify rows group by exact handle and retain variants, pricing, inventory
   ]);
   assert.equal(Object.isFrozen(parsed.products), true);
   assert.equal(Object.isFrozen(parsed.products[0]?.variants), true);
+});
+
+test("provider discount columns preserve the sale price and regular compare-at price", () => {
+  for (const [provider, csv] of [
+    ["woocommerce", "Name,Slug,Regular price,Sale price,SKU,Stock,Published\nİndirimli Woo,indirimli-woo,100,80,WOO-SALE,3,1"],
+    ["tsoft", "Urun Adi,Seo,Fiyat,Indirimli Fiyat,Stok Kodu,Stok\nİndirimli Tsoft,indirimli-tsoft,100,80,TSOFT-SALE,3"],
+    ["wix", "Name,Slug,Price,Discounted Price,SKU,Inventory,In Stock\nİndirimli Wix,indirimli-wix,100,80,WIX-SALE,3,TRUE"],
+  ] as const) {
+    const variant = parseCatalogImportSource(csv, { provider, format: "csv" }).products[0]?.variants[0];
+    assert.equal(variant?.priceCents, 8_000, provider);
+    assert.equal(variant?.compareAtCents, 10_000, provider);
+  }
+});
+
+test("OpenCart numeric status imports only enabled products as active", () => {
+  const parsed = parseCatalogImportSource(
+    "name,seo_keyword,price,sku,quantity,status,model\nAçık Ürün,acik-urun,100,OPEN-ON,3,1,Standart\nKapalı Ürün,kapali-urun,100,OPEN-OFF,3,0,Standart",
+    { provider: "opencart", format: "csv" },
+  );
+  assert.equal(parsed.skippedRows, 1);
+  assert.equal(parsed.products.length, 1);
+  assert.equal(parsed.products[0]?.status, "active");
+  assert.equal(parsed.products[0]?.variants[0]?.sku, "OPEN-ON");
 });
 
 test("canonical Celebix CSV remains backward compatible and treats priceCents as cents", () => {

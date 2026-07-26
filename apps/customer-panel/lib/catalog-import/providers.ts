@@ -61,6 +61,7 @@ type Field =
   | "sku"
   | "barcode"
   | "price"
+  | "salePrice"
   | "compareAt"
   | "cost"
   | "stock"
@@ -92,6 +93,7 @@ const BASE_ALIASES: Readonly<Record<Field, readonly string[]>> = Object.freeze({
   sku: ["sku", "variant sku", "product code/sku", "reference", "stok kodu", "stock code"],
   barcode: ["barcode", "variant barcode", "barkod"],
   price: ["price", "regular price", "variant price", "satis fiyati", "satış fiyatı", "price tax excluded", "fiyat"],
+  salePrice: [],
   compareAt: ["compare at price", "variant compare at price", "retail price", "piyasa fiyati", "piyasa fiyatı", "indirim oncesi fiyat", "indirim öncesi fiyat"],
   cost: ["cost", "cost per item", "maliyet"],
   stock: ["stock", "stock quantity", "variant inventory qty", "inventory", "quantity", "current stock", "qty", "stok", "stok adedi"],
@@ -115,17 +117,17 @@ function provider(
 }
 
 export const CATALOG_IMPORT_PROVIDERS: readonly ProviderDefinition[] = Object.freeze([
-  provider("woocommerce", "WooCommerce", "WooCommerce ürün dışa aktarımı", ["Name", "Slug", "Description", "SKU", "Regular price", "Sale price", "Stock", "Published", "Attribute 1 value(s)"], ["Örnek Ürün", "ornek-urun", "Açıklama", "WOO-1", "100", "120", "10", "1", "Standart"], { variantTitle: ["attribute 1 value(s)"], compareAt: ["sale price"] }),
+  provider("woocommerce", "WooCommerce", "WooCommerce ürün dışa aktarımı", ["Name", "Slug", "Description", "SKU", "Regular price", "Sale price", "Stock", "Published", "Attribute 1 value(s)"], ["Örnek Ürün", "ornek-urun", "Açıklama", "WOO-1", "120", "100", "10", "1", "Standart"], { variantTitle: ["attribute 1 value(s)"], salePrice: ["sale price"] }),
   provider("shopify", "Shopify", "Shopify Products CSV", ["Handle", "Title", "Body (HTML)", "Published", "Option1 Name", "Option1 Value", "Option2 Name", "Option2 Value", "Option3 Name", "Option3 Value", "Variant SKU", "Variant Price", "Variant Compare At Price", "Variant Inventory Qty", "Variant Barcode", "Cost per item", "Status"], ["ornek-urun", "Örnek Ürün", "<p>Açıklama</p>", "TRUE", "Renk", "Siyah", "", "", "", "", "SHOP-1", "100", "120", "10", "8680000000001", "60", "active"]),
   provider("ideasoft", "IdeaSoft", "IdeaSoft ürün CSV", ["Urun Adi", "Seo Link", "Aciklama", "Stok Kodu", "Fiyat", "Stok Adedi", "Varyant Adi"], ["Örnek Ürün", "ornek-urun", "Açıklama", "IDEA-1", "100", "10", "Standart"]),
   provider("ticimax", "Ticimax", "Ticimax ürün CSV", ["Urun Adi", "SEO Url", "Aciklama", "Stok Kodu", "Barkod", "Satis Fiyati", "Piyasa Fiyati", "Stok", "Varyant"], ["Örnek Ürün", "ornek-urun", "Açıklama", "TICI-1", "8680000000001", "100", "120", "10", "Standart"]),
-  provider("tsoft", "T-Soft", "T-Soft ürün CSV", ["Urun Adi", "Seo", "Aciklama", "Stok Kodu", "Fiyat", "Indirimli Fiyat", "Stok", "Varyant"], ["Örnek Ürün", "ornek-urun", "Açıklama", "TSOFT-1", "100", "120", "10", "Standart"], { compareAt: ["indirimli fiyat"] }),
+  provider("tsoft", "T-Soft", "T-Soft ürün CSV", ["Urun Adi", "Seo", "Aciklama", "Stok Kodu", "Fiyat", "Indirimli Fiyat", "Stok", "Varyant"], ["Örnek Ürün", "ornek-urun", "Açıklama", "TSOFT-1", "120", "100", "10", "Standart"], { salePrice: ["indirimli fiyat"] }),
   provider("ikas", "ikas", "ikas ürün CSV", ["name", "slug", "description", "sku", "price", "compare_at_price", "inventory", "status", "variant"], ["Örnek Ürün", "ornek-urun", "Açıklama", "IKAS-1", "100", "120", "10", "active", "Standart"], { compareAt: ["compare at price"] }),
   provider("opencart", "OpenCart", "OpenCart ürün CSV", ["name", "seo_keyword", "description", "sku", "price", "quantity", "status", "model"], ["Örnek Ürün", "ornek-urun", "Açıklama", "OPEN-1", "100", "10", "1", "Standart"]),
   provider("prestashop", "PrestaShop", "PrestaShop ürün CSV", ["Name", "URL rewritten", "Description", "Reference", "Price tax excluded", "Quantity", "Active", "Supplier reference"], ["Örnek Ürün", "ornek-urun", "Açıklama", "PRESTA-1", "100", "10", "1", "Standart"]),
   provider("magento", "Magento", "Magento ürün CSV", ["name", "url_key", "description", "sku", "price", "qty", "product_online", "weight"], ["Örnek Ürün", "ornek-urun", "Açıklama", "MAG-1", "100", "10", "1", "450"], { variantTitle: ["weight"] }),
   provider("bigcommerce", "BigCommerce", "BigCommerce ürün CSV", ["Product Name", "Product URL", "Description", "Product Code/SKU", "Price", "Retail Price", "Current Stock", "Visible", "Option Set"], ["Örnek Ürün", "ornek-urun", "Açıklama", "BIG-1", "100", "120", "10", "Y", "Standart"]),
-  provider("wix", "Wix", "Wix ürün CSV", ["Name", "Slug", "Description", "SKU", "Price", "Discounted Price", "Inventory", "In Stock", "Option Value"], ["Örnek Ürün", "ornek-urun", "Açıklama", "WIX-1", "100", "120", "10", "TRUE", "Standart"], { compareAt: ["discounted price"] }),
+  provider("wix", "Wix", "Wix ürün CSV", ["Name", "Slug", "Description", "SKU", "Price", "Discounted Price", "Inventory", "In Stock", "Option Value"], ["Örnek Ürün", "ornek-urun", "Açıklama", "WIX-1", "120", "100", "10", "TRUE", "Standart"], { salePrice: ["discounted price"] }),
   provider("generic", "Genel CSV", "Celebix veya genel ürün CSV", ["urun_adi", "slug", "aciklama", "sku", "fiyat", "indirim_oncesi_fiyat", "stok", "varyant"], ["Örnek Ürün", "ornek-urun", "Açıklama", "GEN-1", "100", "120", "10", "Standart"]),
 ]);
 
@@ -365,6 +367,7 @@ function rowDisabled(record: SourceRecord, definition: ProviderDefinition, canon
   const published = field(record, definition, "published");
   if (["archived", "inactive", "disabled", "kapali", "kapalı"].includes(status)) return true;
   if (definition.id === "ikas" && status === "draft") return true;
+  if (definition.id === "opencart" && status === "0") return true;
   return Boolean(published) && !truthy(published);
 }
 
@@ -372,7 +375,21 @@ function productStatus(record: SourceRecord, definition: ProviderDefinition, can
   if (canonical) return "draft";
   const status = field(record, definition, "status").toLowerCase();
   const published = field(record, definition, "published");
-  return ["active", "published"].includes(status) || truthy(published) ? "active" : "draft";
+  return ["active", "published"].includes(status) || (definition.id === "opencart" && status === "1") || truthy(published) ? "active" : "draft";
+}
+
+function prices(record: SourceRecord, definition: ProviderDefinition, canonical: boolean): Readonly<{ priceCents: number; compareAtCents?: number }> {
+  const basePrice = canonical ? integer(record.pricecents ?? "") : money(field(record, definition, "price"));
+  if (!canonical) {
+    const rawSalePrice = field(record, definition, "salePrice");
+    if (rawSalePrice) {
+      const salePrice = money(rawSalePrice);
+      if (salePrice > basePrice) invalid();
+      return Object.freeze(salePrice < basePrice ? { priceCents: salePrice, compareAtCents: basePrice } : { priceCents: basePrice });
+    }
+  }
+  const compareAtCents = optionalMoney(field(record, definition, "compareAt"), basePrice);
+  return Object.freeze(compareAtCents === undefined ? { priceCents: basePrice } : { priceCents: basePrice, compareAtCents });
 }
 
 function attributes(record: SourceRecord, definition: ProviderDefinition): Readonly<Record<string, string>> {
@@ -420,8 +437,8 @@ function canonicalize(records: readonly SourceRecord[], definition: ProviderDefi
     if (!titleValue) invalid();
     if (canonical && existing) invalid();
 
-    const rawPrice = canonical ? record.pricecents ?? "" : field(record, definition, "price");
-    const priceCents = canonical ? integer(rawPrice) : money(rawPrice);
+    const selectedPrices = prices(record, definition, canonical);
+    const priceCents = selectedPrices.priceCents;
     const rawStock = canonical ? record.stockquantity ?? "" : field(record, definition, "stock");
     const stockQuantity = integer(rawStock || "0");
     const selectedSku = sku(field(record, definition, "sku"));
@@ -429,14 +446,13 @@ function canonicalize(records: readonly SourceRecord[], definition: ProviderDefi
     if (selectedSku) seenSkus.add(selectedSku);
     const selectedAttributes = attributes(record, definition);
     const rawVariantTitle = field(record, definition, "variantTitle") || Object.values(selectedAttributes).join(" / ");
-    const compareAtCents = optionalMoney(field(record, definition, "compareAt"), priceCents);
     const costCents = optionalMoney(field(record, definition, "cost"), 0);
     const variant: CatalogImportVariant = Object.freeze({
       title: rawVariantTitle ? text(rawVariantTitle, 1, 200) : "Varsayılan",
       ...(selectedSku ? { sku: selectedSku } : {}),
       ...(barcode(field(record, definition, "barcode")) ? { barcode: barcode(field(record, definition, "barcode")) } : {}),
       priceCents,
-      ...(compareAtCents !== undefined ? { compareAtCents } : {}),
+      ...(selectedPrices.compareAtCents !== undefined ? { compareAtCents: selectedPrices.compareAtCents } : {}),
       ...(costCents !== undefined ? { costCents } : {}),
       stockQuantity,
       attributes: selectedAttributes,

@@ -70,7 +70,7 @@ function defaultRequest(input: CatalogFeedRequestInput): Promise<CatalogFeedRawR
 function mediaType(value: string | null): CatalogFeedMediaType {
   if (!value || /[,\r\n]/.test(value)) fail("catalog_feed_response_invalid");
   const parts = value.split(";").map((part) => part.trim());
-  if (parts.length > 2 || (parts[1] && !/^charset=(?:utf-8|"utf-8")$/i.test(parts[1]))) fail("catalog_feed_response_invalid");
+  if (parts.length > 2 || (parts.length === 2 && !/^charset=(?:utf-8|"utf-8")$/i.test(parts[1]!))) fail("catalog_feed_response_invalid");
   switch (parts[0]?.toLowerCase()) {
     case "text/csv":
     case "application/csv": return "csv";
@@ -79,6 +79,10 @@ function mediaType(value: string | null): CatalogFeedMediaType {
     case "text/xml": return "xml";
     default: return fail("catalog_feed_response_invalid");
   }
+}
+
+function discardResponse(response: CatalogFeedRawResponse): void {
+  try { response.discard?.(); } catch { /* best-effort connection eviction */ }
 }
 
 async function readBody(response: CatalogFeedRawResponse): Promise<string> {
@@ -118,17 +122,22 @@ async function fetchWithinAuthority(urlValue: string, signal: AbortSignal, deps:
       return fail("catalog_feed_unavailable");
     }
     if ([301, 302, 303, 307, 308].includes(response.status)) {
-      response.discard?.();
+      discardResponse(response);
       if (redirect === MAX_REDIRECTS) fail("catalog_feed_redirect_invalid");
       const location = response.headers.get("location");
       if (!location || /[,\r\n]/.test(location)) fail("catalog_feed_redirect_invalid");
       try { current = new URL(location, selected).href; } catch { fail("catalog_feed_redirect_invalid"); }
       continue;
     }
-    if (response.status !== 200) { response.discard?.(); fail("catalog_feed_response_invalid"); }
-    const selectedMediaType = mediaType(response.headers.get("content-type"));
-    const body = await readBody(response);
-    return Object.freeze({ mediaType: selectedMediaType, body });
+    if (response.status !== 200) { discardResponse(response); fail("catalog_feed_response_invalid"); }
+    try {
+      const selectedMediaType = mediaType(response.headers.get("content-type"));
+      const body = await readBody(response);
+      return Object.freeze({ mediaType: selectedMediaType, body });
+    } catch (caught) {
+      discardResponse(response);
+      throw caught;
+    }
   }
   return fail("catalog_feed_redirect_invalid");
 }

@@ -43,10 +43,23 @@ test("redirects are manual, bounded and each host is resolved and pinned again",
 test("private DNS, redirect loops, MIME, encoding, body limits and timeout fail closed", async () => {
   await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", deps([response(200, "text/csv", "x")], ["1.1.1.1", "127.0.0.1"])), /catalog_feed_address_denied/);
   await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", deps(Array.from({ length: 4 }, () => response(302, null, "", { location: "https://feeds.example.com/a" })))), /catalog_feed_redirect_invalid/);
-  for (const contentType of [null, "text/plain", "application/problem+json", "text/csv, application/json"]) await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", deps([response(200, contentType, "x")])), /catalog_feed_response_invalid/);
+  for (const contentType of [null, "text/plain", "application/problem+json", "text/csv, application/json", "text/csv;"]) await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", deps([response(200, contentType, "x")])), /catalog_feed_response_invalid/);
   await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", deps([response(200, "text/csv", "x", { "content-encoding": "gzip" })])), /catalog_feed_response_invalid/);
   await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", deps([response(200, "text/csv", "x", { "content-length": "524289" })])), /catalog_feed_response_too_large/);
   const oversized: CatalogFeedRawResponse = { status: 200, headers: new Headers({ "content-type": "text/csv" }), body: (async function* () { yield new Uint8Array(524_289); })() };
   await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", deps([oversized])), /catalog_feed_response_too_large/);
   await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", { timeoutMs: 5, async lookup() { return [{ address: "1.1.1.1", family: 4 }]; }, async request() { return new Promise(() => undefined); } }), /catalog_feed_timeout/);
+});
+
+test("every invalid 200 response is explicitly discarded", async () => {
+  for (const invalidResponse of [
+    response(200, "text/plain", "x"),
+    response(200, "text/csv", "x", { "content-encoding": "gzip" }),
+    response(200, "text/csv", "x", { "content-length": "524289" }),
+  ]) {
+    let discarded = 0;
+    const guarded = { ...invalidResponse, discard() { discarded += 1; } };
+    await assert.rejects(fetchCatalogFeed("https://feeds.example.com/a", deps([guarded])), /catalog_feed_/);
+    assert.equal(discarded, 1);
+  }
 });
