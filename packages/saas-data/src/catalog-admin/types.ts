@@ -27,6 +27,24 @@ export interface ListProductReviewsInput extends CatalogAdminAuthorityInput { re
 export interface ModerateProductReviewInput extends CatalogAdminAuthorityInput { readonly operationId: string; readonly reviewId: string; readonly expectedVersion: number; readonly status: Exclude<ProductReviewStatus, "pending">; readonly reply?: string }
 export interface CatalogAdminImportRow { readonly title: string; readonly slug: string; readonly priceCents: number; readonly sku?: string; readonly stockQuantity: number }
 export interface ImportCatalogProductsInput extends CatalogAdminAuthorityInput { readonly operationId: string; readonly fileName: string; readonly rows: readonly CatalogAdminImportRow[] }
+export interface CatalogAdminImportVariant {
+  readonly title: string;
+  readonly sku?: string;
+  readonly barcode?: string;
+  readonly priceCents: number;
+  readonly compareAtCents?: number;
+  readonly costCents?: number;
+  readonly stockQuantity: number;
+  readonly attributes: Readonly<Record<string, string>>;
+}
+export interface CatalogAdminImportProduct {
+  readonly title: string;
+  readonly slug: string;
+  readonly description?: string;
+  readonly status: "draft" | "active";
+  readonly variants: readonly CatalogAdminImportVariant[];
+}
+export interface ImportCatalogProductsV2Input extends CatalogAdminAuthorityInput { readonly operationId: string; readonly fileName: string; readonly products: readonly CatalogAdminImportProduct[] }
 export interface CatalogAdminRepository {
   listResources(input: ListCatalogAdminResourcesInput): Promise<readonly CatalogAdminResource[]>;
   saveResource(input: SaveCatalogAdminResourceInput): Promise<CatalogAdminMutationResult>;
@@ -35,6 +53,8 @@ export interface CatalogAdminRepository {
   moderateReview(input: ModerateProductReviewInput): Promise<CatalogAdminMutationResult>;
   listImports(input: CatalogAdminAuthorityInput): Promise<readonly CatalogAdminImportJob[]>;
   importProducts(input: ImportCatalogProductsInput): Promise<CatalogAdminMutationResult>;
+  importProductsV2(input: ImportCatalogProductsV2Input): Promise<CatalogAdminMutationResult>;
+  authorizeFeedPreview(input: CatalogAdminAuthorityInput): Promise<void>;
 }
 export interface PostgresCatalogAdminRepositoryOptions {
   readonly pool: PostgresPoolLike;

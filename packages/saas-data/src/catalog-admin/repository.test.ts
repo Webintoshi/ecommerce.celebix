@@ -14,6 +14,7 @@ const OP = "74000000-0000-4000-8000-000000000001";
 const JOB = "75000000-0000-4000-8000-000000000001";
 const NEW_PRODUCT = "76000000-0000-4000-8000-000000000001";
 const VARIANT = "77000000-0000-4000-8000-000000000001";
+const VARIANT_TWO = "77000000-0000-4000-8000-000000000002";
 const NOW = new Date("2026-07-22T18:00:00.000Z");
 
 function tenant(): TenantContext {
@@ -103,6 +104,64 @@ test("review moderation and import keep private input out of projections", async
   assert.equal(sql.values[7], 100);
   assert.match(String(sql.values.at(-1)), new RegExp(NEW_PRODUCT));
   assert.match(String(sql.values.at(-1)), new RegExp(VARIANT));
+});
+
+test("rich import persists every ordered variant through the additive v2 authority", async () => {
+  const imports = new Client((text) => text.includes("catalog_admin_import_products_v2") ? [{ outcome: "imported", result_payload: mutation(JOB, "completed") }] : []);
+  const imported = await repository(new Pool([imports]), [], [JOB, NEW_PRODUCT, VARIANT, VARIANT_TWO]).importProductsV2({
+    tenantContext: tenant(),
+    now: NOW,
+    operationId: OP,
+    fileName: "shopify-products.csv",
+    products: [{
+      title: "Deri Kordon",
+      slug: "deri-kordon",
+      description: "El yapımı",
+      status: "active",
+      variants: [
+        { title: "Siyah", sku: "DK-SYH", barcode: "8680000000001", priceCents: 149900, compareAtCents: 169900, costCents: 60000, stockQuantity: 15, attributes: { Renk: "Siyah" } },
+        { title: "Taba", sku: "DK-TABA", priceCents: 159900, stockQuantity: 7, attributes: { Renk: "Taba" } },
+      ],
+    }],
+  });
+
+  assert.equal(imported.status, "completed");
+  const sql = call(imports, "catalog_admin_import_products_v2");
+  assert.equal(sql.values[7], 100);
+  assert.equal(sql.values[11], "shopify-products.csv");
+  assert.deepEqual(JSON.parse(String(sql.values[12])), [{
+    productId: NEW_PRODUCT,
+    title: "Deri Kordon",
+    slug: "deri-kordon",
+    description: "El yapımı",
+    status: "active",
+    variants: [
+      { variantId: VARIANT, title: "Siyah", sku: "DK-SYH", barcode: "8680000000001", priceCents: 149900, compareAtCents: 169900, costCents: 60000, stockQuantity: 15, attributes: { Renk: "Siyah" } },
+      { variantId: VARIANT_TWO, title: "Taba", sku: "DK-TABA", barcode: null, priceCents: 159900, compareAtCents: null, costCents: null, stockQuantity: 7, attributes: { Renk: "Taba" } },
+    ],
+  }]);
+});
+
+test("feed preview authority is a read-only action check with no mutation input", async () => {
+  const reader = new Client((text) => text.includes("catalog_admin_authorize_feed_preview") ? [{ outcome: "authorized", result_payload: {} }] : []);
+  await repository(new Pool([reader])).authorizeFeedPreview({ tenantContext: tenant(), now: NOW });
+  assert.equal(reader.calls[0]?.text, "BEGIN READ ONLY");
+  assert.deepEqual(call(reader, "catalog_admin_authorize_feed_preview").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW]);
+});
+
+test("rich import rejects duplicate SKU and malformed nested variants before SQL", async () => {
+  const base = { title: "Deri Kordon", slug: "deri-kordon", status: "active" as const };
+  const invalid = [
+    [{ ...base, variants: [] }],
+    [{ ...base, variants: [{ title: "A", sku: "DUP-1", priceCents: 1, stockQuantity: 1, attributes: {} }, { title: "B", sku: "DUP-1", priceCents: 2, stockQuantity: 1, attributes: {} }] }],
+    [{ ...base, variants: [{ title: "A", priceCents: 1, stockQuantity: 1, attributes: { "bad key!": "x" } }] }],
+  ];
+  for (const products of invalid) {
+    await assert.rejects(
+      () => repository(new Pool([])).importProductsV2({ tenantContext: tenant(), now: NOW, operationId: OP, fileName: "x.csv", products }),
+      (error: unknown) => error instanceof CatalogAdminRepositoryError && error.code === "invalid_input",
+    );
+  }
 });
 
 test("unknown commit destroys the writer and performs one read-only recovery", async () => {
