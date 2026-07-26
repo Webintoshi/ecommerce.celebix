@@ -11,7 +11,7 @@ import {
   PANEL_NAVIGATION,
 } from "./panel-ui/navigation.ts";
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
-import { readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
+import { emptyAuthority, readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
 import { createMerchantDashboardViewModel } from "./panel-ui/dashboard-model.ts";
 
 const ROOT = new URL("../", import.meta.url);
@@ -361,6 +361,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
 type DashboardPresentationInput = Readonly<{
   dashboard: ReturnType<typeof createMerchantDashboardViewModel>;
   state: "loading" | "loaded" | "error";
+  analyticsState?: "loading" | "loaded" | "error" | "unsupported";
 }>;
 
 async function renderPanelDashboard(
@@ -430,12 +431,12 @@ async function renderPanelDashboard(
     if (specifier === "recharts") {
       const ChartContainer = ({ children, data }: {
         children?: ReactNode;
-        data?: readonly Readonly<{ label: string; value: number }>[];
+        data?: readonly Readonly<{ label?: string; at?: string; value: number }>[];
       }) => createElement(
         "div",
         data
           ? {
-            "data-chart-labels": data.map(({ label }) => label).join("|"),
+            "data-chart-labels": data.map(({ label, at }) => label ?? at).join("|"),
             "data-chart-values": data.map(({ value }) => value).join(","),
           }
           : null,
@@ -450,6 +451,8 @@ async function renderPanelDashboard(
         Tooltip: ChartPrimitive,
         XAxis: ChartPrimitive,
         YAxis: ChartPrimitive,
+        Line: ChartPrimitive,
+        LineChart: ChartContainer,
       };
     }
     if (specifier === "@/components/panel/PanelPageShell") {
@@ -469,6 +472,9 @@ async function renderPanelDashboard(
     }
     if (specifier === "@/lib/customer-ui/client") {
       return { customerApi: { summary: async () => undefined } };
+    }
+    if (specifier === "@/lib/analytics-ui/client") {
+      return { createAnalyticsBrowserApi: () => ({ summary: async () => undefined }) };
     }
     if (specifier === "@/lib/panel-ui/dashboard-model") {
       return { createMerchantDashboardViewModel };
@@ -1042,7 +1048,7 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
     combined,
     /conversion(?:Rate|Total)|dönüşüm oranı|customerTotal|previousRevenue|currentRevenue|Toshi/i,
   );
-  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
+  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi, analyticsApi\)/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
   assert.doesNotMatch(view, /href=[^\n]*analytics|provider(?:Data|Payload)|TenantContext/i);
 });
@@ -1051,7 +1057,7 @@ test("dashboard loads real catalog summary without tenant authority in the brows
   const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
   const model = await source("lib/panel-ui/dashboard-model.ts");
   const styles = await source("components/dashboard/panel-dashboard.module.css");
-  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
+  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi, analyticsApi\)/);
   assert.match(model, /catalog[.]getDashboardSummary\(\)/);
   assert.match(view, /role="status"/);
   assert.match(view, /role="alert"/);
@@ -1156,6 +1162,46 @@ test("dashboard presentation renders one retry control without stale ready data"
   assert.equal((html.match(/<button(?![^>]*disabled)[^>]*>/g) ?? []).length, 1);
   assert.doesNotMatch(html, /role="listitem"|data-chart-(?:labels|values)|Katalog dağılımı/);
   assert.doesNotMatch(html, /Toplam ürün|Aktif ürün|Taslak ürün|Stokta olmayan|Etkin medya/);
+});
+
+test("dashboard presentation renders exact Umami metrics and server time series", async () => {
+  const analytics = Object.freeze({
+    schemaVersion: 1 as const, range: "30d" as const, asOf: "2026-07-26T12:00:00.000Z",
+    pageviews: 42, visitors: 17, visits: 20, bounces: 5, totalTimeSeconds: 600,
+    activeVisitors: 3, bounceRateBasisPoints: 2500, averageVisitSeconds: 30,
+    comparison: null,
+    pageviewsSeries: Object.freeze([Object.freeze({ at: "2026-07-26T00:00:00.000Z", value: 42 })]),
+    visitsSeries: Object.freeze([Object.freeze({ at: "2026-07-26T00:00:00.000Z", value: 20 })]),
+  });
+  const dashboard = createMerchantDashboardViewModel(
+    { storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot.celebix.site", locale: "tr-TR" },
+    unavailableAuthority(true), undefined, undefined, undefined, readyAuthority(analytics, analytics.asOf),
+  );
+  const html = await renderPanelDashboard(dashboard.chromeCards.length ? {
+    storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot.celebix.site", locale: "tr-TR",
+  } : assert.fail("chrome missing"), { dashboard, state: "error", analyticsState: "loaded" });
+  assert.match(html, /Mağaza analizi/);
+  assert.match(html, /Umami/);
+  assert.match(html, /Sayfa görüntüleme[\s\S]*42/);
+  assert.match(html, /Ziyaretçi[\s\S]*17/);
+  assert.match(html, /Aktif ziyaretçi[\s\S]*3/);
+  assert.match(html, /data-chart-labels="2026-07-26T00:00:00.000Z"/);
+  assert.doesNotMatch(html, /websiteId|storeId|principalId|membershipId|TenantContext/);
+});
+
+test("dashboard analytics preserves empty disabled and retryable error states", async () => {
+  const chrome = { storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active" as const, storefrontHostname: "pilot.celebix.site", locale: "tr-TR" };
+  const states = [
+    [emptyAuthority("Henüz doğrulanmış analiz verisi yok"), "loaded", /Henüz doğrulanmış analiz verisi yok/],
+    [Object.freeze({ state: "locked" as const, feature: "analytics" }), "loaded", /Analytics özelliği kapalı/],
+    [unavailableAuthority(true), "error", /Analytics özeti yüklenemedi/],
+  ] as const;
+  for (const [analytics, analyticsState, expected] of states) {
+    const dashboard = createMerchantDashboardViewModel(chrome, unavailableAuthority(true), undefined, undefined, undefined, analytics);
+    const html = await renderPanelDashboard(chrome, { dashboard, state: "error", analyticsState });
+    assert.match(html, expected);
+    assert.doesNotMatch(html, /Tahmini|örnek veri|conversion|session|websiteId/i);
+  }
 });
 
 interface CssTestElement {

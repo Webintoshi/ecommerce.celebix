@@ -2,11 +2,15 @@ import type { PanelChromeModel } from "./chrome-model.ts";
 import type { CatalogDashboardSummary } from "../catalog-ui/client.ts";
 import type {
   AbandonedCartSummary,
+  AnalyticsRange,
+  AnalyticsSummary,
   CustomerSummary,
   OrderDashboardSummary,
 } from "@celebix/saas-contracts";
+import { parseAnalyticsSummary } from "@celebix/saas-contracts";
 import {
   readyAuthority,
+  unavailableAuthority,
   unsupportedAuthority,
   type AuthoritySlice,
 } from "./authority-slice.ts";
@@ -89,7 +93,7 @@ export interface MerchantDashboardViewModel {
   readonly chromeCards: readonly PanelDashboardCard[];
   readonly catalog: AuthoritySlice<CatalogDashboardViewModel>;
   readonly orders: AuthoritySlice<OrderDashboardViewModel>;
-  readonly analytics: AuthoritySlice<never>;
+  readonly analytics: AuthoritySlice<AnalyticsSummary>;
   readonly customers: AuthoritySlice<CustomerSummary>;
   readonly carts: AuthoritySlice<AbandonedCartSummary>;
   readonly actions: readonly PanelDashboardAction[];
@@ -109,19 +113,23 @@ export async function loadMerchantDashboardSummaries(
     getDashboardSummary(): Promise<CatalogDashboardSummary>;
   }>,
   orders: Readonly<{ getDashboardSummary(): Promise<OrderDashboardSummary> }>,
+  analytics?: Readonly<{ summary(range: AnalyticsRange): Promise<AnalyticsSummary> }>,
 ): Promise<
   readonly [
     PromiseSettledResult<CatalogDashboardSummary>,
     PromiseSettledResult<OrderDashboardSummary>,
+    PromiseSettledResult<AnalyticsSummary>,
   ]
 > {
-  const [catalogResult, orderResult] = await Promise.allSettled([
+  const [catalogResult, orderResult, analyticsResult] = await Promise.allSettled([
     catalog.getDashboardSummary(),
     orders.getDashboardSummary(),
+    analytics ? analytics.summary("30d") : Promise.reject(new Error("analytics_unsupported")),
   ]);
   return Object.freeze([
     Object.freeze(catalogResult),
     Object.freeze(orderResult),
+    Object.freeze(analyticsResult),
   ]);
 }
 
@@ -280,6 +288,9 @@ export function createMerchantDashboardViewModel(
   customers: AuthoritySlice<CustomerSummary> = unsupportedAuthority(
     "customers",
   ),
+  analytics: AuthoritySlice<AnalyticsSummary> = unsupportedAuthority(
+    "analytics",
+  ),
 ): MerchantDashboardViewModel {
   const legacy = createPanelDashboardModel(chrome);
   const catalogView =
@@ -303,13 +314,22 @@ export function createMerchantDashboardViewModel(
           orders.value.asOf,
         )
       : orders;
+  let analyticsView: AuthoritySlice<AnalyticsSummary> = analytics;
+  if (analytics.state === "ready") {
+    try {
+      const summary = parseAnalyticsSummary(analytics.value);
+      analyticsView = readyAuthority(summary, summary.asOf);
+    } catch {
+      analyticsView = unavailableAuthority(false);
+    }
+  }
   return Object.freeze({
     title: legacy.title,
     description: legacy.description,
     chromeCards: legacy.cards,
     catalog: catalogView,
     orders: orderView,
-    analytics: unsupportedAuthority("analytics"),
+    analytics: analyticsView,
     customers:
       customers.state === "ready"
         ? readyAuthority(customers.value, customers.value.asOf)

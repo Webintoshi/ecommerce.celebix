@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readyAuthority, unavailableAuthority } from "./authority-slice.ts";
+import { emptyAuthority, readyAuthority, unavailableAuthority } from "./authority-slice.ts";
+import type { AnalyticsSummary } from "@celebix/saas-contracts";
 import type { PanelChromeModel } from "./chrome-model.ts";
 import {
   createMerchantDashboardViewModel,
   createPanelDashboardModel,
+  loadMerchantDashboardSummaries,
 } from "./dashboard-model.ts";
 
 const chrome: PanelChromeModel = Object.freeze({
@@ -25,6 +27,28 @@ const summary = Object.freeze({
   outOfStockVariants: 2,
   productsWithoutMedia: 1,
   activeMedia: 7,
+});
+const analyticsSummary: AnalyticsSummary = Object.freeze({
+  schemaVersion: 1,
+  range: "30d",
+  asOf: "2026-07-26T12:00:00.000Z",
+  pageviews: 42,
+  visitors: 17,
+  visits: 20,
+  bounces: 5,
+  totalTimeSeconds: 600,
+  activeVisitors: 3,
+  bounceRateBasisPoints: 2500,
+  averageVisitSeconds: 30,
+  comparison: Object.freeze({ pageviews: 30, visitors: 12, visits: 14, bounces: 4 }),
+  pageviewsSeries: Object.freeze([
+    Object.freeze({ at: "2026-07-25T00:00:00.000Z", value: 18 }),
+    Object.freeze({ at: "2026-07-26T00:00:00.000Z", value: 24 }),
+  ]),
+  visitsSeries: Object.freeze([
+    Object.freeze({ at: "2026-07-25T00:00:00.000Z", value: 8 }),
+    Object.freeze({ at: "2026-07-26T00:00:00.000Z", value: 12 }),
+  ]),
 });
 
 test("projects exact store, membership, plan, and storefront facts", () => {
@@ -257,4 +281,71 @@ test("maps only persisted customer totals and consent activity", () => {
     model.customers.state === "ready" && Object.isFrozen(model.customers.value),
     true,
   );
+});
+
+test("dashboard projects only the validated analytics summary", () => {
+  const model = createMerchantDashboardViewModel(
+    chrome,
+    readyAuthority(summary, analyticsSummary.asOf),
+    undefined,
+    undefined,
+    undefined,
+    readyAuthority(analyticsSummary, analyticsSummary.asOf),
+  );
+  assert.equal(model.analytics.state, "ready");
+  if (model.analytics.state !== "ready") assert.fail("analytics must be ready");
+  assert.equal(model.analytics.value.pageviews, 42);
+  assert.equal(model.analytics.value.visitors, 17);
+  assert.equal(model.analytics.value.activeVisitors, 3);
+  assert.deepEqual(model.analytics.value.pageviewsSeries, analyticsSummary.pageviewsSeries);
+  assert.doesNotMatch(JSON.stringify(model.analytics), /websiteId|storeId|principalId|membershipId|TenantContext/);
+});
+
+test("dashboard summary loading settles analytics independently at the fixed 30 day range", async () => {
+  const calls: string[] = [];
+  const results = await loadMerchantDashboardSummaries(
+    { async getDashboardSummary() { calls.push("catalog"); return summary; } },
+    { async getDashboardSummary() { calls.push("orders"); throw new Error("orders unavailable"); } },
+    { async summary(range) { calls.push(`analytics:${range}`); return analyticsSummary; } },
+  );
+  assert.deepEqual(calls.sort(), ["analytics:30d", "catalog", "orders"]);
+  assert.deepEqual(results.map((value) => value.status), ["fulfilled", "rejected", "fulfilled"]);
+});
+
+test("analytics failure never removes ready catalog or order authority", () => {
+  const orders = Object.freeze({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 1000, currency: "TRY", asOf: analyticsSummary.asOf });
+  const model = createMerchantDashboardViewModel(
+    chrome,
+    readyAuthority(summary, analyticsSummary.asOf),
+    readyAuthority(orders, analyticsSummary.asOf),
+    undefined,
+    undefined,
+    unavailableAuthority(true),
+  );
+  assert.deepEqual([model.catalog.state, model.orders.state, model.analytics.state], ["ready", "ready", "unavailable"]);
+});
+
+test("older callers keep analytics unsupported without inferred zero metrics", () => {
+  const model = createMerchantDashboardViewModel(chrome, readyAuthority(summary, analyticsSummary.asOf));
+  assert.deepEqual(model.analytics, { state: "unsupported", capability: "analytics" });
+  assert.doesNotMatch(JSON.stringify(model.analytics), /pageviews|visitors|activeVisitors|0/);
+});
+
+test("analytics empty disabled and error authority states pass through without placeholders", () => {
+  const states = [
+    emptyAuthority("Henüz doğrulanmış analiz verisi yok"),
+    Object.freeze({ state: "locked" as const, feature: "analytics" }),
+    unavailableAuthority(true),
+  ];
+  assert.deepEqual(states.map((analytics) => createMerchantDashboardViewModel(chrome, unavailableAuthority(true), undefined, undefined, undefined, analytics).analytics.state), ["empty", "locked", "unavailable"]);
+});
+
+test("analytics projection and both server series remain deeply frozen", () => {
+  const model = createMerchantDashboardViewModel(chrome, unavailableAuthority(true), undefined, undefined, undefined, readyAuthority(analyticsSummary, analyticsSummary.asOf));
+  if (model.analytics.state !== "ready") assert.fail("analytics must be ready");
+  assert.equal(Object.isFrozen(model.analytics), true);
+  assert.equal(Object.isFrozen(model.analytics.value), true);
+  assert.equal(Object.isFrozen(model.analytics.value.pageviewsSeries), true);
+  assert.equal(model.analytics.value.pageviewsSeries.every(Object.isFrozen), true);
+  assert.equal(Object.isFrozen(model.analytics.value.visitsSeries), true);
 });

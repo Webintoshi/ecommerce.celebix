@@ -55,6 +55,42 @@
   background: #FFFFFF;
 }
 
+.analyticsSurface {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(218, 224, 233, .82);
+  border-radius: .75rem;
+  background: #FFFFFF;
+}
+
+.analyticsMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analyticsMetricGrid > *:last-child { border-right: 0; }
+
+.analyticsChart {
+  min-width: 620px;
+  border-top: 1px solid rgba(218, 224, 233, .82);
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.authorityState {
+  display: flex;
+  min-height: 128px;
+  align-items: center;
+  border: 1px solid #E3E7EE;
+  border-radius: .75rem;
+  background: #FFFFFF;
+  padding: 1.25rem;
+}
+
+.authorityState h2,
+.authorityState p { margin: 0; }
+.authorityState h2 { color: #1F2937; font-size: .98rem; }
+.authorityState p { margin-top: .35rem; color: #6B7280; font-size: .8125rem; }
+
 .metricTabsViewport { overflow-x: auto; }
 
 .metricTabs {
@@ -163,6 +199,8 @@
   .controlBar > div { width: 100%; }
   .filterButton { width: 100%; }
   .chartPanel { padding: 1rem; }
+  .analyticsMetricGrid { grid-template-columns: 1fr; }
+  .analyticsMetricGrid > * { border-right: 0; }
   .actionRail { display: grid; }
 }
 

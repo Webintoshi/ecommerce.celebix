@@ -5,6 +5,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -12,6 +14,7 @@ import {
 } from "recharts";
 import type {
   AbandonedCartSummary,
+  AnalyticsSummary,
   CustomerSummary,
   OrderDashboardSummary,
 } from "@celebix/saas-contracts";
@@ -31,6 +34,7 @@ import {
 import { orderApi } from "@/lib/order-ui/client";
 import { abandonedCartApi } from "@/lib/abandoned-cart-ui/client";
 import { customerApi } from "@/lib/customer-ui/client";
+import { createAnalyticsBrowserApi } from "@/lib/analytics-ui/client";
 import type { AuthoritySlice } from "@/lib/panel-ui/authority-slice";
 import {
   createMerchantDashboardViewModel,
@@ -38,6 +42,8 @@ import {
   type MerchantDashboardViewModel,
 } from "@/lib/panel-ui/dashboard-model";
 import styles from "./panel-dashboard.module.css";
+
+const analyticsApi = createAnalyticsBrowserApi();
 
 const unavailableCatalog = (
   retryable: boolean,
@@ -79,6 +85,27 @@ const readyCustomers = (
 ): AuthoritySlice<CustomerSummary> =>
   Object.freeze({ state: "ready", value, asOf: value.asOf });
 
+const unavailableAnalytics = (
+  retryable: boolean,
+): AuthoritySlice<AnalyticsSummary> =>
+  Object.freeze({ state: "unavailable", retryable });
+
+const readyAnalytics = (
+  value: AnalyticsSummary,
+): AuthoritySlice<AnalyticsSummary> =>
+  Object.freeze({ state: "ready", value, asOf: value.asOf });
+
+function panelTimestamp(value: string): string {
+  return new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function analyticsHasData(summary: AnalyticsSummary): boolean {
+  return summary.pageviews > 0 || summary.visitors > 0 || summary.visits > 0 || summary.activeVisitors > 0 || summary.pageviewsSeries.length > 0;
+}
+
 function orderMoney(cents: number, currency: string) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency }).format(
     cents / 100,
@@ -86,10 +113,12 @@ function orderMoney(cents: number, currency: string) {
 }
 
 function DashboardRefreshButton({
+  ariaLabel,
   label,
   onRefresh,
   state,
 }: {
+  ariaLabel?: string;
   label: "Tekrar dene" | "Yenile";
   onRefresh: () => void;
   state: "loading" | "loaded" | "error";
@@ -100,7 +129,7 @@ function DashboardRefreshButton({
       className={styles.refreshButton}
       onClick={onRefresh}
       disabled={state === "loading"}
-      aria-label={label === "Yenile" ? "Katalog özetini yenile" : undefined}
+      aria-label={ariaLabel ?? (label === "Yenile" ? "Katalog özetini yenile" : undefined)}
     >
       {label}
     </button>
@@ -114,6 +143,7 @@ export function PanelDashboardPresentation({
   ordersState,
   cartsState,
   customersState,
+  analyticsState,
 }: {
   dashboard: MerchantDashboardViewModel;
   onRefresh: () => void;
@@ -121,6 +151,7 @@ export function PanelDashboardPresentation({
   ordersState?: "loading" | "loaded" | "error" | "unsupported";
   cartsState?: "loading" | "loaded" | "error" | "unsupported";
   customersState?: "loading" | "loaded" | "error" | "unsupported";
+  analyticsState?: "loading" | "loaded" | "error" | "unsupported";
 }) {
   const activeOrdersState =
     ordersState ??
@@ -131,6 +162,9 @@ export function PanelDashboardPresentation({
   const activeCustomersState =
     customersState ??
     (dashboard.customers.state === "ready" ? "loaded" : "unsupported");
+  const activeAnalyticsState =
+    analyticsState ??
+    (dashboard.analytics.state === "ready" ? "loaded" : "unsupported");
   return (
     <PanelPageShell>
       <PanelPageHeader
@@ -585,6 +619,103 @@ export function PanelDashboardPresentation({
         </section>
       ) : null}
 
+      {activeAnalyticsState === "loading" ? (
+        <section
+          className={styles.analyticsSurface}
+          role="status"
+          aria-label="Analytics özeti yükleniyor"
+        >
+          <div className={styles.analyticsMetricGrid}>
+            {Array.from({ length: 3 }, (_, index) => (
+              <article className={styles.skeletonCard} aria-hidden="true" key={index}>
+                <span className={styles.skeletonLine} />
+                <span className={styles.skeletonLine} />
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {activeAnalyticsState === "loaded" &&
+      dashboard.analytics.state === "ready" &&
+      analyticsHasData(dashboard.analytics.value) ? (
+        <section
+          className={styles.analyticsSurface}
+          aria-labelledby="analytics-summary-title"
+        >
+          <div className={styles.chartPanel}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2 id="analytics-summary-title">Mağaza analizi</h2>
+                <p>
+                  Umami · 30 gün · son güncelleme {panelTimestamp(dashboard.analytics.value.asOf)}
+                </p>
+              </div>
+              <DashboardRefreshButton ariaLabel="Analytics özetini yenile" label="Yenile" onRefresh={onRefresh} state="loaded" />
+            </div>
+          </div>
+          <div className={styles.analyticsMetricGrid} role="list" aria-label="Analytics metrikleri">
+            <article className={styles.metricTab} role="listitem">
+              <p>Sayfa görüntüleme</p>
+              <strong>{dashboard.analytics.value.pageviews.toLocaleString("tr-TR")}</strong>
+              <span>Umami tarafından doğrulandı</span>
+            </article>
+            <article className={styles.metricTab} role="listitem">
+              <p>Ziyaretçi</p>
+              <strong>{dashboard.analytics.value.visitors.toLocaleString("tr-TR")}</strong>
+              <span>Seçili dönem</span>
+            </article>
+            <article className={styles.metricTab} role="listitem">
+              <p>Aktif ziyaretçi</p>
+              <strong>{dashboard.analytics.value.activeVisitors.toLocaleString("tr-TR")}</strong>
+              <span>Anlık provider değeri</span>
+            </article>
+          </div>
+          <div className={styles.analyticsChart}>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={dashboard.analytics.value.pageviewsSeries} accessibilityLayer>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="at" />
+                <YAxis allowDecimals={false} />
+                <Tooltip formatter={(value) => [String(value), "Sayfa görüntüleme"]} />
+                <Line type="monotone" dataKey="value" stroke="#FF6A00" strokeWidth={3} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      ) : null}
+
+      {activeAnalyticsState === "loaded" &&
+      ((dashboard.analytics.state === "ready" && !analyticsHasData(dashboard.analytics.value)) ||
+        dashboard.analytics.state === "empty") ? (
+        <div className={styles.authorityState} role="status">
+          <div>
+            <h2>Mağaza analizi</h2>
+            <p>{dashboard.analytics.state === "empty" ? dashboard.analytics.message : "Henüz doğrulanmış analiz verisi yok"}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {(activeAnalyticsState === "unsupported" || activeAnalyticsState === "loaded") &&
+      (dashboard.analytics.state === "locked" || dashboard.analytics.state === "unsupported") ? (
+        <div className={styles.authorityState} role="status">
+          <div>
+            <h2>Mağaza analizi</h2>
+            <p>Analytics özelliği kapalı veya bu mağaza için kullanılamıyor.</p>
+          </div>
+        </div>
+      ) : null}
+
+      {activeAnalyticsState === "error" && dashboard.analytics.state === "unavailable" ? (
+        <div className={styles.errorState} role="alert">
+          <div>
+            <h2>Analytics özeti yüklenemedi</h2>
+            <p>Umami verileri şu anda kullanılamıyor; diğer dashboard kaynakları etkilenmedi.</p>
+          </div>
+          <DashboardRefreshButton label="Tekrar dene" onRefresh={onRefresh} state="error" />
+        </div>
+      ) : null}
+
       <PanelPanel title="Hızlı işlemler">
         <div className={styles.actionRail}>
           {dashboard.actions.map((action) => (
@@ -622,6 +753,12 @@ export function PanelDashboardHomeView() {
   const [customersState, setCustomersState] = useState<
     "loading" | "loaded" | "error"
   >("loading");
+  const [analytics, setAnalytics] = useState<AuthoritySlice<AnalyticsSummary>>(
+    () => unavailableAnalytics(false),
+  );
+  const [analyticsState, setAnalyticsState] = useState<
+    "loading" | "loaded" | "error"
+  >("loading");
   const requestSequence = useRef(0);
   const load = useCallback(async () => {
     const sequence = ++requestSequence.current;
@@ -629,14 +766,15 @@ export function PanelDashboardHomeView() {
     setOrdersState("loading");
     setCartsState("loading");
     setCustomersState("loading");
+    setAnalyticsState("loading");
     const [baseResults, supplementalResults] = await Promise.all([
-      loadMerchantDashboardSummaries(catalogApi, orderApi),
+      loadMerchantDashboardSummaries(catalogApi, orderApi, analyticsApi),
       Promise.allSettled([
         abandonedCartApi.getSummary(),
         customerApi.summary(),
       ]),
     ]);
-    const [catalogResult, orderResult] = baseResults;
+    const [catalogResult, orderResult, analyticsResult] = baseResults;
     const [cartResult, customerResult] = supplementalResults;
     if (sequence !== requestSequence.current) return;
     if (catalogResult.status === "fulfilled") {
@@ -667,6 +805,13 @@ export function PanelDashboardHomeView() {
       setCustomers(unavailableCustomers(true));
       setCustomersState("error");
     }
+    if (analyticsResult.status === "fulfilled") {
+      setAnalytics(readyAnalytics(analyticsResult.value));
+      setAnalyticsState("loaded");
+    } else {
+      setAnalytics(unavailableAnalytics(true));
+      setAnalyticsState("error");
+    }
   }, []);
 
   useEffect(() => {
@@ -682,6 +827,7 @@ export function PanelDashboardHomeView() {
     orders,
     carts,
     customers,
+    analytics,
   );
   return (
     <PanelDashboardPresentation
@@ -693,6 +839,7 @@ export function PanelDashboardHomeView() {
       ordersState={ordersState}
       cartsState={cartsState}
       customersState={customersState}
+      analyticsState={analyticsState}
     />
   );
 }
