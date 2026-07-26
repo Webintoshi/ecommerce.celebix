@@ -9,6 +9,8 @@ const CLAIM_LIMIT = 25;
 const LEASE_MS = 30_000;
 const CONCURRENCY = 4;
 const ATTEMPT_CAP = 10;
+const MAX_COLLECTOR_RESPONSE_BYTES = 8_192;
+const JWT_PATTERN = /^[A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/;
 
 function currentNow(dependencies: DeliveryDependencies): Date {
   const value = dependencies.now();
@@ -17,9 +19,45 @@ function currentNow(dependencies: DeliveryDependencies): Date {
 }
 
 function validateDependencies(dependencies: DeliveryDependencies): void {
-  if (!dependencies || typeof dependencies.fetch !== "function" || typeof dependencies.now !== "function" || typeof dependencies.userAgent !== "string" || !/^[\x21-\x7e]{1,128}$/.test(dependencies.userAgent) || !Number.isSafeInteger(dependencies.timeoutMs) || dependencies.timeoutMs < 100 || dependencies.timeoutMs > 30_000) {
+  if (!dependencies || typeof dependencies.fetch !== "function" || typeof dependencies.now !== "function" || typeof dependencies.userAgent !== "string" || !/^[\x20-\x7e]{1,128}$/.test(dependencies.userAgent) || !Number.isSafeInteger(dependencies.timeoutMs) || dependencies.timeoutMs < 100 || dependencies.timeoutMs > 30_000) {
     throw new Error("analytics_delivery_invalid");
   }
+}
+
+async function collectorAccepted(response: Response): Promise<boolean> {
+  if (!/^application\/json(?:;|$)/i.test(response.headers.get("content-type") ?? "")) {
+    void response.body?.cancel().catch(() => undefined);
+    return false;
+  }
+  const declaredLength = response.headers.get("content-length");
+  if (declaredLength !== null && (!/^(?:0|[1-9][0-9]{0,4})$/.test(declaredLength) || Number(declaredLength) > MAX_COLLECTOR_RESPONSE_BYTES)) {
+    void response.body?.cancel().catch(() => undefined);
+    return false;
+  }
+  if (response.body === null) return false;
+  let payload: unknown;
+  const reader = response.body.getReader();
+  const bytes = new Uint8Array(MAX_COLLECTOR_RESPONSE_BYTES);
+  let offset = 0;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      if (offset + chunk.value.byteLength > bytes.byteLength) {
+        await reader.cancel().catch(() => undefined);
+        return false;
+      }
+      bytes.set(chunk.value, offset);
+      offset += chunk.value.byteLength;
+    }
+    payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, offset)));
+  } catch {
+    await reader.cancel().catch(() => undefined);
+    return false;
+  }
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return false;
+  const value = payload as Record<string, unknown>;
+  return typeof value.cache === "string" && value.cache.length <= 4_096 && JWT_PATTERN.test(value.cache);
 }
 
 function retryAt(now: Date, attemptCount: number): Date {
@@ -67,17 +105,22 @@ async function deliverClaim(repository: AnalyticsOutboxRepository, collector: Um
       signal: controller.signal,
     });
   } catch {
-    return recordFailure(repository, claim, dependencies, "collector_unavailable");
-  } finally {
     clearTimeout(timeout);
+    return recordFailure(repository, claim, dependencies, "collector_unavailable");
   }
 
-  if (!(response instanceof Response)) return recordFailure(repository, claim, dependencies, "collector_response_invalid");
+  if (!(response instanceof Response)) {
+    clearTimeout(timeout);
+    return recordFailure(repository, claim, dependencies, "collector_response_invalid");
+  }
   if (response.status !== 200) {
+    clearTimeout(timeout);
     void response.body?.cancel().catch(() => undefined);
     return recordFailure(repository, claim, dependencies, response.ok ? "collector_response_invalid" : "collector_rejected");
   }
-  void response.body?.cancel().catch(() => undefined);
+  const accepted = await collectorAccepted(response);
+  clearTimeout(timeout);
+  if (!accepted) return recordFailure(repository, claim, dependencies, "collector_response_invalid");
   try {
     await repository.delivered({ eventId: claim.eventId, leaseToken: claim.leaseToken, now: currentNow(dependencies) });
     return "delivered";

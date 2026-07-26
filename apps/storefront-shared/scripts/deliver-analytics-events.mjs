@@ -22,7 +22,7 @@ async function main() {
     const row = check.rows[0];
     if (check.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== database.name || row.is_superuser !== false || row.workflow_member !== true || row.migration_039 !== true) return failed;
     const repository = new PostgresAnalyticsOutboxRepository({ pool, role: "celebix_saas_workflow", timeouts: TIMEOUTS });
-    const result = await deliverAnalyticsOutbox(repository, collector, { now: () => new Date(), fetch: globalThis.fetch, userAgent: "CelebixAnalyticsWorker/1.0", timeoutMs: 5_000 });
+    const result = await deliverAnalyticsOutbox(repository, collector, { now: () => new Date(), fetch: globalThis.fetch, userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) CelebixEvents/1.0 Safari/537.36", timeoutMs: 5_000 });
     return Object.freeze({ outcome: "analytics_delivery_complete", ...result });
   } finally {
     await pool.end().catch(() => undefined);

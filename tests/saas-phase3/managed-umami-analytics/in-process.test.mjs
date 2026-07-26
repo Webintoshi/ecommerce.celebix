@@ -284,9 +284,9 @@ test("settled purchase outbox hands one aggregate event to the public collector"
   });
   const result = await deliverAnalyticsOutbox(repository, Object.freeze({ mode: "approved_staging", trackerScriptUrl: "https://analytics.example.test/script.js", collectorOrigin: "https://analytics.example.test" }), Object.freeze({
     now: () => new Date(NOW),
-    userAgent: "CelebixAnalyticsWorker/1.0",
+    userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) CelebixEvents/1.0 Safari/537.36",
     timeoutMs: 1_000,
-    fetch: async (_url, init) => { calls.payloads.push(JSON.parse(init.body)); return new Response(null, { status: 200 }); },
+    fetch: async (_url, init) => { calls.payloads.push(JSON.parse(init.body)); return new Response('{"cache":"header.payload.signature"}', { status: 200, headers: { "content-type": "application/json" } }); },
   }));
   assert.deepEqual(result, { claimed: 1, delivered: 1, retried: 0, terminal: 0 });
   assert.deepEqual(calls.payloads[0].payload, { website: WEBSITE_ID, hostname: HOSTNAME, url: "/checkout/complete", name: "purchase", data: { value: 129, currency: "TRY", source: "quick_link" } });
