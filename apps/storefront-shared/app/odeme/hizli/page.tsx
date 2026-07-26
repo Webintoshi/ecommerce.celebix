@@ -2,8 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 
+import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
+import { CHECKOUT_STARTED_EVENT } from "@/lib/analytics/events.ts";
 import { resolvePublicQuickOrder } from "@/lib/checkout/public-quick-link.ts";
 import { resolveDefaultPublicStorefrontRuntime } from "@/lib/default-runtime.ts";
+import { resolveStorefrontTracker } from "@/lib/page-context.ts";
 import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authority.ts";
 
 export const metadata: Metadata = Object.freeze({
@@ -19,6 +22,7 @@ function money(cents: number): string {
 }
 
 export default async function QuickOrderPage() {
+  const now = new Date();
   const requestHeaders = await headers();
   const authority = selectTrustedStorefrontHostAuthority(requestHeaders);
   const runtime = await resolveDefaultPublicStorefrontRuntime();
@@ -29,7 +33,7 @@ export default async function QuickOrderPage() {
   const selected = await resolvePublicQuickOrder({
     trustedHostname: authority.hostname,
     cookieHeader: cookieStore.toString() || null,
-    now: new Date(),
+    now,
     runtime: runtime.checkout,
   });
   if (selected.kind !== "active") {
@@ -37,6 +41,8 @@ export default async function QuickOrderPage() {
   }
   const { quote } = selected;
   const operationId = randomUUID();
+  const analyticsFormId = "quick-order-checkout-form";
+  const tracker = await resolveStorefrontTracker(runtime, authority.hostname, now).catch(() => null);
   return <main className="store-container store-section">
     <span>GÜVENLİ HIZLI SİPARİŞ</span>
     <h1>{quote.merchantName}</h1>
@@ -53,9 +59,10 @@ export default async function QuickOrderPage() {
       <div><dt>İndirim</dt><dd>-{money(quote.discountCents)}</dd></div>
       <div><dt>Toplam</dt><dd><strong>{money(quote.totalCents)}</strong></dd></div>
     </dl>
-    <form method="post" action="/api/quick-order/checkout">
+    <form id={analyticsFormId} method="post" action="/api/quick-order/checkout">
       <input type="hidden" name="operation_id" value={operationId} />
       <button type="submit">Güvenli ödemeye geç</button>
     </form>
+    <StorefrontAnalyticsEvent tracker={tracker} event={CHECKOUT_STARTED_EVENT} trigger="form_submit" formId={analyticsFormId} />
   </main>;
 }
