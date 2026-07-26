@@ -42,11 +42,11 @@ Sınırlar:
 
 Feed yalnız server-side alınır. URL exact-trimmed, canonical HTTPS, kimlik bilgisi/fragmentsiz ve en fazla 2048 karakter olmalıdır. Localhost, `.local`, private/link-local/loopback/reserved IPv4 ve IPv6 adresleri; özel portlar; DNS cevabı bulunmayan veya public olmayan hostlar reddedilir. Yönlendirmeler manuel, en fazla üç ve her hedef yeniden doğrulanmış olmalıdır. Yanıt süresi 10 saniye, gövde 512 KiB ile sınırlıdır. Kabul edilen temel medya tipleri yalnız CSV, JSON ve XML listeleridir. URL veya feed içeriği loglanmaz ve kalıcı iş kaydında yalnız güvenli kaynak etiketi tutulur.
 
-Feed önizlemesi mevcut panel session, exact Origin ve `catalog_admin.import` yetkisinden geçer. Host, query, cookie dışındaki browser header'ları, store ID veya tenant ID yetki kaynağı değildir.
+Feed önizlemesi mevcut panel session, exact Origin ve PostgreSQL'de salt-okunur `catalog_admin.import` aksiyon yetkisinden feed ağına çıkmadan önce geçer. Host, query, cookie dışındaki browser header'ları, store ID veya tenant ID yetki kaynağı değildir.
 
 ## Kalıcılık ve tekrar güvenliği
 
-Mevcut `catalog_admin_import_products` yetkisi zengin varyant dizisini tek PostgreSQL transaction içinde işler. Ürün limiti row lock altında doğrulanır. Ürünler, varyantlar, import job ve idempotency proof birlikte commit olur; bir hata tüm aktarımı geri alır. Aynı operation ID ve aynı fingerprint replay edilir, farklı payload `operation_mismatch` üretir. Store-scoped slug/SKU çakışması `import_conflict` olur; zaman ekli sahte duplicate oluşturulmaz.
+Mevcut v1 `catalog_admin_import_products` yetkisi geriye dönük replay uyumluluğu için değiştirilmez. Yeni `catalog_admin_import_products_v2` zengin varyant dizisini tek PostgreSQL transaction içinde işler. Ürün limiti row lock altında doğrulanır. Ürünler, varyantlar, import job ve idempotency proof birlikte commit olur; bir hata tüm aktarımı geri alır. Aynı operation ID ve aynı fingerprint replay edilir, farklı payload `operation_mismatch` üretir. Store-scoped slug/SKU çakışması `import_conflict` olur; zaman ekli sahte duplicate oluşturulmaz.
 
 ## UI ve erişilebilirlik
 

@@ -54,12 +54,12 @@
 **Interfaces:**
 - `CatalogAdminImportProduct` contains `title`, `slug`, optional `description`, `status`, and `variants`.
 - `CatalogAdminImportVariant` contains bounded title/SKU/barcode/pricing/stock/attributes.
-- `CatalogAdminRepository.importProducts` remains the single mutation boundary.
+- `CatalogAdminRepository.importProductsV2` is the rich mutation boundary; v1 remains byte-compatible.
 
 - [ ] Add failing validation/repository/HTTP tests for rich variants and exact object shapes.
 - [ ] Run focused package and HTTP tests; expect rejection/missing-field failures.
 - [ ] Implement type, validation, repository ID generation and request validation.
-- [ ] Add migration 038 so products, every variant, job and operation proof commit atomically under locked store authority.
+- [ ] Add migration 038 with additive `catalog_admin_import_products_v2` and read-only `catalog_admin_authorize_feed_preview`; preserve v1 while products, every variant, job and operation proof commit atomically under locked store authority.
 - [ ] Extend the PostgreSQL harness for multi-variant import, replay, mismatch, duplicate SKU/slug, limit, tenant isolation and rollback/reapply.
 - [ ] Run repository, HTTP and PostgreSQL tests; expect all PASS.
 - [ ] Commit: `feat(catalog): persist rich bulk imports atomically`.
@@ -79,7 +79,7 @@
 **Interfaces:**
 - `validateCatalogFeedUrl(value)` returns a canonical HTTPS URL or throws `catalog_feed_url_invalid`.
 - `fetchCatalogFeed(url, deps)` returns a bounded `{ mediaType, body }` after public-address checks.
-- `POST /api/catalog/admin/imports/feed/preview` returns only canonical products/warnings and never authority or secrets.
+- `POST /api/catalog/admin/imports/feed/preview` calls PostgreSQL `catalog_admin_authorize_feed_preview` before network access and returns only canonical products/warnings, never authority or secrets.
 
 - [ ] Add failing tests for exact Origin/session/action authority and SSRF/redirect/MIME/timeout/body-size cases.
 - [ ] Run focused tests; expect route/fetcher missing failures.
