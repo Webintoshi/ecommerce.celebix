@@ -3,8 +3,9 @@ import { randomUUID } from "node:crypto";
 import { resolveDefaultServerPanelAccessRuntime } from "../server-panel-access/default.ts";
 import { resolveServerCatalogAdminRuntime } from "../server-catalog-admin/runtime.ts";
 import { createCatalogAdminHttpHandlers } from "./handler.ts";
+import { fetchCatalogFeed } from "../catalog-import/feed-fetcher.ts";
 async function runtime() { return resolveServerCatalogAdminRuntime(await resolveDefaultServerPanelAccessRuntime()); }
-const handlers = createCatalogAdminHttpHandlers({ resolveRuntime: runtime, now: () => new Date(), requestId: randomUUID });
+const handlers = createCatalogAdminHttpHandlers({ resolveRuntime: runtime, now: () => new Date(), requestId: randomUUID, fetchFeed: fetchCatalogFeed });
 type ResourceContext = Readonly<{ params: Promise<Readonly<{ kind: string; resourceId?: string }>> }>;
 type ReviewContext = Readonly<{ params: Promise<Readonly<{ reviewId: string }>> }>;
 export async function handleCatalogAdminResources(request: Request, context: ResourceContext) { return handlers.resources(request, (await context.params).kind); }
@@ -14,3 +15,4 @@ export const handleCatalogAdminReviews = handlers.reviews;
 export async function handleCatalogAdminReviewModeration(request: Request, context: ReviewContext) { return handlers.moderateReview(request, (await context.params).reviewId); }
 export const handleCatalogAdminImports = handlers.imports;
 export const handleCatalogAdminImportProducts = handlers.importProducts;
+export const handleCatalogAdminFeedPreview = handlers.previewFeed;
