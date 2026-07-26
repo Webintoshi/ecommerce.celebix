@@ -1,0 +1,7 @@
+.git
+.codex-evidence
+node_modules
+**/node_modules
+.next
+**/.next
+npm-debug.log*
