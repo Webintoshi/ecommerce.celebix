@@ -175,6 +175,26 @@ export type {
   AbandonedCartStatus,
   AbandonedCartSummary,
 } from "./abandoned-carts/index.ts";
+export {
+  ANALYTICS_CONNECTION_STATUSES,
+  ANALYTICS_METRIC_TYPES,
+  ANALYTICS_RANGES,
+  parseAnalyticsConnectionMutationResult,
+  parseAnalyticsConnectionView,
+  parseAnalyticsMetricResult,
+  parseAnalyticsSummary,
+} from "./analytics/index.ts";
+export type {
+  AnalyticsConnectionMutationResult,
+  AnalyticsConnectionStatus,
+  AnalyticsConnectionView,
+  AnalyticsMetricResult,
+  AnalyticsMetricRow,
+  AnalyticsMetricType,
+  AnalyticsPoint,
+  AnalyticsRange,
+  AnalyticsSummary,
+} from "./analytics/index.ts";
 export type {
   OrderAddress,
   OrderDashboardSummary,
