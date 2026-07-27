@@ -835,6 +835,70 @@ test("reconciliation queries once under the claimed immutable authority and fina
   assert.equal(selected.opened?.every((byte) => byte === 0), true);
 });
 
+test("local query rejection and invalid configuration leave reconciliation unfinalized", async () => {
+  const refused = fixture({
+    query: Object.freeze({
+      kind: "rejected",
+      code: "invalid_request",
+    }) as unknown as HostedPaymentStatus,
+  });
+  assert.deepEqual(await refused.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "66666666-6666-4666-8666-666666666666",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  }), { kind: "rejected" });
+  assert.equal(refused.calls.queries.length, 1);
+  assert.equal(refused.calls.finalized.length, 0);
+  assert.equal(refused.opened?.every((byte) => byte === 0), true);
+
+  const invalidCredential = fixture({ freezeCredential: true });
+  assert.deepEqual(await invalidCredential.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "77777777-7777-4777-8777-777777777777",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  }), { kind: "rejected" });
+  assert.equal(invalidCredential.calls.queries.length, 0);
+  assert.equal(invalidCredential.calls.finalized.length, 0);
+  assert.equal(invalidCredential.opened?.every((byte) => byte === 0), true);
+
+  const missingAdapter = fixture({ adapterPresent: false });
+  assert.deepEqual(await missingAdapter.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "88888888-8888-4888-8888-888888888888",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  }), { kind: "rejected" });
+  assert.equal(missingAdapter.calls.opens.length, 0);
+  assert.equal(missingAdapter.calls.queries.length, 0);
+  assert.equal(missingAdapter.calls.finalized.length, 0);
+});
+
+test("provider query ambiguity still finalizes durable unknown without adopting a new reference", async () => {
+  const selected = fixture({
+    claim: { providerReference: null },
+    query: Object.freeze({
+      kind: "unknown" as const,
+      providerReference: "untrusted_new_reference",
+    }),
+  });
+  assert.deepEqual(await selected.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "99999999-9999-4999-8999-999999999999",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  }), { kind: "processing" });
+  assert.equal(selected.calls.queries.length, 1);
+  assert.equal(selected.calls.finalized.length, 1);
+  assert.equal(selected.calls.finalized[0]?.status, "provider_outcome_unknown");
+  assert.equal(selected.calls.finalized[0]?.providerReference, null);
+});
+
 test("reconciliation keeps claim reference when provider reports 101 for an expected 100", async () => {
   const selected = fixture({
     claim: { amountMinor: 100, providerReference: null },

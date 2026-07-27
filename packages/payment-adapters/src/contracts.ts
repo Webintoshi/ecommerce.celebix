@@ -74,7 +74,8 @@ export type HostedPaymentStatus =
   | Readonly<{ kind: "succeeded"; providerReference: string; paidAmountMinor: number; currency: string }>
   | Readonly<{ kind: "failed"; providerReference: string | null; code: string }>
   | Readonly<{ kind: "pending"; providerReference: string | null }>
-  | Readonly<{ kind: "unknown"; providerReference: string | null }>;
+  | Readonly<{ kind: "unknown"; providerReference: string | null }>
+  | Readonly<{ kind: "rejected"; code: string }>;
 
 export type VerifiedProviderCallback = Readonly<{
   eventKey: string;

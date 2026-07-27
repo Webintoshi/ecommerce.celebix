@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type {
   HostedPaymentInitializeInput,
+  HostedPaymentQueryInput,
   ProviderTransportRequest,
   ProviderTransportResult,
 } from "../../index.ts";
@@ -71,6 +72,22 @@ function initializeInput(
         unitAmountMinor: 10_000,
       }),
     ]),
+    signal: new AbortController().signal,
+    ...overrides,
+  });
+}
+
+function queryInput(
+  overrides: Partial<HostedPaymentQueryInput<typeof credential>> = {},
+): HostedPaymentQueryInput<typeof credential> {
+  return Object.freeze({
+    environment: "test",
+    credential,
+    attemptId: "11111111-1111-4111-8111-111111111111",
+    orderReference: "merchant-order-123",
+    providerReference: MERCHANT_OID,
+    amountMinor: 10_000,
+    currency: "TRY",
     signal: new AbortController().signal,
     ...overrides,
   });
@@ -311,16 +328,7 @@ test("queries the persisted digest once and treats amount or response ambiguity 
     observedBody = new TextDecoder().decode(request.body);
     return response('{"status":"success","payment_amount":"100.00","payment_total":"100,00","payment_date":"2026-07-27 12:30:45","currency":"TL","test_mode":"1"}');
   }));
-  const input = {
-    environment: "test" as const,
-    credential,
-    attemptId: "11111111-1111-4111-8111-111111111111",
-    orderReference: "merchant-order-123",
-    providerReference: MERCHANT_OID,
-    amountMinor: 10_000,
-    currency: "TRY",
-    signal: new AbortController().signal,
-  };
+  const input = queryInput();
 
   assert.deepEqual(await adapter.query(input), {
     kind: "succeeded",
@@ -341,6 +349,54 @@ test("queries the persisted digest once and treats amount or response ambiguity 
     providerReference: MERCHANT_OID,
   });
   assert.equal(mismatchCalls, 1);
+});
+
+test("rejects every locally invalid query before transport", async () => {
+  let calls = 0;
+  const adapter = createPaytrIframeAdapter(transport(() => {
+    calls += 1;
+    return response('{"status":"success","payment_amount":"100.00","payment_total":"100.00","payment_date":"2026-07-27","currency":"TRY","test_mode":"1"}');
+  }));
+  const aborted = new AbortController();
+  aborted.abort();
+
+  for (const input of [
+    queryInput({ environment: "live" }),
+    queryInput({ currency: "USD" }),
+    queryInput({ providerReference: null }),
+    queryInput({ providerReference: "A".repeat(64) }),
+    queryInput({ credential: { ...credential, merchantKey: "" } }),
+    queryInput({ attemptId: "not-a-uuid" }),
+    queryInput({ orderReference: "invalid order reference" }),
+    queryInput({ amountMinor: 0 }),
+    queryInput({ signal: {} as AbortSignal }),
+    queryInput({ signal: aborted.signal }),
+  ]) {
+    assert.deepEqual(await adapter.query(input), {
+      kind: "rejected",
+      code: "invalid_request",
+    });
+  }
+  assert.equal(calls, 0);
+});
+
+test("keeps dispatched query transport ambiguity durable and reference-bound", async () => {
+  for (const outcome of [
+    Object.freeze({ kind: "unknown" as const, code: "transport_outcome_unknown" as const }),
+    new Error("opaque transport ambiguity"),
+  ]) {
+    let calls = 0;
+    const adapter = createPaytrIframeAdapter(transport(() => {
+      calls += 1;
+      if (outcome instanceof Error) throw outcome;
+      return outcome;
+    }));
+    assert.deepEqual(await adapter.query(queryInput()), {
+      kind: "unknown",
+      providerReference: MERCHANT_OID,
+    });
+    assert.equal(calls, 1);
+  }
 });
 
 test("does not execute verification-only live inputs", async () => {

@@ -46,6 +46,10 @@ const CONTENT_TYPE = Object.freeze({
   "content-type": "application/x-www-form-urlencoded",
 });
 const UNKNOWN_INITIALIZATION_CODE = "provider_outcome_unknown" as const;
+const INVALID_QUERY = Object.freeze({
+  kind: "rejected" as const,
+  code: "invalid_request",
+});
 const INITIALIZATION_KEYS = Object.freeze([
   "credential",
   "email",
@@ -87,6 +91,16 @@ const HOSTED_INITIALIZATION_KEYS = Object.freeze([
   "orderReference",
   "signal",
   "successUrl",
+]);
+const HOSTED_QUERY_KEYS = Object.freeze([
+  "amountMinor",
+  "attemptId",
+  "credential",
+  "currency",
+  "environment",
+  "orderReference",
+  "providerReference",
+  "signal",
 ]);
 const CUSTOMER_KEYS = Object.freeze([
   "address",
@@ -808,43 +822,47 @@ export function createPaytrIframeAdapter(
   const query = Object.freeze(async (
     input: HostedPaymentQueryInput<PaytrIframeCredential>,
   ) => {
-    const providerReference = input.providerReference;
-    if (
-      input.environment !== "test" ||
-      input.currency !== "TRY" ||
-      typeof providerReference !== "string" ||
-      !DIGEST.test(providerReference)
-    ) {
-      return Object.freeze({
-        kind: "unknown" as const,
-        providerReference:
-          typeof providerReference === "string" && DIGEST.test(providerReference)
-            ? providerReference
-            : null,
+    let credential: PaytrIframeCredential | undefined;
+    try {
+      const selected = exactRecord(input, HOSTED_QUERY_KEYS);
+      if (selected.environment !== "test" || selected.currency !== "TRY") invalid();
+      credential = parsePaytrIframeCredential(selected.credential);
+      if (typeof selected.attemptId !== "string" || !UUID.test(selected.attemptId)) invalid();
+      if (
+        typeof selected.orderReference !== "string" ||
+        !ORDER_REFERENCE.test(selected.orderReference)
+      ) invalid();
+      const providerReference = selected.providerReference;
+      if (typeof providerReference !== "string" || !DIGEST.test(providerReference)) invalid();
+      const amountMinor = parsePaytrPositiveInteger(selected.amountMinor);
+      if (!(selected.signal instanceof AbortSignal) || selected.signal.aborted) invalid();
+      const result = await queryPaytrIframeWithTransport(transport, {
+        environment: "test",
+        credential,
+        merchantOid: providerReference,
+        signal: selected.signal,
       });
-    }
-    const result = await queryPaytrIframeWithTransport(transport, {
-      environment: "test",
-      credential: input.credential,
-      merchantOid: providerReference,
-      signal: input.signal,
-    });
-    if (
-      result.status !== "success" ||
-      result.paymentAmount !== input.amountMinor ||
-      result.currency !== "TRY"
-    ) {
+      if (
+        result.status !== "success" ||
+        result.paymentAmount !== amountMinor ||
+        result.currency !== "TRY"
+      ) {
+        return Object.freeze({
+          kind: "unknown" as const,
+          providerReference,
+        });
+      }
       return Object.freeze({
-        kind: "unknown" as const,
+        kind: "succeeded" as const,
         providerReference,
+        paidAmountMinor: result.paymentAmount,
+        currency: "TRY",
       });
+    } catch {
+      return INVALID_QUERY;
+    } finally {
+      if (credential !== undefined) wipePaytrCredential(credential);
     }
-    return Object.freeze({
-      kind: "succeeded" as const,
-      providerReference,
-      paidAmountMinor: result.paymentAmount,
-      currency: "TRY",
-    });
   });
   return Object.freeze({
     packet: PAYTR_IFRAME_PACKET,

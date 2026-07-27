@@ -1038,8 +1038,19 @@ function parseStatus(
   providerReference: string | null;
   safeCode: string;
   result: HostedPaymentReconciliationResult;
-}> {
-  if (!plainRecord(value) || !validProviderReference(value.providerReference)) {
+}> | null {
+  if (
+    plainRecord(value)
+    && value.kind === "rejected"
+    && exactKeys(value, ["kind", "code"])
+    && typeof value.code === "string"
+    && CODE.test(value.code)
+  ) return null;
+  if (
+    !plainRecord(value)
+    || !("providerReference" in value)
+    || !validProviderReference(value.providerReference)
+  ) {
     return Object.freeze({
       status: "provider_outcome_unknown",
       providerReference: claim.providerReference,
@@ -1135,53 +1146,44 @@ async function reconcile(
   }
   if (!exactClaim(claim, { ...input, leaseExpiresAt })) return RECONCILIATION_REJECTED;
   const adapter = adapterFor(dependencies, claim.providerCode, "query");
+  if (adapter === null) return RECONCILIATION_REJECTED;
   let selected: Readonly<{
     status: "captured" | "failed" | "provider_outcome_unknown";
     providerReference: string | null;
     safeCode: string;
     result: HostedPaymentReconciliationResult;
-  }> = Object.freeze({
-    status: "provider_outcome_unknown" as const,
-    providerReference: claim.providerReference,
-    safeCode: "adapter_not_registered",
-    result: RECONCILIATION_PROCESSING,
-  });
+  }>;
   let opened: OpenedCredential | undefined;
-  if (adapter !== null) {
+  try {
+    opened = openCredential(dependencies, claim, adapter);
+  } catch {
+    return RECONCILIATION_REJECTED;
+  }
+  try {
+    const credential = opened.credential;
     try {
-      opened = openCredential(dependencies, claim, adapter);
-      const credential = opened.credential;
-      try {
-        selected = parseStatus(await withinProviderDeadline(providerTimeoutMs, (signal) => adapter.query(Object.freeze({
-          environment: claim.environment,
-          credential,
-          attemptId: claim.attemptId,
-          orderReference: claim.orderReference,
-          providerReference: claim.providerReference,
-          amountMinor: claim.amountMinor,
-          currency: claim.currency,
-          signal,
-        }))), claim);
-      } catch {
-        selected = Object.freeze({
-          status: "provider_outcome_unknown",
-          providerReference: claim.providerReference,
-          safeCode: "provider_outcome_unknown",
-          result: RECONCILIATION_PROCESSING,
-        });
-      }
+      const parsed = parseStatus(await withinProviderDeadline(providerTimeoutMs, (signal) => adapter.query(Object.freeze({
+        environment: claim.environment,
+        credential,
+        attemptId: claim.attemptId,
+        orderReference: claim.orderReference,
+        providerReference: claim.providerReference,
+        amountMinor: claim.amountMinor,
+        currency: claim.currency,
+        signal,
+      }))), claim);
+      if (parsed === null) return RECONCILIATION_REJECTED;
+      selected = parsed;
     } catch {
       selected = Object.freeze({
         status: "provider_outcome_unknown",
         providerReference: claim.providerReference,
-        safeCode: "credential_invalid",
+        safeCode: "provider_outcome_unknown",
         result: RECONCILIATION_PROCESSING,
       });
-    } finally {
-      if (opened !== undefined) {
-        wipeOpenedCredential(opened);
-      }
     }
+  } finally {
+    wipeOpenedCredential(opened);
   }
   const finalizeNow = selectedNow(dependencies);
   if (finalizeNow === null || finalizeNow.getTime() >= leaseExpiresAt.getTime()) {

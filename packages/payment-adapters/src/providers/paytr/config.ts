@@ -10,6 +10,7 @@ const MERCHANT_OID = /^[A-Za-z0-9]{1,64}$/;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const CALLBACK_AMOUNT = /^(?:0|[1-9][0-9]{0,14})$/;
 const INSTALLMENTS = new Set([0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+const UINT8_ARRAY_FILL = Uint8Array.prototype.fill;
 const CREDENTIAL_KEYS = Object.freeze(["merchantId", "merchantKey", "merchantSalt"]);
 const TOKEN_INPUT_KEYS = Object.freeze([
   "credential",
@@ -74,15 +75,20 @@ export function parsePaytrBoundedString(
   minimum: number,
   maximum: number,
 ): string {
-  if (
-    typeof value !== "string" ||
-    ENCODER.encode(value).byteLength < minimum ||
-    ENCODER.encode(value).byteLength > maximum ||
-    EDGE.test(value) ||
-    CONTROL.test(value) ||
-    SURROGATE.test(value)
-  ) invalid();
-  return value;
+  if (typeof value !== "string") invalid();
+  const encoded = ENCODER.encode(value);
+  try {
+    if (
+      encoded.byteLength < minimum ||
+      encoded.byteLength > maximum ||
+      EDGE.test(value) ||
+      CONTROL.test(value) ||
+      SURROGATE.test(value)
+    ) invalid();
+    return value;
+  } finally {
+    Reflect.apply(UINT8_ARRAY_FILL, encoded, [0]);
+  }
 }
 
 export function parsePaytrIframeCredential(value: unknown): PaytrIframeCredential {
