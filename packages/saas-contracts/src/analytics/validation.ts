@@ -2,6 +2,7 @@ import {
   ANALYTICS_CONNECTION_STATUSES,
   ANALYTICS_METRIC_TYPES,
   ANALYTICS_RANGES,
+  ANALYTICS_PERIODS,
   type AnalyticsConnectionMutationResult,
   type AnalyticsConnectionStatus,
   type AnalyticsConnectionView,
@@ -11,6 +12,10 @@ import {
   type AnalyticsPoint,
   type AnalyticsRange,
   type AnalyticsSummary,
+  type AnalyticsDashboard,
+  type AnalyticsPeriod,
+  type AnalyticsSeriesPoint,
+  type AnalyticsTopProduct,
 } from "./types.ts";
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
@@ -18,6 +23,8 @@ const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const DEVICE_LABEL = /^[\p{L}\p{N}][\p{L}\p{N} ._()/+-]{0,79}$/u;
 const COUNTRY_LABEL = /^(?:[A-Z]{2}|unknown)$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const CURRENCY = /^[A-Z]{3}$/;
 
 function invalid(): never { throw new TypeError("analytics_contract_invalid"); }
 
@@ -41,12 +48,17 @@ function denseArray(value: unknown, maximum: number): readonly unknown[] {
   return value;
 }
 
-function string(value: unknown, minimum: number, maximum: number): string {
+function string(value: unknown, minimum: number, maximum: number, pattern?: RegExp): string {
   if (
     typeof value !== "string" || value.length < minimum || value.length > maximum ||
-    value !== value.trim() || CONTROL.test(value)
+    value !== value.trim() || CONTROL.test(value) || (pattern !== undefined && !pattern.test(value))
   ) invalid();
   return value;
+}
+
+function analyticsPeriod(value: unknown): AnalyticsPeriod {
+  if (typeof value !== "string" || !ANALYTICS_PERIODS.includes(value as AnalyticsPeriod)) invalid();
+  return value as AnalyticsPeriod;
 }
 
 function count(value: unknown): number {
@@ -216,5 +228,36 @@ export function parseAnalyticsConnectionMutationResult(value: unknown): Analytic
     version: positiveVersion(parsed.version),
     updatedAt: timestamp(parsed.updatedAt),
     replayed: parsed.replayed,
+  });
+}
+
+export function parseAnalyticsDashboard(value: unknown): Readonly<AnalyticsDashboard> {
+  const parsed = exact(value, ["period", "rangeStart", "rangeEnd", "generatedAt", "currency", "revenueCents", "orders", "customers", "catalog", "series", "topProducts"]);
+  const rangeStart = timestamp(parsed.rangeStart);
+  const rangeEnd = timestamp(parsed.rangeEnd);
+  const generatedAt = timestamp(parsed.generatedAt);
+  if (new Date(rangeStart).getTime() > new Date(rangeEnd).getTime() || new Date(generatedAt).getTime() < new Date(rangeEnd).getTime()) invalid();
+  const orderValues = exact(parsed.orders, ["total", "paid", "cancelled", "refunded"]);
+  const orders = Object.freeze({ total: count(orderValues.total), paid: count(orderValues.paid), cancelled: count(orderValues.cancelled), refunded: count(orderValues.refunded) });
+  if (orders.paid > orders.total || orders.cancelled > orders.total || orders.refunded > orders.total) invalid();
+  const customerValues = exact(parsed.customers, ["total", "newInPeriod"]);
+  const customers = Object.freeze({ total: count(customerValues.total), newInPeriod: count(customerValues.newInPeriod) });
+  if (customers.newInPeriod > customers.total) invalid();
+  const catalogValues = exact(parsed.catalog, ["activeProducts", "lowStockVariants"]);
+  const series = Object.freeze(denseArray(parsed.series, 366).map((entry): Readonly<AnalyticsSeriesPoint> => {
+    const point = exact(entry, ["startsAt", "orders", "revenueCents"]);
+    return Object.freeze({ startsAt: timestamp(point.startsAt), orders: count(point.orders), revenueCents: count(point.revenueCents) });
+  }));
+  const topProducts = Object.freeze(denseArray(parsed.topProducts, 20).map((entry): Readonly<AnalyticsTopProduct> => {
+    const product = exact(entry, ["productId", "title", "quantity", "revenueCents"]);
+    return Object.freeze({ productId: string(product.productId, 36, 36, UUID), title: string(product.title, 1, 200), quantity: count(product.quantity), revenueCents: count(product.revenueCents) });
+  }));
+  if (new Set(topProducts.map(({ productId }) => productId)).size !== topProducts.length) invalid();
+  return Object.freeze({
+    period: analyticsPeriod(parsed.period), rangeStart, rangeEnd, generatedAt,
+    currency: string(parsed.currency, 3, 3, CURRENCY), revenueCents: count(parsed.revenueCents),
+    orders, customers,
+    catalog: Object.freeze({ activeProducts: count(catalogValues.activeProducts), lowStockVariants: count(catalogValues.lowStockVariants) }),
+    series, topProducts,
   });
 }

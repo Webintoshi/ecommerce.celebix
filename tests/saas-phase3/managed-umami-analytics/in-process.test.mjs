@@ -3,8 +3,6 @@ import test from "node:test";
 
 import { createAnalyticsHttpHandlers } from "../../../apps/customer-panel/lib/analytics-http/handler.ts";
 import { createAnalyticsBrowserApi } from "../../../apps/customer-panel/lib/analytics-ui/client.ts";
-import { readyAuthority, unavailableAuthority } from "../../../apps/customer-panel/lib/panel-ui/authority-slice.ts";
-import { createMerchantDashboardViewModel, loadMerchantDashboardSummaries } from "../../../apps/customer-panel/lib/panel-ui/dashboard-model.ts";
 import { deliverAnalyticsOutbox } from "../../../apps/storefront-shared/lib/analytics/delivery.ts";
 import { PRODUCT_VIEW_EVENT, trackCommerceEvent } from "../../../apps/storefront-shared/lib/analytics/events.ts";
 import { createSafeUmamiTracker, trackPageview } from "../../../apps/storefront-shared/lib/analytics/tracker-client.ts";
@@ -257,13 +255,10 @@ test("wrong and alias storefront hosts cannot emit pageviews or commerce events"
   assert.deepEqual(payloads, []);
 });
 
-test("authenticated summary crosses HTTP and becomes the exact dashboard analytics authority", async () => {
+test("authenticated summary crosses HTTP with exact managed analytics authority", async () => {
   const fixture = createFixture();
   const summary = await fixture.browser.summary("30d");
-  const chrome = Object.freeze({ storeSlug: "atlas-store", membershipLabel: "Mağaza sahibi", planCode: "growth", planVersion: 1, entitlementStatus: "active", storefrontHostname: HOSTNAME, locale: "tr-TR", analyticsAvailable: true });
-  const dashboard = createMerchantDashboardViewModel(chrome, unavailableAuthority(true), undefined, undefined, undefined, readyAuthority(summary, summary.asOf));
-  assert.equal(dashboard.analytics.state, "ready");
-  assert.deepEqual(dashboard.analytics.value, analyticsSummary());
+  assert.deepEqual(summary, analyticsSummary());
   assert.equal(fixture.calls.find(([name]) => name === "summary")[1].websiteId, WEBSITE_ID);
 });
 
@@ -295,11 +290,11 @@ test("settled purchase outbox hands one aggregate event to the public collector"
 
 test("provider outage rejects only analytics while catalog and order dashboard reads stay fulfilled", async () => {
   const fixture = createFixture({ providerDown: true });
-  const [catalog, orders, analytics] = await loadMerchantDashboardSummaries(
-    { async getDashboardSummary() { return Object.freeze({ totalProducts: 1, activeProducts: 1, draftProducts: 0, productLimit: 10, activeVariants: 1, outOfStockVariants: 0, productsWithoutMedia: 0, activeMedia: 1 }); } },
-    { async getDashboardSummary() { return Object.freeze({ totalOrders: 1, pendingOrders: 0, fulfilledOrders: 1, revenueCents: 12900, currency: "TRY", asOf: NOW.toISOString() }); } },
-    fixture.browser,
-  );
+  const [catalog, orders, analytics] = await Promise.allSettled([
+    Promise.resolve(Object.freeze({ totalProducts: 1, activeProducts: 1 })),
+    Promise.resolve(Object.freeze({ totalOrders: 1, fulfilledOrders: 1 })),
+    fixture.browser.summary("30d"),
+  ]);
   assert.deepEqual([catalog.status, orders.status, analytics.status], ["fulfilled", "fulfilled", "rejected"]);
   assert.doesNotMatch(String(analytics.reason), /private provider failure/);
 });

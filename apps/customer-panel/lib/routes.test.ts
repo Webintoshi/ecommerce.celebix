@@ -20,6 +20,97 @@ test("exports the authenticated catalog dashboard summary route", async () => {
   assert.doesNotMatch(routeSource, /export const POST/);
 });
 
+test("exports only the finite authenticated pricing catch-all methods", async () => {
+  const route = await readFile(new URL("../app/api/pricing/[...path]/route.ts", import.meta.url), "utf8");
+  assert.match(route, /export const GET = handlePricingRequest;/);
+  assert.match(route, /export const POST = handlePricingRequest;/);
+  for (const method of ["PUT", "PATCH", "DELETE"]) assert.doesNotMatch(route, new RegExp(`export const ${method}`));
+});
+
+test("analytics and typed storefront setting pages are server-authorized routes", async () => {
+  const analytics = await readFile(new URL("../app/analytics/page.tsx", import.meta.url), "utf8");
+  assert.match(analytics, /requireServerPanelAccess\(\)/);
+  assert.match(analytics, /analytics[.]read/);
+  assert.match(analytics, /<AnalyticsDashboard/);
+  assert.match(analytics, /<PanelAnalyticsView/);
+  for (const [path, kind] of [
+    ["../app/settings/notifications/page.tsx", "notification_setting"],
+    ["../app/settings/hero-banner/page.tsx", "hero_banner"],
+    ["../app/settings/promotion-banner/page.tsx", "promotion_banner"],
+    ["../app/settings/marquee/page.tsx", "marquee_setting"],
+  ] as const) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /requireServerPanelAccess\(\)/);
+    assert.match(source, new RegExp(kind));
+    assert.match(source, /configuration[.]manage/);
+  }
+});
+
+test("Toshi workspace is mounted behind server panel access without client authority props", async () => {
+  const page = await readFile(new URL("../app/toshi/page.tsx", import.meta.url), "utf8");
+  const accessIndex = page.indexOf("await requireServerPanelAccess()");
+  const workspaceIndex = page.indexOf("<ToshiWorkspace />");
+
+  assert.notEqual(accessIndex, -1);
+  assert.notEqual(workspaceIndex, -1);
+  assert.ok(accessIndex < workspaceIndex);
+  assert.doesNotMatch(page, /tenantContext|storeId|tenantId|principalId|membershipId|planId/);
+});
+
+test("analytics mounts one shared shell while orders keep their existing page-owned and print-safe boundaries", async () => {
+  const analyticsLayout = await readFile(new URL("../app/analytics/layout.tsx", import.meta.url), "utf8");
+  assert.match(analyticsLayout, /requireServerPanelAccess\(\)/);
+  assert.match(analyticsLayout, /<PanelShell tenantContext=\{tenantContext\}>\{children\}<\/PanelShell>/);
+  await assert.rejects(
+    readFile(new URL("../app/orders/layout.tsx", import.meta.url), "utf8"),
+    (error: NodeJS.ErrnoException) => error.code === "ENOENT",
+  );
+  for (const path of ["../app/orders/page.tsx", "../app/orders/[orderId]/page.tsx"] as const) {
+    const page = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(page, /<PanelShell model=\{createPanelChromeModel\(access[.]tenantContext\)\}>/);
+  }
+  const printPage = await readFile(new URL("../app/orders/[orderId]/print/page.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(printPage, /PanelShell|createPanelChromeModel/);
+});
+
+test("advanced SEO and AI pages expose only fixed server-authorized kinds", async () => {
+  const pages = [
+    ["../app/seo/geo-optimization/page.tsx", "seo_geo_profile", "integrations.manage"],
+    ["../app/seo/internal-linking/page.tsx", "seo_internal_link", "integrations.manage"],
+    ["../app/seo/content/page.tsx", "seo_content_entry", "integrations.manage"],
+    ["../app/seo/categories/page.tsx", "seo_category_entry", "integrations.manage"],
+    ["../app/seo/pages/page.tsx", "seo_page_entry", "integrations.manage"],
+    ["../app/seo/products/page.tsx", "seo_product_entry", "integrations.manage"],
+    ["../app/settings/artificial-intelligence/page.tsx", "ai_setting", "configuration.manage"],
+  ] as const;
+  for (const [path, kind, capability] of pages) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /requireServerPanelAccess\(\)/);
+    assert.match(source, new RegExp(`kind=["']${kind}["']`));
+    assert.match(source, new RegExp(capability.replace(".", "\\.")));
+    assert.doesNotMatch(source, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+});
+
+test("product import preparation pages use fixed formats and server-owned capability", async () => {
+  const pages = [
+    ["../app/products/auto-import/page.tsx", "native_csv"],
+    ["../app/products/shopify-converter/page.tsx", "shopify_csv"],
+    ["../app/products/bulk-upload/page.tsx", "native_csv"],
+  ] as const;
+  for (const [path, format] of pages) {
+    const page = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(page, /requireServerPanelAccess\(\)/);
+    assert.match(page, /tenantContext[.]membership[.]role/);
+    assert.match(page, /catalog_admin[.]import/);
+    if (!path.endsWith("bulk-upload/page.tsx")) {
+      assert.match(page, new RegExp(`format=["']${format}["']`));
+      assert.match(page, /<CatalogImportPreparationConsole/);
+    }
+    assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage|provider|credential|token/i);
+  }
+});
+
 test("exports only the exact authenticated order route methods", async () => {
   const routes = [
     ["../app/api/orders/summary/route.ts", "GET", "handleDefaultOrderGetDashboardSummary"],
@@ -261,7 +352,98 @@ test("quick-order console is directly routable behind panel access and linked by
   assert.match(page, /createPanelChromeModel\(access\.tenantContext\)/);
   assert.match(page, /<QuickOrderLinksConsole\s*\/>/);
   assert.doesNotMatch(page, /<QuickOrderLinksConsole[^>]+(?:tenant|store|membership|provider|token)/i);
-  assert.match(navigation, /label:\s*"Hızlı Siparişler"[\s\S]{0,120}href:\s*"\/orders\/quick-links"/);
+  assert.match(navigation, /item\("quick-orders",\s*"Hızlı Siparişler",\s*"\/orders\/quick-links"/);
+});
+
+test("order print and customer edit pages remain server-authorized route depth", async () => {
+  const printPage = await readFile(new URL("../app/orders/[orderId]/print/page.tsx", import.meta.url), "utf8");
+  const customerEditPage = await readFile(new URL("../app/customers/[customerId]/edit/page.tsx", import.meta.url), "utf8");
+  assert.match(printPage, /requireServerPanelAccess\(\)/);
+  assert.match(printPage, /<OrderPrintView orderId=\{orderId\} \/>/);
+  assert.match(customerEditPage, /requireServerPanelAccess\(\)/);
+  assert.match(customerEditPage, /customers[.]manage/);
+  assert.match(customerEditPage, /<CustomerEditConsole customerId=\{customerId\} \/>/);
+});
+
+test("catalog subresource pages lock resource kinds in server-authorized routes", async () => {
+  const cases = [
+    ["collections", "collection"], ["brands", "brand"], ["attributes", "attribute"],
+    ["extras", "extra"], ["definitions", "definition"], ["tags", "tag"],
+  ] as const;
+  for (const [segment, kind] of cases) {
+    for (const suffix of ["new/page.tsx", "[resourceId]/edit/page.tsx"]) {
+      const page = await readFile(new URL(`../app/products/${segment}/${suffix}`, import.meta.url), "utf8");
+      assert.match(page, /requireServerPanelAccess\(\)/);
+      assert.match(page, new RegExp(`kind=["']${kind}["']`));
+      assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+    }
+  }
+  const preview = await readFile(new URL("../app/products/extras/[resourceId]/preview/page.tsx", import.meta.url), "utf8");
+  assert.match(preview, /requireServerPanelAccess\(\)/);
+  assert.match(preview, /<CatalogExtraPreview resourceId=\{resourceId\}/);
+});
+
+test("tag and barcode routes remain panel-session guarded with fixed server authority", async () => {
+  const tags = await readFile(new URL("../app/products/tags/page.tsx", import.meta.url), "utf8");
+  const labels = await readFile(new URL("../app/products/barcode-labels/page.tsx", import.meta.url), "utf8");
+  for (const source of [tags, labels]) {
+    assert.match(source, /requireServerPanelAccess\(\)/);
+    assert.match(source, /tenantContext/);
+    assert.doesNotMatch(source, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+  assert.match(tags, /isCatalogPageActionAllowed/);
+  assert.match(tags, /CATALOG_PAGE_ACTIONS[.]tags/);
+  assert.match(labels, /isCatalogPageActionAllowed/);
+  assert.match(labels, /CATALOG_PAGE_ACTIONS[.]barcodeLabels/);
+});
+
+test("completed index and configuration routes have literal navigation destinations", async () => {
+  const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
+  for (const href of [
+    "/analytics",
+    "/products/tags",
+    "/products/barcode-labels",
+    "/products/purchasing",
+    "/products/inventory-counts",
+    "/products/transfers",
+    "/products/price-lists",
+    "/settings/design",
+    "/marketing/email",
+    "/marketplaces",
+    "/accounting/invoicing-integration",
+    "/seo/products",
+  ]) assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
+  for (const href of ["/customers/new", "/products/new", "/discounts/new"]) {
+    assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
+  }
+});
+
+test("merchant record route-depth pages expose only fixed server-authorized editor kinds", async () => {
+  const cases = [
+    ["../app/discounts/[recordId]/edit/page.tsx", "discount"],
+    ["../app/content/blog/new/page.tsx", "blog_post"],
+    ["../app/content/blog/[recordId]/edit/page.tsx", "blog_post"],
+    ["../app/content/pages/new/page.tsx", "page"],
+    ["../app/content/pages/[recordId]/edit/page.tsx", "page"],
+    ["../app/content/policies/new/page.tsx", "policy"],
+    ["../app/content/policies/[recordId]/edit/page.tsx", "policy"],
+    ["../app/settings/payment/new/page.tsx", "payment_setting"],
+    ["../app/settings/payment/[recordId]/edit/page.tsx", "payment_setting"],
+  ] as const;
+  for (const [path, kind] of cases) {
+    const page = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(page, /requireServerPanelAccess\(\)/);
+    assert.match(page, new RegExp(`kind=["']${kind}["']`));
+    assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+});
+
+test("content and settings family hubs render behind server panel access", async () => {
+  for (const file of ["../app/content/page.tsx", "../app/settings/page.tsx"]) {
+    const page = await readFile(new URL(file, import.meta.url), "utf8");
+    assert.match(page, /requireServerPanelAccess\(\)/);
+    assert.match(page, /<MerchantFamilyOverview[^>]+family=[\"'][a-z]+[\"'][^>]+canManage=/);
+  }
 });
 
 test("quick-order routes expose only the reviewed merchant methods and activate exact panel navigation", async () => {
@@ -282,6 +464,6 @@ test("quick-order routes expose only the reviewed merchant methods and activate 
     }
   }
   const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
-  assert.match(navigation, /label:\s*"Hızlı Siparişler"[\s\S]{0,120}href:\s*"\/orders\/quick-links"/);
+  assert.match(navigation, /item\("quick-orders",\s*"Hızlı Siparişler",\s*"\/orders\/quick-links"/);
   assert.doesNotMatch(navigation, /ödeme linki/i);
 });

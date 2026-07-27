@@ -1,6 +1,7 @@
 import type { StoreMembershipRole } from "../types.ts";
 
 export const MERCHANT_ACTIONS = Object.freeze([
+  "analytics.read",
   "orders.read",
   "orders.manage",
   "orders.fulfill",
@@ -31,6 +32,12 @@ export const MERCHANT_ACTIONS = Object.freeze([
   "configuration.archive",
   "integrations.read",
   "integrations.manage",
+  "inventory.read",
+  "inventory.manage",
+  "purchasing.read",
+  "purchasing.manage",
+  "pricing.read",
+  "pricing.manage",
 ] as const);
 
 export type MerchantAction = (typeof MERCHANT_ACTIONS)[number];
@@ -41,6 +48,7 @@ const ROLE_ACTIONS: Readonly<
   store_owner: new Set(MERCHANT_ACTIONS),
   admin: new Set(MERCHANT_ACTIONS),
   editor: new Set<MerchantAction>([
+    "analytics.read",
     "orders.read",
     "orders.fulfill",
     "orders.note",
@@ -56,8 +64,14 @@ const ROLE_ACTIONS: Readonly<
     "marketing.read",
     "configuration.read",
     "integrations.read",
+    "inventory.read",
+    "inventory.manage",
+    "purchasing.read",
+    "purchasing.manage",
+    "pricing.read",
   ]),
   analyst: new Set<MerchantAction>([
+    "analytics.read",
     "orders.read",
     "quick_links.read",
     "carts.read",
@@ -68,6 +82,9 @@ const ROLE_ACTIONS: Readonly<
     "marketing.read",
     "configuration.read",
     "integrations.read",
+    "inventory.read",
+    "purchasing.read",
+    "pricing.read",
   ]),
 });
 

@@ -1,16 +1,13 @@
-import type { PanelChromeModel } from "./chrome-model.ts";
+import type { PanelPublicChromeModel } from "./client-chrome-model.ts";
 import type { CatalogDashboardSummary } from "../catalog-ui/client.ts";
 import type {
   AbandonedCartSummary,
-  AnalyticsRange,
-  AnalyticsSummary,
+  AnalyticsDashboard,
   CustomerSummary,
   OrderDashboardSummary,
 } from "@celebix/saas-contracts";
-import { parseAnalyticsSummary } from "@celebix/saas-contracts";
 import {
   readyAuthority,
-  unavailableAuthority,
   unsupportedAuthority,
   type AuthoritySlice,
 } from "./authority-slice.ts";
@@ -26,6 +23,7 @@ export interface PanelDashboardCard {
 export interface PanelDashboardAction {
   readonly label: string;
   readonly href:
+    | "/analytics"
     | "/orders"
     | "/orders/quick-links"
     | "/orders/abandoned-carts"
@@ -93,10 +91,47 @@ export interface MerchantDashboardViewModel {
   readonly chromeCards: readonly PanelDashboardCard[];
   readonly catalog: AuthoritySlice<CatalogDashboardViewModel>;
   readonly orders: AuthoritySlice<OrderDashboardViewModel>;
-  readonly analytics: AuthoritySlice<AnalyticsSummary>;
+  readonly analytics: AuthoritySlice<AnalyticsDashboardViewModel>;
   readonly customers: AuthoritySlice<CustomerSummary>;
   readonly carts: AuthoritySlice<AbandonedCartSummary>;
   readonly actions: readonly PanelDashboardAction[];
+}
+
+export interface AnalyticsDashboardViewModel {
+  readonly period: AnalyticsDashboard["period"];
+  readonly rangeStart: string;
+  readonly rangeEnd: string;
+  readonly generatedAt: string;
+  readonly currency: string;
+  readonly revenueCents: number;
+  readonly orders: Readonly<{
+    total: number;
+    paid: number;
+    cancelled: number;
+    refunded: number;
+  }>;
+  readonly customers: Readonly<{ total: number; newInPeriod: number }>;
+  readonly catalog: Readonly<{
+    activeProducts: number;
+    lowStockVariants: number;
+  }>;
+  readonly series: readonly Readonly<{
+    startsAt: string;
+    orders: number;
+    revenueCents: number;
+  }>[];
+  readonly topProducts: readonly Readonly<{
+    productId: string;
+    title: string;
+    quantity: number;
+    revenueCents: number;
+  }>[];
+  readonly growth: Readonly<{
+    refundedOrders: number;
+    averageOrderValueCents: number | null;
+    lowStockVariants: number;
+    totalCustomers: number;
+  }>;
 }
 
 export interface OrderDashboardViewModel {
@@ -108,33 +143,81 @@ export interface OrderDashboardViewModel {
   readonly asOf: string;
 }
 
+export type MerchantDashboardSlice = "catalog" | "orders" | "carts" | "customers" | "analytics";
+
+export interface MerchantDashboardSliceLoaders {
+  readonly catalog: () => Promise<CatalogDashboardSummary>;
+  readonly orders: () => Promise<OrderDashboardSummary>;
+  readonly carts: () => Promise<AbandonedCartSummary>;
+  readonly customers: () => Promise<CustomerSummary>;
+  readonly analytics: () => Promise<AnalyticsDashboard>;
+}
+
+export interface MerchantDashboardSlicePublisher {
+  loading(slice: MerchantDashboardSlice): void;
+  ready(slice: MerchantDashboardSlice, value: CatalogDashboardSummary | OrderDashboardSummary | AbandonedCartSummary | CustomerSummary | AnalyticsDashboard): void;
+  unavailable(slice: MerchantDashboardSlice): void;
+}
+
+export function createMerchantDashboardSliceLoader(
+  loaders: MerchantDashboardSliceLoaders,
+  publisher: MerchantDashboardSlicePublisher,
+) {
+  let disposed = false;
+  const generation: Record<MerchantDashboardSlice, number> = {
+    catalog: 0, orders: 0, carts: 0, customers: 0, analytics: 0,
+  };
+  const reload = (slice: MerchantDashboardSlice) => {
+    const current = ++generation[slice];
+    publisher.loading(slice);
+    void Promise.resolve()
+      .then<unknown>(() => loaders[slice]())
+      .then(
+        (value) => {
+          if (!disposed && generation[slice] === current) publisher.ready(slice, value as CatalogDashboardSummary | OrderDashboardSummary | AbandonedCartSummary | CustomerSummary | AnalyticsDashboard);
+        },
+        () => {
+          if (!disposed && generation[slice] === current) publisher.unavailable(slice);
+        },
+      );
+  };
+  return Object.freeze({
+    reload,
+    reloadAll() {
+      (Object.keys(generation) as MerchantDashboardSlice[]).forEach(reload);
+    },
+    dispose() {
+      disposed = true;
+      (Object.keys(generation) as MerchantDashboardSlice[]).forEach((slice) => {
+        generation[slice] += 1;
+      });
+    },
+  });
+}
+
 export async function loadMerchantDashboardSummaries(
   catalog: Readonly<{
     getDashboardSummary(): Promise<CatalogDashboardSummary>;
   }>,
   orders: Readonly<{ getDashboardSummary(): Promise<OrderDashboardSummary> }>,
-  analytics?: Readonly<{ summary(range: AnalyticsRange): Promise<AnalyticsSummary> }>,
 ): Promise<
   readonly [
     PromiseSettledResult<CatalogDashboardSummary>,
     PromiseSettledResult<OrderDashboardSummary>,
-    PromiseSettledResult<AnalyticsSummary>,
   ]
 > {
-  const [catalogResult, orderResult, analyticsResult] = await Promise.allSettled([
+  const [catalogResult, orderResult] = await Promise.allSettled([
     catalog.getDashboardSummary(),
     orders.getDashboardSummary(),
-    analytics ? analytics.summary("30d") : Promise.reject(new Error("analytics_unsupported")),
   ]);
   return Object.freeze([
     Object.freeze(catalogResult),
     Object.freeze(orderResult),
-    Object.freeze(analyticsResult),
   ]);
 }
 
 export function createPanelDashboardModel(
-  chrome: PanelChromeModel,
+  chrome: PanelPublicChromeModel,
   summary?: CatalogDashboardSummary,
 ): PanelDashboardModel {
   const cards = Object.freeze([
@@ -164,6 +247,7 @@ export function createPanelDashboardModel(
     }),
   ]);
   const actions = Object.freeze([
+    Object.freeze({ label: "Ticari analitiği görüntüle", href: "/analytics" as const }),
     Object.freeze({ label: "Siparişleri yönet", href: "/orders" as const }),
     Object.freeze({
       label: "Hızlı sipariş oluştur",
@@ -278,8 +362,38 @@ function createCatalogDashboardViewModel(
   });
 }
 
+function createAnalyticsDashboardViewModel(
+  dashboard: AnalyticsDashboard,
+): AnalyticsDashboardViewModel {
+  return Object.freeze({
+    period: dashboard.period,
+    rangeStart: dashboard.rangeStart,
+    rangeEnd: dashboard.rangeEnd,
+    generatedAt: dashboard.generatedAt,
+    currency: dashboard.currency,
+    revenueCents: dashboard.revenueCents,
+    orders: Object.freeze({ ...dashboard.orders }),
+    customers: Object.freeze({ ...dashboard.customers }),
+    catalog: Object.freeze({ ...dashboard.catalog }),
+    series: Object.freeze(
+      dashboard.series.map((point) => Object.freeze({ ...point })),
+    ),
+    topProducts: Object.freeze(
+      dashboard.topProducts.map((product) => Object.freeze({ ...product })),
+    ),
+    growth: Object.freeze({
+      refundedOrders: dashboard.orders.refunded,
+      averageOrderValueCents: dashboard.orders.paid === 0
+        ? null
+        : Math.round(dashboard.revenueCents / dashboard.orders.paid),
+      lowStockVariants: dashboard.catalog.lowStockVariants,
+      totalCustomers: dashboard.customers.total,
+    }),
+  });
+}
+
 export function createMerchantDashboardViewModel(
-  chrome: PanelChromeModel,
+  chrome: PanelPublicChromeModel,
   catalog: AuthoritySlice<CatalogDashboardSummary>,
   orders: AuthoritySlice<OrderDashboardSummary> = unsupportedAuthority(
     "orders",
@@ -288,7 +402,7 @@ export function createMerchantDashboardViewModel(
   customers: AuthoritySlice<CustomerSummary> = unsupportedAuthority(
     "customers",
   ),
-  analytics: AuthoritySlice<AnalyticsSummary> = unsupportedAuthority(
+  analytics: AuthoritySlice<AnalyticsDashboard> = unsupportedAuthority(
     "analytics",
   ),
 ): MerchantDashboardViewModel {
@@ -314,22 +428,19 @@ export function createMerchantDashboardViewModel(
           orders.value.asOf,
         )
       : orders;
-  let analyticsView: AuthoritySlice<AnalyticsSummary> = analytics;
-  if (analytics.state === "ready") {
-    try {
-      const summary = parseAnalyticsSummary(analytics.value);
-      analyticsView = readyAuthority(summary, summary.asOf);
-    } catch {
-      analyticsView = unavailableAuthority(false);
-    }
-  }
   return Object.freeze({
     title: legacy.title,
     description: legacy.description,
     chromeCards: legacy.cards,
     catalog: catalogView,
     orders: orderView,
-    analytics: analyticsView,
+    analytics:
+      analytics.state === "ready"
+        ? readyAuthority(
+            createAnalyticsDashboardViewModel(analytics.value),
+            analytics.asOf,
+          )
+        : analytics,
     customers:
       customers.state === "ready"
         ? readyAuthority(customers.value, customers.value.asOf)

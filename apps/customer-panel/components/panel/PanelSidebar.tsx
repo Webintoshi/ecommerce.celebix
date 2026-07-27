@@ -12,7 +12,7 @@ import {
   type MouseEvent,
   type TouchEvent,
 } from "react";
-import type { PanelChromeModel } from "@/lib/panel-ui/chrome-model";
+import type { PanelClientChromeModel } from "@/lib/panel-ui/client-chrome-model";
 import { LogoutButton } from "./LogoutButton";
 import { PanelNavigation } from "./PanelNavigation";
 import styles from "./panel-shell.module.css";
@@ -20,13 +20,32 @@ import styles from "./panel-shell.module.css";
 function PanelBrand({ onClick }: { onClick?: () => void }) {
   return (
     <Link className={styles.brand} href="/" aria-label="Celebix Panel ana sayfa" onClick={onClick}>
-      <Image src="/Logo/celebix-beyaz-logo.svg" width={126} height={34} alt="Celebix" priority />
+      <span className={styles.brandMark}>
+        <Image src="/Logo/celebix-beyaz-logo.svg" width={1540} height={390} alt="Celebix" priority />
+      </span>
     </Link>
   );
 }
 
+function SidebarFooter({ model }: { model: PanelClientChromeModel }) {
+  const initial = model.storeSlug.charAt(0).toLocaleUpperCase("tr-TR");
+
+  return (
+    <div className={styles.sidebarFooter}>
+      <div className={styles.sidebarAccount} aria-label="Etkin mağaza">
+        <span className={styles.sidebarAvatar} aria-hidden="true">{initial}</span>
+        <span className={styles.sidebarAccountCopy}>
+          <strong>{model.storeSlug}</strong>
+          <small>{model.membershipLabel}</small>
+        </span>
+      </div>
+      <LogoutButton />
+    </div>
+  );
+}
+
 export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocus }: {
-  model: PanelChromeModel;
+  model: PanelClientChromeModel;
   mode: "desktop" | "drawer";
   open?: boolean;
   onClose?: () => void;
@@ -151,13 +170,10 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
                   <X aria-hidden="true" />
                 </button>
               </div>
-              <div className={styles.merchantIdentity} aria-label="Etkin mağaza">
-                <strong>{model.storeSlug}</strong><small>{model.membershipLabel}</small>
-              </div>
               <div className={styles.drawerNavigation} onClick={handleNavigationClick}>
                 <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} />
               </div>
-              <div className={styles.sidebarFooter}><LogoutButton /></div>
+              <SidebarFooter model={model} />
             </motion.aside>
           </>
         ) : null}
@@ -168,11 +184,8 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
   return (
     <aside className={styles.desktopSidebar}>
       <PanelBrand />
-      <div className={styles.merchantIdentity} aria-label="Etkin mağaza">
-        <strong>{model.storeSlug}</strong><small>{model.membershipLabel}</small>
-      </div>
       <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} />
-      <div className={styles.sidebarFooter}><LogoutButton /></div>
+      <SidebarFooter model={model} />
     </aside>
   );
 }

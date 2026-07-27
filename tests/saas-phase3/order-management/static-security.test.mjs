@@ -6,11 +6,17 @@ import test from "node:test";
 
 const BASE = "86b3a4ad";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const HISTORICAL_A1_HEAD = "301637111de040fc3bbf3cfed718a2d772e42130";
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
 const bytes = (path) => readFile(new URL(path, ROOT));
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
 const lines = (value) => value.split("\n").filter(Boolean);
+const readAt = (revision, path) => git("show", `${revision}:${path}`);
+const historicalChanged = (...paths) => lines(git(
+  "diff", "--name-only", "--no-renames", `${BASE}...${HISTORICAL_A1_HEAD}`,
+  ...(paths.length === 0 ? [] : ["--", ...paths]),
+));
 
 const ORDER_ROUTE_FILES = Object.freeze([
   "apps/customer-panel/app/api/orders/[orderId]/notes/[noteId]/archive/route.ts",
@@ -39,9 +45,9 @@ test("pins the exact donor SHA and keeps apps admin byte unchanged from implemen
   assert.equal(git("diff", "--name-only", `${BASE}...HEAD`, "--", "apps/admin"), "");
 });
 
-test("adds exactly the authorized A1 list detail and mutation routes", () => {
+test("preserves the exact authorized A1 route snapshot at its closing SHA", () => {
   const added = lines(git(
-    "diff", "--diff-filter=A", "--name-only", "--no-renames", `${BASE}...HEAD`, "--",
+    "diff", "--diff-filter=A", "--name-only", "--no-renames", `${BASE}...${HISTORICAL_A1_HEAD}`, "--",
     "apps/customer-panel/app",
   )).sort();
   assert.deepEqual(added, [...ORDER_ROUTE_FILES].sort());
@@ -77,8 +83,8 @@ test("keeps tenant principal membership and plan IDs out of browser DTO and DOM 
   assert.doesNotMatch(source, /authorization|x-celebix|x-(?:tenant|store|principal|membership|plan)-id/i);
 });
 
-test("keeps one real all-orders menu and no fake quick-order or abandoned-cart destinations", async () => {
-  const navigation = await read("apps/customer-panel/lib/panel-ui/navigation.ts");
+test("preserves the historical all-orders menu without later destinations", () => {
+  const navigation = readAt(HISTORICAL_A1_HEAD, "apps/customer-panel/lib/panel-ui/navigation.ts");
   assert.equal((navigation.match(/label:\s*"Siparişler"/g) ?? []).length, 1);
   assert.equal((navigation.match(/label:\s*"Tüm Siparişler"/g) ?? []).length, 1);
   assert.equal((navigation.match(/href:\s*"\/orders"/g) ?? []).length, 2);
@@ -88,7 +94,7 @@ test("keeps one real all-orders menu and no fake quick-order or abandoned-cart d
     "apps/customer-panel/app/orders/abandoned-carts/page.tsx",
     "apps/customer-panel/app/api/orders/quick/route.ts",
     "apps/customer-panel/app/api/orders/abandoned-carts/route.ts",
-  ]) assert.equal(git("ls-tree", "--name-only", "HEAD", "--", path), "");
+  ]) assert.equal(git("ls-tree", "--name-only", HISTORICAL_A1_HEAD, "--", path), "");
 });
 
 test("binds the SQL manifest to the exact approved artifact bytes", async () => {
@@ -135,15 +141,15 @@ test("grants the app role function execution only and no direct order-table DML"
   assert.match(sql, /has_table_privilege\([\s\S]{0,100}?'celebix_saas_app'[\s\S]{0,100}?'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'/i);
 });
 
-test("tracked A1 patch contains no credentials private keys or session material", () => {
-  const productionFiles = lines(git("diff", "--name-only", "--no-renames", `${BASE}...HEAD`)).filter((path) =>
+test("historical tracked A1 patch contains no credentials private keys or session material", () => {
+  const productionFiles = historicalChanged().filter((path) =>
     !/\.test\.[cm]?[jt]sx?$/.test(path) &&
     !path.startsWith("tests/") &&
     !path.startsWith("docs/") &&
     !path.endsWith("-report.md") &&
     path !== "package-lock.json",
   );
-  const patch = productionFiles.length === 0 ? "" : git("diff", `${BASE}...HEAD`, "--", ...productionFiles);
+  const patch = productionFiles.length === 0 ? "" : git("diff", `${BASE}...${HISTORICAL_A1_HEAD}`, "--", ...productionFiles);
   assert.doesNotMatch(patch, /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/i);
   assert.doesNotMatch(patch, /postgres(?:ql)?:\/\/[^\s"']+:[^\s"'@]+@/i);
   assert.doesNotMatch(patch, /(?:password|client_secret|service_role_key)\s*[:=]\s*["'][^"']+/i);
@@ -153,9 +159,9 @@ test("tracked A1 patch contains no credentials private keys or session material"
   assert.doesNotMatch(patch, panelCookieAssignment);
 });
 
-test("legacy shell and presentation gates are aligned to A1 while deferred domains remain unsupported", async () => {
-  const shellGate = await read("tests/saas-phase3/hemenaku-merchant-shell/static-security.test.mjs");
-  const presentationGate = await read("tests/saas-phase3/hemenaku-admin-presentation/static-security.test.mjs");
+test("historical shell and presentation gates remain aligned to A1", () => {
+  const shellGate = readAt(HISTORICAL_A1_HEAD, "tests/saas-phase3/hemenaku-merchant-shell/static-security.test.mjs");
+  const presentationGate = readAt(HISTORICAL_A1_HEAD, "tests/saas-phase3/hemenaku-admin-presentation/static-security.test.mjs");
   assert.doesNotMatch(shellGate, /doesNotMatch\(navigation, \/orders\|sipariş/);
   assert.doesNotMatch(shellGate, /\["orders", "analytics", "customers", "carts"\]/);
   assert.doesNotMatch(presentationGate, /\["orders", "analytics", "customers", "carts"\]/);

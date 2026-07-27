@@ -8,11 +8,13 @@ import {
   PostgresCatalogRepository,
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
+  PostgresAnalyticsRepository,
   PostgresCustomerRepository,
+  PostgresInventoryRepository,
+  PostgresPricingRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
-  PostgresAnalyticsRepository,
 } from "@celebix/saas-data";
 import pg from "pg";
 
@@ -22,10 +24,12 @@ import { createPostgresPanelSessionRepository } from "../panel-session-persisten
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
+import { registerServerAnalyticsRepository } from "../server-analytics/runtime.ts";
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
-import { registerServerAnalyticsRepository } from "../server-analytics/runtime.ts";
+import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
+import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
   parseQuickLinkServerConfig,
@@ -115,6 +119,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.catalog_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_recovery,
       to_regprocedure('saas.catalog_get_product_details(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL AS catalog_details,
       to_regprocedure('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)') IS NOT NULL AS merchant_action_authority,
+      to_regprocedure('saas.merchant_analytics_dashboard(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL AS analytics_dashboard,
       to_regprocedure('saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL AS order_summary,
       to_regprocedure('saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL AS order_lister,
       to_regprocedure('saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS order_reader,
@@ -164,7 +169,53 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.analytics_connection_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid)') IS NOT NULL
         AND to_regprocedure('saas.analytics_connection_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.analytics_connection_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
-        AND to_regprocedure('saas.analytics_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS analytics_repository
+        AND to_regprocedure('saas.analytics_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS analytics_repository,
+      to_regclass('saas.inventory_locations') IS NOT NULL
+        AND to_regclass('saas.inventory_balances') IS NOT NULL
+        AND to_regclass('saas.inventory_movements') IS NOT NULL
+        AND to_regclass('saas.purchase_orders') IS NOT NULL
+        AND to_regclass('saas.purchase_order_lines') IS NOT NULL
+        AND to_regclass('saas.inventory_operations') IS NOT NULL
+        AND to_regclass('saas.inventory_counts') IS NOT NULL
+        AND to_regclass('saas.inventory_count_lines') IS NOT NULL
+        AND to_regclass('saas.inventory_transfers') IS NOT NULL
+        AND to_regclass('saas.inventory_transfer_lines') IS NOT NULL
+        AND to_regclass('saas.inventory_location_operations') IS NOT NULL AS inventory_relations,
+      to_regclass('saas.price_lists') IS NOT NULL
+        AND to_regclass('saas.price_list_items') IS NOT NULL
+        AND to_regclass('saas.price_list_rules') IS NOT NULL
+        AND to_regclass('saas.price_list_operations') IS NOT NULL AS pricing_relations,
+      to_regprocedure('saas.inventory_list_locations(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_list_balances(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,text,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_transition(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_receive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_start(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_commit(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_dispatch(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_receive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_locations_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_locations_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_locations_recover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS inventory_repository
+      ,to_regprocedure('saas.pricing_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])') IS NOT NULL AS pricing_repository
+       ,to_regprocedure('saas.resolve_effective_variant_price(uuid,uuid,text,timestamp with time zone,text)') IS NOT NULL AS pricing_resolver
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -179,7 +230,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_lister !== true || row.catalog_creator !== true || row.catalog_updater !== true ||
       row.catalog_archiver !== true || row.variant_creator !== true || row.variant_updater !== true ||
       row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true ||
-      row.merchant_action_authority !== true || row.order_summary !== true || row.order_lister !== true ||
+      row.merchant_action_authority !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
       row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true ||
@@ -188,7 +239,9 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_admin_repository !== true ||
       row.merchant_admin_repository !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
-      row.analytics_repository !== true
+      row.analytics_repository !== true ||
+      row.inventory_relations !== true || row.inventory_repository !== true ||
+      row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
 }
@@ -273,6 +326,20 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const inventoryRepository = new PostgresInventoryRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
+      audit: () => undefined,
+    });
+    const pricingRepository = new PostgresPricingRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
+      audit: () => undefined,
+    });
     const quickLinkRepositoryOptions = {
       pool,
       role: "celebix_saas_app" as const,
@@ -292,6 +359,8 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCatalogAdminRepository(access, catalogAdminRepository);
     registerServerMerchantAdminRepository(access, merchantAdminRepository);
     registerServerAnalyticsRepository(access, analyticsRepository);
+    registerServerInventoryRepository(access, inventoryRepository);
+    registerServerPricingRepository(access, pricingRepository);
     registerServerQuickLinksRuntime(access, {
       links: quickLinkRepository,
       privateLinks: quickLinkPrivateRepository,

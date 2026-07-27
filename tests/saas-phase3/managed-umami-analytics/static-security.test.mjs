@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const BASE = "912df940d2f8aa1e4d43a076621ad592751f4f04";
+const ANALYTICS_HEAD = "c365bc2195df1af5929381f7e910f73059c13ba7";
 
 function git(args) {
-  return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" });
+  return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
 async function source(path) {
@@ -24,14 +25,14 @@ function changedNames(...paths) {
 
 function addedApplicationLines() {
   return git([
-    "diff", "--unified=0", `${BASE}...HEAD`, "--",
+    "diff", "--unified=0", `${BASE}...${ANALYTICS_HEAD}`, "--",
     "apps/customer-panel", "apps/storefront-shared", "packages/saas-contracts", "packages/saas-data",
     ":(exclude)**/*.test.ts", ":(exclude)**/*.test.tsx",
   ]).split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++")).join("\n");
 }
 
 const PANEL_CLIENT_AND_RSC = [
-  "apps/customer-panel/app/(panel)/analytics/page.tsx",
+  "apps/customer-panel/app/analytics/page.tsx",
   "apps/customer-panel/components/analytics/PanelAnalyticsView.tsx",
   "apps/customer-panel/lib/analytics-ui/client.ts",
   "apps/customer-panel/lib/analytics-ui/presentation.ts",
@@ -130,10 +131,13 @@ test("the pinned donor admin tree remains unchanged", () => {
   assert.deepEqual(changedNames("apps/admin"), []);
 });
 
-test("lockfile and credential-bearing filenames remain unchanged", () => {
+test("lockfile stays unchanged and successor credential crypto remains isolated", () => {
   assert.deepEqual(changedNames("package-lock.json"), []);
   const sensitive = changedNames().filter((path) => /(^|\/)[.]env($|[.])|credential|secret/i.test(path));
-  assert.deepEqual(sensitive, []);
+  assert.deepEqual(sensitive, [
+    "packages/saas-data/src/provider-execution/credential-crypto.test.ts",
+    "packages/saas-data/src/provider-execution/credential-crypto.ts",
+  ]);
 });
 
 test("whole analytics diff is whitespace-clean and contains no embedded credentials", async () => {

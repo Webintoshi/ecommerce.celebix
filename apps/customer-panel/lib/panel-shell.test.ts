@@ -6,14 +6,15 @@ import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
+import type { OrderListItem } from "@celebix/saas-contracts";
 import {
   getPanelRoutePresentation,
-  getPanelNavigation,
   isPanelNavigationPathActive,
+  isPanelNavigationPathExact,
   PANEL_NAVIGATION,
 } from "./panel-ui/navigation.ts";
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
-import { emptyAuthority, readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
+import { readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
 import { createMerchantDashboardViewModel } from "./panel-ui/dashboard-model.ts";
 
 const ROOT = new URL("../", import.meta.url);
@@ -44,13 +45,17 @@ interface HookInstance {
 interface HookTestDocumentState {
   activeElement: HookTestHost | null;
   canReceiveFocus?: (element: HookTestHost) => boolean;
+  modalRoot?: HookTestHost | null;
 }
 
 class HookTestHost {
   readonly children: HookTestHost[] = [];
+  closeCount = 0;
   focusCount = 0;
   focusAttemptCount = 0;
+  open = false;
   parent: HookTestHost | null = null;
+  showModalCount = 0;
 
   constructor(
     readonly type: string,
@@ -74,9 +79,24 @@ class HookTestHost {
 
   focus(): void {
     this.focusAttemptCount += 1;
+    if (this.documentState.modalRoot && !this.documentState.modalRoot.contains(this)) return;
     if (this.documentState.canReceiveFocus?.(this) === false) return;
     this.focusCount += 1;
     this.documentState.activeElement = this;
+  }
+
+  close(): void {
+    this.closeCount += 1;
+    this.open = false;
+    if (this.documentState.modalRoot === this) this.documentState.modalRoot = null;
+  }
+
+  showModal(): void {
+    assert.equal(this.type, "dialog", "showModal is only available on dialog hosts");
+    assert.equal(this.open, false, "dialog is already open");
+    this.showModalCount += 1;
+    this.open = true;
+    this.documentState.modalRoot = this;
   }
 
   querySelectorAll(): HookTestHost[] {
@@ -327,24 +347,23 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const Link = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) =>
     createElement("a", props, children);
   const compiledModule: {
-    exports: { PanelNavigation?: ComponentType<{ mode: "desktop" | "drawer"; analyticsAvailable: boolean }> };
+    exports: { PanelNavigation?: ComponentType<{ mode: "desktop" | "drawer" }> };
   } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return ReactModule;
     if (specifier === "lucide-react") {
-      return new Proxy({ __esModule: true }, {
-        get: (_target, property) => property === "__esModule" ? true : Icon,
-      });
+      return { BadgeCheck: Icon, BadgeDollarSign: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, ChevronDown: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Palette: Icon, Percent: Icon, Phone: Icon, PieChart: Icon, Puzzle: Icon, ReceiptText: Icon, ScanBarcode: Icon, ScrollText: Icon, Search: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, Users: Icon, Warehouse: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
     if (specifier === "@/lib/panel-ui/navigation") {
       return {
+        getPanelNavigation: ({ analyticsAvailable }: { analyticsAvailable: boolean }) => analyticsAvailable
+          ? PANEL_NAVIGATION
+          : PANEL_NAVIGATION.filter(({ key }) => key !== "analytics"),
         isPanelNavigationPathActive,
-        isPanelNavigationPathExact: (candidate: string, href: string) => candidate === href,
-        getPanelNavigation,
-        PANEL_NAVIGATION,
+        isPanelNavigationPathExact,
       };
     }
     if (specifier === "./panel-shell.module.css") {
@@ -365,13 +384,56 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
     compiledModule.exports,
   );
   assert.ok(compiledModule.exports.PanelNavigation);
-  return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop", analyticsAvailable: false }));
+  return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop" }));
+}
+
+async function createInteractivePanelNavigation(pathname: string) {
+  const documentState: HookTestDocumentState = { activeElement: null };
+  const EmptyRoot: HookTestComponent = () => null;
+  const harness = createPanelInteractionHarness(EmptyRoot, { mode: "desktop" }, documentState);
+  const Icon = (props: HookTestProps) => harness.jsxRuntime.jsx("svg", props);
+  const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+  const PanelNavigation = await compileHookTestComponent(
+    "components/panel/PanelNavigation.tsx",
+    (specifier) => {
+      if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+      if (specifier === "react") return harness.react;
+      if (specifier === "lucide-react") {
+        return new Proxy({ __esModule: true }, { get: (_target, property) => property === "__esModule" ? true : Icon });
+      }
+      if (specifier === "next/link") return Link;
+      if (specifier === "next/navigation") return { usePathname: () => pathname };
+      if (specifier === "@/lib/panel-ui/navigation") {
+        return {
+          getPanelNavigation: ({ analyticsAvailable }: { analyticsAvailable: boolean }) => analyticsAvailable
+            ? PANEL_NAVIGATION
+            : PANEL_NAVIGATION.filter(({ key }) => key !== "analytics"),
+          isPanelNavigationPathActive,
+          isPanelNavigationPathExact,
+        };
+      }
+      if (specifier === "./panel-shell.module.css") return styles;
+      throw new Error(`unexpected_interactive_panel_navigation_import:${specifier}`);
+    },
+  );
+  harness.setRoot(PanelNavigation);
+  harness.flush();
+  return harness;
 }
 
 type DashboardPresentationInput = Readonly<{
   dashboard: ReturnType<typeof createMerchantDashboardViewModel>;
   state: "loading" | "loaded" | "error";
-  analyticsState?: "loading" | "loaded" | "error" | "unsupported";
+  analyticsState?: "loading" | "loaded" | "error";
+  recentOrders?: readonly OrderListItem[];
+  recentOrdersState?: "loading" | "loaded" | "error";
 }>;
 
 async function renderPanelDashboard(
@@ -430,6 +492,13 @@ async function renderPanelDashboard(
   });
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "lucide-react") {
+      const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+      return { CalendarDays: Icon, Globe2: Icon, PackageCheck: Icon, Store: Icon };
+    }
+    if (specifier === "@celebix/saas-contracts") {
+      return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
+    }
     if (specifier === "react") {
       return {
         useCallback: (callback: unknown) => callback,
@@ -441,12 +510,12 @@ async function renderPanelDashboard(
     if (specifier === "recharts") {
       const ChartContainer = ({ children, data }: {
         children?: ReactNode;
-        data?: readonly Readonly<{ label?: string; at?: string; value: number }>[];
+        data?: readonly Readonly<{ label: string; value: number }>[];
       }) => createElement(
         "div",
         data
           ? {
-            "data-chart-labels": data.map(({ label, at }) => label ?? at).join("|"),
+            "data-chart-labels": data.map(({ label }) => label).join("|"),
             "data-chart-values": data.map(({ value }) => value).join(","),
           }
           : null,
@@ -457,12 +526,12 @@ async function renderPanelDashboard(
         Bar: ChartPrimitive,
         BarChart: ChartContainer,
         CartesianGrid: ChartPrimitive,
+        Line: ChartPrimitive,
+        LineChart: ChartContainer,
         ResponsiveContainer: ChartContainer,
         Tooltip: ChartPrimitive,
         XAxis: ChartPrimitive,
         YAxis: ChartPrimitive,
-        Line: ChartPrimitive,
-        LineChart: ChartContainer,
       };
     }
     if (specifier === "@/components/panel/PanelPageShell") {
@@ -470,6 +539,9 @@ async function renderPanelDashboard(
     }
     if (specifier === "@/components/panel/PanelLayoutClient") {
       return { usePanelChromeModel: () => model };
+    }
+    if (specifier === "@/components/panel/PanelTopbarChrome") {
+      return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => actions ?? null };
     }
     if (specifier === "@/lib/catalog-ui/client") {
       return { catalogApi: { getDashboardSummary: async () => undefined } };
@@ -484,7 +556,7 @@ async function renderPanelDashboard(
       return { customerApi: { summary: async () => undefined } };
     }
     if (specifier === "@/lib/analytics-ui/client") {
-      return { createAnalyticsBrowserApi: () => ({ summary: async () => undefined }) };
+      return { analyticsApi: { dashboard: async () => undefined } };
     }
     if (specifier === "@/lib/panel-ui/dashboard-model") {
       return { createMerchantDashboardViewModel };
@@ -557,19 +629,410 @@ test("desktop shell carries exact donor tokens, fixed width, topbar, and support
   assert.match(css, /#2A2A2A/i);
   assert.match(css, /#F9F9F9/i);
   assert.match(css, /#FF6A00/i);
-  assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15rem;/);
-  assert.match(css, /\.workspace\s*\{[\s\S]*?margin-left:\s*15rem;/);
+  assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15[.]3125rem;/);
+  assert.match(css, /\.workspace\s*\{[\s\S]*?margin-left:\s*15[.]3125rem;/);
   assert.doesNotMatch(css, /width:\s*(?:15\.5|16)rem/);
   assert.match(css, /min-width:\s*1025px/);
   assert.match(layout, /panel-topbar-actions/);
 });
 
-test("desktop navigation keeps inactive families collapsed and exposes the active family as a dropdown", async () => {
-  const html = await renderPanelNavigation("/products/collections");
-  assert.match(html, /aria-label="Ürünler alt menüsünü kapat"/);
-  assert.match(html, /aria-controls="panel-nav-catalog-desktop"/);
-  assert.match(html, /aria-label="Siparişler alt menüsünü aç"/);
-  assert.match(html, /id="panel-nav-orders-desktop"[^>]*hidden=""/);
+test("desktop topbar matches the shared Hemenaku management-header anatomy on every route", async () => {
+  const layout = await source("components/panel/PanelLayoutClient.tsx");
+  const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
+  const styles = await source("components/panel/panel-shell.module.css");
+
+  assert.match(layout, />ORTAK ADMİN</);
+  assert.match(layout, /styles[.]desktopTopbarEyebrow/);
+  assert.match(layout, /styles[.]desktopTopbarTitle/);
+  assert.match(layout, /PanelTopbarUtilities/);
+  assert.match(utilities, /Bildirim merkezi/);
+  assert.match(utilities, /Bana Sorun/);
+  assert.match(utilities, /href="\/settings\/notifications"/);
+  assert.match(styles, /[.]desktopTopbar\s*\{[\s\S]*?min-height:\s*5[.]5rem;/);
+  assert.match(styles, /[.]desktopTopbarEyebrow\s*\{[\s\S]*?letter-spacing:/);
+  assert.match(styles, /[.]desktopTopbarUtilities\s*\{[\s\S]*?display:\s*flex;/);
+  assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
+});
+
+test("topbar launches the real Toshi identity without a remote or generated avatar", async () => {
+  const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
+  assert.match(utilities, /src="\/toshi\/toshi-profile[.]webp"/);
+  assert.match(utilities, /alt="Toshi yapay zekâ mağaza asistanı"/);
+  assert.doesNotMatch(utilities, /<Bot\b|https?:\/\//);
+});
+
+test("Toshi drawer is an accessible modal with complete close and focus-return behavior", async () => {
+  const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
+  const drawer = await source("components/toshi/ToshiDrawer.tsx");
+  const styles = await source("components/toshi/toshi.module.css");
+
+  assert.match(utilities, /<ToshiDrawer[\s\S]*?open=\{helpOpen\}[\s\S]*?launcherRef=\{helpButtonRef\}[\s\S]*?onClose=/);
+  assert.match(utilities, /aria-controls="toshi-assistant-drawer"/);
+  assert.match(drawer, /id="toshi-assistant-drawer"/);
+  assert.match(drawer, /<dialog/);
+  assert.match(drawer, /[.]showModal\(\)/);
+  assert.match(drawer, /aria-modal="true"/);
+  assert.match(drawer, /aria-labelledby="toshi-assistant-title"/);
+  assert.match(drawer, /onCancel=/);
+  assert.match(drawer, /event[.]target === event[.]currentTarget/);
+  assert.doesNotMatch(drawer, /<button[\s\S]*?styles[.]backdrop/);
+  assert.match(drawer, /aria-label="Toshi asistanını kapat"[\s\S]*?onClick=\{onClose\}/);
+  assert.match(drawer, /launcherRef[.]current[?][.]focus\(\)/);
+  assert.match(drawer, /document[.]body[.]style[.]overflow = "hidden"/);
+  assert.match(drawer, /href="\/toshi"/);
+
+  assert.match(styles, /[.]drawer\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?width:\s*min\(27rem,\s*calc\(100vw - 1rem\)\)/);
+  assert.match(styles, /[.]drawerLayer::backdrop\s*\{/);
+  assert.match(styles, /@media\s*\(max-width:\s*1024px\)[\s\S]*?[.]drawer\s*\{[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100dvh;/);
+  assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?[.]drawer\s*\{[\s\S]*?transition-duration:\s*0[.]01ms;/);
+  assert.match(styles, /min-height:\s*48px/);
+  assert.match(styles, /min-width:\s*48px/);
+});
+
+test("Toshi drawer native modal contains focus and closes by backdrop, Escape, and button", async () => {
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+
+  async function exerciseClose(method: "backdrop" | "button" | "escape") {
+    const documentState: HookTestDocumentState & { body: { style: { overflow: string } } } = {
+      activeElement: null,
+      body: { style: { overflow: "visible" } },
+      modalRoot: null,
+    };
+    Object.defineProperty(globalThis, "document", { configurable: true, value: documentState });
+    const launcher = new HookTestHost("button", { "aria-label": "Bana Sorun" }, documentState);
+    const outside = new HookTestHost("a", { href: "/products" }, documentState);
+    const EmptyRoot: HookTestComponent = () => null;
+    const harness = createPanelInteractionHarness(EmptyRoot, {}, documentState);
+    const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
+    const Image: HookTestComponent = (props) => harness.jsxRuntime.jsx("img", props);
+    const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
+    const ToshiAssistant: HookTestComponent = () => harness.jsxRuntime.jsx("form", {});
+    const ToshiDrawer = await compileHookTestComponent(
+      "components/toshi/ToshiDrawer.tsx",
+      (specifier) => {
+        if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+        if (specifier === "react") return harness.react;
+        if (specifier === "next/image") return Image;
+        if (specifier === "next/link") return Link;
+        if (specifier === "lucide-react") return { ArrowUpRight: Icon, X: Icon };
+        if (specifier === "./ToshiAssistant") return { ToshiAssistant };
+        if (specifier === "./toshi.module.css") return styles;
+        throw new Error(`unexpected_toshi_drawer_import:${specifier}`);
+      },
+    );
+    let open = true;
+    let closeCount = 0;
+    const Root: HookTestComponent = () => harness.jsxRuntime.jsx(ToshiDrawer, {
+      launcherRef: { current: launcher },
+      onClose() {
+        closeCount += 1;
+        open = false;
+        harness.setRoot(Root);
+      },
+      open,
+    });
+    harness.setRoot(Root);
+    harness.flush();
+
+    const dialog = harness.hosts().find((host) => host.type === "dialog");
+    const title = harness.hosts().find((host) => host.props.id === "toshi-assistant-title");
+    const closeButton = harness.hosts().find((host) => host.props["aria-label"] === "Toshi asistanını kapat");
+    const workspaceLink = harness.hosts().find((host) => host.type === "a" && host.props.href === "/toshi");
+    assert.ok(dialog);
+    assert.ok(title);
+    assert.ok(closeButton);
+    assert.ok(workspaceLink);
+    assert.equal(dialog.showModalCount, 1);
+    assert.equal(dialog.open, true);
+    assert.equal(documentState.modalRoot, dialog);
+    assert.equal(documentState.activeElement, title);
+    assert.equal(documentState.body.style.overflow, "hidden");
+    assert.equal(harness.hosts().some((host) => host.type === "button" && host.props.className === "backdrop"), false);
+
+    outside.focus();
+    assert.equal(outside.focusCount, 0, "native modal must make background controls inert");
+    assert.equal(documentState.activeElement, title);
+    workspaceLink.focus();
+    assert.equal(documentState.activeElement, workspaceLink, "Tab destination must remain inside the dialog");
+
+    if (method === "backdrop") {
+      (dialog.props.onClick as (event: { currentTarget: HookTestHost; target: HookTestHost }) => void)({
+        currentTarget: dialog,
+        target: dialog,
+      });
+    } else if (method === "button") {
+      (closeButton.props.onClick as () => void)();
+    } else {
+      let prevented = false;
+      (dialog.props.onCancel as (event: { preventDefault(): void }) => void)({
+        preventDefault() { prevented = true; },
+      });
+      assert.equal(prevented, true);
+    }
+    harness.flush();
+
+    assert.equal(closeCount, 1);
+    assert.equal(dialog.open, false);
+    assert.equal(dialog.closeCount, 1);
+    assert.equal(documentState.modalRoot, null);
+    assert.equal(documentState.body.style.overflow, "visible");
+    assert.equal(documentState.activeElement, launcher);
+    assert.equal(launcher.focusCount, 1);
+    harness.unmount();
+  }
+
+  try {
+    await exerciseClose("backdrop");
+    await exerciseClose("escape");
+    await exerciseClose("button");
+  } finally {
+    if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
+    else Reflect.deleteProperty(globalThis, "document");
+  }
+});
+
+test("Toshi conversation executes one abortable local command without seeded or mutation data", async () => {
+  const assistant = await source("components/toshi/ToshiAssistant.tsx");
+  const workspace = await source("components/toshi/ToshiWorkspace.tsx");
+
+  assert.match(assistant, /createToshiLocalClient/);
+  assert.match(assistant, /parseToshiLocalIntent/);
+  assert.match(assistant, /useState<readonly ConversationEntry\[]>\(\[\]\)/);
+  assert.match(assistant, /if \(pendingRef[.]current \|\| command[.]trim\(\)[.]length === 0\) return;/);
+  assert.match(assistant, /pendingRef[.]current = true/);
+  assert.match(assistant, /new AbortController\(\)/);
+  assert.match(assistant, /client[.]execute\(intent, controller[.]signal\)/);
+  assert.match(assistant, /abortRef[.]current[?][.]abort\(\)/);
+  assert.match(assistant, /aria-live="polite"/);
+  assert.match(assistant, /disabled=\{pending\}/);
+  assert.match(assistant, />Mağaza özeti</);
+  assert.match(assistant, />Bekleyen siparişler</);
+  assert.match(assistant, />Düşük stok</);
+  assert.match(assistant, />Müşteri bul &lt;ad&gt;</);
+  assert.match(assistant, />Ürün ara &lt;ad veya SKU&gt;</);
+  assert.match(assistant, />Sipariş bul &lt;numara&gt;</);
+  assert.match(assistant, />Ürünlere git</);
+  assert.doesNotMatch(assistant, /storeId|tenantId|principalId|membershipId|planId|authorization|x-celebix|\/api\/admin/i);
+  assert.match(workspace, /<ToshiAssistant mode="page"/);
+});
+
+test("Toshi browser fixture exposes only deterministic read DTOs through the production paths", async () => {
+  const { GET } = await import("../../../tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/[...slug]/route.ts");
+  async function get(path: string) {
+    const response = await GET(
+      new Request(`https://fixture.test/api/${path}`),
+      { params: Promise.resolve({ slug: path.split("?")[0]!.split("/") }) },
+    );
+    assert.equal(response.status, 200, path);
+    assert.equal(response.headers.get("content-type"), "application/json");
+    return response.json();
+  }
+
+  assert.deepEqual(await get("catalog/summary"), {
+    totalProducts: 1,
+    activeProducts: 1,
+    draftProducts: 0,
+    productLimit: 100,
+    activeVariants: 1,
+    outOfStockVariants: 1,
+    productsWithoutMedia: 1,
+    activeMedia: 0,
+  });
+  assert.deepEqual(await get("orders/summary"), {
+    totalOrders: 5,
+    pendingOrders: 2,
+    fulfilledOrders: 3,
+    revenueCents: 125_000,
+    currency: "TRY",
+    asOf: "2026-07-24T12:00:00.000Z",
+  });
+  assert.deepEqual(await get("customers/summary"), {
+    active: 7,
+    archived: 1,
+    consentedEmail: 4,
+    totalSpentCents: 125_000,
+    currency: "TRY",
+    asOf: "2026-07-24T12:00:00.000Z",
+  });
+  assert.deepEqual(await get("orders/abandoned-carts/summary"), {
+    abandoned: 1,
+    recovered: 2,
+    lostValueCents: 10_000,
+    recoveredValueCents: 20_000,
+    currency: "TRY",
+    asOf: "2026-07-24T12:00:00.000Z",
+  });
+
+  const activeProducts = await get("catalog/products?limit=20&status=active");
+  const draftProducts = await get("catalog/products?limit=20&status=draft");
+  assert.deepEqual(activeProducts.items.map((item: { title: string }) => item.title), ["Toshi Tarayıcı Test Ürünü"]);
+  assert.deepEqual(draftProducts, { items: [] });
+  const productId = activeProducts.items[0].id as string;
+  assert.equal((await get(`catalog/products/${productId}`)).variants[0].sku, "TOSHI-TEST-SKU");
+
+  const customers = await get("customers?search=Toshi&pageSize=10");
+  assert.deepEqual(customers.items.map((item: { displayName: string }) => item.displayName), ["Toshi Tarayıcı Test Müşterisi"]);
+  const orders = await get("orders?search=TOSHI-TEST-1042&pageSize=10&sort=newest");
+  assert.deepEqual(orders.items.map((item: { orderNumber: string }) => item.orderNumber), ["TOSHI-TEST-1042"]);
+});
+
+test("Toshi assistant denies blank submits, locks concurrent requests, and aborts on unmount", async () => {
+  type ExecuteCall = Readonly<{ intent: unknown; signal: AbortSignal }>;
+  const calls: ExecuteCall[] = [];
+  let resolveExecute: ((value: { text: string; sources: readonly [] }) => void) | undefined;
+  const executePromise = new Promise<{ text: string; sources: readonly [] }>((resolve) => {
+    resolveExecute = resolve;
+  });
+  const EmptyRoot: HookTestComponent = () => null;
+  const harness = createPanelInteractionHarness(EmptyRoot, { mode: "drawer" }, { activeElement: null });
+  const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
+  const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+  const ToshiAssistant = await compileHookTestComponent(
+    "components/toshi/ToshiAssistant.tsx",
+    (specifier) => {
+      if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+      if (specifier === "react") return harness.react;
+      if (specifier === "next/link") return Link;
+      if (specifier === "lucide-react") return { ArrowRight: Icon, SendHorizonal: Icon };
+      if (specifier === "@/lib/toshi-local/client") return {
+        createToshiLocalClient: () => ({
+          execute(intent: unknown, signal: AbortSignal) {
+            calls.push({ intent, signal });
+            return executePromise;
+          },
+        }),
+      };
+      if (specifier === "@/lib/toshi-local/intent") return {
+        parseToshiLocalIntent: (command: string) => ({ command }),
+      };
+      if (specifier === "./toshi.module.css") return styles;
+      throw new Error(`unexpected_toshi_assistant_import:${specifier}`);
+    },
+  );
+  harness.setRoot(ToshiAssistant);
+  harness.flush();
+
+  const submit = () => {
+    const form = harness.hosts().find((host) => host.type === "form");
+    assert.ok(form);
+    return (form.props.onSubmit as (event: { preventDefault(): void }) => Promise<void>)({ preventDefault() {} });
+  };
+  const changeInput = (value: string) => {
+    const input = harness.hosts().find((host) => host.type === "input");
+    assert.ok(input);
+    (input.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } });
+    harness.flush();
+  };
+
+  await submit();
+  changeInput("   ");
+  await submit();
+  assert.equal(calls.length, 0, "blank and whitespace-only commands must not execute");
+
+  changeInput("bekleyen siparişler");
+  const firstSubmit = submit();
+  const duplicateSubmit = submit();
+  harness.flush();
+  assert.equal(calls.length, 1, "one request must own the pending turn");
+  assert.equal(calls[0]?.signal.aborted, false);
+  assert.equal(harness.hosts().find((host) => host.type === "input")?.props.disabled, true);
+  assert.equal(harness.hosts().find((host) => host.type === "button" && host.props.type === "submit")?.props.disabled, true);
+
+  await duplicateSubmit;
+  harness.unmount();
+  assert.equal(calls[0]?.signal.aborted, true, "unmount must abort the active request");
+  resolveExecute?.({ text: "Yanıt", sources: [] });
+  await firstSubmit;
+});
+
+test("desktop sidebar matches the approved compact Celebix navigation anatomy", async () => {
+  const navigation = await renderPanelNavigation("/");
+  const sidebar = await source("components/panel/PanelSidebar.tsx");
+  const logout = await source("components/panel/LogoutButton.tsx");
+  const css = await source("components/panel/panel-shell.module.css");
+
+  assert.match(navigation, />Giriş</);
+  assert.match(navigation, />SEO Araçları</);
+  assert.doesNotMatch(navigation, />Özet</);
+  assert.doesNotMatch(navigation, />Analizler</);
+  assert.doesNotMatch(navigation, />Kurulum</);
+
+  assert.match(sidebar, /\/Logo\/celebix-beyaz-logo[.]svg/);
+  assert.match(sidebar, /styles[.]sidebarAccount/);
+  assert.match(sidebar, /styles[.]sidebarAvatar/);
+  assert.doesNotMatch(sidebar, /className=\{styles[.]merchantIdentity\}/);
+  assert.match(logout, /LogOut/);
+  assert.match(logout, /:\s*"Çıkış"/);
+  const navigationSource = await source("components/panel/PanelNavigation.tsx");
+  assert.match(navigationSource, /discounts:\s*Percent/);
+  assert.match(navigationSource, /content:\s*FileText/);
+  assert.match(navigationSource, /settings:\s*Settings/);
+  assert.match(navigationSource, /seo:\s*Search/);
+
+  assert.match(css, /\.brandMark\s*\{[\s\S]*?width:\s*8rem;/);
+  assert.match(css, /\.brandMark\s*\{[\s\S]*?background:\s*transparent;/);
+  assert.match(css, /\.navigationLabel\s*\{[\s\S]*?font-size:\s*0[.]9375rem;/);
+  assert.match(css, /\.sidebarFooter\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/);
+  assert.match(css, /\.sidebarAvatar\s*\{[\s\S]*?width:\s*1[.]75rem;/);
+});
+
+test("desktop navigation exposes accessible dropdown groups and opens only the active family initially", async () => {
+  const harness = await createInteractivePanelNavigation("/products/collections");
+  try {
+    const toggles = () => harness.hosts().filter((host) => (
+      host.type === "button" && typeof host.props["aria-controls"] === "string"
+    ));
+    const toggle = (label: string) => toggles().find((host) => host.props["aria-label"] === label);
+    const children = (id: string) => harness.hosts().find((host) => host.props.id === id);
+
+    assert.equal(toggles().length, 9);
+    assert.equal(toggle("Ürünler alt menüsünü kapat")?.props["aria-expanded"], true);
+    assert.equal(children("panel-nav-catalog-desktop")?.props.hidden, false);
+    assert.equal(toggle("Siparişler alt menüsünü aç")?.props["aria-expanded"], false);
+    assert.equal(children("panel-nav-orders-desktop")?.props.hidden, true);
+
+    const ordersToggle = toggle("Siparişler alt menüsünü aç");
+    assert.ok(ordersToggle);
+    (ordersToggle.props.onClick as () => void)();
+    harness.flush();
+    assert.equal(toggle("Siparişler alt menüsünü kapat")?.props["aria-expanded"], true);
+    assert.equal(children("panel-nav-orders-desktop")?.props.hidden, false);
+
+    const catalogToggle = toggle("Ürünler alt menüsünü kapat");
+    assert.ok(catalogToggle);
+    (catalogToggle.props.onClick as () => void)();
+    harness.flush();
+    assert.equal(toggle("Ürünler alt menüsünü aç")?.props["aria-expanded"], false);
+    assert.equal(children("panel-nav-catalog-desktop")?.props.hidden, true);
+  } finally {
+    harness.unmount();
+  }
+});
+
+test("sidebar uses the approved white Celebix logo from a local immutable asset", async () => {
+  const sidebar = await source("components/panel/PanelSidebar.tsx");
+  assert.match(sidebar, /\/Logo\/celebix-beyaz-logo[.]svg/);
+  assert.match(sidebar, /styles[.]brandMark/);
+  assert.doesNotMatch(sidebar, /https?:\/\//);
+
+  const logo = await source("public/Logo/celebix-beyaz-logo.svg");
+  assert.match(logo, /viewBox="240 240 1540 390"/);
+  assert.match(logo, /fill="#FAF9F9"/);
+  assert.match(logo, /fill="#FE6100"/);
 });
 
 test("desktop topbar follows route transitions while the active bridge keeps precedence", async () => {
@@ -615,6 +1078,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
   });
   const PanelSidebar: HookTestComponent = () => harness.jsxRuntime.jsx("aside", {});
   const PanelMobileDock: HookTestComponent = () => harness.jsxRuntime.jsx("nav", {});
+  const PanelTopbarUtilities: HookTestComponent = () => harness.jsxRuntime.jsx("nav", {});
   const PanelTopbarChromeProvider: HookTestComponent = (props) => {
     bridge.publish = props.onChange as ChromePublisher;
     return props.children;
@@ -631,6 +1095,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
         if (specifier === "./PanelMobileDock") return { PanelMobileDock };
         if (specifier === "./PanelSidebar") return { PanelSidebar };
         if (specifier === "./PanelTopbarChrome") return { PanelTopbarChromeProvider };
+        if (specifier === "./PanelTopbarUtilities") return { PanelTopbarUtilities };
         if (specifier === "./panel-shell.module.css") return styles;
         throw new Error(`unexpected_panel_layout_import:${specifier}`);
       },
@@ -663,11 +1128,11 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
     bridge.publish({ title: "Köprü başlığı", subtitle: "Köprü açıklaması" });
     harness.flush();
     assert.equal(topbarText("strong"), "Köprü başlığı");
-    assert.equal(topbarText("span"), "Köprü açıklaması");
+    assert.equal(topbarText("span"), "ORTAK ADMİN");
 
     renderRoute("/setup");
     assert.equal(topbarText("strong"), "Kurulum durumu");
-    assert.equal(topbarText("span"), undefined);
+    assert.equal(topbarText("span"), "ORTAK ADMİN");
 
     assert.ok(bridge.publish);
     bridge.publish({ title: "Kurulum köprüsü" });
@@ -685,7 +1150,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
   }
 });
 
-test("products/new marks only the Yeni ürün link as the current page", async () => {
+test("create routes expose the exact donor-approved create navigation child", async () => {
   const html = await renderPanelNavigation("/products/new");
   const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
     .map(([link]) => ({
@@ -694,6 +1159,27 @@ test("products/new marks only the Yeni ürün link as the current page", async (
     }));
 
   assert.deepEqual(currentLinks, [{ href: "/products/new", label: "Yeni ürün" }]);
+  assert.match(html, /href="\/products\/new"/);
+});
+
+test("detail routes keep their family open without claiming the index child as current", async () => {
+  const html = await renderPanelNavigation("/products/11111111-1111-4111-8111-111111111111");
+  const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)];
+  assert.deepEqual(currentLinks, []);
+  assert.match(html, /aria-label="Ürünler alt menüsünü kapat"/);
+  assert.match(html, /href="\/products"/);
+});
+
+test("content and settings hubs remain directly navigable", async () => {
+  for (const [pathname, label] of [["/content", "İçerik"], ["/settings", "Ayarlar"]] as const) {
+    const html = await renderPanelNavigation(pathname);
+    const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
+      .map(([link]) => ({
+        href: link.match(/href="([^"]+)"/)?.[1],
+        label: link.replace(/<[^>]*>/g, ""),
+      }));
+    assert.deepEqual(currentLinks, [{ href: pathname, label }]);
+  }
 });
 
 test("orders/quick-links marks only Hızlı Siparişler as the current page", async () => {
@@ -734,15 +1220,20 @@ test("mobile dock is exact, safe-area aware, 48px, reduced-motion, and breakpoin
   const dock = await source("components/panel/PanelMobileDock.tsx");
   const css = await source("components/panel/panel-shell.module.css");
   assert.match(dock, /label:\s*"Özet"/);
+  assert.match(dock, /label:\s*"Siparişler"/);
   assert.match(dock, /label:\s*"Ürünler"/);
   assert.match(dock, />Menü<\/span>/);
-  assert.doesNotMatch(dock, /Sipariş|Toshi|Müşteri|Bildirim/);
+  assert.doesNotMatch(dock, /Toshi|Müşteri|Bildirim/);
   assert.match(css, /max-width:\s*1024px/);
   assert.match(css, /min-width:\s*1025px/);
   assert.match(css, /env\(safe-area-inset-bottom/);
   assert.match(css, /--panel-keyboard-inset/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.doesNotMatch(css, /[.]desktopSidebar\s*,\s*[.]desktopTopbar\s*\{\s*display:\s*none/u);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopSidebar\s*\{\s*display:\s*none/u);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbar\s*\{[\s\S]*?display:\s*flex/u);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbar > div:last-child\s*\{[\s\S]*?display:\s*none/u);
 });
 
 test("crossing into desktop closes an open mobile drawer and releases its modal effects", async () => {
@@ -866,7 +1357,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
       "components/panel/PanelMobileDock.tsx",
       (specifier) => {
         if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
-        if (specifier === "lucide-react") return { Home: Icon, Menu: Icon, Package: Icon };
+        if (specifier === "lucide-react") return { Home: Icon, Menu: Icon, Package: Icon, ShoppingBag: Icon };
         if (specifier === "next/link") return Link;
         if (specifier === "@/lib/panel-ui/navigation") {
           return { isPanelNavigationPathActive };
@@ -876,6 +1367,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
       },
     );
     const PanelTopbarChromeProvider: HookTestComponent = (providerProps) => providerProps.children;
+    const PanelTopbarUtilities: HookTestComponent = () => null;
     const PanelLayoutClient = await compileHookTestComponent(
       "components/panel/PanelLayoutClient.tsx",
       (specifier) => {
@@ -888,6 +1380,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
         if (specifier === "./PanelTopbarChrome") {
           return { PanelTopbarChromeProvider };
         }
+        if (specifier === "./PanelTopbarUtilities") return { PanelTopbarUtilities };
         if (specifier === "./panel-shell.module.css") return styles;
         throw new Error(`unexpected_panel_layout_import:${specifier}`);
       },
@@ -1066,27 +1559,32 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
     combined,
     /conversion(?:Rate|Total)|dönüşüm oranı|customerTotal|previousRevenue|currentRevenue|Toshi/i,
   );
-  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi, analyticsApi\)/);
+  assert.match(view, /analyticsApi[.]dashboard\(analyticsPeriod[.]current\)/);
+  assert.match(view, /loader[.]current[?][.]reload\("analytics"\)/);
+  assert.match(view, /<Line[\s\S]*?isAnimationActive=\{false\}/);
+  assert.match(view, /className=\{styles[.]dashboardMobileActions\}/);
+  assert.match(await source("components/dashboard/panel-dashboard.module.css"), /@media \(max-width: 1024px\)[\s\S]*?[.]dashboardMobileActions\s*\{[\s\S]*?display:\s*flex/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
-  assert.doesNotMatch(view, /href=[^\n]*analytics|provider(?:Data|Payload)|TenantContext/i);
+  assert.match(combined, /"\/analytics"/);
+  assert.doesNotMatch(view, /provider(?:Data|Payload)|TenantContext/i);
 });
 
-test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {
+test("dashboard loads real durable summaries without tenant authority in the browser request", async () => {
   const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
   const model = await source("lib/panel-ui/dashboard-model.ts");
   const styles = await source("components/dashboard/panel-dashboard.module.css");
-  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi, analyticsApi\)/);
+  assert.match(view, /createMerchantDashboardSliceLoader/);
   assert.match(model, /catalog[.]getDashboardSummary\(\)/);
   assert.match(view, /role="status"/);
   assert.match(view, /role="alert"/);
   assert.match(view, /Tekrar dene/);
-  assert.match(view, /Array[.]from\(\{ length: 4 \}/);
-  assert.match(view, /disabled=\{state === "loading"\}/);
+  assert.match(view, /analyticsApi[.]dashboard\(analyticsPeriod[.]current\)/);
+  assert.match(view, /ANALYTICS_PERIODS[.]includes\(nextPeriod\)/);
   assert.doesNotMatch(view, /console[.](?:log|warn|error)/);
   assert.doesNotMatch(view, /storeId|tenantId|principalId|membershipId|x-store|x-tenant/i);
-  assert.match(styles, /[.]refreshButton,[\s\S]*?[.]errorState button\s*\{[\s\S]*?min-width:\s*48px;[\s\S]*?min-height:\s*48px;/);
-  assert.match(styles, /[.]actionRail a\s*\{[^}]*min-width:\s*48px;[^}]*min-height:\s*48px;/);
-  assert.match(styles, /@media \(max-width: 1280px\)[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /[.]channelFilter,[\s\S]*?[.]retryButton\s*\{[\s\S]*?min-width:\s*48px;[\s\S]*?min-height:\s*48px;/);
+  assert.match(styles, /[.]kpiRail\s*\{[\s\S]*?repeat\(5, minmax\(180px, 1fr\)\)/);
+  assert.match(styles, /@media \(max-width: 1024px\)[\s\S]*?[.]insightGrid\s*\{\s*grid-template-columns:\s*1fr/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?grid-template-columns:\s*1fr/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\s*[.]01ms !important/);
 });
@@ -1109,24 +1607,18 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
     entitlementStatus: "active",
     storefrontHostname,
     locale: "tr-TR",
-    analyticsAvailable: false,
   }));
-  const renderedValues = [...html.matchAll(/<strong>([^<]*)<\/strong>/g)]
-    .map(([, value]) => value);
-  assert.deepEqual(renderedValues, [
-    storeSlug,
-    "Mağaza sahibi",
-    `${planCode} · v9`,
-    storefrontHostname,
-  ]);
+  assert.match(html, new RegExp(storefrontHostname.replaceAll(".", "[.]")));
+  assert.doesNotMatch(html, new RegExp(storeSlug));
+  assert.doesNotMatch(html, new RegExp(planCode));
 
   const styles = await source("components/dashboard/panel-dashboard.module.css");
-  assert.match(styles, /\.cardGrid\s*\{[^}]*min-width:\s*0;/);
-  assert.match(styles, /\.cardGrid\s*>\s*\*\s*\{[^}]*min-width:\s*0;/);
-  assert.match(styles, /\.cardGrid\s+strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  assert.match(styles, /\.channelSummary strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  assert.match(styles, /\.readinessBanner p\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  assert.match(styles, /\.kpiViewport\s*\{[^}]*overflow-x:\s*auto;/);
 });
 
-test("dashboard presentation renders exact ready catalog data and only real merchant actions", async () => {
+test("dashboard presentation keeps the store-summary anatomy when analytics is unavailable", async () => {
   const chrome = Object.freeze({
     storeSlug: "pilot-store",
     membershipLabel: "Mağaza sahibi",
@@ -1135,7 +1627,6 @@ test("dashboard presentation renders exact ready catalog data and only real merc
     entitlementStatus: "active",
     storefrontHostname: "pilot-store.celebix.site",
     locale: "tr-TR",
-    analyticsAvailable: false,
   });
   const summary = Object.freeze({
     totalProducts: 4,
@@ -1154,15 +1645,24 @@ test("dashboard presentation renders exact ready catalog data and only real merc
   const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded" });
 
   assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
-  assert.match(html, /<h1>Özet<\/h1>/);
-  assert.match(html, /data-chart-labels="Toplam ürün\|Aktif ürün\|Taslak ürün\|Stokta olmayan\|Etkin medya"/);
-  assert.match(html, /data-chart-values="4,3,1,2,7"/);
-  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 2);
-  assert.equal((html.match(/<button[^>]*disabled=""[^>]*aria-disabled="true"/g) ?? []).length, 2);
-  for (const href of ["/orders", "/orders/quick-links", "/orders/abandoned-carts", "/products", "/products/new", "/setup"]) {
+  assert.match(html, /<h1 class="visuallyHidden">Mağaza özeti<\/h1>/);
+  assert.match(html, /Satış özeti yüklenemedi/);
+  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 0);
+  assert.match(html, /Doğrulanmış satış kanalı/);
+  assert.match(html, />Analitiği görüntüle</);
+  assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
+  for (const href of ["/analytics", "/products"]) {
     assert.match(html, new RegExp(`href="${href.replaceAll("/", "\\/")}"`));
   }
-  assert.doesNotMatch(html, /unsupported-dashboard-title|Desteklenmiyor|Kullanılamıyor|\/api\/admin/);
+  assert.doesNotMatch(html, /Katalog dağılımı|Toplam ürün|Taslak ürün|\/api\/admin/);
+
+  const pendingDashboard = createMerchantDashboardViewModel(
+    Object.freeze({ ...chrome, storefrontHostname: undefined }),
+    readyAuthority(summary, "2026-07-20T12:00:00.000Z"),
+  );
+  const pendingHtml = await renderPanelDashboard(chrome, { dashboard: pendingDashboard, state: "loaded" });
+  assert.match(pendingHtml, /Satış kanalı bekleniyor/);
+  assert.doesNotMatch(pendingHtml, /Doğrulanmış satış kanalı/);
 });
 
 test("dashboard presentation renders one retry control without stale ready data", async () => {
@@ -1174,54 +1674,248 @@ test("dashboard presentation renders one retry control without stale ready data"
     entitlementStatus: "active",
     storefrontHostname: "pilot-store.celebix.site",
     locale: "tr-TR",
-    analyticsAvailable: false,
   });
   const dashboard = createMerchantDashboardViewModel(chrome, unavailableAuthority(true));
   const html = await renderPanelDashboard(chrome, { dashboard, state: "error" });
 
   assert.equal((html.match(/>Tekrar dene<\/button>/g) ?? []).length, 1);
   assert.equal((html.match(/<button(?![^>]*disabled)[^>]*>/g) ?? []).length, 1);
-  assert.doesNotMatch(html, /role="listitem"|data-chart-(?:labels|values)|Katalog dağılımı/);
-  assert.doesNotMatch(html, /Toplam ürün|Aktif ürün|Taslak ürün|Stokta olmayan|Etkin medya/);
+  assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
+  assert.match(html, /Satış özeti yüklenemedi/);
+  assert.doesNotMatch(html, /Katalog dağılımı|Toplam ürün|Taslak ürün|Etkin medya/);
 });
 
-test("dashboard presentation renders exact Umami metrics and server time series", async () => {
+test("dashboard presentation renders analytics loading ready and retry states without hiding ready slices", async () => {
+  const chrome = Object.freeze({ storeSlug: "pilot-store", membershipLabel: "Mağaza sahibi", planCode: "free_starter", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot-store.celebix.site", locale: "tr-TR" });
+  const catalog = Object.freeze({ totalProducts: 4, activeProducts: 3, draftProducts: 1, productLimit: 10, activeVariants: 6, outOfStockVariants: 2, productsWithoutMedia: 1, activeMedia: 7 });
+  const orders = Object.freeze({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" });
+  const carts = Object.freeze({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" });
+  const customers = Object.freeze({ active: 1, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" });
+  const analytics = Object.freeze({ period: "month" as const, rangeStart: "2026-07-01T00:00:00.000Z", rangeEnd: "2026-07-22T12:00:00.000Z", generatedAt: "2026-07-22T12:00:00.000Z", currency: "TRY", revenueCents: 125000, orders: { total: 12, paid: 10, cancelled: 1, refunded: 1 }, customers: { total: 30, newInPeriod: 4 }, catalog: { activeProducts: 8, lowStockVariants: 2 }, series: [], topProducts: [] });
+  const base = createMerchantDashboardViewModel(chrome, readyAuthority(catalog, analytics.generatedAt), readyAuthority(orders, orders.asOf), readyAuthority(carts, carts.asOf), readyAuthority(customers, customers.asOf), unavailableAuthority(true));
+  const ready = createMerchantDashboardViewModel(chrome, readyAuthority(catalog, analytics.generatedAt), readyAuthority(orders, orders.asOf), readyAuthority(carts, carts.asOf), readyAuthority(customers, customers.asOf), readyAuthority(analytics, analytics.generatedAt));
+  const loading = await renderPanelDashboard(chrome, { dashboard: base, state: "loaded", analyticsState: "loading" });
+  const rendered = await renderPanelDashboard(chrome, { dashboard: ready, state: "loaded", analyticsState: "loaded" });
+  const failed = await renderPanelDashboard(chrome, { dashboard: base, state: "loaded", analyticsState: "error" });
+  for (const html of [loading, rendered, failed]) {
+    assert.match(html, /Toplam satış/);
+    assert.match(html, /1 sipariş işlem bekliyor/);
+    assert.match(html, /pilot-store[.]celebix[.]site/);
+    assert.match(html, /En çok satanlar/);
+  }
+  assert.match(loading, /Satış özeti yükleniyor/);
+  assert.match(rendered, /Bu ay/);
+  assert.match(rendered, /1[,.]250/);
+  assert.match(failed, /Satış özeti yüklenemedi/);
+  assert.match(failed, />Tekrar dene<\/button>/);
+});
+
+test("dashboard presentation follows the ikas store-summary anatomy using only durable facts", async () => {
+  const chrome = Object.freeze({ storeSlug: "pilot-store", membershipLabel: "Mağaza sahibi", planCode: "growth", planVersion: 3, entitlementStatus: "active", storefrontHostname: "pilot-store.celebix.site", locale: "tr-TR" });
+  const catalog = Object.freeze({ totalProducts: 14, activeProducts: 11, draftProducts: 3, productLimit: 100, activeVariants: 24, outOfStockVariants: 2, productsWithoutMedia: 1, activeMedia: 20 });
+  const orders = Object.freeze({ totalOrders: 12, pendingOrders: 3, fulfilledOrders: 8, revenueCents: 125_000, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" });
   const analytics = Object.freeze({
-    schemaVersion: 1 as const, range: "30d" as const, asOf: "2026-07-26T12:00:00.000Z",
-    pageviews: 42, visitors: 17, visits: 20, bounces: 5, totalTimeSeconds: 600,
-    activeVisitors: 3, bounceRateBasisPoints: 2500, averageVisitSeconds: 30,
-    comparison: null,
-    pageviewsSeries: Object.freeze([Object.freeze({ at: "2026-07-26T00:00:00.000Z", value: 42 })]),
-    visitsSeries: Object.freeze([Object.freeze({ at: "2026-07-26T00:00:00.000Z", value: 20 })]),
+    period: "month" as const,
+    rangeStart: "2026-07-01T00:00:00.000Z",
+    rangeEnd: "2026-07-22T12:00:00.000Z",
+    generatedAt: "2026-07-22T12:00:00.000Z",
+    currency: "TRY",
+    revenueCents: 125_000,
+    orders: { total: 12, paid: 10, cancelled: 1, refunded: 1 },
+    customers: { total: 30, newInPeriod: 4 },
+    catalog: { activeProducts: 11, lowStockVariants: 2 },
+    series: [{ startsAt: "2026-07-01T00:00:00.000Z", orders: 2, revenueCents: 20_000 }],
+    topProducts: [{ productId: "11111111-1111-4111-8111-111111111111", title: "Atlas Kupa", quantity: 5, revenueCents: 50_000 }],
   });
   const dashboard = createMerchantDashboardViewModel(
-    { storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot.celebix.site", locale: "tr-TR", analyticsAvailable: true },
-    unavailableAuthority(true), undefined, undefined, undefined, readyAuthority(analytics, analytics.asOf),
+    chrome,
+    readyAuthority(catalog, analytics.generatedAt),
+    readyAuthority(orders, orders.asOf),
+    undefined,
+    undefined,
+    readyAuthority(analytics, analytics.generatedAt),
   );
-  const html = await renderPanelDashboard(dashboard.chromeCards.length ? {
-    storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot.celebix.site", locale: "tr-TR", analyticsAvailable: true,
-  } : assert.fail("chrome missing"), { dashboard, state: "error", analyticsState: "loaded" });
-  assert.match(html, /Mağaza analizi/);
-  assert.match(html, /Umami/);
-  assert.match(html, /Sayfa görüntüleme[\s\S]*42/);
-  assert.match(html, /Ziyaretçi[\s\S]*17/);
-  assert.match(html, /Aktif ziyaretçi[\s\S]*3/);
-  assert.match(html, /data-chart-labels="2026-07-26T00:00:00.000Z"/);
-  assert.doesNotMatch(html, /websiteId|storeId|principalId|membershipId|TenantContext/);
+  const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded", analyticsState: "loaded" });
+
+  for (const copy of [
+    "Doğrulanmış satış kanalı",
+    "Bu ay",
+    "Toplam satış",
+    "Sipariş sayısı",
+    "Yeni müşteri",
+    "Aktif ürün",
+    "İadeler",
+    "Satış kanalları",
+    "En çok satanlar",
+    "Büyüme metrikleri",
+    "İade edilen sipariş",
+    "Ortalama sipariş tutarı",
+    "Düşük stok",
+    "Toplam müşteri",
+    "Atlas Kupa",
+    "pilot-store.celebix.site",
+    "3 sipariş işlem bekliyor",
+    "Hızlı sipariş",
+    "Ürün ekle",
+    "Yapılacaklar",
+    "3 sipariş işlem bekliyor",
+    "2 stok uyarısı",
+    "1 üründe medya eksik",
+    "Müşteri görünümü",
+    "Siparişleri görüntüle",
+  ]) assert.match(html, new RegExp(copy, "i"));
+  assert.doesNotMatch(html, /Tüm operasyonlar/);
+  assert.match(html, /aria-label="Mağaza performans metrikleri"/);
+  assert.match(html, /aria-label="Kalıcı satış grafiği"/);
+  assert.match(html, /href="\/orders"/);
+  assert.doesNotMatch(html, /Oturum sayısı|Dönüşüm oranı|Ziyaretçi|Katalog dağılımı/);
+  assert.doesNotMatch(html, /Etkin mağaza|Mağaza sahibi|free_starter|\/api\/admin/);
 });
 
-test("dashboard analytics preserves empty disabled and retryable error states", async () => {
-  const chrome = { storeSlug: "pilot", membershipLabel: "Sahip", planCode: "pro", planVersion: 1, entitlementStatus: "active" as const, storefrontHostname: "pilot.celebix.site", locale: "tr-TR", analyticsAvailable: true };
-  const states = [
-    [emptyAuthority("Henüz doğrulanmış analiz verisi yok"), "loaded", /Henüz doğrulanmış analiz verisi yok/],
-    [Object.freeze({ state: "locked" as const, feature: "analytics" }), "loaded", /Analytics özelliği kapalı/],
-    [unavailableAuthority(true), "error", /Analytics özeti yüklenemedi/],
-  ] as const;
-  for (const [analytics, analyticsState, expected] of states) {
-    const dashboard = createMerchantDashboardViewModel(chrome, unavailableAuthority(true), undefined, undefined, undefined, analytics);
-    const html = await renderPanelDashboard(chrome, { dashboard, state: "error", analyticsState });
-    assert.match(html, expected);
-    assert.doesNotMatch(html, /Tahmini|örnek veri|conversion|session|websiteId/i);
+test("dashboard presents newest durable order rows with canonical detail actions", async () => {
+  const chrome = Object.freeze({ storeSlug: "pilot-store", membershipLabel: "Mağaza sahibi", planCode: "growth", planVersion: 3, entitlementStatus: "active", storefrontHostname: "pilot-store.celebix.site", locale: "tr-TR" });
+  const dashboard = createMerchantDashboardViewModel(chrome, unavailableAuthority(true));
+  const recentOrders = Object.freeze([
+    Object.freeze({
+      id: "11111111-1111-4111-8111-111111111111",
+      orderNumber: "HMK-1042",
+      source: "storefront",
+      customerName: "Ada Lovelace",
+      customerEmail: "ada@example.com",
+      currency: "TRY",
+      totalCents: 14_990,
+      status: "confirmed",
+      paymentStatus: "completed",
+      itemCount: 1,
+      createdAt: "2026-07-21T09:30:00.000Z",
+      updatedAt: "2026-07-21T09:30:00.000Z",
+      version: 4,
+    }),
+    Object.freeze({
+      id: "22222222-2222-4222-8222-222222222222",
+      orderNumber: "HMK-1041",
+      source: "quick_link",
+      customerName: "Grace Hopper",
+      customerEmail: "grace@example.com",
+      currency: "TRY",
+      totalCents: 8_500,
+      status: "preparing",
+      paymentStatus: "processing",
+      itemCount: 2,
+      createdAt: "2026-07-20T08:15:00.000Z",
+      updatedAt: "2026-07-20T08:15:00.000Z",
+      version: 2,
+    }),
+  ] satisfies readonly OrderListItem[]);
+
+  const html = await renderPanelDashboard(chrome, {
+    dashboard,
+    state: "error",
+    recentOrders,
+    recentOrdersState: "loaded",
+  });
+
+  assert.match(html, /Son siparişler/);
+  assert.ok(html.indexOf("HMK-1042") < html.indexOf("HMK-1041"));
+  for (const copy of ["Ada Lovelace", "Grace Hopper", "Onaylandı", "Hazırlanıyor", "Ödendi", "İşleniyor"]) {
+    assert.match(html, new RegExp(copy));
+  }
+  assert.match(html, /₺149,90/);
+  assert.match(html, /dateTime="2026-07-21T09:30:00[.]000Z"/);
+  assert.match(html, /href="\/orders\/11111111-1111-4111-8111-111111111111"/);
+  assert.doesNotMatch(html, /ada@example[.]com|grace@example[.]com|storeId|tenantId|principalId|membershipId/);
+  assert.match(
+    await source("components/dashboard/panel-dashboard.module.css"),
+    /[.]recentOrdersTable td:first-child a\s*\{[^}]*min-height:\s*48px;/,
+  );
+});
+
+test("dashboard home loads five newest orders through the existing same-origin order client", async () => {
+  const recentOrder = Object.freeze({
+    id: "11111111-1111-4111-8111-111111111111",
+    orderNumber: "HMK-1042",
+    source: "storefront",
+    customerName: "Ada Lovelace",
+    customerEmail: "ada@example.com",
+    currency: "TRY",
+    totalCents: 14_990,
+    status: "confirmed",
+    paymentStatus: "completed",
+    itemCount: 1,
+    createdAt: "2026-07-21T09:30:00.000Z",
+    updatedAt: "2026-07-21T09:30:00.000Z",
+    version: 4,
+  }) satisfies OrderListItem;
+  const listInputs: unknown[] = [];
+  const EmptyRoot: HookTestComponent = () => null;
+  const harness = createPanelInteractionHarness(EmptyRoot, {}, { activeElement: null });
+  const Wrapper: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("div", { ...props, children });
+  const PanelActionButton: HookTestComponent = ({ children, href }) => harness.jsxRuntime.jsx("a", { href, children });
+  const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+  const dashboardModel = Object.freeze({
+    title: "Özet",
+    description: "Kalıcı mağaza özeti",
+    chromeCards: Object.freeze([]),
+    catalog: Object.freeze({ state: "unavailable", retryable: true }),
+    orders: Object.freeze({ state: "unsupported", capability: "orders", retryable: false }),
+    carts: Object.freeze({ state: "unsupported", capability: "carts", retryable: false }),
+    customers: Object.freeze({ state: "unsupported", capability: "customers", retryable: false }),
+    analytics: Object.freeze({ state: "unsupported", capability: "analytics", retryable: false }),
+  });
+
+  const Home = await compileHookTestComponent(
+    "components/dashboard/PanelDashboardHomeView.tsx",
+    (specifier) => {
+      if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+      if (specifier === "react") return harness.react;
+      if (specifier === "lucide-react") return { CalendarDays: Icon, Globe2: Icon, PackageCheck: Icon, Store: Icon };
+      if (specifier === "recharts") return new Proxy({}, { get: () => Wrapper });
+      if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
+      if (specifier === "@/components/panel/PanelPageShell") return { PanelActionButton, PanelPageShell: Wrapper };
+      if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel: () => ({}) };
+      if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: Wrapper };
+      if (specifier === "@/lib/catalog-ui/client") return { catalogApi: { getDashboardSummary: async () => ({}) } };
+      if (specifier === "@/lib/order-ui/client") return {
+        orderApi: {
+          getDashboardSummary: async () => ({}),
+          async listOrders(input: unknown) {
+            listInputs.push(input);
+            return Object.freeze({ items: Object.freeze([recentOrder]) });
+          },
+        },
+      };
+      if (specifier === "@/lib/abandoned-cart-ui/client") return { abandonedCartApi: { getSummary: async () => ({}) } };
+      if (specifier === "@/lib/customer-ui/client") return { customerApi: { summary: async () => ({}) } };
+      if (specifier === "@/lib/panel-ui/dashboard-model") return {
+        createMerchantDashboardSliceLoader: () => ({ reload() {}, reloadAll() {}, dispose() {} }),
+        createMerchantDashboardViewModel: () => dashboardModel,
+      };
+      if (specifier === "./panel-dashboard.module.css") return styles;
+      throw new Error(`unexpected_dashboard_home_import:${specifier}`);
+    },
+  );
+  harness.setRoot(Home);
+  try {
+    harness.flush();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    harness.flush();
+
+    assert.deepEqual(listInputs, [{ pageSize: 5, sort: "newest" }]);
+    assert.equal(
+      harness.hosts().some((host) => host.type === "a"
+        && host.props.href === `/orders/${recentOrder.id}`
+        && host.props.children === recentOrder.orderNumber),
+      true,
+    );
+  } finally {
+    harness.unmount();
   }
 });
 
@@ -1596,7 +2290,12 @@ function shellElements() {
     } satisfies CssTestElement,
     root,
     shell,
-    topbarSubtitle: { tagName: "span", parent: topbar } satisfies CssTestElement,
+    sidebar,
+    topbarSubtitle: {
+      tagName: "span",
+      classNames: ["desktopTopbarEyebrow"],
+      parent: topbar,
+    } satisfies CssTestElement,
   };
 }
 
@@ -1656,6 +2355,61 @@ function assertMinimumShellTargets(css: string): void {
         `${label} effective ${property} is ${declaration.value} from ${declaration.selector}`,
       );
     }
+  }
+}
+
+function assertDesktopMinimumShellTargets(css: string): void {
+  const declarations = parseApplicableCss(css, 1440);
+  const elements = shellElements();
+  const navigationChildren: CssTestElement = {
+    tagName: "div",
+    classNames: ["navigationChildren"],
+    parent: { tagName: "section", classNames: ["navigationGroup"], parent: elements.sidebar },
+  };
+  const sidebarFooter: CssTestElement = {
+    tagName: "div",
+    classNames: ["sidebarFooter"],
+    parent: elements.sidebar,
+  };
+  const targets: readonly [string, CssTestElement][] = [
+    ["desktop child navigation", { tagName: "a", classNames: ["navigationLink"], parent: navigationChildren }],
+    ["desktop logout", { tagName: "button", classNames: ["logout-button"], parent: sidebarFooter }],
+  ];
+  for (const [label, element] of targets) {
+    const declaration = winningDeclaration(declarations, element, ["min-height"]);
+    assert.ok(declaration, `${label} has no applicable min-height`);
+    assert.ok(
+      lengthInPixels(declaration.value) >= 48,
+      `${label} effective min-height is ${declaration.value} from ${declaration.selector}`,
+    );
+  }
+}
+
+function assertPanelDataTableReadability(css: string): void {
+  const declarations = parseApplicableCss(css, 320);
+  const shell: CssTestElement = { tagName: "section", classNames: ["pageShell"] };
+  const scroll: CssTestElement = { tagName: "div", classNames: ["tableScroll"], parent: shell };
+  const table: CssTestElement = { tagName: "table", parent: scroll };
+  const row: CssTestElement = { tagName: "tr", parent: table };
+  const cells: readonly [string, CssTestElement][] = [
+    ["header", { tagName: "th", parent: row }],
+    ["cell", { tagName: "td", parent: row }],
+  ];
+  const layout = winningDeclaration(declarations, table, ["table-layout"]);
+  assert.notEqual(layout?.value, "fixed", "shared table must not fix a three-column layout at 320px");
+  const tableMinWidth = winningDeclaration(declarations, table, ["min-width"]);
+  assert.ok(tableMinWidth, "shared table has no readable auto-layout floor");
+  assert.ok(lengthInPixels(tableMinWidth.value) >= 512, `shared table readable floor is ${tableMinWidth.value}`);
+  for (const [label, cell] of cells) {
+    assert.equal(winningDeclaration(declarations, cell, ["text-align"])?.value, "left", `${label} alignment`);
+    assert.equal(winningDeclaration(declarations, cell, ["vertical-align"])?.value, "top", `${label} vertical alignment`);
+    assert.equal(winningDeclaration(declarations, cell, ["overflow-wrap"])?.value, "anywhere", `${label} wrapping`);
+    const minWidth = winningDeclaration(declarations, cell, ["min-width"]);
+    assert.ok(minWidth, `${label} has no minimum readable width`);
+    assert.ok(lengthInPixels(minWidth.value) >= 48, `${label} minimum readable width is ${minWidth.value}`);
+    const padding = winningDeclaration(declarations, cell, ["padding"]);
+    assert.ok(padding, `${label} has no padding`);
+    assert.ok(lengthInPixels(padding.value) >= 8, `${label} padding is ${padding.value}`);
   }
 }
 
@@ -1825,6 +2579,31 @@ test("drawer and dock controls keep an effective 48px minimum target", async () 
   assertMinimumShellTargets(css);
 });
 
+test("desktop child navigation and logout keep an effective 48px minimum target", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  for (const [override, expectedFailure] of [
+    [`.navigationChildren .navigationLink { min-height: 32px; }`, /desktop child navigation effective min-height is 32px/],
+    [`.sidebarFooter .logout-button { min-height: 42px; }`, /desktop logout effective min-height is 42px/],
+  ] as const) {
+    assert.throws(() => assertDesktopMinimumShellTargets(`${css}\n${override}`), expectedFailure);
+  }
+  assertDesktopMinimumShellTargets(css);
+});
+
+test("shared panel data table keeps aligned padded readable cells without fixing column count", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  assertPanelDataTableReadability(css);
+  for (const [override, expectedFailure] of [
+    [`.tableScroll th { text-align: center; }`, /header alignment/],
+    [`.tableScroll td { padding: 0.25rem; }`, /cell padding is 0\.25rem/],
+    [`.tableScroll td { min-width: 1rem; }`, /cell minimum readable width is 1rem/],
+    [`.tableScroll table { min-width: 20rem; }`, /shared table readable floor is 20rem/],
+    [`.tableScroll table { table-layout: fixed; }`, /must not fix a three-column layout/],
+  ] as const) {
+    assert.throws(() => assertPanelDataTableReadability(`${css}\n${override}`), expectedFailure);
+  }
+});
+
 test("effective small shell text colors meet AA without weakening orange brand or focus tokens", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   const sidebar = await source("components/panel/PanelSidebar.tsx");
@@ -1840,7 +2619,7 @@ test("effective small shell text colors meet AA without weakening orange brand o
       `@media (min-width: 1025px) {
         .shell .desktopTopbar span { color: #9CA3AF; }
       }`,
-      /desktop topbar subtitle effective contrast is 2\.41:1/,
+      /desktop topbar subtitle effective contrast is 2\.53:1/,
     ],
     [
       `@media (max-width: 1024px) {
@@ -1873,20 +2652,4 @@ test("quick-order builder keeps private authority out of client props and advert
   assert.match(consoleSource, /aria-(?:label|live|modal)|role="dialog"/);
   assert.match(consoleSource, /onKeyDown|Escape/);
   assert.match(css, /min-(?:height|width):\s*48px/);
-});
-
-test("analytics page and navigation expose only runtime-gated safe client authority", async () => {
-  const [page, view, shell, navigation] = await Promise.all([
-    source("app/(panel)/analytics/page.tsx"),
-    source("components/analytics/PanelAnalyticsView.tsx"),
-    source("components/panel/PanelShell.tsx"),
-    source("components/panel/PanelNavigation.tsx"),
-  ]);
-  assert.match(page, /PanelAnalyticsView/);
-  assert.match(shell, /resolveDefaultServerAnalyticsRuntime/);
-  assert.match(shell, /entitledModel[.]analyticsAvailable\s*&&\s*runtimeAvailable/);
-  assert.match(navigation, /getPanelNavigation\(\{ analyticsAvailable \}\)/);
-  assert.match(view, /AbortController/);
-  assert.match(view, /aria-label="Analiz tarih aralığı"/);
-  assert.doesNotMatch(`${page}\n${view}\n${navigation}`, /TenantContext|websiteId|storeId|principalId|membershipId|UMAMI_(?:USERNAME|PASSWORD)/);
 });

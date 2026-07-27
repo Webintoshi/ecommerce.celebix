@@ -5,9 +5,25 @@ import {
   PANEL_ROUTE_PRESENTATIONS,
   getPanelRoutePresentation,
   getPanelNavigationState,
-  getPanelNavigation,
   isPanelNavigationPathActive,
 } from "./navigation.ts";
+
+function findNavigationItem(key: string) {
+  return PANEL_NAVIGATION.find((item) => item.key === key);
+}
+
+function activeLabels(pathname: string): string[] {
+  return PANEL_NAVIGATION.flatMap((item) => [item, ...(item.children ?? [])])
+    .filter((item) => isPanelNavigationPathActive(pathname, item.href))
+    .map(({ label }) => label);
+}
+
+test("content and settings parents use truthful family hubs", () => {
+  assert.equal(findNavigationItem("content")?.href, "/content");
+  assert.equal(findNavigationItem("settings")?.href, "/settings");
+  assert.equal(getPanelRoutePresentation("/content").title, "İçerik");
+  assert.equal(getPanelRoutePresentation("/settings").title, "Ayarlar");
+});
 
 test("contains every and only currently working merchant destination", () => {
   const hrefs = PANEL_NAVIGATION.flatMap((item) => [
@@ -18,6 +34,7 @@ test("contains every and only currently working merchant destination", () => {
     [...new Set(hrefs)],
     [
       "/",
+      "/analytics",
       "/orders",
       "/orders/quick-links",
       "/orders/abandoned-carts",
@@ -33,6 +50,14 @@ test("contains every and only currently working merchant destination", () => {
       "/products/extras",
       "/products/reviews",
       "/products/definitions",
+      "/products/tags",
+      "/products/barcode-labels",
+      "/products/purchasing",
+      "/products/inventory-counts",
+      "/products/transfers",
+      "/products/price-lists",
+      "/products/auto-import",
+      "/products/shopify-converter",
       "/products/bulk-upload",
       "/discounts",
       "/discounts/new",
@@ -41,15 +66,23 @@ test("contains every and only currently working merchant destination", () => {
       "/marketing/email",
       "/marketing/phone",
       "/marketing/whatsapp",
+      "/content",
       "/content/blog",
       "/content/pages",
       "/content/policies",
       "/marketplaces",
+      "/settings",
       "/settings/general",
+      "/settings/design",
       "/settings/language",
       "/settings/payment",
       "/settings/shipping",
       "/settings/administrators",
+      "/settings/notifications",
+      "/settings/hero-banner",
+      "/settings/promotion-banner",
+      "/settings/marquee",
+      "/settings/artificial-intelligence",
       "/accounting",
       "/accounting/invoicing-integration",
       "/seo",
@@ -57,34 +90,103 @@ test("contains every and only currently working merchant destination", () => {
       "/seo/social-preview",
       "/seo/code-integrations",
       "/seo/fast-indexing",
+      "/seo/geo-optimization",
+      "/seo/internal-linking",
+      "/seo/content",
+      "/seo/categories",
+      "/seo/pages",
+      "/seo/products",
       "/setup",
     ],
   );
   assert.deepEqual(
     PANEL_NAVIGATION.map(({ label }) => label),
-    ["Özet", "Siparişler", "Müşteriler", "Ürünler", "İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO", "Kurulum"],
+    ["Özet", "Analizler", "Siparişler", "Müşteriler", "Ürünler", "İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO", "Kurulum"],
   );
 });
 
-test("analytics navigation is immutable and visible only when available", () => {
-  const hidden = getPanelNavigation({ analyticsAvailable: false });
-  const visible = getPanelNavigation({ analyticsAvailable: true });
-  assert.equal(hidden.some(({ href }) => href === "/analytics"), false);
-  assert.equal(visible.filter(({ href }) => href === "/analytics").length, 1);
-  assert.equal(Object.isFrozen(visible), true);
+test("navigation exposes donor-approved create shortcuts but never edit, detail, preview, or print routes", () => {
+  const hrefs = PANEL_NAVIGATION.flatMap((item) => [
+    item.href,
+    ...(item.children ?? []).map((child) => child.href),
+  ]);
+  for (const href of [
+    "/analytics",
+    "/customers/new",
+    "/products/new",
+    "/discounts/new",
+    "/products/tags",
+    "/products/barcode-labels",
+    "/products/purchasing",
+    "/products/inventory-counts",
+    "/products/transfers",
+    "/products/price-lists",
+    "/settings/design",
+    "/marketing/email",
+    "/marketplaces",
+    "/accounting/invoicing-integration",
+    "/seo/products",
+  ] as const) assert.equal(hrefs.includes(href), true, href);
+  for (const forbidden of [
+    "/products/price-lists/new",
+    "/products/extras/resource/edit",
+    "/products/extras/resource/preview",
+    "/orders/order/print",
+  ]) assert.equal(hrefs.includes(forbidden as never), false, forbidden);
+  assert.equal(hrefs.some((href) => /\/edit(?:\/|$)|\/preview(?:\/|$)|\/print(?:\/|$)|\[[^/]+\]/.test(href)), false);
 });
 
-test("selects analytics only for its exact safe path", () => {
-  assert.equal(isPanelNavigationPathActive("/analytics", "/analytics"), true);
-  for (const pathname of [
-    "/analytics-evil",
-    "/analytics/child",
-    "/analytics%2Fevil",
-    "/analytics?x=1",
-    "/analytics#x",
-  ]) assert.equal(isPanelNavigationPathActive(pathname, "/analytics"), false);
-  assert.equal(getPanelRoutePresentation("/analytics").title, "Analizler");
+test("legacy donor spellings stay inert while canonical safe targets remain navigable", () => {
+  const hrefs = new Set(PANEL_NAVIGATION.flatMap((item) => [
+    item.href,
+    ...(item.children ?? []).map((child) => child.href),
+  ]));
+  const decisions = [
+    { donor: "/ayarlar/ana-sayfa-vitrini", target: "/products/collections", title: "Koleksiyonlar" },
+    { donor: "/muhasabe", target: "/accounting", title: "Muhasebe" },
+    { donor: "/pazarlama/lucky-wheel", target: "/discounts/lucky-wheel", title: "Şans Çarkı" },
+  ] as const;
+
+  for (const { donor, target, title } of decisions) {
+    assert.equal(hrefs.has(donor as never), false, donor);
+    assert.deepEqual(activeLabels(donor), [], donor);
+    assert.equal(hrefs.has(target), true, target);
+    assert.equal(getPanelRoutePresentation(target).title, title, target);
+  }
 });
+
+test("matches decoded-safe exact segments and rejects malformed or separator encodings", () => {
+  assert.equal(isPanelNavigationPathActive("/%70roducts", "/products"), true);
+  assert.equal(isPanelNavigationPathActive("/products/%70rice-lists", "/products/price-lists"), true);
+  for (const pathname of [
+    "/%",
+    "/%GGproducts",
+    "/%2fproducts",
+    "/%2Fproducts",
+    "/%5cproducts",
+    "/%5Cproducts",
+    "/products%2fprice-lists",
+    "/products%5cprice-lists",
+    "/products/%2e%2e/settings",
+    "/products/./price-lists",
+    "/products//price-lists",
+    "/products\\price-lists",
+  ]) {
+    assert.equal(activeLabels(pathname).length, 0, pathname);
+  }
+});
+
+for (const [path, forbidden] of [
+  ["/products-evil", "Ürünler"],
+  ["/seo/products-evil", "Ürün SEO"],
+  ["/settings.evil", "Ayarlar"],
+  ["/%2fproducts", "Ürünler"],
+  ["/products/price-lists.evil", "Fiyat Listeleri"],
+] as const) {
+  test(`${path} does not activate ${forbidden}`, () => {
+    assert.equal(activeLabels(path).includes(forbidden), false);
+  });
+}
 
 test("keeps the catalog parent active on exact descendants", () => {
   assert.equal(isPanelNavigationPathActive("/products", "/products"), true);
@@ -119,7 +221,36 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+});
+
+test("inventory operations are exact catalog destinations with safe detail descendants", () => {
+  const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
+  assert.deepEqual(
+    catalog?.children?.filter(({ href }) => href.includes("purchasing") || href.includes("inventory-counts") || href.includes("transfers")).map(({ href }) => href),
+    ["/products/purchasing", "/products/inventory-counts", "/products/transfers"],
+  );
+  for (const href of ["/products/purchasing", "/products/inventory-counts", "/products/transfers"] as const) {
+    assert.equal(isPanelNavigationPathActive(href, href), true);
+    assert.equal(isPanelNavigationPathActive(`${href}/11111111-1111-4111-8111-111111111111`, href), true);
+    for (const unsafe of [`${href}-evil`, `${href}?next=${href}`, `${href}#status`, `${href}//evil`, `${href}%2Fevil`]) {
+      assert.equal(isPanelNavigationPathActive(unsafe, href), false);
+    }
+  }
+});
+
+test("import preparation navigation is exact, near-match-safe, and query-safe", () => {
+  for (const href of [
+    "/products/auto-import",
+    "/products/shopify-converter",
+    "/products/bulk-upload",
+  ] as const) {
+    assert.equal(isPanelNavigationPathActive(href, href), true);
+    assert.equal(isPanelNavigationPathActive(`${href}-evil`, href), false);
+    assert.equal(isPanelNavigationPathActive(`${href}/child`, href), false);
+    assert.equal(isPanelNavigationPathActive(`${href}?next=/products`, href), false);
+    assert.equal(isPanelNavigationPathActive(`${href}#preview`, href), false);
+  }
 });
 
 test("selects only the exact abandoned-cart child", () => {
@@ -159,11 +290,39 @@ test("contains every completed merchant administration family", () => {
   for (const label of ["İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO"]) assert.match(labels, new RegExp(label));
 });
 
+test("SEO navigation exposes each advanced fixed-kind page without near-match activation", () => {
+  const seo = PANEL_NAVIGATION.find(({ key }) => key === "seo");
+  assert.deepEqual(
+    seo?.children?.slice(-6).map(({ href }) => href),
+    [
+      "/seo/geo-optimization",
+      "/seo/internal-linking",
+      "/seo/content",
+      "/seo/categories",
+      "/seo/pages",
+      "/seo/products",
+    ],
+  );
+  for (const href of seo?.children?.slice(-6).map(({ href }) => href) ?? []) {
+    assert.equal(isPanelNavigationPathActive(href, href), true);
+    assert.equal(isPanelNavigationPathActive(`${href}-evil`, href), false);
+    assert.equal(isPanelNavigationPathActive(`${href}?next=/seo/products`, href), false);
+  }
+});
+
+test("AI settings navigation is exact and query-safe", () => {
+  const settings = PANEL_NAVIGATION.find(({ key }) => key === "settings");
+  const ai = settings?.children?.find(({ href }) => href === "/settings/artificial-intelligence");
+  assert.equal(ai?.label, "Yapay Zeka");
+  assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence", "/settings/artificial-intelligence"), true);
+  assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence-evil", "/settings/artificial-intelligence"), false);
+  assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence?tab=provider", "/settings/artificial-intelligence"), false);
+});
+
 test("selects only exact customer children and safe detail descendants", () => {
   for (const href of [
     "/customers/segments",
     "/customers/tags",
-    "/customers/new",
   ] as const) {
     assert.equal(isPanelNavigationPathActive(href, href), true);
     assert.equal(isPanelNavigationPathActive(`${href}/child`, href), false);
@@ -234,7 +393,12 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "/products/extras",
       "/products/reviews",
       "/products/definitions",
+      "/products/auto-import",
+      "/products/shopify-converter",
       "/products/bulk-upload",
+      "/products/purchasing",
+      "/products/inventory-counts",
+      "/products/transfers",
       "/products/product-123",
       "/setup",
     ].map((pathname) => getPanelRoutePresentation(pathname).title),
@@ -258,7 +422,12 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "Ekstralar",
       "Yorumlar",
       "Tanımlamalar",
+      "Otomatik Yükle",
+      "Shopify Dönüştürücü",
       "Toplu Yükle",
+      "Satın alma",
+      "Stok sayımları",
+      "Stok transferleri",
       "Ürün ayrıntısı",
       "Kurulum durumu",
     ],
@@ -287,6 +456,35 @@ test("keeps product presentations behind exact routes and a single-segment slash
   }
 });
 
+test("presents every mounted create edit preview and print route truthfully on first paint", () => {
+  const cases = [
+    ["/customers/customer-123/edit", "Müşteriyi düzenle"],
+    ["/products/collections/new", "Yeni koleksiyon"],
+    ["/products/collections/collection-123/edit", "Koleksiyonu düzenle"],
+    ["/products/brands/new", "Yeni marka"],
+    ["/products/attributes/attribute-123/edit", "Niteliği düzenle"],
+    ["/products/extras/extra-123/preview", "Ekstra önizlemesi"],
+    ["/products/definitions/new", "Yeni tanımlama"],
+    ["/products/tags/tag-123/edit", "Etiketi düzenle"],
+    ["/products/purchasing/new", "Yeni satın alma"],
+    ["/products/inventory-counts/new", "Yeni stok sayımı"],
+    ["/products/transfers/new", "Yeni stok transferi"],
+    ["/products/price-lists/new", "Yeni fiyat listesi"],
+    ["/orders/order-123/print", "Siparişi yazdır"],
+    ["/discounts/discount-123/edit", "İndirimi düzenle"],
+    ["/content/blog/new", "Yeni blog yazısı"],
+    ["/content/blog/post-123/edit", "Blog yazısını düzenle"],
+    ["/content/pages/new", "Yeni sayfa"],
+    ["/content/policies/policy-123/edit", "Politikayı düzenle"],
+    ["/settings/payment/new", "Yeni ödeme ayarı"],
+    ["/settings/payment/payment-123/edit", "Ödeme ayarını düzenle"],
+  ] as const;
+
+  for (const [pathname, title] of cases) {
+    assert.equal(getPanelRoutePresentation(pathname).title, title, pathname);
+  }
+});
+
 test("returns shared immutable route presentation records", () => {
   assert.equal(Object.isFrozen(PANEL_ROUTE_PRESENTATIONS), true);
   assert.equal(
@@ -301,4 +499,18 @@ test("returns shared immutable route presentation records", () => {
     getPanelRoutePresentation("/unknown"),
     PANEL_ROUTE_PRESENTATIONS.summary,
   );
+});
+
+test("resolves only the exact Toshi workspace route without adding sidebar navigation", () => {
+  assert.equal(getPanelRoutePresentation("/toshi").title, "Toshi");
+  assert.equal(
+    getPanelRoutePresentation("/toshi-evil"),
+    PANEL_ROUTE_PRESENTATIONS.summary,
+  );
+
+  const hrefs = PANEL_NAVIGATION.flatMap((item) => [
+    item.href,
+    ...(item.children ?? []).map((child) => child.href),
+  ]);
+  assert.equal(hrefs.includes("/toshi" as never), false);
 });

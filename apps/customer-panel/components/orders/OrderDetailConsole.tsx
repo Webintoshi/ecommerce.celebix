@@ -165,7 +165,11 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
   return (
     <PanelPageShell>
       <Link className={styles.backLink} href="/orders">Siparişlere dön</Link>
-      <PanelPageHeader title={`#${order.orderNumber}`} description={`${date(order.createdAt)} · sürüm ${order.version}`} />
+      <PanelPageHeader
+        title={`#${order.orderNumber}`}
+        description={`${date(order.createdAt)} · sürüm ${order.version}`}
+        actions={<Link className={styles.detailLink} href={`/orders/${encodeURIComponent(order.id)}/print`}>Yazdır</Link>}
+      />
       {props.error ? <div className={styles.inlineError} role="alert">{props.error}</div> : null}
       {props.notice ? <div className={styles.notice} role="status">{props.notice}</div> : null}
 

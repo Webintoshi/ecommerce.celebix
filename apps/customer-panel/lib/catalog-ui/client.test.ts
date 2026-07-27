@@ -65,6 +65,27 @@ test("list pagination accepts only a server cursor and preserves same-origin cre
   await assert.rejects(() => client.listProducts({ cursor: "unsafe%cursor" }), /catalog_client_invalid/);
 });
 
+test("catalog list and detail reads forward the exact AbortSignal and preserve native aborts", async () => {
+  const controller = new AbortController();
+  const calls: RequestInit[] = [];
+  const client = createCatalogApiClient({
+    fetch: async (_input, init) => {
+      calls.push(init ?? {});
+      return calls.length === 1
+        ? jsonResponse({ items: [PRODUCT] })
+        : jsonResponse({ product: PRODUCT, variants: [VARIANT] });
+    },
+  });
+  await client.listProducts({ status: "active" }, controller.signal);
+  await client.getProduct(PRODUCT_ID, controller.signal);
+  assert.deepEqual(calls.map((init) => init.signal), [controller.signal, controller.signal]);
+
+  const aborted = new DOMException("catalog native abort", "AbortError");
+  const aborting = createCatalogApiClient({ fetch: async () => { throw aborted; } });
+  await assert.rejects(() => aborting.listProducts({}, controller.signal), (error: unknown) => error === aborted);
+  await assert.rejects(() => aborting.getProduct(PRODUCT_ID, controller.signal), (error: unknown) => error === aborted);
+});
+
 test("dashboard summary client performs one same-origin no-store GET and freezes exact counts", async () => {
   const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
   const client = createCatalogApiClient({

@@ -1,0 +1,313 @@
+.desktopTable,
+.lineTable {
+  overflow-x: auto;
+  border: 1px solid #e7e5e4;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.desktopTable table,
+.lineTable table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.desktopTable th,
+.desktopTable td,
+.lineTable th,
+.lineTable td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0efed;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.desktopTable th,
+.lineTable th {
+  color: #78716c;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  background: #fafaf9;
+}
+
+.desktopTable a,
+.cardHeading a {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  color: #9a3412;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.mobileRecordLink {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+}
+
+.desktopTable code,
+.lineTable code,
+.detailSummary code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.mobileCards { display: none; }
+
+.detailSummary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.detailSummary > div {
+  display: flex;
+  min-height: 82px;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  padding: 14px 16px;
+  border: 1px solid #e7e5e4;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.detailSummary span { color: #78716c; font-size: 13px; }
+.detailSummary strong { color: #1c1917; }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.actions button,
+.error button {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid #d6d3d1;
+  border-radius: 12px;
+  background: #fff;
+  color: #292524;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actions .primary {
+  border-color: #ea580c;
+  background: #ea580c;
+  color: #fff;
+}
+
+.actions button:disabled { cursor: wait; opacity: .62; }
+
+.createAction,
+.secondaryAction {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 0 0 16px;
+  padding: 0 18px;
+  border: 1px solid #ea580c;
+  border-radius: 12px;
+  background: #ea580c;
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.operationForm,
+.receiptForm {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #e7e5e4;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.operationForm header h2,
+.operationForm header p { margin: 0; }
+.operationForm header p { margin-top: 6px; color: #78716c; }
+.operationForm form,
+.operationForm fieldset,
+.receiptForm fieldset { display: grid; gap: 16px; min-width: 0; }
+.operationForm fieldset,
+.receiptForm fieldset { margin: 0; padding: 16px; border: 1px solid #e7e5e4; border-radius: 16px; }
+.operationForm legend,
+.receiptForm legend { padding: 0 8px; color: #292524; font-weight: 800; }
+.operationFields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.operationFields label,
+.mobileFormCards label,
+.receiptForm label { display: grid; gap: 7px; color: #44403c; font-weight: 700; }
+.operationFields input,
+.operationFields select,
+.desktopFormTable input,
+.desktopFormTable select,
+.mobileFormCards input,
+.mobileFormCards select,
+.receiptForm input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid #d6d3d1;
+  border-radius: 11px;
+  background: #fff;
+  color: #1c1917;
+  font: inherit;
+}
+.desktopFormTable { overflow-x: auto; }
+.desktopFormTable table { width: 100%; min-width: 850px; border-collapse: collapse; }
+.desktopFormTable th,
+.desktopFormTable td { padding: 10px; border-bottom: 1px solid #f0efed; text-align: left; vertical-align: middle; }
+.desktopFormTable th { color: #78716c; font-size: 12px; text-transform: uppercase; }
+.desktopFormTable code,
+.mobileFormCards code { display: block; max-width: 220px; overflow-wrap: anywhere; font-size: 11px; }
+.desktopFormTable button,
+.mobileFormCards button,
+.receiptForm button,
+.secondaryAction {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #d6d3d1;
+  border-radius: 11px;
+  background: #fff;
+  color: #292524;
+  font: inherit;
+  font-weight: 750;
+}
+.receiptForm .primary { border-color: #ea580c; background: #ea580c; color: #fff; }
+.mobileFormCards { display: none; }
+.srStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.locationManager { display: grid; gap: 16px; margin-bottom: 24px; padding: 18px; border: 1px solid #e7e5e4; border-radius: 18px; background: #fafaf9; }
+.locationManager h2 { margin: 0; font-size: 19px; }
+.locationManager header p { margin: 6px 0 0; color: #78716c; }
+.locationCreate { display: grid; grid-template-columns: minmax(180px, 1fr) auto; gap: 8px 12px; align-items: end; }
+.locationCreate label { grid-column: 1 / -1; font-weight: 700; }
+.locationCreate input,
+.locationCreate button,
+.locationActions button { min-height: 48px; border: 1px solid #d6d3d1; border-radius: 12px; padding: 0 14px; font: inherit; }
+.locationCreate button { background: #ea580c; color: #fff; font-weight: 750; }
+.locationGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.locationCard { display: grid; gap: 10px; padding: 16px; border: 1px solid #e7e5e4; border-radius: 16px; background: #fff; }
+.locationCard > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.locationCard code { overflow-wrap: anywhere; font-size: 12px; }
+.locationCard p { margin: 0; color: #57534e; }
+.locationActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.locationActions button { background: #fff; font-weight: 700; }
+.locationActions button:disabled,
+.locationCreate button:disabled { cursor: not-allowed; opacity: .6; }
+.locationRenameBackdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(28 25 23 / 58%);
+}
+.locationRenameDialog {
+  width: min(100%, 520px);
+  padding: 22px;
+  border: 1px solid #d6d3d1;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgb(28 25 23 / 22%);
+}
+.locationRenameDialog h3,
+.locationRenameDialog > p { margin: 0; }
+.locationRenameDialog > p { margin-top: 8px; color: #57534e; }
+.locationRenameDialog code { overflow-wrap: anywhere; }
+.locationRenameDialog form { display: grid; gap: 12px; margin-top: 18px; }
+.locationRenameDialog label { font-weight: 750; }
+.locationRenameDialog input {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid #d6d3d1;
+  border-radius: 12px;
+  color: #1c1917;
+  font: inherit;
+}
+.locationRenameActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.locationRenameActions button {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid #d6d3d1;
+  border-radius: 12px;
+  background: #fff;
+  color: #292524;
+  font: inherit;
+  font-weight: 750;
+}
+.locationRenameActions button[type="submit"] { border-color: #ea580c; background: #ea580c; color: #fff; }
+.locationRenameActions button:disabled { cursor: wait; opacity: .62; }
+
+.state,
+.denied,
+.error,
+.notice,
+.errorNotice,
+.conflict {
+  min-height: 48px;
+  padding: 14px 16px;
+  border-radius: 14px;
+}
+
+.state { background: #f5f5f4; color: #57534e; }
+.denied { border: 1px solid #d6d3d1; background: #fafaf9; color: #44403c; }
+.error,
+.errorNotice { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
+.notice { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; }
+.conflict { border: 1px solid #fdba74; background: #fff7ed; color: #9a3412; font-weight: 650; }
+
+@media (max-width: 760px) {
+  .desktopTable { display: none; }
+  .mobileCards { display: grid; gap: 12px; }
+  .mobileCard { padding: 16px; border: 1px solid #e7e5e4; border-radius: 16px; background: #fff; }
+  .cardHeading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; }
+  .mobileCard dl { display: grid; gap: 10px; margin: 14px 0 0; }
+  .mobileCard dl > div { display: grid; grid-template-columns: minmax(92px, .7fr) 1fr; gap: 12px; }
+  .mobileCard dt { color: #78716c; }
+  .mobileCard dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+  .actions { display: grid; }
+  .actions button { width: 100%; }
+  .locationCreate { grid-template-columns: 1fr; }
+  .locationCreate label { grid-column: auto; }
+  .locationActions { grid-template-columns: 1fr; }
+  .locationRenameActions { grid-template-columns: 1fr; }
+  .desktopFormTable { display: none; }
+  .mobileFormCards { display: grid; gap: 12px; }
+  .mobileFormCards article { display: grid; gap: 12px; padding: 14px; border: 1px solid #e7e5e4; border-radius: 14px; background: #fafaf9; }
+  .operationForm,
+  .receiptForm { padding: 14px; }
+  .operationFields { grid-template-columns: 1fr; }
+  .createAction,
+  .secondaryAction { width: 100%; }
+}

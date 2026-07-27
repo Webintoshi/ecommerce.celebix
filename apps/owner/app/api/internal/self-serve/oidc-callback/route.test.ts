@@ -6,8 +6,10 @@ import * as route from "./route.ts";
 
 test("default Owner internal callback route is disabled and constructs no authority", async () => {
   const source = await readFile(new URL("./route.ts", import.meta.url), "utf8");
-  assert.match(source, /createDisabledOwnerInternalSelfServeCallbackGateway/);
-  assert.doesNotMatch(source, /createOwnerInternalCallbackGatewayApproval|createOwnerInternalSelfServeCallbackGateway|process\.env|\bPool\b|\bfetch\b|secret|keyMap|keys/);
+  assert.match(source, /import \{ getDefaultOwnerSelfServeAuthRouteSet \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/lib\/self-serve-auth-route-mount\/route-set\.ts"/);
+  assert.match(source, /const routeSet = getDefaultOwnerSelfServeAuthRouteSet\(\)/);
+  assert.equal(source.match(/return routeSet\.internalCallback\(request\)/g)?.length, 2);
+  assert.doesNotMatch(source, /createDisabledOwnerInternalSelfServeCallbackGateway|createOwnerInternalCallbackGatewayApproval|createOwnerInternalSelfServeCallbackGateway|process\.env|\bPool\b|\bfetch\b|secret|keyMap|keys/);
   assert.equal(typeof route.GET, "function");
   assert.equal(typeof route.POST, "function");
   assert.equal((await route.GET(new Request("https://owner.example/api/internal/self-serve/oidc-callback"))).status, 405);

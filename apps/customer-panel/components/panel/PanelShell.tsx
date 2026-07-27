@@ -1,6 +1,6 @@
 import type { TenantContext } from "@celebix/saas-contracts";
 import { createPanelChromeModel, type PanelChromeModel } from "@/lib/panel-ui/chrome-model";
-import { resolveDefaultServerAnalyticsRuntime } from "@/lib/server-analytics/default";
+import { resolvePanelAnalyticsAvailability } from "@/lib/server-analytics/availability";
 import { PanelLayoutClient } from "./PanelLayoutClient";
 
 const SERVER_CONTEXT_PROP = "tenant\u0043ontext" as const;
@@ -11,12 +11,12 @@ type PanelShellProps =
 
 export async function PanelShell(props: PanelShellProps) {
   const entitledModel = props.model ?? createPanelChromeModel(props[SERVER_CONTEXT_PROP]);
-  const runtimeAvailable = entitledModel.analyticsAvailable
-    ? await resolveDefaultServerAnalyticsRuntime().then(value => value !== null, () => false)
+  const analyticsAvailable = props[SERVER_CONTEXT_PROP]
+    ? await resolvePanelAnalyticsAvailability(props[SERVER_CONTEXT_PROP])
     : false;
   const model = Object.freeze({
     ...entitledModel,
-    analyticsAvailable: entitledModel.analyticsAvailable && runtimeAvailable,
+    analyticsAvailable,
   });
   return <PanelLayoutClient model={model}>{props.children}</PanelLayoutClient>;
 }

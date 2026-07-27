@@ -93,7 +93,7 @@ function visitElements(node: ReactNode, visitor: (element: React.ReactElement<Re
 }
 
 async function compileOrderModule(
-  path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx",
+  path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx" | "components/orders/OrderPrintView.tsx",
   overrides: Readonly<{ react?: typeof React; orderApi?: Record<string, unknown> }> = {},
 ) {
   const output = ts.transpileModule(await source(path), {
@@ -185,6 +185,12 @@ function createHookRuntime() {
       if (prior === undefined || !sameDeps(prior.deps, deps)) slots[index] = { deps: [...deps], value: callback };
       return (slots[index] as { value: T }).value;
     },
+    useMemo<T>(factory: () => T, deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
+      if (prior === undefined || !sameDeps(prior.deps, deps)) slots[index] = { deps: [...deps], value: factory() };
+      return (slots[index] as { value: T }).value;
+    },
     useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
       const index = cursor++;
       const prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void } | undefined;
@@ -196,7 +202,8 @@ function createHookRuntime() {
   } as unknown as typeof React;
   return {
     runtime,
-    async flush(component: () => ReactNode) {
+    async flush(component: () => ReactNode, force = false) {
+      if (force) dirty = true;
       for (let pass = 0; pass < 20; pass += 1) {
         if (dirty || latest === undefined) {
           dirty = false;
@@ -234,9 +241,12 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return React;
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Wrapper });
+    if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
     if (specifier === "recharts") return new Proxy({}, { get: () => Chart });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel() { return {}; } };
+    if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({}) };
     if (specifier === "@/lib/order-ui/client") return { orderApi: Object.freeze({}) };
     if (specifier === "@/lib/abandoned-cart-ui/client") return { abandonedCartApi: Object.freeze({}) };
@@ -259,12 +269,30 @@ function renderProps(state: "loading" | "loaded" | "error", items: readonly Orde
     search: "",
     status: "all",
     sort: "newest",
+    dateRange: "all",
+    payment: "all",
+    fulfillment: "all",
+    loadedCount: items.length,
+    visibleColumns: {
+      date: true,
+      customer: true,
+      status: true,
+      payment: true,
+      items: true,
+      source: true,
+      total: true,
+    },
     nextCursor: undefined,
     loadingMore: false,
     onRetry() {},
     onSearchChange() {},
     onStatusChange() {},
     onSortChange() {},
+    onDateRangeChange() {},
+    onPaymentChange() {},
+    onFulfillmentChange() {},
+    onColumnVisibilityChange() {},
+    onExport() {},
     onLoadMore() {},
   };
 }
@@ -416,7 +444,9 @@ test("order list renders a controlled loading state without records", async () =
   const html = renderToStaticMarkup(createElement(Presentation, renderProps("loading")));
   assert.match(html, /role="status"/);
   assert.match(html, /Siparişler yükleniyor/);
+  assert.match(html, /Sipariş kapsamı yükleniyor/u);
   assert.doesNotMatch(html, /HMK-1042/);
+  assert.match(html, /<button class="exportButton" type="button" disabled="">CSV Dışa Aktar<\/button>/u);
 });
 
 test("order list renders a truthful empty state without fake rows", async () => {
@@ -510,9 +540,110 @@ test("order list exposes search, status, sort, and cursor pagination controls", 
   assert.equal(Object.isFrozen(merged), true);
 });
 
+test("order list filters only loaded real DTOs by date, payment, and derived fulfillment", async () => {
+  const { exports } = await compileOrderModule("components/orders/OrderListConsole.tsx");
+  assert.equal(typeof exports.filterOrderListItems, "function");
+  const filterOrderListItems = exports.filterOrderListItems as (
+    items: readonly OrderListItem[],
+    filters: Readonly<{ dateRange: string; payment: string; fulfillment: string }>,
+    now: Date,
+  ) => readonly OrderListItem[];
+  const shipped = Object.freeze({
+    ...item,
+    id: ITEM_ID,
+    orderNumber: "HMK-1041",
+    status: "shipped" as const,
+    paymentStatus: "processing" as const,
+    createdAt: "2026-07-15T08:00:00.000Z",
+  });
+  const oldRefund = Object.freeze({
+    ...item,
+    id: EVENT_ID,
+    orderNumber: "HMK-0999",
+    status: "refunded" as const,
+    paymentStatus: "refunded" as const,
+    createdAt: "2026-06-01T08:00:00.000Z",
+  });
+  const orders = Object.freeze([item, shipped, oldRefund]);
+  const now = new Date("2026-07-21T12:00:00.000Z");
+
+  assert.deepEqual(
+    filterOrderListItems(orders, { dateRange: "last7", payment: "all", fulfillment: "all" }, now).map(({ orderNumber }) => orderNumber),
+    ["HMK-1042", "HMK-1041"],
+  );
+  assert.deepEqual(
+    filterOrderListItems(orders, { dateRange: "all", payment: "processing", fulfillment: "shipped" }, now).map(({ orderNumber }) => orderNumber),
+    ["HMK-1041"],
+  );
+  assert.deepEqual(
+    filterOrderListItems(orders, { dateRange: "all", payment: "refunded", fulfillment: "not_applicable" }, now).map(({ orderNumber }) => orderNumber),
+    ["HMK-0999"],
+  );
+  assert.equal(Object.isFrozen(filterOrderListItems(orders, { dateRange: "all", payment: "all", fulfillment: "all" }, now)), true);
+});
+
+test("order list CSV export serializes filtered DTO facts and escapes spreadsheet fields", async () => {
+  const { exports } = await compileOrderModule("components/orders/OrderListConsole.tsx");
+  assert.equal(typeof exports.serializeOrderListCsv, "function");
+  const serializeOrderListCsv = exports.serializeOrderListCsv as (items: readonly OrderListItem[]) => string;
+  const csv = serializeOrderListCsv([Object.freeze({
+    ...item,
+    customerName: "Ada, \"Analist\"",
+    customerEmail: "ada@example.com",
+    source: "quick_link" as const,
+  })]);
+
+  assert.match(csv, /^\uFEFFSipariş No,Tarih,Müşteri,E-posta,Durum,Ödeme,Teslimat,Kanal,Ürün Adedi,Toplam,Para Birimi\r\n/u);
+  assert.match(csv, /"Ada, ""Analist"""/u);
+  assert.match(csv, /Hızlı sipariş/u);
+  assert.match(csv, /Hazırlama bekliyor/u);
+  assert.doesNotMatch(csv, /storeId|tenantId|membershipId|principalId/u);
+
+  const untrustedCsv = serializeOrderListCsv([Object.freeze({
+    ...item,
+    customerName: "=HYPERLINK(\"https://example.invalid\")",
+  })]);
+  assert.match(untrustedCsv, /'=HYPERLINK/u);
+});
+
+test("order list renders usable local filters, column visibility, and truthful loaded-scope export", async () => {
+  const Presentation = await compilePresentation("components/orders/OrderListConsole.tsx", "OrderListPresentation");
+  const html = renderToStaticMarkup(createElement(Presentation, {
+    ...renderProps("loaded"),
+    nextCursor: "cursor_2",
+    loadedCount: 7,
+  }));
+
+  assert.match(html, /Tarih aralığı/u);
+  assert.match(html, /Son 7 gün/u);
+  assert.match(html, /Ödeme durumu/u);
+  assert.match(html, /Teslimat durumu/u);
+  assert.match(html, /Sütunlar/u);
+  assert.match(html, /Kanal sütununu göster/u);
+  assert.match(html, /CSV Dışa Aktar/u);
+  assert.match(html, /Filtreler yüklenen 7 sipariş üzerinde uygulanır/u);
+  assert.match(html, /Daha fazla yükledikçe kapsam genişler/u);
+  assert.match(html, /Teslimat filtresi sipariş durumundan türetilir/u);
+  assert.doesNotMatch(html, /Toplu durum|Seçilileri güncelle/u);
+});
+
+test("order list keeps cursor pagination usable when local filters have no loaded-page match", async () => {
+  const Presentation = await compilePresentation("components/orders/OrderListConsole.tsx", "OrderListPresentation");
+  const html = renderToStaticMarkup(createElement(Presentation, {
+    ...renderProps("loaded", []),
+    loadedCount: 20,
+    nextCursor: "cursor_2",
+  }));
+
+  assert.match(html, /Filtrelerle eşleşen sipariş yok/u);
+  assert.match(html, /Daha fazla sipariş yükle/u);
+});
+
 test("order console switches table and mobile cards exactly at 1024/1025 with 48px targets", async () => {
   const css = await source("components/orders/order-console.module.css");
   const list = await source("components/orders/OrderListConsole.tsx");
+
+  assert.match(css, /[.]columnPicker\s*>\s*div\s+label\s*\{[^}]*min-height:\s*48px/s);
   const Presentation = await compilePresentation("components/orders/OrderListConsole.tsx", "OrderListPresentation");
   const html = renderToStaticMarkup(createElement(Presentation, renderProps("loaded")));
   assert.match(list, /styles[.]desktopTable/);
@@ -702,6 +833,53 @@ test("order detail hides every mutation control when server-projected capabiliti
   assert.match(html, /Keten Gömlek/);
 });
 
+test("order print route projects immutable order snapshots without panel authority", async () => {
+  const view = await source("components/orders/OrderPrintView.tsx");
+  const page = await source("app/orders/[orderId]/print/page.tsx");
+  assert.match(view, /export function OrderPrintView/);
+  assert.match(view, /orderApi[.]getOrder\(orderId\)/);
+  assert.match(view, /Sipariş #\{order[.]orderNumber\}/);
+  assert.match(view, /window[.]print\(\)/);
+  assert.match(view, /function OrderSnapshotTable/);
+  assert.match(page, /requireServerPanelAccess\(\)/);
+  assert.match(page, /<OrderPrintView orderId=\{orderId\} \/>/);
+  assert.doesNotMatch(
+    view,
+    /tenantId|storeId|principalId|membershipId|planId|__Host-celebix_panel|document[.]cookie|localStorage|sessionStorage/i,
+  );
+});
+
+test("order print clears the previously loaded snapshot while a new route is loading", async () => {
+  const orderB = Object.freeze({ ...detail, id: ITEM_ID, orderNumber: "HMK-1043", customerName: "Grace Hopper" });
+  let selectedOrderId = ORDER_ID;
+  let resolveOrderB: ((value: OrderDetail) => void) | undefined;
+  const hookRuntime = createHookRuntime();
+  const { exports } = await compileOrderModule("components/orders/OrderPrintView.tsx", {
+    react: hookRuntime.runtime,
+    orderApi: {
+      async getOrder(id: string) {
+        if (id === ORDER_ID) return detail;
+        return new Promise<OrderDetail>((resolve) => { resolveOrderB = resolve; });
+      },
+    },
+  });
+  const View = exports.OrderPrintView as (props: { orderId: string }) => ReactNode;
+  const Console = () => View({ orderId: selectedOrderId });
+  let view = await hookRuntime.flush(Console);
+  assert.match(renderToStaticMarkup(view), /HMK-1042/);
+
+  selectedOrderId = ITEM_ID;
+  view = await hookRuntime.flush(Console, true);
+  assert.doesNotMatch(renderToStaticMarkup(view), /HMK-1042|Ada Lovelace/);
+  assert.match(renderToStaticMarkup(view), /Sipariş hazırlanıyor/);
+
+  resolveOrderB?.(orderB);
+  view = await hookRuntime.flush(Console);
+  const html = renderToStaticMarkup(view);
+  assert.match(html, /HMK-1043|Grace Hopper/);
+  assert.doesNotMatch(html, /tenantId|storeId|principalId|membershipId|planId|__Host-celebix_panel/i);
+});
+
 test("orders navigation exposes every genuine child with exact activation and safe route titles", async () => {
   const navigation = await import("./panel-ui/navigation.ts");
   const orders = navigation.PANEL_NAVIGATION.find(({ key }) => key === "orders");
@@ -756,11 +934,10 @@ test("dashboard and order pages expose only durable order facts without private 
   );
   const Presentation = await compileDashboardPresentation(dashboardModel);
   const html = renderToStaticMarkup(createElement(Presentation, { dashboard: view, onRefresh() {}, state: "loaded", ordersState: "loaded" }));
-  assert.match(html, /Sipariş özeti/);
-  assert.match(html, /Toplam sipariş/);
-  assert.match(html, />9<\/strong>/);
-  assert.match(html, /Doğrulanmış gelir/);
-  assert.match(dashboard, /loadMerchantDashboardSummaries/);
+  assert.match(html, /2 sipariş işlem bekliyor/);
+  assert.match(html, /href="\/orders"/);
+  assert.doesNotMatch(html, /48[,.]500|Doğrulanmış gelir/);
+  assert.match(model, /loadMerchantDashboardSummaries/);
   assert.match(model, /totalOrders/);
   assert.match(model, /pendingOrders/);
   assert.match(model, /fulfilledOrders/);

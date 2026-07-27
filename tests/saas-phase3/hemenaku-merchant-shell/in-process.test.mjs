@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createPanelChromeModel } from "../../../apps/customer-panel/lib/panel-ui/chrome-model.ts";
 import { createPanelDashboardModel } from "../../../apps/customer-panel/lib/panel-ui/dashboard-model.ts";
@@ -25,10 +26,22 @@ test("composes durable context into truthful dashboard without authority IDs", (
   assert.doesNotMatch(JSON.stringify(dashboard), /10000000|20000000|30000000|40000000|issuer|subject/);
 });
 
-test("keeps every dashboard action inside supported navigation", () => {
+test("keeps the product-create action reachable through finite navigation without mobile dock duplication", () => {
   const dashboard = createPanelDashboardModel(createPanelChromeModel(tenant));
   const hrefs = new Set(PANEL_NAVIGATION.flatMap((item) => [item.href, ...(item.children ?? []).map((child) => child.href)]));
-  assert.equal(dashboard.actions.every((action) => hrefs.has(action.href)), true);
+  const actionOnly = dashboard.actions.filter((action) => !hrefs.has(action.href));
+  assert.deepEqual(actionOnly.map(({ href }) => href), []);
+  assert.equal(dashboard.actions.filter(({ href }) => href === "/products/new").length, 1);
+  assert.equal(hrefs.has("/products/new"), true);
+  assert.equal(isPanelNavigationPathActive("/products/new", "/products"), true);
+
+  const mobileDock = readFileSync(
+    new URL("../../../apps/customer-panel/components/panel/PanelMobileDock.tsx", import.meta.url),
+    "utf8",
+  );
+  const dockHrefs = [...mobileDock.matchAll(/\{ href: "([^"]+)" as const/g)].map((match) => match[1]);
+  assert.deepEqual(dockHrefs, ["/", "/orders", "/products"]);
+  assert.equal(dockHrefs.includes("/products/new"), false);
 });
 
 test("rejects cross-store resolved-host composition", () => {

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   MERCHANT_MODULE_DEFINITIONS,
   buildMerchantModuleSummary,
+  buildProviderWorkflowState,
   formatMerchantAdminConfig,
   getMerchantModuleDefinition,
 } from "./presentation.ts";
@@ -29,14 +30,18 @@ function record(
 }
 
 test("defines every durable merchant module with a unique route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 21);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 21);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 21);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 32);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 32);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 32);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
   assert.equal(getMerchantModuleDefinition("lucky_wheel").route, "/discounts/lucky-wheel");
   assert.equal(getMerchantModuleDefinition("administrator_invite").route, "/settings/administrators");
   assert.equal(getMerchantModuleDefinition("indexing_request").route, "/seo/fast-indexing");
+  assert.equal(getMerchantModuleDefinition("notification_setting").route, "/settings/notifications");
+  assert.equal(getMerchantModuleDefinition("hero_banner").route, "/settings/hero-banner");
+  assert.equal(getMerchantModuleDefinition("promotion_banner").route, "/settings/promotion-banner");
+  assert.equal(getMerchantModuleDefinition("marquee_setting").route, "/settings/marquee");
 
   for (const definition of MERCHANT_MODULE_DEFINITIONS) {
     assert.equal(Object.isFrozen(definition), true);
@@ -72,6 +77,33 @@ test("marks only real in-application workflows durable and external execution pr
   ] as const) {
     assert.equal(getMerchantModuleDefinition(kind).execution, "durable");
   }
+});
+
+test("defines finite advanced SEO and AI preferences without a provider job", () => {
+  const expected = {
+    seo_geo_profile: { route: "/seo/geo-optimization", fields: [["businessName", "text"], ["businessCategory", "text"], ["serviceAreas", "string-list"], ["locale", "text"], ["description", "textarea"]] },
+    seo_internal_link: { route: "/seo/internal-linking", fields: [["sourcePath", "text"], ["targetPath", "text"], ["anchorText", "text"], ["enabled", "boolean"]] },
+    seo_content_entry: { route: "/seo/content", fields: [["resourceId", "text"], ["metaTitle", "text"], ["metaDescription", "textarea"], ["canonicalPath", "text"], ["structuredDataType", "enum"]] },
+    seo_category_entry: { route: "/seo/categories", fields: [["resourceId", "text"], ["metaTitle", "text"], ["metaDescription", "textarea"], ["canonicalPath", "text"]] },
+    seo_page_entry: { route: "/seo/pages", fields: [["resourceId", "text"], ["metaTitle", "text"], ["metaDescription", "textarea"], ["canonicalPath", "text"]] },
+    seo_product_entry: { route: "/seo/products", fields: [["resourceId", "text"], ["metaTitle", "text"], ["metaDescription", "textarea"], ["canonicalPath", "text"]] },
+    ai_setting: { route: "/settings/artificial-intelligence", fields: [["tone", "text"], ["locale", "text"], ["enabledFeatures", "enum-list"]] },
+  } as const;
+  for (const [kind, expectedDefinition] of Object.entries(expected)) {
+    const definition = getMerchantModuleDefinition(kind as keyof typeof expected);
+    assert.equal(definition.route, expectedDefinition.route);
+    assert.equal(definition.execution, "durable");
+    assert.equal(definition.workflow, undefined);
+    assert.deepEqual(definition.fields.map(({ key, type }) => [key, type]), expectedDefinition.fields);
+  }
+  assert.equal(getMerchantModuleDefinition("seo_geo_profile").fields.find(({ key }) => key === "serviceAreas")?.maxItems, 24);
+  const ai = getMerchantModuleDefinition("ai_setting");
+  assert.match(ai.notice ?? "", /harici.*üreti[mş]/i);
+  const features = ai.fields.find(({ key }) => key === "enabledFeatures");
+  assert.deepEqual(features?.allowedValues, ["description_suggestions", "seo_suggestions", "campaign_drafts"]);
+  assert.equal(Object.isFrozen(features?.allowedValues), true);
+  assert.equal(features?.maxItems, 3);
+  assert.deepEqual(getMerchantModuleDefinition("seo_content_entry").fields.find(({ key }) => key === "structuredDataType")?.allowedValues, ["Article", "FAQPage", "Product", "WebPage"]);
 });
 
 test("builds truthful status metrics and applies exact status and locale-aware search filters", () => {
@@ -110,4 +142,38 @@ test("formats only labelled safe configuration fields and never emits private or
     { label: "Senkronizasyon isteği", value: "Evet" },
   ]);
   assert.equal(JSON.stringify(formatted).includes("unexpected"), false);
+});
+
+test("provider workflows distinguish configuration readiness from external execution", () => {
+  const definition = getMerchantModuleDefinition("marketplace_connection");
+  assert.deepEqual(definition.workflow, {
+    action: "synchronization",
+    actionLabel: "Senkronizasyon hazırlığı",
+    requiredFields: ["provider", "merchantReference", "syncEnabled"],
+  });
+  const base = {
+    id: "11111111-1111-4111-8111-111111111111",
+    kind: "marketplace_connection" as const,
+    name: "Trendyol",
+    version: 1,
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+  assert.deepEqual(buildProviderWorkflowState(definition, { ...base, status: "draft", config: {} }), {
+    code: "configuration_incomplete",
+    label: "Yapılandırma eksik",
+    canPrepare: false,
+    missingFields: ["Pazar yeri", "Mağaza referansı", "Senkronizasyon isteği"],
+  });
+  assert.deepEqual(buildProviderWorkflowState(definition, {
+    ...base,
+    status: "active",
+    config: { provider: "trendyol", merchantReference: "store-42", syncEnabled: true },
+  }), {
+    code: "awaiting_preparation",
+    label: "Hazırlık oluşturulabilir",
+    canPrepare: true,
+    missingFields: [],
+  });
+  assert.equal(buildProviderWorkflowState(getMerchantModuleDefinition("discount"), { ...base, kind: "discount", status: "active", config: {} }), null);
 });

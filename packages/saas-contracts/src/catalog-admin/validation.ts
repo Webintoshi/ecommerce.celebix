@@ -3,15 +3,19 @@ import {
   CATALOG_IMPORT_STATUSES,
   PRODUCT_REVIEW_STATUSES,
   type CatalogAdminImportJob,
+  type CatalogAdminImportRow,
   type CatalogAdminJson,
   type CatalogAdminMutationResult,
   type CatalogAdminResource,
+  type CatalogImportPreview,
   type ProductReview,
 } from "./types.ts";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SKU = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
+const DIGEST = /^[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const KEY = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
@@ -70,6 +74,31 @@ function timestamp(value: unknown) {
 }
 function uuid(value: unknown) {
   return text(value, 36, 36, UUID);
+}
+function importRows(value: unknown): readonly CatalogAdminImportRow[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 100)
+    invalid();
+  const rows = Object.freeze(
+    value.map((entry) => {
+      const parsed = exact(
+        entry,
+        ["title", "slug", "priceCents", "stockQuantity"],
+        ["sku"],
+      );
+      return Object.freeze({
+        title: text(parsed.title, 1, 200),
+        slug: text(parsed.slug, 3, 100, SLUG),
+        priceCents: integer(parsed.priceCents),
+        ...(parsed.sku === undefined
+          ? {}
+          : { sku: text(parsed.sku, 1, 64, SKU) }),
+        stockQuantity: integer(parsed.stockQuantity),
+      });
+    }),
+  );
+  if (new TextEncoder().encode(JSON.stringify(rows)).byteLength > 131072)
+    invalid();
+  return rows;
 }
 function json(value: unknown, depth = 0): CatalogAdminJson {
   if (depth > 6) invalid();
@@ -250,5 +279,43 @@ export function parseCatalogAdminMutationResult(
     status: text(parsed.status, 1, 32),
     updatedAt: timestamp(parsed.updatedAt),
     replayed: parsed.replayed,
+  });
+}
+
+export function parseCatalogImportPreview(
+  value: unknown,
+): CatalogImportPreview {
+  const parsed = exact(value, [
+    "id",
+    "format",
+    "fileName",
+    "digest",
+    "status",
+    "rows",
+    "totalRows",
+    "version",
+    "expiresAt",
+    "createdAt",
+    "updatedAt",
+  ]);
+  if (
+    !["native_csv", "shopify_csv"].includes(String(parsed.format)) ||
+    !["prepared", "consumed", "expired"].includes(String(parsed.status))
+  )
+    invalid();
+  const rows = importRows(parsed.rows);
+  if (integer(parsed.totalRows, 1, 100) !== rows.length) invalid();
+  return Object.freeze({
+    id: uuid(parsed.id),
+    format: parsed.format as CatalogImportPreview["format"],
+    fileName: text(parsed.fileName, 1, 200),
+    digest: text(parsed.digest, 64, 64, DIGEST),
+    status: parsed.status as CatalogImportPreview["status"],
+    rows,
+    totalRows: rows.length,
+    version: integer(parsed.version, 1),
+    expiresAt: timestamp(parsed.expiresAt),
+    createdAt: timestamp(parsed.createdAt),
+    updatedAt: timestamp(parsed.updatedAt),
   });
 }

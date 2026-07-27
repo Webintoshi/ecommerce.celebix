@@ -43,8 +43,28 @@ test("keeps every declared merchant module route backed by an actual page", asyn
 test("keeps external execution honest while preserving durable configuration", async () => {
   const definition = await read("apps/customer-panel/lib/merchant-admin-ui/presentation.ts");
   const consoleSource = await read("apps/customer-panel/components/merchant-admin/MerchantModuleConsole.tsx");
+  const client = await read("apps/customer-panel/lib/merchant-admin-ui/client.ts");
   assert.match(definition, /execution:\s*"provider_required"/);
-  assert.match(consoleSource, /definition\.execution === "provider_required"/);
-  assert.match(consoleSource, /Harici çalıştırma kapalı/);
-  assert.doesNotMatch(consoleSource, /Gönderildi|Senkronizasyon tamamlandı|Fatura gönderildi/);
+  for (const action of ["delivery", "synchronization", "reconciliation", "indexing"]) {
+    assert.match(definition, new RegExp(`action: "${action}"`));
+  }
+  assert.match(definition, /buildProviderWorkflowState/);
+  assert.match(consoleSource, /merchantAdminApi\.providerJobs/);
+  assert.match(consoleSource, /merchantAdminApi\.prepareProviderJob/);
+  assert.match(consoleSource, /merchantAdminApi\.cancelProviderJob/);
+  assert.match(consoleSource, /awaiting_provider_activation/);
+  assert.match(consoleSource, /providerExecutionApi\.profiles/);
+  assert.match(consoleSource, /merchantAdminApi\.queueProviderJob/);
+  assert.match(consoleSource, /doğrulanmış bağlantıyla sıraya alındı/);
+  assert.match(consoleSource, /harici işlem çalıştırılmadı/);
+  assert.match(consoleSource, /Sonuç doğrulanıyor — tekrar göndermeyin/);
+  assert.match(consoleSource, /reconciliation_required/);
+  assert.match(client, /provider-jobs\/\$\{providerKind\(recordKind\)\}/);
+  assert.doesNotMatch(consoleSource, /Gönderildi|Senkronizasyon tamamlandı|Fatura gönderildi|Başarıyla çalıştırıldı/);
+  assert.doesNotMatch(client, /sendProvider|completeProvider|executeProvider|providerResponse/);
+
+  await Promise.all([
+    access(new URL("apps/customer-panel/app/api/merchant-admin/provider-jobs/[kind]/route.ts", ROOT)),
+    access(new URL("apps/customer-panel/app/api/merchant-admin/provider-jobs/[kind]/[jobId]/cancel/route.ts", ROOT)),
+  ]);
 });

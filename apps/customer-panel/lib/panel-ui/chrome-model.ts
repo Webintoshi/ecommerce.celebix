@@ -1,4 +1,4 @@
-import { isPlanFeatureEnabled, type StoreMembershipRole, type TenantContext } from "@celebix/saas-contracts";
+import type { StoreMembershipRole, TenantContext } from "@celebix/saas-contracts";
 
 export interface PanelChromeModel {
   readonly storeSlug: string;
@@ -8,7 +8,6 @@ export interface PanelChromeModel {
   readonly entitlementStatus: "active";
   readonly storefrontHostname?: string;
   readonly locale: string;
-  readonly analyticsAvailable: boolean;
 }
 
 const ROLE_LABELS: Readonly<Record<StoreMembershipRole, string>> = Object.freeze({
@@ -68,6 +67,5 @@ export function createPanelChromeModel(context: TenantContext): PanelChromeModel
     entitlementStatus: "active" as const,
     ...(host !== undefined ? { storefrontHostname: host.canonicalHostname } : {}),
     locale: context.locale,
-    analyticsAvailable: isPlanFeatureEnabled(context.entitlements, "analytics"),
   });
 }

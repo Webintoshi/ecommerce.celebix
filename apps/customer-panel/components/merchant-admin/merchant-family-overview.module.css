@@ -1,0 +1,74 @@
+.grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  display: flex;
+  min-width: 0;
+  min-height: 148px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #e3e7ee;
+  border-radius: .625rem;
+  background: #fff;
+  padding: 1.25rem;
+  color: #1f2937;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgb(18 25 38 / 3%);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.card:hover {
+  border-color: rgb(254 97 0 / 42%);
+  box-shadow: 0 10px 26px rgb(18 25 38 / 8%);
+  transform: translateY(-1px);
+}
+
+.card:focus-visible {
+  outline: 3px solid rgb(254 97 0 / 30%);
+  outline-offset: 2px;
+}
+
+.cardCopy {
+  display: grid;
+  min-width: 0;
+  gap: .55rem;
+}
+
+.card strong {
+  font-size: 1rem;
+  letter-spacing: -.02em;
+}
+
+.cardCopy > span {
+  color: #697586;
+  font-size: .8125rem;
+  line-height: 1.55;
+}
+
+.card small {
+  width: fit-content;
+  border-radius: 999px;
+  background: #fff1e8;
+  padding: .35rem .65rem;
+  color: #b54708;
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+@media (max-width: 1180px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .grid { grid-template-columns: 1fr; }
+  .card { min-height: 132px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition-duration: .01ms !important; }
+}

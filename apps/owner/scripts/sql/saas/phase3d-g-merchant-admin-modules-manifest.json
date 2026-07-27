@@ -25,6 +25,27 @@
       "file": "202607220036_merchant_admin_modules_assertions.sql",
       "sha256": "c09249d73e64d06ac37cb45aec34de59abfcb1cd84ca63af4c04833079b0fafa",
       "purpose": "Fail on FORCE RLS, direct DML, API signature, workflow separation or grant drift."
+    },
+    {
+      "id": "202607220037_merchant_provider_preparation_up",
+      "direction": "up",
+      "file": "202607220037_merchant_provider_preparation.up.sql",
+      "sha256": "43d028f6d7d302dad3c843dcc086ce955ef2bb56ac99b3b80d5a50b511c2b7b8",
+      "purpose": "Add fail-closed provider preparation and cancellation jobs without activating external execution."
+    },
+    {
+      "id": "202607220037_merchant_provider_preparation_down",
+      "direction": "down",
+      "file": "202607220037_merchant_provider_preparation.down.sql",
+      "sha256": "569658a51e1bce5f3e87143d6f37b642b238ccb17967eb06eda90a1f1e2a17c2",
+      "purpose": "Remove only migration-037 provider preparation objects during disposable rollback rehearsal."
+    },
+    {
+      "id": "202607220037_merchant_provider_preparation_assertions",
+      "direction": "verify",
+      "file": "202607220037_merchant_provider_preparation_assertions.sql",
+      "sha256": "fee8c7bee14f97ac657227b81a05fd6dd63094d742e513d4b3ca766f851e3c31",
+      "purpose": "Fail on provider job RLS, grants, false-success states, missing readiness authority or workflow escalation."
     }
   ]
 }

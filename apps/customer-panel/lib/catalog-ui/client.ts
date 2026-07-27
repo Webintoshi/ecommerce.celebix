@@ -171,7 +171,7 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       }));
     },
 
-    async listProducts(input: Readonly<{ status?: Exclude<ProductStatus, "archived">; cursor?: string }> = {}): Promise<ProductListResult> {
+    async listProducts(input: Readonly<{ status?: Exclude<ProductStatus, "archived">; cursor?: string }> = {}, signal?: AbortSignal): Promise<ProductListResult> {
       if (input.cursor !== undefined && !CURSOR.test(input.cursor)) throw new TypeError("catalog_client_invalid");
       if (input.status !== undefined && input.status !== "draft" && input.status !== "active") {
         throw new TypeError("catalog_client_invalid");
@@ -183,6 +183,7 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
         method: "GET",
         credentials: "same-origin",
         cache: "no-store",
+        ...(signal ? { signal } : {}),
       }));
       if (body === null || !Array.isArray(body.items)) throw new CatalogApiError("unavailable", 503);
       const items = Object.freeze(body.items.map(parseProduct));
@@ -192,11 +193,12 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       return Object.freeze({ items, ...(body.nextCursor === undefined ? {} : { nextCursor: body.nextCursor }) });
     },
 
-    async getProduct(id: string): Promise<ProductDetailResult> {
+    async getProduct(id: string, signal?: AbortSignal): Promise<ProductDetailResult> {
       const body = record(await request(`/api/catalog/products/${productId(id)}`, {
         method: "GET",
         credentials: "same-origin",
         cache: "no-store",
+        ...(signal ? { signal } : {}),
       }));
       if (body === null || !Array.isArray(body.variants)) throw new CatalogApiError("unavailable", 503);
       return Object.freeze({ product: parseProduct(body.product), variants: Object.freeze(body.variants.map(parseProductVariant)) });

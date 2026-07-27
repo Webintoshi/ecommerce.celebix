@@ -37,6 +37,18 @@ const cases = [
   ["editor", "configuration.manage", false],
   ["analyst", "marketing.read", true],
   ["admin", "integrations.manage", true],
+  ["store_owner", "inventory.manage", true],
+  ["admin", "pricing.manage", true],
+  ["editor", "inventory.read", true],
+  ["editor", "inventory.manage", true],
+  ["editor", "purchasing.read", true],
+  ["editor", "purchasing.manage", true],
+  ["editor", "pricing.read", true],
+  ["editor", "pricing.manage", false],
+  ["analyst", "inventory.read", true],
+  ["analyst", "purchasing.read", true],
+  ["analyst", "pricing.read", true],
+  ["analyst", "purchasing.manage", false],
 ] as const;
 
 test("enforces the exact merchant order action matrix", () => {
@@ -54,6 +66,7 @@ test("denies unknown merchant actions", () => {
 
 test("exports the exact immutable merchant action list", () => {
   assert.deepEqual(MERCHANT_ACTIONS, [
+    "analytics.read",
     "orders.read",
     "orders.manage",
     "orders.fulfill",
@@ -84,6 +97,12 @@ test("exports the exact immutable merchant action list", () => {
     "configuration.archive",
     "integrations.read",
     "integrations.manage",
+    "inventory.read",
+    "inventory.manage",
+    "purchasing.read",
+    "purchasing.manage",
+    "pricing.read",
+    "pricing.manage",
   ]);
   assert.equal(Object.isFrozen(MERCHANT_ACTIONS), true);
 });
@@ -92,4 +111,11 @@ test("cannot mutate the frozen merchant action root value", () => {
   assert.throws(() => {
     (MERCHANT_ACTIONS as unknown as string[]).push("orders.delete");
   }, TypeError);
+});
+
+test("analytics is readable by every merchant role and never mutable", () => {
+  for (const role of ["store_owner", "admin", "editor", "analyst"] as const) {
+    assert.equal(isMerchantActionAllowed(role, "analytics.read" as never), true);
+  }
+  assert.equal(MERCHANT_ACTIONS.some((action) => action.startsWith("analytics.") && action !== "analytics.read"), false);
 });

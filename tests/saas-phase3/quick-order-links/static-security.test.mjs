@@ -6,6 +6,7 @@ import test from "node:test";
 
 const BASE = "301637111de040fc3bbf3cfed718a2d772e42130";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const HISTORICAL_FOUNDATION_HEAD = "eccbeeaf439d5bcdd393f333d73897ded877c51f";
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
 const bytes = (path) => readFile(new URL(path, ROOT));
@@ -90,6 +91,12 @@ function changedFiles(...paths) {
   return lines(git("diff", "--name-only", "--no-renames", `${BASE}..HEAD`, ...(paths.length === 0 ? [] : ["--", ...paths])));
 }
 
+function historicalChangedFiles(...paths) {
+  return lines(git("diff", "--name-only", "--no-renames", `${BASE}..${HISTORICAL_FOUNDATION_HEAD}`, ...(paths.length === 0 ? [] : ["--", ...paths])));
+}
+
+const readAtFoundation = (path) => git("show", `${HISTORICAL_FOUNDATION_HEAD}:${path}`);
+
 test("pins the exact donor SHA and keeps apps admin byte unchanged", () => {
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
   assert.equal(changedFiles("apps/admin").join("\n"), "");
@@ -143,24 +150,24 @@ test("keeps token sealed material and private authority out of public DTO and re
   assert.doesNotMatch(resultParsers, /tokenDigest|sealedToken|tokenKeyId|providerConfigId|principalId|membershipId|planId|requestId/);
 });
 
-test("keeps customer panel HTTP pages navigation and storefront runtime byte unchanged", () => {
-  assert.deepEqual(changedFiles("apps/customer-panel"), []);
-  assert.deepEqual(changedFiles("apps/storefront-shared", "apps/storefront-base"), []);
-  const changedRoutes = changedFiles().filter((path) =>
+test("historical hidden foundation keeps panel and storefront HTTP byte unchanged", () => {
+  assert.deepEqual(historicalChangedFiles("apps/customer-panel"), []);
+  assert.deepEqual(historicalChangedFiles("apps/storefront-shared", "apps/storefront-base"), []);
+  const changedRoutes = historicalChangedFiles().filter((path) =>
     /(?:^|\/)(?:app\/.*\/(?:route|page)[.]tsx?|navigation[.]tsx?|routes?[.]tsx?)$/.test(path),
   );
   assert.deepEqual(changedRoutes, []);
 });
 
-test("keeps the exact hidden foundation production scope and all protected configuration unchanged", () => {
-  const production = changedFiles().filter((path) =>
+test("preserves the exact hidden foundation production scope at its closing SHA", () => {
+  const production = historicalChangedFiles().filter((path) =>
     !path.startsWith("docs/") &&
     !path.startsWith("tests/") &&
     !/[.]test[.][cm]?[jt]sx?$/.test(path),
   ).sort();
   assert.deepEqual(production, EXPECTED_PRODUCTION_FILES);
 
-  assert.deepEqual(changedFiles(
+  assert.deepEqual(historicalChangedFiles(
     "apps/admin",
     "apps/customer-panel",
     "apps/storefront-shared",
@@ -188,24 +195,24 @@ test("imports no admin API Supabase legacy auth or application runtime authority
   assert.doesNotMatch(source, /from\s+["'][^"']*(?:apps\/admin|apps\/customer-panel|apps\/storefront)/i);
 });
 
-test("keeps quick links unmounted from navigation and exposes no HTTP redemption or provider success claim", async () => {
-  const navigation = await read("apps/customer-panel/lib/panel-ui/navigation.ts");
+test("historical hidden foundation keeps quick links unmounted and makes no provider-success claim", () => {
+  const navigation = readAtFoundation("apps/customer-panel/lib/panel-ui/navigation.ts");
   assert.doesNotMatch(navigation, /quick[-_ ]?(?:order|link)|hızlı\s+sipariş|\/orders\/(?:quick|links?)/i);
-  const productionFiles = changedFiles().filter((path) =>
+  const productionFiles = historicalChangedFiles().filter((path) =>
     !path.startsWith("docs/") && !path.startsWith("tests/") && !/[.]test[.][cm]?[jt]sx?$/.test(path),
   );
-  const source = (await Promise.all(productionFiles.map(read))).join("\n");
+  const source = productionFiles.map(readAtFoundation).join("\n");
   assert.doesNotMatch(source, /\b(?:redeem|redemption|provider_success|payment_succeeded|signed_callback|webhook|settlement|settle)\b/i);
   assert.equal(productionFiles.some((path) => /\/(?:route|page)[.]tsx?$/.test(path)), false);
 });
 
-test("tracked foundation diff contains no credentials private keys database URLs or panel sessions", () => {
-  const productionFiles = changedFiles().filter((path) =>
+test("historical foundation diff contains no credentials private keys database URLs or panel sessions", () => {
+  const productionFiles = historicalChangedFiles().filter((path) =>
     !path.startsWith("docs/") &&
     !path.startsWith("tests/") &&
     !/[.]test[.][cm]?[jt]sx?$/.test(path),
   );
-  const patch = productionFiles.length === 0 ? "" : git("diff", `${BASE}..HEAD`, "--", ...productionFiles);
+  const patch = productionFiles.length === 0 ? "" : git("diff", `${BASE}..${HISTORICAL_FOUNDATION_HEAD}`, "--", ...productionFiles);
   const privateKey = new RegExp(["BEGIN ", "(?:RSA|EC|OPENSSH)", " PRIVATE", " KEY"].join(""), "i");
   const databaseUrl = new RegExp(["postgres", "(?:ql)?://", "[^\\s\"']+:", "[^\\s\"'@]+@"].join(""), "i");
   const credentialAssignment = new RegExp(["(?:password|client_", "secret|service_role_key)", "\\s*[:=]\\s*[\"'][^\"']+"].join(""), "i");

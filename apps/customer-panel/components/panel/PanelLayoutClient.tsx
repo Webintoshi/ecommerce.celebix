@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { PanelChromeModel } from "@/lib/panel-ui/chrome-model";
+import type { PanelClientChromeModel } from "@/lib/panel-ui/client-chrome-model";
 import { getPanelRoutePresentation } from "@/lib/panel-ui/navigation";
 import { PanelMobileDock } from "./PanelMobileDock";
 import { PanelSidebar } from "./PanelSidebar";
@@ -18,9 +18,10 @@ import {
   PanelTopbarChromeProvider,
   type PanelTopbarChromeState,
 } from "./PanelTopbarChrome";
+import { PanelTopbarUtilities } from "./PanelTopbarUtilities";
 import styles from "./panel-shell.module.css";
 
-const ModelContext = createContext<PanelChromeModel | null>(null);
+const ModelContext = createContext<PanelClientChromeModel | null>(null);
 
 type PublishedPanelTopbarChrome = Readonly<{
   pathname: string;
@@ -28,13 +29,13 @@ type PublishedPanelTopbarChrome = Readonly<{
   title: string;
 }>;
 
-export function usePanelChromeModel(): PanelChromeModel {
+export function usePanelChromeModel(): PanelClientChromeModel {
   const model = useContext(ModelContext);
   if (!model) throw new Error("panel_chrome_model_unavailable");
   return model;
 }
 
-export function PanelLayoutClient({ model, children }: { model: PanelChromeModel; children: ReactNode }) {
+export function PanelLayoutClient({ model, children }: { model: PanelClientChromeModel; children: ReactNode }) {
   const [chrome, setChrome] = useState<PublishedPanelTopbarChrome | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerPresent, setDrawerPresent] = useState(false);
@@ -131,11 +132,14 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
         />
         <div className={styles.workspace}>
           <header className={styles.desktopTopbar}>
-            <div>
-              <strong>{activeChrome?.title ?? routePresentation.title}</strong>
-              <span>{activeChrome?.subtitle}</span>
+            <div className={styles.desktopTopbarHeading}>
+              <span className={styles.desktopTopbarEyebrow}>ORTAK ADMİN</span>
+              <strong className={styles.desktopTopbarTitle}>{activeChrome?.title ?? routePresentation.title}</strong>
             </div>
-            <div id="panel-topbar-actions" />
+            <div className={styles.desktopTopbarCommands}>
+              <div id="panel-topbar-actions" />
+              <PanelTopbarUtilities />
+            </div>
           </header>
           <PanelTopbarChromeProvider onChange={handleChromeChange}>
             <main ref={desktopFocusRef} className={styles.content} tabIndex={-1}>{children}</main>

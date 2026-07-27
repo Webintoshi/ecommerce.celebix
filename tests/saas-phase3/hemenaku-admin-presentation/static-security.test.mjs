@@ -14,6 +14,153 @@ const git = (...args) => execFileSync("git", args, {
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
 const readBytes = (path) => readFile(new URL(path, ROOT));
 
+export const INVENTORY_PRICING_EXPECTED_ARTIFACTS = Object.freeze([
+  "apps/customer-panel/app/api/inventory/[...path]/route.ts",
+  "apps/customer-panel/app/api/pricing/[...path]/route.ts",
+  "apps/customer-panel/app/products/barcode-labels/page.tsx",
+  "apps/customer-panel/app/products/inventory-counts/[countId]/page.tsx",
+  "apps/customer-panel/app/products/inventory-counts/new/page.tsx",
+  "apps/customer-panel/app/products/inventory-counts/page.tsx",
+  "apps/customer-panel/app/products/price-lists/[priceListId]/page.tsx",
+  "apps/customer-panel/app/products/price-lists/new/page.tsx",
+  "apps/customer-panel/app/products/price-lists/page.tsx",
+  "apps/customer-panel/app/products/purchasing/[purchaseOrderId]/page.tsx",
+  "apps/customer-panel/app/products/purchasing/new/page.tsx",
+  "apps/customer-panel/app/products/purchasing/page.tsx",
+  "apps/customer-panel/app/products/tags/[resourceId]/edit/page.tsx",
+  "apps/customer-panel/app/products/tags/new/page.tsx",
+  "apps/customer-panel/app/products/tags/page.tsx",
+  "apps/customer-panel/app/products/transfers/[transferId]/page.tsx",
+  "apps/customer-panel/app/products/transfers/new/page.tsx",
+  "apps/customer-panel/app/products/transfers/page.tsx",
+  "apps/customer-panel/components/catalog-admin/BarcodeLabelConsole.tsx",
+  "apps/customer-panel/components/inventory/InventoryCountConsole.tsx",
+  "apps/customer-panel/components/inventory/InventoryListState.tsx",
+  "apps/customer-panel/components/inventory/InventoryLocationConsole.tsx",
+  "apps/customer-panel/components/inventory/InventoryOperationForm.tsx",
+  "apps/customer-panel/components/inventory/InventoryTransferConsole.tsx",
+  "apps/customer-panel/components/inventory/PurchasingConsole.tsx",
+  "apps/customer-panel/components/inventory/inventory-console.module.css",
+  "apps/customer-panel/components/pricing/PriceListConsole.tsx",
+  "apps/customer-panel/components/pricing/price-list-console.module.css",
+  "apps/customer-panel/lib/catalog-ui/client.test.ts",
+  "apps/customer-panel/lib/catalog-ui/client.ts",
+  "apps/customer-panel/lib/catalog-ui/variant-choices.test.ts",
+  "apps/customer-panel/lib/catalog-ui/variant-choices.ts",
+  "apps/customer-panel/lib/inventory-http/default.ts",
+  "apps/customer-panel/lib/inventory-http/handler.test.ts",
+  "apps/customer-panel/lib/inventory-http/handler.ts",
+  "apps/customer-panel/lib/inventory-http/request-authority.ts",
+  "apps/customer-panel/lib/inventory-http/request-input.ts",
+  "apps/customer-panel/lib/inventory-operation-forms.test.ts",
+  "apps/customer-panel/lib/inventory-ui/client.test.ts",
+  "apps/customer-panel/lib/inventory-ui/client.ts",
+  "apps/customer-panel/lib/inventory-ui/console-controller.ts",
+  "apps/customer-panel/lib/inventory-ui/form-choices.ts",
+  "apps/customer-panel/lib/inventory-ui/form-intent.ts",
+  "apps/customer-panel/lib/pricing-http/default.ts",
+  "apps/customer-panel/lib/pricing-http/handler.test.ts",
+  "apps/customer-panel/lib/pricing-http/handler.ts",
+  "apps/customer-panel/lib/pricing-ui/client.test.ts",
+  "apps/customer-panel/lib/pricing-ui/client.ts",
+  "apps/customer-panel/lib/server-inventory/runtime.test.ts",
+  "apps/customer-panel/lib/server-inventory/runtime.ts",
+  "apps/customer-panel/lib/server-panel-access/postgres-runtime.ts",
+  "apps/customer-panel/lib/server-pricing/runtime.test.ts",
+  "apps/customer-panel/lib/server-pricing/runtime.ts",
+  "apps/owner/scripts/sql/saas/202607220042_catalog_product_tags.down.sql",
+  "apps/owner/scripts/sql/saas/202607220042_catalog_product_tags.up.sql",
+  "apps/owner/scripts/sql/saas/202607220042_catalog_product_tags_assertions.sql",
+  "apps/owner/scripts/sql/saas/202607220043_inventory_purchasing.down.sql",
+  "apps/owner/scripts/sql/saas/202607220043_inventory_purchasing.up.sql",
+  "apps/owner/scripts/sql/saas/202607220043_inventory_purchasing_assertions.sql",
+  "apps/owner/scripts/sql/saas/202607220044_inventory_counts_transfers.down.sql",
+  "apps/owner/scripts/sql/saas/202607220044_inventory_counts_transfers.up.sql",
+  "apps/owner/scripts/sql/saas/202607220044_inventory_counts_transfers_assertions.sql",
+  "apps/owner/scripts/sql/saas/202607220045_price_lists.down.sql",
+  "apps/owner/scripts/sql/saas/202607220045_price_lists.up.sql",
+  "apps/owner/scripts/sql/saas/202607220045_price_lists_assertions.sql",
+  "apps/owner/scripts/sql/saas/202607230046_inventory_locations.down.sql",
+  "apps/owner/scripts/sql/saas/202607230046_inventory_locations.up.sql",
+  "apps/owner/scripts/sql/saas/202607230046_inventory_locations_assertions.sql",
+  "apps/owner/scripts/sql/saas/202607230047_pricing_preview.down.sql",
+  "apps/owner/scripts/sql/saas/202607230047_pricing_preview.up.sql",
+  "apps/owner/scripts/sql/saas/202607230047_pricing_preview_assertions.sql",
+  "apps/owner/scripts/sql/saas/phase3h-merchant-completion-manifest.json",
+  "packages/saas-contracts/src/catalog-admin/barcode-labels.ts",
+  "packages/saas-contracts/src/inventory/index.ts",
+  "packages/saas-contracts/src/inventory/inventory.test.ts",
+  "packages/saas-contracts/src/inventory/types.ts",
+  "packages/saas-contracts/src/inventory/validation.ts",
+  "packages/saas-contracts/src/pricing/index.ts",
+  "packages/saas-contracts/src/pricing/pricing.test.ts",
+  "packages/saas-contracts/src/pricing/types.ts",
+  "packages/saas-contracts/src/pricing/validation.ts",
+  "packages/saas-data/src/inventory/canonical.ts",
+  "packages/saas-data/src/inventory/errors.ts",
+  "packages/saas-data/src/inventory/index.ts",
+  "packages/saas-data/src/inventory/repository.test.ts",
+  "packages/saas-data/src/inventory/repository.ts",
+  "packages/saas-data/src/inventory/types.ts",
+  "packages/saas-data/src/inventory/validation.ts",
+  "packages/saas-data/src/pricing/canonical.ts",
+  "packages/saas-data/src/pricing/errors.ts",
+  "packages/saas-data/src/pricing/index.ts",
+  "packages/saas-data/src/pricing/repository.test.ts",
+  "packages/saas-data/src/pricing/repository.ts",
+  "packages/saas-data/src/pricing/types.ts",
+  "packages/saas-data/src/pricing/validation.ts",
+  "tests/saas-phase3/catalog-product-tags/postgres-harness.mjs",
+  "tests/saas-phase3/inventory-counts-transfers/postgres-harness.mjs",
+  "tests/saas-phase3/inventory-purchasing/postgres-harness.mjs",
+  "tests/saas-phase3/price-lists/postgres-harness.mjs",
+  "apps/customer-panel/components/catalog-admin/CatalogResourceConsole.tsx",
+  "apps/customer-panel/components/catalog-admin/CatalogResourceEditor.tsx",
+  "apps/customer-panel/lib/catalog-admin-console.test.ts",
+  "apps/customer-panel/lib/catalog-admin-ui/barcode-label-projection.test.ts",
+  "apps/customer-panel/lib/catalog-admin-ui/barcode-label-projection.ts",
+  "apps/customer-panel/lib/catalog-admin-ui/resource-route.ts",
+  "apps/customer-panel/lib/catalog-page-access.test.ts",
+  "apps/customer-panel/lib/catalog-page-access.ts",
+  "apps/customer-panel/lib/catalog-page-guard.integration.test.ts",
+  "apps/customer-panel/lib/inventory-console.test.ts",
+  "apps/customer-panel/lib/inventory-form-choices.test.ts",
+  "apps/customer-panel/lib/inventory-form-intent.test.ts",
+  "apps/customer-panel/lib/panel-ui/navigation.test.ts",
+  "apps/customer-panel/lib/panel-ui/navigation.ts",
+  "apps/customer-panel/lib/price-list-console.test.ts",
+  "apps/customer-panel/lib/routes.test.ts",
+  "apps/customer-panel/lib/server-access.ts",
+  "apps/customer-panel/lib/server-panel-access/decision-policy.ts",
+  "apps/customer-panel/lib/server-panel-access/decision.ts",
+  "packages/saas-contracts/src/authorization/actions.test.ts",
+  "packages/saas-contracts/src/authorization/actions.ts",
+  "packages/saas-contracts/src/catalog-admin/catalog-admin.test.ts",
+  "packages/saas-contracts/src/catalog-admin/index.ts",
+  "packages/saas-contracts/src/catalog-admin/types.ts",
+  "packages/saas-contracts/src/contracts.test.ts",
+  "packages/saas-contracts/src/index.ts",
+  "packages/saas-data/src/index.ts",
+  "tests/saas-phase3/advanced-seo/postgres-harness.mjs",
+  "tests/saas-phase3/advanced-seo/static-security.test.mjs",
+  "tests/saas-phase3/catalog-import-previews/postgres-harness.mjs",
+  "tests/saas-phase3/catalog-import-previews/static-security.test.mjs",
+  "tests/saas-phase3/catalog-product-tags/static-security.test.mjs",
+  "tests/saas-phase3/hemenaku-admin-presentation/inventory-pricing-completeness.test.mjs",
+  "tests/saas-phase3/hemenaku-admin-presentation/static-security.test.mjs",
+  "tests/saas-phase3/inventory-counts-transfers/static-security.test.mjs",
+  "tests/saas-phase3/inventory-locations/postgres-harness.mjs",
+  "tests/saas-phase3/inventory-locations/static-security.test.mjs",
+  "tests/saas-phase3/inventory-purchasing/static-security.test.mjs",
+  "tests/saas-phase3/merchant-analytics/static-security.test.mjs",
+  "tests/saas-phase3/price-lists/static-security.test.mjs",
+  "tests/saas-phase3/pricing-preview/postgres-harness.mjs",
+  "tests/saas-phase3/pricing-preview/static-security.test.mjs",
+  "tests/saas-phase3/shared-merchant-catalog-dashboard/static-security.test.mjs",
+  "tests/saas-phase3/typed-storefront-settings/postgres-harness.mjs",
+  "tests/saas-phase3/typed-storefront-settings/static-security.test.mjs"
+]);
+
 test("pins the donor and leaves apps admin byte unchanged", () => {
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
   assert.equal(git("diff", "--name-only", `${BASE}...HEAD`, "--", "apps/admin"), "");
@@ -43,6 +190,45 @@ test("ports the exact donor brand asset and core visual tokens", async () => {
   assert.match(css, /--panel-touch-target:\s*48px/i);
 });
 
+test("browser acceptance serves both Celebix logos from immutable local target assets", async () => {
+  for (const name of ["celebix-koyu-logo", "celebix-beyaz-logo"]) {
+    const route = await read(`tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/Logo/${name}.svg/route.ts`);
+    assert.match(route, new RegExp(`apps/customer-panel/public/Logo/${name}[.]svg`));
+    assert.match(route, /readFile/);
+    assert.match(route, /resolve\(\s*process[.]cwd\(\)/);
+    assert.doesNotMatch(route, /new URL|fileURLToPath/);
+    assert.doesNotMatch(route, /https?:\/\//);
+  }
+});
+
+test("browser acceptance mounts the real Toshi workspace behind the fixture panel shell", async () => {
+  const page = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/toshi/page.tsx");
+  assert.match(page, /import \{ ToshiWorkspace \} from "@\/components\/toshi\/ToshiWorkspace"/);
+  assert.match(page, /import \{ PanelShell \} from "@\/components\/panel\/PanelShell"/);
+  assert.match(page, /<PanelShell model=\{MODEL\}>[\s\S]*?<ToshiWorkspace \/>[\s\S]*?<\/PanelShell>/);
+  assert.match(page, /storeSlug:\s*"toshi-browser-test-store"/);
+  assert.doesNotMatch(page, /fetch\(|document[.]cookie|localStorage|sessionStorage|x-(?:tenant|store)-id|\/api\/admin|https?:\/\//i);
+});
+
+test("Toshi source and fixture surfaces contain no secret or browser authority channel", async () => {
+  const paths = [
+    "apps/customer-panel/app/toshi/page.tsx",
+    "apps/customer-panel/components/toshi/ToshiAssistant.tsx",
+    "apps/customer-panel/components/toshi/ToshiDrawer.tsx",
+    "apps/customer-panel/components/toshi/ToshiWorkspace.tsx",
+    "apps/customer-panel/lib/toshi-local/client.ts",
+    "apps/customer-panel/lib/toshi-local/intent.ts",
+    "apps/customer-panel/lib/toshi-local/response.ts",
+    "apps/customer-panel/lib/toshi-local/types.ts",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/toshi/page.tsx",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/[...slug]/route.ts",
+  ];
+  const combined = (await Promise.all(paths.map(read))).join("\n");
+  assert.doesNotMatch(combined, /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|sk-[A-Za-z0-9_-]+|postgres(?:ql)?:\/\/|v1[.]panel[.]|pb1[.]|bs1[.]/i);
+  assert.doesNotMatch(combined, /document[.]cookie|localStorage|sessionStorage|x-(?:tenant|store)-id|x-celebix|\/api\/admin|@supabase/i);
+  assert.doesNotMatch(combined, /(?:authorization|cookie)\s*:/i);
+});
+
 test("exports donor-compatible page primitives and truthful dashboard geometry", async () => {
   const source = await read("apps/customer-panel/components/panel/PanelPageShell.tsx");
   for (const name of ["PanelPageShell", "PanelPageHeader", "PanelPanel", "PanelToolbar", "PanelBadge", "PanelStatusBadge", "PanelMetricCard", "PanelDataTable", "PanelLoadingState", "PanelActionButton", "PanelEmptyState", "PanelSkeletonBlock"]) {
@@ -52,24 +238,27 @@ test("exports donor-compatible page primitives and truthful dashboard geometry",
   const model = await read("apps/customer-panel/lib/panel-ui/dashboard-model.ts");
   const styles = await read("apps/customer-panel/components/dashboard/panel-dashboard.module.css");
   assert.match(dashboard, /createMerchantDashboardViewModel/);
-  assert.match(dashboard, /<ResponsiveContainer width="100%" height=\{280\}>/);
-  assert.match(dashboard, /<BarChart[\s\S]*?data=\{dashboard[.]catalog[.]value[.]chart\}[\s\S]*?accessibilityLayer/);
-  assert.match(dashboard, /<YAxis allowDecimals=\{false\} \/>/);
-  assert.match(dashboard, /<Bar dataKey="value" fill="#FF6A00" radius=\{\[8, 8, 0, 0\]\} \/>/);
-  assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length >= 2, true);
-  assert.match(model, /analytics:\s*analyticsView/);
-  assert.match(model, /loadMerchantDashboardSummaries/);
-  assert.match(dashboard, /loadMerchantDashboardSummaries\(catalogApi, orderApi, analyticsApi\)/);
+  assert.match(dashboard, /<ResponsiveContainer width="100%" height=\{330\}>/);
+  assert.match(dashboard, /<LineChart data=\{analytics[.]series\} accessibilityLayer>/);
+  assert.match(dashboard, /<Line[\s\S]*?dataKey="revenueCents"[\s\S]*?stroke="#FE6100"/);
+  assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length, 0);
+  assert.match(model, /function createAnalyticsDashboardViewModel/);
+  assert.match(model, /dashboard[.]topProducts[.]map/);
+  assert.match(model, /averageOrderValueCents:\s*dashboard[.]orders[.]paid === 0/);
+  assert.match(model, /createMerchantDashboardSliceLoader/);
+  assert.match(dashboard, /createMerchantDashboardSliceLoader\(/);
+  assert.match(dashboard, /analyticsApi[.]dashboard\(analyticsPeriod[.]current\)/);
+  assert.doesNotMatch(`${model}\n${dashboard}`, /\b(?:visitors?|visitorCount|devices?|deviceBreakdown|trafficSources?|trafficBreakdown)\b/i);
   assert.match(dashboard, /abandonedCartApi[.]getSummary/);
   assert.match(dashboard, /customerApi[.]summary/);
-  assert.match(dashboard, /dashboard\.orders\.value\.totalOrders/);
-  assert.match(dashboard, /dashboard\.carts\.value\.abandoned/);
-  assert.match(dashboard, /dashboard\.customers\.value\.active/);
-  assert.match(dashboard, /<LineChart data=\{dashboard[.]analytics[.]value[.]pageviewsSeries\}/);
-  assert.doesNotMatch(dashboard, /AreaChart|dataKey="(?:revenue|orders|customers|conversion)"/i);
-  assert.doesNotMatch(dashboard, /href=[^\n]*analytics/i);
+  assert.match(dashboard, /dashboard[.]orders[.]value[.]pendingOrders/);
+  assert.match(dashboard, /analytics[.]topProducts[.]map/);
+  assert.match(dashboard, /analytics[.]growth[.]lowStockVariants/);
+  assert.doesNotMatch(dashboard, /conversion|sessions?|visitors?/i);
+  assert.match(dashboard, /<PanelActionButton href="\/analytics">Analitiği görüntüle<\/PanelActionButton>/);
   assert.doesNotMatch(dashboard, /TenantContext|storeId|tenantId|principal|membershipId|planId|requestId/);
-  assert.match(styles, /[.]metricTabs\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /[.]kpiRail\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(180px, 1fr\)\)/);
+  assert.match(styles, /[.]insightGrid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 2fr\) minmax\(280px, 1fr\)/);
 });
 
 test("product list ports donor presentation while preserving target commands", async () => {
@@ -90,7 +279,7 @@ test("client presentation contains no private authority or donor runtime", async
   const files = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter((path) =>
     /apps\/customer-panel\/.+\.(ts|tsx)$/.test(path) &&
     !/\.test\.[cm]?[jt]sx?$/.test(path) &&
-    (path.includes("/components/") || path.includes("/catalog-ui/") || path.includes("/order-ui/") || path.includes("/panel-ui/")),
+    (path.includes("/components/") || path.includes("/catalog-ui/") || path.includes("/order-ui/") || path.includes("/panel-ui/") || path.includes("/merchant-admin-ui/")),
   );
   const source = (await Promise.all(files.map(read))).join("\n");
   assert.doesNotMatch(source, /@supabase|getAdminAuthContext|getBrowserSupabaseClient|STORE_RUNTIME|store-info-context|\/api\/admin\//i);

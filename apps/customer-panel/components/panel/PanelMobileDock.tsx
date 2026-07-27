@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Menu, Package } from "lucide-react";
+import { Home, Menu, Package, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import type { RefObject } from "react";
 import { isPanelNavigationPathActive } from "@/lib/panel-ui/navigation";
@@ -14,6 +14,7 @@ export function PanelMobileDock(props: {
 }) {
   const items = [
     { href: "/" as const, label: "Özet", Icon: Home },
+    { href: "/orders" as const, label: "Siparişler", Icon: ShoppingBag },
     { href: "/products" as const, label: "Ürünler", Icon: Package },
   ];
 

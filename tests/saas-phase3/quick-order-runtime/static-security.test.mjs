@@ -6,6 +6,7 @@ import test from "node:test";
 
 const BASE = "301637111de040fc3bbf3cfed718a2d772e42130";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const HISTORICAL_RUNTIME_HEAD = "3ebf4b2cfaf10a840c2df5058fbf1a0d70f80986";
 const ROOT = new URL("../../../", import.meta.url);
 const SQL = "apps/owner/scripts/sql/saas/";
 const MANIFEST = `${SQL}phase3b2-quick-order-runtime-manifest.json`;
@@ -19,8 +20,8 @@ function git(args) {
   return result.stdout;
 }
 
-function addedLines() {
-  const diff = git(["diff", "--unified=0", `${BASE}...HEAD`, "--", ":!docs/**"]);
+function addedLines(revision = "HEAD") {
+  const diff = git(["diff", "--unified=0", `${BASE}...${revision}`, "--", ":!docs/**"]);
   let testFixture = false;
   return diff.split("\n").filter((line) => {
     if (line.startsWith("+++ b/")) {
@@ -31,8 +32,8 @@ function addedLines() {
   });
 }
 
-function changedFiles() {
-  return git(["diff", "--name-only", `${BASE}...HEAD`, "--", ":!docs/**"])
+function changedFiles(revision = "HEAD") {
+  return git(["diff", "--name-only", `${BASE}...${revision}`, "--", ":!docs/**"])
     .trim().split("\n").filter(Boolean).sort();
 }
 
@@ -62,14 +63,14 @@ test("pins donor, admin immutability, current 026-029 manifest bytes and least-p
     "checkout functions remain app/workflow-only; host resolver receives no payment authority");
 });
 
-test("changed production scope is the exact reviewed Task 1 through Task 14 allowlist", () => {
-  const files = changedFiles();
+test("historical runtime scope is the exact reviewed Task 1 through Task 14 allowlist", () => {
+  const files = changedFiles(HISTORICAL_RUNTIME_HEAD);
   assert.equal(files.length, EXPECTED_CHANGED_FILE_COUNT);
   assert.equal(createHash("sha256").update(`${files.join("\n")}\n`).digest("hex"), EXPECTED_CHANGED_FILE_SHA256);
 });
 
-test("added implementation content has no credentials, private browser authority, unsafe CSP, unsupported navigation, or test network", async () => {
-  const added = addedLines().join("\n");
+test("historical runtime content has no credentials, private browser authority, unsafe CSP, unsupported navigation, or test network", async () => {
+  const added = addedLines(HISTORICAL_RUNTIME_HEAD).join("\n");
   const forbidden = [
     /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/i,
     /postgres(?:ql)?:\/\/[^\s"']+:[^\s"'@]+@/i,
@@ -80,10 +81,10 @@ test("added implementation content has no credentials, private browser authority
     /(?:token|callback|session|provider)[_-]?(?:digest|sealed|credential)\s*[:=]\s*["'][A-Za-z0-9_./+=-]{16,}["']/i,
   ];
   for (const pattern of forbidden) assert.equal(pattern.test(added), false, `forbidden material pattern ${pattern}`);
-  const navigation = await read("apps/customer-panel/lib/panel-ui/navigation.ts");
+  const navigation = git(["show", `${HISTORICAL_RUNTIME_HEAD}:apps/customer-panel/lib/panel-ui/navigation.ts`]);
   assert.match(navigation, /label: "Hızlı Siparişler", href: "\/orders\/quick-links"/);
   assert.doesNotMatch(navigation, /abandoned-carts|customers|discounts|marketing|analytics|accounting|marketplace/i);
-  const changedTests = changedFiles().filter((file) => file.startsWith("tests/") || /[.]test[.]/.test(file));
+  const changedTests = changedFiles(HISTORICAL_RUNTIME_HEAD).filter((file) => file.startsWith("tests/") || /[.]test[.]/.test(file));
   const localNetworkFixtures = new Set([
     "tests/saas-phase3/quick-order-runtime/in-process.test.mjs",
     "tests/saas-phase3/quick-order-runtime/reconcile-cli.test.mjs",

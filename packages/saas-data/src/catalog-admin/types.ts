@@ -1,17 +1,22 @@
 import type {
   CatalogAdminImportJob,
+  CatalogAdminImportRow,
   CatalogAdminJson,
   CatalogAdminMutationResult,
   CatalogAdminResource,
   CatalogAdminResourceKind,
+  CatalogImportFormat,
+  CatalogImportPreview,
   ProductReview,
   ProductReviewStatus,
   TenantContext,
 } from "@celebix/saas-contracts";
+export type { CatalogAdminImportRow } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 
 export interface CatalogAdminAuthorityInput { readonly tenantContext: TenantContext; readonly now: Date }
 export interface ListCatalogAdminResourcesInput extends CatalogAdminAuthorityInput { readonly kind: CatalogAdminResourceKind }
+export interface GetCatalogAdminResourceInput extends ListCatalogAdminResourcesInput { readonly resourceId: string }
 export interface SaveCatalogAdminResourceInput extends ListCatalogAdminResourcesInput {
   readonly operationId: string;
   readonly resourceId?: string;
@@ -25,7 +30,6 @@ export interface SaveCatalogAdminResourceInput extends ListCatalogAdminResources
 export interface ArchiveCatalogAdminResourceInput extends CatalogAdminAuthorityInput { readonly operationId: string; readonly resourceId: string; readonly expectedVersion: number }
 export interface ListProductReviewsInput extends CatalogAdminAuthorityInput { readonly status?: ProductReviewStatus }
 export interface ModerateProductReviewInput extends CatalogAdminAuthorityInput { readonly operationId: string; readonly reviewId: string; readonly expectedVersion: number; readonly status: Exclude<ProductReviewStatus, "pending">; readonly reply?: string }
-export interface CatalogAdminImportRow { readonly title: string; readonly slug: string; readonly priceCents: number; readonly sku?: string; readonly stockQuantity: number }
 export interface ImportCatalogProductsInput extends CatalogAdminAuthorityInput { readonly operationId: string; readonly fileName: string; readonly rows: readonly CatalogAdminImportRow[] }
 export interface CatalogAdminImportVariant {
   readonly title: string;
@@ -45,8 +49,23 @@ export interface CatalogAdminImportProduct {
   readonly variants: readonly CatalogAdminImportVariant[];
 }
 export interface ImportCatalogProductsV2Input extends CatalogAdminAuthorityInput { readonly operationId: string; readonly fileName: string; readonly products: readonly CatalogAdminImportProduct[] }
+export interface PrepareCatalogImportPreviewInput extends CatalogAdminAuthorityInput {
+  readonly operationId: string;
+  readonly previewId: string;
+  readonly format: CatalogImportFormat;
+  readonly fileName: string;
+  readonly digest: string;
+  readonly rows: readonly CatalogAdminImportRow[];
+}
+export interface GetCatalogImportPreviewInput extends CatalogAdminAuthorityInput { readonly previewId: string }
+export interface CommitCatalogImportPreviewInput extends CatalogAdminAuthorityInput {
+  readonly operationId: string;
+  readonly previewId: string;
+  readonly expectedVersion: number;
+}
 export interface CatalogAdminRepository {
   listResources(input: ListCatalogAdminResourcesInput): Promise<readonly CatalogAdminResource[]>;
+  getResource(input: GetCatalogAdminResourceInput): Promise<CatalogAdminResource>;
   saveResource(input: SaveCatalogAdminResourceInput): Promise<CatalogAdminMutationResult>;
   archiveResource(input: ArchiveCatalogAdminResourceInput): Promise<CatalogAdminMutationResult>;
   listReviews(input: ListProductReviewsInput): Promise<readonly ProductReview[]>;
@@ -55,6 +74,9 @@ export interface CatalogAdminRepository {
   importProducts(input: ImportCatalogProductsInput): Promise<CatalogAdminMutationResult>;
   importProductsV2(input: ImportCatalogProductsV2Input): Promise<CatalogAdminMutationResult>;
   authorizeFeedPreview(input: CatalogAdminAuthorityInput): Promise<void>;
+  prepareImport(input: PrepareCatalogImportPreviewInput): Promise<CatalogImportPreview>;
+  getImportPreview(input: GetCatalogImportPreviewInput): Promise<CatalogImportPreview>;
+  commitImportPreview(input: CommitCatalogImportPreviewInput): Promise<CatalogAdminMutationResult>;
 }
 export interface PostgresCatalogAdminRepositoryOptions {
   readonly pool: PostgresPoolLike;

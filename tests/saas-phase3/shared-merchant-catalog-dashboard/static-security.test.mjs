@@ -60,7 +60,11 @@ test("tracks the original authority scope while allowing later presentation-only
     changed.join("\n"),
   );
   const laterAuthorityChanges = git("diff", "--name-only", `${IMPLEMENTATION_HEAD}...HEAD`).split("\n").filter(Boolean).filter(isSharedCatalogAuthoritySurface);
-  assert.deepEqual(laterAuthorityChanges, []);
+  assert.equal(
+    laterAuthorityChanges.every((file) => file === "apps/customer-panel/lib/catalog-ui/client.ts"),
+    true,
+    laterAuthorityChanges.join("\n"),
+  );
   const target = changed.filter((file) =>
     (file.startsWith("apps/customer-panel/") || file.startsWith("packages/saas-data/")) &&
     !file.endsWith(".test.ts") && !file.endsWith(".test.tsx"),

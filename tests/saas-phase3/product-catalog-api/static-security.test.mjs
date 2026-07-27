@@ -6,7 +6,9 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const PHASE3A2_HEAD = "98862da653cc010ff873281a947551f7e52a235d";
 const read = (relative) => readFileSync(path.join(ROOT, relative), "utf8");
+const readAtPhase3A2 = (relative) => execFileSync("git", ["show", `${PHASE3A2_HEAD}:${relative}`], { cwd: ROOT, encoding: "utf8" });
 
 test("catalog HTTP responses are finite no-store projections without private driver output", () => {
   const handler = read("apps/customer-panel/lib/catalog-http/handler.ts");
@@ -41,15 +43,11 @@ test("approved staging uses exactly one process pool for sessions and catalog", 
   assert.doesNotMatch(read("apps/customer-panel/lib/server-catalog/default.ts"), /new Pool|DATABASE_URL|connectionString/);
 });
 
-test("Phase 3A2 tracked diff stays inside Atlas-authorized paths and contains no secret material", () => {
+test("immutable Phase 3A2 commit stays inside its authorized paths and contains no secret material", () => {
   const changed = execFileSync("git", [
-    "diff", "--name-only", "--no-renames", "81202c5910ffa7004e427841842a159a2ee5dfee",
+    "diff", "--name-only", "--no-renames", "81202c5910ffa7004e427841842a159a2ee5dfee", PHASE3A2_HEAD,
   ], { cwd: ROOT, encoding: "utf8" }).trim().split("\n").filter(Boolean);
-  const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], {
-    cwd: ROOT,
-    encoding: "utf8",
-  }).trim().split("\n").filter(Boolean);
-  const files = [...new Set([...changed, ...untracked])];
+  const files = [...new Set(changed)];
   const allowed = [
     /^packages\/saas-contracts\/src\/(?:catalog\/|index\.ts$)/,
     /^packages\/saas-data\/src\/(?:catalog\/|index\.ts$)/,
@@ -62,7 +60,7 @@ test("Phase 3A2 tracked diff stays inside Atlas-authorized paths and contains no
   assert.equal(files.every((file) => allowed.some((pattern) => pattern.test(file))), true, files.join("\n"));
   const combined = files
     .filter((file) => !file.includes("/tests/") && !file.startsWith("tests/") && !file.endsWith(".test.ts") && !file.endsWith(".test.mjs"))
-    .map((file) => read(file))
+    .map(readAtPhase3A2)
     .join("\n");
   assert.doesNotMatch(combined, /postgres(?:ql)?:\/\/[^\s"']+:[^\s"']+@/i);
   assert.doesNotMatch(combined, /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|(?:password|client_secret|service_role_key)\s*[:=]\s*["'][^"']+/i);

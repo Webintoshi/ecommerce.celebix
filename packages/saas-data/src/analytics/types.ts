@@ -1,4 +1,4 @@
-import type { AnalyticsConnectionMutationResult, AnalyticsConnectionStatus, AnalyticsConnectionView, TenantContext } from "@celebix/saas-contracts";
+import type { AnalyticsConnectionMutationResult, AnalyticsConnectionStatus, AnalyticsConnectionView, AnalyticsDashboard, AnalyticsPeriod, TenantContext } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 
 export type AnalyticsConnectionAuthority = Readonly<{ connectionId:string; websiteId:string; hostname:string; status:AnalyticsConnectionStatus; version:number; lastVerifiedAt:string|null }>;
@@ -9,6 +9,7 @@ export type AnalyticsOutboxClaim = Readonly<{ eventId:string; leaseToken:string;
 export type AnalyticsDeliveryErrorCode = "collector_unavailable"|"collector_rejected"|"collector_response_invalid";
 
 export interface AnalyticsRepository {
+  dashboard(input:Readonly<{tenantContext:TenantContext;now:Date;period:AnalyticsPeriod}>):Promise<Readonly<AnalyticsDashboard>>;
   getConnection(input:Readonly<{tenantContext:TenantContext;now:Date}>):Promise<AnalyticsConnectionView>;
   getConnectionAuthority(input:Readonly<{tenantContext:TenantContext;now:Date}>):Promise<AnalyticsConnectionAuthority>;
   beginConnection(input:Readonly<{tenantContext:TenantContext;now:Date;operationId:string;connectionId:string;websiteId:string}>):Promise<AnalyticsPendingAuthority>;

@@ -1,0 +1,15 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DROP FUNCTION IF EXISTS saas.merchant_provider_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text);
+DROP FUNCTION IF EXISTS saas.merchant_provider_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text);
+DROP FUNCTION IF EXISTS saas.merchant_provider_prepare(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text);
+DROP FUNCTION IF EXISTS saas.merchant_provider_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text);
+DROP FUNCTION IF EXISTS saas.merchant_provider_job_mutation_projection(uuid,uuid);
+DROP FUNCTION IF EXISTS saas.merchant_provider_job_projection(uuid,uuid);
+DROP FUNCTION IF EXISTS saas.merchant_provider_config_ready(text,jsonb);
+DROP FUNCTION IF EXISTS saas.merchant_provider_required_text(jsonb,text);
+DROP FUNCTION IF EXISTS saas.merchant_provider_action_for_kind(text);
+DROP TABLE IF EXISTS saas.merchant_provider_operations;
+DROP TABLE IF EXISTS saas.merchant_provider_jobs;
+ALTER TABLE saas.merchant_admin_records DROP CONSTRAINT IF EXISTS merchant_admin_records_store_id_kind_key;
+COMMIT;
