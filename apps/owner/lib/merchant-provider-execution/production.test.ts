@@ -6,7 +6,10 @@ import { sealMerchantProviderCredential } from "@celebix/saas-data";
 import {
   createMerchantProviderProductionConfigParser,
 } from "./production-config.ts";
-import { initializeMerchantProviderProductionRuntime } from "./production.ts";
+import {
+  createMerchantProviderRepositoryAudit,
+  initializeMerchantProviderProductionRuntime,
+} from "./production.ts";
 
 const PROFILE = "40000000-0000-4000-8000-000000000005";
 const STORE = "10000000-0000-4000-8000-000000000001";
@@ -49,6 +52,17 @@ class Client {
   }
   release() {}
 }
+
+test("production audit bridge forwards only the exact repository commit-unknown kind", async () => {
+  const observed: string[] = [];
+  const audit = createMerchantProviderRepositoryAudit((code) => { observed.push(code); });
+  await audit({ type: "merchant_provider_finalize_commit_unknown" });
+  await audit({ type: "merchant_provider_verification_commit_unknown" });
+  assert.deepEqual(observed, [
+    "merchant_provider_finalize_commit_unknown",
+    "merchant_provider_verification_commit_unknown",
+  ]);
+});
 
 test("real production composition preflights 053, selects PayTR, and marks the claimed profile through the repository RPC", async () => {
   const selected = config();

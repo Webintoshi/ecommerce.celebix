@@ -229,6 +229,10 @@ export interface PostgresMerchantProviderWorkflowRepositoryOptions {
   readonly timeouts: PostgresTimeoutOptions;
   readonly uuid: () => string;
   readonly audit: (
-    event: Readonly<{ type: "merchant_provider_finalize_commit_unknown" }>,
+    event: Readonly<{
+      type:
+        | "merchant_provider_finalize_commit_unknown"
+        | "merchant_provider_verification_commit_unknown";
+    }>,
   ) => void | Promise<void>;
 }

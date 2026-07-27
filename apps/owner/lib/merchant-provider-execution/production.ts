@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import { createBoundedProviderTransport } from "@celebix/payment-adapters";
-import { PostgresMerchantProviderWorkflowRepository, type PostgresPoolLike } from "@celebix/saas-data";
+import {
+  PostgresMerchantProviderWorkflowRepository,
+  type PostgresMerchantProviderWorkflowRepositoryOptions,
+  type PostgresPoolLike,
+} from "@celebix/saas-data";
 import pg from "pg";
 
 import type { MerchantProviderProductionConfig } from "./production-config.ts";
@@ -52,6 +56,12 @@ const defaults: MerchantProviderProductionDependencies = Object.freeze({
   now: () => new Date(),
   audit: () => undefined,
 });
+
+export function createMerchantProviderRepositoryAudit(
+  audit: MerchantProviderProductionDependencies["audit"],
+): PostgresMerchantProviderWorkflowRepositoryOptions["audit"] {
+  return (event) => audit(event.type);
+}
 
 async function preflight(pool: PostgresPoolLike, databaseName: string): Promise<void> {
   const client = await pool.connect();
@@ -110,7 +120,7 @@ export async function initializeMerchantProviderProductionRuntime(
       role: "celebix_saas_workflow",
       timeouts: TIMEOUTS,
       uuid: dependencies.uuid,
-      audit: () => dependencies.audit("merchant_provider_finalize_commit_unknown"),
+      audit: createMerchantProviderRepositoryAudit(dependencies.audit),
     });
     const worker = createMerchantProviderWorker(Object.freeze({
       mode: "validation_only",

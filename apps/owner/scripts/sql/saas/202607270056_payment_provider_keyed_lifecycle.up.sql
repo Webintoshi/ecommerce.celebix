@@ -132,7 +132,7 @@ BEGIN
     OR NEW.execution_environment IS DISTINCT FROM OLD.execution_environment
     OR NEW.execution_adapter_version IS DISTINCT FROM OLD.execution_adapter_version
     OR NEW.execution_evidence_digest IS DISTINCT FROM OLD.execution_evidence_digest
-    OR NEW.status<>'active'
+    OR (NEW.status IS DISTINCT FROM OLD.status AND NEW.status<>'active')
   THEN
     UPDATE saas.payment_methods SET
       state='disabled',emergency_reason=NULL,version=version+1,updated_at=NEW.updated_at
@@ -316,8 +316,41 @@ BEGIN
     'saas.merchant.provider.verification.lease:'||p_lease_id::text,0
   ));
   IF EXISTS(SELECT 1 FROM saas.merchant_provider_profile_operations WHERE operation_id=p_lease_id)
-    OR EXISTS(SELECT 1 FROM saas.merchant_provider_profiles WHERE validation_lease_id=p_lease_id)
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT * INTO profile FROM saas.merchant_provider_profiles
+  WHERE validation_lease_id=p_lease_id;
+  IF FOUND THEN
+    IF profile.status='pending_validation'
+      AND profile.validation_lease_owner=p_worker_id
+      AND profile.validation_lease_expires_at=p_lease_expires_at
+      AND profile.validation_lease_expires_at>p_now
+      AND profile.provider_code=p_provider_code
+      AND profile.capability=p_capability
+      AND profile.validation_environment=p_environment
+      AND profile.validation_adapter_version=p_adapter_version
+      AND profile.execution_environment IS NULL
+      AND profile.execution_adapter_version IS NULL
+      AND profile.execution_evidence_digest IS NULL
+    THEN
+      RETURN QUERY SELECT 'operation_replayed',pg_catalog.jsonb_build_object(
+        'profileId',profile.id,'storeId',profile.store_id,
+        'providerCode',profile.provider_code,'capability',profile.capability,
+        'publicConfig',profile.public_config,
+        'validationIdentity',pg_catalog.jsonb_build_object(
+          'environment',profile.validation_environment,
+          'adapterVersion',profile.validation_adapter_version
+        ),
+        'sealedCredentials',profile.sealed_credentials,
+        'credentialVersion',profile.credential_version,
+        'profileVersion',profile.version,
+        'leaseId',p_lease_id,'leaseOwner',p_worker_id,
+        'leaseExpiresAt',saas.merchant_admin_timestamp(p_lease_expires_at)
+      );
+    ELSE
+      RETURN QUERY SELECT 'invalid_input',NULL::jsonb;
+    END IF;
+    RETURN;
+  END IF;
   SELECT candidate.* INTO profile
   FROM saas.merchant_provider_profiles AS candidate
   JOIN saas.merchant_provider_definitions AS definition
@@ -386,17 +419,6 @@ BEGIN
     OR p_validation_outcome NOT IN('validated','rejected')
     OR p_outcome_code IS NULL OR p_outcome_code!~'^[a-z][a-z0-9_]{0,63}$'
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
-  PERFORM 1 FROM saas.payment_methods WHERE profile_id=p_profile_id FOR UPDATE;
-  SELECT * INTO profile FROM saas.merchant_provider_profiles
-  WHERE id=p_profile_id FOR UPDATE;
-  IF NOT FOUND THEN RETURN QUERY SELECT 'profile_not_found',NULL::jsonb; RETURN; END IF;
-  IF profile.provider_code<>p_provider_code OR profile.capability<>p_capability
-    OR profile.validation_environment<>p_environment
-    OR profile.validation_adapter_version<>p_adapter_version
-    OR profile.execution_environment IS NOT NULL
-    OR profile.execution_adapter_version IS NOT NULL
-    OR profile.execution_evidence_digest IS NOT NULL
-  THEN RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN; END IF;
   fingerprint_source:=p_profile_id::text||':'||p_provider_code||':'||p_capability||':'||
     p_environment||':'||p_adapter_version::text||':'||p_worker_id||':'||
     p_credential_version::text||':'||p_profile_version::text||':'||
@@ -410,6 +432,17 @@ BEGIN
     ELSE RETURN QUERY SELECT 'operation_replayed',operation.result_payload; END IF;
     RETURN;
   END IF;
+  PERFORM 1 FROM saas.payment_methods WHERE profile_id=p_profile_id FOR UPDATE;
+  SELECT * INTO profile FROM saas.merchant_provider_profiles
+  WHERE id=p_profile_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'profile_not_found',NULL::jsonb; RETURN; END IF;
+  IF profile.provider_code<>p_provider_code OR profile.capability<>p_capability
+    OR profile.validation_environment<>p_environment
+    OR profile.validation_adapter_version<>p_adapter_version
+    OR profile.execution_environment IS NOT NULL
+    OR profile.execution_adapter_version IS NOT NULL
+    OR profile.execution_evidence_digest IS NOT NULL
+  THEN RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN; END IF;
   IF profile.status<>'pending_validation'
     OR profile.validation_lease_id IS NULL OR profile.validation_lease_owner IS NULL
     OR profile.validation_lease_expires_at IS NULL
@@ -534,6 +567,8 @@ BEGIN
         snapshot_profile.execution_evidence_digest
       )
     THEN RETURN QUERY SELECT 'provider_disabled',NULL::jsonb; RETURN; END IF;
+    PERFORM 1 FROM saas.payment_methods
+    WHERE store_id=p_store_id AND id=p_method_id FOR UPDATE;
     SELECT * INTO locked_profile FROM saas.merchant_provider_profiles
     WHERE store_id=p_store_id AND id=p_profile_id FOR SHARE;
     IF NOT FOUND
@@ -587,14 +622,10 @@ DECLARE
   allowed_oid oid;
   owner_oid oid:='celebix_saas_owner'::regrole;
 BEGIN
-  IF saas.paytr_iframe_activation_preflight() IS NOT TRUE THEN RETURN false; END IF;
   IF NOT EXISTS(
     SELECT 1 FROM saas.merchant_provider_definitions
     WHERE provider_code='iyzico_iframe' AND capability='payment_processing'
       AND enabled AND allows_verification_without_execution_authority
-  ) OR EXISTS(
-    SELECT 1 FROM saas.merchant_provider_execution_authorities
-    WHERE provider_code='iyzico_iframe'
   ) OR NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_constraint
     WHERE conrelid='saas.merchant_provider_profiles'::regclass
@@ -627,13 +658,13 @@ BEGIN
 
   FOR signature,expected_hash,allowed_role,expected_security IN SELECT * FROM (VALUES
     ('saas.merchant_provider_profiles_validation_identity_compat()','e58ed91405efafc57842d258c2915370',NULL::text,false),
-    ('saas.merchant_provider_profiles_disable_bound_methods()','437e095cc0a19fda92baa644d69c1506',NULL::text,true),
+    ('saas.merchant_provider_profiles_disable_bound_methods()','d47dda73304fdd5f1cadd116a65c7560',NULL::text,true),
     ('saas.merchant_provider_profile_save_verification(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,bigint)','16390c6b605f3d1e0697238c4eefbce9','celebix_saas_app',true),
-    ('saas.merchant_provider_profile_claim_verification(text,text,text,text,integer,timestamp with time zone,timestamp with time zone,uuid)','c840a80731ae91924bc045070f87032c','celebix_saas_workflow',true),
-    ('saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)','fa8e84612bf3786f1e0ac0ac6ad9e377','celebix_saas_workflow',true),
+    ('saas.merchant_provider_profile_claim_verification(text,text,text,text,integer,timestamp with time zone,timestamp with time zone,uuid)','bdb8179dd889c57d5223654e3135db10','celebix_saas_workflow',true),
+    ('saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)','9612af9dced26f7c509c2be88fb205e8','celebix_saas_workflow',true),
     ('saas.merchant_provider_profile_bind_execution_authority(uuid,text,text,text,integer,text,timestamp with time zone,bigint)','343e0912c1cb144d4a4eb29dfebf73be',NULL::text,true),
     ('saas.payment_method_save_without_execution_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','95759feb45130750226426a364a9d94d',NULL::text,true),
-    ('saas.payment_method_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','138545181e5e376c32b3ab7ec1834535','celebix_saas_app',true)
+    ('saas.payment_method_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','d28dfa0740950aa197950675b4d6737b','celebix_saas_app',true)
   ) AS expected(signature,expected_hash,allowed_role,expected_security) LOOP
     function_oid:=signature::regprocedure;
     allowed_oid:=CASE allowed_role

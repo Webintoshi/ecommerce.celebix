@@ -10,6 +10,7 @@ const UP = "202607270056_payment_provider_keyed_lifecycle.up.sql";
 const DOWN = "202607270056_payment_provider_keyed_lifecycle.down.sql";
 const ASSERTIONS = "202607270056_payment_provider_keyed_lifecycle_assertions.sql";
 const MANIFEST = "phase3o-payment-provider-keyed-lifecycle-manifest.json";
+const FIXTURE = path.join(ROOT, "tests/saas-phase3/payment-provider-keyed-lifecycle/fixture.sql");
 const PRESERVED = Object.freeze({
   "202607250049_merchant_provider_profiles.up.sql": "6c14613a94eae74fe11d75860301636c76395d9ef4e1ab1a312bbf1f14a364f8",
   "202607250049_merchant_provider_profiles.down.sql": "15ddb6ea4fdb4d356d84cfdab8251c150bc84fdc0e6287dd815dd1260df878b0",
@@ -51,6 +52,13 @@ test("056 is additive after 055 and preserves every protected migration byte", (
   ]) {
     assert.doesNotMatch(up, new RegExp(`(?:DROP|CREATE OR REPLACE) FUNCTION saas[.]${pinned}\\b`));
   }
+});
+
+test("the PostgreSQL harness uses a credential-free standalone fixture", () => {
+  assert.ok(existsSync(FIXTURE), "fixture.sql");
+  const fixture = readFileSync(FIXTURE, "utf8");
+  assert.doesNotMatch(fixture, /ciphertext|sealed_credentials|credential_digest|merchant_provider_(?:profiles|execution_authorities)|payment_methods|payment_attempts|quick_order_links/i);
+  assert.match(readFileSync(path.join(ROOT, "tests/saas-phase3/payment-provider-keyed-lifecycle/postgres-harness.mjs"), "utf8"), /readFileSync\(FIXTURE/);
 });
 
 test("056 separates validation identity from an all-null-or-all-exact execution tuple", () => {

@@ -244,6 +244,120 @@ test("profile verification result marks the exact validation identity without ev
   ), false);
 });
 
+test("verification claim commit ambiguity audits safely and replays the exact lease once", async () => {
+  let writerCommits = 0;
+  const projected = verificationClaim();
+  const writer = new Client((text) => {
+    if (text.includes("merchant_provider_profile_claim_verification")) {
+      return [{ outcome: "claimed", result_payload: projected }];
+    }
+    if (text === "COMMIT" && writerCommits++ === 0) {
+      throw new Error("raw-provider-detail-must-not-escape");
+    }
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("merchant_provider_profile_claim_verification")
+    ? [{ outcome: "operation_replayed", result_payload: projected }]
+    : []);
+  const audit: string[] = [];
+
+  const result = await repository(new Pool([writer, recovery]), audit).claimProfileVerification({
+    workerId: "worker.fixture",
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: { environment: "test", adapterVersion: 1 },
+    now: NOW,
+    leaseExpiresAt: LATER,
+  });
+
+  assert.equal(result.kind, "claimed");
+  assert.equal(writer.calls.filter((entry) => entry.text.includes("merchant_provider_profile_claim_verification")).length, 1);
+  assert.equal(recovery.calls.filter((entry) => entry.text.includes("merchant_provider_profile_claim_verification")).length, 1);
+  assert.deepEqual(
+    call(recovery, "merchant_provider_profile_claim_verification").values,
+    call(writer, "merchant_provider_profile_claim_verification").values,
+  );
+  assert.deepEqual(writer.releases, [true]);
+  assert.deepEqual(audit, ["merchant_provider_verification_commit_unknown"]);
+  assert.doesNotMatch(JSON.stringify(audit), /raw-provider-detail/);
+});
+
+test("verification mark commit ambiguity audits safely and accepts one exact replay after binding drift", async () => {
+  let writerCommits = 0;
+  const projected = verificationProfile();
+  const writer = new Client((text) => {
+    if (text.includes("merchant_provider_profile_mark_verification")) {
+      return [{ outcome: "validated", result_payload: projected }];
+    }
+    if (text === "COMMIT" && writerCommits++ === 0) {
+      throw new Error("raw-database-detail-must-not-escape");
+    }
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("merchant_provider_profile_mark_verification")
+    ? [{ outcome: "operation_replayed", result_payload: projected }]
+    : []);
+  const audit: string[] = [];
+
+  const result = await repository(new Pool([writer, recovery]), audit).markProfileVerification({
+    profileId: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: { environment: "test", adapterVersion: 1 },
+    credentialVersion: 2,
+    profileVersion: 3,
+    leaseId: LEASE,
+    leaseOwner: "worker.fixture",
+    now: NOW,
+    outcome: "validated",
+    outcomeCode: "validated",
+  });
+
+  assert.deepEqual(result, projected);
+  assert.equal(writer.calls.filter((entry) => entry.text.includes("merchant_provider_profile_mark_verification")).length, 1);
+  assert.equal(recovery.calls.filter((entry) => entry.text.includes("merchant_provider_profile_mark_verification")).length, 1);
+  assert.deepEqual(
+    call(recovery, "merchant_provider_profile_mark_verification").values,
+    call(writer, "merchant_provider_profile_mark_verification").values,
+  );
+  assert.deepEqual(writer.releases, [true]);
+  assert.deepEqual(audit, ["merchant_provider_verification_commit_unknown"]);
+  assert.doesNotMatch(JSON.stringify(audit), /raw-database-detail/);
+});
+
+test("verification commit recovery rejects a projection different from the observed write", async () => {
+  const observed = verificationProfile();
+  const writer = new Client((text) => {
+    if (text.includes("merchant_provider_profile_mark_verification")) {
+      return [{ outcome: "validated", result_payload: observed }];
+    }
+    if (text === "COMMIT") throw new Error("ambiguous");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("merchant_provider_profile_mark_verification")
+    ? [{ outcome: "operation_replayed", result_payload: { ...observed, version: 5 } }]
+    : []);
+
+  await assert.rejects(
+    () => repository(new Pool([writer, recovery])).markProfileVerification({
+      profileId: PROFILE,
+      providerCode: "iyzico_iframe",
+      capability: "payment_processing",
+      validationIdentity: { environment: "test", adapterVersion: 1 },
+      credentialVersion: 2,
+      profileVersion: 3,
+      leaseId: LEASE,
+      leaseOwner: "worker.fixture",
+      now: NOW,
+      outcome: "validated",
+      outcomeCode: "validated",
+    }),
+    (error: unknown) => error instanceof MerchantProviderWorkflowRepositoryError && error.code === "unavailable",
+  );
+  assert.equal(writer.calls.filter((entry) => entry.text.includes("merchant_provider_profile_mark_verification")).length, 1);
+  assert.equal(recovery.calls.filter((entry) => entry.text.includes("merchant_provider_profile_mark_verification")).length, 1);
+});
+
 test("heartbeat carries the exact lease ID and parses a safe job", async () => {
   const client = new Client((text) => text.includes("merchant_provider_heartbeat") ? [{ outcome: "heartbeat", result_payload: job("leased", 4) }] : []);
   const result = await repository(new Pool([client])).heartbeat({ jobId: JOB, leaseOwner: "worker.fixture", leaseId: LEASE, expectedVersion: 3, now: NOW, leaseExpiresAt: LATER });

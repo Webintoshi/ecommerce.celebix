@@ -382,6 +382,77 @@ export class PostgresMerchantProviderWorkflowRepository implements
     }
   }
 
+  private async replayVerificationTransaction<T>(
+    spec: Spec,
+    expected: readonly string[],
+    parser: (result: Result) => T,
+    observed: T,
+  ): Promise<T> {
+    const client = await this.acquire();
+    let began = false, terminal = false;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      began = true;
+      await this.configure(client);
+      const result = row(await client.query(spec.text, spec.values));
+      const known = this.expected(result.outcome);
+      if (known) throw known;
+      if (!expected.includes(result.outcome)) throw unavailable();
+      const recovered = parser(result);
+      if (JSON.stringify(recovered) !== JSON.stringify(observed)) throw unavailable();
+      try {
+        await client.query("COMMIT");
+        terminal = true;
+        release(client);
+        return recovered;
+      } catch {
+        terminal = true;
+        release(client, true);
+        throw unavailable();
+      }
+    } catch (error) {
+      if (began && !terminal) await this.rollback(client);
+      else if (!began && !terminal) release(client, true);
+      if (error instanceof MerchantProviderWorkflowRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+
+  private async verificationTransaction<T>(
+    spec: Spec,
+    expected: readonly string[],
+    parser: (result: Result) => T,
+  ): Promise<T> {
+    const client = await this.acquire();
+    let began = false, terminal = false;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      began = true;
+      await this.configure(client);
+      const result = row(await client.query(spec.text, spec.values));
+      const known = this.expected(result.outcome);
+      if (known) throw known;
+      if (!expected.includes(result.outcome)) throw unavailable();
+      const observed = parser(result);
+      try {
+        await client.query("COMMIT");
+        terminal = true;
+        release(client);
+        return observed;
+      } catch {
+        terminal = true;
+        release(client, true);
+        this.audit("merchant_provider_verification_commit_unknown");
+        return await this.replayVerificationTransaction(spec, expected, parser, observed);
+      }
+    } catch (error) {
+      if (began && !terminal) await this.rollback(client);
+      else if (!began && !terminal) release(client, true);
+      if (error instanceof MerchantProviderWorkflowRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+
   private async read<T>(spec: Spec, expected: string, parser: (value: unknown) => T): Promise<T> {
     const client = await this.acquire();
     let began = false, terminal = false;
@@ -412,9 +483,9 @@ export class PostgresMerchantProviderWorkflowRepository implements
     }
   }
 
-  private audit(): void {
+  private audit(type: "merchant_provider_finalize_commit_unknown" | "merchant_provider_verification_commit_unknown" = "merchant_provider_finalize_commit_unknown"): void {
     try {
-      const pending = this.options.audit({ type: "merchant_provider_finalize_commit_unknown" });
+      const pending = this.options.audit({ type });
       if (pending) void pending.catch(() => undefined);
     } catch {}
   }
@@ -435,14 +506,14 @@ export class PostgresMerchantProviderWorkflowRepository implements
 
   async claimProfileVerification(input: ClaimMerchantProviderVerificationInput) {
     const parsed = verificationClaimWindow(input), leaseId = this.uuid();
-    return this.transaction({
+    return this.verificationTransaction({
       text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_claim_verification($1::text,$2::text,$3::text,$4::text,$5::integer,$6::timestamptz,$7::timestamptz,$8::uuid)",
       values: [
         parsed.workerId, parsed.providerCode, parsed.capability,
         parsed.validationIdentity.environment, parsed.validationIdentity.adapterVersion,
         parsed.now, parsed.leaseExpiresAt, leaseId,
       ],
-    }, ["empty", "claimed"], (result) => result.outcome === "empty"
+    }, ["empty", "claimed", "operation_replayed"], (result) => result.outcome === "empty"
       ? Object.freeze({ kind: "empty" as const })
       : Object.freeze({ kind: "claimed" as const, profile: verificationClaim(result.result, { ...parsed, leaseId }) }));
   }
@@ -482,7 +553,7 @@ export class PostgresMerchantProviderWorkflowRepository implements
     const leaseId = uuid(parsed.leaseId), leaseOwner = worker(parsed.leaseOwner), now = date(parsed.now);
     if (parsed.outcome !== "validated" && parsed.outcome !== "rejected") invalid();
     const outcomeCode = code(parsed.outcomeCode);
-    return this.transaction({
+    return this.verificationTransaction({
       text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_mark_verification($1::uuid,$2::text,$3::text,$4::text,$5::integer,$6::text,$7::timestamptz,$8::uuid,$9::bigint,$10::bigint,$11::text,$12::text)",
       values: [
         profileId, selectedProviderCode, selectedCapability,
