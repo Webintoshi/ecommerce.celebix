@@ -3,288 +3,288 @@
     "familyCode": "akbank",
     "file": "/payment-providers/akbank.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "155a0a9e47a90ea59c81ca7c0f9f89e4320818cf91803629b8fda2b9acc1f45a"
+    "sha256": "8937d4daf7b6aa86d079c454229d756827e938c63a6f3af457df7773105eece5"
   },
   {
     "familyCode": "akode",
     "file": "/payment-providers/akode.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "c553c7f2d70456ba08076bb64ae0635baae7a7d2fa5094764a729d1708fbadbd"
+    "sha256": "e6b8995932e69e04b892a9267d1e06203320362df2e1072af501135716d2efc9"
   },
   {
     "familyCode": "albaraka_turk",
     "file": "/payment-providers/albaraka_turk.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "12114f6081cfbfb6a534a7a9ac7fd7d9dd187044f81c606250bfeff2615c0510"
+    "sha256": "593808f53453708d2c8f575a2db3ee518659092085f1d1779553267b84c5f481"
   },
   {
     "familyCode": "craftgate",
     "file": "/payment-providers/craftgate.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "d6681d65c03a8dcd3dda4f56202c9ee16897ee45dcc442d23ff2e1da9a2e341b"
+    "sha256": "46099fd348a3fc20b320c21d5020d553e1daf0777bdef922b01af947fa0f8298"
   },
   {
     "familyCode": "denizbank",
     "file": "/payment-providers/denizbank.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "23928982051db518b0f9649c249c2d39e4a4399b2a45ea371bf3740b403b2009"
+    "sha256": "d975e451d8c59e6c88b9f2a9db88a9457eb37d3c46a202687d80b9fdde09c214"
   },
   {
     "familyCode": "erpapay",
-    "file": "/payment-providers/erpapay.svg",
-    "mimeType": "image/svg+xml",
-    "sha256": "a9033796d5e2cff082cb46f6137bb731737be4493c43af038a66514de89c4394"
+    "file": "/payment-providers/erpapay.png",
+    "mimeType": "image/png",
+    "sha256": "d1b8c8afe4ddaf1aee32a091037f65dcb146183ed61b4c9a37a8f5a2c83ee62e"
   },
   {
     "familyCode": "esnekpos",
     "file": "/payment-providers/esnekpos.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "81e22fd421918992a274d9ec607415d775e33507b59fdf667528c526cb27faf3"
+    "sha256": "2e5f04572f82504b11c7ce8ec1dc5eecf2cdf433ff8abaaff1df090f1055eac6"
   },
   {
     "familyCode": "garanti_bbva",
     "file": "/payment-providers/garanti_bbva.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "325f9ea83555147df6a34dd37797c0784cab072699a6d5b2cc297cac58bc226c"
+    "sha256": "ed50ea52f08ccf1b8784ccd29c78d428aa776d6f16bfcf881aec17bb89a5211e"
   },
   {
     "familyCode": "halkbank",
     "file": "/payment-providers/halkbank.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "7856be583e8edf8da8e8128ea01b15a482356a5584decbac6e459da915806b83"
+    "sha256": "5c46411f6b840adee4924393307656a4d79dde0933f9c40be16265b7a5ed7f65"
   },
   {
     "familyCode": "hepsipay",
     "file": "/payment-providers/hepsipay.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "86fca62d2cd2294dce09af04c40c49d39d02d9683985bbe602656afa05473c82"
+    "sha256": "3599039a24802668b1d5b8c849ccf923ccfd9da79917dafbe87cc0518d16f63a"
   },
   {
     "familyCode": "is_bankasi",
     "file": "/payment-providers/is_bankasi.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "4726550c598a9bd7d8ab7151c245b94666ad6c07a748b463bf1ba029971df91e"
+    "sha256": "d2c444a80d9b35f71b204c5b6e045c61f96dffa72f15a1f36caaa1e4504a9eaa"
   },
   {
     "familyCode": "isyerimpos",
     "file": "/payment-providers/isyerimpos.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "76c340be257d7194374c8e636e9c73490be971d520fac46868bf2e7f3dc80ace"
+    "sha256": "52c2e99e1221fb6e2b70ad2a93da4286c7718e97b2c403283951624a2e1f2b75"
   },
   {
     "familyCode": "iyzico",
     "file": "/payment-providers/iyzico.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "b2d72d230a7f5711d24ccd208a930485feb362750ff8dff903837eefe97ae443"
+    "sha256": "32244bcbed66a3ec32eb246ef003492a2f37dbb1a658fcc09ad57e702ca2f3a8"
   },
   {
     "familyCode": "kuveyt_turk",
     "file": "/payment-providers/kuveyt_turk.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "d0eef8a7279f2e97a2e98026099966bb38a32a2f4e4e66a57c663a605b94496d"
+    "sha256": "84f2593ea3ee1f82c59de1cd75654046d5022271b173c4f1f2437e1ce3df5c98"
   },
   {
     "familyCode": "lidio",
     "file": "/payment-providers/lidio.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "187cefb95a7c3d8e880336a8dc220cefc13b8afb8b06c1bad34bc955d1740586"
+    "sha256": "be899bb0fdbfcdc75820cb72d4c55b05334125ed8cadbbfd6981bc579235b219"
   },
   {
     "familyCode": "moka",
     "file": "/payment-providers/moka.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "60fd07cd215c03a93d3ea1569a1becf42d2a1a8acedf9f01dea9e571ecd37b09"
+    "sha256": "6741f5b3932cfe9085962a187b67dccdfb0b73d1f544aa591c7a43f5cbc72161"
   },
   {
     "familyCode": "mollie",
     "file": "/payment-providers/mollie.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "081937b21fd901d212c6da40783882533c23883180bbe9918898c3dc07e949eb"
+    "sha256": "8944aef6325feccfa64aeb6e8b99ffe736c908ceba8dd3fd3d67bef6324ba7ed"
   },
   {
     "familyCode": "ozan",
     "file": "/payment-providers/ozan.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "ede2c3caece86549cf8967d6adaa2afeecf1ca908d030aa35fec0925def3cd58"
+    "sha256": "4f9932be2ca770befa34c429828b92e07dde495b682bbe61c0e85e0793bf6f73"
   },
   {
     "familyCode": "paidora",
     "file": "/payment-providers/paidora.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "516dd4c1b38b58b4ebb5d7e2ae640c1b42cbb00f1f3fb355efa6aaf79171d459"
+    "sha256": "1b592c54566ea4d1091d185adb16c8b2ba2734bc83fa891ef7fdbf5573ac4a89"
   },
   {
     "familyCode": "papara",
     "file": "/payment-providers/papara.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "f10cdbae658361d6e7f18ee247b38c33dcaa00234ba9ba57da047f2d45ff2392"
+    "sha256": "1c1c3beb893c02f7091b82a9f511970f19e1b5c3c5ee7a462d85f126660825e8"
   },
   {
     "familyCode": "papel",
     "file": "/payment-providers/papel.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "2b3b73ea49dcc564b2c4469a7e980595f6f816e6b4e475766f054ab274f745d6"
+    "sha256": "75010142465d07c94b2e3ef2ef32da78870f8dafd43ac62889dd622fd0fe6cf5"
   },
   {
     "familyCode": "param",
     "file": "/payment-providers/param.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "fba85d941a9fc206a89da7a6e46e2da48da6167b994a210847d072f749d80ae7"
+    "sha256": "54e011ec18d27c6ff977e7f9fbef18e3a66f3a400cee70382ce6f1a0051086d6"
   },
   {
     "familyCode": "paratika",
     "file": "/payment-providers/paratika.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "8967ec9d36a3ba3786de1216aab426c3d0d3fd9ec7d613db14e309c8d9b21746"
+    "sha256": "04420b6e8dc3b96efde3bca5e0c2a7d4c741cc30d7028d19faf459c4abd0f277"
   },
   {
     "familyCode": "paybull",
     "file": "/payment-providers/paybull.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "9649058733e1f918ca364205821589c0f1271bebe33ff6bd9bb956ec32a26acf"
+    "sha256": "1ef1b2574823cf8c95d20754d58d8b22ac5b88599a8941e252086a7c9a2a860f"
   },
   {
     "familyCode": "paycell",
-    "file": "/payment-providers/paycell.svg",
-    "mimeType": "image/svg+xml",
-    "sha256": "0cbbdb918fde7ad5d197073ca4df885861772dc13f5e19e1d78d05ace4fb7bb1"
+    "file": "/payment-providers/paycell.png",
+    "mimeType": "image/png",
+    "sha256": "0445c15f8155549bd09d9c74b37dcc9df98e754eafc030b7c59572e469e98bab"
   },
   {
     "familyCode": "paynkolay",
     "file": "/payment-providers/paynkolay.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "c88c067e8b86c39efdba89029c3fed96458bf93afcb7c70f951f81e3e2f0e782"
+    "sha256": "cecf948d5c4d8aabe8f2abeead8ecbe6b74a504ccf1ef102ce04910f2f0b2c08"
   },
   {
     "familyCode": "paytr",
     "file": "/payment-providers/paytr.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "e37160694a86d5641bed3bf1e67bbf0ba716794a2f8f5a7bea803d0cee40729c"
+    "sha256": "7d1d7a2809a734b99339f1440055e26304f3947deda5e96f2601b57049f50f61"
   },
   {
     "familyCode": "qnb_finansbank",
     "file": "/payment-providers/qnb_finansbank.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "8e27420d6e6312a2a3d7c478e3a096512c0e1694adf8dc83620a7aeef180068a"
+    "sha256": "0df9f8db5c10952672a58d038f11fe581b2621cd0e0c2c1bf9faf02bae4ef5fd"
   },
   {
     "familyCode": "qnbpay",
     "file": "/payment-providers/qnbpay.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "ef39f009902c161056ea652a53a4abdf42eb6fb418ead1e92cb771dbf0343f33"
+    "sha256": "2705847c2b15e3292bb338b714a89477d3080d06ee949bdfcbd126e562b19773"
   },
   {
     "familyCode": "rubikpara",
-    "file": "/payment-providers/rubikpara.svg",
-    "mimeType": "image/svg+xml",
-    "sha256": "907827f26fd05b6560635fc34cef14714f280b1dccc859745fa7ce1533ab5e6d"
+    "file": "/payment-providers/rubikpara.png",
+    "mimeType": "image/png",
+    "sha256": "ccac2c2b3034b92e0fb89d5f4f0f0c26a5161df50b4fcc791892462e78b49b8f"
   },
   {
     "familyCode": "sekerbank",
     "file": "/payment-providers/sekerbank.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "b8812f490d4d2094eb8d590d022d777303e961628d58fbd74efcb6d56aaf4287"
+    "sha256": "61538e153d0a71d20538247115f0d623627c21c9ab1d6d82cab80b1497c7c47e"
   },
   {
     "familyCode": "setcard",
     "file": "/payment-providers/setcard.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "3e291b3acbf5eed1a344d50b231e32f682736f7f4e07e5ae678a6ff3edcda0b3"
+    "sha256": "cad323a45d3e9faf4cd5176ceb861232520d845dc9422116303d14672c98e53e"
   },
   {
     "familyCode": "shopier",
     "file": "/payment-providers/shopier.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "0d798c5e903441a8f000edc4964b80d74a6e7afc6a797386eec6d3aa8a1aea25"
+    "sha256": "599c5e8c34675118848238f02135bc15696d05e22ae370503419faa8d69e2c1f"
   },
   {
     "familyCode": "sipay",
     "file": "/payment-providers/sipay.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "23d7d9648bf06801aa335b2b6bbf788234907a12c579de0e33a6cb3150631262"
+    "sha256": "757790a3b0bc6345413b7b8c901056d0296d54e63ec4525e717c1c3ba1d6750d"
   },
   {
     "familyCode": "tami",
     "file": "/payment-providers/tami.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "130fca80920774884d70e32fab3769c6869fdecb767245581278dc72d92380b1"
+    "sha256": "fd9b947dd2de3104181c859f2e3930d08df21e6034cfdc843d1f258e0002f787"
   },
   {
     "familyCode": "teb",
     "file": "/payment-providers/teb.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "dbd6e2b6d846254221c55f913401b179a9100b268a2444cfb0e632c711edfc49"
+    "sha256": "673de4f56d0cdfdb32907f8771b3c419342064951651f4632e265a4ca8088142"
   },
   {
     "familyCode": "united_payment",
     "file": "/payment-providers/united_payment.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "b81067891b710d9072e26363d3cc8cdb0946457f58622ee4905591d9f86c8595"
+    "sha256": "204006320fd130bb2ee828ad2910d905709c9518fef3b5ada2c1f49ae41e5760"
   },
   {
     "familyCode": "vakif_katilim",
     "file": "/payment-providers/vakif_katilim.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "56cf9b3fb559d6a81f1a8fed9d9db2ed77e17763d2042c1534d02ad1a91299e7"
+    "sha256": "bfdf215675664f93e1b39c863ef889dd805f6228aedfef2e9090bc07fc070569"
   },
   {
     "familyCode": "vakifbank",
     "file": "/payment-providers/vakifbank.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "d11a17eb3e77dc33d18920731aa8465be8f17a876c4a529c6f173afa1eb4ee81"
+    "sha256": "0e113bd2dcd044cf1dc062097d71b7e98008e886f37a898c868a12e8bf2a3454"
   },
   {
     "familyCode": "vallet",
     "file": "/payment-providers/vallet.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "ceebc15a56d49d826d7d05bc8be7b1410a8e231e444b59e96ae35af713418f8b"
+    "sha256": "18fa98c33f441b5b2da7916a04c95cc3ca98cf1afa9642d477d5e32475888f4b"
   },
   {
     "familyCode": "vepara",
-    "file": "/payment-providers/vepara.svg",
-    "mimeType": "image/svg+xml",
-    "sha256": "792b07f5039bf1a340349b12555b9298a3aaf1e19a23e7fdbf9f043d499cf13b"
+    "file": "/payment-providers/vepara.png",
+    "mimeType": "image/png",
+    "sha256": "70bbcca92f71241989c0a98c6102e8039e76bea958d1715940699e6f141caba0"
   },
   {
     "familyCode": "weepay",
     "file": "/payment-providers/weepay.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "c7368f72ab4e566d9eb2a8cf8e863b3fef0cb244a752e3c75808300fa561c21d"
+    "sha256": "822193d35d1c2d0ef39361eb45343fb2f6628a9357d69977b68480d23336a005"
   },
   {
     "familyCode": "worldpay",
     "file": "/payment-providers/worldpay.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "3306c56365282b8494eaeeccc44c1a904198a18cd165396b42a69ddc40ecaf4c"
+    "sha256": "5ace641d40c5d7af30ad8b019d6d6dd46d7d48017235536400afdea4b4a9468e"
   },
   {
     "familyCode": "wyld",
     "file": "/payment-providers/wyld.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "4ff0f6634e7082f0a0e4bd5572a4fad722c1a88c7401e663e2ddde8e830c6e24"
+    "sha256": "0d92dce914dce656e0b8d9157bb9014a69501d513432744c99904122c7e21687"
   },
   {
     "familyCode": "yapi_kredi",
     "file": "/payment-providers/yapi_kredi.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "f54e842136c3b604399ce0bfd6fa4999062d2518534cd33e710f8a44505c5420"
+    "sha256": "e5bbe6e88984288eb7f9d5e858fb8f802455077240d3f0eea16334d09c9497a1"
   },
   {
     "familyCode": "ziraat_bankasi",
     "file": "/payment-providers/ziraat_bankasi.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "635cfb0a1e0995ed1d29b0b97e04c3ee92c764d1b11bb18812e4e122b9437805"
+    "sha256": "7a19b01838027cd191ed3a621e827024161f72469575c1895c7adc7ac98d8406"
   },
   {
     "familyCode": "ziraat_katilim",
     "file": "/payment-providers/ziraat_katilim.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "02f0cbfa243643ca3325dfb0ee885c3ff6fc21b738cc21f50c469a550fbbc459"
+    "sha256": "ed5c392c97e21caf2856dc289504ff57b0062d901de90603627b39ace90f94f5"
   },
   {
     "familyCode": "ziraatpay",
     "file": "/payment-providers/ziraatpay.svg",
     "mimeType": "image/svg+xml",
-    "sha256": "5b9852a3d08b8a94fff082cc7e259b93a23068a17f8df89e8691707bc336dea5"
+    "sha256": "7ee7f6d382bd08f533e3b1023c1d1383c2805dc3926378451eea5c9bb5799a23"
   }
 ]

@@ -106,7 +106,7 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
           {props.phase === "ready" ? <div className={styles.providerGrid}>
             {props.cards.map((card) => (
               <article className={styles.providerCard} key={card.providerCode}>
-                <div className={styles.providerLogo}><Image src={card.logoPath} alt={`${card.label} logosu`} width={72} height={48} /></div>
+                <div className={styles.providerLogo}><Image src={card.logoPath} alt={`${card.label} logosu`} width={144} height={56} /></div>
                 <div className={styles.providerCardHeading}><div><h3>{card.label}</h3><p>{card.modeLabel}</p></div><span className={styles[`tone-${card.readinessTone}`]}>{card.readinessLabel}</span></div>
                 <div className={styles.providerMeta}><span>{card.categoryLabel}</span><span>{card.interactionLabel}</span><span>{card.environmentLabel}</span></div>
                 <button type="button" className={card.connectable ? styles.primaryButton : styles.plannedButton} disabled={!card.connectable || !props.canManage || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}</button>

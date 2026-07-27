@@ -69,6 +69,7 @@ const EXPECTED_FAMILIES = Object.freeze([
 
 const ACTIVE_SVG = /<(?:script|foreignObject|iframe|object|embed)\b|\bon[a-z]+\s*=|(?:href|xlink:href)\s*=\s*["'](?:https?:|data:|\/\/)/i;
 const ALLOWED_MIME_TYPES = new Set(["image/svg+xml", "image/png", "image/webp"]);
+const PLACEHOLDER_MARKUP = /<rect x=["']14["'] y=["']14["'] width=["']52["'] height=["']52["'][^>]*fill=["']#111827["']/i;
 
 function readJson(file) {
   assert.ok(existsSync(file), `missing ${path.relative(ROOT, file)}`);
@@ -106,6 +107,7 @@ test("logo source records cover exactly every approved provider family", () => {
     assert.match(source.retrievedAt, /^\d{4}-\d{2}-\d{2}$/);
     assert.match(source.file, /^[a-z0-9_]+\.(?:svg|png|webp)$/);
     assert.ok(source.usageNote.length > 0, source.familyCode);
+    assert.doesNotMatch(source.usageNote, /fallback/i, `${source.familyCode} must use a real brand asset`);
   }
 });
 
@@ -140,6 +142,7 @@ test("logo manifest is deterministic and pins one safe local asset per family", 
       assert.ok(bytes.length <= 256 * 1024, row.familyCode);
       assert.match(svg, /<svg\b[^>]*\bviewBox\s*=\s*["'][^"']+["']/i, row.familyCode);
       assert.doesNotMatch(svg, ACTIVE_SVG, row.familyCode);
+      assert.doesNotMatch(svg, PLACEHOLDER_MARKUP, `${row.familyCode} must not use the generated placeholder card`);
     } else {
       assert.ok(bytes.length <= 512 * 1024, row.familyCode);
     }

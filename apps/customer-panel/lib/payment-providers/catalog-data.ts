@@ -23,8 +23,10 @@ const UNKNOWN_SUPPORT = Object.freeze({
   capture: "unknown",
 } as const);
 const LIVE_ONLY = Object.freeze(["live"] as const);
+const RASTER_LOGO_FAMILIES = new Set(["erpapay", "paycell", "rubikpara", "vepara"]);
 
 function define(input: RawEntry): PaymentProviderCatalogEntry {
+  const logoExtension = RASTER_LOGO_FAMILIES.has(input.familyCode) ? "png" : "svg";
   return Object.freeze({
     providerCode: input.sourceSlug.replaceAll("-", "_"),
     familyCode: input.familyCode,
@@ -36,7 +38,7 @@ function define(input: RawEntry): PaymentProviderCatalogEntry {
     interactionMode: input.interactionMode,
     readiness: "planned",
     support: UNKNOWN_SUPPORT,
-    logoPath: `/payment-providers/${input.familyCode}.svg`,
+    logoPath: `/payment-providers/${input.familyCode}.${logoExtension}`,
     aliases: Object.freeze([...(input.aliases ?? [])]),
     environments: LIVE_ONLY,
   });
