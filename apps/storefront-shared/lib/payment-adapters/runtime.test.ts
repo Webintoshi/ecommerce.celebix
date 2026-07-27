@@ -10,6 +10,7 @@ import type {
   VerifiedProviderCallback,
 } from "@celebix/payment-adapters";
 import type {
+  ApplyHostedPaymentCallbackResult,
   BeginPaymentAttemptResult,
   MerchantProviderCredentialKeyring,
   PaymentAttemptAuthority,
@@ -151,12 +152,23 @@ function mutation(
   });
 }
 
+function hostedMutation(
+  overrides: Partial<ApplyHostedPaymentCallbackResult> = {},
+): ApplyHostedPaymentCallbackResult {
+  return Object.freeze({
+    ...mutation(),
+    disposition: "applied",
+    ...overrides,
+  });
+}
+
 type Calls = {
   begin: Parameters<PaymentAttemptRepository["begin"]>[0][];
   initialized: Parameters<PaymentAttemptRepository["markInitialized"]>[0][];
   unknown: Parameters<PaymentAttemptRepository["markUnknown"]>[0][];
   callbackAuthority: Parameters<PaymentAttemptRepository["getCallbackAuthority"]>[0][];
   settled: Parameters<PaymentAttemptRepository["settleCallback"]>[0][];
+  hostedCallbacks: Parameters<PaymentAttemptRepository["applyHostedCallback"]>[0][];
   claims: Parameters<PaymentAttemptRepository["claimReconciliation"]>[0][];
   finalized: Parameters<PaymentAttemptRepository["finalizeReconciliation"]>[0][];
   initializedAdapter: Parameters<HostedPaymentAdapter<object>["initialize"]>[0][];
@@ -194,7 +206,7 @@ function fixture(options: Readonly<{
   ) => Promise<HostedPaymentStatus>;
   begin?: BeginPaymentAttemptResult;
   callbackAuthority?: PaymentAttemptAuthority | Error;
-  settlement?: PaymentAttemptMutationResult | Error;
+  settlement?: ApplyHostedPaymentCallbackResult | Error;
   unknownMutation?: PaymentAttemptMutationResult | Error;
   adapterPresent?: boolean;
   trusted?: boolean;
@@ -206,6 +218,7 @@ function fixture(options: Readonly<{
 }> = {}) {
   const calls: Calls = {
     begin: [], initialized: [], unknown: [], callbackAuthority: [], settled: [],
+    hostedCallbacks: [],
     claims: [], finalized: [], initializedAdapter: [], callbacks: [], queries: [], opens: [],
   };
   let opened: Uint8Array | undefined;
@@ -230,9 +243,41 @@ function fixture(options: Readonly<{
     async settleCallback(input) {
       calls.settled.push(input);
       if (options.settlement instanceof Error) throw options.settlement;
+      const selectedAuthority = options.callbackAuthority instanceof Error
+        ? authority()
+        : options.callbackAuthority ?? authority();
+      if (
+        selectedAuthority.status === "awaiting_customer"
+        && (input.status === "captured" || input.status === "failed")
+      ) throw new PaymentAttemptRepositoryError("invalid_transition");
       return options.settlement ?? mutation({
         status: input.status, providerReference: input.providerReference, safeCode: input.safeCode,
         replayed: false, version: input.expectedVersion + 1,
+      });
+    },
+    async applyHostedCallback(input) {
+      calls.hostedCallbacks.push(input);
+      if (options.settlement instanceof Error) throw options.settlement;
+      if (options.settlement !== undefined) return options.settlement;
+      const selectedAuthority = options.callbackAuthority instanceof Error
+        ? authority()
+        : options.callbackAuthority ?? authority();
+      if (["provider_outcome_unknown", "reconciliation_required"].includes(selectedAuthority.status)) {
+        return hostedMutation({
+          status: selectedAuthority.status,
+          version: selectedAuthority.version,
+          providerReference: selectedAuthority.providerReference,
+          safeCode: "provider_outcome_unknown",
+          disposition: "processing",
+        });
+      }
+      const versionIncrement = input.status !== "provider_outcome_unknown"
+        && selectedAuthority.status === "awaiting_customer" ? 2 : 1;
+      return hostedMutation({
+        status: input.status,
+        providerReference: input.providerReference,
+        safeCode: input.safeCode,
+        version: input.expectedVersion + versionIncrement,
       });
     },
     async claimReconciliation(input) {
@@ -360,6 +405,7 @@ function assertNoRuntimeWork(calls: Calls): void {
     unknown: calls.unknown.length,
     callbackAuthority: calls.callbackAuthority.length,
     settled: calls.settled.length,
+    hostedCallbacks: calls.hostedCallbacks.length,
     claims: calls.claims.length,
     finalized: calls.finalized.length,
     initializedAdapter: calls.initializedAdapter.length,
@@ -372,6 +418,7 @@ function assertNoRuntimeWork(calls: Calls): void {
     unknown: 0,
     callbackAuthority: 0,
     settled: 0,
+    hostedCallbacks: 0,
     claims: 0,
     finalized: 0,
     initializedAdapter: 0,
@@ -725,7 +772,7 @@ test("settles a fixed-path callback selected directly by its digest authority", 
     now: NOW,
   });
   assert.equal(selected.calls.callbacks.length, 1);
-  assert.equal(selected.calls.settled.length, 1);
+  assert.equal(selected.calls.hostedCallbacks.length, 1);
 });
 
 test("digest callback exposes not-found only for authority absence and never after verification or commit uncertainty", async () => {
@@ -823,13 +870,13 @@ test("settles only a verified callback selected through provider and binding dig
   assert.equal(selected.calls.callbacks[0]?.expected.orderReference, "ORDER-100");
   assert.equal(selected.calls.callbacks[0]?.expected.providerReference, null);
   assert.equal(selected.calls.callbacks[0]?.signal instanceof AbortSignal, true);
-  assert.equal(selected.calls.settled.length, 1);
-  assert.equal(selected.calls.settled[0]?.status, "captured");
-  assert.equal(selected.calls.settled[0]?.amountMinor, 12_345);
-  assert.equal(selected.calls.settled[0]?.currency, "TRY");
-  assert.equal(selected.calls.settled[0]?.eventKeyDigest,
+  assert.equal(selected.calls.hostedCallbacks.length, 1);
+  assert.equal(selected.calls.hostedCallbacks[0]?.status, "captured");
+  assert.equal(selected.calls.hostedCallbacks[0]?.amountMinor, 12_345);
+  assert.equal(selected.calls.hostedCallbacks[0]?.currency, "TRY");
+  assert.equal(selected.calls.hostedCallbacks[0]?.eventKeyDigest,
     createHash("sha256").update("provider_event_1", "utf8").digest("hex"));
-  assert.equal(selected.calls.settled[0]?.callbackBindingDigest,
+  assert.equal(selected.calls.hostedCallbacks[0]?.callbackBindingDigest,
     createHash("sha256").update(Buffer.alloc(32, 7)).digest("hex"));
   assert.equal(selected.calls.callbacks[0]?.body.every((byte) => byte === 0), true);
   assert.equal(selected.opened?.every((byte) => byte === 0), true);
@@ -858,10 +905,59 @@ test("customer-return callbacks project only fixed success and failure outcomes 
       binding: Buffer.alloc(32, 7).toString("base64url"),
     });
     assert.deepEqual(result, { kind: "customer_return", outcome: expectedOutcome });
-    assert.equal(selected.calls.settled.length, 1);
-    assert.equal(selected.calls.settled[0]?.status, expectedSettlement);
+    assert.equal(selected.calls.hostedCallbacks.length, 1);
+    assert.equal(selected.calls.hostedCallbacks[0]?.status, expectedSettlement);
     assert.equal(selected.calls.unknown.length, 0);
     assert.equal(selected.calls.callbacks[0]?.expected.providerReference, "provider_reference_private");
+  }
+});
+
+test("hosted iframe callbacks settle directly from the initialized awaiting_customer authority", async () => {
+  const selected = fixture({
+    packet: callbackPacket("customer_return"),
+    callbackAuthority: authority({
+      status: "awaiting_customer",
+      version: 2,
+      providerReference: "provider_reference_private",
+    }),
+  });
+
+  const result = await selected.runtime.callback({
+    request: callbackRequest(),
+    providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url"),
+  });
+
+  assert.deepEqual(result, { kind: "customer_return", outcome: "success" });
+  assert.equal(selected.calls.settled.length, 0);
+  assert.equal(selected.calls.hostedCallbacks.length, 1);
+  assert.equal(selected.calls.hostedCallbacks[0]?.expectedVersion, 2);
+});
+
+test("a changed terminal callback after durable unknown remains processing for reconciliation", async () => {
+  for (const [mode, expected] of [
+    ["provider_ack", { kind: "retry" }],
+    ["customer_return", { kind: "customer_return", outcome: "processing" }],
+  ] as const) {
+    const selected = fixture({
+      packet: callbackPacket(mode),
+      callbackAuthority: authority({
+        status: "provider_outcome_unknown",
+        version: 3,
+        providerReference: "provider_reference_private",
+      }),
+    });
+
+    const result = await selected.runtime.callback({
+      request: callbackRequest(),
+      providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url"),
+    });
+
+    assert.deepEqual(result, expected);
+    assert.equal(selected.calls.hostedCallbacks.length, 1);
+    assert.equal(selected.calls.hostedCallbacks[0]?.status, "captured");
+    assert.equal(selected.calls.claims.length, 0);
   }
 });
 
@@ -886,10 +982,14 @@ test("fraud review becomes durable unknown and returns processing without captur
 
   assert.deepEqual(result, { kind: "customer_return", outcome: "processing" });
   assert.equal(selected.calls.settled.length, 0);
-  assert.equal(selected.calls.unknown.length, 1);
-  assert.equal(selected.calls.unknown[0]?.expectedVersion, 2);
-  assert.equal(selected.calls.unknown[0]?.providerReference, "provider_reference_private");
-  assert.equal(selected.calls.unknown[0]?.safeCode, "fraud_review");
+  assert.equal(selected.calls.unknown.length, 0);
+  assert.equal(selected.calls.hostedCallbacks.length, 1);
+  assert.equal(selected.calls.hostedCallbacks[0]?.expectedVersion, 2);
+  assert.equal(selected.calls.hostedCallbacks[0]?.providerReference, "provider_reference_private");
+  assert.equal(selected.calls.hostedCallbacks[0]?.safeCode, "fraud_review");
+  assert.equal(selected.calls.hostedCallbacks[0]?.status, "provider_outcome_unknown");
+  assert.equal(selected.calls.hostedCallbacks[0]?.eventKeyDigest,
+    createHash("sha256").update("iyzico:payment_fixture:0", "utf8").digest("hex"));
 });
 
 test("temporary callback result becomes durable unknown while preserving each callback presentation mode", async () => {
@@ -916,8 +1016,9 @@ test("temporary callback result becomes durable unknown while preserving each ca
     });
     assert.deepEqual(result, expected);
     assert.equal(selected.calls.settled.length, 0);
-    assert.equal(selected.calls.unknown.length, 1);
-    assert.equal(selected.calls.unknown[0]?.safeCode, "provider_temporarily_unavailable");
+    assert.equal(selected.calls.unknown.length, 0);
+    assert.equal(selected.calls.hostedCallbacks.length, 1);
+    assert.equal(selected.calls.hostedCallbacks[0]?.safeCode, "provider_temporarily_unavailable");
   }
 });
 
@@ -938,8 +1039,9 @@ test("callback deadline aborts verification, persists unknown, and ignores a lat
   assert.deepEqual(result, { kind: "customer_return", outcome: "processing" });
   assert.equal(selected.calls.callbacks[0]?.signal?.aborted, true);
   assert.equal(selected.calls.settled.length, 0);
-  assert.equal(selected.calls.unknown.length, 1);
-  assert.equal(selected.calls.unknown[0]?.safeCode, "provider_verification_timeout");
+  assert.equal(selected.calls.unknown.length, 0);
+  assert.equal(selected.calls.hostedCallbacks.length, 1);
+  assert.equal(selected.calls.hostedCallbacks[0]?.safeCode, "provider_verification_timeout");
   assert.equal(selected.opened?.every((byte) => byte === 0), true);
 
   late.resolve(Object.freeze({
@@ -952,7 +1054,7 @@ test("callback deadline aborts verification, persists unknown, and ignores a lat
   }));
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(selected.calls.settled.length, 0);
-  assert.equal(selected.calls.unknown.length, 1);
+  assert.equal(selected.calls.hostedCallbacks.length, 1);
 });
 
 test("rejects wrong provider, unknown binding, signature failure, amount/currency mismatch, and replay mismatch", async () => {
@@ -977,7 +1079,7 @@ test("rejects wrong provider, unknown binding, signature failure, amount/currenc
     providerCode: PROVIDER,
     binding: Buffer.alloc(32, 7).toString("base64url"),
   }), { kind: "rejected" });
-  assert.equal(badSignature.calls.settled.length, 0);
+  assert.equal(badSignature.calls.hostedCallbacks.length, 0);
 
   for (const verified of [
     Object.freeze({
@@ -997,10 +1099,10 @@ test("rejects wrong provider, unknown binding, signature failure, amount/currenc
       providerCode: PROVIDER,
       binding: Buffer.alloc(32, 7).toString("base64url"),
     }), { kind: "rejected" });
-    assert.equal(mismatch.calls.settled.length, 0);
+    assert.equal(mismatch.calls.hostedCallbacks.length, 0);
   }
 
-  const replayMismatch = fixture({ settlement: mutation({
+  const replayMismatch = fixture({ settlement: hostedMutation({
     attemptId: "77777777-7777-4777-8777-777777777777",
     status: "captured",
     safeCode: "payment_captured",
@@ -1012,10 +1114,11 @@ test("rejects wrong provider, unknown binding, signature failure, amount/currenc
     binding: Buffer.alloc(32, 7).toString("base64url"),
   }), { kind: "rejected" });
 
-  const exactReplay = fixture({ settlement: mutation({
+  const exactReplay = fixture({ settlement: hostedMutation({
     status: "captured",
     safeCode: "payment_captured",
     replayed: true,
+    disposition: "replayed",
   }) });
   assert.deepEqual(await exactReplay.runtime.callback({
     request: callbackRequest(),

@@ -5,6 +5,8 @@ export {
 export type { PaymentAttemptErrorCode } from "./errors.ts";
 export { PostgresPaymentAttemptRepository } from "./repository.ts";
 export type {
+  ApplyHostedPaymentCallbackInput,
+  ApplyHostedPaymentCallbackResult,
   BeginPaymentAttemptInput,
   BeginPaymentAttemptResult,
   ClaimPaymentAttemptReconciliationInput,

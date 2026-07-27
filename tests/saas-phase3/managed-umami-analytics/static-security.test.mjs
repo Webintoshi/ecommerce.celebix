@@ -19,7 +19,7 @@ const PAYMENT_ADAPTER_WORKSPACE = Object.freeze({
   exports: { ".": "./src/index.ts" },
   scripts: {
     typecheck: "tsc -p tsconfig.json --noEmit",
-    test: "node --experimental-strip-types --test src/*.test.ts src/packets/*.test.ts src/providers/paytr/*.test.ts",
+    test: "node --experimental-strip-types --test src/*.test.ts src/packets/*.test.ts src/providers/paytr/*.test.ts src/providers/iyzico/*.test.ts",
   },
   dependencies: { "@celebix/saas-contracts": "0.1.0" },
 });

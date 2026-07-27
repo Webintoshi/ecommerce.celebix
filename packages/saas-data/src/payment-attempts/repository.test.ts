@@ -301,6 +301,94 @@ test("settleCallback carries generic event, amount, currency, and outcome author
   assert.deepEqual(result, projected);
 });
 
+test("applyHostedCallback binds callback identity and permits an iframe terminal result", async () => {
+  const projected = {
+    ...mutationPayload("captured", 4),
+    disposition: "applied",
+  };
+  const client = success("payment_attempt_apply_hosted_callback", "captured", {
+    ...mutationPayload("captured", 4),
+  });
+  const result = await repository(new Pool([client])).applyHostedCallback({
+    providerCode: "fixture_provider",
+    callbackBindingDigest: CALLBACK_DIGEST,
+    operationId: OPERATION,
+    fingerprint: FINGERPRINT,
+    eventKeyDigest: EVENT_DIGEST,
+    expectedVersion: 2,
+    credentialVersion: 2,
+    status: "captured",
+    providerReference: "provider-safe-42",
+    safeCode: "accepted",
+    amountMinor: 12_345,
+    currency: "USD",
+    now: NOW,
+  });
+
+  assert.deepEqual(selected(client, "payment_attempt_apply_hosted_callback"), {
+    text: "SELECT outcome,result_payload FROM saas.payment_attempt_apply_hosted_callback($1::text,$2::text,$3::uuid,$4::text,$5::text,$6::bigint,$7::bigint,$8::text,$9::text,$10::text,$11::bigint,$12::text,$13::timestamptz)",
+    values: [
+      "fixture_provider", CALLBACK_DIGEST, OPERATION, FINGERPRINT, EVENT_DIGEST,
+      2, 2, "captured", "provider-safe-42", "accepted", 12_345, "USD", NOW,
+    ],
+  });
+  assert.deepEqual(result, projected);
+});
+
+test("applyHostedCallback exposes durable unknown as processing without inventing settlement", async () => {
+  const payload = mutationPayload("provider_outcome_unknown", 3);
+  const client = success("payment_attempt_apply_hosted_callback", "processing", payload);
+  const result = await repository(new Pool([client])).applyHostedCallback({
+    providerCode: "fixture_provider",
+    callbackBindingDigest: CALLBACK_DIGEST,
+    operationId: OPERATION,
+    fingerprint: FINGERPRINT,
+    eventKeyDigest: EVENT_DIGEST,
+    expectedVersion: 3,
+    credentialVersion: 2,
+    status: "captured",
+    providerReference: "provider-safe-42",
+    safeCode: "accepted",
+    amountMinor: 12_345,
+    currency: "USD",
+    now: NOW,
+  });
+
+  assert.deepEqual(result, {
+    ...payload,
+    disposition: "processing",
+  });
+});
+
+test("applyHostedCallback accepts only an exact same-event replay projection", async () => {
+  const payload = mutationPayload("provider_outcome_unknown", 3, true);
+  const client = success(
+    "payment_attempt_apply_hosted_callback",
+    "callback_replayed",
+    payload,
+  );
+  const result = await repository(new Pool([client])).applyHostedCallback({
+    providerCode: "fixture_provider",
+    callbackBindingDigest: CALLBACK_DIGEST,
+    operationId: OPERATION,
+    fingerprint: FINGERPRINT,
+    eventKeyDigest: EVENT_DIGEST,
+    expectedVersion: 3,
+    credentialVersion: 2,
+    status: "provider_outcome_unknown",
+    providerReference: "provider-safe-42",
+    safeCode: "accepted",
+    amountMinor: 12_345,
+    currency: "USD",
+    now: NOW,
+  });
+
+  assert.deepEqual(result, {
+    ...payload,
+    disposition: "processing",
+  });
+});
+
 test("claimReconciliation binds operation and lease and returns immutable credential snapshot", async () => {
   const payload = claimPayload();
   const client = success("payment_attempt_claim_reconciliation", "claimed", payload);

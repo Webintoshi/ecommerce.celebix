@@ -233,6 +233,12 @@ git add apps/storefront-shared/lib/payment-adapters/runtime.ts apps/storefront-s
 git commit -m "feat(payments): support hosted customer return callbacks"
 ```
 
+**Repair note:** migration `055_hosted_callback_lifecycle` is reserved for the
+additive callback-specific RPC that atomically settles an initialized hosted
+attempt from `awaiting_customer`, records pending/timeout outcomes as callback
+events, and preserves migrations 052/053/054 byte-for-byte. Later migration
+numbers in this plan are shifted accordingly.
+
 ### Task 5: Make customer-panel provider composition multi-provider
 
 **Files:**
@@ -343,10 +349,10 @@ git commit -m "feat(payments): validate iyzico merchant credentials"
 
 **Files:**
 
-- Create: `apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle.up.sql`
-- Create: `apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle.down.sql`
-- Create: `apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle_assertions.sql`
-- Create: `apps/owner/scripts/sql/saas/phase3n-payment-provider-keyed-lifecycle-manifest.json`
+- Create: `apps/owner/scripts/sql/saas/202607270056_payment_provider_keyed_lifecycle.up.sql`
+- Create: `apps/owner/scripts/sql/saas/202607270056_payment_provider_keyed_lifecycle.down.sql`
+- Create: `apps/owner/scripts/sql/saas/202607270056_payment_provider_keyed_lifecycle_assertions.sql`
+- Create: `apps/owner/scripts/sql/saas/phase3o-payment-provider-keyed-lifecycle-manifest.json`
 - Create: `tests/saas-phase3/payment-provider-keyed-lifecycle/fixture.sql`
 - Create: `tests/saas-phase3/payment-provider-keyed-lifecycle/postgres-harness.mjs`
 - Create: `tests/saas-phase3/payment-provider-keyed-lifecycle/static-security.test.mjs`
@@ -387,7 +393,7 @@ Expected: PASS, including up/down/up replay.
 **Step 4: Commit**
 
 ```bash
-git add apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle.up.sql apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle.down.sql apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle_assertions.sql apps/owner/scripts/sql/saas/phase3n-payment-provider-keyed-lifecycle-manifest.json packages/saas-data/src/provider-execution tests/saas-phase3/payment-provider-keyed-lifecycle tests/saas-phase3/run-current-suite.mjs
+git add apps/owner/scripts/sql/saas/202607270056_payment_provider_keyed_lifecycle.up.sql apps/owner/scripts/sql/saas/202607270056_payment_provider_keyed_lifecycle.down.sql apps/owner/scripts/sql/saas/202607270056_payment_provider_keyed_lifecycle_assertions.sql apps/owner/scripts/sql/saas/phase3o-payment-provider-keyed-lifecycle-manifest.json packages/saas-data/src/provider-execution tests/saas-phase3/payment-provider-keyed-lifecycle tests/saas-phase3/run-current-suite.mjs
 git commit -m "feat(payments): add provider keyed activation lifecycle"
 ```
 
@@ -436,9 +442,9 @@ git commit -m "feat(payments): wire iyzico hosted runtime"
 
 **Files:**
 
-- Create: `apps/owner/scripts/sql/saas/202607270056_iyzico_iframe_sandbox_evidence_history.up.sql`
-- Create: `apps/owner/scripts/sql/saas/202607270056_iyzico_iframe_sandbox_evidence_history.down.sql`
-- Create: `apps/owner/scripts/sql/saas/202607270056_iyzico_iframe_sandbox_evidence_history_assertions.sql`
+- Create: `apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history.up.sql`
+- Create: `apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history.down.sql`
+- Create: `apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history_assertions.sql`
 - Create: `tests/saas-phase3/iyzico-sandbox-evidence-history/fixture.sql`
 - Create: `tests/saas-phase3/iyzico-sandbox-evidence-history/postgres-harness.mjs`
 - Create: `tests/saas-phase3/iyzico-sandbox-evidence-history/static-security.test.mjs`
@@ -465,7 +471,7 @@ Expected: PASS. If no real sandbox credential exists, the evidence table stays e
 **Step 4: Commit**
 
 ```bash
-git add apps/owner/scripts/sql/saas/202607270056_iyzico_iframe_sandbox_evidence_history.up.sql apps/owner/scripts/sql/saas/202607270056_iyzico_iframe_sandbox_evidence_history.down.sql apps/owner/scripts/sql/saas/202607270056_iyzico_iframe_sandbox_evidence_history_assertions.sql tests/saas-phase3/iyzico-sandbox-evidence-history docs/ops/iyzico-checkout-form-sandbox-activation.md tests/saas-phase3/run-current-suite.mjs
+git add apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history.up.sql apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history.down.sql apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history_assertions.sql tests/saas-phase3/iyzico-sandbox-evidence-history docs/ops/iyzico-checkout-form-sandbox-activation.md tests/saas-phase3/run-current-suite.mjs
 git commit -m "feat(payments): add iyzico sandbox evidence gate"
 ```
 
@@ -536,7 +542,7 @@ Wait for deployment completion, then confirm:
 
 - deployed commit SHA equals pushed `HEAD`;
 - application/container health is green;
-- migration runner applied 055/056 once and assertions pass;
+- migration runner applied 055/056/057 once and assertions pass;
 - customer-panel Iyzico card renders with its local logo;
 - credential save/validation endpoint is available;
 - iyzico checkout execution remains fail-closed without authority/evidence;

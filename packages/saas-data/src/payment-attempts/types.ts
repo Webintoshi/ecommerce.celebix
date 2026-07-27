@@ -129,6 +129,26 @@ export type SettlePaymentAttemptCallbackInput = Readonly<{
   now: Date;
 }>;
 
+export type ApplyHostedPaymentCallbackInput = Readonly<{
+  providerCode: string;
+  callbackBindingDigest: string;
+  operationId: string;
+  fingerprint: string;
+  eventKeyDigest: string;
+  expectedVersion: number;
+  credentialVersion: number;
+  status: "captured" | "failed" | "provider_outcome_unknown";
+  providerReference: string | null;
+  safeCode: string;
+  amountMinor: number;
+  currency: string;
+  now: Date;
+}>;
+
+export type ApplyHostedPaymentCallbackResult = PaymentAttemptMutationResult & Readonly<{
+  disposition: "applied" | "replayed" | "processing";
+}>;
+
 export type ClaimPaymentAttemptReconciliationInput = Readonly<{
   attemptId: string;
   operationId: string;
@@ -162,6 +182,7 @@ export interface PaymentAttemptRepository {
   markUnknown(input: MarkPaymentAttemptUnknownInput): Promise<PaymentAttemptMutationResult>;
   getCallbackAuthority(input: GetPaymentCallbackAuthorityInput): Promise<PaymentAttemptAuthority>;
   settleCallback(input: SettlePaymentAttemptCallbackInput): Promise<PaymentAttemptMutationResult>;
+  applyHostedCallback(input: ApplyHostedPaymentCallbackInput): Promise<ApplyHostedPaymentCallbackResult>;
   claimReconciliation(input: ClaimPaymentAttemptReconciliationInput): Promise<PaymentAttemptReconciliationClaim>;
   finalizeReconciliation(input: FinalizePaymentAttemptReconciliationInput): Promise<PaymentAttemptMutationResult>;
 }

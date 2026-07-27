@@ -211,12 +211,15 @@ if (!CHILD) {
         return authority();
       },
       async settleCallback(selected) {
+        throw new Error(`legacy_settlement_must_not_run:${selected.status}`);
+      },
+      async applyHostedCallback(selected) {
         settlementCalls += 1;
         const replayed = status === "captured";
         if (!replayed) {
           status = selected.status;
           providerReference = selected.providerReference;
-          version += 1;
+          version += (status === "captured" || status === "failed") && version === 2 ? 2 : 1;
         }
         return {
           attemptId: ATTEMPT,
@@ -225,6 +228,7 @@ if (!CHILD) {
           providerReference,
           safeCode: selected.safeCode,
           replayed,
+          disposition: replayed ? "replayed" : "applied",
         };
       },
       async claimReconciliation() {
@@ -369,6 +373,9 @@ if (!CHILD) {
         };
       },
       async settleCallback(selected) {
+        throw new Error(`legacy_settlement_must_not_run:${selected.status}`);
+      },
+      async applyHostedCallback(selected) {
         settlements += 1;
         assert.equal(selected.status, "captured");
         assert.equal(selected.providerReference, iyzicoToken);
@@ -376,10 +383,11 @@ if (!CHILD) {
         return {
           attemptId: ATTEMPT,
           status: "captured",
-          version: 3,
+          version: 4,
           providerReference: iyzicoToken,
           safeCode: "success",
           replayed: false,
+          disposition: "applied",
         };
       },
       async claimReconciliation() { throw new Error("unexpected_reconciliation"); },

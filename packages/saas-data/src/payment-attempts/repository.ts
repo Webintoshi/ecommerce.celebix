@@ -9,6 +9,8 @@ import {
   type PaymentAttemptErrorCode,
 } from "./errors.ts";
 import type {
+  ApplyHostedPaymentCallbackInput,
+  ApplyHostedPaymentCallbackResult,
   BeginPaymentAttemptInput,
   BeginPaymentAttemptResult,
   ClaimPaymentAttemptReconciliationInput,
@@ -283,9 +285,18 @@ function parseMutation(
     ]);
     if (typeof parsed.replayed !== "boolean") unavailable();
     const replayed = outcome === "operation_replayed" || outcome === "callback_replayed";
+    const status = paymentAttemptStatus(parsed.status);
+    const processingProjection = (
+      outcome === "processing"
+      || (
+        (outcome === "callback_replayed" || outcome === "operation_replayed")
+        && status !== expected.status
+        && (status === "provider_outcome_unknown" || status === "reconciliation_required")
+      )
+    );
     const result = Object.freeze({
       attemptId: paymentAttemptUuid(parsed.attemptId),
-      status: paymentAttemptStatus(parsed.status),
+      status,
       version: paymentAttemptInteger(parsed.version),
       providerReference: paymentAttemptProviderReference(parsed.providerReference),
       safeCode: paymentAttemptSafeCode(parsed.safeCode),
@@ -300,6 +311,93 @@ function parseMutation(
       || (!expected.callbackReplay && result.version !== expected.expectedVersion + 1)
     ) unavailable();
     return result;
+  });
+}
+
+function parseHostedCallbackMutation(
+  value: unknown,
+  outcome: string,
+  expected: Readonly<{
+    expectedVersion: number;
+    status: ApplyHostedPaymentCallbackInput["status"];
+    providerReference: string | null;
+    safeCode: string;
+  }>,
+): ApplyHostedPaymentCallbackResult {
+  return database(() => {
+    const parsed = outputRecord(value, [
+      "attemptId",
+      "status",
+      "version",
+      "providerReference",
+      "safeCode",
+      "replayed",
+    ]);
+    if (typeof parsed.replayed !== "boolean") unavailable();
+    const attemptId = paymentAttemptUuid(parsed.attemptId);
+    const status = paymentAttemptStatus(parsed.status);
+    const version = paymentAttemptInteger(parsed.version);
+    const providerReference = paymentAttemptProviderReference(parsed.providerReference);
+    const safeCode = paymentAttemptSafeCode(parsed.safeCode);
+    const replayOutcome = outcome === "callback_replayed" || outcome === "operation_replayed";
+    const processingProjection = outcome === "processing"
+      || (replayOutcome
+        && (status === "provider_outcome_unknown" || status === "reconciliation_required")
+        && version <= expected.expectedVersion);
+    const result = Object.freeze({
+      attemptId,
+      status,
+      version,
+      providerReference,
+      safeCode,
+      replayed: parsed.replayed,
+      disposition: processingProjection
+        ? "processing" as const
+        : outcome === "callback_replayed" || outcome === "operation_replayed"
+          ? "replayed" as const
+          : "applied" as const,
+    });
+    const appliedIncrement = expected.status === "provider_outcome_unknown"
+      ? result.version === expected.expectedVersion + 1
+      : result.version === expected.expectedVersion + 1
+        || result.version === expected.expectedVersion + 2;
+    const replayVersion = outcome === "callback_replayed"
+      ? result.version <= expected.expectedVersion
+      : result.version <= expected.expectedVersion + 2;
+    if (
+      (result.disposition === "processing" && (
+        result.replayed !== (outcome !== "processing")
+        || result.version < 1
+        || result.version > expected.expectedVersion
+        || !["provider_outcome_unknown", "reconciliation_required"].includes(result.status)
+      ))
+      || (result.disposition === "applied" && (
+        result.replayed
+        || result.status !== expected.status
+        || result.providerReference !== expected.providerReference
+        || result.safeCode !== expected.safeCode
+        || !appliedIncrement
+      ))
+      || (result.disposition === "replayed" && (
+        !result.replayed
+        || result.status !== expected.status
+        || result.providerReference !== expected.providerReference
+        || result.safeCode !== expected.safeCode
+        || !replayVersion
+      ))
+    ) unavailable();
+    return result;
+  });
+}
+
+function expectedHostedCallbackReplay(
+  observed: ApplyHostedPaymentCallbackResult,
+): ApplyHostedPaymentCallbackResult {
+  if (observed.replayed || observed.disposition === "replayed") return observed;
+  return Object.freeze({
+    ...observed,
+    replayed: true,
+    disposition: observed.disposition === "processing" ? "processing" : "replayed",
   });
 }
 
@@ -788,6 +886,76 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
         : "operation_replayed",
       (observed, recovered) => same(
         observed.replayed ? observed : expectedReplay(observed, "replayed"),
+        recovered,
+      ),
+    );
+  }
+
+  async applyHostedCallback(
+    input: ApplyHostedPaymentCallbackInput,
+  ): Promise<ApplyHostedPaymentCallbackResult> {
+    const parsed = exactPaymentAttemptInput(input, [
+      "providerCode",
+      "callbackBindingDigest",
+      "operationId",
+      "fingerprint",
+      "eventKeyDigest",
+      "expectedVersion",
+      "credentialVersion",
+      "status",
+      "providerReference",
+      "safeCode",
+      "amountMinor",
+      "currency",
+      "now",
+    ]);
+    const providerCode = paymentAttemptProviderCode(parsed.providerCode);
+    const callbackBindingDigest = paymentAttemptDigest(parsed.callbackBindingDigest);
+    const operationId = paymentAttemptUuid(parsed.operationId);
+    const fingerprint = paymentAttemptDigest(parsed.fingerprint);
+    const eventKeyDigest = paymentAttemptDigest(parsed.eventKeyDigest);
+    const expectedVersion = paymentAttemptInteger(parsed.expectedVersion);
+    const credentialVersion = paymentAttemptInteger(parsed.credentialVersion);
+    const statuses = ["captured", "failed", "provider_outcome_unknown"] as const;
+    if (!statuses.includes(parsed.status as never)) {
+      throw trustedPaymentAttemptError("invalid_input");
+    }
+    const status = parsed.status as ApplyHostedPaymentCallbackInput["status"];
+    const providerReference = paymentAttemptProviderReference(parsed.providerReference);
+    const safeCode = paymentAttemptSafeCode(parsed.safeCode);
+    const amountMinor = paymentAttemptInteger(parsed.amountMinor);
+    const currency = paymentAttemptCurrency(parsed.currency);
+    const now = paymentAttemptDate(parsed.now);
+    const query = Object.freeze({
+      text: "SELECT outcome,result_payload FROM saas.payment_attempt_apply_hosted_callback($1::text,$2::text,$3::uuid,$4::text,$5::text,$6::bigint,$7::bigint,$8::text,$9::text,$10::text,$11::bigint,$12::text,$13::timestamptz)",
+      values: Object.freeze([
+        providerCode, callbackBindingDigest, operationId, fingerprint, eventKeyDigest,
+        expectedVersion, credentialVersion, status, providerReference, safeCode,
+        amountMinor, currency, now,
+      ]),
+    });
+    return write(
+      this.options,
+      query,
+      [
+        status,
+        "processing",
+        "callback_replayed",
+        "operation_replayed",
+      ],
+      (payload, outcome) => parseHostedCallbackMutation(payload, outcome, {
+        expectedVersion,
+        status,
+        providerReference,
+        safeCode,
+      }),
+      (observedOutcome) => observedOutcome === "processing"
+        ? "processing"
+        : observedOutcome === "callback_replayed"
+          ? "callback_replayed"
+          : "operation_replayed",
+      (observed, recovered) => same(
+        expectedHostedCallbackReplay(observed),
         recovered,
       ),
     );

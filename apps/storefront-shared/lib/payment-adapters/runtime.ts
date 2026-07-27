@@ -911,42 +911,41 @@ function retryableCallbackError(error: unknown): boolean {
   return error instanceof PaymentAttemptRepositoryError && error.code === "commit_unknown";
 }
 
-function exactCallbackMutation(
-  value: Awaited<ReturnType<PaymentAttemptRepository["settleCallback"]>>,
+function exactHostedCallbackMutation(
+  value: Awaited<ReturnType<PaymentAttemptRepository["applyHostedCallback"]>>,
   authority: PaymentAttemptAuthority,
-  verified: VerifiedProviderCallback,
+  expected: Readonly<{
+    status: "captured" | "failed" | "provider_outcome_unknown";
+    providerReference: string | null;
+    safeCode: string;
+  }>,
 ): boolean {
-  const status = verified.status === "succeeded" ? "captured" : "failed";
-  return value.attemptId === authority.attemptId
-    && value.status === status
-    && value.providerReference === verified.providerReference
-    && value.safeCode === verified.safeCode
-    && typeof value.replayed === "boolean"
-    && Number.isSafeInteger(value.version)
-    && (
-      value.replayed
-        ? value.version >= 1 && value.version <= authority.version
-        : value.version === authority.version + 1
-    );
-}
-
-function exactUnknownMutation(
-  value: Awaited<ReturnType<PaymentAttemptRepository["markUnknown"]>>,
-  authority: PaymentAttemptAuthority,
-  providerReference: string | null,
-  safeCode: string,
-): boolean {
-  return value.attemptId === authority.attemptId
-    && value.status === "provider_outcome_unknown"
-    && value.providerReference === providerReference
-    && value.safeCode === safeCode
-    && typeof value.replayed === "boolean"
-    && Number.isSafeInteger(value.version)
-    && (
-      value.replayed
-        ? value.version >= 1 && value.version <= authority.version
-        : value.version === authority.version + 1
-    );
+  if (
+    value.attemptId !== authority.attemptId
+    || typeof value.replayed !== "boolean"
+    || Number.isSafeInteger(value.version) === false
+  ) return false;
+  if (value.disposition === "processing") {
+    return value.version >= 1
+      && value.version <= authority.version
+      && (value.status === "provider_outcome_unknown"
+        || value.status === "reconciliation_required");
+  }
+  const increment = expected.status !== "provider_outcome_unknown"
+    && authority.status === "awaiting_customer" ? 2 : 1;
+  if (
+    value.status !== expected.status
+    || value.providerReference !== expected.providerReference
+    || value.safeCode !== expected.safeCode
+  ) return false;
+  if (value.disposition === "applied") {
+    return value.replayed === false
+      && value.version === authority.version + increment;
+  }
+  return value.disposition === "replayed"
+    && value.replayed
+    && value.version >= 1
+    && value.version <= authority.version + increment;
 }
 
 async function persistCallbackUnknown(
@@ -969,16 +968,26 @@ async function persistCallbackUnknown(
     safeCode,
   );
   try {
-    const mutation = await dependencies.attempts.markUnknown({
-      attemptId: authority.attemptId,
+    const eventKeyDigest = createHash("sha256").update(eventKey, "utf8").digest("hex");
+    const mutation = await dependencies.attempts.applyHostedCallback({
+      providerCode: authority.providerCode,
+      callbackBindingDigest: request.callbackBindingDigest,
       ...selected,
+      eventKeyDigest,
       expectedVersion: authority.version,
       credentialVersion: authority.credentialVersion,
+      status: "provider_outcome_unknown",
       providerReference,
       safeCode,
+      amountMinor: authority.amountMinor,
+      currency: authority.currency,
       now: new Date(now),
     });
-    return exactUnknownMutation(mutation, authority, providerReference, safeCode)
+    return exactHostedCallbackMutation(mutation, authority, {
+      status: "provider_outcome_unknown",
+      providerReference,
+      safeCode,
+    })
       ? "persisted"
       : "rejected";
   } catch (error) {
@@ -1092,21 +1101,29 @@ async function settleExactCallback(
         verified.safeCode,
       );
       try {
-        const settled = await dependencies.attempts.settleCallback({
+        const status = verified.status === "succeeded" ? "captured" : "failed";
+        const settled = await dependencies.attempts.applyHostedCallback({
           providerCode: authority.providerCode,
           callbackBindingDigest: request.callbackBindingDigest,
           ...selected,
           eventKeyDigest,
           expectedVersion: authority.version,
           credentialVersion: authority.credentialVersion,
-          status: verified.status === "succeeded" ? "captured" : "failed",
+          status,
           providerReference: verified.providerReference,
           safeCode: verified.safeCode,
           amountMinor: verified.paidAmountMinor,
           currency: verified.currency,
           now: new Date(now),
         });
-        if (!exactCallbackMutation(settled, authority, verified)) return CALLBACK_REJECTED;
+        if (!exactHostedCallbackMutation(settled, authority, {
+          status,
+          providerReference: verified.providerReference,
+          safeCode: verified.safeCode,
+        })) return CALLBACK_REJECTED;
+        if (settled.disposition === "processing") {
+          return callbackProjection(adapter, "processing");
+        }
       } catch (error) {
         return retryableCallbackError(error) ? CALLBACK_RETRY : CALLBACK_REJECTED;
       }
