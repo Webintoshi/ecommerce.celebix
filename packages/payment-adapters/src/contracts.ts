@@ -92,7 +92,7 @@ export type HostedPaymentStatus =
 
 export type VerifiedProviderCallback = Readonly<{
   eventKey: string;
-  status: "succeeded" | "failed";
+  status: "succeeded" | "failed" | "pending" | "retry";
   providerReference: string | null;
   paidAmountMinor: number;
   currency: string;
@@ -115,12 +115,17 @@ export type HostedPaymentInitializeInput<TCredential extends object> = Readonly<
     phone: string;
     ipAddress: string;
     address: string;
+    identityNumber?: string;
+    city?: string;
+    country?: string;
+    postalCode?: string;
   }>;
   basket: readonly Readonly<{
     reference: string;
     name: string;
     quantity: number;
     unitAmountMinor: number;
+    itemType?: "PHYSICAL" | "VIRTUAL";
   }>[];
   signal: AbortSignal;
 }>;
@@ -131,11 +136,13 @@ export type HostedPaymentCallbackInput<TCredential extends object> = Readonly<{
   method: "POST";
   headers: Readonly<Record<string, string>>;
   body: Uint8Array;
+  signal?: AbortSignal;
   expected: Readonly<{
     attemptId: string;
     orderReference: string;
     amountMinor: number;
     currency: string;
+    providerReference?: string | null;
   }>;
 }>;
 

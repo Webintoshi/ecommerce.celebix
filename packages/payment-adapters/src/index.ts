@@ -31,6 +31,11 @@ export {
   verifyIyzicoRetrieveResponseSignature,
   wipeIyzicoCredential,
 } from "./providers/iyzico/config.ts";
+export {
+  IYZICO_IFRAME_PACKET,
+  createIyzicoCheckoutFormAdapter,
+  validateIyzicoCredentialWithTransport,
+} from "./providers/iyzico/adapter.ts";
 export type {
   HostedPaymentAdapter,
   HostedPaymentCallbackInput,
@@ -69,3 +74,7 @@ export type {
   IyzicoInitializeSignatureInput,
   IyzicoRetrieveSignatureInput,
 } from "./providers/iyzico/config.ts";
+export type {
+  IyzicoAdapterDependencies,
+  IyzicoCredentialValidationResult,
+} from "./providers/iyzico/adapter.ts";

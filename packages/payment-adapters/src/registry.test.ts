@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  IYZICO_IFRAME_PACKET,
   PAYMENT_ADAPTER_PACKET_INVENTORY,
+  createIyzicoCheckoutFormAdapter,
   createPaymentAdapterRegistry,
   parsePaymentAdapterPacket,
   type HostedPaymentAdapter,
@@ -116,6 +118,25 @@ test("accepts an explicit empty registry as the fail-closed production default",
   assert.equal(registry.size, 0);
   assert.equal(registry.packet("paytr_iframe"), null);
   assert.equal(registry.adapter("paytr_iframe"), null);
+});
+
+test("accepts the explicit iyzico Checkout Form adapter without enabling it by default", () => {
+  const request = Object.freeze(async () => Object.freeze({
+    kind: "unknown" as const,
+    code: "transport_outcome_unknown" as const,
+  }));
+  const iyzico = createIyzicoCheckoutFormAdapter(
+    Object.freeze({ request }),
+    Object.freeze({ randomKey: Object.freeze(() => "fixedRandomKey0123456789") }),
+  );
+  const registry = createPaymentAdapterRegistry(
+    [IYZICO_IFRAME_PACKET],
+    [iyzico as unknown as HostedPaymentAdapter<object>],
+  );
+
+  assert.equal(registry.size, 1);
+  assert.strictEqual(registry.packet("iyzico_iframe"), IYZICO_IFRAME_PACKET);
+  assert.strictEqual(registry.adapter("iyzico_iframe"), iyzico);
 });
 
 test("rejects duplicate packet and adapter provider codes", () => {
