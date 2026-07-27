@@ -271,10 +271,15 @@ means the pre-bridge rollback remains forbidden.
 - Modify: `apps/customer-panel/lib/payment-settings-ui/model.ts`
 - Modify: `apps/customer-panel/lib/payment-settings-ui/model.test.ts`
 - Modify: `apps/customer-panel/components/settings/payment/PaymentSettingsConsole.tsx`
+- Modify: `apps/customer-panel/components/settings/payment/PaymentProviderCatalogDialog.tsx`
+- Modify: `apps/customer-panel/components/settings/payment/PaymentProviderConnectionDrawer.tsx`
 - Modify: the focused `PaymentSettingsConsole` test used by the customer-panel workspace
 - Modify: `apps/customer-panel/lib/provider-execution-http/handler.ts`
 - Modify: `apps/customer-panel/lib/provider-execution-http/handler.test.ts`
+- Modify: `apps/customer-panel/lib/server-provider-execution/runtime.ts`
+- Modify: the focused server-provider-execution runtime test
 - Modify: `apps/customer-panel/lib/payment-method-http/handler.test.ts`
+- Modify: the focused server-payment-methods runtime test
 - Modify: `apps/customer-panel/lib/server-panel-access/postgres-runtime.ts`
 - Modify: `packages/payment-adapters/src/packets/plugin-inventory.ts`
 - Modify: `packages/payment-adapters/src/packets/plugin-inventory.test.ts`
@@ -289,6 +294,7 @@ Prove:
 - each descriptor uses its own packet, public/secret fields, version, environments, and optional authority;
 - `verification` allows the merchant to enter and submit credentials for validation but cannot create/enable a checkout payment method;
 - the payment console loads the definition/profile for a `verification` provider and offers an explicit test/live environment selection without conflating credential setup with method activation;
+- the catalog dialog and credential drawer distinguish `configurable` from `executable`, and present `Doğrulama bekliyor`, `Doğrulandı — sandbox kanıtı bekleniyor`, `Aktivasyona hazır`, and `Aktif` as separate truthful states;
 - test and live profiles coexist, and rotation cannot change a profile's environment;
 - missing/mismatched authority remains fail-closed per provider and cannot disable another provider;
 - iyzico card uses the existing local `/payment-providers/iyzico.svg` asset and correct brand/mode label;
@@ -299,6 +305,7 @@ Prove:
 - Replace size-one/PayTR-only assertions with an exact two-provider composition.
 - Parse iyzico public config `{ environment: "test" | "live" }` and secret config `{ apiKey, secretKey }` through the adapter.
 - Accept profile-save/validate for a known verification provider while keeping execution authority null.
+- Expose Task 7's `saveVerification` through the frozen server-provider-execution facade; do not route verification profiles through the legacy evidence-bound save contract.
 - Use the provider-keyed lifecycle/repository contract from Task 7; do not weaken the legacy migration 053 checks in application code alone.
 - Require exact authority and readiness only for payment-method activation.
 - Keep activation environment restrictions provider-scoped.
@@ -319,7 +326,7 @@ Expected: PASS.
 **Step 4: Commit**
 
 ```bash
-git add apps/customer-panel/lib/payment-provider-adapters/default.ts apps/customer-panel/lib/payment-provider-adapters/default.test.ts apps/customer-panel/lib/payment-providers/catalog.ts apps/customer-panel/lib/payment-providers/catalog.test.ts apps/customer-panel/lib/payment-settings-ui/model.ts apps/customer-panel/lib/payment-settings-ui/model.test.ts apps/customer-panel/lib/provider-execution-http/handler.ts apps/customer-panel/lib/provider-execution-http/handler.test.ts apps/customer-panel/lib/server-panel-access/postgres-runtime.ts tests/saas-phase3/provider-execution-foundation/browser-contract.test.mjs tests/saas-phase3/payment-provider-admin/static-security.test.mjs
+git add apps/customer-panel/lib/payment-provider-adapters/default.ts apps/customer-panel/lib/payment-provider-adapters/default.test.ts apps/customer-panel/lib/payment-providers/catalog.ts apps/customer-panel/lib/payment-providers/catalog-data.ts apps/customer-panel/lib/payment-providers/catalog.test.ts apps/customer-panel/lib/payment-settings-ui/model.ts apps/customer-panel/lib/payment-settings-ui/model.test.ts apps/customer-panel/components/settings/payment/PaymentSettingsConsole.tsx apps/customer-panel/components/settings/payment/PaymentProviderCatalogDialog.tsx apps/customer-panel/components/settings/payment/PaymentProviderConnectionDrawer.tsx apps/customer-panel/lib/provider-execution-http/handler.ts apps/customer-panel/lib/provider-execution-http/handler.test.ts apps/customer-panel/lib/server-provider-execution/runtime.ts apps/customer-panel/lib/server-panel-access/postgres-runtime.ts packages/payment-adapters/src/packets/plugin-inventory.ts packages/payment-adapters/src/packets/plugin-inventory.test.ts tests/saas-phase3/provider-execution-foundation/browser-contract.test.mjs tests/saas-phase3/payment-provider-admin/static-security.test.mjs
 git commit -m "feat(payments): expose iyzico credential setup"
 ```
 
