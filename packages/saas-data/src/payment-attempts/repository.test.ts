@@ -252,6 +252,103 @@ test("markUnknown uses the fixed unknown transition without provider-specific re
   assert.deepEqual(result, projected);
 });
 
+test("legacy callback runtime accepts an exact historical markUnknown replay at freshly loaded authority", async () => {
+  const historical = {
+    ...mutationPayload("provider_outcome_unknown", 3, true),
+    safeCode: "fraud_review",
+  };
+  const client = success("payment_attempt_mark_unknown", "operation_replayed", historical);
+  const result = await repository(new Pool([client])).markUnknown({
+    attemptId: ATTEMPT,
+    operationId: OPERATION,
+    fingerprint: FINGERPRINT,
+    expectedVersion: 3,
+    credentialVersion: 2,
+    providerReference: "provider-safe-42",
+    safeCode: "fraud_review",
+    now: NOW,
+  });
+
+  const legacyRuntimePresentation = result.attemptId === ATTEMPT
+    && result.status === "provider_outcome_unknown"
+    && result.providerReference === "provider-safe-42"
+    && result.safeCode === "fraud_review"
+    && result.replayed
+    && result.version >= 1
+    && result.version <= 3
+    ? "processing"
+    : "rejected";
+  assert.deepEqual(result, historical);
+  assert.equal(legacyRuntimePresentation, "processing");
+});
+
+test("markUnknown replay bridge accepts bounded exact history but rejects future and mismatched rows", async () => {
+  const exactOlder = {
+    ...mutationPayload("provider_outcome_unknown", 2, true),
+    safeCode: "fraud_review",
+  };
+  assert.deepEqual(await repository(new Pool([
+    success("payment_attempt_mark_unknown", "operation_replayed", exactOlder),
+  ])).markUnknown({
+    attemptId: ATTEMPT,
+    operationId: OPERATION,
+    fingerprint: FINGERPRINT,
+    expectedVersion: 3,
+    credentialVersion: 2,
+    providerReference: "provider-safe-42",
+    safeCode: "fraud_review",
+    now: NOW,
+  }), exactOlder);
+
+  for (const hostile of [
+    {
+      ...mutationPayload("provider_outcome_unknown", 5, true),
+      safeCode: "fraud_review",
+    },
+    {
+      ...mutationPayload("provider_outcome_unknown", 2, true),
+      safeCode: "different_observation",
+    },
+  ]) {
+    await assert.rejects(
+      () => repository(new Pool([
+        success("payment_attempt_mark_unknown", "operation_replayed", hostile),
+      ])).markUnknown({
+        attemptId: ATTEMPT,
+        operationId: OPERATION,
+        fingerprint: FINGERPRINT,
+        expectedVersion: 3,
+        credentialVersion: 2,
+        providerReference: "provider-safe-42",
+        safeCode: "fraud_review",
+        now: NOW,
+      }),
+      (error: unknown) => error instanceof PaymentAttemptRepositoryError
+        && error.code === "unavailable",
+    );
+  }
+
+  await assert.rejects(
+    () => repository(new Pool([
+      success("payment_attempt_mark_initialized", "operation_replayed", {
+        ...mutationPayload("submitted", 3, true),
+      }),
+    ])).markInitialized({
+      attemptId: ATTEMPT,
+      operationId: OPERATION,
+      fingerprint: FINGERPRINT,
+      expectedVersion: 3,
+      credentialVersion: 2,
+      status: "submitted",
+      providerReference: "provider-safe-42",
+      safeCode: "accepted",
+      now: NOW,
+    }),
+    (error: unknown) => error instanceof PaymentAttemptRepositoryError
+      && error.code === "unavailable",
+  );
+});
+
 test("getCallbackAuthority is a read-only opaque binding lookup with frozen authority", async () => {
   const payload = authorityPayload();
   const client = success("payment_callback_authority", "found", payload);
