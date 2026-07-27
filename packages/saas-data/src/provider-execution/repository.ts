@@ -25,9 +25,12 @@ import {
 import type {
   ListMerchantProviderProfilesInput,
   MerchantProviderProfileRepository,
+  MerchantProviderValidationIdentity,
+  MerchantProviderVerificationProfileRepository,
   PostgresMerchantProviderProfileRepositoryOptions,
   RevokeMerchantProviderProfileInput,
   SaveMerchantProviderProfileInput,
+  SaveMerchantProviderVerificationProfileInput,
 } from "./types.ts";
 
 type Spec = Readonly<{ text: string; values: unknown[] }>;
@@ -89,7 +92,21 @@ function executionAuthority(value: unknown): Readonly<{
   });
 }
 
-export class PostgresMerchantProviderProfileRepository implements MerchantProviderProfileRepository {
+function validationIdentity(value: unknown): Readonly<MerchantProviderValidationIdentity> {
+  const parsed = exactProviderInput(value, ["environment", "adapterVersion"]);
+  if (
+    (parsed.environment !== "test" && parsed.environment !== "live") ||
+    !Number.isSafeInteger(parsed.adapterVersion) || (parsed.adapterVersion as number) < 1
+  ) throw new MerchantProviderProfileRepositoryError("invalid_input");
+  return Object.freeze({
+    environment: parsed.environment,
+    adapterVersion: parsed.adapterVersion as number,
+  });
+}
+
+export class PostgresMerchantProviderProfileRepository implements
+  MerchantProviderProfileRepository,
+  MerchantProviderVerificationProfileRepository {
   private readonly options: PostgresMerchantProviderProfileRepositoryOptions;
 
   constructor(options: PostgresMerchantProviderProfileRepositoryOptions) {
@@ -277,6 +294,58 @@ export class PostgresMerchantProviderProfileRepository implements MerchantProvid
     ), {
       text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::text,$12::text,$13::jsonb,$14::text,$15::jsonb,$16::text,$17::text,$18::integer,$19::text,$20::integer,$21::text,$22::bigint)",
       values: [...authorityValues(authority), operationId, fingerprint, profileId, selectedProviderCode, capability, JSON.stringify(publicConfig), maskedAccountReference, JSON.stringify(sealedCredentials), credentialDigest, sealedCredentials.keyId, sealedCredentials.version, selectedExecutionAuthority?.environment ?? null, selectedExecutionAuthority?.adapterVersion ?? null, selectedExecutionAuthority?.evidenceDigest ?? null, expectedVersion],
+    });
+  }
+
+  async saveVerification(input: SaveMerchantProviderVerificationProfileInput): Promise<MerchantProviderProfile> {
+    const parsed = exactProviderInput(input, [
+      "tenantContext", "now", "operationId", "profileId", "providerCode", "capability",
+      "publicConfig", "maskedAccountReference", "sealedCredentials", "credentialDigest",
+      "validationIdentity", "expectedVersion",
+    ]);
+    const authority = providerAuthority(parsed.tenantContext as never, parsed.now as Date);
+    const operationId = providerUuid(parsed.operationId);
+    const profileId = providerUuid(parsed.profileId);
+    const selectedProviderCode = providerCode(parsed.providerCode);
+    const capability = providerCapability(parsed.capability);
+    if (capability !== "payment_processing") {
+      throw new MerchantProviderProfileRepositoryError("invalid_input");
+    }
+    const publicConfig = providerPublicConfig(parsed.publicConfig);
+    const maskedAccountReference = providerMaskedReference(parsed.maskedAccountReference);
+    const sealedCredentials = providerSealedCredential(parsed.sealedCredentials);
+    const credentialDigest = providerDigest(parsed.credentialDigest);
+    const selectedValidationIdentity = validationIdentity(parsed.validationIdentity);
+    if (publicConfig.environment !== selectedValidationIdentity.environment) {
+      throw new MerchantProviderProfileRepositoryError("invalid_input");
+    }
+    const expectedVersion = providerVersion(parsed.expectedVersion, 0);
+    const fingerprint = providerProfileFingerprint("save", authority.storeId, {
+      profileId,
+      providerCode: selectedProviderCode,
+      capability,
+      publicConfig,
+      maskedAccountReference,
+      credentialDigest,
+      credentialKeyId: sealedCredentials.keyId,
+      credentialSchemaVersion: sealedCredentials.version,
+      validationIdentity: selectedValidationIdentity,
+      expectedVersion,
+    });
+    return this.mutate(authority, operationId, fingerprint, "saved", (selected) => (
+      selected.id === profileId &&
+      selected.providerCode === selectedProviderCode &&
+      selected.capability === capability &&
+      selected.status === "pending_validation"
+    ), {
+      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_save_verification($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::text,$12::text,$13::jsonb,$14::text,$15::jsonb,$16::text,$17::text,$18::integer,$19::text,$20::integer,$21::bigint)",
+      values: [
+        ...authorityValues(authority), operationId, fingerprint, profileId, selectedProviderCode,
+        capability, JSON.stringify(publicConfig), maskedAccountReference,
+        JSON.stringify(sealedCredentials), credentialDigest, sealedCredentials.keyId,
+        sealedCredentials.version, selectedValidationIdentity.environment,
+        selectedValidationIdentity.adapterVersion, expectedVersion,
+      ],
     });
   }
 

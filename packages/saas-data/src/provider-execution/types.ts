@@ -32,6 +32,23 @@ export interface SaveMerchantProviderProfileInput extends ListMerchantProviderPr
   readonly expectedVersion: number;
 }
 
+export interface MerchantProviderValidationIdentity {
+  readonly environment: "test" | "live";
+  readonly adapterVersion: number;
+}
+
+export interface SaveMerchantProviderVerificationProfileInput extends ListMerchantProviderProfilesInput {
+  readonly operationId: string;
+  readonly profileId: string;
+  readonly providerCode: string;
+  readonly publicConfig: Readonly<Record<string, MerchantAdminJson>>;
+  readonly maskedAccountReference: string;
+  readonly sealedCredentials: SealedMerchantProviderCredential;
+  readonly credentialDigest: string;
+  readonly validationIdentity: Readonly<MerchantProviderValidationIdentity>;
+  readonly expectedVersion: number;
+}
+
 export interface RevokeMerchantProviderProfileInput extends MerchantProviderAuthorityInput {
   readonly operationId: string;
   readonly profileId: string;
@@ -43,6 +60,10 @@ export interface MerchantProviderProfileRepository {
   save(input: SaveMerchantProviderProfileInput): Promise<MerchantProviderProfile>;
   disable(input: RevokeMerchantProviderProfileInput): Promise<MerchantProviderProfile>;
   revoke(input: RevokeMerchantProviderProfileInput): Promise<MerchantProviderProfile>;
+}
+
+export interface MerchantProviderVerificationProfileRepository {
+  saveVerification(input: SaveMerchantProviderVerificationProfileInput): Promise<MerchantProviderProfile>;
 }
 
 export interface PostgresMerchantProviderProfileRepositoryOptions {
@@ -81,6 +102,27 @@ export interface MerchantProviderValidationClaim {
   readonly leaseExpiresAt: string;
 }
 
+export interface ClaimMerchantProviderVerificationInput extends ClaimMerchantProviderWorkInput {
+  readonly providerCode: string;
+  readonly capability: MerchantProviderCapability;
+  readonly validationIdentity: Readonly<MerchantProviderValidationIdentity>;
+}
+
+export interface MerchantProviderVerificationClaim {
+  readonly profileId: string;
+  readonly storeId: string;
+  readonly providerCode: string;
+  readonly capability: MerchantProviderCapability;
+  readonly publicConfig: Readonly<Record<string, MerchantAdminJson>>;
+  readonly validationIdentity: Readonly<MerchantProviderValidationIdentity>;
+  readonly sealedCredentials: SealedMerchantProviderCredential;
+  readonly credentialVersion: number;
+  readonly profileVersion: number;
+  readonly leaseId: string;
+  readonly leaseOwner: string;
+  readonly leaseExpiresAt: string;
+}
+
 export interface MerchantProviderWorkflowClaim {
   readonly jobId: string;
   readonly recordId: string;
@@ -103,6 +145,20 @@ export interface MerchantProviderValidationResultInput {
   readonly providerCode: string;
   readonly capability: MerchantProviderCapability;
   readonly executionAuthority: Readonly<PaymentProviderExecutionAuthority>;
+  readonly credentialVersion: number;
+  readonly profileVersion: number;
+  readonly leaseId: string;
+  readonly leaseOwner: string;
+  readonly now: Date;
+  readonly outcome: "validated" | "rejected";
+  readonly outcomeCode: string;
+}
+
+export interface MerchantProviderVerificationResultInput {
+  readonly profileId: string;
+  readonly providerCode: string;
+  readonly capability: MerchantProviderCapability;
+  readonly validationIdentity: Readonly<MerchantProviderValidationIdentity>;
   readonly credentialVersion: number;
   readonly profileVersion: number;
   readonly leaseId: string;
@@ -160,6 +216,11 @@ export interface MerchantProviderWorkflowRepository {
   finalize(input: MerchantProviderFinalizeInput): Promise<MerchantAdminProviderJob>;
   reconcile(input: MerchantProviderReconcileInput): Promise<MerchantAdminProviderJob>;
   recover(input: RecoverMerchantProviderWorkflowInput): Promise<MerchantAdminProviderJob>;
+}
+
+export interface MerchantProviderVerificationWorkflowRepository {
+  claimProfileVerification(input: ClaimMerchantProviderVerificationInput): Promise<Readonly<{ kind: "empty" }> | Readonly<{ kind: "claimed"; profile: MerchantProviderVerificationClaim }>>;
+  markProfileVerification(input: MerchantProviderVerificationResultInput): Promise<MerchantProviderProfile>;
 }
 
 export interface PostgresMerchantProviderWorkflowRepositoryOptions {

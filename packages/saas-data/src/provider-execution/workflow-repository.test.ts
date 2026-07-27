@@ -37,6 +37,39 @@ function validationClaim() {
   };
 }
 
+function verificationClaim() {
+  return {
+    profileId: PROFILE,
+    storeId: STORE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    publicConfig: { environment: "test" },
+    validationIdentity: { environment: "test", adapterVersion: 1 },
+    sealedCredentials: sealed(),
+    credentialVersion: 2,
+    profileVersion: 3,
+    leaseId: LEASE,
+    leaseOwner: "worker.fixture",
+    leaseExpiresAt: LATER.toISOString(),
+  };
+}
+
+function verificationProfile(status = "active") {
+  return {
+    id: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    publicConfig: { environment: "test" },
+    maskedAccountReference: "iyzico merchant",
+    status,
+    credentialVersion: 2,
+    version: 4,
+    lastValidatedAt: NOW.toISOString(),
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  };
+}
+
 function workflowClaim() {
   return {
     jobId: JOB,
@@ -150,6 +183,27 @@ test("profile validation claim binds lease and credential authority", async () =
   assert.doesNotMatch(JSON.stringify(claim.profile.publicConfig), /secret|token|password/i);
 });
 
+test("profile verification claim binds validation identity without checkout evidence", async () => {
+  const client = new Client((text) => text.includes("merchant_provider_profile_claim_verification")
+    ? [{ outcome: "claimed", result_payload: verificationClaim() }]
+    : []);
+  const claim = await repository(new Pool([client])).claimProfileVerification({
+    workerId: "worker.fixture",
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: { environment: "test", adapterVersion: 1 },
+    now: NOW,
+    leaseExpiresAt: LATER,
+  });
+  assert.equal(claim.kind, "claimed");
+  if (claim.kind !== "claimed") assert.fail("verification claim expected");
+  assert.deepEqual(claim.profile.validationIdentity, { environment: "test", adapterVersion: 1 });
+  assert.doesNotMatch(JSON.stringify(claim.profile), /evidenceDigest|executionAuthority/);
+  assert.deepEqual(call(client, "merchant_provider_profile_claim_verification").values, [
+    "worker.fixture", "iyzico_iframe", "payment_processing", "test", 1, NOW, LATER, LEASE,
+  ]);
+});
+
 test("empty workflow claims commit a frozen empty result", async () => {
   const client = new Client((text) => text.includes("merchant_provider_claim") ? [{ outcome: "empty", result_payload: null }] : []);
   const result = await repository(new Pool([client])).claim({ workerId: "worker.fixture", now: NOW, leaseExpiresAt: LATER });
@@ -162,6 +216,32 @@ test("profile validation result binds every lease field", async () => {
   const result = await repository(new Pool([client])).markProfileValidation({ profileId: PROFILE, providerCode: "paytr_iframe", capability: "payment_processing", executionAuthority: AUTHORITY, credentialVersion: 2, profileVersion: 3, leaseId: LEASE, leaseOwner: "worker.fixture", now: NOW, outcome: "validated", outcomeCode: "validated" });
   assert.equal(result.status, "active");
   assert.deepEqual(call(client, "merchant_provider_profile_mark_validation").values.slice(0, 6), [PROFILE, "paytr_iframe", "payment_processing", "test", 1, AUTHORITY.evidenceDigest]);
+});
+
+test("profile verification result marks the exact validation identity without evidence", async () => {
+  const client = new Client((text) => text.includes("merchant_provider_profile_mark_verification")
+    ? [{ outcome: "validated", result_payload: verificationProfile() }]
+    : []);
+  const result = await repository(new Pool([client])).markProfileVerification({
+    profileId: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: { environment: "test", adapterVersion: 1 },
+    credentialVersion: 2,
+    profileVersion: 3,
+    leaseId: LEASE,
+    leaseOwner: "worker.fixture",
+    now: NOW,
+    outcome: "validated",
+    outcomeCode: "validated",
+  });
+  assert.equal(result.status, "active");
+  assert.deepEqual(call(client, "merchant_provider_profile_mark_verification").values.slice(0, 5), [
+    PROFILE, "iyzico_iframe", "payment_processing", "test", 1,
+  ]);
+  assert.equal(call(client, "merchant_provider_profile_mark_verification").values.some(
+    (value) => typeof value === "string" && value.startsWith("sha256:"),
+  ), false);
 });
 
 test("heartbeat carries the exact lease ID and parses a safe job", async () => {

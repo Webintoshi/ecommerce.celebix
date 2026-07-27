@@ -24,6 +24,7 @@ export { PostgresMerchantProviderProfileRepository } from "./repository.ts";
 export { PostgresMerchantProviderWorkflowRepository } from "./workflow-repository.ts";
 export type {
   ClaimMerchantProviderWorkInput,
+  ClaimMerchantProviderVerificationInput,
   ClaimMerchantProviderValidationInput,
   ListMerchantProviderProfilesInput,
   MerchantProviderAuthorityInput,
@@ -33,7 +34,12 @@ export type {
   MerchantProviderProfileRepository,
   MerchantProviderReconcileInput,
   MerchantProviderValidationClaim,
+  MerchantProviderValidationIdentity,
   MerchantProviderValidationResultInput,
+  MerchantProviderVerificationClaim,
+  MerchantProviderVerificationProfileRepository,
+  MerchantProviderVerificationResultInput,
+  MerchantProviderVerificationWorkflowRepository,
   MerchantProviderWorkflowClaim,
   MerchantProviderWorkflowRepository,
   PostgresMerchantProviderWorkflowRepositoryOptions,
@@ -41,4 +47,5 @@ export type {
   RecoverMerchantProviderWorkflowInput,
   RevokeMerchantProviderProfileInput,
   SaveMerchantProviderProfileInput,
+  SaveMerchantProviderVerificationProfileInput,
 } from "./types.ts";

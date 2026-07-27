@@ -23,12 +23,17 @@ import {
 } from "./errors.ts";
 import type {
   ClaimMerchantProviderWorkInput,
+  ClaimMerchantProviderVerificationInput,
   ClaimMerchantProviderValidationInput,
   MerchantProviderFinalizeInput,
   MerchantProviderHeartbeatInput,
   MerchantProviderReconcileInput,
   MerchantProviderValidationClaim,
   MerchantProviderValidationResultInput,
+  MerchantProviderValidationIdentity,
+  MerchantProviderVerificationClaim,
+  MerchantProviderVerificationResultInput,
+  MerchantProviderVerificationWorkflowRepository,
   MerchantProviderWorkflowClaim,
   MerchantProviderWorkflowRepository,
   PostgresMerchantProviderWorkflowRepositoryOptions,
@@ -133,6 +138,17 @@ function executionAuthority(value: unknown): Readonly<{ environment: "test" | "l
   ) invalid();
   return Object.freeze({ environment: parsed.environment, adapterVersion: parsed.adapterVersion as number, evidenceDigest: parsed.evidenceDigest });
 }
+function validationIdentity(value: unknown): Readonly<MerchantProviderValidationIdentity> {
+  const parsed = exact(value, ["environment", "adapterVersion"]);
+  if (
+    (parsed.environment !== "test" && parsed.environment !== "live") ||
+    !Number.isSafeInteger(parsed.adapterVersion) || (parsed.adapterVersion as number) < 1
+  ) invalid();
+  return Object.freeze({
+    environment: parsed.environment,
+    adapterVersion: parsed.adapterVersion as number,
+  });
+}
 function validationClaimWindow(input: ClaimMerchantProviderValidationInput) {
   const parsed = exact(input, ["workerId", "providerCode", "capability", "executionAuthority", "now", "leaseExpiresAt"]);
   const now = date(parsed.now), leaseExpiresAt = date(parsed.leaseExpiresAt);
@@ -143,6 +159,21 @@ function validationClaimWindow(input: ClaimMerchantProviderValidationInput) {
     workerId: worker(parsed.workerId), providerCode: providerCode(parsed.providerCode),
     capability: selectedCapability, executionAuthority: executionAuthority(parsed.executionAuthority),
     now, leaseExpiresAt,
+  });
+}
+function verificationClaimWindow(input: ClaimMerchantProviderVerificationInput) {
+  const parsed = exact(input, ["workerId", "providerCode", "capability", "validationIdentity", "now", "leaseExpiresAt"]);
+  const now = date(parsed.now), leaseExpiresAt = date(parsed.leaseExpiresAt);
+  if (leaseExpiresAt.getTime() <= now.getTime() || leaseExpiresAt.getTime() > now.getTime() + 15 * 60_000) invalid();
+  const selectedCapability = providerCapability(parsed.capability);
+  if (selectedCapability !== "payment_processing") invalid();
+  return Object.freeze({
+    workerId: worker(parsed.workerId),
+    providerCode: providerCode(parsed.providerCode),
+    capability: selectedCapability,
+    validationIdentity: validationIdentity(parsed.validationIdentity),
+    now,
+    leaseExpiresAt,
   });
 }
 function code(value: unknown): string {
@@ -203,6 +234,47 @@ function validationClaim(value: unknown, expected: Readonly<{
   }
 }
 
+function verificationClaim(value: unknown, expected: Readonly<{
+  workerId: string;
+  leaseId: string;
+  leaseExpiresAt: Date;
+  providerCode: string;
+  capability: "payment_processing";
+  validationIdentity: Readonly<MerchantProviderValidationIdentity>;
+}>): MerchantProviderVerificationClaim {
+  const parsed = payload(value, [
+    "profileId", "storeId", "providerCode", "capability", "publicConfig", "sealedCredentials",
+    "validationIdentity", "credentialVersion", "profileVersion", "leaseId", "leaseOwner", "leaseExpiresAt",
+  ]);
+  try {
+    const claim = Object.freeze({
+      profileId: providerUuid(parsed.profileId),
+      storeId: providerUuid(parsed.storeId),
+      providerCode: providerCode(parsed.providerCode),
+      capability: providerCapability(parsed.capability),
+      publicConfig: providerPublicConfig(parsed.publicConfig),
+      validationIdentity: validationIdentity(parsed.validationIdentity),
+      sealedCredentials: providerSealedCredential(parsed.sealedCredentials),
+      credentialVersion: providerVersion(parsed.credentialVersion, 1),
+      profileVersion: providerVersion(parsed.profileVersion, 1),
+      leaseId: providerUuid(parsed.leaseId),
+      leaseOwner: worker(parsed.leaseOwner),
+      leaseExpiresAt: timestamp(parsed.leaseExpiresAt),
+    });
+    if (
+      claim.leaseId !== expected.leaseId || claim.leaseOwner !== expected.workerId ||
+      claim.leaseExpiresAt !== expected.leaseExpiresAt.toISOString() ||
+      claim.providerCode !== expected.providerCode || claim.capability !== expected.capability ||
+      claim.validationIdentity.environment !== expected.validationIdentity.environment ||
+      claim.validationIdentity.adapterVersion !== expected.validationIdentity.adapterVersion
+    ) throw unavailable();
+    return claim;
+  } catch (error) {
+    if (error instanceof MerchantProviderWorkflowRepositoryError) throw error;
+    throw unavailable();
+  }
+}
+
 function workflowClaim(value: unknown, expected: Readonly<{ workerId: string; leaseId: string; leaseExpiresAt: Date }>): MerchantProviderWorkflowClaim {
   const parsed = payload(value, [
     "jobId", "recordId", "storeId", "profileId", "providerCode", "capability", "publicConfig",
@@ -236,7 +308,9 @@ function workflowClaim(value: unknown, expected: Readonly<{ workerId: string; le
   }
 }
 
-export class PostgresMerchantProviderWorkflowRepository implements MerchantProviderWorkflowRepository {
+export class PostgresMerchantProviderWorkflowRepository implements
+  MerchantProviderWorkflowRepository,
+  MerchantProviderVerificationWorkflowRepository {
   private readonly options: PostgresMerchantProviderWorkflowRepositoryOptions;
 
   constructor(options: PostgresMerchantProviderWorkflowRepositoryOptions) {
@@ -359,6 +433,20 @@ export class PostgresMerchantProviderWorkflowRepository implements MerchantProvi
       : Object.freeze({ kind: "claimed" as const, profile: validationClaim(result.result, { ...parsed, leaseId }) }));
   }
 
+  async claimProfileVerification(input: ClaimMerchantProviderVerificationInput) {
+    const parsed = verificationClaimWindow(input), leaseId = this.uuid();
+    return this.transaction({
+      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_claim_verification($1::text,$2::text,$3::text,$4::text,$5::integer,$6::timestamptz,$7::timestamptz,$8::uuid)",
+      values: [
+        parsed.workerId, parsed.providerCode, parsed.capability,
+        parsed.validationIdentity.environment, parsed.validationIdentity.adapterVersion,
+        parsed.now, parsed.leaseExpiresAt, leaseId,
+      ],
+    }, ["empty", "claimed"], (result) => result.outcome === "empty"
+      ? Object.freeze({ kind: "empty" as const })
+      : Object.freeze({ kind: "claimed" as const, profile: verificationClaim(result.result, { ...parsed, leaseId }) }));
+  }
+
   async markProfileValidation(input: MerchantProviderValidationResultInput): Promise<MerchantProviderProfile> {
     const parsed = exact(input, ["profileId", "providerCode", "capability", "executionAuthority", "credentialVersion", "profileVersion", "leaseId", "leaseOwner", "now", "outcome", "outcomeCode"]);
     const profileId = uuid(parsed.profileId), credentialVersion = version(parsed.credentialVersion), profileVersion = version(parsed.profileVersion);
@@ -371,6 +459,36 @@ export class PostgresMerchantProviderWorkflowRepository implements MerchantProvi
     return this.transaction({
       text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_mark_validation($1::uuid,$2::text,$3::text,$4::text,$5::integer,$6::text,$7::text,$8::timestamptz,$9::uuid,$10::bigint,$11::bigint,$12::text,$13::text)",
       values: [profileId, selectedProviderCode, selectedCapability, selectedExecutionAuthority.environment, selectedExecutionAuthority.adapterVersion, selectedExecutionAuthority.evidenceDigest, leaseOwner, now, leaseId, credentialVersion, profileVersion, parsed.outcome, outcomeCode],
+    }, [parsed.outcome as string, "operation_replayed"], (result) => {
+      const selected = profile(result.result);
+      const expectedStatus = parsed.outcome === "validated" ? "active" : "rotation_required";
+      if (selected.id !== profileId || selected.status !== expectedStatus) throw unavailable();
+      return selected;
+    });
+  }
+
+  async markProfileVerification(input: MerchantProviderVerificationResultInput): Promise<MerchantProviderProfile> {
+    const parsed = exact(input, [
+      "profileId", "providerCode", "capability", "validationIdentity", "credentialVersion",
+      "profileVersion", "leaseId", "leaseOwner", "now", "outcome", "outcomeCode",
+    ]);
+    const profileId = uuid(parsed.profileId);
+    const credentialVersion = version(parsed.credentialVersion);
+    const profileVersion = version(parsed.profileVersion);
+    const selectedProviderCode = providerCode(parsed.providerCode);
+    const selectedCapability = providerCapability(parsed.capability);
+    if (selectedCapability !== "payment_processing") invalid();
+    const selectedValidationIdentity = validationIdentity(parsed.validationIdentity);
+    const leaseId = uuid(parsed.leaseId), leaseOwner = worker(parsed.leaseOwner), now = date(parsed.now);
+    if (parsed.outcome !== "validated" && parsed.outcome !== "rejected") invalid();
+    const outcomeCode = code(parsed.outcomeCode);
+    return this.transaction({
+      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_mark_verification($1::uuid,$2::text,$3::text,$4::text,$5::integer,$6::text,$7::timestamptz,$8::uuid,$9::bigint,$10::bigint,$11::text,$12::text)",
+      values: [
+        profileId, selectedProviderCode, selectedCapability,
+        selectedValidationIdentity.environment, selectedValidationIdentity.adapterVersion,
+        leaseOwner, now, leaseId, credentialVersion, profileVersion, parsed.outcome, outcomeCode,
+      ],
     }, [parsed.outcome as string, "operation_replayed"], (result) => {
       const selected = profile(result.result);
       const expectedStatus = parsed.outcome === "validated" ? "active" : "rotation_required";

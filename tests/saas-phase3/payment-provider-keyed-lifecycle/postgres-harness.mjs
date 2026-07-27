@@ -1,0 +1,357 @@
+import assert from "node:assert/strict";
+import { accessSync, constants, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+
+const ROOT = path.resolve(import.meta.dirname, "../../..");
+const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
+const PG = "/Users/Celebix/.codex/tmp/postgresql-16.14-install/bin";
+const DB = "payment_provider_keyed_lifecycle";
+const ROLLBACK_DB = "payment_provider_keyed_lifecycle_rollback";
+const UP = "202607270056_payment_provider_keyed_lifecycle.up.sql";
+const DOWN = "202607270056_payment_provider_keyed_lifecycle.down.sql";
+const ASSERTIONS = "202607270056_payment_provider_keyed_lifecycle_assertions.sql";
+const prior = JSON.parse(readFileSync(path.join(SQL, "phase3n-hosted-callback-lifecycle-manifest.json"), "utf8"));
+const STORE = "10000000-0000-4000-8000-000000000056";
+const OTHER_STORE = "10000000-0000-4000-8000-000000000057";
+const OWNER = "20000000-0000-4000-8000-000000000056";
+const MEMBERSHIP = "30000000-0000-4000-8000-000000000056";
+const TEST_PROFILE = "40000000-0000-4000-8000-000000000056";
+const LIVE_PROFILE = "40000000-0000-4000-8000-000000000057";
+const PAYTR_PROFILE = "40000000-0000-4000-8000-000000000058";
+const METHOD = "50000000-0000-4000-8000-000000000056";
+const PLAN = "00000000-0000-4000-8000-000000000001";
+const NOW = "2026-07-27T12:00:00.000Z";
+const CLAIMED_AT = "2026-07-27T12:01:00.000Z";
+const EXPIRES = "2026-07-27T12:10:00.000Z";
+const MARKED_AT = "2026-07-27T12:02:00.000Z";
+const LEASE = "60000000-0000-4000-8000-000000000056";
+const FP = "a".repeat(64);
+const OTHER_FP = "b".repeat(64);
+const EVIDENCE = `sha256:${"c".repeat(64)}`;
+const TOTAL = 12;
+let completed = 0;
+
+function bin(name) {
+  const candidate = path.join(PG, name);
+  accessSync(candidate, constants.X_OK);
+  return candidate;
+}
+
+function command(program, args, input = "", allowFailure = false) {
+  const result = spawnSync(program, args, {
+    cwd: ROOT,
+    input,
+    encoding: "utf8",
+    env: { ...process.env, LC_ALL: "C", LANG: "C" },
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  if (!allowFailure && result.status !== 0) throw new Error(`${path.basename(program)} failed\n${result.stderr}`);
+  return result;
+}
+
+function start() {
+  const root = mkdtempSync("/tmp/celebix-provider-keyed-");
+  const data = path.join(root, "data");
+  const socket = path.join(root, "socket");
+  const port = 25_000 + Math.floor(Math.random() * 8_000);
+  mkdirSync(socket, { mode: 0o700 });
+  command(bin("initdb"), ["-D", data, "--auth=trust", "--username=postgres", "--no-locale", "--encoding=UTF8"]);
+  command(bin("pg_ctl"), ["-D", data, "-o", `-k ${socket} -p ${port} -h ''`, "-l", path.join(root, "postgres.log"), "start"]);
+  return { root, data, socket, port };
+}
+
+function stop(box) {
+  if (!box) return;
+  command(bin("pg_ctl"), ["-D", box.data, "-m", "fast", "stop"], "", true);
+  rmSync(box.root, { recursive: true, force: true });
+}
+
+function sql(box, input, database = DB, allowFailure = false) {
+  return command(bin("psql"), [
+    "-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+    "-U", "postgres", "-d", database,
+  ], input, allowFailure);
+}
+
+function apply(box, file, database = DB) {
+  sql(box, readFileSync(path.join(SQL, file), "utf8"), database);
+}
+
+function pass(name, run) {
+  run();
+  completed += 1;
+  process.stdout.write(`PASS ${completed}/${TOTAL} ${name}\n`);
+}
+
+function envelope() {
+  return JSON.stringify({
+    algorithm: "A256GCM",
+    ciphertext: "b3BhcXVl",
+    iv: "AQEBAQEBAQEBAQEB",
+    keyId: "provider.current",
+    tag: "AgICAgICAgICAgICAgICAg",
+    version: 1,
+  });
+}
+
+function authority(store = STORE, now = NOW) {
+  return `'${store}'::uuid,'${OWNER}'::uuid,'${MEMBERSHIP}'::uuid,'${PLAN}'::uuid,'free_starter',1,'${now}'::timestamptz`;
+}
+
+function app(box, name, extra, store = STORE, database = DB, now = NOW) {
+  const result = sql(box, `SET ROLE celebix_saas_app;
+SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+FROM saas.${name}(${authority(store, now)},${extra});`, database);
+  return JSON.parse(result.stdout.trim());
+}
+
+function saveVerification(box, {
+  operation = "70000000-0000-4000-8000-000000000056",
+  fingerprint = FP,
+  profile = TEST_PROFILE,
+  store = STORE,
+  environment = "test",
+  publicEnvironment = environment,
+  adapterVersion = 1,
+  expectedVersion = 0,
+  now = NOW,
+} = {}) {
+  return app(box, "merchant_provider_profile_save_verification", [
+    `'${operation}'::uuid`, `'${fingerprint}'`, `'${profile}'::uuid`, "'iyzico_iframe'",
+    "'payment_processing'", `'${JSON.stringify({ environment: publicEnvironment })}'::jsonb`,
+    "'iyzico merchant'", `'${envelope()}'::jsonb`, `'${"1".repeat(64)}'`, "'provider.current'",
+    "1", `'${environment}'`, adapterVersion, expectedVersion,
+  ].join(","), store, DB, now);
+}
+
+function claimVerification(box, {
+  environment = "test",
+  adapterVersion = 1,
+  lease = LEASE,
+} = {}) {
+  const result = sql(box, `SET ROLE celebix_saas_workflow;
+SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+FROM saas.merchant_provider_profile_claim_verification(
+  'worker.iyzico','iyzico_iframe','payment_processing','${environment}',${adapterVersion},
+  '${CLAIMED_AT}'::timestamptz,'${EXPIRES}'::timestamptz,'${lease}'::uuid
+);`);
+  return JSON.parse(result.stdout.trim());
+}
+
+function markVerification(box, {
+  adapterVersion = 1,
+  credentialVersion = 1,
+  profileVersion = 1,
+  outcome = "validated",
+} = {}) {
+  const result = sql(box, `SET ROLE celebix_saas_workflow;
+SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+FROM saas.merchant_provider_profile_mark_verification(
+  '${TEST_PROFILE}'::uuid,'iyzico_iframe','payment_processing','test',${adapterVersion},
+  'worker.iyzico','${MARKED_AT}'::timestamptz,'${LEASE}'::uuid,${credentialVersion},${profileVersion},
+  '${outcome}','iyzico_test_ok'
+);`);
+  return JSON.parse(result.stdout.trim());
+}
+
+function methodSave(box, operation, expectedVersion = 0) {
+  return app(box, "payment_method_save", [
+    `'${operation}'::uuid`, `'${OTHER_FP}'`, `'${METHOD}'::uuid`, expectedVersion, "'provider'",
+    `'${TEST_PROFILE}'::uuid`, "'iyzico_iframe'", "'Iyzico'", "'{\"environment\":\"test\"}'::jsonb",
+  ].join(","));
+}
+
+function seed(box) {
+  sql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
+INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at)
+VALUES('${OWNER}','https://id.test','owner','owner@test.invalid',true,'${NOW}','${NOW}');
+INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at)
+VALUES('${STORE}','Provider Keyed','provider-keyed','active','tr','TRY','default','${NOW}','${NOW}'),
+      ('${OTHER_STORE}','Other','provider-keyed-other','active','tr','TRY','default','${NOW}','${NOW}');
+INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at)
+VALUES('${MEMBERSHIP}','${OWNER}','${STORE}','store_owner','active','${NOW}','${NOW}');
+INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at)
+VALUES('31000000-0000-4000-8000-000000000056','${STORE}','${PLAN}','free_starter',1,'active','${NOW}','${NOW}','${NOW}');
+ALTER TABLE saas.plan_features DISABLE TRIGGER plan_features_immutable;
+UPDATE saas.plan_features SET enabled=true WHERE plan_id='${PLAN}' AND feature_key='integrations';
+ALTER TABLE saas.plan_features ENABLE TRIGGER plan_features_immutable;
+COMMIT;`);
+}
+
+function savePaytr(box) {
+  return app(box, "merchant_provider_profile_save", [
+    "'70000000-0000-4000-8000-000000000070'::uuid", `'${FP}'`, `'${PAYTR_PROFILE}'::uuid`,
+    "'paytr_iframe'", "'payment_processing'", "'{\"environment\":\"test\"}'::jsonb", "'paytr merchant'",
+    `'${envelope()}'::jsonb`, `'${"2".repeat(64)}'`, "'provider.current'", "1", "'test'", "1", `'${EVIDENCE}'`, "0",
+  ].join(","));
+}
+
+function main() {
+  let box;
+  try {
+    box = start();
+    sql(box, `CREATE DATABASE ${DB};`, "postgres");
+    for (const { file } of prior.migrationChain) apply(box, file);
+    sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
+
+    apply(box, UP);
+    apply(box, ASSERTIONS);
+    apply(box, "202607270053_paytr_iframe_activation_authority_assertions.sql");
+    seed(box);
+
+    pass("PostgreSQL 16 metadata, Iyzico definition-only seed, ACL, and preflights pass", () => {
+      assert.match(sql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
+      assert.equal(sql(box, `SELECT allows_verification_without_execution_authority
+FROM saas.merchant_provider_definitions WHERE provider_code='iyzico_iframe' AND capability='payment_processing';`).stdout.trim(), "t");
+      assert.equal(sql(box, `SELECT count(*) FROM saas.merchant_provider_execution_authorities WHERE provider_code='iyzico_iframe';`).stdout.trim(), "0");
+      assert.equal(sql(box, `SELECT count(*) FROM saas.merchant_provider_profiles WHERE provider_code='iyzico_iframe';`).stdout.trim(), "0");
+      assert.equal(sql(box, "SET ROLE celebix_saas_app; SELECT saas.payment_provider_keyed_lifecycle_preflight();").stdout.trim(), "t");
+      assert.equal(sql(box, "SET ROLE celebix_saas_workflow; SELECT saas.paytr_iframe_activation_preflight();").stdout.trim(), "t");
+      assert.notEqual(sql(box, `SET ROLE celebix_saas_app; SELECT saas.merchant_provider_profile_bind_execution_authority('${TEST_PROFILE}','iyzico_iframe','payment_processing','test',1,'${EVIDENCE}','${NOW}',1);`, DB, true).status, 0);
+    });
+
+    pass("verification save persists identity with an all-null execution tuple and replays", () => {
+      assert.equal(saveVerification(box).outcome, "saved");
+      assert.equal(saveVerification(box).outcome, "operation_replayed");
+      assert.equal(sql(box, `SELECT validation_environment||'|'||validation_adapter_version||'|'||
+        (execution_environment IS NULL AND execution_adapter_version IS NULL AND execution_evidence_digest IS NULL)
+FROM saas.merchant_provider_profiles WHERE id='${TEST_PROFILE}';`).stdout.trim(), "test|1|true");
+    });
+
+    pass("payment uniqueness is environment-keyed while duplicate and cross-tenant writes fail closed", () => {
+      assert.equal(saveVerification(box, {
+        operation: "70000000-0000-4000-8000-000000000057", profile: LIVE_PROFILE, environment: "live",
+      }).outcome, "saved");
+      assert.equal(saveVerification(box, {
+        operation: "70000000-0000-4000-8000-000000000058", profile: "40000000-0000-4000-8000-000000000059",
+      }).outcome, "invalid_transition");
+      assert.equal(saveVerification(box, {
+        operation: "70000000-0000-4000-8000-000000000059", profile: "40000000-0000-4000-8000-000000000060", store: OTHER_STORE,
+      }).outcome, "membership_denied");
+    });
+
+    pass("public validation identity and all-null-or-all-exact constraints reject drift", () => {
+      assert.equal(saveVerification(box, {
+        operation: "70000000-0000-4000-8000-000000000060", profile: "40000000-0000-4000-8000-000000000061",
+        environment: "test", publicEnvironment: "live",
+      }).outcome, "invalid_input");
+      const mixed = sql(box, `SET ROLE celebix_saas_owner;
+UPDATE saas.merchant_provider_profiles SET execution_environment='test' WHERE id='${TEST_PROFILE}';`, DB, true);
+      assert.notEqual(mixed.status, 0);
+      assert.equal(sql(box, `SELECT execution_environment IS NULL FROM saas.merchant_provider_profiles WHERE id='${TEST_PROFILE}';`).stdout.trim(), "t");
+    });
+
+    pass("verification claim is keyed by exact identity and carries no checkout evidence", () => {
+      assert.equal(claimVerification(box, { adapterVersion: 2, lease: "60000000-0000-4000-8000-000000000057" }).outcome, "empty");
+      const claimed = claimVerification(box);
+      assert.equal(claimed.outcome, "claimed");
+      assert.deepEqual(claimed.result.validationIdentity, { environment: "test", adapterVersion: 1 });
+      assert.equal(Object.hasOwn(claimed.result, "executionAuthority"), false);
+      assert.equal(JSON.stringify(claimed.result).includes("evidenceDigest"), false);
+    });
+
+    pass("verification marking binds lease, versions, and identity without creating a method", () => {
+      assert.equal(markVerification(box, { adapterVersion: 2 }).outcome, "durable_authority_invalid");
+      assert.equal(markVerification(box).outcome, "validated");
+      assert.equal(markVerification(box).outcome, "operation_replayed");
+      assert.equal(sql(box, `SELECT status||'|'||version||'|'||(execution_environment IS NULL)
+FROM saas.merchant_provider_profiles WHERE id='${TEST_PROFILE}';`).stdout.trim(), "active|2|true");
+      assert.equal(sql(box, `SELECT count(*) FROM saas.payment_methods WHERE profile_id='${TEST_PROFILE}';`).stdout.trim(), "0");
+    });
+
+    pass("new preflight detects ACL drift transactionally", () => {
+      const drift = sql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
+GRANT EXECUTE ON FUNCTION saas.merchant_provider_profile_bind_execution_authority(uuid,text,text,text,integer,text,timestamptz,bigint) TO celebix_saas_app;
+DO $f$ BEGIN
+  BEGIN
+    PERFORM saas.payment_provider_keyed_lifecycle_preflight();
+    RAISE EXCEPTION 'EXPECTED_PREFLIGHT_FAILURE';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'PAYMENT_PROVIDER_KEYED_LIFECYCLE_PREFLIGHT_INVALID' THEN RAISE; END IF;
+  END;
+END $f$;
+ROLLBACK;`, DB, true);
+      assert.equal(drift.status, 0, drift.stderr);
+      const bodyMetadataDrift = sql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
+ALTER FUNCTION saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamptz,uuid,bigint,bigint,text,text) SECURITY INVOKER;
+DO $f$ BEGIN
+  BEGIN
+    PERFORM saas.payment_provider_keyed_lifecycle_preflight();
+    RAISE EXCEPTION 'EXPECTED_PREFLIGHT_FAILURE';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'PAYMENT_PROVIDER_KEYED_LIFECYCLE_PREFLIGHT_INVALID' THEN RAISE; END IF;
+  END;
+END $f$;
+ROLLBACK;`, DB, true);
+      assert.equal(bodyMetadataDrift.status, 0, bodyMetadataDrift.stderr);
+      assert.equal(sql(box, "SET ROLE celebix_saas_app; SELECT saas.payment_provider_keyed_lifecycle_preflight();").stdout.trim(), "t");
+    });
+
+    pass("checkout method creation remains disabled until exact owner binding", () => {
+      assert.equal(methodSave(box, "71000000-0000-4000-8000-000000000056").outcome, "provider_disabled");
+      assert.equal(sql(box, `SET ROLE celebix_saas_owner;
+SELECT saas.merchant_provider_execution_authority_approve('iyzico_iframe','payment_processing','test',1,'${EVIDENCE}','sandbox_ready','${MARKED_AT}');`).stdout.trim(), "t");
+      assert.equal(sql(box, `SET ROLE celebix_saas_owner;
+SELECT saas.merchant_provider_profile_bind_execution_authority('${TEST_PROFILE}','iyzico_iframe','payment_processing','test',1,'${EVIDENCE}','${MARKED_AT}',1);`).stdout.trim(), "f");
+      assert.equal(sql(box, `SET ROLE celebix_saas_owner;
+SELECT saas.merchant_provider_profile_bind_execution_authority('${TEST_PROFILE}','iyzico_iframe','payment_processing','test',1,'${EVIDENCE}','${MARKED_AT}',2);`).stdout.trim(), "t");
+      assert.equal(sql(box, `SET ROLE celebix_saas_owner;
+SELECT saas.merchant_provider_profile_bind_execution_authority('${TEST_PROFILE}','iyzico_iframe','payment_processing','test',1,'${EVIDENCE}','${MARKED_AT}',2);`).stdout.trim(), "t");
+      assert.equal(sql(box, `SELECT version FROM saas.merchant_provider_profiles WHERE id='${TEST_PROFILE}';`).stdout.trim(), "3");
+      assert.equal(methodSave(box, "71000000-0000-4000-8000-000000000057").outcome, "saved");
+    });
+
+    pass("credential rotation clears execution authority and generically disables bound methods", () => {
+      assert.equal(sql(box, `SET ROLE celebix_saas_app;
+SELECT outcome FROM saas.payment_method_set_state(${authority()},'72000000-0000-4000-8000-000000000056','${FP}','${METHOD}',1,'active',NULL);`).stdout.trim(), "state_changed");
+      assert.equal(saveVerification(box, {
+        operation: "70000000-0000-4000-8000-000000000061", expectedVersion: 3,
+        now: "2026-07-27T12:03:00.000Z",
+      }).outcome, "saved");
+      assert.equal(sql(box, `SELECT profile.status||'|'||profile.version||'|'||(profile.execution_environment IS NULL)||'|'||method.state
+FROM saas.merchant_provider_profiles profile JOIN saas.payment_methods method ON method.profile_id=profile.id
+WHERE profile.id='${TEST_PROFILE}';`).stdout.trim(), "pending_validation|4|true|disabled");
+    });
+
+    pass("legacy PayTR save, claim, mark, and activation remain compatible", () => {
+      assert.equal(sql(box, `SET ROLE celebix_saas_owner;
+SELECT saas.merchant_provider_execution_authority_approve('paytr_iframe','payment_processing','test',1,'${EVIDENCE}','sandbox_ready','${NOW}');`).stdout.trim(), "t");
+      assert.equal(savePaytr(box).outcome, "saved");
+      const claimed = sql(box, `SET ROLE celebix_saas_workflow;
+SELECT outcome FROM saas.merchant_provider_profile_claim_validation('worker.paytr','paytr_iframe','payment_processing','test',1,'${EVIDENCE}','${CLAIMED_AT}','${EXPIRES}','60000000-0000-4000-8000-000000000058');`).stdout.trim();
+      assert.equal(claimed, "claimed");
+      assert.equal(sql(box, `SET ROLE celebix_saas_workflow;
+SELECT outcome FROM saas.merchant_provider_profile_mark_validation('${PAYTR_PROFILE}','paytr_iframe','payment_processing','test',1,'${EVIDENCE}','worker.paytr','${MARKED_AT}','60000000-0000-4000-8000-000000000058',1,1,'validated','paytr_test_ok');`).stdout.trim(), "validated");
+      assert.equal(sql(box, `SET ROLE celebix_saas_owner;
+SELECT saas.merchant_provider_profile_bind_execution_authority('${PAYTR_PROFILE}','paytr_iframe','payment_processing','test',1,'${EVIDENCE}','${MARKED_AT}',2);`).stdout.trim(), "f");
+      assert.equal(sql(box, `SELECT validation_environment||'|'||validation_adapter_version||'|'||status
+FROM saas.merchant_provider_profiles WHERE id='${PAYTR_PROFILE}';`).stdout.trim(), "test|1|active");
+    });
+
+    pass("rollback guard refuses live provider-keyed state", () => {
+      const guarded = sql(box, readFileSync(path.join(SQL, DOWN), "utf8"), DB, true);
+      assert.notEqual(guarded.status, 0);
+      assert.match(guarded.stderr, /PAYMENT_PROVIDER_KEYED_LIFECYCLE_ROLLBACK_REQUIRES_DRAIN/);
+      assert.notEqual(sql(box, "SET ROLE celebix_saas_app; SELECT saas.payment_provider_keyed_lifecycle_preflight();", DB, true).status, 0);
+    });
+
+    pass("clean PostgreSQL 16 up-down-up restores 055 then reapplies 056", () => {
+      apply(box, UP, ROLLBACK_DB);
+      apply(box, ASSERTIONS, ROLLBACK_DB);
+      apply(box, DOWN, ROLLBACK_DB);
+      apply(box, "202607270055_hosted_callback_lifecycle_assertions.sql", ROLLBACK_DB);
+      assert.equal(sql(box, `SELECT to_regprocedure('saas.merchant_provider_profile_save_verification(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,bigint)') IS NULL
+AND NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='saas' AND table_name='merchant_provider_profiles' AND column_name='validation_environment');`, ROLLBACK_DB).stdout.trim(), "t");
+      apply(box, UP, ROLLBACK_DB);
+      apply(box, ASSERTIONS, ROLLBACK_DB);
+    });
+
+    assert.equal(completed, TOTAL);
+  } finally {
+    stop(box);
+  }
+}
+
+await main();

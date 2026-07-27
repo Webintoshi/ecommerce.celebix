@@ -118,6 +118,39 @@ function saveInput() {
   };
 }
 
+function verificationProfile(status = "pending_validation", version = 1) {
+  return {
+    id: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    publicConfig: { environment: "test" },
+    maskedAccountReference: "iyzico merchant",
+    status,
+    credentialVersion: 1,
+    version,
+    lastValidatedAt: null,
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  };
+}
+
+function verificationSaveInput() {
+  return {
+    tenantContext: tenant(),
+    now: NOW,
+    operationId: OPERATION,
+    profileId: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing" as const,
+    publicConfig: { environment: "test" },
+    maskedAccountReference: "iyzico merchant",
+    sealedCredentials: sealedEnvelope(),
+    credentialDigest: "b".repeat(64),
+    validationIdentity: Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
+    expectedVersion: 0,
+  };
+}
+
 function sqlCall(client: Client, name: string) {
   const call = client.calls.find((entry) => entry.text.includes(`saas.${name}`));
   assert.ok(call);
@@ -135,6 +168,34 @@ test("profile repository sends sealed authority and parses only safe projections
   assert.deepEqual(call.values.slice(0, 7), [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW]);
   assert.equal(call.values[14], JSON.stringify(sealedEnvelope()));
   assert.equal(call.values[16], "staging-key-01");
+});
+
+test("verification save persists validation identity without checkout evidence", async () => {
+  const client = new Client((text) => text.includes("merchant_provider_profile_save_verification")
+    ? [{ outcome: "saved", result_payload: verificationProfile() }]
+    : []);
+  const result = await repository(new Pool([client])).saveVerification(verificationSaveInput());
+  assert.equal(result.providerCode, "iyzico_iframe");
+  const selected = sqlCall(client, "merchant_provider_profile_save_verification");
+  assert.deepEqual(selected.values.slice(18), ["test", 1, 0]);
+  assert.equal(selected.values.some((value) => typeof value === "string" && value.startsWith("sha256:")), false);
+});
+
+test("verification save rejects identity and public environment drift before checkout", async () => {
+  await assert.rejects(
+    () => repository(new Pool([])).saveVerification({
+      ...verificationSaveInput(),
+      validationIdentity: { environment: "live", adapterVersion: 1 },
+    }),
+    (error: unknown) => error instanceof MerchantProviderProfileRepositoryError && error.code === "invalid_input",
+  );
+  await assert.rejects(
+    () => repository(new Pool([])).saveVerification({
+      ...verificationSaveInput(),
+      validationIdentity: { environment: "test", adapterVersion: 0 },
+    }),
+    (error: unknown) => error instanceof MerchantProviderProfileRepositoryError && error.code === "invalid_input",
+  );
 });
 
 test("profile listing is bounded, capability-filtered, and rejects unsafe SQL projections", async () => {
