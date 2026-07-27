@@ -7,6 +7,22 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const BASE = "912df940d2f8aa1e4d43a076621ad592751f4f04";
 const ANALYTICS_HEAD = "c365bc2195df1af5929381f7e910f73059c13ba7";
+const PAYMENT_ADAPTERS_PREDECESSOR = "f14590b20c713c1bac8a223a9ecb46d85b6d2210";
+const PAYMENT_ADAPTERS_HEAD = "710c0221537099c419726b4d5f7b5da1ef891ec6";
+const PAYMENT_ADAPTER_WORKSPACE = Object.freeze({
+  name: "@celebix/payment-adapters",
+  version: "0.1.0",
+  private: true,
+  type: "module",
+  main: "./src/index.ts",
+  types: "./src/index.ts",
+  exports: { ".": "./src/index.ts" },
+  scripts: {
+    typecheck: "tsc -p tsconfig.json --noEmit",
+    test: "node --experimental-strip-types --test src/*.test.ts",
+  },
+  dependencies: { "@celebix/saas-contracts": "0.1.0" },
+});
 
 function git(args) {
   return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -131,8 +147,36 @@ test("the pinned donor admin tree remains unchanged", () => {
   assert.deepEqual(changedNames("apps/admin"), []);
 });
 
-test("lockfile stays unchanged and successor credential crypto remains isolated", () => {
-  assert.deepEqual(changedNames("package-lock.json"), []);
+test("lockfile admits only the pinned payment adapter workspace successor", async () => {
+  assert.equal(
+    git(["merge-base", PAYMENT_ADAPTERS_HEAD, "HEAD"]).trim(),
+    PAYMENT_ADAPTERS_HEAD,
+  );
+  assert.deepEqual(changedNames("package-lock.json"), ["package-lock.json"]);
+  assert.equal(
+    git(["diff", "--name-only", `${BASE}...${PAYMENT_ADAPTERS_PREDECESSOR}`, "--", "package-lock.json"]).trim(),
+    "",
+  );
+  assert.equal(
+    git(["diff", "--name-only", `${PAYMENT_ADAPTERS_HEAD}..HEAD`, "--", "package-lock.json", "packages/payment-adapters/package.json"]).trim(),
+    "",
+  );
+
+  const workspace = JSON.parse(await readFile(`${ROOT}/packages/payment-adapters/package.json`, "utf8"));
+  assert.deepEqual(workspace, PAYMENT_ADAPTER_WORKSPACE);
+  const expectedLock = JSON.parse(git(["show", `${PAYMENT_ADAPTERS_PREDECESSOR}:package-lock.json`]));
+  expectedLock.packages["node_modules/@celebix/payment-adapters"] = {
+    resolved: "packages/payment-adapters",
+    link: true,
+  };
+  expectedLock.packages["packages/payment-adapters"] = {
+    name: "@celebix/payment-adapters",
+    version: "0.1.0",
+    dependencies: { "@celebix/saas-contracts": "0.1.0" },
+  };
+  const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
+  assert.deepEqual(currentLock, expectedLock);
+
   const sensitive = changedNames().filter((path) => /(^|\/)[.]env($|[.])|credential|secret/i.test(path));
   assert.deepEqual(sensitive, [
     "packages/saas-data/src/provider-execution/credential-crypto.test.ts",
