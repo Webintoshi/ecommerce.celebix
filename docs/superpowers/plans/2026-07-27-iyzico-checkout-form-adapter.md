@@ -6,6 +6,8 @@
 
 **Architecture:** Implement iyzico as a native `@celebix/payment-adapters` hosted adapter using IYZWSv2 request signing and signed initialize/retrieve responses. Generalize the PayTR-only control-plane composition to provider-keyed registries without weakening execution authority. Extend the shared storefront callback runtime only where provider-initiated result retrieval and customer redirect semantics require it, preserving PayTR's existing acknowledgment behavior.
 
+**Corrected execution order after architecture audit:** Task 4 -> Task 7 foundation -> Task 5 -> Task 6 -> Task 8 -> Task 9. The current HTTP handler, `@celebix/saas-data` repository, migration 053 constraint/RPCs, and validation worker all reject a payment-processing profile without execution evidence. Therefore the additive provider-keyed lifecycle and null-authority verification contract must exist before the panel can truthfully save or validate iyzico credentials. Configuration/validation authority remains distinct from checkout execution authority throughout.
+
 **Tech Stack:** TypeScript, Node.js `crypto`, Next.js route handlers, PostgreSQL 16 SQL migrations/harnesses, Node test runner, existing `@celebix/payment-adapters`, `@celebix/saas-contracts`, and `@celebix/saas-data` packages.
 
 ---
@@ -238,12 +240,18 @@ git commit -m "feat(payments): support hosted customer return callbacks"
 - Modify: `apps/customer-panel/lib/payment-provider-adapters/default.ts`
 - Modify: `apps/customer-panel/lib/payment-provider-adapters/default.test.ts`
 - Modify: `apps/customer-panel/lib/payment-providers/catalog.ts`
+- Modify: `apps/customer-panel/lib/payment-providers/catalog-data.ts`
 - Modify: `apps/customer-panel/lib/payment-providers/catalog.test.ts`
 - Modify: `apps/customer-panel/lib/payment-settings-ui/model.ts`
 - Modify: `apps/customer-panel/lib/payment-settings-ui/model.test.ts`
+- Modify: `apps/customer-panel/components/settings/payment/PaymentSettingsConsole.tsx`
+- Modify: the focused `PaymentSettingsConsole` test used by the customer-panel workspace
 - Modify: `apps/customer-panel/lib/provider-execution-http/handler.ts`
 - Modify: `apps/customer-panel/lib/provider-execution-http/handler.test.ts`
+- Modify: `apps/customer-panel/lib/payment-method-http/handler.test.ts`
 - Modify: `apps/customer-panel/lib/server-panel-access/postgres-runtime.ts`
+- Modify: `packages/payment-adapters/src/packets/plugin-inventory.ts`
+- Modify: `packages/payment-adapters/src/packets/plugin-inventory.test.ts`
 - Modify: `tests/saas-phase3/provider-execution-foundation/browser-contract.test.mjs`
 - Modify: `tests/saas-phase3/payment-provider-admin/static-security.test.mjs`
 
@@ -254,6 +262,8 @@ Prove:
 - default hosted registry contains exactly PayTR and `iyzico_iframe`;
 - each descriptor uses its own packet, public/secret fields, version, environments, and optional authority;
 - `verification` allows the merchant to enter and submit credentials for validation but cannot create/enable a checkout payment method;
+- the payment console loads the definition/profile for a `verification` provider and offers an explicit test/live environment selection without conflating credential setup with method activation;
+- test and live profiles coexist, and rotation cannot change a profile's environment;
 - missing/mismatched authority remains fail-closed per provider and cannot disable another provider;
 - iyzico card uses the existing local `/payment-providers/iyzico.svg` asset and correct brand/mode label;
 - no secret is returned by GET or embedded in page props.
@@ -263,8 +273,11 @@ Prove:
 - Replace size-one/PayTR-only assertions with an exact two-provider composition.
 - Parse iyzico public config `{ environment: "test" | "live" }` and secret config `{ apiKey, secretKey }` through the adapter.
 - Accept profile-save/validate for a known verification provider while keeping execution authority null.
+- Use the provider-keyed lifecycle/repository contract from Task 7; do not weaken the legacy migration 053 checks in application code alone.
 - Require exact authority and readiness only for payment-method activation.
 - Keep activation environment restrictions provider-scoped.
+- Keep a separate UI fact for `configurable` versus `executable`; a verification card may open the credential form while its payment-method action remains unavailable.
+- Do not derive or expose an iyzico API-key suffix from secret credential bytes; use a bounded non-secret account label until a validated provider response supplies a safe reference.
 
 **Step 3: Verify**
 
@@ -337,6 +350,11 @@ git commit -m "feat(payments): validate iyzico merchant credentials"
 - Create: `tests/saas-phase3/payment-provider-keyed-lifecycle/fixture.sql`
 - Create: `tests/saas-phase3/payment-provider-keyed-lifecycle/postgres-harness.mjs`
 - Create: `tests/saas-phase3/payment-provider-keyed-lifecycle/static-security.test.mjs`
+- Modify: `packages/saas-data/src/provider-execution/types.ts`
+- Modify: `packages/saas-data/src/provider-execution/repository.ts`
+- Modify: `packages/saas-data/src/provider-execution/repository.test.ts`
+- Modify: `packages/saas-data/src/provider-execution/workflow-repository.ts`
+- Modify: `packages/saas-data/src/provider-execution/workflow-repository.test.ts`
 - Modify: `tests/saas-phase3/run-current-suite.mjs`
 
 **Step 1: Write failing static and PostgreSQL harness tests**
@@ -346,6 +364,8 @@ Prove:
 - migration 052/053/054 checksums remain unchanged;
 - `iyzico_iframe` is a payment-processing provider definition but has no seeded credential, method, execution authority, quick link, attempt, or evidence;
 - profile save/validation can occur in verification state;
+- payment-processing execution fields are either all null for verification or all exact/non-null for approved execution; mixed tuples fail;
+- test and live profiles for the same provider can coexist while duplicate active profiles in the same environment fail;
 - method create/enable fails without exact provider authority and evidence;
 - PayTR lifecycle still works under the provider-keyed function;
 - cross-tenant/provider/profile/credential-version mismatches fail;
@@ -353,7 +373,7 @@ Prove:
 
 **Step 2: Implement additive SQL only**
 
-Introduce provider-keyed lifecycle/preflight functions and iyzico catalog/definition metadata. Do not alter applied migrations or grant browser roles direct table access. Do not seed an authority row.
+Introduce provider-keyed lifecycle/preflight functions and iyzico catalog/definition metadata. Add a backward-compatible repository contract that can persist/claim validation-only profiles with null execution authority while continuing to require exact evidence for execution and method activation. Replace the old one-live-profile invariant additively with a provider+capability+environment invariant. Preserve old RPC signatures/privileges during rolling deployment. Do not alter applied migrations or grant browser roles direct table access. Do not seed an authority row.
 
 **Step 3: Verify against fresh PostgreSQL 16**
 
@@ -367,7 +387,7 @@ Expected: PASS, including up/down/up replay.
 **Step 4: Commit**
 
 ```bash
-git add apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle.up.sql apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle.down.sql apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle_assertions.sql apps/owner/scripts/sql/saas/phase3n-payment-provider-keyed-lifecycle-manifest.json tests/saas-phase3/payment-provider-keyed-lifecycle tests/saas-phase3/run-current-suite.mjs
+git add apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle.up.sql apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle.down.sql apps/owner/scripts/sql/saas/202607270055_payment_provider_keyed_lifecycle_assertions.sql apps/owner/scripts/sql/saas/phase3n-payment-provider-keyed-lifecycle-manifest.json packages/saas-data/src/provider-execution tests/saas-phase3/payment-provider-keyed-lifecycle tests/saas-phase3/run-current-suite.mjs
 git commit -m "feat(payments): add provider keyed activation lifecycle"
 ```
 
