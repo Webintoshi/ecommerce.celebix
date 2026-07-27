@@ -1,0 +1,169 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  PAYMENT_ADAPTER_PACKET_INVENTORY,
+  createPaymentAdapterRegistry,
+  parsePaymentAdapterPacket,
+  type HostedPaymentAdapter,
+  type PaymentAdapterPacket,
+} from "./index.ts";
+
+function packetFixture(adapterVersion = 1): Record<string, unknown> {
+  return {
+    providerCode: "paytr_iframe",
+    familyCode: "paytr",
+    modeCode: "iframe",
+    adapterVersion,
+    implementation: "hosted",
+    readiness: { test: "verification", live: "planned" },
+    endpoints: {
+      test: [
+        "https://www.paytr.com/odeme/api/get-token",
+        "https://www.paytr.com/odeme/durum-sorgu",
+      ],
+      live: [
+        "https://www.paytr.com/odeme/api/get-token",
+        "https://www.paytr.com/odeme/durum-sorgu",
+      ],
+    },
+    publicFields: [
+      { key: "merchantId", label: "Mağaza numarası", minimum: 1, maximum: 128 },
+    ],
+    credentialFields: [
+      { key: "merchantKey", label: "Mağaza parolası", minimum: 1, maximum: 256, secret: true },
+      { key: "merchantSalt", label: "Mağaza gizli anahtarı", minimum: 1, maximum: 256, secret: true },
+    ],
+    capabilities: {
+      initialize: true,
+      callback: true,
+      query: true,
+      threeDSecure: true,
+      installments: true,
+      preAuth: false,
+      capture: false,
+      cancel: false,
+      refund: false,
+      partialRefund: false,
+      tokenization: false,
+    },
+    documentation: [
+      { url: "https://dev.paytr.com/iframe-api", verifiedAt: "2026-07-27", authority: "official" },
+    ],
+  };
+}
+
+function adapter(packet: PaymentAdapterPacket): HostedPaymentAdapter<object> {
+  return Object.freeze({
+    packet,
+    parseCredential(value: unknown) {
+      if (typeof value !== "object" || value === null) throw new TypeError("invalid");
+      return Object.freeze({});
+    },
+    maskAccount() {
+      return "merchant…3456";
+    },
+    async initialize() {
+      return Object.freeze({ kind: "pending" as const, providerReference: null });
+    },
+    async verifyCallback() {
+      return Object.freeze({
+        eventKey: "event_fixture",
+        status: "failed" as const,
+        providerReference: null,
+        paidAmountMinor: 0,
+        currency: "TRY",
+        safeCode: "fixture",
+      });
+    },
+    async query() {
+      return Object.freeze({ kind: "pending" as const, providerReference: null });
+    },
+  });
+}
+
+test("assembles a frozen explicit packet/adapter registry with exact lookups", () => {
+  const packet = parsePaymentAdapterPacket(packetFixture());
+  const selected = adapter(packet);
+  const registry = createPaymentAdapterRegistry([packet], [selected]);
+
+  assert.equal(Object.isFrozen(registry), true);
+  assert.equal(registry.size, 1);
+  assert.strictEqual(registry.packet("paytr_iframe"), packet);
+  assert.strictEqual(registry.adapter("paytr_iframe"), selected);
+  for (const code of ["PAYTR_IFRAME", "paytr-iframe", " paytr_iframe", "unknown", ""]) {
+    assert.equal(registry.packet(code), null, code);
+    assert.equal(registry.adapter(code), null, code);
+  }
+});
+
+test("accepts an explicit empty registry as the fail-closed production default", () => {
+  const registry = createPaymentAdapterRegistry([], []);
+
+  assert.equal(registry.size, 0);
+  assert.equal(registry.packet("paytr_iframe"), null);
+  assert.equal(registry.adapter("paytr_iframe"), null);
+});
+
+test("rejects duplicate packet and adapter provider codes", () => {
+  const packet = parsePaymentAdapterPacket(packetFixture());
+  const selected = adapter(packet);
+
+  assert.throws(
+    () => createPaymentAdapterRegistry([packet, packet], [selected]),
+    /payment_adapter_registry_invalid/,
+  );
+  assert.throws(
+    () => createPaymentAdapterRegistry([packet], [selected, selected]),
+    /payment_adapter_registry_invalid/,
+  );
+});
+
+test("rejects mutable adapters", () => {
+  const packet = parsePaymentAdapterPacket(packetFixture());
+  const mutable = { ...adapter(packet) };
+
+  assert.throws(
+    () => createPaymentAdapterRegistry([packet], [mutable]),
+    /payment_adapter_registry_invalid/,
+  );
+});
+
+test("rejects adapter packet identity and adapter-version mismatch", () => {
+  const packetV1 = parsePaymentAdapterPacket(packetFixture(1));
+  const anotherPacketV1 = parsePaymentAdapterPacket(packetFixture(1));
+  const packetV2 = parsePaymentAdapterPacket(packetFixture(2));
+
+  assert.throws(
+    () => createPaymentAdapterRegistry([packetV1], [adapter(anotherPacketV1)]),
+    /payment_adapter_registry_invalid/,
+  );
+  assert.throws(
+    () => createPaymentAdapterRegistry([packetV1], [adapter(packetV2)]),
+    /payment_adapter_registry_invalid/,
+  );
+});
+
+test("rejects packets or adapters missing their explicit registry counterpart", () => {
+  const packet = parsePaymentAdapterPacket(packetFixture());
+  const selected = adapter(packet);
+
+  assert.throws(
+    () => createPaymentAdapterRegistry([packet], []),
+    /payment_adapter_registry_invalid/,
+  );
+  assert.throws(
+    () => createPaymentAdapterRegistry([], [selected]),
+    /payment_adapter_registry_invalid/,
+  );
+});
+
+test("rejects inventory_only metadata as an executable packet registry", () => {
+  assert.throws(
+    () => createPaymentAdapterRegistry(
+      PAYMENT_ADAPTER_PACKET_INVENTORY as unknown as readonly PaymentAdapterPacket[],
+      [],
+    ),
+    /payment_adapter_registry_invalid/,
+  );
+});
