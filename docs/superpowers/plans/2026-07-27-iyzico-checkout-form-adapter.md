@@ -329,6 +329,9 @@ git commit -m "feat(payments): expose iyzico credential setup"
 
 - Create: `apps/owner/lib/merchant-provider-execution/iyzico-validation-adapter.ts`
 - Create: `apps/owner/lib/merchant-provider-execution/iyzico-validation-adapter.test.ts`
+- Modify: `apps/owner/lib/merchant-provider-execution/types.ts`
+- Modify: `apps/owner/lib/merchant-provider-execution/worker.ts`
+- Modify: `apps/owner/lib/merchant-provider-execution/worker.test.ts`
 - Modify: `apps/owner/lib/merchant-provider-execution/registry.ts`
 - Modify: `apps/owner/lib/merchant-provider-execution/production-config.ts`
 - Modify: `apps/owner/lib/merchant-provider-execution/production-config.test.ts`
@@ -338,11 +341,12 @@ git commit -m "feat(payments): expose iyzico credential setup"
 
 **Step 1: Write failing owner-worker tests**
 
-Cover exact parsing of the encrypted credential bytes, environment matching, BIN-check invocation, safe error mapping, timeout, secret wiping, provider-keyed compiled authority maps, and a production registry containing only entries whose exact authority exists.
+Cover exact parsing of the encrypted credential bytes, environment matching, BIN-check invocation, safe error mapping, timeout, secret wiping, a validation-only worker lane using Task 7's verification claim/mark RPCs, provider-keyed compiled authority maps, and a production execution registry containing only entries whose exact authority exists.
 
 **Step 2: Implement validation-only adapter and provider-keyed config**
 
 - Add `createIyzicoValidationAdapter` using the core adapter's BIN-check function.
+- Keep validation identity and checkout execution authority in distinct types, registries, and worker paths. An Iyzico verification adapter must never enter the generic execution queue.
 - Replace the single PayTR execution authority with an immutable map keyed by provider code.
 - Keep both compiled authorities `null` until real evidence exists.
 - Generalize preflight to validate the selected provider authority function without dynamic SQL or user-provided identifiers.
@@ -359,7 +363,7 @@ Expected: PASS.
 **Step 4: Commit**
 
 ```bash
-git add apps/owner/lib/merchant-provider-execution/iyzico-validation-adapter.ts apps/owner/lib/merchant-provider-execution/iyzico-validation-adapter.test.ts apps/owner/lib/merchant-provider-execution/registry.ts apps/owner/lib/merchant-provider-execution/production-config.ts apps/owner/lib/merchant-provider-execution/production-config.test.ts apps/owner/lib/merchant-provider-execution/production.ts apps/owner/lib/merchant-provider-execution/production.test.ts tests/saas-phase3/provider-execution-foundation/worker-static-security.test.mjs
+git add apps/owner/lib/merchant-provider-execution/iyzico-validation-adapter.ts apps/owner/lib/merchant-provider-execution/iyzico-validation-adapter.test.ts apps/owner/lib/merchant-provider-execution/types.ts apps/owner/lib/merchant-provider-execution/worker.ts apps/owner/lib/merchant-provider-execution/worker.test.ts apps/owner/lib/merchant-provider-execution/registry.ts apps/owner/lib/merchant-provider-execution/production-config.ts apps/owner/lib/merchant-provider-execution/production-config.test.ts apps/owner/lib/merchant-provider-execution/production.ts apps/owner/lib/merchant-provider-execution/production.test.ts tests/saas-phase3/provider-execution-foundation/worker-static-security.test.mjs
 git commit -m "feat(payments): validate iyzico merchant credentials"
 ```
 
