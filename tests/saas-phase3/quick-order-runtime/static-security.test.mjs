@@ -127,7 +127,7 @@ test("historical runtime content has no credentials, private browser authority, 
 test("PayTR iframe emits its provider token exactly once after the exact secure origin", async () => {
   const runtime = await read("apps/storefront-shared/lib/checkout/runtime.ts");
   const proof = await read("apps/storefront-shared/lib/checkout/paytr.test.ts");
-  assert.match(runtime, /<iframe src="https:\/\/www[.]paytr[.]com\/odeme\/guvenli\/\$\{token\}"/);
+  assert.match(runtime, /<iframe src="\$\{createPaytrIframePresentationUrl\(token\)\}"/);
   assert.match(proof, /body[.]split\(fixture[.]providerToken\)[.]length - 1, 1/);
   assert.doesNotMatch(runtime, /Response[.]json\([^)]*token|Location[^\n]+paytr[.]com/i);
 });

@@ -20,7 +20,11 @@ import {
   type SealedMerchantProviderCredential,
 } from "@celebix/saas-data";
 
-import { readExactHostedPaymentCallback } from "./callback-authority.ts";
+import {
+  readExactHostedPaymentCallback,
+  readExactHostedPaymentCallbackByDigest,
+  type ExactHostedPaymentCallback,
+} from "./callback-authority.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
@@ -32,8 +36,8 @@ const PROVIDER_REFERENCE_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const CALLBACK_BINDING_BYTES = 32;
 const MAXIMUM_EVENT_KEY_LENGTH = 512;
 const MAXIMUM_TOKEN_LENGTH = 4_096;
-const SUCCESS_PATH = "/odeme/sonuc?durum=basarili";
-const FAILURE_PATH = "/odeme/sonuc?durum=basarisiz";
+const SUCCESS_PATH = "/odeme/hizli/sonuc?durum=basarili";
+const FAILURE_PATH = "/odeme/hizli/sonuc?durum=basarisiz";
 const RECONCILIATION_LEASE_MS = 60_000;
 const PROVIDER_DEADLINE_MS = 5_000;
 const AUTHORITY_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
@@ -68,6 +72,10 @@ export type HostedPaymentCallbackResult =
   | Readonly<{ kind: "accepted" }>
   | Readonly<{ kind: "retry" }>
   | Readonly<{ kind: "rejected" }>;
+
+export type HostedPaymentDigestCallbackResult =
+  | HostedPaymentCallbackResult
+  | Readonly<{ kind: "not_found" }>;
 
 export type HostedPaymentReconciliationResult =
   | Readonly<{ kind: "captured" }>
@@ -105,6 +113,11 @@ export type HostedPaymentRuntime = Readonly<{
     providerCode: string;
     binding: string;
   }>): Promise<HostedPaymentCallbackResult>;
+  callbackByDigest(input: Readonly<{
+    request: Request;
+    providerCode: string;
+    callbackBindingDigest: string;
+  }>): Promise<HostedPaymentDigestCallbackResult>;
   reconcile(input: Readonly<{
     attemptId: string;
     operationId: string;
@@ -130,6 +143,7 @@ const PRESENTATION_REJECTED = Object.freeze({ kind: "rejected" as const });
 const CALLBACK_ACCEPTED = Object.freeze({ kind: "accepted" as const });
 const CALLBACK_RETRY = Object.freeze({ kind: "retry" as const });
 const CALLBACK_REJECTED = Object.freeze({ kind: "rejected" as const });
+const CALLBACK_NOT_FOUND = Object.freeze({ kind: "not_found" as const });
 const RECONCILIATION_CAPTURED = Object.freeze({ kind: "captured" as const });
 const RECONCILIATION_FAILED = Object.freeze({ kind: "failed" as const });
 const RECONCILIATION_PROCESSING = Object.freeze({ kind: "processing" as const });
@@ -445,20 +459,29 @@ function exactBrowserUrl(
   adapter: HostedPaymentAdapter<object>,
   environment: "test" | "live",
   value: unknown,
+  token?: unknown,
 ): string | null {
   if (typeof value !== "string" || value.length < 1 || value.length > 2_048) return null;
   try {
     const parsed = new URL(value);
-    return parsed.protocol === "https:"
+    const structurallyValid = parsed.protocol === "https:"
       && !parsed.username
       && !parsed.password
       && !parsed.port
       && !parsed.search
       && !parsed.hash
-      && parsed.toString() === value
-      && adapter.packet.endpoints[environment].includes(value)
-      ? value
-      : null;
+      && parsed.toString() === value;
+    if (!structurallyValid) return null;
+    const rule = adapter.packet.presentation[environment];
+    if (rule.kind === "exact_url") return value === rule.url ? value : null;
+    if (
+      typeof token !== "string"
+      || token.length < rule.token.minimum
+      || token.length > rule.token.maximum
+      || token.length > MAXIMUM_TOKEN_LENGTH
+      || !/^[A-Za-z0-9_-]+$/.test(token)
+    ) return null;
+    return value === `${rule.urlPrefix}${token}` ? value : null;
   } catch {
     return null;
   }
@@ -493,7 +516,7 @@ function parseInitialization(
     && exactKeys(value, ["kind", "url", "token", "providerReference"])
     && validProviderReference(value.providerReference)
   ) {
-    const url = exactBrowserUrl(adapter, environment, value.url);
+    const url = exactBrowserUrl(adapter, environment, value.url, value.token);
     if (
       url === null
       || typeof value.token !== "string"
@@ -718,8 +741,9 @@ async function initialize(
       if (
         plainRecord(result)
         && result.kind === "unknown"
-        && exactKeys(result, ["kind", "code"])
+        && exactKeys(result, ["kind", "code", "providerReference"])
         && result.code === "provider_outcome_unknown"
+        && validProviderReference(result.providerReference)
       ) {
         const unknown = phase(
           "initialize-unknown",
@@ -733,7 +757,7 @@ async function initialize(
             ...unknown,
             expectedVersion: 1,
             credentialVersion: begun.credentialVersion,
-            providerReference: null,
+            providerReference: result.providerReference,
             safeCode: "provider_outcome_unknown",
             now: new Date(now),
           });
@@ -845,22 +869,12 @@ function exactCallbackMutation(
     );
 }
 
-async function callback(
+async function settleExactCallback(
   dependencies: HostedPaymentRuntimeDependencies,
-  input: Readonly<{ request: Request; providerCode: string; binding: string }>,
-): Promise<HostedPaymentCallbackResult> {
-  const hostname = input.request instanceof Request
-    ? trustedHostname(dependencies, input.request.headers)
-    : null;
-  const now = selectedNow(dependencies);
-  if (hostname === null || now === null) return CALLBACK_REJECTED;
-  const request = await readExactHostedPaymentCallback({
-    request: input.request,
-    providerCode: input.providerCode,
-    binding: input.binding,
-    trustedHostname: hostname,
-  });
-  if (request === null) return CALLBACK_REJECTED;
+  request: ExactHostedPaymentCallback,
+  now: Date,
+  exposeAuthorityAbsence: boolean,
+): Promise<HostedPaymentDigestCallbackResult> {
   try {
     let authority: PaymentAttemptAuthority;
     try {
@@ -870,6 +884,11 @@ async function callback(
         now: new Date(now),
       });
     } catch (error) {
+      if (
+        exposeAuthorityAbsence
+        && error instanceof PaymentAttemptRepositoryError
+        && error.code === "not_found"
+      ) return CALLBACK_NOT_FOUND;
       return retryableCallbackError(error) ? CALLBACK_RETRY : CALLBACK_REJECTED;
     }
     if (
@@ -943,6 +962,49 @@ async function callback(
   } finally {
     request.body.fill(0);
   }
+}
+
+async function callback(
+  dependencies: HostedPaymentRuntimeDependencies,
+  input: Readonly<{ request: Request; providerCode: string; binding: string }>,
+): Promise<HostedPaymentCallbackResult> {
+  const hostname = input.request instanceof Request
+    ? trustedHostname(dependencies, input.request.headers)
+    : null;
+  const now = selectedNow(dependencies);
+  if (hostname === null || now === null) return CALLBACK_REJECTED;
+  const request = await readExactHostedPaymentCallback({
+    request: input.request,
+    providerCode: input.providerCode,
+    binding: input.binding,
+    trustedHostname: hostname,
+  });
+  if (request === null) return CALLBACK_REJECTED;
+  const result = await settleExactCallback(dependencies, request, now, false);
+  return result.kind === "not_found" ? CALLBACK_REJECTED : result;
+}
+
+async function callbackByDigest(
+  dependencies: HostedPaymentRuntimeDependencies,
+  input: Readonly<{
+    request: Request;
+    providerCode: string;
+    callbackBindingDigest: string;
+  }>,
+): Promise<HostedPaymentDigestCallbackResult> {
+  const hostname = input.request instanceof Request
+    ? trustedHostname(dependencies, input.request.headers)
+    : null;
+  const now = selectedNow(dependencies);
+  if (hostname === null || now === null) return CALLBACK_REJECTED;
+  const request = await readExactHostedPaymentCallbackByDigest({
+    request: input.request,
+    providerCode: input.providerCode,
+    callbackBindingDigest: input.callbackBindingDigest,
+    trustedHostname: hostname,
+  });
+  if (request === null) return CALLBACK_REJECTED;
+  return await settleExactCallback(dependencies, request, now, true);
 }
 
 function exactClaim(
@@ -1166,12 +1228,14 @@ export function createHostedPaymentRuntime(
     return Object.freeze({
       initialize: async () => PRESENTATION_REJECTED,
       callback: async () => CALLBACK_REJECTED,
+      callbackByDigest: async () => CALLBACK_REJECTED,
       reconcile: async () => RECONCILIATION_REJECTED,
     });
   }
   return Object.freeze({
     initialize: (input) => initialize(dependencies, input, providerTimeoutMs),
     callback: (input) => callback(dependencies, input),
+    callbackByDigest: (input) => callbackByDigest(dependencies, input),
     reconcile: (input) => reconcile(dependencies, input, providerTimeoutMs),
   });
 }

@@ -57,6 +57,10 @@ export type ProviderTransportRequest = Readonly<{
   signal?: AbortSignal;
 }>;
 
+export interface ProviderTransport {
+  request(input: ProviderTransportRequest): Promise<ProviderTransportResult>;
+}
+
 function invalid(): never {
   throw new TypeError("provider_transport_invalid");
 }
@@ -353,7 +357,7 @@ export function createBoundedProviderTransport(options: {
   fetch(request: Request): Promise<Response>;
   timeoutMs: number;
   maximumResponseBytes: number;
-}) {
+}): ProviderTransport {
   if (
     typeof options !== "object" ||
     options === null ||

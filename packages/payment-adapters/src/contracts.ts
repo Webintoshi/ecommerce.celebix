@@ -25,6 +25,21 @@ export type PaymentAdapterCapabilities = Readonly<{
   tokenization: boolean;
 }>;
 
+export type PaymentAdapterPresentationRule =
+  | Readonly<{
+      kind: "exact_url";
+      url: string;
+    }>
+  | Readonly<{
+      kind: "provider_token_url";
+      urlPrefix: string;
+      token: Readonly<{
+        alphabet: "base64url";
+        minimum: number;
+        maximum: number;
+      }>;
+    }>;
+
 export type PaymentAdapterPacket = Readonly<{
   providerCode: string;
   familyCode: string;
@@ -33,6 +48,7 @@ export type PaymentAdapterPacket = Readonly<{
   implementation: "hosted";
   readiness: Readonly<Record<"test" | "live", PaymentProviderReadiness>>;
   endpoints: Readonly<Record<"test" | "live", readonly string[]>>;
+  presentation: Readonly<Record<"test" | "live", PaymentAdapterPresentationRule>>;
   publicFields: readonly PaymentAdapterField[];
   credentialFields: readonly PaymentAdapterCredentialField[];
   capabilities: PaymentAdapterCapabilities;
@@ -48,7 +64,11 @@ export type HostedPaymentInitialization =
   | Readonly<{ kind: "iframe"; url: string; token: string; providerReference: string | null }>
   | Readonly<{ kind: "pending"; providerReference: string | null }>
   | Readonly<{ kind: "rejected"; code: string }>
-  | Readonly<{ kind: "unknown"; code: "provider_outcome_unknown" }>;
+  | Readonly<{
+      kind: "unknown";
+      code: "provider_outcome_unknown";
+      providerReference: string | null;
+    }>;
 
 export type HostedPaymentStatus =
   | Readonly<{ kind: "succeeded"; providerReference: string; paidAmountMinor: number; currency: string }>

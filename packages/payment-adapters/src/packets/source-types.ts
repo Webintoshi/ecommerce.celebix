@@ -24,7 +24,7 @@ export type PaymentAdapterPacketSource = Readonly<{
   protocolFamily: PaymentProtocolFamily;
   pluginVersion: "2.6.73";
   basePluginVersion: "3.8.1";
-  implementationState: "inventory_only";
+  implementationState: "inventory_only" | "executable";
   gatewaySourcePath: string;
   settingsSourcePath: string;
   inheritanceSourcePaths: readonly string[];

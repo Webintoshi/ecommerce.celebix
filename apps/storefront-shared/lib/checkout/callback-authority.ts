@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 const CALLBACK_PATH = "/api/payments/paytr/callback";
 const MAX_CALLBACK_BYTES = 2_048;
-const MERCHANT_OID = /^[a-f0-9]{32}$/;
+const MERCHANT_OID = /^(?:[a-f0-9]{32}|[a-f0-9]{64})$/;
 const SUCCESS_FIELDS = Object.freeze(["merchant_oid", "status", "total_amount", "hash", "payment_type", "test_mode"]);
 const FAILED_FIELDS = Object.freeze([...SUCCESS_FIELDS, "failed_reason_code", "failed_reason_msg"]);
 

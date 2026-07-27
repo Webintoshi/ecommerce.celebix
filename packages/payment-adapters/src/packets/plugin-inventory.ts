@@ -258,7 +258,7 @@ function defineSource(definition: SourceDefinition): PaymentAdapterPacketSource 
     protocolFamily: protocolFamily(sourceSlug),
     pluginVersion: "2.6.73",
     basePluginVersion: "3.8.1",
-    implementationState: "inventory_only",
+    implementationState: providerCode === "paytr_iframe" ? "executable" : "inventory_only",
     gatewaySourcePath,
     settingsSourcePath,
     inheritanceSourcePaths,

@@ -10,6 +10,7 @@ import type {
   PaymentAdapterCredentialField,
   PaymentAdapterField,
   PaymentAdapterPacket,
+  PaymentAdapterPresentationRule,
 } from "./contracts.ts";
 
 const ENCODER = new TextEncoder();
@@ -32,10 +33,33 @@ const EXECUTABLE_ENDPOINTS = Object.freeze({
     ]),
   }),
 });
+const EXECUTABLE_PRESENTATIONS = Object.freeze({
+  paytr_iframe: Object.freeze({
+    test: Object.freeze({
+      kind: "provider_token_url" as const,
+      urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+      token: Object.freeze({
+        alphabet: "base64url" as const,
+        minimum: 32,
+        maximum: 256,
+      }),
+    }),
+    live: Object.freeze({
+      kind: "provider_token_url" as const,
+      urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+      token: Object.freeze({
+        alphabet: "base64url" as const,
+        minimum: 32,
+        maximum: 256,
+      }),
+    }),
+  }),
+});
 
 const PACKET_KEYS = Object.freeze([
   "adapterVersion", "capabilities", "credentialFields", "documentation", "endpoints",
-  "familyCode", "implementation", "modeCode", "providerCode", "publicFields", "readiness",
+  "familyCode", "implementation", "modeCode", "presentation", "providerCode", "publicFields",
+  "readiness",
 ]);
 const READINESS_KEYS = Object.freeze(["live", "test"]);
 const ENDPOINT_KEYS = Object.freeze(["live", "test"]);
@@ -46,6 +70,9 @@ const CAPABILITY_KEYS = Object.freeze([
   "query", "refund", "threeDSecure", "tokenization",
 ]);
 const DOCUMENTATION_KEYS = Object.freeze(["authority", "url", "verifiedAt"]);
+const PRESENTATION_KEYS = Object.freeze(["live", "test"]);
+const PROVIDER_TOKEN_PRESENTATION_KEYS = Object.freeze(["kind", "token", "urlPrefix"]);
+const PRESENTATION_TOKEN_KEYS = Object.freeze(["alphabet", "maximum", "minimum"]);
 
 function invalid(): never {
   throw new TypeError("payment_adapter_packet_invalid");
@@ -163,6 +190,49 @@ function endpoints(value: unknown, providerCode: string): PaymentAdapterPacket["
   return Object.freeze({ test: Object.freeze(test), live: Object.freeze(live) });
 }
 
+function providerTokenPresentation(
+  value: unknown,
+  allowed: Extract<PaymentAdapterPresentationRule, { kind: "provider_token_url" }>,
+): PaymentAdapterPresentationRule {
+  const parsed = dataObject(value, PROVIDER_TOKEN_PRESENTATION_KEYS);
+  const token = dataObject(parsed.token, PRESENTATION_TOKEN_KEYS);
+  const urlPrefix = canonicalHttpsUrl(parsed.urlPrefix);
+  const minimum = boundedInteger(token.minimum, 1, 4_096);
+  const maximum = boundedInteger(token.maximum, minimum, 4_096);
+  if (
+    parsed.kind !== allowed.kind ||
+    urlPrefix !== allowed.urlPrefix ||
+    !urlPrefix.endsWith("/") ||
+    token.alphabet !== allowed.token.alphabet ||
+    minimum !== allowed.token.minimum ||
+    maximum !== allowed.token.maximum
+  ) invalid();
+  return Object.freeze({
+    kind: "provider_token_url" as const,
+    urlPrefix,
+    token: Object.freeze({
+      alphabet: "base64url" as const,
+      minimum,
+      maximum,
+    }),
+  });
+}
+
+function presentation(
+  value: unknown,
+  providerCode: string,
+): PaymentAdapterPacket["presentation"] {
+  const parsed = dataObject(value, PRESENTATION_KEYS);
+  const allowed = EXECUTABLE_PRESENTATIONS[
+    providerCode as keyof typeof EXECUTABLE_PRESENTATIONS
+  ];
+  if (!allowed) invalid();
+  return Object.freeze({
+    test: providerTokenPresentation(parsed.test, allowed.test),
+    live: providerTokenPresentation(parsed.live, allowed.live),
+  });
+}
+
 function parseField(value: unknown): PaymentAdapterField {
   const parsed = dataObject(value, FIELD_KEYS);
   const minimum = boundedInteger(parsed.minimum, 1, 256);
@@ -231,6 +301,7 @@ export function parsePaymentAdapterPacket(value: unknown): PaymentAdapterPacket 
       implementation: "hosted" as const,
       readiness: readiness(parsed.readiness),
       endpoints: endpoints(parsed.endpoints, providerCode),
+      presentation: presentation(parsed.presentation, providerCode),
       publicFields,
       credentialFields,
       capabilities: capabilities(parsed.capabilities),

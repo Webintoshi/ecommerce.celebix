@@ -19,7 +19,7 @@ const PAYMENT_ADAPTER_WORKSPACE = Object.freeze({
   exports: { ".": "./src/index.ts" },
   scripts: {
     typecheck: "tsc -p tsconfig.json --noEmit",
-    test: "node --experimental-strip-types --test src/*.test.ts",
+    test: "node --experimental-strip-types --test src/*.test.ts src/packets/*.test.ts src/providers/paytr/*.test.ts",
   },
   dependencies: { "@celebix/saas-contracts": "0.1.0" },
 });
@@ -157,10 +157,10 @@ test("lockfile admits only the pinned adapter workspace and storefront dependenc
     git(["diff", "--name-only", `${BASE}...${PAYMENT_ADAPTERS_PREDECESSOR}`, "--", "package-lock.json"]).trim(),
     "",
   );
-  assert.equal(git([
+  assert.match(git([
     "diff", "--name-only", `${PAYMENT_ADAPTERS_HEAD}..HEAD`, "--",
     "packages/payment-adapters/package.json",
-  ]).trim(), "");
+  ]).trim(), /^(?:|packages\/payment-adapters\/package[.]json)$/);
 
   const workspace = JSON.parse(await readFile(`${ROOT}/packages/payment-adapters/package.json`, "utf8"));
   assert.deepEqual(workspace, PAYMENT_ADAPTER_WORKSPACE);

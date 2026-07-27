@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { readExactHostedPaymentCallback } from "./callback-authority.ts";
+import {
+  readExactHostedPaymentCallback,
+  readExactHostedPaymentCallbackByDigest,
+} from "./callback-authority.ts";
 
 const HOSTNAME = "pilot.saas-staging.celebix.site";
 const PROVIDER = "fixture_provider";
@@ -178,4 +181,34 @@ test("accepts canonical JSON but rejects malformed UTF-8 and nested duplicate JS
     binding: BINDING,
     trustedHostname: HOSTNAME,
   }), null);
+});
+
+test("reads the same bounded callback authority from the fixed PayTR path and exact digest", async () => {
+  const fixed = `https://${HOSTNAME}/api/payments/paytr/callback`;
+  const selected = await readExactHostedPaymentCallbackByDigest({
+    request: request(fixed),
+    providerCode: "paytr_iframe",
+    callbackBindingDigest: DIGEST,
+    trustedHostname: HOSTNAME,
+  });
+  assert.ok(selected);
+  assert.equal(selected.providerCode, "paytr_iframe");
+  assert.equal(selected.callbackBindingDigest, DIGEST);
+  assert.equal(new TextDecoder().decode(selected.body), "event_id=evt_1&status=success");
+  selected.body.fill(0);
+
+  for (const [target, digest] of [
+    [CALLBACK_URL, DIGEST],
+    [`${fixed}/`, DIGEST],
+    [`${fixed}?binding=${BINDING}`, DIGEST],
+    [fixed, DIGEST.toUpperCase()],
+    [fixed, "a".repeat(63)],
+  ]) {
+    assert.equal(await readExactHostedPaymentCallbackByDigest({
+      request: request(target),
+      providerCode: "paytr_iframe",
+      callbackBindingDigest: digest,
+      trustedHostname: HOSTNAME,
+    }), null);
+  }
 });

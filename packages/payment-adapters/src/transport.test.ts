@@ -25,6 +25,18 @@ function packetFixture(): Record<string, unknown> {
         "https://www.paytr.com/odeme/durum-sorgu",
       ],
     },
+    presentation: {
+      test: {
+        kind: "provider_token_url",
+        urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+        token: { alphabet: "base64url", minimum: 32, maximum: 256 },
+      },
+      live: {
+        kind: "provider_token_url",
+        urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+        token: { alphabet: "base64url", minimum: 32, maximum: 256 },
+      },
+    },
     publicFields: [
       { key: "merchantId", label: "Mağaza numarası", minimum: 1, maximum: 128 },
     ],

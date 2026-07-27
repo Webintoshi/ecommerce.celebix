@@ -131,9 +131,22 @@ function jsonResponse(body: string, headers: Record<string, string> = {}): Respo
 }
 
 test("PayTR iframe initiation sends one exact manual-redirect form POST", { concurrency: false }, async () => {
-  let observed: Readonly<{ url: string; init: RequestInit; body: string }> | undefined;
-  const result = await withFetch(async (url, init) => {
-    observed = { url: String(url), init: init!, body: String(init?.body) };
+  let observed: Readonly<{
+    url: string;
+    method: string;
+    redirect: RequestRedirect;
+    headers: Headers;
+    body: string;
+  }> | undefined;
+  const result = await withFetch(async (request) => {
+    assert.ok(request instanceof Request);
+    observed = {
+      url: request.url,
+      method: request.method,
+      redirect: request.redirect,
+      headers: new Headers(request.headers),
+      body: await request.clone().text(),
+    };
     return jsonResponse('{"status":"success","token":"28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa"}');
   }, async () => paytr.requestPaytrIframeToken!({
     configuration,
@@ -153,9 +166,9 @@ test("PayTR iframe initiation sends one exact manual-redirect form POST", { conc
   }));
   assert.deepEqual(result, { status: "success", token: "28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa" });
   assert.equal(observed?.url, "https://www.paytr.com/odeme/api/get-token");
-  assert.equal(observed?.init.method, "POST");
-  assert.equal(observed?.init.redirect, "manual");
-  assert.equal(new Headers(observed?.init.headers).get("content-type"), "application/x-www-form-urlencoded");
+  assert.equal(observed?.method, "POST");
+  assert.equal(observed?.redirect, "manual");
+  assert.equal(observed?.headers.get("content-type"), "application/x-www-form-urlencoded");
   const keys = [...new URLSearchParams(observed?.body).keys()];
   assert.deepEqual(keys, [
     "merchant_id", "user_ip", "merchant_oid", "email", "payment_amount", "paytr_token", "user_basket",
@@ -220,7 +233,12 @@ test("PayTR response reader cancels an unannounced body at the 4097th byte", { c
 });
 
 test("PayTR status query validates the complete documented success vocabulary and projects cents only", { concurrency: false }, async () => {
-  let observed: Readonly<{ url: string; init: RequestInit; body: string }> | undefined;
+  let observed: Readonly<{
+    url: string;
+    method: string;
+    redirect: RequestRedirect;
+    body: string;
+  }> | undefined;
   const rich = JSON.stringify({
     status: "success", payment_amount: "10,80", payment_total: "11.25", payment_date: "2026-07-21 12:30:45",
     currency: "TL", test_mode: "1", net_tutar: "9.76", kesinti_tutari: "1.04", taksit: "0",
@@ -228,14 +246,20 @@ test("PayTR status query validates the complete documented success vocabulary an
     odeme_tipi: "KART", returns: [{ return_amount: "1.00", return_date: "2026-07-21 13:00:00", return_type: "",
       date_completed: "2026-07-21 13:01:00", return_auth_code: "", return_ref_num: "", reference_no: "ABC123", return_source: "api" }],
   });
-  const result = await withFetch(async (url, init) => {
-    observed = { url: String(url), init: init!, body: String(init?.body) };
+  const result = await withFetch(async (request) => {
+    assert.ok(request instanceof Request);
+    observed = {
+      url: request.url,
+      method: request.method,
+      redirect: request.redirect,
+      body: await request.clone().text(),
+    };
     return jsonResponse(rich);
   }, () => paytr.queryPaytrStatus!({ configuration, merchantOid, signal: new AbortController().signal }));
   assert.deepEqual(result, { status: "success", paymentAmount: 1_080, totalAmount: 1_125, currency: "TRY", testMode: 1 });
   assert.equal(observed?.url, "https://www.paytr.com/odeme/durum-sorgu");
-  assert.equal(observed?.init.method, "POST");
-  assert.equal(observed?.init.redirect, "manual");
+  assert.equal(observed?.method, "POST");
+  assert.equal(observed?.redirect, "manual");
   assert.equal(observed?.body, `merchant_id=123456&merchant_oid=${merchantOid}&paytr_token=5QldwMdWkWyumPa40DcWsT8JluSOLN9L59Nplx9owlo%3D`);
 });
 
@@ -400,6 +424,155 @@ test("callback rejects invalid HMAC, underpayment, external host mismatch, and b
     assert.notEqual(await response.text(), "OK");
   }
   assert.equal(settlements, 0);
+});
+
+function digestCallbackRequest(
+  digest: string,
+  status: "success" | "failed" = "success",
+): Request {
+  const totalAmount = "3600";
+  const selected = {
+    merchant_oid: digest,
+    status,
+    total_amount: totalAmount,
+    hash: createHmac("sha256", configuration.merchantKey)
+      .update(`${digest}${configuration.merchantSalt}${status}${totalAmount}`, "utf8")
+      .digest("base64"),
+    payment_type: "card",
+    test_mode: "1",
+    ...(status === "failed"
+      ? { failed_reason_code: "12", failed_reason_msg: "sensitive provider message" }
+      : {}),
+  };
+  return new Request(configuration.callbackUrl, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(selected).toString(),
+  });
+}
+
+test("fixed callback route handles generic digest outcomes without legacy downgrade", async () => {
+  const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  for (const [kind, status, body] of [
+    ["accepted", 200, "OK"],
+    ["retry", 503, "RETRY"],
+    ["rejected", 400, "INVALID"],
+  ] as const) {
+    let genericCalls = 0;
+    let legacyAuthorityCalls = 0;
+    const handler = runtimeModule.createPaytrCallbackRoute!({
+      selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+      resolveHostedRuntime: async () => ({
+        async callbackByDigest(input: Record<string, unknown>) {
+          genericCalls += 1;
+          assert.equal(input.providerCode, "paytr_iframe");
+          assert.equal(input.callbackBindingDigest, digest);
+          return { kind };
+        },
+      }),
+      resolveRuntime: async () => ({
+        keyring,
+        paymentRepository: {
+          async getCallbackAuthority() {
+            legacyAuthorityCalls += 1;
+            throw new Error("legacy downgrade forbidden");
+          },
+          async settleCallback() { throw new Error("legacy downgrade forbidden"); },
+        },
+      }),
+    });
+    const response = await handler(digestCallbackRequest(digest));
+    assert.equal(response.status, status, kind);
+    assert.equal(await response.text(), body, kind);
+    assert.equal(genericCalls, 1, kind);
+    assert.equal(legacyAuthorityCalls, 0, kind);
+  }
+});
+
+test("fixed callback route falls back only after generic digest authority is genuinely absent", async () => {
+  const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  let genericCalls = 0;
+  let legacyAuthorityCalls = 0;
+  const handler = runtimeModule.createPaytrCallbackRoute!({
+    selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+    resolveHostedRuntime: async () => ({
+      async callbackByDigest() {
+        genericCalls += 1;
+        return { kind: "not_found" as const };
+      },
+    }),
+    resolveRuntime: async () => ({
+      keyring,
+      paymentRepository: {
+        async getCallbackAuthority() {
+          legacyAuthorityCalls += 1;
+          return {
+            storeId: STORE_ID,
+            attemptId: ATTEMPT_ID,
+            merchantOid: digest,
+            providerConfigId: PROVIDER_ID,
+            status: "provider_ready" as const,
+            itemCount: 1,
+            expectedPaymentAmount: 3_600,
+            currency: "TRY" as const,
+            configurationDigest,
+            configurationKeyId: sealedConfiguration.keyId,
+            sealedConfiguration,
+          };
+        },
+        async settleCallback() {
+          return { outcome: "replayed" as const, orderNumber: "QO-safe" };
+        },
+      },
+    }),
+    now: () => new Date("2026-07-21T12:00:00.000Z"),
+  });
+  const response = await handler(digestCallbackRequest(digest));
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "OK");
+  assert.equal(genericCalls, 1);
+  assert.equal(legacyAuthorityCalls, 1);
+});
+
+test("fixed callback route leaves legacy 32-hex notifications byte-equivalent", async () => {
+  let genericCalls = 0;
+  const handler = runtimeModule.createPaytrCallbackRoute!({
+    selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+    resolveHostedRuntime: async () => ({
+      async callbackByDigest() {
+        genericCalls += 1;
+        return { kind: "rejected" as const };
+      },
+    }),
+    resolveRuntime: async () => ({
+      keyring,
+      paymentRepository: {
+        async getCallbackAuthority() {
+          return {
+            storeId: STORE_ID,
+            attemptId: ATTEMPT_ID,
+            merchantOid,
+            providerConfigId: PROVIDER_ID,
+            status: "provider_ready" as const,
+            itemCount: 1,
+            expectedPaymentAmount: 3_600,
+            currency: "TRY" as const,
+            configurationDigest,
+            configurationKeyId: sealedConfiguration.keyId,
+            sealedConfiguration,
+          };
+        },
+        async settleCallback() {
+          return { outcome: "replayed" as const, orderNumber: "QO-safe" };
+        },
+      },
+    }),
+    now: () => new Date("2026-07-21T12:00:00.000Z"),
+  });
+  const response = await handler(callbackRequest());
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "OK");
+  assert.equal(genericCalls, 0);
 });
 
 function paymentFixture(status: "reserved" | "provider_ready" | "initiation_unknown" = "reserved", outcome: "created" | "replayed" = "created") {

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const BASE64URL = /^[A-Za-z0-9_-]{43}$/;
+const CALLBACK_BINDING_DIGEST = /^[a-f0-9]{64}$/;
 const MAXIMUM_CALLBACK_BYTES = 65_536;
 const MAXIMUM_HEADERS = 32;
 const MAXIMUM_HEADER_VALUE = 4_096;
@@ -52,6 +53,23 @@ function exactTarget(request: Request, providerCode: string, binding: string, ho
       && !target.search
       && !target.hash
       && target.toString() === `https://${hostname}/api/payments/${providerCode}/callback/${binding}`;
+  } catch {
+    return false;
+  }
+}
+
+function exactDigestTarget(request: Request, hostname: string): boolean {
+  try {
+    const target = new URL(request.url);
+    return target.protocol === "https:"
+      && !target.username
+      && !target.password
+      && !target.port
+      && target.hostname === hostname
+      && target.pathname === "/api/payments/paytr/callback"
+      && !target.search
+      && !target.hash
+      && target.toString() === `https://${hostname}/api/payments/paytr/callback`;
   } catch {
     return false;
   }
@@ -241,7 +259,6 @@ export async function readExactHostedPaymentCallback(input: Readonly<{
   binding: string;
   trustedHostname: string;
 }>): Promise<ExactHostedPaymentCallback | null> {
-  let body: Uint8Array | undefined;
   let bindingBytes: Buffer | null = null;
   try {
     if (
@@ -256,15 +273,34 @@ export async function readExactHostedPaymentCallback(input: Readonly<{
       bindingBytes === null
       || !exactTarget(input.request, input.providerCode, input.binding, input.trustedHostname)
     ) return null;
-    const headers = exactHeaders(input.request.headers);
+    return await readValidatedCallback(
+      input.request,
+      input.providerCode,
+      createHash("sha256").update(bindingBytes).digest("hex"),
+    );
+  } catch {
+    return null;
+  } finally {
+    bindingBytes?.fill(0);
+  }
+}
+
+async function readValidatedCallback(
+  request: Request,
+  providerCode: string,
+  callbackBindingDigest: string,
+): Promise<ExactHostedPaymentCallback | null> {
+  let body: Uint8Array | undefined;
+  try {
+    const headers = exactHeaders(request.headers);
     if (headers === null) return null;
-    body = await boundedBody(input.request.body);
+    body = await boundedBody(request.body);
     const declared = headers["content-length"];
     if (declared !== undefined && Number(declared) !== body.byteLength) return null;
     validateBody(body, headers["content-type"]!);
     const selected = Object.freeze({
-      providerCode: input.providerCode,
-      callbackBindingDigest: createHash("sha256").update(bindingBytes).digest("hex"),
+      providerCode,
+      callbackBindingDigest,
       method: "POST" as const,
       headers,
       body,
@@ -274,7 +310,32 @@ export async function readExactHostedPaymentCallback(input: Readonly<{
   } catch {
     return null;
   } finally {
-    bindingBytes?.fill(0);
     body?.fill(0);
+  }
+}
+
+export async function readExactHostedPaymentCallbackByDigest(input: Readonly<{
+  request: Request;
+  providerCode: string;
+  callbackBindingDigest: string;
+  trustedHostname: string;
+}>): Promise<ExactHostedPaymentCallback | null> {
+  try {
+    if (
+      !(input.request instanceof Request)
+      || input.request.method !== "POST"
+      || !PROVIDER_CODE.test(input.providerCode)
+      || !CALLBACK_BINDING_DIGEST.test(input.callbackBindingDigest)
+      || typeof input.trustedHostname !== "string"
+      || input.trustedHostname !== input.trustedHostname.toLowerCase()
+      || !exactDigestTarget(input.request, input.trustedHostname)
+    ) return null;
+    return await readValidatedCallback(
+      input.request,
+      input.providerCode,
+      input.callbackBindingDigest,
+    );
+  } catch {
+    return null;
   }
 }

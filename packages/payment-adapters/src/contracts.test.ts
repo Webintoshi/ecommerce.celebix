@@ -21,6 +21,18 @@ function packetFixture(): Record<string, unknown> {
         "https://www.paytr.com/odeme/durum-sorgu",
       ],
     },
+    presentation: {
+      test: {
+        kind: "provider_token_url",
+        urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+        token: { alphabet: "base64url", minimum: 32, maximum: 256 },
+      },
+      live: {
+        kind: "provider_token_url",
+        urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+        token: { alphabet: "base64url", minimum: 32, maximum: 256 },
+      },
+    },
     publicFields: [
       { key: "merchantId", label: "Mağaza numarası", minimum: 1, maximum: 128 },
     ],
@@ -54,6 +66,13 @@ test("parses the exact immutable hosted PayTR adapter packet", () => {
   assert.equal(Object.isFrozen(packet), true);
   assert.equal(Object.isFrozen(packet.capabilities), true);
   assert.equal(Object.isFrozen(packet.endpoints.test), true);
+  assert.equal(Object.isFrozen(packet.presentation), true);
+  assert.equal(Object.isFrozen(packet.presentation.test), true);
+  assert.equal(
+    packet.presentation.test.kind === "provider_token_url"
+      && Object.isFrozen(packet.presentation.test.token),
+    true,
+  );
   assert.equal(Object.isFrozen(packet.credentialFields[0]), true);
 });
 
@@ -157,6 +176,29 @@ test("rejects canonical HTTPS endpoints outside the provider environment allowli
     const invalid = packetFixture();
     ((invalid.endpoints as Record<string, unknown>).test as string[])[0] = endpoint;
     assert.throws(() => parsePaymentAdapterPacket(invalid), /payment_adapter_packet_invalid/, endpoint);
+  }
+});
+
+test("rejects every unowned PayTR presentation origin, path, and token grammar", () => {
+  for (const mutate of [
+    (rule: Record<string, unknown>) => { rule.urlPrefix = "https://evil.example/odeme/guvenli/"; },
+    (rule: Record<string, unknown>) => { rule.urlPrefix = "https://www.paytr.com/odeme/api/get-token/"; },
+    (rule: Record<string, unknown>) => { rule.urlPrefix = "https://www.paytr.com/odeme/guvenli/?token="; },
+    (rule: Record<string, unknown>) => { rule.kind = "exact_url"; },
+    (rule: Record<string, unknown>) => {
+      rule.token = { alphabet: "unicode", minimum: 32, maximum: 256 };
+    },
+    (rule: Record<string, unknown>) => {
+      rule.token = { alphabet: "base64url", minimum: 1, maximum: 4_096 };
+    },
+  ]) {
+    const invalid = packetFixture();
+    const rule = (invalid.presentation as Record<string, Record<string, unknown>>).test;
+    mutate(rule);
+    assert.throws(
+      () => parsePaymentAdapterPacket(invalid),
+      /payment_adapter_packet_invalid/,
+    );
   }
 });
 

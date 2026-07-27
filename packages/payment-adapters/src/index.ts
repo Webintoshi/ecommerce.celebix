@@ -6,6 +6,19 @@ export {
   PAYMENT_PROTOCOL_FAMILIES,
   getPaymentAdapterPacketSource,
 } from "./packets/plugin-inventory.ts";
+export {
+  PAYTR_IFRAME_PACKET,
+  authenticatePaytrIframeCallback,
+  createPaytrIframeAdapter,
+  createPaytrIframePresentationUrl,
+  initializePaytrIframeWithTransport,
+  queryPaytrIframeWithTransport,
+} from "./providers/paytr/adapter.ts";
+export {
+  createPaytrIframeStatusToken,
+  createPaytrIframeToken,
+  verifyPaytrIframeCallbackHash,
+} from "./providers/paytr/config.ts";
 export type {
   HostedPaymentAdapter,
   HostedPaymentCallbackInput,
@@ -17,9 +30,11 @@ export type {
   PaymentAdapterCredentialField,
   PaymentAdapterField,
   PaymentAdapterPacket,
+  PaymentAdapterPresentationRule,
   VerifiedProviderCallback,
 } from "./contracts.ts";
 export type {
+  ProviderTransport,
   ProviderTransportRequest,
   ProviderTransportResult,
 } from "./transport.ts";
@@ -28,3 +43,9 @@ export type {
   PaymentAdapterPacketSource,
   PaymentProtocolFamily,
 } from "./packets/source-types.ts";
+export type {
+  PaytrIframeCallback,
+  PaytrIframeCredential,
+  PaytrIframeInitializationResult,
+  PaytrIframeStatusResult,
+} from "./providers/paytr/adapter.ts";

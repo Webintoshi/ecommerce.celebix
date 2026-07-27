@@ -17,6 +17,7 @@ import type {
   PaymentAttemptReconciliationClaim,
   PaymentAttemptRepository,
 } from "@celebix/saas-data";
+import { PaymentAttemptRepositoryError } from "@celebix/saas-data";
 
 import {
   createHostedPaymentCallbackRoute,
@@ -30,6 +31,7 @@ const METHOD_ID = "22222222-2222-4222-8222-222222222222";
 const PROFILE_ID = "33333333-3333-4333-8333-333333333333";
 const ATTEMPT_ID = "44444444-4444-4444-8444-444444444444";
 const LEASE_ID = "55555555-5555-4555-8555-555555555555";
+const DIGEST = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
 const PROVIDER = "fixture_provider";
 const ENDPOINT = "https://payments.example.test/hosted";
 const NOW = new Date("2026-07-27T12:00:00.000Z");
@@ -58,6 +60,10 @@ const PACKET: PaymentAdapterPacket = Object.freeze({
   endpoints: Object.freeze({
     test: Object.freeze([ENDPOINT]),
     live: Object.freeze([ENDPOINT]),
+  }),
+  presentation: Object.freeze({
+    test: Object.freeze({ kind: "exact_url" as const, url: ENDPOINT }),
+    live: Object.freeze({ kind: "exact_url" as const, url: ENDPOINT }),
   }),
   publicFields: Object.freeze([
     Object.freeze({ key: "merchantId", label: "Merchant", minimum: 1, maximum: 128 }),
@@ -185,6 +191,7 @@ function fixture(options: Readonly<{
   claim?: Partial<PaymentAttemptReconciliationClaim>;
   now?: () => Date;
   providerTimeoutMs?: number;
+  packet?: PaymentAdapterPacket;
 }> = {}) {
   const calls: Calls = {
     begin: [], initialized: [], unknown: [], callbackAuthority: [], settled: [],
@@ -271,8 +278,9 @@ function fixture(options: Readonly<{
       currency: "TRY",
     });
   });
+  const packet = options.packet ?? PACKET;
   const adapter: HostedPaymentAdapter<object> = Object.freeze({
-    packet: PACKET,
+    packet,
     parseCredential,
     maskAccount: Object.freeze(() => "merchant…ture"),
     initialize,
@@ -283,7 +291,7 @@ function fixture(options: Readonly<{
     attempts,
     adapters: Object.freeze({
       size: options.adapterPresent === false ? 0 : 1,
-      packet: (providerCode: string) => providerCode === PROVIDER && options.adapterPresent !== false ? PACKET : null,
+      packet: (providerCode: string) => providerCode === PROVIDER && options.adapterPresent !== false ? packet : null,
       adapter: (providerCode: string) => providerCode === PROVIDER && options.adapterPresent !== false ? adapter : null,
     }),
     keyring: KEYRING,
@@ -418,9 +426,9 @@ test("initializes through durable method/profile authority and projects only ifr
   assert.equal(selected.calls.initializedAdapter[0]?.callbackUrl,
     `https://${HOSTNAME}/api/payments/${PROVIDER}/callback/${Buffer.alloc(32, 7).toString("base64url")}`);
   assert.equal(selected.calls.initializedAdapter[0]?.successUrl,
-    `https://${HOSTNAME}/odeme/sonuc?durum=basarili`);
+    `https://${HOSTNAME}/odeme/hizli/sonuc?durum=basarili`);
   assert.equal(selected.calls.initializedAdapter[0]?.failureUrl,
-    `https://${HOSTNAME}/odeme/sonuc?durum=basarisiz`);
+    `https://${HOSTNAME}/odeme/hizli/sonuc?durum=basarisiz`);
   assert.equal(selected.calls.initializedAdapter[0]?.environment, "test");
   assert.equal(selected.calls.initialized.length, 1);
   assert.equal(selected.calls.unknown.length, 0);
@@ -493,6 +501,87 @@ test("classifies timeout and malformed browser URLs as durable unknown without r
   assert.equal(forged.calls.initialized.length, 0);
 });
 
+test("accepts only the provider-owned token presentation prefix paired to the exact token", async () => {
+  const dynamicPacket: PaymentAdapterPacket = Object.freeze({
+    ...PACKET,
+    presentation: Object.freeze({
+      test: Object.freeze({
+        kind: "provider_token_url" as const,
+        urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+        token: Object.freeze({
+          alphabet: "base64url" as const,
+          minimum: 32,
+          maximum: 256,
+        }),
+      }),
+      live: Object.freeze({
+        kind: "provider_token_url" as const,
+        urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+        token: Object.freeze({
+          alphabet: "base64url" as const,
+          minimum: 32,
+          maximum: 256,
+        }),
+      }),
+    }),
+  });
+  const token = "a".repeat(32);
+  const valid = fixture({
+    packet: dynamicPacket,
+    initialization: Object.freeze({
+      kind: "iframe",
+      url: `https://www.paytr.com/odeme/guvenli/${token}`,
+      token,
+      providerReference: "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0",
+    }),
+  });
+  assert.deepEqual(await valid.runtime.initialize(initializeInput()), {
+    kind: "iframe",
+    url: `https://www.paytr.com/odeme/guvenli/${token}`,
+    token,
+  });
+
+  for (const [url, invalidToken] of [
+    [`https://attacker.example/odeme/guvenli/${token}`, token],
+    [`https://www.paytr.com/odeme/api/get-token/${token}`, token],
+    [`https://www.paytr.com/odeme/guvenli/${token}?next=evil`, token],
+    [`https://www.paytr.com/odeme/guvenli/${token}b`, token],
+    [`https://www.paytr.com/odeme/guvenli/${"a".repeat(31)}`, "a".repeat(31)],
+    [`https://www.paytr.com/odeme/guvenli/${"a".repeat(31)}+`, `${"a".repeat(31)}+`],
+  ]) {
+    const selected = fixture({
+      packet: dynamicPacket,
+      initialization: Object.freeze({
+        kind: "iframe",
+        url,
+        token: invalidToken,
+        providerReference: null,
+      }),
+    });
+    assert.deepEqual(await selected.runtime.initialize(initializeInput()), {
+      kind: "processing",
+    });
+    assert.equal(selected.calls.unknown.length, 1);
+    assert.equal(selected.calls.initialized.length, 0);
+  }
+});
+
+test("persists an adapter-selected provider reference when initialization outcome is unknown", async () => {
+  const providerReference = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  const selected = fixture({
+    initialization: Object.freeze({
+      kind: "unknown",
+      code: "provider_outcome_unknown",
+      providerReference,
+    }),
+  });
+  assert.deepEqual(await selected.runtime.initialize(initializeInput()), {
+    kind: "processing",
+  });
+  assert.equal(selected.calls.unknown.length, 1);
+  assert.equal(selected.calls.unknown[0]?.providerReference, providerReference);
+});
+
 test("an already-begun operation never invents a replacement callback binding or calls the provider", async () => {
   const selected = fixture({ begin: beginResult({ outcome: "replayed" }) });
   assert.deepEqual(await selected.runtime.initialize(initializeInput()), { kind: "processing" });
@@ -519,6 +608,64 @@ function callbackRequest(
     body,
   });
 }
+
+function digestCallbackRequest(
+  body = "event_id=provider_event_1&status=success",
+): Request {
+  return new Request(`https://${HOSTNAME}/api/payments/paytr/callback`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      "content-length": String(Buffer.byteLength(body)),
+    },
+    body,
+  });
+}
+
+test("settles a fixed-path callback selected directly by its digest authority", async () => {
+  const selected = fixture();
+  const result = await selected.runtime.callbackByDigest({
+    request: digestCallbackRequest(),
+    providerCode: PROVIDER,
+    callbackBindingDigest: DIGEST,
+  });
+
+  assert.deepEqual(result, { kind: "accepted" });
+  assert.deepEqual(selected.calls.callbackAuthority[0], {
+    providerCode: PROVIDER,
+    callbackBindingDigest: DIGEST,
+    now: NOW,
+  });
+  assert.equal(selected.calls.callbacks.length, 1);
+  assert.equal(selected.calls.settled.length, 1);
+});
+
+test("digest callback exposes not-found only for authority absence and never after verification or commit uncertainty", async () => {
+  const missing = fixture({
+    callbackAuthority: new PaymentAttemptRepositoryError("not_found"),
+  });
+  assert.deepEqual(await missing.runtime.callbackByDigest({
+    request: digestCallbackRequest(),
+    providerCode: PROVIDER,
+    callbackBindingDigest: DIGEST,
+  }), { kind: "not_found" });
+
+  const invalid = fixture({ callback: new Error("invalid signature") });
+  assert.deepEqual(await invalid.runtime.callbackByDigest({
+    request: digestCallbackRequest(),
+    providerCode: PROVIDER,
+    callbackBindingDigest: DIGEST,
+  }), { kind: "rejected" });
+
+  const uncertain = fixture({
+    settlement: new PaymentAttemptRepositoryError("commit_unknown"),
+  });
+  assert.deepEqual(await uncertain.runtime.callbackByDigest({
+    request: digestCallbackRequest(),
+    providerCode: PROVIDER,
+    callbackBindingDigest: DIGEST,
+  }), { kind: "retry" });
+});
 
 test("forwards only explicit provider callback data headers and never private proxy authority", async () => {
   const selected = fixture();
@@ -799,6 +946,7 @@ test("callback route maps only stable acknowledgements and fails closed without 
   const runtime: HostedPaymentRuntime = Object.freeze({
     initialize: async () => Object.freeze({ kind: "rejected" }),
     reconcile: async () => Object.freeze({ kind: "rejected" }),
+    callbackByDigest: async () => Object.freeze({ kind: "rejected" }),
     callback: async (input) => {
       callbackInputs.push(input);
       return Object.freeze({ kind: "accepted" });

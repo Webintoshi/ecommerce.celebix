@@ -16,8 +16,8 @@ import pg from "pg";
 
 import { parseCheckoutRuntimeConfig } from "./config.ts";
 import { readExactPaytrCallbackRequest } from "./callback-authority.ts";
-import { authenticatePaytrCallback, queryPaytrStatus, requestPaytrIframeToken,
-  type PaytrIframeTokenResult } from "./paytr.ts";
+import { authenticatePaytrCallback, createPaytrIframePresentationUrl, queryPaytrStatus,
+  requestPaytrIframeToken, type PaytrIframeTokenResult } from "./paytr.ts";
 import { digestRedemptionCredential, parseRedemptionCookie } from "./redemption-cookie.ts";
 import { parseTrustedClientIp } from "./trusted-client-ip.ts";
 
@@ -88,6 +88,7 @@ type PaymentRouteDependencies = Readonly<{
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MERCHANT_OID = /^[a-f0-9]{32}$/;
+const CALLBACK_BINDING_DIGEST = /^[a-f0-9]{64}$/;
 const PROVIDER_TOKEN = /^[A-Za-z0-9_-]{32,256}$/;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ROUTE_HEADERS = Object.freeze({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex, nofollow" });
@@ -350,29 +351,34 @@ export function createQuickOrderIframeRoute(dependencies: Readonly<{
       const presentation = await runtime.paymentRepository.getPaymentPresentation({ hostname: authority.hostname, redemptionDigest: digestRedemptionCredential(cookie.credential), now: new Date(now) });
       const token = openQuickLinkSecret({ envelope: presentation.sealedProviderToken, purpose: "provider-token", storeId: presentation.storeId, objectId: presentation.attemptId, digest: presentation.providerTokenDigest, keyring: runtime.keyring });
       if (!PROVIDER_TOKEN.test(token) || createHash("sha256").update(token, "utf8").digest("hex") !== presentation.providerTokenDigest) return routeText(503, "Checkout unavailable");
-      const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Güvenli ödeme</title></head><body><iframe src="https://www.paytr.com/odeme/guvenli/${token}" width="100%" height="720" scrolling="yes" frameborder="0" title="PayTR güvenli ödeme"></iframe></body></html>`;
+      const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Güvenli ödeme</title></head><body><iframe src="${createPaytrIframePresentationUrl(token)}" width="100%" height="720" scrolling="yes" frameborder="0" title="PayTR güvenli ödeme"></iframe></body></html>`;
       return new Response(html, { status: 200, headers: { ...ROUTE_HEADERS, "Content-Type": "text/html; charset=utf-8" } });
     } catch { return routeText(404, "Not found"); }
   };
 }
 
 type CallbackRepository = Pick<CheckoutPaymentRepository, "getCallbackAuthority" | "settleCallback">;
+type HostedDigestCallbackRuntime = Readonly<{
+  callbackByDigest(input: Readonly<{
+    request: Request;
+    providerCode: string;
+    callbackBindingDigest: string;
+  }>): Promise<Readonly<{
+    kind: "accepted" | "retry" | "rejected" | "not_found";
+  }>>;
+}>;
 
 export function createPaytrCallbackRoute(dependencies: Readonly<{
   selectAuthority: (headers: Headers) => HostAuthority;
   resolveRuntime: () => Promise<Readonly<{ paymentRepository: CallbackRepository; keyring: QuickLinkKeyring }> | null>;
+  resolveHostedRuntime?: () => Promise<HostedDigestCallbackRuntime | null>;
   now?: () => Date;
 }>) {
   const callbackResponse = (status: number, text: "OK" | "INVALID" | "RETRY") => routeText(status, text);
-  return async (request: Request): Promise<Response> => {
-    const authority = dependencies.selectAuthority(request.headers);
-    if (authority.kind !== "trusted" || !("hostname" in authority) || !validHostname(authority.hostname)) {
-      return callbackResponse(400, "INVALID");
-    }
-    const externalCallbackUrl = `https://${authority.hostname}/api/payments/paytr/callback`;
-    const callback = await readExactPaytrCallbackRequest({ request, trustedHostname: authority.hostname,
-      configuredCallbackUrl: externalCallbackUrl });
-    if (callback === null) return callbackResponse(400, "INVALID");
+  const legacy = async (
+    callback: Readonly<{ merchantOid: string; form: string; callbackDigest: string }>,
+    externalCallbackUrl: string,
+  ): Promise<Response> => {
     const now = (dependencies.now ?? (() => new Date()))();
     if (!validNow(now)) return callbackResponse(400, "INVALID");
     const runtime = await dependencies.resolveRuntime();
@@ -400,6 +406,51 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
       return result.outcome === "settled" || result.outcome === "replayed" || result.outcome === "failed"
         ? callbackResponse(200, "OK") : callbackResponse(400, "INVALID");
     } catch { return callbackResponse(400, "INVALID"); }
+  };
+  return async (request: Request): Promise<Response> => {
+    const authority = dependencies.selectAuthority(request.headers);
+    if (authority.kind !== "trusted" || !("hostname" in authority) || !validHostname(authority.hostname)) {
+      return callbackResponse(400, "INVALID");
+    }
+    const externalCallbackUrl = `https://${authority.hostname}/api/payments/paytr/callback`;
+    let inspection: Request;
+    try {
+      inspection = request.clone();
+    } catch {
+      return callbackResponse(400, "INVALID");
+    }
+    const callback = await readExactPaytrCallbackRequest({
+      request: inspection,
+      trustedHostname: authority.hostname,
+      configuredCallbackUrl: externalCallbackUrl,
+    });
+    if (callback === null) return callbackResponse(400, "INVALID");
+    if (!CALLBACK_BINDING_DIGEST.test(callback.merchantOid)) {
+      return await legacy(callback, externalCallbackUrl);
+    }
+    if (dependencies.resolveHostedRuntime === undefined) {
+      return callbackResponse(400, "INVALID");
+    }
+    try {
+      const runtime = await dependencies.resolveHostedRuntime();
+      if (runtime === null) return callbackResponse(400, "INVALID");
+      const genericRequest = new Request(externalCallbackUrl, {
+        method: "POST",
+        headers: new Headers(request.headers),
+        body: callback.form,
+      });
+      const result = await runtime.callbackByDigest({
+        request: genericRequest,
+        providerCode: "paytr_iframe",
+        callbackBindingDigest: callback.merchantOid,
+      });
+      if (result.kind === "accepted") return callbackResponse(200, "OK");
+      if (result.kind === "retry") return callbackResponse(503, "RETRY");
+      if (result.kind === "not_found") return await legacy(callback, externalCallbackUrl);
+      return callbackResponse(400, "INVALID");
+    } catch {
+      return callbackResponse(400, "INVALID");
+    }
   };
 }
 
