@@ -124,10 +124,6 @@ const manifest = sources.map((source) => {
 
   return {
     familyCode: source.familyCode,
-    sourceUrl: source.sourceUrl,
-    officialHost: source.officialHost,
-    retrievedAt: source.retrievedAt,
-    usageNote: source.usageNote,
     file: `/payment-providers/${source.file}`,
     mimeType,
     sha256: createHash("sha256").update(bytes).digest("hex"),
@@ -135,4 +131,3 @@ const manifest = sources.map((source) => {
 }).sort((left, right) => left.familyCode.localeCompare(right.familyCode));
 
 writeFileSync(MANIFEST_FILE, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-

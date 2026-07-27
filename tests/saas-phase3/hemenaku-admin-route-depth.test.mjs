@@ -29,6 +29,7 @@ const routeDepthPages = Object.freeze([
   "apps/customer-panel/app/content/pages/[recordId]/edit/page.tsx",
   "apps/customer-panel/app/content/policies/new/page.tsx",
   "apps/customer-panel/app/content/policies/[recordId]/edit/page.tsx",
+  "apps/customer-panel/app/settings/payment/page.tsx",
   "apps/customer-panel/app/settings/payment/new/page.tsx",
   "apps/customer-panel/app/settings/payment/[recordId]/edit/page.tsx",
 ]);
@@ -62,10 +63,14 @@ function assertExecutedServerAccess(source, file) {
   const routeStart = source.indexOf("export default async function");
   const accessCall = source.indexOf("requireServerPanelAccess()", routeStart);
   const firstReturn = source.indexOf("return ", routeStart);
-  const routeBeforeRendering = source.slice(routeStart, firstReturn);
+  const firstRedirect = source.indexOf("redirect(", routeStart);
+  const boundaries = [firstReturn, firstRedirect].filter((index) => index >= 0);
+  const firstRenderOrRedirect = Math.min(...boundaries);
+  const routeBeforeRendering = source.slice(routeStart, firstRenderOrRedirect);
 
   assert.ok(routeStart >= 0, `${file} must export an async server page`);
-  assert.ok(accessCall > routeStart && accessCall < firstReturn, `${file} must call server access before rendering`);
+  assert.ok(boundaries.length > 0, `${file} must render or redirect`);
+  assert.ok(accessCall > routeStart && accessCall < firstRenderOrRedirect, `${file} must call server access before rendering or redirecting`);
   assert.match(
     routeBeforeRendering,
     /await\s+(?:requireServerPanelAccess\(\)|Promise\.all\(\[[\s\S]*?requireServerPanelAccess\(\)[\s\S]*?\]\))/,
@@ -74,7 +79,7 @@ function assertExecutedServerAccess(source, file) {
 }
 
 test("route-depth pages remain authority-safe and server-gated", async () => {
-  assert.equal(routeDepthPages.length, 24);
+  assert.equal(routeDepthPages.length, 25);
 
   for (const file of routeDepthPages) {
     const source = await read(file);
@@ -111,8 +116,6 @@ test("route-depth mutations receive a concrete server-derived capability or serv
     ["apps/customer-panel/app/content/pages/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
     ["apps/customer-panel/app/content/policies/new/page.tsx", "MerchantRecordEditor", "content.manage"],
     ["apps/customer-panel/app/content/policies/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
-    ["apps/customer-panel/app/settings/payment/new/page.tsx", "MerchantRecordEditor", "configuration.manage"],
-    ["apps/customer-panel/app/settings/payment/[recordId]/edit/page.tsx", "MerchantRecordEditor", "configuration.manage"],
   ];
 
   for (const [file, component, action] of capabilityBoundRoutes) {
@@ -123,6 +126,22 @@ test("route-depth mutations receive a concrete server-derived capability or serv
       new RegExp(`<${component}\\b[^>]*\\bcanManage=\\{isMerchantActionAllowed\\(tenantContext\\.membership\\.role, "${action.replace(".", "\\.")}"\\)\\}`),
       file,
     );
+  }
+
+  const paymentPage = await read("apps/customer-panel/app/settings/payment/page.tsx");
+  assert.match(paymentPage, /const \{ tenantContext \} = access;/);
+  assert.match(paymentPage, /isMerchantActionAllowed\(tenantContext\.membership\.role, "configuration\.manage"\)/);
+  assert.match(paymentPage, /isMerchantActionAllowed\(tenantContext\.membership\.role, "integrations\.manage"\)/);
+  assert.match(paymentPage, /<PaymentSettingsConsole\b[^>]*\bcanManage=\{canManage\}/);
+
+  for (const file of [
+    "apps/customer-panel/app/settings/payment/new/page.tsx",
+    "apps/customer-panel/app/settings/payment/[recordId]/edit/page.tsx",
+  ]) {
+    const source = await read(file);
+    assert.match(source, /requireServerPanelAccess\(\)/, file);
+    assert.match(source, /redirect\("\/settings\/payment/, file);
+    assert.doesNotMatch(source, /MerchantRecordEditor|PaymentSettingsConsole/, file);
   }
 
   const customerEdit = await read("apps/customer-panel/app/customers/[customerId]/edit/page.tsx");

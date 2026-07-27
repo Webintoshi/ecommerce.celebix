@@ -123,11 +123,7 @@ test("logo manifest is deterministic and pins one safe local asset per family", 
       "familyCode",
       "file",
       "mimeType",
-      "officialHost",
-      "retrievedAt",
       "sha256",
-      "sourceUrl",
-      "usageNote",
     ]);
     assert.ok(ALLOWED_MIME_TYPES.has(row.mimeType), row.familyCode);
     assert.equal(row.file, `/payment-providers/${row.familyCode}.${row.file.split(".").at(-1)}`);
@@ -150,25 +146,16 @@ test("logo manifest is deterministic and pins one safe local asset per family", 
   }
 });
 
-test("logo provenance is copied exactly from source records into the manifest", () => {
+test("logo provenance stays in the source inventory and the runtime manifest stays local", () => {
   const sources = readJson(SOURCE_FILE);
   const manifest = readJson(MANIFEST_FILE);
-  const sourceByFamily = new Map(sources.map((row) => [row.familyCode, row]));
+  const manifestByFamily = new Map(manifest.map((row) => [row.familyCode, row]));
 
-  for (const row of manifest) {
-    const source = sourceByFamily.get(row.familyCode);
-    assert.ok(source, row.familyCode);
-    assert.deepEqual(
-      {
-        familyCode: row.familyCode,
-        sourceUrl: row.sourceUrl,
-        officialHost: row.officialHost,
-        retrievedAt: row.retrievedAt,
-        usageNote: row.usageNote,
-        file: path.basename(row.file),
-      },
-      source,
-      row.familyCode,
-    );
+  for (const source of sources) {
+    const row = manifestByFamily.get(source.familyCode);
+    assert.ok(row, source.familyCode);
+    assert.equal(path.basename(row.file), source.file, source.familyCode);
   }
+
+  assert.doesNotMatch(JSON.stringify(manifest), /https?:\/\/|sourceUrl|officialHost|retrievedAt|usageNote/);
 });
