@@ -295,7 +295,7 @@ test("route adapter preserves unrecognized forwarding headers for core rejection
   assert.equal((await handle(ordinary)).status, 200);
 });
 
-test("route adapter removes Next framework forwarding headers before core classification", async () => {
+test("route adapter removes framework and reverse-proxy transport headers before core classification", async () => {
   const handle = handler(repository({ async listLocations() { return []; } }));
   const prepared = prepareInventoryRouteRequest(request("/api/inventory/locations", {
     headers: {
@@ -304,6 +304,7 @@ test("route adapter removes Next framework forwarding headers before core classi
       "x-forwarded-host": "internal:3400",
       "x-forwarded-port": "3400",
       "x-forwarded-proto": "http",
+      "x-forwarded-server": "coolify-proxy",
     },
   }));
 
@@ -312,6 +313,7 @@ test("route adapter removes Next framework forwarding headers before core classi
   assert.equal(prepared.headers.has("x-forwarded-host"), false);
   assert.equal(prepared.headers.has("x-forwarded-port"), false);
   assert.equal(prepared.headers.has("x-forwarded-proto"), false);
+  assert.equal(prepared.headers.has("x-forwarded-server"), false);
   assert.equal((await handle(prepared)).status, 200);
 });
 

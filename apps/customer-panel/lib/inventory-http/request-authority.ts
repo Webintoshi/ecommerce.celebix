@@ -45,6 +45,7 @@ export function prepareInventoryRouteRequest(request: Request): Request {
   headers.delete("x-forwarded-host");
   headers.delete("x-forwarded-port");
   headers.delete("x-forwarded-proto");
+  headers.delete("x-forwarded-server");
   return new Request(request, { headers });
 }
 
