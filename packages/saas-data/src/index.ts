@@ -50,6 +50,7 @@ export * from "./inventory/index.ts";
 export * from "./pricing/index.ts";
 export * from "./provider-execution/index.ts";
 export * from "./payment-methods/index.ts";
+export * from "./payment-attempts/index.ts";
 export {
   CHECKOUT_PAYMENT_ERROR_CODES,
   CheckoutPaymentRepositoryError,
