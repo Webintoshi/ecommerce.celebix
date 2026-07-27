@@ -300,6 +300,7 @@ test("route adapter removes Next framework forwarding headers before core classi
   const prepared = prepareInventoryRouteRequest(request("/api/inventory/locations", {
     headers: {
       host: "internal:3400",
+      "x-forwarded-for": "127.0.0.1",
       "x-forwarded-host": "internal:3400",
       "x-forwarded-port": "3400",
       "x-forwarded-proto": "http",
@@ -307,6 +308,7 @@ test("route adapter removes Next framework forwarding headers before core classi
   }));
 
   assert.equal(prepared.headers.has("host"), false);
+  assert.equal(prepared.headers.has("x-forwarded-for"), false);
   assert.equal(prepared.headers.has("x-forwarded-host"), false);
   assert.equal(prepared.headers.has("x-forwarded-port"), false);
   assert.equal(prepared.headers.has("x-forwarded-proto"), false);
