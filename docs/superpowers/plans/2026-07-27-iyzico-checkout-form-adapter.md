@@ -6,7 +6,7 @@
 
 **Architecture:** Implement iyzico as a native `@celebix/payment-adapters` hosted adapter using IYZWSv2 request signing and signed initialize/retrieve responses. Generalize the PayTR-only control-plane composition to provider-keyed registries without weakening execution authority. Extend the shared storefront callback runtime only where provider-initiated result retrieval and customer redirect semantics require it, preserving PayTR's existing acknowledgment behavior.
 
-**Corrected execution order after architecture audit:** Task 4 -> Task 7 foundation -> Task 5 -> Task 6 -> Task 8 -> Task 9. The current HTTP handler, `@celebix/saas-data` repository, migration 053 constraint/RPCs, and validation worker all reject a payment-processing profile without execution evidence. Therefore the additive provider-keyed lifecycle and null-authority verification contract must exist before the panel can truthfully save or validate iyzico credentials. Configuration/validation authority remains distinct from checkout execution authority throughout.
+**Corrected execution order after architecture audits:** Task 4 -> Task 7 foundation -> Task 5 -> Task 6 -> Task 8 dormant composition -> Task 8A durable quick-order authority -> Task 8B atomic hosted-payment bridge -> Task 9 evidence. The current HTTP handler, `@celebix/saas-data` repository, migration 053 constraint/RPCs, and validation worker all reject a payment-processing profile without execution evidence. Therefore the additive provider-keyed lifecycle and null-authority verification contract must exist before the panel can truthfully save or validate iyzico credentials. The shared storefront also has no production caller for generic hosted initialization and no generic captured-payment-to-order settlement; Tasks 8A/8B must exist before sandbox browser evidence or usability can be claimed. Configuration/validation authority remains distinct from checkout execution authority throughout.
 
 **Tech Stack:** TypeScript, Node.js `crypto`, Next.js route handlers, PostgreSQL 16 SQL migrations/harnesses, Node test runner, existing `@celebix/payment-adapters`, `@celebix/saas-contracts`, and `@celebix/saas-data` packages.
 
@@ -388,11 +388,13 @@ git commit -m "feat(payments): validate iyzico merchant credentials"
 - Create: `tests/saas-phase3/payment-provider-keyed-lifecycle/postgres-harness.mjs`
 - Create: `tests/saas-phase3/payment-provider-keyed-lifecycle/static-security.test.mjs`
 - Modify: `packages/saas-data/src/provider-execution/types.ts`
+- Modify: `packages/saas-data/src/provider-execution/index.ts`
 - Modify: `packages/saas-data/src/provider-execution/repository.ts`
 - Modify: `packages/saas-data/src/provider-execution/repository.test.ts`
 - Modify: `packages/saas-data/src/provider-execution/workflow-repository.ts`
 - Modify: `packages/saas-data/src/provider-execution/workflow-repository.test.ts`
 - Modify: `tests/saas-phase3/run-current-suite.mjs`
+- Modify: `tests/saas-phase3/merchant-completion/full-parity.test.mjs`
 
 **Step 1: Write failing static and PostgreSQL harness tests**
 
@@ -436,8 +438,13 @@ git commit -m "feat(payments): add provider keyed activation lifecycle"
 - Modify: `apps/storefront-shared/lib/payment-adapters/default.test.ts`
 - Modify: `apps/storefront-shared/lib/payment-adapters/runtime.ts`
 - Modify: `apps/storefront-shared/lib/payment-adapters/runtime.test.ts`
+- Modify: `apps/storefront-shared/lib/payment-adapters/callback-authority.ts`
+- Modify: `apps/storefront-shared/lib/payment-adapters/callback-authority.test.ts`
+- Modify: `apps/storefront-shared/lib/default-runtime.ts`
+- Modify: the focused default-runtime test
 - Modify: `apps/storefront-shared/lib/storefront-app.test.ts`
 - Modify: `tests/saas-phase3/payment-adapter-runtime/in-process.test.mjs`
+- Modify: `tests/saas-phase3/payment-adapter-runtime/static-security.test.mjs`
 
 **Step 1: Write failing storefront composition tests**
 
@@ -447,11 +454,15 @@ Prove:
 - iyzico execution refuses when authority is absent;
 - a synthetic exact-authority fixture can initialize and retrieve using real buyer fields;
 - customer PII is passed only in-memory to the selected adapter and not persisted in safe metadata;
+- provider-specific projection prevents Iyzico-only buyer/item fields from changing PayTR's exact request body;
+- a legitimate Origin-bearing Iyzico customer-return POST is accepted after Origin is dropped rather than treated as authority, while cookies, authorization and proxy authority remain forbidden;
+- credential open and provider network calls remain zero for a null, stale, superseded, revoked or mismatched compiled authority;
+- durable fingerprints, attempt metadata, audit data and safe codes contain no buyer identity, address, basket name, provider body or secret;
 - PayTR behavior and route inventory remain unchanged.
 
 **Step 2: Implement exact two-provider composition**
 
-Generalize provider maps, compiled authority lookup, endpoint allowlists and credential decoding. Add the mandatory iyzico buyer fields to the checkout authority/input contract at the narrowest boundary. Reject older orders lacking them instead of inventing defaults.
+Generalize provider maps, compiled authority lookup, endpoint allowlists and credential decoding. Replace the PayTR-only boot preflight with Task 7's literal provider-keyed preflight and parameterized exact-authority checks. Add the mandatory iyzico buyer fields to the checkout authority/input contract at the narrowest boundary, but project only the selected provider's exact packet fields. Exclude all PII from durable fingerprints and keep it only in an exact in-memory copy. Reject older orders lacking real buyer or item-type data instead of inventing defaults. This task proves dormant composition only; it must not claim a production initialize caller or usable checkout until Tasks 8A and 8B are complete.
 
 **Step 3: Verify**
 
@@ -465,17 +476,69 @@ Expected: PASS.
 **Step 4: Commit**
 
 ```bash
-git add apps/storefront-shared/lib/payment-adapters/default.ts apps/storefront-shared/lib/payment-adapters/default.test.ts apps/storefront-shared/lib/payment-adapters/runtime.ts apps/storefront-shared/lib/payment-adapters/runtime.test.ts apps/storefront-shared/lib/storefront-app.test.ts tests/saas-phase3/payment-adapter-runtime/in-process.test.mjs
+git add apps/storefront-shared/lib/payment-adapters/default.ts apps/storefront-shared/lib/payment-adapters/default.test.ts apps/storefront-shared/lib/payment-adapters/runtime.ts apps/storefront-shared/lib/payment-adapters/runtime.test.ts apps/storefront-shared/lib/payment-adapters/callback-authority.ts apps/storefront-shared/lib/payment-adapters/callback-authority.test.ts apps/storefront-shared/lib/default-runtime.ts apps/storefront-shared/lib/storefront-app.test.ts tests/saas-phase3/payment-adapter-runtime/in-process.test.mjs tests/saas-phase3/payment-adapter-runtime/static-security.test.mjs
 git commit -m "feat(payments): wire iyzico hosted runtime"
 ```
+
+### Task 8A: Add durable quick-order hosted-payment authority
+
+**Files:**
+
+- Create: migration `202607270057_quick_order_hosted_payment_authority` up/down/assertions and its phase3p manifest
+- Create: `tests/saas-phase3/quick-order-hosted-payment-authority/` PostgreSQL 16 and static-security harnesses
+- Modify: `packages/saas-contracts/src/quick-orders/types.ts`
+- Modify: `packages/saas-contracts/src/quick-orders/validation.ts`
+- Modify: the focused quick-order contract tests
+- Modify: `packages/saas-data/src/quick-orders/types.ts`
+- Modify: `packages/saas-data/src/quick-orders/repository.ts` and focused private/public repository tests
+- Modify: `packages/saas-data/src/quick-orders/token-crypto.ts` and tests
+- Modify: customer-panel quick-link HTTP/UI/model files and `QuickOrderLinksConsole.tsx` with focused tests
+- Modify: `tests/saas-phase3/run-current-suite.mjs` and cumulative parity inventory
+
+**Required behavior:**
+
+- An authenticated merchant may bind a quick link to an exact active generic `payment_method_id`; browser input never supplies store/profile/provider authority.
+- Iyzico quick links require a real, validated buyer identity and explicit `PHYSICAL`/`VIRTUAL` item type. No default or donor fixture value is allowed.
+- Buyer identity is sealed server-side with a new quick-link keyring AAD purpose bound to link/store/random authority. Raw identity and a deterministic identity hash never enter public DTOs, list/detail/operation projections, logs or evidence.
+- Structured city/country/optional postal code and item type survive the durable snapshot without being flattened or inferred.
+- Existing legacy PayTR links and rows remain byte-for-byte compatible. Duplicate/replay either decrypts and re-seals to the new authority or rejects explicitly; it never copies an envelope to another link.
+
+Use strict TDD with real PostgreSQL 16 up/down/up, RLS/ACL, cross-store/method swap, stale/revoked method, secret projection and protected-donor tests. Commit as `feat(payments): add quick order hosted authority`.
+
+### Task 8B: Bridge hosted payment to quick-order settlement atomically
+
+**Files:**
+
+- Create: migration `202607270058_quick_order_hosted_payment_bridge` up/down/assertions and its phase3q manifest
+- Create: `tests/saas-phase3/quick-order-hosted-payment-bridge/` PostgreSQL 16/runtime/static harnesses
+- Modify: `packages/saas-data/src/payment-attempts/` and add a narrow `packages/saas-data/src/quick-orders/hosted-payment-*` repository boundary with tests
+- Create: `apps/storefront-shared/lib/checkout/hosted-payment.ts` and tests
+- Modify: `apps/storefront-shared/lib/checkout/runtime.ts`
+- Modify: `apps/storefront-shared/app/api/quick-order/checkout/route.ts`
+- Modify: `apps/storefront-shared/lib/default-runtime.ts`
+- Modify: generic hosted callback settlement and route inventory tests
+- Modify: `tests/saas-phase3/run-current-suite.mjs` and cumulative parity inventory
+
+**Required behavior:**
+
+- One server-only authority resolves host, redemption, link, selected method, stock reservation, amount/currency and exact buyer/basket snapshot; the browser still sends only the operation ID.
+- Begin either prepares stock plus the generic payment attempt together or writes neither. It must not create parallel legacy/generic attempts for one checkout.
+- Captured callback/reconciliation finalizes payment, link, inventory consumption and order creation exactly once under the same authority. Failure/timeout releases stock; unknown outcomes stay retryable/processing.
+- Iyzico returns only the adapter's allowlisted redirect; PayTR's existing iframe route, request body and 200/503/400 callback behavior remain unchanged.
+- Missing identity/item type, cross-store/method swap, stale/revoked authority, replay or tampering fails before credential open/provider network.
+
+Use strict TDD and a real PostgreSQL concurrency harness. Keep `apps/admin/**`, `apps/storefront-base/**` and dedicated donor storefronts unchanged. Commit as `feat(payments): bridge hosted quick order checkout`.
 
 ### Task 9: Add sandbox-evidence workflow and operator runbook
 
 **Files:**
 
-- Create: `apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history.up.sql`
-- Create: `apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history.down.sql`
-- Create: `apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history_assertions.sql`
+- Create: `apps/owner/scripts/sql/saas/202607270059_iyzico_iframe_sandbox_evidence_history.up.sql`
+- Create: `apps/owner/scripts/sql/saas/202607270059_iyzico_iframe_sandbox_evidence_history.down.sql`
+- Create: `apps/owner/scripts/sql/saas/202607270059_iyzico_iframe_sandbox_evidence_history_assertions.sql`
+- Create: `apps/owner/scripts/sql/saas/phase3r-iyzico-iframe-sandbox-evidence-history-manifest.json`
+- Create: an owner-only Iyzico sandbox evidence operator script and focused tests
+- Modify: `apps/owner/package.json`
 - Create: `tests/saas-phase3/iyzico-sandbox-evidence-history/fixture.sql`
 - Create: `tests/saas-phase3/iyzico-sandbox-evidence-history/postgres-harness.mjs`
 - Create: `tests/saas-phase3/iyzico-sandbox-evidence-history/static-security.test.mjs`
@@ -484,11 +547,11 @@ git commit -m "feat(payments): wire iyzico hosted runtime"
 
 **Step 1: Write failing evidence tests**
 
-Require immutable references to credential validation, signed initialize, success retrieve, decline retrieve, fraud-review result, callback replay, timeout/reconcile, and current status query. Reject evidence containing secrets, raw payloads, non-sandbox operations, mixed tenant/store/profile/credential versions, or incomplete operation sets.
+Require immutable references to credential validation, signed initialize, success retrieve, decline retrieve, fraud-review result, callback replay, timeout/reconcile, and current status query. Reject evidence containing secrets, raw payloads, non-sandbox operations, mixed tenant/store/profile/credential versions, or incomplete operation sets. Prove callback replay has one settlement/event, concurrent record calls produce one deterministic evidence row, and generic Iyzico authority approval is rejected unless the exact stored evidence digest exists.
 
 **Step 2: Implement additive evidence history and runbook**
 
-The function derives evidence from durable operations; it never accepts a caller-provided success boolean. The runbook uses official test cards only after a tenant supplies sandbox credentials, instructs operators not to paste card/secret data into logs, and records the exact evidence digest required for a later authority approval commit.
+The function derives evidence from durable operations and canonical safe selectors; it never accepts a caller-provided success boolean, readiness value or digest. The append-only forced-RLS table stores explicit safe operation UUIDs, store/profile/credential/adapter authority, tested Git SHA and packet digest, but no raw JSON, token, card or credential. Evidence recording does not create authority. An owner-only approval occurs later, and a trigger rejects Iyzico approval/binding unless the exact test evidence digest exists. The operator lane is locked to one verified test profile and credential version; it is the only permitted bootstrap path through the pre-activation evidence cycle. The runbook uses official test cards only after a tenant supplies sandbox credentials and instructs operators not to paste card/secret data into logs.
 
 **Step 3: Verify**
 
@@ -502,7 +565,7 @@ Expected: PASS. If no real sandbox credential exists, the evidence table stays e
 **Step 4: Commit**
 
 ```bash
-git add apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history.up.sql apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history.down.sql apps/owner/scripts/sql/saas/202607270057_iyzico_iframe_sandbox_evidence_history_assertions.sql tests/saas-phase3/iyzico-sandbox-evidence-history docs/ops/iyzico-checkout-form-sandbox-activation.md tests/saas-phase3/run-current-suite.mjs
+git add apps/owner/scripts/sql/saas/202607270059_iyzico_iframe_sandbox_evidence_history.up.sql apps/owner/scripts/sql/saas/202607270059_iyzico_iframe_sandbox_evidence_history.down.sql apps/owner/scripts/sql/saas/202607270059_iyzico_iframe_sandbox_evidence_history_assertions.sql apps/owner/scripts/sql/saas/phase3r-iyzico-iframe-sandbox-evidence-history-manifest.json apps/owner/scripts apps/owner/package.json tests/saas-phase3/iyzico-sandbox-evidence-history docs/ops/iyzico-checkout-form-sandbox-activation.md tests/saas-phase3/run-current-suite.mjs tests/saas-phase3/merchant-completion/full-parity.test.mjs
 git commit -m "feat(payments): add iyzico sandbox evidence gate"
 ```
 
@@ -559,7 +622,7 @@ Give reviewers the design, this plan, commit list, test output, and explicit con
 
 Create a bridge branch from the exact pre-Iyzico deployed SHA with only the two
 bridge files listed in the Task 4 repair note. Push and deploy that bridge SHA
-without migrations 055/056/057, then verify the deployed old callback runtime
+without migrations 055/056/057/058/059, then verify the deployed old callback runtime
 uses the bridge parser. Do not apply migration 055 until this fleet-wide check
 passes.
 
@@ -586,7 +649,7 @@ Wait for deployment completion, then confirm:
 
 - deployed commit SHA equals pushed `HEAD`;
 - application/container health is green;
-- migration runner applied 055/056/057 once and assertions pass;
+- migration runner applied 055/056/057/058/059 once and assertions pass;
 - customer-panel Iyzico card renders with its local logo;
 - credential save/validation endpoint is available;
 - iyzico checkout execution remains fail-closed without authority/evidence;
