@@ -298,7 +298,7 @@ async function sourceFiles(directory: string): Promise<string[]> {
 type ImportEdge = Readonly<{
   source: string;
   specifier: string;
-  kind: "side-effect" | "from" | "dynamic" | "named-re-export" | "star-re-export";
+  kind: "side-effect" | "from" | "dynamic" | "invalid-dynamic" | "named-re-export" | "star-re-export";
 }>;
 
 function importEdges(source: string, sourceName: string): ImportEdge[] {
@@ -329,10 +329,15 @@ function importEdges(source: string, sourceName: string): ImportEdge[] {
     } else if (
       ts.isCallExpression(node)
       && node.expression.kind === ts.SyntaxKind.ImportKeyword
-      && node.arguments.length === 1
     ) {
       const specifier = literalText(node.arguments[0]);
-      if (specifier !== null) edges.push({ source: sourceName, specifier, kind: "dynamic" });
+      if (specifier !== null) edges.push({
+        source: sourceName,
+        specifier,
+        kind: node.arguments.length === 1 || node.arguments.length === 2
+          ? "dynamic"
+          : "invalid-dynamic",
+      });
     }
     ts.forEachChild(node, visit);
   };
@@ -378,6 +383,7 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
 
   const unreviewedFixtures: ReadonlyArray<Readonly<{
     source: string;
+    sourceName?: string;
     specifier: string;
     kind: ImportEdge["kind"];
   }>> = [
@@ -397,9 +403,25 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
       kind: "dynamic",
     },
     {
+      source: 'void import("@celebix/payment-adapters", {});',
+      specifier: "@celebix/payment-adapters",
+      kind: "dynamic",
+    },
+    {
       source: "void import(`@celebix/payment-adapters`);",
       specifier: "@celebix/payment-adapters",
       kind: "dynamic",
+    },
+    {
+      source: "void import(`@celebix/payment-adapters`, { with: {} });",
+      sourceName: "lib/payment-adapters/runtime.ts",
+      specifier: "@celebix/payment-adapters",
+      kind: "dynamic",
+    },
+    {
+      source: 'void import("@celebix/payment-adapters", {}, {});',
+      specifier: "@celebix/payment-adapters",
+      kind: "invalid-dynamic",
     },
     {
       source: 'export { createHostedPaymentRuntime } from "@/lib/payment-adapters/runtime.ts";',
@@ -413,9 +435,10 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
     },
   ];
   for (const fixture of unreviewedFixtures) {
-    const edges = importEdges(fixture.source, "lib/unreviewed.ts");
+    const sourceName = fixture.sourceName ?? "lib/unreviewed.ts";
+    const edges = importEdges(fixture.source, sourceName);
     assert.deepEqual(edges, [{
-      source: "lib/unreviewed.ts",
+      source: sourceName,
       specifier: fixture.specifier,
       kind: fixture.kind,
     }]);
