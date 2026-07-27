@@ -1,4 +1,5 @@
 import { isIP } from "node:net";
+import { types as nodeTypes } from "node:util";
 
 import {
   parseMerchantProviderCredentialKeyring,
@@ -85,22 +86,94 @@ function validation(source: Environment): MerchantProviderProductionConfig["vali
   });
 }
 
-export function resolveMerchantProviderProductionMode(source: Environment): "disabled" | "approved_test_validation" {
-  return source.CELEBIX_MERCHANT_PROVIDER_WORKER_MODE === "approved_test_validation"
-    ? "approved_test_validation"
-    : "disabled";
+export function createMerchantProviderProductionConfigParser(
+  compiledAuthority:
+  MerchantProviderProductionConfig["executionAuthority"] | null,
+  dependencies?: Readonly<{
+    parseKeyring(source: Environment): MerchantProviderCredentialKeyring;
+  }>,
+) {
+  const parseKeyring = dependencies?.parseKeyring
+    ?? parseMerchantProviderCredentialKeyring;
+  const descriptors = typeof compiledAuthority === "object"
+    && compiledAuthority !== null
+    && !Array.isArray(compiledAuthority)
+    && !nodeTypes.isProxy(compiledAuthority)
+    && Object.getPrototypeOf(compiledAuthority) === Object.prototype
+    ? Object.getOwnPropertyDescriptors(compiledAuthority)
+    : null;
+  const authorityKeys = ["environment", "adapterVersion", "evidenceDigest"];
+  const executionAuthority = descriptors !== null
+    && Reflect.ownKeys(descriptors).length === authorityKeys.length
+    && authorityKeys.every((key) => {
+      const descriptor = descriptors[key];
+      return descriptor?.enumerable === true && "value" in descriptor;
+    })
+    && descriptors.environment?.value === "test"
+    && descriptors.adapterVersion?.value === 1
+    && typeof descriptors.evidenceDigest?.value === "string"
+    && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value)
+    ? Object.freeze({
+      environment: "test" as const,
+      adapterVersion: 1 as const,
+      evidenceDigest: descriptors.evidenceDigest.value as string,
+    })
+    : null;
+  function resolveMode(source: Environment):
+  "disabled" | "approved_test_validation" {
+    return executionAuthority !== null
+      && source.CELEBIX_MERCHANT_PROVIDER_WORKER_MODE === "approved_test_validation"
+      ? "approved_test_validation"
+      : "disabled";
+  }
+  function parse(source: Environment): MerchantProviderProductionConfig {
+    if (resolveMode(source) !== "approved_test_validation"
+      || executionAuthority === null) invalid();
+    const workerId = required(source, "CELEBIX_MERCHANT_PROVIDER_WORKER_ID", 128);
+    if (!WORKER.test(workerId)) invalid();
+    let keyring: MerchantProviderCredentialKeyring;
+    try {
+      keyring = parseKeyring(source);
+    } catch {
+      return invalid();
+    }
+    let ownershipTransferred = false;
+    try {
+      const config = Object.freeze({
+        database: database(source),
+        keyring,
+        workerId,
+        validation: validation(source),
+        executionAuthority,
+      });
+      ownershipTransferred = true;
+      return config;
+    } finally {
+      if (!ownershipTransferred) {
+        for (const { key } of keyring.keys) key.fill(0);
+      }
+    }
+  }
+  return Object.freeze({ resolveMode, parse });
 }
 
-export function parseMerchantProviderProductionConfig(source: Environment): MerchantProviderProductionConfig {
-  if (resolveMerchantProviderProductionMode(source) !== "approved_test_validation") invalid();
-  const workerId = required(source, "CELEBIX_MERCHANT_PROVIDER_WORKER_ID", 128);
-  if (!WORKER.test(workerId)) invalid();
-  let keyring: MerchantProviderCredentialKeyring;
-  try { keyring = parseMerchantProviderCredentialKeyring(source); } catch { return invalid(); }
-  const evidenceDigest = required(source, "CELEBIX_PAYTR_EXECUTION_EVIDENCE_DIGEST", 71);
-  if (!/^sha256:[a-f0-9]{64}$/.test(evidenceDigest)) invalid();
-  return Object.freeze({
-    database: database(source), keyring, workerId, validation: validation(source),
-    executionAuthority: Object.freeze({ environment: "test", adapterVersion: 1, evidenceDigest }),
-  });
+function compiledPaytrIframeTestAuthority():
+MerchantProviderProductionConfig["executionAuthority"] | null {
+  return null;
+}
+
+const PRODUCTION_PARSER = createMerchantProviderProductionConfigParser(
+  compiledPaytrIframeTestAuthority(),
+);
+
+export function resolveMerchantProviderProductionMode(
+  source: Environment,
+): "disabled" | "approved_test_validation" {
+  return PRODUCTION_PARSER.resolveMode(source);
+}
+
+export function parseMerchantProviderProductionConfig(
+  source: Environment,
+): MerchantProviderProductionConfig {
+  return PRODUCTION_PARSER.parse(source);
 }

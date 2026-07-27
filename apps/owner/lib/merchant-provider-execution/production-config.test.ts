@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createMerchantProviderProductionConfigParser,
   parseMerchantProviderProductionConfig,
   resolveMerchantProviderProductionMode,
 } from "./production-config.ts";
@@ -24,8 +25,26 @@ function environment(overrides: Record<string, string | undefined> = {}) {
   };
 }
 
-test("parses the exact production worker database keyring and controlled PayTR validation authority", () => {
-  const config = parseMerchantProviderProductionConfig(environment());
+test("environment evidence cannot create owner validation authority while compiled authority is absent", () => {
+  assert.equal(resolveMerchantProviderProductionMode(environment()), "disabled");
+  assert.throws(
+    () => parseMerchantProviderProductionConfig(environment()),
+    /merchant_provider_production_config_invalid/,
+  );
+});
+
+test("injected compiled authority parses the bounded worker config and ignores environment evidence", () => {
+  const authority = Object.freeze({
+    environment: "test" as const,
+    adapterVersion: 1,
+    evidenceDigest: EVIDENCE,
+  });
+  const parser = createMerchantProviderProductionConfigParser(authority);
+  const config = parser.parse(environment({
+    CELEBIX_PAYTR_EXECUTION_EVIDENCE_DIGEST: `sha256:${"b".repeat(64)}`,
+  }));
+
+  assert.equal(parser.resolveMode(environment()), "approved_test_validation");
   assert.equal(config.database.name, "celebix_saas_production");
   assert.equal(config.keyring.activeKeyId, "provider.current");
   assert.equal(config.keyring.keys[0]?.key.byteLength, 32);
@@ -34,8 +53,64 @@ test("parses the exact production worker database keyring and controlled PayTR v
     successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili",
     failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
   });
-  assert.deepEqual(config.executionAuthority, { environment: "test", adapterVersion: 1, evidenceDigest: EVIDENCE });
+  assert.deepEqual(config.executionAuthority, authority);
   assert.equal(Object.isFrozen(config), true);
+});
+
+test("compiled authority seam rejects unknown and accessor-backed records without reading accessors", () => {
+  let accessorReads = 0;
+  const accessorAuthority = {
+    environment: "test",
+    adapterVersion: 1,
+    evidenceDigest: EVIDENCE,
+  };
+  Object.defineProperty(accessorAuthority, "evidenceDigest", {
+    enumerable: true,
+    get() {
+      accessorReads += 1;
+      return EVIDENCE;
+    },
+  });
+  for (const authority of [
+    { environment: "test", adapterVersion: 1, evidenceDigest: EVIDENCE, extra: true },
+    accessorAuthority,
+  ]) {
+    const parser = createMerchantProviderProductionConfigParser(authority as never);
+    assert.equal(parser.resolveMode(environment()), "disabled");
+    assert.throws(() => parser.parse(environment()), /production_config_invalid/);
+  }
+  assert.equal(accessorReads, 0);
+});
+
+test("parsed key bytes are wiped on later config failure and retained only after ownership transfer", () => {
+  const authority = Object.freeze({
+    environment: "test" as const,
+    adapterVersion: 1,
+    evidenceDigest: EVIDENCE,
+  });
+  const captured: Uint8Array[] = [];
+  const parser = createMerchantProviderProductionConfigParser(authority, {
+    parseKeyring() {
+      const key = new Uint8Array(32).fill(0x41);
+      captured.push(key);
+      return Object.freeze({
+        activeKeyId: "provider.current",
+        keys: Object.freeze([
+          Object.freeze({ keyId: "provider.current", key }),
+        ]),
+      });
+    },
+  });
+
+  assert.throws(
+    () => parser.parse(environment({ CELEBIX_SAAS_DATABASE_NAME: "wrong_database" })),
+    /production_config_invalid/,
+  );
+  assert.deepEqual([...captured[0]!], new Array(32).fill(0));
+
+  const config = parser.parse(environment());
+  assert.equal(config.keyring.keys[0]?.key, captured[1]);
+  assert.deepEqual([...captured[1]!], new Array(32).fill(0x41));
 });
 
 test("is disabled by default and fails closed for missing secrets reserved IPs or uncontrolled return origins", () => {
@@ -43,7 +118,7 @@ test("is disabled by default and fails closed for missing secrets reserved IPs o
   assert.throws(() => parseMerchantProviderProductionConfig(environment({ CELEBIX_MERCHANT_PROVIDER_WORKER_MODE: undefined })), /config_invalid/);
   for (const overrides of [
     { CELEBIX_MERCHANT_PROVIDER_CREDENTIAL_KEYS: undefined },
-    { CELEBIX_PAYTR_EXECUTION_EVIDENCE_DIGEST: "sha256:test-only-fixture" },
+    { CELEBIX_PAYTR_EXECUTION_EVIDENCE_DIGEST: `sha256:${"b".repeat(64)}` },
     { CELEBIX_PAYTR_VALIDATION_EGRESS_IP: "198.51.100.1" },
     { CELEBIX_PAYTR_VALIDATION_EGRESS_IP: "10.0.0.1" },
     { CELEBIX_PAYTR_VALIDATION_EGRESS_IP: "::ffff:127.0.0.1" },

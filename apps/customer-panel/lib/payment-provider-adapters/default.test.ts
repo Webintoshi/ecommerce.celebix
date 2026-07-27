@@ -6,6 +6,7 @@ import type { ProviderTransport } from "@celebix/payment-adapters";
 import {
   createDefaultCustomerPanelPaymentProviderRegistry,
   createDefaultHostedPaymentAdapterRegistry,
+  resolveCustomerPanelPaymentActivationMode,
 } from "./default.ts";
 
 function transport(): ProviderTransport {
@@ -84,4 +85,30 @@ test("default assembly never discovers providers or credentials from environment
     if (original === undefined) delete process.env.PAYTR_MERCHANT_KEY;
     else process.env.PAYTR_MERCHANT_KEY = original;
   }
+});
+
+test("panel activation mode cannot make verification or null authority connectable", () => {
+  assert.equal(resolveCustomerPanelPaymentActivationMode({}), "disabled");
+  assert.equal(
+    resolveCustomerPanelPaymentActivationMode({
+      CELEBIX_PAYTR_IFRAME_PANEL_MODE: "approved_test_sandbox",
+    }),
+    "approved_test_sandbox",
+  );
+  for (const value of ["enabled", "approved_test_validation", " approved_test_sandbox", "approved_test_sandbox "]) {
+    assert.equal(
+      resolveCustomerPanelPaymentActivationMode({
+        CELEBIX_PAYTR_IFRAME_PANEL_MODE: value,
+      }),
+      "disabled",
+    );
+  }
+
+  const hosted = createDefaultHostedPaymentAdapterRegistry(transport());
+  const registry = createDefaultCustomerPanelPaymentProviderRegistry(
+    hosted,
+    null,
+    "approved_test_sandbox",
+  );
+  assert.equal(registry.get("paytr_iframe", "payment_processing")?.executionAuthority, null);
 });

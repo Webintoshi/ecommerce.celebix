@@ -1,11 +1,18 @@
 import "server-only";
+import { randomBytes } from "node:crypto";
 import process from "node:process";
-import { createPaymentAdapterRegistry } from "@celebix/payment-adapters";
 import {
+  PAYTR_IFRAME_PACKET,
+  createBoundedProviderTransport,
+} from "@celebix/payment-adapters";
+import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
+import {
+  PostgresPaymentAttemptRepository,
   PostgresPublicQuickOrderRepository,
   PostgresPublicAbandonedCartRepository,
   PostgresPublicStorefrontRepository,
   PostgresPublicAnalyticsRepository,
+  parseMerchantProviderCredentialKeyring,
   type PublicStorefrontRepository,
 } from "@celebix/saas-data";
 import pg from "pg";
@@ -14,7 +21,12 @@ import { parseCheckoutRuntimeConfig } from "./checkout/config.ts";
 import { createCheckoutRuntime, type CheckoutRuntime } from "./checkout/runtime.ts";
 import { parseStorefrontDataConfig, STOREFRONT_DATA_ENVIRONMENT_FIELDS } from "./runtime-config.ts";
 import { parseUmamiPublicCollectorConfig, type UmamiPublicCollectorConfig } from "./analytics/config.ts";
+import {
+  createDefaultHostedPaymentRuntime,
+  resolveStorefrontHostedPaymentActivationMode,
+} from "./payment-adapters/default.ts";
 import type { HostedPaymentRuntime } from "./payment-adapters/runtime.ts";
+import { selectTrustedStorefrontHostAuthority } from "./trusted-host-authority.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
@@ -27,7 +39,12 @@ export type PublicStorefrontRuntime = Readonly<{
   mediaOrigin: string;
 }>;
 let initialization: Promise<PublicStorefrontRuntime | null> | undefined;
-const DEFAULT_HOSTED_PAYMENT_ADAPTERS = createPaymentAdapterRegistry([], []);
+let hostedPaymentInitialization: Promise<HostedPaymentRuntime | null> | undefined;
+
+function compiledPaytrIframeTestAuthority():
+Readonly<PaymentProviderExecutionAuthority> | null {
+  return null;
+}
 
 async function initialize(): Promise<PublicStorefrontRuntime | null> {
   if (process.env.CELEBIX_DEPLOYMENT_TIER !== "staging" || process.env.CELEBIX_STOREFRONT_DATA_MODE !== "approved_staging") return null;
@@ -76,6 +93,125 @@ export async function resolveDefaultPublicStorefrontRuntime(): Promise<PublicSto
 }
 
 export async function resolveDefaultHostedPaymentRuntime(): Promise<HostedPaymentRuntime | null> {
-  if (DEFAULT_HOSTED_PAYMENT_ADAPTERS.size === 0) return null;
-  return null;
+  const source = Object.freeze({
+    CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE:
+      process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
+  });
+  const compiledAuthority = compiledPaytrIframeTestAuthority();
+  if (
+    resolveStorefrontHostedPaymentActivationMode(source) !== "approved_test_sandbox"
+    || compiledAuthority === null
+    || PAYTR_IFRAME_PACKET.readiness.test !== "sandbox_ready"
+  ) return null;
+  hostedPaymentInitialization ??= initializeHostedPaymentRuntime(
+    source,
+    compiledAuthority,
+  );
+  return hostedPaymentInitialization;
+}
+
+async function initializeHostedPaymentRuntime(
+  source: Readonly<Record<string, string | undefined>>,
+  compiledAuthority: Readonly<PaymentProviderExecutionAuthority>,
+): Promise<HostedPaymentRuntime | null> {
+  const snapshot = Object.fromEntries(
+    STOREFRONT_DATA_ENVIRONMENT_FIELDS.map((name) => [name, process.env[name]]),
+  );
+  let checkoutConfig;
+  let keyring;
+  try {
+    checkoutConfig = parseCheckoutRuntimeConfig(snapshot);
+    keyring = parseMerchantProviderCredentialKeyring(process.env);
+  } catch {
+    return null;
+  }
+  let pool: InstanceType<typeof Pool> | undefined;
+  let runtimeOwnsKeyring = false;
+  try {
+    pool = new Pool({
+      connectionString: checkoutConfig.database.url,
+      max: 4,
+      connectionTimeoutMillis: TIMEOUTS.poolCheckoutMs,
+      idleTimeoutMillis: 10_000,
+      statement_timeout: TIMEOUTS.statementMs,
+      lock_timeout: TIMEOUTS.lockMs,
+      idle_in_transaction_session_timeout: TIMEOUTS.idleTransactionMs,
+      application_name: "celebix-shared-storefront-paytr-staging",
+    });
+    pool.on("error", () => undefined);
+    const preflight = await pool.query({
+      text: `SELECT
+        current_setting('server_version_num')::integer AS version_num,
+        current_database() AS database_name,
+        role.rolsuper AS is_superuser,
+        pg_has_role(current_user,'celebix_saas_workflow','MEMBER') AS workflow_member,
+        to_regclass('saas.payment_attempts') IS NOT NULL
+          AND to_regprocedure('saas.payment_attempt_begin(uuid,timestamp with time zone,uuid,text,uuid,text,bigint,text,text)') IS NOT NULL
+          AND to_regprocedure('saas.payment_callback_authority(text,text,timestamp with time zone)') IS NOT NULL
+          AS migration_052,
+        to_regclass('saas.merchant_provider_execution_authorities') IS NOT NULL
+          AND to_regprocedure('saas.merchant_provider_execution_authority_matches(text,text,text,integer,text)') IS NOT NULL
+          AND pg_catalog.md5(activation.prosrc)='0302d768e4b58bc06c9a1947ca0bc6dd'
+          AND saas.paytr_iframe_activation_preflight()
+          AS migration_053,
+        saas.merchant_provider_execution_authority_matches(
+          'paytr_iframe','payment_processing',$1::text,$2::integer,$3::text
+        ) AS exact_authority
+      FROM pg_catalog.pg_roles AS role
+      CROSS JOIN pg_catalog.pg_proc AS activation
+      WHERE role.rolname=current_user
+        AND activation.oid='saas.paytr_iframe_activation_preflight()'::regprocedure`,
+      values: [
+        compiledAuthority.environment,
+        compiledAuthority.adapterVersion,
+        compiledAuthority.evidenceDigest,
+      ],
+    });
+    const row = preflight.rows[0] as Record<string, unknown> | undefined;
+    if (
+      preflight.rowCount !== 1
+      || !row
+      || Math.floor(Number(row.version_num) / 10_000) !== 16
+      || row.database_name !== checkoutConfig.database.name
+      || row.is_superuser !== false
+      || row.workflow_member !== true
+      || row.migration_052 !== true
+      || row.migration_053 !== true
+      || row.exact_authority !== true
+    ) throw new Error("storefront_hosted_payment_preflight_failed");
+    const attempts = new PostgresPaymentAttemptRepository({
+      pool,
+      role: "celebix_saas_workflow",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
+    const transport = createBoundedProviderTransport({
+      fetch: (request) => fetch(request),
+      timeoutMs: 5_000,
+      maximumResponseBytes: 262_144,
+    });
+    const runtime = createDefaultHostedPaymentRuntime({
+      source,
+      compiledAuthority,
+      dependencies: {
+        attempts,
+        keyring,
+        transport,
+        selectAuthority: (headers) =>
+          selectTrustedStorefrontHostAuthority(headers),
+        now: () => new Date(),
+        randomBytes: (size) => new Uint8Array(randomBytes(size)),
+      },
+    });
+    if (runtime === null) throw new Error("storefront_hosted_payment_disabled");
+    runtimeOwnsKeyring = true;
+    return runtime;
+  } catch {
+    await pool?.end().catch(() => undefined);
+    return null;
+  } finally {
+    if (!runtimeOwnsKeyring) {
+      for (const { key } of keyring.keys) key.fill(0);
+    }
+  }
 }

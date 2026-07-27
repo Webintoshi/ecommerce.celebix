@@ -19,9 +19,22 @@ const DEFAULT_PROVIDER_CODES = Object.freeze(["paytr_iframe"] as const);
 const PUBLIC_KEYS = Object.freeze(["environment", "merchantId"] as const);
 const CREDENTIAL_KEYS = Object.freeze(["merchantKey", "merchantSalt"] as const);
 const ENCODER = new TextEncoder();
+type Environment = Readonly<Record<string, string | undefined>>;
+
+export type CustomerPanelPaymentActivationMode =
+  | "disabled"
+  | "approved_test_sandbox";
 
 function invalid(): never {
   throw new TypeError("customer_panel_payment_adapter_invalid");
+}
+
+export function resolveCustomerPanelPaymentActivationMode(
+  source: Environment,
+): CustomerPanelPaymentActivationMode {
+  return source.CELEBIX_PAYTR_IFRAME_PANEL_MODE === "approved_test_sandbox"
+    ? "approved_test_sandbox"
+    : "disabled";
 }
 
 function exactRecord(value: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -156,6 +169,7 @@ export function createDefaultHostedPaymentAdapterRegistry(
 export function createDefaultCustomerPanelPaymentProviderRegistry(
   hosted: PaymentAdapterRegistry,
   executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null = null,
+  activationMode: CustomerPanelPaymentActivationMode = "disabled",
 ): MerchantProviderRegistry {
   try {
     if (hosted.size !== 1) invalid();
@@ -166,7 +180,11 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
       executionAuthority.adapterVersion !== adapter.packet.adapterVersion ||
       !/^sha256:[a-f0-9]{64}$/.test(executionAuthority.evidenceDigest)
     )) invalid();
-    return createCustomerPanelProviderRegistry([paytrEntry(adapter, executionAuthority)]);
+    const activeAuthority = activationMode === "approved_test_sandbox"
+      && PAYTR_IFRAME_PACKET.readiness.test === "sandbox_ready"
+      ? executionAuthority
+      : null;
+    return createCustomerPanelProviderRegistry([paytrEntry(adapter, activeAuthority)]);
   } catch {
     return invalid();
   }

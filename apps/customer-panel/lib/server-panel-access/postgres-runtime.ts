@@ -26,6 +26,7 @@ import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/con
 import {
   createDefaultCustomerPanelPaymentProviderRegistry,
   createDefaultHostedPaymentAdapterRegistry,
+  resolveCustomerPanelPaymentActivationMode,
 } from "../payment-provider-adapters/default.ts";
 import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import { createPostgresPanelSessionRepository } from "../panel-session-persistence/postgres-panel-session-repository.ts";
@@ -370,6 +371,8 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     );
     const paymentProviderRegistry = createDefaultCustomerPanelPaymentProviderRegistry(
       hostedPaymentAdapters,
+      null,
+      resolveCustomerPanelPaymentActivationMode(process.env),
     );
     const analyticsRepository = new PostgresAnalyticsRepository({
       pool,
