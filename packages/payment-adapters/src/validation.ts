@@ -18,8 +18,26 @@ const EDGE = /^[\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\uf
 const SURROGATE = /(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/;
 const CODE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 const FIELD_KEY = /^[a-z][A-Za-z0-9]{0,63}$/;
-const UNSAFE_FIELD_KEY = /^(?:pan|cvv|cvc|cardnumber|cardpan|cardcode)$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const CARD_INPUT_FIELD_KEYS = new Set([
+  "cardcode", "cardexpiration", "cardexpirationdate", "cardholder", "cardholdername", "cardnumber",
+  "cardpan", "cardsecuritycode", "cardverificationcode", "cardverificationvalue", "cvc", "cvc2",
+  "cvv", "cvv2", "expirationdate", "expdate", "expmonth", "expyear", "expiry", "expirydate",
+  "fullcardnumber", "magneticstripe", "pan", "pannumber", "primaryaccountnumber", "securitycode",
+  "track1", "track2",
+]);
+const EXECUTABLE_ENDPOINTS = Object.freeze({
+  paytr_iframe: Object.freeze({
+    test: Object.freeze([
+      "https://www.paytr.com/odeme/api/get-token",
+      "https://www.paytr.com/odeme/durum-sorgu",
+    ]),
+    live: Object.freeze([
+      "https://www.paytr.com/odeme/api/get-token",
+      "https://www.paytr.com/odeme/durum-sorgu",
+    ]),
+  }),
+});
 
 const PACKET_KEYS = Object.freeze([
   "adapterVersion", "capabilities", "credentialFields", "documentation", "endpoints",
@@ -101,7 +119,8 @@ function code(value: unknown): string {
 
 function fieldKey(value: unknown): string {
   const parsed = text(value, 1, 64);
-  if (!FIELD_KEY.test(parsed) || UNSAFE_FIELD_KEY.test(parsed)) invalid();
+  const semanticKey = parsed.replaceAll(/[^a-z0-9]/gi, "").toLowerCase();
+  if (!FIELD_KEY.test(parsed) || CARD_INPUT_FIELD_KEYS.has(semanticKey)) invalid();
   return parsed;
 }
 
@@ -139,11 +158,14 @@ function readiness(value: unknown): PaymentAdapterPacket["readiness"] {
   return Object.freeze({ test, live });
 }
 
-function endpoints(value: unknown): PaymentAdapterPacket["endpoints"] {
+function endpoints(value: unknown, providerCode: string): PaymentAdapterPacket["endpoints"] {
   const parsed = dataObject(value, ENDPOINT_KEYS);
   const test = denseArray(parsed.test, 1, 16).map(canonicalHttpsUrl);
   const live = denseArray(parsed.live, 1, 16).map(canonicalHttpsUrl);
   if (new Set(test).size !== test.length || new Set(live).size !== live.length) invalid();
+  const allowed = EXECUTABLE_ENDPOINTS[providerCode as keyof typeof EXECUTABLE_ENDPOINTS];
+  if (!allowed || test.length !== allowed.test.length || live.length !== allowed.live.length) invalid();
+  if (test.some((endpoint, index) => endpoint !== allowed.test[index]) || live.some((endpoint, index) => endpoint !== allowed.live[index])) invalid();
   return Object.freeze({ test: Object.freeze(test), live: Object.freeze(live) });
 }
 
@@ -203,17 +225,18 @@ export function parsePaymentAdapterPacket(value: unknown): PaymentAdapterPacket 
   return safely(() => {
     const parsed = dataObject(value, PACKET_KEYS);
     if (parsed.implementation !== "hosted") invalid();
+    const providerCode = code(parsed.providerCode);
     const publicFields = fields(parsed.publicFields, false) as readonly PaymentAdapterField[];
     const credentialFields = fields(parsed.credentialFields, true) as readonly PaymentAdapterCredentialField[];
     if (new Set([...publicFields, ...credentialFields].map((field) => field.key)).size !== publicFields.length + credentialFields.length) invalid();
     return Object.freeze({
-      providerCode: code(parsed.providerCode),
+      providerCode,
       familyCode: code(parsed.familyCode),
       modeCode: code(parsed.modeCode),
       adapterVersion: boundedInteger(parsed.adapterVersion, 1, 1_000),
       implementation: "hosted" as const,
       readiness: readiness(parsed.readiness),
-      endpoints: endpoints(parsed.endpoints),
+      endpoints: endpoints(parsed.endpoints, providerCode),
       publicFields,
       credentialFields,
       capabilities: capabilities(parsed.capabilities),

@@ -109,6 +109,29 @@ test("rejects non-canonical provider endpoints and unsafe packet text", () => {
   }
 });
 
+test("rejects every direct-card field-key alias after separator and case normalization", () => {
+  for (const key of [
+    "cvv2", "cvc2", "panNumber", "primaryAccountNumber", "fullCardNumber", "cardSecurityCode",
+    "CVV2", "cvv_2", "cvc-2", "PAN_Number", "primary_account_number", "full-card-number",
+    "card_security_code",
+  ]) {
+    const invalid = packetFixture();
+    (invalid.publicFields as unknown[]) = [{ key, label: "Unsafe field", minimum: 1, maximum: 16 }];
+    assert.throws(() => parsePaymentAdapterPacket(invalid), /payment_adapter_packet_invalid/, key);
+  }
+});
+
+test("rejects canonical HTTPS endpoints outside the provider environment allowlist", () => {
+  for (const endpoint of [
+    "https://evil.example.test/odeme/api/get-token",
+    "https://www.paytr.com/odeme/api/not-an-executable-endpoint",
+  ]) {
+    const invalid = packetFixture();
+    ((invalid.endpoints as Record<string, unknown>).test as string[])[0] = endpoint;
+    assert.throws(() => parsePaymentAdapterPacket(invalid), /payment_adapter_packet_invalid/, endpoint);
+  }
+});
+
 test("rejects unsupported hosted capability combinations", () => {
   const unsupported = packetFixture();
   (unsupported.capabilities as Record<string, unknown>).partialRefund = true;
