@@ -424,6 +424,9 @@ BEGIN
     p_credential_version::text||':'||p_profile_version::text||':'||
     p_validation_outcome||':'||p_outcome_code;
   fingerprint:=pg_catalog.md5(fingerprint_source)||pg_catalog.md5('v1:'||fingerprint_source);
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'saas.merchant.provider.profile.operation:'||p_lease_id::text,0
+  ));
   SELECT * INTO operation FROM saas.merchant_provider_profile_operations
   WHERE operation_id=p_lease_id;
   IF FOUND THEN
@@ -622,6 +625,8 @@ DECLARE
   allowed_oid oid;
   owner_oid oid:='celebix_saas_owner'::regrole;
 BEGIN
+  IF saas.paytr_iframe_activation_preflight() IS NOT TRUE THEN RETURN false; END IF;
+
   IF NOT EXISTS(
     SELECT 1 FROM saas.merchant_provider_definitions
     WHERE provider_code='iyzico_iframe' AND capability='payment_processing'
@@ -661,7 +666,7 @@ BEGIN
     ('saas.merchant_provider_profiles_disable_bound_methods()','d47dda73304fdd5f1cadd116a65c7560',NULL::text,true),
     ('saas.merchant_provider_profile_save_verification(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,bigint)','16390c6b605f3d1e0697238c4eefbce9','celebix_saas_app',true),
     ('saas.merchant_provider_profile_claim_verification(text,text,text,text,integer,timestamp with time zone,timestamp with time zone,uuid)','bdb8179dd889c57d5223654e3135db10','celebix_saas_workflow',true),
-    ('saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)','9612af9dced26f7c509c2be88fb205e8','celebix_saas_workflow',true),
+    ('saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)','3491e6f91f43a04d57d7e66c87aa1e0e','celebix_saas_workflow',true),
     ('saas.merchant_provider_profile_bind_execution_authority(uuid,text,text,text,integer,text,timestamp with time zone,bigint)','343e0912c1cb144d4a4eb29dfebf73be',NULL::text,true),
     ('saas.payment_method_save_without_execution_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','95759feb45130750226426a364a9d94d',NULL::text,true),
     ('saas.payment_method_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','d28dfa0740950aa197950675b4d6737b','celebix_saas_app',true)
