@@ -64,7 +64,7 @@ Checkout Form, kart verisini iyzico'nun barındırdığı formda işler. Bu, do�
 - Sonuç sorgulama: `POST /payment/iyzipos/checkoutform/auth/ecom/detail`
 - Zararsız credential testi: `POST /payment/bin/check`
 
-Base URL kullanıcı girdisi değildir. Ortam enum'undan kod içinde seçilir. Redirect yalnız iyzico'nun izin verilen Checkout Form origin'ine yapılır.
+Base URL kullanıcı girdisi değildir. Ortam enum'undan kod içinde seçilir. Redirect yalnız iyzico'nun izin verilen Checkout Form origin'ine yapılır. Ödeme sayfası URL'si path-token sağlayıcılarından ayrı, kapalı bir query-token sunum kuralıyla doğrulanır: ortamın exact origin'i, `/` path'i, tek `token` parametresi ve sabit `lang=tr` dışında kullanıcı bilgisi, port, ek/tekrarlanan parametre veya fragment kabul edilmez.
 
 ### 4.2 IYZWSv2 istek imzası
 

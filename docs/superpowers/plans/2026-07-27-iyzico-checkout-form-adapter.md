@@ -29,7 +29,8 @@
 
 Add tests proving:
 
-- `provider_token_url` accepts an exact allowlisted `urlSuffix`, with PayTR fixed to `""` and iyzico fixed to `"&lang=tr"`;
+- PayTR's path-token `provider_token_url` contract remains unchanged;
+- a separate closed `provider_query_token_url` rule represents iyzico's exact origin, `/` path, single `token` query and fixed `lang=tr` query without admitting arbitrary URL templates;
 - iyzico packet endpoints are exactly the official sandbox/live initialize, retrieve, and BIN-check URLs;
 - iyzico API key and secret field schemas are exact and contain no card-data fields;
 - transport accepts only canonical lower-case `authorization` and `x-iyzi-rnd` in addition to `content-type`;
@@ -46,11 +47,11 @@ Expected: FAIL because the contract has no suffix, iyzico packet is absent, and 
 
 **Step 2: Implement the minimal contract changes**
 
-- Add required `urlSuffix: string` to `provider_token_url`.
+- Add a discriminated `provider_query_token_url` rule containing only exact origin/path, token field constraints and fixed query fields; keep `provider_token_url` unchanged.
 - Add exact iyzico endpoint/presentation constants to `validation.ts`.
 - Add a closed request-header type containing only `content-type`, optional `authorization`, and optional `x-iyzi-rnd`.
 - Parse headers into a fresh null-prototype record; reject any other key and any non-canonical value.
-- Update PayTR packet/tests with `urlSuffix: ""` without changing its generated URL.
+- Keep the PayTR packet byte-for-byte compatible and add regression tests for its existing generated URL.
 - Add `IYZICO_IFRAME_PACKET` with readiness `verification` for test/live and official documentation metadata dated `2026-07-27`.
 - Include `src/providers/iyzico/*.test.ts` in the package test script.
 
@@ -163,7 +164,7 @@ Expected: FAIL because the adapter does not exist.
 
 - Build exact JSON objects; do not use the legacy subprocess runner.
 - Generate random keys through an injected dependency so tests are deterministic.
-- Accept the provider URL only when its scheme, hostname, port, path, token query, language query, and token all match the packet rule.
+- Accept the provider URL only when its scheme, hostname, port, path, exact query order/multiplicity, language query, and token all match the closed query-token packet rule.
 - Treat browser callback token as untrusted until retrieve succeeds.
 - Map provider errors to bounded safe codes; do not return raw provider messages.
 - Keep `iyzico_iframe` separate from direct `iyzico` and `pay_with_iyzico`.
