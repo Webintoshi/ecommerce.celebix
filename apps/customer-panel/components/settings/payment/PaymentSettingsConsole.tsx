@@ -111,6 +111,8 @@ export function PaymentSettingsConsole(props: Readonly<{
       definitions: () => providerExecutionApi.definitions("payment_processing"),
       profiles: () => providerExecutionApi.profiles("payment_processing"),
       methods: () => paymentMethodApi.list(),
+      shouldLoadProviderExecution: (catalog) => catalog.some(({ readiness }) =>
+        readiness === "production_ready" || readiness === "sandbox_ready"),
     });
     if (mounted.current && loadVersion.current === version) setSources(result);
   }, []);

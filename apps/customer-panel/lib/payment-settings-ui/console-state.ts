@@ -35,13 +35,29 @@ export async function loadPaymentSettingsSources<C, D, P, M>(loaders: Readonly<{
   definitions(): Promise<readonly D[]>;
   profiles(): Promise<readonly P[]>;
   methods(): Promise<readonly M[]>;
+  shouldLoadProviderExecution?(catalog: readonly C[]): boolean;
 }>): Promise<PaymentSettingsSources<C, D, P, M>> {
-  const [catalog, definitions, profiles, methods] = await Promise.allSettled([
-    loaders.catalog(),
-    loaders.definitions(),
-    loaders.profiles(),
-    loaders.methods(),
-  ]);
+  if (loaders.shouldLoadProviderExecution === undefined) {
+    const [catalog, definitions, profiles, methods] = await Promise.allSettled([
+      loaders.catalog(),
+      loaders.definitions(),
+      loaders.profiles(),
+      loaders.methods(),
+    ]);
+    return Object.freeze({
+      catalog: slice(catalog),
+      definitions: slice(definitions),
+      profiles: slice(profiles),
+      methods: slice(methods),
+    });
+  }
+
+  const [catalog, methods] = await Promise.allSettled([loaders.catalog(), loaders.methods()]);
+  const loadProviderExecution = catalog.status === "fulfilled"
+    && loaders.shouldLoadProviderExecution(catalog.value);
+  const [definitions, profiles] = await Promise.allSettled(loadProviderExecution
+    ? [loaders.definitions(), loaders.profiles()] as const
+    : [Promise.resolve(Object.freeze([]) as readonly D[]), Promise.resolve(Object.freeze([]) as readonly P[])] as const);
   return Object.freeze({
     catalog: slice(catalog),
     definitions: slice(definitions),

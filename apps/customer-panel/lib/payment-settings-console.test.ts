@@ -73,6 +73,21 @@ test("payment console keeps catalog, profile and method states independent", asy
   assert.equal(Object.isFrozen(state), true);
 });
 
+test("payment console skips dormant provider execution when the catalog has no executable adapter", async () => {
+  let providerCalls = 0;
+  const state = await loadPaymentSettingsSources({
+    catalog: async (): Promise<readonly string[]> => ["planned-provider"],
+    definitions: async () => { providerCalls += 1; return ["definition"] as const; },
+    profiles: async () => { providerCalls += 1; return ["profile"] as const; },
+    methods: async () => [] as const,
+    shouldLoadProviderExecution: (catalog) => catalog.includes("executable-provider"),
+  });
+
+  assert.equal(providerCalls, 0);
+  assert.deepEqual(state.definitions, { phase: "ready", value: [] });
+  assert.deepEqual(state.profiles, { phase: "ready", value: [] });
+});
+
 test("payment order helpers require an exact changed method set", () => {
   const methods = [
     method("40000000-0000-4000-8000-000000000001", 0),
