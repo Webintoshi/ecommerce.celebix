@@ -109,15 +109,35 @@ test("rejects non-canonical provider endpoints and unsafe packet text", () => {
   }
 });
 
-test("rejects every direct-card field-key alias after separator and case normalization", () => {
-  for (const key of [
-    "cvv2", "cvc2", "panNumber", "primaryAccountNumber", "fullCardNumber", "cardSecurityCode",
-    "CVV2", "cvv_2", "cvc-2", "PAN_Number", "primary_account_number", "full-card-number",
-    "card_security_code",
-  ]) {
+test("rejects direct-card field semantics across prefixes, suffixes, separators, and casing", () => {
+  const cases = [
+    ["cvv2", "CVV numeric variant"],
+    ["cvc2", "CVC numeric variant"],
+    ["panNumber", "PAN number"],
+    ["primaryAccountNumber", "primary account number"],
+    ["fullCardNumber", "full card number"],
+    ["cardSecurityCode", "card security code"],
+    ["cvvCode", "CVV code bypass"],
+    ["cvcCode", "CVC code bypass"],
+    ["cardCvv", "card CVV bypass"],
+    ["cardCvc", "card CVC bypass"],
+    ["merchantCvvCode", "CVV prefix and suffix"],
+    ["cvcCodeSuffix", "CVC suffix"],
+    ["CVV2", "upper-case CVV"],
+    ["cvv_2", "snake-case CVV"],
+    ["cvc-2", "kebab-case CVC"],
+    ["PAN_Number", "snake-case PAN"],
+    ["primary_account_number", "snake-case primary account number"],
+    ["full-card-number", "kebab-case full card number"],
+    ["card_security_code", "snake-case security code"],
+    ["paymentExpirationDate", "expiration class"],
+    ["expiry_month", "expiry class"],
+  ];
+
+  for (const [key, caseName] of cases) {
     const invalid = packetFixture();
     (invalid.publicFields as unknown[]) = [{ key, label: "Unsafe field", minimum: 1, maximum: 16 }];
-    assert.throws(() => parsePaymentAdapterPacket(invalid), /payment_adapter_packet_invalid/, key);
+    assert.throws(() => parsePaymentAdapterPacket(invalid), /payment_adapter_packet_invalid/, caseName);
   }
 });
 

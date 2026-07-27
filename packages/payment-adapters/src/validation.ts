@@ -19,13 +19,7 @@ const SURROGATE = /(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\u
 const CODE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 const FIELD_KEY = /^[a-z][A-Za-z0-9]{0,63}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const CARD_INPUT_FIELD_KEYS = new Set([
-  "cardcode", "cardexpiration", "cardexpirationdate", "cardholder", "cardholdername", "cardnumber",
-  "cardpan", "cardsecuritycode", "cardverificationcode", "cardverificationvalue", "cvc", "cvc2",
-  "cvv", "cvv2", "expirationdate", "expdate", "expmonth", "expyear", "expiry", "expirydate",
-  "fullcardnumber", "magneticstripe", "pan", "pannumber", "primaryaccountnumber", "securitycode",
-  "track1", "track2",
-]);
+const CARD_INPUT_SEMANTIC = /(?:cardnumber|fullcardnumber|primaryaccountnumber|securitycode|cvv|cvc|pan|expiry|expiration|exp(?:date|month|year)?)/;
 const EXECUTABLE_ENDPOINTS = Object.freeze({
   paytr_iframe: Object.freeze({
     test: Object.freeze([
@@ -120,7 +114,7 @@ function code(value: unknown): string {
 function fieldKey(value: unknown): string {
   const parsed = text(value, 1, 64);
   const semanticKey = parsed.replaceAll(/[^a-z0-9]/gi, "").toLowerCase();
-  if (!FIELD_KEY.test(parsed) || CARD_INPUT_FIELD_KEYS.has(semanticKey)) invalid();
+  if (!FIELD_KEY.test(parsed) || CARD_INPUT_SEMANTIC.test(semanticKey)) invalid();
   return parsed;
 }
 
