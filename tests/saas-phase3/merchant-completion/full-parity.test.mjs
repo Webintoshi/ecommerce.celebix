@@ -47,7 +47,7 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/merchant-analytics/postgres-harness.mjs", 24],
   ["tests/saas-phase3/order-management/postgres-harness.mjs", 40],
   ["tests/saas-phase3/payment-adapter-runtime/postgres-harness.mjs", 30],
-  ["tests/saas-phase3/payment-sandbox-evidence-history/postgres-harness.mjs", 8],
+  ["tests/saas-phase3/payment-sandbox-evidence-history/postgres-harness.mjs", 9],
   ["tests/saas-phase3/paytr-iframe-activation-authority/postgres-harness.mjs", 1],
   ["tests/saas-phase3/payment-provider-admin/postgres-harness.mjs", 23],
   ["tests/saas-phase3/pilot-storefront/postgres-harness.mjs", 30],
@@ -368,10 +368,10 @@ test("completion and successor manifests pin every changed migration artifact", 
   assert.deepEqual(changedSql.filter((candidate) => !pinnedPaths.has(candidate)), []);
 });
 
-test("current Phase 3 PostgreSQL inventory is exactly 28 executable harnesses and 845 scenarios", async () => {
+test("current Phase 3 PostgreSQL inventory is exactly 28 executable harnesses and 846 scenarios", async () => {
   const expectedPaths = POSTGRES_HARNESSES.map(([harness]) => harness);
   assert.equal(POSTGRES_HARNESSES.length, 28);
-  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 845);
+  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 846);
   assert.deepEqual(
     await findPostgresHarnesses(path.join(ROOT, "tests/saas-phase3")),
     [...expectedPaths].sort(),

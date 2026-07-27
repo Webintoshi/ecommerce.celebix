@@ -18,7 +18,7 @@ const prior = JSON.parse(readFileSync(
   path.join(SQL, "phase3l-paytr-iframe-activation-authority-manifest.json"),
   "utf8",
 ));
-const TOTAL = 8;
+const TOTAL = 9;
 let completed = 0;
 
 const SUCCESS = "90000000-0000-4000-8000-000000000001";
@@ -27,6 +27,7 @@ const TIMEOUT = "90000000-0000-4000-8000-000000000003";
 const STATUS = "90000000-0000-4000-8000-000000000004";
 const EXTRA = "90000000-0000-4000-8000-000000000005";
 const DRIFT_DECLINE = "90000000-0000-4000-8000-000000000006";
+const CROSS_STORE_DECLINE = "90000000-0000-4000-8000-000000000007";
 
 function bin(name) {
   const candidate = path.join(PG, name);
@@ -206,6 +207,25 @@ function main() {
 
     scenario("provider snapshot drift fails before returning facts", () => {
       assert.deepEqual(call(box, { decline: DRIFT_DECLINE }), {
+        outcome: "incomplete",
+        result: null,
+      });
+    });
+
+    scenario("cross-store tenant facts are rejected as opaque incomplete", () => {
+      const binding = sql(box, [
+        "SELECT operation.store_id::text||'|'||attempt.store_id::text",
+        "FROM saas.checkout_operations AS operation",
+        "JOIN saas.checkout_payment_attempts AS attempt",
+        "  ON attempt.id=operation.attempt_id",
+        "WHERE operation.operation_id='" + CROSS_STORE_DECLINE + "'::uuid;",
+      ].join("\n")).stdout.trim();
+      assert.equal(
+        binding,
+        "10000000-0000-4000-8000-000000000055|" +
+          "10000000-0000-4000-8000-000000000055",
+      );
+      assert.deepEqual(call(box, { decline: CROSS_STORE_DECLINE }), {
         outcome: "incomplete",
         result: null,
       });

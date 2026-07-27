@@ -144,6 +144,7 @@ const STAGING_ORIGIN = "https://pilot.saas-staging.celebix.site";
 const CALLBACK_PATH = "/api/payments/paytr/callback";
 const INCOMPLETE = "paytr_iframe_sandbox_evidence_incomplete";
 const OPERATOR_INVALID = "paytr_iframe_sandbox_evidence_operator_invalid";
+const AUTHORITY_OVERRIDE = Object.freeze({ kind: "authority_override" });
 
 type Environment = Readonly<Record<string, string | undefined>>;
 type HistoryKind = typeof HISTORY_KINDS[number];
@@ -578,24 +579,28 @@ export function createPaytrIframeSandboxEvidenceRunner(
           callbackPath: CALLBACK_PATH,
         });
       }
-      let authorityOverride = false;
-      try {
-        authorityOverride =
-          input.source.CELEBIX_PAYTR_IFRAME_EVIDENCE_ORIGIN !== undefined
-          || input.source.CELEBIX_PAYTR_STAGING_CALLBACK_URL !== undefined
-          || input.source.CELEBIX_PAYTR_STAGING_ORIGIN !== undefined;
-      } catch {
-        return incomplete();
-      }
-      if (authorityOverride) {
-        throw new Error(OPERATOR_INVALID);
-      }
       if (used) return Object.freeze({ kind: "already_run" });
       used = true;
       try {
+        const metadataSource = Object.freeze({
+          CELEBIX_PAYTR_IFRAME_EVIDENCE_MODE: mode,
+          SOURCE_COMMIT: input.source.SOURCE_COMMIT,
+        });
+        const testedGitSha = await dependencies.testedGitSha(metadataSource);
+        const packetDigest = await dependencies.packetDigest();
+        if (
+          typeof testedGitSha !== "string"
+          || !GIT_SHA.test(testedGitSha)
+          || typeof packetDigest !== "string"
+          || !SHA256.test(packetDigest)
+        ) incomplete();
+        const authorityOverride =
+          input.source.CELEBIX_PAYTR_IFRAME_EVIDENCE_ORIGIN !== undefined
+          || input.source.CELEBIX_PAYTR_STAGING_CALLBACK_URL !== undefined
+          || input.source.CELEBIX_PAYTR_STAGING_ORIGIN !== undefined;
+        if (authorityOverride) throw AUTHORITY_OVERRIDE;
         const operatorSource = Object.freeze({
-          CELEBIX_PAYTR_IFRAME_EVIDENCE_MODE:
-            input.source.CELEBIX_PAYTR_IFRAME_EVIDENCE_MODE,
+          CELEBIX_PAYTR_IFRAME_EVIDENCE_MODE: mode,
           CELEBIX_SAAS_DATABASE_URL:
             input.source.CELEBIX_SAAS_DATABASE_URL,
           CELEBIX_SAAS_DATABASE_NAME:
@@ -608,16 +613,8 @@ export function createPaytrIframeSandboxEvidenceRunner(
             input.source.CELEBIX_PAYTR_STAGING_MERCHANT_SALT,
           CELEBIX_PAYTR_STAGING_TEST_MODE:
             input.source.CELEBIX_PAYTR_STAGING_TEST_MODE,
-          SOURCE_COMMIT: input.source.SOURCE_COMMIT,
+          SOURCE_COMMIT: metadataSource.SOURCE_COMMIT,
         });
-        const testedGitSha = await dependencies.testedGitSha(operatorSource);
-        const packetDigest = await dependencies.packetDigest();
-        if (
-          typeof testedGitSha !== "string"
-          || !GIT_SHA.test(testedGitSha)
-          || typeof packetDigest !== "string"
-          || !SHA256.test(packetDigest)
-        ) incomplete();
         const fixedInput = Object.freeze({
           environment: "test" as const,
           testMode: 1 as const,
@@ -648,7 +645,8 @@ export function createPaytrIframeSandboxEvidenceRunner(
           rawCardCaptured: false,
           secretsCaptured: false,
         });
-      } catch {
+      } catch (error) {
+        if (error === AUTHORITY_OVERRIDE) operatorInvalid();
         return incomplete();
       }
     },

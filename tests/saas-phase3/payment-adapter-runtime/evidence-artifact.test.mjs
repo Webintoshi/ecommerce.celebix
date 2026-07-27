@@ -279,8 +279,16 @@ test("operator evidence seam rejects origin overrides and contains unsafe execut
     /paytr_iframe_sandbox_evidence_operator_invalid/,
   );
   assert.equal(executions, 0);
+  const unsafeOutputRunner = evidenceRunner(async () => {
+    executions += 1;
+    return {
+      ...observation(),
+      token: "provider-token-must-not-escape",
+      testedGitSha: "f".repeat(40),
+    };
+  });
   await assert.rejects(
-    runner.run({
+    unsafeOutputRunner.run({
       source: { CELEBIX_PAYTR_IFRAME_EVIDENCE_MODE: "operator_test_once" },
     }),
     /paytr_iframe_sandbox_evidence_incomplete/,
@@ -358,25 +366,80 @@ test("tested SHA comes only from exact image SOURCE_COMMIT before operator work"
   assert.equal(executions, 1);
 
   for (const invalidSourceCommit of [undefined, "9".repeat(39), "A".repeat(40)]) {
-    let invalidExecutions = 0;
+    const calls = {
+      database: 0,
+      executor: 0,
+      replay: 0,
+      status: 0,
+      network: 0,
+    };
+    const sensitiveReads = Object.fromEntries([
+      "CELEBIX_SAAS_DATABASE_URL",
+      "CELEBIX_SAAS_DATABASE_NAME",
+      "CELEBIX_PAYTR_STAGING_MERCHANT_ID",
+      "CELEBIX_PAYTR_STAGING_MERCHANT_KEY",
+      "CELEBIX_PAYTR_STAGING_MERCHANT_SALT",
+      "CELEBIX_PAYTR_STAGING_TEST_MODE",
+    ].map((name) => [name, 0]));
+    const operator = createPaytrIframeSandboxEvidenceOperator({
+      async readHistory() {
+        calls.database += 1;
+        throw new Error("must_not_read_database");
+      },
+      async replayCallback() {
+        calls.replay += 1;
+        throw new Error("must_not_replay");
+      },
+      async queryStatuses() {
+        calls.status += 1;
+        throw new Error("must_not_query_status");
+      },
+      now() {
+        return new Date("2026-07-27T12:30:00.000Z");
+      },
+    });
     const invalidRunner = createPaytrIframeSandboxEvidenceRunner({
-      async execute() {
-        invalidExecutions += 1;
-        return observation();
+      async execute(...args) {
+        calls.executor += 1;
+        return operator(...args);
       },
       testedGitSha: derivePaytrIframeTestedGitSha,
       packetDigest: derivePaytrIframePacketDigest,
     });
-    await assert.rejects(
-      invalidRunner.run({
-        source: {
-          CELEBIX_PAYTR_IFRAME_EVIDENCE_MODE: "operator_test_once",
-          SOURCE_COMMIT: invalidSourceCommit,
-        },
-      }),
-      /paytr_iframe_sandbox_evidence_incomplete/,
-    );
-    assert.equal(invalidExecutions, 0);
+    const source = new Proxy({
+      CELEBIX_PAYTR_IFRAME_EVIDENCE_MODE: "operator_test_once",
+      SOURCE_COMMIT: invalidSourceCommit,
+    }, {
+      get(target, property, receiver) {
+        if (typeof property === "string" && property in sensitiveReads) {
+          sensitiveReads[property] += 1;
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      calls.network += 1;
+      throw new Error("must_not_use_network");
+    };
+    try {
+      await assert.rejects(
+        invalidRunner.run({
+          source,
+        }),
+        /paytr_iframe_sandbox_evidence_incomplete/,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    assert.deepEqual(calls, {
+      database: 0,
+      executor: 0,
+      replay: 0,
+      status: 0,
+      network: 0,
+    });
+    assert.deepEqual(Object.values(sensitiveReads), [0, 0, 0, 0, 0, 0]);
   }
 });
 

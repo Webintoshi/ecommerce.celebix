@@ -258,3 +258,97 @@ INSERT INTO saas.checkout_reconciliation_receipts(
   '90000000-0000-4000-8000-000000000004',
   'TRY','succeeded',repeat('6',64),'{}','2026-07-27 12:04:00+00'
 );
+
+-- A complete failed callback fixture owned by a different store proves that
+-- selector existence cannot cross the tenant boundary.
+INSERT INTO saas.stores(
+  id,name,slug,status,locale,currency,theme_key,created_at,updated_at
+) VALUES(
+  '10000000-0000-4000-8000-000000000055',
+  'Other Evidence Store','other-evidence-store','active','tr','TRY','default',
+  '2026-01-01','2026-01-01'
+);
+INSERT INTO saas.memberships(
+  id,principal_id,store_id,role,status,created_at,updated_at
+) VALUES(
+  '30000000-0000-4000-8000-000000000055',
+  '20000000-0000-4000-8000-000000000054',
+  '10000000-0000-4000-8000-000000000055',
+  'store_owner','active','2026-01-01','2026-01-01'
+);
+INSERT INTO saas.checkout_provider_configs(
+  id,store_id,provider_key,status,public_origin,configuration_key_id,
+  sealed_configuration,configuration_digest,version,created_at,updated_at
+) VALUES(
+  '50000000-0000-4000-8000-000000000055',
+  '10000000-0000-4000-8000-000000000055',
+  'paytr','active','https://www.paytr.com','key-1',
+  '{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}',
+  repeat('c',64),7,'2026-01-01','2026-01-01'
+);
+INSERT INTO saas.quick_order_links(
+  id,store_id,creating_membership_id,provider_config_id,status,token_digest,
+  token_key_id,sealed_token,customer_name,customer_email,customer_phone,
+  shipping_address,billing_address,internal_label,currency,subtotal_cents,
+  shipping_cents,discount_cents,total_cents,expires_at,version,created_at,updated_at
+) VALUES(
+  '60000000-0000-4000-8000-000000000055',
+  '10000000-0000-4000-8000-000000000055',
+  '30000000-0000-4000-8000-000000000055',
+  '50000000-0000-4000-8000-000000000055',
+  'active',repeat('9',64),'key-1',
+  '{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}',
+  'Grace Hopper','grace@example.test','+905551110055',
+  '{"recipientName":"Grace Hopper","phone":"+905551110055","line1":"Test 55","city":"Istanbul","country":"TR"}',
+  '{"recipientName":"Grace Hopper","phone":"+905551110055","line1":"Test 55","city":"Istanbul","country":"TR"}',
+  'cross-store','TRY',10000,0,0,10000,'2026-07-28 10:00:00+00',1,
+  '2026-07-27 10:00:00+00','2026-07-27 10:00:00+00'
+);
+INSERT INTO saas.quick_order_redemption_sessions(
+  id,store_id,quick_order_link_id,cookie_digest,expires_at,version,created_at,updated_at
+) VALUES(
+  '61000000-0000-4000-8000-000000000055',
+  '10000000-0000-4000-8000-000000000055',
+  '60000000-0000-4000-8000-000000000055',repeat('a',64),
+  '2026-07-27 13:00:00+00',1,
+  '2026-07-27 11:00:00+00','2026-07-27 11:00:00+00'
+);
+INSERT INTO saas.checkout_payment_attempts(
+  id,store_id,quick_order_link_id,redemption_session_id,provider_config_id,
+  provider_config_version,configuration_digest,configuration_key_id,
+  sealed_configuration,merchant_oid,expected_subtotal_cents,expected_shipping_cents,
+  expected_discount_cents,expected_payment_amount,currency,status,provider_token_digest,
+  provider_token_key_id,sealed_provider_token,hold_expires_at,provider_ready_at,
+  initiation_unknown_at,succeeded_at,failed_at,settled_order_id,version,created_at,updated_at
+) VALUES(
+  '62000000-0000-4000-8000-000000000055',
+  '10000000-0000-4000-8000-000000000055',
+  '60000000-0000-4000-8000-000000000055',
+  '61000000-0000-4000-8000-000000000055',
+  '50000000-0000-4000-8000-000000000055',
+  7,repeat('c',64),'key-1',
+  '{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}',
+  repeat('e',32),10000,0,0,10000,'TRY','failed',
+  NULL,NULL,NULL,'2026-07-27 12:10:00+00',NULL,NULL,NULL,
+  '2026-07-27 12:05:00+00',NULL,2,
+  '2026-07-27 12:05:00+00','2026-07-27 12:05:00+00'
+);
+INSERT INTO saas.checkout_operations(
+  operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,
+  result_payload,committed_at
+) VALUES(
+  '90000000-0000-4000-8000-000000000007',
+  '10000000-0000-4000-8000-000000000055',
+  '62000000-0000-4000-8000-000000000055',
+  'settle_callback',repeat('7',64),
+  '{"status":"failed","testMode":1}','2026-07-27 12:05:00+00'
+);
+INSERT INTO saas.checkout_callback_receipts(
+  id,store_id,attempt_id,callback_digest,currency,callback_status,
+  result_payload,received_at
+) VALUES(
+  '90000000-0000-4000-8000-000000000007',
+  '10000000-0000-4000-8000-000000000055',
+  '62000000-0000-4000-8000-000000000055',
+  repeat('7',64),'TRY','failed','{}','2026-07-27 12:05:00+00'
+);

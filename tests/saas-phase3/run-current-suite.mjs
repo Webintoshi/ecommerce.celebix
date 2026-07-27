@@ -53,9 +53,9 @@ const requiredHarnesses = Object.freeze([
   }),
   Object.freeze({
     file: "tests/saas-phase3/payment-sandbox-evidence-history/postgres-harness.mjs",
-    total: 8,
-    line: /^PASS \d+\/8 .+$/gm,
-    completion: /^PASS 8\/8 .+$/m,
+    total: 9,
+    line: /^PASS \d+\/9 .+$/gm,
+    completion: /^PASS 9\/9 .+$/m,
   }),
 ]);
 const gateRank = Object.freeze({
