@@ -683,16 +683,37 @@ git commit -m "feat(payments): connect admin to adapter registry"
 
 **Files:**
 - Create: tests/saas-phase3/payment-adapter-runtime/in-process.test.mjs
+- Create: tests/saas-phase3/payment-adapter-runtime/evidence-artifact.test.mjs
+- Create: apps/owner/scripts/paytr-iframe-sandbox-evidence.ts
+- Create: docs/ops/evidence/paytr-iframe-sandbox-2026-07-27.json
 - Create: docs/ops/payment-adapter-runtime-runbook.md
+- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_promotion.up.sql
+- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_promotion.down.sql
+- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_promotion_assertions.sql
+- Create: apps/owner/scripts/sql/saas/phase3m-paytr-iframe-sandbox-promotion-manifest.json
+- Modify: packages/payment-adapters/src/providers/paytr/packet.ts
+- Modify: apps/customer-panel/lib/payment-providers/catalog-data.ts
+- Modify: apps/customer-panel/lib/payment-provider-adapters/default.ts
+- Modify: apps/owner/lib/merchant-provider-execution/default.ts
+- Modify: apps/storefront-shared/lib/payment-adapters/default.ts
+- Modify: apps/storefront-shared/lib/payment-adapters/runtime.ts
 - Modify: tests/saas-phase3/run-current-suite.mjs
 
 **Interfaces:**
-- Produces a cumulative cross-layer gate and PayTR rollback/circuit-breaker runbook.
-- Produces no production credential, real-money transaction, or production activation.
+- Produces a cumulative cross-layer gate, canonical secret-free PayTR TEST evidence,
+  an exact owner-approved sandbox authority, and a PayTR rollback/circuit-breaker runbook.
+- Produces no production credential, real-money transaction, PAN/CVV capture, or
+  production activation.
+- Keeps the customer-panel, owner worker, storefront runtime, and database authority
+  on one immutable `{ environment, adapterVersion, evidenceDigest }` tuple.
 
 - [ ] **Step 1: Write failing cross-layer acceptance test**
 
 Prove store A active PayTR test profile/method -> generic attempt -> official request vector -> iFrame -> signed callback -> captured outcome. Prove store B cannot access store A data and browser return alone cannot settle.
+
+Also prove that an absent, stale, superseded, or revoked authority causes zero
+profile persistence, zero validation claim/decrypt/network, zero method activation,
+and zero new payment attempt. Replayed operations must recheck current authority.
 
 - [ ] **Step 2: Run RED**
 
@@ -700,11 +721,25 @@ Prove store A active PayTR test profile/method -> generic attempt -> official re
 node --test tests/saas-phase3/payment-adapter-runtime/in-process.test.mjs
 ~~~
 
-- [ ] **Step 3: Add minimal final wiring and runbook**
+- [ ] **Step 3: Add dormant final wiring and the evidence runner**
+
+Wire the real PayTR adapter registry and `PostgresPaymentAttemptRepository` into
+storefront-shared, but keep it disabled unless the exact compiled authority and the
+operator activation mode agree. The customer panel must likewise remain
+non-connectable while its activation mode is disabled. Owner validation claims and
+marks carry the same compiled tuple; the evidence digest is not merchant input and
+is not trusted from an unverified environment value.
+
+Add a one-use PayTR TEST evidence runner that reuses the already approved fixed
+staging PayTR callback path while generic merchant activation remains unavailable.
+It may initialize only `test_mode=1`, never logs a response/token/body, never accepts
+merchant-supplied origins, and emits only the bounded evidence schema below. The
+new hosted adapter remains protected by the Task 7 byte-equivalence tests and the
+Task 9 in-process generic runtime test.
 
 Document exact feature flag, callback path, health checks, reconciliation command, circuit breaker, and rollback SHA. Register the test in the cumulative suite. Do not add another adapter.
 
-- [ ] **Step 4: Run complete local gate**
+- [ ] **Step 4: Run complete fail-closed local gate**
 
 ~~~bash
 git diff --check
@@ -712,14 +747,23 @@ npm test --workspace @celebix/payment-adapters
 npm test --workspace @celebix/saas-contracts
 npm test --workspace @celebix/saas-data
 npm test --workspace @celebix/customer-panel
+npm test --workspace @celebix/owner
 npm test --workspace @celebix/storefront-shared
-npm run typecheck
+npm run typecheck --workspace @celebix/payment-adapters
+npm run typecheck --workspace @celebix/saas-contracts
+npm run typecheck --workspace @celebix/saas-data
+npm run typecheck --workspace @celebix/customer-panel
+npm run typecheck --workspace @celebix/owner
+npm run typecheck --workspace @celebix/storefront-shared
 npm run test:saas-phase3:current
 npm run build --workspace @celebix/customer-panel
+npm run build --workspace @celebix/owner
 npm run build --workspace @celebix/storefront-shared
 ~~~
 
-Require zero failures and exit 0 for each command.
+Require zero payment-scope failures and exit 0 for each command. The user-approved
+exception remains only the previously recorded unrelated root/donor typecheck
+failures; do not touch donor applications to hide them.
 
 - [ ] **Step 5: Run official PayTR sandbox evidence**
 
@@ -733,37 +777,115 @@ status query after simulated write timeout
 status verification through the official query endpoint
 ~~~
 
-Record masked suffix, adapter version, attempt ID, safe provider reference, result class, callback digest, and timestamps only. If all required sandbox cases pass, change only `paytr_iframe` test readiness to `sandbox_ready`, add the evidence digest and adapter version, then rerun Task 8 and Task 9 gates. If sandbox merchant credentials or a required provider capability are unavailable, readiness stays verification; tests are not weakened. Refund/cancel/capture claims remain false until the later capability-certification plan implements and proves them.
+Run the evidence from isolated staging with the existing operator-managed TEST
+credential variables. Never read or print their values. PayTR iFrame supplies its
+own test-card data; the browser session must not record HAR, trace, video,
+screenshot, console/network bodies, PAN, expiry, or CVV.
 
-- [ ] **Step 6: Commit, push, and verify exact remote SHA**
+The committed canonical evidence object contains only:
+
+~~~text
+schemaVersion, providerCode, capability, environment, adapterVersion
+testedGitSha, packetDigest, officialDocumentationUrls, verifiedAt
+maskedMerchantSuffix
+cases[]: caseId, operationId/attemptId, safeProviderReferenceDigest,
+         resultClass, callbackDigest, startedAt, completedAt
+testMode=true, realMoney=false, rawCardCaptured=false, secretsCaptured=false
+~~~
+
+Its canonical JSON SHA-256 becomes the exact evidence digest. If any required case
+is missing, ambiguous, or cannot be verified by the provider, stop: readiness stays
+`verification`, authority remains absent, and tests are not weakened. Refund,
+cancel, capture, tokenization, and live-readiness claims remain false.
+
+- [ ] **Step 6: Commit the fail-closed runner, push, and deploy all three apps dormant**
+
+Commit the evidence runner, dormant storefront composition, in-process tests, and
+runbook without readiness promotion. Push and verify the exact remote SHA. Configure
+the same newly generated dedicated provider credential keyring on customer-panel,
+owner, and storefront without exposing it in output. Keep owner worker, storefront
+PayTR runtime, and panel PayTR activation modes disabled.
+
+Pin and deploy the same SHA to:
+
+~~~text
+customer-panel yk1h6d97z7ex0h74ok3zrj5c
+owner          bpsgdwfiswna06mooguu2mr3
+storefront     vtc2aah63jbqnmtxmvykn6jl
+~~~
+
+Apply migration 053, then verify all health/preflight endpoints while the durable
+authority table still has no PayTR row. Confirm the disabled modes produce no claim,
+provider network call, connectable UI, or generic payment attempt.
+
+- [ ] **Step 7: Create the exact sandbox promotion commit**
+
+Only after Step 5 evidence passes:
+
+- freeze one shared PayTR TEST authority constant;
+- change only PayTR iFrame packet/catalog TEST readiness to `sandbox_ready`;
+- give the panel descriptor, owner validation registry, and storefront runtime the
+  byte-identical authority;
+- add migration 054, whose owner-only approval path inserts that exact tuple and no
+  live authority;
+- pin 054 ACL/RLS/function bodies and test approve/revoke races, rollback, and stale
+  tuples; and
+- snapshot adapter version/evidence digest on payment attempts so callbacks and
+  status queries cannot silently switch adapter authority mid-attempt.
+
+Re-run Steps 1 and 4, commit, push, and verify local/remote SHA equality. PayTR
+Direct and every other provider remain truthful non-connectable.
+
+- [ ] **Step 8: Deploy and activate staging in dependency order**
+
+Deploy the exact promotion SHA to owner, storefront, and customer-panel while all
+three activation modes remain disabled. Let owner apply migration 054. Verify the
+database exact authority, owner preflight, storefront health, and panel health.
+
+Then enable and redeploy in this order:
+
+~~~text
+1. storefront PayTR TEST runtime
+2. owner approved TEST validation worker
+3. customer-panel PayTR TEST connection surface
+~~~
+
+The panel is last so `Bağla` cannot appear before worker, database, and checkout are
+ready. Determine and verify the actual Coolify egress IPv4 from the deployed owner
+container before configuring PayTR validation. Use the tenant storefront origin,
+never the admin origin, for customer return URLs.
+
+- [ ] **Step 9: Verify live browser and HTTP**
 
 ~~~bash
-git add tests/saas-phase3/payment-adapter-runtime docs/ops/payment-adapter-runtime-runbook.md tests/saas-phase3/run-current-suite.mjs packages/payment-adapters/src/providers/paytr/packet.ts apps/customer-panel/lib/payment-providers/catalog-data.ts
-git commit -m "test(payments): verify hosted adapter runtime"
 git status --short
-git push origin HEAD:codex/celebix-managed-umami-analytics
 git rev-parse HEAD
 git ls-remote --heads origin codex/celebix-managed-umami-analytics
 ~~~
 
-Local/remote SHAs must match; only .codex-evidence/ may remain untracked.
-
-- [ ] **Step 7: Deploy exact SHA to Coolify staging**
-
-Pin customer-panel application yk1h6d97z7ex0h74ok3zrj5c to the exact pushed SHA through authenticated Coolify and wait for Deployment is Finished. Never print or store API credentials.
-
-- [ ] **Step 8: Verify live browser and HTTP**
+Reconfirm local/remote SHA equality; only `.codex-evidence/` may remain untracked.
 
 ~~~text
-GET /api/health -> 200
+owner/customer-panel/storefront health -> 200
 /settings/payment -> authenticated panel
 58/58 provider cards visible
 48 unique logos loaded
-PayTR iFrame -> Bağla only when sandbox evidence exists
+PayTR iFrame -> Bağla only with exact DB+catalog+descriptor+adapter evidence
 all other adapters -> truthful non-connectable state
+PayTR TEST profile save -> pending_validation -> worker validated -> active method
+TEST checkout -> generic attempt -> PayTR iFrame -> signed callback -> settled once
+browser success/failure return alone -> no settlement authority
+duplicate callback -> exact plain OK with no duplicate fulfillment
+official status query -> same final result
 desktop 1440px and mobile 390px -> no overflow
 browser console -> no payment-surface errors or warnings
 ~~~
+
+At any failure, revoke the exact DB authority first. That immediately cuts new
+profile saves, claims, provider validation calls, method activation, and payment
+begins while existing TEST callback/query reconciliation drains. Then disable panel,
+owner, and storefront modes and roll back to the last known-good SHA. Migration 053
+down remains forbidden until profiles, methods, attempts, and authority are drained.
 
 Leave the live payment settings tab open for user inspection.
 
