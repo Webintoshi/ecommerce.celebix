@@ -646,3 +646,80 @@ test("invalid public input and forged repository errors are contained before che
   assert.equal(Object.isFrozen(error), true);
   assert.deepEqual(Object.keys(error), ["code"]);
 });
+
+test("Date subclasses and own-property decorations fail before every timestamp checkout", async () => {
+  class HostileDate extends Date {}
+  let accessorReads = 0;
+  let proxyTrapCount = 0;
+  const candidates = [
+    (milliseconds: number) => new HostileDate(milliseconds),
+    (milliseconds: number) => Object.defineProperty(new Date(milliseconds), "enumerableDecoration", {
+      configurable: true,
+      enumerable: true,
+      value: "hostile",
+    }),
+    (milliseconds: number) => Object.defineProperty(new Date(milliseconds), "hiddenDecoration", {
+      configurable: true,
+      enumerable: false,
+      value: "hostile",
+    }),
+    (milliseconds: number) => Object.defineProperty(new Date(milliseconds), Symbol("hostile"), {
+      configurable: true,
+      enumerable: false,
+      value: "hostile",
+    }),
+    (milliseconds: number) => Object.defineProperty(new Date(milliseconds), "accessorDecoration", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return "hostile";
+      },
+    }),
+    (milliseconds: number) => new Proxy(new Date(milliseconds), {
+      getPrototypeOf(target) {
+        proxyTrapCount += 1;
+        return Reflect.getPrototypeOf(target);
+      },
+      ownKeys(target) {
+        proxyTrapCount += 1;
+        return Reflect.ownKeys(target);
+      },
+    }),
+  ] as const;
+
+  for (const candidate of candidates) {
+    const nowPool = new Pool([]);
+    await assert.rejects(
+      () => repository(nowPool).begin({
+        ...beginInput(),
+        authority: { storeId: STORE, now: candidate(NOW.getTime()) },
+      }),
+      (error: unknown) =>
+        error instanceof PaymentAttemptRepositoryError
+        && error.code === "invalid_input",
+    );
+    assert.equal(nowPool.connectCount, 0);
+
+    const leasePool = new Pool([]);
+    const leaseTimestamp = candidate(LEASE_EXPIRES_AT.getTime());
+    await assert.rejects(
+      () => repository(leasePool).claimReconciliation({
+        attemptId: ATTEMPT,
+        operationId: OPERATION,
+        fingerprint: FINGERPRINT,
+        expectedVersion: 3,
+        workerId: "worker.fixture",
+        leaseId: LEASE,
+        now: NOW,
+        leaseExpiresAt: leaseTimestamp,
+      }),
+      (error: unknown) =>
+        error instanceof PaymentAttemptRepositoryError
+        && error.code === "invalid_input",
+    );
+    assert.equal(leasePool.connectCount, 0);
+  }
+  assert.equal(accessorReads, 0);
+  assert.equal(proxyTrapCount, 0);
+});

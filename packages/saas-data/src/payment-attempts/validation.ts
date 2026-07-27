@@ -109,9 +109,21 @@ export function paymentAttemptInteger(value: unknown, minimum = 1): number {
 
 export function paymentAttemptDate(value: unknown): Date {
   return contained(() => {
-    if (!(value instanceof Date) || nodeTypes.isProxy(value)) invalid();
+    if (
+      typeof value !== "object"
+      || value === null
+      || nodeTypes.isProxy(value)
+      || Object.getPrototypeOf(value) !== Date.prototype
+    ) invalid();
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (Reflect.ownKeys(descriptors).length !== 0) invalid();
     const milliseconds = Date.prototype.getTime.call(value);
-    if (!Number.isFinite(milliseconds)) invalid();
+    if (
+      !Number.isFinite(milliseconds)
+      || Date.prototype.getTime.call(
+        new Date(Date.prototype.toISOString.call(value)),
+      ) !== milliseconds
+    ) invalid();
     return new Date(milliseconds);
   });
 }
