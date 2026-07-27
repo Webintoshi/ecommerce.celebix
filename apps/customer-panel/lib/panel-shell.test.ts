@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import * as ReactModule from "react";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
@@ -330,13 +331,21 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return ReactModule;
     if (specifier === "lucide-react") {
-      return { BadgeCheck: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, CirclePlus: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Phone: Icon, PieChart: Icon, Plus: Icon, Puzzle: Icon, ReceiptText: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, UserPlus: Icon, Users: Icon };
+      return new Proxy({ __esModule: true }, {
+        get: (_target, property) => property === "__esModule" ? true : Icon,
+      });
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
     if (specifier === "@/lib/panel-ui/navigation") {
-      return { isPanelNavigationPathActive, getPanelNavigation };
+      return {
+        isPanelNavigationPathActive,
+        isPanelNavigationPathExact: (candidate: string, href: string) => candidate === href,
+        getPanelNavigation,
+        PANEL_NAVIGATION,
+      };
     }
     if (specifier === "./panel-shell.module.css") {
       const styles = new Proxy({}, {
@@ -553,6 +562,14 @@ test("desktop shell carries exact donor tokens, fixed width, topbar, and support
   assert.doesNotMatch(css, /width:\s*(?:15\.5|16)rem/);
   assert.match(css, /min-width:\s*1025px/);
   assert.match(layout, /panel-topbar-actions/);
+});
+
+test("desktop navigation keeps inactive families collapsed and exposes the active family as a dropdown", async () => {
+  const html = await renderPanelNavigation("/products/collections");
+  assert.match(html, /aria-label="Ürünler alt menüsünü kapat"/);
+  assert.match(html, /aria-controls="panel-nav-catalog-desktop"/);
+  assert.match(html, /aria-label="Siparişler alt menüsünü aç"/);
+  assert.match(html, /id="panel-nav-orders-desktop"[^>]*hidden=""/);
 });
 
 test("desktop topbar follows route transitions while the active bridge keeps precedence", async () => {
