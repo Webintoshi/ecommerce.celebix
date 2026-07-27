@@ -147,7 +147,7 @@ test("the pinned donor admin tree remains unchanged", () => {
   assert.deepEqual(changedNames("apps/admin"), []);
 });
 
-test("lockfile admits only the pinned payment adapter workspace successor", async () => {
+test("lockfile admits only the pinned adapter workspace and storefront dependency successors", async () => {
   assert.equal(
     git(["merge-base", PAYMENT_ADAPTERS_HEAD, "HEAD"]).trim(),
     PAYMENT_ADAPTERS_HEAD,
@@ -157,10 +157,10 @@ test("lockfile admits only the pinned payment adapter workspace successor", asyn
     git(["diff", "--name-only", `${BASE}...${PAYMENT_ADAPTERS_PREDECESSOR}`, "--", "package-lock.json"]).trim(),
     "",
   );
-  assert.equal(
-    git(["diff", "--name-only", `${PAYMENT_ADAPTERS_HEAD}..HEAD`, "--", "package-lock.json", "packages/payment-adapters/package.json"]).trim(),
-    "",
-  );
+  assert.equal(git([
+    "diff", "--name-only", `${PAYMENT_ADAPTERS_HEAD}..HEAD`, "--",
+    "packages/payment-adapters/package.json",
+  ]).trim(), "");
 
   const workspace = JSON.parse(await readFile(`${ROOT}/packages/payment-adapters/package.json`, "utf8"));
   assert.deepEqual(workspace, PAYMENT_ADAPTER_WORKSPACE);
@@ -174,6 +174,7 @@ test("lockfile admits only the pinned payment adapter workspace successor", asyn
     version: "0.1.0",
     dependencies: { "@celebix/saas-contracts": "0.1.0" },
   };
+  expectedLock.packages["apps/storefront-shared"].dependencies["@celebix/payment-adapters"] = "0.1.0";
   const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
   assert.deepEqual(currentLock, expectedLock);
 

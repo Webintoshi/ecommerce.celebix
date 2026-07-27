@@ -8,11 +8,12 @@
     "build": "next build",
     "start": "next start --port 3450",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-transform-types --test lib/*.test.ts lib/checkout/*.test.ts lib/cart-capture/*.test.ts lib/analytics/*.test.ts components/StorefrontAnalyticsTracker.test.ts",
+    "test": "node --experimental-transform-types --test lib/*.test.ts lib/checkout/*.test.ts lib/payment-adapters/*.test.ts lib/cart-capture/*.test.ts lib/analytics/*.test.ts components/StorefrontAnalyticsTracker.test.ts",
     "reconcile:quick-orders": "NODE_OPTIONS='--conditions=react-server' node scripts/reconcile-quick-orders.mjs",
     "deliver:analytics": "NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types scripts/deliver-analytics-events.mjs"
   },
   "dependencies": {
+    "@celebix/payment-adapters": "0.1.0",
     "@celebix/saas-data": "0.1.0",
     "@celebix/saas-storefront-runtime": "0.1.0",
     "cross-env": "^10.1.0",

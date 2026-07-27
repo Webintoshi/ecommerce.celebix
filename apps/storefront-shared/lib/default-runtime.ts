@@ -1,5 +1,6 @@
 import "server-only";
 import process from "node:process";
+import { createPaymentAdapterRegistry } from "@celebix/payment-adapters";
 import {
   PostgresPublicQuickOrderRepository,
   PostgresPublicAbandonedCartRepository,
@@ -13,6 +14,7 @@ import { parseCheckoutRuntimeConfig } from "./checkout/config.ts";
 import { createCheckoutRuntime, type CheckoutRuntime } from "./checkout/runtime.ts";
 import { parseStorefrontDataConfig, STOREFRONT_DATA_ENVIRONMENT_FIELDS } from "./runtime-config.ts";
 import { parseUmamiPublicCollectorConfig, type UmamiPublicCollectorConfig } from "./analytics/config.ts";
+import type { HostedPaymentRuntime } from "./payment-adapters/runtime.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
@@ -25,6 +27,7 @@ export type PublicStorefrontRuntime = Readonly<{
   mediaOrigin: string;
 }>;
 let initialization: Promise<PublicStorefrontRuntime | null> | undefined;
+const DEFAULT_HOSTED_PAYMENT_ADAPTERS = createPaymentAdapterRegistry([], []);
 
 async function initialize(): Promise<PublicStorefrontRuntime | null> {
   if (process.env.CELEBIX_DEPLOYMENT_TIER !== "staging" || process.env.CELEBIX_STOREFRONT_DATA_MODE !== "approved_staging") return null;
@@ -70,4 +73,9 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
 export async function resolveDefaultPublicStorefrontRuntime(): Promise<PublicStorefrontRuntime | null> {
   initialization ??= initialize();
   return initialization;
+}
+
+export async function resolveDefaultHostedPaymentRuntime(): Promise<HostedPaymentRuntime | null> {
+  if (DEFAULT_HOSTED_PAYMENT_ADAPTERS.size === 0) return null;
+  return null;
 }

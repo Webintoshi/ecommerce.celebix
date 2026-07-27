@@ -298,12 +298,20 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   const appRoot = path.resolve(import.meta.dirname, "..");
   const runtimeRoot = path.resolve(appRoot, "../../packages/saas-storefront-runtime");
   const files = [...await sourceFiles(appRoot), ...await sourceFiles(runtimeRoot)];
-  const forbiddenImport = /(?:from\s+|import\s*\()["'][^"']*(?:supabase|drizzle|@aws-sdk|redis|stripe|iyzipay|craftgate|payment)[^"']*["']/i;
+  const forbiddenImport = /(?:from\s+|import\s*\()["'][^"']*(?:supabase|drizzle|@aws-sdk|redis|stripe|iyzipay|craftgate)[^"']*["']/i;
+  const allowedPaymentImports = new Set([
+    "@/lib/payment-adapters/runtime.ts",
+    "./payment-adapters/runtime.ts",
+    "@celebix/payment-adapters",
+  ]);
   const forbiddenConfig = /(?:service[_-]?role|R2_ACCESS|R2_SECRET|REDIS_URL|PAYMENT_SECRET|celebix_saas_app)/i;
 
   for (const file of files) {
     const source = await readFile(file, "utf8");
     assert.doesNotMatch(source, forbiddenImport, file);
+    for (const match of source.matchAll(/(?:from\s+|import\s*\()["']([^"']*payment[^"']*)["']/gi)) {
+      assert.equal(allowedPaymentImports.has(match[1]!), true, file);
+    }
     assert.doesNotMatch(source, forbiddenConfig, file);
   }
   const publicRuntime = await readFile(new URL("./default-runtime.ts", import.meta.url), "utf8");
