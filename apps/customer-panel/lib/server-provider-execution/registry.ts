@@ -12,13 +12,17 @@ export interface MerchantProviderRegistryEntry {
   readonly publicFields: readonly Readonly<{ key: string; label: string }>[];
   readonly credentialFields: readonly Readonly<{ key: string; label: string; secret: true }>[];
   parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>>;
-  parseCredential(value: unknown): Uint8Array;
+  parseCredential(
+    value: unknown,
+    publicConfig: Readonly<Record<string, MerchantAdminJson>>,
+  ): Uint8Array;
   maskAccountReference(value: Readonly<Record<string, MerchantAdminJson>>): string;
 }
 
 export interface MerchantProviderRegistry {
   readonly size: number;
   get(providerCode: string, capability: MerchantProviderCapability): MerchantProviderRegistryEntry | null;
+  codes(capability: MerchantProviderCapability): readonly string[];
 }
 
 const INSTANCES = new WeakSet<object>();
@@ -104,11 +108,22 @@ export function createCustomerPanelProviderRegistry(entries: readonly MerchantPr
       if (byKey.has(key)) invalid();
       byKey.set(key, entry);
     }
+    const codesByCapability = new Map(MERCHANT_PROVIDER_CAPABILITIES.map((capability) => [
+      capability,
+      Object.freeze([...byKey.values()]
+        .filter((entry) => entry.capability === capability)
+        .map((entry) => entry.providerCode)
+        .sort()),
+    ] as const));
     const registry = Object.freeze({
       size: byKey.size,
       get(providerCode: string, capability: MerchantProviderCapability) {
         if (typeof providerCode !== "string" || !/^[a-z][a-z0-9_]{0,63}$/.test(providerCode) || !MERCHANT_PROVIDER_CAPABILITIES.includes(capability)) return null;
         return byKey.get(`${providerCode}\u0000${capability}`) ?? null;
+      },
+      codes(capability: MerchantProviderCapability): readonly string[] {
+        if (!MERCHANT_PROVIDER_CAPABILITIES.includes(capability)) return Object.freeze([]);
+        return codesByCapability.get(capability) ?? Object.freeze([]);
       },
     });
     INSTANCES.add(registry);

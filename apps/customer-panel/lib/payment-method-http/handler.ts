@@ -332,7 +332,12 @@ export function createPaymentMethodHttpHandlers(deps: Deps) {
       if (isResponse(authorized)) return authorized;
       try {
         const catalog = parsePaymentProviderCatalog(authorized.runtime.catalog);
-        if (catalog.length !== 58 || catalog.some((entry) => entry.readiness !== "planned" || entry.providerCode.includes("dummy"))) {
+        if (
+          catalog.length !== 58 ||
+          catalog.some((entry) => entry.providerCode.includes("dummy")) ||
+          catalog.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode).join(",") !== "paytr_iframe" ||
+          catalog.some((entry) => entry.providerCode !== "paytr_iframe" && entry.readiness !== "planned")
+        ) {
           return failure("unavailable", 503);
         }
         return json(Object.freeze({ items: catalog }));

@@ -5,6 +5,13 @@ import type {
   MerchantProviderCredentialKeyring,
   MerchantProviderProfileRepository,
 } from "@celebix/saas-data";
+import type { ProviderTransport } from "@celebix/payment-adapters";
+import { createPaymentAdapterRegistry } from "@celebix/payment-adapters";
+
+import {
+  createDefaultCustomerPanelPaymentProviderRegistry,
+  createDefaultHostedPaymentAdapterRegistry,
+} from "../payment-provider-adapters/default.ts";
 
 import {
   registerServerProviderExecutionRuntime,
@@ -25,10 +32,35 @@ function keyring(): MerchantProviderCredentialKeyring {
   });
 }
 
+function adapters() {
+  const transport: ProviderTransport = Object.freeze({
+    request: Object.freeze(async () => { throw new Error("unused"); }),
+  });
+  const hosted = createDefaultHostedPaymentAdapterRegistry(transport);
+  return { hosted, registry: createDefaultCustomerPanelPaymentProviderRegistry(hosted) };
+}
+
+test("approved runtime retains the exact executable adapter authority", () => {
+  const approved = access();
+  const selected = adapters();
+  registerServerProviderExecutionRuntime(
+    approved,
+    profiles,
+    keyring(),
+    selected.registry,
+    selected.hosted,
+  );
+  const runtime = resolveServerProviderExecutionRuntime(approved);
+  assert.ok(runtime);
+  assert.strictEqual(runtime.adapters, selected.hosted);
+  assert.equal(runtime.adapters.adapter("paytr_iframe")?.packet.adapterVersion, 1);
+  assert.equal(runtime.registry.get("paytr_iframe", "payment_processing")?.credentialFields.length, 2);
+});
+
 test("registers one frozen approved-staging provider runtime", () => {
   const approved = access();
   const registry = createCustomerPanelProviderRegistry([]);
-  registerServerProviderExecutionRuntime(approved, profiles, keyring(), registry);
+  registerServerProviderExecutionRuntime(approved, profiles, keyring(), registry, createPaymentAdapterRegistry([], []));
   const runtime = resolveServerProviderExecutionRuntime(approved);
   assert.ok(runtime);
   assert.equal(runtime.access, approved);
@@ -39,14 +71,35 @@ test("registers one frozen approved-staging provider runtime", () => {
 });
 
 test("runtime rejects missing repository methods and mutable keyrings", () => {
-  assert.throws(() => registerServerProviderExecutionRuntime(access(), { list: reject } as never, keyring(), createCustomerPanelProviderRegistry([])), /server_provider_execution_runtime_invalid/);
+  assert.throws(() => registerServerProviderExecutionRuntime(access(), { list: reject } as never, keyring(), createCustomerPanelProviderRegistry([]), createPaymentAdapterRegistry([], [])), /server_provider_execution_runtime_invalid/);
   const mutableKeyring = { activeKeyId: "staging-key-01", keys: [{ keyId: "staging-key-01", key: new Uint8Array(32) }] } as MerchantProviderCredentialKeyring;
-  assert.throws(() => registerServerProviderExecutionRuntime(access(), profiles, mutableKeyring, createCustomerPanelProviderRegistry([])), /server_provider_execution_runtime_invalid/);
+  assert.throws(() => registerServerProviderExecutionRuntime(access(), profiles, mutableKeyring, createCustomerPanelProviderRegistry([]), createPaymentAdapterRegistry([], [])), /server_provider_execution_runtime_invalid/);
 });
 
 test("runtime rejects duplicate access registration and disabled access", () => {
   const approved = access();
-  registerServerProviderExecutionRuntime(approved, profiles, keyring(), createCustomerPanelProviderRegistry([]));
-  assert.throws(() => registerServerProviderExecutionRuntime(approved, profiles, keyring(), createCustomerPanelProviderRegistry([])), /server_provider_execution_runtime_invalid/);
-  assert.throws(() => registerServerProviderExecutionRuntime(access("disabled"), profiles, keyring(), createCustomerPanelProviderRegistry([])), /server_provider_execution_runtime_invalid/);
+  registerServerProviderExecutionRuntime(approved, profiles, keyring(), createCustomerPanelProviderRegistry([]), createPaymentAdapterRegistry([], []));
+  assert.throws(() => registerServerProviderExecutionRuntime(approved, profiles, keyring(), createCustomerPanelProviderRegistry([]), createPaymentAdapterRegistry([], [])), /server_provider_execution_runtime_invalid/);
+  assert.throws(() => registerServerProviderExecutionRuntime(access("disabled"), profiles, keyring(), createCustomerPanelProviderRegistry([]), createPaymentAdapterRegistry([], [])), /server_provider_execution_runtime_invalid/);
+});
+
+test("runtime rejects an executable adapter without its matching payment descriptor", () => {
+  const selected = adapters();
+  const wrongRegistry = createCustomerPanelProviderRegistry([Object.freeze({
+    providerCode: "fixture_provider",
+    capability: "marketplace_sync" as const,
+    label: "Fixture",
+    publicFields: Object.freeze([]),
+    credentialFields: Object.freeze([]),
+    parsePublicConfig: Object.freeze(() => Object.freeze({})),
+    parseCredential: Object.freeze(() => new Uint8Array([1])),
+    maskAccountReference: Object.freeze(() => "fixture"),
+  })]);
+  assert.throws(() => registerServerProviderExecutionRuntime(
+    access(),
+    profiles,
+    keyring(),
+    wrongRegistry,
+    selected.hosted,
+  ), /server_provider_execution_runtime_invalid/);
 });

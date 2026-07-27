@@ -109,7 +109,7 @@ test("payment order helpers require an exact changed method set", () => {
   assert.throws(() => buildPaymentMethodOrderCommands(methods, [...moved, moved[0]!]), /payment_method_order_invalid/);
 });
 
-test("payment dialogs provide focus safety, dormant credentials and mutation confirmations", async () => {
+test("payment dialogs provide focus safety, masked connection state and dormant secrets", async () => {
   const [consoleSource, catalogSource, drawerSource, orderSource, css] = await Promise.all([
     source("components/settings/payment/PaymentSettingsConsole.tsx"),
     source("components/settings/payment/PaymentProviderCatalogDialog.tsx"),
@@ -129,7 +129,11 @@ test("payment dialogs provide focus safety, dormant credentials and mutation con
   assert.match(drawerSource, /autoComplete="off"/);
   assert.match(drawerSource, /form\.reset\(\)/);
   assert.match(drawerSource, /Doğrulama bekliyor/);
-  assert.doesNotMatch(drawerSource, /maskedAccountReference|publicConfig\[/);
+  assert.match(drawerSource, /maskedAccountReference/);
+  assert.match(drawerSource, /callbackUrl/);
+  assert.match(drawerSource, /storefrontHostname/);
+  assert.doesNotMatch(drawerSource, /window[.]location[.]origin/);
+  assert.doesNotMatch(drawerSource, /defaultValue=\{[^}]*credential|merchantKey\s*:|merchantSalt\s*:/);
   assert.match(consoleSource, /emergencyReason/);
   assert.match(consoleSource, /window\.confirm/);
   assert.match(orderSource, /draggable/);

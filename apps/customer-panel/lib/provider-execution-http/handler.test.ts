@@ -113,12 +113,36 @@ test("profile save seals one registry-validated credential and never returns it"
   }));
   assert.equal(response.status, 200);
   assert.doesNotMatch(await response.clone().text(), /never-return|ciphertext|keyId|digest|storeId/);
+  const savedProfile = await response.json() as { status: string; lastValidatedAt: string | null };
+  assert.equal(savedProfile.status, "pending_validation");
+  assert.equal(savedProfile.lastValidatedAt, null);
+  assert.notEqual(savedProfile.status, "active");
   assert.equal(probe.repositoryCalls.length, 1);
   const saved = (probe.repositoryCalls[0] as { input: Record<string, unknown> }).input;
   assert.equal(typeof saved.credentialDigest, "string");
   assert.equal(typeof (saved.sealedCredentials as { ciphertext: unknown }).ciphertext, "string");
   assert.equal(JSON.stringify(saved).includes("never-return"), false);
   assert.equal(probe.parsedCredential()?.every((byte) => byte === 0), true);
+});
+
+test("profile rotation revalidates ownership and creates only the next credential version", async () => {
+  const probe = fixture();
+  const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+    providerCode: "fixture_provider",
+    capability: "marketplace_sync",
+    publicConfig: { account_reference: "merchant-42" },
+    credential: { api_secret: "rotated-never-return" },
+    expectedVersion: 1,
+    profileId: PROFILE,
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(probe.repositoryCalls.map((entry) => (entry as { kind: string }).kind), ["list", "save"]);
+  const saved = (probe.repositoryCalls[1] as { input: Record<string, unknown> }).input;
+  assert.equal(saved.profileId, PROFILE);
+  assert.equal(saved.expectedVersion, 1);
+  assert.equal(JSON.stringify(saved).includes("rotated-never-return"), false);
+  assert.equal(probe.parsedCredential()?.every((byte) => byte === 0), true);
+  assert.doesNotMatch(await response.text(), /rotated-never-return|ciphertext|credentialDigest/);
 });
 
 test("profile mutations fail before sealing on authority or provider errors", async () => {

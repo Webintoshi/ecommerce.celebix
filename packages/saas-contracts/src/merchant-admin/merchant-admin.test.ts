@@ -192,6 +192,21 @@ test("provider descriptors are exact, deeply frozen and keep secret fields separ
   ]) assert.throws(() => parseMerchantProviderDescriptor(hostile), /merchant_admin_contract_invalid/);
 });
 
+test("provider descriptor field keys preserve exact adapter camelCase names", () => {
+  const descriptor = parseMerchantProviderDescriptor({
+    providerCode: "paytr_iframe",
+    capability: "payment_processing",
+    label: "PayTR iFrame",
+    publicFields: [{ key: "merchantId", label: "Mağaza numarası" }],
+    credentialFields: [
+      { key: "merchantKey", label: "Mağaza parolası", secret: true },
+      { key: "merchantSalt", label: "Mağaza gizli anahtarı", secret: true },
+    ],
+  });
+  assert.deepEqual(descriptor.publicFields.map(({ key }) => key), ["merchantId"]);
+  assert.deepEqual(descriptor.credentialFields.map(({ key }) => key), ["merchantKey", "merchantSalt"]);
+});
+
 test("execution jobs parse every safe state without raw provider output", () => {
   for (const status of MERCHANT_ADMIN_PROVIDER_JOB_STATUSES) {
     assert.equal(parseMerchantAdminProviderJob(providerJobFixture(status)).status, status);

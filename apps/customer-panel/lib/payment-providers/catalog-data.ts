@@ -1,7 +1,9 @@
 import type {
   PaymentProviderCatalogEntry,
   PaymentProviderCategory,
+  PaymentProviderEnvironment,
   PaymentProviderInteractionMode,
+  PaymentProviderReadiness,
 } from "@celebix/saas-contracts";
 
 type RawEntry = Readonly<{
@@ -13,6 +15,8 @@ type RawEntry = Readonly<{
   category: PaymentProviderCategory;
   interactionMode: Exclude<PaymentProviderInteractionMode, "offline">;
   aliases?: readonly string[];
+  readiness?: PaymentProviderReadiness;
+  environments?: readonly PaymentProviderEnvironment[];
 }>;
 
 const UNKNOWN_SUPPORT = Object.freeze({
@@ -23,6 +27,7 @@ const UNKNOWN_SUPPORT = Object.freeze({
   capture: "unknown",
 } as const);
 const LIVE_ONLY = Object.freeze(["live"] as const);
+const TEST_AND_LIVE = Object.freeze(["test", "live"] as const);
 const RASTER_LOGO_FAMILIES = new Set(["erpapay", "paycell", "rubikpara", "vepara"]);
 
 function define(input: RawEntry): PaymentProviderCatalogEntry {
@@ -36,11 +41,11 @@ function define(input: RawEntry): PaymentProviderCatalogEntry {
     modeLabel: input.modeLabel,
     category: input.category,
     interactionMode: input.interactionMode,
-    readiness: "planned",
+    readiness: input.readiness ?? "planned",
     support: UNKNOWN_SUPPORT,
     logoPath: `/payment-providers/${input.familyCode}.${logoExtension}`,
     aliases: Object.freeze([...(input.aliases ?? [])]),
-    environments: LIVE_ONLY,
+    environments: input.environments ?? LIVE_ONLY,
   });
 }
 
@@ -128,7 +133,7 @@ export const RAW_PAYMENT_PROVIDER_CATALOG = Object.freeze([
   wallet("paycell", "paycell", "Paycell"),
   hosted("paynkolay", "paynkolay", "PayNKolay", "hosted", "Hosted Ödeme", ["pay n kolay"]),
   define({ sourceSlug: "paytr", familyCode: "paytr", modeCode: "direct_api", label: "PayTR", modeLabel: "Direct API", category: "payment_institution", interactionMode: "direct_pos", aliases: Object.freeze(["pay tr"]) }),
-  define({ sourceSlug: "paytr-iframe", familyCode: "paytr", modeCode: "iframe", label: "PayTR", modeLabel: "iFrame", category: "payment_institution", interactionMode: "iframe", aliases: Object.freeze(["pay tr"]) }),
+  define({ sourceSlug: "paytr-iframe", familyCode: "paytr", modeCode: "iframe", label: "PayTR", modeLabel: "iFrame", category: "payment_institution", interactionMode: "iframe", aliases: Object.freeze(["pay tr"]), readiness: "verification", environments: TEST_AND_LIVE }),
   hosted("qnbpay", "qnbpay", "QNBpay", "hosted", "Hosted Ödeme", ["qnb pay"]),
   hosted("rubikpara", "rubikpara", "RubikPara", "hosted", "Hosted Ödeme", ["rubik para"]),
   bank("sekerbank", "sekerbank", "Şekerbank", "virtual_pos", "Sanal POS", "direct_pos", ["sekerbank"]),

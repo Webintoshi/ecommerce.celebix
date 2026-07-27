@@ -118,7 +118,7 @@ test("catalog preserves the approved family and mode normalization", () => {
       entry.sourceSlug,
     );
     assert.equal(entry.providerCode, entry.sourceSlug.replaceAll("-", "_"));
-    assert.equal(entry.readiness, "planned");
+    assert.equal(entry.readiness, entry.providerCode === "paytr_iframe" ? "verification" : "planned");
     assert.deepEqual(entry.support, {
       threeDSecure: "unknown",
       installments: "unknown",
@@ -146,7 +146,10 @@ test("catalog codes stay aligned with inventory-only adapter source records", ()
       entry.sourceSlug,
     ]),
   );
-  assert(PAYMENT_ADAPTER_PACKET_INVENTORY.every((item) => item.implementationState === "inventory_only"));
+  assert.deepEqual(
+    PAYMENT_ADAPTER_PACKET_INVENTORY.filter((item) => item.implementationState === "executable").map((item) => item.providerCode),
+    ["paytr_iframe"],
+  );
 });
 
 test("catalog and all nested values are immutable copies", () => {
@@ -177,6 +180,8 @@ test("catalog logo paths are owned by the exact manifest family", () => {
     new Set(catalogModule.PAYMENT_PROVIDER_CATALOG!.map((entry) => entry.logoPath)),
     new Set(logoManifest.map((row) => row.file)),
   );
+  assert.equal(logoManifest.length, 48);
+  assert.equal(new Set(logoManifest.map((row) => row.file)).size, 48);
 });
 
 test("logo binding rejects missing duplicated remote and cross-family paths", () => {

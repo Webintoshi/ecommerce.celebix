@@ -33,6 +33,9 @@ test("registry returns a safe frozen descriptor entry", () => {
   assert.equal(registry.size, 1);
   assert.equal(registry.get("fixture_provider", "marketplace_sync"), selected);
   assert.equal(registry.get("fixture_provider", "email_delivery"), null);
+  assert.deepEqual(registry.codes("marketplace_sync"), ["fixture_provider"]);
+  assert.deepEqual(registry.codes("payment_processing"), []);
+  assert.equal(Object.isFrozen(registry.codes("marketplace_sync")), true);
 });
 
 test("registry rejects duplicates and overlapping field keys", () => {
@@ -57,4 +60,21 @@ test("registry rejects reused access objects and callable getters", () => {
   const hostile = Object.create(null) as Record<string, unknown>;
   Object.defineProperty(hostile, "providerCode", { enumerable: true, get() { throw new Error("getter"); } });
   assert.throws(() => createCustomerPanelProviderRegistry([hostile as never]), /customer_panel_provider_registry_invalid/);
+});
+
+test("registry passes the validated public config into credential parsing", () => {
+  let observed: unknown;
+  const selected = entry({
+    parseCredential(value: unknown, publicConfig: unknown) {
+      observed = publicConfig;
+      return new TextEncoder().encode(JSON.stringify(value));
+    },
+  });
+  const registry = createCustomerPanelProviderRegistry([selected]);
+  const publicConfig = Object.freeze({ account_reference: "merchant-42" });
+  registry.get("fixture_provider", "marketplace_sync")?.parseCredential(
+    { api_secret: "secret" },
+    publicConfig,
+  );
+  assert.strictEqual(observed, publicConfig);
 });

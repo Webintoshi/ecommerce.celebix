@@ -25,5 +25,10 @@ export default async function SettingsPaymentPage({
   const canManage = isMerchantActionAllowed(tenantContext.membership.role, "configuration.manage")
     && isMerchantActionAllowed(tenantContext.membership.role, "integrations.manage");
   const hints = paymentRouteHints(selected);
-  return <PaymentSettingsConsole canManage={canManage} initialDialog={hints.initialDialog} initialMethodId={hints.initialMethodId} />;
+  return <PaymentSettingsConsole
+    canManage={canManage}
+    storefrontHostname={tenantContext.resolvedHost?.canonicalHostname ?? null}
+    initialDialog={hints.initialDialog}
+    initialMethodId={hints.initialMethodId}
+  />;
 }

@@ -58,6 +58,95 @@ const PROFILE_STATUS = Object.freeze({
 });
 const BUILT_IN_PROFILE = Object.freeze({ label: "Yerleşik yöntem", tone: "neutral" as const });
 
+export type PaymentProviderConnectionView = Readonly<{
+  providerCode: string;
+  label: string;
+  environment: PaymentProviderEnvironment;
+  environmentLabel: "Test ortamı" | "Canlı ortam";
+  callbackUrl: string;
+  statusLabel: string;
+  statusTone: PaymentSettingsTone;
+  maskedAccountReference: string | null;
+  credentialVersionLabel: string | null;
+  lastValidatedAt: string | null;
+  canRotate: boolean;
+  submitLabel: "Bağlantıyı kaydet" | "Bilgileri yenile";
+  publicFields: readonly Readonly<{ key: string; label: string; initialValue: string }>[];
+  credentialFields: readonly Readonly<{
+    key: string;
+    label: string;
+    secret: true;
+    initialValue: "";
+  }>[];
+}>;
+
+function connectionInvalid(): never {
+  throw new TypeError("payment_provider_connection_invalid");
+}
+
+function canonicalStorefrontHostname(value: string): string {
+  if (
+    typeof value !== "string" || value.length < 3 || value.length > 253 ||
+    value !== value.toLowerCase() || !value.includes(".") ||
+    !/[a-z]/.test(value.slice(value.lastIndexOf(".") + 1)) ||
+    !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:[.][a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(value)
+  ) connectionInvalid();
+  return value;
+}
+
+export function buildPaymentProviderConnectionViewModel(input: Readonly<{
+  descriptor: MerchantProviderDescriptor;
+  environment: PaymentProviderEnvironment;
+  profile?: MerchantProviderProfile;
+  storefrontHostname: string;
+}>): PaymentProviderConnectionView {
+  const descriptor = cloneDescriptor(input.descriptor);
+  if (descriptor.capability !== "payment_processing") connectionInvalid();
+  const environment = input.environment;
+  if (environment !== "test" && environment !== "live") connectionInvalid();
+  const storefrontHostname = canonicalStorefrontHostname(input.storefrontHostname);
+  const selectedProfile = input.profile;
+  if (selectedProfile && (
+    selectedProfile.providerCode !== descriptor.providerCode ||
+    selectedProfile.capability !== descriptor.capability ||
+    selectedProfile.publicConfig.environment !== environment
+  )) connectionInvalid();
+  const profileStatus = selectedProfile ? PROFILE_STATUS[selectedProfile.status] : Object.freeze({
+    label: "Henüz bağlanmadı",
+    tone: "neutral" as const,
+  });
+  const canRotate = selectedProfile !== undefined && [
+    "pending_validation", "active", "rotation_required",
+  ].includes(selectedProfile.status);
+  return Object.freeze({
+    providerCode: descriptor.providerCode,
+    label: descriptor.label,
+    environment,
+    environmentLabel: environment === "test" ? "Test ortamı" : "Canlı ortam",
+    callbackUrl: `https://${storefrontHostname}/api/payments/${descriptor.providerCode}/callback/{işleme-özel-bağlantı}`,
+    statusLabel: profileStatus.label,
+    statusTone: profileStatus.tone,
+    maskedAccountReference: selectedProfile?.maskedAccountReference ?? null,
+    credentialVersionLabel: selectedProfile ? `Sürüm ${selectedProfile.credentialVersion}` : null,
+    lastValidatedAt: selectedProfile?.lastValidatedAt ?? null,
+    canRotate,
+    submitLabel: canRotate ? "Bilgileri yenile" : "Bağlantıyı kaydet",
+    publicFields: Object.freeze(descriptor.publicFields.map((field) => Object.freeze({
+      key: field.key,
+      label: field.label,
+      initialValue: typeof selectedProfile?.publicConfig[field.key] === "string"
+        ? selectedProfile.publicConfig[field.key] as string
+        : "",
+    }))),
+    credentialFields: Object.freeze(descriptor.credentialFields.map((field) => Object.freeze({
+      key: field.key,
+      label: field.label,
+      secret: true as const,
+      initialValue: "" as const,
+    }))),
+  });
+}
+
 export type PaymentProviderCatalogCard = Readonly<{
   providerCode: string;
   familyCode: string;
@@ -77,6 +166,7 @@ export type PaymentProviderCatalogCard = Readonly<{
   environmentLabel: string;
   connectable: boolean;
   actionLabel: "Bağla" | "Hazırlanıyor";
+  connectionEnvironment: PaymentProviderEnvironment | null;
   executableDescriptor: MerchantProviderDescriptor | null;
 }>;
 
@@ -145,6 +235,9 @@ function catalogCard(
     environmentLabel: environmentLabel(entry.environments),
     connectable,
     actionLabel: connectable ? "Bağla" : "Hazırlanıyor",
+    connectionEnvironment: connectable
+      ? entry.readiness === "production_ready" ? "live" : "test"
+      : null,
     executableDescriptor: descriptor ? cloneDescriptor(descriptor) : null,
   });
 }

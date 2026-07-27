@@ -207,7 +207,7 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
         if (!UUID.test(profileId)) throw new TypeError();
         const publicConfig = entry.parsePublicConfig(parsed.publicConfig);
         const maskedAccountReference = entry.maskAccountReference(publicConfig);
-        credential = bytes(entry.parseCredential(parsed.credential));
+        credential = bytes(entry.parseCredential(parsed.credential, publicConfig));
         const credentialDigest = createHash("sha256").update(credential).digest("hex");
         let credentialVersion = 1;
         if (existingProfileId !== null) {

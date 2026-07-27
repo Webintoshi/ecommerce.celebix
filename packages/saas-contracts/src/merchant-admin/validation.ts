@@ -46,14 +46,15 @@ const PROVIDER_EXECUTION_FIELDS = Object.freeze([
   "profileId", "providerCode", "credentialVersion", "attempt", "safeProviderReference", "outcomeCode",
 ] as const);
 function providerCode(value: unknown): string { const result = text(value, 1, 64); if (!PROVIDER_CODE.test(result)) invalid(); return result; }
+function providerFieldKey(value: unknown): string { const result = text(value, 1, 64); if (!KEY.test(result)) invalid(); return result; }
 function providerCapability(value: unknown): MerchantProviderCapability { if (!MERCHANT_PROVIDER_CAPABILITIES.includes(value as never)) invalid(); return value as MerchantProviderCapability; }
 function providerProfileStatus(value: unknown): MerchantProviderProfileStatus { if (!MERCHANT_PROVIDER_PROFILE_STATUSES.includes(value as never)) invalid(); return value as MerchantProviderProfileStatus; }
 function nullableText(value: unknown, min: number, max: number): string | null { return value === null ? null : text(value, min, max); }
 function nullableUuid(value: unknown): string | null { return value === null ? null : uuid(value); }
 function nullableInteger(value: unknown, min: number): number | null { return value === null ? null : integer(value, min); }
 function nullableTimestamp(value: unknown): string | null { return value === null ? null : timestamp(value); }
-function providerField(value: unknown): Readonly<MerchantProviderFieldDescriptor> { const parsed = exact(value, ["key", "label"]); return Object.freeze({ key: providerCode(parsed.key), label: text(parsed.label, 1, 120) }); }
-function providerCredentialField(value: unknown): Readonly<MerchantProviderCredentialFieldDescriptor> { const parsed = exact(value, ["key", "label", "secret"]); if (parsed.secret !== true) invalid(); return Object.freeze({ key: providerCode(parsed.key), label: text(parsed.label, 1, 120), secret: true }); }
+function providerField(value: unknown): Readonly<MerchantProviderFieldDescriptor> { const parsed = exact(value, ["key", "label"]); return Object.freeze({ key: providerFieldKey(parsed.key), label: text(parsed.label, 1, 120) }); }
+function providerCredentialField(value: unknown): Readonly<MerchantProviderCredentialFieldDescriptor> { const parsed = exact(value, ["key", "label", "secret"]); if (parsed.secret !== true) invalid(); return Object.freeze({ key: providerFieldKey(parsed.key), label: text(parsed.label, 1, 120), secret: true }); }
 function descriptorFields<T>(value: unknown, parser: (entry: unknown) => T): readonly T[] { if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > 32) invalid(); const keys = Reflect.ownKeys(value), descriptors = Object.getOwnPropertyDescriptors(value); if (keys.length !== value.length + 1 || !Object.hasOwn(descriptors, "length")) invalid(); const result: T[] = []; for (let index = 0; index < value.length; index += 1) { const descriptor = descriptors[String(index)]; if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) invalid(); result.push(parser(descriptor.value)); } return Object.freeze(result); }
 function providerExecutionFields(parsed: Record<string, unknown>, status: MerchantAdminProviderJobStatus) {
   const present = PROVIDER_EXECUTION_FIELDS.filter((field) => Object.hasOwn(parsed, field));

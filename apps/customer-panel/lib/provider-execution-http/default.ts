@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
+import { listDefaultCustomerPanelPaymentProviderCodes } from "../payment-provider-adapters/default.ts";
 import { resolveDefaultServerPanelAccessRuntime } from "../server-panel-access/default.ts";
 import { resolveServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { createProviderExecutionHttpHandlers } from "./handler.ts";
@@ -15,7 +16,9 @@ const handlers = createProviderExecutionHttpHandlers({
   now: () => new Date(),
   requestId: randomUUID,
   profileId: randomUUID,
-  providerCodes: () => Object.freeze([]),
+  providerCodes: (capability) => capability === "payment_processing"
+    ? listDefaultCustomerPanelPaymentProviderCodes()
+    : Object.freeze([]),
 });
 
 type ProfileContext = Readonly<{ params: Promise<Readonly<{ profileId: string }>> }>;

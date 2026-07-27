@@ -8,6 +8,7 @@ import {
   PostgresCatalogRepository,
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
+  PostgresMerchantProviderProfileRepository,
   PostgresPaymentMethodRepository,
   PostgresAnalyticsRepository,
   PostgresCustomerRepository,
@@ -17,9 +18,14 @@ import {
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
 } from "@celebix/saas-data";
+import { createBoundedProviderTransport } from "@celebix/payment-adapters";
 import pg from "pg";
 
 import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
+import {
+  createDefaultCustomerPanelPaymentProviderRegistry,
+  createDefaultHostedPaymentAdapterRegistry,
+} from "../payment-provider-adapters/default.ts";
 import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import { createPostgresPanelSessionRepository } from "../panel-session-persistence/postgres-panel-session-repository.ts";
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
@@ -32,6 +38,7 @@ import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
 import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
 import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
+import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
   parseQuickLinkServerConfig,
@@ -154,6 +161,11 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS merchant_admin_repository,
+      to_regprocedure('saas.merchant_provider_profile_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_provider_profile_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_provider_profile_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_provider_profile_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_provider_profile_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS merchant_provider_profile_repository,
       to_regclass('saas.payment_methods') IS NOT NULL
         AND to_regclass('saas.payment_method_operations') IS NOT NULL
         AND to_regprocedure('saas.payment_method_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
@@ -247,6 +259,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.customer_repository !== true ||
       row.catalog_admin_repository !== true ||
       row.merchant_admin_repository !== true ||
+      row.merchant_provider_profile_repository !== true ||
       row.payment_method_repository !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.analytics_repository !== true ||
@@ -335,6 +348,22 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       timeouts: TIMEOUTS,
       audit: () => undefined,
     });
+    const providerProfileRepository = new PostgresMerchantProviderProfileRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
+    const hostedPaymentAdapters = createDefaultHostedPaymentAdapterRegistry(
+      createBoundedProviderTransport({
+        fetch: (request) => fetch(request),
+        timeoutMs: 5_000,
+        maximumResponseBytes: 262_144,
+      }),
+    );
+    const paymentProviderRegistry = createDefaultCustomerPanelPaymentProviderRegistry(
+      hostedPaymentAdapters,
+    );
     const analyticsRepository = new PostgresAnalyticsRepository({
       pool,
       role: "celebix_saas_app",
@@ -375,6 +404,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCatalogAdminRepository(access, catalogAdminRepository);
     registerServerMerchantAdminRepository(access, merchantAdminRepository);
     registerServerPaymentMethodRepository(access, paymentMethodRepository);
+    registerServerProviderExecutionRuntime(
+      access,
+      providerProfileRepository,
+      quickLinksConfig.keyring,
+      paymentProviderRegistry,
+      hostedPaymentAdapters,
+    );
     registerServerAnalyticsRepository(access, analyticsRepository);
     registerServerInventoryRepository(access, inventoryRepository);
     registerServerPricingRepository(access, pricingRepository);

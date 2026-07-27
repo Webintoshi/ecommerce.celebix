@@ -2,6 +2,7 @@ import type {
   MerchantProviderCredentialKeyring,
   MerchantProviderProfileRepository,
 } from "@celebix/saas-data";
+import type { PaymentAdapterRegistry } from "@celebix/payment-adapters";
 
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 import {
@@ -19,6 +20,7 @@ export type ServerProviderExecutionRuntime = Readonly<{
   profiles: MerchantProviderProfileRepository;
   keyring: MerchantProviderCredentialKeyring;
   registry: MerchantProviderRegistry;
+  adapters: PaymentAdapterRegistry;
 }>;
 
 type StoredKeyring = Readonly<{
@@ -109,21 +111,47 @@ function snapshotKeyring(value: StoredKeyring): MerchantProviderCredentialKeyrin
   });
 }
 
+function adapterRegistry(
+  value: PaymentAdapterRegistry,
+  registry: MerchantProviderRegistry,
+): PaymentAdapterRegistry {
+  if (
+    !value || typeof value !== "object" || !Object.isFrozen(value) ||
+    !Number.isSafeInteger(value.size) || value.size < 0 ||
+    typeof value.packet !== "function" || typeof value.adapter !== "function"
+  ) invalid();
+  const paymentCodes = registry.codes("payment_processing");
+  if (value.size !== paymentCodes.length) invalid();
+  for (const providerCode of paymentCodes) {
+    const adapter = value.adapter(providerCode);
+    const packet = value.packet(providerCode);
+    if (
+      adapter === null || packet === null || adapter.packet !== packet ||
+      packet.providerCode !== providerCode ||
+      registry.get(providerCode, "payment_processing") === null
+    ) invalid();
+  }
+  return value;
+}
+
 export function registerServerProviderExecutionRuntime(
   access: ServerPanelAccessRuntime,
   profiles: MerchantProviderProfileRepository,
   keyring: MerchantProviderCredentialKeyring,
   registry: MerchantProviderRegistry,
+  adapters: PaymentAdapterRegistry,
 ): void {
   try {
     if (!access || access.readiness.mode !== "approved_staging" || access.panelOrigin === null || RUNTIMES.has(access) || !isCustomerPanelProviderRegistry(registry)) invalid();
     const selectedProfiles = profileFacade(profiles);
     const selectedKeyring = storeKeyring(keyring);
+    const selectedAdapters = adapterRegistry(adapters, registry);
     const runtime = Object.freeze({
       access: access as ApprovedAccess,
       profiles: selectedProfiles,
       get keyring() { return snapshotKeyring(selectedKeyring); },
       registry,
+      adapters: selectedAdapters,
     });
     RUNTIMES.set(access, runtime);
   } catch { invalid(); }

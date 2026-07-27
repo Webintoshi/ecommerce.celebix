@@ -36,7 +36,7 @@ test("approved runtime exposes only a frozen repository facade and truthful cata
   assert.deepEqual(Object.keys(runtime.methods), ["list", "save", "setState", "reorder", "recoverOperation"]);
   assert.equal("pool" in runtime.methods, false);
   assert.equal(runtime.catalog.length, 58);
-  assert.equal(runtime.catalog.every((entry) => entry.readiness === "planned"), true);
+  assert.deepEqual(runtime.catalog.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode), ["paytr_iframe"]);
   assert.equal(resolveServerPaymentMethodsRuntime(access("disabled")), null);
 });
 
