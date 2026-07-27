@@ -19,7 +19,7 @@ const SURROGATE = /(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\u
 const CODE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 const FIELD_KEY = /^[a-z][A-Za-z0-9]{0,63}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const CARD_INPUT_SEMANTIC = /(?:cardnumber|fullcardnumber|primaryaccountnumber|securitycode|cvv|cvc|pan|expiry|expiration|exp(?:date|month|year)?)/;
+const CARD_INPUT_SEMANTIC = /(?:cardnumber|fullcardnumber|primaryaccountnumber|securitycode|cvv|cvc|pan|expiry|expiration|exp(?:date|month|year)?|track[123]|magneticstripe|magstripe)/;
 const EXECUTABLE_ENDPOINTS = Object.freeze({
   paytr_iframe: Object.freeze({
     test: Object.freeze([

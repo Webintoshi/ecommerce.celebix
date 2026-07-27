@@ -132,6 +132,14 @@ test("rejects direct-card field semantics across prefixes, suffixes, separators,
     ["card_security_code", "snake-case security code"],
     ["paymentExpirationDate", "expiration class"],
     ["expiry_month", "expiry class"],
+    ["track1", "track one"],
+    ["track2", "track two"],
+    ["track3", "track three"],
+    ["magneticStripe", "magnetic stripe"],
+    ["magnetic_stripe", "snake-case magnetic stripe"],
+    ["mag-stripe", "kebab-case magstripe"],
+    ["legacyTrack3Value", "track prefix and suffix"],
+    ["merchantMagStripeConfig", "magstripe prefix and suffix"],
   ];
 
   for (const [key, caseName] of cases) {
