@@ -153,6 +153,8 @@ test("empty registry definitions remain truthful while profile mutation is unava
   const probe = fixture("store_owner", true);
   const definitions = await probe.handlers.definitions(request("GET", "/api/merchant-providers/definitions?capability=marketplace_sync"));
   assert.deepEqual(await definitions.json(), { items: [] });
+  const paymentDefinitions = await probe.handlers.definitions(request("GET", "/api/merchant-providers/definitions?capability=payment_processing"));
+  assert.deepEqual(await paymentDefinitions.json(), { items: [] });
   const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {}));
   assert.equal(response.status, 503);
   assert.equal(probe.repositoryCalls.length, 0);

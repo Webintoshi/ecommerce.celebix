@@ -8,6 +8,7 @@ import {
   PostgresCatalogRepository,
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
+  PostgresPaymentMethodRepository,
   PostgresAnalyticsRepository,
   PostgresCustomerRepository,
   PostgresInventoryRepository,
@@ -24,6 +25,7 @@ import { createPostgresPanelSessionRepository } from "../panel-session-persisten
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
+import { registerServerPaymentMethodRepository } from "../server-payment-methods/runtime.ts";
 import { registerServerAnalyticsRepository } from "../server-analytics/runtime.ts";
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
@@ -152,6 +154,13 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS merchant_admin_repository,
+      to_regclass('saas.payment_methods') IS NOT NULL
+        AND to_regclass('saas.payment_method_operations') IS NOT NULL
+        AND to_regprocedure('saas.payment_method_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.payment_method_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.payment_method_set_state(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text)') IS NOT NULL
+        AND to_regprocedure('saas.payment_method_reorder(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.payment_method_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS payment_method_repository,
       to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
@@ -238,6 +247,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.customer_repository !== true ||
       row.catalog_admin_repository !== true ||
       row.merchant_admin_repository !== true ||
+      row.payment_method_repository !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.analytics_repository !== true ||
       row.inventory_relations !== true || row.inventory_repository !== true ||
@@ -319,6 +329,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const paymentMethodRepository = new PostgresPaymentMethodRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
     const analyticsRepository = new PostgresAnalyticsRepository({
       pool,
       role: "celebix_saas_app",
@@ -358,6 +374,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCustomerRepository(access, customerRepository);
     registerServerCatalogAdminRepository(access, catalogAdminRepository);
     registerServerMerchantAdminRepository(access, merchantAdminRepository);
+    registerServerPaymentMethodRepository(access, paymentMethodRepository);
     registerServerAnalyticsRepository(access, analyticsRepository);
     registerServerInventoryRepository(access, inventoryRepository);
     registerServerPricingRepository(access, pricingRepository);
