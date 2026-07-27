@@ -209,7 +209,7 @@ BEGIN
     ))
     OR (OLD.status='provider_outcome_unknown' AND NEW.status='reconciliation_required')
     OR (OLD.status='reconciliation_required' AND NEW.status IN(
-      'captured','failed','provider_outcome_unknown'
+      'captured','failed','provider_outcome_unknown','reconciliation_required'
     ))
     OR (OLD.status='captured' AND NEW.status='partially_refunded')
     OR (OLD.status='partially_refunded' AND NEW.status='refunded')
@@ -833,9 +833,20 @@ BEGIN
       OR operation.payload_fingerprint<>p_fingerprint
     THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
     ELSE
-      result:=saas.payment_attempt_claim_projection(p_attempt_id);
-      IF result IS NULL THEN result:=operation.result_payload||'{"replayed":true}'::jsonb;
-      ELSE result:=result||'{"replayed":true}'::jsonb; END IF;
+      SELECT operation.result_payload||pg_catalog.jsonb_build_object(
+        'publicConfig',profile.public_config,
+        'sealedCredentials',profile.sealed_credentials
+      ) INTO result
+      FROM saas.payment_attempts AS replay_attempt
+      JOIN saas.merchant_provider_profiles AS profile
+        ON profile.store_id=replay_attempt.store_id
+        AND profile.id=replay_attempt.profile_id
+        AND profile.provider_code=replay_attempt.provider_code
+        AND profile.credential_version=replay_attempt.credential_version
+      WHERE replay_attempt.id=operation.attempt_id;
+      IF result IS NULL THEN
+        RETURN QUERY SELECT 'credential_version_mismatch',NULL::jsonb; RETURN;
+      END IF;
       RETURN QUERY SELECT 'operation_replayed',result;
     END IF;
     RETURN;
@@ -845,7 +856,11 @@ BEGIN
   IF attempt.version<>p_expected_version THEN
     RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN;
   END IF;
-  IF attempt.status<>'provider_outcome_unknown' THEN
+  IF NOT (
+    attempt.status='provider_outcome_unknown'
+    OR (attempt.status='reconciliation_required'
+      AND attempt.reconciliation_lease_expires_at<=p_now)
+  ) THEN
     RETURN QUERY SELECT 'invalid_transition',NULL::jsonb; RETURN;
   END IF;
   IF EXISTS(
@@ -874,15 +889,15 @@ BEGIN
     'reconciliation_required',attempt.version+1,attempt.safe_provider_reference,
     'reconciliation_claimed',NULL,p_fingerprint,p_now
   );
-  result:=saas.payment_attempt_mutation_projection(attempt.id,false);
+  result:=saas.payment_attempt_claim_projection(attempt.id);
   INSERT INTO saas.payment_attempt_operations(
     operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,
     result_payload,committed_at
   ) VALUES(
     p_operation_id,attempt.store_id,attempt.id,'claim_reconciliation',
-    p_fingerprint,result,p_now
+    p_fingerprint,result-ARRAY['publicConfig','sealedCredentials']::text[],p_now
   );
-  RETURN QUERY SELECT 'claimed',saas.payment_attempt_claim_projection(attempt.id);
+  RETURN QUERY SELECT 'claimed',result;
 END
 $f$;
 

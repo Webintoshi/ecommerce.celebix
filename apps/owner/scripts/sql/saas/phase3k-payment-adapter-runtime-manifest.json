@@ -336,11 +336,11 @@
     },
     {
       "file": "202607270052_payment_adapter_runtime.up.sql",
-      "sha256": "18711dca311ac37467d263949d382ac719a68fc9f6cedc31fe2cef4e06ace79b"
+      "sha256": "48472767b968d52803635c74a6369fdffa7802385595640a9e7ab034a753153a"
     },
     {
       "file": "202607270052_payment_adapter_runtime_assertions.sql",
-      "sha256": "0a2b410f5a16516c35c888341432b268ed480e62a1ff73ecdf63808458f79632"
+      "sha256": "c50aeefcf8f2183048325ffc77256cb5eb9d1c50b95a7dbdbab0747c59e8b867"
     }
   ],
   "rollbackArtifacts": [

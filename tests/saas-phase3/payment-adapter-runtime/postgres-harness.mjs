@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { accessSync, constants, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
@@ -35,6 +35,10 @@ const previousManifest = JSON.parse(
   readFileSync(path.join(SQL, "phase3j-payment-method-admin-manifest.json"), "utf8"),
 );
 const PRIOR = previousManifest.migrationChain.map(({ file }) => file);
+const ASSERTION_SQL = readFileSync(
+  path.join(SQL, "202607270052_payment_adapter_runtime_assertions.sql"),
+  "utf8",
+);
 
 function executable(name) {
   for (const directory of [PG16, ...(process.env.PATH ?? "").split(path.delimiter)]) {
@@ -95,12 +99,50 @@ function psql(box, source, database = DB, allowFailure = false) {
   ], { input: source, allowFailure });
 }
 
+function psqlAsync(box, source, database = DB) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(box.executables.psql, [
+      "-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+      "-U", "postgres", "-d", database,
+    ], {
+      cwd: ROOT,
+      env: { ...process.env, LC_ALL: "C", LANG: "C" },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (value) => { stdout += value; });
+    child.stderr.setEncoding("utf8").on("data", (value) => { stderr += value; });
+    child.once("error", reject);
+    child.once("close", (status) => {
+      if (status === 0) resolve({ stdout, stderr });
+      else reject(new Error(`psql failed\n${stderr}`));
+    });
+    child.stdin.end(source);
+  });
+}
+
 function apply(box, file, database = DB) {
   psql(box, readFileSync(path.join(SQL, file), "utf8"), database);
 }
 
+function assertAssertionDriftRejected(box, mutation, expected) {
+  const result = psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
+${mutation}
+${ASSERTION_SQL}`, DB, true);
+  assert.notEqual(result.status, 0, mutation);
+  assert.match(result.stderr, expected);
+}
+
 function call(box, name, args, database = DB) {
   const result = psql(box, `SET ROLE celebix_saas_workflow;
+SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+FROM saas.${name}(${args});`, database);
+  return JSON.parse(result.stdout.trim());
+}
+
+async function callAsync(box, name, args, database = DB) {
+  const result = await psqlAsync(box, `SET ROLE celebix_saas_workflow;
 SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
 FROM saas.${name}(${args});`, database);
   return JSON.parse(result.stdout.trim());
@@ -184,7 +226,7 @@ function settle(box, {
   ].join(","));
 }
 
-function claim(box, {
+function claimArguments({
   attemptId = UNKNOWN_ATTEMPT,
   operationId = "71000000-0000-4000-8000-000000000001",
   fingerprint = FINGERPRINT,
@@ -192,11 +234,20 @@ function claim(box, {
   workerId = "worker.reconcile",
   leaseId = "72000000-0000-4000-8000-000000000001",
   now = LATER,
+  leaseExpiresAt = "2026-07-27T12:06:00.000Z",
 } = {}) {
-  return call(box, "payment_attempt_claim_reconciliation", [
+  return [
     `'${attemptId}'`, `'${operationId}'`, `'${fingerprint}'`, expectedVersion,
-    `'${workerId}'`, `'${leaseId}'`, `'${now}'`, "'2026-07-27T12:06:00.000Z'",
-  ].join(","));
+    `'${workerId}'`, `'${leaseId}'`, `'${now}'`, `'${leaseExpiresAt}'`,
+  ].join(",");
+}
+
+function claim(box, input = {}) {
+  return call(box, "payment_attempt_claim_reconciliation", claimArguments(input));
+}
+
+function claimAsync(box, input = {}) {
+  return callAsync(box, "payment_attempt_claim_reconciliation", claimArguments(input));
 }
 
 function finalize(box, {
@@ -271,7 +322,7 @@ FROM (
   FROM pg_catalog.pg_constraint WHERE conrelid='saas.checkout_payment_attempts'::regclass
 ) AS preserved(definition);`;
 
-const TOTAL = 25;
+const TOTAL = 30;
 let count = 0;
 async function scenario(name, run) {
   await run();
@@ -293,6 +344,40 @@ async function main() {
     await scenario("PostgreSQL 16 and 052 assertions pass", () => {
       assert.match(psql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
       apply(box, "202607270052_payment_adapter_runtime_assertions.sql");
+    });
+
+    await scenario("052 assertions reject exact relation ACL drift for browser-like roles", () => {
+      assertAssertionDriftRejected(
+        box,
+        "GRANT SELECT ON saas.payment_attempt_operations TO celebix_saas_identity;",
+        /PAYMENT_ADAPTER_RUNTIME_RELATION_ACL_INVALID/,
+      );
+    });
+
+    await scenario("052 assertions reject function search_path and exact body drift", () => {
+      assertAssertionDriftRejected(
+        box,
+        `ALTER FUNCTION saas.payment_attempt_claim_reconciliation(
+          uuid,uuid,text,bigint,text,uuid,timestamptz,timestamptz
+        ) SET search_path=public;`,
+        /PAYMENT_ADAPTER_RUNTIME_FUNCTION_METADATA_INVALID/,
+      );
+      assertAssertionDriftRejected(
+        box,
+        `CREATE OR REPLACE FUNCTION saas.payment_attempt_mutation_projection(
+          p_attempt_id uuid,p_replayed boolean
+        ) RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas
+        AS $drift$ SELECT '{}'::jsonb $drift$;`,
+        /PAYMENT_ADAPTER_RUNTIME_FUNCTION_DEFINITION_INVALID/,
+      );
+    });
+
+    await scenario("052 assertions reject exact immutable-trigger drift", () => {
+      assertAssertionDriftRejected(
+        box,
+        "ALTER TABLE saas.payment_attempt_events DISABLE TRIGGER payment_attempt_events_immutable;",
+        /PAYMENT_ADAPTER_RUNTIME_TRIGGER_INVALID/,
+      );
     });
 
     await scenario("relations are owner-scoped forced-RLS and preserve checkout authority", () => {
@@ -479,10 +564,57 @@ AND relation.relrowsecurity AND relation.relforcerowsecurity AND owner_role.roln
       assert.equal(finalize(box, { expectedVersion: unknownVersion, currency: "USD" }).outcome, "currency_mismatch");
     });
 
-    await scenario("reconciliation_required transitions to captured", () => {
-      const result = finalize(box, { expectedVersion: unknownVersion });
+    let reclaimedLease;
+    await scenario("two expired-lease reclaimers admit one new fence and reject the old worker", async () => {
+      const contenders = [
+        {
+          operationId: "71000000-0000-4000-8000-000000000011",
+          expectedVersion: unknownVersion,
+          workerId: "worker.reclaim.a",
+          leaseId: "72000000-0000-4000-8000-000000000011",
+          now: "2026-07-27T12:07:00.000Z",
+          leaseExpiresAt: "2026-07-27T12:12:00.000Z",
+        },
+        {
+          operationId: "71000000-0000-4000-8000-000000000012",
+          expectedVersion: unknownVersion,
+          workerId: "worker.reclaim.b",
+          leaseId: "72000000-0000-4000-8000-000000000012",
+          now: "2026-07-27T12:07:00.000Z",
+          leaseExpiresAt: "2026-07-27T12:12:00.000Z",
+        },
+      ];
+      const results = await Promise.all(contenders.map((input) => claimAsync(box, input)));
+      assert.deepEqual(results.map(({ outcome }) => outcome).sort(), ["claimed", "version_conflict"]);
+      const winnerIndex = results.findIndex(({ outcome }) => outcome === "claimed");
+      reclaimedLease = { ...contenders[winnerIndex], result: results[winnerIndex].result };
+      unknownVersion = reclaimedLease.result.version;
+      assert.equal(finalize(box, {
+        operationId: "73000000-0000-4000-8000-000000000011",
+        expectedVersion: unknownVersion,
+        now: "2026-07-27T12:08:00.000Z",
+      }).outcome, "lease_lost");
+    });
+
+    await scenario("the reclaimed worker finalizes the attempt", () => {
+      const result = finalize(box, {
+        expectedVersion: unknownVersion,
+        workerId: reclaimedLease.workerId,
+        leaseId: reclaimedLease.leaseId,
+        now: "2026-07-27T12:08:00.000Z",
+      });
       assert.equal(result.outcome, "captured");
       assert.equal(result.result.status, "captured");
+    });
+
+    await scenario("claim replay remains byte-identical after finalization and rejects fingerprint drift", () => {
+      const replay = claim(box, { expectedVersion: 2 });
+      assert.equal(replay.outcome, "operation_replayed");
+      assert.deepEqual(replay.result, reconciliation.result);
+      assert.equal(claim(box, {
+        expectedVersion: 2,
+        fingerprint: "d".repeat(64),
+      }).outcome, "operation_mismatch");
     });
 
     await scenario("created transitions directly to failed", () => {

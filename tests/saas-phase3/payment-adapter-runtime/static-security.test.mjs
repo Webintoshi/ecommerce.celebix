@@ -154,12 +154,31 @@ test("catalog assertions and phase 3K manifest pin the exact chain through 052",
   }
 });
 
+test("live assertions pin exact ACL metadata definitions and immutable trigger bindings", () => {
+  for (const role of [
+    "celebix_saas_identity", "celebix_saas_app", "celebix_saas_workflow",
+    "celebix_saas_host_resolver", "celebix_saas_bootstrap",
+    "celebix_saas_observability", "celebix_saas_migrator",
+  ]) assert.match(assertions, new RegExp(`'${role}'`));
+  assert.match(assertions, /aclexplode\(/);
+  assert.match(assertions, /SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER/);
+  assert.match(assertions, /proconfig IS NOT DISTINCT FROM\s*ARRAY\['search_path=pg_catalog, saas'\]/);
+  assert.match(assertions, /pg_get_function_result\(/);
+  assert.match(assertions, /JOIN pg_catalog\.pg_language/);
+  assert.match(assertions, /md5\(procedure\.prosrc\)/);
+  assert.match(assertions, /PAYMENT_ADAPTER_RUNTIME_FUNCTION_DEFINITION_INVALID/);
+  assert.match(assertions, /trigger\.tgtype=27/);
+  assert.match(assertions, /trigger\.tgenabled='O'/);
+  assert.match(assertions, /trigger\.tgfoid=expected\.function_oid/);
+  assert.match(assertions, /PAYMENT_ADAPTER_RUNTIME_TRIGGER_INVALID/);
+});
+
 test("current cumulative runner executes payment adapter runtime after provider administration", () => {
   const runner = readFileSync(RUNNER_FILE, "utf8");
   const adminHarness = runner.indexOf("payment-provider-admin/postgres-harness.mjs");
   const runtimeHarness = runner.indexOf("payment-adapter-runtime/postgres-harness.mjs");
   assert.ok(adminHarness >= 0);
   assert.ok(runtimeHarness > adminHarness);
-  assert.match(runner, /payment-adapter-runtime\/postgres-harness\.mjs["'],\s*\n\s*total:\s*25/);
+  assert.match(runner, /payment-adapter-runtime\/postgres-harness\.mjs["'],\s*\n\s*total:\s*30/);
   assert.match(runner, /payment-adapter-runtime["']:\s*2/);
 });
