@@ -273,6 +273,7 @@ test("dependency lockfiles donor and deployment surfaces stay outside the comple
     "packages/*/package.json",
   ), [
     "apps/customer-panel/package.json",
+    "apps/owner/package.json",
     "apps/storefront-shared/package.json",
     "package-lock.json",
     "packages/payment-adapters/package.json",

@@ -76,6 +76,7 @@ function workflowClaim(): MerchantProviderWorkflowClaim {
 }
 
 type ProbeOptions = Readonly<{
+  mode?: "validation_only" | "validation_and_execution";
   validation?: "validated" | "rejected";
   execution?: "succeeded" | "provider_outcome_unknown";
   profileClaim?: boolean;
@@ -149,6 +150,7 @@ function probe(options: ProbeOptions = {}) {
     async reconcile() { throw new Error("unexpected_adapter_reconcile"); },
   } satisfies MerchantProviderAdapter);
   const worker = createMerchantProviderWorker({
+    mode: options.mode ?? "validation_and_execution",
     repository,
     registry: createMerchantProviderAdapterRegistry(Object.freeze([adapter])),
     keyring: KEYRING,
@@ -187,6 +189,16 @@ test("worker maps possible side effect to unknown without second adapter call", 
   assert.equal(selected.retained[0]?.every((byte) => byte === 0), true);
 });
 
+test("validation-only worker returns empty without touching the legacy generic claim", async () => {
+  const selected = probe({ mode: "validation_only", profileClaim: false, jobClaim: true });
+  assert.deepEqual(await selected.worker.runOnce(), { kind: "empty" });
+  assert.equal(selected.calls.profileClaim, 1);
+  assert.equal(selected.calls.jobClaim, 0);
+  assert.equal(selected.calls.execute, 0);
+  assert.equal(selected.calls.finalize, 0);
+  assert.equal(selected.retained.length, 0);
+});
+
 test("successful execution finalizes one exact safe provider reference", async () => {
   const selected = probe({ profileClaim: false, execution: "succeeded" });
   assert.deepEqual(await selected.worker.runOnce(), { kind: "succeeded" });
@@ -207,6 +219,7 @@ test("an explicitly empty registry never claims or contacts a provider", async (
     async recover() { throw new Error("repository_touched"); },
   } as unknown as MerchantProviderWorkflowRepository;
   const worker = createMerchantProviderWorker({
+    mode: "validation_only",
     repository,
     registry: createMerchantProviderAdapterRegistry(Object.freeze([])),
     keyring: KEYRING,

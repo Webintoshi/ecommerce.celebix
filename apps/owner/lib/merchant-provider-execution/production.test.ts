@@ -164,3 +164,50 @@ test("preflight failure closes the pool before any claim or provider network cal
   assert.equal(calls, 0);
   assert.equal(client.calls.some(({ text }) => text.includes("merchant_provider_profile_claim_validation")), false);
 });
+
+test("production validation-only worker never falls through to the legacy generic queue after repeated empty claims", async () => {
+  let closed = 0;
+  let providerCalls = 0;
+  let checkouts = 0;
+  const preflight = new Client((text) => text.includes("paytr_iframe_activation_preflight") ? [{
+    version_num: 160002,
+    database_name: "celebix_saas_production",
+    current_role: "celebix_saas_workflow",
+    session_is_superuser: false,
+    workflow_member: true,
+    preflight_body_valid: true,
+    activation_authority: true,
+  }] : []);
+  const emptyClaims = [0, 1].map(() => new Client((text) =>
+    text.includes("merchant_provider_profile_claim_validation")
+      ? [{ outcome: "empty", result_payload: null }]
+      : []));
+  const clients = [preflight, ...emptyClaims];
+  const runtime = await initializeMerchantProviderProductionRuntime(config(), Object.freeze({
+    createPool: () => ({
+      async connect() {
+        checkouts += 1;
+        const client = clients.shift();
+        if (!client) throw new Error("legacy_generic_claim_checkout");
+        return client;
+      },
+      async end() { closed += 1; },
+    }),
+    async fetch() { providerCalls += 1; throw new Error("must_not_fetch"); },
+    uuid: () => LEASE,
+    now: () => new Date(NOW),
+    audit() {},
+  }));
+
+  assert.deepEqual(await runtime.runOnce(), { kind: "empty" });
+  assert.deepEqual(await runtime.runOnce(), { kind: "empty" });
+  assert.equal(checkouts, 3);
+  assert.equal(providerCalls, 0);
+  assert.equal(clients.length, 0);
+  for (const claim of emptyClaims) {
+    assert.equal(claim.calls.some(({ text }) => text.includes("merchant_provider_claim(")), false);
+    assert.equal(claim.calls.some(({ text }) => text.includes("merchant_provider_finalize")), false);
+  }
+  await runtime.close();
+  assert.equal(closed, 1);
+});

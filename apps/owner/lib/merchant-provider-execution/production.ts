@@ -113,6 +113,7 @@ export async function initializeMerchantProviderProductionRuntime(
       audit: () => dependencies.audit("merchant_provider_finalize_commit_unknown"),
     });
     const worker = createMerchantProviderWorker(Object.freeze({
+      mode: "validation_only",
       repository,
       registry,
       keyring: config.keyring,

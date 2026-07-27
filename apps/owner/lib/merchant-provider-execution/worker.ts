@@ -16,7 +16,7 @@ const WORKER = /^[A-Za-z0-9._-]{1,128}$/;
 const OUTCOME_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const OPTION_KEYS = Object.freeze([
-  "repository", "registry", "keyring", "workerId", "now", "leaseDurationMs", "audit",
+  "mode", "repository", "registry", "keyring", "workerId", "now", "leaseDurationMs", "audit",
 ]);
 
 function invalid(): never {
@@ -211,6 +211,7 @@ function selectOptions(value: MerchantProviderWorkerOptions): MerchantProviderWo
   const repository = parsed.repository as MerchantProviderWorkerOptions["repository"];
   const registry = parsed.registry as MerchantProviderWorkerOptions["registry"];
   if (
+    (parsed.mode !== "validation_only" && parsed.mode !== "validation_and_execution") ||
     !repository || typeof repository !== "object" ||
     !registry || typeof registry !== "object" || !Object.isFrozen(registry) ||
     !Number.isSafeInteger(registry.size) || registry.size < 0 || typeof registry.get !== "function" ||
@@ -224,6 +225,7 @@ function selectOptions(value: MerchantProviderWorkerOptions): MerchantProviderWo
     if (typeof repository[method] !== "function") invalid();
   }
   return Object.freeze({
+    mode: parsed.mode as MerchantProviderWorkerOptions["mode"],
     repository,
     registry,
     keyring: parsed.keyring as MerchantProviderWorkerOptions["keyring"],
@@ -250,6 +252,7 @@ export async function runMerchantProviderWorkerOnce(options: MerchantProviderWor
       return validateProfile(options, validation.profile, adapter, selectedNow);
     }
   }
+  if (options.mode === "validation_only") return result("empty");
   const execution = await options.repository.claim({ workerId: options.workerId, now: selectedNow, leaseExpiresAt });
   if (execution.kind === "empty") return result("empty");
   const adapter = options.registry.get(execution.job.providerCode, execution.job.capability);

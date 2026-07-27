@@ -15,6 +15,8 @@ export type ProviderExecutionOutcome =
   | Readonly<{ kind: "permanently_failed"; outcomeCode: string }>
   | Readonly<{ kind: "provider_outcome_unknown"; outcomeCode: "transport_outcome_unknown" }>;
 
+export type MerchantProviderWorkerMode = "validation_only" | "validation_and_execution";
+
 export interface MerchantProviderAdapter {
   readonly providerCode: string;
   readonly capability: MerchantProviderCapability;
@@ -52,6 +54,7 @@ export type MerchantProviderWorkerResult = Readonly<{ kind:
 }>;
 
 export interface MerchantProviderWorkerOptions {
+  readonly mode: MerchantProviderWorkerMode;
   readonly repository: MerchantProviderWorkflowRepository;
   readonly registry: MerchantProviderAdapterRegistry;
   readonly keyring: MerchantProviderCredentialKeyring;
