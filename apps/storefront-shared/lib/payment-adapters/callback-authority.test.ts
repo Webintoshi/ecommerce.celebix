@@ -34,7 +34,15 @@ function request(
 
 test("reads an exact bounded callback and returns only digest authority plus copied bytes", async () => {
   const selected = await readExactHostedPaymentCallback({
-    request: request(),
+    request: request(CALLBACK_URL, { headers: {
+      host: "storefront.internal:3450",
+      forwarded: "host=forged.example;proto=http",
+      "x-celebix-storefront-proxy": `p1.${Buffer.alloc(32, 0x41).toString("base64url")}`,
+      "x-forwarded-for": "203.0.113.7",
+      "x-forwarded-host": HOSTNAME,
+      "x-forwarded-proto": "https",
+      "x-original-host": "forged.example",
+    } }),
     providerCode: PROVIDER,
     binding: BINDING,
     trustedHostname: HOSTNAME,
@@ -56,6 +64,8 @@ test("reads an exact bounded callback and returns only digest authority plus cop
     "content-type": "application/x-www-form-urlencoded",
     "x-provider-signature": "signature_fixture",
   });
+  assert.equal(JSON.stringify(selected.headers).includes("storefront-proxy"), false);
+  assert.equal(JSON.stringify(selected.headers).includes("forged.example"), false);
   assert.equal(new TextDecoder().decode(selected.body), "event_id=evt_1&status=success");
   assert.equal(JSON.stringify(selected).includes(BINDING), false);
   assert.equal(Object.isFrozen(selected), true);

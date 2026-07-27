@@ -1,3 +1,4 @@
+import "server-only";
 import { createHash } from "node:crypto";
 
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
@@ -18,6 +19,11 @@ const FORBIDDEN_HEADERS = Object.freeze([
   "transfer-encoding",
   "content-encoding",
   "proxy-authorization",
+]);
+const PROVIDER_CALLBACK_HEADERS = Object.freeze([
+  "content-length",
+  "content-type",
+  "x-provider-signature",
 ]);
 
 export type ExactHostedPaymentCallback = Readonly<{
@@ -214,7 +220,7 @@ function exactHeaders(headers: Headers): Readonly<Record<string, string>> | null
       || value !== value.trim()
       || CONTROL.test(value)
     ) return null;
-    output[name] = value;
+    if (PROVIDER_CALLBACK_HEADERS.includes(name)) output[name] = value;
   }
   const contentType = output["content-type"];
   if (contentType === undefined || !CONTENT_TYPES.includes(contentType)) return null;

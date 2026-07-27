@@ -152,16 +152,39 @@ type Calls = {
   opens: unknown[];
 };
 
+function deferred<T>(): Readonly<{
+  promise: Promise<T>;
+  resolve(value: T): void;
+  reject(error: unknown): void;
+}> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((selectedResolve, selectedReject) => {
+    resolve = selectedResolve;
+    reject = selectedReject;
+  });
+  return Object.freeze({ promise, resolve, reject });
+}
+
 function fixture(options: Readonly<{
   initialization?: HostedPaymentInitialization | Error;
+  initializeAdapter?: (
+    input: Parameters<HostedPaymentAdapter<object>["initialize"]>[0],
+  ) => Promise<HostedPaymentInitialization>;
   callback?: VerifiedProviderCallback | Error;
   query?: HostedPaymentStatus | Error;
+  queryAdapter?: (
+    input: Parameters<HostedPaymentAdapter<object>["query"]>[0],
+  ) => Promise<HostedPaymentStatus>;
   begin?: BeginPaymentAttemptResult;
   callbackAuthority?: PaymentAttemptAuthority | Error;
   settlement?: PaymentAttemptMutationResult | Error;
   adapterPresent?: boolean;
   trusted?: boolean;
   freezeCredential?: boolean;
+  claim?: Partial<PaymentAttemptReconciliationClaim>;
+  now?: () => Date;
+  providerTimeoutMs?: number;
 }> = {}) {
   const calls: Calls = {
     begin: [], initialized: [], unknown: [], callbackAuthority: [], settled: [],
@@ -198,6 +221,7 @@ function fixture(options: Readonly<{
         leaseId: input.leaseId,
         leaseOwner: input.workerId,
         leaseExpiresAt: input.leaseExpiresAt.toISOString(),
+        ...options.claim,
       }) as PaymentAttemptReconciliationClaim;
     },
     async finalizeReconciliation(input) { calls.finalized.push(input); return mutation({
@@ -215,6 +239,7 @@ function fixture(options: Readonly<{
   });
   const initialize = Object.freeze(async (input: Parameters<HostedPaymentAdapter<object>["initialize"]>[0]) => {
     calls.initializedAdapter.push(input);
+    if (options.initializeAdapter !== undefined) return options.initializeAdapter(input);
     if (options.initialization instanceof Error) throw options.initialization;
     return options.initialization ?? Object.freeze({
       kind: "iframe" as const,
@@ -237,6 +262,7 @@ function fixture(options: Readonly<{
   });
   const query = Object.freeze(async (input: Parameters<HostedPaymentAdapter<object>["query"]>[0]) => {
     calls.queries.push(input);
+    if (options.queryAdapter !== undefined) return options.queryAdapter(input);
     if (options.query instanceof Error) throw options.query;
     return options.query ?? Object.freeze({
       kind: "succeeded" as const,
@@ -269,8 +295,9 @@ function fixture(options: Readonly<{
     selectAuthority: () => options.trusted === false
       ? Object.freeze({ kind: "invalid_proxy_authority" })
       : Object.freeze({ kind: "trusted", hostname: HOSTNAME }),
-    now: () => new Date(NOW),
+    now: options.now ?? (() => new Date(NOW)),
     randomBytes: (size) => new Uint8Array(size).fill(7),
+    providerTimeoutMs: options.providerTimeoutMs,
   });
   return { runtime, calls, get opened() { return opened; } };
 }
@@ -410,6 +437,7 @@ test("an already-begun operation never invents a replacement callback binding or
 function callbackRequest(
   providerCode = PROVIDER,
   binding = Buffer.alloc(32, 7).toString("base64url"),
+  headers: Readonly<Record<string, string>> = {},
 ): Request {
   const body = "event_id=provider_event_1&status=success";
   return new Request(`https://${HOSTNAME}/api/payments/${providerCode}/callback/${binding}`, {
@@ -418,10 +446,58 @@ function callbackRequest(
       "content-type": "application/x-www-form-urlencoded",
       "content-length": String(Buffer.byteLength(body)),
       "x-provider-signature": "signature_fixture",
+      ...headers,
     },
     body,
   });
 }
+
+test("forwards only explicit provider callback data headers and never private proxy authority", async () => {
+  const selected = fixture();
+  const binding = Buffer.alloc(32, 7).toString("base64url");
+  const result = await selected.runtime.callback({
+    request: callbackRequest(PROVIDER, binding, {
+      host: "storefront.internal:3450",
+      forwarded: "host=forged.example;proto=http",
+      "x-celebix-storefront-proxy": `p1.${Buffer.alloc(32, 0x41).toString("base64url")}`,
+      "x-forwarded-for": "203.0.113.7",
+      "x-forwarded-host": HOSTNAME,
+      "x-forwarded-proto": "https",
+      "x-original-host": "forged.example",
+    }),
+    providerCode: PROVIDER,
+    binding,
+  });
+
+  assert.deepEqual(result, { kind: "accepted" });
+  assert.deepEqual(selected.calls.callbacks[0]?.headers, {
+    "content-length": "40",
+    "content-type": "application/x-www-form-urlencoded",
+    "x-provider-signature": "signature_fixture",
+  });
+  assert.equal(JSON.stringify(selected.calls.callbacks[0]?.headers).includes("storefront-proxy"), false);
+  assert.equal(JSON.stringify(selected.calls.callbacks[0]?.headers).includes("forged.example"), false);
+});
+
+test("rejects coalesced trusted-host authority before repository or provider execution", async () => {
+  const coalescedAuthorities: Readonly<Record<string, string>>[] = [
+    { "x-forwarded-host": `${HOSTNAME}, attacker.example` },
+    { "x-forwarded-proto": "https, https" },
+    { "x-celebix-storefront-proxy": "p1.first, p1.second" },
+    { forwarded: "for=203.0.113.7, for=203.0.113.8" },
+  ];
+  for (const headers of coalescedAuthorities) {
+    const selected = fixture();
+    const binding = Buffer.alloc(32, 7).toString("base64url");
+    assert.deepEqual(await selected.runtime.callback({
+      request: callbackRequest(PROVIDER, binding, headers),
+      providerCode: PROVIDER,
+      binding,
+    }), { kind: "rejected" });
+    assert.equal(selected.calls.callbackAuthority.length, 0);
+    assert.equal(selected.calls.callbacks.length, 0);
+  }
+});
 
 test("settles only a verified callback selected through provider and binding digest authority", async () => {
   const selected = fixture();
@@ -542,6 +618,112 @@ test("reconciliation queries once under the claimed immutable authority and fina
   assert.equal(selected.calls.finalized[0]?.amountMinor, 12_345);
   assert.equal(selected.calls.finalized[0]?.currency, "TRY");
   assert.equal(selected.opened?.every((byte) => byte === 0), true);
+});
+
+test("reconciliation keeps claim reference when provider reports 101 for an expected 100", async () => {
+  const selected = fixture({
+    claim: { amountMinor: 100, providerReference: null },
+    query: Object.freeze({
+      kind: "succeeded" as const,
+      providerReference: "untrusted_reference_101",
+      paidAmountMinor: 101,
+      currency: "TRY",
+    }),
+  });
+  const result = await selected.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "66666666-6666-4666-8666-666666666666",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  });
+
+  assert.deepEqual(result, { kind: "processing" });
+  assert.equal(selected.calls.finalized.length, 1);
+  assert.equal(selected.calls.finalized[0]?.status, "provider_outcome_unknown");
+  assert.equal(selected.calls.finalized[0]?.providerReference, null);
+  assert.equal(selected.calls.finalized[0]?.amountMinor, 100);
+});
+
+test("initialize enforces its deadline, aborts, wipes credentials, and ignores a late provider result", async () => {
+  const late = deferred<HostedPaymentInitialization>();
+  const selected = fixture({
+    initializeAdapter: () => late.promise,
+    providerTimeoutMs: 5,
+  });
+  const result = await selected.runtime.initialize(initializeInput());
+
+  assert.deepEqual(result, { kind: "processing" });
+  assert.equal(selected.calls.initializedAdapter[0]?.signal.aborted, true);
+  assert.equal(selected.calls.unknown.length, 1);
+  assert.equal(selected.calls.initialized.length, 0);
+  assert.equal(selected.opened?.every((byte) => byte === 0), true);
+  assert.deepEqual(selected.calls.initializedAdapter[0]?.credential, {
+    merchantId: "",
+    merchantKey: "",
+  });
+
+  late.resolve(Object.freeze({
+    kind: "iframe",
+    url: ENDPOINT,
+    token: "late_browser_token",
+    providerReference: "late_provider_reference",
+  }));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(selected.calls.unknown.length, 1);
+  assert.equal(selected.calls.initialized.length, 0);
+});
+
+test("query enforces its deadline, finalizes unknown, and contains a late rejection", async () => {
+  const late = deferred<HostedPaymentStatus>();
+  const selected = fixture({
+    queryAdapter: () => late.promise,
+    providerTimeoutMs: 5,
+  });
+  const result = await selected.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "66666666-6666-4666-8666-666666666666",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  });
+
+  assert.deepEqual(result, { kind: "processing" });
+  assert.equal(selected.calls.queries[0]?.signal.aborted, true);
+  assert.equal(selected.calls.finalized.length, 1);
+  assert.equal(selected.calls.finalized[0]?.status, "provider_outcome_unknown");
+  assert.equal(selected.opened?.every((byte) => byte === 0), true);
+
+  late.reject(new Error("late provider rejection must remain contained"));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(selected.calls.finalized.length, 1);
+});
+
+test("reconciliation never finalizes with stale time authority after its lease expires during query", async () => {
+  let current = new Date(NOW);
+  const selected = fixture({
+    now: () => new Date(current),
+    queryAdapter: async () => {
+      current = new Date(NOW.getTime() + 60_000);
+      return Object.freeze({
+        kind: "succeeded" as const,
+        providerReference: "provider_reference_private",
+        paidAmountMinor: 12_345,
+        currency: "TRY",
+      });
+    },
+  });
+  const result = await selected.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "66666666-6666-4666-8666-666666666666",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  });
+
+  assert.deepEqual(result, { kind: "processing" });
+  assert.equal(selected.calls.queries.length, 1);
+  assert.equal(selected.calls.finalized.length, 0);
 });
 
 test("callback route maps only stable acknowledgements and fails closed without a runtime", async () => {

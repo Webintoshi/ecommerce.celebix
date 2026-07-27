@@ -1,3 +1,4 @@
+import "server-only";
 import { createHash } from "node:crypto";
 import { types as nodeTypes } from "node:util";
 
@@ -34,6 +35,9 @@ const MAXIMUM_TOKEN_LENGTH = 4_096;
 const SUCCESS_PATH = "/odeme/sonuc?durum=basarili";
 const FAILURE_PATH = "/odeme/sonuc?durum=basarisiz";
 const RECONCILIATION_LEASE_MS = 60_000;
+const PROVIDER_DEADLINE_MS = 5_000;
+const AUTHORITY_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const PROVIDER_DEADLINE_EXCEEDED = Symbol("provider_deadline_exceeded");
 
 type TrustedHostAuthority =
   | Readonly<{ kind: "trusted"; hostname: string }>
@@ -118,6 +122,7 @@ export type HostedPaymentRuntimeDependencies = Readonly<{
   selectAuthority: (headers: Headers) => TrustedHostAuthority;
   now: () => Date;
   randomBytes: (size: number) => Uint8Array;
+  providerTimeoutMs?: number;
 }>;
 
 const PRESENTATION_PROCESSING = Object.freeze({ kind: "processing" as const });
@@ -177,6 +182,16 @@ function trustedHostname(
   headers: Headers,
 ): string | null {
   try {
+    for (const [name, value] of headers) {
+      const authorityBearing = name === "host"
+        || name === "forwarded"
+        || name === "x-celebix-storefront-proxy"
+        || name.startsWith("x-forwarded-");
+      if (
+        authorityBearing
+        && (value !== value.trim() || value.includes(",") || AUTHORITY_CONTROL.test(value))
+      ) return null;
+    }
     const authority = dependencies.selectAuthority(headers);
     const hostname = authority.hostname;
     return authority.kind === "trusted"
@@ -188,6 +203,35 @@ function trustedHostname(
       : null;
   } catch {
     return null;
+  }
+}
+
+function providerDeadlineMilliseconds(dependencies: HostedPaymentRuntimeDependencies): number {
+  const selected = dependencies.providerTimeoutMs ?? PROVIDER_DEADLINE_MS;
+  if (!Number.isSafeInteger(selected) || selected < 1 || selected > PROVIDER_DEADLINE_MS) {
+    throw new TypeError("hosted_payment_runtime_invalid");
+  }
+  return selected;
+}
+
+async function withinProviderDeadline<T>(
+  dependencies: HostedPaymentRuntimeDependencies,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const provider = Promise.resolve().then(() => operation(controller.signal));
+  void provider.catch(() => undefined);
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(PROVIDER_DEADLINE_EXCEEDED);
+    }, providerDeadlineMilliseconds(dependencies));
+  });
+  try {
+    return await Promise.race([provider, deadline]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
@@ -295,6 +339,11 @@ function wipeObject(value: unknown, seen: WeakSet<object> = new WeakSet<object>(
   } catch {
     // Cleanup is best effort and never changes the stable result.
   }
+}
+
+function wipeOpenedCredential(opened: OpenedCredential): void {
+  wipeObject(opened.credential);
+  opened.bytes.fill(0);
 }
 
 function wipeableCredential(value: unknown, seen: WeakSet<object> = new WeakSet<object>()): boolean {
@@ -623,7 +672,7 @@ async function initialize(
     try {
       let result: HostedPaymentInitialization;
       try {
-        result = await adapter.initialize(Object.freeze({
+        result = await withinProviderDeadline(dependencies, (signal) => adapter.initialize(Object.freeze({
           environment: begun.environment,
           credential: opened.credential,
           attemptId: begun.attemptId,
@@ -635,9 +684,10 @@ async function initialize(
           failureUrl: `https://${hostname}${FAILURE_PATH}`,
           customer: input.customer,
           basket: input.basket,
-          signal: AbortSignal.timeout(5_000),
-        }));
+          signal,
+        })));
       } catch {
+        wipeOpenedCredential(opened);
         const unknown = phase(
           "initialize-unknown",
           begun.attemptId,
@@ -728,8 +778,7 @@ async function initialize(
       }
       return parsed.presentation;
     } finally {
-      wipeObject(opened.credential);
-      opened.bytes.fill(0);
+      wipeOpenedCredential(opened);
     }
   } catch {
     return PRESENTATION_REJECTED;
@@ -895,6 +944,7 @@ function exactClaim(
     expectedVersion: number;
     workerId: string;
     leaseId: string;
+    leaseExpiresAt: Date;
   }>,
 ): boolean {
   return claim.attemptId === input.attemptId
@@ -902,6 +952,7 @@ function exactClaim(
     && claim.version === input.expectedVersion + 1
     && claim.leaseOwner === input.workerId
     && claim.leaseId === input.leaseId
+    && claim.leaseExpiresAt === input.leaseExpiresAt.toISOString()
     && UUID.test(claim.storeId)
     && UUID.test(claim.profileId)
     && UUID.test(claim.paymentMethodId)
@@ -921,7 +972,7 @@ function parseStatus(
   if (!plainRecord(value) || !validProviderReference(value.providerReference)) {
     return Object.freeze({
       status: "provider_outcome_unknown",
-      providerReference: null,
+      providerReference: claim.providerReference,
       safeCode: "provider_outcome_unknown",
       result: RECONCILIATION_PROCESSING,
     });
@@ -952,14 +1003,14 @@ function parseStatus(
   ) {
     return Object.freeze({
       status: "failed",
-      providerReference: value.providerReference,
+      providerReference: claim.providerReference,
       safeCode: value.code,
       result: RECONCILIATION_FAILED,
     });
   }
   return Object.freeze({
     status: "provider_outcome_unknown",
-    providerReference: value.providerReference,
+    providerReference: claim.providerReference,
     safeCode: "provider_outcome_unknown",
     result: RECONCILIATION_PROCESSING,
   });
@@ -1011,7 +1062,7 @@ async function reconcile(
   } catch {
     return RECONCILIATION_REJECTED;
   }
-  if (!exactClaim(claim, input)) return RECONCILIATION_REJECTED;
+  if (!exactClaim(claim, { ...input, leaseExpiresAt })) return RECONCILIATION_REJECTED;
   const adapter = adapterFor(dependencies, claim.providerCode, "query");
   let selected: Readonly<{
     status: "captured" | "failed" | "provider_outcome_unknown";
@@ -1028,17 +1079,18 @@ async function reconcile(
   if (adapter !== null) {
     try {
       opened = openCredential(dependencies, claim, adapter);
+      const credential = opened.credential;
       try {
-        selected = parseStatus(await adapter.query(Object.freeze({
+        selected = parseStatus(await withinProviderDeadline(dependencies, (signal) => adapter.query(Object.freeze({
           environment: claim.environment,
-          credential: opened.credential,
+          credential,
           attemptId: claim.attemptId,
           orderReference: claim.orderReference,
           providerReference: claim.providerReference,
           amountMinor: claim.amountMinor,
           currency: claim.currency,
-          signal: AbortSignal.timeout(5_000),
-        })), claim);
+          signal,
+        }))), claim);
       } catch {
         selected = Object.freeze({
           status: "provider_outcome_unknown",
@@ -1056,10 +1108,13 @@ async function reconcile(
       });
     } finally {
       if (opened !== undefined) {
-        wipeObject(opened.credential);
-        opened.bytes.fill(0);
+        wipeOpenedCredential(opened);
       }
     }
+  }
+  const finalizeNow = selectedNow(dependencies);
+  if (finalizeNow === null || finalizeNow.getTime() >= leaseExpiresAt.getTime()) {
+    return RECONCILIATION_PROCESSING;
   }
   const finalized = phase(
     "reconciliation-finalize",
@@ -1086,7 +1141,7 @@ async function reconcile(
       safeCode: selected.safeCode,
       amountMinor: claim.amountMinor,
       currency: claim.currency,
-      now: new Date(now),
+      now: new Date(finalizeNow),
     });
   } catch {
     return RECONCILIATION_PROCESSING;

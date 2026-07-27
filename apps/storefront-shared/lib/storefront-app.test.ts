@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import ts from "typescript";
 
 import {
   InMemoryStoreDomainResolver,
@@ -294,25 +295,89 @@ async function sourceFiles(directory: string): Promise<string[]> {
   return nested.flat();
 }
 
+type ImportEdge = Readonly<{
+  source: string;
+  specifier: string;
+  kind: "side-effect" | "from" | "dynamic";
+}>;
+
+function importEdges(source: string, sourceName: string): ImportEdge[] {
+  const syntax = ts.createSourceFile(sourceName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const edges: ImportEdge[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+      edges.push({
+        source: sourceName,
+        specifier: node.moduleSpecifier.text,
+        kind: node.importClause === undefined ? "side-effect" : "from",
+      });
+    } else if (
+      ts.isCallExpression(node)
+      && node.expression.kind === ts.SyntaxKind.ImportKeyword
+      && node.arguments.length === 1
+      && ts.isStringLiteral(node.arguments[0]!)
+    ) {
+      edges.push({ source: sourceName, specifier: node.arguments[0].text, kind: "dynamic" });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(syntax);
+  return edges;
+}
+
+function edgeKey(edge: ImportEdge): string {
+  return `${edge.source}\u0000${edge.specifier}\u0000${edge.kind}`;
+}
+
 test("shared storefront uses only the reviewed public PostgreSQL repository and no private service clients", async () => {
   const appRoot = path.resolve(import.meta.dirname, "..");
   const runtimeRoot = path.resolve(appRoot, "../../packages/saas-storefront-runtime");
   const files = [...await sourceFiles(appRoot), ...await sourceFiles(runtimeRoot)];
   const forbiddenImport = /(?:from\s+|import\s*\()["'][^"']*(?:supabase|drizzle|@aws-sdk|redis|stripe|iyzipay|craftgate)[^"']*["']/i;
-  const allowedPaymentImports = new Set([
-    "@/lib/payment-adapters/runtime.ts",
-    "./payment-adapters/runtime.ts",
-    "@celebix/payment-adapters",
+  const reviewedPaymentEdges = new Set([
+    "app/api/payments/[providerCode]/callback/[binding]/route.ts\u0000@/lib/payment-adapters/runtime.ts\u0000from",
+    "lib/default-runtime.ts\u0000./payment-adapters/runtime.ts\u0000from",
+    "lib/default-runtime.ts\u0000@celebix/payment-adapters\u0000from",
+    "lib/payment-adapters/runtime.ts\u0000@celebix/payment-adapters\u0000from",
   ]);
   const forbiddenConfig = /(?:service[_-]?role|R2_ACCESS|R2_SECRET|REDIS_URL|PAYMENT_SECRET|celebix_saas_app)/i;
+  const actualPaymentEdges: ImportEdge[] = [];
 
   for (const file of files) {
     const source = await readFile(file, "utf8");
     assert.doesNotMatch(source, forbiddenImport, file);
-    for (const match of source.matchAll(/(?:from\s+|import\s*\()["']([^"']*payment[^"']*)["']/gi)) {
-      assert.equal(allowedPaymentImports.has(match[1]!), true, file);
+    const sourceName = file.startsWith(appRoot)
+      ? path.relative(appRoot, file).split(path.sep).join("/")
+      : `../../packages/saas-storefront-runtime/${path.relative(runtimeRoot, file).split(path.sep).join("/")}`;
+    for (const edge of importEdges(source, sourceName)) {
+      if (!/payment/i.test(edge.specifier)) continue;
+      actualPaymentEdges.push(edge);
+      assert.equal(reviewedPaymentEdges.has(edgeKey(edge)), true, edgeKey(edge));
     }
     assert.doesNotMatch(source, forbiddenConfig, file);
+  }
+  assert.deepEqual(
+    actualPaymentEdges.map(edgeKey).sort(),
+    [...reviewedPaymentEdges].sort(),
+  );
+
+  for (const edge of [
+    importEdges('import { createHostedPaymentRuntime } from "@/lib/payment-adapters/runtime.ts";', "lib/unreviewed.ts")[0]!,
+    importEdges('import "evil-payment-sdk";', "lib/unreviewed.ts")[0]!,
+    importEdges('void import("@celebix/payment-adapters");', "lib/unreviewed.ts")[0]!,
+  ]) {
+    assert.throws(
+      () => assert.equal(reviewedPaymentEdges.has(edgeKey(edge)), true, edgeKey(edge)),
+      assert.AssertionError,
+    );
+  }
+
+  for (const relative of [
+    "lib/payment-adapters/runtime.ts",
+    "lib/payment-adapters/callback-authority.ts",
+  ]) {
+    const source = await readFile(path.join(appRoot, relative), "utf8");
+    assert.match(source, /^import "server-only";/, relative);
   }
   const publicRuntime = await readFile(new URL("./default-runtime.ts", import.meta.url), "utf8");
   assert.match(publicRuntime, /PostgresPublicStorefrontRepository/);
