@@ -540,7 +540,7 @@ function duplicateJsonKeys(text: string): boolean {
 function responseJson(result: ProviderTransportResult): unknown | null {
   if (
     result.kind !== "response" ||
-    result.status !== 200 ||
+    ![200, 400, 401, 403].includes(result.status) ||
     (result.contentType !== "application/json" &&
       result.contentType !== "application/json; charset=utf-8") ||
     nodeTypes.isProxy(result.body) ||
@@ -560,6 +560,14 @@ function responseJson(result: ProviderTransportResult): unknown | null {
   } finally {
     wipe(encoded);
   }
+}
+
+function temporaryHttpStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function explicitFailureHttpStatus(status: number): boolean {
+  return status === 400 || status === 401 || status === 403;
 }
 
 function providerFailure(value: unknown): boolean {
@@ -861,11 +869,17 @@ async function retrieve(
       generator,
       abortSignal,
     );
-    if (result.kind === "unknown" || result.status >= 500) {
+    if (result.kind === "unknown") {
       return Object.freeze({ kind: "temporary" as const });
     }
     responseBody = result.body;
+    if (temporaryHttpStatus(result.status)) {
+      return Object.freeze({ kind: "temporary" as const });
+    }
     const raw = responseJson(result);
+    if (explicitFailureHttpStatus(result.status)) {
+      return Object.freeze({ kind: "invalid" as const });
+    }
     if (raw === null || providerFailure(raw)) return Object.freeze({ kind: "invalid" as const });
     const selected = dataRecord(raw, RETRIEVE_REQUIRED_KEYS);
     if (
@@ -984,12 +998,23 @@ export async function validateIyzicoCredentialWithTransport(
       selected.randomKey as () => string,
       abortSignal,
     );
-    if (result.kind === "unknown" || result.status >= 500) {
+    if (result.kind === "unknown") {
       return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
     }
     responseBody = result.body;
+    if (temporaryHttpStatus(result.status)) {
+      return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+    }
     const raw = responseJson(result);
     if (raw === null) {
+      return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+    }
+    if (explicitFailureHttpStatus(result.status)) {
+      return providerFailure(raw)
+        ? Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const })
+        : Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+    }
+    if (result.status !== 200) {
       return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
     }
     if (providerFailure(raw)) {
@@ -1067,7 +1092,7 @@ export function createIyzicoCheckoutFormAdapter(
         selectedDependencies.randomKey,
         abortSignal,
       );
-      if (result.kind === "unknown" || result.status >= 500) {
+      if (result.kind === "unknown") {
         return Object.freeze({
           kind: "unknown" as const,
           code: "provider_outcome_unknown" as const,
@@ -1075,7 +1100,30 @@ export function createIyzicoCheckoutFormAdapter(
         });
       }
       responseBody = result.body;
+      if (temporaryHttpStatus(result.status)) {
+        return Object.freeze({
+          kind: "unknown" as const,
+          code: "provider_outcome_unknown" as const,
+          providerReference: null,
+        });
+      }
       const raw = responseJson(result);
+      if (explicitFailureHttpStatus(result.status)) {
+        return raw !== null && providerFailure(raw)
+          ? Object.freeze({ kind: "rejected" as const, code: "provider_rejected" })
+          : Object.freeze({
+              kind: "unknown" as const,
+              code: "provider_outcome_unknown" as const,
+              providerReference: null,
+            });
+      }
+      if (result.status !== 200) {
+        return Object.freeze({
+          kind: "unknown" as const,
+          code: "provider_outcome_unknown" as const,
+          providerReference: null,
+        });
+      }
       if (raw !== null && providerFailure(raw)) {
         return Object.freeze({ kind: "rejected" as const, code: "provider_rejected" });
       }
@@ -1097,7 +1145,7 @@ export function createIyzicoCheckoutFormAdapter(
         selected.environment !== "test" ||
         selected.method !== "POST"
       ) invalid("iyzico_callback_invalid");
-      const headers = exactRecord(selected.headers, ["content-type"]);
+      const headers = exactRecord(selected.headers, ["content-type"], ["content-length"]);
       if (headers["content-type"] !== "application/x-www-form-urlencoded") {
         invalid("iyzico_callback_invalid");
       }
@@ -1110,7 +1158,18 @@ export function createIyzicoCheckoutFormAdapter(
       ) invalid("iyzico_callback_invalid");
       const amountMinor = positiveInteger(expected.amountMinor);
       const expectedToken = token(expected.providerReference);
-      const callbackToken = parseCallbackToken(selected.body as Uint8Array);
+      const callbackBody = selected.body as Uint8Array;
+      const callbackToken = parseCallbackToken(callbackBody);
+      if (headers["content-length"] !== undefined) {
+        const contentLength = headers["content-length"];
+        if (
+          typeof contentLength !== "string" ||
+          !/^(?:0|[1-9][0-9]*)$/.test(contentLength) ||
+          !Number.isSafeInteger(Number(contentLength)) ||
+          Number(contentLength) !== callbackBody.byteLength ||
+          String(callbackBody.byteLength) !== contentLength
+        ) invalid("iyzico_callback_invalid");
+      }
       if (!constantEqual(callbackToken, expectedToken)) invalid("iyzico_callback_invalid");
       const abortSignal = signal(selected.signal);
       selectedCredential = parseIyzicoCredential(selected.credential);

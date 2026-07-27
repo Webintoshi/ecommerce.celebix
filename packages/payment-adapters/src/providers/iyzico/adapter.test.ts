@@ -510,6 +510,24 @@ test("returns retry for temporary callback retrieval failure and rejects signed 
   await assert.rejects(() => ambiguous.verifyCallback(callbackInput()), /iyzico_callback_invalid/);
 });
 
+test("classifies every transient HTTP status as callback retry and query unknown while wiping response bytes", async () => {
+  for (const status of [408, 425, 429, 500, 503]) {
+    const callbackResponse = response({ status: "failure", errorCode: "temporary" }, status);
+    const callbackAdapter = createIyzicoCheckoutFormAdapter(transport(() => callbackResponse),
+      Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+    assert.equal((await callbackAdapter.verifyCallback(callbackInput())).status, "retry", String(status));
+    assert.equal(callbackResponse.kind === "response" && callbackResponse.body.every((byte) => byte === 0), true);
+
+    const queryResponse = response({ status: "failure", errorCode: "temporary" }, status);
+    const queryAdapter = createIyzicoCheckoutFormAdapter(transport(() => queryResponse),
+      Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+    assert.deepEqual(await queryAdapter.query(queryInput()), {
+      kind: "unknown", providerReference: TOKEN,
+    }, String(status));
+    assert.equal(queryResponse.kind === "response" && queryResponse.body.every((byte) => byte === 0), true);
+  }
+});
+
 test("rejects non-canonical callback form and missing expected provider reference before retrieve", async () => {
   let calls = 0;
   const adapter = createIyzicoCheckoutFormAdapter(transport(() => {
@@ -534,6 +552,40 @@ test("rejects non-canonical callback form and missing expected provider referenc
       currency: "TRY",
     },
   })), /iyzico_callback_invalid/);
+  assert.equal(calls, 0);
+});
+
+test("accepts only an optional canonical callback content-length equal to the exact body bytes", async () => {
+  const body = new TextEncoder().encode(`token=${TOKEN}`);
+  const accepted = createIyzicoCheckoutFormAdapter(transport(() => response(signedRetrieve())),
+    Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+  assert.equal((await accepted.verifyCallback(callbackInput({
+    body,
+    headers: Object.freeze({
+      "content-type": "application/x-www-form-urlencoded",
+      "content-length": String(body.byteLength),
+    }),
+  }))).status, "succeeded");
+
+  let calls = 0;
+  const rejected = createIyzicoCheckoutFormAdapter(transport(() => {
+    calls += 1;
+    return response(signedRetrieve());
+  }), Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+  const hostileHeaders: readonly Readonly<Record<string, string>>[] = [
+    { "content-type": "application/x-www-form-urlencoded", "content-length": String(body.byteLength + 1) },
+    { "content-type": "application/x-www-form-urlencoded", "content-length": `0${body.byteLength}` },
+    { "content-type": "application/x-www-form-urlencoded", "content-length": ` ${body.byteLength}` },
+    { "content-type": "application/x-www-form-urlencoded", "content-length": `${body.byteLength} ` },
+    { "content-type": "application/x-www-form-urlencoded", "content-length": "not-a-number" },
+    { "content-type": "application/x-www-form-urlencoded", "x-forwarded-host": "evil.example" },
+  ];
+  for (const headers of hostileHeaders) {
+    await assert.rejects(() => rejected.verifyCallback(callbackInput({
+      body: body.slice(),
+      headers: Object.freeze(headers),
+    })), /iyzico_callback_invalid/);
+  }
   assert.equal(calls, 0);
 });
 
@@ -599,6 +651,75 @@ test("credential validation fails closed on BIN or conversation mismatch and pro
       randomKey: () => RANDOM_KEY,
     });
     assert.equal(result.kind, "rejected");
+  }
+});
+
+test("classifies explicit bounded provider failures separately from transient and malformed HTTP responses", async () => {
+  for (const status of [400, 401, 403]) {
+    const initializeFailure = response({
+      status: "failure",
+      errorCode: "12",
+      errorMessage: "provider rejected",
+      conversationId: ATTEMPT_ID,
+    }, status);
+    const initializeAdapter = createIyzicoCheckoutFormAdapter(transport(() => initializeFailure),
+      Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+    assert.deepEqual(await initializeAdapter.initialize(initializeInput()), {
+      kind: "rejected", code: "provider_rejected",
+    }, String(status));
+    assert.equal(initializeFailure.kind === "response" && initializeFailure.body.every((byte) => byte === 0), true);
+
+    const binFailure = response({
+      status: "failure",
+      errorCode: "12",
+      errorMessage: "provider rejected",
+      conversationId: ATTEMPT_ID,
+    }, status);
+    assert.deepEqual(await validateIyzicoCredentialWithTransport(transport(() => binFailure), {
+      environment: "test",
+      credential,
+      validationReference: ATTEMPT_ID,
+      signal: new AbortController().signal,
+      randomKey: () => RANDOM_KEY,
+    }), { kind: "rejected", outcomeCode: "provider_rejected" }, String(status));
+    assert.equal(binFailure.kind === "response" && binFailure.body.every((byte) => byte === 0), true);
+
+    const malformedInitialize = response("{", status);
+    const malformedAdapter = createIyzicoCheckoutFormAdapter(transport(() => malformedInitialize),
+      Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+    assert.equal((await malformedAdapter.initialize(initializeInput())).kind, "unknown");
+    assert.equal(malformedInitialize.kind === "response" && malformedInitialize.body.every((byte) => byte === 0), true);
+
+    const malformedBin = response("{", status);
+    const malformedBinResult = await validateIyzicoCredentialWithTransport(transport(() => malformedBin), {
+      environment: "test",
+      credential,
+      validationReference: ATTEMPT_ID,
+      signal: new AbortController().signal,
+      randomKey: () => RANDOM_KEY,
+    });
+    assert.deepEqual(malformedBinResult, {
+      kind: "rejected", outcomeCode: "validation_unavailable",
+    });
+    assert.equal(malformedBin.kind === "response" && malformedBin.body.every((byte) => byte === 0), true);
+  }
+
+  for (const status of [408, 425, 429, 500, 503]) {
+    const initializeTemporary = response({}, status);
+    const initializeAdapter = createIyzicoCheckoutFormAdapter(transport(() => initializeTemporary),
+      Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+    assert.equal((await initializeAdapter.initialize(initializeInput())).kind, "unknown");
+    assert.equal(initializeTemporary.kind === "response" && initializeTemporary.body.every((byte) => byte === 0), true);
+
+    const binTemporary = response({}, status);
+    assert.deepEqual(await validateIyzicoCredentialWithTransport(transport(() => binTemporary), {
+      environment: "test",
+      credential,
+      validationReference: ATTEMPT_ID,
+      signal: new AbortController().signal,
+      randomKey: () => RANDOM_KEY,
+    }), { kind: "rejected", outcomeCode: "validation_unavailable" });
+    assert.equal(binTemporary.kind === "response" && binTemporary.body.every((byte) => byte === 0), true);
   }
 });
 
