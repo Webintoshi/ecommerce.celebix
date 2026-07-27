@@ -1,0 +1,386 @@
+[
+  {
+    "familyCode": "akbank",
+    "sourceUrl": "https://www.akbank.com/bankamiz/reklamlar",
+    "officialHost": "www.akbank.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "akbank.svg"
+  },
+  {
+    "familyCode": "akode",
+    "sourceUrl": "https://www.akodepos.com/",
+    "officialHost": "www.akodepos.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_gateway_host_verified; official_asset_unavailable_fallback",
+    "file": "akode.svg"
+  },
+  {
+    "familyCode": "albaraka_turk",
+    "sourceUrl": "https://www.albaraka.com.tr/",
+    "officialHost": "www.albaraka.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "albaraka_turk.svg"
+  },
+  {
+    "familyCode": "craftgate",
+    "sourceUrl": "https://craftgate.io/basin",
+    "officialHost": "craftgate.io",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_press_page_verified; official_asset_unavailable_fallback",
+    "file": "craftgate.svg"
+  },
+  {
+    "familyCode": "denizbank",
+    "sourceUrl": "https://www.denizbank.com/hakkimizda/medya-merkezi/logo",
+    "officialHost": "www.denizbank.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_logo_page_verified; official_asset_unavailable_fallback",
+    "file": "denizbank.svg"
+  },
+  {
+    "familyCode": "erpapay",
+    "sourceUrl": "https://www.erpapay.com/",
+    "officialHost": "www.erpapay.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "erpapay.svg"
+  },
+  {
+    "familyCode": "esnekpos",
+    "sourceUrl": "https://developer-eng.esnekpos.com/esnekpos-developer-environment/home-page",
+    "officialHost": "developer-eng.esnekpos.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_developer_page_verified; official_asset_unavailable_fallback",
+    "file": "esnekpos.svg"
+  },
+  {
+    "familyCode": "qnb_finansbank",
+    "sourceUrl": "https://www.qnb.com.tr/qnbyi-taniyin/basin-odasi/logolar-ve-diger-gorseller",
+    "officialHost": "www.qnb.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_logo_page_verified; official_asset_unavailable_fallback",
+    "file": "qnb_finansbank.svg"
+  },
+  {
+    "familyCode": "garanti_bbva",
+    "sourceUrl": "https://www.garantibbva.com.tr/",
+    "officialHost": "www.garantibbva.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "garanti_bbva.svg"
+  },
+  {
+    "familyCode": "halkbank",
+    "sourceUrl": "https://www.halkbank.com.tr/",
+    "officialHost": "www.halkbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "halkbank.svg"
+  },
+  {
+    "familyCode": "hepsipay",
+    "sourceUrl": "https://www.hepsipay.com/",
+    "officialHost": "www.hepsipay.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "hepsipay.svg"
+  },
+  {
+    "familyCode": "is_bankasi",
+    "sourceUrl": "https://www.isbank.com.tr/",
+    "officialHost": "www.isbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "is_bankasi.svg"
+  },
+  {
+    "familyCode": "isyerimpos",
+    "sourceUrl": "https://www.isyerimpos.com/",
+    "officialHost": "www.isyerimpos.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "isyerimpos.svg"
+  },
+  {
+    "familyCode": "iyzico",
+    "sourceUrl": "https://www.iyzico.com/",
+    "officialHost": "www.iyzico.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "iyzico.svg"
+  },
+  {
+    "familyCode": "kuveyt_turk",
+    "sourceUrl": "https://www.kuveytturk.com.tr/",
+    "officialHost": "www.kuveytturk.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "kuveyt_turk.svg"
+  },
+  {
+    "familyCode": "lidio",
+    "sourceUrl": "https://www.lidio.com/",
+    "officialHost": "www.lidio.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "lidio.svg"
+  },
+  {
+    "familyCode": "moka",
+    "sourceUrl": "https://www.mokaunited.com/",
+    "officialHost": "www.mokaunited.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "moka.svg"
+  },
+  {
+    "familyCode": "mollie",
+    "sourceUrl": "https://www.mollie.com/",
+    "officialHost": "www.mollie.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "mollie.svg"
+  },
+  {
+    "familyCode": "ozan",
+    "sourceUrl": "https://www.ozan.com/",
+    "officialHost": "www.ozan.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "ozan.svg"
+  },
+  {
+    "familyCode": "paidora",
+    "sourceUrl": "https://paidora-soft.com/",
+    "officialHost": "paidora-soft.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_product_page_verified; official_asset_unavailable_fallback",
+    "file": "paidora.svg"
+  },
+  {
+    "familyCode": "papara",
+    "sourceUrl": "https://www.papara.com/en/about-us",
+    "officialHost": "www.papara.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_corporate_page_verified; official_asset_unavailable_fallback",
+    "file": "papara.svg"
+  },
+  {
+    "familyCode": "papel",
+    "sourceUrl": "https://www.papel.com.tr/",
+    "officialHost": "www.papel.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "papel.svg"
+  },
+  {
+    "familyCode": "param",
+    "sourceUrl": "https://param.com.tr/",
+    "officialHost": "param.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "param.svg"
+  },
+  {
+    "familyCode": "paratika",
+    "sourceUrl": "https://www.paratika.com.tr/",
+    "officialHost": "www.paratika.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "paratika.svg"
+  },
+  {
+    "familyCode": "paybull",
+    "sourceUrl": "https://paybull.com/",
+    "officialHost": "paybull.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_gateway_host_verified; official_asset_unavailable_fallback",
+    "file": "paybull.svg"
+  },
+  {
+    "familyCode": "paycell",
+    "sourceUrl": "https://paycell.com.tr/kurumsal",
+    "officialHost": "paycell.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_corporate_page_verified; official_asset_unavailable_fallback",
+    "file": "paycell.svg"
+  },
+  {
+    "familyCode": "paynkolay",
+    "sourceUrl": "https://paynkolay.com.tr/",
+    "officialHost": "paynkolay.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "paynkolay.svg"
+  },
+  {
+    "familyCode": "paytr",
+    "sourceUrl": "https://www.paytr.com/",
+    "officialHost": "www.paytr.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "paytr.svg"
+  },
+  {
+    "familyCode": "qnbpay",
+    "sourceUrl": "https://www.qnbpay.com.tr/en/support/security-information",
+    "officialHost": "www.qnbpay.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_security_page_verified; official_asset_unavailable_fallback",
+    "file": "qnbpay.svg"
+  },
+  {
+    "familyCode": "rubikpara",
+    "sourceUrl": "https://rubikpara.com/",
+    "officialHost": "rubikpara.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_gateway_host_verified; official_asset_unavailable_fallback",
+    "file": "rubikpara.svg"
+  },
+  {
+    "familyCode": "sekerbank",
+    "sourceUrl": "https://www.sekerbank.com.tr/",
+    "officialHost": "www.sekerbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "sekerbank.svg"
+  },
+  {
+    "familyCode": "setcard",
+    "sourceUrl": "https://www.setcard.com.tr/",
+    "officialHost": "www.setcard.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "setcard.svg"
+  },
+  {
+    "familyCode": "shopier",
+    "sourceUrl": "https://www.shopier.com/hakkimizda",
+    "officialHost": "www.shopier.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_corporate_page_verified; official_asset_unavailable_fallback",
+    "file": "shopier.svg"
+  },
+  {
+    "familyCode": "sipay",
+    "sourceUrl": "https://sipay.com.tr/",
+    "officialHost": "sipay.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "sipay.svg"
+  },
+  {
+    "familyCode": "tami",
+    "sourceUrl": "https://www.tami.com.tr/",
+    "officialHost": "www.tami.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "tami.svg"
+  },
+  {
+    "familyCode": "teb",
+    "sourceUrl": "https://www.teb.com.tr/",
+    "officialHost": "www.teb.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "teb.svg"
+  },
+  {
+    "familyCode": "united_payment",
+    "sourceUrl": "https://www.mokaunited.com/",
+    "officialHost": "www.mokaunited.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_merged_brand_homepage_verified; official_asset_unavailable_fallback",
+    "file": "united_payment.svg"
+  },
+  {
+    "familyCode": "vakif_katilim",
+    "sourceUrl": "https://www.vakifkatilim.com.tr/",
+    "officialHost": "www.vakifkatilim.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "vakif_katilim.svg"
+  },
+  {
+    "familyCode": "vakifbank",
+    "sourceUrl": "https://www.vakifbank.com.tr/",
+    "officialHost": "www.vakifbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "vakifbank.svg"
+  },
+  {
+    "familyCode": "vallet",
+    "sourceUrl": "https://www.vallet.com.tr/",
+    "officialHost": "www.vallet.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "vallet.svg"
+  },
+  {
+    "familyCode": "vepara",
+    "sourceUrl": "https://www.vepara.com.tr/",
+    "officialHost": "www.vepara.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "vepara.svg"
+  },
+  {
+    "familyCode": "weepay",
+    "sourceUrl": "https://www.weepay.co/",
+    "officialHost": "www.weepay.co",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "weepay.svg"
+  },
+  {
+    "familyCode": "worldpay",
+    "sourceUrl": "https://www.worldpay.com/",
+    "officialHost": "www.worldpay.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "worldpay.svg"
+  },
+  {
+    "familyCode": "wyld",
+    "sourceUrl": "https://www.wyld.com.tr/",
+    "officialHost": "www.wyld.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_gateway_host_verified; official_asset_unavailable_fallback",
+    "file": "wyld.svg"
+  },
+  {
+    "familyCode": "yapi_kredi",
+    "sourceUrl": "https://www.yapikredi.com.tr/",
+    "officialHost": "www.yapikredi.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "yapi_kredi.svg"
+  },
+  {
+    "familyCode": "ziraat_bankasi",
+    "sourceUrl": "https://www.ziraatbank.com.tr/",
+    "officialHost": "www.ziraatbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "ziraat_bankasi.svg"
+  },
+  {
+    "familyCode": "ziraat_katilim",
+    "sourceUrl": "https://www.ziraatkatilim.com.tr/",
+    "officialHost": "www.ziraatkatilim.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "ziraat_katilim.svg"
+  },
+  {
+    "familyCode": "ziraatpay",
+    "sourceUrl": "https://www.ziraatpay.com.tr/hakkimizda-zp/Sayfalar/ortaklik-yapisi-ve-iletisim-bilgileri.aspx",
+    "officialHost": "www.ziraatpay.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_corporate_page_verified; official_asset_unavailable_fallback",
+    "file": "ziraatpay.svg"
+  }
+]

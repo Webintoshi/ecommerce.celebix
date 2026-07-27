@@ -15,6 +15,10 @@ const inventory = JSON.parse(readFileSync(path.join(import.meta.dirname, "source
   inspectedAt: string;
   gatewaySlugs: string[];
 };
+const logoManifest = JSON.parse(readFileSync(path.join(import.meta.dirname, "logo-manifest.json"), "utf8")) as Array<{
+  familyCode: string;
+  file: string;
+}>;
 
 const EXPECTED_FAMILY_MODES = Object.freeze({
   akbank: "akbank/virtual_pos",
@@ -144,4 +148,34 @@ test("catalog lookup accepts only an exact canonical provider code", () => {
     "PAYTR_IFRAME", "paytr-iframe", " paytr_iframe", "paytr_iframe ",
     "dummy_payment", "unknown", "", "../paytr_iframe",
   ]) assert.equal(lookup(hostile), null, hostile);
+});
+
+test("catalog logo paths are owned by the exact manifest family", () => {
+  const validate = catalogModule.validatePaymentProviderLogoBindings!;
+  assert.doesNotThrow(() => validate(catalogModule.PAYMENT_PROVIDER_CATALOG!, logoManifest));
+  assert.deepEqual(
+    new Set(catalogModule.PAYMENT_PROVIDER_CATALOG!.map((entry) => entry.logoPath)),
+    new Set(logoManifest.map((row) => row.file)),
+  );
+});
+
+test("logo binding rejects missing duplicated remote and cross-family paths", () => {
+  const validate = catalogModule.validatePaymentProviderLogoBindings!;
+  const catalog = catalogModule.PAYMENT_PROVIDER_CATALOG!;
+  assert.throws(() => validate(catalog, logoManifest.slice(1)), /logo manifest/i);
+  assert.throws(() => validate(catalog, [...logoManifest, logoManifest[0]!]), /logo manifest/i);
+  assert.throws(
+    () => validate(
+      [{ ...catalog[0]!, logoPath: "https://cdn.example.test/akbank.svg" }, ...catalog.slice(1)],
+      logoManifest,
+    ),
+    /logo path/i,
+  );
+  assert.throws(
+    () => validate(
+      [{ ...catalog[0]!, logoPath: "/payment-providers/akode.svg" }, ...catalog.slice(1)],
+      logoManifest,
+    ),
+    /logo path/i,
+  );
 });

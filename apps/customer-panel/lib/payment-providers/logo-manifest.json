@@ -1,0 +1,482 @@
+[
+  {
+    "familyCode": "akbank",
+    "sourceUrl": "https://www.akbank.com/bankamiz/reklamlar",
+    "officialHost": "www.akbank.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/akbank.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "155a0a9e47a90ea59c81ca7c0f9f89e4320818cf91803629b8fda2b9acc1f45a"
+  },
+  {
+    "familyCode": "akode",
+    "sourceUrl": "https://www.akodepos.com/",
+    "officialHost": "www.akodepos.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_gateway_host_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/akode.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "c553c7f2d70456ba08076bb64ae0635baae7a7d2fa5094764a729d1708fbadbd"
+  },
+  {
+    "familyCode": "albaraka_turk",
+    "sourceUrl": "https://www.albaraka.com.tr/",
+    "officialHost": "www.albaraka.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/albaraka_turk.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "12114f6081cfbfb6a534a7a9ac7fd7d9dd187044f81c606250bfeff2615c0510"
+  },
+  {
+    "familyCode": "craftgate",
+    "sourceUrl": "https://craftgate.io/basin",
+    "officialHost": "craftgate.io",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_press_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/craftgate.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "d6681d65c03a8dcd3dda4f56202c9ee16897ee45dcc442d23ff2e1da9a2e341b"
+  },
+  {
+    "familyCode": "denizbank",
+    "sourceUrl": "https://www.denizbank.com/hakkimizda/medya-merkezi/logo",
+    "officialHost": "www.denizbank.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_logo_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/denizbank.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "23928982051db518b0f9649c249c2d39e4a4399b2a45ea371bf3740b403b2009"
+  },
+  {
+    "familyCode": "erpapay",
+    "sourceUrl": "https://www.erpapay.com/",
+    "officialHost": "www.erpapay.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/erpapay.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "a9033796d5e2cff082cb46f6137bb731737be4493c43af038a66514de89c4394"
+  },
+  {
+    "familyCode": "esnekpos",
+    "sourceUrl": "https://developer-eng.esnekpos.com/esnekpos-developer-environment/home-page",
+    "officialHost": "developer-eng.esnekpos.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_developer_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/esnekpos.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "81e22fd421918992a274d9ec607415d775e33507b59fdf667528c526cb27faf3"
+  },
+  {
+    "familyCode": "garanti_bbva",
+    "sourceUrl": "https://www.garantibbva.com.tr/",
+    "officialHost": "www.garantibbva.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/garanti_bbva.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "325f9ea83555147df6a34dd37797c0784cab072699a6d5b2cc297cac58bc226c"
+  },
+  {
+    "familyCode": "halkbank",
+    "sourceUrl": "https://www.halkbank.com.tr/",
+    "officialHost": "www.halkbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/halkbank.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "7856be583e8edf8da8e8128ea01b15a482356a5584decbac6e459da915806b83"
+  },
+  {
+    "familyCode": "hepsipay",
+    "sourceUrl": "https://www.hepsipay.com/",
+    "officialHost": "www.hepsipay.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/hepsipay.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "86fca62d2cd2294dce09af04c40c49d39d02d9683985bbe602656afa05473c82"
+  },
+  {
+    "familyCode": "is_bankasi",
+    "sourceUrl": "https://www.isbank.com.tr/",
+    "officialHost": "www.isbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/is_bankasi.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "4726550c598a9bd7d8ab7151c245b94666ad6c07a748b463bf1ba029971df91e"
+  },
+  {
+    "familyCode": "isyerimpos",
+    "sourceUrl": "https://www.isyerimpos.com/",
+    "officialHost": "www.isyerimpos.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/isyerimpos.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "76c340be257d7194374c8e636e9c73490be971d520fac46868bf2e7f3dc80ace"
+  },
+  {
+    "familyCode": "iyzico",
+    "sourceUrl": "https://www.iyzico.com/",
+    "officialHost": "www.iyzico.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/iyzico.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "b2d72d230a7f5711d24ccd208a930485feb362750ff8dff903837eefe97ae443"
+  },
+  {
+    "familyCode": "kuveyt_turk",
+    "sourceUrl": "https://www.kuveytturk.com.tr/",
+    "officialHost": "www.kuveytturk.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/kuveyt_turk.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "d0eef8a7279f2e97a2e98026099966bb38a32a2f4e4e66a57c663a605b94496d"
+  },
+  {
+    "familyCode": "lidio",
+    "sourceUrl": "https://www.lidio.com/",
+    "officialHost": "www.lidio.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/lidio.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "187cefb95a7c3d8e880336a8dc220cefc13b8afb8b06c1bad34bc955d1740586"
+  },
+  {
+    "familyCode": "moka",
+    "sourceUrl": "https://www.mokaunited.com/",
+    "officialHost": "www.mokaunited.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/moka.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "60fd07cd215c03a93d3ea1569a1becf42d2a1a8acedf9f01dea9e571ecd37b09"
+  },
+  {
+    "familyCode": "mollie",
+    "sourceUrl": "https://www.mollie.com/",
+    "officialHost": "www.mollie.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/mollie.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "081937b21fd901d212c6da40783882533c23883180bbe9918898c3dc07e949eb"
+  },
+  {
+    "familyCode": "ozan",
+    "sourceUrl": "https://www.ozan.com/",
+    "officialHost": "www.ozan.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/ozan.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "ede2c3caece86549cf8967d6adaa2afeecf1ca908d030aa35fec0925def3cd58"
+  },
+  {
+    "familyCode": "paidora",
+    "sourceUrl": "https://paidora-soft.com/",
+    "officialHost": "paidora-soft.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_product_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/paidora.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "516dd4c1b38b58b4ebb5d7e2ae640c1b42cbb00f1f3fb355efa6aaf79171d459"
+  },
+  {
+    "familyCode": "papara",
+    "sourceUrl": "https://www.papara.com/en/about-us",
+    "officialHost": "www.papara.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_corporate_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/papara.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "f10cdbae658361d6e7f18ee247b38c33dcaa00234ba9ba57da047f2d45ff2392"
+  },
+  {
+    "familyCode": "papel",
+    "sourceUrl": "https://www.papel.com.tr/",
+    "officialHost": "www.papel.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/papel.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "2b3b73ea49dcc564b2c4469a7e980595f6f816e6b4e475766f054ab274f745d6"
+  },
+  {
+    "familyCode": "param",
+    "sourceUrl": "https://param.com.tr/",
+    "officialHost": "param.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/param.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "fba85d941a9fc206a89da7a6e46e2da48da6167b994a210847d072f749d80ae7"
+  },
+  {
+    "familyCode": "paratika",
+    "sourceUrl": "https://www.paratika.com.tr/",
+    "officialHost": "www.paratika.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/paratika.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "8967ec9d36a3ba3786de1216aab426c3d0d3fd9ec7d613db14e309c8d9b21746"
+  },
+  {
+    "familyCode": "paybull",
+    "sourceUrl": "https://paybull.com/",
+    "officialHost": "paybull.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_gateway_host_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/paybull.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "9649058733e1f918ca364205821589c0f1271bebe33ff6bd9bb956ec32a26acf"
+  },
+  {
+    "familyCode": "paycell",
+    "sourceUrl": "https://paycell.com.tr/kurumsal",
+    "officialHost": "paycell.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_corporate_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/paycell.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "0cbbdb918fde7ad5d197073ca4df885861772dc13f5e19e1d78d05ace4fb7bb1"
+  },
+  {
+    "familyCode": "paynkolay",
+    "sourceUrl": "https://paynkolay.com.tr/",
+    "officialHost": "paynkolay.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/paynkolay.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "c88c067e8b86c39efdba89029c3fed96458bf93afcb7c70f951f81e3e2f0e782"
+  },
+  {
+    "familyCode": "paytr",
+    "sourceUrl": "https://www.paytr.com/",
+    "officialHost": "www.paytr.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/paytr.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "e37160694a86d5641bed3bf1e67bbf0ba716794a2f8f5a7bea803d0cee40729c"
+  },
+  {
+    "familyCode": "qnb_finansbank",
+    "sourceUrl": "https://www.qnb.com.tr/qnbyi-taniyin/basin-odasi/logolar-ve-diger-gorseller",
+    "officialHost": "www.qnb.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_logo_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/qnb_finansbank.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "8e27420d6e6312a2a3d7c478e3a096512c0e1694adf8dc83620a7aeef180068a"
+  },
+  {
+    "familyCode": "qnbpay",
+    "sourceUrl": "https://www.qnbpay.com.tr/en/support/security-information",
+    "officialHost": "www.qnbpay.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_security_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/qnbpay.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "ef39f009902c161056ea652a53a4abdf42eb6fb418ead1e92cb771dbf0343f33"
+  },
+  {
+    "familyCode": "rubikpara",
+    "sourceUrl": "https://rubikpara.com/",
+    "officialHost": "rubikpara.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_gateway_host_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/rubikpara.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "907827f26fd05b6560635fc34cef14714f280b1dccc859745fa7ce1533ab5e6d"
+  },
+  {
+    "familyCode": "sekerbank",
+    "sourceUrl": "https://www.sekerbank.com.tr/",
+    "officialHost": "www.sekerbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/sekerbank.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "b8812f490d4d2094eb8d590d022d777303e961628d58fbd74efcb6d56aaf4287"
+  },
+  {
+    "familyCode": "setcard",
+    "sourceUrl": "https://www.setcard.com.tr/",
+    "officialHost": "www.setcard.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/setcard.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "3e291b3acbf5eed1a344d50b231e32f682736f7f4e07e5ae678a6ff3edcda0b3"
+  },
+  {
+    "familyCode": "shopier",
+    "sourceUrl": "https://www.shopier.com/hakkimizda",
+    "officialHost": "www.shopier.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_corporate_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/shopier.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "0d798c5e903441a8f000edc4964b80d74a6e7afc6a797386eec6d3aa8a1aea25"
+  },
+  {
+    "familyCode": "sipay",
+    "sourceUrl": "https://sipay.com.tr/",
+    "officialHost": "sipay.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/sipay.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "23d7d9648bf06801aa335b2b6bbf788234907a12c579de0e33a6cb3150631262"
+  },
+  {
+    "familyCode": "tami",
+    "sourceUrl": "https://www.tami.com.tr/",
+    "officialHost": "www.tami.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/tami.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "130fca80920774884d70e32fab3769c6869fdecb767245581278dc72d92380b1"
+  },
+  {
+    "familyCode": "teb",
+    "sourceUrl": "https://www.teb.com.tr/",
+    "officialHost": "www.teb.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/teb.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "dbd6e2b6d846254221c55f913401b179a9100b268a2444cfb0e632c711edfc49"
+  },
+  {
+    "familyCode": "united_payment",
+    "sourceUrl": "https://www.mokaunited.com/",
+    "officialHost": "www.mokaunited.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_merged_brand_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/united_payment.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "b81067891b710d9072e26363d3cc8cdb0946457f58622ee4905591d9f86c8595"
+  },
+  {
+    "familyCode": "vakif_katilim",
+    "sourceUrl": "https://www.vakifkatilim.com.tr/",
+    "officialHost": "www.vakifkatilim.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/vakif_katilim.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "56cf9b3fb559d6a81f1a8fed9d9db2ed77e17763d2042c1534d02ad1a91299e7"
+  },
+  {
+    "familyCode": "vakifbank",
+    "sourceUrl": "https://www.vakifbank.com.tr/",
+    "officialHost": "www.vakifbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/vakifbank.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "d11a17eb3e77dc33d18920731aa8465be8f17a876c4a529c6f173afa1eb4ee81"
+  },
+  {
+    "familyCode": "vallet",
+    "sourceUrl": "https://www.vallet.com.tr/",
+    "officialHost": "www.vallet.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/vallet.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "ceebc15a56d49d826d7d05bc8be7b1410a8e231e444b59e96ae35af713418f8b"
+  },
+  {
+    "familyCode": "vepara",
+    "sourceUrl": "https://www.vepara.com.tr/",
+    "officialHost": "www.vepara.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/vepara.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "792b07f5039bf1a340349b12555b9298a3aaf1e19a23e7fdbf9f043d499cf13b"
+  },
+  {
+    "familyCode": "weepay",
+    "sourceUrl": "https://www.weepay.co/",
+    "officialHost": "www.weepay.co",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/weepay.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "c7368f72ab4e566d9eb2a8cf8e863b3fef0cb244a752e3c75808300fa561c21d"
+  },
+  {
+    "familyCode": "worldpay",
+    "sourceUrl": "https://www.worldpay.com/",
+    "officialHost": "www.worldpay.com",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/worldpay.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "3306c56365282b8494eaeeccc44c1a904198a18cd165396b42a69ddc40ecaf4c"
+  },
+  {
+    "familyCode": "wyld",
+    "sourceUrl": "https://www.wyld.com.tr/",
+    "officialHost": "www.wyld.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_gateway_host_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/wyld.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "4ff0f6634e7082f0a0e4bd5572a4fad722c1a88c7401e663e2ddde8e830c6e24"
+  },
+  {
+    "familyCode": "yapi_kredi",
+    "sourceUrl": "https://www.yapikredi.com.tr/",
+    "officialHost": "www.yapikredi.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/yapi_kredi.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "f54e842136c3b604399ce0bfd6fa4999062d2518534cd33e710f8a44505c5420"
+  },
+  {
+    "familyCode": "ziraat_bankasi",
+    "sourceUrl": "https://www.ziraatbank.com.tr/",
+    "officialHost": "www.ziraatbank.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/ziraat_bankasi.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "635cfb0a1e0995ed1d29b0b97e04c3ee92c764d1b11bb18812e4e122b9437805"
+  },
+  {
+    "familyCode": "ziraat_katilim",
+    "sourceUrl": "https://www.ziraatkatilim.com.tr/",
+    "officialHost": "www.ziraatkatilim.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_homepage_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/ziraat_katilim.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "02f0cbfa243643ca3325dfb0ee885c3ff6fc21b738cc21f50c469a550fbbc459"
+  },
+  {
+    "familyCode": "ziraatpay",
+    "sourceUrl": "https://www.ziraatpay.com.tr/hakkimizda-zp/Sayfalar/ortaklik-yapisi-ve-iletisim-bilgileri.aspx",
+    "officialHost": "www.ziraatpay.com.tr",
+    "retrievedAt": "2026-07-27",
+    "usageNote": "official_corporate_page_verified; official_asset_unavailable_fallback",
+    "file": "/payment-providers/ziraatpay.svg",
+    "mimeType": "image/svg+xml",
+    "sha256": "5b9852a3d08b8a94fff082cc7e259b93a23068a17f8df89e8691707bc336dea5"
+  }
+]
