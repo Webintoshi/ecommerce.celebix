@@ -38,6 +38,19 @@ export type PaymentAdapterPresentationRule =
         minimum: number;
         maximum: number;
       }>;
+    }>
+  | Readonly<{
+      kind: "provider_query_token_url";
+      origin: string;
+      pathname: "/";
+      tokenParameter: "token";
+      languageParameter: "lang";
+      language: "tr";
+      token: Readonly<{
+        alphabet: "base64url";
+        minimum: number;
+        maximum: number;
+      }>;
     }>;
 
 export type PaymentAdapterPacket = Readonly<{

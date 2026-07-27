@@ -38,6 +38,7 @@ export type {
 export type {
   ProviderTransport,
   ProviderTransportRequest,
+  ProviderTransportRequestHeaders,
   ProviderTransportResult,
 } from "./transport.ts";
 export type { PaymentAdapterRegistry } from "./registry.ts";

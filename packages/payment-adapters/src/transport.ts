@@ -8,6 +8,11 @@ const REQUEST_CONTENT_TYPES = Object.freeze([
   "application/json",
   "application/json; charset=utf-8",
 ]);
+const REQUEST_HEADER_KEYS = Object.freeze([
+  "authorization",
+  "content-type",
+  "x-iyzi-rnd",
+]);
 const RESPONSE_CONTENT_TYPES = Object.freeze([
   "application/json",
   "application/json; charset=utf-8",
@@ -52,9 +57,15 @@ export type ProviderTransportRequest = Readonly<{
   environment: "test" | "live";
   url: string;
   method: "POST";
-  headers: Readonly<Record<string, string>>;
+  headers: ProviderTransportRequestHeaders;
   body: Uint8Array;
   signal?: AbortSignal;
+}>;
+
+export type ProviderTransportRequestHeaders = Readonly<{
+  "content-type": string;
+  authorization?: string;
+  "x-iyzi-rnd"?: string;
 }>;
 
 export interface ProviderTransport {
@@ -102,6 +113,21 @@ function discoverRequestBody(value: unknown): Uint8Array | undefined {
   }
 }
 
+function canonicalBase64(value: string): boolean {
+  let decoded: Buffer | undefined;
+  try {
+    if (value.length % 4 !== 0) return false;
+    decoded = Buffer.from(value, "base64");
+    return decoded.toString("base64") === value;
+  } finally {
+    try {
+      decoded?.fill(0);
+    } catch {
+      // Header validation cleanup remains fail-closed at its caller.
+    }
+  }
+}
+
 function exactRequest(value: unknown): Record<string, unknown> {
   if (
     typeof value !== "object" ||
@@ -126,7 +152,7 @@ function exactRequest(value: unknown): Record<string, unknown> {
   return selected;
 }
 
-function exactHeaders(value: unknown): Headers {
+function exactHeaders(value: unknown): Readonly<Record<string, string>> {
   if (
     typeof value !== "object" ||
     value === null ||
@@ -136,21 +162,50 @@ function exactHeaders(value: unknown): Headers {
   ) invalid();
   const descriptors = Object.getOwnPropertyDescriptors(value) as Record<string, PropertyDescriptor>;
   const keys = Reflect.ownKeys(descriptors);
-  const descriptor = descriptors["content-type"];
   if (
-    keys.length !== 1 ||
-    keys[0] !== "content-type" ||
-    !descriptor ||
-    !descriptor.enumerable ||
-    !("value" in descriptor) ||
-    typeof descriptor.value !== "string" ||
-    descriptor.value.length < 1 ||
-    descriptor.value.length > 128 ||
-    descriptor.value.trim() !== descriptor.value ||
-    CONTROL.test(descriptor.value) ||
-    !REQUEST_CONTENT_TYPES.includes(descriptor.value)
+    keys.length < 1 ||
+    keys.length > REQUEST_HEADER_KEYS.length ||
+    keys.some((key) => typeof key !== "string" || !REQUEST_HEADER_KEYS.includes(key)) ||
+    !Object.hasOwn(descriptors, "content-type")
   ) invalid();
-  return new Headers({ "content-type": descriptor.value });
+  const selected: Record<string, string> = Object.create(null) as Record<string, string>;
+  for (const key of keys as string[]) {
+    const descriptor = descriptors[key];
+    if (
+      !descriptor ||
+      !descriptor.enumerable ||
+      !("value" in descriptor) ||
+      typeof descriptor.value !== "string" ||
+      descriptor.value.length < 1 ||
+      descriptor.value.trim() !== descriptor.value ||
+      CONTROL.test(descriptor.value) ||
+      /[^\x20-\x7e]/.test(descriptor.value)
+    ) invalid();
+    selected[key] = descriptor.value;
+  }
+  const contentType = selected["content-type"];
+  if (
+    contentType.length > 128 ||
+    !REQUEST_CONTENT_TYPES.includes(contentType)
+  ) invalid();
+  const authorization = selected.authorization;
+  if (authorization !== undefined) {
+    if (
+      authorization.length > 4_096 ||
+      !/^IYZWSv2 [A-Za-z0-9+/]+={0,2}$/.test(authorization)
+    ) invalid();
+    const encoded = authorization.slice("IYZWSv2 ".length);
+    if (!canonicalBase64(encoded)) invalid();
+  }
+  const randomKey = selected["x-iyzi-rnd"];
+  if (
+    randomKey !== undefined &&
+    (
+      randomKey.length > 256 ||
+      !/^[A-Za-z0-9_-]{16,256}$/.test(randomKey)
+    )
+  ) invalid();
+  return selected;
 }
 
 function exactBody(value: unknown): Uint8Array {

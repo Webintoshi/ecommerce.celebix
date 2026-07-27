@@ -5,7 +5,9 @@ import {
   createBoundedProviderTransport,
   parsePaymentAdapterPacket,
   type PaymentAdapterPacket,
+  type ProviderTransportRequest,
 } from "./index.ts";
+import { IYZICO_IFRAME_PACKET } from "./providers/iyzico/packet.ts";
 
 function packetFixture(): Record<string, unknown> {
   return {
@@ -75,7 +77,7 @@ function request(
     environment: "test" | "live";
     url: string;
     method: "POST";
-    headers: Readonly<Record<string, string>>;
+    headers: ProviderTransportRequest["headers"];
     body: Uint8Array;
     signal: AbortSignal;
   }> = {},
@@ -90,6 +92,119 @@ function request(
     ...overrides,
   });
 }
+
+function iyzicoRequest(
+  transport: ReturnType<typeof createBoundedProviderTransport>,
+  overrides: Partial<{
+    headers: ProviderTransportRequest["headers"];
+    body: Uint8Array;
+  }> = {},
+) {
+  return transport.request({
+    packet: IYZICO_IFRAME_PACKET,
+    environment: "test",
+    url: "https://sandbox-api.iyzipay.com/payment/bin/check",
+    method: "POST",
+    headers: {
+      "content-type": JSON_CONTENT_TYPE,
+      authorization: "IYZWSv2 YXBpS2V5OnNhbmRib3gtYXBpLWtleSZyYW5kb21LZXk6YWJjZGVmZ2hpamtsbW5vcCZzaWduYXR1cmU6MDEyMzQ1Njc4OWFiY2RlZg==",
+      "x-iyzi-rnd": "abcdefghijklmnop",
+    },
+    body: new TextEncoder().encode('{"binNumber":"589004","price":"1.0"}'),
+    ...overrides,
+  });
+}
+
+test("preserves the exact iyzico signing headers and signed body bytes", async () => {
+  const authorization = "IYZWSv2 YXBpS2V5OnNhbmRib3gtYXBpLWtleSZyYW5kb21LZXk6YWJjZGVmZ2hpamtsbW5vcCZzaWduYXR1cmU6MDEyMzQ1Njc4OWFiY2RlZg==";
+  const randomKey = "abcdefghijklmnop";
+  const rawBody = '{"binNumber":"589004","price":"1.0"}';
+  const body = new TextEncoder().encode(rawBody);
+  let calls = 0;
+  const transport = createBoundedProviderTransport({
+    fetch: async (observed) => {
+      calls += 1;
+      assert.equal(observed.headers.get("content-type"), JSON_CONTENT_TYPE);
+      assert.equal(observed.headers.get("authorization"), authorization);
+      assert.equal(observed.headers.get("x-iyzi-rnd"), randomKey);
+      assert.equal(await observed.text(), rawBody);
+      return new Response('{"status":"success"}', {
+        headers: { "content-type": JSON_CONTENT_TYPE },
+      });
+    },
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+
+  const result = await iyzicoRequest(transport, {
+    headers: {
+      "content-type": JSON_CONTENT_TYPE,
+      authorization,
+      "x-iyzi-rnd": randomKey,
+    },
+    body,
+  });
+
+  assert.equal(result.kind, "response");
+  assert.equal(calls, 1);
+  assert.deepEqual([...body], Array(body.length).fill(0));
+});
+
+test("rejects non-canonical iyzico signing headers before fetch", async () => {
+  let calls = 0;
+  const transport = createBoundedProviderTransport({
+    fetch: async () => {
+      calls += 1;
+      return new Response('{"status":"success"}', {
+        headers: { "content-type": JSON_CONTENT_TYPE },
+      });
+    },
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+  const authorization = "IYZWSv2 YXBpS2V5OnNhbmRib3gtYXBpLWtleSZyYW5kb21LZXk6YWJjZGVmZ2hpamtsbW5vcCZzaWduYXR1cmU6MDEyMzQ1Njc4OWFiY2RlZg==";
+  const cases: readonly Readonly<Record<string, string>>[] = [
+    { "content-type": JSON_CONTENT_TYPE, authorization, "x-iyzi-rnd": "abcdefghijklmnop", cookie: "private=x" },
+    { "content-type": JSON_CONTENT_TYPE, Authorization: authorization, "x-iyzi-rnd": "abcdefghijklmnop" },
+    { "content-type": JSON_CONTENT_TYPE, authorization, Authorization: authorization, "x-iyzi-rnd": "abcdefghijklmnop" },
+    { "content-type": JSON_CONTENT_TYPE, authorization: `${authorization}\nunsafe`, "x-iyzi-rnd": "abcdefghijklmnop" },
+    { "content-type": JSON_CONTENT_TYPE, authorization, "x-iyzi-rnd": "abcdefghijklmnop\runsafe" },
+    { "content-type": JSON_CONTENT_TYPE, authorization: `IYZWSv2 ${"A".repeat(4_097)}`, "x-iyzi-rnd": "abcdefghijklmnop" },
+    { "content-type": JSON_CONTENT_TYPE, authorization, "x-iyzi-rnd": "a".repeat(257) },
+  ];
+
+  for (const headers of cases) {
+    assert.deepEqual(await iyzicoRequest(transport, { headers: headers as never }), {
+      kind: "unknown",
+      code: "transport_outcome_unknown",
+    });
+  }
+
+  const accessorHeaders = {
+    "content-type": JSON_CONTENT_TYPE,
+    authorization,
+    "x-iyzi-rnd": "abcdefghijklmnop",
+  };
+  Object.defineProperty(accessorHeaders, "authorization", {
+    enumerable: true,
+    get: () => authorization,
+  });
+  assert.deepEqual(await iyzicoRequest(transport, { headers: accessorHeaders as never }), {
+    kind: "unknown",
+    code: "transport_outcome_unknown",
+  });
+
+  const proxyHeaders = new Proxy({
+    "content-type": JSON_CONTENT_TYPE,
+    authorization,
+    "x-iyzi-rnd": "abcdefghijklmnop",
+  }, {});
+  assert.deepEqual(await iyzicoRequest(transport, { headers: proxyHeaders as never }), {
+    kind: "unknown",
+    code: "transport_outcome_unknown",
+  });
+  assert.equal(calls, 0);
+});
 
 test("sends one contained POST to the exact packet/environment endpoint", async () => {
   let calls = 0;

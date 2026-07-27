@@ -32,6 +32,18 @@ const EXECUTABLE_ENDPOINTS = Object.freeze({
       "https://www.paytr.com/odeme/durum-sorgu",
     ]),
   }),
+  iyzico_iframe: Object.freeze({
+    test: Object.freeze([
+      "https://sandbox-api.iyzipay.com/payment/iyzipos/checkoutform/initialize/auth/ecom",
+      "https://sandbox-api.iyzipay.com/payment/iyzipos/checkoutform/auth/ecom/detail",
+      "https://sandbox-api.iyzipay.com/payment/bin/check",
+    ]),
+    live: Object.freeze([
+      "https://api.iyzipay.com/payment/iyzipos/checkoutform/initialize/auth/ecom",
+      "https://api.iyzipay.com/payment/iyzipos/checkoutform/auth/ecom/detail",
+      "https://api.iyzipay.com/payment/bin/check",
+    ]),
+  }),
 });
 const EXECUTABLE_PRESENTATIONS = Object.freeze({
   paytr_iframe: Object.freeze({
@@ -54,6 +66,34 @@ const EXECUTABLE_PRESENTATIONS = Object.freeze({
       }),
     }),
   }),
+  iyzico_iframe: Object.freeze({
+    test: Object.freeze({
+      kind: "provider_query_token_url" as const,
+      origin: "https://sandbox-cpp.iyzipay.com",
+      pathname: "/" as const,
+      tokenParameter: "token" as const,
+      languageParameter: "lang" as const,
+      language: "tr" as const,
+      token: Object.freeze({
+        alphabet: "base64url" as const,
+        minimum: 36,
+        maximum: 256,
+      }),
+    }),
+    live: Object.freeze({
+      kind: "provider_query_token_url" as const,
+      origin: "https://cpp.iyzipay.com",
+      pathname: "/" as const,
+      tokenParameter: "token" as const,
+      languageParameter: "lang" as const,
+      language: "tr" as const,
+      token: Object.freeze({
+        alphabet: "base64url" as const,
+        minimum: 36,
+        maximum: 256,
+      }),
+    }),
+  }),
 });
 
 const PACKET_KEYS = Object.freeze([
@@ -72,6 +112,9 @@ const CAPABILITY_KEYS = Object.freeze([
 const DOCUMENTATION_KEYS = Object.freeze(["authority", "url", "verifiedAt"]);
 const PRESENTATION_KEYS = Object.freeze(["live", "test"]);
 const PROVIDER_TOKEN_PRESENTATION_KEYS = Object.freeze(["kind", "token", "urlPrefix"]);
+const PROVIDER_QUERY_TOKEN_PRESENTATION_KEYS = Object.freeze([
+  "kind", "language", "languageParameter", "origin", "pathname", "token", "tokenParameter",
+]);
 const PRESENTATION_TOKEN_KEYS = Object.freeze(["alphabet", "maximum", "minimum"]);
 
 function invalid(): never {
@@ -171,6 +214,29 @@ function canonicalHttpsUrl(value: unknown): string {
   return parsed.toString();
 }
 
+function canonicalHttpsOrigin(value: unknown): string {
+  const raw = text(value, 1, 2_048);
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return invalid();
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    !parsed.hostname ||
+    parsed.username ||
+    parsed.password ||
+    parsed.port ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.hostname !== parsed.hostname.toLowerCase() ||
+    parsed.origin !== raw
+  ) invalid();
+  return parsed.origin;
+}
+
 function readiness(value: unknown): PaymentAdapterPacket["readiness"] {
   const parsed = dataObject(value, READINESS_KEYS);
   const test = parsed.test as PaymentProviderReadiness;
@@ -218,6 +284,41 @@ function providerTokenPresentation(
   });
 }
 
+function providerQueryTokenPresentation(
+  value: unknown,
+  allowed: Extract<PaymentAdapterPresentationRule, { kind: "provider_query_token_url" }>,
+): PaymentAdapterPresentationRule {
+  const parsed = dataObject(value, PROVIDER_QUERY_TOKEN_PRESENTATION_KEYS);
+  const token = dataObject(parsed.token, PRESENTATION_TOKEN_KEYS);
+  const origin = canonicalHttpsOrigin(parsed.origin);
+  const minimum = boundedInteger(token.minimum, 1, 4_096);
+  const maximum = boundedInteger(token.maximum, minimum, 4_096);
+  if (
+    parsed.kind !== allowed.kind ||
+    origin !== allowed.origin ||
+    parsed.pathname !== allowed.pathname ||
+    parsed.tokenParameter !== allowed.tokenParameter ||
+    parsed.languageParameter !== allowed.languageParameter ||
+    parsed.language !== allowed.language ||
+    token.alphabet !== allowed.token.alphabet ||
+    minimum !== allowed.token.minimum ||
+    maximum !== allowed.token.maximum
+  ) invalid();
+  return Object.freeze({
+    kind: "provider_query_token_url" as const,
+    origin,
+    pathname: "/" as const,
+    tokenParameter: "token" as const,
+    languageParameter: "lang" as const,
+    language: "tr" as const,
+    token: Object.freeze({
+      alphabet: "base64url" as const,
+      minimum,
+      maximum,
+    }),
+  });
+}
+
 function presentation(
   value: unknown,
   providerCode: string,
@@ -227,6 +328,19 @@ function presentation(
     providerCode as keyof typeof EXECUTABLE_PRESENTATIONS
   ];
   if (!allowed) invalid();
+  if (
+    allowed.test.kind === "provider_query_token_url" &&
+    allowed.live.kind === "provider_query_token_url"
+  ) {
+    return Object.freeze({
+      test: providerQueryTokenPresentation(parsed.test, allowed.test),
+      live: providerQueryTokenPresentation(parsed.live, allowed.live),
+    });
+  }
+  if (
+    allowed.test.kind !== "provider_token_url" ||
+    allowed.live.kind !== "provider_token_url"
+  ) invalid();
   return Object.freeze({
     test: providerTokenPresentation(parsed.test, allowed.test),
     live: providerTokenPresentation(parsed.live, allowed.live),

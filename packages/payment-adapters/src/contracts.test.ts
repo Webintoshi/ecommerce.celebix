@@ -76,6 +76,17 @@ test("parses the exact immutable hosted PayTR adapter packet", () => {
   assert.equal(Object.isFrozen(packet.credentialFields[0]), true);
 });
 
+test("keeps PayTR path-token presentation separate from query-token providers", () => {
+  const packet = parsePaymentAdapterPacket(packetFixture());
+
+  assert.deepEqual(packet.presentation.test, {
+    kind: "provider_token_url",
+    urlPrefix: "https://www.paytr.com/odeme/guvenli/",
+    token: { alphabet: "base64url", minimum: 32, maximum: 256 },
+  });
+  assert.equal(Object.hasOwn(packet.presentation.test, "urlSuffix"), false);
+});
+
 test("rejects packet keys that are unknown, inherited, accessor-backed, or proxied", () => {
   const withUnknown = { ...packetFixture(), privateToken: "not-safe" };
   assert.throws(() => parsePaymentAdapterPacket(withUnknown), /payment_adapter_packet_invalid/);
