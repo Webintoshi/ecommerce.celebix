@@ -76,6 +76,10 @@ test("055 pins owner/security/ACL and rollback removes only the additive RPC and
   assert.match(down, /DROP FUNCTION saas[.]payment_attempt_apply_hosted_callback/);
   assert.match(down, /DROP COLUMN observed_callback_status/);
   assert.match(down, /PAYMENT_HOSTED_CALLBACK_LIFECYCLE_ROLLBACK_OBSERVATIONS_PRESENT/);
+  const lock = down.indexOf("LOCK TABLE saas.payment_attempt_events IN ACCESS EXCLUSIVE MODE");
+  assert.ok(lock >= 0);
+  assert.ok(lock < down.indexOf("DROP FUNCTION saas.payment_attempt_apply_hosted_callback"));
+  assert.ok(lock < down.indexOf("WHERE observed_callback_status IS NOT NULL"));
   assert.doesNotMatch(down, /\bCASCADE\b|DROP TABLE|payment_attempt_settle_callback/i);
 });
 

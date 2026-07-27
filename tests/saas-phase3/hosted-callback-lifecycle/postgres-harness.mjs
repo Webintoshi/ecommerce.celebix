@@ -9,6 +9,7 @@ const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const PG = "/Users/Celebix/.codex/tmp/postgresql-16.14-install/bin";
 const DB = "hosted_callback_lifecycle";
 const ROLLBACK_DB = "hosted_callback_lifecycle_rollback";
+const RACE_DB = "hosted_callback_lifecycle_race";
 const UP = "202607270055_hosted_callback_lifecycle.up.sql";
 const DOWN = "202607270055_hosted_callback_lifecycle.down.sql";
 const ASSERTIONS = "202607270055_hosted_callback_lifecycle_assertions.sql";
@@ -23,7 +24,7 @@ const NOW = "2026-07-27T12:00:00.000Z";
 const CALLBACK_TIME = "2026-07-27T12:01:00.000Z";
 const FP = "a".repeat(64);
 const AMOUNT = 12_345;
-const TOTAL = 12;
+const TOTAL = 13;
 let completed = 0;
 
 const PRESERVED = Object.freeze({
@@ -99,6 +100,42 @@ function sqlAsync(box, input, database = DB) {
     child.on("close", (status) => resolve({ status, stdout, stderr }));
     child.stdin.end(input);
   });
+}
+
+function openSqlSession(box, database = DB) {
+  const child = spawn(bin("psql"), [
+    "-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+    "-U", "postgres", "-d", database,
+  ], {
+    cwd: ROOT,
+    env: { ...process.env, LC_ALL: "C", LANG: "C" },
+  });
+  let stdout = "";
+  let stderr = "";
+  let completed = false;
+  child.stdout.setEncoding("utf8").on("data", (chunk) => { stdout += chunk; });
+  child.stderr.setEncoding("utf8").on("data", (chunk) => { stderr += chunk; });
+  const closed = new Promise((resolve) => {
+    child.on("close", (status) => {
+      completed = true;
+      resolve({ status, stdout, stderr });
+    });
+  });
+  return Object.freeze({
+    write(input) { child.stdin.write(input); },
+    end() { child.stdin.end(); },
+    snapshot() { return Object.freeze({ completed, stdout, stderr }); },
+    closed,
+  });
+}
+
+async function waitUntil(label, check) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`timed out waiting for ${label}`);
 }
 
 function apply(box, file, database = DB) {
@@ -223,6 +260,7 @@ async function main() {
     for (const { file } of prior.migrationChain) apply(box, file);
     seed(box);
     sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `CREATE DATABASE ${RACE_DB} TEMPLATE ${DB};`, "postgres");
 
     const captured = beginAwaiting(box, 1);
     await scenario("real 052 rejects the hosted iframe terminal callback from awaiting_customer", () => {
@@ -433,6 +471,68 @@ SELECT outcome FROM saas.payment_attempt_apply_hosted_callback(${hostedArgs(atte
       assert.ok(results.every(({ status }) => status === 0));
       assert.deepEqual(results.map(({ stdout }) => stdout.trim()).sort(), ["captured", "version_conflict"]);
       assert.equal(sql(box, `SELECT status||'|'||version FROM saas.payment_attempts WHERE id='${attempt.attemptId}';`).stdout.trim(), "captured|4");
+    });
+
+    await scenario("down waits for an uncommitted callback then preserves every 055 artifact", async () => {
+      apply(box, UP, RACE_DB);
+      apply(box, ASSERTIONS, RACE_DB);
+      const attempt = beginAwaiting(box, 8, RACE_DB);
+      const callback = openSqlSession(box, RACE_DB);
+      let downPromise;
+      try {
+        callback.write(`BEGIN; SET LOCAL ROLE celebix_saas_workflow;
+SELECT outcome FROM saas.payment_attempt_apply_hosted_callback(${hostedArgs(attempt, 801, "captured")});
+SELECT 'CALLBACK_HELD_OPEN';
+`);
+        await waitUntil("uncommitted callback", () => {
+          const state = callback.snapshot();
+          if (state.completed) throw new Error(state.stderr || "callback session closed");
+          return state.stdout.includes("CALLBACK_HELD_OPEN");
+        });
+
+        let downCompleted = false;
+        let earlyDownResult;
+        downPromise = sqlAsync(box, `SET application_name='hosted_callback_down_race';
+${readFileSync(path.join(SQL, DOWN), "utf8")}`, RACE_DB).then((result) => {
+          downCompleted = true;
+          earlyDownResult = result;
+          return result;
+        });
+        let downWait = "";
+        await waitUntil("down lock", () => {
+          if (downCompleted) {
+            throw new Error(`down completed before lock: ${earlyDownResult?.status}|${earlyDownResult?.stderr}`);
+          }
+          downWait = sql(box, `SELECT wait_event_type||'|'||wait_event
+FROM pg_catalog.pg_stat_activity
+WHERE application_name='hosted_callback_down_race';`).stdout.trim();
+          return downWait.startsWith("Lock|");
+        });
+        assert.equal(downCompleted, false);
+
+        callback.write("COMMIT; SELECT 'CALLBACK_COMMITTED';\n\\q\n");
+        const callbackResult = await callback.closed;
+        assert.equal(callbackResult.status, 0, callbackResult.stderr);
+        assert.match(callbackResult.stdout, /CALLBACK_COMMITTED/);
+
+        const downResult = await downPromise;
+        assert.notEqual(downResult.status, 0);
+        assert.equal(downWait, "Lock|relation");
+        assert.match(downResult.stderr, /PAYMENT_HOSTED_CALLBACK_LIFECYCLE_ROLLBACK_OBSERVATIONS_PRESENT/);
+        assert.equal(sql(box, "SELECT to_regprocedure('saas.payment_attempt_apply_hosted_callback(text,text,uuid,text,text,bigint,bigint,text,text,text,bigint,text,timestamptz)') IS NOT NULL;", RACE_DB).stdout.trim(), "t");
+        assert.equal(sql(box, `SELECT count(*) FROM information_schema.columns
+WHERE table_schema='saas' AND table_name='payment_attempt_events'
+  AND column_name='observed_callback_status';`, RACE_DB).stdout.trim(), "1");
+        assert.equal(sql(box, `SELECT from_status||'|'||to_status||'|'||attempt_version||'|'||observed_callback_status
+FROM saas.payment_attempt_events
+WHERE attempt_id='${attempt.attemptId}' AND observed_callback_status IS NOT NULL;`, RACE_DB).stdout.trim(), "submitted|captured|4|captured");
+      } finally {
+        if (!callback.snapshot().completed) {
+          callback.end();
+          await callback.closed;
+        }
+        if (downPromise !== undefined) await downPromise;
+      }
     });
 
     await scenario("down/up rollback is narrow and old RPC plus ACL remain unchanged", () => {

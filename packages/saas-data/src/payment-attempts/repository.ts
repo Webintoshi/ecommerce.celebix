@@ -272,6 +272,7 @@ function parseMutation(
     providerReference: string | null;
     safeCode: string;
     callbackReplay: boolean;
+    historicalOperationReplay: boolean;
   }>,
 ): PaymentAttemptMutationResult {
   return database(() => {
@@ -293,13 +294,18 @@ function parseMutation(
       safeCode: paymentAttemptSafeCode(parsed.safeCode),
       replayed: parsed.replayed,
     });
+    const mutationVersion = result.version === expected.expectedVersion + 1;
+    const historicalReplayVersion = expected.historicalOperationReplay
+      && outcome === "operation_replayed"
+      && result.version >= 1
+      && result.version <= expected.expectedVersion;
     if (
       result.attemptId !== expected.attemptId
       || result.status !== expected.status
       || result.providerReference !== expected.providerReference
       || result.safeCode !== expected.safeCode
       || result.replayed !== replayed
-      || (!expected.callbackReplay && result.version !== expected.expectedVersion + 1)
+      || (!expected.callbackReplay && !mutationVersion && !historicalReplayVersion)
     ) unavailable();
     return result;
   });
@@ -738,6 +744,7 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
         providerReference,
         safeCode,
         callbackReplay: false,
+        historicalOperationReplay: false,
       }),
       operationReplay,
       (observed, recovered) => same(expectedReplay(observed, "replayed"), recovered),
@@ -781,6 +788,7 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
         providerReference,
         safeCode,
         callbackReplay: false,
+        historicalOperationReplay: true,
       }),
       operationReplay,
       (observed, recovered) => same(expectedReplay(observed, "replayed"), recovered),
@@ -871,6 +879,7 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
         providerReference,
         safeCode,
         callbackReplay: outcome === "callback_replayed",
+        historicalOperationReplay: false,
       }),
       (observedOutcome) => observedOutcome === "callback_replayed"
         ? "callback_replayed"
@@ -1044,6 +1053,7 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
         providerReference,
         safeCode,
         callbackReplay: false,
+        historicalOperationReplay: false,
       }),
       operationReplay,
       (observed, recovered) => same(expectedReplay(observed, "replayed"), recovered),

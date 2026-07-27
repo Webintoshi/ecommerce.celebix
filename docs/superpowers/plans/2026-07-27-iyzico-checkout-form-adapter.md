@@ -239,6 +239,26 @@ attempt from `awaiting_customer`, records pending/timeout outcomes as callback
 events, and preserves migrations 052/053/054 byte-for-byte. Later migration
 numbers in this plan are shifted accordingly.
 
+**Mandatory bridge release before migration 055:** the application fleet that
+still runs the legacy callback path must first receive the isolated
+`markUnknown` replay-parser bridge. The exact bridge patch is only:
+
+- `packages/saas-data/src/payment-attempts/repository.ts` — accept an exact
+  `mark_unknown` `operation_replayed` projection at a bounded historical
+  version while retaining the normal `expectedVersion + 1` mutation/replay;
+- `packages/saas-data/src/payment-attempts/repository.test.ts` — prove the fresh
+  authority/version-3 legacy-runtime replay plus future, mismatched, and
+  non-`markUnknown` denial.
+
+Create that bridge commit from the pre-Iyzico deployment base without migration
+055 or any Iyzico runtime files, deploy it first, and verify every old callback
+runtime is on the bridge SHA. Only then may migration 055 and its assertions be
+applied; the complete Iyzico candidate is deployed afterward. Once migration
+055 can accept callbacks, rolling an application back to a pre-bridge SHA is
+forbidden. Such a rollback is permitted only after callback writers are
+disabled and drained and the locked migration-055 down succeeds; a failed down
+means the pre-bridge rollback remains forbidden.
+
 ### Task 5: Make customer-panel provider composition multi-provider
 
 **Files:**
@@ -524,7 +544,15 @@ Give reviewers the design, this plan, commit list, test output, and explicit con
 
 - No source edits expected.
 
-**Step 1: Push the exact branch**
+**Step 0: Deploy the parser bridge before migration 055**
+
+Create a bridge branch from the exact pre-Iyzico deployed SHA with only the two
+bridge files listed in the Task 4 repair note. Push and deploy that bridge SHA
+without migrations 055/056/057, then verify the deployed old callback runtime
+uses the bridge parser. Do not apply migration 055 until this fleet-wide check
+passes.
+
+**Step 1: Push the exact final branch**
 
 ```bash
 git push origin codex/celebix-managed-umami-analytics
@@ -535,6 +563,11 @@ Confirm local `HEAD` equals the remote branch SHA.
 **Step 2: Trigger the scoped Coolify deployment**
 
 Use the existing authenticated Coolify session/API for project `fy34knkv8p3d73ksirgcsgg6`, environment `yv44k7b9mhn6edakw9nw6b32`. Never print API credentials. Confirm the deployed resource and branch before triggering.
+
+The migration runner may apply 055 only after the bridge deployment is healthy.
+Deploy the complete reviewed candidate after 055 assertions pass. After 055 is
+live, never select a pre-bridge application SHA as an application-only rollback;
+disable and drain callback writers and complete the locked 055 down first.
 
 **Step 3: Monitor to terminal health**
 

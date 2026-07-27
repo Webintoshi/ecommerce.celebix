@@ -61,6 +61,33 @@ Migration 053 must finish with no PayTR authority row. Do not create migration
 only the bounded, read-only evidence-history function; it creates no authority,
 readiness, profile, method, credential, attempt, or table privilege.
 
+### Hosted callback migration-055 bridge order
+
+The later hosted-callback rollout has a mandatory mixed-version bridge. Before
+applying `202607270055_hosted_callback_lifecycle.up.sql`, create a bridge commit
+from the exact pre-Iyzico deployed base containing only:
+
+- `packages/saas-data/src/payment-attempts/repository.ts`;
+- `packages/saas-data/src/payment-attempts/repository.test.ts`.
+
+The production file changes only the legacy `markUnknown` result parser: an
+exact `mark_unknown` `operation_replayed` result may be at a bounded historical
+version at or before the freshly loaded authority, while ordinary applied and
+same-write replay results remain `expectedVersion + 1`. Future, mismatched, and
+all other mutation parser paths remain fail-closed. The test file is the bridge
+proof and models the old callback runtime returning processing for the exact
+version-3 replay.
+
+Deploy and verify that bridge SHA across every old callback runtime first. Then
+apply migration 055 and its assertions. Only after they pass deploy the full
+hosted/Iyzico candidate. Never roll an application back to a pre-bridge SHA
+after migration 055 is able to receive callbacks. To make such a rollback
+eligible, first disable callback writers, drain in-flight callback transactions,
+and run the migration-055 down. The down takes an `ACCESS EXCLUSIVE` event-table
+lock and refuses rollback when any 055 observation exists; if it waits or fails,
+leave the database and bridge runtime in place. An application-only rollback to
+pre-bridge is not a shortcut.
+
 Evidence collection does not use or bypass the dormant migration-052 aggregate.
 It reads the already approved legacy quick-order checkout aggregate created by
 migrations 024, 026, and 027. The generic runtime cross-layer test is the

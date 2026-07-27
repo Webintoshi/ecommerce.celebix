@@ -370,7 +370,7 @@
   "rollbackArtifacts": [
     {
       "file": "202607270055_hosted_callback_lifecycle.down.sql",
-      "sha256": "c501db97e00572170a43960e43022313e6b7ab5a20e60640994f03d64dd6e995"
+      "sha256": "50c5f38951642000d4a01c1bad1b7f26001d74b110975e37b07c00eb71623e67"
     }
   ],
   "externalConnections": 0,
