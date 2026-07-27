@@ -85,13 +85,20 @@ function immutableAdapter(value: unknown): HostedPaymentAdapter<object> {
     if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) invalid();
     selected[key] = descriptor.value;
   }
-  if (
-    typeof selected.parseCredential !== "function" ||
-    typeof selected.maskAccount !== "function" ||
-    typeof selected.initialize !== "function" ||
-    typeof selected.verifyCallback !== "function" ||
-    typeof selected.query !== "function"
-  ) invalid();
+  for (const key of [
+    "parseCredential",
+    "maskAccount",
+    "initialize",
+    "verifyCallback",
+    "query",
+  ]) {
+    const executable = selected[key];
+    if (
+      typeof executable !== "function" ||
+      utilTypes.isProxy(executable) ||
+      !Object.isFrozen(executable)
+    ) invalid();
+  }
   immutablePacket(selected.packet);
   return value as HostedPaymentAdapter<object>;
 }

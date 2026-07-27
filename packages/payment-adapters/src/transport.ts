@@ -12,25 +12,19 @@ const RESPONSE_CONTENT_TYPES = Object.freeze([
   "application/json",
   "application/json; charset=utf-8",
 ]);
-const FORBIDDEN_REQUEST_HEADERS = new Set([
-  "accept-encoding",
-  "connection",
-  "content-length",
-  "cookie",
-  "cookie2",
-  "host",
-  "keep-alive",
-  "proxy-authenticate",
-  "proxy-authorization",
-  "set-cookie",
-  "te",
-  "trailer",
-  "transfer-encoding",
-  "upgrade",
-]);
-const HEADER_NAME = /^[!#$%&'*+\-.^_`|~0-9a-z]+$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const MAXIMUM_REQUEST_BYTES = 1_048_576;
+const TYPED_ARRAY_PROTOTYPE = Object.getPrototypeOf(Uint8Array.prototype) as object;
+const TYPED_ARRAY_BUFFER = Object.getOwnPropertyDescriptor(
+  TYPED_ARRAY_PROTOTYPE,
+  "buffer",
+)?.get as (this: Uint8Array) => ArrayBufferLike;
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+  TYPED_ARRAY_PROTOTYPE,
+  "byteLength",
+)?.get as (this: Uint8Array) => number;
+const UINT8_ARRAY_FILL = Uint8Array.prototype.fill;
+const UINT8_ARRAY_SET = Uint8Array.prototype.set;
 const REQUEST_KEYS = Object.freeze([
   "body",
   "environment",
@@ -67,6 +61,43 @@ function invalid(): never {
   throw new TypeError("provider_transport_invalid");
 }
 
+function unproxiedUint8Array(value: unknown): value is Uint8Array {
+  try {
+    return !utilTypes.isProxy(value) && utilTypes.isUint8Array(value);
+  } catch {
+    return false;
+  }
+}
+
+function wipe(value: unknown): void {
+  try {
+    if (unproxiedUint8Array(value)) Reflect.apply(UINT8_ARRAY_FILL, value, [0]);
+  } catch {
+    // Cleanup must never change the stable transport result.
+  }
+}
+
+function byteLength(value: Uint8Array): number {
+  return Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, value, []) as number;
+}
+
+function backingBuffer(value: Uint8Array): ArrayBufferLike {
+  return Reflect.apply(TYPED_ARRAY_BUFFER, value, []) as ArrayBufferLike;
+}
+
+function discoverRequestBody(value: unknown): Uint8Array | undefined {
+  try {
+    if (typeof value !== "object" || value === null || utilTypes.isProxy(value)) return undefined;
+    const descriptor = Object.getOwnPropertyDescriptor(value, "body");
+    if (!descriptor || !("value" in descriptor) || !unproxiedUint8Array(descriptor.value)) {
+      return undefined;
+    }
+    return descriptor.value;
+  } catch {
+    return undefined;
+  }
+}
+
 function exactRequest(value: unknown): Record<string, unknown> {
   if (
     typeof value !== "object" ||
@@ -101,41 +132,31 @@ function exactHeaders(value: unknown): Headers {
   ) invalid();
   const descriptors = Object.getOwnPropertyDescriptors(value) as Record<string, PropertyDescriptor>;
   const keys = Reflect.ownKeys(descriptors);
-  if (keys.length < 1 || keys.length > 32 || keys.some((key) => typeof key !== "string")) invalid();
-  const headers = new Headers();
-  for (const key of keys as string[]) {
-    const descriptor = descriptors[key];
-    if (
-      !descriptor ||
-      !descriptor.enumerable ||
-      !("value" in descriptor) ||
-      !HEADER_NAME.test(key) ||
-      FORBIDDEN_REQUEST_HEADERS.has(key) ||
-      typeof descriptor.value !== "string" ||
-      descriptor.value.length < 1 ||
-      descriptor.value.length > 4_096 ||
-      descriptor.value.trim() !== descriptor.value ||
-      CONTROL.test(descriptor.value)
-    ) invalid();
-    headers.set(key, descriptor.value);
-  }
-  const contentType = headers.get("content-type");
+  const descriptor = descriptors["content-type"];
   if (
-    contentType === null ||
-    !REQUEST_CONTENT_TYPES.includes(contentType) ||
-    keys.filter((key) => key === "content-type").length !== 1
+    keys.length !== 1 ||
+    keys[0] !== "content-type" ||
+    !descriptor ||
+    !descriptor.enumerable ||
+    !("value" in descriptor) ||
+    typeof descriptor.value !== "string" ||
+    descriptor.value.length < 1 ||
+    descriptor.value.length > 128 ||
+    descriptor.value.trim() !== descriptor.value ||
+    CONTROL.test(descriptor.value) ||
+    !REQUEST_CONTENT_TYPES.includes(descriptor.value)
   ) invalid();
-  return headers;
+  return new Headers({ "content-type": descriptor.value });
 }
 
 function exactBody(value: unknown): Uint8Array {
   if (
-    !(value instanceof Uint8Array) ||
+    !unproxiedUint8Array(value) ||
     Object.getPrototypeOf(value) !== Uint8Array.prototype ||
-    !(value.buffer instanceof ArrayBuffer) ||
-    value.byteLength < 1 ||
-    value.byteLength > MAXIMUM_REQUEST_BYTES
+    !(backingBuffer(value) instanceof ArrayBuffer)
   ) invalid();
+  const length = byteLength(value);
+  if (length < 1 || length > MAXIMUM_REQUEST_BYTES) invalid();
   return value;
 }
 
@@ -298,8 +319,27 @@ async function boundedBytes(
     void reader.cancel().catch(() => undefined);
     throw error;
   } finally {
-    for (const chunk of chunks) chunk.fill(0);
-    reader.releaseLock();
+    for (const chunk of chunks) wipe(chunk);
+    try {
+      reader.releaseLock();
+    } catch {
+      // Cleanup remains opaque and cannot replace the transport result.
+    }
+  }
+}
+
+function discardResponse(response: Response | undefined, controller: AbortController): void {
+  try {
+    controller.abort();
+  } catch {
+    // The locally created controller is best-effort cleanup authority.
+  }
+  try {
+    if (response?.body !== null && response?.body !== undefined) {
+      void response.body.cancel().catch(() => undefined);
+    }
+  } catch {
+    // Response cleanup never exposes provider-controlled failures.
   }
 }
 
@@ -331,10 +371,11 @@ export function createBoundedProviderTransport(options: {
 
   return Object.freeze({
     async request(input: ProviderTransportRequest): Promise<ProviderTransportResult> {
-      let callerBody: Uint8Array | undefined;
+      let callerBody: Uint8Array | undefined = discoverRequestBody(input);
       let requestBody: Uint8Array | undefined;
       let requestBuffer: ArrayBuffer | undefined;
       let responseBody: Uint8Array | undefined;
+      let providerResponse: Response | undefined;
       let externalSignal: AbortSignal | undefined;
       let timer: ReturnType<typeof setTimeout> | undefined;
       let removeExternalAbort: (() => void) | undefined;
@@ -346,10 +387,12 @@ export function createBoundedProviderTransport(options: {
           { once: true },
         );
       });
+      void aborted.catch(() => undefined);
       try {
         const selected = exactRequest(input);
         callerBody = exactBody(selected.body);
-        requestBody = new Uint8Array(callerBody);
+        requestBody = new Uint8Array(byteLength(callerBody));
+        Reflect.apply(UINT8_ARRAY_SET, requestBody, [callerBody]);
         requestBuffer = requestBody.buffer as ArrayBuffer;
         const endpoint = exactEndpoint(selected.packet, selected.environment, selected.url);
         if (selected.method !== "POST") invalid();
@@ -375,8 +418,9 @@ export function createBoundedProviderTransport(options: {
         });
         timer = setTimeout(() => controller.abort(), timeoutMs);
         const response = await Promise.race([fetch(providerRequest), aborted]);
+        if (!(response instanceof Response)) invalid();
+        providerResponse = response;
         if (
-          !(response instanceof Response) ||
           response.type === "opaqueredirect" ||
           response.redirected ||
           response.status < 200 ||
@@ -398,13 +442,22 @@ export function createBoundedProviderTransport(options: {
           body: resultBody,
         });
       } catch {
+        discardResponse(providerResponse, controller);
         return UNKNOWN;
       } finally {
-        if (timer !== undefined) clearTimeout(timer);
-        removeExternalAbort?.();
-        callerBody?.fill(0);
-        requestBody?.fill(0);
-        responseBody?.fill(0);
+        try {
+          if (timer !== undefined) clearTimeout(timer);
+        } catch {
+          // Cleanup cannot replace the stable transport result.
+        }
+        try {
+          removeExternalAbort?.();
+        } catch {
+          // External signal cleanup remains opaque.
+        }
+        wipe(callerBody);
+        wipe(requestBody);
+        wipe(responseBody);
       }
     },
   });

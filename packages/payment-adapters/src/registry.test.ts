@@ -54,31 +54,32 @@ function packetFixture(adapterVersion = 1): Record<string, unknown> {
 }
 
 function adapter(packet: PaymentAdapterPacket): HostedPaymentAdapter<object> {
+  const parseCredential = Object.freeze((value: unknown) => {
+    if (typeof value !== "object" || value === null) throw new TypeError("invalid");
+    return Object.freeze({});
+  });
+  const maskAccount = Object.freeze(() => "merchant…3456");
+  const initialize = Object.freeze(async () => (
+    Object.freeze({ kind: "pending" as const, providerReference: null })
+  ));
+  const verifyCallback = Object.freeze(async () => Object.freeze({
+    eventKey: "event_fixture",
+    status: "failed" as const,
+    providerReference: null,
+    paidAmountMinor: 0,
+    currency: "TRY",
+    safeCode: "fixture",
+  }));
+  const query = Object.freeze(async () => (
+    Object.freeze({ kind: "pending" as const, providerReference: null })
+  ));
   return Object.freeze({
     packet,
-    parseCredential(value: unknown) {
-      if (typeof value !== "object" || value === null) throw new TypeError("invalid");
-      return Object.freeze({});
-    },
-    maskAccount() {
-      return "merchant…3456";
-    },
-    async initialize() {
-      return Object.freeze({ kind: "pending" as const, providerReference: null });
-    },
-    async verifyCallback() {
-      return Object.freeze({
-        eventKey: "event_fixture",
-        status: "failed" as const,
-        providerReference: null,
-        paidAmountMinor: 0,
-        currency: "TRY",
-        safeCode: "fixture",
-      });
-    },
-    async query() {
-      return Object.freeze({ kind: "pending" as const, providerReference: null });
-    },
+    parseCredential,
+    maskAccount,
+    initialize,
+    verifyCallback,
+    query,
   });
 }
 
@@ -125,6 +126,31 @@ test("rejects mutable adapters", () => {
 
   assert.throws(
     () => createPaymentAdapterRegistry([packet], [mutable]),
+    /payment_adapter_registry_invalid/,
+  );
+});
+
+test("rejects mutable and proxied executable adapter members", () => {
+  const packet = parsePaymentAdapterPacket(packetFixture());
+  const valid = adapter(packet);
+  const mutableQuery = async () => Object.freeze({
+    kind: "pending" as const,
+    providerReference: null,
+  });
+  const mutableCallable = Object.freeze({ ...valid, query: mutableQuery });
+  assert.throws(
+    () => createPaymentAdapterRegistry([packet], [mutableCallable]),
+    /payment_adapter_registry_invalid/,
+  );
+
+  const target = Object.freeze(async () => Object.freeze({
+    kind: "pending" as const,
+    providerReference: null,
+  }));
+  const proxiedQuery = new Proxy(target, {});
+  const proxiedCallable = Object.freeze({ ...valid, query: proxiedQuery });
+  assert.throws(
+    () => createPaymentAdapterRegistry([packet], [proxiedCallable]),
     /payment_adapter_registry_invalid/,
   );
 });

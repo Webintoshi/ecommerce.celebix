@@ -179,6 +179,130 @@ test("rejects accessor-backed request authority before fetch", async () => {
   assert.equal(calls, 0);
 });
 
+test("wipes a safely discoverable body when request validation fails before body parsing", async () => {
+  let calls = 0;
+  const body = new TextEncoder().encode("merchant_id=123456");
+  const transport = createBoundedProviderTransport({
+    fetch: async () => {
+      calls += 1;
+      return new Response("{}", {
+        headers: { "content-type": JSON_CONTENT_TYPE },
+      });
+    },
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+
+  const result = await transport.request({
+    packet: PACKET,
+    environment: "test",
+    url: ENDPOINT,
+    method: "POST",
+    headers: { "content-type": FORM_CONTENT_TYPE },
+    body,
+    unexpectedAuthority: "rejected",
+  } as never);
+
+  assert.deepEqual(result, {
+    kind: "unknown",
+    code: "transport_outcome_unknown",
+  });
+  assert.deepEqual([...body], Array(body.length).fill(0));
+  assert.equal(calls, 0);
+});
+
+test("uses typed-array intrinsics when caller fill is replaced after the provider call", async () => {
+  for (const replacement of [
+    () => undefined,
+    () => { throw new Error("raw cleanup failure"); },
+  ]) {
+    const body = new TextEncoder().encode("merchant_id=123456");
+    const transport = createBoundedProviderTransport({
+      fetch: async () => {
+        Object.defineProperty(body, "fill", {
+          configurable: true,
+          value: replacement,
+        });
+        return new Response('{"status":"success"}', {
+          headers: { "content-type": JSON_CONTENT_TYPE },
+        });
+      },
+      timeoutMs: 20_000,
+      maximumResponseBytes: 8_192,
+    });
+
+    const result = await request(transport, { body });
+
+    assert.equal(result.kind, "response");
+    assert.deepEqual([...body], Array(body.length).fill(0));
+  }
+});
+
+test("uses typed-array intrinsics for provider-controlled response chunks", async () => {
+  for (const replacement of [
+    () => undefined,
+    () => { throw new Error("raw provider chunk cleanup failure"); },
+  ]) {
+    const chunk = new TextEncoder().encode('{"status":"success"}');
+    Object.defineProperty(chunk, "fill", {
+      configurable: true,
+      value: replacement,
+    });
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(chunk);
+        controller.close();
+      },
+    });
+    const transport = createBoundedProviderTransport({
+      fetch: async () => new Response(stream, {
+        headers: { "content-type": JSON_CONTENT_TYPE },
+      }),
+      timeoutMs: 20_000,
+      maximumResponseBytes: 8_192,
+    });
+
+    const result = await request(transport);
+
+    assert.equal(result.kind, "response");
+    assert.deepEqual([...chunk], Array(chunk.length).fill(0));
+  }
+});
+
+test("rejects routing, rewrite, and method-override request headers before fetch", async () => {
+  let calls = 0;
+  const transport = createBoundedProviderTransport({
+    fetch: async () => {
+      calls += 1;
+      return new Response("{}", {
+        headers: { "content-type": JSON_CONTENT_TYPE },
+      });
+    },
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+
+  for (const name of [
+    "forwarded",
+    "x-forwarded-host",
+    "x-original-url",
+    "x-rewrite-url",
+    "x-http-method-override",
+  ]) {
+    const result = await request(transport, {
+      headers: {
+        "content-type": FORM_CONTENT_TYPE,
+        [name]: "https://evil.example.test/override",
+      },
+    });
+    assert.deepEqual(result, {
+      kind: "unknown",
+      code: "transport_outcome_unknown",
+    }, name);
+  }
+  assert.equal(calls, 0);
+});
+
 test("rejects redirects, cookies, locations, and non-exact response content types", async () => {
   const responses = [
     new Response(null, {
@@ -211,6 +335,56 @@ test("rejects redirects, cookies, locations, and non-exact response content type
       kind: "unknown",
       code: "transport_outcome_unknown",
     });
+  }
+});
+
+test("aborts and non-blockingly cancels every response rejected before bounded reading", async () => {
+  const cases: readonly Readonly<{
+    status: number;
+    headers: Readonly<Record<string, string>>;
+  }>[] = [
+    { status: 302, headers: { location: "https://evil.example.test/" } },
+    { status: 200, headers: { "content-type": JSON_CONTENT_TYPE, "set-cookie": "private=x" } },
+    { status: 200, headers: { "content-type": "text/html" } },
+    { status: 199, headers: { "content-type": JSON_CONTENT_TYPE } },
+  ];
+
+  for (const selected of cases) {
+    let cancelled = false;
+    let requestSignal: AbortSignal | undefined;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("provider-private-body"));
+      },
+      cancel() {
+        cancelled = true;
+        return new Promise<void>(() => undefined);
+      },
+    });
+    const transport = createBoundedProviderTransport({
+      fetch: async (observed) => {
+        requestSignal = observed.signal;
+        const response = new Response(stream, {
+          status: selected.status === 199 ? 200 : selected.status,
+          headers: selected.headers,
+        });
+        if (selected.status === 199) {
+          Object.defineProperty(response, "status", { value: 199 });
+        }
+        return response;
+      },
+      timeoutMs: 20_000,
+      maximumResponseBytes: 8_192,
+    });
+
+    const result = await request(transport);
+
+    assert.deepEqual(result, {
+      kind: "unknown",
+      code: "transport_outcome_unknown",
+    });
+    assert.equal(cancelled, true, String(selected.status));
+    assert.equal(requestSignal?.aborted, true, String(selected.status));
   }
 });
 
