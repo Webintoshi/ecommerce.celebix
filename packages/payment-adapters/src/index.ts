@@ -1,4 +1,9 @@
 export { parsePaymentAdapterPacket } from "./validation.ts";
+export {
+  PAYMENT_ADAPTER_PACKET_INVENTORY,
+  PAYMENT_PROTOCOL_FAMILIES,
+  getPaymentAdapterPacketSource,
+} from "./packets/plugin-inventory.ts";
 export type {
   HostedPaymentAdapter,
   HostedPaymentCallbackInput,
@@ -12,3 +17,7 @@ export type {
   PaymentAdapterPacket,
   VerifiedProviderCallback,
 } from "./contracts.ts";
+export type {
+  PaymentAdapterPacketSource,
+  PaymentProtocolFamily,
+} from "./packets/source-types.ts";

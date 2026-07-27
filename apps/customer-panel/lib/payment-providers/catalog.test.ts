@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { parsePaymentProviderCatalogEntry } from "@celebix/saas-contracts";
+import { PAYMENT_ADAPTER_PACKET_INVENTORY } from "../../../../packages/payment-adapters/src/index.ts";
 
 type CatalogModule = typeof import("./catalog.ts");
 
@@ -127,6 +128,25 @@ test("catalog preserves the approved family and mode normalization", () => {
     });
     assert.doesNotThrow(() => parsePaymentProviderCatalogEntry(entry));
   }
+});
+
+test("catalog codes stay aligned with inventory-only adapter source records", () => {
+  const catalog = catalogModule.PAYMENT_PROVIDER_CATALOG!;
+  assert.deepEqual(
+    PAYMENT_ADAPTER_PACKET_INVENTORY.map((item) => [
+      item.providerCode,
+      item.familyCode,
+      item.modeCode,
+      item.sourceSlug,
+    ]),
+    catalog.map((entry) => [
+      entry.providerCode,
+      entry.familyCode,
+      entry.modeCode,
+      entry.sourceSlug,
+    ]),
+  );
+  assert(PAYMENT_ADAPTER_PACKET_INVENTORY.every((item) => item.implementationState === "inventory_only"));
 });
 
 test("catalog and all nested values are immutable copies", () => {
