@@ -279,7 +279,7 @@ test("authorization, Celebix, Host, and forwarded authority headers are rejected
   }
 });
 
-test("route adapter removes only the framework transport Host before core classification", async () => {
+test("route adapter preserves unrecognized forwarding headers for core rejection", async () => {
   const handle = handler(repository({ async listLocations() { return []; } }));
   const transport = request("/api/inventory/locations", {
     headers: { host: "internal:3400", "x-forwarded-uri": "/api/inventory/locations" },
@@ -293,6 +293,24 @@ test("route adapter removes only the framework transport Host before core classi
     headers: { host: "internal:3400" },
   }));
   assert.equal((await handle(ordinary)).status, 200);
+});
+
+test("route adapter removes Next framework forwarding headers before core classification", async () => {
+  const handle = handler(repository({ async listLocations() { return []; } }));
+  const prepared = prepareInventoryRouteRequest(request("/api/inventory/locations", {
+    headers: {
+      host: "internal:3400",
+      "x-forwarded-host": "internal:3400",
+      "x-forwarded-port": "3400",
+      "x-forwarded-proto": "http",
+    },
+  }));
+
+  assert.equal(prepared.headers.has("host"), false);
+  assert.equal(prepared.headers.has("x-forwarded-host"), false);
+  assert.equal(prepared.headers.has("x-forwarded-port"), false);
+  assert.equal(prepared.headers.has("x-forwarded-proto"), false);
+  assert.equal((await handle(prepared)).status, 200);
 });
 
 test("balances query rejects missing, duplicate, unknown, encoded, and noncanonical identifiers", async () => {

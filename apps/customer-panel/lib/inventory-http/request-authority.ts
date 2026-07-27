@@ -41,6 +41,9 @@ function privateAuthority(request: Request): boolean {
 export function prepareInventoryRouteRequest(request: Request): Request {
   const headers = new Headers(request.headers);
   headers.delete("host");
+  headers.delete("x-forwarded-host");
+  headers.delete("x-forwarded-port");
+  headers.delete("x-forwarded-proto");
   return new Request(request, { headers });
 }
 
