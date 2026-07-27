@@ -1,6 +1,7 @@
 import type {
   MerchantAdminJson,
   MerchantProviderCapability,
+  PaymentProviderExecutionAuthority,
 } from "@celebix/saas-contracts";
 import type {
   MerchantProviderCredentialKeyring,
@@ -17,6 +18,7 @@ export type ProviderExecutionOutcome =
 export interface MerchantProviderAdapter {
   readonly providerCode: string;
   readonly capability: MerchantProviderCapability;
+  readonly executionAuthority: Readonly<PaymentProviderExecutionAuthority>;
   validateCredential(input: Readonly<{
     credential: Uint8Array;
     publicConfig: Readonly<Record<string, MerchantAdminJson>>;
@@ -34,6 +36,7 @@ export interface MerchantProviderAdapter {
 export interface MerchantProviderAdapterRegistry {
   readonly size: number;
   get(providerCode: string, capability: MerchantProviderCapability): MerchantProviderAdapter | null;
+  list(): readonly MerchantProviderAdapter[];
 }
 
 export type MerchantProviderWorkerResult = Readonly<{ kind:

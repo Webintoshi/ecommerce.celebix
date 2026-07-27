@@ -326,6 +326,7 @@ export type {
   PaymentProviderCatalogEntry,
   PaymentProviderCategory,
   PaymentProviderEnvironment,
+  PaymentProviderExecutionAuthority,
   PaymentProviderInteractionMode,
   PaymentProviderReadiness,
   PaymentProviderSupport,

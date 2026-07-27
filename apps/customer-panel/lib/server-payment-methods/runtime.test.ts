@@ -54,6 +54,7 @@ test("approved staging startup preflights constructs and registers payment metho
   assert.match(source, /to_regclass\('saas\.payment_methods'\)/);
   assert.match(source, /to_regprocedure\('saas\.payment_method_list/);
   assert.match(source, /to_regprocedure\('saas\.payment_method_recover_operation/);
+  assert.match(source, /saas\.paytr_iframe_activation_preflight\(\)/);
   assert.match(source, /new PostgresPaymentMethodRepository\(\{[\s\S]*?pool,[\s\S]*?role: "celebix_saas_app"/);
   assert.match(source, /registerServerPaymentMethodRepository\(access, paymentMethodRepository\)/);
   assert.ok(source.indexOf("await preflight") < source.indexOf("new PostgresPaymentMethodRepository"));

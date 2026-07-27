@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 import { types as nodeTypes } from "node:util";
 
 import type {
@@ -102,6 +103,50 @@ const HOSTED_QUERY_KEYS = Object.freeze([
   "providerReference",
   "signal",
 ]);
+const VALIDATION_KEYS = Object.freeze([
+  "credential",
+  "environment",
+  "failureUrl",
+  "signal",
+  "successUrl",
+  "userIp",
+  "validationReference",
+]);
+
+function publicValidationIp(value: unknown): string {
+  const selected = parsePaytrUserIp(value);
+  if (isIP(selected) !== 4) invalid();
+  const octets = selected.split(".").map(Number);
+  const [first, second, third] = octets;
+  if (
+    first === undefined || second === undefined || third === undefined ||
+    first === 0 || first === 10 || first === 127 || first >= 224 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 0 && (third === 0 || third === 2)) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19 || (second === 51 && third === 100))) ||
+    (first === 203 && second === 0 && third === 113)
+  ) invalid();
+  return selected;
+}
+
+function validationReturnUrls(successValue: unknown, failureValue: unknown): Readonly<{ successUrl: string; failureUrl: string }> {
+  const successUrl = parsePaytrReturnUrl(successValue);
+  const failureUrl = parsePaytrReturnUrl(failureValue);
+  const success = new URL(successUrl);
+  const failure = new URL(failureUrl);
+  const successHost = success.hostname.replace(/^\[|\]$/g, "");
+  const failureHost = failure.hostname.replace(/^\[|\]$/g, "");
+  if (
+    success.search !== "?durum=basarili" || failure.search !== "?durum=basarisiz" ||
+    success.origin !== failure.origin || success.hostname.endsWith(".invalid") ||
+    success.hostname === "localhost" || !success.hostname.includes(".") ||
+    isIP(successHost) !== 0 || isIP(failureHost) !== 0
+  ) invalid();
+  return Object.freeze({ successUrl, failureUrl });
+}
 const CUSTOMER_KEYS = Object.freeze([
   "address",
   "email",
@@ -150,6 +195,13 @@ export type PaytrIframeStatusResult =
       testMode: 1;
     }>
   | Readonly<{ status: "unknown" }>;
+
+export type PaytrIframeCredentialValidationResult =
+  | Readonly<{ kind: "validated" }>
+  | Readonly<{
+      kind: "rejected";
+      outcomeCode: "provider_rejected" | "validation_unavailable" | "invalid_validation_request";
+    }>;
 
 function invalid(message = "paytr_invalid"): never {
   throw new TypeError(message);
@@ -371,6 +423,65 @@ export async function initializePaytrIframeWithTransport(
     wipe(requestBody);
     wipe(responseBody);
     if (credential !== undefined) wipePaytrCredential(credential);
+  }
+}
+
+export async function validatePaytrIframeCredentialWithTransport(
+  transport: ProviderTransport,
+  input: Readonly<{
+    environment: "test" | "live";
+    credential: PaytrIframeCredential;
+    validationReference: string;
+    userIp: string;
+    successUrl: string;
+    failureUrl: string;
+    signal: AbortSignal;
+  }>,
+): Promise<PaytrIframeCredentialValidationResult> {
+  let selectedCredential: PaytrIframeCredential | undefined;
+  try {
+    const selected = exactRecord(input, VALIDATION_KEYS);
+    if (
+      selected.environment !== "test" ||
+      typeof selected.validationReference !== "string" ||
+      !UUID.test(selected.validationReference) ||
+      !(selected.signal instanceof AbortSignal) || selected.signal.aborted
+    ) invalid();
+    selectedCredential = parsePaytrIframeCredential(selected.credential);
+    const userIp = publicValidationIp(selected.userIp);
+    const returnUrls = validationReturnUrls(selected.successUrl, selected.failureUrl);
+    const validationReference = `CV${selected.validationReference.replaceAll("-", "")}`;
+    // PayTR's official TEST contract proves the merchant credentials at get-token;
+    // no iframe is rendered and no card, callback, capture, or charge is performed.
+    const providerResult = await initializePaytrIframeWithTransport(transport, Object.freeze({
+      environment: "test",
+      credential: selectedCredential,
+      userIp,
+      merchantOid: validationReference,
+      email: "payments@celebix.co",
+      paymentAmount: 1,
+      userBasket: encodePaytrBasket(Object.freeze([Object.freeze({
+        name: "Celebix credential validation",
+        quantity: 1,
+        unitAmountMinor: 1,
+      })])),
+      userName: "Celebix Validation",
+      userAddress: "Credential validation only",
+      userPhone: "+905555555555",
+      successUrl: returnUrls.successUrl,
+      failureUrl: returnUrls.failureUrl,
+      noInstallment: 1,
+      maxInstallment: 0,
+      signal: selected.signal,
+    }));
+    if (providerResult.status === "success") return Object.freeze({ kind: "validated" as const });
+    return providerResult.status === "rejected"
+      ? Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const })
+      : Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+  } catch {
+    return Object.freeze({ kind: "rejected" as const, outcomeCode: "invalid_validation_request" as const });
+  } finally {
+    if (selectedCredential !== undefined) wipePaytrCredential(selectedCredential);
   }
 }
 

@@ -4,6 +4,7 @@ import type {
   MerchantAdminJson,
   MerchantProviderCapability,
   MerchantProviderProfile,
+  PaymentProviderExecutionAuthority,
   TenantContext,
 } from "@celebix/saas-contracts";
 
@@ -27,6 +28,7 @@ export interface SaveMerchantProviderProfileInput extends ListMerchantProviderPr
   readonly maskedAccountReference: string;
   readonly sealedCredentials: SealedMerchantProviderCredential;
   readonly credentialDigest: string;
+  readonly executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null;
   readonly expectedVersion: number;
 }
 
@@ -58,12 +60,19 @@ export interface ClaimMerchantProviderWorkInput {
   readonly leaseExpiresAt: Date;
 }
 
+export interface ClaimMerchantProviderValidationInput extends ClaimMerchantProviderWorkInput {
+  readonly providerCode: string;
+  readonly capability: MerchantProviderCapability;
+  readonly executionAuthority: Readonly<PaymentProviderExecutionAuthority>;
+}
+
 export interface MerchantProviderValidationClaim {
   readonly profileId: string;
   readonly storeId: string;
   readonly providerCode: string;
   readonly capability: MerchantProviderCapability;
   readonly publicConfig: Readonly<Record<string, MerchantAdminJson>>;
+  readonly executionAuthority: Readonly<PaymentProviderExecutionAuthority>;
   readonly sealedCredentials: SealedMerchantProviderCredential;
   readonly credentialVersion: number;
   readonly profileVersion: number;
@@ -91,6 +100,9 @@ export interface MerchantProviderWorkflowClaim {
 
 export interface MerchantProviderValidationResultInput {
   readonly profileId: string;
+  readonly providerCode: string;
+  readonly capability: MerchantProviderCapability;
+  readonly executionAuthority: Readonly<PaymentProviderExecutionAuthority>;
   readonly credentialVersion: number;
   readonly profileVersion: number;
   readonly leaseId: string;
@@ -141,7 +153,7 @@ export interface RecoverMerchantProviderWorkflowInput {
 }
 
 export interface MerchantProviderWorkflowRepository {
-  claimProfileValidation(input: ClaimMerchantProviderWorkInput): Promise<Readonly<{ kind: "empty" }> | Readonly<{ kind: "claimed"; profile: MerchantProviderValidationClaim }>>;
+  claimProfileValidation(input: ClaimMerchantProviderValidationInput): Promise<Readonly<{ kind: "empty" }> | Readonly<{ kind: "claimed"; profile: MerchantProviderValidationClaim }>>;
   markProfileValidation(input: MerchantProviderValidationResultInput): Promise<MerchantProviderProfile>;
   claim(input: ClaimMerchantProviderWorkInput): Promise<Readonly<{ kind: "empty" }> | Readonly<{ kind: "claimed"; job: MerchantProviderWorkflowClaim }>>;
   heartbeat(input: MerchantProviderHeartbeatInput): Promise<MerchantAdminProviderJob>;

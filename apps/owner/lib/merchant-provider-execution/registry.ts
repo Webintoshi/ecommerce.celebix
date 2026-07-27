@@ -7,11 +7,16 @@ import type {
   MerchantProviderAdapter,
   MerchantProviderAdapterRegistry,
 } from "./types.ts";
+import {
+  createPaytrValidationAdapter,
+  type PaytrValidationAdapterOptions,
+} from "./paytr-validation-adapter.ts";
 
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const ADAPTER_KEYS = Object.freeze([
-  "providerCode", "capability", "validateCredential", "execute", "reconcile",
+  "providerCode", "capability", "executionAuthority", "validateCredential", "execute", "reconcile",
 ]);
+const DIGEST = /^sha256:[a-f0-9]{64}$/;
 
 function invalid(): never {
   throw new TypeError("provider_adapter_registry_invalid");
@@ -50,8 +55,16 @@ function adapter(value: unknown): MerchantProviderAdapter {
   if (
     typeof selected.providerCode !== "string" || !PROVIDER_CODE.test(selected.providerCode) ||
     !MERCHANT_PROVIDER_CAPABILITIES.includes(selected.capability as never) ||
+    typeof selected.executionAuthority !== "object" || selected.executionAuthority === null ||
     typeof selected.validateCredential !== "function" || typeof selected.execute !== "function" ||
     typeof selected.reconcile !== "function"
+  ) invalid();
+  const authority = selected.executionAuthority as Record<string, unknown>;
+  if (
+    Object.keys(authority).sort().join(",") !== "adapterVersion,environment,evidenceDigest" ||
+    (authority.environment !== "test" && authority.environment !== "live") ||
+    !Number.isSafeInteger(authority.adapterVersion) || (authority.adapterVersion as number) < 1 ||
+    typeof authority.evidenceDigest !== "string" || !DIGEST.test(authority.evidenceDigest)
   ) invalid();
   return value as MerchantProviderAdapter;
 }
@@ -72,9 +85,14 @@ export function createMerchantProviderAdapterRegistry(
       if (!PROVIDER_CODE.test(providerCode) || !MERCHANT_PROVIDER_CAPABILITIES.includes(capability as never)) return null;
       return entries.get(`${providerCode}:${capability}`) ?? null;
     },
+    list(): readonly MerchantProviderAdapter[] { return Object.freeze([...selected]); },
   });
 }
 
-export function createProductionMerchantProviderRegistry(): MerchantProviderAdapterRegistry {
-  return createMerchantProviderAdapterRegistry(Object.freeze([]));
+export function createProductionMerchantProviderRegistry(
+  options: PaytrValidationAdapterOptions,
+): MerchantProviderAdapterRegistry {
+  return createMerchantProviderAdapterRegistry(Object.freeze([
+    createPaytrValidationAdapter(options),
+  ]));
 }

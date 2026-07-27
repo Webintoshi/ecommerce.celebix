@@ -42,6 +42,7 @@ function providerStatus(value: unknown): MerchantAdminProviderJobStatus { if (!M
 function providerKind(value: unknown): MerchantAdminProviderRecordKind { if (!MERCHANT_ADMIN_PROVIDER_RECORD_KINDS.includes(value as never)) invalid(); return value as MerchantAdminProviderRecordKind; }
 function providerPair(rawKind: unknown, rawAction: unknown) { const recordKind = providerKind(rawKind), action = providerAction(rawAction); const expected: MerchantAdminProviderAction = recordKind === "marketplace_connection" ? "synchronization" : recordKind === "invoice_integration" ? "reconciliation" : recordKind === "indexing_request" ? "indexing" : "delivery"; if (action !== expected) invalid(); return { recordKind, action } as const; }
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
+const EVIDENCE_DIGEST = /^sha256:[a-f0-9]{64}$/;
 const PROVIDER_EXECUTION_FIELDS = Object.freeze([
   "profileId", "providerCode", "credentialVersion", "attempt", "safeProviderReference", "outcomeCode",
 ] as const);
@@ -76,7 +77,30 @@ export function parseMerchantAdminRecord(value: unknown): MerchantAdminRecord { 
 export function parseMerchantAdminMutationResult(value: unknown): MerchantAdminMutationResult { const parsed = exact(value, ["id", "kind", "status", "version", "updatedAt", "replayed"]); if (typeof parsed.replayed !== "boolean") invalid(); return Object.freeze({ id: uuid(parsed.id), kind: kind(parsed.kind), status: status(parsed.status), version: integer(parsed.version, 1), updatedAt: timestamp(parsed.updatedAt), replayed: parsed.replayed }); }
 export function parseMerchantAdminConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>> { const result = json(value); if (typeof result !== "object" || result === null || Array.isArray(result)) invalid(); return result as Readonly<Record<string, MerchantAdminJson>>; }
 export function parseMerchantAdminEvent(value: unknown): MerchantAdminEvent { const parsed = exact(value, ["id", "recordId", "recordKind", "eventKind", "summary", "occurredAt"]), summary = json(parsed.summary); if (!MERCHANT_ADMIN_EVENT_KINDS.includes(parsed.eventKind as never) || typeof summary !== "object" || summary === null || Array.isArray(summary)) invalid(); return Object.freeze({ id: uuid(parsed.id), recordId: uuid(parsed.recordId), recordKind: kind(parsed.recordKind), eventKind: parsed.eventKind as MerchantAdminEvent["eventKind"], summary: summary as Readonly<Record<string, MerchantAdminJson>>, occurredAt: timestamp(parsed.occurredAt) }); }
-export function parseMerchantProviderDescriptor(value: unknown): MerchantProviderDescriptor { const parsed = exact(value, ["providerCode", "capability", "label", "publicFields", "credentialFields"]), publicFields = descriptorFields(parsed.publicFields, providerField), credentialFields = descriptorFields(parsed.credentialFields, providerCredentialField), fieldKeys = [...publicFields, ...credentialFields].map((field) => field.key); if (new Set(fieldKeys).size !== fieldKeys.length) invalid(); return Object.freeze({ providerCode: providerCode(parsed.providerCode), capability: providerCapability(parsed.capability), label: text(parsed.label, 1, 120), publicFields, credentialFields }); }
+export function parseMerchantProviderDescriptor(value: unknown): MerchantProviderDescriptor {
+  const candidate = object(value), capability = providerCapability(candidate.capability);
+  const parsed = exact(value, capability === "payment_processing"
+    ? ["providerCode", "capability", "label", "publicFields", "credentialFields", "adapterVersion", "environments", "executionAuthority"]
+    : ["providerCode", "capability", "label", "publicFields", "credentialFields"]);
+  const publicFields = descriptorFields(parsed.publicFields, providerField), credentialFields = descriptorFields(parsed.credentialFields, providerCredentialField), fieldKeys = [...publicFields, ...credentialFields].map((field) => field.key);
+  if (new Set(fieldKeys).size !== fieldKeys.length) invalid();
+  const base = { providerCode: providerCode(parsed.providerCode), capability, label: text(parsed.label, 1, 120), publicFields, credentialFields };
+  if (capability !== "payment_processing") return Object.freeze(base);
+  const adapterVersion = integer(parsed.adapterVersion, 1);
+  if (adapterVersion > 1_000 || !Array.isArray(parsed.environments) || Object.getPrototypeOf(parsed.environments) !== Array.prototype || parsed.environments.length < 1 || parsed.environments.length > 2) invalid();
+  const environmentFields = descriptorFields(parsed.environments, (entry) => {
+    if (entry !== "test" && entry !== "live") invalid();
+    return entry;
+  });
+  if (new Set(environmentFields).size !== environmentFields.length) invalid();
+  let executionAuthority = null;
+  if (parsed.executionAuthority !== null) {
+    const authority = exact(parsed.executionAuthority, ["environment", "adapterVersion", "evidenceDigest"]);
+    if ((authority.environment !== "test" && authority.environment !== "live") || !environmentFields.includes(authority.environment) || authority.adapterVersion !== adapterVersion || typeof authority.evidenceDigest !== "string" || !EVIDENCE_DIGEST.test(authority.evidenceDigest)) invalid();
+    executionAuthority = Object.freeze({ environment: authority.environment, adapterVersion, evidenceDigest: authority.evidenceDigest });
+  }
+  return Object.freeze({ ...base, adapterVersion, environments: environmentFields, executionAuthority });
+}
 export function parseMerchantProviderProfile(value: unknown): MerchantProviderProfile { const parsed = exact(value, ["id", "providerCode", "capability", "publicConfig", "maskedAccountReference", "status", "credentialVersion", "version", "lastValidatedAt", "createdAt", "updatedAt"]), publicConfig = json(parsed.publicConfig); if (typeof publicConfig !== "object" || publicConfig === null || Array.isArray(publicConfig) || bytes(canonicalJson(publicConfig)) > 8_192) invalid(); const createdAt = timestamp(parsed.createdAt), updatedAt = timestamp(parsed.updatedAt), lastValidatedAt = nullableTimestamp(parsed.lastValidatedAt); if (updatedAt < createdAt || (lastValidatedAt !== null && (lastValidatedAt < createdAt || lastValidatedAt > updatedAt))) invalid(); return Object.freeze({ id: uuid(parsed.id), providerCode: providerCode(parsed.providerCode), capability: providerCapability(parsed.capability), publicConfig: publicConfig as Readonly<Record<string, MerchantAdminJson>>, maskedAccountReference: text(parsed.maskedAccountReference, 1, 160), status: providerProfileStatus(parsed.status), credentialVersion: integer(parsed.credentialVersion, 1), version: integer(parsed.version, 1), lastValidatedAt, createdAt, updatedAt }); }
 export function parseMerchantAdminProviderJob(value: unknown): MerchantAdminProviderJob { const parsed = exact(value, ["id", "recordId", "recordKind", "action", "status", "version", "requestedAt", "updatedAt"], PROVIDER_EXECUTION_FIELDS), pair = providerPair(parsed.recordKind, parsed.action), status = providerStatus(parsed.status), execution = providerExecutionFields(parsed, status); return Object.freeze({ id: uuid(parsed.id), recordId: uuid(parsed.recordId), ...pair, status, ...execution, version: integer(parsed.version, 1), requestedAt: timestamp(parsed.requestedAt), updatedAt: timestamp(parsed.updatedAt) }); }
 export function parseMerchantAdminProviderJobMutationResult(value: unknown): MerchantAdminProviderJobMutationResult { const parsed = exact(value, ["id", "recordId", "recordKind", "action", "status", "version", "updatedAt", "replayed"], PROVIDER_EXECUTION_FIELDS), pair = providerPair(parsed.recordKind, parsed.action), status = providerStatus(parsed.status), execution = providerExecutionFields(parsed, status); if (typeof parsed.replayed !== "boolean") invalid(); return Object.freeze({ id: uuid(parsed.id), recordId: uuid(parsed.recordId), ...pair, status, ...execution, version: integer(parsed.version, 1), updatedAt: timestamp(parsed.updatedAt), replayed: parsed.replayed }); }

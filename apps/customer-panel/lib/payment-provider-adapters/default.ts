@@ -7,6 +7,7 @@ import {
   type ProviderTransport,
 } from "@celebix/payment-adapters";
 import type { MerchantAdminJson } from "@celebix/saas-contracts";
+import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
 
 import {
   createCustomerPanelProviderRegistry,
@@ -52,7 +53,10 @@ function wipeCredential(value: unknown): void {
   }
 }
 
-function paytrEntry(adapter: HostedPaymentAdapter<object>): MerchantProviderRegistryEntry {
+function paytrEntry(
+  adapter: HostedPaymentAdapter<object>,
+  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null,
+): MerchantProviderRegistryEntry {
   if (
     adapter.packet !== PAYTR_IFRAME_PACKET ||
     adapter.packet.providerCode !== "paytr_iframe" ||
@@ -133,6 +137,9 @@ function paytrEntry(adapter: HostedPaymentAdapter<object>): MerchantProviderRegi
     label: "PayTR iFrame",
     publicFields,
     credentialFields,
+    adapterVersion: adapter.packet.adapterVersion,
+    environments: Object.freeze(["test"] as const),
+    executionAuthority,
     parsePublicConfig,
     parseCredential,
     maskAccountReference,
@@ -148,12 +155,18 @@ export function createDefaultHostedPaymentAdapterRegistry(
 
 export function createDefaultCustomerPanelPaymentProviderRegistry(
   hosted: PaymentAdapterRegistry,
+  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null = null,
 ): MerchantProviderRegistry {
   try {
     if (hosted.size !== 1) invalid();
     const adapter = hosted.adapter("paytr_iframe");
     if (adapter === null || hosted.packet("paytr_iframe") !== PAYTR_IFRAME_PACKET) invalid();
-    return createCustomerPanelProviderRegistry([paytrEntry(adapter)]);
+    if (executionAuthority !== null && (
+      executionAuthority.environment !== "test" ||
+      executionAuthority.adapterVersion !== adapter.packet.adapterVersion ||
+      !/^sha256:[a-f0-9]{64}$/.test(executionAuthority.evidenceDigest)
+    )) invalid();
+    return createCustomerPanelProviderRegistry([paytrEntry(adapter, executionAuthority)]);
   } catch {
     return invalid();
   }

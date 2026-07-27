@@ -12,6 +12,7 @@ import {
   type PaymentProviderCatalogEntry,
   type PaymentProviderCategory,
   type PaymentProviderEnvironment,
+  type PaymentProviderExecutionAuthority,
   type PaymentProviderInteractionMode,
   type PaymentProviderReadiness,
   type PaymentProviderSupport,
@@ -29,7 +30,7 @@ const CATEGORIES = Object.freeze(["bank_pos", "payment_institution", "wallet", "
 const SUPPORT = Object.freeze(["yes", "no", "unknown"] as const);
 const ENVIRONMENTS = Object.freeze(["test", "live"] as const);
 const ENTRY_KEYS = Object.freeze([
-  "aliases", "category", "environments", "familyCode", "interactionMode", "label",
+  "aliases", "category", "environments", "executionAuthority", "familyCode", "interactionMode", "label",
   "logoPath", "modeCode", "modeLabel", "providerCode", "readiness", "sourceSlug", "support",
 ]);
 const METHOD_KEYS = Object.freeze([
@@ -38,6 +39,8 @@ const METHOD_KEYS = Object.freeze([
 ]);
 const MUTATION_KEYS = Object.freeze(["id", "position", "replayed", "state", "updatedAt", "version"]);
 const SUPPORT_KEYS = Object.freeze(["cancel", "capture", "installments", "refund", "threeDSecure"]);
+const EXECUTION_AUTHORITY_KEYS = Object.freeze(["adapterVersion", "environment", "evidenceDigest"]);
+const EVIDENCE_DIGEST = /^sha256:[a-f0-9]{64}$/;
 
 function invalid(): never {
   throw new Error("payment_provider_contract_invalid");
@@ -138,6 +141,29 @@ function providerSupport(value: unknown): PaymentProviderCatalogEntry["support"]
   });
 }
 
+function executionAuthority(
+  value: unknown,
+  readiness: PaymentProviderReadiness,
+  supportedEnvironments: readonly PaymentProviderEnvironment[],
+): Readonly<PaymentProviderExecutionAuthority> | null {
+  if (readiness !== "sandbox_ready" && readiness !== "production_ready") {
+    if (value !== null) invalid();
+    return null;
+  }
+  const parsed = dataObject(value, EXECUTION_AUTHORITY_KEYS);
+  const environment = member(parsed.environment, ENVIRONMENTS);
+  if (
+    environment !== (readiness === "sandbox_ready" ? "test" : "live") ||
+    !supportedEnvironments.includes(environment) ||
+    typeof parsed.evidenceDigest !== "string" || !EVIDENCE_DIGEST.test(parsed.evidenceDigest)
+  ) invalid();
+  return Object.freeze({
+    environment,
+    adapterVersion: integer(parsed.adapterVersion, 1, 1_000),
+    evidenceDigest: parsed.evidenceDigest,
+  });
+}
+
 export function parsePaymentProviderCatalogEntry(value: unknown): PaymentProviderCatalogEntry {
   const parsed = dataObject(value, ENTRY_KEYS);
   const providerCode = code(parsed.providerCode);
@@ -147,6 +173,8 @@ export function parsePaymentProviderCatalogEntry(value: unknown): PaymentProvide
   if (!LOGO.test(logoPath)) invalid();
   const interactionMode = member(parsed.interactionMode, PAYMENT_PROVIDER_INTERACTION_MODES);
   if (interactionMode === "offline") invalid();
+  const readiness = member(parsed.readiness, PAYMENT_PROVIDER_READINESS) as PaymentProviderReadiness;
+  const selectedEnvironments = environments(parsed.environments);
   return Object.freeze({
     providerCode,
     familyCode: code(parsed.familyCode),
@@ -156,11 +184,12 @@ export function parsePaymentProviderCatalogEntry(value: unknown): PaymentProvide
     modeLabel: text(parsed.modeLabel, 1, 120),
     category: member(parsed.category, CATEGORIES) as PaymentProviderCategory,
     interactionMode: interactionMode as Exclude<PaymentProviderInteractionMode, "offline">,
-    readiness: member(parsed.readiness, PAYMENT_PROVIDER_READINESS) as PaymentProviderReadiness,
+    readiness,
+    executionAuthority: executionAuthority(parsed.executionAuthority, readiness, selectedEnvironments),
     support: providerSupport(parsed.support),
     logoPath,
     aliases: stringList(parsed.aliases, 32),
-    environments: environments(parsed.environments),
+    environments: selectedEnvironments,
   });
 }
 

@@ -24,6 +24,12 @@ export type PaymentProviderCategory = "bank_pos" | "payment_institution" | "wall
 export type PaymentProviderSupport = "yes" | "no" | "unknown";
 export type PaymentProviderEnvironment = "test" | "live";
 
+export interface PaymentProviderExecutionAuthority {
+  readonly environment: PaymentProviderEnvironment;
+  readonly adapterVersion: number;
+  readonly evidenceDigest: string;
+}
+
 export interface PaymentProviderCatalogEntry {
   readonly providerCode: string;
   readonly familyCode: string;
@@ -34,6 +40,7 @@ export interface PaymentProviderCatalogEntry {
   readonly category: PaymentProviderCategory;
   readonly interactionMode: Exclude<PaymentProviderInteractionMode, "offline">;
   readonly readiness: PaymentProviderReadiness;
+  readonly executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null;
   readonly support: Readonly<{
     readonly threeDSecure: PaymentProviderSupport;
     readonly installments: PaymentProviderSupport;

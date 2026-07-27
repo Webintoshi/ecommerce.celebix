@@ -113,6 +113,7 @@ function saveInput() {
     maskedAccountReference: "••••nt-42",
     sealedCredentials: sealedEnvelope(),
     credentialDigest: "a".repeat(64),
+    executionAuthority: null,
     expectedVersion: 0,
   };
 }

@@ -6,6 +6,8 @@ import {
   parseMerchantProviderDescriptor,
   parseMerchantProviderProfile,
   type MerchantProviderCapability,
+  type PaymentProviderCatalogEntry,
+  type PaymentProviderExecutionAuthority,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import {
@@ -36,6 +38,7 @@ type Deps = Readonly<{
   requestId(): string;
   profileId(): string;
   providerCodes(capability: MerchantProviderCapability): readonly string[];
+  paymentCatalog(): readonly PaymentProviderCatalogEntry[];
 }>;
 type Authorized = Readonly<{ runtime: ServerProviderExecutionRuntime; tenantContext: TenantContext; now: Date }>;
 
@@ -161,6 +164,34 @@ function bytes(value: unknown): Uint8Array {
   return selected;
 }
 
+function paymentExecutionAuthority(
+  runtime: ServerProviderExecutionRuntime,
+  entry: ReturnType<ServerProviderExecutionRuntime["registry"]["get"]>,
+  catalog: readonly PaymentProviderCatalogEntry[],
+) {
+  if (entry === null || entry.capability !== "payment_processing") return null;
+  const catalogEntry = catalog.find((candidate) => candidate.providerCode === entry.providerCode);
+  const authority = catalogEntry?.executionAuthority ?? null;
+  const expectedReadiness = authority?.environment === "test" ? "sandbox_ready" : "production_ready";
+  const packet = runtime.adapters.packet(entry.providerCode);
+  const adapter = runtime.adapters.adapter(entry.providerCode);
+  return catalogEntry !== undefined && authority !== null
+    && catalogEntry.readiness === expectedReadiness
+    && catalogEntry.environments.includes(authority.environment)
+    && entry.adapterVersion === authority.adapterVersion
+    && entry.environments?.length === 1 && entry.environments[0] === authority.environment
+    && entry.executionAuthority?.environment === authority.environment
+    && entry.executionAuthority.adapterVersion === authority.adapterVersion
+    && entry.executionAuthority.evidenceDigest === authority.evidenceDigest
+    && packet !== null && adapter !== null && adapter.packet === packet
+    && packet.providerCode === catalogEntry.providerCode
+    && packet.familyCode === catalogEntry.familyCode && packet.modeCode === catalogEntry.modeCode
+    && packet.adapterVersion === authority.adapterVersion
+    && packet.readiness[authority.environment] === catalogEntry.readiness
+    && packet.endpoints[authority.environment].length > 0
+    ? authority : null;
+}
+
 export function createProviderExecutionHttpHandlers(deps: Deps) {
   return Object.freeze({
     async definitions(request: Request): Promise<Response> {
@@ -177,6 +208,11 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
           return parseMerchantProviderDescriptor({
             providerCode: entry.providerCode, capability: entry.capability, label: entry.label,
             publicFields: entry.publicFields, credentialFields: entry.credentialFields,
+            ...(entry.capability === "payment_processing" ? {
+              adapterVersion: entry.adapterVersion,
+              environments: entry.environments,
+              executionAuthority: entry.executionAuthority,
+            } : {}),
           });
         });
         return json(Object.freeze({ items: Object.freeze(definitions) }));
@@ -199,6 +235,12 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
       if (!parsed || operationId === null || selectedCapability === null || expectedVersion === null || typeof parsed.providerCode !== "string") return failure("invalid_input", 400);
       const entry = authorized.runtime.registry.get(parsed.providerCode, selectedCapability);
       if (entry === null) return failure("invalid_input", 400);
+      let executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null = null;
+      if (selectedCapability === "payment_processing") {
+        try { executionAuthority = paymentExecutionAuthority(authorized.runtime, entry, deps.paymentCatalog()); }
+        catch { return failure("unavailable", 503); }
+        if (executionAuthority === null) return failure("unavailable", 503);
+      }
       const existingProfileId = parsed.profileId === undefined ? null : id(parsed.profileId);
       if ((expectedVersion === 0) !== (existingProfileId === null) || (parsed.profileId !== undefined && existingProfileId === null)) return failure("invalid_input", 400);
       let profileId: string, credential: Uint8Array | undefined;
@@ -236,6 +278,7 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
           tenantContext: authorized.tenantContext, now: authorized.now, operationId,
           profileId, providerCode: entry.providerCode, capability: entry.capability,
           publicConfig, maskedAccountReference, sealedCredentials, credentialDigest, expectedVersion,
+          executionAuthority,
         }), parseMerchantProviderProfile);
       } catch (error) {
         return error instanceof TypeError ? failure("invalid_input", 400) : repositoryFailure(error);

@@ -22,6 +22,7 @@ const catalogEntry = Object.freeze({
   category: "payment_institution",
   interactionMode: "iframe",
   readiness: "planned",
+  executionAuthority: null,
   support: Object.freeze({
     threeDSecure: "unknown", installments: "unknown", refund: "unknown",
     cancel: "unknown", capture: "unknown",

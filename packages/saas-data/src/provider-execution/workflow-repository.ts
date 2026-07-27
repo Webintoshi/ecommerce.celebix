@@ -23,6 +23,7 @@ import {
 } from "./errors.ts";
 import type {
   ClaimMerchantProviderWorkInput,
+  ClaimMerchantProviderValidationInput,
   MerchantProviderFinalizeInput,
   MerchantProviderHeartbeatInput,
   MerchantProviderReconcileInput,
@@ -40,6 +41,7 @@ const CODES = new Set<string>(MERCHANT_PROVIDER_WORKFLOW_ERROR_CODES);
 const WORKER = /^[A-Za-z0-9._-]{1,128}$/;
 const OUTCOME_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const EXECUTION_DIGEST = /^sha256:[a-f0-9]{64}$/;
 
 function unavailable(): MerchantProviderWorkflowRepositoryError {
   return new MerchantProviderWorkflowRepositoryError("unavailable");
@@ -122,6 +124,27 @@ function claimWindow(input: ClaimMerchantProviderWorkInput): Readonly<{ workerId
   if (leaseExpiresAt.getTime() <= now.getTime() || leaseExpiresAt.getTime() > now.getTime() + 15 * 60_000) invalid();
   return Object.freeze({ workerId: worker(parsed.workerId), now, leaseExpiresAt });
 }
+function executionAuthority(value: unknown): Readonly<{ environment: "test" | "live"; adapterVersion: number; evidenceDigest: string }> {
+  const parsed = exact(value, ["environment", "adapterVersion", "evidenceDigest"]);
+  if (
+    (parsed.environment !== "test" && parsed.environment !== "live") ||
+    !Number.isSafeInteger(parsed.adapterVersion) || (parsed.adapterVersion as number) < 1 ||
+    typeof parsed.evidenceDigest !== "string" || !EXECUTION_DIGEST.test(parsed.evidenceDigest)
+  ) invalid();
+  return Object.freeze({ environment: parsed.environment, adapterVersion: parsed.adapterVersion as number, evidenceDigest: parsed.evidenceDigest });
+}
+function validationClaimWindow(input: ClaimMerchantProviderValidationInput) {
+  const parsed = exact(input, ["workerId", "providerCode", "capability", "executionAuthority", "now", "leaseExpiresAt"]);
+  const now = date(parsed.now), leaseExpiresAt = date(parsed.leaseExpiresAt);
+  if (leaseExpiresAt.getTime() <= now.getTime() || leaseExpiresAt.getTime() > now.getTime() + 15 * 60_000) invalid();
+  const selectedCapability = providerCapability(parsed.capability);
+  if (selectedCapability !== "payment_processing") invalid();
+  return Object.freeze({
+    workerId: worker(parsed.workerId), providerCode: providerCode(parsed.providerCode),
+    capability: selectedCapability, executionAuthority: executionAuthority(parsed.executionAuthority),
+    now, leaseExpiresAt,
+  });
+}
 function code(value: unknown): string {
   if (typeof value !== "string" || !OUTCOME_CODE.test(value)) invalid();
   return value;
@@ -142,10 +165,13 @@ function job(value: unknown): MerchantAdminProviderJob {
   try { return parseMerchantAdminProviderJob(value); } catch { throw unavailable(); }
 }
 
-function validationClaim(value: unknown, expected: Readonly<{ workerId: string; leaseId: string; leaseExpiresAt: Date }>): MerchantProviderValidationClaim {
+function validationClaim(value: unknown, expected: Readonly<{
+  workerId: string; leaseId: string; leaseExpiresAt: Date; providerCode: string;
+  capability: "payment_processing"; executionAuthority: Readonly<{ environment: "test" | "live"; adapterVersion: number; evidenceDigest: string }>;
+}>): MerchantProviderValidationClaim {
   const parsed = payload(value, [
     "profileId", "storeId", "providerCode", "capability", "publicConfig", "sealedCredentials",
-    "credentialVersion", "profileVersion", "leaseId", "leaseOwner", "leaseExpiresAt",
+    "executionAuthority", "credentialVersion", "profileVersion", "leaseId", "leaseOwner", "leaseExpiresAt",
   ]);
   try {
     const claim = Object.freeze({
@@ -154,6 +180,7 @@ function validationClaim(value: unknown, expected: Readonly<{ workerId: string; 
       providerCode: providerCode(parsed.providerCode),
       capability: providerCapability(parsed.capability),
       publicConfig: providerPublicConfig(parsed.publicConfig),
+      executionAuthority: executionAuthority(parsed.executionAuthority),
       sealedCredentials: providerSealedCredential(parsed.sealedCredentials),
       credentialVersion: providerVersion(parsed.credentialVersion, 1),
       profileVersion: providerVersion(parsed.profileVersion, 1),
@@ -163,7 +190,11 @@ function validationClaim(value: unknown, expected: Readonly<{ workerId: string; 
     });
     if (
       claim.leaseId !== expected.leaseId || claim.leaseOwner !== expected.workerId ||
-      claim.leaseExpiresAt !== expected.leaseExpiresAt.toISOString()
+      claim.leaseExpiresAt !== expected.leaseExpiresAt.toISOString() ||
+      claim.providerCode !== expected.providerCode || claim.capability !== expected.capability ||
+      claim.executionAuthority.environment !== expected.executionAuthority.environment ||
+      claim.executionAuthority.adapterVersion !== expected.executionAuthority.adapterVersion ||
+      claim.executionAuthority.evidenceDigest !== expected.executionAuthority.evidenceDigest
     ) throw unavailable();
     return claim;
   } catch (error) {
@@ -318,25 +349,28 @@ export class PostgresMerchantProviderWorkflowRepository implements MerchantProvi
     try { return providerUuid(this.options.uuid()); } catch { throw unavailable(); }
   }
 
-  async claimProfileValidation(input: ClaimMerchantProviderWorkInput) {
-    const parsed = claimWindow(input), leaseId = this.uuid();
+  async claimProfileValidation(input: ClaimMerchantProviderValidationInput) {
+    const parsed = validationClaimWindow(input), leaseId = this.uuid();
     return this.transaction({
-      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_claim_validation($1::text,$2::timestamptz,$3::timestamptz,$4::uuid)",
-      values: [parsed.workerId, parsed.now, parsed.leaseExpiresAt, leaseId],
+      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_claim_validation($1::text,$2::text,$3::text,$4::text,$5::integer,$6::text,$7::timestamptz,$8::timestamptz,$9::uuid)",
+      values: [parsed.workerId, parsed.providerCode, parsed.capability, parsed.executionAuthority.environment, parsed.executionAuthority.adapterVersion, parsed.executionAuthority.evidenceDigest, parsed.now, parsed.leaseExpiresAt, leaseId],
     }, ["empty", "claimed"], (result) => result.outcome === "empty"
       ? Object.freeze({ kind: "empty" as const })
       : Object.freeze({ kind: "claimed" as const, profile: validationClaim(result.result, { ...parsed, leaseId }) }));
   }
 
   async markProfileValidation(input: MerchantProviderValidationResultInput): Promise<MerchantProviderProfile> {
-    const parsed = exact(input, ["profileId", "credentialVersion", "profileVersion", "leaseId", "leaseOwner", "now", "outcome", "outcomeCode"]);
+    const parsed = exact(input, ["profileId", "providerCode", "capability", "executionAuthority", "credentialVersion", "profileVersion", "leaseId", "leaseOwner", "now", "outcome", "outcomeCode"]);
     const profileId = uuid(parsed.profileId), credentialVersion = version(parsed.credentialVersion), profileVersion = version(parsed.profileVersion);
+    const selectedProviderCode = providerCode(parsed.providerCode), selectedCapability = providerCapability(parsed.capability);
+    if (selectedCapability !== "payment_processing") invalid();
+    const selectedExecutionAuthority = executionAuthority(parsed.executionAuthority);
     const leaseId = uuid(parsed.leaseId), leaseOwner = worker(parsed.leaseOwner), now = date(parsed.now);
     if (parsed.outcome !== "validated" && parsed.outcome !== "rejected") invalid();
     const outcomeCode = code(parsed.outcomeCode);
     return this.transaction({
-      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_mark_validation($1::uuid,$2::text,$3::timestamptz,$4::uuid,$5::bigint,$6::bigint,$7::text,$8::text)",
-      values: [profileId, leaseOwner, now, leaseId, credentialVersion, profileVersion, parsed.outcome, outcomeCode],
+      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_mark_validation($1::uuid,$2::text,$3::text,$4::text,$5::integer,$6::text,$7::text,$8::timestamptz,$9::uuid,$10::bigint,$11::bigint,$12::text,$13::text)",
+      values: [profileId, selectedProviderCode, selectedCapability, selectedExecutionAuthority.environment, selectedExecutionAuthority.adapterVersion, selectedExecutionAuthority.evidenceDigest, leaseOwner, now, leaseId, credentialVersion, profileVersion, parsed.outcome, outcomeCode],
     }, [parsed.outcome as string, "operation_replayed"], (result) => {
       const selected = profile(result.result);
       const expectedStatus = parsed.outcome === "validated" ? "active" : "rotation_required";

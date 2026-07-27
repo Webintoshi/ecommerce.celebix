@@ -3,6 +3,8 @@ import {
   parseMerchantProviderDescriptor,
   type MerchantAdminJson,
   type MerchantProviderCapability,
+  type PaymentProviderEnvironment,
+  type PaymentProviderExecutionAuthority,
 } from "@celebix/saas-contracts";
 
 export interface MerchantProviderRegistryEntry {
@@ -11,6 +13,9 @@ export interface MerchantProviderRegistryEntry {
   readonly label: string;
   readonly publicFields: readonly Readonly<{ key: string; label: string }>[];
   readonly credentialFields: readonly Readonly<{ key: string; label: string; secret: true }>[];
+  readonly adapterVersion?: number;
+  readonly environments?: readonly PaymentProviderEnvironment[];
+  readonly executionAuthority?: Readonly<PaymentProviderExecutionAuthority> | null;
   parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>>;
   parseCredential(
     value: unknown,
@@ -30,6 +35,7 @@ const ENTRY_KEYS = Object.freeze([
   "capability", "credentialFields", "label", "maskAccountReference", "parseCredential",
   "parsePublicConfig", "providerCode", "publicFields",
 ]);
+const PAYMENT_ENTRY_KEYS = Object.freeze([...ENTRY_KEYS, "adapterVersion", "environments", "executionAuthority"]);
 
 function invalid(): never { throw new Error("customer_panel_provider_registry_invalid"); }
 
@@ -76,7 +82,9 @@ function denseInputArray(value: unknown, maximum: number): readonly unknown[] {
 
 function validateEntry(value: unknown, accessObjects: Set<object>): MerchantProviderRegistryEntry {
   if (!Object.isFrozen(value)) invalid();
-  const parsed = dataObject(value, ENTRY_KEYS);
+  const capabilityDescriptor = Object.getOwnPropertyDescriptor(value as object, "capability");
+  if (!capabilityDescriptor || !capabilityDescriptor.enumerable || !("value" in capabilityDescriptor)) invalid();
+  const parsed = dataObject(value, capabilityDescriptor.value === "payment_processing" ? PAYMENT_ENTRY_KEYS : ENTRY_KEYS);
   if (typeof parsed.parsePublicConfig !== "function" || typeof parsed.parseCredential !== "function" || typeof parsed.maskAccountReference !== "function") invalid();
   const publicFields = denseFrozenArray(parsed.publicFields, 32);
   const credentialFields = denseFrozenArray(parsed.credentialFields, 32);
@@ -90,6 +98,11 @@ function validateEntry(value: unknown, accessObjects: Set<object>): MerchantProv
     label: parsed.label,
     publicFields,
     credentialFields,
+    ...(parsed.capability === "payment_processing" ? {
+      adapterVersion: parsed.adapterVersion,
+      environments: parsed.environments,
+      executionAuthority: parsed.executionAuthority,
+    } : {}),
   });
   if (!MERCHANT_PROVIDER_CAPABILITIES.includes(descriptor.capability)) invalid();
   return value as MerchantProviderRegistryEntry;

@@ -68,6 +68,9 @@ function fixture(options: Readonly<{
   accessKind?: AccessKind;
   repositoryError?: string;
   runtimeNull?: boolean;
+  catalog?: readonly (typeof PAYMENT_PROVIDER_CATALOG)[number][];
+  providerExecution?: unknown;
+  method?: ReturnType<typeof paymentMethod> | Readonly<Record<string, unknown>>;
 }> = {}) {
   const calls: Array<{ kind: string; input: unknown }> = [];
   const fail = () => {
@@ -75,7 +78,7 @@ function fixture(options: Readonly<{
     if (options.repositoryError) throw new PaymentMethodRepositoryError(options.repositoryError as never);
   };
   const methods = {
-    async list(input) { calls.push({ kind: "list", input }); fail(); return Object.freeze([paymentMethod()]); },
+    async list(input) { calls.push({ kind: "list", input }); fail(); return Object.freeze([options.method ?? paymentMethod()]) as never; },
     async save(input) { calls.push({ kind: "save", input }); fail(); return mutation(); },
     async setState(input) { calls.push({ kind: "setState", input }); fail(); return mutation(input.state); },
     async reorder(input) { calls.push({ kind: "reorder", input }); fail(); return Object.freeze({ items: Object.freeze([mutation()]), replayed: false }); },
@@ -94,7 +97,8 @@ function fixture(options: Readonly<{
       async revokeCredential() { throw new Error("unused"); },
     }),
     methods,
-    catalog: PAYMENT_PROVIDER_CATALOG,
+    catalog: options.catalog ?? PAYMENT_PROVIDER_CATALOG,
+    providerExecution: options.providerExecution ?? null,
   }) as unknown as ServerPaymentMethodsRuntime;
   const handlers = createPaymentMethodHttpHandlers({
     async resolveRuntime() { return options.runtimeNull ? null : runtime; },
@@ -145,6 +149,20 @@ test("authenticated catalog returns exactly 58 truthful local entries", async ()
   assert.equal(probe.calls.length, 0);
 });
 
+test("catalog accepts a forward-safe exact sandbox promotion without a hardcoded verification snapshot", async () => {
+  const evidenceDigest = `sha256:${"a".repeat(64)}`;
+  const catalog = PAYMENT_PROVIDER_CATALOG.map((entry) => entry.providerCode === "paytr_iframe"
+    ? Object.freeze({ ...entry, readiness: "sandbox_ready" as const, executionAuthority: Object.freeze({
+      environment: "test" as const, adapterVersion: 1, evidenceDigest,
+    }) })
+    : entry);
+  const probe = fixture({ role: "analyst", catalog });
+  const response = await probe.handlers.catalog(request("GET", "/api/payment-providers/catalog"));
+  assert.equal(response.status, 200);
+  const result = await response.json() as { items: Array<Record<string, unknown>> };
+  assert.deepEqual(result.items.filter((entry) => entry.readiness === "sandbox_ready").map((entry) => entry.providerCode), ["paytr_iframe"]);
+});
+
 test("methods GET delegates only the authenticated TenantContext and validates output", async () => {
   const probe = fixture({ role: "analyst" });
   const response = await probe.handlers.methods(request("GET", "/api/payment-methods"));
@@ -181,8 +199,8 @@ test("built-in save state and exact dense reorder delegate bounded DTOs", async 
     emergencyReason: null,
   }), METHOD);
   assert.equal(stateResponse.status, 200);
-  assert.equal(stateProbe.calls[0]!.kind, "setState");
-  assert.deepEqual(stateProbe.calls[0]!.input, {
+  assert.deepEqual(stateProbe.calls.map(({ kind }) => kind), ["list", "setState"]);
+  assert.deepEqual(stateProbe.calls[1]!.input, {
     tenantContext: tenant(), now: NOW, operationId: OPERATION, methodId: METHOD,
     expectedVersion: 1, state: "active", emergencyReason: null,
   });
@@ -211,6 +229,69 @@ test("planned provider catalog entries cannot become configured methods in Wave 
   assert.equal((JSON.parse(responseText) as { code: string }).code, "unavailable");
   assert.equal(probe.calls.length, 0);
   assert.doesNotMatch(responseText, /must-not-be-parsed/);
+});
+
+test("provider method mutation requires exact catalog registry packet evidence version and environment authority", async () => {
+  const digest = `sha256:${"a".repeat(64)}`;
+  const authority = Object.freeze({ environment: "test" as const, adapterVersion: 1, evidenceDigest: digest });
+  const catalog = PAYMENT_PROVIDER_CATALOG.map((entry) => entry.providerCode === "paytr_iframe"
+    ? Object.freeze({ ...entry, readiness: "sandbox_ready" as const, executionAuthority: authority })
+    : entry);
+  const packet = Object.freeze({
+    providerCode: "paytr_iframe", familyCode: "paytr", modeCode: "iframe",
+    adapterVersion: 1, implementation: "hosted", readiness: Object.freeze({ test: "sandbox_ready", live: "verification" }),
+    endpoints: Object.freeze({ test: Object.freeze(["https://www.paytr.com/odeme/api/get-token"]), live: Object.freeze(["https://www.paytr.com/odeme/api/get-token"]) }),
+  });
+  const registryEntry = Object.freeze({
+    providerCode: "paytr_iframe", capability: "payment_processing", adapterVersion: 1,
+    environments: Object.freeze(["test"]), executionAuthority: authority,
+  });
+  const providerExecution = Object.freeze({
+    registry: Object.freeze({ get: () => registryEntry }),
+    adapters: Object.freeze({ packet: () => packet, adapter: () => Object.freeze({ packet }) }),
+  });
+  const input = {
+    methodId: METHOD, expectedVersion: 0, kind: "provider", profileId: PROFILE,
+    providerCode: "paytr_iframe", label: "PayTR", config: { environment: "test" },
+  };
+  const accepted = fixture({ catalog, providerExecution });
+  assert.equal((await accepted.handlers.methods(request("POST", "/api/payment-methods", input))).status, 200);
+  assert.equal(accepted.calls.filter((entry) => entry.kind === "save").length, 1);
+
+  const mismatches = [
+    null,
+    { ...providerExecution, registry: Object.freeze({ get: () => null }) },
+    { ...providerExecution, registry: Object.freeze({ get: () => ({ ...registryEntry, adapterVersion: 2 }) }) },
+    { ...providerExecution, registry: Object.freeze({ get: () => ({ ...registryEntry, executionAuthority: { ...authority, evidenceDigest: `sha256:${"b".repeat(64)}` } }) }) },
+    { ...providerExecution, adapters: Object.freeze({ packet: () => ({ ...packet, readiness: { test: "verification", live: "verification" } }), adapter: () => ({ packet }) }) },
+  ];
+  for (const mismatch of mismatches) {
+    const rejected = fixture({ catalog, providerExecution: mismatch });
+    const response = await rejected.handlers.methods(request("POST", "/api/payment-methods", input));
+    assert.equal(response.status, 503);
+    assert.equal(rejected.calls.length, 0);
+  }
+  const wrongEnvironment = fixture({ catalog, providerExecution });
+  assert.equal((await wrongEnvironment.handlers.methods(request("POST", "/api/payment-methods", {
+    ...input, config: { environment: "live" },
+  }))).status, 503);
+  assert.equal(wrongEnvironment.calls.length, 0);
+
+  const providerMethod = Object.freeze({
+    ...paymentMethod(), kind: "provider" as const, profileId: PROFILE,
+    providerCode: "paytr_iframe", label: "PayTR", config: { environment: "test" },
+  });
+  const acceptedState = fixture({ catalog, providerExecution, method: providerMethod });
+  assert.equal((await acceptedState.handlers.state(request("POST", `/api/payment-methods/${METHOD}/state`, {
+    expectedVersion: 1, state: "active", emergencyReason: null,
+  }), METHOD)).status, 200);
+  assert.deepEqual(acceptedState.calls.map(({ kind }) => kind), ["list", "setState"]);
+
+  const rejectedState = fixture({ catalog, providerExecution: null, method: providerMethod });
+  assert.equal((await rejectedState.handlers.state(request("POST", `/api/payment-methods/${METHOD}/state`, {
+    expectedVersion: 1, state: "active", emergencyReason: null,
+  }), METHOD)).status, 503);
+  assert.deepEqual(rejectedState.calls.map(({ kind }) => kind), ["list"]);
 });
 
 test("method, path, query, private-header, session, role and Origin boundaries fail before repository", async () => {

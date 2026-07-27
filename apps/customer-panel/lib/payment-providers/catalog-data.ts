@@ -42,6 +42,7 @@ function define(input: RawEntry): PaymentProviderCatalogEntry {
     category: input.category,
     interactionMode: input.interactionMode,
     readiness: input.readiness ?? "planned",
+    executionAuthority: null,
     support: UNKNOWN_SUPPORT,
     logoPath: `/payment-providers/${input.familyCode}.${logoExtension}`,
     aliases: Object.freeze([...(input.aliases ?? [])]),

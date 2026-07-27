@@ -44,6 +44,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
     ...(props.profile ? { profile: props.profile } : {}),
     storefrontHostname: props.storefrontHostname,
   });
+  const canSubmit = connection !== null && (props.profile === undefined || connection.canRotate);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape" && !busy) {
@@ -64,7 +65,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !props.canManage) return;
+    if (busy || !props.canManage || !canSubmit) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     const publicConfig = Object.freeze({
@@ -140,14 +141,14 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
             <span>Bildirim adresi, doğrulanmış mağaza alan adı bağlandığında oluşturulur.</span>
           </div>}
           {(connection?.publicFields ?? props.descriptor.publicFields.map((field) => ({ ...field, initialValue: "" }))).map((field) => (
-            <label key={field.key}>{field.label}<input name={field.key} required defaultValue={field.initialValue} maxLength={1_000} disabled={busy || !props.canManage} /></label>
+            <label key={field.key}>{field.label}<input name={field.key} required defaultValue={field.initialValue} maxLength={1_000} disabled={busy || !props.canManage || !canSubmit} /></label>
           ))}
           {(connection?.credentialFields ?? props.descriptor.credentialFields).map((field) => (
-            <label key={field.key}>{field.label}<input name={field.key} required type="password" autoComplete="off" maxLength={16_384} disabled={busy || !props.canManage} /></label>
+            <label key={field.key}>{field.label}<input name={field.key} required type="password" autoComplete="off" maxLength={16_384} disabled={busy || !props.canManage || !canSubmit} /></label>
           ))}
           <footer className={styles.drawerActions}>
             <button type="button" className={styles.secondaryButton} onClick={props.onClose} disabled={busy}>Vazgeç</button>
-            <button type="submit" className={styles.primaryButton} disabled={busy || !props.canManage || connection === null}>{busy ? "Kaydediliyor…" : connection?.submitLabel ?? "Bağlantıyı kaydet"}</button>
+            <button type="submit" className={styles.primaryButton} disabled={busy || !props.canManage || !canSubmit}>{busy ? "Kaydediliyor…" : connection?.submitLabel ?? "Bağlantıyı kaydet"}</button>
           </footer>
         </form>
       </aside>

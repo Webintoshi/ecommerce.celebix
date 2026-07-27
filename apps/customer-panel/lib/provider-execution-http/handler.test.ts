@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { TenantContext } from "@celebix/saas-contracts";
+import type { MerchantProviderProfile, TenantContext } from "@celebix/saas-contracts";
+import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
 import type { MerchantProviderProfileRepository } from "@celebix/saas-data";
+import { PAYTR_IFRAME_PACKET } from "@celebix/payment-adapters";
 
 import { createCustomerPanelProviderRegistry } from "../server-provider-execution/registry.ts";
 import type { ServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { createProviderExecutionHttpHandlers } from "./handler.ts";
+import { PAYMENT_PROVIDER_CATALOG } from "../payment-providers/catalog.ts";
 
 const PANEL = "https://panel.staging.example";
 const PROFILE = "40000000-0000-4000-8000-000000000005";
@@ -27,12 +30,15 @@ function tenant(role: "store_owner" | "analyst" = "store_owner"): TenantContext 
   } as TenantContext;
 }
 
-function profile(status: "pending_validation" | "active" = "pending_validation") {
+function profile(
+  status: "pending_validation" | "active" = "pending_validation",
+  payment = false,
+): MerchantProviderProfile {
   return {
     id: PROFILE,
-    providerCode: "fixture_provider",
-    capability: "marketplace_sync" as const,
-    publicConfig: { account_reference: "merchant-42" },
+    providerCode: payment ? "paytr_iframe" : "fixture_provider",
+    capability: payment ? "payment_processing" as const : "marketplace_sync" as const,
+    publicConfig: payment ? { environment: "test", merchantId: "123456" } : { account_reference: "merchant-42" },
     maskedAccountReference: "••••nt-42",
     status,
     credentialVersion: 1,
@@ -43,34 +49,48 @@ function profile(status: "pending_validation" | "active" = "pending_validation")
   };
 }
 
-function fixture(role: "store_owner" | "analyst" = "store_owner", empty = false) {
+function fixture(
+  role: "store_owner" | "analyst" = "store_owner",
+  empty = false,
+  paymentAuthority: Readonly<PaymentProviderExecutionAuthority> | null | undefined = undefined,
+) {
+  const payment = paymentAuthority !== undefined;
   const repositoryCalls: unknown[] = [];
   let parsedCredential: Uint8Array | null = null;
   const repository = {
-    async list(input) { repositoryCalls.push({ kind: "list", input }); return Object.freeze([profile("active")]); },
-    async save(input) { repositoryCalls.push({ kind: "save", input }); return profile(); },
+    async list(input) { repositoryCalls.push({ kind: "list", input }); return Object.freeze([profile("active", payment)]); },
+    async save(input) { repositoryCalls.push({ kind: "save", input }); return profile("pending_validation", payment); },
     async disable(input) { repositoryCalls.push({ kind: "disable", input }); return { ...profile("active"), status: "disabled" as const, version: 2 }; },
     async revoke(input) { repositoryCalls.push({ kind: "revoke", input }); return { ...profile("active"), status: "revoked" as const, version: 2 }; },
   } satisfies MerchantProviderProfileRepository;
-  const entry = Object.freeze({
-    providerCode: "fixture_provider",
-    capability: "marketplace_sync" as const,
-    label: "Fixture Provider",
-    publicFields: Object.freeze([Object.freeze({ key: "account_reference", label: "Hesap" })]),
-    credentialFields: Object.freeze([Object.freeze({ key: "api_secret", label: "API Secret", secret: true as const })]),
+  const baseEntry = {
+    providerCode: payment ? "paytr_iframe" : "fixture_provider",
+    capability: payment ? "payment_processing" as const : "marketplace_sync" as const,
+    label: payment ? "PayTR iFrame" : "Fixture Provider",
+    publicFields: Object.freeze([Object.freeze({ key: payment ? "merchantId" : "account_reference", label: "Hesap" })]),
+    credentialFields: Object.freeze([Object.freeze({ key: payment ? "merchantKey" : "api_secret", label: "API Secret", secret: true as const })]),
     parsePublicConfig(value: unknown) {
-      const selected = value as { account_reference?: unknown };
+      const selected = value as Record<string, unknown>;
+      if (payment) {
+        if (!selected || Object.keys(selected).sort().join(",") !== "environment,merchantId" || selected.environment !== "test" || typeof selected.merchantId !== "string") throw new TypeError();
+        return Object.freeze({ environment: "test" as const, merchantId: selected.merchantId });
+      }
       if (!selected || Object.keys(selected).join(",") !== "account_reference" || typeof selected.account_reference !== "string") throw new TypeError();
       return Object.freeze({ account_reference: selected.account_reference });
     },
     parseCredential(value: unknown) {
-      const selected = value as { api_secret?: unknown };
-      if (!selected || Object.keys(selected).join(",") !== "api_secret" || typeof selected.api_secret !== "string") throw new TypeError();
-      parsedCredential = new TextEncoder().encode(JSON.stringify({ api_secret: selected.api_secret }));
+      const selected = value as Record<string, unknown>;
+      const key = payment ? "merchantKey" : "api_secret";
+      if (!selected || Object.keys(selected).join(",") !== key || typeof selected[key] !== "string") throw new TypeError();
+      parsedCredential = new TextEncoder().encode(JSON.stringify({ [key]: selected[key] }));
       return parsedCredential;
     },
     maskAccountReference() { return "••••nt-42"; },
-  });
+  };
+  const entry = Object.freeze(payment ? {
+    ...baseEntry, adapterVersion: 1, environments: Object.freeze(["test"] as const),
+    executionAuthority: paymentAuthority,
+  } : baseEntry);
   const registry = createCustomerPanelProviderRegistry(empty ? Object.freeze([]) : Object.freeze([entry]));
   const runtime = Object.freeze({
     access: Object.freeze({
@@ -81,13 +101,26 @@ function fixture(role: "store_owner" | "analyst" = "store_owner", empty = false)
     profiles: repository,
     keyring: Object.freeze({ activeKeyId: "provider.current", keys: Object.freeze([Object.freeze({ keyId: "provider.current", key: new Uint8Array(32).fill(12) })]) }),
     registry,
+    adapters: payment ? (() => {
+      const packet = Object.freeze({
+        ...PAYTR_IFRAME_PACKET,
+        readiness: Object.freeze({ ...PAYTR_IFRAME_PACKET.readiness, test: "sandbox_ready" as const }),
+      });
+      const adapter = Object.freeze({ packet });
+      return Object.freeze({ size: 1, packet: () => packet, adapter: () => adapter });
+    })() : Object.freeze({ size: 0, packet: () => null, adapter: () => null }),
   }) as unknown as ServerProviderExecutionRuntime;
   const handlers = createProviderExecutionHttpHandlers({
     async resolveRuntime() { return runtime; },
     now: () => new Date(NOW),
     requestId: () => REQUEST,
     profileId: () => PROFILE,
-    providerCodes: () => empty ? Object.freeze([]) : Object.freeze(["fixture_provider"]),
+    providerCodes: () => empty ? Object.freeze([]) : Object.freeze([payment ? "paytr_iframe" : "fixture_provider"]),
+    paymentCatalog: () => payment ? Object.freeze([Object.freeze({
+      ...PAYMENT_PROVIDER_CATALOG.find((candidate) => candidate.providerCode === "paytr_iframe")!,
+      readiness: paymentAuthority === null ? "verification" as const : "sandbox_ready" as const,
+      executionAuthority: paymentAuthority,
+    })]) : Object.freeze([]),
   });
   return { handlers, repositoryCalls, parsedCredential: () => parsedCredential };
 }
@@ -123,6 +156,28 @@ test("profile save seals one registry-validated credential and never returns it"
   assert.equal(typeof (saved.sealedCredentials as { ciphertext: unknown }).ciphertext, "string");
   assert.equal(JSON.stringify(saved).includes("never-return"), false);
   assert.equal(probe.parsedCredential()?.every((byte) => byte === 0), true);
+});
+
+test("payment profile persistence requires one exact catalog descriptor and adapter evidence tuple", async () => {
+  const authority = Object.freeze({ environment: "test" as const, adapterVersion: 1, evidenceDigest: `sha256:${"a".repeat(64)}` });
+  for (const selectedAuthority of [null, Object.freeze({ ...authority, evidenceDigest: `sha256:${"b".repeat(64)}` })]) {
+    const probe = fixture("store_owner", false, selectedAuthority);
+    const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+      providerCode: "paytr_iframe", capability: "payment_processing",
+      publicConfig: { environment: "test", merchantId: "123456" },
+      credential: { merchantKey: "never-parse" }, expectedVersion: 0,
+    }));
+    assert.equal(response.status, selectedAuthority === null ? 503 : 200);
+    assert.equal(probe.repositoryCalls.length, selectedAuthority === null ? 0 : 1);
+  }
+  const probe = fixture("store_owner", false, authority);
+  const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+    providerCode: "paytr_iframe", capability: "payment_processing",
+    publicConfig: { environment: "test", merchantId: "123456" },
+    credential: { merchantKey: "server-sealed" }, expectedVersion: 0,
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual((probe.repositoryCalls[0] as { input: { executionAuthority: unknown } }).input.executionAuthority, authority);
 });
 
 test("profile rotation revalidates ownership and creates only the next credential version", async () => {

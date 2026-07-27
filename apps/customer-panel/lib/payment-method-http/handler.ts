@@ -9,6 +9,7 @@ import {
   parsePaymentProviderCatalog,
   type MerchantAdminJson,
   type PaymentMethodKind,
+  type PaymentProviderCatalogEntry,
   type PaymentMethodState,
   type TenantContext,
 } from "@celebix/saas-contracts";
@@ -259,6 +260,40 @@ function safeConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>>
   } catch { return null; }
 }
 
+function providerExecutionReady(
+  runtime: ServerPaymentMethodsRuntime,
+  entry: PaymentProviderCatalogEntry,
+  config: Readonly<Record<string, MerchantAdminJson>>,
+): boolean {
+  const authority = entry.executionAuthority;
+  const expectedEnvironment = entry.readiness === "sandbox_ready" ? "test"
+    : entry.readiness === "production_ready" ? "live" : null;
+  if (
+    authority === null || expectedEnvironment === null ||
+    authority.environment !== expectedEnvironment ||
+    !/^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest) ||
+    Object.keys(config).length !== 1 || config.environment !== authority.environment ||
+    runtime.providerExecution === null
+  ) return false;
+  const descriptor = runtime.providerExecution.registry.get(entry.providerCode, "payment_processing");
+  const packet = runtime.providerExecution.adapters.packet(entry.providerCode);
+  const adapter = runtime.providerExecution.adapters.adapter(entry.providerCode);
+  return descriptor !== null && descriptor.capability === "payment_processing"
+    && descriptor.adapterVersion === authority.adapterVersion
+    && descriptor.environments?.length === 1
+    && descriptor.environments[0] === authority.environment
+    && descriptor.executionAuthority !== null && descriptor.executionAuthority !== undefined
+    && descriptor.executionAuthority.environment === authority.environment
+    && descriptor.executionAuthority.adapterVersion === authority.adapterVersion
+    && descriptor.executionAuthority.evidenceDigest === authority.evidenceDigest
+    && packet !== null && adapter !== null && adapter.packet === packet
+    && packet.providerCode === entry.providerCode
+    && packet.familyCode === entry.familyCode && packet.modeCode === entry.modeCode
+    && packet.adapterVersion === authority.adapterVersion
+    && packet.readiness[authority.environment] === entry.readiness
+    && packet.endpoints[authority.environment].length > 0;
+}
+
 function saveInput(value: unknown, runtime: ServerPaymentMethodsRuntime) {
   const parsed = exact(value, [
     "methodId", "expectedVersion", "kind", "profileId", "providerCode", "label", "config",
@@ -276,9 +311,11 @@ function saveInput(value: unknown, runtime: ServerPaymentMethodsRuntime) {
     if (profileId === null || providerCode === null) return null;
     const catalogEntry = runtime.catalog.find((entry) => entry.providerCode === providerCode);
     if (catalogEntry === undefined) return null;
-    if (catalogEntry.readiness !== "production_ready" && catalogEntry.readiness !== "sandbox_ready") return "unavailable" as const;
+    if (catalogEntry.executionAuthority === null || (catalogEntry.readiness !== "production_ready" && catalogEntry.readiness !== "sandbox_ready")) return "unavailable" as const;
     const config = safeConfig(parsed.config);
-    return config === null ? null : Object.freeze({ methodId, expectedVersion, kind, profileId, providerCode, label, config });
+    if (config === null) return null;
+    if (!providerExecutionReady(runtime, catalogEntry, config)) return "unavailable" as const;
+    return Object.freeze({ methodId, expectedVersion, kind, profileId, providerCode, label, config });
   }
   if (parsed.profileId !== null || parsed.providerCode !== null) return null;
   const config = safeConfig(parsed.config);
@@ -297,6 +334,26 @@ function stateInput(value: unknown) {
   return parsed.emergencyReason === null
     ? Object.freeze({ expectedVersion, state, emergencyReason: null })
     : null;
+}
+
+async function providerActivationReady(
+  authorized: Authorized,
+  methodId: string,
+): Promise<"ready" | "record_not_found" | "unavailable"> {
+  try {
+    const listed = methodItems(await authorized.runtime.methods.list({
+      tenantContext: authorized.tenantContext,
+      now: authorized.now,
+    }));
+    const method = listed.items.find((entry) => entry.id === methodId);
+    if (method === undefined) return "record_not_found";
+    if (method.kind !== "provider") return "ready";
+    if (method.providerCode === null) return "unavailable";
+    const catalogEntry = authorized.runtime.catalog.find((entry) => entry.providerCode === method.providerCode);
+    return catalogEntry !== undefined && providerExecutionReady(authorized.runtime, catalogEntry, method.config)
+      ? "ready"
+      : "unavailable";
+  } catch { return "unavailable"; }
 }
 
 function reorderInput(value: unknown) {
@@ -334,9 +391,7 @@ export function createPaymentMethodHttpHandlers(deps: Deps) {
         const catalog = parsePaymentProviderCatalog(authorized.runtime.catalog);
         if (
           catalog.length !== 58 ||
-          catalog.some((entry) => entry.providerCode.includes("dummy")) ||
-          catalog.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode).join(",") !== "paytr_iframe" ||
-          catalog.some((entry) => entry.providerCode !== "paytr_iframe" && entry.readiness !== "planned")
+          catalog.some((entry) => entry.providerCode.includes("dummy"))
         ) {
           return failure("unavailable", 503);
         }
@@ -381,6 +436,12 @@ export function createPaymentMethodHttpHandlers(deps: Deps) {
       const operation = operationId(request);
       const selected = stateInput(await body(request));
       if (operation === null || selected === null) return failure("invalid_input", 400);
+      if (selected.state === "active") {
+        const activation = await providerActivationReady(authorized, methodId);
+        if (activation !== "ready") return activation === "record_not_found"
+          ? failure("record_not_found", 404)
+          : failure("unavailable", 503);
+      }
       return execute(() => authorized.runtime.methods.setState({
         tenantContext: authorized.tenantContext,
         now: authorized.now,

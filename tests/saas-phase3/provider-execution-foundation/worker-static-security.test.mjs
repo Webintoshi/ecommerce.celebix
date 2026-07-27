@@ -9,10 +9,10 @@ const REGISTRY = readFileSync(path.join(ROOT, "apps/owner/lib/merchant-provider-
 const TYPES = readFileSync(path.join(ROOT, "apps/owner/lib/merchant-provider-execution/types.ts"), "utf8");
 const SOURCE = `${WORKER}\n${REGISTRY}\n${TYPES}`;
 
-test("production provider registry is frozen and contains zero adapters", () => {
+test("production provider registry is frozen and contains only the exact PayTR validation adapter", () => {
   const production = /export function createProductionMerchantProviderRegistry[\s\S]*?\n}/.exec(REGISTRY)?.[0] ?? "";
-  assert.match(production, /createMerchantProviderAdapterRegistry\(Object\.freeze\(\[\]\)\)/);
-  assert.doesNotMatch(production, /providerCode|validateCredential|execute\s*\(/);
+  assert.match(production, /createMerchantProviderAdapterRegistry\(Object\.freeze\(\[\s*createPaytrValidationAdapter\(options\),\s*\]\)\)/);
+  assert.doesNotMatch(production, /process\.env|fetch\s*\(|credential|secret/i);
   assert.match(REGISTRY, /Object\.isFrozen\(value\)/);
   assert.match(REGISTRY, /entries\.has\(key\)/);
 });

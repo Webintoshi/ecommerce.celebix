@@ -4,7 +4,7 @@ const JOB="73000000-0000-4000-8000-000000000001";
 function tenant():TenantContext{return{schemaVersion:1,requestId:REQ,principal:{id:"10000000-0000-4000-8000-000000000001",issuer:"https://id.test/oidc",subject:"x"},store:{id:"20000000-0000-4000-8000-000000000001",slug:"store",status:"active"},membership:{id:"30000000-0000-4000-8000-000000000001",role:"store_owner",status:"active"},entitlements:{schemaVersion:1,planId:"40000000-0000-4000-8000-000000000001",planCode:"growth",version:2,status:"active",features:["catalog"],limits:{products:100,staff:5,storageBytes:100},validFrom:"2026-01-01T00:00:00.000Z"},locale:"tr-TR"}as TenantContext}
 function repo(overrides:Partial<MerchantAdminRepository>={}):MerchantAdminRepository{const reject=async()=>{throw new Error("unexpected")};return{list:reject,listEvents:reject,save:reject,archive:reject,...overrides}as MerchantAdminRepository}
 function request(path:string,method="GET",value?:unknown,origin=ORIGIN,headers?:HeadersInit){const prepared=new Headers(headers);prepared.set("cookie",`__Host-celebix_panel=${CREDENTIAL}`);if(method==="POST"){prepared.set("origin",origin);prepared.set("content-type","application/json");prepared.set("idempotency-key",OP)}return new Request(`http://internal:3400${path}`,{method,headers:prepared,body:value===undefined?undefined:JSON.stringify(value)})}
-function handlers(merchantAdmin:MerchantAdminRepository,profiles?:{list(input:unknown):Promise<readonly unknown[]>}){return createMerchantAdminHttpHandlers({async resolveRuntime(){return{merchantAdmin,access:{readiness:{mode:"approved_staging"},panelOrigin:ORIGIN,async resolveCredential(){return{kind:"authenticated",session:{},tenantContext:tenant()}},async rotateCredential(){return{kind:"unavailable"}},async revokeCredential(){return{kind:"unavailable"}}}}as never},async resolveProviderRuntime(){return profiles?{profiles,registry:{size:1}}as never:null},now:()=>new Date(NOW),requestId:()=>REQ})}
+function handlers(merchantAdmin:MerchantAdminRepository,profiles?:{list(input:unknown):Promise<readonly unknown[]>},registry?:{get(providerCode:string,capability:string):unknown}){return createMerchantAdminHttpHandlers({async resolveRuntime(){return{merchantAdmin,access:{readiness:{mode:"approved_staging"},panelOrigin:ORIGIN,async resolveCredential(){return{kind:"authenticated",session:{},tenantContext:tenant()}},async rotateCredential(){return{kind:"unavailable"}},async revokeCredential(){return{kind:"unavailable"}}}}as never},async resolveProviderRuntime(){return profiles?{profiles,registry:{size:1,get:registry?.get??(()=>({}))}}as never:null},now:()=>new Date(NOW),requestId:()=>REQ})}
 test("record detail GET binds exact kind and ID and rejects near paths and request authority",async()=>{
  const calls:unknown[]=[];
  const h=handlers(repo({async get(input){calls.push(input);return{id:RECORD,kind:"discount",name:"Yaz",config:{value:15},status:"active",version:1,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString()}}}));
@@ -62,4 +62,12 @@ test("queue rejects pending disabled and wrong-capability profiles before reposi
   assert.equal(response.status,selected.expected);
   assert.equal(queueCalls,0);
  }
+});
+
+test("queue fails closed when the exact profile provider and capability adapter is absent",async()=>{
+ const PROFILE="74000000-0000-4000-8000-000000000001";let queueCalls=0;
+ const h=handlers(repo({async queueProviderJob(){queueCalls+=1;throw new Error("unexpected")}}),{async list(){return[{id:PROFILE,providerCode:"fixture_provider",capability:"marketplace_sync",publicConfig:{},maskedAccountReference:"••••nt-42",status:"active",credentialVersion:2,version:3,lastValidatedAt:NOW.toISOString(),createdAt:NOW.toISOString(),updatedAt:NOW.toISOString()}]}},{get(){return null}});
+ const response=await h.queueProviderJob(request(`/api/merchant-admin/provider-jobs/marketplace_connection/${JOB}/queue`,"POST",{expectedJobVersion:1,profileId:PROFILE,expectedProfileVersion:3}),"marketplace_connection",JOB);
+ assert.equal(response.status,503);
+ assert.equal(queueCalls,0);
 });

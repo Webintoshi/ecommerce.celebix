@@ -3,6 +3,9 @@ import type { PaymentMethodRepository } from "@celebix/saas-data";
 
 import { PAYMENT_PROVIDER_CATALOG } from "../payment-providers/catalog.ts";
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
+import { resolveServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
+import type { MerchantProviderRegistry } from "../server-provider-execution/registry.ts";
+import type { PaymentAdapterRegistry } from "@celebix/payment-adapters";
 
 type ApprovedAccess = ServerPanelAccessRuntime & Readonly<{
   readiness: Readonly<{ mode: "approved_staging" }>;
@@ -13,6 +16,10 @@ export interface ServerPaymentMethodsRuntime {
   readonly access: ApprovedAccess;
   readonly methods: PaymentMethodRepository;
   readonly catalog: readonly PaymentProviderCatalogEntry[];
+  readonly providerExecution: Readonly<{
+    registry: MerchantProviderRegistry;
+    adapters: PaymentAdapterRegistry;
+  }> | null;
 }
 
 const repositories = new WeakMap<ServerPanelAccessRuntime, PaymentMethodRepository>();
@@ -56,6 +63,13 @@ export function resolveServerPaymentMethodsRuntime(
         access: access as ApprovedAccess,
         methods,
         catalog: PAYMENT_PROVIDER_CATALOG,
+        providerExecution: (() => {
+          const providerRuntime = resolveServerProviderExecutionRuntime(access);
+          return providerRuntime === null ? null : Object.freeze({
+            registry: providerRuntime.registry,
+            adapters: providerRuntime.adapters,
+          });
+        })(),
       });
   } catch { return null; }
 }

@@ -10,7 +10,6 @@ import {
 
 import {
   createMerchantProviderAdapterRegistry,
-  createProductionMerchantProviderRegistry,
 } from "./registry.ts";
 import { createMerchantProviderWorker } from "./worker.ts";
 import type { MerchantProviderAdapter } from "./types.ts";
@@ -21,6 +20,7 @@ const JOB = "71000000-0000-4000-8000-000000000001";
 const RECORD = "70000000-0000-4000-8000-000000000001";
 const LEASE = "73000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-25T12:00:00.000Z");
+const AUTHORITY = Object.freeze({ environment: "test" as const, adapterVersion: 1, evidenceDigest: `sha256:${"a".repeat(64)}` });
 const KEY = new Uint8Array(32).fill(17);
 const KEYRING: MerchantProviderCredentialKeyring = Object.freeze({
   activeKeyId: "provider.current",
@@ -39,12 +39,13 @@ function envelope() {
   });
 }
 
-function validationClaim() {
+function validationClaim(executionAuthority = AUTHORITY) {
   return Object.freeze({
     profileId: PROFILE,
     storeId: STORE,
     providerCode: "fixture_provider",
     capability: "marketplace_sync" as const,
+    executionAuthority,
     publicConfig: Object.freeze({ accountReference: "merchant-42" }),
     sealedCredentials: envelope(),
     credentialVersion: 2,
@@ -79,6 +80,7 @@ type ProbeOptions = Readonly<{
   execution?: "succeeded" | "provider_outcome_unknown";
   profileClaim?: boolean;
   jobClaim?: boolean;
+  mismatchedValidationAuthority?: boolean;
 }>;
 
 function probe(options: ProbeOptions = {}) {
@@ -90,7 +92,11 @@ function probe(options: ProbeOptions = {}) {
       calls.profileClaim += 1;
       return options.profileClaim === false
         ? Object.freeze({ kind: "empty" as const })
-        : Object.freeze({ kind: "claimed" as const, profile: validationClaim() });
+        : Object.freeze({ kind: "claimed" as const, profile: validationClaim(
+          options.mismatchedValidationAuthority
+            ? Object.freeze({ ...AUTHORITY, evidenceDigest: `sha256:${"b".repeat(64)}` })
+            : AUTHORITY,
+        ) });
     },
     async markProfileValidation(input: { outcome: string }) {
       calls.mark += 1;
@@ -125,6 +131,7 @@ function probe(options: ProbeOptions = {}) {
   const adapter = Object.freeze({
     providerCode: "fixture_provider",
     capability: "marketplace_sync" as const,
+    executionAuthority: AUTHORITY,
     async validateCredential(input) {
       calls.validate += 1;
       retained.push(input.credential);
@@ -163,6 +170,14 @@ test("worker validates pending credential with an injected adapter and zeroes pl
   assert.deepEqual(selected.audits, [{ operation: "validate", classification: "profile_validated", providerCode: "fixture_provider", capability: "marketplace_sync" }]);
 });
 
+test("worker rejects a stale claimed authority before decrypting or contacting the adapter", async () => {
+  const selected = probe({ mismatchedValidationAuthority: true });
+  await assert.rejects(() => selected.worker.runOnce(), /merchant_provider_worker_invalid/);
+  assert.equal(selected.calls.validate, 0);
+  assert.equal(selected.calls.mark, 0);
+  assert.equal(selected.retained.length, 0);
+});
+
 test("worker maps possible side effect to unknown without second adapter call", async () => {
   const selected = probe({ profileClaim: false, execution: "provider_outcome_unknown" });
   assert.deepEqual(await selected.worker.runOnce(), { kind: "provider_outcome_unknown" });
@@ -180,7 +195,7 @@ test("successful execution finalizes one exact safe provider reference", async (
   assert.deepEqual(selected.audits, [{ operation: "execute", classification: "succeeded", providerCode: "fixture_provider", capability: "marketplace_sync" }]);
 });
 
-test("empty production registry never claims or contacts a provider", async () => {
+test("an explicitly empty registry never claims or contacts a provider", async () => {
   let claimCalls = 0;
   const repository = {
     async claimProfileValidation() { claimCalls += 1; throw new Error("repository_touched"); },
@@ -193,7 +208,7 @@ test("empty production registry never claims or contacts a provider", async () =
   } as unknown as MerchantProviderWorkflowRepository;
   const worker = createMerchantProviderWorker({
     repository,
-    registry: createProductionMerchantProviderRegistry(),
+    registry: createMerchantProviderAdapterRegistry(Object.freeze([])),
     keyring: KEYRING,
     workerId: "worker.fixture",
     now: () => new Date(NOW),
@@ -207,6 +222,7 @@ test("empty production registry never claims or contacts a provider", async () =
 test("registry rejects duplicates, mutable adapters, and mismatched lookup authority", () => {
   const mutable = {
     providerCode: "fixture_provider", capability: "marketplace_sync" as const,
+    executionAuthority: AUTHORITY,
     async validateCredential() { return { kind: "validated" as const }; },
     async execute() { return { kind: "provider_outcome_unknown" as const, outcomeCode: "transport_outcome_unknown" as const }; },
     async reconcile() { return { kind: "provider_outcome_unknown" as const, outcomeCode: "transport_outcome_unknown" as const }; },

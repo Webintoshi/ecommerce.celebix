@@ -13,6 +13,7 @@ export {
   createPaytrIframePresentationUrl,
   initializePaytrIframeWithTransport,
   queryPaytrIframeWithTransport,
+  validatePaytrIframeCredentialWithTransport,
 } from "./providers/paytr/adapter.ts";
 export {
   createPaytrIframeStatusToken,
@@ -45,6 +46,7 @@ export type {
 } from "./packets/source-types.ts";
 export type {
   PaytrIframeCallback,
+  PaytrIframeCredentialValidationResult,
   PaytrIframeCredential,
   PaytrIframeInitializationResult,
   PaytrIframeStatusResult,

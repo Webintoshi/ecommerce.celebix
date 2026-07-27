@@ -14,6 +14,7 @@ const LEASE = "73000000-0000-4000-8000-000000000001";
 const OPERATION = "74000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-25T12:00:00.000Z");
 const LATER = new Date("2026-07-25T12:05:00.000Z");
+const AUTHORITY = Object.freeze({ environment: "test" as const, adapterVersion: 1, evidenceDigest: `sha256:${"a".repeat(64)}` });
 
 function sealed() {
   return { algorithm: "A256GCM", ciphertext: "b3BhcXVl", iv: "AQEBAQEBAQEBAQEB", keyId: "provider.current", tag: "AgICAgICAgICAgICAgICAg", version: 1 };
@@ -23,9 +24,10 @@ function validationClaim() {
   return {
     profileId: PROFILE,
     storeId: STORE,
-    providerCode: "fixture_provider",
-    capability: "marketplace_sync",
-    publicConfig: { accountReference: "merchant-42" },
+    providerCode: "paytr_iframe",
+    capability: "payment_processing",
+    publicConfig: { environment: "test", merchantId: "123456" },
+    executionAuthority: AUTHORITY,
     sealedCredentials: sealed(),
     credentialVersion: 2,
     profileVersion: 3,
@@ -140,7 +142,7 @@ test("workflow claim returns one credential snapshot and no raw secret", async (
 
 test("profile validation claim binds lease and credential authority", async () => {
   const client = new Client((text) => text.includes("merchant_provider_profile_claim_validation") ? [{ outcome: "claimed", result_payload: validationClaim() }] : []);
-  const claim = await repository(new Pool([client])).claimProfileValidation({ workerId: "worker.fixture", now: NOW, leaseExpiresAt: LATER });
+  const claim = await repository(new Pool([client])).claimProfileValidation({ workerId: "worker.fixture", providerCode: "paytr_iframe", capability: "payment_processing", executionAuthority: AUTHORITY, now: NOW, leaseExpiresAt: LATER });
   assert.equal(claim.kind, "claimed");
   if (claim.kind !== "claimed") assert.fail("validation claim expected");
   assert.equal(claim.profile.credentialVersion, 2);
@@ -157,9 +159,9 @@ test("empty workflow claims commit a frozen empty result", async () => {
 
 test("profile validation result binds every lease field", async () => {
   const client = new Client((text) => text.includes("merchant_provider_profile_mark_validation") ? [{ outcome: "validated", result_payload: profile() }] : []);
-  const result = await repository(new Pool([client])).markProfileValidation({ profileId: PROFILE, credentialVersion: 2, profileVersion: 3, leaseId: LEASE, leaseOwner: "worker.fixture", now: NOW, outcome: "validated", outcomeCode: "validated" });
+  const result = await repository(new Pool([client])).markProfileValidation({ profileId: PROFILE, providerCode: "paytr_iframe", capability: "payment_processing", executionAuthority: AUTHORITY, credentialVersion: 2, profileVersion: 3, leaseId: LEASE, leaseOwner: "worker.fixture", now: NOW, outcome: "validated", outcomeCode: "validated" });
   assert.equal(result.status, "active");
-  assert.deepEqual(call(client, "merchant_provider_profile_mark_validation").values.slice(0, 6), [PROFILE, "worker.fixture", NOW, LEASE, 2, 3]);
+  assert.deepEqual(call(client, "merchant_provider_profile_mark_validation").values.slice(0, 6), [PROFILE, "paytr_iframe", "payment_processing", "test", 1, AUTHORITY.evidenceDigest]);
 });
 
 test("heartbeat carries the exact lease ID and parses a safe job", async () => {

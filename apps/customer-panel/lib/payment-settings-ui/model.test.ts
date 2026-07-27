@@ -79,7 +79,11 @@ function promoteTestReadiness(
     evidenceDigest: "sha256:test-only-fixture",
   });
   return Object.freeze(catalog.map((entry) => entry.providerCode === providerCode
-    ? Object.freeze({ ...entry, readiness: evidence.state })
+    ? Object.freeze({ ...entry, readiness: evidence.state, executionAuthority: {
+      environment: "test" as const,
+      adapterVersion: evidence.adapterVersion,
+      evidenceDigest: evidence.evidenceDigest,
+    } })
     : entry));
 }
 
@@ -123,7 +127,8 @@ test("payment settings model filters category, mode, readiness and environment t
 
 test("only ready catalog entries with an exact payment descriptor become connectable", () => {
   const base = PAYMENT_PROVIDER_CATALOG[0]!;
-  const ready: PaymentProviderCatalogEntry = { ...base, readiness: "sandbox_ready" };
+  const evidenceDigest = `sha256:${"a".repeat(64)}`;
+  const ready: PaymentProviderCatalogEntry = { ...base, readiness: "sandbox_ready", environments: ["test"], executionAuthority: { environment: "test", adapterVersion: 7, evidenceDigest } };
   const planned: PaymentProviderCatalogEntry = { ...PAYMENT_PROVIDER_CATALOG[1]!, readiness: "planned" };
   const descriptor: MerchantProviderDescriptor = {
     providerCode: ready.providerCode,
@@ -131,6 +136,9 @@ test("only ready catalog entries with an exact payment descriptor become connect
     label: ready.label,
     publicFields: [{ key: "merchant_id", label: "Mağaza numarası" }],
     credentialFields: [{ key: "api_secret", label: "API parolası", secret: true }],
+    adapterVersion: 7,
+    environments: ["test"],
+    executionAuthority: { environment: "test", adapterVersion: 7, evidenceDigest },
   };
   const wrongCapability: MerchantProviderDescriptor = {
     ...descriptor,
@@ -149,6 +157,16 @@ test("only ready catalog entries with an exact payment descriptor become connect
   assert.equal(plannedCard?.actionLabel, "Hazırlanıyor");
   assert.equal(plannedCard?.executableDescriptor, null);
   assert.doesNotMatch(JSON.stringify(plannedCard), /api_secret|API parolası/);
+
+  for (const mismatch of [
+    { ...descriptor, adapterVersion: 8 },
+    { ...descriptor, environments: ["live" as const] },
+    { ...descriptor, executionAuthority: null },
+    { ...descriptor, executionAuthority: { environment: "test" as const, adapterVersion: 7, evidenceDigest: `sha256:${"b".repeat(64)}` } },
+  ]) {
+    const rejected = buildPaymentSettingsViewModel([ready], [mismatch], [], [], "", noFilters);
+    assert.equal(rejected.catalog.cards[0]?.connectable, false);
+  }
 });
 
 test("default PayTR cards stay truthful until matching sandbox evidence exists", () => {
@@ -158,12 +176,20 @@ test("default PayTR cards stay truthful until matching sandbox evidence exists",
   const registry = createDefaultCustomerPanelPaymentProviderRegistry(hosted);
   const descriptor = registry.get("paytr_iframe", "payment_processing");
   assert.ok(descriptor);
+  const evidence = {
+    state: "sandbox_ready" as const,
+    adapterVersion: 1 as const,
+    evidenceDigest: "sha256:test-only-fixture" as const,
+  };
   const definitions = [{
     providerCode: descriptor.providerCode,
     capability: descriptor.capability,
     label: descriptor.label,
     publicFields: descriptor.publicFields,
     credentialFields: descriptor.credentialFields,
+    adapterVersion: descriptor.adapterVersion,
+    environments: descriptor.environments,
+    executionAuthority: { environment: "test" as const, adapterVersion: 1, evidenceDigest: evidence.evidenceDigest },
   }];
 
   const view = buildPaymentSettingsViewModel(
@@ -174,11 +200,7 @@ test("default PayTR cards stay truthful until matching sandbox evidence exists",
   assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr")?.actionLabel, "Hazırlanıyor");
   assert.equal(view.catalog.cards.filter((card) => card.connectable).length, 0);
 
-  const promoted = promoteTestReadiness(PAYMENT_PROVIDER_CATALOG, "paytr_iframe", {
-    state: "sandbox_ready",
-    adapterVersion: 1,
-    evidenceDigest: "sha256:test-only-fixture",
-  });
+  const promoted = promoteTestReadiness(PAYMENT_PROVIDER_CATALOG, "paytr_iframe", evidence);
   const sandboxReady = buildPaymentSettingsViewModel(promoted, definitions, [], [], "", noFilters);
   const card = sandboxReady.catalog.cards.find((candidate) => candidate.providerCode === "paytr_iframe");
   assert.equal(card?.actionLabel, "Bağla");
@@ -267,7 +289,7 @@ test("connection view shows exact test fields callback status and rotation witho
   assert.doesNotMatch(JSON.stringify(view), /key-never-return|salt-never-return/);
 });
 
-test("connection view does not reuse disabled revoked or wrong-environment profiles", () => {
+test("connection view permits disabled reactivation but keeps revoked profiles terminal", () => {
   const descriptor: MerchantProviderDescriptor = {
     providerCode: "paytr_iframe",
     capability: "payment_processing",
@@ -275,7 +297,7 @@ test("connection view does not reuse disabled revoked or wrong-environment profi
     publicFields: [{ key: "merchantId", label: "Mağaza numarası" }],
     credentialFields: [{ key: "merchantKey", label: "Mağaza parolası", secret: true }],
   };
-  for (const status of ["disabled", "revoked"] as const) {
+  for (const [status, canRotate] of [["disabled", true], ["revoked", false]] as const) {
     const view = buildPaymentProviderConnectionViewModel({
       descriptor,
       environment: "test",
@@ -283,7 +305,8 @@ test("connection view does not reuse disabled revoked or wrong-environment profi
       storefrontHostname: "shop.example.test",
     });
     assert.equal(view.statusLabel, status === "disabled" ? "Devre dışı" : "Bağlantı iptal edildi");
-    assert.equal(view.canRotate, false);
+    assert.equal(view.canRotate, canRotate);
+    assert.equal(view.submitLabel, canRotate ? "Bilgileri yenile" : "Bağlantıyı kaydet");
   }
   assert.throws(() => buildPaymentProviderConnectionViewModel({
     descriptor,

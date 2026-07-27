@@ -193,6 +193,7 @@ test("provider descriptors are exact, deeply frozen and keep secret fields separ
 });
 
 test("provider descriptor field keys preserve exact adapter camelCase names", () => {
+  const evidenceDigest = `sha256:${"a".repeat(64)}`;
   const descriptor = parseMerchantProviderDescriptor({
     providerCode: "paytr_iframe",
     capability: "payment_processing",
@@ -202,9 +203,18 @@ test("provider descriptor field keys preserve exact adapter camelCase names", ()
       { key: "merchantKey", label: "Mağaza parolası", secret: true },
       { key: "merchantSalt", label: "Mağaza gizli anahtarı", secret: true },
     ],
+    adapterVersion: 1,
+    environments: ["test"],
+    executionAuthority: { environment: "test", adapterVersion: 1, evidenceDigest },
   });
   assert.deepEqual(descriptor.publicFields.map(({ key }) => key), ["merchantId"]);
   assert.deepEqual(descriptor.credentialFields.map(({ key }) => key), ["merchantKey", "merchantSalt"]);
+  assert.deepEqual(descriptor.executionAuthority, { environment: "test", adapterVersion: 1, evidenceDigest });
+  for (const hostile of [
+    { ...descriptor, adapterVersion: 2 },
+    { ...descriptor, environments: ["live"] },
+    { ...descriptor, executionAuthority: { environment: "test", adapterVersion: 1, evidenceDigest: "sha256:test-only-fixture" } },
+  ]) assert.throws(() => parseMerchantProviderDescriptor(hostile), /merchant_admin_contract_invalid/);
 });
 
 test("execution jobs parse every safe state without raw provider output", () => {

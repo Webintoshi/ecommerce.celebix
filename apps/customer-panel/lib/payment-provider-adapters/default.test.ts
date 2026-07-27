@@ -25,6 +25,9 @@ test("default registries explicitly expose only the executable PayTR iFrame adap
   assert.equal(registry.size, 1);
   const entry = registry.get("paytr_iframe", "payment_processing");
   assert.ok(entry);
+  assert.equal(entry.adapterVersion, 1);
+  assert.deepEqual(entry.environments, ["test"]);
+  assert.equal(entry.executionAuthority, null);
   assert.deepEqual(entry.publicFields, [
     { key: "merchantId", label: "Mağaza numarası" },
   ]);

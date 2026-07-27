@@ -35,7 +35,8 @@ test("browser evidence remains disabled, same-origin, responsive and credential-
     read("apps/customer-panel/components/merchant-admin/provider-connection-panel.module.css"),
     read("apps/customer-panel/lib/provider-execution-http/default.ts"),
   ]);
-  assert.match(defaultRuntime, /providerCodes:\s*\(\)\s*=>\s*Object[.]freeze\(\[\]\)/u);
+  assert.match(defaultRuntime, /listDefaultCustomerPanelPaymentProviderCodes/u);
+  assert.match(defaultRuntime, /providerCodes:\s*\(capability\)\s*=>\s*capability === "payment_processing"[\s\S]*?listDefaultCustomerPanelPaymentProviderCodes\(\)[\s\S]*?: Object[.]freeze\(\[\]\)/u);
   assert.match(panel, /type="password"/u);
   assert.doesNotMatch(panel, /useState[^\n]*(?:credential|secret|token)/iu);
   assert.match(panelCss, /min-(?:height|block-size):48px/u);

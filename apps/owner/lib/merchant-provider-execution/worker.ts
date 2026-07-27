@@ -85,6 +85,16 @@ function parseExecutionResult(value: unknown): ProviderExecutionOutcome {
   return Object.freeze({ kind: parsed.kind, outcomeCode: outcomeCode(parsed.outcomeCode) });
 }
 
+function exactExecutionAuthority(
+  claim: MerchantProviderValidationClaim,
+  adapter: MerchantProviderAdapter,
+): boolean {
+  return claim.providerCode === adapter.providerCode && claim.capability === adapter.capability
+    && claim.executionAuthority.environment === adapter.executionAuthority.environment
+    && claim.executionAuthority.adapterVersion === adapter.executionAuthority.adapterVersion
+    && claim.executionAuthority.evidenceDigest === adapter.executionAuthority.evidenceDigest;
+}
+
 function openProfileCredential(options: MerchantProviderWorkerOptions, claim: MerchantProviderValidationClaim): Uint8Array {
   return openMerchantProviderCredential({
     envelope: claim.sealedCredentials,
@@ -149,6 +159,9 @@ async function validateProfile(
   }
   await options.repository.markProfileValidation({
     profileId: claim.profileId,
+    providerCode: claim.providerCode,
+    capability: claim.capability,
+    executionAuthority: claim.executionAuthority,
     credentialVersion: claim.credentialVersion,
     profileVersion: claim.profileVersion,
     leaseId: claim.leaseId,
@@ -201,6 +214,7 @@ function selectOptions(value: MerchantProviderWorkerOptions): MerchantProviderWo
     !repository || typeof repository !== "object" ||
     !registry || typeof registry !== "object" || !Object.isFrozen(registry) ||
     !Number.isSafeInteger(registry.size) || registry.size < 0 || typeof registry.get !== "function" ||
+    typeof registry.list !== "function" ||
     typeof parsed.workerId !== "string" || !WORKER.test(parsed.workerId) ||
     typeof parsed.now !== "function" || typeof parsed.audit !== "function" ||
     !Number.isSafeInteger(parsed.leaseDurationMs) || (parsed.leaseDurationMs as number) < 1 ||
@@ -226,10 +240,15 @@ export async function runMerchantProviderWorkerOnce(options: MerchantProviderWor
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) invalid();
   const selectedNow = new Date(now.getTime());
   const leaseExpiresAt = new Date(selectedNow.getTime() + options.leaseDurationMs);
-  const validation = await options.repository.claimProfileValidation({ workerId: options.workerId, now: selectedNow, leaseExpiresAt });
-  if (validation.kind === "claimed") {
-    const adapter = options.registry.get(validation.profile.providerCode, validation.profile.capability);
-    return validateProfile(options, validation.profile, adapter, selectedNow);
+  for (const adapter of options.registry.list()) {
+    const validation = await options.repository.claimProfileValidation({
+      workerId: options.workerId, providerCode: adapter.providerCode, capability: adapter.capability,
+      executionAuthority: adapter.executionAuthority, now: selectedNow, leaseExpiresAt,
+    });
+    if (validation.kind === "claimed") {
+      if (!exactExecutionAuthority(validation.profile, adapter)) invalid();
+      return validateProfile(options, validation.profile, adapter, selectedNow);
+    }
   }
   const execution = await options.repository.claim({ workerId: options.workerId, now: selectedNow, leaseExpiresAt });
   if (execution.kind === "empty") return result("empty");

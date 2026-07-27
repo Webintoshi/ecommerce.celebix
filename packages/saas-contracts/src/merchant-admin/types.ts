@@ -50,6 +50,9 @@ export interface MerchantProviderDescriptor {
   readonly label: string;
   readonly publicFields: readonly Readonly<MerchantProviderFieldDescriptor>[];
   readonly credentialFields: readonly Readonly<MerchantProviderCredentialFieldDescriptor>[];
+  readonly adapterVersion?: number;
+  readonly environments?: readonly PaymentProviderEnvironment[];
+  readonly executionAuthority?: Readonly<PaymentProviderExecutionAuthority> | null;
 }
 export interface MerchantProviderProfile {
   readonly id: string;
@@ -102,3 +105,7 @@ export interface MerchantAdminProviderJobMutationResult {
   readonly updatedAt: string;
   readonly replayed: boolean;
 }
+import type {
+  PaymentProviderEnvironment,
+  PaymentProviderExecutionAuthority,
+} from "../payment-providers/types.ts";

@@ -7,6 +7,10 @@ export type {
   SealedMerchantProviderCredential,
 } from "./credential-crypto.ts";
 export {
+  MERCHANT_PROVIDER_CREDENTIAL_ENVIRONMENT_FIELDS,
+  parseMerchantProviderCredentialKeyring,
+} from "./keyring-config.ts";
+export {
   MERCHANT_PROVIDER_PROFILE_ERROR_CODES,
   MerchantProviderProfileRepositoryError,
   MERCHANT_PROVIDER_WORKFLOW_ERROR_CODES,
@@ -20,6 +24,7 @@ export { PostgresMerchantProviderProfileRepository } from "./repository.ts";
 export { PostgresMerchantProviderWorkflowRepository } from "./workflow-repository.ts";
 export type {
   ClaimMerchantProviderWorkInput,
+  ClaimMerchantProviderValidationInput,
   ListMerchantProviderProfilesInput,
   MerchantProviderAuthorityInput,
   MerchantProviderExecutionOutcome,

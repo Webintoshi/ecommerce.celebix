@@ -132,6 +132,8 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(drawerSource, /maskedAccountReference/);
   assert.match(drawerSource, /callbackUrl/);
   assert.match(drawerSource, /storefrontHostname/);
+  assert.match(drawerSource, /const canSubmit = connection !== null && \(props\.profile === undefined \|\| connection\.canRotate\)/);
+  assert.match(drawerSource, /busy \|\| !props\.canManage \|\| !canSubmit/);
   assert.doesNotMatch(drawerSource, /window[.]location[.]origin/);
   assert.doesNotMatch(drawerSource, /defaultValue=\{[^}]*credential|merchantKey\s*:|merchantSalt\s*:/);
   assert.match(consoleSource, /emergencyReason/);

@@ -22,6 +22,7 @@ function catalogFixture() {
     category: "payment_institution",
     interactionMode: "iframe",
     readiness: "planned",
+    executionAuthority: null,
     support: {
       threeDSecure: "unknown",
       installments: "unknown",
@@ -75,6 +76,7 @@ test("catalog parser returns a deeply frozen exact safe entry", () => {
   assert.equal(Object.isFrozen(parsed.support), true);
   assert.equal(Object.isFrozen(parsed.aliases), true);
   assert.equal(Object.isFrozen(parsed.environments), true);
+  assert.equal(parsed.executionAuthority, null);
   assert.deepEqual(parsed.support, {
     threeDSecure: "unknown",
     installments: "unknown",
@@ -110,6 +112,11 @@ test("catalog parser rejects hidden authority ambiguity and executable dummy dat
     { ...valid, category: "crypto" },
     { ...valid, interactionMode: "post_form" },
     { ...valid, readiness: "ready" },
+    { ...valid, readiness: "sandbox_ready" },
+    { ...valid, readiness: "sandbox_ready", executionAuthority: { environment: "test", adapterVersion: 1, evidenceDigest: "sha256:test-only-fixture" } },
+    { ...valid, readiness: "sandbox_ready", executionAuthority: { environment: "live", adapterVersion: 1, evidenceDigest: `sha256:${"a".repeat(64)}` } },
+    { ...valid, readiness: "production_ready", executionAuthority: { environment: "test", adapterVersion: 1, evidenceDigest: `sha256:${"a".repeat(64)}` } },
+    { ...valid, readiness: "planned", executionAuthority: { environment: "test", adapterVersion: 1, evidenceDigest: `sha256:${"a".repeat(64)}` } },
     { ...valid, aliases: ["pay tr", "pay tr"] },
     { ...valid, aliases: sparseAliases },
     { ...valid, aliases: namedAliases },
@@ -126,6 +133,23 @@ test("catalog parser rejects hidden authority ambiguity and executable dummy dat
     );
   }
   assert.equal(invoked, false);
+});
+
+test("catalog parser accepts only exact real-digest environment readiness authority", () => {
+  const digest = `sha256:${"a".repeat(64)}`;
+  const sandbox = payments.parsePaymentProviderCatalogEntry!({
+    ...catalogFixture(), readiness: "sandbox_ready", executionAuthority: {
+      environment: "test", adapterVersion: 1, evidenceDigest: digest,
+    },
+  });
+  const production = payments.parsePaymentProviderCatalogEntry!({
+    ...catalogFixture(), readiness: "production_ready", executionAuthority: {
+      environment: "live", adapterVersion: 1, evidenceDigest: digest,
+    },
+  });
+  assert.deepEqual(sandbox.executionAuthority, { environment: "test", adapterVersion: 1, evidenceDigest: digest });
+  assert.deepEqual(production.executionAuthority, { environment: "live", adapterVersion: 1, evidenceDigest: digest });
+  assert.equal(Object.isFrozen(sandbox.executionAuthority), true);
 });
 
 test("catalog collection is bounded dense copied and deeply frozen", () => {

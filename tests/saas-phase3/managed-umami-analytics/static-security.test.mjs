@@ -175,6 +175,8 @@ test("lockfile admits only the pinned adapter workspace and storefront dependenc
     dependencies: { "@celebix/saas-contracts": "0.1.0" },
   };
   expectedLock.packages["apps/storefront-shared"].dependencies["@celebix/payment-adapters"] = "0.1.0";
+  expectedLock.packages["apps/customer-panel"].dependencies["@celebix/payment-adapters"] = "0.1.0";
+  expectedLock.packages["apps/owner"].dependencies["@celebix/payment-adapters"] = "0.1.0";
   const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
   assert.deepEqual(currentLock, expectedLock);
 

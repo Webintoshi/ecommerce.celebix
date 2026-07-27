@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
 import type {
   MerchantProviderCredentialKeyring,
@@ -74,6 +75,14 @@ test("runtime rejects missing repository methods and mutable keyrings", () => {
   assert.throws(() => registerServerProviderExecutionRuntime(access(), { list: reject } as never, keyring(), createCustomerPanelProviderRegistry([]), createPaymentAdapterRegistry([], [])), /server_provider_execution_runtime_invalid/);
   const mutableKeyring = { activeKeyId: "staging-key-01", keys: [{ keyId: "staging-key-01", key: new Uint8Array(32) }] } as MerchantProviderCredentialKeyring;
   assert.throws(() => registerServerProviderExecutionRuntime(access(), profiles, mutableKeyring, createCustomerPanelProviderRegistry([]), createPaymentAdapterRegistry([], [])), /server_provider_execution_runtime_invalid/);
+});
+
+test("production panel sealing uses the dedicated shared provider keyring instead of quick-order keys", () => {
+  const source = readFileSync(new URL("../server-panel-access/postgres-runtime.ts", import.meta.url), "utf8");
+  assert.match(source, /parseMerchantProviderCredentialKeyring\(process\.env\)/);
+  const registration = /registerServerProviderExecutionRuntime\(([\s\S]*?)\n\s*\);/.exec(source)?.[1] ?? "";
+  assert.match(registration, /providerCredentialKeyring,/);
+  assert.doesNotMatch(registration, /quickLinksConfig\.keyring,/);
 });
 
 test("runtime rejects duplicate access registration and disabled access", () => {

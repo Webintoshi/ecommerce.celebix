@@ -11,6 +11,7 @@ import {
   PAYTR_IFRAME_PACKET,
   authenticatePaytrIframeCallback,
   createPaytrIframeAdapter,
+  validatePaytrIframeCredentialWithTransport,
 } from "./adapter.ts";
 
 const BINDING = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
@@ -409,5 +410,99 @@ test("does not execute verification-only live inputs", async () => {
     kind: "rejected",
     code: "environment_not_ready",
   });
+  assert.equal(calls, 0);
+});
+
+test("validates credentials only through one PayTR TEST get-token request without exposing or presenting the iframe token", async () => {
+  let calls = 0;
+  let body = "";
+  const result = await validatePaytrIframeCredentialWithTransport(transport((request) => {
+    calls += 1;
+    body = new TextDecoder().decode(request.body);
+    assert.equal(request.url, "https://www.paytr.com/odeme/api/get-token");
+    assert.equal(request.environment, "test");
+    return response(`{"status":"success","token":"${TOKEN}"}`);
+  }), Object.freeze({
+    environment: "test" as const,
+    credential,
+    validationReference: "11111111-1111-4111-8111-111111111111",
+    userIp: "8.8.8.8",
+    successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili",
+    failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
+    signal: new AbortController().signal,
+  }));
+  assert.deepEqual(result, { kind: "validated" });
+  assert.equal(calls, 1);
+  const form = new URLSearchParams(body);
+  assert.equal(form.get("test_mode"), "1");
+  assert.equal(form.get("payment_amount"), "1");
+  assert.equal(form.get("merchant_oid"), "CV11111111111141118111111111111111");
+  assert.equal(form.get("email"), "payments@celebix.co");
+  assert.equal(form.get("user_ip"), "8.8.8.8");
+  assert.equal(form.get("merchant_ok_url"), "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili");
+  assert.equal(form.get("merchant_fail_url"), "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz");
+  assert.doesNotMatch(JSON.stringify(result), new RegExp(TOKEN));
+});
+
+test("credential validation is exact test-only and never retries rejection or ambiguity", async () => {
+  for (const [providerResult, expected] of [
+    [response('{"status":"failed","reason":"private"}'), { kind: "rejected", outcomeCode: "provider_rejected" }],
+    [Object.freeze({ kind: "unknown" as const, code: "transport_outcome_unknown" as const }), { kind: "rejected", outcomeCode: "validation_unavailable" }],
+  ] as const) {
+    let calls = 0;
+    const result = await validatePaytrIframeCredentialWithTransport(transport(() => {
+      calls += 1;
+      return providerResult;
+    }), Object.freeze({
+      environment: "test" as const,
+      credential,
+      validationReference: "11111111-1111-4111-8111-111111111111",
+      userIp: "8.8.8.8",
+      successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili",
+      failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
+      signal: new AbortController().signal,
+    }));
+    assert.deepEqual(result, expected);
+    assert.equal(calls, 1);
+  }
+  let calls = 0;
+  assert.deepEqual(await validatePaytrIframeCredentialWithTransport(transport(() => {
+    calls += 1;
+    return response(`{"status":"success","token":"${TOKEN}"}`);
+  }), Object.freeze({
+    environment: "live" as const,
+    credential,
+    validationReference: "11111111-1111-4111-8111-111111111111",
+    userIp: "8.8.8.8",
+    successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili",
+    failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
+    signal: new AbortController().signal,
+  })), { kind: "rejected", outcomeCode: "invalid_validation_request" });
+  assert.equal(calls, 0);
+
+  for (const invalidConfig of [
+    {},
+    { userIp: "198.51.100.1", successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "::ffff:127.0.0.1", successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "ff02::1", successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "0:0:0:0:0:0:0:1", successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "0000:0000:0000:0000:0000:ffff:7f00:1", successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "::ffff:7f00:1", successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "fe80::1", successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "2001:db8::1", successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "8.8.8.8", successUrl: "https://127.0.0.1/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://127.0.0.1/odeme/hizli/sonuc?durum=basarisiz" },
+    { userIp: "8.8.8.8", successUrl: "https://validation.celebix.invalid/odeme/hizli/sonuc?durum=basarili", failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz" },
+  ]) {
+    assert.deepEqual(await validatePaytrIframeCredentialWithTransport(transport(() => {
+      calls += 1;
+      return response(`{"status":"success","token":"${TOKEN}"}`);
+    }), Object.freeze({
+      environment: "test" as const,
+      credential,
+      validationReference: "11111111-1111-4111-8111-111111111111",
+      signal: new AbortController().signal,
+      ...invalidConfig,
+    }) as never), { kind: "rejected", outcomeCode: "invalid_validation_request" });
+  }
   assert.equal(calls, 0);
 });

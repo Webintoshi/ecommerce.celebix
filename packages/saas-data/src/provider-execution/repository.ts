@@ -33,6 +33,7 @@ import type {
 type Spec = Readonly<{ text: string; values: unknown[] }>;
 type Authority = ReturnType<typeof providerAuthority>;
 const CODES = new Set<string>(MERCHANT_PROVIDER_PROFILE_ERROR_CODES);
+const EXECUTION_DIGEST = /^sha256:[a-f0-9]{64}$/;
 
 function unavailable(): MerchantProviderProfileRepositoryError {
   return new MerchantProviderProfileRepositoryError("unavailable");
@@ -67,6 +68,25 @@ function authorityValues(authority: Authority): unknown[] {
 
 function profile(value: unknown): MerchantProviderProfile {
   try { return parseMerchantProviderProfile(value); } catch { throw unavailable(); }
+}
+
+function executionAuthority(value: unknown): Readonly<{
+  environment: "test" | "live";
+  adapterVersion: number;
+  evidenceDigest: string;
+}> | null {
+  if (value === null) return null;
+  const parsed = exactProviderInput(value, ["environment", "adapterVersion", "evidenceDigest"]);
+  if (
+    (parsed.environment !== "test" && parsed.environment !== "live") ||
+    !Number.isSafeInteger(parsed.adapterVersion) || (parsed.adapterVersion as number) < 1 ||
+    typeof parsed.evidenceDigest !== "string" || !EXECUTION_DIGEST.test(parsed.evidenceDigest)
+  ) throw unavailable();
+  return Object.freeze({
+    environment: parsed.environment,
+    adapterVersion: parsed.adapterVersion as number,
+    evidenceDigest: parsed.evidenceDigest,
+  });
 }
 
 export class PostgresMerchantProviderProfileRepository implements MerchantProviderProfileRepository {
@@ -218,7 +238,8 @@ export class PostgresMerchantProviderProfileRepository implements MerchantProvid
   async save(input: SaveMerchantProviderProfileInput): Promise<MerchantProviderProfile> {
     const parsed = exactProviderInput(input, [
       "tenantContext", "now", "operationId", "profileId", "providerCode", "capability",
-      "publicConfig", "maskedAccountReference", "sealedCredentials", "credentialDigest", "expectedVersion",
+      "publicConfig", "maskedAccountReference", "sealedCredentials", "credentialDigest",
+      "executionAuthority", "expectedVersion",
     ]);
     const authority = providerAuthority(parsed.tenantContext as never, parsed.now as Date);
     const operationId = providerUuid(parsed.operationId);
@@ -229,6 +250,12 @@ export class PostgresMerchantProviderProfileRepository implements MerchantProvid
     const maskedAccountReference = providerMaskedReference(parsed.maskedAccountReference);
     const sealedCredentials = providerSealedCredential(parsed.sealedCredentials);
     const credentialDigest = providerDigest(parsed.credentialDigest);
+    const selectedExecutionAuthority = executionAuthority(parsed.executionAuthority);
+    if ((capability === "payment_processing") !== (selectedExecutionAuthority !== null)) throw unavailable();
+    if (
+      selectedExecutionAuthority !== null &&
+      publicConfig.environment !== selectedExecutionAuthority.environment
+    ) throw unavailable();
     const expectedVersion = providerVersion(parsed.expectedVersion, 0);
     const fingerprint = providerProfileFingerprint("save", authority.storeId, {
       profileId,
@@ -239,6 +266,7 @@ export class PostgresMerchantProviderProfileRepository implements MerchantProvid
       credentialDigest,
       credentialKeyId: sealedCredentials.keyId,
       credentialSchemaVersion: sealedCredentials.version,
+      executionAuthority: selectedExecutionAuthority,
       expectedVersion,
     });
     return this.mutate(authority, operationId, fingerprint, "saved", (profile) => (
@@ -247,8 +275,8 @@ export class PostgresMerchantProviderProfileRepository implements MerchantProvid
       profile.capability === capability &&
       profile.status === "pending_validation"
     ), {
-      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::text,$12::text,$13::jsonb,$14::text,$15::jsonb,$16::text,$17::text,$18::integer,$19::bigint)",
-      values: [...authorityValues(authority), operationId, fingerprint, profileId, selectedProviderCode, capability, JSON.stringify(publicConfig), maskedAccountReference, JSON.stringify(sealedCredentials), credentialDigest, sealedCredentials.keyId, sealedCredentials.version, expectedVersion],
+      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::text,$12::text,$13::jsonb,$14::text,$15::jsonb,$16::text,$17::text,$18::integer,$19::text,$20::integer,$21::text,$22::bigint)",
+      values: [...authorityValues(authority), operationId, fingerprint, profileId, selectedProviderCode, capability, JSON.stringify(publicConfig), maskedAccountReference, JSON.stringify(sealedCredentials), credentialDigest, sealedCredentials.keyId, sealedCredentials.version, selectedExecutionAuthority?.environment ?? null, selectedExecutionAuthority?.adapterVersion ?? null, selectedExecutionAuthority?.evidenceDigest ?? null, expectedVersion],
     });
   }
 

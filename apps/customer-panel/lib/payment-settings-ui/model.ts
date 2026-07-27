@@ -116,7 +116,7 @@ export function buildPaymentProviderConnectionViewModel(input: Readonly<{
     tone: "neutral" as const,
   });
   const canRotate = selectedProfile !== undefined && [
-    "pending_validation", "active", "rotation_required",
+    "pending_validation", "active", "disabled", "rotation_required",
   ].includes(selectedProfile.status);
   return Object.freeze({
     providerCode: descriptor.providerCode,
@@ -198,12 +198,39 @@ function cloneDescriptor(value: MerchantProviderDescriptor): MerchantProviderDes
       label: field.label,
       secret: true as const,
     }))),
+    ...(value.capability === "payment_processing" && value.adapterVersion !== undefined && value.environments !== undefined ? {
+      adapterVersion: value.adapterVersion,
+      environments: Object.freeze([...value.environments]),
+      executionAuthority: value.executionAuthority === null || value.executionAuthority === undefined
+        ? null
+        : Object.freeze({ ...value.executionAuthority }),
+    } : {}),
   });
 }
 
 function environmentLabel(environments: readonly PaymentProviderEnvironment[]): string {
   if (environments.includes("test") && environments.includes("live")) return "Test ve canlı";
   return environments[0] === "live" ? "Canlı" : "Test";
+}
+
+function exactExecutionDescriptor(
+  entry: PaymentProviderCatalogEntry,
+  descriptor: MerchantProviderDescriptor,
+): boolean {
+  const authority = entry.executionAuthority;
+  const descriptorAuthority = descriptor.executionAuthority;
+  const expectedEnvironment = entry.readiness === "sandbox_ready" ? "test"
+    : entry.readiness === "production_ready" ? "live" : null;
+  return authority !== null && expectedEnvironment !== null
+    && authority.environment === expectedEnvironment
+    && entry.environments.includes(authority.environment)
+    && descriptor.adapterVersion === authority.adapterVersion
+    && descriptor.environments?.length === 1
+    && descriptor.environments[0] === authority.environment
+    && descriptorAuthority !== null && descriptorAuthority !== undefined
+    && descriptorAuthority.environment === authority.environment
+    && descriptorAuthority.adapterVersion === authority.adapterVersion
+    && descriptorAuthority.evidenceDigest === authority.evidenceDigest;
 }
 
 function catalogCard(
@@ -213,7 +240,8 @@ function catalogCard(
   const ready = entry.readiness === "production_ready" || entry.readiness === "sandbox_ready";
   const descriptor = ready
     ? descriptors.find((candidate) =>
-      candidate.providerCode === entry.providerCode && candidate.capability === "payment_processing")
+      candidate.providerCode === entry.providerCode && candidate.capability === "payment_processing"
+      && exactExecutionDescriptor(entry, candidate))
     : undefined;
   const connectable = descriptor !== undefined;
   return Object.freeze({
