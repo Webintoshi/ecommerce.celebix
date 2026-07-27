@@ -298,12 +298,16 @@ async function sourceFiles(directory: string): Promise<string[]> {
 type ImportEdge = Readonly<{
   source: string;
   specifier: string;
-  kind: "side-effect" | "from" | "dynamic";
+  kind: "side-effect" | "from" | "dynamic" | "named-re-export" | "star-re-export";
 }>;
 
 function importEdges(source: string, sourceName: string): ImportEdge[] {
   const syntax = ts.createSourceFile(sourceName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const edges: ImportEdge[] = [];
+  const literalText = (node: ts.Node | undefined): string | null => node !== undefined
+    && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+    ? node.text
+    : null;
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
       edges.push({
@@ -311,13 +315,24 @@ function importEdges(source: string, sourceName: string): ImportEdge[] {
         specifier: node.moduleSpecifier.text,
         kind: node.importClause === undefined ? "side-effect" : "from",
       });
+    } else if (ts.isExportDeclaration(node)) {
+      const specifier = literalText(node.moduleSpecifier);
+      if (specifier !== null) {
+        edges.push({
+          source: sourceName,
+          specifier,
+          kind: node.exportClause === undefined || ts.isNamespaceExport(node.exportClause)
+            ? "star-re-export"
+            : "named-re-export",
+        });
+      }
     } else if (
       ts.isCallExpression(node)
       && node.expression.kind === ts.SyntaxKind.ImportKeyword
       && node.arguments.length === 1
-      && ts.isStringLiteral(node.arguments[0]!)
     ) {
-      edges.push({ source: sourceName, specifier: node.arguments[0].text, kind: "dynamic" });
+      const specifier = literalText(node.arguments[0]);
+      if (specifier !== null) edges.push({ source: sourceName, specifier, kind: "dynamic" });
     }
     ts.forEachChild(node, visit);
   };
@@ -361,11 +376,50 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
     [...reviewedPaymentEdges].sort(),
   );
 
-  for (const edge of [
-    importEdges('import { createHostedPaymentRuntime } from "@/lib/payment-adapters/runtime.ts";', "lib/unreviewed.ts")[0]!,
-    importEdges('import "evil-payment-sdk";', "lib/unreviewed.ts")[0]!,
-    importEdges('void import("@celebix/payment-adapters");', "lib/unreviewed.ts")[0]!,
-  ]) {
+  const unreviewedFixtures: ReadonlyArray<Readonly<{
+    source: string;
+    specifier: string;
+    kind: ImportEdge["kind"];
+  }>> = [
+    {
+      source: 'import { createHostedPaymentRuntime } from "@/lib/payment-adapters/runtime.ts";',
+      specifier: "@/lib/payment-adapters/runtime.ts",
+      kind: "from",
+    },
+    {
+      source: 'import "evil-payment-sdk";',
+      specifier: "evil-payment-sdk",
+      kind: "side-effect",
+    },
+    {
+      source: 'void import("@celebix/payment-adapters");',
+      specifier: "@celebix/payment-adapters",
+      kind: "dynamic",
+    },
+    {
+      source: "void import(`@celebix/payment-adapters`);",
+      specifier: "@celebix/payment-adapters",
+      kind: "dynamic",
+    },
+    {
+      source: 'export { createHostedPaymentRuntime } from "@/lib/payment-adapters/runtime.ts";',
+      specifier: "@/lib/payment-adapters/runtime.ts",
+      kind: "named-re-export",
+    },
+    {
+      source: 'export * from "@celebix/payment-adapters";',
+      specifier: "@celebix/payment-adapters",
+      kind: "star-re-export",
+    },
+  ];
+  for (const fixture of unreviewedFixtures) {
+    const edges = importEdges(fixture.source, "lib/unreviewed.ts");
+    assert.deepEqual(edges, [{
+      source: "lib/unreviewed.ts",
+      specifier: fixture.specifier,
+      kind: fixture.kind,
+    }]);
+    const edge = edges[0]!;
     assert.throws(
       () => assert.equal(reviewedPaymentEdges.has(edgeKey(edge)), true, edgeKey(edge)),
       assert.AssertionError,

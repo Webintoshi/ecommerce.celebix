@@ -329,6 +329,74 @@ function initializeInput() {
   };
 }
 
+function assertNoRuntimeWork(calls: Calls): void {
+  assert.deepEqual({
+    begin: calls.begin.length,
+    initialized: calls.initialized.length,
+    unknown: calls.unknown.length,
+    callbackAuthority: calls.callbackAuthority.length,
+    settled: calls.settled.length,
+    claims: calls.claims.length,
+    finalized: calls.finalized.length,
+    initializedAdapter: calls.initializedAdapter.length,
+    callbacks: calls.callbacks.length,
+    queries: calls.queries.length,
+    opens: calls.opens.length,
+  }, {
+    begin: 0,
+    initialized: 0,
+    unknown: 0,
+    callbackAuthority: 0,
+    settled: 0,
+    claims: 0,
+    finalized: 0,
+    initializedAdapter: 0,
+    callbacks: 0,
+    queries: 0,
+    opens: 0,
+  });
+}
+
+async function exerciseInvalidTimeout(value: unknown): Promise<void> {
+  const selected = fixture({ providerTimeoutMs: value as number });
+  assert.deepEqual(await selected.runtime.initialize(initializeInput()), { kind: "rejected" });
+  assert.deepEqual(await selected.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "66666666-6666-4666-8666-666666666666",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  }), { kind: "rejected" });
+  assertNoRuntimeWork(selected.calls);
+  assert.equal(selected.opened, undefined);
+}
+
+test("zero provider timeout fails closed before begin, claim, credential opening, or adapter scheduling", async () => {
+  await exerciseInvalidTimeout(0);
+});
+
+test("invalid and hostile provider timeout values fail closed without detached work or unknown mutation", async () => {
+  const hostile = new Proxy(Object.create(null) as object, {
+    get() { throw new Error("timeout coercion must not run"); },
+  });
+  for (const value of [-1, 5_001, Number.NaN, Number.POSITIVE_INFINITY, 1.5, "5", null, Symbol("5"), hostile]) {
+    await exerciseInvalidTimeout(value);
+  }
+});
+
+test("positive injected timeout boundaries remain bounded and executable", async () => {
+  for (const providerTimeoutMs of [1, 5_000]) {
+    const selected = fixture({ providerTimeoutMs });
+    assert.deepEqual(await selected.runtime.initialize(initializeInput()), {
+      kind: "iframe",
+      url: ENDPOINT,
+      token: "browser_token_fixture",
+    });
+    assert.equal(selected.calls.begin.length, 1);
+    assert.equal(selected.calls.initializedAdapter.length, 1);
+  }
+});
+
 test("initializes through durable method/profile authority and projects only iframe browser data", async () => {
   const selected = fixture();
   const presentation = await selected.runtime.initialize(initializeInput());

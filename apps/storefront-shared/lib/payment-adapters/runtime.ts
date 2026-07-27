@@ -206,16 +206,23 @@ function trustedHostname(
   }
 }
 
-function providerDeadlineMilliseconds(dependencies: HostedPaymentRuntimeDependencies): number {
-  const selected = dependencies.providerTimeoutMs ?? PROVIDER_DEADLINE_MS;
-  if (!Number.isSafeInteger(selected) || selected < 1 || selected > PROVIDER_DEADLINE_MS) {
-    throw new TypeError("hosted_payment_runtime_invalid");
+function providerDeadlineMilliseconds(dependencies: HostedPaymentRuntimeDependencies): number | null {
+  try {
+    const configured: unknown = dependencies.providerTimeoutMs;
+    const selected = configured === undefined ? PROVIDER_DEADLINE_MS : configured;
+    return typeof selected === "number"
+      && Number.isSafeInteger(selected)
+      && selected >= 1
+      && selected <= PROVIDER_DEADLINE_MS
+      ? selected
+      : null;
+  } catch {
+    return null;
   }
-  return selected;
 }
 
 async function withinProviderDeadline<T>(
-  dependencies: HostedPaymentRuntimeDependencies,
+  timeoutMs: number,
   operation: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController();
@@ -226,7 +233,7 @@ async function withinProviderDeadline<T>(
     timer = setTimeout(() => {
       controller.abort();
       reject(PROVIDER_DEADLINE_EXCEEDED);
-    }, providerDeadlineMilliseconds(dependencies));
+    }, timeoutMs);
   });
   try {
     return await Promise.race([provider, deadline]);
@@ -611,6 +618,7 @@ async function markFailed(
 async function initialize(
   dependencies: HostedPaymentRuntimeDependencies,
   input: InitializeHostedPaymentInput,
+  providerTimeoutMs: number,
 ): Promise<HostedPaymentPresentation> {
   if (!validInitializeInput(input)) return PRESENTATION_REJECTED;
   const hostname = trustedHostname(dependencies, input.headers);
@@ -672,7 +680,7 @@ async function initialize(
     try {
       let result: HostedPaymentInitialization;
       try {
-        result = await withinProviderDeadline(dependencies, (signal) => adapter.initialize(Object.freeze({
+        result = await withinProviderDeadline(providerTimeoutMs, (signal) => adapter.initialize(Object.freeze({
           environment: begun.environment,
           credential: opened.credential,
           attemptId: begun.attemptId,
@@ -1025,6 +1033,7 @@ async function reconcile(
     workerId: string;
     leaseId: string;
   }>,
+  providerTimeoutMs: number,
 ): Promise<HostedPaymentReconciliationResult> {
   if (
     !UUID.test(input.attemptId)
@@ -1081,7 +1090,7 @@ async function reconcile(
       opened = openCredential(dependencies, claim, adapter);
       const credential = opened.credential;
       try {
-        selected = parseStatus(await withinProviderDeadline(dependencies, (signal) => adapter.query(Object.freeze({
+        selected = parseStatus(await withinProviderDeadline(providerTimeoutMs, (signal) => adapter.query(Object.freeze({
           environment: claim.environment,
           credential,
           attemptId: claim.attemptId,
@@ -1152,10 +1161,18 @@ async function reconcile(
 export function createHostedPaymentRuntime(
   dependencies: HostedPaymentRuntimeDependencies,
 ): HostedPaymentRuntime {
+  const providerTimeoutMs = providerDeadlineMilliseconds(dependencies);
+  if (providerTimeoutMs === null) {
+    return Object.freeze({
+      initialize: async () => PRESENTATION_REJECTED,
+      callback: async () => CALLBACK_REJECTED,
+      reconcile: async () => RECONCILIATION_REJECTED,
+    });
+  }
   return Object.freeze({
-    initialize: (input) => initialize(dependencies, input),
+    initialize: (input) => initialize(dependencies, input, providerTimeoutMs),
     callback: (input) => callback(dependencies, input),
-    reconcile: (input) => reconcile(dependencies, input),
+    reconcile: (input) => reconcile(dependencies, input, providerTimeoutMs),
   });
 }
 
