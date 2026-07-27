@@ -98,7 +98,7 @@ Adapter yalnız doğrulanmış credential version ve etkin execution authority i
 - Celebix'in allowlist edilmiş callback URL'si;
 - locale ve izin verilen installment seçenekleri.
 
-Sahte `identityNumber`, şehir, ülke veya adres üretilmez. Gerekli buyer alanı mevcut siparişte yoksa istek provider'a gönderilmeden deterministik validation hatası döner.
+Sahte `identityNumber`, şehir, ülke veya adres üretilmez. Güncel Checkout Form şemasında `identityNumber`, şehir, ülke ve açık adres zorunludur; posta kodu opsiyoneldir ve yoksa uydurulmadan gönderimden çıkarılır. Fiziksel ürün varsa shipping address zorunludur; bütün kalemler sanalsa gönderilmeyebilir. Gerekli buyer alanı mevcut siparişte yoksa istek provider'a gönderilmeden deterministik validation hatası döner.
 
 Başarılı initialize response içinden yalnız ihtiyaç duyulan güvenli alanlar saklanır: token, conversation id, provider checkout URL referansı ve imza doğrulama sonucu. `checkoutFormContent` tarayıcıya ham HTML/script olarak enjekte edilmez. Kullanıcı doğrulanmış `paymentPageUrl` üzerinden iyzico sayfasına yönlendirilir.
 
@@ -130,7 +130,7 @@ Callback response body provider secret'ı, ham payload'ı veya hata ayrıntısı
 
 ## 6. Credential doğrulama
 
-Bağlantı testi gerçek tahsilat yapmaz. Sağlayıcının BIN sorgu endpoint'ine resmi sandbox test BIN'i ve sabit, zararsız test fiyatı ile imzalı istek atılır. Bu işlem yalnız anahtar/secret kombinasyonunun ve ortam erişiminin geçerli olduğunu doğrular.
+Bağlantı testi gerçek tahsilat yapmaz. Sağlayıcının BIN sorgu endpoint'ine güncel resmi şemadaki sekiz haneli test BIN'i ile imzalı istek atılır; eski eklenti/SDK örneğindeki altı haneli BIN ve fiyat alanı gönderilmez. Bu işlem yalnız anahtar/secret kombinasyonunun ve ortam erişiminin geçerli olduğunu doğrular.
 
 Doğrulama sırasında:
 

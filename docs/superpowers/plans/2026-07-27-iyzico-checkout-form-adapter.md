@@ -139,7 +139,7 @@ git commit -m "feat(payments): implement iyzico signing primitives"
 Create injected-transport tests for:
 
 - initialize JSON field names, exact endpoint, headers, environment isolation, `conversationId=attemptId`, `basketId=orderReference`, amount conversion, and item total preservation;
-- mandatory real buyer `identityNumber`, city, country, postal code, address and correct item type;
+- mandatory real buyer `identityNumber`, city, country, address and correct item type; optional postal code is omitted when absent and never fabricated;
 - rejection before transport when buyer/order/basket data is incomplete, inconsistent, overlong, non-canonical, or contains fake defaults;
 - signed success response producing only a validated iyzico payment URL and token reference;
 - bad signature, bad URL origin/query, missing token, provider error, timeout, 5xx, malformed JSON, and ambiguous result;
@@ -147,7 +147,7 @@ Create injected-transport tests for:
 - retrieve signature, token, conversation, basket, amount, paid amount, currency and provider payment-id matching;
 - `fraudStatus=1` success, `0` pending/review, `-1` failure;
 - query using the saved provider token and the same validation rules;
-- BIN-check credential validation with fixed official test BIN and no charge;
+- BIN-check credential validation with the current official eight-digit test BIN, exact correlation echo and no charge or stale price field;
 - credential and intermediate byte wiping on every success/failure path.
 
 Add a callback `AbortSignal` to the generic callback input and a verified callback pending/temporary outcome only if the tests prove the existing two-state callback result cannot safely represent iyzico review/timeout. Preserve strict exact-object parsing.
