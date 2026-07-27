@@ -69,6 +69,13 @@ const PACKET = parsePaymentAdapterPacket(packetFixture());
 const ENDPOINT = "https://www.paytr.com/odeme/api/get-token";
 const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded";
 const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+const IYZICO_JSON_CONTENT_TYPE = "application/json";
+const IYZICO_RANDOM_KEY = "abcdefghijklmnop";
+const IYZICO_AUTHORIZATION = "IYZWSv2 YXBpS2V5OnNhbmRib3gtYXBpLWtleSZyYW5kb21LZXk6YWJjZGVmZ2hpamtsbW5vcCZzaWduYXR1cmU6MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZg==";
+
+function encodedIyzicoAuthorization(payload: string): string {
+  return `IYZWSv2 ${Buffer.from(payload, "utf8").toString("base64")}`;
+}
 
 function request(
   transport: ReturnType<typeof createBoundedProviderTransport>,
@@ -87,7 +94,7 @@ function request(
     environment: "test",
     url: ENDPOINT,
     method: "POST",
-    headers: { "content-type": FORM_CONTENT_TYPE },
+    headers: { "content-type": FORM_CONTENT_TYPE } as const,
     body: new TextEncoder().encode("merchant_id=123456"),
     ...overrides,
   });
@@ -106,9 +113,9 @@ function iyzicoRequest(
     url: "https://sandbox-api.iyzipay.com/payment/bin/check",
     method: "POST",
     headers: {
-      "content-type": JSON_CONTENT_TYPE,
-      authorization: "IYZWSv2 YXBpS2V5OnNhbmRib3gtYXBpLWtleSZyYW5kb21LZXk6YWJjZGVmZ2hpamtsbW5vcCZzaWduYXR1cmU6MDEyMzQ1Njc4OWFiY2RlZg==",
-      "x-iyzi-rnd": "abcdefghijklmnop",
+      "content-type": IYZICO_JSON_CONTENT_TYPE,
+      authorization: IYZICO_AUTHORIZATION,
+      "x-iyzi-rnd": IYZICO_RANDOM_KEY,
     },
     body: new TextEncoder().encode('{"binNumber":"589004","price":"1.0"}'),
     ...overrides,
@@ -116,17 +123,15 @@ function iyzicoRequest(
 }
 
 test("preserves the exact iyzico signing headers and signed body bytes", async () => {
-  const authorization = "IYZWSv2 YXBpS2V5OnNhbmRib3gtYXBpLWtleSZyYW5kb21LZXk6YWJjZGVmZ2hpamtsbW5vcCZzaWduYXR1cmU6MDEyMzQ1Njc4OWFiY2RlZg==";
-  const randomKey = "abcdefghijklmnop";
   const rawBody = '{"binNumber":"589004","price":"1.0"}';
   const body = new TextEncoder().encode(rawBody);
   let calls = 0;
   const transport = createBoundedProviderTransport({
     fetch: async (observed) => {
       calls += 1;
-      assert.equal(observed.headers.get("content-type"), JSON_CONTENT_TYPE);
-      assert.equal(observed.headers.get("authorization"), authorization);
-      assert.equal(observed.headers.get("x-iyzi-rnd"), randomKey);
+      assert.equal(observed.headers.get("content-type"), IYZICO_JSON_CONTENT_TYPE);
+      assert.equal(observed.headers.get("authorization"), IYZICO_AUTHORIZATION);
+      assert.equal(observed.headers.get("x-iyzi-rnd"), IYZICO_RANDOM_KEY);
       assert.equal(await observed.text(), rawBody);
       return new Response('{"status":"success"}', {
         headers: { "content-type": JSON_CONTENT_TYPE },
@@ -138,9 +143,9 @@ test("preserves the exact iyzico signing headers and signed body bytes", async (
 
   const result = await iyzicoRequest(transport, {
     headers: {
-      "content-type": JSON_CONTENT_TYPE,
-      authorization,
-      "x-iyzi-rnd": randomKey,
+      "content-type": IYZICO_JSON_CONTENT_TYPE,
+      authorization: IYZICO_AUTHORIZATION,
+      "x-iyzi-rnd": IYZICO_RANDOM_KEY,
     },
     body,
   });
@@ -148,6 +153,85 @@ test("preserves the exact iyzico signing headers and signed body bytes", async (
   assert.equal(result.kind, "response");
   assert.equal(calls, 1);
   assert.deepEqual([...body], Array(body.length).fill(0));
+});
+
+test("binds the complete iyzico header set and exact decoded authorization payload", async () => {
+  let calls = 0;
+  const transport = createBoundedProviderTransport({
+    fetch: async () => {
+      calls += 1;
+      return new Response('{"status":"success"}', {
+        headers: { "content-type": JSON_CONTENT_TYPE },
+      });
+    },
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+  const signature = "0123456789abcdef".repeat(4);
+  const malformedPayloads = [
+    `randomKey:${IYZICO_RANDOM_KEY}&apiKey:sandbox-api-key&signature:${signature}`,
+    `apiKey:sandbox-api-key&signature:${signature}&randomKey:${IYZICO_RANDOM_KEY}`,
+    `apiKey:sandbox-api-key&randomKey:${IYZICO_RANDOM_KEY}&signature:${signature}&extra:x`,
+    `apiKey:&randomKey:${IYZICO_RANDOM_KEY}&signature:${signature}`,
+    `apiKey:${"a".repeat(257)}&randomKey:${IYZICO_RANDOM_KEY}&signature:${signature}`,
+    `apiKey:sandbox-api-key&randomKey:${IYZICO_RANDOM_KEY}&signature:${signature.toUpperCase()}`,
+    `apiKey:sandbox-api-key&randomKey:${IYZICO_RANDOM_KEY}&signature:${signature.slice(1)}`,
+  ];
+  const iyzicoCases: readonly Readonly<Record<string, string>>[] = [
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, "x-iyzi-rnd": IYZICO_RANDOM_KEY },
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, authorization: IYZICO_AUTHORIZATION },
+    { "content-type": FORM_CONTENT_TYPE, authorization: IYZICO_AUTHORIZATION, "x-iyzi-rnd": IYZICO_RANDOM_KEY },
+    { "content-type": JSON_CONTENT_TYPE, authorization: IYZICO_AUTHORIZATION, "x-iyzi-rnd": IYZICO_RANDOM_KEY },
+    {
+      "content-type": IYZICO_JSON_CONTENT_TYPE,
+      authorization: encodedIyzicoAuthorization(`apiKey:sandbox-api-key&randomKey:wrongrandomkey123&signature:${signature}`),
+      "x-iyzi-rnd": IYZICO_RANDOM_KEY,
+    },
+    ...malformedPayloads.map((payload) => ({
+      "content-type": IYZICO_JSON_CONTENT_TYPE,
+      authorization: encodedIyzicoAuthorization(payload),
+      "x-iyzi-rnd": IYZICO_RANDOM_KEY,
+    })),
+  ];
+
+  for (const headers of iyzicoCases) {
+    assert.deepEqual(await iyzicoRequest(transport, { headers: headers as never }), {
+      kind: "unknown",
+      code: "transport_outcome_unknown",
+    });
+  }
+  assert.equal(calls, 0);
+});
+
+test("rejects iyzico authorization headers for every non-iyzico provider", async () => {
+  let calls = 0;
+  const transport = createBoundedProviderTransport({
+    fetch: async () => {
+      calls += 1;
+      return new Response('{"status":"success"}', {
+        headers: { "content-type": JSON_CONTENT_TYPE },
+      });
+    },
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+  const cases: readonly Readonly<Record<string, string>>[] = [
+    { "content-type": FORM_CONTENT_TYPE, authorization: IYZICO_AUTHORIZATION },
+    { "content-type": FORM_CONTENT_TYPE, "x-iyzi-rnd": IYZICO_RANDOM_KEY },
+    {
+      "content-type": FORM_CONTENT_TYPE,
+      authorization: IYZICO_AUTHORIZATION,
+      "x-iyzi-rnd": IYZICO_RANDOM_KEY,
+    },
+  ];
+
+  for (const headers of cases) {
+    assert.deepEqual(await request(transport, { headers: headers as never }), {
+      kind: "unknown",
+      code: "transport_outcome_unknown",
+    });
+  }
+  assert.equal(calls, 0);
 });
 
 test("rejects non-canonical iyzico signing headers before fetch", async () => {
@@ -162,15 +246,14 @@ test("rejects non-canonical iyzico signing headers before fetch", async () => {
     timeoutMs: 20_000,
     maximumResponseBytes: 8_192,
   });
-  const authorization = "IYZWSv2 YXBpS2V5OnNhbmRib3gtYXBpLWtleSZyYW5kb21LZXk6YWJjZGVmZ2hpamtsbW5vcCZzaWduYXR1cmU6MDEyMzQ1Njc4OWFiY2RlZg==";
   const cases: readonly Readonly<Record<string, string>>[] = [
-    { "content-type": JSON_CONTENT_TYPE, authorization, "x-iyzi-rnd": "abcdefghijklmnop", cookie: "private=x" },
-    { "content-type": JSON_CONTENT_TYPE, Authorization: authorization, "x-iyzi-rnd": "abcdefghijklmnop" },
-    { "content-type": JSON_CONTENT_TYPE, authorization, Authorization: authorization, "x-iyzi-rnd": "abcdefghijklmnop" },
-    { "content-type": JSON_CONTENT_TYPE, authorization: `${authorization}\nunsafe`, "x-iyzi-rnd": "abcdefghijklmnop" },
-    { "content-type": JSON_CONTENT_TYPE, authorization, "x-iyzi-rnd": "abcdefghijklmnop\runsafe" },
-    { "content-type": JSON_CONTENT_TYPE, authorization: `IYZWSv2 ${"A".repeat(4_097)}`, "x-iyzi-rnd": "abcdefghijklmnop" },
-    { "content-type": JSON_CONTENT_TYPE, authorization, "x-iyzi-rnd": "a".repeat(257) },
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, authorization: IYZICO_AUTHORIZATION, "x-iyzi-rnd": IYZICO_RANDOM_KEY, cookie: "private=x" },
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, Authorization: IYZICO_AUTHORIZATION, "x-iyzi-rnd": IYZICO_RANDOM_KEY },
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, authorization: IYZICO_AUTHORIZATION, Authorization: IYZICO_AUTHORIZATION, "x-iyzi-rnd": IYZICO_RANDOM_KEY },
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, authorization: `${IYZICO_AUTHORIZATION}\nunsafe`, "x-iyzi-rnd": IYZICO_RANDOM_KEY },
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, authorization: IYZICO_AUTHORIZATION, "x-iyzi-rnd": `${IYZICO_RANDOM_KEY}\runsafe` },
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, authorization: `IYZWSv2 ${"A".repeat(4_097)}`, "x-iyzi-rnd": IYZICO_RANDOM_KEY },
+    { "content-type": IYZICO_JSON_CONTENT_TYPE, authorization: IYZICO_AUTHORIZATION, "x-iyzi-rnd": "a".repeat(257) },
   ];
 
   for (const headers of cases) {
@@ -181,13 +264,13 @@ test("rejects non-canonical iyzico signing headers before fetch", async () => {
   }
 
   const accessorHeaders = {
-    "content-type": JSON_CONTENT_TYPE,
-    authorization,
-    "x-iyzi-rnd": "abcdefghijklmnop",
+    "content-type": IYZICO_JSON_CONTENT_TYPE,
+    authorization: IYZICO_AUTHORIZATION,
+    "x-iyzi-rnd": IYZICO_RANDOM_KEY,
   };
   Object.defineProperty(accessorHeaders, "authorization", {
     enumerable: true,
-    get: () => authorization,
+    get: () => IYZICO_AUTHORIZATION,
   });
   assert.deepEqual(await iyzicoRequest(transport, { headers: accessorHeaders as never }), {
     kind: "unknown",
@@ -195,9 +278,9 @@ test("rejects non-canonical iyzico signing headers before fetch", async () => {
   });
 
   const proxyHeaders = new Proxy({
-    "content-type": JSON_CONTENT_TYPE,
-    authorization,
-    "x-iyzi-rnd": "abcdefghijklmnop",
+    "content-type": IYZICO_JSON_CONTENT_TYPE,
+    authorization: IYZICO_AUTHORIZATION,
+    "x-iyzi-rnd": IYZICO_RANDOM_KEY,
   }, {});
   assert.deepEqual(await iyzicoRequest(transport, { headers: proxyHeaders as never }), {
     kind: "unknown",
@@ -291,7 +374,7 @@ test("rejects accessor-backed request authority before fetch", async () => {
     environment: "test" as const,
     url: ENDPOINT,
     method: "POST" as const,
-    headers: { "content-type": FORM_CONTENT_TYPE },
+    headers: { "content-type": FORM_CONTENT_TYPE } as const,
     body: new TextEncoder().encode("merchant_id=123456"),
   };
   Object.defineProperty(input, "url", {

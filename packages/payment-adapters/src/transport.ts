@@ -13,6 +13,8 @@ const REQUEST_HEADER_KEYS = Object.freeze([
   "content-type",
   "x-iyzi-rnd",
 ]);
+const IYZICO_PROVIDER_CODE = "iyzico_iframe";
+const IYZICO_CONTENT_TYPE = "application/json";
 const RESPONSE_CONTENT_TYPES = Object.freeze([
   "application/json",
   "application/json; charset=utf-8",
@@ -62,11 +64,22 @@ export type ProviderTransportRequest = Readonly<{
   signal?: AbortSignal;
 }>;
 
-export type ProviderTransportRequestHeaders = Readonly<{
-  "content-type": string;
-  authorization?: string;
-  "x-iyzi-rnd"?: string;
-}>;
+type ProviderTransportContentType =
+  | "application/x-www-form-urlencoded"
+  | "application/json"
+  | "application/json; charset=utf-8";
+
+export type ProviderTransportRequestHeaders =
+  | Readonly<{
+      "content-type": ProviderTransportContentType;
+      authorization?: never;
+      "x-iyzi-rnd"?: never;
+    }>
+  | Readonly<{
+      "content-type": "application/json";
+      authorization: string;
+      "x-iyzi-rnd": string;
+    }>;
 
 export interface ProviderTransport {
   request(input: ProviderTransportRequest): Promise<ProviderTransportResult>;
@@ -113,17 +126,70 @@ function discoverRequestBody(value: unknown): Uint8Array | undefined {
   }
 }
 
-function canonicalBase64(value: string): boolean {
+function byteInAsciiToken(byte: number): boolean {
+  return byte >= 0x21 && byte <= 0x7e && byte !== 0x26;
+}
+
+function byteInBase64Url(byte: number): boolean {
+  return (
+    (byte >= 0x30 && byte <= 0x39) ||
+    (byte >= 0x41 && byte <= 0x5a) ||
+    (byte >= 0x61 && byte <= 0x7a) ||
+    byte === 0x2d ||
+    byte === 0x5f
+  );
+}
+
+function byteInLowerHex(byte: number): boolean {
+  return (byte >= 0x30 && byte <= 0x39) || (byte >= 0x61 && byte <= 0x66);
+}
+
+function consumeAscii(bytes: Uint8Array, cursor: number, expected: string): number {
+  if (cursor + expected.length > bytes.byteLength) invalid();
+  for (let index = 0; index < expected.length; index += 1) {
+    if (bytes[cursor + index] !== expected.charCodeAt(index)) invalid();
+  }
+  return cursor + expected.length;
+}
+
+function exactIyzicoAuthorizationPayload(bytes: Uint8Array, randomKey: string): void {
+  let cursor = consumeAscii(bytes, 0, "apiKey:");
+  const apiKeyStart = cursor;
+  while (cursor < bytes.byteLength && byteInAsciiToken(bytes[cursor]!)) cursor += 1;
+  if (cursor - apiKeyStart < 1 || cursor - apiKeyStart > 256) invalid();
+  cursor = consumeAscii(bytes, cursor, "&randomKey:");
+  const randomKeyStart = cursor;
+  while (cursor < bytes.byteLength && byteInBase64Url(bytes[cursor]!)) cursor += 1;
+  const randomKeyLength = cursor - randomKeyStart;
+  if (randomKeyLength < 16 || randomKeyLength > 256 || randomKeyLength !== randomKey.length) invalid();
+  for (let index = 0; index < randomKeyLength; index += 1) {
+    if (bytes[randomKeyStart + index] !== randomKey.charCodeAt(index)) invalid();
+  }
+  cursor = consumeAscii(bytes, cursor, "&signature:");
+  if (bytes.byteLength - cursor !== 64) invalid();
+  while (cursor < bytes.byteLength) {
+    if (!byteInLowerHex(bytes[cursor]!)) invalid();
+    cursor += 1;
+  }
+}
+
+function exactIyzicoAuthorization(value: string, randomKey: string): void {
+  if (
+    value.length > 4_096 ||
+    !/^IYZWSv2 [A-Za-z0-9+/]+={0,2}$/.test(value)
+  ) invalid();
+  const encoded = value.slice("IYZWSv2 ".length);
   let decoded: Buffer | undefined;
   try {
-    if (value.length % 4 !== 0) return false;
-    decoded = Buffer.from(value, "base64");
-    return decoded.toString("base64") === value;
+    if (encoded.length % 4 !== 0) invalid();
+    decoded = Buffer.from(encoded, "base64");
+    if (decoded.toString("base64") !== encoded) invalid();
+    exactIyzicoAuthorizationPayload(decoded, randomKey);
   } finally {
     try {
       decoded?.fill(0);
     } catch {
-      // Header validation cleanup remains fail-closed at its caller.
+      // Decoded authorization bytes are best-effort wiped on every path.
     }
   }
 }
@@ -152,7 +218,10 @@ function exactRequest(value: unknown): Record<string, unknown> {
   return selected;
 }
 
-function exactHeaders(value: unknown): Readonly<Record<string, string>> {
+function exactHeaders(
+  value: unknown,
+  providerCode: string,
+): Readonly<Record<string, string>> {
   if (
     typeof value !== "object" ||
     value === null ||
@@ -189,22 +258,18 @@ function exactHeaders(value: unknown): Readonly<Record<string, string>> {
     !REQUEST_CONTENT_TYPES.includes(contentType)
   ) invalid();
   const authorization = selected.authorization;
-  if (authorization !== undefined) {
-    if (
-      authorization.length > 4_096 ||
-      !/^IYZWSv2 [A-Za-z0-9+/]+={0,2}$/.test(authorization)
-    ) invalid();
-    const encoded = authorization.slice("IYZWSv2 ".length);
-    if (!canonicalBase64(encoded)) invalid();
-  }
   const randomKey = selected["x-iyzi-rnd"];
-  if (
-    randomKey !== undefined &&
-    (
+  if (providerCode === IYZICO_PROVIDER_CODE) {
+    if (
+      keys.length !== REQUEST_HEADER_KEYS.length ||
+      contentType !== IYZICO_CONTENT_TYPE ||
+      authorization === undefined ||
+      randomKey === undefined ||
       randomKey.length > 256 ||
       !/^[A-Za-z0-9_-]{16,256}$/.test(randomKey)
-    )
-  ) invalid();
+    ) invalid();
+    exactIyzicoAuthorization(authorization, randomKey);
+  } else if (keys.length !== 1 || authorization !== undefined || randomKey !== undefined) invalid();
   return selected;
 }
 
@@ -220,11 +285,10 @@ function exactBody(value: unknown): Uint8Array {
 }
 
 function exactEndpoint(
-  packetValue: unknown,
+  packet: PaymentAdapterPacket,
   environment: unknown,
   endpoint: unknown,
 ): string {
-  const packet = parsePaymentAdapterPacket(packetValue);
   if (environment !== "test" && environment !== "live") invalid();
   if (typeof endpoint !== "string" || endpoint.length < 1 || endpoint.length > 2_048) invalid();
   let parsed: URL;
@@ -453,9 +517,10 @@ export function createBoundedProviderTransport(options: {
         requestBody = new Uint8Array(byteLength(callerBody));
         Reflect.apply(UINT8_ARRAY_SET, requestBody, [callerBody]);
         requestBuffer = requestBody.buffer as ArrayBuffer;
-        const endpoint = exactEndpoint(selected.packet, selected.environment, selected.url);
+        const packet = parsePaymentAdapterPacket(selected.packet);
+        const endpoint = exactEndpoint(packet, selected.environment, selected.url);
         if (selected.method !== "POST") invalid();
-        const headers = exactHeaders(selected.headers);
+        const headers = exactHeaders(selected.headers, packet.providerCode);
         if (selected.signal !== undefined) {
           if (!(selected.signal instanceof AbortSignal)) invalid();
           externalSignal = selected.signal;
