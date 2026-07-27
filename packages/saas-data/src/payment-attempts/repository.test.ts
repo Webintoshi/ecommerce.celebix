@@ -389,6 +389,56 @@ test("applyHostedCallback accepts only an exact same-event replay projection", a
   });
 });
 
+test("applyHostedCallback recovers a durable processing observation as an operation replay after COMMIT loss", async () => {
+  const observed = mutationPayload("provider_outcome_unknown", 3, false);
+  const writer = new Client((text) => {
+    if (text.includes("saas.payment_attempt_apply_hosted_callback")) {
+      return [{ outcome: "processing", result_payload: observed }];
+    }
+    if (text === "COMMIT") return new Error("wire lost");
+    return [];
+  });
+  const recovery = new Client((text) =>
+    text.includes("saas.payment_attempt_apply_hosted_callback")
+      ? [{
+          outcome: "operation_replayed",
+          result_payload: { ...observed, replayed: true },
+        }]
+      : [],
+  );
+  const pool = new Pool([writer, recovery]);
+  const audits: string[] = [];
+
+  const result = await repository(pool, audits).applyHostedCallback({
+    providerCode: "fixture_provider",
+    callbackBindingDigest: CALLBACK_DIGEST,
+    operationId: OPERATION,
+    fingerprint: FINGERPRINT,
+    eventKeyDigest: EVENT_DIGEST,
+    expectedVersion: 3,
+    credentialVersion: 2,
+    status: "captured",
+    providerReference: "provider-safe-42",
+    safeCode: "accepted",
+    amountMinor: 12_345,
+    currency: "USD",
+    now: NOW,
+  });
+
+  assert.deepEqual(result, {
+    ...observed,
+    replayed: true,
+    disposition: "processing",
+  });
+  assert.equal(pool.connectCount, 2);
+  assert.deepEqual(audits, ["payment_attempt_commit_unknown"]);
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(recovery.calls.filter(({ text }) =>
+    text.includes("saas.payment_attempt_apply_hosted_callback")).length, 1);
+  assert.equal(recovery.calls.at(-1)?.text, "COMMIT");
+});
+
 test("claimReconciliation binds operation and lease and returns immutable credential snapshot", async () => {
   const payload = claimPayload();
   const client = success("payment_attempt_claim_reconciliation", "claimed", payload);

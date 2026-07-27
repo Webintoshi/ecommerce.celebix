@@ -1,6 +1,21 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
+ALTER TABLE saas.payment_attempt_events
+  ADD COLUMN observed_callback_status text;
+
+ALTER TABLE saas.payment_attempt_events
+  ADD CONSTRAINT payment_attempt_events_observed_callback_status_check
+  CHECK(
+    observed_callback_status IS NULL
+    OR (
+      source='callback'
+      AND observed_callback_status IN(
+        'captured','failed','provider_outcome_unknown'
+      )
+    )
+  );
+
 CREATE FUNCTION saas.payment_attempt_apply_hosted_callback(
   p_provider_code text,p_callback_binding_digest text,p_operation_id uuid,
   p_fingerprint text,p_event_key_digest text,p_expected_version bigint,
@@ -17,6 +32,11 @@ DECLARE
   attempt saas.payment_attempts%ROWTYPE;
   result jsonb;
   terminal_increment bigint;
+  event_from_status text;
+  expected_operation_kind text;
+  internal_event_identity text;
+  internal_event_id uuid;
+  internal_event_key_digest text;
 BEGIN
   IF p_provider_code IS NULL OR p_provider_code!~'^[a-z][a-z0-9_]{0,63}$'
     OR p_callback_binding_digest IS NULL
@@ -38,6 +58,11 @@ BEGIN
     ))
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
 
+  expected_operation_kind:=CASE
+    WHEN p_status='provider_outcome_unknown' THEN 'mark_unknown'
+    ELSE 'settle_callback'
+  END;
+
   SELECT binding.attempt_id INTO selected_attempt_id
   FROM saas.payment_callback_bindings AS binding
   WHERE binding.callback_binding_digest=p_callback_binding_digest
@@ -53,7 +78,7 @@ BEGIN
   WHERE operation_id=p_operation_id;
   IF FOUND THEN
     IF operation.attempt_id<>selected_attempt_id
-      OR operation.operation_kind<>'settle_callback'
+      OR operation.operation_kind<>expected_operation_kind
       OR operation.payload_fingerprint<>p_fingerprint
     THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
     ELSE
@@ -81,6 +106,14 @@ BEGIN
     IF prior_event.attempt_id<>attempt.id
       OR prior_event.payload_fingerprint<>p_fingerprint
     THEN RETURN QUERY SELECT 'callback_replay_mismatch',NULL::jsonb;
+    ELSIF prior_event.observed_callback_status IS NOT NULL
+      AND prior_event.from_status=prior_event.to_status
+      AND prior_event.to_status IN(
+        'provider_outcome_unknown','reconciliation_required'
+      )
+    THEN
+      RETURN QUERY SELECT 'callback_replayed',
+        saas.payment_attempt_mutation_projection(attempt.id,true);
     ELSE
       RETURN QUERY SELECT 'callback_replayed',
         saas.payment_attempt_event_projection(prior_event.event_id,true);
@@ -105,29 +138,30 @@ BEGIN
   THEN
     RETURN QUERY SELECT 'provider_reference_mismatch',NULL::jsonb; RETURN;
   END IF;
-
   IF attempt.status IN('provider_outcome_unknown','reconciliation_required') THEN
     INSERT INTO saas.payment_attempt_events(
       event_id,attempt_id,store_id,profile_id,provider_code,environment,source,
       from_status,to_status,attempt_version,safe_provider_reference,safe_code,
-      event_key_digest,payload_fingerprint,occurred_at
+      event_key_digest,payload_fingerprint,occurred_at,observed_callback_status
     ) VALUES(
       p_operation_id,attempt.id,attempt.store_id,attempt.profile_id,
       attempt.provider_code,attempt.environment,'callback',attempt.status,
-      attempt.status,attempt.version,attempt.safe_provider_reference,
-      attempt.safe_code,p_event_key_digest,p_fingerprint,p_now
+      attempt.status,attempt.version,p_safe_provider_reference,
+      p_safe_code,p_event_key_digest,p_fingerprint,p_now,p_status
     );
     result:=saas.payment_attempt_mutation_projection(attempt.id,false);
     INSERT INTO saas.payment_attempt_operations(
       operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,
       result_payload,committed_at
     ) VALUES(
-      p_operation_id,attempt.store_id,attempt.id,'settle_callback',
+      p_operation_id,attempt.store_id,attempt.id,expected_operation_kind,
       p_fingerprint,result,p_now
     );
     RETURN QUERY SELECT 'processing',result;
     RETURN;
   END IF;
+
+  event_from_status:=attempt.status;
 
   IF p_status='provider_outcome_unknown' THEN
     IF attempt.status NOT IN('awaiting_customer','submitted','authorized') THEN
@@ -141,17 +175,50 @@ BEGIN
     terminal_increment:=1;
   ELSE
     IF attempt.status='awaiting_customer' THEN
+      internal_event_identity:=pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(
+          'saas.payment.callback.intermediate.event-id.v1:'
+            ||p_operation_id::text||':'||p_fingerprint||':'||p_event_key_digest,
+          'UTF8'
+        )
+      ),'hex');
+      internal_event_id:=(
+        pg_catalog.substr(internal_event_identity,1,8)||'-'
+        ||pg_catalog.substr(internal_event_identity,9,4)||'-8'
+        ||pg_catalog.substr(internal_event_identity,14,3)||'-8'
+        ||pg_catalog.substr(internal_event_identity,18,3)||'-'
+        ||pg_catalog.substr(internal_event_identity,21,12)
+      )::uuid;
+      internal_event_key_digest:=pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(
+          'saas.payment.callback.intermediate.digest.v1:'
+            ||p_operation_id::text||':'||p_fingerprint||':'||p_event_key_digest,
+          'UTF8'
+        )
+      ),'hex');
       UPDATE saas.payment_attempts SET
         status='submitted',
         safe_provider_reference=COALESCE(safe_provider_reference,p_safe_provider_reference),
-        safe_code=p_safe_code,version=version+1,updated_at=p_now
+        safe_code='callback_submitted',version=version+1,updated_at=p_now
       WHERE id=attempt.id;
+      INSERT INTO saas.payment_attempt_events(
+        event_id,attempt_id,store_id,profile_id,provider_code,environment,source,
+        from_status,to_status,attempt_version,safe_provider_reference,safe_code,
+        event_key_digest,payload_fingerprint,occurred_at,observed_callback_status
+      ) VALUES(
+        internal_event_id,attempt.id,attempt.store_id,attempt.profile_id,
+        attempt.provider_code,attempt.environment,'callback',attempt.status,
+        'submitted',attempt.version+1,
+        COALESCE(attempt.safe_provider_reference,p_safe_provider_reference),
+        'callback_submitted',internal_event_key_digest,p_fingerprint,p_now,NULL
+      );
       UPDATE saas.payment_attempts SET
         status=p_status,
         safe_provider_reference=COALESCE(safe_provider_reference,p_safe_provider_reference),
         safe_code=p_safe_code,version=version+1,updated_at=p_now
       WHERE id=attempt.id;
       terminal_increment:=2;
+      event_from_status:='submitted';
     ELSIF attempt.status IN('submitted','authorized') THEN
       UPDATE saas.payment_attempts SET
         status=p_status,
@@ -167,20 +234,20 @@ BEGIN
   INSERT INTO saas.payment_attempt_events(
     event_id,attempt_id,store_id,profile_id,provider_code,environment,source,
     from_status,to_status,attempt_version,safe_provider_reference,safe_code,
-    event_key_digest,payload_fingerprint,occurred_at
+    event_key_digest,payload_fingerprint,occurred_at,observed_callback_status
   ) VALUES(
     p_operation_id,attempt.id,attempt.store_id,attempt.profile_id,
-    attempt.provider_code,attempt.environment,'callback',attempt.status,p_status,
+    attempt.provider_code,attempt.environment,'callback',event_from_status,p_status,
     attempt.version+terminal_increment,
     COALESCE(attempt.safe_provider_reference,p_safe_provider_reference),
-    p_safe_code,p_event_key_digest,p_fingerprint,p_now
+    p_safe_code,p_event_key_digest,p_fingerprint,p_now,p_status
   );
   result:=saas.payment_attempt_mutation_projection(attempt.id,false);
   INSERT INTO saas.payment_attempt_operations(
     operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,
     result_payload,committed_at
   ) VALUES(
-    p_operation_id,attempt.store_id,attempt.id,'settle_callback',
+    p_operation_id,attempt.store_id,attempt.id,expected_operation_kind,
     p_fingerprint,result,p_now
   );
   RETURN QUERY SELECT p_status,result;

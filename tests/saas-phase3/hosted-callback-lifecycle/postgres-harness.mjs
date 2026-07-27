@@ -23,7 +23,7 @@ const NOW = "2026-07-27T12:00:00.000Z";
 const CALLBACK_TIME = "2026-07-27T12:01:00.000Z";
 const FP = "a".repeat(64);
 const AMOUNT = 12_345;
-const TOTAL = 10;
+const TOTAL = 12;
 let completed = 0;
 
 const PRESERVED = Object.freeze({
@@ -159,6 +159,33 @@ FROM saas.${name}(${args});`, database);
   return JSON.parse(result.stdout.trim());
 }
 
+function readOnlyCall(box, name, args, database = DB, role = "celebix_saas_workflow") {
+  const result = sql(box, `BEGIN READ ONLY; SET LOCAL ROLE ${role};
+SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+FROM saas.${name}(${args}); COMMIT;`, database);
+  return JSON.parse(result.stdout.trim());
+}
+
+function callbackOperationId(ordinal) {
+  return `80000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`;
+}
+
+function callbackEventDigest(ordinal) {
+  return createHash("sha256").update(`event:${ordinal}`).digest("hex");
+}
+
+function internalCallbackEvent(operationId, fingerprint, eventDigest) {
+  const identity = createHash("sha256")
+    .update(`saas.payment.callback.intermediate.event-id.v1:${operationId}:${fingerprint}:${eventDigest}`)
+    .digest("hex");
+  return Object.freeze({
+    eventId: `${identity.slice(0, 8)}-${identity.slice(8, 12)}-8${identity.slice(13, 16)}-8${identity.slice(17, 20)}-${identity.slice(20, 32)}`,
+    eventDigest: createHash("sha256")
+      .update(`saas.payment.callback.intermediate.digest.v1:${operationId}:${fingerprint}:${eventDigest}`)
+      .digest("hex"),
+  });
+}
+
 function beginAwaiting(box, ordinal, database = DB) {
   const suffix = String(ordinal).padStart(12, "0");
   const attemptId = `60000000-0000-4000-8000-${suffix}`;
@@ -178,8 +205,8 @@ function beginAwaiting(box, ordinal, database = DB) {
 }
 
 function hostedArgs(attempt, ordinal, status, overrides = {}) {
-  const operationId = overrides.operationId ?? `80000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`;
-  const event = overrides.event ?? createHash("sha256").update(`event:${ordinal}`).digest("hex");
+  const operationId = overrides.operationId ?? callbackOperationId(ordinal);
+  const event = overrides.event ?? callbackEventDigest(ordinal);
   return [
     "'fixture_hosted'", `'${attempt.binding}'`, `'${operationId}'`, `'${overrides.fingerprint ?? FP}'`,
     `'${event}'`, overrides.expectedVersion ?? attempt.version, 1, `'${status}'`,
@@ -216,6 +243,14 @@ async function main() {
 JOIN pg_catalog.pg_namespace namespace ON namespace.oid=relation.relnamespace
 WHERE namespace.nspname='saas' AND relation.relname IN('payment_attempts','payment_attempt_events','payment_callback_bindings','payment_attempt_operations')
 AND relation.relrowsecurity AND relation.relforcerowsecurity;`).stdout.trim(), "4");
+      assert.equal(sql(box, `SELECT data_type||'|'||is_nullable
+FROM information_schema.columns
+WHERE table_schema='saas' AND table_name='payment_attempt_events'
+  AND column_name='observed_callback_status';`).stdout.trim(), "text|YES");
+      assert.equal(sql(box, `SELECT pg_catalog.pg_get_constraintdef(oid,false)
+FROM pg_catalog.pg_constraint
+WHERE conrelid='saas.payment_attempt_events'::regclass
+  AND conname='payment_attempt_events_observed_callback_status_check';`).stdout.trim(), "CHECK (((observed_callback_status IS NULL) OR ((source = 'callback'::text) AND (observed_callback_status = ANY (ARRAY['captured'::text, 'failed'::text, 'provider_outcome_unknown'::text])))))");
       assert.notEqual(sql(box, `SET ROLE celebix_saas_app; SELECT * FROM saas.payment_attempt_apply_hosted_callback(${hostedArgs(captured, 102, "captured")});`, DB, true).status, 0);
     });
 
@@ -223,6 +258,22 @@ AND relation.relrowsecurity AND relation.relforcerowsecurity;`).stdout.trim(), "
       const result = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(captured, 103, "captured"));
       assert.equal(result.outcome, "captured");
       assert.deepEqual({ status: result.result.status, version: result.result.version }, { status: "captured", version: 4 });
+      const operationId = callbackOperationId(103);
+      const eventDigest = callbackEventDigest(103);
+      const internal = internalCallbackEvent(operationId, FP, eventDigest);
+      assert.equal(sql(box, `SELECT event_id::text||'|'||from_status||'|'||to_status||'|'||attempt_version||'|'||safe_code||'|'||event_key_digest||'|'||COALESCE(observed_callback_status,'-')
+FROM saas.payment_attempt_events WHERE attempt_id='${captured.attemptId}' AND source='callback'
+ORDER BY attempt_version;`).stdout.trim(), [
+        `${internal.eventId}|awaiting_customer|submitted|3|callback_submitted|${internal.eventDigest}|-`,
+        `${operationId}|submitted|captured|4|captured|${eventDigest}|captured`,
+      ].join("\n"));
+      const eventReplay = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(
+        { ...captured, version: 4 }, 104, "captured", { event: eventDigest },
+      ));
+      assert.equal(eventReplay.outcome, "callback_replayed");
+      assert.equal(eventReplay.result.replayed, true);
+      assert.equal(sql(box, `SELECT count(*) FROM saas.payment_attempt_events
+WHERE attempt_id='${captured.attemptId}' AND source='callback';`).stdout.trim(), "2");
     });
 
     await scenario("awaiting_customer failure crosses submitted atomically and fails", () => {
@@ -230,6 +281,15 @@ AND relation.relrowsecurity AND relation.relforcerowsecurity;`).stdout.trim(), "
       const result = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(attempt, 201, "failed"));
       assert.equal(result.outcome, "failed");
       assert.equal(result.result.version, 4);
+      const operationId = callbackOperationId(201);
+      const eventDigest = callbackEventDigest(201);
+      const internal = internalCallbackEvent(operationId, FP, eventDigest);
+      assert.equal(sql(box, `SELECT event_id::text||'|'||from_status||'|'||to_status||'|'||attempt_version||'|'||event_key_digest||'|'||COALESCE(observed_callback_status,'-')
+FROM saas.payment_attempt_events WHERE attempt_id='${attempt.attemptId}' AND source='callback'
+ORDER BY attempt_version;`).stdout.trim(), [
+        `${internal.eventId}|awaiting_customer|submitted|3|${internal.eventDigest}|-`,
+        `${operationId}|submitted|failed|4|${eventDigest}|failed`,
+      ].join("\n"));
     });
 
     const pending = beginAwaiting(box, 3);
@@ -240,8 +300,10 @@ AND relation.relrowsecurity AND relation.relforcerowsecurity;`).stdout.trim(), "
       ));
       assert.equal(result.outcome, "provider_outcome_unknown");
       assert.equal(result.result.version, 3);
-      assert.equal(sql(box, `SELECT source||'|'||event_key_digest||'|'||to_status
-FROM saas.payment_attempt_events WHERE attempt_id='${pending.attemptId}' AND attempt_version=3;`).stdout.trim(), `callback|${pendingEvent}|provider_outcome_unknown`);
+      assert.equal(sql(box, `SELECT source||'|'||event_key_digest||'|'||to_status||'|'||observed_callback_status
+FROM saas.payment_attempt_events WHERE attempt_id='${pending.attemptId}' AND attempt_version=3;`).stdout.trim(), `callback|${pendingEvent}|provider_outcome_unknown|provider_outcome_unknown`);
+      assert.equal(sql(box, `SELECT operation_kind FROM saas.payment_attempt_operations
+WHERE operation_id='${callbackOperationId(301)}';`).stdout.trim(), "mark_unknown");
     });
 
     await scenario("same callback event replays exactly without a second mutation", () => {
@@ -254,26 +316,99 @@ FROM saas.payment_attempt_events WHERE attempt_id='${pending.attemptId}' AND att
       assert.equal(sql(box, `SELECT count(*) FROM saas.payment_attempt_events WHERE attempt_id='${pending.attemptId}' AND source='callback';`).stdout.trim(), "1");
     });
 
-    await scenario("a changed terminal callback after unknown stays processing for reconciliation", () => {
+    await scenario("a changed terminal callback after unknown records safe observed facts and recovers read-only", () => {
+      const rejected = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(
+        { ...pending, version: 3 }, 305, "captured", {
+          event: "d".repeat(64), providerReference: "provider-ref-wrong-305",
+          safeCode: "late_captured",
+        },
+      ));
+      assert.equal(rejected.outcome, "provider_reference_mismatch");
+      assert.equal(sql(box, `SELECT count(*) FROM saas.payment_attempt_events
+WHERE event_id='${callbackOperationId(305)}' OR event_key_digest='${"d".repeat(64)}';`).stdout.trim(), "0");
+      assert.equal(sql(box, `SELECT count(*) FROM saas.payment_attempt_operations
+WHERE operation_id='${callbackOperationId(305)}';`).stdout.trim(), "0");
+      const changedReference = pending.providerReference;
       const changed = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(
-        { ...pending, version: 3 }, 303, "captured", { event: "e".repeat(64), safeCode: "captured" },
+        { ...pending, version: 3 }, 303, "captured", {
+          event: "e".repeat(64), providerReference: changedReference, safeCode: "late_captured",
+        },
       ));
       assert.equal(changed.outcome, "processing");
       assert.equal(changed.result.status, "provider_outcome_unknown");
       assert.equal(changed.result.version, 3);
-      assert.equal(sql(box, `SELECT source||'|'||event_key_digest||'|'||from_status||'|'||to_status
-FROM saas.payment_attempt_events WHERE event_id='80000000-0000-4000-8000-000000000303';`).stdout.trim(), `callback|${"e".repeat(64)}|provider_outcome_unknown|provider_outcome_unknown`);
-      const processingReplay = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(
-        { ...pending, version: 3 }, 303, "captured", { event: "e".repeat(64), safeCode: "captured" },
+      assert.equal(sql(box, `SELECT source||'|'||event_key_digest||'|'||from_status||'|'||to_status||'|'||safe_provider_reference||'|'||safe_code||'|'||observed_callback_status
+FROM saas.payment_attempt_events WHERE event_id='80000000-0000-4000-8000-000000000303';`).stdout.trim(), `callback|${"e".repeat(64)}|provider_outcome_unknown|provider_outcome_unknown|${changedReference}|late_captured|captured`);
+      assert.equal(sql(box, `SELECT safe_provider_reference||'|'||safe_code||'|'||status||'|'||version
+FROM saas.payment_attempts WHERE id='${pending.attemptId}';`).stdout.trim(), `${pending.providerReference}|fraud_review|provider_outcome_unknown|3`);
+      const processingReplay = readOnlyCall(box, "payment_attempt_apply_hosted_callback", hostedArgs(
+        { ...pending, version: 3 }, 303, "captured", {
+          event: "e".repeat(64), providerReference: changedReference, safeCode: "late_captured",
+        },
       ));
       assert.equal(processingReplay.outcome, "operation_replayed");
       assert.equal(processingReplay.result.replayed, true);
+      const eventReplay = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(
+        { ...pending, version: 3 }, 304, "captured", {
+          event: "e".repeat(64), providerReference: changedReference, safeCode: "late_captured",
+        },
+      ));
+      assert.equal(eventReplay.outcome, "callback_replayed");
+      assert.deepEqual({
+        status: eventReplay.result.status,
+        version: eventReplay.result.version,
+        providerReference: eventReplay.result.providerReference,
+        safeCode: eventReplay.result.safeCode,
+        replayed: eventReplay.result.replayed,
+      }, {
+        status: "provider_outcome_unknown",
+        version: 3,
+        providerReference: pending.providerReference,
+        safeCode: "fraud_review",
+        replayed: true,
+      });
       const claim = call(box, "payment_attempt_claim_reconciliation", [
         `'${pending.attemptId}'`, "'81000000-0000-4000-8000-000000000303'", `'${FP}'`, 3,
         "'worker.hosted'", "'82000000-0000-4000-8000-000000000303'", `'${CALLBACK_TIME}'`,
         "'2026-07-27T12:06:00.000Z'",
       ].join(","));
       assert.equal(claim.outcome, "claimed");
+    });
+
+    await scenario("legacy unknown data replays through the new hosted callback binary", () => {
+      const attempt = beginAwaiting(box, 6);
+      const operationId = callbackOperationId(601);
+      const legacy = call(box, "payment_attempt_mark_unknown", [
+        `'${attempt.attemptId}'`, `'${operationId}'`, `'${FP}'`, 2, 1,
+        `'${attempt.providerReference}'`, "'provider_timeout'", `'${CALLBACK_TIME}'`,
+      ].join(","));
+      assert.equal(legacy.outcome, "provider_outcome_unknown");
+      const modern = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(
+        attempt, 601, "provider_outcome_unknown", {
+          operationId, event: callbackEventDigest(601), safeCode: "provider_timeout",
+        },
+      ));
+      assert.equal(modern.outcome, "operation_replayed");
+      assert.equal(modern.result.replayed, true);
+    });
+
+    await scenario("new hosted unknown data preserves mark_unknown replay for the old binary", () => {
+      const attempt = beginAwaiting(box, 7);
+      const operationId = callbackOperationId(701);
+      const modern = call(box, "payment_attempt_apply_hosted_callback", hostedArgs(
+        attempt, 701, "provider_outcome_unknown", {
+          operationId, event: callbackEventDigest(701), safeCode: "provider_timeout",
+        },
+      ));
+      assert.equal(modern.outcome, "provider_outcome_unknown");
+      assert.equal(sql(box, `SELECT operation_kind FROM saas.payment_attempt_operations
+WHERE operation_id='${operationId}';`).stdout.trim(), "mark_unknown");
+      const legacy = call(box, "payment_attempt_mark_unknown", [
+        `'${attempt.attemptId}'`, `'${operationId}'`, `'${FP}'`, 2, 1,
+        `'${attempt.providerReference}'`, "'provider_timeout'", `'${CALLBACK_TIME}'`,
+      ].join(","));
+      assert.equal(legacy.outcome, "operation_replayed");
+      assert.equal(legacy.result.replayed, true);
     });
 
     await scenario("timeout unknown is independently claimable for reconciliation", () => {
@@ -301,9 +436,16 @@ SELECT outcome FROM saas.payment_attempt_apply_hosted_callback(${hostedArgs(atte
     });
 
     await scenario("down/up rollback is narrow and old RPC plus ACL remain unchanged", () => {
+      const unsafeDown = sql(box, readFileSync(path.join(SQL, DOWN), "utf8"), DB, true);
+      assert.notEqual(unsafeDown.status, 0);
+      assert.match(unsafeDown.stderr, /PAYMENT_HOSTED_CALLBACK_LIFECYCLE_ROLLBACK_OBSERVATIONS_PRESENT/);
+      assert.equal(sql(box, "SELECT to_regprocedure('saas.payment_attempt_apply_hosted_callback(text,text,uuid,text,text,bigint,bigint,text,text,text,bigint,text,timestamptz)') IS NOT NULL;").stdout.trim(), "t");
       apply(box, UP, ROLLBACK_DB);
       apply(box, DOWN, ROLLBACK_DB);
       assert.equal(sql(box, "SELECT to_regprocedure('saas.payment_attempt_apply_hosted_callback(text,text,uuid,text,text,bigint,bigint,text,text,text,bigint,text,timestamptz)') IS NULL;", ROLLBACK_DB).stdout.trim(), "t");
+      assert.equal(sql(box, `SELECT count(*) FROM information_schema.columns
+WHERE table_schema='saas' AND table_name='payment_attempt_events'
+  AND column_name='observed_callback_status';`, ROLLBACK_DB).stdout.trim(), "0");
       assert.notEqual(sql(box, "SET ROLE celebix_saas_app; SELECT * FROM saas.payment_attempt_settle_callback(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);", ROLLBACK_DB, true).status, 0);
       apply(box, UP, ROLLBACK_DB);
       apply(box, ASSERTIONS, ROLLBACK_DB);

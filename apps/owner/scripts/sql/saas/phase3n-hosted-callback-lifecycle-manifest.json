@@ -360,17 +360,17 @@
     },
     {
       "file": "202607270055_hosted_callback_lifecycle.up.sql",
-      "sha256": "cab532764001f35634ec3d03d2faaf78d955111f00a2f26bf955874517ec72af"
+      "sha256": "3acb5912ef5fa1de93d672056cffdcbd95771f39ad741a3a4ffacf4d22f16b9a"
     },
     {
       "file": "202607270055_hosted_callback_lifecycle_assertions.sql",
-      "sha256": "0b47a45d19e8e619bb50568e14fee3a80325ec77c8b9593c857b4ef2ba686171"
+      "sha256": "75864a6e34d031188ccd972c4f20100071b3f05e412b4f15449ee10a3007a627"
     }
   ],
   "rollbackArtifacts": [
     {
       "file": "202607270055_hosted_callback_lifecycle.down.sql",
-      "sha256": "00bab3f42b6b7df377e102ed776cbb0904e2a67a809ad523bac2378dc6378240"
+      "sha256": "c501db97e00572170a43960e43022313e6b7ab5a20e60640994f03d64dd6e995"
     }
   ],
   "externalConnections": 0,

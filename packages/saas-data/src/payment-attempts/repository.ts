@@ -285,18 +285,9 @@ function parseMutation(
     ]);
     if (typeof parsed.replayed !== "boolean") unavailable();
     const replayed = outcome === "operation_replayed" || outcome === "callback_replayed";
-    const status = paymentAttemptStatus(parsed.status);
-    const processingProjection = (
-      outcome === "processing"
-      || (
-        (outcome === "callback_replayed" || outcome === "operation_replayed")
-        && status !== expected.status
-        && (status === "provider_outcome_unknown" || status === "reconciliation_required")
-      )
-    );
     const result = Object.freeze({
       attemptId: paymentAttemptUuid(parsed.attemptId),
-      status,
+      status: paymentAttemptStatus(parsed.status),
       version: paymentAttemptInteger(parsed.version),
       providerReference: paymentAttemptProviderReference(parsed.providerReference),
       safeCode: paymentAttemptSafeCode(parsed.safeCode),
@@ -949,11 +940,9 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
         providerReference,
         safeCode,
       }),
-      (observedOutcome) => observedOutcome === "processing"
-        ? "processing"
-        : observedOutcome === "callback_replayed"
-          ? "callback_replayed"
-          : "operation_replayed",
+      (observedOutcome) => observedOutcome === "callback_replayed"
+        ? "callback_replayed"
+        : "operation_replayed",
       (observed, recovered) => same(
         expectedHostedCallbackReplay(observed),
         recovered,

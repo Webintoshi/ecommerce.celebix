@@ -6,9 +6,47 @@ DECLARE
     'saas.payment_attempt_settle_callback(text,text,uuid,text,text,bigint,bigint,text,text,text,bigint,text,timestamp with time zone)';
   owner_oid oid:='celebix_saas_owner'::regrole;
   workflow_oid oid:='celebix_saas_workflow'::regrole;
-  expected_hash text:='c9c716df2964d4aa02265eb836fe0665';
+  expected_hash text:='c2107fb1eb602f6f1715fc54989e4014';
+  expected_observed_constraint text:=
+    'CHECK (((observed_callback_status IS NULL) OR ((source = ''callback''::text) AND (observed_callback_status = ANY (ARRAY[''captured''::text, ''failed''::text, ''provider_outcome_unknown''::text])))))';
   role_name text;
 BEGIN
+  IF (SELECT pg_catalog.count(*)
+      FROM pg_catalog.pg_attribute AS attribute
+      WHERE attribute.attrelid='saas.payment_attempt_events'::regclass
+        AND attribute.attname='observed_callback_status'
+        AND attribute.atttypid='text'::regtype
+        AND attribute.atttypmod=-1
+        AND attribute.attnum>0
+        AND NOT attribute.attisdropped
+        AND NOT attribute.attnotnull
+        AND NOT attribute.atthasdef
+        AND attribute.attidentity=''
+        AND attribute.attgenerated='')<>1
+  THEN
+    RAISE EXCEPTION
+      'PAYMENT_HOSTED_CALLBACK_LIFECYCLE_OBSERVED_COLUMN_INVALID';
+  END IF;
+
+  IF (SELECT pg_catalog.count(*)
+      FROM pg_catalog.pg_constraint AS constraint_record
+      WHERE constraint_record.conrelid='saas.payment_attempt_events'::regclass
+        AND constraint_record.conname=
+          'payment_attempt_events_observed_callback_status_check'
+        AND constraint_record.contype='c'
+        AND constraint_record.convalidated
+        AND constraint_record.conislocal
+        AND constraint_record.coninhcount=0
+        AND NOT constraint_record.connoinherit
+        AND NOT constraint_record.condeferrable
+        AND NOT constraint_record.condeferred
+        AND pg_catalog.pg_get_constraintdef(constraint_record.oid,false)=
+          expected_observed_constraint)<>1
+  THEN
+    RAISE EXCEPTION
+      'PAYMENT_HOSTED_CALLBACK_LIFECYCLE_OBSERVED_CONSTRAINT_INVALID';
+  END IF;
+
   IF pg_catalog.to_regprocedure(signature) IS NULL
     OR NOT EXISTS(
       SELECT 1

@@ -10,6 +10,7 @@ const UP = "202607270055_hosted_callback_lifecycle.up.sql";
 const DOWN = "202607270055_hosted_callback_lifecycle.down.sql";
 const ASSERTIONS = "202607270055_hosted_callback_lifecycle_assertions.sql";
 const MANIFEST = "phase3n-hosted-callback-lifecycle-manifest.json";
+const REPOSITORY = path.join(ROOT, "packages/saas-data/src/payment-attempts/repository.ts");
 const SIGNATURE = "saas.payment_attempt_apply_hosted_callback(text,text,uuid,text,text,bigint,bigint,text,text,text,bigint,text,timestamptz)";
 const PRESERVED = Object.freeze({
   "202607270052_payment_adapter_runtime.up.sql": "48472767b968d52803635c74a6369fdffa7802385595640a9e7ab034a753153a",
@@ -43,18 +44,26 @@ test("055 is additive and preserves the immutable 052/053/054 migration bytes", 
 
 test("hosted callback SQL records callback identity and keeps the transition trigger strict", () => {
   const up = source(UP);
+  const repository = readFileSync(REPOSITORY, "utf8");
+  const legacyParser = repository.match(/function parseMutation\([\s\S]*?\n}\n\nfunction parseHostedCallbackMutation/)?.[0] ?? "";
   assert.match(up, /p_status NOT IN\('captured','failed','provider_outcome_unknown'\)/);
   assert.match(up, /'callback'/);
   assert.match(up, /p_event_key_digest/);
+  assert.match(up, /ADD COLUMN observed_callback_status text/);
+  assert.match(up, /observed_callback_status IN\(\s*'captured','failed','provider_outcome_unknown'\s*\)/);
+  assert.match(up, /pg_catalog[.]sha256/);
+  assert.match(up, /callback[.]intermediate[.]digest[.]v1/);
+  assert.match(up, /'mark_unknown'/);
   assert.match(up, /attempt[.]status='awaiting_customer'/);
   assert.match(up, /status='submitted'/);
   assert.match(up, /status=p_status/);
   assert.match(up, /attempt[.]status IN\('provider_outcome_unknown','reconciliation_required'\)/);
   assert.match(up, /RETURN QUERY SELECT 'processing'/);
   assert.doesNotMatch(up, /CREATE OR REPLACE FUNCTION saas[.]guard_payment_attempt_transition/);
+  assert.doesNotMatch(legacyParser, /processingProjection/);
 });
 
-test("055 pins owner/security/ACL and rollback removes only the additive RPC", () => {
+test("055 pins owner/security/ACL and rollback removes only the additive RPC and observation column", () => {
   const up = source(UP);
   const down = source(DOWN);
   const assertions = source(ASSERTIONS);
@@ -63,7 +72,10 @@ test("055 pins owner/security/ACL and rollback removes only the additive RPC", (
   assert.match(up, /GRANT EXECUTE ON FUNCTION[\s\S]*TO celebix_saas_workflow/);
   assert.match(assertions, /PAYMENT_HOSTED_CALLBACK_LIFECYCLE_/);
   assert.match(assertions, /pg_catalog[.]md5\(procedure[.]prosrc\)/);
+  assert.match(assertions, /observed_callback_status/);
   assert.match(down, /DROP FUNCTION saas[.]payment_attempt_apply_hosted_callback/);
+  assert.match(down, /DROP COLUMN observed_callback_status/);
+  assert.match(down, /PAYMENT_HOSTED_CALLBACK_LIFECYCLE_ROLLBACK_OBSERVATIONS_PRESENT/);
   assert.doesNotMatch(down, /\bCASCADE\b|DROP TABLE|payment_attempt_settle_callback/i);
 });
 
