@@ -1,6 +1,6 @@
 # Celebix Çoklu Ödeme Sağlayıcı Platformu Tasarımı
 
-Status: Kullanıcı tarafından 2026-07-27 tarihinde onaylandı.
+Status: Kullanıcı tarafından 2026-07-27 tarihinde onaylandı; sağlayıcıya özgü davranışların eksiksiz korunması ve doğrulanmamış hiçbir akışın etkinleştirilmemesi aynı tarihte yeniden teyit edildi.
 
 Implementation branch: codex/celebix-managed-umami-analytics
 
@@ -20,6 +20,8 @@ Reference package:
 - /Users/Celebix/Downloads/gurmepos-pro
 - POS Entegratör Pro 2.6.73
 - yalnız protokol, alan ve davranış envanteri için okunur referans
+- Pro paketinin bildirdiği asgari temel eklenti sürümü: POS Entegratör 3.7.88
+- 2026-07-27 tarihinde WordPress.org'da yayımlanan güncel temel eklenti: POS Entegratör 3.8.1
 
 ## 1. Amaç
 
@@ -83,6 +85,23 @@ Paket şu konularda davranış referansıdır:
 - sağlayıcıya özgü imza ve hata sınıflandırma ipuçları.
 
 Güncel endpoint, algoritma, zorunlu alan, TLS, 3D Secure, callback ve imza kuralları için uygulama sırasında her sağlayıcının resmi ve güncel dokümantasyonu yetki kaynağıdır.
+
+Pro paketinin bazı sınıfları temel `pos-entegrator` eklentisindeki iyzico, PayTR iframe, Papara, Paratika, Payten ve ortak gateway sınıflarını genişletir. Bu nedenle yalnız Pro klasörünü okumak yeterli değildir. Uygulama envanteri; verilen Pro 2.6.73 kaynağı, Pro'nun istediği temel sürüm davranışı, WordPress.org'daki güncel temel eklenti kaynağı ve sağlayıcının güncel resmi dokümanı birlikte karşılaştırılarak çıkarılır. Bu kaynaklar çelişirse güncel resmi sağlayıcı dokümanı esas alınır ve çelişki envanterde açıkça kaydedilir.
+
+### 3.1 Gözlenen protokol aileleri
+
+Kaynak paketteki PHP kalıtımı yalnız ilk sınıflandırma ipucudur; TypeScript kod paylaşımı için tek başına yeterli kanıt değildir. Gözlenen ortak aileler:
+
+- EST v3: Akbank, QNB/Finansbank, Halkbank, İş Bankası, Şekerbank, TEB ve Ziraat varyantları;
+- PayFor: QNB PayFor, QNB PayFor v2 ve Ziraat Katılım;
+- Posnet/Posnet v1: Yapı Kredi, Worldpay ve Albaraka Türk;
+- Pay Smart: PayBull, QNBpay, Sipay ve Vepara;
+- PayFlex v4: VakıfBank;
+- InterPOS: DenizBank.
+
+Akbank JSON, AkÖde, Craftgate, ErpaPay, EsnekPos, Garanti/Bonus, Hepsipay, İşyerimPOS, iyzico, Kuveyt Türk, Lidio, Moka, Mollie, Ozan, Paidora, Papel, Param, Paycell, PayNKolay, PayTR, RubikPara, Setcard, Shopier, Tami, United Payment, Vakıf Katılım, Vallet, Weepay, Wyld ve diğer özel modlar sağlayıcıya özgü akış olarak ele alınır.
+
+Bir sağlayıcı ortak aileden türese bile ancak istek serileştirmesi, hash girdisi/sırası, karakter kodlaması, para/tutar gösterimi, 3D dönüşü, hata kodları ve iade/iptal davranışı aynı golden vektörlerle doğrulanırsa ortak çekirdeği kullanabilir. Aksi durumda açık bir sağlayıcı override'ı zorunludur.
 
 ## 4. Seçenekler ve karar
 
@@ -347,6 +366,37 @@ Her yetenek adapter capability setinde ayrı tanımlanır. UI desteklenmeyen eyl
 
 Provider write isteğinden sonra timeout veya bağlantı kopması otomatik tekrar edilmez. Sonuç provider_outcome_unknown olur ve salt-okunur status query/reconciliation çalışır. Native idempotency destekleyen sağlayıcıda aynı Celebix operation key yeniden kullanılır.
 
+### 7.6 Sağlayıcı uyumluluk paketi
+
+Her provider/mode için koddan önce sürümlenen bir uyumluluk paketi oluşturulur. Serbest metin veya ortak bir `apiKey/apiSecret` formu yerine paket şu alanları kesin biçimde tanımlar:
+
+- sağlayıcı aile ve mod kodu, adapter sürümü ve kaynak plugin sınıfları;
+- test ve canlı ortam desteği ile compile-time endpoint allowlist'i;
+- public alanlar, secret alanlar, alan uzunlukları ve maskeleme kuralı;
+- desteklenen para birimleri, minor-unit/tutar biçimi ve taksit sınırları;
+- ödeme, 3D başlatma/tamamlama, hosted/iframe, status query, pre-auth, capture, cancel, tam/kısmi refund ve tokenizasyon kabiliyetleri;
+- request method, content type, encoding, canonicalization, imza/MAC algoritması ve karşılaştırma yöntemi;
+- callback/webhook methodu, imza alanları ve sırası, timestamp/nonce toleransı, replay anahtarı ve başarılı acknowledgment gövdesi;
+- provider hata kodlarının güvenli Celebix hata sınıflarına eşlenmesi;
+- timeout öncesi/sonrası tekrar politikası, native idempotency desteği ve reconciliation yöntemi;
+- resmi dokümantasyon URL'leri, doküman sürümü/son doğrulama tarihi, sandbox/test kartı kaynağı ve bilinen plugin-doküman farkları.
+
+Uyumluluk paketinde tanımlanmayan özellik UI'da gösterilmez ve server'da çağrılamaz. Bir paket başka sağlayıcının credential alanlarını, endpoint'ini veya callback parser'ını devralamaz. Test ve canlı credential şemaları farklıysa ayrı tanımlanır; bir ortamın anahtarı diğer ortamda hiçbir zaman denenmez.
+
+### 7.7 Adapter sözleşmesi ve işlem durum makinesi
+
+Çalıştırılabilir her adaptör küçük ve capability-tabanlı bir sözleşme uygular. Ortak çekirdek yalnız şunları yönetir:
+
+- bounded HTTP taşıması, sabit endpoint seçimi ve güvenli header üretimi;
+- exact request/response parsing;
+- secret-safe hata sınıflandırması;
+- attempt/operation idempotency ve provider reference kaydı;
+- timeout sonrası `provider_outcome_unknown` ve reconciliation geçişi.
+
+`initialize`, `authorize3ds`, `query`, `capture`, `cancel`, `refund` ve `verifyCallback` işlemlerinin her biri adaptör capability'siyle ayrı etkinleşir. Bir fonksiyonun adapter üzerinde bulunması capability ilanı için yeterli değildir; uyumluluk paketi ve conformance testleri de aynı özelliği doğrulamalıdır.
+
+Durum geçişleri yalnız önceden tanımlı yönde yapılır. Browser dönüşü `captured` üretemez. Callback ve status query çelişirse sipariş otomatik ödenmiş sayılmaz; attempt `reconciliation_required` durumuna alınır ve güvenli provider sorgusuyla kesinleştirilir.
+
 ## 8. Logo ve marka varlığı politikası
 
 İnternet araması yalnız resmi kaynağı bulmak için kullanılır. Öncelik sırası:
@@ -496,6 +546,23 @@ Her sağlayıcı için ortak test suite:
 
 Resmi sandbox testi gerçek adapter'ın production-ready kapısıdır. Fixture testi tek başına Canlı kullanıma hazır durumu vermez.
 
+Her provider/mode aktivasyonunda şu kanıtların tamamı aynı adapter sürümü için bulunur:
+
+1. plugin ve güncel resmi dokümandan çıkarılmış, öz-denetimden geçmiş uyumluluk paketi;
+2. credential/config parser ve endpoint allowlist testleri;
+3. resmi örneklerle request, signature/MAC ve callback golden vektörleri;
+4. başarılı, reddedilmiş, bozuk, gecikmiş ve tekrarlanmış cevap testleri;
+5. 3D/hosted akış varsa başarılı ve başarısız browser dönüşü ile doğrulanmış server callback testi;
+6. destekleniyorsa status, cancel, refund, partial refund, pre-auth/capture ve tokenization testleri;
+7. write sonrası timeout, duplicate command ve reconciliation testi;
+8. DTO, log, trace ve hata çıktısında secret/PAN/CVV taraması;
+9. sağlayıcının resmi sandbox'ında başarı, decline ve mevcutsa 3D sonucu;
+10. adapter bazlı circuit-breaker, rollback ve operasyon runbook'u.
+
+Resmi sandbox sağlamayan banka veya ödeme kuruluşu için plugin fixture'ı canlı hazırlık kanıtı değildir. Bu durumda sağlayıcının verdiği test üye işyeri, banka sertifikasyon ortamı veya yazılı entegrasyon doğrulaması gerekir. Bu kanıt sağlanana kadar adapter uygulanmış olsa bile `verification` durumunda kalır.
+
+Doğrudan POS yolları ayrıca PCI kapsam kararı, ödeme runtime izolasyon testi, log/trace sızıntı testi, güvenlik taraması ve gerekli dış doğrulama tamamlanmadan `production_ready` olamaz.
+
 ### UI ve erişilebilirlik
 
 - loaded, empty, loading, error ve permission durumları;
@@ -554,5 +621,12 @@ Platform tamamlanmış sayılmak için:
 - PCI DSS belge kütüphanesi ve SAQ A: https://listings.pcisecuritystandards.org/documents/PCI-DSS-v4-0-SAQ-A.pdf
 - PCI DSS SAQ D Merchant: https://listings.pcisecuritystandards.org/documents/PCI-DSS-v4-0-SAQ-D-Merchant.pdf
 - POS Entegratör destek merkezi: https://support.posentegrator.com/
+- POS Entegratör WordPress.org kaydı ve güncel temel eklenti: https://wordpress.org/plugins/pos-entegrator/
+- PCI SSC e-ticaret SAQ yönlendirmesi: https://listings.pcisecuritystandards.org/pci_security/completing_self_assessment
+- PCI DSS v4.0.1 SAQ A güncel ödeme sayfası güvenliği açıklaması: https://blog.pcisecuritystandards.org/faq-clarifies-new-saq-a-eligibility-criteria-for-e-commerce-merchants
+- iyzico 3DS uygulaması: https://docs.iyzico.com/en/payment-methods/api/3ds/3ds-implementation
+- iyzico güncel webhook imzası: https://docs.iyzico.com/en/advanced/webhook
+- PayTR iFrame API: https://dev.paytr.com/iframe-api
+- Craftgate 3D Secure ödeme akışı: https://developer.craftgate.io/api/payment/create-3d-secure-payment/
 
 Sağlayıcıya özgü resmi dokümantasyon ve logo kaynakları uygulama planındaki provider inventory görevinde tek tek kaydedilecektir.
