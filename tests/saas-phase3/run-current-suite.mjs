@@ -27,7 +27,23 @@ const requiredHarnesses = Object.freeze([
     line: /^PASS \d+\/18 .+$/gm,
     completion: /^18\/18 PASS$/m,
   }),
+  Object.freeze({
+    file: "tests/saas-phase3/provider-execution-foundation/postgres-harness.mjs",
+    total: 53,
+    line: /^PASS \d+\/53 .+$/gm,
+    completion: /^53\/53 PASS$/m,
+  }),
+  Object.freeze({
+    file: "tests/saas-phase3/payment-provider-admin/postgres-harness.mjs",
+    total: 23,
+    line: /^PASS \d+\/23 .+$/gm,
+    completion: /^23\/23 PASS$/m,
+  }),
 ]);
+const gateRank = Object.freeze({
+  "provider-execution-foundation": 0,
+  "payment-provider-admin": 1,
+});
 
 function runRequiredHarness({ file, total, line, completion }) {
   const result = spawnSync(process.execPath, [file], {
@@ -53,7 +69,12 @@ function discover(directory) {
   });
 }
 
-const discovered = discover(PHASE3).sort();
+const discovered = discover(PHASE3).sort((left, right) => {
+  const leftGroup = left.split("/").at(-2);
+  const rightGroup = right.split("/").at(-2);
+  const rankDifference = (gateRank[leftGroup] ?? 2) - (gateRank[rightGroup] ?? 2);
+  return rankDifference || left.localeCompare(right);
+});
 const unknownHistorical = [...historical].filter((file) => !discovered.includes(file));
 if (unknownHistorical.length) {
   process.stderr.write(`Current Phase 3 matrix references missing snapshots:\n${unknownHistorical.join("\n")}\n`);
