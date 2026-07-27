@@ -348,7 +348,7 @@
 .salesChart {
   display: grid;
   min-width: 0;
-  min-height: 370px;
+  min-height: 320px;
   align-items: center;
   padding: 1.5rem 1.25rem .75rem;
 }
@@ -539,7 +539,7 @@
   .readinessBanner { grid-template-columns: 1fr; }
   .readinessIcon { display: none; }
   .readinessBanner > a { width: 100%; }
-  .salesChart { min-height: 310px; padding: 1rem .5rem .5rem; }
+  .salesChart { min-height: 270px; padding: .75rem .25rem .25rem; }
   .pendingAction { align-items: flex-start; margin-top: -.75rem; }
   .pendingAction > a { white-space: normal; }
   .channelSummary { align-items: stretch; flex-direction: column; }

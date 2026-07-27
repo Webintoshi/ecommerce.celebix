@@ -103,7 +103,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   display: grid; grid-template-columns: auto minmax(260px, 1fr) auto auto; align-items: center; gap: 9px;
   min-height: 94px; border-bottom: 1px solid #E3E8EF; padding: 18px 0;
 }
-.product-stat-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.product-stat-chips { display: flex; flex-wrap: nowrap; align-items: center; gap: 7px; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
 .product-stat-chips span { display: inline-flex; min-height: 36px; align-items: center; border: 1px solid #DDE4ED; border-radius: 10px; background: #fff; padding: 0 12px; color: #667085; font-size: 12px; font-weight: 550; white-space: nowrap; }
 .product-search { display: flex; min-height: 48px; align-items: center; gap: 10px; border: 1px solid #DDE4ED; border-radius: 12px; background: #fff; padding: 0 14px; color: #98A2B3; }
 .product-search:focus-within { border-color: #FF9B59; box-shadow: 0 0 0 3px rgb(255 106 0 / 10%); }
@@ -317,7 +317,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @media (max-width: 640px) {
   .hemenaku-product-filters { grid-template-columns: minmax(0, 1fr) auto; min-height: 0; padding: 12px 0; }
-  .product-stat-chips { display: grid; grid-template-columns: 1fr 1fr; }
+  .product-stat-chips { display: grid; grid-template-columns: 1fr 1fr; overflow-x: hidden; }
   .product-stat-chips span { min-width: 0; white-space: normal; }
   .product-search { grid-column: 1 / -1; grid-row: 2; }
   .hemenaku-product-filters > .command-button:not(.command-icon-button) { grid-column: 1; }

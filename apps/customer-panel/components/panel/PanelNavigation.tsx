@@ -176,27 +176,17 @@ export function PanelNavigation({
   const activeGroupKeys = navigation.filter((item) => (
     item.children?.length && isPanelNavigationPathActive(pathname, item.href)
   )).map(({ key }) => key);
-  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
-    () => new Set(activeGroupKeys),
+  const [expandedGroup, setExpandedGroup] = useState<string | undefined>(
+    () => activeGroupKeys[0],
   );
 
   useEffect(() => {
     if (!activeGroupKeys.length) return;
-    setExpandedGroups((current) => {
-      if (activeGroupKeys.every((key) => current.has(key))) return current;
-      const next = new Set(current);
-      for (const key of activeGroupKeys) next.add(key);
-      return next;
-    });
+    setExpandedGroup(activeGroupKeys[0]);
   }, [pathname]);
 
   function toggleGroup(key: string) {
-    setExpandedGroups((current) => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setExpandedGroup((current) => current === key ? undefined : key);
   }
 
   return (
@@ -215,7 +205,7 @@ export function PanelNavigation({
           );
         }
 
-        const expanded = expandedGroups.has(item.key);
+        const expanded = expandedGroup === item.key;
         const childrenId = `panel-nav-${item.key}-${mode}`;
         const groupActive = isPanelNavigationPathActive(pathname, item.href);
         const Icon = ICONS[item.icon];

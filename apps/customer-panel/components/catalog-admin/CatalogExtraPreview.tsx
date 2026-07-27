@@ -41,9 +41,49 @@ export function CatalogExtraPreview({ resourceId }: { resourceId: string }) {
 
   const options = resource ? optionsFor(resource) : [];
   const priceAdjustmentCents = resource ? priceFor(resource) : 0;
-  return <PanelPageShell><PanelPageHeader title="Ekstra önizlemesi" description="Müşteri tarafında görünen seçenekleri güvenli biçimde kontrol edin." /><section className={styles.surface}>
-    {loading ? <p className={styles.state} role="status">Ekstra yükleniyor…</p> : null}
-    {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
-    {!loading && resource ? <article className={styles.preview}><h2>{resource.name}</h2>{resource.description ? <p>{resource.description}</p> : null}<h3>Seçenekler</h3><ul>{options.map((option, index) => <li key={`${option}-${index}`}>{option}</li>)}</ul><p>Fiyat farkı <output>{formatTry(priceAdjustmentCents)}</output></p></article> : null}
-  </section></PanelPageShell>;
+  return (
+    <PanelPageShell>
+      <PanelPageHeader
+        title="Ekstra önizlemesi"
+        description="Müşteri tarafında görünen seçenekleri güvenli biçimde kontrol edin."
+      />
+      <section className={styles.surface}>
+        {loading ? <p className={styles.state} role="status">Ekstra yükleniyor…</p> : null}
+        {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
+        {!loading && resource ? (
+          <article className={styles.preview}>
+            <header className={styles.previewHero}>
+              <div>
+                <span className={styles.previewEyebrow}>Canlı müşteri görünümü</span>
+                <h2>{resource.name}</h2>
+                {resource.description ? <p>{resource.description}</p> : null}
+              </div>
+              <p className={styles.previewPrice}>
+                <span>Fiyat farkı</span>
+                <output>{formatTry(priceAdjustmentCents)}</output>
+              </p>
+            </header>
+            <section className={styles.previewOptions} aria-labelledby="extra-preview-options">
+              <div className={styles.previewSectionHeading}>
+                <h3 id="extra-preview-options">Seçenekler</h3>
+                <span>{options.length.toLocaleString("tr-TR")} seçenek</span>
+              </div>
+              {options.length ? (
+                <ul className={styles.previewOptionGrid}>
+                  {options.map((option, index) => (
+                    <li key={`${option}-${index}`}>
+                      <span aria-hidden="true">{index + 1}</span>
+                      <strong>{option}</strong>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.previewEmpty}>Bu ekstra için henüz seçenek tanımlanmadı.</p>
+              )}
+            </section>
+          </article>
+        ) : null}
+      </section>
+    </PanelPageShell>
+  );
 }

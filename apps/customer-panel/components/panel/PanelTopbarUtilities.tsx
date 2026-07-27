@@ -38,6 +38,7 @@ export function PanelTopbarUtilities() {
             height={48}
             alt="Toshi yapay zekâ mağaza asistanı"
             priority
+            unoptimized
           />
         </span>
       </button>
