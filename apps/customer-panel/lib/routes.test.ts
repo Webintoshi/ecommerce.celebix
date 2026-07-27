@@ -427,8 +427,6 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
     ["../app/content/pages/[recordId]/edit/page.tsx", "page"],
     ["../app/content/policies/new/page.tsx", "policy"],
     ["../app/content/policies/[recordId]/edit/page.tsx", "policy"],
-    ["../app/settings/payment/new/page.tsx", "payment_setting"],
-    ["../app/settings/payment/[recordId]/edit/page.tsx", "payment_setting"],
   ] as const;
   for (const [path, kind] of cases) {
     const page = await readFile(new URL(path, import.meta.url), "utf8");
@@ -436,6 +434,24 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
     assert.match(page, new RegExp(`kind=["']${kind}["']`));
     assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
   }
+});
+
+test("dedicated payment settings route validates hints and retires generic editors", async () => {
+  const [page, create, edit] = await Promise.all([
+    readFile(new URL("../app/settings/payment/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/settings/payment/new/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/settings/payment/[recordId]/edit/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /<PaymentSettingsConsole/);
+  assert.match(page, /searchParams: Promise/);
+  assert.match(page, /Object\.keys\(selected\)/);
+  assert.match(page, /isMerchantActionAllowed\([^\n]+"configuration\.manage"\)/);
+  assert.match(page, /isMerchantActionAllowed\([^\n]+"integrations\.manage"\)/);
+  assert.doesNotMatch(page, /TenantContext|storeId|tenantId|principalId|MerchantModuleConsole/);
+  assert.match(create, /redirect\("\/settings\/payment\?dialog=provider-catalog"\)/);
+  assert.match(edit, /LOWERCASE_UUID/);
+  assert.match(edit, /redirect\(`\/settings\/payment\?method=\$\{recordId\}`\)/);
+  assert.match(edit, /redirect\("\/settings\/payment"\)/);
 });
 
 test("content and settings family hubs render behind server panel access", async () => {

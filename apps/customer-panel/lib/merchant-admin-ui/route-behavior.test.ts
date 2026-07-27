@@ -517,7 +517,8 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  for (const definition of MERCHANT_MODULE_DEFINITIONS) {
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting");
+  for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     assert.match(textOf(mounted.view), new RegExp(`${definition.kind} durable record`), `${definition.kind}:loaded`);
     assert.ok(paths.includes(`/api/merchant-admin/records/${definition.kind}`), `${definition.kind}:handler-list`);
@@ -723,8 +724,6 @@ test("merchant non-default route matrix invokes nine actual pages and exact crea
     component: "console" | "editor";
   }>;
   const cases: readonly RouteCase[] = Object.freeze([
-    { route: "/settings/payment/new", kind: "payment_setting", returnTo: "/settings/payment", mode: "create", component: "editor" },
-    { route: "/settings/payment/[recordId]/edit", kind: "payment_setting", returnTo: "/settings/payment", mode: "edit", component: "editor" },
     { route: "/content/blog/new", kind: "blog_post", returnTo: "/content/blog", mode: "create", component: "editor" },
     { route: "/content/blog/[recordId]/edit", kind: "blog_post", returnTo: "/content/blog", mode: "edit", component: "editor" },
     { route: "/content/pages/new", kind: "page", returnTo: "/content/pages", mode: "create", component: "editor" },

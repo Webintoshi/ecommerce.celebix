@@ -120,6 +120,7 @@ test("static merchant hubs claim navigation only while marketing retains durable
 test("all 48 merchant rows retain their exact route status evidence and action contract", () => {
   const merchantRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states";
   const merchantRecordRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay";
+  const paymentSettingsEvidence = "apps/customer-panel/lib/routes.test.ts#dedicated payment settings route validates hints and retires generic editors";
   const merchantHubEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#static merchant hubs invoke actual pages and expose only canonical destination links";
   const loginEvidence = "apps/customer-panel/lib/routes.test.ts#login and logout remain disabled without a persistent session adapter";
   const legacyEvidence = "apps/customer-panel/lib/panel-ui/navigation.test.ts#legacy donor spellings stay inert while canonical safe targets remain navigable";
@@ -136,9 +137,9 @@ test("all 48 merchant rows retain their exact route status evidence and action c
     ["/ayarlar/hero-banner", "/settings/hero-banner", "complete", merchantRouteEvidence, crud],
     ["/ayarlar/kargo", "/settings/shipping", "complete", merchantRouteEvidence, crud],
     ["/ayarlar/marquee", "/settings/marquee", "complete", merchantRouteEvidence, crud],
-    ["/ayarlar/odeme", "/settings/payment", "complete", merchantRouteEvidence, crud],
-    ["/ayarlar/odeme/[id]/duzenle", "/settings/payment/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
-    ["/ayarlar/odeme/yeni", "/settings/payment/new", "complete", merchantRecordRouteEvidence, create],
+    ["/ayarlar/odeme", "/settings/payment", "complete", paymentSettingsEvidence, crud],
+    ["/ayarlar/odeme/[id]/duzenle", "/settings/payment/[recordId]/edit", "complete", paymentSettingsEvidence, edit],
+    ["/ayarlar/odeme/yeni", "/settings/payment/new", "complete", paymentSettingsEvidence, create],
     ["/ayarlar/promosyon-banner", "/settings/promotion-banner", "complete", merchantRouteEvidence, crud],
     ["/ayarlar/tasarim", "/settings/design", "complete", merchantHubEvidence, hub],
     ["/ayarlar/yapay-zeka", "/settings/artificial-intelligence", "complete", merchantRouteEvidence, crud],
@@ -184,7 +185,7 @@ test("all 48 merchant rows retain their exact route status evidence and action c
     expected,
   );
   assert.equal(new Set(merchantRows.map(({ donorPath }) => donorPath)).size, 48);
-  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, merchantHubEvidence, loginEvidence, legacyEvidence].includes(evidenceTest)), true);
+  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, paymentSettingsEvidence, merchantHubEvidence, loginEvidence, legacyEvidence].includes(evidenceTest)), true);
   assert.equal(merchantRows.some(({ evidenceTest }) => /client[.]test[.]ts|presentation[.]test[.]ts|route files expose only/u.test(evidenceTest)), false);
 });
 
