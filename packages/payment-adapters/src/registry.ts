@@ -54,11 +54,11 @@ function immutablePacket(value: unknown): PaymentAdapterPacket {
     !Object.isFrozen(packet.presentation.test) ||
     !Object.isFrozen(packet.presentation.live) ||
     (
-      packet.presentation.test.kind === "provider_token_url" &&
+      packet.presentation.test.kind !== "exact_url" &&
       !Object.isFrozen(packet.presentation.test.token)
     ) ||
     (
-      packet.presentation.live.kind === "provider_token_url" &&
+      packet.presentation.live.kind !== "exact_url" &&
       !Object.isFrozen(packet.presentation.live.token)
     ) ||
     !Object.isFrozen(packet.publicFields) ||

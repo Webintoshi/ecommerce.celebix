@@ -59,6 +59,7 @@ export type PaymentAdapterPacket = Readonly<{
   modeCode: string;
   adapterVersion: number;
   implementation: "hosted";
+  callbackResponse: "provider_ack" | "customer_return";
   readiness: Readonly<Record<"test" | "live", PaymentProviderReadiness>>;
   endpoints: Readonly<Record<"test" | "live", readonly string[]>>;
   presentation: Readonly<Record<"test" | "live", PaymentAdapterPresentationRule>>;

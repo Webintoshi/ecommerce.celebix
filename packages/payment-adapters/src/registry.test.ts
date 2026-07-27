@@ -18,6 +18,7 @@ function packetFixture(adapterVersion = 1): Record<string, unknown> {
     modeCode: "iframe",
     adapterVersion,
     implementation: "hosted",
+    callbackResponse: "provider_ack",
     readiness: { test: "verification", live: "planned" },
     endpoints: {
       test: [
@@ -137,6 +138,25 @@ test("accepts the explicit iyzico Checkout Form adapter without enabling it by d
   assert.equal(registry.size, 1);
   assert.strictEqual(registry.packet("iyzico_iframe"), IYZICO_IFRAME_PACKET);
   assert.strictEqual(registry.adapter("iyzico_iframe"), iyzico);
+});
+
+test("rejects a mutable query-token rule nested inside an otherwise frozen iyzico packet", () => {
+  const testRule = IYZICO_IFRAME_PACKET.presentation.test;
+  assert.equal(testRule.kind, "provider_query_token_url");
+  const mutableToken = { ...testRule.token };
+  const packet = Object.freeze({
+    ...IYZICO_IFRAME_PACKET,
+    presentation: Object.freeze({
+      test: Object.freeze({ ...testRule, token: mutableToken }),
+      live: IYZICO_IFRAME_PACKET.presentation.live,
+    }),
+  });
+  const selected = adapter(packet);
+
+  assert.throws(
+    () => createPaymentAdapterRegistry([packet], [selected]),
+    /payment_adapter_registry_invalid/,
+  );
 });
 
 test("rejects duplicate packet and adapter provider codes", () => {

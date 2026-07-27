@@ -38,6 +38,7 @@ const MAXIMUM_EVENT_KEY_LENGTH = 512;
 const MAXIMUM_TOKEN_LENGTH = 4_096;
 const SUCCESS_PATH = "/odeme/hizli/sonuc?durum=basarili";
 const FAILURE_PATH = "/odeme/hizli/sonuc?durum=basarisiz";
+const PROCESSING_PATH = "/odeme/hizli/sonuc?durum=isleniyor";
 const RECONCILIATION_LEASE_MS = 60_000;
 const PROVIDER_DEADLINE_MS = 5_000;
 const AUTHORITY_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
@@ -68,12 +69,23 @@ export type HostedPaymentPresentation =
   | Readonly<{ kind: "processing" }>
   | Readonly<{ kind: "rejected" }>;
 
-export type HostedPaymentCallbackResult =
+type HostedPaymentProviderAckResult =
   | Readonly<{ kind: "accepted" }>
   | Readonly<{ kind: "retry" }>
   | Readonly<{ kind: "rejected" }>;
 
+export type HostedPaymentCallbackResult =
+  | HostedPaymentProviderAckResult
+  | Readonly<{
+      kind: "customer_return";
+      outcome: "success" | "failure" | "processing";
+    }>;
+
 export type HostedPaymentDigestCallbackResult =
+  | HostedPaymentProviderAckResult
+  | Readonly<{ kind: "not_found" }>;
+
+type ExactCallbackResult =
   | HostedPaymentCallbackResult
   | Readonly<{ kind: "not_found" }>;
 
@@ -143,6 +155,18 @@ const PRESENTATION_REJECTED = Object.freeze({ kind: "rejected" as const });
 const CALLBACK_ACCEPTED = Object.freeze({ kind: "accepted" as const });
 const CALLBACK_RETRY = Object.freeze({ kind: "retry" as const });
 const CALLBACK_REJECTED = Object.freeze({ kind: "rejected" as const });
+const CALLBACK_RETURN_SUCCESS = Object.freeze({
+  kind: "customer_return" as const,
+  outcome: "success" as const,
+});
+const CALLBACK_RETURN_FAILURE = Object.freeze({
+  kind: "customer_return" as const,
+  outcome: "failure" as const,
+});
+const CALLBACK_RETURN_PROCESSING = Object.freeze({
+  kind: "customer_return" as const,
+  outcome: "processing" as const,
+});
 const CALLBACK_NOT_FOUND = Object.freeze({ kind: "not_found" as const });
 const RECONCILIATION_CAPTURED = Object.freeze({ kind: "captured" as const });
 const RECONCILIATION_FAILED = Object.freeze({ kind: "failed" as const });
@@ -468,12 +492,12 @@ function exactBrowserUrl(
       && !parsed.username
       && !parsed.password
       && !parsed.port
-      && !parsed.search
-      && !parsed.hash
-      && parsed.toString() === value;
+      && !parsed.hash;
     if (!structurallyValid) return null;
     const rule = adapter.packet.presentation[environment];
-    if (rule.kind === "exact_url") return value === rule.url ? value : null;
+    if (rule.kind === "exact_url") {
+      return !parsed.search && parsed.toString() === value && value === rule.url ? value : null;
+    }
     if (
       typeof token !== "string"
       || token.length < rule.token.minimum
@@ -481,7 +505,25 @@ function exactBrowserUrl(
       || token.length > MAXIMUM_TOKEN_LENGTH
       || !/^[A-Za-z0-9_-]+$/.test(token)
     ) return null;
-    return value === `${rule.urlPrefix}${token}` ? value : null;
+    if (rule.kind === "provider_token_url") {
+      return !parsed.search
+        && parsed.toString() === value
+        && value === `${rule.urlPrefix}${token}`
+        ? value
+        : null;
+    }
+    const exactQuery = `?${rule.tokenParameter}=${token}&${rule.languageParameter}=${rule.language}`;
+    if (value !== `${rule.origin}${exactQuery}` && value !== `${rule.origin}/${exactQuery}`) {
+      return null;
+    }
+    return parsed.origin === rule.origin
+      && parsed.pathname === rule.pathname
+      && parsed.search === exactQuery
+      && parsed.searchParams.size === 2
+      && parsed.searchParams.get(rule.tokenParameter) === token
+      && parsed.searchParams.get(rule.languageParameter) === rule.language
+      ? value
+      : null;
   } catch {
     return null;
   }
@@ -834,16 +876,35 @@ function parseVerifiedCallback(
     || value.eventKey.length > MAXIMUM_EVENT_KEY_LENGTH
     || value.eventKey !== value.eventKey.trim()
     || PROVIDER_REFERENCE_CONTROL.test(value.eventKey)
-    || (value.status !== "succeeded" && value.status !== "failed")
+    || !["succeeded", "failed", "pending", "retry"].includes(value.status)
     || !validProviderReference(value.providerReference)
     || !Number.isSafeInteger(value.paidAmountMinor)
-    || value.paidAmountMinor !== authority.amountMinor
+    || (
+      value.status === "retry"
+        ? value.paidAmountMinor !== 0
+        : value.paidAmountMinor !== authority.amountMinor
+    )
     || value.currency !== authority.currency
     || typeof value.safeCode !== "string"
     || !CODE.test(value.safeCode)
     || (authority.providerReference !== null && authority.providerReference !== value.providerReference)
   ) return null;
   return value;
+}
+
+function callbackProjection(
+  adapter: HostedPaymentAdapter<object>,
+  outcome: "success" | "failure" | "processing",
+): HostedPaymentCallbackResult {
+  if (adapter.packet.callbackResponse === "provider_ack") {
+    return outcome === "processing" ? CALLBACK_RETRY : CALLBACK_ACCEPTED;
+  }
+  if (adapter.packet.callbackResponse !== "customer_return") return CALLBACK_REJECTED;
+  return outcome === "success"
+    ? CALLBACK_RETURN_SUCCESS
+    : outcome === "failure"
+      ? CALLBACK_RETURN_FAILURE
+      : CALLBACK_RETURN_PROCESSING;
 }
 
 function retryableCallbackError(error: unknown): boolean {
@@ -869,12 +930,69 @@ function exactCallbackMutation(
     );
 }
 
+function exactUnknownMutation(
+  value: Awaited<ReturnType<PaymentAttemptRepository["markUnknown"]>>,
+  authority: PaymentAttemptAuthority,
+  providerReference: string | null,
+  safeCode: string,
+): boolean {
+  return value.attemptId === authority.attemptId
+    && value.status === "provider_outcome_unknown"
+    && value.providerReference === providerReference
+    && value.safeCode === safeCode
+    && typeof value.replayed === "boolean"
+    && Number.isSafeInteger(value.version)
+    && (
+      value.replayed
+        ? value.version >= 1 && value.version <= authority.version
+        : value.version === authority.version + 1
+    );
+}
+
+async function persistCallbackUnknown(
+  dependencies: HostedPaymentRuntimeDependencies,
+  authority: PaymentAttemptAuthority,
+  opened: OpenedCredential,
+  request: ExactHostedPaymentCallback,
+  providerReference: string | null,
+  safeCode: string,
+  eventKey: string,
+  now: Date,
+): Promise<"persisted" | "retry" | "rejected"> {
+  const selected = phase(
+    "callback-unknown",
+    authority.attemptId,
+    opened.credentialDigest,
+    request.callbackBindingDigest,
+    createHash("sha256").update(eventKey, "utf8").digest("hex"),
+    providerReference,
+    safeCode,
+  );
+  try {
+    const mutation = await dependencies.attempts.markUnknown({
+      attemptId: authority.attemptId,
+      ...selected,
+      expectedVersion: authority.version,
+      credentialVersion: authority.credentialVersion,
+      providerReference,
+      safeCode,
+      now: new Date(now),
+    });
+    return exactUnknownMutation(mutation, authority, providerReference, safeCode)
+      ? "persisted"
+      : "rejected";
+  } catch (error) {
+    return retryableCallbackError(error) ? "retry" : "rejected";
+  }
+}
+
 async function settleExactCallback(
   dependencies: HostedPaymentRuntimeDependencies,
   request: ExactHostedPaymentCallback,
   now: Date,
   exposeAuthorityAbsence: boolean,
-): Promise<HostedPaymentDigestCallbackResult> {
+  providerTimeoutMs: number,
+): Promise<ExactCallbackResult> {
   try {
     let authority: PaymentAttemptAuthority;
     try {
@@ -904,20 +1022,62 @@ async function settleExactCallback(
     let opened: OpenedCredential | undefined;
     try {
       opened = openCredential(dependencies, authority, adapter);
-      const verified = parseVerifiedCallback(await adapter.verifyCallback(Object.freeze({
-        environment: authority.environment,
-        credential: opened.credential,
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        expected: Object.freeze({
-          attemptId: authority.attemptId,
-          orderReference: authority.orderReference,
-          amountMinor: authority.amountMinor,
-          currency: authority.currency,
-        }),
-      })), authority);
+      let providerResult: VerifiedProviderCallback;
+      try {
+        providerResult = await withinProviderDeadline(providerTimeoutMs, (signal) =>
+          adapter.verifyCallback(Object.freeze({
+            environment: authority.environment,
+            credential: opened!.credential,
+            method: request.method,
+            headers: request.headers,
+            body: request.body,
+            signal,
+            expected: Object.freeze({
+              attemptId: authority.attemptId,
+              orderReference: authority.orderReference,
+              amountMinor: authority.amountMinor,
+              currency: authority.currency,
+              providerReference: authority.providerReference,
+            }),
+          })));
+      } catch (error) {
+        if (error !== PROVIDER_DEADLINE_EXCEEDED) return CALLBACK_REJECTED;
+        const bodyDigest = createHash("sha256").update(request.body).digest("hex");
+        const persisted = await persistCallbackUnknown(
+          dependencies,
+          authority,
+          opened,
+          request,
+          authority.providerReference,
+          "provider_verification_timeout",
+          `timeout:${bodyDigest}`,
+          now,
+        );
+        return persisted === "persisted"
+          ? callbackProjection(adapter, "processing")
+          : persisted === "retry"
+            ? CALLBACK_RETRY
+            : CALLBACK_REJECTED;
+      }
+      const verified = parseVerifiedCallback(providerResult, authority);
       if (verified === null) return CALLBACK_REJECTED;
+      if (verified.status === "pending" || verified.status === "retry") {
+        const persisted = await persistCallbackUnknown(
+          dependencies,
+          authority,
+          opened,
+          request,
+          verified.providerReference,
+          verified.safeCode,
+          verified.eventKey,
+          now,
+        );
+        return persisted === "persisted"
+          ? callbackProjection(adapter, "processing")
+          : persisted === "retry"
+            ? CALLBACK_RETRY
+            : CALLBACK_REJECTED;
+      }
       const eventKeyDigest = createHash("sha256").update(verified.eventKey, "utf8").digest("hex");
       const selected = phase(
         "callback",
@@ -950,7 +1110,10 @@ async function settleExactCallback(
       } catch (error) {
         return retryableCallbackError(error) ? CALLBACK_RETRY : CALLBACK_REJECTED;
       }
-      return CALLBACK_ACCEPTED;
+      return callbackProjection(
+        adapter,
+        verified.status === "succeeded" ? "success" : "failure",
+      );
     } catch {
       return CALLBACK_REJECTED;
     } finally {
@@ -967,6 +1130,7 @@ async function settleExactCallback(
 async function callback(
   dependencies: HostedPaymentRuntimeDependencies,
   input: Readonly<{ request: Request; providerCode: string; binding: string }>,
+  providerTimeoutMs: number,
 ): Promise<HostedPaymentCallbackResult> {
   const hostname = input.request instanceof Request
     ? trustedHostname(dependencies, input.request.headers)
@@ -980,7 +1144,7 @@ async function callback(
     trustedHostname: hostname,
   });
   if (request === null) return CALLBACK_REJECTED;
-  const result = await settleExactCallback(dependencies, request, now, false);
+  const result = await settleExactCallback(dependencies, request, now, false, providerTimeoutMs);
   return result.kind === "not_found" ? CALLBACK_REJECTED : result;
 }
 
@@ -991,6 +1155,7 @@ async function callbackByDigest(
     providerCode: string;
     callbackBindingDigest: string;
   }>,
+  providerTimeoutMs: number,
 ): Promise<HostedPaymentDigestCallbackResult> {
   const hostname = input.request instanceof Request
     ? trustedHostname(dependencies, input.request.headers)
@@ -1004,7 +1169,8 @@ async function callbackByDigest(
     trustedHostname: hostname,
   });
   if (request === null) return CALLBACK_REJECTED;
-  return await settleExactCallback(dependencies, request, now, true);
+  const result = await settleExactCallback(dependencies, request, now, true, providerTimeoutMs);
+  return result.kind === "customer_return" ? CALLBACK_REJECTED : result;
 }
 
 function exactClaim(
@@ -1236,8 +1402,8 @@ export function createHostedPaymentRuntime(
   }
   return Object.freeze({
     initialize: (input) => initialize(dependencies, input, providerTimeoutMs),
-    callback: (input) => callback(dependencies, input),
-    callbackByDigest: (input) => callbackByDigest(dependencies, input),
+    callback: (input) => callback(dependencies, input, providerTimeoutMs),
+    callbackByDigest: (input) => callbackByDigest(dependencies, input, providerTimeoutMs),
     reconcile: (input) => reconcile(dependencies, input, providerTimeoutMs),
   });
 }
@@ -1265,6 +1431,17 @@ export function createHostedPaymentCallbackRoute(dependencies: Readonly<{
         providerCode: params.providerCode,
         binding: params.binding,
       });
+      if (result.kind === "customer_return") {
+        const location = result.outcome === "success"
+          ? SUCCESS_PATH
+          : result.outcome === "failure"
+            ? FAILURE_PATH
+            : PROCESSING_PATH;
+        return new Response(null, {
+          status: 303,
+          headers: Object.freeze({ ...headers, location }),
+        });
+      }
       return result.kind === "accepted"
         ? new Response("OK", { status: 200, headers })
         : result.kind === "retry"

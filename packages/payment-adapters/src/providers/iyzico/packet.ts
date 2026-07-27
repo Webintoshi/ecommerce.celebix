@@ -6,6 +6,7 @@ export const IYZICO_IFRAME_PACKET = parsePaymentAdapterPacket({
   modeCode: "iframe",
   adapterVersion: 1,
   implementation: "hosted",
+  callbackResponse: "customer_return",
   readiness: {
     test: "verification",
     live: "verification",

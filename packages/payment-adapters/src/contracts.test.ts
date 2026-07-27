@@ -10,6 +10,7 @@ function packetFixture(): Record<string, unknown> {
     modeCode: "iframe",
     adapterVersion: 1,
     implementation: "hosted",
+    callbackResponse: "provider_ack",
     readiness: { test: "verification", live: "planned" },
     endpoints: {
       test: [
@@ -63,6 +64,7 @@ test("parses the exact immutable hosted PayTR adapter packet", () => {
   const packet = parsePaymentAdapterPacket(packetFixture());
 
   assert.equal(packet.providerCode, "paytr_iframe");
+  assert.equal(packet.callbackResponse, "provider_ack");
   assert.equal(Object.isFrozen(packet), true);
   assert.equal(Object.isFrozen(packet.capabilities), true);
   assert.equal(Object.isFrozen(packet.endpoints.test), true);
@@ -74,6 +76,15 @@ test("parses the exact immutable hosted PayTR adapter packet", () => {
     true,
   );
   assert.equal(Object.isFrozen(packet.credentialFields[0]), true);
+});
+
+test("rejects callback response modes outside the provider-owned closed mapping", () => {
+  for (const callbackResponse of ["customer_return", "redirect", "provider_ack ", null]) {
+    assert.throws(
+      () => parsePaymentAdapterPacket({ ...packetFixture(), callbackResponse }),
+      /payment_adapter_packet_invalid/,
+    );
+  }
 });
 
 test("keeps PayTR path-token presentation separate from query-token providers", () => {

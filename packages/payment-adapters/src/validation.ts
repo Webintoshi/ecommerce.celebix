@@ -95,9 +95,13 @@ const EXECUTABLE_PRESENTATIONS = Object.freeze({
     }),
   }),
 });
+const EXECUTABLE_CALLBACK_RESPONSES = Object.freeze({
+  paytr_iframe: "provider_ack" as const,
+  iyzico_iframe: "customer_return" as const,
+});
 
 const PACKET_KEYS = Object.freeze([
-  "adapterVersion", "capabilities", "credentialFields", "documentation", "endpoints",
+  "adapterVersion", "callbackResponse", "capabilities", "credentialFields", "documentation", "endpoints",
   "familyCode", "implementation", "modeCode", "presentation", "providerCode", "publicFields",
   "readiness",
 ]);
@@ -404,6 +408,10 @@ export function parsePaymentAdapterPacket(value: unknown): PaymentAdapterPacket 
     const parsed = dataObject(value, PACKET_KEYS);
     if (parsed.implementation !== "hosted") invalid();
     const providerCode = code(parsed.providerCode);
+    const callbackResponse = EXECUTABLE_CALLBACK_RESPONSES[
+      providerCode as keyof typeof EXECUTABLE_CALLBACK_RESPONSES
+    ];
+    if (callbackResponse === undefined || parsed.callbackResponse !== callbackResponse) invalid();
     const publicFields = fields(parsed.publicFields, false) as readonly PaymentAdapterField[];
     const credentialFields = fields(parsed.credentialFields, true) as readonly PaymentAdapterCredentialField[];
     if (new Set([...publicFields, ...credentialFields].map((field) => field.key)).size !== publicFields.length + credentialFields.length) invalid();
@@ -413,6 +421,7 @@ export function parsePaymentAdapterPacket(value: unknown): PaymentAdapterPacket 
       modeCode: code(parsed.modeCode),
       adapterVersion: boundedInteger(parsed.adapterVersion, 1, 1_000),
       implementation: "hosted" as const,
+      callbackResponse,
       readiness: readiness(parsed.readiness),
       endpoints: endpoints(parsed.endpoints, providerCode),
       presentation: presentation(parsed.presentation, providerCode),

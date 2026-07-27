@@ -56,6 +56,7 @@ const PACKET: PaymentAdapterPacket = Object.freeze({
   modeCode: "hosted",
   adapterVersion: 1,
   implementation: "hosted",
+  callbackResponse: "provider_ack",
   readiness: Object.freeze({ test: "verification", live: "planned" }),
   endpoints: Object.freeze({
     test: Object.freeze([ENDPOINT]),
@@ -88,6 +89,12 @@ const PACKET: PaymentAdapterPacket = Object.freeze({
   }),
   documentation: Object.freeze([]),
 });
+
+function callbackPacket(
+  callbackResponse: "provider_ack" | "customer_return",
+): PaymentAdapterPacket {
+  return Object.freeze({ ...PACKET, callbackResponse });
+}
 
 function beginResult(
   overrides: Partial<BeginPaymentAttemptResult> = {},
@@ -178,6 +185,9 @@ function fixture(options: Readonly<{
     input: Parameters<HostedPaymentAdapter<object>["initialize"]>[0],
   ) => Promise<HostedPaymentInitialization>;
   callback?: VerifiedProviderCallback | Error;
+  callbackAdapter?: (
+    input: Parameters<HostedPaymentAdapter<object>["verifyCallback"]>[0],
+  ) => Promise<VerifiedProviderCallback>;
   query?: HostedPaymentStatus | Error;
   queryAdapter?: (
     input: Parameters<HostedPaymentAdapter<object>["query"]>[0],
@@ -185,6 +195,7 @@ function fixture(options: Readonly<{
   begin?: BeginPaymentAttemptResult;
   callbackAuthority?: PaymentAttemptAuthority | Error;
   settlement?: PaymentAttemptMutationResult | Error;
+  unknownMutation?: PaymentAttemptMutationResult | Error;
   adapterPresent?: boolean;
   trusted?: boolean;
   freezeCredential?: boolean;
@@ -203,10 +214,14 @@ function fixture(options: Readonly<{
     async markInitialized(input) { calls.initialized.push(input); return mutation({
       status: input.status, providerReference: input.providerReference, safeCode: input.safeCode,
     }); },
-    async markUnknown(input) { calls.unknown.push(input); return mutation({
-      status: "provider_outcome_unknown", providerReference: input.providerReference,
-      safeCode: input.safeCode,
-    }); },
+    async markUnknown(input) {
+      calls.unknown.push(input);
+      if (options.unknownMutation instanceof Error) throw options.unknownMutation;
+      return options.unknownMutation ?? mutation({
+        status: "provider_outcome_unknown", providerReference: input.providerReference,
+        safeCode: input.safeCode, version: input.expectedVersion + 1,
+      });
+    },
     async getCallbackAuthority(input) {
       calls.callbackAuthority.push(input);
       if (options.callbackAuthority instanceof Error) throw options.callbackAuthority;
@@ -257,6 +272,7 @@ function fixture(options: Readonly<{
   });
   const verifyCallback = Object.freeze(async (input: Parameters<HostedPaymentAdapter<object>["verifyCallback"]>[0]) => {
     calls.callbacks.push(input);
+    if (options.callbackAdapter !== undefined) return options.callbackAdapter(input);
     if (options.callback instanceof Error) throw options.callback;
     return options.callback ?? Object.freeze({
       eventKey: "provider_event_1",
@@ -566,6 +582,78 @@ test("accepts only the provider-owned token presentation prefix paired to the ex
   }
 });
 
+test("accepts only the exact provider-owned root query-token presentation", async () => {
+  const token = "a".repeat(36);
+  const queryPacket: PaymentAdapterPacket = Object.freeze({
+    ...PACKET,
+    callbackResponse: "customer_return",
+    presentation: Object.freeze({
+      test: Object.freeze({
+        kind: "provider_query_token_url" as const,
+        origin: "https://sandbox-cpp.iyzipay.com",
+        pathname: "/" as const,
+        tokenParameter: "token" as const,
+        languageParameter: "lang" as const,
+        language: "tr" as const,
+        token: Object.freeze({
+          alphabet: "base64url" as const,
+          minimum: 36,
+          maximum: 256,
+        }),
+      }),
+      live: Object.freeze({
+        kind: "provider_query_token_url" as const,
+        origin: "https://cpp.iyzipay.com",
+        pathname: "/" as const,
+        tokenParameter: "token" as const,
+        languageParameter: "lang" as const,
+        language: "tr" as const,
+        token: Object.freeze({
+          alphabet: "base64url" as const,
+          minimum: 36,
+          maximum: 256,
+        }),
+      }),
+    }),
+  });
+  for (const url of [
+    `https://sandbox-cpp.iyzipay.com?token=${token}&lang=tr`,
+    `https://sandbox-cpp.iyzipay.com/?token=${token}&lang=tr`,
+  ]) {
+    const selected = fixture({
+      packet: queryPacket,
+      initialization: Object.freeze({
+        kind: "iframe",
+        url,
+        token,
+        providerReference: token,
+      }),
+    });
+    assert.deepEqual(await selected.runtime.initialize(initializeInput()), {
+      kind: "iframe", url, token,
+    });
+    assert.equal(selected.calls.unknown.length, 0);
+  }
+
+  for (const url of [
+    `https://sandbox-cpp.iyzipay.com/?lang=tr&token=${token}`,
+    `https://sandbox-cpp.iyzipay.com/?token=${token}&lang=tr&next=evil`,
+    `https://sandbox-cpp.iyzipay.com/path?token=${token}&lang=tr`,
+    `https://attacker.example/?token=${token}&lang=tr`,
+    `https://sandbox-cpp.iyzipay.com/?token=${token}b&lang=tr`,
+  ]) {
+    const selected = fixture({
+      packet: queryPacket,
+      initialization: Object.freeze({
+        kind: "iframe", url, token, providerReference: token,
+      }),
+    });
+    assert.deepEqual(await selected.runtime.initialize(initializeInput()), { kind: "processing" });
+    assert.equal(selected.calls.unknown.length, 1);
+    assert.equal(selected.calls.initialized.length, 0);
+  }
+});
+
 test("persists an adapter-selected provider reference when initialization outcome is unknown", async () => {
   const providerReference = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
   const selected = fixture({
@@ -733,6 +821,8 @@ test("settles only a verified callback selected through provider and binding dig
   assert.equal(selected.calls.callbacks.length, 1);
   assert.equal(selected.calls.callbacks[0]?.expected.attemptId, ATTEMPT_ID);
   assert.equal(selected.calls.callbacks[0]?.expected.orderReference, "ORDER-100");
+  assert.equal(selected.calls.callbacks[0]?.expected.providerReference, null);
+  assert.equal(selected.calls.callbacks[0]?.signal instanceof AbortSignal, true);
   assert.equal(selected.calls.settled.length, 1);
   assert.equal(selected.calls.settled[0]?.status, "captured");
   assert.equal(selected.calls.settled[0]?.amountMinor, 12_345);
@@ -743,6 +833,126 @@ test("settles only a verified callback selected through provider and binding dig
     createHash("sha256").update(Buffer.alloc(32, 7)).digest("hex"));
   assert.equal(selected.calls.callbacks[0]?.body.every((byte) => byte === 0), true);
   assert.equal(selected.opened?.every((byte) => byte === 0), true);
+});
+
+test("customer-return callbacks project only fixed success and failure outcomes after exact settlement", async () => {
+  for (const [status, expectedOutcome, expectedSettlement] of [
+    ["succeeded", "success", "captured"],
+    ["failed", "failure", "failed"],
+  ] as const) {
+    const selected = fixture({
+      packet: callbackPacket("customer_return"),
+      callbackAuthority: authority({ providerReference: "provider_reference_private" }),
+      callback: Object.freeze({
+        eventKey: `provider_event_${status}`,
+        status,
+        providerReference: "provider_reference_private",
+        paidAmountMinor: 12_345,
+        currency: "TRY",
+        safeCode: status === "succeeded" ? "payment_captured" : "payment_failed",
+      }),
+    });
+    const result = await selected.runtime.callback({
+      request: callbackRequest(),
+      providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url"),
+    });
+    assert.deepEqual(result, { kind: "customer_return", outcome: expectedOutcome });
+    assert.equal(selected.calls.settled.length, 1);
+    assert.equal(selected.calls.settled[0]?.status, expectedSettlement);
+    assert.equal(selected.calls.unknown.length, 0);
+    assert.equal(selected.calls.callbacks[0]?.expected.providerReference, "provider_reference_private");
+  }
+});
+
+test("fraud review becomes durable unknown and returns processing without capture or failure", async () => {
+  const selected = fixture({
+    packet: callbackPacket("customer_return"),
+    callbackAuthority: authority({ providerReference: "provider_reference_private" }),
+    callback: Object.freeze({
+      eventKey: "iyzico:payment_fixture:0",
+      status: "pending",
+      providerReference: "provider_reference_private",
+      paidAmountMinor: 12_345,
+      currency: "TRY",
+      safeCode: "fraud_review",
+    }),
+  });
+  const result = await selected.runtime.callback({
+    request: callbackRequest(),
+    providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url"),
+  });
+
+  assert.deepEqual(result, { kind: "customer_return", outcome: "processing" });
+  assert.equal(selected.calls.settled.length, 0);
+  assert.equal(selected.calls.unknown.length, 1);
+  assert.equal(selected.calls.unknown[0]?.expectedVersion, 2);
+  assert.equal(selected.calls.unknown[0]?.providerReference, "provider_reference_private");
+  assert.equal(selected.calls.unknown[0]?.safeCode, "fraud_review");
+});
+
+test("temporary callback result becomes durable unknown while preserving each callback presentation mode", async () => {
+  for (const [mode, expected] of [
+    ["provider_ack", { kind: "retry" }],
+    ["customer_return", { kind: "customer_return", outcome: "processing" }],
+  ] as const) {
+    const selected = fixture({
+      packet: callbackPacket(mode),
+      callbackAuthority: authority({ providerReference: "provider_reference_private" }),
+      callback: Object.freeze({
+        eventKey: "iyzico:provider_reference_private:retry",
+        status: "retry",
+        providerReference: "provider_reference_private",
+        paidAmountMinor: 0,
+        currency: "TRY",
+        safeCode: "provider_temporarily_unavailable",
+      }),
+    });
+    const result = await selected.runtime.callback({
+      request: callbackRequest(),
+      providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url"),
+    });
+    assert.deepEqual(result, expected);
+    assert.equal(selected.calls.settled.length, 0);
+    assert.equal(selected.calls.unknown.length, 1);
+    assert.equal(selected.calls.unknown[0]?.safeCode, "provider_temporarily_unavailable");
+  }
+});
+
+test("callback deadline aborts verification, persists unknown, and ignores a late success", async () => {
+  const late = deferred<VerifiedProviderCallback>();
+  const selected = fixture({
+    packet: callbackPacket("customer_return"),
+    callbackAuthority: authority({ providerReference: "provider_reference_private" }),
+    callbackAdapter: () => late.promise,
+    providerTimeoutMs: 5,
+  });
+  const result = await selected.runtime.callback({
+    request: callbackRequest(),
+    providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url"),
+  });
+
+  assert.deepEqual(result, { kind: "customer_return", outcome: "processing" });
+  assert.equal(selected.calls.callbacks[0]?.signal?.aborted, true);
+  assert.equal(selected.calls.settled.length, 0);
+  assert.equal(selected.calls.unknown.length, 1);
+  assert.equal(selected.calls.unknown[0]?.safeCode, "provider_verification_timeout");
+  assert.equal(selected.opened?.every((byte) => byte === 0), true);
+
+  late.resolve(Object.freeze({
+    eventKey: "late_success",
+    status: "succeeded",
+    providerReference: "provider_reference_private",
+    paidAmountMinor: 12_345,
+    currency: "TRY",
+    safeCode: "payment_captured",
+  }));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(selected.calls.settled.length, 0);
+  assert.equal(selected.calls.unknown.length, 1);
 });
 
 test("rejects wrong provider, unknown binding, signature failure, amount/currency mismatch, and replay mismatch", async () => {
@@ -1035,6 +1245,18 @@ test("callback route maps only stable acknowledgements and fails closed without 
     binding,
   }]);
 
+  const retryRoute = createHostedPaymentCallbackRoute({
+    resolveRuntime: async () => Object.freeze({
+      ...runtime,
+      callback: async () => Object.freeze({ kind: "retry" as const }),
+    }),
+  });
+  const retry = await retryRoute(callbackRequest(), {
+    params: Promise.resolve({ providerCode: PROVIDER, binding }),
+  });
+  assert.equal(retry.status, 503);
+  assert.equal(await retry.text(), "RETRY");
+
   const unavailable = createHostedPaymentCallbackRoute({
     resolveRuntime: async () => null,
   });
@@ -1043,4 +1265,41 @@ test("callback route maps only stable acknowledgements and fails closed without 
   });
   assert.equal(rejected.status, 400);
   assert.equal(await rejected.text(), "INVALID");
+});
+
+test("customer callback route redirects only to fixed same-origin relative result paths", async () => {
+  const binding = Buffer.alloc(32, 7).toString("base64url");
+  for (const [outcome, location] of [
+    ["success", "/odeme/hizli/sonuc?durum=basarili"],
+    ["failure", "/odeme/hizli/sonuc?durum=basarisiz"],
+    ["processing", "/odeme/hizli/sonuc?durum=isleniyor"],
+  ] as const) {
+    const runtime: HostedPaymentRuntime = Object.freeze({
+      initialize: async () => Object.freeze({ kind: "rejected" }),
+      reconcile: async () => Object.freeze({ kind: "rejected" }),
+      callbackByDigest: async () => Object.freeze({ kind: "rejected" }),
+      callback: async () => Object.freeze({ kind: "customer_return", outcome }),
+    });
+    const route = createHostedPaymentCallbackRoute({ resolveRuntime: async () => runtime });
+    const maliciousBody = "return_url=https%3A%2F%2Fattacker.example%2Fcollect";
+    const response = await route(new Request(
+      `https://attacker.example/api/payments/${PROVIDER}/callback/${binding}?next=https://attacker.example`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "content-length": String(Buffer.byteLength(maliciousBody)),
+          host: "attacker.example",
+          "x-forwarded-host": "attacker.example",
+        },
+        body: maliciousBody,
+      },
+    ), { params: Promise.resolve({ providerCode: PROVIDER, binding }) });
+
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("location"), location);
+    assert.equal(response.headers.get("location")?.includes("attacker.example"), false);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(await response.text(), "");
+  }
 });

@@ -6,6 +6,7 @@ export const PAYTR_IFRAME_PACKET = parsePaymentAdapterPacket({
   modeCode: "iframe",
   adapterVersion: 1,
   implementation: "hosted",
+  callbackResponse: "provider_ack",
   readiness: {
     test: "verification",
     live: "verification",

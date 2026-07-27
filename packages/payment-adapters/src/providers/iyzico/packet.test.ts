@@ -24,6 +24,7 @@ test("exports the exact verification-only iyzico Checkout Form packet", () => {
   assert.equal(IYZICO_IFRAME_PACKET.providerCode, "iyzico_iframe");
   assert.equal(IYZICO_IFRAME_PACKET.familyCode, "iyzico");
   assert.equal(IYZICO_IFRAME_PACKET.modeCode, "iframe");
+  assert.equal(IYZICO_IFRAME_PACKET.callbackResponse, "customer_return");
   assert.deepEqual(IYZICO_IFRAME_PACKET.readiness, {
     test: "verification",
     live: "verification",
@@ -64,6 +65,13 @@ test("defines only the exact iyzico API key and secret credential fields", () =>
 });
 
 test("rejects endpoint and query-presentation authority outside the exact iyzico allowlist", () => {
+  const wrongCallbackResponse = mutablePacket();
+  wrongCallbackResponse.callbackResponse = "provider_ack";
+  assert.throws(
+    () => parsePaymentAdapterPacket(wrongCallbackResponse),
+    /payment_adapter_packet_invalid/,
+  );
+
   const endpointCases = [
     "https://api.iyzipay.com/payment/iyzipos/checkoutform/initialize/auth/ecom",
     "https://sandbox-api.iyzipay.com/payment/iyzipos/checkoutform/initialize/auth/ecom?next=1",

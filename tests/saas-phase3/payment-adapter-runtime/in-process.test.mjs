@@ -30,7 +30,10 @@ if (!CHILD) {
   });
 } else {
   const {
+    IYZICO_IFRAME_PACKET,
     PAYTR_IFRAME_PACKET,
+    createIyzicoCheckoutFormAdapter,
+    createIyzicoRetrieveResponseSignature,
     createPaymentAdapterRegistry,
     createPaytrIframeAdapter,
   } = await import("@celebix/payment-adapters");
@@ -61,6 +64,7 @@ if (!CHILD) {
     createDefaultHostedPaymentRuntime,
   } = await import("../../../apps/storefront-shared/lib/payment-adapters/default.ts");
   const {
+    createHostedPaymentCallbackRoute,
     createHostedPaymentRuntime,
   } = await import("../../../apps/storefront-shared/lib/payment-adapters/runtime.ts");
 
@@ -311,6 +315,143 @@ if (!CHILD) {
     assert.deepEqual(await runtime.initialize(input(STORE_B)), { kind: "rejected" });
     assert.equal(attempts.createdAttempts, 1);
     assert.equal(providerCalls, 1);
+  });
+
+  test("iyzico signed retrieve settles once and the browser receives only the fixed local result redirect", async () => {
+    const iyzicoToken = "A234567890123456789012345678901234567";
+    const iyzicoCredential = Object.freeze({
+      apiKey: "sandbox-api-key",
+      secretKey: "sandbox-secret-key",
+    });
+    const sealed = (() => {
+      const plaintext = new TextEncoder().encode(JSON.stringify(iyzicoCredential));
+      try {
+        return sealMerchantProviderCredential({
+          plaintext,
+          profileId: PROFILE,
+          storeId: STORE_A,
+          providerCode: "iyzico_iframe",
+          capability: "payment_processing",
+          credentialVersion: 1,
+          keyring: KEYRING,
+        });
+      } finally {
+        plaintext.fill(0);
+      }
+    })();
+    let settlements = 0;
+    const attempts = Object.freeze({
+      async begin() { throw new Error("unexpected_begin"); },
+      async markInitialized() { throw new Error("unexpected_initialize"); },
+      async markUnknown() { throw new Error("unexpected_unknown"); },
+      async getCallbackAuthority(selected) {
+        assert.deepEqual(selected, {
+          providerCode: "iyzico_iframe",
+          callbackBindingDigest: CALLBACK_DIGEST,
+          now: new Date("2026-07-27T12:00:00.000Z"),
+        });
+        return {
+          attemptId: ATTEMPT,
+          storeId: STORE_A,
+          paymentMethodId: METHOD,
+          profileId: PROFILE,
+          providerCode: "iyzico_iframe",
+          environment: "test",
+          credentialVersion: 1,
+          orderReference: "merchant-order-123",
+          amountMinor: 10_000,
+          currency: "TRY",
+          status: "awaiting_customer",
+          version: 2,
+          providerReference: iyzicoToken,
+          publicConfig: { environment: "test" },
+          sealedCredentials: sealed,
+        };
+      },
+      async settleCallback(selected) {
+        settlements += 1;
+        assert.equal(selected.status, "captured");
+        assert.equal(selected.providerReference, iyzicoToken);
+        assert.equal(selected.amountMinor, 10_000);
+        return {
+          attemptId: ATTEMPT,
+          status: "captured",
+          version: 3,
+          providerReference: iyzicoToken,
+          safeCode: "success",
+          replayed: false,
+        };
+      },
+      async claimReconciliation() { throw new Error("unexpected_reconciliation"); },
+      async finalizeReconciliation() { throw new Error("unexpected_reconciliation"); },
+    });
+    const retrieve = {
+      status: "success",
+      paymentStatus: "SUCCESS",
+      paymentId: "payment-123",
+      currency: "TRY",
+      basketId: "merchant-order-123",
+      conversationId: ATTEMPT,
+      paidPrice: "100.00",
+      price: "100.00",
+      token: iyzicoToken,
+      fraudStatus: 1,
+    };
+    const signature = createIyzicoRetrieveResponseSignature({
+      credential: iyzicoCredential,
+      paymentStatus: retrieve.paymentStatus,
+      paymentId: retrieve.paymentId,
+      currency: retrieve.currency,
+      basketId: retrieve.basketId,
+      conversationId: retrieve.conversationId,
+      paidPrice: retrieve.paidPrice,
+      price: retrieve.price,
+      token: retrieve.token,
+    });
+    let retrieveCalls = 0;
+    const adapter = createIyzicoCheckoutFormAdapter(Object.freeze({
+      request: Object.freeze(async (selected) => {
+        retrieveCalls += 1;
+        assert.equal(
+          selected.url,
+          "https://sandbox-api.iyzipay.com/payment/iyzipos/checkoutform/auth/ecom/detail",
+        );
+        return {
+          kind: "response",
+          status: 200,
+          contentType: "application/json",
+          body: new TextEncoder().encode(JSON.stringify({ ...retrieve, signature })),
+        };
+      }),
+    }), Object.freeze({ randomKey: Object.freeze(() => "fixedRandomKey0123456789") }));
+    const runtime = createHostedPaymentRuntime({
+      attempts,
+      adapters: createPaymentAdapterRegistry([IYZICO_IFRAME_PACKET], [adapter]),
+      keyring: KEYRING,
+      selectAuthority: () => ({
+        kind: "trusted",
+        hostname: "pilot.saas-staging.celebix.site",
+      }),
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      randomBytes: (size) => new Uint8Array(size).fill(7),
+    });
+    const route = createHostedPaymentCallbackRoute({ resolveRuntime: async () => runtime });
+    const response = await route(new Request(
+      `https://pilot.saas-staging.celebix.site/api/payments/iyzico_iframe/callback/${BINDING}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: `token=${iyzicoToken}`,
+      },
+    ), {
+      params: Promise.resolve({ providerCode: "iyzico_iframe", binding: BINDING }),
+    });
+
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("location"), "/odeme/hizli/sonuc?durum=basarili");
+    assert.equal(await response.text(), "");
+    assert.equal(retrieveCalls, 1);
+    assert.equal(settlements, 1);
   });
 
   test("absent stale superseded and revoked authority remain inert at panel owner and storefront boundaries on replay", async () => {
