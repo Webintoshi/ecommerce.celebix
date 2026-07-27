@@ -687,10 +687,14 @@ git commit -m "feat(payments): connect admin to adapter registry"
 - Create: apps/owner/scripts/paytr-iframe-sandbox-evidence.ts
 - Create: docs/ops/evidence/paytr-iframe-sandbox-2026-07-27.json
 - Create: docs/ops/payment-adapter-runtime-runbook.md
-- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_promotion.up.sql
-- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_promotion.down.sql
-- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_promotion_assertions.sql
-- Create: apps/owner/scripts/sql/saas/phase3m-paytr-iframe-sandbox-promotion-manifest.json
+- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_evidence_history.up.sql
+- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_evidence_history.down.sql
+- Create: apps/owner/scripts/sql/saas/202607270054_paytr_iframe_sandbox_evidence_history_assertions.sql
+- Create: apps/owner/scripts/sql/saas/phase3m-paytr-iframe-sandbox-evidence-history-manifest.json
+- Create: apps/owner/scripts/sql/saas/202607270055_paytr_iframe_sandbox_promotion.up.sql
+- Create: apps/owner/scripts/sql/saas/202607270055_paytr_iframe_sandbox_promotion.down.sql
+- Create: apps/owner/scripts/sql/saas/202607270055_paytr_iframe_sandbox_promotion_assertions.sql
+- Create: apps/owner/scripts/sql/saas/phase3n-paytr-iframe-sandbox-promotion-manifest.json
 - Modify: packages/payment-adapters/src/providers/paytr/packet.ts
 - Modify: apps/customer-panel/lib/payment-providers/catalog-data.ts
 - Modify: apps/customer-panel/lib/payment-provider-adapters/default.ts
@@ -737,6 +741,17 @@ merchant-supplied origins, and emits only the bounded evidence schema below. The
 new hosted adapter remains protected by the Task 7 byte-equivalence tests and the
 Task 9 in-process generic runtime test.
 
+The live panel and owner database roles intentionally have no direct SELECT on
+legacy checkout history and cannot assume `celebix_saas_owner`. Add migration 054
+with one bounded `STABLE SECURITY DEFINER` evidence-history function taking the
+five exact operation UUIDs. Revoke PUBLIC; grant EXECUTE only to
+`celebix_saas_app`; preserve zero direct table SELECT. The function must enforce
+TEST PayTR, one store, and one exact provider configuration id/version/digest,
+and return only the safe facts needed by the runner—never store/config identity,
+customer/order data, raw JSON, callbacks, or credentials. Pin its body and ACL in
+assertions and provide a complete down migration. The promotion migration moves
+to 055.
+
 Document exact feature flag, callback path, health checks, reconciliation command, circuit breaker, and rollback SHA. Register the test in the cumulative suite. Do not add another adapter.
 
 - [ ] **Step 4: Run complete fail-closed local gate**
@@ -767,6 +782,16 @@ failures; do not touch donor applications to hide them.
 
 - [ ] **Step 5: Run official PayTR sandbox evidence**
 
+Execution order: complete Step 6's reviewed dormant commit/deploy and apply
+migration 054 plus its assertions before running this evidence step. The step
+number groups the evidence acceptance requirements; it does not authorize an
+uncommitted or undeployed runner.
+
+Before the evidence transaction, deploy and apply migration 054 plus its
+assertions. Confirm the panel role can execute only the bounded function and
+still has no direct SELECT on the underlying legacy tables. Missing migration
+054 keeps the runner fail-closed and produces no artifact.
+
 Required cases:
 
 ~~~text
@@ -777,10 +802,22 @@ status query after simulated write timeout
 status verification through the official query endpoint
 ~~~
 
+The duplicate case is an operator-simulated, correctly signed TEST callback to
+the fixed staging callback URL. Reconstruct the exact original canonical form
+only by a bounded permutation search whose unique SHA-256 equals the stored
+callback digest; accept only the exact plain `OK` response, then re-read the
+bounded history and require byte-identical facts with one settlement and one
+receipt. A missing or ambiguous digest match makes zero callback network calls.
+
 Run the evidence from isolated staging with the existing operator-managed TEST
 credential variables. Never read or print their values. PayTR iFrame supplies its
 own test-card data; the browser session must not record HAR, trace, video,
 screenshot, console/network bodies, PAN, expiry, or CVV.
+
+The deployed Nixpacks runtime does not retain `.git`. Bind `testedGitSha` to
+Coolify's platform-injected `SOURCE_COMMIT` and independently verify before the
+run that the active container image tag and `SOURCE_COMMIT` are byte-identical.
+Do not fall back to an operator-supplied digest or an unavailable `git rev-parse`.
 
 The committed canonical evidence object contains only:
 
@@ -814,7 +851,10 @@ owner          bpsgdwfiswna06mooguu2mr3
 storefront     vtc2aah63jbqnmtxmvykn6jl
 ~~~
 
-Apply migration 053, then verify all health/preflight endpoints while the durable
+The original staging database preflight showed that both runtime migration 052
+and authority migration 053 were absent. Apply 052, 053, and 054 in order, run
+each corresponding assertion file, then verify all health/preflight endpoints
+while the durable
 authority table still has no PayTR row. Confirm the disabled modes produce no claim,
 provider network call, connectable UI, or generic payment attempt.
 
@@ -826,9 +866,9 @@ Only after Step 5 evidence passes:
 - change only PayTR iFrame packet/catalog TEST readiness to `sandbox_ready`;
 - give the panel descriptor, owner validation registry, and storefront runtime the
   byte-identical authority;
-- add migration 054, whose owner-only approval path inserts that exact tuple and no
+- add migration 055, whose owner-only approval path inserts that exact tuple and no
   live authority;
-- pin 054 ACL/RLS/function bodies and test approve/revoke races, rollback, and stale
+- pin 055 ACL/RLS/function bodies and test approve/revoke races, rollback, and stale
   tuples; and
 - snapshot adapter version/evidence digest on payment attempts so callbacks and
   status queries cannot silently switch adapter authority mid-attempt.
@@ -839,7 +879,7 @@ Direct and every other provider remain truthful non-connectable.
 - [ ] **Step 8: Deploy and activate staging in dependency order**
 
 Deploy the exact promotion SHA to owner, storefront, and customer-panel while all
-three activation modes remain disabled. Let owner apply migration 054. Verify the
+three activation modes remain disabled. Let owner apply migration 055. Verify the
 database exact authority, owner preflight, storefront health, and panel health.
 
 Then enable and redeploy in this order:
