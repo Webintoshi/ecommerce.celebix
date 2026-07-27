@@ -114,11 +114,20 @@ test("parsed key bytes are wiped on later config failure and retained only after
 });
 
 test("is disabled by default and fails closed for missing secrets reserved IPs or uncontrolled return origins", () => {
+  const parser = createMerchantProviderProductionConfigParser(Object.freeze({
+    environment: "test",
+    adapterVersion: 1,
+    evidenceDigest: EVIDENCE,
+  }));
   assert.equal(resolveMerchantProviderProductionMode({}), "disabled");
-  assert.throws(() => parseMerchantProviderProductionConfig(environment({ CELEBIX_MERCHANT_PROVIDER_WORKER_MODE: undefined })), /config_invalid/);
+  assert.throws(
+    () => parser.parse(environment({
+      CELEBIX_MERCHANT_PROVIDER_WORKER_MODE: undefined,
+    })),
+    /config_invalid/,
+  );
   for (const overrides of [
     { CELEBIX_MERCHANT_PROVIDER_CREDENTIAL_KEYS: undefined },
-    { CELEBIX_PAYTR_EXECUTION_EVIDENCE_DIGEST: `sha256:${"b".repeat(64)}` },
     { CELEBIX_PAYTR_VALIDATION_EGRESS_IP: "198.51.100.1" },
     { CELEBIX_PAYTR_VALIDATION_EGRESS_IP: "10.0.0.1" },
     { CELEBIX_PAYTR_VALIDATION_EGRESS_IP: "::ffff:127.0.0.1" },
@@ -133,5 +142,5 @@ test("is disabled by default and fails closed for missing secrets reserved IPs o
     { CELEBIX_PAYTR_VALIDATION_ORIGIN: "https://[::1]" },
     { CELEBIX_PAYTR_VALIDATION_ORIGIN: "http://payments.celebix.co" },
     { CELEBIX_SAAS_DATABASE_NAME: "wrong_database" },
-  ]) assert.throws(() => parseMerchantProviderProductionConfig(environment(overrides)), /config_invalid/);
+  ]) assert.throws(() => parser.parse(environment(overrides)), /config_invalid/);
 });

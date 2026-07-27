@@ -32,6 +32,7 @@ import {
 import { PAYTR_IFRAME_PACKET } from "./packet.ts";
 
 export { PAYTR_IFRAME_PACKET } from "./packet.ts";
+export { createPaytrIframeCallbackHash } from "./config.ts";
 export type { PaytrIframeCredential } from "./config.ts";
 
 const GET_TOKEN_URL = "https://www.paytr.com/odeme/api/get-token";

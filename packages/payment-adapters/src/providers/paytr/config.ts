@@ -31,6 +31,12 @@ const CALLBACK_HASH_KEYS = Object.freeze([
   "status",
   "totalAmount",
 ]);
+const CALLBACK_SIGN_KEYS = Object.freeze([
+  "credential",
+  "merchantOid",
+  "status",
+  "totalAmount",
+]);
 
 export type PaytrIframeCredential = {
   merchantId: string;
@@ -269,7 +275,34 @@ export function createPaytrIframeStatusToken(
 function canonicalCallbackHash(value: unknown): Buffer | null {
   if (typeof value !== "string" || value.length !== 44 || !BASE64.test(value)) return null;
   const bytes = Buffer.from(value, "base64");
-  return bytes.byteLength === 32 && bytes.toString("base64") === value ? bytes : null;
+  if (bytes.byteLength === 32 && bytes.toString("base64") === value) return bytes;
+  bytes.fill(0);
+  return null;
+}
+
+export function createPaytrIframeCallbackHash(input: Readonly<{
+  credential: PaytrIframeCredential;
+  merchantOid: string;
+  status: "success" | "failed";
+  totalAmount: string;
+}>): string {
+  let credential: PaytrIframeCredential | undefined;
+  try {
+    const selected = exactRecord(input, CALLBACK_SIGN_KEYS);
+    credential = parsePaytrIframeCredential(selected.credential);
+    const oid = parsePaytrMerchantOid(selected.merchantOid);
+    if (selected.status !== "success" && selected.status !== "failed") invalid();
+    if (
+      typeof selected.totalAmount !== "string" ||
+      !CALLBACK_AMOUNT.test(selected.totalAmount)
+    ) invalid();
+    return hmac(
+      credential,
+      `${oid}${credential.merchantSalt}${selected.status}${selected.totalAmount}`,
+    );
+  } finally {
+    if (credential !== undefined) wipePaytrCredential(credential);
+  }
 }
 
 export function verifyPaytrIframeCallbackHash(input: Readonly<{
@@ -279,25 +312,19 @@ export function verifyPaytrIframeCallbackHash(input: Readonly<{
   totalAmount: string;
   providedHash: string;
 }>): boolean {
-  let credential: PaytrIframeCredential | undefined;
   let provided: Buffer | null = null;
   let expected: Buffer | undefined;
   try {
     const selected = exactRecord(input, CALLBACK_HASH_KEYS);
-    credential = parsePaytrIframeCredential(selected.credential);
-    const oid = parsePaytrMerchantOid(selected.merchantOid);
-    if (selected.status !== "success" && selected.status !== "failed") return false;
-    if (
-      typeof selected.totalAmount !== "string" ||
-      !CALLBACK_AMOUNT.test(selected.totalAmount)
-    ) return false;
     provided = canonicalCallbackHash(selected.providedHash);
     if (provided === null) return false;
     expected = Buffer.from(
-      hmac(
-        credential,
-        `${oid}${credential.merchantSalt}${selected.status}${selected.totalAmount}`,
-      ),
+      createPaytrIframeCallbackHash({
+        credential: selected.credential as PaytrIframeCredential,
+        merchantOid: selected.merchantOid as string,
+        status: selected.status as "success" | "failed",
+        totalAmount: selected.totalAmount as string,
+      }),
       "base64",
     );
     return timingSafeEqual(provided, expected);
@@ -306,7 +333,6 @@ export function verifyPaytrIframeCallbackHash(input: Readonly<{
   } finally {
     provided?.fill(0);
     expected?.fill(0);
-    if (credential !== undefined) wipePaytrCredential(credential);
   }
 }
 

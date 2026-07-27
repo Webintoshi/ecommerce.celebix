@@ -6,6 +6,8 @@
     "dev": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next dev --port 3100",
     "build": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next build",
     "start": "node ./scripts/start-production.cjs",
+    "test": "node ./scripts/run-tests.mjs",
+    "evidence:paytr-sandbox": "node --experimental-transform-types ./scripts/paytr-iframe-sandbox-evidence.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

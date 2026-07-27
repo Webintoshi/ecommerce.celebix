@@ -3,7 +3,9 @@ import test from "node:test";
 
 import { sealMerchantProviderCredential } from "@celebix/saas-data";
 
-import { parseMerchantProviderProductionConfig } from "./production-config.ts";
+import {
+  createMerchantProviderProductionConfigParser,
+} from "./production-config.ts";
 import { initializeMerchantProviderProductionRuntime } from "./production.ts";
 
 const PROFILE = "40000000-0000-4000-8000-000000000005";
@@ -14,9 +16,16 @@ const NOW = new Date("2026-07-27T12:00:00.000Z");
 const KEY = Buffer.alloc(32, 0x41).toString("base64url");
 const TOKEN = "28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa";
 const EVIDENCE = `sha256:${"a".repeat(64)}`;
+const TEST_CONFIG_PARSER = createMerchantProviderProductionConfigParser(
+  Object.freeze({
+    environment: "test",
+    adapterVersion: 1,
+    evidenceDigest: EVIDENCE,
+  }),
+);
 
 function config() {
-  return parseMerchantProviderProductionConfig({
+  return TEST_CONFIG_PARSER.parse({
     CELEBIX_MERCHANT_PROVIDER_WORKER_MODE: "approved_test_validation",
     CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@db.celebix.internal:5432/celebix_saas_production",
     CELEBIX_SAAS_DATABASE_NAME: "celebix_saas_production",
@@ -25,7 +34,6 @@ function config() {
     CELEBIX_MERCHANT_PROVIDER_WORKER_ID: "owner.payments.1",
     CELEBIX_PAYTR_VALIDATION_EGRESS_IP: "8.8.8.8",
     CELEBIX_PAYTR_VALIDATION_ORIGIN: "https://payments.celebix.co",
-    CELEBIX_PAYTR_EXECUTION_EVIDENCE_DIGEST: EVIDENCE,
   });
 }
 

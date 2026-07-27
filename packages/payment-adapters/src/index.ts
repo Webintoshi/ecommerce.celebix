@@ -10,6 +10,7 @@ export {
   PAYTR_IFRAME_PACKET,
   authenticatePaytrIframeCallback,
   createPaytrIframeAdapter,
+  createPaytrIframeCallbackHash,
   createPaytrIframePresentationUrl,
   initializePaytrIframeWithTransport,
   queryPaytrIframeWithTransport,

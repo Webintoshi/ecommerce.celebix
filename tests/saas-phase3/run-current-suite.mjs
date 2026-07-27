@@ -51,13 +51,24 @@ const requiredHarnesses = Object.freeze([
     line: /^1\/1 PASS$/gm,
     completion: /^1\/1 PASS$/m,
   }),
+  Object.freeze({
+    file: "tests/saas-phase3/payment-sandbox-evidence-history/postgres-harness.mjs",
+    total: 8,
+    line: /^PASS \d+\/8 .+$/gm,
+    completion: /^PASS 8\/8 .+$/m,
+  }),
 ]);
 const gateRank = Object.freeze({
   "provider-execution-foundation": 0,
   "payment-provider-admin": 1,
   "payment-adapter-runtime": 2,
   "paytr-iframe-activation-authority": 3,
+  "payment-sandbox-evidence-history": 4,
 });
+const requiredCurrentTests = Object.freeze([
+  "tests/saas-phase3/payment-adapter-runtime/evidence-artifact.test.mjs",
+  "tests/saas-phase3/payment-adapter-runtime/in-process.test.mjs",
+]);
 
 function runRequiredHarness({ file, total, line, completion }) {
   const result = spawnSync(process.execPath, [file], {
@@ -95,6 +106,14 @@ if (unknownHistorical.length) {
   process.exit(1);
 }
 const current = discovered.filter((file) => !historical.has(file));
+const missingRequiredCurrentTests = requiredCurrentTests.filter((file) =>
+  !current.includes(file));
+if (missingRequiredCurrentTests.length) {
+  process.stderr.write(
+    `Required current payment gates are missing:\n${missingRequiredCurrentTests.join("\n")}\n`,
+  );
+  process.exit(1);
+}
 process.stdout.write(`Running ${current.length} current cumulative Phase 3 test files.\n`);
 for (const { file, reason } of matrix.historicalSnapshots) {
   process.stdout.write(`HISTORICAL_SCOPE_SNAPSHOT ${file}: ${reason}\n`);

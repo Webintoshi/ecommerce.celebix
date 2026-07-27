@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createPaytrIframeCallbackHash as createPaytrIframeCallbackHashFromPackage,
+} from "../../index.ts";
+import {
+  createPaytrIframeCallbackHash as createPaytrIframeCallbackHashFromAdapter,
+} from "./adapter.ts";
+import {
+  createPaytrIframeCallbackHash,
   createPaytrIframeStatusToken,
   createPaytrIframeToken,
   parsePaytrIframeCredential,
@@ -90,6 +97,57 @@ test("matches the canonical PayTR iframe, callback, and status HMAC vectors", ()
     totalAmount: "3600",
     providedHash: "ArJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
   }), false);
+});
+
+test("creates the canonical PayTR callback hash from the official existing vector", () => {
+  assert.equal(createPaytrIframeCallbackHash({
+    credential,
+    merchantOid,
+    status: "success",
+    totalAmount: "3600",
+  }), "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=");
+});
+
+test("exports the canonical callback signer through the provider and package boundaries", () => {
+  const input = {
+    credential,
+    merchantOid,
+    status: "success" as const,
+    totalAmount: "3600",
+  };
+  assert.equal(
+    createPaytrIframeCallbackHashFromAdapter(input),
+    "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+  );
+  assert.equal(
+    createPaytrIframeCallbackHashFromPackage(input),
+    "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+  );
+});
+
+test("callback signer rejects noncanonical or hostile authority without mutating caller credentials", () => {
+  const canonical = {
+    credential,
+    merchantOid,
+    status: "success" as const,
+    totalAmount: "3600",
+  };
+  for (const input of [
+    { ...canonical, extra: true },
+    { ...canonical, totalAmount: "03600" },
+    { ...canonical, status: "pending" },
+    new Proxy(canonical, {}),
+  ]) {
+    assert.throws(
+      () => createPaytrIframeCallbackHash(input as never),
+      /paytr_invalid/,
+    );
+  }
+  assert.deepEqual(credential, {
+    merchantId: "123456",
+    merchantKey: "test-merchant-key",
+    merchantSalt: "test-merchant-salt",
+  });
 });
 
 test("zeroes each exact temporary secret encoding once after credential parse and wipe", () => {
