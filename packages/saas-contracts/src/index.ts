@@ -306,3 +306,27 @@ export type {
   OrderStatus,
   OrderTracking,
 } from "./orders/index.ts";
+export {
+  PAYMENT_METHOD_KINDS,
+  PAYMENT_METHOD_STATES,
+  PAYMENT_PROVIDER_INTERACTION_MODES,
+  PAYMENT_PROVIDER_READINESS,
+  parseMerchantPaymentMethod,
+  parsePaymentMethodMutationResult,
+  parsePaymentMethodReorderResult,
+  parsePaymentProviderCatalog,
+  parsePaymentProviderCatalogEntry,
+} from "./payment-providers/index.ts";
+export type {
+  MerchantPaymentMethod,
+  PaymentMethodKind,
+  PaymentMethodMutationResult,
+  PaymentMethodReorderResult,
+  PaymentMethodState,
+  PaymentProviderCatalogEntry,
+  PaymentProviderCategory,
+  PaymentProviderEnvironment,
+  PaymentProviderInteractionMode,
+  PaymentProviderReadiness,
+  PaymentProviderSupport,
+} from "./payment-providers/index.ts";

@@ -153,7 +153,7 @@ test("provider profiles expose only masked durable authority", () => {
 
   assert.deepEqual(MERCHANT_PROVIDER_CAPABILITIES, [
     "marketplace_sync", "invoice_reconciliation", "email_delivery",
-    "phone_delivery", "whatsapp_delivery", "indexing",
+    "phone_delivery", "whatsapp_delivery", "indexing", "payment_processing",
   ]);
   assert.deepEqual(MERCHANT_PROVIDER_PROFILE_STATUSES, [
     "pending_validation", "active", "disabled", "rotation_required", "revoked",
