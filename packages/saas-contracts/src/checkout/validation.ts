@@ -1,4 +1,3 @@
-import { isProxy } from "node:util/types";
 import type {
   CheckoutAddress,
   CheckoutDeliveryInput,
@@ -30,6 +29,15 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const IBAN = /^TR\d{24}$/;
 
 type InputRecord = Record<string, unknown>;
+type NodeUtilTypes = Readonly<{ isProxy?: (value: unknown) => boolean }>;
+
+function isProxy(value: object): boolean {
+  const nodeProcess = (globalThis as typeof globalThis & {
+    process?: Readonly<{ getBuiltinModule?: (specifier: string) => unknown }>;
+  }).process;
+  const nodeTypes = nodeProcess?.getBuiltinModule?.(["node", "util/types"].join(":")) as NodeUtilTypes | undefined;
+  return nodeTypes?.isProxy?.(value) === true;
+}
 
 function invalid(): never {
   throw new TypeError("checkout_contract_invalid");

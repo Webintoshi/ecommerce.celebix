@@ -69,6 +69,10 @@ test("checkout inputs reject browser authority and hostile objects", () => {
   assert.throws(() => parseCheckoutSubmitInput(hostile));
 });
 
+test("checkout quote rejects a transparent proxy at the server boundary", () => {
+  assert.throws(() => parseCheckoutQuote(new Proxy(quoteFixture(), {})));
+});
+
 test("checkout delivery validates the exact address and optional billing address", () => {
   const input = {
     cartVersion: 1, checkoutNonce: NONCE, operationId: OPERATION_ID, email: "ayse@example.com", marketingOptIn: false,
