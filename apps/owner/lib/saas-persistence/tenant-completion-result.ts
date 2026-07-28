@@ -18,7 +18,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 function exactKeys(value: unknown, required: readonly string[], optional: readonly string[] = []): value is Record<string, unknown> {
   if (!isObject(value)) return false;
   const allowed = new Set([...required, ...optional]);
-  return required.every((key) => key in value) && Object.keys(value).every((key) => allowed.has(key));
+  return required.every((key) => Object.hasOwn(value, key)) && Object.keys(value).every((key) => allowed.has(key));
 }
 
 function validTimestamp(value: unknown): value is string {
@@ -42,7 +42,7 @@ export function validateTenantCompletionResult(
   tenantInput: CreateStarterTenantInput,
   authorities: TenantCompletionResultAuthorities,
 ): value is CreateStarterTenantResult {
-  if (!exactKeys(value, ["schemaVersion", "operationId", "replayed", "store", "primaryDomain", "membership", "plan", "provisioningStatus", "panelUrl", "storefrontUrl"])) return false;
+  if (!exactKeys(value, ["schemaVersion", "operationId", "replayed", "store", "primaryDomain", "membership", "plan", "mediaStorage", "provisioningStatus", "panelUrl", "storefrontUrl"])) return false;
   if (value.schemaVersion !== 1 || !UUID.test(String(value.operationId)) || typeof value.replayed !== "boolean" || value.provisioningStatus !== "ready") return false;
   const store = value.store;
   if (!exactKeys(store, ["id", "slug", "status"]) || !UUID.test(String(store.id)) || store.slug !== tenantInput.store.slug || store.status !== "active") return false;
@@ -66,6 +66,9 @@ export function validateTenantCompletionResult(
   }
   if (!isObject(plan.limits) || Object.keys(plan.limits).length !== LIMIT_KEYS.size || Object.keys(plan.limits).some((key) => !LIMIT_KEYS.has(key))) return false;
   if (Object.values(plan.limits).some((limit) => !Number.isSafeInteger(limit) || Number(limit) < 0)) return false;
+  const mediaStorage = value.mediaStorage;
+  if (!exactKeys(mediaStorage, ["schemaVersion", "status", "version"])) return false;
+  if (mediaStorage.schemaVersion !== 1 || mediaStorage.status !== "ready" || !Number.isSafeInteger(mediaStorage.version) || Number(mediaStorage.version) < 1) return false;
   let expectedPanelUrl: string;
   try { expectedPanelUrl = createPanelStoreUrl(authorities.panelOrigin, tenantInput.store.slug); } catch { return false; }
   return value.panelUrl === expectedPanelUrl && value.storefrontUrl === `https://${hostname}`;

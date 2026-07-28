@@ -41,7 +41,7 @@ function url(value: unknown): string {
 export function parseCreateStarterTenantResult(value: unknown, approvedPanelOrigin: string): CreateStarterTenantResult {
   let panelOrigin: string;
   try { panelOrigin = normalizeExactHttpsOrigin(approvedPanelOrigin); } catch { corrupt(); }
-  const root = exact(value, ["schemaVersion", "operationId", "replayed", "store", "primaryDomain", "membership", "plan", "provisioningStatus", "panelUrl", "storefrontUrl"]);
+  const root = exact(value, ["schemaVersion", "operationId", "replayed", "store", "primaryDomain", "membership", "plan", "mediaStorage", "provisioningStatus", "panelUrl", "storefrontUrl"]);
   if (root.schemaVersion !== 1 || root.replayed !== false || root.provisioningStatus !== "ready") corrupt();
   const operationId = uuid(root.operationId);
   const store = exact(root.store, ["id", "slug", "status"]);
@@ -73,6 +73,9 @@ export function parseCreateStarterTenantResult(value: unknown, approvedPanelOrig
   }
   const limits = exact(plan.limits, LIMIT_KEYS);
   for (const key of LIMIT_KEYS) integer(limits[key]);
+  const mediaStorage = exact(root.mediaStorage, ["schemaVersion", "status", "version"]);
+  if (mediaStorage.schemaVersion !== 1 || mediaStorage.status !== "ready") corrupt();
+  integer(mediaStorage.version, 1);
   let expectedPanelUrl: string;
   try { expectedPanelUrl = createPanelStoreUrl(panelOrigin, slug); } catch { corrupt(); }
   if (root.panelUrl !== expectedPanelUrl) corrupt();

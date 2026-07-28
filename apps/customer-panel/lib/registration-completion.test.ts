@@ -83,6 +83,7 @@ function tenantResult(): CreateStarterTenantResult {
       limits: { products: 100, staff: 1, storageBytes: 1_000_000_000 },
       validFrom: NOW.toISOString(),
     },
+    mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
     provisioningStatus: "ready",
     panelUrl: "https://panel.celebix.site",
     storefrontUrl: "https://cicek-pazari.celebix.site",

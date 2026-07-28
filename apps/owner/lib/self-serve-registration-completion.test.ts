@@ -79,6 +79,7 @@ const tenantResult: CreateStarterTenantResult = {
     limits: { products: 100, staff: 1, storageBytes: 1_000_000_000, monthlyOrders: 100, customDomains: 0 },
     validFrom: tenantInput.requestedAt,
   },
+  mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
   provisioningStatus: "ready",
   panelUrl: "https://panel.celebix.site/stores/safe-store",
   storefrontUrl: "https://safe-store.celebix.site",

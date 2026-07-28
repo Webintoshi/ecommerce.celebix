@@ -115,6 +115,7 @@ export class DeterministicFakeTenantCoreClient implements TenantCoreClient {
           },
           validFrom: now,
         },
+        mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
         provisioningStatus: "ready",
         panelUrl: "https://panel.celebix.site",
         storefrontUrl: `https://${input.store.slug}.celebix.site`,

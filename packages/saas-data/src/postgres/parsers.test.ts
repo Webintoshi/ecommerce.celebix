@@ -9,7 +9,7 @@ import {
   mapPostgresError,
 } from "./errors.ts";
 import { SaaSDataUniqueConflict } from "../errors.ts";
-import { parseTenantOperationRow } from "./parsers.ts";
+import { parseCreateStarterTenantResult, parseTenantOperationRow } from "./parsers.ts";
 
 const panelOrigin = "https://panel.example.test";
 
@@ -58,6 +58,7 @@ const result = {
     limits: { products: 100, staff: 1, storageBytes: 1_000_000_000, monthlyOrders: 100, customDomains: 0 },
     validFrom: "2026-07-11T01:00:00.000Z",
   },
+  mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
   provisioningStatus: "ready",
   panelUrl: "https://panel.example.test/stores/tenant-a",
   storefrontUrl: "https://tenant-a.example.test",
@@ -80,6 +81,23 @@ test("strict operation parser accepts a complete committed immutable snapshot", 
   const parsed = parseTenantOperationRow(committedRow(), panelOrigin);
   assert.equal(parsed.status, "committed");
   assert.deepEqual(parsed.result, result);
+});
+
+test("tenant result requires safe media readiness without infrastructure authority", () => {
+  const parsed = parseCreateStarterTenantResult(result, panelOrigin);
+  assert.deepEqual(parsed.mediaStorage, { schemaVersion: 1, status: "ready", version: 1 });
+
+  for (const mediaStorage of [
+    undefined,
+    { schemaVersion: 1, status: "pending", version: 1 },
+    { schemaVersion: 1, status: "ready", version: 0 },
+    { schemaVersion: 1, status: "ready", version: 1, bucket: "private" },
+  ]) {
+    assert.throws(
+      () => parseCreateStarterTenantResult({ ...result, mediaStorage }, panelOrigin),
+      SaaSDataCorruptionError,
+    );
+  }
 });
 
 test("strict operation parser rejects extra keys, malformed IDs, and inconsistent nested authority", () => {

@@ -206,6 +206,18 @@ export interface ResolvedStoreHost {
 }
 
 /**
+ * Safe proof that Tenant Core committed the store-owned media namespace.
+ *
+ * Infrastructure authority such as bucket names, credentials, endpoint URLs,
+ * or object-key prefixes must never cross this contract boundary.
+ */
+export interface StoreMediaReadiness {
+  readonly schemaVersion: SaaSContractSchemaVersion;
+  readonly status: "ready";
+  readonly version: number;
+}
+
+/**
  * Result emitted by Tenant Core after creating or replaying a free-starter operation.
  *
  * Invariants:
@@ -228,6 +240,7 @@ export interface CreateStarterTenantResult {
   primaryDomain: ResolvedStoreHost;
   membership: StoreMembership;
   plan: PlanEntitlements;
+  mediaStorage: StoreMediaReadiness;
   provisioningStatus: ProvisioningStatus;
   panelUrl: string;
   storefrontUrl: string;
