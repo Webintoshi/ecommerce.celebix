@@ -36,6 +36,16 @@ export {
   createIyzicoCheckoutFormAdapter,
   validateIyzicoCredentialWithTransport,
 } from "./providers/iyzico/adapter.ts";
+export {
+  IYZICO_ADAPTER_SOURCE_PATHS,
+  IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  createIyzicoAdapterSourceManifest,
+  createIyzicoCandidateBuildMetadata,
+  verifyIyzicoGeneratedBuildMetadata,
+} from "./providers/iyzico/build-binding.ts";
+export {
+  IYZICO_GENERATED_BUILD_METADATA,
+} from "./providers/iyzico/build-metadata.generated.ts";
 export type {
   HostedPaymentAdapter,
   HostedPaymentCallbackInput,
@@ -78,3 +88,8 @@ export type {
   IyzicoAdapterDependencies,
   IyzicoCredentialValidationResult,
 } from "./providers/iyzico/adapter.ts";
+export type {
+  IyzicoAdapterSource,
+  IyzicoAdapterSourceManifest,
+  IyzicoCandidateBuildMetadata,
+} from "./providers/iyzico/build-binding.ts";
