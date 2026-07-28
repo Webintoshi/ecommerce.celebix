@@ -19,7 +19,10 @@ test("media repository uses TenantContext and tenant-namespaced object key", asy
   const result = await repository.attachMedia({ tenantContext, now, operationId: OPERATION_ID, mediaId: MEDIA_ID, productId: PRODUCT_ID, objectKey: media.objectKey, publicUrl: media.publicUrl, mediaType: "image/webp", altText: "Pilot", width: 1200, height: 1200, byteSize: 2048 });
   assert.equal(result.media.storeId, STORE_ID);
   assert.equal(queries.some((query) => query.text === "SET LOCAL ROLE celebix_saas_app"), true);
-  assert.equal(queries.some((query) => query.text.includes("media_attach_product")), true);
+  const attach = queries.find((query) => query.text.includes("media_attach_product"));
+  assert.equal(attach?.text, "SELECT outcome,result_payload FROM saas.media_attach_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::text,$15::text,$16::text,$17::text,$18::integer,$19::integer,$20::bigint)");
+  assert.equal(attach?.values?.length, 20);
+  assert.equal(attach?.values?.[13], media.objectKey);
 });
 
 test("media repository rejects a browser-selected non-namespaced object key before PostgreSQL", async () => {
