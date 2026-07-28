@@ -173,14 +173,14 @@ export type PaymentProviderCatalogCard = Readonly<{
   configurable: boolean;
   executable: boolean;
   connectable: boolean;
-  actionLabel: "Bilgileri gir" | "Bağla" | "Hazırlanıyor";
+  actionLabel: "Bilgileri gir" | "Bağla" | "Etkinleştir" | "Hazırlanıyor";
   lifecycleLabel:
     | "Henüz bağlanmadı"
     | "Hazırlanıyor"
     | "Bakımda"
     | "Doğrulama bekliyor"
     | "Doğrulandı — sandbox kanıtı bekleniyor"
-    | "Aktivasyona hazır"
+    | "Bağlı — aktivasyon bekliyor"
     | "Anahtar yenileme gerekli"
     | "Devre dışı"
     | "Aktif";
@@ -279,8 +279,7 @@ function exactExecutionDescriptor(
     && authority.environment === expectedEnvironment
     && entry.environments.includes(authority.environment)
     && descriptor.adapterVersion === authority.adapterVersion
-    && descriptor.environments?.length === 1
-    && descriptor.environments[0] === authority.environment
+    && descriptor.environments?.includes(authority.environment) === true
     && descriptorAuthority !== null && descriptorAuthority !== undefined
     && descriptorAuthority.environment === authority.environment
     && descriptorAuthority.adapterVersion === authority.adapterVersion
@@ -328,10 +327,16 @@ function catalogCard(
         configurableDescriptor.environments,
       );
   const activeProfile = connectionProfile?.status === "active";
-  const activeMethod = methods.some((candidate) =>
-    candidate.providerCode === entry.providerCode
-    && candidate.profileId === connectionProfile?.id
-    && candidate.state === "active");
+  const activeMethod = executable && methods.some((candidate) => {
+    const configKeys = Object.keys(candidate.config);
+    return candidate.kind === "provider"
+      && candidate.providerCode === entry.providerCode
+      && candidate.profileId === connectionProfile?.id
+      && candidate.state === "active"
+      && configKeys.length === 1
+      && configKeys[0] === "environment"
+      && candidate.config.environment === connectionProfile?.publicConfig.environment;
+  });
   const profileEnvironment = connectionProfile?.publicConfig.environment;
   const connectionEnvironment = profileEnvironment === "test" || profileEnvironment === "live"
     ? profileEnvironment
@@ -341,7 +346,7 @@ function catalogCard(
   const lifecycleLabel = !configurable
     ? entry.readiness === "maintenance" ? "Bakımda" as const : "Hazırlanıyor" as const
     : activeMethod ? "Aktif" as const
-    : executable && activeProfile ? "Aktivasyona hazır" as const
+    : executable && activeProfile ? "Bağlı — aktivasyon bekliyor" as const
     : activeProfile ? "Doğrulandı — sandbox kanıtı bekleniyor" as const
     : connectionProfile?.status === "pending_validation" ? "Doğrulama bekliyor" as const
     : connectionProfile?.status === "rotation_required" ? "Anahtar yenileme gerekli" as const
@@ -367,7 +372,9 @@ function catalogCard(
     configurable,
     executable,
     connectable: configurable,
-    actionLabel: executable ? "Bağla" : configurable ? "Bilgileri gir" : "Hazırlanıyor",
+    actionLabel: executable && activeProfile && !activeMethod
+      ? "Etkinleştir"
+      : executable ? "Bağla" : configurable ? "Bilgileri gir" : "Hazırlanıyor",
     lifecycleLabel,
     connectionEnvironment: configurable ? connectionEnvironment : null,
     configurableDescriptor: configurableDescriptor ? cloneDescriptor(configurableDescriptor) : null,

@@ -4,6 +4,10 @@ import { readFile } from "node:fs/promises";
 
 import type { MerchantPaymentMethod } from "@celebix/saas-contracts";
 
+import { PaymentMethodApiError } from "./payment-method-ui/client.ts";
+import { PAYMENT_PROVIDER_CATALOG } from "./payment-providers/catalog.ts";
+import { buildPaymentSettingsViewModel } from "./payment-settings-ui/model.ts";
+import * as consoleState from "./payment-settings-ui/console-state.ts";
 import {
   buildPaymentMethodOrderCommands,
   hasPaymentMethodOrderChanged,
@@ -14,6 +18,104 @@ import {
 const root = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, root), "utf8");
 const NOW = "2026-07-27T12:00:00.000Z";
+const IYZICO_PROFILE_ID = "40000000-0000-4000-8000-000000000090";
+
+function executableIyzicoCard(environment: "test" | "live" = "test") {
+  const evidenceDigest = `sha256:${"a".repeat(64)}`;
+  const entry = PAYMENT_PROVIDER_CATALOG.find(({ providerCode }) => providerCode === "iyzico_iframe")!;
+  return buildPaymentSettingsViewModel([
+    Object.freeze({
+      ...entry,
+      readiness: environment === "test" ? "sandbox_ready" as const : "production_ready" as const,
+      environments: Object.freeze([environment]),
+      executionAuthority: Object.freeze({ environment, adapterVersion: 1, evidenceDigest }),
+    }),
+  ], [Object.freeze({
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing" as const,
+    label: "iyzico · Checkout Form",
+    publicFields: Object.freeze([]),
+    credentialFields: Object.freeze([
+      Object.freeze({ key: "apiKey", label: "API Key", secret: true as const }),
+      Object.freeze({ key: "secretKey", label: "Secret Key", secret: true as const }),
+    ]),
+    adapterVersion: 1,
+    environments: Object.freeze([environment]),
+    executionAuthority: Object.freeze({ environment, adapterVersion: 1, evidenceDigest }),
+  })], [], [], "", Object.freeze({
+    category: "all" as const,
+    interactionMode: "all" as const,
+    readiness: "all" as const,
+    environment: "all" as const,
+  })).catalog.cards[0]!;
+}
+
+function executableDualEnvironmentIyzicoCard(environment: "test" | "live" = "test") {
+  const evidenceDigest = `sha256:${"b".repeat(64)}`;
+  const entry = PAYMENT_PROVIDER_CATALOG.find(({ providerCode }) => providerCode === "iyzico_iframe")!;
+  return buildPaymentSettingsViewModel([
+    Object.freeze({
+      ...entry,
+      readiness: environment === "test" ? "sandbox_ready" as const : "production_ready" as const,
+      environments: Object.freeze(["test", "live"] as const),
+      executionAuthority: Object.freeze({ environment, adapterVersion: 1, evidenceDigest }),
+    }),
+  ], [Object.freeze({
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing" as const,
+    label: "iyzico · Checkout Form",
+    publicFields: Object.freeze([]),
+    credentialFields: Object.freeze([
+      Object.freeze({ key: "apiKey", label: "API Key", secret: true as const }),
+      Object.freeze({ key: "secretKey", label: "Secret Key", secret: true as const }),
+    ]),
+    adapterVersion: 1,
+    environments: Object.freeze(["test", "live"] as const),
+    executionAuthority: Object.freeze({ environment, adapterVersion: 1, evidenceDigest }),
+  })], [], [], "", Object.freeze({
+    category: "all" as const,
+    interactionMode: "all" as const,
+    readiness: "all" as const,
+    environment: "all" as const,
+  })).catalog.cards[0]!;
+}
+
+function iyzicoProfile(environment: "test" | "live" = "test") {
+  return Object.freeze({
+    id: IYZICO_PROFILE_ID,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing" as const,
+    publicConfig: Object.freeze({ environment }),
+    maskedAccountReference: `iyzico ${environment} hesabı`,
+    status: "active" as const,
+    credentialVersion: 1,
+    version: 3,
+    lastValidatedAt: NOW,
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+}
+
+function iyzicoMethod(
+  state: MerchantPaymentMethod["state"],
+  environment: "test" | "live" = "test",
+  version = 4,
+): MerchantPaymentMethod {
+  return Object.freeze({
+    id: IYZICO_PROFILE_ID,
+    kind: "provider" as const,
+    profileId: IYZICO_PROFILE_ID,
+    providerCode: "iyzico_iframe",
+    label: "iyzico · Checkout Form",
+    state,
+    emergencyReason: state === "emergency_disabled" ? "Risk kontrolü" : null,
+    position: 0,
+    config: Object.freeze({ environment }),
+    version,
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+}
 
 function method(id: string, position: number): MerchantPaymentMethod {
   return Object.freeze({
@@ -49,6 +151,10 @@ test("payment console contains the ikas-like Celebix payment structure without f
   assert.match(catalogSource, /from "next\/image"/);
   assert.match(catalogSource, /card\.logoPath/);
   assert.match(consoleSource, /Promise\.allSettled|loadPaymentSettingsSources/);
+  assert.match(consoleSource, /activateProviderPaymentMethod/);
+  assert.match(consoleSource, /selectPaymentProviderConnectionProfile/);
+  assert.match(consoleSource, /busyProviderCode/);
+  assert.match(consoleSource, /Bağlı — aktivasyon bekliyor/);
 });
 
 test("payment console keeps catalog, profile and method states independent", async () => {
@@ -107,6 +213,188 @@ test("payment order helpers require an exact changed method set", () => {
   ]);
   assert.throws(() => buildPaymentMethodOrderCommands(methods, moved.slice(1)), /payment_method_order_invalid/);
   assert.throws(() => buildPaymentMethodOrderCommands(methods, [...moved, moved[0]!]), /payment_method_order_invalid/);
+});
+
+test("provider activation creates one deterministic tenant method and activates its returned version", async () => {
+  const activate = Reflect.get(consoleState, "activateProviderPaymentMethod");
+  assert.equal(typeof activate, "function");
+  const saved: unknown[] = [];
+  const states: unknown[] = [];
+  const api = Object.freeze({
+    async list() { return Object.freeze([]); },
+    async save(input: unknown) {
+      saved.push(input);
+      return Object.freeze({
+        id: IYZICO_PROFILE_ID,
+        state: "disabled" as const,
+        position: 0,
+        version: 1,
+        updatedAt: NOW,
+        replayed: false,
+      });
+    },
+    async setState(methodId: string, input: unknown) {
+      states.push(Object.freeze({ methodId, input }));
+      return Object.freeze({
+        id: IYZICO_PROFILE_ID,
+        state: "active" as const,
+        position: 0,
+        version: 2,
+        updatedAt: NOW,
+        replayed: false,
+      });
+    },
+  });
+
+  const result = await activate({
+    card: executableIyzicoCard("test"),
+    profile: iyzicoProfile("test"),
+    methods: Object.freeze([]),
+    api,
+  });
+
+  assert.deepEqual(saved, [Object.freeze({
+    methodId: IYZICO_PROFILE_ID,
+    expectedVersion: 0,
+    kind: "provider",
+    profileId: IYZICO_PROFILE_ID,
+    providerCode: "iyzico_iframe",
+    label: "iyzico · Checkout Form",
+    config: Object.freeze({ environment: "test" }),
+  })]);
+  assert.deepEqual(states, [Object.freeze({
+    methodId: IYZICO_PROFILE_ID,
+    input: Object.freeze({ expectedVersion: 1, state: "active", emergencyReason: null }),
+  })]);
+  assert.deepEqual(result, Object.freeze({ kind: "active", methodId: IYZICO_PROFILE_ID, created: true }));
+  assert.equal(Object.isFrozen(result), true);
+});
+
+test("provider activation accepts an exact authority selected from a dual-environment descriptor", async () => {
+  const saved: unknown[] = [];
+  const api = Object.freeze({
+    async list() { return Object.freeze([]); },
+    async save(input: unknown) {
+      saved.push(input);
+      return Object.freeze({ id: IYZICO_PROFILE_ID, state: "active" as const, position: 0, version: 1, updatedAt: NOW, replayed: false });
+    },
+    async setState() { throw new Error("already active"); },
+  });
+  const result = await consoleState.activateProviderPaymentMethod({
+    card: executableDualEnvironmentIyzicoCard("test"),
+    profile: iyzicoProfile("test"),
+    methods: Object.freeze([]),
+    api,
+  });
+  assert.equal(saved.length, 1);
+  assert.deepEqual(result, Object.freeze({ kind: "active", methodId: IYZICO_PROFILE_ID, created: true }));
+});
+
+test("provider activation reuses exact methods without overriding an emergency stop", async () => {
+  for (const fixture of [
+    { state: "active" as const, expectedKind: "active" as const, expectedStateCalls: 0 },
+    { state: "disabled" as const, expectedKind: "active" as const, expectedStateCalls: 1 },
+    { state: "emergency_disabled" as const, expectedKind: "emergency_disabled" as const, expectedStateCalls: 0 },
+  ]) {
+    const existing = iyzicoMethod(fixture.state);
+    let saveCalls = 0;
+    const states: unknown[] = [];
+    const result = await consoleState.activateProviderPaymentMethod({
+      card: executableIyzicoCard("test"),
+      profile: iyzicoProfile("test"),
+      methods: Object.freeze([existing]),
+      api: Object.freeze({
+        async list() { return Object.freeze([existing]); },
+        async save() { saveCalls += 1; throw new Error("save must not run"); },
+        async setState(methodId: string, input: unknown) {
+          states.push(Object.freeze({ methodId, input }));
+          return Object.freeze({
+            id: existing.id,
+            state: "active" as const,
+            position: 0,
+            version: existing.version + 1,
+            updatedAt: NOW,
+            replayed: false,
+          });
+        },
+      }),
+    });
+    assert.equal(saveCalls, 0);
+    assert.equal(states.length, fixture.expectedStateCalls);
+    if (fixture.state === "disabled") assert.deepEqual(states[0], Object.freeze({
+      methodId: existing.id,
+      input: Object.freeze({ expectedVersion: existing.version, state: "active", emergencyReason: null }),
+    }));
+    assert.deepEqual(result, Object.freeze({
+      kind: fixture.expectedKind,
+      methodId: existing.id,
+      created: false,
+    }));
+  }
+});
+
+test("provider activation fails closed without exact execution authority or environment", async () => {
+  let mutations = 0;
+  const api = Object.freeze({
+    async list() { mutations += 1; return Object.freeze([]); },
+    async save() { mutations += 1; throw new Error("save must not run"); },
+    async setState() { mutations += 1; throw new Error("state must not run"); },
+  });
+  const verificationCard = buildPaymentSettingsViewModel(
+    PAYMENT_PROVIDER_CATALOG,
+    [],
+    [],
+    [],
+    "iyzico",
+    Object.freeze({ category: "all", interactionMode: "all", readiness: "all", environment: "all" }),
+  ).catalog.cards.find(({ providerCode }) => providerCode === "iyzico_iframe")!;
+
+  for (const fixture of [
+    { card: verificationCard, profile: iyzicoProfile("test") },
+    { card: executableIyzicoCard("test"), profile: iyzicoProfile("live") },
+  ]) assert.deepEqual(await consoleState.activateProviderPaymentMethod({
+    ...fixture,
+    methods: Object.freeze([]),
+    api,
+  }), Object.freeze({ kind: "awaiting_authority", methodId: null, created: false }));
+  assert.equal(mutations, 0);
+});
+
+test("provider activation reconciles duplicate create and uncertain activation without replaying writes", async () => {
+  const existing = iyzicoMethod("disabled", "test", 7);
+  const stateCalls: unknown[] = [];
+  const created = await consoleState.activateProviderPaymentMethod({
+    card: executableIyzicoCard("test"),
+    profile: iyzicoProfile("test"),
+    methods: Object.freeze([]),
+    api: Object.freeze({
+      async list() { return Object.freeze([existing]); },
+      async save() { throw new PaymentMethodApiError("version_conflict", 409); },
+      async setState(methodId: string, input: unknown) {
+        stateCalls.push(Object.freeze({ methodId, input }));
+        return Object.freeze({ id: methodId, state: "active" as const, position: 0, version: 8, updatedAt: NOW, replayed: false });
+      },
+    }),
+  });
+  assert.deepEqual(stateCalls, [Object.freeze({
+    methodId: existing.id,
+    input: Object.freeze({ expectedVersion: 7, state: "active", emergencyReason: null }),
+  })]);
+  assert.deepEqual(created, Object.freeze({ kind: "active", methodId: existing.id, created: false }));
+
+  let lists = 0;
+  const uncertain = await consoleState.activateProviderPaymentMethod({
+    card: executableIyzicoCard("test"),
+    profile: iyzicoProfile("test"),
+    methods: Object.freeze([existing]),
+    api: Object.freeze({
+      async list() { lists += 1; return Object.freeze([iyzicoMethod("active", "test", 8)]); },
+      async save() { throw new Error("save must not run"); },
+      async setState() { throw new PaymentMethodApiError("unavailable", 503); },
+    }),
+  });
+  assert.equal(lists, 1);
+  assert.deepEqual(uncertain, Object.freeze({ kind: "active", methodId: existing.id, created: false }));
 });
 
 test("payment dialogs provide focus safety, masked connection state and dormant secrets", async () => {

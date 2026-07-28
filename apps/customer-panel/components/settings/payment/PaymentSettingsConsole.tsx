@@ -33,12 +33,14 @@ import {
   paymentMethodApi,
 } from "@/lib/payment-method-ui/client";
 import {
+  activateProviderPaymentMethod,
   createLoadingPaymentSettingsSources,
   loadPaymentSettingsSources,
   type PaymentSettingsSources,
 } from "@/lib/payment-settings-ui/console-state";
 import {
   buildPaymentSettingsViewModel,
+  selectPaymentProviderConnectionProfile,
   type PaymentProviderCatalogCard,
   type PaymentSettingsFilters,
 } from "@/lib/payment-settings-ui/model";
@@ -62,6 +64,7 @@ const FILTERS: PaymentSettingsFilters = Object.freeze({
   readiness: "all",
   environment: "all",
 });
+type MessageTone = "success" | "warning" | "error";
 
 function PaymentConsoleActions(props: Readonly<{
   canManage: boolean;
@@ -94,7 +97,9 @@ export function PaymentSettingsConsole(props: Readonly<{
   const [orderOpen, setOrderOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<PaymentProviderCatalogCard | null>(null);
   const [busyMethodId, setBusyMethodId] = useState<string | null>(null);
+  const [busyProviderCode, setBusyProviderCode] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<MessageTone>("error");
   const [highlightedMethodId, setHighlightedMethodId] = useState<string | null>(null);
   const mounted = useRef(true);
   const loadVersion = useRef(0);
@@ -155,7 +160,7 @@ export function PaymentSettingsConsole(props: Readonly<{
     let emergencyReason: string | null = null;
     if (state === "emergency_disabled") {
       const reason = window.prompt("Acil kapatma nedenini yazın (3-240 karakter):")?.trim() ?? "";
-      if (reason.length < 3 || reason.length > 240) { setMessage("Acil kapatma nedeni 3-240 karakter olmalıdır."); return; }
+      if (reason.length < 3 || reason.length > 240) { setMessageTone("error"); setMessage("Acil kapatma nedeni 3-240 karakter olmalıdır."); return; }
       if (!window.confirm(`${method.label} acil durumda kapatılsın mı?`)) return;
       emergencyReason = reason;
     } else if (!window.confirm(`${method.label} durumu “${state === "active" ? "Etkin" : "Devre dışı"}” olarak değiştirilsin mi?`)) return;
@@ -167,12 +172,59 @@ export function PaymentSettingsConsole(props: Readonly<{
         state,
         emergencyReason,
       });
+      setMessageTone("success");
       setMessage("Ödeme yöntemi durumu güncellendi.");
       await load();
     } catch (error) {
+      setMessageTone("error");
       setMessage(safeMessage(error));
       if (error instanceof PaymentMethodApiError && error.code === "version_conflict") await load();
     } finally { setBusyMethodId(null); }
+  }
+
+  async function connectProvider(card: PaymentProviderCatalogCard) {
+    if (!props.canManage || busyProviderCode || !card.configurable || !card.configurableDescriptor) return;
+    const descriptor = card.executableDescriptor;
+    const profile = descriptor?.environments === undefined
+      ? null
+      : selectPaymentProviderConnectionProfile(
+        sources.profiles.phase === "ready" ? sources.profiles.value : [],
+        card.providerCode,
+        descriptor.environments,
+      );
+    if (descriptor === null || profile?.status !== "active" || card.lifecycleLabel === "Aktif") {
+      setSelectedCard(card);
+      return;
+    }
+
+    setBusyProviderCode(card.providerCode);
+    setMessage("");
+    try {
+      const result = await activateProviderPaymentMethod({
+        card,
+        profile,
+        methods: sources.methods.phase === "ready" ? sources.methods.value : [],
+        api: paymentMethodApi,
+      });
+      if (result.kind === "active") {
+        setMessageTone("success");
+        setMessage("Ödeme yöntemi etkinleştirildi.");
+        setCatalogOpen(false);
+      } else if (result.kind === "emergency_disabled") {
+        setMessageTone("warning");
+        setMessage("Ödeme yöntemi acil durumda kapalı; otomatik olarak etkinleştirilmedi.");
+      } else {
+        setMessageTone("warning");
+        setMessage("Bağlı — aktivasyon bekliyor.");
+      }
+      await load();
+    } catch (error) {
+      setMessageTone("error");
+      setMessage(safeMessage(error));
+      if (error instanceof PaymentMethodApiError && error.code === "version_conflict") await load();
+    } finally {
+      setBusyProviderCode(null);
+    }
   }
 
   const methodsLoading = sources.methods.phase === "loading";
@@ -201,7 +253,7 @@ export function PaymentSettingsConsole(props: Readonly<{
         </div>
       </section>
 
-      {message ? <p className={message.includes("güncellendi") ? styles.successNotice : styles.errorNotice} role={message.includes("güncellendi") ? "status" : "alert"}>{message.includes("güncellendi") ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}{message}</p> : null}
+      {message ? <p className={messageTone === "success" ? styles.successNotice : messageTone === "warning" ? styles.providerWarning : styles.errorNotice} role={messageTone === "error" ? "alert" : "status"}>{messageTone === "success" ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}{message}</p> : null}
       {sources.catalog.phase === "error" || sources.profiles.phase === "error" || sources.definitions.phase === "error" ? <p className={styles.providerWarning} role="status"><ShieldAlert aria-hidden="true" />Sağlayıcı bağlantı bilgileri şu anda sınırlı; mevcut ödeme yöntemleri ayrı olarak çalışmaya devam eder.</p> : null}
 
       <section className={styles.methodsPanel} aria-labelledby="payment-methods-title">
@@ -238,7 +290,7 @@ export function PaymentSettingsConsole(props: Readonly<{
         </> : null}
       </section>
 
-      {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} busy={selectedCard !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { if (card.configurable && card.configurableDescriptor) setSelectedCard(card); }} /> : null}
+      {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} busy={selectedCard !== null || busyProviderCode !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { void connectProvider(card); }} /> : null}
       {selectedCard?.configurableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.configurableDescriptor} environments={selectedCard.environments} initialEnvironment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profiles={selectedProfiles} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={load} /> : null}
       {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} openerRef={orderButtonRef} onReload={load} onClose={() => setOrderOpen(false)} /> : null}
     </section>

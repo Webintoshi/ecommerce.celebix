@@ -154,6 +154,15 @@ test("only ready catalog entries with an exact payment descriptor become connect
   assert.equal(readyCard?.connectable, true);
   assert.equal(readyCard?.actionLabel, "Bağla");
   assert.equal(readyCard?.executableDescriptor?.credentialFields[0]?.key, "api_secret");
+  const dualEnvironment = buildPaymentSettingsViewModel(
+    [{ ...ready, environments: ["test", "live"] }],
+    [{ ...descriptor, environments: ["test", "live"] }],
+    [],
+    [],
+    "",
+    noFilters,
+  );
+  assert.equal(dualEnvironment.catalog.cards[0]?.executable, true);
   assert.equal(plannedCard?.connectable, false);
   assert.equal(plannedCard?.actionLabel, "Hazırlanıyor");
   assert.equal(plannedCard?.lifecycleLabel, "Hazırlanıyor");
@@ -262,7 +271,7 @@ test("Iyzico is configurable without execution authority and exposes the exact l
   assert.equal(iyzico("revoked").lifecycleLabel, "Henüz bağlanmadı");
   assert.equal(iyzico("pending_validation").lifecycleLabel, "Doğrulama bekliyor");
   assert.equal(iyzico("active").lifecycleLabel, "Doğrulandı — sandbox kanıtı bekleniyor");
-  assert.equal(iyzico("active", true).lifecycleLabel, "Aktif");
+  assert.equal(iyzico("active", true).lifecycleLabel, "Doğrulandı — sandbox kanıtı bekleniyor");
 });
 
 test("connection profile selection ignores revoked rows and is deterministic for one environment", () => {
@@ -342,7 +351,7 @@ test("a dual-environment configurable card opens its active profile environment"
   }
 });
 
-test("an executable provider advances from verified profile to activation ready and active", () => {
+test("an executable provider stays activation-pending until its tenant method is durably active", () => {
   const evidence = {
     state: "sandbox_ready" as const,
     adapterVersion: 1 as const,
@@ -361,7 +370,8 @@ test("an executable provider advances from verified profile to activation ready 
   };
   const activeProfile = profile("active");
   const ready = buildPaymentSettingsViewModel(catalog, [descriptor], [activeProfile], [], "paytr", noFilters);
-  assert.equal(ready.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Aktivasyona hazır");
+  assert.equal(ready.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Bağlı — aktivasyon bekliyor");
+  assert.equal(ready.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.actionLabel, "Etkinleştir");
   const active = buildPaymentSettingsViewModel(
     catalog,
     [descriptor],
@@ -371,6 +381,18 @@ test("an executable provider advances from verified profile to activation ready 
     noFilters,
   );
   assert.equal(active.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Aktif");
+  const nonCanonical = buildPaymentSettingsViewModel(
+    catalog,
+    [descriptor],
+    [activeProfile],
+    [Object.freeze({
+      ...method("40000000-0000-4000-8000-000000000032", "active", 0),
+      config: Object.freeze({ environment: "test", legacy: true }),
+    })],
+    "paytr",
+    noFilters,
+  );
+  assert.equal(nonCanonical.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Bağlı — aktivasyon bekliyor");
 });
 
 test("Iyzico test and live profiles coexist and build independent connection views", () => {
