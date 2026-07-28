@@ -40,6 +40,7 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/catalog-product-tags/postgres-harness.mjs", 20],
   ["tests/saas-phase3/customer-management/postgres-harness.mjs", 23],
   ["tests/saas-phase3/exact-record-lookups-analytics/postgres-harness.mjs", 18],
+  ["tests/saas-phase3/guzide-catalog-migration/postgres-harness.mjs", 31],
   ["tests/saas-phase3/hosted-callback-lifecycle/postgres-harness.mjs", 13],
   ["tests/saas-phase3/inventory-counts-transfers/postgres-harness.mjs", 30],
   ["tests/saas-phase3/inventory-locations/postgres-harness.mjs", 44],
@@ -61,6 +62,7 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/quick-order-links/postgres-harness.mjs", 40],
   ["tests/saas-phase3/quick-order-runtime/postgres-harness.mjs", 49],
   ["tests/saas-phase3/shared-merchant-catalog-dashboard/postgres-harness.mjs", 18],
+  ["tests/saas-phase3/tenant-r2-media/postgres-harness.mjs", 24],
   ["tests/saas-phase3/typed-storefront-settings/postgres-harness.mjs", 24],
 ]);
 
@@ -276,6 +278,7 @@ test("dependency lockfiles donor and deployment surfaces stay outside the comple
     "packages/*/package.json",
   ), [
     "apps/customer-panel/package.json",
+    "apps/media-gateway/package.json",
     "apps/owner/package.json",
     "apps/storefront-shared/package.json",
     "package-lock.json",
@@ -351,6 +354,8 @@ test("completion and successor manifests pin every changed migration artifact", 
     "phase3m-paytr-iframe-sandbox-evidence-history-manifest.json",
     "phase3n-hosted-callback-lifecycle-manifest.json",
     "phase3-product-onboarding-manifest.json",
+    "phase3-tenant-r2-media-manifest.json",
+    "phase3-guzide-catalog-migration-manifest.json",
   ];
   const pinnedPaths = new Set(successorManifestNames.map((name) => `${SQL}/${name}`));
   for (const name of successorManifestNames) {
@@ -373,10 +378,10 @@ test("completion and successor manifests pin every changed migration artifact", 
   assert.deepEqual(changedSql.filter((candidate) => !pinnedPaths.has(candidate)), []);
 });
 
-test("current Phase 3 PostgreSQL inventory is exactly 30 executable harnesses and 885 scenarios", async () => {
+test("current Phase 3 PostgreSQL inventory is exactly 32 executable harnesses and 940 scenarios", async () => {
   const expectedPaths = POSTGRES_HARNESSES.map(([harness]) => harness);
-  assert.equal(POSTGRES_HARNESSES.length, 30);
-  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 885);
+  assert.equal(POSTGRES_HARNESSES.length, 32);
+  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 940);
   assert.deepEqual(
     await findPostgresHarnesses(path.join(ROOT, "tests/saas-phase3")),
     [...expectedPaths].sort(),

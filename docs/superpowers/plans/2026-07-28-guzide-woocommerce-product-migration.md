@@ -213,7 +213,7 @@ git commit -m "feat(panel): add resumable woocommerce migration"
 - Create: `tests/saas-phase3/guzide-catalog-migration/real-export-audit.mjs`
 - Do not add the exported CSV to Git.
 
-- [ ] **Step 1: Audit the user-authorized export outside Git**
+- [x] **Step 1: Audit the user-authorized export outside Git**
 
 Run:
 
@@ -223,15 +223,15 @@ GUZIDE_WOOCOMMERCE_EXPORT=/absolute/private/path.csv node tests/saas-phase3/guzi
 
 Expected exact structural evidence: 1,628 products, 41 columns, 5,646 image references, all image origins HTTPS and source-scoped, and deterministic manifest/batch totals. Output contains no descriptions, product URLs or credentials.
 
-- [ ] **Step 2: Run complete verification**
+- [x] **Step 2: Run complete verification**
 
 Run focused tests, customer-panel/Owner/saas-data/saas-contracts/typechecks/builds, PostgreSQL harnesses, `git diff --check`, tracked-diff secret scan and forbidden browser-authority scan.
 
-- [ ] **Step 3: Independent review and fixes**
+- [x] **Step 3: Independent review and fixes**
 
 Repair and re-review every Critical/Important finding, then rerun affected and full regression suites.
 
-- [ ] **Step 4: Commit audit harness and push**
+- [x] **Step 4: Commit audit harness and push**
 
 ```bash
 git add tests/saas-phase3/guzide-catalog-migration/real-export-audit.mjs

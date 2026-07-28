@@ -99,15 +99,25 @@ export async function ingestMigrationMediaItem(
 
   let uploaded: Awaited<ReturnType<ProductMediaUploadService["upload"]>>;
   try {
-    const uploadOperationId = authority.status === "pending"
-      ? deriveMigrationMediaUploadOperationId({ storeId: input.tenantContext.store.id, jobId: input.jobId, sourceProductId: input.sourceProductId, ordinal: input.ordinal })
-      : input.operationId;
-    uploaded = await dependencies.upload.upload({
-      tenantContext: input.tenantContext, operationId: uploadOperationId,
+    const deterministicOperationId = deriveMigrationMediaUploadOperationId({
+      storeId: input.tenantContext.store.id,
+      jobId: input.jobId,
+      sourceProductId: input.sourceProductId,
+      ordinal: input.ordinal,
+    });
+    const uploadInput = {
+      tenantContext: input.tenantContext,
       productId: authority.productId, variantId: authority.variantId,
       mediaType: image.mediaType, altText: input.altText,
       width: image.width, height: image.height, bytes: image.bytes,
-    });
+    } as const;
+    let uploadOperationId = deterministicOperationId;
+    if (authority.status === "failed") {
+      if (typeof dependencies.upload.inspectOperation !== "function") throw unavailable();
+      const priorState = await dependencies.upload.inspectOperation({ ...uploadInput, operationId: deterministicOperationId });
+      if (priorState === "deleted") uploadOperationId = input.operationId;
+    }
+    uploaded = await dependencies.upload.upload({ ...uploadInput, operationId: uploadOperationId });
   } catch { return recordFailure(input, dependencies, sourceUrlDigest, "media_upload_failed"); }
   if (uploaded.media.storeId !== input.tenantContext.store.id || uploaded.media.productId !== authority.productId
     || uploaded.media.status !== "active") throw unavailable();

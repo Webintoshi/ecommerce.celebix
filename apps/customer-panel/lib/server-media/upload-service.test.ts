@@ -14,6 +14,27 @@ const payloadSha256 = createHash("sha256").update(bytes).digest("hex");
 const tenantContext = { schemaVersion: 1, requestId: OPERATION, principal: { id: "60000000-0000-4000-8000-000000000001", issuer: "https://identity.example.test/oidc", subject: "pilot" }, store: { id: STORE, slug: "pilot-store", status: "active" }, membership: { id: "70000000-0000-4000-8000-000000000001", role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: "00000000-0000-4000-8000-000000000001", planCode: "free_starter", version: 1, status: "active", features: ["catalog", "media"], limits: { products: 100, staff: 1, storageBytes: 1_000_000_000 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" } as const;
 const base = { operationId: OPERATION, mediaId: MEDIA, productId: PRODUCT, objectKey: `stores/${STORE}/products/${PRODUCT}/${MEDIA}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT}/${MEDIA}.webp`, mediaType: "image/webp" as const, byteSize: bytes.byteLength, payloadSha256, version: 1 };
 const durable = { id: MEDIA, storeId: STORE, productId: PRODUCT, objectKey: base.objectKey, publicUrl: base.publicUrl, mediaType: "image/webp" as const, altText: "Pilot", width: 10, height: 10, byteSize: bytes.byteLength, sortOrder: 0, status: "active" as const, createdAt: "2026-07-28T12:00:00.000Z", updatedAt: "2026-07-28T12:00:00.002Z", version: 1 };
+const uploadInput = { tenantContext, operationId: OPERATION, productId: PRODUCT, mediaType: "image/webp" as const, altText: "Pilot", width: 10, height: 10, bytes };
+
+test("operation inspection is read-only and distinguishes absent from exact durable state", async () => {
+  const states = ["reserved", "uploaded", "committed", "cleanup_required", "deleted"] as const;
+  for (const state of states) {
+    const calls: string[] = [];
+    const service = createProductMediaUploadService({
+      repository: { async recoverProductMediaOperation() { calls.push("recover"); return { ...base, state }; } } as any,
+      storage: {} as any,
+      now: () => new Date("2026-07-28T12:00:00.000Z"),
+    });
+    assert.equal(await service.inspectOperation(uploadInput), state);
+    assert.deepEqual(calls, ["recover"]);
+  }
+  const absent = createProductMediaUploadService({
+    repository: { async recoverProductMediaOperation() { throw Object.assign(new Error("missing"), { code: "media_not_found" }); } } as any,
+    storage: {} as any,
+    now: () => new Date("2026-07-28T12:00:00.000Z"),
+  });
+  assert.equal(await absent.inspectOperation(uploadInput), "absent");
+});
 
 test("upload saga reserves writes verifies and finalizes in exact order", async () => {
   const calls: string[] = [];

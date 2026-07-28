@@ -280,6 +280,15 @@ test("malformed digests, duplicate identifiers and unknown outcomes fail closed"
     () => repository(new Pool([]), [], [PRODUCT, VARIANT, PRODUCT, VARIANT]).importBatch({ tenantContext: tenant(), now: NOW, operationId: OPERATION, jobId: JOB, sourceDigest: DIGEST, products: [product(), product()] }),
     (error: unknown) => error instanceof CatalogMigrationRepositoryError && error.code === "invalid_input",
   );
+  for (const candidate of [
+    { ...product(), variant: { ...product().variant, stockQuantity: 2_147_483_648 } },
+    { ...product(), variant: { ...product().variant, attributes: { "Ağırlık (g)": "2.3456" } } },
+  ]) {
+    await assert.rejects(
+      () => repository(new Pool([])).importBatch({ tenantContext: tenant(), now: NOW, operationId: OPERATION, jobId: JOB, sourceDigest: DIGEST, products: [candidate] }),
+      (error: unknown) => error instanceof CatalogMigrationRepositoryError && error.code === "invalid_input",
+    );
+  }
   const hostile = new Client((text) => text.includes("catalog_migration_get") ? [{ outcome: "surprise", result_payload: {} }] : []);
   await assert.rejects(
     () => repository(new Pool([hostile])).get({ tenantContext: tenant(), now: NOW, jobId: JOB }),

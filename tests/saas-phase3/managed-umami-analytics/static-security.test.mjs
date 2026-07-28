@@ -179,6 +179,14 @@ test("lockfile admits only pinned adapter successors and the approved Markdown p
   expectedLock.packages["apps/owner"].dependencies["@celebix/payment-adapters"] = "0.1.0";
   expectedLock.packages["packages/platform-config"].dependencies = { "markdown-it": "14.1.1" };
   expectedLock.packages["packages/platform-config"].devDependencies = { "@types/markdown-it": "14.1.2" };
+  expectedLock.packages["apps/media-gateway"] = {
+    name: "@celebix/media-gateway",
+    version: "0.1.0",
+  };
+  expectedLock.packages["node_modules/@celebix/media-gateway"] = {
+    resolved: "apps/media-gateway",
+    link: true,
+  };
   const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
   assert.deepEqual(currentLock, expectedLock);
 
