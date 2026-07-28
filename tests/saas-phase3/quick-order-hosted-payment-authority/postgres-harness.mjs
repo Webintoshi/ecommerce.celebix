@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { accessSync, constants, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import pg from "pg";
+
+const { Client } = pg;
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
@@ -24,9 +27,10 @@ const METHOD = "50000000-0000-4000-8000-000000000057";
 const OTHER_METHOD = "50000000-0000-4000-8000-000000000058";
 const LEGACY_ATTEMPT = "70000000-0000-4000-8000-000000000057";
 const BOUND_ATTEMPT = "70000000-0000-4000-8000-000000000058";
+const RACE_ATTEMPT = "70000000-0000-4000-8000-000000000059";
 const EXECUTION_EVIDENCE = `sha256:${"c".repeat(64)}`;
 const NOW = "2026-07-27T12:00:00.000Z";
-const TOTAL = 16;
+const TOTAL = 17;
 let completed = 0;
 
 const envelope = (key = "quick.current") => `{"algorithm":"A256GCM","ciphertext":"AQ","iv":"AAAAAAAAAAAAAAAA","keyId":"${key}","tag":"AAAAAAAAAAAAAAAAAAAAAA","version":1}`;
@@ -53,6 +57,20 @@ function sql(box, input, database = DB, allowFailure = false) {
 }
 function apply(box, file, database = DB) { sql(box, readFileSync(path.join(SQL, file), "utf8"), database); }
 function pass(label, callback) { callback(); completed += 1; process.stdout.write(`PASS ${completed}/${TOTAL} ${label}\n`); }
+async function passAsync(label, callback) { await callback(); completed += 1; process.stdout.write(`PASS ${completed}/${TOTAL} ${label}\n`); }
+function client(box, applicationName) {
+  return new Client({ host: box.socket, port: box.port, user: "postgres", database: DB, application_name: applicationName });
+}
+async function waitForClaimWaiters(observer, applicationNames) {
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    const result = await observer.query(`SELECT pg_catalog.count(*)::integer AS waiting
+      FROM pg_catalog.pg_stat_activity
+      WHERE application_name=ANY($1::text[]) AND state='active' AND wait_event_type='Lock'`, [applicationNames]);
+    if (result.rows[0]?.waiting === applicationNames.length) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("both exact reconciliation claims did not reach the lock barrier");
+}
 function providerGuardAcl(box, database = DB) {
   return sql(box, `SELECT pg_catalog.pg_get_userbyid(procedure.proowner)||'|'||
       COALESCE(procedure.proacl::text,'NULL')||'|'||
@@ -128,6 +146,9 @@ async function main() {
       assert.match(sql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
       assert.equal(providerGuardAcl(box), baselineProviderGuardAcl);
       assert.equal(sql(box, "SET ROLE celebix_saas_app; SELECT saas.quick_order_hosted_payment_authority_preflight();").stdout.trim(), "t");
+      assert.equal(sql(box, "SET ROLE celebix_saas_workflow; SELECT saas.quick_order_hosted_payment_authority_preflight();").stdout.trim(), "t");
+      assert.notEqual(sql(box, "SET ROLE celebix_saas_identity; SELECT saas.quick_order_hosted_payment_authority_preflight();", DB, true).status, 0);
+      assert.notEqual(sql(box, "SET ROLE celebix_saas_host_resolver; SELECT saas.quick_order_hosted_payment_authority_preflight();", DB, true).status, 0);
       assert.notEqual(sql(box, "SET ROLE celebix_saas_app; SELECT * FROM saas.quick_order_link_hosted_authorities;", DB, true).status, 0);
     });
     pass("historical null-snapshot attempts fail exact claim without status version or lease mutation", () => {
@@ -163,6 +184,60 @@ async function main() {
         (result_payload->>'executionAdapterVersion')||'|'||(result_payload->>'executionEvidenceDigest')
         FROM saas.payment_reconciliation_authority('${BOUND_ATTEMPT}','2026-07-27T12:01:30Z');`).stdout.trim(),
       `found|1|${EXECUTION_EVIDENCE}`);
+    });
+    await passAsync("concurrent exact claims serialize without deadlock and only one lease mutation wins", async () => {
+      assert.equal(sql(box, `SET ROLE celebix_saas_workflow; SELECT outcome FROM saas.payment_attempt_begin(
+        '${STORE}','${NOW}','${RACE_ATTEMPT}','${"7".repeat(64)}','${METHOD}',
+        'race-order',12500,'TRY','${"6".repeat(64)}'
+      );`).stdout.trim(), "created");
+      assert.equal(sql(box, `SET ROLE celebix_saas_workflow; SELECT outcome FROM saas.payment_attempt_mark_unknown(
+        '${RACE_ATTEMPT}','73000000-0000-4000-8000-000000000059','${"5".repeat(64)}',1,1,NULL,
+        'provider_outcome_unknown','2026-07-27T12:01:00Z');`).stdout.trim(), "provider_outcome_unknown");
+
+      const blocker = client(box, "quick_hosted_claim_blocker");
+      const first = client(box, "quick_hosted_claim_first");
+      const second = client(box, "quick_hosted_claim_second");
+      const observer = client(box, "quick_hosted_claim_observer");
+      await Promise.all([blocker.connect(), first.connect(), second.connect(), observer.connect()]);
+      try {
+        await blocker.query("BEGIN");
+        await blocker.query(`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.payment.attempt.operation:'||operation_id::text,0))
+          FROM (VALUES
+            ('71000000-0000-4000-8000-000000000091'::uuid),
+            ('71000000-0000-4000-8000-000000000092'::uuid)
+          ) AS operations(operation_id)`);
+        await Promise.all([first.query("SET ROLE celebix_saas_workflow"), second.query("SET ROLE celebix_saas_workflow")]);
+        const claim = (session, ordinal, owner) => session.query(`SELECT outcome,result_payload
+          FROM saas.payment_attempt_claim_reconciliation(
+            $1,$2,$3,2,$4,$5,'2026-07-27T12:02:00Z','2026-07-27T12:07:00Z',
+            'test',1,$6)`, [
+          RACE_ATTEMPT,
+          `71000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`,
+          String(ordinal).slice(-1).repeat(64),
+          owner,
+          `72000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`,
+          EXECUTION_EVIDENCE,
+        ]);
+        const pendingClaims = Promise.all([claim(first, 91, "worker.first"), claim(second, 92, "worker.second")]);
+        await waitForClaimWaiters(observer, ["quick_hosted_claim_first", "quick_hosted_claim_second"]);
+        await blocker.query("COMMIT");
+        const claims = await pendingClaims;
+        assert.deepEqual(claims.map(({ rows }) => rows[0].outcome).sort(), ["claimed", "version_conflict"]);
+        const winner = claims.map(({ rows }) => rows[0]).find(({ outcome }) => outcome === "claimed");
+        assert.equal(winner.result_payload.status, "reconciliation_required");
+        assert.equal(winner.result_payload.version, 3);
+        assert.match(winner.result_payload.leaseOwner, /^worker[.](?:first|second)$/);
+        assert.equal(sql(box, `SELECT status||'|'||version||'|'||reconciliation_lease_owner||'|'||
+          (SELECT pg_catalog.count(*) FROM saas.payment_attempt_operations operation
+            WHERE operation.attempt_id=attempt.id AND operation.operation_kind='claim_reconciliation')||'|'||
+          (SELECT pg_catalog.count(*) FROM saas.payment_attempt_events event
+            WHERE event.attempt_id=attempt.id AND event.source='reconciliation')
+          FROM saas.payment_attempts attempt WHERE attempt.id='${RACE_ATTEMPT}';`).stdout.trim().replace(/worker[.](?:first|second)/, "worker.winner"),
+        "reconciliation_required|3|worker.winner|1|1");
+      } finally {
+        await blocker.query("ROLLBACK").catch(() => {});
+        await Promise.all([blocker.end(), first.end(), second.end(), observer.end()]);
+      }
     });
     pass("legacy PayTR create remains compatible and has null hosted columns", () => {
       assert.equal(sql(box, legacy()).stdout.trim(), "committed");
@@ -245,6 +320,7 @@ async function main() {
       apply(box, UP, ROLLBACK_DB); apply(box, ASSERTIONS, ROLLBACK_DB);
       assert.equal(providerGuardAcl(box, ROLLBACK_DB), baselineProviderGuardAcl);
       assert.equal(sql(box, "SET ROLE celebix_saas_app; SELECT saas.quick_order_hosted_payment_authority_preflight();", ROLLBACK_DB).stdout.trim(), "t");
+      assert.equal(sql(box, "SET ROLE celebix_saas_workflow; SELECT saas.quick_order_hosted_payment_authority_preflight();", ROLLBACK_DB).stdout.trim(), "t");
     });
     assert.equal(completed, TOTAL);
   } finally { stop(box); }

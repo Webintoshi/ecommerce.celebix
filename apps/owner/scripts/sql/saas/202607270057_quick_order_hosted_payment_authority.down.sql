@@ -15,7 +15,10 @@ BEGIN
 END
 $f$;
 
-REVOKE ALL ON FUNCTION saas.quick_order_hosted_payment_authority_preflight() FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.quick_order_hosted_payment_authority_preflight()
+FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
+  celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
+  celebix_saas_migrator;
 DROP FUNCTION saas.quick_order_hosted_payment_authority_preflight();
 
 REVOKE ALL ON FUNCTION

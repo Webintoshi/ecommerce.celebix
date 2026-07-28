@@ -166,7 +166,7 @@ BEGIN
     OR p_execution_evidence_digest IS NULL
     OR p_execution_evidence_digest!~'^sha256:[a-f0-9]{64}$'
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
-  SELECT * INTO attempt FROM saas.payment_attempts WHERE id=p_attempt_id FOR SHARE;
+  SELECT * INTO attempt FROM saas.payment_attempts WHERE id=p_attempt_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'record_not_found',NULL::jsonb; RETURN; END IF;
   IF attempt.environment IS DISTINCT FROM p_execution_environment
     OR attempt.execution_adapter_version IS DISTINCT FROM p_execution_adapter_version
@@ -607,42 +607,135 @@ GRANT EXECUTE ON FUNCTION saas.quick_links_create_hosted(
 ) TO celebix_saas_app;
 
 CREATE FUNCTION saas.quick_order_hosted_payment_authority_preflight()
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-  SELECT
-    to_regclass('saas.quick_order_link_hosted_authorities') IS NOT NULL
-    AND to_regprocedure(
-      'saas.quick_links_create_hosted(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text[],text,jsonb,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)'
-    ) IS NOT NULL
-    AND COALESCE((SELECT relation.relrowsecurity AND relation.relforcerowsecurity
-      FROM pg_catalog.pg_class AS relation
-      WHERE relation.oid='saas.quick_order_link_hosted_authorities'::pg_catalog.regclass),false)
-    AND (SELECT pg_catalog.count(*)=2 FROM pg_catalog.pg_attribute AS attribute
-      WHERE attribute.attrelid='saas.payment_attempts'::pg_catalog.regclass
-        AND attribute.attname IN('execution_adapter_version','execution_evidence_digest')
-        AND NOT attribute.attisdropped)
-    AND to_regprocedure(
-      'saas.payment_reconciliation_authority(uuid,timestamp with time zone)'
-    ) IS NOT NULL
-    AND to_regprocedure(
-      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone,text,integer,text)'
-    ) IS NOT NULL
-    AND pg_catalog.has_function_privilege(
-      'celebix_saas_workflow',
-      'saas.payment_reconciliation_authority(uuid,timestamp with time zone)',
-      'EXECUTE'
+RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $f$
+DECLARE
+  signature text;
+  allowed_role text;
+  expected_security boolean;
+  expected_volatility "char";
+  function_oid oid;
+  allowed_oid oid;
+  owner_oid oid:='celebix_saas_owner'::pg_catalog.regrole;
+BEGIN
+  IF saas.payment_provider_keyed_lifecycle_preflight() IS NOT TRUE
+  THEN RAISE EXCEPTION 'QUICK_ORDER_HOSTED_PAYMENT_AUTHORITY_PREFLIGHT_INVALID'; END IF;
+
+  IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_class AS relation
+      WHERE relation.oid IN(
+        'saas.payment_attempts'::pg_catalog.regclass,
+        'saas.quick_order_link_hosted_authorities'::pg_catalog.regclass
+      )
+        AND relation.relowner=owner_oid
+        AND relation.relrowsecurity
+        AND relation.relforcerowsecurity)<>2
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_attribute AS attribute
+        JOIN (VALUES
+          ('execution_adapter_version','integer'::pg_catalog.regtype),
+          ('execution_evidence_digest','text'::pg_catalog.regtype)
+        ) AS expected(attname,atttypid)
+          ON expected.attname=attribute.attname AND expected.atttypid=attribute.atttypid
+        WHERE attribute.attrelid='saas.payment_attempts'::pg_catalog.regclass
+          AND attribute.attnum>0 AND NOT attribute.attisdropped
+          AND NOT attribute.attnotnull)<>2
+    OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_constraint AS constraint_info
+      WHERE constraint_info.conrelid='saas.payment_attempts'::pg_catalog.regclass
+        AND constraint_info.conname='payment_attempts_execution_authority_check'
+        AND constraint_info.contype='c' AND constraint_info.convalidated
+        AND pg_catalog.pg_get_constraintdef(constraint_info.oid) LIKE '%execution_adapter_version%'
+        AND pg_catalog.pg_get_constraintdef(constraint_info.oid) LIKE '%execution_evidence_digest%'
     )
-    AND pg_catalog.has_function_privilege(
-      'celebix_saas_workflow',
-      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone,text,integer,text)',
-      'EXECUTE'
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger AS trigger_info
+        JOIN (VALUES
+          ('payment_attempt_bind_execution_authority',
+            'saas.payment_attempt_bind_execution_authority()'::pg_catalog.regprocedure,7),
+          ('payment_attempt_execution_authority_immutable',
+            'saas.guard_payment_attempt_execution_authority_immutable()'::pg_catalog.regprocedure,19)
+        ) AS expected(tgname,tgfoid,tgtype)
+          ON expected.tgname=trigger_info.tgname
+          AND expected.tgfoid=trigger_info.tgfoid
+          AND expected.tgtype=trigger_info.tgtype
+        WHERE trigger_info.tgrelid='saas.payment_attempts'::pg_catalog.regclass
+          AND trigger_info.tgenabled='O' AND NOT trigger_info.tgisinternal)<>2
+  THEN RAISE EXCEPTION 'QUICK_ORDER_HOSTED_PAYMENT_AUTHORITY_PREFLIGHT_INVALID'; END IF;
+
+  FOR signature,allowed_role,expected_security,expected_volatility IN SELECT * FROM (VALUES
+    ('saas.payment_attempt_bind_execution_authority()',NULL::text,false,'v'::"char"),
+    ('saas.guard_payment_attempt_execution_authority_immutable()',NULL::text,false,'v'::"char"),
+    ('saas.payment_reconciliation_authority(uuid,timestamp with time zone)','celebix_saas_workflow',true,'s'::"char"),
+    ('saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone,text,integer,text)','celebix_saas_workflow',true,'v'::"char"),
+    ('saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone)',NULL::text,true,'v'::"char"),
+    ('saas.quick_links_create_hosted(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text[],text,jsonb,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)','celebix_saas_app',true,'v'::"char")
+  ) AS expected(signature,allowed_role,expected_security,expected_volatility) LOOP
+    function_oid:=pg_catalog.to_regprocedure(signature);
+    allowed_oid:=CASE allowed_role
+      WHEN 'celebix_saas_app' THEN 'celebix_saas_app'::pg_catalog.regrole
+      WHEN 'celebix_saas_workflow' THEN 'celebix_saas_workflow'::pg_catalog.regrole
+      ELSE NULL END;
+    IF function_oid IS NULL OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_proc AS procedure
+      WHERE procedure.oid=function_oid
+        AND procedure.proowner=owner_oid
+        AND procedure.prosecdef=expected_security
+        AND procedure.provolatile=expected_volatility
+        AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+    ) OR EXISTS(
+      SELECT 1 FROM pg_catalog.pg_proc AS procedure
+      CROSS JOIN LATERAL pg_catalog.aclexplode(
+        COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+      ) AS privilege
+      WHERE procedure.oid=function_oid AND (
+        privilege.privilege_type<>'EXECUTE' OR privilege.is_grantable
+        OR privilege.grantor<>owner_oid
+        OR (privilege.grantee<>owner_oid
+          AND (allowed_oid IS NULL OR privilege.grantee<>allowed_oid))
+      )
+    ) OR NOT pg_catalog.has_function_privilege(owner_oid,function_oid,'EXECUTE')
+      OR (allowed_oid IS NOT NULL
+        AND NOT pg_catalog.has_function_privilege(allowed_oid,function_oid,'EXECUTE'))
+      OR (allowed_oid IS NULL AND EXISTS(
+        SELECT 1 FROM pg_catalog.pg_proc AS procedure
+        CROSS JOIN LATERAL pg_catalog.aclexplode(
+          COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+        ) AS privilege
+        WHERE procedure.oid=function_oid AND privilege.grantee<>owner_oid
+      ))
+    THEN RAISE EXCEPTION 'QUICK_ORDER_HOSTED_PAYMENT_AUTHORITY_PREFLIGHT_INVALID'; END IF;
+  END LOOP;
+
+  function_oid:='saas.quick_order_hosted_payment_authority_preflight()'::pg_catalog.regprocedure;
+  IF NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_proc AS procedure
+    WHERE procedure.oid=function_oid
+      AND procedure.proowner=owner_oid
+      AND procedure.prosecdef
+      AND procedure.provolatile='s'
+      AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+  ) OR EXISTS(
+    SELECT 1 FROM pg_catalog.pg_proc AS procedure
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+      COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+    ) AS privilege
+    WHERE procedure.oid=function_oid AND (
+      privilege.privilege_type<>'EXECUTE' OR privilege.is_grantable
+      OR privilege.grantor<>owner_oid
+      OR privilege.grantee NOT IN(
+        owner_oid,'celebix_saas_app'::pg_catalog.regrole,'celebix_saas_workflow'::pg_catalog.regrole
+      )
     )
-    AND NOT pg_catalog.has_function_privilege(
-      'celebix_saas_workflow',
-      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone)',
-      'EXECUTE'
-    )
+  ) OR NOT pg_catalog.has_function_privilege('celebix_saas_app',function_oid,'EXECUTE')
+    OR NOT pg_catalog.has_function_privilege('celebix_saas_workflow',function_oid,'EXECUTE')
+  THEN RAISE EXCEPTION 'QUICK_ORDER_HOSTED_PAYMENT_AUTHORITY_PREFLIGHT_INVALID'; END IF;
+  RETURN true;
+END
 $f$;
-REVOKE ALL ON FUNCTION saas.quick_order_hosted_payment_authority_preflight() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION saas.quick_order_hosted_payment_authority_preflight() TO celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.quick_order_hosted_payment_authority_preflight()
+FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
+  celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
+  celebix_saas_migrator;
+GRANT EXECUTE ON FUNCTION saas.quick_order_hosted_payment_authority_preflight()
+TO celebix_saas_app,celebix_saas_workflow;
 
 COMMIT;

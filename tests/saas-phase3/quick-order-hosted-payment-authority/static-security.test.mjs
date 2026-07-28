@@ -63,6 +63,21 @@ test("057 binds every new payment attempt to immutable execution evidence and cl
   assert.match(down, /DROP COLUMN execution_adapter_version[\s\S]*DROP COLUMN execution_evidence_digest/);
 });
 
+test("057 serializes exact claims and preflights the complete authority surface", () => {
+  const up = source(UP);
+  const wrapper = up.match(/CREATE FUNCTION saas[.]payment_attempt_claim_reconciliation\([\s\S]*?p_execution_evidence_digest text[\s\S]*?\n\$f\$;/)?.[0] ?? "";
+  const preflight = up.match(/CREATE FUNCTION saas[.]quick_order_hosted_payment_authority_preflight\(\)[\s\S]*?\n\$f\$;/)?.[0] ?? "";
+  assert.match(wrapper, /FROM saas[.]payment_attempts WHERE id=p_attempt_id FOR UPDATE/);
+  assert.doesNotMatch(wrapper, /FOR SHARE/);
+  assert.match(preflight, /payment_attempts_execution_authority_check/);
+  assert.match(preflight, /payment_attempt_bind_execution_authority[\s\S]*payment_attempt_execution_authority_immutable/);
+  assert.match(preflight, /payment_reconciliation_authority\(uuid,timestamp with time zone\)[\s\S]*'s'::"char"/);
+  assert.match(preflight, /payment_attempt_claim_reconciliation\(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone,text,integer,text\)/);
+  assert.match(preflight, /relrowsecurity[\s\S]*relforcerowsecurity/);
+  assert.match(preflight, /procedure[.]proowner=owner_oid[\s\S]*procedure[.]proconfig/);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]quick_order_hosted_payment_authority_preflight\(\)[\s\S]*TO celebix_saas_app,celebix_saas_workflow/);
+});
+
 test("rollback is drain locked and no secret reaches public projections or app table ACL", () => {
   const up = source(UP);
   const down = source(DOWN);
@@ -86,4 +101,12 @@ test("phase3p manifest and cumulative suite include the PG16 gate", () => {
   assert.equal(manifest.postgresqlMajor, 16);
   const runner = readFileSync(path.join(ROOT, "tests/saas-phase3/run-current-suite.mjs"), "utf8");
   assert.match(runner, /quick-order-hosted-payment-authority[/]postgres-harness[.]mjs/);
+  assert.match(runner, /quick-order-hosted-payment-authority[/]postgres-harness[.]mjs[\s\S]*total:\s*17/);
+});
+
+test("storefront startup fails closed unless the exact 057 authority preflight exists and passes", () => {
+  const runtime = readFileSync(path.join(ROOT, "apps/storefront-shared/lib/default-runtime.ts"), "utf8");
+  assert.match(runtime, /to_regprocedure\('saas[.]quick_order_hosted_payment_authority_preflight\(\)'\)/);
+  assert.match(runtime, /saas[.]quick_order_hosted_payment_authority_preflight\(\)\s+AS\s+migration_057/);
+  assert.match(runtime, /row[.]migration_057\s*!==\s*true/);
 });

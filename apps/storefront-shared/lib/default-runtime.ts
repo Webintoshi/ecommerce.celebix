@@ -210,7 +210,10 @@ async function initializeHostedPaymentRuntime(
           AND to_regprocedure('saas.merchant_provider_execution_authority_matches(text,text,text,integer,text)') IS NOT NULL
           AND to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL
           AND saas.payment_provider_keyed_lifecycle_preflight()
-          AS migration_056
+          AS migration_056,
+        to_regprocedure('saas.quick_order_hosted_payment_authority_preflight()') IS NOT NULL
+          AND saas.quick_order_hosted_payment_authority_preflight()
+          AS migration_057
       FROM pg_catalog.pg_roles AS role
       WHERE role.rolname=current_user`,
       values: [],
@@ -225,6 +228,7 @@ async function initializeHostedPaymentRuntime(
       || row.workflow_member !== true
       || row.migration_052 !== true
       || row.migration_056 !== true
+      || row.migration_057 !== true
     ) throw new Error("storefront_hosted_payment_preflight_failed");
     for (const { providerCode, authority } of executableAuthorities) {
       if (!await currentExecutionAuthorityMatches(pool, Object.freeze({
