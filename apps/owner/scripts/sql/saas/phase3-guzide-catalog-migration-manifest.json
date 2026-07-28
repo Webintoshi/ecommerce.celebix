@@ -1,0 +1,25 @@
+{
+  "phase": "phase3-guzide-catalog-migration",
+  "postgresqlMajor": 16,
+  "classification": "additive-tenant-catalog-migration-authority",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "rollbackLimitations": "Migration 059 down is disposable-only and requires every catalog product migration row to be absent.",
+  "artifacts": [
+    {
+      "file": "202607280059_catalog_product_migrations.up.sql",
+      "direction": "up",
+      "sha256": "599e7c775d73224ab4d2892d0fb185e698c02e64e58926a6cfedcd8495204ebb"
+    },
+    {
+      "file": "202607280059_catalog_product_migrations.down.sql",
+      "direction": "down",
+      "sha256": "ac367f9456b39d5122a520e10f3b0fe5cec7d0be2faf0aff09fd64019e031689"
+    },
+    {
+      "file": "202607280059_catalog_product_migrations_assertions.sql",
+      "direction": "verify",
+      "sha256": "634416e43042fb979f9ab25c7dfdb1c1b97f89ef88dc33e4200129a98dd788ca"
+    }
+  ]
+}

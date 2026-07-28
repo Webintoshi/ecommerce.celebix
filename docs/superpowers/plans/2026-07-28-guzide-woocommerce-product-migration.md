@@ -104,27 +104,27 @@ git commit -m "feat(catalog): compile woocommerce migration manifests"
 - `CatalogMigrationRepository.get(input)` is read-only recovery/progress authority.
 - The SQL projection exposes counts/status only; raw source URLs and full `TenantContext` never leave server authority.
 
-- [ ] **Step 1: Write failing repository and PostgreSQL tests**
+- [x] **Step 1: Write failing repository and PostgreSQL tests**
 
 Prove begin/replay/mismatch, category/brand creation, duplicate-title slugs, exact weight attributes, 25-product batching, product-limit locking, mapping persistence, cross-store denial, operation collision, unknown-COMMIT read recovery, and zero direct app-table privileges.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run the new repository test and harness; expect missing repository/migration failures.
 
-- [ ] **Step 3: Implement migration 059**
+- [x] **Step 3: Implement migration 059**
 
 Create forced-RLS tables `catalog_product_migration_jobs`, `catalog_product_migration_items`, `catalog_product_migration_media_items`, and immutable operation proofs. Security-definer functions revalidate the full authority tuple and subscription/feature/limit state. Begin creates the 50-category/6-brand taxonomy idempotently. Import-batch atomically writes products, variants, product profiles, category/resource relations and source-to-product mappings; no partial row survives a conflict.
 
-- [ ] **Step 4: Implement repository validation and recovery**
+- [x] **Step 4: Implement repository validation and recovery**
 
 Use existing PostgreSQL acquisition/transaction/unknown-commit conventions. A write with unknown COMMIT performs exactly one read-only operation recovery and never repeats the mutation.
 
-- [ ] **Step 5: Run GREEN, rollback/reapply and manifest checks**
+- [x] **Step 5: Run GREEN, rollback/reapply and manifest checks**
 
 Run repository tests, migration assertions, backup/restore, rollback/reapply, concurrency and cleanup scenarios on disposable PostgreSQL 16.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/saas-data/src/catalog-migration packages/saas-data/src/index.ts apps/owner/scripts/sql/saas/202607280059_* apps/owner/scripts/sql/saas/phase3-guzide-catalog-migration-manifest.json tests/saas-phase3/guzide-catalog-migration
