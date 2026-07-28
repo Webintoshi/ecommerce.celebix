@@ -202,3 +202,19 @@ test("missing exact source and hostile prototype or proxy input are rejected", a
     );
   }
 });
+
+test("Coolify application builds generate the commit-bound Iyzico metadata before compiling", async () => {
+  const packageJson = JSON.parse(await readFile(join(REPOSITORY_ROOT, "package.json"), "utf8"));
+  assert.deepEqual(
+    {
+      customerPanel: packageJson.scripts["build:coolify:customer-panel"],
+      owner: packageJson.scripts["build:coolify:owner"],
+      storefrontShared: packageJson.scripts["build:coolify:storefront-shared"],
+    },
+    {
+      customerPanel: "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/customer-panel",
+      owner: "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/owner",
+      storefrontShared: "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/storefront-shared",
+    },
+  );
+});
