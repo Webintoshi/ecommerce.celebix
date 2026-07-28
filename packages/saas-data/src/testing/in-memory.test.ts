@@ -205,3 +205,73 @@ test("injected verified email metadata failure rolls back the update", async () 
   await transaction.rollback();
   assert.equal(repository.inspectState().principals[0]?.email, "old@example.test");
 });
+
+test("media namespace is unique per store, exact, and rollback-safe", async () => {
+  const repository = createInMemorySaaSDataRepository();
+  const transaction = await repository.beginTransaction();
+  const storeId = "10000000-0000-4000-8000-000000000001";
+  const record = {
+    storeId,
+    namespacePrefix: `stores/${storeId}/`,
+    status: "active" as const,
+    version: 1,
+    createdAt: "2026-07-28T00:00:00.000Z",
+    updatedAt: "2026-07-28T00:00:00.000Z",
+  };
+
+  assert.deepEqual(await transaction.mediaNamespaces.create(record), record);
+  assert.deepEqual(await transaction.mediaNamespaces.findByStoreId(storeId), record);
+  await assert.rejects(
+    () => transaction.mediaNamespaces.create(record),
+    (error) => error instanceof SaaSDataUniqueConflict && error.kind === "media_namespace",
+  );
+  await transaction.rollback();
+  assert.equal(repository.inspectState().mediaNamespaces.length, 0);
+  await assert.rejects(() => transaction.mediaNamespaces.findByStoreId(storeId), /already completed/);
+});
+
+test("media namespace rejects caller-shaped authority and invalid lifecycle fields", async () => {
+  const repository = createInMemorySaaSDataRepository();
+  const transaction = await repository.beginTransaction();
+  const storeId = "10000000-0000-4000-8000-000000000001";
+  const valid = {
+    storeId,
+    namespacePrefix: `stores/${storeId}/`,
+    status: "active" as const,
+    version: 1,
+    createdAt: "2026-07-28T00:00:00.000Z",
+    updatedAt: "2026-07-28T00:00:00.000Z",
+  };
+
+  for (const candidate of [
+    { ...valid, namespacePrefix: "stores/forged/" },
+    { ...valid, status: "suspended" as const },
+    { ...valid, version: 2 },
+    { ...valid, updatedAt: "2026-07-28T00:00:01.000Z" },
+  ]) {
+    await assert.rejects(() => transaction.mediaNamespaces.create(candidate));
+  }
+
+  await transaction.rollback();
+  assert.equal(repository.inspectState().mediaNamespaces.length, 0);
+});
+
+test("injected media namespace failure is discarded by rollback", async () => {
+  const repository = createInMemorySaaSDataRepository({ failAt: "after_media_namespace_create" });
+  const transaction = await repository.beginTransaction();
+  const storeId = "10000000-0000-4000-8000-000000000001";
+
+  await assert.rejects(
+    () => transaction.mediaNamespaces.create({
+      storeId,
+      namespacePrefix: `stores/${storeId}/`,
+      status: "active",
+      version: 1,
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    }),
+    /Injected failure: after_media_namespace_create/,
+  );
+  await transaction.rollback();
+  assert.equal(repository.inspectState().mediaNamespaces.length, 0);
+});

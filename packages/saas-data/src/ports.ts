@@ -5,6 +5,7 @@ import type {
   PrincipalRecord,
   SaaSGeneratedIdKind,
   StoreRecord,
+  StoreMediaNamespaceRecord,
   StoreSettingRecord,
   SubscriptionRecord,
   TenantOperationClaim,
@@ -46,6 +47,11 @@ export interface StoreSettingRepositoryPort {
   create(record: StoreSettingRecord): Promise<StoreSettingRecord>;
 }
 
+export interface StoreMediaNamespaceRepositoryPort {
+  findByStoreId(storeId: string): Promise<StoreMediaNamespaceRecord | null>;
+  create(record: StoreMediaNamespaceRecord): Promise<StoreMediaNamespaceRecord>;
+}
+
 export interface TenantOperationRepositoryPort {
   /**
    * Atomically claims one idempotency key. A production adapter must allow only
@@ -66,6 +72,7 @@ export interface SaaSDataTransaction {
   readonly memberships: MembershipRepositoryPort;
   readonly plans: PlanRepositoryPort;
   readonly subscriptions: SubscriptionRepositoryPort;
+  readonly mediaNamespaces: StoreMediaNamespaceRepositoryPort;
   readonly settings: StoreSettingRepositoryPort;
   readonly operations: TenantOperationRepositoryPort;
   generateId(kind: SaaSGeneratedIdKind): string;
