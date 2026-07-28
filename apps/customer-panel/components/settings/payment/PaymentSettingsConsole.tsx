@@ -45,6 +45,10 @@ import {
   type PaymentSettingsFilters,
 } from "@/lib/payment-settings-ui/model";
 import { providerExecutionApi } from "@/lib/provider-execution-ui/client";
+import {
+  IyzicoActivationApiError,
+  iyzicoActivationApi,
+} from "@/lib/iyzico-activation-ui/client";
 
 import { PaymentMethodOrderDialog } from "./PaymentMethodOrderDialog";
 import { PaymentProviderCatalogDialog } from "./PaymentProviderCatalogDialog";
@@ -157,6 +161,22 @@ export function PaymentSettingsConsole(props: Readonly<{
 
   async function updateState(method: MerchantPaymentMethod, state: PaymentMethodState) {
     if (!props.canManage || busyMethodId) return;
+    if (method.providerCode === "iyzico_iframe" && state === "active") {
+      setBusyMethodId(method.id);
+      setMessage("");
+      try {
+        const result = await advanceIyzicoActivation();
+        setMessageTone(result.tone);
+        setMessage(result.message);
+        await load();
+      } catch (error) {
+        setMessageTone("error");
+        setMessage(error instanceof IyzicoActivationApiError
+          ? error.message
+          : "Iyzico aktivasyonu tamamlanamadı.");
+      } finally { setBusyMethodId(null); }
+      return;
+    }
     let emergencyReason: string | null = null;
     if (state === "emergency_disabled") {
       const reason = window.prompt("Acil kapatma nedenini yazın (3-240 karakter):")?.trim() ?? "";
@@ -182,16 +202,64 @@ export function PaymentSettingsConsole(props: Readonly<{
     } finally { setBusyMethodId(null); }
   }
 
+  async function advanceIyzicoActivation(): Promise<Readonly<{
+    tone: "success" | "warning";
+    message: string;
+    active: boolean;
+  }>> {
+    const current = await iyzicoActivationApi.current();
+    if (current.phase === "ready_to_activate"
+      && current.methodId !== null && current.expectedMethodVersion !== null) {
+      await iyzicoActivationApi.activate(current.methodId, current.expectedMethodVersion);
+      return Object.freeze({ tone: "success", message: "Iyzico ödeme yöntemi etkinleştirildi.", active: true });
+    }
+    if (current.phase === "active") {
+      return Object.freeze({ tone: "success", message: "Iyzico ödeme yöntemi zaten etkin.", active: true });
+    }
+    if (current.phase === "evidence_pending" || current.phase === "rejected") {
+      await iyzicoActivationApi.begin();
+      return Object.freeze({ tone: "warning", message: "Iyzico sandbox doğrulaması başlatıldı.", active: false });
+    }
+    if (current.phase === "running") {
+      return Object.freeze({ tone: "warning", message: "Iyzico sandbox doğrulaması devam ediyor.", active: false });
+    }
+    if (current.phase === "credentials_unverified") {
+      return Object.freeze({ tone: "warning", message: "Önce Iyzico test hesabı doğrulamasını tamamlayın.", active: false });
+    }
+    return Object.freeze({ tone: "warning", message: "Iyzico sandbox çalışma paketi henüz yayımlanmadı.", active: false });
+  }
+
   async function connectProvider(card: PaymentProviderCatalogCard) {
     if (!props.canManage || busyProviderCode || !card.configurable || !card.configurableDescriptor) return;
     const descriptor = card.executableDescriptor;
     const profile = descriptor?.environments === undefined
-      ? null
+      ? card.configurableDescriptor?.environments === undefined ? null : selectPaymentProviderConnectionProfile(
+        sources.profiles.phase === "ready" ? sources.profiles.value : [],
+        card.providerCode,
+        card.configurableDescriptor.environments,
+      )
       : selectPaymentProviderConnectionProfile(
         sources.profiles.phase === "ready" ? sources.profiles.value : [],
         card.providerCode,
         descriptor.environments,
       );
+    if (card.providerCode === "iyzico_iframe" && profile?.status === "active") {
+      setBusyProviderCode(card.providerCode);
+      setMessage("");
+      try {
+        const result = await advanceIyzicoActivation();
+        setMessageTone(result.tone);
+        setMessage(result.message);
+        if (result.active) setCatalogOpen(false);
+        await load();
+      } catch (error) {
+        setMessageTone("error");
+        setMessage(error instanceof IyzicoActivationApiError
+          ? error.message
+          : "Iyzico aktivasyonu tamamlanamadı.");
+      } finally { setBusyProviderCode(null); }
+      return;
+    }
     if (descriptor === null || profile?.status !== "active" || card.lifecycleLabel === "Aktif") {
       setSelectedCard(card);
       return;

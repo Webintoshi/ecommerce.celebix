@@ -9,6 +9,8 @@ import {
   IyzicoSandboxEvidenceRepositoryError,
   PostgresIyzicoSandboxEvidenceAppRepository,
   PostgresIyzicoSandboxEvidenceWorkflowRepository,
+  type IyzicoSandboxEvidenceActivationAppRepository,
+  type IyzicoSandboxEvidenceActivationWorkflowRepository,
   type IyzicoSandboxEvidenceAppRepository,
   type IyzicoSandboxEvidenceWorkflowRepository,
   type RecordIyzicoSandboxEvidenceEventInput,
@@ -91,7 +93,7 @@ class Pool {
 
 type Audit = Readonly<{ type: string; role: string; operation: string }>;
 
-function appRepository(pool: Pool, audit: Audit[] = []): IyzicoSandboxEvidenceAppRepository {
+function appRepository(pool: Pool, audit: Audit[] = []): IyzicoSandboxEvidenceActivationAppRepository {
   return new PostgresIyzicoSandboxEvidenceAppRepository({
     pool,
     role: "celebix_saas_app",
@@ -100,7 +102,10 @@ function appRepository(pool: Pool, audit: Audit[] = []): IyzicoSandboxEvidenceAp
   });
 }
 
-function workflowRepository(pool: Pool, audit: Audit[] = []): IyzicoSandboxEvidenceWorkflowRepository {
+function workflowRepository(
+  pool: Pool,
+  audit: Audit[] = [],
+): IyzicoSandboxEvidenceActivationWorkflowRepository {
   return new PostgresIyzicoSandboxEvidenceWorkflowRepository({
     pool,
     role: "celebix_saas_workflow",
@@ -172,8 +177,102 @@ function activateInput() {
   };
 }
 
+function currentInput() {
+  return { tenantContext: tenant(), now: NOW, profileId: PROFILE };
+}
+
+function claimNextInput() {
+  return {
+    workerId: WORKER,
+    leaseId: LEASE,
+    now: NOW,
+    leaseExpiresAt: LEASE_EXPIRES_AT,
+  };
+}
+
+function claimedProfileInput() {
+  return { runId: RUN, leaseId: LEASE, workerId: WORKER, now: NOW };
+}
+
+function sealedCredentials() {
+  return {
+    algorithm: "A256GCM",
+    ciphertext: "b3BhcXVl",
+    iv: "AQEBAQEBAQEBAQEB",
+    keyId: "provider.current",
+    tag: "AgICAgICAgICAgICAgICAg",
+    version: 1,
+  };
+}
+
+function activateCurrentInput() {
+  return {
+    tenantContext: tenant(),
+    now: NOW,
+    operationId: OPERATION,
+    fingerprint: FINGERPRINT,
+    methodId: PROFILE,
+    expectedMethodVersion: 1,
+  };
+}
+
 function beginPayload(replayed = false, status = "pending") {
   return { runId: RUN, status, replayed };
+}
+
+function beginCurrentPayload(replayed = false, status = "pending") {
+  return {
+    runId: RUN,
+    status,
+    methodId: PROFILE,
+    methodVersion: 1,
+    methodState: "disabled",
+    replayed,
+  };
+}
+
+function currentPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    profileId: PROFILE,
+    runId: RUN,
+    status: "attested",
+    rejectionCode: null,
+    methodId: PROFILE,
+    methodVersion: 1,
+    methodState: "active",
+    profileVersion: 1,
+    credentialVersion: 1,
+    attestationId: ATTESTATION,
+    activationCurrent: true,
+    ...overrides,
+  };
+}
+
+function claimNextPayload(replayed = false) {
+  return {
+    runId: RUN,
+    storeId: STORE,
+    profileId: PROFILE,
+    adapterVersion: 7,
+    candidateEvidenceDigest: EVIDENCE_DIGEST,
+    profileVersion: 1,
+    credentialVersion: 1,
+    leaseId: LEASE,
+    replayed,
+  };
+}
+
+function claimedProfilePayload() {
+  return {
+    storeId: STORE,
+    profileId: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    publicConfig: { environment: "test" },
+    sealedCredentials: sealedCredentials(),
+    profileVersion: 1,
+    credentialVersion: 1,
+  };
 }
 
 function claimPayload(replayed = false) {
@@ -294,6 +393,124 @@ test("activation handshake uses only the exact 060 function and validates its sa
   ]);
 });
 
+test("app beginCurrent stages one deterministic disabled method through the exact 061 signature", async () => {
+  const client = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_begin_current")
+    ? selected("created", beginCurrentPayload())
+    : []);
+  const result = await appRepository(new Pool([client])).beginCurrent(beginInput());
+  assert.deepEqual(result, { outcome: "created", ...beginCurrentPayload() });
+  assert.equal(Object.isFrozen(result), true);
+  const query = call(client, "iyzico_iframe_tenant_evidence_begin_current");
+  assert.equal(query.text,
+    "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_begin_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::bigint,$13::text,$14::integer)");
+  assert.deepEqual(query.values, [
+    STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW,
+    RUN, FINGERPRINT, PROFILE, 1, 1, EVIDENCE_DIGEST, 7,
+  ]);
+  assert.equal(client.calls.some(({ text }) => text === "SET LOCAL ROLE celebix_saas_app"), true);
+});
+
+test("app current reads the exact safe server projection and treats not_started as normal", async () => {
+  const currentClient = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_current")
+    ? selected("current", currentPayload())
+    : []);
+  const result = await appRepository(new Pool([currentClient])).current(currentInput());
+  assert.deepEqual(result, { outcome: "current", ...currentPayload() });
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(currentClient.calls[0]?.text, "BEGIN READ ONLY");
+  const query = call(currentClient, "iyzico_iframe_tenant_evidence_current");
+  assert.equal(query.text,
+    "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)");
+  assert.deepEqual(query.values, [
+    STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, PROFILE,
+  ]);
+
+  const notStartedPayload = currentPayload({
+    runId: null,
+    status: null,
+    rejectionCode: null,
+    methodId: null,
+    methodVersion: null,
+    methodState: null,
+    attestationId: null,
+    activationCurrent: false,
+  });
+  const emptyClient = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_current")
+    ? selected("not_started", notStartedPayload)
+    : []);
+  assert.deepEqual(
+    await appRepository(new Pool([emptyClient])).current(currentInput()),
+    { outcome: "not_started", ...notStartedPayload },
+  );
+});
+
+test("workflow claimNext claims by queue order and treats none plus null as normal", async () => {
+  const client = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_claim_next")
+    ? selected("claimed", claimNextPayload())
+    : []);
+  const result = await workflowRepository(new Pool([client])).claimNext(claimNextInput());
+  assert.deepEqual(result, { outcome: "claimed", ...claimNextPayload() });
+  const query = call(client, "iyzico_iframe_tenant_evidence_claim_next");
+  assert.equal(query.text,
+    "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_claim_next($1::text,$2::uuid,$3::timestamptz,$4::timestamptz)");
+  assert.deepEqual(query.values, [WORKER, LEASE, NOW, LEASE_EXPIRES_AT]);
+  assert.equal(client.calls.some(({ text }) => text === "SET LOCAL ROLE celebix_saas_workflow"), true);
+
+  const empty = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_claim_next")
+    ? selected("none", null)
+    : []);
+  assert.deepEqual(
+    await workflowRepository(new Pool([empty])).claimNext(claimNextInput()),
+    { outcome: "none" },
+  );
+});
+
+test("workflow claimedProfile reads sealed authority only behind the exact live lease", async () => {
+  const client = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_claimed_profile")
+    ? selected("current", claimedProfilePayload())
+    : []);
+  const result = await workflowRepository(new Pool([client])).claimedProfile(claimedProfileInput());
+  assert.deepEqual(result, { outcome: "current", ...claimedProfilePayload() });
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.publicConfig), true);
+  assert.equal(Object.isFrozen(result.sealedCredentials), true);
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  const query = call(client, "iyzico_iframe_tenant_evidence_claimed_profile");
+  assert.equal(query.text,
+    "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_claimed_profile($1::uuid,$2::uuid,$3::text,$4::timestamptz)");
+  assert.deepEqual(query.values, [RUN, LEASE, WORKER, NOW]);
+  assert.equal(client.calls.some(({ text }) => text === "SET LOCAL ROLE celebix_saas_workflow"), true);
+  assert.equal(client.calls.some(({ text }) => text === "SET LOCAL ROLE celebix_saas_app"), false);
+});
+
+test("app activateCurrent supplies no attestation and validates the server-selected activation", async () => {
+  const payload = { ...activationPayload(), id: PROFILE };
+  const client = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_activate_current")
+    ? selected("state_changed", payload)
+    : []);
+  const result = await appRepository(new Pool([client])).activateCurrent(activateCurrentInput());
+  assert.deepEqual(result, { outcome: "state_changed", ...payload });
+  const query = call(client, "iyzico_iframe_tenant_evidence_activate_current");
+  assert.equal(query.text,
+    "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_activate_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)");
+  assert.deepEqual(query.values, [
+    STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW,
+    OPERATION, FINGERPRINT, PROFILE, 1,
+  ]);
+  assert.equal(query.values.includes(ATTESTATION), false);
+});
+
+test("activation runtime preflight is exact, read-only, and app-role only", async () => {
+  const client = new Client((text) => text.includes("iyzico_iframe_tenant_activation_runtime_preflight")
+    ? [{ ready: true }]
+    : []);
+  assert.equal(await appRepository(new Pool([client])).activationRuntimePreflight(), true);
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(client.calls.some(({ text }) => text === "SET LOCAL ROLE celebix_saas_app"), true);
+  assert.equal(call(client, "iyzico_iframe_tenant_activation_runtime_preflight").text,
+    "SELECT saas.iyzico_iframe_tenant_activation_runtime_preflight() AS ready");
+});
+
 test("app and workflow preflight are read-only, role-separated, and fail closed on false", async () => {
   for (const [role, build] of [
     ["celebix_saas_app", appRepository] as const,
@@ -375,6 +592,171 @@ test("every mutation recovers one unknown COMMIT by replaying the same exact 060
     assert.deepEqual(replayCall.values, writeCall.values);
     assert.equal(recovery.calls.at(-1)?.text, "COMMIT");
   }
+});
+
+test("every new 061 mutation audits and recovers one unknown COMMIT with the same RPC", async () => {
+  const cases = [
+    {
+      role: "app", operation: "begin_current", functionName: "iyzico_iframe_tenant_evidence_begin_current",
+      observedOutcome: "created", observed: beginCurrentPayload(), recovered: beginCurrentPayload(true),
+      invoke: (
+        repo: IyzicoSandboxEvidenceActivationAppRepository
+          | IyzicoSandboxEvidenceActivationWorkflowRepository,
+      ) => (repo as IyzicoSandboxEvidenceActivationAppRepository).beginCurrent(beginInput()),
+    },
+    {
+      role: "workflow", operation: "claim_next", functionName: "iyzico_iframe_tenant_evidence_claim_next",
+      observedOutcome: "claimed", observed: claimNextPayload(), recovered: claimNextPayload(true),
+      invoke: (
+        repo: IyzicoSandboxEvidenceActivationAppRepository
+          | IyzicoSandboxEvidenceActivationWorkflowRepository,
+      ) => (repo as IyzicoSandboxEvidenceActivationWorkflowRepository).claimNext(claimNextInput()),
+    },
+    {
+      role: "app", operation: "activate_current", functionName: "iyzico_iframe_tenant_evidence_activate_current",
+      observedOutcome: "state_changed",
+      observed: { ...activationPayload(), id: PROFILE },
+      recovered: { ...activationPayload(true), id: PROFILE },
+      invoke: (
+        repo: IyzicoSandboxEvidenceActivationAppRepository
+          | IyzicoSandboxEvidenceActivationWorkflowRepository,
+      ) => (repo as IyzicoSandboxEvidenceActivationAppRepository)
+        .activateCurrent(activateCurrentInput()),
+    },
+  ] as const;
+
+  for (const selectedCase of cases) {
+    const writer = new Client((text) => {
+      if (text.includes(selectedCase.functionName)) {
+        return selected(selectedCase.observedOutcome, selectedCase.observed);
+      }
+      if (text === "COMMIT") return new Error("wire lost");
+      return [];
+    });
+    const recovery = new Client((text) => text.includes(selectedCase.functionName)
+      ? selected("operation_replayed", selectedCase.recovered)
+      : []);
+    const audits: Audit[] = [];
+    const repo = selectedCase.role === "app"
+      ? appRepository(new Pool([writer, recovery]), audits)
+      : workflowRepository(new Pool([writer, recovery]), audits);
+    const result = await selectedCase.invoke(repo);
+    assert.equal(result.outcome, "operation_replayed");
+    assert.deepEqual(writer.releases, [true]);
+    assert.deepEqual(audits, [{
+      type: "iyzico_sandbox_evidence_commit_unknown",
+      role: selectedCase.role,
+      operation: selectedCase.operation,
+    }]);
+    const writeCall = call(writer, selectedCase.functionName);
+    const replayCall = call(recovery, selectedCase.functionName);
+    assert.equal(replayCall.text, writeCall.text);
+    assert.deepEqual(replayCall.values, writeCall.values);
+  }
+});
+
+test("061 input surfaces reject browser authority and malformed values before checkout", async () => {
+  const app = appRepository(new Pool([]));
+  const workflow = workflowRepository(new Pool([]));
+  await assert.rejects(
+    () => app.beginCurrent({ ...beginInput(), attestationId: ATTESTATION } as never),
+    errorCode("invalid_input"),
+  );
+  await assert.rejects(
+    () => app.current({ ...currentInput(), runId: RUN } as never),
+    errorCode("invalid_input"),
+  );
+  await assert.rejects(
+    () => workflow.claimNext({ ...claimNextInput(), runId: RUN } as never),
+    errorCode("invalid_input"),
+  );
+  await assert.rejects(
+    () => workflow.claimNext({
+      ...claimNextInput(), leaseExpiresAt: new Date(NOW.getTime() + 15 * 60_000 + 1),
+    }),
+    errorCode("invalid_input"),
+  );
+  await assert.rejects(
+    () => app.activateCurrent({ ...activateCurrentInput(), attestationId: ATTESTATION } as never),
+    errorCode("invalid_input"),
+  );
+  await assert.rejects(
+    () => app.activateCurrent({ ...activateCurrentInput(), expectedMethodVersion: Number.MAX_SAFE_INTEGER }),
+    errorCode("invalid_input"),
+  );
+});
+
+test("061 projections and normal empty outcomes are exact and fail closed", async () => {
+  const corruptBegin = [
+    { ...beginCurrentPayload(), methodId: METHOD },
+    { ...beginCurrentPayload(), methodVersion: 0 },
+    { ...beginCurrentPayload(), methodState: "active" },
+    { ...beginCurrentPayload(), attestationId: ATTESTATION },
+  ];
+  for (const payload of corruptBegin) {
+    const client = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_begin_current")
+      ? selected("created", payload)
+      : []);
+    await assert.rejects(
+      () => appRepository(new Pool([client])).beginCurrent(beginInput()),
+      errorCode("unavailable"),
+    );
+  }
+
+  const corruptCurrent = [
+    currentPayload({ profileId: METHOD }),
+    currentPayload({ methodId: METHOD }),
+    currentPayload({ methodVersion: null }),
+    currentPayload({ status: "rejected", rejectionCode: null, attestationId: null, activationCurrent: false }),
+    currentPayload({ status: "attested", attestationId: null, activationCurrent: false }),
+    currentPayload({ methodState: "private" }),
+    currentPayload({ privateDetail: "forbidden" }),
+    currentPayload({ attestationId: "not-a-uuid" }),
+  ];
+  for (const payload of corruptCurrent) {
+    const client = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_current")
+      ? selected("current", payload)
+      : []);
+    await assert.rejects(
+      () => appRepository(new Pool([client])).current(currentInput()),
+      errorCode("unavailable"),
+    );
+  }
+
+  for (const [outcome, payload] of [
+    ["none", {}],
+    ["claimed", { ...claimNextPayload(), leaseId: METHOD }],
+    ["claimed", { ...claimNextPayload(), candidateEvidenceDigest: FINGERPRINT }],
+    ["claimed", { ...claimNextPayload(), replayed: true }],
+  ] as const) {
+    const client = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_claim_next")
+      ? selected(outcome, payload)
+      : []);
+    await assert.rejects(
+      () => workflowRepository(new Pool([client])).claimNext(claimNextInput()),
+      errorCode("unavailable"),
+    );
+  }
+});
+
+test("061 controlled errors require null payloads and preserve read-only current semantics", async () => {
+  const current = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_current")
+    ? selected("profile_not_found", null)
+    : []);
+  await assert.rejects(
+    () => appRepository(new Pool([current])).current(currentInput()),
+    errorCode("profile_not_found"),
+  );
+  assert.equal(current.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(current.calls.some(({ text }) => text === "COMMIT"), true);
+
+  const malformed = new Client((text) => text.includes("iyzico_iframe_tenant_evidence_begin_current")
+    ? selected("profile_not_found", { privateDetail: "forbidden" })
+    : []);
+  await assert.rejects(
+    () => appRepository(new Pool([malformed])).beginCurrent(beginInput()),
+    errorCode("unavailable"),
+  );
 });
 
 test("unresolved or mismatched commit recovery is commit_unknown and never performs a third checkout", async () => {
@@ -518,11 +900,17 @@ test("public types and repository source expose no raw provider or buyer authori
     readFileSync(new URL("./types.ts", import.meta.url), "utf8"),
     readFileSync(new URL("./repository.ts", import.meta.url), "utf8"),
   ].join("\n");
-  assert.doesNotMatch(source, /\b(?:apiSecret|secretKey|sealedCredentials|token|requestBody|responseBody|headers|buyerEmail|buyerPhone|buyerAddress)\b/);
+  assert.doesNotMatch(source, /\b(?:apiSecret|secretKey|token|requestBody|responseBody|headers|buyerEmail|buyerPhone|buyerAddress)\b/);
   assert.match(source, /iyzico_iframe_tenant_evidence_begin/);
+  assert.match(source, /iyzico_iframe_tenant_evidence_begin_current/);
+  assert.match(source, /iyzico_iframe_tenant_evidence_current/);
   assert.match(source, /iyzico_iframe_tenant_evidence_claim/);
+  assert.match(source, /iyzico_iframe_tenant_evidence_claim_next/);
+  assert.match(source, /iyzico_iframe_tenant_evidence_claimed_profile/);
   assert.match(source, /iyzico_iframe_tenant_evidence_record_event/);
   assert.match(source, /iyzico_iframe_tenant_evidence_finalize/);
   assert.match(source, /iyzico_iframe_tenant_evidence_activate/);
+  assert.match(source, /iyzico_iframe_tenant_evidence_activate_current/);
   assert.match(source, /iyzico_iframe_tenant_evidence_preflight/);
+  assert.match(source, /iyzico_iframe_tenant_activation_runtime_preflight/);
 });

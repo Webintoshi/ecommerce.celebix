@@ -16,7 +16,10 @@ import type {
   MerchantProviderExecutionAuthorityMap,
   MerchantProviderVerificationIdentityMap,
 } from "./production-config.ts";
-import { createIyzicoValidationAdapter } from "./iyzico-validation-adapter.ts";
+import {
+  createIyzicoExecutionValidationAdapter,
+  createIyzicoValidationAdapter,
+} from "./iyzico-validation-adapter.ts";
 import {
   createPaytrValidationAdapter,
   type PaytrValidationAdapterOptions,
@@ -243,7 +246,21 @@ export function createProductionMerchantProviderRegistries(
   const paytrIdentities = dense(identities.paytr_iframe);
   const execution: MerchantProviderAdapter[] = [];
   const verification: MerchantProviderVerificationAdapter[] = [];
-  if (authorities.iyzico_iframe !== null) invalid();
+  const iyzicoAuthority = authorities.iyzico_iframe as MerchantProviderExecutionAuthorityMap["iyzico_iframe"];
+  if (iyzicoAuthority !== null) {
+    if (iyzicoAuthority.environment !== "test" || iyzicoAuthority.adapterVersion !== 1) invalid();
+    execution.push(createIyzicoExecutionValidationAdapter(Object.freeze({
+      executionAuthority: Object.freeze({
+        environment: "test" as const,
+        adapterVersion: 1 as const,
+        evidenceDigest: iyzicoAuthority.evidenceDigest,
+      }),
+      transport: selected.transport as ProviderTransport,
+      validationReference: selected.validationReference as () => string,
+      validationRandomKey: selected.validationRandomKey as () => string,
+      validationTimeoutMs: selected.validationTimeoutMs as number,
+    })));
+  }
   const paytrAuthority = authorities.paytr_iframe as MerchantProviderExecutionAuthorityMap["paytr_iframe"];
   if ((paytrAuthority === null) !== (selected.paytrValidation === null)) invalid();
   if (paytrAuthority !== null && selected.paytrValidation !== null) {

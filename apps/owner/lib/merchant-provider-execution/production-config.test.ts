@@ -257,6 +257,63 @@ test("production execution registry adds PayTR only when its exact authority and
   assert.equal(selected.verification.size, 0);
 });
 
+test("production execution registry binds exact compiled Iyzico authority to credential validation only", async () => {
+  const authority = Object.freeze({
+    environment: "test" as const,
+    adapterVersion: 1,
+    evidenceDigest: EVIDENCE,
+  });
+  let requestUrl = "";
+  const selected = createProductionMerchantProviderRegistries(Object.freeze({
+    executionAuthorities: Object.freeze({ iyzico_iframe: authority, paytr_iframe: null }),
+    verificationIdentities: Object.freeze({
+      iyzico_iframe: Object.freeze([]),
+      paytr_iframe: Object.freeze([]),
+    }),
+    transport: Object.freeze({
+      async request(request: Readonly<{ url: string }>) {
+        requestUrl = request.url;
+        return Object.freeze({
+          kind: "response" as const,
+          status: 200,
+          contentType: "application/json" as const,
+          body: new TextEncoder().encode(JSON.stringify({
+            status: "success",
+            conversationId: "11111111-1111-4111-8111-111111111111",
+            binNumber: "41579200",
+          })),
+        });
+      },
+    }),
+    paytrValidation: null,
+    validationReference: () => "11111111-1111-4111-8111-111111111111",
+    validationRandomKey: () => "1234567890abcdef",
+    validationTimeoutMs: 5_000,
+  }));
+
+  const adapter = selected.execution.get("iyzico_iframe", "payment_processing");
+  assert.deepEqual(adapter?.executionAuthority, authority);
+  assert.equal(selected.execution.size, 1);
+  assert.equal(selected.verification.size, 0);
+  const credential = new TextEncoder().encode(JSON.stringify({
+    apiKey: "sandbox-api-key",
+    secretKey: "sandbox-secret-key",
+  }));
+  assert.deepEqual(await adapter?.validateCredential(Object.freeze({
+    credential,
+    publicConfig: Object.freeze({ environment: "test" }),
+  })), { kind: "validated" });
+  assert.equal(requestUrl, "https://sandbox-api.iyzipay.com/payment/bin/check");
+  assert.deepEqual(await adapter?.execute({} as never), {
+    kind: "permanently_failed",
+    outcomeCode: "payment_capability_not_queued",
+  });
+  assert.deepEqual(await adapter?.reconcile({} as never), {
+    kind: "permanently_failed",
+    outcomeCode: "payment_capability_not_queued",
+  });
+});
+
 test("production registry rejects accessor-backed provider maps without invoking accessors", () => {
   let reads = 0;
   const authorities = { paytr_iframe: null } as Record<string, unknown>;

@@ -13,13 +13,17 @@ import {
   PostgresAnalyticsRepository,
   PostgresCustomerRepository,
   PostgresInventoryRepository,
+  PostgresIyzicoSandboxEvidenceAppRepository,
   PostgresPricingRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
   parseMerchantProviderCredentialKeyring,
 } from "@celebix/saas-data";
-import { createBoundedProviderTransport } from "@celebix/payment-adapters";
+import {
+  IYZICO_GENERATED_BUILD_METADATA,
+  createBoundedProviderTransport,
+} from "@celebix/payment-adapters";
 import pg from "pg";
 
 import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
@@ -39,6 +43,7 @@ import { registerServerAbandonedCartRepository } from "../server-abandoned-carts
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
 import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
+import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
 import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import {
@@ -178,6 +183,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.payment_method_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS payment_method_repository,
       to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL
         AND saas.payment_provider_keyed_lifecycle_preflight() AS payment_provider_keyed_lifecycle,
+      to_regprocedure('saas.iyzico_iframe_tenant_activation_runtime_preflight()') IS NOT NULL
+        AND saas.iyzico_iframe_tenant_activation_runtime_preflight() AS iyzico_activation_runtime,
       to_regprocedure('saas.quick_order_hosted_payment_authority_preflight()') IS NOT NULL
         AND saas.quick_order_hosted_payment_authority_preflight() AS quick_order_hosted_authority,
       to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
@@ -269,6 +276,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.merchant_admin_repository !== true ||
       row.merchant_provider_profile_repository !== true ||
       row.payment_method_repository !== true || row.payment_provider_keyed_lifecycle !== true ||
+      row.iyzico_activation_runtime !== true ||
       row.quick_order_hosted_authority !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.analytics_repository !== true ||
@@ -364,6 +372,15 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       timeouts: TIMEOUTS,
       audit: () => undefined,
     });
+    const iyzicoActivationRepository = new PostgresIyzicoSandboxEvidenceAppRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
+    if (await iyzicoActivationRepository.activationRuntimePreflight() !== true) {
+      throw new Error("server_iyzico_activation_runtime_preflight_failed");
+    }
     const hostedPaymentAdapters = createDefaultHostedPaymentAdapterRegistry(
       createBoundedProviderTransport({
         fetch: (request) => fetch(request),
@@ -422,6 +439,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       providerCredentialKeyring,
       paymentProviderRegistry,
       hostedPaymentAdapters,
+    );
+    registerServerIyzicoActivationRuntime(
+      access,
+      iyzicoActivationRepository,
+      providerProfileRepository,
+      IYZICO_GENERATED_BUILD_METADATA,
     );
     registerServerAnalyticsRepository(access, analyticsRepository);
     registerServerInventoryRepository(access, inventoryRepository);

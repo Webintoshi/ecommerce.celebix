@@ -93,6 +93,12 @@ const requiredHarnesses = Object.freeze([
     line: /^PASS \d+\/28 .+$/gm,
     completion: /^PASS 28\/28 .+$/m,
   }),
+  Object.freeze({
+    file: "tests/saas-phase3/iyzico-iframe-tenant-activation-runtime/postgres-harness.mjs",
+    total: 24,
+    line: /^PASS \d+\/24 .+$/gm,
+    completion: /^PASS 061 PostgreSQL harness \(24\/24\)$/m,
+  }),
 ]);
 const gateRank = Object.freeze({
   "provider-execution-foundation": 0,
@@ -106,12 +112,14 @@ const gateRank = Object.freeze({
   "quick-order-hosted-payment-bridge": 8,
   "payment-method-single-active-provider": 9,
   "iyzico-iframe-tenant-sandbox-evidence": 10,
+  "iyzico-iframe-tenant-activation-runtime": 11,
 });
 const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/payment-adapter-runtime/evidence-artifact.test.mjs",
   "tests/saas-phase3/payment-adapter-runtime/in-process.test.mjs",
   "tests/saas-phase3/quick-order-hosted-payment-bridge/static-security.test.mjs",
   "tests/saas-phase3/iyzico-iframe-tenant-sandbox-evidence/static-security.test.mjs",
+  "tests/saas-phase3/iyzico-iframe-tenant-activation-runtime/static-security.test.mjs",
 ]);
 
 function runRequiredHarness({ file, total, line, completion }) {

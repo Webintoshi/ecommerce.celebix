@@ -12,20 +12,34 @@ import {
 import type {
   ActivateIyzicoSandboxEvidenceInput,
   ActivateIyzicoSandboxEvidenceResult,
+  ActivateCurrentIyzicoSandboxEvidenceInput,
+  ActivateCurrentIyzicoSandboxEvidenceResult,
   BeginIyzicoSandboxEvidenceInput,
   BeginIyzicoSandboxEvidenceResult,
+  BeginCurrentIyzicoSandboxEvidenceInput,
+  BeginCurrentIyzicoSandboxEvidenceResult,
   ClaimIyzicoSandboxEvidenceInput,
   ClaimIyzicoSandboxEvidenceResult,
+  ClaimNextIyzicoSandboxEvidenceInput,
+  ClaimNextIyzicoSandboxEvidenceResult,
+  ClaimedIyzicoSandboxEvidenceProfileInput,
+  ClaimedIyzicoSandboxEvidenceProfileResult,
+  CurrentIyzicoSandboxEvidenceInput,
+  CurrentIyzicoSandboxEvidenceResult,
   FinalizeIyzicoSandboxEvidenceInput,
   FinalizeIyzicoSandboxEvidenceResult,
-  IyzicoSandboxEvidenceAppRepository,
+  IyzicoSandboxEvidenceActivationAppRepository,
+  IyzicoSandboxEvidenceActivationWorkflowRepository,
   IyzicoSandboxEvidenceAuditEvent,
-  IyzicoSandboxEvidenceWorkflowRepository,
   PostgresIyzicoSandboxEvidenceAppRepositoryOptions,
   PostgresIyzicoSandboxEvidenceWorkflowRepositoryOptions,
   RecordIyzicoSandboxEvidenceEventInput,
   RecordIyzicoSandboxEvidenceEventResult,
 } from "./types.ts";
+import {
+  providerPublicConfig,
+  providerSealedCredential,
+} from "../provider-execution/canonical.ts";
 import {
   evidenceAuthority,
   evidenceCase,
@@ -64,6 +78,7 @@ type MutationSpec<Result> = Readonly<{
   success: readonly string[];
   parse: (selected: Selected) => Result;
   sameAuthority: (observed: Result, recovered: Result) => boolean;
+  errorPayloadMustBeNull?: boolean;
 }>;
 
 const DATABASE_ERRORS = new Set<IyzicoSandboxEvidenceErrorCode>(
@@ -73,11 +88,17 @@ const DATABASE_ERRORS = new Set<IyzicoSandboxEvidenceErrorCode>(
 );
 
 const BEGIN_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_begin($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::bigint,$13::text,$14::integer)";
+const BEGIN_CURRENT_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_begin_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::bigint,$13::text,$14::integer)";
+const CURRENT_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)";
 const CLAIM_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_claim($1::uuid,$2::text,$3::uuid,$4::timestamptz,$5::timestamptz)";
+const CLAIM_NEXT_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_claim_next($1::text,$2::uuid,$3::timestamptz,$4::timestamptz)";
+const CLAIMED_PROFILE_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_claimed_profile($1::uuid,$2::uuid,$3::text,$4::timestamptz)";
 const EVENT_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_record_event($1::uuid,$2::uuid,$3::text,$4::uuid,$5::text,$6::text,$7::uuid,$8::text,$9::text,$10::timestamptz)";
 const FINALIZE_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_finalize($1::uuid,$2::uuid,$3::text,$4::uuid,$5::text,$6::timestamptz)";
 const ACTIVATE_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_activate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::uuid,$13::bigint)";
+const ACTIVATE_CURRENT_SQL = "SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_activate_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)";
 const PREFLIGHT_SQL = "SELECT saas.iyzico_iframe_tenant_evidence_preflight() AS ready";
+const ACTIVATION_RUNTIME_PREFLIGHT_SQL = "SELECT saas.iyzico_iframe_tenant_activation_runtime_preflight() AS ready";
 
 function unavailable(): never {
   throw trustedIyzicoSandboxEvidenceError("unavailable");
@@ -264,6 +285,112 @@ function parseBegin(value: Selected): BeginIyzicoSandboxEvidenceResult {
   });
 }
 
+function parseBeginCurrent(value: Selected): BeginCurrentIyzicoSandboxEvidenceResult {
+  return parseOutput(() => {
+    if (value.outcome !== "created" && value.outcome !== "operation_replayed") unavailable();
+    const payload = outputRecord(value.payload, [
+      "runId",
+      "status",
+      "methodId",
+      "methodVersion",
+      "methodState",
+      "replayed",
+    ]);
+    const statuses = ["pending", "leased", "attested", "rejected"] as const;
+    if (!statuses.includes(payload.status as never) || payload.methodState !== "disabled") unavailable();
+    return Object.freeze({
+      outcome: value.outcome,
+      runId: evidenceUuid(payload.runId),
+      status: payload.status as BeginCurrentIyzicoSandboxEvidenceResult["status"],
+      methodId: evidenceUuid(payload.methodId),
+      methodVersion: evidenceInteger(payload.methodVersion),
+      methodState: "disabled" as const,
+      replayed: replayed(value.outcome, payload.replayed),
+    });
+  });
+}
+
+function nullableUuid(value: unknown): string | null {
+  return value === null ? null : evidenceUuid(value);
+}
+
+function nullableInteger(value: unknown): number | null {
+  return value === null ? null : evidenceInteger(value);
+}
+
+function parseCurrent(value: Selected): CurrentIyzicoSandboxEvidenceResult {
+  return parseOutput(() => {
+    if (value.outcome !== "not_started" && value.outcome !== "current") unavailable();
+    const payload = outputRecord(value.payload, [
+      "profileId",
+      "runId",
+      "status",
+      "rejectionCode",
+      "methodId",
+      "methodVersion",
+      "methodState",
+      "profileVersion",
+      "credentialVersion",
+      "attestationId",
+      "activationCurrent",
+    ]);
+    const statuses = ["pending", "leased", "attested", "rejected"] as const;
+    const rejectionCodes = ["callback_mismatch", "timeout_mismatch", "stale_evidence"] as const;
+    const methodStates = ["active", "disabled", "emergency_disabled"] as const;
+    if (payload.status !== null && !statuses.includes(payload.status as never)) unavailable();
+    if (
+      payload.rejectionCode !== null
+      && !rejectionCodes.includes(payload.rejectionCode as never)
+    ) unavailable();
+    if (payload.methodState !== null && !methodStates.includes(payload.methodState as never)) {
+      unavailable();
+    }
+    if (typeof payload.activationCurrent !== "boolean") unavailable();
+    const profileId = evidenceUuid(payload.profileId);
+    const runId = nullableUuid(payload.runId);
+    const methodId = nullableUuid(payload.methodId);
+    const methodVersion = nullableInteger(payload.methodVersion);
+    const attestationId = nullableUuid(payload.attestationId);
+    const methodFieldsPresent = methodId !== null
+      && methodVersion !== null
+      && payload.methodState !== null;
+    if (
+      (methodId !== null || methodVersion !== null || payload.methodState !== null) !== methodFieldsPresent
+      || (methodId !== null && methodId !== profileId)
+      || (payload.status === "rejected") !== (payload.rejectionCode !== null)
+      || (payload.status === "attested") !== (attestationId !== null)
+      || (payload.activationCurrent === true
+        && (payload.status !== "attested"
+          || (payload.methodState !== "active" && payload.methodState !== "disabled")))
+    ) unavailable();
+    if (value.outcome === "not_started") {
+      if (
+        runId !== null
+        || payload.status !== null
+        || payload.rejectionCode !== null
+        || attestationId !== null
+        || payload.activationCurrent
+      ) unavailable();
+    } else if (runId === null || payload.status === null) {
+      unavailable();
+    }
+    return Object.freeze({
+      outcome: value.outcome,
+      profileId,
+      runId,
+      status: payload.status as CurrentIyzicoSandboxEvidenceResult["status"],
+      rejectionCode: payload.rejectionCode as CurrentIyzicoSandboxEvidenceResult["rejectionCode"],
+      methodId,
+      methodVersion,
+      methodState: payload.methodState as CurrentIyzicoSandboxEvidenceResult["methodState"],
+      profileVersion: evidenceInteger(payload.profileVersion),
+      credentialVersion: evidenceInteger(payload.credentialVersion),
+      attestationId,
+      activationCurrent: payload.activationCurrent,
+    });
+  });
+}
+
 function parseClaim(value: Selected): ClaimIyzicoSandboxEvidenceResult {
   return parseOutput(() => {
     if (value.outcome !== "claimed" && value.outcome !== "operation_replayed") unavailable();
@@ -273,6 +400,69 @@ function parseClaim(value: Selected): ClaimIyzicoSandboxEvidenceResult {
       runId: evidenceUuid(payload.runId),
       leaseId: evidenceUuid(payload.leaseId),
       replayed: replayed(value.outcome, payload.replayed),
+    });
+  });
+}
+
+function parseClaimNext(value: Selected): ClaimNextIyzicoSandboxEvidenceResult {
+  return parseOutput(() => {
+    if (value.outcome === "none") {
+      if (value.payload !== null) unavailable();
+      return Object.freeze({ outcome: "none" as const });
+    }
+    if (value.outcome !== "claimed" && value.outcome !== "operation_replayed") unavailable();
+    const payload = outputRecord(value.payload, [
+      "runId",
+      "storeId",
+      "profileId",
+      "adapterVersion",
+      "candidateEvidenceDigest",
+      "profileVersion",
+      "credentialVersion",
+      "leaseId",
+      "replayed",
+    ]);
+    return Object.freeze({
+      outcome: value.outcome,
+      runId: evidenceUuid(payload.runId),
+      storeId: evidenceUuid(payload.storeId),
+      profileId: evidenceUuid(payload.profileId),
+      adapterVersion: evidenceInteger(payload.adapterVersion),
+      candidateEvidenceDigest: prefixedEvidenceDigest(payload.candidateEvidenceDigest),
+      profileVersion: evidenceInteger(payload.profileVersion),
+      credentialVersion: evidenceInteger(payload.credentialVersion),
+      leaseId: evidenceUuid(payload.leaseId),
+      replayed: replayed(value.outcome, payload.replayed),
+    });
+  });
+}
+
+function parseClaimedProfile(value: Selected): ClaimedIyzicoSandboxEvidenceProfileResult {
+  return parseOutput(() => {
+    if (value.outcome !== "current") unavailable();
+    const payload = outputRecord(value.payload, [
+      "storeId",
+      "profileId",
+      "providerCode",
+      "capability",
+      "publicConfig",
+      "sealedCredentials",
+      "profileVersion",
+      "credentialVersion",
+    ]);
+    if (payload.providerCode !== "iyzico_iframe" || payload.capability !== "payment_processing") {
+      unavailable();
+    }
+    return Object.freeze({
+      outcome: "current" as const,
+      storeId: evidenceUuid(payload.storeId),
+      profileId: evidenceUuid(payload.profileId),
+      providerCode: "iyzico_iframe" as const,
+      capability: "payment_processing" as const,
+      publicConfig: providerPublicConfig(payload.publicConfig),
+      sealedCredentials: providerSealedCredential(payload.sealedCredentials),
+      profileVersion: evidenceInteger(payload.profileVersion),
+      credentialVersion: evidenceInteger(payload.credentialVersion),
     });
   });
 }
@@ -408,6 +598,7 @@ async function mutate<Result>(value: RuntimeOptions, spec: MutationSpec<Result>)
     if (!spec.success.includes(observedSelected.outcome)) {
       const code = databaseError(observedSelected.outcome);
       if (!code) unavailable();
+      if (spec.errorPayloadMustBeNull && observedSelected.payload !== null) unavailable();
       try {
         await client.query("COMMIT");
       } catch {
@@ -446,7 +637,12 @@ async function mutate<Result>(value: RuntimeOptions, spec: MutationSpec<Result>)
   }
 }
 
-async function preflight(value: RuntimeOptions): Promise<true> {
+async function read<Result>(
+  value: RuntimeOptions,
+  query: Query,
+  success: readonly string[],
+  parse: (selected: Selected) => Result,
+): Promise<Result> {
   let client: PostgresClientLike | undefined;
   let active = false;
   let released = false;
@@ -454,7 +650,55 @@ async function preflight(value: RuntimeOptions): Promise<true> {
     client = await acquirePostgresClient(value.pool, value.timeouts.poolCheckoutMs);
     active = true;
     await configure(client, value, true);
-    const row = outputRecord(oneRow(await client.query(PREFLIGHT_SQL)), ["ready"]);
+    const observed = selected(await client.query(query.text, [...query.values]));
+    if (!success.includes(observed.outcome)) {
+      const code = databaseError(observed.outcome);
+      if (!code || observed.payload !== null) unavailable();
+      try {
+        await client.query("COMMIT");
+      } catch {
+        active = false;
+        release(client, true);
+        released = true;
+        return unavailable();
+      }
+      active = false;
+      release(client);
+      released = true;
+      throw trustedIyzicoSandboxEvidenceError(code);
+    }
+    const result = parse(observed);
+    try {
+      await client.query("COMMIT");
+    } catch {
+      active = false;
+      release(client, true);
+      released = true;
+      return unavailable();
+    }
+    active = false;
+    release(client);
+    released = true;
+    return result;
+  } catch (error) {
+    if (client && !released) {
+      if (active) await rollback(client);
+      release(client);
+    }
+    if (isTrustedIyzicoSandboxEvidenceError(error)) throw error;
+    return unavailable();
+  }
+}
+
+async function preflight(value: RuntimeOptions, sql = PREFLIGHT_SQL): Promise<true> {
+  let client: PostgresClientLike | undefined;
+  let active = false;
+  let released = false;
+  try {
+    client = await acquirePostgresClient(value.pool, value.timeouts.poolCheckoutMs);
+    active = true;
+    await configure(client, value, true);
+    const row = outputRecord(oneRow(await client.query(sql)), ["ready"]);
     if (row.ready !== true) unavailable();
     try {
       await client.query("COMMIT");
@@ -479,7 +723,7 @@ async function preflight(value: RuntimeOptions): Promise<true> {
 }
 
 export class PostgresIyzicoSandboxEvidenceAppRepository
-implements IyzicoSandboxEvidenceAppRepository {
+implements IyzicoSandboxEvidenceActivationAppRepository {
   readonly #options: RuntimeOptions;
 
   constructor(value: PostgresIyzicoSandboxEvidenceAppRepositoryOptions) {
@@ -531,6 +775,95 @@ implements IyzicoSandboxEvidenceAppRepository {
       },
       sameAuthority: (observed, recovered) => observed.runId === recovered.runId,
     });
+  }
+
+  async beginCurrent(
+    input: BeginCurrentIyzicoSandboxEvidenceInput,
+  ): Promise<BeginCurrentIyzicoSandboxEvidenceResult> {
+    const parsed = exactIyzicoSandboxEvidenceRecord(input, [
+      "tenantContext",
+      "now",
+      "runId",
+      "fingerprint",
+      "profileId",
+      "expectedProfileVersion",
+      "expectedCredentialVersion",
+      "candidateEvidenceDigest",
+      "adapterVersion",
+    ]);
+    const now = evidenceDate(parsed.now);
+    const authority = evidenceAuthority(parsed.tenantContext as TenantContext, now, "integrations");
+    const runId = evidenceUuid(parsed.runId);
+    const profileId = evidenceUuid(parsed.profileId);
+    const query = Object.freeze({
+      text: BEGIN_CURRENT_SQL,
+      values: Object.freeze([
+        authority.storeId,
+        authority.principalId,
+        authority.membershipId,
+        authority.planId,
+        authority.planCode,
+        authority.planVersion,
+        authority.now,
+        runId,
+        evidenceDigest(parsed.fingerprint),
+        profileId,
+        evidenceInteger(parsed.expectedProfileVersion),
+        evidenceInteger(parsed.expectedCredentialVersion),
+        prefixedEvidenceDigest(parsed.candidateEvidenceDigest),
+        evidenceInteger(parsed.adapterVersion),
+      ]),
+    });
+    return mutate(this.#options, {
+      operation: "begin_current",
+      query,
+      success: ["created", "operation_replayed"],
+      parse(value) {
+        const result = parseBeginCurrent(value);
+        if (
+          result.runId !== runId
+          || result.methodId !== profileId
+        ) unavailable();
+        return result;
+      },
+      sameAuthority: (observed, recovered) => observed.runId === recovered.runId
+        && observed.status === recovered.status
+        && observed.methodId === recovered.methodId
+        && observed.methodVersion === recovered.methodVersion
+        && observed.methodState === recovered.methodState,
+      errorPayloadMustBeNull: true,
+    });
+  }
+
+  async current(
+    input: CurrentIyzicoSandboxEvidenceInput,
+  ): Promise<CurrentIyzicoSandboxEvidenceResult> {
+    const parsed = exactIyzicoSandboxEvidenceRecord(input, ["tenantContext", "now", "profileId"]);
+    const now = evidenceDate(parsed.now);
+    const authority = evidenceAuthority(parsed.tenantContext as TenantContext, now, "integrations");
+    const profileId = evidenceUuid(parsed.profileId);
+    return read(
+      this.#options,
+      Object.freeze({
+        text: CURRENT_SQL,
+        values: Object.freeze([
+          authority.storeId,
+          authority.principalId,
+          authority.membershipId,
+          authority.planId,
+          authority.planCode,
+          authority.planVersion,
+          authority.now,
+          profileId,
+        ]),
+      }),
+      ["not_started", "current"],
+      (value) => {
+        const result = parseCurrent(value);
+        if (result.profileId !== profileId) unavailable();
+        return result;
+      },
+    );
   }
 
   async activate(
@@ -595,13 +928,71 @@ implements IyzicoSandboxEvidenceAppRepository {
     });
   }
 
+  async activateCurrent(
+    input: ActivateCurrentIyzicoSandboxEvidenceInput,
+  ): Promise<ActivateCurrentIyzicoSandboxEvidenceResult> {
+    const parsed = exactIyzicoSandboxEvidenceRecord(input, [
+      "tenantContext",
+      "now",
+      "operationId",
+      "fingerprint",
+      "methodId",
+      "expectedMethodVersion",
+    ]);
+    const now = evidenceDate(parsed.now);
+    const authority = evidenceAuthority(parsed.tenantContext as TenantContext, now, "integrations");
+    const methodId = evidenceUuid(parsed.methodId);
+    const expectedMethodVersion = evidenceInteger(
+      parsed.expectedMethodVersion,
+      1,
+      Number.MAX_SAFE_INTEGER - 1,
+    );
+    const query = Object.freeze({
+      text: ACTIVATE_CURRENT_SQL,
+      values: Object.freeze([
+        authority.storeId,
+        authority.principalId,
+        authority.membershipId,
+        authority.planId,
+        authority.planCode,
+        authority.planVersion,
+        authority.now,
+        evidenceUuid(parsed.operationId),
+        evidenceDigest(parsed.fingerprint),
+        methodId,
+        expectedMethodVersion,
+      ]),
+    });
+    return mutate(this.#options, {
+      operation: "activate_current",
+      query,
+      success: ["state_changed", "operation_replayed"],
+      parse(value) {
+        const result = parseActivation(value);
+        if (result.id !== methodId || result.version !== expectedMethodVersion + 1) unavailable();
+        return result;
+      },
+      sameAuthority: (observed, recovered) => observed.id === recovered.id
+        && observed.state === recovered.state
+        && observed.position === recovered.position
+        && observed.version === recovered.version
+        && observed.updatedAt === recovered.updatedAt
+        && observed.activationAttestationId === recovered.activationAttestationId,
+      errorPayloadMustBeNull: true,
+    });
+  }
+
   preflight(): Promise<true> {
     return preflight(this.#options);
+  }
+
+  activationRuntimePreflight(): Promise<true> {
+    return preflight(this.#options, ACTIVATION_RUNTIME_PREFLIGHT_SQL);
   }
 }
 
 export class PostgresIyzicoSandboxEvidenceWorkflowRepository
-implements IyzicoSandboxEvidenceWorkflowRepository {
+implements IyzicoSandboxEvidenceActivationWorkflowRepository {
   readonly #options: RuntimeOptions;
 
   constructor(value: PostgresIyzicoSandboxEvidenceWorkflowRepositoryOptions) {
@@ -643,6 +1034,74 @@ implements IyzicoSandboxEvidenceWorkflowRepository {
       sameAuthority: (observed, recovered) => observed.runId === recovered.runId
         && observed.leaseId === recovered.leaseId,
     });
+  }
+
+  async claimNext(
+    input: ClaimNextIyzicoSandboxEvidenceInput,
+  ): Promise<ClaimNextIyzicoSandboxEvidenceResult> {
+    const parsed = exactIyzicoSandboxEvidenceRecord(input, [
+      "workerId",
+      "leaseId",
+      "now",
+      "leaseExpiresAt",
+    ]);
+    const now = evidenceDate(parsed.now);
+    const expiresAt = evidenceDate(parsed.leaseExpiresAt);
+    evidenceLeaseWindow(now, expiresAt);
+    const leaseId = evidenceUuid(parsed.leaseId);
+    const query = Object.freeze({
+      text: CLAIM_NEXT_SQL,
+      values: Object.freeze([
+        evidenceWorker(parsed.workerId),
+        leaseId,
+        now,
+        expiresAt,
+      ]),
+    });
+    return mutate(this.#options, {
+      operation: "claim_next",
+      query,
+      success: ["none", "claimed", "operation_replayed"],
+      parse(value) {
+        const result = parseClaimNext(value);
+        if (result.outcome !== "none" && result.leaseId !== leaseId) unavailable();
+        return result;
+      },
+      sameAuthority: (observed, recovered) => observed.outcome !== "none"
+        && recovered.outcome !== "none"
+        && observed.runId === recovered.runId
+        && observed.storeId === recovered.storeId
+        && observed.profileId === recovered.profileId
+        && observed.adapterVersion === recovered.adapterVersion
+        && observed.candidateEvidenceDigest === recovered.candidateEvidenceDigest
+        && observed.profileVersion === recovered.profileVersion
+        && observed.credentialVersion === recovered.credentialVersion
+        && observed.leaseId === recovered.leaseId,
+      errorPayloadMustBeNull: true,
+    });
+  }
+
+  async claimedProfile(
+    input: ClaimedIyzicoSandboxEvidenceProfileInput,
+  ): Promise<ClaimedIyzicoSandboxEvidenceProfileResult> {
+    const parsed = exactIyzicoSandboxEvidenceRecord(input, [
+      "runId",
+      "leaseId",
+      "workerId",
+      "now",
+    ]);
+    const runId = evidenceUuid(parsed.runId);
+    const leaseId = evidenceUuid(parsed.leaseId);
+    const workerId = evidenceWorker(parsed.workerId);
+    return read(
+      this.#options,
+      Object.freeze({
+        text: CLAIMED_PROFILE_SQL,
+        values: Object.freeze([runId, leaseId, workerId, evidenceDate(parsed.now)]),
+      }),
+      ["current"],
+      (value) => parseClaimedProfile(value),
+    );
   }
 
   async recordEvent(

@@ -5,11 +5,18 @@ import {
   type ProviderTransport,
 } from "@celebix/payment-adapters";
 
-import type { MerchantProviderVerificationAdapter } from "./types.ts";
+import type {
+  MerchantProviderAdapter,
+  MerchantProviderVerificationAdapter,
+} from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const OPTION_KEYS = Object.freeze([
   "validationIdentity", "transport", "validationReference", "validationRandomKey",
+  "validationTimeoutMs",
+]);
+const EXECUTION_OPTION_KEYS = Object.freeze([
+  "executionAuthority", "transport", "validationReference", "validationRandomKey",
   "validationTimeoutMs",
 ]);
 const PUBLIC_KEYS = Object.freeze(["environment"]);
@@ -19,6 +26,18 @@ const UINT8_ARRAY_FILL = Uint8Array.prototype.fill;
 
 export type IyzicoValidationAdapterOptions = Readonly<{
   validationIdentity: Readonly<{ environment: "test" | "live"; adapterVersion: 1 }>;
+  transport: ProviderTransport;
+  validationReference(): string;
+  validationRandomKey(): string;
+  validationTimeoutMs: number;
+}>;
+
+export type IyzicoExecutionValidationAdapterOptions = Readonly<{
+  executionAuthority: Readonly<{
+    environment: "test";
+    adapterVersion: 1;
+    evidenceDigest: string;
+  }>;
   transport: ProviderTransport;
   validationReference(): string;
   validationRandomKey(): string;
@@ -248,5 +267,42 @@ export function createIyzicoValidationAdapter(
         wipe(credential);
       }
     },
+  });
+}
+
+export function createIyzicoExecutionValidationAdapter(
+  options: IyzicoExecutionValidationAdapterOptions,
+): MerchantProviderAdapter {
+  const parsed = exact(options, EXECUTION_OPTION_KEYS);
+  const authority = exact(parsed.executionAuthority, [
+    "environment", "adapterVersion", "evidenceDigest",
+  ]);
+  if (
+    authority.environment !== "test" || authority.adapterVersion !== 1
+    || typeof authority.evidenceDigest !== "string"
+    || !/^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)
+  ) invalid();
+  const validation = createIyzicoValidationAdapter(Object.freeze({
+    validationIdentity: Object.freeze({ environment: "test" as const, adapterVersion: 1 as const }),
+    transport: parsed.transport as ProviderTransport,
+    validationReference: parsed.validationReference as () => string,
+    validationRandomKey: parsed.validationRandomKey as () => string,
+    validationTimeoutMs: parsed.validationTimeoutMs as number,
+  }));
+  const unavailable = Object.freeze(async () => Object.freeze({
+    kind: "permanently_failed" as const,
+    outcomeCode: "payment_capability_not_queued",
+  }));
+  return Object.freeze({
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing" as const,
+    executionAuthority: Object.freeze({
+      environment: "test" as const,
+      adapterVersion: 1,
+      evidenceDigest: authority.evidenceDigest,
+    }),
+    validateCredential: validation.validateCredential,
+    execute: unavailable,
+    reconcile: unavailable,
   });
 }

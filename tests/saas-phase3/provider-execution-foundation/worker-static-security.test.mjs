@@ -12,26 +12,36 @@ const CONFIG = readFileSync(path.join(ROOT, "apps/owner/lib/merchant-provider-ex
 const PRODUCTION = readFileSync(path.join(ROOT, "apps/owner/lib/merchant-provider-execution/production.ts"), "utf8");
 const SOURCE = `${WORKER}\n${REGISTRY}\n${TYPES}`;
 
-test("production registries keep Iyzico verification separate and compile no PayTR or Iyzico execution authority", () => {
+test("production registries keep Iyzico verification separate and accept only compiled Iyzico execution authority", () => {
   const production = REGISTRY.slice(REGISTRY.indexOf("export function createProductionMerchantProviderRegistries"));
   assert.match(production, /createMerchantProviderAdapterRegistry\(Object\.freeze\(execution\)\)/);
   assert.match(production, /createMerchantProviderVerificationAdapterRegistry\(Object\.freeze\(verification\)\)/);
   assert.match(production, /createIyzicoValidationAdapter/);
-  assert.match(production, /if \(authorities\.iyzico_iframe !== null\) invalid\(\)/);
-  assert.match(CONFIG, /Object\.freeze\(\{ iyzico_iframe: null, paytr_iframe: null \}\)/);
+  assert.match(production, /createIyzicoExecutionValidationAdapter/);
+  assert.match(production, /iyzicoAuthority\.environment !== "test" \|\| iyzicoAuthority\.adapterVersion !== 1/);
+  assert.match(CONFIG, /iyzico_iframe: IYZICO_APPROVED_EXECUTION_AUTHORITY/);
+  assert.match(CONFIG, /paytr_iframe: null/);
+  assert.doesNotMatch(CONFIG, /CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST|CELEBIX_IYZICO_APPROVAL_MODE/);
   assert.doesNotMatch(production, /process\.env|fetch\s*\(|credential|secret/i);
   assert.match(REGISTRY, /Object\.isFrozen\(value\)/);
   assert.match(REGISTRY, /entries\.has\(key\)/);
 });
 
 test("Iyzico verification adapter has validation identity but no execution queue authority", () => {
-  assert.match(IYZICO, /validateIyzicoCredentialWithTransport/);
-  assert.match(IYZICO, /providerCode: "iyzico_iframe"/);
-  assert.match(IYZICO, /validationIdentity:/);
+  const verification = IYZICO.slice(
+    IYZICO.indexOf("export function createIyzicoValidationAdapter"),
+    IYZICO.indexOf("export function createIyzicoExecutionValidationAdapter"),
+  );
+  const execution = IYZICO.slice(IYZICO.indexOf("export function createIyzicoExecutionValidationAdapter"));
+  assert.match(verification, /validateIyzicoCredentialWithTransport/);
+  assert.match(verification, /providerCode: "iyzico_iframe"/);
+  assert.match(verification, /validationIdentity:/);
   assert.match(IYZICO, /const UINT8_ARRAY_FILL = Uint8Array[.]prototype[.]fill/);
   assert.match(IYZICO, /Reflect[.]apply\(UINT8_ARRAY_FILL, value, \[0\]\)/);
   assert.doesNotMatch(IYZICO, /credential\?\.fill\(0\)/);
-  assert.doesNotMatch(IYZICO, /executionAuthority|\bexecute\s*\(|\breconcile\s*\(/);
+  assert.doesNotMatch(verification, /executionAuthority|\bexecute\s*\(|\breconcile\s*\(/);
+  assert.match(execution, /executionAuthority:/);
+  assert.match(execution, /payment_capability_not_queued/);
 });
 
 test("worker core has no environment scheduler route network or logging authority", () => {

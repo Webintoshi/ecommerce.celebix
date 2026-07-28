@@ -1,0 +1,426 @@
+{
+  "phase": "phase3t-iyzico-iframe-tenant-activation-runtime",
+  "postgresqlMajor": 16,
+  "migrationChain": [
+    {
+      "file": "202607110001_roles.up.sql",
+      "sha256": "6be0dba8dd5b4bdde4a93b5fa2b4a047f41aa1683cedd61b52be2cedaa533c8c"
+    },
+    {
+      "file": "202607110002_foundation.up.sql",
+      "sha256": "e74044b59e3425dc4e53de6aaf747e31194399e9c3938ca8aa08fc62e2acb02b"
+    },
+    {
+      "file": "202607110003_free_starter.seed.sql",
+      "sha256": "21efdadf7eeb37292c2c881b6ea332d6f3367e8464153e3dd43fa6096c2ca316"
+    },
+    {
+      "file": "202607110003_plan_versions.freeze.sql",
+      "sha256": "21596787b77533b256820f4993442d9b7e9498dfefc928b84526493445ddaf4c"
+    },
+    {
+      "file": "202607110004_grants.sql",
+      "sha256": "89c27a2c46f14f9687647383eace6a272d7ef070c1a3ea4d2ed799068c33cd12"
+    },
+    {
+      "file": "202607110005_catalog_assertions.sql",
+      "sha256": "d991d3106153a9569857e08518fda49cb0e5a8adbc970fab3f331ee8968ed694"
+    },
+    {
+      "file": "202607110007_identity_roles.up.sql",
+      "sha256": "1622f1db007dce7d6cfd984cf084deb129999b94a9ffdd4b90041546a7fbe924"
+    },
+    {
+      "file": "202607110008_identity_persistence.up.sql",
+      "sha256": "34b084df11992ee4816ff85b39eb08f76019a1030104e5783ef3cf8f086ebafe"
+    },
+    {
+      "file": "202607110009_identity_grants.sql",
+      "sha256": "e2a1530ec6cc57003523ba0dc34a44e50a60a8104d7fe9037785b9be53d95a16"
+    },
+    {
+      "file": "202607110010_identity_catalog_assertions.sql",
+      "sha256": "095ba16dd69a316c308fd3f1d3cc54ed10176a1246a688d5cf74f2716f0830dc"
+    },
+    {
+      "file": "202607120012_verified_identity_snapshot.up.sql",
+      "sha256": "c79cf3d42b685a6a60ea3bcb174a2edc2947508749b0fce59cf904fc0e0a85e6"
+    },
+    {
+      "file": "202607120013_verified_identity_grants.sql",
+      "sha256": "54be660ce25e1b329b931bd7a852ad7f16b4b458d4b8ebc634d0c473e13db9d1"
+    },
+    {
+      "file": "202607120014_verified_identity_catalog_assertions.sql",
+      "sha256": "9feff8001a652932bc0d131f3a3a25652f7281812a9cdc25ed771653d92d84c9"
+    },
+    {
+      "file": "202607140015_panel_sessions.up.sql",
+      "sha256": "6f250c8b117c2d778b9566316f3c4d32fb9b8316516e7b2dfadcb7764dfd96a5"
+    },
+    {
+      "file": "202607140016_panel_session_handoffs.up.sql",
+      "sha256": "c540c6c31b0e02dd8af29fd0f1d2477e0a3253579d9bfebef4204d9ac915ad90"
+    },
+    {
+      "file": "202607140017_panel_browser_bindings.up.sql",
+      "sha256": "e3f384e365a2a884ae15a85244ceb1b59005f1288ca2854948b6e814af0cc893"
+    },
+    {
+      "file": "202607160018_product_catalog.up.sql",
+      "sha256": "09d1d82b88b414de70e4eb4f6a5ef124ded9dbfb17d01c87607e4b3092b21a04"
+    },
+    {
+      "file": "202607160018_product_catalog_assertions.sql",
+      "sha256": "f3c0d2c1918d7441c4a050a23df40b60b27314783260a669f59ee687616e1c78"
+    },
+    {
+      "file": "202607160019_product_catalog_api.up.sql",
+      "sha256": "4ad68a3620e81c4d64fdcc231f4b3058af5f64afaf69f39418a318759acc458e"
+    },
+    {
+      "file": "202607160019_product_catalog_api_assertions.sql",
+      "sha256": "8be9a48d8aa5f66e916a5379c8d013659d3a17c27b4a6c182438726925d6f6c3"
+    },
+    {
+      "file": "202607160020_pilot_storefront_media_domains.up.sql",
+      "sha256": "b50e2218f7d292f27fcbe88c92597b3b351adf9db39221fc7ef54f2ca1eb3c23"
+    },
+    {
+      "file": "202607160020_pilot_storefront_media_domains_assertions.sql",
+      "sha256": "044580b5201ead3143b9cd87dccf2c6715f30f3b33cb4a8624ec512c0366b85f"
+    },
+    {
+      "file": "202607200021_catalog_dashboard_summary.up.sql",
+      "sha256": "4c96c2e44fd95d56cd8836ee64b813bb410770ad15e002c7d2b590a5dcd302d5"
+    },
+    {
+      "file": "202607200021_catalog_dashboard_summary_assertions.sql",
+      "sha256": "cc19a90f6e995ecadd5b9f49be161fc70518a3aa268456fccf12c7b436cf293d"
+    },
+    {
+      "file": "202607210022_order_management.up.sql",
+      "sha256": "09258e0534922bedd61dafa2186e9f98a825ee4732b816d88b96340606d9bc84"
+    },
+    {
+      "file": "202607210022_order_management_assertions.sql",
+      "sha256": "22082520d101924b839acbd24f284ff7c460f3dff83296899749eefd86712133"
+    },
+    {
+      "file": "202607210023_order_management_api.up.sql",
+      "sha256": "b9887c1fb739795553734c5c621ce1e0d1489874942a4d6755d15a2b0bb15ffb"
+    },
+    {
+      "file": "202607210023_order_management_api_assertions.sql",
+      "sha256": "cbaa42a96ecf3542137912660c99c3bdd73db8dea6cb3e419062cab65d37e84b"
+    },
+    {
+      "file": "202607220024_quick_order_links.up.sql",
+      "sha256": "519cda0360940c97dd1a63457fd6f27c0e8262de22176e3a893c1db2725e988a"
+    },
+    {
+      "file": "202607220024_quick_order_links_assertions.sql",
+      "sha256": "56336b5ac7b145a59c26cd79477680178f54a9b60656fc118b33425c864dd216"
+    },
+    {
+      "file": "202607220025_quick_order_links_api.up.sql",
+      "sha256": "5e087e542a47840783ca0bdc851e8a7d8b8069ee01c3f5849b16773138094da9"
+    },
+    {
+      "file": "202607220025_quick_order_links_api_assertions.sql",
+      "sha256": "8d41750948ff907319fca63a01cefcb4cdacd3b853ac8f1166b5a372ec9b13de"
+    },
+    {
+      "file": "202607220026_quick_order_checkout_runtime.up.sql",
+      "sha256": "330658de00a1513d19070daf17176c6f8a2c483e9dc7549bf006b56e7d89aba3"
+    },
+    {
+      "file": "202607220026_quick_order_checkout_runtime_assertions.sql",
+      "sha256": "fe87085e2f22fe70c02a71f094213a88732e98f6ed86ae5a37b64ddd0cf1d30c"
+    },
+    {
+      "file": "202607220027_quick_order_checkout_api.up.sql",
+      "sha256": "7179d3dedc9137f0df0320af3331e857b7dc736e2bc2899d1135fa1714841c20"
+    },
+    {
+      "file": "202607220027_quick_order_checkout_api_assertions.sql",
+      "sha256": "66f9b1462b845317f03e065087b247613b076fea6b0af6bb4027d29f25941ada"
+    },
+    {
+      "file": "202607220028_quick_order_redemption_expiry_authority.up.sql",
+      "sha256": "2b6438a669a24beee378e2a1bab38cd8617b70db2f375445c5f590d2c049e770"
+    },
+    {
+      "file": "202607220028_quick_order_redemption_expiry_authority_assertions.sql",
+      "sha256": "2762c21a7215b605aba325c7b00f7c03bb28109cf6dfd5c6a1f24545570d7956"
+    },
+    {
+      "file": "202607220029_quick_order_settlement_authority.up.sql",
+      "sha256": "23bd0dd194141829f04bb0ccfdecdb9ebe3f7c83be816292434b51d8efa3788b"
+    },
+    {
+      "file": "202607220029_quick_order_settlement_authority_assertions.sql",
+      "sha256": "2ca603e264c8d65029a6a0b0a080a25894467270e71247e740f1f37ac89880b6"
+    },
+    {
+      "file": "202607220030_abandoned_carts.up.sql",
+      "sha256": "f8848e7f009cc87eeed53cc7cf911915f65a7e43f6a583c043cb2dbe07ab65c6"
+    },
+    {
+      "file": "202607220030_abandoned_carts_assertions.sql",
+      "sha256": "734f6d5dbef520ec5c5678fbfdef2a7748b9fbf1c80a35397581606b52587a35"
+    },
+    {
+      "file": "202607220031_abandoned_cart_api.up.sql",
+      "sha256": "1ba4a5c97bb0085ab5be1073181c99576611cccf8787e197933fa380843666d8"
+    },
+    {
+      "file": "202607220031_abandoned_cart_api_assertions.sql",
+      "sha256": "cf49b374a055bb42784c6d631c4a7a6559d7262b5bd96ef08faecb039ae18437"
+    },
+    {
+      "file": "202607220032_abandoned_cart_capture.up.sql",
+      "sha256": "328c435f9b864e3799808c6dcdabb1d46b91bbe206eeea1efb19399c9e690af7"
+    },
+    {
+      "file": "202607220032_abandoned_cart_capture_assertions.sql",
+      "sha256": "9c65e5b556c2702c8e97cc7fcffe7ed708aea9ffdfb44ee86da53646694eb44d"
+    },
+    {
+      "file": "202607220033_customer_management.up.sql",
+      "sha256": "d32c11eaf95ed653096ea7a5ca28259835cc441e1804b01469f5830871a2ac71"
+    },
+    {
+      "file": "202607220033_customer_management_assertions.sql",
+      "sha256": "1ff2544375c952fac9bce6279f456b0d39b71c50d7392aac31d60d91f5cfec61"
+    },
+    {
+      "file": "202607220034_customer_management_api.up.sql",
+      "sha256": "c8bd93e6b4d558d062895389841fe96e9670e3fcf4133771245d0ef3ed946508"
+    },
+    {
+      "file": "202607220034_customer_management_api_assertions.sql",
+      "sha256": "01a901f48f1b45d03ec63d47356d9f5eb07d0c31346c4609eb45b485b920c957"
+    },
+    {
+      "file": "202607220035_catalog_administration.up.sql",
+      "sha256": "f8449e0c06e22f528db5c4bffa4a74f07236f47bdd0898cd194faf1e042a7313"
+    },
+    {
+      "file": "202607220035_catalog_administration_assertions.sql",
+      "sha256": "acd9ea3de5ae7e3e5ebba965145c5f2396cde0ddaab2d160170d37a8dfd34e76"
+    },
+    {
+      "file": "202607220036_merchant_admin_modules.up.sql",
+      "sha256": "37435bd333eb03af32631b8735c5d040b0369080cc131660019d19e2909b7676"
+    },
+    {
+      "file": "202607220036_merchant_admin_modules_assertions.sql",
+      "sha256": "c09249d73e64d06ac37cb45aec34de59abfcb1cd84ca63af4c04833079b0fafa"
+    },
+    {
+      "file": "202607220037_merchant_provider_preparation.up.sql",
+      "sha256": "43d028f6d7d302dad3c843dcc086ce955ef2bb56ac99b3b80d5a50b511c2b7b8"
+    },
+    {
+      "file": "202607220037_merchant_provider_preparation_assertions.sql",
+      "sha256": "fee8c7bee14f97ac657227b81a05fd6dd63094d742e513d4b3ca766f851e3c31"
+    },
+    {
+      "file": "202607220038_merchant_analytics.up.sql",
+      "sha256": "b0708fe9fd1a49cd73a8547fa280f5eec0341face00fa4adeafa019380c98e41"
+    },
+    {
+      "file": "202607220038_merchant_analytics_assertions.sql",
+      "sha256": "e43466eecb7b7b86f9309039d0a26aa653dfb83dc18666c4cc63b169196605cb"
+    },
+    {
+      "file": "202607220039_typed_storefront_settings.up.sql",
+      "sha256": "c043a025aa57837049733495b1e415176115fa129058ccf6e0b8fde58406f009"
+    },
+    {
+      "file": "202607220039_typed_storefront_settings_assertions.sql",
+      "sha256": "d2f5fca301bd8182d7a8906dac7a9bcf76deb89e9fc5e36c4d5f0b3cd6fa2140"
+    },
+    {
+      "file": "202607220040_advanced_seo_preferences.up.sql",
+      "sha256": "6be1cde1f5119487dde08cd4863f8741e55df31b247363e253b8d630bb682e39"
+    },
+    {
+      "file": "202607220040_advanced_seo_preferences_assertions.sql",
+      "sha256": "fff15eb0cc7a24ef210971f34e135c6e2382437041e1bf4690cdc457c19679a4"
+    },
+    {
+      "file": "202607220041_catalog_import_previews.up.sql",
+      "sha256": "70ee50864a0a63cd204dc7ca82ae4c2b7afb750068d0f7fc353cf4042b0023f1"
+    },
+    {
+      "file": "202607220041_catalog_import_previews_assertions.sql",
+      "sha256": "4dd31fdde4137995da4bd781b2be4a87f28427eb9d7a50cb7c6f59d130ac5135"
+    },
+    {
+      "file": "202607220042_catalog_product_tags.up.sql",
+      "sha256": "187766c319ffa11a93a70ceeb4e8f9be82c3d3ecbdae4675458123483f71224a"
+    },
+    {
+      "file": "202607220042_catalog_product_tags_assertions.sql",
+      "sha256": "fe07ff2478e5c0da891c6658aa042e1bc0ac926ba001862b22b45723048c7642"
+    },
+    {
+      "file": "202607220043_inventory_purchasing.up.sql",
+      "sha256": "0e32871b29194bd52fa7164d1759a3b8470657188903e05dba3aefa163367124"
+    },
+    {
+      "file": "202607220043_inventory_purchasing_assertions.sql",
+      "sha256": "d7275e163413818206fcb1ee9bf423cf41b9cf4a92037d9f38f4d4236d6a8125"
+    },
+    {
+      "file": "202607220044_inventory_counts_transfers.up.sql",
+      "sha256": "ab12b1dbc10ac45db393f851e5a3f65f99a5ee7b679ad9a25ba49d4113c18d38"
+    },
+    {
+      "file": "202607220044_inventory_counts_transfers_assertions.sql",
+      "sha256": "e2652a38cc9d955cdedf133983c28a68839438485b74c4bc983665ec43189ea5"
+    },
+    {
+      "file": "202607220045_price_lists.up.sql",
+      "sha256": "62d6c38dafaa6c9d1733958a50edeb880653a040678f34da4a26578ed4452c2a"
+    },
+    {
+      "file": "202607220045_price_lists_assertions.sql",
+      "sha256": "b4aa807fb7d277d72f3a784c9b4acd200d7a4ec5072de47e2fa5f6a6ee049d91"
+    },
+    {
+      "file": "202607230046_inventory_locations.up.sql",
+      "sha256": "1b016f2d2430caaa9c8a54ba5bb9c9a20bade8e8ddabda8d8393052444eb83d4"
+    },
+    {
+      "file": "202607230046_inventory_locations_assertions.sql",
+      "sha256": "99035aa7b1a16baaaf33a8a0cdebf54c4a84164e7dc0b421092cf3cbb4a0f38a"
+    },
+    {
+      "file": "202607230047_pricing_preview.up.sql",
+      "sha256": "b00971a3e20684d4a8a124d74978ea42ca54fe13b0bd80e5d21deb2e377b5643"
+    },
+    {
+      "file": "202607230047_pricing_preview_assertions.sql",
+      "sha256": "d29e811e13c3617ff165a7d92c25b46611f209ce2ced295acc26da75d1409038"
+    },
+    {
+      "file": "202607240048_exact_record_lookups_analytics.up.sql",
+      "sha256": "7d78a9fde6d6f42238aaacdfab46d418b43a6bb2d86875e6dd9696e0c8bdb253"
+    },
+    {
+      "file": "202607250049_merchant_provider_profiles.up.sql",
+      "sha256": "6c14613a94eae74fe11d75860301636c76395d9ef4e1ab1a312bbf1f14a364f8"
+    },
+    {
+      "file": "202607250049_merchant_provider_profiles_assertions.sql",
+      "sha256": "00e49f4bede3b5b50e023e3dbfeb96486509570dc3a540327ece892b71ef6fec"
+    },
+    {
+      "file": "202607250050_merchant_provider_execution.up.sql",
+      "sha256": "68686bd43d60ed1eb4e4782a392b8b0159c2b20a9cdbf1d77b65dae7f0d66ac1"
+    },
+    {
+      "file": "202607250050_merchant_provider_execution_assertions.sql",
+      "sha256": "bc6b9a6981b7c292e1cb01d1ddb37bcc1534cdbc62b70ba48d2c1ecfb5fda208"
+    },
+    {
+      "file": "202607270051_payment_method_admin.up.sql",
+      "sha256": "5ca572fc591c646d97e70d0ba5c1dc44e2ad82a7ce89f696d6b6224b3b799a51"
+    },
+    {
+      "file": "202607270051_payment_method_admin_assertions.sql",
+      "sha256": "d460f1bf82aebc26c827bc735afde4ddda959686f4de9b7cccebcb817ce739bf"
+    },
+    {
+      "file": "202607270052_payment_adapter_runtime.up.sql",
+      "sha256": "48472767b968d52803635c74a6369fdffa7802385595640a9e7ab034a753153a"
+    },
+    {
+      "file": "202607270052_payment_adapter_runtime_assertions.sql",
+      "sha256": "c50aeefcf8f2183048325ffc77256cb5eb9d1c50b95a7dbdbab0747c59e8b867"
+    },
+    {
+      "file": "202607270053_paytr_iframe_activation_authority.up.sql",
+      "sha256": "4bf5fa9043260eca952abd4f98dce6da3fad099da25dae971f719778500f4230"
+    },
+    {
+      "file": "202607270053_paytr_iframe_activation_authority_assertions.sql",
+      "sha256": "617556d41fa684aba3f5a2f56cc12f3fc157df530de5477253a1c42775736397"
+    },
+    {
+      "file": "202607270054_paytr_iframe_sandbox_evidence_history.up.sql",
+      "sha256": "9805a260db96c186560aadad6525fe46e5cfb8abf9d17e89295a6e223ca2063a"
+    },
+    {
+      "file": "202607270054_paytr_iframe_sandbox_evidence_history_assertions.sql",
+      "sha256": "dd79f14119953294a33ad6bd91081e66d65083a23bf9dac041c7e54ed1ee1be5"
+    },
+    {
+      "file": "202607270055_hosted_callback_lifecycle.up.sql",
+      "sha256": "3acb5912ef5fa1de93d672056cffdcbd95771f39ad741a3a4ffacf4d22f16b9a"
+    },
+    {
+      "file": "202607270055_hosted_callback_lifecycle_assertions.sql",
+      "sha256": "75864a6e34d031188ccd972c4f20100071b3f05e412b4f15449ee10a3007a627"
+    },
+    {
+      "file": "202607270056_payment_provider_keyed_lifecycle.up.sql",
+      "sha256": "05441c27a620553d6aee72c763bf68d21e6e7171aefbd5ad048d1ccccf14f845"
+    },
+    {
+      "file": "202607270056_payment_provider_keyed_lifecycle_assertions.sql",
+      "sha256": "70f72cb22aa73ba9469c05cb4246f3d8dcb16b1693d2f03727a0ee200da83c48"
+    },
+    {
+      "file": "202607270057_quick_order_hosted_payment_authority.up.sql",
+      "sha256": "ebc790955fcf6ce220cfec53922cd70fee6ff2d9ace37163110416e608d560f9"
+    },
+    {
+      "file": "202607270057_quick_order_hosted_payment_authority_assertions.sql",
+      "sha256": "d0bc0dd3807cb572656d9db09c468ce842497c9d6b9c22213048697671580f20"
+    },
+    {
+      "file": "202607280058_quick_order_hosted_payment_bridge.up.sql",
+      "sha256": "ba4a7e42da8910bc4d98961f2a0e8d638a61e19015dee10f9bea69a8efe3747a"
+    },
+    {
+      "file": "202607280058_quick_order_hosted_payment_bridge_assertions.sql",
+      "sha256": "fd67317384785085302204fb8c170d66e120bfd2d8b184a9087d760597fcc3ef"
+    },
+    {
+      "file": "202607280059_payment_method_single_active_provider.up.sql",
+      "sha256": "e74dcc7eabd0e522a8db09830f9b8df135c3937d27b4cb6734551376a1d00604"
+    },
+    {
+      "file": "202607280059_payment_method_single_active_provider_assertions.sql",
+      "sha256": "a794d8f54085f8d34e4845587c34911971675102431e83c3bb3d1b54190e1c4d"
+    },
+    {
+      "file": "202607280060_iyzico_iframe_tenant_sandbox_evidence.up.sql",
+      "sha256": "4a65e6d2085c55041cc4e5993b06eb7d1ad8f41252b7ef68901a732b4875f87b"
+    },
+    {
+      "file": "202607280060_iyzico_iframe_tenant_sandbox_evidence_assertions.sql",
+      "sha256": "d0812269b25438bdb7e03441f3a2220f6559f1c081242991529a568b268d9f93"
+    },
+    {
+      "file": "202607280061_iyzico_iframe_tenant_activation_runtime.up.sql",
+      "sha256": "87bc7f1ac542a5045d26774229b1c0d668e0b82689848595b4480aa2e846439f"
+    },
+    {
+      "file": "202607280061_iyzico_iframe_tenant_activation_runtime_assertions.sql",
+      "sha256": "a8a17e55f3873a75b3b869e8c0a941f94f430d2a66459b3b471d88eca7616827"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607280061_iyzico_iframe_tenant_activation_runtime.down.sql",
+      "sha256": "a59d2e0797a6f10d8d4c367d7172b545f25ccdef9dd07e7696c3c6da74c23aa6"
+    }
+  ],
+  "externalConnections": 0,
+  "productionMutations": 0
+}

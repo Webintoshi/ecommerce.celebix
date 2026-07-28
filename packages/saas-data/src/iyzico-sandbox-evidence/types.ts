@@ -1,6 +1,7 @@
-import type { TenantContext } from "@celebix/saas-contracts";
+import type { MerchantAdminJson, TenantContext } from "@celebix/saas-contracts";
 
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
+import type { SealedMerchantProviderCredential } from "../provider-execution/credential-crypto.ts";
 
 export type IyzicoSandboxEvidenceRunStatus = "pending" | "leased" | "attested" | "rejected";
 
@@ -23,6 +24,49 @@ export type BeginIyzicoSandboxEvidenceResult = Readonly<{
   replayed: boolean;
 }>;
 
+export type BeginCurrentIyzicoSandboxEvidenceInput = BeginIyzicoSandboxEvidenceInput;
+
+export type BeginCurrentIyzicoSandboxEvidenceResult = Readonly<{
+  outcome: "created" | "operation_replayed";
+  runId: string;
+  status: IyzicoSandboxEvidenceRunStatus;
+  methodId: string;
+  methodVersion: number;
+  methodState: "disabled";
+  replayed: boolean;
+}>;
+
+export type CurrentIyzicoSandboxEvidenceInput = Readonly<{
+  tenantContext: TenantContext;
+  now: Date;
+  profileId: string;
+}>;
+
+export type IyzicoSandboxEvidenceRejectionCode =
+  | "callback_mismatch"
+  | "timeout_mismatch"
+  | "stale_evidence";
+
+export type IyzicoSandboxEvidenceMethodState =
+  | "active"
+  | "disabled"
+  | "emergency_disabled";
+
+export type CurrentIyzicoSandboxEvidenceResult = Readonly<{
+  outcome: "not_started" | "current";
+  profileId: string;
+  runId: string | null;
+  status: IyzicoSandboxEvidenceRunStatus | null;
+  rejectionCode: IyzicoSandboxEvidenceRejectionCode | null;
+  methodId: string | null;
+  methodVersion: number | null;
+  methodState: IyzicoSandboxEvidenceMethodState | null;
+  profileVersion: number;
+  credentialVersion: number;
+  attestationId: string | null;
+  activationCurrent: boolean;
+}>;
+
 export type ClaimIyzicoSandboxEvidenceInput = Readonly<{
   runId: string;
   workerId: string;
@@ -36,6 +80,47 @@ export type ClaimIyzicoSandboxEvidenceResult = Readonly<{
   runId: string;
   leaseId: string;
   replayed: boolean;
+}>;
+
+export type ClaimNextIyzicoSandboxEvidenceInput = Readonly<{
+  workerId: string;
+  leaseId: string;
+  now: Date;
+  leaseExpiresAt: Date;
+}>;
+
+export type ClaimNextIyzicoSandboxEvidenceResult =
+  | Readonly<{ outcome: "none" }>
+  | Readonly<{
+      outcome: "claimed" | "operation_replayed";
+      runId: string;
+      storeId: string;
+      profileId: string;
+      adapterVersion: number;
+      candidateEvidenceDigest: string;
+      profileVersion: number;
+      credentialVersion: number;
+      leaseId: string;
+      replayed: boolean;
+    }>;
+
+export type ClaimedIyzicoSandboxEvidenceProfileInput = Readonly<{
+  runId: string;
+  leaseId: string;
+  workerId: string;
+  now: Date;
+}>;
+
+export type ClaimedIyzicoSandboxEvidenceProfileResult = Readonly<{
+  outcome: "current";
+  storeId: string;
+  profileId: string;
+  providerCode: "iyzico_iframe";
+  capability: "payment_processing";
+  publicConfig: Readonly<Record<string, MerchantAdminJson>>;
+  sealedCredentials: SealedMerchantProviderCredential;
+  profileVersion: number;
+  credentialVersion: number;
 }>;
 
 type IyzicoSandboxEvidenceEventCommon = Readonly<{
@@ -117,10 +202,33 @@ export type ActivateIyzicoSandboxEvidenceResult = Readonly<{
   activationAttestationId: string;
 }>;
 
+export type ActivateCurrentIyzicoSandboxEvidenceInput = Readonly<{
+  tenantContext: TenantContext;
+  now: Date;
+  operationId: string;
+  fingerprint: string;
+  methodId: string;
+  expectedMethodVersion: number;
+}>;
+
+export type ActivateCurrentIyzicoSandboxEvidenceResult = ActivateIyzicoSandboxEvidenceResult;
+
 export interface IyzicoSandboxEvidenceAppRepository {
   begin(input: BeginIyzicoSandboxEvidenceInput): Promise<BeginIyzicoSandboxEvidenceResult>;
   activate(input: ActivateIyzicoSandboxEvidenceInput): Promise<ActivateIyzicoSandboxEvidenceResult>;
   preflight(): Promise<true>;
+}
+
+export interface IyzicoSandboxEvidenceActivationAppRepository
+extends IyzicoSandboxEvidenceAppRepository {
+  beginCurrent(
+    input: BeginCurrentIyzicoSandboxEvidenceInput,
+  ): Promise<BeginCurrentIyzicoSandboxEvidenceResult>;
+  current(input: CurrentIyzicoSandboxEvidenceInput): Promise<CurrentIyzicoSandboxEvidenceResult>;
+  activateCurrent(
+    input: ActivateCurrentIyzicoSandboxEvidenceInput,
+  ): Promise<ActivateCurrentIyzicoSandboxEvidenceResult>;
+  activationRuntimePreflight(): Promise<true>;
 }
 
 export interface IyzicoSandboxEvidenceWorkflowRepository {
@@ -134,10 +242,26 @@ export interface IyzicoSandboxEvidenceWorkflowRepository {
   preflight(): Promise<true>;
 }
 
+export interface IyzicoSandboxEvidenceActivationWorkflowRepository
+extends IyzicoSandboxEvidenceWorkflowRepository {
+  claimNext(input: ClaimNextIyzicoSandboxEvidenceInput): Promise<ClaimNextIyzicoSandboxEvidenceResult>;
+  claimedProfile(
+    input: ClaimedIyzicoSandboxEvidenceProfileInput,
+  ): Promise<ClaimedIyzicoSandboxEvidenceProfileResult>;
+}
+
 export type IyzicoSandboxEvidenceAuditEvent = Readonly<{
   type: "iyzico_sandbox_evidence_commit_unknown";
   role: "app" | "workflow";
-  operation: "begin" | "claim" | "record_event" | "finalize" | "activate";
+  operation:
+    | "begin"
+    | "begin_current"
+    | "claim"
+    | "claim_next"
+    | "record_event"
+    | "finalize"
+    | "activate"
+    | "activate_current";
 }>;
 
 type PostgresIyzicoSandboxEvidenceRepositoryOptions = Readonly<{
