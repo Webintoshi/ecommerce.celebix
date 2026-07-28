@@ -448,6 +448,15 @@ test("keeps the public runtime export surface frozen", () => {
     "parseCatalogOnboardingOptions",
     "parseCatalogOnboardingResult",
     "parseCatalogProductEditorProjection",
+    "parseCheckoutAddress",
+    "parseCheckoutDeliveryInput",
+    "parseCheckoutHttpError",
+    "parseCheckoutPaymentMethod",
+    "parseCheckoutPolicy",
+    "parseCheckoutQuote",
+    "parseCheckoutStatus",
+    "parseCheckoutSubmissionResult",
+    "parseCheckoutSubmitInput",
     "parseCustomerDetail",
     "parseCustomerListItem",
     "parseCustomerMutationResult",
@@ -545,6 +554,9 @@ test("contract sources import no runtime application code", async () => {
     "quick-orders/index.ts",
     "quick-orders/types.ts",
     "quick-orders/validation.ts",
+    "checkout/index.ts",
+    "checkout/types.ts",
+    "checkout/validation.ts",
   ];
   const sources = await Promise.all(sourceFiles.map((file) => readFile(new URL(file, import.meta.url), "utf8")));
 

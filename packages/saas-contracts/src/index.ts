@@ -361,6 +361,31 @@ export {
   parsePaymentProviderCatalog,
   parsePaymentProviderCatalogEntry,
 } from "./payment-providers/index.ts";
+export {
+  parseCheckoutAddress,
+  parseCheckoutDeliveryInput,
+  parseCheckoutHttpError,
+  parseCheckoutPaymentMethod,
+  parseCheckoutPolicy,
+  parseCheckoutQuote,
+  parseCheckoutStatus,
+  parseCheckoutSubmissionResult,
+  parseCheckoutSubmitInput,
+} from "./checkout/index.ts";
+export type {
+  CheckoutAddress,
+  CheckoutDeliveryInput,
+  CheckoutHttpError,
+  CheckoutPaymentMethod,
+  CheckoutPolicy,
+  CheckoutPolicyLink,
+  CheckoutQuote,
+  CheckoutQuoteItem,
+  CheckoutShippingOption,
+  CheckoutStatus,
+  CheckoutSubmissionResult,
+  CheckoutSubmitInput,
+} from "./checkout/index.ts";
 export type {
   BuiltInPaymentMethodKind,
   MerchantPaymentMethod,
