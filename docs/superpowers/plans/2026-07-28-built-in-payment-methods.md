@@ -286,11 +286,11 @@ git commit -m "feat(payments): add built-in method editor"
 - Catalog dialog gets `builtInCards` and `onBuiltInSelect(kind)` without merging these cards into the 58-provider count/filter semantics.
 - Console opens create/edit drawer and adds **Düzenle** only for built-in rows.
 
-- [ ] **Step 1: Write failing view and console tests**
+- [x] **Step 1: Write failing view and console tests**
 
 Prove the dialog always displays exactly two built-in cards, provider count remains 58, existing methods show **Yapılandırıldı**, both kinds coexist, active built-ins appear in checkout/order preview, and provider errors leave built-in controls enabled.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -300,11 +300,11 @@ node --experimental-transform-types --test apps/customer-panel/lib/payment-setti
 
 Expected: FAIL on missing built-in cards/actions.
 
-- [ ] **Step 3: Implement minimal UI integration**
+- [x] **Step 3: Implement minimal UI integration**
 
 Render **Yerleşik yöntemler** before provider filters, use `Banknote` and `Truck` icons, keep the provider grid/image behavior unchanged, and reload durable methods after every save/state result before showing success.
 
-- [ ] **Step 4: Verify GREEN and customer regression**
+- [x] **Step 4: Verify GREEN and customer regression**
 
 Run:
 
@@ -316,7 +316,7 @@ npm run typecheck --workspace @celebix/customer-panel
 
 Expected: zero failures.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/customer-panel/components/settings/payment/PaymentProviderCatalogDialog.tsx apps/customer-panel/components/settings/payment/PaymentSettingsConsole.tsx apps/customer-panel/lib/payment-settings-ui/model.ts apps/customer-panel/lib/payment-settings-ui/model.test.ts apps/customer-panel/lib/payment-settings-console.test.ts
