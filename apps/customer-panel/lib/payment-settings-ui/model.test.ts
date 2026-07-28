@@ -41,6 +41,35 @@ function method(
   };
 }
 
+function builtInMethod(
+  id: string,
+  kind: "cash_on_delivery" | "bank_transfer",
+  state: MerchantPaymentMethod["state"],
+  position: number,
+): MerchantPaymentMethod {
+  return {
+    id,
+    kind,
+    profileId: null,
+    providerCode: null,
+    label: kind === "cash_on_delivery" ? "Teslimatta nakit ödeme" : "Havale ile ödeme",
+    state,
+    emergencyReason: state === "emergency_disabled" ? "Operasyon kontrolü" : null,
+    position,
+    config: kind === "cash_on_delivery"
+      ? { instructions: "Teslimat sırasında ödeme yapın." }
+      : {
+          bankName: "Örnek Bankası",
+          accountHolder: "Örnek Ticaret Ltd. Şti.",
+          iban: "TR330006100519786457841326",
+          instructions: "Açıklamaya sipariş numaranızı yazın.",
+        },
+    version: 1,
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+}
+
 function profile(status: MerchantProviderProfile["status"]): MerchantProviderProfile {
   return {
     id: PROFILE_ID,
@@ -104,6 +133,97 @@ test("payment settings model keeps all 58 entries visible and supports Turkish a
     PAYMENT_PROVIDER_CATALOG, [], [], [], alias.aliases[0]!.toUpperCase(), noFilters,
   );
   assert(aliasSearch.catalog.cards.some((card) => card.providerCode === alias.providerCode));
+});
+
+test("payment settings model exposes two immutable built-in cards outside provider count and filters", () => {
+  const cash = builtInMethod(
+    "40000000-0000-4000-8000-000000000011",
+    "cash_on_delivery",
+    "disabled",
+    0,
+  );
+  const view = buildPaymentSettingsViewModel(
+    PAYMENT_PROVIDER_CATALOG,
+    [],
+    [],
+    [cash],
+    "eşleşmeyecek sağlayıcı",
+    Object.freeze({
+      category: "wallet",
+      interactionMode: "wallet",
+      readiness: "maintenance",
+      environment: "live",
+    }),
+  );
+
+  assert.deepEqual(view.builtInCards, [
+    {
+      kind: "cash_on_delivery",
+      label: "Kapıda ödeme",
+      description: "Müşteriler siparişlerini teslim alırken ödeme yapar.",
+      configured: true,
+      active: false,
+      actionLabel: "Yapılandırıldı",
+    },
+    {
+      kind: "bank_transfer",
+      label: "Banka havalesi",
+      description: "Müşteriler banka hesabınıza havale veya EFT ile ödeme yapar.",
+      configured: false,
+      active: false,
+      actionLabel: "Ekle",
+    },
+  ]);
+  assert.equal(view.catalog.totalCount, 58);
+  assert.equal(view.catalog.visibleCount, 0);
+  assert.equal(Object.isFrozen(view.builtInCards), true);
+  assert.equal(view.builtInCards.every(Object.isFrozen), true);
+});
+
+test("both built-in kinds coexist and active built-ins retain canonical order in checkout preview", () => {
+  const bank = builtInMethod(
+    "40000000-0000-4000-8000-000000000012",
+    "bank_transfer",
+    "active",
+    2,
+  );
+  const cash = builtInMethod(
+    "40000000-0000-4000-8000-000000000013",
+    "cash_on_delivery",
+    "active",
+    0,
+  );
+  const provider = method("40000000-0000-4000-8000-000000000014", "active", 1, "Kredi Kartı");
+  const view = buildPaymentSettingsViewModel(
+    PAYMENT_PROVIDER_CATALOG,
+    [],
+    [],
+    [bank, provider, cash],
+    "",
+    noFilters,
+  );
+
+  assert.ok(view.builtInCards, "built-in cards must be exposed independently");
+  assert.deepEqual(
+    view.builtInCards.map(({ kind, configured, active, actionLabel }) => ({
+      kind,
+      configured,
+      active,
+      actionLabel,
+    })),
+    [
+      { kind: "cash_on_delivery", configured: true, active: true, actionLabel: "Yapılandırıldı" },
+      { kind: "bank_transfer", configured: true, active: true, actionLabel: "Yapılandırıldı" },
+    ],
+  );
+  assert.deepEqual(
+    view.checkoutPreview.map(({ kind, label }) => ({ kind, label })),
+    [
+      { kind: "cash_on_delivery", label: "Teslimatta nakit ödeme" },
+      { kind: "provider", label: "Kredi Kartı" },
+      { kind: "bank_transfer", label: "Havale ile ödeme" },
+    ],
+  );
 });
 
 test("payment settings model filters category, mode, readiness and environment together", () => {

@@ -1,4 +1,5 @@
 import type {
+  BuiltInPaymentMethodKind,
   MerchantPaymentMethod,
   MerchantProviderDescriptor,
   MerchantProviderProfile,
@@ -10,6 +11,14 @@ import type {
 } from "@celebix/saas-contracts";
 
 export type PaymentSettingsTone = "success" | "warning" | "danger" | "neutral";
+export type BuiltInPaymentMethodCatalogCard = Readonly<{
+  kind: BuiltInPaymentMethodKind;
+  label: string;
+  description: string;
+  configured: boolean;
+  active: boolean;
+  actionLabel: "Ekle" | "Yapılandırıldı";
+}>;
 export type PaymentSettingsFilters = Readonly<{
   category: PaymentProviderCategory | "all";
   interactionMode: Exclude<PaymentProviderInteractionMode, "offline"> | "all";
@@ -57,6 +66,18 @@ const PROFILE_STATUS = Object.freeze({
   revoked: Object.freeze({ label: "Bağlantı iptal edildi", tone: "danger" as const }),
 });
 const BUILT_IN_PROFILE = Object.freeze({ label: "Yerleşik yöntem", tone: "neutral" as const });
+const BUILT_IN_METHOD_CARDS = Object.freeze([
+  Object.freeze({
+    kind: "cash_on_delivery" as const,
+    label: "Kapıda ödeme",
+    description: "Müşteriler siparişlerini teslim alırken ödeme yapar.",
+  }),
+  Object.freeze({
+    kind: "bank_transfer" as const,
+    label: "Banka havalesi",
+    description: "Müşteriler banka hesabınıza havale veya EFT ile ödeme yapar.",
+  }),
+]);
 
 export type PaymentProviderConnectionView = Readonly<{
   providerCode: string;
@@ -390,6 +411,15 @@ export function buildPaymentSettingsViewModel(
   query: string,
   filters: PaymentSettingsFilters,
 ) {
+  const builtInCards = Object.freeze(BUILT_IN_METHOD_CARDS.map((definition) => {
+    const method = methods.find(({ kind }) => kind === definition.kind);
+    return Object.freeze({
+      ...definition,
+      configured: method !== undefined,
+      active: method?.state === "active",
+      actionLabel: method === undefined ? "Ekle" as const : "Yapılandırıldı" as const,
+    });
+  }));
   const normalizedQuery = normalize(query);
   const cards = Object.freeze(catalog
     .map((entry) => catalogCard(entry, definitions, profiles, methods))
@@ -470,6 +500,7 @@ export function buildPaymentSettingsViewModel(
   });
 
   return Object.freeze({
+    builtInCards,
     catalog: Object.freeze({
       cards,
       families,

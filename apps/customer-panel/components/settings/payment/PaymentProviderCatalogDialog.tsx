@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { CreditCard, Search, X } from "lucide-react";
+import { Banknote, CreditCard, Search, Truck, X } from "lucide-react";
 import { useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
 
 import type {
+  BuiltInPaymentMethodCatalogCard,
   PaymentProviderCatalogCard,
   PaymentSettingsFilters,
 } from "@/lib/payment-settings-ui/model";
@@ -13,6 +14,7 @@ import styles from "./payment-settings.module.css";
 
 export function PaymentProviderCatalogDialog(props: Readonly<{
   cards: readonly PaymentProviderCatalogCard[];
+  builtInCards: readonly BuiltInPaymentMethodCatalogCard[];
   totalCount: number;
   query: string;
   filters: PaymentSettingsFilters;
@@ -23,6 +25,7 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
   onQuery(value: string): void;
   onFilters(value: PaymentSettingsFilters): void;
   onConnect(card: PaymentProviderCatalogCard): void;
+  onBuiltInSelect(kind: BuiltInPaymentMethodCatalogCard["kind"]): void;
   onClose(): void;
 }>) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -77,6 +80,32 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
         </header>
 
         {!props.canManage ? <p className={styles.readOnlyNotice}>Salt okunur erişim: sağlayıcıları inceleyebilirsiniz ancak bağlantı kuramazsınız.</p> : null}
+
+        <section className={styles.catalogBody} aria-labelledby="built-in-payment-methods-title">
+          <h3 id="built-in-payment-methods-title">Yerleşik yöntemler</h3>
+          <div className={styles.providerGrid}>
+            {props.builtInCards.map((card) => {
+              const Icon = card.kind === "bank_transfer" ? Banknote : Truck;
+              return <article className={styles.providerCard} key={card.kind}>
+                <div className={styles.providerLogo}><Icon aria-hidden="true" /></div>
+                <div className={styles.providerCardHeading}>
+                  <div><h3>{card.label}</h3><p>{card.description}</p></div>
+                  <span className={styles[card.active ? "tone-success" : "tone-neutral"]}>
+                    {card.active ? "Etkin" : "Devre dışı"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  disabled={!props.canManage || props.busy}
+                  onClick={() => props.onBuiltInSelect(card.kind)}
+                >
+                  {card.actionLabel}
+                </button>
+              </article>;
+            })}
+          </div>
+        </section>
 
         <div className={styles.catalogFilters}>
           <label className={styles.catalogSearch}>

@@ -179,6 +179,21 @@ function createDrawerHookRuntime() {
       if (!(index in slots)) slots[index] = { current: initial };
       return slots[index] as { current: T };
     },
+    useCallback<T>(callback: T, deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
+      if (prior !== undefined && sameDeps(prior.deps, deps)) return prior.value;
+      slots[index] = { deps: [...deps], value: callback };
+      return callback;
+    },
+    useMemo<T>(factory: () => T, deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
+      if (prior !== undefined && sameDeps(prior.deps, deps)) return prior.value;
+      const value = factory();
+      slots[index] = { deps: [...deps], value };
+      return value;
+    },
     useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
       const index = cursor++;
       const prior = slots[index] as {
@@ -361,6 +376,365 @@ async function compileBuiltInDrawer(input: Readonly<{
     },
   };
 }
+
+async function compilePaymentCatalogDialog(input: Readonly<Record<string, unknown>>) {
+  const output = ts.transpileModule(
+    await source("components/settings/payment/PaymentProviderCatalogDialog.tsx"),
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    },
+  ).outputText;
+  const hooks = createDrawerHookRuntime();
+  const Image = (props: Record<string, unknown>) => createElement("img", props);
+  const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+  const styles = new Proxy({}, {
+    get: (_target, property) =>
+      property === "__esModule" ? true : property === "default" ? styles : String(property),
+  });
+  const documentState = {
+    activeElement: null as unknown,
+    body: { style: { overflow: "visible" } },
+  };
+  const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return hooks.runtime;
+    if (specifier === "next/image") return { __esModule: true, default: Image };
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+    if (specifier === "./payment-settings.module.css") return styles;
+    throw new Error(`unexpected_payment_catalog_import:${specifier}`);
+  };
+  Function(
+    "require",
+    "module",
+    "exports",
+    "document",
+    output,
+  )(requireModule, compiled, compiled.exports, documentState);
+  const Dialog = compiled.exports.PaymentProviderCatalogDialog as
+    (props: Readonly<Record<string, unknown>>) => ReactNode;
+  assert.equal(typeof Dialog, "function");
+  let mounted: readonly (DrawerNode | string)[] = [];
+  return {
+    render() {
+      mounted = mountDrawer(hooks.flush(() => Dialog(input)), documentState);
+      hooks.runEffects();
+      return mounted;
+    },
+    nodes() {
+      return drawerNodes(mounted);
+    },
+  };
+}
+
+async function compilePaymentConsole(input: Readonly<{
+  methods: readonly MerchantPaymentMethod[];
+  reloadedMethods: readonly MerchantPaymentMethod[];
+}>) {
+  const output = ts.transpileModule(
+    await source("components/settings/payment/PaymentSettingsConsole.tsx"),
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    },
+  ).outputText;
+  const hooks = createDrawerHookRuntime();
+  const contracts = await import("@celebix/saas-contracts");
+  const paymentClient = await import("./payment-method-ui/client.ts");
+  const state = await import("./payment-settings-ui/console-state.ts");
+  const model = await import("./payment-settings-ui/model.ts");
+  const builtInController = await import("./built-in-payment-methods/controller.ts");
+  const Image = (props: Record<string, unknown>) => createElement("img", props);
+  const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+  const Host = (name: string) => (props: Record<string, unknown>) =>
+    createElement(name, props, props.children as ReactNode);
+  const styles = new Proxy({}, {
+    get: (_target, property) =>
+      property === "__esModule" ? true : property === "default" ? styles : String(property),
+  });
+  const documentState = {
+    activeElement: null as unknown,
+    body: { style: { overflow: "visible" } },
+  };
+  const windowState = {
+    confirm() { return true; },
+    prompt() { return "Operasyon kontrolü"; },
+    history: { replaceState() {} },
+  };
+  const events: string[] = [];
+  let listCalls = 0;
+  let releaseReload: (() => void) | null = null;
+  const reloadGate = new Promise<void>((resolve) => { releaseReload = resolve; });
+  const api = Object.freeze({
+    async catalog() { return PAYMENT_PROVIDER_CATALOG; },
+    async list() {
+      listCalls += 1;
+      events.push(listCalls === 1 ? "list:initial" : "list:reload");
+      if (listCalls > 1) await reloadGate;
+      return listCalls === 1 ? input.methods : input.reloadedMethods;
+    },
+    async save(command: Readonly<{ methodId: string; expectedVersion: number }>) {
+      events.push("save");
+      const existing = input.methods.find(({ id }) => id === command.methodId);
+      return Object.freeze({
+        id: command.methodId,
+        state: existing?.state ?? "disabled",
+        position: existing?.position ?? input.methods.length,
+        version: command.expectedVersion + 1,
+        updatedAt: NOW,
+        replayed: false,
+      });
+    },
+    async setState(methodId: string, command: Readonly<{ state: MerchantPaymentMethod["state"]; expectedVersion: number }>) {
+      events.push("set-state");
+      return Object.freeze({
+        id: methodId,
+        state: command.state,
+        position: input.methods.length,
+        version: command.expectedVersion + 1,
+        updatedAt: NOW,
+        replayed: false,
+      });
+    },
+    async reorder() { throw new Error("reorder_not_expected"); },
+  });
+  const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  class TestIyzicoError extends Error {}
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return hooks.runtime;
+    if (specifier === "next/image") return { __esModule: true, default: Image };
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+    if (specifier === "@celebix/saas-contracts") return contracts;
+    if (specifier === "@/components/panel/PanelTopbarChrome") {
+      return { PanelTopbarBridge: Host("panel-topbar") };
+    }
+    if (specifier === "@/lib/payment-method-ui/client") {
+      return { PaymentMethodApiError: paymentClient.PaymentMethodApiError, paymentMethodApi: api };
+    }
+    if (specifier === "@/lib/payment-settings-ui/console-state") return state;
+    if (specifier === "@/lib/payment-settings-ui/model") return model;
+    if (specifier === "@/lib/provider-execution-ui/client") {
+      return {
+        providerExecutionApi: Object.freeze({
+          async definitions() { return Object.freeze([]); },
+          async profiles() { return Object.freeze([]); },
+        }),
+      };
+    }
+    if (specifier === "@/lib/iyzico-activation-ui/client") {
+      return {
+        IyzicoActivationApiError: TestIyzicoError,
+        iyzicoActivationApi: Object.freeze({
+          async current() { throw new Error("iyzico_not_expected"); },
+          async activate() { throw new Error("iyzico_not_expected"); },
+          async begin() { throw new Error("iyzico_not_expected"); },
+        }),
+      };
+    }
+    if (specifier === "@/lib/built-in-payment-methods/controller") return builtInController;
+    if (specifier === "./BuiltInPaymentMethodDrawer") {
+      return { BuiltInPaymentMethodDrawer: Host("built-in-drawer") };
+    }
+    if (specifier === "./PaymentMethodOrderDialog") {
+      return { PaymentMethodOrderDialog: Host("order-dialog") };
+    }
+    if (specifier === "./PaymentProviderCatalogDialog") {
+      return { PaymentProviderCatalogDialog: Host("catalog-dialog") };
+    }
+    if (specifier === "./PaymentProviderConnectionDrawer") {
+      return { PaymentProviderConnectionDrawer: Host("connection-drawer") };
+    }
+    if (specifier === "./payment-settings.module.css") return styles;
+    throw new Error(`unexpected_payment_console_import:${specifier}`);
+  };
+  Function(
+    "require",
+    "module",
+    "exports",
+    "document",
+    "window",
+    "requestAnimationFrame",
+    output,
+  )(
+    requireModule,
+    compiled,
+    compiled.exports,
+    documentState,
+    windowState,
+    (callback: () => void) => callback(),
+  );
+  const Console = compiled.exports.PaymentSettingsConsole as
+    (props: Readonly<Record<string, unknown>>) => ReactNode;
+  assert.equal(typeof Console, "function");
+  let mounted: readonly (DrawerNode | string)[] = [];
+  const render = (force = false) => {
+    mounted = mountDrawer(hooks.flush(() => Console({
+      canManage: true,
+      storefrontHostname: "shop.example.test",
+    }), force), documentState);
+    hooks.runEffects();
+    return mounted;
+  };
+  return {
+    events,
+    render,
+    nodes() {
+      return drawerNodes(mounted);
+    },
+    async settle() {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      return render();
+    },
+    releaseReload() {
+      releaseReload?.();
+    },
+  };
+}
+
+test("mounted payment catalog keeps two built-in methods before provider filters and outside provider failures", async () => {
+  const selected: BuiltInPaymentMethodKind[] = [];
+  const cards = buildPaymentSettingsViewModel(
+    PAYMENT_PROVIDER_CATALOG,
+    [],
+    [],
+    [method("40000000-0000-4000-8000-000000000015", 0)],
+    "",
+    Object.freeze({
+      category: "all",
+      interactionMode: "all",
+      readiness: "all",
+      environment: "all",
+    }),
+  ).catalog.cards;
+  const dialog = await compilePaymentCatalogDialog({
+    cards,
+    builtInCards: Object.freeze([
+      Object.freeze({
+        kind: "cash_on_delivery",
+        label: "Kapıda ödeme",
+        description: "Müşteriler siparişlerini teslim alırken ödeme yapar.",
+        configured: true,
+        active: true,
+        actionLabel: "Yapılandırıldı",
+      }),
+      Object.freeze({
+        kind: "bank_transfer",
+        label: "Banka havalesi",
+        description: "Müşteriler banka hesabınıza havale veya EFT ile ödeme yapar.",
+        configured: false,
+        active: false,
+        actionLabel: "Ekle",
+      }),
+    ]),
+    totalCount: 58,
+    query: "",
+    filters: Object.freeze({
+      category: "all",
+      interactionMode: "all",
+      readiness: "all",
+      environment: "all",
+    }),
+    phase: "error",
+    canManage: true,
+    busy: false,
+    openerRef: { current: null },
+    onQuery() {},
+    onFilters() {},
+    onConnect() {},
+    onBuiltInSelect(kind: BuiltInPaymentMethodKind) { selected.push(kind); },
+    onClose() {},
+  });
+  const tree = dialog.render();
+  const nodes = dialog.nodes();
+  const builtInHeading = nodes.find((node) => node.type === "h3" && drawerText(node) === "Yerleşik yöntemler");
+  const filters = nodes.find((node) => node.props.className === "catalogFilters");
+  assert.ok(builtInHeading);
+  assert.ok(filters);
+  assert.ok(nodes.indexOf(builtInHeading) < nodes.indexOf(filters));
+  assert.match(tree.map(drawerText).join(""), /58 entegrasyon|58 \/ 58 entegrasyon/);
+  assert.match(tree.map(drawerText).join(""), /Yapılandırıldı/);
+
+  const builtInButtons = nodes.filter((node) =>
+    node.type === "button"
+    && (drawerText(node) === "Yapılandırıldı" || drawerText(node) === "Ekle"));
+  assert.equal(builtInButtons.length, 2);
+  assert.equal(builtInButtons.every((button) => button.props.disabled !== true), true);
+  for (const button of builtInButtons) (button.props.onClick as () => void)();
+  assert.deepEqual(selected, ["cash_on_delivery", "bank_transfer"]);
+});
+
+test("mounted payment console opens built-in create and edit drawers and reloads before success", async () => {
+  const cash = method("40000000-0000-4000-8000-000000000015", 0);
+  const provider = iyzicoMethod("active");
+  const reloadedCash = Object.freeze({ ...cash, label: "Teslimatta ödeme", version: cash.version + 1 });
+  const console = await compilePaymentConsole({
+    methods: Object.freeze([cash, provider]),
+    reloadedMethods: Object.freeze([reloadedCash, provider]),
+  });
+
+  console.render();
+  await console.settle();
+  const rows = console.nodes().filter((node) => node.type === "tr" && drawerText(node).includes("Etkin"));
+  const cashRow = rows.find((row) => drawerText(row).includes(cash.label));
+  const providerRow = rows.find((row) => drawerText(row).includes(provider.label));
+  assert.ok(cashRow);
+  assert.ok(providerRow);
+  assert.equal(drawerText(cashRow).includes("Düzenle"), true);
+  assert.equal(drawerText(providerRow).includes("Düzenle"), false);
+
+  const add = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
+  assert.ok(add);
+  (add.props.onClick as () => void)();
+  console.render();
+  const catalog = console.nodes().find((node) => node.type === "catalog-dialog");
+  assert.ok(catalog);
+  assert.equal((catalog.props.builtInCards as readonly unknown[]).length, 2);
+  (catalog.props.onBuiltInSelect as (kind: BuiltInPaymentMethodKind) => void)("bank_transfer");
+  console.render();
+  let drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer);
+  assert.equal(drawer.props.kind, "bank_transfer");
+  assert.equal(drawer.props.method, null);
+
+  (catalog.props.onBuiltInSelect as (kind: BuiltInPaymentMethodKind) => void)("cash_on_delivery");
+  console.render();
+  drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer);
+  assert.equal(drawer.props.method, cash);
+  const pending = (drawer.props.onSubmit as (value: unknown) => Promise<void>)(Object.freeze({
+    kind: "cash_on_delivery",
+    method: cash,
+    methodId: cash.id,
+    label: "Teslimatta ödeme",
+    config: Object.freeze({ instructions: "Teslimat sırasında ödeme yapın." }),
+  }));
+  console.render();
+  drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer);
+  assert.equal(drawer.props.busy, true);
+
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  console.render();
+  assert.deepEqual(console.events, ["list:initial", "save", "list:reload"]);
+  assert.doesNotMatch(console.render().map(drawerText).join(""), /Yerleşik ödeme yöntemi güncellendi/);
+
+  console.releaseReload();
+  await pending;
+  console.render();
+  assert.match(console.render().map(drawerText).join(""), /Yerleşik ödeme yöntemi güncellendi/);
+  assert.equal(console.nodes().some((node) => node.type === "built-in-drawer"), false);
+});
 
 test("payment console contains the ikas-like Celebix payment structure without foreign rails", async () => {
   const [consoleSource, catalogSource, drawerSource, orderSource] = await Promise.all([
