@@ -1011,13 +1011,17 @@ test("desktop navigation exposes accessible dropdown groups and opens only the a
     harness.flush();
     assert.equal(toggle("Siparişler alt menüsünü kapat")?.props["aria-expanded"], true);
     assert.equal(children("panel-nav-orders-desktop")?.props.hidden, false);
+    assert.equal(toggle("Ürünler alt menüsünü aç")?.props["aria-expanded"], false);
+    assert.equal(children("panel-nav-catalog-desktop")?.props.hidden, true);
 
-    const catalogToggle = toggle("Ürünler alt menüsünü kapat");
+    const catalogToggle = toggle("Ürünler alt menüsünü aç");
     assert.ok(catalogToggle);
     (catalogToggle.props.onClick as () => void)();
     harness.flush();
-    assert.equal(toggle("Ürünler alt menüsünü aç")?.props["aria-expanded"], false);
-    assert.equal(children("panel-nav-catalog-desktop")?.props.hidden, true);
+    assert.equal(toggle("Ürünler alt menüsünü kapat")?.props["aria-expanded"], true);
+    assert.equal(children("panel-nav-catalog-desktop")?.props.hidden, false);
+    assert.equal(toggle("Siparişler alt menüsünü aç")?.props["aria-expanded"], false);
+    assert.equal(children("panel-nav-orders-desktop")?.props.hidden, true);
   } finally {
     harness.unmount();
   }

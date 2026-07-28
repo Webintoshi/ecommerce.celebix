@@ -66,6 +66,7 @@ export function ToshiDrawer({
             height={52}
             alt=""
             aria-hidden="true"
+            unoptimized
           />
           <div>
             <h2 id="toshi-assistant-title" ref={titleRef} tabIndex={-1}>Toshi</h2>

@@ -44,6 +44,7 @@ export * from "./quick-orders/index.ts";
 export * from "./abandoned-carts/index.ts";
 export * from "./customers/index.ts";
 export * from "./catalog-admin/index.ts";
+export * from "./catalog-onboarding/index.ts";
 export * from "./merchant-admin/index.ts";
 export * from "./analytics/index.ts";
 export * from "./inventory/index.ts";

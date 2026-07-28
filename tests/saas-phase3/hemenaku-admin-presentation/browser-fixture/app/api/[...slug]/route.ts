@@ -117,6 +117,12 @@ const PRODUCT = Object.freeze({
   updatedAt: NOW,
   version: 3,
 });
+let productStatus: "draft" | "active" = PRODUCT.status;
+let productVersion = PRODUCT.version;
+
+function currentProduct() {
+  return Object.freeze({ ...PRODUCT, status: productStatus, version: productVersion });
+}
 
 const PRODUCT_VARIANT = Object.freeze({
   id: "55555555-5555-4555-8555-555555555555",
@@ -255,7 +261,7 @@ export async function GET(
     variants: [TOSHI_TEST_VARIANT],
   });
   if (slug === `catalog/products/${RESOURCE_ID}`) return Response.json({
-    product: PRODUCT,
+    product: currentProduct(),
     variants: [PRODUCT_VARIANT],
   });
   if (slug === "catalog/products") {
@@ -263,7 +269,7 @@ export async function GET(
       if (search.get("status") === "active") return Response.json({ items: [TOSHI_TEST_PRODUCT] });
       if (search.get("status") === "draft") return Response.json({ items: [] });
     }
-    return Response.json({ items: [PRODUCT] });
+    return Response.json({ items: [currentProduct()] });
   }
   if (slug === "customers" && search.get("pageSize") === "10" && search.get("search") && search.size === 2) {
     return Response.json({ items: [TOSHI_TEST_CUSTOMER] });
@@ -287,4 +293,37 @@ export async function GET(
     });
   }
   return Response.json({ code: "invalid_input" }, { status: 400 });
+}
+
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ slug: string[] }> },
+) {
+  if (await route(context) !== `catalog/products/${RESOURCE_ID}`) {
+    return Response.json({ code: "invalid_input" }, { status: 400 });
+  }
+  let body: unknown;
+  try { body = await request.json(); }
+  catch { return Response.json({ code: "invalid_input" }, { status: 400 }); }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return Response.json({ code: "invalid_input" }, { status: 400 });
+  }
+  const input = body as Record<string, unknown>;
+  if (input.expectedVersion !== productVersion) {
+    return Response.json({ code: "version_conflict" }, { status: 409 });
+  }
+  if (typeof input.product !== "object" || input.product === null || Array.isArray(input.product)) {
+    return Response.json({ code: "invalid_input" }, { status: 400 });
+  }
+  const product = input.product as Record<string, unknown>;
+  if (
+    product.title !== PRODUCT.title ||
+    product.slug !== PRODUCT.slug ||
+    product.description !== PRODUCT.description ||
+    product.currency !== PRODUCT.currency ||
+    (product.status !== "draft" && product.status !== "active")
+  ) return Response.json({ code: "invalid_input" }, { status: 400 });
+  productStatus = product.status;
+  productVersion += 1;
+  return Response.json({ product: currentProduct(), replayed: false });
 }

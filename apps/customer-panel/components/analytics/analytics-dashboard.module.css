@@ -51,7 +51,7 @@
 .loading { border: 1px solid #d8dee8; background: #f9f9f9; color: #596273; }
 .error { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
 .chartViewport { min-width: 0; overflow-x: auto; }
-.chart { min-width: 620px; }
+.chart { min-width: 620px; padding-inline: .25rem; }
 .products { display: grid; gap: .6rem; margin: 0; padding-left: 1.25rem; }
 .products li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; color: #1f2937; }
 .products li span:last-child { color: #596273; font-size: .875rem; text-align: right; }

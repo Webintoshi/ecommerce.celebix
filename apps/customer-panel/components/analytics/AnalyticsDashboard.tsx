@@ -221,10 +221,14 @@ export function AnalyticsDashboard() {
               <div className={styles.chartViewport}>
                 <div className={styles.chart} role="img" aria-label="Gelir zaman serisi; seçili dönemde kalıcı sipariş gelirini gösterir">
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={dashboard.series} accessibilityLayer>
+                    <LineChart data={dashboard.series} accessibilityLayer margin={{ left: 12, right: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="startsAt" tickFormatter={formatSeriesLabel} />
-                      <YAxis tickFormatter={(value) => formatMoney(Number(value), dashboard.currency)} />
+                      <YAxis
+                        tickFormatter={(value) => formatMoney(Number(value), dashboard.currency)}
+                        width={96}
+                        tickMargin={8}
+                      />
                       <Tooltip labelFormatter={(value) => typeof value === "string" ? formatSeriesLabel(value) : ""} formatter={(value) => [formatMoney(Number(value), dashboard.currency), "Gelir"]} />
                       <Line type="monotone" dataKey="revenueCents" stroke="#FF6A00" strokeWidth={3} dot={false} />
                     </LineChart>

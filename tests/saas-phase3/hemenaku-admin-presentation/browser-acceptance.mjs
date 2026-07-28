@@ -810,6 +810,9 @@ async function main() {
 
     await setViewport(cdp, VIEWPORTS[0], matrixSeen);
     await navigate(cdp, origin, REPRESENTATIVE_ROUTES[0]);
+    await waitFor(cdp, `(() => {const image=document.querySelector('img[alt="Toshi yapay zekâ mağaza asistanı"]');return image?.complete===true&&image.naturalWidth>0&&image.naturalHeight>0;})()`, "toshi_avatar_loaded");
+    await waitFor(cdp, `document.querySelector('[data-target-route="/"] .recharts-line-curve')!==null`, "dashboard_chart_ready");
+    const dashboardVisualReadiness = await cdp.evaluate(`(() => {const image=document.querySelector('img[alt="Toshi yapay zekâ mağaza asistanı"]');const chart=document.querySelector('[data-target-route="/"] .recharts-line-curve');return {toshiNaturalWidth:image?.naturalWidth??0,toshiNaturalHeight:image?.naturalHeight??0,chartRendered:Boolean(chart)};})()`);
     if (process.env.CELEBIX_TOUCH_DIAGNOSTICS === "1") {
       process.stdout.write(`TOUCH_TARGET_DIAGNOSTICS\n${JSON.stringify(await touchTargetDiagnostics(cdp), null, 2)}\n`);
     }
@@ -948,6 +951,7 @@ async function main() {
       viewports: VIEWPORTS.map(([width, height, label]) => ({ width, height, label })),
       viewportCount: matrixSeen.size,
       measurements: {
+        dashboardVisualReadiness,
         minimumTarget,
         primaryContrast,
         horizontalOverflow,

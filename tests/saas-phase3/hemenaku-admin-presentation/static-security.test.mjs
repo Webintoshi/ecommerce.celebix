@@ -238,8 +238,8 @@ test("exports donor-compatible page primitives and truthful dashboard geometry",
   const model = await read("apps/customer-panel/lib/panel-ui/dashboard-model.ts");
   const styles = await read("apps/customer-panel/components/dashboard/panel-dashboard.module.css");
   assert.match(dashboard, /createMerchantDashboardViewModel/);
-  assert.match(dashboard, /<ResponsiveContainer width="100%" height=\{330\}>/);
-  assert.match(dashboard, /<LineChart data=\{analytics[.]series\} accessibilityLayer>/);
+  assert.match(dashboard, /<ResponsiveContainer width="100%" height=\{280\}>/);
+  assert.match(dashboard, /<LineChart data=\{analytics[.]series\} accessibilityLayer margin=\{\{ left: 8, right: 12 \}\}>/);
   assert.match(dashboard, /<Line[\s\S]*?dataKey="revenueCents"[\s\S]*?stroke="#FE6100"/);
   assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length, 0);
   assert.match(model, /function createAnalyticsDashboardViewModel/);

@@ -399,8 +399,8 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
           ) : null}
           {analyticsState === "loaded" && analytics ? (
             analytics.series.length > 0 ? (
-              <ResponsiveContainer width="100%" height={330}>
-                <LineChart data={analytics.series} accessibilityLayer>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={analytics.series} accessibilityLayer margin={{ left: 8, right: 12 }}>
                   <CartesianGrid stroke="#E8EDF3" vertical={false} />
                   <XAxis
                     dataKey="startsAt"

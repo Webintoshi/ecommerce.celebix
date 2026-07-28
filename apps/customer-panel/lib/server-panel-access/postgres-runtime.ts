@@ -6,6 +6,7 @@ import process from "node:process";
 import {
   PostgresAbandonedCartRepository,
   PostgresCatalogRepository,
+  PostgresCatalogOnboardingRepository,
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
   PostgresMerchantProviderProfileRepository,
@@ -35,6 +36,7 @@ import {
 import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import { createPostgresPanelSessionRepository } from "../panel-session-persistence/postgres-panel-session-repository.ts";
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
+import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
 import { registerServerPaymentMethodRepository } from "../server-payment-methods/runtime.ts";
@@ -66,6 +68,8 @@ const TIMEOUTS = Object.freeze({
 
 async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
   const client = await pool.connect();
+  let transactionActive = false;
+  let destroyClient = false;
   try {
     const result = await client.query(`SELECT
       current_setting('server_version_num')::integer AS version_num,
@@ -134,6 +138,22 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)') IS NOT NULL AS variant_archiver,
       to_regprocedure('saas.catalog_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_recovery,
       to_regprocedure('saas.catalog_get_product_details(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL AS catalog_details,
+      to_regclass('saas.catalog_product_profiles') IS NOT NULL
+        AND to_regclass('saas.catalog_categories') IS NOT NULL
+        AND to_regclass('saas.catalog_product_categories') IS NOT NULL
+        AND to_regclass('saas.catalog_variant_commerce_profiles') IS NOT NULL
+        AND to_regclass('saas.catalog_product_channels') IS NOT NULL
+        AND to_regclass('saas.catalog_onboarding_operations') IS NOT NULL
+        AND to_regprocedure('saas.catalog_get_onboarding_options(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_onboard_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_get_product_editor(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_update_merchandising(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_publish_after_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,integer)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_recover_onboarding_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_onboarding_repository,
+      to_regprocedure('saas.catalog_list_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_create_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL AS catalog_category_repository,
       to_regprocedure('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)') IS NOT NULL AS merchant_action_authority,
       to_regprocedure('saas.merchant_analytics_dashboard(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL AS analytics_dashboard,
       to_regprocedure('saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL AS order_summary,
@@ -187,6 +207,12 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND saas.iyzico_iframe_tenant_activation_runtime_preflight() AS iyzico_activation_runtime,
       to_regprocedure('saas.quick_order_hosted_payment_authority_preflight()') IS NOT NULL
         AND saas.quick_order_hosted_payment_authority_preflight() AS quick_order_hosted_authority,
+      (
+        SELECT pg_catalog.md5(procedure.prosrc) = '0302d768e4b58bc06c9a1947ca0bc6dd'
+        FROM pg_catalog.pg_proc AS procedure
+        WHERE procedure.oid = 'saas.paytr_iframe_activation_preflight()'::regprocedure
+      ) AND has_function_privilege('celebix_saas_app', 'saas.paytr_iframe_activation_preflight()', 'EXECUTE')
+        AS paytr_iframe_activation_authority,
       to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
@@ -217,6 +243,16 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.inventory_transfers') IS NOT NULL
         AND to_regclass('saas.inventory_transfer_lines') IS NOT NULL
         AND to_regclass('saas.inventory_location_operations') IS NOT NULL AS inventory_relations,
+      to_regprocedure('saas.create_store_default_inventory_location()') IS NOT NULL
+        AND EXISTS(
+          SELECT 1
+          FROM pg_catalog.pg_trigger AS trigger
+          WHERE trigger.tgrelid='saas.stores'::pg_catalog.regclass
+            AND trigger.tgname='stores_default_inventory_location'
+            AND NOT trigger.tgisinternal
+            AND trigger.tgenabled='O'
+            AND trigger.tgfoid='saas.create_store_default_inventory_location()'::pg_catalog.regprocedure
+        ) AS inventory_default_location_lifecycle,
       to_regclass('saas.price_lists') IS NOT NULL
         AND to_regclass('saas.price_list_items') IS NOT NULL
         AND to_regclass('saas.price_list_rules') IS NOT NULL
@@ -266,6 +302,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_lister !== true || row.catalog_creator !== true || row.catalog_updater !== true ||
       row.catalog_archiver !== true || row.variant_creator !== true || row.variant_updater !== true ||
       row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true ||
+      row.catalog_onboarding_repository !== true ||
+      row.catalog_category_repository !== true ||
       row.merchant_action_authority !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
@@ -278,12 +316,43 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.payment_method_repository !== true || row.payment_provider_keyed_lifecycle !== true ||
       row.iyzico_activation_runtime !== true ||
       row.quick_order_hosted_authority !== true ||
+      row.paytr_iframe_activation_authority !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.analytics_repository !== true ||
-      row.inventory_relations !== true || row.inventory_repository !== true ||
+      row.inventory_relations !== true || row.inventory_default_location_lifecycle !== true ||
+      row.inventory_repository !== true ||
       row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
-  } finally { client.release(); }
+
+    await client.query("BEGIN READ ONLY");
+    transactionActive = true;
+    await client.query("SET LOCAL ROLE celebix_saas_app");
+    const activation = await client.query(
+      "SELECT saas.paytr_iframe_activation_preflight() AS ready",
+    );
+    if (activation.rowCount !== 1 || activation.rows[0]?.ready !== true) {
+      throw new Error("server_panel_access_database_preflight_failed");
+    }
+    try {
+      await client.query("COMMIT");
+      transactionActive = false;
+    } catch {
+      transactionActive = false;
+      destroyClient = true;
+      throw new Error("server_panel_access_database_preflight_failed");
+    }
+  } catch (error) {
+    if (transactionActive) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        destroyClient = true;
+      }
+    }
+    throw error;
+  } finally {
+    client.release(destroyClient || undefined);
+  }
 }
 
 export async function initializeApprovedStagingServerPanelAccessRuntime(
@@ -324,6 +393,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       role: "celebix_saas_app",
       timeouts: TIMEOUTS,
       generateId: () => randomUUID(),
+      audit: () => undefined,
+    });
+    const catalogOnboardingRepository = new PostgresCatalogOnboardingRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
       audit: () => undefined,
     });
     const orderRepository = new PostgresOrderRepository({
@@ -427,6 +503,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       config.authority.panelOrigin,
     );
     registerServerCatalogRepository(access, catalogRepository);
+    registerServerCatalogOnboardingRepository(access, catalogOnboardingRepository);
     registerServerOrderRepository(access, orderRepository);
     registerServerAbandonedCartRepository(access, abandonedCartRepository);
     registerServerCustomerRepository(access, customerRepository);

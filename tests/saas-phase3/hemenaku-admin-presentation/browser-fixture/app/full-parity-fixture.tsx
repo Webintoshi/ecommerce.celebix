@@ -29,8 +29,8 @@ import {
 } from "@/components/inventory/PurchasingConsole";
 import { MerchantModuleConsole } from "@/components/merchant-admin/MerchantModuleConsole";
 import { OrderPrintView } from "@/components/orders/OrderPrintView";
+import { PanelLayoutClient } from "@/components/panel/PanelLayoutClient";
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
-import { PanelShell } from "@/components/panel/PanelShell";
 import { PriceListConsole } from "@/components/pricing/PriceListConsole";
 import { readyAuthority } from "@/lib/panel-ui/authority-slice";
 import { createMerchantDashboardViewModel } from "@/lib/panel-ui/dashboard-model";
@@ -49,6 +49,7 @@ const TRANSFER_ID = "99999999-9999-4999-8999-999999999999";
 const PRICE_LIST_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 const MODEL = Object.freeze({
+  analyticsAvailable: false,
   storeSlug: "browser-kabul-magazasi",
   membershipLabel: "Mağaza sahibi",
   planCode: "growth",
@@ -358,10 +359,10 @@ export function FullParityFixture({
   state?: AcceptanceState;
 }>) {
   return (
-    <PanelShell model={MODEL}>
+    <PanelLayoutClient model={MODEL}>
       <section data-target-route={pathname} data-target-state={state}>
         <TargetRouteSurface pathname={pathname} state={state} />
       </section>
-    </PanelShell>
+    </PanelLayoutClient>
   );
 }

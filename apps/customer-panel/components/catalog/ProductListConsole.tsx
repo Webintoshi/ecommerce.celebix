@@ -22,9 +22,11 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import type { Product, ProductVariant } from "@celebix/saas-contracts";
+import type { CatalogOnboardingOptions, Product, ProductVariant } from "@celebix/saas-contracts";
 
+import { ProductQuickCreateDialog } from "@/components/catalog-onboarding/ProductQuickCreateDialog";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
+import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import {
   CatalogApiError,
   catalogApi,
@@ -72,27 +74,33 @@ export function csvCell(value: string | number) {
   return `"${neutralized.replaceAll('"', '""')}"`;
 }
 
-export function productCountLabels(
-  displayed: number,
-  loaded: number,
-  summaryState: SummaryState,
-  storeTotal?: number,
-): readonly string[] {
-  return Object.freeze([
-    `${displayed} görüntüleniyor`,
-    `${loaded} yüklendi`,
-    summaryState === "loading"
-      ? "Mağaza toplamı yükleniyor"
-      : summaryState === "unavailable" || storeTotal === undefined
-        ? "Mağaza toplamı kullanılamıyor"
-        : `${storeTotal} mağazada`,
-  ]);
-}
+export type ProductSummaryMetric = Readonly<{
+  key: "total" | "active" | "draft" | "out-of-stock";
+  label: "Toplam" | "Aktif" | "Taslak" | "Stoksuz";
+  value: string;
+  accessibleValue: string;
+}>;
 
-function storeMetricLabel(summaryState: SummaryState, value: number | undefined, label: string): string {
-  if (summaryState === "loading") return `— ${label} mağaza toplamı yükleniyor`;
-  if (summaryState === "unavailable" || value === undefined) return `— ${label} mağaza toplamı kullanılamıyor`;
-  return `${value} mağazada ${label.toLocaleLowerCase("tr-TR")}`;
+const PRODUCT_SUMMARY_DEFINITIONS = Object.freeze([
+  Object.freeze({ key: "total", label: "Toplam", field: "totalProducts" }),
+  Object.freeze({ key: "active", label: "Aktif", field: "activeProducts" }),
+  Object.freeze({ key: "draft", label: "Taslak", field: "draftProducts" }),
+  Object.freeze({ key: "out-of-stock", label: "Stoksuz", field: "outOfStockVariants" }),
+] as const);
+
+export function productSummaryMetrics(
+  summaryState: SummaryState,
+  summary?: Pick<CatalogDashboardSummary, "totalProducts" | "activeProducts" | "draftProducts" | "outOfStockVariants">,
+): readonly ProductSummaryMetric[] {
+  return Object.freeze(PRODUCT_SUMMARY_DEFINITIONS.map(({ key, label, field }) => {
+    const metricValue = summary?.[field];
+    if (summaryState !== "ready" || metricValue === undefined) {
+      const stateLabel = summaryState === "loading" ? "yükleniyor" : "kullanılamıyor";
+      return Object.freeze({ key, label, value: "—", accessibleValue: `${label} mağaza toplamı ${stateLabel}` });
+    }
+    const value = String(metricValue);
+    return Object.freeze({ key, label, value, accessibleValue: `${label} ${value}` });
+  }));
 }
 
 export function requiresBulkConfirmation(action: string): boolean {
@@ -197,6 +205,8 @@ export function ProductListConsole() {
   rowsStaleRef.current = rowsStale;
   const [archiveCandidate, setArchiveCandidate] = useState<Product>();
   const [bulkArchiveConfirmation, setBulkArchiveConfirmation] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickOptions, setQuickOptions] = useState<CatalogOnboardingOptions | null>(null);
   const filterRef = useRef(filter);
   filterRef.current = filter;
   const operationCoordinator = useRef(createProductOperationCoordinator());
@@ -286,7 +296,7 @@ export function ProductListConsole() {
 
   const visibleIds = visibleRows.map(({ product }) => product.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
-  const countLabels = productCountLabels(visibleRows.length, rows.length, summaryState, summary?.totalProducts);
+  const summaryMetrics = productSummaryMetrics(summaryState, summary);
 
   function closeArchiveDialog() {
     if (!busy) setArchiveCandidate(undefined);
@@ -429,9 +439,19 @@ export function ProductListConsole() {
       <label className="command-select"><GripVertical aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => setSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Sırala</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option></select></label>
       <Link className="command-button" href="/products/bulk-upload"><FileUp aria-hidden="true" />İçe Aktar</Link>
       <button className="command-button" type="button" disabled={visibleRows.length === 0 || busy || loading || loadingMore} onClick={exportVisibleRows}><Download aria-hidden="true" />Dışa Aktar</button>
-      <Link className="command-button command-button-primary" href="/products/new"><Plus aria-hidden="true" />Ürün Ekle</Link>
+      <button className="command-button command-button-primary" type="button" disabled={busy} onClick={() => void openQuickCreate()}><Plus aria-hidden="true" />Ürün Ekle</button>
     </div>
     );
+  }
+
+  async function openQuickCreate() {
+    setQuickCreateOpen(true);
+    if (quickOptions !== null) return;
+    try { setQuickOptions(await catalogOnboardingClient.getOptions()); }
+    catch (failure) {
+      setQuickCreateOpen(false);
+      setError(failure instanceof Error ? failure.message : "Ürün seçenekleri yüklenemedi.");
+    }
   }
 
   const topbarActions = productCommands();
@@ -443,12 +463,14 @@ export function ProductListConsole() {
       <div className="product-mobile-commandbar">{productCommands()}</div>
 
       <div className="hemenaku-product-filters">
-        <div className="product-stat-chips" aria-label="Ürün özeti">
-          {countLabels.map((label) => <span key={label}>{label}</span>)}
-          <span>{storeMetricLabel(summaryState, summary?.activeProducts, "Aktif")}</span>
-          <span>{storeMetricLabel(summaryState, summary?.draftProducts, "Taslak")}</span>
-          <span>{storeMetricLabel(summaryState, summary?.outOfStockVariants, "Stoksuz varyant")}</span>
-        </div>
+        <dl className="product-stat-grid" aria-label="Ürün özeti">
+          {summaryMetrics.map((metric) => (
+            <div key={metric.key} aria-label={metric.accessibleValue}>
+              <dt>{metric.label}</dt>
+              <dd>{metric.value}</dd>
+            </div>
+          ))}
+        </dl>
         <label className="product-search"><Search aria-hidden="true" /><span className="sr-only">Tabloda arama yapın</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tabloda arama yapın" aria-label="Ürün tablosunda ara" /></label>
         <button className={`command-button ${filterOpen ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
         <button ref={refreshListButtonRef} className="command-button command-icon-button" type="button" disabled={busy || loading || loadingMore} onClick={() => void load()} aria-label="Ürün listesini yenile"><RefreshCw aria-hidden="true" /></button>
@@ -461,12 +483,16 @@ export function ProductListConsole() {
       ) : null}
 
       <div className="product-bulkbar">
-        <label className="select-all-control"><input type="checkbox" disabled={busy} checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? Object.freeze(visibleIds) : Object.freeze([]))} aria-label="Görüntülenen tüm ürünleri seç" /><span>Tümünü seç</span></label>
-        <select value={bulkAction} disabled={busy} onChange={(event) => setBulkAction(event.target.value as BulkAction)} aria-label="Toplu İşlemler"><option value="">Toplu İşlemler</option><option value="active">Aktif yap</option><option value="draft">Taslağa al</option><option value="archive">Arşivle</option></select>
-        <button type="button" disabled={selected.length === 0 || bulkAction === "" || busy || loading || loadingMore} onClick={applyBulkAction}>Uygula</button>
-        <span>{selected.length} ürün seçildi</span>
-        <span className="product-range">{visibleRows.length === 0 ? 0 : 1} - {visibleRows.length} / {rows.length} yüklendi · {summary?.totalProducts ?? "—"} mağazada</span>
-        <label className="row-count-control"><span>Satır sayısı</span><select aria-label="Satır sayısı" value="20" disabled><option>20</option></select></label>
+        <div className="product-bulk-actions">
+          <label className="select-all-control"><input type="checkbox" disabled={busy} checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? Object.freeze(visibleIds) : Object.freeze([]))} aria-label="Görüntülenen tüm ürünleri seç" /><span>Tümünü seç</span></label>
+          <select value={bulkAction} disabled={busy} onChange={(event) => setBulkAction(event.target.value as BulkAction)} aria-label="Toplu İşlemler"><option value="">Toplu İşlemler</option><option value="active">Aktif yap</option><option value="draft">Taslağa al</option><option value="archive">Arşivle</option></select>
+          <button type="button" disabled={selected.length === 0 || bulkAction === "" || busy || loading || loadingMore} onClick={applyBulkAction}>Uygula</button>
+          <span>{selected.length} ürün seçildi</span>
+        </div>
+        <div className="product-list-status">
+          <span className="product-range">{visibleRows.length === 0 ? 0 : 1} - {visibleRows.length} / {rows.length} yüklendi · {summary?.totalProducts ?? "—"} mağazada</span>
+          <label className="row-count-control"><span>Satır sayısı</span><select aria-label="Satır sayısı" value="20" disabled><option>20</option></select></label>
+        </div>
       </div>
 
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Bir sorun oluştu</strong><p>{error}</p></div><button className="button button-secondary" type="button" onClick={() => void load()}>Tekrar dene</button></div> : null}
@@ -518,6 +544,14 @@ export function ProductListConsole() {
           </div>
         </div>
       ) : null}
+
+      <ProductQuickCreateDialog
+        open={quickCreateOpen}
+        options={quickOptions}
+        onClose={() => setQuickCreateOpen(false)}
+        onCreated={() => { setQuickCreateOpen(false); void load(); }}
+        onAdvanced={() => { setQuickCreateOpen(false); location.assign("/products/new?mode=advanced"); }}
+      />
     </section>
   );
 }

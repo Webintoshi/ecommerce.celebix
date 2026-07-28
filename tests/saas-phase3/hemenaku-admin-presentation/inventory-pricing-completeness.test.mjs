@@ -411,7 +411,7 @@ test("registers exact inventory and pricing repositories behind server panel acc
     /new PostgresPricingRepository\(/,
     /registerServerInventoryRepository\(access, inventoryRepository\)/,
     /registerServerPricingRepository\(access, pricingRepository\)/,
-    /row[.]inventory_relations !== true \|\| row[.]inventory_repository !== true/,
+    /row[.]inventory_relations !== true \|\| row[.]inventory_default_location_lifecycle !== true \|\|\s*row[.]inventory_repository !== true/,
     /row[.]pricing_relations !== true \|\| row[.]pricing_repository !== true \|\| row[.]pricing_resolver !== true/,
     /saas[.]resolve_effective_variant_price\(uuid,uuid,text,timestamp with time zone,text\)/,
   ]) assert.match(runtime, proof);

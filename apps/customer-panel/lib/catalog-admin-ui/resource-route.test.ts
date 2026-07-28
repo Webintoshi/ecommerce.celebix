@@ -241,5 +241,9 @@ test("extra preview renders untrusted option text and minor-unit prices without 
   assert.match(preview, /catalogAdminApi\.resource\("extra", resourceId\)/);
   assert.match(preview, /options\.map/);
   assert.match(preview, /formatTry\(priceAdjustmentCents\)/);
+  assert.match(preview, /styles\.previewHero/);
+  assert.match(preview, /styles\.previewPrice/);
+  assert.match(preview, /styles\.previewOptionGrid/);
+  assert.match(preview, /Canlı müşteri görünümü/);
   assert.doesNotMatch(preview, /dangerouslySetInnerHTML|<iframe|eval\(|new Function|import\(/);
 });

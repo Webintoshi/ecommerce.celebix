@@ -10,6 +10,7 @@ export type PanelNavigationHref =
   | "/customers/new"
   | "/products"
   | "/products/new"
+  | "/products/categories"
   | "/products/collections"
   | "/products/brands"
   | "/products/attributes"
@@ -150,6 +151,7 @@ const CUSTOMER_CHILDREN = Object.freeze([
 const CATALOG_CHILDREN = Object.freeze([
   item("products", "Tüm ürünler", "/products", "products"),
   item("new-product", "Yeni ürün", "/products/new", "products"),
+  item("categories", "Kategoriler", "/products/categories", "collections"),
   item("collections", "Koleksiyonlar", "/products/collections", "collections"),
   item("brands", "Markalar", "/products/brands", "brands"),
   item("attributes", "Nitelikler", "/products/attributes", "attributes"),
@@ -255,6 +257,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/customers/new": presentation("Yeni müşteri"),
   "/products": presentation("Ürün kataloğu"),
   "/products/new": presentation("Yeni ürün oluştur"),
+  "/products/categories": presentation("Kategoriler"),
   "/products/collections": presentation("Koleksiyonlar"),
   "/products/brands": presentation("Markalar"),
   "/products/attributes": presentation("Nitelikler"),
@@ -327,6 +330,7 @@ export const PANEL_ROUTE_PRESENTATIONS = Object.freeze({
   products: TITLES["/products"]!,
   newProduct: TITLES["/products/new"]!,
   productDetail: presentation("Ürün ayrıntısı"),
+  categories: TITLES["/products/categories"]!,
   collections: TITLES["/products/collections"]!,
   brands: TITLES["/products/brands"]!,
   attributes: TITLES["/products/attributes"]!,

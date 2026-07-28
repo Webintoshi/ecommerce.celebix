@@ -13,6 +13,7 @@ export function ToshiWorkspace() {
           height={72}
           alt="Toshi yapay zekâ mağaza asistanı"
           priority
+          unoptimized
         />
         <div>
           <h1 id="toshi-workspace-title">Toshi</h1>

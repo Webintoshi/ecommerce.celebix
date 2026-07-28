@@ -35,6 +35,8 @@ async function productionProductListModule() {
     if (specifier === "next/link") return () => null;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => () => null });
     if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
+    if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
+    if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: {} };
     if (specifier === "@/lib/catalog-ui/client") {
       class CatalogApiError extends Error {
         code = "unavailable";
@@ -193,6 +195,8 @@ async function createMountedProductConsole(api: Record<string, unknown>) {
     if (specifier === "@/components/panel/PanelTopbarChrome") {
       return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => createElement("aside", { "data-topbar": true }, actions) };
     }
+    if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
+    if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: {} };
     if (specifier === "@/lib/catalog-ui/client") {
       return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
     }
@@ -275,6 +279,19 @@ test("product UI includes safe states and responsive catalog behavior without fa
   assert.doesNotMatch(`${list}\n${detail}`, /placeholder analytics|fake product|image upload/i);
 });
 
+test("product detail composes durable merchandising without overwriting conflicts", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  assert.match(detail, /catalogOnboardingClient[.]getProductEditor/);
+  assert.match(detail, /catalogOnboardingClient[.]getOptions/);
+  assert.match(detail, /ProductAdvancedEditor/);
+  assert.match(editor, /updateMerchandising/);
+  assert.match(editor, /expectedProfileVersion/);
+  assert.match(editor, /version_conflict/);
+  assert.match(editor, /Sunucudaki sürümü yükle/);
+  assert.doesNotMatch(editor, /version_conflict[^]*location[.]reload|version_conflict[^]*onConflictReload\(\)/);
+});
+
 test("merchant shell adopts the Hemenaku visual language without its dedicated authorities", async () => {
   const shell = await source("components/panel/PanelShell.tsx");
   const navigation = await source("components/panel/PanelNavigation.tsx");
@@ -295,6 +312,8 @@ test("merchant shell adopts the Hemenaku visual language without its dedicated a
 test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupported modules", async () => {
   const list = await source("components/catalog/ProductListConsole.tsx");
   const create = await source("components/catalog/ProductCreateForm.tsx");
+  const onboarding = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const onboardingStyles = await source("components/catalog-onboarding/product-onboarding.module.css");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const styles = await source("app/globals.css");
   assert.match(list, /donor-product-page/);
@@ -303,14 +322,14 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   assert.match(list, /data-presentation="hemenaku-product-list"/);
   assert.match(list, /aria-label="Ürün durumu filtresi"/);
   assert.match(list, /PanelTopbarBridge title="Ürünler"/);
-  assert.match(create, /hemenaku-wizard-stepper/);
-  assert.match(create, /Temel Bilgiler/);
-  assert.match(create, /Fiyat ve Stok/);
+  assert.match(create, /ProductQuickCreateDialog/);
+  assert.match(onboarding, /Ürün adı/);
+  assert.match(onboarding, /Satış fiyatı/);
   assert.match(detail, /hemenaku-detail-hero/);
   assert.match(detail, /Ürün Bilgileri/);
   assert.match(styles, /\.hemenaku-product-hero[^}]*border-radius:\s*30px/s);
-  assert.match(styles, /\.catalog-form fieldset[^}]*border-radius:\s*28px/s);
-  assert.doesNotMatch(`${list}\n${create}\n${detail}`, /\/api\/admin|\/admin\/urunler|category|image upload|seo|supabase/i);
+  assert.match(onboardingStyles, /\.dialog[^}]*border-radius:\s*30px/s);
+  assert.doesNotMatch(`${list}\n${create}\n${onboarding}\n${detail}`, /\/api\/admin|\/admin\/urunler|supabase/i);
 });
 
 test("product list follows the approved dense donor toolbar and table contract", async () => {
@@ -454,22 +473,27 @@ test("CSV export neutralizes spreadsheet formulas and control-leading cells befo
   assert.equal(production.csvCell('normal "ürün"'), '"normal ""ürün"""');
 });
 
-test("product counters distinguish displayed, loaded and durable store totals", async () => {
+test("product summary exposes four honest fixed metrics", async () => {
   const production = await productionProductListModule() as {
-    productCountLabels: (displayed: number, loaded: number, summaryState: "loading" | "ready" | "unavailable", storeTotal?: number) => readonly string[];
+    productSummaryMetrics?: (
+      summaryState: "loading" | "ready" | "unavailable",
+      summary?: typeof catalogSummary,
+    ) => readonly Readonly<{ key: string; label: string; value: string; accessibleValue: string }>[];
   };
+  const summaryMetrics = production.productSummaryMetrics;
+  assert.equal(typeof summaryMetrics, "function");
+  if (summaryMetrics === undefined) throw new Error("product_summary_metrics_missing");
   assert.deepEqual(
-    production.productCountLabels(3, 20, "ready", 61),
-    ["3 görüntüleniyor", "20 yüklendi", "61 mağazada"],
+    summaryMetrics("ready", catalogSummary),
+    [
+      { key: "total", label: "Toplam", value: "2", accessibleValue: "Toplam 2" },
+      { key: "active", label: "Aktif", value: "1", accessibleValue: "Aktif 1" },
+      { key: "draft", label: "Taslak", value: "1", accessibleValue: "Taslak 1" },
+      { key: "out-of-stock", label: "Stoksuz", value: "0", accessibleValue: "Stoksuz 0" },
+    ],
   );
-  assert.deepEqual(
-    production.productCountLabels(0, 0, "loading"),
-    ["0 görüntüleniyor", "0 yüklendi", "Mağaza toplamı yükleniyor"],
-  );
-  assert.deepEqual(
-    production.productCountLabels(3, 20, "unavailable"),
-    ["3 görüntüleniyor", "20 yüklendi", "Mağaza toplamı kullanılamıyor"],
-  );
+  assert.ok(summaryMetrics("loading").every(({ value }) => value === "—"));
+  assert.ok(summaryMetrics("unavailable").every(({ accessibleValue }) => /kullanılamıyor/.test(accessibleValue)));
 });
 
 test("dense product controls expose a 48px hit area without enlarging their visual glyphs", async () => {
@@ -497,9 +521,11 @@ test("mounted product console renders all four commands in the <=1024 mobile fal
   }
   const styles = await source("app/globals.css");
   assert.match(styles, /@media \(max-width: 1024px\)[^]*[.]product-mobile-commandbar\s*\{[^}]*display:\s*flex/s);
+  assert.match(styles, /@media \(max-width: 640px\)[^]*[.]product-mobile-commandbar [.]hemenaku-product-commandbar\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(styles, /@media \(max-width: 640px\)[^]*[.]product-mobile-commandbar [.]command-button[^}]*width:\s*100%[^}]*min-width:\s*0/s);
 });
 
-test("mounted store-wide chips stay loading then unavailable instead of borrowing loaded-row counts", async () => {
+test("mounted store-wide metrics stay semantic and never duplicate loaded-row counts", async () => {
   const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1);
   const summaryResult = deferred<typeof catalogSummary>();
   const mounted = await createMountedProductConsole({
@@ -511,14 +537,36 @@ test("mounted store-wide chips stay loading then unavailable instead of borrowin
   });
   let tree = await mounted.render();
   let text = tree.map(mountedText).join(" ");
-  assert.match(text, /Mağaza toplamı yükleniyor/);
-  assert.doesNotMatch(text, /1 mağazada taslak|0 mağazada aktif/);
+  let nodes = mountedNodes(tree);
+  assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
+  assert.equal(nodes.filter((node) => node.type === "dd").length, 4);
+  assert.match(text, /Toplam—Aktif—Taslak—Stoksuz—/);
+  assert.doesNotMatch(text, /görüntüleniyor|Mağaza toplamı yükleniyor/);
+  assert.match(text, /0 - 0 \/ 0 yüklendi · — mağazada/);
   summaryResult.reject(new Error("summary unavailable"));
   tree = await mounted.render();
   text = tree.map(mountedText).join(" ");
-  assert.match(text, /Mağaza toplamı kullanılamıyor/);
+  nodes = mountedNodes(tree);
+  assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
+  assert.ok(nodes.filter((node) => node.type === "dd").every((node) => mountedText(node) === "—"));
   assert.match(text, /Ürün 11111111/);
-  assert.doesNotMatch(text, /1 mağazada taslak|0 mağazada aktif/);
+  assert.match(text, /1 - 1 \/ 1 yüklendi · — mağazada/);
+  assert.doesNotMatch(text, /görüntüleniyor|yüklendi yüklendi|1 mağazada taslak|0 mağazada aktif/);
+});
+
+test("product create heading and dense controls use the compact balanced contract", async () => {
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  const styles = await source("app/globals.css");
+
+  assert.match(create, /product-create-heading/);
+  assert.doesNotMatch(create, /hemenaku-form-hero|YENİ KAYIT/);
+  assert.match(list, /product-stat-grid/);
+  assert.match(list, /product-bulk-actions/);
+  assert.match(list, /product-list-status/);
+  assert.match(styles, /[.]product-stat-grid\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(styles, /@media \(max-width:\s*640px\)[^]*[.]product-stat-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(styles, /[.]product-bulk-actions[^}]*min-height:\s*48px/s);
 });
 
 test("mounted bulk archive opens count-aware confirmation before the first versioned mutation", async () => {
@@ -689,6 +737,23 @@ test("detail and media surfaces retain versioned target commands", async () => {
   assert.doesNotMatch(`${detail}\n${media}`, /storeId|tenantId|document\.cookie|\/api\/admin|supabase/i);
 });
 
+test("create and edit use one safe Markdown description field", async () => {
+  const field = await source("components/catalog/ProductDescriptionField.tsx").catch(() => "");
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+
+  assert.match(field, /normalizeProductDescriptionRichText/);
+  assert.doesNotMatch(field, /dangerouslySetInnerHTML/);
+  assert.match(field, /name="description"/);
+  assert.match(field, /maxLength=\{10_000\}/);
+  assert.match(field, /Markdown desteklenir/);
+  assert.match(field, /Markdown önizleme/);
+  assert.match(detail, /ProductDescriptionField/);
+  assert.match(detail, /ProductDescriptionPreview/);
+  assert.match(advanced, /ProductDescriptionField/);
+  assert.doesNotMatch(detail, /<p>\{product[.]description/);
+});
+
 class FocusTarget {
   isConnected = true;
   focusCount = 0;
@@ -721,18 +786,18 @@ test("production archive focus restorer prefers a live trigger and safely falls 
   assert.equal(restoreArchiveFocus(trigger as unknown as HTMLElement, fallback as unknown as HTMLElement), "none");
 });
 
-test("creation wizard remains bound to the durable target workflow", async () => {
+test("quick creation remains bound to the durable onboarding and media workflow", async () => {
   const create = await source("components/catalog/ProductCreateForm.tsx");
-  const createIndex = create.indexOf("await catalogApi.createProduct");
-  const uploadIndex = create.indexOf("await productMediaApi.upload");
-  const redirectIndex = create.indexOf("location.assign");
+  const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
   assert.match(create, /data-presentation="hemenaku-product-create"/);
-  assert.match(create, /buildCreateProductPayload/);
-  assert.match(create, /await catalogApi\.createProduct/);
-  assert.match(create, /if \(image !== undefined\) \{[^]*await productMediaApi\.upload\(result\.product\.id,/);
+  assert.match(dialog, /buildQuickCreateIntent/);
+  assert.match(dialog, /await api\.createProduct/);
+  assert.match(dialog, /completeProductMedia/);
+  assert.match(dialog, /mediaClient\.upload\(productId, input\)/);
+  assert.match(dialog, /api\.publishAfterMedia/);
+  assert.match(dialog, /api\.getProductEditor/);
   assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
-  assert.ok(createIndex < uploadIndex && uploadIndex < redirectIndex);
-  assert.doesNotMatch(create, /seo|nutrition|categoryId|\/api\/admin|supabase/i);
+  assert.doesNotMatch(`${create}\n${dialog}`, /nutrition|\/api\/admin|supabase/i);
 });
 
 test("create, archive, variant and conflict flows keep rendered versions and navigate safely", async () => {

@@ -147,7 +147,7 @@ test("the pinned donor admin tree remains unchanged", () => {
   assert.deepEqual(changedNames("apps/admin"), []);
 });
 
-test("lockfile admits only the pinned adapter workspace and storefront dependency successors", async () => {
+test("lockfile admits only pinned adapter successors and the approved Markdown parser", async () => {
   assert.equal(
     git(["merge-base", PAYMENT_ADAPTERS_HEAD, "HEAD"]).trim(),
     PAYMENT_ADAPTERS_HEAD,
@@ -177,6 +177,8 @@ test("lockfile admits only the pinned adapter workspace and storefront dependenc
   expectedLock.packages["apps/storefront-shared"].dependencies["@celebix/payment-adapters"] = "0.1.0";
   expectedLock.packages["apps/customer-panel"].dependencies["@celebix/payment-adapters"] = "0.1.0";
   expectedLock.packages["apps/owner"].dependencies["@celebix/payment-adapters"] = "0.1.0";
+  expectedLock.packages["packages/platform-config"].dependencies = { "markdown-it": "14.1.1" };
+  expectedLock.packages["packages/platform-config"].devDependencies = { "@types/markdown-it": "14.1.2" };
   const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
   assert.deepEqual(currentLock, expectedLock);
 
