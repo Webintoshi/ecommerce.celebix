@@ -104,7 +104,7 @@ git commit -m "feat(payments): define built-in method configs"
 - Replaces the same-signature `saas.payment_method_save(...)` without changing existing provider inputs or result envelopes.
 - Adds finite SQL outcome `method_already_exists`.
 
-- [ ] **Step 1: Write the failing 062 behavioral harness**
+- [x] **Step 1: Write the failing 062 behavioral harness**
 
 The harness must apply migrations through 061, prove duplicates are possible before 062, apply 062, then report exact scenarios for:
 
@@ -124,13 +124,13 @@ preflight and ACLs are exact
 down refuses unsafe duplicate-producing rollback conditions
 ```
 
-- [ ] **Step 2: Run the harness and verify RED**
+- [x] **Step 2: Run the harness and verify RED**
 
 Run: `node tests/saas-phase3/built-in-payment-methods/postgres-harness.mjs`
 
 Expected: FAIL because migration 062 and its functions/index are missing.
 
-- [ ] **Step 3: Implement migration 062**
+- [x] **Step 3: Implement migration 062**
 
 The up migration must:
 
@@ -142,7 +142,7 @@ WHERE kind IN ('cash_on_delivery','bank_transfer');
 
 It must reject pre-existing duplicates before index creation, validate exact JSON key sets and canonical text, calculate IBAN MOD-97 without dynamic SQL, acquire `saas.payment.method.builtin:<store>:<kind>` advisory locks, return `method_already_exists` for a different ID of the same kind, preserve every provider branch from migration 059, and expose an exact security-definer preflight to owner/app/workflow roles only.
 
-- [ ] **Step 4: Verify GREEN and current suite registration**
+- [x] **Step 4: Verify GREEN and current suite registration**
 
 Register this exact cumulative gate in `run-current-suite.mjs` after migration 061:
 
@@ -165,7 +165,7 @@ node tests/saas-phase3/built-in-payment-methods/postgres-harness.mjs
 
 Expected: exact behavioral harness total passes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/owner/scripts/sql/saas/202607280062_builtin_payment_methods.up.sql apps/owner/scripts/sql/saas/202607280062_builtin_payment_methods_assertions.sql apps/owner/scripts/sql/saas/202607280062_builtin_payment_methods.down.sql tests/saas-phase3/built-in-payment-methods tests/saas-phase3/run-current-suite.mjs
