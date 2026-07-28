@@ -44,6 +44,7 @@ export type {
   StoreMembership,
   StoreMembershipRole,
   StoreMembershipStatus,
+  StoreMediaReadiness,
   StoreStatus,
   TenantContext,
 } from "./types.ts";

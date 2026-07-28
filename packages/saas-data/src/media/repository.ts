@@ -1,14 +1,23 @@
 import { createHash } from "node:crypto";
 import { getPlanLimit, type TenantContext } from "@celebix/saas-contracts";
-import { parseProductMedia, type ProductMedia } from "../../../saas-contracts/src/media/index.ts";
+import { parseProductMedia, parseProductMediaReservation, type ProductMedia, type ProductMediaReservation } from "../../../saas-contracts/src/media/index.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { MEDIA_ERROR_CODES, ProductMediaRepositoryError, type MediaErrorCode } from "./errors.ts";
-import type { AttachProductMediaInput, MediaMutationResult, PostgresProductMediaRepositoryOptions, ProductMediaRepository } from "./types.ts";
+import type { MediaMutationResult, PostgresProductMediaRepositoryOptions, ProductMediaLifecycleInput, ProductMediaRepository, ReserveProductMediaInput } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const EXPECTED = new Set<string>(MEDIA_ERROR_CODES);
 type Authority = Readonly<{ storeId: string; principalId: string; membershipId: string; planId: string; planCode: string; planVersion: number; storageBytes: number; now: Date }>;
+type ReservationAuthority = Readonly<{
+  storeId: string;
+  operationId: string;
+  mediaId: string;
+  productId: string;
+  payloadSha256: string;
+  mediaType?: string;
+  byteSize?: number;
+}>;
 
 function failure(code: MediaErrorCode): ProductMediaRepositoryError { return new ProductMediaRepositoryError(code); }
 function timeout(value: number): string { if (!Number.isSafeInteger(value) || value < 1 || value > 60_000) throw failure("unavailable"); return `${value}ms`; }
@@ -29,7 +38,17 @@ function fingerprint(kind: string, input: unknown): string { return createHash("
 
 export class PostgresProductMediaRepository implements ProductMediaRepository {
   private readonly options: PostgresProductMediaRepositoryOptions;
-  constructor(options: PostgresProductMediaRepositoryOptions) { if (!options || options.role !== "celebix_saas_app") throw failure("unavailable"); timeout(options.timeouts.poolCheckoutMs); timeout(options.timeouts.statementMs); timeout(options.timeouts.lockMs); timeout(options.timeouts.idleTransactionMs); this.options = options; }
+  private readonly mediaOrigin: string;
+  constructor(options: PostgresProductMediaRepositoryOptions) {
+    if (!options || options.role !== "celebix_saas_app") throw failure("unavailable");
+    timeout(options.timeouts.poolCheckoutMs); timeout(options.timeouts.statementMs); timeout(options.timeouts.lockMs); timeout(options.timeouts.idleTransactionMs);
+    try {
+      const origin = new URL(options.mediaOrigin);
+      if (origin.protocol !== "https:" || origin.username || origin.password || origin.port || origin.pathname !== "/" || origin.search || origin.hash || origin.origin !== options.mediaOrigin) throw failure("unavailable");
+      this.mediaOrigin = origin.origin;
+    } catch { throw failure("unavailable"); }
+    this.options = options;
+  }
   private async configure(client: PostgresClientLike): Promise<void> { await client.query("SELECT pg_catalog.set_config('statement_timeout', $1, true)", [timeout(this.options.timeouts.statementMs)]); await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [timeout(this.options.timeouts.lockMs)]); await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.options.timeouts.idleTransactionMs)]); await client.query("SET LOCAL ROLE celebix_saas_app"); }
   private expected(outcome: string): never { if (EXPECTED.has(outcome)) throw failure(outcome as MediaErrorCode); throw failure("unavailable"); }
   private audit(): void { try { const pending = this.options.audit({ type: "media_commit_unknown" }); if (pending) void pending.catch(() => undefined); } catch { /* Durable authority never depends on audit. */ } }
@@ -40,22 +59,79 @@ export class PostgresProductMediaRepository implements ProductMediaRepository {
     catch (caught) { if (began && !terminal) { try { await client.query("ROLLBACK"); client.release(); } catch { client.release(true); } } else if (!terminal) client.release(true); if (caught instanceof ProductMediaRepositoryError) throw caught; throw failure("unavailable"); }
   }
   private mutationOutcome(selected: { outcome: string; resultPayload: unknown }): MediaMutationResult { if (selected.outcome !== "committed" && selected.outcome !== "operation_replayed") this.expected(selected.outcome); return Object.freeze({ media: mediaPayload(selected.resultPayload), replayed: selected.outcome === "operation_replayed" }); }
-  async attachMedia(input: AttachProductMediaInput): Promise<MediaMutationResult> {
-    const parsed = exact(input, ["tenantContext", "now", "operationId", "mediaId", "productId", "objectKey", "publicUrl", "mediaType", "altText", "width", "height", "byteSize"], ["variantId"]); const auth = authority(parsed.tenantContext, parsed.now);
-    const mediaId = uuid(parsed.mediaId), productId = uuid(parsed.productId), variantId = parsed.variantId === undefined ? null : uuid(parsed.variantId);
-    const mediaType = parsed.mediaType; if (!["image/jpeg", "image/png", "image/webp"].includes(mediaType)) throw failure("invalid_input");
-    const extension = mediaType === "image/jpeg" ? "jpg" : mediaType.slice("image/".length);
-    const objectKey = string(parsed.objectKey, 1, 512);
-    if (objectKey !== `stores/${auth.storeId}/products/${productId}/${mediaId}.${extension}`) throw failure("invalid_input");
-    const publicUrl = string(parsed.publicUrl, 1, 2048);
-    let selectedUrl: URL;
-    try { selectedUrl = new URL(publicUrl); } catch { throw failure("invalid_input"); }
-    if (selectedUrl.protocol !== "https:" || selectedUrl.username || selectedUrl.password || selectedUrl.hash || !selectedUrl.pathname.endsWith(`/${objectKey}`) || selectedUrl.toString() !== publicUrl) throw failure("invalid_input");
-    const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_attach_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::text,$15::text,$16::text,$17::text,$18::integer,$19::integer,$20::bigint)", [...values(auth), uuid(parsed.operationId), fingerprint("attach_media", { mediaId, productId, variantId, objectKey: parsed.objectKey, publicUrl: parsed.publicUrl, mediaType, altText: parsed.altText, width: parsed.width, height: parsed.height, byteSize: parsed.byteSize }), mediaId, productId, variantId, string(parsed.objectKey, 1, 512), string(parsed.publicUrl, 1, 2048), mediaType, string(parsed.altText, 0, 500), integer(parsed.width, 1, 8192), integer(parsed.height, 1, 8192), integer(parsed.byteSize, 1, 5_242_880)], false);
-    return this.mutationOutcome(selected);
+  private reservationOutcome(selected: { outcome: string; resultPayload: unknown }, expected: ReservationAuthority): ProductMediaReservation {
+    if (!["reserved", "uploaded", "committed", "cleanup_required", "deleted", "operation_replayed", "found"].includes(selected.outcome)) this.expected(selected.outcome);
+    try {
+      const parsed = parseProductMediaReservation(selected.resultPayload, expected.storeId);
+      const extension = parsed.mediaType === "image/jpeg" ? "jpg" : parsed.mediaType.slice("image/".length);
+      const objectKey = `stores/${expected.storeId}/products/${expected.productId}/${expected.mediaId}.${extension}`;
+      if (
+        parsed.operationId !== expected.operationId || parsed.mediaId !== expected.mediaId ||
+        parsed.productId !== expected.productId || parsed.payloadSha256 !== expected.payloadSha256 ||
+        parsed.objectKey !== objectKey || parsed.publicUrl !== `${this.mediaOrigin}/${objectKey}` ||
+        (expected.mediaType !== undefined && parsed.mediaType !== expected.mediaType) ||
+        (expected.byteSize !== undefined && parsed.byteSize !== expected.byteSize) ||
+        (["reserved", "uploaded", "committed", "cleanup_required", "deleted"].includes(selected.outcome) && parsed.state !== selected.outcome)
+      ) throw failure("unavailable");
+      return parsed;
+    } catch { throw failure("unavailable"); }
   }
+  async reserveProductMedia(input: ReserveProductMediaInput): Promise<ProductMediaReservation> {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "mediaId", "productId", "mediaType", "altText", "width", "height", "byteSize", "payloadSha256"], ["variantId"]);
+    const auth = authority(parsed.tenantContext, parsed.now);
+    const operationId = uuid(parsed.operationId), mediaId = uuid(parsed.mediaId), productId = uuid(parsed.productId);
+    const variantId = parsed.variantId === undefined ? null : uuid(parsed.variantId);
+    const mediaType = string(parsed.mediaType, 9, 10);
+    if (!["image/jpeg", "image/png", "image/webp"].includes(mediaType)) throw failure("invalid_input");
+    const extension = mediaType === "image/jpeg" ? "jpg" : mediaType.slice("image/".length);
+    const objectKey = `stores/${auth.storeId}/products/${productId}/${mediaId}.${extension}`;
+    const publicUrl = `${this.mediaOrigin}/${objectKey}`;
+    const altText = string(parsed.altText, 0, 500), width = integer(parsed.width, 1, 8192), height = integer(parsed.height, 1, 8192);
+    const byteSize = integer(parsed.byteSize, 1, 5_242_880);
+    const payloadSha256 = string(parsed.payloadSha256, 64, 64);
+    if (!/^[a-f0-9]{64}$/.test(payloadSha256)) throw failure("invalid_input");
+    const payloadFingerprint = fingerprint("reserve_media", { mediaId, productId, variantId, objectKey, publicUrl, mediaType, altText, width, height, byteSize, payloadSha256 });
+    const selected = await this.execute(
+      "SELECT outcome,result_payload FROM saas.media_reserve_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::text,$15::text,$16::text,$17::text,$18::integer,$19::integer,$20::bigint,$21::text)",
+      [...values(auth), operationId, payloadFingerprint, mediaId, productId, variantId, objectKey, publicUrl, mediaType, altText, width, height, byteSize, payloadSha256],
+      false,
+    );
+    return this.reservationOutcome(selected, { storeId: auth.storeId, operationId, mediaId, productId, payloadSha256, mediaType, byteSize });
+  }
+  private async lifecycle(input: ProductMediaLifecycleInput, functionName: string, readOnly: boolean): Promise<ProductMediaReservation> {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "mediaId", "productId", "payloadSha256"]);
+    const auth = authority(parsed.tenantContext, parsed.now);
+    const operationId = uuid(parsed.operationId), mediaId = uuid(parsed.mediaId), productId = uuid(parsed.productId);
+    const payloadSha256 = string(parsed.payloadSha256, 64, 64);
+    if (!/^[a-f0-9]{64}$/.test(payloadSha256)) throw failure("invalid_input");
+    const selected = await this.execute(
+      `SELECT outcome,result_payload FROM saas.${functionName}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::uuid,$11::uuid,$12::text)`,
+      [...values(auth), operationId, mediaId, productId, payloadSha256],
+      readOnly,
+    );
+    return this.reservationOutcome(selected, { storeId: auth.storeId, operationId, mediaId, productId, payloadSha256 });
+  }
+  markProductMediaUploaded(input: ProductMediaLifecycleInput): Promise<ProductMediaReservation> { return this.lifecycle(input, "media_mark_product_uploaded", false); }
+  finalizeProductMedia(input: ProductMediaLifecycleInput): Promise<ProductMediaReservation> { return this.lifecycle(input, "media_finalize_product", false); }
+  recoverProductMediaOperation(input: ProductMediaLifecycleInput): Promise<ProductMediaReservation> { return this.lifecycle(input, "media_recover_product_operation", true); }
+  requireProductMediaCleanup(input: ProductMediaLifecycleInput): Promise<ProductMediaReservation> { return this.lifecycle(input, "media_require_product_cleanup", false); }
+  markProductMediaDeleted(input: ProductMediaLifecycleInput): Promise<ProductMediaReservation> { return this.lifecycle(input, "media_mark_product_deleted", false); }
   async listProductMedia(input: Parameters<ProductMediaRepository["listProductMedia"]>[0]): Promise<readonly ProductMedia[]> { const parsed = exact(input, ["tenantContext", "now", "productId"], ["includeArchived"]); const auth = authority(parsed.tenantContext, parsed.now); if (parsed.includeArchived !== undefined && typeof parsed.includeArchived !== "boolean") throw failure("invalid_input"); const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_list_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::boolean)", [...values(auth), uuid(parsed.productId), parsed.includeArchived ?? false], true); if (selected.outcome !== "found") this.expected(selected.outcome); if (!Array.isArray(selected.resultPayload)) throw failure("unavailable"); try { return Object.freeze(selected.resultPayload.map(parseProductMedia)); } catch { throw failure("unavailable"); } }
   async updateAltText(input: Parameters<ProductMediaRepository["updateAltText"]>[0]): Promise<MediaMutationResult> { const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion", "altText"]); const auth = authority(parsed.tenantContext, parsed.now); const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1), altText: string(parsed.altText, 0, 500) }; return this.mutationOutcome(await this.execute("SELECT outcome,result_payload FROM saas.media_update_alt($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint,$14::text)", [...values(auth), uuid(parsed.operationId), fingerprint("update_alt", payload), payload.productId, payload.mediaId, payload.expectedVersion, payload.altText], false)); }
   async reorderMedia(input: Parameters<ProductMediaRepository["reorderMedia"]>[0]): Promise<readonly ProductMedia[]> { const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "orderedMediaIds"]); const auth = authority(parsed.tenantContext, parsed.now); if (!Array.isArray(parsed.orderedMediaIds) || parsed.orderedMediaIds.length < 1 || parsed.orderedMediaIds.length > 16) throw failure("invalid_input"); const ordered = Object.freeze(parsed.orderedMediaIds.map(uuid)); if (new Set(ordered).size !== ordered.length) throw failure("invalid_input"); const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_reorder_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[])", [...values(auth), uuid(parsed.operationId), fingerprint("reorder_media", { productId: parsed.productId, ordered }), uuid(parsed.productId), ordered], false); if (selected.outcome !== "committed" && selected.outcome !== "operation_replayed") this.expected(selected.outcome); if (!Array.isArray(selected.resultPayload)) throw failure("unavailable"); try { return Object.freeze(selected.resultPayload.map(parseProductMedia)); } catch { throw failure("unavailable"); } }
   async archiveMedia(input: Parameters<ProductMediaRepository["archiveMedia"]>[0]): Promise<MediaMutationResult> { const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion"]); const auth = authority(parsed.tenantContext, parsed.now); const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1) }; return this.mutationOutcome(await this.execute("SELECT outcome,result_payload FROM saas.media_archive_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint)", [...values(auth), uuid(parsed.operationId), fingerprint("archive_media", payload), payload.productId, payload.mediaId, payload.expectedVersion], false)); }
+  async markArchivedProductMediaObjectDeleted(input: Parameters<ProductMediaRepository["markArchivedProductMediaObjectDeleted"]>[0]): Promise<MediaMutationResult> {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "objectKey"]);
+    const auth = authority(parsed.tenantContext, parsed.now);
+    const operationId = uuid(parsed.operationId), productId = uuid(parsed.productId), mediaId = uuid(parsed.mediaId);
+    const objectKey = string(parsed.objectKey, 1, 512);
+    if (!new RegExp(`^stores/${auth.storeId}/products/${productId}/${mediaId}\\.(?:jpg|png|webp)$`).test(objectKey)) throw failure("invalid_input");
+    const selected = await this.execute(
+      "SELECT outcome,result_payload FROM saas.media_mark_archived_object_deleted($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::uuid,$11::uuid,$12::text)",
+      [...values(auth), operationId, mediaId, productId, objectKey],
+      false,
+    );
+    if (selected.outcome !== "deleted" && selected.outcome !== "operation_replayed") this.expected(selected.outcome);
+    return Object.freeze({ media: mediaPayload(selected.resultPayload), replayed: selected.outcome === "operation_replayed" });
+  }
 }
