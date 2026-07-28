@@ -416,17 +416,17 @@
     },
     {
       "file": "202607280062_builtin_payment_methods.up.sql",
-      "sha256": "aa6123fe5e2e9b3d27c086a52dcf9c006875283bf0bcc3cdac69854ee5bd4711"
+      "sha256": "616eac2b682ec8f6e971a95e263f68aabe98bc118a84ddf2a0f461fab10d5bcd"
     },
     {
       "file": "202607280062_builtin_payment_methods_assertions.sql",
-      "sha256": "99898939a69ed121e655b40d2e22728ee6efc15b3e90a6898a56f345d5849ec4"
+      "sha256": "728989799b1825b0ecca7c328ad21d15dd86dab5bb7b9414efd0af14696d8da4"
     }
   ],
   "rollbackArtifacts": [
     {
       "file": "202607280062_builtin_payment_methods.down.sql",
-      "sha256": "950bcd722bbf016dfe7188cc0e40ec08931d80585b6f707a6433d7b4b0ee04a5"
+      "sha256": "c6d10629818b5219fc452e3d37b691bb0a6913699b8b4ff5a81f022e00acd73d"
     }
   ],
   "externalConnections": 0,

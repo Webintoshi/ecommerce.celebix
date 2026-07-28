@@ -15,7 +15,7 @@ BEGIN
     WHERE procedure.oid=preflight_oid AND procedure.proowner=owner_oid
       AND procedure.prosecdef AND procedure.provolatile='s'
       AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
-      AND pg_catalog.md5(procedure.prosrc)='ecbfd1c3db5505a12e9a1368c133163f'
+      AND pg_catalog.md5(procedure.prosrc)='aaf7c11ecf08eaa950ccdebe1d3b839b'
   ) THEN RAISE EXCEPTION 'BUILT_IN_PAYMENT_METHODS_PREFLIGHT_BODY_INVALID'; END IF;
 
   IF saas.built_in_payment_methods_preflight() IS DISTINCT FROM true
