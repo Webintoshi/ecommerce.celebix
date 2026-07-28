@@ -13,6 +13,28 @@ BEGIN
 END
 $f$;
 
+-- No execution authority created before this evidence boundary is grandfathered.
+-- Serialize the cut-over with the legacy mutation paths, disable first to avoid the
+-- keyed-lifecycle profile trigger incrementing an active method a second time, then
+-- clear every legacy Iyzico execution tuple.
+LOCK TABLE saas.payment_methods,saas.merchant_provider_profiles
+  IN SHARE ROW EXCLUSIVE MODE;
+
+UPDATE saas.payment_methods SET
+  state='disabled',emergency_reason=NULL,version=version+1,
+  updated_at=CASE WHEN updated_at>pg_catalog.transaction_timestamp()
+    THEN updated_at ELSE pg_catalog.transaction_timestamp() END
+WHERE kind='provider' AND provider_code='iyzico_iframe' AND state='active';
+
+UPDATE saas.merchant_provider_profiles SET
+  execution_environment=NULL,execution_adapter_version=NULL,
+  execution_evidence_digest=NULL,version=version+1,
+  updated_at=CASE WHEN updated_at>pg_catalog.transaction_timestamp()
+    THEN updated_at ELSE pg_catalog.transaction_timestamp() END
+WHERE provider_code='iyzico_iframe' AND capability='payment_processing'
+  AND (execution_environment IS NOT NULL OR execution_adapter_version IS NOT NULL
+    OR execution_evidence_digest IS NOT NULL);
+
 CREATE TABLE saas.iyzico_iframe_tenant_evidence_runs(
   id uuid NOT NULL,
   store_id uuid NOT NULL,
@@ -250,6 +272,8 @@ RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
 AS $f$
 DECLARE run saas.iyzico_iframe_tenant_evidence_runs%ROWTYPE;
+  success_captured saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
+  declined saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
   callback_original saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
   callback_replay saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
   timeout_unknown saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
@@ -271,6 +295,10 @@ BEGIN
     OR (SELECT pg_catalog.count(*) FROM saas.iyzico_iframe_tenant_evidence_events
         WHERE run_id=NEW.run_id)<>6
   THEN RAISE EXCEPTION 'IYZICO_IFRAME_TENANT_EXACT_ATTESTATION_REQUIRED'; END IF;
+  SELECT * INTO success_captured FROM saas.iyzico_iframe_tenant_evidence_events
+  WHERE run_id=NEW.run_id AND event_kind='success_captured';
+  SELECT * INTO declined FROM saas.iyzico_iframe_tenant_evidence_events
+  WHERE run_id=NEW.run_id AND event_kind='declined';
   SELECT * INTO timeout_unknown FROM saas.iyzico_iframe_tenant_evidence_events
   WHERE run_id=NEW.run_id AND event_kind='timeout_unknown';
   SELECT * INTO timeout_recovered FROM saas.iyzico_iframe_tenant_evidence_events
@@ -279,11 +307,22 @@ BEGIN
   WHERE run_id=NEW.run_id AND event_kind='callback_original';
   SELECT * INTO callback_replay FROM saas.iyzico_iframe_tenant_evidence_events
   WHERE run_id=NEW.run_id AND event_kind='callback_replay';
-  IF timeout_unknown.event_id IS NULL OR timeout_recovered.event_id IS NULL
+  IF success_captured.event_id IS NULL OR declined.event_id IS NULL
+    OR timeout_unknown.event_id IS NULL OR timeout_recovered.event_id IS NULL
     OR callback_original.event_id IS NULL OR callback_replay.event_id IS NULL
+    OR success_captured.attempt_id<>callback_original.attempt_id
     OR timeout_unknown.attempt_id<>timeout_recovered.attempt_id
     OR callback_original.attempt_id<>callback_replay.attempt_id
+    OR success_captured.attempt_id=declined.attempt_id
+    OR success_captured.attempt_id=timeout_unknown.attempt_id
+    OR declined.attempt_id=timeout_unknown.attempt_id
     OR callback_original.observation_digest<>callback_replay.observation_digest
+    OR (SELECT pg_catalog.count(DISTINCT semantic.digest)
+      FROM (VALUES
+        (success_captured.observation_digest),(declined.observation_digest),
+        (timeout_unknown.observation_digest),(timeout_recovered.observation_digest),
+        (callback_original.observation_digest)
+      ) AS semantic(digest))<>5
   THEN RAISE EXCEPTION 'IYZICO_IFRAME_TENANT_EXACT_ATTESTATION_REQUIRED'; END IF;
   SELECT pg_catalog.string_agg(
     candidate.case_kind||':'||candidate.event_kind||':'||candidate.attempt_id::text||':'||
@@ -584,6 +623,8 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
 AS $f$
 DECLARE run saas.iyzico_iframe_tenant_evidence_runs%ROWTYPE;
   existing saas.iyzico_iframe_tenant_evidence_attestations%ROWTYPE;
+  success_captured saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
+  declined saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
   callback_original saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
   callback_replay saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
   timeout_unknown saas.iyzico_iframe_tenant_evidence_events%ROWTYPE;
@@ -639,6 +680,10 @@ BEGIN
     OR NOT EXISTS(SELECT 1 FROM saas.iyzico_iframe_tenant_evidence_events
       WHERE run_id=p_run_id AND case_kind='callback_replay' AND event_kind='callback_replay')
   THEN RETURN QUERY SELECT 'evidence_incomplete',NULL::jsonb; RETURN; END IF;
+  SELECT * INTO success_captured FROM saas.iyzico_iframe_tenant_evidence_events
+  WHERE run_id=p_run_id AND event_kind='success_captured';
+  SELECT * INTO declined FROM saas.iyzico_iframe_tenant_evidence_events
+  WHERE run_id=p_run_id AND event_kind='declined';
   SELECT * INTO timeout_unknown FROM saas.iyzico_iframe_tenant_evidence_events
   WHERE run_id=p_run_id AND event_kind='timeout_unknown';
   SELECT * INTO timeout_recovered FROM saas.iyzico_iframe_tenant_evidence_events
@@ -647,9 +692,19 @@ BEGIN
   WHERE run_id=p_run_id AND event_kind='callback_original';
   SELECT * INTO callback_replay FROM saas.iyzico_iframe_tenant_evidence_events
   WHERE run_id=p_run_id AND event_kind='callback_replay';
-  IF timeout_unknown.attempt_id<>timeout_recovered.attempt_id
+  IF success_captured.attempt_id<>callback_original.attempt_id
+    OR timeout_unknown.attempt_id<>timeout_recovered.attempt_id
     OR callback_original.attempt_id<>callback_replay.attempt_id
+    OR success_captured.attempt_id=declined.attempt_id
+    OR success_captured.attempt_id=timeout_unknown.attempt_id
+    OR declined.attempt_id=timeout_unknown.attempt_id
     OR callback_original.observation_digest<>callback_replay.observation_digest
+    OR (SELECT pg_catalog.count(DISTINCT semantic.digest)
+      FROM (VALUES
+        (success_captured.observation_digest),(declined.observation_digest),
+        (timeout_unknown.observation_digest),(timeout_recovered.observation_digest),
+        (callback_original.observation_digest)
+      ) AS semantic(digest))<>5
   THEN RETURN QUERY SELECT 'evidence_mismatch',NULL::jsonb; RETURN; END IF;
   SELECT pg_catalog.string_agg(
     candidate.case_kind||':'||candidate.event_kind||':'||candidate.attempt_id::text||':'||
@@ -694,7 +749,15 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
 AS $f$
 BEGIN
   IF NEW.provider_code<>'iyzico_iframe' OR NEW.capability<>'payment_processing'
-    OR (
+  THEN RETURN NEW; END IF;
+  IF TG_OP='INSERT' THEN
+    IF NEW.execution_environment IS NOT NULL
+      OR NEW.execution_adapter_version IS NOT NULL
+      OR NEW.execution_evidence_digest IS NOT NULL
+    THEN RAISE EXCEPTION 'IYZICO_IFRAME_TENANT_ATTESTATION_REQUIRED_FOR_PROFILE_BINDING'; END IF;
+    RETURN NEW;
+  END IF;
+  IF (
       NEW.execution_environment IS NOT DISTINCT FROM OLD.execution_environment
       AND NEW.execution_adapter_version IS NOT DISTINCT FROM OLD.execution_adapter_version
       AND NEW.execution_evidence_digest IS NOT DISTINCT FROM OLD.execution_evidence_digest
@@ -735,7 +798,7 @@ END
 $f$;
 
 CREATE TRIGGER iyzico_iframe_tenant_profile_binding_guard
-  BEFORE UPDATE ON saas.merchant_provider_profiles
+  BEFORE INSERT OR UPDATE ON saas.merchant_provider_profiles
   FOR EACH ROW EXECUTE FUNCTION saas.iyzico_iframe_tenant_profile_binding_guard();
 
 CREATE FUNCTION saas.iyzico_iframe_tenant_payment_method_active_guard()
@@ -744,8 +807,38 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
 AS $f$
 BEGIN
   IF NEW.kind<>'provider' OR NEW.provider_code<>'iyzico_iframe' OR NEW.state<>'active'
-    OR (TG_OP='UPDATE' AND OLD.state='active')
   THEN RETURN NEW; END IF;
+  IF TG_OP='UPDATE' AND OLD.state='active' THEN
+    IF NOT EXISTS(
+      SELECT 1
+      FROM saas.payment_method_operations AS operation
+      JOIN saas.iyzico_iframe_tenant_evidence_attestations AS attestation
+        ON attestation.store_id=operation.store_id
+        AND attestation.id::text=operation.result_payload->>'activationAttestationId'
+      JOIN saas.iyzico_iframe_tenant_evidence_runs AS run
+        ON run.store_id=attestation.store_id AND run.id=attestation.run_id
+      JOIN saas.merchant_provider_profiles AS profile
+        ON profile.store_id=attestation.store_id AND profile.id=attestation.profile_id
+      JOIN saas.merchant_provider_execution_authorities AS authority
+        ON authority.provider_code=attestation.provider_code
+        AND authority.capability=attestation.capability
+        AND authority.environment=attestation.environment
+        AND authority.adapter_version=attestation.adapter_version
+        AND authority.evidence_digest=attestation.candidate_evidence_digest
+        AND authority.readiness='sandbox_ready' AND authority.enabled
+      WHERE operation.store_id=NEW.store_id AND operation.operation_kind='set_state'
+        AND operation.result_payload->>'id'=NEW.id::text
+        AND operation.result_payload->>'state'='active'
+        AND attestation.profile_id=NEW.profile_id AND run.status='attested'
+        AND profile.status='active'
+        AND profile.credential_version=attestation.credential_version
+        AND profile.version=attestation.profile_version+1
+        AND profile.execution_environment=attestation.environment
+        AND profile.execution_adapter_version=attestation.adapter_version
+        AND profile.execution_evidence_digest=attestation.candidate_evidence_digest
+    ) THEN RAISE EXCEPTION 'IYZICO_IFRAME_TENANT_ATTESTATION_REQUIRED_FOR_METHOD_ACTIVATION'; END IF;
+    RETURN NEW;
+  END IF;
   IF NOT EXISTS(
     SELECT 1
     FROM saas.iyzico_iframe_tenant_activation_fences AS fence
@@ -926,6 +1019,10 @@ DECLARE owner_oid oid:='celebix_saas_owner'::regrole;
   workflow_oid oid:='celebix_saas_workflow'::regrole;
   relation_name text;
   routine_name text;
+  expected_hash text;
+  expected_volatility "char";
+  metadata_hash text;
+  metadata_count bigint;
   routine_oid oid;
 BEGIN
   IF pg_catalog.to_regclass('saas.payment_methods_one_active_provider_per_store_idx') IS NULL
@@ -964,29 +1061,169 @@ BEGIN
       AND attribute.attnum>0 AND NOT attribute.attisdropped
       AND attribute.attname~'(secret|token|body|header|email|phone|address|identity|name)'
   ) THEN RETURN false; END IF;
-  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_trigger
-      WHERE tgrelid='saas.merchant_provider_profiles'::regclass
-        AND tgname='iyzico_iframe_tenant_profile_binding_guard' AND tgenabled='O' AND NOT tgisinternal)
-    OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_trigger
-      WHERE tgrelid='saas.payment_methods'::regclass
-        AND tgname='iyzico_iframe_tenant_payment_method_active_guard' AND tgenabled='O' AND NOT tgisinternal)
-    OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_trigger
-      WHERE tgrelid='saas.iyzico_iframe_tenant_evidence_attestations'::regclass
-        AND tgname='iyzico_iframe_tenant_attestation_insert_guard' AND tgenabled='O' AND NOT tgisinternal)
+  IF EXISTS(
+    SELECT 1
+    FROM (VALUES
+      ('saas.merchant_provider_profiles'::regclass,
+        'iyzico_iframe_tenant_profile_binding_guard',
+        'saas.iyzico_iframe_tenant_profile_binding_guard()'::regprocedure,23::smallint),
+      ('saas.payment_methods'::regclass,
+        'iyzico_iframe_tenant_payment_method_active_guard',
+        'saas.iyzico_iframe_tenant_payment_method_active_guard()'::regprocedure,23::smallint),
+      ('saas.iyzico_iframe_tenant_evidence_attestations'::regclass,
+        'iyzico_iframe_tenant_attestation_insert_guard',
+        'saas.iyzico_iframe_tenant_attestation_insert_guard()'::regprocedure,7::smallint),
+      ('saas.iyzico_iframe_tenant_evidence_cases'::regclass,
+        'iyzico_iframe_tenant_evidence_cases_immutable',
+        'saas.guard_merchant_admin_immutable()'::regprocedure,27::smallint),
+      ('saas.iyzico_iframe_tenant_evidence_events'::regclass,
+        'iyzico_iframe_tenant_evidence_events_immutable',
+        'saas.guard_merchant_admin_immutable()'::regprocedure,27::smallint),
+      ('saas.iyzico_iframe_tenant_evidence_attestations'::regclass,
+        'iyzico_iframe_tenant_evidence_attestations_immutable',
+        'saas.guard_merchant_admin_immutable()'::regprocedure,27::smallint)
+    ) AS expected(relation_oid,trigger_name,function_oid,trigger_type)
+    LEFT JOIN pg_catalog.pg_trigger AS trigger
+      ON trigger.tgrelid=expected.relation_oid AND trigger.tgname=expected.trigger_name
+    WHERE trigger.oid IS NULL OR trigger.tgfoid<>expected.function_oid
+      OR trigger.tgtype<>expected.trigger_type OR trigger.tgenabled<>'O'
+      OR trigger.tgisinternal OR trigger.tgnargs<>0 OR trigger.tgqual IS NOT NULL
+      OR trigger.tgoldtable IS NOT NULL OR trigger.tgnewtable IS NOT NULL
+  ) OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger AS trigger
+    WHERE NOT trigger.tgisinternal AND trigger.tgname LIKE 'iyzico_iframe_tenant_%')<>6
   THEN RETURN false; END IF;
-  FOREACH routine_name IN ARRAY ARRAY[
-    'iyzico_iframe_tenant_evidence_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,bigint,text,integer)',
-    'iyzico_iframe_tenant_evidence_claim(uuid,text,uuid,timestamp with time zone,timestamp with time zone)',
-    'iyzico_iframe_tenant_evidence_record_event(uuid,uuid,text,uuid,text,text,uuid,text,text,timestamp with time zone)',
-    'iyzico_iframe_tenant_evidence_finalize(uuid,uuid,text,uuid,text,timestamp with time zone)',
-    'iyzico_iframe_tenant_evidence_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,bigint)',
-    'iyzico_iframe_tenant_evidence_preflight()'
-  ] LOOP
+
+  SELECT pg_catalog.count(*),pg_catalog.md5(pg_catalog.string_agg(
+    relation.relname||'|'||index_relation.relname||'|'||index.indisunique::text||'|'||
+    index.indisprimary::text||'|'||pg_catalog.pg_get_indexdef(index.indexrelid),E'\n'
+    ORDER BY relation.relname,index_relation.relname
+  )) INTO metadata_count,metadata_hash
+  FROM pg_catalog.pg_index AS index
+  JOIN pg_catalog.pg_class AS relation ON relation.oid=index.indrelid
+  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+  JOIN pg_catalog.pg_class AS index_relation ON index_relation.oid=index.indexrelid
+  WHERE namespace.nspname='saas' AND relation.relname IN(
+    'iyzico_iframe_tenant_evidence_runs','iyzico_iframe_tenant_evidence_cases',
+    'iyzico_iframe_tenant_evidence_events','iyzico_iframe_tenant_evidence_attestations',
+    'iyzico_iframe_tenant_activation_fences'
+  );
+  IF metadata_count<>15 OR metadata_hash<>'c0e7250c0dabd629621afbd5914dd659'
+  THEN RETURN false; END IF;
+
+  SELECT pg_catalog.count(*),pg_catalog.md5(pg_catalog.string_agg(
+    relation.relname||'|'||constraint_record.conname||'|'||constraint_record.contype::text||'|'||
+    constraint_record.convalidated::text||'|'||
+    pg_catalog.pg_get_constraintdef(constraint_record.oid,false),E'\n'
+    ORDER BY relation.relname,constraint_record.conname
+  )) INTO metadata_count,metadata_hash
+  FROM pg_catalog.pg_constraint AS constraint_record
+  JOIN pg_catalog.pg_class AS relation ON relation.oid=constraint_record.conrelid
+  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+  WHERE namespace.nspname='saas' AND relation.relname IN(
+    'iyzico_iframe_tenant_evidence_runs','iyzico_iframe_tenant_evidence_cases',
+    'iyzico_iframe_tenant_evidence_events','iyzico_iframe_tenant_evidence_attestations',
+    'iyzico_iframe_tenant_activation_fences'
+  );
+  IF metadata_count<>48 OR metadata_hash<>'0cb2ce4ca1e84cbc104a8896f2f16019'
+  THEN RETURN false; END IF;
+
+  IF EXISTS(
+    SELECT 1 FROM saas.merchant_provider_profiles AS profile
+    WHERE profile.provider_code='iyzico_iframe'
+      AND profile.capability='payment_processing' AND profile.status='active'
+      AND (profile.execution_environment IS NOT NULL
+        OR profile.execution_adapter_version IS NOT NULL
+        OR profile.execution_evidence_digest IS NOT NULL)
+      AND NOT EXISTS(
+        SELECT 1
+        FROM saas.payment_methods AS method
+        JOIN saas.payment_method_operations AS operation
+          ON operation.store_id=method.store_id AND operation.operation_kind='set_state'
+          AND operation.result_payload->>'id'=method.id::text
+          AND operation.result_payload->>'state'='active'
+        JOIN saas.iyzico_iframe_tenant_evidence_attestations AS attestation
+          ON attestation.store_id=operation.store_id
+          AND attestation.id::text=operation.result_payload->>'activationAttestationId'
+        JOIN saas.iyzico_iframe_tenant_evidence_runs AS run
+          ON run.store_id=attestation.store_id AND run.id=attestation.run_id
+        JOIN saas.merchant_provider_execution_authorities AS authority
+          ON authority.provider_code=attestation.provider_code
+          AND authority.capability=attestation.capability
+          AND authority.environment=attestation.environment
+          AND authority.adapter_version=attestation.adapter_version
+          AND authority.evidence_digest=attestation.candidate_evidence_digest
+          AND authority.readiness='sandbox_ready' AND authority.enabled
+        WHERE method.store_id=profile.store_id AND method.profile_id=profile.id
+          AND method.kind='provider' AND method.provider_code='iyzico_iframe'
+          AND attestation.profile_id=profile.id AND run.status='attested'
+          AND profile.credential_version=attestation.credential_version
+          AND profile.version=attestation.profile_version+1
+          AND profile.execution_environment=attestation.environment
+          AND profile.execution_adapter_version=attestation.adapter_version
+          AND profile.execution_evidence_digest=attestation.candidate_evidence_digest
+      )
+  ) OR EXISTS(
+    SELECT 1 FROM saas.payment_methods AS method
+    WHERE method.kind='provider' AND method.provider_code='iyzico_iframe'
+      AND method.state='active' AND NOT EXISTS(
+        SELECT 1
+        FROM saas.payment_method_operations AS operation
+        JOIN saas.iyzico_iframe_tenant_evidence_attestations AS attestation
+          ON attestation.store_id=operation.store_id
+          AND attestation.id::text=operation.result_payload->>'activationAttestationId'
+        JOIN saas.iyzico_iframe_tenant_evidence_runs AS run
+          ON run.store_id=attestation.store_id AND run.id=attestation.run_id
+        JOIN saas.merchant_provider_profiles AS profile
+          ON profile.store_id=attestation.store_id AND profile.id=attestation.profile_id
+        JOIN saas.merchant_provider_execution_authorities AS authority
+          ON authority.provider_code=attestation.provider_code
+          AND authority.capability=attestation.capability
+          AND authority.environment=attestation.environment
+          AND authority.adapter_version=attestation.adapter_version
+          AND authority.evidence_digest=attestation.candidate_evidence_digest
+          AND authority.readiness='sandbox_ready' AND authority.enabled
+        WHERE operation.store_id=method.store_id AND operation.operation_kind='set_state'
+          AND operation.result_payload->>'id'=method.id::text
+          AND operation.result_payload->>'state'='active'
+          AND attestation.profile_id=method.profile_id AND run.status='attested'
+          AND profile.status='active'
+          AND profile.credential_version=attestation.credential_version
+          AND profile.version=attestation.profile_version+1
+          AND profile.execution_environment=attestation.environment
+          AND profile.execution_adapter_version=attestation.adapter_version
+          AND profile.execution_evidence_digest=attestation.candidate_evidence_digest
+      )
+  ) THEN RETURN false; END IF;
+  FOR routine_name,expected_hash,expected_volatility IN SELECT * FROM (VALUES
+    ('iyzico_iframe_tenant_evidence_run_current(uuid)',
+      '5fe4d9440ef1515177b9dc1b6a84ab6d','v'::"char"),
+    ('iyzico_iframe_tenant_attestation_insert_guard()',
+      '2afeaf8f1b7cd2dcec7ce0d331ffc579','v'::"char"),
+    ('iyzico_iframe_tenant_profile_binding_guard()',
+      'dfae8b1528dacd52223417e73e7c16b2','v'::"char"),
+    ('iyzico_iframe_tenant_payment_method_active_guard()',
+      'd0dc31eb01af4f223b4fbe480fa97af4','v'::"char"),
+    ('iyzico_iframe_tenant_evidence_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,bigint,text,integer)',
+      'e69d443c49db87d21e600af5640a8978','v'::"char"),
+    ('iyzico_iframe_tenant_evidence_claim(uuid,text,uuid,timestamp with time zone,timestamp with time zone)',
+      '6dc66159a4641740b1b845342e475fb0','v'::"char"),
+    ('iyzico_iframe_tenant_evidence_record_event(uuid,uuid,text,uuid,text,text,uuid,text,text,timestamp with time zone)',
+      'b864d8ecfeae0f0640fc0ca249645a72','v'::"char"),
+    ('iyzico_iframe_tenant_evidence_finalize(uuid,uuid,text,uuid,text,timestamp with time zone)',
+      '15ef290167f9cade90851583323f9295','v'::"char"),
+    ('iyzico_iframe_tenant_evidence_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,bigint)',
+      '27b9164b08b7ea218858deda78f60f2a','v'::"char"),
+    ('iyzico_iframe_tenant_evidence_preflight()',NULL::text,'s'::"char")
+  ) AS expected(signature,body_hash,volatility) LOOP
     routine_oid:=pg_catalog.to_regprocedure('saas.'||routine_name);
     IF routine_oid IS NULL OR NOT EXISTS(
       SELECT 1 FROM pg_catalog.pg_proc AS procedure
       WHERE procedure.oid=routine_oid AND procedure.proowner=owner_oid AND procedure.prosecdef
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+        AND procedure.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
+        AND procedure.provolatile=expected_volatility AND procedure.proparallel='u'
+        AND NOT procedure.proleakproof AND procedure.prokind='f'
+        AND (expected_hash IS NULL OR pg_catalog.md5(procedure.prosrc)=expected_hash)
     ) THEN RETURN false; END IF;
   END LOOP;
   IF NOT pg_catalog.has_function_privilege(app_oid,

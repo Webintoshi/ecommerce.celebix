@@ -9,6 +9,12 @@ const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const PG = "/Users/Celebix/.codex/tmp/postgresql-16.14-install/bin";
 const DB = "iyzico_tenant_evidence";
+const UPGRADE_DB = "iyzico_tenant_evidence_upgrade";
+const INSERT_DB = "iyzico_tenant_evidence_insert";
+const ACTIVE_GUARD_DB = "iyzico_tenant_evidence_active_guard";
+const PREFLIGHT_DB = "iyzico_tenant_evidence_preflight";
+const ASSERT_DRIFT_DB = "iyzico_tenant_evidence_assert_drift";
+const MATRIX_HARDENING_DB = "iyzico_tenant_evidence_matrix_hardening";
 const ROTATION_DB = "iyzico_tenant_evidence_rotation";
 const ROLLBACK_DB = "iyzico_tenant_evidence_rollback";
 const CLEAN_DB = "iyzico_tenant_evidence_clean";
@@ -38,7 +44,7 @@ const RUN = "60000000-0000-4000-8000-000000000060";
 const LEASE = "61000000-0000-4000-8000-000000000060";
 const ATTESTATION = "62000000-0000-4000-8000-000000000060";
 const WORKER = "iyzico-evidence-worker-1";
-const TOTAL = 17;
+const TOTAL = 26;
 let completed = 0;
 
 function bin(name) {
@@ -146,8 +152,8 @@ const MATRIX = [
   { event: "63000000-0000-4000-8000-000000000002", caseKind: "decline", eventKind: "declined", attempt: "64000000-0000-4000-8000-000000000002", observation: "2".repeat(64), code: "declined" },
   { event: "63000000-0000-4000-8000-000000000003", caseKind: "controlled_timeout_recovery", eventKind: "timeout_unknown", attempt: "64000000-0000-4000-8000-000000000003", observation: "3".repeat(64), code: "unknown" },
   { event: "63000000-0000-4000-8000-000000000004", caseKind: "controlled_timeout_recovery", eventKind: "timeout_recovered", attempt: "64000000-0000-4000-8000-000000000003", observation: "4".repeat(64), code: "recovered" },
-  { event: "63000000-0000-4000-8000-000000000005", caseKind: "callback_replay", eventKind: "callback_original", attempt: "64000000-0000-4000-8000-000000000004", observation: "5".repeat(64), code: "accepted" },
-  { event: "63000000-0000-4000-8000-000000000006", caseKind: "callback_replay", eventKind: "callback_replay", attempt: "64000000-0000-4000-8000-000000000004", observation: "5".repeat(64), code: "replayed" },
+  { event: "63000000-0000-4000-8000-000000000005", caseKind: "callback_replay", eventKind: "callback_original", attempt: "64000000-0000-4000-8000-000000000001", observation: "5".repeat(64), code: "accepted" },
+  { event: "63000000-0000-4000-8000-000000000006", caseKind: "callback_replay", eventKind: "callback_replay", attempt: "64000000-0000-4000-8000-000000000001", observation: "5".repeat(64), code: "replayed" },
 ];
 
 function asRole(box, role, statement, database = DB, allowFailure = false) {
@@ -194,14 +200,135 @@ async function main() {
     apply(box, SINGLE_UP);
     apply(box, SINGLE_ASSERTIONS);
     sql(box, FIXTURE);
+    sql(box, `CREATE DATABASE ${UPGRADE_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `CREATE DATABASE ${INSERT_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `CREATE DATABASE ${ACTIVE_GUARD_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `CREATE DATABASE ${PREFLIGHT_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `CREATE DATABASE ${ASSERT_DRIFT_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `CREATE DATABASE ${MATRIX_HARDENING_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${ROTATION_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${CLEAN_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `SET ROLE celebix_saas_owner;
+      UPDATE saas.merchant_provider_profiles SET
+        execution_environment='test',execution_adapter_version=7,
+        execution_evidence_digest='${DIGEST}',version=version+1,
+        updated_at='2026-07-28T13:04:00.000Z'
+      WHERE id='${OTHER_PROFILE}';
+      UPDATE saas.payment_methods SET state='active',version=version+1,
+        updated_at='2026-07-28T13:04:00.000Z'
+      WHERE id='50000000-0000-4000-8000-000000000061';`, UPGRADE_DB);
     apply(box, UP);
     apply(box, ASSERTIONS);
     apply(box, UP, ROTATION_DB);
     apply(box, UP, ROLLBACK_DB);
     apply(box, UP, CLEAN_DB);
+    apply(box, UP, UPGRADE_DB);
+    apply(box, UP, INSERT_DB);
+    apply(box, UP, ACTIVE_GUARD_DB);
+    apply(box, UP, PREFLIGHT_DB);
+    apply(box, UP, ASSERT_DRIFT_DB);
+    apply(box, UP, MATRIX_HARDENING_DB);
+
+    pass("060 upgrade removes every unattested executable or active Iyzico grandfather", () => {
+      assert.equal(sql(box, `SELECT method.state||'|'||method.version||'|'||
+        COALESCE(profile.execution_environment,'none')||'|'||
+        COALESCE(profile.execution_adapter_version::text,'none')||'|'||
+        COALESCE(profile.execution_evidence_digest,'none')||'|'||profile.version||'|'||
+        (SELECT count(*) FROM saas.iyzico_iframe_tenant_evidence_attestations)
+        FROM saas.payment_methods AS method
+        JOIN saas.merchant_provider_profiles AS profile ON profile.id=method.profile_id
+        WHERE method.id='50000000-0000-4000-8000-000000000061';`, UPGRADE_DB).stdout.trim(),
+      "disabled|3|none|none|none|3|0");
+    });
+
+    pass("generic app profile INSERT cannot pre-bind Iyzico execution authority", () => {
+      sql(box, `SET ROLE celebix_saas_owner;
+        DELETE FROM saas.payment_methods
+        WHERE id='50000000-0000-4000-8000-000000000061';
+        DELETE FROM saas.merchant_provider_profiles WHERE id='${OTHER_PROFILE}';`, INSERT_DB);
+      const inserted = asRole(box, "celebix_saas_app", `
+        SELECT outcome FROM saas.merchant_provider_profile_save(
+          ${authority(OTHER_STORE)},
+          '66000000-0000-4000-8000-000000000061'::uuid,'${"6".repeat(64)}',
+          '${OTHER_PROFILE}'::uuid,'iyzico_iframe','payment_processing',
+          '{"environment":"test"}'::jsonb,'forbidden pre-bound profile',
+          '{"algorithm":"A256GCM","ciphertext":"AQ","iv":"AAAAAAAAAAAAAAAA","keyId":"provider.current","tag":"AAAAAAAAAAAAAAAAAAAAAA","version":1}'::jsonb,
+          '${"6".repeat(64)}','provider.current',1,'test',7,'${DIGEST}',0
+        )`, INSERT_DB, true);
+      assert.notEqual(inserted.status, 0);
+      assert.match(inserted.stderr, /ATTESTATION_REQUIRED_FOR_PROFILE_BINDING/);
+      assert.equal(sql(box, `SELECT count(*) FROM saas.merchant_provider_profiles
+        WHERE id='${OTHER_PROFILE}';`, INSERT_DB).stdout.trim(), "0");
+    });
+
+    pass("an already-active Iyzico row remains guarded by a current persistent attestation", () => {
+      sql(box, `SET ROLE celebix_saas_owner;
+        ALTER TABLE saas.merchant_provider_profiles
+          DISABLE TRIGGER iyzico_iframe_tenant_profile_binding_guard;
+        ALTER TABLE saas.payment_methods
+          DISABLE TRIGGER iyzico_iframe_tenant_payment_method_active_guard;
+        UPDATE saas.merchant_provider_profiles SET
+          execution_environment='test',execution_adapter_version=7,
+          execution_evidence_digest='${DIGEST}',version=version+1
+        WHERE id='${OTHER_PROFILE}';
+        UPDATE saas.payment_methods SET state='active',version=version+1
+        WHERE id='50000000-0000-4000-8000-000000000061';
+        ALTER TABLE saas.merchant_provider_profiles
+          ENABLE TRIGGER iyzico_iframe_tenant_profile_binding_guard;
+        ALTER TABLE saas.payment_methods
+          ENABLE TRIGGER iyzico_iframe_tenant_payment_method_active_guard;`, ACTIVE_GUARD_DB);
+      const bypass = sql(box, `SET ROLE celebix_saas_owner;
+        UPDATE saas.payment_methods SET label='unattested active mutation',version=version+1
+        WHERE id='50000000-0000-4000-8000-000000000061';`, ACTIVE_GUARD_DB, true);
+      assert.notEqual(bypass.status, 0);
+      assert.match(bypass.stderr, /ATTESTATION_REQUIRED_FOR_METHOD_ACTIVATION/);
+    });
+
+    pass("preflight rejects a same-signature no-op replacement of a critical guard", () => {
+      const drift = sql(box, `BEGIN;
+        SET LOCAL ROLE celebix_saas_owner;
+        CREATE OR REPLACE FUNCTION saas.iyzico_iframe_tenant_payment_method_active_guard()
+        RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+        AS $f$ BEGIN RETURN NEW; END $f$;
+        RESET ROLE;
+        SET LOCAL ROLE celebix_saas_app;
+        SELECT saas.iyzico_iframe_tenant_evidence_preflight();
+        ROLLBACK;`, PREFLIGHT_DB);
+      assert.equal(drift.stdout.trim(), "f");
+    });
+
+    pass("preflight fails closed on trigger index constraint and persisted-row drift", () => {
+      const preflightDuring = (mutation) => sql(box, `BEGIN;
+        SET LOCAL ROLE celebix_saas_owner;
+        ${mutation}
+        RESET ROLE;
+        SET LOCAL ROLE celebix_saas_app;
+        SELECT saas.iyzico_iframe_tenant_evidence_preflight();
+        ROLLBACK;`, PREFLIGHT_DB).stdout.trim();
+      assert.equal(preflightDuring(`ALTER TABLE saas.merchant_provider_profiles
+        DISABLE TRIGGER iyzico_iframe_tenant_profile_binding_guard;`), "f");
+      assert.equal(preflightDuring(`DROP TRIGGER iyzico_iframe_tenant_profile_binding_guard
+          ON saas.merchant_provider_profiles;
+        CREATE TRIGGER iyzico_iframe_tenant_profile_binding_guard
+          BEFORE INSERT OR UPDATE ON saas.merchant_provider_profiles
+          FOR EACH ROW EXECUTE FUNCTION saas.iyzico_iframe_tenant_payment_method_active_guard();`), "f");
+      assert.equal(preflightDuring(`DROP INDEX saas.iyzico_iframe_tenant_evidence_runs_claim_idx;`), "f");
+      assert.equal(preflightDuring(`ALTER TABLE saas.iyzico_iframe_tenant_evidence_events
+        DROP CONSTRAINT iyzico_iframe_tenant_evidence_events_pkey;`), "f");
+      assert.equal(asRole(box, "celebix_saas_app",
+        `SELECT saas.iyzico_iframe_tenant_evidence_preflight()`, ACTIVE_GUARD_DB).stdout.trim(), "f");
+    });
+
+    pass("independent assertions reject a RETURN true replacement of preflight itself", () => {
+      sql(box, `SET ROLE celebix_saas_owner;
+        CREATE OR REPLACE FUNCTION saas.iyzico_iframe_tenant_evidence_preflight()
+        RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+        SET search_path=pg_catalog,saas AS $f$ SELECT true $f$;`, ASSERT_DRIFT_DB);
+      const asserted = apply(box, ASSERTIONS, ASSERT_DRIFT_DB, true);
+      assert.notEqual(asserted.status, 0);
+      assert.match(asserted.stderr, /FUNCTION_DRIFT/);
+    });
 
     pass("060 installs FORCE-RLS owner-only evidence relations and exact dependencies", () => {
       assert.equal(sql(box, `SELECT pg_catalog.count(*) FROM pg_catalog.pg_class AS relation
@@ -281,6 +408,49 @@ async function main() {
       for (const entry of MATRIX.slice(1)) {
         assert.equal(asRole(box, "celebix_saas_workflow", eventCall(entry)).stdout.trim(), "recorded");
       }
+    });
+
+    pass("finalize rejects six semantic labels aliased to one attempt and digest", () => {
+      const run = "60000000-0000-4000-8000-000000000069";
+      const lease = "61000000-0000-4000-8000-000000000069";
+      const sharedAttempt = "64000000-0000-4000-8000-000000000069";
+      const sharedObservation = "9".repeat(64);
+      assert.equal(asRole(box, "celebix_saas_app",
+        beginCall({ run, fingerprint: "9".repeat(64) }), MATRIX_HARDENING_DB).stdout.trim(), "created");
+      assert.equal(asRole(box, "celebix_saas_workflow",
+        claimCall(run, lease), MATRIX_HARDENING_DB).stdout.trim(), "claimed");
+      for (const entry of MATRIX) {
+        const call = eventCall({ ...entry, attempt: sharedAttempt, observation: sharedObservation })
+          .replaceAll(`'${RUN}'::uuid`, `'${run}'::uuid`)
+          .replaceAll(`'${LEASE}'::uuid`, `'${lease}'::uuid`);
+        assert.equal(asRole(box, "celebix_saas_workflow",
+          call, MATRIX_HARDENING_DB).stdout.trim(), "recorded");
+      }
+      assert.equal(asRole(box, "celebix_saas_workflow", `
+        SELECT outcome FROM saas.iyzico_iframe_tenant_evidence_finalize(
+          '${run}'::uuid,'${lease}'::uuid,'${WORKER}',
+          '62000000-0000-4000-8000-000000000069'::uuid,'${"9".repeat(64)}',
+          '2026-07-28T13:08:00.000Z'::timestamptz
+        )`, MATRIX_HARDENING_DB).stdout.trim(), "evidence_mismatch");
+    });
+
+    pass("attestation INSERT guard rejects the same aliased matrix with its exact digest", () => {
+      const inserted = sql(box, `BEGIN;
+        SET LOCAL ROLE celebix_saas_owner;
+        INSERT INTO saas.iyzico_iframe_tenant_evidence_attestations(
+          id,store_id,run_id,profile_id,provider_code,capability,environment,adapter_version,
+          candidate_evidence_digest,profile_version,credential_version,matrix_digest,
+          finalization_fingerprint,attested_at
+        ) VALUES(
+          '62000000-0000-4000-8000-000000000069','${STORE}',
+          '60000000-0000-4000-8000-000000000069','${PROFILE}',
+          'iyzico_iframe','payment_processing','test',7,'${DIGEST}',1,1,
+          'sha256:5354f6f17482bf524eb623287feb06f3d27e08e988f6933072e984e631c1e6e2',
+          '${"9".repeat(64)}','2026-07-28T13:08:00.000Z'
+        );
+        ROLLBACK;`, MATRIX_HARDENING_DB, true);
+      assert.notEqual(inserted.status, 0);
+      assert.match(inserted.stderr, /EXACT_ATTESTATION_REQUIRED/);
     });
 
     pass("a forged matrix digest cannot bypass exact attestation finalization", () => {
@@ -385,6 +555,21 @@ async function main() {
         `active|test|7|${DIGEST}`);
       assert.equal(sql(box, `SELECT count(*) FROM saas.payment_method_operations
         WHERE operation_id='65000000-0000-4000-8000-000000000060';`).stdout.trim(), "1");
+      assert.equal(sql(box, `SET ROLE celebix_saas_owner;
+        UPDATE saas.payment_methods SET label='Iyzico attested',version=version+1
+        WHERE id='${METHOD}';
+        SELECT label FROM saas.payment_methods WHERE id='${METHOD}';`).stdout.trim(),
+      "Iyzico attested");
+      const revokedAuthority = sql(box, `BEGIN;
+        SET LOCAL ROLE celebix_saas_owner;
+        UPDATE saas.merchant_provider_execution_authorities SET enabled=false
+        WHERE provider_code='iyzico_iframe' AND capability='payment_processing'
+          AND environment='test' AND adapter_version=7 AND evidence_digest='${DIGEST}';
+        UPDATE saas.payment_methods SET label='must remain guarded',version=version+1
+        WHERE id='${METHOD}';
+        ROLLBACK;`, DB, true);
+      assert.notEqual(revokedAuthority.status, 0);
+      assert.match(revokedAuthority.stderr, /ATTESTATION_REQUIRED_FOR_METHOD_ACTIVATION/);
     });
 
     pass("059 exclusivity returns a stable conflict without a partial Iyzico bind", () => {
@@ -404,6 +589,12 @@ async function main() {
       assert.equal(sql(box, `SELECT state||'|'||COALESCE(profile.execution_environment,'none')
         FROM saas.payment_methods AS method JOIN saas.merchant_provider_profiles AS profile
           ON profile.id=method.profile_id WHERE method.id='${METHOD}';`, ROLLBACK_DB).stdout.trim(), "disabled|none");
+    });
+
+    pass("rollback refuses active or executable Iyzico state even without evidence rows", () => {
+      const guarded = apply(box, DOWN, ACTIVE_GUARD_DB, true);
+      assert.notEqual(guarded.status, 0);
+      assert.match(guarded.stderr, /ACTIVE_OR_EXECUTABLE_STATE_EXISTS/);
     });
 
     pass("rollback refuses evidence-bearing databases and succeeds when evidence is absent", () => {
