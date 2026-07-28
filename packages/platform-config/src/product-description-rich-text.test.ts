@@ -7,6 +7,7 @@ const moduleUrl = new URL("./product-description-rich-text.ts", import.meta.url)
 const {
   extractPlainTextFromProductDescription,
   normalizeProductDescriptionHtml,
+  normalizeProductDescriptionRichText,
 } = await import(moduleUrl) as ProductDescriptionModule;
 
 test("renders supported product Markdown through the safe semantic allowlist", () => {
@@ -71,4 +72,40 @@ test("preserves existing plain text and sanitized legacy HTML behavior", () => {
     ),
     "<p>Güvenli <strong>metin</strong></p>",
   );
+});
+
+test("projects sanitized Markdown into a browser-safe immutable rich-text tree", () => {
+  const richText = normalizeProductDescriptionRichText(
+    "## Başlık\n\n**Güvenli** [bağlantı](https://docs.example.com/product?q=1)",
+  );
+
+  assert.deepEqual(richText, [
+    {
+      type: "element",
+      tag: "h2",
+      children: [{ type: "text", value: "Başlık" }],
+    },
+    {
+      type: "element",
+      tag: "p",
+      children: [
+        {
+          type: "element",
+          tag: "strong",
+          children: [{ type: "text", value: "Güvenli" }],
+        },
+        { type: "text", value: " " },
+        {
+          type: "element",
+          tag: "a",
+          href: "https://docs.example.com/product?q=1",
+          external: true,
+          children: [{ type: "text", value: "bağlantı" }],
+        },
+      ],
+    },
+  ]);
+  assert.equal(Object.isFrozen(richText), true);
+  assert.equal(Object.isFrozen(richText[0]), true);
+  assert.deepEqual(normalizeProductDescriptionRichText("<script>x</script>"), []);
 });

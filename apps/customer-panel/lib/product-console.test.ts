@@ -740,7 +740,8 @@ test("create and edit use one safe Markdown description field", async () => {
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
 
-  assert.match(field, /normalizeProductDescriptionHtml/);
+  assert.match(field, /normalizeProductDescriptionRichText/);
+  assert.doesNotMatch(field, /dangerouslySetInnerHTML/);
   assert.match(field, /name="description"/);
   assert.match(field, /maxLength=\{10_000\}/);
   assert.match(field, /Markdown desteklenir/);

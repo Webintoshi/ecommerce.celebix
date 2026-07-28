@@ -280,6 +280,7 @@ test("dependency lockfiles donor and deployment surfaces stay outside the comple
     "apps/storefront-shared/package.json",
     "package-lock.json",
     "packages/payment-adapters/package.json",
+    "packages/platform-config/package.json",
   ]);
   const forbiddenInfrastructure = git("diff", "--name-only", `${BASE}...HEAD`)
     .split("\n")

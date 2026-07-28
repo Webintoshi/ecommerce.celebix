@@ -48,6 +48,41 @@ const ALLOWED_TAGS = new Set([
   "td",
 ]);
 
+export type ProductDescriptionRichTextTag =
+  | "p"
+  | "br"
+  | "strong"
+  | "em"
+  | "u"
+  | "del"
+  | "ul"
+  | "ol"
+  | "li"
+  | "h2"
+  | "h3"
+  | "h4"
+  | "blockquote"
+  | "a"
+  | "pre"
+  | "code"
+  | "hr"
+  | "table"
+  | "thead"
+  | "tbody"
+  | "tr"
+  | "th"
+  | "td";
+
+export type ProductDescriptionRichTextNode =
+  | Readonly<{ type: "text"; value: string }>
+  | Readonly<{
+      type: "element";
+      tag: ProductDescriptionRichTextTag;
+      href?: string;
+      external?: boolean;
+      children: readonly ProductDescriptionRichTextNode[];
+    }>;
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -247,6 +282,84 @@ export function normalizeProductDescriptionHtml(
     .trim();
 
   return html || (legacyHtml ? "" : plainTextToHtml(rawDescription, productName));
+}
+
+type MutableRichTextElement = {
+  type: "element";
+  tag: ProductDescriptionRichTextTag | "root";
+  href?: string;
+  external?: boolean;
+  children: Array<ProductDescriptionRichTextNode | MutableRichTextElement>;
+};
+
+const VOID_RICH_TEXT_TAGS = new Set<ProductDescriptionRichTextTag>(["br", "hr"]);
+
+function freezeRichTextNode(
+  node: ProductDescriptionRichTextNode | MutableRichTextElement,
+): ProductDescriptionRichTextNode {
+  if (node.type === "text") return Object.freeze(node);
+  if (node.tag === "root") throw new Error("product_description_rich_text_root_not_renderable");
+  const children = Object.freeze(node.children.map(freezeRichTextNode));
+  return Object.freeze({
+    type: "element" as const,
+    tag: node.tag,
+    ...(node.href === undefined ? {} : { href: node.href }),
+    ...(node.external === undefined ? {} : { external: node.external }),
+    children,
+  });
+}
+
+export function normalizeProductDescriptionRichText(
+  rawDescription?: string | null,
+  productName?: string,
+): readonly ProductDescriptionRichTextNode[] {
+  const html = normalizeProductDescriptionHtml(rawDescription, productName);
+  if (!html) return Object.freeze([]);
+
+  const root: MutableRichTextElement = { type: "element", tag: "root", children: [] };
+  const stack: MutableRichTextElement[] = [root];
+  const tokens = html.match(/<[^>]*>|[^<]+/g) ?? [];
+
+  for (const token of tokens) {
+    const closingTag = token.match(/^<\s*\/\s*([a-z0-9]+)\s*>$/i);
+    if (closingTag) {
+      const tag = closingTag[1]?.toLowerCase();
+      let matchingIndex = -1;
+      for (let index = stack.length - 1; index > 0; index -= 1) {
+        if (stack[index]?.tag === tag) {
+          matchingIndex = index;
+          break;
+        }
+      }
+      if (matchingIndex > 0) stack.length = matchingIndex;
+      continue;
+    }
+
+    const openingTag = token.match(/^<\s*([a-z0-9]+)([^>]*)>$/i);
+    if (openingTag) {
+      const tag = openingTag[1]?.toLowerCase();
+      if (!tag || !ALLOWED_TAGS.has(tag)) continue;
+      const normalizedTag = tag as ProductDescriptionRichTextTag;
+      const rawAttributes = openingTag[2] ?? "";
+      const rawHref = rawAttributes.match(/\bhref\s*=\s*"([^"]*)"/i)?.[1];
+      const href = normalizedTag === "a" && rawHref ? sanitizeHref(rawHref) : "";
+      const element: MutableRichTextElement = {
+        type: "element",
+        tag: normalizedTag,
+        ...(href ? { href, external: /^https?:\/\//i.test(href) } : {}),
+        children: [],
+      };
+      stack.at(-1)!.children.push(element);
+      if (!VOID_RICH_TEXT_TAGS.has(normalizedTag)) stack.push(element);
+      continue;
+    }
+
+    const value = decodeHtmlEntities(token);
+    if (stack.length === 1 && /^\s*$/.test(value)) continue;
+    stack.at(-1)!.children.push(Object.freeze({ type: "text" as const, value }));
+  }
+
+  return Object.freeze(root.children.map(freezeRichTextNode));
 }
 
 export function extractPlainTextFromProductDescription(

@@ -30,8 +30,10 @@ test("sidebar and product controls stay dense without sacrificing target size", 
   assert.match(shellCss, /[.]navigationChildren\s*\{[\s\S]*?max-height:\s*min\(42vh,\s*28rem\);/);
   assert.match(shellCss, /[.]navigationChildren\s*\{[\s\S]*?overflow-y:\s*auto;/);
   assert.match(shellCss, /[.]navigationChildren\s*\{[\s\S]*?overscroll-behavior:\s*contain;/);
-  assert.match(catalogCss, /[.]product-stat-chips\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;/);
-  assert.match(catalogCss, /[.]product-stat-chips span\s*\{[^}]*min-height:\s*36px;/);
+  assert.match(catalogCss, /[.]product-stat-grid\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/);
+  assert.match(catalogCss, /[.]product-stat-grid > div\s*\{[^}]*min-height:\s*56px;/);
+  assert.match(catalogCss, /@media \(max-width:\s*640px\)[\s\S]*?[.]product-stat-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
+  assert.match(catalogCss, /[.]product-bulk-actions[^}]*min-height:\s*48px;/);
 });
 
 test("local Toshi artwork bypasses the runtime image optimizer", async () => {
