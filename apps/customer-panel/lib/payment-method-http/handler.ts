@@ -43,6 +43,7 @@ const STATUS: Readonly<Record<PaymentMethodErrorCode, number>> = Object.freeze({
   record_not_found: 404,
   invalid_transition: 409,
   version_conflict: 409,
+  provider_already_active: 409,
   operation_mismatch: 409,
   operation_not_found: 404,
   durable_authority_invalid: 409,

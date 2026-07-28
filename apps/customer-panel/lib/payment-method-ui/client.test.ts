@@ -119,6 +119,22 @@ test("payment method client maps only finite safe server errors", async () => {
       && error.message === "Bu işlem için yetkiniz yok.",
   );
 
+  const providerConflict = createPaymentMethodApi(async () => Response.json(
+    { code: "provider_already_active" },
+    { status: 409 },
+  ), () => OPERATION_IDS[0]);
+  await assert.rejects(
+    () => providerConflict.setState(METHOD_ID, {
+      expectedVersion: 2,
+      state: "active",
+      emergencyReason: null,
+    }),
+    (error: unknown) => error instanceof PaymentMethodApiError
+      && error.code === "provider_already_active"
+      && error.status === 409
+      && error.message === "Başka bir ödeme sağlayıcısı zaten etkin. Önce etkin sağlayıcıyı devre dışı bırakın.",
+  );
+
   const hostile = createPaymentMethodApi(async () => Response.json(
     { code: "database_password_exposed", detail: "private" },
     { status: 500 },

@@ -18,7 +18,7 @@ const SAFE_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive",
   "feature_not_enabled", "profile_not_found", "profile_not_active",
   "provider_capability_mismatch", "record_not_found", "invalid_transition",
-  "version_conflict", "operation_mismatch", "operation_not_found",
+  "version_conflict", "provider_already_active", "operation_mismatch", "operation_not_found",
   "durable_authority_invalid", "unavailable",
 ] as const);
 type PaymentMethodApiErrorCode = (typeof SAFE_CODES)[number];
@@ -35,6 +35,7 @@ const MESSAGES: Readonly<Record<PaymentMethodApiErrorCode, string>> = Object.fre
   record_not_found: "Ödeme yöntemi bulunamadı.",
   invalid_transition: "Bu durum değişikliği artık uygulanamaz.",
   version_conflict: "Ödeme ayarları sizden önce güncellendi.",
+  provider_already_active: "Başka bir ödeme sağlayıcısı zaten etkin. Önce etkin sağlayıcıyı devre dışı bırakın.",
   operation_mismatch: "İşlem güvenle tekrar edilemedi.",
   operation_not_found: "İşlem kanıtı bulunamadı.",
   durable_authority_invalid: "Yetki yeniden doğrulanamadı.",

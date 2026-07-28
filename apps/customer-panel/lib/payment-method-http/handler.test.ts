@@ -378,7 +378,7 @@ test("body framing UTF-8 exact-shape and reorder/state invariants are bounded", 
 });
 
 test("repository errors map to the finite HTTP vocabulary without leaking details", async () => {
-  for (const [repositoryCode, status] of [["record_not_found", 404], ["version_conflict", 409], ["unavailable", 503]] as const) {
+  for (const [repositoryCode, status] of [["record_not_found", 404], ["version_conflict", 409], ["provider_already_active", 409], ["unavailable", 503]] as const) {
     const probe = fixture({ repositoryError: repositoryCode });
     const response = await probe.handlers.methods(request("GET", "/api/payment-methods"));
     assert.equal(response.status, status);

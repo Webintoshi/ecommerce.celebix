@@ -10,6 +10,7 @@ export const PAYMENT_METHOD_ERROR_CODES = Object.freeze([
   "record_not_found",
   "invalid_transition",
   "version_conflict",
+  "provider_already_active",
   "operation_mismatch",
   "operation_not_found",
   "durable_authority_invalid",

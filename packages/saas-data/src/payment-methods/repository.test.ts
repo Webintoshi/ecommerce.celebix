@@ -268,7 +268,7 @@ test("repository exposes exactly the closed safe error union and maps unknown ou
     "invalid_input", "unauthenticated", "membership_denied", "store_inactive",
     "feature_not_enabled", "profile_not_found", "profile_not_active",
     "provider_capability_mismatch", "record_not_found", "invalid_transition",
-    "version_conflict", "operation_mismatch", "operation_not_found",
+    "version_conflict", "provider_already_active", "operation_mismatch", "operation_not_found",
     "durable_authority_invalid", "unavailable",
   ]);
   for (const code of PAYMENT_METHOD_ERROR_CODES.filter((entry) => entry !== "unavailable")) {
