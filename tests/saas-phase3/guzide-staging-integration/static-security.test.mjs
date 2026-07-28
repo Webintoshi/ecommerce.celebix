@@ -26,5 +26,8 @@ test("the current staging build retains its deploy contract while exposing the d
   }
 
   const bulkUpload = await source("apps/customer-panel/app/products/bulk-upload/page.tsx");
-  assert.match(bulkUpload, /WooCommerceMigrationConsole/);
+  const bulkConsole = await source("apps/customer-panel/components/catalog-admin/CatalogBulkImportConsole.tsx");
+  assert.match(bulkUpload, /CatalogBulkImportConsole/);
+  assert.match(bulkConsole, /compileWooCommerceMigration/);
+  assert.match(bulkConsole, /runWooCommerceMigration/);
 });
