@@ -18,6 +18,9 @@
     "test:saas-phase1": "node --experimental-transform-types --test tests/saas-phase1/*.test.ts",
     "test:saas-phase3:current": "node tests/saas-phase3/run-current-suite.mjs",
     "test:saas-phase3:browser": "node tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs",
+    "generate:iyzico-sandbox-build": "node --experimental-strip-types ./scripts/generate-iyzico-sandbox-build.mjs",
+    "check:iyzico-sandbox-build": "node --experimental-strip-types ./scripts/generate-iyzico-sandbox-build.mjs --check",
+    "test:iyzico-sandbox-build": "node --experimental-strip-types --test ./scripts/generate-iyzico-sandbox-build.test.mjs",
     "create:store": "node ./scripts/create-store.mjs",
     "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs",
     "migrate:selfhosted-owner-db": "node ./apps/owner/scripts/migrate-owner-db-selfhosted.mjs"

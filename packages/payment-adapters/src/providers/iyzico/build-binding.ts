@@ -2,6 +2,13 @@ import { createHash } from "node:crypto";
 import { types as nodeTypes } from "node:util";
 
 import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
+import {
+  IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY,
+  IYZICO_GENERATED_BUILD_METADATA,
+  type IyzicoCandidateBuildMetadata,
+} from "./build-metadata.generated.ts";
+
+export type { IyzicoCandidateBuildMetadata } from "./build-metadata.generated.ts";
 
 export const IYZICO_ADAPTER_SOURCE_PATHS = Object.freeze([
   "src/contracts.ts",
@@ -26,24 +33,9 @@ export type IyzicoAdapterSourceManifest = Readonly<{
   sourceDigest: string;
 }>;
 
-export type IyzicoCandidateBuildMetadata = Readonly<{
-  buildMetadataSchemaVersion: 1;
-  evidenceSchemaVersion: 1;
-  providerCode: "iyzico_iframe";
-  capability: "payment_processing";
-  environment: "test";
-  adapterVersion: 1;
-  gitSha: string;
-  sourceDigest: string;
-  candidateExecutionDigest: string;
-}>;
-
 type ExactRecord = Readonly<Record<string, unknown>>;
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
-
-export const IYZICO_APPROVED_EXECUTION_AUTHORITY:
-  Readonly<PaymentProviderExecutionAuthority> | null = null;
 
 function sha256(value: string | Uint8Array): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -84,6 +76,69 @@ function exactSource(value: unknown): IyzicoAdapterSource {
     return invalid();
   }
 }
+
+function generatedExecutionAuthority(
+  candidateValue: unknown,
+  authorityValue: unknown,
+): Readonly<PaymentProviderExecutionAuthority> | null {
+  try {
+    if (authorityValue === null) return null;
+    const candidate = exactRecord(candidateValue, [
+      "buildMetadataSchemaVersion",
+      "evidenceSchemaVersion",
+      "providerCode",
+      "capability",
+      "environment",
+      "adapterVersion",
+      "gitSha",
+      "sourceDigest",
+      "candidateExecutionDigest",
+    ]);
+    const authority = exactRecord(authorityValue, [
+      "environment",
+      "adapterVersion",
+      "evidenceDigest",
+    ]);
+    if (
+      candidate.buildMetadataSchemaVersion !== 1
+      || candidate.evidenceSchemaVersion !== 1
+      || candidate.providerCode !== "iyzico_iframe"
+      || candidate.capability !== "payment_processing"
+      || candidate.environment !== "test"
+      || candidate.adapterVersion !== 1
+      || typeof candidate.gitSha !== "string"
+      || !GIT_SHA.test(candidate.gitSha)
+      || typeof candidate.sourceDigest !== "string"
+      || !SHA256.test(candidate.sourceDigest)
+      || typeof candidate.candidateExecutionDigest !== "string"
+      || !SHA256.test(candidate.candidateExecutionDigest)
+      || candidate.candidateExecutionDigest !== sha256(JSON.stringify({
+        evidenceSchemaVersion: candidate.evidenceSchemaVersion,
+        providerCode: candidate.providerCode,
+        capability: candidate.capability,
+        environment: candidate.environment,
+        adapterVersion: candidate.adapterVersion,
+        gitSha: candidate.gitSha,
+        sourceDigest: candidate.sourceDigest,
+      }))
+      || authority.environment !== "test"
+      || authority.adapterVersion !== 1
+      || authority.evidenceDigest !== candidate.candidateExecutionDigest
+    ) return null;
+    return Object.freeze({
+      environment: "test",
+      adapterVersion: 1,
+      evidenceDigest: authority.evidenceDigest,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export const IYZICO_APPROVED_EXECUTION_AUTHORITY = generatedExecutionAuthority(
+  IYZICO_GENERATED_BUILD_METADATA,
+  IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY,
+);
 
 export function createIyzicoAdapterSourceManifest(
   sources: readonly IyzicoAdapterSource[],

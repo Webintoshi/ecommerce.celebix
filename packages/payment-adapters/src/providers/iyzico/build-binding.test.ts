@@ -134,6 +134,7 @@ test("default generated metadata and approved authority remain null without immu
 
   assert.ok(generated, "the generated build metadata contract must exist");
   assert.equal(generated.IYZICO_GENERATED_BUILD_METADATA, null);
+  assert.equal(generated.IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY, null);
   assert.equal(binding.IYZICO_APPROVED_EXECUTION_AUTHORITY, null);
   const candidate = binding.createIyzicoCandidateBuildMetadata({
     gitSha: "1".repeat(40),
