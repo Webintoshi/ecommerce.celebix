@@ -1,3 +1,5 @@
+import MarkdownIt, { type Options as MarkdownItOptions } from "markdown-it";
+
 const INLINE_SECTION_LABELS = [
   "Özellikler:",
   "Malzeme:",
@@ -26,6 +28,7 @@ const ALLOWED_TAGS = new Set([
   "strong",
   "em",
   "u",
+  "del",
   "ul",
   "ol",
   "li",
@@ -34,6 +37,15 @@ const ALLOWED_TAGS = new Set([
   "h4",
   "blockquote",
   "a",
+  "pre",
+  "code",
+  "hr",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
 ]);
 
 function escapeRegex(value: string): string {
@@ -48,6 +60,19 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+const markdownOptions: MarkdownItOptions & Readonly<{ maxNesting: number }> = {
+  html: false,
+  linkify: false,
+  typographer: false,
+  breaks: false,
+  maxNesting: 20,
+};
+
+const markdown = new MarkdownIt(markdownOptions);
+
+markdown.renderer.rules.image = (tokens, index) =>
+  escapeHtml(tokens[index]?.content ?? "");
 
 function decodeHtmlEntities(value: string): string {
   return value
@@ -129,6 +154,12 @@ function plainTextToHtml(rawDescription: string, productName?: string) {
     .join("");
 }
 
+function renderMarkdownSource(rawDescription: string, productName?: string) {
+  return markdown.render(
+    normalizePlainTextDescription(rawDescription, productName),
+  );
+}
+
 export function normalizeProductDescriptionHtml(
   rawDescription?: string | null,
   productName?: string,
@@ -137,11 +168,10 @@ export function normalizeProductDescriptionHtml(
     return "";
   }
 
-  if (!hasHtmlMarkup(rawDescription)) {
-    return plainTextToHtml(rawDescription, productName);
-  }
-
-  let html = rawDescription
+  const legacyHtml = hasHtmlMarkup(rawDescription);
+  let html = (legacyHtml
+    ? rawDescription
+    : renderMarkdownSource(rawDescription, productName))
     .replace(/\r\n?/g, "\n")
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(
@@ -160,6 +190,8 @@ export function normalizeProductDescriptionHtml(
     .replace(/<\s*\/\s*b\s*>/gi, "</strong>")
     .replace(/<\s*i\b[^>]*>/gi, "<em>")
     .replace(/<\s*\/\s*i\s*>/gi, "</em>")
+    .replace(/<\s*s\b[^>]*>/gi, "<del>")
+    .replace(/<\s*\/\s*s\s*>/gi, "</del>")
     .replace(/<\s*h1\b[^>]*>/gi, "<h2>")
     .replace(/<\s*\/\s*h1\s*>/gi, "</h2>")
     .replace(/<\s*h5\b[^>]*>/gi, "<h4>")
@@ -214,7 +246,7 @@ export function normalizeProductDescriptionHtml(
     )
     .trim();
 
-  return html || plainTextToHtml(rawDescription, productName);
+  return html || (legacyHtml ? "" : plainTextToHtml(rawDescription, productName));
 }
 
 export function extractPlainTextFromProductDescription(
@@ -231,7 +263,8 @@ export function extractPlainTextFromProductDescription(
     html
       .replace(/<\s*br\s*\/?>/gi, "\n")
       .replace(/<\s*li\s*>/gi, "• ")
-      .replace(/<\s*\/\s*(p|h2|h3|h4|blockquote|li|ul|ol)\s*>/gi, "\n")
+      .replace(/<\s*\/\s*(th|td)\s*>/gi, " ")
+      .replace(/<\s*\/\s*(p|h2|h3|h4|blockquote|li|ul|ol|pre|table|tr)\s*>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
       .replace(/[ \t]+\n/g, "\n")
       .replace(/\n[ \t]+/g, "\n")
