@@ -355,11 +355,14 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   const files = [...await sourceFiles(appRoot), ...await sourceFiles(runtimeRoot)];
   const forbiddenImport = /(?:from\s+|import\s*\()["'][^"']*(?:supabase|drizzle|@aws-sdk|redis|stripe|iyzipay|craftgate)[^"']*["']/i;
   const reviewedPaymentEdges = new Set([
+    "app/api/quick-order/checkout/route.ts\u0000@/lib/checkout/hosted-payment.ts\u0000from",
     "app/api/payments/[providerCode]/callback/[binding]/route.ts\u0000@/lib/payment-adapters/runtime.ts\u0000from",
+    "lib/default-runtime.ts\u0000./checkout/hosted-payment.ts\u0000from",
     "lib/default-runtime.ts\u0000./payment-adapters/default.ts\u0000from",
     "lib/default-runtime.ts\u0000./payment-adapters/runtime.ts\u0000from",
     "lib/default-runtime.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/checkout/paytr.ts\u0000@celebix/payment-adapters\u0000from",
+    "lib/checkout/hosted-payment.ts\u0000../payment-adapters/runtime.ts\u0000from",
     "lib/payment-adapters/default.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/payment-adapters/callback-authority.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/payment-adapters/runtime.ts\u0000@celebix/payment-adapters\u0000from",
@@ -454,6 +457,7 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   }
 
   for (const relative of [
+    "lib/checkout/hosted-payment.ts",
     "lib/payment-adapters/default.ts",
     "lib/payment-adapters/runtime.ts",
     "lib/payment-adapters/callback-authority.ts",

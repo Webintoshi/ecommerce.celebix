@@ -75,6 +75,12 @@ const requiredHarnesses = Object.freeze([
     line: /^PASS \d+\/17 .+$/gm,
     completion: /^PASS 17\/17 .+$/m,
   }),
+  Object.freeze({
+    file: "tests/saas-phase3/quick-order-hosted-payment-bridge/postgres-harness.mjs",
+    total: 14,
+    line: /^PASS \d+\/14 .+$/gm,
+    completion: /^PASS 14\/14 .+$/m,
+  }),
 ]);
 const gateRank = Object.freeze({
   "provider-execution-foundation": 0,
@@ -85,10 +91,12 @@ const gateRank = Object.freeze({
   "hosted-callback-lifecycle": 5,
   "payment-provider-keyed-lifecycle": 6,
   "quick-order-hosted-payment-authority": 7,
+  "quick-order-hosted-payment-bridge": 8,
 });
 const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/payment-adapter-runtime/evidence-artifact.test.mjs",
   "tests/saas-phase3/payment-adapter-runtime/in-process.test.mjs",
+  "tests/saas-phase3/quick-order-hosted-payment-bridge/static-security.test.mjs",
 ]);
 
 function runRequiredHarness({ file, total, line, completion }) {

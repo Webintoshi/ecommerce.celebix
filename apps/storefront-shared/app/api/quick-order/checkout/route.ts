@@ -1,8 +1,12 @@
 import { createQuickOrderCheckoutRoute, resolveDefaultCheckoutPaymentRuntime } from "@/lib/checkout/runtime.ts";
-import { resolveDefaultPublicStorefrontRuntime } from "@/lib/default-runtime.ts";
+import { createQuickOrderHostedPaymentBridgeRoute } from "@/lib/checkout/hosted-payment.ts";
+import {
+  resolveDefaultPublicStorefrontRuntime,
+  resolveDefaultQuickOrderHostedPaymentBridgeRuntime,
+} from "@/lib/default-runtime.ts";
 import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authority.ts";
 
-export const POST = createQuickOrderCheckoutRoute({
+const legacyPost = createQuickOrderCheckoutRoute({
   selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers),
   resolveRuntime: async () => {
     const [storefront, payment] = await Promise.all([
@@ -13,4 +17,10 @@ export const POST = createQuickOrderCheckoutRoute({
       ? null
       : Object.freeze({ checkout: storefront.checkout, ...payment });
   },
+});
+
+export const POST = createQuickOrderHostedPaymentBridgeRoute({
+  selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers),
+  resolveRuntime: () => resolveDefaultQuickOrderHostedPaymentBridgeRuntime(),
+  fallback: legacyPost,
 });

@@ -9,17 +9,27 @@ import {
 import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
 import {
   PostgresPaymentAttemptRepository,
+  PostgresQuickOrderHostedPaymentRepository,
   PostgresPublicQuickOrderRepository,
   PostgresPublicAbandonedCartRepository,
   PostgresPublicStorefrontRepository,
   PostgresPublicAnalyticsRepository,
   parseMerchantProviderCredentialKeyring,
+  type PaymentAttemptRepository,
   type PublicStorefrontRepository,
 } from "@celebix/saas-data";
 import pg from "pg";
 
 import { parseCheckoutRuntimeConfig } from "./checkout/config.ts";
-import { createCheckoutRuntime, type CheckoutRuntime } from "./checkout/runtime.ts";
+import {
+  createCheckoutRuntime,
+  resolveDefaultCheckoutPaymentRuntime,
+  type CheckoutRuntime,
+} from "./checkout/runtime.ts";
+import type {
+  QuickOrderHostedPaymentBridgeRuntime,
+  QuickOrderHostedPaymentExecution,
+} from "./checkout/hosted-payment.ts";
 import { parseStorefrontDataConfig, STOREFRONT_DATA_ENVIRONMENT_FIELDS } from "./runtime-config.ts";
 import { parseUmamiPublicCollectorConfig, type UmamiPublicCollectorConfig } from "./analytics/config.ts";
 import {
@@ -44,7 +54,13 @@ export type PublicStorefrontRuntime = Readonly<{
   mediaOrigin: string;
 }>;
 let initialization: Promise<PublicStorefrontRuntime | null> | undefined;
-let hostedPaymentInitialization: Promise<HostedPaymentRuntime | null> | undefined;
+type HostedPaymentInfrastructure = Readonly<{
+  runtime: HostedPaymentRuntime;
+  attempts: PaymentAttemptRepository;
+  createRuntime: (attempts: PaymentAttemptRepository) => HostedPaymentRuntime | null;
+}>;
+let hostedPaymentInitialization: Promise<HostedPaymentInfrastructure | null> | undefined;
+let quickOrderHostedBridgeInitialization: Promise<QuickOrderHostedPaymentBridgeRuntime | null> | undefined;
 
 function compiledHostedPaymentAuthorities(): StorefrontHostedPaymentCompiledAuthorities {
   return Object.freeze({
@@ -158,19 +174,34 @@ export async function resolveDefaultHostedPaymentRuntime(): Promise<HostedPaymen
     resolveStorefrontHostedPaymentActivationMode(source) !== "approved_test_sandbox"
     || executableAuthorities.length === 0
   ) return null;
-  hostedPaymentInitialization ??= initializeHostedPaymentRuntime(
+  hostedPaymentInitialization ??= initializeHostedPaymentInfrastructure(
     source,
     compiledAuthorities,
     executableAuthorities,
   );
+  return (await hostedPaymentInitialization)?.runtime ?? null;
+}
+
+async function resolveDefaultHostedPaymentInfrastructure(): Promise<HostedPaymentInfrastructure | null> {
+  const source = Object.freeze({
+    CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE:
+      process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
+  });
+  const compiledAuthorities = compiledHostedPaymentAuthorities();
+  const executableAuthorities = executableCompiledAuthorities(compiledAuthorities);
+  if (resolveStorefrontHostedPaymentActivationMode(source) !== "approved_test_sandbox"
+    || executableAuthorities.length === 0) return null;
+  hostedPaymentInitialization ??= initializeHostedPaymentInfrastructure(
+    source, compiledAuthorities, executableAuthorities,
+  );
   return hostedPaymentInitialization;
 }
 
-async function initializeHostedPaymentRuntime(
+async function initializeHostedPaymentInfrastructure(
   source: Readonly<Record<string, string | undefined>>,
   compiledAuthorities: StorefrontHostedPaymentCompiledAuthorities,
   executableAuthorities: readonly ExecutableCompiledAuthority[],
-): Promise<HostedPaymentRuntime | null> {
+): Promise<HostedPaymentInfrastructure | null> {
   const snapshot = Object.fromEntries(
     STOREFRONT_DATA_ENVIRONMENT_FIELDS.map((name) => [name, process.env[name]]),
   );
@@ -250,24 +281,25 @@ async function initializeHostedPaymentRuntime(
       timeoutMs: 5_000,
       maximumResponseBytes: 262_144,
     });
-    const runtime = createDefaultHostedPaymentRuntime({
-      source,
-      compiledAuthorities,
-      dependencies: {
-        attempts,
+    const sharedDependencies = Object.freeze({
         keyring,
         transport,
-        selectAuthority: (headers) =>
+        selectAuthority: (headers: Headers) =>
           selectTrustedStorefrontHostAuthority(headers),
-        matchesCompiledAuthority: (authority) =>
+        matchesCompiledAuthority: (authority: Parameters<HostedPaymentRuntimeDependencies["matchesCompiledAuthority"]>[0]) =>
           currentExecutionAuthorityMatches(pool!, authority),
         now: () => new Date(),
-        randomBytes: (size) => new Uint8Array(randomBytes(size)),
-      },
+        randomBytes: (size: number) => new Uint8Array(randomBytes(size)),
     });
+    const createRuntime = (selectedAttempts: PaymentAttemptRepository) => createDefaultHostedPaymentRuntime({
+      source,
+      compiledAuthorities,
+      dependencies: { attempts: selectedAttempts, ...sharedDependencies },
+    });
+    const runtime = createRuntime(attempts);
     if (runtime === null) throw new Error("storefront_hosted_payment_disabled");
     runtimeOwnsKeyring = true;
-    return runtime;
+    return Object.freeze({ runtime, attempts, createRuntime });
   } catch {
     await pool?.end().catch(() => undefined);
     return null;
@@ -276,4 +308,71 @@ async function initializeHostedPaymentRuntime(
       for (const { key } of keyring.keys) key.fill(0);
     }
   }
+}
+
+async function initializeQuickOrderHostedPaymentBridge(): Promise<QuickOrderHostedPaymentBridgeRuntime | null> {
+  if (process.env.CELEBIX_DEPLOYMENT_TIER !== "staging"
+    || process.env.CELEBIX_STOREFRONT_DATA_MODE !== "approved_staging") return null;
+  let pool: InstanceType<typeof Pool> | undefined;
+  try {
+    const config = parseCheckoutRuntimeConfig(process.env);
+    pool = new Pool({
+      connectionString: config.database.url,
+      max: 4,
+      connectionTimeoutMillis: TIMEOUTS.poolCheckoutMs,
+      idleTimeoutMillis: 10_000,
+      statement_timeout: TIMEOUTS.statementMs,
+      lock_timeout: TIMEOUTS.lockMs,
+      idle_in_transaction_session_timeout: TIMEOUTS.idleTransactionMs,
+      application_name: "celebix-shared-storefront-quick-order-hosted-bridge-staging",
+    });
+    pool.on("error", () => undefined);
+    const preflight = await pool.query({
+      text: `SELECT
+        current_setting('server_version_num')::integer AS version_num,
+        current_database() AS database_name,
+        role.rolsuper AS is_superuser,
+        pg_has_role(current_user,'celebix_saas_workflow','MEMBER') AS workflow_member,
+        to_regprocedure('saas.quick_order_hosted_payment_bridge_preflight()') IS NOT NULL
+          AND saas.quick_order_hosted_payment_bridge_preflight() AS migration_058
+      FROM pg_catalog.pg_roles AS role WHERE role.rolname=current_user`,
+      values: [],
+    });
+    const row = preflight.rows[0] as Record<string, unknown> | undefined;
+    if (preflight.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16
+      || row.database_name !== config.database.name || row.is_superuser !== false
+      || row.workflow_member !== true || row.migration_058 !== true) {
+      throw new Error("storefront_quick_order_hosted_bridge_preflight_failed");
+    }
+    const hostedPayments = new PostgresQuickOrderHostedPaymentRepository({
+      pool, role: "celebix_saas_workflow", timeouts: TIMEOUTS, audit: () => undefined,
+    });
+    return Object.freeze({
+      hostedPayments,
+      resolveExecution: async (): Promise<QuickOrderHostedPaymentExecution | null> => {
+        const [hosted, checkout] = await Promise.all([
+          resolveDefaultHostedPaymentInfrastructure(),
+          resolveDefaultCheckoutPaymentRuntime(),
+        ]);
+        return hosted === null || checkout === null ? null : Object.freeze({
+          attempts: hosted.attempts,
+          keyring: checkout.keyring,
+          createRuntime: hosted.createRuntime,
+        });
+      },
+    });
+  } catch {
+    await pool?.end().catch(() => undefined);
+    return null;
+  }
+}
+
+export async function resolveDefaultQuickOrderHostedPaymentBridgeRuntime(): Promise<QuickOrderHostedPaymentBridgeRuntime | null> {
+  quickOrderHostedBridgeInitialization ??= initializeQuickOrderHostedPaymentBridge();
+  const pending = quickOrderHostedBridgeInitialization;
+  const runtime = await pending;
+  if (runtime === null && quickOrderHostedBridgeInitialization === pending) {
+    quickOrderHostedBridgeInitialization = undefined;
+  }
+  return runtime;
 }

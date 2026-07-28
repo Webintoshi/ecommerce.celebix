@@ -43,3 +43,16 @@ export type {
   PublicQuickOrderRepository,
   ResolveRedemptionInput,
 } from "./public-repository.ts";
+export {
+  PostgresQuickOrderHostedPaymentRepository,
+  QUICK_ORDER_HOSTED_PAYMENT_ERROR_CODES,
+  QuickOrderHostedPaymentRepositoryError,
+} from "./hosted-payment-repository.ts";
+export type {
+  PostgresQuickOrderHostedPaymentRepositoryOptions,
+  QuickOrderHostedPaymentAuthority,
+  QuickOrderHostedPaymentAuthorityResult,
+  QuickOrderHostedPaymentBeginInput,
+  QuickOrderHostedPaymentErrorCode,
+  QuickOrderHostedPaymentRepository,
+} from "./hosted-payment-repository.ts";
