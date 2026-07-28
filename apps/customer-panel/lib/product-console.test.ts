@@ -473,22 +473,27 @@ test("CSV export neutralizes spreadsheet formulas and control-leading cells befo
   assert.equal(production.csvCell('normal "ürün"'), '"normal ""ürün"""');
 });
 
-test("product counters distinguish displayed, loaded and durable store totals", async () => {
+test("product summary exposes four honest fixed metrics", async () => {
   const production = await productionProductListModule() as {
-    productCountLabels: (displayed: number, loaded: number, summaryState: "loading" | "ready" | "unavailable", storeTotal?: number) => readonly string[];
+    productSummaryMetrics?: (
+      summaryState: "loading" | "ready" | "unavailable",
+      summary?: typeof catalogSummary,
+    ) => readonly Readonly<{ key: string; label: string; value: string; accessibleValue: string }>[];
   };
+  const summaryMetrics = production.productSummaryMetrics;
+  assert.equal(typeof summaryMetrics, "function");
+  if (summaryMetrics === undefined) throw new Error("product_summary_metrics_missing");
   assert.deepEqual(
-    production.productCountLabels(3, 20, "ready", 61),
-    ["3 görüntüleniyor", "20 yüklendi", "61 mağazada"],
+    summaryMetrics("ready", catalogSummary),
+    [
+      { key: "total", label: "Toplam", value: "2", accessibleValue: "Toplam 2" },
+      { key: "active", label: "Aktif", value: "1", accessibleValue: "Aktif 1" },
+      { key: "draft", label: "Taslak", value: "1", accessibleValue: "Taslak 1" },
+      { key: "out-of-stock", label: "Stoksuz", value: "0", accessibleValue: "Stoksuz 0" },
+    ],
   );
-  assert.deepEqual(
-    production.productCountLabels(0, 0, "loading"),
-    ["0 görüntüleniyor", "0 yüklendi", "Mağaza toplamı yükleniyor"],
-  );
-  assert.deepEqual(
-    production.productCountLabels(3, 20, "unavailable"),
-    ["3 görüntüleniyor", "20 yüklendi", "Mağaza toplamı kullanılamıyor"],
-  );
+  assert.ok(summaryMetrics("loading").every(({ value }) => value === "—"));
+  assert.ok(summaryMetrics("unavailable").every(({ accessibleValue }) => /kullanılamıyor/.test(accessibleValue)));
 });
 
 test("dense product controls expose a 48px hit area without enlarging their visual glyphs", async () => {
@@ -518,7 +523,7 @@ test("mounted product console renders all four commands in the <=1024 mobile fal
   assert.match(styles, /@media \(max-width: 1024px\)[^]*[.]product-mobile-commandbar\s*\{[^}]*display:\s*flex/s);
 });
 
-test("mounted store-wide chips stay loading then unavailable instead of borrowing loaded-row counts", async () => {
+test("mounted store-wide metrics stay semantic and never duplicate loaded-row counts", async () => {
   const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1);
   const summaryResult = deferred<typeof catalogSummary>();
   const mounted = await createMountedProductConsole({
@@ -530,14 +535,36 @@ test("mounted store-wide chips stay loading then unavailable instead of borrowin
   });
   let tree = await mounted.render();
   let text = tree.map(mountedText).join(" ");
-  assert.match(text, /Mağaza toplamı yükleniyor/);
-  assert.doesNotMatch(text, /1 mağazada taslak|0 mağazada aktif/);
+  let nodes = mountedNodes(tree);
+  assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
+  assert.equal(nodes.filter((node) => node.type === "dd").length, 4);
+  assert.match(text, /Toplam—Aktif—Taslak—Stoksuz—/);
+  assert.doesNotMatch(text, /görüntüleniyor|Mağaza toplamı yükleniyor/);
+  assert.match(text, /0 - 0 \/ 0 yüklendi · — mağazada/);
   summaryResult.reject(new Error("summary unavailable"));
   tree = await mounted.render();
   text = tree.map(mountedText).join(" ");
-  assert.match(text, /Mağaza toplamı kullanılamıyor/);
+  nodes = mountedNodes(tree);
+  assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
+  assert.ok(nodes.filter((node) => node.type === "dd").every((node) => mountedText(node) === "—"));
   assert.match(text, /Ürün 11111111/);
-  assert.doesNotMatch(text, /1 mağazada taslak|0 mağazada aktif/);
+  assert.match(text, /1 - 1 \/ 1 yüklendi · — mağazada/);
+  assert.doesNotMatch(text, /görüntüleniyor|yüklendi yüklendi|1 mağazada taslak|0 mağazada aktif/);
+});
+
+test("product create heading and dense controls use the compact balanced contract", async () => {
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  const styles = await source("app/globals.css");
+
+  assert.match(create, /product-create-heading/);
+  assert.doesNotMatch(create, /hemenaku-form-hero|YENİ KAYIT/);
+  assert.match(list, /product-stat-grid/);
+  assert.match(list, /product-bulk-actions/);
+  assert.match(list, /product-list-status/);
+  assert.match(styles, /[.]product-stat-grid\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(styles, /@media \(max-width:\s*640px\)[^]*[.]product-stat-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(styles, /[.]product-bulk-actions[^}]*min-height:\s*48px/s);
 });
 
 test("mounted bulk archive opens count-aware confirmation before the first versioned mutation", async () => {

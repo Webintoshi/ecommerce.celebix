@@ -24,11 +24,10 @@ export function ProductCreateForm({ initialMode = "quick" }: Readonly<{ initialM
   return (
     <section data-presentation="hemenaku-product-create" className="catalog-page narrow-catalog-page" aria-labelledby="create-title">
       <Link className="back-link" href="/products">← Ürünlere dön</Link>
-      <div className="catalog-heading hemenaku-form-hero">
-        <span className="eyebrow">YENİ KAYIT</span>
+      <header className="catalog-heading product-create-heading">
         <h1 id="create-title">Yeni ürün oluştur</h1>
         <p>Yalnız ürün adı ve fiyatıyla başlayın; ayrıntıları istediğiniz zaman tamamlayın.</p>
-      </div>
+      </header>
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Seçenekler yüklenemedi</strong><p>{error}</p></div></div> : null}
       {mode === "advanced" && options ? <ProductAdvancedEditor options={options} onCancel={() => setMode("quick")} onCreated={(result) => location.assign(`/products/${result.product.id}`)} /> : <ProductQuickCreateDialog
           open
