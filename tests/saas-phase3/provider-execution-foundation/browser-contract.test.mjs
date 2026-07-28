@@ -48,17 +48,25 @@ test("browser evidence remains disabled, same-origin, responsive and credential-
 });
 
 test("payment settings exposes Iyzico verification setup without browser execution authority or secret props", async () => {
-  const [consoleSource, drawer, model, defaults, catalog, handler] = await Promise.all([
+  const [consoleSource, drawer, model, defaults, catalog, handler, adapterDefaults] = await Promise.all([
     read("apps/customer-panel/components/settings/payment/PaymentSettingsConsole.tsx"),
     read("apps/customer-panel/components/settings/payment/PaymentProviderConnectionDrawer.tsx"),
     read("apps/customer-panel/lib/payment-settings-ui/model.ts"),
     read("apps/customer-panel/lib/payment-provider-adapters/default.ts"),
     read("apps/customer-panel/lib/payment-providers/catalog-data.ts"),
     read("apps/customer-panel/lib/provider-execution-http/handler.ts"),
+    import(new URL("apps/customer-panel/lib/payment-provider-adapters/default.ts", ROOT)),
   ]);
+  const hosted = adapterDefaults.createDefaultHostedPaymentAdapterRegistry(Object.freeze({
+    request: Object.freeze(async () => { throw new Error("provider_transport_must_not_run"); }),
+  }));
+  const iyzico = adapterDefaults.createDefaultCustomerPanelPaymentProviderRegistry(hosted)
+    .get("iyzico_iframe", "payment_processing");
+  assert.ok(iyzico);
+  assert.equal(iyzico.executionAuthority, null);
+  assert.equal(iyzico.profileSaveMode, "verification");
   assert.match(defaults, /IYZICO_IFRAME_PACKET/u);
   assert.match(defaults, /label:\s*"iyzico · Checkout Form"/u);
-  assert.match(defaults, /profileSaveMode:\s*"verification"/u);
   assert.match(defaults, /`iyzico \$\{publicConfig[.]environment\} hesabı`/u);
   assert.match(catalog, /logoPath:\s*`\/payment-providers\/\$\{input[.]familyCode\}[.]\$\{logoExtension\}`/u);
   assert.match(catalog, /sourceSlug:\s*"iyzico-iframe",\s*familyCode:\s*"iyzico"/u);
