@@ -19,6 +19,8 @@ test("missing, partial, malformed and production authority fail closed", () => {
     { ...valid, CELEBIX_SAAS_DATABASE_NAME: "production" },
     { ...valid, CELEBIX_R2_MEDIA_ENVIRONMENT: "production" },
     { ...valid, CELEBIX_R2_PUBLIC_ORIGIN: "https://media.production.example" },
+    { ...valid, CELEBIX_R2_PUBLIC_ORIGIN: "https://bucket.r2.dev" },
+    { ...valid, CELEBIX_R2_PUBLIC_ORIGIN: "https://account.r2.cloudflarestorage.com" },
   ];
   for (const selected of invalid) assert.throws(() => parseStorefrontDataConfig(selected), /storefront_data_config_invalid/);
 });

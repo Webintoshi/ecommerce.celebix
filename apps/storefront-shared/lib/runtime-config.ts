@@ -19,6 +19,6 @@ export function parseStorefrontDataConfig(source: Environment): StorefrontDataCo
   if (!["postgres:", "postgresql:"].includes(databaseUrl.protocol) || !databaseUrl.username || !databaseUrl.password || !databaseUrl.hostname || databaseUrl.pathname !== `/${name}` || databaseUrl.hash || databaseUrl.searchParams.size !== 1 || databaseUrl.searchParams.get("sslmode") !== "require") invalid();
   const rawMediaOrigin = required(source, "CELEBIX_R2_PUBLIC_ORIGIN", 2_048);
   let mediaOrigin: URL; try { mediaOrigin = new URL(rawMediaOrigin); } catch { return invalid(); }
-  if (mediaOrigin.protocol !== "https:" || mediaOrigin.username || mediaOrigin.password || mediaOrigin.port || mediaOrigin.pathname !== "/" || mediaOrigin.search || mediaOrigin.hash || mediaOrigin.origin !== rawMediaOrigin || (!mediaOrigin.hostname.endsWith(".saas-staging.celebix.site") && !mediaOrigin.hostname.endsWith(".r2.dev"))) invalid();
+  if (mediaOrigin.protocol !== "https:" || mediaOrigin.username || mediaOrigin.password || mediaOrigin.port || mediaOrigin.pathname !== "/" || mediaOrigin.search || mediaOrigin.hash || mediaOrigin.origin !== rawMediaOrigin || !mediaOrigin.hostname.endsWith(".saas-staging.celebix.site") || mediaOrigin.hostname.endsWith(".r2.dev") || mediaOrigin.hostname.endsWith(".r2.cloudflarestorage.com")) invalid();
   return Object.freeze({ database: Object.freeze({ name, url: rawDatabaseUrl }), mediaOrigin: rawMediaOrigin });
 }
