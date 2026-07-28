@@ -1,9 +1,9 @@
 {
-  "bundleId": "phase3-202607280056-catalog-product-onboarding",
+  "bundleId": "phase3-202607280056-057-catalog-product-onboarding",
   "postgresqlMajor": 16,
   "migrationClassification": "additive",
-  "environmentAuthorization": "DISPOSABLE_ONLY_NO_STAGING_OR_PRODUCTION_APPLY",
-  "rollbackLimitations": "The down migration is authorized only for an empty disposable migration-056 rehearsal and refuses rollback after any onboarding row exists.",
+  "environmentAuthorization": "DISPOSABLE_THEN_ISOLATED_STAGING_PRODUCT_ACCEPTANCE",
+  "rollbackLimitations": "Migration 056 down is authorized only for an empty disposable rehearsal. Migration 057 down removes only its lifecycle trigger and function and deliberately preserves durable default-location rows.",
   "artifacts": [
     {
       "id": "202607280056_catalog_product_onboarding_up",
@@ -25,6 +25,27 @@
       "file": "202607280056_catalog_product_onboarding_assertions.sql",
       "sha256": "927918d0411160f214456c4b10ed911c249c92363b544d6d04f442cc8ebf5a3d",
       "purpose": "Fail on owner, RLS, ACL, trigger, and relation drift for all migration-056 objects."
+    },
+    {
+      "id": "202607280057_inventory_default_location_lifecycle_up",
+      "direction": "up",
+      "file": "202607280057_inventory_default_location_lifecycle.up.sql",
+      "sha256": "e73cb8bf602a201c317945415df003ff14ad75b855cc6a5d6ab1f1835e6b0fb6",
+      "purpose": "Create one owner-only store insert trigger and backfill every store missing its active default inventory location."
+    },
+    {
+      "id": "202607280057_inventory_default_location_lifecycle_down",
+      "direction": "down",
+      "file": "202607280057_inventory_default_location_lifecycle.down.sql",
+      "sha256": "5d867dd04fb95a824dcfcc3e3823fab574c423d51c3816a008cdd1c53e9b9ff0",
+      "purpose": "Remove only the lifecycle trigger and function while preserving durable inventory data."
+    },
+    {
+      "id": "202607280057_inventory_default_location_lifecycle_assertions",
+      "direction": "verify",
+      "file": "202607280057_inventory_default_location_lifecycle_assertions.sql",
+      "sha256": "2446db6debcd7c255269504c82169c4f1e81990855468ad193535246cf59fb7b",
+      "purpose": "Fail on store-trigger authority, owner, ACL, uniqueness, or missing-default lifecycle drift."
     }
   ]
 }

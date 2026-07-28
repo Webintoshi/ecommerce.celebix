@@ -33,6 +33,10 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
             "catalog_product_channel_assignments",
           ]) assert.doesNotMatch(sql, new RegExp(`saas\\.${obsoleteRelation}`));
 
+          assert.match(sql, /to_regprocedure\('saas[.]create_store_default_inventory_location\(\)'\) IS NOT NULL/);
+          assert.match(sql, /tgname='stores_default_inventory_location'/);
+          assert.match(sql, /AS inventory_default_location_lifecycle/);
+
           return {
             rowCount: 1,
             rows: [{

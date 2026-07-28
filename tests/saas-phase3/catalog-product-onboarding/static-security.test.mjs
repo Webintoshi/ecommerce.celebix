@@ -11,6 +11,9 @@ const read = (file) => readFileSync(path.join(SQL, file), "utf8");
 const up = read("202607280056_catalog_product_onboarding.up.sql");
 const down = read("202607280056_catalog_product_onboarding.down.sql");
 const assertions = read("202607280056_catalog_product_onboarding_assertions.sql");
+const lifecycleUp = read("202607280057_inventory_default_location_lifecycle.up.sql");
+const lifecycleDown = read("202607280057_inventory_default_location_lifecycle.down.sql");
+const lifecycleAssertions = read("202607280057_inventory_default_location_lifecycle_assertions.sql");
 const manifest = JSON.parse(read("phase3-product-onboarding-manifest.json"));
 
 const TABLES = Object.freeze([
@@ -72,10 +75,34 @@ test("down migration is disposable guarded and removes only 056 objects", () => 
   assert.doesNotMatch(down, /DROP TABLE saas[.](?:products|product_variants|product_media|inventory_locations|inventory_balances|catalog_admin_resources|store_domains)/);
 });
 
-test("manifest pins exact SHA-256 values for the three migration artifacts", () => {
+test("057 atomically binds every future store to one default inventory location", () => {
+  assert.match(lifecycleUp, /CREATE FUNCTION saas[.]create_store_default_inventory_location\(\)/);
+  assert.match(lifecycleUp, /RETURNS trigger/);
+  assert.match(lifecycleUp, /SECURITY DEFINER/);
+  assert.match(lifecycleUp, /CREATE TRIGGER stores_default_inventory_location/);
+  assert.match(lifecycleUp, /AFTER INSERT ON saas[.]stores/);
+  assert.match(lifecycleUp, /inventory_deterministic_uuid\('inventory-default-location',NEW[.]id::text\)/);
+  assert.match(lifecycleUp, /WHERE NOT EXISTS[\s\S]*location[.]is_default[\s\S]*location[.]status='active'/);
+  assert.match(lifecycleUp, /INVENTORY_DEFAULT_LOCATION_LIFECYCLE_INVALID/);
+  assert.doesNotMatch(lifecycleUp, /GRANT EXECUTE|CREATE POLICY|ALTER TABLE .* DISABLE ROW LEVEL SECURITY/);
+});
+
+test("057 assertions pin trigger authority while rollback preserves inventory data", () => {
+  for (const witness of [
+    "stores_default_inventory_location",
+    "create_store_default_inventory_location",
+    "inventory_locations_one_default_per_store_idx",
+    "celebix_saas_owner",
+  ]) assert.match(lifecycleAssertions, new RegExp(witness), witness);
+  assert.match(lifecycleDown, /DROP TRIGGER stores_default_inventory_location ON saas[.]stores/);
+  assert.match(lifecycleDown, /DROP FUNCTION saas[.]create_store_default_inventory_location\(\)/);
+  assert.doesNotMatch(lifecycleDown, /DELETE FROM|DROP TABLE|TRUNCATE/);
+});
+
+test("manifest pins exact SHA-256 values for all six migration artifacts", () => {
   assert.equal(manifest.postgresqlMajor, 16);
   assert.equal(manifest.migrationClassification, "additive");
-  assert.equal(manifest.artifacts.length, 3);
+  assert.equal(manifest.artifacts.length, 6);
   for (const artifact of manifest.artifacts) {
     assert.equal(createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex"), artifact.sha256, artifact.file);
   }

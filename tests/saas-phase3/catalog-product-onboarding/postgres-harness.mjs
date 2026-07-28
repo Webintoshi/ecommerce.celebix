@@ -16,11 +16,16 @@ const ROLLBACK_DB = `${DB}_rollback`;
 const UP = "202607280056_catalog_product_onboarding.up.sql";
 const DOWN = "202607280056_catalog_product_onboarding.down.sql";
 const ASSERTIONS = "202607280056_catalog_product_onboarding_assertions.sql";
+const LIFECYCLE_UP = "202607280057_inventory_default_location_lifecycle.up.sql";
+const LIFECYCLE_DOWN = "202607280057_inventory_default_location_lifecycle.down.sql";
+const LIFECYCLE_ASSERTIONS = "202607280057_inventory_default_location_lifecycle_assertions.sql";
 const PRIOR = JSON.parse(readFileSync(path.join(SQL, "phase3n-hosted-callback-lifecycle-manifest.json"), "utf8"));
 const NOW = "2026-07-28T12:00:00.000Z";
 const FREE_PLAN = "00000000-0000-4000-8000-000000000001";
 const STORE_A = "10000000-0000-4000-8000-000000000056";
 const STORE_B = "10000000-0000-4000-8000-000000000057";
+const LEGACY_STORE = "10000000-0000-4000-8000-000000000058";
+const ROLLBACK_STORE = "10000000-0000-4000-8000-000000000059";
 const PRINCIPAL_A = "20000000-0000-4000-8000-000000000056";
 const PRINCIPAL_B = "20000000-0000-4000-8000-000000000057";
 const MEMBERSHIP_A = "30000000-0000-4000-8000-000000000056";
@@ -29,11 +34,11 @@ const CATEGORY_A = "40000000-0000-4000-8000-000000000056";
 const CATEGORY_B = "40000000-0000-4000-8000-000000000057";
 const RESOURCE_A = "50000000-0000-4000-8000-000000000056";
 const RESOURCE_B = "50000000-0000-4000-8000-000000000057";
-const LOCATION_A = "60000000-0000-4000-8000-000000000056";
-const LOCATION_B = "60000000-0000-4000-8000-000000000057";
+const LOCATION_A = deterministicUuid("inventory-default-location", STORE_A);
+const LOCATION_B = deterministicUuid("inventory-default-location", STORE_B);
 const DOMAIN_A = "70000000-0000-4000-8000-000000000056";
 const DOMAIN_B = "70000000-0000-4000-8000-000000000057";
-const TOTAL = 25;
+const TOTAL = 26;
 let completed = 0;
 
 function executable(name) {
@@ -106,6 +111,10 @@ function productId(ordinal) { return `90000000-0000-4000-8000-${String(ordinal).
 function variantId(ordinal) { return `a0000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`; }
 function categoryId(ordinal) { return `b0000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`; }
 function fingerprint(ordinal) { return createHash("sha256").update(`catalog-onboarding-${ordinal}`).digest("hex"); }
+function deterministicUuid(namespace, value) {
+  const hash = createHash("md5").update(`${namespace}:${value}`).digest("hex");
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+}
 
 function onboard(box, ordinal, intent, options = {}) {
   const ids = options.variantIds ?? [variantId(ordinal)];
@@ -158,9 +167,6 @@ INSERT INTO saas.catalog_categories(id,store_id,parent_id,name,slug,position,dep
 INSERT INTO saas.catalog_admin_resources(id,store_id,resource_kind,name,slug,config,status,version,created_at,updated_at) VALUES
  ('${RESOURCE_A}','${STORE_A}','brand','Celebix','celebix','{}','active',1,'${NOW}','${NOW}'),
  ('${RESOURCE_B}','${STORE_B}','brand','Yabancı','yabanci','{}','active',1,'${NOW}','${NOW}');
-INSERT INTO saas.inventory_locations(id,store_id,name,is_default,status,version,created_at,updated_at) VALUES
- ('${LOCATION_A}','${STORE_A}','Ana depo',true,'active',1,'${NOW}','${NOW}'),
- ('${LOCATION_B}','${STORE_B}','Yabancı depo',true,'active',1,'${NOW}','${NOW}');
 INSERT INTO saas.store_domains(id,store_id,hostname,hostname_type,status,is_primary,verified_at,created_at,updated_at,version) VALUES
  ('${DOMAIN_A}','${STORE_A}','onboarding-a.celebix.site','platform_subdomain','active',true,'${NOW}','${NOW}','${NOW}',1),
  ('${DOMAIN_B}','${STORE_B}','onboarding-b.celebix.site','platform_subdomain','active',true,'${NOW}','${NOW}','${NOW}',1);
@@ -176,11 +182,25 @@ async function main() {
     psql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
     apply(box, UP);
     apply(box, ASSERTIONS);
+    psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
+      INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at)
+      VALUES('${LEGACY_STORE}','Pre-trigger store','pre-trigger-store','active','tr','TRY','default','2026-01-01','2026-01-01');
+      COMMIT;`);
+    assert.equal(psql(box, `SELECT count(*) FROM saas.inventory_locations WHERE store_id='${LEGACY_STORE}';`).stdout.trim(), "0");
+    apply(box, LIFECYCLE_UP);
+    apply(box, LIFECYCLE_ASSERTIONS);
     seed(box);
 
-    await scenario("PostgreSQL 16 and migration 056 apply with assertions", () => {
+    await scenario("PostgreSQL 16 and migrations 056-057 apply with assertions and legacy backfill", () => {
       assert.match(psql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
       assert.equal(psql(box, "SELECT to_regclass('saas.catalog_product_profiles') IS NOT NULL;").stdout.trim(), "t");
+      assert.equal(psql(box, `SELECT count(*) FROM saas.inventory_locations WHERE store_id='${LEGACY_STORE}' AND is_default AND status='active';`).stdout.trim(), "1");
+    });
+
+    await scenario("future stores atomically receive the exact deterministic default location", () => {
+      assert.equal(psql(box, `SELECT id FROM saas.inventory_locations WHERE store_id='${STORE_A}' AND is_default AND status='active';`).stdout.trim(), LOCATION_A);
+      assert.equal(psql(box, `SELECT id FROM saas.inventory_locations WHERE store_id='${STORE_B}' AND is_default AND status='active';`).stdout.trim(), LOCATION_B);
+      assert.equal(psql(box, "SELECT count(*) FROM saas.stores AS store JOIN saas.inventory_locations AS location ON location.store_id=store.id AND location.is_default AND location.status='active';").stdout.trim(), "3");
     });
 
     await scenario("options expose only active persisted store authorities", () => {
@@ -356,6 +376,7 @@ async function main() {
         assert.equal(psql(box, `SELECT has_table_privilege('celebix_saas_app','saas.${table}','INSERT,UPDATE,DELETE');`).stdout.trim(), "f");
       }
       assert.notEqual(psql(box, "SET ROLE celebix_saas_app; UPDATE saas.catalog_product_profiles SET version=2;", DB, true).status, 0);
+      assert.equal(psql(box, "SELECT has_function_privilege('celebix_saas_app','saas.create_store_default_inventory_location()','EXECUTE');").stdout.trim(), "f");
     });
 
     await scenario("immutable operation proof rejects owner update and delete", () => {
@@ -370,11 +391,19 @@ async function main() {
       command(box.executables.pg_restore, ["-h", box.socket, "-p", String(box.port), "-U", "postgres", "-d", RESTORE_DB, dump]);
       assert.equal(psql(box, "SELECT count(*) FROM saas.catalog_product_profiles;", RESTORE_DB).stdout.trim(), psql(box, "SELECT count(*) FROM saas.catalog_product_profiles;").stdout.trim());
       assert.notEqual(psql(box, "SET ROLE celebix_saas_app; SELECT count(*) FROM saas.catalog_product_profiles;", RESTORE_DB, true).status, 0);
+      apply(box, LIFECYCLE_ASSERTIONS, RESTORE_DB);
     });
 
     await scenario("nonempty rollback refuses while empty disposable rollback and reapply pass", () => {
       assert.notEqual(psql(box, readFileSync(path.join(SQL, DOWN), "utf8"), DB, true).status, 0);
-      apply(box, UP, ROLLBACK_DB); apply(box, ASSERTIONS, ROLLBACK_DB); apply(box, DOWN, ROLLBACK_DB);
+      apply(box, UP, ROLLBACK_DB); apply(box, ASSERTIONS, ROLLBACK_DB);
+      apply(box, LIFECYCLE_UP, ROLLBACK_DB); apply(box, LIFECYCLE_ASSERTIONS, ROLLBACK_DB);
+      apply(box, LIFECYCLE_DOWN, ROLLBACK_DB);
+      psql(box, `SET ROLE celebix_saas_owner; INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES('${ROLLBACK_STORE}','Rollback store','rollback-store','active','tr','TRY','default','2026-01-01','2026-01-01');`, ROLLBACK_DB);
+      assert.equal(psql(box, `SELECT count(*) FROM saas.inventory_locations WHERE store_id='${ROLLBACK_STORE}';`, ROLLBACK_DB).stdout.trim(), "0");
+      apply(box, LIFECYCLE_UP, ROLLBACK_DB); apply(box, LIFECYCLE_ASSERTIONS, ROLLBACK_DB);
+      assert.equal(psql(box, `SELECT count(*) FROM saas.inventory_locations WHERE store_id='${ROLLBACK_STORE}' AND is_default AND status='active';`, ROLLBACK_DB).stdout.trim(), "1");
+      apply(box, DOWN, ROLLBACK_DB);
       assert.equal(psql(box, "SELECT to_regclass('saas.catalog_product_profiles') IS NULL;", ROLLBACK_DB).stdout.trim(), "t");
       apply(box, UP, ROLLBACK_DB); apply(box, ASSERTIONS, ROLLBACK_DB);
     });

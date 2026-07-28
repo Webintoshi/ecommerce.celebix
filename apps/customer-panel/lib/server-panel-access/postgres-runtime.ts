@@ -230,6 +230,16 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.inventory_transfers') IS NOT NULL
         AND to_regclass('saas.inventory_transfer_lines') IS NOT NULL
         AND to_regclass('saas.inventory_location_operations') IS NOT NULL AS inventory_relations,
+      to_regprocedure('saas.create_store_default_inventory_location()') IS NOT NULL
+        AND EXISTS(
+          SELECT 1
+          FROM pg_catalog.pg_trigger AS trigger
+          WHERE trigger.tgrelid='saas.stores'::pg_catalog.regclass
+            AND trigger.tgname='stores_default_inventory_location'
+            AND NOT trigger.tgisinternal
+            AND trigger.tgenabled='O'
+            AND trigger.tgfoid='saas.create_store_default_inventory_location()'::pg_catalog.regprocedure
+        ) AS inventory_default_location_lifecycle,
       to_regclass('saas.price_lists') IS NOT NULL
         AND to_regclass('saas.price_list_items') IS NOT NULL
         AND to_regclass('saas.price_list_rules') IS NOT NULL
@@ -293,7 +303,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.payment_method_repository !== true || row.paytr_iframe_activation_authority !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.analytics_repository !== true ||
-      row.inventory_relations !== true || row.inventory_repository !== true ||
+      row.inventory_relations !== true || row.inventory_default_location_lifecycle !== true ||
+      row.inventory_repository !== true ||
       row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
 
