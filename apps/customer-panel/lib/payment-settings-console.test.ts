@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import * as React from "react";
+import { createElement, type ReactNode } from "react";
+import * as jsxRuntime from "react/jsx-runtime";
+import ts from "typescript";
 
-import type { MerchantPaymentMethod } from "@celebix/saas-contracts";
+import type {
+  BuiltInPaymentMethodKind,
+  MerchantPaymentMethod,
+} from "@celebix/saas-contracts";
 
 import { PaymentMethodApiError } from "./payment-method-ui/client.ts";
 import { PAYMENT_PROVIDER_CATALOG } from "./payment-providers/catalog.ts";
@@ -132,6 +139,226 @@ function method(id: string, position: number): MerchantPaymentMethod {
     createdAt: NOW,
     updatedAt: NOW,
   });
+}
+
+type DrawerNode = {
+  type: string;
+  props: Record<string, unknown>;
+  children: readonly (DrawerNode | string)[];
+  target: {
+    focusCount: number;
+    focus(): void;
+    querySelectorAll(): readonly DrawerNode["target"][];
+  };
+};
+
+function createDrawerHookRuntime() {
+  const slots: unknown[] = [];
+  const pendingEffects: Array<() => void> = [];
+  let cursor = 0;
+  let dirty = true;
+  let latest: ReactNode;
+  const sameDeps = (left: readonly unknown[] | undefined, right: readonly unknown[]) =>
+    left !== undefined && left.length === right.length
+      && left.every((value, index) => Object.is(value, right[index]));
+  const runtime = {
+    ...React,
+    useState<T>(initial: T | (() => T)) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = typeof initial === "function" ? (initial as () => T)() : initial;
+      const set = (next: T | ((current: T) => T)) => {
+        slots[index] = typeof next === "function"
+          ? (next as (current: T) => T)(slots[index] as T)
+          : next;
+        dirty = true;
+      };
+      return [slots[index] as T, set] as const;
+    },
+    useRef<T>(initial: T) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = { current: initial };
+      return slots[index] as { current: T };
+    },
+    useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as {
+        deps: readonly unknown[];
+        cleanup?: () => void;
+        generation: number;
+      } | undefined;
+      if (prior !== undefined && sameDeps(prior.deps, deps)) return;
+      const generation = (prior?.generation ?? 0) + 1;
+      slots[index] = { deps: [...deps], cleanup: prior?.cleanup, generation };
+      pendingEffects.push(() => {
+        const current = slots[index] as {
+          deps: readonly unknown[];
+          cleanup?: () => void;
+          generation: number;
+        } | undefined;
+        if (current?.generation !== generation) return;
+        current.cleanup?.();
+        const cleanup = effect();
+        slots[index] = {
+          deps: [...deps],
+          ...(typeof cleanup === "function" ? { cleanup } : {}),
+          generation,
+        };
+      });
+    },
+  } as unknown as typeof React;
+  return {
+    runtime,
+    flush(component: () => ReactNode, force = false) {
+      if (force) dirty = true;
+      if (dirty || latest === undefined) {
+        dirty = false;
+        cursor = 0;
+        latest = component();
+      }
+      return latest;
+    },
+    runEffects() {
+      for (const effect of pendingEffects.splice(0)) effect();
+    },
+  };
+}
+
+function mountDrawer(
+  node: ReactNode,
+  documentState: { activeElement: unknown },
+): readonly (DrawerNode | string)[] {
+  if (node === null || node === undefined || typeof node === "boolean") return [];
+  if (typeof node === "string" || typeof node === "number") return [String(node)];
+  if (Array.isArray(node)) return node.flatMap((child) => mountDrawer(child, documentState));
+  if (!React.isValidElement<Record<string, unknown>>(node)) return [];
+  if (node.type === React.Fragment) return mountDrawer(node.props.children as ReactNode, documentState);
+  if (typeof node.type === "function") {
+    return mountDrawer(
+      (node.type as (props: Record<string, unknown>) => ReactNode)(node.props),
+      documentState,
+    );
+  }
+  if (typeof node.type !== "string") return [];
+  let children: readonly (DrawerNode | string)[] = [];
+  const target = {
+    focusCount: 0,
+    focus() {
+      this.focusCount += 1;
+      documentState.activeElement = this;
+    },
+    querySelectorAll() {
+      return drawerNodes(children)
+        .filter((child) =>
+          (child.type === "button" || child.type === "input" || child.type === "textarea")
+          && child.props.disabled !== true)
+        .map((child) => child.target);
+    },
+  };
+  const ref = (node.props as { ref?: unknown }).ref;
+  if (typeof ref === "function") ref(target);
+  else if (ref && typeof ref === "object" && "current" in ref) {
+    (ref as { current: unknown }).current = target;
+  }
+  children = mountDrawer(node.props.children as ReactNode, documentState);
+  return [{ type: node.type, props: node.props, children, target }];
+}
+
+function drawerNodes(tree: readonly (DrawerNode | string)[]): DrawerNode[] {
+  const nodes: DrawerNode[] = [];
+  for (const child of tree) {
+    if (typeof child === "string") continue;
+    nodes.push(child, ...drawerNodes(child.children));
+  }
+  return nodes;
+}
+
+function drawerText(node: DrawerNode | string): string {
+  return typeof node === "string" ? node : node.children.map(drawerText).join("");
+}
+
+async function compileBuiltInDrawer(input: Readonly<{
+  kind: BuiltInPaymentMethodKind;
+  method: MerchantPaymentMethod | null;
+  canManage: boolean;
+  busy: boolean;
+  onSubmit(value: unknown): void | Promise<void>;
+  onClose(): void;
+}>) {
+  const output = ts.transpileModule(
+    await source("components/settings/payment/BuiltInPaymentMethodDrawer.tsx"),
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    },
+  ).outputText;
+  const hooks = createDrawerHookRuntime();
+  const contracts = await import("@celebix/saas-contracts");
+  const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+  const styles = new Proxy({}, {
+    get: (_target, property) =>
+      property === "__esModule" ? true : property === "default" ? styles : String(property),
+  });
+  const documentState = {
+    activeElement: null as unknown,
+    body: { style: { overflow: "visible" } },
+  };
+  const values: Record<string, string> = Object.create(null) as Record<string, string>;
+  let uuidCalls = 0;
+  const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return hooks.runtime;
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+    if (specifier === "@celebix/saas-contracts") return contracts;
+    if (specifier === "./payment-settings.module.css") return styles;
+    throw new Error(`unexpected_built_in_drawer_import:${specifier}`);
+  };
+  class TestFormData {
+    get(name: string) {
+      return values[name] ?? null;
+    }
+  }
+  const cryptoState = {
+    randomUUID() {
+      uuidCalls += 1;
+      return `51000000-0000-4000-8000-${String(uuidCalls + 10).padStart(12, "0")}`;
+    },
+  };
+  Function(
+    "require",
+    "module",
+    "exports",
+    "document",
+    "crypto",
+    "FormData",
+    output,
+  )(requireModule, compiled, compiled.exports, documentState, cryptoState, TestFormData);
+  const Drawer = compiled.exports.BuiltInPaymentMethodDrawer as
+    (props: typeof input) => ReactNode;
+  assert.equal(typeof Drawer, "function");
+  let properties = { ...input };
+  let mounted: readonly (DrawerNode | string)[] = [];
+  return {
+    documentState,
+    values,
+    uuidCalls: () => uuidCalls,
+    setBusy(busy: boolean) {
+      properties = { ...properties, busy };
+    },
+    render(force = false) {
+      const tree = hooks.flush(() => Drawer(properties), force);
+      mounted = mountDrawer(tree, documentState);
+      hooks.runEffects();
+      return mounted;
+    },
+    nodes() {
+      return drawerNodes(mounted);
+    },
+  };
 }
 
 test("payment console contains the ikas-like Celebix payment structure without foreign rails", async () => {
@@ -395,6 +622,161 @@ test("provider activation reconciles duplicate create and uncertain activation w
   });
   assert.equal(lists, 1);
   assert.deepEqual(uncertain, Object.freeze({ kind: "active", methodId: existing.id, created: false }));
+});
+
+test("built-in drawer owns submit synchronously, normalizes IBAN, and unlocks only after the console busy cycle", async () => {
+  const submissions: unknown[] = [];
+  let closes = 0;
+  const drawer = await compileBuiltInDrawer({
+    kind: "bank_transfer",
+    method: null,
+    canManage: true,
+    busy: false,
+    async onSubmit(value) { submissions.push(value); },
+    onClose() { closes += 1; },
+  });
+  Object.assign(drawer.values, {
+    label: "Banka havalesi",
+    bankName: "Örnek Bankası",
+    accountHolder: "Örnek Ticaret Ltd. Şti.",
+    iban: "tr33 0006 1005 1978 6457 8413 26",
+    instructions: "Açıklamaya sipariş numaranızı yazın.",
+  });
+
+  drawer.render();
+  const label = drawer.nodes().find((node) => node.type === "input" && node.props.name === "label");
+  assert.ok(label);
+  assert.equal(label.target.focusCount, 1);
+  const dialog = drawer.nodes().find((node) => node.type === "aside");
+  assert.ok(dialog);
+  assert.equal(dialog.props.role, "dialog");
+  assert.equal(dialog.props["aria-modal"], "true");
+  const form = drawer.nodes().find((node) => node.type === "form");
+  assert.ok(form);
+  const event = { preventDefault() {}, currentTarget: {} };
+  (form.props.onSubmit as (event: unknown) => void)(event);
+  (form.props.onSubmit as (event: unknown) => void)(event);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  assert.equal(drawer.uuidCalls(), 1);
+  assert.equal(submissions.length, 1);
+  assert.deepEqual(submissions[0], {
+    kind: "bank_transfer",
+    method: null,
+    methodId: "51000000-0000-4000-8000-000000000011",
+    label: "Banka havalesi",
+    config: Object.freeze({
+      accountHolder: "Örnek Ticaret Ltd. Şti.",
+      bankName: "Örnek Bankası",
+      iban: "TR330006100519786457841326",
+      instructions: "Açıklamaya sipariş numaranızı yazın.",
+    }),
+  });
+  assert.equal(Object.isFrozen(
+    (submissions[0] as { config: Readonly<Record<string, unknown>> }).config,
+  ), true);
+
+  (form.props.onSubmit as (event: unknown) => void)(event);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(submissions.length, 1, "completion alone must not release canonical reload ownership");
+
+  drawer.setBusy(true);
+  drawer.render(true);
+  drawer.setBusy(false);
+  drawer.render(true);
+  const reloadedForm = drawer.nodes().find((node) => node.type === "form");
+  assert.ok(reloadedForm);
+  (reloadedForm.props.onSubmit as (event: unknown) => void)(event);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(submissions.length, 2);
+  assert.equal(drawer.uuidCalls(), 2);
+
+  drawer.setBusy(true);
+  drawer.render(true);
+  drawer.setBusy(false);
+  drawer.render(true);
+  let prevented = false;
+  const reloadedDialog = drawer.nodes().find((node) => node.type === "aside");
+  assert.ok(reloadedDialog);
+  (reloadedDialog.props.onKeyDown as (event: unknown) => void)({
+    key: "Escape",
+    preventDefault() { prevented = true; },
+  });
+  assert.equal(prevented, true);
+  const close = drawer.nodes().find((node) =>
+    node.type === "button" && node.props["aria-label"] === "Yerleşik yöntem penceresini kapat");
+  assert.ok(close);
+  (close.props.onClick as () => void)();
+  assert.equal(closes, 2);
+});
+
+test("built-in drawer focuses invalid bank data and disables every mutation control for read-only access", async () => {
+  let submissions = 0;
+  let closes = 0;
+  const drawer = await compileBuiltInDrawer({
+    kind: "bank_transfer",
+    method: null,
+    canManage: false,
+    busy: false,
+    onSubmit() { submissions += 1; },
+    onClose() { closes += 1; },
+  });
+  Object.assign(drawer.values, {
+    label: "Banka havalesi",
+    bankName: "Örnek Bankası",
+    accountHolder: "Örnek Ticaret Ltd. Şti.",
+    iban: "TR000006100519786457841326",
+    instructions: "",
+  });
+
+  const tree = drawer.render();
+  const controls = drawer.nodes().filter((node) =>
+    node.type === "input" || node.type === "textarea");
+  assert.equal(controls.length, 5);
+  assert.equal(controls.every((control) => control.props.disabled === true), true);
+  const submit = drawer.nodes().find((node) =>
+    node.type === "button" && node.props.type === "submit");
+  assert.ok(submit);
+  assert.equal(submit.props.disabled, true);
+  assert.match(tree.map(drawerText).join(""), /Salt okunur erişim/);
+  const form = drawer.nodes().find((node) => node.type === "form");
+  assert.ok(form);
+  (form.props.onSubmit as (event: unknown) => void)({
+    preventDefault() {},
+    currentTarget: {},
+  });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(submissions, 0);
+
+  const close = drawer.nodes().find((node) =>
+    node.type === "button" && node.props["aria-label"] === "Yerleşik yöntem penceresini kapat");
+  assert.ok(close);
+  (close.props.onClick as () => void)();
+  assert.equal(closes, 1);
+
+  const editableDrawer = await compileBuiltInDrawer({
+    kind: "bank_transfer",
+    method: null,
+    canManage: true,
+    busy: false,
+    onSubmit() { submissions += 1; },
+    onClose() {},
+  });
+  Object.assign(editableDrawer.values, drawer.values);
+  editableDrawer.render();
+  const invalidForm = editableDrawer.nodes().find((node) => node.type === "form");
+  assert.ok(invalidForm);
+  (invalidForm.props.onSubmit as (event: unknown) => void)({
+    preventDefault() {},
+    currentTarget: {},
+  });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const iban = editableDrawer.nodes().find((node) =>
+    node.type === "input" && node.props.name === "iban");
+  assert.ok(iban);
+  assert.equal(iban.target.focusCount, 1);
+  assert.equal(submissions, 0);
+  assert.equal(editableDrawer.uuidCalls(), 0);
 });
 
 test("payment dialogs provide focus safety, masked connection state and dormant secrets", async () => {

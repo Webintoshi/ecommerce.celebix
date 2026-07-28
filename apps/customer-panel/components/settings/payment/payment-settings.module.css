@@ -92,6 +92,8 @@
 .catalogFilters input:focus-visible,
 .catalogFilters select:focus-visible,
 .connectionForm input:focus-visible,
+.builtInForm input:focus-visible,
+.builtInForm textarea:focus-visible,
 .orderEditor li:focus-within {
   outline: 3px solid rgb(255 101 0 / 24%);
   outline-offset: 2px;
@@ -270,7 +272,8 @@
 
 .catalogDialog,
 .orderDialog,
-.connectionDrawer {
+.connectionDrawer,
+.builtInDrawer {
   width: min(70rem, 100%);
   max-height: calc(100dvh - 3rem);
   overflow: hidden;
@@ -299,9 +302,12 @@
 .catalogDialog > .readOnlyNotice,
 .orderDialog > .readOnlyNotice,
 .connectionDrawer > .readOnlyNotice,
+.builtInDrawer > .readOnlyNotice,
 .orderDialog > .errorNotice,
 .connectionDrawer > .successNotice,
-.connectionDrawer > .errorNotice { margin: 1rem 1.25rem 0; }
+.connectionDrawer > .errorNotice,
+.builtInDrawer > .providerWarning,
+.builtInDrawer > .errorNotice { margin: 1rem 1.25rem 0; }
 
 .catalogFilters {
   display: grid;
@@ -311,7 +317,9 @@
 }
 .catalogFilters input,
 .catalogFilters select,
-.connectionForm input {
+.connectionForm input,
+.builtInForm input,
+.builtInForm textarea {
   width: 100%;
   min-height: 48px;
   border: 1px solid #d8dee7;
@@ -351,7 +359,8 @@
 .providerCard > button { margin-top: auto; }
 
 .drawerLayer { place-items: stretch; padding: 0; }
-.connectionDrawer {
+.connectionDrawer,
+.builtInDrawer {
   display: flex;
   width: min(32rem, 100%);
   max-height: 100dvh;
@@ -361,8 +370,15 @@
   border-radius: 1rem 0 0 1rem;
   animation: drawerIn 180ms ease-out;
 }
-.connectionForm { display: grid; gap: 1rem; padding: 1.25rem; }
-.connectionForm label { display: grid; gap: 0.45rem; color: #344054; font-size: 0.75rem; font-weight: 750; }
+.connectionForm,
+.builtInForm { display: grid; gap: 1rem; padding: 1.25rem; }
+.connectionForm label,
+.builtInForm label { display: grid; gap: 0.45rem; color: #344054; font-size: 0.75rem; font-weight: 750; }
+.builtInForm textarea {
+  min-height: 7rem;
+  padding-block: 0.75rem;
+  resize: vertical;
+}
 .connectionSummary { display: grid; gap: 0.25rem; border: 1px solid #e5e9ef; border-radius: 0.7rem; background: #f8f9fb; padding: 0.85rem; }
 .connectionSummary strong { font-size: 0.8rem; }
 .connectionSummary span { color: #667085; font-size: 0.72rem; }
@@ -435,7 +451,8 @@
   .dialogActions .secondaryButton,
   .drawerActions .primaryButton,
   .drawerActions .secondaryButton { flex: 1; }
-  .connectionDrawer { border-radius: 0; }
+  .connectionDrawer,
+  .builtInDrawer { border-radius: 0; }
 }
 
 @media (max-width: 420px) {
@@ -450,7 +467,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .connectionDrawer { animation: none; }
+  .connectionDrawer,
+  .builtInDrawer { animation: none; }
   .primaryButton,
   .secondaryButton,
   .plannedButton,
