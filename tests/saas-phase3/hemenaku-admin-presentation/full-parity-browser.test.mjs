@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../");
 const read = (file) => readFile(path.join(ROOT, file), "utf8");
@@ -57,6 +57,50 @@ test("fixture exposes deterministic production transport records without externa
   const externalUrls = fixture.match(/https?:\/\/[^"'`\s]+/gi) ?? [];
   assert.equal(externalUrls.every((url) => new URL(url).hostname.endsWith(".test")), true);
   assert.doesNotMatch(fixture, /\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\b/i);
+});
+
+test("fixture product publication mutates the real catalog route contract and canonical reads", async () => {
+  const moduleUrl = pathToFileURL(path.join(
+    ROOT,
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/[...slug]/route.ts",
+  ));
+  moduleUrl.searchParams.set("test", "product-publication");
+  const fixture = await import(moduleUrl.href);
+  const context = Object.freeze({
+    params: Promise.resolve({ slug: ["catalog", "products", "33333333-3333-4333-8333-333333333333"] }),
+  });
+  const product = Object.freeze({
+    title: "Keten Gömlek",
+    slug: "keten-gomlek",
+    description: "Doğal keten gömlek.",
+    status: "active",
+    currency: "TRY",
+  });
+  const request = new Request(
+    "http://127.0.0.1:3215/api/catalog/products/33333333-3333-4333-8333-333333333333",
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      },
+      body: JSON.stringify({ expectedVersion: 3, product }),
+    },
+  );
+
+  assert.equal(typeof fixture.PATCH, "function");
+  const publication = await fixture.PATCH(request, context);
+  assert.equal(publication.status, 200);
+  const published = await publication.json();
+  assert.equal(published.product.status, "active");
+  assert.equal(published.product.version, 4);
+  assert.equal(published.replayed, false);
+
+  const detail = await fixture.GET(new Request(request.url), context);
+  assert.equal(detail.status, 200);
+  const canonical = await detail.json();
+  assert.equal(canonical.product.status, "active");
+  assert.equal(canonical.product.version, 4);
 });
 
 test("SEO replay fixture uses a canonical UUID and the production typed configuration validator", async () => {
