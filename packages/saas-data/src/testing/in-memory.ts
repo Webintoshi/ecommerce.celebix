@@ -12,6 +12,7 @@ import type {
   SaaSDataState,
   SaaSGeneratedIdKind,
   StoreRecord,
+  StoreMediaNamespaceRecord,
   StoreSettingRecord,
   SubscriptionRecord,
   TenantOperationRecord,
@@ -55,6 +56,7 @@ function initialState(overrides?: Partial<SaaSDataState>): SaaSDataState {
     memberships: [],
     plans: [DEFAULT_PLAN],
     subscriptions: [],
+    mediaNamespaces: [],
     settings: [],
     operations: [],
     ...structuredClone(overrides ?? {}),
@@ -73,6 +75,7 @@ class InMemoryTransaction implements SaaSDataTransaction {
   readonly memberships;
   readonly plans;
   readonly subscriptions;
+  readonly mediaNamespaces;
   readonly settings;
   readonly operations;
 
@@ -210,6 +213,37 @@ class InMemoryTransaction implements SaaSDataTransaction {
         }
         this.state.subscriptions.push(structuredClone(record));
         maybeFail("after_subscription_create");
+        return structuredClone(record);
+      },
+    };
+
+    this.mediaNamespaces = {
+      findByStoreId: async (storeId: string) => {
+        ensureActive();
+        const record = this.state.mediaNamespaces.find((entry) => entry.storeId === storeId);
+        return record ? structuredClone(record) : null;
+      },
+      create: async (record: StoreMediaNamespaceRecord) => {
+        ensureActive();
+        const expectedKeys = ["storeId", "namespacePrefix", "status", "version", "createdAt", "updatedAt"].sort();
+        const actualKeys = Object.keys(record).sort();
+        if (
+          actualKeys.length !== expectedKeys.length ||
+          actualKeys.some((key, index) => key !== expectedKeys[index]) ||
+          record.namespacePrefix !== `stores/${record.storeId}/` ||
+          record.status !== "active" ||
+          record.version !== 1 ||
+          record.createdAt !== record.updatedAt
+        ) {
+          throw new Error("Invalid media namespace record");
+        }
+        if (this.state.mediaNamespaces.some(
+          (entry) => entry.storeId === record.storeId || entry.namespacePrefix === record.namespacePrefix,
+        )) {
+          throw new SaaSDataUniqueConflict("media_namespace");
+        }
+        this.state.mediaNamespaces.push(structuredClone(record));
+        maybeFail("after_media_namespace_create");
         return structuredClone(record);
       },
     };

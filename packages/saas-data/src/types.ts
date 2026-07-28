@@ -29,6 +29,7 @@ export type UniqueConflictKind =
   | "domain_hostname"
   | "membership"
   | "subscription"
+  | "media_namespace"
   | "setting"
   | "operation_idempotency";
 
@@ -39,6 +40,7 @@ export type InMemoryFailurePoint =
   | "after_domain_create"
   | "after_membership_create"
   | "after_subscription_create"
+  | "after_media_namespace_create"
   | "after_setting_create"
   | "after_operation_create"
   | "after_operation_commit";
@@ -112,6 +114,17 @@ export interface StoreSettingRecord {
   updatedAt: string;
 }
 
+export type StoreMediaNamespaceStatus = "active" | "suspended" | "deleting" | "deleted";
+
+export interface StoreMediaNamespaceRecord {
+  storeId: StoreId;
+  namespacePrefix: string;
+  status: StoreMediaNamespaceStatus;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type TenantOperationStatus = "processing" | "committed" | "failed";
 
 export interface TenantOperationRecord {
@@ -135,6 +148,7 @@ export interface StoreBootstrapRecords {
   membership: MembershipRecord;
   plan: PlanRecord;
   subscription: SubscriptionRecord;
+  mediaNamespace: StoreMediaNamespaceRecord;
   settings: readonly StoreSettingRecord[];
   operation: TenantOperationRecord;
 }
@@ -146,6 +160,7 @@ export interface SaaSDataState {
   memberships: MembershipRecord[];
   plans: PlanRecord[];
   subscriptions: SubscriptionRecord[];
+  mediaNamespaces: StoreMediaNamespaceRecord[];
   settings: StoreSettingRecord[];
   operations: TenantOperationRecord[];
 }
