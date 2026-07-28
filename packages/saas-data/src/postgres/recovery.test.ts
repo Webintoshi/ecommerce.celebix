@@ -46,6 +46,7 @@ const validSnapshot = {
     limits: { products: 100, staff: 1, storageBytes: 1_000_000_000, monthlyOrders: 100, customDomains: 0 },
     validFrom: "2026-07-11T01:00:00.000Z",
   },
+  mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
   provisioningStatus: "ready",
   panelUrl: "https://panel.example.test/stores/tenant-a",
   storefrontUrl: "https://tenant-a.example.test",

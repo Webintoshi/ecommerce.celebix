@@ -192,6 +192,11 @@ const starterResult: CreateStarterTenantResult = {
   primaryDomain: activeHost,
   membership,
   plan: entitlements,
+  mediaStorage: {
+    schemaVersion: 1,
+    status: "ready",
+    version: 1,
+  },
   provisioningStatus: "ready",
   panelUrl: "https://panel.celebix.site",
   storefrontUrl: "https://ornek.celebix.site",
@@ -251,6 +256,7 @@ test("CreateStarterTenantInput requires a verified identity literal", () => {
 
 test("CreateStarterTenantResult contains no sensitive keys", () => {
   assert.deepEqual(collectSensitiveKeys(starterResult), []);
+  assert.deepEqual(starterResult.mediaStorage, { schemaVersion: 1, status: "ready", version: 1 });
 });
 
 test("TenantContext contains no sensitive keys", () => {
