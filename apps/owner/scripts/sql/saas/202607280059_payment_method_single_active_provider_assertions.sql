@@ -10,6 +10,16 @@ DECLARE
     'saas.payment_method_single_active_provider_preflight()'
   );
 BEGIN
+  IF preflight_oid IS NULL OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_proc AS procedure
+    WHERE procedure.oid=preflight_oid AND procedure.proowner=owner_oid
+      AND procedure.prosecdef AND procedure.provolatile='s'
+      AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+      AND pg_catalog.md5(procedure.prosrc)='4d2e4b456b88573c83de9bd47ce05f62'
+  ) THEN
+    RAISE EXCEPTION 'PAYMENT_METHOD_SINGLE_ACTIVE_PROVIDER_PREFLIGHT_BODY_INVALID';
+  END IF;
+
   IF saas.payment_method_single_active_provider_preflight() IS DISTINCT FROM true
   THEN RAISE EXCEPTION 'PAYMENT_METHOD_SINGLE_ACTIVE_PROVIDER_PREFLIGHT_INVALID'; END IF;
 
@@ -30,8 +40,7 @@ BEGIN
     ) IS NULL
   THEN RAISE EXCEPTION 'PAYMENT_METHOD_SINGLE_ACTIVE_PROVIDER_OBJECT_INVALID'; END IF;
 
-  IF preflight_oid IS NULL
-    OR NOT pg_catalog.has_function_privilege(owner_oid,preflight_oid,'EXECUTE')
+  IF NOT pg_catalog.has_function_privilege(owner_oid,preflight_oid,'EXECUTE')
     OR NOT pg_catalog.has_function_privilege(app_oid,preflight_oid,'EXECUTE')
     OR NOT pg_catalog.has_function_privilege(workflow_oid,preflight_oid,'EXECUTE')
     OR EXISTS(

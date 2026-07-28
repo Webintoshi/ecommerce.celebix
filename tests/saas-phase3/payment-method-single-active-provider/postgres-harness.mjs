@@ -11,6 +11,7 @@ const PG = "/Users/Celebix/.codex/tmp/postgresql-16.14-install/bin";
 const DB = "payment_method_single_active_provider";
 const ROLLBACK_DB = "payment_method_single_active_provider_rollback";
 const CONFLICT_DB = "payment_method_single_active_provider_conflict";
+const DRIFT_DB = "payment_method_single_active_provider_drift";
 const UP = "202607280059_payment_method_single_active_provider.up.sql";
 const DOWN = "202607280059_payment_method_single_active_provider.down.sql";
 const ASSERTIONS = "202607280059_payment_method_single_active_provider_assertions.sql";
@@ -25,9 +26,15 @@ const OTHER_MEMBERSHIP = "30000000-0000-4000-8000-000000000060";
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const IYZICO_METHOD = "50000000-0000-4000-8000-000000000059";
 const PAYTR_METHOD = "50000000-0000-4000-8000-000000000060";
+const PAYTR_PROFILE = "40000000-0000-4000-8000-000000000060";
 const OTHER_METHOD = "50000000-0000-4000-8000-000000000063";
 const NOW = "2026-07-28T12:05:00.000Z";
-const TOTAL = 9;
+const ROLLBACK_SIGNATURES = Object.freeze([
+  "saas.payment_method_set_state(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text)",
+  "saas.paytr_iframe_test_payment_method_activate(uuid,uuid,timestamp with time zone)",
+  "saas.paytr_iframe_activation_preflight()",
+]);
+const TOTAL = 12;
 let completed = 0;
 
 function bin(name) {
@@ -139,18 +146,26 @@ async function concurrentState(box, input, applicationName) {
   }
 }
 
-function publicFunctionProjection(box, database) {
+function functionProjection(box, database, signature) {
   return sql(box, `SELECT pg_catalog.jsonb_build_object(
     'body',pg_catalog.md5(procedure.prosrc),
     'owner',procedure.proowner::regrole::text,
     'securityDefiner',procedure.prosecdef,
     'config',procedure.proconfig,
-    'appExecute',pg_catalog.has_function_privilege(
-      'celebix_saas_app',procedure.oid,'EXECUTE'
-    )
+    'acl',COALESCE((
+      SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'grantor',pg_catalog.pg_get_userbyid(privilege.grantor),
+        'grantee',pg_catalog.pg_get_userbyid(privilege.grantee),
+        'privilege',privilege.privilege_type,
+        'grantable',privilege.is_grantable
+      ) ORDER BY privilege.grantee,privilege.privilege_type)
+      FROM pg_catalog.aclexplode(
+        COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+      ) AS privilege
+    ),'[]'::jsonb)
   )::text
   FROM pg_catalog.pg_proc AS procedure
-  WHERE procedure.oid='saas.payment_method_set_state(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text)'::regprocedure;`, database).stdout.trim();
+  WHERE procedure.oid='${signature}'::regprocedure;`, database).stdout.trim();
 }
 
 async function main() {
@@ -162,10 +177,26 @@ async function main() {
     sql(box, FIXTURE);
     sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${CONFLICT_DB} TEMPLATE ${DB};`, "postgres");
-    const beforeRollback = publicFunctionProjection(box, ROLLBACK_DB);
+    sql(box, `CREATE DATABASE ${DRIFT_DB} TEMPLATE ${DB};`, "postgres");
+    const beforeRollback = Object.freeze(Object.fromEntries(ROLLBACK_SIGNATURES.map((signature) => [
+      signature,
+      functionProjection(box, ROLLBACK_DB, signature),
+    ])));
 
     apply(box, UP);
     apply(box, ASSERTIONS);
+
+    pass("059 preserves the complete 053 through 058 preflight chain", () => {
+      for (const functionName of [
+        "paytr_iframe_activation_preflight",
+        "payment_provider_keyed_lifecycle_preflight",
+        "quick_order_hosted_payment_authority_preflight",
+        "quick_order_hosted_payment_bridge_preflight",
+      ]) {
+        assert.equal(sql(box, `SET ROLE celebix_saas_workflow;
+          SELECT saas.${functionName}();`).stdout.trim(), "t", functionName);
+      }
+    });
 
     pass("059 installs an exact store-scoped provider-only unique boundary and private delegate", () => {
       assert.equal(sql(box, `SELECT pg_catalog.count(*) FROM pg_catalog.pg_index AS index
@@ -211,6 +242,18 @@ async function main() {
         SELECT saas.payment_method_single_active_provider_preflight();`).stdout.trim(), "t");
     });
 
+    pass("assertions reject a preflight body replaced with unconditional success", () => {
+      apply(box, UP, DRIFT_DB);
+      sql(box, `SET ROLE celebix_saas_owner;
+        CREATE OR REPLACE FUNCTION saas.payment_method_single_active_provider_preflight()
+        RETURNS boolean
+        LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+        AS $drift$ BEGIN RETURN true; END $drift$;`, DRIFT_DB);
+      const rejected = apply(box, ASSERTIONS, DRIFT_DB, true);
+      assert.notEqual(rejected.status, 0);
+      assert.match(rejected.stderr, /PAYMENT_METHOD_SINGLE_ACTIVE_PROVIDER_PREFLIGHT_BODY_INVALID/);
+    });
+
     pass("cash on delivery and bank transfer remain active beside a provider", () => {
       assert.equal(appState(box, {
         method: IYZICO_METHOD,
@@ -223,6 +266,30 @@ async function main() {
         WHERE store_id='${STORE}' AND state='active' AND kind<>'provider';`).stdout.trim(), "2");
       assert.equal(sql(box, `SELECT pg_catalog.count(*) FROM saas.payment_methods
         WHERE store_id='${STORE}' AND state='active' AND kind='provider';`).stdout.trim(), "1");
+    });
+
+    pass("PayTR validation succeeds without auto-switching an active Iyzico provider", () => {
+      const lease = "80000000-0000-4000-8000-000000000060";
+      sql(box, `SET ROLE celebix_saas_owner;
+        UPDATE saas.merchant_provider_profiles SET
+          status='pending_validation',validation_lease_id='${lease}',
+          validation_lease_owner='single-provider-worker',
+          validation_lease_expires_at='2026-07-28T12:10:00.000Z'
+        WHERE id='${PAYTR_PROFILE}';`);
+      assert.equal(sql(box, `SET ROLE celebix_saas_workflow;
+        SELECT outcome FROM saas.merchant_provider_profile_mark_validation(
+          '${PAYTR_PROFILE}'::uuid,'paytr_iframe','payment_processing','test',1,
+          'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          'single-provider-worker','2026-07-28T12:06:00.000Z'::timestamptz,
+          '${lease}'::uuid,1,1,'validated','credentials_validated'
+        );`).stdout.trim(), "validated");
+      assert.equal(sql(box, `SELECT profile.status||'|'||method.state
+        FROM saas.merchant_provider_profiles AS profile
+        JOIN saas.payment_methods AS method ON method.profile_id=profile.id
+        WHERE profile.id='${PAYTR_PROFILE}';`).stdout.trim(), "active|disabled");
+      assert.equal(sql(box, `SELECT provider_code||'|'||state
+        FROM saas.payment_methods WHERE store_id='${STORE}' AND state='active';`).stdout.trim(),
+        "iyzico_iframe|active");
     });
 
     pass("a second provider returns a clean conflict and does not switch providers", () => {
@@ -331,7 +398,7 @@ async function main() {
         WHERE store_id='${STORE}' AND kind='provider' AND state='active';`).stdout.trim(), "1");
     });
 
-    pass("migration rejects legacy duplicate active providers and rollback restores the exact delegate", () => {
+    pass("migration rejects legacy duplicates and rollback restores every exact 053 function", () => {
       sql(box, `SET ROLE celebix_saas_owner;
         UPDATE saas.payment_methods SET state='active'
         WHERE store_id='${STORE}' AND kind='provider';`, CONFLICT_DB);
@@ -342,13 +409,23 @@ async function main() {
       apply(box, UP, ROLLBACK_DB);
       apply(box, ASSERTIONS, ROLLBACK_DB);
       apply(box, DOWN, ROLLBACK_DB);
-      assert.equal(publicFunctionProjection(box, ROLLBACK_DB), beforeRollback);
+      for (const signature of ROLLBACK_SIGNATURES) {
+        assert.equal(functionProjection(box, ROLLBACK_DB, signature), beforeRollback[signature], signature);
+      }
       assert.equal(sql(box, `SELECT pg_catalog.to_regclass(
         'saas.payment_methods_one_active_provider_per_store_idx'
       ) IS NULL;`, ROLLBACK_DB).stdout.trim(), "t");
-      assert.equal(sql(box, `SELECT pg_catalog.to_regprocedure(
-        'saas.payment_method_set_state_without_single_active_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text)'
-      ) IS NULL;`, ROLLBACK_DB).stdout.trim(), "t");
+      assert.equal(sql(box, `SELECT pg_catalog.count(*) FROM pg_catalog.unnest(ARRAY[
+        pg_catalog.to_regprocedure(
+          'saas.payment_method_set_state_without_single_active_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text)'
+        ),
+        pg_catalog.to_regprocedure(
+          'saas.paytr_iframe_test_payment_method_activate_without_single_active_provider(uuid,uuid,timestamp with time zone)'
+        ),
+        pg_catalog.to_regprocedure(
+          'saas.paytr_iframe_activation_preflight_without_single_active_provider()'
+        )
+      ]) AS delegate(oid) WHERE delegate.oid IS NOT NULL;`, ROLLBACK_DB).stdout.trim(), "0");
     });
 
     assert.equal(completed, TOTAL);
