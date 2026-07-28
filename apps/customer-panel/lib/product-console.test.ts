@@ -708,6 +708,22 @@ test("detail and media surfaces retain versioned target commands", async () => {
   assert.doesNotMatch(`${detail}\n${media}`, /storeId|tenantId|document\.cookie|\/api\/admin|supabase/i);
 });
 
+test("create and edit use one safe Markdown description field", async () => {
+  const field = await source("components/catalog/ProductDescriptionField.tsx").catch(() => "");
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+
+  assert.match(field, /normalizeProductDescriptionHtml/);
+  assert.match(field, /name="description"/);
+  assert.match(field, /maxLength=\{10_000\}/);
+  assert.match(field, /Markdown desteklenir/);
+  assert.match(field, /Markdown önizleme/);
+  assert.match(detail, /ProductDescriptionField/);
+  assert.match(detail, /ProductDescriptionPreview/);
+  assert.match(advanced, /ProductDescriptionField/);
+  assert.doesNotMatch(detail, /<p>\{product[.]description/);
+});
+
 class FocusTarget {
   isConnected = true;
   focusCount = 0;

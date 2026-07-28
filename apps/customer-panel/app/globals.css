@@ -238,6 +238,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-summary-grid article > span { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .product-summary-grid p { margin: 0; color: #4e4d48; font-size: 12px; line-height: 1.65; }
 .product-summary-grid strong { font-size: 12px; }
+.product-description-field { display: grid; gap: 8px; }
+.product-description-field > label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.product-description-field > label small { color: var(--muted); font-size: 10px; font-weight: 600; }
+.product-description-preview { display: grid; min-width: 0; gap: 10px; border: 1px solid #e3e8ef; border-radius: 13px; background: #f8fafc; padding: 14px; }
+.product-description-preview > strong { color: #667085; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.product-description-preview > p { margin: 0; color: var(--muted); font-size: 12px; }
+.product-description-rich-text { min-width: 0; color: #344054; font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+.product-description-rich-text > :first-child { margin-top: 0; }
+.product-description-rich-text > :last-child { margin-bottom: 0; }
+.product-description-rich-text a { color: #a34100; text-decoration: underline; text-underline-offset: 2px; }
+.product-description-rich-text blockquote { margin-inline: 0; border-left: 3px solid #ffb27e; padding-left: 12px; color: #667085; }
+.product-description-rich-text pre { max-width: 100%; overflow-x: auto; border-radius: 9px; background: #182230; padding: 12px; color: #fff; }
+.product-description-rich-text :not(pre) > code { border-radius: 5px; background: #eef2f6; padding: 2px 5px; }
+.product-description-rich-text table { width: 100%; border-collapse: collapse; }
+.product-description-rich-text th, .product-description-rich-text td { border: 1px solid #d8dee8; padding: 8px; text-align: left; }
 .section-heading-row { margin-top: 16px; }
 .section-heading-row h2 { margin: 4px 0 5px; font-size: 23px; letter-spacing: -.025em; }
 .variant-list { display: grid; gap: 10px; }

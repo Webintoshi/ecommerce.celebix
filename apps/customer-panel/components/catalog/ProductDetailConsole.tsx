@@ -13,6 +13,7 @@ import { buildProductUpdatePayload, buildVariantPayload } from "@/lib/catalog-ui
 import { formatTurkishMoney, formatTurkishMoneyInput } from "@/lib/catalog-ui/money";
 import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAdvancedEditor";
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
+import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
 
 function value(data: FormData, key: string) {
@@ -266,14 +267,14 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
               <label className="field"><span>URL anahtarı <b>*</b></span><input name="slug" required minLength={3} maxLength={100} defaultValue={product.slug} /></label>
               <label className="field"><span>Durum <b>*</b></span><select name="status" defaultValue={product.status}><option value="draft">Taslak</option><option value="active">Aktif</option></select></label>
               <label className="field"><span>Para birimi</span><select name="currency" defaultValue={product.currency}><option value="TRY">TRY — Türk lirası</option></select></label>
-              <label className="field field-wide"><span>Açıklama</span><textarea name="description" maxLength={10_000} rows={4} defaultValue={product.description ?? ""} /></label>
+              <ProductDescriptionField className="field field-wide" rows={4} defaultValue={product.description ?? ""} />
             </div>
           </fieldset>
           <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => setEditingProduct(false)}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === "product" ? "Kaydediliyor…" : "Değişiklikleri kaydet"}</button></div>
           </form>
         ) : (
           <div className="product-summary-grid">
-            <article><span>Açıklama</span><p>{product.description ?? "Bu ürün için açıklama eklenmemiş."}</p></article>
+            <article><span>Açıklama</span><ProductDescriptionPreview source={product.description} emptyMessage="Bu ürün için açıklama eklenmemiş." /></article>
             <article><span>Son güncelleme</span><strong>{new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date(product.updatedAt))}</strong></article>
           </div>
         )}

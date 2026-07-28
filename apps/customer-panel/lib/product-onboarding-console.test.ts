@@ -62,6 +62,7 @@ test("advanced editor is one collapsible form, not a wizard", async () => {
   assert.match(editor, /stickySummary/);
   assert.match(editor, /completeProductMedia/);
   assert.match(editor, /multiple accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(editor, /ProductDescriptionField/);
 });
 
 test("variant matrix rejects duplicate attributes and bounds combinations", () => {
