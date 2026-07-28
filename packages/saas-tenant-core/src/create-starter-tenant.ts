@@ -302,6 +302,9 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       if (!plan || plan.status !== "active") {
         throw new TenantCoreFailure("tenant_transaction_failed", undefined, true);
       }
+      if (!plan.features.includes("media")) {
+        throw new TenantCoreFailure("tenant_transaction_failed", undefined, true);
+      }
       const subscription = await transaction.subscriptions.create({
         id: transaction.generateId("subscription"),
         storeId: store.id,
@@ -313,6 +316,24 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         createdAt: timestamp,
         updatedAt: timestamp,
       });
+      const mediaNamespace = await transaction.mediaNamespaces.create({
+        storeId: store.id,
+        namespacePrefix: `stores/${store.id}/`,
+        status: "active",
+        version: 1,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      if (
+        mediaNamespace.storeId !== store.id ||
+        mediaNamespace.namespacePrefix !== `stores/${store.id}/` ||
+        mediaNamespace.status !== "active" ||
+        mediaNamespace.version !== 1 ||
+        mediaNamespace.createdAt !== timestamp ||
+        mediaNamespace.updatedAt !== timestamp
+      ) {
+        throw new TenantCoreFailure("tenant_transaction_failed", undefined, true);
+      }
 
       for (const [key, value] of [
         ["locale", store.locale],
@@ -358,6 +379,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         },
         membership,
         plan: planEntitlements,
+        mediaStorage: { schemaVersion: 1, status: "ready", version: mediaNamespace.version },
         provisioningStatus: "ready",
         panelUrl: createPanelStoreUrl(this.panelBaseUrl, store.slug),
         storefrontUrl: `https://${domain.hostname}`,
