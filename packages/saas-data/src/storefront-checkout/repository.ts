@@ -5,6 +5,8 @@ import {
   parseCheckoutPolicy,
   parseCheckoutQuote,
   parseCheckoutStatus,
+  parseCheckoutAddress,
+  parseCheckoutSubmissionResult,
   type CheckoutPolicy,
   type CheckoutQuote,
   type CheckoutStatus,
@@ -75,6 +77,8 @@ const DIRECT_OUTCOMES = new Set<PublicCheckoutErrorCode>([
   "payment_method_unavailable",
   "operation_mismatch",
 ]);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const SAFE_TEXT = /^[^\u0000-\u001f\u007f-\u009f]+$/;
 
 function unavailable(): never {
   throw trustedPublicCheckoutError("unavailable");
@@ -190,6 +194,106 @@ function safePolicy(value: unknown): CheckoutPolicy {
   }
 }
 
+function safeSubmission(value: unknown): CheckoutSubmissionResult {
+  try {
+    return parseCheckoutSubmissionResult(value);
+  } catch {
+    return unavailable();
+  }
+}
+
+function outputText(value: unknown, minimum: number, maximum: number): string {
+  if (
+    typeof value !== "string" || value.length < minimum || value.length > maximum ||
+    value !== value.trim() || !SAFE_TEXT.test(value)
+  ) unavailable();
+  return value;
+}
+
+function outputUuid(value: unknown): string {
+  if (typeof value !== "string" || !UUID.test(value)) unavailable();
+  return value;
+}
+
+function outputInteger(value: unknown, minimum = 0): number {
+  if (!Number.isSafeInteger(value) || (value as number) < minimum) unavailable();
+  return value as number;
+}
+
+function safeHostedAuthority(value: unknown): HostedCheckoutAuthority {
+  try {
+    const selected = strictProjection(value, [
+      "storeId", "paymentMethodId", "profileId", "providerCode", "orderReference",
+      "amountMinor", "currency", "customer", "basket", "attemptId", "bridgeId",
+      "environment", "reservationStatus",
+    ]);
+    if (
+      (selected.providerCode !== "paytr_iframe" && selected.providerCode !== "iyzico_iframe") ||
+      selected.currency !== "TRY" ||
+      (selected.environment !== "test" && selected.environment !== "live") ||
+      selected.reservationStatus !== "held"
+    ) unavailable();
+    const customer = strictProjection(selected.customer, [
+      "name", "email", "phone", "shippingAddress", "billingAddress",
+    ]);
+    const parsedCustomer = Object.freeze({
+      name: outputText(customer.name, 1, 241),
+      email: outputText(customer.email, 3, 320),
+      phone: outputText(customer.phone, 7, 32),
+      shippingAddress: parseCheckoutAddress(customer.shippingAddress),
+      billingAddress: customer.billingAddress === null
+        ? null
+        : parseCheckoutAddress(customer.billingAddress),
+    });
+    if (
+      !Array.isArray(selected.basket) || nodeTypes.isProxy(selected.basket) ||
+      Object.getPrototypeOf(selected.basket) !== Array.prototype ||
+      selected.basket.length < 1 || selected.basket.length > 100
+    ) unavailable();
+    const descriptors = Object.getOwnPropertyDescriptors(selected.basket);
+    const lengthDescriptor = (descriptors as unknown as Record<PropertyKey, PropertyDescriptor>)[
+      "length"
+    ];
+    if (
+      Reflect.ownKeys(descriptors).length !== selected.basket.length + 1 ||
+      !lengthDescriptor || !("value" in lengthDescriptor) ||
+      lengthDescriptor.value !== selected.basket.length
+    ) unavailable();
+    const basket = selected.basket.map((item) => {
+      const parsed = strictProjection(item, [
+        "reference", "name", "quantity", "unitAmountMinor", "itemType",
+      ]);
+      if (parsed.itemType !== "PHYSICAL" && parsed.itemType !== "VIRTUAL") unavailable();
+      return Object.freeze({
+        reference: outputText(parsed.reference, 1, 160),
+        name: outputText(parsed.name, 1, 240),
+        quantity: outputInteger(parsed.quantity, 1),
+        unitAmountMinor: outputInteger(parsed.unitAmountMinor),
+        itemType: parsed.itemType,
+      });
+    });
+    if (new Set(basket.map((item) => item.reference)).size !== basket.length) unavailable();
+    return Object.freeze({
+      storeId: outputUuid(selected.storeId),
+      paymentMethodId: outputUuid(selected.paymentMethodId),
+      profileId: outputUuid(selected.profileId),
+      providerCode: selected.providerCode,
+      orderReference: outputText(selected.orderReference, 1, 160),
+      amountMinor: outputInteger(selected.amountMinor, 1),
+      currency: "TRY",
+      customer: parsedCustomer,
+      basket: Object.freeze(basket),
+      attemptId: outputUuid(selected.attemptId),
+      bridgeId: outputUuid(selected.bridgeId),
+      environment: selected.environment,
+      reservationStatus: "held",
+    });
+  } catch (error) {
+    if (isTrustedPublicCheckoutError(error)) throw error;
+    return unavailable();
+  }
+}
+
 function sameQuote(left: CheckoutQuote, right: CheckoutQuote): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
@@ -213,6 +317,31 @@ function fingerprint(input: UpdateCheckoutDeliveryInput): string {
     billingAddress: delivery.billingAddress,
     shippingId: delivery.shippingId,
     discountCode: delivery.discountCode,
+  })).digest("hex");
+}
+
+function submissionFingerprint(
+  input: SubmitBuiltInCheckoutInput,
+  action: "submit_builtin" | "begin_hosted",
+  hosted?: BeginHostedCheckoutInput,
+): string {
+  return createHash("sha256").update(JSON.stringify({
+    action,
+    hostname: input.hostname,
+    credentialDigest: input.credentialDigest,
+    cartVersion: input.submission.cartVersion,
+    currentNonceDigest: digest(input.submission.checkoutNonce),
+    operationId: input.submission.operationId,
+    paymentMethodId: input.submission.paymentMethodId,
+    consents: input.submission.consents,
+    ...(hosted === undefined ? {} : {
+      attemptId: hosted.attemptId,
+      callbackBindingDigest: hosted.callbackBindingDigest,
+      orderId: hosted.orderId,
+      orderItemIds: hosted.orderItemIds,
+      orderEventId: hosted.orderEventId,
+      orderNumber: hosted.orderNumber,
+    }),
   })).digest("hex");
 }
 
@@ -397,6 +526,70 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
     return commitUnknown();
   }
 
+  private async recoverUnknownSubmission<T>(
+    input: RecoverCheckoutOperationInput,
+    observed: T,
+    parser: (value: unknown) => T,
+  ): Promise<T> {
+    try {
+      const selected = await this.read({
+        text: `SELECT outcome, result_payload FROM saas.storefront_checkout_recover_operation(
+          $1::text,$2::text,$3::uuid,$4::text,$5::timestamptz
+        )`,
+        values: [
+          input.hostname,
+          input.credentialDigest,
+          input.operationId,
+          input.fingerprint,
+          input.now,
+        ],
+      });
+      if (selected.outcome !== "operation_replayed") commitUnknown();
+      const recovered = parser(selected.resultPayload);
+      if (JSON.stringify(recovered) !== JSON.stringify(observed)) commitUnknown();
+      return recovered;
+    } catch {
+      return commitUnknown();
+    }
+  }
+
+  private async executeSubmission<T>(
+    spec: QuerySpec,
+    parser: (value: unknown) => T,
+    allowedOutcomes: ReadonlySet<string>,
+    recovery: RecoverCheckoutOperationInput,
+  ): Promise<T> {
+    const client = await this.acquire();
+    let began = false;
+    let terminal = false;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      began = true;
+      await this.configure(client);
+      const selected = single(await client.query(spec.text, spec.values));
+      if (!allowedOutcomes.has(selected.outcome)) {
+        throwOutcome(selected.outcome, selected.resultPayload);
+      }
+      const parsed = parser(selected.resultPayload);
+      try {
+        await client.query("COMMIT");
+        terminal = true;
+        safeRelease(client);
+        return parsed;
+      } catch {
+        terminal = true;
+        safeRelease(client, true);
+        this.auditCommitUnknown();
+        return await this.recoverUnknownSubmission(recovery, parsed, parser);
+      }
+    } catch (error) {
+      if (began && !terminal) await rollback(client);
+      else if (!terminal) safeRelease(client, true);
+      if (isTrustedPublicCheckoutError(error)) throw error;
+      return unavailable();
+    }
+  }
+
   issueNonce(input: IssueCheckoutNonceInput): Promise<CheckoutQuote> {
     return expose(async () => {
       const parsed = issueCheckoutNonceInput(input);
@@ -511,15 +704,76 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
 
   submitBuiltIn(input: SubmitBuiltInCheckoutInput): Promise<CheckoutSubmissionResult> {
     return expose(async () => {
-      submitBuiltInCheckoutInput(input);
-      return unavailable();
+      const parsed = submitBuiltInCheckoutInput(input);
+      const operationFingerprint = submissionFingerprint(parsed, "submit_builtin");
+      return await this.executeSubmission(
+        {
+          text: `SELECT outcome, result_payload FROM saas.storefront_checkout_submit_builtin(
+            $1::text,$2::text,$3::bigint,$4::uuid,$5::text,$6::text,$7::uuid,$8::timestamptz
+          )`,
+          values: [
+            parsed.hostname,
+            parsed.credentialDigest,
+            parsed.submission.cartVersion,
+            parsed.submission.operationId,
+            operationFingerprint,
+            digest(parsed.submission.checkoutNonce),
+            parsed.submission.paymentMethodId,
+            parsed.now,
+          ],
+        },
+        safeSubmission,
+        new Set(["placed", "operation_replayed"]),
+        Object.freeze({
+          hostname: parsed.hostname,
+          credentialDigest: parsed.credentialDigest,
+          operationId: parsed.submission.operationId,
+          fingerprint: operationFingerprint,
+          checkoutNonce: parsed.submission.checkoutNonce,
+          now: parsed.now,
+        }),
+      );
     });
   }
 
   beginHosted(input: BeginHostedCheckoutInput): Promise<HostedCheckoutAuthority> {
     return expose(async () => {
-      beginHostedCheckoutInput(input);
-      return unavailable();
+      const parsed = beginHostedCheckoutInput(input);
+      const operationFingerprint = submissionFingerprint(parsed, "begin_hosted", parsed);
+      return await this.executeSubmission(
+        {
+          text: `SELECT outcome, result_payload FROM saas.storefront_checkout_begin_hosted(
+            $1::text,$2::text,$3::bigint,$4::uuid,$5::text,$6::text,$7::uuid,$8::uuid,
+            $9::text,$10::uuid,$11::uuid[],$12::uuid,$13::text,$14::timestamptz
+          )`,
+          values: [
+            parsed.hostname,
+            parsed.credentialDigest,
+            parsed.submission.cartVersion,
+            parsed.submission.operationId,
+            operationFingerprint,
+            digest(parsed.submission.checkoutNonce),
+            parsed.submission.paymentMethodId,
+            parsed.attemptId,
+            parsed.callbackBindingDigest,
+            parsed.orderId,
+            [...parsed.orderItemIds],
+            parsed.orderEventId,
+            parsed.orderNumber,
+            parsed.now,
+          ],
+        },
+        safeHostedAuthority,
+        new Set(["created", "operation_replayed"]),
+        Object.freeze({
+          hostname: parsed.hostname,
+          credentialDigest: parsed.credentialDigest,
+          operationId: parsed.submission.operationId,
+          fingerprint: operationFingerprint,
+          checkoutNonce: parsed.submission.checkoutNonce,
+          now: parsed.now,
+        }),
+      );
     });
   }
 

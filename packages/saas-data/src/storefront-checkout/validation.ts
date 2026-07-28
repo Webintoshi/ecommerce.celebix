@@ -28,6 +28,7 @@ const HOSTNAME =
 const DIGEST = /^[a-f0-9]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DISCOUNT = /^[A-Z0-9][A-Z0-9_-]{0,63}$/;
+const ORDER_NUMBER = /^[A-Z0-9][A-Z0-9-]{0,127}$/;
 const POLICY_TYPES = new Set([
   "distance_sales",
   "pre_information",
@@ -160,7 +161,37 @@ export function submitBuiltInCheckoutInput(value: unknown): SubmitBuiltInCheckou
 }
 
 export function beginHostedCheckoutInput(value: unknown): BeginHostedCheckoutInput {
-  return submitInput(value);
+  const parsed = exactCheckoutInput(value, [
+    "hostname", "credentialDigest", "now", "submission", "attemptId",
+    "callbackBindingDigest", "orderId", "orderItemIds", "orderEventId", "orderNumber",
+  ]);
+  const base = submitInput(Object.freeze({
+    hostname: parsed.hostname,
+    credentialDigest: parsed.credentialDigest,
+    now: parsed.now,
+    submission: parsed.submission,
+  }));
+  return contain(() => {
+    if (
+      !Array.isArray(parsed.orderItemIds) || nodeTypes.isProxy(parsed.orderItemIds) ||
+      Object.getPrototypeOf(parsed.orderItemIds) !== Array.prototype ||
+      parsed.orderItemIds.length < 1 || parsed.orderItemIds.length > 100 ||
+      Reflect.ownKeys(Object.getOwnPropertyDescriptors(parsed.orderItemIds)).length !==
+        parsed.orderItemIds.length + 1
+    ) invalid();
+    const orderItemIds = parsed.orderItemIds.map(checkoutUuid);
+    if (new Set(orderItemIds).size !== orderItemIds.length) invalid();
+    if (typeof parsed.orderNumber !== "string" || !ORDER_NUMBER.test(parsed.orderNumber)) invalid();
+    return Object.freeze({
+      ...base,
+      attemptId: checkoutUuid(parsed.attemptId),
+      callbackBindingDigest: checkoutDigest(parsed.callbackBindingDigest),
+      orderId: checkoutUuid(parsed.orderId),
+      orderItemIds: Object.freeze(orderItemIds),
+      orderEventId: checkoutUuid(parsed.orderEventId),
+      orderNumber: parsed.orderNumber,
+    });
+  });
 }
 
 export function getCheckoutStatusInput(value: unknown): GetCheckoutStatusInput {

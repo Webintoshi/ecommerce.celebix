@@ -22,6 +22,10 @@ const CART_ID = "11111111-1111-4111-8111-111111111111";
 const ITEM_ID = "22222222-2222-4222-8222-222222222222";
 const PAYMENT_ID = "44444444-4444-4444-8444-444444444444";
 const OPERATION_ID = "55555555-5555-4555-8555-555555555555";
+const ATTEMPT_ID = "66666666-6666-4666-8666-666666666666";
+const ORDER_ID = "77777777-7777-4777-8777-777777777777";
+const ORDER_ITEM_ID = "88888888-8888-4888-8888-888888888888";
+const ORDER_EVENT_ID = "99999999-9999-4999-8999-999999999999";
 const NONCE = "A".repeat(43);
 const PRIVATE_DRIVER = "postgres://admin:secret@private.invalid/customer@example.com";
 
@@ -153,6 +157,48 @@ function submissionInput(): SubmitBuiltInCheckoutInput {
       paymentMethodId: PAYMENT_ID,
       consents: { distanceSales: true, preInformation: true },
     },
+  };
+}
+
+function hostedInput(): BeginHostedCheckoutInput {
+  return {
+    ...submissionInput(),
+    attemptId: ATTEMPT_ID,
+    callbackBindingDigest: "b".repeat(64),
+    orderId: ORDER_ID,
+    orderItemIds: [ORDER_ITEM_ID],
+    orderEventId: ORDER_EVENT_ID,
+    orderNumber: "SF-2026-000001",
+  };
+}
+
+function hostedAuthorityPayload() {
+  return {
+    storeId: CART_ID,
+    paymentMethodId: PAYMENT_ID,
+    profileId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    providerCode: "iyzico_iframe",
+    orderReference: `sf:${CART_ID}`,
+    amountMinor: 12_900,
+    currency: "TRY",
+    customer: {
+      name: "Ayşe Yılmaz",
+      email: "ayse@example.com",
+      phone: "+905551112233",
+      shippingAddress: address(),
+      billingAddress: null,
+    },
+    basket: [{
+      reference: ITEM_ID,
+      name: "Ürün",
+      quantity: 1,
+      unitAmountMinor: 10_000,
+      itemType: "PHYSICAL",
+    }],
+    attemptId: ATTEMPT_ID,
+    bridgeId: ATTEMPT_ID,
+    environment: "test",
+    reservationStatus: "held",
   };
 }
 
@@ -397,12 +443,117 @@ test("recover binds only the exact migration 064 read authority", async () => {
   assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
 });
 
-test("submit and hosted methods fail closed before Task 5 without touching SQL", async () => {
-  const pool = new FakePool([]);
-  const repo = repository(pool);
-  await assert.rejects(repo.submitBuiltIn(submissionInput()), errorCode("unavailable"));
-  await assert.rejects(repo.beginHosted(submissionInput() as BeginHostedCheckoutInput), errorCode("unavailable"));
-  assert.equal(pool.connects, 0);
+test("submitBuiltIn binds the exact migration 064 signature and parses placed replay-safe output", async () => {
+  const client = new FakeClient((text) => (
+    text.includes("saas.storefront_checkout_submit_builtin")
+      ? [selected("placed", {
+        kind: "placed",
+        orderNumber: "SF-2026-000001",
+        statusPath: "/checkout/status",
+      })]
+      : []
+  ));
+  const result = await repository(new FakePool([client])).submitBuiltIn(submissionInput());
+  assert.deepEqual(result, {
+    kind: "placed",
+    orderNumber: "SF-2026-000001",
+    statusPath: "/checkout/status",
+  });
+  const query = client.calls.find((call) => textIncludes(call, "storefront_checkout_submit_builtin"));
+  assert.equal(query?.values.length, 8);
+  assert.deepEqual(query?.values.slice(0, 4), [
+    "shop.celebix.site", DIGEST, 1, OPERATION_ID,
+  ]);
+  assert.match(String(query?.values[4]), /^[a-f0-9]{64}$/);
+  assert.equal(query?.values[5], createHash("sha256").update(NONCE).digest("hex"));
+  assert.equal(query?.values[6], PAYMENT_ID);
+  assert.deepEqual(query?.values[7], NOW);
+  assert.equal(client.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
+});
+
+test("beginHosted binds exact generated identities and returns credential-free private authority", async () => {
+  const client = new FakeClient((text) => (
+    text.includes("saas.storefront_checkout_begin_hosted")
+      ? [selected("created", hostedAuthorityPayload())]
+      : []
+  ));
+  const result = await repository(new FakePool([client])).beginHosted(hostedInput());
+  const query = client.calls.find((call) => textIncludes(call, "storefront_checkout_begin_hosted"));
+  assert.equal(query?.values.length, 14);
+  assert.deepEqual(query?.values.slice(0, 4), [
+    "shop.celebix.site", DIGEST, 1, OPERATION_ID,
+  ]);
+  assert.match(String(query?.values[4]), /^[a-f0-9]{64}$/);
+  assert.equal(query?.values[5], createHash("sha256").update(NONCE).digest("hex"));
+  assert.deepEqual(query?.values.slice(6), [
+    PAYMENT_ID,
+    ATTEMPT_ID,
+    "b".repeat(64),
+    ORDER_ID,
+    [ORDER_ITEM_ID],
+    ORDER_EVENT_ID,
+    "SF-2026-000001",
+    NOW,
+  ]);
+  assert.equal(result.reservationStatus, "held");
+  assert.equal(result.attemptId, ATTEMPT_ID);
+  assert.equal(JSON.stringify(result).includes("credential"), false);
+  assert.equal(JSON.stringify(result).includes("sealed"), false);
+});
+
+test("built-in unknown COMMIT performs one read-only recovery without repeating the write", async () => {
+  const payload = { kind: "placed", orderNumber: "SF-2026-000001", statusPath: "/checkout/status" };
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.storefront_checkout_submit_builtin")) return [selected("placed", payload)];
+    if (text === "COMMIT") throw new Error(PRIVATE_DRIVER);
+    return [];
+  });
+  const recovery = new FakeClient((text) => (
+    text.includes("saas.storefront_checkout_recover_operation")
+      ? [selected("operation_replayed", payload)]
+      : []
+  ));
+  const pool = new FakePool([writer, recovery]);
+  assert.deepEqual(await repository(pool).submitBuiltIn(submissionInput()), payload);
+  assert.equal(pool.connects, 2);
+  assert.equal(writer.calls.filter((call) => textIncludes(call, "storefront_checkout_submit_builtin")).length, 1);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(recovery.calls.some((call) => textIncludes(call, "storefront_checkout_submit_builtin")), false);
+});
+
+test("hosted unknown COMMIT recovers the exact private authority without repeating begin", async () => {
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.storefront_checkout_begin_hosted")) {
+      return [selected("created", hostedAuthorityPayload())];
+    }
+    if (text === "COMMIT") throw new Error(PRIVATE_DRIVER);
+    return [];
+  });
+  const recovery = new FakeClient((text) => (
+    text.includes("saas.storefront_checkout_recover_operation")
+      ? [selected("operation_replayed", hostedAuthorityPayload())]
+      : []
+  ));
+  const pool = new FakePool([writer, recovery]);
+  assert.deepEqual(await repository(pool).beginHosted(hostedInput()), hostedAuthorityPayload());
+  assert.equal(pool.connects, 2);
+  assert.equal(writer.calls.filter((call) => textIncludes(call, "storefront_checkout_begin_hosted")).length, 1);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(recovery.calls.some((call) => textIncludes(call, "storefront_checkout_begin_hosted")), false);
+});
+
+test("hosted identity metadata is exact and rejected before pool checkout", async () => {
+  for (const input of [
+    { ...hostedInput(), callbackBindingDigest: PRIVATE_DRIVER },
+    { ...hostedInput(), orderItemIds: [] },
+    { ...hostedInput(), orderItemIds: [ORDER_ITEM_ID, ORDER_ITEM_ID] },
+    { ...hostedInput(), orderNumber: `SF-${PRIVATE_DRIVER}` },
+  ]) {
+    const pool = new FakePool([]);
+    await assert.rejects(repository(pool).beginHosted(input), errorCode("invalid_input"));
+    assert.equal(pool.connects, 0);
+  }
 });
 
 test("descriptor-hostile and browser-authority inputs fail before pool checkout", async () => {

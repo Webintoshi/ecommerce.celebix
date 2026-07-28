@@ -30,7 +30,14 @@ export type SubmitBuiltInCheckoutInput = Readonly<{
   submission: CheckoutSubmitInput;
 }>;
 
-export type BeginHostedCheckoutInput = SubmitBuiltInCheckoutInput;
+export type BeginHostedCheckoutInput = SubmitBuiltInCheckoutInput & Readonly<{
+  attemptId: string;
+  callbackBindingDigest: string;
+  orderId: string;
+  orderItemIds: readonly string[];
+  orderEventId: string;
+  orderNumber: string;
+}>;
 
 export type GetCheckoutStatusInput = Readonly<{
   hostname: string;
@@ -80,6 +87,7 @@ export type HostedCheckoutAuthority = Readonly<{
   attemptId: string;
   bridgeId: string;
   environment: "test" | "live";
+  reservationStatus: "held";
 }>;
 
 export type CheckoutOperationResult =

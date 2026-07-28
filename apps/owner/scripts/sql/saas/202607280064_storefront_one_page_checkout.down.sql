@@ -5,26 +5,43 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
 
 DO $f$
-DECLARE bridge_name text;
 BEGIN
   IF pg_catalog.to_regclass('saas.storefront_checkout_operations') IS NULL
+    OR pg_catalog.to_regclass('saas.storefront_checkout_discount_redemptions') IS NULL
+    OR pg_catalog.to_regclass('saas.storefront_checkout_payment_bridges') IS NULL
     OR pg_catalog.to_regprocedure('saas.storefront_checkout_preflight()') IS NULL
+    OR pg_catalog.to_regprocedure(
+      'saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)'
+    ) IS NULL
+    OR pg_catalog.to_regprocedure(
+      'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'
+    ) IS NULL
     OR pg_catalog.to_regprocedure(
       'saas.merchant_admin_config_valid_without_checkout_flat_rate(text,jsonb)'
     ) IS NULL
   THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID'; END IF;
+END
+$f$;
 
-  -- Match checkout's cart-first mutation order and take every write-excluding
-  -- relation lock before evaluating any durable-state rollback guard.
-  LOCK TABLE saas.abandoned_carts IN ACCESS EXCLUSIVE MODE;
-  LOCK TABLE saas.merchant_admin_records IN ACCESS EXCLUSIVE MODE;
-  LOCK TABLE saas.storefront_checkout_operations IN ACCESS EXCLUSIVE MODE;
-  LOCK TABLE saas.orders IN ACCESS EXCLUSIVE MODE;
+-- Match checkout's cart-first mutation order and take every write-excluding
+-- relation lock before evaluating any durable-state rollback guard.
+LOCK TABLE saas.abandoned_carts IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.merchant_admin_records IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.storefront_checkout_operations IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.storefront_checkout_discount_redemptions IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.storefront_checkout_payment_bridges IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.checkout_inventory_reservations IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.payment_attempts IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.order_items IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.order_events IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.orders IN ACCESS EXCLUSIVE MODE;
 
+DO $f$
+BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='51526d94f3b6d083368e581ba91bc2fb'
+      AND pg_catalog.md5(procedure.prosrc)='c1dd4b6519a93a4f0fa4fa15eb67b892'
   ) OR saas.storefront_checkout_preflight() IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID';
   END IF;
@@ -46,24 +63,29 @@ BEGIN
       OR cart.checkout_nonce_digest IS NOT NULL
       OR cart.selected_payment_method_id IS NOT NULL
   ) OR EXISTS(SELECT 1 FROM saas.storefront_checkout_operations)
+    OR EXISTS(SELECT 1 FROM saas.storefront_checkout_discount_redemptions)
+    OR EXISTS(SELECT 1 FROM saas.storefront_checkout_payment_bridges)
+    OR EXISTS(
+      SELECT 1 FROM saas.checkout_inventory_reservations
+      WHERE payment_attempt_id IS NOT NULL AND quick_order_link_id IS NULL
+    )
     OR EXISTS(SELECT 1 FROM saas.orders WHERE storefront_cart_id IS NOT NULL)
   THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_GUARD: durable checkout state exists'; END IF;
 
-  FOREACH bridge_name IN ARRAY ARRAY[
-    'saas.storefront_checkout_bridges',
-    'saas.storefront_checkout_payment_bridges'
-  ] LOOP
-    IF pg_catalog.to_regclass(bridge_name) IS NOT NULL THEN
-      EXECUTE pg_catalog.format(
-        'LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',bridge_name
-      );
-      RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_GUARD: checkout bridge exists: %',bridge_name;
-    END IF;
-  END LOOP;
+  IF pg_catalog.to_regclass('saas.storefront_checkout_bridges') IS NOT NULL THEN
+    LOCK TABLE saas.storefront_checkout_bridges IN ACCESS EXCLUSIVE MODE;
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_GUARD: checkout bridge exists: saas.storefront_checkout_bridges';
+  END IF;
 END
 $f$;
 
 DROP FUNCTION saas.storefront_checkout_preflight();
+DROP FUNCTION saas.storefront_checkout_submit_builtin(
+  text,text,bigint,uuid,text,text,uuid,timestamptz
+);
+DROP FUNCTION saas.storefront_checkout_begin_hosted(
+  text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz
+);
 DROP FUNCTION saas.storefront_checkout_get_policy(text,text,timestamptz);
 DROP FUNCTION saas.storefront_checkout_get_status(text,text,timestamptz);
 DROP FUNCTION saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamptz);
@@ -73,10 +95,24 @@ DROP FUNCTION saas.storefront_checkout_update_delivery(
 DROP FUNCTION saas.storefront_checkout_issue_nonce(text,text,text,timestamptz);
 DROP FUNCTION saas.storefront_checkout_get_quote(text,text,timestamptz);
 DROP FUNCTION saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamptz);
+DROP FUNCTION saas.storefront_checkout_uuid(text,uuid,integer);
 DROP FUNCTION saas.storefront_checkout_builtin_method_projection(uuid,text,text,jsonb);
 DROP FUNCTION saas.storefront_checkout_policy_effective_at(jsonb);
 DROP FUNCTION saas.storefront_checkout_discount_value(jsonb,bigint,bigint);
 DROP FUNCTION saas.storefront_checkout_hostname_valid(text);
+
+DROP TRIGGER payment_attempt_storefront_checkout_terminal ON saas.payment_attempts;
+DROP FUNCTION saas.storefront_checkout_payment_attempt_terminal();
+DROP TRIGGER storefront_checkout_payment_bridges_immutable
+  ON saas.storefront_checkout_payment_bridges;
+DROP FUNCTION saas.guard_storefront_checkout_payment_bridge_mutation();
+DROP TRIGGER storefront_checkout_discount_redemptions_immutable
+  ON saas.storefront_checkout_discount_redemptions;
+DROP TABLE saas.storefront_checkout_payment_bridges;
+DROP TABLE saas.storefront_checkout_discount_redemptions;
+
+ALTER TABLE saas.checkout_inventory_reservations
+  ALTER COLUMN quick_order_link_id SET NOT NULL;
 
 DROP TRIGGER storefront_checkout_operations_immutable
   ON saas.storefront_checkout_operations;
