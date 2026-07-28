@@ -3,8 +3,10 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 
 import {
+  isTrustedPublicCheckoutError,
   PUBLIC_CHECKOUT_ERROR_CODES,
   PublicCheckoutRepositoryError,
+  trustedPublicCheckoutError,
 } from "./errors.ts";
 import { PostgresPublicCheckoutRepository } from "./repository.ts";
 import type {
@@ -177,6 +179,14 @@ function errorCode(code: string) {
     assert.equal(String(error).includes(PRIVATE_DRIVER), false);
     return true;
   };
+}
+
+function selfThrowingPrototypeProxy(): object {
+  let hostile: object;
+  hostile = new Proxy({}, {
+    getPrototypeOf() { throw hostile; },
+  });
+  return hostile;
 }
 
 test("issueNonce binds exact host, digest, nonce digest and timestamp", async () => {
@@ -449,6 +459,87 @@ test("corrupt rows and driver failures expose only sealed finite errors", async 
     credentialDigest: DIGEST,
     now: NOW,
   }), errorCode("unavailable"));
+});
+
+test("trusted-error inspection is total and rejects hostile or forged objects", () => {
+  const internal = trustedPublicCheckoutError("not_found");
+  const forged = Object.create(Object.getPrototypeOf(internal)) as Record<string, unknown>;
+  Object.defineProperty(forged, "code", {
+    enumerable: true,
+    get() { throw selfThrowingPrototypeProxy(); },
+  });
+  const revoked = Proxy.revocable({}, {});
+  revoked.revoke();
+  const hostilePrototype = new Proxy({}, {
+    getPrototypeOf() { throw new Error(PRIVATE_DRIVER); },
+  });
+  const accessor = Object.defineProperty({}, "code", {
+    get() { throw new Error(PRIVATE_DRIVER); },
+  });
+
+  assert.equal(isTrustedPublicCheckoutError(internal), true);
+  for (const value of [
+    selfThrowingPrototypeProxy(), revoked.proxy, hostilePrototype, accessor, forged,
+    Object.create(null), new Error(PRIVATE_DRIVER), () => PRIVATE_DRIVER,
+    null, undefined, PRIVATE_DRIVER, 1, 1n, Symbol(PRIVATE_DRIVER),
+  ]) {
+    assert.doesNotThrow(() => {
+      assert.equal(isTrustedPublicCheckoutError(value), false);
+    });
+  }
+});
+
+test("self-throwing query rejection is sanitized after rollback and normal release", async () => {
+  const hostile = selfThrowingPrototypeProxy();
+  const client = new FakeClient((text) => {
+    if (text.includes("saas.storefront_checkout_get_status")) throw hostile;
+    return [];
+  });
+  let captured: unknown;
+  try {
+    await repository(new FakePool([client])).getStatus({
+      hostname: "shop.celebix.site",
+      credentialDigest: DIGEST,
+      now: NOW,
+    });
+  } catch (error) {
+    captured = error;
+  }
+  assert.notEqual(captured, hostile);
+  assert.ok(captured instanceof PublicCheckoutRepositoryError);
+  assert.equal(captured.code, "unavailable");
+  assert.equal(captured.message, "unavailable");
+  assert.equal(Object.isFrozen(captured), true);
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  assert.deepEqual(client.releases, [undefined]);
+});
+
+test("self-throwing rollback rejection is sanitized and destroys the client", async () => {
+  const queryHostile = selfThrowingPrototypeProxy();
+  const rollbackHostile = selfThrowingPrototypeProxy();
+  const client = new FakeClient((text) => {
+    if (text.includes("saas.storefront_checkout_get_status")) throw queryHostile;
+    if (text === "ROLLBACK") throw rollbackHostile;
+    return [];
+  });
+  let captured: unknown;
+  try {
+    await repository(new FakePool([client])).getStatus({
+      hostname: "shop.celebix.site",
+      credentialDigest: DIGEST,
+      now: NOW,
+    });
+  } catch (error) {
+    captured = error;
+  }
+  assert.notEqual(captured, queryHostile);
+  assert.notEqual(captured, rollbackHostile);
+  assert.ok(captured instanceof PublicCheckoutRepositoryError);
+  assert.equal(captured.code, "unavailable");
+  assert.equal(captured.message, "unavailable");
+  assert.equal(Object.isFrozen(captured), true);
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  assert.deepEqual(client.releases, [true]);
 });
 
 test("controlled SQL errors require an exact null payload", async () => {

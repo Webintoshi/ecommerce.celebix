@@ -39,16 +39,27 @@ export class PublicCheckoutRepositoryError extends Error {
 
 class TrustedPublicCheckoutRepositoryError extends PublicCheckoutRepositoryError {}
 
+const TRUSTED_ERRORS = new WeakSet<object>();
+
 export function trustedPublicCheckoutError(
   code: PublicCheckoutErrorCode,
 ): PublicCheckoutRepositoryError {
-  return new TrustedPublicCheckoutRepositoryError(code);
+  const error = new TrustedPublicCheckoutRepositoryError(code);
+  TRUSTED_ERRORS.add(error);
+  return error;
 }
 
 export function isTrustedPublicCheckoutError(
   error: unknown,
 ): error is PublicCheckoutRepositoryError {
-  return error instanceof TrustedPublicCheckoutRepositoryError;
+  try {
+    if ((typeof error !== "object" || error === null) && typeof error !== "function") {
+      return false;
+    }
+    return TRUSTED_ERRORS.has(error);
+  } catch {
+    return false;
+  }
 }
 
 export function exposePublicCheckoutError(
