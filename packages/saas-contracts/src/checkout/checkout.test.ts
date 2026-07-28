@@ -50,6 +50,16 @@ test("checkout quote enforces exact money arithmetic and one provider", () => {
   }));
 });
 
+test("checkout quote does not charge shipping without a selected option", () => {
+  const quote = quoteFixture();
+  assert.throws(() => parseCheckoutQuote({
+    ...quote,
+    shippingOptions: [],
+    selectedShippingId: null,
+    shippingCents: 2_900,
+  }));
+});
+
 test("checkout inputs reject browser authority and hostile objects", () => {
   assert.throws(() => parseCheckoutSubmitInput({
     ...submitFixture(), storeId: CART_ID,
