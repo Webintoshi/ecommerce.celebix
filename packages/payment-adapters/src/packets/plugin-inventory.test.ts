@@ -58,7 +58,7 @@ function expectedProtocol(sourceSlug: string) {
   return "provider_specific";
 }
 
-test("inventories every non-dummy gateway and promotes only the conformed PayTR iframe implementation", () => {
+test("inventories every non-dummy gateway while Iyzico is configurable but not executable", () => {
   assert.equal(PAYMENT_ADAPTER_PACKET_INVENTORY.length, 58);
   assert.equal(new Set(PAYMENT_ADAPTER_PACKET_INVENTORY.map((item) => item.providerCode)).size, 58);
   assert.equal(new Set(PAYMENT_ADAPTER_PACKET_INVENTORY.map((item) => item.sourceSlug)).size, 58);
@@ -80,6 +80,12 @@ test("inventories every non-dummy gateway and promotes only the conformed PayTR 
       .filter((item) => item.implementationState === "executable")
       .map((item) => item.providerCode),
     ["paytr_iframe"],
+  );
+  assert.deepEqual(
+    PAYMENT_ADAPTER_PACKET_INVENTORY
+      .filter((item) => item.implementationState === "configurable")
+      .map((item) => item.providerCode),
+    ["iyzico_iframe"],
   );
   assert.equal(getPaymentAdapterPacketSource("paytr")?.implementationState, "inventory_only");
   assert.equal(

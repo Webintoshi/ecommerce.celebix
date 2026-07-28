@@ -16,6 +16,7 @@ export interface MerchantProviderRegistryEntry {
   readonly adapterVersion?: number;
   readonly environments?: readonly PaymentProviderEnvironment[];
   readonly executionAuthority?: Readonly<PaymentProviderExecutionAuthority> | null;
+  readonly profileSaveMode?: "execution_authority" | "verification";
   parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>>;
   parseCredential(
     value: unknown,
@@ -35,7 +36,13 @@ const ENTRY_KEYS = Object.freeze([
   "capability", "credentialFields", "label", "maskAccountReference", "parseCredential",
   "parsePublicConfig", "providerCode", "publicFields",
 ]);
-const PAYMENT_ENTRY_KEYS = Object.freeze([...ENTRY_KEYS, "adapterVersion", "environments", "executionAuthority"]);
+const PAYMENT_ENTRY_KEYS = Object.freeze([
+  ...ENTRY_KEYS,
+  "adapterVersion",
+  "environments",
+  "executionAuthority",
+  "profileSaveMode",
+]);
 
 function invalid(): never { throw new Error("customer_panel_provider_registry_invalid"); }
 
@@ -105,6 +112,11 @@ function validateEntry(value: unknown, accessObjects: Set<object>): MerchantProv
     } : {}),
   });
   if (!MERCHANT_PROVIDER_CAPABILITIES.includes(descriptor.capability)) invalid();
+  if (
+    descriptor.capability === "payment_processing" &&
+    parsed.profileSaveMode !== "execution_authority" &&
+    parsed.profileSaveMode !== "verification"
+  ) invalid();
   return value as MerchantProviderRegistryEntry;
 }
 

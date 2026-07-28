@@ -208,6 +208,126 @@ test("default PayTR cards stay truthful until matching sandbox evidence exists",
   assert.equal(sandboxReady.catalog.cards.filter((candidate) => candidate.connectable).length, 1);
 });
 
+test("Iyzico is configurable without execution authority and exposes the exact lifecycle states", () => {
+  const hosted = createDefaultHostedPaymentAdapterRegistry(Object.freeze({
+    request: Object.freeze(async () => { throw new Error("unexpected transport"); }),
+  }));
+  const registry = createDefaultCustomerPanelPaymentProviderRegistry(hosted);
+  const entry = registry.get("iyzico_iframe", "payment_processing");
+  assert.ok(entry);
+  const descriptor: MerchantProviderDescriptor = {
+    providerCode: entry.providerCode,
+    capability: entry.capability,
+    label: entry.label,
+    publicFields: entry.publicFields,
+    credentialFields: entry.credentialFields,
+    adapterVersion: entry.adapterVersion,
+    environments: entry.environments,
+    executionAuthority: null,
+  };
+  const iyzico = (status?: MerchantProviderProfile["status"], activeMethod = false) => {
+    const selectedProfile = status ? Object.freeze({
+      ...profile(status),
+      providerCode: "iyzico_iframe",
+      publicConfig: { environment: "test" },
+      maskedAccountReference: "iyzico test hesabı",
+      lastValidatedAt: status === "active" ? NOW : null,
+    }) : undefined;
+    const methods = activeMethod ? [Object.freeze({
+      ...method("40000000-0000-4000-8000-000000000030", "active", 0),
+      providerCode: "iyzico_iframe",
+      profileId: selectedProfile?.id ?? PROFILE_ID,
+    })] : [];
+    return buildPaymentSettingsViewModel(
+      PAYMENT_PROVIDER_CATALOG,
+      [descriptor],
+      selectedProfile ? [selectedProfile] : [],
+      methods,
+      "iyzico",
+      noFilters,
+    ).catalog.cards.find(({ providerCode }) => providerCode === "iyzico_iframe")!;
+  };
+
+  const newCard = iyzico();
+  assert.equal(newCard.providerCode, "iyzico_iframe");
+  assert.equal(newCard.configurable, true);
+  assert.equal(newCard.executable, false);
+  assert.equal(newCard.connectable, true);
+  assert.equal(newCard.actionLabel, "Bilgileri gir");
+  assert.equal(newCard.lifecycleLabel, "Doğrulama bekliyor");
+  assert.equal(newCard.configurableDescriptor?.executionAuthority, null);
+  assert.equal(newCard.executableDescriptor, null);
+  assert.equal(iyzico("pending_validation").lifecycleLabel, "Doğrulama bekliyor");
+  assert.equal(iyzico("active").lifecycleLabel, "Doğrulandı — sandbox kanıtı bekleniyor");
+  assert.equal(iyzico("active", true).lifecycleLabel, "Aktif");
+});
+
+test("an executable provider advances from verified profile to activation ready and active", () => {
+  const evidence = {
+    state: "sandbox_ready" as const,
+    adapterVersion: 1 as const,
+    evidenceDigest: "sha256:test-only-fixture" as const,
+  };
+  const catalog = promoteTestReadiness(PAYMENT_PROVIDER_CATALOG, "paytr_iframe", evidence);
+  const descriptor: MerchantProviderDescriptor = {
+    providerCode: "paytr_iframe",
+    capability: "payment_processing",
+    label: "PayTR iFrame",
+    publicFields: [{ key: "merchantId", label: "Mağaza numarası" }],
+    credentialFields: [{ key: "merchantKey", label: "Mağaza parolası", secret: true }],
+    adapterVersion: 1,
+    environments: ["test"],
+    executionAuthority: { environment: "test", adapterVersion: 1, evidenceDigest: evidence.evidenceDigest },
+  };
+  const activeProfile = profile("active");
+  const ready = buildPaymentSettingsViewModel(catalog, [descriptor], [activeProfile], [], "paytr", noFilters);
+  assert.equal(ready.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Aktivasyona hazır");
+  const active = buildPaymentSettingsViewModel(
+    catalog,
+    [descriptor],
+    [activeProfile],
+    [method("40000000-0000-4000-8000-000000000031", "active", 0)],
+    "paytr",
+    noFilters,
+  );
+  assert.equal(active.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Aktif");
+});
+
+test("Iyzico test and live profiles coexist and build independent connection views", () => {
+  const descriptor: MerchantProviderDescriptor = {
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    label: "iyzico · Checkout Form",
+    publicFields: [],
+    credentialFields: [
+      { key: "apiKey", label: "API Key", secret: true },
+      { key: "secretKey", label: "Secret Key", secret: true },
+    ],
+    adapterVersion: 1,
+    environments: ["test", "live"],
+    executionAuthority: null,
+  };
+  const profiles = (["test", "live"] as const).map((environment, index) => ({
+    ...profile("active"),
+    id: `40000000-0000-4000-8000-00000000004${index}`,
+    providerCode: "iyzico_iframe",
+    publicConfig: { environment },
+    maskedAccountReference: `iyzico ${environment} hesabı`,
+    lastValidatedAt: NOW,
+  }));
+  for (const environment of ["test", "live"] as const) {
+    const view = buildPaymentProviderConnectionViewModel({
+      descriptor,
+      environment,
+      profile: profiles.find((candidate) => candidate.publicConfig.environment === environment),
+      storefrontHostname: "shop.example.test",
+    });
+    assert.equal(view.environment, environment);
+    assert.equal(view.maskedAccountReference, `iyzico ${environment} hesabı`);
+    assert.equal(view.statusLabel, "Doğrulandı — sandbox kanıtı bekleniyor");
+  }
+});
+
 test("method/profile statuses, real counts and active checkout preview are deterministic", () => {
   const methods = [
     method("40000000-0000-4000-8000-000000000004", "active", 3, "Sonra"),

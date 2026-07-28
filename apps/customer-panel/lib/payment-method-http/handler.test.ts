@@ -142,8 +142,8 @@ test("authenticated catalog returns exactly 58 truthful local entries", async ()
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   const result = await response.json() as { items: Array<Record<string, unknown>> };
   assert.equal(result.items.length, 58);
-  assert.deepEqual(result.items.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode), ["paytr_iframe"]);
-  assert.equal(result.items.filter((entry) => entry.providerCode !== "paytr_iframe").every((entry) => entry.readiness === "planned"), true);
+  assert.deepEqual(result.items.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode), ["iyzico_iframe", "paytr_iframe"]);
+  assert.equal(result.items.filter((entry) => !["iyzico_iframe", "paytr_iframe"].includes(String(entry.providerCode))).every((entry) => entry.readiness === "planned"), true);
   assert.equal(result.items.some((entry) => String(entry.providerCode).includes("dummy")), false);
   assert.equal(result.items.every((entry) => String(entry.logoPath).startsWith("/payment-providers/")), true);
   assert.equal(probe.calls.length, 0);
@@ -229,6 +229,40 @@ test("planned provider catalog entries cannot become configured methods in Wave 
   assert.equal((JSON.parse(responseText) as { code: string }).code, "unavailable");
   assert.equal(probe.calls.length, 0);
   assert.doesNotMatch(responseText, /must-not-be-parsed/);
+});
+
+test("Iyzico verification profiles cannot create or enable a payment method before execution authority", async () => {
+  const createProbe = fixture();
+  const createResponse = await createProbe.handlers.methods(request("POST", "/api/payment-methods", {
+    methodId: METHOD,
+    expectedVersion: 0,
+    kind: "provider",
+    profileId: PROFILE,
+    providerCode: "iyzico_iframe",
+    label: "iyzico",
+    config: { environment: "test" },
+  }));
+  assert.equal(createResponse.status, 503);
+  assert.equal(await code(createResponse), "unavailable");
+  assert.equal(createProbe.calls.length, 0);
+
+  const iyzicoMethod = Object.freeze({
+    ...paymentMethod(),
+    kind: "provider" as const,
+    profileId: PROFILE,
+    providerCode: "iyzico_iframe",
+    label: "iyzico",
+    config: { environment: "test" },
+  });
+  const enableProbe = fixture({ method: iyzicoMethod });
+  const enableResponse = await enableProbe.handlers.state(request("POST", `/api/payment-methods/${METHOD}/state`, {
+    expectedVersion: 1,
+    state: "active",
+    emergencyReason: null,
+  }), METHOD);
+  assert.equal(enableResponse.status, 503);
+  assert.equal(await code(enableResponse), "unavailable");
+  assert.deepEqual(enableProbe.calls.map(({ kind }) => kind), ["list"]);
 });
 
 test("provider method mutation requires exact catalog registry packet evidence version and environment authority", async () => {

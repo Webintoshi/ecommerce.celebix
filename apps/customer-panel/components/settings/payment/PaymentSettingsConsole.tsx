@@ -113,7 +113,7 @@ export function PaymentSettingsConsole(props: Readonly<{
       profiles: () => providerExecutionApi.profiles("payment_processing"),
       methods: () => paymentMethodApi.list(),
       shouldLoadProviderExecution: (catalog) => catalog.some(({ readiness }) =>
-        readiness === "production_ready" || readiness === "sandbox_ready"),
+        readiness === "production_ready" || readiness === "sandbox_ready" || readiness === "verification"),
     });
     if (mounted.current && loadVersion.current === version) setSources(result);
   }, []);
@@ -177,12 +177,11 @@ export function PaymentSettingsConsole(props: Readonly<{
 
   const methodsLoading = sources.methods.phase === "loading";
   const topbarActions = <PaymentConsoleActions canManage={props.canManage} loading={methodsLoading} addRef={addButtonRef} orderRef={orderButtonRef} onOrder={() => setOrderOpen(true)} onAdd={() => setCatalogOpen(true)} />;
-  const selectedProfile = selectedCard?.executableDescriptor
-    ? sources.profiles.value.find((profile) =>
+  const selectedProfiles = selectedCard?.configurableDescriptor
+    ? sources.profiles.value.filter((profile) =>
       profile.providerCode === selectedCard.providerCode
-      && profile.capability === "payment_processing"
-      && profile.publicConfig.environment === selectedCard.connectionEnvironment)
-    : undefined;
+      && profile.capability === "payment_processing")
+    : [];
 
   return (
     <section className={styles.page} aria-labelledby="payment-settings-title">
@@ -239,8 +238,8 @@ export function PaymentSettingsConsole(props: Readonly<{
         </> : null}
       </section>
 
-      {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} busy={selectedCard !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { if (card.connectable && card.executableDescriptor) setSelectedCard(card); }} /> : null}
-      {selectedCard?.executableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.executableDescriptor} environment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profile={selectedProfile} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={load} /> : null}
+      {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} busy={selectedCard !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { if (card.configurable && card.configurableDescriptor) setSelectedCard(card); }} /> : null}
+      {selectedCard?.configurableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.configurableDescriptor} environments={selectedCard.environments} initialEnvironment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profiles={selectedProfiles} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={load} /> : null}
       {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} openerRef={orderButtonRef} onReload={load} onClose={() => setOrderOpen(false)} /> : null}
     </section>
   );

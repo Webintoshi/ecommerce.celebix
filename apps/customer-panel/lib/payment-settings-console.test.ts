@@ -123,8 +123,13 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(catalogSource, /openerRef\.current\?\.focus/);
   assert.match(catalogSource, /event\.key [!=]== "Tab"/);
   assert.match(catalogSource, /event\.key === "Escape"/);
-  assert.match(catalogSource, /disabled=\{!card\.connectable/);
+  assert.match(catalogSource, /disabled=\{!card\.configurable/);
+  assert.match(catalogSource, /card\.lifecycleLabel/);
   assert.match(drawerSource, /credentialFields/);
+  assert.match(drawerSource, /aria-label="Sağlayıcı ortamı"/);
+  assert.match(drawerSource, /props\.environments/);
+  assert.match(drawerSource, /selectedEnvironment/);
+  assert.match(drawerSource, /props\.profiles\.find/);
   assert.match(drawerSource, /type="password"/);
   assert.match(drawerSource, /autoComplete="off"/);
   assert.match(drawerSource, /form\.reset\(\)/);
@@ -132,10 +137,12 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(drawerSource, /maskedAccountReference/);
   assert.match(drawerSource, /callbackUrl/);
   assert.match(drawerSource, /storefrontHostname/);
-  assert.match(drawerSource, /const canSubmit = connection !== null && \(props\.profile === undefined \|\| connection\.canRotate\)/);
+  assert.match(drawerSource, /const canSubmit = connection !== null && \(selectedProfile === undefined \|\| connection\.canRotate\)/);
   assert.match(drawerSource, /busy \|\| !props\.canManage \|\| !canSubmit/);
   assert.doesNotMatch(drawerSource, /window[.]location[.]origin/);
   assert.doesNotMatch(drawerSource, /defaultValue=\{[^}]*credential|merchantKey\s*:|merchantSalt\s*:/);
+  assert.match(consoleSource, /readiness === "verification"/);
+  assert.match(consoleSource, /selectedCard\?\.configurableDescriptor/);
   assert.match(consoleSource, /emergencyReason/);
   assert.match(consoleSource, /window\.confirm/);
   assert.match(orderSource, /draggable/);

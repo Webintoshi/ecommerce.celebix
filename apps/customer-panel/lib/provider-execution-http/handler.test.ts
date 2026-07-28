@@ -3,8 +3,11 @@ import test from "node:test";
 
 import type { MerchantProviderProfile, TenantContext } from "@celebix/saas-contracts";
 import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
-import type { MerchantProviderProfileRepository } from "@celebix/saas-data";
-import { PAYTR_IFRAME_PACKET } from "@celebix/payment-adapters";
+import type {
+  MerchantProviderProfileRepository,
+  MerchantProviderVerificationProfileRepository,
+} from "@celebix/saas-data";
+import { IYZICO_IFRAME_PACKET, PAYTR_IFRAME_PACKET } from "@celebix/payment-adapters";
 
 import { createCustomerPanelProviderRegistry } from "../server-provider-execution/registry.ts";
 import type { ServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
@@ -60,9 +63,10 @@ function fixture(
   const repository = {
     async list(input) { repositoryCalls.push({ kind: "list", input }); return Object.freeze([profile("active", payment)]); },
     async save(input) { repositoryCalls.push({ kind: "save", input }); return profile("pending_validation", payment); },
+    async saveVerification(input) { repositoryCalls.push({ kind: "saveVerification", input }); return profile("pending_validation", payment); },
     async disable(input) { repositoryCalls.push({ kind: "disable", input }); return { ...profile("active"), status: "disabled" as const, version: 2 }; },
     async revoke(input) { repositoryCalls.push({ kind: "revoke", input }); return { ...profile("active"), status: "revoked" as const, version: 2 }; },
-  } satisfies MerchantProviderProfileRepository;
+  } satisfies MerchantProviderProfileRepository & MerchantProviderVerificationProfileRepository;
   const baseEntry = {
     providerCode: payment ? "paytr_iframe" : "fixture_provider",
     capability: payment ? "payment_processing" as const : "marketplace_sync" as const,
@@ -89,7 +93,7 @@ function fixture(
   };
   const entry = Object.freeze(payment ? {
     ...baseEntry, adapterVersion: 1, environments: Object.freeze(["test"] as const),
-    executionAuthority: paymentAuthority,
+    executionAuthority: paymentAuthority, profileSaveMode: "execution_authority" as const,
   } : baseEntry);
   const registry = createCustomerPanelProviderRegistry(empty ? Object.freeze([]) : Object.freeze([entry]));
   const runtime = Object.freeze({
@@ -123,6 +127,102 @@ function fixture(
     })]) : Object.freeze([]),
   });
   return { handlers, repositoryCalls, parsedCredential: () => parsedCredential };
+}
+
+function iyzicoProfile(environment: "test" | "live", status: "pending_validation" | "active" = "pending_validation"): MerchantProviderProfile {
+  return {
+    id: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    publicConfig: { environment },
+    maskedAccountReference: `iyzico ${environment} hesabı`,
+    status,
+    credentialVersion: 1,
+    version: 1,
+    lastValidatedAt: status === "active" ? NOW.toISOString() : null,
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  };
+}
+
+function iyzicoFixture(existingEnvironment: "test" | "live" = "test") {
+  const repositoryCalls: unknown[] = [];
+  let parseCredentialCalls = 0;
+  let parsedCredential: Uint8Array | null = null;
+  const repository = Object.freeze({
+    async list(input: unknown) {
+      repositoryCalls.push({ kind: "list", input });
+      return Object.freeze([iyzicoProfile(existingEnvironment, "active")]);
+    },
+    async save(input: unknown) {
+      repositoryCalls.push({ kind: "save", input });
+      throw new Error("legacy_save_must_not_run");
+    },
+    async saveVerification(input: { publicConfig: { environment: "test" | "live" } }) {
+      repositoryCalls.push({ kind: "saveVerification", input });
+      return iyzicoProfile(input.publicConfig.environment);
+    },
+    async disable() { throw new Error("unused"); },
+    async revoke() { throw new Error("unused"); },
+  });
+  const entry = Object.freeze({
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing" as const,
+    label: "iyzico · Checkout Form",
+    publicFields: Object.freeze([]),
+    credentialFields: Object.freeze([
+      Object.freeze({ key: "apiKey", label: "API Key", secret: true as const }),
+      Object.freeze({ key: "secretKey", label: "Secret Key", secret: true as const }),
+    ]),
+    adapterVersion: 1,
+    environments: Object.freeze(["test", "live"] as const),
+    executionAuthority: null,
+    profileSaveMode: "verification" as const,
+    parsePublicConfig(value: unknown) {
+      const selected = value as Record<string, unknown>;
+      if (!selected || Object.keys(selected).join(",") !== "environment" || (selected.environment !== "test" && selected.environment !== "live")) throw new TypeError();
+      return Object.freeze({ environment: selected.environment });
+    },
+    parseCredential(value: unknown) {
+      parseCredentialCalls += 1;
+      const selected = value as Record<string, unknown>;
+      if (!selected || Object.keys(selected).sort().join(",") !== "apiKey,secretKey" || typeof selected.apiKey !== "string" || typeof selected.secretKey !== "string") throw new TypeError();
+      parsedCredential = new TextEncoder().encode(JSON.stringify(selected));
+      return parsedCredential;
+    },
+    maskAccountReference(value: Readonly<Record<string, unknown>>) {
+      return `iyzico ${value.environment} hesabı`;
+    },
+  });
+  const registry = createCustomerPanelProviderRegistry(Object.freeze([entry]));
+  const adapter = Object.freeze({ packet: IYZICO_IFRAME_PACKET });
+  const runtime = Object.freeze({
+    access: Object.freeze({
+      readiness: Object.freeze({ mode: "approved_staging" as const }), panelOrigin: PANEL,
+      async resolveCredential() { return Object.freeze({ kind: "authenticated" as const, tenantContext: tenant() }); },
+      async rotateCredential() { throw new Error("unused"); }, async revokeCredential() { throw new Error("unused"); },
+    }),
+    profiles: repository,
+    keyring: Object.freeze({ activeKeyId: "provider.current", keys: Object.freeze([Object.freeze({ keyId: "provider.current", key: new Uint8Array(32).fill(12) })]) }),
+    registry,
+    adapters: Object.freeze({ size: 1, packet: () => IYZICO_IFRAME_PACKET, adapter: () => adapter }),
+  }) as unknown as ServerProviderExecutionRuntime;
+  const handlers = createProviderExecutionHttpHandlers({
+    async resolveRuntime() { return runtime; },
+    now: () => new Date(NOW),
+    requestId: () => REQUEST,
+    profileId: () => PROFILE,
+    providerCodes: () => Object.freeze(["iyzico_iframe"]),
+    paymentCatalog: () => Object.freeze([
+      PAYMENT_PROVIDER_CATALOG.find((candidate) => candidate.providerCode === "iyzico_iframe")!,
+    ]),
+  });
+  return {
+    handlers,
+    repositoryCalls,
+    parseCredentialCalls: () => parseCredentialCalls,
+    parsedCredential: () => parsedCredential,
+  };
 }
 
 function request(method: string, path: string, body?: unknown, origin = PANEL) {
@@ -178,6 +278,41 @@ test("payment profile persistence requires one exact catalog descriptor and adap
   }));
   assert.equal(response.status, 200);
   assert.deepEqual((probe.repositoryCalls[0] as { input: { executionAuthority: unknown } }).input.executionAuthority, authority);
+});
+
+test("Iyzico saves verification identity without execution authority or sandbox evidence", async () => {
+  for (const environment of ["test", "live"] as const) {
+    const probe = iyzicoFixture(environment === "test" ? "live" : "test");
+    const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+      providerCode: "iyzico_iframe", capability: "payment_processing",
+      publicConfig: { environment },
+      credential: { apiKey: "api-key-never-return", secretKey: "secret-key-never-return" },
+      expectedVersion: 0,
+    }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(probe.repositoryCalls.map((entry) => (entry as { kind: string }).kind), ["saveVerification"]);
+    const saved = (probe.repositoryCalls[0] as { input: Record<string, unknown> }).input;
+    assert.deepEqual(saved.validationIdentity, { environment, adapterVersion: 1 });
+    assert.equal(Object.hasOwn(saved, "executionAuthority"), false);
+    assert.equal(JSON.stringify(saved).includes("evidenceDigest"), false);
+    assert.doesNotMatch(await response.text(), /api-key-never-return|secret-key-never-return|ciphertext|credentialDigest/);
+    assert.equal(probe.parsedCredential()?.every((byte) => byte === 0), true);
+  }
+});
+
+test("Iyzico rotation rejects an environment change before credential parsing or sealing", async () => {
+  const probe = iyzicoFixture("test");
+  const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+    providerCode: "iyzico_iframe", capability: "payment_processing",
+    publicConfig: { environment: "live" },
+    credential: { apiKey: "must-not-parse", secretKey: "must-not-parse" },
+    expectedVersion: 1,
+    profileId: PROFILE,
+  }));
+  assert.equal(response.status, 400);
+  assert.deepEqual(probe.repositoryCalls.map((entry) => (entry as { kind: string }).kind), ["list"]);
+  assert.equal(probe.parseCredentialCalls(), 0);
+  assert.equal(probe.parsedCredential(), null);
 });
 
 test("profile rotation revalidates ownership and creates only the next credential version", async () => {

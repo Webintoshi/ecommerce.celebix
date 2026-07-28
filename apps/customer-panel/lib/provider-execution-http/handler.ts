@@ -15,6 +15,7 @@ import {
   MerchantProviderProfileRepositoryError,
   sealMerchantProviderCredential,
   type MerchantProviderProfileErrorCode,
+  type MerchantProviderValidationIdentity,
 } from "@celebix/saas-data";
 
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
@@ -169,7 +170,10 @@ function paymentExecutionAuthority(
   entry: ReturnType<ServerProviderExecutionRuntime["registry"]["get"]>,
   catalog: readonly PaymentProviderCatalogEntry[],
 ) {
-  if (entry === null || entry.capability !== "payment_processing") return null;
+  if (
+    entry === null || entry.capability !== "payment_processing" ||
+    entry.profileSaveMode !== "execution_authority"
+  ) return null;
   const catalogEntry = catalog.find((candidate) => candidate.providerCode === entry.providerCode);
   const authority = catalogEntry?.executionAuthority ?? null;
   const expectedReadiness = authority?.environment === "test" ? "sandbox_ready" : "production_ready";
@@ -190,6 +194,43 @@ function paymentExecutionAuthority(
     && packet.readiness[authority.environment] === catalogEntry.readiness
     && packet.endpoints[authority.environment].length > 0
     ? authority : null;
+}
+
+function paymentEnvironment(value: unknown): "test" | "live" | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) return null;
+  const descriptor = Object.getOwnPropertyDescriptor(value, "environment");
+  return descriptor?.enumerable === true && "value" in descriptor &&
+    (descriptor.value === "test" || descriptor.value === "live")
+    ? descriptor.value
+    : null;
+}
+
+function paymentVerificationIdentity(
+  runtime: ServerProviderExecutionRuntime,
+  entry: ReturnType<ServerProviderExecutionRuntime["registry"]["get"]>,
+  catalog: readonly PaymentProviderCatalogEntry[],
+  environment: "test" | "live",
+): Readonly<MerchantProviderValidationIdentity> | null {
+  if (
+    entry === null || entry.capability !== "payment_processing" ||
+    entry.profileSaveMode !== "verification" || entry.executionAuthority !== null
+  ) return null;
+  const catalogEntry = catalog.find((candidate) => candidate.providerCode === entry.providerCode);
+  const packet = runtime.adapters.packet(entry.providerCode);
+  const adapter = runtime.adapters.adapter(entry.providerCode);
+  return catalogEntry !== undefined
+    && catalogEntry.readiness === "verification"
+    && catalogEntry.executionAuthority === null
+    && catalogEntry.environments.includes(environment)
+    && entry.environments?.includes(environment) === true
+    && entry.adapterVersion === packet?.adapterVersion
+    && packet !== null && adapter !== null && adapter.packet === packet
+    && packet.providerCode === catalogEntry.providerCode
+    && packet.familyCode === catalogEntry.familyCode && packet.modeCode === catalogEntry.modeCode
+    && packet.readiness[environment] === "verification"
+    && packet.endpoints[environment].length > 0
+    ? Object.freeze({ environment, adapterVersion: entry.adapterVersion! })
+    : null;
 }
 
 export function createProviderExecutionHttpHandlers(deps: Deps) {
@@ -236,10 +277,24 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
       const entry = authorized.runtime.registry.get(parsed.providerCode, selectedCapability);
       if (entry === null) return failure("invalid_input", 400);
       let executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null = null;
+      let validationIdentity: Readonly<MerchantProviderValidationIdentity> | null = null;
       if (selectedCapability === "payment_processing") {
-        try { executionAuthority = paymentExecutionAuthority(authorized.runtime, entry, deps.paymentCatalog()); }
+        try {
+          if (entry.profileSaveMode === "verification") {
+            const environment = paymentEnvironment(parsed.publicConfig);
+            if (environment === null) return failure("invalid_input", 400);
+            validationIdentity = paymentVerificationIdentity(
+              authorized.runtime,
+              entry,
+              deps.paymentCatalog(),
+              environment,
+            );
+          } else {
+            executionAuthority = paymentExecutionAuthority(authorized.runtime, entry, deps.paymentCatalog());
+          }
+        }
         catch { return failure("unavailable", 503); }
-        if (executionAuthority === null) return failure("unavailable", 503);
+        if (executionAuthority === null && validationIdentity === null) return failure("unavailable", 503);
       }
       const existingProfileId = parsed.profileId === undefined ? null : id(parsed.profileId);
       if ((expectedVersion === 0) !== (existingProfileId === null) || (parsed.profileId !== undefined && existingProfileId === null)) return failure("invalid_input", 400);
@@ -247,10 +302,6 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
       try {
         profileId = existingProfileId ?? deps.profileId();
         if (!UUID.test(profileId)) throw new TypeError();
-        const publicConfig = entry.parsePublicConfig(parsed.publicConfig);
-        const maskedAccountReference = entry.maskAccountReference(publicConfig);
-        credential = bytes(entry.parseCredential(parsed.credential, publicConfig));
-        const credentialDigest = createHash("sha256").update(credential).digest("hex");
         let credentialVersion = 1;
         if (existingProfileId !== null) {
           const existing = (await authorized.runtime.profiles.list({
@@ -263,8 +314,20 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
             existing.capability !== entry.capability || existing.version !== expectedVersion ||
             existing.status === "revoked"
           ) return failure("version_conflict", 409);
+          if (
+            validationIdentity !== null &&
+            existing.publicConfig.environment !== validationIdentity.environment
+          ) return failure("invalid_input", 400);
           credentialVersion = existing.credentialVersion + 1;
         }
+        const publicConfig = entry.parsePublicConfig(parsed.publicConfig);
+        if (
+          validationIdentity !== null &&
+          publicConfig.environment !== validationIdentity.environment
+        ) throw new TypeError();
+        const maskedAccountReference = entry.maskAccountReference(publicConfig);
+        credential = bytes(entry.parseCredential(parsed.credential, publicConfig));
+        const credentialDigest = createHash("sha256").update(credential).digest("hex");
         const sealedCredentials = sealMerchantProviderCredential({
           plaintext: credential,
           profileId,
@@ -274,12 +337,20 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
           credentialVersion,
           keyring: authorized.runtime.keyring,
         });
-        return await execute(() => authorized.runtime.profiles.save({
+        const common = {
           tenantContext: authorized.tenantContext, now: authorized.now, operationId,
           profileId, providerCode: entry.providerCode, capability: entry.capability,
           publicConfig, maskedAccountReference, sealedCredentials, credentialDigest, expectedVersion,
-          executionAuthority,
-        }), parseMerchantProviderProfile);
+        };
+        return validationIdentity === null
+          ? await execute(() => authorized.runtime.profiles.save({
+              ...common,
+              executionAuthority,
+            }), parseMerchantProviderProfile)
+          : await execute(() => authorized.runtime.profiles.saveVerification({
+              ...common,
+              validationIdentity,
+            }), parseMerchantProviderProfile);
       } catch (error) {
         return error instanceof TypeError ? failure("invalid_input", 400) : repositoryFailure(error);
       } finally { credential?.fill(0); }

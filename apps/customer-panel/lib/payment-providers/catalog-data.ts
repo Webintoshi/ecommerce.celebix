@@ -117,7 +117,7 @@ export const RAW_PAYMENT_PROVIDER_CATALOG = Object.freeze([
   bank("is-bankasi-girogate", "is_bankasi", "Türkiye İş Bankası", "girogate", "Girogate", "redirect", ["iş bankası", "is bankasi"]),
   tokenized("isyerimpos", "isyerimpos", "İşyerimPOS", "orchestration", "Ödeme Orkestrasyonu", ["işyerim pos"]),
   tokenized("iyzico", "iyzico", "iyzico", "api", "API"),
-  define({ sourceSlug: "iyzico-iframe", familyCode: "iyzico", modeCode: "iframe", label: "iyzico", modeLabel: "iFrame", category: "payment_institution", interactionMode: "iframe" }),
+  define({ sourceSlug: "iyzico-iframe", familyCode: "iyzico", modeCode: "iframe", label: "iyzico", modeLabel: "Checkout Form", category: "payment_institution", interactionMode: "iframe", readiness: "verification", environments: TEST_AND_LIVE }),
   bank("kuveyt-turk", "kuveyt_turk", "Kuveyt Türk", "virtual_pos", "Sanal POS", "direct_pos", ["kuveyt turk"]),
   hosted("lidio", "lidio", "Lidio"),
   tokenized("moka", "moka", "Moka United", "api", "API", ["moka"]),

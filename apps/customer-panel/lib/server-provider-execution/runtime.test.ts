@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import type {
   MerchantProviderCredentialKeyring,
   MerchantProviderProfileRepository,
+  MerchantProviderVerificationProfileRepository,
 } from "@celebix/saas-data";
 import type { ProviderTransport } from "@celebix/payment-adapters";
 import { createPaymentAdapterRegistry } from "@celebix/payment-adapters";
@@ -25,7 +26,13 @@ function access(mode: "approved_staging" | "disabled" = "approved_staging") {
 }
 
 const reject = async () => { throw new Error("unexpected"); };
-const profiles: MerchantProviderProfileRepository = Object.freeze({ list: reject, save: reject, disable: reject, revoke: reject });
+const profiles: MerchantProviderProfileRepository & MerchantProviderVerificationProfileRepository = Object.freeze({
+  list: reject,
+  save: reject,
+  saveVerification: reject,
+  disable: reject,
+  revoke: reject,
+});
 function keyring(): MerchantProviderCredentialKeyring {
   return Object.freeze({
     activeKeyId: "staging-key-01",
@@ -66,7 +73,7 @@ test("registers one frozen approved-staging provider runtime", () => {
   assert.ok(runtime);
   assert.equal(runtime.access, approved);
   assert.equal(runtime.registry, registry);
-  assert.deepEqual(Object.keys(runtime.profiles), ["list", "save", "disable", "revoke"]);
+  assert.deepEqual(Object.keys(runtime.profiles), ["list", "save", "saveVerification", "disable", "revoke"]);
   assert.equal(Object.isFrozen(runtime), true);
   assert.equal(resolveServerProviderExecutionRuntime(access("disabled")), null);
 });

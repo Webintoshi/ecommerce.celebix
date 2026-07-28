@@ -111,7 +111,13 @@ export function buildPaymentProviderConnectionViewModel(input: Readonly<{
     selectedProfile.capability !== descriptor.capability ||
     selectedProfile.publicConfig.environment !== environment
   )) connectionInvalid();
-  const profileStatus = selectedProfile ? PROFILE_STATUS[selectedProfile.status] : Object.freeze({
+  const profileStatus = selectedProfile?.status === "active"
+    && descriptor.adapterVersion !== undefined
+    && descriptor.environments !== undefined
+    ? descriptor.executionAuthority === null
+      ? Object.freeze({ label: "Doğrulandı — sandbox kanıtı bekleniyor", tone: "warning" as const })
+      : Object.freeze({ label: "Aktivasyona hazır", tone: "success" as const })
+    : selectedProfile ? PROFILE_STATUS[selectedProfile.status] : Object.freeze({
     label: "Henüz bağlanmadı",
     tone: "neutral" as const,
   });
@@ -164,9 +170,13 @@ export type PaymentProviderCatalogCard = Readonly<{
   readinessTone: PaymentSettingsTone;
   environments: readonly PaymentProviderEnvironment[];
   environmentLabel: string;
+  configurable: boolean;
+  executable: boolean;
   connectable: boolean;
-  actionLabel: "Bağla" | "Hazırlanıyor";
+  actionLabel: "Bilgileri gir" | "Bağla" | "Hazırlanıyor";
+  lifecycleLabel: "Doğrulama bekliyor" | "Doğrulandı — sandbox kanıtı bekleniyor" | "Aktivasyona hazır" | "Aktif";
   connectionEnvironment: PaymentProviderEnvironment | null;
+  configurableDescriptor: MerchantProviderDescriptor | null;
   executableDescriptor: MerchantProviderDescriptor | null;
 }>;
 
@@ -233,17 +243,49 @@ function exactExecutionDescriptor(
     && descriptorAuthority.evidenceDigest === authority.evidenceDigest;
 }
 
+function exactVerificationDescriptor(
+  entry: PaymentProviderCatalogEntry,
+  descriptor: MerchantProviderDescriptor,
+): boolean {
+  return entry.readiness === "verification"
+    && entry.executionAuthority === null
+    && descriptor.executionAuthority === null
+    && descriptor.adapterVersion !== undefined
+    && descriptor.environments !== undefined
+    && descriptor.environments.length === entry.environments.length
+    && descriptor.environments.every((environment, index) => environment === entry.environments[index]);
+}
+
 function catalogCard(
   entry: PaymentProviderCatalogEntry,
   descriptors: readonly MerchantProviderDescriptor[],
+  profiles: readonly MerchantProviderProfile[],
+  methods: readonly MerchantPaymentMethod[],
 ): PaymentProviderCatalogCard {
   const ready = entry.readiness === "production_ready" || entry.readiness === "sandbox_ready";
-  const descriptor = ready
+  const executableDescriptor = ready
     ? descriptors.find((candidate) =>
       candidate.providerCode === entry.providerCode && candidate.capability === "payment_processing"
       && exactExecutionDescriptor(entry, candidate))
     : undefined;
-  const connectable = descriptor !== undefined;
+  const verificationDescriptor = entry.readiness === "verification"
+    ? descriptors.find((candidate) =>
+      candidate.providerCode === entry.providerCode && candidate.capability === "payment_processing"
+      && exactVerificationDescriptor(entry, candidate))
+    : undefined;
+  const configurableDescriptor = executableDescriptor ?? verificationDescriptor;
+  const configurable = configurableDescriptor !== undefined;
+  const executable = executableDescriptor !== undefined;
+  const activeProfile = profiles.some((candidate) =>
+    candidate.providerCode === entry.providerCode
+    && candidate.capability === "payment_processing"
+    && candidate.status === "active");
+  const activeMethod = methods.some((candidate) =>
+    candidate.providerCode === entry.providerCode && candidate.state === "active");
+  const lifecycleLabel = activeMethod ? "Aktif" as const
+    : executable && activeProfile ? "Aktivasyona hazır" as const
+    : activeProfile ? "Doğrulandı — sandbox kanıtı bekleniyor" as const
+    : "Doğrulama bekliyor" as const;
   return Object.freeze({
     providerCode: entry.providerCode,
     familyCode: entry.familyCode,
@@ -261,12 +303,16 @@ function catalogCard(
     readinessTone: READINESS_TONES[entry.readiness],
     environments: Object.freeze([...entry.environments]),
     environmentLabel: environmentLabel(entry.environments),
-    connectable,
-    actionLabel: connectable ? "Bağla" : "Hazırlanıyor",
-    connectionEnvironment: connectable
-      ? entry.readiness === "production_ready" ? "live" : "test"
+    configurable,
+    executable,
+    connectable: configurable,
+    actionLabel: executable ? "Bağla" : configurable ? "Bilgileri gir" : "Hazırlanıyor",
+    lifecycleLabel,
+    connectionEnvironment: configurable
+      ? entry.readiness === "production_ready" ? "live" : configurableDescriptor.environments?.[0] ?? null
       : null,
-    executableDescriptor: descriptor ? cloneDescriptor(descriptor) : null,
+    configurableDescriptor: configurableDescriptor ? cloneDescriptor(configurableDescriptor) : null,
+    executableDescriptor: executableDescriptor ? cloneDescriptor(executableDescriptor) : null,
   });
 }
 
@@ -280,7 +326,7 @@ export function buildPaymentSettingsViewModel(
 ) {
   const normalizedQuery = normalize(query);
   const cards = Object.freeze(catalog
-    .map((entry) => catalogCard(entry, definitions))
+    .map((entry) => catalogCard(entry, definitions, profiles, methods))
     .filter((card) => {
       const searchable = normalize([card.label, card.modeLabel, ...card.aliases].join(" "));
       return (normalizedQuery === "" || searchable.includes(normalizedQuery))

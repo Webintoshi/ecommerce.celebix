@@ -108,8 +108,8 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
               <article className={styles.providerCard} key={card.providerCode}>
                 <div className={styles.providerLogo}><Image src={card.logoPath} alt={`${card.label} logosu`} width={144} height={56} /></div>
                 <div className={styles.providerCardHeading}><div><h3>{card.label}</h3><p>{card.modeLabel}</p></div><span className={styles[`tone-${card.readinessTone}`]}>{card.readinessLabel}</span></div>
-                <div className={styles.providerMeta}><span>{card.categoryLabel}</span><span>{card.interactionLabel}</span><span>{card.environmentLabel}</span></div>
-                <button type="button" className={card.connectable ? styles.primaryButton : styles.plannedButton} disabled={!card.connectable || !props.canManage || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}</button>
+                <div className={styles.providerMeta}><span>{card.categoryLabel}</span><span>{card.interactionLabel}</span><span>{card.environmentLabel}</span><span>{card.lifecycleLabel}</span></div>
+                <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.configurable || !props.canManage || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}</button>
               </article>
             ))}
           </div> : null}

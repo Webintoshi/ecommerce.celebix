@@ -36,7 +36,7 @@ test("approved runtime exposes only a frozen repository facade and truthful cata
   assert.deepEqual(Object.keys(runtime.methods), ["list", "save", "setState", "reorder", "recoverOperation"]);
   assert.equal("pool" in runtime.methods, false);
   assert.equal(runtime.catalog.length, 58);
-  assert.deepEqual(runtime.catalog.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode), ["paytr_iframe"]);
+  assert.deepEqual(runtime.catalog.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode), ["iyzico_iframe", "paytr_iframe"]);
   assert.equal(resolveServerPaymentMethodsRuntime(access("disabled")), null);
 });
 
@@ -54,7 +54,9 @@ test("approved staging startup preflights constructs and registers payment metho
   assert.match(source, /to_regclass\('saas\.payment_methods'\)/);
   assert.match(source, /to_regprocedure\('saas\.payment_method_list/);
   assert.match(source, /to_regprocedure\('saas\.payment_method_recover_operation/);
-  assert.match(source, /saas\.paytr_iframe_activation_preflight\(\)/);
+  assert.match(source, /saas\.payment_provider_keyed_lifecycle_preflight\(\)/);
+  assert.match(source, /to_regprocedure\('saas\.merchant_provider_profile_save_verification/);
+  assert.doesNotMatch(source, /WHERE procedure\.oid = 'saas\.paytr_iframe_activation_preflight\(\)'/);
   assert.match(source, /new PostgresPaymentMethodRepository\(\{[\s\S]*?pool,[\s\S]*?role: "celebix_saas_app"/);
   assert.match(source, /registerServerPaymentMethodRepository\(access, paymentMethodRepository\)/);
   assert.ok(source.indexOf("await preflight") < source.indexOf("new PostgresPaymentMethodRepository"));

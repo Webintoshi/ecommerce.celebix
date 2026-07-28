@@ -19,9 +19,10 @@ import styles from "./payment-settings.module.css";
 
 export function PaymentProviderConnectionDrawer(props: Readonly<{
   descriptor: MerchantProviderDescriptor;
-  environment: PaymentProviderEnvironment;
+  environments: readonly PaymentProviderEnvironment[];
+  initialEnvironment: PaymentProviderEnvironment;
   storefrontHostname: string | null;
-  profile?: MerchantProviderProfile;
+  profiles: readonly MerchantProviderProfile[];
   canManage: boolean;
   onClose(): void;
   onSaved(): Promise<void>;
@@ -30,6 +31,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
   const closeRef = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [selectedEnvironment, setSelectedEnvironment] = useState(props.initialEnvironment);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -38,13 +40,17 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
     return () => { document.body.style.overflow = previousOverflow; };
   }, []);
 
+  const selectedProfile = props.profiles.find((profile) =>
+    profile.providerCode === props.descriptor.providerCode
+    && profile.capability === "payment_processing"
+    && profile.publicConfig.environment === selectedEnvironment);
   const connection = props.storefrontHostname === null ? null : buildPaymentProviderConnectionViewModel({
     descriptor: props.descriptor,
-    environment: props.environment,
-    ...(props.profile ? { profile: props.profile } : {}),
+    environment: selectedEnvironment,
+    ...(selectedProfile ? { profile: selectedProfile } : {}),
     storefrontHostname: props.storefrontHostname,
   });
-  const canSubmit = connection !== null && (props.profile === undefined || connection.canRotate);
+  const canSubmit = connection !== null && (selectedProfile === undefined || connection.canRotate);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape" && !busy) {
@@ -54,7 +60,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
     }
     if (event.key !== "Tab") return;
     const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
     if (!focusable?.length) { event.preventDefault(); return; }
     const first = focusable[0]!;
@@ -69,7 +75,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
     const form = event.currentTarget;
     const data = new FormData(form);
     const publicConfig = Object.freeze({
-      environment: props.environment,
+      environment: selectedEnvironment,
       ...Object.fromEntries(
         props.descriptor.publicFields.map((field) => [field.key, String(data.get(field.key) ?? "").trim()]),
       ),
@@ -85,8 +91,8 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
         capability: "payment_processing",
         publicConfig,
         credential,
-        expectedVersion: props.profile?.version ?? 0,
-        ...(props.profile ? { profileId: props.profile.id } : {}),
+        expectedVersion: selectedProfile?.version ?? 0,
+        ...(selectedProfile ? { profileId: selectedProfile.id } : {}),
       });
       form.reset();
       setMessage("Doğrulama bekliyor");
@@ -126,11 +132,24 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
         {!props.canManage ? <p className={styles.readOnlyNotice}>Salt okunur erişim: bağlantı bilgileri değiştirilemez.</p> : null}
         {message ? <p className={message === "Doğrulama bekliyor" ? styles.successNotice : styles.errorNotice} role="status">{message === "Doğrulama bekliyor" ? <CheckCircle2 aria-hidden="true" /> : null}{message}</p> : null}
 
-        <form className={styles.connectionForm} autoComplete="off" onSubmit={(event) => void save(event)}>
+        <form key={selectedEnvironment} className={styles.connectionForm} autoComplete="off" onSubmit={(event) => void save(event)}>
           <div className={styles.connectionSummary}>
             <strong>Bağlantı bilgileri</strong>
             <span>Gönderilen gizli değerler tekrar gösterilmez.</span>
           </div>
+          <label>Ortam
+            <select
+              aria-label="Sağlayıcı ortamı"
+              value={selectedEnvironment}
+              disabled={busy || !props.canManage}
+              onChange={(event) => {
+                setMessage("");
+                setSelectedEnvironment(event.currentTarget.value as PaymentProviderEnvironment);
+              }}
+            >
+              {props.environments.map((environment) => <option key={environment} value={environment}>{environment === "test" ? "Test" : "Canlı"}</option>)}
+            </select>
+          </label>
           {connection ? <div className={styles.connectionSummary}>
             <strong>{connection.environmentLabel} · {connection.statusLabel}</strong>
             <span>{connection.maskedAccountReference ?? "Henüz hesap doğrulanmadı"}{connection.credentialVersionLabel ? ` · ${connection.credentialVersionLabel}` : ""}</span>

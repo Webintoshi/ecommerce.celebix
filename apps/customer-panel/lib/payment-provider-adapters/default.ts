@@ -1,5 +1,7 @@
 import {
+  IYZICO_IFRAME_PACKET,
   PAYTR_IFRAME_PACKET,
+  createIyzicoCheckoutFormAdapter,
   createPaymentAdapterRegistry,
   createPaytrIframeAdapter,
   type HostedPaymentAdapter,
@@ -15,7 +17,7 @@ import {
   type MerchantProviderRegistryEntry,
 } from "../server-provider-execution/registry.ts";
 
-const DEFAULT_PROVIDER_CODES = Object.freeze(["paytr_iframe"] as const);
+const DEFAULT_PROVIDER_CODES = Object.freeze(["iyzico_iframe", "paytr_iframe"] as const);
 const PUBLIC_KEYS = Object.freeze(["environment", "merchantId"] as const);
 const CREDENTIAL_KEYS = Object.freeze(["merchantKey", "merchantSalt"] as const);
 const ENCODER = new TextEncoder();
@@ -61,7 +63,7 @@ function exactRecord(value: unknown, keys: readonly string[]): Record<string, un
 
 function wipeCredential(value: unknown): void {
   if (typeof value !== "object" || value === null) return;
-  for (const key of ["merchantId", "merchantKey", "merchantSalt"]) {
+  for (const key of ["merchantId", "merchantKey", "merchantSalt", "apiKey", "secretKey"]) {
     try { Reflect.set(value, key, ""); } catch { /* best effort */ }
   }
 }
@@ -153,6 +155,75 @@ function paytrEntry(
     adapterVersion: adapter.packet.adapterVersion,
     environments: Object.freeze(["test"] as const),
     executionAuthority,
+    profileSaveMode: "execution_authority" as const,
+    parsePublicConfig,
+    parseCredential,
+    maskAccountReference,
+  });
+}
+
+function iyzicoEntry(adapter: HostedPaymentAdapter<object>): MerchantProviderRegistryEntry {
+  if (
+    adapter.packet !== IYZICO_IFRAME_PACKET ||
+    adapter.packet.providerCode !== "iyzico_iframe" ||
+    adapter.packet.adapterVersion !== 1
+  ) invalid();
+  const publicFields = Object.freeze(adapter.packet.publicFields.map(({ key, label }) =>
+    Object.freeze({ key, label })));
+  const credentialFields = Object.freeze(adapter.packet.credentialFields.map(({ key, label }) =>
+    Object.freeze({ key, label, secret: true as const })));
+
+  function parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>> {
+    const selected = exactRecord(value, ["environment"]);
+    if (selected.environment !== "test" && selected.environment !== "live") invalid();
+    return Object.freeze({ environment: selected.environment });
+  }
+
+  function parseCredential(
+    value: unknown,
+    publicConfig: Readonly<Record<string, MerchantAdminJson>>,
+  ): Uint8Array {
+    let parsedCredential: object | undefined;
+    try {
+      parsePublicConfig(publicConfig);
+      const selected = exactRecord(value, ["apiKey", "secretKey"]);
+      parsedCredential = adapter.parseCredential({
+        apiKey: selected.apiKey,
+        secretKey: selected.secretKey,
+      });
+      const bytes = ENCODER.encode(JSON.stringify({
+        apiKey: selected.apiKey,
+        secretKey: selected.secretKey,
+      }));
+      if (bytes.byteLength < 1 || bytes.byteLength > 16_384) {
+        bytes.fill(0);
+        invalid();
+      }
+      return bytes;
+    } catch {
+      return invalid();
+    } finally {
+      wipeCredential(parsedCredential);
+    }
+  }
+
+  function maskAccountReference(
+    value: Readonly<Record<string, MerchantAdminJson>>,
+  ): string {
+    const publicConfig = parsePublicConfig(value);
+    return `iyzico ${publicConfig.environment} hesabı`;
+  }
+
+  return Object.freeze({
+    providerCode: IYZICO_IFRAME_PACKET.providerCode,
+    capability: "payment_processing" as const,
+    label: "iyzico · Checkout Form",
+    publicFields,
+    credentialFields,
+    adapterVersion: adapter.packet.adapterVersion,
+    environments: Object.freeze(["test", "live"] as const),
+    executionAuthority: null,
+    profileSaveMode: "verification" as const,
     parsePublicConfig,
     parseCredential,
     maskAccountReference,
@@ -162,8 +233,12 @@ function paytrEntry(
 export function createDefaultHostedPaymentAdapterRegistry(
   transport: ProviderTransport,
 ): PaymentAdapterRegistry {
-  const adapter = createPaytrIframeAdapter(transport);
-  return createPaymentAdapterRegistry([PAYTR_IFRAME_PACKET], [adapter]);
+  const paytr = createPaytrIframeAdapter(transport);
+  const iyzico = createIyzicoCheckoutFormAdapter(transport);
+  return createPaymentAdapterRegistry(
+    [PAYTR_IFRAME_PACKET, IYZICO_IFRAME_PACKET],
+    [paytr, iyzico],
+  );
 }
 
 export function createDefaultCustomerPanelPaymentProviderRegistry(
@@ -172,9 +247,13 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
   activationMode: CustomerPanelPaymentActivationMode = "disabled",
 ): MerchantProviderRegistry {
   try {
-    if (hosted.size !== 1) invalid();
+    if (hosted.size !== 2) invalid();
     const adapter = hosted.adapter("paytr_iframe");
-    if (adapter === null || hosted.packet("paytr_iframe") !== PAYTR_IFRAME_PACKET) invalid();
+    const iyzico = hosted.adapter("iyzico_iframe");
+    if (
+      adapter === null || hosted.packet("paytr_iframe") !== PAYTR_IFRAME_PACKET ||
+      iyzico === null || hosted.packet("iyzico_iframe") !== IYZICO_IFRAME_PACKET
+    ) invalid();
     if (executionAuthority !== null && (
       executionAuthority.environment !== "test" ||
       executionAuthority.adapterVersion !== adapter.packet.adapterVersion ||
@@ -184,7 +263,10 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
       && PAYTR_IFRAME_PACKET.readiness.test === "sandbox_ready"
       ? executionAuthority
       : null;
-    return createCustomerPanelProviderRegistry([paytrEntry(adapter, activeAuthority)]);
+    return createCustomerPanelProviderRegistry([
+      paytrEntry(adapter, activeAuthority),
+      iyzicoEntry(iyzico),
+    ]);
   } catch {
     return invalid();
   }

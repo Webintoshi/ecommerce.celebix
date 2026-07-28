@@ -118,7 +118,12 @@ test("catalog preserves the approved family and mode normalization", () => {
       entry.sourceSlug,
     );
     assert.equal(entry.providerCode, entry.sourceSlug.replaceAll("-", "_"));
-    assert.equal(entry.readiness, entry.providerCode === "paytr_iframe" ? "verification" : "planned");
+    assert.equal(
+      entry.readiness,
+      entry.providerCode === "paytr_iframe" || entry.providerCode === "iyzico_iframe"
+        ? "verification"
+        : "planned",
+    );
     assert.deepEqual(entry.support, {
       threeDSecure: "unknown",
       installments: "unknown",
@@ -130,7 +135,7 @@ test("catalog preserves the approved family and mode normalization", () => {
   }
 });
 
-test("catalog codes stay aligned with inventory-only adapter source records", () => {
+test("catalog codes stay aligned with inventory records and Iyzico is configurable but dormant", () => {
   const catalog = catalogModule.PAYMENT_PROVIDER_CATALOG!;
   assert.deepEqual(
     PAYMENT_ADAPTER_PACKET_INVENTORY.map((item) => [
@@ -150,6 +155,17 @@ test("catalog codes stay aligned with inventory-only adapter source records", ()
     PAYMENT_ADAPTER_PACKET_INVENTORY.filter((item) => item.implementationState === "executable").map((item) => item.providerCode),
     ["paytr_iframe"],
   );
+  assert.equal(
+    PAYMENT_ADAPTER_PACKET_INVENTORY.find((item) => item.providerCode === "iyzico_iframe")?.implementationState,
+    "configurable",
+  );
+  const iyzico = catalog.find((entry) => entry.providerCode === "iyzico_iframe");
+  assert.ok(iyzico);
+  assert.equal(iyzico.label, "iyzico");
+  assert.equal(iyzico.modeLabel, "Checkout Form");
+  assert.equal(iyzico.logoPath, "/payment-providers/iyzico.svg");
+  assert.deepEqual(iyzico.environments, ["test", "live"]);
+  assert.equal(iyzico.executionAuthority, null);
 });
 
 test("catalog and all nested values are immutable copies", () => {

@@ -125,3 +125,14 @@ test("phase3o manifest appends 056 and cumulative runner executes the real PG16 
   const runner = readFileSync(path.join(ROOT, "tests/saas-phase3/run-current-suite.mjs"), "utf8");
   assert.match(runner, /payment-provider-keyed-lifecycle[/]postgres-harness[.]mjs/);
 });
+
+test("customer-panel startup preflights the provider-keyed verification repository", () => {
+  const runtime = readFileSync(path.join(
+    ROOT,
+    "apps/customer-panel/lib/server-panel-access/postgres-runtime.ts",
+  ), "utf8");
+  assert.match(runtime, /to_regprocedure\('saas[.]merchant_provider_profile_save_verification/u);
+  assert.match(runtime, /saas[.]payment_provider_keyed_lifecycle_preflight\(\)/u);
+  assert.match(runtime, /row[.]payment_provider_keyed_lifecycle !== true/u);
+  assert.doesNotMatch(runtime, /WHERE procedure[.]oid = 'saas[.]paytr_iframe_activation_preflight\(\)'/u);
+});

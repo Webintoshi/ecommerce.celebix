@@ -165,6 +165,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS merchant_admin_repository,
       to_regprocedure('saas.merchant_provider_profile_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_provider_profile_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,text,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_provider_profile_save_verification(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,bigint)') IS NOT NULL
         AND to_regprocedure('saas.merchant_provider_profile_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.merchant_provider_profile_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.merchant_provider_profile_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS merchant_provider_profile_repository,
@@ -175,11 +176,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.payment_method_set_state(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text)') IS NOT NULL
         AND to_regprocedure('saas.payment_method_reorder(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.payment_method_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS payment_method_repository,
-      (
-        SELECT pg_catalog.md5(procedure.prosrc) = '0302d768e4b58bc06c9a1947ca0bc6dd'
-        FROM pg_catalog.pg_proc AS procedure
-        WHERE procedure.oid = 'saas.paytr_iframe_activation_preflight()'::regprocedure
-      ) AND saas.paytr_iframe_activation_preflight() AS paytr_iframe_activation_authority,
+      to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL
+        AND saas.payment_provider_keyed_lifecycle_preflight() AS payment_provider_keyed_lifecycle,
       to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
@@ -267,7 +265,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_admin_repository !== true ||
       row.merchant_admin_repository !== true ||
       row.merchant_provider_profile_repository !== true ||
-      row.payment_method_repository !== true || row.paytr_iframe_activation_authority !== true ||
+      row.payment_method_repository !== true || row.payment_provider_keyed_lifecycle !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.analytics_repository !== true ||
       row.inventory_relations !== true || row.inventory_repository !== true ||

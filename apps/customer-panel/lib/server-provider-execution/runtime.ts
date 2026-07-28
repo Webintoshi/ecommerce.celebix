@@ -1,6 +1,7 @@
 import type {
   MerchantProviderCredentialKeyring,
   MerchantProviderProfileRepository,
+  MerchantProviderVerificationProfileRepository,
 } from "@celebix/saas-data";
 import type { PaymentAdapterRegistry } from "@celebix/payment-adapters";
 
@@ -17,7 +18,7 @@ type ApprovedAccess = ServerPanelAccessRuntime & Readonly<{
 
 export type ServerProviderExecutionRuntime = Readonly<{
   access: ApprovedAccess;
-  profiles: MerchantProviderProfileRepository;
+  profiles: MerchantProviderProfileRepository & MerchantProviderVerificationProfileRepository;
   keyring: MerchantProviderCredentialKeyring;
   registry: MerchantProviderRegistry;
   adapters: PaymentAdapterRegistry;
@@ -29,15 +30,17 @@ type StoredKeyring = Readonly<{
 }>;
 
 const RUNTIMES = new WeakMap<ServerPanelAccessRuntime, ServerProviderExecutionRuntime>();
-const METHODS = Object.freeze(["list", "save", "disable", "revoke"] as const);
+const METHODS = Object.freeze(["list", "save", "saveVerification", "disable", "revoke"] as const);
 const KEY_ID = /^[A-Za-z0-9._-]{1,128}$/;
 const ARRAY_TAG_GETTER = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), Symbol.toStringTag)!.get as (this: ArrayBufferView) => string | undefined;
 
 function invalid(): never { throw new Error("server_provider_execution_runtime_invalid"); }
 
-function profileFacade(repository: MerchantProviderProfileRepository): MerchantProviderProfileRepository {
+function profileFacade(
+  repository: MerchantProviderProfileRepository & MerchantProviderVerificationProfileRepository,
+): MerchantProviderProfileRepository & MerchantProviderVerificationProfileRepository {
   if (!repository || typeof repository !== "object" || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
-  return Object.freeze(Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as MerchantProviderProfileRepository);
+  return Object.freeze(Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as MerchantProviderProfileRepository & MerchantProviderVerificationProfileRepository);
 }
 
 function copyKey(value: unknown): Uint8Array {
@@ -136,7 +139,7 @@ function adapterRegistry(
 
 export function registerServerProviderExecutionRuntime(
   access: ServerPanelAccessRuntime,
-  profiles: MerchantProviderProfileRepository,
+  profiles: MerchantProviderProfileRepository & MerchantProviderVerificationProfileRepository,
   keyring: MerchantProviderCredentialKeyring,
   registry: MerchantProviderRegistry,
   adapters: PaymentAdapterRegistry,
