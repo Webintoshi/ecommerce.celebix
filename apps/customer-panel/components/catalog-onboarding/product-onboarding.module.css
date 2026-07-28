@@ -26,6 +26,11 @@
 .media small { color: #98a2b3; font-weight: 500; }
 .media input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .preview { display: grid; grid-template-columns: 92px 1fr; align-items: end; gap: 15px; border-radius: 18px; background: #f8fafc; padding: 12px; }
+.previewList { display: grid; gap: 10px; }
+.advancedMedia { display: grid; gap: 12px; }
+.advancedMedia > label:not(.media) { display: grid; gap: 7px; color: #344054; font-size: 12px; font-weight: 720; }
+.advancedMedia > label:not(.media) input { min-height: 48px; border: 1px solid #d8dee8; border-radius: 13px; padding: 0 13px; }
+.advancedMedia progress { width: 100%; accent-color: #ff6a00; }
 .preview img { width: 92px; height: 76px; border-radius: 13px; object-fit: cover; }
 .progress { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; color: #475467; font-size: 12px; }
 .progress progress { width: 100%; accent-color: #ff6a00; }

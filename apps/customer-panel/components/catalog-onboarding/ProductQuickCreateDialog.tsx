@@ -18,11 +18,12 @@ import {
   catalogOnboardingClient,
 } from "@/lib/catalog-onboarding-ui/client";
 import { buildQuickCreateIntent } from "@/lib/catalog-onboarding-ui/forms";
+import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
 
 import styles from "./product-onboarding.module.css";
 
-type OnboardingApi = Pick<typeof catalogOnboardingClient, "createProduct" | "publishAfterMedia">;
+type OnboardingApi = Pick<typeof catalogOnboardingClient, "createProduct" | "publishAfterMedia" | "getProductEditor">;
 type MediaApi = Pick<typeof productMediaApi, "upload">;
 
 export type ProductQuickCreateDialogProps = Readonly<{
@@ -38,10 +39,11 @@ export type ProductQuickCreateDialogProps = Readonly<{
 
 type Recovery = Readonly<{
   created: CatalogOnboardingResult;
-  file: File;
-  altText: string;
+  files: readonly ProductMediaSelection[];
   publish: boolean;
 }>;
+
+type SelectedImage = Readonly<{ file: File; altText: string; preview: string }>;
 
 const ACCEPTED_MEDIA = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -68,14 +70,15 @@ export function ProductQuickCreateDialog({
 }: ProductQuickCreateDialogProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [image, setImage] = useState<File>();
-  const [preview, setPreview] = useState("");
+  const [images, setImages] = useState<readonly SelectedImage[]>([]);
   const [progress, setProgress] = useState(0);
   const [recovery, setRecovery] = useState<Recovery>();
+  const [createdProductId, setCreatedProductId] = useState<string>();
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const submittingRef = useRef(false);
+  const previewUrlsRef = useRef<readonly string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +94,7 @@ export function ProductQuickCreateDialog({
     return () => window.removeEventListener("beforeunload", protect);
   }, [submitting]);
 
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  useEffect(() => () => { for (const preview of previewUrlsRef.current) URL.revokeObjectURL(preview); }, []);
 
   function requestClose() {
     if (submittingRef.current && !window.confirm("Ürün kaydı sürüyor. Yine de kapatmak istiyor musunuz?")) return;
@@ -119,30 +122,50 @@ export function ProductQuickCreateDialog({
   }
 
   function selectImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const files = Array.from(event.currentTarget.files ?? []);
     setError("");
     setRecovery(undefined);
     setProgress(0);
-    if (preview) URL.revokeObjectURL(preview);
-    if (file === undefined) { setImage(undefined); setPreview(""); return; }
-    if (!ACCEPTED_MEDIA.has(file.type) || file.size < 1 || file.size > 5_242_880) {
+    if (files.length > 16 || files.some((file) => !ACCEPTED_MEDIA.has(file.type) || file.size < 1 || file.size > 5_242_880)) {
       event.currentTarget.value = "";
-      setImage(undefined);
-      setPreview("");
-      setError("PNG, JPEG veya WebP biçiminde ve en fazla 5 MB bir görsel seçin.");
+      setError("En fazla 16 adet PNG, JPEG veya WebP görsel seçin; her dosya en fazla 5 MB olabilir.");
       return;
     }
-    setImage(file);
-    setPreview(URL.createObjectURL(file));
+    for (const preview of previewUrlsRef.current) URL.revokeObjectURL(preview);
+    const next = Object.freeze(files.map((file) => Object.freeze({ file, altText: "", preview: URL.createObjectURL(file) })));
+    previewUrlsRef.current = Object.freeze(next.map(({ preview }) => preview));
+    setImages(next);
   }
 
-  async function completeMedia(created: CatalogOnboardingResult, file: File, altText: string, publish: boolean) {
-    await mediaClient.upload(created.product.id, { file, altText, onProgress: setProgress });
-    if (!publish) return created;
-    return api.publishAfterMedia(created.product.id, {
-      expectedProductVersion: created.product.version,
-      expectedMediaCount: created.mediaCount + 1,
+  function changeAltText(index: number, altText: string) {
+    setImages((current) => Object.freeze(current.map((image, position) => position === index ? Object.freeze({ ...image, altText }) : image)));
+  }
+
+  async function completeMedia(created: CatalogOnboardingResult, files: readonly ProductMediaSelection[], publish: boolean) {
+    return completeProductMedia({
+      result: created, files, publish,
+      upload: (productId, input) => mediaClient.upload(productId, input),
+      complete: (productId, input) => api.publishAfterMedia(productId, input),
+      recover: (productId) => api.getProductEditor(productId),
+      onProgress: ({ index, count, value }) => setProgress(Math.round(((index + value / 100) / Math.max(1, count)) * 100)),
     });
+  }
+
+  function finish(outcome: Awaited<ReturnType<typeof completeMedia>>, publish: boolean, files: readonly ProductMediaSelection[]) {
+    if (outcome.kind === "published" || outcome.kind === "draft") { onCreated(outcome.result); return; }
+    if (outcome.kind === "published_recovered") {
+      const projection = outcome.projection;
+      onCreated(Object.freeze({ ...projection, variants: Object.freeze(projection.variants.map(({ variant }) => variant)), replayed: false }));
+      return;
+    }
+    if (outcome.kind === "draft_media_failed") {
+      const durable = Object.freeze({ ...outcome.result, mediaCount: outcome.result.mediaCount + outcome.uploadedCount });
+      setRecovery(Object.freeze({ created: durable, files: Object.freeze(files.slice(outcome.uploadedCount)), publish }));
+      setError("Ürün oluşturuldu, bazı görseller yüklenemedi. Ürün taslak olarak korundu.");
+      return;
+    }
+    setRecovery(undefined);
+    setError("Ürün oluşturuldu ancak yayın sonucu doğrulanamadı. İkinci yazma yapılmadı; ürün sayfasından güvenle kontrol edin.");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -168,20 +191,9 @@ export function ProductQuickCreateDialog({
     setProgress(0);
     try {
       const created = await api.createProduct(parsed.value);
-      if (image !== undefined) {
-        try {
-          const completed = await completeMedia(created, image, field(data, "imageAltText"), publish);
-          onCreated(completed);
-        } catch {
-          setRecovery(Object.freeze({ created, file: image, altText: field(data, "imageAltText"), publish }));
-          setError("Ürün oluşturuldu, görsel yüklenemedi. Ürün taslak olarak korundu.");
-        }
-      } else if (publish) {
-        onCreated(await api.publishAfterMedia(created.product.id, {
-          expectedProductVersion: created.product.version,
-          expectedMediaCount: created.mediaCount,
-        }));
-      } else onCreated(created);
+      setCreatedProductId(created.product.id);
+      const files = Object.freeze(images.map(({ file, altText }) => Object.freeze({ file, altText: altText.trim() })));
+      finish(await completeMedia(created, files, publish), publish, files);
     } catch (failure) {
       setError(safeMessage(failure));
     } finally {
@@ -197,10 +209,9 @@ export function ProductQuickCreateDialog({
     setError("");
     setProgress(0);
     try {
-      onCreated(await completeMedia(recovery.created, recovery.file, recovery.altText, recovery.publish));
+      const selected = recovery;
       setRecovery(undefined);
-    } catch {
-      setError("Ürün oluşturuldu, görsel yüklenemedi. Ürün taslak olarak korundu.");
+      finish(await completeMedia(selected.created, selected.files, selected.publish), selected.publish, selected.files);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -212,8 +223,8 @@ export function ProductQuickCreateDialog({
     <div
       ref={dialogRef}
       className={`${styles.dialog} ${mode === "page" ? styles.page : ""}`}
-      role="dialog"
-      aria-modal="true"
+      role={mode === "dialog" ? "dialog" : "region"}
+      aria-modal={mode === "dialog" ? "true" : undefined}
       aria-labelledby="quick-product-title"
       tabIndex={-1}
       onKeyDown={handleKeyDown}
@@ -231,14 +242,15 @@ export function ProductQuickCreateDialog({
           <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input name="price" required inputMode="decimal" placeholder="0,00" /><span>₺</span></div></label>
           <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" defaultValue="0" /></label>
           <label className={styles.wide}><span>Kategori</span><select name="categoryId" defaultValue=""><option value="">Kategori seçilmedi</option>{options?.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-          <label className={`${styles.media} ${styles.wide}`}><ImagePlus aria-hidden="true" /><span>{image ? "Başka görsel seç" : "İsteğe bağlı görsel seç"}<small>PNG, JPEG veya WebP · en fazla 5 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} /></label>
-          {preview ? <div className={`${styles.preview} ${styles.wide}`}><img src={preview} alt="Yüklenecek ürün görseli önizlemesi" /><label><span>Görsel alt metni</span><input name="imageAltText" maxLength={500} placeholder="Ürün görselini kısaca anlatın" /></label></div> : null}
-          {submitting && image ? <div className={`${styles.progress} ${styles.wide}`} role="status"><span>Görsel yükleniyor</span><progress max="100" value={progress}>{progress}%</progress><b>{progress}%</b></div> : null}
+          <label className={`${styles.media} ${styles.wide}`}><ImagePlus aria-hidden="true" /><span>{images.length ? `${images.length} görsel seçildi` : "İsteğe bağlı görseller seç"}<small>PNG, JPEG veya WebP · en fazla 16 dosya · dosya başına 5 MB</small></span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={selectImage} /></label>
+          {images.length ? <div className={`${styles.previewList} ${styles.wide}`}>{images.map((image, index) => <div className={styles.preview} key={`${image.file.name}-${index}`}><img src={image.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} /><label><span>{index + 1}. görsel alt metni</span><input maxLength={500} value={image.altText} onChange={(event) => changeAltText(index, event.target.value)} placeholder="Ürün görselini kısaca anlatın" /></label></div>)}</div> : null}
+          {submitting && images.length ? <div className={`${styles.progress} ${styles.wide}`} role="status"><span>Görseller yükleniyor</span><progress max="100" value={progress}>{progress}%</progress><b>{progress}%</b></div> : null}
         </fieldset>
 
         {options === null ? <p className={styles.loading} role="status">Ürün seçenekleri yükleniyor…</p> : null}
         <div className={styles.actions}>
-          {recovery ? <><button type="button" className={styles.secondary} onClick={() => void retryMedia()} disabled={submitting}>Görseli yeniden yükle</button><Link className={styles.secondary} href={`/products/${recovery.created.product.id}`}>Ürüne git</Link></> : null}
+          {recovery ? <button type="button" className={styles.secondary} onClick={() => void retryMedia()} disabled={submitting}>Görselleri yeniden yükle</button> : null}
+          {createdProductId ? <Link className={styles.secondary} href={`/products/${createdProductId}`}>Ürüne git</Link> : null}
           <button type="button" className={styles.advanced} onClick={onAdvanced} disabled={submitting}>Gelişmiş ürün eklemeye geç</button>
           <button type="submit" name="intent" value="draft" className={styles.secondary} disabled={submitting || options === null}>Taslak kaydet</button>
           <button type="submit" name="intent" value="publish" className={styles.primary} disabled={submitting || options === null}>{submitting ? "Kaydediliyor…" : "Kaydet ve satışa aç"}</button>

@@ -743,16 +743,14 @@ test("production archive focus restorer prefers a live trigger and safely falls 
 test("quick creation remains bound to the durable onboarding and media workflow", async () => {
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
-  const createIndex = dialog.indexOf("await api.createProduct");
-  const uploadIndex = dialog.indexOf("await mediaClient.upload");
-  const publishIndex = dialog.indexOf("api.publishAfterMedia");
   assert.match(create, /data-presentation="hemenaku-product-create"/);
   assert.match(dialog, /buildQuickCreateIntent/);
   assert.match(dialog, /await api\.createProduct/);
-  assert.match(dialog, /await mediaClient\.upload\(created\.product\.id,/);
+  assert.match(dialog, /completeProductMedia/);
+  assert.match(dialog, /mediaClient\.upload\(productId, input\)/);
   assert.match(dialog, /api\.publishAfterMedia/);
+  assert.match(dialog, /api\.getProductEditor/);
   assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
-  assert.ok(createIndex > uploadIndex && publishIndex > uploadIndex);
   assert.doesNotMatch(`${create}\n${dialog}`, /nutrition|\/api\/admin|supabase/i);
 });
 

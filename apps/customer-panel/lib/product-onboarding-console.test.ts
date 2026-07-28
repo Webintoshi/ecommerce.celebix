@@ -22,8 +22,8 @@ test("launcher opens the quick dialog instead of navigating away", async () => {
   const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
   assert.match(list, /setQuickCreateOpen\(true\)/);
   assert.match(list, /ProductQuickCreateDialog/);
-  assert.match(dialog, /role="dialog"/);
-  assert.match(dialog, /aria-modal="true"/);
+  assert.match(dialog, /role=\{mode === "dialog" \? "dialog" : "region"\}/);
+  assert.match(dialog, /aria-modal=\{mode === "dialog" \? "true" : undefined\}/);
 });
 
 test("dialog preserves focus, keyboard, duplicate-submit and close safety", async () => {
@@ -38,10 +38,11 @@ test("dialog preserves focus, keyboard, duplicate-submit and close safety", asyn
 
 test("media failure remains an honest draft with recovery links", async () => {
   const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
-  assert.match(dialog, /Ürün oluşturuldu, görsel yüklenemedi/);
-  assert.match(dialog, /Görseli yeniden yükle/);
+  assert.match(dialog, /Ürün oluşturuldu, bazı görseller yüklenemedi/);
+  assert.match(dialog, /Görselleri yeniden yükle/);
   assert.match(dialog, /Ürüne git/);
-  assert.match(dialog, /publishAfterMedia/);
+  assert.match(dialog, /completeProductMedia/);
+  assert.match(dialog, /İkinci yazma yapılmadı/);
 });
 
 test("quick surface is a mobile sheet with 48px targets and reduced motion", async () => {
@@ -59,6 +60,8 @@ test("advanced editor is one collapsible form, not a wizard", async () => {
   }
   assert.doesNotMatch(editor, /İleri|Önceki|stepIndex|currentStep/);
   assert.match(editor, /stickySummary/);
+  assert.match(editor, /completeProductMedia/);
+  assert.match(editor, /multiple accept="image\/jpeg,image\/png,image\/webp"/);
 });
 
 test("variant matrix rejects duplicate attributes and bounds combinations", () => {
