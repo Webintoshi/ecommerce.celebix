@@ -22,9 +22,11 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import type { Product, ProductVariant } from "@celebix/saas-contracts";
+import type { CatalogOnboardingOptions, Product, ProductVariant } from "@celebix/saas-contracts";
 
+import { ProductQuickCreateDialog } from "@/components/catalog-onboarding/ProductQuickCreateDialog";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
+import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import {
   CatalogApiError,
   catalogApi,
@@ -197,6 +199,8 @@ export function ProductListConsole() {
   rowsStaleRef.current = rowsStale;
   const [archiveCandidate, setArchiveCandidate] = useState<Product>();
   const [bulkArchiveConfirmation, setBulkArchiveConfirmation] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickOptions, setQuickOptions] = useState<CatalogOnboardingOptions | null>(null);
   const filterRef = useRef(filter);
   filterRef.current = filter;
   const operationCoordinator = useRef(createProductOperationCoordinator());
@@ -429,9 +433,19 @@ export function ProductListConsole() {
       <label className="command-select"><GripVertical aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => setSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Sırala</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option></select></label>
       <Link className="command-button" href="/products/bulk-upload"><FileUp aria-hidden="true" />İçe Aktar</Link>
       <button className="command-button" type="button" disabled={visibleRows.length === 0 || busy || loading || loadingMore} onClick={exportVisibleRows}><Download aria-hidden="true" />Dışa Aktar</button>
-      <Link className="command-button command-button-primary" href="/products/new"><Plus aria-hidden="true" />Ürün Ekle</Link>
+      <button className="command-button command-button-primary" type="button" disabled={busy} onClick={() => void openQuickCreate()}><Plus aria-hidden="true" />Ürün Ekle</button>
     </div>
     );
+  }
+
+  async function openQuickCreate() {
+    setQuickCreateOpen(true);
+    if (quickOptions !== null) return;
+    try { setQuickOptions(await catalogOnboardingClient.getOptions()); }
+    catch (failure) {
+      setQuickCreateOpen(false);
+      setError(failure instanceof Error ? failure.message : "Ürün seçenekleri yüklenemedi.");
+    }
   }
 
   const topbarActions = productCommands();
@@ -518,6 +532,14 @@ export function ProductListConsole() {
           </div>
         </div>
       ) : null}
+
+      <ProductQuickCreateDialog
+        open={quickCreateOpen}
+        options={quickOptions}
+        onClose={() => setQuickCreateOpen(false)}
+        onCreated={() => { setQuickCreateOpen(false); void load(); }}
+        onAdvanced={() => { setQuickCreateOpen(false); location.assign("/products/new?mode=advanced"); }}
+      />
     </section>
   );
 }

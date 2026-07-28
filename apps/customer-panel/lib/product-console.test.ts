@@ -35,6 +35,8 @@ async function productionProductListModule() {
     if (specifier === "next/link") return () => null;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => () => null });
     if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
+    if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
+    if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: {} };
     if (specifier === "@/lib/catalog-ui/client") {
       class CatalogApiError extends Error {
         code = "unavailable";
@@ -193,6 +195,8 @@ async function createMountedProductConsole(api: Record<string, unknown>) {
     if (specifier === "@/components/panel/PanelTopbarChrome") {
       return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => createElement("aside", { "data-topbar": true }, actions) };
     }
+    if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
+    if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: {} };
     if (specifier === "@/lib/catalog-ui/client") {
       return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
     }
@@ -295,6 +299,8 @@ test("merchant shell adopts the Hemenaku visual language without its dedicated a
 test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupported modules", async () => {
   const list = await source("components/catalog/ProductListConsole.tsx");
   const create = await source("components/catalog/ProductCreateForm.tsx");
+  const onboarding = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const onboardingStyles = await source("components/catalog-onboarding/product-onboarding.module.css");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const styles = await source("app/globals.css");
   assert.match(list, /donor-product-page/);
@@ -303,14 +309,14 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   assert.match(list, /data-presentation="hemenaku-product-list"/);
   assert.match(list, /aria-label="Ürün durumu filtresi"/);
   assert.match(list, /PanelTopbarBridge title="Ürünler"/);
-  assert.match(create, /hemenaku-wizard-stepper/);
-  assert.match(create, /Temel Bilgiler/);
-  assert.match(create, /Fiyat ve Stok/);
+  assert.match(create, /ProductQuickCreateDialog/);
+  assert.match(onboarding, /Ürün adı/);
+  assert.match(onboarding, /Satış fiyatı/);
   assert.match(detail, /hemenaku-detail-hero/);
   assert.match(detail, /Ürün Bilgileri/);
   assert.match(styles, /\.hemenaku-product-hero[^}]*border-radius:\s*30px/s);
-  assert.match(styles, /\.catalog-form fieldset[^}]*border-radius:\s*28px/s);
-  assert.doesNotMatch(`${list}\n${create}\n${detail}`, /\/api\/admin|\/admin\/urunler|category|image upload|seo|supabase/i);
+  assert.match(onboardingStyles, /\.dialog[^}]*border-radius:\s*30px/s);
+  assert.doesNotMatch(`${list}\n${create}\n${onboarding}\n${detail}`, /\/api\/admin|\/admin\/urunler|supabase/i);
 });
 
 test("product list follows the approved dense donor toolbar and table contract", async () => {
@@ -721,18 +727,20 @@ test("production archive focus restorer prefers a live trigger and safely falls 
   assert.equal(restoreArchiveFocus(trigger as unknown as HTMLElement, fallback as unknown as HTMLElement), "none");
 });
 
-test("creation wizard remains bound to the durable target workflow", async () => {
+test("quick creation remains bound to the durable onboarding and media workflow", async () => {
   const create = await source("components/catalog/ProductCreateForm.tsx");
-  const createIndex = create.indexOf("await catalogApi.createProduct");
-  const uploadIndex = create.indexOf("await productMediaApi.upload");
-  const redirectIndex = create.indexOf("location.assign");
+  const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const createIndex = dialog.indexOf("await api.createProduct");
+  const uploadIndex = dialog.indexOf("await mediaClient.upload");
+  const publishIndex = dialog.indexOf("api.publishAfterMedia");
   assert.match(create, /data-presentation="hemenaku-product-create"/);
-  assert.match(create, /buildCreateProductPayload/);
-  assert.match(create, /await catalogApi\.createProduct/);
-  assert.match(create, /if \(image !== undefined\) \{[^]*await productMediaApi\.upload\(result\.product\.id,/);
+  assert.match(dialog, /buildQuickCreateIntent/);
+  assert.match(dialog, /await api\.createProduct/);
+  assert.match(dialog, /await mediaClient\.upload\(created\.product\.id,/);
+  assert.match(dialog, /api\.publishAfterMedia/);
   assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
-  assert.ok(createIndex < uploadIndex && uploadIndex < redirectIndex);
-  assert.doesNotMatch(create, /seo|nutrition|categoryId|\/api\/admin|supabase/i);
+  assert.ok(createIndex > uploadIndex && publishIndex > uploadIndex);
+  assert.doesNotMatch(`${create}\n${dialog}`, /nutrition|\/api\/admin|supabase/i);
 });
 
 test("create, archive, variant and conflict flows keep rendered versions and navigate safely", async () => {
