@@ -203,6 +203,8 @@ BEGIN
       IF operation.store_id<>p_store_id OR operation.payload_fingerprint<>p_fingerprint
         OR operation.operation_kind<>'save'
       THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+      ELSIF operation.result_payload='{"outcome":"method_already_exists"}'::jsonb
+      THEN RETURN QUERY SELECT 'method_already_exists',NULL::jsonb;
       ELSE RETURN QUERY SELECT 'operation_replayed',saas.payment_method_replay_payload(operation.result_payload);
       END IF;
       RETURN;
@@ -215,6 +217,12 @@ BEGIN
       SELECT 1 FROM saas.payment_methods AS method
       WHERE method.store_id=p_store_id AND method.kind=p_kind AND method.id<>p_method_id
     ) THEN
+      INSERT INTO saas.payment_method_operations(
+        operation_id,store_id,operation_kind,payload_fingerprint,result_payload,committed_at
+      ) VALUES(
+        p_operation_id,p_store_id,'save',p_fingerprint,
+        '{"outcome":"method_already_exists"}'::jsonb,p_now
+      );
       RETURN QUERY SELECT 'method_already_exists',NULL::jsonb; RETURN;
     END IF;
   END IF;
@@ -228,6 +236,12 @@ BEGIN
   EXCEPTION WHEN unique_violation THEN
     GET STACKED DIAGNOSTICS violated_constraint=CONSTRAINT_NAME;
     IF violated_constraint='payment_methods_one_builtin_kind_per_store' THEN
+      INSERT INTO saas.payment_method_operations(
+        operation_id,store_id,operation_kind,payload_fingerprint,result_payload,committed_at
+      ) VALUES(
+        p_operation_id,p_store_id,'save',p_fingerprint,
+        '{"outcome":"method_already_exists"}'::jsonb,p_now
+      );
       RETURN QUERY SELECT 'method_already_exists',NULL::jsonb; RETURN;
     END IF;
     RAISE;
@@ -315,7 +329,7 @@ BEGIN
         AND NOT procedure.proisstrict AND procedure.proparallel='u' AND procedure.provolatile='v'
         AND procedure.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
-        AND pg_catalog.md5(procedure.prosrc)='10463ab9e89b4885aa41844db81c1e8c'
+        AND pg_catalog.md5(procedure.prosrc)='738496eedd50bbe5571d22241d17b2c0'
     ) OR NOT EXISTS(
       SELECT 1 FROM pg_catalog.pg_proc AS procedure
       WHERE procedure.oid=delegate_save_oid AND procedure.proowner=owner_oid

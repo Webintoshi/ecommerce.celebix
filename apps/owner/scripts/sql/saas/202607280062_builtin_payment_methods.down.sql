@@ -10,6 +10,10 @@ BEGIN
   IF EXISTS(
     SELECT 1 FROM saas.payment_methods
     WHERE kind IN('cash_on_delivery','bank_transfer')
+  ) OR EXISTS(
+    SELECT 1 FROM saas.payment_method_operations
+    WHERE operation_kind='save'
+      AND result_payload='{"outcome":"method_already_exists"}'::jsonb
   ) THEN
     RAISE EXCEPTION 'BUILT_IN_PAYMENT_METHODS_ROLLBACK_REQUIRES_DRAIN';
   END IF;
