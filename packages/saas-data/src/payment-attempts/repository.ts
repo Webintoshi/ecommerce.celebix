@@ -16,6 +16,7 @@ import type {
   ClaimPaymentAttemptReconciliationInput,
   FinalizePaymentAttemptReconciliationInput,
   GetPaymentCallbackAuthorityInput,
+  GetPaymentReconciliationAuthorityInput,
   MarkPaymentAttemptInitializedInput,
   MarkPaymentAttemptUnknownInput,
   PaymentAttemptAuthority,
@@ -32,6 +33,7 @@ import {
   paymentAttemptDate,
   paymentAttemptDigest,
   paymentAttemptEnvironment,
+  paymentAttemptExecutionEvidenceDigest,
   paymentAttemptInteger,
   paymentAttemptLeaseWindow,
   paymentAttemptOrderReference,
@@ -176,6 +178,8 @@ function parseAuthority(value: unknown): PaymentAttemptAuthority {
       "profileId",
       "providerCode",
       "environment",
+      "executionAdapterVersion",
+      "executionEvidenceDigest",
       "credentialVersion",
       "orderReference",
       "amountMinor",
@@ -196,6 +200,8 @@ function parseAuthority(value: unknown): PaymentAttemptAuthority {
       profileId: paymentAttemptUuid(parsed.profileId),
       providerCode: paymentAttemptProviderCode(parsed.providerCode),
       environment,
+      executionAdapterVersion: paymentAttemptInteger(parsed.executionAdapterVersion),
+      executionEvidenceDigest: paymentAttemptExecutionEvidenceDigest(parsed.executionEvidenceDigest),
       credentialVersion: paymentAttemptInteger(parsed.credentialVersion),
       orderReference: paymentAttemptOrderReference(parsed.orderReference),
       amountMinor: paymentAttemptInteger(parsed.amountMinor),
@@ -228,6 +234,8 @@ function parseBegin(
       "profileId",
       "providerCode",
       "environment",
+      "executionAdapterVersion",
+      "executionEvidenceDigest",
       "credentialVersion",
       "amountMinor",
       "currency",
@@ -244,6 +252,8 @@ function parseBegin(
       profileId: paymentAttemptUuid(parsed.profileId),
       providerCode: paymentAttemptProviderCode(parsed.providerCode),
       environment,
+      executionAdapterVersion: paymentAttemptInteger(parsed.executionAdapterVersion),
+      executionEvidenceDigest: paymentAttemptExecutionEvidenceDigest(parsed.executionEvidenceDigest),
       credentialVersion: paymentAttemptInteger(parsed.credentialVersion),
       amountMinor: paymentAttemptInteger(parsed.amountMinor),
       currency: paymentAttemptCurrency(parsed.currency),
@@ -407,6 +417,9 @@ function parseClaim(
     leaseId: string;
     leaseOwner: string;
     leaseExpiresAt: Date;
+    environment: "test" | "live";
+    executionAdapterVersion: number;
+    executionEvidenceDigest: string;
   }>,
 ): PaymentAttemptReconciliationClaim {
   return database(() => {
@@ -417,6 +430,8 @@ function parseClaim(
       "profileId",
       "providerCode",
       "environment",
+      "executionAdapterVersion",
+      "executionEvidenceDigest",
       "credentialVersion",
       "orderReference",
       "amountMinor",
@@ -437,6 +452,8 @@ function parseClaim(
       profileId: parsed.profileId,
       providerCode: parsed.providerCode,
       environment: parsed.environment,
+      executionAdapterVersion: parsed.executionAdapterVersion,
+      executionEvidenceDigest: parsed.executionEvidenceDigest,
       credentialVersion: parsed.credentialVersion,
       orderReference: parsed.orderReference,
       amountMinor: parsed.amountMinor,
@@ -462,6 +479,9 @@ function parseClaim(
       || result.leaseId !== expected.leaseId
       || result.leaseOwner !== expected.leaseOwner
       || result.leaseExpiresAt !== expected.leaseExpiresAt.toISOString()
+      || result.environment !== expected.environment
+      || result.executionAdapterVersion !== expected.executionAdapterVersion
+      || result.executionEvidenceDigest !== expected.executionEvidenceDigest
     ) unavailable();
     return result;
   });
@@ -823,6 +843,26 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
     );
   }
 
+  async getReconciliationAuthority(
+    input: GetPaymentReconciliationAuthorityInput,
+  ): Promise<PaymentAttemptAuthority> {
+    const parsed = exactPaymentAttemptInput(input, ["attemptId", "now"]);
+    const attemptId = paymentAttemptUuid(parsed.attemptId);
+    return read(
+      this.options,
+      Object.freeze({
+        text: "SELECT outcome,result_payload FROM saas.payment_reconciliation_authority($1::uuid,$2::timestamptz)",
+        values: Object.freeze([attemptId, paymentAttemptDate(parsed.now)]),
+      }),
+      "found",
+      (payload) => {
+        const authority = parseAuthority(payload);
+        if (authority.attemptId !== attemptId) unavailable();
+        return authority;
+      },
+    );
+  }
+
   async settleCallback(
     input: SettlePaymentAttemptCallbackInput,
   ): Promise<PaymentAttemptMutationResult> {
@@ -967,6 +1007,9 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
       "operationId",
       "fingerprint",
       "expectedVersion",
+      "environment",
+      "executionAdapterVersion",
+      "executionEvidenceDigest",
       "workerId",
       "leaseId",
       "now",
@@ -976,14 +1019,20 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
     const operationId = paymentAttemptUuid(parsed.operationId);
     const fingerprint = paymentAttemptDigest(parsed.fingerprint);
     const expectedVersion = paymentAttemptInteger(parsed.expectedVersion);
+    const environment = paymentAttemptEnvironment(parsed.environment);
+    const executionAdapterVersion = paymentAttemptInteger(parsed.executionAdapterVersion);
+    const executionEvidenceDigest = paymentAttemptExecutionEvidenceDigest(
+      parsed.executionEvidenceDigest,
+    );
     const workerId = paymentAttemptWorker(parsed.workerId);
     const leaseId = paymentAttemptUuid(parsed.leaseId);
     const window = paymentAttemptLeaseWindow(parsed.now, parsed.leaseExpiresAt);
     const query = Object.freeze({
-      text: "SELECT outcome,result_payload FROM saas.payment_attempt_claim_reconciliation($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::timestamptz,$8::timestamptz)",
+      text: "SELECT outcome,result_payload FROM saas.payment_attempt_claim_reconciliation($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::timestamptz,$8::timestamptz,$9::text,$10::integer,$11::text)",
       values: Object.freeze([
         attemptId, operationId, fingerprint, expectedVersion, workerId, leaseId,
-        window.now, window.leaseExpiresAt,
+        window.now, window.leaseExpiresAt, environment, executionAdapterVersion,
+        executionEvidenceDigest,
       ]),
     });
     return write(
@@ -996,6 +1045,9 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
         leaseId,
         leaseOwner: workerId,
         leaseExpiresAt: window.leaseExpiresAt,
+        environment,
+        executionAdapterVersion,
+        executionEvidenceDigest,
       }),
       operationReplay,
       (observed, recovered) => same(expectedReplay(observed, "outcome"), recovered),

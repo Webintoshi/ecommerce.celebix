@@ -5,6 +5,11 @@ import type { SealedMerchantProviderCredential } from "../provider-execution/cre
 
 export type PaymentAttemptEnvironment = "test" | "live";
 
+export type PaymentAttemptExecutionAuthority = Readonly<{
+  executionAdapterVersion: number;
+  executionEvidenceDigest: string;
+}>;
+
 export type PaymentAttemptStatus =
   | "created"
   | "awaiting_customer"
@@ -35,7 +40,7 @@ export type BeginPaymentAttemptInput = Readonly<{
   callbackBindingDigest: string;
 }>;
 
-export type BeginPaymentAttemptResult = Readonly<{
+export type BeginPaymentAttemptResult = PaymentAttemptExecutionAuthority & Readonly<{
   outcome: "created" | "replayed";
   attemptId: string;
   storeId: string;
@@ -59,7 +64,7 @@ export type PaymentAttemptMutationResult = Readonly<{
   replayed: boolean;
 }>;
 
-export type PaymentAttemptAuthority = Readonly<{
+export type PaymentAttemptAuthority = PaymentAttemptExecutionAuthority & Readonly<{
   attemptId: string;
   storeId: string;
   paymentMethodId: string;
@@ -113,6 +118,11 @@ export type GetPaymentCallbackAuthorityInput = Readonly<{
   now: Date;
 }>;
 
+export type GetPaymentReconciliationAuthorityInput = Readonly<{
+  attemptId: string;
+  now: Date;
+}>;
+
 export type SettlePaymentAttemptCallbackInput = Readonly<{
   providerCode: string;
   callbackBindingDigest: string;
@@ -154,6 +164,9 @@ export type ClaimPaymentAttemptReconciliationInput = Readonly<{
   operationId: string;
   fingerprint: string;
   expectedVersion: number;
+  environment: PaymentAttemptEnvironment;
+  executionAdapterVersion: number;
+  executionEvidenceDigest: string;
   workerId: string;
   leaseId: string;
   now: Date;
@@ -181,6 +194,9 @@ export interface PaymentAttemptRepository {
   markInitialized(input: MarkPaymentAttemptInitializedInput): Promise<PaymentAttemptMutationResult>;
   markUnknown(input: MarkPaymentAttemptUnknownInput): Promise<PaymentAttemptMutationResult>;
   getCallbackAuthority(input: GetPaymentCallbackAuthorityInput): Promise<PaymentAttemptAuthority>;
+  getReconciliationAuthority(
+    input: GetPaymentReconciliationAuthorityInput,
+  ): Promise<PaymentAttemptAuthority>;
   settleCallback(input: SettlePaymentAttemptCallbackInput): Promise<PaymentAttemptMutationResult>;
   applyHostedCallback(input: ApplyHostedPaymentCallbackInput): Promise<ApplyHostedPaymentCallbackResult>;
   claimReconciliation(input: ClaimPaymentAttemptReconciliationInput): Promise<PaymentAttemptReconciliationClaim>;

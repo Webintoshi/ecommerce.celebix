@@ -157,6 +157,8 @@ if (!CHILD) {
       profileId: PROFILE,
       providerCode: "paytr_iframe",
       environment: "test",
+      executionAdapterVersion: AUTHORITY.adapterVersion,
+      executionEvidenceDigest: AUTHORITY.evidenceDigest,
       credentialVersion: 1,
       orderReference: "merchant-order-123",
       amountMinor: 10_000,
@@ -187,6 +189,8 @@ if (!CHILD) {
           profileId: PROFILE,
           providerCode: "paytr_iframe",
           environment: "test",
+          executionAdapterVersion: AUTHORITY.adapterVersion,
+          executionEvidenceDigest: AUTHORITY.evidenceDigest,
           credentialVersion: 1,
           amountMinor: 10_000,
           currency: "TRY",
@@ -215,6 +219,9 @@ if (!CHILD) {
           throw new PaymentAttemptRepositoryError("not_found");
         }
         return authority();
+      },
+      async getReconciliationAuthority() {
+        throw new Error("unexpected_reconciliation");
       },
       async settleCallback(selected) {
         throw new Error(`legacy_settlement_must_not_run:${selected.status}`);
@@ -374,6 +381,8 @@ if (!CHILD) {
           profileId: PROFILE,
           providerCode: "iyzico_iframe",
           environment: "test",
+          executionAdapterVersion: AUTHORITY.adapterVersion,
+          executionEvidenceDigest: AUTHORITY.evidenceDigest,
           credentialVersion: 1,
           amountMinor: 10_000,
           currency: "TRY",
@@ -394,6 +403,7 @@ if (!CHILD) {
       },
       async markUnknown() { throw new Error("unexpected_unknown"); },
       async getCallbackAuthority() { throw new Error("unexpected_callback"); },
+      async getReconciliationAuthority() { throw new Error("unexpected_reconciliation"); },
       async settleCallback() { throw new Error("unexpected_callback"); },
       async applyHostedCallback() { throw new Error("unexpected_callback"); },
       async claimReconciliation() { throw new Error("unexpected_reconciliation"); },
@@ -529,6 +539,8 @@ if (!CHILD) {
           profileId: PROFILE,
           providerCode: "iyzico_iframe",
           environment: "test",
+          executionAdapterVersion: AUTHORITY.adapterVersion,
+          executionEvidenceDigest: AUTHORITY.evidenceDigest,
           credentialVersion: 1,
           orderReference: "merchant-order-123",
           amountMinor: 10_000,
@@ -540,6 +552,7 @@ if (!CHILD) {
           sealedCredentials: sealed,
         };
       },
+      async getReconciliationAuthority() { throw new Error("unexpected_reconciliation"); },
       async settleCallback(selected) {
         throw new Error(`legacy_settlement_must_not_run:${selected.status}`);
       },

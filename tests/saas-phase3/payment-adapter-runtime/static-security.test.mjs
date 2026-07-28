@@ -201,12 +201,40 @@ test("shared storefront uses literal 056 boot authority and rechecks exact provi
   assert.doesNotMatch(defaultRuntime, /paytr_iframe_activation_preflight|CROSS JOIN pg_catalog[.]pg_proc/u);
   assert.doesNotMatch(defaultRuntime, /EXECUTE\s+FORMAT|\$\{\s*authority[.]providerCode/u);
   assert.match(runtime, /currentCompiledAuthorityMatches/u);
+  assert.match(
+    runtime,
+    /descriptors[.]adapterVersion[.]value === authority[.]executionAdapterVersion/u,
+  );
+  assert.match(
+    runtime,
+    /descriptors[.]evidenceDigest[.]value === authority[.]executionEvidenceDigest/u,
+  );
   for (const operation of ["initialize", "callback", "query"]) {
     assert.match(runtime, new RegExp(`adapterFor\\(dependencies, [^,]+, "${operation}"\\)`));
   }
   const initializeAuthority = runtime.indexOf("await currentCompiledAuthorityMatches(dependencies, selectedAdapter)");
   const credentialOpen = runtime.indexOf("opened = openCredential(dependencies, begun, adapter)");
   assert.ok(initializeAuthority >= 0 && credentialOpen > initializeAuthority);
+  const reconciliationRead = runtime.indexOf("attempts.getReconciliationAuthority({");
+  const reconciliationCurrent = runtime.indexOf(
+    "await currentCompiledAuthorityMatches(dependencies, preselectedAdapter)",
+    reconciliationRead,
+  );
+  const exactClaim = runtime.indexOf("attempts.claimReconciliation({", reconciliationCurrent);
+  const reconciliationCredential = runtime.indexOf(
+    "opened = openCredential(dependencies, claim, adapter)",
+    exactClaim,
+  );
+  assert.ok(
+    reconciliationRead >= 0
+      && reconciliationCurrent > reconciliationRead
+      && exactClaim > reconciliationCurrent
+      && reconciliationCredential > exactClaim,
+  );
+  const exactClaimInput = runtime.slice(exactClaim, reconciliationCredential);
+  assert.match(exactClaimInput, /environment: authority[.]environment/u);
+  assert.match(exactClaimInput, /executionAdapterVersion: authority[.]executionAdapterVersion/u);
+  assert.match(exactClaimInput, /executionEvidenceDigest: authority[.]executionEvidenceDigest/u);
 });
 
 test("storefront durable begin authority excludes buyer PII and default composition is exactly PayTR plus iyzico", () => {

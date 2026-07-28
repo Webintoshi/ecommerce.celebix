@@ -71,9 +71,9 @@ const requiredHarnesses = Object.freeze([
   }),
   Object.freeze({
     file: "tests/saas-phase3/quick-order-hosted-payment-authority/postgres-harness.mjs",
-    total: 13,
-    line: /^PASS \d+\/13 .+$/gm,
-    completion: /^PASS 13\/13 .+$/m,
+    total: 16,
+    line: /^PASS \d+\/16 .+$/gm,
+    completion: /^PASS 16\/16 .+$/m,
   }),
 ]);
 const gateRank = Object.freeze({

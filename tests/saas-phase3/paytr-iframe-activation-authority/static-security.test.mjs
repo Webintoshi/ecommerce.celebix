@@ -75,8 +75,10 @@ test("053 pins function bodies, exact ACLs, startup preflight, and reversible ro
   }
   assert.match(assertions, /PAYTR_IFRAME_ACTIVATION_AUTHORITY_MUST_NOT_BE_SEEDED/);
   assert.match(assertions, new RegExp(PREFLIGHT_HASH));
-  assert.match(ownerRuntime, new RegExp(PREFLIGHT_HASH));
-  assert.match(customerRuntime, new RegExp(PREFLIGHT_HASH));
+  for (const runtime of [ownerRuntime, customerRuntime]) {
+    assert.match(runtime, /saas[.]payment_provider_keyed_lifecycle_preflight\(\)/);
+    assert.doesNotMatch(runtime, new RegExp(PREFLIGHT_HASH));
+  }
   assert.doesNotMatch(`${up}\n${assertions}\n${ownerRuntime}\n${customerRuntime}`, /(?:PREFLIGHT|STAGE|SAVE|CLAIM|MARK)_BODY_HASH/);
   assert.match(down, /PAYTR_IFRAME_ACTIVATION_AUTHORITY_ROLLBACK_REQUIRES_DRAIN/);
   assert.match(down, /DROP TABLE saas\.merchant_provider_execution_authorities/);

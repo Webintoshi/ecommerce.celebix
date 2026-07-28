@@ -22,8 +22,11 @@ const PLAN = "00000000-0000-4000-8000-000000000001";
 const VARIANT = "41000000-0000-4000-8000-000000000057";
 const METHOD = "50000000-0000-4000-8000-000000000057";
 const OTHER_METHOD = "50000000-0000-4000-8000-000000000058";
+const LEGACY_ATTEMPT = "70000000-0000-4000-8000-000000000057";
+const BOUND_ATTEMPT = "70000000-0000-4000-8000-000000000058";
+const EXECUTION_EVIDENCE = `sha256:${"c".repeat(64)}`;
 const NOW = "2026-07-27T12:00:00.000Z";
-const TOTAL = 13;
+const TOTAL = 16;
 let completed = 0;
 
 const envelope = (key = "quick.current") => `{"algorithm":"A256GCM","ciphertext":"AQ","iv":"AAAAAAAAAAAAAAAA","keyId":"${key}","tag":"AAAAAAAAAAAAAAAAAAAAAA","version":1}`;
@@ -91,6 +94,13 @@ function legacy(ordinal = 90) {
     0,0,24,'${"e".repeat(64)}','quick.current','${envelope()}'::jsonb,
     '91000000-0000-4000-8000-${suffix}','${"f".repeat(64)}');`;
 }
+function exactClaim(attemptId, ordinal, expectedVersion = 2) {
+  const suffix = String(ordinal).padStart(12, "0");
+  return `SET ROLE celebix_saas_workflow; SELECT outcome FROM saas.payment_attempt_claim_reconciliation(
+    '${attemptId}','71000000-0000-4000-8000-${suffix}','${String(ordinal).slice(-1).repeat(64)}',${expectedVersion},
+    'worker.hosted','72000000-0000-4000-8000-${suffix}','2026-07-27T12:02:00Z','2026-07-27T12:07:00Z',
+    'test',1,'${EXECUTION_EVIDENCE}');`;
+}
 
 async function main() {
   let box;
@@ -101,13 +111,58 @@ async function main() {
     const baselineProviderGuardAcl = providerGuardAcl(box);
     assert.equal(baselineProviderGuardAcl, "celebix_saas_owner|{celebix_saas_owner=X/celebix_saas_owner}|false");
     sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
-    apply(box, UP); apply(box, ASSERTIONS); sql(box, FIXTURE);
+    sql(box, FIXTURE);
+    sql(box, `INSERT INTO saas.payment_attempts(
+      id,store_id,payment_method_id,profile_id,provider_code,environment,credential_version,
+      order_reference,amount_minor,currency,status,safe_provider_reference,safe_code,
+      reconciliation_lease_id,reconciliation_lease_owner,reconciliation_lease_expires_at,
+      version,created_at,updated_at
+    ) VALUES(
+      '${LEGACY_ATTEMPT}','${STORE}','${METHOD}','42000000-0000-4000-8000-000000000057',
+      'iyzico_iframe','test',1,'legacy-order',12500,'TRY','provider_outcome_unknown',NULL,
+      'provider_outcome_unknown',NULL,NULL,NULL,1,'${NOW}','${NOW}'
+    );`);
+    apply(box, UP); apply(box, ASSERTIONS);
 
     pass("PostgreSQL 16 migration, assertions, preflight, RLS and ACL pass", () => {
       assert.match(sql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
       assert.equal(providerGuardAcl(box), baselineProviderGuardAcl);
       assert.equal(sql(box, "SET ROLE celebix_saas_app; SELECT saas.quick_order_hosted_payment_authority_preflight();").stdout.trim(), "t");
       assert.notEqual(sql(box, "SET ROLE celebix_saas_app; SELECT * FROM saas.quick_order_link_hosted_authorities;", DB, true).status, 0);
+    });
+    pass("historical null-snapshot attempts fail exact claim without status version or lease mutation", () => {
+      assert.equal(sql(box, `SELECT execution_adapter_version IS NULL AND execution_evidence_digest IS NULL
+        FROM saas.payment_attempts WHERE id='${LEGACY_ATTEMPT}';`).stdout.trim(), "t");
+      assert.equal(sql(box, exactClaim(LEGACY_ATTEMPT, 57, 1)).stdout.trim(), "durable_authority_invalid");
+      assert.equal(sql(box, `SELECT status||'|'||version||'|'||(reconciliation_lease_id IS NULL)::text
+        FROM saas.payment_attempts WHERE id='${LEGACY_ATTEMPT}';`).stdout.trim(), "provider_outcome_unknown|1|true");
+    });
+    pass("new begin snapshots the exact current execution tuple in every authority projection", () => {
+      const begun = sql(box, `SET ROLE celebix_saas_workflow; SELECT outcome||'|'||
+        (result_payload->>'executionAdapterVersion')||'|'||(result_payload->>'executionEvidenceDigest')
+        FROM saas.payment_attempt_begin(
+          '${STORE}','${NOW}','${BOUND_ATTEMPT}','${"8".repeat(64)}','${METHOD}',
+          'bound-order',12500,'TRY','${"9".repeat(64)}'
+        );`).stdout.trim();
+      assert.equal(begun, `created|1|${EXECUTION_EVIDENCE}`);
+      assert.notEqual(sql(box, `UPDATE saas.payment_attempts SET execution_adapter_version=2
+        WHERE id='${BOUND_ATTEMPT}';`, DB, true).status, 0);
+      assert.notEqual(sql(box, `INSERT INTO saas.payment_attempts(
+        id,store_id,payment_method_id,profile_id,provider_code,environment,credential_version,
+        execution_adapter_version,execution_evidence_digest,order_reference,amount_minor,currency,
+        status,safe_code,version,created_at,updated_at
+      ) VALUES(
+        '70000000-0000-4000-8000-000000000059','${STORE}','${METHOD}',
+        '42000000-0000-4000-8000-000000000057','iyzico_iframe','test',1,1,
+        '${EXECUTION_EVIDENCE}','forged-order',12500,'TRY','created','created',1,'${NOW}','${NOW}'
+      );`, DB, true).status, 0);
+      assert.equal(sql(box, `SET ROLE celebix_saas_workflow; SELECT outcome FROM saas.payment_attempt_mark_unknown(
+        '${BOUND_ATTEMPT}','73000000-0000-4000-8000-000000000058','${"a".repeat(64)}',1,1,NULL,
+        'provider_outcome_unknown','2026-07-27T12:01:00Z');`).stdout.trim(), "provider_outcome_unknown");
+      assert.equal(sql(box, `SET ROLE celebix_saas_workflow; SELECT outcome||'|'||
+        (result_payload->>'executionAdapterVersion')||'|'||(result_payload->>'executionEvidenceDigest')
+        FROM saas.payment_reconciliation_authority('${BOUND_ATTEMPT}','2026-07-27T12:01:30Z');`).stdout.trim(),
+      `found|1|${EXECUTION_EVIDENCE}`);
     });
     pass("legacy PayTR create remains compatible and has null hosted columns", () => {
       assert.equal(sql(box, legacy()).stdout.trim(), "committed");
@@ -166,6 +221,19 @@ async function main() {
         execution_environment,execution_adapter_version,execution_evidence_digest,identity_authority,identity_key_id,sealed_identity,'${NOW}'
         FROM saas.quick_order_link_hosted_authorities WHERE link_id='60000000-0000-4000-8000-000000000001';`, DB, true);
       assert.notEqual(copied.status, 0);
+    });
+    pass("supersession between read authority and exact claim performs no reconciliation mutation", () => {
+      assert.equal(sql(box, `SELECT saas.merchant_provider_execution_authority_approve(
+        'iyzico_iframe','payment_processing','test',2,'sha256:${"e".repeat(64)}',
+        'sandbox_ready','2026-07-27T12:01:45Z');`).stdout.trim(), "t");
+      assert.equal(sql(box, exactClaim(BOUND_ATTEMPT, 58)).stdout.trim(), "durable_authority_invalid");
+      assert.equal(sql(box, `SELECT status||'|'||version||'|'||(reconciliation_lease_id IS NULL)::text||'|'||
+        (SELECT pg_catalog.count(*) FROM saas.payment_attempt_operations operation
+          WHERE operation.attempt_id=attempt.id AND operation.operation_kind='claim_reconciliation')||'|'||
+        (SELECT pg_catalog.count(*) FROM saas.payment_attempt_events event
+          WHERE event.attempt_id=attempt.id AND event.source='reconciliation')
+        FROM saas.payment_attempts attempt WHERE attempt.id='${BOUND_ATTEMPT}';`).stdout.trim(),
+      "provider_outcome_unknown|2|true|0|0");
     });
     pass("down is drain locked and clean down-up assertions restore exactly", () => {
       assert.notEqual(sql(box, readFileSync(path.join(SQL, DOWN), "utf8"), DB, true).status, 0);

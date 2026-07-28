@@ -47,6 +47,22 @@ test("hosted authority is private, exact-method bound, identity sealed, and item
   assert.doesNotMatch(`${up}\n${assertions}`, /identityDigest|identity_number|identity_hash|74300864791/i);
 });
 
+test("057 binds every new payment attempt to immutable execution evidence and claims only exact current tuples", () => {
+  const up = source(UP);
+  const down = source(DOWN);
+  const assertions = source(ASSERTIONS);
+  assert.match(up, /ALTER TABLE saas[.]payment_attempts[\s\S]*ADD COLUMN execution_adapter_version integer[\s\S]*ADD COLUMN execution_evidence_digest text/);
+  assert.match(up, /CREATE FUNCTION saas[.]payment_attempt_bind_execution_authority\(\)/);
+  assert.match(up, /BEFORE INSERT ON saas[.]payment_attempts/);
+  assert.match(up, /PAYMENT_ATTEMPT_EXECUTION_AUTHORITY_INVALID/);
+  assert.match(up, /CREATE FUNCTION saas[.]payment_reconciliation_authority\(/);
+  assert.match(up, /payment_attempt_claim_reconciliation\([\s\S]*p_execution_environment text[\s\S]*p_execution_adapter_version integer[\s\S]*p_execution_evidence_digest text/);
+  assert.match(up, /merchant_provider_execution_authority_matches\([\s\S]*attempt[.]provider_code[\s\S]*p_execution_evidence_digest/);
+  assert.match(up, /REVOKE ALL ON FUNCTION[\s\S]*saas[.]payment_attempt_claim_reconciliation\([\s\S]*uuid,uuid,text,bigint,text,uuid,timestamptz,timestamptz[\s\S]*FROM PUBLIC,[\s\S]*celebix_saas_workflow/);
+  assert.match(assertions, /PAYMENT_ATTEMPT_EXECUTION_AUTHORITY_ASSERTION_FAILED/);
+  assert.match(down, /DROP COLUMN execution_adapter_version[\s\S]*DROP COLUMN execution_evidence_digest/);
+});
+
 test("rollback is drain locked and no secret reaches public projections or app table ACL", () => {
   const up = source(UP);
   const down = source(DOWN);

@@ -17,6 +17,7 @@ import type {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
+const EXECUTION_EVIDENCE_DIGEST = /^sha256:[a-f0-9]{64}$/;
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const ORDER_REFERENCE = /^[A-Za-z0-9._:-]{1,128}$/;
 const CURRENCY = /^[A-Z]{3}$/;
@@ -76,6 +77,11 @@ export function paymentAttemptUuid(value: unknown): string {
 
 export function paymentAttemptDigest(value: unknown): string {
   if (typeof value !== "string" || !DIGEST.test(value)) invalid();
+  return value;
+}
+
+export function paymentAttemptExecutionEvidenceDigest(value: unknown): string {
+  if (typeof value !== "string" || !EXECUTION_EVIDENCE_DIGEST.test(value)) invalid();
   return value;
 }
 

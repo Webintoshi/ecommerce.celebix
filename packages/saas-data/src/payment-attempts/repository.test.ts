@@ -15,6 +15,7 @@ const LEASE = "60000000-0000-4000-8000-000000000001";
 const FINGERPRINT = "a".repeat(64);
 const CALLBACK_DIGEST = "b".repeat(64);
 const EVENT_DIGEST = "c".repeat(64);
+const EXECUTION_EVIDENCE_DIGEST = `sha256:${"d".repeat(64)}`;
 const NOW = new Date("2026-07-27T12:00:00.000Z");
 const LEASE_EXPIRES_AT = new Date("2026-07-27T12:05:00.000Z");
 
@@ -37,6 +38,8 @@ function beginPayload() {
     profileId: PROFILE,
     providerCode: "fixture_provider",
     environment: "test",
+    executionAdapterVersion: 1,
+    executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
     credentialVersion: 2,
     amountMinor: 12_345,
     currency: "USD",
@@ -64,6 +67,8 @@ function authorityPayload() {
     profileId: PROFILE,
     providerCode: "fixture_provider",
     environment: "test",
+    executionAdapterVersion: 1,
+    executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
     credentialVersion: 2,
     orderReference: "order:fixture-42",
     amountMinor: 12_345,
@@ -197,6 +202,8 @@ test("begin uses exact workflow transaction and returns copied frozen credential
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
   assert.deepEqual(client.releases, [undefined]);
   assert.equal(result.outcome, "created");
+  assert.equal(result.executionAdapterVersion, 1);
+  assert.equal(result.executionEvidenceDigest, EXECUTION_EVIDENCE_DIGEST);
   assert.equal(Object.isFrozen(result), true);
   assert.equal(Object.isFrozen(result.publicConfig), true);
   assert.equal(Object.isFrozen(result.sealedCredentials), true);
@@ -367,6 +374,38 @@ test("getCallbackAuthority is a read-only opaque binding lookup with frozen auth
   assert.notEqual(result.publicConfig, payload.publicConfig);
   assert.notEqual(result.sealedCredentials, payload.sealedCredentials);
   assert.equal(Object.isFrozen(result), true);
+});
+
+test("getReconciliationAuthority is read-only and parses the immutable attempt execution tuple", async () => {
+  const payload = authorityPayload();
+  const client = success("payment_reconciliation_authority", "found", payload);
+  const result = await repository(new Pool([client])).getReconciliationAuthority({
+    attemptId: ATTEMPT,
+    now: NOW,
+  });
+
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  assert.deepEqual(selected(client, "payment_reconciliation_authority"), {
+    text: "SELECT outcome,result_payload FROM saas.payment_reconciliation_authority($1::uuid,$2::timestamptz)",
+    values: [ATTEMPT, NOW],
+  });
+  assert.equal(result.executionAdapterVersion, 1);
+  assert.equal(result.executionEvidenceDigest, EXECUTION_EVIDENCE_DIGEST);
+  assert.equal(Object.isFrozen(result), true);
+});
+
+test("historical authority without an execution tuple fails closed", async () => {
+  const {
+    executionAdapterVersion: _executionAdapterVersion,
+    executionEvidenceDigest: _executionEvidenceDigest,
+    ...historical
+  } = authorityPayload();
+  const client = success("payment_reconciliation_authority", "found", historical);
+
+  await assert.rejects(
+    () => repository(new Pool([client])).getReconciliationAuthority({ attemptId: ATTEMPT, now: NOW }),
+    (error: unknown) => error instanceof PaymentAttemptRepositoryError && error.code === "unavailable",
+  );
 });
 
 test("settleCallback carries generic event, amount, currency, and outcome authority", async () => {
@@ -544,6 +583,9 @@ test("claimReconciliation binds operation and lease and returns immutable creden
     operationId: OPERATION,
     fingerprint: FINGERPRINT,
     expectedVersion: 3,
+    environment: "test",
+    executionAdapterVersion: 1,
+    executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
     workerId: "worker.fixture",
     leaseId: LEASE,
     now: NOW,
@@ -551,8 +593,11 @@ test("claimReconciliation binds operation and lease and returns immutable creden
   });
 
   assert.deepEqual(selected(client, "payment_attempt_claim_reconciliation"), {
-    text: "SELECT outcome,result_payload FROM saas.payment_attempt_claim_reconciliation($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::timestamptz,$8::timestamptz)",
-    values: [ATTEMPT, OPERATION, FINGERPRINT, 3, "worker.fixture", LEASE, NOW, LEASE_EXPIRES_AT],
+    text: "SELECT outcome,result_payload FROM saas.payment_attempt_claim_reconciliation($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::timestamptz,$8::timestamptz,$9::text,$10::integer,$11::text)",
+    values: [
+      ATTEMPT, OPERATION, FINGERPRINT, 3, "worker.fixture", LEASE, NOW, LEASE_EXPIRES_AT,
+      "test", 1, EXECUTION_EVIDENCE_DIGEST,
+    ],
   });
   assert.equal(result.outcome, "claimed");
   assert.equal(result.leaseId, LEASE);
@@ -646,6 +691,9 @@ test("begin and claim normalize immutable operation replay after uncertain commi
           operationId: OPERATION,
           fingerprint: FINGERPRINT,
           expectedVersion: 3,
+          environment: "test",
+          executionAdapterVersion: 1,
+          executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
           workerId: "worker.fixture",
           leaseId: LEASE,
           now: NOW,
@@ -721,6 +769,7 @@ test("failed or mismatched commit recovery returns commit_unknown after one read
 test("bounded database outcomes map exactly and unknown outcomes fail unavailable", async () => {
   for (const [outcome, expected] of [
     ["payment_method_inactive", "payment_method_inactive"],
+    ["durable_authority_invalid", "durable_authority_invalid"],
     ["credential_version_mismatch", "credential_version_mismatch"],
     ["future_database_code", "unavailable"],
   ] as const) {
@@ -842,6 +891,9 @@ test("invalid public input and forged repository errors are contained before che
       operationId: OPERATION,
       fingerprint: FINGERPRINT,
       expectedVersion: 3,
+      environment: "test",
+      executionAdapterVersion: 1,
+      executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
       workerId: " worker",
       leaseId: LEASE,
       now: NOW,
@@ -944,6 +996,9 @@ test("Date subclasses and own-property decorations fail before every timestamp c
         operationId: OPERATION,
         fingerprint: FINGERPRINT,
         expectedVersion: 3,
+        environment: "test",
+        executionAdapterVersion: 1,
+        executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
         workerId: "worker.fixture",
         leaseId: LEASE,
         now: NOW,

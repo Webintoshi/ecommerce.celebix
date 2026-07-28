@@ -1,6 +1,69 @@
 DO $f$
 DECLARE bad boolean;
 BEGIN
+  IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_attribute AS attribute
+      WHERE attribute.attrelid='saas.payment_attempts'::pg_catalog.regclass
+        AND attribute.attname IN('execution_adapter_version','execution_evidence_digest')
+        AND NOT attribute.attisdropped AND NOT attribute.attnotnull)<>2
+    OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_constraint AS constraint_info
+      WHERE constraint_info.conrelid='saas.payment_attempts'::pg_catalog.regclass
+        AND constraint_info.conname='payment_attempts_execution_authority_check'
+        AND constraint_info.contype='c' AND constraint_info.convalidated
+    )
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger AS trigger_info
+      WHERE trigger_info.tgrelid='saas.payment_attempts'::pg_catalog.regclass
+        AND trigger_info.tgname IN(
+          'payment_attempt_bind_execution_authority',
+          'payment_attempt_execution_authority_immutable'
+        )
+        AND NOT trigger_info.tgisinternal AND trigger_info.tgenabled='O')<>2
+  THEN RAISE EXCEPTION 'PAYMENT_ATTEMPT_EXECUTION_AUTHORITY_ASSERTION_FAILED'; END IF;
+  IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc AS procedure
+      JOIN pg_catalog.pg_namespace AS schema_info ON schema_info.oid=procedure.pronamespace
+      WHERE schema_info.nspname='saas'
+        AND procedure.proname IN(
+          'payment_reconciliation_authority','payment_attempt_claim_reconciliation'
+        )
+        AND procedure.pronargs IN(2,11)
+        AND procedure.prosecdef
+        AND procedure.proowner='celebix_saas_owner'::pg_catalog.regrole)<>2
+    OR NOT pg_catalog.has_function_privilege(
+      'celebix_saas_workflow',
+      'saas.payment_reconciliation_authority(uuid,timestamp with time zone)',
+      'EXECUTE'
+    )
+    OR NOT pg_catalog.has_function_privilege(
+      'celebix_saas_workflow',
+      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone,text,integer,text)',
+      'EXECUTE'
+    )
+    OR pg_catalog.has_function_privilege(
+      'celebix_saas_workflow',
+      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone)',
+      'EXECUTE'
+    )
+    OR pg_catalog.has_function_privilege(
+      'public',
+      'saas.payment_reconciliation_authority(uuid,timestamp with time zone)',
+      'EXECUTE'
+    )
+    OR pg_catalog.has_function_privilege(
+      'public',
+      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone,text,integer,text)',
+      'EXECUTE'
+    )
+  THEN RAISE EXCEPTION 'PAYMENT_ATTEMPT_EXECUTION_AUTHORITY_ACL_ASSERTION_FAILED'; END IF;
+  IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc AS procedure
+      JOIN pg_catalog.pg_namespace AS schema_info ON schema_info.oid=procedure.pronamespace
+      WHERE schema_info.nspname='saas'
+        AND procedure.proname IN(
+          'payment_attempt_begin_projection','payment_attempt_authority_projection'
+        )
+        AND procedure.pronargs=1
+        AND procedure.prosrc~'''executionAdapterVersion'',attempt.execution_adapter_version'
+        AND procedure.prosrc~'''executionEvidenceDigest'',attempt.execution_evidence_digest')<>2
+  THEN RAISE EXCEPTION 'PAYMENT_ATTEMPT_EXECUTION_PROJECTION_ASSERTION_FAILED'; END IF;
   SELECT NOT(
     table_info.relrowsecurity AND table_info.relforcerowsecurity
   ) INTO bad

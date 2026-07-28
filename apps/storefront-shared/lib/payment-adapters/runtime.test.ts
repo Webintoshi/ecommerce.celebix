@@ -115,6 +115,8 @@ function beginResult(
     profileId: PROFILE_ID,
     providerCode: PROVIDER,
     environment: "test",
+    executionAdapterVersion: COMPILED_AUTHORITY.adapterVersion,
+    executionEvidenceDigest: COMPILED_AUTHORITY.evidenceDigest,
     credentialVersion: 3,
     amountMinor: 12_345,
     currency: "TRY",
@@ -132,6 +134,8 @@ function authority(overrides: Partial<PaymentAttemptAuthority> = {}): PaymentAtt
     profileId: PROFILE_ID,
     providerCode: PROVIDER,
     environment: "test",
+    executionAdapterVersion: COMPILED_AUTHORITY.adapterVersion,
+    executionEvidenceDigest: COMPILED_AUTHORITY.evidenceDigest,
     credentialVersion: 3,
     orderReference: "ORDER-100",
     amountMinor: 12_345,
@@ -174,6 +178,7 @@ type Calls = {
   initialized: Parameters<PaymentAttemptRepository["markInitialized"]>[0][];
   unknown: Parameters<PaymentAttemptRepository["markUnknown"]>[0][];
   callbackAuthority: Parameters<PaymentAttemptRepository["getCallbackAuthority"]>[0][];
+  reconciliationAuthority: Parameters<PaymentAttemptRepository["getReconciliationAuthority"]>[0][];
   settled: Parameters<PaymentAttemptRepository["settleCallback"]>[0][];
   hostedCallbacks: Parameters<PaymentAttemptRepository["applyHostedCallback"]>[0][];
   claims: Parameters<PaymentAttemptRepository["claimReconciliation"]>[0][];
@@ -214,12 +219,13 @@ function fixture(options: Readonly<{
   ) => Promise<HostedPaymentStatus>;
   begin?: BeginPaymentAttemptResult;
   callbackAuthority?: PaymentAttemptAuthority | Error;
+  reconciliationAuthority?: PaymentAttemptAuthority | Error;
   settlement?: ApplyHostedPaymentCallbackResult | Error;
   unknownMutation?: PaymentAttemptMutationResult | Error;
   adapterPresent?: boolean;
   trusted?: boolean;
   freezeCredential?: boolean;
-  claim?: Partial<PaymentAttemptReconciliationClaim>;
+  claim?: Partial<PaymentAttemptReconciliationClaim> | Error;
   now?: () => Date;
   providerTimeoutMs?: number;
   packet?: PaymentAdapterPacket;
@@ -232,7 +238,7 @@ function fixture(options: Readonly<{
   authorityMatches?: boolean | Error;
 }> = {}) {
   const calls: Calls = {
-    begin: [], initialized: [], unknown: [], callbackAuthority: [], settled: [],
+    begin: [], initialized: [], unknown: [], callbackAuthority: [], reconciliationAuthority: [], settled: [],
     hostedCallbacks: [],
     claims: [], finalized: [], initializedAdapter: [], callbacks: [], queries: [], opens: [],
     authorityChecks: [],
@@ -255,6 +261,11 @@ function fixture(options: Readonly<{
       calls.callbackAuthority.push(input);
       if (options.callbackAuthority instanceof Error) throw options.callbackAuthority;
       return options.callbackAuthority ?? authority();
+    },
+    async getReconciliationAuthority(input) {
+      calls.reconciliationAuthority.push(input);
+      if (options.reconciliationAuthority instanceof Error) throw options.reconciliationAuthority;
+      return options.reconciliationAuthority ?? authority({ status: "provider_outcome_unknown" });
     },
     async settleCallback(input) {
       calls.settled.push(input);
@@ -298,13 +309,14 @@ function fixture(options: Readonly<{
     },
     async claimReconciliation(input) {
       calls.claims.push(input);
+      if (options.claim instanceof Error) throw options.claim;
       return Object.freeze({
         ...authority({ status: "reconciliation_required", version: input.expectedVersion + 1 }),
         outcome: "claimed",
         leaseId: input.leaseId,
         leaseOwner: input.workerId,
         leaseExpiresAt: input.leaseExpiresAt.toISOString(),
-        ...options.claim,
+        ...(options.claim ?? {}),
       }) as PaymentAttemptReconciliationClaim;
     },
     async finalizeReconciliation(input) { calls.finalized.push(input); return mutation({
@@ -471,6 +483,7 @@ function providerProjectionFixture(providerCode: "paytr_iframe" | "iyzico_iframe
     },
     async markUnknown() { throw new Error("unexpected_unknown"); },
     async getCallbackAuthority() { throw new Error("unexpected_callback"); },
+    async getReconciliationAuthority() { throw new Error("unexpected_query"); },
     async settleCallback() { throw new Error("unexpected_callback"); },
     async applyHostedCallback() { throw new Error("unexpected_callback"); },
     async claimReconciliation() { throw new Error("unexpected_query"); },
@@ -533,6 +546,7 @@ function assertNoRuntimeWork(calls: Calls): void {
     initialized: calls.initialized.length,
     unknown: calls.unknown.length,
     callbackAuthority: calls.callbackAuthority.length,
+    reconciliationAuthority: calls.reconciliationAuthority.length,
     settled: calls.settled.length,
     hostedCallbacks: calls.hostedCallbacks.length,
     claims: calls.claims.length,
@@ -547,6 +561,7 @@ function assertNoRuntimeWork(calls: Calls): void {
     initialized: 0,
     unknown: 0,
     callbackAuthority: 0,
+    reconciliationAuthority: 0,
     settled: 0,
     hostedCallbacks: 0,
     claims: 0,
@@ -695,12 +710,69 @@ test("a durable authority mismatch blocks initialize callback and reconcile befo
       workerId: "worker.fixture",
       leaseId: LEASE_ID,
     }), { kind: "rejected" });
-    assert.equal(reconciliation.calls.claims.length, 1);
+    assert.equal(reconciliation.calls.reconciliationAuthority.length, 1);
+    assert.equal(reconciliation.calls.claims.length, 0);
     assert.equal(reconciliation.calls.authorityChecks.length, 1);
     assert.equal(reconciliation.calls.opens.length, 0);
     assert.equal(reconciliation.calls.queries.length, 0);
     assert.equal(reconciliation.calls.finalized.length, 0);
   }
+});
+
+test("attempt-bound superseded evidence blocks initialize callback and reconcile before credential or durable claim", async () => {
+  const superseded = Object.freeze({
+    executionAdapterVersion: 2,
+    executionEvidenceDigest: `sha256:${"b".repeat(64)}`,
+  });
+
+  const initialized = fixture({ begin: beginResult(superseded) });
+  assert.deepEqual(await initialized.runtime.initialize(initializeInput()), { kind: "rejected" });
+  assert.equal(initialized.calls.authorityChecks.length, 0);
+  assert.equal(initialized.calls.opens.length, 0);
+  assert.equal(initialized.calls.initializedAdapter.length, 0);
+
+  const callback = fixture({ callbackAuthority: authority(superseded) });
+  assert.deepEqual(await callback.runtime.callback({
+    request: callbackRequest(),
+    providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url"),
+  }), { kind: "rejected" });
+  assert.equal(callback.calls.authorityChecks.length, 0);
+  assert.equal(callback.calls.opens.length, 0);
+  assert.equal(callback.calls.callbacks.length, 0);
+
+  const reconciliation = fixture({
+    reconciliationAuthority: authority({ status: "provider_outcome_unknown", ...superseded }),
+  });
+  assert.deepEqual(await reconciliation.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "66666666-6666-4666-8666-666666666666",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  }), { kind: "rejected" });
+  assert.equal(reconciliation.calls.reconciliationAuthority.length, 1);
+  assert.equal(reconciliation.calls.authorityChecks.length, 0);
+  assert.equal(reconciliation.calls.claims.length, 0);
+  assert.equal(reconciliation.calls.opens.length, 0);
+  assert.equal(reconciliation.calls.queries.length, 0);
+});
+
+test("reconciliation supersession between read and exact claim leaves no provider or finalize work", async () => {
+  const selected = fixture({ claim: new Error("durable_authority_invalid") });
+  assert.deepEqual(await selected.runtime.reconcile({
+    attemptId: ATTEMPT_ID,
+    operationId: "66666666-6666-4666-8666-666666666666",
+    expectedVersion: 2,
+    workerId: "worker.fixture",
+    leaseId: LEASE_ID,
+  }), { kind: "rejected" });
+  assert.equal(selected.calls.reconciliationAuthority.length, 1);
+  assert.equal(selected.calls.authorityChecks.length, 1);
+  assert.equal(selected.calls.claims.length, 1);
+  assert.equal(selected.calls.opens.length, 0);
+  assert.equal(selected.calls.queries.length, 0);
+  assert.equal(selected.calls.finalized.length, 0);
 });
 
 test("provider-specific projection keeps buyer PII in memory, sends iyzico its real fields, and preserves PayTR input", async () => {

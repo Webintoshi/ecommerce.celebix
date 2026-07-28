@@ -10,6 +10,7 @@ export const PAYMENT_ATTEMPT_ERROR_CODES = Object.freeze([
   "profile_not_active",
   "provider_disabled",
   "environment_invalid",
+  "durable_authority_invalid",
   "callback_binding_conflict",
   "record_not_found",
   "version_conflict",

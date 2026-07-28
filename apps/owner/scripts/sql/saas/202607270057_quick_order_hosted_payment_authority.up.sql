@@ -2,6 +2,208 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
+ALTER TABLE saas.payment_attempts
+  ADD COLUMN execution_adapter_version integer,
+  ADD COLUMN execution_evidence_digest text,
+  ADD CONSTRAINT payment_attempts_execution_authority_check CHECK(
+    (execution_adapter_version IS NULL AND execution_evidence_digest IS NULL)
+    OR (
+      execution_adapter_version>0
+      AND execution_evidence_digest~'^sha256:[a-f0-9]{64}$'
+    )
+  );
+
+CREATE FUNCTION saas.payment_attempt_bind_execution_authority()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path=pg_catalog,saas
+AS $f$
+DECLARE selected_authority record;
+BEGIN
+  IF NEW.execution_adapter_version IS NOT NULL
+    OR NEW.execution_evidence_digest IS NOT NULL
+  THEN RAISE EXCEPTION 'PAYMENT_ATTEMPT_EXECUTION_AUTHORITY_INVALID'; END IF;
+  SELECT profile.execution_adapter_version,profile.execution_evidence_digest
+  INTO selected_authority
+  FROM saas.merchant_provider_profiles AS profile
+  JOIN saas.merchant_provider_definitions AS definition
+    ON definition.provider_code=profile.provider_code
+    AND definition.capability=profile.capability
+    AND definition.enabled
+  WHERE profile.store_id=NEW.store_id
+    AND profile.id=NEW.profile_id
+    AND profile.provider_code=NEW.provider_code
+    AND profile.capability='payment_processing'
+    AND profile.status='active'
+    AND profile.execution_environment=NEW.environment
+    AND profile.execution_adapter_version IS NOT NULL
+    AND profile.execution_evidence_digest IS NOT NULL
+    AND saas.merchant_provider_execution_authority_matches(
+      profile.provider_code,profile.capability,profile.execution_environment,
+      profile.execution_adapter_version,profile.execution_evidence_digest
+    )
+  FOR SHARE OF profile;
+  IF NOT FOUND THEN RAISE EXCEPTION 'PAYMENT_ATTEMPT_EXECUTION_AUTHORITY_INVALID'; END IF;
+  NEW.execution_adapter_version:=selected_authority.execution_adapter_version;
+  NEW.execution_evidence_digest:=selected_authority.execution_evidence_digest;
+  RETURN NEW;
+END
+$f$;
+
+CREATE TRIGGER payment_attempt_bind_execution_authority
+BEFORE INSERT ON saas.payment_attempts
+FOR EACH ROW EXECUTE FUNCTION saas.payment_attempt_bind_execution_authority();
+
+CREATE FUNCTION saas.guard_payment_attempt_execution_authority_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path=pg_catalog,saas
+AS $f$
+BEGIN
+  IF NEW.execution_adapter_version IS DISTINCT FROM OLD.execution_adapter_version
+    OR NEW.execution_evidence_digest IS DISTINCT FROM OLD.execution_evidence_digest
+  THEN RAISE EXCEPTION 'PAYMENT_ATTEMPT_EXECUTION_AUTHORITY_IMMUTABLE'; END IF;
+  RETURN NEW;
+END
+$f$;
+
+CREATE TRIGGER payment_attempt_execution_authority_immutable
+BEFORE UPDATE OF execution_adapter_version,execution_evidence_digest ON saas.payment_attempts
+FOR EACH ROW EXECUTE FUNCTION saas.guard_payment_attempt_execution_authority_immutable();
+
+CREATE OR REPLACE FUNCTION saas.payment_attempt_begin_projection(p_attempt_id uuid)
+RETURNS jsonb
+LANGUAGE sql STABLE SET search_path=pg_catalog,saas
+AS $f$
+  SELECT pg_catalog.jsonb_build_object(
+    'attemptId',attempt.id,
+    'storeId',attempt.store_id,
+    'paymentMethodId',attempt.payment_method_id,
+    'profileId',attempt.profile_id,
+    'providerCode',attempt.provider_code,
+    'environment',attempt.environment,
+    'executionAdapterVersion',attempt.execution_adapter_version,
+    'executionEvidenceDigest',attempt.execution_evidence_digest,
+    'credentialVersion',attempt.credential_version,
+    'amountMinor',attempt.amount_minor,
+    'currency',attempt.currency,
+    'publicConfig',profile.public_config,
+    'sealedCredentials',profile.sealed_credentials
+  )
+  FROM saas.payment_attempts AS attempt
+  JOIN saas.merchant_provider_profiles AS profile
+    ON profile.store_id=attempt.store_id
+    AND profile.id=attempt.profile_id
+    AND profile.provider_code=attempt.provider_code
+    AND profile.credential_version=attempt.credential_version
+  WHERE attempt.id=p_attempt_id
+$f$;
+
+CREATE OR REPLACE FUNCTION saas.payment_attempt_authority_projection(p_attempt_id uuid)
+RETURNS jsonb
+LANGUAGE sql STABLE SET search_path=pg_catalog,saas
+AS $f$
+  SELECT pg_catalog.jsonb_build_object(
+    'attemptId',attempt.id,
+    'storeId',attempt.store_id,
+    'paymentMethodId',attempt.payment_method_id,
+    'profileId',attempt.profile_id,
+    'providerCode',attempt.provider_code,
+    'environment',attempt.environment,
+    'executionAdapterVersion',attempt.execution_adapter_version,
+    'executionEvidenceDigest',attempt.execution_evidence_digest,
+    'credentialVersion',attempt.credential_version,
+    'orderReference',attempt.order_reference,
+    'amountMinor',attempt.amount_minor,
+    'currency',attempt.currency,
+    'status',attempt.status,
+    'version',attempt.version,
+    'providerReference',attempt.safe_provider_reference,
+    'publicConfig',profile.public_config,
+    'sealedCredentials',profile.sealed_credentials
+  )
+  FROM saas.payment_attempts AS attempt
+  JOIN saas.merchant_provider_profiles AS profile
+    ON profile.store_id=attempt.store_id
+    AND profile.id=attempt.profile_id
+    AND profile.provider_code=attempt.provider_code
+    AND profile.credential_version=attempt.credential_version
+  WHERE attempt.id=p_attempt_id
+$f$;
+
+CREATE FUNCTION saas.payment_reconciliation_authority(
+  p_attempt_id uuid,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $f$
+DECLARE result jsonb;
+BEGIN
+  IF p_attempt_id IS NULL OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT saas.payment_attempt_authority_projection(attempt.id) INTO result
+  FROM saas.payment_attempts AS attempt
+  WHERE attempt.id=p_attempt_id AND attempt.updated_at<=p_now;
+  IF result IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'found',result;
+END
+$f$;
+
+CREATE FUNCTION saas.payment_attempt_claim_reconciliation(
+  p_attempt_id uuid,p_operation_id uuid,p_fingerprint text,p_expected_version bigint,
+  p_worker_id text,p_lease_id uuid,p_now timestamptz,p_lease_expires_at timestamptz,
+  p_execution_environment text,p_execution_adapter_version integer,
+  p_execution_evidence_digest text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $f$
+DECLARE attempt saas.payment_attempts%ROWTYPE;
+BEGIN
+  IF p_attempt_id IS NULL
+    OR p_execution_environment IS NULL OR p_execution_environment NOT IN('test','live')
+    OR p_execution_adapter_version IS NULL OR p_execution_adapter_version<1
+    OR p_execution_evidence_digest IS NULL
+    OR p_execution_evidence_digest!~'^sha256:[a-f0-9]{64}$'
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT * INTO attempt FROM saas.payment_attempts WHERE id=p_attempt_id FOR SHARE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'record_not_found',NULL::jsonb; RETURN; END IF;
+  IF attempt.environment IS DISTINCT FROM p_execution_environment
+    OR attempt.execution_adapter_version IS DISTINCT FROM p_execution_adapter_version
+    OR attempt.execution_evidence_digest IS DISTINCT FROM p_execution_evidence_digest
+    OR NOT saas.merchant_provider_execution_authority_matches(
+      attempt.provider_code,'payment_processing',attempt.environment,
+      attempt.execution_adapter_version,p_execution_evidence_digest
+    )
+  THEN RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT claim.outcome,claim.result_payload
+  FROM saas.payment_attempt_claim_reconciliation(
+    p_attempt_id,p_operation_id,p_fingerprint,p_expected_version,p_worker_id,
+    p_lease_id,p_now,p_lease_expires_at
+  ) AS claim;
+END
+$f$;
+
+REVOKE ALL ON FUNCTION
+  saas.payment_attempt_bind_execution_authority(),
+  saas.guard_payment_attempt_execution_authority_immutable(),
+  saas.payment_reconciliation_authority(uuid,timestamptz),
+  saas.payment_attempt_claim_reconciliation(
+    uuid,uuid,text,bigint,text,uuid,timestamptz,timestamptz,text,integer,text
+  ),
+  saas.payment_attempt_claim_reconciliation(
+    uuid,uuid,text,bigint,text,uuid,timestamptz,timestamptz
+  )
+FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
+  celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
+  celebix_saas_migrator;
+GRANT EXECUTE ON FUNCTION
+  saas.payment_reconciliation_authority(uuid,timestamptz),
+  saas.payment_attempt_claim_reconciliation(
+    uuid,uuid,text,bigint,text,uuid,timestamptz,timestamptz,text,integer,text
+  )
+TO celebix_saas_workflow;
+
 DROP TRIGGER quick_order_links_provider_authority ON saas.quick_order_links;
 DROP FUNCTION saas.guard_quick_link_provider_authority();
 
@@ -414,6 +616,31 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,
     AND COALESCE((SELECT relation.relrowsecurity AND relation.relforcerowsecurity
       FROM pg_catalog.pg_class AS relation
       WHERE relation.oid='saas.quick_order_link_hosted_authorities'::pg_catalog.regclass),false)
+    AND (SELECT pg_catalog.count(*)=2 FROM pg_catalog.pg_attribute AS attribute
+      WHERE attribute.attrelid='saas.payment_attempts'::pg_catalog.regclass
+        AND attribute.attname IN('execution_adapter_version','execution_evidence_digest')
+        AND NOT attribute.attisdropped)
+    AND to_regprocedure(
+      'saas.payment_reconciliation_authority(uuid,timestamp with time zone)'
+    ) IS NOT NULL
+    AND to_regprocedure(
+      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone,text,integer,text)'
+    ) IS NOT NULL
+    AND pg_catalog.has_function_privilege(
+      'celebix_saas_workflow',
+      'saas.payment_reconciliation_authority(uuid,timestamp with time zone)',
+      'EXECUTE'
+    )
+    AND pg_catalog.has_function_privilege(
+      'celebix_saas_workflow',
+      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone,text,integer,text)',
+      'EXECUTE'
+    )
+    AND NOT pg_catalog.has_function_privilege(
+      'celebix_saas_workflow',
+      'saas.payment_attempt_claim_reconciliation(uuid,uuid,text,bigint,text,uuid,timestamp with time zone,timestamp with time zone)',
+      'EXECUTE'
+    )
 $f$;
 REVOKE ALL ON FUNCTION saas.quick_order_hosted_payment_authority_preflight() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION saas.quick_order_hosted_payment_authority_preflight() TO celebix_saas_app;

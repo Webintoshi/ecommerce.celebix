@@ -531,8 +531,10 @@ function adapterFor(
       && descriptors.providerCode?.value === providerCode
       && descriptors.environment?.value === authority.environment
       && descriptors.adapterVersion?.value === adapter.packet.adapterVersion
+      && descriptors.adapterVersion.value === authority.executionAdapterVersion
       && typeof descriptors.evidenceDigest?.value === "string"
-      && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value))) return null;
+      && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value)
+      && descriptors.evidenceDigest.value === authority.executionEvidenceDigest)) return null;
     return Object.freeze({
       adapter,
       compiledAuthority: Object.freeze({
@@ -815,6 +817,9 @@ function exactBeginAuthority(
     && result.currency === input.currency
     && UUID.test(result.profileId)
     && PROVIDER_CODE.test(result.providerCode)
+    && Number.isSafeInteger(result.executionAdapterVersion)
+    && result.executionAdapterVersion >= 1
+    && /^sha256:[a-f0-9]{64}$/.test(result.executionEvidenceDigest)
     && Number.isSafeInteger(result.credentialVersion)
     && result.credentialVersion >= 1;
 }
@@ -1371,6 +1376,7 @@ function exactClaim(
     workerId: string;
     leaseId: string;
     leaseExpiresAt: Date;
+    authority: PaymentAttemptAuthority;
   }>,
 ): boolean {
   return claim.attemptId === input.attemptId
@@ -1379,11 +1385,37 @@ function exactClaim(
     && claim.leaseOwner === input.workerId
     && claim.leaseId === input.leaseId
     && claim.leaseExpiresAt === input.leaseExpiresAt.toISOString()
+    && claim.storeId === input.authority.storeId
+    && claim.paymentMethodId === input.authority.paymentMethodId
+    && claim.profileId === input.authority.profileId
+    && claim.providerCode === input.authority.providerCode
+    && claim.environment === input.authority.environment
+    && claim.executionAdapterVersion === input.authority.executionAdapterVersion
+    && claim.executionEvidenceDigest === input.authority.executionEvidenceDigest
+    && claim.credentialVersion === input.authority.credentialVersion
     && UUID.test(claim.storeId)
     && UUID.test(claim.profileId)
     && UUID.test(claim.paymentMethodId)
     && PROVIDER_CODE.test(claim.providerCode)
     && environmentMatches(claim);
+}
+
+function exactReconciliationAuthority(
+  authority: PaymentAttemptAuthority,
+  input: Readonly<{ attemptId: string; expectedVersion: number }>,
+): boolean {
+  return authority.attemptId === input.attemptId
+    && authority.version === input.expectedVersion
+    && (authority.status === "provider_outcome_unknown"
+      || authority.status === "reconciliation_required")
+    && UUID.test(authority.storeId)
+    && UUID.test(authority.profileId)
+    && UUID.test(authority.paymentMethodId)
+    && PROVIDER_CODE.test(authority.providerCode)
+    && Number.isSafeInteger(authority.executionAdapterVersion)
+    && authority.executionAdapterVersion >= 1
+    && /^sha256:[a-f0-9]{64}$/.test(authority.executionEvidenceDigest)
+    && environmentMatches(authority);
 }
 
 function parseStatus(
@@ -1475,6 +1507,21 @@ async function reconcile(
   ) return RECONCILIATION_REJECTED;
   const now = selectedNow(dependencies);
   if (now === null) return RECONCILIATION_REJECTED;
+  let authority: PaymentAttemptAuthority;
+  try {
+    authority = await dependencies.attempts.getReconciliationAuthority({
+      attemptId: input.attemptId,
+      now: new Date(now),
+    });
+  } catch {
+    return RECONCILIATION_REJECTED;
+  }
+  if (!exactReconciliationAuthority(authority, input)) return RECONCILIATION_REJECTED;
+  const preselectedAdapter = adapterFor(dependencies, authority, "query");
+  if (preselectedAdapter === null) return RECONCILIATION_REJECTED;
+  if (!await currentCompiledAuthorityMatches(dependencies, preselectedAdapter)) {
+    return RECONCILIATION_REJECTED;
+  }
   const leaseExpiresAt = new Date(now.getTime() + RECONCILIATION_LEASE_MS);
   const claimFingerprint = digest(
     "reconciliation-claim",
@@ -1482,6 +1529,9 @@ async function reconcile(
     input.expectedVersion,
     input.workerId,
     input.leaseId,
+    authority.environment,
+    authority.executionAdapterVersion,
+    authority.executionEvidenceDigest,
     now.toISOString(),
     leaseExpiresAt.toISOString(),
   );
@@ -1492,6 +1542,9 @@ async function reconcile(
       operationId: input.operationId,
       fingerprint: claimFingerprint,
       expectedVersion: input.expectedVersion,
+      environment: authority.environment,
+      executionAdapterVersion: authority.executionAdapterVersion,
+      executionEvidenceDigest: authority.executionEvidenceDigest,
       workerId: input.workerId,
       leaseId: input.leaseId,
       now: new Date(now),
@@ -1500,10 +1553,12 @@ async function reconcile(
   } catch {
     return RECONCILIATION_REJECTED;
   }
-  if (!exactClaim(claim, { ...input, leaseExpiresAt })) return RECONCILIATION_REJECTED;
+  if (!exactClaim(claim, { ...input, leaseExpiresAt, authority })) {
+    return RECONCILIATION_REJECTED;
+  }
   const selectedAdapter = adapterFor(dependencies, claim, "query");
   if (selectedAdapter === null) return RECONCILIATION_REJECTED;
-  if (!await currentCompiledAuthorityMatches(dependencies, selectedAdapter)) {
+  if (selectedAdapter.adapter !== preselectedAdapter.adapter) {
     return RECONCILIATION_REJECTED;
   }
   const adapter = selectedAdapter.adapter;

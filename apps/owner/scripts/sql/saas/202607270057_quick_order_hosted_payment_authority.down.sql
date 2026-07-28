@@ -2,19 +2,102 @@ BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL lock_timeout='5s';
 LOCK TABLE saas.quick_order_links,saas.quick_order_link_items,
-  saas.quick_order_link_hosted_authorities IN ACCESS EXCLUSIVE MODE;
+  saas.quick_order_link_hosted_authorities,saas.payment_attempts IN ACCESS EXCLUSIVE MODE;
 
 DO $f$
 BEGIN
   IF EXISTS(SELECT 1 FROM saas.quick_order_link_hosted_authorities)
     OR EXISTS(SELECT 1 FROM saas.quick_order_links WHERE hosted_authority_id IS NOT NULL)
     OR EXISTS(SELECT 1 FROM saas.quick_order_link_items WHERE item_type IS NOT NULL)
+    OR EXISTS(SELECT 1 FROM saas.payment_attempts
+      WHERE execution_adapter_version IS NOT NULL OR execution_evidence_digest IS NOT NULL)
   THEN RAISE EXCEPTION 'QUICK_ORDER_HOSTED_AUTHORITY_ROLLBACK_REQUIRES_DRAIN'; END IF;
 END
 $f$;
 
 REVOKE ALL ON FUNCTION saas.quick_order_hosted_payment_authority_preflight() FROM PUBLIC,celebix_saas_app;
 DROP FUNCTION saas.quick_order_hosted_payment_authority_preflight();
+
+REVOKE ALL ON FUNCTION
+  saas.payment_reconciliation_authority(uuid,timestamptz),
+  saas.payment_attempt_claim_reconciliation(
+    uuid,uuid,text,bigint,text,uuid,timestamptz,timestamptz,text,integer,text
+  )
+FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
+  celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
+  celebix_saas_migrator;
+DROP FUNCTION saas.payment_reconciliation_authority(uuid,timestamptz);
+DROP FUNCTION saas.payment_attempt_claim_reconciliation(
+  uuid,uuid,text,bigint,text,uuid,timestamptz,timestamptz,text,integer,text
+);
+GRANT EXECUTE ON FUNCTION saas.payment_attempt_claim_reconciliation(
+  uuid,uuid,text,bigint,text,uuid,timestamptz,timestamptz
+) TO celebix_saas_workflow;
+
+CREATE OR REPLACE FUNCTION saas.payment_attempt_begin_projection(p_attempt_id uuid)
+RETURNS jsonb
+LANGUAGE sql STABLE SET search_path=pg_catalog,saas
+AS $f$
+  SELECT pg_catalog.jsonb_build_object(
+    'attemptId',attempt.id,
+    'storeId',attempt.store_id,
+    'paymentMethodId',attempt.payment_method_id,
+    'profileId',attempt.profile_id,
+    'providerCode',attempt.provider_code,
+    'environment',attempt.environment,
+    'credentialVersion',attempt.credential_version,
+    'amountMinor',attempt.amount_minor,
+    'currency',attempt.currency,
+    'publicConfig',profile.public_config,
+    'sealedCredentials',profile.sealed_credentials
+  )
+  FROM saas.payment_attempts AS attempt
+  JOIN saas.merchant_provider_profiles AS profile
+    ON profile.store_id=attempt.store_id
+    AND profile.id=attempt.profile_id
+    AND profile.provider_code=attempt.provider_code
+    AND profile.credential_version=attempt.credential_version
+  WHERE attempt.id=p_attempt_id
+$f$;
+
+CREATE OR REPLACE FUNCTION saas.payment_attempt_authority_projection(p_attempt_id uuid)
+RETURNS jsonb
+LANGUAGE sql STABLE SET search_path=pg_catalog,saas
+AS $f$
+  SELECT pg_catalog.jsonb_build_object(
+    'attemptId',attempt.id,
+    'storeId',attempt.store_id,
+    'paymentMethodId',attempt.payment_method_id,
+    'profileId',attempt.profile_id,
+    'providerCode',attempt.provider_code,
+    'environment',attempt.environment,
+    'credentialVersion',attempt.credential_version,
+    'orderReference',attempt.order_reference,
+    'amountMinor',attempt.amount_minor,
+    'currency',attempt.currency,
+    'status',attempt.status,
+    'version',attempt.version,
+    'providerReference',attempt.safe_provider_reference,
+    'publicConfig',profile.public_config,
+    'sealedCredentials',profile.sealed_credentials
+  )
+  FROM saas.payment_attempts AS attempt
+  JOIN saas.merchant_provider_profiles AS profile
+    ON profile.store_id=attempt.store_id
+    AND profile.id=attempt.profile_id
+    AND profile.provider_code=attempt.provider_code
+    AND profile.credential_version=attempt.credential_version
+  WHERE attempt.id=p_attempt_id
+$f$;
+
+DROP TRIGGER payment_attempt_execution_authority_immutable ON saas.payment_attempts;
+DROP TRIGGER payment_attempt_bind_execution_authority ON saas.payment_attempts;
+DROP FUNCTION saas.guard_payment_attempt_execution_authority_immutable();
+DROP FUNCTION saas.payment_attempt_bind_execution_authority();
+ALTER TABLE saas.payment_attempts
+  DROP CONSTRAINT payment_attempts_execution_authority_check,
+  DROP COLUMN execution_adapter_version,
+  DROP COLUMN execution_evidence_digest;
 
 REVOKE ALL ON FUNCTION saas.quick_links_create_hosted(
   uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,
