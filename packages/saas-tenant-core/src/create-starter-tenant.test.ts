@@ -75,6 +75,7 @@ function overrideTransaction(
     plans: transaction.plans,
     subscriptions: overrides.subscriptions ?? transaction.subscriptions,
     settings: transaction.settings,
+    mediaNamespaces: transaction.mediaNamespaces,
     operations: overrides.operations ?? transaction.operations,
     generateId: transaction.generateId.bind(transaction),
     commit: transaction.commit.bind(transaction),
@@ -114,12 +115,21 @@ test("successfully bootstraps an atomic free starter tenant", async () => {
   assert.equal(result.membership.status, "active");
   assert.equal(result.plan.planCode, "free_starter");
   assert.equal(result.plan.version, 1);
+  assert.deepEqual(result.mediaStorage, { schemaVersion: 1, status: "ready", version: 1 });
   assert.equal(result.provisioningStatus, "ready");
   assert.equal(state.principals.length, 1);
   assert.equal(state.stores.length, 1);
   assert.equal(state.domains.length, 1);
   assert.equal(state.memberships.length, 1);
   assert.equal(state.subscriptions.length, 1);
+  assert.deepEqual(state.mediaNamespaces, [{
+    storeId: result.store.id,
+    namespacePrefix: `stores/${result.store.id}/`,
+    status: "active",
+    version: 1,
+    createdAt: baseInput.requestedAt,
+    updatedAt: baseInput.requestedAt,
+  }]);
   assert.equal(state.settings.length, 3);
   assert.equal(state.operations.length, 1);
   assert.equal(state.operations[0]?.status, "committed");
@@ -135,6 +145,7 @@ test("same idempotency key and fingerprint replays the committed result", async 
 
   assert.deepEqual(replay, { ...first, replayed: true });
   assert.equal(repository.inspectState().stores.length, 1);
+  assert.equal(repository.inspectState().mediaNamespaces.length, 1);
 });
 
 test("same idempotency key with changed payload fails with idempotency_mismatch", async () => {
@@ -493,6 +504,7 @@ test("failures after each bootstrap stage roll back every partial record", async
     "after_domain_create",
     "after_membership_create",
     "after_subscription_create",
+    "after_media_namespace_create",
   ] as const;
 
   for (const failAt of failurePoints) {
@@ -507,6 +519,7 @@ test("failures after each bootstrap stage roll back every partial record", async
     assert.equal(state.domains.length, 0, failAt);
     assert.equal(state.memberships.length, 0, failAt);
     assert.equal(state.subscriptions.length, 0, failAt);
+    assert.equal(state.mediaNamespaces.length, 0, failAt);
     assert.equal(state.settings.length, 0, failAt);
     assert.equal(state.operations.length, 0, failAt);
     assert.equal(repository.inspectMetrics().rollbacks, 1, failAt);
