@@ -73,6 +73,17 @@ test("checkout quote rejects a transparent proxy at the server boundary", () => 
   assert.throws(() => parseCheckoutQuote(new Proxy(quoteFixture(), {})));
 });
 
+test("checkout quote rejects a transparent proxy without getBuiltinModule", () => {
+  const descriptor = Object.getOwnPropertyDescriptor(process, "getBuiltinModule");
+  Object.defineProperty(process, "getBuiltinModule", { configurable: true, value: undefined, writable: true });
+  try {
+    assert.throws(() => parseCheckoutQuote(new Proxy(quoteFixture(), {})));
+  } finally {
+    if (descriptor === undefined) Reflect.deleteProperty(process, "getBuiltinModule");
+    else Object.defineProperty(process, "getBuiltinModule", descriptor);
+  }
+});
+
 test("checkout delivery validates the exact address and optional billing address", () => {
   const input = {
     cartVersion: 1, checkoutNonce: NONCE, operationId: OPERATION_ID, email: "ayse@example.com", marketingOptIn: false,

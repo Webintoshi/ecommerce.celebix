@@ -30,13 +30,26 @@ const IBAN = /^TR\d{24}$/;
 
 type InputRecord = Record<string, unknown>;
 type NodeUtilTypes = Readonly<{ isProxy?: (value: unknown) => boolean }>;
+type NodeProcess = Readonly<{
+  getBuiltinModule?: (specifier: string) => unknown;
+  versions?: Readonly<{ node?: unknown }>;
+}>;
+
+const NODE_PROCESS = (globalThis as typeof globalThis & { process?: NodeProcess }).process;
+const IS_NODE_RUNTIME = typeof NODE_PROCESS?.versions?.node === "string";
+const NODE_UTIL_TYPES: NodeUtilTypes | undefined = IS_NODE_RUNTIME
+  ? await import(["node", "util/types"].join(":")).then(
+    (module) => module as NodeUtilTypes,
+    () => undefined,
+  )
+  : undefined;
 
 function isProxy(value: object): boolean {
-  const nodeProcess = (globalThis as typeof globalThis & {
-    process?: Readonly<{ getBuiltinModule?: (specifier: string) => unknown }>;
-  }).process;
-  const nodeTypes = nodeProcess?.getBuiltinModule?.(["node", "util/types"].join(":")) as NodeUtilTypes | undefined;
-  return nodeTypes?.isProxy?.(value) === true;
+  if (!IS_NODE_RUNTIME) return false;
+  const nodeTypes = NODE_PROCESS?.getBuiltinModule?.(["node", "util/types"].join(":")) as NodeUtilTypes | undefined;
+  const detectProxy = nodeTypes?.isProxy ?? NODE_UTIL_TYPES?.isProxy;
+  if (typeof detectProxy !== "function") invalid();
+  return detectProxy(value);
 }
 
 function invalid(): never {
