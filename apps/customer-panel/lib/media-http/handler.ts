@@ -4,11 +4,12 @@ import { readPersistentPanelSessionCookie } from "../server-panel-session-contro
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerMediaRuntime } from "../server-media/runtime.ts";
 import { validateProductImage } from "../server-media/image-validation.ts";
+import { createProductMediaUploadService } from "../server-media/upload-service.ts";
 import { createProductMediaRequestAuthorityValidator } from "./request-authority.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_REQUEST_BYTES = 5_300_000;
-type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerMediaRuntime | null>; now(): Date; requestId(): string; mediaId(): string }>;
+type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerMediaRuntime | null>; now(): Date; requestId(): string }>;
 type Authorized = Readonly<{ runtime: ServerMediaRuntime; tenantContext: Extract<ServerPanelAccessResult, { kind: "authenticated" }>["tenantContext"]; now: Date }>;
 
 function response(code: string, status: number, body: Record<string, unknown> = {}) { return Response.json({ code, ...body }, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } }); }
@@ -38,14 +39,48 @@ export function createProductMediaHttpHandlers(dependencies: Dependencies) {
       let form: FormData; try { form = await request.formData(); } catch { return response("invalid_input", 400); } const keys = [...form.keys()]; if (keys.some((key) => !["file","altText","variantId"].includes(key)) || keys.filter((key) => key === "file").length !== 1) return response("invalid_input", 400);
       const file = form.get("file"), alt = form.get("altText"), rawVariant = form.get("variantId"); if (!(file instanceof File) || typeof alt !== "string" || alt !== alt.trim() || alt.length > 500 || /[\u0000-\u001f\u007f]/.test(alt) || (rawVariant !== null && (typeof rawVariant !== "string" || !id(rawVariant)))) return response("invalid_input", 400);
       let bytes: Uint8Array, validated; try { bytes = new Uint8Array(await file.arrayBuffer()); validated = validateProductImage({ bytes, mediaType: file.type, fileName: file.name }); } catch { return response("invalid_input", 400); }
-      let mediaId: string; try { mediaId = dependencies.mediaId(); } catch { return response("unavailable", 503); } if (!id(mediaId)) return response("unavailable", 503);
-      const storeId = authorized.tenantContext.store.id, objectKey = `stores/${storeId}/products/${selectedProduct}/${mediaId}.${validated.extension}`, publicUrl = authorized.runtime.storage.publicUrl(objectKey);
-      try { await authorized.runtime.storage.put({ objectKey, mediaType: validated.mediaType, bytes }); } catch { return response("unavailable", 503); }
-      try { const result = await authorized.runtime.media.attachMedia({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, mediaId, productId: selectedProduct, ...(typeof rawVariant === "string" ? { variantId: rawVariant } : {}), objectKey, publicUrl, mediaType: validated.mediaType, altText: alt, width: validated.width, height: validated.height, byteSize: validated.byteSize }); return response("created", 201, result); }
-      catch (error) { if (error instanceof ProductMediaRepositoryError && error.code !== "unavailable") await authorized.runtime.storage.delete(objectKey).catch(() => undefined); return repositoryFailure(error); }
+      const uploadService = createProductMediaUploadService({ repository: authorized.runtime.media, storage: authorized.runtime.storage, now: dependencies.now });
+      try {
+        const result = await uploadService.upload({ tenantContext: authorized.tenantContext, operationId: operation, productId: selectedProduct, ...(typeof rawVariant === "string" ? { variantId: rawVariant } : {}), mediaType: validated.mediaType, altText: alt, width: validated.width, height: validated.height, bytes });
+        return response("created", 201, result);
+      } catch (error) { return repositoryFailure(error); }
     },
     async updateAlt(request: Request, productId: unknown, mediaId: unknown) { const product = id(productId), media = id(mediaId); if (!product || !media) return response("invalid_input", 400); const pathname = `/api/catalog/products/${product}/media/${media}`; const authorized = await authorize(dependencies, request, "PATCH", pathname); if (isResponse(authorized)) return authorized; const operation = operationId(request), body = await jsonBody(request); if (!operation || !body || Object.keys(body).sort().join(",") !== "altText,expectedVersion" || typeof body.altText !== "string" || body.altText !== body.altText.trim() || body.altText.length > 500 || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 1) return response("invalid_input", 400); try { return response("updated", 200, await authorized.runtime.media.updateAltText({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, productId: product, mediaId: media, expectedVersion: body.expectedVersion as number, altText: body.altText })); } catch (error) { return repositoryFailure(error); } },
     async reorder(request: Request, productId: unknown) { const product = id(productId); if (!product) return response("invalid_input", 400); const pathname = `/api/catalog/products/${product}/media/reorder`; const authorized = await authorize(dependencies, request, "POST", pathname); if (isResponse(authorized)) return authorized; const operation = operationId(request), body = await jsonBody(request); if (!operation || !body || Object.keys(body).join(",") !== "orderedMediaIds" || !Array.isArray(body.orderedMediaIds)) return response("invalid_input", 400); try { const media = await authorized.runtime.media.reorderMedia({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, productId: product, orderedMediaIds: body.orderedMediaIds as string[] }); return response("updated", 200, { media }); } catch (error) { return repositoryFailure(error); } },
-    async archive(request: Request, productId: unknown, mediaId: unknown) { const product = id(productId), media = id(mediaId); if (!product || !media) return response("invalid_input", 400); const pathname = `/api/catalog/products/${product}/media/${media}/archive`; const authorized = await authorize(dependencies, request, "POST", pathname); if (isResponse(authorized)) return authorized; const operation = operationId(request), body = await jsonBody(request); if (!operation || !body || Object.keys(body).join(",") !== "expectedVersion" || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 1) return response("invalid_input", 400); try { return response("archived", 200, await authorized.runtime.media.archiveMedia({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, productId: product, mediaId: media, expectedVersion: body.expectedVersion as number })); } catch (error) { return repositoryFailure(error); } },
+    async archive(request: Request, productId: unknown, mediaId: unknown) {
+      const product = id(productId), media = id(mediaId); if (!product || !media) return response("invalid_input", 400);
+      const pathname = `/api/catalog/products/${product}/media/${media}/archive`;
+      const authorized = await authorize(dependencies, request, "POST", pathname); if (isResponse(authorized)) return authorized;
+      const operation = operationId(request), body = await jsonBody(request);
+      if (!operation || !body || Object.keys(body).join(",") !== "expectedVersion" || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 1) return response("invalid_input", 400);
+      try {
+        const selected = await authorized.runtime.media.listProductMedia({ tenantContext: authorized.tenantContext, now: authorized.now, productId: product, includeArchived: true });
+        const target = selected.find((candidate) => candidate.id === media);
+        if (!target || target.productId !== product || target.storeId !== authorized.tenantContext.store.id) return response("media_not_found", 404);
+        const unpublished = await authorized.runtime.storage.unpublish(target.objectKey);
+        let archived;
+        try {
+          archived = await authorized.runtime.media.archiveMedia({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, productId: product, mediaId: media, expectedVersion: body.expectedVersion as number });
+        } catch (error) {
+          let recoveredTarget;
+          try {
+            const recovered = await authorized.runtime.media.listProductMedia({ tenantContext: authorized.tenantContext, now: authorized.now, productId: product, includeArchived: true });
+            recoveredTarget = recovered.find((candidate) => candidate.id === media && candidate.productId === product && candidate.storeId === authorized.tenantContext.store.id);
+          } catch { throw error; }
+          if (recoveredTarget?.status === "archived") {
+            archived = Object.freeze({ media: recoveredTarget, replayed: true });
+          } else {
+            if (recoveredTarget?.status === "active" && unpublished.kind === "found") {
+              await authorized.runtime.storage.publish({ objectKey: target.objectKey, mediaType: unpublished.mediaType, byteSize: unpublished.byteSize, payloadSha256: unpublished.payloadSha256 });
+            }
+            throw error;
+          }
+        }
+        if (archived.media.id !== media || archived.media.productId !== product || archived.media.storeId !== authorized.tenantContext.store.id || archived.media.status !== "archived") return response("unavailable", 503);
+        await authorized.runtime.storage.delete(archived.media.objectKey);
+        await authorized.runtime.media.markArchivedProductMediaObjectDeleted({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, productId: product, mediaId: media, objectKey: archived.media.objectKey });
+        return response("archived", 200, archived);
+      } catch (error) { return repositoryFailure(error); }
+    },
   });
 }

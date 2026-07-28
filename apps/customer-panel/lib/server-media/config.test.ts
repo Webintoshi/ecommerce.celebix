@@ -8,5 +8,5 @@ test("product media config activates only exact isolated staging authority", () 
   const parsed = parseStagingProductMediaConfig(valid);
   assert.equal(parsed.bucket, "celebix-product-media-staging");
   assert.equal(Object.isFrozen(parsed), true);
-  for (const patch of [{ CELEBIX_DEPLOYMENT_TIER: "production" }, { CELEBIX_PRODUCT_MEDIA_MODE: "enabled" }, { CELEBIX_R2_MEDIA_ENVIRONMENT: "production" }, { CELEBIX_R2_BUCKET_NAME: "celebix-product-media-production" }, { CELEBIX_R2_PUBLIC_ORIGIN: "http://media.example.test" }]) assert.throws(() => parseStagingProductMediaConfig({ ...valid, ...patch }));
+  for (const patch of [{ CELEBIX_DEPLOYMENT_TIER: "production" }, { CELEBIX_PRODUCT_MEDIA_MODE: "enabled" }, { CELEBIX_R2_MEDIA_ENVIRONMENT: "production" }, { CELEBIX_R2_BUCKET_NAME: "celebix-product-media-production" }, { CELEBIX_R2_PUBLIC_ORIGIN: "http://media.example.test" }, { CELEBIX_R2_PUBLIC_ORIGIN: "https://bucket.r2.dev" }, { CELEBIX_R2_PUBLIC_ORIGIN: "https://account.r2.cloudflarestorage.com" }]) assert.throws(() => parseStagingProductMediaConfig({ ...valid, ...patch }));
 });
