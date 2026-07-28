@@ -685,6 +685,39 @@ test("classifies malformed or mismatched successful BIN responses as provider un
   }
 });
 
+test("classifies HTTP 200 failures as credential denial only for exact authentication codes", async () => {
+  const cases = [
+    { body: { status: "failure", errorCode: "1000", errorMessage: "private invalid signature" }, outcomeCode: "provider_rejected" },
+    { body: { status: "failure", errorCode: "1001", errorMessage: "private api details" }, outcomeCode: "provider_rejected" },
+    { body: { status: "failure", errorCode: "1002", errorMessage: "private merchant" }, outcomeCode: "provider_rejected" },
+    { body: { status: "failure", errorCode: "1003", errorMessage: "private authorization" }, outcomeCode: "provider_rejected" },
+    { body: { status: "failure" }, outcomeCode: "validation_unavailable" },
+    { body: { status: "failure", errorCode: "SYSTEM_ERROR", errorGroup: "SYSTEM_ERROR" }, outcomeCode: "validation_unavailable" },
+    { body: { status: "failure", errorCode: "1", errorGroup: "SYSTEM_ERROR" }, outcomeCode: "validation_unavailable" },
+    { body: { status: "failure", errorCode: "10214", errorGroup: "COMMUNICATION_OR_SYSTEM_ERROR" }, outcomeCode: "validation_unavailable" },
+    { body: { status: "failure", errorCode: "2000", errorGroup: "BUSINESS_ERROR" }, outcomeCode: "validation_unavailable" },
+    { body: { status: "failure", errorCode: 1000 }, outcomeCode: "validation_unavailable" },
+  ] as const;
+  for (const selected of cases) {
+    let calls = 0;
+    const providerResult = response(selected.body);
+    const result = await validateIyzicoCredentialWithTransport(transport(() => {
+      calls += 1;
+      return providerResult;
+    }), {
+      environment: "test",
+      credential,
+      validationReference: ATTEMPT_ID,
+      signal: new AbortController().signal,
+      randomKey: () => RANDOM_KEY,
+    });
+    assert.deepEqual(result, { kind: "rejected", outcomeCode: selected.outcomeCode }, JSON.stringify(selected.body));
+    assert.equal(JSON.stringify(result).includes("private"), false);
+    assert.equal(calls, 1);
+    assert.equal(providerResult.kind === "response" && providerResult.body.every((byte) => byte === 0), true);
+  }
+});
+
 test("classifies invalid local BIN-validation input before transport as an invalid request", async () => {
   let calls = 0;
   assert.deepEqual(await validateIyzicoCredentialWithTransport(transport(() => {

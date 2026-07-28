@@ -55,6 +55,103 @@ function text(value: unknown): string {
   return value;
 }
 
+function duplicateJsonKeys(value: string): boolean {
+  let cursor = 0;
+  let depth = 0;
+  const whitespace = () => {
+    while (/\s/.test(value[cursor] ?? "")) cursor += 1;
+  };
+  const jsonString = (): string => {
+    const start = cursor;
+    cursor += 1;
+    while (cursor < value.length) {
+      if (value[cursor] === "\\") {
+        cursor += 2;
+        continue;
+      }
+      if (value[cursor] === "\"") {
+        cursor += 1;
+        return JSON.parse(value.slice(start, cursor)) as string;
+      }
+      cursor += 1;
+    }
+    return invalid();
+  };
+  const jsonValue = (): boolean => {
+    whitespace();
+    if (value[cursor] === "{") return jsonObject();
+    if (value[cursor] === "[") {
+      depth += 1;
+      if (depth > 64) return true;
+      cursor += 1;
+      whitespace();
+      if (value[cursor] === "]") {
+        cursor += 1;
+        depth -= 1;
+        return false;
+      }
+      while (cursor < value.length) {
+        if (jsonValue()) return true;
+        whitespace();
+        if (value[cursor] === "]") {
+          cursor += 1;
+          depth -= 1;
+          return false;
+        }
+        if (value[cursor] !== ",") return true;
+        cursor += 1;
+      }
+      return true;
+    }
+    if (value[cursor] === "\"") {
+      jsonString();
+      return false;
+    }
+    while (cursor < value.length && !/[\s,}\]]/.test(value[cursor]!)) cursor += 1;
+    return false;
+  };
+  const jsonObject = (): boolean => {
+    depth += 1;
+    if (depth > 64) return true;
+    cursor += 1;
+    whitespace();
+    if (value[cursor] === "}") {
+      cursor += 1;
+      depth -= 1;
+      return false;
+    }
+    const keys = new Set<string>();
+    while (cursor < value.length) {
+      whitespace();
+      if (value[cursor] !== "\"") return true;
+      const key = jsonString();
+      if (keys.has(key)) return true;
+      keys.add(key);
+      whitespace();
+      if (value[cursor] !== ":") return true;
+      cursor += 1;
+      if (jsonValue()) return true;
+      whitespace();
+      if (value[cursor] === "}") {
+        cursor += 1;
+        depth -= 1;
+        return false;
+      }
+      if (value[cursor] !== ",") return true;
+      cursor += 1;
+    }
+    return true;
+  };
+  try {
+    whitespace();
+    const duplicate = jsonValue();
+    whitespace();
+    return duplicate || cursor !== value.length;
+  } catch {
+    return true;
+  }
+}
+
 function credentialBytes(value: unknown): { apiKey: string; secretKey: string } {
   if (
     !nodeTypes.isUint8Array(value) || nodeTypes.isProxy(value) ||
@@ -68,6 +165,7 @@ function credentialBytes(value: unknown): { apiKey: string; secretKey: string } 
       canonical.byteLength !== value.byteLength ||
       canonical.some((byte, index) => byte !== value[index])
     ) invalid();
+    if (duplicateJsonKeys(decoded)) invalid();
     const parsed = exact(JSON.parse(decoded) as unknown, CREDENTIAL_KEYS);
     return { apiKey: text(parsed.apiKey), secretKey: text(parsed.secretKey) };
   } finally {

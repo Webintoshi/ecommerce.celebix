@@ -119,6 +119,35 @@ test("Iyzico verifier rejects environment and exact credential mismatches before
   }
 });
 
+test("Iyzico verifier rejects duplicate credential JSON keys including escaped equivalents before transport", async () => {
+  const { createIyzicoValidationAdapter } = await implementation();
+  const encoded = [
+    '{"apiKey":"first-key","apiKey":"second-key","secretKey":"sandbox-secret-key"}',
+    '{"apiKey":"sandbox-api-key","secretKey":"first-key","secretKey":"second-key"}',
+    '{"apiKey":"first-key","\\u0061piKey":"second-key","secretKey":"sandbox-secret-key"}',
+    '{"apiKey":"sandbox-api-key","secretKey":"first-key","secret\\u004bey":"second-key"}',
+    '{"apiKey":"sandbox-api-key","secretKey":{"nested":"first","\\u006eested":"second"}}',
+  ].map((value) => new TextEncoder().encode(value));
+  let calls = 0;
+  const adapter = createIyzicoValidationAdapter(options(() => {
+    calls += 1;
+    return response({
+      status: "success",
+      conversationId: REFERENCE,
+      binNumber: "41579200",
+    });
+  }));
+
+  for (const plaintext of encoded) {
+    assert.deepEqual(await adapter.validateCredential(Object.freeze({
+      credential: plaintext,
+      publicConfig: Object.freeze({ environment: "test" }),
+    })), { kind: "rejected", outcomeCode: "invalid_validation_request" });
+    assert.equal(plaintext.every((byte) => byte === 0), true);
+  }
+  assert.equal(calls, 0);
+});
+
 test("Iyzico verifier maps only explicit auth rejection to provider_rejected and remote uncertainty to validation_unavailable", async () => {
   const { createIyzicoValidationAdapter } = await implementation();
   const cases = [

@@ -45,6 +45,7 @@ const INITIALIZE_PATH = "/payment/iyzipos/checkoutform/initialize/auth/ecom";
 const RETRIEVE_PATH = "/payment/iyzipos/checkoutform/auth/ecom/detail";
 const BIN_PATH = "/payment/bin/check";
 const TEST_BIN = "41579200";
+const CREDENTIAL_DENIAL_CODES: readonly string[] = Object.freeze(["1000", "1001", "1002", "1003"]);
 const CALLBACK_BINDING = /^[A-Za-z0-9_-]{43}$/;
 const SUCCESS_PATH = "/odeme/hizli/sonuc?durum=basarili";
 const FAILURE_PATH = "/odeme/hizli/sonuc?durum=basarisiz";
@@ -584,6 +585,17 @@ function providerFailure(value: unknown): boolean {
   }
 }
 
+function providerCredentialDenial(value: unknown): boolean {
+  try {
+    const selected = dataRecord(value, ["status"]);
+    return selected.status === "failure" &&
+      typeof selected.errorCode === "string" &&
+      CREDENTIAL_DENIAL_CODES.includes(selected.errorCode);
+  } catch {
+    return false;
+  }
+}
+
 function constantEqual(left: string, right: string): boolean {
   let leftBytes: Buffer | undefined;
   let rightBytes: Buffer | undefined;
@@ -1025,7 +1037,9 @@ export async function validateIyzicoCredentialWithTransport(
         return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
       }
       if (providerFailure(raw)) {
-        return Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const });
+        return providerCredentialDenial(raw)
+          ? Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const })
+          : Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
       }
       if (typeof raw !== "object" || raw === null || Array.isArray(raw) || nodeTypes.isProxy(raw)) invalid();
       const descriptors = Object.getOwnPropertyDescriptors(raw) as Record<string, PropertyDescriptor>;
