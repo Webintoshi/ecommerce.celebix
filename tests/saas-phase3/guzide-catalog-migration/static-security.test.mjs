@@ -34,6 +34,8 @@ test("migration ledger is forced-RLS and the app has function-only authority", (
   assert.match(up, /GRANT EXECUTE ON FUNCTION saas\.catalog_migration_begin/);
   assert.match(up, /GRANT EXECUTE ON FUNCTION saas\.catalog_migration_import_batch/);
   assert.match(up, /GRANT EXECUTE ON FUNCTION saas\.catalog_migration_get/);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION saas\.catalog_migration_authorize_media/);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION saas\.catalog_migration_record_media/);
   assert.match(up, /GRANT EXECUTE ON FUNCTION saas\.catalog_migration_recover_operation/);
 });
 

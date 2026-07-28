@@ -15,6 +15,7 @@ const CATEGORY = "31000000-0000-4000-8000-000000000009";
 const BRAND = "31000000-0000-4000-8000-00000000000a";
 const DIGEST = "a".repeat(64);
 const IMAGE_DIGEST = "b".repeat(64);
+const MEDIA = "31000000-0000-4000-8000-00000000000b";
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 
 function tenant(): TenantContext {
@@ -194,6 +195,52 @@ test("get is read-only and exposes counts without source URLs or tenant context"
   assert.equal(result.totalMedia, 5_423);
   assert.equal(JSON.stringify(result).includes("guzidekuyumcu.com.tr"), false);
   assert.equal(JSON.stringify(result).includes(PRINCIPAL), false);
+});
+
+test("media authorization is read-only and media completion carries only persisted digest authority", async () => {
+  const reader = new Client((text) => text.includes("catalog_migration_authorize_media") ? [{ outcome: "authorized", result_payload: {
+    jobId: JOB, sourceProductId: "30794", productId: PRODUCT, variantId: VARIANT, ordinal: 0,
+    sourceUrlDigest: IMAGE_DIGEST, status: "pending",
+  } }] : []);
+  const authorized = await repository(new Pool([reader])).authorizeMedia({
+    tenantContext: tenant(), now: NOW, jobId: JOB, sourceProductId: "30794", ordinal: 0, sourceUrlDigest: IMAGE_DIGEST,
+  });
+  assert.equal(reader.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(authorized.productId, PRODUCT);
+
+  const writer = new Client((text) => text.includes("catalog_migration_record_media") ? [{ outcome: "media_recorded", result_payload: projection({
+    status: "completed", importedProducts: 1_628, committedMedia: 5_423, version: 2,
+  }) }] : []);
+  const recorded = await repository(new Pool([writer])).recordMedia({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION, jobId: JOB, sourceProductId: "30794", ordinal: 0,
+    sourceUrlDigest: IMAGE_DIGEST, outcome: "committed", mediaId: MEDIA,
+  });
+  assert.equal(recorded.status, "completed");
+  const sql = call(writer, "catalog_migration_record_media");
+  assert.deepEqual(sql.values.slice(-7), [JOB, "30794", 0, IMAGE_DIGEST, "committed", MEDIA, null]);
+});
+
+test("unknown media completion COMMIT performs one read-only operation recovery without a second write", async () => {
+  const observed = projection({ status: "completed", importedProducts: 1_628, committedMedia: 5_423, version: 2 });
+  const writer = new Client((text) => {
+    if (text.includes("catalog_migration_record_media")) return [{ outcome: "media_recorded", result_payload: observed }];
+    if (text === "COMMIT") throw new Error("wire");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("catalog_migration_recover_operation")
+    ? [{ outcome: "operation_replayed", result_payload: { ...observed, replayed: true } }]
+    : []);
+  const audit: string[] = [];
+  const result = await repository(new Pool([writer, recovery]), audit).recordMedia({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION, jobId: JOB, sourceProductId: "30794", ordinal: 0,
+    sourceUrlDigest: IMAGE_DIGEST, outcome: "committed", mediaId: MEDIA,
+  });
+  assert.equal(result.replayed, true);
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(recovery.calls.filter((entry) => entry.text.includes("catalog_migration_recover_operation")).length, 1);
+  assert.equal(recovery.calls.some((entry) => entry.text.includes("catalog_migration_record_media")), false);
+  assert.deepEqual(audit, ["catalog_migration_commit_unknown"]);
 });
 
 test("unknown COMMIT destroys the writer and performs exactly one read-only recovery", async () => {

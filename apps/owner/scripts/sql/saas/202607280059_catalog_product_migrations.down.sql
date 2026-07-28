@@ -14,10 +14,13 @@ $function$;
 
 DROP FUNCTION saas.catalog_migration_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text);
 DROP FUNCTION saas.catalog_migration_get(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid);
+DROP FUNCTION saas.catalog_migration_record_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,integer,text,text,uuid,text);
+DROP FUNCTION saas.catalog_migration_authorize_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,integer,text);
 DROP FUNCTION saas.catalog_migration_import_batch(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,jsonb);
 DROP FUNCTION saas.catalog_migration_begin(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,integer,integer,jsonb,jsonb);
 DROP FUNCTION saas.catalog_migration_authority_error(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz);
 DROP FUNCTION saas.catalog_migration_projection(uuid,uuid,boolean);
+DROP FUNCTION saas.catalog_migration_media_projection(uuid,uuid,text,integer);
 DROP FUNCTION saas.catalog_migration_json_exact(jsonb,text[],text[]);
 DROP TABLE saas.catalog_product_migration_operations;
 DROP TABLE saas.catalog_product_migration_media_items;

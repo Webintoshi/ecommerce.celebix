@@ -1,7 +1,7 @@
 import { CatalogRepositoryError } from "../catalog/errors.ts";
 import { catalogAuthority, type ValidatedCatalogAuthority } from "../catalog/validation.ts";
 import { CatalogMigrationRepositoryError, type CatalogMigrationErrorCode } from "./errors.ts";
-import type { CatalogMigrationJob, CatalogMigrationProduct, CatalogMigrationTaxonomy } from "./types.ts";
+import type { CatalogMigrationJob, CatalogMigrationMediaAuthority, CatalogMigrationProduct, CatalogMigrationTaxonomy } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -38,6 +38,16 @@ export function catalogMigrationUuid(value: unknown): string {
 
 export function catalogMigrationDigest(value: unknown): string {
   if (typeof value !== "string" || !DIGEST.test(value)) fail();
+  return value;
+}
+
+export function catalogMigrationSourceProductId(value: unknown): string {
+  if (typeof value !== "string" || !SOURCE_ID.test(value)) fail();
+  return value;
+}
+
+export function catalogMigrationSafeFailureCode(value: unknown): string {
+  if (typeof value !== "string" || !/^[a-z0-9_]{1,64}$/.test(value)) fail();
   return value;
 }
 
@@ -169,5 +179,18 @@ export function parseCatalogMigrationJob(value: unknown, expectedReplay: boolean
     totalProducts, importedProducts, totalMedia, committedMedia, failedMedia,
     categoryCount: catalogMigrationInteger(parsed.categoryCount, 0, 100), brandCount: catalogMigrationInteger(parsed.brandCount, 0, 50),
     version: catalogMigrationInteger(parsed.version, 1, Number.MAX_SAFE_INTEGER), updatedAt, replayed: expectedReplay,
+  });
+}
+
+export function parseCatalogMigrationMediaAuthority(value: unknown): CatalogMigrationMediaAuthority {
+  const parsed = exactCatalogMigrationInput(value, ["jobId", "sourceProductId", "productId", "variantId", "ordinal", "sourceUrlDigest", "status"], ["committedMediaId"]);
+  if (parsed.status !== "pending" && parsed.status !== "failed" && parsed.status !== "committed") fail("unavailable");
+  const committedMediaId = parsed.committedMediaId === undefined ? undefined : catalogMigrationUuid(parsed.committedMediaId);
+  if ((parsed.status === "committed") !== (committedMediaId !== undefined)) fail("unavailable");
+  return Object.freeze({
+    jobId: catalogMigrationUuid(parsed.jobId), sourceProductId: catalogMigrationSourceProductId(parsed.sourceProductId),
+    productId: catalogMigrationUuid(parsed.productId), variantId: catalogMigrationUuid(parsed.variantId),
+    ordinal: catalogMigrationInteger(parsed.ordinal, 0, 15), sourceUrlDigest: catalogMigrationDigest(parsed.sourceUrlDigest),
+    status: parsed.status, ...(committedMediaId === undefined ? {} : { committedMediaId }),
   });
 }

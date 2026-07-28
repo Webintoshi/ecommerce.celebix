@@ -156,11 +156,12 @@ BEGIN
      OR NEW.category_count<>OLD.category_count OR NEW.brand_count<>OLD.brand_count
      OR NEW.category_slugs<>OLD.category_slugs OR NEW.brand_slugs<>OLD.brand_slugs
      OR NEW.created_at<>OLD.created_at OR NEW.version<>OLD.version+1
-     OR OLD.status IN('completed','completed_with_failures')
+     OR OLD.status='completed'
   THEN RAISE EXCEPTION 'CATALOG_PRODUCT_MIGRATION_JOB_IDENTITY_IMMUTABLE'; END IF;
   IF NOT (
     (OLD.status='processing' AND NEW.status IN('processing','media_processing','completed'))
     OR (OLD.status='media_processing' AND NEW.status IN('media_processing','completed','completed_with_failures'))
+    OR (OLD.status='completed_with_failures' AND NEW.status IN('completed_with_failures','completed'))
   ) THEN RAISE EXCEPTION 'CATALOG_PRODUCT_MIGRATION_JOB_TRANSITION_INVALID'; END IF;
   RETURN NEW;
 END
@@ -224,6 +225,25 @@ RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $function$
   )
   FROM saas.catalog_product_migration_jobs job
   WHERE job.store_id=p_store_id AND job.id=p_job_id
+$function$;
+
+CREATE FUNCTION saas.catalog_migration_media_projection(
+  p_store_id uuid,p_job_id uuid,p_source_product_id text,p_ordinal integer
+)
+RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $function$
+  SELECT pg_catalog.jsonb_build_object(
+    'jobId',media.job_id,'sourceProductId',media.source_product_id,
+    'productId',media.product_id,'variantId',item.variant_id,
+    'ordinal',media.ordinal,'sourceUrlDigest',media.source_url_digest,'status',media.status
+  )||CASE WHEN media.status='committed'
+    THEN pg_catalog.jsonb_build_object('committedMediaId',media.committed_media_id)
+    ELSE '{}'::jsonb END
+  FROM saas.catalog_product_migration_media_items media
+  JOIN saas.catalog_product_migration_items item
+    ON item.store_id=media.store_id AND item.job_id=media.job_id
+   AND item.source_product_id=media.source_product_id
+  WHERE media.store_id=p_store_id AND media.job_id=p_job_id
+    AND media.source_product_id=p_source_product_id AND media.ordinal=p_ordinal
 $function$;
 
 CREATE FUNCTION saas.catalog_migration_authority_error(
@@ -531,6 +551,130 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.catalog_migration_authorize_media(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,
+  p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
+  p_job_id uuid,p_source_product_id text,p_ordinal integer,p_source_url_digest text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $function$
+DECLARE
+  authority_error text;
+  job_status text;
+  persisted_digest text;
+BEGIN
+  authority_error:=saas.catalog_migration_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now);
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  IF p_job_id IS NULL OR p_source_product_id IS NULL OR p_source_product_id!~'^[1-9][0-9]{0,19}$'
+     OR p_ordinal NOT BETWEEN 0 AND 15 OR p_source_url_digest IS NULL OR p_source_url_digest!~'^[a-f0-9]{64}$'
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT status INTO job_status FROM saas.catalog_product_migration_jobs
+  WHERE store_id=p_store_id AND id=p_job_id;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'job_not_found',NULL::jsonb; RETURN; END IF;
+  IF job_status='processing' THEN RETURN QUERY SELECT 'job_mismatch',NULL::jsonb; RETURN; END IF;
+  SELECT source_url_digest::text INTO persisted_digest
+  FROM saas.catalog_product_migration_media_items
+  WHERE store_id=p_store_id AND job_id=p_job_id
+    AND source_product_id=p_source_product_id AND ordinal=p_ordinal;
+  IF NOT FOUND OR persisted_digest<>p_source_url_digest
+  THEN RETURN QUERY SELECT 'media_not_found',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'authorized',saas.catalog_migration_media_projection(p_store_id,p_job_id,p_source_product_id,p_ordinal);
+END
+$function$;
+
+CREATE FUNCTION saas.catalog_migration_record_media(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,
+  p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
+  p_operation_id uuid,p_fingerprint text,p_job_id uuid,p_source_product_id text,p_ordinal integer,
+  p_source_url_digest text,p_outcome text,p_media_id uuid,p_safe_failure_code text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $function$
+DECLARE
+  authority_error text;
+  operation saas.catalog_product_migration_operations%ROWTYPE;
+  job saas.catalog_product_migration_jobs%ROWTYPE;
+  media_item saas.catalog_product_migration_media_items%ROWTYPE;
+  migration_item saas.catalog_product_migration_items%ROWTYPE;
+  next_committed integer;
+  next_failed integer;
+  next_status text;
+  result jsonb;
+BEGIN
+  authority_error:=saas.catalog_migration_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now);
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  IF p_operation_id IS NULL OR p_job_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+     OR p_source_product_id IS NULL OR p_source_product_id!~'^[1-9][0-9]{0,19}$'
+     OR p_ordinal NOT BETWEEN 0 AND 15 OR p_source_url_digest IS NULL OR p_source_url_digest!~'^[a-f0-9]{64}$'
+     OR p_outcome NOT IN('committed','failed')
+     OR (p_outcome='committed' AND (p_media_id IS NULL OR p_safe_failure_code IS NOT NULL))
+     OR (p_outcome='failed' AND (p_media_id IS NOT NULL OR p_safe_failure_code IS NULL OR p_safe_failure_code!~'^[a-z0-9_]{1,64}$'))
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.migration.operation:'||p_operation_id::text,0));
+  SELECT * INTO operation FROM saas.catalog_product_migration_operations WHERE operation_id=p_operation_id;
+  IF FOUND THEN
+    IF operation.store_id<>p_store_id OR operation.payload_fingerprint<>p_fingerprint
+    THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',operation.result_payload||pg_catalog.jsonb_build_object('replayed',true); END IF;
+    RETURN;
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.store:'||p_store_id::text,0));
+  SELECT * INTO job FROM saas.catalog_product_migration_jobs
+  WHERE store_id=p_store_id AND id=p_job_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'job_not_found',NULL::jsonb; RETURN; END IF;
+  IF job.status='processing' OR p_now<job.updated_at
+  THEN RETURN QUERY SELECT 'job_mismatch',NULL::jsonb; RETURN; END IF;
+
+  SELECT * INTO media_item FROM saas.catalog_product_migration_media_items
+  WHERE store_id=p_store_id AND job_id=p_job_id
+    AND source_product_id=p_source_product_id AND ordinal=p_ordinal FOR UPDATE;
+  IF NOT FOUND OR media_item.source_url_digest::text<>p_source_url_digest
+  THEN RETURN QUERY SELECT 'media_not_found',NULL::jsonb; RETURN; END IF;
+  SELECT * INTO migration_item FROM saas.catalog_product_migration_items
+  WHERE store_id=p_store_id AND job_id=p_job_id AND source_product_id=p_source_product_id;
+  IF NOT FOUND OR migration_item.product_id<>media_item.product_id
+  THEN RETURN QUERY SELECT 'media_not_found',NULL::jsonb; RETURN; END IF;
+
+  IF p_outcome='failed' THEN
+    IF media_item.status<>'pending' THEN RETURN QUERY SELECT 'media_state_invalid',NULL::jsonb; RETURN; END IF;
+    next_committed:=job.committed_media;
+    next_failed:=job.failed_media+1;
+    UPDATE saas.catalog_product_migration_media_items
+    SET status='failed',safe_failure_code=p_safe_failure_code,committed_media_id=NULL,updated_at=p_now
+    WHERE store_id=p_store_id AND job_id=p_job_id AND source_product_id=p_source_product_id AND ordinal=p_ordinal;
+  ELSE
+    IF media_item.status NOT IN('pending','failed') THEN RETURN QUERY SELECT 'media_state_invalid',NULL::jsonb; RETURN; END IF;
+    IF NOT EXISTS(
+      SELECT 1 FROM saas.product_media selected
+      WHERE selected.store_id=p_store_id AND selected.id=p_media_id
+        AND selected.product_id=migration_item.product_id
+        AND selected.variant_id=migration_item.variant_id AND selected.status='active'
+    ) THEN RETURN QUERY SELECT 'media_not_found',NULL::jsonb; RETURN; END IF;
+    next_committed:=job.committed_media+1;
+    next_failed:=job.failed_media-CASE WHEN media_item.status='failed' THEN 1 ELSE 0 END;
+    UPDATE saas.catalog_product_migration_media_items
+    SET status='committed',safe_failure_code=NULL,committed_media_id=p_media_id,updated_at=p_now
+    WHERE store_id=p_store_id AND job_id=p_job_id AND source_product_id=p_source_product_id AND ordinal=p_ordinal;
+  END IF;
+
+  next_status:=CASE
+    WHEN next_committed+next_failed<job.total_media THEN 'media_processing'
+    WHEN next_failed=0 THEN 'completed'
+    ELSE 'completed_with_failures'
+  END;
+  UPDATE saas.catalog_product_migration_jobs
+  SET committed_media=next_committed,failed_media=next_failed,status=next_status,version=version+1,updated_at=p_now
+  WHERE store_id=p_store_id AND id=p_job_id;
+  result:=saas.catalog_migration_projection(p_store_id,p_job_id,false);
+  INSERT INTO saas.catalog_product_migration_operations(
+    operation_id,store_id,job_id,operation_kind,payload_fingerprint,result_payload,committed_at
+  ) VALUES(p_operation_id,p_store_id,p_job_id,'record_media',p_fingerprint,result,p_now);
+  RETURN QUERY SELECT 'media_recorded',result;
+END
+$function$;
+
 CREATE FUNCTION saas.catalog_migration_get(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,
   p_plan_version bigint,p_products_limit bigint,p_now timestamptz,p_job_id uuid
@@ -567,14 +711,19 @@ $function$;
 
 REVOKE ALL ON FUNCTION saas.catalog_migration_json_exact(jsonb,text[],text[]) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_migration_projection(uuid,uuid,boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_migration_media_projection(uuid,uuid,text,integer) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_migration_authority_error(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_migration_begin(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,integer,integer,jsonb,jsonb) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.catalog_migration_import_batch(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,jsonb) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.catalog_migration_get(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_migration_authorize_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,integer,text) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_migration_record_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,integer,text,text,uuid,text) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.catalog_migration_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text) FROM PUBLIC,celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_migration_begin(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,integer,integer,jsonb,jsonb) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_migration_import_batch(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,jsonb) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_migration_get(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_migration_authorize_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,integer,text) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_migration_record_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,integer,text,text,uuid,text) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_migration_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text) TO celebix_saas_app;
 
 COMMIT;

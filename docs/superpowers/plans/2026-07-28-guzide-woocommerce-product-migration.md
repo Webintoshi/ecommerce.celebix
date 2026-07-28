@@ -145,21 +145,21 @@ git commit -m "feat(saas): add durable catalog migration authority"
 - `fetchMigrationImage(url, dependencies)` returns frozen validated JPEG/PNG/WebP bytes with MIME and dimensions.
 - `ingestMigrationMediaItem(input)` verifies the URL digest against PostgreSQL, fetches without ambient headers, and invokes the existing reserve/upload/finalize product-media saga for the exact mapped product.
 
-- [ ] **Step 1: Write failing authority/fetch/saga tests**
+- [x] **Step 1: Write failing authority/fetch/saga tests**
 
 Cover every private/loopback/link-local/metadata IPv4 and IPv6 class, DNS rebinding, every redirect hop, credentials, fragments, ports, wrong MIME/signature, SVG/HTML, byte/dimension/time limits, operation replay, partial image failure, wrong product/store substitution and unknown COMMIT recovery.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Expected: missing modules.
 
-- [ ] **Step 3: Implement minimal secure fetcher and ingestion orchestration**
+- [x] **Step 3: Implement minimal secure fetcher and ingestion orchestration**
 
 Use manual redirects, DNS validation on every hop, no cookies/auth/referrer/forwarded headers, status 200 only, fatal streaming bounds and existing image signature/dimension validation. Persist only URL digest, order and safe terminal code. Do not log source URL or bytes.
 
-- [ ] **Step 4: Run GREEN and product-media regressions**
+- [x] **Step 4: Run GREEN and product-media regressions**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/customer-panel/lib/catalog-migration

@@ -49,6 +49,17 @@ export interface CatalogMigrationMapping {
   readonly productId: string;
 }
 
+export interface CatalogMigrationMediaAuthority {
+  readonly jobId: string;
+  readonly sourceProductId: string;
+  readonly productId: string;
+  readonly variantId: string;
+  readonly ordinal: number;
+  readonly sourceUrlDigest: string;
+  readonly status: "pending" | "failed" | "committed";
+  readonly committedMediaId?: string;
+}
+
 export interface CatalogMigrationBatchResult extends CatalogMigrationJob {
   readonly mappings: readonly CatalogMigrationMapping[];
 }
@@ -78,10 +89,25 @@ export interface GetCatalogMigrationInput extends CatalogMigrationAuthorityInput
   readonly jobId: string;
 }
 
+export interface AuthorizeCatalogMigrationMediaInput extends GetCatalogMigrationInput {
+  readonly sourceProductId: string;
+  readonly ordinal: number;
+  readonly sourceUrlDigest: string;
+}
+
+export interface RecordCatalogMigrationMediaInput extends AuthorizeCatalogMigrationMediaInput {
+  readonly operationId: string;
+  readonly outcome: "committed" | "failed";
+  readonly mediaId?: string;
+  readonly safeFailureCode?: string;
+}
+
 export interface CatalogMigrationRepository {
   begin(input: BeginCatalogMigrationInput): Promise<CatalogMigrationJob>;
   importBatch(input: ImportCatalogMigrationBatchInput): Promise<CatalogMigrationBatchResult>;
   get(input: GetCatalogMigrationInput): Promise<CatalogMigrationJob>;
+  authorizeMedia(input: AuthorizeCatalogMigrationMediaInput): Promise<CatalogMigrationMediaAuthority>;
+  recordMedia(input: RecordCatalogMigrationMediaInput): Promise<CatalogMigrationJob>;
 }
 
 export interface PostgresCatalogMigrationRepositoryOptions {
