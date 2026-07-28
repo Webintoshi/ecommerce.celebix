@@ -132,10 +132,10 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.catalog_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_recovery,
       to_regprocedure('saas.catalog_get_product_details(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL AS catalog_details,
       to_regclass('saas.catalog_product_profiles') IS NOT NULL
-        AND to_regclass('saas.catalog_product_category_assignments') IS NOT NULL
-        AND to_regclass('saas.catalog_product_resource_assignments') IS NOT NULL
-        AND to_regclass('saas.catalog_sales_channels') IS NOT NULL
-        AND to_regclass('saas.catalog_product_channel_assignments') IS NOT NULL
+        AND to_regclass('saas.catalog_categories') IS NOT NULL
+        AND to_regclass('saas.catalog_product_categories') IS NOT NULL
+        AND to_regclass('saas.catalog_variant_commerce_profiles') IS NOT NULL
+        AND to_regclass('saas.catalog_product_channels') IS NOT NULL
         AND to_regclass('saas.catalog_onboarding_operations') IS NOT NULL
         AND to_regprocedure('saas.catalog_get_onboarding_options(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.catalog_onboard_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)') IS NOT NULL
