@@ -1,6 +1,7 @@
 import { isIP } from "node:net";
 import { types as nodeTypes } from "node:util";
 
+import { IYZICO_APPROVED_EXECUTION_AUTHORITY } from "@celebix/payment-adapters";
 import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
 import {
   parseMerchantProviderCredentialKeyring,
@@ -241,7 +242,10 @@ export function createMerchantProviderProductionConfigParser(
 }
 
 function compiledExecutionAuthorities(): MerchantProviderExecutionAuthorityMap {
-  return Object.freeze({ iyzico_iframe: null, paytr_iframe: null });
+  return Object.freeze({
+    iyzico_iframe: IYZICO_APPROVED_EXECUTION_AUTHORITY,
+    paytr_iframe: null,
+  });
 }
 
 function compiledVerificationIdentities(): MerchantProviderVerificationIdentityMap {

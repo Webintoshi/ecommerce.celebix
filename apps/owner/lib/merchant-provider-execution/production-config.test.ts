@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -47,6 +48,14 @@ test("compiled provider-keyed identities enable Iyzico verification while both e
   assert.equal(Object.isFrozen(config.executionAuthorities), true);
   assert.equal(Object.isFrozen(config.verificationIdentities), true);
   assert.equal(Object.isFrozen(config.verificationIdentities.iyzico_iframe), true);
+});
+
+test("default production authority is compiled only from the generated Iyzico build binding", () => {
+  const source = readFileSync(new URL("./production-config.ts", import.meta.url), "utf8");
+  assert.match(source, /import \{ IYZICO_APPROVED_EXECUTION_AUTHORITY \} from "@celebix\/payment-adapters"/);
+  assert.match(source, /iyzico_iframe: IYZICO_APPROVED_EXECUTION_AUTHORITY/);
+  assert.doesNotMatch(source, /CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST/);
+  assert.doesNotMatch(source, /CELEBIX_IYZICO_APPROVAL_MODE/);
 });
 
 test("provider-keyed compiled authority seam parses only the selected PayTR config and ignores environment evidence", () => {
