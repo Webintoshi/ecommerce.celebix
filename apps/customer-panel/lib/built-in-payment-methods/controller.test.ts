@@ -208,10 +208,26 @@ test("duplicate recovery selects only the exact built-in kind", () => {
   assert.equal(selectBuiltInPaymentMethod([provider, bank, cash], "cash_on_delivery"), cash);
   assert.equal(selectBuiltInPaymentMethod([provider, cash, bank], "bank_transfer"), bank);
   assert.equal(selectBuiltInPaymentMethod([provider], "cash_on_delivery"), null);
+
+  const duplicateCash = Object.freeze({
+    ...cash,
+    id: "51000000-0000-4000-8000-000000000097",
+  });
+  assert.throws(
+    () => selectBuiltInPaymentMethod([bank, cash, duplicateCash], "cash_on_delivery"),
+    /built_in_payment_method_controller_invalid/,
+  );
 });
 
 test("finite conflicts and ambiguous outcomes return only safe console messages", async () => {
-  for (const code of ["method_already_exists", "version_conflict"] as const) {
+  for (const code of [
+    "method_already_exists",
+    "version_conflict",
+    "invalid_input",
+    "membership_denied",
+    "operation_mismatch",
+    "durable_authority_invalid",
+  ] as const) {
     const result = await saveBuiltInPaymentMethod({
       kind: "cash_on_delivery",
       method: null,
@@ -230,31 +246,38 @@ test("finite conflicts and ambiguous outcomes return only safe console messages"
     }));
   }
 
-  for (const failure of [
-    new PaymentMethodApiError("unavailable", 503),
-    new Error("private transport detail"),
-  ]) {
-    const result = await saveBuiltInPaymentMethod({
-      kind: "bank_transfer",
-      method: null,
-      label: "Banka havalesi",
-      config: Object.freeze({
-        accountHolder: "Örnek Ticaret Ltd. Şti.",
-        bankName: "Örnek Bankası",
-        iban: "TR330006100519786457841326",
-        instructions: "",
-      }),
-      methodId: BANK_ID,
-      api: Object.freeze({
-        async save() { throw failure; },
-        async setState() { throw new Error("state_must_not_run"); },
-      }),
-    });
-    assert.deepEqual(result, Object.freeze({
-      kind: "ambiguous",
-      methodId: BANK_ID,
-      message: "Kaydın sonucu doğrulanamadı. Güncel bilgiler yeniden yüklenmeden tekrar deneyemezsiniz.",
-    }));
-    assert.doesNotMatch(result.message, /private|transport|503/i);
-  }
+  const unavailable = await saveBuiltInPaymentMethod({
+    kind: "bank_transfer",
+    method: null,
+    label: "Banka havalesi",
+    config: Object.freeze({
+      accountHolder: "Örnek Ticaret Ltd. Şti.",
+      bankName: "Örnek Bankası",
+      iban: "TR330006100519786457841326",
+      instructions: "",
+    }),
+    methodId: BANK_ID,
+    api: Object.freeze({
+      async save() { throw new PaymentMethodApiError("unavailable", 503); },
+      async setState() { throw new Error("state_must_not_run"); },
+    }),
+  });
+  assert.deepEqual(unavailable, Object.freeze({
+    kind: "ambiguous",
+    methodId: BANK_ID,
+    message: "Kaydın sonucu doğrulanamadı. Güncel bilgiler yeniden yüklenmeden tekrar deneyemezsiniz.",
+  }));
+
+  const programmerError = new Error("programmer error must remain visible to the caller");
+  await assert.rejects(() => saveBuiltInPaymentMethod({
+    kind: "cash_on_delivery",
+    method: null,
+    label: "Kapıda ödeme",
+    config: Object.freeze({ instructions: "" }),
+    methodId: CASH_ID,
+    api: Object.freeze({
+      async save() { throw programmerError; },
+      async setState() { throw new Error("state_must_not_run"); },
+    }),
+  }), (error: unknown) => error === programmerError);
 });

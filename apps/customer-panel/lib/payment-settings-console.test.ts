@@ -243,6 +243,7 @@ function mountDrawer(
   const target = {
     focusCount: 0,
     focus() {
+      if (node.props.disabled === true) return;
       this.focusCount += 1;
       documentState.activeElement = this;
     },
@@ -710,7 +711,7 @@ test("built-in drawer owns submit synchronously, normalizes IBAN, and unlocks on
   assert.equal(closes, 2);
 });
 
-test("built-in drawer focuses invalid bank data and disables every mutation control for read-only access", async () => {
+test("built-in drawer disables mutations and focuses an enabled close fallback for read-only access", async () => {
   let submissions = 0;
   let closes = 0;
   const drawer = await compileBuiltInDrawer({
@@ -738,6 +739,9 @@ test("built-in drawer focuses invalid bank data and disables every mutation cont
     node.type === "button" && node.props.type === "submit");
   assert.ok(submit);
   assert.equal(submit.props.disabled, true);
+  const label = drawer.nodes().find((node) => node.type === "input" && node.props.name === "label");
+  assert.ok(label);
+  assert.equal(label.target.focusCount, 0);
   assert.match(tree.map(drawerText).join(""), /Salt okunur erişim/);
   const form = drawer.nodes().find((node) => node.type === "form");
   assert.ok(form);
@@ -751,32 +755,149 @@ test("built-in drawer focuses invalid bank data and disables every mutation cont
   const close = drawer.nodes().find((node) =>
     node.type === "button" && node.props["aria-label"] === "Yerleşik yöntem penceresini kapat");
   assert.ok(close);
+  assert.equal(close.target.focusCount, 1);
   (close.props.onClick as () => void)();
   assert.equal(closes, 1);
+});
 
-  const editableDrawer = await compileBuiltInDrawer({
+test("built-in drawer associates and focuses each actual invalid config field", async () => {
+  const fixtures: readonly Readonly<{
+    kind: BuiltInPaymentMethodKind;
+    field: "bankName" | "accountHolder" | "iban" | "instructions";
+    invalidValue: string;
+  }>[] = [
+    { kind: "bank_transfer", field: "bankName", invalidValue: "A" },
+    { kind: "bank_transfer", field: "accountHolder", invalidValue: "A" },
+    { kind: "bank_transfer", field: "iban", invalidValue: "TR000006100519786457841326" },
+    { kind: "bank_transfer", field: "instructions", invalidValue: "x".repeat(501) },
+    { kind: "cash_on_delivery", field: "instructions", invalidValue: "x".repeat(501) },
+  ];
+
+  for (const fixture of fixtures) {
+    let submissions = 0;
+    const drawer = await compileBuiltInDrawer({
+      kind: fixture.kind,
+      method: null,
+      canManage: true,
+      busy: false,
+      onSubmit() { submissions += 1; },
+      onClose() {},
+    });
+    Object.assign(drawer.values, {
+      label: fixture.kind === "bank_transfer" ? "Banka havalesi" : "Kapıda ödeme",
+      bankName: "Örnek Bankası",
+      accountHolder: "Örnek Ticaret Ltd. Şti.",
+      iban: "TR330006100519786457841326",
+      instructions: "Sipariş numaranızı yazın.",
+      [fixture.field]: fixture.invalidValue,
+    });
+    drawer.render();
+    const invalidControl = drawer.nodes().find((node) =>
+      (node.type === "input" || node.type === "textarea") && node.props.name === fixture.field);
+    assert.ok(invalidControl);
+    const form = drawer.nodes().find((node) => node.type === "form");
+    assert.ok(form);
+    (form.props.onSubmit as (event: unknown) => void)({
+      preventDefault() {},
+      currentTarget: {},
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    assert.equal(invalidControl.target.focusCount, 1, `${fixture.kind}:${fixture.field}`);
+    assert.equal(submissions, 0);
+    assert.equal(drawer.uuidCalls(), 0);
+    const rendered = drawer.render();
+    const associatedControl = drawer.nodes().find((node) =>
+      (node.type === "input" || node.type === "textarea") && node.props.name === fixture.field);
+    const alert = drawer.nodes().find((node) => node.props.role === "alert");
+    assert.ok(associatedControl);
+    assert.ok(alert);
+    assert.equal(associatedControl.props["aria-invalid"], true);
+    assert.equal(associatedControl.props["aria-describedby"], alert.props.id);
+    assert.match(rendered.map(drawerText).join(""), /geçerli|bayt/i);
+  }
+});
+
+test("built-in drawer contains Tab focus and handles backdrop, busy close suppression, and emergency notice", async () => {
+  let closes = 0;
+  const drawer = await compileBuiltInDrawer({
     kind: "bank_transfer",
     method: null,
     canManage: true,
     busy: false,
-    onSubmit() { submissions += 1; },
+    onSubmit() {},
+    onClose() { closes += 1; },
+  });
+  drawer.render();
+  const dialog = drawer.nodes().find((node) => node.type === "aside");
+  assert.ok(dialog);
+  const focusable = drawer.nodes().filter((node) =>
+    (node.type === "button" || node.type === "input" || node.type === "textarea")
+    && node.props.disabled !== true);
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  assert.ok(first);
+  assert.ok(last);
+  drawer.documentState.activeElement = first.target;
+  let prevented = 0;
+  (dialog.props.onKeyDown as (event: unknown) => void)({
+    key: "Tab",
+    shiftKey: true,
+    preventDefault() { prevented += 1; },
+  });
+  assert.equal(last.target.focusCount, 1);
+  drawer.documentState.activeElement = last.target;
+  (dialog.props.onKeyDown as (event: unknown) => void)({
+    key: "Tab",
+    shiftKey: false,
+    preventDefault() { prevented += 1; },
+  });
+  assert.equal(first.target.focusCount, 1);
+  assert.equal(prevented, 2);
+
+  const layer = drawer.nodes().find((node) => node.props.className === "drawerLayer");
+  assert.ok(layer);
+  const backdrop = {};
+  (layer.props.onMouseDown as (event: unknown) => void)({ target: backdrop, currentTarget: backdrop });
+  assert.equal(closes, 1);
+
+  const busyDrawer = await compileBuiltInDrawer({
+    kind: "cash_on_delivery",
+    method: null,
+    canManage: true,
+    busy: true,
+    onSubmit() {},
+    onClose() { closes += 1; },
+  });
+  busyDrawer.render();
+  const busyDialog = busyDrawer.nodes().find((node) => node.type === "aside");
+  const busyLayer = busyDrawer.nodes().find((node) => node.props.className === "drawerLayer");
+  const busyClose = busyDrawer.nodes().find((node) =>
+    node.type === "button" && node.props["aria-label"] === "Yerleşik yöntem penceresini kapat");
+  assert.ok(busyDialog);
+  assert.ok(busyLayer);
+  assert.ok(busyClose);
+  assert.equal(busyDialog.target.focusCount, 1);
+  (busyDialog.props.onKeyDown as (event: unknown) => void)({ key: "Escape", preventDefault() {} });
+  (busyLayer.props.onMouseDown as (event: unknown) => void)({ target: backdrop, currentTarget: backdrop });
+  (busyClose.props.onClick as () => void)();
+  assert.equal(closes, 1);
+
+  const emergency = Object.freeze({
+    ...method("51000000-0000-4000-8000-000000000071", 0),
+    state: "emergency_disabled" as const,
+    emergencyReason: "Risk kontrolü",
+  });
+  const emergencyDrawer = await compileBuiltInDrawer({
+    kind: "cash_on_delivery",
+    method: emergency,
+    canManage: true,
+    busy: false,
+    onSubmit() {},
     onClose() {},
   });
-  Object.assign(editableDrawer.values, drawer.values);
-  editableDrawer.render();
-  const invalidForm = editableDrawer.nodes().find((node) => node.type === "form");
-  assert.ok(invalidForm);
-  (invalidForm.props.onSubmit as (event: unknown) => void)({
-    preventDefault() {},
-    currentTarget: {},
-  });
-  await new Promise<void>((resolve) => setImmediate(resolve));
-  const iban = editableDrawer.nodes().find((node) =>
-    node.type === "input" && node.props.name === "iban");
-  assert.ok(iban);
-  assert.equal(iban.target.focusCount, 1);
-  assert.equal(submissions, 0);
-  assert.equal(editableDrawer.uuidCalls(), 0);
+  const emergencyTree = emergencyDrawer.render();
+  assert.match(emergencyTree.map(drawerText).join(""), /Acil durum kapatması.*korunur/);
 });
 
 test("payment dialogs provide focus safety, masked connection state and dormant secrets", async () => {

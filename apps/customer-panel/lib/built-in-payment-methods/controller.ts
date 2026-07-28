@@ -71,12 +71,10 @@ function result<Kind extends keyof typeof RESULT_MESSAGES>(
 }
 
 function failed(error: unknown, methodId: string): BuiltInPaymentMethodSaveResult {
-  if (
-    error instanceof PaymentMethodApiError
-    && (error.code === "method_already_exists" || error.code === "version_conflict")
-  ) return result("conflict", methodId);
-  if (error instanceof PaymentMethodApiError && error.code !== "unavailable") throw error;
-  return result("ambiguous", methodId);
+  if (!(error instanceof PaymentMethodApiError)) throw error;
+  return error.code === "unavailable"
+    ? result("ambiguous", methodId)
+    : result("conflict", methodId);
 }
 
 export function selectBuiltInPaymentMethod(
