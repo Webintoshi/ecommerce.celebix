@@ -39,6 +39,8 @@ export function PaymentMethodOrderDialog(props: Readonly<{
   methods: readonly MerchantPaymentMethod[];
   rows: readonly MethodRow[];
   canManage: boolean;
+  mutationAvailable: boolean;
+  mutationBusy: boolean;
   openerRef: RefObject<HTMLButtonElement | null>;
   onReload(): Promise<void>;
   onClose(): void;
@@ -52,6 +54,7 @@ export function PaymentMethodOrderDialog(props: Readonly<{
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const changed = hasPaymentMethodOrderChanged(originalIds, order);
+  const mutationBlocked = !canManage || !props.mutationAvailable || props.mutationBusy || busy;
   const rowsById = useMemo(() => new Map(props.rows.map((row) => [row.id, row] as const)), [props.rows]);
 
   useEffect(() => { setOrder(Object.freeze([...originalIds])); }, [originalIds]);
@@ -83,13 +86,13 @@ export function PaymentMethodOrderDialog(props: Readonly<{
 
   function drop(event: DragEvent<HTMLLIElement>, targetId: string) {
     event.preventDefault();
-    if (!dragging || !props.canManage || busy) return;
+    if (!dragging || mutationBlocked) return;
     setOrder((current) => placeBefore(current, dragging, targetId));
     setDragging(null);
   }
 
   async function save() {
-    if (!changed || !props.canManage || busy) return;
+    if (!changed || mutationBlocked) return;
     setBusy(true);
     setMessage("");
     try {
@@ -125,12 +128,12 @@ export function PaymentMethodOrderDialog(props: Readonly<{
                 {order.map((id, index) => {
                   const row = rowsById.get(id);
                   if (!row) return null;
-                  return <li key={id} draggable={props.canManage && !busy} onDragStart={() => setDragging(id)} onDragEnd={() => setDragging(null)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => drop(event, id)}>
+                  return <li key={id} draggable={!mutationBlocked} onDragStart={() => { if (!mutationBlocked) setDragging(id); }} onDragEnd={() => setDragging(null)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => drop(event, id)}>
                     <GripVertical aria-hidden="true" />
                     <span><strong>{row.label}</strong><small>{row.providerLabel} · {row.stateLabel}</small></span>
                     <div>
-                      <button type="button" disabled={!props.canManage || busy || index === 0} onClick={() => setOrder((current) => movePaymentMethodOrder(current, id, "up"))} aria-label={`${row.label} yöntemini yukarı taşı`}><ArrowUp /><span>Yukarı</span></button>
-                      <button type="button" disabled={!props.canManage || busy || index === order.length - 1} onClick={() => setOrder((current) => movePaymentMethodOrder(current, id, "down"))} aria-label={`${row.label} yöntemini aşağı taşı`}><ArrowDown /><span>Aşağı</span></button>
+                      <button type="button" disabled={mutationBlocked || index === 0} onClick={() => { if (!mutationBlocked) setOrder((current) => movePaymentMethodOrder(current, id, "up")); }} aria-label={`${row.label} yöntemini yukarı taşı`}><ArrowUp /><span>Yukarı</span></button>
+                      <button type="button" disabled={mutationBlocked || index === order.length - 1} onClick={() => { if (!mutationBlocked) setOrder((current) => movePaymentMethodOrder(current, id, "down")); }} aria-label={`${row.label} yöntemini aşağı taşı`}><ArrowDown /><span>Aşağı</span></button>
                     </div>
                   </li>;
                 })}
@@ -151,7 +154,7 @@ export function PaymentMethodOrderDialog(props: Readonly<{
         <footer className={styles.dialogActions}>
           <span>{changed ? "Kaydedilmemiş sıralama değişikliği var." : "Sıralama güncel."}</span>
           <button type="button" className={styles.secondaryButton} onClick={() => close()} disabled={busy}>Vazgeç</button>
-          <button type="button" className={styles.primaryButton} onClick={() => void save()} disabled={!canManage || !changed || busy}><Save />{busy ? "Kaydediliyor…" : "Kaydet"}</button>
+          <button type="button" className={styles.primaryButton} onClick={() => void save()} disabled={!canManage || !props.mutationAvailable || props.mutationBusy || !changed || busy}><Save />{busy ? "Kaydediliyor…" : "Kaydet"}</button>
         </footer>
       </div>
     </div>

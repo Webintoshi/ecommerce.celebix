@@ -21,6 +21,7 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
   phase: "loading" | "ready" | "error";
   canManage: boolean;
   mutationAvailable: boolean;
+  providerConfigurationAvailable: boolean;
   busy: boolean;
   openerRef: RefObject<HTMLButtonElement | null>;
   onQuery(value: string): void;
@@ -137,14 +138,15 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
           {props.phase === "error" ? <p className={styles.errorNotice} role="alert">Ödeme altyapısı kataloğu şu anda yüklenemiyor.</p> : null}
           {props.phase === "ready" && props.cards.length === 0 ? <p className={styles.dialogState}>Eşleşen sağlayıcı bulunamadı.</p> : null}
           {props.phase === "ready" ? <div className={styles.providerGrid}>
-            {props.cards.map((card) => (
-              <article className={styles.providerCard} key={card.providerCode}>
+            {props.cards.map((card) => {
+              const requiresMethodAuthority = card.actionLabel === "Etkinleştir";
+              return <article className={styles.providerCard} key={card.providerCode}>
                 <div className={styles.providerLogo}><Image src={card.logoPath} alt={`${card.label} logosu`} width={144} height={56} /></div>
                 <div className={styles.providerCardHeading}><div><h3>{card.label}</h3><p>{card.modeLabel}</p></div><span className={styles[`tone-${card.readinessTone}`]}>{card.readinessLabel}</span></div>
                 <div className={styles.providerMeta}><span>{card.categoryLabel}</span><span>{card.interactionLabel}</span><span>{card.environmentLabel}</span><span>{card.lifecycleLabel}</span></div>
-                <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.configurable || !props.canManage || !props.mutationAvailable || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}</button>
-              </article>
-            ))}
+                <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.configurable || !props.canManage || !props.providerConfigurationAvailable || (requiresMethodAuthority && !props.mutationAvailable) || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}</button>
+              </article>;
+            })}
           </div> : null}
         </div>
       </div>

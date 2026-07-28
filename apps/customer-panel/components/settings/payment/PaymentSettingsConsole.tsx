@@ -92,13 +92,14 @@ const BUILT_IN_DUPLICATE_ERROR = "Yerleşik ödeme yöntemi kayıtları doğrula
 function PaymentConsoleActions(props: Readonly<{
   canManage: boolean;
   loading: boolean;
+  orderAvailable: boolean;
   addRef?: RefObject<HTMLButtonElement | null>;
   orderRef?: RefObject<HTMLButtonElement | null>;
   onOrder(): void;
   onAdd(): void;
 }>) {
   return <div className={styles.commandBar} aria-label="Ödeme ayarları işlemleri">
-    <button ref={props.orderRef} className={styles.secondaryButton} type="button" disabled={!props.canManage || props.loading} onClick={props.onOrder}><GripVertical aria-hidden="true" />Önizleme ve Sıralama</button>
+    <button ref={props.orderRef} className={styles.secondaryButton} type="button" disabled={!props.canManage || props.loading || !props.orderAvailable} onClick={props.onOrder}><GripVertical aria-hidden="true" />Önizleme ve Sıralama</button>
     <button ref={props.addRef} className={styles.primaryButton} type="button" disabled={!props.canManage || props.loading} onClick={props.onAdd}><Plus aria-hidden="true" />Ödeme Yöntemi Ekle</button>
   </div>;
 }
@@ -318,7 +319,12 @@ export function PaymentSettingsConsole(props: Readonly<{
   }
 
   async function connectProvider(card: PaymentProviderCatalogCard) {
-    if (!props.canManage || !methodsMutationAvailable || busyProviderCode || !card.configurable || !card.configurableDescriptor) return;
+    const providerConfigurationAvailable = sources.catalog.phase === "ready"
+      && sources.definitions.phase === "ready"
+      && sources.profiles.phase === "ready";
+    const requiresMethodAuthority = card.actionLabel === "Etkinleştir";
+    if (!props.canManage || !providerConfigurationAvailable || busyProviderCode || !card.configurable || !card.configurableDescriptor) return;
+    if (requiresMethodAuthority && !methodsMutationAvailable) return;
     const descriptor = card.executableDescriptor;
     const profile = descriptor?.environments === undefined
       ? card.configurableDescriptor?.environments === undefined ? null : selectPaymentProviderConnectionProfile(
@@ -331,7 +337,7 @@ export function PaymentSettingsConsole(props: Readonly<{
         card.providerCode,
         descriptor.environments,
       );
-    if (card.providerCode === "iyzico_iframe" && profile?.status === "active") {
+    if (card.providerCode === "iyzico_iframe" && profile?.status === "active" && requiresMethodAuthority) {
       setBusyProviderCode(card.providerCode);
       setMessage("");
       try {
@@ -451,10 +457,21 @@ export function PaymentSettingsConsole(props: Readonly<{
     }
   }
 
+  const methodMutationBusy = busyMethodId !== null || busyBuiltInKind !== null || busyProviderCode !== null;
+
+  function openOrder() {
+    if (!props.canManage || !methodsMutationAvailable || methodMutationBusy) return;
+    setOrderOpen(true);
+  }
+
   const methodsLoading = sources.methods.phase === "loading";
-  const topbarActions = <PaymentConsoleActions canManage={props.canManage} loading={methodsLoading} addRef={addButtonRef} orderRef={orderButtonRef} onOrder={() => setOrderOpen(true)} onAdd={() => setCatalogOpen(true)} />;
+  const providerConfigurationAvailable = sources.catalog.phase === "ready"
+    && sources.definitions.phase === "ready"
+    && sources.profiles.phase === "ready";
+  const orderAvailable = methodsMutationAvailable && !methodMutationBusy;
+  const topbarActions = <PaymentConsoleActions canManage={props.canManage} loading={methodsLoading} orderAvailable={orderAvailable} addRef={addButtonRef} orderRef={orderButtonRef} onOrder={openOrder} onAdd={() => setCatalogOpen(true)} />;
   const selectedProfiles = selectedCard?.configurableDescriptor
-    ? sources.profiles.value.filter((profile) =>
+    ? (sources.profiles.phase === "ready" ? sources.profiles.value : []).filter((profile) =>
       profile.providerCode === selectedCard.providerCode
       && profile.capability === "payment_processing")
     : [];
@@ -483,7 +500,7 @@ export function PaymentSettingsConsole(props: Readonly<{
       <section className={styles.methodsPanel} aria-labelledby="payment-methods-title">
         <header className={styles.methodsHeader}>
           <div><h2 id="payment-methods-title">Ödeme Yöntemleri</h2><p>Ödeme yöntemlerini ekleyebilir ve ödeme adımındaki sıralarını ayarlayabilirsiniz.</p></div>
-          <PaymentConsoleActions canManage={props.canManage} loading={methodsLoading} onOrder={() => setOrderOpen(true)} onAdd={() => setCatalogOpen(true)} />
+          <PaymentConsoleActions canManage={props.canManage} loading={methodsLoading} orderAvailable={orderAvailable} onOrder={openOrder} onAdd={() => setCatalogOpen(true)} />
         </header>
 
         {sources.methods.phase === "loading" ? <p className={styles.loadingState} role="status">Ödeme yöntemleri yükleniyor…</p> : null}
@@ -519,10 +536,10 @@ export function PaymentSettingsConsole(props: Readonly<{
         </> : null}
       </section>
 
-      {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} builtInCards={view.builtInCards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} busy={selectedCard !== null || busyProviderCode !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { void connectProvider(card); }} onBuiltInSelect={(kind) => openBuiltIn(kind)} /> : null}
+      {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} builtInCards={view.builtInCards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} providerConfigurationAvailable={providerConfigurationAvailable} busy={selectedCard !== null || busyProviderCode !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { void connectProvider(card); }} onBuiltInSelect={(kind) => openBuiltIn(kind)} /> : null}
       {selectedCard?.configurableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.configurableDescriptor} environments={selectedCard.environments} initialEnvironment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profiles={selectedProfiles} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={async () => { await load(); }} /> : null}
       {selectedBuiltIn ? <BuiltInPaymentMethodDrawer kind={selectedBuiltIn.kind} method={selectedBuiltIn.method} canManage={props.canManage} busy={busyBuiltInKind !== null} mutationAvailable={methodsMutationAvailable} submitError={builtInSubmitError} onSubmit={saveBuiltIn} onClose={closeBuiltIn} /> : null}
-      {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} openerRef={orderButtonRef} onReload={async () => { await load(); }} onClose={() => setOrderOpen(false)} /> : null}
+      {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} mutationBusy={methodMutationBusy} openerRef={orderButtonRef} onReload={async () => { await load(); }} onClose={() => setOrderOpen(false)} /> : null}
     </section>
   );
 }

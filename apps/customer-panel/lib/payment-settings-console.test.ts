@@ -9,6 +9,8 @@ import ts from "typescript";
 import type {
   BuiltInPaymentMethodKind,
   MerchantPaymentMethod,
+  MerchantProviderDescriptor,
+  MerchantProviderProfile,
 } from "@celebix/saas-contracts";
 
 import { PaymentMethodApiError } from "./payment-method-ui/client.ts";
@@ -100,6 +102,22 @@ function iyzicoProfile(environment: "test" | "live" = "test") {
     lastValidatedAt: NOW,
     createdAt: NOW,
     updatedAt: NOW,
+  });
+}
+
+function verificationIyzicoDescriptor(): MerchantProviderDescriptor {
+  return Object.freeze({
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing" as const,
+    label: "iyzico · Checkout Form",
+    publicFields: Object.freeze([]),
+    credentialFields: Object.freeze([
+      Object.freeze({ key: "apiKey", label: "API Key", secret: true as const }),
+      Object.freeze({ key: "secretKey", label: "Secret Key", secret: true as const }),
+    ]),
+    adapterVersion: 1,
+    environments: Object.freeze(["test", "live"] as const),
+    executionAuthority: null,
   });
 }
 
@@ -438,9 +456,94 @@ async function compilePaymentCatalogDialog(input: Readonly<Record<string, unknow
   };
 }
 
+async function compilePaymentOrderDialog(input: Readonly<{
+  methods: readonly MerchantPaymentMethod[];
+  rows: ReturnType<typeof buildPaymentSettingsViewModel>["methods"];
+  mutationAvailable: boolean;
+  mutationBusy: boolean;
+}>) {
+  const output = ts.transpileModule(
+    await source("components/settings/payment/PaymentMethodOrderDialog.tsx"),
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    },
+  ).outputText;
+  const hooks = createDrawerHookRuntime();
+  const paymentClient = await import("./payment-method-ui/client.ts");
+  const state = await import("./payment-settings-ui/console-state.ts");
+  const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+  const styles = new Proxy({}, {
+    get: (_target, property) =>
+      property === "__esModule" ? true : property === "default" ? styles : String(property),
+  });
+  const documentState = {
+    activeElement: null as unknown,
+    body: { style: { overflow: "visible" } },
+  };
+  const reorderCalls: unknown[] = [];
+  const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return hooks.runtime;
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+    if (specifier === "@/lib/payment-method-ui/client") {
+      return {
+        PaymentMethodApiError: paymentClient.PaymentMethodApiError,
+        paymentMethodApi: Object.freeze({
+          async reorder(command: unknown) { reorderCalls.push(command); },
+        }),
+      };
+    }
+    if (specifier === "@/lib/payment-settings-ui/console-state") return state;
+    if (specifier === "./payment-settings.module.css") return styles;
+    throw new Error(`unexpected_payment_order_import:${specifier}`);
+  };
+  Function("require", "module", "exports", "document", output)(
+    requireModule,
+    compiled,
+    compiled.exports,
+    documentState,
+  );
+  const Dialog = compiled.exports.PaymentMethodOrderDialog as
+    (props: Readonly<Record<string, unknown>>) => ReactNode;
+  assert.equal(typeof Dialog, "function");
+  let authority = Object.freeze({
+    mutationAvailable: input.mutationAvailable,
+    mutationBusy: input.mutationBusy,
+  });
+  let mounted: readonly (DrawerNode | string)[] = [];
+  return {
+    reorderCalls,
+    setAuthority(mutationAvailable: boolean, mutationBusy: boolean) {
+      authority = Object.freeze({ mutationAvailable, mutationBusy });
+    },
+    render(force = false) {
+      mounted = mountDrawer(hooks.flush(() => Dialog({
+        methods: input.methods,
+        rows: input.rows,
+        canManage: true,
+        openerRef: { current: null },
+        ...authority,
+        async onReload() {},
+        onClose() {},
+      }), force), documentState);
+      hooks.runEffects();
+      return mounted;
+    },
+    nodes() { return drawerNodes(mounted); },
+  };
+}
+
 async function compilePaymentConsole(input: Readonly<{
   methods: readonly MerchantPaymentMethod[] | "error";
   reloadedMethods?: readonly MerchantPaymentMethod[] | "error";
+  definitions?: readonly MerchantProviderDescriptor[];
+  profiles?: readonly MerchantProviderProfile[];
   catalogError?: boolean;
   deferReload?: boolean;
   saveError?: "conflict" | "ambiguous";
@@ -584,8 +687,8 @@ async function compilePaymentConsole(input: Readonly<{
     if (specifier === "@/lib/provider-execution-ui/client") {
       return {
         providerExecutionApi: Object.freeze({
-          async definitions() { return Object.freeze([]); },
-          async profiles() { return Object.freeze([]); },
+          async definitions() { return input.definitions ?? Object.freeze([]); },
+          async profiles() { return input.profiles ?? Object.freeze([]); },
         }),
       };
     }
@@ -712,6 +815,7 @@ test("mounted payment catalog keeps two built-in methods before provider filters
     phase: "error",
     canManage: true,
     mutationAvailable: true,
+    providerConfigurationAvailable: true,
     busy: false,
     openerRef: { current: null },
     onQuery() {},
@@ -862,6 +966,122 @@ test("mounted console separates provider failure from unknown payment-method aut
   assert.equal(unavailable.length, 2);
   assert.equal(unavailable.every((button) => button.props.disabled === true), true);
   assert.equal(methodFailure.nodes().some((node) => node.type === "built-in-drawer"), false);
+});
+
+test("mounted console keeps provider profile configuration usable during a method-list outage", async () => {
+  const console = await compilePaymentConsole({
+    methods: "error",
+    reloadedMethods: "error",
+    deferReload: false,
+    definitions: Object.freeze([verificationIyzicoDescriptor()]),
+    profiles: Object.freeze([iyzicoProfile()]),
+  });
+  console.render();
+  await console.settle();
+  const add = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
+  assert.ok(add);
+  (add.props.onClick as () => void)();
+  console.render();
+
+  const providerCard = console.nodes().find((node) =>
+    node.type === "article" && drawerText(node).includes("Checkout Form"));
+  assert.ok(providerCard);
+  const configure = drawerNodes(providerCard.children).find((node) =>
+    node.type === "button" && drawerText(node) === "Bilgileri gir");
+  assert.ok(configure, `expected provider configuration action in: ${drawerText(providerCard)}`);
+  assert.notEqual(configure.props.disabled, true);
+  (configure.props.onClick as () => void)();
+  console.render();
+
+  let drawer = console.nodes().find((node) => node.type === "connection-drawer");
+  assert.ok(drawer, "provider configuration must not depend on payment-method state authority");
+  await (drawer.props.onSaved as () => Promise<void>)();
+  console.render();
+  drawer = console.nodes().find((node) => node.type === "connection-drawer");
+  assert.ok(drawer, "a profile save reload may fail its methods slice without blocking provider configuration");
+  assert.deepEqual(console.events, ["list:initial", "list:reload"]);
+});
+
+test("mounted console disables both order launchers and guards reopening during canonical reload", async () => {
+  const cash = method("40000000-0000-4000-8000-000000000071", 0);
+  const console = await compilePaymentConsole({ methods: Object.freeze([cash]) });
+  console.render();
+  await console.settle();
+  let orderButtons = console.nodes().filter((node) =>
+    node.type === "button" && drawerText(node) === "Önizleme ve Sıralama");
+  assert.equal(orderButtons.length, 2);
+  assert.equal(orderButtons.every((button) => button.props.disabled !== true), true);
+  (orderButtons[0]!.props.onClick as () => void)();
+  console.render();
+  let dialog = console.nodes().find((node) => node.type === "order-dialog");
+  assert.ok(dialog);
+
+  const emergency = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Acil kapat");
+  assert.ok(emergency);
+  (emergency.props.onClick as () => void)();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  console.render();
+  assert.deepEqual(console.events, ["list:initial", "set-state", "list:reload"]);
+
+  dialog = console.nodes().find((node) => node.type === "order-dialog");
+  assert.ok(dialog);
+  assert.equal(dialog.props.mutationAvailable, false);
+  assert.equal(dialog.props.mutationBusy, true);
+  (dialog.props.onClose as () => void)();
+  console.render();
+  orderButtons = console.nodes().filter((node) =>
+    node.type === "button" && drawerText(node) === "Önizleme ve Sıralama");
+  assert.equal(orderButtons.length, 2);
+  assert.equal(orderButtons.every((button) => button.props.disabled === true), true);
+  for (const button of orderButtons) (button.props.onClick as () => void)();
+  console.render();
+  assert.equal(console.nodes().some((node) => node.type === "order-dialog"), false);
+});
+
+test("mounted order dialog blocks stale reordering after method authority is withdrawn", async () => {
+  const cash = method("40000000-0000-4000-8000-000000000081", 0);
+  const bank = Object.freeze({
+    ...method("40000000-0000-4000-8000-000000000082", 1),
+    kind: "bank_transfer" as const,
+    label: "Banka havalesi",
+  });
+  const methods = Object.freeze([cash, bank]);
+  const rows = buildPaymentSettingsViewModel(
+    [], [], [], methods, "",
+    Object.freeze({
+      category: "all" as const,
+      interactionMode: "all" as const,
+      readiness: "all" as const,
+      environment: "all" as const,
+    }),
+  ).methods;
+  const dialog = await compilePaymentOrderDialog({
+    methods,
+    rows,
+    mutationAvailable: true,
+    mutationBusy: false,
+  });
+  dialog.render();
+  const moveDown = dialog.nodes().find((node) =>
+    node.type === "button" && node.props["aria-label"] === `${cash.label} yöntemini aşağı taşı`);
+  assert.ok(moveDown);
+  (moveDown.props.onClick as () => void)();
+  dialog.render();
+
+  dialog.setAuthority(false, true);
+  dialog.render(true);
+  const save = dialog.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Kaydet");
+  assert.ok(save);
+  assert.equal(save.props.disabled, true);
+  assert.equal(dialog.nodes().filter((node) =>
+    node.type === "button" && /yukarı taşı|aşağı taşı/.test(String(node.props["aria-label"])))
+    .every((button) => button.props.disabled === true), true);
+  (save.props.onClick as () => void)();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(dialog.reorderCalls.length, 0);
 });
 
 test("mounted console removes duplicate built-in edit paths without crashing", async () => {
