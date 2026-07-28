@@ -5,6 +5,9 @@ import {
   CATALOG_ONBOARDING_RESOURCE_KINDS,
   CATALOG_ONBOARDING_UNITS,
   type CatalogAdvancedCreateIntent,
+  type CatalogCategory,
+  type CatalogCategoryFields,
+  type CatalogCategoryMutationResult,
   type CatalogOnboardingCategoryOption,
   type CatalogOnboardingChannelOption,
   type CatalogOnboardingIntent,
@@ -288,4 +291,43 @@ export function parseCatalogOnboardingResult(value: unknown): CatalogOnboardingR
   const variants = Object.freeze(denseArray(parsed.variants, 1, 100).map(parseProductVariant));
   if (variants.some((variant) => variant.productId !== product.id || variant.storeId !== product.storeId)) invalid();
   return Object.freeze({ product, variants, profile: profile(parsed.profile), categoryIds: uniqueIds(parsed.categoryIds, 8), resourceIds: resourceIds(parsed.resourceIds), channelIds: uniqueIds(parsed.channelIds, 32), mediaCount: integer(parsed.mediaCount, 0, 100), replayed: boolean(parsed.replayed) });
+}
+
+export function parseCatalogCategoryFields(value: unknown): CatalogCategoryFields {
+  const parsed = exact(value, ["name", "position"], ["parentId"]);
+  return Object.freeze({
+    name: text(parsed.name, 1, 120),
+    ...(Object.hasOwn(parsed, "parentId") ? { parentId: uuid(parsed.parentId) } : {}),
+    position: integer(parsed.position, 0, 9_999),
+  });
+}
+
+export function parseCatalogCategory(value: unknown): CatalogCategory {
+  const parsed = exact(value, [
+    "id", "name", "slug", "position", "depth", "status", "version", "createdAt", "updatedAt",
+  ], ["parentId", "archivedAt"]);
+  const status = enumValue(parsed.status, ["active", "archived"] as const);
+  if ((status === "active") === Object.hasOwn(parsed, "archivedAt")) invalid();
+  return Object.freeze({
+    id: uuid(parsed.id),
+    ...(Object.hasOwn(parsed, "parentId") ? { parentId: uuid(parsed.parentId) } : {}),
+    name: text(parsed.name, 1, 120),
+    slug: text(parsed.slug, 1, 100, SLUG),
+    position: integer(parsed.position, 0, 9_999),
+    depth: integer(parsed.depth, 1, 8),
+    status,
+    version: integer(parsed.version, 1),
+    createdAt: timestamp(parsed.createdAt),
+    updatedAt: timestamp(parsed.updatedAt),
+    ...(Object.hasOwn(parsed, "archivedAt") ? { archivedAt: timestamp(parsed.archivedAt) } : {}),
+  });
+}
+
+export function parseCatalogCategoryList(value: unknown): readonly CatalogCategory[] {
+  return Object.freeze(denseArray(value, 0, 500).map(parseCatalogCategory));
+}
+
+export function parseCatalogCategoryMutationResult(value: unknown): CatalogCategoryMutationResult {
+  const parsed = exact(value, ["category", "replayed"]);
+  return Object.freeze({ category: parseCatalogCategory(parsed.category), replayed: boolean(parsed.replayed) });
 }

@@ -6,6 +6,9 @@ import {
   parseCatalogOnboardingOptions,
   parseCatalogOnboardingResult,
   parseCatalogProductEditorProjection,
+  parseCatalogCategoryFields,
+  parseCatalogCategoryList,
+  parseCatalogCategoryMutationResult,
 } from "./index.ts";
 
 const STORE_ID = "11111111-1111-4111-8111-111111111111";
@@ -219,4 +222,14 @@ test("editor and mutation result preserve exact persisted product authority", ()
   assert.ok(Object.isFrozen(editor.variants[0]?.inventory));
   assert.ok(Object.isFrozen(result));
   assert.throws(() => parseCatalogOnboardingResult({ ...result, sql: "SELECT secret" }), /catalog_onboarding_contract_invalid/);
+});
+
+test("category contracts preserve exact hierarchy and archive authority", () => {
+  const active = { id: CATEGORY_ID, name: "Kupalar", slug: "kupalar", position: 2, depth: 1, status: "active", version: 1, createdAt: TIME, updatedAt: TIME };
+  assert.deepEqual(parseCatalogCategoryFields({ name: "Kupalar", position: 2 }), { name: "Kupalar", position: 2 });
+  assert.deepEqual(parseCatalogCategoryList([active]), [active]);
+  assert.deepEqual(parseCatalogCategoryMutationResult({ category: active, replayed: false }), { category: active, replayed: false });
+  assert.throws(() => parseCatalogCategoryList([{ ...active, archivedAt: TIME }]), /catalog_onboarding_contract_invalid/);
+  assert.throws(() => parseCatalogCategoryFields({ name: "Kupalar", position: 2, storeId: STORE_ID }), /catalog_onboarding_contract_invalid/);
+  assert.throws(() => parseCatalogCategoryMutationResult({ category: active, replayed: false, sql: "private" }), /catalog_onboarding_contract_invalid/);
 });

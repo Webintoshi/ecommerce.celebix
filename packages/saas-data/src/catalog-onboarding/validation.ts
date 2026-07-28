@@ -1,6 +1,8 @@
 import {
   parseCatalogOnboardingIntent,
+  parseCatalogCategoryFields,
   type CatalogOnboardingIntent,
+  type CatalogCategoryFields,
 } from "@celebix/saas-contracts";
 
 import { CatalogRepositoryError } from "../catalog/errors.ts";
@@ -63,6 +65,10 @@ export function catalogOnboardingAuthority(context: unknown, now: unknown): Vali
 
 export function catalogOnboardingIntent(value: unknown): CatalogOnboardingIntent {
   try { return parseCatalogOnboardingIntent(value); } catch { fail(); }
+}
+
+export function catalogCategoryFields(value: unknown): CatalogCategoryFields {
+  try { return parseCatalogCategoryFields(value); } catch { fail(); }
 }
 
 export function catalogMerchandisingPayload(value: unknown): CatalogMerchandisingPayload {

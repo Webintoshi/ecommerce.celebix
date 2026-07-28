@@ -18,10 +18,14 @@ import {
   readCatalogOnboardingCreateInput,
   readCatalogOnboardingProductId,
   readCatalogPublishAfterMediaInput,
+  readCatalogCategoryCreateInput,
+  readCatalogCategoryUpdateInput,
+  readCatalogCategoryArchiveInput,
 } from "./request-input.ts";
 
 export const CATALOG_ONBOARDING_OPTIONS_PATH = "/api/catalog/onboarding/options";
 export const CATALOG_ONBOARDING_PRODUCTS_PATH = "/api/catalog/onboarding/products";
+export const CATALOG_ONBOARDING_CATEGORIES_PATH = "/api/catalog/onboarding/categories";
 
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -44,6 +48,8 @@ const ERROR_STATUS: Readonly<Record<CatalogOnboardingErrorCode, number>> = Objec
   store_inactive: 403,
   feature_not_enabled: 403,
   product_not_found: 404,
+  category_not_found: 404,
+  category_in_use: 409,
   durable_authority_invalid: 409,
   product_limit_reached: 409,
   catalog_conflict: 409,
@@ -235,6 +241,40 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
         expectedProductVersion: input.expectedProductVersion,
         expectedMediaCount: input.expectedMediaCount,
       }));
+    },
+
+    async listCategories(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, { method: "GET", pathname: CATALOG_ONBOARDING_CATEGORIES_PATH });
+      if (isResponse(authorized)) return authorized;
+      return execute(() => authorized.runtime.onboarding.listCategories({ tenantContext: authorized.tenantContext, now: authorized.now }));
+    },
+
+    async createCategory(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: CATALOG_ONBOARDING_CATEGORIES_PATH });
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogCategoryCreateInput(request);
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(() => authorized.runtime.onboarding.createCategory({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: input.operationId, fields: input.fields }), 201);
+    },
+
+    async updateCategory(request: Request, rawCategoryId: unknown): Promise<Response> {
+      const categoryId = productId(rawCategoryId);
+      if (isResponse(categoryId)) return categoryId;
+      const authorized = await authorize(dependencies, request, { method: "PATCH", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}` });
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogCategoryUpdateInput(request);
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(() => authorized.runtime.onboarding.updateCategory({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: input.operationId, categoryId, expectedVersion: input.expectedVersion, fields: input.fields }));
+    },
+
+    async archiveCategory(request: Request, rawCategoryId: unknown): Promise<Response> {
+      const categoryId = productId(rawCategoryId);
+      if (isResponse(categoryId)) return categoryId;
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}/archive` });
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogCategoryArchiveInput(request);
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(() => authorized.runtime.onboarding.archiveCategory({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: input.operationId, categoryId, expectedVersion: input.expectedVersion }));
     },
   });
 }

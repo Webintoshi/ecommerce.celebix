@@ -3,6 +3,12 @@ import {
   parseCatalogOnboardingOptions,
   parseCatalogOnboardingResult,
   parseCatalogProductEditorProjection,
+  parseCatalogCategoryFields,
+  parseCatalogCategoryList,
+  parseCatalogCategoryMutationResult,
+  type CatalogCategory,
+  type CatalogCategoryFields,
+  type CatalogCategoryMutationResult,
   type CatalogOnboardingIntent,
   type CatalogOnboardingOptions,
   type CatalogOnboardingResourceIds,
@@ -15,6 +21,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const API_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled",
   "durable_authority_invalid", "product_limit_reached", "product_not_found", "catalog_conflict",
+  "category_not_found", "category_in_use",
   "version_conflict", "invalid_transition", "media_incomplete", "operation_mismatch", "operation_not_found",
   "unavailable",
 ] as const);
@@ -29,6 +36,8 @@ const MESSAGES: Readonly<Record<CatalogOnboardingApiErrorCode, string>> = Object
   durable_authority_invalid: "Mağaza yetkisi doğrulanamadı.",
   product_limit_reached: "Planınızdaki ürün sınırına ulaştınız.",
   product_not_found: "Ürün bulunamadı veya artık erişilemiyor.",
+  category_not_found: "Kategori bulunamadı veya artık erişilemiyor.",
+  category_in_use: "Kategori alt kategorilerde veya etkin ürünlerde kullanılıyor.",
   catalog_conflict: "Bu ürün bilgileri mağazadaki başka bir kayıtla çakışıyor.",
   version_conflict: "Ürün sizden önce güncellendi. Sayfayı yenileyin.",
   invalid_transition: "Ürün bu durumda satışa açılamıyor.",
@@ -161,6 +170,42 @@ export function createCatalogOnboardingClient(options?: Readonly<{ fetch?: Fetch
         expectedMediaCount: mediaCount(input.expectedMediaCount),
       });
       try { return parseCatalogOnboardingResult(body); }
+      catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+    },
+
+    async listCategories(signal?: AbortSignal): Promise<readonly CatalogCategory[]> {
+      const body = await request("/api/catalog/onboarding/categories", {
+        method: "GET", credentials: "same-origin", cache: "no-store", ...(signal ? { signal } : {}),
+      });
+      try { return parseCatalogCategoryList(body); }
+      catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+    },
+
+    async createCategory(fields: CatalogCategoryFields): Promise<CatalogCategoryMutationResult> {
+      let parsed: CatalogCategoryFields;
+      try { parsed = parseCatalogCategoryFields(fields); }
+      catch { throw new TypeError("catalog_onboarding_client_invalid"); }
+      const body = await mutation("/api/catalog/onboarding/categories", "POST", parsed);
+      try { return parseCatalogCategoryMutationResult(body); }
+      catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+    },
+
+    async updateCategory(categoryId: string, input: Readonly<{ expectedVersion: number; fields: CatalogCategoryFields }>): Promise<CatalogCategoryMutationResult> {
+      let fields: CatalogCategoryFields;
+      try { fields = parseCatalogCategoryFields(input.fields); }
+      catch { throw new TypeError("catalog_onboarding_client_invalid"); }
+      const body = await mutation(`/api/catalog/onboarding/categories/${selectedId(categoryId)}`, "PATCH", {
+        expectedVersion: positiveInteger(input.expectedVersion), fields,
+      });
+      try { return parseCatalogCategoryMutationResult(body); }
+      catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+    },
+
+    async archiveCategory(categoryId: string, expectedVersion: number): Promise<CatalogCategoryMutationResult> {
+      const body = await mutation(`/api/catalog/onboarding/categories/${selectedId(categoryId)}/archive`, "POST", {
+        expectedVersion: positiveInteger(expectedVersion),
+      });
+      try { return parseCatalogCategoryMutationResult(body); }
       catch { throw new CatalogOnboardingApiError("unavailable", 503); }
     },
   });

@@ -41,7 +41,7 @@ function result(): CatalogOnboardingResult {
 
 function repository(overrides: Partial<CatalogOnboardingRepository> = {}): CatalogOnboardingRepository {
   const reject = async () => { throw new Error("unexpected repository call"); };
-  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, ...overrides } as CatalogOnboardingRepository;
+  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, ...overrides } as CatalogOnboardingRepository;
 }
 
 function runtime(onboarding: CatalogOnboardingRepository): ServerCatalogOnboardingRuntime {
@@ -118,4 +118,20 @@ test("editor update and publish bind exact path authority", async () => {
   assert.equal((await api.updateMerchandising(request(path, "PATCH", { expectedProfileVersion: 1, profile: { minimumPurchaseQuantity: 1 }, categoryIds: [], resourceIds: { collections: [], tags: [], attributes: [], extras: [], definitions: [] }, channelIds: [] }), PRODUCT)).status, 200);
   assert.equal((await api.publishAfterMedia(request(`/api/catalog/products/${PRODUCT}/publish-after-media`, "POST", { expectedProductVersion: 1, expectedMediaCount: 0 }), PRODUCT)).status, 200);
   assert.deepEqual(calls.map(([name]) => name), ["get", "update", "publish"]);
+});
+
+test("category CRUD binds session authority and exact category paths", async () => {
+  const category = { id: PRODUCT, name: "Kupalar", slug: "kupalar", position: 0, depth: 1, status: "active" as const, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() };
+  const calls: Array<[string, unknown]> = [];
+  const api = handlers(repository({
+    async listCategories(input) { calls.push(["list", input]); return [category]; },
+    async createCategory(input) { calls.push(["create", input]); return { category, replayed: false }; },
+    async updateCategory(input) { calls.push(["update", input]); return { category: { ...category, version: 2 }, replayed: false }; },
+    async archiveCategory(input) { calls.push(["archive", input]); return { category: { ...category, status: "archived", version: 2, archivedAt: NOW.toISOString() }, replayed: false }; },
+  }));
+  assert.equal((await api.listCategories(request("/api/catalog/onboarding/categories"))).status, 200);
+  assert.equal((await api.createCategory(request("/api/catalog/onboarding/categories", "POST", { name: "Kupalar", position: 0 }))).status, 201);
+  assert.equal((await api.updateCategory(request(`/api/catalog/onboarding/categories/${PRODUCT}`, "PATCH", { expectedVersion: 1, fields: { name: "Fincanlar", position: 1 } }), PRODUCT)).status, 200);
+  assert.equal((await api.archiveCategory(request(`/api/catalog/onboarding/categories/${PRODUCT}/archive`, "POST", { expectedVersion: 1 }), PRODUCT)).status, 200);
+  assert.deepEqual(calls.map(([name]) => name), ["list", "create", "update", "archive"]);
 });

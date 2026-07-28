@@ -33,7 +33,7 @@ const LOCATION_A = "60000000-0000-4000-8000-000000000056";
 const LOCATION_B = "60000000-0000-4000-8000-000000000057";
 const DOMAIN_A = "70000000-0000-4000-8000-000000000056";
 const DOMAIN_B = "70000000-0000-4000-8000-000000000057";
-const TOTAL = 19;
+const TOTAL = 25;
 let completed = 0;
 
 function executable(name) {
@@ -104,6 +104,7 @@ function result(box, expression, database = DB, role = "celebix_saas_app") {
 function operationId(ordinal) { return `80000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`; }
 function productId(ordinal) { return `90000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`; }
 function variantId(ordinal) { return `a0000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`; }
+function categoryId(ordinal) { return `b0000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`; }
 function fingerprint(ordinal) { return createHash("sha256").update(`catalog-onboarding-${ordinal}`).digest("hex"); }
 
 function onboard(box, ordinal, intent, options = {}) {
@@ -111,6 +112,13 @@ function onboard(box, ordinal, intent, options = {}) {
   return result(box, `saas.catalog_onboard_product(
     ${options.authority ?? authority()},'${options.operationId ?? operationId(ordinal)}','${options.fingerprint ?? fingerprint(ordinal)}',
     '${options.productId ?? productId(ordinal)}',ARRAY[${ids.map((id) => `'${id}'::uuid`).join(",")}],${jsonSql(intent)}
+  )`, options.database ?? DB);
+}
+
+function createCategory(box, ordinal, fields, options = {}) {
+  return result(box, `saas.catalog_create_category(
+    ${options.authority ?? authority()},'${options.operationId ?? operationId(ordinal)}','${options.fingerprint ?? fingerprint(ordinal)}',
+    '${options.categoryId ?? categoryId(ordinal)}',${jsonSql(fields)}
   )`, options.database ?? DB);
 }
 
@@ -183,6 +191,63 @@ async function main() {
       assert.deepEqual(listed.result.locations.map(({ id }) => id), [LOCATION_A]);
       assert.deepEqual(listed.result.channels.map(({ id }) => id), [DOMAIN_A]);
       assert.doesNotMatch(JSON.stringify(listed), /principal|membership|plan|database|secret/i);
+    });
+
+    await scenario("category list is exact and store isolated", () => {
+      const listed = result(box, `saas.catalog_list_categories(${authority()})`);
+      assert.equal(listed.outcome, "found");
+      assert.deepEqual(listed.result.map(({ id }) => id), [CATEGORY_A]);
+      assert.deepEqual(result(box, `saas.catalog_list_categories(${authority(STORE_B, PRINCIPAL_B, MEMBERSHIP_B)})`).result.map(({ id }) => id), [CATEGORY_B]);
+      assert.doesNotMatch(JSON.stringify(listed), /storeId|principal|membership|database|secret/i);
+    });
+
+    const createdCategory = createCategory(box, 100, { name: "Aksesuar", position: 1 });
+    await scenario("category create allocates slug and immutable replay proof", () => {
+      assert.equal(createdCategory.outcome, "created");
+      assert.equal(createdCategory.result.category.slug, "aksesuar");
+      const replay = createCategory(box, 199, { name: "Aksesuar", position: 1 }, { operationId: operationId(100), fingerprint: fingerprint(100) });
+      assert.equal(replay.outcome, "operation_replayed");
+      assert.equal(replay.result.category.id, createdCategory.result.category.id);
+      assert.equal(createCategory(box, 199, { name: "Başka", position: 1 }, { operationId: operationId(100), fingerprint: fingerprint(199) }).outcome, "operation_mismatch");
+    });
+
+    const childCategory = createCategory(box, 101, { name: "Kupa Aksesuarı", parentId: createdCategory.result.category.id, position: 0 });
+    await scenario("category hierarchy update is versioned and cross-store safe", () => {
+      assert.equal(childCategory.outcome, "created");
+      assert.equal(childCategory.result.category.depth, 2);
+      const update = result(box, `saas.catalog_update_category(${authority()},'${operationId(102)}','${fingerprint(102)}','${childCategory.result.category.id}',1,${jsonSql({ name: "Kupa Altlığı", parentId: createdCategory.result.category.id, position: 2 })})`);
+      assert.equal(update.outcome, "updated");
+      assert.equal(update.result.category.version, 2);
+      assert.equal(result(box, `saas.catalog_update_category(${authority()},'${operationId(103)}','${fingerprint(103)}','${childCategory.result.category.id}',1,${jsonSql({ name: "Eski", position: 0 })})`).outcome, "version_conflict");
+      assert.equal(result(box, `saas.catalog_update_category(${authority(STORE_B, PRINCIPAL_B, MEMBERSHIP_B)},'${operationId(104)}','${fingerprint(104)}','${childCategory.result.category.id}',2,${jsonSql({ name: "Yabancı", position: 0 })})`).outcome, "category_not_found");
+    });
+
+    await scenario("category cycles and hierarchy depth above eight fail closed", () => {
+      assert.equal(result(box, `saas.catalog_update_category(${authority()},'${operationId(105)}','${fingerprint(105)}','${createdCategory.result.category.id}',1,${jsonSql({ name: "Aksesuar", parentId: childCategory.result.category.id, position: 1 })})`).outcome, "category_in_use");
+      let parentId = childCategory.result.category.id;
+      for (let depth = 3; depth <= 8; depth += 1) {
+        const nested = createCategory(box, 105 + depth, { name: `Seviye ${depth}`, parentId, position: depth });
+        assert.equal(nested.outcome, "created");
+        assert.equal(nested.result.category.depth, depth);
+        parentId = nested.result.category.id;
+      }
+      assert.equal(createCategory(box, 120, { name: "Seviye 9", parentId, position: 9 }).outcome, "catalog_conflict");
+    });
+
+    await scenario("category archive refuses active children and permits unused leaves", () => {
+      assert.equal(result(box, `saas.catalog_archive_category(${authority()},'${operationId(121)}','${fingerprint(121)}','${createdCategory.result.category.id}',1)`).outcome, "category_in_use");
+      const unused = createCategory(box, 122, { name: "Geçici", position: 99 });
+      const archived = result(box, `saas.catalog_archive_category(${authority()},'${operationId(123)}','${fingerprint(123)}','${unused.result.category.id}',1)`);
+      assert.equal(archived.outcome, "archived");
+      assert.equal(archived.result.category.status, "archived");
+      assert.equal(archived.result.category.version, 2);
+    });
+
+    await scenario("concurrent equal category names allocate distinct canonical slugs", async () => {
+      const source = (ordinal) => `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT result_payload->'category'->>'slug' FROM saas.catalog_create_category(${authority()},'${operationId(ordinal)}','${fingerprint(ordinal)}','${categoryId(ordinal)}',${jsonSql({ name: "Aynı Kategori", position: ordinal })}); COMMIT;`;
+      const outcomes = await Promise.all([psqlAsync(box, source(130)), psqlAsync(box, source(131))]);
+      assert.equal(outcomes.every(({ status }) => status === 0), true, outcomes.map(({ stderr }) => stderr).join("\n"));
+      assert.deepEqual(new Set(outcomes.map(({ stdout }) => stdout.trim())), new Set(["ayni-kategori", "ayni-kategori-2"]));
     });
 
     const quickIntent = { kind: "quick", title: "Seramik Kupa", priceCents: 12990, publish: true, stockQuantity: 0, categoryId: CATEGORY_A };

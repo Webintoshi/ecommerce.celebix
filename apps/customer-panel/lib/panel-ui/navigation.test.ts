@@ -44,6 +44,7 @@ test("contains every and only currently working merchant destination", () => {
       "/customers/new",
       "/products",
       "/products/new",
+      "/products/categories",
       "/products/collections",
       "/products/brands",
       "/products/attributes",
@@ -114,6 +115,7 @@ test("navigation exposes donor-approved create shortcuts but never edit, detail,
     "/analytics",
     "/customers/new",
     "/products/new",
+    "/products/categories",
     "/discounts/new",
     "/products/tags",
     "/products/barcode-labels",
@@ -221,7 +223,15 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Kategoriler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+});
+
+test("category navigation is exact and near matches stay inactive", () => {
+  assert.equal(isPanelNavigationPathActive("/products/categories", "/products/categories"), true);
+  for (const path of ["/products/categories-evil", "/products/categories/child", "/products/categories?x=1", "/products/categories#x"]) {
+    assert.equal(isPanelNavigationPathActive(path, "/products/categories"), false);
+  }
+  assert.equal(getPanelRoutePresentation("/products/categories").title, "Kategoriler");
 });
 
 test("inventory operations are exact catalog destinations with safe detail descendants", () => {
@@ -387,6 +397,7 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "/customers/customer-123",
       "/products",
       "/products/new",
+      "/products/categories",
       "/products/collections",
       "/products/brands",
       "/products/attributes",
@@ -416,6 +427,7 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "Müşteri ayrıntısı",
       "Ürün kataloğu",
       "Yeni ürün oluştur",
+      "Kategoriler",
       "Koleksiyonlar",
       "Markalar",
       "Nitelikler",

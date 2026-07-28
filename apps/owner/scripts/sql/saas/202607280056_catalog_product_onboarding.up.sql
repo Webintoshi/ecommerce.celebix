@@ -1398,6 +1398,289 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.catalog_category_projection(p_store_id uuid,p_category_id uuid)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SET search_path=pg_catalog,saas
+AS $function$
+  SELECT pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+    'id',category.id,
+    'parentId',category.parent_id,
+    'name',category.name,
+    'slug',category.slug,
+    'position',category.position,
+    'depth',category.depth,
+    'status',category.status,
+    'version',category.version,
+    'createdAt',saas.catalog_timestamp(category.created_at),
+    'updatedAt',saas.catalog_timestamp(category.updated_at),
+    'archivedAt',CASE WHEN category.archived_at IS NULL THEN NULL ELSE saas.catalog_timestamp(category.archived_at) END
+  ))
+  FROM saas.catalog_categories AS category
+  WHERE category.store_id=p_store_id AND category.id=p_category_id
+$function$;
+
+CREATE FUNCTION saas.catalog_list_categories(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text;
+BEGIN
+  authority_error:=saas.catalog_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now
+  );
+  IF authority_error IS NULL THEN
+    authority_error:=saas.merchant_action_authority_error(
+      p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,
+      'catalog','catalog_admin.read'
+    );
+  END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'found',COALESCE((
+    SELECT pg_catalog.jsonb_agg(saas.catalog_category_projection(p_store_id,category.id)
+      ORDER BY (category.status='archived'),category.depth,category.position,category.name,category.id)
+    FROM saas.catalog_categories AS category WHERE category.store_id=p_store_id
+  ),'[]'::jsonb);
+END
+$function$;
+
+CREATE FUNCTION saas.catalog_create_category(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
+  p_operation_id uuid,p_fingerprint text,p_category_id uuid,p_fields jsonb
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $function$
+DECLARE
+  authority_error text;
+  prior_operation saas.catalog_onboarding_operations%ROWTYPE;
+  requested_parent uuid;
+  requested_parent_depth integer;
+  slug_base text;
+  allocated_slug text;
+  slug_suffix integer:=1;
+  result jsonb;
+BEGIN
+  authority_error:=saas.catalog_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now
+  );
+  IF authority_error IS NULL THEN authority_error:=saas.merchant_action_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.manage'
+  ); END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  IF p_operation_id IS NULL OR p_category_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+     OR NOT saas.catalog_onboarding_json_exact(p_fields,ARRAY['name','position'],ARRAY['parentId'])
+     OR pg_catalog.jsonb_typeof(p_fields->'name')<>'string'
+     OR p_fields->>'name'<>pg_catalog.btrim(p_fields->>'name')
+     OR pg_catalog.char_length(p_fields->>'name') NOT BETWEEN 1 AND 120
+     OR p_fields->>'name'~'[[:cntrl:]]'
+     OR pg_catalog.jsonb_typeof(p_fields->'position')<>'number'
+     OR (p_fields->>'position')::numeric<>pg_catalog.trunc((p_fields->>'position')::numeric)
+     OR (p_fields->>'position')::numeric NOT BETWEEN 0 AND 9999
+     OR (p_fields ? 'parentId' AND (
+       pg_catalog.jsonb_typeof(p_fields->'parentId')<>'string'
+       OR p_fields->>'parentId'!~'^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+     )) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
+  SELECT operation.* INTO prior_operation FROM saas.catalog_onboarding_operations AS operation
+  WHERE operation.operation_id=p_operation_id;
+  IF FOUND THEN
+    IF prior_operation.store_id<>p_store_id OR prior_operation.payload_fingerprint<>p_fingerprint THEN
+      RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',prior_operation.result_payload||'{"replayed":true}'::jsonb; END IF;
+    RETURN;
+  END IF;
+
+  requested_parent:=(p_fields->>'parentId')::uuid;
+  IF requested_parent IS NOT NULL AND NOT EXISTS(
+    SELECT 1 FROM saas.catalog_categories AS parent
+    WHERE parent.store_id=p_store_id AND parent.id=requested_parent AND parent.status='active'
+  ) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  IF requested_parent IS NOT NULL THEN
+    SELECT parent.depth INTO requested_parent_depth FROM saas.catalog_categories AS parent
+    WHERE parent.store_id=p_store_id AND parent.id=requested_parent AND parent.status='active';
+    IF requested_parent_depth>=8 THEN RETURN QUERY SELECT 'catalog_conflict',NULL::jsonb; RETURN; END IF;
+  END IF;
+  PERFORM 1 FROM saas.stores AS store WHERE store.id=p_store_id AND store.status='active' FOR UPDATE;
+  slug_base:=saas.catalog_onboarding_slug_base(p_fields->>'name');
+  allocated_slug:=slug_base;
+  WHILE EXISTS(SELECT 1 FROM saas.catalog_categories AS category WHERE category.store_id=p_store_id AND category.slug=allocated_slug) LOOP
+    slug_suffix:=slug_suffix+1;
+    allocated_slug:=pg_catalog.left(slug_base,100-pg_catalog.char_length('-'||slug_suffix::text))||'-'||slug_suffix::text;
+  END LOOP;
+  BEGIN
+    INSERT INTO saas.catalog_categories(id,store_id,parent_id,name,slug,position,status,version,created_at,updated_at)
+    VALUES(p_category_id,p_store_id,requested_parent,p_fields->>'name',allocated_slug,(p_fields->>'position')::integer,'active',1,p_now,p_now);
+    result:=pg_catalog.jsonb_build_object('category',saas.catalog_category_projection(p_store_id,p_category_id),'replayed',false);
+    INSERT INTO saas.catalog_onboarding_operations(operation_id,store_id,operation_kind,payload_fingerprint,result_category_id,result_payload,committed_at)
+    VALUES(p_operation_id,p_store_id,'create_category',p_fingerprint,p_category_id,result,p_now);
+  EXCEPTION WHEN unique_violation THEN RETURN QUERY SELECT 'catalog_conflict',NULL::jsonb; RETURN;
+    WHEN check_violation OR foreign_key_violation OR invalid_text_representation OR numeric_value_out_of_range THEN
+      RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
+  END;
+  RETURN QUERY SELECT 'created',result;
+END
+$function$;
+
+CREATE FUNCTION saas.catalog_update_category(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
+  p_operation_id uuid,p_fingerprint text,p_category_id uuid,p_expected_version bigint,p_fields jsonb
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $function$
+DECLARE
+  authority_error text;
+  prior_operation saas.catalog_onboarding_operations%ROWTYPE;
+  current_category saas.catalog_categories%ROWTYPE;
+  requested_parent uuid;
+  requested_parent_depth integer;
+  slug_base text;
+  allocated_slug text;
+  slug_suffix integer:=1;
+  result jsonb;
+BEGIN
+  authority_error:=saas.catalog_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now
+  );
+  IF authority_error IS NULL THEN authority_error:=saas.merchant_action_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.manage'
+  ); END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  IF p_operation_id IS NULL OR p_category_id IS NULL OR p_expected_version IS NULL OR p_expected_version<1
+     OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+     OR NOT saas.catalog_onboarding_json_exact(p_fields,ARRAY['name','position'],ARRAY['parentId'])
+     OR pg_catalog.jsonb_typeof(p_fields->'name')<>'string'
+     OR p_fields->>'name'<>pg_catalog.btrim(p_fields->>'name')
+     OR pg_catalog.char_length(p_fields->>'name') NOT BETWEEN 1 AND 120 OR p_fields->>'name'~'[[:cntrl:]]'
+     OR pg_catalog.jsonb_typeof(p_fields->'position')<>'number'
+     OR (p_fields->>'position')::numeric<>pg_catalog.trunc((p_fields->>'position')::numeric)
+     OR (p_fields->>'position')::numeric NOT BETWEEN 0 AND 9999
+     OR (p_fields ? 'parentId' AND (
+       pg_catalog.jsonb_typeof(p_fields->'parentId')<>'string'
+       OR p_fields->>'parentId'!~'^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+     )) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT operation.* INTO prior_operation FROM saas.catalog_onboarding_operations AS operation WHERE operation.operation_id=p_operation_id;
+  IF FOUND THEN
+    IF prior_operation.store_id<>p_store_id OR prior_operation.payload_fingerprint<>p_fingerprint THEN
+      RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',prior_operation.result_payload||'{"replayed":true}'::jsonb; END IF;
+    RETURN;
+  END IF;
+  SELECT category.* INTO current_category FROM saas.catalog_categories AS category
+  WHERE category.store_id=p_store_id AND category.id=p_category_id AND category.status='active' FOR UPDATE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'category_not_found',NULL::jsonb; RETURN; END IF;
+  IF current_category.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
+  requested_parent:=(p_fields->>'parentId')::uuid;
+  IF requested_parent=p_category_id OR (requested_parent IS NOT NULL AND NOT EXISTS(
+    SELECT 1 FROM saas.catalog_categories AS parent
+    WHERE parent.store_id=p_store_id AND parent.id=requested_parent AND parent.status='active'
+  )) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  IF requested_parent IS NOT NULL THEN
+    SELECT parent.depth INTO requested_parent_depth FROM saas.catalog_categories AS parent
+    WHERE parent.store_id=p_store_id AND parent.id=requested_parent AND parent.status='active';
+    IF requested_parent_depth>=8 THEN RETURN QUERY SELECT 'catalog_conflict',NULL::jsonb; RETURN; END IF;
+  END IF;
+  IF requested_parent IS DISTINCT FROM current_category.parent_id AND EXISTS(
+    SELECT 1 FROM saas.catalog_categories AS child
+    WHERE child.store_id=p_store_id AND child.parent_id=p_category_id AND child.status='active'
+  ) THEN RETURN QUERY SELECT 'category_in_use',NULL::jsonb; RETURN; END IF;
+  IF requested_parent IS NOT NULL AND EXISTS(
+    WITH RECURSIVE descendants(id) AS (
+      SELECT child.id FROM saas.catalog_categories AS child
+      WHERE child.store_id=p_store_id AND child.parent_id=p_category_id AND child.status='active'
+      UNION ALL
+      SELECT child.id FROM saas.catalog_categories AS child JOIN descendants ON child.parent_id=descendants.id
+      WHERE child.store_id=p_store_id AND child.status='active'
+    ) SELECT 1 FROM descendants WHERE id=requested_parent
+  ) THEN RETURN QUERY SELECT 'catalog_conflict',NULL::jsonb; RETURN; END IF;
+  PERFORM 1 FROM saas.stores AS store WHERE store.id=p_store_id AND store.status='active' FOR UPDATE;
+  slug_base:=saas.catalog_onboarding_slug_base(p_fields->>'name'); allocated_slug:=slug_base;
+  WHILE EXISTS(SELECT 1 FROM saas.catalog_categories AS category WHERE category.store_id=p_store_id AND category.slug=allocated_slug AND category.id<>p_category_id) LOOP
+    slug_suffix:=slug_suffix+1;
+    allocated_slug:=pg_catalog.left(slug_base,100-pg_catalog.char_length('-'||slug_suffix::text))||'-'||slug_suffix::text;
+  END LOOP;
+  BEGIN
+    UPDATE saas.catalog_categories SET parent_id=requested_parent,name=p_fields->>'name',slug=allocated_slug,
+      position=(p_fields->>'position')::integer,version=version+1,updated_at=p_now
+    WHERE store_id=p_store_id AND id=p_category_id;
+    result:=pg_catalog.jsonb_build_object('category',saas.catalog_category_projection(p_store_id,p_category_id),'replayed',false);
+    INSERT INTO saas.catalog_onboarding_operations(operation_id,store_id,operation_kind,payload_fingerprint,result_category_id,result_payload,committed_at)
+    VALUES(p_operation_id,p_store_id,'update_category',p_fingerprint,p_category_id,result,p_now);
+  EXCEPTION WHEN unique_violation THEN RETURN QUERY SELECT 'catalog_conflict',NULL::jsonb; RETURN;
+    WHEN check_violation OR foreign_key_violation OR invalid_text_representation OR numeric_value_out_of_range THEN
+      RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
+  END;
+  RETURN QUERY SELECT 'updated',result;
+END
+$function$;
+
+CREATE FUNCTION saas.catalog_archive_category(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
+  p_operation_id uuid,p_fingerprint text,p_category_id uuid,p_expected_version bigint
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $function$
+DECLARE
+  authority_error text;
+  prior_operation saas.catalog_onboarding_operations%ROWTYPE;
+  current_category saas.catalog_categories%ROWTYPE;
+  result jsonb;
+BEGIN
+  authority_error:=saas.catalog_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now
+  );
+  IF authority_error IS NULL THEN authority_error:=saas.merchant_action_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.manage'
+  ); END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  IF p_operation_id IS NULL OR p_category_id IS NULL OR p_expected_version IS NULL OR p_expected_version<1
+     OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' THEN
+    RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
+  END IF;
+  SELECT operation.* INTO prior_operation FROM saas.catalog_onboarding_operations AS operation WHERE operation.operation_id=p_operation_id;
+  IF FOUND THEN
+    IF prior_operation.store_id<>p_store_id OR prior_operation.payload_fingerprint<>p_fingerprint THEN
+      RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',prior_operation.result_payload||'{"replayed":true}'::jsonb; END IF;
+    RETURN;
+  END IF;
+  SELECT category.* INTO current_category FROM saas.catalog_categories AS category
+  WHERE category.store_id=p_store_id AND category.id=p_category_id AND category.status='active' FOR UPDATE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'category_not_found',NULL::jsonb; RETURN; END IF;
+  IF current_category.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
+  IF EXISTS(SELECT 1 FROM saas.catalog_categories AS child WHERE child.store_id=p_store_id AND child.parent_id=p_category_id AND child.status='active')
+     OR EXISTS(
+       SELECT 1 FROM saas.catalog_product_categories AS assignment
+       JOIN saas.products AS product ON product.store_id=assignment.store_id AND product.id=assignment.product_id
+       WHERE assignment.store_id=p_store_id AND assignment.category_id=p_category_id AND product.status<>'archived'
+     ) THEN RETURN QUERY SELECT 'category_in_use',NULL::jsonb; RETURN; END IF;
+  UPDATE saas.catalog_categories SET status='archived',archived_at=p_now,version=version+1,updated_at=p_now
+  WHERE store_id=p_store_id AND id=p_category_id;
+  result:=pg_catalog.jsonb_build_object('category',saas.catalog_category_projection(p_store_id,p_category_id),'replayed',false);
+  INSERT INTO saas.catalog_onboarding_operations(operation_id,store_id,operation_kind,payload_fingerprint,result_category_id,result_payload,committed_at)
+  VALUES(p_operation_id,p_store_id,'archive_category',p_fingerprint,p_category_id,result,p_now);
+  RETURN QUERY SELECT 'archived',result;
+END
+$function$;
+
 CREATE FUNCTION saas.catalog_recover_onboarding_operation(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
   p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
@@ -1447,11 +1730,16 @@ REVOKE ALL ON FUNCTION saas.catalog_onboarding_resource_ids_projection(uuid,uuid
 REVOKE ALL ON FUNCTION saas.catalog_onboarding_profile_projection(uuid,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_onboarding_result_projection(uuid,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_product_editor_projection(uuid,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_category_projection(uuid,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_get_onboarding_options(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_onboard_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid[],jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_get_product_editor(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_update_merchandising(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_publish_after_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_list_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_create_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_recover_onboarding_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION saas.catalog_get_onboarding_options(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz) TO celebix_saas_app;
@@ -1459,6 +1747,10 @@ GRANT EXECUTE ON FUNCTION saas.catalog_onboard_product(uuid,uuid,uuid,uuid,text,
 GRANT EXECUTE ON FUNCTION saas.catalog_get_product_editor(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_update_merchandising(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,jsonb) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_publish_after_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,integer) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_list_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_create_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,jsonb) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,jsonb) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_recover_onboarding_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text) TO celebix_saas_app;
 
 COMMIT;

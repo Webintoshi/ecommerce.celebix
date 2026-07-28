@@ -2,6 +2,10 @@ import {
   parseCatalogOnboardingOptions,
   parseCatalogOnboardingResult,
   parseCatalogProductEditorProjection,
+  parseCatalogCategoryList,
+  parseCatalogCategoryMutationResult,
+  type CatalogCategory,
+  type CatalogCategoryMutationResult,
   type CatalogOnboardingOptions,
   type CatalogOnboardingResult,
   type CatalogProductEditorProjection,
@@ -23,9 +27,13 @@ import type {
   PostgresCatalogOnboardingRepositoryOptions,
   PublishCatalogAfterMediaInput,
   UpdateCatalogMerchandisingInput,
+  CreateCatalogCategoryInput,
+  UpdateCatalogCategoryInput,
+  ArchiveCatalogCategoryInput,
 } from "./types.ts";
 import {
   catalogMerchandisingPayload,
+  catalogCategoryFields,
   catalogOnboardingAuthority,
   catalogOnboardingCount,
   catalogOnboardingIntent,
@@ -84,8 +92,19 @@ function parseResult(value: unknown, replayed: boolean): CatalogOnboardingResult
   }
 }
 
-function equalResult(left: CatalogOnboardingResult, right: CatalogOnboardingResult): boolean {
+function equalReplayable(left: Readonly<{ replayed: boolean }>, right: Readonly<{ replayed: boolean }>): boolean {
   return stableCatalogOnboardingJson({ ...left, replayed: false }) === stableCatalogOnboardingJson({ ...right, replayed: false });
+}
+
+function parseCategoryResult(value: unknown, replayed: boolean): CatalogCategoryMutationResult {
+  try {
+    const parsed = parseCatalogCategoryMutationResult(value);
+    if (parsed.replayed !== replayed) throw unavailable();
+    return parsed;
+  } catch (error) {
+    if (error instanceof CatalogOnboardingRepositoryError) throw error;
+    throw unavailable();
+  }
 }
 
 export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRepository {
@@ -171,27 +190,29 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     }
   }
 
-  private async recover(
+  private async recover<T extends Readonly<{ replayed: boolean }>>(
     authority: ValidatedCatalogAuthority,
     operationId: string,
     fingerprint: string,
-    observed: CatalogOnboardingResult,
-  ): Promise<CatalogOnboardingResult> {
+    observed: T,
+    parser: MutationParser<T>,
+  ): Promise<T> {
     const recovered = await this.read({
       text: "SELECT outcome,result_payload FROM saas.catalog_recover_onboarding_operation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text)",
       values: [...authorityValues(authority), operationId, fingerprint],
-    }, "operation_replayed", (value) => parseResult(value, true));
-    if (!equalResult(observed, recovered)) throw unavailable();
+    }, "operation_replayed", (value) => parser(value, true));
+    if (!equalReplayable(observed, recovered)) throw unavailable();
     return recovered;
   }
 
-  private async mutate(
+  private async mutate<T extends Readonly<{ replayed: boolean }>>(
     authority: ValidatedCatalogAuthority,
     operationId: string,
     fingerprint: string,
     expected: string,
     spec: QuerySpec,
-  ): Promise<CatalogOnboardingResult> {
+    parser: MutationParser<T>,
+  ): Promise<T> {
     const client = await this.acquire();
     let began = false;
     let terminal = false;
@@ -203,7 +224,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
       const mapped = this.mapped(selected.outcome);
       if (mapped) throw mapped;
       if (selected.outcome !== expected && selected.outcome !== "operation_replayed") throw unavailable();
-      const parsed = parseResult(selected.resultPayload, selected.outcome === "operation_replayed");
+      const parsed = parser(selected.resultPayload, selected.outcome === "operation_replayed");
       try {
         await client.query("COMMIT");
         terminal = true;
@@ -213,7 +234,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
         terminal = true;
         release(client, true);
         this.emitCommitUnknown();
-        return await this.recover(authority, operationId, fingerprint, parsed);
+        return await this.recover(authority, operationId, fingerprint, parsed, parser);
       }
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
@@ -250,7 +271,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     return this.mutate(authority, operationId, fingerprint, "created", {
       text: "SELECT outcome,result_payload FROM saas.catalog_onboard_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[],$13::jsonb)",
       values: [...authorityValues(authority), operationId, fingerprint, productId, variantIds, JSON.stringify(intent)],
-    });
+    }, parseResult);
   }
 
   async getProductEditor(input: GetCatalogProductEditorInput): Promise<CatalogProductEditorProjection> {
@@ -284,7 +305,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     return this.mutate(authority, operationId, fingerprint, "updated", {
       text: "SELECT outcome,result_payload FROM saas.catalog_update_merchandising($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::jsonb)",
       values: [...authorityValues(authority), operationId, fingerprint, productId, expectedProfileVersion, JSON.stringify(payload)],
-    });
+    }, parseResult);
   }
 
   async publishAfterMedia(input: PublishCatalogAfterMediaInput): Promise<CatalogOnboardingResult> {
@@ -301,6 +322,53 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     return this.mutate(authority, operationId, fingerprint, "published", {
       text: "SELECT outcome,result_payload FROM saas.catalog_publish_after_media($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::integer)",
       values: [...authorityValues(authority), operationId, fingerprint, productId, expectedProductVersion, expectedMediaCount],
+    }, parseResult);
+  }
+
+  async listCategories(input: CatalogOnboardingAuthorityInput): Promise<readonly CatalogCategory[]> {
+    const { authority } = this.authority(input, ["tenantContext", "now"]);
+    return this.read({
+      text: "SELECT outcome,result_payload FROM saas.catalog_list_categories($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz)",
+      values: authorityValues(authority),
+    }, "found", (value) => {
+      try { return parseCatalogCategoryList(value); } catch { throw unavailable(); }
     });
+  }
+
+  async createCategory(input: CreateCatalogCategoryInput): Promise<CatalogCategoryMutationResult> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "fields"]);
+    const operationId = catalogOnboardingUuid(parsed.operationId);
+    const fields = catalogCategoryFields(parsed.fields);
+    const categoryId = catalogOnboardingUuid(this.options.uuid());
+    const fingerprint = catalogOnboardingFingerprint("create_category", authority.storeId, fields);
+    return this.mutate(authority, operationId, fingerprint, "created", {
+      text: "SELECT outcome,result_payload FROM saas.catalog_create_category($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::jsonb)",
+      values: [...authorityValues(authority), operationId, fingerprint, categoryId, JSON.stringify(fields)],
+    }, parseCategoryResult);
+  }
+
+  async updateCategory(input: UpdateCatalogCategoryInput): Promise<CatalogCategoryMutationResult> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "categoryId", "expectedVersion", "fields"]);
+    const operationId = catalogOnboardingUuid(parsed.operationId);
+    const categoryId = catalogOnboardingUuid(parsed.categoryId);
+    const expectedVersion = catalogOnboardingPositiveInteger(parsed.expectedVersion);
+    const fields = catalogCategoryFields(parsed.fields);
+    const fingerprint = catalogOnboardingFingerprint("update_category", authority.storeId, { categoryId, expectedVersion, fields });
+    return this.mutate(authority, operationId, fingerprint, "updated", {
+      text: "SELECT outcome,result_payload FROM saas.catalog_update_category($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::jsonb)",
+      values: [...authorityValues(authority), operationId, fingerprint, categoryId, expectedVersion, JSON.stringify(fields)],
+    }, parseCategoryResult);
+  }
+
+  async archiveCategory(input: ArchiveCatalogCategoryInput): Promise<CatalogCategoryMutationResult> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "categoryId", "expectedVersion"]);
+    const operationId = catalogOnboardingUuid(parsed.operationId);
+    const categoryId = catalogOnboardingUuid(parsed.categoryId);
+    const expectedVersion = catalogOnboardingPositiveInteger(parsed.expectedVersion);
+    const fingerprint = catalogOnboardingFingerprint("archive_category", authority.storeId, { categoryId, expectedVersion });
+    return this.mutate(authority, operationId, fingerprint, "archived", {
+      text: "SELECT outcome,result_payload FROM saas.catalog_archive_category($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint)",
+      values: [...authorityValues(authority), operationId, fingerprint, categoryId, expectedVersion],
+    }, parseCategoryResult);
   }
 }

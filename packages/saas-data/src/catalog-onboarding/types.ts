@@ -1,5 +1,8 @@
 import type {
   CatalogOnboardingIntent,
+  CatalogCategory,
+  CatalogCategoryFields,
+  CatalogCategoryMutationResult,
   CatalogOnboardingOptions,
   CatalogOnboardingResourceIds,
   CatalogOnboardingResult,
@@ -50,6 +53,28 @@ export interface CatalogOnboardingRepository {
   getProductEditor(input: GetCatalogProductEditorInput): Promise<CatalogProductEditorProjection>;
   updateMerchandising(input: UpdateCatalogMerchandisingInput): Promise<CatalogOnboardingResult>;
   publishAfterMedia(input: PublishCatalogAfterMediaInput): Promise<CatalogOnboardingResult>;
+  listCategories(input: CatalogOnboardingAuthorityInput): Promise<readonly CatalogCategory[]>;
+  createCategory(input: CreateCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
+  updateCategory(input: UpdateCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
+  archiveCategory(input: ArchiveCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
+}
+
+export interface CreateCatalogCategoryInput extends CatalogOnboardingAuthorityInput {
+  readonly operationId: string;
+  readonly fields: CatalogCategoryFields;
+}
+
+export interface UpdateCatalogCategoryInput extends CatalogOnboardingAuthorityInput {
+  readonly operationId: string;
+  readonly categoryId: string;
+  readonly expectedVersion: number;
+  readonly fields: CatalogCategoryFields;
+}
+
+export interface ArchiveCatalogCategoryInput extends CatalogOnboardingAuthorityInput {
+  readonly operationId: string;
+  readonly categoryId: string;
+  readonly expectedVersion: number;
 }
 
 export interface PostgresCatalogOnboardingRepositoryOptions {

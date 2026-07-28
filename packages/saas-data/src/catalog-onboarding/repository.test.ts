@@ -12,6 +12,7 @@ const PLAN = "66666666-6666-4666-8666-666666666666";
 const OPERATION = "70000000-0000-4000-8000-000000000001";
 const PRODUCT = "71000000-0000-4000-8000-000000000001";
 const VARIANT = "72000000-0000-4000-8000-000000000001";
+const CATEGORY = "74000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 
 function tenant(): TenantContext {
@@ -74,6 +75,10 @@ function onboardingResult(replayed = false): CatalogOnboardingResult {
     mediaCount: 0,
     replayed,
   };
+}
+
+function categoryResult(replayed = false) {
+  return { category: { id: CATEGORY, name: "Kupalar", slug: "kupalar", position: 0, depth: 1, status: "active", version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() }, replayed };
 }
 
 type Row = Record<string, unknown>;
@@ -198,4 +203,25 @@ test("operation outcomes are mapped to fixed repository errors", async () => {
     }),
     (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "product_limit_reached",
   );
+});
+
+test("category reads and mutations use exact authority and one SQL boundary", async () => {
+  const reader = new Client((text) => text.includes("catalog_list_categories")
+    ? [{ outcome: "found", result_payload: [categoryResult().category] }]
+    : []);
+  assert.deepEqual(await repository(new Pool([reader])).listCategories({ tenantContext: tenant(), now: NOW }), [categoryResult().category]);
+  assert.deepEqual(sqlCall(reader, "catalog_list_categories").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, 100, NOW]);
+
+  const writer = new Client((text) => text.includes("catalog_create_category")
+    ? [{ outcome: "created", result_payload: categoryResult() }]
+    : []);
+  const created = await repository(new Pool([writer]), [], [CATEGORY]).createCategory({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION, fields: { name: "Kupalar", position: 0 },
+  });
+  assert.deepEqual(created, categoryResult());
+  const call = sqlCall(writer, "catalog_create_category");
+  assert.equal(call.values[8], OPERATION);
+  assert.match(String(call.values[9]), /^[a-f0-9]{64}$/);
+  assert.equal(call.values[10], CATEGORY);
+  assert.deepEqual(JSON.parse(String(call.values[11])), { name: "Kupalar", position: 0 });
 });

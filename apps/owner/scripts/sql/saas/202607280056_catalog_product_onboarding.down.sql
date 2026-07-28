@@ -16,6 +16,11 @@ END
 $rollback_guard$;
 
 DROP FUNCTION saas.catalog_recover_onboarding_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text);
+DROP FUNCTION saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint);
+DROP FUNCTION saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,jsonb);
+DROP FUNCTION saas.catalog_create_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,jsonb);
+DROP FUNCTION saas.catalog_list_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz);
+DROP FUNCTION saas.catalog_category_projection(uuid,uuid);
 DROP FUNCTION saas.catalog_publish_after_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,integer);
 DROP FUNCTION saas.catalog_update_merchandising(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,jsonb);
 DROP FUNCTION saas.catalog_get_product_editor(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid);

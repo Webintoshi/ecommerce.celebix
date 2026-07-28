@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { buildVariantMatrix } from "./catalog-onboarding-ui/variant-matrix.ts";
+
 const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
 
@@ -48,4 +50,28 @@ test("quick surface is a mobile sheet with 48px targets and reduced motion", asy
   assert.match(css, /@media \(max-width:\s*1024px\)/);
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
   assert.match(css, /0\.01ms/);
+});
+
+test("advanced editor is one collapsible form, not a wizard", async () => {
+  const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  for (const label of ["Temel bilgiler", "Fiyat ve stok", "Varyantlar", "Medya", "Kategori, koleksiyon, marka ve etiket", "Kargo ve gümrük", "SEO", "Satış kanalları", "Nitelikler ve ekstralar"]) {
+    assert.match(editor, new RegExp(label));
+  }
+  assert.doesNotMatch(editor, /İleri|Önceki|stepIndex|currentStep/);
+  assert.match(editor, /stickySummary/);
+});
+
+test("variant matrix rejects duplicate attributes and bounds combinations", () => {
+  assert.equal(buildVariantMatrix([{ name: "Renk", values: ["Beyaz", "Beyaz"] }]).ok, false);
+  assert.equal(buildVariantMatrix([{ name: "Renk", values: ["Beyaz", "Siyah"] }, { name: "Beden", values: ["S", "M"] }]).ok, true);
+  assert.equal(buildVariantMatrix([{ name: "Boyut", values: Array.from({ length: 101 }, (_, index) => String(index)) }]).ok, false);
+});
+
+test("category manager uses durable client CRUD without browser store authority", async () => {
+  const manager = await source("components/catalog-onboarding/CategoryManager.tsx");
+  assert.match(manager, /listCategories/);
+  assert.match(manager, /createCategory/);
+  assert.match(manager, /updateCategory/);
+  assert.match(manager, /archiveCategory/);
+  assert.doesNotMatch(manager, /storeId|tenantId|document\.cookie|localStorage|sessionStorage/);
 });

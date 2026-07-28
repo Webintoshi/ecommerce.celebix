@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCatalogOnboardingIntent, type CatalogOnboardingIntent } from "@celebix/saas-contracts";
+import { parseCatalogCategoryFields, parseCatalogOnboardingIntent, type CatalogOnboardingIntent } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const BODY_LIMIT = 131_072;
@@ -94,4 +94,27 @@ export async function readCatalogPublishAfterMediaInput(request: Request) {
 
 export function readCatalogOnboardingProductId(value: unknown): string | null {
   return typeof value === "string" && UUID.test(value) ? value : null;
+}
+
+export async function readCatalogCategoryCreateInput(request: Request) {
+  const operationId = operation(request);
+  const raw = await json(request);
+  if (operationId === null || raw === null) return INVALID;
+  try { return Object.freeze({ kind: "valid" as const, operationId, fields: parseCatalogCategoryFields(raw) }); }
+  catch { return INVALID; }
+}
+
+export async function readCatalogCategoryUpdateInput(request: Request) {
+  const operationId = operation(request);
+  const parsed = exact(await json(request), ["expectedVersion", "fields"]);
+  if (operationId === null || parsed === null || !Number.isSafeInteger(parsed.expectedVersion) || (parsed.expectedVersion as number) < 1) return INVALID;
+  try { return Object.freeze({ kind: "valid" as const, operationId, expectedVersion: parsed.expectedVersion as number, fields: parseCatalogCategoryFields(parsed.fields) }); }
+  catch { return INVALID; }
+}
+
+export async function readCatalogCategoryArchiveInput(request: Request) {
+  const operationId = operation(request);
+  const parsed = exact(await json(request), ["expectedVersion"]);
+  if (operationId === null || parsed === null || !Number.isSafeInteger(parsed.expectedVersion) || (parsed.expectedVersion as number) < 1) return INVALID;
+  return Object.freeze({ kind: "valid" as const, operationId, expectedVersion: parsed.expectedVersion as number });
 }

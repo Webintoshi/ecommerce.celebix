@@ -7,6 +7,8 @@ export const CATALOG_ONBOARDING_ERROR_CODES = Object.freeze([
   "durable_authority_invalid",
   "product_limit_reached",
   "product_not_found",
+  "category_not_found",
+  "category_in_use",
   "catalog_conflict",
   "version_conflict",
   "invalid_transition",

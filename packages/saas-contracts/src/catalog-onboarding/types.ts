@@ -93,6 +93,31 @@ export interface CatalogOnboardingCategoryOption {
   readonly position: number;
 }
 
+export interface CatalogCategory {
+  readonly id: string;
+  readonly parentId?: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly position: number;
+  readonly depth: number;
+  readonly status: "active" | "archived";
+  readonly version: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly archivedAt?: string;
+}
+
+export interface CatalogCategoryFields {
+  readonly name: string;
+  readonly parentId?: string;
+  readonly position: number;
+}
+
+export interface CatalogCategoryMutationResult {
+  readonly category: CatalogCategory;
+  readonly replayed: boolean;
+}
+
 export interface CatalogOnboardingResourceOption {
   readonly id: string;
   readonly kind: CatalogOnboardingResourceKind;

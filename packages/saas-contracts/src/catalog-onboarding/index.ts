@@ -6,6 +6,9 @@ export {
 } from "./types.ts";
 export type {
   CatalogAdvancedCreateIntent,
+  CatalogCategory,
+  CatalogCategoryFields,
+  CatalogCategoryMutationResult,
   CatalogOnboardingCategoryOption,
   CatalogOnboardingChannelKind,
   CatalogOnboardingChannelOption,
@@ -29,6 +32,10 @@ export type {
 } from "./types.ts";
 export {
   parseCatalogOnboardingIntent,
+  parseCatalogCategory,
+  parseCatalogCategoryFields,
+  parseCatalogCategoryList,
+  parseCatalogCategoryMutationResult,
   parseCatalogOnboardingOptions,
   parseCatalogOnboardingResult,
   parseCatalogProductEditorProjection,
