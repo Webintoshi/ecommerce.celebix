@@ -4,7 +4,7 @@ import test from "node:test";
 import type { Pool, QueryResult } from "pg";
 
 import { PostgresSaaSDataRepository, registerPostgresTestFailure, type PostgresAuditEvent, type PostgresPoolLike } from "./repository.ts";
-import { SaaSDataPersistenceError, SaaSDataPoolTimeoutError, SaaSDataTransactionStateError, SaaSDataUnknownCommitError } from "./errors.ts";
+import { SaaSDataCorruptionError, SaaSDataPersistenceError, SaaSDataPoolTimeoutError, SaaSDataTransactionStateError, SaaSDataUnknownCommitError } from "./errors.ts";
 
 function proveNativePoolCompatibility(nativePgPool: Pool): PostgresPoolLike {
   return nativePgPool;
@@ -28,6 +28,21 @@ class FakeClient {
   release(destroy?: boolean | Error): void {
     this.releases.push(destroy);
     if (this.failRelease) throw new Error("release private driver detail");
+  }
+}
+
+class MediaNamespaceClient extends FakeClient {
+  private readonly row: Record<string, unknown>;
+
+  constructor(row: Record<string, unknown>) {
+    super();
+    this.row = row;
+  }
+
+  override async query(text: string, values: readonly unknown[] = []): Promise<QueryResult<Record<string, unknown>>> {
+    this.calls.push({ text, values });
+    const rows = text.includes("saas.store_media_namespaces") ? [this.row] : [];
+    return { command: "", rowCount: rows.length, oid: 0, fields: [], rows };
   }
 }
 
@@ -59,6 +74,88 @@ test("beginTransaction binds one client, READ COMMITTED, local timeouts, then ex
   ]);
   await transaction.rollback();
   assert.deepEqual(client.releases, [undefined]);
+});
+
+test("media namespace adapter uses exact store authority and strict row projection", async () => {
+  const storeId = "10000000-0000-4000-8000-000000000001";
+  const now = "2026-07-28T00:00:00.000Z";
+  const row = {
+    store_id: storeId,
+    namespace_prefix: `stores/${storeId}/`,
+    status: "active",
+    version: 1,
+    created_at: now,
+    updated_at: now,
+  };
+  const client = new MediaNamespaceClient(row);
+  const transaction = await repository(client).beginTransaction();
+
+  assert.deepEqual(await transaction.mediaNamespaces.findByStoreId(storeId), {
+    storeId,
+    namespacePrefix: `stores/${storeId}/`,
+    status: "active",
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+  assert.deepEqual(await transaction.mediaNamespaces.create({
+    storeId,
+    namespacePrefix: `stores/${storeId}/`,
+    status: "active",
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+  }), {
+    storeId,
+    namespacePrefix: `stores/${storeId}/`,
+    status: "active",
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const insert = client.calls.find((call) => call.text.includes("INSERT INTO saas.store_media_namespaces"));
+  assert.deepEqual(insert?.values, [storeId, `stores/${storeId}/`, "active", 1, now, now]);
+  await transaction.rollback();
+});
+
+test("media namespace adapter rejects persisted authority drift", async () => {
+  const storeId = "10000000-0000-4000-8000-000000000001";
+  const now = "2026-07-28T00:00:00.000Z";
+  const client = new MediaNamespaceClient({
+    store_id: storeId,
+    namespace_prefix: "stores/forged/",
+    status: "active",
+    version: 1,
+    created_at: now,
+    updated_at: now,
+  });
+  const transaction = await repository(client).beginTransaction();
+  await assert.rejects(transaction.mediaNamespaces.findByStoreId(storeId), SaaSDataCorruptionError);
+  await transaction.rollback();
+});
+
+test("media namespace create rejects a returned timestamp or version different from the write", async () => {
+  const storeId = "10000000-0000-4000-8000-000000000001";
+  const now = "2026-07-28T00:00:00.000Z";
+  const client = new MediaNamespaceClient({
+    store_id: storeId,
+    namespace_prefix: `stores/${storeId}/`,
+    status: "active",
+    version: 2,
+    created_at: now,
+    updated_at: "2026-07-28T00:00:01.000Z",
+  });
+  const transaction = await repository(client).beginTransaction();
+  await assert.rejects(transaction.mediaNamespaces.create({
+    storeId,
+    namespacePrefix: `stores/${storeId}/`,
+    status: "active",
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+  }), SaaSDataCorruptionError);
+  await transaction.rollback();
 });
 
 test("repository construction rejects a non-origin panel authority with a safe error", () => {

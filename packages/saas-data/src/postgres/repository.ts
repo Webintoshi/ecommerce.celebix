@@ -4,7 +4,7 @@ import type { PlanFeatureKey } from "@celebix/saas-contracts";
 import type { SaaSDataRepository, SaaSDataTransaction } from "../ports.ts";
 import type {
   DomainRecord, MembershipRecord, PlanRecord, PrincipalRecord, SaaSGeneratedIdKind,
-  StoreRecord, StoreSettingRecord, SubscriptionRecord, TenantOperationRecord,
+  StoreMediaNamespaceRecord, StoreRecord, StoreSettingRecord, SubscriptionRecord, TenantOperationRecord,
 } from "../types.ts";
 import { normalizeExactHttpsOrigin } from "../panel-origin.ts";
 import {
@@ -32,6 +32,7 @@ export interface PostgresRepositoryOptions {
 export type PostgresFailurePoint =
   | "after_operation_claim" | "after_principal_create_or_update" | "after_store_create"
   | "after_domain_create" | "after_membership_create" | "after_subscription_create"
+  | "after_media_namespace_create"
   | "after_each_setting_create" | "before_mark_committed" | "after_mark_committed"
   | "before_commit" | "commit_forwarded_then_connection_failure" | "commit_blocked_before_forwarding";
 
@@ -63,6 +64,7 @@ class PostgresTransaction implements SaaSDataTransaction {
   readonly memberships;
   readonly plans;
   readonly subscriptions;
+  readonly mediaNamespaces;
   readonly settings;
   readonly operations;
 
@@ -142,6 +144,41 @@ class PostgresTransaction implements SaaSDataTransaction {
          RETURNING id, store_id, plan_id, plan_code, plan_version, status, valid_from, valid_until, created_at, updated_at`,
         [value.id, value.storeId, value.planId, value.planCode, value.planVersion, value.status, value.validFrom, value.validUntil ?? null, value.createdAt, value.updatedAt], subscriptionRow,
       ), "after_subscription_create"),
+    };
+    this.mediaNamespaces = {
+      findByStoreId: async (storeId: string) => this.optional(
+        `SELECT store_id, namespace_prefix, status, version, created_at, updated_at
+         FROM saas.store_media_namespaces WHERE store_id = $1`, [storeId], mediaNamespaceRow,
+      ),
+      create: async (value: StoreMediaNamespaceRecord) => {
+        if (
+          value.namespacePrefix !== `stores/${value.storeId}/` ||
+          value.status !== "active" ||
+          value.version !== 1 ||
+          value.createdAt !== value.updatedAt
+        ) {
+          throw new SaaSDataPersistenceError();
+        }
+        const created = await this.after(this.required(
+          `INSERT INTO saas.store_media_namespaces
+             (store_id, namespace_prefix, status, version, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING store_id, namespace_prefix, status, version, created_at, updated_at`,
+          [value.storeId, value.namespacePrefix, value.status, value.version, value.createdAt, value.updatedAt],
+          mediaNamespaceRow,
+        ), "after_media_namespace_create");
+        if (
+          created.storeId !== value.storeId ||
+          created.namespacePrefix !== value.namespacePrefix ||
+          created.status !== value.status ||
+          created.version !== value.version ||
+          created.createdAt !== value.createdAt ||
+          created.updatedAt !== value.updatedAt
+        ) {
+          throw new SaaSDataCorruptionError();
+        }
+        return created;
+      },
     };
     this.settings = {
       find: async (storeId: string, key: string) => this.optional(
@@ -339,6 +376,30 @@ function settingRow(value: unknown): StoreSettingRecord {
   const row = exactRow(value, ["id", "store_id", "key", "value", "created_at", "updated_at"]);
   const key = text(row.key); if (!["locale", "currency", "themeKey"].includes(key) || typeof row.value !== "string") throw new SaaSDataCorruptionError();
   return { id: parse.uuid(row.id), storeId: parse.uuid(row.store_id) as StoreSettingRecord["storeId"], key, value: row.value, createdAt: parse.timestamp(row.created_at), updatedAt: parse.timestamp(row.updated_at) };
+}
+function mediaNamespaceRow(value: unknown): StoreMediaNamespaceRecord {
+  const row = exactRow(value, ["store_id", "namespace_prefix", "status", "version", "created_at", "updated_at"]);
+  const storeId = parse.uuid(row.store_id) as StoreMediaNamespaceRecord["storeId"];
+  const namespacePrefix = text(row.namespace_prefix);
+  const status = text(row.status);
+  const version = dbInteger(row.version, 1);
+  const createdAt = parse.timestamp(row.created_at);
+  const updatedAt = parse.timestamp(row.updated_at);
+  if (
+    namespacePrefix !== `stores/${storeId}/` ||
+    !["active", "suspended", "deleting", "deleted"].includes(status) ||
+    updatedAt < createdAt
+  ) {
+    throw new SaaSDataCorruptionError();
+  }
+  return {
+    storeId,
+    namespacePrefix,
+    status: status as StoreMediaNamespaceRecord["status"],
+    version,
+    createdAt,
+    updatedAt,
+  };
 }
 function planBaseRow(value: unknown) {
   const row = exactRow(value, ["id", "plan_code", "version", "status", "valid_from", "valid_until"]);
