@@ -3,7 +3,7 @@ import { getPlanLimit, type TenantContext } from "@celebix/saas-contracts";
 import { parseProductMedia, parseProductMediaReservation, type ProductMedia, type ProductMediaReservation } from "../../../saas-contracts/src/media/index.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { MEDIA_ERROR_CODES, ProductMediaRepositoryError, type MediaErrorCode } from "./errors.ts";
-import type { MediaMutationResult, PostgresProductMediaRepositoryOptions, ProductMediaLifecycleInput, ProductMediaRepository, ReserveProductMediaInput } from "./types.ts";
+import type { ArchiveProductMediaInput, MediaMutationResult, PostgresProductMediaRepositoryOptions, ProductMediaLifecycleInput, ProductMediaRepository, ReserveProductMediaInput } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -59,6 +59,10 @@ export class PostgresProductMediaRepository implements ProductMediaRepository {
     catch (caught) { if (began && !terminal) { try { await client.query("ROLLBACK"); client.release(); } catch { client.release(true); } } else if (!terminal) client.release(true); if (caught instanceof ProductMediaRepositoryError) throw caught; throw failure("unavailable"); }
   }
   private mutationOutcome(selected: { outcome: string; resultPayload: unknown }): MediaMutationResult { if (selected.outcome !== "committed" && selected.outcome !== "operation_replayed") this.expected(selected.outcome); return Object.freeze({ media: mediaPayload(selected.resultPayload), replayed: selected.outcome === "operation_replayed" }); }
+  private archiveOutcome(selected: { outcome: string; resultPayload: unknown }): MediaMutationResult {
+    if (!["reserved", "committed", "deleted", "operation_replayed", "found"].includes(selected.outcome)) this.expected(selected.outcome);
+    return Object.freeze({ media: mediaPayload(selected.resultPayload), replayed: ["operation_replayed", "found"].includes(selected.outcome) });
+  }
   private reservationOutcome(selected: { outcome: string; resultPayload: unknown }, expected: ReservationAuthority): ProductMediaReservation {
     if (!["reserved", "uploaded", "committed", "cleanup_required", "deleted", "operation_replayed", "found"].includes(selected.outcome)) this.expected(selected.outcome);
     try {
@@ -119,7 +123,20 @@ export class PostgresProductMediaRepository implements ProductMediaRepository {
   async listProductMedia(input: Parameters<ProductMediaRepository["listProductMedia"]>[0]): Promise<readonly ProductMedia[]> { const parsed = exact(input, ["tenantContext", "now", "productId"], ["includeArchived"]); const auth = authority(parsed.tenantContext, parsed.now); if (parsed.includeArchived !== undefined && typeof parsed.includeArchived !== "boolean") throw failure("invalid_input"); const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_list_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::boolean)", [...values(auth), uuid(parsed.productId), parsed.includeArchived ?? false], true); if (selected.outcome !== "found") this.expected(selected.outcome); if (!Array.isArray(selected.resultPayload)) throw failure("unavailable"); try { return Object.freeze(selected.resultPayload.map(parseProductMedia)); } catch { throw failure("unavailable"); } }
   async updateAltText(input: Parameters<ProductMediaRepository["updateAltText"]>[0]): Promise<MediaMutationResult> { const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion", "altText"]); const auth = authority(parsed.tenantContext, parsed.now); const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1), altText: string(parsed.altText, 0, 500) }; return this.mutationOutcome(await this.execute("SELECT outcome,result_payload FROM saas.media_update_alt($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint,$14::text)", [...values(auth), uuid(parsed.operationId), fingerprint("update_alt", payload), payload.productId, payload.mediaId, payload.expectedVersion, payload.altText], false)); }
   async reorderMedia(input: Parameters<ProductMediaRepository["reorderMedia"]>[0]): Promise<readonly ProductMedia[]> { const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "orderedMediaIds"]); const auth = authority(parsed.tenantContext, parsed.now); if (!Array.isArray(parsed.orderedMediaIds) || parsed.orderedMediaIds.length < 1 || parsed.orderedMediaIds.length > 16) throw failure("invalid_input"); const ordered = Object.freeze(parsed.orderedMediaIds.map(uuid)); if (new Set(ordered).size !== ordered.length) throw failure("invalid_input"); const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_reorder_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[])", [...values(auth), uuid(parsed.operationId), fingerprint("reorder_media", { productId: parsed.productId, ordered }), uuid(parsed.productId), ordered], false); if (selected.outcome !== "committed" && selected.outcome !== "operation_replayed") this.expected(selected.outcome); if (!Array.isArray(selected.resultPayload)) throw failure("unavailable"); try { return Object.freeze(selected.resultPayload.map(parseProductMedia)); } catch { throw failure("unavailable"); } }
-  async archiveMedia(input: Parameters<ProductMediaRepository["archiveMedia"]>[0]): Promise<MediaMutationResult> { const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion"]); const auth = authority(parsed.tenantContext, parsed.now); const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1) }; return this.mutationOutcome(await this.execute("SELECT outcome,result_payload FROM saas.media_archive_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint)", [...values(auth), uuid(parsed.operationId), fingerprint("archive_media", payload), payload.productId, payload.mediaId, payload.expectedVersion], false)); }
+  private async archiveLifecycle(input: ArchiveProductMediaInput, functionName: "media_reserve_product_archive" | "media_finalize_product_archive" | "media_recover_product_archive", readOnly: boolean): Promise<MediaMutationResult> {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion"]);
+    const auth = authority(parsed.tenantContext, parsed.now);
+    const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1) };
+    const selected = await this.execute(
+      `SELECT outcome,result_payload FROM saas.${functionName}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint)`,
+      [...values(auth), uuid(parsed.operationId), fingerprint("archive_media", payload), payload.productId, payload.mediaId, payload.expectedVersion],
+      readOnly,
+    );
+    return this.archiveOutcome(selected);
+  }
+  reserveArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult> { return this.archiveLifecycle(input, "media_reserve_product_archive", false); }
+  finalizeArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult> { return this.archiveLifecycle(input, "media_finalize_product_archive", false); }
+  recoverArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult> { return this.archiveLifecycle(input, "media_recover_product_archive", true); }
   async markArchivedProductMediaObjectDeleted(input: Parameters<ProductMediaRepository["markArchivedProductMediaObjectDeleted"]>[0]): Promise<MediaMutationResult> {
     const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "objectKey"]);
     const auth = authority(parsed.tenantContext, parsed.now);

@@ -31,7 +31,9 @@ export interface ProductMediaRepository {
   listProductMedia(input: ListProductMediaInput): Promise<readonly ProductMedia[]>;
   updateAltText(input: UpdateProductMediaAltInput): Promise<MediaMutationResult>;
   reorderMedia(input: ReorderProductMediaInput): Promise<readonly ProductMedia[]>;
-  archiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult>;
+  reserveArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult>;
+  finalizeArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult>;
+  recoverArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult>;
   markArchivedProductMediaObjectDeleted(input: MarkArchivedProductMediaObjectDeletedInput): Promise<MediaMutationResult>;
 }
 

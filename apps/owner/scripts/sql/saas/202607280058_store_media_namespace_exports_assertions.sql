@@ -3,11 +3,17 @@ DO $assertions$
 DECLARE
   relation_oid oid := pg_catalog.to_regclass('saas.store_media_namespaces');
   operation_relation_oid oid := pg_catalog.to_regclass('saas.store_media_operations');
+  archive_relation_oid oid := pg_catalog.to_regclass('saas.product_media_archive_operations');
   guard_function pg_catalog.regprocedure :=
     pg_catalog.to_regprocedure('saas.guard_store_media_namespace_mutation()');
+  archive_guard_function pg_catalog.regprocedure :=
+    pg_catalog.to_regprocedure('saas.guard_product_media_archive_operation()');
+  archive_fence_function pg_catalog.regprocedure :=
+    pg_catalog.to_regprocedure('saas.guard_reserved_product_media_archive()');
   constraint_name text;
 BEGIN
-  IF relation_oid IS NULL OR operation_relation_oid IS NULL OR guard_function IS NULL THEN
+  IF relation_oid IS NULL OR operation_relation_oid IS NULL OR archive_relation_oid IS NULL
+     OR guard_function IS NULL OR archive_guard_function IS NULL OR archive_fence_function IS NULL THEN
     RAISE EXCEPTION 'STORE_MEDIA_NAMESPACE_OBJECT_MISSING';
   END IF;
 
@@ -73,6 +79,65 @@ BEGIN
     RAISE EXCEPTION 'STORE_MEDIA_OPERATION_TRIGGER_DRIFT';
   END IF;
 
+  IF NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_class AS class
+    JOIN pg_catalog.pg_roles AS owner ON owner.oid=class.relowner
+    WHERE class.oid=archive_relation_oid AND owner.rolname='celebix_saas_owner'
+      AND class.relrowsecurity AND class.relforcerowsecurity
+  ) OR EXISTS(
+    SELECT 1
+    FROM pg_catalog.aclexplode(COALESCE(
+      (SELECT relacl FROM pg_catalog.pg_class WHERE oid=archive_relation_oid),
+      pg_catalog.acldefault('r',(SELECT relowner FROM pg_catalog.pg_class WHERE oid=archive_relation_oid))
+    )) AS acl
+    LEFT JOIN pg_catalog.pg_roles AS grantee ON grantee.oid=acl.grantee
+    WHERE (acl.grantee=0 OR grantee.rolname IN(
+      'celebix_saas_app','celebix_saas_identity','celebix_saas_workflow','celebix_saas_host_resolver','celebix_saas_bootstrap'
+    )) AND acl.privilege_type IN('SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER')
+  ) THEN
+    RAISE EXCEPTION 'PRODUCT_MEDIA_ARCHIVE_OPERATION_RELATION_SECURITY_DRIFT';
+  END IF;
+
+  IF NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_trigger
+    WHERE tgrelid=archive_relation_oid AND tgname='product_media_archive_operations_one_way'
+      AND NOT tgisinternal AND tgenabled='O'
+      AND tgfoid='saas.guard_product_media_archive_operation()'::pg_catalog.regprocedure
+  ) THEN
+    RAISE EXCEPTION 'PRODUCT_MEDIA_ARCHIVE_OPERATION_TRIGGER_DRIFT';
+  END IF;
+
+  IF NOT EXISTS(
+    SELECT 1
+    FROM pg_catalog.pg_proc AS procedure
+    JOIN pg_catalog.pg_roles AS owner ON owner.oid=procedure.proowner
+    WHERE procedure.oid=archive_guard_function
+      AND owner.rolname='celebix_saas_owner'
+      AND procedure.prosecdef
+      AND procedure.proconfig=ARRAY['search_path=pg_catalog, saas']::text[]
+  ) OR pg_catalog.has_function_privilege('public',archive_guard_function,'EXECUTE') THEN
+    RAISE EXCEPTION 'PRODUCT_MEDIA_ARCHIVE_OPERATION_GUARD_DRIFT';
+  END IF;
+
+  IF NOT EXISTS(
+    SELECT 1
+    FROM pg_catalog.pg_proc AS procedure
+    JOIN pg_catalog.pg_roles AS owner ON owner.oid=procedure.proowner
+    WHERE procedure.oid=archive_fence_function
+      AND owner.rolname='celebix_saas_owner'
+      AND procedure.prosecdef
+      AND procedure.proconfig=ARRAY['search_path=pg_catalog, saas']::text[]
+  ) OR pg_catalog.has_function_privilege('public',archive_fence_function,'EXECUTE')
+     OR NOT EXISTS(
+       SELECT 1 FROM pg_catalog.pg_trigger
+       WHERE tgrelid='saas.product_media'::pg_catalog.regclass
+         AND tgname='product_media_archive_reservation_fence'
+         AND NOT tgisinternal AND tgenabled='O'
+         AND tgfoid=archive_fence_function
+     ) THEN
+    RAISE EXCEPTION 'PRODUCT_MEDIA_ARCHIVE_RESERVATION_FENCE_DRIFT';
+  END IF;
+
   IF EXISTS(
     SELECT 1
     FROM unnest(ARRAY[
@@ -82,6 +147,9 @@ BEGIN
       'saas.media_recover_product_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,uuid,uuid,text)',
       'saas.media_require_product_cleanup(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,uuid,uuid,text)',
       'saas.media_mark_product_deleted(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,uuid,uuid,text)',
+      'saas.media_reserve_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)',
+      'saas.media_finalize_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)',
+      'saas.media_recover_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)',
       'saas.media_mark_archived_object_deleted(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,uuid,uuid,text)'
     ]) AS signature
     WHERE pg_catalog.to_regprocedure(signature) IS NULL
@@ -113,6 +181,14 @@ BEGIN
     'EXECUTE'
   ) THEN
     RAISE EXCEPTION 'LEGACY_MEDIA_ATTACH_AUTHORITY_DRIFT';
+  END IF;
+
+  IF pg_catalog.has_function_privilege(
+    'celebix_saas_app',
+    'saas.media_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)'::pg_catalog.regprocedure,
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'LEGACY_MEDIA_ARCHIVE_AUTHORITY_DRIFT';
   END IF;
 
   IF NOT EXISTS(
