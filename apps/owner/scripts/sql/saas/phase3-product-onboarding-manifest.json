@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3-202607280056-catalog-product-onboarding",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "DISPOSABLE_ONLY_NO_STAGING_OR_PRODUCTION_APPLY",
+  "rollbackLimitations": "The down migration is authorized only for an empty disposable migration-056 rehearsal and refuses rollback after any onboarding row exists.",
+  "artifacts": [
+    {
+      "id": "202607280056_catalog_product_onboarding_up",
+      "direction": "up",
+      "file": "202607280056_catalog_product_onboarding.up.sql",
+      "sha256": "49386682f9ecb57096b582f629736e3b0bc00faf9d4a1a0c8d7c132ac8a90ee0",
+      "purpose": "Add closed tenant-scoped product merchandising, category, channel, variant-commerce, and immutable onboarding operation relations."
+    },
+    {
+      "id": "202607280056_catalog_product_onboarding_down",
+      "direction": "down",
+      "file": "202607280056_catalog_product_onboarding.down.sql",
+      "sha256": "761219ab8a62f67587c74bf2e74d8838476f15d07243cfac34aa3daef6dd4d01",
+      "purpose": "Remove only empty migration-056 objects in dependency-safe order during disposable rehearsal."
+    },
+    {
+      "id": "202607280056_catalog_product_onboarding_assertions",
+      "direction": "verify",
+      "file": "202607280056_catalog_product_onboarding_assertions.sql",
+      "sha256": "c4142b46e093eaa4f89a339a5f4f653684fd895d490329d2201cdcfb592d23fc",
+      "purpose": "Fail on owner, RLS, ACL, trigger, and relation drift for all migration-056 objects."
+    }
+  ]
+}
