@@ -20,6 +20,7 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
   filters: PaymentSettingsFilters;
   phase: "loading" | "ready" | "error";
   canManage: boolean;
+  mutationAvailable: boolean;
   busy: boolean;
   openerRef: RefObject<HTMLButtonElement | null>;
   onQuery(value: string): void;
@@ -90,14 +91,17 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
                 <div className={styles.providerLogo}><Icon aria-hidden="true" /></div>
                 <div className={styles.providerCardHeading}>
                   <div><h3>{card.label}</h3><p>{card.description}</p></div>
-                  <span className={styles[card.active ? "tone-success" : "tone-neutral"]}>
-                    {card.active ? "Etkin" : "Devre dışı"}
+                  <span className={styles[card.active === true ? "tone-success" : "tone-neutral"]}>
+                    {card.active === true
+                      ? "Etkin"
+                      : card.configured === true ? "Devre dışı"
+                      : card.configured === false ? "Henüz yapılandırılmadı" : "Durum bilinmiyor"}
                   </span>
                 </div>
                 <button
                   type="button"
                   className={styles.primaryButton}
-                  disabled={!props.canManage || props.busy}
+                  disabled={!props.canManage || !props.mutationAvailable || !card.available || props.busy}
                   onClick={() => props.onBuiltInSelect(card.kind)}
                 >
                   {card.actionLabel}
@@ -138,7 +142,7 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
                 <div className={styles.providerLogo}><Image src={card.logoPath} alt={`${card.label} logosu`} width={144} height={56} /></div>
                 <div className={styles.providerCardHeading}><div><h3>{card.label}</h3><p>{card.modeLabel}</p></div><span className={styles[`tone-${card.readinessTone}`]}>{card.readinessLabel}</span></div>
                 <div className={styles.providerMeta}><span>{card.categoryLabel}</span><span>{card.interactionLabel}</span><span>{card.environmentLabel}</span><span>{card.lifecycleLabel}</span></div>
-                <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.configurable || !props.canManage || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}</button>
+                <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.configurable || !props.canManage || !props.mutationAvailable || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}</button>
               </article>
             ))}
           </div> : null}

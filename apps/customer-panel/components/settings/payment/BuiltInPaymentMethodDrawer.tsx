@@ -86,6 +86,8 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
   method: MerchantPaymentMethod | null;
   canManage: boolean;
   busy: boolean;
+  mutationAvailable?: boolean;
+  submitError?: string | null;
   onSubmit(value: BuiltInPaymentMethodDrawerSubmit): void | Promise<void>;
   onClose(): void;
 }>) {
@@ -170,7 +172,7 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitOwnedRef.current || props.busy || !props.canManage) return;
+    if (submitOwnedRef.current || props.busy || !props.canManage || props.mutationAvailable === false) return;
     const data = new FormData(event.currentTarget);
     const label = canonicalLabel(String(data.get("label") ?? ""));
     if (label === null) {
@@ -267,6 +269,7 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
           className={styles.errorNotice}
           role="alert"
         >{formError.message}</p> : null}
+        {props.submitError ? <p className={styles.errorNotice} role="alert">{props.submitError}</p> : null}
 
         <form className={styles.builtInForm} onSubmit={(event) => void submit(event)}>
           <label>
@@ -345,7 +348,7 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
             <button
               type="submit"
               className={styles.primaryButton}
-              disabled={disabled}
+              disabled={disabled || props.mutationAvailable === false}
             >
               {props.busy ? "Kaydediliyor…" : props.method ? "Değişiklikleri kaydet" : "Kaydet ve etkinleştir"}
             </button>

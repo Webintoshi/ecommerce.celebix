@@ -15,9 +15,10 @@ export type BuiltInPaymentMethodCatalogCard = Readonly<{
   kind: BuiltInPaymentMethodKind;
   label: string;
   description: string;
-  configured: boolean;
-  active: boolean;
-  actionLabel: "Ekle" | "Yapılandırıldı";
+  configured: boolean | null;
+  active: boolean | null;
+  available: boolean;
+  actionLabel: "Ekle" | "Yapılandırıldı" | "Kullanılamıyor";
 }>;
 export type PaymentSettingsFilters = Readonly<{
   category: PaymentProviderCategory | "all";
@@ -410,14 +411,24 @@ export function buildPaymentSettingsViewModel(
   methods: readonly MerchantPaymentMethod[],
   query: string,
   filters: PaymentSettingsFilters,
+  methodsKnown = true,
 ) {
+  const builtInMethods = new Map(BUILT_IN_METHOD_CARDS.map(({ kind }) => [
+    kind,
+    methods.filter((method) => method.kind === kind),
+  ] as const));
   const builtInCards = Object.freeze(BUILT_IN_METHOD_CARDS.map((definition) => {
-    const method = methods.find(({ kind }) => kind === definition.kind);
+    const matches = builtInMethods.get(definition.kind)!;
+    const method = matches.length === 1 ? matches[0] : undefined;
+    const available = methodsKnown && matches.length <= 1;
     return Object.freeze({
       ...definition,
-      configured: method !== undefined,
-      active: method?.state === "active",
-      actionLabel: method === undefined ? "Ekle" as const : "Yapılandırıldı" as const,
+      configured: available ? method !== undefined : null,
+      active: available ? method?.state === "active" : null,
+      available,
+      actionLabel: !available
+        ? "Kullanılamıyor" as const
+        : method === undefined ? "Ekle" as const : "Yapılandırıldı" as const,
     });
   }));
   const normalizedQuery = normalize(query);
@@ -476,6 +487,9 @@ export function buildPaymentSettingsViewModel(
         profileStatus: selectedProfile?.status ?? null,
         profileStatusLabel: profileStatus.label,
         profileStatusTone: profileStatus.tone,
+        builtInEditable: item.kind !== "provider"
+          && methodsKnown
+          && builtInMethods.get(item.kind)?.length === 1,
         position: item.position,
         version: item.version,
       });

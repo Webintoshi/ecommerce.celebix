@@ -31,10 +31,7 @@ import {
 } from "react";
 
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
-import {
-  saveBuiltInPaymentMethod,
-  selectBuiltInPaymentMethod,
-} from "@/lib/built-in-payment-methods/controller";
+import { saveBuiltInPaymentMethod } from "@/lib/built-in-payment-methods/controller";
 import {
   PaymentMethodApiError,
   paymentMethodApi,
@@ -80,6 +77,17 @@ const FILTERS: PaymentSettingsFilters = Object.freeze({
   environment: "all",
 });
 type MessageTone = "success" | "warning" | "error";
+type BuiltInSelection = Readonly<{
+  kind: BuiltInPaymentMethodKind;
+  method: MerchantPaymentMethod | null;
+}>;
+type LoadOutcome = Readonly<{
+  applied: boolean;
+  sources: Sources;
+}>;
+
+const BUILT_IN_RELOAD_ERROR = "Güncel ödeme yöntemleri yüklenemedi. Pencereyi kapatıp yeniden yüklemeyi deneyin.";
+const BUILT_IN_DUPLICATE_ERROR = "Yerleşik ödeme yöntemi kayıtları doğrulanamadı. Pencereyi kapatıp yeniden yüklemeyi deneyin.";
 
 function PaymentConsoleActions(props: Readonly<{
   canManage: boolean;
@@ -111,8 +119,11 @@ export function PaymentSettingsConsole(props: Readonly<{
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<PaymentProviderCatalogCard | null>(null);
-  const [selectedBuiltInKind, setSelectedBuiltInKind] = useState<BuiltInPaymentMethodKind | null>(null);
+  const [selectedBuiltIn, setSelectedBuiltIn] = useState<BuiltInSelection | null>(null);
   const [busyBuiltInKind, setBusyBuiltInKind] = useState<BuiltInPaymentMethodKind | null>(null);
+  const [builtInSubmitError, setBuiltInSubmitError] = useState<string | null>(null);
+  const [methodsMutationAvailable, setMethodsMutationAvailable] = useState(false);
+  const [methodsLoadError, setMethodsLoadError] = useState(false);
   const [busyMethodId, setBusyMethodId] = useState<string | null>(null);
   const [busyProviderCode, setBusyProviderCode] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -120,15 +131,29 @@ export function PaymentSettingsConsole(props: Readonly<{
   const [highlightedMethodId, setHighlightedMethodId] = useState<string | null>(null);
   const mounted = useRef(true);
   const loadVersion = useRef(0);
+  const lastReadyMethods = useRef<readonly MerchantPaymentMethod[] | null>(null);
+  const builtInOpenerRef = useRef<HTMLButtonElement | null>(null);
   const initialSurfaceHandled = useRef(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const orderButtonRef = useRef<HTMLButtonElement>(null);
   const methodRefs = useRef(new Map<string, HTMLTableRowElement>());
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<LoadOutcome> => {
     const version = loadVersion.current + 1;
     loadVersion.current = version;
-    setSources(createLoadingPaymentSettingsSources());
+    setMethodsMutationAvailable(false);
+    setSources(() => {
+      const loading = createLoadingPaymentSettingsSources<
+        PaymentProviderCatalogEntry,
+        MerchantProviderDescriptor,
+        MerchantProviderProfile,
+        MerchantPaymentMethod
+      >();
+      return lastReadyMethods.current === null ? loading : Object.freeze({
+        ...loading,
+        methods: Object.freeze({ phase: "ready" as const, value: lastReadyMethods.current }),
+      });
+    });
     const result = await loadPaymentSettingsSources({
       catalog: () => paymentMethodApi.catalog(),
       definitions: () => providerExecutionApi.definitions("payment_processing"),
@@ -137,7 +162,18 @@ export function PaymentSettingsConsole(props: Readonly<{
       shouldLoadProviderExecution: (catalog) => catalog.some(({ readiness }) =>
         readiness === "production_ready" || readiness === "sandbox_ready" || readiness === "verification"),
     });
-    if (mounted.current && loadVersion.current === version) setSources(result);
+    const applied = mounted.current && loadVersion.current === version;
+    if (applied) {
+      const methodsReady = result.methods.phase === "ready";
+      if (methodsReady) lastReadyMethods.current = result.methods.value;
+      setMethodsMutationAvailable(methodsReady);
+      setMethodsLoadError(!methodsReady);
+      setSources(!methodsReady && lastReadyMethods.current !== null ? Object.freeze({
+        ...result,
+        methods: Object.freeze({ phase: "ready" as const, value: lastReadyMethods.current }),
+      }) : result);
+    }
+    return Object.freeze({ applied, sources: result });
   }, []);
 
   useEffect(() => {
@@ -153,6 +189,7 @@ export function PaymentSettingsConsole(props: Readonly<{
     sources.methods.phase === "ready" ? sources.methods.value : [],
     query,
     filters,
+    sources.methods.phase === "ready",
   ), [filters, query, sources]);
 
   useEffect(() => {
@@ -172,16 +209,49 @@ export function PaymentSettingsConsole(props: Readonly<{
     }
   }, [props.initialDialog, props.initialMethodId, sources.catalog.phase, sources.methods]);
 
+  function canonicalMethods(outcome: LoadOutcome): readonly MerchantPaymentMethod[] | null {
+    return outcome.applied && outcome.sources.methods.phase === "ready"
+      ? outcome.sources.methods.value
+      : null;
+  }
+
+  function activeButton(): HTMLButtonElement | null {
+    const active = document.activeElement as Partial<HTMLButtonElement> | null;
+    return active?.tagName === "BUTTON" && typeof active.focus === "function"
+      ? active as HTMLButtonElement
+      : null;
+  }
+
+  function restoreBuiltInFocus() {
+    const opener = builtInOpenerRef.current;
+    requestAnimationFrame(() => {
+      if (opener?.isConnected) opener.focus();
+      else addButtonRef.current?.focus();
+    });
+  }
+
+  function closeBuiltIn() {
+    if (busyBuiltInKind !== null) return;
+    setSelectedBuiltIn(null);
+    setBuiltInSubmitError(null);
+    restoreBuiltInFocus();
+  }
+
   async function updateState(method: MerchantPaymentMethod, state: PaymentMethodState) {
-    if (!props.canManage || busyMethodId) return;
+    if (!props.canManage || !methodsMutationAvailable || busyMethodId) return;
     if (method.providerCode === "iyzico_iframe" && state === "active") {
       setBusyMethodId(method.id);
       setMessage("");
       try {
         const result = await advanceIyzicoActivation();
-        await load();
-        setMessageTone(result.tone);
-        setMessage(result.message);
+        const reloaded = await load();
+        if (canonicalMethods(reloaded) === null) {
+          setMessageTone("error");
+          setMessage("Güncel ödeme yöntemleri yüklenemedi. Yeniden yüklemeyi deneyin.");
+        } else {
+          setMessageTone(result.tone);
+          setMessage(result.message);
+        }
       } catch (error) {
         setMessageTone("error");
         setMessage(error instanceof IyzicoActivationApiError
@@ -205,9 +275,14 @@ export function PaymentSettingsConsole(props: Readonly<{
         state,
         emergencyReason,
       });
-      await load();
-      setMessageTone("success");
-      setMessage("Ödeme yöntemi durumu güncellendi.");
+      const reloaded = await load();
+      if (canonicalMethods(reloaded) === null) {
+        setMessageTone("error");
+        setMessage("Güncel ödeme yöntemleri yüklenemedi. Yeniden yüklemeyi deneyin.");
+      } else {
+        setMessageTone("success");
+        setMessage("Ödeme yöntemi durumu güncellendi.");
+      }
     } catch (error) {
       setMessageTone("error");
       setMessage(safeMessage(error));
@@ -243,7 +318,7 @@ export function PaymentSettingsConsole(props: Readonly<{
   }
 
   async function connectProvider(card: PaymentProviderCatalogCard) {
-    if (!props.canManage || busyProviderCode || !card.configurable || !card.configurableDescriptor) return;
+    if (!props.canManage || !methodsMutationAvailable || busyProviderCode || !card.configurable || !card.configurableDescriptor) return;
     const descriptor = card.executableDescriptor;
     const profile = descriptor?.environments === undefined
       ? card.configurableDescriptor?.environments === undefined ? null : selectPaymentProviderConnectionProfile(
@@ -261,10 +336,15 @@ export function PaymentSettingsConsole(props: Readonly<{
       setMessage("");
       try {
         const result = await advanceIyzicoActivation();
-        await load();
-        setMessageTone(result.tone);
-        setMessage(result.message);
-        if (result.active) setCatalogOpen(false);
+        const reloaded = await load();
+        if (canonicalMethods(reloaded) === null) {
+          setMessageTone("error");
+          setMessage("Güncel ödeme yöntemleri yüklenemedi. Yeniden yüklemeyi deneyin.");
+        } else {
+          setMessageTone(result.tone);
+          setMessage(result.message);
+          if (result.active) setCatalogOpen(false);
+        }
       } catch (error) {
         setMessageTone("error");
         setMessage(error instanceof IyzicoActivationApiError
@@ -287,8 +367,11 @@ export function PaymentSettingsConsole(props: Readonly<{
         methods: sources.methods.phase === "ready" ? sources.methods.value : [],
         api: paymentMethodApi,
       });
-      await load();
-      if (result.kind === "active") {
+      const reloaded = await load();
+      if (canonicalMethods(reloaded) === null) {
+        setMessageTone("error");
+        setMessage("Güncel ödeme yöntemleri yüklenemedi. Yeniden yüklemeyi deneyin.");
+      } else if (result.kind === "active") {
         setMessageTone("success");
         setMessage("Ödeme yöntemi etkinleştirildi.");
         setCatalogOpen(false);
@@ -308,35 +391,61 @@ export function PaymentSettingsConsole(props: Readonly<{
     }
   }
 
-  function openBuiltIn(kind: BuiltInPaymentMethodKind) {
-    if (!props.canManage || busyBuiltInKind !== null) return;
-    setSelectedBuiltInKind(kind);
-    setCatalogOpen(false);
+  function openBuiltIn(kind: BuiltInPaymentMethodKind, opener = activeButton()) {
+    if (!props.canManage || !methodsMutationAvailable || busyBuiltInKind !== null || sources.methods.phase !== "ready") return;
+    const matches = sources.methods.value.filter((method) => method.kind === kind);
+    if (matches.length > 1) {
+      setMessageTone("error");
+      setMessage(BUILT_IN_DUPLICATE_ERROR);
+      return;
+    }
+    builtInOpenerRef.current = opener;
+    setBuiltInSubmitError(null);
+    setMessage("");
+    setSelectedBuiltIn(Object.freeze({ kind, method: matches[0] ?? null }));
   }
 
   async function saveBuiltIn(value: BuiltInPaymentMethodDrawerSubmit) {
-    if (!props.canManage || busyBuiltInKind !== null || value.kind !== selectedBuiltInKind) return;
+    if (!props.canManage || !methodsMutationAvailable || busyBuiltInKind !== null || value.kind !== selectedBuiltIn?.kind) return;
     setBusyBuiltInKind(value.kind);
+    setBuiltInSubmitError(null);
     setMessage("");
     try {
       const result = await saveBuiltInPaymentMethod({
         ...value,
         api: paymentMethodApi,
       });
-      await load();
+      const reloaded = await load();
+      const methods = canonicalMethods(reloaded);
+      if (methods === null) {
+        setBuiltInSubmitError(BUILT_IN_RELOAD_ERROR);
+        return;
+      }
+      const matches = methods.filter((method) => method.kind === value.kind);
+      const canonical = matches.length === 1 && matches[0]?.id === result.methodId
+        ? matches[0]
+        : null;
+      if (canonical === null) {
+        setMethodsMutationAvailable(false);
+        setBuiltInSubmitError(BUILT_IN_DUPLICATE_ERROR);
+        return;
+      }
+      if (result.kind === "conflict" || result.kind === "ambiguous") {
+        setSelectedBuiltIn(Object.freeze({ kind: value.kind, method: canonical }));
+        setBuiltInSubmitError(`${result.message} Güncel bilgiler yeniden yüklendi; alanları kontrol edip tekrar deneyin.`);
+        return;
+      }
       if (result.kind === "active" || result.kind === "updated") {
         setMessageTone("success");
-        setSelectedBuiltInKind(null);
       } else if (result.kind === "emergency_disabled") {
         setMessageTone("warning");
-        setSelectedBuiltInKind(null);
-      } else {
-        setMessageTone("error");
       }
       setMessage(result.message);
+      setSelectedBuiltIn(null);
+      setBuiltInSubmitError(null);
+      restoreBuiltInFocus();
     } catch (error) {
-      setMessageTone("error");
-      setMessage(safeMessage(error));
+      setBuiltInSubmitError(`${safeMessage(error)} Alanları kontrol edip tekrar deneyin.`);
     } finally {
       setBusyBuiltInKind(null);
     }
@@ -349,9 +458,6 @@ export function PaymentSettingsConsole(props: Readonly<{
       profile.providerCode === selectedCard.providerCode
       && profile.capability === "payment_processing")
     : [];
-  const selectedBuiltInMethod = selectedBuiltInKind === null || sources.methods.phase !== "ready"
-    ? null
-    : selectBuiltInPaymentMethod(sources.methods.value, selectedBuiltInKind);
 
   return (
     <section className={styles.page} aria-labelledby="payment-settings-title">
@@ -381,7 +487,7 @@ export function PaymentSettingsConsole(props: Readonly<{
         </header>
 
         {sources.methods.phase === "loading" ? <p className={styles.loadingState} role="status">Ödeme yöntemleri yükleniyor…</p> : null}
-        {sources.methods.phase === "error" ? <div className={styles.loadError} role="alert"><span>Ödeme yöntemleri yüklenemedi.</span><button type="button" className={styles.secondaryButton} onClick={() => void load()}><RefreshCw />Tekrar dene</button></div> : null}
+        {methodsLoadError ? <div className={styles.loadError} role="alert"><span>Ödeme yöntemleri yüklenemedi.</span><button type="button" className={styles.secondaryButton} onClick={() => void load()}><RefreshCw />Tekrar dene</button></div> : null}
         {sources.methods.phase === "ready" && view.methods.length === 0 ? <div className={styles.emptyMethods}><CreditCard aria-hidden="true" /><h3>Henüz yöntem yok</h3><p>Hazır bir sağlayıcı etkinleştirildiğinde veya yerleşik yöntem eklendiğinde burada görünür.</p>{props.canManage ? <button type="button" className={styles.primaryButton} onClick={() => setCatalogOpen(true)}><Plus />Ödeme Yöntemi Ekle</button> : <span>Salt okunur erişim</span>}</div> : null}
 
         {sources.methods.phase === "ready" && view.methods.length > 0 ? <>
@@ -397,9 +503,9 @@ export function PaymentSettingsConsole(props: Readonly<{
                   : row.kind === "cash_on_delivery" ? Truck : CreditCard;
                 return <tr key={row.id} ref={(element) => { if (element) methodRefs.current.set(row.id, element); else methodRefs.current.delete(row.id); }} tabIndex={highlightedMethodId === row.id ? 0 : -1} data-highlighted={highlightedMethodId === row.id ? "true" : undefined}>
                   <td><div className={styles.methodIdentity}>{row.logoPath ? <span className={styles.methodLogo}><Image src={row.logoPath} alt="" width={41} height={30} /></span> : <span className={styles.methodLogo}><BuiltInIcon aria-hidden="true" /></span>}<span><strong>{row.label}</strong><small>{row.providerLabel} · {row.modeLabel} · {row.environmentLabel}</small></span></div></td>
-                  <td><button type="button" className={row.state === "emergency_disabled" ? styles.emergencyActive : styles.emergencyButton} disabled={!props.canManage || busy} onClick={() => void updateState(method, row.state === "emergency_disabled" ? "active" : "emergency_disabled")}><ShieldAlert />{row.state === "emergency_disabled" ? "Acil kapatmayı kaldır" : "Acil kapat"}</button></td>
+                  <td><button type="button" className={row.state === "emergency_disabled" ? styles.emergencyActive : styles.emergencyButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "emergency_disabled" ? "active" : "emergency_disabled")}><ShieldAlert />{row.state === "emergency_disabled" ? "Acil kapatmayı kaldır" : "Acil kapat"}</button></td>
                   <td><span className={styles[`tone-${row.stateTone}`]}>{row.stateLabel}</span><small className={styles.profileState}>{row.profileStatusLabel}</small></td>
-                  <td><div className={styles.commandBar}>{builtInKind ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || busy || busyBuiltInKind !== null} onClick={() => openBuiltIn(builtInKind)}>Düzenle</button> : null}<button type="button" className={styles.secondaryButton} disabled={!props.canManage || busy} onClick={() => void updateState(method, row.state === "active" ? "disabled" : "active")}>{busy ? "Güncelleniyor…" : row.state === "active" ? "Devre dışı bırak" : "Etkinleştir"}</button></div></td>
+                  <td><div className={styles.commandBar}>{builtInKind && row.builtInEditable ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || busyBuiltInKind !== null} onClick={(event) => openBuiltIn(builtInKind, event.currentTarget)}>Düzenle</button> : null}<button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "active" ? "disabled" : "active")}>{busy ? "Güncelleniyor…" : row.state === "active" ? "Devre dışı bırak" : "Etkinleştir"}</button></div></td>
                 </tr>;
               })}</tbody>
             </table>
@@ -408,15 +514,15 @@ export function PaymentSettingsConsole(props: Readonly<{
             const method = sources.methods.value.find(({ id }) => id === row.id)!;
             const busy = busyMethodId === row.id;
             const builtInKind = row.kind === "provider" ? null : row.kind;
-            return <article key={row.id} data-highlighted={highlightedMethodId === row.id ? "true" : undefined}><header><strong>{row.label}</strong><span className={styles[`tone-${row.stateTone}`]}>{row.stateLabel}</span></header><p>{row.providerLabel} · {row.modeLabel}</p><small>{row.environmentLabel} · {row.profileStatusLabel}</small><div><button type="button" className={styles.emergencyButton} disabled={!props.canManage || busy} onClick={() => void updateState(method, row.state === "emergency_disabled" ? "active" : "emergency_disabled")}><ShieldAlert />Acil Durum</button>{builtInKind ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || busy || busyBuiltInKind !== null} onClick={() => openBuiltIn(builtInKind)}>Düzenle</button> : null}<button type="button" className={styles.secondaryButton} disabled={!props.canManage || busy} onClick={() => void updateState(method, row.state === "active" ? "disabled" : "active")}>{row.state === "active" ? "Devre dışı" : "Etkinleştir"}</button></div></article>;
+            return <article key={row.id} data-highlighted={highlightedMethodId === row.id ? "true" : undefined}><header><strong>{row.label}</strong><span className={styles[`tone-${row.stateTone}`]}>{row.stateLabel}</span></header><p>{row.providerLabel} · {row.modeLabel}</p><small>{row.environmentLabel} · {row.profileStatusLabel}</small><div><button type="button" className={styles.emergencyButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "emergency_disabled" ? "active" : "emergency_disabled")}><ShieldAlert />Acil Durum</button>{builtInKind && row.builtInEditable ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || busyBuiltInKind !== null} onClick={(event) => openBuiltIn(builtInKind, event.currentTarget)}>Düzenle</button> : null}<button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "active" ? "disabled" : "active")}>{row.state === "active" ? "Devre dışı" : "Etkinleştir"}</button></div></article>;
           })}</div>
         </> : null}
       </section>
 
-      {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} builtInCards={view.builtInCards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} busy={selectedCard !== null || busyProviderCode !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { void connectProvider(card); }} onBuiltInSelect={openBuiltIn} /> : null}
-      {selectedCard?.configurableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.configurableDescriptor} environments={selectedCard.environments} initialEnvironment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profiles={selectedProfiles} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={load} /> : null}
-      {selectedBuiltInKind ? <BuiltInPaymentMethodDrawer kind={selectedBuiltInKind} method={selectedBuiltInMethod} canManage={props.canManage} busy={busyBuiltInKind !== null} onSubmit={saveBuiltIn} onClose={() => setSelectedBuiltInKind(null)} /> : null}
-      {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} openerRef={orderButtonRef} onReload={load} onClose={() => setOrderOpen(false)} /> : null}
+      {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} builtInCards={view.builtInCards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} busy={selectedCard !== null || busyProviderCode !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { void connectProvider(card); }} onBuiltInSelect={(kind) => openBuiltIn(kind)} /> : null}
+      {selectedCard?.configurableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.configurableDescriptor} environments={selectedCard.environments} initialEnvironment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profiles={selectedProfiles} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={async () => { await load(); }} /> : null}
+      {selectedBuiltIn ? <BuiltInPaymentMethodDrawer kind={selectedBuiltIn.kind} method={selectedBuiltIn.method} canManage={props.canManage} busy={busyBuiltInKind !== null} mutationAvailable={methodsMutationAvailable} submitError={builtInSubmitError} onSubmit={saveBuiltIn} onClose={closeBuiltIn} /> : null}
+      {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} openerRef={orderButtonRef} onReload={async () => { await load(); }} onClose={() => setOrderOpen(false)} /> : null}
     </section>
   );
 }

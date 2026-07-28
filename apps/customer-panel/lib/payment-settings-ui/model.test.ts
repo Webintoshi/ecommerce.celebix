@@ -163,6 +163,7 @@ test("payment settings model exposes two immutable built-in cards outside provid
       description: "Müşteriler siparişlerini teslim alırken ödeme yapar.",
       configured: true,
       active: false,
+      available: true,
       actionLabel: "Yapılandırıldı",
     },
     {
@@ -171,6 +172,7 @@ test("payment settings model exposes two immutable built-in cards outside provid
       description: "Müşteriler banka hesabınıza havale veya EFT ile ödeme yapar.",
       configured: false,
       active: false,
+      available: true,
       actionLabel: "Ekle",
     },
   ]);
@@ -224,6 +226,82 @@ test("both built-in kinds coexist and active built-ins retain canonical order in
       { kind: "bank_transfer", label: "Havale ile ödeme" },
     ],
   );
+});
+
+test("unknown method authority marks built-in cards unavailable instead of inventing unconfigured methods", () => {
+  const view = buildPaymentSettingsViewModel(
+    PAYMENT_PROVIDER_CATALOG,
+    [],
+    [],
+    [],
+    "",
+    noFilters,
+    false,
+  );
+
+  assert.deepEqual(view.builtInCards.map((card) => ({
+    kind: card.kind,
+    configured: card.configured,
+    active: card.active,
+    available: card.available,
+    actionLabel: card.actionLabel,
+  })), [
+    {
+      kind: "cash_on_delivery",
+      configured: null,
+      active: null,
+      available: false,
+      actionLabel: "Kullanılamıyor",
+    },
+    {
+      kind: "bank_transfer",
+      configured: null,
+      active: null,
+      available: false,
+      actionLabel: "Kullanılamıyor",
+    },
+  ]);
+});
+
+test("duplicate built-in rows fail closed independently of durable row order", () => {
+  const active = builtInMethod(
+    "40000000-0000-4000-8000-000000000021",
+    "cash_on_delivery",
+    "active",
+    0,
+  );
+  const disabled = builtInMethod(
+    "40000000-0000-4000-8000-000000000022",
+    "cash_on_delivery",
+    "disabled",
+    1,
+  );
+
+  for (const methods of [[active, disabled], [disabled, active]]) {
+    const view = buildPaymentSettingsViewModel(
+      PAYMENT_PROVIDER_CATALOG,
+      [],
+      [],
+      methods,
+      "",
+      noFilters,
+    );
+    const cash = view.builtInCards.find(({ kind }) => kind === "cash_on_delivery");
+    assert.deepEqual(cash, {
+      kind: "cash_on_delivery",
+      label: "Kapıda ödeme",
+      description: "Müşteriler siparişlerini teslim alırken ödeme yapar.",
+      configured: null,
+      active: null,
+      available: false,
+      actionLabel: "Kullanılamıyor",
+    });
+    assert.deepEqual(
+      view.methods.filter(({ kind }) => kind === "cash_on_delivery")
+        .map(({ builtInEditable }) => builtInEditable),
+      [false, false],
+    );
+  }
 });
 
 test("payment settings model filters category, mode, readiness and environment together", () => {

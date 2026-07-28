@@ -147,6 +147,8 @@ type DrawerNode = {
   children: readonly (DrawerNode | string)[];
   target: {
     focusCount: number;
+    isConnected: boolean;
+    tagName: string;
     focus(): void;
     querySelectorAll(): readonly DrawerNode["target"][];
   };
@@ -257,6 +259,8 @@ function mountDrawer(
   let children: readonly (DrawerNode | string)[] = [];
   const target = {
     focusCount: 0,
+    isConnected: true,
+    tagName: node.type.toUpperCase(),
     focus() {
       if (node.props.disabled === true) return;
       this.focusCount += 1;
@@ -297,6 +301,8 @@ async function compileBuiltInDrawer(input: Readonly<{
   method: MerchantPaymentMethod | null;
   canManage: boolean;
   busy: boolean;
+  mutationAvailable?: boolean;
+  submitError?: string | null;
   onSubmit(value: unknown): void | Promise<void>;
   onClose(): void;
 }>) {
@@ -433,11 +439,30 @@ async function compilePaymentCatalogDialog(input: Readonly<Record<string, unknow
 }
 
 async function compilePaymentConsole(input: Readonly<{
-  methods: readonly MerchantPaymentMethod[];
-  reloadedMethods: readonly MerchantPaymentMethod[];
+  methods: readonly MerchantPaymentMethod[] | "error";
+  reloadedMethods?: readonly MerchantPaymentMethod[] | "error";
+  catalogError?: boolean;
+  deferReload?: boolean;
+  saveError?: "conflict" | "ambiguous";
+  savedVersion?: number;
 }>) {
+  const [consoleSource, catalogSource] = await Promise.all([
+    source("components/settings/payment/PaymentSettingsConsole.tsx"),
+    source("components/settings/payment/PaymentProviderCatalogDialog.tsx"),
+  ]);
   const output = ts.transpileModule(
-    await source("components/settings/payment/PaymentSettingsConsole.tsx"),
+    consoleSource,
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    },
+  ).outputText;
+  const catalogOutput = ts.transpileModule(
+    catalogSource,
     {
       compilerOptions: {
         esModuleInterop: true,
@@ -471,35 +496,52 @@ async function compilePaymentConsole(input: Readonly<{
     history: { replaceState() {} },
   };
   const events: string[] = [];
+  const mutations: unknown[] = [];
+  const animationFrames: Array<() => void> = [];
   let listCalls = 0;
   let releaseReload: (() => void) | null = null;
   const reloadGate = new Promise<void>((resolve) => { releaseReload = resolve; });
   const api = Object.freeze({
-    async catalog() { return PAYMENT_PROVIDER_CATALOG; },
+    async catalog() {
+      if (input.catalogError) throw new Error("provider_catalog_unavailable");
+      return PAYMENT_PROVIDER_CATALOG;
+    },
     async list() {
       listCalls += 1;
       events.push(listCalls === 1 ? "list:initial" : "list:reload");
-      if (listCalls > 1) await reloadGate;
-      return listCalls === 1 ? input.methods : input.reloadedMethods;
+      if (listCalls > 1 && input.deferReload !== false) await reloadGate;
+      const result = listCalls === 1 ? input.methods : input.reloadedMethods ?? input.methods;
+      if (result === "error") throw new Error("payment_methods_unavailable");
+      return result;
     },
     async save(command: Readonly<{ methodId: string; expectedVersion: number }>) {
       events.push("save");
-      const existing = input.methods.find(({ id }) => id === command.methodId);
+      mutations.push(Object.freeze({ operation: "save", command }));
+      if (input.saveError) {
+        throw new paymentClient.PaymentMethodApiError(
+          input.saveError === "conflict" ? "version_conflict" : "unavailable",
+          input.saveError === "conflict" ? 409 : 503,
+        );
+      }
+      const existing = input.methods === "error"
+        ? undefined
+        : input.methods.find(({ id }) => id === command.methodId);
       return Object.freeze({
         id: command.methodId,
         state: existing?.state ?? "disabled",
-        position: existing?.position ?? input.methods.length,
-        version: command.expectedVersion + 1,
+        position: existing?.position ?? (input.methods === "error" ? 0 : input.methods.length),
+        version: input.savedVersion ?? command.expectedVersion + 1,
         updatedAt: NOW,
         replayed: false,
       });
     },
     async setState(methodId: string, command: Readonly<{ state: MerchantPaymentMethod["state"]; expectedVersion: number }>) {
       events.push("set-state");
+      mutations.push(Object.freeze({ operation: "set-state", methodId, command }));
       return Object.freeze({
         id: methodId,
         state: command.state,
-        position: input.methods.length,
+        position: input.methods === "error" ? 0 : input.methods.length,
         version: command.expectedVersion + 1,
         updatedAt: NOW,
         replayed: false,
@@ -507,6 +549,22 @@ async function compilePaymentConsole(input: Readonly<{
     },
     async reorder() { throw new Error("reorder_not_expected"); },
   });
+  const catalogCompiled: { exports: Record<string, unknown> } = { exports: {} };
+  const requireCatalogModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return hooks.runtime;
+    if (specifier === "next/image") return { __esModule: true, default: Image };
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+    if (specifier === "./payment-settings.module.css") return styles;
+    throw new Error(`unexpected_nested_payment_catalog_import:${specifier}`);
+  };
+  Function(
+    "require",
+    "module",
+    "exports",
+    "document",
+    catalogOutput,
+  )(requireCatalogModule, catalogCompiled, catalogCompiled.exports, documentState);
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   class TestIyzicoError extends Error {}
   const requireModule = (specifier: string): unknown => {
@@ -549,7 +607,7 @@ async function compilePaymentConsole(input: Readonly<{
       return { PaymentMethodOrderDialog: Host("order-dialog") };
     }
     if (specifier === "./PaymentProviderCatalogDialog") {
-      return { PaymentProviderCatalogDialog: Host("catalog-dialog") };
+      return catalogCompiled.exports;
     }
     if (specifier === "./PaymentProviderConnectionDrawer") {
       return { PaymentProviderConnectionDrawer: Host("connection-drawer") };
@@ -571,7 +629,7 @@ async function compilePaymentConsole(input: Readonly<{
     compiled.exports,
     documentState,
     windowState,
-    (callback: () => void) => callback(),
+    (callback: () => void) => { animationFrames.push(callback); },
   );
   const Console = compiled.exports.PaymentSettingsConsole as
     (props: Readonly<Record<string, unknown>>) => ReactNode;
@@ -587,6 +645,8 @@ async function compilePaymentConsole(input: Readonly<{
   };
   return {
     events,
+    mutations,
+    documentState,
     render,
     nodes() {
       return drawerNodes(mounted);
@@ -597,6 +657,9 @@ async function compilePaymentConsole(input: Readonly<{
     },
     releaseReload() {
       releaseReload?.();
+    },
+    flushAnimationFrames() {
+      for (const callback of animationFrames.splice(0)) callback();
     },
   };
 }
@@ -625,6 +688,7 @@ test("mounted payment catalog keeps two built-in methods before provider filters
         description: "Müşteriler siparişlerini teslim alırken ödeme yapar.",
         configured: true,
         active: true,
+        available: true,
         actionLabel: "Yapılandırıldı",
       }),
       Object.freeze({
@@ -633,6 +697,7 @@ test("mounted payment catalog keeps two built-in methods before provider filters
         description: "Müşteriler banka hesabınıza havale veya EFT ile ödeme yapar.",
         configured: false,
         active: false,
+        available: true,
         actionLabel: "Ekle",
       }),
     ]),
@@ -646,6 +711,7 @@ test("mounted payment catalog keeps two built-in methods before provider filters
     }),
     phase: "error",
     canManage: true,
+    mutationAvailable: true,
     busy: false,
     openerRef: { current: null },
     onQuery() {},
@@ -691,23 +757,50 @@ test("mounted payment console opens built-in create and edit drawers and reloads
   assert.ok(providerRow);
   assert.equal(drawerText(cashRow).includes("Düzenle"), true);
   assert.equal(drawerText(providerRow).includes("Düzenle"), false);
+  const edit = drawerNodes(cashRow.children).find((node) =>
+    node.type === "button" && drawerText(node) === "Düzenle");
+  assert.ok(edit);
+  console.documentState.activeElement = edit.target;
+  (edit.props.onClick as (event: unknown) => void)({ currentTarget: edit.target });
+  console.render();
+  let drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer);
+  assert.equal(drawer.props.method, cash);
+  (drawer.props.onClose as () => void)();
+  console.render();
+  console.flushAnimationFrames();
+  assert.equal(edit.target.focusCount, 1, "closing an edit drawer must restore its live row control");
 
-  const add = console.nodes().find((node) =>
+  let add = console.nodes().find((node) =>
     node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
   assert.ok(add);
   (add.props.onClick as () => void)();
   console.render();
-  const catalog = console.nodes().find((node) => node.type === "catalog-dialog");
+  const catalog = console.nodes().find((node) =>
+    node.props.role === "dialog" && node.props["aria-labelledby"] === "payment-catalog-title");
   assert.ok(catalog);
-  assert.equal((catalog.props.builtInCards as readonly unknown[]).length, 2);
-  (catalog.props.onBuiltInSelect as (kind: BuiltInPaymentMethodKind) => void)("bank_transfer");
+  const bankButton = drawerNodes(catalog.children).find((node) =>
+    node.type === "button" && drawerText(node) === "Ekle");
+  assert.ok(bankButton);
+  console.documentState.activeElement = bankButton.target;
+  (bankButton.props.onClick as () => void)();
   console.render();
-  let drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  drawer = console.nodes().find((node) => node.type === "built-in-drawer");
   assert.ok(drawer);
   assert.equal(drawer.props.kind, "bank_transfer");
   assert.equal(drawer.props.method, null);
+  (drawer.props.onClose as () => void)();
+  console.render();
+  console.flushAnimationFrames();
+  assert.equal(bankButton.target.focusCount, 1, "catalog drawer cancel must restore its built-in button");
 
-  (catalog.props.onBuiltInSelect as (kind: BuiltInPaymentMethodKind) => void)("cash_on_delivery");
+  const reloadedCashRow = console.nodes().find((node) =>
+    node.type === "tr" && drawerText(node).includes(cash.label));
+  assert.ok(reloadedCashRow);
+  const reloadedEdit = drawerNodes(reloadedCashRow.children).find((node) =>
+    node.type === "button" && drawerText(node) === "Düzenle");
+  assert.ok(reloadedEdit);
+  (reloadedEdit.props.onClick as (event: unknown) => void)({ currentTarget: reloadedEdit.target });
   console.render();
   drawer = console.nodes().find((node) => node.type === "built-in-drawer");
   assert.ok(drawer);
@@ -732,8 +825,196 @@ test("mounted payment console opens built-in create and edit drawers and reloads
   console.releaseReload();
   await pending;
   console.render();
+  console.flushAnimationFrames();
   assert.match(console.render().map(drawerText).join(""), /Yerleşik ödeme yöntemi güncellendi/);
   assert.equal(console.nodes().some((node) => node.type === "built-in-drawer"), false);
+  assert.equal(reloadedEdit.target.focusCount, 1, "successful edit must restore its initiating control");
+});
+
+test("mounted console separates provider failure from unknown payment-method authority", async () => {
+  const providerFailure = await compilePaymentConsole({
+    methods: Object.freeze([]),
+    catalogError: true,
+  });
+  providerFailure.render();
+  await providerFailure.settle();
+  const providerAdd = providerFailure.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
+  assert.ok(providerAdd);
+  assert.notEqual(providerAdd.props.disabled, true);
+  (providerAdd.props.onClick as () => void)();
+  providerFailure.render();
+  const providerBuiltIns = providerFailure.nodes().filter((node) =>
+    node.type === "button" && drawerText(node) === "Ekle");
+  assert.equal(providerBuiltIns.length, 2);
+  assert.equal(providerBuiltIns.every((button) => button.props.disabled !== true), true);
+
+  const methodFailure = await compilePaymentConsole({ methods: "error" });
+  methodFailure.render();
+  await methodFailure.settle();
+  const methodAdd = methodFailure.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
+  assert.ok(methodAdd);
+  (methodAdd.props.onClick as () => void)();
+  methodFailure.render();
+  const unavailable = methodFailure.nodes().filter((node) =>
+    node.type === "button" && drawerText(node) === "Kullanılamıyor");
+  assert.equal(unavailable.length, 2);
+  assert.equal(unavailable.every((button) => button.props.disabled === true), true);
+  assert.equal(methodFailure.nodes().some((node) => node.type === "built-in-drawer"), false);
+});
+
+test("mounted console removes duplicate built-in edit paths without crashing", async () => {
+  const active = method("40000000-0000-4000-8000-000000000031", 0);
+  const disabled = Object.freeze({
+    ...method("40000000-0000-4000-8000-000000000032", 1),
+    state: "disabled" as const,
+  });
+  const console = await compilePaymentConsole({ methods: Object.freeze([active, disabled]) });
+  console.render();
+  await console.settle();
+
+  const cashRows = console.nodes().filter((node) =>
+    node.type === "tr" && (drawerText(node).includes(active.label) || drawerText(node).includes(disabled.label)));
+  assert.equal(cashRows.length, 2);
+  assert.equal(cashRows.every((row) => !drawerText(row).includes("Düzenle")), true);
+  const add = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
+  assert.ok(add);
+  (add.props.onClick as () => void)();
+  console.render();
+  const unavailable = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Kullanılamıyor");
+  assert.ok(unavailable);
+  assert.equal(unavailable.props.disabled, true);
+});
+
+test("mounted console retains edit identity and withholds success when canonical method reload fails", async () => {
+  const cash = method("40000000-0000-4000-8000-000000000041", 0);
+  const console = await compilePaymentConsole({
+    methods: Object.freeze([cash]),
+    reloadedMethods: "error",
+    deferReload: false,
+  });
+  console.render();
+  await console.settle();
+  const row = console.nodes().find((node) => node.type === "tr" && drawerText(node).includes(cash.label));
+  assert.ok(row);
+  const edit = drawerNodes(row.children).find((node) =>
+    node.type === "button" && drawerText(node) === "Düzenle");
+  assert.ok(edit);
+  (edit.props.onClick as (event: unknown) => void)({ currentTarget: edit.target });
+  console.render();
+  let drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer);
+  await (drawer.props.onSubmit as (value: unknown) => Promise<void>)(Object.freeze({
+    kind: "cash_on_delivery",
+    method: cash,
+    methodId: cash.id,
+    label: "Teslimatta ödeme",
+    config: Object.freeze({ instructions: "Teslimatta ödeyin." }),
+  }));
+  console.render();
+
+  drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer, "reload failure must retain the editor and its input");
+  assert.equal(drawer.props.method, cash);
+  assert.equal(drawer.props.mutationAvailable, false);
+  assert.match(String(drawer.props.submitError), /Güncel ödeme yöntemleri yüklenemedi.*yeniden yüklemeyi deneyin/);
+  assert.doesNotMatch(console.render().map(drawerText).join(""), /Yerleşik ödeme yöntemi güncellendi/);
+});
+
+test("mounted console owns conflict and ambiguous recovery errors inside the open drawer", async () => {
+  for (const fixture of [
+    { saveError: "conflict" as const, message: /başka bir işlem tarafından değiştirildi.*yeniden yüklen/ },
+    { saveError: "ambiguous" as const, message: /sonucu doğrulanamadı.*yeniden yüklen/ },
+  ]) {
+    const cash = method(
+      fixture.saveError === "conflict"
+        ? "40000000-0000-4000-8000-000000000051"
+        : "40000000-0000-4000-8000-000000000052",
+      0,
+    );
+    const console = await compilePaymentConsole({
+      methods: Object.freeze([cash]),
+      reloadedMethods: Object.freeze([cash]),
+      deferReload: false,
+      saveError: fixture.saveError,
+    });
+    console.render();
+    await console.settle();
+    const row = console.nodes().find((node) => node.type === "tr" && drawerText(node).includes(cash.label));
+    assert.ok(row);
+    const edit = drawerNodes(row.children).find((node) =>
+      node.type === "button" && drawerText(node) === "Düzenle");
+    assert.ok(edit);
+    (edit.props.onClick as (event: unknown) => void)({ currentTarget: edit.target });
+    console.render();
+    let drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+    assert.ok(drawer);
+    await (drawer.props.onSubmit as (value: unknown) => Promise<void>)(Object.freeze({
+      kind: "cash_on_delivery",
+      method: cash,
+      methodId: cash.id,
+      label: cash.label,
+      config: Object.freeze({ instructions: "Teslimatta ödeyin." }),
+    }));
+    console.render();
+    drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+    assert.ok(drawer);
+    assert.equal(drawer.props.mutationAvailable, true);
+    assert.match(String(drawer.props.submitError), fixture.message);
+  }
+});
+
+test("mounted create activates the exact version returned by save before canonical success", async () => {
+  const created = Object.freeze({
+    ...method("40000000-0000-4000-8000-000000000061", 0),
+    config: Object.freeze({ instructions: "Teslimatta ödeyin." }),
+    version: 8,
+  });
+  const console = await compilePaymentConsole({
+    methods: Object.freeze([]),
+    reloadedMethods: Object.freeze([created]),
+    deferReload: false,
+    savedVersion: 7,
+  });
+  console.render();
+  await console.settle();
+  const add = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
+  assert.ok(add);
+  (add.props.onClick as () => void)();
+  console.render();
+  const cashCard = console.nodes().find((node) =>
+    node.type === "article" && drawerText(node).includes("Kapıda ödeme"));
+  assert.ok(cashCard);
+  const cashButton = drawerNodes(cashCard.children).find((node) =>
+    node.type === "button" && drawerText(node) === "Ekle");
+  assert.ok(cashButton);
+  console.documentState.activeElement = cashButton.target;
+  (cashButton.props.onClick as () => void)();
+  console.render();
+  const drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer);
+  await (drawer.props.onSubmit as (value: unknown) => Promise<void>)(Object.freeze({
+    kind: "cash_on_delivery",
+    method: null,
+    methodId: created.id,
+    label: created.label,
+    config: created.config,
+  }));
+  console.render();
+  console.flushAnimationFrames();
+
+  assert.deepEqual(console.mutations[1], Object.freeze({
+    operation: "set-state",
+    methodId: created.id,
+    command: Object.freeze({ expectedVersion: 7, state: "active", emergencyReason: null }),
+  }));
+  assert.match(console.render().map(drawerText).join(""), /kaydedildi ve etkinleştirildi/);
+  assert.equal(console.nodes().some((node) => node.type === "built-in-drawer"), false);
+  assert.equal(cashButton.target.focusCount, 1);
 });
 
 test("payment console contains the ikas-like Celebix payment structure without foreign rails", async () => {
@@ -1132,6 +1413,31 @@ test("built-in drawer disables mutations and focuses an enabled close fallback f
   assert.equal(close.target.focusCount, 1);
   (close.props.onClick as () => void)();
   assert.equal(closes, 1);
+});
+
+test("built-in drawer keeps editable input visible while an unavailable submit error is announced", async () => {
+  const existing = method("51000000-0000-4000-8000-000000000081", 0);
+  const drawer = await compileBuiltInDrawer({
+    kind: "cash_on_delivery",
+    method: existing,
+    canManage: true,
+    busy: false,
+    mutationAvailable: false,
+    submitError: "Güncel ödeme yöntemleri yüklenemedi. Pencereyi kapatıp yeniden yüklemeyi deneyin.",
+    onSubmit() {},
+    onClose() {},
+  });
+
+  const tree = drawer.render();
+  const alert = drawer.nodes().find((node) => node.props.role === "alert");
+  const label = drawer.nodes().find((node) => node.type === "input" && node.props.name === "label");
+  const submit = drawer.nodes().find((node) => node.type === "button" && node.props.type === "submit");
+  assert.ok(alert);
+  assert.ok(label);
+  assert.ok(submit);
+  assert.match(tree.map(drawerText).join(""), /Güncel ödeme yöntemleri yüklenemedi.*yeniden yüklemeyi deneyin/);
+  assert.notEqual(label.props.disabled, true, "recovery error must preserve editable input");
+  assert.equal(submit.props.disabled, true, "unknown canonical state must block replay");
 });
 
 test("built-in drawer associates and focuses each actual invalid config field", async () => {
