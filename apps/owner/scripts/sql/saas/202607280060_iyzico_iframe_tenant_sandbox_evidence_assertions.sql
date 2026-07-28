@@ -11,7 +11,80 @@ DECLARE owner_oid oid:='celebix_saas_owner'::regrole;
   expected_hash text;
   expected_volatility "char";
   routine_oid oid;
+  upstream_preflight_oid oid;
+  immutability_guard_oid oid;
+  index_oid oid;
+  store_attribute smallint;
 BEGIN
+  upstream_preflight_oid:=pg_catalog.to_regprocedure(
+    'saas.payment_method_single_active_provider_preflight()'
+  );
+  index_oid:=pg_catalog.to_regclass('saas.payment_methods_one_active_provider_per_store_idx');
+  SELECT attribute.attnum INTO store_attribute
+  FROM pg_catalog.pg_attribute AS attribute
+  WHERE attribute.attrelid='saas.payment_methods'::regclass
+    AND attribute.attname='store_id' AND attribute.attnum>0 AND NOT attribute.attisdropped;
+  IF upstream_preflight_oid IS NULL OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_proc AS procedure
+    WHERE procedure.oid=upstream_preflight_oid AND procedure.proowner=owner_oid
+      AND procedure.prokind='f' AND procedure.prosecdef AND NOT procedure.proleakproof
+      AND NOT procedure.proisstrict AND procedure.proparallel='u' AND procedure.provolatile='s'
+      AND procedure.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
+      AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+      AND pg_catalog.md5(procedure.prosrc)='4d2e4b456b88573c83de9bd47ce05f62'
+  ) OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc AS procedure
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+      COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+    ) AS privilege
+    WHERE procedure.oid=upstream_preflight_oid)<>3
+    OR EXISTS(
+      SELECT 1 FROM pg_catalog.pg_proc AS procedure
+      CROSS JOIN LATERAL pg_catalog.aclexplode(
+        COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+      ) AS privilege
+      WHERE procedure.oid=upstream_preflight_oid AND (
+        privilege.privilege_type<>'EXECUTE' OR privilege.is_grantable
+        OR privilege.grantor<>owner_oid OR privilege.grantee NOT IN(owner_oid,app_oid,workflow_oid)
+      )
+    ) OR index_oid IS NULL OR store_attribute IS NULL OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_index AS index
+      JOIN pg_catalog.pg_class AS relation ON relation.oid=index.indexrelid
+      WHERE index.indexrelid=index_oid AND index.indrelid='saas.payment_methods'::regclass
+        AND relation.relowner=owner_oid AND relation.relkind='i'
+        AND index.indisunique AND index.indisvalid AND index.indisready
+        AND NOT index.indisprimary AND NOT index.indisexclusion
+        AND index.indnkeyatts=1 AND index.indnatts=1 AND index.indkey[0]=store_attribute
+        AND pg_catalog.pg_get_expr(index.indpred,index.indrelid)=
+          '((kind = ''provider''::text) AND (state = ''active''::text))'
+    )
+  THEN RAISE EXCEPTION 'IYZICO_IFRAME_TENANT_EVIDENCE_ANCESTOR_BOUNDARY_INVALID'; END IF;
+
+  immutability_guard_oid:=pg_catalog.to_regprocedure('saas.guard_merchant_admin_immutable()');
+  IF immutability_guard_oid IS NULL OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_proc AS procedure
+    WHERE procedure.oid=immutability_guard_oid AND procedure.proowner=owner_oid
+      AND procedure.prokind='f' AND NOT procedure.prosecdef AND NOT procedure.proleakproof
+      AND NOT procedure.proisstrict AND procedure.proparallel='u' AND procedure.provolatile='v'
+      AND procedure.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
+      AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+      AND pg_catalog.md5(procedure.prosrc)='2713924292a3929427f25dc8cbc90a3c'
+  ) OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc AS procedure
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+      COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+    ) AS privilege
+    WHERE procedure.oid=immutability_guard_oid)<>1
+    OR EXISTS(
+      SELECT 1 FROM pg_catalog.pg_proc AS procedure
+      CROSS JOIN LATERAL pg_catalog.aclexplode(
+        COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+      ) AS privilege
+      WHERE procedure.oid=immutability_guard_oid AND (
+        privilege.privilege_type<>'EXECUTE' OR privilege.is_grantable
+        OR privilege.grantor<>owner_oid OR privilege.grantee<>owner_oid
+      )
+    )
+  THEN RAISE EXCEPTION 'IYZICO_IFRAME_TENANT_EVIDENCE_IMMUTABILITY_GUARD_INVALID'; END IF;
+
   FOR routine_name,expected_hash,expected_volatility IN SELECT * FROM (VALUES
     ('iyzico_iframe_tenant_evidence_run_current(uuid)',
       '5fe4d9440ef1515177b9dc1b6a84ab6d','v'::"char"),
@@ -32,7 +105,7 @@ BEGIN
     ('iyzico_iframe_tenant_evidence_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,bigint)',
       '27b9164b08b7ea218858deda78f60f2a','v'::"char"),
     ('iyzico_iframe_tenant_evidence_preflight()',
-      '0e35038de18265ce39163ca035a2286e','s'::"char")
+      'a37ea11ba2c517df0af952728ab2c7fb','s'::"char")
   ) AS expected(signature,body_hash,volatility) LOOP
     routine_oid:=pg_catalog.to_regprocedure('saas.'||routine_name);
     IF routine_oid IS NULL OR NOT EXISTS(

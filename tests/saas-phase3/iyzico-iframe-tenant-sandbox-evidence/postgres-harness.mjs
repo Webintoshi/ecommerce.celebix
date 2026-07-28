@@ -14,6 +14,8 @@ const INSERT_DB = "iyzico_tenant_evidence_insert";
 const ACTIVE_GUARD_DB = "iyzico_tenant_evidence_active_guard";
 const PREFLIGHT_DB = "iyzico_tenant_evidence_preflight";
 const ASSERT_DRIFT_DB = "iyzico_tenant_evidence_assert_drift";
+const ANCESTOR_DRIFT_DB = "iyzico_tenant_evidence_ancestor_drift";
+const IMMUTABILITY_DRIFT_DB = "iyzico_tenant_evidence_immutability_drift";
 const MATRIX_HARDENING_DB = "iyzico_tenant_evidence_matrix_hardening";
 const ROTATION_DB = "iyzico_tenant_evidence_rotation";
 const ROLLBACK_DB = "iyzico_tenant_evidence_rollback";
@@ -44,7 +46,7 @@ const RUN = "60000000-0000-4000-8000-000000000060";
 const LEASE = "61000000-0000-4000-8000-000000000060";
 const ATTESTATION = "62000000-0000-4000-8000-000000000060";
 const WORKER = "iyzico-evidence-worker-1";
-const TOTAL = 26;
+const TOTAL = 28;
 let completed = 0;
 
 function bin(name) {
@@ -205,6 +207,8 @@ async function main() {
     sql(box, `CREATE DATABASE ${ACTIVE_GUARD_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${PREFLIGHT_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${ASSERT_DRIFT_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `CREATE DATABASE ${ANCESTOR_DRIFT_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `CREATE DATABASE ${IMMUTABILITY_DRIFT_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${MATRIX_HARDENING_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${ROTATION_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
@@ -228,6 +232,8 @@ async function main() {
     apply(box, UP, ACTIVE_GUARD_DB);
     apply(box, UP, PREFLIGHT_DB);
     apply(box, UP, ASSERT_DRIFT_DB);
+    apply(box, UP, ANCESTOR_DRIFT_DB);
+    apply(box, UP, IMMUTABILITY_DRIFT_DB);
     apply(box, UP, MATRIX_HARDENING_DB);
 
     pass("060 upgrade removes every unattested executable or active Iyzico grandfather", () => {
@@ -318,6 +324,37 @@ async function main() {
         DROP CONSTRAINT iyzico_iframe_tenant_evidence_events_pkey;`), "f");
       assert.equal(asRole(box, "celebix_saas_app",
         `SELECT saas.iyzico_iframe_tenant_evidence_preflight()`, ACTIVE_GUARD_DB).stdout.trim(), "f");
+    });
+
+    pass("preflight and assertions reject a RETURN true 059 preflight with a same-name nonunique index", () => {
+      sql(box, `SET ROLE celebix_saas_owner;
+        CREATE OR REPLACE FUNCTION saas.payment_method_single_active_provider_preflight()
+        RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+        SET search_path=pg_catalog,saas AS $f$ BEGIN RETURN true; END $f$;
+        DROP INDEX saas.payment_methods_one_active_provider_per_store_idx;
+        CREATE INDEX payment_methods_one_active_provider_per_store_idx
+          ON saas.payment_methods(store_id)
+          WHERE kind='provider' AND state='active';`, ANCESTOR_DRIFT_DB);
+      assert.equal(asRole(box, "celebix_saas_app",
+        `SELECT saas.iyzico_iframe_tenant_evidence_preflight()`, ANCESTOR_DRIFT_DB).stdout.trim(), "f");
+      const asserted = apply(box, ASSERTIONS, ANCESTOR_DRIFT_DB, true);
+      assert.notEqual(asserted.status, 0);
+      assert.match(asserted.stderr, /ANCESTOR_BOUNDARY_INVALID/);
+    });
+
+    pass("preflight and assertions reject a no-op shared immutability guard", () => {
+      sql(box, `SET ROLE celebix_saas_owner;
+        CREATE OR REPLACE FUNCTION saas.guard_merchant_admin_immutable()
+        RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas
+        AS $f$ BEGIN
+          IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+          RETURN NEW;
+        END $f$;`, IMMUTABILITY_DRIFT_DB);
+      assert.equal(asRole(box, "celebix_saas_app",
+        `SELECT saas.iyzico_iframe_tenant_evidence_preflight()`, IMMUTABILITY_DRIFT_DB).stdout.trim(), "f");
+      const asserted = apply(box, ASSERTIONS, IMMUTABILITY_DRIFT_DB, true);
+      assert.notEqual(asserted.status, 0);
+      assert.match(asserted.stderr, /IMMUTABILITY_GUARD_INVALID/);
     });
 
     pass("independent assertions reject a RETURN true replacement of preflight itself", () => {
