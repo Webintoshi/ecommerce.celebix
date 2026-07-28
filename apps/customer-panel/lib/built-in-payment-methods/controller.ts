@@ -31,9 +31,22 @@ type BuiltInPaymentMethodResult<Kind extends keyof typeof RESULT_MESSAGES> = Rea
   message: (typeof RESULT_MESSAGES)[Kind];
 }>;
 
-export type BuiltInPaymentMethodSaveResult = {
-  [Kind in keyof typeof RESULT_MESSAGES]: BuiltInPaymentMethodResult<Kind>;
-}[keyof typeof RESULT_MESSAGES];
+type BuiltInPaymentMethodConflictResult = Readonly<
+  BuiltInPaymentMethodResult<"conflict"> & {
+    reason: PaymentMethodApiError["code"];
+  }
+>;
+
+type BuiltInPaymentMethodNonConflictKind = Exclude<
+  keyof typeof RESULT_MESSAGES,
+  "conflict"
+>;
+
+export type BuiltInPaymentMethodSaveResult =
+  | {
+    [Kind in BuiltInPaymentMethodNonConflictKind]: BuiltInPaymentMethodResult<Kind>;
+  }[BuiltInPaymentMethodNonConflictKind]
+  | BuiltInPaymentMethodConflictResult;
 
 export type BuiltInPaymentMethodApi = Readonly<{
   save(input: SavePaymentMethodCommand): Promise<PaymentMethodMutationResult>;
@@ -74,7 +87,10 @@ function failed(error: unknown, methodId: string): BuiltInPaymentMethodSaveResul
   if (!(error instanceof PaymentMethodApiError)) throw error;
   return error.code === "unavailable"
     ? result("ambiguous", methodId)
-    : result("conflict", methodId);
+    : Object.freeze({
+      ...result("conflict", methodId),
+      reason: error.code,
+    });
 }
 
 export function selectBuiltInPaymentMethod(

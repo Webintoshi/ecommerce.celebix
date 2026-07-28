@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import { Window } from "happy-dom";
 import * as React from "react";
-import { createElement, type ReactNode } from "react";
+import { act, createElement, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 
@@ -401,6 +403,79 @@ async function compileBuiltInDrawer(input: Readonly<{
   };
 }
 
+async function compileRealDomBuiltInDrawer() {
+  const output = ts.transpileModule(
+    await source("components/settings/payment/BuiltInPaymentMethodDrawer.tsx"),
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    },
+  ).outputText;
+  const contracts = await import("@celebix/saas-contracts");
+  const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+  const styles = new Proxy({}, {
+    get: (_target, property) =>
+      property === "__esModule" ? true : property === "default" ? styles : String(property),
+  });
+  const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return React;
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+    if (specifier === "@celebix/saas-contracts") return contracts;
+    if (specifier === "./payment-settings.module.css") return styles;
+    throw new Error(`unexpected_real_dom_built_in_drawer_import:${specifier}`);
+  };
+  Function("require", "module", "exports", output)(
+    requireModule,
+    compiled,
+    compiled.exports,
+  );
+  const Drawer = compiled.exports.BuiltInPaymentMethodDrawer;
+  assert.equal(typeof Drawer, "function");
+  return Drawer as (props: Readonly<Record<string, unknown>>) => ReactNode;
+}
+
+function installDomGlobals(window: Window): () => void {
+  const replacements = {
+    window,
+    document: window.document,
+    navigator: window.navigator,
+    Node: window.Node,
+    Element: window.Element,
+    HTMLElement: window.HTMLElement,
+    HTMLInputElement: window.HTMLInputElement,
+    HTMLTextAreaElement: window.HTMLTextAreaElement,
+    Event: window.Event,
+    MouseEvent: window.MouseEvent,
+    FormData: window.FormData,
+    MutationObserver: window.MutationObserver,
+    getComputedStyle: window.getComputedStyle.bind(window),
+    requestAnimationFrame: window.requestAnimationFrame.bind(window),
+    cancelAnimationFrame: window.cancelAnimationFrame.bind(window),
+    IS_REACT_ACT_ENVIRONMENT: true,
+  } as const;
+  const originals = new Map<PropertyKey, PropertyDescriptor | undefined>();
+  for (const [name, value] of Object.entries(replacements)) {
+    originals.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value,
+    });
+  }
+  return () => {
+    for (const [name, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else Reflect.deleteProperty(globalThis, name);
+    }
+  };
+}
+
 async function compilePaymentCatalogDialog(input: Readonly<Record<string, unknown>>) {
   const output = ts.transpileModule(
     await source("components/settings/payment/PaymentProviderCatalogDialog.tsx"),
@@ -546,7 +621,7 @@ async function compilePaymentConsole(input: Readonly<{
   profiles?: readonly MerchantProviderProfile[];
   catalogError?: boolean;
   deferReload?: boolean;
-  saveError?: "conflict" | "ambiguous";
+  saveError?: "conflict" | "duplicate" | "ambiguous";
   savedVersion?: number;
 }>) {
   const [consoleSource, catalogSource] = await Promise.all([
@@ -622,8 +697,10 @@ async function compilePaymentConsole(input: Readonly<{
       mutations.push(Object.freeze({ operation: "save", command }));
       if (input.saveError) {
         throw new paymentClient.PaymentMethodApiError(
-          input.saveError === "conflict" ? "version_conflict" : "unavailable",
-          input.saveError === "conflict" ? 409 : 503,
+          input.saveError === "conflict"
+            ? "version_conflict"
+            : input.saveError === "duplicate" ? "method_already_exists" : "unavailable",
+          input.saveError === "ambiguous" ? 503 : 409,
         );
       }
       const existing = input.methods === "error"
@@ -1187,6 +1264,68 @@ test("mounted console owns conflict and ambiguous recovery errors inside the ope
   }
 });
 
+test("mounted create duplicate recovery reopens the one canonical kind independent of its attempted UUID", async () => {
+  const attemptedId = "40000000-0000-4000-8000-000000000053";
+  const canonical = Object.freeze({
+    ...method("40000000-0000-4000-8000-000000000054", 0),
+    label: "Mağazadaki kapıda ödeme",
+    config: Object.freeze({ instructions: "Güncel teslimat talimatı." }),
+    version: 7,
+  });
+  const console = await compilePaymentConsole({
+    methods: Object.freeze([]),
+    reloadedMethods: Object.freeze([canonical]),
+    deferReload: false,
+    saveError: "duplicate",
+  });
+  console.render();
+  await console.settle();
+
+  const add = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
+  assert.ok(add);
+  (add.props.onClick as () => void)();
+  console.render();
+  const cashCard = console.nodes().find((node) =>
+    node.type === "article" && drawerText(node).includes("Kapıda ödeme"));
+  assert.ok(cashCard);
+  const cashButton = drawerNodes(cashCard.children).find((node) =>
+    node.type === "button" && drawerText(node) === "Ekle");
+  assert.ok(cashButton);
+  (cashButton.props.onClick as () => void)();
+  console.render();
+
+  let drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer);
+  assert.equal(drawer.props.method, null);
+  await (drawer.props.onSubmit as (value: unknown) => Promise<void>)(Object.freeze({
+    kind: "cash_on_delivery",
+    method: null,
+    methodId: attemptedId,
+    label: "Yeni kapıda ödeme",
+    config: Object.freeze({ instructions: "Gönderilmemesi gereken eski talimat." }),
+  }));
+  console.render();
+
+  drawer = console.nodes().find((node) => node.type === "built-in-drawer");
+  assert.ok(drawer);
+  assert.equal(drawer.props.method, canonical);
+  assert.equal(drawer.props.mutationAvailable, true);
+  assert.match(String(drawer.props.submitError), /zaten mevcut|başka bir işlem.*yeniden yüklendi/i);
+  assert.deepEqual(console.mutations, [Object.freeze({
+    operation: "save",
+    command: Object.freeze({
+      methodId: attemptedId,
+      expectedVersion: 0,
+      kind: "cash_on_delivery",
+      profileId: null,
+      providerCode: null,
+      label: "Yeni kapıda ödeme",
+      config: Object.freeze({ instructions: "Gönderilmemesi gereken eski talimat." }),
+    }),
+  })]);
+});
+
 test("mounted create activates the exact version returned by save before canonical success", async () => {
   const created = Object.freeze({
     ...method("40000000-0000-4000-8000-000000000061", 0),
@@ -1658,6 +1797,149 @@ test("built-in drawer keeps editable input visible while an unavailable submit e
   assert.match(tree.map(drawerText).join(""), /Güncel ödeme yöntemleri yüklenemedi.*yeniden yüklemeyi deneyin/);
   assert.notEqual(label.props.disabled, true, "recovery error must preserve editable input");
   assert.equal(submit.props.disabled, true, "unknown canonical state must block replay");
+});
+
+test("real mounted drawer resets dirty values to the canonical method after its version changes", async () => {
+  const window = new Window({ url: "https://panel.example.test/settings/payment" });
+  const restoreGlobals = installDomGlobals(window);
+  const container = window.document.createElement("div");
+  window.document.body.append(container);
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  const submissions: unknown[] = [];
+  try {
+    const Drawer = await compileRealDomBuiltInDrawer();
+    const initial = Object.freeze({
+      id: "51000000-0000-4000-8000-000000000082",
+      kind: "cash_on_delivery" as const,
+      profileId: null,
+      providerCode: null,
+      label: "İlk kanonik etiket",
+      state: "active" as const,
+      emergencyReason: null,
+      position: 0,
+      config: Object.freeze({ instructions: "İlk kanonik talimat." }),
+      version: 4,
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    const properties = (methodValue: MerchantPaymentMethod) => Object.freeze({
+      kind: "cash_on_delivery",
+      method: methodValue,
+      canManage: true,
+      busy: false,
+      mutationAvailable: true,
+      submitError: "Çakışma sonrası güncel bilgiler yüklendi.",
+      onSubmit(value: unknown) { submissions.push(value); },
+      onClose() {},
+    });
+
+    await act(async () => {
+      root.render(createElement(Drawer, properties(initial)));
+    });
+    const labelNode = container.querySelector('input[name="label"]');
+    const instructionsNode = container.querySelector('textarea[name="instructions"]');
+    assert.ok(labelNode);
+    assert.ok(instructionsNode);
+    const label = labelNode as unknown as {
+      value: string;
+      dispatchEvent(event: unknown): boolean;
+    };
+    const instructions = instructionsNode as unknown as {
+      value: string;
+      dispatchEvent(event: unknown): boolean;
+    };
+    assert.equal(label.value, initial.label);
+    assert.equal(instructions.value, initial.config.instructions);
+
+    await act(async () => {
+      label.value = "Gönderilmemesi gereken eski etiket";
+      label.dispatchEvent(new window.Event("input", { bubbles: true }));
+      instructions.value = "Gönderilmemesi gereken eski talimat.";
+      instructions.dispatchEvent(new window.Event("input", { bubbles: true }));
+    });
+    assert.equal(label.value, "Gönderilmemesi gereken eski etiket");
+    assert.equal(instructions.value, "Gönderilmemesi gereken eski talimat.");
+
+    const canonical = Object.freeze({
+      ...initial,
+      label: "Çakışma sonrası kanonik etiket",
+      config: Object.freeze({ instructions: "Çakışma sonrası kanonik talimat." }),
+      version: 5,
+      updatedAt: "2026-07-28T09:01:00.000Z",
+    });
+    await act(async () => {
+      root.render(createElement(Drawer, properties(canonical)));
+    });
+
+    assert.equal(label.value, canonical.label);
+    assert.equal(instructions.value, canonical.config.instructions);
+    const formNode = container.querySelector("form");
+    assert.ok(formNode);
+    const form = formNode as unknown as {
+      dispatchEvent(event: unknown): boolean;
+    };
+    await act(async () => {
+      form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    });
+    assert.deepEqual(submissions, [Object.freeze({
+      kind: "cash_on_delivery",
+      method: canonical,
+      methodId: canonical.id,
+      label: canonical.label,
+      config: Object.freeze({ instructions: canonical.config.instructions }),
+    })]);
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    restoreGlobals();
+    await window.close();
+  }
+});
+
+test("built-in drawer associates control and surrogate label errors with the label field", async () => {
+  for (const invalidLabel of [
+    "Kapıda\u0007 ödeme",
+    "Kapıda ödeme \ud800",
+  ]) {
+    let submissions = 0;
+    const drawer = await compileBuiltInDrawer({
+      kind: "cash_on_delivery",
+      method: null,
+      canManage: true,
+      busy: false,
+      onSubmit() { submissions += 1; },
+      onClose() {},
+    });
+    Object.assign(drawer.values, {
+      label: invalidLabel,
+      instructions: "Teslimatta ödeme yapın.",
+    });
+    drawer.render();
+    const label = drawer.nodes().find((node) =>
+      node.type === "input" && node.props.name === "label");
+    const form = drawer.nodes().find((node) => node.type === "form");
+    assert.ok(label);
+    assert.ok(form);
+    const focusBeforeSubmit = label.target.focusCount;
+    (form.props.onSubmit as (event: unknown) => void)({
+      preventDefault() {},
+      currentTarget: {},
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    assert.equal(submissions, 0);
+    assert.equal(drawer.uuidCalls(), 0);
+    assert.equal(label.target.focusCount, focusBeforeSubmit + 1);
+    drawer.render();
+    const associatedLabel = drawer.nodes().find((node) =>
+      node.type === "input" && node.props.name === "label");
+    const alert = drawer.nodes().find((node) => node.props.role === "alert");
+    assert.ok(associatedLabel);
+    assert.ok(alert);
+    assert.equal(associatedLabel.props["aria-invalid"], true);
+    assert.equal(associatedLabel.props["aria-describedby"], alert.props.id);
+    assert.match(drawerText(alert), /etiketi.*bayt/i);
+  }
 });
 
 test("built-in drawer associates and focuses each actual invalid config field", async () => {

@@ -243,6 +243,7 @@ test("finite conflicts and ambiguous outcomes return only safe console messages"
       kind: "conflict",
       methodId: CASH_ID,
       message: "Ödeme yöntemi başka bir işlem tarafından değiştirildi. Güncel bilgiler yeniden yüklenmeli.",
+      reason: code,
     }));
   }
 

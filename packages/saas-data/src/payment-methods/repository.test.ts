@@ -238,6 +238,73 @@ test("all mutation kinds recover exactly once after an unknown COMMIT and never 
   }
 });
 
+test("durable method_already_exists commits its operation marker before surfacing the finite error", async () => {
+  const writer = new Client((text) => text.includes("payment_method_save")
+    ? [{ outcome: "method_already_exists", result_payload: null }]
+    : []);
+
+  await assert.rejects(
+    () => repository(new Pool([writer])).save(saveInput()),
+    errorCode("method_already_exists"),
+  );
+
+  assert.equal(writer.calls.filter(({ text }) => text === "COMMIT").length, 1);
+  assert.equal(writer.calls.filter(({ text }) => text === "ROLLBACK").length, 0);
+  assert.deepEqual(writer.releases, [undefined]);
+});
+
+test("unknown duplicate-marker COMMIT recovers the exact durable reason without repeating the save", async () => {
+  const writer = new Client((text) => {
+    if (text.includes("payment_method_save")) {
+      return [{ outcome: "method_already_exists", result_payload: null }];
+    }
+    if (text === "COMMIT") throw new Error("wire");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("payment_method_recover_operation")
+    ? [{
+      outcome: "operation_replayed",
+      result_payload: { outcome: "method_already_exists", replayed: true },
+    }]
+    : []);
+  const audit: string[] = [];
+
+  await assert.rejects(
+    () => repository(new Pool([writer, recovery]), audit).save(saveInput()),
+    errorCode("method_already_exists"),
+  );
+
+  assert.deepEqual(audit, ["payment_method_commit_unknown"]);
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(writer.calls.filter(({ text }) => text.includes("payment_method_save")).length, 1);
+  assert.equal(writer.calls.filter(({ text }) => text === "ROLLBACK").length, 0);
+  assert.equal(recovery.calls.filter(({ text }) => text.includes("payment_method_recover_operation")).length, 1);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+});
+
+test("unknown duplicate-marker COMMIT fails closed when recovery returns a different marker", async () => {
+  const writer = new Client((text) => {
+    if (text.includes("payment_method_save")) {
+      return [{ outcome: "method_already_exists", result_payload: null }];
+    }
+    if (text === "COMMIT") throw new Error("wire");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("payment_method_recover_operation")
+    ? [{
+      outcome: "operation_replayed",
+      result_payload: { outcome: "version_conflict", replayed: true },
+    }]
+    : []);
+
+  await assert.rejects(
+    () => repository(new Pool([writer, recovery])).save(saveInput()),
+    errorCode("unavailable"),
+  );
+  assert.equal(writer.calls.filter(({ text }) => text.includes("payment_method_save")).length, 1);
+  assert.equal(recovery.calls.filter(({ text }) => text.includes("payment_method_recover_operation")).length, 1);
+});
+
 test("explicit recovery is read-only and returns only a validated operation projection", async () => {
   const client = new Client((text) => text.includes("payment_method_recover_operation")
     ? [{ outcome: "operation_replayed", result_payload: reordered(true) }]

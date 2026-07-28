@@ -31,14 +31,36 @@ function initialConfigValue(method: MerchantPaymentMethod | null, key: string): 
   return typeof value === "string" ? value : "";
 }
 
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const SURROGATE = /(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/;
+
 function canonicalLabel(value: string): string | null {
   const selected = value.trim();
   const bytes = new TextEncoder().encode(selected).byteLength;
-  return bytes >= 1 && bytes <= 120 ? selected : null;
+  return bytes >= 1
+    && bytes <= 120
+    && !CONTROL.test(selected)
+    && !SURROGATE.test(selected)
+    ? selected
+    : null;
 }
 
 type BuiltInFormField = "label" | "bankName" | "accountHolder" | "iban" | "instructions";
 type BuiltInFormError = Readonly<{ field: BuiltInFormField; message: string }>;
+type BuiltInFormValues = Readonly<Record<BuiltInFormField, string>>;
+
+function initialFormValues(
+  kind: BuiltInPaymentMethodKind,
+  method: MerchantPaymentMethod | null,
+): BuiltInFormValues {
+  return Object.freeze({
+    label: method?.label ?? (kind === "bank_transfer" ? "Banka havalesi" : "Kapıda ödeme"),
+    bankName: initialConfigValue(method, "bankName"),
+    accountHolder: initialConfigValue(method, "accountHolder"),
+    iban: initialConfigValue(method, "iban"),
+    instructions: initialConfigValue(method, "instructions"),
+  });
+}
 
 const VALID_BANK_CONFIG = Object.freeze({
   accountHolder: "Örnek Ticaret Ltd. Şti.",
@@ -101,6 +123,9 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
   const submitOwnedRef = useRef(false);
   const consoleOwnedRef = useRef(false);
   const [formError, setFormError] = useState<BuiltInFormError | null>(null);
+  const [formValues, setFormValues] = useState<BuiltInFormValues>(
+    () => initialFormValues(props.kind, props.method),
+  );
   const isBankTransfer = props.kind === "bank_transfer";
   const title = isBankTransfer ? "Banka havalesi" : "Kapıda ödeme";
   const Icon = isBankTransfer ? Banknote : Truck;
@@ -115,6 +140,11 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
       document.body.style.overflow = previousOverflow;
     };
   }, []);
+
+  useEffect(() => {
+    setFormValues(initialFormValues(props.kind, props.method));
+    setFormError(null);
+  }, [props.kind, props.method?.id, props.method?.version]);
 
   useEffect(() => {
     if (props.busy) {
@@ -168,6 +198,10 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
       "aria-invalid": invalid || undefined,
       "aria-describedby": invalid ? `built-in-payment-${field}-error` : undefined,
     };
+  }
+
+  function updateField(field: BuiltInFormField, value: string) {
+    setFormValues((current) => Object.freeze({ ...current, [field]: value }));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -279,7 +313,8 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
               name="label"
               required
               maxLength={120}
-              defaultValue={props.method?.label ?? title}
+              value={formValues.label}
+              onChange={(event) => updateField("label", event.currentTarget.value)}
               disabled={disabled}
               {...errorAttributes("label")}
             />
@@ -292,7 +327,8 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
                 name="bankName"
                 required
                 maxLength={120}
-                defaultValue={initialConfigValue(props.method, "bankName")}
+                value={formValues.bankName}
+                onChange={(event) => updateField("bankName", event.currentTarget.value)}
                 disabled={disabled}
                 {...errorAttributes("bankName")}
               />
@@ -304,7 +340,8 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
                 name="accountHolder"
                 required
                 maxLength={160}
-                defaultValue={initialConfigValue(props.method, "accountHolder")}
+                value={formValues.accountHolder}
+                onChange={(event) => updateField("accountHolder", event.currentTarget.value)}
                 disabled={disabled}
                 {...errorAttributes("accountHolder")}
               />
@@ -319,7 +356,8 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
                 autoCapitalize="characters"
                 autoComplete="off"
                 maxLength={40}
-                defaultValue={initialConfigValue(props.method, "iban")}
+                value={formValues.iban}
+                onChange={(event) => updateField("iban", event.currentTarget.value)}
                 disabled={disabled}
                 {...errorAttributes("iban")}
               />
@@ -331,7 +369,8 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
               ref={instructionsRef}
               name="instructions"
               maxLength={500}
-              defaultValue={initialConfigValue(props.method, "instructions")}
+              value={formValues.instructions}
+              onChange={(event) => updateField("instructions", event.currentTarget.value)}
               disabled={disabled}
               {...errorAttributes("instructions")}
             />

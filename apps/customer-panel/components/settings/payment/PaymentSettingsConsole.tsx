@@ -428,7 +428,12 @@ export function PaymentSettingsConsole(props: Readonly<{
         return;
       }
       const matches = methods.filter((method) => method.kind === value.kind);
-      const canonical = matches.length === 1 && matches[0]?.id === result.methodId
+      const duplicateCreate = selectedBuiltIn.method === null
+        && value.method === null
+        && result.kind === "conflict"
+        && result.reason === "method_already_exists";
+      const canonical = matches.length === 1
+        && (matches[0]?.id === result.methodId || duplicateCreate)
         ? matches[0]
         : null;
       if (canonical === null) {
