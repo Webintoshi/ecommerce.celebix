@@ -5,6 +5,9 @@ import type { CatalogAdminImportJob } from "@celebix/saas-contracts";
 import { Download, FileSpreadsheet, Link2, PackageCheck, RotateCcw } from "lucide-react";
 import { PanelEmptyState, PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { CatalogAdminApiError, catalogAdminApi } from "@/lib/catalog-admin-ui/client";
+import { compileWooCommerceMigration, type WooCommerceMigrationManifest } from "@/lib/catalog-import/woocommerce-migration";
+import { wooCommerceMigrationApi } from "@/lib/catalog-migration-http/client";
+import { runWooCommerceMigration, type WooCommerceMigrationProgress } from "@/lib/catalog-migration-http/workflow";
 import {
   CATALOG_IMPORT_PROVIDERS,
   buildCatalogImportTemplate,
@@ -16,9 +19,11 @@ import {
 import styles from "./catalog-admin-console.module.css";
 
 const MAX_SOURCE_BYTES = 524_288;
+const MAX_WOOCOMMERCE_SOURCE_BYTES = 4 * 1024 * 1024;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 type Busy = "idle" | "preview" | "import";
 type Preview = CatalogImportParseResult & Readonly<{ format: CatalogImportFormat; fileName: string }>;
+type MigrationSummary = Readonly<{ productCount: number; mediaCount: number; warningCount: number }>;
 
 function fileFormat(file: File): CatalogImportFormat | null {
   const extension = file.name.toLowerCase().split(".").at(-1);
@@ -45,7 +50,10 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
   const [completed, setCompleted] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [migrationSummary, setMigrationSummary] = useState<MigrationSummary | null>(null);
+  const [migrationProgress, setMigrationProgress] = useState<WooCommerceMigrationProgress | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const migrationManifestRef = useRef<WooCommerceMigrationManifest | null>(null);
   const previewRequestRef = useRef(0);
 
   const loadHistory = useCallback(async () => {
@@ -64,6 +72,9 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
     setCompleted(false);
     setNotice("");
     setError("");
+    setMigrationSummary(null);
+    setMigrationProgress(null);
+    migrationManifestRef.current = null;
   }
 
   function selectProvider(next: CatalogImportProvider) {
@@ -86,16 +97,28 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
     const file = fileRef.current?.files?.[0];
     const format = file ? fileFormat(file) : null;
     const fileName = file ? safeFileName(file.name) : null;
-    if (!file || !format || !fileName || file.size < 1 || file.size > MAX_SOURCE_BYTES) {
-      setError("En fazla 512 KiB olan geçerli bir CSV, JSON veya XML dosyası seçin.");
+    const maximum = provider === "woocommerce" ? MAX_WOOCOMMERCE_SOURCE_BYTES : MAX_SOURCE_BYTES;
+    if (!file || !format || !fileName || file.size < 1 || file.size > maximum || (provider === "woocommerce" && format !== "csv")) {
+      setError(provider === "woocommerce" ? "En fazla 4 MiB olan resmi WooCommerce CSV dışa aktarımını seçin." : "En fazla 512 KiB olan geçerli bir CSV, JSON veya XML dosyası seçin.");
       return;
     }
     const requestId = ++previewRequestRef.current;
     setBusy("preview"); setError(""); setNotice("");
     try {
-      const result = parseCatalogImportSource(await file.text(), { provider, format });
+      const source = await file.text();
       if (previewRequestRef.current !== requestId) return;
-      acceptPreview(result, format, fileName);
+      if (provider === "woocommerce") {
+        const manifest = await compileWooCommerceMigration(source);
+        if (previewRequestRef.current !== requestId) return;
+        migrationManifestRef.current = manifest;
+        const warningCount = Object.values(manifest.warningCounts).reduce((total, value) => total + value, 0);
+        setMigrationSummary(Object.freeze({ productCount: manifest.products.length, mediaCount: manifest.mediaCount, warningCount }));
+        acceptPreview(Object.freeze({ products: Object.freeze(manifest.products.slice(0, 25).map(({ sourceProductId: _sourceProductId, categorySlugs: _categorySlugs, brandSlugs: _brandSlugs, sourceImages: _sourceImages, ...product }) => product)), warnings: Object.freeze([]), skippedRows: 0, totalRows: manifest.products.length }), format, fileName);
+        setNotice(`${manifest.products.length} ürün ve ${manifest.mediaCount} görsel doğrulandı. İlk 25 ürün önizleniyor.`);
+      } else {
+        const result = parseCatalogImportSource(source, { provider, format });
+        acceptPreview(result, format, fileName);
+      }
     }
     catch { if (previewRequestRef.current === requestId) setError("Dosya seçilen platformun ürün biçimine uymuyor."); }
     finally { setBusy("idle"); }
@@ -118,11 +141,25 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
     if (!preview || !operationId || busy !== "idle") return;
     setBusy("import"); setError(""); setNotice("");
     try {
-      await catalogAdminApi.importProducts({ fileName: preview.fileName, products: preview.products }, operationId);
-      setCompleted(true);
-      setNotice(`${preview.products.length} ürün kalıcı kataloğa aktarıldı.`);
-      await loadHistory();
-    } catch (caught) { setError(message(caught, "Ürün aktarımı tamamlanamadı; aynı güvenli işlem kimliğiyle tekrar deneyebilirsiniz.")); }
+      const manifest = migrationManifestRef.current;
+      if (manifest) {
+        const result = await runWooCommerceMigration(manifest, wooCommerceMigrationApi, () => crypto.randomUUID(), setMigrationProgress);
+        migrationManifestRef.current = null;
+        setCompleted(true);
+        setNotice(result.failedMedia === 0
+          ? `${result.importedProducts} ürün ve ${result.committedMedia} görsel mağazanıza aktarıldı.`
+          : `${result.importedProducts} ürün aktarıldı; ${result.committedMedia} görsel tamamlandı, ${result.failedMedia} görsel yeniden denenebilir.`);
+      } else {
+        await catalogAdminApi.importProducts({ fileName: preview.fileName, products: preview.products }, operationId);
+        setCompleted(true);
+        setNotice(`${preview.products.length} ürün kalıcı kataloğa aktarıldı.`);
+        await loadHistory();
+      }
+    } catch (caught) {
+      migrationManifestRef.current = null;
+      setPreview(null); setMigrationSummary(null);
+      setError(message(caught, "Aktarım güvenle durdu. Devam etmek için aynı WooCommerce dosyasını yeniden seçin."));
+    }
     finally { setBusy("idle"); }
   }
 
@@ -135,7 +172,8 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
   }
 
   const step = completed ? 4 : preview ? 3 : 2;
-  const variantCount = preview?.products.reduce((total, product) => total + product.variants.length, 0) ?? 0;
+  const variantCount = migrationSummary?.productCount ?? preview?.products.reduce((total, product) => total + product.variants.length, 0) ?? 0;
+  const productCount = migrationSummary?.productCount ?? preview?.products.length ?? 0;
 
   return <PanelPageShell>
     <PanelPageHeader title="Toplu Ürün Aktarımı" description="12 platformdan dosya veya güvenli HTTPS feed ile ürünlerinizi kalıcı kataloğa taşıyın." />
@@ -156,15 +194,17 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
             <button type="button" role="tab" aria-selected={sourceMode === "file"} disabled={busy !== "idle"} className={sourceMode === "file" ? styles.tabActive : undefined} onClick={() => { setSourceMode("file"); clearPreview(); }}><FileSpreadsheet size={19} aria-hidden />Dosyadan yükle</button>
             <button type="button" role="tab" aria-selected={sourceMode === "feed"} disabled={busy !== "idle"} className={sourceMode === "feed" ? styles.tabActive : undefined} onClick={() => { setSourceMode("feed"); clearPreview(); }}><Link2 size={19} aria-hidden />Feed adresi</button>
           </div>
-          {sourceMode === "file" ? <form key="file" className={styles.sourceForm} onSubmit={previewFile}><label htmlFor="catalog-import-file">CSV, JSON veya XML dosyası <small>En fazla 512 KiB · 100 ürün · ürün başına 50 varyant</small></label><input ref={fileRef} id="catalog-import-file" type="file" accept=".csv,.json,.xml,text/csv,application/json,application/xml,text/xml" required disabled={busy !== "idle"} onChange={clearPreview} /><button className={styles.primary} disabled={busy !== "idle"}>{busy === "preview" ? "Doğrulanıyor…" : "Dosyayı önizle"}</button></form> : <form key="feed" className={styles.sourceForm} onSubmit={previewFeed}><label htmlFor="catalog-feed-url">Güvenli HTTPS feed adresi <small>CSV, JSON veya XML · yönlendirmeler ve private ağlar otomatik denetlenir</small></label><input id="catalog-feed-url" type="url" inputMode="url" placeholder="https://feed.magazaniz.com/products.xml" value={feedUrl} disabled={busy !== "idle"} onChange={(event) => { setFeedUrl(event.currentTarget.value); clearPreview(); }} required maxLength={2048} /><button className={styles.primary} disabled={busy !== "idle"}>{busy === "preview" ? "Feed doğrulanıyor…" : "Feed'i önizle"}</button></form>}
+          {sourceMode === "file" ? <form key="file" className={styles.sourceForm} onSubmit={previewFile}><label htmlFor="catalog-import-file">CSV, JSON veya XML dosyası <small>{provider === "woocommerce" ? "Resmi WooCommerce CSV · en fazla 4 MiB · 2.500 ürün · ürün başına 16 görsel" : "En fazla 512 KiB · 100 ürün · ürün başına 50 varyant"}</small></label><input ref={fileRef} id="catalog-import-file" type="file" accept={provider === "woocommerce" ? ".csv,text/csv" : ".csv,.json,.xml,text/csv,application/json,application/xml,text/xml"} required disabled={busy !== "idle"} onChange={clearPreview} /><button className={styles.primary} disabled={busy !== "idle"}>{busy === "preview" ? "Doğrulanıyor…" : "Dosyayı önizle"}</button></form> : <form key="feed" className={styles.sourceForm} onSubmit={previewFeed}><label htmlFor="catalog-feed-url">Güvenli HTTPS feed adresi <small>CSV, JSON veya XML · yönlendirmeler ve private ağlar otomatik denetlenir</small></label><input id="catalog-feed-url" type="url" inputMode="url" placeholder="https://feed.magazaniz.com/products.xml" value={feedUrl} disabled={busy !== "idle"} onChange={(event) => { setFeedUrl(event.currentTarget.value); clearPreview(); }} required maxLength={2048} /><button className={styles.primary} disabled={busy !== "idle"}>{busy === "preview" ? "Feed doğrulanıyor…" : "Feed'i önizle"}</button></form>}
         </section>
 
         {preview ? <section className={styles.importSection} aria-labelledby="preview-heading">
           <div className={styles.sectionHeading}><div><span>3. adım</span><h2 id="preview-heading">Önizleme</h2><p>Kalıcı yazma başlamadan önce eşlenen ürün ve varyantları kontrol edin.</p></div><button className={styles.secondaryButton} type="button" onClick={clearPreview}><RotateCcw size={18} aria-hidden />Baştan seç</button></div>
-          <div className={styles.previewMetrics}><div><strong>{preview.products.length}</strong><span>ürün</span></div><div><strong>{variantCount}</strong><span>varyant</span></div><div><strong>{preview.skippedRows}</strong><span>atlanmış satır</span></div><div><strong>{preview.warnings.length}</strong><span>uyarı</span></div></div>
+          <div className={styles.previewMetrics}><div><strong>{productCount}</strong><span>ürün</span></div><div><strong>{variantCount}</strong><span>varyant</span></div><div><strong>{migrationSummary?.mediaCount ?? preview.skippedRows}</strong><span>{migrationSummary ? "görsel" : "atlanmış satır"}</span></div><div><strong>{migrationSummary?.warningCount ?? preview.warnings.length}</strong><span>uyarı</span></div></div>
+          {migrationSummary ? <p className={styles.migrationNote} role="status">Ürünler 25’lik güvenli işlemlerle, görseller iki eşzamanlı işçiyle mağazanızın özel R2 alanına aktarılır. Kesinti olursa aynı dosyayı seçerek devam edebilirsiniz.</p> : null}
           {preview.warnings.includes("unsupported_fields_ignored") ? <p className={styles.warning} role="status">Kategori, etiket, SEO veya uzaktaki görsel alanları bu aktarımda desteklenmediği için güvenle atlandı.</p> : null}
           <div className={styles.previewTableWrap}><table className={styles.previewTable}><thead><tr><th>Ürün</th><th>Durum</th><th>Varyant</th><th>SKU</th><th>Fiyat</th><th>Stok</th></tr></thead><tbody>{preview.products.flatMap((product) => product.variants.map((variant, index) => <tr key={`${product.slug}-${variant.sku ?? index}`}><td><strong>{index === 0 ? product.title : ""}</strong>{index === 0 ? <small>{product.slug}</small> : null}</td><td>{index === 0 ? product.status : ""}</td><td>{variant.title}</td><td>{variant.sku ?? "—"}</td><td>{new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(variant.priceCents / 100)}</td><td>{variant.stockQuantity}</td></tr>))}</tbody></table></div>
           <div className={styles.importActions}><p>Aktarım tek atomik işlemde tamamlanır; bir satır çakışırsa hiçbir ürün kısmen yazılmaz.</p><button type="button" className={styles.primary} disabled={busy !== "idle" || completed} onClick={() => void importProducts()}><PackageCheck size={19} aria-hidden />{completed ? "Aktarım tamamlandı" : busy === "import" ? "Kalıcı kataloğa yazılıyor…" : "Ürünleri aktar"}</button></div>
+          {migrationProgress ? <div className={styles.migrationProgress} role="status" aria-live="polite"><span>{migrationProgress.phase === "products" ? "Ürünler" : "Görseller"}</span><progress max={migrationProgress.total} value={migrationProgress.completed} /><strong>{migrationProgress.completed}/{migrationProgress.total}</strong></div> : null}
         </section> : null}
       </>}
 
