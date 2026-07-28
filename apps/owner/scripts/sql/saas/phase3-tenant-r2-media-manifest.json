@@ -1,0 +1,25 @@
+{
+  "phase": "phase3-tenant-r2-media",
+  "postgresqlMajor": 16,
+  "classification": "additive-tenant-storage-authority",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "rollbackLimitations": "Migration 058 down is disposable-only and requires every durable namespace and dependent media operation to be absent.",
+  "artifacts": [
+    {
+      "file": "202607280058_store_media_namespace_exports.up.sql",
+      "direction": "up",
+      "sha256": "0e947a46f4d07b3b8de099dd4d7af2e2b3b61541795cea903a40ef5db27e23b5"
+    },
+    {
+      "file": "202607280058_store_media_namespace_exports.down.sql",
+      "direction": "down",
+      "sha256": "9ee7f035a307e113ca15056ee6781994669062b871e3923fd5f257da2c1c512a"
+    },
+    {
+      "file": "202607280058_store_media_namespace_exports_assertions.sql",
+      "direction": "verify",
+      "sha256": "d83482cbe565891f4b5d59f079cda4950d354cae25eac0bc8e6baea323bcbf70"
+    }
+  ]
+}
