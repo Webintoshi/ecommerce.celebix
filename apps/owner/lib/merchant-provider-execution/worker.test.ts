@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   sealMerchantProviderCredential,
   type MerchantProviderCredentialKeyring,
+  type MerchantProviderVerificationWorkflowRepository,
   type MerchantProviderWorkflowClaim,
   type MerchantProviderWorkflowRepository,
 } from "@celebix/saas-data";
@@ -12,7 +13,10 @@ import {
   createMerchantProviderAdapterRegistry,
 } from "./registry.ts";
 import { createMerchantProviderWorker } from "./worker.ts";
-import type { MerchantProviderAdapter } from "./types.ts";
+import type {
+  MerchantProviderAdapter,
+  MerchantProviderVerificationAdapter,
+} from "./types.ts";
 
 const STORE = "10000000-0000-4000-8000-000000000001";
 const PROFILE = "40000000-0000-4000-8000-000000000005";
@@ -26,6 +30,14 @@ const KEYRING: MerchantProviderCredentialKeyring = Object.freeze({
   activeKeyId: "provider.current",
   keys: Object.freeze([Object.freeze({ keyId: "provider.current", key: KEY })]),
 });
+
+function emptyVerificationRegistry() {
+  return Object.freeze({
+    size: 0,
+    get: Object.freeze(() => null),
+    list: Object.freeze(() => Object.freeze([])),
+  });
+}
 
 function envelope() {
   return sealMerchantProviderCredential({
@@ -109,6 +121,8 @@ function probe(options: ProbeOptions = {}) {
         createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
       };
     },
+    async claimProfileVerification() { throw new Error("unexpected_verification_claim"); },
+    async markProfileVerification() { throw new Error("unexpected_verification_mark"); },
     async claim() {
       calls.jobClaim += 1;
       return options.jobClaim === false
@@ -128,12 +142,12 @@ function probe(options: ProbeOptions = {}) {
     },
     async reconcile() { throw new Error("unexpected_reconcile"); },
     async recover() { throw new Error("unexpected_recover"); },
-  } satisfies MerchantProviderWorkflowRepository;
+  } satisfies MerchantProviderWorkflowRepository & MerchantProviderVerificationWorkflowRepository;
   const adapter = Object.freeze({
     providerCode: "fixture_provider",
     capability: "marketplace_sync" as const,
     executionAuthority: AUTHORITY,
-    async validateCredential(input) {
+    async validateCredential(input: Parameters<MerchantProviderAdapter["validateCredential"]>[0]) {
       calls.validate += 1;
       retained.push(input.credential);
       return options.validation === "rejected"
@@ -153,6 +167,7 @@ function probe(options: ProbeOptions = {}) {
     mode: options.mode ?? "validation_and_execution",
     repository,
     registry: createMerchantProviderAdapterRegistry(Object.freeze([adapter])),
+    verificationRegistry: emptyVerificationRegistry(),
     keyring: KEYRING,
     workerId: "worker.fixture",
     now: () => new Date(NOW),
@@ -207,9 +222,164 @@ test("successful execution finalizes one exact safe provider reference", async (
   assert.deepEqual(selected.audits, [{ operation: "execute", classification: "succeeded", providerCode: "fixture_provider", capability: "marketplace_sync" }]);
 });
 
+test("verification lane claims and marks Iyzico identity without execution authority or generic queue access", async () => {
+  const plaintext = new TextEncoder().encode(JSON.stringify({
+    apiKey: "sandbox-api-key",
+    secretKey: "sandbox-secret-key",
+  }));
+  const sealedCredentials = sealMerchantProviderCredential({
+    plaintext,
+    profileId: PROFILE,
+    storeId: STORE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    credentialVersion: 1,
+    keyring: KEYRING,
+  });
+  plaintext.fill(0);
+  const calls: Array<{ kind: string; input?: Record<string, unknown> }> = [];
+  const retained: Uint8Array[] = [];
+  const adapter: MerchantProviderVerificationAdapter = Object.freeze({
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: Object.freeze({ environment: "test", adapterVersion: 1 }),
+    async validateCredential(input: Parameters<MerchantProviderVerificationAdapter["validateCredential"]>[0]) {
+      calls.push({ kind: "validate" });
+      retained.push(input.credential);
+      return Object.freeze({ kind: "validated" as const });
+    },
+  });
+  const verificationRegistry = Object.freeze({
+    size: 1,
+    get: Object.freeze(() => adapter),
+    list: Object.freeze(() => Object.freeze([adapter])),
+  });
+  const repository = {
+    async claimProfileVerification(input: Record<string, unknown>) {
+      calls.push({ kind: "claimProfileVerification", input });
+      return Object.freeze({
+        kind: "claimed" as const,
+        profile: Object.freeze({
+          profileId: PROFILE,
+          storeId: STORE,
+          providerCode: "iyzico_iframe",
+          capability: "payment_processing" as const,
+          publicConfig: Object.freeze({ environment: "test" }),
+          validationIdentity: Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
+          sealedCredentials,
+          credentialVersion: 1,
+          profileVersion: 2,
+          leaseId: LEASE,
+          leaseOwner: "worker.fixture",
+          leaseExpiresAt: new Date(NOW.getTime() + 300_000).toISOString(),
+        }),
+      });
+    },
+    async markProfileVerification(input: Record<string, unknown>) {
+      calls.push({ kind: "markProfileVerification", input });
+      return {
+        id: PROFILE, providerCode: "iyzico_iframe", capability: "payment_processing" as const,
+        publicConfig: { environment: "test" }, maskedAccountReference: "iyzico test hesabı",
+        status: "active" as const, credentialVersion: 1, version: 3,
+        lastValidatedAt: NOW.toISOString(), createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+      };
+    },
+    async claimProfileValidation() { calls.push({ kind: "legacyValidationClaim" }); throw new Error("legacy_validation_forbidden"); },
+    async markProfileValidation() { throw new Error("legacy_validation_forbidden"); },
+    async claim() { calls.push({ kind: "genericClaim" }); throw new Error("generic_queue_forbidden"); },
+    async heartbeat() { throw new Error("generic_queue_forbidden"); },
+    async finalize() { throw new Error("generic_queue_forbidden"); },
+    async reconcile() { throw new Error("generic_queue_forbidden"); },
+    async recover() { throw new Error("generic_queue_forbidden"); },
+  } as unknown as MerchantProviderWorkflowRepository & MerchantProviderVerificationWorkflowRepository;
+  const worker = createMerchantProviderWorker({
+    mode: "validation_only",
+    repository,
+    registry: createMerchantProviderAdapterRegistry(Object.freeze([])),
+    verificationRegistry,
+    keyring: KEYRING,
+    workerId: "worker.fixture",
+    now: () => new Date(NOW),
+    leaseDurationMs: 300_000,
+    audit() {},
+  } as never);
+
+  assert.deepEqual(await worker.runOnce(), { kind: "profile_validated" });
+  assert.deepEqual(calls.map(({ kind }) => kind), [
+    "claimProfileVerification", "validate", "markProfileVerification",
+  ]);
+  assert.deepEqual(calls[0]?.input?.validationIdentity, { environment: "test", adapterVersion: 1 });
+  const marked = calls[2]?.input ?? {};
+  assert.deepEqual(marked.validationIdentity, { environment: "test", adapterVersion: 1 });
+  assert.equal(Object.hasOwn(marked, "executionAuthority"), false);
+  assert.equal(JSON.stringify(marked).includes("evidenceDigest"), false);
+  assert.equal(retained[0]?.every((byte) => byte === 0), true);
+});
+
+test("verification lane rejects public environment mismatch before reading the encrypted envelope", async () => {
+  let encryptedReads = 0;
+  const sealedCredentials = Object.freeze(Object.defineProperty({
+    keyId: "provider.current",
+    algorithm: "aes-256-gcm",
+    iv: "invalid",
+    authTag: "invalid",
+  }, "ciphertext", {
+    enumerable: true,
+    get() { encryptedReads += 1; return "invalid"; },
+  }));
+  let adapterCalls = 0;
+  let marks = 0;
+  const adapter: MerchantProviderVerificationAdapter = Object.freeze({
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: Object.freeze({ environment: "test", adapterVersion: 1 }),
+    async validateCredential() { adapterCalls += 1; return Object.freeze({ kind: "validated" as const }); },
+  });
+  const repository = {
+    async claimProfileVerification() {
+      return Object.freeze({ kind: "claimed" as const, profile: Object.freeze({
+        profileId: PROFILE, storeId: STORE, providerCode: "iyzico_iframe",
+        capability: "payment_processing" as const,
+        publicConfig: Object.freeze({ environment: "live" }),
+        validationIdentity: Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
+        sealedCredentials,
+        credentialVersion: 1, profileVersion: 2, leaseId: LEASE,
+        leaseOwner: "worker.fixture",
+        leaseExpiresAt: new Date(NOW.getTime() + 300_000).toISOString(),
+      }) });
+    },
+    async markProfileVerification() { marks += 1; throw new Error("must_not_mark"); },
+    async claimProfileValidation() { throw new Error("legacy_validation_forbidden"); },
+    async markProfileValidation() { throw new Error("legacy_validation_forbidden"); },
+    async claim() { throw new Error("generic_queue_forbidden"); },
+    async heartbeat() { throw new Error("generic_queue_forbidden"); },
+    async finalize() { throw new Error("generic_queue_forbidden"); },
+    async reconcile() { throw new Error("generic_queue_forbidden"); },
+    async recover() { throw new Error("generic_queue_forbidden"); },
+  } as unknown as MerchantProviderWorkflowRepository & MerchantProviderVerificationWorkflowRepository;
+  const worker = createMerchantProviderWorker({
+    mode: "validation_only",
+    repository,
+    registry: createMerchantProviderAdapterRegistry(Object.freeze([])),
+    verificationRegistry: Object.freeze({ size: 1, get: () => adapter, list: () => Object.freeze([adapter]) }),
+    keyring: KEYRING,
+    workerId: "worker.fixture",
+    now: () => new Date(NOW),
+    leaseDurationMs: 300_000,
+    audit() {},
+  } as never);
+
+  await assert.rejects(() => worker.runOnce(), /merchant_provider_worker_invalid/);
+  assert.equal(encryptedReads, 0);
+  assert.equal(adapterCalls, 0);
+  assert.equal(marks, 0);
+});
+
 test("an explicitly empty registry never claims or contacts a provider", async () => {
   let claimCalls = 0;
   const repository = {
+    async claimProfileVerification() { claimCalls += 1; throw new Error("repository_touched"); },
+    async markProfileVerification() { throw new Error("repository_touched"); },
     async claimProfileValidation() { claimCalls += 1; throw new Error("repository_touched"); },
     async markProfileValidation() { throw new Error("repository_touched"); },
     async claim() { claimCalls += 1; throw new Error("repository_touched"); },
@@ -217,11 +387,12 @@ test("an explicitly empty registry never claims or contacts a provider", async (
     async finalize() { throw new Error("repository_touched"); },
     async reconcile() { throw new Error("repository_touched"); },
     async recover() { throw new Error("repository_touched"); },
-  } as unknown as MerchantProviderWorkflowRepository;
+  } as unknown as MerchantProviderWorkflowRepository & MerchantProviderVerificationWorkflowRepository;
   const worker = createMerchantProviderWorker({
     mode: "validation_only",
     repository,
     registry: createMerchantProviderAdapterRegistry(Object.freeze([])),
+    verificationRegistry: emptyVerificationRegistry(),
     keyring: KEYRING,
     workerId: "worker.fixture",
     now: () => new Date(NOW),

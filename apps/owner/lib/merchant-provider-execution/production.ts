@@ -9,7 +9,7 @@ import {
 import pg from "pg";
 
 import type { MerchantProviderProductionConfig } from "./production-config.ts";
-import { createProductionMerchantProviderRegistry } from "./registry.ts";
+import { createProductionMerchantProviderRegistries } from "./registry.ts";
 import type { MerchantProviderWorkerOptions } from "./types.ts";
 import { createMerchantProviderWorker } from "./worker.ts";
 
@@ -74,18 +74,18 @@ async function preflight(pool: PostgresPoolLike, databaseName: string): Promise<
       current_user AS current_role,
       session_role.rolsuper AS session_is_superuser,
       pg_has_role(session_user, 'celebix_saas_workflow', 'MEMBER') AS workflow_member,
-      pg_catalog.md5(preflight.prosrc) = '0302d768e4b58bc06c9a1947ca0bc6dd' AS preflight_body_valid,
-      saas.paytr_iframe_activation_preflight() AS activation_authority
+      to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL
+        AS provider_keyed_preflight_exists,
+      saas.payment_provider_keyed_lifecycle_preflight() AS provider_keyed_lifecycle
     FROM pg_catalog.pg_roles AS session_role
-    CROSS JOIN pg_catalog.pg_proc AS preflight
     WHERE session_role.rolname = session_user
-      AND preflight.oid = 'saas.paytr_iframe_activation_preflight()'::regprocedure`);
+      AND to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL`);
     const row = result.rows[0] as Record<string, unknown> | undefined;
     if (
       result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16 ||
       row.database_name !== databaseName || row.current_role !== "celebix_saas_workflow" ||
       row.session_is_superuser !== false || row.workflow_member !== true ||
-      row.preflight_body_valid !== true || row.activation_authority !== true
+      row.provider_keyed_preflight_exists !== true || row.provider_keyed_lifecycle !== true
     ) throw new Error("merchant_provider_production_preflight_failed");
     await client.query("COMMIT");
   } catch (error) {
@@ -106,14 +106,14 @@ export async function initializeMerchantProviderProductionRuntime(
       timeoutMs: 5_000,
       maximumResponseBytes: 16_384,
     });
-    const registry = createProductionMerchantProviderRegistry(Object.freeze({
-      executionAuthority: config.executionAuthority,
+    const registries = createProductionMerchantProviderRegistries(Object.freeze({
+      executionAuthorities: config.executionAuthorities,
+      verificationIdentities: config.verificationIdentities,
       transport,
+      paytrValidation: config.paytrValidation,
       validationReference: dependencies.uuid,
+      validationRandomKey: () => dependencies.uuid().replaceAll("-", ""),
       validationTimeoutMs: 5_000,
-      validationUserIp: config.validation.userIp,
-      validationSuccessUrl: config.validation.successUrl,
-      validationFailureUrl: config.validation.failureUrl,
     }));
     const repository = new PostgresMerchantProviderWorkflowRepository({
       pool,
@@ -125,7 +125,8 @@ export async function initializeMerchantProviderProductionRuntime(
     const worker = createMerchantProviderWorker(Object.freeze({
       mode: "validation_only",
       repository,
-      registry,
+      registry: registries.execution,
+      verificationRegistry: registries.verification,
       keyring: config.keyring,
       workerId: config.workerId,
       now: dependencies.now,

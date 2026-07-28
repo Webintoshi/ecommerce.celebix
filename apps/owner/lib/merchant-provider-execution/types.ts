@@ -5,6 +5,8 @@ import type {
 } from "@celebix/saas-contracts";
 import type {
   MerchantProviderCredentialKeyring,
+  MerchantProviderValidationIdentity,
+  MerchantProviderVerificationWorkflowRepository,
   MerchantProviderWorkflowClaim,
   MerchantProviderWorkflowRepository,
 } from "@celebix/saas-data";
@@ -35,10 +37,30 @@ export interface MerchantProviderAdapter {
   }>): Promise<ProviderExecutionOutcome>;
 }
 
+export interface MerchantProviderVerificationAdapter {
+  readonly providerCode: string;
+  readonly capability: MerchantProviderCapability;
+  readonly validationIdentity: Readonly<MerchantProviderValidationIdentity>;
+  validateCredential(input: Readonly<{
+    credential: Uint8Array;
+    publicConfig: Readonly<Record<string, MerchantAdminJson>>;
+  }>): Promise<Readonly<{ kind: "validated" }> | Readonly<{ kind: "rejected"; outcomeCode: string }>>;
+}
+
 export interface MerchantProviderAdapterRegistry {
   readonly size: number;
   get(providerCode: string, capability: MerchantProviderCapability): MerchantProviderAdapter | null;
   list(): readonly MerchantProviderAdapter[];
+}
+
+export interface MerchantProviderVerificationAdapterRegistry {
+  readonly size: number;
+  get(
+    providerCode: string,
+    capability: MerchantProviderCapability,
+    validationIdentity: Readonly<MerchantProviderValidationIdentity>,
+  ): MerchantProviderVerificationAdapter | null;
+  list(): readonly MerchantProviderVerificationAdapter[];
 }
 
 export type MerchantProviderWorkerResult = Readonly<{ kind:
@@ -55,8 +77,9 @@ export type MerchantProviderWorkerResult = Readonly<{ kind:
 
 export interface MerchantProviderWorkerOptions {
   readonly mode: MerchantProviderWorkerMode;
-  readonly repository: MerchantProviderWorkflowRepository;
+  readonly repository: MerchantProviderWorkflowRepository & MerchantProviderVerificationWorkflowRepository;
   readonly registry: MerchantProviderAdapterRegistry;
+  readonly verificationRegistry: MerchantProviderVerificationAdapterRegistry;
   readonly keyring: MerchantProviderCredentialKeyring;
   readonly workerId: string;
   readonly now: () => Date;

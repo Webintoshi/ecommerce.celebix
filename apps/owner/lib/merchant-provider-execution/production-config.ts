@@ -1,31 +1,138 @@
 import { isIP } from "node:net";
 import { types as nodeTypes } from "node:util";
 
+import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
 import {
   parseMerchantProviderCredentialKeyring,
   type MerchantProviderCredentialKeyring,
+  type MerchantProviderValidationIdentity,
 } from "@celebix/saas-data";
 
 const WORKER = /^[A-Za-z0-9._-]{1,128}$/;
 const DATABASE = /^[a-z][a-z0-9_]{2,62}$/;
+const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const PROVIDERS = Object.freeze(["iyzico_iframe", "paytr_iframe"] as const);
 
 type Environment = Readonly<Record<string, string | undefined>>;
+export type MerchantProviderProductionProviderCode = typeof PROVIDERS[number];
+export type MerchantProviderExecutionAuthorityMap = Readonly<Record<
+MerchantProviderProductionProviderCode,
+Readonly<PaymentProviderExecutionAuthority> | null
+>>;
+export type MerchantProviderVerificationIdentityMap = Readonly<Record<
+MerchantProviderProductionProviderCode,
+readonly Readonly<MerchantProviderValidationIdentity>[]
+>>;
 
 export type MerchantProviderProductionConfig = Readonly<{
   database: Readonly<{ url: string; name: string }>;
   keyring: MerchantProviderCredentialKeyring;
   workerId: string;
-  validation: Readonly<{
+  paytrValidation: Readonly<{
     userIp: string;
     successUrl: string;
     failureUrl: string;
-  }>;
-  executionAuthority: Readonly<{ environment: "test"; adapterVersion: 1; evidenceDigest: string }>;
+  }> | null;
+  executionAuthorities: MerchantProviderExecutionAuthorityMap;
+  verificationIdentities: MerchantProviderVerificationIdentityMap;
 }>;
 
 function invalid(): never {
   throw new Error("merchant_provider_production_config_invalid");
+}
+
+function record(
+  value: unknown,
+  keys: readonly string[],
+): Readonly<Record<string, unknown>> | null {
+  if (
+    typeof value !== "object" || value === null || Array.isArray(value) ||
+    nodeTypes.isProxy(value) || Object.getPrototypeOf(value) !== Object.prototype ||
+    !Object.isFrozen(value)
+  ) return null;
+  const descriptors = Object.getOwnPropertyDescriptors(value) as Record<string, PropertyDescriptor>;
+  const actual = Reflect.ownKeys(descriptors);
+  if (
+    actual.length !== keys.length ||
+    actual.some((key) => typeof key !== "string" || !keys.includes(key))
+  ) return null;
+  const selected: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (const key of keys) {
+    const descriptor = descriptors[key];
+    if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) return null;
+    selected[key] = descriptor.value;
+  }
+  return selected;
+}
+
+function executionAuthority(value: unknown): Readonly<PaymentProviderExecutionAuthority> | null | false {
+  if (value === null) return null;
+  const selected = record(value, ["environment", "adapterVersion", "evidenceDigest"]);
+  if (
+    selected === null ||
+    (selected.environment !== "test" && selected.environment !== "live") ||
+    !Number.isSafeInteger(selected.adapterVersion) || (selected.adapterVersion as number) < 1 ||
+    typeof selected.evidenceDigest !== "string" || !DIGEST.test(selected.evidenceDigest)
+  ) return false;
+  return Object.freeze({
+    environment: selected.environment,
+    adapterVersion: selected.adapterVersion as number,
+    evidenceDigest: selected.evidenceDigest,
+  });
+}
+
+function authorityMap(value: unknown): MerchantProviderExecutionAuthorityMap | null {
+  const selected = record(value, PROVIDERS);
+  if (selected === null) return null;
+  const iyzico = executionAuthority(selected.iyzico_iframe);
+  const paytr = executionAuthority(selected.paytr_iframe);
+  if (iyzico === false || paytr === false) return null;
+  return Object.freeze({ iyzico_iframe: iyzico, paytr_iframe: paytr });
+}
+
+function identity(value: unknown): Readonly<MerchantProviderValidationIdentity> | null {
+  const selected = record(value, ["environment", "adapterVersion"]);
+  if (
+    selected === null ||
+    (selected.environment !== "test" && selected.environment !== "live") ||
+    !Number.isSafeInteger(selected.adapterVersion) || (selected.adapterVersion as number) < 1
+  ) return null;
+  return Object.freeze({
+    environment: selected.environment,
+    adapterVersion: selected.adapterVersion as number,
+  });
+}
+
+function identityList(value: unknown): readonly Readonly<MerchantProviderValidationIdentity>[] | null {
+  if (
+    !Array.isArray(value) || nodeTypes.isProxy(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype || !Object.isFrozen(value) || value.length > 16
+  ) return null;
+  const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
+  if (Reflect.ownKeys(descriptors).length !== value.length + 1) return null;
+  const result: Readonly<MerchantProviderValidationIdentity>[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) return null;
+    const selected = identity(descriptor.value);
+    if (selected === null) return null;
+    const key = `${selected.environment}:${selected.adapterVersion}`;
+    if (seen.has(key)) return null;
+    seen.add(key);
+    result.push(selected);
+  }
+  return Object.freeze(result);
+}
+
+function identityMap(value: unknown): MerchantProviderVerificationIdentityMap | null {
+  const selected = record(value, PROVIDERS);
+  if (selected === null) return null;
+  const iyzico = identityList(selected.iyzico_iframe);
+  const paytr = identityList(selected.paytr_iframe);
+  if (iyzico === null || paytr === null) return null;
+  return Object.freeze({ iyzico_iframe: iyzico, paytr_iframe: paytr });
 }
 
 function required(source: Environment, name: string, maximum = 4_096): string {
@@ -68,7 +175,7 @@ function database(source: Environment): Readonly<{ url: string; name: string }> 
   return Object.freeze({ url: value, name });
 }
 
-function validation(source: Environment): MerchantProviderProductionConfig["validation"] {
+function paytrValidation(source: Environment): NonNullable<MerchantProviderProductionConfig["paytrValidation"]> {
   const userIp = publicIp(required(source, "CELEBIX_PAYTR_VALIDATION_EGRESS_IP", 39));
   const origin = required(source, "CELEBIX_PAYTR_VALIDATION_ORIGIN", 256);
   let parsed: URL;
@@ -87,83 +194,69 @@ function validation(source: Environment): MerchantProviderProductionConfig["vali
 }
 
 export function createMerchantProviderProductionConfigParser(
-  compiledAuthority:
-  MerchantProviderProductionConfig["executionAuthority"] | null,
+  compiledExecutionAuthorities: MerchantProviderExecutionAuthorityMap,
+  compiledVerificationIdentities: MerchantProviderVerificationIdentityMap,
   dependencies?: Readonly<{
     parseKeyring(source: Environment): MerchantProviderCredentialKeyring;
   }>,
 ) {
-  const parseKeyring = dependencies?.parseKeyring
-    ?? parseMerchantProviderCredentialKeyring;
-  const descriptors = typeof compiledAuthority === "object"
-    && compiledAuthority !== null
-    && !Array.isArray(compiledAuthority)
-    && !nodeTypes.isProxy(compiledAuthority)
-    && Object.getPrototypeOf(compiledAuthority) === Object.prototype
-    ? Object.getOwnPropertyDescriptors(compiledAuthority)
-    : null;
-  const authorityKeys = ["environment", "adapterVersion", "evidenceDigest"];
-  const executionAuthority = descriptors !== null
-    && Reflect.ownKeys(descriptors).length === authorityKeys.length
-    && authorityKeys.every((key) => {
-      const descriptor = descriptors[key];
-      return descriptor?.enumerable === true && "value" in descriptor;
-    })
-    && descriptors.environment?.value === "test"
-    && descriptors.adapterVersion?.value === 1
-    && typeof descriptors.evidenceDigest?.value === "string"
-    && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value)
-    ? Object.freeze({
-      environment: "test" as const,
-      adapterVersion: 1 as const,
-      evidenceDigest: descriptors.evidenceDigest.value as string,
-    })
-    : null;
-  function resolveMode(source: Environment):
-  "disabled" | "approved_test_validation" {
-    return executionAuthority !== null
-      && source.CELEBIX_MERCHANT_PROVIDER_WORKER_MODE === "approved_test_validation"
+  const parseKeyring = dependencies?.parseKeyring ?? parseMerchantProviderCredentialKeyring;
+  const executionAuthorities = authorityMap(compiledExecutionAuthorities);
+  const verificationIdentities = identityMap(compiledVerificationIdentities);
+  const enabled = executionAuthorities !== null && verificationIdentities !== null && (
+    PROVIDERS.some((providerCode) => executionAuthorities[providerCode] !== null) ||
+    PROVIDERS.some((providerCode) => verificationIdentities[providerCode].length > 0)
+  );
+  function resolveMode(source: Environment): "disabled" | "approved_test_validation" {
+    return enabled && source.CELEBIX_MERCHANT_PROVIDER_WORKER_MODE === "approved_test_validation"
       ? "approved_test_validation"
       : "disabled";
   }
   function parse(source: Environment): MerchantProviderProductionConfig {
-    if (resolveMode(source) !== "approved_test_validation"
-      || executionAuthority === null) invalid();
+    if (
+      resolveMode(source) !== "approved_test_validation" ||
+      executionAuthorities === null || verificationIdentities === null
+    ) invalid();
     const workerId = required(source, "CELEBIX_MERCHANT_PROVIDER_WORKER_ID", 128);
     if (!WORKER.test(workerId)) invalid();
     let keyring: MerchantProviderCredentialKeyring;
-    try {
-      keyring = parseKeyring(source);
-    } catch {
-      return invalid();
-    }
+    try { keyring = parseKeyring(source); } catch { return invalid(); }
     let ownershipTransferred = false;
     try {
       const config = Object.freeze({
         database: database(source),
         keyring,
         workerId,
-        validation: validation(source),
-        executionAuthority,
+        paytrValidation: executionAuthorities.paytr_iframe === null ? null : paytrValidation(source),
+        executionAuthorities,
+        verificationIdentities,
       });
       ownershipTransferred = true;
       return config;
     } finally {
-      if (!ownershipTransferred) {
-        for (const { key } of keyring.keys) key.fill(0);
-      }
+      if (!ownershipTransferred) for (const { key } of keyring.keys) key.fill(0);
     }
   }
   return Object.freeze({ resolveMode, parse });
 }
 
-function compiledPaytrIframeTestAuthority():
-MerchantProviderProductionConfig["executionAuthority"] | null {
-  return null;
+function compiledExecutionAuthorities(): MerchantProviderExecutionAuthorityMap {
+  return Object.freeze({ iyzico_iframe: null, paytr_iframe: null });
+}
+
+function compiledVerificationIdentities(): MerchantProviderVerificationIdentityMap {
+  return Object.freeze({
+    iyzico_iframe: Object.freeze([
+      Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
+      Object.freeze({ environment: "live" as const, adapterVersion: 1 }),
+    ]),
+    paytr_iframe: Object.freeze([]),
+  });
 }
 
 const PRODUCTION_PARSER = createMerchantProviderProductionConfigParser(
-  compiledPaytrIframeTestAuthority(),
+  compiledExecutionAuthorities(),
+  compiledVerificationIdentities(),
 );
 
 export function resolveMerchantProviderProductionMode(
