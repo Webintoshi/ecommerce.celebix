@@ -48,6 +48,7 @@ type SourceRecord = Readonly<Record<string, string>>;
 const MAX_BYTES = 4 * 1024 * 1024;
 const MAX_ROWS = 2_500;
 const MAX_IMAGES = 16;
+const MAX_STOCK = 2_147_483_647;
 const BATCH_SIZE = 25;
 const SOURCE_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const CELL_CONTROL = /[\u0000-\u001f\u007f]/;
@@ -56,6 +57,7 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SKU = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const INTEGER = /^(?:0|[1-9][0-9]*)$/;
 const GRAMS = /^(?:0|[1-9][0-9]*)(?:[.,][0-9]{1,6})?$/;
+const PERSISTED_GRAMS = /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,3})?$/;
 
 const ALIASES = Object.freeze({
   sourceProductId: Object.freeze(["kimlik", "id"]),
@@ -258,7 +260,7 @@ function canonicalStock(raw: string, availability: string): Readonly<{ quantity:
   if (selected) {
     if (!INTEGER.test(selected)) invalid();
     const quantity = Number(selected);
-    if (!Number.isSafeInteger(quantity)) invalid();
+    if (!Number.isSafeInteger(quantity) || quantity > MAX_STOCK) invalid();
     return Object.freeze({ quantity, mapped: false });
   }
   const state = availability.trim().toLowerCase();
@@ -272,6 +274,7 @@ function canonicalWeight(value: string): string | undefined {
   if (!selected) return undefined;
   if (!GRAMS.test(selected)) invalid();
   const normalized = selected.replace(",", ".").replace(/\.0+$/, "").replace(/(\.[0-9]*?)0+$/, "$1");
+  if (!PERSISTED_GRAMS.test(normalized)) invalid();
   const numeric = Number(normalized);
   if (!Number.isFinite(numeric) || numeric <= 0 || numeric > 1_000_000) invalid();
   return normalized;

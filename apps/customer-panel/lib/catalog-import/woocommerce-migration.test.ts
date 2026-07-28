@@ -184,6 +184,8 @@ for (const [name, row] of [
   ["negative price", sourceRow({ "Normal fiyat": "-1" })],
   ["negative stock", sourceRow({ Stok: "-1" })],
   ["invalid gram quantity", sourceRow({ "Ağırlık (g)": "2,3,5" })],
+  ["gram precision beyond the durable SQL bound", sourceRow({ "Ağırlık (g)": "2.3456" })],
+  ["stock above the durable SQL bound", sourceRow({ Stok: "2147483648" })],
 ] as const) {
   test(`rejects ${name}`, async () => {
     const source = name.startsWith("duplicate")

@@ -62,6 +62,41 @@ test("a committed migration item replays locally without fetch upload or another
   assert.deepEqual(result, { kind: "committed", productId: PRODUCT, mediaId: MEDIA, replayed: true });
 });
 
+test("a failed migration item resumes an existing durable upload operation before creating another media", async () => {
+  const calls: string[] = [];
+  const derived = deriveMigrationMediaUploadOperationId({ storeId: STORE, jobId: JOB, sourceProductId: "30794", ordinal: 0 });
+  const result = await ingestMigrationMediaItem(input(), {
+    migration: {
+      async authorizeMedia() { calls.push("authorize"); return authority("failed"); },
+      async recordMedia() { calls.push("record"); return job(); },
+    } as any,
+    fetchImage: async () => ({ bytes: new Uint8Array(24), mediaType: "image/png" as const, width: 2, height: 3, byteSize: 24 }),
+    upload: {
+      async inspectOperation(selected: any) { calls.push(`inspect:${selected.operationId}`); return "committed" as const; },
+      async upload(selected: any) { calls.push(`upload:${selected.operationId}`); return { media: { id: MEDIA, storeId: STORE, productId: PRODUCT, status: "active" }, replayed: true }; },
+    } as any,
+  });
+  assert.deepEqual(calls, ["authorize", `inspect:${derived}`, `upload:${derived}`, "record"]);
+  assert.equal(result.mediaId, MEDIA);
+});
+
+test("a failed migration item starts a fresh upload only after read-only proof that the prior operation is deleted", async () => {
+  const calls: string[] = [];
+  const derived = deriveMigrationMediaUploadOperationId({ storeId: STORE, jobId: JOB, sourceProductId: "30794", ordinal: 0 });
+  await ingestMigrationMediaItem(input(), {
+    migration: {
+      async authorizeMedia() { calls.push("authorize"); return authority("failed"); },
+      async recordMedia() { calls.push("record"); return job(); },
+    } as any,
+    fetchImage: async () => ({ bytes: new Uint8Array(24), mediaType: "image/png" as const, width: 2, height: 3, byteSize: 24 }),
+    upload: {
+      async inspectOperation(selected: any) { calls.push(`inspect:${selected.operationId}`); return "deleted" as const; },
+      async upload(selected: any) { calls.push(`upload:${selected.operationId}`); return { media: { id: MEDIA, storeId: STORE, productId: PRODUCT, status: "active" }, replayed: false }; },
+    } as any,
+  });
+  assert.deepEqual(calls, ["authorize", `inspect:${derived}`, `upload:${OPERATION}`, "record"]);
+});
+
 test("digest mismatch is denied before fetch upload and durable mutation", async () => {
   const calls: string[] = [];
   await assert.rejects(() => ingestMigrationMediaItem(input(), {

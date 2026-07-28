@@ -12,6 +12,8 @@ const BARCODE = /^[A-Za-z0-9._-]{1,128}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const DESCRIPTION_CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f]/;
 const ATTRIBUTE_KEY = /^[\p{L}\p{N}][\p{L}\p{N} ._()/%+-]{0,63}$/u;
+const MIGRATION_WEIGHT = /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,3})?$/;
+const MAX_STOCK = 2_147_483_647;
 
 function fail(code: CatalogMigrationErrorCode = "invalid_input"): never {
   throw new CatalogMigrationRepositoryError(code);
@@ -107,7 +109,14 @@ function attributes(value: unknown): Readonly<Record<string, string>> {
   const result: Record<string, string> = {};
   for (const [key, selected] of entries) {
     if (!ATTRIBUTE_KEY.test(key)) fail();
-    result[key] = text(selected, 1, 200);
+    const parsedValue = text(selected, 1, 200);
+    if (key === "Ağırlık (g)" && (
+      !MIGRATION_WEIGHT.test(parsedValue) ||
+      !Number.isFinite(Number(parsedValue)) ||
+      Number(parsedValue) <= 0 ||
+      Number(parsedValue) > 1_000_000
+    )) fail();
+    result[key] = parsedValue;
   }
   return Object.freeze(result);
 }
@@ -141,7 +150,7 @@ export function catalogMigrationProducts(value: unknown): readonly CatalogMigrat
         ...(barcode === undefined ? {} : { barcode }),
         priceCents,
         ...(compareAtCents === undefined ? {} : { compareAtCents }),
-        stockQuantity: catalogMigrationInteger(variant.stockQuantity, 0, Number.MAX_SAFE_INTEGER),
+        stockQuantity: catalogMigrationInteger(variant.stockQuantity, 0, MAX_STOCK),
         attributes: attributes(variant.attributes),
       }),
       sourceImageDigests: stringArray(parsed.sourceImageDigests, 16, catalogMigrationDigest),

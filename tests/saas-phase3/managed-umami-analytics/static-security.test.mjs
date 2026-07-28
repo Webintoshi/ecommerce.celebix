@@ -222,6 +222,14 @@ test("lockfile admits only pinned adapter successors, the approved Markdown pars
     license: "MIT",
     engines: { node: ">=12" },
   };
+  expectedLock.packages["apps/media-gateway"] = {
+    name: "@celebix/media-gateway",
+    version: "0.1.0",
+  };
+  expectedLock.packages["node_modules/@celebix/media-gateway"] = {
+    resolved: "apps/media-gateway",
+    link: true,
+  };
   const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
   assert.deepEqual(currentLock, expectedLock);
 

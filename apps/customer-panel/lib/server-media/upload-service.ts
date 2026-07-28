@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { TenantContext } from "@celebix/saas-contracts";
 import type { ProductMediaRepository } from "@celebix/saas-data";
-import type { ProductMedia, ProductMediaReservation } from "../../../../packages/saas-contracts/src/media/index.ts";
+import type { ProductMedia, ProductMediaReservation, ProductMediaWriteState } from "../../../../packages/saas-contracts/src/media/index.ts";
 import type { PublicImageMediaType } from "../../../../packages/saas-contracts/src/storefront/index.ts";
 
 import type { ProductMediaStorage } from "./r2-storage.ts";
@@ -24,7 +24,10 @@ export type ProductMediaUploadResult = Readonly<{
   replayed: boolean;
 }>;
 
+export type ProductMediaUploadOperationState = "absent" | ProductMediaWriteState;
+
 export interface ProductMediaUploadService {
+  inspectOperation(input: ProductMediaUploadInput): Promise<ProductMediaUploadOperationState>;
   upload(input: ProductMediaUploadInput): Promise<ProductMediaUploadResult>;
 }
 
@@ -36,6 +39,7 @@ type Dependencies = Readonly<{
 
 function unavailable(): Error { return new Error("product_media_upload_unavailable"); }
 function isUnavailable(error: unknown): boolean { return (error as { code?: unknown })?.code === "unavailable"; }
+function isMediaNotFound(error: unknown): boolean { return (error as { code?: unknown })?.code === "media_not_found"; }
 function isUnknownStorageWrite(error: unknown): boolean { return (error as { code?: unknown })?.code === "write_unknown"; }
 function isKnownStorageRejection(error: unknown): boolean { return (error as { code?: unknown })?.code === "write_rejected"; }
 function deriveMediaId(input: Pick<ProductMediaUploadInput, "tenantContext" | "operationId" | "productId">): string {
@@ -69,6 +73,13 @@ export function createProductMediaUploadService(dependencies: Dependencies): Pro
       productId: input.productId,
       payloadSha256,
     };
+  }
+  function prepare(input: ProductMediaUploadInput): Readonly<{ mediaId: string; payloadSha256: string }> {
+    if (!(input?.bytes instanceof Uint8Array) || input.bytes.byteLength < 1 || input.bytes.byteLength > 5_242_880) throw unavailable();
+    return Object.freeze({
+      mediaId: deriveMediaId(input),
+      payloadSha256: createHash("sha256").update(input.bytes).digest("hex"),
+    });
   }
   function assertAuthority(reservation: ProductMediaReservation, input: ProductMediaUploadInput, mediaId: string, payloadSha256: string): void {
     const extension = input.mediaType === "image/jpeg" ? "jpg" : input.mediaType.slice("image/".length);
@@ -133,10 +144,19 @@ export function createProductMediaUploadService(dependencies: Dependencies): Pro
   }
 
   return Object.freeze({
+    async inspectOperation(input: ProductMediaUploadInput): Promise<ProductMediaUploadOperationState> {
+      const { mediaId, payloadSha256 } = prepare(input);
+      try {
+        const recovered = await dependencies.repository.recoverProductMediaOperation(lifecycle(input, mediaId, payloadSha256));
+        assertAuthority(recovered, input, mediaId, payloadSha256);
+        return recovered.state;
+      } catch (error) {
+        if (isMediaNotFound(error)) return "absent";
+        throw unavailable();
+      }
+    },
     async upload(input: ProductMediaUploadInput): Promise<ProductMediaUploadResult> {
-      if (!(input.bytes instanceof Uint8Array) || input.bytes.byteLength < 1 || input.bytes.byteLength > 5_242_880) throw unavailable();
-      const payloadSha256 = createHash("sha256").update(input.bytes).digest("hex");
-      const mediaId = deriveMediaId(input);
+      const { mediaId, payloadSha256 } = prepare(input);
       let reservation: ProductMediaReservation;
       let reservationRecovered = false;
       try {
