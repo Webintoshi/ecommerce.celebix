@@ -147,7 +147,7 @@ test("the pinned donor admin tree remains unchanged", () => {
   assert.deepEqual(changedNames("apps/admin"), []);
 });
 
-test("lockfile admits only pinned adapter successors and the approved Markdown parser", async () => {
+test("lockfile admits only pinned adapter successors, the approved Markdown parser, and the approved DOM test runtime", async () => {
   assert.equal(
     git(["merge-base", PAYMENT_ADAPTERS_HEAD, "HEAD"]).trim(),
     PAYMENT_ADAPTERS_HEAD,
@@ -164,6 +164,8 @@ test("lockfile admits only pinned adapter successors and the approved Markdown p
 
   const workspace = JSON.parse(await readFile(`${ROOT}/packages/payment-adapters/package.json`, "utf8"));
   assert.deepEqual(workspace, PAYMENT_ADAPTER_WORKSPACE);
+  const customerPanelWorkspace = JSON.parse(await readFile(`${ROOT}/apps/customer-panel/package.json`, "utf8"));
+  assert.equal(customerPanelWorkspace.devDependencies?.["happy-dom"], "20.8.9");
   const expectedLock = JSON.parse(git(["show", `${PAYMENT_ADAPTERS_PREDECESSOR}:package-lock.json`]));
   expectedLock.packages["node_modules/@celebix/payment-adapters"] = {
     resolved: "packages/payment-adapters",
@@ -176,9 +178,50 @@ test("lockfile admits only pinned adapter successors and the approved Markdown p
   };
   expectedLock.packages["apps/storefront-shared"].dependencies["@celebix/payment-adapters"] = "0.1.0";
   expectedLock.packages["apps/customer-panel"].dependencies["@celebix/payment-adapters"] = "0.1.0";
+  expectedLock.packages["apps/customer-panel"].devDependencies["happy-dom"] = "20.8.9";
   expectedLock.packages["apps/owner"].dependencies["@celebix/payment-adapters"] = "0.1.0";
   expectedLock.packages["packages/platform-config"].dependencies = { "markdown-it": "14.1.1" };
   expectedLock.packages["packages/platform-config"].devDependencies = { "@types/markdown-it": "14.1.2" };
+  expectedLock.packages["node_modules/@types/whatwg-mimetype"] = {
+    version: "3.0.2",
+    resolved: "https://registry.npmjs.org/@types/whatwg-mimetype/-/whatwg-mimetype-3.0.2.tgz",
+    integrity: "sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==",
+    dev: true,
+    license: "MIT",
+  };
+  expectedLock.packages["node_modules/happy-dom"] = {
+    version: "20.8.9",
+    resolved: "https://registry.npmjs.org/happy-dom/-/happy-dom-20.8.9.tgz",
+    integrity: "sha512-Tz23LR9T9jOGVZm2x1EPdXqwA37G/owYMxRwU0E4miurAtFsPMQ1d2Jc2okUaSjZqAFz2oEn3FLXC5a0a+siyA==",
+    dev: true,
+    license: "MIT",
+    dependencies: {
+      "@types/node": ">=20.0.0",
+      "@types/whatwg-mimetype": "^3.0.2",
+      "@types/ws": "^8.18.1",
+      entities: "^7.0.1",
+      "whatwg-mimetype": "^3.0.0",
+      ws: "^8.18.3",
+    },
+    engines: { node: ">=20.0.0" },
+  };
+  expectedLock.packages["node_modules/happy-dom/node_modules/entities"] = {
+    version: "7.0.1",
+    resolved: "https://registry.npmjs.org/entities/-/entities-7.0.1.tgz",
+    integrity: "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA==",
+    dev: true,
+    license: "BSD-2-Clause",
+    engines: { node: ">=0.12" },
+    funding: { url: "https://github.com/fb55/entities?sponsor=1" },
+  };
+  expectedLock.packages["node_modules/whatwg-mimetype"] = {
+    version: "3.0.0",
+    resolved: "https://registry.npmjs.org/whatwg-mimetype/-/whatwg-mimetype-3.0.0.tgz",
+    integrity: "sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==",
+    dev: true,
+    license: "MIT",
+    engines: { node: ">=12" },
+  };
   const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
   assert.deepEqual(currentLock, expectedLock);
 
