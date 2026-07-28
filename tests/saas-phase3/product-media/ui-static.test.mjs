@@ -23,10 +23,17 @@ test("Hemenaku product detail exposes real bounded media management controls", a
 });
 
 test("product creation offers image selection and uploads only after durable product creation", async () => {
-  const source = await read("apps/customer-panel/components/catalog/ProductCreateForm.tsx");
+  const [quick, advanced, completion] = await Promise.all([
+    read("apps/customer-panel/components/catalog-onboarding/ProductQuickCreateDialog.tsx"),
+    read("apps/customer-panel/components/catalog-onboarding/ProductAdvancedEditor.tsx"),
+    read("apps/customer-panel/lib/catalog-onboarding-ui/media-completion.ts"),
+  ]);
+  const source = `${quick}\n${advanced}\n${completion}`;
   assert.match(source, /type="file"/);
   assert.match(source, /accept="image\/jpeg,image\/png,image\/webp"/);
-  assert.ok(source.indexOf("catalogApi.createProduct") < source.indexOf("productMediaApi.upload"));
-  assert.match(source, /Yükleme ilerlemesi/);
-  assert.match(source, /Görsel alt metni/);
+  assert.match(quick, /const created = await api[.]createProduct[(]parsed[.]value[)][\s\S]*await completeMedia[(]created/);
+  assert.match(advanced, /const created = await api[.]createProduct[(]parsed[.]value[)][\s\S]*await completeProductMedia[(]/);
+  assert.match(completion, /await input[.]upload[(]input[.]result[.]product[.]id/);
+  assert.match(source, /progress/);
+  assert.match(source, /alt metni|altText/);
 });
