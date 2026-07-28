@@ -395,9 +395,11 @@ export class PostgresMerchantProviderWorkflowRepository implements
       began = true;
       await this.configure(client);
       const result = row(await client.query(spec.text, spec.values));
-      const known = this.expected(result.outcome);
-      if (known) throw known;
-      if (!expected.includes(result.outcome)) throw unavailable();
+      if (!expected.includes(result.outcome)) {
+        const known = this.expected(result.outcome);
+        if (known) throw known;
+        throw unavailable();
+      }
       const recovered = parser(result);
       if (JSON.stringify(recovered) !== JSON.stringify(observed)) throw unavailable();
       try {
@@ -430,9 +432,11 @@ export class PostgresMerchantProviderWorkflowRepository implements
       began = true;
       await this.configure(client);
       const result = row(await client.query(spec.text, spec.values));
-      const known = this.expected(result.outcome);
-      if (known) throw known;
-      if (!expected.includes(result.outcome)) throw unavailable();
+      if (!expected.includes(result.outcome)) {
+        const known = this.expected(result.outcome);
+        if (known) throw known;
+        throw unavailable();
+      }
       const observed = parser(result);
       try {
         await client.query("COMMIT");
@@ -551,8 +555,12 @@ export class PostgresMerchantProviderWorkflowRepository implements
     if (selectedCapability !== "payment_processing") invalid();
     const selectedValidationIdentity = validationIdentity(parsed.validationIdentity);
     const leaseId = uuid(parsed.leaseId), leaseOwner = worker(parsed.leaseOwner), now = date(parsed.now);
-    if (parsed.outcome !== "validated" && parsed.outcome !== "rejected") invalid();
+    if (
+      parsed.outcome !== "validated" && parsed.outcome !== "rejected" &&
+      parsed.outcome !== "unavailable"
+    ) invalid();
     const outcomeCode = code(parsed.outcomeCode);
+    if ((parsed.outcome === "unavailable") !== (outcomeCode === "validation_unavailable")) invalid();
     return this.verificationTransaction({
       text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_mark_verification($1::uuid,$2::text,$3::text,$4::text,$5::integer,$6::text,$7::timestamptz,$8::uuid,$9::bigint,$10::bigint,$11::text,$12::text)",
       values: [
@@ -562,7 +570,8 @@ export class PostgresMerchantProviderWorkflowRepository implements
       ],
     }, [parsed.outcome as string, "operation_replayed"], (result) => {
       const selected = profile(result.result);
-      const expectedStatus = parsed.outcome === "validated" ? "active" : "rotation_required";
+      const expectedStatus = parsed.outcome === "validated" ? "active"
+        : parsed.outcome === "unavailable" ? "pending_validation" : "rotation_required";
       if (selected.id !== profileId || selected.status !== expectedStatus) throw unavailable();
       return selected;
     });

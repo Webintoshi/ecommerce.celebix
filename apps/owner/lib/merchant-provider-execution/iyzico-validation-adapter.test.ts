@@ -148,10 +148,39 @@ test("Iyzico verifier rejects duplicate credential JSON keys including escaped e
   assert.equal(calls, 0);
 });
 
+test("Iyzico verifier rejects an own fill override before transport and wipes with the typed-array intrinsic", async () => {
+  const { createIyzicoValidationAdapter } = await implementation();
+  const plaintext = credential();
+  Object.defineProperty(plaintext, "fill", {
+    configurable: true,
+    value: () => plaintext,
+    writable: true,
+  });
+  let calls = 0;
+  const adapter = createIyzicoValidationAdapter(options(() => {
+    calls += 1;
+    return response({
+      status: "success",
+      conversationId: REFERENCE,
+      binNumber: "41579200",
+    });
+  }));
+
+  assert.deepEqual(await adapter.validateCredential(Object.freeze({
+    credential: plaintext,
+    publicConfig: Object.freeze({ environment: "test" }),
+  })), { kind: "rejected", outcomeCode: "invalid_validation_request" });
+  assert.equal(calls, 0);
+  assert.equal(plaintext.every((byte) => byte === 0), true);
+});
+
 test("Iyzico verifier maps only explicit auth rejection to provider_rejected and remote uncertainty to validation_unavailable", async () => {
   const { createIyzicoValidationAdapter } = await implementation();
   const cases = [
-    { result: response({ status: "failure", errorCode: "12", errorMessage: "private" }, 401), code: "provider_rejected" },
+    { result: response({ status: "failure", errorCode: "1000", errorMessage: "private" }, 401), code: "provider_rejected" },
+    { result: response({ status: "failure", errorCode: "12", errorMessage: "private" }, 401), code: "validation_unavailable" },
+    { result: response({ status: "failure", errorCode: "1", errorGroup: "SYSTEM_ERROR" }, 400), code: "validation_unavailable" },
+    { result: response({ status: "failure", errorCode: "2000", errorGroup: "BUSINESS_ERROR" }, 403), code: "validation_unavailable" },
     { result: Object.freeze({ kind: "unknown" as const, code: "transport_outcome_unknown" as const }), code: "validation_unavailable" },
     { result: response({ status: "failure" }, 429), code: "validation_unavailable" },
     { result: response({ status: "failure" }, 503), code: "validation_unavailable" },

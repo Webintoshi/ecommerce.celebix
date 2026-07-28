@@ -416,8 +416,9 @@ BEGIN
     OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now) OR p_lease_id IS NULL
     OR p_credential_version IS NULL OR p_credential_version<1
     OR p_profile_version IS NULL OR p_profile_version<1
-    OR p_validation_outcome NOT IN('validated','rejected')
+    OR p_validation_outcome NOT IN('validated','rejected','unavailable')
     OR p_outcome_code IS NULL OR p_outcome_code!~'^[a-z][a-z0-9_]{0,63}$'
+    OR (p_validation_outcome='unavailable')<>(p_outcome_code='validation_unavailable')
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
   fingerprint_source:=p_profile_id::text||':'||p_provider_code||':'||p_capability||':'||
     p_environment||':'||p_adapter_version::text||':'||p_worker_id||':'||
@@ -456,7 +457,11 @@ BEGIN
     OR profile.version<>p_profile_version
   THEN RETURN QUERY SELECT 'lease_lost',NULL::jsonb; RETURN; END IF;
   UPDATE saas.merchant_provider_profiles SET
-    status=CASE WHEN p_validation_outcome='validated' THEN 'active' ELSE 'rotation_required' END,
+    status=CASE p_validation_outcome
+      WHEN 'validated' THEN 'active'
+      WHEN 'rejected' THEN 'rotation_required'
+      ELSE 'pending_validation'
+    END,
     version=version+1,
     last_validated_at=CASE WHEN p_validation_outcome='validated' THEN p_now ELSE last_validated_at END,
     validation_lease_id=NULL,validation_lease_owner=NULL,validation_lease_expires_at=NULL,
@@ -666,7 +671,7 @@ BEGIN
     ('saas.merchant_provider_profiles_disable_bound_methods()','d47dda73304fdd5f1cadd116a65c7560',NULL::text,true),
     ('saas.merchant_provider_profile_save_verification(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,bigint)','16390c6b605f3d1e0697238c4eefbce9','celebix_saas_app',true),
     ('saas.merchant_provider_profile_claim_verification(text,text,text,text,integer,timestamp with time zone,timestamp with time zone,uuid)','bdb8179dd889c57d5223654e3135db10','celebix_saas_workflow',true),
-    ('saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)','3491e6f91f43a04d57d7e66c87aa1e0e','celebix_saas_workflow',true),
+    ('saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)','0f52a99dc71a7424a68cb0cdff64bdc0','celebix_saas_workflow',true),
     ('saas.merchant_provider_profile_bind_execution_authority(uuid,text,text,text,integer,text,timestamp with time zone,bigint)','343e0912c1cb144d4a4eb29dfebf73be',NULL::text,true),
     ('saas.payment_method_save_without_execution_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','95759feb45130750226426a364a9d94d',NULL::text,true),
     ('saas.payment_method_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','d28dfa0740950aa197950675b4d6737b','celebix_saas_app',true)

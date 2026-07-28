@@ -74,7 +74,7 @@ BEGIN
     ('saas.merchant_provider_profiles_disable_bound_methods()','d47dda73304fdd5f1cadd116a65c7560',NULL::text,true),
     ('saas.merchant_provider_profile_save_verification(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,bigint)','16390c6b605f3d1e0697238c4eefbce9','celebix_saas_app',true),
     ('saas.merchant_provider_profile_claim_verification(text,text,text,text,integer,timestamp with time zone,timestamp with time zone,uuid)','bdb8179dd889c57d5223654e3135db10','celebix_saas_workflow',true),
-    ('saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)','3491e6f91f43a04d57d7e66c87aa1e0e','celebix_saas_workflow',true),
+    ('saas.merchant_provider_profile_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)','0f52a99dc71a7424a68cb0cdff64bdc0','celebix_saas_workflow',true),
     ('saas.merchant_provider_profile_bind_execution_authority(uuid,text,text,text,integer,text,timestamp with time zone,bigint)','343e0912c1cb144d4a4eb29dfebf73be',NULL::text,true),
     ('saas.payment_method_save_without_execution_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','95759feb45130750226426a364a9d94d',NULL::text,true),
     ('saas.payment_method_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)','d28dfa0740950aa197950675b4d6737b','celebix_saas_app',true)
@@ -127,7 +127,7 @@ BEGIN
     WHERE procedure.oid=function_oid AND procedure.proowner=owner_oid
       AND procedure.prosecdef
       AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
-      AND pg_catalog.md5(procedure.prosrc)='121bfe5478bfffaf3709dbb68ceaed8c'
+      AND pg_catalog.md5(procedure.prosrc)='4d9adaee2d5967d515a8c41cd1b97f48'
   ) OR EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc AS procedure
     CROSS JOIN LATERAL pg_catalog.aclexplode(

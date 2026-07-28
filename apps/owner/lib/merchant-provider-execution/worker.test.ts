@@ -177,6 +177,86 @@ function probe(options: ProbeOptions = {}) {
   return { worker, calls, retained, audits };
 }
 
+type VerificationResult = Awaited<ReturnType<MerchantProviderVerificationAdapter["validateCredential"]>>;
+
+function verificationProbe(validation: VerificationResult, sabotageCredentialFill = false) {
+  const plaintext = new TextEncoder().encode(JSON.stringify({
+    apiKey: "sandbox-api-key",
+    secretKey: "sandbox-secret-key",
+  }));
+  const sealedCredentials = sealMerchantProviderCredential({
+    plaintext,
+    profileId: PROFILE,
+    storeId: STORE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    credentialVersion: 1,
+    keyring: KEYRING,
+  });
+  plaintext.fill(0);
+  const retained: Uint8Array[] = [];
+  const marks: Record<string, unknown>[] = [];
+  const audits: unknown[] = [];
+  const adapter: MerchantProviderVerificationAdapter = Object.freeze({
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: Object.freeze({ environment: "test", adapterVersion: 1 }),
+    async validateCredential(input: Parameters<MerchantProviderVerificationAdapter["validateCredential"]>[0]) {
+      retained.push(input.credential);
+      if (sabotageCredentialFill) {
+        Object.defineProperty(input.credential, "fill", {
+          configurable: true,
+          value: () => input.credential,
+          writable: true,
+        });
+      }
+      return validation;
+    },
+  });
+  const repository = {
+    async claimProfileVerification() {
+      return Object.freeze({ kind: "claimed" as const, profile: Object.freeze({
+        profileId: PROFILE, storeId: STORE, providerCode: "iyzico_iframe",
+        capability: "payment_processing" as const,
+        publicConfig: Object.freeze({ environment: "test" }),
+        validationIdentity: Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
+        sealedCredentials, credentialVersion: 1, profileVersion: 2, leaseId: LEASE,
+        leaseOwner: "worker.fixture", leaseExpiresAt: new Date(NOW.getTime() + 300_000).toISOString(),
+      }) });
+    },
+    async markProfileVerification(input: Record<string, unknown>) {
+      marks.push(input);
+      return {
+        id: PROFILE, providerCode: "iyzico_iframe", capability: "payment_processing" as const,
+        publicConfig: { environment: "test" }, maskedAccountReference: "iyzico test hesabı",
+        status: input.outcome === "validated" ? "active" as const
+          : input.outcome === "unavailable" ? "pending_validation" as const : "rotation_required" as const,
+        credentialVersion: 1, version: 3, lastValidatedAt: null,
+        createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+      };
+    },
+    async claimProfileValidation() { throw new Error("legacy_validation_forbidden"); },
+    async markProfileValidation() { throw new Error("legacy_validation_forbidden"); },
+    async claim() { throw new Error("generic_queue_forbidden"); },
+    async heartbeat() { throw new Error("generic_queue_forbidden"); },
+    async finalize() { throw new Error("generic_queue_forbidden"); },
+    async reconcile() { throw new Error("generic_queue_forbidden"); },
+    async recover() { throw new Error("generic_queue_forbidden"); },
+  } as unknown as MerchantProviderWorkflowRepository & MerchantProviderVerificationWorkflowRepository;
+  const worker = createMerchantProviderWorker({
+    mode: "validation_only",
+    repository,
+    registry: createMerchantProviderAdapterRegistry(Object.freeze([])),
+    verificationRegistry: Object.freeze({ size: 1, get: () => adapter, list: () => Object.freeze([adapter]) }),
+    keyring: KEYRING,
+    workerId: "worker.fixture",
+    now: () => new Date(NOW),
+    leaseDurationMs: 300_000,
+    audit(event) { audits.push(event); },
+  });
+  return { worker, retained, marks, audits };
+}
+
 test("worker validates pending credential with an injected adapter and zeroes plaintext", async () => {
   const selected = probe({ validation: "validated" });
   assert.deepEqual(await selected.worker.runOnce(), { kind: "profile_validated" });
@@ -314,6 +394,32 @@ test("verification lane claims and marks Iyzico identity without execution autho
   assert.equal(Object.hasOwn(marked, "executionAuthority"), false);
   assert.equal(JSON.stringify(marked).includes("evidenceDigest"), false);
   assert.equal(retained[0]?.every((byte) => byte === 0), true);
+});
+
+test("verification lane releases transient provider uncertainty for retry without rotating credentials", async () => {
+  const selected = verificationProbe(Object.freeze({
+    kind: "rejected" as const,
+    outcomeCode: "validation_unavailable",
+  }));
+
+  assert.deepEqual(await selected.worker.runOnce(), { kind: "profile_unavailable" });
+  assert.equal(selected.marks.length, 1);
+  assert.equal(selected.marks[0]?.outcome, "unavailable");
+  assert.equal(selected.marks[0]?.outcomeCode, "validation_unavailable");
+  assert.deepEqual(selected.audits, [{
+    operation: "validate",
+    classification: "profile_unavailable",
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+  }]);
+  assert.equal(selected.retained[0]?.every((byte) => byte === 0), true);
+});
+
+test("verification worker wipes plaintext with the typed-array intrinsic after adapter sabotage", async () => {
+  const selected = verificationProbe(Object.freeze({ kind: "validated" as const }), true);
+
+  assert.deepEqual(await selected.worker.runOnce(), { kind: "profile_validated" });
+  assert.equal(selected.retained[0]?.every((byte) => byte === 0), true);
 });
 
 test("verification lane rejects public environment mismatch before reading the encrypted envelope", async () => {

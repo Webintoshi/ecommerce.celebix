@@ -9,6 +9,7 @@ const PG = "/Users/Celebix/.codex/tmp/postgresql-16.14-install/bin";
 const DB = "payment_provider_keyed_lifecycle";
 const ROLLBACK_DB = "payment_provider_keyed_lifecycle_rollback";
 const MARK_REPLAY_DB = "payment_provider_keyed_lifecycle_mark_replay";
+const UNAVAILABLE_DB = "payment_provider_keyed_lifecycle_unavailable";
 const REVOKE_ISOLATION_DB = "payment_provider_keyed_lifecycle_revoke_isolation";
 const UP = "202607270056_payment_provider_keyed_lifecycle.up.sql";
 const DOWN = "202607270056_payment_provider_keyed_lifecycle.down.sql";
@@ -33,7 +34,7 @@ const LEASE = "60000000-0000-4000-8000-000000000056";
 const FP = "a".repeat(64);
 const OTHER_FP = "b".repeat(64);
 const EVIDENCE = `sha256:${"c".repeat(64)}`;
-const TOTAL = 18;
+const TOTAL = 19;
 let completed = 0;
 
 function bin(name) {
@@ -322,13 +323,14 @@ function claimVerification(box, {
   environment = "test",
   adapterVersion = 1,
   lease = LEASE,
+  database = DB,
 } = {}) {
   const result = sql(box, `SET ROLE celebix_saas_workflow;
 SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
 FROM saas.merchant_provider_profile_claim_verification(
   'worker.iyzico','${provider}','payment_processing','${environment}',${adapterVersion},
   '${CLAIMED_AT}'::timestamptz,'${EXPIRES}'::timestamptz,'${lease}'::uuid
-);`);
+);`, database);
   return JSON.parse(result.stdout.trim());
 }
 
@@ -340,14 +342,16 @@ function markVerification(box, {
   credentialVersion = 1,
   profileVersion = 1,
   outcome = "validated",
+  outcomeCode = "iyzico_test_ok",
+  database = DB,
 } = {}) {
   const result = sql(box, `SET ROLE celebix_saas_workflow;
 SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
 FROM saas.merchant_provider_profile_mark_verification(
   '${profile}'::uuid,'${provider}','payment_processing','${environment}',${adapterVersion},
   'worker.iyzico','${MARKED_AT}'::timestamptz,'${LEASE}'::uuid,${credentialVersion},${profileVersion},
-  '${outcome}','iyzico_test_ok'
-);`);
+  '${outcome}','${outcomeCode}'
+);`, database);
   return JSON.parse(result.stdout.trim());
 }
 
@@ -458,6 +462,7 @@ UPDATE saas.merchant_provider_profiles SET execution_environment='test' WHERE id
       assert.equal(Object.hasOwn(claimed.result, "executionAuthority"), false);
       assert.equal(JSON.stringify(claimed.result).includes("evidenceDigest"), false);
       sql(box, `CREATE DATABASE ${MARK_REPLAY_DB} TEMPLATE ${DB};`, "postgres");
+      sql(box, `CREATE DATABASE ${UNAVAILABLE_DB} TEMPLATE ${DB};`, "postgres");
     });
 
     pass("verification marking binds lease, versions, and identity without creating a method", () => {
@@ -472,6 +477,37 @@ UPDATE saas.merchant_provider_profiles SET execution_environment='test' WHERE id
       assert.equal(sql(box, `SELECT status||'|'||version||'|'||(execution_environment IS NULL)
 FROM saas.merchant_provider_profiles WHERE id='${TEST_PROFILE}';`).stdout.trim(), "active|2|true");
       assert.equal(sql(box, `SELECT count(*) FROM saas.payment_methods WHERE profile_id='${TEST_PROFILE}';`).stdout.trim(), "0");
+    });
+
+    pass("verification unavailability releases the exact lease and remains safely retryable", () => {
+      const unavailable = markVerification(box, {
+        outcome: "unavailable",
+        outcomeCode: "validation_unavailable",
+        database: UNAVAILABLE_DB,
+      });
+      assert.equal(unavailable.outcome, "unavailable");
+      assert.equal(unavailable.result.status, "pending_validation");
+      assert.equal(sql(box, `SELECT status||'|'||version||'|'||
+  (validation_lease_id IS NULL AND validation_lease_owner IS NULL AND validation_lease_expires_at IS NULL)||'|'||
+  (execution_environment IS NULL AND execution_adapter_version IS NULL AND execution_evidence_digest IS NULL)
+FROM saas.merchant_provider_profiles WHERE id='${TEST_PROFILE}';`, UNAVAILABLE_DB).stdout.trim(), "pending_validation|2|true|true");
+      assert.deepEqual(markVerification(box, {
+        outcome: "unavailable",
+        outcomeCode: "validation_unavailable",
+        database: UNAVAILABLE_DB,
+      }), { outcome: "operation_replayed", result: unavailable.result });
+      assert.equal(markVerification(box, {
+        outcome: "unavailable",
+        outcomeCode: "provider_rejected",
+        database: UNAVAILABLE_DB,
+      }).outcome, "invalid_input");
+      const reclaimed = claimVerification(box, {
+        lease: "60000000-0000-4000-8000-000000000060",
+        database: UNAVAILABLE_DB,
+      });
+      assert.equal(reclaimed.outcome, "claimed");
+      assert.equal(reclaimed.result.profileVersion, 2);
+      assert.equal(sql(box, `SELECT count(*) FROM saas.payment_methods WHERE profile_id='${TEST_PROFILE}';`, UNAVAILABLE_DB).stdout.trim(), "0");
     });
 
     await proveConcurrentExactMarkReplay(box);

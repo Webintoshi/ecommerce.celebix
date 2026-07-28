@@ -92,6 +92,15 @@ test("056 exposes distinct verification RPCs and preserves exact role boundaries
   assert.match(assertions, /relrowsecurity[\s\S]*relforcerowsecurity/);
 });
 
+test("056 keeps transient verification unavailability pending and replayable", () => {
+  const up = source(UP);
+  assert.match(up, /p_validation_outcome NOT IN\('validated','rejected','unavailable'\)/);
+  assert.match(up, /\(p_validation_outcome='unavailable'\)<>\(p_outcome_code='validation_unavailable'\)/);
+  assert.match(up, /WHEN 'rejected' THEN 'rotation_required'[\s\S]*ELSE 'pending_validation'/);
+  assert.match(up, /validation_lease_id=NULL,validation_lease_owner=NULL,validation_lease_expires_at=NULL/);
+  assert.match(up, /operation_id,store_id,operation_kind,payload_fingerprint,result_payload,committed_at/);
+});
+
 test("056 replaces profile uniqueness and guards creation, activation, and rollback", () => {
   const up = source(UP);
   const down = source(DOWN);

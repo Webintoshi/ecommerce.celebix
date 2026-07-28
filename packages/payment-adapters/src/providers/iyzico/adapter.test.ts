@@ -718,6 +718,34 @@ test("classifies HTTP 200 failures as credential denial only for exact authentic
   }
 });
 
+test("classifies explicit failure HTTP responses as credential denial only for exact authentication codes", async () => {
+  const cases = [
+    { status: 400, errorCode: "1000", outcomeCode: "provider_rejected" },
+    { status: 401, errorCode: "1001", outcomeCode: "provider_rejected" },
+    { status: 403, errorCode: "1003", outcomeCode: "provider_rejected" },
+    { status: 400, errorCode: "1", outcomeCode: "validation_unavailable" },
+    { status: 401, errorCode: "2000", outcomeCode: "validation_unavailable" },
+    { status: 403, errorCode: "12", outcomeCode: "validation_unavailable" },
+  ] as const;
+  for (const selected of cases) {
+    const providerResult = response({
+      status: "failure",
+      errorCode: selected.errorCode,
+      errorMessage: "private provider detail",
+    }, selected.status);
+    const result = await validateIyzicoCredentialWithTransport(transport(() => providerResult), {
+      environment: "test",
+      credential,
+      validationReference: ATTEMPT_ID,
+      signal: new AbortController().signal,
+      randomKey: () => RANDOM_KEY,
+    });
+    assert.deepEqual(result, { kind: "rejected", outcomeCode: selected.outcomeCode }, JSON.stringify(selected));
+    assert.equal(JSON.stringify(result).includes("private"), false);
+    assert.equal(providerResult.kind === "response" && providerResult.body.every((byte) => byte === 0), true);
+  }
+});
+
 test("classifies invalid local BIN-validation input before transport as an invalid request", async () => {
   let calls = 0;
   assert.deepEqual(await validateIyzicoCredentialWithTransport(transport(() => {
@@ -764,7 +792,7 @@ test("classifies explicit bounded provider failures separately from transient an
       validationReference: ATTEMPT_ID,
       signal: new AbortController().signal,
       randomKey: () => RANDOM_KEY,
-    }), { kind: "rejected", outcomeCode: "provider_rejected" }, String(status));
+    }), { kind: "rejected", outcomeCode: "validation_unavailable" }, String(status));
     assert.equal(binFailure.kind === "response" && binFailure.body.every((byte) => byte === 0), true);
 
     const malformedInitialize = response("{", status);

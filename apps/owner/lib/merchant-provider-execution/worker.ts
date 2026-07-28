@@ -17,6 +17,7 @@ import type {
 const WORKER = /^[A-Za-z0-9._-]{1,128}$/;
 const OUTCOME_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const UINT8_ARRAY_FILL = Uint8Array.prototype.fill;
 const OPTION_KEYS = Object.freeze([
   "mode", "repository", "registry", "verificationRegistry", "keyring", "workerId", "now",
   "leaseDurationMs", "audit",
@@ -24,6 +25,12 @@ const OPTION_KEYS = Object.freeze([
 
 function invalid(): never {
   throw new TypeError("merchant_provider_worker_invalid");
+}
+
+function wipe(value: Uint8Array | undefined): void {
+  try {
+    if (value !== undefined) Reflect.apply(UINT8_ARRAY_FILL, value, [0]);
+  } catch {}
 }
 
 function exact(value: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -186,7 +193,7 @@ async function validateProfile(
     } catch {
       code = "credential_validation_failed";
     } finally {
-      credential?.fill(0);
+      wipe(credential);
     }
   }
   await options.repository.markProfileValidation({
@@ -212,7 +219,7 @@ async function verifyProfile(
   adapter: MerchantProviderVerificationAdapter,
   now: Date,
 ): Promise<MerchantProviderWorkerResult> {
-  let classification: "profile_validated" | "profile_rejected" = "profile_rejected";
+  let classification: "profile_validated" | "profile_rejected" | "profile_unavailable" = "profile_rejected";
   let code = "credential_validation_failed";
   let credential: Uint8Array | undefined;
   try {
@@ -226,11 +233,12 @@ async function verifyProfile(
       code = "validated";
     } else {
       code = selected.outcomeCode;
+      if (code === "validation_unavailable") classification = "profile_unavailable";
     }
   } catch {
     code = "credential_validation_failed";
   } finally {
-    credential?.fill(0);
+    wipe(credential);
   }
   await options.repository.markProfileVerification({
     profileId: claim.profileId,
@@ -242,7 +250,8 @@ async function verifyProfile(
     leaseId: claim.leaseId,
     leaseOwner: claim.leaseOwner,
     now,
-    outcome: classification === "profile_validated" ? "validated" : "rejected",
+    outcome: classification === "profile_validated" ? "validated"
+      : classification === "profile_unavailable" ? "unavailable" : "rejected",
     outcomeCode: code,
   });
   await audit(options, "validate", classification, claim);
@@ -264,7 +273,7 @@ async function executeJob(
     } catch {
       selected = Object.freeze({ kind: "provider_outcome_unknown", outcomeCode: "transport_outcome_unknown" });
     } finally {
-      credential?.fill(0);
+      wipe(credential);
     }
   }
   await options.repository.finalize({

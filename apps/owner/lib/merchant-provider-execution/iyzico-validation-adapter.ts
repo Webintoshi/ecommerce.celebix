@@ -14,6 +14,8 @@ const OPTION_KEYS = Object.freeze([
 ]);
 const PUBLIC_KEYS = Object.freeze(["environment"]);
 const CREDENTIAL_KEYS = Object.freeze(["apiKey", "secretKey"]);
+const ARRAY_INDEX = /^(?:0|[1-9][0-9]*)$/;
+const UINT8_ARRAY_FILL = Uint8Array.prototype.fill;
 
 export type IyzicoValidationAdapterOptions = Readonly<{
   validationIdentity: Readonly<{ environment: "test" | "live"; adapterVersion: 1 }>;
@@ -25,6 +27,25 @@ export type IyzicoValidationAdapterOptions = Readonly<{
 
 function invalid(): never {
   throw new TypeError("iyzico_validation_adapter_invalid");
+}
+
+function wipe(value: unknown): void {
+  try {
+    if (
+      !nodeTypes.isProxy(value) && nodeTypes.isUint8Array(value) &&
+      Object.getPrototypeOf(value) === Uint8Array.prototype
+    ) Reflect.apply(UINT8_ARRAY_FILL, value, [0]);
+  } catch {}
+}
+
+function exactCredentialBytes(value: unknown): asserts value is Uint8Array {
+  if (
+    !nodeTypes.isUint8Array(value) || nodeTypes.isProxy(value) ||
+    Object.getPrototypeOf(value) !== Uint8Array.prototype
+  ) invalid();
+  const ownKeys = Reflect.ownKeys(value);
+  if (ownKeys.some((key) => typeof key !== "string" || !ARRAY_INDEX.test(key))) invalid();
+  if (value.byteLength < 1 || value.byteLength > 16_384 || ownKeys.length !== value.byteLength) invalid();
 }
 
 function exact(value: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -153,11 +174,7 @@ function duplicateJsonKeys(value: string): boolean {
 }
 
 function credentialBytes(value: unknown): { apiKey: string; secretKey: string } {
-  if (
-    !nodeTypes.isUint8Array(value) || nodeTypes.isProxy(value) ||
-    Object.getPrototypeOf(value) !== Uint8Array.prototype ||
-    value.byteLength < 1 || value.byteLength > 16_384
-  ) invalid();
+  exactCredentialBytes(value);
   const decoded = new TextDecoder("utf-8", { fatal: true }).decode(value);
   const canonical = new TextEncoder().encode(decoded);
   try {
@@ -169,7 +186,7 @@ function credentialBytes(value: unknown): { apiKey: string; secretKey: string } 
     const parsed = exact(JSON.parse(decoded) as unknown, CREDENTIAL_KEYS);
     return { apiKey: text(parsed.apiKey), secretKey: text(parsed.secretKey) };
   } finally {
-    canonical.fill(0);
+    wipe(canonical);
   }
 }
 
@@ -228,7 +245,7 @@ export function createIyzicoValidationAdapter(
           privateValues.apiKey = "";
           privateValues.secretKey = "";
         }
-        credential?.fill(0);
+        wipe(credential);
       }
     },
   });

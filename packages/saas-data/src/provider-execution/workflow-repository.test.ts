@@ -244,6 +244,29 @@ test("profile verification result marks the exact validation identity without ev
   ), false);
 });
 
+test("profile verification unavailability releases the lease while preserving pending validation", async () => {
+  const client = new Client((text) => text.includes("merchant_provider_profile_mark_verification")
+    ? [{ outcome: "unavailable", result_payload: verificationProfile("pending_validation") }]
+    : []);
+  const result = await repository(new Pool([client])).markProfileVerification({
+    profileId: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: { environment: "test", adapterVersion: 1 },
+    credentialVersion: 2,
+    profileVersion: 3,
+    leaseId: LEASE,
+    leaseOwner: "worker.fixture",
+    now: NOW,
+    outcome: "unavailable",
+    outcomeCode: "validation_unavailable",
+  });
+  assert.equal(result.status, "pending_validation");
+  assert.deepEqual(call(client, "merchant_provider_profile_mark_verification").values.slice(-2), [
+    "unavailable", "validation_unavailable",
+  ]);
+});
+
 test("verification claim commit ambiguity audits safely and replays the exact lease once", async () => {
   let writerCommits = 0;
   const projected = verificationClaim();
@@ -323,6 +346,41 @@ test("verification mark commit ambiguity audits safely and accepts one exact rep
   assert.deepEqual(writer.releases, [true]);
   assert.deepEqual(audit, ["merchant_provider_verification_commit_unknown"]);
   assert.doesNotMatch(JSON.stringify(audit), /raw-database-detail/);
+});
+
+test("verification unavailable commit ambiguity replays the same pending projection", async () => {
+  let writerCommits = 0;
+  const projected = verificationProfile("pending_validation");
+  const writer = new Client((text) => {
+    if (text.includes("merchant_provider_profile_mark_verification")) {
+      return [{ outcome: "unavailable", result_payload: projected }];
+    }
+    if (text === "COMMIT" && writerCommits++ === 0) throw new Error("ambiguous");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("merchant_provider_profile_mark_verification")
+    ? [{ outcome: "operation_replayed", result_payload: projected }]
+    : []);
+  const audit: string[] = [];
+
+  const result = await repository(new Pool([writer, recovery]), audit).markProfileVerification({
+    profileId: PROFILE,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    validationIdentity: { environment: "test", adapterVersion: 1 },
+    credentialVersion: 2,
+    profileVersion: 3,
+    leaseId: LEASE,
+    leaseOwner: "worker.fixture",
+    now: NOW,
+    outcome: "unavailable",
+    outcomeCode: "validation_unavailable",
+  });
+
+  assert.deepEqual(result, projected);
+  assert.equal(writer.calls.filter((entry) => entry.text.includes("merchant_provider_profile_mark_verification")).length, 1);
+  assert.equal(recovery.calls.filter((entry) => entry.text.includes("merchant_provider_profile_mark_verification")).length, 1);
+  assert.deepEqual(audit, ["merchant_provider_verification_commit_unknown"]);
 });
 
 test("verification commit recovery rejects a projection different from the observed write", async () => {

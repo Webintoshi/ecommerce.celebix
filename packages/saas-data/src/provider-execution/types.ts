@@ -164,7 +164,7 @@ export interface MerchantProviderVerificationResultInput {
   readonly leaseId: string;
   readonly leaseOwner: string;
   readonly now: Date;
-  readonly outcome: "validated" | "rejected";
+  readonly outcome: "validated" | "rejected" | "unavailable";
   readonly outcomeCode: string;
 }
 

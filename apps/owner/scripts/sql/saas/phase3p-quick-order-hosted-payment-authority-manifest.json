@@ -368,11 +368,11 @@
     },
     {
       "file": "202607270056_payment_provider_keyed_lifecycle.up.sql",
-      "sha256": "601e0dfcdad9adee38f8579bbf1333c55f59b64af883451975a03eeb9112f3d0"
+      "sha256": "05441c27a620553d6aee72c763bf68d21e6e7171aefbd5ad048d1ccccf14f845"
     },
     {
       "file": "202607270056_payment_provider_keyed_lifecycle_assertions.sql",
-      "sha256": "6345c2eef6f1733377cd437c3914d9b90e59a9fa95f7eff8292bfe2fba747b6a"
+      "sha256": "70f72cb22aa73ba9469c05cb4246f3d8dcb16b1693d2f03727a0ee200da83c48"
     },
     {
       "file": "202607270057_quick_order_hosted_payment_authority.up.sql",

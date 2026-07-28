@@ -68,6 +68,7 @@ export type MerchantProviderWorkerResult = Readonly<{ kind:
   | "empty"
   | "profile_validated"
   | "profile_rejected"
+  | "profile_unavailable"
   | "succeeded"
   | "retryable_failed"
   | "permanently_failed"

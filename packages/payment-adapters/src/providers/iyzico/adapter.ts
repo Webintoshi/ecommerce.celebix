@@ -1029,7 +1029,7 @@ export async function validateIyzicoCredentialWithTransport(
         return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
       }
       if (explicitFailureHttpStatus(result.status)) {
-        return providerFailure(raw)
+        return providerFailure(raw) && providerCredentialDenial(raw)
           ? Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const })
           : Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
       }

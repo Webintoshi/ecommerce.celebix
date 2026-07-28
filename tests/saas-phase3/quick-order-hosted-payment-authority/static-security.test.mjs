@@ -14,7 +14,7 @@ const REPOSITORY_FIXTURE = path.join(ROOT, "tests/saas-phase3/quick-order-hosted
 const preserved = Object.freeze({
   "202607220024_quick_order_links.up.sql": "519cda0360940c97dd1a63457fd6f27c0e8262de22176e3a893c1db2725e988a",
   "202607220025_quick_order_links_api.up.sql": "5e087e542a47840783ca0bdc851e8a7d8b8069ee01c3f5849b16773138094da9",
-  "202607270056_payment_provider_keyed_lifecycle.up.sql": "601e0dfcdad9adee38f8579bbf1333c55f59b64af883451975a03eeb9112f3d0",
+  "202607270056_payment_provider_keyed_lifecycle.up.sql": "05441c27a620553d6aee72c763bf68d21e6e7171aefbd5ad048d1ccccf14f845",
 });
 
 const source = (file) => existsSync(path.join(SQL, file)) ? readFileSync(path.join(SQL, file), "utf8") : "";
