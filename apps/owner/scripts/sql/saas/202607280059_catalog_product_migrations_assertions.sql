@@ -29,6 +29,8 @@ BEGIN
   FOREACH function_name IN ARRAY ARRAY[
     'saas.catalog_migration_begin(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,text,integer,integer,jsonb,jsonb)',
     'saas.catalog_migration_import_batch(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb)',
+    'saas.catalog_migration_authorize_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,integer,text)',
+    'saas.catalog_migration_record_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,text,integer,text,text,uuid,text)',
     'saas.catalog_migration_get(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)',
     'saas.catalog_migration_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)'
   ] LOOP

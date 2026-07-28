@@ -9,17 +9,17 @@
     {
       "file": "202607280059_catalog_product_migrations.up.sql",
       "direction": "up",
-      "sha256": "599e7c775d73224ab4d2892d0fb185e698c02e64e58926a6cfedcd8495204ebb"
+      "sha256": "e81ab6e82214bdcee2196814fea8f32845aab5c95fce53f36a49aac5a80147be"
     },
     {
       "file": "202607280059_catalog_product_migrations.down.sql",
       "direction": "down",
-      "sha256": "ac367f9456b39d5122a520e10f3b0fe5cec7d0be2faf0aff09fd64019e031689"
+      "sha256": "b166978606cf5124dd4bbd456ac1d1b7f978c743d36c001d0a9495d959d7e96a"
     },
     {
       "file": "202607280059_catalog_product_migrations_assertions.sql",
       "direction": "verify",
-      "sha256": "634416e43042fb979f9ab25c7dfdb1c1b97f89ef88dc33e4200129a98dd788ca"
+      "sha256": "45bf053f343598762b3bfad8875d616e8c552ec6b75f12882d86aa2d2fd64450"
     }
   ]
 }

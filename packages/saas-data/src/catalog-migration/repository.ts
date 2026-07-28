@@ -2,8 +2,8 @@ import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool
 import type { ValidatedCatalogAuthority } from "../catalog/validation.ts";
 import { catalogMigrationFingerprint, stableCatalogMigrationJson } from "./canonical.ts";
 import { CATALOG_MIGRATION_ERROR_CODES, CatalogMigrationRepositoryError, type CatalogMigrationErrorCode } from "./errors.ts";
-import type { BeginCatalogMigrationInput, CatalogMigrationBatchResult, CatalogMigrationJob, CatalogMigrationRepository, GetCatalogMigrationInput, ImportCatalogMigrationBatchInput, PostgresCatalogMigrationRepositoryOptions } from "./types.ts";
-import { catalogMigrationAuthority, catalogMigrationDigest, catalogMigrationInteger, catalogMigrationProducts, catalogMigrationTaxonomies, catalogMigrationUuid, exactCatalogMigrationInput, parseCatalogMigrationJob } from "./validation.ts";
+import type { AuthorizeCatalogMigrationMediaInput, BeginCatalogMigrationInput, CatalogMigrationBatchResult, CatalogMigrationJob, CatalogMigrationMediaAuthority, CatalogMigrationRepository, GetCatalogMigrationInput, ImportCatalogMigrationBatchInput, PostgresCatalogMigrationRepositoryOptions, RecordCatalogMigrationMediaInput } from "./types.ts";
+import { catalogMigrationAuthority, catalogMigrationDigest, catalogMigrationInteger, catalogMigrationProducts, catalogMigrationSafeFailureCode, catalogMigrationSourceProductId, catalogMigrationTaxonomies, catalogMigrationUuid, exactCatalogMigrationInput, parseCatalogMigrationJob, parseCatalogMigrationMediaAuthority } from "./validation.ts";
 
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 type MutationParser<T> = (value: unknown, replayed: boolean) => T;
@@ -48,8 +48,8 @@ export class PostgresCatalogMigrationRepository implements CatalogMigrationRepos
   private async rollback(client: PostgresClientLike): Promise<void> { try { await client.query("ROLLBACK"); release(client); } catch { release(client, true); } }
   private emitUnknown(): void { try { const pending = this.options.audit({ type: "catalog_migration_commit_unknown" }); if (pending) void pending.catch(() => undefined); } catch {} }
   private uuid(): string { try { return catalogMigrationUuid(this.options.uuid()); } catch { throw unavailable(); } }
-  private authority(input: unknown, required: readonly string[]) {
-    const parsed = exactCatalogMigrationInput(input, required);
+  private authority(input: unknown, required: readonly string[], optional: readonly string[] = []) {
+    const parsed = exactCatalogMigrationInput(input, required, optional);
     return { parsed, authority: catalogMigrationAuthority(parsed.tenantContext, parsed.now) };
   }
   private async read<T>(spec: QuerySpec, expected: string, parser: (value: unknown) => T): Promise<T> {
@@ -140,5 +140,32 @@ export class PostgresCatalogMigrationRepository implements CatalogMigrationRepos
       text: "SELECT outcome,result_payload FROM saas.catalog_migration_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)",
       values: [...authorityValues(authority), jobId],
     }, "found", (value) => { const result = this.job(value, false); if (result.jobId !== jobId) throw unavailable(); return result; });
+  }
+  async authorizeMedia(input: AuthorizeCatalogMigrationMediaInput): Promise<CatalogMigrationMediaAuthority> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "jobId", "sourceProductId", "ordinal", "sourceUrlDigest"]);
+    const jobId = catalogMigrationUuid(parsed.jobId), sourceProductId = catalogMigrationSourceProductId(parsed.sourceProductId);
+    const ordinal = catalogMigrationInteger(parsed.ordinal, 0, 15), sourceUrlDigest = catalogMigrationDigest(parsed.sourceUrlDigest);
+    return this.read({
+      text: "SELECT outcome,result_payload FROM saas.catalog_migration_authorize_media($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::integer,$12::text)",
+      values: [...authorityValues(authority), jobId, sourceProductId, ordinal, sourceUrlDigest],
+    }, "authorized", (value) => {
+      try { const result = parseCatalogMigrationMediaAuthority(value); if (result.jobId !== jobId || result.sourceProductId !== sourceProductId || result.ordinal !== ordinal || result.sourceUrlDigest !== sourceUrlDigest) throw unavailable(); return result; }
+      catch (error) { if (error instanceof CatalogMigrationRepositoryError && error.code === "unavailable") throw error; throw unavailable(); }
+    });
+  }
+  async recordMedia(input: RecordCatalogMigrationMediaInput): Promise<CatalogMigrationJob> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "jobId", "sourceProductId", "ordinal", "sourceUrlDigest", "outcome"], ["mediaId", "safeFailureCode"]);
+    const operationId = catalogMigrationUuid(parsed.operationId), jobId = catalogMigrationUuid(parsed.jobId), sourceProductId = catalogMigrationSourceProductId(parsed.sourceProductId);
+    const ordinal = catalogMigrationInteger(parsed.ordinal, 0, 15), sourceUrlDigest = catalogMigrationDigest(parsed.sourceUrlDigest);
+    if (parsed.outcome !== "committed" && parsed.outcome !== "failed") throw new CatalogMigrationRepositoryError("invalid_input");
+    if ((parsed.outcome === "committed" && (parsed.mediaId === undefined || parsed.safeFailureCode !== undefined))
+      || (parsed.outcome === "failed" && (parsed.safeFailureCode === undefined || parsed.mediaId !== undefined))) throw new CatalogMigrationRepositoryError("invalid_input");
+    const mediaId = parsed.outcome === "committed" ? catalogMigrationUuid(parsed.mediaId) : null;
+    const safeFailureCode = parsed.outcome === "failed" ? catalogMigrationSafeFailureCode(parsed.safeFailureCode) : null;
+    const fingerprint = catalogMigrationFingerprint("record_media", authority.storeId, { jobId, sourceProductId, ordinal, sourceUrlDigest, outcome: parsed.outcome, mediaId, safeFailureCode });
+    return this.mutate(authority, operationId, fingerprint, "media_recorded", {
+      text: "SELECT outcome,result_payload FROM saas.catalog_migration_record_media($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::text,$13::integer,$14::text,$15::text,$16::uuid,$17::text)",
+      values: [...authorityValues(authority), operationId, fingerprint, jobId, sourceProductId, ordinal, sourceUrlDigest, parsed.outcome, mediaId, safeFailureCode],
+    }, (value, replayed) => this.job(value, replayed));
   }
 }

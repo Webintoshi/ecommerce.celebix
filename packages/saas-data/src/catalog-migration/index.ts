@@ -3,10 +3,12 @@ export type { CatalogMigrationErrorCode } from "./errors.ts";
 export { PostgresCatalogMigrationRepository } from "./repository.ts";
 export type {
   BeginCatalogMigrationInput,
+  AuthorizeCatalogMigrationMediaInput,
   CatalogMigrationAuthorityInput,
   CatalogMigrationBatchResult,
   CatalogMigrationJob,
   CatalogMigrationMapping,
+  CatalogMigrationMediaAuthority,
   CatalogMigrationProduct,
   CatalogMigrationRepository,
   CatalogMigrationTaxonomy,
@@ -14,4 +16,5 @@ export type {
   GetCatalogMigrationInput,
   ImportCatalogMigrationBatchInput,
   PostgresCatalogMigrationRepositoryOptions,
+  RecordCatalogMigrationMediaInput,
 } from "./types.ts";

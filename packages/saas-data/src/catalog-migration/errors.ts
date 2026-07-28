@@ -6,6 +6,8 @@ export const CATALOG_MIGRATION_ERROR_CODES = Object.freeze([
   "feature_not_enabled",
   "durable_authority_invalid",
   "job_not_found",
+  "media_not_found",
+  "media_state_invalid",
   "job_mismatch",
   "product_limit_reached",
   "import_conflict",

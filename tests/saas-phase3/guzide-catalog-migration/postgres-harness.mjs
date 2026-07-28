@@ -29,6 +29,9 @@ const PRODUCT_A = "48000000-0000-4000-8000-000000000001";
 const PRODUCT_B = "48000000-0000-4000-8000-000000000002";
 const VARIANT_A = "49000000-0000-4000-8000-000000000001";
 const VARIANT_B = "49000000-0000-4000-8000-000000000002";
+const MEDIA_A = "4b000000-0000-4000-8000-000000000001";
+const MEDIA_B = "4b000000-0000-4000-8000-000000000002";
+const MEDIA_C = "4b000000-0000-4000-8000-000000000003";
 const BEGIN_OP = "4a000000-0000-4000-8000-000000000001";
 const BATCH_OP_A = "4a000000-0000-4000-8000-000000000002";
 const BATCH_OP_B = "4a000000-0000-4000-8000-000000000003";
@@ -44,9 +47,10 @@ const PRIOR = JSON.parse(readFileSync(path.join(SQL, "phase3n-hosted-callback-li
 const ONBOARDING = JSON.parse(readFileSync(path.join(SQL, "phase3-product-onboarding-manifest.json"), "utf8"));
 const MEDIA = JSON.parse(readFileSync(path.join(SQL, "phase3-tenant-r2-media-manifest.json"), "utf8"));
 const MANIFEST = JSON.parse(readFileSync(path.join(SQL, "phase3-guzide-catalog-migration-manifest.json"), "utf8"));
-const TOTAL = 23;
+const TOTAL = 31;
 let completed = 0;
 let winningBatchOperation = "";
+let winningMediaOperation = "";
 
 function executable(name) {
   for (const directory of [PG16, ...(process.env.PATH ?? "").split(path.delimiter)]) {
@@ -137,6 +141,12 @@ const PRODUCTS = JSON.stringify([
 ]);
 function batchExpression(operation, fingerprint = digest("batch"), products = PRODUCTS) {
   return `saas.catalog_migration_import_batch(${authority()},'${operation}','${fingerprint}','${JOB}','${SOURCE}',$json$${products}$json$::jsonb)`;
+}
+function authorizeMediaExpression(sourceProductId, ordinal, sourceUrlDigest, selectedAuthority = authority()) {
+  return `saas.catalog_migration_authorize_media(${selectedAuthority},'${JOB}','${sourceProductId}',${ordinal},'${sourceUrlDigest}')`;
+}
+function recordMediaExpression(operation, fingerprint, sourceProductId, ordinal, sourceUrlDigest, selectedOutcome, mediaId = null, safeFailureCode = null) {
+  return `saas.catalog_migration_record_media(${authority()},'${operation}','${fingerprint}','${JOB}','${sourceProductId}',${ordinal},'${sourceUrlDigest}','${selectedOutcome}',${mediaId === null ? "NULL" : `'${mediaId}'`},${safeFailureCode === null ? "NULL" : `'${safeFailureCode}'`})`;
 }
 function absent(pid) { if (!Number.isSafeInteger(pid)) return true; return spawnSync("kill", ["-0", String(pid)]).status !== 0; }
 
@@ -237,6 +247,70 @@ async function main() {
     await scenario("invalid product batches and product limits fail closed", () => {
       assert.equal(outcome(box, `saas.catalog_migration_import_batch(${authority()},'4a000000-0000-4000-8000-000000000020','${digest("empty")}','${JOB}','${SOURCE}','[]'::jsonb)`).outcome, "invalid_input");
       assert.equal(outcome(box, `saas.catalog_migration_get(${authority({ limit: 99 })},'${JOB}')`).outcome, "durable_authority_invalid");
+    });
+    await scenario("media authorization returns only the persisted product variant and digest authority", () => {
+      const result = outcome(box, authorizeMediaExpression("30794", 0, IMAGE_A));
+      assert.equal(result.outcome, "authorized");
+      assert.deepEqual(result.result, {
+        jobId: JOB, sourceProductId: "30794", productId: PRODUCT_A, variantId: VARIANT_A,
+        ordinal: 0, sourceUrlDigest: IMAGE_A, status: "pending",
+      });
+      assert.equal(JSON.stringify(result).includes("https://"), false);
+    });
+    await scenario("wrong digest store and ordinal media authority fail closed", () => {
+      assert.equal(outcome(box, authorizeMediaExpression("30794", 0, "e".repeat(64))).outcome, "media_not_found");
+      assert.equal(outcome(box, authorizeMediaExpression("30794", 15, IMAGE_A)).outcome, "media_not_found");
+      assert.equal(outcome(box, authorizeMediaExpression("30794", 0, IMAGE_A, authority({ store: STORE_B, principal: PRINCIPAL_B, membership: MEMBERSHIP_B }))).outcome, "job_not_found");
+    });
+    await scenario("active media fixtures remain exactly tenant product and variant scoped", () => {
+      psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+        INSERT INTO saas.product_media(id,store_id,product_id,variant_id,object_key,public_url,media_type,alt_text,width,height,byte_size,sort_order,status,created_at,updated_at,version) VALUES
+          ('${MEDIA_A}','${STORE}','${PRODUCT_A}','${VARIANT_A}','stores/${STORE}/products/${PRODUCT_A}/${MEDIA_A}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT_A}/${MEDIA_A}.webp','image/webp','A',1200,1200,2048,0,'active','${NOW}','${NOW}',1),
+          ('${MEDIA_B}','${STORE}','${PRODUCT_A}','${VARIANT_A}','stores/${STORE}/products/${PRODUCT_A}/${MEDIA_B}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT_A}/${MEDIA_B}.webp','image/webp','B',1200,1200,2048,1,'active','${NOW}','${NOW}',1),
+          ('${MEDIA_C}','${STORE}','${PRODUCT_B}','${VARIANT_B}','stores/${STORE}/products/${PRODUCT_B}/${MEDIA_C}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT_B}/${MEDIA_C}.webp','image/webp','C',1200,1200,2048,0,'active','${NOW}','${NOW}',1);
+        COMMIT;`);
+      assert.equal(psql(box, `SELECT count(*) FROM saas.product_media WHERE store_id='${STORE}' AND status='active';`).stdout.trim(), "3");
+    });
+    await scenario("concurrent media commits serialize to one durable winner", async () => {
+      const attempts = [
+        ["4a000000-0000-4000-8000-000000000031", digest("media-a-1")],
+        ["4a000000-0000-4000-8000-000000000032", digest("media-a-2")],
+      ];
+      const results = await Promise.all(attempts.map(([operationId, fingerprint]) => psqlAsync(
+        box, `BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT outcome FROM ${recordMediaExpression(operationId, fingerprint, "30794", 0, IMAGE_A, "committed", MEDIA_A)};COMMIT;`,
+      )));
+      assert.deepEqual(results.sort(), ["media_recorded", "media_state_invalid"]);
+      winningMediaOperation = psql(box, `SELECT operation_id FROM saas.catalog_product_migration_operations WHERE operation_id IN('${attempts[0][0]}','${attempts[1][0]}');`).stdout.trim();
+      assert.ok(attempts.some(([operationId]) => operationId === winningMediaOperation));
+      assert.equal(psql(box, `SELECT committed_media||'|'||failed_media FROM saas.catalog_product_migration_jobs WHERE id='${JOB}';`).stdout.trim(), "1|0");
+    });
+    await scenario("media operation replay is exact and a changed fingerprint is denied", () => {
+      const fingerprint = winningMediaOperation.endsWith("31") ? digest("media-a-1") : digest("media-a-2");
+      assert.equal(outcome(box, recordMediaExpression(winningMediaOperation, fingerprint, "30794", 0, IMAGE_A, "committed", MEDIA_A)).outcome, "operation_replayed");
+      assert.equal(outcome(box, recordMediaExpression(winningMediaOperation, "f".repeat(64), "30794", 0, IMAGE_A, "committed", MEDIA_A)).outcome, "operation_mismatch");
+    });
+    await scenario("cross-product media substitution is denied before progress mutation", () => {
+      const denied = outcome(box, recordMediaExpression("4a000000-0000-4000-8000-000000000033", digest("wrong-product"), "30794", 1, IMAGE_B, "committed", MEDIA_C));
+      assert.equal(denied.outcome, "media_not_found");
+      assert.equal(psql(box, `SELECT status FROM saas.catalog_product_migration_media_items WHERE job_id='${JOB}' AND source_product_id='30794' AND ordinal=1;`).stdout.trim(), "pending");
+    });
+    await scenario("safe media failures complete the job with explicit durable counters", () => {
+      assert.equal(outcome(box, recordMediaExpression("4a000000-0000-4000-8000-000000000034", digest("media-b-failed"), "30794", 1, IMAGE_B, "failed", null, "source_fetch_failed")).outcome, "media_recorded");
+      const finished = outcome(box, recordMediaExpression("4a000000-0000-4000-8000-000000000035", digest("media-c-failed"), "30795", 0, IMAGE_C, "failed", null, "source_fetch_failed"));
+      assert.equal(finished.outcome, "media_recorded");
+      assert.equal(finished.result.status, "completed_with_failures");
+      assert.equal(`${finished.result.committedMedia}|${finished.result.failedMedia}`, "1|2");
+      assert.equal(psql(box, `SELECT string_agg(safe_failure_code,',' ORDER BY source_product_id,ordinal) FROM saas.catalog_product_migration_media_items WHERE job_id='${JOB}' AND status='failed';`).stdout.trim(), "source_fetch_failed,source_fetch_failed");
+    });
+    await scenario("failed media can be repaired to an exact active media row until the job is complete", () => {
+      const repairedB = outcome(box, recordMediaExpression("4a000000-0000-4000-8000-000000000036", digest("media-b-committed"), "30794", 1, IMAGE_B, "committed", MEDIA_B));
+      assert.equal(repairedB.result.status, "completed_with_failures");
+      const repairedC = outcome(box, recordMediaExpression("4a000000-0000-4000-8000-000000000037", digest("media-c-committed"), "30795", 0, IMAGE_C, "committed", MEDIA_C));
+      assert.equal(repairedC.result.status, "completed");
+      assert.equal(`${repairedC.result.committedMedia}|${repairedC.result.failedMedia}`, "3|0");
+      const authorized = outcome(box, authorizeMediaExpression("30795", 0, IMAGE_C));
+      assert.equal(authorized.result.status, "committed");
+      assert.equal(authorized.result.committedMediaId, MEDIA_C);
     });
     await scenario("app has function-only authority and forced RLS", () => {
       assert.equal(psql(box, "SELECT bool_and(relrowsecurity AND relforcerowsecurity) FROM pg_class WHERE oid IN('saas.catalog_product_migration_jobs'::regclass,'saas.catalog_product_migration_items'::regclass,'saas.catalog_product_migration_media_items'::regclass,'saas.catalog_product_migration_operations'::regclass);").stdout.trim(), "t");
