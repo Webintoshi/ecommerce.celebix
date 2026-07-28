@@ -89,9 +89,9 @@ const requiredHarnesses = Object.freeze([
   }),
   Object.freeze({
     file: "tests/saas-phase3/iyzico-iframe-tenant-sandbox-evidence/postgres-harness.mjs",
-    total: 26,
-    line: /^PASS \d+\/26 .+$/gm,
-    completion: /^PASS 26\/26 .+$/m,
+    total: 28,
+    line: /^PASS \d+\/28 .+$/gm,
+    completion: /^PASS 28\/28 .+$/m,
   }),
 ]);
 const gateRank = Object.freeze({

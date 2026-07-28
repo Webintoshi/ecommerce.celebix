@@ -400,11 +400,11 @@
     },
     {
       "file": "202607280060_iyzico_iframe_tenant_sandbox_evidence.up.sql",
-      "sha256": "a88e3b12a3ff9954402870c8178cd9f429f88ede7cbf86c41119011ea1188772"
+      "sha256": "4a65e6d2085c55041cc4e5993b06eb7d1ad8f41252b7ef68901a732b4875f87b"
     },
     {
       "file": "202607280060_iyzico_iframe_tenant_sandbox_evidence_assertions.sql",
-      "sha256": "aa93fa3cfb15b5f5a28e099ea7f6c2e079fb9f8f812571b14588af9951b8232f"
+      "sha256": "d0812269b25438bdb7e03441f3a2220f6559f1c081242991529a568b268d9f93"
     }
   ],
   "rollbackArtifacts": [
