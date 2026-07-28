@@ -2,6 +2,7 @@ export {
   CATALOG_ONBOARDING_ERROR_CODES,
   CatalogOnboardingRepositoryError,
 } from "./errors.ts";
+export type { CatalogOnboardingErrorCode } from "./errors.ts";
 export { PostgresCatalogOnboardingRepository } from "./repository.ts";
 export type {
   CatalogMerchandisingPayload,
