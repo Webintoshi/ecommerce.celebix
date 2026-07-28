@@ -63,6 +63,8 @@ const TIMEOUTS = Object.freeze({
 
 async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
   const client = await pool.connect();
+  let transactionActive = false;
+  let destroyClient = false;
   try {
     const result = await client.query(`SELECT
       current_setting('server_version_num')::integer AS version_num,
@@ -197,7 +199,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         SELECT pg_catalog.md5(procedure.prosrc) = '0302d768e4b58bc06c9a1947ca0bc6dd'
         FROM pg_catalog.pg_proc AS procedure
         WHERE procedure.oid = 'saas.paytr_iframe_activation_preflight()'::regprocedure
-      ) AND saas.paytr_iframe_activation_preflight() AS paytr_iframe_activation_authority,
+      ) AND has_function_privilege('celebix_saas_app', 'saas.paytr_iframe_activation_preflight()', 'EXECUTE')
+        AS paytr_iframe_activation_authority,
       to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
@@ -293,7 +296,36 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.inventory_relations !== true || row.inventory_repository !== true ||
       row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
-  } finally { client.release(); }
+
+    await client.query("BEGIN READ ONLY");
+    transactionActive = true;
+    await client.query("SET LOCAL ROLE celebix_saas_app");
+    const activation = await client.query(
+      "SELECT saas.paytr_iframe_activation_preflight() AS ready",
+    );
+    if (activation.rowCount !== 1 || activation.rows[0]?.ready !== true) {
+      throw new Error("server_panel_access_database_preflight_failed");
+    }
+    try {
+      await client.query("COMMIT");
+      transactionActive = false;
+    } catch {
+      transactionActive = false;
+      destroyClient = true;
+      throw new Error("server_panel_access_database_preflight_failed");
+    }
+  } catch (error) {
+    if (transactionActive) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        destroyClient = true;
+      }
+    }
+    throw error;
+  } finally {
+    client.release(destroyClient || undefined);
+  }
 }
 
 export async function initializeApprovedStagingServerPanelAccessRuntime(

@@ -67,3 +67,65 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
   assert.equal(released, 1);
   assert.equal(ended, 1);
 });
+
+test("approved staging preflight executes the PayTR authority probe through the app role", async () => {
+  const calls: string[] = [];
+  let released = 0;
+  let ended = 0;
+
+  class NoInheritPool {
+    on() { return this; }
+
+    async connect() {
+      return {
+        async query(sql: string) {
+          calls.push(sql);
+          if (calls.length === 1) {
+            assert.doesNotMatch(sql, /\)\s+AND\s+saas\.paytr_iframe_activation_preflight\(\)/);
+            assert.match(
+              sql,
+              /has_function_privilege\('celebix_saas_app',\s*'saas\.paytr_iframe_activation_preflight\(\)',\s*'EXECUTE'\)/,
+            );
+            const row = Object.fromEntries(
+              [...sql.matchAll(/\sAS\s+([a-z][a-z0-9_]+)/gi)].map((match) => [match[1], true]),
+            );
+            Object.assign(row, {
+              version_num: 160_014,
+              database_name: "celebix_saas",
+              is_superuser: false,
+            });
+            return { rowCount: 1, rows: [row] };
+          }
+          if (calls.length === 2) assert.equal(sql, "BEGIN READ ONLY");
+          if (calls.length === 3) assert.equal(sql, "SET LOCAL ROLE celebix_saas_app");
+          if (calls.length === 4) {
+            assert.equal(sql, "SELECT saas.paytr_iframe_activation_preflight() AS ready");
+            return { rowCount: 1, rows: [{ ready: false }] };
+          }
+          if (calls.length === 5) assert.equal(sql, "ROLLBACK");
+          return { rowCount: 0, rows: [] };
+        },
+        release() { released += 1; },
+      };
+    }
+
+    async end() { ended += 1; }
+  }
+
+  const originalPool = Object.getOwnPropertyDescriptor(pg, "Pool");
+  assert.ok(originalPool);
+  Object.defineProperty(pg, "Pool", { configurable: true, value: NoInheritPool });
+  try {
+    const { initializeApprovedStagingServerPanelAccessRuntime } = await import(`./postgres-runtime.ts?noinherit=${Date.now()}`);
+    await assert.rejects(
+      initializeApprovedStagingServerPanelAccessRuntime({ database: { name: "celebix_saas" } } as CustomerPanelStagingAuthConfig),
+      /server_panel_access_database_preflight_failed/,
+    );
+  } finally {
+    Object.defineProperty(pg, "Pool", originalPool);
+  }
+
+  assert.equal(calls.length, 5);
+  assert.equal(released, 1);
+  assert.equal(ended, 1);
+});
