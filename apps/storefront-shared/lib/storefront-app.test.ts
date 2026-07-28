@@ -361,6 +361,7 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
     "lib/default-runtime.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/checkout/paytr.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/payment-adapters/default.ts\u0000@celebix/payment-adapters\u0000from",
+    "lib/payment-adapters/callback-authority.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/payment-adapters/runtime.ts\u0000@celebix/payment-adapters\u0000from",
   ]);
   const forbiddenConfig = /(?:service[_-]?role|R2_ACCESS|R2_SECRET|REDIS_URL|PAYMENT_SECRET|celebix_saas_app)/i;
@@ -556,6 +557,22 @@ test("callback route is one server-owned plain response adapter with no browser 
   assert.match(route, /selectTrustedStorefrontHostAuthority/);
   assert.match(route, /resolveDefaultCheckoutPaymentRuntime/);
   assert.doesNotMatch(route, /GET|Origin|cookie|merchantKey|merchantSalt|Response[.]json|console[.]/i);
+});
+
+test("generic hosted callback route remains provider-neutral while the PayTR compatibility route is unchanged", async () => {
+  const generic = await readFile(
+    new URL("../app/api/payments/[providerCode]/callback/[binding]/route.ts", import.meta.url),
+    "utf8",
+  );
+  const paytr = await readFile(
+    new URL("../app/api/payments/paytr/callback/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(generic, /createHostedPaymentCallbackRoute/);
+  assert.match(generic, /resolveDefaultHostedPaymentRuntime/);
+  assert.doesNotMatch(generic, /paytr|iyzico|merchantKey|merchantSalt|apiKey|secretKey|cookie|authorization/i);
+  assert.match(paytr, /createPaytrCallbackRoute/);
+  assert.doesNotMatch(paytr, /iyzico/i);
 });
 
 test("proxy grants PayTR frame authority only after cookie-bound provider-ready preflight", async () => {

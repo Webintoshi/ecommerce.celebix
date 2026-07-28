@@ -1,5 +1,9 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import {
+  IYZICO_IFRAME_PACKET,
+  type PaymentAdapterPresentationRule,
+} from "@celebix/payment-adapters";
 
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const BASE64URL = /^[A-Za-z0-9_-]{43}$/;
@@ -16,10 +20,19 @@ const CONTENT_TYPES = Object.freeze([
 const FORBIDDEN_HEADERS = Object.freeze([
   "authorization",
   "cookie",
-  "origin",
   "transfer-encoding",
   "content-encoding",
   "proxy-authorization",
+]);
+function customerReturnOrigin(rule: PaymentAdapterPresentationRule): string {
+  if (rule.kind !== "provider_query_token_url") {
+    throw new TypeError("iyzico_customer_return_origin_invalid");
+  }
+  return rule.origin;
+}
+const IYZICO_CUSTOMER_RETURN_ORIGINS: readonly string[] = Object.freeze([
+  customerReturnOrigin(IYZICO_IFRAME_PACKET.presentation.test),
+  customerReturnOrigin(IYZICO_IFRAME_PACKET.presentation.live),
 ]);
 const PROVIDER_CALLBACK_HEADERS = Object.freeze([
   "content-length",
@@ -226,11 +239,21 @@ function validateBody(bytes: Uint8Array, contentType: string): void {
   ) throw new TypeError("hosted_payment_callback_invalid");
 }
 
-function exactHeaders(headers: Headers): Readonly<Record<string, string>> | null {
+function exactHeaders(
+  headers: Headers,
+  providerCode: string,
+): Readonly<Record<string, string>> | null {
   const entries = [...headers.entries()];
   if (entries.length < 1 || entries.length > MAXIMUM_HEADERS) return null;
   const output: Record<string, string> = {};
   for (const [name, value] of entries) {
+    if (name === "origin") {
+      if (
+        providerCode !== IYZICO_IFRAME_PACKET.providerCode
+        || !IYZICO_CUSTOMER_RETURN_ORIGINS.includes(value)
+      ) return null;
+      continue;
+    }
     if (
       FORBIDDEN_HEADERS.includes(name)
       || value.length < 1
@@ -292,7 +315,7 @@ async function readValidatedCallback(
 ): Promise<ExactHostedPaymentCallback | null> {
   let body: Uint8Array | undefined;
   try {
-    const headers = exactHeaders(request.headers);
+    const headers = exactHeaders(request.headers, providerCode);
     if (headers === null) return null;
     body = await boundedBody(request.body);
     const declared = headers["content-length"];

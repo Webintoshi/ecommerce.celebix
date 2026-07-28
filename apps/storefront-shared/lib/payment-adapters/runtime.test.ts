@@ -24,6 +24,7 @@ import {
   createHostedPaymentCallbackRoute,
   createHostedPaymentRuntime,
   type HostedPaymentRuntime,
+  type HostedPaymentRuntimeDependencies,
 } from "./runtime.ts";
 
 const HOSTNAME = "pilot.saas-staging.celebix.site";
@@ -36,6 +37,12 @@ const DIGEST = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0
 const PROVIDER = "fixture_provider";
 const ENDPOINT = "https://payments.example.test/hosted";
 const NOW = new Date("2026-07-27T12:00:00.000Z");
+const COMPILED_AUTHORITY = Object.freeze({
+  providerCode: PROVIDER,
+  environment: "test" as const,
+  adapterVersion: 1,
+  evidenceDigest: `sha256:${"a".repeat(64)}`,
+});
 const SEALED = Object.freeze({
   algorithm: "A256GCM" as const,
   ciphertext: "YQ",
@@ -175,6 +182,7 @@ type Calls = {
   callbacks: Parameters<HostedPaymentAdapter<object>["verifyCallback"]>[0][];
   queries: Parameters<HostedPaymentAdapter<object>["query"]>[0][];
   opens: unknown[];
+  authorityChecks: Parameters<HostedPaymentRuntimeDependencies["matchesCompiledAuthority"]>[0][];
 };
 
 function deferred<T>(): Readonly<{
@@ -215,11 +223,19 @@ function fixture(options: Readonly<{
   now?: () => Date;
   providerTimeoutMs?: number;
   packet?: PaymentAdapterPacket;
+  compiledAuthority?: Readonly<{
+    providerCode: string;
+    environment: "test" | "live";
+    adapterVersion: number;
+    evidenceDigest: string;
+  }> | null;
+  authorityMatches?: boolean | Error;
 }> = {}) {
   const calls: Calls = {
     begin: [], initialized: [], unknown: [], callbackAuthority: [], settled: [],
     hostedCallbacks: [],
     claims: [], finalized: [], initializedAdapter: [], callbacks: [], queries: [], opens: [],
+    authorityChecks: [],
   };
   let opened: Uint8Array | undefined;
   const attempts: PaymentAttemptRepository = {
@@ -366,6 +382,16 @@ function fixture(options: Readonly<{
       : Object.freeze({ kind: "trusted", hostname: HOSTNAME }),
     now: options.now ?? (() => new Date(NOW)),
     randomBytes: (size) => new Uint8Array(size).fill(7),
+    selectCompiledAuthority: (providerCode) => providerCode === PROVIDER
+      ? options.compiledAuthority === undefined
+        ? COMPILED_AUTHORITY
+        : options.compiledAuthority
+      : null,
+    async matchesCompiledAuthority(input) {
+      calls.authorityChecks.push(input);
+      if (options.authorityMatches instanceof Error) throw options.authorityMatches;
+      return options.authorityMatches ?? true;
+    },
     providerTimeoutMs: options.providerTimeoutMs,
   });
   return { runtime, calls, get opened() { return opened; } };
@@ -398,6 +424,109 @@ function initializeInput() {
   };
 }
 
+function providerProjectionFixture(providerCode: "paytr_iframe" | "iyzico_iframe") {
+  const beginCalls: Parameters<PaymentAttemptRepository["begin"]>[0][] = [];
+  const initializedInputs: Parameters<HostedPaymentAdapter<object>["initialize"]>[0][] = [];
+  const opens: unknown[] = [];
+  const publicFields = providerCode === "paytr_iframe"
+    ? Object.freeze([Object.freeze({ key: "merchantId", label: "Merchant", minimum: 1, maximum: 128 })])
+    : Object.freeze([]);
+  const credentialFields = providerCode === "paytr_iframe"
+    ? Object.freeze([Object.freeze({ key: "merchantKey", label: "Key", minimum: 1, maximum: 256, secret: true as const })])
+    : Object.freeze([
+        Object.freeze({ key: "apiKey", label: "API Key", minimum: 1, maximum: 256, secret: true as const }),
+        Object.freeze({ key: "secretKey", label: "Secret Key", minimum: 1, maximum: 256, secret: true as const }),
+      ]);
+  const packet = Object.freeze({ ...PACKET, providerCode, publicFields, credentialFields });
+  const parseCredential = Object.freeze((value: unknown) => ({ ...(value as Record<string, unknown>) }));
+  const initialize = Object.freeze(async (input: Parameters<HostedPaymentAdapter<object>["initialize"]>[0]) => {
+    initializedInputs.push(input);
+    return Object.freeze({ kind: "pending" as const, providerReference: null });
+  });
+  const adapter: HostedPaymentAdapter<object> = Object.freeze({
+    packet,
+    parseCredential,
+    maskAccount: Object.freeze(() => "fixture"),
+    initialize,
+    verifyCallback: Object.freeze(async () => { throw new Error("unexpected_callback"); }),
+    query: Object.freeze(async () => { throw new Error("unexpected_query"); }),
+  });
+  const publicConfig = providerCode === "paytr_iframe"
+    ? Object.freeze({ environment: "test", merchantId: "merchant_fixture" })
+    : Object.freeze({ environment: "test" });
+  const credentialJson = providerCode === "paytr_iframe"
+    ? "{\"merchantKey\":\"credential_secret\"}"
+    : "{\"apiKey\":\"api_secret\",\"secretKey\":\"credential_secret\"}";
+  const attempts: PaymentAttemptRepository = {
+    async begin(input) {
+      beginCalls.push(input);
+      return beginResult({ providerCode, publicConfig });
+    },
+    async markInitialized(input) {
+      return mutation({
+        status: input.status,
+        providerReference: input.providerReference,
+        safeCode: input.safeCode,
+      });
+    },
+    async markUnknown() { throw new Error("unexpected_unknown"); },
+    async getCallbackAuthority() { throw new Error("unexpected_callback"); },
+    async settleCallback() { throw new Error("unexpected_callback"); },
+    async applyHostedCallback() { throw new Error("unexpected_callback"); },
+    async claimReconciliation() { throw new Error("unexpected_query"); },
+    async finalizeReconciliation() { throw new Error("unexpected_query"); },
+  };
+  return {
+    beginCalls,
+    initializedInputs,
+    opens,
+    runtime: createHostedPaymentRuntime({
+      attempts,
+      adapters: Object.freeze({
+        size: 1,
+        packet: (code: string) => code === providerCode ? packet : null,
+        adapter: (code: string) => code === providerCode ? adapter : null,
+      }),
+      keyring: KEYRING,
+      openCredential(input) {
+        opens.push(input);
+        return new TextEncoder().encode(credentialJson);
+      },
+      selectAuthority: () => Object.freeze({ kind: "trusted", hostname: HOSTNAME }),
+      selectCompiledAuthority: (code) => code === providerCode
+        ? Object.freeze({ ...COMPILED_AUTHORITY, providerCode })
+        : null,
+      matchesCompiledAuthority: Object.freeze(async () => true),
+      now: () => new Date(NOW),
+      randomBytes: (size) => new Uint8Array(size).fill(7),
+    }),
+  };
+}
+
+function providerInput(customerName = "Ada Byron Lovelace", basketName = "Gerçek ürün") {
+  return {
+    ...initializeInput(),
+    customer: Object.freeze({
+      name: customerName,
+      email: customerName === "Ada Byron Lovelace" ? "ada@example.test" : "grace@example.test",
+      phone: customerName === "Ada Byron Lovelace" ? "+905551112233" : "+905559998877",
+      ipAddress: customerName === "Ada Byron Lovelace" ? "8.8.8.8" : "1.1.1.1",
+      address: customerName === "Ada Byron Lovelace" ? "Örnek Mahallesi 1" : "Başka Mahalle 2",
+      identityNumber: customerName === "Ada Byron Lovelace" ? "74300864791" : "98765432109",
+      city: customerName === "Ada Byron Lovelace" ? "İstanbul" : "Ankara",
+      country: "Türkiye",
+      postalCode: customerName === "Ada Byron Lovelace" ? "34000" : "06000",
+    }),
+    basket: Object.freeze([Object.freeze({
+      reference: "SKU-1",
+      name: basketName,
+      quantity: 1,
+      unitAmountMinor: 12_345,
+      itemType: "PHYSICAL" as const,
+    })]),
+  };
+}
+
 function assertNoRuntimeWork(calls: Calls): void {
   assert.deepEqual({
     begin: calls.begin.length,
@@ -412,6 +541,7 @@ function assertNoRuntimeWork(calls: Calls): void {
     callbacks: calls.callbacks.length,
     queries: calls.queries.length,
     opens: calls.opens.length,
+    authorityChecks: calls.authorityChecks.length,
   }, {
     begin: 0,
     initialized: 0,
@@ -425,6 +555,7 @@ function assertNoRuntimeWork(calls: Calls): void {
     callbacks: 0,
     queries: 0,
     opens: 0,
+    authorityChecks: 0,
   });
 }
 
@@ -509,6 +640,127 @@ test("initializes through durable method/profile authority and projects only ifr
     credentialVersion: 3,
     keyring: KEYRING,
   });
+});
+
+test("initialize rejects null malformed superseded and mismatched compiled provider authority before credential open", async () => {
+  const rejectedAuthorities = [
+    null,
+    Object.freeze({ ...COMPILED_AUTHORITY, evidenceDigest: "sha256:stale" }),
+    Object.freeze({ ...COMPILED_AUTHORITY, adapterVersion: 2 }),
+    Object.freeze({ ...COMPILED_AUTHORITY, providerCode: "other_provider" }),
+    Object.freeze({ ...COMPILED_AUTHORITY, environment: "live" as const }),
+  ];
+  for (const compiledAuthority of rejectedAuthorities) {
+    const selected = fixture({ compiledAuthority });
+    assert.deepEqual(await selected.runtime.initialize(initializeInput()), { kind: "rejected" });
+    assert.equal(selected.calls.begin.length, 1);
+    assert.equal(selected.calls.opens.length, 0);
+    assert.equal(selected.calls.initializedAdapter.length, 0);
+    assert.equal(selected.calls.initialized[0]?.safeCode, "execution_authority_mismatch");
+  }
+});
+
+test("a durable authority mismatch blocks initialize callback and reconcile before credential or provider access", async () => {
+  for (const authorityMatches of [false, new Error("authority_lookup_unavailable")]) {
+    const initialized = fixture({ authorityMatches });
+    assert.deepEqual(await initialized.runtime.initialize(initializeInput()), { kind: "rejected" });
+    assert.equal(initialized.calls.authorityChecks.length, 1);
+    assert.deepEqual(initialized.calls.authorityChecks[0], {
+      providerCode: PROVIDER,
+      capability: "payment_processing",
+      environment: "test",
+      adapterVersion: 1,
+      evidenceDigest: COMPILED_AUTHORITY.evidenceDigest,
+    });
+    assert.equal(initialized.calls.opens.length, 0);
+    assert.equal(initialized.calls.initializedAdapter.length, 0);
+    assert.equal(initialized.calls.initialized[0]?.safeCode, "execution_authority_mismatch");
+
+    const callback = fixture({ authorityMatches });
+    assert.deepEqual(await callback.runtime.callback({
+      request: callbackRequest(),
+      providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url"),
+    }), { kind: "rejected" });
+    assert.equal(callback.calls.callbackAuthority.length, 1);
+    assert.equal(callback.calls.authorityChecks.length, 1);
+    assert.equal(callback.calls.opens.length, 0);
+    assert.equal(callback.calls.callbacks.length, 0);
+
+    const reconciliation = fixture({ authorityMatches });
+    assert.deepEqual(await reconciliation.runtime.reconcile({
+      attemptId: ATTEMPT_ID,
+      operationId: "66666666-6666-4666-8666-666666666666",
+      expectedVersion: 2,
+      workerId: "worker.fixture",
+      leaseId: LEASE_ID,
+    }), { kind: "rejected" });
+    assert.equal(reconciliation.calls.claims.length, 1);
+    assert.equal(reconciliation.calls.authorityChecks.length, 1);
+    assert.equal(reconciliation.calls.opens.length, 0);
+    assert.equal(reconciliation.calls.queries.length, 0);
+    assert.equal(reconciliation.calls.finalized.length, 0);
+  }
+});
+
+test("provider-specific projection keeps buyer PII in memory, sends iyzico its real fields, and preserves PayTR input", async () => {
+  const paytrA = providerProjectionFixture("paytr_iframe");
+  const paytrB = providerProjectionFixture("paytr_iframe");
+  const iyzico = providerProjectionFixture("iyzico_iframe");
+
+  assert.deepEqual(await paytrA.runtime.initialize(providerInput()), { kind: "processing" });
+  assert.deepEqual(await paytrB.runtime.initialize(providerInput("Grace Brewster Hopper", "Başka ürün")), { kind: "processing" });
+  assert.deepEqual(await iyzico.runtime.initialize(providerInput()), { kind: "processing" });
+
+  assert.deepEqual(Object.keys(paytrA.initializedInputs[0]!.customer), [
+    "name", "email", "phone", "ipAddress", "address",
+  ]);
+  assert.deepEqual(Object.keys(paytrA.initializedInputs[0]!.basket[0]!), [
+    "reference", "name", "quantity", "unitAmountMinor",
+  ]);
+  assert.deepEqual(paytrA.initializedInputs[0]!.customer, {
+    name: "Ada Byron Lovelace",
+    email: "ada@example.test",
+    phone: "+905551112233",
+    ipAddress: "8.8.8.8",
+    address: "Örnek Mahallesi 1",
+  });
+  assert.deepEqual(Object.keys(iyzico.initializedInputs[0]!.customer), [
+    "name", "email", "phone", "ipAddress", "address", "identityNumber", "city", "country", "postalCode",
+  ]);
+  assert.deepEqual(Object.keys(iyzico.initializedInputs[0]!.basket[0]!), [
+    "reference", "name", "quantity", "unitAmountMinor", "itemType",
+  ]);
+  assert.equal(iyzico.initializedInputs[0]!.customer.identityNumber, "74300864791");
+  assert.equal(iyzico.initializedInputs[0]!.basket[0]!.itemType, "PHYSICAL");
+  assert.equal(Object.isFrozen(iyzico.initializedInputs[0]!.customer), true);
+  assert.equal(Object.isFrozen(iyzico.initializedInputs[0]!.basket), true);
+  assert.equal(Object.isFrozen(iyzico.initializedInputs[0]!.basket[0]), true);
+  assert.equal(paytrA.beginCalls[0]!.fingerprint, paytrB.beginCalls[0]!.fingerprint);
+  assert.doesNotMatch(JSON.stringify(paytrA.beginCalls[0]), /Ada|Lovelace|example[.]test|Örnek Mahallesi|Gerçek ürün/);
+  assert.equal(paytrA.opens.length, 1);
+  assert.equal(iyzico.opens.length, 1);
+});
+
+test("iyzico projection rejects missing real buyer authority without opening credentials or inventing defaults", async () => {
+  const complete = providerInput();
+  const { identityNumber: _identityNumber, ...withoutIdentity } = complete.customer;
+  const { city: _city, ...withoutCity } = complete.customer;
+  const { country: _country, ...withoutCountry } = complete.customer;
+  const { itemType: _itemType, ...withoutItemType } = complete.basket[0]!;
+  const candidates = [
+    { ...complete, customer: Object.freeze(withoutIdentity) },
+    { ...complete, customer: Object.freeze(withoutCity) },
+    { ...complete, customer: Object.freeze(withoutCountry) },
+    { ...complete, basket: Object.freeze([Object.freeze(withoutItemType)]) },
+  ];
+  for (const candidate of candidates) {
+    const selected = providerProjectionFixture("iyzico_iframe");
+    assert.deepEqual(await selected.runtime.initialize(candidate), { kind: "rejected" });
+    assert.equal(selected.beginCalls.length, 1);
+    assert.equal(selected.opens.length, 0);
+    assert.equal(selected.initializedInputs.length, 0);
+  }
 });
 
 test("fails closed before provider execution for untrusted host, missing adapter, and environment mismatch", async () => {

@@ -182,3 +182,60 @@ test("current cumulative runner executes payment adapter runtime after provider 
   assert.match(runner, /payment-adapter-runtime\/postgres-harness\.mjs["'],\s*\n\s*total:\s*30/);
   assert.match(runner, /payment-adapter-runtime["']:\s*2/);
 });
+
+test("shared storefront uses literal 056 boot authority and rechecks exact provider evidence before credential open", () => {
+  const defaultRuntime = readFileSync(path.join(
+    ROOT,
+    "apps/storefront-shared/lib/default-runtime.ts",
+  ), "utf8");
+  const runtime = readFileSync(path.join(
+    ROOT,
+    "apps/storefront-shared/lib/payment-adapters/runtime.ts",
+  ), "utf8");
+  assert.match(defaultRuntime, /to_regprocedure\('saas[.]payment_provider_keyed_lifecycle_preflight\(\)'\)/u);
+  assert.match(defaultRuntime, /saas[.]payment_provider_keyed_lifecycle_preflight\(\)/u);
+  assert.match(
+    defaultRuntime,
+    /merchant_provider_execution_authority_matches\(\s*\$1::text,\$2::text,\$3::text,\$4::integer,\$5::text/u,
+  );
+  assert.doesNotMatch(defaultRuntime, /paytr_iframe_activation_preflight|CROSS JOIN pg_catalog[.]pg_proc/u);
+  assert.doesNotMatch(defaultRuntime, /EXECUTE\s+FORMAT|\$\{\s*authority[.]providerCode/u);
+  assert.match(runtime, /currentCompiledAuthorityMatches/u);
+  for (const operation of ["initialize", "callback", "query"]) {
+    assert.match(runtime, new RegExp(`adapterFor\\(dependencies, [^,]+, "${operation}"\\)`));
+  }
+  const initializeAuthority = runtime.indexOf("await currentCompiledAuthorityMatches(dependencies, selectedAdapter)");
+  const credentialOpen = runtime.indexOf("opened = openCredential(dependencies, begun, adapter)");
+  assert.ok(initializeAuthority >= 0 && credentialOpen > initializeAuthority);
+});
+
+test("storefront durable begin authority excludes buyer PII and default composition is exactly PayTR plus iyzico", () => {
+  const runtime = readFileSync(path.join(
+    ROOT,
+    "apps/storefront-shared/lib/payment-adapters/runtime.ts",
+  ), "utf8");
+  const defaults = readFileSync(path.join(
+    ROOT,
+    "apps/storefront-shared/lib/payment-adapters/default.ts",
+  ), "utf8");
+  const callback = readFileSync(path.join(
+    ROOT,
+    "apps/storefront-shared/lib/payment-adapters/callback-authority.ts",
+  ), "utf8");
+  const beginStart = runtime.indexOf("const beginFingerprint = digest(");
+  const beginEnd = runtime.indexOf("const begun = await dependencies.attempts.begin", beginStart);
+  assert.ok(beginStart >= 0 && beginEnd > beginStart);
+  const durableFingerprint = runtime.slice(beginStart, beginEnd);
+  assert.doesNotMatch(
+    durableFingerprint,
+    /input[.]customer|identityNumber|email|phone|ipAddress|address|postalCode|[.]name/u,
+  );
+  assert.match(
+    defaults,
+    /createPaymentAdapterRegistry\(\s*\[PAYTR_IFRAME_PACKET, IYZICO_IFRAME_PACKET\],\s*\[paytr, iyzico\]/u,
+  );
+  assert.match(defaults, /paytr_iframe:[\s\S]*iyzico_iframe:/u);
+  assert.match(callback, /IYZICO_CUSTOMER_RETURN_ORIGINS/u);
+  assert.match(callback, /if \(name === "origin"\)[\s\S]*continue;/u);
+  assert.doesNotMatch(`${runtime}\n${defaults}\n${callback}`, /console[.]|audit\([^)]*(?:customer|basket|credential)/iu);
+});

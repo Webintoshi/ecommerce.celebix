@@ -141,6 +141,51 @@ test("rejects forbidden headers, invalid content types, duplicate fields, and an
   }), null);
 });
 
+test("accepts only an exact iyzico customer-return Origin and drops it from provider data", async () => {
+  const providerCode = "iyzico_iframe";
+  const target = `https://${HOSTNAME}/api/payments/${providerCode}/callback/${BINDING}`;
+  for (const origin of ["https://sandbox-cpp.iyzipay.com", "https://cpp.iyzipay.com"]) {
+    const selected = await readExactHostedPaymentCallback({
+      request: request(target, { headers: {
+        origin,
+        "x-celebix-storefront-proxy": `p1.${Buffer.alloc(32, 0x41).toString("base64url")}`,
+        "x-forwarded-host": HOSTNAME,
+        "x-forwarded-proto": "https",
+      } }),
+      providerCode,
+      binding: BINDING,
+      trustedHostname: HOSTNAME,
+    });
+    assert.ok(selected);
+    assert.equal(selected.headers.origin, undefined);
+    assert.equal(JSON.stringify(selected.headers).includes("storefront-proxy"), false);
+    selected.body.fill(0);
+  }
+
+  const invalidHeaders: readonly Readonly<Record<string, string>>[] = [
+    { origin: "https://sandbox-cpp.iyzipay.com.evil.example" },
+    { origin: "https://sandbox-cpp.iyzipay.com/" },
+    { origin: "https://SANDBOX-CPP.iyzipay.com" },
+    { origin: "https://sandbox-cpp.iyzipay.com", cookie: "session=secret" },
+    { origin: "https://sandbox-cpp.iyzipay.com", authorization: "Bearer secret" },
+  ];
+  for (const headers of invalidHeaders) {
+    assert.equal(await readExactHostedPaymentCallback({
+      request: request(target, { headers }),
+      providerCode,
+      binding: BINDING,
+      trustedHostname: HOSTNAME,
+    }), null);
+  }
+
+  assert.equal(await readExactHostedPaymentCallback({
+    request: request(CALLBACK_URL, { headers: { origin: "https://sandbox-cpp.iyzipay.com" } }),
+    providerCode: PROVIDER,
+    binding: BINDING,
+    trustedHostname: HOSTNAME,
+  }), null);
+});
+
 test("accepts canonical JSON but rejects malformed UTF-8 and nested duplicate JSON keys", async () => {
   const json = "{\"event\":{\"id\":\"evt_1\"},\"status\":\"success\"}";
   const selected = await readExactHostedPaymentCallback({

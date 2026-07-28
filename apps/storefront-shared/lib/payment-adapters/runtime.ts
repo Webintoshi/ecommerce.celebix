@@ -109,12 +109,17 @@ export type InitializeHostedPaymentInput = Readonly<{
     phone: string;
     ipAddress: string;
     address: string;
+    identityNumber?: string;
+    city?: string;
+    country?: string;
+    postalCode?: string;
   }>;
   basket: readonly Readonly<{
     reference: string;
     name: string;
     quantity: number;
     unitAmountMinor: number;
+    itemType?: "PHYSICAL" | "VIRTUAL";
   }>[];
 }>;
 
@@ -145,6 +150,21 @@ export type HostedPaymentRuntimeDependencies = Readonly<{
   keyring: MerchantProviderCredentialKeyring;
   openCredential?: (input: CredentialOpenInput) => Uint8Array;
   selectAuthority: (headers: Headers) => TrustedHostAuthority;
+  selectCompiledAuthority: (
+    providerCode: string,
+  ) => Readonly<{
+    providerCode: string;
+    environment: "test" | "live";
+    adapterVersion: number;
+    evidenceDigest: string;
+  }> | null;
+  matchesCompiledAuthority: (authority: Readonly<{
+    providerCode: string;
+    capability: "payment_processing";
+    environment: "test" | "live";
+    adapterVersion: number;
+    evidenceDigest: string;
+  }>) => Promise<boolean>;
   now: () => Date;
   randomBytes: (size: number) => Uint8Array;
   providerTimeoutMs?: number;
@@ -308,6 +328,23 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[]):
     });
 }
 
+function exactRequiredOptionalKeys(
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[],
+): boolean {
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const keys = Reflect.ownKeys(descriptors);
+  const allowed = [...required, ...optional];
+  return required.every((key) => descriptors[key] !== undefined)
+    && keys.every((key) => typeof key === "string" && allowed.includes(key))
+    && keys.every((key) => {
+      if (typeof key !== "string") return false;
+      const descriptor = descriptors[key];
+      return Boolean(descriptor && descriptor.enumerable && "value" in descriptor);
+    });
+}
+
 function denseArray(value: unknown[], minimum: number, maximum: number): boolean {
   if (
     nodeTypes.isProxy(value)
@@ -455,20 +492,86 @@ function openCredential(
   }
 }
 
+type SelectedHostedPaymentAdapter = Readonly<{
+  adapter: HostedPaymentAdapter<object>;
+  compiledAuthority: Readonly<{
+    providerCode: string;
+    environment: "test" | "live";
+    adapterVersion: number;
+    evidenceDigest: string;
+  }>;
+}>;
+
 function adapterFor(
   dependencies: HostedPaymentRuntimeDependencies,
-  providerCode: string,
+  authority: BeginPaymentAttemptResult | PaymentAttemptAuthority | PaymentAttemptReconciliationClaim,
   operation: "initialize" | "callback" | "query",
-): HostedPaymentAdapter<object> | null {
+): SelectedHostedPaymentAdapter | null {
   try {
+    const providerCode = authority.providerCode;
     const adapter = dependencies.adapters.adapter(providerCode);
-    return adapter !== null
+    const compiled = dependencies.selectCompiledAuthority(providerCode);
+    const descriptors = compiled !== null
+      && typeof compiled === "object"
+      && !Array.isArray(compiled)
+      && !nodeTypes.isProxy(compiled)
+      && Object.getPrototypeOf(compiled) === Object.prototype
+      ? Object.getOwnPropertyDescriptors(compiled)
+      : null;
+    const keys = ["providerCode", "environment", "adapterVersion", "evidenceDigest"];
+    if (!(adapter !== null
       && adapter.packet.providerCode === providerCode
       && adapter.packet.capabilities[operation]
-      ? adapter
-      : null;
+      && descriptors !== null
+      && Reflect.ownKeys(descriptors).length === keys.length
+      && keys.every((key) => {
+        const descriptor = descriptors[key];
+        return descriptor?.enumerable === true && "value" in descriptor;
+      })
+      && descriptors.providerCode?.value === providerCode
+      && descriptors.environment?.value === authority.environment
+      && descriptors.adapterVersion?.value === adapter.packet.adapterVersion
+      && typeof descriptors.evidenceDigest?.value === "string"
+      && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value))) return null;
+    return Object.freeze({
+      adapter,
+      compiledAuthority: Object.freeze({
+        providerCode,
+        environment: descriptors.environment.value as "test" | "live",
+        adapterVersion: descriptors.adapterVersion.value as number,
+        evidenceDigest: descriptors.evidenceDigest.value as string,
+      }),
+    });
   } catch {
     return null;
+  }
+}
+
+async function currentCompiledAuthorityMatches(
+  dependencies: HostedPaymentRuntimeDependencies,
+  selected: SelectedHostedPaymentAdapter,
+): Promise<boolean> {
+  try {
+    return await dependencies.matchesCompiledAuthority(Object.freeze({
+      providerCode: selected.compiledAuthority.providerCode,
+      capability: "payment_processing" as const,
+      environment: selected.compiledAuthority.environment,
+      adapterVersion: selected.compiledAuthority.adapterVersion,
+      evidenceDigest: selected.compiledAuthority.evidenceDigest,
+    })) === true;
+  } catch {
+    return false;
+  }
+}
+
+function registeredAdapterPresent(
+  dependencies: HostedPaymentRuntimeDependencies,
+  providerCode: string,
+): boolean {
+  try {
+    return dependencies.adapters.adapter(providerCode) !== null;
+  } catch {
+    return false;
   }
 }
 
@@ -617,20 +720,30 @@ function validInitializeInput(value: InitializeHostedPaymentInput): boolean {
     || !denseArray(value.basket as unknown[], 1, 100)
   ) return false;
   const customerFields = ["name", "email", "phone", "ipAddress", "address"];
+  const optionalCustomerFields = ["identityNumber", "city", "country", "postalCode"];
   if (
-    !exactKeys(value.customer as Record<string, unknown>, customerFields)
-    || customerFields.some((key) => {
+    !exactRequiredOptionalKeys(
+      value.customer as Record<string, unknown>,
+      customerFields,
+      optionalCustomerFields,
+    )
+    || [...customerFields, ...optionalCustomerFields].some((key) => {
       const selected = value.customer[key as keyof typeof value.customer];
-      return typeof selected !== "string" || selected.length < 1 || selected.length > 1_024
-        || selected !== selected.trim() || PROVIDER_REFERENCE_CONTROL.test(selected);
+      return selected !== undefined && (typeof selected !== "string"
+        || selected.length < 1 || selected.length > 1_024
+        || selected !== selected.trim() || PROVIDER_REFERENCE_CONTROL.test(selected));
     })
   ) return false;
   return value.basket.every((item) => {
     if (
       !plainRecord(item)
-      || !exactKeys(item, ["reference", "name", "quantity", "unitAmountMinor"])
+      || !exactRequiredOptionalKeys(
+        item,
+        ["reference", "name", "quantity", "unitAmountMinor"],
+        ["itemType"],
+      )
     ) return false;
-    const { reference, name, quantity, unitAmountMinor } = item;
+    const { reference, name, quantity, unitAmountMinor, itemType } = item;
     return typeof reference === "string"
       && reference.length >= 1
       && reference.length <= 128
@@ -642,8 +755,53 @@ function validInitializeInput(value: InitializeHostedPaymentInput): boolean {
       && quantity >= 1
       && typeof unitAmountMinor === "number"
       && Number.isSafeInteger(unitAmountMinor)
-      && unitAmountMinor >= 1;
+      && unitAmountMinor >= 1
+      && (itemType === undefined || itemType === "PHYSICAL" || itemType === "VIRTUAL");
   });
+}
+
+function providerInitializeProjection(
+  providerCode: string,
+  input: InitializeHostedPaymentInput,
+): Readonly<Pick<InitializeHostedPaymentInput, "customer" | "basket">> | null {
+  const customer = Object.freeze({
+    name: input.customer.name,
+    email: input.customer.email,
+    phone: input.customer.phone,
+    ipAddress: input.customer.ipAddress,
+    address: input.customer.address,
+  });
+  const basket = Object.freeze(input.basket.map((item) => Object.freeze({
+    reference: item.reference,
+    name: item.name,
+    quantity: item.quantity,
+    unitAmountMinor: item.unitAmountMinor,
+  })));
+  if (providerCode !== "iyzico_iframe") {
+    return Object.freeze({ customer, basket });
+  }
+  const { identityNumber, city, country, postalCode } = input.customer;
+  if (
+    typeof identityNumber !== "string"
+    || typeof city !== "string"
+    || typeof country !== "string"
+    || input.basket.some((item) => item.itemType !== "PHYSICAL" && item.itemType !== "VIRTUAL")
+  ) return null;
+  const iyzicoCustomer = Object.freeze({
+    ...customer,
+    identityNumber,
+    city,
+    country,
+    ...(postalCode === undefined ? {} : { postalCode }),
+  });
+  const iyzicoBasket = Object.freeze(input.basket.map((item) => Object.freeze({
+    reference: item.reference,
+    name: item.name,
+    quantity: item.quantity,
+    unitAmountMinor: item.unitAmountMinor,
+    itemType: item.itemType!,
+  })));
+  return Object.freeze({ customer: iyzicoCustomer, basket: iyzicoBasket });
 }
 
 function exactBeginAuthority(
@@ -711,8 +869,8 @@ async function initialize(
       input.orderReference,
       input.amountMinor,
       input.currency,
-      input.customer,
-      input.basket,
+      input.basket.map(({ reference, quantity, unitAmountMinor, itemType }) =>
+        Object.freeze({ reference, quantity, unitAmountMinor, itemType: itemType ?? null })),
     );
     const begun = await dependencies.attempts.begin({
       authority: Object.freeze({ storeId: input.storeId, now: new Date(now) }),
@@ -726,13 +884,26 @@ async function initialize(
     });
     if (!exactBeginAuthority(begun, input)) return PRESENTATION_REJECTED;
     if (begun.outcome === "replayed") return PRESENTATION_PROCESSING;
-    const adapter = adapterFor(dependencies, begun.providerCode, "initialize");
-    if (adapter === null) {
-      try { await markFailed(dependencies, begun, "adapter_not_registered", now); } catch { /* safe rejection */ }
+    const selectedAdapter = adapterFor(dependencies, begun, "initialize");
+    if (selectedAdapter === null) {
+      const safeCode = registeredAdapterPresent(dependencies, begun.providerCode)
+        ? "execution_authority_mismatch"
+        : "adapter_not_registered";
+      try { await markFailed(dependencies, begun, safeCode, now); } catch { /* safe rejection */ }
       return PRESENTATION_REJECTED;
     }
+    const adapter = selectedAdapter.adapter;
     if (!environmentMatches(begun)) {
       try { await markFailed(dependencies, begun, "environment_mismatch", now); } catch { /* safe rejection */ }
+      return PRESENTATION_REJECTED;
+    }
+    const projection = providerInitializeProjection(begun.providerCode, input);
+    if (projection === null) {
+      try { await markFailed(dependencies, begun, "provider_input_invalid", now); } catch { /* safe rejection */ }
+      return PRESENTATION_REJECTED;
+    }
+    if (!await currentCompiledAuthorityMatches(dependencies, selectedAdapter)) {
+      try { await markFailed(dependencies, begun, "execution_authority_mismatch", now); } catch { /* safe rejection */ }
       return PRESENTATION_REJECTED;
     }
     let opened: OpenedCredential | undefined;
@@ -755,8 +926,8 @@ async function initialize(
           callbackUrl: `https://${hostname}/api/payments/${begun.providerCode}/callback/${binding}`,
           successUrl: `https://${hostname}${SUCCESS_PATH}`,
           failureUrl: `https://${hostname}${FAILURE_PATH}`,
-          customer: input.customer,
-          basket: input.basket,
+          customer: projection.customer,
+          basket: projection.basket,
           signal,
         })));
       } catch {
@@ -1026,8 +1197,10 @@ async function settleExactCallback(
       || !UUID.test(authority.paymentMethodId)
       || !environmentMatches(authority)
     ) return CALLBACK_REJECTED;
-    const adapter = adapterFor(dependencies, authority.providerCode, "callback");
-    if (adapter === null) return CALLBACK_REJECTED;
+    const selectedAdapter = adapterFor(dependencies, authority, "callback");
+    if (selectedAdapter === null) return CALLBACK_REJECTED;
+    if (!await currentCompiledAuthorityMatches(dependencies, selectedAdapter)) return CALLBACK_REJECTED;
+    const adapter = selectedAdapter.adapter;
     let opened: OpenedCredential | undefined;
     try {
       opened = openCredential(dependencies, authority, adapter);
@@ -1328,8 +1501,12 @@ async function reconcile(
     return RECONCILIATION_REJECTED;
   }
   if (!exactClaim(claim, { ...input, leaseExpiresAt })) return RECONCILIATION_REJECTED;
-  const adapter = adapterFor(dependencies, claim.providerCode, "query");
-  if (adapter === null) return RECONCILIATION_REJECTED;
+  const selectedAdapter = adapterFor(dependencies, claim, "query");
+  if (selectedAdapter === null) return RECONCILIATION_REJECTED;
+  if (!await currentCompiledAuthorityMatches(dependencies, selectedAdapter)) {
+    return RECONCILIATION_REJECTED;
+  }
+  const adapter = selectedAdapter.adapter;
   let selected: Readonly<{
     status: "captured" | "failed" | "provider_outcome_unknown";
     providerReference: string | null;
