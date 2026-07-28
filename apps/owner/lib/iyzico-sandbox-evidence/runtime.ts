@@ -154,6 +154,107 @@ function exact(
   }
 }
 
+function capturedMethod(
+  value: unknown,
+  key: string,
+): (...args: readonly unknown[]) => unknown {
+  try {
+    if (
+      (typeof value !== "object" && typeof value !== "function")
+      || value === null
+      || nodeTypes.isProxy(value)
+    ) fail("unavailable");
+    let owner: object | null = value as object;
+    for (let depth = 0; owner !== null && depth < 8; depth += 1) {
+      if (nodeTypes.isProxy(owner)) fail("unavailable");
+      const descriptor = Object.getOwnPropertyDescriptor(owner, key);
+      if (descriptor !== undefined) {
+        if (!("value" in descriptor) || typeof descriptor.value !== "function"
+          || nodeTypes.isProxy(descriptor.value)) fail("unavailable");
+        const method = descriptor.value as (...args: readonly unknown[]) => unknown;
+        return Object.freeze((...args: readonly unknown[]) => Reflect.apply(method, value, args));
+      }
+      owner = Object.getPrototypeOf(owner) as object | null;
+    }
+    return fail("unavailable");
+  } catch (error) {
+    if (isTrustedOperatorError(error)) throw error;
+    return fail("unavailable");
+  }
+}
+
+function safeOpaque(value: unknown, depth = 0, budget = { remaining: 256 }): unknown {
+  try {
+    budget.remaining -= 1;
+    if (budget.remaining < 0 || depth > 8) fail("unavailable");
+    if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+    if (typeof value === "number") {
+      if (!Number.isFinite(value)) fail("unavailable");
+      return value;
+    }
+    if (typeof value !== "object" || nodeTypes.isProxy(value)) fail("unavailable");
+    if (Array.isArray(value)) {
+      if (Object.getPrototypeOf(value) !== Array.prototype) fail("unavailable");
+      const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<
+        PropertyKey,
+        PropertyDescriptor
+      >;
+      if (Reflect.ownKeys(descriptors).length !== value.length + 1) fail("unavailable");
+      const result: unknown[] = [];
+      for (let index = 0; index < value.length; index += 1) {
+        const descriptor = descriptors[String(index)];
+        if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) fail("unavailable");
+        result.push(safeOpaque(descriptor.value, depth + 1, budget));
+      }
+      return Object.freeze(result);
+    }
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) fail("unavailable");
+    const descriptors = Object.getOwnPropertyDescriptors(value) as Record<PropertyKey, PropertyDescriptor>;
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.length > 64 || keys.some((key) => typeof key !== "string")) fail("unavailable");
+    const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+    for (const key of keys as string[]) {
+      const descriptor = descriptors[key];
+      if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) fail("unavailable");
+      result[key] = safeOpaque(descriptor.value, depth + 1, budget);
+    }
+    return Object.freeze(result);
+  } catch (error) {
+    if (isTrustedOperatorError(error)) throw error;
+    return fail("unavailable");
+  }
+}
+
+function writableCredential(value: unknown): IyzicoCredential {
+  try {
+    if (
+      typeof value !== "object"
+      || value === null
+      || Array.isArray(value)
+      || nodeTypes.isProxy(value)
+      || Object.getPrototypeOf(value) !== Object.prototype
+    ) fail("unavailable");
+    const descriptors = Object.getOwnPropertyDescriptors(value) as Record<PropertyKey, PropertyDescriptor>;
+    if (
+      Reflect.ownKeys(descriptors).length !== 2
+      || !Object.hasOwn(descriptors, "apiKey")
+      || !Object.hasOwn(descriptors, "secretKey")
+    ) fail("unavailable");
+    for (const key of ["apiKey", "secretKey"] as const) {
+      const descriptor = descriptors[key];
+      if (!descriptor || !descriptor.enumerable || !("value" in descriptor)
+        || descriptor.writable !== true || typeof descriptor.value !== "string") {
+        fail("unavailable");
+      }
+    }
+    return value as IyzicoCredential;
+  } catch (error) {
+    if (isTrustedOperatorError(error)) throw error;
+    return fail("unavailable");
+  }
+}
+
 function uuid(value: unknown, code: IyzicoSandboxEvidenceOperatorErrorCode): string {
   if (typeof value !== "string" || !UUID.test(value)) fail(code);
   return value;
@@ -203,6 +304,10 @@ function wipe(value: unknown): void {
   }
 }
 
+function signalAborted(value: AbortSignal): boolean {
+  return value.aborted;
+}
+
 function wipeCallbackCandidate(value: unknown): void {
   try {
     if (typeof value !== "object" || value === null || nodeTypes.isProxy(value)) return;
@@ -219,32 +324,51 @@ function sha256(value: unknown): string {
 
 function options(value: IyzicoSandboxEvidenceOperatorOptions): SelectedOptions {
   const selected = exact(value, OPTION_KEYS, "unavailable");
-  const appRepository = selected.appRepository as IyzicoSandboxEvidenceOperatorOptions["appRepository"];
-  const workflowRepository = selected.workflowRepository as IyzicoSandboxEvidenceOperatorOptions["workflowRepository"];
-  const operator = selected.operator as IyzicoSandboxEvidenceOperatorOptions["operator"];
   if (
     typeof selected.candidateResolver !== "function"
+    || nodeTypes.isProxy(selected.candidateResolver)
     || typeof selected.profileResolver !== "function"
+    || nodeTypes.isProxy(selected.profileResolver)
     || typeof selected.adapterResolver !== "function"
+    || nodeTypes.isProxy(selected.adapterResolver)
     || typeof selected.credentialResolver !== "function"
+    || nodeTypes.isProxy(selected.credentialResolver)
     || typeof selected.now !== "function"
+    || nodeTypes.isProxy(selected.now)
     || !Number.isSafeInteger(selected.leaseDurationMs)
     || (selected.leaseDurationMs as number) < 1
     || (selected.leaseDurationMs as number) > 15 * 60_000
-    || typeof appRepository !== "object"
-    || appRepository === null
-    || typeof appRepository.begin !== "function"
-    || typeof workflowRepository !== "object"
-    || workflowRepository === null
-    || typeof workflowRepository.claim !== "function"
-    || typeof workflowRepository.recordEvent !== "function"
-    || typeof workflowRepository.finalize !== "function"
-    || typeof operator !== "object"
-    || operator === null
-    || typeof operator.initialization !== "function"
-    || typeof operator.callback !== "function"
-    || typeof operator.controlledTimeout !== "function"
   ) fail("unavailable");
+  const appRepositoryValue = selected.appRepository;
+  const workflowRepositoryValue = selected.workflowRepository;
+  const operatorValue = selected.operator;
+  const begin = capturedMethod(appRepositoryValue, "begin");
+  const claim = capturedMethod(workflowRepositoryValue, "claim");
+  const recordEvent = capturedMethod(workflowRepositoryValue, "recordEvent");
+  const finalize = capturedMethod(workflowRepositoryValue, "finalize");
+  const initialization = capturedMethod(operatorValue, "initialization");
+  const callbackMethod = capturedMethod(operatorValue, "callback");
+  const controlledTimeout = capturedMethod(operatorValue, "controlledTimeout");
+  const appRepository = Object.freeze({
+    begin: Object.freeze((input: Parameters<SelectedOptions["appRepository"]["begin"]>[0]) =>
+      begin(input) as ReturnType<SelectedOptions["appRepository"]["begin"]>),
+  }) as unknown as SelectedOptions["appRepository"];
+  const workflowRepository = Object.freeze({
+    claim: Object.freeze((input: Parameters<SelectedOptions["workflowRepository"]["claim"]>[0]) =>
+      claim(input) as ReturnType<SelectedOptions["workflowRepository"]["claim"]>),
+    recordEvent: Object.freeze((input: Parameters<SelectedOptions["workflowRepository"]["recordEvent"]>[0]) =>
+      recordEvent(input) as ReturnType<SelectedOptions["workflowRepository"]["recordEvent"]>),
+    finalize: Object.freeze((input: Parameters<SelectedOptions["workflowRepository"]["finalize"]>[0]) =>
+      finalize(input) as ReturnType<SelectedOptions["workflowRepository"]["finalize"]>),
+  }) as unknown as SelectedOptions["workflowRepository"];
+  const operator = Object.freeze({
+    initialization: Object.freeze((input: Parameters<SelectedOptions["operator"]["initialization"]>[0]) =>
+      initialization(input) as ReturnType<SelectedOptions["operator"]["initialization"]>),
+    callback: Object.freeze((input: Parameters<SelectedOptions["operator"]["callback"]>[0]) =>
+      callbackMethod(input) as ReturnType<SelectedOptions["operator"]["callback"]>),
+    controlledTimeout: Object.freeze(() =>
+      controlledTimeout() as ReturnType<SelectedOptions["operator"]["controlledTimeout"]>),
+  });
   return Object.freeze({
     appRepository,
     workflowRepository,
@@ -351,14 +475,14 @@ function profile(value: unknown, expectedProfileId: string): IyzicoSandboxEviden
     || uuid(selected.profileId, "unavailable") !== expectedProfileId
     || typeof selected.credentialAuthority !== "object"
     || selected.credentialAuthority === null
-    || nodeTypes.isProxy(selected.credentialAuthority)
   ) fail("unavailable");
+  const credentialAuthority = safeOpaque(selected.credentialAuthority) as object;
   return Object.freeze({
     kind: "ready",
     profileId: expectedProfileId,
     profileVersion: positiveInteger(selected.profileVersion, "unavailable"),
     credentialVersion: positiveInteger(selected.credentialVersion, "unavailable"),
-    credentialAuthority: selected.credentialAuthority,
+    credentialAuthority,
   });
 }
 
@@ -518,11 +642,19 @@ function repositoryError(error: unknown): never {
 }
 
 async function repositoryCall<Result>(operation: () => Promise<Result>): Promise<Result> {
-  try {
-    return await operation();
-  } catch (error) {
-    return repositoryError(error);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (
+        attempt === 0
+        && error instanceof IyzicoSandboxEvidenceRepositoryError
+        && error.code === "commit_unknown"
+      ) continue;
+      return repositoryError(error);
+    }
   }
+  return fail("commit_unknown");
 }
 
 async function scenarioCall<Result>(operation: () => Promise<Result>): Promise<Result> {
@@ -618,13 +750,14 @@ async function record(
   selectedInput: SelectedInput,
   value: Omit<RecordIyzicoSandboxEvidenceEventInput, "runId" | "leaseId" | "workerId" | "observedAt">,
 ): Promise<void> {
-  const result = await repositoryCall(() => selectedOptions.workflowRepository.recordEvent({
+  const repositoryInput = Object.freeze({
     ...value,
     runId: selectedInput.runId,
     leaseId: selectedInput.leaseId,
     workerId: selectedInput.workerId,
     observedAt: now(selectedOptions),
-  } as RecordIyzicoSandboxEvidenceEventInput));
+  }) as RecordIyzicoSandboxEvidenceEventInput;
+  const result = await repositoryCall(() => selectedOptions.workflowRepository.recordEvent(repositoryInput));
   if (result.eventId !== value.eventId) fail("unavailable");
 }
 
@@ -711,13 +844,20 @@ async function runScenarios(
   try {
     const witness = await scenarioCall(async () => exact(
       await selectedOptions.operator.controlledTimeout(),
-      ["kind", "signal"],
+      ["kind", "signal", "transportObservation"],
       "scenario_failed",
     ));
+    const initialTransportObservation = exact(
+      witness.transportObservation,
+      ["invocations"],
+      "scenario_failed",
+    );
     if (
-      witness.kind !== "controlled_timeout_observed"
+      witness.kind !== "controlled_timeout_ready"
       || !(witness.signal instanceof AbortSignal)
-      || witness.signal.aborted !== true
+      || nodeTypes.isProxy(witness.signal)
+      || signalAborted(witness.signal) !== false
+      || initialTransportObservation.invocations !== 0
     ) fail("scenario_failed");
     const unknown = await verify(
       selectedAdapter,
@@ -726,9 +866,16 @@ async function runScenarios(
       raw,
       witness.signal,
     );
+    const completedTransportObservation = exact(
+      witness.transportObservation,
+      ["invocations"],
+      "scenario_failed",
+    );
     if (
       unknown.status !== "retry"
       || unknown.providerReference !== timeout.initialization.providerReference
+      || signalAborted(witness.signal) !== true
+      || completedTransportObservation.invocations !== 1
     ) fail("scenario_failed");
     await record(selectedOptions, selectedInput, {
       eventId: selectedInput.eventIds.timeoutUnknown,
@@ -772,14 +919,8 @@ async function runScenarios(
     wipe(raw.body);
   }
 
-  const replay = await initializeCase(
-    selectedOptions,
-    selectedAdapter,
-    credential,
-    "callback_replay",
-    selectedInput.attemptIds.callbackReplay,
-  );
-  raw = await callbackWitness(selectedOptions, "callback_replay", replay.initialization);
+  const replay = success;
+  raw = await callbackWitness(selectedOptions, "callback_replay", success.initialization);
   try {
     const original = await verify(
       selectedAdapter,
@@ -859,7 +1000,7 @@ async function execute(
     adapterVersion: selectedCandidate.adapterVersion,
     evidenceDigest: selectedCandidate.evidenceDigest,
   });
-  const begun = await repositoryCall(() => selectedOptions.appRepository.begin({
+  const beginInput = Object.freeze({
     tenantContext: selectedInput.tenantContext,
     now: beginNow,
     runId: selectedInput.runId,
@@ -869,41 +1010,11 @@ async function execute(
     expectedCredentialVersion: selectedProfile.credentialVersion,
     candidateEvidenceDigest: selectedCandidate.evidenceDigest,
     adapterVersion: selectedCandidate.adapterVersion,
-  }));
-  if (begun.runId !== selectedInput.runId || begun.status !== "pending") fail("concurrent_run");
-  const claimNow = now(selectedOptions);
-  const claimed = await repositoryCall(() => selectedOptions.workflowRepository.claim({
-    runId: selectedInput.runId,
-    workerId: selectedInput.workerId,
-    leaseId: selectedInput.leaseId,
-    now: claimNow,
-    leaseExpiresAt: new Date(claimNow.getTime() + selectedOptions.leaseDurationMs),
-  }));
-  if (claimed.runId !== selectedInput.runId || claimed.leaseId !== selectedInput.leaseId) {
-    fail("concurrent_run");
-  }
-
-  let selectedAdapter: HostedPaymentAdapter<IyzicoCredential>;
-  try {
-    selectedAdapter = adapter(await selectedOptions.adapterResolver(), selectedCandidate.adapterVersion);
-  } catch (error) {
-    if (isTrustedOperatorError(error)) throw error;
-    return fail("unavailable");
-  }
-  let openedCredential: IyzicoCredential | undefined;
-  let selectedCredential: IyzicoCredential | undefined;
-  try {
-    openedCredential = await selectedOptions.credentialResolver(Object.freeze({
-      credentialAuthority: selectedProfile.credentialAuthority,
-      profileId: selectedProfile.profileId,
-      profileVersion: selectedProfile.profileVersion,
-      credentialVersion: selectedProfile.credentialVersion,
-      runId: selectedInput.runId,
-      leaseId: selectedInput.leaseId,
-    }));
-    selectedCredential = parseIyzicoCredential(openedCredential);
-    await runScenarios(selectedOptions, selectedInput, selectedAdapter, selectedCredential);
-    const finalized = await repositoryCall(() => selectedOptions.workflowRepository.finalize({
+  });
+  const begun = await repositoryCall(() => selectedOptions.appRepository.begin(beginInput));
+  if (begun.runId !== selectedInput.runId) fail("concurrent_run");
+  const finalizeRun = async () => {
+    const finalizeInput = Object.freeze({
       runId: selectedInput.runId,
       leaseId: selectedInput.leaseId,
       workerId: selectedInput.workerId,
@@ -914,8 +1025,58 @@ async function execute(
         attestationId: selectedInput.attestationId,
       }),
       now: now(selectedOptions),
-    }));
+    });
+    const finalized = await repositoryCall(() =>
+      selectedOptions.workflowRepository.finalize(finalizeInput));
     if (finalized.attestationId !== selectedInput.attestationId) fail("unavailable");
+    return finalized;
+  };
+  if (begun.status === "attested") {
+    const finalized = await finalizeRun();
+    if (!finalized.replayed) fail("unavailable");
+    return Object.freeze({
+      kind: "attested",
+      runId: selectedInput.runId,
+      attestationId: finalized.attestationId,
+      matrixDigest: finalized.matrixDigest,
+      replayed: true,
+    });
+  }
+  if (begun.status !== "pending") fail("concurrent_run");
+  const claimNow = now(selectedOptions);
+  const claimInput = Object.freeze({
+    runId: selectedInput.runId,
+    workerId: selectedInput.workerId,
+    leaseId: selectedInput.leaseId,
+    now: claimNow,
+    leaseExpiresAt: new Date(claimNow.getTime() + selectedOptions.leaseDurationMs),
+  });
+  const claimed = await repositoryCall(() => selectedOptions.workflowRepository.claim(claimInput));
+  if (claimed.runId !== selectedInput.runId || claimed.leaseId !== selectedInput.leaseId) {
+    fail("concurrent_run");
+  }
+  let openedCredential: IyzicoCredential | undefined;
+  let selectedCredential: IyzicoCredential | undefined;
+  try {
+    const credentialCandidate = await selectedOptions.credentialResolver(Object.freeze({
+      credentialAuthority: selectedProfile.credentialAuthority,
+      profileId: selectedProfile.profileId,
+      profileVersion: selectedProfile.profileVersion,
+      credentialVersion: selectedProfile.credentialVersion,
+      runId: selectedInput.runId,
+      leaseId: selectedInput.leaseId,
+    }));
+    openedCredential = writableCredential(credentialCandidate);
+    selectedCredential = parseIyzicoCredential(openedCredential);
+    let selectedAdapter: HostedPaymentAdapter<IyzicoCredential>;
+    try {
+      selectedAdapter = adapter(await selectedOptions.adapterResolver(), selectedCandidate.adapterVersion);
+    } catch (error) {
+      if (isTrustedOperatorError(error)) throw error;
+      return fail("unavailable");
+    }
+    await runScenarios(selectedOptions, selectedInput, selectedAdapter, selectedCredential);
+    const finalized = await finalizeRun();
     return Object.freeze({
       kind: "attested",
       runId: selectedInput.runId,

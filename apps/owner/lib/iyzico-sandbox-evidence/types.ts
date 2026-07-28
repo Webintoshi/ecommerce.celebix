@@ -65,8 +65,9 @@ export interface IyzicoSandboxEvidenceMemoryOperator {
     initialization: Extract<HostedPaymentInitialization, Readonly<{ kind: "iframe" }>>;
   }>): Promise<IyzicoSandboxEvidenceRawCallback>;
   controlledTimeout(): Promise<Readonly<{
-    kind: "controlled_timeout_observed";
+    kind: "controlled_timeout_ready";
     signal: AbortSignal;
+    transportObservation: { invocations: number };
   }>>;
 }
 

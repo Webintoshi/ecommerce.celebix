@@ -39,6 +39,10 @@ const PRIVATE_IDENTITY = "10000000146";
 const PRIVATE_CARD = "5528790000000008";
 const CALLBACK_BINDING = "A".repeat(43);
 const START = new Date("2026-07-28T14:00:00.000Z");
+const CONTROLLED_TIMEOUTS = new WeakMap<AbortSignal, Readonly<{
+  controller: AbortController;
+  transportObservation: { invocations: number };
+}>>();
 
 const EVENT_IDS = Object.freeze({
   successCaptured: "81000000-0000-4000-8000-000000000061",
@@ -134,16 +138,46 @@ function requestJson(request: ProviderTransportRequest): Record<string, unknown>
 
 function providerTransport(
   calls: ProviderTransportRequest[],
-  options: Readonly<{ tamperSuccessSignature?: boolean }> = {},
+  options: Readonly<{
+    tamperSuccessSignature?: boolean;
+    varyingInitializeTokens?: boolean;
+    timeoutTransportObservations?: Array<Readonly<{
+      startedAborted: boolean;
+      endedAborted: boolean;
+    }>>;
+  }> = {},
 ) {
+  const issued = new Map<string, Readonly<{ attemptId: string; orderReference: string }>>();
+  let initializeCount = 0;
   return Object.freeze({
     request: Object.freeze(async (request: ProviderTransportRequest): Promise<ProviderTransportResult> => {
       const payload = requestJson(request);
       calls.push(Object.freeze({ ...request, body: request.body.slice() }));
       const attemptId = payload.conversationId as keyof typeof TOKENS;
-      const providerReference = TOKENS[attemptId];
-      if (!providerReference) return response({ status: "failure" }, 400);
+      if (!TOKENS[attemptId]) return response({ status: "failure" }, 400);
+      const requestSignal = request.signal;
+      const controlledTimeout = requestSignal === undefined
+        ? undefined
+        : CONTROLLED_TIMEOUTS.get(requestSignal);
+      if (controlledTimeout && attemptId === TIMEOUT_ATTEMPT) {
+        const startedAborted = requestSignal!.aborted;
+        controlledTimeout.transportObservation.invocations += 1;
+        controlledTimeout.controller.abort(new Error("injected_transport_timeout"));
+        options.timeoutTransportObservations?.push(Object.freeze({
+          startedAborted,
+          endedAborted: requestSignal!.aborted,
+        }));
+        throw new Error("injected_transport_timeout");
+      }
       if (request.url.includes("/initialize/")) {
+        initializeCount += 1;
+        const providerReference = options.varyingInitializeTokens
+          ? varyingInitializeToken(initializeCount)
+          : TOKENS[attemptId];
+        issued.set(providerReference, Object.freeze({
+          attemptId,
+          orderReference: payload.basketId as string,
+        }));
         return response({
           status: "success",
           conversationId: attemptId,
@@ -156,9 +190,14 @@ function providerTransport(
           }),
         });
       }
+      const providerReference = payload.token as string;
+      const authority = issued.get(providerReference);
+      if (!authority || authority.attemptId !== attemptId) {
+        return response({ status: "failure" }, 400);
+      }
       const fraudStatus = attemptId === DECLINE_ATTEMPT ? -1 as const : 1 as const;
       const paymentId = `payment-${attemptId.slice(0, 8)}`;
-      const orderReference = `order-${attemptId.slice(0, 8)}`;
+      const orderReference = authority.orderReference;
       const signed = {
         credential: { apiKey: RAW_API_KEY, secretKey: RAW_SECRET },
         paymentStatus: "SUCCESS",
@@ -188,6 +227,10 @@ function providerTransport(
       });
     }),
   });
+}
+
+function varyingInitializeToken(sequence: number): string {
+  return `checkout_${String(sequence).padStart(2, "0")}_${"X".repeat(36)}`;
 }
 
 type RecordedCall = Readonly<{ operation: string; input: Readonly<Record<string, unknown>> }>;
@@ -236,7 +279,7 @@ function repositories(
           replayed,
         });
       },
-      async finalize(selected) {
+      async finalize(selected: Parameters<IyzicoSandboxEvidenceWorkflowRepository["finalize"]>[0]) {
         lifecycle.push("finalize");
         calls.push({ operation: "finalize", input: selected as unknown as Readonly<Record<string, unknown>> });
         return Object.freeze({
@@ -298,9 +341,13 @@ function operatorFixture(callbackBodies: Uint8Array[] = []) {
       });
     },
     async controlledTimeout() {
+      const controller = new AbortController();
+      const transportObservation = { invocations: 0 };
+      CONTROLLED_TIMEOUTS.set(controller.signal, Object.freeze({ controller, transportObservation }));
       return Object.freeze({
-        kind: "controlled_timeout_observed" as const,
-        signal: AbortSignal.abort(new Error("injected_controlled_timeout")),
+        kind: "controlled_timeout_ready" as const,
+        signal: controller.signal,
+        transportObservation,
       });
     },
   });
@@ -311,6 +358,10 @@ function runtimeOptions(overrides: Record<string, unknown> = {}) {
   const transportCalls: ProviderTransportRequest[] = [];
   const lifecycle: string[] = [];
   const callbackBodies: Uint8Array[] = [];
+  const timeoutTransportObservations: Array<Readonly<{
+    startedAborted: boolean;
+    endedAborted: boolean;
+  }>> = [];
   const access = { candidate: 0, profile: 0, adapter: 0, credential: 0 };
   const selectedRepositories = repositories(repositoryCalls, "created", lifecycle);
   let openedCredential: IyzicoCredential | undefined;
@@ -337,7 +388,9 @@ function runtimeOptions(overrides: Record<string, unknown> = {}) {
     async adapterResolver() {
       lifecycle.push("adapter");
       access.adapter += 1;
-      return createIyzicoCheckoutFormAdapter(providerTransport(transportCalls), {
+      return createIyzicoCheckoutFormAdapter(providerTransport(transportCalls, {
+        timeoutTransportObservations,
+      }), {
         randomKey: () => "abcdefghijklmnop",
       });
     },
@@ -362,6 +415,7 @@ function runtimeOptions(overrides: Record<string, unknown> = {}) {
     transportCalls,
     lifecycle,
     callbackBodies,
+    timeoutTransportObservations,
     access,
     openedCredential: () => openedCredential,
   };
@@ -430,9 +484,13 @@ test("core performs the exact six-event native adapter matrix and persists only 
   assert.equal(fixture.openedCredential()?.apiKey, "");
   assert.equal(fixture.openedCredential()?.secretKey, "");
   assert.equal(fixture.callbackBodies.every((body) => body.every((byte) => byte === 0)), true);
-  assert.equal(fixture.lifecycle.indexOf("claim") < fixture.lifecycle.indexOf("adapter"), true);
-  assert.equal(fixture.lifecycle.indexOf("adapter") < fixture.lifecycle.indexOf("credential"), true);
-  assert.equal(fixture.lifecycle.indexOf("credential") < fixture.lifecycle.indexOf("event"), true);
+  assert.deepEqual(fixture.timeoutTransportObservations, [{
+    startedAborted: false,
+    endedAborted: true,
+  }]);
+  assert.equal(fixture.lifecycle.indexOf("claim") < fixture.lifecycle.indexOf("credential"), true);
+  assert.equal(fixture.lifecycle.indexOf("credential") < fixture.lifecycle.indexOf("adapter"), true);
+  assert.equal(fixture.lifecycle.indexOf("adapter") < fixture.lifecycle.indexOf("event"), true);
 });
 
 test("missing or stale candidate profile and credential authority perform zero evidence adapter transport and key access", async () => {
@@ -470,12 +528,20 @@ test("missing or stale candidate profile and credential authority perform zero e
 
 test("a tampered native provider result can never become captured and still wipes the opened credential", async () => {
   const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  let parsedCredential: IyzicoCredential | undefined;
   const fixture = runtimeOptions({
     async adapterResolver() {
       fixture.access.adapter += 1;
-      return createIyzicoCheckoutFormAdapter(providerTransport(fixture.transportCalls, {
+      const native = createIyzicoCheckoutFormAdapter(providerTransport(fixture.transportCalls, {
         tamperSuccessSignature: true,
       }), { randomKey: () => "abcdefghijklmnop" });
+      return Object.freeze({
+        ...native,
+        async initialize(selected: Parameters<typeof native.initialize>[0]) {
+          parsedCredential = selected.credential;
+          return native.initialize(selected);
+        },
+      });
     },
   });
   const runtime = createIyzicoSandboxEvidenceOperator(fixture.options);
@@ -486,7 +552,137 @@ test("a tampered native provider result can never become captured and still wipe
   assert.equal(fixture.repositoryCalls.some(({ operation }) => operation === "finalize"), false);
   assert.equal(fixture.openedCredential()?.apiKey, "");
   assert.equal(fixture.openedCredential()?.secretKey, "");
+  assert.deepEqual(parsedCredential, { apiKey: "", secretKey: "" });
   assert.equal(fixture.callbackBodies.every((body) => body.every((byte) => byte === 0)), true);
+});
+
+test("credential authority rejects proxy frozen and non-writable plaintext before adapter or transport", async () => {
+  const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  let proxyTraps = 0;
+  const proxiedCredential = new Proxy(credential(), {
+    ownKeys() { proxyTraps += 1; return ["apiKey", "secretKey"]; },
+    set() { proxyTraps += 1; return false; },
+  });
+  const nonWritable = Object.defineProperties({}, {
+    apiKey: { enumerable: true, value: RAW_API_KEY, writable: true },
+    secretKey: { enumerable: true, value: RAW_SECRET, writable: false },
+  });
+  for (const opened of [proxiedCredential, Object.freeze(credential()), nonWritable]) {
+    const fixture = runtimeOptions({
+      async credentialResolver() {
+        fixture.access.credential += 1;
+        return opened;
+      },
+    });
+    await assert.rejects(
+      () => createIyzicoSandboxEvidenceOperator(fixture.options).run(input()),
+      errorCode("unavailable"),
+    );
+    assert.equal(fixture.access.adapter, 0);
+    assert.deepEqual(fixture.transportCalls, []);
+  }
+  assert.equal(proxyTraps, 0);
+});
+
+test("accepted raw credential is wiped when later adapter resolution fails", async () => {
+  const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  let opened: IyzicoCredential | undefined;
+  const fixture = runtimeOptions({
+    async credentialResolver() {
+      fixture.access.credential += 1;
+      opened = credential();
+      return opened;
+    },
+    async adapterResolver() {
+      fixture.access.adapter += 1;
+      throw new Error("adapter_resolution_failed");
+    },
+  });
+  await assert.rejects(
+    () => createIyzicoSandboxEvidenceOperator(fixture.options).run(input()),
+    errorCode("unavailable"),
+  );
+  assert.deepEqual(opened, { apiKey: "", secretKey: "" });
+  assert.equal(fixture.access.credential, 1);
+  assert.equal(fixture.access.adapter, 1);
+  assert.deepEqual(fixture.transportCalls, []);
+});
+
+test("callback replay reuses the success checkout without a second provider initialize", async () => {
+  const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  const successCallbackBodies: Uint8Array[] = [];
+  let parsedCredential: IyzicoCredential | undefined;
+  const fixture = runtimeOptions({
+    async adapterResolver() {
+      fixture.access.adapter += 1;
+      const native = createIyzicoCheckoutFormAdapter(providerTransport(fixture.transportCalls, {
+        varyingInitializeTokens: true,
+      }), { randomKey: () => "abcdefghijklmnop" });
+      return Object.freeze({
+        ...native,
+        async initialize(selected: Parameters<typeof native.initialize>[0]) {
+          parsedCredential = selected.credential;
+          return native.initialize(selected);
+        },
+        async verifyCallback(selected: Parameters<typeof native.verifyCallback>[0]) {
+          if (selected.expected.attemptId === SUCCESS_ATTEMPT) {
+            successCallbackBodies.push(selected.body);
+          }
+          return native.verifyCallback(selected);
+        },
+      });
+    },
+  });
+
+  const result = await createIyzicoSandboxEvidenceOperator(fixture.options).run(input());
+  assert.equal(result.kind, "attested");
+  const initializationAttempts = fixture.transportCalls
+    .filter(({ url }) => url.includes("/initialize/"))
+    .map((request) => requestJson(request).conversationId);
+  assert.deepEqual(initializationAttempts, [SUCCESS_ATTEMPT, DECLINE_ATTEMPT, TIMEOUT_ATTEMPT]);
+  assert.equal(initializationAttempts.filter((attemptId) => attemptId === SUCCESS_ATTEMPT).length, 1);
+  assert.equal(successCallbackBodies.length, 3);
+  assert.notEqual(successCallbackBodies[0], successCallbackBodies[1]);
+  assert.equal(successCallbackBodies[1], successCallbackBodies[2]);
+  assert.deepEqual(parsedCredential, { apiKey: "", secretKey: "" });
+});
+
+test("a callback from a second provider checkout cannot satisfy the replay evidence", async () => {
+  const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  const base = operatorFixture();
+  const foreignBodies: Uint8Array[] = [];
+  const fixture = runtimeOptions({
+    async adapterResolver() {
+      fixture.access.adapter += 1;
+      return createIyzicoCheckoutFormAdapter(providerTransport(fixture.transportCalls, {
+        varyingInitializeTokens: true,
+      }), { randomKey: () => "abcdefghijklmnop" });
+    },
+    operator: Object.freeze({
+      initialization: base.initialization,
+      controlledTimeout: base.controlledTimeout,
+      async callback(selected: Readonly<{ caseKind: string }>) {
+        if (selected.caseKind !== "callback_replay") return base.callback(selected as never);
+        const raw = new TextEncoder().encode(`token=${varyingInitializeToken(4)}`);
+        foreignBodies.push(raw);
+        return Object.freeze({
+          method: "POST" as const,
+          headers: Object.freeze({
+            "content-type": "application/x-www-form-urlencoded",
+            "content-length": String(raw.byteLength),
+          }),
+          body: raw,
+        });
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () => createIyzicoSandboxEvidenceOperator(fixture.options).run(input()),
+    errorCode("scenario_failed"),
+  );
+  assert.equal(fixture.repositoryCalls.some(({ operation }) => operation === "finalize"), false);
+  assert.equal(foreignBodies.every((body) => body.every((byte) => byte === 0)), true);
 });
 
 test("a malformed raw callback witness is wiped before the scenario fails closed", async () => {
@@ -526,6 +722,7 @@ test("timeout evidence requires an explicit injected controlled fault witness", 
         return Object.freeze({
           kind: "not_a_controlled_witness",
           signal: new AbortController().signal,
+          transportObservation: { invocations: 0 },
         });
       },
     }),
@@ -536,6 +733,62 @@ test("timeout evidence requires an explicit injected controlled fault witness", 
   assert.equal(fixture.repositoryCalls.some(({ operation, input: selected }) =>
     operation === "event" && selected.eventKind === "timeout_unknown"), false);
   assert.equal(fixture.repositoryCalls.some(({ operation }) => operation === "finalize"), false);
+});
+
+test("timeout evidence rejects pre-aborted never-aborted and zero-transport witnesses", async () => {
+  const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  for (const mode of ["pre_aborted", "never_aborted", "zero_transport"] as const) {
+    let controller: AbortController | undefined;
+    const transportObservation = { invocations: 0 };
+    const base = operatorFixture();
+    const fixture = runtimeOptions({
+      operator: Object.freeze({
+        initialization: base.initialization,
+        callback: base.callback,
+        async controlledTimeout() {
+          controller = new AbortController();
+          if (mode === "pre_aborted") controller.abort(new Error("too_early"));
+          return Object.freeze({
+            kind: "controlled_timeout_ready" as const,
+            signal: controller.signal,
+            transportObservation,
+          });
+        },
+      }),
+      async adapterResolver() {
+        fixture.access.adapter += 1;
+        const native = createIyzicoCheckoutFormAdapter(providerTransport(fixture.transportCalls), {
+          randomKey: () => "abcdefghijklmnop",
+        });
+        if (mode === "pre_aborted") return native;
+        return Object.freeze({
+          ...native,
+          async verifyCallback(selected: Parameters<typeof native.verifyCallback>[0]) {
+            if (selected.expected.attemptId !== TIMEOUT_ATTEMPT) {
+              return native.verifyCallback(selected);
+            }
+            if (mode === "zero_transport") controller?.abort(new Error("adapter_only_abort"));
+            return Object.freeze({
+              eventKey: "iyzico:controlled-timeout:retry",
+              status: "retry" as const,
+              providerReference: selected.expected.providerReference,
+              paidAmountMinor: selected.expected.amountMinor,
+              currency: "TRY" as const,
+              safeCode: "temporary_failure",
+            });
+          },
+        });
+      },
+    });
+
+    await assert.rejects(
+      () => createIyzicoSandboxEvidenceOperator(fixture.options).run(input()),
+      errorCode("scenario_failed"),
+    );
+    assert.equal(fixture.repositoryCalls.some(({ operation, input: selected }) =>
+      operation === "event" && selected.eventKind === "timeout_unknown"), false);
+    assert.equal(fixture.repositoryCalls.some(({ operation }) => operation === "finalize"), false);
+  }
 });
 
 test("repository operation replays remain idempotent while terminal and concurrent runs fail closed", async () => {
@@ -554,10 +807,14 @@ test("repository operation replays remain idempotent while terminal and concurre
     ["commit_unknown", "commit_unknown"],
     ["lease_conflict", "concurrent_run"],
   ] as const) {
+    let claims = 0;
     const fixture = runtimeOptions({
       workflowRepository: {
         ...repositories([]).workflow,
-        async claim() { throw new IyzicoSandboxEvidenceRepositoryError(repositoryError[0]); },
+        async claim() {
+          claims += 1;
+          throw new IyzicoSandboxEvidenceRepositoryError(repositoryError[0]);
+        },
       },
     });
     await assert.rejects(
@@ -566,11 +823,13 @@ test("repository operation replays remain idempotent while terminal and concurre
     );
     assert.equal(fixture.access.adapter, 0);
     assert.equal(fixture.access.credential, 0);
+    assert.equal(claims, repositoryError[0] === "commit_unknown" ? 2 : 1);
   }
 });
 
-test("terminal begin replay and hostile runtime input stop before lease or private authority", async () => {
+test("terminal begin replay reconciles through exact finalize without lease or private authority", async () => {
   const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  const finalizeInputs: unknown[] = [];
   const fixture = runtimeOptions({
     appRepository: {
       ...repositories([]).app,
@@ -583,12 +842,124 @@ test("terminal begin replay and hostile runtime input stop before lease or priva
         });
       },
     },
+    workflowRepository: {
+      ...repositories([]).workflow,
+      async finalize(selected: Parameters<IyzicoSandboxEvidenceWorkflowRepository["finalize"]>[0]) {
+        finalizeInputs.push(selected);
+        return Object.freeze({
+          outcome: "operation_replayed" as const,
+          attestationId: selected.attestationId,
+          matrixDigest: MATRIX_DIGEST,
+          replayed: true,
+        });
+      },
+    },
   });
   const runtime = createIyzicoSandboxEvidenceOperator(fixture.options);
-  await assert.rejects(() => runtime.run(input()), errorCode("concurrent_run"));
+  assert.deepEqual(await runtime.run(input()), {
+    kind: "attested",
+    runId: RUN,
+    attestationId: ATTESTATION,
+    matrixDigest: MATRIX_DIGEST,
+    replayed: true,
+  });
+  assert.equal(finalizeInputs.length, 1);
   assert.equal(fixture.access.adapter, 0);
   assert.equal(fixture.access.credential, 0);
 
   const hostile = new Proxy(input(), { ownKeys() { throw new Error("private_input_trap"); } });
   await assert.rejects(() => runtime.run(hostile), errorCode("invalid_input"));
+});
+
+test("one runtime commit-unknown retry reuses the exact frozen repository input", async () => {
+  const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  const beginInputs: unknown[] = [];
+  const finalizeInputs: unknown[] = [];
+  const fixture = runtimeOptions({
+    appRepository: {
+      ...repositories([]).app,
+      async begin(selected: Parameters<IyzicoSandboxEvidenceAppRepository["begin"]>[0]) {
+        beginInputs.push(selected);
+        if (beginInputs.length === 1) {
+          throw new IyzicoSandboxEvidenceRepositoryError("commit_unknown");
+        }
+        return Object.freeze({
+          outcome: "operation_replayed" as const,
+          runId: selected.runId,
+          status: "pending" as const,
+          replayed: true,
+        });
+      },
+    },
+    workflowRepository: {
+      ...repositories([]).workflow,
+      async finalize(selected: Parameters<IyzicoSandboxEvidenceWorkflowRepository["finalize"]>[0]) {
+        finalizeInputs.push(selected);
+        if (finalizeInputs.length === 1) {
+          throw new IyzicoSandboxEvidenceRepositoryError("commit_unknown");
+        }
+        return Object.freeze({
+          outcome: "operation_replayed" as const,
+          attestationId: selected.attestationId,
+          matrixDigest: MATRIX_DIGEST,
+          replayed: true,
+        });
+      },
+    },
+  });
+  const result = await createIyzicoSandboxEvidenceOperator(fixture.options).run(input());
+  assert.equal(result.kind, "attested");
+  assert.equal(beginInputs.length, 2);
+  assert.equal(beginInputs[0], beginInputs[1]);
+  assert.equal(finalizeInputs.length, 2);
+  assert.equal(finalizeInputs[0], finalizeInputs[1]);
+});
+
+test("nested dependency proxies and accessors are rejected without invoking traps", async () => {
+  const { createIyzicoSandboxEvidenceOperator } = await implementation();
+  let traps = 0;
+  const fixture = runtimeOptions();
+  const repositoryProxy = new Proxy(fixture.options.appRepository, {
+    get() { traps += 1; throw new Error("repository_get_trap"); },
+  });
+  const operatorProxy = new Proxy(fixture.options.operator, {
+    get() { traps += 1; throw new Error("operator_get_trap"); },
+  });
+  const accessorRepository = Object.defineProperty({}, "begin", {
+    enumerable: true,
+    get() { traps += 1; return async () => undefined; },
+  });
+  for (const overrides of [
+    { appRepository: repositoryProxy },
+    { operator: operatorProxy },
+    { appRepository: accessorRepository },
+  ]) {
+    assert.throws(
+      () => createIyzicoSandboxEvidenceOperator({ ...fixture.options, ...overrides } as never),
+      errorCode("unavailable"),
+    );
+  }
+  assert.equal(traps, 0);
+
+  const credentialAuthority = Object.defineProperty({}, "authority", {
+    enumerable: true,
+    get() { traps += 1; return "private"; },
+  });
+  const authorityFixture = runtimeOptions({
+    async profileResolver() {
+      return Object.freeze({
+        kind: "ready",
+        profileId: PROFILE,
+        profileVersion: 3,
+        credentialVersion: 2,
+        credentialAuthority,
+      });
+    },
+  });
+  await assert.rejects(
+    () => createIyzicoSandboxEvidenceOperator(authorityFixture.options).run(input()),
+    errorCode("unavailable"),
+  );
+  assert.deepEqual(authorityFixture.repositoryCalls, []);
+  assert.equal(traps, 0);
 });
