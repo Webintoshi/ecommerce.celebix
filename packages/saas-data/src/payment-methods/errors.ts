@@ -11,6 +11,7 @@ export const PAYMENT_METHOD_ERROR_CODES = Object.freeze([
   "invalid_transition",
   "version_conflict",
   "provider_already_active",
+  "method_already_exists",
   "operation_mismatch",
   "operation_not_found",
   "durable_authority_invalid",

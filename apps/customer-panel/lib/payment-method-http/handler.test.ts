@@ -174,24 +174,56 @@ test("methods GET delegates only the authenticated TenantContext and validates o
   assert.equal((input.tenantContext as TenantContext).store.id, tenant().store.id);
 });
 
-test("built-in save state and exact dense reorder delegate bounded DTOs", async () => {
+test("valid built-in save reaches the repository with exact frozen config", async () => {
+  const config = {
+    accountHolder: "Celebix Mağazacılık A.Ş.",
+    bankName: "Örnek Bankası",
+    iban: "TR330006100519786457841326",
+    instructions: "Sipariş numaranızı açıklamaya yazın.",
+  };
   const saveProbe = fixture();
   const saveResponse = await saveProbe.handlers.methods(request("POST", "/api/payment-methods", {
     methodId: METHOD,
     expectedVersion: 0,
-    kind: "cash_on_delivery",
+    kind: "bank_transfer",
     profileId: null,
     providerCode: null,
-    label: "Kapıda ödeme",
-    config: {},
+    label: "Banka havalesi",
+    config,
   }));
   assert.equal(saveResponse.status, 200);
   assert.deepEqual(await saveResponse.json(), mutation());
-  assert.deepEqual(Object.keys((saveProbe.calls[0]!.input as Record<string, unknown>)).sort(), [
+  const repositoryInput = saveProbe.calls[0]!.input as Record<string, unknown>;
+  assert.deepEqual(Object.keys(repositoryInput).sort(), [
     "config", "expectedVersion", "kind", "label", "methodId", "now", "operationId",
     "profileId", "providerCode", "tenantContext",
   ]);
+  assert.deepEqual(repositoryInput.config, config);
+  assert.equal(Object.isFrozen(repositoryInput.config), true);
+});
 
+test("invalid built-in IBAN is rejected before repository save", async () => {
+  const probe = fixture();
+  const response = await probe.handlers.methods(request("POST", "/api/payment-methods", {
+    methodId: METHOD,
+    expectedVersion: 0,
+    kind: "bank_transfer",
+    profileId: null,
+    providerCode: null,
+    label: "Banka havalesi",
+    config: {
+      accountHolder: "Celebix Mağazacılık A.Ş.",
+      bankName: "Örnek Bankası",
+      iban: "TR330006100519786457841327",
+      instructions: "Sipariş numaranızı açıklamaya yazın.",
+    },
+  }));
+  assert.equal(response.status, 400);
+  assert.equal(await code(response), "invalid_input");
+  assert.equal(probe.calls.some(({ kind }) => kind === "save"), false);
+});
+
+test("state and exact dense reorder delegate bounded DTOs", async () => {
   const stateProbe = fixture();
   const stateResponse = await stateProbe.handlers.state(request("POST", `/api/payment-methods/${METHOD}/state`, {
     expectedVersion: 1,
@@ -291,6 +323,9 @@ test("provider method mutation requires exact catalog registry packet evidence v
   const accepted = fixture({ catalog, providerExecution });
   assert.equal((await accepted.handlers.methods(request("POST", "/api/payment-methods", input))).status, 200);
   assert.equal(accepted.calls.filter((entry) => entry.kind === "save").length, 1);
+  const providerConfig = (accepted.calls.find((entry) => entry.kind === "save")!.input as Record<string, unknown>).config;
+  assert.deepEqual(providerConfig, { environment: "test" });
+  assert.equal(Object.isFrozen(providerConfig), true);
 
   const mismatches = [
     null,
@@ -390,4 +425,19 @@ test("repository errors map to the finite HTTP vocabulary without leaking detail
   const responseText = await response.text();
   assert.equal((JSON.parse(responseText) as { code: string }).code, "unavailable");
   assert.doesNotMatch(responseText, /driver detail/);
+});
+
+test("method duplicate maps to the finite conflict response", async () => {
+  const probe = fixture({ repositoryError: "method_already_exists" });
+  const response = await probe.handlers.methods(request("POST", "/api/payment-methods", {
+    methodId: METHOD,
+    expectedVersion: 0,
+    kind: "cash_on_delivery",
+    profileId: null,
+    providerCode: null,
+    label: "Kapıda ödeme",
+    config: { instructions: "Teslimatta ödeme yapın." },
+  }));
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { code: "method_already_exists" });
 });

@@ -333,11 +333,13 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
     transactionActive = true;
     await client.query("SET LOCAL ROLE celebix_saas_app");
     const activation = await client.query(`SELECT
+      saas.built_in_payment_methods_preflight() AS built_in_payment_methods,
       saas.payment_provider_keyed_lifecycle_preflight() AS payment_provider_keyed_lifecycle,
       saas.iyzico_iframe_tenant_activation_runtime_preflight() AS iyzico_activation_runtime,
       saas.quick_order_hosted_payment_authority_preflight() AS quick_order_hosted_authority`);
     if (
       activation.rowCount !== 1
+      || activation.rows[0]?.built_in_payment_methods !== true
       || activation.rows[0]?.payment_provider_keyed_lifecycle !== true
       || activation.rows[0]?.iyzico_activation_runtime !== true
       || activation.rows[0]?.quick_order_hosted_authority !== true

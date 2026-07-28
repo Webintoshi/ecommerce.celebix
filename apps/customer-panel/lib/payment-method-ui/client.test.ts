@@ -135,6 +135,26 @@ test("payment method client maps only finite safe server errors", async () => {
       && error.message === "Başka bir ödeme sağlayıcısı zaten etkin. Önce etkin sağlayıcıyı devre dışı bırakın.",
   );
 
+  const methodConflict = createPaymentMethodApi(async () => Response.json(
+    { code: "method_already_exists" },
+    { status: 409 },
+  ), () => OPERATION_IDS[0]);
+  await assert.rejects(
+    () => methodConflict.save({
+      methodId: METHOD_ID,
+      expectedVersion: 0,
+      kind: "cash_on_delivery",
+      profileId: null,
+      providerCode: null,
+      label: "Kapıda ödeme",
+      config: { instructions: "Teslimatta ödeme yapın." },
+    }),
+    (error: unknown) => error instanceof PaymentMethodApiError
+      && error.code === "method_already_exists"
+      && error.status === 409
+      && error.message === "Bu ödeme yöntemi zaten mevcut.",
+  );
+
   const hostile = createPaymentMethodApi(async () => Response.json(
     { code: "database_password_exposed", detail: "private" },
     { status: 500 },

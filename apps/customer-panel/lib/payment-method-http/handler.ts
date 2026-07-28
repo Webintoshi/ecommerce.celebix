@@ -2,6 +2,7 @@ import {
   PAYMENT_METHOD_KINDS,
   PAYMENT_METHOD_STATES,
   isMerchantActionAllowed,
+  parseBuiltInPaymentMethodConfig,
   parseMerchantAdminConfig,
   parseMerchantPaymentMethod,
   parsePaymentMethodMutationResult,
@@ -44,6 +45,7 @@ const STATUS: Readonly<Record<PaymentMethodErrorCode, number>> = Object.freeze({
   invalid_transition: 409,
   version_conflict: 409,
   provider_already_active: 409,
+  method_already_exists: 409,
   operation_mismatch: 409,
   operation_not_found: 404,
   durable_authority_invalid: 409,
@@ -319,8 +321,10 @@ function saveInput(value: unknown, runtime: ServerPaymentMethodsRuntime) {
     return Object.freeze({ methodId, expectedVersion, kind, profileId, providerCode, label, config });
   }
   if (parsed.profileId !== null || parsed.providerCode !== null) return null;
-  const config = safeConfig(parsed.config);
-  return config === null ? null : Object.freeze({ methodId, expectedVersion, kind, profileId: null, providerCode: null, label, config });
+  try {
+    const config = parseBuiltInPaymentMethodConfig(kind, parsed.config);
+    return Object.freeze({ methodId, expectedVersion, kind, profileId: null, providerCode: null, label, config });
+  } catch { return null; }
 }
 
 function stateInput(value: unknown) {

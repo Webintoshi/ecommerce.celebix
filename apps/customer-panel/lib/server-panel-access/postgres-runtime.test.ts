@@ -111,14 +111,16 @@ test("approved staging preflight executes the provider lifecycle probes through 
           if (calls.length === 2) assert.equal(sql, "BEGIN READ ONLY");
           if (calls.length === 3) assert.equal(sql, "SET LOCAL ROLE celebix_saas_app");
           if (calls.length === 4) {
+            assert.match(sql, /saas\.built_in_payment_methods_preflight\(\) AS built_in_payment_methods/);
             assert.match(sql, /saas\.payment_provider_keyed_lifecycle_preflight\(\) AS payment_provider_keyed_lifecycle/);
             assert.match(sql, /saas\.iyzico_iframe_tenant_activation_runtime_preflight\(\) AS iyzico_activation_runtime/);
             assert.match(sql, /saas\.quick_order_hosted_payment_authority_preflight\(\) AS quick_order_hosted_authority/);
             return {
               rowCount: 1,
               rows: [{
+                built_in_payment_methods: false,
                 payment_provider_keyed_lifecycle: true,
-                iyzico_activation_runtime: false,
+                iyzico_activation_runtime: true,
                 quick_order_hosted_authority: true,
               }],
             };
