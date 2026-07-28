@@ -202,17 +202,23 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.payment_method_reorder(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.payment_method_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS payment_method_repository,
       to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL
-        AND saas.payment_provider_keyed_lifecycle_preflight() AS payment_provider_keyed_lifecycle,
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.payment_provider_keyed_lifecycle_preflight()',
+          'EXECUTE'
+        ) AS payment_provider_keyed_lifecycle,
       to_regprocedure('saas.iyzico_iframe_tenant_activation_runtime_preflight()') IS NOT NULL
-        AND saas.iyzico_iframe_tenant_activation_runtime_preflight() AS iyzico_activation_runtime,
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.iyzico_iframe_tenant_activation_runtime_preflight()',
+          'EXECUTE'
+        ) AS iyzico_activation_runtime,
       to_regprocedure('saas.quick_order_hosted_payment_authority_preflight()') IS NOT NULL
-        AND saas.quick_order_hosted_payment_authority_preflight() AS quick_order_hosted_authority,
-      (
-        SELECT pg_catalog.md5(procedure.prosrc) = '0302d768e4b58bc06c9a1947ca0bc6dd'
-        FROM pg_catalog.pg_proc AS procedure
-        WHERE procedure.oid = 'saas.paytr_iframe_activation_preflight()'::regprocedure
-      ) AND has_function_privilege('celebix_saas_app', 'saas.paytr_iframe_activation_preflight()', 'EXECUTE')
-        AS paytr_iframe_activation_authority,
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.quick_order_hosted_payment_authority_preflight()',
+          'EXECUTE'
+        ) AS quick_order_hosted_authority,
       to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
@@ -316,7 +322,6 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.payment_method_repository !== true || row.payment_provider_keyed_lifecycle !== true ||
       row.iyzico_activation_runtime !== true ||
       row.quick_order_hosted_authority !== true ||
-      row.paytr_iframe_activation_authority !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.analytics_repository !== true ||
       row.inventory_relations !== true || row.inventory_default_location_lifecycle !== true ||
@@ -327,10 +332,16 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
     await client.query("BEGIN READ ONLY");
     transactionActive = true;
     await client.query("SET LOCAL ROLE celebix_saas_app");
-    const activation = await client.query(
-      "SELECT saas.paytr_iframe_activation_preflight() AS ready",
-    );
-    if (activation.rowCount !== 1 || activation.rows[0]?.ready !== true) {
+    const activation = await client.query(`SELECT
+      saas.payment_provider_keyed_lifecycle_preflight() AS payment_provider_keyed_lifecycle,
+      saas.iyzico_iframe_tenant_activation_runtime_preflight() AS iyzico_activation_runtime,
+      saas.quick_order_hosted_payment_authority_preflight() AS quick_order_hosted_authority`);
+    if (
+      activation.rowCount !== 1
+      || activation.rows[0]?.payment_provider_keyed_lifecycle !== true
+      || activation.rows[0]?.iyzico_activation_runtime !== true
+      || activation.rows[0]?.quick_order_hosted_authority !== true
+    ) {
       throw new Error("server_panel_access_database_preflight_failed");
     }
     try {

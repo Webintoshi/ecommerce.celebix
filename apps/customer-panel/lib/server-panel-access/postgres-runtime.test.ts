@@ -72,7 +72,7 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
   assert.equal(ended, 1);
 });
 
-test("approved staging preflight executes the PayTR authority probe through the app role", async () => {
+test("approved staging preflight executes the provider lifecycle probes through the app role", async () => {
   const calls: string[] = [];
   let released = 0;
   let ended = 0;
@@ -85,10 +85,18 @@ test("approved staging preflight executes the PayTR authority probe through the 
         async query(sql: string) {
           calls.push(sql);
           if (calls.length === 1) {
-            assert.doesNotMatch(sql, /\)\s+AND\s+saas\.paytr_iframe_activation_preflight\(\)/);
+            assert.doesNotMatch(sql, /saas\.paytr_iframe_activation_preflight\(\)/);
             assert.match(
               sql,
-              /has_function_privilege\('celebix_saas_app',\s*'saas\.paytr_iframe_activation_preflight\(\)',\s*'EXECUTE'\)/,
+              /has_function_privilege\(\s*'celebix_saas_app',\s*'saas\.payment_provider_keyed_lifecycle_preflight\(\)',\s*'EXECUTE'\s*\)/,
+            );
+            assert.match(
+              sql,
+              /has_function_privilege\(\s*'celebix_saas_app',\s*'saas\.iyzico_iframe_tenant_activation_runtime_preflight\(\)',\s*'EXECUTE'\s*\)/,
+            );
+            assert.match(
+              sql,
+              /has_function_privilege\(\s*'celebix_saas_app',\s*'saas\.quick_order_hosted_payment_authority_preflight\(\)',\s*'EXECUTE'\s*\)/,
             );
             const row = Object.fromEntries(
               [...sql.matchAll(/\sAS\s+([a-z][a-z0-9_]+)/gi)].map((match) => [match[1], true]),
@@ -103,8 +111,17 @@ test("approved staging preflight executes the PayTR authority probe through the 
           if (calls.length === 2) assert.equal(sql, "BEGIN READ ONLY");
           if (calls.length === 3) assert.equal(sql, "SET LOCAL ROLE celebix_saas_app");
           if (calls.length === 4) {
-            assert.equal(sql, "SELECT saas.paytr_iframe_activation_preflight() AS ready");
-            return { rowCount: 1, rows: [{ ready: false }] };
+            assert.match(sql, /saas\.payment_provider_keyed_lifecycle_preflight\(\) AS payment_provider_keyed_lifecycle/);
+            assert.match(sql, /saas\.iyzico_iframe_tenant_activation_runtime_preflight\(\) AS iyzico_activation_runtime/);
+            assert.match(sql, /saas\.quick_order_hosted_payment_authority_preflight\(\) AS quick_order_hosted_authority/);
+            return {
+              rowCount: 1,
+              rows: [{
+                payment_provider_keyed_lifecycle: true,
+                iyzico_activation_runtime: false,
+                quick_order_hosted_authority: true,
+              }],
+            };
           }
           if (calls.length === 5) assert.equal(sql, "ROLLBACK");
           return { rowCount: 0, rows: [] };
