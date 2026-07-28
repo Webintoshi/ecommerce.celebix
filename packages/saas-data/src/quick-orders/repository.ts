@@ -539,9 +539,9 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
         text: `SELECT outcome, result_payload FROM saas.quick_links_create_hosted(
           $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
           $8::uuid,$9::uuid[],$10::uuid[],$11::bigint[],$12::uuid,
-          $13::text,$14::text[],$15::text,$16::text,$17::jsonb,
-          $18::text,$19::text,$20::text,$21::jsonb,$22::jsonb,$23::text,$24::text,
-          $25::bigint,$26::bigint,$27::bigint,$28::text,$29::text,$30::jsonb,$31::uuid,$32::text
+          $13::text,$14::text[],$15::text,$16::jsonb,
+          $17::text,$18::text,$19::text,$20::jsonb,$21::jsonb,$22::text,$23::text,
+          $24::bigint,$25::bigint,$26::bigint,$27::text,$28::text,$29::jsonb,$30::uuid,$31::text
         )`,
         values: [
           ...authorityValues(authority), linkId,

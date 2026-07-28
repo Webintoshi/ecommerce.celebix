@@ -36,7 +36,7 @@ const MESSAGES: Readonly<Record<QuickLinkUiApiErrorCode, string>> = Object.freez
   feature_not_enabled: "Hızlı sipariş linki özelliği bu mağazada etkin değil.",
   action_denied: "Bu işlemi yapma yetkiniz yok.",
   quick_link_not_found: "Hızlı sipariş linki bulunamadı veya artık erişilemiyor.",
-  provider_not_ready: "PayTR henüz hızlı ödeme linkleri için hazır değil.",
+  provider_not_ready: "Seçilen ödeme yöntemi henüz hızlı ödeme linkleri için hazır değil.",
   catalog_item_unavailable: "Seçilen katalog ürünü artık kullanılamıyor.",
   stock_unavailable: "Seçilen ürün için yeterli stok bulunmuyor.",
   invalid_transition: "Bu link mevcut durumunda değiştirilemez.",

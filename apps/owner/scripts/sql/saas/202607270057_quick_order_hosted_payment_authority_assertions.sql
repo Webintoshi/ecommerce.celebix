@@ -15,6 +15,17 @@ BEGIN
       'EXECUTE'
     )
   THEN RAISE EXCEPTION 'HOSTED_AUTHORITY_ACL_ASSERTION_FAILED'; END IF;
+  SELECT pg_catalog.pg_get_userbyid(procedure.proowner)<>'celebix_saas_owner'
+      OR procedure.proacl IS DISTINCT FROM
+        ARRAY['celebix_saas_owner=X/celebix_saas_owner']::pg_catalog.aclitem[]
+      OR pg_catalog.has_function_privilege('public',procedure.oid,'EXECUTE')
+    INTO bad
+  FROM pg_catalog.pg_proc AS procedure
+  JOIN pg_catalog.pg_namespace AS schema_info ON schema_info.oid=procedure.pronamespace
+  WHERE schema_info.nspname='saas' AND procedure.proname='guard_quick_link_provider_authority'
+    AND procedure.pronargs=0;
+  IF bad IS DISTINCT FROM false
+  THEN RAISE EXCEPTION 'HOSTED_AUTHORITY_PROVIDER_GUARD_ACL_ASSERTION_FAILED'; END IF;
   IF saas.quick_order_hosted_payment_authority_preflight() IS DISTINCT FROM true
   THEN RAISE EXCEPTION 'HOSTED_AUTHORITY_PREFLIGHT_ASSERTION_FAILED'; END IF;
   IF NOT EXISTS(

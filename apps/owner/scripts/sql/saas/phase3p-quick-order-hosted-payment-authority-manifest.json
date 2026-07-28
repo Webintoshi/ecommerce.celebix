@@ -376,17 +376,17 @@
     },
     {
       "file": "202607270057_quick_order_hosted_payment_authority.up.sql",
-      "sha256": "81e10681b96dce811490316efb21a5c339e5548f1049e9b0a9609b7831eae98b"
+      "sha256": "fd59e55861934ac9b14e322f670b91548f1ddc95513eeb69f46dada64ba7e501"
     },
     {
       "file": "202607270057_quick_order_hosted_payment_authority_assertions.sql",
-      "sha256": "5b04a1f4bf1cf11eba0ed5433618d45b910c44aef6dc4000083e73edb4a8ad91"
+      "sha256": "efb39752e7a6fadbf76e8f234c9bbd5c9a9ce2a58c72db275a4df57e1a504e23"
     }
   ],
   "rollbackArtifacts": [
     {
       "file": "202607270057_quick_order_hosted_payment_authority.down.sql",
-      "sha256": "2e75a4c6d757f226deea15d1a3f01149c36a3e10b63c1260b76f7b49658ba8bc"
+      "sha256": "d4e72a4bb15e11c876d8325d7da575e59c9ddada2d1fc037036644e0fc66413d"
     }
   ],
   "externalConnections": 0,

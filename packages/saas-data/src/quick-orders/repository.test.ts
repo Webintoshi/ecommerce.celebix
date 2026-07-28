@@ -576,6 +576,26 @@ test("hosted create binds only payment method authority and explicitly rejects i
   assert.notEqual(calls[0]?.at(-1), calls[2]?.at(-1));
 });
 
+test("hosted create emits the exact PostgreSQL 31-argument signature", async () => {
+  const client = new FakeClient((text) => text.includes("saas.quick_links_create_hosted")
+    ? [{ outcome: "committed", result_payload: mutation() }]
+    : []);
+
+  await repository(new FakePool(client)).create(hostedCreateInput());
+
+  const call = functionCall(client, "quick_links_create_hosted");
+  assert.equal(call.values.length, 31);
+  assert.equal(call.text.replace(/\s+/g, ""), [
+    "SELECToutcome,result_payloadFROMsaas.quick_links_create_hosted(",
+    "$1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,",
+    "$8::uuid,$9::uuid[],$10::uuid[],$11::bigint[],$12::uuid,",
+    "$13::text,$14::text[],$15::text,$16::jsonb,",
+    "$17::text,$18::text,$19::text,$20::jsonb,$21::jsonb,$22::text,$23::text,",
+    "$24::bigint,$25::bigint,$26::bigint,$27::text,$28::text,$29::jsonb,$30::uuid,$31::text",
+    ")",
+  ].join(""));
+});
+
 test("cancel and duplicate bind exact signatures and minimal stable fingerprints", async () => {
   const cancelClient = new FakeClient((text) => text.includes("saas.quick_links_cancel")
     ? [{ outcome: "committed", result_payload: mutation({ status: "cancelled", version: 2 }) }]

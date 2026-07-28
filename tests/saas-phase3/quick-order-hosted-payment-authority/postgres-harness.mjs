@@ -11,6 +11,7 @@ const ROLLBACK_DB = "quick_order_hosted_authority_rollback";
 const UP = "202607270057_quick_order_hosted_payment_authority.up.sql";
 const DOWN = "202607270057_quick_order_hosted_payment_authority.down.sql";
 const ASSERTIONS = "202607270057_quick_order_hosted_payment_authority_assertions.sql";
+const REPOSITORY_FIXTURE = path.join(import.meta.dirname, "repository-postgres-fixture.ts");
 const prior = JSON.parse(readFileSync(path.join(SQL, "phase3o-payment-provider-keyed-lifecycle-manifest.json"), "utf8"));
 const FIXTURE = readFileSync(path.join(import.meta.dirname, "fixture.sql"), "utf8");
 const STORE = "10000000-0000-4000-8000-000000000057";
@@ -22,7 +23,7 @@ const VARIANT = "41000000-0000-4000-8000-000000000057";
 const METHOD = "50000000-0000-4000-8000-000000000057";
 const OTHER_METHOD = "50000000-0000-4000-8000-000000000058";
 const NOW = "2026-07-27T12:00:00.000Z";
-const TOTAL = 12;
+const TOTAL = 13;
 let completed = 0;
 
 const envelope = (key = "quick.current") => `{"algorithm":"A256GCM","ciphertext":"AQ","iv":"AAAAAAAAAAAAAAAA","keyId":"${key}","tag":"AAAAAAAAAAAAAAAAAAAAAA","version":1}`;
@@ -49,6 +50,15 @@ function sql(box, input, database = DB, allowFailure = false) {
 }
 function apply(box, file, database = DB) { sql(box, readFileSync(path.join(SQL, file), "utf8"), database); }
 function pass(label, callback) { callback(); completed += 1; process.stdout.write(`PASS ${completed}/${TOTAL} ${label}\n`); }
+function providerGuardAcl(box, database = DB) {
+  return sql(box, `SELECT pg_catalog.pg_get_userbyid(procedure.proowner)||'|'||
+      COALESCE(procedure.proacl::text,'NULL')||'|'||
+      pg_catalog.has_function_privilege('public',procedure.oid,'EXECUTE')::text
+    FROM pg_catalog.pg_proc AS procedure
+    JOIN pg_catalog.pg_namespace AS schema_info ON schema_info.oid=procedure.pronamespace
+    WHERE schema_info.nspname='saas' AND procedure.proname='guard_quick_link_provider_authority'
+      AND procedure.pronargs=0;`, database).stdout.trim();
+}
 function authority(store = STORE, principal = PRINCIPAL, membership = MEMBERSHIP) {
   return `'${store}'::uuid,'${principal}'::uuid,'${membership}'::uuid,'${PLAN}'::uuid,'free_starter',1,'${NOW}'::timestamptz`;
 }
@@ -88,17 +98,25 @@ async function main() {
     box = start();
     sql(box, `CREATE DATABASE ${DB};`, "postgres");
     for (const { file } of prior.migrationChain) apply(box, file);
+    const baselineProviderGuardAcl = providerGuardAcl(box);
+    assert.equal(baselineProviderGuardAcl, "celebix_saas_owner|{celebix_saas_owner=X/celebix_saas_owner}|false");
     sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
     apply(box, UP); apply(box, ASSERTIONS); sql(box, FIXTURE);
 
     pass("PostgreSQL 16 migration, assertions, preflight, RLS and ACL pass", () => {
       assert.match(sql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
+      assert.equal(providerGuardAcl(box), baselineProviderGuardAcl);
       assert.equal(sql(box, "SET ROLE celebix_saas_app; SELECT saas.quick_order_hosted_payment_authority_preflight();").stdout.trim(), "t");
       assert.notEqual(sql(box, "SET ROLE celebix_saas_app; SELECT * FROM saas.quick_order_link_hosted_authorities;", DB, true).status, 0);
     });
     pass("legacy PayTR create remains compatible and has null hosted columns", () => {
       assert.equal(sql(box, legacy()).stdout.trim(), "committed");
       assert.equal(sql(box, "SELECT provider_config_id IS NOT NULL AND hosted_authority_id IS NULL FROM saas.quick_order_links WHERE customer_name='Legacy';").stdout.trim(), "t");
+    });
+    pass("real repository executes the exact hosted signature and commits Iyzico authority", () => {
+      assert.equal(command(process.execPath, [
+        "--experimental-transform-types", REPOSITORY_FIXTURE, box.socket, String(box.port), DB,
+      ]).stdout.trim(), "repository-hosted-create-committed");
     });
     pass("exact active Iyzico method creates one sealed authority with preserved snapshot", () => {
       assert.equal(sql(box, hosted({ ordinal: 1 })).stdout.trim(), "committed");
@@ -151,7 +169,13 @@ async function main() {
     });
     pass("down is drain locked and clean down-up assertions restore exactly", () => {
       assert.notEqual(sql(box, readFileSync(path.join(SQL, DOWN), "utf8"), DB, true).status, 0);
-      apply(box, UP, ROLLBACK_DB); apply(box, ASSERTIONS, ROLLBACK_DB); apply(box, DOWN, ROLLBACK_DB); apply(box, UP, ROLLBACK_DB); apply(box, ASSERTIONS, ROLLBACK_DB);
+      assert.equal(providerGuardAcl(box, ROLLBACK_DB), baselineProviderGuardAcl);
+      apply(box, UP, ROLLBACK_DB); apply(box, ASSERTIONS, ROLLBACK_DB);
+      assert.equal(providerGuardAcl(box, ROLLBACK_DB), baselineProviderGuardAcl);
+      apply(box, DOWN, ROLLBACK_DB);
+      assert.equal(providerGuardAcl(box, ROLLBACK_DB), baselineProviderGuardAcl);
+      apply(box, UP, ROLLBACK_DB); apply(box, ASSERTIONS, ROLLBACK_DB);
+      assert.equal(providerGuardAcl(box, ROLLBACK_DB), baselineProviderGuardAcl);
       assert.equal(sql(box, "SET ROLE celebix_saas_app; SELECT saas.quick_order_hosted_payment_authority_preflight();", ROLLBACK_DB).stdout.trim(), "t");
     });
     assert.equal(completed, TOTAL);

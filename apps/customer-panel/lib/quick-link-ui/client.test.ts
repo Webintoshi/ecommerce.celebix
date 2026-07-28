@@ -587,7 +587,10 @@ test("client maps finite conflict and readiness errors and rejects hostile respo
   });
   await assert.rejects(
     () => readiness.createLink(intent),
-    (error: unknown) => error instanceof QuickLinkUiApiError && error.code === "provider_not_ready" && /PayTR/.test(error.message),
+    (error: unknown) => error instanceof QuickLinkUiApiError &&
+      error.code === "provider_not_ready" &&
+      /ödeme yöntemi/.test(error.message) &&
+      !/PayTR|iyzico/i.test(error.message),
   );
   const hostile = createQuickLinkUiClient({
     fetch: async () => response({ items: [{ ...listItem, tokenDigest: "secret" }] }),

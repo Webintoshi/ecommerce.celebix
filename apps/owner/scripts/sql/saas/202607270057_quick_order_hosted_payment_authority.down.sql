@@ -62,6 +62,7 @@ BEGIN
   RETURN NEW;
 END
 $function$;
+REVOKE ALL ON FUNCTION saas.guard_quick_link_provider_authority() FROM PUBLIC;
 CREATE TRIGGER quick_order_links_provider_authority
 BEFORE INSERT OR UPDATE OF store_id,provider_config_id ON saas.quick_order_links
 FOR EACH ROW EXECUTE FUNCTION saas.guard_quick_link_provider_authority();

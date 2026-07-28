@@ -10,6 +10,7 @@ const UP = "202607270057_quick_order_hosted_payment_authority.up.sql";
 const DOWN = "202607270057_quick_order_hosted_payment_authority.down.sql";
 const ASSERTIONS = "202607270057_quick_order_hosted_payment_authority_assertions.sql";
 const MANIFEST = "phase3p-quick-order-hosted-payment-authority-manifest.json";
+const REPOSITORY_FIXTURE = path.join(ROOT, "tests/saas-phase3/quick-order-hosted-payment-authority/repository-postgres-fixture.ts");
 const preserved = Object.freeze({
   "202607220024_quick_order_links.up.sql": "519cda0360940c97dd1a63457fd6f27c0e8262de22176e3a893c1db2725e988a",
   "202607220025_quick_order_links_api.up.sql": "5e087e542a47840783ca0bdc851e8a7d8b8069ee01c3f5849b16773138094da9",
@@ -23,6 +24,7 @@ test("057 is additive and protected quick-link and lifecycle donors remain byte 
     assert.equal(createHash("sha256").update(source(file)).digest("hex"), digest, file);
   }
   for (const file of [UP, DOWN, ASSERTIONS, MANIFEST]) assert.ok(existsSync(path.join(SQL, file)), file);
+  assert.ok(existsSync(REPOSITORY_FIXTURE));
   assert.doesNotMatch(source(UP), /(?:DROP|CREATE OR REPLACE) FUNCTION saas[.]quick_links_(?:create|duplicate)\b/);
 });
 
@@ -50,6 +52,9 @@ test("rollback is drain locked and no secret reaches public projections or app t
   const down = source(DOWN);
   assert.match(down, /QUICK_ORDER_HOSTED_AUTHORITY_ROLLBACK_REQUIRES_DRAIN/);
   assert.match(down, /ALTER COLUMN provider_config_id SET NOT NULL/);
+  assert.match(up, /REVOKE ALL ON FUNCTION saas[.]guard_quick_link_provider_authority\(\) FROM PUBLIC/);
+  assert.match(down, /REVOKE ALL ON FUNCTION saas[.]guard_quick_link_provider_authority\(\) FROM PUBLIC/);
+  assert.match(source(ASSERTIONS), /procedure[.]proacl IS DISTINCT FROM/);
   assert.doesNotMatch(up, /GRANT SELECT[^;]*quick_order_link_hosted_authorities[^;]*celebix_saas_app/is);
   for (const projection of ["quick_links_list", "quick_links_get", "quick_links_mutation_projection"]) {
     assert.doesNotMatch(up, new RegExp(`CREATE OR REPLACE FUNCTION saas[.]${projection}\\b`));
