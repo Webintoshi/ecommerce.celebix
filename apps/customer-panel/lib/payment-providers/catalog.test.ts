@@ -9,6 +9,22 @@ import { PAYMENT_ADAPTER_PACKET_INVENTORY } from "../../../../packages/payment-a
 type CatalogModule = typeof import("./catalog.ts");
 
 const catalogModule = await import("./catalog.ts").catch(() => ({} as Partial<CatalogModule>));
+const IYZICO_CANDIDATE = Object.freeze({
+  buildMetadataSchemaVersion: 1,
+  evidenceSchemaVersion: 1,
+  providerCode: "iyzico_iframe",
+  capability: "payment_processing",
+  environment: "test",
+  adapterVersion: 1,
+  gitSha: "1".repeat(40),
+  sourceDigest: `sha256:${"2".repeat(64)}`,
+  candidateExecutionDigest: "sha256:7ecaafb855013a97aa62097126f9ab30b791c805e0b84104a74d67dd19e972cd",
+} as const);
+const IYZICO_AUTHORITY = Object.freeze({
+  environment: "test",
+  adapterVersion: 1,
+  evidenceDigest: IYZICO_CANDIDATE.candidateExecutionDigest,
+} as const);
 const inventory = JSON.parse(readFileSync(path.join(import.meta.dirname, "source-inventory.json"), "utf8")) as {
   plugin: string;
   version: string;
@@ -166,6 +182,44 @@ test("catalog codes stay aligned with inventory records and Iyzico is configurab
   assert.equal(iyzico.logoPath, "/payment-providers/iyzico.svg");
   assert.deepEqual(iyzico.environments, ["test", "live"]);
   assert.equal(iyzico.executionAuthority, null);
+});
+
+test("catalog exposes Iyzico as sandbox-ready only for the exact future compiled binding", () => {
+  const candidate = catalogModule as Partial<CatalogModule> & {
+    createPaymentProviderCatalog?: (
+      approved?: unknown,
+      generated?: unknown,
+    ) => NonNullable<CatalogModule["PAYMENT_PROVIDER_CATALOG"]>;
+  };
+  assert.equal(typeof candidate.createPaymentProviderCatalog, "function");
+  const createCatalog = candidate.createPaymentProviderCatalog!;
+  const current = createCatalog();
+  const currentIyzico = current.find((entry) => entry.providerCode === "iyzico_iframe");
+  assert.ok(currentIyzico);
+  assert.equal(currentIyzico.readiness, "verification");
+  assert.deepEqual(currentIyzico.environments, ["test", "live"]);
+  assert.equal(currentIyzico.executionAuthority, null);
+
+  const future = createCatalog(IYZICO_AUTHORITY, IYZICO_CANDIDATE);
+  const futureIyzico = future.find((entry) => entry.providerCode === "iyzico_iframe");
+  assert.ok(futureIyzico);
+  assert.equal(futureIyzico.readiness, "sandbox_ready");
+  assert.deepEqual(futureIyzico.environments, ["test"]);
+  assert.deepEqual(futureIyzico.executionAuthority, IYZICO_AUTHORITY);
+  assert.equal(Object.isFrozen(futureIyzico.executionAuthority), true);
+  const futurePaytr = future.find((entry) => entry.providerCode === "paytr_iframe");
+  assert.ok(futurePaytr);
+  assert.equal(futurePaytr.readiness, "verification");
+  assert.equal(futurePaytr.executionAuthority, null);
+
+  const mismatch = createCatalog(IYZICO_AUTHORITY, {
+    ...IYZICO_CANDIDATE,
+    candidateExecutionDigest: `sha256:${"3".repeat(64)}`,
+  });
+  const mismatchIyzico = mismatch.find((entry) => entry.providerCode === "iyzico_iframe");
+  assert.ok(mismatchIyzico);
+  assert.equal(mismatchIyzico.readiness, "verification");
+  assert.equal(mismatchIyzico.executionAuthority, null);
 });
 
 test("catalog and all nested values are immutable copies", () => {

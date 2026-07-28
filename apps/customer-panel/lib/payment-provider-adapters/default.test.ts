@@ -8,6 +8,24 @@ import {
   createDefaultHostedPaymentAdapterRegistry,
   resolveCustomerPanelPaymentActivationMode,
 } from "./default.ts";
+import * as customerPanelPaymentDefaults from "./default.ts";
+
+const IYZICO_CANDIDATE = Object.freeze({
+  buildMetadataSchemaVersion: 1,
+  evidenceSchemaVersion: 1,
+  providerCode: "iyzico_iframe",
+  capability: "payment_processing",
+  environment: "test",
+  adapterVersion: 1,
+  gitSha: "1".repeat(40),
+  sourceDigest: `sha256:${"2".repeat(64)}`,
+  candidateExecutionDigest: "sha256:7ecaafb855013a97aa62097126f9ab30b791c805e0b84104a74d67dd19e972cd",
+} as const);
+const IYZICO_AUTHORITY = Object.freeze({
+  environment: "test",
+  adapterVersion: 1,
+  evidenceDigest: IYZICO_CANDIDATE.candidateExecutionDigest,
+} as const);
 
 function transport(): ProviderTransport {
   return Object.freeze({
@@ -159,4 +177,54 @@ test("panel activation mode cannot make verification or null authority connectab
   );
   assert.equal(registry.get("paytr_iframe", "payment_processing")?.executionAuthority, null);
   assert.equal(registry.get("iyzico_iframe", "payment_processing")?.executionAuthority, null);
+});
+
+test("customer panel accepts only an exact self-consistent Iyzico build approval", () => {
+  const candidate = customerPanelPaymentDefaults as typeof customerPanelPaymentDefaults & {
+    resolveIyzicoCompiledExecutionAuthority?: (
+      approved?: unknown,
+      generated?: unknown,
+    ) => Readonly<typeof IYZICO_AUTHORITY> | null;
+  };
+  assert.equal(typeof candidate.resolveIyzicoCompiledExecutionAuthority, "function");
+  const resolve = candidate.resolveIyzicoCompiledExecutionAuthority!;
+  assert.equal(resolve(), null);
+  assert.equal(resolve(null, IYZICO_CANDIDATE), null);
+  assert.equal(resolve(IYZICO_AUTHORITY, null), null);
+  const selected = resolve(IYZICO_AUTHORITY, IYZICO_CANDIDATE);
+  assert.deepEqual(selected, IYZICO_AUTHORITY);
+  assert.notStrictEqual(selected, IYZICO_AUTHORITY);
+  assert.equal(Object.isFrozen(selected), true);
+  assert.equal(resolve(IYZICO_AUTHORITY, { ...IYZICO_CANDIDATE, providerCode: "paytr_iframe" }), null);
+  assert.equal(resolve(IYZICO_AUTHORITY, { ...IYZICO_CANDIDATE, environment: "live" }), null);
+  assert.equal(resolve(IYZICO_AUTHORITY, { ...IYZICO_CANDIDATE, adapterVersion: 2 }), null);
+  assert.equal(resolve(IYZICO_AUTHORITY, { ...IYZICO_CANDIDATE, unexpected: true }), null);
+  assert.equal(resolve(IYZICO_AUTHORITY, new Proxy({ ...IYZICO_CANDIDATE }, {})), null);
+  assert.equal(resolve({ ...IYZICO_AUTHORITY, evidenceDigest: `sha256:${"4".repeat(64)}` }, IYZICO_CANDIDATE), null);
+});
+
+test("customer panel promotes only the exact future Iyzico binding to test execution authority", () => {
+  const hosted = createDefaultHostedPaymentAdapterRegistry(transport());
+  const registry = (createDefaultCustomerPanelPaymentProviderRegistry as unknown as (
+    hostedRegistry: Parameters<typeof createDefaultCustomerPanelPaymentProviderRegistry>[0],
+    paytrAuthority: null,
+    paytrMode: "approved_test_sandbox",
+    iyzicoApproval: unknown,
+    iyzicoBuild: unknown,
+  ) => ReturnType<typeof createDefaultCustomerPanelPaymentProviderRegistry>)(
+    hosted,
+    null,
+    "approved_test_sandbox",
+    IYZICO_AUTHORITY,
+    IYZICO_CANDIDATE,
+  );
+  const iyzico = registry.get("iyzico_iframe", "payment_processing");
+  assert.ok(iyzico);
+  assert.deepEqual(iyzico.environments, ["test"]);
+  assert.deepEqual(iyzico.executionAuthority, IYZICO_AUTHORITY);
+  assert.notStrictEqual(iyzico.executionAuthority, IYZICO_AUTHORITY);
+  assert.equal(Object.isFrozen(iyzico.executionAuthority), true);
+  assert.equal(iyzico.profileSaveMode, "execution_authority");
+  assert.throws(() => iyzico.parsePublicConfig({ environment: "live" }), /customer_panel_payment_adapter_invalid/);
+  assert.equal(registry.get("paytr_iframe", "payment_processing")?.executionAuthority, null);
 });

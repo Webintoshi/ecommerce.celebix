@@ -5,6 +5,7 @@ import {
 
 import { RAW_PAYMENT_PROVIDER_CATALOG } from "./catalog-data.ts";
 import logoManifest from "./logo-manifest.json" with { type: "json" };
+import { resolveIyzicoCompiledExecutionAuthority } from "../payment-provider-adapters/default.ts";
 
 export type PaymentProviderLogoBinding = Readonly<{
   familyCode: string;
@@ -44,8 +45,27 @@ export function validatePaymentProviderLogoBindings(
   }
 }
 
-export const PAYMENT_PROVIDER_CATALOG = parsePaymentProviderCatalog(RAW_PAYMENT_PROVIDER_CATALOG);
-validatePaymentProviderLogoBindings(PAYMENT_PROVIDER_CATALOG, logoManifest);
+export function createPaymentProviderCatalog(
+  iyzicoApproval?: unknown,
+  iyzicoBuild?: unknown,
+): readonly PaymentProviderCatalogEntry[] {
+  const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
+  const selected = iyzicoAuthority === null
+    ? RAW_PAYMENT_PROVIDER_CATALOG
+    : RAW_PAYMENT_PROVIDER_CATALOG.map((entry) => entry.providerCode === "iyzico_iframe"
+      ? Object.freeze({
+          ...entry,
+          readiness: "sandbox_ready" as const,
+          environments: Object.freeze(["test"] as const),
+          executionAuthority: iyzicoAuthority,
+        })
+      : entry);
+  const catalog = parsePaymentProviderCatalog(selected);
+  validatePaymentProviderLogoBindings(catalog, logoManifest);
+  return catalog;
+}
+
+export const PAYMENT_PROVIDER_CATALOG = createPaymentProviderCatalog();
 
 const BY_PROVIDER_CODE = new Map(
   PAYMENT_PROVIDER_CATALOG.map((entry) => [entry.providerCode, entry] as const),

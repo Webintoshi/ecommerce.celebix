@@ -1,10 +1,16 @@
+import { createHash } from "node:crypto";
+import { types as nodeTypes } from "node:util";
+
 import {
+  IYZICO_APPROVED_EXECUTION_AUTHORITY,
   IYZICO_IFRAME_PACKET,
+  IYZICO_GENERATED_BUILD_METADATA,
   PAYTR_IFRAME_PACKET,
   createIyzicoCheckoutFormAdapter,
   createPaymentAdapterRegistry,
   createPaytrIframeAdapter,
   type HostedPaymentAdapter,
+  type IyzicoCandidateBuildMetadata,
   type PaymentAdapterRegistry,
   type ProviderTransport,
 } from "@celebix/payment-adapters";
@@ -37,6 +43,106 @@ export function resolveCustomerPanelPaymentActivationMode(
   return source.CELEBIX_PAYTR_IFRAME_PANEL_MODE === "approved_test_sandbox"
     ? "approved_test_sandbox"
     : "disabled";
+}
+
+const IYZICO_BUILD_METADATA_KEYS = Object.freeze([
+  "buildMetadataSchemaVersion",
+  "evidenceSchemaVersion",
+  "providerCode",
+  "capability",
+  "environment",
+  "adapterVersion",
+  "gitSha",
+  "sourceDigest",
+  "candidateExecutionDigest",
+] as const);
+
+function exactIyzicoBuildMetadata(value: unknown): IyzicoCandidateBuildMetadata | null {
+  try {
+    if (
+      typeof value !== "object" || value === null || Array.isArray(value)
+      || nodeTypes.isProxy(value) || Object.getPrototypeOf(value) !== Object.prototype
+    ) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (
+      Reflect.ownKeys(descriptors).length !== IYZICO_BUILD_METADATA_KEYS.length
+      || IYZICO_BUILD_METADATA_KEYS.some((key) => {
+        const descriptor = descriptors[key];
+        return !descriptor || !descriptor.enumerable || !("value" in descriptor);
+      })
+    ) return null;
+    const selected = Object.fromEntries(IYZICO_BUILD_METADATA_KEYS.map((key) => [
+      key,
+      descriptors[key]!.value,
+    ])) as IyzicoCandidateBuildMetadata;
+    if (
+      selected.buildMetadataSchemaVersion !== 1
+      || selected.evidenceSchemaVersion !== 1
+      || selected.providerCode !== "iyzico_iframe"
+      || selected.capability !== "payment_processing"
+      || selected.environment !== "test"
+      || selected.adapterVersion !== IYZICO_IFRAME_PACKET.adapterVersion
+      || typeof selected.gitSha !== "string"
+      || !/^[a-f0-9]{40}$/.test(selected.gitSha)
+      || typeof selected.sourceDigest !== "string"
+      || !/^sha256:[a-f0-9]{64}$/.test(selected.sourceDigest)
+      || typeof selected.candidateExecutionDigest !== "string"
+      || !/^sha256:[a-f0-9]{64}$/.test(selected.candidateExecutionDigest)
+    ) return null;
+    const canonicalCandidate = Object.freeze({
+      evidenceSchemaVersion: 1,
+      providerCode: "iyzico_iframe",
+      capability: "payment_processing",
+      environment: "test",
+      adapterVersion: IYZICO_IFRAME_PACKET.adapterVersion,
+      gitSha: selected.gitSha,
+      sourceDigest: selected.sourceDigest,
+    });
+    const digest = `sha256:${createHash("sha256").update(JSON.stringify(canonicalCandidate)).digest("hex")}`;
+    return digest === selected.candidateExecutionDigest ? selected : null;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveIyzicoCompiledExecutionAuthority(
+  approved: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  generated: unknown = IYZICO_GENERATED_BUILD_METADATA,
+): Readonly<PaymentProviderExecutionAuthority> | null {
+  try {
+    const metadata = exactIyzicoBuildMetadata(generated);
+    if (
+      metadata === null
+      || !exactExecutionAuthority(approved)
+      || approved.evidenceDigest !== metadata.candidateExecutionDigest
+    ) return null;
+    return Object.freeze({
+      environment: approved.environment,
+      adapterVersion: approved.adapterVersion,
+      evidenceDigest: approved.evidenceDigest,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function exactExecutionAuthority(value: unknown): value is Readonly<PaymentProviderExecutionAuthority> {
+  try {
+    if (
+      typeof value !== "object" || value === null || Array.isArray(value)
+      || nodeTypes.isProxy(value) || Object.getPrototypeOf(value) !== Object.prototype
+    ) return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = ["environment", "adapterVersion", "evidenceDigest"];
+    return Reflect.ownKeys(descriptors).length === keys.length
+      && keys.every((key) => descriptors[key]?.enumerable === true && "value" in descriptors[key]!)
+      && descriptors.environment?.value === "test"
+      && descriptors.adapterVersion?.value === IYZICO_IFRAME_PACKET.adapterVersion
+      && typeof descriptors.evidenceDigest?.value === "string"
+      && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value);
+  } catch {
+    return false;
+  }
 }
 
 function exactRecord(value: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -162,7 +268,10 @@ function paytrEntry(
   });
 }
 
-function iyzicoEntry(adapter: HostedPaymentAdapter<object>): MerchantProviderRegistryEntry {
+function iyzicoEntry(
+  adapter: HostedPaymentAdapter<object>,
+  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null,
+): MerchantProviderRegistryEntry {
   if (
     adapter.packet !== IYZICO_IFRAME_PACKET ||
     adapter.packet.providerCode !== "iyzico_iframe" ||
@@ -175,7 +284,10 @@ function iyzicoEntry(adapter: HostedPaymentAdapter<object>): MerchantProviderReg
 
   function parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>> {
     const selected = exactRecord(value, ["environment"]);
-    if (selected.environment !== "test" && selected.environment !== "live") invalid();
+    if (
+      selected.environment !== "test"
+      && (executionAuthority !== null || selected.environment !== "live")
+    ) invalid();
     return Object.freeze({ environment: selected.environment });
   }
 
@@ -221,9 +333,13 @@ function iyzicoEntry(adapter: HostedPaymentAdapter<object>): MerchantProviderReg
     publicFields,
     credentialFields,
     adapterVersion: adapter.packet.adapterVersion,
-    environments: Object.freeze(["test", "live"] as const),
-    executionAuthority: null,
-    profileSaveMode: "verification" as const,
+    environments: executionAuthority === null
+      ? Object.freeze(["test", "live"] as const)
+      : Object.freeze(["test"] as const),
+    executionAuthority,
+    profileSaveMode: executionAuthority === null
+      ? "verification" as const
+      : "execution_authority" as const,
     parsePublicConfig,
     parseCredential,
     maskAccountReference,
@@ -245,6 +361,8 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
   hosted: PaymentAdapterRegistry,
   executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null = null,
   activationMode: CustomerPanelPaymentActivationMode = "disabled",
+  iyzicoApproval: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  iyzicoBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
 ): MerchantProviderRegistry {
   try {
     if (hosted.size !== 2) invalid();
@@ -263,9 +381,10 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
       && PAYTR_IFRAME_PACKET.readiness.test === "sandbox_ready"
       ? executionAuthority
       : null;
+    const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
     return createCustomerPanelProviderRegistry([
       paytrEntry(adapter, activeAuthority),
-      iyzicoEntry(iyzico),
+      iyzicoEntry(iyzico, iyzicoAuthority),
     ]);
   } catch {
     return invalid();

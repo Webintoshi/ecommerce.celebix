@@ -33,6 +33,7 @@ import type {
 import { parseStorefrontDataConfig, STOREFRONT_DATA_ENVIRONMENT_FIELDS } from "./runtime-config.ts";
 import { parseUmamiPublicCollectorConfig, type UmamiPublicCollectorConfig } from "./analytics/config.ts";
 import {
+  createDefaultStorefrontHostedPaymentCompiledAuthorities,
   createDefaultHostedPaymentRuntime,
   resolveStorefrontHostedPaymentActivationMode,
   type StorefrontHostedPaymentCompiledAuthorities,
@@ -63,10 +64,7 @@ let hostedPaymentInitialization: Promise<HostedPaymentInfrastructure | null> | u
 let quickOrderHostedBridgeInitialization: Promise<QuickOrderHostedPaymentBridgeRuntime | null> | undefined;
 
 function compiledHostedPaymentAuthorities(): StorefrontHostedPaymentCompiledAuthorities {
-  return Object.freeze({
-    paytr_iframe: null,
-    iyzico_iframe: null,
-  });
+  return createDefaultStorefrontHostedPaymentCompiledAuthorities();
 }
 
 type ExecutableCompiledAuthority = Readonly<{
@@ -76,6 +74,7 @@ type ExecutableCompiledAuthority = Readonly<{
 
 function executableCompiledAuthorities(
   authorities: StorefrontHostedPaymentCompiledAuthorities,
+  source: Readonly<Record<string, string | undefined>>,
 ): readonly ExecutableCompiledAuthority[] {
   const packets = Object.freeze({
     paytr_iframe: PAYTR_IFRAME_PACKET,
@@ -85,10 +84,11 @@ function executableCompiledAuthorities(
     .flatMap((providerCode) => {
       const authority = authorities[providerCode];
       return authority !== null
+        && resolveStorefrontHostedPaymentActivationMode(source, providerCode) === "approved_test_sandbox"
         && authority.environment === "test"
         && authority.adapterVersion === packets[providerCode].adapterVersion
         && /^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)
-        && packets[providerCode].readiness.test === "sandbox_ready"
+        && (providerCode === "iyzico_iframe" || packets[providerCode].readiness.test === "sandbox_ready")
         ? [Object.freeze({ providerCode, authority })]
         : [];
     }));
@@ -167,13 +167,12 @@ export async function resolveDefaultHostedPaymentRuntime(): Promise<HostedPaymen
   const source = Object.freeze({
     CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE:
       process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
+    CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE:
+      process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
   });
   const compiledAuthorities = compiledHostedPaymentAuthorities();
-  const executableAuthorities = executableCompiledAuthorities(compiledAuthorities);
-  if (
-    resolveStorefrontHostedPaymentActivationMode(source) !== "approved_test_sandbox"
-    || executableAuthorities.length === 0
-  ) return null;
+  const executableAuthorities = executableCompiledAuthorities(compiledAuthorities, source);
+  if (executableAuthorities.length === 0) return null;
   hostedPaymentInitialization ??= initializeHostedPaymentInfrastructure(
     source,
     compiledAuthorities,
@@ -186,11 +185,12 @@ async function resolveDefaultHostedPaymentInfrastructure(): Promise<HostedPaymen
   const source = Object.freeze({
     CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE:
       process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
+    CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE:
+      process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
   });
   const compiledAuthorities = compiledHostedPaymentAuthorities();
-  const executableAuthorities = executableCompiledAuthorities(compiledAuthorities);
-  if (resolveStorefrontHostedPaymentActivationMode(source) !== "approved_test_sandbox"
-    || executableAuthorities.length === 0) return null;
+  const executableAuthorities = executableCompiledAuthorities(compiledAuthorities, source);
+  if (executableAuthorities.length === 0) return null;
   hostedPaymentInitialization ??= initializeHostedPaymentInfrastructure(
     source, compiledAuthorities, executableAuthorities,
   );
