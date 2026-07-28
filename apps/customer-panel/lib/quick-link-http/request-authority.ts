@@ -1,6 +1,6 @@
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const QUICK_LINK_PATH = new RegExp(
-  `^(?:/api/orders/quick-links|/api/orders/quick-links/${UUID}|/api/orders/quick-links/${UUID}/(?:cancel|duplicate|url)|/api/orders/quick-links/provider/(?:activate|revoke))$`,
+  `^(?:/api/orders/quick-links|/api/orders/quick-links/payment-methods|/api/orders/quick-links/${UUID}|/api/orders/quick-links/${UUID}/(?:cancel|duplicate|url)|/api/orders/quick-links/provider/(?:activate|revoke))$`,
 );
 
 export type QuickLinkRequestAuthorityDecision =

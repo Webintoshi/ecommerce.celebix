@@ -10,6 +10,7 @@ import {
 
 const LINK_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OPERATION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const PAYMENT_METHOD_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64url")}`;
 
 const address = {
@@ -75,6 +76,60 @@ test("accepts create intent containing only variant quantity and merchant fields
     assert.deepEqual(parsed.value, createBody);
     assert.equal(Object.isFrozen(parsed.value), true);
   }
+});
+
+test("accepts hosted method and buyer input but rejects browser profile provider and store authority", async () => {
+  const hosted = {
+    ...createBody,
+    paymentMethodId: PAYMENT_METHOD_ID,
+    identityNumber: "74300864791",
+    items: [{ ...createBody.items[0], itemType: "PHYSICAL" }],
+  };
+  const parsed = await readQuickLinkMutationInput(post(hosted), "create");
+  assert.deepEqual(parsed, { kind: "valid", operationId: OPERATION_ID, value: hosted });
+  for (const authority of [
+    { storeId: LINK_ID },
+    { profileId: LINK_ID },
+    { providerCode: "iyzico_iframe" },
+    { executionEvidenceDigest: `sha256:${"a".repeat(64)}` },
+  ]) {
+    assert.equal((await readQuickLinkMutationInput(post({ ...hosted, ...authority }), "create")).kind, "invalid");
+  }
+  for (const identityNumber of ["12345678901", "11111111111", "7430086479A"]) {
+    assert.equal((await readQuickLinkMutationInput(post({ ...hosted, identityNumber }), "create")).kind, "invalid");
+  }
+});
+
+test("wipes every received identity-bearing request byte chunk after parsing", async () => {
+  const encoded = new TextEncoder().encode(JSON.stringify({
+    ...createBody,
+    paymentMethodId: PAYMENT_METHOD_ID,
+    identityNumber: "74300864791",
+    items: [{ ...createBody.items[0], itemType: "PHYSICAL" }],
+  }));
+  const first = encoded.slice(0, 31);
+  const second = encoded.slice(31);
+  const request = new Request("http://internal/api/orders/quick-links", {
+    method: "POST",
+    headers: { "content-type": "application/json", "idempotency-key": OPERATION_ID },
+    body: new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(first); controller.enqueue(second); controller.close(); } }),
+    duplex: "half",
+  } as RequestInit);
+  assert.equal((await readQuickLinkMutationInput(request, "create")).kind, "valid");
+  assert.equal(first.every((byte) => byte === 0), true);
+  assert.equal(second.every((byte) => byte === 0), true);
+});
+
+test("wipes the identity-bearing chunk that exceeds the request size limit", async () => {
+  const oversized = new Uint8Array(32_769).fill(0x31);
+  const request = new Request("http://internal/api/orders/quick-links", {
+    method: "POST",
+    headers: { "content-type": "application/json", "idempotency-key": OPERATION_ID },
+    body: new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(oversized); controller.close(); } }),
+    duplex: "half",
+  } as RequestInit);
+  assert.equal((await readQuickLinkMutationInput(request, "create")).kind, "invalid");
+  assert.equal(oversized.every((byte) => byte === 0), true);
 });
 
 test("rejects browser store price currency provider and snapshot authority before use", async () => {

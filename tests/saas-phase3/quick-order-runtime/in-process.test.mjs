@@ -82,6 +82,7 @@ registerHooks({
           ...(linkId === undefined ? {} : { linkId }),
         });
         export const handleDefaultQuickLinkList = (request) => response("list", request);
+        export const handleDefaultQuickLinkPaymentMethods = (request) => response("paymentMethods", request);
         export const handleDefaultQuickLinkCreate = (request) => response("create", request);
         export const handleDefaultQuickLinkActivateProvider = (request) => response("activateProvider", request);
         export const handleDefaultQuickLinkRevokeProvider = (request) => response("revokeProvider", request);
@@ -144,7 +145,7 @@ function browserRequest(path, { method = "GET", body, operation = true, origin =
 
 async function harness({ role = "store_owner", accessKind = "authenticated", runtimeEnabled = true, replay = false } = {}) {
   const { createQuickLinkHttpHandlers } = await import(new URL("lib/quick-link-http/handler.ts", APP));
-  const calls = { session: 0, list: 0, get: 0, create: 0, cancel: 0, duplicate: 0, readiness: 0, reveal: 0, configure: 0, revoke: 0, token: 0 };
+  const calls = { session: 0, list: 0, methods: 0, get: 0, create: 0, cancel: 0, duplicate: 0, readiness: 0, reveal: 0, configure: 0, revoke: 0, token: 0 };
   const runtime = {
     access: {
       readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN,
@@ -156,6 +157,9 @@ async function harness({ role = "store_owner", accessKind = "authenticated", run
       async create() { calls.create += 1; return { id: replay ? LINK : NEW_LINK, status: "active", version: 1, expiresAt: EXPIRES, updatedAt: NOW.toISOString(), replayed: replay }; },
       async cancel() { calls.cancel += 1; return { id: LINK, status: "cancelled", version: 2, expiresAt: EXPIRES, updatedAt: NOW.toISOString(), replayed: false }; },
       async duplicate() { calls.duplicate += 1; return { id: replay ? LINK : NEW_LINK, status: "active", version: 1, expiresAt: EXPIRES, updatedAt: NOW.toISOString(), replayed: replay }; },
+    },
+    methods: {
+      async list() { calls.methods += 1; return []; },
     },
     privateLinks: {
       async getProviderReadiness() { calls.readiness += 1; return { status: "active", providerConfigId: PROVIDER, version: 1 }; },
@@ -184,16 +188,17 @@ async function harness({ role = "store_owner", accessKind = "authenticated", run
   };
 }
 
-test("1/12 exports all eight real quick-link HTTP handlers", async () => {
+test("1/12 exports all nine real quick-link HTTP handlers", async () => {
   const { handlers } = await harness();
   assert.deepEqual(Object.keys(handlers).sort(), [
-    "activateProvider", "cancel", "create", "duplicate", "get", "list", "revealUrl", "revokeProvider",
+    "activateProvider", "cancel", "create", "duplicate", "get", "list", "paymentMethods", "revealUrl", "revokeProvider",
   ]);
 });
 
 test("2/12 invokes every mounted route export and no unsupported export", async () => {
   const routes = [
     ["app/api/orders/quick-links/route.ts", { GET: ["list", BASE], POST: ["create", BASE] }],
+    ["app/api/orders/quick-links/payment-methods/route.ts", { GET: ["paymentMethods", `${BASE}/payment-methods`] }],
     ["app/api/orders/quick-links/[linkId]/route.ts", { GET: ["get", `${BASE}/${LINK}`, LINK] }],
     ["app/api/orders/quick-links/[linkId]/cancel/route.ts", { POST: ["cancel", `${BASE}/${LINK}/cancel`, LINK] }],
     ["app/api/orders/quick-links/[linkId]/duplicate/route.ts", { POST: ["duplicate", `${BASE}/${LINK}/duplicate`, LINK] }],

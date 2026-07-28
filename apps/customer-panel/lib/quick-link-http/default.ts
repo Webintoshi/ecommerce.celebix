@@ -21,6 +21,7 @@ type QuickLinkRouteContext = Readonly<{
 
 export const handleDefaultQuickLinkList = handlers.list;
 export const handleDefaultQuickLinkCreate = handlers.create;
+export const handleDefaultQuickLinkPaymentMethods = handlers.paymentMethods;
 export const handleDefaultQuickLinkActivateProvider = handlers.activateProvider;
 export const handleDefaultQuickLinkRevokeProvider = handlers.revokeProvider;
 

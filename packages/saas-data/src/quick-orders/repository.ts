@@ -469,15 +469,19 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
   async create(input: CreateQuickLinkInput): Promise<QuickOrderLinkMutationResult> {
     return exposeQuickLinkOperation(() => {
       const exact = exactQuickLinkInput(input, [
-        "tenantContext", "now", "operationId", "linkId", "items", "providerConfigId",
+        "tenantContext", "now", "operationId", "linkId", "items",
         "customerName", "customerEmail", "shippingAddress", "billingAddress", "shippingCents",
         "discountCents", "expiryHours", "tokenDigest", "sealedToken",
-      ], ["customerPhone", "customerNote", "internalLabel"]);
+      ], ["providerConfigId", "paymentMethodId", "buyerIdentity", "customerPhone", "customerNote", "internalLabel"]);
       const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
       const operationId = quickLinkUuid(exact.operationId);
       const linkId = quickLinkUuid(exact.linkId);
       const items = quickLinkItems(exact.items);
-      const providerConfigId = quickLinkUuid(exact.providerConfigId);
+      const hasLegacyProvider = Object.hasOwn(exact, "providerConfigId");
+      const hasHostedMethod = Object.hasOwn(exact, "paymentMethodId");
+      if (hasLegacyProvider === hasHostedMethod) throw trustedQuickLinkError("invalid_input");
+      const providerConfigId = hasLegacyProvider ? quickLinkUuid(exact.providerConfigId) : undefined;
+      const paymentMethodId = hasHostedMethod ? quickLinkUuid(exact.paymentMethodId) : undefined;
       const customerName = quickLinkCustomerName(exact.customerName);
       const customerEmail = quickLinkEmail(exact.customerEmail);
       const customerPhone = exact.customerPhone === undefined ? undefined : quickLinkPhone(exact.customerPhone);
@@ -490,6 +494,22 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
       const expiryHours = quickLinkExpiryHours(exact.expiryHours);
       const tokenDigest = quickLinkDigest(exact.tokenDigest);
       const sealedToken = quickLinkSealedToken(exact.sealedToken);
+      const buyerIdentity = Object.hasOwn(exact, "buyerIdentity")
+        ? (() => {
+            const selected = exactQuickLinkInput(exact.buyerIdentity, ["authority", "sealedIdentity"]);
+            return Object.freeze({
+              authority: quickLinkDigest(selected.authority),
+              sealedIdentity: quickLinkSealedToken(selected.sealedIdentity),
+            });
+          })()
+        : undefined;
+      if (
+        hasLegacyProvider && (buyerIdentity !== undefined || items.some((item) => item.itemType !== undefined)) ||
+        hasHostedMethod && (
+          (buyerIdentity === undefined && items.some((item) => item.itemType !== undefined)) ||
+          (buyerIdentity !== undefined && items.some((item) => item.itemType === undefined))
+        )
+      ) throw trustedQuickLinkError("invalid_input");
       const fingerprint = quickOrderFingerprint("create", authority.storeId, {
         customerName,
         customerEmail,
@@ -501,14 +521,40 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
         shippingCents,
         discountCents,
         expiryHours,
-        items: items.map(({ variantId, quantity }) => ({ variantId, quantity })),
-        providerConfigId,
+        items: items.map(({ variantId, quantity, itemType }) => ({
+          variantId,
+          quantity,
+          ...(itemType === undefined ? {} : { itemType }),
+        })),
+        ...(providerConfigId === undefined ? {} : { providerConfigId }),
+        ...(paymentMethodId === undefined ? {} : { paymentMethodId }),
+        ...(buyerIdentity === undefined ? {} : { identityAuthority: buyerIdentity.authority }),
       });
       const parser: MutationParser = (value, replayed) => {
         const result = safeMutation(value, replayed);
         if ((!replayed && result.id !== linkId) || result.status !== "active" || result.version !== 1) throw unavailable();
         return result;
       };
+      if (paymentMethodId !== undefined) return mutate(this.options, authority, operationId, "create", fingerprint, {
+        text: `SELECT outcome, result_payload FROM saas.quick_links_create_hosted(
+          $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
+          $8::uuid,$9::uuid[],$10::uuid[],$11::bigint[],$12::uuid,
+          $13::text,$14::text[],$15::text,$16::text,$17::jsonb,
+          $18::text,$19::text,$20::text,$21::jsonb,$22::jsonb,$23::text,$24::text,
+          $25::bigint,$26::bigint,$27::bigint,$28::text,$29::text,$30::jsonb,$31::uuid,$32::text
+        )`,
+        values: [
+          ...authorityValues(authority), linkId,
+          items.map(({ itemId }) => itemId), items.map(({ variantId }) => variantId), items.map(({ quantity }) => quantity),
+          paymentMethodId, buyerIdentity?.authority ?? null, items.map(({ itemType }) => itemType ?? null),
+          buyerIdentity?.sealedIdentity.keyId ?? null,
+          buyerIdentity === undefined ? null : JSON.stringify(buyerIdentity.sealedIdentity),
+          customerName, customerEmail, customerPhone ?? null,
+          JSON.stringify(shippingAddress), JSON.stringify(billingAddress), customerNote ?? null, internalLabel ?? null,
+          shippingCents, discountCents, expiryHours, tokenDigest, sealedToken.keyId, JSON.stringify(sealedToken),
+          operationId, fingerprint,
+        ],
+      }, parser);
       return mutate(this.options, authority, operationId, "create", fingerprint, {
         text: `SELECT outcome, result_payload FROM saas.quick_links_create(
           $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
@@ -519,7 +565,7 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
         values: [
           ...authorityValues(authority), linkId,
           items.map(({ itemId }) => itemId), items.map(({ variantId }) => variantId), items.map(({ quantity }) => quantity),
-          providerConfigId, customerName, customerEmail, customerPhone ?? null,
+          providerConfigId!, customerName, customerEmail, customerPhone ?? null,
           JSON.stringify(shippingAddress), JSON.stringify(billingAddress), customerNote ?? null, internalLabel ?? null,
           shippingCents, discountCents, expiryHours, tokenDigest, sealedToken.keyId, JSON.stringify(sealedToken),
           operationId, fingerprint,

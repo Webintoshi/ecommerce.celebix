@@ -21,7 +21,13 @@ type Invalid = Readonly<{ kind: "invalid" }>;
 const INVALID = Object.freeze({ kind: "invalid" as const });
 
 export type QuickLinkCreateBody = Readonly<{
-  items: readonly Readonly<{ variantId: string; quantity: number }>[];
+  items: readonly Readonly<{
+    variantId: string;
+    quantity: number;
+    itemType?: "PHYSICAL" | "VIRTUAL";
+  }>[];
+  paymentMethodId?: string;
+  identityNumber?: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -128,10 +134,18 @@ function items(value: unknown): QuickLinkCreateBody["items"] | null {
     for (let index = 0; index < length; index += 1) {
       const descriptor = descriptors[String(index)];
       if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) return null;
-      const selected = exact(descriptor.value, ["variantId", "quantity"]);
+      const selected = exact(descriptor.value, ["variantId", "quantity"], ["itemType"]);
       const quantity = integer(selected?.quantity, 1, 9_999);
-      if (selected === null || typeof selected.variantId !== "string" || !UUID.test(selected.variantId) || quantity === null) return null;
-      result.push(Object.freeze({ variantId: selected.variantId, quantity }));
+      const itemType = selected && Object.hasOwn(selected, "itemType") ? selected.itemType : undefined;
+      if (
+        selected === null || typeof selected.variantId !== "string" || !UUID.test(selected.variantId) || quantity === null ||
+        (itemType !== undefined && itemType !== "PHYSICAL" && itemType !== "VIRTUAL")
+      ) return null;
+      result.push(Object.freeze({
+        variantId: selected.variantId,
+        quantity,
+        ...(itemType === undefined ? {} : { itemType }),
+      }));
     }
     return Object.freeze(result);
   } catch { return null; }
@@ -141,7 +155,7 @@ function create(value: unknown): QuickLinkCreateBody | null {
   const selected = exact(value, [
     "items", "customerName", "customerEmail", "customerPhone", "shippingAddress", "billingAddress",
     "shippingCents", "discountCents", "expiryHours",
-  ], ["customerNote", "internalLabel"]);
+  ], ["customerNote", "internalLabel", "paymentMethodId", "identityNumber"]);
   if (selected === null) return null;
   const parsedItems = items(selected.items);
   const shippingAddress = address(selected.shippingAddress);
@@ -151,16 +165,27 @@ function create(value: unknown): QuickLinkCreateBody | null {
   const customerPhone = string(selected.customerPhone, 3, 32);
   const customerNote = Object.hasOwn(selected, "customerNote") ? string(selected.customerNote, 1, 2_000) : undefined;
   const internalLabel = Object.hasOwn(selected, "internalLabel") ? string(selected.internalLabel, 1, 200) : undefined;
+  const paymentMethodId = Object.hasOwn(selected, "paymentMethodId")
+    ? string(selected.paymentMethodId, 36, 36, UUID)
+    : undefined;
+  const identityNumber = Object.hasOwn(selected, "identityNumber")
+    ? string(selected.identityNumber, 5, 50, /^[0-9]{5,50}$/)
+    : undefined;
   const shippingCents = integer(selected.shippingCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS);
   const discountCents = integer(selected.discountCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS);
   if (
     parsedItems === null || shippingAddress === null || billingAddress === null || customerName === null ||
     customerEmail === null || customerPhone === null || customerNote === null || internalLabel === null ||
-    shippingCents === null || discountCents === null ||
+    shippingCents === null || discountCents === null || paymentMethodId === null || identityNumber === null ||
+    (identityNumber !== undefined && (/^([0-9])\1+$/.test(identityNumber) || identityNumber === "12345678901")) ||
+    (identityNumber === undefined && parsedItems.some((item) => item.itemType !== undefined)) ||
+    (identityNumber !== undefined && parsedItems.some((item) => item.itemType === undefined)) ||
     !QUICK_ORDER_EXPIRY_HOURS.includes(selected.expiryHours as never)
   ) return null;
   return Object.freeze({
     items: parsedItems,
+    ...(paymentMethodId === undefined ? {} : { paymentMethodId }),
+    ...(identityNumber === undefined ? {} : { identityNumber }),
     customerName,
     customerEmail,
     customerPhone,
@@ -183,26 +208,31 @@ async function boundedJson(request: Request): Promise<unknown | null> {
   if (declared !== null && (!/^(?:0|[1-9]\d*)$/.test(declared) || Number(declared) > BODY_MAXIMUM_BYTES)) return null;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
+  let bytes: Uint8Array | undefined;
   let total = 0;
   try {
     for (;;) {
       const next = await reader.read();
       if (next.done) break;
       if (!(next.value instanceof Uint8Array)) return null;
+      chunks.push(next.value);
       total += next.value.byteLength;
       if (total > BODY_MAXIMUM_BYTES) {
         await reader.cancel().catch(() => undefined);
         return null;
       }
-      chunks.push(new Uint8Array(next.value));
     }
+    if (total === 0) return null;
+    bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
+    catch { return null; }
   } catch { return null; }
-  if (total === 0) return null;
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-  try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
-  catch { return null; }
+  finally {
+    bytes?.fill(0);
+    for (const chunk of chunks) chunk.fill(0);
+  }
 }
 
 export async function readQuickLinkMutationInput(

@@ -37,13 +37,21 @@ export interface CreateQuickLinkItemInput {
   readonly itemId: string;
   readonly variantId: string;
   readonly quantity: number;
+  readonly itemType?: "PHYSICAL" | "VIRTUAL";
+}
+
+export interface SealedQuickLinkBuyerIdentity {
+  readonly authority: string;
+  readonly sealedIdentity: Readonly<SealedQuickLinkToken>;
 }
 
 export interface CreateQuickLinkInput extends QuickLinkAuthorityInput {
   readonly operationId: string;
   readonly linkId: string;
   readonly items: readonly CreateQuickLinkItemInput[];
-  readonly providerConfigId: string;
+  readonly providerConfigId?: string;
+  readonly paymentMethodId?: string;
+  readonly buyerIdentity?: Readonly<SealedQuickLinkBuyerIdentity>;
   readonly customerName: string;
   readonly customerEmail: string;
   readonly customerPhone?: string;

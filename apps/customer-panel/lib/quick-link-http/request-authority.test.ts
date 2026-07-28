@@ -6,11 +6,12 @@ import { createQuickLinkRequestAuthorityValidator } from "./request-authority.ts
 const ORIGIN = "https://panel.saas-staging.celebix.site";
 const LINK_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
-test("approves only the exact eight quick-link route expectations", () => {
+test("approves only the exact nine quick-link route expectations", () => {
   const validator = createQuickLinkRequestAuthorityValidator({ panelOrigin: ORIGIN });
   const expectations = [
     ["GET", "/api/orders/quick-links", "allowed"],
     ["POST", "/api/orders/quick-links", "forbidden"],
+    ["GET", "/api/orders/quick-links/payment-methods", "forbidden"],
     ["GET", `/api/orders/quick-links/${LINK_ID}`, "forbidden"],
     ["POST", `/api/orders/quick-links/${LINK_ID}/cancel`, "forbidden"],
     ["POST", `/api/orders/quick-links/${LINK_ID}/duplicate`, "forbidden"],

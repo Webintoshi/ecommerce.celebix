@@ -348,14 +348,17 @@ export function quickLinkItems(value: unknown): readonly Readonly<CreateQuickLin
   const entries = arrayData(value, 1, 100);
   const itemIds = new Set<string>();
   const result = entries.map((entry) => {
-    const parsed = exact(entry, ["itemId", "variantId", "quantity"]);
+    const parsed = exact(entry, ["itemId", "variantId", "quantity"], ["itemType"]);
     const itemId = quickLinkUuid(parsed.itemId);
     if (itemIds.has(itemId)) fail();
     itemIds.add(itemId);
+    const itemType = Object.hasOwn(parsed, "itemType") ? parsed.itemType : undefined;
+    if (itemType !== undefined && itemType !== "PHYSICAL" && itemType !== "VIRTUAL") fail();
     return Object.freeze({
       itemId,
       variantId: quickLinkUuid(parsed.variantId),
       quantity: integer(parsed.quantity, 1, 9_999),
+      ...(itemType === undefined ? {} : { itemType }),
     });
   });
   return Object.freeze(result);

@@ -18,6 +18,7 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CANONICAL_EMAIL = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/;
+const IDENTITY_NUMBER = /^[0-9]{5,50}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const QUICK_ORDER_MAX_SUBTOTAL_CENTS = QUICK_ORDER_MAX_UNIT_PRICE_CENTS * 9_999 * 100;
 const HOUR_MICROSECONDS = 3_600_000_000n;
@@ -154,12 +155,14 @@ function parseItem(value: unknown, expectedPosition: number): Readonly<QuickOrde
   const parsed = exact(
     value,
     ["id", "position", "productName", "unitPriceCents", "quantity", "lineTotalCents"],
-    ["variantName", "sku", "imageUrl"],
+    ["variantName", "sku", "imageUrl", "itemType"],
   );
   const unitPriceCents = safeInteger(parsed.unitPriceCents, 0, QUICK_ORDER_MAX_UNIT_PRICE_CENTS);
   const quantity = safeInteger(parsed.quantity, 1, 9_999);
   const lineTotalCents = safeInteger(parsed.lineTotalCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS);
   if (safeInteger(parsed.position, 0, 99) !== expectedPosition || lineTotalCents !== unitPriceCents * quantity) invalid();
+  const itemType = Object.hasOwn(parsed, "itemType") ? parsed.itemType : undefined;
+  if (itemType !== undefined && itemType !== "PHYSICAL" && itemType !== "VIRTUAL") invalid();
   return freeze({
     id: uuid(parsed.id),
     position: expectedPosition,
@@ -170,6 +173,7 @@ function parseItem(value: unknown, expectedPosition: number): Readonly<QuickOrde
     unitPriceCents,
     quantity,
     lineTotalCents,
+    ...(itemType === undefined ? {} : { itemType }),
   } satisfies QuickOrderLinkItem);
 }
 
@@ -202,10 +206,13 @@ function parseCreateItems(value: unknown): QuickOrderCreateIntent["items"] {
   for (let index = 0; index < length; index += 1) {
     const descriptor = descriptors[String(index)];
     if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) invalid();
-    const parsed = exact(descriptor.value, ["variantId", "quantity"]);
+    const parsed = exact(descriptor.value, ["variantId", "quantity"], ["itemType"]);
+    const itemType = Object.hasOwn(parsed, "itemType") ? parsed.itemType : undefined;
+    if (itemType !== undefined && itemType !== "PHYSICAL" && itemType !== "VIRTUAL") invalid();
     items.push(Object.freeze({
       variantId: uuid(parsed.variantId),
       quantity: safeInteger(parsed.quantity, 1, 9_999),
+      ...(itemType === undefined ? {} : { itemType }),
     }));
   }
   return Object.freeze(items);
@@ -249,7 +256,7 @@ function parseDetail(value: unknown): Readonly<QuickOrderLinkDetail> {
   const items = parseItems(parsed.items);
 
   if (
-    parsed.providerKey !== "paytr" ||
+    (parsed.providerKey !== "paytr" && parsed.providerKey !== "paytr_iframe" && parsed.providerKey !== "iyzico_iframe") ||
     comparableTimestamp(updatedAt) < comparableTimestamp(list.createdAt) ||
     subtotalCents !== sumItemTotals(items) ||
     discountCents > subtotalCents + shippingCents ||
@@ -277,7 +284,7 @@ function parseDetail(value: unknown): Readonly<QuickOrderLinkDetail> {
     billingAddress: parseAddress(parsed.billingAddress),
     ...(Object.hasOwn(parsed, "customerNote") ? { customerNote: string(parsed.customerNote, 1, 2_000) } : {}),
     ...(Object.hasOwn(parsed, "internalLabel") ? { internalLabel: string(parsed.internalLabel, 1, 200) } : {}),
-    providerKey: "paytr",
+    providerKey: parsed.providerKey,
     subtotalCents,
     shippingCents,
     discountCents,
@@ -330,10 +337,22 @@ export function parseQuickOrderCreateIntent(value: unknown): Readonly<QuickOrder
     const parsed = exact(value, [
       "items", "customerName", "customerEmail", "customerPhone", "shippingAddress", "billingAddress",
       "shippingCents", "discountCents", "expiryHours",
-    ], ["customerNote", "internalLabel"]);
+    ], ["customerNote", "internalLabel", "paymentMethodId", "identityNumber"]);
     if (!QUICK_ORDER_EXPIRY_HOURS.includes(parsed.expiryHours as 4 | 12 | 24 | 48 | 72)) invalid();
+    const paymentMethodId = Object.hasOwn(parsed, "paymentMethodId") ? uuid(parsed.paymentMethodId) : undefined;
+    const identityNumber = Object.hasOwn(parsed, "identityNumber")
+      ? string(parsed.identityNumber, 5, 50, IDENTITY_NUMBER)
+      : undefined;
+    if (identityNumber !== undefined && (/^([0-9])\1+$/.test(identityNumber) || identityNumber === "12345678901")) invalid();
+    const items = parseCreateItems(parsed.items);
+    if (
+      (identityNumber === undefined && items.some((item) => item.itemType !== undefined)) ||
+      (identityNumber !== undefined && items.some((item) => item.itemType === undefined))
+    ) invalid();
     return freeze({
-      items: parseCreateItems(parsed.items),
+      items,
+      ...(paymentMethodId === undefined ? {} : { paymentMethodId }),
+      ...(identityNumber === undefined ? {} : { identityNumber }),
       customerName: string(parsed.customerName, 1, 200),
       customerEmail: string(parsed.customerEmail, 3, 320, CANONICAL_EMAIL),
       customerPhone: string(parsed.customerPhone, 3, 32),

@@ -21,13 +21,14 @@ import {
   quickLinkUi,
   type CatalogSearchProduct,
   type CatalogSearchVariant,
+  type QuickLinkPaymentMethod,
 } from "@/lib/quick-link-ui/client";
 import styles from "./quick-order-links.module.css";
 
 type ListState = "loading" | "loaded" | "error";
 type SearchState = "idle" | "loading" | "loaded" | "error";
 type ProviderState = "unknown" | "activating" | "ready" | "not-ready" | "error";
-type FormFieldErrors = Partial<Record<"items" | "shipping" | "discount", string>>;
+type FormFieldErrors = Partial<Record<"items" | "paymentMethod" | "identity" | "shipping" | "discount", string>>;
 
 type AddressForm = {
   recipientName: string;
@@ -48,6 +49,7 @@ type SelectedLine = Readonly<{
   unitPriceCents: number;
   availableQuantity?: number;
   quantity: number;
+  itemType?: "PHYSICAL" | "VIRTUAL";
 }>;
 
 const EMPTY_ADDRESS: AddressForm = {
@@ -221,6 +223,10 @@ export function QuickOrderLinksConsole() {
   const [internalLabel, setInternalLabel] = useState("");
   const [shippingInput, setShippingInput] = useState("0");
   const [discountInput, setDiscountInput] = useState("0");
+  const [paymentMethods, setPaymentMethods] = useState<readonly QuickLinkPaymentMethod[]>([]);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
+  const [identityNumber, setIdentityNumber] = useState("");
+  const [paymentMethodsError, setPaymentMethodsError] = useState("");
   const [providerState, setProviderState] = useState<ProviderState>("unknown");
   const [providerError, setProviderError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -250,6 +256,23 @@ export function QuickOrderLinksConsole() {
     [selectedLines],
   );
   const totalCents = subtotalCents + shippingCents - discountCents;
+  const selectedPaymentMethod = paymentMethods.find((method) => method.id === selectedPaymentMethodId);
+  const hostedPickerAvailable = typeof quickLinkUi.listPaymentMethods === "function";
+
+  useEffect(() => {
+    if (!hostedPickerAvailable) return;
+    let active = true;
+    void quickLinkUi.listPaymentMethods().then((methods) => {
+      if (!active) return;
+      setPaymentMethods(methods);
+      setPaymentMethodsError("");
+    }, (error) => {
+      if (!active) return;
+      setPaymentMethods([]);
+      setPaymentMethodsError(errorMessage(error, "Ödeme yöntemleri yüklenemedi."));
+    });
+    return () => { active = false; };
+  }, [hostedPickerAvailable]);
 
   const loadLinks = useCallback(async (cursor?: string) => {
     const sequence = ++listSequence.current;
@@ -377,6 +400,17 @@ export function QuickOrderLinksConsole() {
     })));
   }
 
+  function updateItemType(variantId: string, rawValue: string) {
+    const itemType = rawValue === "PHYSICAL" || rawValue === "VIRTUAL" ? rawValue : undefined;
+    setSelectedLines((current) => Object.freeze(current.map((line) => line.variantId === variantId
+      ? Object.freeze({ ...line, itemType })
+      : line)));
+    setFieldErrors((current) => {
+      const { items: _items, ...remaining } = current;
+      return remaining;
+    });
+  }
+
   function removeLine(variantId: string) {
     setSelectedLines((current) => Object.freeze(current.filter((line) => line.variantId !== variantId)));
     searchInputRef.current?.focus();
@@ -419,6 +453,7 @@ export function QuickOrderLinksConsole() {
     setInternalLabel("");
     setShippingInput("0");
     setDiscountInput("0");
+    setIdentityNumber("");
     setFormError("");
     setFieldErrors({});
     searchInputRef.current?.focus();
@@ -452,6 +487,15 @@ export function QuickOrderLinksConsole() {
     if (parsedShipping !== null && parsedDiscount !== null && parsedDiscount > subtotalCents + parsedShipping) {
       nextFieldErrors.discount = "İndirim, ara toplam ile kargo toplamını aşamaz.";
     }
+    if (hostedPickerAvailable && selectedPaymentMethod === undefined) {
+      nextFieldErrors.paymentMethod = "Aktif bir ödeme yöntemi seçin.";
+    }
+    if (selectedPaymentMethod?.requiresIdentity && !/^\d{5,50}$/.test(identityNumber)) {
+      nextFieldErrors.identity = "Geçerli kimlik numarasını yalnız rakamlarla girin.";
+    }
+    if (selectedPaymentMethod?.requiresItemType && selectedLines.some((line) => line.itemType === undefined)) {
+      nextFieldErrors.items = "Her sipariş kalemi için fiziksel veya dijital ürün tipini seçin.";
+    }
     setFieldErrors(nextFieldErrors);
     if (Object.keys(nextFieldErrors).length > 0) {
       if (nextFieldErrors.items) searchInputRef.current?.focus();
@@ -461,7 +505,13 @@ export function QuickOrderLinksConsole() {
     setSubmitting(true);
     try {
       const intent = {
-        items: selectedLines.map((line) => Object.freeze({ variantId: line.variantId, quantity: line.quantity })),
+        items: selectedLines.map((line) => Object.freeze({
+          variantId: line.variantId,
+          quantity: line.quantity,
+          ...(selectedPaymentMethod?.requiresItemType ? { itemType: line.itemType! } : {}),
+        })),
+        ...(selectedPaymentMethod === undefined ? {} : { paymentMethodId: selectedPaymentMethod.id }),
+        ...(selectedPaymentMethod?.requiresIdentity ? { identityNumber } : {}),
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim().toLowerCase(),
         customerPhone: customerPhone.trim(),
@@ -573,7 +623,7 @@ export function QuickOrderLinksConsole() {
 
   return (
     <PanelPageShell>
-      <PanelPageHeader title="Hızlı Sipariş Linkleri" description="Gerçek katalog ürünlerinden süreli bir PayTR ödeme bağlantısı hazırlayın." />
+      <PanelPageHeader title="Hızlı Sipariş Linkleri" description="Gerçek katalog ürünlerinden güvenli ve süreli bir ödeme bağlantısı hazırlayın." />
       <form className={styles.console} data-presentation="hemenaku-quick-order" onSubmit={createLink}>
         {feedback ? <p className={styles.feedback} role="status" aria-live="polite">{feedback}</p> : null}
         {formError ? <p className={styles.formError} role="alert">{formError}</p> : null}
@@ -606,6 +656,7 @@ export function QuickOrderLinksConsole() {
                     <article key={line.variantId} className={styles.selectedLine}>
                       <div className={styles.lineIdentity}><Package aria-hidden="true" /><span><strong>{line.productName}</strong><small>{line.variantName}{line.sku ? ` · ${line.sku}` : ""}</small></span></div>
                       <label><span>Adet</span><input type="number" min={1} max={line.availableQuantity ?? 9_999} value={line.quantity} onChange={(event) => updateQuantity(line.variantId, event.target.value)} /></label>
+                      {selectedPaymentMethod?.requiresItemType ? <label><span>Ürün tipi</span><select aria-label={`${line.productName} ürün tipi`} value={line.itemType ?? ""} onChange={(event) => updateItemType(line.variantId, event.target.value)} required><option value="">Seçin</option><option value="PHYSICAL">Fiziksel</option><option value="VIRTUAL">Dijital</option></select></label> : null}
                       <div className={styles.linePrice}><span>Birim fiyat</span><strong>{money(line.unitPriceCents)}</strong><small>{money(line.unitPriceCents * line.quantity)}</small></div>
                       <button type="button" className={styles.removeLine} onClick={() => removeLine(line.variantId)} aria-label={`${line.productName} satırını kaldır`}><Trash2 aria-hidden="true" /></button>
                     </article>
@@ -661,11 +712,18 @@ export function QuickOrderLinksConsole() {
 
             <Panel title="Ödeme Yöntemi" id="quick-order-provider-title">
               <div className={styles.providerBody}>
-                <div className={styles.providerHeading}><span className={styles.providerMark}>P</span><div><strong>PayTR</strong><small>Sunucu, link oluşturulurken güncel hazırlığı doğrular.</small></div></div>
-                <p className={styles[`provider-${providerState}`]} role={providerState === "error" ? "alert" : "status"}>
-                  {providerState === "ready" ? "PayTR hazır" : providerState === "activating" ? "PayTR hazırlanıyor…" : providerState === "not-ready" ? "PayTR henüz hazır değil" : providerState === "error" ? providerError : "PayTR durumu henüz doğrulanmadı"}
-                </p>
-                {providerState !== "ready" ? <button className={styles.secondaryButton} type="button" disabled={providerState === "activating"} onClick={() => { void activateProvider(); }}>{providerState === "activating" ? "Hazırlanıyor…" : "PayTR’yi doğrula ve hazırla"}</button> : null}
+                {hostedPickerAvailable ? <>
+                  <label className={styles.field}><span>Aktif ödeme yöntemi</span><select aria-label="Ödeme yöntemi" value={selectedPaymentMethodId} onChange={(event) => { setSelectedPaymentMethodId(event.target.value); setIdentityNumber(""); setSelectedLines((current) => Object.freeze(current.map((line) => Object.freeze({ ...line, itemType: undefined })))); setFieldErrors((current) => { const { paymentMethod: _method, identity: _identity, ...remaining } = current; return remaining; }); }} required><option value="">Ödeme yöntemi seçin</option>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}</select>{fieldErrors.paymentMethod ? <small className={styles.fieldError} role="alert">{fieldErrors.paymentMethod}</small> : null}</label>
+                  {paymentMethodsError ? <p className={styles.inlineError} role="alert">{paymentMethodsError}</p> : null}
+                  {selectedPaymentMethod?.requiresIdentity ? <label className={styles.field}><span>Alıcı kimlik numarası</span><input aria-label="Alıcı kimlik numarası" inputMode="numeric" autoComplete="off" value={identityNumber} onChange={(event) => { setIdentityNumber(event.target.value.trim()); setFieldErrors((current) => { const { identity: _identity, ...remaining } = current; return remaining; }); }} minLength={5} maxLength={50} pattern="[0-9]+" required />{fieldErrors.identity ? <small className={styles.fieldError} role="alert">{fieldErrors.identity}</small> : null}</label> : null}
+                  <p className={styles.helpText}>Yalnız etkin ve bu mağazaya bağlı yöntemler listelenir; sağlayıcı yetkisi sunucuda doğrulanır.</p>
+                </> : <>
+                  <div className={styles.providerHeading}><span className={styles.providerMark}>P</span><div><strong>PayTR</strong><small>Sunucu, link oluşturulurken güncel hazırlığı doğrular.</small></div></div>
+                  <p className={styles[`provider-${providerState}`]} role={providerState === "error" ? "alert" : "status"}>
+                    {providerState === "ready" ? "PayTR hazır" : providerState === "activating" ? "PayTR hazırlanıyor…" : providerState === "not-ready" ? "PayTR henüz hazır değil" : providerState === "error" ? providerError : "PayTR durumu henüz doğrulanmadı"}
+                  </p>
+                  {providerState !== "ready" ? <button className={styles.secondaryButton} type="button" disabled={providerState === "activating"} onClick={() => { void activateProvider(); }}>{providerState === "activating" ? "Hazırlanıyor…" : "PayTR’yi doğrula ve hazırla"}</button> : null}
+                </>}
               </div>
             </Panel>
           </aside>

@@ -364,6 +364,34 @@ test("quick-link client uses exact same-origin routes, idempotency, and allowed 
   assert.equal([listed, listed.items, listed.items[0], created, cancelled, duplicated, revealed, activated, revoked].every(Object.isFrozen), true);
 });
 
+test("hosted payment method picker and create body expose no provider authority", async () => {
+  const { createQuickLinkUiClient } = await import("./client.ts");
+  const calls: Array<[string, RequestInit]> = [];
+  const client = createQuickLinkUiClient({
+    fetch: async (input, init) => {
+      calls.push([String(input), init ?? {}]);
+      return calls.length === 1
+        ? response({ items: [{ id: "55555555-5555-4555-8555-555555555555", label: "iyzico Checkout Form", requiresIdentity: true, requiresItemType: true }] })
+        : response({ url: SHARE_URL, expiresAt: EXPIRES_AT });
+    },
+    randomUUID: () => OPERATION_ID,
+  });
+  const methods = await client.listPaymentMethods();
+  await client.createLink({
+    ...intent,
+    paymentMethodId: methods[0]!.id,
+    identityNumber: "10000000146",
+    items: [{ variantId: VARIANT_ID, quantity: 2, itemType: "PHYSICAL" }],
+  });
+  assert.deepEqual(methods, [{ id: "55555555-5555-4555-8555-555555555555", label: "iyzico Checkout Form", requiresIdentity: true, requiresItemType: true }]);
+  assert.equal(calls[0]?.[0], "/api/orders/quick-links/payment-methods");
+  const body = JSON.parse(String(calls[1]?.[1].body));
+  assert.equal(body.paymentMethodId, methods[0]!.id);
+  assert.equal(body.identityNumber, "10000000146");
+  assert.equal(body.items[0].itemType, "PHYSICAL");
+  assert.doesNotMatch(JSON.stringify(body), /storeId|profileId|providerCode|providerConfigId|execution/i);
+});
+
 test("create retries can reuse one explicit operation identity", async () => {
   const { createQuickLinkUiClient } = await import("./client.ts");
   let randomCalls = 0;
@@ -722,6 +750,36 @@ test("mounted create refreshes durable rows before clipboard and reports copy fa
   assert.match(textContent, /panoya kopyalanamadı/);
   assert.match(textContent, /Ada Lovelace/);
   assert.doesNotMatch(textContent, /Hızlı sipariş linki oluşturulamadı/);
+});
+
+test("mounted iyzico builder requires real identity and explicit item type without browser authority", async () => {
+  const methodId = "55555555-5555-4555-8555-555555555555";
+  let createdIntent: Record<string, unknown> | undefined;
+  const console = await createMountedQuickOrderConsole({
+    newCreateOperationId() { return OPERATION_ID; },
+    async listPaymentMethods() { return Object.freeze([Object.freeze({ id: methodId, label: "iyzico Checkout Form", requiresIdentity: true, requiresItemType: true })]); },
+    async listLinks() { return Object.freeze({ items: Object.freeze([]) }); },
+    async searchProducts() { return Object.freeze([Object.freeze({ title: "Atlas Kupa", variants: Object.freeze([Object.freeze({ variantId: VARIANT_ID, title: "Standart", priceCents: 7_000 })]) })]); },
+    async createLink(value: Record<string, unknown>) { createdIntent = value; return Object.freeze({ url: SHARE_URL, expiresAt: EXPIRES_AT }); },
+  });
+  let tree = await fillMountedQuickOrderForm(console);
+  let nodes = mountedNodes(tree);
+  const method = nodes.find((node) => node.type === "select" && node.props["aria-label"] === "Ödeme yöntemi")!;
+  (method.props.onChange as (event: unknown) => void)({ target: { value: methodId } });
+  tree = await console.render();
+  nodes = mountedNodes(tree);
+  const identity = nodes.find((node) => node.type === "input" && node.props["aria-label"] === "Alıcı kimlik numarası")!;
+  (identity.props.onChange as (event: unknown) => void)({ target: { value: "10000000146" } });
+  const itemType = nodes.find((node) => node.type === "select" && /ürün tipi/.test(String(node.props["aria-label"])))!;
+  (itemType.props.onChange as (event: unknown) => void)({ target: { value: "PHYSICAL" } });
+  tree = await console.render();
+  const form = mountedNodes(tree).find((node) => node.type === "form")!;
+  await (form.props.onSubmit as (event: unknown) => Promise<void>)({ preventDefault() {} });
+
+  assert.equal(createdIntent?.paymentMethodId, methodId);
+  assert.equal(createdIntent?.identityNumber, "10000000146");
+  assert.deepEqual(createdIntent?.items, [{ variantId: VARIANT_ID, quantity: 1, itemType: "PHYSICAL" }]);
+  assert.doesNotMatch(JSON.stringify(createdIntent), /storeId|profileId|providerCode|providerConfigId|execution/i);
 });
 
 test("mounted ambiguous create retry reuses its operation identity", async () => {

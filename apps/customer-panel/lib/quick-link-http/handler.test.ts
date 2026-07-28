@@ -19,6 +19,7 @@ const NEW_LINK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const ITEM_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const VARIANT_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const PROVIDER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const PAYMENT_METHOD_ID = "50000000-0000-4000-8000-000000000057";
 const OPERATION_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const REVOCATION_OPERATION_ID = "77777777-7777-4777-8777-777777777777";
 const REACTIVATION_OPERATION_ID = "88888888-8888-4888-8888-888888888888";
@@ -149,15 +150,18 @@ function fixture(options: {
   repositoryError?: QuickOrderLinkRepositoryError;
   providerStatus?: "missing" | "active" | "disabled" | "revoked";
   providerLifecycle?: boolean;
+  methodProviderCode?: "paytr_iframe" | "iyzico_iframe";
+  methodState?: "active" | "disabled" | "emergency_disabled";
   generatedIds?: string[];
 } = {}) {
   const calls: Counters = {
     session: 0, list: 0, get: 0, create: 0, cancel: 0, duplicate: 0,
-    readiness: 0, reveal: 0, configure: 0, revoke: 0, ids: 0, tokens: 0,
+    readiness: 0, reveal: 0, configure: 0, revoke: 0, methods: 0, ids: 0, tokens: 0,
   };
   const generatedIds = [...(options.generatedIds ?? [NEW_LINK_ID, ITEM_ID, PROVIDER_ID])];
   let configuredInput: Record<string, unknown> | undefined;
   let revokedInput: Record<string, unknown> | undefined;
+  let createdInput: Record<string, unknown> | undefined;
   let providerReadiness: Record<string, unknown> = options.providerStatus === "missing"
     ? { status: "missing" }
     : { status: options.providerStatus ?? "active", providerConfigId: PROVIDER_ID, version: options.providerStatus === "revoked" ? 2 : 1 };
@@ -179,9 +183,12 @@ function fixture(options: {
       async get() { calls.get += 1; if (options.repositoryError) throw options.repositoryError; return options.hostileGet ?? detail(); },
       async create(input: Record<string, unknown>) {
         calls.create += 1;
+        createdInput = input;
         if (options.repositoryError) throw options.repositoryError;
-        assert.deepEqual((input.items as Array<Record<string, unknown>>).map(({ variantId, quantity }) => ({ variantId, quantity })), createBody.items);
-        assert.equal(input.providerConfigId, PROVIDER_ID);
+        if (input.paymentMethodId === undefined) {
+          assert.deepEqual((input.items as Array<Record<string, unknown>>).map(({ variantId, quantity }) => ({ variantId, quantity })), createBody.items);
+          assert.equal(input.providerConfigId, PROVIDER_ID);
+        }
         if (options.providerStatus !== undefined && options.providerStatus !== "active" && options.replay !== true) {
           throw new QuickOrderLinkRepositoryError("provider_not_ready");
         }
@@ -239,6 +246,25 @@ function fixture(options: {
       },
       async revealProviderConfiguration() { throw new Error("unused"); },
     },
+    methods: {
+      async list() {
+        calls.methods += 1;
+        return [Object.freeze({
+          id: PAYMENT_METHOD_ID,
+          kind: "provider",
+          profileId: PROVIDER_ID,
+          providerCode: options.methodProviderCode ?? "paytr_iframe",
+          label: options.methodProviderCode === "iyzico_iframe" ? "iyzico Checkout Form" : "PayTR iFrame",
+          state: options.methodState ?? "active",
+          emergencyReason: options.methodState === "emergency_disabled" ? "operator lock" : null,
+          position: 0,
+          config: Object.freeze({ environment: "test" }),
+          version: 1,
+          createdAt: NOW.toISOString(),
+          updatedAt: NOW.toISOString(),
+        })];
+      },
+    },
     keyring,
     paytrConfiguration,
   };
@@ -249,8 +275,27 @@ function fixture(options: {
     generateId() { calls.ids += 1; return generatedIds.shift() ?? PROVIDER_ID; },
     generateToken() { calls.tokens += 1; return GENERATED_TOKEN; },
   });
-  return { calls, handlers, runtime, configuredInput: () => configuredInput, revokedInput: () => revokedInput };
+  return {
+    calls,
+    handlers,
+    runtime,
+    configuredInput: () => configuredInput,
+    revokedInput: () => revokedInput,
+    createdInput: () => createdInput,
+  };
 }
+
+test("payment method picker exposes only bounded hosted-method presentation", async () => {
+  const { handlers, calls } = fixture({ methodProviderCode: "iyzico_iframe" });
+  const response = await handlers.paymentMethods(request(`${BASE}/payment-methods`));
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(body, {
+    items: [{ id: PAYMENT_METHOD_ID, label: "iyzico Checkout Form", requiresIdentity: true, requiresItemType: true }],
+  });
+  assert.equal(calls.methods, 1);
+  assert.doesNotMatch(JSON.stringify(body), /profile|provider|config|environment|store/i);
+});
 
 function request(path: string, options: { method?: "GET" | "POST"; body?: unknown; origin?: string; operation?: boolean; operationId?: string; extraHeaders?: HeadersInit } = {}) {
   const method = options.method ?? "GET";
@@ -274,7 +319,7 @@ test("disabled runtime returns controlled 503 without session repository mutatio
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { code: "unavailable" });
   assert.equal(response.headers.has("set-cookie"), false);
-  assert.deepEqual(calls, { session: 0, list: 0, get: 0, create: 0, cancel: 0, duplicate: 0, readiness: 0, reveal: 0, configure: 0, revoke: 0, ids: 0, tokens: 0 });
+  assert.deepEqual(calls, { session: 0, list: 0, get: 0, create: 0, cancel: 0, duplicate: 0, readiness: 0, reveal: 0, configure: 0, revoke: 0, methods: 0, ids: 0, tokens: 0 });
 });
 
 test("all routes authenticate the panel cookie before any repository call", async () => {
@@ -385,6 +430,47 @@ test("create generates each credential once and a replay reveals the original pe
   assert.equal((await original.json()).url, `https://pilot.saas-staging.celebix.site/odeme/hizli/${REPLAY_TOKEN}`);
   assert.equal(duplicateReplay.calls.tokens, 1);
   assert.equal(duplicateReplay.calls.reveal, 1);
+});
+
+test("hosted create resolves exact active method server-side and seals Iyzico identity without projecting authority", async () => {
+  const selected = fixture({ methodProviderCode: "iyzico_iframe" });
+  const body = {
+    ...createBody,
+    paymentMethodId: PAYMENT_METHOD_ID,
+    identityNumber: "74300864791",
+    items: [{ ...createBody.items[0], itemType: "PHYSICAL" }],
+  };
+  const response = await selected.handlers.create(request(BASE, { method: "POST", body }));
+  assert.equal(response.status, 201);
+  const input = selected.createdInput()!;
+  assert.equal(input.paymentMethodId, PAYMENT_METHOD_ID);
+  assert.equal(Object.hasOwn(input, "providerConfigId"), false);
+  assert.equal(Object.hasOwn(input, "providerCode"), false);
+  assert.equal(Object.hasOwn(input, "profileId"), false);
+  assert.equal(Object.hasOwn(input, "storeId"), false);
+  assert.equal(JSON.stringify(input).includes("74300864791"), false);
+  const identity = input.buyerIdentity as Readonly<{
+    authority: string;
+    sealedIdentity: Parameters<typeof openQuickLinkSecret>[0]["envelope"];
+  }>;
+  assert.match(identity.authority, /^[a-f0-9]{64}$/);
+  assert.equal(openQuickLinkSecret({
+    envelope: identity.sealedIdentity,
+    purpose: "buyer-identity",
+    storeId: STORE_ID,
+    objectId: NEW_LINK_ID,
+    digest: identity.authority,
+    keyring,
+  }), "74300864791");
+
+  for (const methodState of ["disabled", "emergency_disabled"] as const) {
+    const stale = fixture({ methodProviderCode: "iyzico_iframe", methodState });
+    const denied = await stale.handlers.create(request(BASE, { method: "POST", body }));
+    assert.equal(denied.status, 409);
+    assert.deepEqual(await denied.json(), { code: "provider_not_ready" });
+    assert.equal(stale.calls.tokens, 0);
+    assert.equal(stale.calls.create, 0);
+  }
 });
 
 test("create replays the persisted original after provider disable or revocation while fresh creates stay denied", async () => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { QuickOrderLinkRepository, QuickOrderPrivateRepository } from "@celebix/saas-data";
+import type { PaymentMethodRepository } from "@celebix/saas-data";
 
 import { registerServerQuickLinksRuntime, resolveServerQuickLinksRuntime } from "./runtime.ts";
 
@@ -41,6 +42,10 @@ function privateLinks(): QuickOrderPrivateRepository {
   };
 }
 
+function methods(): PaymentMethodRepository {
+  return { list: reject, save: reject, setState: reject, reorder: reject, recoverOperation: reject };
+}
+
 const keyring = Object.freeze({
   activeKeyId: "quick.current",
   keys: Object.freeze([{ keyId: "quick.current", key: new Uint8Array(32).fill(7) }]),
@@ -56,7 +61,7 @@ const paytrConfiguration = Object.freeze({
 
 test("registers a private facade only against an approved access runtime", () => {
   const authority = access();
-  registerServerQuickLinksRuntime(authority, { links: links(), privateLinks: privateLinks(), keyring, paytrConfiguration });
+  registerServerQuickLinksRuntime(authority, { links: links(), privateLinks: privateLinks(), methods: methods(), keyring, paytrConfiguration });
   const runtime = resolveServerQuickLinksRuntime(authority);
   assert.ok(runtime);
   assert.equal(runtime.access, authority);
@@ -64,6 +69,7 @@ test("registers a private facade only against an approved access runtime", () =>
   assert.deepEqual(Object.keys(runtime.privateLinks).sort(), [
     "configureProvider", "getProviderReadiness", "revealLinkCredential", "revealProviderConfiguration", "revokeProvider",
   ]);
+  assert.deepEqual(Object.keys(runtime.methods), ["list"]);
   assert.equal(runtime.keyring, keyring);
   assert.equal(runtime.paytrConfiguration, paytrConfiguration);
   assert.equal(Object.isFrozen(runtime), true);
@@ -75,7 +81,7 @@ test("disabled and unregistered access runtimes resolve to null", () => {
 });
 
 test("rejects registration for disabled access and duplicate registration", () => {
-  const dependencies = { links: links(), privateLinks: privateLinks(), keyring, paytrConfiguration };
+  const dependencies = { links: links(), privateLinks: privateLinks(), methods: methods(), keyring, paytrConfiguration };
   assert.throws(() => registerServerQuickLinksRuntime(disabled(), dependencies));
   const authority = access();
   registerServerQuickLinksRuntime(authority, dependencies);
@@ -85,9 +91,9 @@ test("rejects registration for disabled access and duplicate registration", () =
 test("rejects incomplete repositories and invalid private configuration", () => {
   const authority = access();
   assert.throws(() => registerServerQuickLinksRuntime(authority, {
-    links: { ...links(), create: undefined }, privateLinks: privateLinks(), keyring, paytrConfiguration,
+    links: { ...links(), create: undefined }, privateLinks: privateLinks(), methods: methods(), keyring, paytrConfiguration,
   } as never));
   assert.throws(() => registerServerQuickLinksRuntime(access(), {
-    links: links(), privateLinks: privateLinks(), keyring: { activeKeyId: "missing", keys: [] }, paytrConfiguration,
+    links: links(), privateLinks: privateLinks(), methods: methods(), keyring: { activeKeyId: "missing", keys: [] }, paytrConfiguration,
   } as never));
 });

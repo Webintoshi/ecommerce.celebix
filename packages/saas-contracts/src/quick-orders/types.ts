@@ -16,6 +16,7 @@ export interface QuickOrderLinkItem {
   readonly unitPriceCents: number;
   readonly quantity: number;
   readonly lineTotalCents: number;
+  readonly itemType?: "PHYSICAL" | "VIRTUAL";
 }
 
 export interface QuickOrderAddress {
@@ -30,7 +31,13 @@ export interface QuickOrderAddress {
 }
 
 export interface QuickOrderCreateIntent {
-  readonly items: readonly Readonly<{ variantId: string; quantity: number }>[];
+  readonly items: readonly Readonly<{
+    variantId: string;
+    quantity: number;
+    itemType?: "PHYSICAL" | "VIRTUAL";
+  }>[];
+  readonly paymentMethodId?: string;
+  readonly identityNumber?: string;
   readonly customerName: string;
   readonly customerEmail: string;
   readonly customerPhone: string;
@@ -63,7 +70,7 @@ export interface QuickOrderLinkDetail extends QuickOrderLinkListItem {
   readonly billingAddress: Readonly<QuickOrderAddress>;
   readonly customerNote?: string;
   readonly internalLabel?: string;
-  readonly providerKey: "paytr";
+  readonly providerKey: "paytr" | "paytr_iframe" | "iyzico_iframe";
   readonly subtotalCents: number;
   readonly shippingCents: number;
   readonly discountCents: number;

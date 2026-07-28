@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   digestQuickLinkToken,
+  generateQuickLinkAuthority,
   generateQuickLinkToken,
   openQuickLinkSecret,
   sealQuickLinkSecret,
@@ -100,6 +101,54 @@ test("quick link crypto digests only canonical 32-byte tokens to lowercase SHA-2
   assert.equal(digestQuickLinkToken(TOKEN), "aebddc7466d56ad82b5797e7bb90a4224bfa2bd3c12d364d88fc2416854009dc");
   for (const token of ["", `${TOKEN}=`, TOKEN.slice(0, -1), `${TOKEN}A`, "é".repeat(32)]) {
     assert.throws(() => digestQuickLinkToken(token), /quick_link_crypto_invalid/);
+  }
+});
+
+test("quick link crypto generates a random non-identity authority for hosted buyer sealing", () => {
+  const source = Buffer.alloc(32, 0x5a);
+  const authority = generateQuickLinkAuthority((size) => {
+    assert.equal(size, 32);
+    return source;
+  });
+  assert.equal(authority, "5a".repeat(32));
+  assert.equal(source.every((byte) => byte === 0), true);
+  assert.doesNotMatch(authority, /74300864791/);
+});
+
+test("buyer identity envelopes authenticate purpose store link and random authority", () => {
+  const identity = "74300864791";
+  const authority = "5a".repeat(32);
+  const envelope = sealQuickLinkSecret({
+    plaintext: identity,
+    purpose: "buyer-identity",
+    storeId: STORE_ID,
+    objectId: OBJECT_ID,
+    digest: authority,
+    keyring: keyring(),
+  });
+  assert.equal(openQuickLinkSecret({
+    envelope,
+    purpose: "buyer-identity",
+    storeId: STORE_ID,
+    objectId: OBJECT_ID,
+    digest: authority,
+    keyring: keyring(),
+  }), identity);
+  for (const overrides of [
+    { purpose: "link-token" as const },
+    { storeId: "33333333-3333-4333-8333-333333333333" },
+    { objectId: "44444444-4444-4444-8444-444444444444" },
+    { digest: "6b".repeat(32) },
+  ]) {
+    assert.throws(() => openQuickLinkSecret({
+      envelope,
+      purpose: "buyer-identity",
+      storeId: STORE_ID,
+      objectId: OBJECT_ID,
+      digest: authority,
+      keyring: keyring(),
+      ...overrides,
+    }), /quick_link_crypto_invalid/);
   }
 });
 

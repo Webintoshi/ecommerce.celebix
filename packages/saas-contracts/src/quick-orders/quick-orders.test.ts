@@ -420,6 +420,57 @@ test("quick order create intent copies and deeply freezes canonical merchant inp
   assert.equal(Object.isFrozen(input), false);
 });
 
+test("hosted quick order intent accepts only a payment method id with real buyer identity and explicit item types", () => {
+  const hosted = createIntent({
+    paymentMethodId: "44444444-4444-4444-8444-444444444444",
+    identityNumber: "74300864791",
+    items: [{ variantId: ITEM_ID, quantity: 2, itemType: "PHYSICAL" }],
+  });
+  const parsed = parseQuickOrderCreateIntent(hosted);
+
+  assert.deepEqual(parsed, hosted);
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.equal(Object.isFrozen(parsed.items[0]), true);
+  for (const identityNumber of ["12345678901", "11111111111", "7430086479A", " 74300864791"]) {
+    assert.throws(
+      () => parseQuickOrderCreateIntent({ ...hosted, identityNumber }),
+      /quick_order_contract_invalid/,
+    );
+  }
+  for (const itemType of [undefined, "physical", "SERVICE"]) {
+    assert.throws(
+      () => parseQuickOrderCreateIntent({
+        ...hosted,
+        items: [{ variantId: ITEM_ID, quantity: 2, itemType }],
+      }),
+      /quick_order_contract_invalid/,
+    );
+  }
+});
+
+test("hosted quick order public projections never accept buyer identity or payment authority", () => {
+  for (const secret of [
+    { identityNumber: "74300864791" },
+    { identityDigest: "a".repeat(64) },
+    { sealedIdentity: { ciphertext: "secret" } },
+    { paymentMethodId: "44444444-4444-4444-8444-444444444444" },
+  ]) {
+    assert.throws(
+      () => parseQuickOrderLinkDetail({ ...detail({ providerKey: "iyzico_iframe" }), ...secret }),
+      /quick_order_contract_invalid/,
+    );
+  }
+  assert.equal(parseQuickOrderLinkDetail(detail({ providerKey: "iyzico_iframe" })).providerKey, "iyzico_iframe");
+  assert.equal(parseQuickOrderLinkDetail(detail({
+    providerKey: "iyzico_iframe",
+    items: [item({ itemType: "PHYSICAL" })],
+  })).items[0]?.itemType, "PHYSICAL");
+  assert.throws(
+    () => parseQuickOrderLinkDetail(detail({ items: [item({ itemType: "SERVICE" })] })),
+    /quick_order_contract_invalid/,
+  );
+});
+
 test("quick order create intent accepts only omitted optional merchant text", () => {
   const { customerNote: _note, internalLabel: _label, ...required } = createIntent();
   assert.deepEqual(parseQuickOrderCreateIntent(required), required);

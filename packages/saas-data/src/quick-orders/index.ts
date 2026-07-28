@@ -13,10 +13,12 @@ export type {
   QuickLinkAuthorityInput,
   QuickOrderLinkAuditEvent,
   QuickOrderLinkRepository,
+  SealedQuickLinkBuyerIdentity,
   SealedQuickLinkToken,
 } from "./types.ts";
 export {
   digestQuickLinkToken,
+  generateQuickLinkAuthority,
   generateQuickLinkToken,
   openQuickLinkSecret,
   sealQuickLinkSecret,

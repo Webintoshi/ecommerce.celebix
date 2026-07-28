@@ -65,7 +65,9 @@ type RandomUUID = () => string;
 type Catalog = Pick<typeof catalogApi, "listProducts" | "getProduct">;
 
 export type QuickLinkCreateIntent = Readonly<{
-  items: readonly Readonly<{ variantId: string; quantity: number }>[];
+  items: readonly Readonly<{ variantId: string; quantity: number; itemType?: "PHYSICAL" | "VIRTUAL" }>[];
+  paymentMethodId?: string;
+  identityNumber?: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -85,6 +87,12 @@ export type QuickLinkListResult = Readonly<{
 
 export type QuickLinkShareResult = Readonly<{ url: string; expiresAt: string }>;
 export type QuickLinkProviderResult = Readonly<{ status: "active" | "revoked"; version: number }>;
+export type QuickLinkPaymentMethod = Readonly<{
+  id: string;
+  label: string;
+  requiresIdentity: boolean;
+  requiresItemType: boolean;
+}>;
 export type CatalogSearchVariant = Readonly<{
   variantId: string;
   title: string;
@@ -193,7 +201,7 @@ function createIntent(value: QuickLinkCreateIntent): Readonly<QuickLinkCreateInt
   const selected = exactRecord(value, [
     "items", "customerName", "customerEmail", "customerPhone", "shippingAddress", "billingAddress",
     "shippingCents", "discountCents", "expiryHours",
-  ], ["customerNote", "internalLabel"]);
+  ], ["paymentMethodId", "identityNumber", "customerNote", "internalLabel"]);
   const rawItems = denseArray(selected?.items, 100);
   const shippingAddress = address(selected?.shippingAddress);
   const billingAddress = address(selected?.billingAddress);
@@ -204,23 +212,39 @@ function createIntent(value: QuickLinkCreateIntent): Readonly<QuickLinkCreateInt
   const customerPhone = text(selected?.customerPhone, 3, 32);
   const customerNote = selected && Object.hasOwn(selected, "customerNote") ? text(selected.customerNote, 1, 2_000) : undefined;
   const internalLabel = selected && Object.hasOwn(selected, "internalLabel") ? text(selected.internalLabel, 1, 200) : undefined;
+  const paymentMethodId = selected && Object.hasOwn(selected, "paymentMethodId") && typeof selected.paymentMethodId === "string" && UUID.test(selected.paymentMethodId)
+    ? selected.paymentMethodId
+    : undefined;
+  const identityNumber = selected && Object.hasOwn(selected, "identityNumber")
+    ? text(selected.identityNumber, 5, 50, /^\d+$/)
+    : undefined;
   const shippingCents = integer(selected?.shippingCents, 0, MAX_COMPONENT_CENTS);
   const discountCents = integer(selected?.discountCents, 0, MAX_COMPONENT_CENTS);
   if (
     selected === null || rawItems === null || rawItems.length === 0 || shippingAddress === null || billingAddress === null ||
     customerName === null || customerEmail === null || customerPhone === null || customerNote === null || internalLabel === null ||
+    (Object.hasOwn(selected, "paymentMethodId") && paymentMethodId === undefined) ||
+    identityNumber === null || (identityNumber !== undefined && (/^(\d)\1+$/.test(identityNumber) || identityNumber === "12345678901")) ||
     shippingCents === null || discountCents === null || !QUICK_ORDER_EXPIRY_HOURS.includes(selected.expiryHours as never)
   ) throw new TypeError("quick_link_ui_client_invalid");
   const items = rawItems.map((raw) => {
-    const item = exactRecord(raw, ["variantId", "quantity"]);
+    const item = exactRecord(raw, ["variantId", "quantity"], ["itemType"]);
     const quantity = integer(item?.quantity, 1, 9_999);
-    if (item === null || typeof item.variantId !== "string" || !UUID.test(item.variantId) || quantity === null) {
+    const itemType = item && Object.hasOwn(item, "itemType") && (item.itemType === "PHYSICAL" || item.itemType === "VIRTUAL")
+      ? item.itemType
+      : undefined;
+    if (
+      item === null || typeof item.variantId !== "string" || !UUID.test(item.variantId) || quantity === null ||
+      (Object.hasOwn(item, "itemType") && itemType === undefined)
+    ) {
       throw new TypeError("quick_link_ui_client_invalid");
     }
-    return Object.freeze({ variantId: item.variantId, quantity });
+    return Object.freeze({ variantId: item.variantId, quantity, ...(itemType === undefined ? {} : { itemType }) });
   });
   return Object.freeze({
     items: Object.freeze(items),
+    ...(paymentMethodId === undefined ? {} : { paymentMethodId }),
+    ...(identityNumber === undefined ? {} : { identityNumber }),
     customerName,
     customerEmail,
     customerPhone,
@@ -232,6 +256,29 @@ function createIntent(value: QuickLinkCreateIntent): Readonly<QuickLinkCreateInt
     discountCents,
     expiryHours: selected.expiryHours as QuickLinkCreateIntent["expiryHours"],
   });
+}
+
+function paymentMethods(value: unknown): readonly QuickLinkPaymentMethod[] {
+  const envelope = exactRecord(value, ["items"]);
+  const entries = denseArray(envelope?.items, 100);
+  if (envelope === null || entries === null) throw unavailable();
+  try {
+    return Object.freeze(entries.map((entry) => {
+      const method = exactRecord(entry, ["id", "label", "requiresIdentity", "requiresItemType"]);
+      const label = text(method?.label, 1, 120);
+      if (
+        method === null || typeof method.id !== "string" || !UUID.test(method.id) || label === null ||
+        typeof method.requiresIdentity !== "boolean" || typeof method.requiresItemType !== "boolean" ||
+        method.requiresIdentity !== method.requiresItemType
+      ) throw new TypeError("invalid");
+      return Object.freeze({
+        id: method.id,
+        label,
+        requiresIdentity: method.requiresIdentity,
+        requiresItemType: method.requiresItemType,
+      });
+    }));
+  } catch { throw unavailable(); }
 }
 
 function safeCode(value: unknown): QuickLinkUiApiErrorCode {
@@ -383,6 +430,14 @@ export function createQuickLinkUiClient(options?: Readonly<{ fetch?: Fetch; rand
   return Object.freeze({
     newCreateOperationId(): string {
       return newOperationId();
+    },
+
+    async listPaymentMethods(): Promise<readonly QuickLinkPaymentMethod[]> {
+      return paymentMethods(await request("/api/orders/quick-links/payment-methods", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      }));
     },
 
     async listLinks(input: Readonly<{ pageSize?: number; cursor?: string; status?: QuickOrderLinkStatus }> = {}): Promise<QuickLinkListResult> {

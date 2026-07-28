@@ -10,7 +10,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const DIGEST = /^[a-f0-9]{64}$/;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
-const PURPOSES = new Set(["link-token", "provider-config", "provider-token"] as const);
+const PURPOSES = new Set(["link-token", "provider-config", "provider-token", "buyer-identity"] as const);
 const TYPED_ARRAY_TAG_GETTER = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   Symbol.toStringTag,
@@ -33,7 +33,7 @@ export interface QuickLinkKeyring {
   readonly keys: readonly Readonly<{ keyId: string; key: Uint8Array }>[];
 }
 
-type Purpose = "link-token" | "provider-config" | "provider-token";
+type Purpose = "link-token" | "provider-config" | "provider-token" | "buyer-identity";
 type InputRecord = Readonly<Record<string, unknown>>;
 
 function invalid(): never {
@@ -205,6 +205,23 @@ export function generateQuickLinkToken(randomBytes: (size: number) => Buffer = n
       if (!Buffer.isBuffer(generated) || generated.byteLength !== 32) invalid();
       copy = Buffer.from(generated);
       return copy.toString("base64url");
+    } finally {
+      copy?.fill(0);
+      if (Buffer.isBuffer(generated)) generated.fill(0);
+    }
+  });
+}
+
+export function generateQuickLinkAuthority(randomBytes: (size: number) => Buffer = nodeRandomBytes): string {
+  return guarded(() => {
+    let generated: Buffer | undefined;
+    let copy: Buffer | undefined;
+    try {
+      if (typeof randomBytes !== "function") invalid();
+      generated = randomBytes(32);
+      if (!Buffer.isBuffer(generated) || generated.byteLength !== 32) invalid();
+      copy = Buffer.from(generated);
+      return copy.toString("hex");
     } finally {
       copy?.fill(0);
       if (Buffer.isBuffer(generated)) generated.fill(0);

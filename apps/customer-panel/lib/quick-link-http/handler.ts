@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   isMerchantActionAllowed,
+  parseMerchantPaymentMethod,
   parseQuickOrderLinkDetail,
   parseQuickOrderLinkListItem,
   parseQuickOrderLinkMutationResult,
@@ -15,6 +16,7 @@ import {
   QuickOrderLinkRepositoryError,
   digestCanonicalPaytrConfiguration,
   digestQuickLinkToken,
+  generateQuickLinkAuthority,
   openQuickLinkSecret,
   sealQuickLinkSecret,
   serializeCanonicalPaytrConfiguration,
@@ -37,6 +39,7 @@ import {
 } from "./request-input.ts";
 
 const BASE_PATH = "/api/orders/quick-links";
+const PAYMENT_METHODS_PATH = `${BASE_PATH}/payment-methods`;
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const UUID = REQUEST_ID;
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -280,6 +283,16 @@ function safeProvider(value: unknown): ProviderReadiness {
   });
 }
 
+function selectedHostedMethod(value: unknown, paymentMethodId: string) {
+  const entries = denseArray(value, 100).map((entry) => parseMerchantPaymentMethod(entry));
+  const selected = entries.find((entry) => entry.id === paymentMethodId);
+  if (
+    selected === undefined || selected.kind !== "provider" || selected.state !== "active" ||
+    (selected.providerCode !== "paytr_iframe" && selected.providerCode !== "iyzico_iframe")
+  ) return null;
+  return selected;
+}
+
 function providerResponse(value: unknown, status: "active" | "revoked", providerConfigId: string) {
   const selected = safeProvider(value);
   if (
@@ -351,6 +364,33 @@ export function createQuickLinkHttpHandlers(dependencies: Dependencies) {
   } catch { throw new Error("quick_link_http_handler_invalid"); }
 
   return Object.freeze({
+    async paymentMethods(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, {
+        method: "GET", pathname: PAYMENT_METHODS_PATH, query: "forbidden",
+      }, "quick_links.manage");
+      if (isResponse(authorized)) return authorized;
+      try {
+        const methods = denseArray(await authorized.runtime.methods.list({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+        }), 100).map((entry) => parseMerchantPaymentMethod(entry));
+        const items = methods.flatMap((method) => {
+          if (
+            method.kind !== "provider" || method.state !== "active" ||
+            (method.providerCode !== "paytr_iframe" && method.providerCode !== "iyzico_iframe")
+          ) return [];
+          const requiresIyzicoBuyer = method.providerCode === "iyzico_iframe";
+          return [Object.freeze({
+            id: method.id,
+            label: method.label,
+            requiresIdentity: requiresIyzicoBuyer,
+            requiresItemType: requiresIyzicoBuyer,
+          })];
+        });
+        return json(Object.freeze({ items: Object.freeze(items) }), 200);
+      } catch (caught) { return repositoryError(caught); }
+    },
+
     async list(request: Request): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: BASE_PATH, query: "allowed",
@@ -386,10 +426,26 @@ export function createQuickLinkHttpHandlers(dependencies: Dependencies) {
       if (input.kind !== "valid" || input.operationId === undefined) return error("invalid_input", 400);
       const body = input.value as QuickLinkCreateBody;
       try {
-        const readiness = safeProvider(await authorized.runtime.privateLinks.getProviderReadiness({
-          tenantContext: authorized.tenantContext, now: authorized.now,
-        }));
-        if (readiness.status === "missing" || readiness.providerConfigId === undefined) return error("provider_not_ready", 409);
+        const hostedMethod = body.paymentMethodId === undefined
+          ? null
+          : selectedHostedMethod(await authorized.runtime.methods.list({
+              tenantContext: authorized.tenantContext,
+              now: authorized.now,
+            }), body.paymentMethodId);
+        if (body.paymentMethodId !== undefined && hostedMethod === null) return error("provider_not_ready", 409);
+        const iyzico = hostedMethod?.providerCode === "iyzico_iframe";
+        if (
+          (iyzico && (body.identityNumber === undefined || body.items.some((item) => item.itemType === undefined))) ||
+          (!iyzico && (body.identityNumber !== undefined || body.items.some((item) => item.itemType !== undefined)))
+        ) return error("invalid_input", 400);
+        const readiness = hostedMethod === null
+          ? safeProvider(await authorized.runtime.privateLinks.getProviderReadiness({
+              tenantContext: authorized.tenantContext, now: authorized.now,
+            }))
+          : null;
+        if (hostedMethod === null && (readiness?.status === "missing" || readiness?.providerConfigId === undefined)) {
+          return error("provider_not_ready", 409);
+        }
         const linkId = generateUuid(dependencies);
         const itemIds = body.items.map(() => generateUuid(dependencies));
         if (new Set([linkId, ...itemIds]).size !== itemIds.length + 1) throw new TypeError("invalid");
@@ -399,13 +455,35 @@ export function createQuickLinkHttpHandlers(dependencies: Dependencies) {
           plaintext: token, purpose: "link-token", storeId: authorized.tenantContext.store.id,
           objectId: linkId, digest: tokenDigest, keyring: authorized.runtime.keyring,
         });
+        const buyerIdentity = body.identityNumber === undefined
+          ? undefined
+          : (() => {
+              const authority = generateQuickLinkAuthority();
+              return Object.freeze({
+                authority,
+                sealedIdentity: sealQuickLinkSecret({
+                  plaintext: body.identityNumber!,
+                  purpose: "buyer-identity",
+                  storeId: authorized.tenantContext.store.id,
+                  objectId: linkId,
+                  digest: authority,
+                  keyring: authorized.runtime.keyring,
+                }),
+              });
+            })();
         const result = safeCreatedMutation(await authorized.runtime.links.create({
           tenantContext: authorized.tenantContext,
           now: authorized.now,
           operationId: input.operationId,
           linkId,
-          items: body.items.map(({ variantId, quantity }, index) => ({ itemId: itemIds[index]!, variantId, quantity })),
-          providerConfigId: readiness.providerConfigId,
+          items: body.items.map(({ variantId, quantity, itemType }, index) => ({
+            itemId: itemIds[index]!, variantId, quantity,
+            ...(itemType === undefined ? {} : { itemType }),
+          })),
+          ...(hostedMethod === null
+            ? { providerConfigId: readiness!.providerConfigId! }
+            : { paymentMethodId: hostedMethod.id }),
+          ...(buyerIdentity === undefined ? {} : { buyerIdentity }),
           customerName: body.customerName,
           customerEmail: body.customerEmail,
           customerPhone: body.customerPhone,

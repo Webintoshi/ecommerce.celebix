@@ -5,6 +5,7 @@ import {
   type QuickOrderLinkRepository,
   type QuickOrderPrivateRepository,
 } from "@celebix/saas-data";
+import type { PaymentMethodRepository } from "@celebix/saas-data";
 
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 
@@ -17,17 +18,22 @@ export type ServerQuickLinksRuntime = Readonly<{
   access: ApprovedAccessRuntime;
   links: QuickOrderLinkRepository;
   privateLinks: QuickOrderPrivateRepository;
+  methods: Pick<PaymentMethodRepository, "list">;
   keyring: QuickLinkKeyring;
   paytrConfiguration: CanonicalPaytrConfiguration;
 }>;
 
-type Registration = Omit<ServerQuickLinksRuntime, "access">;
+type Registration = Omit<ServerQuickLinksRuntime, "access" | "methods"> & Readonly<{
+  methods: PaymentMethodRepository;
+}>;
+type StoredRegistration = Omit<ServerQuickLinksRuntime, "access">;
 
-const runtimes = new WeakMap<ServerPanelAccessRuntime, Registration>();
+const runtimes = new WeakMap<ServerPanelAccessRuntime, StoredRegistration>();
 const LINK_METHODS = Object.freeze(["list", "get", "create", "cancel", "duplicate"] as const);
 const PRIVATE_METHODS = Object.freeze([
   "getProviderReadiness", "configureProvider", "revokeProvider", "revealLinkCredential", "revealProviderConfiguration",
 ] as const);
+const PAYMENT_METHODS = Object.freeze(["list"] as const);
 
 function invalid(): never {
   throw new Error("server_quick_links_runtime_invalid");
@@ -75,6 +81,11 @@ function privateFacade(repository: QuickOrderPrivateRepository): QuickOrderPriva
   return Object.freeze(projected);
 }
 
+function methodsFacade(repository: PaymentMethodRepository): Pick<PaymentMethodRepository, "list"> {
+  if (!repository || PAYMENT_METHODS.some((method) => typeof repository[method] !== "function")) invalid();
+  return Object.freeze({ list: (input) => repository.list(input) });
+}
+
 export function registerServerQuickLinksRuntime(
   access: ServerPanelAccessRuntime,
   dependencies: Registration,
@@ -89,6 +100,7 @@ export function registerServerQuickLinksRuntime(
     runtimes.set(access, Object.freeze({
       links: linksFacade(dependencies.links),
       privateLinks: privateFacade(dependencies.privateLinks),
+      methods: methodsFacade(dependencies.methods),
       keyring: dependencies.keyring,
       paytrConfiguration: dependencies.paytrConfiguration,
     }));

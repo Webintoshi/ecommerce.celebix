@@ -22,6 +22,8 @@ const ITEM_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const NEW_ITEM_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const VARIANT_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const PROVIDER_CONFIG_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+const PAYMENT_METHOD_ID = "99999999-9999-4999-8999-999999999999";
+const IDENTITY_AUTHORITY = "5a".repeat(32);
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
 const NOW = new Date("2026-07-21T08:00:00.000Z");
 const TOKEN_DIGEST = "1".repeat(64);
@@ -187,6 +189,34 @@ function duplicateInput(overrides: Record<string, unknown> = {}): DuplicateQuick
     sealedToken: sealedToken(),
     ...overrides,
   } as DuplicateQuickLinkInput;
+}
+
+function hostedCreateInput(overrides: Record<string, unknown> = {}): CreateQuickLinkInput {
+  return {
+    tenantContext: tenantContext(),
+    now: NOW,
+    operationId: OPERATION_ID,
+    linkId: LINK_ID,
+    items: [{ itemId: ITEM_ID, variantId: VARIANT_ID, quantity: 1, itemType: "PHYSICAL" }],
+    paymentMethodId: PAYMENT_METHOD_ID,
+    buyerIdentity: {
+      authority: IDENTITY_AUTHORITY,
+      sealedIdentity: sealedToken("buyer-identity-key"),
+    },
+    customerName: "Ada Lovelace",
+    customerEmail: "ada@example.com",
+    customerPhone: "+905551112233",
+    shippingAddress: address(),
+    billingAddress: address(),
+    customerNote: "Leave at reception",
+    internalLabel: "VIP",
+    shippingCents: 1_000,
+    discountCents: 500,
+    expiryHours: 24,
+    tokenDigest: TOKEN_DIGEST,
+    sealedToken: sealedToken(),
+    ...overrides,
+  } as CreateQuickLinkInput;
 }
 
 type Row = Record<string, unknown>;
@@ -513,6 +543,37 @@ test("create fingerprint excludes generated IDs, digest, and sealed token while 
     await repository(new FakePool(client)).create(input);
   }
   assert.equal(calls[0]?.[26], calls[1]?.[26]);
+});
+
+test("hosted create binds only payment method authority and explicitly rejects identity-bearing operation replay", async () => {
+  const calls: unknown[][] = [];
+  for (const input of [
+    hostedCreateInput(),
+    hostedCreateInput({
+      buyerIdentity: {
+        authority: "6b".repeat(32),
+        sealedIdentity: { ...sealedToken("buyer-identity-key"), ciphertext: "Ag" },
+      },
+    }),
+    hostedCreateInput({ items: [{ itemId: ITEM_ID, variantId: VARIANT_ID, quantity: 1, itemType: "VIRTUAL" }] }),
+  ]) {
+    const client = new FakeClient((text, values) => {
+      if (text.includes("saas.quick_links_create_hosted")) {
+        calls.push(values);
+        return [{ outcome: "committed", result_payload: mutation() }];
+      }
+      return [];
+    });
+    await repository(new FakePool(client)).create(input);
+  }
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0]?.[11], PAYMENT_METHOD_ID);
+  assert.equal(calls[0]?.[12], IDENTITY_AUTHORITY);
+  assert.deepEqual(calls[0]?.[13], ["PHYSICAL"]);
+  assert.equal(JSON.stringify(calls[0]).includes("74300864791"), false);
+  assert.equal(JSON.stringify(calls[0]).includes("iyzico_iframe"), false);
+  assert.notEqual(calls[0]?.at(-1), calls[1]?.at(-1));
+  assert.notEqual(calls[0]?.at(-1), calls[2]?.at(-1));
 });
 
 test("cancel and duplicate bind exact signatures and minimal stable fingerprints", async () => {
