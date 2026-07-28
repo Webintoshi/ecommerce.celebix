@@ -654,6 +654,56 @@ test("credential validation fails closed on BIN or conversation mismatch and pro
   }
 });
 
+test("classifies malformed or mismatched successful BIN responses as provider uncertainty", async () => {
+  const providerBodies = [
+    { status: "success", binNumber: "41579200" },
+    { status: "success", conversationId: ATTEMPT_ID },
+    {
+      status: "success",
+      conversationId: "22222222-2222-4222-8222-222222222222",
+      binNumber: "41579200",
+    },
+    { status: "success", conversationId: ATTEMPT_ID, binNumber: "41579201" },
+    { status: "success", conversationId: ATTEMPT_ID, binNumber: 41579200 },
+    { status: true, conversationId: ATTEMPT_ID, binNumber: "41579200" },
+  ] as const;
+  for (const providerBody of providerBodies) {
+    let calls = 0;
+    const providerResult = response(providerBody);
+    assert.deepEqual(await validateIyzicoCredentialWithTransport(transport(() => {
+      calls += 1;
+      return providerResult;
+    }), {
+      environment: "test",
+      credential,
+      validationReference: ATTEMPT_ID,
+      signal: new AbortController().signal,
+      randomKey: () => RANDOM_KEY,
+    }), { kind: "rejected", outcomeCode: "validation_unavailable" }, JSON.stringify(providerBody));
+    assert.equal(calls, 1, JSON.stringify(providerBody));
+    assert.equal(providerResult.kind === "response" && providerResult.body.every((byte) => byte === 0), true);
+  }
+});
+
+test("classifies invalid local BIN-validation input before transport as an invalid request", async () => {
+  let calls = 0;
+  assert.deepEqual(await validateIyzicoCredentialWithTransport(transport(() => {
+    calls += 1;
+    return response({
+      status: "success",
+      conversationId: ATTEMPT_ID,
+      binNumber: "41579200",
+    });
+  }), {
+    environment: "test",
+    credential: { apiKey: "bad key", secretKey: "sandbox-secret-key" },
+    validationReference: ATTEMPT_ID,
+    signal: new AbortController().signal,
+    randomKey: () => RANDOM_KEY,
+  }), { kind: "rejected", outcomeCode: "invalid_validation_request" });
+  assert.equal(calls, 0);
+});
+
 test("classifies explicit bounded provider failures separately from transient and malformed HTTP responses", async () => {
   for (const status of [400, 401, 403]) {
     const initializeFailure = response({

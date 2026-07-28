@@ -977,63 +977,71 @@ export async function validateIyzicoCredentialWithTransport(
   let selectedCredential: IyzicoCredential | undefined;
   let responseBody: Uint8Array | undefined;
   try {
-    const selected = exactRecord(input, VALIDATION_KEYS);
-    if (selected.environment !== "test" && selected.environment !== "live") invalid();
-    if (typeof selected.validationReference !== "string" || !UUID.test(selected.validationReference)) {
-      invalid();
+    let selected: Record<string, unknown>;
+    let result: ProviderTransportResult;
+    try {
+      selected = exactRecord(input, VALIDATION_KEYS);
+      if (selected.environment !== "test" && selected.environment !== "live") invalid();
+      if (typeof selected.validationReference !== "string" || !UUID.test(selected.validationReference)) {
+        invalid();
+      }
+      const abortSignal = signal(selected.signal);
+      if (abortSignal.aborted || typeof selected.randomKey !== "function") invalid();
+      selectedCredential = parseIyzicoCredential(selected.credential);
+      result = await providerRequest(
+        transport,
+        selected.environment,
+        selectedCredential,
+        BIN_PATH,
+        Object.freeze({
+          locale: "tr",
+          binNumber: TEST_BIN,
+          conversationId: selected.validationReference,
+        }),
+        selected.randomKey as () => string,
+        abortSignal,
+      );
+    } catch {
+      return Object.freeze({ kind: "rejected" as const, outcomeCode: "invalid_validation_request" as const });
     }
-    const abortSignal = signal(selected.signal);
-    if (abortSignal.aborted || typeof selected.randomKey !== "function") invalid();
-    selectedCredential = parseIyzicoCredential(selected.credential);
-    const result = await providerRequest(
-      transport,
-      selected.environment,
-      selectedCredential,
-      BIN_PATH,
-      Object.freeze({
-        locale: "tr",
-        binNumber: TEST_BIN,
-        conversationId: selected.validationReference,
-      }),
-      selected.randomKey as () => string,
-      abortSignal,
-    );
-    if (result.kind === "unknown") {
+    try {
+      if (result.kind === "unknown") {
+        return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+      }
+      responseBody = result.body;
+      if (temporaryHttpStatus(result.status)) {
+        return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+      }
+      const raw = responseJson(result);
+      if (raw === null) {
+        return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+      }
+      if (explicitFailureHttpStatus(result.status)) {
+        return providerFailure(raw)
+          ? Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const })
+          : Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+      }
+      if (result.status !== 200) {
+        return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
+      }
+      if (providerFailure(raw)) {
+        return Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const });
+      }
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw) || nodeTypes.isProxy(raw)) invalid();
+      const descriptors = Object.getOwnPropertyDescriptors(raw) as Record<string, PropertyDescriptor>;
+      for (const key of ["status", "conversationId", "binNumber"]) {
+        const descriptor = descriptors[key];
+        if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) invalid();
+      }
+      if (
+        descriptors.status!.value !== "success" ||
+        descriptors.conversationId!.value !== selected.validationReference ||
+        descriptors.binNumber!.value !== TEST_BIN
+      ) invalid();
+      return Object.freeze({ kind: "validated" as const });
+    } catch {
       return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
     }
-    responseBody = result.body;
-    if (temporaryHttpStatus(result.status)) {
-      return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
-    }
-    const raw = responseJson(result);
-    if (raw === null) {
-      return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
-    }
-    if (explicitFailureHttpStatus(result.status)) {
-      return providerFailure(raw)
-        ? Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const })
-        : Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
-    }
-    if (result.status !== 200) {
-      return Object.freeze({ kind: "rejected" as const, outcomeCode: "validation_unavailable" as const });
-    }
-    if (providerFailure(raw)) {
-      return Object.freeze({ kind: "rejected" as const, outcomeCode: "provider_rejected" as const });
-    }
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw) || nodeTypes.isProxy(raw)) invalid();
-    const descriptors = Object.getOwnPropertyDescriptors(raw) as Record<string, PropertyDescriptor>;
-    for (const key of ["status", "conversationId", "binNumber"]) {
-      const descriptor = descriptors[key];
-      if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) invalid();
-    }
-    if (
-      descriptors.status!.value !== "success" ||
-      descriptors.conversationId!.value !== selected.validationReference ||
-      descriptors.binNumber!.value !== TEST_BIN
-    ) invalid();
-    return Object.freeze({ kind: "validated" as const });
-  } catch {
-    return Object.freeze({ kind: "rejected" as const, outcomeCode: "invalid_validation_request" as const });
   } finally {
     wipe(responseBody);
     if (selectedCredential !== undefined) wipeIyzicoCredential(selectedCredential);
