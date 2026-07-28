@@ -521,6 +521,8 @@ test("mounted product console renders all four commands in the <=1024 mobile fal
   }
   const styles = await source("app/globals.css");
   assert.match(styles, /@media \(max-width: 1024px\)[^]*[.]product-mobile-commandbar\s*\{[^}]*display:\s*flex/s);
+  assert.match(styles, /@media \(max-width: 640px\)[^]*[.]product-mobile-commandbar [.]hemenaku-product-commandbar\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(styles, /@media \(max-width: 640px\)[^]*[.]product-mobile-commandbar [.]command-button[^}]*width:\s*100%[^}]*min-width:\s*0/s);
 });
 
 test("mounted store-wide metrics stay semantic and never duplicate loaded-row counts", async () => {
