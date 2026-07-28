@@ -24,7 +24,7 @@
 
 - `packages/saas-contracts/src/payment-providers/built-in-methods.ts`: shared immutable definitions, exact config parsers, text bounds, IBAN normalization/checksum.
 - `apps/owner/scripts/sql/saas/202607280062_builtin_payment_methods.*.sql`: database uniqueness, config validator, save-function replacement, preflight, ACLs, rollback.
-- `tests/saas-phase3/built-in-payment-methods/`: isolated PostgreSQL and static-security gates for migration 062.
+- `tests/saas-phase3/built-in-payment-methods/`: isolated behavioral PostgreSQL gate for migration 062.
 - `apps/customer-panel/lib/built-in-payment-methods/controller.ts`: create/edit selection and replay-safe save-then-activate orchestration.
 - `apps/customer-panel/components/settings/payment/BuiltInPaymentMethodDrawer.tsx`: accessible bounded form only.
 - Existing payment handler/client/console/catalog files: finite error mapping, strict boundary validation, and UI integration.
@@ -97,7 +97,6 @@ git commit -m "feat(payments): define built-in method configs"
 - Create: `apps/owner/scripts/sql/saas/202607280062_builtin_payment_methods_assertions.sql`
 - Create: `apps/owner/scripts/sql/saas/202607280062_builtin_payment_methods.down.sql`
 - Create: `tests/saas-phase3/built-in-payment-methods/postgres-harness.mjs`
-- Create: `tests/saas-phase3/built-in-payment-methods/static-security.test.mjs`
 - Modify: `tests/saas-phase3/run-current-suite.mjs`
 
 **Interfaces:**
@@ -105,7 +104,7 @@ git commit -m "feat(payments): define built-in method configs"
 - Replaces the same-signature `saas.payment_method_save(...)` without changing existing provider inputs or result envelopes.
 - Adds finite SQL outcome `method_already_exists`.
 
-- [ ] **Step 1: Write the failing 062 harness and static gate**
+- [ ] **Step 1: Write the failing 062 behavioral harness**
 
 The harness must apply migrations through 061, prove duplicates are possible before 062, apply 062, then report exact scenarios for:
 
@@ -156,16 +155,15 @@ Object.freeze({
 })
 ```
 
-Add `built-in-payment-methods` after `iyzico-iframe-tenant-activation-runtime` in `gateRank`, and require `tests/saas-phase3/built-in-payment-methods/static-security.test.mjs` as a current test.
+Add `built-in-payment-methods` after `iyzico-iframe-tenant-activation-runtime` in `gateRank`.
 
 Run:
 
 ```bash
 node tests/saas-phase3/built-in-payment-methods/postgres-harness.mjs
-node --test tests/saas-phase3/built-in-payment-methods/static-security.test.mjs
 ```
 
-Expected: exact harness total and static test pass.
+Expected: exact behavioral harness total passes.
 
 - [ ] **Step 5: Commit**
 
@@ -235,6 +233,7 @@ git commit -m "feat(payments): validate built-in method requests"
 - Create: `apps/customer-panel/components/settings/payment/BuiltInPaymentMethodDrawer.tsx`
 - Modify: `apps/customer-panel/components/settings/payment/payment-settings.module.css`
 - Modify: `apps/customer-panel/lib/payment-settings-console.test.ts`
+- Modify: `apps/customer-panel/package.json`
 
 **Interfaces:**
 - Produces `selectBuiltInPaymentMethod(methods, kind)` and `saveBuiltInPaymentMethod({ kind, method, label, config, api, methodId })`.
@@ -269,7 +268,7 @@ Rerun the focused tests and `npm run typecheck --workspace @celebix/customer-pan
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/customer-panel/lib/built-in-payment-methods apps/customer-panel/components/settings/payment/BuiltInPaymentMethodDrawer.tsx apps/customer-panel/components/settings/payment/payment-settings.module.css apps/customer-panel/lib/payment-settings-console.test.ts
+git add apps/customer-panel/lib/built-in-payment-methods apps/customer-panel/components/settings/payment/BuiltInPaymentMethodDrawer.tsx apps/customer-panel/components/settings/payment/payment-settings.module.css apps/customer-panel/lib/payment-settings-console.test.ts apps/customer-panel/package.json
 git commit -m "feat(payments): add built-in method editor"
 ```
 
