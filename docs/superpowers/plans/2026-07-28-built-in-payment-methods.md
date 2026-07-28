@@ -43,7 +43,7 @@
 - Produces `BUILT_IN_PAYMENT_METHODS`, `BuiltInPaymentMethodKind`, `normalizeTurkishIbanInput(value)`, `parseBuiltInPaymentMethodConfig(kind, value)`, and `isBuiltInPaymentMethodKind(value)`.
 - The parser returns a deeply frozen exact `Readonly<Record<string, MerchantAdminJson>>` and throws `TypeError("built_in_payment_method_invalid")` for every rejected input.
 
-- [ ] **Step 1: Read the good-test rules and write failing contract tests**
+- [x] **Step 1: Read the good-test rules and write failing contract tests**
 
 Cover exact definitions, frozen outputs, cash instructions, bank field bounds, inherited/accessor/proxy/extra keys, controls, UTF-8 byte limits, IBAN normalization, valid `TR330006100519786457841326`, and checksum failures.
 
@@ -61,17 +61,17 @@ assert.throws(() => parseBuiltInPaymentMethodConfig("bank_transfer", {
 }), /built_in_payment_method_invalid/);
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `node --experimental-strip-types --test packages/saas-contracts/src/payment-providers/built-in-methods.test.ts`
 
 Expected: FAIL because the module/exports do not exist.
 
-- [ ] **Step 3: Implement the minimal exact parser**
+- [x] **Step 3: Implement the minimal exact parser**
 
 Use descriptor inspection rather than object spread, byte-count through `TextEncoder`, and the standard rearranged IBAN MOD-97 loop. Do not accept spaces in `parseBuiltInPaymentMethodConfig`; only `normalizeTurkishIbanInput` removes ASCII spaces for form UX.
 
-- [ ] **Step 4: Verify GREEN and package regression**
+- [x] **Step 4: Verify GREEN and package regression**
 
 Run:
 
@@ -83,7 +83,7 @@ npm run typecheck --workspace @celebix/saas-contracts
 
 Expected: all pass, zero failures.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-contracts/src/payment-providers/built-in-methods.ts packages/saas-contracts/src/payment-providers/built-in-methods.test.ts packages/saas-contracts/src/payment-providers/index.ts packages/saas-contracts/src/index.ts
