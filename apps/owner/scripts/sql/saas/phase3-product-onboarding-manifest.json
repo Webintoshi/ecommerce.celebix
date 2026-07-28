@@ -9,21 +9,21 @@
       "id": "202607280056_catalog_product_onboarding_up",
       "direction": "up",
       "file": "202607280056_catalog_product_onboarding.up.sql",
-      "sha256": "49386682f9ecb57096b582f629736e3b0bc00faf9d4a1a0c8d7c132ac8a90ee0",
+      "sha256": "4185f96d0c522087fcec870d555b1de68347249262d0e7a1af2f4c0ce118b685",
       "purpose": "Add closed tenant-scoped product merchandising, category, channel, variant-commerce, and immutable onboarding operation relations."
     },
     {
       "id": "202607280056_catalog_product_onboarding_down",
       "direction": "down",
       "file": "202607280056_catalog_product_onboarding.down.sql",
-      "sha256": "761219ab8a62f67587c74bf2e74d8838476f15d07243cfac34aa3daef6dd4d01",
+      "sha256": "b8860c37099664926692907508fbeaeeecafe450adbb180c1813b150cbaf0482",
       "purpose": "Remove only empty migration-056 objects in dependency-safe order during disposable rehearsal."
     },
     {
       "id": "202607280056_catalog_product_onboarding_assertions",
       "direction": "verify",
       "file": "202607280056_catalog_product_onboarding_assertions.sql",
-      "sha256": "c4142b46e093eaa4f89a339a5f4f653684fd895d490329d2201cdcfb592d23fc",
+      "sha256": "97b475140c69a690d49aaf1d4e78df68861229430cae6c9247666432325f41e9",
       "purpose": "Fail on owner, RLS, ACL, trigger, and relation drift for all migration-056 objects."
     }
   ]

@@ -3,6 +3,8 @@ DO $assertions$
 DECLARE
   relation_name text;
   relation_oid oid;
+  function_signature text;
+  checked_function regprocedure;
 BEGIN
   FOREACH relation_name IN ARRAY ARRAY[
     'catalog_product_profiles',
@@ -47,5 +49,32 @@ BEGIN
     WHERE conrelid='saas.product_variants'::pg_catalog.regclass
       AND conname='product_variants_store_product_id_key' AND contype='u'
   ) THEN RAISE EXCEPTION 'CATALOG_ONBOARDING_VARIANT_PRODUCT_KEY_MISSING'; END IF;
+
+  FOREACH function_signature IN ARRAY ARRAY[
+    'saas.catalog_get_onboarding_options(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)',
+    'saas.catalog_onboard_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)',
+    'saas.catalog_get_product_editor(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)',
+    'saas.catalog_update_merchandising(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)',
+    'saas.catalog_publish_after_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,integer)',
+    'saas.catalog_recover_onboarding_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)'
+  ] LOOP
+    checked_function:=pg_catalog.to_regprocedure(function_signature);
+    IF checked_function IS NULL
+       OR pg_catalog.has_function_privilege('public',checked_function,'EXECUTE')
+       OR NOT pg_catalog.has_function_privilege('celebix_saas_app',checked_function,'EXECUTE')
+       OR pg_catalog.has_function_privilege('celebix_saas_workflow',checked_function,'EXECUTE')
+       OR pg_catalog.has_function_privilege('celebix_saas_host_resolver',checked_function,'EXECUTE')
+       OR NOT EXISTS(
+         SELECT 1
+         FROM pg_catalog.pg_proc AS procedure
+         JOIN pg_catalog.pg_roles AS owner ON owner.oid=procedure.proowner
+         WHERE procedure.oid=checked_function
+           AND owner.rolname='celebix_saas_owner'
+           AND procedure.prosecdef
+           AND procedure.proconfig=ARRAY['search_path=pg_catalog, saas']::text[]
+       ) THEN
+      RAISE EXCEPTION 'CATALOG_ONBOARDING_FUNCTION_SECURITY_DRIFT:%',function_signature;
+    END IF;
+  END LOOP;
 END
 $assertions$;
