@@ -240,7 +240,7 @@ git commit -m "feat(payments): validate built-in method requests"
 - Result union is exactly `active | updated | emergency_disabled | conflict | ambiguous` with method ID and safe Turkish message owned by the console.
 - Drawer receives an existing method or null, `canManage`, `busy`, `onSubmit`, and `onClose`.
 
-- [ ] **Step 1: Write failing controller and component behavior tests**
+- [x] **Step 1: Write failing controller and component behavior tests**
 
 Cover new save then activation with the returned version, edit without state mutation, emergency-disabled edit, exact-kind duplicate selection, synchronous double-submit ownership, IBAN normalization before parse, field focus, Escape/close, and read-only controls.
 
@@ -251,21 +251,21 @@ assert.deepEqual(calls, [
 ]);
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `node --experimental-transform-types --test apps/customer-panel/lib/built-in-payment-methods/controller.test.ts apps/customer-panel/lib/payment-settings-console.test.ts`
 
 Expected: FAIL because controller/drawer do not exist.
 
-- [ ] **Step 3: Implement controller and drawer**
+- [x] **Step 3: Implement controller and drawer**
 
 Generate the create method UUID once per owned submit, use the existing API, normalize IBAN only at the input boundary, validate through the shared parser, and clear pending state only after canonical reload ownership returns to the console. Use 48px controls and the existing drawer/focus tokens.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Rerun the focused tests and `npm run typecheck --workspace @celebix/customer-panel`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/customer-panel/lib/built-in-payment-methods apps/customer-panel/components/settings/payment/BuiltInPaymentMethodDrawer.tsx apps/customer-panel/components/settings/payment/payment-settings.module.css apps/customer-panel/lib/payment-settings-console.test.ts apps/customer-panel/package.json
