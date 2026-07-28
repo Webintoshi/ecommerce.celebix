@@ -24,8 +24,15 @@ const REQUIRED = [UP, DOWN, ASSERTIONS];
 const DB = "storefront_one_page_checkout";
 const CLEAN_DOWN_DB = "storefront_one_page_checkout_clean_down";
 const ROLLBACK_DB = "storefront_one_page_checkout_rollback";
+const ROLLBACK_RACE_DB = "storefront_one_page_checkout_rollback_race";
+const SHIPPING_GUARD_DB = "storefront_one_page_checkout_shipping_guard";
 const RACE_DB = "storefront_one_page_checkout_race";
 const PREFLIGHT_DB = "storefront_one_page_checkout_preflight";
+const MAX_PAYLOAD_DB = "storefront_one_page_checkout_max_payload";
+const BODY_TAMPER_DB = "storefront_one_page_checkout_body_tamper";
+const PREFLIGHT_BODY_TAMPER_DB = "storefront_one_page_checkout_preflight_body_tamper";
+const TRIGGER_TAMPER_DB = "storefront_one_page_checkout_trigger_tamper";
+const PERSISTENCE_TAMPER_DB = "storefront_one_page_checkout_persistence_tamper";
 const prior = JSON.parse(readFileSync(path.join(
   SQL,
   "phase3q-quick-order-hosted-payment-bridge-manifest.json",
@@ -192,6 +199,106 @@ async function concurrentUpdate(box, database, statement, applicationName) {
   }
 }
 
+async function waitForDatabaseCondition(client, statement, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const result = await client.query(statement);
+    if (result.rows[0]?.matched === true) return true;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  return false;
+}
+
+async function exerciseConcurrentRollbackWrite(box, database) {
+  const connection = (applicationName) => new Client({
+    host: box.socket,
+    port: box.port,
+    user: "postgres",
+    database,
+    application_name: applicationName,
+  });
+  const blocker = connection("checkout-down-blocker");
+  const rollback = connection("checkout-down-migration");
+  const writer = connection("checkout-down-writer");
+  const monitor = connection("checkout-down-monitor");
+  let blockerOpen = false;
+  let writerOpen = false;
+  try {
+    await Promise.all([blocker.connect(), rollback.connect(), writer.connect(), monitor.connect()]);
+    await blocker.query("BEGIN");
+    blockerOpen = true;
+    await blocker.query("SET LOCAL ROLE celebix_saas_owner");
+    await blocker.query("LOCK TABLE saas.storefront_checkout_operations IN ACCESS SHARE MODE");
+
+    const rollbackPid = Number((await rollback.query("SELECT pg_backend_pid() AS pid")).rows[0].pid);
+    const writerPid = Number((await writer.query("SELECT pg_backend_pid() AS pid")).rows[0].pid);
+    const rollbackPromise = rollback.query(readFileSync(path.join(SQL, DOWN), "utf8"))
+      .then(() => ({ ok: true, error: null }))
+      .catch((error) => ({ ok: false, error }));
+
+    const rollbackLockObserved = await waitForDatabaseCondition(monitor, {
+      text: `SELECT EXISTS(
+        SELECT 1 FROM pg_catalog.pg_locks
+        WHERE pid=$1 AND relation='saas.storefront_checkout_operations'::regclass
+          AND mode='AccessExclusiveLock' AND NOT granted
+      ) AS matched`,
+      values: [rollbackPid],
+    });
+
+    const cartLockObserved = rollbackLockObserved && (await monitor.query({
+      text: `SELECT EXISTS(
+        SELECT 1 FROM pg_catalog.pg_locks
+        WHERE pid=$1 AND relation='saas.abandoned_carts'::regclass
+          AND mode='AccessExclusiveLock' AND granted
+      ) AS matched`,
+      values: [rollbackPid],
+    })).rows[0]?.matched === true;
+
+    let writerPromise = Promise.resolve({ ok: false, error: null });
+    let writerBlocked = false;
+    if (rollbackLockObserved) {
+      await writer.query("BEGIN");
+      writerOpen = true;
+      await writer.query("SET LOCAL ROLE celebix_saas_owner");
+      writerPromise = writer.query(`UPDATE saas.abandoned_carts
+        SET marketing_opt_in=true WHERE id='${CART_A}'`)
+        .then(async () => {
+          await writer.query("COMMIT");
+          writerOpen = false;
+          return { ok: true, error: null };
+        })
+        .catch((error) => ({ ok: false, error }));
+      writerBlocked = await waitForDatabaseCondition(monitor, {
+        text: `SELECT EXISTS(
+          SELECT 1 FROM pg_catalog.pg_locks
+          WHERE pid=$1 AND relation='saas.abandoned_carts'::regclass
+            AND mode='RowExclusiveLock' AND NOT granted
+        ) AS matched`,
+        values: [writerPid],
+      });
+    }
+
+    await blocker.query("COMMIT");
+    blockerOpen = false;
+    const rollbackResult = await rollbackPromise;
+    const writerResult = await writerPromise;
+    if (writerOpen) {
+      await writer.query("ROLLBACK").catch(() => undefined);
+      writerOpen = false;
+    }
+    return { rollbackLockObserved, cartLockObserved, writerBlocked, rollbackResult, writerResult };
+  } finally {
+    if (blockerOpen) await blocker.query("ROLLBACK").catch(() => undefined);
+    if (writerOpen) await writer.query("ROLLBACK").catch(() => undefined);
+    await Promise.all([
+      blocker.end().catch(() => undefined),
+      rollback.end().catch(() => undefined),
+      writer.end().catch(() => undefined),
+      monitor.end().catch(() => undefined),
+    ]);
+  }
+}
+
 function preparePrerequisites(box) {
   sql(box, `CREATE DATABASE ${DB};`, "postgres");
   for (const { file } of prior.migrationChain) apply(box, file);
@@ -295,6 +402,47 @@ function checkoutFixture(box, database = DB) {
     COMMIT;`, database);
 }
 
+function maximumCartFixture(box, database) {
+  sql(box, `BEGIN;
+    SET LOCAL ROLE celebix_saas_owner;
+    SELECT pg_catalog.set_config('saas.inventory.source_marker','catalog_adjustment',true);
+    SELECT pg_catalog.set_config('saas.inventory.source_id','77000000-0000-4000-8000-000000000067',true);
+    SELECT pg_catalog.set_config('saas.inventory.source_time','${NOW}',true);
+    INSERT INTO saas.products(
+      id,store_id,slug,title,description,status,currency,version,
+      archived_at,created_at,updated_at
+    )
+    SELECT
+      ('7a000000-0000-4000-8000-'||pg_catalog.lpad(item::text,12,'0'))::uuid,
+      '${STORE_A}','max-item-'||pg_catalog.lpad(item::text,3,'0'),
+      pg_catalog.repeat('🚀',200),NULL,'active','TRY',1,NULL,
+      '2026-07-28T14:00:00Z','${NOW}'
+    FROM pg_catalog.generate_series(1,99) item;
+    INSERT INTO saas.product_variants(
+      id,product_id,store_id,title,sku,barcode,price_cents,compare_at_cents,cost_cents,
+      stock_tracking,stock_quantity,status,attributes,version,archived_at,created_at,updated_at
+    )
+    SELECT
+      ('7b000000-0000-4000-8000-'||pg_catalog.lpad(item::text,12,'0'))::uuid,
+      ('7a000000-0000-4000-8000-'||pg_catalog.lpad(item::text,12,'0'))::uuid,
+      '${STORE_A}',pg_catalog.repeat('🧿',200),'MAXITEM-'||pg_catalog.lpad(item::text,3,'0'),
+      NULL,100,NULL,NULL,true,5,'active','{}',1,NULL,'2026-07-28T14:00:00Z','${NOW}'
+    FROM pg_catalog.generate_series(1,99) item;
+    INSERT INTO saas.abandoned_cart_items(
+      id,store_id,cart_id,product_id,variant_id,position,product_name,variant_name,sku,
+      image_url,unit_price_cents,quantity,discount_cents,line_total_cents,created_at
+    )
+    SELECT
+      ('7c000000-0000-4000-8000-'||pg_catalog.lpad(item::text,12,'0'))::uuid,
+      '${STORE_A}','${CART_A}',
+      ('7a000000-0000-4000-8000-'||pg_catalog.lpad(item::text,12,'0'))::uuid,
+      ('7b000000-0000-4000-8000-'||pg_catalog.lpad(item::text,12,'0'))::uuid,
+      item,pg_catalog.repeat('🚀',200),pg_catalog.repeat('🧿',200),
+      'MAXITEM-'||pg_catalog.lpad(item::text,3,'0'),NULL,100,1,0,100,'${NOW}'
+    FROM pg_catalog.generate_series(1,99) item;
+    COMMIT;`, database);
+}
+
 async function main() {
   for (const file of REQUIRED) {
     assert.equal(existsSync(path.join(SQL, file)), true, `migration 064 artifact missing: ${file}`);
@@ -308,6 +456,50 @@ async function main() {
     apply(box, UP);
     checkoutFixture(box);
     apply(box, ASSERTIONS);
+
+    sql(box, `CREATE DATABASE ${MAX_PAYLOAD_DB} TEMPLATE ${DB};`, "postgres");
+    maximumCartFixture(box, MAX_PAYLOAD_DB);
+    const maximumQuote = quote(box, HOST_A, CART_A_DIGEST, MAX_PAYLOAD_DB);
+    assert.equal(maximumQuote.outcome, "found");
+    assert.equal(maximumQuote.payload.items.length, 100);
+    assert.equal(Number(sql(box, `SET ROLE celebix_saas_app;
+      SELECT pg_catalog.pg_column_size(result_payload)
+      FROM saas.storefront_checkout_get_quote(
+        '${HOST_A}','${CART_A_DIGEST}','${NOW}'::timestamptz
+      );`, MAX_PAYLOAD_DB).stdout.trim()) > 65_536, true,
+    "the maximum valid multibyte cart must exercise a replay larger than the old cap");
+    const maximumIssued = call(box, `SELECT outcome,result_payload
+      FROM saas.storefront_checkout_issue_nonce(
+        '${HOST_A}','${CART_A_DIGEST}','${NONCE_1}','${NOW}'::timestamptz
+      )`, MAX_PAYLOAD_DB);
+    assert.equal(maximumIssued.outcome, "issued");
+    const maximumOperationId = "80000000-0000-4000-8000-000000000074";
+    const maximumFingerprint = "d".repeat(64);
+    const maximumUpdateCommand = sql(box, `SET ROLE celebix_saas_app; ${updateCall({
+      expectedVersion: 2,
+      operationId: maximumOperationId,
+      fingerprint: maximumFingerprint,
+      currentNonce: NONCE_1,
+      nextNonce: NONCE_2,
+    })};`, MAX_PAYLOAD_DB, true);
+    assert.equal(maximumUpdateCommand.status, 0,
+      `maximum valid delivery update must stay finite, not throw: ${maximumUpdateCommand.stderr}`);
+    const maximumSeparator = maximumUpdateCommand.stdout.trim().indexOf("|");
+    const maximumUpdated = {
+      outcome: maximumUpdateCommand.stdout.trim().slice(0, maximumSeparator),
+      payload: JSON.parse(maximumUpdateCommand.stdout.trim().slice(maximumSeparator + 1)),
+    };
+    assert.equal(maximumUpdated.outcome, "updated");
+    const maximumReplay = call(box, updateCall({
+      expectedVersion: 2,
+      operationId: maximumOperationId,
+      fingerprint: maximumFingerprint,
+      currentNonce: NONCE_1,
+      nextNonce: NONCE_2,
+    }), MAX_PAYLOAD_DB);
+    assert.equal(maximumReplay.outcome, "operation_replayed");
+    assert.deepEqual(maximumReplay.payload, maximumUpdated.payload,
+      "a maximum valid multibyte cart must replay the exact canonical projection");
 
     const initial = quote(box);
     assert.equal(initial.outcome, "found");
@@ -627,6 +819,79 @@ async function main() {
     assert.deepEqual(Object.keys(policy.payload).sort(), ["body", "effectiveAt", "label", "policyType"]);
 
     assert.equal(sql(box, `SET ROLE celebix_saas_app; SELECT saas.storefront_checkout_preflight();`).stdout.trim(), "t");
+    sql(box, `CREATE DATABASE ${BODY_TAMPER_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `SET ROLE celebix_saas_owner;
+      CREATE OR REPLACE FUNCTION saas.storefront_checkout_get_quote(
+        p_hostname text,p_credential_digest text,p_now timestamptz
+      ) RETURNS TABLE(outcome text,result_payload jsonb)
+      LANGUAGE plpgsql STABLE SECURITY DEFINER
+      SET search_path=pg_catalog,saas
+      AS $body$ BEGIN
+        RETURN QUERY SELECT 'found'::text,'{}'::jsonb;
+      END $body$;`, BODY_TAMPER_DB);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, BODY_TAMPER_DB).stdout.trim(), "f",
+      "preflight must reject a public checkout function with constant-body drift");
+    const tamperedQuoteHash = sql(box, `SELECT pg_catalog.md5(prosrc)
+      FROM pg_catalog.pg_proc
+      WHERE oid='saas.storefront_checkout_get_quote(text,text,timestamp with time zone)'::regprocedure;`, BODY_TAMPER_DB).stdout.trim();
+    assert.notEqual(apply(box, UP, BODY_TAMPER_DB, true).status, 0,
+      "reapply over body drift must fail closed");
+    assert.equal(sql(box, `SELECT pg_catalog.md5(prosrc)
+      FROM pg_catalog.pg_proc
+      WHERE oid='saas.storefront_checkout_get_quote(text,text,timestamp with time zone)'::regprocedure;`, BODY_TAMPER_DB).stdout.trim(), tamperedQuoteHash,
+    "failed reapply must preserve the existing state transactionally");
+    assert.notEqual(apply(box, ASSERTIONS, BODY_TAMPER_DB, true).status, 0,
+      "assertions must independently reject public function body drift");
+
+    sql(box, `CREATE DATABASE ${PREFLIGHT_BODY_TAMPER_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `SET ROLE celebix_saas_owner;
+      CREATE OR REPLACE FUNCTION saas.storefront_checkout_preflight()
+      RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+      SET search_path=pg_catalog,saas
+      AS $body$ BEGIN RETURN true; END $body$;`, PREFLIGHT_BODY_TAMPER_DB);
+    const selfBodyAssertions = apply(box, ASSERTIONS, PREFLIGHT_BODY_TAMPER_DB, true);
+    assert.notEqual(selfBodyAssertions.status, 0,
+      "assertions must fingerprint the preflight body instead of trusting a constant true");
+    assert.match(selfBodyAssertions.stderr, /STOREFRONT_CHECKOUT_ASSERT_FUNCTION_BODY_INVALID/);
+    sql(box, `SET session_replication_role=replica;
+      DELETE FROM saas.storefront_checkout_operations;
+      UPDATE saas.orders SET storefront_cart_id=NULL WHERE storefront_cart_id IS NOT NULL;
+      UPDATE saas.abandoned_carts SET
+        marketing_opt_in=false,shipping_address=NULL,billing_address=NULL,
+        shipping_method_code=NULL,shipping_cents=0,discount_record_id=NULL,
+        discount_code=NULL,discount_cents=0,total_cents=subtotal_cents,
+        checkout_nonce_digest=NULL,selected_payment_method_id=NULL;
+      UPDATE saas.merchant_admin_records SET config=config-'flatRateCents'
+      WHERE record_kind='shipping_setting' AND config?'flatRateCents';
+      SET session_replication_role=origin;`, PREFLIGHT_BODY_TAMPER_DB);
+    const tamperedPreflightDown = apply(box, DOWN, PREFLIGHT_BODY_TAMPER_DB, true);
+    assert.notEqual(tamperedPreflightDown.status, 0,
+      "down must independently reject a constant-true preflight body");
+    assert.match(tamperedPreflightDown.stderr, /STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID/);
+    assert.equal(sql(box, `SELECT pg_catalog.to_regclass(
+      'saas.storefront_checkout_operations'
+    ) IS NOT NULL;`, PREFLIGHT_BODY_TAMPER_DB).stdout.trim(), "t",
+    "a refused down over preflight drift must preserve migration 064 transactionally");
+
+    sql(box, `CREATE DATABASE ${TRIGGER_TAMPER_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `SET ROLE celebix_saas_owner;
+      DROP TRIGGER storefront_checkout_operations_immutable
+        ON saas.storefront_checkout_operations;
+      CREATE TRIGGER storefront_checkout_operations_immutable
+        BEFORE UPDATE ON saas.storefront_checkout_operations
+        FOR EACH ROW EXECUTE FUNCTION saas.guard_storefront_checkout_operation_mutation();`, TRIGGER_TAMPER_DB);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, TRIGGER_TAMPER_DB).stdout.trim(), "f",
+      "preflight must reject incomplete immutable-trigger event shape");
+    assert.notEqual(apply(box, ASSERTIONS, TRIGGER_TAMPER_DB, true).status, 0,
+      "assertions must attest the exact immutable-trigger shape");
+
+    sql(box, `CREATE DATABASE ${PERSISTENCE_TAMPER_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `SET ROLE celebix_saas_owner;
+      ALTER TABLE saas.storefront_checkout_operations SET UNLOGGED;`, PERSISTENCE_TAMPER_DB);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, PERSISTENCE_TAMPER_DB).stdout.trim(), "f",
+      "preflight must reject an unlogged durable operation relation");
+    assert.notEqual(apply(box, ASSERTIONS, PERSISTENCE_TAMPER_DB, true).status, 0,
+      "assertions must attest durable relation kind and persistence");
 
     sql(box, `CREATE DATABASE ${PREFLIGHT_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `SET ROLE celebix_saas_owner;
@@ -676,6 +941,12 @@ async function main() {
     assert.equal(sql(box, `SELECT pg_catalog.to_regclass('saas.storefront_checkout_operations') IS NULL
       AND pg_catalog.to_regprocedure('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)') IS NULL
       AND NOT saas.merchant_admin_config_valid('shipping_setting','{"flatRateCents":2500}'::jsonb);`, CLEAN_DOWN_DB).stdout.trim(), "t");
+    apply(box, UP, CLEAN_DOWN_DB);
+    apply(box, ASSERTIONS, CLEAN_DOWN_DB);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, CLEAN_DOWN_DB).stdout.trim(), "t",
+      "migration 064 must reapply cleanly after its guarded down migration");
+    apply(box, DOWN, CLEAN_DOWN_DB);
+    apply(box, "202607280063_payment_provider_builtin_compatibility_assertions.sql", CLEAN_DOWN_DB);
 
     sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `SET session_replication_role=replica;
@@ -689,6 +960,31 @@ async function main() {
       WHERE id='${CART_A}';
       SET session_replication_role=origin;`, ROLLBACK_DB);
     assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, ROLLBACK_DB).stdout.trim(), "t");
+
+    sql(box, `CREATE DATABASE ${SHIPPING_GUARD_DB} TEMPLATE ${ROLLBACK_DB};`, "postgres");
+    const shippingConfigDown = apply(box, DOWN, SHIPPING_GUARD_DB, true);
+    assert.notEqual(shippingConfigDown.status, 0,
+      "rollback must refuse durable shipping settings that use flatRateCents");
+    assert.match(shippingConfigDown.stderr, /STOREFRONT_CHECKOUT_DOWN_GUARD: flatRateCents/);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, SHIPPING_GUARD_DB).stdout.trim(), "t",
+      "a refused shipping rollback must preserve migration 064 transactionally");
+    sql(box, `SET ROLE celebix_saas_owner;
+      UPDATE saas.merchant_admin_records SET config=config-'flatRateCents'
+      WHERE record_kind='shipping_setting' AND config?'flatRateCents';`, ROLLBACK_DB);
+
+    sql(box, `CREATE DATABASE ${ROLLBACK_RACE_DB} TEMPLATE ${ROLLBACK_DB};`, "postgres");
+    const rollbackRace = await exerciseConcurrentRollbackWrite(box, ROLLBACK_RACE_DB);
+    assert.equal(rollbackRace.rollbackLockObserved, true,
+      "test must pause rollback on the guarded operations relation");
+    assert.equal(rollbackRace.cartLockObserved, true,
+      "down must lock carts before waiting on the next guarded durable relation");
+    assert.equal(rollbackRace.writerBlocked, true,
+      "a checkout write starting after rollback locks must block behind rollback");
+    assert.equal(rollbackRace.rollbackResult.ok, true,
+      rollbackRace.rollbackResult.error?.message ?? "guarded rollback must complete cleanly");
+    assert.equal(rollbackRace.writerResult.ok, false,
+      "the blocked writer must not commit state into columns removed by rollback");
+    assert.match(rollbackRace.writerResult.error?.message ?? "", /marketing_opt_in|does not exist/);
 
     sql(box, `SET ROLE celebix_saas_owner;
       UPDATE saas.abandoned_carts SET marketing_opt_in=true WHERE id='${CART_A}';`, ROLLBACK_DB);

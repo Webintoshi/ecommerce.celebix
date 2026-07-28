@@ -739,7 +739,6 @@ CREATE TABLE saas.storefront_checkout_operations(
   ),
   CONSTRAINT storefront_checkout_operations_result_check CHECK (
     pg_catalog.jsonb_typeof(result_payload)='object'
-    AND pg_catalog.pg_column_size(result_payload)<=65536
   ),
   CONSTRAINT storefront_checkout_operations_committed_check CHECK (
     pg_catalog.isfinite(committed_at)
@@ -1136,6 +1135,7 @@ DECLARE
   app_oid oid:='celebix_saas_app'::regrole;
   workflow_oid oid:='celebix_saas_workflow'::regrole;
   signature text;
+  expected_hash text;
   expected_volatility "char";
   expected_language text;
   expected_security_definer boolean;
@@ -1221,7 +1221,7 @@ BEGIN
       ('saas.storefront_checkout_operations','storefront_checkout_operations_fingerprint_check','c',
        'CHECK ((fingerprint ~ ''^[a-f0-9]{64}$''::text))'),
       ('saas.storefront_checkout_operations','storefront_checkout_operations_result_check','c',
-       'CHECK (((jsonb_typeof(result_payload) = ''object''::text) AND (pg_column_size(result_payload) <= 65536)))'),
+       'CHECK ((jsonb_typeof(result_payload) = ''object''::text))'),
       ('saas.storefront_checkout_operations','storefront_checkout_operations_committed_check','c',
        'CHECK (isfinite(committed_at))')
     ) expected(relation_name,constraint_name,constraint_type,constraint_definition)
@@ -1233,9 +1233,22 @@ BEGIN
       OR pg_catalog.pg_get_constraintdef(constraint_info.oid)<>expected.constraint_definition
   ) THEN RETURN false; END IF;
 
+  IF EXISTS(
+    SELECT 1 FROM (VALUES
+      ('saas.abandoned_carts'),
+      ('saas.merchant_admin_records'),
+      ('saas.storefront_checkout_operations'),
+      ('saas.orders')
+    ) expected(relation_name)
+    LEFT JOIN pg_catalog.pg_class relation
+      ON relation.oid=expected.relation_name::pg_catalog.regclass
+    WHERE relation.oid IS NULL OR relation.relkind<>'r' OR relation.relpersistence<>'p'
+  ) THEN RETURN false; END IF;
+
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_class relation
     WHERE relation.oid='saas.storefront_checkout_operations'::regclass
+      AND relation.relkind='r' AND relation.relpersistence='p'
       AND relation.relowner=owner_oid AND relation.relrowsecurity
       AND relation.relforcerowsecurity
       AND (
@@ -1256,6 +1269,10 @@ BEGIN
       AND tgname='storefront_checkout_operations_immutable'
       AND tgenabled='O' AND NOT tgisinternal
       AND tgfoid='saas.guard_storefront_checkout_operation_mutation()'::regprocedure
+      AND tgtype=27 AND tgnargs=0 AND tgqual IS NULL
+      AND tgconstraint=0 AND tgconstrrelid=0
+      AND NOT tgdeferrable AND NOT tginitdeferred
+      AND tgoldtable IS NULL AND tgnewtable IS NULL
   ) THEN RETURN false; END IF;
 
   IF NOT pg_catalog.has_table_privilege(
@@ -1274,21 +1291,21 @@ BEGIN
     )
   THEN RETURN false; END IF;
 
-  FOR signature,expected_volatility,expected_language,
+  FOR signature,expected_hash,expected_volatility,expected_language,
       expected_security_definer,expected_strict IN SELECT * FROM (VALUES
-    ('saas.storefront_checkout_text_valid(text,integer,integer)','i'::"char",'sql',false,false),
-    ('saas.storefront_checkout_address_valid(jsonb)','i'::"char",'plpgsql',false,false),
-    ('saas.storefront_checkout_hostname_valid(text)','i'::"char",'sql',false,false),
-    ('saas.storefront_checkout_discount_value(jsonb,bigint,bigint)','i'::"char",'plpgsql',false,false),
-    ('saas.storefront_checkout_policy_effective_at(jsonb)','i'::"char",'plpgsql',false,false),
-    ('saas.storefront_checkout_builtin_method_projection(uuid,text,text,jsonb)','i'::"char",'sql',false,false),
-    ('saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamp with time zone)','s'::"char",'plpgsql',false,false),
-    ('saas.guard_storefront_checkout_operation_mutation()','v'::"char",'plpgsql',false,false),
-    ('saas.merchant_admin_config_valid(text,jsonb)','i'::"char",'sql',false,true),
-    ('saas.merchant_admin_config_valid_without_checkout_flat_rate(text,jsonb)','i'::"char",'sql',false,true),
-    ('saas.abandoned_cart_capture_store(text,timestamp with time zone)','s'::"char",'sql',true,false)
+    ('saas.storefront_checkout_text_valid(text,integer,integer)','6e5a94197cf08513e6d1b3f6fc66f240','i'::"char",'sql',false,false),
+    ('saas.storefront_checkout_address_valid(jsonb)','95bc687f74f5e21728e88a2d21702561','i'::"char",'plpgsql',false,false),
+    ('saas.storefront_checkout_hostname_valid(text)','c45b944e836d587f40d229497918d272','i'::"char",'sql',false,false),
+    ('saas.storefront_checkout_discount_value(jsonb,bigint,bigint)','79cda9d8c306660d2bffad8031743886','i'::"char",'plpgsql',false,false),
+    ('saas.storefront_checkout_policy_effective_at(jsonb)','5003a939d535c64b6fae689864657385','i'::"char",'plpgsql',false,false),
+    ('saas.storefront_checkout_builtin_method_projection(uuid,text,text,jsonb)','8666c8906b07f18f9a282eba199951e0','i'::"char",'sql',false,false),
+    ('saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamp with time zone)','353f592ec53a3b9f2ddcb56f30640229','s'::"char",'plpgsql',false,false),
+    ('saas.guard_storefront_checkout_operation_mutation()','b82fe65c8b62c247ca772213f0a9ddf5','v'::"char",'plpgsql',false,false),
+    ('saas.merchant_admin_config_valid(text,jsonb)','92fac9712cf88f9da42f326579611763','i'::"char",'sql',false,true),
+    ('saas.merchant_admin_config_valid_without_checkout_flat_rate(text,jsonb)','18ffaa56eab1e91c53531405780836c6','i'::"char",'sql',false,true),
+    ('saas.abandoned_cart_capture_store(text,timestamp with time zone)','2885f205f0901b662efd76c11cd23dbd','s'::"char",'sql',true,false)
   ) expected(
-    signature,expected_volatility,expected_language,
+    signature,expected_hash,expected_volatility,expected_language,
     expected_security_definer,expected_strict
   ) LOOP
     procedure_oid:=pg_catalog.to_regprocedure(signature);
@@ -1302,6 +1319,7 @@ BEGIN
           SELECT oid FROM pg_catalog.pg_language WHERE lanname=expected_language
         )
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+        AND pg_catalog.md5(procedure.prosrc)=expected_hash
     ) OR NOT pg_catalog.has_function_privilege(owner_oid,procedure_oid,'EXECUTE')
       OR EXISTS(
         SELECT 1 FROM pg_catalog.pg_proc procedure
@@ -1316,15 +1334,15 @@ BEGIN
     THEN RETURN false; END IF;
   END LOOP;
 
-  FOR signature,expected_volatility,allowed_workflow IN SELECT * FROM (VALUES
-    ('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)','s'::"char",false),
-    ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','v'::"char",false),
-    ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','v'::"char",false),
-    ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','s'::"char",false),
-    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','s'::"char",false),
-    ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','s'::"char",false),
-    ('saas.storefront_checkout_preflight()','s'::"char",true)
-  ) expected(signature,expected_volatility,allowed_workflow) LOOP
+  FOR signature,expected_hash,expected_volatility,allowed_workflow IN SELECT * FROM (VALUES
+    ('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)','55a13b99a537cae6df50f09ca2994ebe','s'::"char",false),
+    ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1','v'::"char",false),
+    ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char",false),
+    ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char",false),
+    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','3c1f0c4ac10435bd53275d6891df7362','s'::"char",false),
+    ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1','s'::"char",false),
+    ('saas.storefront_checkout_preflight()',NULL::text,'s'::"char",true)
+  ) expected(signature,expected_hash,expected_volatility,allowed_workflow) LOOP
     procedure_oid:=pg_catalog.to_regprocedure(signature);
     IF procedure_oid IS NULL OR NOT EXISTS(
       SELECT 1 FROM pg_catalog.pg_proc procedure
@@ -1334,6 +1352,7 @@ BEGIN
         AND procedure.provolatile=expected_volatility
         AND procedure.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+        AND (expected_hash IS NULL OR pg_catalog.md5(procedure.prosrc)=expected_hash)
     ) OR NOT pg_catalog.has_function_privilege(owner_oid,procedure_oid,'EXECUTE')
       OR NOT pg_catalog.has_function_privilege(app_oid,procedure_oid,'EXECUTE')
       OR (allowed_workflow<>pg_catalog.has_function_privilege(workflow_oid,procedure_oid,'EXECUTE'))

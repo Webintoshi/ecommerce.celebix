@@ -9,11 +9,33 @@ DECLARE bridge_name text;
 BEGIN
   IF pg_catalog.to_regclass('saas.storefront_checkout_operations') IS NULL
     OR pg_catalog.to_regprocedure('saas.storefront_checkout_preflight()') IS NULL
-    OR saas.storefront_checkout_preflight() IS DISTINCT FROM true
     OR pg_catalog.to_regprocedure(
       'saas.merchant_admin_config_valid_without_checkout_flat_rate(text,jsonb)'
     ) IS NULL
   THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID'; END IF;
+
+  -- Match checkout's cart-first mutation order and take every write-excluding
+  -- relation lock before evaluating any durable-state rollback guard.
+  LOCK TABLE saas.abandoned_carts IN ACCESS EXCLUSIVE MODE;
+  LOCK TABLE saas.merchant_admin_records IN ACCESS EXCLUSIVE MODE;
+  LOCK TABLE saas.storefront_checkout_operations IN ACCESS EXCLUSIVE MODE;
+  LOCK TABLE saas.orders IN ACCESS EXCLUSIVE MODE;
+
+  IF NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_proc procedure
+    WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
+      AND pg_catalog.md5(procedure.prosrc)='d67f19fed4ec0c2075d43932f6b4457f'
+  ) OR saas.storefront_checkout_preflight() IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID';
+  END IF;
+
+  IF EXISTS(
+    SELECT 1 FROM saas.merchant_admin_records setting
+    WHERE setting.record_kind='shipping_setting'
+      AND setting.config?'flatRateCents'
+  ) THEN
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_GUARD: flatRateCents shipping configuration exists';
+  END IF;
 
   IF EXISTS(
     SELECT 1 FROM saas.abandoned_carts cart
@@ -32,6 +54,9 @@ BEGIN
     'saas.storefront_checkout_payment_bridges'
   ] LOOP
     IF pg_catalog.to_regclass(bridge_name) IS NOT NULL THEN
+      EXECUTE pg_catalog.format(
+        'LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',bridge_name
+      );
       RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_GUARD: checkout bridge exists: %',bridge_name;
     END IF;
   END LOOP;

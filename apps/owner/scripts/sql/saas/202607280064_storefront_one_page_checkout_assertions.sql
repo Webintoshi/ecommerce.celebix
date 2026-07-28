@@ -9,8 +9,16 @@ DECLARE
   app_oid oid:='celebix_saas_app'::regrole;
   workflow_oid oid:='celebix_saas_workflow'::regrole;
   signature text;
+  expected_hash text;
   procedure_oid oid;
 BEGIN
+  IF NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_proc procedure
+    WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
+      AND pg_catalog.md5(procedure.prosrc)='d67f19fed4ec0c2075d43932f6b4457f'
+  ) THEN
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_FUNCTION_BODY_INVALID: preflight';
+  END IF;
   IF saas.storefront_checkout_preflight() IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_PREFLIGHT_INVALID';
   END IF;
@@ -62,19 +70,32 @@ BEGIN
   )<>7 OR NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_class relation
     WHERE relation.oid='saas.storefront_checkout_operations'::regclass
+      AND relation.relkind='r' AND relation.relpersistence='p'
       AND relation.relowner=owner_oid AND relation.relrowsecurity
       AND relation.relforcerowsecurity
+  ) OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_trigger trigger_info
+    WHERE trigger_info.tgrelid='saas.storefront_checkout_operations'::regclass
+      AND trigger_info.tgname='storefront_checkout_operations_immutable'
+      AND trigger_info.tgfoid=
+        'saas.guard_storefront_checkout_operation_mutation()'::regprocedure
+      AND trigger_info.tgtype=27 AND trigger_info.tgenabled='O'
+      AND NOT trigger_info.tgisinternal AND trigger_info.tgnargs=0
+      AND trigger_info.tgqual IS NULL AND trigger_info.tgconstraint=0
+      AND trigger_info.tgconstrrelid=0 AND NOT trigger_info.tgdeferrable
+      AND NOT trigger_info.tginitdeferred
+      AND trigger_info.tgoldtable IS NULL AND trigger_info.tgnewtable IS NULL
   ) THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_OPERATION_TABLE_INVALID'; END IF;
 
-  FOR signature IN SELECT pg_catalog.unnest(ARRAY[
-    'saas.storefront_checkout_get_quote(text,text,timestamp with time zone)',
-    'saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)',
-    'saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)',
-    'saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)',
-    'saas.storefront_checkout_get_status(text,text,timestamp with time zone)',
-    'saas.storefront_checkout_get_policy(text,text,timestamp with time zone)',
-    'saas.storefront_checkout_preflight()'
-  ]) LOOP
+  FOR signature,expected_hash IN SELECT * FROM (VALUES
+    ('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)','55a13b99a537cae6df50f09ca2994ebe'),
+    ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1'),
+    ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3'),
+    ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121'),
+    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','3c1f0c4ac10435bd53275d6891df7362'),
+    ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1'),
+    ('saas.storefront_checkout_preflight()','d67f19fed4ec0c2075d43932f6b4457f')
+  ) expected(signature,expected_hash) LOOP
     procedure_oid:=signature::regprocedure;
     IF NOT EXISTS(
       SELECT 1 FROM pg_catalog.pg_proc procedure
@@ -82,6 +103,7 @@ BEGIN
         AND procedure.prosecdef AND NOT procedure.proleakproof
         AND procedure.proparallel='u'
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+        AND pg_catalog.md5(procedure.prosrc)=expected_hash
     ) OR NOT pg_catalog.has_function_privilege(app_oid,procedure_oid,'EXECUTE')
       OR (signature<>'saas.storefront_checkout_preflight()'
         AND pg_catalog.has_function_privilege(workflow_oid,procedure_oid,'EXECUTE'))
