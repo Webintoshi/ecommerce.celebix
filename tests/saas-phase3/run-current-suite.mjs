@@ -99,6 +99,12 @@ const requiredHarnesses = Object.freeze([
     line: /^PASS \d+\/24 .+$/gm,
     completion: /^PASS 061 PostgreSQL harness \(24\/24\)$/m,
   }),
+  Object.freeze({
+    file: "tests/saas-phase3/built-in-payment-methods/postgres-harness.mjs",
+    total: 13,
+    line: /^PASS \d+\/13 .+$/gm,
+    completion: /^PASS 13\/13 .+$/m,
+  }),
 ]);
 const gateRank = Object.freeze({
   "provider-execution-foundation": 0,
@@ -113,6 +119,7 @@ const gateRank = Object.freeze({
   "payment-method-single-active-provider": 9,
   "iyzico-iframe-tenant-sandbox-evidence": 10,
   "iyzico-iframe-tenant-activation-runtime": 11,
+  "built-in-payment-methods": 12,
 });
 const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/payment-adapter-runtime/evidence-artifact.test.mjs",
