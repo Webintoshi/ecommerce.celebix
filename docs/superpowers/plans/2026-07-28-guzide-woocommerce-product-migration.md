@@ -27,47 +27,46 @@
 **Files:**
 - Create: `apps/customer-panel/lib/catalog-import/woocommerce-migration.ts`
 - Create: `apps/customer-panel/lib/catalog-import/woocommerce-migration.test.ts`
-- Modify: `apps/customer-panel/lib/catalog-import/providers.ts:1-500`
-- Modify: `apps/customer-panel/lib/catalog-import/providers.test.ts:1-180`
+- Verify: `apps/customer-panel/lib/catalog-import/providers.test.ts:1-180`
 
 **Interfaces:**
-- Produces `compileWooCommerceMigration(source: string): WooCommerceMigrationManifest`.
+- Produces `compileWooCommerceMigration(source: string): Promise<WooCommerceMigrationManifest>` and uses browser-compatible Web Crypto SHA-256.
 - `WooCommerceMigrationManifest` is frozen and contains `sourceDigest`, `products`, `categories`, `brands`, `batches`, `mediaCount`, and finite warning counts.
-- Each product contains `sourceProductId`, deterministic `slug`, plain/Markdown-safe description, `categorySlugs`, optional `brandSlug`, one or more canonical variants, optional gram weight, and ordered canonical HTTPS `sourceImages`.
+- Each product contains `sourceProductId`, deterministic `slug`, plain/Markdown-safe description, `categorySlugs`, ordered `brandSlugs`, one or more canonical variants, optional gram weight, and ordered canonical HTTPS `sourceImages`.
 
-- [ ] **Step 1: Write failing localized-export tests**
+- [x] **Step 1: Write failing localized-export tests**
 
 ```ts
 test("compiles localized WooCommerce rows without losing gram weight or image order", () => {
-  const manifest = compileWooCommerceMigration(LOCALIZED_WOO_CSV);
+  const manifest = await compileWooCommerceMigration(LOCALIZED_WOO_CSV);
   assert.deepEqual(manifest.products[0], {
     sourceProductId: "30794",
     title: "14 Ayar Altın Ortası Taşlı Yüzük 1090",
     slug: "14-ayar-altin-ortasi-tasli-yuzuk-1090",
     status: "active",
     categorySlugs: ["tasli-yuzukler", "yuzukler"],
-    brandSlug: "guzide-kuyumcu",
+    brandSlugs: ["guzide-kuyumcu"],
     variants: [{ title: "Varsayılan", sku: "YZK-1090", barcode: "100000014581", priceCents: 1127100, stockQuantity: 1, attributes: { "Ağırlık (g)": "2.35" } }],
     sourceImages: ["https://guzidekuyumcu.com.tr/wp-content/uploads/front.png", "https://guzidekuyumcu.com.tr/wp-content/uploads/side.jpg"],
   });
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run: `node --experimental-transform-types --test apps/customer-panel/lib/catalog-import/woocommerce-migration.test.ts`
 
 Expected: FAIL because `woocommerce-migration.ts` does not exist.
 
-- [ ] **Step 3: Implement strict compiler**
+- [x] **Step 3: Implement strict compiler**
 
 Implement exact localized/English WooCommerce header aliases, a 4 MiB/2,500-row bound, strict CSV quoting, source-ID validation, deterministic duplicate-title slug suffixing with the source ID, TRY money parsing, nonnegative stock, safe HTML-to-text Markdown, category/brand slugging, gram decimal validation, canonical HTTPS image validation, per-product 16-image bound and manifest SHA-256.
 
-- [ ] **Step 4: Add negative fixtures**
+- [x] **Step 4: Add negative fixtures**
 
 Reject duplicate source IDs/SKUs/barcodes, control characters, malformed quotes, non-HTTPS or credential-bearing images, more than 16 images, oversized inputs, non-simple rows in this first Güzide delivery, unsafe monetary values and invalid gram quantities. Missing prices become draft products with price 0 and the exact warning `missing_price_drafted`; missing images remain truthful with `missing_image`.
 
-- [ ] **Step 5: Run GREEN and existing provider regressions**
+- [x] **Step 5: Run GREEN and existing provider regressions**
 
 Run:
 
@@ -76,7 +75,7 @@ node --experimental-transform-types --test apps/customer-panel/lib/catalog-impor
 node --experimental-transform-types --test apps/customer-panel/lib/catalog-import/providers.test.ts
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/customer-panel/lib/catalog-import/woocommerce-migration.ts apps/customer-panel/lib/catalog-import/woocommerce-migration.test.ts apps/customer-panel/lib/catalog-import/providers.ts apps/customer-panel/lib/catalog-import/providers.test.ts
