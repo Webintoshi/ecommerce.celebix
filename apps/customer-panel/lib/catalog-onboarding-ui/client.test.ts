@@ -58,3 +58,47 @@ test("one failed mutation is never retried with a second write", async () => {
   await assert.rejects(() => client.createProduct(quick), (error: unknown) => error instanceof CatalogOnboardingApiError && error.code === "unavailable");
   assert.equal(writes, 1);
 });
+
+test("detail editor loads the complete no-store merchandising projection", async () => {
+  const projection = {
+    product: result().product,
+    variants: [{ variant: result().variants[0], continueSellingWhenOutOfStock: false, inventory: [] }],
+    profile: result().profile,
+    categoryIds: ["73000000-0000-4000-8000-000000000001"],
+    resourceIds: result().resourceIds,
+    channelIds: [],
+    mediaCount: 0,
+  };
+  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const client = createCatalogOnboardingClient({
+    randomUUID: () => OPERATION,
+    async fetch(input, init) { calls.push({ input, init }); return Response.json(projection); },
+  });
+  const loaded = await client.getProductEditor(PRODUCT);
+  assert.deepEqual(loaded.categoryIds, projection.categoryIds);
+  assert.equal(loaded.profile.minimumPurchaseQuantity, 1);
+  assert.equal(calls[0]?.input, `/api/catalog/products/${PRODUCT}/merchandising`);
+  assert.equal(calls[0]?.init?.cache, "no-store");
+  assert.equal(calls[0]?.init?.credentials, "same-origin");
+});
+
+test("category client sends exact CRUD paths and never browser store authority", async () => {
+  const category = { id: "73000000-0000-4000-8000-000000000001", name: "Kupalar", slug: "kupalar", position: 0, depth: 1, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
+  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const replies = [[category], { category, replayed: false }, { category: { ...category, version: 2 }, replayed: false }, { category: { ...category, status: "archived", version: 3, archivedAt: NOW }, replayed: false }];
+  const client = createCatalogOnboardingClient({
+    randomUUID: () => OPERATION,
+    async fetch(input, init) { calls.push({ input, init }); return Response.json(replies[calls.length - 1]); },
+  });
+  await client.listCategories();
+  await client.createCategory({ name: "Kupalar", position: 0 });
+  await client.updateCategory(category.id, { expectedVersion: 1, fields: { name: "Kupa", position: 1 } });
+  await client.archiveCategory(category.id, 2);
+  assert.deepEqual(calls.map(({ input }) => input), [
+    "/api/catalog/onboarding/categories",
+    "/api/catalog/onboarding/categories",
+    `/api/catalog/onboarding/categories/${category.id}`,
+    `/api/catalog/onboarding/categories/${category.id}/archive`,
+  ]);
+  assert.equal(calls.some(({ init }) => String(init?.body).includes("storeId") || String(init?.body).includes("tenantId")), false);
+});

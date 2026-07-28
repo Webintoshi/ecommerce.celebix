@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import type { Product, ProductVariant } from "@celebix/saas-contracts";
+import type { CatalogOnboardingOptions, CatalogProductEditorProjection, Product, ProductVariant } from "@celebix/saas-contracts";
 
 import {
   CatalogApiError,
@@ -11,6 +11,8 @@ import {
 } from "@/lib/catalog-ui/client";
 import { buildProductUpdatePayload, buildVariantPayload } from "@/lib/catalog-ui/forms";
 import { formatTurkishMoney, formatTurkishMoneyInput } from "@/lib/catalog-ui/money";
+import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAdvancedEditor";
+import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
 
 function value(data: FormData, key: string) {
@@ -32,7 +34,7 @@ function variantValues(data: FormData) {
 }
 
 function safeMessage(error: unknown) {
-  return error instanceof CatalogApiError ? error.message : "İşlem tamamlanamadı. Lütfen yeniden deneyin.";
+  return error instanceof CatalogApiError || error instanceof CatalogOnboardingApiError ? error.message : "İşlem tamamlanamadı. Lütfen yeniden deneyin.";
 }
 
 function VariantFields({ variant }: { variant?: ProductVariant }) {
@@ -52,11 +54,13 @@ function VariantFields({ variant }: { variant?: ProductVariant }) {
 
 export function ProductDetailConsole({ productId }: { productId: string }) {
   const [detail, setDetail] = useState<ProductDetailResult>();
+  const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editingProduct, setEditingProduct] = useState(false);
+  const [editingMerchandising, setEditingMerchandising] = useState(false);
   const [creatingVariant, setCreatingVariant] = useState(false);
   const [editingVariant, setEditingVariant] = useState<string>();
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
@@ -70,8 +74,13 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   const load = useCallback(async (conflict = false) => {
     setError("");
     try {
-      const current = await catalogApi.getProduct(productId);
+      const [current, options, editor] = await Promise.all([
+        catalogApi.getProduct(productId),
+        catalogOnboardingClient.getOptions(),
+        catalogOnboardingClient.getProductEditor(productId),
+      ]);
       setDetail(current);
+      setOnboarding(Object.freeze({ options, editor }));
       if (conflict) setNotice("Başka bir güncelleme algılandı. En güncel veriler yeniden yüklendi; değişiklikleriniz gönderilmedi.");
     } catch (failure) {
       setError(safeMessage(failure));
@@ -81,6 +90,21 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   }, [productId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const reloadMerchandising = useCallback(async (close = false) => {
+    setError("");
+    try {
+      const [options, editor] = await Promise.all([
+        catalogOnboardingClient.getOptions(),
+        catalogOnboardingClient.getProductEditor(productId),
+      ]);
+      setOnboarding(Object.freeze({ options, editor }));
+      if (close) {
+        setEditingMerchandising(false);
+        setNotice("Satış ayarları güncellendi.");
+      }
+    } catch (failure) { setError(safeMessage(failure)); }
+  }, [productId]);
 
   const archiveDialogOpen = archiveVariant !== undefined || archiveProduct;
 
@@ -222,6 +246,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
           <p>/{product.slug} · {product.currency}</p>
         </div>
         <div className="heading-actions">
+          <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={onboarding === undefined}>Satış ayarları</button>
           <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}>Ürünü düzenle</button>
           <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}>Arşivle</button>
         </div>
@@ -253,6 +278,17 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
           </div>
         )}
       </section>
+
+      {editingMerchandising && onboarding ? <section aria-label="Ürün satış ayarları">
+        <ProductAdvancedEditor
+          key={onboarding.editor.profile.version}
+          options={onboarding.options}
+          editor={onboarding.editor}
+          onCancel={() => setEditingMerchandising(false)}
+          onUpdated={() => void reloadMerchandising(true)}
+          onConflictReload={() => void reloadMerchandising()}
+        />
+      </section> : null}
 
       <ProductMediaManager productId={productId} />
 

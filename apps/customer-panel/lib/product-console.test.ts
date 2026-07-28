@@ -279,6 +279,19 @@ test("product UI includes safe states and responsive catalog behavior without fa
   assert.doesNotMatch(`${list}\n${detail}`, /placeholder analytics|fake product|image upload/i);
 });
 
+test("product detail composes durable merchandising without overwriting conflicts", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  assert.match(detail, /catalogOnboardingClient[.]getProductEditor/);
+  assert.match(detail, /catalogOnboardingClient[.]getOptions/);
+  assert.match(detail, /ProductAdvancedEditor/);
+  assert.match(editor, /updateMerchandising/);
+  assert.match(editor, /expectedProfileVersion/);
+  assert.match(editor, /version_conflict/);
+  assert.match(editor, /Sunucudaki sürümü yükle/);
+  assert.doesNotMatch(editor, /version_conflict[^]*location[.]reload|version_conflict[^]*onConflictReload\(\)/);
+});
+
 test("merchant shell adopts the Hemenaku visual language without its dedicated authorities", async () => {
   const shell = await source("components/panel/PanelShell.tsx");
   const navigation = await source("components/panel/PanelNavigation.tsx");
