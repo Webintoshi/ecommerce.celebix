@@ -305,6 +305,30 @@ test("unknown duplicate-marker COMMIT fails closed when recovery returns a diffe
   assert.equal(recovery.calls.filter(({ text }) => text.includes("payment_method_recover_operation")).length, 1);
 });
 
+test("unknown duplicate-marker COMMIT normalizes a missing recovered marker to unavailable", async () => {
+  const writer = new Client((text) => {
+    if (text.includes("payment_method_save")) {
+      return [{ outcome: "method_already_exists", result_payload: null }];
+    }
+    if (text === "COMMIT") throw new Error("wire");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("payment_method_recover_operation")
+    ? [{ outcome: "operation_not_found", result_payload: null }]
+    : []);
+
+  await assert.rejects(
+    () => repository(new Pool([writer, recovery])).save(saveInput()),
+    errorCode("unavailable"),
+  );
+
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(writer.calls.filter(({ text }) => text.includes("payment_method_save")).length, 1);
+  assert.equal(writer.calls.filter(({ text }) => text === "ROLLBACK").length, 0);
+  assert.equal(recovery.calls.filter(({ text }) => text.includes("payment_method_recover_operation")).length, 1);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+});
+
 test("explicit recovery is read-only and returns only a validated operation projection", async () => {
   const client = new Client((text) => text.includes("payment_method_recover_operation")
     ? [{ outcome: "operation_replayed", result_payload: reordered(true) }]

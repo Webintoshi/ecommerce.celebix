@@ -261,13 +261,17 @@ export class PostgresPaymentMethodRepository implements PaymentMethodRepository 
     fingerprint: string,
     observed: PaymentMethodErrorCode,
   ): Promise<never> {
-    await this.read({
-      text: "SELECT outcome,result_payload FROM saas.payment_method_recover_operation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",
-      values: [...authorityValues(authority), operationId, fingerprint],
-    }, "operation_replayed", (value) => {
-      const recovered = payload(value, ["outcome", "replayed"]);
-      if (recovered.outcome !== observed || recovered.replayed !== true) throw unavailable();
-    });
+    try {
+      await this.read({
+        text: "SELECT outcome,result_payload FROM saas.payment_method_recover_operation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",
+        values: [...authorityValues(authority), operationId, fingerprint],
+      }, "operation_replayed", (value) => {
+        const recovered = payload(value, ["outcome", "replayed"]);
+        if (recovered.outcome !== observed || recovered.replayed !== true) throw unavailable();
+      });
+    } catch {
+      throw unavailable();
+    }
     throw new PaymentMethodRepositoryError(observed);
   }
 
