@@ -33,6 +33,7 @@ const BODY_TAMPER_DB = "storefront_one_page_checkout_body_tamper";
 const PREFLIGHT_BODY_TAMPER_DB = "storefront_one_page_checkout_preflight_body_tamper";
 const TRIGGER_TAMPER_DB = "storefront_one_page_checkout_trigger_tamper";
 const PERSISTENCE_TAMPER_DB = "storefront_one_page_checkout_persistence_tamper";
+const ROLE_TAMPER_DB = "storefront_one_page_checkout_role_tamper";
 const prior = JSON.parse(readFileSync(path.join(
   SQL,
   "phase3q-quick-order-hosted-payment-bridge-manifest.json",
@@ -140,7 +141,7 @@ function apply(box, file, database = DB, allowFailure = false) {
 }
 
 function call(box, statement, database = DB) {
-  const output = sql(box, `SET ROLE celebix_saas_app; ${statement};`, database).stdout.trim();
+  const output = sql(box, `SET ROLE celebix_saas_workflow; ${statement};`, database).stdout.trim();
   const separator = output.indexOf("|");
   const outcome = separator < 0 ? output : output.slice(0, separator);
   const payloadText = separator < 0 ? "" : output.slice(separator + 1);
@@ -187,7 +188,7 @@ async function concurrentUpdate(box, database, statement, applicationName) {
   await client.connect();
   try {
     await client.query("BEGIN");
-    await client.query("SET LOCAL ROLE celebix_saas_app");
+    await client.query("SET LOCAL ROLE celebix_saas_workflow");
     const result = await client.query(statement);
     await client.query("COMMIT");
     return result.rows[0]?.outcome;
@@ -455,6 +456,69 @@ async function main() {
     sql(box, `CREATE DATABASE ${CLEAN_DOWN_DB} TEMPLATE ${DB};`, "postgres");
     apply(box, UP);
     checkoutFixture(box);
+    const workflowQuote = sql(box, `SET ROLE celebix_saas_workflow;
+      SELECT outcome,result_payload FROM saas.storefront_checkout_get_quote(
+        '${HOST_A}','${CART_A_DIGEST}','${NOW}'::timestamptz
+      );`, DB, true);
+    assert.equal(workflowQuote.status, 0,
+      `the public checkout transaction role must execute quote authority: ${workflowQuote.stderr}`);
+    assert.match(workflowQuote.stdout, /^found\|/);
+    assert.equal(sql(box, `WITH public_function(oid) AS (
+        SELECT pg_catalog.unnest(ARRAY[
+          'saas.storefront_checkout_get_quote(text,text,timestamp with time zone)'::regprocedure,
+          'saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)'::regprocedure,
+          'saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)'::regprocedure,
+          'saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)'::regprocedure,
+          'saas.storefront_checkout_get_status(text,text,timestamp with time zone)'::regprocedure,
+          'saas.storefront_checkout_get_policy(text,text,timestamp with time zone)'::regprocedure,
+          'saas.storefront_checkout_preflight()'::regprocedure
+        ])::oid
+      )
+      SELECT pg_catalog.count(*)=7
+        AND pg_catalog.bool_and(pg_catalog.has_function_privilege(
+          'celebix_saas_workflow',oid,'EXECUTE'
+        ))
+        AND pg_catalog.bool_and(NOT pg_catalog.has_function_privilege(
+          'celebix_saas_app',oid,'EXECUTE'
+        ))
+        AND pg_catalog.bool_and(NOT pg_catalog.has_function_privilege(
+          'public',oid,'EXECUTE'
+        ))
+        AND NOT EXISTS(
+          SELECT 1 FROM public_function checked
+          JOIN pg_catalog.pg_proc procedure ON procedure.oid=checked.oid
+          CROSS JOIN LATERAL pg_catalog.aclexplode(
+            COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))
+          ) privilege
+          WHERE privilege.privilege_type<>'EXECUTE' OR privilege.is_grantable
+            OR privilege.grantor<>'celebix_saas_owner'::regrole
+            OR privilege.grantee NOT IN(
+              'celebix_saas_owner'::regrole,'celebix_saas_workflow'::regrole
+            )
+        )
+      FROM public_function;`).stdout.trim(), "t",
+    "checkout functions must expose the exact owner/workflow-only ACL matrix");
+    const appQuote = sql(box, `SET ROLE celebix_saas_app;
+      SELECT outcome FROM saas.storefront_checkout_get_quote(
+        '${HOST_A}','${CART_A_DIGEST}','${NOW}'::timestamptz
+      );`, DB, true);
+    assert.notEqual(appQuote.status, 0,
+      "the panel app role must not bypass the public workflow repository");
+    assert.match(appQuote.stderr, /permission denied for function storefront_checkout_get_quote/);
+    const appPreflight = sql(box,
+      `SET ROLE celebix_saas_app; SELECT saas.storefront_checkout_preflight();`, DB, true);
+    assert.notEqual(appPreflight.status, 0,
+      "checkout preflight must remain scoped to its operational workflow role");
+    assert.equal(sql(box,
+      `SET ROLE celebix_saas_workflow; SELECT saas.storefront_checkout_preflight();`).stdout.trim(), "t");
+    for (const role of ["celebix_saas_app", "celebix_saas_workflow"]) {
+      const rawRead = sql(box,
+        `SET ROLE ${role}; SELECT count(*) FROM saas.storefront_checkout_operations;`, DB, true);
+      assert.notEqual(rawRead.status, 0, `${role} must not read the checkout operation table`);
+      const rawWrite = sql(box,
+        `SET ROLE ${role}; DELETE FROM saas.storefront_checkout_operations;`, DB, true);
+      assert.notEqual(rawWrite.status, 0, `${role} must not write the checkout operation table`);
+    }
     apply(box, ASSERTIONS);
 
     sql(box, `CREATE DATABASE ${MAX_PAYLOAD_DB} TEMPLATE ${DB};`, "postgres");
@@ -462,7 +526,7 @@ async function main() {
     const maximumQuote = quote(box, HOST_A, CART_A_DIGEST, MAX_PAYLOAD_DB);
     assert.equal(maximumQuote.outcome, "found");
     assert.equal(maximumQuote.payload.items.length, 100);
-    assert.equal(Number(sql(box, `SET ROLE celebix_saas_app;
+    assert.equal(Number(sql(box, `SET ROLE celebix_saas_workflow;
       SELECT pg_catalog.pg_column_size(result_payload)
       FROM saas.storefront_checkout_get_quote(
         '${HOST_A}','${CART_A_DIGEST}','${NOW}'::timestamptz
@@ -475,7 +539,7 @@ async function main() {
     assert.equal(maximumIssued.outcome, "issued");
     const maximumOperationId = "80000000-0000-4000-8000-000000000074";
     const maximumFingerprint = "d".repeat(64);
-    const maximumUpdateCommand = sql(box, `SET ROLE celebix_saas_app; ${updateCall({
+    const maximumUpdateCommand = sql(box, `SET ROLE celebix_saas_workflow; ${updateCall({
       expectedVersion: 2,
       operationId: maximumOperationId,
       fingerprint: maximumFingerprint,
@@ -758,7 +822,7 @@ async function main() {
       UPDATE saas.store_domains SET is_primary=false,updated_at='${NOW}'
       WHERE store_id='${STORE_A}' AND is_primary;
       ALTER TABLE saas.store_domains ENABLE TRIGGER store_domains_authority_guard;
-      SET LOCAL ROLE celebix_saas_app;
+      SET LOCAL ROLE celebix_saas_workflow;
       SELECT pg_catalog.concat_ws('|',
         (SELECT outcome FROM saas.storefront_checkout_get_quote('${HOST_A}','${CART_A_DIGEST}','${NOW}')),
         (SELECT outcome FROM saas.storefront_checkout_issue_nonce('${HOST_A}','${CART_A_DIGEST}','${NONCE_3}','${NOW}')),
@@ -818,7 +882,42 @@ async function main() {
     assert.equal(policy.outcome, "found");
     assert.deepEqual(Object.keys(policy.payload).sort(), ["body", "effectiveAt", "label", "policyType"]);
 
-    assert.equal(sql(box, `SET ROLE celebix_saas_app; SELECT saas.storefront_checkout_preflight();`).stdout.trim(), "t");
+    assert.equal(sql(box, `SET ROLE celebix_saas_workflow; SELECT saas.storefront_checkout_preflight();`).stdout.trim(), "t");
+    sql(box, `CREATE DATABASE ${ROLE_TAMPER_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `SET ROLE celebix_saas_owner;
+      GRANT EXECUTE ON FUNCTION saas.storefront_checkout_get_quote(
+        text,text,timestamp with time zone
+      ) TO celebix_saas_app;`, ROLE_TAMPER_DB);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, ROLE_TAMPER_DB).stdout.trim(), "f",
+      "preflight must reject an app grant on a workflow-only checkout function");
+    assert.notEqual(apply(box, ASSERTIONS, ROLE_TAMPER_DB, true).status, 0,
+      "assertions must reject an app grant on a workflow-only checkout function");
+    sql(box, `SET ROLE celebix_saas_owner;
+      REVOKE EXECUTE ON FUNCTION saas.storefront_checkout_get_quote(
+        text,text,timestamp with time zone
+      ) FROM celebix_saas_app;`, ROLE_TAMPER_DB);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, ROLE_TAMPER_DB).stdout.trim(), "t");
+    sql(box, `SET ROLE celebix_saas_owner;
+      REVOKE EXECUTE ON FUNCTION saas.storefront_checkout_issue_nonce(
+        text,text,text,timestamp with time zone
+      ) FROM celebix_saas_workflow;`, ROLE_TAMPER_DB);
+    const revokedWorkflowIssue = sql(box, `SET ROLE celebix_saas_workflow;
+      SELECT outcome FROM saas.storefront_checkout_issue_nonce(
+        '${HOST_A}','${CART_A_DIGEST}','${"9".repeat(64)}','${NOW}'::timestamptz
+      );`, ROLE_TAMPER_DB, true);
+    assert.notEqual(revokedWorkflowIssue.status, 0,
+      "a revoked workflow grant must deny the real nonce function");
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, ROLE_TAMPER_DB).stdout.trim(), "f",
+      "preflight must reject a missing workflow function grant");
+    assert.notEqual(apply(box, ASSERTIONS, ROLE_TAMPER_DB, true).status, 0,
+      "assertions must reject a missing workflow function grant");
+    sql(box, `SET ROLE celebix_saas_owner;
+      GRANT EXECUTE ON FUNCTION saas.storefront_checkout_issue_nonce(
+        text,text,text,timestamp with time zone
+      ) TO celebix_saas_workflow;`, ROLE_TAMPER_DB);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, ROLE_TAMPER_DB).stdout.trim(), "t");
+    apply(box, ASSERTIONS, ROLE_TAMPER_DB);
+
     sql(box, `CREATE DATABASE ${BODY_TAMPER_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `SET ROLE celebix_saas_owner;
       CREATE OR REPLACE FUNCTION saas.storefront_checkout_get_quote(

@@ -24,7 +24,7 @@ BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='d67f19fed4ec0c2075d43932f6b4457f'
+      AND pg_catalog.md5(procedure.prosrc)='51526d94f3b6d083368e581ba91bc2fb'
   ) OR saas.storefront_checkout_preflight() IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID';
   END IF;

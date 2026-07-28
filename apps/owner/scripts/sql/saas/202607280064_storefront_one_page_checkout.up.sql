@@ -1141,7 +1141,6 @@ DECLARE
   expected_security_definer boolean;
   expected_strict boolean;
   procedure_oid oid;
-  allowed_workflow boolean;
 BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_roles
@@ -1334,15 +1333,15 @@ BEGIN
     THEN RETURN false; END IF;
   END LOOP;
 
-  FOR signature,expected_hash,expected_volatility,allowed_workflow IN SELECT * FROM (VALUES
-    ('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)','55a13b99a537cae6df50f09ca2994ebe','s'::"char",false),
-    ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1','v'::"char",false),
-    ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char",false),
-    ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char",false),
-    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','3c1f0c4ac10435bd53275d6891df7362','s'::"char",false),
-    ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1','s'::"char",false),
-    ('saas.storefront_checkout_preflight()',NULL::text,'s'::"char",true)
-  ) expected(signature,expected_hash,expected_volatility,allowed_workflow) LOOP
+  FOR signature,expected_hash,expected_volatility IN SELECT * FROM (VALUES
+    ('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)','55a13b99a537cae6df50f09ca2994ebe','s'::"char"),
+    ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1','v'::"char"),
+    ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char"),
+    ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char"),
+    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','3c1f0c4ac10435bd53275d6891df7362','s'::"char"),
+    ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1','s'::"char"),
+    ('saas.storefront_checkout_preflight()',NULL::text,'s'::"char")
+  ) expected(signature,expected_hash,expected_volatility) LOOP
     procedure_oid:=pg_catalog.to_regprocedure(signature);
     IF procedure_oid IS NULL OR NOT EXISTS(
       SELECT 1 FROM pg_catalog.pg_proc procedure
@@ -1354,8 +1353,8 @@ BEGIN
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
         AND (expected_hash IS NULL OR pg_catalog.md5(procedure.prosrc)=expected_hash)
     ) OR NOT pg_catalog.has_function_privilege(owner_oid,procedure_oid,'EXECUTE')
-      OR NOT pg_catalog.has_function_privilege(app_oid,procedure_oid,'EXECUTE')
-      OR (allowed_workflow<>pg_catalog.has_function_privilege(workflow_oid,procedure_oid,'EXECUTE'))
+      OR pg_catalog.has_function_privilege(app_oid,procedure_oid,'EXECUTE')
+      OR NOT pg_catalog.has_function_privilege(workflow_oid,procedure_oid,'EXECUTE')
       OR EXISTS(
         SELECT 1 FROM pg_catalog.pg_proc procedure
         CROSS JOIN LATERAL pg_catalog.aclexplode(
@@ -1363,9 +1362,8 @@ BEGIN
         ) privilege
         WHERE procedure.oid=procedure_oid AND (
           privilege.privilege_type<>'EXECUTE' OR privilege.is_grantable
-          OR privilege.grantor<>owner_oid OR privilege.grantee NOT IN(
-            owner_oid,app_oid,CASE WHEN allowed_workflow THEN workflow_oid ELSE owner_oid END
-          )
+          OR privilege.grantor<>owner_oid
+          OR privilege.grantee NOT IN(owner_oid,workflow_oid)
         )
       )
     THEN RETURN false; END IF;
@@ -1424,8 +1422,6 @@ GRANT EXECUTE ON FUNCTION
   saas.storefront_checkout_get_status(text,text,timestamptz),
   saas.storefront_checkout_get_policy(text,text,timestamptz),
   saas.storefront_checkout_preflight()
-TO celebix_saas_app;
-GRANT EXECUTE ON FUNCTION saas.storefront_checkout_preflight()
 TO celebix_saas_workflow;
 
 COMMIT;

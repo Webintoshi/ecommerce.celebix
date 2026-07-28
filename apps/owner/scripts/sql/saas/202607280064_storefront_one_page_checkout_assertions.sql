@@ -15,7 +15,7 @@ BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='d67f19fed4ec0c2075d43932f6b4457f'
+      AND pg_catalog.md5(procedure.prosrc)='51526d94f3b6d083368e581ba91bc2fb'
   ) THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_FUNCTION_BODY_INVALID: preflight';
   END IF;
@@ -94,7 +94,7 @@ BEGIN
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121'),
     ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','3c1f0c4ac10435bd53275d6891df7362'),
     ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1'),
-    ('saas.storefront_checkout_preflight()','d67f19fed4ec0c2075d43932f6b4457f')
+    ('saas.storefront_checkout_preflight()','51526d94f3b6d083368e581ba91bc2fb')
   ) expected(signature,expected_hash) LOOP
     procedure_oid:=signature::regprocedure;
     IF NOT EXISTS(
@@ -104,9 +104,8 @@ BEGIN
         AND procedure.proparallel='u'
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
         AND pg_catalog.md5(procedure.prosrc)=expected_hash
-    ) OR NOT pg_catalog.has_function_privilege(app_oid,procedure_oid,'EXECUTE')
-      OR (signature<>'saas.storefront_checkout_preflight()'
-        AND pg_catalog.has_function_privilege(workflow_oid,procedure_oid,'EXECUTE'))
+    ) OR pg_catalog.has_function_privilege(app_oid,procedure_oid,'EXECUTE')
+      OR NOT pg_catalog.has_function_privilege(workflow_oid,procedure_oid,'EXECUTE')
     THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_FUNCTION_INVALID: %',signature; END IF;
   END LOOP;
 
