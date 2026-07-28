@@ -189,7 +189,7 @@ git commit -m "feat(payments): enforce built-in method authority"
 - HTTP `saveInput` calls `parseBuiltInPaymentMethodConfig(kind, config)` for non-provider kinds.
 - Startup requires `saas.built_in_payment_methods_preflight()` under `SET LOCAL ROLE celebix_saas_app`.
 
-- [ ] **Step 1: Write failing boundary tests**
+- [x] **Step 1: Write failing boundary tests**
 
 ```ts
 assert.equal(response.status, 409);
@@ -199,7 +199,7 @@ assert.equal(calls.some(({ kind }) => kind === "save"), false); // invalid IBAN 
 
 Also prove provider config behavior is unchanged and exact valid built-in config reaches the repository unchanged and frozen.
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run:
 
@@ -210,15 +210,15 @@ node --experimental-strip-types --test packages/saas-data/src/payment-methods/re
 
 Expected: FAIL on missing code/parser/preflight behavior.
 
-- [ ] **Step 3: Implement minimal boundary changes**
+- [x] **Step 3: Implement minimal boundary changes**
 
 Map only the new finite code; do not return PostgreSQL text. For built-ins, replace the generic `safeConfig` result with the shared exact parser. Extend the one startup preflight transaction after `SET LOCAL ROLE celebix_saas_app`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Rerun the focused commands. Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-data/src/payment-methods/errors.ts packages/saas-data/src/payment-methods/repository.test.ts apps/customer-panel/lib/payment-method-http apps/customer-panel/lib/payment-method-ui apps/customer-panel/lib/server-panel-access/postgres-runtime.ts apps/customer-panel/lib/server-panel-access/postgres-runtime.test.ts
