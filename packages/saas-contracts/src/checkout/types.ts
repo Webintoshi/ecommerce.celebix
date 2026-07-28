@@ -22,7 +22,7 @@ export type CheckoutQuoteItem = Readonly<{
 }>;
 
 export type CheckoutShippingOption = Readonly<{
-  id: string;
+  id: "standard";
   label: string;
   description: string | null;
   priceCents: number;
@@ -56,7 +56,7 @@ export type CheckoutQuote = Readonly<{
   locale: "tr";
   items: readonly CheckoutQuoteItem[];
   shippingOptions: readonly CheckoutShippingOption[];
-  selectedShippingId: string | null;
+  selectedShippingId: "standard" | null;
   paymentMethods: readonly CheckoutPaymentMethod[];
   policyLinks: readonly CheckoutPolicyLink[];
   subtotalCents: number;
@@ -74,7 +74,7 @@ export type CheckoutDeliveryInput = Readonly<{
   marketingOptIn: boolean;
   shippingAddress: CheckoutAddress;
   billingAddress: CheckoutAddress | null;
-  shippingId: string | null;
+  shippingId: "standard" | null;
   discountCode: string | null;
 }>;
 

@@ -9,7 +9,7 @@ import {
 
 const CART_ID = "11111111-1111-4111-8111-111111111111";
 const ITEM_ID = "22222222-2222-4222-8222-222222222222";
-const SHIPPING_ID = "33333333-3333-4333-8333-333333333333";
+const SHIPPING_ID = "standard";
 const PAYMENT_ID = "44444444-4444-4444-8444-444444444444";
 const OPERATION_ID = "55555555-5555-4555-8555-555555555555";
 const NONCE = "A".repeat(43);
@@ -91,6 +91,28 @@ test("checkout delivery validates the exact address and optional billing address
   };
   assert.equal(parseCheckoutDeliveryInput(input).email, "ayse@example.com");
   assert.throws(() => parseCheckoutDeliveryInput({ ...input, billingAddress: { ...addressFixture(), countryCode: "US" } }));
+});
+
+test("Task 3 standard shipping quote and delivery share one exact code", () => {
+  const quote = parseCheckoutQuote(quoteFixture());
+  assert.equal(quote.shippingOptions[0]?.id, "standard");
+  assert.equal(quote.selectedShippingId, "standard");
+  assert.equal(quote.shippingCents, quote.shippingOptions[0]?.priceCents);
+
+  const delivery = {
+    cartVersion: 1, checkoutNonce: NONCE, operationId: OPERATION_ID, email: "ayse@example.com", marketingOptIn: false,
+    shippingAddress: addressFixture(), billingAddress: null, shippingId: "standard", discountCode: null,
+  };
+  assert.equal(parseCheckoutDeliveryInput(delivery).shippingId, "standard");
+
+  for (const invalidShippingId of ["standart", "standard ", "33333333-3333-4333-8333-333333333333"]) {
+    assert.throws(() => parseCheckoutQuote({
+      ...quoteFixture(),
+      shippingOptions: [{ ...quoteFixture().shippingOptions[0], id: invalidShippingId }],
+      selectedShippingId: invalidShippingId,
+    }));
+    assert.throws(() => parseCheckoutDeliveryInput({ ...delivery, shippingId: invalidShippingId }));
+  }
 });
 
 test("checkout status rejects payment methods that cannot be placed offline", () => {

@@ -104,6 +104,11 @@ function uuid(value: unknown): string {
   return selected;
 }
 
+function shippingCode(value: unknown): "standard" {
+  if (value !== "standard") invalid();
+  return "standard";
+}
+
 function integer(value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): number {
   if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) invalid();
   return value as number;
@@ -162,7 +167,7 @@ function quoteItem(value: unknown): CheckoutQuoteItem {
 
 function shippingOption(value: unknown): CheckoutShippingOption {
   const parsed = exact(value, ["id", "label", "description", "priceCents"]);
-  return Object.freeze({ id: uuid(parsed.id), label: text(parsed.label, 1, 160), description: nullableText(parsed.description, 1, 1_000), priceCents: integer(parsed.priceCents, 0, MAX_COMPONENT_CENTS) });
+  return Object.freeze({ id: shippingCode(parsed.id), label: text(parsed.label, 1, 160), description: nullableText(parsed.description, 1, 1_000), priceCents: integer(parsed.priceCents, 0, MAX_COMPONENT_CENTS) });
 }
 
 function policyLink(value: unknown): CheckoutPolicyLink {
@@ -190,7 +195,7 @@ export function parseCheckoutQuote(value: unknown): CheckoutQuote {
     if (!Number.isSafeInteger(itemSubtotal) || itemSubtotal !== subtotalCents || discountCents > subtotalCents + shippingCents || totalCents !== subtotalCents + shippingCents - discountCents) invalid();
     const ids = items.map((item) => item.id);
     if (new Set(ids).size !== ids.length || new Set(shippingOptions.map((option) => option.id)).size !== shippingOptions.length || new Set(paymentMethods.map((method) => method.id)).size !== paymentMethods.length || new Set(policyLinks.map((link) => link.policyType)).size !== policyLinks.length || paymentMethods.filter((method) => method.kind === "provider").length > 1) invalid();
-    const selectedShippingId = parsed.selectedShippingId === null ? null : uuid(parsed.selectedShippingId);
+    const selectedShippingId = parsed.selectedShippingId === null ? null : shippingCode(parsed.selectedShippingId);
     if ((shippingOptions.length === 0) !== (selectedShippingId === null) || (selectedShippingId === null && shippingCents !== 0) || (selectedShippingId !== null && !shippingOptions.some((option) => option.id === selectedShippingId)) || (selectedShippingId !== null && shippingCents !== shippingOptions.find((option) => option.id === selectedShippingId)!.priceCents)) invalid();
     return Object.freeze({ schemaVersion: 1, cartId: uuid(parsed.cartId), cartVersion: integer(parsed.cartVersion, 1), checkoutNonce: parsed.checkoutNonce, storeName: text(parsed.storeName, 1, 200), currency: "TRY", locale: "tr", items: Object.freeze(items), shippingOptions: Object.freeze(shippingOptions), selectedShippingId, paymentMethods: Object.freeze(paymentMethods), policyLinks: Object.freeze(policyLinks), subtotalCents, shippingCents, discountCents, totalCents, discountCode: nullableText(parsed.discountCode, 1, 64) });
   });
@@ -201,7 +206,7 @@ export function parseCheckoutDeliveryInput(value: unknown): CheckoutDeliveryInpu
     const parsed = exact(value, ["cartVersion", "checkoutNonce", "operationId", "email", "marketingOptIn", "shippingAddress", "billingAddress", "shippingId", "discountCode"]);
     const email = text(parsed.email, 3, 320);
     if (!EMAIL.test(email) || typeof parsed.checkoutNonce !== "string" || !NONCE.test(parsed.checkoutNonce) || typeof parsed.marketingOptIn !== "boolean") invalid();
-    return Object.freeze({ cartVersion: integer(parsed.cartVersion, 1), checkoutNonce: parsed.checkoutNonce, operationId: uuid(parsed.operationId), email, marketingOptIn: parsed.marketingOptIn, shippingAddress: address(parsed.shippingAddress), billingAddress: parsed.billingAddress === null ? null : address(parsed.billingAddress), shippingId: parsed.shippingId === null ? null : uuid(parsed.shippingId), discountCode: nullableText(parsed.discountCode, 1, 64) });
+    return Object.freeze({ cartVersion: integer(parsed.cartVersion, 1), checkoutNonce: parsed.checkoutNonce, operationId: uuid(parsed.operationId), email, marketingOptIn: parsed.marketingOptIn, shippingAddress: address(parsed.shippingAddress), billingAddress: parsed.billingAddress === null ? null : address(parsed.billingAddress), shippingId: parsed.shippingId === null ? null : shippingCode(parsed.shippingId), discountCode: nullableText(parsed.discountCode, 1, 64) });
   });
 }
 
