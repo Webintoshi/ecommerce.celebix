@@ -51,6 +51,16 @@ test("defines every durable merchant module with a unique route and field contra
   }
 });
 
+test("shipping settings expose the exact checkout rate fields", () => {
+  const shipping = MERCHANT_MODULE_DEFINITIONS.find((entry) => entry.kind === "shipping_setting");
+  assert.deepEqual(shipping?.fields.map((field) => field.key), [
+    "regions",
+    "flatRateCents",
+    "freeShippingThresholdCents",
+    "estimatedDays",
+  ]);
+});
+
 test("marks only real in-application workflows durable and external execution provider-gated", () => {
   for (const kind of [
     "email_campaign",
