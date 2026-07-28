@@ -13,6 +13,7 @@ import { createDefaultCustomerPanelPaymentProviderRegistry, createDefaultHostedP
 import {
   buildPaymentProviderConnectionViewModel,
   buildPaymentSettingsViewModel,
+  selectPaymentProviderConnectionProfile,
 } from "./model.ts";
 
 const NOW = "2026-07-27T12:00:00.000Z";
@@ -155,6 +156,7 @@ test("only ready catalog entries with an exact payment descriptor become connect
   assert.equal(readyCard?.executableDescriptor?.credentialFields[0]?.key, "api_secret");
   assert.equal(plannedCard?.connectable, false);
   assert.equal(plannedCard?.actionLabel, "Hazırlanıyor");
+  assert.equal(plannedCard?.lifecycleLabel, "Hazırlanıyor");
   assert.equal(plannedCard?.executableDescriptor, null);
   assert.doesNotMatch(JSON.stringify(plannedCard), /api_secret|API parolası/);
 
@@ -254,12 +256,90 @@ test("Iyzico is configurable without execution authority and exposes the exact l
   assert.equal(newCard.executable, false);
   assert.equal(newCard.connectable, true);
   assert.equal(newCard.actionLabel, "Bilgileri gir");
-  assert.equal(newCard.lifecycleLabel, "Doğrulama bekliyor");
+  assert.equal(newCard.lifecycleLabel, "Henüz bağlanmadı");
   assert.equal(newCard.configurableDescriptor?.executionAuthority, null);
   assert.equal(newCard.executableDescriptor, null);
+  assert.equal(iyzico("revoked").lifecycleLabel, "Henüz bağlanmadı");
   assert.equal(iyzico("pending_validation").lifecycleLabel, "Doğrulama bekliyor");
   assert.equal(iyzico("active").lifecycleLabel, "Doğrulandı — sandbox kanıtı bekleniyor");
   assert.equal(iyzico("active", true).lifecycleLabel, "Aktif");
+});
+
+test("connection profile selection ignores revoked rows and is deterministic for one environment", () => {
+  const revoked = {
+    ...profile("revoked"),
+    id: "40000000-0000-4000-8000-000000000041",
+    providerCode: "iyzico_iframe",
+    publicConfig: { environment: "test" },
+    updatedAt: "2026-07-27T13:00:00.000Z",
+  };
+  const active = {
+    ...profile("active"),
+    id: "40000000-0000-4000-8000-000000000042",
+    providerCode: "iyzico_iframe",
+    publicConfig: { environment: "test" },
+    updatedAt: "2026-07-27T12:00:00.000Z",
+  };
+  const pending = {
+    ...profile("pending_validation"),
+    id: "40000000-0000-4000-8000-000000000043",
+    providerCode: "iyzico_iframe",
+    publicConfig: { environment: "test" },
+    updatedAt: "2026-07-27T14:00:00.000Z",
+  };
+
+  const selected = selectPaymentProviderConnectionProfile(
+    [revoked, pending, active], "iyzico_iframe", ["test"],
+  );
+  const reordered = selectPaymentProviderConnectionProfile(
+    [active, revoked, pending], "iyzico_iframe", ["test"],
+  );
+  assert.equal(selected?.id, active.id);
+  assert.equal(reordered?.id, active.id);
+  assert.equal(selectPaymentProviderConnectionProfile(
+    [revoked], "iyzico_iframe", ["test"],
+  ), null);
+});
+
+test("a dual-environment configurable card opens its active profile environment", () => {
+  const entry = PAYMENT_PROVIDER_CATALOG.find(({ providerCode }) =>
+    providerCode === "iyzico_iframe")!;
+  const descriptor: MerchantProviderDescriptor = {
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    label: "iyzico · Checkout Form",
+    publicFields: [],
+    credentialFields: [
+      { key: "apiKey", label: "API Key", secret: true },
+      { key: "secretKey", label: "Secret Key", secret: true },
+    ],
+    adapterVersion: 1,
+    environments: ["test", "live"],
+    executionAuthority: null,
+  };
+  const profiles: MerchantProviderProfile[] = [
+    {
+      ...profile("pending_validation"),
+      id: "40000000-0000-4000-8000-000000000044",
+      providerCode: "iyzico_iframe",
+      publicConfig: { environment: "test" },
+    },
+    {
+      ...profile("active"),
+      id: "40000000-0000-4000-8000-000000000045",
+      providerCode: "iyzico_iframe",
+      publicConfig: { environment: "live" },
+      lastValidatedAt: NOW,
+    },
+  ];
+
+  for (const selectedProfiles of [profiles, [...profiles].reverse()]) {
+    const card = buildPaymentSettingsViewModel(
+      [entry], [descriptor], selectedProfiles, [], "", noFilters,
+    ).catalog.cards[0]!;
+    assert.equal(card.connectionEnvironment, "live");
+    assert.equal(card.lifecycleLabel, "Doğrulandı — sandbox kanıtı bekleniyor");
+  }
 });
 
 test("an executable provider advances from verified profile to activation ready and active", () => {

@@ -13,7 +13,10 @@ import {
   ProviderExecutionApiError,
   providerExecutionApi,
 } from "@/lib/provider-execution-ui/client";
-import { buildPaymentProviderConnectionViewModel } from "@/lib/payment-settings-ui/model";
+import {
+  buildPaymentProviderConnectionViewModel,
+  selectPaymentProviderConnectionProfile,
+} from "@/lib/payment-settings-ui/model";
 
 import styles from "./payment-settings.module.css";
 
@@ -40,17 +43,18 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
     return () => { document.body.style.overflow = previousOverflow; };
   }, []);
 
-  const selectedProfile = props.profiles.find((profile) =>
-    profile.providerCode === props.descriptor.providerCode
-    && profile.capability === "payment_processing"
-    && profile.publicConfig.environment === selectedEnvironment);
+  const selectedProfile = selectPaymentProviderConnectionProfile(
+    props.profiles,
+    props.descriptor.providerCode,
+    [selectedEnvironment],
+  );
   const connection = props.storefrontHostname === null ? null : buildPaymentProviderConnectionViewModel({
     descriptor: props.descriptor,
     environment: selectedEnvironment,
     ...(selectedProfile ? { profile: selectedProfile } : {}),
     storefrontHostname: props.storefrontHostname,
   });
-  const canSubmit = connection !== null && (selectedProfile === undefined || connection.canRotate);
+  const canSubmit = connection !== null && (selectedProfile === null || connection.canRotate);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape" && !busy) {

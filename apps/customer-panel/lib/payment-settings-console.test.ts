@@ -129,7 +129,7 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(drawerSource, /aria-label="Sağlayıcı ortamı"/);
   assert.match(drawerSource, /props\.environments/);
   assert.match(drawerSource, /selectedEnvironment/);
-  assert.match(drawerSource, /props\.profiles\.find/);
+  assert.match(drawerSource, /selectPaymentProviderConnectionProfile\(/);
   assert.match(drawerSource, /type="password"/);
   assert.match(drawerSource, /autoComplete="off"/);
   assert.match(drawerSource, /form\.reset\(\)/);
@@ -137,7 +137,7 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(drawerSource, /maskedAccountReference/);
   assert.match(drawerSource, /callbackUrl/);
   assert.match(drawerSource, /storefrontHostname/);
-  assert.match(drawerSource, /const canSubmit = connection !== null && \(selectedProfile === undefined \|\| connection\.canRotate\)/);
+  assert.match(drawerSource, /const canSubmit = connection !== null && \(selectedProfile === null \|\| connection\.canRotate\)/);
   assert.match(drawerSource, /busy \|\| !props\.canManage \|\| !canSubmit/);
   assert.doesNotMatch(drawerSource, /window[.]location[.]origin/);
   assert.doesNotMatch(drawerSource, /defaultValue=\{[^}]*credential|merchantKey\s*:|merchantSalt\s*:/);

@@ -174,7 +174,16 @@ export type PaymentProviderCatalogCard = Readonly<{
   executable: boolean;
   connectable: boolean;
   actionLabel: "Bilgileri gir" | "Bağla" | "Hazırlanıyor";
-  lifecycleLabel: "Doğrulama bekliyor" | "Doğrulandı — sandbox kanıtı bekleniyor" | "Aktivasyona hazır" | "Aktif";
+  lifecycleLabel:
+    | "Henüz bağlanmadı"
+    | "Hazırlanıyor"
+    | "Bakımda"
+    | "Doğrulama bekliyor"
+    | "Doğrulandı — sandbox kanıtı bekleniyor"
+    | "Aktivasyona hazır"
+    | "Anahtar yenileme gerekli"
+    | "Devre dışı"
+    | "Aktif";
   connectionEnvironment: PaymentProviderEnvironment | null;
   configurableDescriptor: MerchantProviderDescriptor | null;
   executableDescriptor: MerchantProviderDescriptor | null;
@@ -192,6 +201,41 @@ function normalize(value: string): string {
 
 function compareAscii(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+const CONNECTION_PROFILE_STATUS_RANK = Object.freeze({
+  active: 0,
+  pending_validation: 1,
+  rotation_required: 2,
+  disabled: 3,
+  revoked: 4,
+} as const);
+
+export function selectPaymentProviderConnectionProfile(
+  profiles: readonly MerchantProviderProfile[],
+  providerCode: string,
+  environments: readonly PaymentProviderEnvironment[],
+): MerchantProviderProfile | null {
+  const environmentRank = new Map(environments.map((environment, index) => [environment, index]));
+  const selected = profiles.filter((profile) => {
+    const environment = profile.publicConfig.environment;
+    return profile.providerCode === providerCode
+      && profile.capability === "payment_processing"
+      && profile.status !== "revoked"
+      && (environment === "test" || environment === "live")
+      && environmentRank.has(environment);
+  }).sort((left, right) => {
+    const status = CONNECTION_PROFILE_STATUS_RANK[left.status]
+      - CONNECTION_PROFILE_STATUS_RANK[right.status];
+    if (status !== 0) return status;
+    const leftEnvironment = left.publicConfig.environment as PaymentProviderEnvironment;
+    const rightEnvironment = right.publicConfig.environment as PaymentProviderEnvironment;
+    const environment = environmentRank.get(leftEnvironment)! - environmentRank.get(rightEnvironment)!;
+    if (environment !== 0) return environment;
+    const updatedAt = compareAscii(right.updatedAt, left.updatedAt);
+    return updatedAt !== 0 ? updatedAt : compareAscii(right.id, left.id);
+  });
+  return selected[0] ?? null;
 }
 
 function cloneDescriptor(value: MerchantProviderDescriptor): MerchantProviderDescriptor {
@@ -276,16 +320,33 @@ function catalogCard(
   const configurableDescriptor = executableDescriptor ?? verificationDescriptor;
   const configurable = configurableDescriptor !== undefined;
   const executable = executableDescriptor !== undefined;
-  const activeProfile = profiles.some((candidate) =>
-    candidate.providerCode === entry.providerCode
-    && candidate.capability === "payment_processing"
-    && candidate.status === "active");
+  const connectionProfile = configurableDescriptor?.environments === undefined
+    ? null
+    : selectPaymentProviderConnectionProfile(
+        profiles,
+        entry.providerCode,
+        configurableDescriptor.environments,
+      );
+  const activeProfile = connectionProfile?.status === "active";
   const activeMethod = methods.some((candidate) =>
-    candidate.providerCode === entry.providerCode && candidate.state === "active");
-  const lifecycleLabel = activeMethod ? "Aktif" as const
+    candidate.providerCode === entry.providerCode
+    && candidate.profileId === connectionProfile?.id
+    && candidate.state === "active");
+  const profileEnvironment = connectionProfile?.publicConfig.environment;
+  const connectionEnvironment = profileEnvironment === "test" || profileEnvironment === "live"
+    ? profileEnvironment
+    : entry.readiness === "production_ready"
+      ? "live"
+      : configurableDescriptor?.environments?.[0] ?? null;
+  const lifecycleLabel = !configurable
+    ? entry.readiness === "maintenance" ? "Bakımda" as const : "Hazırlanıyor" as const
+    : activeMethod ? "Aktif" as const
     : executable && activeProfile ? "Aktivasyona hazır" as const
     : activeProfile ? "Doğrulandı — sandbox kanıtı bekleniyor" as const
-    : "Doğrulama bekliyor" as const;
+    : connectionProfile?.status === "pending_validation" ? "Doğrulama bekliyor" as const
+    : connectionProfile?.status === "rotation_required" ? "Anahtar yenileme gerekli" as const
+    : connectionProfile?.status === "disabled" ? "Devre dışı" as const
+    : "Henüz bağlanmadı" as const;
   return Object.freeze({
     providerCode: entry.providerCode,
     familyCode: entry.familyCode,
@@ -308,9 +369,7 @@ function catalogCard(
     connectable: configurable,
     actionLabel: executable ? "Bağla" : configurable ? "Bilgileri gir" : "Hazırlanıyor",
     lifecycleLabel,
-    connectionEnvironment: configurable
-      ? entry.readiness === "production_ready" ? "live" : configurableDescriptor.environments?.[0] ?? null
-      : null,
+    connectionEnvironment: configurable ? connectionEnvironment : null,
     configurableDescriptor: configurableDescriptor ? cloneDescriptor(configurableDescriptor) : null,
     executableDescriptor: executableDescriptor ? cloneDescriptor(executableDescriptor) : null,
   });
