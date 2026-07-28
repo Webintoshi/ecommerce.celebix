@@ -365,6 +365,7 @@ test("completion and successor manifests pin every changed migration artifact", 
     "phase3s-iyzico-iframe-tenant-sandbox-evidence-manifest.json",
     "phase3t-iyzico-iframe-tenant-activation-runtime-manifest.json",
     "phase3u-built-in-payment-methods-manifest.json",
+    "phase3v-payment-provider-builtin-compatibility-manifest.json",
     "phase3-product-onboarding-manifest.json",
   ];
   const pinnedPaths = new Set(successorManifestNames.map((name) => `${SQL}/${name}`));

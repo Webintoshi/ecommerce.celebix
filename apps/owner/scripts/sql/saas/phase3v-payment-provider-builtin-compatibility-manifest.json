@@ -1,0 +1,26 @@
+{
+  "phase": "phase3v-payment-provider-builtin-compatibility",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "phase3u-built-in-payment-methods-manifest.json",
+      "sha256": "8f7c32e354e08a272a8f459b40b0c7bdbf3d09c15a164cf57346a5aa6bf019d9"
+    },
+    {
+      "file": "202607280063_payment_provider_builtin_compatibility.up.sql",
+      "sha256": "d07cf11f162e02e23b410f217f54050d51a7c9412d3c402281caa877e7d74469"
+    },
+    {
+      "file": "202607280063_payment_provider_builtin_compatibility_assertions.sql",
+      "sha256": "e2a125e4bf66beb6fa56050c879254946fa426f3aac3269c51472617b21c20f3"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607280063_payment_provider_builtin_compatibility.down.sql",
+      "sha256": "bd656c84837637900e02ca11172443e36b7375a751d2dd2020bc6b7160b34e98"
+    }
+  ],
+  "externalConnections": 0,
+  "productionMutations": 0
+}

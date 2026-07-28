@@ -22,6 +22,9 @@ const ROLLBACK_DB = "built_in_payment_methods_rollback";
 const UP = "202607280062_builtin_payment_methods.up.sql";
 const DOWN = "202607280062_builtin_payment_methods.down.sql";
 const ASSERTIONS = "202607280062_builtin_payment_methods_assertions.sql";
+const REPAIR_UP = "202607280063_payment_provider_builtin_compatibility.up.sql";
+const REPAIR_DOWN = "202607280063_payment_provider_builtin_compatibility.down.sql";
+const REPAIR_ASSERTIONS = "202607280063_payment_provider_builtin_compatibility_assertions.sql";
 const SINGLE_UP = "202607280059_payment_method_single_active_provider.up.sql";
 const EVIDENCE_UP = "202607280060_iyzico_iframe_tenant_sandbox_evidence.up.sql";
 const RUNTIME_UP = "202607280061_iyzico_iframe_tenant_activation_runtime.up.sql";
@@ -229,6 +232,8 @@ async function main() {
     sql(box, `CREATE DATABASE ${LEGACY_DB} TEMPLATE ${DB};`, "postgres");
     apply(box, UP, LEGACY_DB);
     apply(box, ASSERTIONS, LEGACY_DB);
+    apply(box, REPAIR_UP, LEGACY_DB);
+    apply(box, REPAIR_ASSERTIONS, LEGACY_DB);
     const upgradedLegacy = sql(box, `SELECT id||'|'||label||'|'||state||'|'||version||'|'||config::text
       FROM saas.payment_methods WHERE kind='cash_on_delivery';`, LEGACY_DB).stdout.trim();
 
@@ -236,10 +241,30 @@ async function main() {
       DELETE FROM saas.payment_methods WHERE kind='cash_on_delivery';`);
     apply(box, UP);
     apply(box, ASSERTIONS);
+    const legacyCompatibilityFailure = sql(box, `SET ROLE celebix_saas_app;
+      SELECT saas.payment_provider_keyed_lifecycle_preflight();`, DB, true);
+    assert.notEqual(legacyCompatibilityFailure.status, 0,
+      "original 062 must reproduce the live provider preflight failure");
+    assert.match(legacyCompatibilityFailure.stderr,
+      /PAYMENT_PROVIDER_KEYED_LIFECYCLE_PREFLIGHT_INVALID/);
+    apply(box, REPAIR_UP);
+    apply(box, REPAIR_ASSERTIONS);
+    const secondRepair = apply(box, REPAIR_UP, DB, true);
+    assert.notEqual(secondRepair.status, 0, "063 reapply must fail closed");
+    assert.match(secondRepair.stderr, /PAYMENT_PROVIDER_BUILTIN_COMPATIBILITY_SOURCE_INVALID/);
+    assert.equal(sql(box, `SET ROLE celebix_saas_app;
+      SELECT saas.built_in_payment_methods_preflight() AND
+        saas.payment_provider_keyed_lifecycle_preflight();`).stdout.trim(), "t",
+    "failed 063 reapply must preserve the repaired authority");
     sql(box, `CREATE DATABASE ${LABEL_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${RACE_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${UNIQUE_CONFLICT_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${CLEAN_DOWN_DB} TEMPLATE ${DB};`, "postgres");
+    apply(box, REPAIR_DOWN, LABEL_DB);
+    assert.notEqual(sql(box, `SET ROLE celebix_saas_app;
+      SELECT saas.payment_provider_keyed_lifecycle_preflight();`, LABEL_DB, true).status, 0);
+    apply(box, REPAIR_UP, LABEL_DB);
+    apply(box, REPAIR_ASSERTIONS, LABEL_DB);
 
     const codCreate = appSave(box, {
       operation: "60000000-0000-4000-8000-000000000071", fingerprint: "1".repeat(64),
@@ -519,9 +544,11 @@ async function main() {
 
     pass("preflight and ACLs are exact", () => {
       assert.equal(sql(box, `SET ROLE celebix_saas_app;
-        SELECT saas.built_in_payment_methods_preflight();`).stdout.trim(), "t");
+        SELECT saas.built_in_payment_methods_preflight() AND
+          saas.payment_provider_keyed_lifecycle_preflight();`).stdout.trim(), "t");
       assert.equal(sql(box, `SET ROLE celebix_saas_workflow;
-        SELECT saas.built_in_payment_methods_preflight();`).stdout.trim(), "t");
+        SELECT saas.built_in_payment_methods_preflight() AND
+          saas.payment_provider_keyed_lifecycle_preflight();`).stdout.trim(), "t");
       assert.equal(sql(box, `SELECT pg_catalog.has_function_privilege('celebix_saas_app',
           'saas.built_in_payment_method_config_valid(text,jsonb)'::regprocedure,'EXECUTE')||'|'||
         pg_catalog.has_function_privilege('celebix_saas_workflow',
@@ -535,6 +562,7 @@ async function main() {
 
     sql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
     pass("down refuses unsafe duplicate-producing rollback conditions", () => {
+      apply(box, REPAIR_DOWN, ROLLBACK_DB);
       const refused = apply(box, DOWN, ROLLBACK_DB, true);
       assert.notEqual(refused.status, 0);
       assert.match(refused.stderr, /BUILT_IN_PAYMENT_METHODS_ROLLBACK_REQUIRES_DRAIN/);
@@ -544,6 +572,7 @@ async function main() {
       const markerRefused = apply(box, DOWN, ROLLBACK_DB, true);
       assert.notEqual(markerRefused.status, 0);
       assert.match(markerRefused.stderr, /BUILT_IN_PAYMENT_METHODS_ROLLBACK_REQUIRES_DRAIN/);
+      apply(box, REPAIR_DOWN, CLEAN_DOWN_DB);
       apply(box, DOWN, CLEAN_DOWN_DB);
       assert.equal(sql(box, `SELECT pg_catalog.to_regclass(
           'saas.payment_methods_one_builtin_kind_per_store') IS NULL AND
