@@ -519,9 +519,11 @@ async function main() {
 
     pass("preflight and ACLs are exact", () => {
       assert.equal(sql(box, `SET ROLE celebix_saas_app;
-        SELECT saas.built_in_payment_methods_preflight();`).stdout.trim(), "t");
+        SELECT saas.built_in_payment_methods_preflight() AND
+          saas.payment_provider_keyed_lifecycle_preflight();`).stdout.trim(), "t");
       assert.equal(sql(box, `SET ROLE celebix_saas_workflow;
-        SELECT saas.built_in_payment_methods_preflight();`).stdout.trim(), "t");
+        SELECT saas.built_in_payment_methods_preflight() AND
+          saas.payment_provider_keyed_lifecycle_preflight();`).stdout.trim(), "t");
       assert.equal(sql(box, `SELECT pg_catalog.has_function_privilege('celebix_saas_app',
           'saas.built_in_payment_method_config_valid(text,jsonb)'::regprocedure,'EXECUTE')||'|'||
         pg_catalog.has_function_privilege('celebix_saas_workflow',
@@ -538,7 +540,8 @@ async function main() {
       const refused = apply(box, DOWN, ROLLBACK_DB, true);
       assert.notEqual(refused.status, 0);
       assert.match(refused.stderr, /BUILT_IN_PAYMENT_METHODS_ROLLBACK_REQUIRES_DRAIN/);
-      assert.equal(sql(box, `SELECT saas.built_in_payment_methods_preflight();`, ROLLBACK_DB).stdout.trim(), "t");
+      assert.equal(sql(box, `SELECT saas.built_in_payment_methods_preflight() AND
+        saas.payment_provider_keyed_lifecycle_preflight();`, ROLLBACK_DB).stdout.trim(), "t");
       sql(box, `SET ROLE celebix_saas_owner;
         DELETE FROM saas.payment_methods WHERE kind IN('cash_on_delivery','bank_transfer');`, ROLLBACK_DB);
       const markerRefused = apply(box, DOWN, ROLLBACK_DB, true);
@@ -548,6 +551,7 @@ async function main() {
       assert.equal(sql(box, `SELECT pg_catalog.to_regclass(
           'saas.payment_methods_one_builtin_kind_per_store') IS NULL AND
         pg_catalog.to_regprocedure('saas.built_in_payment_methods_preflight()') IS NULL AND
+        saas.payment_provider_keyed_lifecycle_preflight() AND
         pg_catalog.to_regprocedure(
           'saas.payment_method_save_without_builtin_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,uuid,text,text,jsonb)'
         ) IS NULL AND pg_catalog.has_function_privilege('celebix_saas_app',

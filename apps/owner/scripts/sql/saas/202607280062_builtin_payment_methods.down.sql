@@ -26,6 +26,17 @@ FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
   celebix_saas_migrator;
 DROP FUNCTION saas.built_in_payment_methods_preflight();
 
+REVOKE ALL ON FUNCTION saas.payment_provider_keyed_lifecycle_preflight()
+FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
+  celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
+  celebix_saas_migrator;
+DROP FUNCTION saas.payment_provider_keyed_lifecycle_preflight();
+ALTER FUNCTION
+  saas.payment_provider_keyed_lifecycle_preflight_without_builtin_authority()
+  RENAME TO payment_provider_keyed_lifecycle_preflight;
+GRANT EXECUTE ON FUNCTION saas.payment_provider_keyed_lifecycle_preflight()
+TO celebix_saas_app,celebix_saas_workflow;
+
 REVOKE ALL ON FUNCTION saas.payment_method_save(
   uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,
   text,uuid,text,text,jsonb
