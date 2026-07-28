@@ -20,6 +20,10 @@ BEGIN
 END
 $f$;
 
+UPDATE saas.payment_methods
+SET config='{"instructions":""}'::jsonb
+WHERE kind='cash_on_delivery' AND config='{}'::jsonb;
+
 CREATE FUNCTION saas.built_in_payment_method_config_valid(
   p_kind text,p_config jsonb
 )
@@ -177,8 +181,15 @@ BEGIN
     IF p_operation_id IS NULL OR p_method_id IS NULL OR p_now IS NULL
       OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
       OR p_expected_version IS NULL OR p_expected_version<0
-      OR p_label IS NULL OR p_label<>pg_catalog.btrim(p_label)
-      OR pg_catalog.char_length(p_label) NOT BETWEEN 1 AND 120 OR p_label~'[[:cntrl:]]'
+      OR p_label IS NULL OR p_label IS DISTINCT FROM pg_catalog.btrim(
+        p_label,U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'
+      )
+      OR pg_catalog.octet_length(p_label) NOT BETWEEN 1 AND 120
+      OR EXISTS(
+        SELECT 1 FROM pg_catalog.regexp_split_to_table(p_label,'') AS character(value)
+        WHERE pg_catalog.ascii(character.value) BETWEEN 1 AND 31
+          OR pg_catalog.ascii(character.value) BETWEEN 127 AND 159
+      )
       OR p_config IS NULL OR NOT saas.merchant_provider_public_config_valid(p_config)
       OR p_profile_id IS NOT NULL OR p_provider_code IS NOT NULL
       OR NOT saas.built_in_payment_method_config_valid(p_kind,p_config)
@@ -329,7 +340,7 @@ BEGIN
         AND NOT procedure.proisstrict AND procedure.proparallel='u' AND procedure.provolatile='v'
         AND procedure.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
-        AND pg_catalog.md5(procedure.prosrc)='738496eedd50bbe5571d22241d17b2c0'
+        AND pg_catalog.md5(procedure.prosrc)='94f1b7293b59d18b90063fb06c425b9b'
     ) OR NOT EXISTS(
       SELECT 1 FROM pg_catalog.pg_proc AS procedure
       WHERE procedure.oid=delegate_save_oid AND procedure.proowner=owner_oid

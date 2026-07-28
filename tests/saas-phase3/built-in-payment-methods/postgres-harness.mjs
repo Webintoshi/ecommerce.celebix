@@ -11,6 +11,9 @@ const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const DB = "built_in_payment_methods";
 const DUPLICATE_DB = "built_in_payment_methods_duplicate";
+const INVALID_CONFIG_DB = "built_in_payment_methods_invalid_config";
+const LEGACY_DB = "built_in_payment_methods_legacy";
+const LABEL_DB = "built_in_payment_methods_label";
 const REPLAY_DB = "built_in_payment_methods_replay";
 const RACE_DB = "built_in_payment_methods_race";
 const UNIQUE_CONFLICT_DB = "built_in_payment_methods_unique_conflict";
@@ -194,10 +197,6 @@ async function main() {
     apply(box, RUNTIME_UP);
 
     sql(box, `SET ROLE celebix_saas_owner;
-      UPDATE saas.payment_methods SET config='{"instructions":"Nakit veya kart."}'::jsonb
-      WHERE kind='cash_on_delivery';
-      UPDATE saas.payment_methods SET config='{"accountHolder":"Celebix AŞ","bankName":"Test Bankası","iban":"${IBAN}","instructions":"Sipariş numarasını yazın."}'::jsonb
-      WHERE kind='bank_transfer';
       INSERT INTO saas.payment_methods(
         id,store_id,kind,profile_id,provider_code,label,state,emergency_reason,
         position,config,version,created_at,updated_at
@@ -209,15 +208,35 @@ async function main() {
       WHERE store_id='${STORE}' AND kind='cash_on_delivery';`).stdout.trim(), "2",
     "061 must permit the duplicate that 062 closes");
     sql(box, `CREATE DATABASE ${DUPLICATE_DB} TEMPLATE ${DB};`, "postgres");
-    sql(box, `SET ROLE celebix_saas_owner;
-      DELETE FROM saas.payment_methods WHERE kind IN('cash_on_delivery','bank_transfer');`);
 
     const duplicateRejected = apply(box, UP, DUPLICATE_DB, true);
     assert.notEqual(duplicateRejected.status, 0, "062 must reject pre-existing duplicates");
     assert.match(duplicateRejected.stderr, /BUILT_IN_PAYMENT_METHOD_DUPLICATES_EXIST/);
 
+    sql(box, `SET ROLE celebix_saas_owner;
+      DELETE FROM saas.payment_methods
+      WHERE id='50000000-0000-4000-8000-000000000099';`);
+    sql(box, `CREATE DATABASE ${INVALID_CONFIG_DB} TEMPLATE ${DB};`, "postgres");
+    const invalidConfigRejected = apply(box, UP, INVALID_CONFIG_DB, true);
+    assert.notEqual(invalidConfigRejected.status, 0,
+      "062 must not canonicalize an arbitrary invalid bank config");
+    assert.match(invalidConfigRejected.stderr, /BUILT_IN_PAYMENT_METHOD_CONFIG_INVALID/);
+    assert.equal(sql(box, `SELECT config::text FROM saas.payment_methods
+      WHERE kind='bank_transfer';`, INVALID_CONFIG_DB).stdout.trim(), "{}");
+
+    sql(box, `SET ROLE celebix_saas_owner;
+      DELETE FROM saas.payment_methods WHERE kind='bank_transfer';`);
+    sql(box, `CREATE DATABASE ${LEGACY_DB} TEMPLATE ${DB};`, "postgres");
+    apply(box, UP, LEGACY_DB);
+    apply(box, ASSERTIONS, LEGACY_DB);
+    const upgradedLegacy = sql(box, `SELECT id||'|'||label||'|'||state||'|'||version||'|'||config::text
+      FROM saas.payment_methods WHERE kind='cash_on_delivery';`, LEGACY_DB).stdout.trim();
+
+    sql(box, `SET ROLE celebix_saas_owner;
+      DELETE FROM saas.payment_methods WHERE kind='cash_on_delivery';`);
     apply(box, UP);
     apply(box, ASSERTIONS);
+    sql(box, `CREATE DATABASE ${LABEL_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${RACE_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${UNIQUE_CONFLICT_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `CREATE DATABASE ${CLEAN_DOWN_DB} TEMPLATE ${DB};`, "postgres");
@@ -228,6 +247,9 @@ async function main() {
       config: { instructions: "Teslimatta nakit veya kart ile ödeyin." },
     });
     pass("valid COD create", () => {
+      assert.equal(upgradedLegacy,
+        "50000000-0000-4000-8000-000000000062|Kapıda Ödeme|active|1|{\"instructions\": \"\"}",
+      "062 must upgrade the untouched pre-062 COD config without changing row identity or state");
       assert.equal(codCreate.outcome, "saved");
       assert.equal(codCreate.payload.id, COD_METHOD);
       assert.equal(codCreate.payload.version, 1);
@@ -400,6 +422,38 @@ async function main() {
         label: "Geçersiz Boşluk", config: { instructions: "\u00a0başında boşluk" },
       });
       assert.deepEqual(noncanonical, { outcome: "invalid_input", payload: null });
+
+      const maximumMultibyte = appSave(box, {
+        operation: "60000000-0000-4000-8000-000000000093", fingerprint: "3".repeat(64),
+        method: "50000000-0000-4000-8000-000000000093", kind: "cash_on_delivery",
+        label: "ş".repeat(60), config: { instructions: "" },
+      }, LABEL_DB);
+      assert.equal(maximumMultibyte.outcome, "saved",
+        "exactly 120 UTF-8 label bytes must remain valid");
+      const oversizedMultibyte = appSave(box, {
+        operation: "60000000-0000-4000-8000-000000000094", fingerprint: "4".repeat(64),
+        method: "50000000-0000-4000-8000-000000000094", kind: "bank_transfer",
+        label: "ş".repeat(61), config: {
+          accountHolder: "Celebix AŞ", bankName: "Test Bankası", iban: IBAN, instructions: "",
+        },
+      }, LABEL_DB);
+      assert.deepEqual(oversizedMultibyte, { outcome: "invalid_input", payload: null });
+      for (const [suffix, label] of [
+        ["095", "\u00a0Kanonik olmayan kenar"],
+        ["096", "Kanonik\u0085olmayan kontrol"],
+      ]) {
+        assert.deepEqual(appSave(box, {
+          operation: `60000000-0000-4000-8000-000000000${suffix}`,
+          fingerprint: suffix[2].repeat(64),
+          method: `50000000-0000-4000-8000-000000000${suffix}`,
+          kind: "cash_on_delivery", label, config: { instructions: "" },
+        }, LABEL_DB), { outcome: "invalid_input", payload: null });
+      }
+      const surrogateBytes = sql(box,
+        "SELECT pg_catalog.convert_from(pg_catalog.decode('eda080','hex'),'UTF8');",
+        LABEL_DB, true);
+      assert.notEqual(surrogateBytes.status, 0);
+      assert.match(surrogateBytes.stderr, /invalid byte sequence for encoding "UTF8"/i);
     });
 
     pass("bad IBAN checksum denied", () => {
