@@ -22,6 +22,7 @@ import { PostgresRegistrationAttemptStore } from "../saas-persistence/postgres-r
 import { createOwnerTenantCoreAdapter } from "../saas-tenant-core/adapter.ts";
 import { createPersistentSelfServeRuntime, createSelfServeHttpActivationApproval } from "../self-serve-http/runtime.ts";
 import { createPersistentRegistrationCompletionService } from "../self-serve-registration-completion.ts";
+import { createOwnerStagingCallbackAudit } from "./staging-callback-audit.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({
@@ -169,6 +170,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     timeouts: TIMEOUTS,
     audit: () => undefined,
   });
+  const callbackAudit = createOwnerStagingCallbackAudit();
   const composition = createDisabledOwnerSelfServeAuthComposition({
     activationApproval: createOwnerSelfServeAuthCompositionApproval("approved_staging"),
     runtime,
@@ -196,7 +198,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     bridgeAudit: () => undefined,
     browserBindingStartAudit: () => undefined,
     browserBindingGatewayAudit: () => undefined,
-    initialCallbackAudit: () => undefined,
+    initialCallbackAudit: callbackAudit,
     sessionHandoffGatewayAudit: () => undefined,
   });
   return createApprovedStagingOwnerSelfServeAuthRouteSet({
