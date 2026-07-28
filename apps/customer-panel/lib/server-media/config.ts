@@ -11,6 +11,6 @@ export function parseStagingProductMediaConfig(source: Environment): StagingProd
   const secretAccessKey = required(source, "CELEBIX_R2_SECRET_ACCESS_KEY", 512); if (secretAccessKey.length < 32) throw new Error("product_media_config_invalid");
   const bucket = required(source, "CELEBIX_R2_BUCKET_NAME", 63); if (!BUCKET.test(bucket) || !bucket.includes("staging") || bucket.includes("production")) throw new Error("product_media_config_invalid");
   const publicOrigin = required(source, "CELEBIX_R2_PUBLIC_ORIGIN", 2048); let url: URL; try { url = new URL(publicOrigin); } catch { throw new Error("product_media_config_invalid"); }
-  if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash || url.port || url.origin !== publicOrigin || (!url.hostname.endsWith(".saas-staging.celebix.site") && !url.hostname.endsWith(".r2.dev"))) throw new Error("product_media_config_invalid");
+  if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash || url.port || url.origin !== publicOrigin || !url.hostname.endsWith(".saas-staging.celebix.site") || url.hostname.endsWith(".r2.dev") || url.hostname.endsWith(".r2.cloudflarestorage.com")) throw new Error("product_media_config_invalid");
   return Object.freeze({ accountId, accessKeyId, secretAccessKey, bucket, publicOrigin });
 }
