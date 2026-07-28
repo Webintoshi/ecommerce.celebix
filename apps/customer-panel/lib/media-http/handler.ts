@@ -54,27 +54,26 @@ export function createProductMediaHttpHandlers(dependencies: Dependencies) {
       const operation = operationId(request), body = await jsonBody(request);
       if (!operation || !body || Object.keys(body).join(",") !== "expectedVersion" || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 1) return response("invalid_input", 400);
       try {
-        const selected = await authorized.runtime.media.listProductMedia({ tenantContext: authorized.tenantContext, now: authorized.now, productId: product, includeArchived: true });
-        const target = selected.find((candidate) => candidate.id === media);
-        if (!target || target.productId !== product || target.storeId !== authorized.tenantContext.store.id) return response("media_not_found", 404);
-        const unpublished = await authorized.runtime.storage.unpublish(target.objectKey);
-        let archived;
+        const archiveInput = { tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, productId: product, mediaId: media, expectedVersion: body.expectedVersion as number };
+        let reserved;
         try {
-          archived = await authorized.runtime.media.archiveMedia({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, productId: product, mediaId: media, expectedVersion: body.expectedVersion as number });
+          reserved = await authorized.runtime.media.reserveArchiveMedia(archiveInput);
         } catch (error) {
-          let recoveredTarget;
+          if (!(error instanceof ProductMediaRepositoryError) || error.code !== "unavailable") throw error;
+          reserved = await authorized.runtime.media.recoverArchiveMedia(archiveInput);
+        }
+        if (reserved.media.id !== media || reserved.media.productId !== product || reserved.media.storeId !== authorized.tenantContext.store.id || !["pending", "archived"].includes(reserved.media.status)) return response("unavailable", 503);
+        let archived = reserved;
+        if (reserved.media.status === "pending") {
+          await authorized.runtime.storage.unpublish(reserved.media.objectKey);
           try {
-            const recovered = await authorized.runtime.media.listProductMedia({ tenantContext: authorized.tenantContext, now: authorized.now, productId: product, includeArchived: true });
-            recoveredTarget = recovered.find((candidate) => candidate.id === media && candidate.productId === product && candidate.storeId === authorized.tenantContext.store.id);
-          } catch { throw error; }
-          if (recoveredTarget?.status === "archived") {
-            archived = Object.freeze({ media: recoveredTarget, replayed: true });
-          } else {
-            if (recoveredTarget?.status === "active" && unpublished.kind === "found") {
-              await authorized.runtime.storage.publish({ objectKey: target.objectKey, mediaType: unpublished.mediaType, byteSize: unpublished.byteSize, payloadSha256: unpublished.payloadSha256 });
-            }
-            throw error;
+            archived = await authorized.runtime.media.finalizeArchiveMedia(archiveInput);
+          } catch (error) {
+            if (!(error instanceof ProductMediaRepositoryError) || error.code !== "unavailable") throw error;
+            archived = await authorized.runtime.media.recoverArchiveMedia(archiveInput);
           }
+        } else {
+          await authorized.runtime.storage.unpublish(reserved.media.objectKey);
         }
         if (archived.media.id !== media || archived.media.productId !== product || archived.media.storeId !== authorized.tenantContext.store.id || archived.media.status !== "archived") return response("unavailable", 503);
         await authorized.runtime.storage.delete(archived.media.objectKey);

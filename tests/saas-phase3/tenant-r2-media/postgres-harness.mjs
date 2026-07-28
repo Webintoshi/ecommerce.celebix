@@ -179,7 +179,16 @@ function reserveExpression(operationId, mediaId, productId = PRODUCT_A, now = NO
 function lifecycleExpression(name, operationId, mediaId, now, payload = digest(`payload-${mediaId}`)) {
   return `saas.${name}(${authority(now)},'${operationId}','${mediaId}','${PRODUCT_A}','${payload}')`;
 }
-function archiveExpression(operationId, now = AFTER_LATEST) {
+function archiveReserveExpression(operationId, now = AFTER_LATEST) {
+  return `saas.media_reserve_product_archive(${authority(now)},'${operationId}','${digest("archive-media-a")}','${PRODUCT_A}','${MEDIA_A}',1)`;
+}
+function archiveFinalizeExpression(operationId, now = AFTER_LATEST) {
+  return `saas.media_finalize_product_archive(${authority(now)},'${operationId}','${digest("archive-media-a")}','${PRODUCT_A}','${MEDIA_A}',1)`;
+}
+function archiveRecoverExpression(operationId, now = AFTER_LATEST) {
+  return `saas.media_recover_product_archive(${authority(now)},'${operationId}','${digest("archive-media-a")}','${PRODUCT_A}','${MEDIA_A}',1)`;
+}
+function legacyArchiveExpression(operationId, now = AFTER_LATEST) {
   return `saas.media_archive_product(${authority(now)},'${operationId}','${digest("archive-media-a")}','${PRODUCT_A}','${MEDIA_A}',1)`;
 }
 function archiveDeletionExpression(operationId, objectKey, now = AFTER_LATEST) {
@@ -424,14 +433,42 @@ async function main() {
       assert.equal(wrong.outcome, "operation_mismatch");
     });
 
-    await scenario("archived media stays charged until exact R2 deletion proof is persisted", () => {
-      const archiveOperation = "60000000-0000-4000-8000-000000000069";
+    await scenario("archived media stays charged until exact R2 deletion proof is persisted", async () => {
+      const archiveOperations = [
+        "60000000-0000-4000-8000-000000000069",
+        "60000000-0000-4000-8000-000000000070",
+      ];
       const objectKey = `stores/${STORE_A}/products/${PRODUCT_A}/${MEDIA_A}.webp`;
-      assert.equal(functionOutcome(box, archiveExpression(archiveOperation)).outcome, "committed");
+      assert.equal(functionOutcome(box, archiveReserveExpression(OPERATION_A)).outcome, "invalid_input");
+      const reservations = await Promise.all(archiveOperations.map((operationId) =>
+        functionOutcomeAsync(box, archiveReserveExpression(operationId)),
+      ));
+      assert.deepEqual(reservations.map((result) => result.outcome).sort(), ["media_not_found", "reserved"]);
+      const winnerIndex = reservations.findIndex((result) => result.outcome === "reserved");
+      const archiveOperation = archiveOperations[winnerIndex];
+      const reservation = reservations[winnerIndex];
+      assert.equal(reservation.result.media.status, "pending");
+      assert.equal(psql(box, `SELECT count(*) FROM saas.product_media_archive_operations WHERE store_id='${STORE_A}' AND media_id='${MEDIA_A}' AND state='reserved';`).stdout.trim(), "1");
+      const blockedAlt = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT * FROM saas.media_update_alt(${authority(AFTER_LATEST)},'60000000-0000-4000-8000-000000000072','${digest("blocked-archive-alt")}','${PRODUCT_A}','${MEDIA_A}',2,'Blocked during archive');COMMIT;`, DB, true);
+      assert.notEqual(blockedAlt.status, 0);
+      assert.match(blockedAlt.stderr, /PRODUCT_MEDIA_ARCHIVE_RESERVED/);
+      const blockedReorderRestore = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;UPDATE saas.product_media SET status='active',updated_at='${AFTER_LATEST}',version=version+1 WHERE id='${MEDIA_A}';COMMIT;`, DB, true);
+      assert.notEqual(blockedReorderRestore.status, 0);
+      assert.match(blockedReorderRestore.stderr, /PRODUCT_MEDIA_ARCHIVE_RESERVED/);
+      assert.equal(psql(box, `SELECT status||'|'||version||'|'||alt_text FROM saas.product_media WHERE id='${MEDIA_A}';`).stdout.trim(), "pending|2|Pilot");
+      const recovered = functionOutcome(box, archiveRecoverExpression(archiveOperation));
+      assert.equal(recovered.outcome, "found");
+      assert.equal(recovered.result.media.status, "pending");
+      assert.equal(functionOutcome(box, archiveFinalizeExpression(archiveOperation)).outcome, "committed");
+      assert.equal(functionOutcome(box, archiveFinalizeExpression(archiveOperation)).outcome, "operation_replayed");
+      const legacy = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT * FROM ${legacyArchiveExpression("60000000-0000-4000-8000-000000000071")};COMMIT;`, DB, true);
+      assert.notEqual(legacy.status, 0);
+      assert.match(legacy.stderr, /permission denied for function media_archive_product/);
       assert.equal(psql(box, `SELECT object_deleted_at IS NULL FROM saas.product_media WHERE id='${MEDIA_A}';`).stdout.trim(), "t");
       assert.equal(functionOutcome(box, archiveDeletionExpression(archiveOperation, objectKey)).outcome, "deleted");
       assert.equal(functionOutcome(box, archiveDeletionExpression(archiveOperation, objectKey)).outcome, "operation_replayed");
       assert.equal(psql(box, `SELECT object_deleted_at IS NOT NULL FROM saas.product_media WHERE id='${MEDIA_A}';`).stdout.trim(), "t");
+      assert.equal(psql(box, `SELECT state FROM saas.product_media_archive_operations WHERE operation_id='${archiveOperation}';`).stdout.trim(), "deleted");
       const wrongKey = functionOutcome(box, archiveDeletionExpression(archiveOperation, `stores/${STORE_A}/products/${PRODUCT_A}/50000000-0000-4000-8000-000000000099.webp`));
       assert.equal(wrongKey.outcome, "operation_mismatch");
     });

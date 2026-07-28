@@ -26,3 +26,14 @@ test("namespace authority is server-derived and forbidden roles receive no direc
   assert.match(up, /GRANT SELECT,INSERT ON TABLE saas\.store_media_namespaces TO celebix_saas_bootstrap/);
   assert.doesNotMatch(up, /\bGRANT\b[^;]*\b(?:INSERT|UPDATE|DELETE)\b[^;]*\bcelebix_saas_(?:app|identity|workflow|host_resolver)\b/i);
 });
+
+test("product archive is fenced by a durable one-way operation and legacy app authority is revoked", () => {
+  const up = readFileSync(path.join(SQL, "202607280058_store_media_namespace_exports.up.sql"), "utf8");
+  assert.match(up, /CREATE TABLE saas\.product_media_archive_operations/);
+  assert.match(up, /CREATE UNIQUE INDEX product_media_archive_operations_one_reserved/);
+  assert.match(up, /CREATE TRIGGER product_media_archive_reservation_fence/);
+  assert.match(up, /CREATE FUNCTION saas\.media_reserve_product_archive/);
+  assert.match(up, /CREATE FUNCTION saas\.media_finalize_product_archive/);
+  assert.match(up, /CREATE FUNCTION saas\.media_recover_product_archive/);
+  assert.match(up, /REVOKE EXECUTE ON FUNCTION saas\.media_archive_product[\s\S]*FROM celebix_saas_app;/);
+});

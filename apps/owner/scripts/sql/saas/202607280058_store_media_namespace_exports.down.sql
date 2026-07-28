@@ -16,6 +16,15 @@ $precondition$;
 
 DROP FUNCTION saas.media_mark_product_deleted(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,uuid,uuid,text);
 DROP FUNCTION saas.media_mark_archived_object_deleted(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,uuid,uuid,text);
+DROP FUNCTION saas.media_recover_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint);
+DROP FUNCTION saas.media_finalize_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint);
+DROP FUNCTION saas.media_reserve_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint);
+DROP FUNCTION saas.media_archive_operation_projection(uuid);
+DROP TRIGGER product_media_archive_reservation_fence ON saas.product_media;
+DROP FUNCTION saas.guard_reserved_product_media_archive();
+DROP TRIGGER product_media_archive_operations_one_way ON saas.product_media_archive_operations;
+DROP FUNCTION saas.guard_product_media_archive_operation();
+DROP TABLE saas.product_media_archive_operations;
 DROP FUNCTION saas.media_require_product_cleanup(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,uuid,uuid,text);
 DROP FUNCTION saas.media_recover_product_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,uuid,uuid,text);
 DROP FUNCTION saas.media_finalize_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,uuid,uuid,text);
@@ -117,6 +126,10 @@ ALTER TABLE saas.tenant_operations
 GRANT EXECUTE ON FUNCTION saas.media_attach_product(
   uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,
   uuid,uuid,uuid,text,text,text,text,integer,integer,bigint
+) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.media_archive_product(
+  uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,
+  uuid,uuid,bigint
 ) TO celebix_saas_app;
 
 ALTER TABLE saas.product_media DROP CONSTRAINT product_media_object_deleted_check;

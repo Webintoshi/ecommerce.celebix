@@ -437,6 +437,253 @@ BEGIN
 END
 $function$;
 
+CREATE TABLE saas.product_media_archive_operations (
+  operation_id uuid PRIMARY KEY,
+  store_id uuid NOT NULL,
+  media_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  object_key text NOT NULL,
+  payload_fingerprint char(64) NOT NULL,
+  expected_version bigint NOT NULL,
+  state text NOT NULL,
+  version bigint NOT NULL,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL,
+  committed_at timestamptz,
+  deleted_at timestamptz,
+  CONSTRAINT product_media_archive_operations_store_fk
+    FOREIGN KEY(store_id) REFERENCES saas.stores(id) ON DELETE RESTRICT,
+  CONSTRAINT product_media_archive_operations_media_fk
+    FOREIGN KEY(store_id,media_id) REFERENCES saas.product_media(store_id,id) ON DELETE RESTRICT,
+  CONSTRAINT product_media_archive_operations_product_fk
+    FOREIGN KEY(store_id,product_id) REFERENCES saas.products(store_id,id) ON DELETE RESTRICT,
+  CONSTRAINT product_media_archive_operations_fingerprint_check
+    CHECK(payload_fingerprint~'^[a-f0-9]{64}$'),
+  CONSTRAINT product_media_archive_operations_version_check
+    CHECK(expected_version>0 AND version>0),
+  CONSTRAINT product_media_archive_operations_state_check
+    CHECK(state IN('reserved','committed','deleted')),
+  CONSTRAINT product_media_archive_operations_lifecycle_check CHECK(
+    (state='reserved' AND committed_at IS NULL AND deleted_at IS NULL)
+    OR (state='committed' AND committed_at IS NOT NULL AND deleted_at IS NULL)
+    OR (state='deleted' AND committed_at IS NOT NULL AND deleted_at IS NOT NULL)
+  ),
+  CONSTRAINT product_media_archive_operations_timestamp_check CHECK(
+    updated_at>=created_at
+    AND (committed_at IS NULL OR (committed_at>=created_at AND updated_at>=committed_at))
+    AND (deleted_at IS NULL OR (deleted_at>=committed_at AND updated_at>=deleted_at))
+  )
+);
+CREATE UNIQUE INDEX product_media_archive_operations_one_reserved
+  ON saas.product_media_archive_operations(store_id,media_id)
+  WHERE state='reserved';
+CREATE INDEX product_media_archive_operations_store_state_idx
+  ON saas.product_media_archive_operations(store_id,state,updated_at,operation_id);
+
+CREATE FUNCTION saas.guard_reserved_product_media_archive()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $function$
+BEGIN
+  IF NOT EXISTS(
+    SELECT 1
+    FROM saas.product_media_archive_operations AS operation
+    WHERE operation.store_id=OLD.store_id
+      AND operation.media_id=OLD.id
+      AND operation.product_id=OLD.product_id
+      AND operation.state='reserved'
+  ) THEN
+    RETURN NEW;
+  END IF;
+  IF OLD.status='pending' AND NEW.status='archived'
+     AND NEW.id=OLD.id AND NEW.store_id=OLD.store_id AND NEW.product_id=OLD.product_id
+     AND NEW.variant_id IS NOT DISTINCT FROM OLD.variant_id AND NEW.object_key=OLD.object_key
+     AND NEW.public_url=OLD.public_url AND NEW.media_type=OLD.media_type
+     AND NEW.alt_text=OLD.alt_text AND NEW.width IS NOT DISTINCT FROM OLD.width
+     AND NEW.height IS NOT DISTINCT FROM OLD.height AND NEW.byte_size=OLD.byte_size
+     AND NEW.sort_order=OLD.sort_order AND NEW.created_at=OLD.created_at
+     AND NEW.updated_at>=OLD.updated_at AND OLD.archived_at IS NULL
+     AND NEW.archived_at=NEW.updated_at
+     AND NEW.object_deleted_at IS NOT DISTINCT FROM OLD.object_deleted_at
+     AND NEW.version=OLD.version+1 THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'PRODUCT_MEDIA_ARCHIVE_RESERVED';
+END
+$function$;
+REVOKE ALL ON FUNCTION saas.guard_reserved_product_media_archive() FROM PUBLIC;
+CREATE TRIGGER product_media_archive_reservation_fence
+BEFORE UPDATE ON saas.product_media
+FOR EACH ROW EXECUTE FUNCTION saas.guard_reserved_product_media_archive();
+
+CREATE FUNCTION saas.guard_product_media_archive_operation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $function$
+BEGIN
+  IF TG_OP='DELETE'
+     OR NEW.operation_id<>OLD.operation_id OR NEW.store_id<>OLD.store_id
+     OR NEW.media_id<>OLD.media_id OR NEW.product_id<>OLD.product_id
+     OR NEW.object_key<>OLD.object_key OR NEW.payload_fingerprint<>OLD.payload_fingerprint
+     OR NEW.expected_version<>OLD.expected_version OR NEW.created_at<>OLD.created_at
+     OR NEW.version<>OLD.version+1 OR NEW.updated_at<OLD.updated_at
+     OR NOT(
+       (OLD.state='reserved' AND NEW.state='committed'
+        AND OLD.committed_at IS NULL AND NEW.committed_at=NEW.updated_at
+        AND NEW.deleted_at IS NULL)
+       OR (OLD.state='committed' AND NEW.state='deleted'
+        AND NEW.committed_at=OLD.committed_at
+        AND OLD.deleted_at IS NULL AND NEW.deleted_at=NEW.updated_at)
+     ) THEN
+    RAISE EXCEPTION 'PRODUCT_MEDIA_ARCHIVE_OPERATION_MUTATION_FORBIDDEN';
+  END IF;
+  RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION saas.guard_product_media_archive_operation() FROM PUBLIC;
+CREATE TRIGGER product_media_archive_operations_one_way
+BEFORE UPDATE OR DELETE ON saas.product_media_archive_operations
+FOR EACH ROW EXECUTE FUNCTION saas.guard_product_media_archive_operation();
+
+ALTER TABLE saas.product_media_archive_operations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.product_media_archive_operations FORCE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE saas.product_media_archive_operations FROM PUBLIC;
+REVOKE ALL ON TABLE saas.product_media_archive_operations FROM
+  celebix_saas_app,celebix_saas_identity,celebix_saas_workflow,
+  celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
+  celebix_saas_migrator;
+
+CREATE FUNCTION saas.media_archive_operation_projection(p_operation_id uuid)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $function$
+  SELECT pg_catalog.jsonb_build_object('media',saas.media_projection(operation.media_id))
+  FROM saas.product_media_archive_operations AS operation
+  WHERE operation.operation_id=p_operation_id;
+$function$;
+REVOKE ALL ON FUNCTION saas.media_archive_operation_projection(uuid) FROM PUBLIC;
+
+CREATE FUNCTION saas.media_reserve_product_archive(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_storage_bytes bigint,p_now timestamptz,
+  p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_media_id uuid,p_expected_version bigint
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text; operation saas.product_media_archive_operations%ROWTYPE; selected saas.product_media%ROWTYPE;
+BEGIN
+  authority_error:=saas.media_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_storage_bytes,p_now);
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  SELECT * INTO operation FROM saas.product_media_archive_operations WHERE operation_id=p_operation_id;
+  IF FOUND THEN
+    IF operation.store_id=p_store_id AND operation.media_id=p_media_id
+       AND operation.product_id=p_product_id AND operation.payload_fingerprint=p_fingerprint
+       AND operation.expected_version=p_expected_version THEN
+      RETURN QUERY SELECT 'operation_replayed'::text,saas.media_archive_operation_projection(p_operation_id);
+    ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF;
+    RETURN;
+  END IF;
+  IF p_operation_id IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+     OR p_product_id IS NULL OR p_media_id IS NULL OR p_expected_version<1
+     OR EXISTS(SELECT 1 FROM saas.product_media_operations WHERE operation_id=p_operation_id)
+     OR EXISTS(SELECT 1 FROM saas.store_media_operations WHERE operation_id=p_operation_id) THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT * INTO selected FROM saas.product_media
+    WHERE store_id=p_store_id AND product_id=p_product_id AND id=p_media_id AND status='active'
+    FOR UPDATE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'media_not_found'::text,NULL::jsonb; RETURN; END IF;
+  IF selected.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict'::text,NULL::jsonb; RETURN; END IF;
+  UPDATE saas.product_media SET status='pending',updated_at=p_now,version=version+1 WHERE id=p_media_id;
+  INSERT INTO saas.product_media_archive_operations(
+    operation_id,store_id,media_id,product_id,object_key,payload_fingerprint,
+    expected_version,state,version,created_at,updated_at
+  ) VALUES(
+    p_operation_id,p_store_id,p_media_id,p_product_id,selected.object_key,p_fingerprint,
+    p_expected_version,'reserved',1,p_now,p_now
+  );
+  RETURN QUERY SELECT 'reserved'::text,saas.media_archive_operation_projection(p_operation_id);
+EXCEPTION WHEN unique_violation THEN
+  RETURN QUERY SELECT 'version_conflict'::text,NULL::jsonb;
+END
+$function$;
+
+CREATE FUNCTION saas.media_finalize_product_archive(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_storage_bytes bigint,p_now timestamptz,
+  p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_media_id uuid,p_expected_version bigint
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text; operation saas.product_media_archive_operations%ROWTYPE; projection jsonb;
+BEGIN
+  authority_error:=saas.media_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_storage_bytes,p_now);
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  SELECT * INTO operation FROM saas.product_media_archive_operations WHERE operation_id=p_operation_id FOR UPDATE;
+  IF NOT FOUND OR operation.store_id<>p_store_id OR operation.media_id<>p_media_id
+     OR operation.product_id<>p_product_id OR operation.payload_fingerprint<>p_fingerprint
+     OR operation.expected_version<>p_expected_version THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF operation.state IN('committed','deleted') THEN
+    RETURN QUERY SELECT 'operation_replayed'::text,saas.media_archive_operation_projection(p_operation_id); RETURN;
+  END IF;
+  PERFORM 1 FROM saas.product_media
+    WHERE store_id=p_store_id AND product_id=p_product_id AND id=p_media_id
+      AND object_key=operation.object_key AND status='pending' AND version=p_expected_version+1
+    FOR UPDATE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN; END IF;
+  UPDATE saas.product_media SET status='archived',archived_at=p_now,updated_at=p_now,version=version+1 WHERE id=p_media_id;
+  projection:=saas.media_archive_operation_projection(p_operation_id);
+  INSERT INTO saas.product_media_operations(operation_id,store_id,operation_kind,payload_fingerprint,result_payload,committed_at)
+  VALUES(p_operation_id,p_store_id,'archive_media',p_fingerprint,projection,p_now);
+  UPDATE saas.product_media_archive_operations
+    SET state='committed',committed_at=p_now,updated_at=p_now,version=version+1
+    WHERE operation_id=p_operation_id;
+  RETURN QUERY SELECT 'committed'::text,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.media_recover_product_archive(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_storage_bytes bigint,p_now timestamptz,
+  p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_media_id uuid,p_expected_version bigint
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text; operation saas.product_media_archive_operations%ROWTYPE;
+BEGIN
+  authority_error:=saas.media_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_storage_bytes,p_now);
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  SELECT * INTO operation FROM saas.product_media_archive_operations WHERE operation_id=p_operation_id;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'media_not_found'::text,NULL::jsonb; RETURN; END IF;
+  IF operation.store_id<>p_store_id OR operation.media_id<>p_media_id
+     OR operation.product_id<>p_product_id OR operation.payload_fingerprint<>p_fingerprint
+     OR operation.expected_version<>p_expected_version THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END IF;
+  RETURN QUERY SELECT 'found'::text,saas.media_archive_operation_projection(p_operation_id);
+END
+$function$;
+
+REVOKE ALL ON FUNCTION saas.media_reserve_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.media_finalize_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.media_recover_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION saas.media_reserve_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.media_finalize_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.media_recover_product_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) TO celebix_saas_app;
+REVOKE EXECUTE ON FUNCTION saas.media_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM celebix_saas_app;
+
 CREATE FUNCTION saas.media_reserve_product(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
   p_plan_code text,p_plan_version bigint,p_storage_bytes bigint,p_now timestamptz,
@@ -640,7 +887,10 @@ CREATE FUNCTION saas.media_mark_archived_object_deleted(
 RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
 AS $function$
-DECLARE authority_error text; selected saas.product_media%ROWTYPE;
+DECLARE
+  authority_error text;
+  selected saas.product_media%ROWTYPE;
+  archive_operation saas.product_media_archive_operations%ROWTYPE;
 BEGIN
   authority_error:=saas.media_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_storage_bytes,p_now);
   IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
@@ -649,7 +899,20 @@ BEGIN
   WHERE store_id=p_store_id AND id=p_media_id AND product_id=p_product_id
     AND object_key=p_object_key AND status='archived'
   FOR UPDATE;
-  IF NOT FOUND OR NOT EXISTS(
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT * INTO archive_operation
+  FROM saas.product_media_archive_operations
+  WHERE operation_id=p_operation_id
+  FOR UPDATE;
+  IF NOT FOUND
+     OR archive_operation.store_id<>p_store_id
+     OR archive_operation.media_id<>p_media_id
+     OR archive_operation.product_id<>p_product_id
+     OR archive_operation.object_key<>p_object_key
+     OR archive_operation.state NOT IN('committed','deleted')
+     OR NOT EXISTS(
     SELECT 1 FROM saas.product_media_operations AS operation
     WHERE operation.operation_id=p_operation_id AND operation.store_id=p_store_id
       AND operation.operation_kind='archive_media'
@@ -661,11 +924,20 @@ BEGIN
     RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
   END IF;
   IF selected.object_deleted_at IS NOT NULL THEN
+    IF archive_operation.state<>'deleted' THEN
+      RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+    END IF;
     RETURN QUERY SELECT 'operation_replayed'::text,
       pg_catalog.jsonb_build_object('media',saas.media_projection(p_media_id));
     RETURN;
   END IF;
+  IF archive_operation.state<>'committed' THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END IF;
   UPDATE saas.product_media SET object_deleted_at=p_now WHERE id=p_media_id;
+  UPDATE saas.product_media_archive_operations
+  SET state='deleted',deleted_at=p_now,updated_at=p_now,version=version+1
+  WHERE operation_id=p_operation_id;
   RETURN QUERY SELECT 'deleted'::text,
     pg_catalog.jsonb_build_object('media',saas.media_projection(p_media_id));
 END

@@ -39,7 +39,7 @@
 - Produces: required `CreateStarterTenantResult.mediaStorage: StoreMediaReadiness`.
 - Security boundary: the safe result contains no bucket, prefix, R2 URL, key, credential, or store-selected value.
 
-- [ ] **Step 1: Write failing exact-shape contract/parser tests**
+- [x] **Step 1: Write failing exact-shape contract/parser tests**
 
 Add a literal `mediaStorage: { schemaVersion: 1, status: "ready", version: 1 }` to valid fixtures, then add independent negatives:
 
@@ -60,7 +60,7 @@ test("tenant result requires safe media readiness without infrastructure authori
 
 The Owner completion validator test must mutate `mediaStorage` and assert `validateTenantCompletionResult(...) === false` for missing, extra-key, non-ready, and non-positive-version values.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -72,7 +72,7 @@ node --conditions=react-server --experimental-transform-types --test apps/owner/
 
 Expected: FAIL because `CreateStarterTenantResult` and strict parsers do not recognize `mediaStorage`.
 
-- [ ] **Step 3: Implement the minimal immutable contract**
+- [x] **Step 3: Implement the minimal immutable contract**
 
 Add:
 
@@ -90,7 +90,7 @@ export interface CreateStarterTenantResult {
 
 Keep every existing `CreateStarterTenantResult` field unchanged. In both strict parsers require exact keys `schemaVersion,status,version`, literal values `1` and `ready`, and a positive safe integer version. Return a structured clone; never accept optional or inherited keys.
 
-- [ ] **Step 4: Run GREEN and regression tests**
+- [x] **Step 4: Run GREEN and regression tests**
 
 Run the three commands from Step 2 plus:
 
@@ -102,7 +102,7 @@ npm run typecheck --workspace @celebix/owner
 
 Expected: PASS with all existing totals plus the new contract negatives.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-contracts/src/types.ts packages/saas-contracts/src/contracts.test.ts \
@@ -127,7 +127,7 @@ git commit -m "feat(saas): define tenant media readiness proof"
 - Produces: `StoreMediaNamespaceRepositoryPort.findByStoreId(storeId)` and `.create(record)`.
 - Extends: `SaaSDataTransaction.mediaNamespaces` and in-memory inspected state.
 
-- [ ] **Step 1: Write failing in-memory isolation and rollback tests**
+- [x] **Step 1: Write failing in-memory isolation and rollback tests**
 
 ```ts
 test("media namespace is unique per store and exact to the store UUID", async () => {
@@ -150,7 +150,7 @@ test("media namespace is unique per store and exact to the store UUID", async ()
 
 Add negatives for wrong prefix, non-active creation, version other than 1, timestamp mismatch, another store reusing a prefix, and failure injection after namespace create rolling back the whole transaction.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run:
 
@@ -160,7 +160,7 @@ node --experimental-strip-types --test --test-name-pattern="media namespace" pac
 
 Expected: TypeScript/test failure because `mediaNamespaces` and `StoreMediaNamespaceRecord` do not exist.
 
-- [ ] **Step 3: Implement ports and in-memory behavior**
+- [x] **Step 3: Implement ports and in-memory behavior**
 
 Add:
 
@@ -182,7 +182,7 @@ export interface StoreMediaNamespaceRepositoryPort {
 
 In-memory `create` must validate exact `stores/${record.storeId}/`, require active/version 1/equal timestamps, enforce unique store and prefix, clone all values, call the new `after_media_namespace_create` failure point, and reject after terminal transaction state.
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 ```bash
 npm test --workspace @celebix/saas-data
@@ -191,7 +191,7 @@ npm run typecheck --workspace @celebix/saas-data
 
 Expected: PASS; existing transaction behavior remains unchanged.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-data/src/types.ts packages/saas-data/src/ports.ts packages/saas-data/src/index.ts \
@@ -212,7 +212,7 @@ git commit -m "feat(saas): add transactional media namespaces"
 - Consumes: `transaction.mediaNamespaces.create(StoreMediaNamespaceRecord)`.
 - Produces: tenant result with exact `mediaStorage: { schemaVersion: 1, status: "ready", version: namespace.version }`.
 
-- [ ] **Step 1: Write failing atomicity/replay tests**
+- [x] **Step 1: Write failing atomicity/replay tests**
 
 Extend the successful bootstrap test:
 
@@ -231,7 +231,7 @@ assert.deepEqual(result.mediaStorage, { schemaVersion: 1, status: "ready", versi
 
 Add tests proving same idempotency replay leaves one namespace and `failAt: "after_media_namespace_create"` leaves zero stores, subscriptions, namespaces, settings, and operations after rollback.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 ```bash
 node --experimental-strip-types --test --test-name-pattern="namespace|atomic free starter tenant" packages/saas-tenant-core/src/create-starter-tenant.test.ts
@@ -239,7 +239,7 @@ node --experimental-strip-types --test --test-name-pattern="namespace|atomic fre
 
 Expected: FAIL because Tenant Core does not create the namespace or safe readiness proof.
 
-- [ ] **Step 3: Implement minimal atomic creation**
+- [x] **Step 3: Implement minimal atomic creation**
 
 Immediately after validating the active `free_starter` plan/subscription and confirming the plan contains `media`, create:
 
@@ -256,7 +256,7 @@ const mediaNamespace = await transaction.mediaNamespaces.create({
 
 Add the safe `mediaStorage` projection to `result`. If the plan lacks `media`, namespace creation fails, or returned store/prefix/version differs, throw the existing safe retryable tenant transaction failure before marking the operation committed.
 
-- [ ] **Step 4: Run GREEN and Owner regressions**
+- [x] **Step 4: Run GREEN and Owner regressions**
 
 ```bash
 npm test --workspace @celebix/saas-tenant-core
@@ -267,7 +267,7 @@ npm run typecheck --workspace @celebix/owner
 
 Expected: PASS; every successful/replayed fixture carries the safe readiness field.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-tenant-core/src apps/owner/lib
@@ -292,7 +292,7 @@ git commit -m "feat(saas): bind tenant creation to media storage"
 - Produces: PostgreSQL implementation of `mediaNamespaces.findByStoreId/create` under `celebix_saas_bootstrap`.
 - Produces: `saas.store_media_namespaces` with immutable prefix and no app direct writes.
 
-- [ ] **Step 1: Write failing PostgreSQL adapter query tests**
+- [x] **Step 1: Write failing PostgreSQL adapter query tests**
 
 Require exact SQL/parameters and strict row parsing:
 
@@ -317,7 +317,7 @@ assert.deepEqual(created, {
 
 Add corruption tests for extra/missing row keys, wrong prefix/store/status/version/timestamps, duplicate rows, and terminal transaction calls.
 
-- [ ] **Step 2: Run adapter tests and verify RED**
+- [x] **Step 2: Run adapter tests and verify RED**
 
 ```bash
 node --experimental-strip-types --test --test-name-pattern="media namespace|tenant bootstrap" packages/saas-data/src/postgres/repository.test.ts packages/saas-data/src/postgres/parsers.test.ts
@@ -325,7 +325,7 @@ node --experimental-strip-types --test --test-name-pattern="media namespace|tena
 
 Expected: FAIL because the Postgres transaction lacks the port and parser.
 
-- [ ] **Step 3: Implement minimal adapter methods**
+- [x] **Step 3: Implement minimal adapter methods**
 
 Use parameterized statements only:
 
@@ -343,7 +343,7 @@ RETURNING store_id, namespace_prefix, status, version, created_at, updated_at
 
 The parser independently reconstructs `stores/${storeId}/` and rejects any mismatch.
 
-- [ ] **Step 4: Write the failing disposable PostgreSQL harness**
+- [x] **Step 4: Write the failing disposable PostgreSQL harness**
 
 The harness runs the entire ordered migration set through 058 and contains literal scenarios for PostgreSQL major 16, manifest SHA-256, existing-store backfill, exact prefix/status/version/timestamps, bootstrap-role insert, duplicate and mismatch denial, immutable fields, zero app/host/workflow/PUBLIC DML, FORCE RLS, owner/grants/search paths, backup/restore, rollback/reapply, and cleanup.
 
@@ -355,7 +355,7 @@ node tests/saas-phase3/tenant-r2-media/postgres-harness.mjs
 
 Expected: FAIL because migration artifacts do not exist.
 
-- [ ] **Step 5: Implement migration 058 namespace DDL and assertions**
+- [x] **Step 5: Implement migration 058 namespace DDL and assertions**
 
 The up migration includes this authority shape:
 
@@ -378,7 +378,7 @@ CREATE TABLE saas.store_media_namespaces (
 
 Add an immutable-authority trigger; enable and FORCE RLS; revoke all from PUBLIC/app/host/workflow; grant only SELECT/INSERT required by `celebix_saas_bootstrap`; backfill each existing store with its exact prefix and store creation timestamp; and provide a dependency-safe disposable-only down migration. Assertions inspect catalog ACLs, trigger ownership, function search paths, RLS flags, and exact constraints.
 
-- [ ] **Step 6: Update checksums and run GREEN**
+- [x] **Step 6: Update checksums and run GREEN**
 
 Generate SHA-256 values from actual files, never manually invent them. Run:
 
@@ -392,7 +392,7 @@ git diff --check
 
 Expected: all namespace, migration, rollback/reapply, and adapter tests PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/saas-data/src apps/owner/scripts/sql/saas/202607280058_* \
@@ -418,7 +418,7 @@ git commit -m "feat(saas): persist tenant r2 namespaces"
 - Produces: `ProductMediaReservation`, `ProductMediaWriteState`, and repository methods `reserveProductMedia`, `markProductMediaUploaded`, `finalizeProductMedia`, `recoverProductMediaOperation`, `requireProductMediaCleanup`, `markProductMediaDeleted`.
 - Existing read/update/reorder/archive methods remain compatible.
 
-- [ ] **Step 1: Write failing contract and repository tests**
+- [x] **Step 1: Write failing contract and repository tests**
 
 Define the observable result:
 
@@ -441,7 +441,7 @@ export type ProductMediaReservation = Readonly<{
 
 Tests prove the repository ignores/rejects browser object authority, derives exact keys from `TenantContext`, sends current plan/storage authority, rejects another store/product, recovers exact operation/fingerprint read-only, never writes twice after unknown commit, and deep-freezes safe results.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 ```bash
 node --experimental-strip-types --test --test-name-pattern="media reservation" packages/saas-contracts/src/media/media.test.ts
@@ -450,7 +450,7 @@ node --experimental-strip-types --test --test-name-pattern="media reservation|me
 
 Expected: FAIL because lifecycle contracts and methods do not exist.
 
-- [ ] **Step 3: Implement minimal repository lifecycle**
+- [x] **Step 3: Implement minimal repository lifecycle**
 
 Every method takes `tenantContext`, `now`, operation/fingerprint inputs, and target IDs. It calls one reviewed SQL function, validates one exact outcome/projection, uses READ COMMITTED for writes, READ ONLY for recovery, evicts the client after unknown COMMIT, and performs no automatic second write.
 
@@ -463,13 +463,13 @@ const publicUrl = `${configuredMediaOrigin}/${objectKey}`;
 
 The origin is constructor-owned exact HTTPS configuration. It is never accepted through method input.
 
-- [ ] **Step 4: Extend migration 058 with lifecycle authority**
+- [x] **Step 4: Extend migration 058 with lifecycle authority**
 
 Add `saas.store_media_operations` with immutable store/target/key/digest fields, one-way states, expected versions, byte reservation, timestamps, and safe failure code. Add SECURITY DEFINER functions for reserve, mark uploaded, finalize, read-only recover, cleanup-required, and deleted. Reservation locks namespace/quota rows and calculates active plus nonterminal bytes so concurrent reservations cannot exceed `storageBytes`.
 
 The existing terminal-only `product_media_operations` table remains unchanged for existing alt/reorder/archive idempotency. Finalization creates one active `product_media` row and records the committed projection atomically.
 
-- [ ] **Step 5: Add PostgreSQL scenarios and run GREEN**
+- [x] **Step 5: Add PostgreSQL scenarios and run GREEN**
 
 Add literal harness scenarios for two-store substitution, concurrency at quota boundary, state-transition skips, operation mismatch, replay, invalid prefix, wrong product/variant, membership/feature/subscription/version failures, cleanup proof, direct DML denial, backup/restore, and rollback/reapply.
 
@@ -485,7 +485,7 @@ npm run typecheck --workspace @celebix/saas-data
 
 Expected: PASS with the expanded fixed scenario total printed by the harness.
 
-- [ ] **Step 6: Recompute manifest and commit**
+- [x] **Step 6: Recompute manifest and commit**
 
 ```bash
 git add packages/saas-contracts/src/media packages/saas-data/src/media \
@@ -513,7 +513,7 @@ git commit -m "feat(saas): add durable media write lifecycle"
 - Produces: `ProductMediaStorage.head(objectKey)` returning exact length/type/SHA metadata or `not_found`.
 - Produces: `createProductMediaUploadService({ repository, storage, now })` which owns the saga; HTTP handler only validates request authority/body and maps safe results.
 
-- [ ] **Step 1: Write failing real-boundary R2 tests**
+- [x] **Step 1: Write failing real-boundary R2 tests**
 
 Tests use a local fake `fetch` boundary but assert the real SigV4 request inputs and parsed behavior:
 
@@ -532,11 +532,11 @@ assert.deepEqual(head, {
 
 Add status, redirect, malformed/missing metadata, mismatched length/type/digest, timeout/network, and secret-free error tests.
 
-- [ ] **Step 2: Write failing saga tests**
+- [x] **Step 2: Write failing saga tests**
 
 Use a real upload service with narrow fake repository/storage boundaries. Assert observable durable calls and returned result for reserve -> PUT -> mark uploaded -> finalize success; R2 failure; known finalize rejection; finalize unknown commit and one recovery; committed/absent recovery; cleanup-required; and cross-store/object substitution before storage access.
 
-- [ ] **Step 3: Run and verify RED**
+- [x] **Step 3: Run and verify RED**
 
 ```bash
 cd apps/customer-panel
@@ -548,13 +548,13 @@ node --experimental-transform-types --test \
 
 Expected: FAIL because HEAD/integrity metadata and the upload service do not exist.
 
-- [ ] **Step 4: Implement R2 HEAD and upload service**
+- [x] **Step 4: Implement R2 HEAD and upload service**
 
 Add signed `HEAD` using the same exact host/canonical URI builder as PUT/DELETE. Accept only 200 or 404, reject redirects, parse a single canonical content type, non-negative bounded `content-length`, and exact lowercase 64-character metadata digest.
 
 The upload service computes SHA-256 from validated bytes, calls lifecycle methods in order, and owns all delete/recovery decisions. It never logs the request, object URL, credentials, bytes, or digest. The HTTP handler no longer calls `storage.put` and `media.attachMedia` directly.
 
-- [ ] **Step 5: Run GREEN and app regressions**
+- [x] **Step 5: Run GREEN and app regressions**
 
 ```bash
 cd apps/customer-panel
@@ -568,7 +568,7 @@ npm run build --workspace @celebix/customer-panel
 
 Expected: PASS; no direct browser-to-R2 authority and no build errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/customer-panel/lib/server-media apps/customer-panel/lib/media-http \
@@ -599,7 +599,7 @@ git commit -m "feat(customer-panel): make media uploads recoverable"
 - Produces: Worker `fetch(request, env)` using a private `MEDIA_BUCKET` R2 binding.
 - Configuration contract: public media origin is the exact Worker custom origin; direct `r2.dev` and `r2.cloudflarestorage.com` origins are rejected.
 
-- [ ] **Step 1: Write failing key-authority and Worker tests**
+- [x] **Step 1: Write failing key-authority and Worker tests**
 
 Positive literal:
 
@@ -612,7 +612,7 @@ assert.deepEqual(
 
 Negatives include wrong methods, query/fragment, traversal/encoded traversal, backslashes, duplicate slash, uppercase UUID/extension, wrong extension, child suffix, `imports`, `exports`, unknown class, credentials, Range, Authorization, Cookie, and forwarded/private headers. The R2 fake shows zero `get` calls for every denial.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 ```bash
 npm test --workspace @celebix/media-gateway
@@ -620,17 +620,17 @@ npm test --workspace @celebix/media-gateway
 
 Expected: FAIL because the workspace and authority do not exist.
 
-- [ ] **Step 3: Implement minimal Worker**
+- [x] **Step 3: Implement minimal Worker**
 
 The handler accepts only GET/HEAD with no query/body/private headers; parses exact path grammar; reads exactly one R2 object through the binding; permits only JPEG/PNG/WebP metadata; returns immutable content type, nosniff, bounded public cache policy, ETag, and content length; maps missing to 404 and storage failure to safe 503. It never lists the bucket and never constructs keys from headers.
 
 `wrangler.jsonc` declares only the `MEDIA_BUCKET` binding and contains no account ID, credential, production route, or bucket name. Environment binding is supplied only at separately authorized deploy time.
 
-- [ ] **Step 4: Harden configuration**
+- [x] **Step 4: Harden configuration**
 
 Both customer-panel and storefront parsers require an exact canonical HTTPS media gateway origin and reject `.r2.dev`, `.r2.cloudflarestorage.com`, localhost, internal names, credentials, ports, paths, query, fragment, whitespace, and production-like values in staging.
 
-- [ ] **Step 5: Run GREEN and regression builds**
+- [x] **Step 5: Run GREEN and regression builds**
 
 ```bash
 npm test --workspace @celebix/media-gateway
@@ -646,7 +646,7 @@ npm run build --workspace @celebix/storefront-shared
 
 Expected: PASS; direct bucket origins fail closed and storefront public media URLs remain exact Worker URLs.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/media-gateway apps/customer-panel/lib/server-media \
@@ -665,7 +665,7 @@ git commit -m "feat(saas): add private r2 media gateway"
 - Validates every output of Tasks 1-7.
 - Produces the stable foundation consumed by bulk catalog media ingestion and independent export plans.
 
-- [ ] **Step 1: Run focused and complete tests**
+- [x] **Step 1: Run focused and complete tests**
 
 ```bash
 npm ci
@@ -684,7 +684,7 @@ npm run test:saas-phase1
 
 Expected: every command PASS with no skipped new isolation scenario.
 
-- [ ] **Step 2: Run typecheck/build matrix**
+- [x] **Step 2: Run typecheck/build matrix**
 
 ```bash
 npm run typecheck --workspace @celebix/saas-contracts
@@ -701,7 +701,7 @@ npm run typecheck --workspace @celebix/media-gateway
 
 Expected: PASS with no TypeScript or Next build errors.
 
-- [ ] **Step 3: Run security/scope/secret scans**
+- [x] **Step 3: Run security/scope/secret scans**
 
 ```bash
 git diff --check
@@ -713,7 +713,7 @@ git diff 42f847d8384ebc00492a16ba03b5471643419591...HEAD | \
 
 Expected: `git diff --check` PASS; `apps/admin` output empty; secret scan has no credential/token material and only intentional denial-test literals.
 
-- [ ] **Step 4: Verify cleanup and remote parity**
+- [x] **Step 4: Verify cleanup and remote parity**
 
 Confirm the disposable harness removed data/socket directories and left no PostgreSQL process. Then:
 
