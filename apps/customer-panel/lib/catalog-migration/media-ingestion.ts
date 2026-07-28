@@ -33,6 +33,11 @@ export type MigrationMediaIngestionDependencies = Readonly<{
 }>;
 
 function unavailable(): Error { return new Error("catalog_migration_media_unavailable"); }
+export function deriveMigrationMediaUploadOperationId(input: Readonly<{ storeId: string; jobId: string; sourceProductId: string; ordinal: number }>): string {
+  if (!UUID.test(input.storeId) || !UUID.test(input.jobId) || !SOURCE_ID.test(input.sourceProductId) || !Number.isSafeInteger(input.ordinal) || input.ordinal < 0 || input.ordinal > 15) throw unavailable();
+  const hex = createHash("sha256").update("celebix-catalog-migration-media-v1\0").update(input.storeId).update("\0").update(input.jobId).update("\0").update(input.sourceProductId).update("\0").update(String(input.ordinal)).digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
 function exactInput(value: unknown): MigrationMediaIngestionInput {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
   const parsed = value as Record<string, unknown>;
@@ -94,8 +99,11 @@ export async function ingestMigrationMediaItem(
 
   let uploaded: Awaited<ReturnType<ProductMediaUploadService["upload"]>>;
   try {
+    const uploadOperationId = authority.status === "pending"
+      ? deriveMigrationMediaUploadOperationId({ storeId: input.tenantContext.store.id, jobId: input.jobId, sourceProductId: input.sourceProductId, ordinal: input.ordinal })
+      : input.operationId;
     uploaded = await dependencies.upload.upload({
-      tenantContext: input.tenantContext, operationId: input.operationId,
+      tenantContext: input.tenantContext, operationId: uploadOperationId,
       productId: authority.productId, variantId: authority.variantId,
       mediaType: image.mediaType, altText: input.altText,
       width: image.width, height: image.height, bytes: image.bytes,

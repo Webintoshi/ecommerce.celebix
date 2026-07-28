@@ -186,21 +186,21 @@ git commit -m "feat(catalog): ingest migration images into tenant r2"
 - Exact panel-session routes support begin, status, product batch and one media item.
 - The browser compiles the selected file, begins/reopens the same digest job, uploads product batches sequentially, ingests media with concurrency 2, and can resume only after the same file digest is selected again.
 
-- [ ] **Step 1: Write failing request-authority and workflow tests**
+- [x] **Step 1: Write failing request-authority and workflow tests**
 
 Prove exact same Origin, genuine session/action, exact paths/methods, no browser tenant/store authority, no raw URL in responses, digest mismatch denial, deterministic operation IDs, resume after interruption, product/media progress separation and no automatic product republish after media failure.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-- [ ] **Step 3: Implement routes and workflow**
+- [x] **Step 3: Implement routes and workflow**
 
 The UI reports `products imported/total` and `media committed/failed/total` independently. A failed image remains retryable without duplicating the product or attaching another product's image.
 
-- [ ] **Step 4: Run GREEN, accessibility and mobile checks**
+- [x] **Step 4: Run GREEN, accessibility and mobile checks**
 
 Verify keyboard operation, 48x48 targets, alert/status announcements, zero horizontal overflow at 320/390/1024/1025 px and reduced motion.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/customer-panel/lib/catalog-migration-http apps/customer-panel/app/api/catalog/admin/migrations apps/customer-panel/components/catalog-admin

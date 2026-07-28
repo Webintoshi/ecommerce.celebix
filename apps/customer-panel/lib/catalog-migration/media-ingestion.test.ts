@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import type { TenantContext } from "@celebix/saas-contracts";
-import { ingestMigrationMediaItem } from "./media-ingestion.ts";
+import { deriveMigrationMediaUploadOperationId, ingestMigrationMediaItem } from "./media-ingestion.ts";
 
 const STORE = "51000000-0000-4000-8000-000000000001";
 const PRINCIPAL = "51000000-0000-4000-8000-000000000002";
@@ -44,7 +44,7 @@ test("authorizes the URL digest before fetch and uploads only to the persisted p
   const result = await ingestMigrationMediaItem(input(), {
     migration: migration as any,
     fetchImage: async () => { calls.push("fetch"); return { bytes: new Uint8Array(24), mediaType: "image/png" as const, width: 2, height: 3, byteSize: 24 }; },
-    upload: { async upload(selected: any) { calls.push("upload"); assert.equal(selected.productId, PRODUCT); assert.equal(selected.variantId, VARIANT); assert.equal(selected.operationId, OPERATION); return { media: { id: MEDIA, storeId: STORE, productId: PRODUCT, status: "active" }, replayed: false }; } } as any,
+    upload: { async upload(selected: any) { calls.push("upload"); assert.equal(selected.productId, PRODUCT); assert.equal(selected.variantId, VARIANT); assert.equal(selected.operationId, deriveMigrationMediaUploadOperationId({ storeId: STORE, jobId: JOB, sourceProductId: "30794", ordinal: 0 })); assert.notEqual(selected.operationId, OPERATION); return { media: { id: MEDIA, storeId: STORE, productId: PRODUCT, status: "active" }, replayed: false }; } } as any,
   });
   assert.deepEqual(calls, ["authorize", "fetch", "upload", "record"]);
   assert.deepEqual(result, { kind: "committed", job: job(), productId: PRODUCT, mediaId: MEDIA, replayed: false });

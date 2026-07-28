@@ -42,6 +42,11 @@ test("bulk import console exposes the complete four-step file and feed workflow"
   assert.match(component, /parseCatalogImportSource/);
   assert.match(component, /previewFeed/);
   assert.match(component, /importProducts/);
+  assert.match(component, /compileWooCommerceMigration/);
+  assert.match(component, /runWooCommerceMigration/);
+  assert.match(component, /migrationManifestRef/);
+  assert.match(component, /iki eşzamanlı işçiyle/);
+  assert.match(component, /role="status" aria-live="polite"/);
   assert.match(component, /role="alert"/);
   assert.match(component, /role="status"/);
   assert.match(component, /<form key="file"/);
@@ -53,6 +58,21 @@ test("bulk import console exposes the complete four-step file and feed workflow"
   assert.match(css, /@media \(max-width:\s*700px\)/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /overflow-x:\s*auto/);
+  assert.match(css, /\.migrationProgress/);
+});
+
+test("WooCommerce migration routes are mounted only through the authenticated server handler", async () => {
+  const routes = await Promise.all([
+    "app/api/catalog/admin/migrations/woocommerce/route.ts",
+    "app/api/catalog/admin/migrations/woocommerce/[jobId]/route.ts",
+    "app/api/catalog/admin/migrations/woocommerce/[jobId]/batch/route.ts",
+    "app/api/catalog/admin/migrations/woocommerce/[jobId]/media/route.ts",
+  ].map(source));
+  assert.match(routes[0], /handleWooCommerceMigrationBegin/);
+  assert.match(routes[1], /handleWooCommerceMigrationStatus/);
+  assert.match(routes[2], /handleWooCommerceMigrationBatch/);
+  assert.match(routes[3], /handleWooCommerceMigrationMedia/);
+  for (const route of routes) assert.doesNotMatch(route, /process[.]env|postgres|pg|storeId|tenantId|x-store|x-tenant/);
 });
 
 test("catalog resource lists use canonical create, edit, and extra-preview routes", async () => {
