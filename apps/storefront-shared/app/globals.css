@@ -77,6 +77,10 @@ img { display: block; max-width: 100%; }
 .variant-panel article > div:last-child { justify-items: end; }
 .variant-panel strong, .variant-panel span { font-size: 13px; }
 .variant-panel small, .variant-panel em { color: var(--muted); font-size: 10px; font-style: normal; }
+.variant-buy { display: grid; justify-items: end; gap: 6px; padding-block: 4px 12px; }
+.variant-buy .store-button { min-height: 38px; padding-inline: 18px; }
+.variant-buy .store-button:disabled { cursor: not-allowed; opacity: .55; }
+.variant-buy p { max-width: 220px; margin: 0; color: #9b2c2c; font-size: 10px; text-align: right; }
 .store-footer { background: var(--dark); padding-top: 72px; color: white; }
 .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 70px; padding-bottom: 64px; }
 .footer-grid > div, .footer-grid nav { display: grid; align-content: start; gap: 12px; }
