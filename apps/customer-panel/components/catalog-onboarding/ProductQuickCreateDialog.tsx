@@ -17,6 +17,7 @@ import {
   CatalogOnboardingApiError,
   catalogOnboardingClient,
 } from "@/lib/catalog-onboarding-ui/client";
+import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/category-tree";
 import { buildQuickCreateIntent } from "@/lib/catalog-onboarding-ui/forms";
 import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
@@ -79,6 +80,8 @@ export function ProductQuickCreateDialog({
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const submittingRef = useRef(false);
   const previewUrlsRef = useRef<readonly string[]>([]);
+  const categoryHierarchy = buildCatalogCategoryHierarchy(options?.categories ?? []);
+  const categoryRows = categoryHierarchy.valid ? categoryHierarchy.rows : [];
 
   useEffect(() => {
     if (!open) return;
@@ -173,6 +176,7 @@ export function ProductQuickCreateDialog({
     if (submittingRef.current) return;
     const form = event.currentTarget;
     const data = new FormData(form);
+    if (!categoryHierarchy.valid) { setError("Kategori seçenekleri şu anda kullanılamıyor."); return; }
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const publish = submitter instanceof HTMLButtonElement && submitter.value === "publish";
     const parsed = buildQuickCreateIntent({
@@ -237,11 +241,12 @@ export function ProductQuickCreateDialog({
 
       <form className={styles.form} onSubmit={submit} noValidate>
         {error ? <div className={styles.error} role="alert"><strong>{recovery ? "Taslak güvende" : "Formu kontrol edin"}</strong><span>{error}</span></div> : null}
+        {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
         <fieldset disabled={submitting || options === null}>
           <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Örn. Seramik kahve kupası" autoComplete="off" /></label>
           <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input name="price" required inputMode="decimal" placeholder="0,00" /><span>₺</span></div></label>
           <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" defaultValue="0" /></label>
-          <label className={styles.wide}><span>Kategori</span><select name="categoryId" defaultValue=""><option value="">Kategori seçilmedi</option>{options?.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+          <label className={styles.wide}><span>Kategori</span><select name="categoryId" defaultValue=""><option value="">Kategori seçilmedi</option>{categoryRows.map(({ category, label }) => <option key={category.id} value={category.id}>{label}</option>)}</select></label>
           <label className={`${styles.media} ${styles.wide}`}><ImagePlus aria-hidden="true" /><span>{images.length ? `${images.length} görsel seçildi` : "İsteğe bağlı görseller seç"}<small>PNG, JPEG veya WebP · en fazla 16 dosya · dosya başına 5 MB</small></span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={selectImage} /></label>
           {images.length ? <div className={`${styles.previewList} ${styles.wide}`}>{images.map((image, index) => <div className={styles.preview} key={`${image.file.name}-${index}`}><img src={image.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} /><label><span>{index + 1}. görsel alt metni</span><input maxLength={500} value={image.altText} onChange={(event) => changeAltText(index, event.target.value)} placeholder="Ürün görselini kısaca anlatın" /></label></div>)}</div> : null}
           {submitting && images.length ? <div className={`${styles.progress} ${styles.wide}`} role="status"><span>Görseller yükleniyor</span><progress max="100" value={progress}>{progress}%</progress><b>{progress}%</b></div> : null}

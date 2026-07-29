@@ -66,6 +66,18 @@ test("category UI uses only session-owned same-origin CRUD", () => {
   assert.doesNotMatch(manager, /storeId|tenantId|principalId|document[.]cookie|localStorage|sessionStorage/);
 });
 
+test("manual category paths share a safe hierarchy projection", () => {
+  const tree = read("apps/customer-panel/lib/catalog-onboarding-ui/category-tree.ts");
+  const manager = read("apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx");
+  const quick = read("apps/customer-panel/components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const advanced = read("apps/customer-panel/components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  assert.match(tree, /descendantIds/);
+  assert.match(tree, /join\(" › "\)/);
+  for (const component of [manager, quick, advanced]) assert.match(component, /buildCatalogCategoryHierarchy/);
+  assert.match(manager, /Alt kategori ekle/);
+  assert.match(manager, /Alt kategori eklemeyi iptal et/);
+});
+
 test("no generated UI copy claims unsupported automation or fake data", () => {
   assert.doesNotMatch(source, /AI generated|yapay zeka ile oluştur|örnek satış|sahte KPI|fake product|otomatik feed/i);
   assert.doesNotMatch(source, /video\/(?:mp4|webm)|image\/heic/i);

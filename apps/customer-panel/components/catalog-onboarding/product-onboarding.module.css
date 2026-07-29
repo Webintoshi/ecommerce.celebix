@@ -111,6 +111,7 @@
 .archiveBadge { background: #f2f4f7; color: #667085; }
 .categoryActions { display: flex; gap: 6px; }
 .categoryActions button { display: grid; min-width: 48px; min-height: 48px; place-items: center; border: 1px solid #d8dee8; border-radius: 12px; background: #fff; color: #475467; }
+.categoryActions .categoryChildAction { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; color: #c75200; }
 .categoryActions svg { width: 17px; }
 .categoryEmpty { padding: 30px; text-align: center; }
 
