@@ -6,6 +6,7 @@ import {
   parseCheckoutQuote,
   parseCheckoutStatus,
   parseCheckoutSubmissionResult,
+  parseCheckoutSubmitSuccess,
   type CheckoutHttpError,
   type CheckoutQuote,
   type CheckoutSubmitInput,
@@ -82,6 +83,20 @@ function response(code: CheckoutHttpError): Response {
 
 function json(value: unknown): Response {
   return Response.json(value, { status: 200, headers: CHECKOUT_HEADERS });
+}
+
+function submitPresentation(request: Request, selected: Response): Response {
+  if (request.headers.get("accept") !== "application/json" || selected.status !== 303) {
+    return selected;
+  }
+  try {
+    return json(parseCheckoutSubmitSuccess(Object.freeze({
+      kind: "redirect",
+      location: selected.headers.get("location"),
+    })));
+  } catch {
+    return response("unavailable");
+  }
 }
 
 function repositoryCode(error: unknown): CheckoutHttpError {
@@ -389,13 +404,13 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
       return response(repositoryCode(error));
     }
     if (classification.kind === "built_in") {
-      return await submitBuiltIn({
+      return submitPresentation(request, await submitBuiltIn({
         runtime: resolved.runtime,
         hostname: selected.hostname,
         credentialDigest: selected.credentialDigest,
         submission: selected.submission,
         now: resolved.now,
-      });
+      }));
     }
     if (classification.kind !== "hosted") return response("unavailable");
     if (resolved.runtime.hosted === null) return response("payment_unavailable");
@@ -407,7 +422,7 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
       selected.submission.operationId,
     );
     try {
-      return await initializeHostedCartPayment({
+      return submitPresentation(request, await initializeHostedCartPayment({
         request,
         attemptId,
         trustedClientIp,
@@ -456,7 +471,7 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
             throw error;
           }
         },
-      });
+      }));
     } catch (error) {
       return response(repositoryCode(error));
     }

@@ -1,16 +1,55 @@
 import type { CheckoutQuote } from "@celebix/saas-contracts";
 import type { FormEvent } from "react";
 
-import { formatCheckoutMoney } from "./model.ts";
+import {
+  type CheckoutFieldErrors,
+  type DeliveryFieldName,
+  formatCheckoutMoney,
+} from "./model.ts";
 
 type DeliverySectionProps = Readonly<{
   formId: string;
   quote: CheckoutQuote;
   pending: boolean;
+  errors: CheckoutFieldErrors<DeliveryFieldName>;
+  onFieldChange(name: DeliveryFieldName): void;
+  onFieldInvalid(name: DeliveryFieldName, message: string): void;
   onSubmit(event: FormEvent<HTMLFormElement>): void;
 }>;
 
+function FieldError(props: Readonly<{
+  id: string;
+  message: string | undefined;
+}>) {
+  return props.message
+    ? <span className="checkout-field-error" id={props.id}>{props.message}</span>
+    : null;
+}
+
+function focusFirstInvalid(form: HTMLFormElement | null) {
+  queueMicrotask(() => form?.querySelector<HTMLElement>(":invalid")?.focus());
+}
+
 export function DeliverySection(props: DeliverySectionProps) {
+  function inputA11y(name: DeliveryFieldName, invalidMessage: string) {
+    const error = props.errors[name];
+    const errorId = `checkout-${name}-error`;
+    return {
+      "aria-describedby": error ? errorId : undefined,
+      "aria-invalid": error ? true : undefined,
+      onChange: () => props.onFieldChange(name),
+      onInvalid: (event: FormEvent<HTMLInputElement>) => {
+        const form = event.currentTarget.form;
+        event.preventDefault();
+        props.onFieldInvalid(
+          name,
+          event.currentTarget.validity.valueMissing ? "Bu alan zorunludur." : invalidMessage,
+        );
+        focusFirstInvalid(form);
+      },
+    } as const;
+  }
+
   return <form id={props.formId} onSubmit={props.onSubmit}>
     <section className="checkout-section">
       <h2>İletişim</h2>
@@ -26,7 +65,9 @@ export function DeliverySection(props: DeliverySectionProps) {
           placeholder="E-posta"
           required
           type="email"
+          {...inputA11y("email", "Geçerli bir e-posta adresi girin.")}
         />
+        <FieldError id="checkout-email-error" message={props.errors.email} />
       </label>
       <label className="checkout-check checkout-marketing">
         <input disabled={props.pending} name="marketingOptIn" type="checkbox" />
@@ -48,7 +89,9 @@ export function DeliverySection(props: DeliverySectionProps) {
             placeholder="Ad"
             required
             type="text"
+            {...inputA11y("firstName", "Geçerli bir ad girin.")}
           />
+          <FieldError id="checkout-firstName-error" message={props.errors.firstName} />
         </label>
         <label className="checkout-label">
           <span>Soyad</span>
@@ -61,7 +104,9 @@ export function DeliverySection(props: DeliverySectionProps) {
             placeholder="Soyad"
             required
             type="text"
+            {...inputA11y("lastName", "Geçerli bir soyad girin.")}
           />
+          <FieldError id="checkout-lastName-error" message={props.errors.lastName} />
         </label>
       </div>
       <label className="checkout-label">
@@ -77,7 +122,9 @@ export function DeliverySection(props: DeliverySectionProps) {
           placeholder="Telefon"
           required
           type="tel"
+          {...inputA11y("phone", "Geçerli bir telefon numarası girin.")}
         />
+        <FieldError id="checkout-phone-error" message={props.errors.phone} />
       </label>
       <label className="checkout-label">
         <span>Adres</span>
@@ -90,7 +137,9 @@ export function DeliverySection(props: DeliverySectionProps) {
           placeholder="Adres"
           required
           type="text"
+          {...inputA11y("line1", "Geçerli bir adres girin.")}
         />
+        <FieldError id="checkout-line1-error" message={props.errors.line1} />
       </label>
       <label className="checkout-label">
         <span>Apartman, daire, kat vb. (isteğe bağlı)</span>
@@ -102,7 +151,9 @@ export function DeliverySection(props: DeliverySectionProps) {
           name="line2"
           placeholder="Apartman, daire, kat vb. (isteğe bağlı)"
           type="text"
+          {...inputA11y("line2", "Geçerli bir adres detayı girin.")}
         />
+        <FieldError id="checkout-line2-error" message={props.errors.line2} />
       </label>
       <div className="checkout-city-grid">
         <label className="checkout-label">
@@ -116,7 +167,9 @@ export function DeliverySection(props: DeliverySectionProps) {
             placeholder="Şehir"
             required
             type="text"
+            {...inputA11y("city", "Geçerli bir şehir girin.")}
           />
+          <FieldError id="checkout-city-error" message={props.errors.city} />
         </label>
         <label className="checkout-label">
           <span>İlçe</span>
@@ -129,7 +182,9 @@ export function DeliverySection(props: DeliverySectionProps) {
             placeholder="İlçe"
             required
             type="text"
+            {...inputA11y("district", "Geçerli bir ilçe girin.")}
           />
+          <FieldError id="checkout-district-error" message={props.errors.district} />
         </label>
         <label className="checkout-label">
           <span>Posta kodu</span>
@@ -142,7 +197,9 @@ export function DeliverySection(props: DeliverySectionProps) {
             name="postalCode"
             placeholder="Posta kodu"
             type="text"
+            {...inputA11y("postalCode", "Geçerli bir posta kodu girin.")}
           />
+          <FieldError id="checkout-postalCode-error" message={props.errors.postalCode} />
         </label>
       </div>
     </section>
@@ -158,6 +215,7 @@ export function DeliverySection(props: DeliverySectionProps) {
             required
             type="radio"
             value={option.id}
+            {...inputA11y("shippingId", "Bir kargo yöntemi seçin.")}
           />
           <span>
             <strong>{option.label}</strong>
@@ -166,6 +224,7 @@ export function DeliverySection(props: DeliverySectionProps) {
           <b>{formatCheckoutMoney(option.priceCents)}</b>
         </label>)}
       </div>
+      <FieldError id="checkout-shippingId-error" message={props.errors.shippingId} />
     </fieldset>
 
     <button className="checkout-delivery-submit" disabled={props.pending} type="submit">

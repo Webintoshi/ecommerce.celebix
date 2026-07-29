@@ -40,7 +40,34 @@ type SubmitPayloadInput = Readonly<{
   operationId: string;
   paymentMethodId: string;
   identityNumber: string | null;
+  distanceSales: boolean;
+  preInformation: boolean;
 }>;
+
+export type DeliveryFieldName =
+  | "email" | "firstName" | "lastName" | "phone" | "line1" | "line2"
+  | "city" | "district" | "postalCode" | "shippingId";
+export type SubmitFieldName =
+  | "paymentMethodId" | "identityNumber" | "distanceSales" | "preInformation";
+export type CheckoutFieldErrors<Field extends string> = Readonly<Partial<Record<Field, string>>>;
+
+type DeliveryFieldValues = Readonly<Record<Exclude<DeliveryFieldName, "shippingId">, string> & {
+  shippingId: "standard" | null;
+}>;
+
+type SubmitFieldValues = Readonly<{
+  paymentKind: "paytr_iframe" | "iyzico_iframe" | "bank_transfer" | "cash_on_delivery" | null;
+  identityNumber: string;
+  distanceSales: boolean;
+  preInformation: boolean;
+}>;
+
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const EDGE = /^[\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]|[\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]$/;
+const SURROGATE = /(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IDENTITY_NUMBER = /^[\x21-\x7e]{5,50}$/;
+const ENCODER = new TextEncoder();
 
 const ERROR_MESSAGES: Readonly<Record<CheckoutHttpError, string>> = Object.freeze({
   invalid_input: "Bilgilerinizi kontrol edip yeniden deneyin.",
@@ -92,6 +119,7 @@ export function reduceCheckout(
     });
   }
   if (action.type === "submit_started") {
+    if (state.pending !== null) return state;
     return Object.freeze({ ...state, pending: "submit", error: null });
   }
   return Object.freeze({
@@ -123,10 +151,78 @@ export function buildSubmitPayload(input: SubmitPayloadInput): CheckoutSubmitInp
     paymentMethodId: input.paymentMethodId,
     identityNumber: input.identityNumber,
     consents: {
-      distanceSales: true,
-      preInformation: true,
+      distanceSales: input.distanceSales,
+      preInformation: input.preInformation,
     },
   });
+}
+
+function validText(value: string, minimum: number, maximum: number): boolean {
+  const length = ENCODER.encode(value).byteLength;
+  return length >= minimum
+    && length <= maximum
+    && !CONTROL.test(value)
+    && !EDGE.test(value)
+    && !SURROGATE.test(value);
+}
+
+export function validateDeliveryFields(
+  values: DeliveryFieldValues,
+): CheckoutFieldErrors<DeliveryFieldName> {
+  const errors: Partial<Record<DeliveryFieldName, string>> = {};
+  if (!validText(values.email, 3, 320) || !EMAIL.test(values.email)) {
+    errors.email = values.email.trim() === ""
+      ? "Bu alan zorunludur."
+      : "Geçerli bir e-posta adresi girin.";
+  }
+  for (const [name, label, maximum] of [
+    ["firstName", "ad", 120],
+    ["lastName", "soyad", 120],
+    ["line1", "adres", 240],
+    ["city", "şehir", 120],
+    ["district", "ilçe", 120],
+  ] as const) {
+    const value = values[name];
+    if (value.trim() === "") errors[name] = "Bu alan zorunludur.";
+    else if (!validText(value, 1, maximum)) errors[name] = `Geçerli bir ${label} girin.`;
+  }
+  if (!validText(values.phone, 7, 32)) {
+    errors.phone = values.phone.trim() === ""
+      ? "Bu alan zorunludur."
+      : "Geçerli bir telefon numarası girin.";
+  }
+  if (values.line2 !== "" && !validText(values.line2, 1, 240)) {
+    errors.line2 = "Geçerli bir adres detayı girin.";
+  }
+  if (values.postalCode !== "" && !validText(values.postalCode, 1, 32)) {
+    errors.postalCode = "Geçerli bir posta kodu girin.";
+  }
+  if (values.shippingId !== "standard") errors.shippingId = "Bir kargo yöntemi seçin.";
+  return Object.freeze(errors);
+}
+
+export function validateSubmitFields(
+  values: SubmitFieldValues,
+): CheckoutFieldErrors<SubmitFieldName> {
+  const errors: Partial<Record<SubmitFieldName, string>> = {};
+  if (values.paymentKind === null) errors.paymentMethodId = "Bir ödeme yöntemi seçin.";
+  if (values.paymentKind === "iyzico_iframe") {
+    if (values.identityNumber === "") errors.identityNumber = "Bu alan zorunludur.";
+    else if (
+      !IDENTITY_NUMBER.test(values.identityNumber)
+      || CONTROL.test(values.identityNumber)
+      || EDGE.test(values.identityNumber)
+      || /^(.)\1+$/.test(values.identityNumber)
+      || values.identityNumber === "12345678901"
+    ) errors.identityNumber = "Geçerli bir kimlik numarası girin.";
+  }
+  if (!values.distanceSales) {
+    errors.distanceSales = "Devam etmek için onaylamanız gerekir.";
+  }
+  if (!values.preInformation) {
+    errors.preInformation = "Devam etmek için onaylamanız gerekir.";
+  }
+  return Object.freeze(errors);
 }
 
 export function formatCheckoutMoney(cents: number): string {

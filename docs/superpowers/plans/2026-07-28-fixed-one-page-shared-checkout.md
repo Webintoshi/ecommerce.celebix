@@ -1019,6 +1019,17 @@ git add apps/storefront-shared/app/odeme apps/storefront-shared/components/check
 git commit -m "feat(checkout): add fixed one-page storefront UI"
 ```
 
+#### Task 7 fix round 1 verification record — 2026-07-29
+
+- Node proxy detection is captured once at module initialization, works on supported Node runtimes without `process.getBuiltinModule`, rejects post-startup authority replacement, stays browser-bundle safe, and fails closed without a synchronous authority.
+- Exact `Accept: application/json` checkout submissions return only the finite `{ kind: "redirect", location }` success contract; native form submissions retain the existing validated 303 behavior.
+- The client uses one same-origin URL-encoded request with `redirect: "manual"`, aborts stale work, blocks duplicate pending submissions, parses every result, and navigates only to a contract-validated location.
+- Delivery, provider identity, payment method, and both consent errors are rendered inline with `aria-invalid`/`aria-describedby`; the first invalid control receives focus and its error clears on correction.
+- Chrome evidence was captured outside the protected evidence tree at 1440×1000 and 390×844 for both the initial and payment/error states. Measured mobile targets were 48px for the email field, 59.7px for the payment method, and 62px for the summary disclosure; console warnings/errors were empty.
+- The four renders preserve the reviewed v2 geometry: 690/590 desktop split, 499px form content, 400px summary content, neutral white/`#f5f5f5` surfaces, fixed checkout typography, provider logos, all four available methods, consents, and the full-width submit action.
+- Red/green ledger: proxy fallback tests failed before the captured fallback and passed afterward; JSON redirect tests failed before presentation conversion and passed afterward; client request/model tests failed before their modules and passed afterward; first-invalid Chrome focus failed before scheduled focus recovery and passed afterward; the frozen public-export test failed when the two parsers were added and passed after its explicit allowlist was updated.
+- Final gates: `@celebix/saas-contracts` 178/178, `@celebix/storefront-shared` 243/243, both workspace typechecks, storefront production build, and `git diff --check` all pass with the temporary preview route removed.
+
 ### Task 8: Add result state, analytics privacy, and security headers
 
 **Files:**

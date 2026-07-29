@@ -2,6 +2,7 @@ export type {
   CheckoutAddress,
   CheckoutDeliveryInput,
   CheckoutHttpError,
+  CheckoutHttpErrorResponse,
   CheckoutPaymentMethod,
   CheckoutPolicy,
   CheckoutPolicyLink,
@@ -10,16 +11,19 @@ export type {
   CheckoutShippingOption,
   CheckoutStatus,
   CheckoutSubmissionResult,
+  CheckoutSubmitSuccess,
   CheckoutSubmitInput,
 } from "./types.ts";
 export {
   parseCheckoutAddress,
   parseCheckoutDeliveryInput,
   parseCheckoutHttpError,
+  parseCheckoutHttpErrorResponse,
   parseCheckoutPaymentMethod,
   parseCheckoutPolicy,
   parseCheckoutQuote,
   parseCheckoutStatus,
   parseCheckoutSubmissionResult,
+  parseCheckoutSubmitSuccess,
   parseCheckoutSubmitInput,
 } from "./validation.ts";

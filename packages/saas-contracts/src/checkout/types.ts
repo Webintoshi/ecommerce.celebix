@@ -91,10 +91,17 @@ export type CheckoutSubmissionResult =
   | Readonly<{ kind: "placed"; orderNumber: string; statusPath: string }>
   | Readonly<{ kind: "hosted"; location: string }>;
 
+export type CheckoutSubmitSuccess = Readonly<{
+  kind: "redirect";
+  location: string;
+}>;
+
 export type CheckoutHttpError =
   | "invalid_input" | "origin_denied" | "cart_not_found" | "cart_changed"
   | "discount_invalid" | "stock_unavailable" | "payment_unavailable"
   | "processing" | "unavailable";
+
+export type CheckoutHttpErrorResponse = Readonly<{ code: CheckoutHttpError }>;
 
 export type CheckoutStatus =
   | Readonly<{ kind: "ready" }>

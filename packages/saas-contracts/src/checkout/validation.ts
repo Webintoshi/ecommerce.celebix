@@ -2,6 +2,7 @@ import type {
   CheckoutAddress,
   CheckoutDeliveryInput,
   CheckoutHttpError,
+  CheckoutHttpErrorResponse,
   CheckoutPaymentMethod,
   CheckoutPolicy,
   CheckoutPolicyLink,
@@ -10,6 +11,7 @@ import type {
   CheckoutShippingOption,
   CheckoutStatus,
   CheckoutSubmissionResult,
+  CheckoutSubmitSuccess,
   CheckoutSubmitInput,
 } from "./types.ts";
 
@@ -28,26 +30,61 @@ const HTTP_ERRORS = ["invalid_input", "origin_denied", "cart_not_found", "cart_c
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const IBAN = /^TR\d{24}$/;
 const IDENTITY_NUMBER = /^[\x21-\x7e]{5,50}$/;
+const PAYMENT_TOKEN = /^[A-Za-z0-9_-]{20,4096}$/;
 
 type InputRecord = Record<string, unknown>;
-type NodeUtilTypes = Readonly<{ isProxy?: (value: unknown) => boolean }>;
+type NodeUtilTypes = Readonly<{
+  getProxyDetails?: (value: unknown) => unknown;
+  isProxy?: (value: unknown) => boolean;
+}>;
 type NodeProcess = Readonly<{
+  binding?: (name: string) => unknown;
   getBuiltinModule?: (specifier: string) => unknown;
   versions?: Readonly<{ node?: unknown }>;
 }>;
 
 const NODE_PROCESS = (globalThis as typeof globalThis & { process?: NodeProcess }).process;
 const IS_NODE_RUNTIME = typeof NODE_PROCESS?.versions?.node === "string";
-const NODE_UTIL_TYPES = IS_NODE_RUNTIME
-  ? NODE_PROCESS?.getBuiltinModule?.(["node", "util/types"].join(":")) as NodeUtilTypes | undefined
-  : undefined;
+const NODE_IS_PROXY = (() => {
+  if (!IS_NODE_RUNTIME || NODE_PROCESS === undefined) return null;
+  try {
+    const getBuiltinModule = NODE_PROCESS.getBuiltinModule;
+    if (typeof getBuiltinModule === "function") {
+      const nodeTypes = Reflect.apply(
+        getBuiltinModule,
+        NODE_PROCESS,
+        [["node", "util/types"].join(":")],
+      ) as NodeUtilTypes | undefined;
+      return typeof nodeTypes?.isProxy === "function" ? nodeTypes.isProxy : null;
+    }
+    const binding = NODE_PROCESS.binding;
+    const legacyTypes = typeof binding === "function"
+      ? Reflect.apply(binding, NODE_PROCESS, ["util"]) as NodeUtilTypes | undefined
+      : undefined;
+    if (typeof legacyTypes?.isProxy === "function") return legacyTypes.isProxy;
+    if (typeof legacyTypes?.getProxyDetails === "function") {
+      const getProxyDetails = legacyTypes.getProxyDetails;
+      return (value: unknown) => getProxyDetails(value) !== undefined;
+    }
+    const clone = globalThis.structuredClone;
+    if (typeof clone !== "function") return null;
+    return (value: unknown) => {
+      try {
+        clone(value);
+        return false;
+      } catch {
+        return true;
+      }
+    };
+  } catch {
+    return null;
+  }
+})();
 
 function isProxy(value: object): boolean {
   if (!IS_NODE_RUNTIME) return false;
-  const nodeTypes = NODE_PROCESS?.getBuiltinModule?.(["node", "util/types"].join(":")) as NodeUtilTypes | undefined;
-  const detectProxy = nodeTypes?.isProxy ?? NODE_UTIL_TYPES?.isProxy;
-  if (typeof detectProxy !== "function") invalid();
-  return detectProxy(value);
+  if (NODE_IS_PROXY === null) invalid();
+  return NODE_IS_PROXY(value);
 }
 
 function invalid(): never {
@@ -238,6 +275,52 @@ export function parseCheckoutSubmissionResult(value: unknown): CheckoutSubmissio
   });
 }
 
+export function parseCheckoutSubmitSuccess(value: unknown): CheckoutSubmitSuccess {
+  return guarded(() => {
+    const parsed = exact(value, ["kind", "location"]);
+    if (parsed.kind !== "redirect") invalid();
+    const location = text(parsed.location, 1, 4_200);
+    if (location === "/odeme/sonuc") {
+      return Object.freeze({ kind: "redirect" as const, location });
+    }
+    let selected: URL;
+    try {
+      selected = new URL(location);
+    } catch {
+      return invalid();
+    }
+    if (
+      selected.protocol !== "https:"
+      || selected.username
+      || selected.password
+      || selected.port
+      || selected.hash
+      || selected.toString() !== location
+    ) invalid();
+    if (selected.origin === "https://www.paytr.com") {
+      const prefix = "https://www.paytr.com/odeme/guvenli/";
+      const token = location.slice(prefix.length);
+      if (!location.startsWith(prefix) || !PAYMENT_TOKEN.test(token) || selected.search) invalid();
+      return Object.freeze({ kind: "redirect" as const, location });
+    }
+    if (
+      selected.origin !== "https://sandbox-cpp.iyzipay.com"
+      && selected.origin !== "https://cpp.iyzipay.com"
+    ) invalid();
+    const token = selected.searchParams.get("token");
+    if (
+      selected.pathname !== "/"
+      || selected.searchParams.size !== 2
+      || [...selected.searchParams.keys()].join(",") !== "token,lang"
+      || selected.searchParams.get("lang") !== "tr"
+      || token === null
+      || !PAYMENT_TOKEN.test(token)
+      || location !== `${selected.origin}/?token=${token}&lang=tr`
+    ) invalid();
+    return Object.freeze({ kind: "redirect" as const, location });
+  });
+}
+
 export function parseCheckoutStatus(value: unknown): CheckoutStatus {
   return guarded(() => {
     const candidate = exact(value, ["kind"], ["orderNumber", "paymentStatus", "method"]);
@@ -252,6 +335,13 @@ export function parseCheckoutHttpError(value: unknown): CheckoutHttpError {
   return guarded(() => {
     if (typeof value !== "string" || !HTTP_ERRORS.includes(value as CheckoutHttpError)) invalid();
     return value as CheckoutHttpError;
+  });
+}
+
+export function parseCheckoutHttpErrorResponse(value: unknown): CheckoutHttpErrorResponse {
+  return guarded(() => {
+    const parsed = exact(value, ["code"]);
+    return Object.freeze({ code: parseCheckoutHttpError(parsed.code) });
   });
 }
 

@@ -82,3 +82,23 @@ test("fixed checkout page and CSS stay isolated from every storefront theme", as
   assert.match(policy, /whiteSpace:\s*"pre-wrap"/);
   assert.doesNotMatch(policy, /dangerouslySetInnerHTML|Supabase/i);
 });
+
+test("checkout forms wire field errors, native invalid events, and safe JS navigation", async () => {
+  const [client, delivery, payment] = await Promise.all([
+    source("./CheckoutClient.tsx"),
+    source("./DeliverySection.tsx"),
+    source("./PaymentSection.tsx"),
+  ]);
+  assert.match(client, /requestCheckoutSubmission/);
+  assert.match(client, /window[.]location[.]assign\(result[.]location\)/);
+  assert.match(client, /state[.]pending !== null/);
+  assert.match(client, /submitAbort/);
+  for (const value of [delivery, payment]) {
+    assert.match(value, /aria-invalid(?:=|":)/);
+    assert.match(value, /aria-describedby(?:=|":)/);
+    assert.match(value, /onInvalid(?:=|:)/);
+    assert.match(value, /checkout-field-error/);
+    assert.match(value, /queueMicrotask/);
+    assert.match(value, /querySelector<HTMLElement>\(":invalid"\)/);
+  }
+});

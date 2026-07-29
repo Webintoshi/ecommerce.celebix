@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   parseCheckoutDeliveryInput,
+  parseCheckoutHttpErrorResponse,
   parseCheckoutQuote,
+  parseCheckoutSubmitSuccess,
   parseCheckoutSubmitInput,
   parseCheckoutStatus,
 } from "./index.ts";
@@ -140,4 +142,45 @@ test("Task 3 standard shipping quote and delivery share one exact code", () => {
 test("checkout status rejects payment methods that cannot be placed offline", () => {
   assert.deepEqual(parseCheckoutStatus({ kind: "ready" }), { kind: "ready" });
   assert.throws(() => parseCheckoutStatus({ kind: "placed", orderNumber: "CBX-1", paymentStatus: "pending", method: providerMethod() }));
+});
+
+test("JS checkout success accepts only the fixed result and exact provider presentations", () => {
+  for (const location of [
+    "/odeme/sonuc",
+    "https://www.paytr.com/odeme/guvenli/validToken1234567890",
+    "https://sandbox-cpp.iyzipay.com/?token=validToken1234567890&lang=tr",
+    "https://cpp.iyzipay.com/?token=validToken1234567890&lang=tr",
+  ]) {
+    assert.deepEqual(parseCheckoutSubmitSuccess({ kind: "redirect", location }), {
+      kind: "redirect",
+      location,
+    });
+  }
+});
+
+test("JS checkout success rejects extras, open redirects, and query or hash confusion", () => {
+  for (const location of [
+    "/odeme/sonuc?next=https://evil.test",
+    "/odeme/sonuc#paid",
+    "//evil.test/odeme/sonuc",
+    "https://evil.test/odeme/sonuc",
+    "https://www.paytr.com/odeme/guvenli/validToken1234567890?next=1",
+    "https://sandbox-cpp.iyzipay.com/?lang=tr&token=validToken1234567890",
+    "https://sandbox-cpp.iyzipay.com/?token=validToken1234567890&lang=tr&next=1",
+  ]) {
+    assert.throws(() => parseCheckoutSubmitSuccess({ kind: "redirect", location }));
+  }
+  assert.throws(() => parseCheckoutSubmitSuccess({
+    kind: "redirect",
+    location: "/odeme/sonuc",
+    token: "browser-secret",
+  }));
+});
+
+test("checkout HTTP error response is exact and finite", () => {
+  assert.deepEqual(parseCheckoutHttpErrorResponse({ code: "processing" }), {
+    code: "processing",
+  });
+  assert.throws(() => parseCheckoutHttpErrorResponse({ code: "processing", detail: "private" }));
+  assert.throws(() => parseCheckoutHttpErrorResponse({ code: "unknown" }));
 });

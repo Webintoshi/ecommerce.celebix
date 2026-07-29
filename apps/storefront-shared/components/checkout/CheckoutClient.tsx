@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  parseCheckoutHttpError,
+  parseCheckoutHttpErrorResponse,
   parseCheckoutQuote,
   type CheckoutAddress,
   type CheckoutHttpError,
@@ -9,6 +9,7 @@ import {
 } from "@celebix/saas-contracts";
 import {
   useCallback,
+  useEffect,
   useReducer,
   useRef,
   useState,
@@ -20,11 +21,17 @@ import { DeliverySection } from "./DeliverySection.tsx";
 import {
   buildDeliveryPayload,
   buildSubmitPayload,
+  type CheckoutFieldErrors,
   createCheckoutState,
+  type DeliveryFieldName,
   reduceCheckout,
+  type SubmitFieldName,
+  validateDeliveryFields,
+  validateSubmitFields,
 } from "./model.ts";
 import { OrderSummary } from "./OrderSummary.tsx";
 import { PaymentSection } from "./PaymentSection.tsx";
+import { requestCheckoutSubmission } from "./submission.ts";
 
 const DELIVERY_FORM_ID = "checkout-delivery-form";
 
@@ -43,18 +50,23 @@ function requiredText(form: FormData, name: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function rawText(form: FormData, name: string): string {
+  const value = form.get(name);
+  return typeof value === "string" ? value : "";
+}
+
 function responseError(value: unknown): CheckoutHttpError {
   try {
-    if (
-      typeof value !== "object"
-      || value === null
-      || Array.isArray(value)
-      || !Object.hasOwn(value, "code")
-    ) return "unavailable";
-    return parseCheckoutHttpError((value as Readonly<{ code: unknown }>).code);
+    return parseCheckoutHttpErrorResponse(value).code;
   } catch {
     return "unavailable";
   }
+}
+
+function focusNamedControl(form: HTMLFormElement, name: string): void {
+  const selected = form.elements.namedItem(name);
+  const control = selected instanceof RadioNodeList ? selected.item(0) : selected;
+  if (control instanceof HTMLElement) control.focus();
 }
 
 export function CheckoutClient(props: CheckoutClientProps) {
@@ -66,10 +78,38 @@ export function CheckoutClient(props: CheckoutClientProps) {
   const [discountCode, setDiscountCode] = useState(props.initialQuote.discountCode ?? "");
   const [identityNumber, setIdentityNumber] = useState("");
   const [submitOperationId, setSubmitOperationId] = useState(props.initialOperationId);
+  const [deliveryErrors, setDeliveryErrors] = useState<CheckoutFieldErrors<DeliveryFieldName>>({});
+  const [submitErrors, setSubmitErrors] = useState<CheckoutFieldErrors<SubmitFieldName>>({});
   const deliveryAbort = useRef<AbortController | null>(null);
+  const submitAbort = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    deliveryAbort.current?.abort();
+    submitAbort.current?.abort();
+  }, []);
 
   const applyDelivery = useCallback(async (formElement: HTMLFormElement) => {
     const form = new FormData(formElement);
+    const deliveryValues = {
+      email: rawText(form, "email"),
+      firstName: rawText(form, "firstName"),
+      lastName: rawText(form, "lastName"),
+      phone: rawText(form, "phone"),
+      line1: rawText(form, "line1"),
+      line2: rawText(form, "line2"),
+      city: rawText(form, "city"),
+      district: rawText(form, "district"),
+      postalCode: rawText(form, "postalCode"),
+      shippingId: form.get("shippingId") === "standard" ? "standard" as const : null,
+    };
+    const nextErrors = validateDeliveryFields(deliveryValues);
+    const firstError = Object.keys(nextErrors)[0];
+    if (firstError !== undefined) {
+      setDeliveryErrors(nextErrors);
+      dispatch({ type: "failed", code: "invalid_input" });
+      focusNamedControl(formElement, firstError);
+      return;
+    }
     const line2 = optionalText(form, "line2");
     const postalCode = optionalText(form, "postalCode");
     const shippingAddress: CheckoutAddress = {
@@ -121,6 +161,7 @@ export function CheckoutClient(props: CheckoutClientProps) {
       }
       const nextQuote = parseCheckoutQuote(body);
       dispatch({ type: "delivery_succeeded", quote: nextQuote });
+      setDeliveryErrors({});
       setDiscountCode(nextQuote.discountCode ?? "");
       setSubmitOperationId(crypto.randomUUID());
     } catch (error) {
@@ -144,27 +185,101 @@ export function CheckoutClient(props: CheckoutClientProps) {
   function selectPaymentMethod(paymentMethodId: string) {
     dispatch({ type: "select_payment", paymentMethodId });
     setIdentityNumber("");
+    setSubmitErrors({});
     setSubmitOperationId(crypto.randomUUID());
   }
 
-  function handlePaymentSubmit(event: FormEvent<HTMLFormElement>) {
-    if (state.selectedPaymentMethodId === null) {
-      event.preventDefault();
-      dispatch({ type: "failed", code: "payment_unavailable" });
+  async function handlePaymentSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (state.pending !== null || submitAbort.current !== null) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const selectedMethod = state.quote.paymentMethods.find(
+      (method) => method.id === state.selectedPaymentMethodId,
+    ) ?? null;
+    const paymentKind = selectedMethod?.kind === "provider"
+      ? selectedMethod.providerCode
+      : selectedMethod?.kind ?? null;
+    const distanceSales = form.get("distanceSales") === "true";
+    const preInformation = form.get("preInformation") === "true";
+    const nextErrors = validateSubmitFields({
+      paymentKind,
+      identityNumber,
+      distanceSales,
+      preInformation,
+    });
+    const firstError = Object.keys(nextErrors)[0];
+    if (firstError !== undefined || state.selectedPaymentMethodId === null) {
+      setSubmitErrors(nextErrors);
+      dispatch({
+        type: "failed",
+        code: state.selectedPaymentMethodId === null ? "payment_unavailable" : "invalid_input",
+      });
+      focusNamedControl(formElement, firstError ?? "paymentMethodId");
       return;
     }
+    let payload;
     try {
-      buildSubmitPayload({
+      payload = buildSubmitPayload({
         quote: state.quote,
         operationId: submitOperationId,
         paymentMethodId: state.selectedPaymentMethodId,
         identityNumber: identityNumber === "" ? null : identityNumber,
+        distanceSales,
+        preInformation,
       });
-      dispatch({ type: "submit_started" });
     } catch {
-      event.preventDefault();
       dispatch({ type: "failed", code: "invalid_input" });
+      return;
     }
+    const body = new URLSearchParams({
+      cartVersion: String(payload.cartVersion),
+      checkoutNonce: payload.checkoutNonce,
+      operationId: payload.operationId,
+      paymentMethodId: payload.paymentMethodId,
+      identityNumber: payload.identityNumber ?? "",
+      distanceSales: "true",
+      preInformation: "true",
+    });
+    const controller = new AbortController();
+    submitAbort.current = controller;
+    setSubmitErrors({});
+    dispatch({ type: "submit_started" });
+    const result = await requestCheckoutSubmission({ body, signal: controller.signal });
+    if (submitAbort.current !== controller) return;
+    submitAbort.current = null;
+    if (result.kind === "aborted") return;
+    if (result.kind === "failed") {
+      dispatch({ type: "failed", code: result.code });
+      return;
+    }
+    window.location.assign(result.location);
+  }
+
+  function clearDeliveryError(name: DeliveryFieldName) {
+    setDeliveryErrors((current) => {
+      if (current[name] === undefined) return current;
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
+  }
+
+  function setDeliveryInvalid(name: DeliveryFieldName, message: string) {
+    setDeliveryErrors((current) => ({ ...current, [name]: message }));
+  }
+
+  function clearSubmitError(name: SubmitFieldName) {
+    setSubmitErrors((current) => {
+      if (current[name] === undefined) return current;
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
+  }
+
+  function setSubmitInvalid(name: SubmitFieldName, message: string) {
+    setSubmitErrors((current) => ({ ...current, [name]: message }));
   }
 
   const pending = state.pending !== null;
@@ -187,14 +302,23 @@ export function CheckoutClient(props: CheckoutClientProps) {
             ? <p className="checkout-error" id="checkout-error" role="alert">{state.error}</p>
             : null}
           <DeliverySection
+            errors={deliveryErrors}
             formId={DELIVERY_FORM_ID}
+            onFieldChange={clearDeliveryError}
+            onFieldInvalid={setDeliveryInvalid}
             onSubmit={handleDeliverySubmit}
             pending={pending}
             quote={state.quote}
           />
           <PaymentSection
+            errors={submitErrors}
             identityNumber={identityNumber}
-            onIdentityNumberChange={setIdentityNumber}
+            onFieldChange={clearSubmitError}
+            onFieldInvalid={setSubmitInvalid}
+            onIdentityNumberChange={(value) => {
+              setIdentityNumber(value);
+              clearSubmitError("identityNumber");
+            }}
             onPaymentMethodChange={selectPaymentMethod}
             onSubmit={handlePaymentSubmit}
             operationId={submitOperationId}

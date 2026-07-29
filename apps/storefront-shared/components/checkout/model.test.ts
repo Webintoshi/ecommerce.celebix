@@ -14,6 +14,8 @@ import {
   createCheckoutState,
   formatCheckoutMoney,
   reduceCheckout,
+  validateDeliveryFields,
+  validateSubmitFields,
 } from "./model.ts";
 
 const address: CheckoutAddress = Object.freeze({
@@ -143,6 +145,8 @@ test("payload builders emit only the exact public contract keys", () => {
     operationId: "66666666-6666-4666-8666-666666666666",
     paymentMethodId: "33333333-3333-4333-8333-333333333333",
     identityNumber: "10000000146",
+    distanceSales: true,
+    preInformation: true,
   });
 
   assert.deepEqual(Object.keys(delivery).sort(), [
@@ -186,4 +190,75 @@ test("storefront provider logos are exact reviewed byte copies", async () => {
     assert.equal(createHash("sha256").update(storefront).digest("hex"), expected);
     assert.equal(storefront.equals(source), true);
   }
+});
+
+test("delivery validation maps native and contract-level failures to exact fields", () => {
+  assert.deepEqual(validateDeliveryFields({
+    email: "not-an-email",
+    firstName: " ",
+    lastName: "Yılmaz",
+    phone: "123",
+    line1: "Adres\n1",
+    line2: "",
+    city: "İstanbul",
+    district: "Kadıköy",
+    postalCode: "",
+    shippingId: null,
+  }), {
+    email: "Geçerli bir e-posta adresi girin.",
+    firstName: "Bu alan zorunludur.",
+    phone: "Geçerli bir telefon numarası girin.",
+    line1: "Geçerli bir adres girin.",
+    shippingId: "Bir kargo yöntemi seçin.",
+  });
+
+  assert.deepEqual(validateDeliveryFields({
+    email: "ornek@example.com",
+    firstName: "Ahmet",
+    lastName: "Yılmaz",
+    phone: "+905551234567",
+    line1: "Bağdat Caddesi 123",
+    line2: "Daire 4",
+    city: "İstanbul",
+    district: "Kadıköy",
+    postalCode: "34710",
+    shippingId: "standard",
+  }), {});
+});
+
+test("submit validation scopes identity to iyzico and reports both required consents", () => {
+  for (const identityNumber of [
+    "",
+    "1234",
+    " 74300864791",
+    "74300864791 ",
+    "7430é",
+    "11111",
+    "12345678901",
+  ]) {
+    const errors = validateSubmitFields({
+      paymentKind: "iyzico_iframe",
+      identityNumber,
+      distanceSales: false,
+      preInformation: false,
+    });
+    assert.equal(
+      errors.identityNumber,
+      identityNumber === "" ? "Bu alan zorunludur." : "Geçerli bir kimlik numarası girin.",
+    );
+    assert.equal(errors.distanceSales, "Devam etmek için onaylamanız gerekir.");
+    assert.equal(errors.preInformation, "Devam etmek için onaylamanız gerekir.");
+  }
+
+  assert.deepEqual(validateSubmitFields({
+    paymentKind: "bank_transfer",
+    identityNumber: "",
+    distanceSales: true,
+    preInformation: true,
+  }), {});
+});
+
+test("a duplicate submit start cannot replace an in-flight operation", () => {
+  const pending = reduceCheckout(createCheckoutState(quote()), { type: "submit_started" });
+  assert.equal(reduceCheckout(pending, { type: "submit_started" }), pending);
 });

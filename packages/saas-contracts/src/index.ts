@@ -365,17 +365,20 @@ export {
   parseCheckoutAddress,
   parseCheckoutDeliveryInput,
   parseCheckoutHttpError,
+  parseCheckoutHttpErrorResponse,
   parseCheckoutPaymentMethod,
   parseCheckoutPolicy,
   parseCheckoutQuote,
   parseCheckoutStatus,
   parseCheckoutSubmissionResult,
+  parseCheckoutSubmitSuccess,
   parseCheckoutSubmitInput,
 } from "./checkout/index.ts";
 export type {
   CheckoutAddress,
   CheckoutDeliveryInput,
   CheckoutHttpError,
+  CheckoutHttpErrorResponse,
   CheckoutPaymentMethod,
   CheckoutPolicy,
   CheckoutPolicyLink,
@@ -384,6 +387,7 @@ export type {
   CheckoutShippingOption,
   CheckoutStatus,
   CheckoutSubmissionResult,
+  CheckoutSubmitSuccess,
   CheckoutSubmitInput,
 } from "./checkout/index.ts";
 export type {
