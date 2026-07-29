@@ -15,8 +15,11 @@ BEGIN
       'saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)'
     ) IS NULL
     OR pg_catalog.to_regprocedure(
-      'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'
+      'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)'
     ) IS NULL
+    OR pg_catalog.to_regprocedure(
+      'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'
+    ) IS NOT NULL
     OR pg_catalog.to_regprocedure(
       'saas.merchant_admin_config_valid_without_checkout_flat_rate(text,jsonb)'
     ) IS NULL
@@ -63,7 +66,7 @@ BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='67425480b19f3420992c763ac8f6082a'
+      AND pg_catalog.md5(procedure.prosrc)='ce60ba8b912cda1464b7194e8741557b'
   ) OR saas.storefront_checkout_preflight() IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID';
   END IF;
@@ -107,7 +110,7 @@ DROP FUNCTION saas.storefront_checkout_submit_builtin(
   text,text,bigint,uuid,text,text,uuid,timestamptz
 );
 DROP FUNCTION saas.storefront_checkout_begin_hosted(
-  text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz
+  text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamptz
 );
 DROP FUNCTION saas.storefront_checkout_get_policy(text,text,timestamptz);
 DROP FUNCTION saas.storefront_checkout_get_status(text,text,timestamptz);

@@ -33,10 +33,6 @@ export type SubmitBuiltInCheckoutInput = Readonly<{
 export type BeginHostedCheckoutInput = SubmitBuiltInCheckoutInput & Readonly<{
   attemptId: string;
   callbackBindingDigest: string;
-  orderId: string;
-  orderItemIds: readonly string[];
-  orderEventId: string;
-  orderNumber: string;
 }>;
 
 export type GetCheckoutStatusInput = Readonly<{
@@ -80,6 +76,7 @@ export type HostedCheckoutAuthority = Readonly<{
     name: string;
     email: string;
     phone: string;
+    identityNumber: string | null;
     shippingAddress: CheckoutAddress;
     billingAddress: CheckoutAddress | null;
   }>;

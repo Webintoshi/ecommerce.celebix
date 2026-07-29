@@ -23,9 +23,7 @@ const ITEM_ID = "22222222-2222-4222-8222-222222222222";
 const PAYMENT_ID = "44444444-4444-4444-8444-444444444444";
 const OPERATION_ID = "55555555-5555-4555-8555-555555555555";
 const ATTEMPT_ID = "66666666-6666-4666-8666-666666666666";
-const ORDER_ID = "77777777-7777-4777-8777-777777777777";
-const ORDER_ITEM_ID = "88888888-8888-4888-8888-888888888888";
-const ORDER_EVENT_ID = "99999999-9999-4999-8999-999999999999";
+const BUYER_IDENTITY = "74300864791";
 const NONCE = "A".repeat(43);
 const PRIVATE_DRIVER = "postgres://admin:secret@private.invalid/customer@example.com";
 
@@ -155,20 +153,19 @@ function submissionInput(): SubmitBuiltInCheckoutInput {
       checkoutNonce: NONCE,
       operationId: OPERATION_ID,
       paymentMethodId: PAYMENT_ID,
+      identityNumber: null,
       consents: { distanceSales: true, preInformation: true },
     },
   };
 }
 
 function hostedInput(): BeginHostedCheckoutInput {
+  const base = submissionInput();
   return {
-    ...submissionInput(),
+    ...base,
+    submission: { ...base.submission, identityNumber: BUYER_IDENTITY },
     attemptId: ATTEMPT_ID,
     callbackBindingDigest: "b".repeat(64),
-    orderId: ORDER_ID,
-    orderItemIds: [ORDER_ITEM_ID],
-    orderEventId: ORDER_EVENT_ID,
-    orderNumber: "SF-2026-000001",
   };
 }
 
@@ -185,6 +182,7 @@ function hostedAuthorityPayload() {
       name: "Ayşe Yılmaz",
       email: "ayse@example.com",
       phone: "+905551112233",
+      identityNumber: BUYER_IDENTITY,
       shippingAddress: address(),
       billingAddress: null,
     },
@@ -472,7 +470,37 @@ test("submitBuiltIn binds the exact migration 064 signature and parses placed re
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });
 
-test("beginHosted binds exact generated identities and returns credential-free private authority", async () => {
+test("submitBuiltIn neither persists nor fingerprints an irrelevant buyer identity", async () => {
+  const clients = [new FakeClient((text) => (
+    text.includes("saas.storefront_checkout_submit_builtin")
+      ? [selected("placed", {
+          kind: "placed", orderNumber: "SF-2026-000001", statusPath: "/checkout/status",
+        })]
+      : []
+  )), new FakeClient((text) => (
+    text.includes("saas.storefront_checkout_submit_builtin")
+      ? [selected("placed", {
+          kind: "placed", orderNumber: "SF-2026-000001", statusPath: "/checkout/status",
+        })]
+      : []
+  ))];
+  const base = submissionInput();
+  await repository(new FakePool([clients[0]!])).submitBuiltIn(base);
+  await repository(new FakePool([clients[1]!])).submitBuiltIn({
+    ...base,
+    submission: { ...base.submission, identityNumber: BUYER_IDENTITY },
+  });
+  const calls = clients.map((client) => client.calls.find((call) => textIncludes(
+    call, "storefront_checkout_submit_builtin",
+  ))!);
+  assert.equal(calls[0].values.length, 8);
+  assert.equal(calls[1].values.length, 8);
+  assert.equal(calls[0].values[4], calls[1].values[4]);
+  assert.equal(calls.some((call) => call.text.includes(BUYER_IDENTITY)), false);
+  assert.equal(calls.some((call) => call.values.includes(BUYER_IDENTITY)), false);
+});
+
+test("beginHosted binds the exact 11-argument private authority interface", async () => {
   const client = new FakeClient((text) => (
     text.includes("saas.storefront_checkout_begin_hosted")
       ? [selected("created", hostedAuthorityPayload())]
@@ -480,7 +508,7 @@ test("beginHosted binds exact generated identities and returns credential-free p
   ));
   const result = await repository(new FakePool([client])).beginHosted(hostedInput());
   const query = client.calls.find((call) => textIncludes(call, "storefront_checkout_begin_hosted"));
-  assert.equal(query?.values.length, 14);
+  assert.equal(query?.values.length, 11);
   assert.deepEqual(query?.values.slice(0, 4), [
     "shop.celebix.site", DIGEST, 1, OPERATION_ID,
   ]);
@@ -488,18 +516,17 @@ test("beginHosted binds exact generated identities and returns credential-free p
   assert.equal(query?.values[5], createHash("sha256").update(NONCE).digest("hex"));
   assert.deepEqual(query?.values.slice(6), [
     PAYMENT_ID,
+    BUYER_IDENTITY,
     ATTEMPT_ID,
     "b".repeat(64),
-    ORDER_ID,
-    [ORDER_ITEM_ID],
-    ORDER_EVENT_ID,
-    "SF-2026-000001",
     NOW,
   ]);
   assert.equal(result.reservationStatus, "held");
   assert.equal(result.attemptId, ATTEMPT_ID);
   assert.equal(JSON.stringify(result).includes("credential"), false);
   assert.equal(JSON.stringify(result).includes("sealed"), false);
+  assert.equal(result.customer.identityNumber, BUYER_IDENTITY);
+  assert.equal(query?.text.includes(BUYER_IDENTITY), false);
 });
 
 test("beginHosted rejects authority identities that differ from the submitted attempt and method", async () => {
@@ -507,6 +534,8 @@ test("beginHosted rejects authority identities that differ from the submitted at
     { attemptId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab" },
     { bridgeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac" },
     { paymentMethodId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad" },
+    { customer: { ...hostedAuthorityPayload().customer, identityNumber: "98765432109" } },
+    { customer: { ...hostedAuthorityPayload().customer, identityNumber: null } },
   ]) {
     const client = new FakeClient((text) => (
       text.includes("saas.storefront_checkout_begin_hosted")
@@ -561,17 +590,52 @@ test("hosted unknown COMMIT recovers the exact private authority without repeati
   assert.equal(recovery.calls.some((call) => textIncludes(call, "storefront_checkout_begin_hosted")), false);
 });
 
-test("hosted identity metadata is exact and rejected before pool checkout", async () => {
+test("hosted server authority is exact and caller settlement identities are rejected before pool checkout", async () => {
   for (const input of [
     { ...hostedInput(), callbackBindingDigest: PRIVATE_DRIVER },
-    { ...hostedInput(), orderItemIds: [] },
-    { ...hostedInput(), orderItemIds: [ORDER_ITEM_ID, ORDER_ITEM_ID] },
-    { ...hostedInput(), orderNumber: `SF-${PRIVATE_DRIVER}` },
+    {
+      ...hostedInput(),
+      submission: { ...hostedInput().submission, identityNumber: "12345678901" },
+    },
+    { ...hostedInput(), orderId: "77777777-7777-4777-8777-777777777777" },
+    { ...hostedInput(), orderItemIds: ["88888888-8888-4888-8888-888888888888"] },
+    { ...hostedInput(), orderEventId: "99999999-9999-4999-8999-999999999999" },
+    { ...hostedInput(), orderNumber: "SF-2026-000001" },
   ]) {
     const pool = new FakePool([]);
     await assert.rejects(repository(pool).beginHosted(input), errorCode("invalid_input"));
     assert.equal(pool.connects, 0);
   }
+});
+
+test("hosted fingerprint binds buyer identity without exposing it to SQL text or audit", async () => {
+  const audits: unknown[] = [];
+  const clients = [BUYER_IDENTITY, "98765432109"].map((identityNumber) => new FakeClient((text) => (
+    text.includes("saas.storefront_checkout_begin_hosted")
+      ? [selected("created", {
+          ...hostedAuthorityPayload(),
+          customer: { ...hostedAuthorityPayload().customer, identityNumber },
+        })]
+      : []
+  )));
+  const fingerprints: unknown[] = [];
+  for (const [index, identityNumber] of [BUYER_IDENTITY, "98765432109"].entries()) {
+    const input = hostedInput();
+    await repository(new FakePool([clients[index]!]), audits).beginHosted({
+      ...input,
+      submission: { ...input.submission, identityNumber },
+    });
+    const query = clients[index]!.calls.find((call) => textIncludes(
+      call, "storefront_checkout_begin_hosted",
+    ));
+    fingerprints.push(query?.values[4]);
+    assert.equal(query?.values[7], identityNumber);
+    assert.equal(query?.text.includes(identityNumber), false);
+    assert.notEqual(query?.values[4], identityNumber);
+  }
+  assert.notEqual(fingerprints[0], fingerprints[1]);
+  assert.equal(JSON.stringify(audits).includes(BUYER_IDENTITY), false);
+  assert.equal(JSON.stringify(audits).includes("98765432109"), false);
 });
 
 test("descriptor-hostile and browser-authority inputs fail before pool checkout", async () => {

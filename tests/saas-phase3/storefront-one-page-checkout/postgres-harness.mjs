@@ -52,6 +52,7 @@ const HOSTED_PRECOLLISION_DB = "storefront_one_page_checkout_hosted_precollision
 const HOSTED_AUTHORITY_RACE_DB = "storefront_one_page_checkout_hosted_authority_race";
 const HOSTED_PRICE_RACE_DB = "storefront_one_page_checkout_hosted_price_race";
 const HOSTED_SNAPSHOT_TAMPER_DB = "storefront_one_page_checkout_hosted_snapshot_tamper";
+const IYZICO_IDENTITY_DB = "storefront_one_page_checkout_iyzico_identity";
 const DOWN_CALLBACK_RACE_DB = "storefront_one_page_checkout_down_callback_race";
 const QUICK_CHECKOUT_DOWN_RACE_DB = "storefront_one_page_checkout_quick_checkout_down_race";
 const prior = JSON.parse(readFileSync(path.join(
@@ -87,10 +88,8 @@ const CROSS_STORE_METHOD = "50000000-0000-4000-8000-000000000064";
 const BUILTIN_OPERATION = "82000000-0000-4000-8000-000000000064";
 const HOSTED_OPERATION = "82000000-0000-4000-8000-000000000065";
 const HOSTED_ATTEMPT = "83000000-0000-4000-8000-000000000064";
-const HOSTED_ORDER = "84000000-0000-4000-8000-000000000064";
-const HOSTED_ORDER_ITEM = "85000000-0000-4000-8000-000000000064";
-const HOSTED_ORDER_EVENT = "86000000-0000-4000-8000-000000000064";
 const RETRY_ATTEMPT = "83000000-0000-4000-8000-000000000065";
+const BUYER_IDENTITY = "74300864791";
 const NOW = "2026-07-28T15:00:00.000Z";
 const VALID_ADDRESS = Object.freeze({
   firstName: "Ada",
@@ -236,18 +235,15 @@ function beginHostedCall({
   fingerprint = "7".repeat(64),
   nonce = NONCE_2,
   paymentMethodId = PROVIDER_METHOD,
+  identityNumber = null,
   attemptId = HOSTED_ATTEMPT,
   callbackDigest = "8".repeat(64),
-  orderId = HOSTED_ORDER,
-  orderItemIds = [HOSTED_ORDER_ITEM],
-  orderEventId = HOSTED_ORDER_EVENT,
-  orderNumber = "SF-2026-000064",
 }) {
   return `SELECT outcome,result_payload FROM saas.storefront_checkout_begin_hosted(
     '${HOST_A}','${CART_A_DIGEST}',${expectedVersion},'${operationId}'::uuid,'${fingerprint}',
-    '${nonce}','${paymentMethodId}'::uuid,'${attemptId}'::uuid,'${callbackDigest}',
-    '${orderId}'::uuid,ARRAY[${orderItemIds.map((id) => `'${id}'::uuid`).join(",")}],
-    '${orderEventId}'::uuid,'${orderNumber}','${NOW}'::timestamptz
+    '${nonce}','${paymentMethodId}'::uuid,
+    ${identityNumber === null ? "NULL::text" : `'${identityNumber}'::text`},
+    '${attemptId}'::uuid,'${callbackDigest}','${NOW}'::timestamptz
   )`;
 }
 
@@ -292,6 +288,28 @@ function addSecondCheckoutCart(box, database) {
       0,'Snapshot title','Snapshot variant','CHECKOUT-1',NULL,10000,1,0,10000,
       '2026-07-28T14:00:00Z'
     );`, database);
+}
+
+function iyzicoProviderFixture(box, database) {
+  sql(box, `SET ROLE celebix_saas_owner;
+    ALTER TABLE saas.merchant_provider_profiles
+      DISABLE TRIGGER iyzico_iframe_tenant_profile_binding_guard;
+    ALTER TABLE saas.payment_methods
+      DISABLE TRIGGER iyzico_iframe_tenant_payment_method_active_guard;`, database);
+  sql(box, `SET ROLE celebix_saas_owner;
+    UPDATE saas.merchant_provider_profiles SET
+      execution_environment='test',execution_adapter_version=7,
+      execution_evidence_digest='sha256:${"a".repeat(64)}',version=version+1,updated_at='${NOW}'
+    WHERE id='40000000-0000-4000-8000-000000000061';
+    UPDATE saas.payment_methods SET
+      profile_id='40000000-0000-4000-8000-000000000061',provider_code='iyzico_iframe',
+      label='Iyzico',config='{"environment":"test"}',version=version+1,updated_at='${NOW}'
+    WHERE id='${PROVIDER_METHOD}';`, database);
+  sql(box, `SET ROLE celebix_saas_owner;
+    ALTER TABLE saas.payment_methods
+      ENABLE TRIGGER iyzico_iframe_tenant_payment_method_active_guard;
+    ALTER TABLE saas.merchant_provider_profiles
+      ENABLE TRIGGER iyzico_iframe_tenant_profile_binding_guard;`, database);
 }
 
 async function exerciseEmergencyDisableRace(box, database, expectedVersion) {
@@ -1018,7 +1036,7 @@ async function main() {
           'saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)'::regprocedure,
-          'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure,
+          'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_get_status(text,text,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_get_policy(text,text,timestamp with time zone)'::regprocedure,
@@ -1049,6 +1067,13 @@ async function main() {
         )
       FROM public_function;`).stdout.trim(), "t",
     "checkout functions must expose the exact owner/workflow-only ACL matrix");
+    assert.equal(sql(box, `SELECT
+        pg_catalog.to_regprocedure(
+          'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)'
+        ) IS NOT NULL AND pg_catalog.to_regprocedure(
+          'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'
+        ) IS NULL;`).stdout.trim(), "t",
+    "migration 064 must expose only the exact 11-argument hosted begin signature");
     const appQuote = sql(box, `SET ROLE celebix_saas_app;
       SELECT outcome FROM saas.storefront_checkout_get_quote(
         '${HOST_A}','${CART_A_DIGEST}','${NOW}'::timestamptz
@@ -1088,11 +1113,51 @@ async function main() {
       HOSTED_AUTHORITY_RACE_DB,
       HOSTED_PRICE_RACE_DB,
       HOSTED_SNAPSHOT_TAMPER_DB,
+      IYZICO_IDENTITY_DB,
       DOWN_CALLBACK_RACE_DB,
       QUICK_CHECKOUT_DOWN_RACE_DB,
     ]) {
       sql(box, `CREATE DATABASE ${database} TEMPLATE ${DB};`, "postgres");
     }
+
+    iyzicoProviderFixture(box, IYZICO_IDENTITY_DB);
+    const iyzicoVersion = prepareSubmittedCart(box, IYZICO_IDENTITY_DB, null);
+    assert.equal(call(box, beginHostedCall({
+      expectedVersion: iyzicoVersion,
+      paymentMethodId: PROVIDER_METHOD,
+      identityNumber: null,
+    }), IYZICO_IDENTITY_DB).outcome, "invalid_input",
+    "iyzico must reject a missing real buyer identity before hosted effects");
+    assert.equal(sql(box, `SELECT
+        (SELECT count(*) FROM saas.payment_attempts)||'|'||
+        (SELECT count(*) FROM saas.storefront_checkout_payment_bridges)||'|'||
+        (SELECT count(*) FROM saas.checkout_inventory_reservations
+          WHERE payment_attempt_id IS NOT NULL)||'|'||
+        (SELECT count(*) FROM saas.storefront_checkout_operations WHERE action='submit_hosted')||'|'||
+        (SELECT (checkout_nonce_digest IS NOT NULL)::text FROM saas.abandoned_carts
+          WHERE id='${CART_A}');`, IYZICO_IDENTITY_DB).stdout.trim(), "0|0|0|0|true",
+    "iyzico identity rejection must not create attempt, bridge, hold, or operation effects");
+    const iyzicoHosted = call(box, beginHostedCall({
+      expectedVersion: iyzicoVersion,
+      paymentMethodId: PROVIDER_METHOD,
+      identityNumber: BUYER_IDENTITY,
+    }), IYZICO_IDENTITY_DB);
+    assert.equal(iyzicoHosted.outcome, "created");
+    assert.equal(iyzicoHosted.payload.providerCode, "iyzico_iframe");
+    assert.equal(iyzicoHosted.payload.customer.identityNumber, BUYER_IDENTITY);
+    assert.equal(sql(box, `SELECT
+        (bridge.settlement_snapshot#>>'{customer,identityNumber}')||'|'||
+        (operation.result_payload#>>'{customer,identityNumber}')||'|'||
+        (position('identityNumber' in status.result_payload::text)=0)::text
+      FROM saas.storefront_checkout_payment_bridges bridge
+      JOIN saas.storefront_checkout_operations operation
+        ON operation.operation_id='${HOSTED_OPERATION}'
+      CROSS JOIN LATERAL saas.storefront_checkout_get_status(
+        '${HOST_A}','${CART_A_DIGEST}','${NOW}'::timestamptz
+      ) status
+      WHERE bridge.attempt_id='${HOSTED_ATTEMPT}';`, IYZICO_IDENTITY_DB).stdout.trim(),
+    `${BUYER_IDENTITY}|${BUYER_IDENTITY}|true`,
+    "buyer identity must persist only in owner-only hosted customer authority, not public status");
 
     const builtInVersion = prepareSubmittedCart(box, BUILTIN_SETTLEMENT_DB);
     const builtInPlaced = call(box, submitBuiltInCall({ expectedVersion: builtInVersion }), BUILTIN_SETTLEMENT_DB);
@@ -1228,10 +1293,6 @@ async function main() {
       nonce: retryNonce,
       attemptId: RETRY_ATTEMPT,
       callbackDigest: "4".repeat(64),
-      orderId: "84000000-0000-4000-8000-000000000065",
-      orderItemIds: ["85000000-0000-4000-8000-000000000065"],
-      orderEventId: "86000000-0000-4000-8000-000000000065",
-      orderNumber: "SF-2026-000065",
     }), HOSTED_RETRY_DB).outcome, "created",
     "a failed hosted attempt must permit one new active bridge while preserving history");
     assert.equal(initializeHosted(box, HOSTED_RETRY_DB, RETRY_ATTEMPT, "65").outcome,
@@ -1275,10 +1336,16 @@ async function main() {
         ) VALUES(
           '${targetEventId}','${STORE_A}','${targetOrderId}',NULL,'note_added',NULL,NULL,
           'Target event','{}','${NOW}'
-        );`, HOSTED_IDENTITY_DB);
+      );`, HOSTED_IDENTITY_DB);
       const identityVersion = prepareSubmittedCart(box, HOSTED_IDENTITY_DB);
-      assert.equal(call(box, beginHostedCall({ expectedVersion: identityVersion }), HOSTED_IDENTITY_DB).outcome,
-        "created");
+      const paytrIdentityHosted = call(box, beginHostedCall({
+        expectedVersion: identityVersion,
+        identityNumber: BUYER_IDENTITY,
+      }), HOSTED_IDENTITY_DB);
+      assert.equal(paytrIdentityHosted.outcome, "created");
+      assert.equal(paytrIdentityHosted.payload.providerCode, "paytr_iframe");
+      assert.equal(paytrIdentityHosted.payload.amountMinor, 11_500);
+      assert.equal(paytrIdentityHosted.payload.customer.identityNumber, BUYER_IDENTITY);
       assert.equal(sql(box, `SELECT order_id||'|'||order_item_ids[1]||'|'||order_event_id||'|'||order_number
         FROM saas.storefront_checkout_payment_bridges WHERE attempt_id='${HOSTED_ATTEMPT}';`,
       HOSTED_IDENTITY_DB).stdout.trim(),
@@ -1471,6 +1538,18 @@ async function main() {
     assert.equal(hosted.payload.reservationStatus, "held");
     assert.equal(hosted.payload.attemptId, HOSTED_ATTEMPT);
     assert.equal(hosted.payload.providerCode, "paytr_iframe");
+    assert.equal(hosted.payload.customer.identityNumber, null,
+      "PayTR hosted authority must accept and preserve an exact null buyer identity");
+    assert.equal(sql(box, `SELECT
+        pg_catalog.jsonb_typeof(settlement_snapshot#>'{customer,identityNumber}')||'|'||
+        (position('identityNumber' in status.result_payload::text)=0)::text
+      FROM saas.storefront_checkout_payment_bridges bridge
+      CROSS JOIN LATERAL saas.storefront_checkout_get_status(
+        '${HOST_A}','${CART_A_DIGEST}','${NOW}'::timestamptz
+      ) status
+      WHERE bridge.attempt_id='${HOSTED_ATTEMPT}';`, HOSTED_SETTLEMENT_DB).stdout.trim(),
+    "null|true",
+    "null identity remains private hosted customer authority and never enters public status");
     assert.equal(JSON.stringify(hosted.payload).includes("credential"), false);
     assert.equal(JSON.stringify(hosted.payload).includes("sealed"), false);
     assert.equal(sql(box, `SELECT attempt.status||'|'||bridge.status||'|'||reservation.status||'|'||
@@ -1643,6 +1722,23 @@ async function main() {
     assert.equal(maximumReplay.outcome, "operation_replayed");
     assert.deepEqual(maximumReplay.payload, maximumUpdated.payload,
       "a maximum valid multibyte cart must replay the exact canonical projection");
+    const maximumHosted = call(box, beginHostedCall({
+      expectedVersion: maximumUpdated.payload.cartVersion,
+      identityNumber: null,
+    }), MAX_PAYLOAD_DB);
+    assert.equal(maximumHosted.outcome, "created");
+    assert.equal(maximumHosted.payload.customer.identityNumber, null);
+    assert.equal(sql(box, `SELECT
+        (order_id='${checkoutUuid("hosted-order", HOSTED_ATTEMPT)}')::text||'|'||
+        pg_catalog.cardinality(order_item_ids)||'|'||
+        (order_item_ids[1]='${checkoutUuid("hosted-order-item", HOSTED_ATTEMPT, 1)}')::text||'|'||
+        (order_item_ids[100]='${checkoutUuid("hosted-order-item", HOSTED_ATTEMPT, 100)}')::text||'|'||
+        (order_event_id='${checkoutUuid("hosted-order-event", HOSTED_ATTEMPT)}')::text||'|'||
+        (order_number='${hostedOrderNumber(HOSTED_ATTEMPT)}')::text
+      FROM saas.storefront_checkout_payment_bridges
+      WHERE attempt_id='${HOSTED_ATTEMPT}';`, MAX_PAYLOAD_DB).stdout.trim(),
+    "true|100|true|true|true|true",
+    "hosted begin must derive every multi-item settlement identity from attempt and cart cardinality");
 
     const initial = quote(box);
     assert.equal(initial.outcome, "found");

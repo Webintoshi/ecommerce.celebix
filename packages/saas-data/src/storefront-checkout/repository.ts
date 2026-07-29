@@ -220,6 +220,16 @@ function outputInteger(value: unknown, minimum = 0): number {
   return value as number;
 }
 
+function outputIdentityNumber(value: unknown): string | null {
+  if (value === null) return null;
+  const selected = outputText(value, 5, 50);
+  if (
+    !/^[\x21-\x7e]{5,50}$/.test(selected) || /^(.)\1+$/.test(selected) ||
+    selected === "12345678901"
+  ) unavailable();
+  return selected;
+}
+
 function safeHostedAuthority(
   value: unknown,
   expected: BeginHostedCheckoutInput,
@@ -237,12 +247,13 @@ function safeHostedAuthority(
       selected.reservationStatus !== "held"
     ) unavailable();
     const customer = strictProjection(selected.customer, [
-      "name", "email", "phone", "shippingAddress", "billingAddress",
+      "name", "email", "phone", "identityNumber", "shippingAddress", "billingAddress",
     ]);
     const parsedCustomer = Object.freeze({
       name: outputText(customer.name, 1, 241),
       email: outputText(customer.email, 3, 320),
       phone: outputText(customer.phone, 7, 32),
+      identityNumber: outputIdentityNumber(customer.identityNumber),
       shippingAddress: parseCheckoutAddress(customer.shippingAddress),
       billingAddress: customer.billingAddress === null
         ? null
@@ -281,7 +292,9 @@ function safeHostedAuthority(
     const bridgeId = outputUuid(selected.bridgeId);
     if (
       paymentMethodId !== expected.submission.paymentMethodId ||
-      attemptId !== expected.attemptId || bridgeId !== expected.attemptId
+      attemptId !== expected.attemptId || bridgeId !== expected.attemptId ||
+      parsedCustomer.identityNumber !== expected.submission.identityNumber ||
+      (selected.providerCode === "iyzico_iframe" && parsedCustomer.identityNumber === null)
     ) unavailable();
     return Object.freeze({
       storeId: outputUuid(selected.storeId),
@@ -347,10 +360,9 @@ function submissionFingerprint(
     ...(hosted === undefined ? {} : {
       attemptId: hosted.attemptId,
       callbackBindingDigest: hosted.callbackBindingDigest,
-      orderId: hosted.orderId,
-      orderItemIds: hosted.orderItemIds,
-      orderEventId: hosted.orderEventId,
-      orderNumber: hosted.orderNumber,
+      identityNumberDigest: hosted.submission.identityNumber === null
+        ? null
+        : digest(hosted.submission.identityNumber),
     }),
   })).digest("hex");
 }
@@ -754,8 +766,8 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
       return await this.executeSubmission(
         {
           text: `SELECT outcome, result_payload FROM saas.storefront_checkout_begin_hosted(
-            $1::text,$2::text,$3::bigint,$4::uuid,$5::text,$6::text,$7::uuid,$8::uuid,
-            $9::text,$10::uuid,$11::uuid[],$12::uuid,$13::text,$14::timestamptz
+            $1::text,$2::text,$3::bigint,$4::uuid,$5::text,$6::text,$7::uuid,$8::text,
+            $9::uuid,$10::text,$11::timestamptz
           )`,
           values: [
             parsed.hostname,
@@ -765,12 +777,9 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
             operationFingerprint,
             digest(parsed.submission.checkoutNonce),
             parsed.submission.paymentMethodId,
+            parsed.submission.identityNumber,
             parsed.attemptId,
             parsed.callbackBindingDigest,
-            parsed.orderId,
-            [...parsed.orderItemIds],
-            parsed.orderEventId,
-            parsed.orderNumber,
             parsed.now,
           ],
         },

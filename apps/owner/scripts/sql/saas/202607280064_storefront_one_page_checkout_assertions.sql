@@ -15,7 +15,7 @@ BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='67425480b19f3420992c763ac8f6082a'
+      AND pg_catalog.md5(procedure.prosrc)='ce60ba8b912cda1464b7194e8741557b'
   ) THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_FUNCTION_BODY_INVALID: preflight';
   END IF;
@@ -218,11 +218,11 @@ BEGIN
     ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1'),
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3'),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e'),
-    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)','a8cd11aa88208fa6db788b42f08db0fa'),
+    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)','397531c6e482991b782ef989878e6abe'),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121'),
     ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','a094b754f97152d4a8177f0dd6d03bc0'),
     ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1'),
-    ('saas.storefront_checkout_preflight()','67425480b19f3420992c763ac8f6082a')
+    ('saas.storefront_checkout_preflight()','ce60ba8b912cda1464b7194e8741557b')
   ) expected(signature,expected_hash) LOOP
     procedure_oid:=signature::regprocedure;
     IF NOT EXISTS(
@@ -237,12 +237,18 @@ BEGIN
     THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_FUNCTION_INVALID: %',signature; END IF;
   END LOOP;
 
+  IF pg_catalog.to_regprocedure(
+    'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'
+  ) IS NOT NULL THEN
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_OBSOLETE_HOSTED_BEGIN_PRESENT';
+  END IF;
+
   IF EXISTS(
       SELECT 1 FROM pg_catalog.pg_proc procedure
       WHERE procedure.oid IN(
         'saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamp with time zone)'::regprocedure,
         'saas.storefront_checkout_get_status(text,text,timestamp with time zone)'::regprocedure,
-        'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure
+        'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)'::regprocedure
       ) AND (
         procedure.prosrc~'sealed_credentials'
         OR procedure.prosrc~'profile[.]credential_digest'

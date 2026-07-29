@@ -1696,9 +1696,8 @@ $f$;
 CREATE FUNCTION saas.storefront_checkout_begin_hosted(
   p_hostname text,p_credential_digest text,p_expected_version bigint,
   p_operation_id uuid,p_fingerprint text,p_nonce_digest text,
-  p_payment_method_id uuid,p_attempt_id uuid,p_callback_binding_digest text,
-  p_order_id uuid,p_order_item_ids uuid[],p_order_event_id uuid,
-  p_order_number text,p_now timestamptz
+  p_payment_method_id uuid,p_identity_number text,p_attempt_id uuid,
+  p_callback_binding_digest text,p_now timestamptz
 )
 RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql SECURITY DEFINER
@@ -1739,16 +1738,13 @@ BEGIN
     OR p_nonce_digest IS NULL OR p_nonce_digest!~'^[a-f0-9]{64}$'
     OR p_payment_method_id IS NULL OR p_attempt_id IS NULL
     OR p_callback_binding_digest IS NULL OR p_callback_binding_digest!~'^[a-f0-9]{64}$'
-    OR p_order_id IS NULL OR p_order_event_id IS NULL
-    OR p_order_item_ids IS NULL OR pg_catalog.array_ndims(p_order_item_ids)<>1
-    OR pg_catalog.array_lower(p_order_item_ids,1)<>1
-    OR pg_catalog.cardinality(p_order_item_ids) NOT BETWEEN 1 AND 100
-    OR pg_catalog.array_position(p_order_item_ids,NULL) IS NOT NULL
-    OR (SELECT pg_catalog.count(DISTINCT supplied) FROM pg_catalog.unnest(p_order_item_ids) supplied)
-      <>pg_catalog.cardinality(p_order_item_ids)
-    OR p_order_number IS NULL OR p_order_number<>pg_catalog.btrim(p_order_number)
-    OR pg_catalog.char_length(p_order_number) NOT BETWEEN 1 AND 128
-    OR p_order_number~'[[:cntrl:]]'
+    OR (p_identity_number IS NOT NULL AND (
+      p_identity_number!~'^[!-~]{5,50}$'
+      OR p_identity_number=pg_catalog.repeat(
+        pg_catalog.substr(p_identity_number,1,1),pg_catalog.char_length(p_identity_number)
+      )
+      OR p_identity_number='12345678901'
+    ))
     OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
 
@@ -1804,6 +1800,9 @@ BEGIN
     OR selected_method.state<>'active'
     OR selected_method.provider_code NOT IN('paytr_iframe','iyzico_iframe')
   THEN RETURN QUERY SELECT 'payment_method_unavailable',NULL::jsonb; RETURN; END IF;
+  IF selected_method.provider_code='iyzico_iframe' AND p_identity_number IS NULL THEN
+    RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
+  END IF;
   SELECT profile.* INTO selected_profile FROM saas.merchant_provider_profiles profile
   WHERE profile.store_id=selected_cart.store_id AND profile.id=selected_method.profile_id
     AND profile.provider_code=selected_method.provider_code;
@@ -1880,7 +1879,7 @@ BEGIN
   SELECT pg_catalog.count(*) INTO item_count FROM saas.abandoned_cart_items item
   WHERE item.store_id=selected_cart.store_id AND item.cart_id=selected_cart.id;
   IF pg_catalog.jsonb_typeof(quote_payload->'items')<>'array'
-    OR item_count<>pg_catalog.cardinality(p_order_item_ids)
+    OR item_count NOT BETWEEN 1 AND 100
     OR pg_catalog.jsonb_array_length(quote_payload->'items')<>item_count
     OR quote_payload->>'currency'<>selected_cart.currency
     OR (quote_payload->>'totalCents')::bigint<1
@@ -2052,7 +2051,8 @@ BEGIN
   settlement_snapshot:=pg_catalog.jsonb_build_object(
     'customer',pg_catalog.jsonb_build_object(
       'name',selected_cart.customer_name,'email',selected_cart.customer_email,
-      'phone',selected_cart.customer_phone,'shippingAddress',selected_cart.shipping_address,
+      'phone',selected_cart.customer_phone,'identityNumber',p_identity_number,
+      'shippingAddress',selected_cart.shipping_address,
       'billingAddress',selected_cart.billing_address
     ),
     'money',pg_catalog.jsonb_build_object(
@@ -2829,7 +2829,7 @@ BEGIN
     ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1','v'::"char"),
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char"),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e','v'::"char"),
-    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)','a8cd11aa88208fa6db788b42f08db0fa','v'::"char"),
+    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)','397531c6e482991b782ef989878e6abe','v'::"char"),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char"),
     ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','a094b754f97152d4a8177f0dd6d03bc0','s'::"char"),
     ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1','s'::"char"),
@@ -2861,6 +2861,10 @@ BEGIN
       )
     THEN RETURN false; END IF;
   END LOOP;
+
+  IF pg_catalog.to_regprocedure(
+    'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'
+  ) IS NOT NULL THEN RETURN false; END IF;
 
   IF saas.merchant_admin_config_valid(
       'shipping_setting','{"regions":["TR"],"flatRateCents":2500,"freeShippingThresholdCents":50000,"estimatedDays":3}'::jsonb
@@ -2903,7 +2907,7 @@ REVOKE ALL ON FUNCTION
   ),
   saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamptz),
   saas.storefront_checkout_begin_hosted(
-    text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz
+    text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamptz
   ),
   saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamptz),
   saas.storefront_checkout_get_status(text,text,timestamptz),
@@ -2921,7 +2925,7 @@ GRANT EXECUTE ON FUNCTION
   ),
   saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamptz),
   saas.storefront_checkout_begin_hosted(
-    text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz
+    text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamptz
   ),
   saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamptz),
   saas.storefront_checkout_get_status(text,text,timestamptz),

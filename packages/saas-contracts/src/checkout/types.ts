@@ -83,6 +83,7 @@ export type CheckoutSubmitInput = Readonly<{
   checkoutNonce: string;
   operationId: string;
   paymentMethodId: string;
+  identityNumber: string | null;
   consents: Readonly<{ distanceSales: true; preInformation: true }>;
 }>;
 

@@ -37,8 +37,30 @@ function quoteFixture() {
 }
 
 function submitFixture() {
-  return { cartVersion: 1, checkoutNonce: NONCE, operationId: OPERATION_ID, paymentMethodId: PAYMENT_ID, consents: { distanceSales: true, preInformation: true } };
+  return { cartVersion: 1, checkoutNonce: NONCE, operationId: OPERATION_ID, paymentMethodId: PAYMENT_ID, identityNumber: null, consents: { distanceSales: true, preInformation: true } };
 }
+
+test("checkout submission requires an exact nullable provider-safe buyer identity", () => {
+  for (const identityNumber of [null, "A2345", "74300864791", `${"A".repeat(49)}1`]) {
+    assert.equal(parseCheckoutSubmitInput({ ...submitFixture(), identityNumber }).identityNumber,
+      identityNumber);
+  }
+  const { identityNumber: _identityNumber, ...missingIdentity } = submitFixture();
+  assert.throws(() => parseCheckoutSubmitInput(missingIdentity), /checkout_contract_invalid/);
+});
+
+test("checkout submission rejects fake, repeated, non-ASCII, control, and whitespace buyer identities", () => {
+  for (const identityNumber of [
+    "1234", "A".repeat(51), "11111", "AAAAA", "12345678901", " 7430", "7430 ",
+    "74 30", "74\t30", "74\n30", "7430é", "7430\u007f",
+  ]) {
+    assert.throws(
+      () => parseCheckoutSubmitInput({ ...submitFixture(), identityNumber }),
+      /checkout_contract_invalid/,
+      identityNumber,
+    );
+  }
+});
 
 test("checkout quote enforces exact money arithmetic and one provider", () => {
   const quote = quoteFixture();

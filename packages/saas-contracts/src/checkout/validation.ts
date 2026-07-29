@@ -27,6 +27,7 @@ const POLICY_TYPES = ["distance_sales", "pre_information", "privacy", "returns",
 const HTTP_ERRORS = ["invalid_input", "origin_denied", "cart_not_found", "cart_changed", "discount_invalid", "stock_unavailable", "payment_unavailable", "processing", "unavailable"] as const;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const IBAN = /^TR\d{24}$/;
+const IDENTITY_NUMBER = /^[\x21-\x7e]{5,50}$/;
 
 type InputRecord = Record<string, unknown>;
 type NodeUtilTypes = Readonly<{ isProxy?: (value: unknown) => boolean }>;
@@ -212,11 +213,22 @@ export function parseCheckoutDeliveryInput(value: unknown): CheckoutDeliveryInpu
 
 export function parseCheckoutSubmitInput(value: unknown): CheckoutSubmitInput {
   return guarded(() => {
-    const parsed = exact(value, ["cartVersion", "checkoutNonce", "operationId", "paymentMethodId", "consents"]);
+    const parsed = exact(value, [
+      "cartVersion", "checkoutNonce", "operationId", "paymentMethodId", "identityNumber", "consents",
+    ]);
     if (typeof parsed.checkoutNonce !== "string" || !NONCE.test(parsed.checkoutNonce)) invalid();
+    const identityNumber = parsed.identityNumber === null
+      ? null
+      : text(parsed.identityNumber, 5, 50);
+    if (
+      identityNumber !== null && (
+        !IDENTITY_NUMBER.test(identityNumber) || /^(.)\1+$/.test(identityNumber) ||
+        identityNumber === "12345678901"
+      )
+    ) invalid();
     const consents = exact(parsed.consents, ["distanceSales", "preInformation"]);
     if (consents.distanceSales !== true || consents.preInformation !== true) invalid();
-    return Object.freeze({ cartVersion: integer(parsed.cartVersion, 1), checkoutNonce: parsed.checkoutNonce, operationId: uuid(parsed.operationId), paymentMethodId: uuid(parsed.paymentMethodId), consents: Object.freeze({ distanceSales: true, preInformation: true }) });
+    return Object.freeze({ cartVersion: integer(parsed.cartVersion, 1), checkoutNonce: parsed.checkoutNonce, operationId: uuid(parsed.operationId), paymentMethodId: uuid(parsed.paymentMethodId), identityNumber, consents: Object.freeze({ distanceSales: true, preInformation: true }) });
   });
 }
 
