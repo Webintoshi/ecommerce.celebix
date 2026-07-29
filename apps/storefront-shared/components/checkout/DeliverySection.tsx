@@ -1,5 +1,5 @@
 import type { CheckoutQuote } from "@celebix/saas-contracts";
-import type { FormEvent } from "react";
+import type { FormEvent, Ref } from "react";
 
 import {
   type CheckoutFieldErrors,
@@ -12,6 +12,7 @@ type DeliverySectionProps = Readonly<{
   applyError: string | null;
   applyErrorId: string;
   formId: string;
+  formRef: Ref<HTMLFormElement>;
   quote: CheckoutQuote;
   pending: boolean;
   errors: CheckoutFieldErrors<DeliveryFieldName>;
@@ -54,7 +55,7 @@ export function DeliverySection(props: DeliverySectionProps) {
     } as const;
   }
 
-  return <form id={props.formId} onSubmit={props.onSubmit}>
+  return <form id={props.formId} onSubmit={props.onSubmit} ref={props.formRef}>
     <section className="checkout-section">
       <h2>İletişim</h2>
       <label className="checkout-label" htmlFor="checkout-email">

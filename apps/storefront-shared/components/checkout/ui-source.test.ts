@@ -121,6 +121,8 @@ test("checkout forms wire field errors, native invalid events, and safe JS navig
   assert.match(client, /state[.]pending !== null/);
   assert.match(client, /submitAbort/);
   assert.match(client, /assessDeliveryAuthority/);
+  assert.match(client, /deliveryFormRef[.]current/);
+  assert.doesNotMatch(client, /document[.]getElementById\(DELIVERY_FORM_ID\)/);
   assert.match(client, /Teslimat bilgilerindeki değişiklikleri uygulayın[.]/);
   assert.match(client, /checkout-delivery-apply/);
   for (const value of [delivery, payment]) {

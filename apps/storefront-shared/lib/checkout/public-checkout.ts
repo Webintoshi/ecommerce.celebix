@@ -270,6 +270,36 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
     }
   }
 
+  function canonicalRequest(request: Request, hostname: string): Request | null {
+    let incoming: URL;
+    try {
+      incoming = new URL(request.url);
+    } catch {
+      return null;
+    }
+    if (
+      incoming.username
+      || incoming.password
+      || !request.url.startsWith(incoming.origin)
+    ) return null;
+    const rawTarget = request.url.slice(incoming.origin.length);
+    if (!rawTarget.startsWith("/")) return null;
+    const init: RequestInit & { duplex?: "half" } = {
+      headers: request.headers,
+      method: request.method,
+      signal: request.signal,
+    };
+    if (request.body !== null) {
+      init.body = request.body;
+      init.duplex = "half";
+    }
+    try {
+      return new Request(`https://${hostname}${rawTarget}`, init);
+    } catch {
+      return null;
+    }
+  }
+
   async function runtimeAndNow(): Promise<Readonly<{
     runtime: PublicCheckoutRuntime;
     now: Date;
@@ -290,8 +320,10 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
   async function quote(request: Request): Promise<Response> {
     const selectedHost = authority(request);
     if (selectedHost === null) return response("unavailable");
+    const externalRequest = canonicalRequest(request, selectedHost.hostname);
+    if (externalRequest === null) return response("invalid_input");
     const selected = readCheckoutCredentialRequest({
-      request,
+      request: externalRequest,
       hostname: selectedHost.hostname,
       pathname: "/api/checkout/quote",
       method: "GET",
@@ -314,7 +346,12 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
   async function delivery(request: Request): Promise<Response> {
     const selectedHost = authority(request);
     if (selectedHost === null) return response("unavailable");
-    const selected = await readCheckoutDeliveryRequest(request, selectedHost.hostname);
+    const externalRequest = canonicalRequest(request, selectedHost.hostname);
+    if (externalRequest === null) return response("invalid_input");
+    const selected = await readCheckoutDeliveryRequest(
+      externalRequest,
+      selectedHost.hostname,
+    );
     if (selected.kind !== "valid") return response(selected.code);
     const resolved = await runtimeAndNow();
     if (resolved === null) return response("unavailable");
@@ -388,7 +425,12 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
   async function submit(request: Request): Promise<Response> {
     const selectedHost = authority(request);
     if (selectedHost === null) return response("unavailable");
-    const selected = await readCheckoutSubmitRequest(request, selectedHost.hostname);
+    const externalRequest = canonicalRequest(request, selectedHost.hostname);
+    if (externalRequest === null) return response("invalid_input");
+    const selected = await readCheckoutSubmitRequest(
+      externalRequest,
+      selectedHost.hostname,
+    );
     if (selected.kind !== "valid") return response(selected.code);
     const resolved = await runtimeAndNow();
     if (resolved === null) return response("unavailable");
@@ -480,8 +522,10 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
   async function status(request: Request): Promise<Response> {
     const selectedHost = authority(request);
     if (selectedHost === null) return response("unavailable");
+    const externalRequest = canonicalRequest(request, selectedHost.hostname);
+    if (externalRequest === null) return response("invalid_input");
     const selected = readCheckoutCredentialRequest({
-      request,
+      request: externalRequest,
       hostname: selectedHost.hostname,
       pathname: "/api/checkout/status",
       method: "GET",

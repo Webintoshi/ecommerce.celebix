@@ -146,6 +146,7 @@ export function CheckoutClient(props: CheckoutClientProps) {
   const [deliveryErrors, setDeliveryErrors] = useState<CheckoutFieldErrors<DeliveryFieldName>>({});
   const [deliveryAuthorityError, setDeliveryAuthorityError] = useState<string | null>(null);
   const [submitErrors, setSubmitErrors] = useState<CheckoutFieldErrors<SubmitFieldName>>({});
+  const deliveryFormRef = useRef<HTMLFormElement>(null);
   const deliveryAbort = useRef<AbortController | null>(null);
   const submitAbort = useRef<AbortController | null>(null);
   const startedEvent = useMemo(() => createCheckoutCommerceEvent({
@@ -257,7 +258,7 @@ export function CheckoutClient(props: CheckoutClientProps) {
   }
 
   function requestDeliveryUpdate() {
-    const form = document.getElementById(DELIVERY_FORM_ID);
+    const form = deliveryFormRef.current;
     if (form instanceof HTMLFormElement) form.requestSubmit();
   }
 
@@ -272,7 +273,7 @@ export function CheckoutClient(props: CheckoutClientProps) {
     event.preventDefault();
     if (state.pending !== null || submitAbort.current !== null) return;
     const formElement = event.currentTarget;
-    const deliveryFormElement = document.getElementById(DELIVERY_FORM_ID);
+    const deliveryFormElement = deliveryFormRef.current;
     if (!(deliveryFormElement instanceof HTMLFormElement)) {
       dispatch({ type: "failed", code: "unavailable" });
       return;
@@ -296,7 +297,9 @@ export function CheckoutClient(props: CheckoutClientProps) {
     }
     if (deliveryAuthority.kind === "dirty") {
       setDeliveryAuthorityError(DELIVERY_APPLY_ERROR);
-      document.getElementById(DELIVERY_APPLY_ID)?.focus();
+      deliveryFormRef.current
+        ?.querySelector<HTMLElement>(`#${DELIVERY_APPLY_ID}`)
+        ?.focus();
       return;
     }
     setDeliveryAuthorityError(null);
@@ -377,7 +380,9 @@ export function CheckoutClient(props: CheckoutClientProps) {
     if (result.kind === "aborted") return;
     if (result.kind === "delivery_dirty") {
       setDeliveryAuthorityError(DELIVERY_APPLY_ERROR);
-      document.getElementById(DELIVERY_APPLY_ID)?.focus();
+      deliveryFormRef.current
+        ?.querySelector<HTMLElement>(`#${DELIVERY_APPLY_ID}`)
+        ?.focus();
       return;
     }
     if (result.kind === "failed") {
@@ -458,6 +463,7 @@ export function CheckoutClient(props: CheckoutClientProps) {
             applyErrorId={DELIVERY_APPLY_ERROR_ID}
             errors={deliveryErrors}
             formId={DELIVERY_FORM_ID}
+            formRef={deliveryFormRef}
             onFieldChange={clearDeliveryError}
             onFieldInvalid={setDeliveryInvalid}
             onDeliveryChange={markDeliveryChanged}

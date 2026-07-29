@@ -14,6 +14,7 @@ import {
 } from "@celebix/saas-data";
 
 import type { HostedPaymentRuntime } from "../payment-adapters/runtime.ts";
+import { selectTrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 import {
   createPublicCheckoutHandlers,
   resolveCheckoutPage,
@@ -26,6 +27,12 @@ const OPERATION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const PAYMENT_METHOD_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const NONCE = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
 const NOW = new Date("2026-07-29T12:00:00.000Z");
+const PROXY_TOKEN = Buffer.alloc(32, 0x42).toString("base64url");
+const PROXY_ENVIRONMENT = Object.freeze({
+  CELEBIX_DEPLOYMENT_TIER: "staging",
+  CELEBIX_STOREFRONT_PROXY_MODE: "approved_staging",
+  CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL: PROXY_TOKEN,
+});
 
 function quote(overrides: Partial<CheckoutQuote> = {}): CheckoutQuote {
   return Object.freeze({
@@ -219,6 +226,96 @@ test("delivery denies cross-origin and browser tenant authority before repositor
   });
   assert.equal((await handlers.delivery(tenant)).status, 400);
   assert.equal(calls, 0);
+});
+
+test("signed proxy authority canonicalizes one internal Next request and preserves exact failures", async () => {
+  let updates = 0;
+  const handlers = createPublicCheckoutHandlers({
+    selectAuthority: (selectedHeaders) =>
+      selectTrustedStorefrontHostAuthority(selectedHeaders, PROXY_ENVIRONMENT),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        updateDelivery: async () => {
+          updates += 1;
+          return quote({ cartVersion: 5 });
+        },
+      }),
+      hosted: null,
+    }),
+    now: () => NOW,
+  });
+  const signedHeaders = Object.freeze({
+    ...headers("application/json"),
+    "x-celebix-storefront-proxy": `p1.${PROXY_TOKEN}`,
+    "x-forwarded-host": HOSTNAME,
+    "x-forwarded-proto": "https",
+  });
+  let bodyPulls = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      bodyPulls += 1;
+      controller.enqueue(new TextEncoder().encode(JSON.stringify(delivery())));
+      controller.close();
+    },
+  });
+  const internal = new Request("http://127.0.0.1:3450/api/checkout/delivery", {
+    method: "POST",
+    headers: signedHeaders,
+    body,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+  assert.equal((await handlers.delivery(internal)).status, 200);
+  assert.equal(internal.bodyUsed, true);
+  assert.equal(bodyPulls, 1);
+  assert.equal(updates, 1);
+
+  const cases = [
+    {
+      label: "unsigned",
+      status: 503,
+      url: "http://127.0.0.1:3450/api/checkout/delivery",
+      selectedHeaders: { ...signedHeaders, "x-celebix-storefront-proxy": "p1.invalid" },
+    },
+    {
+      label: "forged forwarded host",
+      status: 503,
+      url: "http://127.0.0.1:3450/api/checkout/delivery",
+      selectedHeaders: { ...signedHeaders, "x-forwarded-host": `${HOSTNAME},evil.test` },
+    },
+    {
+      label: "signed host mismatch",
+      status: 403,
+      url: "http://127.0.0.1:3450/api/checkout/delivery",
+      selectedHeaders: { ...signedHeaders, origin: "https://other.example.test" },
+    },
+    {
+      label: "wrong pathname",
+      status: 400,
+      url: "http://127.0.0.1:3450/api/checkout/submit",
+      selectedHeaders: signedHeaders,
+    },
+    {
+      label: "query",
+      status: 400,
+      url: "http://127.0.0.1:3450/api/checkout/delivery?store=other",
+      selectedHeaders: signedHeaders,
+    },
+    {
+      label: "http origin",
+      status: 403,
+      url: "http://127.0.0.1:3450/api/checkout/delivery",
+      selectedHeaders: { ...signedHeaders, origin: `http://${HOSTNAME}` },
+    },
+  ];
+  for (const selected of cases) {
+    const hostile = new Request(selected.url, {
+      method: "POST",
+      headers: selected.selectedHeaders,
+      body: JSON.stringify(delivery()),
+    });
+    assert.equal((await handlers.delivery(hostile)).status, selected.status, selected.label);
+  }
+  assert.equal(updates, 1);
 });
 
 test("built-in submit redirects only to the fixed same-origin result path", async () => {

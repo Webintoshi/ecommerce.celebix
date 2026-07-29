@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
@@ -57,6 +58,35 @@ test("fixed checkout owns every exact page and API route", async () => {
   ]) {
     assert.equal(await present(relative), true, relative);
   }
+});
+
+test("browser proof is raw-CDP only and injects the locked axe asset", async () => {
+  const acceptancePath = path.join(
+    repositoryRoot,
+    "tests/saas-phase3/storefront-one-page-checkout/browser-acceptance.mjs",
+  );
+  const fixturePath = path.join(
+    repositoryRoot,
+    "tests/saas-phase3/storefront-one-page-checkout/browser-fixture.mjs",
+  );
+  const axePath = path.join(repositoryRoot, "node_modules/axe-core/axe.min.js");
+  const [acceptance, fixture, axe] = await Promise.all([
+    readFile(acceptancePath, "utf8"),
+    readFile(fixturePath, "utf8"),
+    readFile(axePath),
+  ]);
+  assert.match(acceptance, /class Cdp/);
+  assert.match(acceptance, /Network[.]requestWillBeSent/);
+  assert.match(acceptance, /Page[.]captureScreenshot/);
+  assert.match(acceptance, /axe[.]run/);
+  assert.doesNotMatch(acceptance, /playwright|puppeteer/i);
+  assert.match(fixture, /startCheckoutBrowserFixture/);
+  assert.match(fixture, /initdb/);
+  assert.match(fixture, /next", "build"|NEXT, "build"/);
+  assert.equal(
+    createHash("sha256").update(axe).digest("hex"),
+    "7dbfabdfc6062936d79c873ddbb5f811a1219fca3928bd8cc9dd81f1e65f4720",
+  );
 });
 
 test("fixed checkout import closure has no forbidden server or browser dependency", async () => {
