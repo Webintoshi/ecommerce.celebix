@@ -61,6 +61,7 @@ test("fixed checkout owns every exact page and API route", async () => {
 
 test("fixed checkout import closure has no forbidden server or browser dependency", async () => {
   const entrypoints = [
+    "app/layout.tsx",
     "app/odeme/page.tsx",
     "app/odeme/sonuc/page.tsx",
     "app/api/checkout/quote/route.ts",
@@ -93,31 +94,80 @@ test("import-closure gate catches forbidden mutations hidden behind local librar
   const root = path.join(virtualRoot, "app/odeme/page.tsx");
   const hidden = path.join(virtualRoot, "lib/hidden.tsx");
   const cases = [
-    [
-      "forbidden_supabase_dependency",
-      'import { createClient } from "@supabase/supabase-js"; export const value = createClient;',
-    ],
-    [
-      "forbidden_theme_dependency",
-      'import Header from "@/theme/Header.tsx"; export const value = Header;',
-    ],
-    [
-      "forbidden_browser_database",
-      "export const databaseUrl = process.env.CELEBIX_SAAS_DATABASE_URL;",
-    ],
-    [
-      "unsafe_inline_script",
-      'export function Hidden() { return <script>{"window.private = true"}</script>; }',
-    ],
-    [
-      "legacy_storefront_dependency",
-      'import legacy from "apps/storefront-base/lib/checkout"; export const value = legacy;',
-    ],
+    {
+      expectedCode: "forbidden_supabase_dependency",
+      hiddenSource: 'import { createClient } from "@supabase/supabase-js"; export const value = createClient;',
+    },
+    {
+      expectedCode: "forbidden_theme_dependency",
+      hiddenSource: 'import Header from "@/theme/Header.tsx"; export const value = Header;',
+    },
+    {
+      expectedCode: "forbidden_browser_database",
+      hiddenSource: "export const databaseUrl = process.env.CELEBIX_SAAS_DATABASE_URL;",
+    },
+    {
+      expectedCode: "unsafe_inline_script",
+      hiddenSource: 'export function Hidden() { return <script>{"window.private = true"}</script>; }',
+    },
+    {
+      expectedCode: "legacy_storefront_dependency",
+      hiddenSource: 'import legacy from "apps/storefront-base/lib/checkout"; export const value = legacy;',
+    },
+    {
+      expectedCode: "forbidden_theme_dependency",
+      hiddenSource: 'import "@/styles/checkout.css"; export const value = true;',
+      extraModules: [[
+        path.join(virtualRoot, "styles/checkout.css"),
+        '@import url("@/theme/global.css"); .checkout { color: black; }',
+      ]],
+    },
+    {
+      expectedCode: "unresolved_dynamic_dependency",
+      hiddenSource: 'const moduleName = "./local"; export const load = () => import(moduleName);',
+    },
+    {
+      expectedCode: "unresolved_dynamic_dependency",
+      hiddenSource: 'const moduleName = "./local"; export const load = () => require(moduleName);',
+    },
+    {
+      expectedCode: "unsafe_inline_script",
+      hiddenSource: 'import React from "react"; export const node = React.createElement("script", { src: "/runtime.js" });',
+    },
+    {
+      expectedCode: "unsafe_inline_script",
+      hiddenSource: 'import { jsx } from "react/jsx-runtime"; export const node = jsx("script", { src: "/runtime.js" });',
+    },
+    {
+      expectedCode: "unsafe_inline_script",
+      hiddenSource: 'import { jsx as render } from "react/jsx-runtime"; export const node = render("script", { src: "/runtime.js" });',
+    },
+    {
+      expectedCode: "unsafe_inline_script",
+      hiddenSource: 'import React from "react"; export const node = React.createElement("script", { nonce: "fixed", src: "/runtime.js" });',
+    },
+    {
+      expectedCode: "forbidden_theme_dependency",
+      hiddenSource: 'import SiteHeader from "@/layout/SiteHeader.tsx"; export const value = SiteHeader;',
+    },
+    {
+      expectedCode: "forbidden_theme_dependency",
+      hiddenSource: "export function SiteFooter() { return null; }",
+    },
+    {
+      expectedCode: "unresolved_dynamic_dependency",
+      hiddenSource: 'import "@/styles/checkout.css"; export const value = true;',
+      extraModules: [[
+        path.join(virtualRoot, "styles/checkout.css"),
+        "@import url(var(--runtime-theme));",
+      ]],
+    },
   ];
-  for (const [expectedCode, hiddenSource] of cases) {
+  for (const { expectedCode, hiddenSource, extraModules = [] } of cases) {
     const modules = new Map([
       [root, '"use client"; import "@/lib/hidden.tsx"; export default function Page() { return null; }'],
       [hidden, hiddenSource],
+      ...extraModules,
     ]);
     const graph = await traceCheckoutSourceGraph({
       rootDirectory: virtualRoot,
@@ -129,6 +179,28 @@ test("import-closure gate catches forbidden mutations hidden behind local librar
     assert.ok(
       auditCheckoutSourceGraph(graph).some((finding) => finding.code === expectedCode),
       expectedCode,
+    );
+  }
+});
+
+test("script construction accepts request-derived nonce expressions", async () => {
+  const virtualRoot = path.resolve("/virtual/checkout-safe-nonce");
+  const root = path.join(virtualRoot, "app/odeme/page.tsx");
+  const sources = [
+    'declare const nonce: string; export const node = <script nonce={nonce} src="/runtime.js" />;',
+    'import React from "react"; declare const nonce: string; export const node = React.createElement("script", { nonce, src: "/runtime.js" });',
+    'import { jsx } from "react/jsx-runtime"; declare const props: { nonce: string }; export const node = jsx("script", { nonce: props.nonce, src: "/runtime.js" });',
+  ];
+  for (const source of sources) {
+    const graph = await traceCheckoutSourceGraph({
+      rootDirectory: virtualRoot,
+      entrypoints: [root],
+      clientEntrypoints: [],
+      loadSource: async (file) => (file === root ? source : null),
+    });
+    assert.equal(
+      auditCheckoutSourceGraph(graph).some((finding) => finding.code === "unsafe_inline_script"),
+      false,
     );
   }
 });

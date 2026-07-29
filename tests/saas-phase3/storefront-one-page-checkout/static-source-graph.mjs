@@ -5,6 +5,19 @@ import ts from "typescript";
 
 const SOURCE_EXTENSIONS = Object.freeze([".ts", ".tsx", ".js", ".jsx", ".mjs", ".css"]);
 const DATABASE_URL = /^postgres(?:ql)?:\/\//i;
+const THEME_SHELL_NAMES = new Set([
+  "Header",
+  "Footer",
+  "SiteHeader",
+  "SiteFooter",
+  "StorefrontHeader",
+  "StorefrontFooter",
+  "ShopHeader",
+  "ShopFooter",
+  "ThemeHeader",
+  "ThemeFooter",
+]);
+const JSX_SCRIPT_FACTORIES = new Set(["jsx", "jsxs", "jsxDEV", "_jsx", "_jsxs", "_jsxDEV"]);
 
 async function defaultLoadSource(file) {
   try {
@@ -58,31 +71,232 @@ function runtimeModuleSpecifier(node) {
   return null;
 }
 
+function dynamicDependencyKind(node) {
+  if (!ts.isCallExpression(node)) return null;
+  if (node.expression.kind === ts.SyntaxKind.ImportKeyword) return "import";
+  if (ts.isIdentifier(node.expression) && node.expression.text === "require") return "require";
+  return null;
+}
+
 function jsxTagName(node) {
   return ts.isIdentifier(node.tagName) ? node.tagName.text : node.tagName.getText();
 }
 
-function scriptHasNonce(opening) {
-  return opening.attributes.properties.some((attribute) => (
-    ts.isJsxAttribute(attribute)
-    && ts.isIdentifier(attribute.name)
-    && attribute.name.text === "nonce"
-  ));
+function expressionReferencesNonce(expression) {
+  let found = false;
+  const visit = (node) => {
+    if (found) return;
+    if (
+      (ts.isIdentifier(node) && node.text === "nonce")
+      || (ts.isPropertyAccessExpression(node) && node.name.text === "nonce")
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(expression);
+  return found;
+}
+
+function scriptHasSafeJsxNonce(opening) {
+  return opening.attributes.properties.some((attribute) => {
+    if (
+      !ts.isJsxAttribute(attribute)
+      || !ts.isIdentifier(attribute.name)
+      || attribute.name.text !== "nonce"
+      || !attribute.initializer
+      || !ts.isJsxExpression(attribute.initializer)
+      || !attribute.initializer.expression
+    ) return false;
+    return expressionReferencesNonce(attribute.initializer.expression);
+  });
+}
+
+function scriptPropsHaveSafeNonce(properties) {
+  if (!properties || !ts.isObjectLiteralExpression(properties)) return false;
+  return properties.properties.some((property) => {
+    if (ts.isShorthandPropertyAssignment(property) && property.name.text === "nonce") return true;
+    if (!ts.isPropertyAssignment(property)) return false;
+    const name = property.name;
+    const isNonce = (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && name.text === "nonce";
+    return isNonce && expressionReferencesNonce(property.initializer);
+  });
+}
+
+function callName(expression) {
+  if (ts.isIdentifier(expression)) return expression.text;
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  if (
+    ts.isElementAccessExpression(expression)
+    && expression.argumentExpression
+    && ts.isStringLiteralLike(expression.argumentExpression)
+  ) return expression.argumentExpression.text;
+  return null;
+}
+
+function scriptFactoryAliases(sourceFile) {
+  const aliases = new Set(["createElement", ...JSX_SCRIPT_FACTORIES]);
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement)
+      || !ts.isStringLiteralLike(statement.moduleSpecifier)
+      || !statement.importClause?.namedBindings
+      || !ts.isNamedImports(statement.importClause.namedBindings)
+    ) continue;
+    const source = statement.moduleSpecifier.text;
+    for (const element of statement.importClause.namedBindings.elements) {
+      const imported = (element.propertyName ?? element.name).text;
+      if (
+        (source === "react" && imported === "createElement")
+        || (/^react\/jsx(?:-dev)?-runtime$/.test(source) && JSX_SCRIPT_FACTORIES.has(imported))
+      ) aliases.add(element.name.text);
+    }
+  }
+  return aliases;
+}
+
+function callCreatesScript(node, aliases) {
+  if (
+    !ts.isCallExpression(node)
+    || node.arguments.length === 0
+    || !ts.isStringLiteralLike(node.arguments[0])
+  ) return false;
+  if (node.arguments[0].text !== "script") return false;
+  const name = callName(node.expression);
+  return name !== null && aliases.has(name);
+}
+
+function cssQuotedValue(value, start) {
+  const quote = value[start];
+  let selected = "";
+  for (let index = start + 1; index < value.length; index += 1) {
+    const character = value[index];
+    if (character === "\\") return null;
+    if (character === quote) return { value: selected, end: index + 1 };
+    selected += character;
+  }
+  return null;
+}
+
+function cssStringEnd(value, start) {
+  const quote = value[start];
+  for (let index = start + 1; index < value.length; index += 1) {
+    if (value[index] === "\\") index += 1;
+    else if (value[index] === quote) return index + 1;
+  }
+  return null;
+}
+
+function cssImportSpecifier(clause) {
+  const selected = clause.trimStart();
+  if (selected[0] === '"' || selected[0] === "'") {
+    return cssQuotedValue(selected, 0)?.value ?? null;
+  }
+  const url = /^url\s*\(/i.exec(selected);
+  if (!url) return null;
+  let index = url[0].length;
+  while (/\s/.test(selected[index] ?? "")) index += 1;
+  if (selected[index] === '"' || selected[index] === "'") {
+    const quoted = cssQuotedValue(selected, index);
+    if (!quoted) return null;
+    index = quoted.end;
+    while (/\s/.test(selected[index] ?? "")) index += 1;
+    return selected[index] === ")" ? quoted.value : null;
+  }
+  const closing = selected.indexOf(")", index);
+  if (closing === -1) return null;
+  const value = selected.slice(index, closing).trim();
+  if (!value || /[\\()'"\s]/.test(value)) return null;
+  return value;
+}
+
+function analyzeCssSource(file, source) {
+  const imports = [];
+  const unresolvedDynamicDependencies = [];
+  let index = 0;
+  while (index < source.length) {
+    if (source.startsWith("/*", index)) {
+      const closing = source.indexOf("*/", index + 2);
+      if (closing === -1) {
+        unresolvedDynamicDependencies.push("unterminated CSS comment");
+        break;
+      }
+      index = closing + 2;
+      continue;
+    }
+    if (source[index] === '"' || source[index] === "'") {
+      const closing = cssStringEnd(source, index);
+      if (closing === null) {
+        unresolvedDynamicDependencies.push("unterminated CSS string");
+        break;
+      }
+      index = closing;
+      continue;
+    }
+    if (source[index] !== "@" || source.slice(index, index + 7).toLowerCase() !== "@import") {
+      index += 1;
+      continue;
+    }
+    const boundary = source[index + 7];
+    if (boundary && /[a-z0-9_-]/i.test(boundary)) {
+      index += 1;
+      continue;
+    }
+    const start = index + 7;
+    let cursor = start;
+    let quote = null;
+    let parentheses = 0;
+    let complete = false;
+    for (; cursor < source.length; cursor += 1) {
+      const character = source[cursor];
+      if (quote !== null) {
+        if (character === "\\") {
+          unresolvedDynamicDependencies.push("escaped CSS import");
+          cursor += 1;
+        } else if (character === quote) quote = null;
+        continue;
+      }
+      if (source.startsWith("/*", cursor)) {
+        const closing = source.indexOf("*/", cursor + 2);
+        if (closing === -1) break;
+        cursor = closing + 1;
+        continue;
+      }
+      if (character === '"' || character === "'") quote = character;
+      else if (character === "(") parentheses += 1;
+      else if (character === ")") parentheses -= 1;
+      else if (character === ";" && parentheses === 0) {
+        complete = true;
+        break;
+      }
+      if (parentheses < 0) break;
+    }
+    if (!complete || quote !== null || parentheses !== 0) {
+      unresolvedDynamicDependencies.push("unparseable CSS @import");
+      index = Math.max(cursor + 1, start);
+      continue;
+    }
+    const specifier = cssImportSpecifier(source.slice(start, cursor));
+    if (specifier === null) unresolvedDynamicDependencies.push("non-literal CSS @import");
+    else imports.push(specifier);
+    index = cursor + 1;
+  }
+  return Object.freeze({
+    file,
+    source,
+    imports: Object.freeze([...new Set(imports)]),
+    identifiers: new Set(),
+    stringLiterals: Object.freeze([]),
+    unsafeInlineScripts: 0,
+    unresolvedDynamicDependencies: Object.freeze(unresolvedDynamicDependencies),
+    parseDiagnostics: Object.freeze([]),
+    clientDirective: false,
+  });
 }
 
 function analyzeSource(file, source) {
-  if (path.extname(file) === ".css") {
-    return Object.freeze({
-      file,
-      source,
-      imports: Object.freeze([]),
-      identifiers: new Set(),
-      stringLiterals: Object.freeze([]),
-      unsafeInlineScripts: 0,
-      parseDiagnostics: Object.freeze([]),
-      clientDirective: false,
-    });
-  }
+  if (path.extname(file) === ".css") return analyzeCssSource(file, source);
   const scriptKind = /[.]tsx?$/.test(file)
     ? (file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
     : (file.endsWith("x") ? ts.ScriptKind.JSX : ts.ScriptKind.JS);
@@ -93,25 +307,35 @@ function analyzeSource(file, source) {
     true,
     scriptKind,
   );
+  const scriptFactories = scriptFactoryAliases(selected);
   const imports = [];
   const identifiers = new Set();
   const stringLiterals = [];
+  const unresolvedDynamicDependencies = [];
   let unsafeInlineScripts = 0;
   const visit = (node) => {
     const specifier = runtimeModuleSpecifier(node);
     if (specifier !== null) imports.push(specifier);
+    const dynamicKind = dynamicDependencyKind(node);
+    if (
+      dynamicKind !== null
+      && (node.arguments.length !== 1 || !ts.isStringLiteralLike(node.arguments[0]))
+    ) unresolvedDynamicDependencies.push(`${dynamicKind}(non-literal)`);
     if (ts.isIdentifier(node)) identifiers.add(node.text);
     if (ts.isStringLiteralLike(node)) stringLiterals.push(node.text);
     if (
       ts.isJsxElement(node)
       && jsxTagName(node.openingElement) === "script"
-      && !scriptHasNonce(node.openingElement)
+      && !scriptHasSafeJsxNonce(node.openingElement)
     ) unsafeInlineScripts += 1;
     if (
       ts.isJsxSelfClosingElement(node)
       && jsxTagName(node) === "script"
-      && !scriptHasNonce(node)
+      && !scriptHasSafeJsxNonce(node)
     ) unsafeInlineScripts += 1;
+    if (callCreatesScript(node, scriptFactories) && !scriptPropsHaveSafeNonce(node.arguments[1])) {
+      unsafeInlineScripts += 1;
+    }
     ts.forEachChild(node, visit);
   };
   visit(selected);
@@ -122,6 +346,7 @@ function analyzeSource(file, source) {
     identifiers,
     stringLiterals: Object.freeze(stringLiterals),
     unsafeInlineScripts,
+    unresolvedDynamicDependencies: Object.freeze(unresolvedDynamicDependencies),
     parseDiagnostics: Object.freeze(selected.parseDiagnostics.map((diagnostic) => diagnostic.code)),
     clientDirective: selected.statements.some((statement) => (
       ts.isExpressionStatement(statement)
@@ -214,8 +439,23 @@ function finding(code, file, detail) {
 }
 
 function themeSpecifier(value) {
-  return /(?:^|[/_-])themes?(?:[/_-]|$)/i.test(value)
-    || /(?:^|[/_-])(?:Header|Footer)(?:[./_-]|$)/.test(value);
+  if (/(?:^|[/_-])themes?(?:[/_-]|$)/i.test(value)) return true;
+  return value.split("/").some((segment) => {
+    const withoutExtension = segment.replace(/[.](?:tsx?|jsx?|mjs|css)$/i, "");
+    const normalized = withoutExtension.replace(/[-_.]/g, "").toLowerCase();
+    return [
+      "header",
+      "footer",
+      "siteheader",
+      "sitefooter",
+      "storefrontheader",
+      "storefrontfooter",
+      "shopheader",
+      "shopfooter",
+      "themeheader",
+      "themefooter",
+    ].includes(normalized);
+  });
 }
 
 export function auditCheckoutSourceGraph(graph) {
@@ -243,8 +483,7 @@ export function auditCheckoutSourceGraph(graph) {
       ) findings.push(finding("forbidden_browser_database", file, specifier));
     }
     if (
-      metadata.identifiers.has("Header")
-      || metadata.identifiers.has("Footer")
+      [...THEME_SHELL_NAMES].some((name) => metadata.identifiers.has(name))
       || metadata.identifiers.has("themeKey")
     ) findings.push(finding("forbidden_theme_dependency", file, "identifier"));
     if (
@@ -256,6 +495,9 @@ export function auditCheckoutSourceGraph(graph) {
       metadata.identifiers.has("dangerouslySetInnerHTML")
       || metadata.unsafeInlineScripts > 0
     ) findings.push(finding("unsafe_inline_script", file, "nonce missing or executable HTML"));
+    for (const detail of metadata.unresolvedDynamicDependencies) {
+      findings.push(finding("unresolved_dynamic_dependency", file, detail));
+    }
     if (metadata.parseDiagnostics.length > 0) {
       findings.push(finding("unsafe_source_parse", file, metadata.parseDiagnostics.join(",")));
     }
