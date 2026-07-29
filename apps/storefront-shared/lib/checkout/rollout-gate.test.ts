@@ -18,6 +18,23 @@ const VALID_ENVIRONMENT = Object.freeze({
   CELEBIX_CHECKOUT_ROLLOUT_HOSTS:
     "store-a.checkout.test,store-b.checkout.test",
 });
+const PROXY_TOKEN = Buffer.alloc(32, 0x63).toString("base64url");
+const VALID_REQUEST_ENVIRONMENT = Object.freeze({
+  ...VALID_ENVIRONMENT,
+  CELEBIX_STOREFRONT_PROXY_MODE: "approved_staging",
+  CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL: PROXY_TOKEN,
+});
+
+function requestHeaders(overrides: Record<string, string | undefined> = {}) {
+  const values = new Map(Object.entries({
+    host: "internal.example.test",
+    "x-celebix-storefront-proxy": `p1.${PROXY_TOKEN}`,
+    "x-forwarded-host": "store-a.checkout.test",
+    "x-forwarded-proto": "https",
+    ...overrides,
+  }).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  return { get: (name: string) => values.get(name.toLowerCase()) ?? null };
+}
 
 test("approved staging rollout allows one exact canonical host", () => {
   assert.equal(
@@ -103,6 +120,31 @@ test("rollout matching is exact and never wildcard or suffix based", () => {
       hostname,
     );
   }
+});
+
+test("product buy-now rendering is enabled only by an authenticated approved request host", () => {
+  const gate = requireRolloutGate();
+  assert.equal(
+    gate.checkoutRolloutAllowsRequest(requestHeaders(), VALID_REQUEST_ENVIRONMENT),
+    true,
+  );
+
+  for (const selectedHeaders of [
+    requestHeaders({ "x-forwarded-host": "store-c.checkout.test" }),
+    requestHeaders({
+      host: "store-a.checkout.test",
+      "x-forwarded-host": "store-c.checkout.test",
+    }),
+    requestHeaders({ "x-celebix-storefront-proxy": `p1.${Buffer.alloc(32, 0x64).toString("base64url")}` }),
+    requestHeaders({ "x-forwarded-proto": "http" }),
+  ]) {
+    assert.equal(
+      gate.checkoutRolloutAllowsRequest(selectedHeaders, VALID_REQUEST_ENVIRONMENT),
+      false,
+    );
+  }
+
+  assert.equal(gate.checkoutRolloutAllowsRequest(requestHeaders(), {}), false);
 });
 
 test("proxy denies only new checkout initiation surfaces for a non-approved authority", async () => {

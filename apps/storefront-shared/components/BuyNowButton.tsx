@@ -1,34 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
-import { requestBuyNow } from "@/lib/buy-now.ts";
+import {
+  createBuyNowController,
+  type BuyNowController,
+  type BuyNowState,
+} from "@/lib/buy-now.ts";
 
-export function BuyNowButton({ productId, variantId, available }: Readonly<{
+type BuyNowContextValue = Readonly<{
+  controller: BuyNowController;
+  state: BuyNowState;
+}>;
+
+const BuyNowContext = createContext<BuyNowContextValue | null>(null);
+const IDLE_STATE = Object.freeze({ kind: "idle" } as const);
+
+export function BuyNowProvider({ productId, children }: Readonly<{
   productId: string;
+  children: ReactNode;
+}>) {
+  const [state, setState] = useState<BuyNowState>(IDLE_STATE);
+  const controllerRef = useRef<BuyNowController | null>(null);
+  if (controllerRef.current === null) {
+    controllerRef.current = createBuyNowController({
+      productId,
+      navigate: (pathname) => window.location.assign(pathname),
+      onStateChange: setState,
+      setTimer: (callback, delayMs) => window.setTimeout(callback, delayMs),
+      clearTimer: (timer) => window.clearTimeout(Number(timer)),
+    });
+  }
+  const controller = controllerRef.current;
+  useEffect(() => () => controller.dispose(), [controller]);
+  const value = useMemo(() => Object.freeze({ controller, state }), [controller, state]);
+  return <BuyNowContext.Provider value={value}>{children}</BuyNowContext.Provider>;
+}
+
+export function BuyNowButton({ variantId, available }: Readonly<{
   variantId: string;
   available: boolean;
 }>) {
-  const [state, setState] = useState<"idle" | "pending" | "failed">("idle");
-
-  async function buy() {
-    if (!available || state === "pending") return;
-    setState("pending");
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 10_000);
-    const result = await requestBuyNow({ productId, variantId, signal: controller.signal });
-    window.clearTimeout(timeout);
-    if (result.kind === "ready") {
-      window.location.assign("/odeme");
-      return;
-    }
-    setState("failed");
-  }
+  const context = useContext(BuyNowContext);
+  if (context === null) return null;
+  const pending = context.state.kind === "pending";
+  const selectedPending = pending && context.state.variantId === variantId;
+  const selectedFailed = context.state.kind === "failed" && context.state.variantId === variantId;
 
   return <div className="variant-buy">
-    <button type="button" className="store-button" disabled={!available || state === "pending"} onClick={buy}>
-      {state === "pending" ? "Sepet hazırlanıyor…" : available ? "Satın al" : "Tükendi"}
+    <button
+      type="button"
+      className="store-button"
+      disabled={!available || pending}
+      onClick={() => { void context.controller.buy({ variantId, available }); }}
+    >
+      {selectedPending ? "Sepet hazırlanıyor…" : available ? "Satın al" : "Tükendi"}
     </button>
-    {state === "failed" ? <p role="alert">Sepet hazırlanamadı. Lütfen yeniden deneyin.</p> : null}
+    {selectedFailed ? <p role="alert">Sepet hazırlanamadı. Lütfen yeniden deneyin.</p> : null}
   </div>;
 }

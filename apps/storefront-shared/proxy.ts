@@ -31,6 +31,12 @@ function isCheckoutRolloutInitiationPath(pathname: string): boolean {
     || pathname === "/api/checkout/submit";
 }
 
+function isProductDetailPath(pathname: string): boolean {
+  if (!pathname.startsWith("/products/")) return false;
+  const slug = pathname.slice("/products/".length);
+  return slug.length > 0 && !slug.includes("/");
+}
+
 function unavailable(checkoutPath = false): NextResponse {
   return new NextResponse("Storefront unavailable", {
     status: 503,
@@ -120,7 +126,8 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     if(dependencies.resolveAnalytics){try{analytics=await dependencies.resolveAnalytics({hostname:authority.hostname,now:dependencies.now()})}catch{analytics=null}}
     const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"";
     const checkoutHtmlPath=pathname==="/odeme"||pathname==="/odeme/sonuc";
-    const connectDestination=checkoutHtmlPath
+    const sameOriginConnectPath=checkoutHtmlPath||isProductDetailPath(pathname);
+    const connectDestination=sameOriginConnectPath
       ? analytics?`'self' ${analytics.collectorOrigin}`:"'self'"
       : analytics?.collectorOrigin??"'none'";
     const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;

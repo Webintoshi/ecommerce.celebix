@@ -461,3 +461,61 @@ test("proxy gives checkout HTML and APIs exact private response protections", as
     );
   }
 });
+
+test("only product-detail catalog pages add same-origin cart connectivity", async () => {
+  const [{ createStorefrontProxy }, { NextRequest }] = await Promise.all([
+    import(path.join(storefrontRoot, "proxy.ts")),
+    import("next/server.js"),
+  ]);
+  const handler = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "shop.example.test" }),
+    resolveMediaOrigin: () => "https://media.example.test",
+    authorizePaytrIframe: async () => false,
+    checkoutRolloutAllows: () => true,
+    now: () => new Date("2026-07-29T12:00:00.000Z"),
+    resolveAnalytics: async () => ({
+      scriptOrigin: "https://analytics.example.test",
+      collectorOrigin: "https://analytics.example.test",
+    }),
+  });
+
+  const productDetail = await handler(
+    new NextRequest("https://internal.example/products/keten-canta"),
+  );
+  assert.deepEqual(
+    cspDirective(productDetail.headers.get("content-security-policy") ?? "", "connect-src"),
+    ["'self'", "https://analytics.example.test"],
+  );
+
+  for (const pathname of ["/", "/products", "/products/keten-canta/reviews"]) {
+    const response = await handler(new NextRequest(`https://internal.example${pathname}`));
+    assert.deepEqual(
+      cspDirective(response.headers.get("content-security-policy") ?? "", "connect-src"),
+      ["https://analytics.example.test"],
+      pathname,
+    );
+  }
+
+  const withoutAnalytics = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "shop.example.test" }),
+    resolveMediaOrigin: () => "https://media.example.test",
+    authorizePaytrIframe: async () => false,
+    checkoutRolloutAllows: () => true,
+    now: () => new Date("2026-07-29T12:00:00.000Z"),
+    resolveAnalytics: async () => null,
+  });
+  const inactiveProduct = await withoutAnalytics(
+    new NextRequest("https://internal.example/products/keten-canta"),
+  );
+  assert.deepEqual(
+    cspDirective(inactiveProduct.headers.get("content-security-policy") ?? "", "connect-src"),
+    ["'self'"],
+  );
+  const inactiveCatalog = await withoutAnalytics(
+    new NextRequest("https://internal.example/products"),
+  );
+  assert.deepEqual(
+    cspDirective(inactiveCatalog.headers.get("content-security-policy") ?? "", "connect-src"),
+    ["'none'"],
+  );
+});

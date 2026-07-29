@@ -1,3 +1,8 @@
+import {
+  selectTrustedStorefrontHostAuthority,
+  type StorefrontAuthorityHeaders,
+} from "../trusted-host-authority.ts";
+
 type CheckoutRolloutEnvironment = Record<string, string | undefined>;
 
 const DNS_LABEL = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
@@ -50,4 +55,17 @@ export function checkoutRolloutAllowsHost(
   ) return false;
 
   return hosts.includes(hostname);
+}
+
+export function checkoutRolloutAllowsRequest(
+  headers: StorefrontAuthorityHeaders,
+  source: CheckoutRolloutEnvironment = process.env,
+): boolean {
+  try {
+    const authority = selectTrustedStorefrontHostAuthority(headers, source);
+    return authority.kind === "trusted"
+      && checkoutRolloutAllowsHost(source, authority.hostname);
+  } catch {
+    return false;
+  }
 }
