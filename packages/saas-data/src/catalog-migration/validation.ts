@@ -1,7 +1,7 @@
 import { CatalogRepositoryError } from "../catalog/errors.ts";
 import { catalogAuthority, type ValidatedCatalogAuthority } from "../catalog/validation.ts";
 import { CatalogMigrationRepositoryError, type CatalogMigrationErrorCode } from "./errors.ts";
-import type { CatalogMigrationJob, CatalogMigrationMediaAuthority, CatalogMigrationProduct, CatalogMigrationTaxonomy } from "./types.ts";
+import type { CatalogMigrationCategory, CatalogMigrationJob, CatalogMigrationMediaAuthority, CatalogMigrationProduct, CatalogMigrationTaxonomy } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -92,6 +92,22 @@ export function catalogMigrationTaxonomies(value: unknown, maximum: number): rea
     return Object.freeze({ name: text(parsed.name, 1, 120), slug: slug(parsed.slug) });
   });
   if (new Set(result.map((entry) => entry.slug)).size !== result.length) fail();
+  return Object.freeze(result);
+}
+
+export function catalogMigrationCategories(value: unknown, maximum: number): readonly CatalogMigrationCategory[] {
+  if (!Array.isArray(value) || value.length > maximum) fail();
+  const knownDepth = new Map<string, number>();
+  const result = value.map((candidate) => {
+    const parsed = exactCatalogMigrationInput(candidate, ["name", "slug"], ["parentSlug"]);
+    const selectedSlug = slug(parsed.slug);
+    const parentSlug = parsed.parentSlug === undefined ? undefined : slug(parsed.parentSlug);
+    if (knownDepth.has(selectedSlug) || parentSlug === selectedSlug) fail();
+    const depth = parentSlug === undefined ? 1 : (knownDepth.get(parentSlug) ?? 0) + 1;
+    if (depth < 1 || depth > 8 || (parentSlug !== undefined && !knownDepth.has(parentSlug))) fail();
+    knownDepth.set(selectedSlug, depth);
+    return Object.freeze({ name: text(parsed.name, 1, 120), slug: selectedSlug, ...(parentSlug ? { parentSlug } : {}) });
+  });
   return Object.freeze(result);
 }
 

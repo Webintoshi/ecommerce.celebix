@@ -6,6 +6,10 @@ export interface CatalogMigrationTaxonomy {
   readonly slug: string;
 }
 
+export interface CatalogMigrationCategory extends CatalogMigrationTaxonomy {
+  readonly parentSlug?: string;
+}
+
 export interface CatalogMigrationVariant {
   readonly title: string;
   readonly sku?: string;
@@ -74,7 +78,7 @@ export interface BeginCatalogMigrationInput extends CatalogMigrationAuthorityInp
   readonly sourceDigest: string;
   readonly totalProducts: number;
   readonly totalMedia: number;
-  readonly categories: readonly CatalogMigrationTaxonomy[];
+  readonly categories: readonly CatalogMigrationCategory[];
   readonly brands: readonly CatalogMigrationTaxonomy[];
 }
 

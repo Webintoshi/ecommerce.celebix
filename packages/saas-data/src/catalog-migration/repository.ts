@@ -3,7 +3,7 @@ import type { ValidatedCatalogAuthority } from "../catalog/validation.ts";
 import { catalogMigrationFingerprint, stableCatalogMigrationJson } from "./canonical.ts";
 import { CATALOG_MIGRATION_ERROR_CODES, CatalogMigrationRepositoryError, type CatalogMigrationErrorCode } from "./errors.ts";
 import type { AuthorizeCatalogMigrationMediaInput, BeginCatalogMigrationInput, CatalogMigrationBatchResult, CatalogMigrationJob, CatalogMigrationMediaAuthority, CatalogMigrationRepository, GetCatalogMigrationInput, ImportCatalogMigrationBatchInput, PostgresCatalogMigrationRepositoryOptions, RecordCatalogMigrationMediaInput } from "./types.ts";
-import { catalogMigrationAuthority, catalogMigrationDigest, catalogMigrationInteger, catalogMigrationProducts, catalogMigrationSafeFailureCode, catalogMigrationSourceProductId, catalogMigrationTaxonomies, catalogMigrationUuid, exactCatalogMigrationInput, parseCatalogMigrationJob, parseCatalogMigrationMediaAuthority } from "./validation.ts";
+import { catalogMigrationAuthority, catalogMigrationCategories, catalogMigrationDigest, catalogMigrationInteger, catalogMigrationProducts, catalogMigrationSafeFailureCode, catalogMigrationSourceProductId, catalogMigrationTaxonomies, catalogMigrationUuid, exactCatalogMigrationInput, parseCatalogMigrationJob, parseCatalogMigrationMediaAuthority } from "./validation.ts";
 
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 type MutationParser<T> = (value: unknown, replayed: boolean) => T;
@@ -112,7 +112,7 @@ export class PostgresCatalogMigrationRepository implements CatalogMigrationRepos
     const operationId = catalogMigrationUuid(parsed.operationId), sourceDigest = catalogMigrationDigest(parsed.sourceDigest);
     const totalProducts = catalogMigrationInteger(parsed.totalProducts, 1, 2_500), totalMedia = catalogMigrationInteger(parsed.totalMedia, 0, 40_000);
     if (totalMedia > totalProducts * 16) throw new CatalogMigrationRepositoryError("invalid_input");
-    const categories = catalogMigrationTaxonomies(parsed.categories, 100), brands = catalogMigrationTaxonomies(parsed.brands, 50);
+    const categories = catalogMigrationCategories(parsed.categories, 100), brands = catalogMigrationTaxonomies(parsed.brands, 50);
     const jobId = this.uuid();
     const persistedCategories = categories.map((entry) => ({ id: this.uuid(), ...entry }));
     const persistedBrands = brands.map((entry) => ({ id: this.uuid(), ...entry }));

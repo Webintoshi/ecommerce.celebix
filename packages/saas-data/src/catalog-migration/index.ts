@@ -6,6 +6,7 @@ export type {
   AuthorizeCatalogMigrationMediaInput,
   CatalogMigrationAuthorityInput,
   CatalogMigrationBatchResult,
+  CatalogMigrationCategory,
   CatalogMigrationJob,
   CatalogMigrationMapping,
   CatalogMigrationMediaAuthority,

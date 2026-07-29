@@ -17,6 +17,7 @@ const DIGEST = "a".repeat(64);
 const IMAGE_DIGEST = "b".repeat(64);
 const MEDIA = "31000000-0000-4000-8000-00000000000b";
 const EXISTING_JOB = "31000000-0000-4000-8000-00000000000c";
+const CHILD_CATEGORY = "31000000-0000-4000-8000-00000000000d";
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 
 function tenant(): TenantContext {
@@ -58,9 +59,11 @@ class Client {
 
 class Pool {
   private index = 0;
+  connects = 0;
   private readonly clients: Client[];
   constructor(clients: Client[]) { this.clients = clients; }
   async connect() {
+    this.connects++;
     const selected = this.clients[this.index++];
     if (!selected) throw new Error("checkout");
     return selected;
@@ -145,6 +148,53 @@ test("begin creates one tenant-scoped job and deterministic taxonomy authority",
   assert.equal(sql.values[10], JOB);
   assert.deepEqual(JSON.parse(String(sql.values[14])), [{ id: CATEGORY, name: "Yüzükler", slug: "yuzukler" }]);
   assert.deepEqual(JSON.parse(String(sql.values[15])), [{ id: BRAND, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu" }]);
+});
+
+test("begin persists root-to-leaf category parent authority", async () => {
+  const writer = new Client((text) => text.includes("catalog_migration_begin")
+    ? [{ outcome: "begun", result_payload: projection({ categoryCount: 2 }) }]
+    : []);
+  await repository(new Pool([writer]), [], [JOB, CATEGORY, CHILD_CATEGORY, BRAND]).begin({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION, sourceDigest: DIGEST,
+    totalProducts: 1, totalMedia: 0,
+    categories: [
+      { name: "Takı", slug: "taki" },
+      { name: "Yüzük", slug: "yuzuk", parentSlug: "taki" },
+    ],
+    brands: [{ name: "Güzide", slug: "guzide" }],
+  });
+  const sql = call(writer, "catalog_migration_begin");
+  assert.deepEqual(JSON.parse(String(sql.values[14])), [
+    { id: CATEGORY, name: "Takı", slug: "taki" },
+    { id: CHILD_CATEGORY, name: "Yüzük", slug: "yuzuk", parentSlug: "taki" },
+  ]);
+});
+
+test("invalid category graphs fail before pool checkout", async () => {
+  const invalidCategories = [
+    [{ name: "Çocuk", slug: "cocuk", parentSlug: "eksik" }],
+    [{ name: "A", slug: "a", parentSlug: "b" }, { name: "B", slug: "b" }],
+    Array.from({ length: 9 }, (_, index) => ({ name: `S${index}`, slug: `s${index}`, ...(index ? { parentSlug: `s${index - 1}` } : {}) })),
+    [
+      { name: "A", slug: "a" }, { name: "B", slug: "b" },
+      { name: "X", slug: "x", parentSlug: "a" }, { name: "X", slug: "x", parentSlug: "b" },
+    ],
+    [{ name: "A", slug: "a", unknown: true }],
+  ];
+  for (const categories of invalidCategories) {
+    const pool = new Pool([]);
+    await assert.rejects(() => repository(pool).begin({
+      tenantContext: tenant(), now: NOW, operationId: OPERATION, sourceDigest: DIGEST,
+      totalProducts: 1, totalMedia: 0, categories: categories as never, brands: [],
+    }), (error: unknown) => error instanceof CatalogMigrationRepositoryError && error.code === "invalid_input");
+    assert.equal(pool.connects, 0);
+  }
+  const pool = new Pool([]);
+  await assert.rejects(() => repository(pool).begin({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION, sourceDigest: DIGEST,
+    totalProducts: 1, totalMedia: 0, categories: [], brands: [{ name: "Marka", slug: "marka", parentSlug: "x" }] as never,
+  }), (error: unknown) => error instanceof CatalogMigrationRepositoryError && error.code === "invalid_input");
+  assert.equal(pool.connects, 0);
 });
 
 test("begin resumes the authority-scoped job already persisted for the same source digest", async () => {
