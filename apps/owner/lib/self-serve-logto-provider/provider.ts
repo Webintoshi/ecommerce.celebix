@@ -18,6 +18,17 @@ const JWKS_MEDIA_TYPES = Object.freeze(["application/jwk-set+json", "application
 
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
+export type LogtoOidcProviderAuditEvent = Readonly<{
+  stage:
+    | "token_response"
+    | "jwks_response"
+    | "id_token_verification"
+    | "id_token_time_nonce"
+    | "id_token_identity"
+    | "id_token_audience";
+  outcome: "accepted" | "rejected" | "unavailable";
+}>;
+
 export type LogtoOidcProviderOptions = Readonly<{
   issuer: string;
   discoveryUrl: string;
@@ -29,6 +40,7 @@ export type LogtoOidcProviderOptions = Readonly<{
   clock(): Date;
   timeoutMs: number;
   maximumResponseBytes: number;
+  audit?(event: LogtoOidcProviderAuditEvent): void | Promise<void>;
 }>;
 
 type Discovery = Readonly<{
@@ -172,6 +184,23 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
   const maximumResponseBytes = boundedInteger(options.maximumResponseBytes, 1_048_576);
   const algorithms = Object.freeze([...options.algorithms]);
   const fetcher = options.fetch;
+  if (options.audit !== undefined && typeof options.audit !== "function") rejected();
+  const auditSink = options.audit;
+  const audit = (event: LogtoOidcProviderAuditEvent): void => {
+    if (!auditSink) return;
+    try {
+      const pending = auditSink(Object.freeze({ ...event }));
+      if (pending && typeof (pending as PromiseLike<void>).then === "function") {
+        void Promise.resolve(pending).catch(() => undefined);
+      }
+    } catch {
+      // Provider diagnostics are observational only.
+    }
+  };
+  const failedOutcome = (error: unknown): "rejected" | "unavailable" =>
+    error instanceof OidcFlowError && error.code === "oidc_provider_unavailable"
+      ? "unavailable"
+      : "rejected";
   safeClock(options.clock);
 
   let discoveryPromise: Promise<Discovery> | undefined;
@@ -245,13 +274,27 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         body.set("client_id", clientId);
         body.set("client_secret", clientSecret);
       }
-      const tokenResponse = await fetchJson(fetcher, discovery.tokenEndpoint, {
-        method: "POST",
-        headers,
-        body: body.toString(),
-      }, timeoutMs, maximumResponseBytes, JSON_MEDIA_TYPES);
-      const idToken = exactText(tokenResponse.id_token, maximumResponseBytes);
-      const localJwks = await loadJwks(discovery);
+      let idToken: string;
+      try {
+        const tokenResponse = await fetchJson(fetcher, discovery.tokenEndpoint, {
+          method: "POST",
+          headers,
+          body: body.toString(),
+        }, timeoutMs, maximumResponseBytes, JSON_MEDIA_TYPES);
+        idToken = exactText(tokenResponse.id_token, maximumResponseBytes);
+      } catch (error) {
+        audit({ stage: "token_response", outcome: failedOutcome(error) });
+        throw error;
+      }
+      audit({ stage: "token_response", outcome: "accepted" });
+      let localJwks: ReturnType<typeof createLocalJWKSet>;
+      try {
+        localJwks = await loadJwks(discovery);
+      } catch (error) {
+        audit({ stage: "jwks_response", outcome: failedOutcome(error) });
+        throw error;
+      }
+      audit({ stage: "jwks_response", outcome: "accepted" });
       let verified: Awaited<ReturnType<typeof jwtVerify>>;
       const currentDate = safeClock(options.clock);
       try {
@@ -263,8 +306,10 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
           clockTolerance: 0,
         });
       } catch {
+        audit({ stage: "id_token_verification", outcome: "rejected" });
         return rejected();
       }
+      audit({ stage: "id_token_verification", outcome: "accepted" });
       const payload = verified.payload;
       const issuedAt = payload.iat;
       const expiresAt = payload.exp;
@@ -273,18 +318,35 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         !Number.isSafeInteger(issuedAt) || !Number.isSafeInteger(expiresAt) ||
         (issuedAt as number) > nowSeconds + 30 || (issuedAt as number) < nowSeconds - 600 ||
         (expiresAt as number) <= nowSeconds || payload.nonce !== expectedNonce
-      ) rejected();
-      const subject = exactText(payload.sub, 512);
-      const email = exactText(payload.email, 320);
-      if (payload.email_verified !== true || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) rejected();
+      ) {
+        audit({ stage: "id_token_time_nonce", outcome: "rejected" });
+        rejected();
+      }
+      audit({ stage: "id_token_time_nonce", outcome: "accepted" });
+      let subject: string;
+      let email: string;
+      let displayName: string | undefined;
+      try {
+        subject = exactText(payload.sub, 512);
+        email = exactText(payload.email, 320);
+        if (payload.email_verified !== true || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) rejected();
+        displayName = payload.name === undefined ? undefined : exactText(payload.name, 256);
+      } catch (error) {
+        audit({ stage: "id_token_identity", outcome: failedOutcome(error) });
+        throw error;
+      }
+      audit({ stage: "id_token_identity", outcome: "accepted" });
       const audience = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
       if (
         audience.some((value) => typeof value !== "string") || !audience.includes(clientId) ||
         new Set(audience).size !== audience.length ||
         (audience.length > 1 && payload.azp !== clientId) ||
         (payload.azp !== undefined && payload.azp !== clientId)
-      ) rejected();
-      const displayName = payload.name === undefined ? undefined : exactText(payload.name, 256);
+      ) {
+        audit({ stage: "id_token_audience", outcome: "rejected" });
+        rejected();
+      }
+      audit({ stage: "id_token_audience", outcome: "accepted" });
       return Object.freeze({
         issuer,
         subject,

@@ -177,6 +177,29 @@ test("Logto callback exchanges the code exactly once and verifies a pinned asymm
   assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 1);
 });
 
+test("Logto callback audit reports only bounded verification stages", async () => {
+  const accepted = [];
+  await provider(fixture(), { audit: (event) => accepted.push(event) }).verifyCallback(callbackInput);
+  assert.deepEqual(accepted, [
+    { stage: "token_response", outcome: "accepted" },
+    { stage: "jwks_response", outcome: "accepted" },
+    { stage: "id_token_verification", outcome: "accepted" },
+    { stage: "id_token_time_nonce", outcome: "accepted" },
+    { stage: "id_token_identity", outcome: "accepted" },
+    { stage: "id_token_audience", outcome: "accepted" },
+  ]);
+
+  const rejected = [];
+  await assert.rejects(
+    () => provider(fixture({ token: idToken({ email_verified: false }) }), {
+      audit: (event) => rejected.push(event),
+    }).verifyCallback(callbackInput),
+    /oidc_provider_rejected/,
+  );
+  assert.deepEqual(rejected.at(-1), { stage: "id_token_identity", outcome: "rejected" });
+  assert.equal(JSON.stringify(rejected).includes("verified-owner@example.test"), false);
+});
+
 test("Logto accepts only the registered JWKS JSON media types and sends the exact JWKS Accept preference", async () => {
   for (const mediaType of [
     "application/jwk-set+json",
