@@ -237,6 +237,32 @@ test("known non-script constructs and the audited Next Script component remain a
   }
 });
 
+test("data helpers ending in header are not mistaken for theme components", async () => {
+  const virtualRoot = path.resolve("/virtual/checkout-safe-header-imports");
+  const root = path.join(virtualRoot, "app/odeme/page.tsx");
+  const sources = [
+    'import { cookieHeader } from "@/lib/cookies"; export const value = cookieHeader;',
+    'import { CACHE_HEADER } from "@/lib/constants"; export const value = CACHE_HEADER;',
+  ];
+  for (const source of sources) {
+    const graph = await traceCheckoutSourceGraph({
+      rootDirectory: virtualRoot,
+      entrypoints: [root],
+      clientEntrypoints: [],
+      loadSource: async (file) => {
+        if (file === root) return source;
+        if (file === path.join(virtualRoot, "lib/cookies.ts")) return "export const cookieHeader = 'cookie';";
+        if (file === path.join(virtualRoot, "lib/constants.ts")) return "export const CACHE_HEADER = 'cache';";
+        return null;
+      },
+    });
+    assert.equal(
+      auditCheckoutSourceGraph(graph).some((finding) => finding.code === "forbidden_theme_dependency"),
+      false,
+    );
+  }
+});
+
 test("fixed checkout production surface has no legacy, theme, or browser database dependency", async () => {
   const roots = [
     path.join(storefrontRoot, "app/odeme"),

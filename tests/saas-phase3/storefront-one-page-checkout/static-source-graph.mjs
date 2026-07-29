@@ -283,6 +283,10 @@ function themeShellName(value) {
   return /(?:header|footer)$/i.test(value);
 }
 
+function themeComponentBindingName(value) {
+  return /^(?:Header|Footer|[A-Z][A-Za-z0-9]*(?:Header|Footer))$/.test(value);
+}
+
 function importBindingNames(node) {
   if (!ts.isImportDeclaration(node) || !node.importClause || node.importClause.isTypeOnly) return [];
   const names = [];
@@ -348,7 +352,7 @@ function analyzeSource(file, source) {
     ) unresolvedDynamicDependencies.push(`${dynamicKind}(non-literal)`);
     if (ts.isIdentifier(node)) identifiers.add(node.text);
     for (const name of importBindingNames(node)) {
-      if (themeShellName(name)) themeShellIdentifiers.add(name);
+      if (themeComponentBindingName(name)) themeShellIdentifiers.add(name);
     }
     const componentName = declaredComponentName(node);
     if (componentName !== null && themeShellName(componentName)) {
