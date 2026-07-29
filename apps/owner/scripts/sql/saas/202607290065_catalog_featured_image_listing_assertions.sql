@@ -13,10 +13,10 @@ BEGIN
   WHERE procedure.oid = list_function;
 
   IF definition IS NULL
-     OR pg_catalog.position('featuredImages' IN definition) = 0
-     OR pg_catalog.position('media.status = ''active''' IN definition) = 0
-     OR pg_catalog.position('ORDER BY media.sort_order, media.id' IN definition) = 0
-     OR pg_catalog.position('LIMIT 1' IN definition) = 0 THEN
+     OR pg_catalog.strpos(definition, 'featuredImages') = 0
+     OR pg_catalog.strpos(definition, 'media.status = ''active''') = 0
+     OR pg_catalog.strpos(definition, 'ORDER BY media.sort_order, media.id') = 0
+     OR pg_catalog.strpos(definition, 'LIMIT 1') = 0 THEN
     RAISE EXCEPTION 'CATALOG_FEATURED_IMAGE_LIST_PROJECTION_MISSING';
   END IF;
   IF NOT is_security_definer OR volatility <> 's' THEN

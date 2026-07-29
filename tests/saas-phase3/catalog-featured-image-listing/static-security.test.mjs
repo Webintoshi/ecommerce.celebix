@@ -41,6 +41,8 @@ test("migration 065 assertions and manifest pin exact immutable artifacts", () =
   assert.match(assertions, /catalog_list_products/);
   assert.match(assertions, /featuredImages/);
   assert.match(assertions, /has_function_privilege/);
+  assert.match(assertions, /pg_catalog\.strpos\(definition,\s*'featuredImages'\)/);
+  assert.doesNotMatch(assertions, /pg_catalog\.position\(/);
   const manifest = JSON.parse(read(MANIFEST));
   assert.equal(manifest.postgresqlMajor, 16);
   assert.deepEqual(manifest.artifacts.map(({ file }) => file), [UP, DOWN, ASSERTIONS]);
