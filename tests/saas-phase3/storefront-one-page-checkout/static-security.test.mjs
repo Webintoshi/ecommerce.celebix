@@ -4,11 +4,25 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import {
+  auditCheckoutSourceGraph,
+  traceCheckoutSourceGraph,
+} from "./static-source-graph.mjs";
+
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../..",
 );
 const storefrontRoot = path.join(repositoryRoot, "apps/storefront-shared");
+
+function cspDirective(value, name) {
+  const selected = value
+    .split(";")
+    .map((directive) => directive.trim().split(/\s+/))
+    .find(([directive]) => directive === name);
+  assert.ok(selected, `missing CSP directive ${name}`);
+  return selected.slice(1);
+}
 
 async function present(relative) {
   try {
@@ -42,6 +56,80 @@ test("fixed checkout owns every exact page and API route", async () => {
     "apps/storefront-shared/app/api/checkout/status/route.ts",
   ]) {
     assert.equal(await present(relative), true, relative);
+  }
+});
+
+test("fixed checkout import closure has no forbidden server or browser dependency", async () => {
+  const entrypoints = [
+    "app/odeme/page.tsx",
+    "app/odeme/sonuc/page.tsx",
+    "app/api/checkout/quote/route.ts",
+    "app/api/checkout/delivery/route.ts",
+    "app/api/checkout/submit/route.ts",
+    "app/api/checkout/status/route.ts",
+  ].map((relative) => path.join(storefrontRoot, relative));
+  const clientEntrypoints = [
+    "components/checkout/CheckoutClient.tsx",
+    "app/odeme/sonuc/CheckoutResultRefresh.tsx",
+  ].map((relative) => path.join(storefrontRoot, relative));
+  const graph = await traceCheckoutSourceGraph({
+    rootDirectory: storefrontRoot,
+    entrypoints,
+    clientEntrypoints,
+  });
+  assert.equal(
+    graph.sources.has(path.join(storefrontRoot, "lib/checkout/result-state.ts")),
+    true,
+  );
+  assert.equal(
+    graph.sources.has(path.join(storefrontRoot, "lib/analytics/events.ts")),
+    true,
+  );
+  assert.deepEqual(auditCheckoutSourceGraph(graph), []);
+});
+
+test("import-closure gate catches forbidden mutations hidden behind local library imports", async () => {
+  const virtualRoot = path.resolve("/virtual/checkout-storefront");
+  const root = path.join(virtualRoot, "app/odeme/page.tsx");
+  const hidden = path.join(virtualRoot, "lib/hidden.tsx");
+  const cases = [
+    [
+      "forbidden_supabase_dependency",
+      'import { createClient } from "@supabase/supabase-js"; export const value = createClient;',
+    ],
+    [
+      "forbidden_theme_dependency",
+      'import Header from "@/theme/Header.tsx"; export const value = Header;',
+    ],
+    [
+      "forbidden_browser_database",
+      "export const databaseUrl = process.env.CELEBIX_SAAS_DATABASE_URL;",
+    ],
+    [
+      "unsafe_inline_script",
+      'export function Hidden() { return <script>{"window.private = true"}</script>; }',
+    ],
+    [
+      "legacy_storefront_dependency",
+      'import legacy from "apps/storefront-base/lib/checkout"; export const value = legacy;',
+    ],
+  ];
+  for (const [expectedCode, hiddenSource] of cases) {
+    const modules = new Map([
+      [root, '"use client"; import "@/lib/hidden.tsx"; export default function Page() { return null; }'],
+      [hidden, hiddenSource],
+    ]);
+    const graph = await traceCheckoutSourceGraph({
+      rootDirectory: virtualRoot,
+      entrypoints: [root],
+      clientEntrypoints: [],
+      loadSource: async (file) => modules.get(file) ?? null,
+    });
+    assert.equal(graph.sources.has(hidden), true, expectedCode);
+    assert.ok(
+      auditCheckoutSourceGraph(graph).some((finding) => finding.code === expectedCode),
+      expectedCode,
+    );
   }
 });
 
@@ -110,12 +198,51 @@ test("proxy gives checkout HTML and APIs exact private response protections", as
     assert.match(csp, /script-src 'nonce-[^']+' 'strict-dynamic'/, pathname);
     assert.doesNotMatch(csp, /script-src[^;]*'unsafe-inline'/, pathname);
     assert.match(csp, /frame-ancestors 'none'/, pathname);
+    if (pathname === "/odeme" || pathname === "/odeme/sonuc") {
+      assert.deepEqual(
+        cspDirective(csp, "connect-src"),
+        ["'self'", "https://analytics.example.test"],
+        pathname,
+      );
+    }
+  }
+
+  const withoutAnalytics = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "shop.example.test" }),
+    resolveMediaOrigin: () => "https://media.example.test",
+    authorizePaytrIframe: async () => false,
+    now: () => new Date("2026-07-29T12:00:00.000Z"),
+    resolveAnalytics: async () => null,
+  });
+  for (const pathname of ["/odeme", "/odeme/sonuc"]) {
+    const response = await withoutAnalytics(
+      new NextRequest(`https://internal.example${pathname}`),
+    );
+    assert.deepEqual(
+      cspDirective(response.headers.get("content-security-policy") ?? "", "connect-src"),
+      ["'self'"],
+      pathname,
+    );
   }
 
   const catalog = await handler(new NextRequest("https://internal.example/products"));
+  assert.deepEqual(
+    cspDirective(catalog.headers.get("content-security-policy") ?? "", "connect-src"),
+    ["https://analytics.example.test"],
+  );
   assert.equal(
     catalog.headers.get("referrer-policy"),
     "strict-origin-when-cross-origin",
+  );
+  const inactiveCatalog = await withoutAnalytics(
+    new NextRequest("https://internal.example/products"),
+  );
+  assert.deepEqual(
+    cspDirective(
+      inactiveCatalog.headers.get("content-security-policy") ?? "",
+      "connect-src",
+    ),
+    ["'none'"],
   );
 
   const denied = createStorefrontProxy({

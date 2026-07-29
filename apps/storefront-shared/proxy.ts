@@ -99,7 +99,11 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     let analytics:Readonly<{scriptOrigin:string;collectorOrigin:string}>|null=null;
     if(dependencies.resolveAnalytics){try{analytics=await dependencies.resolveAnalytics({hostname:authority.hostname,now:dependencies.now()})}catch{analytics=null}}
-    const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"",connectDestination=analytics?.collectorOrigin??"'none'";
+    const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"";
+    const checkoutHtmlPath=pathname==="/odeme"||pathname==="/odeme/sonuc";
+    const connectDestination=checkoutHtmlPath
+      ? analytics?`'self' ${analytics.collectorOrigin}`:"'self'"
+      : analytics?.collectorOrigin??"'none'";
     const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;
     let iframeAuthorized = false;
     if (exactTarget && pathname === "/odeme/hizli/odeme") {
