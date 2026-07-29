@@ -158,6 +158,56 @@ test("initializes once with the exact documented body and provider-owned present
   assert.equal(returnedBody.every((byte) => byte === 0), true);
 });
 
+test("normal-cart result pair reaches PayTR transport and returns the exact iframe presentation", async () => {
+  let calls = 0;
+  let observedBody = "";
+  const adapter = createPaytrIframeAdapter(transport((request) => {
+    calls += 1;
+    observedBody = new TextDecoder().decode(request.body);
+    return response(`{"status":"success","token":"${TOKEN}"}`);
+  }));
+  const normalResult = "https://pilot.saas-staging.celebix.site/odeme/sonuc";
+
+  assert.deepEqual(await adapter.initialize(initializeInput({
+    successUrl: normalResult,
+    failureUrl: normalResult,
+  })), {
+    kind: "iframe",
+    url: `https://www.paytr.com/odeme/guvenli/${TOKEN}`,
+    token: TOKEN,
+    providerReference: MERCHANT_OID,
+  });
+  assert.equal(calls, 1);
+  const form = new URLSearchParams(observedBody);
+  assert.equal(form.get("merchant_ok_url"), normalResult);
+  assert.equal(form.get("merchant_fail_url"), normalResult);
+});
+
+test("PayTR rejects mixed or cross-authority normal-cart return pairs before transport", async () => {
+  let calls = 0;
+  const adapter = createPaytrIframeAdapter(transport(() => {
+    calls += 1;
+    return response(`{"status":"success","token":"${TOKEN}"}`);
+  }));
+  const base = initializeInput();
+  const normal = "https://pilot.saas-staging.celebix.site/odeme/sonuc";
+  for (const overrides of [
+    { successUrl: normal, failureUrl: base.failureUrl },
+    { successUrl: base.successUrl, failureUrl: normal },
+    { successUrl: normal, failureUrl: "https://other.celebix.site/odeme/sonuc" },
+    { successUrl: normal, failureUrl: `${normal}?durum=basarisiz` },
+    { successUrl: normal, failureUrl: `${normal}#failure` },
+    { successUrl: normal, failureUrl: normal.replace(".site/", ".site:443/") },
+    { successUrl: normal, failureUrl: normal.replace("https://", "https://user@") },
+  ]) {
+    assert.deepEqual(await adapter.initialize(initializeInput(overrides)), {
+      kind: "rejected",
+      code: "invalid_request",
+    });
+  }
+  assert.equal(calls, 0);
+});
+
 test("contains rejection, timeout, malformed response, and thrown transport without retry", async () => {
   const cases: ReadonlyArray<Readonly<{
     result: ProviderTransportResult | Error;

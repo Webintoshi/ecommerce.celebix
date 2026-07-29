@@ -85,9 +85,12 @@ function exactTarget(
     return INVALID;
   }
   if (
-    (url.protocol !== "https:" && url.protocol !== "http:")
+    url.protocol !== "https:"
     || url.username
     || url.password
+    || url.port
+    || url.hostname !== hostname
+    || url.origin !== `https://${hostname}`
     || url.pathname !== pathname
     || url.search
     || url.hash

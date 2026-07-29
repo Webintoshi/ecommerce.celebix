@@ -7,7 +7,14 @@ import type {
   HostedPaymentInitialization,
   HostedPaymentStatus,
   PaymentAdapterPacket,
+  ProviderTransportRequest,
+  ProviderTransportResult,
   VerifiedProviderCallback,
+} from "@celebix/payment-adapters";
+import {
+  createIyzicoCheckoutFormAdapter,
+  createIyzicoInitializeResponseSignature,
+  createPaytrIframeAdapter,
 } from "@celebix/payment-adapters";
 import type {
   ApplyHostedPaymentCallbackResult,
@@ -240,6 +247,8 @@ function fixture(options: Readonly<{
   authorityMatches?: boolean | Error;
   hostname?: string;
   randomBytes?: (size: number) => Uint8Array;
+  adapter?: HostedPaymentAdapter<object>;
+  openedCredentialJson?: string;
 }> = {}) {
   const calls: Calls = {
     begin: [], initialized: [], unknown: [], callbackAuthority: [], reconciliationAuthority: [], settled: [],
@@ -371,8 +380,8 @@ function fixture(options: Readonly<{
       currency: "TRY",
     });
   });
-  const packet = options.packet ?? PACKET;
-  const adapter: HostedPaymentAdapter<object> = Object.freeze({
+  const packet = options.adapter?.packet ?? options.packet ?? PACKET;
+  const fixtureAdapter: HostedPaymentAdapter<object> = Object.freeze({
     packet,
     parseCredential,
     maskAccount: Object.freeze(() => "merchant…ture"),
@@ -380,17 +389,21 @@ function fixture(options: Readonly<{
     verifyCallback,
     query,
   });
+  const adapter = options.adapter ?? fixtureAdapter;
+  const providerCode = adapter.packet.providerCode;
   const runtime = createHostedPaymentRuntime({
     attempts,
     adapters: Object.freeze({
       size: options.adapterPresent === false ? 0 : 1,
-      packet: (providerCode: string) => providerCode === PROVIDER && options.adapterPresent !== false ? packet : null,
-      adapter: (providerCode: string) => providerCode === PROVIDER && options.adapterPresent !== false ? adapter : null,
+      packet: (selectedCode: string) => selectedCode === providerCode && options.adapterPresent !== false ? packet : null,
+      adapter: (selectedCode: string) => selectedCode === providerCode && options.adapterPresent !== false ? adapter : null,
     }),
     keyring: KEYRING,
     openCredential(input) {
       calls.opens.push(input);
-      opened = new TextEncoder().encode("{\"merchantKey\":\"credential_secret\"}");
+      opened = new TextEncoder().encode(
+        options.openedCredentialJson ?? "{\"merchantKey\":\"credential_secret\"}",
+      );
       return opened;
     },
     selectAuthority: () => options.trusted === false
@@ -398,9 +411,13 @@ function fixture(options: Readonly<{
       : Object.freeze({ kind: "trusted", hostname: options.hostname ?? HOSTNAME }),
     now: options.now ?? (() => new Date(NOW)),
     randomBytes: options.randomBytes ?? ((size) => new Uint8Array(size).fill(7)),
-    selectCompiledAuthority: (providerCode) => providerCode === PROVIDER
+    selectCompiledAuthority: (selectedCode) => selectedCode === providerCode
       ? options.compiledAuthority === undefined
-        ? COMPILED_AUTHORITY
+        ? Object.freeze({
+            ...COMPILED_AUTHORITY,
+            providerCode,
+            adapterVersion: packet.adapterVersion,
+          })
         : options.compiledAuthority
       : null,
     async matchesCompiledAuthority(input) {
@@ -753,6 +770,122 @@ test("committed initialization begins once then opens only the persisted attempt
   expectedBinding.fill(0);
   assert.equal(JSON.stringify(presentation).includes(CART_CREDENTIAL), false);
   assert.equal(JSON.stringify(presentation).includes(binding), false);
+});
+
+test("normal-cart committed runtime reaches each real adapter and returns its exact presentation", async () => {
+  const paytrToken = "28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa";
+  const iyzicoToken = "A234567890123456789012345678901234567";
+  const iyzicoCredential = Object.freeze({
+    apiKey: "sandbox-api-key",
+    secretKey: "sandbox-secret-key",
+  });
+  const cases = [
+    {
+      providerCode: "paytr_iframe" as const,
+      credentialJson: JSON.stringify({
+        merchantKey: "test-merchant-key",
+        merchantSalt: "test-merchant-salt",
+      }),
+      createAdapter: (requests: ProviderTransportRequest[]) => createPaytrIframeAdapter(
+        Object.freeze({
+          async request(request: ProviderTransportRequest): Promise<ProviderTransportResult> {
+            requests.push(request);
+            return Object.freeze({
+              kind: "response" as const,
+              status: 200,
+              contentType: "application/json",
+              body: new TextEncoder().encode(`{"status":"success","token":"${paytrToken}"}`),
+            });
+          },
+        }),
+      ),
+      expected: Object.freeze({
+        kind: "iframe" as const,
+        url: `https://www.paytr.com/odeme/guvenli/${paytrToken}`,
+        token: paytrToken,
+      }),
+    },
+    {
+      providerCode: "iyzico_iframe" as const,
+      credentialJson: JSON.stringify(iyzicoCredential),
+      createAdapter: (requests: ProviderTransportRequest[]) => createIyzicoCheckoutFormAdapter(
+        Object.freeze({
+          async request(request: ProviderTransportRequest): Promise<ProviderTransportResult> {
+            requests.push(request);
+            const payload = {
+              status: "success",
+              conversationId: ATTEMPT_ID,
+              token: iyzicoToken,
+              paymentPageUrl: `https://sandbox-cpp.iyzipay.com/?token=${iyzicoToken}&lang=tr`,
+            };
+            return Object.freeze({
+              kind: "response" as const,
+              status: 200,
+              contentType: "application/json",
+              body: new TextEncoder().encode(JSON.stringify({
+                ...payload,
+                signature: createIyzicoInitializeResponseSignature({
+                  credential: iyzicoCredential,
+                  conversationId: ATTEMPT_ID,
+                  token: iyzicoToken,
+                }),
+              })),
+            });
+          },
+        }),
+      ),
+      expected: Object.freeze({
+        kind: "iframe" as const,
+        url: `https://sandbox-cpp.iyzipay.com/?token=${iyzicoToken}&lang=tr`,
+        token: iyzicoToken,
+      }),
+    },
+  ];
+  for (const selectedCase of cases) {
+    const requests: ProviderTransportRequest[] = [];
+    const adapter = selectedCase.createAdapter(requests) as HostedPaymentAdapter<object>;
+    const evidenceDigest = `sha256:${(
+      selectedCase.providerCode === "paytr_iframe" ? "b" : "c"
+    ).repeat(64)}`;
+    const persisted = authority({
+      providerCode: selectedCase.providerCode,
+      status: "created",
+      version: 1,
+      providerReference: null,
+      executionAdapterVersion: adapter.packet.adapterVersion,
+      executionEvidenceDigest: evidenceDigest,
+      publicConfig: selectedCase.providerCode === "paytr_iframe"
+        ? Object.freeze({ environment: "test", merchantId: "123456" })
+        : Object.freeze({ environment: "test" }),
+    });
+    const selected = fixture({
+      adapter,
+      openedCredentialJson: selectedCase.credentialJson,
+      reconciliationAuthority: persisted,
+      compiledAuthority: Object.freeze({
+        providerCode: selectedCase.providerCode,
+        environment: "test",
+        adapterVersion: adapter.packet.adapterVersion,
+        evidenceDigest,
+      }),
+    });
+    const privateAuthority = Object.freeze({
+      ...committedAuthority(),
+      providerCode: selectedCase.providerCode,
+      customer: Object.freeze({
+        ...committedAuthority().customer,
+        identityNumber: selectedCase.providerCode === "iyzico_iframe" ? "74300864791" : null,
+      }),
+    }) as HostedCheckoutAuthority;
+    const presentation = await selected.runtime.initializeCommitted({
+      headers: committedHeaders(),
+      attemptId: ATTEMPT_ID,
+      trustedClientIp: "8.8.8.8",
+      begin: async () => privateAuthority,
+    });
+    assert.deepEqual(presentation, selectedCase.expected, selectedCase.providerCode);
+    assert.equal(requests.length, 1, selectedCase.providerCode);
+  }
 });
 
 test("committed retry reproduces callback authority across runtime instances without random bytes", async () => {

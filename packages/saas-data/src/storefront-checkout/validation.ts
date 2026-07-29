@@ -201,24 +201,73 @@ export function recoverCheckoutOperationInput(
     "credentialDigest",
     "operationId",
     "fingerprint",
-    "checkoutNonce",
+    "expected",
     "now",
   ]);
-  const submissionProbe = {
-    cartVersion: 1,
-    checkoutNonce: parsed.checkoutNonce,
-    operationId: parsed.operationId,
-    paymentMethodId: "00000000-0000-4000-8000-000000000000",
-    identityNumber: null,
-    consents: { distanceSales: true, preInformation: true },
-  };
-  safeSubmission(submissionProbe);
-  return Object.freeze({
-    hostname: checkoutHostname(parsed.hostname),
-    credentialDigest: checkoutDigest(parsed.credentialDigest),
-    operationId: checkoutUuid(parsed.operationId),
-    fingerprint: checkoutDigest(parsed.fingerprint),
-    checkoutNonce: parsed.checkoutNonce as string,
-    now: checkoutDate(parsed.now),
-  });
+  const hostname = checkoutHostname(parsed.hostname);
+  const credentialDigest = checkoutDigest(parsed.credentialDigest);
+  const operationId = checkoutUuid(parsed.operationId);
+  const fingerprint = checkoutDigest(parsed.fingerprint);
+  const now = checkoutDate(parsed.now);
+  const expectedKind = exactCheckoutInput(parsed.expected, ["kind"], [
+    "checkoutNonce", "submission", "attemptId", "callbackBindingDigest",
+  ]).kind;
+  if (expectedKind === "delivery") {
+    const expected = exactCheckoutInput(parsed.expected, ["kind", "checkoutNonce"]);
+    const probe = safeSubmission({
+      cartVersion: 1,
+      checkoutNonce: expected.checkoutNonce,
+      operationId,
+      paymentMethodId: "00000000-0000-4000-8000-000000000000",
+      identityNumber: null,
+      consents: { distanceSales: true, preInformation: true },
+    });
+    return Object.freeze({
+      hostname,
+      credentialDigest,
+      operationId,
+      fingerprint,
+      expected: Object.freeze({ kind: "delivery" as const, checkoutNonce: probe.checkoutNonce }),
+      now,
+    });
+  }
+  if (expectedKind === "built_in") {
+    exactCheckoutInput(parsed.expected, ["kind"]);
+    return Object.freeze({
+      hostname,
+      credentialDigest,
+      operationId,
+      fingerprint,
+      expected: Object.freeze({ kind: "built_in" as const }),
+      now,
+    });
+  }
+  if (expectedKind === "hosted") {
+    const expected = exactCheckoutInput(parsed.expected, [
+      "kind", "submission", "attemptId", "callbackBindingDigest",
+    ]);
+    const hosted = beginHostedCheckoutInput(Object.freeze({
+      hostname,
+      credentialDigest,
+      now,
+      submission: expected.submission,
+      attemptId: expected.attemptId,
+      callbackBindingDigest: expected.callbackBindingDigest,
+    }));
+    if (hosted.submission.operationId !== operationId) invalid();
+    return Object.freeze({
+      hostname,
+      credentialDigest,
+      operationId,
+      fingerprint,
+      expected: Object.freeze({
+        kind: "hosted" as const,
+        submission: hosted.submission,
+        attemptId: hosted.attemptId,
+        callbackBindingDigest: hosted.callbackBindingDigest,
+      }),
+      now,
+    });
+  }
+  return invalid();
 }

@@ -5,14 +5,17 @@ import { createHash } from "node:crypto";
 import {
   parseCheckoutQuote,
   parseCheckoutStatus,
+  parseCheckoutSubmissionResult,
   type CheckoutDeliveryInput,
   type CheckoutHttpError,
   type CheckoutQuote,
-  type CheckoutSubmissionResult,
   type CheckoutSubmitInput,
 } from "@celebix/saas-contracts";
 import {
   PublicCheckoutRepositoryError,
+  type CheckoutOperationRecovery,
+  type CheckoutOperationRecoveryExpectation,
+  type HostedCheckoutAuthority,
   type PublicCheckoutRepository,
 } from "@celebix/saas-data";
 
@@ -191,18 +194,39 @@ async function recoverUnknown(input: Readonly<{
   credentialDigest: string;
   operationId: string;
   fingerprint: string;
-  checkoutNonce: string;
+  expected: CheckoutOperationRecoveryExpectation;
   now: Date;
-}>): Promise<unknown | null> {
+}>): Promise<CheckoutOperationRecovery | null> {
   try {
     return await input.repository.recover({
       hostname: input.hostname,
       credentialDigest: input.credentialDigest,
       operationId: input.operationId,
       fingerprint: input.fingerprint,
-      checkoutNonce: input.checkoutNonce,
+      expected: input.expected,
       now: new Date(input.now),
     });
+  } catch {
+    return null;
+  }
+}
+
+function recoveredHostedAuthority(
+  recovery: CheckoutOperationRecovery | null,
+  expected: Readonly<{
+    submission: CheckoutSubmitInput;
+    attemptId: string;
+  }>,
+): HostedCheckoutAuthority | null {
+  try {
+    if (recovery?.kind !== "hosted") return null;
+    const authority = recovery.authority;
+    return authority.attemptId === expected.attemptId
+      && authority.bridgeId === expected.attemptId
+      && authority.paymentMethodId === expected.submission.paymentMethodId
+      && authority.customer.identityNumber === expected.submission.identityNumber
+      ? authority
+      : null;
   } catch {
     return null;
   }
@@ -311,27 +335,38 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
       })));
     } catch (error) {
       if (publicRepositoryError(error)?.code === "commit_unknown") {
-        await recoverUnknown({
+        const recovered = await recoverUnknown({
           repository: resolved.runtime.checkout,
           hostname: selected.hostname,
           credentialDigest: selected.credentialDigest,
           operationId: selected.delivery.operationId,
           fingerprint: deliveryFingerprint(selected),
-          checkoutNonce: selected.delivery.checkoutNonce,
+          expected: Object.freeze({
+            kind: "delivery" as const,
+            checkoutNonce: selected.delivery.checkoutNonce,
+          }),
           now: resolved.now,
         });
+        if (recovered?.kind === "delivery") {
+          try {
+            return json(parseCheckoutQuote(recovered.quote));
+          } catch {
+            return response("unavailable");
+          }
+        }
+        return response("unavailable");
       }
       return response(repositoryCode(error));
     }
   }
 
-  async function builtIn(input: Readonly<{
+  async function classifyBuiltIn(input: Readonly<{
     runtime: PublicCheckoutRuntime;
     hostname: string;
     credentialDigest: string;
     submission: CheckoutSubmitInput;
     now: Date;
-  }>): Promise<Response> {
+  }>): Promise<Response | null> {
     try {
       const result = await input.runtime.checkout.submitBuiltIn({
         hostname: input.hostname,
@@ -358,17 +393,25 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
             credentialDigest: input.credentialDigest,
             submission: input.submission,
           }),
-          checkoutNonce: input.submission.checkoutNonce,
+          expected: Object.freeze({ kind: "built_in" as const }),
           now: input.now,
         });
-        const placed = recovered as CheckoutSubmissionResult | null;
-        if (placed?.kind === "placed") {
-          return new Response(null, {
-            status: 303,
-            headers: Object.freeze({ ...CHECKOUT_HEADERS, Location: "/odeme/sonuc" }),
-          });
+        if (recovered?.kind === "built_in") {
+          try {
+            const placed = parseCheckoutSubmissionResult(recovered.submission);
+            if (placed.kind === "placed") {
+              return new Response(null, {
+                status: 303,
+                headers: Object.freeze({ ...CHECKOUT_HEADERS, Location: "/odeme/sonuc" }),
+              });
+            }
+          } catch {
+            return response("unavailable");
+          }
         }
+        return response("unavailable");
       }
+      if (publicRepositoryError(error)?.code === "payment_method_unavailable") return null;
       return response(repositoryCode(error));
     }
   }
@@ -380,79 +423,76 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
     if (selected.kind !== "valid") return response(selected.code);
     const resolved = await runtimeAndNow();
     if (resolved === null) return response("unavailable");
-    if (resolved.runtime.hosted !== null) {
-      const trustedClientIp = parseTrustedClientIp(request.headers.get("x-forwarded-for"));
-      if (trustedClientIp === null) return response("invalid_input");
-      const attemptId = hostedAttemptId(
-        selected.hostname,
-        selected.credentialDigest,
-        selected.submission.operationId,
-      );
-      try {
-        return await initializeHostedCartPayment({
-          request,
-          attemptId,
-          trustedClientIp,
-          runtime: resolved.runtime.hosted,
-          begin: async ({ attemptId: suppliedAttemptId, callbackBindingDigest }) => {
-            const fingerprint = submissionFingerprint({
-              action: "begin_hosted",
-              hostname: selected.hostname,
-              credentialDigest: selected.credentialDigest,
-              submission: selected.submission,
-              attemptId: suppliedAttemptId,
-              callbackBindingDigest,
-            });
-            try {
-              return await resolved.runtime.checkout.beginHosted({
-                hostname: selected.hostname,
-                credentialDigest: selected.credentialDigest,
-                submission: selected.submission,
-                attemptId: suppliedAttemptId,
-                callbackBindingDigest,
-                now: new Date(resolved.now),
-              });
-            } catch (error) {
-              if (publicRepositoryError(error)?.code === "commit_unknown") {
-                const recovered = await recoverUnknown({
-                  repository: resolved.runtime.checkout,
-                  hostname: selected.hostname,
-                  credentialDigest: selected.credentialDigest,
-                  operationId: selected.submission.operationId,
-                  fingerprint,
-                  checkoutNonce: selected.submission.checkoutNonce,
-                  now: resolved.now,
-                });
-                if (recovered !== null) {
-                  return recovered as Awaited<ReturnType<PublicCheckoutRepository["beginHosted"]>>;
-                }
-              }
-              throw error;
-            }
-          },
-        });
-      } catch (error) {
-        const selectedError = publicRepositoryError(error);
-        if (
-          selectedError !== null
-          && selectedError.code === "payment_method_unavailable"
-        ) return builtIn({
-          runtime: resolved.runtime,
-          hostname: selected.hostname,
-          credentialDigest: selected.credentialDigest,
-          submission: selected.submission,
-          now: resolved.now,
-        });
-        return response(repositoryCode(error));
-      }
-    }
-    return builtIn({
+    const builtInResult = await classifyBuiltIn({
       runtime: resolved.runtime,
       hostname: selected.hostname,
       credentialDigest: selected.credentialDigest,
       submission: selected.submission,
       now: resolved.now,
     });
+    if (builtInResult !== null) return builtInResult;
+    if (resolved.runtime.hosted === null) return response("payment_unavailable");
+    const trustedClientIp = parseTrustedClientIp(request.headers.get("x-forwarded-for"));
+    if (trustedClientIp === null) return response("invalid_input");
+    const attemptId = hostedAttemptId(
+      selected.hostname,
+      selected.credentialDigest,
+      selected.submission.operationId,
+    );
+    try {
+      return await initializeHostedCartPayment({
+        request,
+        attemptId,
+        trustedClientIp,
+        runtime: resolved.runtime.hosted,
+        begin: async ({ attemptId: suppliedAttemptId, callbackBindingDigest }) => {
+          const fingerprint = submissionFingerprint({
+            action: "begin_hosted",
+            hostname: selected.hostname,
+            credentialDigest: selected.credentialDigest,
+            submission: selected.submission,
+            attemptId: suppliedAttemptId,
+            callbackBindingDigest,
+          });
+          try {
+            return await resolved.runtime.checkout.beginHosted({
+              hostname: selected.hostname,
+              credentialDigest: selected.credentialDigest,
+              submission: selected.submission,
+              attemptId: suppliedAttemptId,
+              callbackBindingDigest,
+              now: new Date(resolved.now),
+            });
+          } catch (error) {
+            if (publicRepositoryError(error)?.code === "commit_unknown") {
+              const recovered = await recoverUnknown({
+                repository: resolved.runtime.checkout,
+                hostname: selected.hostname,
+                credentialDigest: selected.credentialDigest,
+                operationId: selected.submission.operationId,
+                fingerprint,
+                expected: Object.freeze({
+                  kind: "hosted" as const,
+                  submission: selected.submission,
+                  attemptId: suppliedAttemptId,
+                  callbackBindingDigest,
+                }),
+                now: resolved.now,
+              });
+              const authority = recoveredHostedAuthority(recovered, {
+                submission: selected.submission,
+                attemptId: suppliedAttemptId,
+              });
+              if (authority !== null) return authority;
+              throw new PublicCheckoutRepositoryError("unavailable");
+            }
+            throw error;
+          }
+        },
+      });
+    } catch (error) {
+      return response(repositoryCode(error));
+    }
   }
 
   async function status(request: Request): Promise<Response> {

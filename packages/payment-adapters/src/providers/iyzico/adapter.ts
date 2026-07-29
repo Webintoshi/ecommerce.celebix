@@ -49,6 +49,7 @@ const CREDENTIAL_DENIAL_CODES: readonly string[] = Object.freeze(["1000", "1001"
 const CALLBACK_BINDING = /^[A-Za-z0-9_-]{43}$/;
 const SUCCESS_PATH = "/odeme/hizli/sonuc?durum=basarili";
 const FAILURE_PATH = "/odeme/hizli/sonuc?durum=basarisiz";
+const NORMAL_RESULT_PATH = "/odeme/sonuc";
 const TRANSPORT_UNKNOWN = Object.freeze({
   kind: "unknown" as const,
   code: "transport_outcome_unknown" as const,
@@ -340,25 +341,42 @@ function callbackAuthority(value: unknown): Readonly<{ url: string; origin: stri
   return Object.freeze({ url: selected, origin: parsed.origin });
 }
 
-function returnUrl(value: unknown, origin: string, expectedPath: string): string {
-  const selected = boundedString(value, 1, 2_048);
-  let parsed: URL;
+function returnUrls(
+  successValue: unknown,
+  failureValue: unknown,
+  origin: string,
+): Readonly<{ successUrl: string; failureUrl: string }> {
+  const selected = [
+    boundedString(successValue, 1, 2_048),
+    boundedString(failureValue, 1, 2_048),
+  ] as const;
+  let success: URL;
+  let failure: URL;
   try {
-    parsed = new URL(selected);
+    success = new URL(selected[0]);
+    failure = new URL(selected[1]);
   } catch {
     return invalid();
   }
-  if (
-    parsed.protocol !== "https:" ||
-    parsed.origin !== origin ||
-    parsed.username ||
-    parsed.password ||
-    parsed.port ||
-    parsed.hash ||
-    `${parsed.pathname}${parsed.search}` !== expectedPath ||
-    parsed.toString() !== selected
-  ) invalid();
-  return selected;
+  for (const [raw, parsed] of [[selected[0], success], [selected[1], failure]] as const) {
+    if (
+      parsed.protocol !== "https:" ||
+      parsed.origin !== origin ||
+      parsed.username ||
+      parsed.password ||
+      parsed.port ||
+      parsed.hash ||
+      parsed.toString() !== raw
+    ) invalid();
+  }
+  const legacyPair =
+    `${success.pathname}${success.search}` === SUCCESS_PATH &&
+    `${failure.pathname}${failure.search}` === FAILURE_PATH;
+  const normalPair =
+    success.pathname === NORMAL_RESULT_PATH && success.search === "" &&
+    failure.pathname === NORMAL_RESULT_PATH && failure.search === "";
+  if (!legacyPair && !normalPair) invalid();
+  return Object.freeze({ successUrl: selected[0], failureUrl: selected[1] });
 }
 
 function transportRequest(transport: ProviderTransport): ProviderTransport["request"] {
@@ -1094,8 +1112,7 @@ export function createIyzicoCheckoutFormAdapter(
       const amountMinor = positiveInteger(selected.amountMinor);
       if (selected.currency !== "TRY") invalid();
       const callback = callbackAuthority(selected.callbackUrl);
-      returnUrl(selected.successUrl, callback.origin, SUCCESS_PATH);
-      returnUrl(selected.failureUrl, callback.origin, FAILURE_PATH);
+      returnUrls(selected.successUrl, selected.failureUrl, callback.origin);
       const abortSignal = signal(selected.signal);
       if (abortSignal.aborted) invalid();
       const selectedBuyer = buyer(selected.customer);

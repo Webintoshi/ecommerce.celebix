@@ -241,6 +241,51 @@ test("initializes an exact signed iyzico Checkout Form request and preserves bas
   assert.equal(providerResponse.kind === "response" && providerResponse.body.every((byte) => byte === 0), true);
 });
 
+test("normal-cart result pair reaches Iyzico transport and returns the exact presentation", async () => {
+  let calls = 0;
+  const adapter = createIyzicoCheckoutFormAdapter(transport(() => {
+    calls += 1;
+    return response(signedInitialize());
+  }), Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+  const normalResult = "https://pilot.saas-staging.celebix.site/odeme/sonuc";
+
+  assert.deepEqual(await adapter.initialize(initializeInput({
+    successUrl: normalResult,
+    failureUrl: normalResult,
+  })), {
+    kind: "iframe",
+    url: `https://sandbox-cpp.iyzipay.com?token=${TOKEN}&lang=tr`,
+    token: TOKEN,
+    providerReference: TOKEN,
+  });
+  assert.equal(calls, 1);
+});
+
+test("Iyzico rejects mixed or cross-authority normal-cart return pairs before transport", async () => {
+  let calls = 0;
+  const adapter = createIyzicoCheckoutFormAdapter(transport(() => {
+    calls += 1;
+    return response(signedInitialize());
+  }), Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+  const base = initializeInput();
+  const normal = "https://pilot.saas-staging.celebix.site/odeme/sonuc";
+  for (const overrides of [
+    { successUrl: normal, failureUrl: base.failureUrl },
+    { successUrl: base.successUrl, failureUrl: normal },
+    { successUrl: normal, failureUrl: "https://other.celebix.site/odeme/sonuc" },
+    { successUrl: normal, failureUrl: `${normal}?durum=basarisiz` },
+    { successUrl: normal, failureUrl: `${normal}#failure` },
+    { successUrl: normal, failureUrl: normal.replace(".site/", ".site:443/") },
+    { successUrl: normal, failureUrl: normal.replace("https://", "https://user@") },
+  ]) {
+    assert.deepEqual(await adapter.initialize(initializeInput(overrides)), {
+      kind: "rejected",
+      code: "invalid_request",
+    });
+  }
+  assert.equal(calls, 0);
+});
+
 test("requires merchant-supplied buyer identity, address core, item type, and exact totals before transport", async () => {
   let calls = 0;
   const adapter = createIyzicoCheckoutFormAdapter(transport(() => {

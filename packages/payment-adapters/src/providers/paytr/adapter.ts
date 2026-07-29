@@ -148,6 +148,41 @@ function validationReturnUrls(successValue: unknown, failureValue: unknown): Rea
   ) invalid();
   return Object.freeze({ successUrl, failureUrl });
 }
+
+function trustedReturnHost(parsed: URL): boolean {
+  const host = parsed.hostname.replace(/^\[|\]$/g, "");
+  return parsed.hostname !== "localhost" &&
+    !parsed.hostname.endsWith(".invalid") &&
+    parsed.hostname.includes(".") &&
+    isIP(host) === 0;
+}
+
+function returnUrls(
+  successValue: unknown,
+  failureValue: unknown,
+  expectedOrigin?: string,
+): Readonly<{ successUrl: string; failureUrl: string }> {
+  const successUrl = parsePaytrReturnUrl(successValue);
+  const failureUrl = parsePaytrReturnUrl(failureValue);
+  const success = new URL(successUrl);
+  const failure = new URL(failureUrl);
+  const legacyPair =
+    success.pathname === "/odeme/hizli/sonuc" &&
+    success.search === "?durum=basarili" &&
+    failure.pathname === "/odeme/hizli/sonuc" &&
+    failure.search === "?durum=basarisiz";
+  const normalPair =
+    success.pathname === "/odeme/sonuc" && success.search === "" &&
+    failure.pathname === "/odeme/sonuc" && failure.search === "";
+  if (
+    (!legacyPair && !normalPair) ||
+    success.origin !== failure.origin ||
+    (expectedOrigin !== undefined && success.origin !== expectedOrigin) ||
+    !trustedReturnHost(success) ||
+    !trustedReturnHost(failure)
+  ) invalid();
+  return Object.freeze({ successUrl, failureUrl });
+}
 const CUSTOMER_KEYS = Object.freeze([
   "address",
   "email",
@@ -359,8 +394,7 @@ export async function initializePaytrIframeWithTransport(
     const userName = parsePaytrBoundedString(selected.userName, 1, 60);
     const userAddress = parsePaytrBoundedString(selected.userAddress, 1, 400);
     const userPhone = parsePaytrBoundedString(selected.userPhone, 1, 20);
-    const successUrl = parsePaytrReturnUrl(selected.successUrl);
-    const failureUrl = parsePaytrReturnUrl(selected.failureUrl);
+    const { successUrl, failureUrl } = returnUrls(selected.successUrl, selected.failureUrl);
     if (!(selected.signal instanceof AbortSignal)) invalid();
     const params = new URLSearchParams();
     params.append("merchant_id", credential.merchantId);
@@ -749,7 +783,7 @@ export async function queryPaytrIframeWithTransport(
   }
 }
 
-function callbackBindingDigest(value: unknown): string {
+function callbackBindingAuthority(value: unknown): Readonly<{ digest: string; origin: string }> {
   const raw = parsePaytrBoundedString(value, 1, 2_048);
   const parsed = new URL(raw);
   const segments = parsed.pathname.split("/");
@@ -762,6 +796,7 @@ function callbackBindingDigest(value: unknown): string {
     parsed.search ||
     parsed.hash ||
     parsed.hostname !== parsed.hostname.toLowerCase() ||
+    !trustedReturnHost(parsed) ||
     segments[1] !== "api" ||
     segments[2] !== "payments" ||
     segments[3] !== "paytr_iframe" ||
@@ -773,7 +808,10 @@ function callbackBindingDigest(value: unknown): string {
   const bytes = Buffer.from(binding, "base64url");
   try {
     if (bytes.byteLength !== 32 || bytes.toString("base64url") !== binding) invalid();
-    return createHash("sha256").update(bytes).digest("hex");
+    return Object.freeze({
+      digest: createHash("sha256").update(bytes).digest("hex"),
+      origin: parsed.origin,
+    });
   } finally {
     bytes.fill(0);
   }
@@ -831,7 +869,8 @@ export function createPaytrIframeAdapter(
         typeof selected.orderReference !== "string" ||
         !ORDER_REFERENCE.test(selected.orderReference)
       ) invalid();
-      const merchantOid = callbackBindingDigest(selected.callbackUrl);
+      const callback = callbackBindingAuthority(selected.callbackUrl);
+      const merchantOid = callback.digest;
       const amountMinor = parsePaytrPositiveInteger(selected.amountMinor);
       if (selected.currency !== "TRY") invalid();
       const customer = exactRecord(selected.customer, CUSTOMER_KEYS);
@@ -840,8 +879,11 @@ export function createPaytrIframeAdapter(
       const userName = parsePaytrBoundedString(customer.name, 1, 60);
       const userAddress = parsePaytrBoundedString(customer.address, 1, 400);
       const userPhone = parsePaytrBoundedString(customer.phone, 1, 20);
-      const successUrl = parsePaytrReturnUrl(selected.successUrl);
-      const failureUrl = parsePaytrReturnUrl(selected.failureUrl);
+      const { successUrl, failureUrl } = returnUrls(
+        selected.successUrl,
+        selected.failureUrl,
+        callback.origin,
+      );
       if (!(selected.signal instanceof AbortSignal) || selected.signal.aborted) invalid();
       const basket = denseArray(selected.basket, 1, 100).map((value) => {
         const item = exactRecord(value, BASKET_ITEM_KEYS);

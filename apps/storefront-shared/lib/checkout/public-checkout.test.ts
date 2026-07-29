@@ -87,7 +87,7 @@ function repository(overrides: Partial<PublicCheckoutRepository> = {}): PublicCh
     beginHosted: async () => { throw new PublicCheckoutRepositoryError("payment_method_unavailable"); },
     getStatus: async (): Promise<CheckoutStatus> => Object.freeze({ kind: "ready" }),
     getPolicy: async () => { throw new PublicCheckoutRepositoryError("not_found"); },
-    recover: async () => quote(),
+    recover: async () => Object.freeze({ kind: "delivery" as const, quote: quote() }),
     ...overrides,
   });
 }
@@ -123,7 +123,7 @@ function hostedAuthority(attemptId: string): HostedCheckoutAuthority {
       }),
     ]),
     attemptId,
-    bridgeId: "99999999-9999-4999-8999-999999999999",
+    bridgeId: attemptId,
     environment: "test",
     reservationStatus: "held",
   });
@@ -237,6 +237,104 @@ test("built-in submit redirects only to the fixed same-origin result path", asyn
   assert.equal(response.headers.get("location"), "/odeme/sonuc");
 });
 
+test("hosted-enabled built-ins place without client IP or hosted initialization", async () => {
+  let builtInCalls = 0;
+  let hostedCalls = 0;
+  const hosted: HostedPaymentRuntime = Object.freeze({
+    initialize: async () => Object.freeze({ kind: "rejected" as const }),
+    initializeCommitted: async () => {
+      hostedCalls += 1;
+      return Object.freeze({ kind: "rejected" as const });
+    },
+    callback: async () => Object.freeze({ kind: "rejected" as const }),
+    callbackByDigest: async () => Object.freeze({ kind: "rejected" as const }),
+    reconcile: async () => Object.freeze({ kind: "rejected" as const }),
+  });
+  const handlers = createPublicCheckoutHandlers({
+    selectAuthority: () => trusted(),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        submitBuiltIn: async () => {
+          builtInCalls += 1;
+          return Object.freeze({
+            kind: "placed" as const,
+            orderNumber: "SF-2026-000001",
+            statusPath: "/checkout/status",
+          });
+        },
+      }),
+      hosted,
+    }),
+    now: () => NOW,
+  });
+  const response = await handlers.submit(new Request(`https://${HOSTNAME}/api/checkout/submit`, {
+    method: "POST",
+    headers: headers("application/x-www-form-urlencoded"),
+    body: new URLSearchParams({
+      cartVersion: "4",
+      checkoutNonce: NONCE,
+      operationId: OPERATION_ID,
+      paymentMethodId: PAYMENT_METHOD_ID,
+      identityNumber: "",
+      distanceSales: "true",
+      preInformation: "true",
+    }),
+  }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/odeme/sonuc");
+  assert.equal(builtInCalls, 1);
+  assert.equal(hostedCalls, 0);
+});
+
+test("provider classification requires trusted IP and unrelated built-in errors never fall through", async () => {
+  for (const [errorCode, expectedStatus] of [
+    ["payment_method_unavailable", 400],
+    ["stock_unavailable", 409],
+  ] as const) {
+    let builtInCalls = 0;
+    let hostedCalls = 0;
+    const hosted: HostedPaymentRuntime = Object.freeze({
+      initialize: async () => Object.freeze({ kind: "rejected" as const }),
+      initializeCommitted: async () => {
+        hostedCalls += 1;
+        return Object.freeze({ kind: "rejected" as const });
+      },
+      callback: async () => Object.freeze({ kind: "rejected" as const }),
+      callbackByDigest: async () => Object.freeze({ kind: "rejected" as const }),
+      reconcile: async () => Object.freeze({ kind: "rejected" as const }),
+    });
+    const handlers = createPublicCheckoutHandlers({
+      selectAuthority: () => trusted(),
+      resolveRuntime: async () => Object.freeze({
+        checkout: repository({
+          submitBuiltIn: async () => {
+            builtInCalls += 1;
+            throw new PublicCheckoutRepositoryError(errorCode);
+          },
+        }),
+        hosted,
+      }),
+      now: () => NOW,
+    });
+    const response = await handlers.submit(new Request(`https://${HOSTNAME}/api/checkout/submit`, {
+      method: "POST",
+      headers: headers("application/x-www-form-urlencoded"),
+      body: new URLSearchParams({
+        cartVersion: "4",
+        checkoutNonce: NONCE,
+        operationId: OPERATION_ID,
+        paymentMethodId: PAYMENT_METHOD_ID,
+        identityNumber: "74300864791",
+        distanceSales: "true",
+        preInformation: "true",
+      }),
+    }));
+    assert.equal(response.status, expectedStatus);
+    assert.equal(builtInCalls, 1);
+    assert.equal(hostedCalls, 0);
+  }
+});
+
 test("submit redirects only to an exact hosted presentation", async () => {
   const location = "https://sandbox-cpp.iyzipay.com/?token=validToken1234567890&lang=tr";
   let beginCalls = 0;
@@ -259,6 +357,9 @@ test("submit redirects only to an exact hosted presentation", async () => {
     selectAuthority: () => trusted(),
     resolveRuntime: async () => Object.freeze({
       checkout: repository({
+        submitBuiltIn: async () => {
+          throw new PublicCheckoutRepositoryError("payment_method_unavailable");
+        },
         beginHosted: async (input) => {
           beginCalls += 1;
           assert.equal(input.attemptId, observedAttemptId);
@@ -315,6 +416,9 @@ test("hosted commit uncertainty recovers once and resumes the same initializatio
     selectAuthority: () => trusted(),
     resolveRuntime: async () => Object.freeze({
       checkout: repository({
+        submitBuiltIn: async () => {
+          throw new PublicCheckoutRepositoryError("payment_method_unavailable");
+        },
         beginHosted: async (input) => {
           beginCalls += 1;
           attemptId = input.attemptId;
@@ -322,7 +426,10 @@ test("hosted commit uncertainty recovers once and resumes the same initializatio
         },
         recover: async (input) => {
           recoverCalls.push(input);
-          return hostedAuthority(attemptId);
+          return Object.freeze({
+            kind: "hosted" as const,
+            authority: hostedAuthority(attemptId),
+          });
         },
       }),
       hosted,
@@ -354,6 +461,202 @@ test("hosted commit uncertainty recovers once and resumes the same initializatio
   assert.equal(recoverCalls.length, 1);
   assert.equal(recoverCalls[0]?.operationId, OPERATION_ID);
   assert.match(recoverCalls[0]?.fingerprint ?? "", /^[a-f0-9]{64}$/);
+  assert.equal(recoverCalls[0]?.expected.kind, "hosted");
+});
+
+test("delivery and built-in uncertainty recover one exact typed result", async () => {
+  const deliveryRecoveries: Parameters<PublicCheckoutRepository["recover"]>[0][] = [];
+  const deliveryHandlers = createPublicCheckoutHandlers({
+    selectAuthority: () => trusted(),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        updateDelivery: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
+        recover: async (input) => {
+          deliveryRecoveries.push(input);
+          return Object.freeze({
+            kind: "delivery" as const,
+            quote: quote({ cartVersion: 5 }),
+          });
+        },
+      }),
+      hosted: null,
+    }),
+    now: () => NOW,
+  });
+  const deliveryResponse = await deliveryHandlers.delivery(new Request(
+    `https://${HOSTNAME}/api/checkout/delivery`,
+    {
+      method: "POST",
+      headers: headers("application/json"),
+      body: JSON.stringify(delivery()),
+    },
+  ));
+  assert.equal(deliveryResponse.status, 200);
+  assert.equal((await deliveryResponse.json() as CheckoutQuote).cartVersion, 5);
+  assert.equal(deliveryRecoveries.length, 1);
+  assert.deepEqual(deliveryRecoveries[0]?.expected, {
+    kind: "delivery",
+    checkoutNonce: NONCE,
+  });
+
+  const builtInRecoveries: Parameters<PublicCheckoutRepository["recover"]>[0][] = [];
+  const builtInHandlers = createPublicCheckoutHandlers({
+    selectAuthority: () => trusted(),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        submitBuiltIn: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
+        recover: async (input) => {
+          builtInRecoveries.push(input);
+          return Object.freeze({
+            kind: "built_in" as const,
+            submission: Object.freeze({
+              kind: "placed" as const,
+              orderNumber: "SF-2026-000001",
+              statusPath: "/checkout/status",
+            }),
+          });
+        },
+      }),
+      hosted: null,
+    }),
+    now: () => NOW,
+  });
+  const builtInResponse = await builtInHandlers.submit(new Request(
+    `https://${HOSTNAME}/api/checkout/submit`,
+    {
+      method: "POST",
+      headers: headers("application/x-www-form-urlencoded"),
+      body: new URLSearchParams({
+        cartVersion: "4",
+        checkoutNonce: NONCE,
+        operationId: OPERATION_ID,
+        paymentMethodId: PAYMENT_METHOD_ID,
+        identityNumber: "",
+        distanceSales: "true",
+        preInformation: "true",
+      }),
+    },
+  ));
+  assert.equal(builtInResponse.status, 303);
+  assert.equal(builtInResponse.headers.get("location"), "/odeme/sonuc");
+  assert.equal(builtInRecoveries.length, 1);
+  assert.deepEqual(builtInRecoveries[0]?.expected, { kind: "built_in" });
+});
+
+test("wrong-kind hosted recovery fails closed before presentation", async () => {
+  let hostedPresentations = 0;
+  const hosted: HostedPaymentRuntime = Object.freeze({
+    initialize: async () => Object.freeze({ kind: "rejected" as const }),
+    initializeCommitted: async (input) => {
+      await input.begin({
+        attemptId: input.attemptId,
+        callbackBindingDigest: "c".repeat(64),
+      });
+      hostedPresentations += 1;
+      return Object.freeze({
+        kind: "redirect" as const,
+        url: "https://sandbox-cpp.iyzipay.com/?token=validToken1234567890&lang=tr",
+      });
+    },
+    callback: async () => Object.freeze({ kind: "rejected" as const }),
+    callbackByDigest: async () => Object.freeze({ kind: "rejected" as const }),
+    reconcile: async () => Object.freeze({ kind: "rejected" as const }),
+  });
+  const handlers = createPublicCheckoutHandlers({
+    selectAuthority: () => trusted(),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        submitBuiltIn: async () => {
+          throw new PublicCheckoutRepositoryError("payment_method_unavailable");
+        },
+        beginHosted: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
+        recover: async () => Object.freeze({
+          kind: "delivery" as const,
+          quote: quote(),
+        }),
+      }),
+      hosted,
+    }),
+    now: () => NOW,
+  });
+  const response = await handlers.submit(new Request(`https://${HOSTNAME}/api/checkout/submit`, {
+    method: "POST",
+    headers: {
+      ...headers("application/x-www-form-urlencoded"),
+      "x-forwarded-for": "93.184.216.34",
+    },
+    body: new URLSearchParams({
+      cartVersion: "4",
+      checkoutNonce: NONCE,
+      operationId: OPERATION_ID,
+      paymentMethodId: PAYMENT_METHOD_ID,
+      identityNumber: "74300864791",
+      distanceSales: "true",
+      preInformation: "true",
+    }),
+  }));
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("location"), null);
+  assert.equal(hostedPresentations, 0);
+});
+
+test("wrong-kind delivery and built-in recovery fail closed", async () => {
+  const deliveryHandlers = createPublicCheckoutHandlers({
+    selectAuthority: () => trusted(),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        updateDelivery: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
+        recover: async () => Object.freeze({
+          kind: "built_in" as const,
+          submission: Object.freeze({
+            kind: "placed" as const,
+            orderNumber: "SF-2026-000001",
+            statusPath: "/checkout/status",
+          }),
+        }),
+      }),
+      hosted: null,
+    }),
+    now: () => NOW,
+  });
+  const deliveryResponse = await deliveryHandlers.delivery(new Request(
+    `https://${HOSTNAME}/api/checkout/delivery`,
+    {
+      method: "POST",
+      headers: headers("application/json"),
+      body: JSON.stringify(delivery()),
+    },
+  ));
+  assert.equal(deliveryResponse.status, 503);
+
+  const builtInHandlers = createPublicCheckoutHandlers({
+    selectAuthority: () => trusted(),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        submitBuiltIn: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
+        recover: async () => Object.freeze({ kind: "delivery" as const, quote: quote() }),
+      }),
+      hosted: null,
+    }),
+    now: () => NOW,
+  });
+  const builtInResponse = await builtInHandlers.submit(new Request(
+    `https://${HOSTNAME}/api/checkout/submit`,
+    {
+      method: "POST",
+      headers: headers("application/x-www-form-urlencoded"),
+      body: new URLSearchParams({
+        cartVersion: "4",
+        checkoutNonce: NONCE,
+        operationId: OPERATION_ID,
+        paymentMethodId: PAYMENT_METHOD_ID,
+        identityNumber: "",
+        distanceSales: "true",
+        preInformation: "true",
+      }),
+    },
+  ));
+  assert.equal(builtInResponse.status, 503);
 });
 
 test("all public checkout responses are finite JSON and no-store", async () => {

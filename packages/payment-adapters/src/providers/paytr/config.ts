@@ -339,17 +339,18 @@ export function verifyPaytrIframeCallbackHash(input: Readonly<{
 export function parsePaytrReturnUrl(value: unknown): string {
   const raw = parsePaytrBoundedString(value, 1, 400);
   const parsed = new URL(raw);
+  const legacyResult = parsed.pathname === "/odeme/hizli/sonuc" && (
+    parsed.search === "?durum=basarili" ||
+    parsed.search === "?durum=basarisiz"
+  );
+  const normalResult = parsed.pathname === "/odeme/sonuc" && parsed.search === "";
   if (
     parsed.protocol !== "https:" ||
     parsed.username ||
     parsed.password ||
     parsed.port ||
     parsed.hash ||
-    parsed.pathname !== "/odeme/hizli/sonuc" ||
-    (
-      parsed.search !== "?durum=basarili" &&
-      parsed.search !== "?durum=basarisiz"
-    ) ||
+    (!legacyResult && !normalResult) ||
     parsed.hostname !== parsed.hostname.toLowerCase() ||
     parsed.toString() !== raw
   ) invalid();

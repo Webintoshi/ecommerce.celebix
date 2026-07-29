@@ -47,12 +47,22 @@ export type GetCheckoutPolicyInput = Readonly<{
   now: Date;
 }>;
 
+export type CheckoutOperationRecoveryExpectation =
+  | Readonly<{ kind: "delivery"; checkoutNonce: string }>
+  | Readonly<{ kind: "built_in" }>
+  | Readonly<{
+      kind: "hosted";
+      submission: CheckoutSubmitInput;
+      attemptId: string;
+      callbackBindingDigest: string;
+    }>;
+
 export type RecoverCheckoutOperationInput = Readonly<{
   hostname: string;
   credentialDigest: string;
   operationId: string;
   fingerprint: string;
-  checkoutNonce: string;
+  expected: CheckoutOperationRecoveryExpectation;
   now: Date;
 }>;
 
@@ -87,10 +97,10 @@ export type HostedCheckoutAuthority = Readonly<{
   reservationStatus: "held";
 }>;
 
-export type CheckoutOperationResult =
-  | CheckoutQuote
-  | CheckoutSubmissionResult
-  | HostedCheckoutAuthority;
+export type CheckoutOperationRecovery =
+  | Readonly<{ kind: "delivery"; quote: CheckoutQuote }>
+  | Readonly<{ kind: "built_in"; submission: CheckoutSubmissionResult }>
+  | Readonly<{ kind: "hosted"; authority: HostedCheckoutAuthority }>;
 
 export interface PublicCheckoutRepository {
   issueNonce(input: IssueCheckoutNonceInput): Promise<CheckoutQuote>;
@@ -99,7 +109,7 @@ export interface PublicCheckoutRepository {
   beginHosted(input: BeginHostedCheckoutInput): Promise<HostedCheckoutAuthority>;
   getStatus(input: GetCheckoutStatusInput): Promise<CheckoutStatus>;
   getPolicy(input: GetCheckoutPolicyInput): Promise<CheckoutPolicy>;
-  recover(input: RecoverCheckoutOperationInput): Promise<CheckoutOperationResult>;
+  recover(input: RecoverCheckoutOperationInput): Promise<CheckoutOperationRecovery>;
 }
 
 export type PublicCheckoutAuditEvent = Readonly<{

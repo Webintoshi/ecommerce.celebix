@@ -26,8 +26,9 @@ function deliveryRequest(overrides: Readonly<{
   origin?: string;
   headers?: Readonly<Record<string, string>>;
   body?: string;
+  url?: string;
 }> = {}): Request {
-  return new Request(`https://${HOSTNAME}/api/checkout/delivery`, {
+  return new Request(overrides.url ?? `https://${HOSTNAME}/api/checkout/delivery`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -172,6 +173,30 @@ test("request boundary rejects exact-path near matches and malformed UTF-8", asy
     body: new Uint8Array([0x7b, 0x22, 0x78, 0x22, 0x3a, 0xc3, 0x28, 0x7d]),
   });
   assert.deepEqual(await readCheckoutDeliveryRequest(malformed, HOSTNAME), {
+    kind: "error",
+    code: "invalid_input",
+  });
+});
+
+test("request boundary requires the exact trusted HTTPS URL authority", async () => {
+  for (const url of [
+    `http://${HOSTNAME}/api/checkout/delivery`,
+    "https://other.celebix.site/api/checkout/delivery",
+    `https://${HOSTNAME}:8443/api/checkout/delivery`,
+  ]) {
+    assert.deepEqual(await readCheckoutDeliveryRequest(
+      deliveryRequest({ url }),
+      HOSTNAME,
+    ), {
+      kind: "error",
+      code: "invalid_input",
+    }, url);
+  }
+  const credentialed = deliveryRequest();
+  Object.defineProperty(credentialed, "url", {
+    value: `https://user@${HOSTNAME}/api/checkout/delivery`,
+  });
+  assert.deepEqual(await readCheckoutDeliveryRequest(credentialed, HOSTNAME), {
     kind: "error",
     code: "invalid_input",
   });

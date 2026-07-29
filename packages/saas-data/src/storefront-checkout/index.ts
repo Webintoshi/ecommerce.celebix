@@ -8,7 +8,8 @@ export type {
 export { PostgresPublicCheckoutRepository } from "./repository.ts";
 export type {
   BeginHostedCheckoutInput,
-  CheckoutOperationResult,
+  CheckoutOperationRecovery,
+  CheckoutOperationRecoveryExpectation,
   GetCheckoutPolicyInput,
   GetCheckoutStatusInput,
   HostedCheckoutAuthority,

@@ -25,7 +25,7 @@ import {
 } from "./errors.ts";
 import type {
   BeginHostedCheckoutInput,
-  CheckoutOperationResult,
+  CheckoutOperationRecovery,
   GetCheckoutPolicyInput,
   GetCheckoutStatusInput,
   HostedCheckoutAuthority,
@@ -499,6 +499,7 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
   private async recoverDelivery(
     input: RecoverCheckoutOperationInput,
   ): Promise<CheckoutQuote> {
+    if (input.expected.kind !== "delivery") unavailable();
     const selected = await this.read({
       text: `SELECT outcome, result_payload FROM saas.storefront_checkout_recover_operation(
         $1::text,$2::text,$3::uuid,$4::text,$5::timestamptz
@@ -514,7 +515,7 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
     if (selected.outcome !== "operation_replayed") {
       throwOutcome(selected.outcome, selected.resultPayload);
     }
-    return safeQuote(selected.resultPayload, input.checkoutNonce);
+    return safeQuote(selected.resultPayload, input.expected.checkoutNonce);
   }
 
   private async recoverUnknownDelivery(
@@ -709,7 +710,10 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
               credentialDigest: parsed.credentialDigest,
               operationId: parsed.delivery.operationId,
               fingerprint: operationFingerprint,
-              checkoutNonce: nextNonce.credential,
+              expected: Object.freeze({
+                kind: "delivery" as const,
+                checkoutNonce: nextNonce.credential,
+              }),
               now: parsed.now,
             }),
             quote,
@@ -751,7 +755,7 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
           credentialDigest: parsed.credentialDigest,
           operationId: parsed.submission.operationId,
           fingerprint: operationFingerprint,
-          checkoutNonce: parsed.submission.checkoutNonce,
+          expected: Object.freeze({ kind: "built_in" as const }),
           now: parsed.now,
         }),
       );
@@ -790,7 +794,12 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
           credentialDigest: parsed.credentialDigest,
           operationId: parsed.submission.operationId,
           fingerprint: operationFingerprint,
-          checkoutNonce: parsed.submission.checkoutNonce,
+          expected: Object.freeze({
+            kind: "hosted" as const,
+            submission: parsed.submission,
+            attemptId: parsed.attemptId,
+            callbackBindingDigest: parsed.callbackBindingDigest,
+          }),
           now: parsed.now,
         }),
       );
@@ -829,10 +838,48 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
     });
   }
 
-  recover(input: RecoverCheckoutOperationInput): Promise<CheckoutOperationResult> {
+  recover(input: RecoverCheckoutOperationInput): Promise<CheckoutOperationRecovery> {
     return expose(async () => {
       const parsed = recoverCheckoutOperationInput(input);
-      return await this.recoverDelivery(parsed);
+      const selected = await this.read({
+        text: `SELECT outcome, result_payload FROM saas.storefront_checkout_recover_operation(
+          $1::text,$2::text,$3::uuid,$4::text,$5::timestamptz
+        )`,
+        values: [
+          parsed.hostname,
+          parsed.credentialDigest,
+          parsed.operationId,
+          parsed.fingerprint,
+          parsed.now,
+        ],
+      });
+      if (selected.outcome !== "operation_replayed") {
+        throwOutcome(selected.outcome, selected.resultPayload);
+      }
+      if (parsed.expected.kind === "delivery") {
+        return Object.freeze({
+          kind: "delivery" as const,
+          quote: safeQuote(selected.resultPayload, parsed.expected.checkoutNonce),
+        });
+      }
+      if (parsed.expected.kind === "built_in") {
+        return Object.freeze({
+          kind: "built_in" as const,
+          submission: safeSubmission(selected.resultPayload),
+        });
+      }
+      const hostedExpected: BeginHostedCheckoutInput = Object.freeze({
+        hostname: parsed.hostname,
+        credentialDigest: parsed.credentialDigest,
+        now: parsed.now,
+        submission: parsed.expected.submission,
+        attemptId: parsed.expected.attemptId,
+        callbackBindingDigest: parsed.expected.callbackBindingDigest,
+      });
+      return Object.freeze({
+        kind: "hosted" as const,
+        authority: safeHostedAuthority(selected.resultPayload, hostedExpected),
+      });
     });
   }
 }

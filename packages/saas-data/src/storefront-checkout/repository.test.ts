@@ -415,30 +415,109 @@ test("issueNonce commit unknown performs one read-only quote recovery but cannot
   assert.equal(recovery.calls.some((call) => textIncludes(call, "storefront_checkout_issue_nonce")), false);
 });
 
-test("recover binds only the exact migration 064 read authority", async () => {
-  const client = new FakeClient((text) => (
-    text.includes("saas.storefront_checkout_recover_operation")
-      ? [selected("operation_replayed", quotePayload())]
-      : []
-  ));
-  const result = await repository(new FakePool([client])).recover({
+test("recover discriminates and parses delivery built-in and hosted operation results", async () => {
+  const builtIn = {
+    kind: "placed",
+    orderNumber: "SF-2026-000001",
+    statusPath: "/checkout/status",
+  };
+  const cases = [
+    {
+      expected: { kind: "delivery", checkoutNonce: NONCE },
+      payload: quotePayload(),
+      result: { kind: "delivery", quote: { ...quotePayload(), checkoutNonce: NONCE } },
+    },
+    {
+      expected: { kind: "built_in" },
+      payload: builtIn,
+      result: { kind: "built_in", submission: builtIn },
+    },
+    {
+      expected: {
+        kind: "hosted",
+        submission: hostedInput().submission,
+        attemptId: ATTEMPT_ID,
+        callbackBindingDigest: "b".repeat(64),
+      },
+      payload: hostedAuthorityPayload(),
+      result: { kind: "hosted", authority: hostedAuthorityPayload() },
+    },
+  ] as const;
+  for (const selectedCase of cases) {
+    const client = new FakeClient((text) => (
+      text.includes("saas.storefront_checkout_recover_operation")
+        ? [selected("operation_replayed", selectedCase.payload)]
+        : []
+    ));
+    const result = await repository(new FakePool([client])).recover({
+      hostname: "shop.celebix.site",
+      credentialDigest: DIGEST,
+      operationId: OPERATION_ID,
+      fingerprint: "b".repeat(64),
+      expected: selectedCase.expected,
+      now: NOW,
+    });
+    assert.deepEqual(result, selectedCase.result);
+    const query = client.calls.find((call) => textIncludes(call, "storefront_checkout_recover_operation"));
+    assert.deepEqual(query?.values, [
+      "shop.celebix.site",
+      DIGEST,
+      OPERATION_ID,
+      "b".repeat(64),
+      NOW,
+    ]);
+    assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  }
+});
+
+test("recover rejects wrong-kind payloads and duplicated hosted authority before pool checkout", async () => {
+  const wrongKinds = [
+    { expected: { kind: "delivery", checkoutNonce: NONCE }, payload: hostedAuthorityPayload() },
+    { expected: { kind: "built_in" }, payload: quotePayload() },
+    {
+      expected: {
+        kind: "hosted",
+        submission: hostedInput().submission,
+        attemptId: ATTEMPT_ID,
+        callbackBindingDigest: "b".repeat(64),
+      },
+      payload: { kind: "placed", orderNumber: "SF-2026-000001", statusPath: "/checkout/status" },
+    },
+  ] as const;
+  for (const selectedCase of wrongKinds) {
+    const client = new FakeClient((text) => (
+      text.includes("saas.storefront_checkout_recover_operation")
+        ? [selected("operation_replayed", selectedCase.payload)]
+        : []
+    ));
+    await assert.rejects(repository(new FakePool([client])).recover({
+      hostname: "shop.celebix.site",
+      credentialDigest: DIGEST,
+      operationId: OPERATION_ID,
+      fingerprint: "b".repeat(64),
+      expected: selectedCase.expected,
+      now: NOW,
+    }), errorCode("unavailable"));
+  }
+
+  const pool = new FakePool([]);
+  await assert.rejects(repository(pool).recover({
     hostname: "shop.celebix.site",
     credentialDigest: DIGEST,
     operationId: OPERATION_ID,
     fingerprint: "b".repeat(64),
-    checkoutNonce: NONCE,
+    expected: {
+      kind: "hosted",
+      submission: {
+        ...hostedInput().submission,
+        operationId: "77777777-7777-4777-8777-777777777777",
+      },
+      attemptId: ATTEMPT_ID,
+      callbackBindingDigest: "b".repeat(64),
+    },
     now: NOW,
-  });
-  assert.equal("checkoutNonce" in result && result.checkoutNonce, NONCE);
-  const query = client.calls.find((call) => textIncludes(call, "storefront_checkout_recover_operation"));
-  assert.deepEqual(query?.values, [
-    "shop.celebix.site",
-    DIGEST,
-    OPERATION_ID,
-    "b".repeat(64),
-    NOW,
-  ]);
-  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  }), errorCode("invalid_input"));
+  assert.equal(pool.connects, 0);
 });
 
 test("submitBuiltIn binds the exact migration 064 signature and parses placed replay-safe output", async () => {
