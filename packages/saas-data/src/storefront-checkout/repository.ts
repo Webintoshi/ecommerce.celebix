@@ -220,7 +220,10 @@ function outputInteger(value: unknown, minimum = 0): number {
   return value as number;
 }
 
-function safeHostedAuthority(value: unknown): HostedCheckoutAuthority {
+function safeHostedAuthority(
+  value: unknown,
+  expected: BeginHostedCheckoutInput,
+): HostedCheckoutAuthority {
   try {
     const selected = strictProjection(value, [
       "storeId", "paymentMethodId", "profileId", "providerCode", "orderReference",
@@ -273,9 +276,16 @@ function safeHostedAuthority(value: unknown): HostedCheckoutAuthority {
       });
     });
     if (new Set(basket.map((item) => item.reference)).size !== basket.length) unavailable();
+    const paymentMethodId = outputUuid(selected.paymentMethodId);
+    const attemptId = outputUuid(selected.attemptId);
+    const bridgeId = outputUuid(selected.bridgeId);
+    if (
+      paymentMethodId !== expected.submission.paymentMethodId ||
+      attemptId !== expected.attemptId || bridgeId !== expected.attemptId
+    ) unavailable();
     return Object.freeze({
       storeId: outputUuid(selected.storeId),
-      paymentMethodId: outputUuid(selected.paymentMethodId),
+      paymentMethodId,
       profileId: outputUuid(selected.profileId),
       providerCode: selected.providerCode,
       orderReference: outputText(selected.orderReference, 1, 160),
@@ -283,8 +293,8 @@ function safeHostedAuthority(value: unknown): HostedCheckoutAuthority {
       currency: "TRY",
       customer: parsedCustomer,
       basket: Object.freeze(basket),
-      attemptId: outputUuid(selected.attemptId),
-      bridgeId: outputUuid(selected.bridgeId),
+      attemptId,
+      bridgeId,
       environment: selected.environment,
       reservationStatus: "held",
     });
@@ -740,6 +750,7 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
     return expose(async () => {
       const parsed = beginHostedCheckoutInput(input);
       const operationFingerprint = submissionFingerprint(parsed, "begin_hosted", parsed);
+      const parseAuthority = (value: unknown) => safeHostedAuthority(value, parsed);
       return await this.executeSubmission(
         {
           text: `SELECT outcome, result_payload FROM saas.storefront_checkout_begin_hosted(
@@ -763,7 +774,7 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
             parsed.now,
           ],
         },
-        safeHostedAuthority,
+        parseAuthority,
         new Set(["created", "operation_replayed"]),
         Object.freeze({
           hostname: parsed.hostname,

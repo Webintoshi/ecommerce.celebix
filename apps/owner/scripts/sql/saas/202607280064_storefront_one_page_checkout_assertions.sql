@@ -15,7 +15,7 @@ BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='c1dd4b6519a93a4f0fa4fa15eb67b892'
+      AND pg_catalog.md5(procedure.prosrc)='520a9fd3fc5090d08c44cbbd0cfda7cd'
   ) THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_FUNCTION_BODY_INVALID: preflight';
   END IF;
@@ -90,7 +90,8 @@ BEGIN
   IF EXISTS(
     SELECT 1 FROM (VALUES
       ('saas.storefront_checkout_discount_redemptions',4,4),
-      ('saas.storefront_checkout_payment_bridges',10,8)
+      ('saas.storefront_checkout_payment_bridges',12,9),
+      ('saas.storefront_checkout_reserved_identities',5,6)
     ) expected(relation_name,column_count,constraint_count)
     LEFT JOIN pg_catalog.pg_class relation
       ON relation.oid=expected.relation_name::pg_catalog.regclass
@@ -108,8 +109,16 @@ BEGIN
     SELECT 1 FROM pg_catalog.pg_policy
     WHERE polrelid IN(
       'saas.storefront_checkout_discount_redemptions'::regclass,
-      'saas.storefront_checkout_payment_bridges'::regclass
+      'saas.storefront_checkout_payment_bridges'::regclass,
+      'saas.storefront_checkout_reserved_identities'::regclass
     )
+  ) OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_index index_info
+    WHERE index_info.indexrelid='saas.sf_checkout_payment_bridges_active_cart_idx'::regclass
+      AND index_info.indrelid='saas.storefront_checkout_payment_bridges'::regclass
+      AND index_info.indisunique AND index_info.indisvalid AND index_info.indisready
+      AND pg_catalog.pg_get_indexdef(index_info.indexrelid)=
+        'CREATE UNIQUE INDEX sf_checkout_payment_bridges_active_cart_idx ON saas.storefront_checkout_payment_bridges USING btree (store_id, cart_id) WHERE (status = ''active''::text)'
   ) THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_SETTLEMENT_TABLE_INVALID'; END IF;
 
   IF NOT EXISTS(
@@ -124,6 +133,36 @@ BEGIN
       AND trigger_info.tgconstrrelid=0 AND NOT trigger_info.tgdeferrable
       AND NOT trigger_info.tginitdeferred
       AND trigger_info.tgoldtable IS NULL AND trigger_info.tgnewtable IS NULL
+  ) OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_trigger trigger_info
+    WHERE trigger_info.tgrelid='saas.storefront_checkout_reserved_identities'::regclass
+      AND trigger_info.tgname='storefront_checkout_reserved_identities_immutable'
+      AND trigger_info.tgfoid=
+        'saas.guard_storefront_checkout_operation_mutation()'::regprocedure
+      AND trigger_info.tgtype=27 AND trigger_info.tgenabled='O'
+      AND NOT trigger_info.tgisinternal AND trigger_info.tgnargs=0
+      AND trigger_info.tgqual IS NULL AND trigger_info.tgconstraint=0
+      AND trigger_info.tgconstrrelid=0 AND NOT trigger_info.tgdeferrable
+      AND NOT trigger_info.tginitdeferred
+      AND trigger_info.tgoldtable IS NULL AND trigger_info.tgnewtable IS NULL
+  ) OR EXISTS(
+    SELECT 1 FROM (VALUES
+      ('saas.orders','orders_storefront_checkout_reserved_identity'),
+      ('saas.order_items','order_items_storefront_checkout_reserved_identity'),
+      ('saas.order_events','order_events_storefront_checkout_reserved_identity')
+    ) expected(relation_name,trigger_name)
+    LEFT JOIN pg_catalog.pg_trigger trigger_info
+      ON trigger_info.tgrelid=expected.relation_name::regclass
+      AND trigger_info.tgname=expected.trigger_name
+      AND trigger_info.tgfoid=
+        'saas.guard_storefront_checkout_reserved_identity_insert()'::regprocedure
+      AND trigger_info.tgtype=23 AND trigger_info.tgenabled='O'
+      AND NOT trigger_info.tgisinternal AND trigger_info.tgnargs=0
+      AND trigger_info.tgqual IS NULL AND trigger_info.tgconstraint=0
+      AND trigger_info.tgconstrrelid=0 AND NOT trigger_info.tgdeferrable
+      AND NOT trigger_info.tginitdeferred
+      AND trigger_info.tgoldtable IS NULL AND trigger_info.tgnewtable IS NULL
+    WHERE trigger_info.oid IS NULL
   ) OR NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_trigger trigger_info
     WHERE trigger_info.tgrelid='saas.storefront_checkout_payment_bridges'::regclass
@@ -159,7 +198,8 @@ BEGIN
   FOR signature,expected_hash IN SELECT * FROM (VALUES
     ('saas.storefront_checkout_uuid(text,uuid,integer)','3ac502c4599ddcc05bfccfa119a90fc7'),
     ('saas.guard_storefront_checkout_payment_bridge_mutation()','393409bd2288bb92ed6fd2c0a1033565'),
-    ('saas.storefront_checkout_payment_attempt_terminal()','0f001a684da66c40395d7d4bf20b0f35')
+    ('saas.guard_storefront_checkout_reserved_identity_insert()','e64434b18c6fdd81f1af8a3f35cf9a76'),
+    ('saas.storefront_checkout_payment_attempt_terminal()','95e015479ddba278c01060ebd38a90df')
   ) expected(signature,expected_hash) LOOP
     procedure_oid:=signature::regprocedure;
     IF NOT EXISTS(
@@ -178,11 +218,11 @@ BEGIN
     ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1'),
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3'),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e'),
-    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)','757ceee2101dc776a3d64bdf723d26c9'),
+    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)','0c27eb3c9493523d7353ff6f94fa0c51'),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121'),
-    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','3c1f0c4ac10435bd53275d6891df7362'),
+    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','a094b754f97152d4a8177f0dd6d03bc0'),
     ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1'),
-    ('saas.storefront_checkout_preflight()','c1dd4b6519a93a4f0fa4fa15eb67b892')
+    ('saas.storefront_checkout_preflight()','520a9fd3fc5090d08c44cbbd0cfda7cd')
   ) expected(signature,expected_hash) LOOP
     procedure_oid:=signature::regprocedure;
     IF NOT EXISTS(

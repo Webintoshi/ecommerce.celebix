@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   accessSync,
   constants,
@@ -43,6 +44,14 @@ const METHOD_DENIAL_DB = "storefront_one_page_checkout_method_denial";
 const BUILTIN_RACE_DB = "storefront_one_page_checkout_builtin_race";
 const EMERGENCY_RACE_DB = "storefront_one_page_checkout_emergency_race";
 const DISCOUNT_USAGE_RACE_DB = "storefront_one_page_checkout_discount_usage_race";
+const HOSTED_SNAPSHOT_DB = "storefront_one_page_checkout_hosted_snapshot";
+const HOSTED_CONFIG_DB = "storefront_one_page_checkout_hosted_config";
+const HOSTED_RETRY_DB = "storefront_one_page_checkout_hosted_retry";
+const HOSTED_IDENTITY_DB = "storefront_one_page_checkout_hosted_identity";
+const HOSTED_PRECOLLISION_DB = "storefront_one_page_checkout_hosted_precollision";
+const HOSTED_AUTHORITY_RACE_DB = "storefront_one_page_checkout_hosted_authority_race";
+const DOWN_CALLBACK_RACE_DB = "storefront_one_page_checkout_down_callback_race";
+const QUICK_CHECKOUT_DOWN_RACE_DB = "storefront_one_page_checkout_quick_checkout_down_race";
 const prior = JSON.parse(readFileSync(path.join(
   SQL,
   "phase3q-quick-order-hosted-payment-bridge-manifest.json",
@@ -79,6 +88,7 @@ const HOSTED_ATTEMPT = "83000000-0000-4000-8000-000000000064";
 const HOSTED_ORDER = "84000000-0000-4000-8000-000000000064";
 const HOSTED_ORDER_ITEM = "85000000-0000-4000-8000-000000000064";
 const HOSTED_ORDER_EVENT = "86000000-0000-4000-8000-000000000064";
+const RETRY_ATTEMPT = "83000000-0000-4000-8000-000000000065";
 const NOW = "2026-07-28T15:00:00.000Z";
 const VALID_ADDRESS = Object.freeze({
   firstName: "Ada",
@@ -155,7 +165,15 @@ function sql(box, input, database = DB, allowFailure = false) {
 function apply(box, file, database = DB, allowFailure = false) {
   const target = path.join(SQL, file);
   if (!existsSync(target)) throw new Error(`missing required SQL artifact: ${file}`);
-  return sql(box, readFileSync(target, "utf8"), database, allowFailure);
+  return command(bin("psql"), [
+    "-h", box.socket,
+    "-p", String(box.port),
+    "-X", "-qAt",
+    "-v", "ON_ERROR_STOP=1",
+    "-U", "postgres",
+    "-d", database,
+    "-f", target,
+  ], "", allowFailure);
 }
 
 function call(box, statement, database = DB) {
@@ -303,6 +321,156 @@ async function exerciseEmergencyDisableRace(box, database, expectedVersion) {
   }
 }
 
+async function exerciseHostedAuthorityRace(box, database, expectedVersion) {
+  const connection = (applicationName) => new Client({
+    host: box.socket,
+    port: box.port,
+    user: "postgres",
+    database,
+    application_name: applicationName,
+  });
+  const blocker = connection("hosted-authority-blocker");
+  const checkout = connection("hosted-authority-race");
+  const monitor = connection("hosted-authority-monitor");
+  await Promise.all([blocker.connect(), checkout.connect(), monitor.connect()]);
+  try {
+    await blocker.query("BEGIN");
+    await blocker.query(`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+      'saas.payment.attempt.operation:${HOSTED_ATTEMPT}',0
+    ))`);
+    await checkout.query("BEGIN");
+    await checkout.query("SET LOCAL ROLE celebix_saas_workflow");
+    const beginPromise = checkout.query(beginHostedCall({ expectedVersion }));
+    const blocked = await waitForDatabaseCondition(monitor, {
+      text: `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity
+        WHERE application_name='hosted-authority-race' AND wait_event_type='Lock') AS matched`,
+    });
+    await blocker.query("COMMIT");
+    const result = await beginPromise;
+    await checkout.query("COMMIT");
+    return { blocked, row: result.rows[0] };
+  } finally {
+    await blocker.query("ROLLBACK").catch(() => undefined);
+    await checkout.query("ROLLBACK").catch(() => undefined);
+    await Promise.all([blocker.end(), checkout.end(), monitor.end()]);
+  }
+}
+
+async function exerciseConcurrentCallbackDown(box, database) {
+  const connection = (applicationName) => new Client({
+    host: box.socket,
+    port: box.port,
+    user: "postgres",
+    database,
+    application_name: applicationName,
+  });
+  const blocker = connection("checkout-callback-down-admission-blocker");
+  const rollback = connection("checkout-callback-down-migration");
+  const monitor = connection("checkout-callback-down-monitor");
+  await Promise.all([blocker.connect(), rollback.connect(), monitor.connect()]);
+  try {
+    await blocker.query("BEGIN");
+    await blocker.query(`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+      'saas.storefront.checkout.settlement-admission',0
+    ))`);
+    const callbackPromise = concurrentUpdate(
+      box,
+      database,
+      `SELECT outcome,result_payload FROM saas.payment_attempt_apply_hosted_callback(
+        'paytr_iframe',repeat('8',64),'88000000-0000-4000-8000-000000000064'::uuid,
+        repeat('a',64),repeat('b',64),2,1,'captured','provider-64',
+        'payment_captured',11500,'TRY','2026-07-28T15:02:00.000Z'::timestamptz
+      )`,
+      "checkout-callback-down-settlement",
+    ).then((outcome) => ({ ok: true, outcome, error: null }))
+      .catch((error) => ({ ok: false, outcome: null, error }));
+    const callbackBlocked = await waitForDatabaseCondition(monitor, {
+      text: `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity
+        WHERE application_name='checkout-callback-down-settlement'
+          AND wait_event_type='Lock') AS matched`,
+    });
+    const rollbackPromise = rollback.query(readFileSync(path.join(SQL, DOWN), "utf8"))
+      .then(() => ({ ok: true, error: null }))
+      .catch((error) => ({ ok: false, error }));
+    const rollbackBlocked = await waitForDatabaseCondition(monitor, {
+      text: `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity
+        WHERE application_name='checkout-callback-down-migration'
+          AND wait_event_type='Lock') AS matched`,
+    });
+    await blocker.query("COMMIT");
+    return {
+      rollbackBlocked,
+      callbackBlocked,
+      rollback: await rollbackPromise,
+      callback: await callbackPromise,
+    };
+  } finally {
+    await blocker.query("ROLLBACK").catch(() => undefined);
+    await Promise.all([blocker.end(), rollback.end(), monitor.end()]);
+  }
+}
+
+async function exerciseLegacyQuickCheckoutDown(box, database) {
+  const connection = (applicationName) => new Client({
+    host: box.socket,
+    port: box.port,
+    user: "postgres",
+    database,
+    application_name: applicationName,
+  });
+  const blocker = connection("quick-checkout-down-order-blocker");
+  const callback = connection("quick-checkout-down-callback");
+  const rollback = connection("quick-checkout-down-migration");
+  const monitor = connection("quick-checkout-down-monitor");
+  await Promise.all([blocker.connect(), callback.connect(), rollback.connect(), monitor.connect()]);
+  try {
+    await blocker.query("BEGIN");
+    await blocker.query("LOCK TABLE saas.orders IN ACCESS EXCLUSIVE MODE");
+    await callback.query("BEGIN");
+    await callback.query("SET LOCAL ROLE celebix_saas_owner");
+    const callbackPromise = callback.query(`SELECT outcome,result_payload
+      FROM saas.quick_checkout_settle_success_core(
+        '68000000-0000-4000-8000-000000000064',NULL,NULL,
+        '6b000000-0000-4000-8000-000000000064',
+        ARRAY['6c000000-0000-4000-8000-000000000064'::uuid],
+        '6d000000-0000-4000-8000-000000000064','QO-DOWN-RACE-64',
+        '2026-07-28T15:02:00.000Z'
+      )`).then(async (result) => {
+        await callback.query("COMMIT");
+        return { ok: true, outcome: result.rows[0]?.outcome, error: null };
+      }).catch(async (error) => {
+        await callback.query("ROLLBACK").catch(() => undefined);
+        return { ok: false, outcome: null, error };
+      });
+    const callbackBlocked = await waitForDatabaseCondition(monitor, {
+      text: `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity
+        WHERE application_name='quick-checkout-down-callback'
+          AND wait_event_type='Lock') AS matched`,
+    });
+    const rollbackPromise = rollback.query(readFileSync(path.join(SQL, DOWN), "utf8"))
+      .then(() => ({ ok: true, error: null }))
+      .catch((error) => ({ ok: false, error }));
+    const rollbackBlocked = await waitForDatabaseCondition(monitor, {
+      text: `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_locks
+        WHERE pid=(SELECT pid FROM pg_catalog.pg_stat_activity
+          WHERE application_name='quick-checkout-down-migration')
+          AND relation='saas.checkout_payment_attempts'::regclass
+          AND mode='AccessExclusiveLock' AND NOT granted) AS matched`,
+    });
+    await blocker.query("COMMIT");
+    return {
+      callbackBlocked,
+      rollbackBlocked,
+      callback: await callbackPromise,
+      rollback: await rollbackPromise,
+    };
+  } finally {
+    await blocker.query("ROLLBACK").catch(() => undefined);
+    await callback.query("ROLLBACK").catch(() => undefined);
+    await Promise.all([blocker.end(), callback.end(), rollback.end(), monitor.end()]);
+  }
+}
+
 function initializeHosted(box, database, attemptId = HOSTED_ATTEMPT, ordinal = "64") {
   return call(box, `SELECT outcome,result_payload FROM saas.payment_attempt_mark_initialized(
     '${attemptId}'::uuid,'87000000-0000-4000-8000-${ordinal.padStart(12, "0")}'::uuid,
@@ -311,13 +479,91 @@ function initializeHosted(box, database, attemptId = HOSTED_ATTEMPT, ordinal = "
   )`, database);
 }
 
-function settleHosted(box, database, status = "captured", attemptId = HOSTED_ATTEMPT, ordinal = "64") {
+function settleHosted(
+  box,
+  database,
+  status = "captured",
+  attemptId = HOSTED_ATTEMPT,
+  ordinal = "64",
+  callbackDigest = "8".repeat(64),
+  amountCents = 11500,
+  occurredAt = "2026-07-28T15:02:00.000Z",
+  eventKeyDigest = "b".repeat(64),
+) {
   return call(box, `SELECT outcome,result_payload FROM saas.payment_attempt_apply_hosted_callback(
-    'paytr_iframe',repeat('8',64),'88000000-0000-4000-8000-${ordinal.padStart(12, "0")}'::uuid,
-    repeat('a',64),repeat('b',64),2,1,'${status}','provider-${ordinal}',
-    '${status === "captured" ? "payment_captured" : "payment_failed"}',11500,'TRY',
-    '2026-07-28T15:02:00.000Z'::timestamptz
+    'paytr_iframe','${callbackDigest}','88000000-0000-4000-8000-${ordinal.padStart(12, "0")}'::uuid,
+    repeat('a',64),'${eventKeyDigest}',2,1,'${status}','provider-${ordinal}',
+    '${status === "captured" ? "payment_captured" : "payment_failed"}',${amountCents},'TRY',
+    '${occurredAt}'::timestamptz
   )`, database);
+}
+
+function checkoutUuid(kind, authorityId, ordinal = 0) {
+  const value = createHash("sha256")
+    .update(`saas.storefront-checkout.v1:${kind}:${authorityId}:${ordinal}`)
+    .digest("hex");
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-8${value.slice(13, 16)}-8${value.slice(17, 20)}-${value.slice(20, 32)}`;
+}
+
+function hostedOrderNumber(attemptId) {
+  return `SF-${createHash("sha256")
+    .update(`saas.storefront-checkout.hosted-order.v1:${attemptId}`)
+    .digest("hex").slice(0, 20).toUpperCase()}`;
+}
+
+function manualOrderInsert({
+  id,
+  orderNumber,
+  source = "manual_import",
+}) {
+  return `INSERT INTO saas.orders(
+    id,store_id,order_number,source,customer_name,customer_email,customer_phone,currency,
+    subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,
+    shipping_address,billing_address,version,created_at,updated_at
+  ) VALUES(
+    '${id}','${STORE_A}','${orderNumber}','${source}','Reserved Identity','reserved@example.test',
+    '+905550000000','TRY',10000,0,0,10000,'confirmed','pending',
+    '${JSON.stringify(VALID_ADDRESS)}'::jsonb,NULL,1,'${NOW}','${NOW}'
+  )`;
+}
+
+async function exerciseUnrelatedIdentityWriteConcurrency(box, database) {
+  const connection = (applicationName) => new Client({
+    host: box.socket,
+    port: box.port,
+    user: "postgres",
+    database,
+    application_name: applicationName,
+  });
+  const first = connection("checkout-identity-unrelated-a");
+  const second = connection("checkout-identity-unrelated-b");
+  await Promise.all([first.connect(), second.connect()]);
+  try {
+    await first.query("BEGIN");
+    await first.query("SET LOCAL ROLE celebix_saas_owner");
+    await first.query(manualOrderInsert({
+      id: "97000000-0000-4000-8000-000000000064",
+      orderNumber: "UNRELATED-IDENTITY-64-A",
+    }));
+    const secondWrite = await second.query(`BEGIN;
+      SET LOCAL ROLE celebix_saas_owner;
+      SET LOCAL lock_timeout='500ms';
+      ${manualOrderInsert({
+        id: "97000000-0000-4000-8000-000000000065",
+        orderNumber: "UNRELATED-IDENTITY-64-B",
+      })};
+      COMMIT;`).then(() => ({ ok: true, error: null }))
+      .catch(async (error) => {
+        await second.query("ROLLBACK").catch(() => undefined);
+        return { ok: false, error };
+      });
+    await first.query("COMMIT");
+    return secondWrite;
+  } finally {
+    await first.query("ROLLBACK").catch(() => undefined);
+    await second.query("ROLLBACK").catch(() => undefined);
+    await Promise.all([first.end(), second.end()]);
+  }
 }
 
 async function concurrentUpdate(box, database, statement, applicationName) {
@@ -554,6 +800,91 @@ function checkoutFixture(box, database = DB) {
     COMMIT;`, database);
 }
 
+function legacyQuickCheckoutFixture(box, database) {
+  const envelope = JSON.stringify({
+    algorithm: "A256GCM",
+    ciphertext: "AQ",
+    iv: "AAAAAAAAAAAAAAAA",
+    keyId: "key-1",
+    tag: "AAAAAAAAAAAAAAAAAAAAAA",
+    version: 1,
+  });
+  const legacyAddress = JSON.stringify({
+    recipientName: "Quick Buyer",
+    phone: "+905551112233",
+    line1: "Bagdat Caddesi 1",
+    district: "Kadikoy",
+    city: "Istanbul",
+    country: "TR",
+  });
+  sql(box, `SET ROLE celebix_saas_owner;
+    INSERT INTO saas.checkout_provider_configs(
+      id,store_id,provider_key,status,public_origin,configuration_key_id,
+      sealed_configuration,configuration_digest,version,created_at,updated_at
+    ) VALUES(
+      '65000000-0000-4000-8000-000000000064','${STORE_A}','paytr','active',
+      'https://www.paytr.com','key-1','${envelope}',repeat('d',64),1,
+      '2026-07-28T14:00:00.000Z','2026-07-28T14:00:00.000Z'
+    );
+    INSERT INTO saas.quick_order_links(
+      id,store_id,creating_membership_id,provider_config_id,status,token_digest,
+      token_key_id,sealed_token,customer_name,customer_email,customer_phone,
+      shipping_address,billing_address,internal_label,currency,subtotal_cents,
+      shipping_cents,discount_cents,total_cents,expires_at,version,created_at,updated_at
+    ) VALUES(
+      '66000000-0000-4000-8000-000000000064','${STORE_A}',
+      '30000000-0000-4000-8000-000000000061',
+      '65000000-0000-4000-8000-000000000064','active',repeat('6',64),'key-1',
+      '${envelope}','Quick Buyer','quick@example.test','+905551112233',
+      '${legacyAddress}','${legacyAddress}',
+      'down race','TRY',10000,0,0,10000,'2026-07-28T18:00:00.000Z',1,
+      '2026-07-28T14:00:00.000Z','2026-07-28T14:00:00.000Z'
+    );
+    INSERT INTO saas.quick_order_link_items(
+      id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,
+      variant_name,sku,unit_price_cents,quantity,line_total_cents,created_at
+    ) VALUES(
+      '6a000000-0000-4000-8000-000000000064','${STORE_A}',
+      '66000000-0000-4000-8000-000000000064','${PRODUCT}','${VARIANT}',0,
+      'Checkout Product','Standard','CHECKOUT-1',10000,1,10000,
+      '2026-07-28T14:00:00.000Z'
+    );
+    INSERT INTO saas.quick_order_redemption_sessions(
+      id,store_id,quick_order_link_id,cookie_digest,expires_at,version,created_at,updated_at
+    ) VALUES(
+      '67000000-0000-4000-8000-000000000064','${STORE_A}',
+      '66000000-0000-4000-8000-000000000064',repeat('7',64),
+      '2026-07-28T18:00:00.000Z',1,'2026-07-28T15:00:00.000Z',
+      '2026-07-28T15:00:00.000Z'
+    );
+    INSERT INTO saas.checkout_payment_attempts(
+      id,store_id,quick_order_link_id,redemption_session_id,provider_config_id,
+      provider_config_version,configuration_digest,configuration_key_id,
+      sealed_configuration,merchant_oid,expected_subtotal_cents,
+      expected_shipping_cents,expected_discount_cents,expected_payment_amount,currency,
+      status,provider_token_digest,provider_token_key_id,sealed_provider_token,
+      hold_expires_at,provider_ready_at,version,created_at,updated_at
+    ) VALUES(
+      '68000000-0000-4000-8000-000000000064','${STORE_A}',
+      '66000000-0000-4000-8000-000000000064',
+      '67000000-0000-4000-8000-000000000064',
+      '65000000-0000-4000-8000-000000000064',1,repeat('d',64),'key-1',
+      '${envelope}',repeat('8',32),10000,0,0,10000,'TRY','provider_ready',
+      repeat('9',64),'key-1','${envelope}','2026-07-28T15:05:00.000Z',
+      '2026-07-28T15:01:00.000Z',2,'2026-07-28T15:00:00.000Z',
+      '2026-07-28T15:01:00.000Z'
+    );
+    INSERT INTO saas.checkout_inventory_reservations(
+      id,store_id,attempt_id,quick_order_link_id,product_id,variant_id,quantity,
+      stock_tracked,status,held_at,version,updated_at
+    ) VALUES(
+      '69000000-0000-4000-8000-000000000064','${STORE_A}',
+      '68000000-0000-4000-8000-000000000064',
+      '66000000-0000-4000-8000-000000000064','${PRODUCT}','${VARIANT}',1,true,
+      'held','2026-07-28T15:00:00.000Z',1,'2026-07-28T15:00:00.000Z'
+    );`, database);
+}
+
 function maximumCartFixture(box, database) {
   sql(box, `BEGIN;
     SET LOCAL ROLE celebix_saas_owner;
@@ -682,6 +1013,14 @@ async function main() {
       BUILTIN_RACE_DB,
       EMERGENCY_RACE_DB,
       DISCOUNT_USAGE_RACE_DB,
+      HOSTED_SNAPSHOT_DB,
+      HOSTED_CONFIG_DB,
+      HOSTED_RETRY_DB,
+      HOSTED_IDENTITY_DB,
+      HOSTED_PRECOLLISION_DB,
+      HOSTED_AUTHORITY_RACE_DB,
+      DOWN_CALLBACK_RACE_DB,
+      QUICK_CHECKOUT_DOWN_RACE_DB,
     ]) {
       sql(box, `CREATE DATABASE ${database} TEMPLATE ${DB};`, "postgres");
     }
@@ -709,6 +1048,281 @@ async function main() {
     assert.equal(sql(box, `SELECT count(*)||'|'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}')
       FROM saas.orders WHERE storefront_cart_id='${CART_A}';`, BUILTIN_SETTLEMENT_DB).stdout.trim(), "1|4",
     "built-in operation replay must not duplicate or decrement again");
+
+    const snapshotVersion = prepareSubmittedCart(box, HOSTED_SNAPSHOT_DB);
+    assert.equal(call(box, beginHostedCall({ expectedVersion: snapshotVersion }), HOSTED_SNAPSHOT_DB).outcome,
+      "created");
+    assert.equal(initializeHosted(box, HOSTED_SNAPSHOT_DB).outcome, "awaiting_customer");
+    sql(box, `SET ROLE celebix_saas_owner;
+      UPDATE saas.abandoned_carts SET
+        customer_name='Post Begin Mutation',customer_email='mutated@example.test',
+        customer_phone='+905559999999',
+        shipping_address='{"firstName":"Mutated","lastName":"Buyer","line1":"Changed 9","district":"Besiktas","city":"Istanbul","countryCode":"TR","phone":"+905559999999"}'::jsonb,
+        subtotal_cents=20000,discount_cents=1000,total_cents=21500,updated_at='${NOW}'
+      WHERE id='${CART_A}';
+      DELETE FROM saas.abandoned_cart_items WHERE cart_id='${CART_A}';
+      INSERT INTO saas.abandoned_cart_items(
+        id,store_id,cart_id,product_id,variant_id,position,product_name,variant_name,sku,
+        image_url,unit_price_cents,quantity,discount_cents,line_total_cents,created_at
+      ) VALUES(
+        '76000000-0000-4000-8000-000000000099','${STORE_A}','${CART_A}','${PRODUCT}','${VARIANT}',
+        0,'Mutated item','Mutated variant','MUTATED',NULL,10000,2,0,20000,'${NOW}'
+      );`, HOSTED_SNAPSHOT_DB);
+    assert.equal(call(box, `SELECT outcome,result_payload FROM saas.abandoned_carts_mark_stale(
+      '2026-07-28T15:10:00Z','2026-07-28T15:00:00Z'
+    )`, HOSTED_SNAPSHOT_DB).outcome, "committed");
+    assert.equal(settleHosted(
+      box, HOSTED_SNAPSHOT_DB, "captured", HOSTED_ATTEMPT, "64", "8".repeat(64),
+      11500, "2026-07-28T15:12:00.000Z",
+    ).outcome, "captured",
+      "capture must settle the immutable begin-time cart snapshot after cart/item/stale mutations");
+    assert.equal(sql(box, `SELECT order_row.customer_name||'|'||order_row.customer_email||'|'||
+        order_row.customer_phone||'|'||order_row.total_cents||'|'||
+        pg_catalog.jsonb_extract_path_text(order_row.shipping_address::jsonb,'firstName')||'|'||
+        item.product_name||'|'||
+        item.quantity||'|'||item.unit_price_cents||'|'||cart.status||'|'||variant.stock_quantity
+      FROM saas.orders order_row
+      JOIN saas.order_items item ON item.order_id=order_row.id
+      JOIN saas.abandoned_carts cart ON cart.id=order_row.storefront_cart_id
+      JOIN saas.product_variants variant ON variant.id=item.variant_id
+      WHERE order_row.storefront_cart_id='${CART_A}';`, HOSTED_SNAPSHOT_DB).stdout.trim(),
+    "Ada Yilmaz|ada@example.test|+905551112233|11500|Ada|Checkout Product|1|10000|archived|4",
+    "captured order facts must come only from begin-authorized state");
+
+    sql(box, `SET ROLE celebix_saas_owner;
+      UPDATE saas.merchant_admin_records SET
+        config=config||'{"usageLimit":2}'::jsonb,version=version+1,updated_at='${NOW}'
+      WHERE id='${DISCOUNT}';
+      INSERT INTO saas.merchant_admin_events(
+        id,store_id,record_id,record_kind,event_kind,summary,occurred_at
+      ) VALUES(
+        '79000000-0000-4000-8000-000000000097','${STORE_A}','${DISCOUNT}',
+        'discount','coupon_used','{}','${NOW}'
+      );`, HOSTED_CONFIG_DB);
+    const configVersion = prepareSubmittedCart(box, HOSTED_CONFIG_DB);
+    assert.equal(call(box, beginHostedCall({ expectedVersion: configVersion }), HOSTED_CONFIG_DB).outcome,
+      "created");
+    addSecondCheckoutCart(box, HOSTED_CONFIG_DB);
+    const reservedIssued = call(box, `SELECT outcome,result_payload FROM saas.storefront_checkout_issue_nonce(
+      '${HOST_A}','${CART_B_DIGEST}',repeat('1',64),'${NOW}'::timestamptz
+    )`, HOSTED_CONFIG_DB);
+    assert.equal(reservedIssued.outcome, "issued");
+    assert.equal(call(box, updateCall({
+      expectedVersion: reservedIssued.payload.cartVersion,
+      operationId: "81000000-0000-4000-8000-000000000097",
+      fingerprint: "9".repeat(64),
+      currentNonce: "1".repeat(64),
+      nextNonce: "2".repeat(64),
+      discountCode: "YAZ10",
+      credentialDigest: CART_B_DIGEST,
+    }), HOSTED_CONFIG_DB).outcome, "discount_invalid",
+    "an active hosted bridge must reserve the remaining coupon usage slot");
+    assert.equal(initializeHosted(box, HOSTED_CONFIG_DB).outcome, "awaiting_customer");
+    sql(box, `SET ROLE celebix_saas_owner;
+      UPDATE saas.merchant_admin_records SET
+        status='draft',config=config||'{"usageLimit":1}'::jsonb,
+        version=version+1,updated_at='2026-07-28T15:01:30Z'
+      WHERE id='${DISCOUNT}';`, HOSTED_CONFIG_DB);
+    assert.equal(settleHosted(box, HOSTED_CONFIG_DB).outcome, "captured",
+      "capture must consume begin-committed discount authority after disable/tightening");
+    assert.equal(sql(box, `SELECT count(*) FROM saas.storefront_checkout_discount_redemptions
+      WHERE discount_record_id='${DISCOUNT}';`, HOSTED_CONFIG_DB).stdout.trim(), "1");
+
+    const retryVersion = prepareSubmittedCart(box, HOSTED_RETRY_DB, null);
+    assert.equal(call(box, beginHostedCall({ expectedVersion: retryVersion }), HOSTED_RETRY_DB).outcome,
+      "created");
+      const activeStatus = call(box, `SELECT outcome,result_payload FROM saas.storefront_checkout_get_status(
+        '${HOST_A}','${CART_A_DIGEST}','${NOW}'
+      )`, HOSTED_RETRY_DB);
+      assert.deepEqual(activeStatus.payload, {
+        kind: "processing",
+        orderNumber: hostedOrderNumber(HOSTED_ATTEMPT),
+      },
+        "an active hosted bridge must report processing without provider authority");
+    assert.equal(initializeHosted(box, HOSTED_RETRY_DB).outcome, "awaiting_customer");
+    assert.equal(settleHosted(
+      box, HOSTED_RETRY_DB, "failed", HOSTED_ATTEMPT, "64", "8".repeat(64), 12500,
+    ).outcome, "failed");
+    assert.deepEqual(call(box, `SELECT outcome,result_payload FROM saas.storefront_checkout_get_status(
+      '${HOST_A}','${CART_A_DIGEST}','${NOW}'
+    )`, HOSTED_RETRY_DB).payload, { kind: "ready" },
+    "a terminal non-capture bridge must return the cart to ready");
+    const retryNonce = "3".repeat(64);
+    const retriedQuote = call(box, `SELECT outcome,result_payload FROM saas.storefront_checkout_issue_nonce(
+      '${HOST_A}','${CART_A_DIGEST}','${retryNonce}','${NOW}'
+    )`, HOSTED_RETRY_DB);
+    assert.equal(retriedQuote.outcome, "issued");
+    assert.equal(call(box, beginHostedCall({
+      expectedVersion: retriedQuote.payload.cartVersion,
+      operationId: "82000000-0000-4000-8000-000000000098",
+      fingerprint: "4".repeat(64),
+      nonce: retryNonce,
+      attemptId: RETRY_ATTEMPT,
+      callbackDigest: "4".repeat(64),
+      orderId: "84000000-0000-4000-8000-000000000065",
+      orderItemIds: ["85000000-0000-4000-8000-000000000065"],
+      orderEventId: "86000000-0000-4000-8000-000000000065",
+      orderNumber: "SF-2026-000065",
+    }), HOSTED_RETRY_DB).outcome, "created",
+    "a failed hosted attempt must permit one new active bridge while preserving history");
+    assert.equal(initializeHosted(box, HOSTED_RETRY_DB, RETRY_ATTEMPT, "65").outcome,
+      "awaiting_customer");
+    assert.equal(settleHosted(
+      box, HOSTED_RETRY_DB, "captured", RETRY_ATTEMPT, "65", "4".repeat(64),
+      12500, "2026-07-28T15:02:00.000Z", "c".repeat(64),
+    ).outcome, "captured");
+    assert.equal(settleHosted(
+      box, HOSTED_RETRY_DB, "failed", HOSTED_ATTEMPT, "64", "8".repeat(64), 12500,
+    ).outcome, "operation_replayed",
+      "an old terminal callback replay must remain bound to its historical bridge");
+    assert.equal(sql(box, `SELECT count(*)||'|'||
+        (SELECT count(*) FROM saas.storefront_checkout_payment_bridges WHERE cart_id='${CART_A}')||'|'||
+        (SELECT count(*) FROM saas.storefront_checkout_payment_bridges
+          WHERE cart_id='${CART_A}' AND status='active')
+      FROM saas.orders WHERE storefront_cart_id='${CART_A}';`, HOSTED_RETRY_DB).stdout.trim(),
+    "1|2|0");
+    assert.equal(call(box, `SELECT outcome,result_payload FROM saas.storefront_checkout_get_status(
+      '${HOST_A}','${CART_A_DIGEST}','${NOW}'
+    )`, HOSTED_RETRY_DB).payload.kind, "paid");
+
+      const reservedOrderId = checkoutUuid("hosted-order", HOSTED_ATTEMPT);
+      const reservedItemId = checkoutUuid("hosted-order-item", HOSTED_ATTEMPT, 1);
+      const reservedEventId = checkoutUuid("hosted-order-event", HOSTED_ATTEMPT);
+      const reservedOrderNumber = hostedOrderNumber(HOSTED_ATTEMPT);
+      const targetOrderId = "94000000-0000-4000-8000-000000000064";
+      const targetItemId = "95000000-0000-4000-8000-000000000064";
+      const targetEventId = "96000000-0000-4000-8000-000000000064";
+      sql(box, `SET ROLE celebix_saas_owner;
+        ${manualOrderInsert({ id: targetOrderId, orderNumber: "MANUAL-TARGET-64" })};
+        INSERT INTO saas.order_items(
+          id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,
+          unit_price_cents,quantity,discount_cents,line_total_cents,created_at
+        ) VALUES(
+          '${targetItemId}','${STORE_A}','${targetOrderId}','${PRODUCT}','${VARIANT}',0,
+          'Target item','Target variant','TARGET',10000,1,0,10000,'${NOW}'
+        );
+        INSERT INTO saas.order_events(
+          id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at
+        ) VALUES(
+          '${targetEventId}','${STORE_A}','${targetOrderId}',NULL,'note_added',NULL,NULL,
+          'Target event','{}','${NOW}'
+        );`, HOSTED_IDENTITY_DB);
+      const identityVersion = prepareSubmittedCart(box, HOSTED_IDENTITY_DB);
+      assert.equal(call(box, beginHostedCall({ expectedVersion: identityVersion }), HOSTED_IDENTITY_DB).outcome,
+        "created");
+      assert.equal(sql(box, `SELECT order_id||'|'||order_item_ids[1]||'|'||order_event_id||'|'||order_number
+        FROM saas.storefront_checkout_payment_bridges WHERE attempt_id='${HOSTED_ATTEMPT}';`,
+      HOSTED_IDENTITY_DB).stdout.trim(),
+      `${reservedOrderId}|${reservedItemId}|${reservedEventId}|${reservedOrderNumber}`,
+      "future settlement identities must be derived by the database from the attempt authority");
+      const unrelatedIdentityWrites = await exerciseUnrelatedIdentityWriteConcurrency(
+        box, HOSTED_IDENTITY_DB,
+      );
+      assert.equal(unrelatedIdentityWrites.ok, true,
+        unrelatedIdentityWrites.error?.message ??
+          "unrelated order identities must not serialize on one global settlement lock");
+      const identityWrites = [
+        `UPDATE saas.orders SET id='${reservedOrderId}' WHERE id='${targetOrderId}';`,
+        `UPDATE saas.orders SET order_number='${reservedOrderNumber}' WHERE id='${targetOrderId}';`,
+        `UPDATE saas.order_items SET id='${reservedItemId}' WHERE id='${targetItemId}';`,
+        `UPDATE saas.order_events SET id='${reservedEventId}' WHERE id='${targetEventId}';`,
+        `${manualOrderInsert({ id: reservedOrderId, orderNumber: "MANUAL-RESERVED-ID" })};`,
+        `${manualOrderInsert({
+          id: "94000000-0000-4000-8000-000000000065",
+          orderNumber: reservedOrderNumber,
+        })};`,
+        `INSERT INTO saas.order_items(
+          id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,
+          unit_price_cents,quantity,discount_cents,line_total_cents,created_at
+        ) VALUES(
+          '${reservedItemId}','${STORE_A}','${targetOrderId}','${PRODUCT}','${VARIANT}',0,
+          'Reserved item','Reserved variant','RESERVED',10000,1,0,10000,'${NOW}'
+        );`,
+        `INSERT INTO saas.order_events(
+          id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at
+        ) VALUES(
+          '${reservedEventId}','${STORE_A}','${targetOrderId}',NULL,'note_added',NULL,NULL,
+          'Reserved event','{}','${NOW}'
+        );`,
+      ];
+      for (const statement of identityWrites) {
+        const denied = sql(box, `SET ROLE celebix_saas_owner; ${statement}`, HOSTED_IDENTITY_DB, true);
+        assert.notEqual(denied.status, 0,
+          "ordinary owner writes must not steal a hosted settlement identity before capture");
+        assert.match(
+          denied.stderr,
+          /STOREFRONT_CHECKOUT_RESERVED_IDENTITY|ORDER_EVENT_IMMUTABLE/,
+        );
+      }
+      assert.equal(initializeHosted(box, HOSTED_IDENTITY_DB).outcome, "awaiting_customer");
+      assert.equal(settleHosted(box, HOSTED_IDENTITY_DB).outcome, "captured");
+
+      const collisionId = checkoutUuid("hosted-order", HOSTED_ATTEMPT);
+      const collisionNumber = hostedOrderNumber(HOSTED_ATTEMPT);
+      sql(box, `SET ROLE celebix_saas_owner;
+        ${manualOrderInsert({ id: collisionId, orderNumber: collisionNumber })};`, HOSTED_PRECOLLISION_DB);
+      const collisionVersion = prepareSubmittedCart(box, HOSTED_PRECOLLISION_DB);
+      assert.equal(call(box, beginHostedCall({ expectedVersion: collisionVersion }),
+        HOSTED_PRECOLLISION_DB).outcome, "invalid_input",
+      "a pre-existing deterministic settlement identity must fail before creating an attempt");
+      assert.equal(sql(box, `SELECT
+        (SELECT count(*) FROM saas.payment_attempts WHERE id='${HOSTED_ATTEMPT}')||'|'||
+        (SELECT count(*) FROM saas.storefront_checkout_payment_bridges
+          WHERE attempt_id='${HOSTED_ATTEMPT}');`, HOSTED_PRECOLLISION_DB).stdout.trim(), "0|0");
+
+      const authorityVersion = prepareSubmittedCart(box, HOSTED_AUTHORITY_RACE_DB);
+      const authorityRace = await exerciseHostedAuthorityRace(
+        box, HOSTED_AUTHORITY_RACE_DB, authorityVersion,
+      );
+      assert.equal(authorityRace.blocked, true,
+        "test must pause hosted checkout inside generic payment-attempt admission");
+      assert.equal(authorityRace.row?.outcome, "created");
+      const attemptEnvironment = sql(box, `SELECT environment FROM saas.payment_attempts
+        WHERE id='${HOSTED_ATTEMPT}';`, HOSTED_AUTHORITY_RACE_DB).stdout.trim();
+      assert.equal(authorityRace.row?.result_payload?.environment, attemptEnvironment,
+        "returned hosted authority must be projected from the committed attempt row");
+
+      const downRaceVersion = prepareSubmittedCart(box, DOWN_CALLBACK_RACE_DB);
+      assert.equal(call(box, beginHostedCall({ expectedVersion: downRaceVersion }),
+        DOWN_CALLBACK_RACE_DB).outcome, "created");
+      assert.equal(initializeHosted(box, DOWN_CALLBACK_RACE_DB).outcome, "awaiting_customer");
+      const downCallbackRace = await exerciseConcurrentCallbackDown(box, DOWN_CALLBACK_RACE_DB);
+      assert.equal(downCallbackRace.rollbackBlocked, true,
+        "test must pause down after settlement admission and cart locking");
+      assert.equal(downCallbackRace.callbackBlocked, true,
+        "concurrent settlement must wait behind down admission without taking bridge/cart locks");
+      assert.equal(downCallbackRace.rollback.ok, false);
+      assert.match(downCallbackRace.rollback.error?.message ?? "", /STOREFRONT_CHECKOUT_DOWN_GUARD/);
+      assert.equal(downCallbackRace.callback.ok, true,
+        downCallbackRace.callback.error?.message ?? "captured callback must survive refused down");
+      assert.equal(downCallbackRace.callback.outcome, "captured");
+      assert.equal(sql(box, `SELECT count(*) FROM saas.orders
+        WHERE storefront_cart_id='${CART_A}' AND payment_status='completed';`,
+      DOWN_CALLBACK_RACE_DB).stdout.trim(), "1");
+
+      legacyQuickCheckoutFixture(box, QUICK_CHECKOUT_DOWN_RACE_DB);
+      const quickCheckoutDownRace = await exerciseLegacyQuickCheckoutDown(
+        box, QUICK_CHECKOUT_DOWN_RACE_DB,
+      );
+      assert.equal(quickCheckoutDownRace.callbackBlocked, true,
+        "legacy quick-checkout settlement must hold its attempt/reservation authority before order insertion");
+      assert.equal(quickCheckoutDownRace.rollbackBlocked, true,
+        "down must drain checkout_payment_attempts before taking shared order/reservation locks");
+      assert.equal(quickCheckoutDownRace.callback.ok, true,
+        quickCheckoutDownRace.callback.error?.message ??
+          "legacy quick-checkout settlement must survive concurrent refused down");
+      assert.equal(quickCheckoutDownRace.callback.outcome, "settled");
+      assert.equal(quickCheckoutDownRace.rollback.ok, false);
+      assert.match(quickCheckoutDownRace.rollback.error?.message ?? "", /STOREFRONT_CHECKOUT_DOWN_GUARD/);
+      assert.equal(sql(box, `SELECT attempt.status||'|'||reservation.status||'|'||
+          link.status||'|'||(SELECT count(*) FROM saas.orders
+            WHERE quick_order_link_id=link.id)
+        FROM saas.checkout_payment_attempts attempt
+        JOIN saas.checkout_inventory_reservations reservation
+          ON reservation.attempt_id=attempt.id
+        JOIN saas.quick_order_links link ON link.id=attempt.quick_order_link_id
+        WHERE attempt.id='68000000-0000-4000-8000-000000000064';`,
+      QUICK_CHECKOUT_DOWN_RACE_DB).stdout.trim(), "succeeded|consumed|paid|1");
 
     const hostedVersion = prepareSubmittedCart(box, HOSTED_SETTLEMENT_DB);
     const hosted = call(box, beginHostedCall({ expectedVersion: hostedVersion }), HOSTED_SETTLEMENT_DB);

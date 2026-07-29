@@ -502,6 +502,24 @@ test("beginHosted binds exact generated identities and returns credential-free p
   assert.equal(JSON.stringify(result).includes("sealed"), false);
 });
 
+test("beginHosted rejects authority identities that differ from the submitted attempt and method", async () => {
+  for (const corrupt of [
+    { attemptId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab" },
+    { bridgeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac" },
+    { paymentMethodId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad" },
+  ]) {
+    const client = new FakeClient((text) => (
+      text.includes("saas.storefront_checkout_begin_hosted")
+        ? [selected("created", { ...hostedAuthorityPayload(), ...corrupt })]
+        : []
+    ));
+    await assert.rejects(
+      repository(new FakePool([client])).beginHosted(hostedInput()),
+      errorCode("unavailable"),
+    );
+  }
+});
+
 test("built-in unknown COMMIT performs one read-only recovery without repeating the write", async () => {
   const payload = { kind: "placed", orderNumber: "SF-2026-000001", statusPath: "/checkout/status" };
   const writer = new FakeClient((text) => {

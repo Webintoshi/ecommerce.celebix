@@ -9,6 +9,7 @@ BEGIN
   IF pg_catalog.to_regclass('saas.storefront_checkout_operations') IS NULL
     OR pg_catalog.to_regclass('saas.storefront_checkout_discount_redemptions') IS NULL
     OR pg_catalog.to_regclass('saas.storefront_checkout_payment_bridges') IS NULL
+    OR pg_catalog.to_regclass('saas.storefront_checkout_reserved_identities') IS NULL
     OR pg_catalog.to_regprocedure('saas.storefront_checkout_preflight()') IS NULL
     OR pg_catalog.to_regprocedure(
       'saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)'
@@ -23,25 +24,46 @@ BEGIN
 END
 $f$;
 
--- Match checkout's cart-first mutation order and take every write-excluding
--- relation lock before evaluating any durable-state rollback guard.
+-- Block new hosted begins and terminal callbacks before taking relation locks.
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+  'saas.storefront.checkout.settlement-admission',0
+));
+
+-- A storefront callback can own its payment-attempt row before it waits on the
+-- admission barrier. Refuse while its durable bridge is still visible, then the
+-- payment-attempt table lock safely drains pre-064 quick-order callbacks before
+-- any reservation/order relation is locked.
+DO $f$
+BEGIN
+  IF EXISTS(SELECT 1 FROM saas.storefront_checkout_payment_bridges) THEN
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_GUARD: durable checkout state exists';
+  END IF;
+END
+$f$;
+
+LOCK TABLE saas.payment_attempts IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.checkout_payment_attempts IN ACCESS EXCLUSIVE MODE;
+
+-- Lock order targets before the reserved-identity table, matching the order in
+-- which ordinary DML enters the reservation guard. Payment callbacks and
+-- storefront hosted begins have already been drained above.
 LOCK TABLE saas.abandoned_carts IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.merchant_admin_records IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.storefront_checkout_operations IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.storefront_checkout_discount_redemptions IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.storefront_checkout_payment_bridges IN ACCESS EXCLUSIVE MODE;
-LOCK TABLE saas.checkout_inventory_reservations IN ACCESS EXCLUSIVE MODE;
-LOCK TABLE saas.payment_attempts IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.orders IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.order_items IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.order_events IN ACCESS EXCLUSIVE MODE;
-LOCK TABLE saas.orders IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.storefront_checkout_reserved_identities IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.checkout_inventory_reservations IN ACCESS EXCLUSIVE MODE;
 
 DO $f$
 BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='c1dd4b6519a93a4f0fa4fa15eb67b892'
+      AND pg_catalog.md5(procedure.prosrc)='520a9fd3fc5090d08c44cbbd0cfda7cd'
   ) OR saas.storefront_checkout_preflight() IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID';
   END IF;
@@ -65,6 +87,7 @@ BEGIN
   ) OR EXISTS(SELECT 1 FROM saas.storefront_checkout_operations)
     OR EXISTS(SELECT 1 FROM saas.storefront_checkout_discount_redemptions)
     OR EXISTS(SELECT 1 FROM saas.storefront_checkout_payment_bridges)
+    OR EXISTS(SELECT 1 FROM saas.storefront_checkout_reserved_identities)
     OR EXISTS(
       SELECT 1 FROM saas.checkout_inventory_reservations
       WHERE payment_attempt_id IS NOT NULL AND quick_order_link_id IS NULL
@@ -103,11 +126,18 @@ DROP FUNCTION saas.storefront_checkout_hostname_valid(text);
 
 DROP TRIGGER payment_attempt_storefront_checkout_terminal ON saas.payment_attempts;
 DROP FUNCTION saas.storefront_checkout_payment_attempt_terminal();
+DROP TRIGGER orders_storefront_checkout_reserved_identity ON saas.orders;
+DROP TRIGGER order_items_storefront_checkout_reserved_identity ON saas.order_items;
+DROP TRIGGER order_events_storefront_checkout_reserved_identity ON saas.order_events;
+DROP FUNCTION saas.guard_storefront_checkout_reserved_identity_insert();
+DROP TRIGGER storefront_checkout_reserved_identities_immutable
+  ON saas.storefront_checkout_reserved_identities;
 DROP TRIGGER storefront_checkout_payment_bridges_immutable
   ON saas.storefront_checkout_payment_bridges;
 DROP FUNCTION saas.guard_storefront_checkout_payment_bridge_mutation();
 DROP TRIGGER storefront_checkout_discount_redemptions_immutable
   ON saas.storefront_checkout_discount_redemptions;
+DROP TABLE saas.storefront_checkout_reserved_identities;
 DROP TABLE saas.storefront_checkout_payment_bridges;
 DROP TABLE saas.storefront_checkout_discount_redemptions;
 

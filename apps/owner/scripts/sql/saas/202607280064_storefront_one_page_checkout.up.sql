@@ -40,6 +40,7 @@ BEGIN
     ) IS NOT NULL
     OR pg_catalog.to_regclass('saas.storefront_checkout_discount_redemptions') IS NOT NULL
     OR pg_catalog.to_regclass('saas.storefront_checkout_payment_bridges') IS NOT NULL
+    OR pg_catalog.to_regclass('saas.storefront_checkout_reserved_identities') IS NOT NULL
   THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_SOURCE_ALREADY_APPLIED'; END IF;
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_constraint
@@ -84,14 +85,18 @@ CREATE TABLE saas.storefront_checkout_payment_bridges(
   order_item_ids uuid[] NOT NULL,
   order_event_id uuid NOT NULL,
   order_number text NOT NULL,
+  discount_record_id uuid,
+  settlement_snapshot jsonb NOT NULL,
   status text NOT NULL,
   created_at timestamptz NOT NULL,
   settled_at timestamptz,
   CONSTRAINT sf_checkout_payment_bridges_attempt_fk
     FOREIGN KEY(attempt_id) REFERENCES saas.payment_attempts(id) ON DELETE RESTRICT,
-  CONSTRAINT sf_checkout_payment_bridges_cart_key UNIQUE(store_id,cart_id),
   CONSTRAINT sf_checkout_payment_bridges_cart_fk
     FOREIGN KEY(store_id,cart_id) REFERENCES saas.abandoned_carts(store_id,id) ON DELETE RESTRICT,
+  CONSTRAINT sf_checkout_payment_bridges_discount_fk
+    FOREIGN KEY(store_id,discount_record_id)
+    REFERENCES saas.merchant_admin_records(store_id,id) ON DELETE RESTRICT,
   CONSTRAINT sf_checkout_payment_bridges_status_check
     CHECK(status IN('active','captured','failed','cancelled','expired')),
   CONSTRAINT sf_checkout_payment_bridges_items_check CHECK(
@@ -104,6 +109,14 @@ CREATE TABLE saas.storefront_checkout_payment_bridges(
     order_number=pg_catalog.btrim(order_number)
     AND pg_catalog.char_length(order_number) BETWEEN 1 AND 128
     AND order_number!~'[[:cntrl:]]'),
+  CONSTRAINT sf_checkout_payment_bridges_snapshot_check CHECK(
+    pg_catalog.jsonb_typeof(settlement_snapshot)='object'
+    AND settlement_snapshot?&ARRAY['customer','money','items']
+    AND pg_catalog.jsonb_typeof(settlement_snapshot->'customer')='object'
+    AND pg_catalog.jsonb_typeof(settlement_snapshot->'money')='object'
+    AND pg_catalog.jsonb_typeof(settlement_snapshot->'items')='array'
+    AND pg_catalog.jsonb_array_length(settlement_snapshot->'items') BETWEEN 1 AND 100
+    AND pg_catalog.pg_column_size(settlement_snapshot)<=1048576),
   CONSTRAINT sf_checkout_payment_bridges_time_check CHECK(
     pg_catalog.isfinite(created_at)
     AND (settled_at IS NULL OR pg_catalog.isfinite(settled_at))
@@ -111,12 +124,44 @@ CREATE TABLE saas.storefront_checkout_payment_bridges(
       OR (status<>'active' AND settled_at IS NOT NULL)))
 );
 
+CREATE UNIQUE INDEX sf_checkout_payment_bridges_active_cart_idx
+  ON saas.storefront_checkout_payment_bridges(store_id,cart_id)
+  WHERE status='active';
+
+CREATE TABLE saas.storefront_checkout_reserved_identities(
+  identity_kind text NOT NULL,
+  identity_value text NOT NULL,
+  attempt_id uuid NOT NULL,
+  ordinal integer NOT NULL,
+  created_at timestamptz NOT NULL,
+  PRIMARY KEY(identity_kind,identity_value),
+  UNIQUE(attempt_id,identity_kind,ordinal),
+  CONSTRAINT sf_checkout_reserved_identities_attempt_fk
+    FOREIGN KEY(attempt_id)
+    REFERENCES saas.storefront_checkout_payment_bridges(attempt_id) ON DELETE RESTRICT,
+  CONSTRAINT sf_checkout_reserved_identities_value_check CHECK(
+    (identity_kind IN('order_id','order_item_id','order_event_id')
+      AND identity_value~'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$')
+    OR (identity_kind='order_number'
+      AND identity_value~'^SF-[A-F0-9]{20}$')
+  ),
+  CONSTRAINT sf_checkout_reserved_identities_ordinal_check CHECK(
+    (identity_kind='order_item_id' AND ordinal BETWEEN 1 AND 100)
+    OR (identity_kind<>'order_item_id' AND ordinal=0)
+  ),
+  CONSTRAINT sf_checkout_reserved_identities_created_check
+    CHECK(pg_catalog.isfinite(created_at))
+);
+
 ALTER TABLE saas.storefront_checkout_discount_redemptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.storefront_checkout_discount_redemptions FORCE ROW LEVEL SECURITY;
 ALTER TABLE saas.storefront_checkout_payment_bridges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.storefront_checkout_payment_bridges FORCE ROW LEVEL SECURITY;
+ALTER TABLE saas.storefront_checkout_reserved_identities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.storefront_checkout_reserved_identities FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON saas.storefront_checkout_discount_redemptions,
-  saas.storefront_checkout_payment_bridges
+  saas.storefront_checkout_payment_bridges,
+  saas.storefront_checkout_reserved_identities
 FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
   celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
   celebix_saas_migrator;
@@ -133,6 +178,7 @@ DECLARE
   selected_store_id uuid;
   selected_method_id uuid;
   selected_order record;
+  selected_bridge record;
   selected_method record;
   public_method jsonb;
 BEGIN
@@ -149,6 +195,16 @@ BEGIN
   ORDER BY cart.last_activity_at DESC,cart.id DESC LIMIT 1;
   IF selected_cart_id IS NULL THEN
     RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN;
+  END IF;
+  SELECT bridge.order_number INTO selected_bridge
+  FROM saas.storefront_checkout_payment_bridges bridge
+  WHERE bridge.store_id=selected_store_id AND bridge.cart_id=selected_cart_id
+    AND bridge.status='active'
+  ORDER BY bridge.created_at DESC,bridge.attempt_id DESC LIMIT 1;
+  IF selected_bridge.order_number IS NOT NULL THEN
+    RETURN QUERY SELECT 'found',pg_catalog.jsonb_build_object(
+      'kind','processing','orderNumber',selected_bridge.order_number
+    ); RETURN;
   END IF;
   SELECT orders.order_number,orders.status,orders.payment_status
   INTO selected_order
@@ -855,6 +911,141 @@ CREATE TRIGGER storefront_checkout_payment_bridges_immutable
 BEFORE UPDATE OR DELETE ON saas.storefront_checkout_payment_bridges
 FOR EACH ROW EXECUTE FUNCTION saas.guard_storefront_checkout_payment_bridge_mutation();
 
+CREATE TRIGGER storefront_checkout_reserved_identities_immutable
+BEFORE UPDATE OR DELETE ON saas.storefront_checkout_reserved_identities
+FOR EACH ROW EXECUTE FUNCTION saas.guard_storefront_checkout_operation_mutation();
+
+CREATE FUNCTION saas.guard_storefront_checkout_reserved_identity_insert()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $f$
+DECLARE
+  selected_attempt_id uuid;
+  settlement_attempt_text text;
+  settlement_attempt_id uuid;
+  settlement_allowed boolean:=false;
+  identity_lock_keys text[];
+  identity_lock_key text;
+BEGIN
+  IF TG_TABLE_NAME='orders' THEN
+    IF TG_OP='UPDATE' AND NEW.id=OLD.id AND NEW.order_number=OLD.order_number THEN
+      RETURN NEW;
+    END IF;
+    identity_lock_keys:=ARRAY[
+      'order_id:'||NEW.id::text,
+      'order_number:'||NEW.order_number
+    ];
+    IF TG_OP='UPDATE' THEN
+      identity_lock_keys:=identity_lock_keys||ARRAY[
+        'order_id:'||OLD.id::text,
+        'order_number:'||OLD.order_number
+      ];
+    END IF;
+  ELSIF TG_TABLE_NAME='order_items' THEN
+    IF TG_OP='UPDATE' AND NEW.id=OLD.id THEN RETURN NEW; END IF;
+    identity_lock_keys:=ARRAY['order_item_id:'||NEW.id::text];
+    IF TG_OP='UPDATE' THEN
+      identity_lock_keys:=identity_lock_keys||ARRAY['order_item_id:'||OLD.id::text];
+    END IF;
+  ELSIF TG_TABLE_NAME='order_events' THEN
+    IF TG_OP='UPDATE' AND NEW.id=OLD.id THEN RETURN NEW; END IF;
+    identity_lock_keys:=ARRAY['order_event_id:'||NEW.id::text];
+    IF TG_OP='UPDATE' THEN
+      identity_lock_keys:=identity_lock_keys||ARRAY['order_event_id:'||OLD.id::text];
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_RESERVED_IDENTITY_TRIGGER_INVALID';
+  END IF;
+
+  FOR identity_lock_key IN
+    SELECT DISTINCT candidate.lock_key
+    FROM pg_catalog.unnest(identity_lock_keys) AS candidate(lock_key)
+    ORDER BY candidate.lock_key
+  LOOP
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+      'saas.storefront.checkout.identity-reservation:'||identity_lock_key,0
+    ));
+  END LOOP;
+
+  IF TG_TABLE_NAME='orders' THEN
+    SELECT reserved.attempt_id INTO selected_attempt_id
+    FROM saas.storefront_checkout_reserved_identities reserved
+    WHERE (reserved.identity_kind='order_id' AND reserved.identity_value=NEW.id::text)
+      OR (reserved.identity_kind='order_number' AND reserved.identity_value=NEW.order_number)
+      OR (TG_OP='UPDATE' AND reserved.identity_kind='order_id'
+        AND reserved.identity_value=OLD.id::text)
+      OR (TG_OP='UPDATE' AND reserved.identity_kind='order_number'
+        AND reserved.identity_value=OLD.order_number)
+    ORDER BY reserved.identity_kind LIMIT 1;
+  ELSIF TG_TABLE_NAME='order_items' THEN
+    SELECT reserved.attempt_id INTO selected_attempt_id
+    FROM saas.storefront_checkout_reserved_identities reserved
+    WHERE reserved.identity_kind='order_item_id'
+      AND (reserved.identity_value=NEW.id::text
+        OR (TG_OP='UPDATE' AND reserved.identity_value=OLD.id::text));
+  ELSIF TG_TABLE_NAME='order_events' THEN
+    SELECT reserved.attempt_id INTO selected_attempt_id
+    FROM saas.storefront_checkout_reserved_identities reserved
+    WHERE reserved.identity_kind='order_event_id'
+      AND (reserved.identity_value=NEW.id::text
+        OR (TG_OP='UPDATE' AND reserved.identity_value=OLD.id::text));
+  END IF;
+  IF selected_attempt_id IS NULL THEN RETURN NEW; END IF;
+
+  settlement_attempt_text:=pg_catalog.current_setting(
+    'saas.storefront_checkout.settlement_attempt_id',true
+  );
+  IF settlement_attempt_text IS NOT NULL AND settlement_attempt_text~
+    '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+  THEN
+    settlement_attempt_id:=settlement_attempt_text::uuid;
+    IF TG_TABLE_NAME='orders' THEN
+      SELECT EXISTS(
+        SELECT 1 FROM saas.storefront_checkout_payment_bridges bridge
+        JOIN saas.payment_attempts attempt ON attempt.id=bridge.attempt_id
+        WHERE bridge.attempt_id=selected_attempt_id
+          AND bridge.attempt_id=settlement_attempt_id
+          AND bridge.status='active' AND attempt.status='captured'
+          AND bridge.order_id=NEW.id AND bridge.order_number=NEW.order_number
+      ) INTO settlement_allowed;
+    ELSIF TG_TABLE_NAME='order_items' THEN
+      SELECT EXISTS(
+        SELECT 1 FROM saas.storefront_checkout_payment_bridges bridge
+        JOIN saas.payment_attempts attempt ON attempt.id=bridge.attempt_id
+        WHERE bridge.attempt_id=selected_attempt_id
+          AND bridge.attempt_id=settlement_attempt_id
+          AND bridge.status='active' AND attempt.status='captured'
+          AND NEW.id=ANY(bridge.order_item_ids)
+      ) INTO settlement_allowed;
+    ELSE
+      SELECT EXISTS(
+        SELECT 1 FROM saas.storefront_checkout_payment_bridges bridge
+        JOIN saas.payment_attempts attempt ON attempt.id=bridge.attempt_id
+        WHERE bridge.attempt_id=selected_attempt_id
+          AND bridge.attempt_id=settlement_attempt_id
+          AND bridge.status='active' AND attempt.status='captured'
+          AND bridge.order_event_id=NEW.id
+      ) INTO settlement_allowed;
+    END IF;
+  END IF;
+  IF settlement_allowed IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_RESERVED_IDENTITY';
+  END IF;
+  RETURN NEW;
+END
+$f$;
+
+CREATE TRIGGER orders_storefront_checkout_reserved_identity
+BEFORE INSERT OR UPDATE ON saas.orders
+FOR EACH ROW EXECUTE FUNCTION saas.guard_storefront_checkout_reserved_identity_insert();
+CREATE TRIGGER order_items_storefront_checkout_reserved_identity
+BEFORE INSERT OR UPDATE ON saas.order_items
+FOR EACH ROW EXECUTE FUNCTION saas.guard_storefront_checkout_reserved_identity_insert();
+CREATE TRIGGER order_events_storefront_checkout_reserved_identity
+BEFORE INSERT OR UPDATE ON saas.order_events
+FOR EACH ROW EXECUTE FUNCTION saas.guard_storefront_checkout_reserved_identity_insert();
+
 ALTER TABLE saas.storefront_checkout_operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.storefront_checkout_operations FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON saas.storefront_checkout_operations
@@ -1164,10 +1355,8 @@ BEGIN
             AND redemption.discount_record_id=selected_discount.id)
         +(SELECT pg_catalog.count(*)
           FROM saas.storefront_checkout_payment_bridges bridge
-          JOIN saas.abandoned_carts held_cart
-            ON held_cart.store_id=bridge.store_id AND held_cart.id=bridge.cart_id
           WHERE bridge.store_id=p_store_id AND bridge.status='active'
-            AND held_cart.discount_record_id=selected_discount.id)
+            AND bridge.discount_record_id=selected_discount.id)
       INTO used_count;
       IF used_count::numeric>=usage_limit THEN
         RETURN QUERY SELECT 'discount_invalid',NULL::jsonb; RETURN;
@@ -1521,6 +1710,7 @@ DECLARE
   selected_operation saas.storefront_checkout_operations%ROWTYPE;
   selected_method saas.payment_methods%ROWTYPE;
   selected_profile saas.merchant_provider_profiles%ROWTYPE;
+  selected_attempt saas.payment_attempts%ROWTYPE;
   selected_discount saas.merchant_admin_records%ROWTYPE;
   quote_outcome text;
   quote_payload jsonb;
@@ -1529,6 +1719,13 @@ DECLARE
   held_quantity numeric;
   item_count bigint;
   basket jsonb;
+  settlement_items jsonb;
+  settlement_snapshot jsonb;
+  derived_order_id uuid;
+  derived_order_item_ids uuid[];
+  derived_order_event_id uuid;
+  derived_order_number text;
+  identity_lock_key text;
   result jsonb;
 BEGIN
   IF saas.storefront_checkout_hostname_valid(p_hostname) IS DISTINCT FROM true
@@ -1551,7 +1748,11 @@ BEGIN
     OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
 
-  -- operation -> cart -> selected method -> discount -> products -> variants -> held reservations
+  -- Settlement admission -> operation -> cart -> selected method -> discount ->
+  -- products -> variants -> held reservations -> identity reservation.
+  PERFORM pg_catalog.pg_advisory_xact_lock_shared(pg_catalog.hashtextextended(
+    'saas.storefront.checkout.settlement-admission',0
+  ));
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
     'saas.storefront.checkout.operation:'||p_operation_id::text,0
   ));
@@ -1658,6 +1859,7 @@ BEGIN
   IF EXISTS(
     SELECT 1 FROM saas.storefront_checkout_payment_bridges bridge
     WHERE bridge.store_id=selected_cart.store_id AND bridge.cart_id=selected_cart.id
+      AND bridge.status='active'
   ) THEN RETURN QUERY SELECT 'payment_method_unavailable',NULL::jsonb; RETURN; END IF;
 
   SELECT projected.outcome,projected.result_payload INTO quote_outcome,quote_payload
@@ -1674,6 +1876,53 @@ BEGIN
     OR (quote_payload->>'totalCents')::bigint<1
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
 
+  derived_order_id:=saas.storefront_checkout_uuid('hosted-order',p_attempt_id);
+  SELECT pg_catalog.array_agg(
+    saas.storefront_checkout_uuid('hosted-order-item',p_attempt_id,ordinal)
+    ORDER BY ordinal
+  ) INTO derived_order_item_ids
+  FROM pg_catalog.generate_series(1,item_count::integer) ordinal;
+  derived_order_event_id:=saas.storefront_checkout_uuid('hosted-order-event',p_attempt_id);
+  derived_order_number:='SF-'||pg_catalog.upper(pg_catalog.substr(
+    pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+      'saas.storefront-checkout.hosted-order.v1:'||p_attempt_id::text,'UTF8'
+    )),'hex'),1,20
+  ));
+
+  FOR identity_lock_key IN
+    SELECT identity.lock_key FROM (
+      SELECT 1 AS lock_rank,'order_id:'||derived_order_id::text AS lock_key
+      UNION ALL SELECT 1,'order_number:'||derived_order_number
+      UNION ALL SELECT 2,'order_item_id:'||item_id::text
+        FROM pg_catalog.unnest(derived_order_item_ids) item_id
+      UNION ALL SELECT 3,'order_event_id:'||derived_order_event_id::text
+    ) identity ORDER BY identity.lock_rank,identity.lock_key
+  LOOP
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+      'saas.storefront.checkout.identity-reservation:'||identity_lock_key,0
+    ));
+  END LOOP;
+  IF EXISTS(SELECT 1 FROM saas.orders orders WHERE orders.id=derived_order_id)
+    OR EXISTS(SELECT 1 FROM saas.orders orders
+      WHERE orders.store_id=selected_cart.store_id
+        AND orders.order_number=derived_order_number)
+    OR EXISTS(SELECT 1 FROM saas.order_items item
+      WHERE item.id=ANY(derived_order_item_ids))
+    OR EXISTS(SELECT 1 FROM saas.order_events event
+      WHERE event.id=derived_order_event_id)
+    OR EXISTS(
+      SELECT 1 FROM saas.storefront_checkout_reserved_identities reserved
+      WHERE (reserved.identity_kind='order_id'
+          AND reserved.identity_value=derived_order_id::text)
+        OR (reserved.identity_kind='order_number'
+          AND reserved.identity_value=derived_order_number)
+        OR (reserved.identity_kind='order_item_id'
+          AND reserved.identity_value=ANY(derived_order_item_ids::text[]))
+        OR (reserved.identity_kind='order_event_id'
+          AND reserved.identity_value=derived_order_event_id::text)
+    )
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
   SELECT begun.outcome INTO begin_outcome FROM saas.payment_attempt_begin(
     selected_cart.store_id,p_now,p_attempt_id,p_fingerprint,selected_method.id,
     'sf:'||selected_cart.id::text,(quote_payload->>'totalCents')::bigint,
@@ -1686,6 +1935,18 @@ BEGIN
     END IF;
     RETURN;
   END IF;
+
+  SELECT attempt.* INTO selected_attempt
+  FROM saas.payment_attempts attempt WHERE attempt.id=p_attempt_id;
+  IF selected_attempt.id IS NULL
+    OR selected_attempt.store_id<>selected_cart.store_id
+    OR selected_attempt.payment_method_id<>selected_method.id
+    OR selected_attempt.order_reference<>'sf:'||selected_cart.id::text
+    OR selected_attempt.amount_minor<>(quote_payload->>'totalCents')::bigint
+    OR selected_attempt.currency<>selected_cart.currency
+    OR selected_attempt.provider_code NOT IN('paytr_iframe','iyzico_iframe')
+    OR selected_attempt.environment NOT IN('test','live')
+  THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_ATTEMPT_AUTHORITY_INVALID'; END IF;
 
   FOR item_record IN
     SELECT item.product_id,item.variant_id,pg_catalog.sum(item.quantity)::bigint AS quantity,
@@ -1718,19 +1979,19 @@ BEGIN
     );
   END LOOP;
 
-  INSERT INTO saas.storefront_checkout_payment_bridges(
-    attempt_id,store_id,cart_id,order_id,order_item_ids,order_event_id,
-    order_number,status,created_at
-  ) VALUES(
-    p_attempt_id,selected_cart.store_id,selected_cart.id,p_order_id,p_order_item_ids,
-    p_order_event_id,p_order_number,'active',p_now
-  );
-
-  SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-    'reference',item.id,'name',product.title,'quantity',item.quantity,
-    'unitAmountMinor',effective.price_cents,'itemType','PHYSICAL'
-  ) ORDER BY item.position,item.id)
-  INTO basket
+  SELECT
+    pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      'reference',item.id,'name',product.title,'quantity',item.quantity,
+      'unitAmountMinor',effective.price_cents,'itemType','PHYSICAL'
+    ) ORDER BY item.position,item.id),
+    pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      'reference',item.id,'productId',item.product_id,'variantId',item.variant_id,
+      'position',item.position,'productName',product.title,
+      'variantName',item.variant_name,'sku',item.sku,
+      'unitPriceCents',effective.price_cents,'quantity',item.quantity,
+      'discountCents',0,'lineTotalCents',effective.price_cents*item.quantity
+    ) ORDER BY item.position,item.id)
+  INTO basket,settlement_items
   FROM saas.abandoned_cart_items item
   JOIN saas.products product
     ON product.store_id=item.store_id AND product.id=item.product_id
@@ -1738,18 +1999,55 @@ BEGIN
     item.store_id,item.variant_id,'storefront',p_now,NULL
   ) effective ON effective.outcome='found'
   WHERE item.store_id=selected_cart.store_id AND item.cart_id=selected_cart.id;
-
-  result:=pg_catalog.jsonb_build_object(
-    'storeId',selected_cart.store_id,'paymentMethodId',selected_method.id,
-    'profileId',selected_profile.id,'providerCode',selected_method.provider_code,
-    'orderReference','sf:'||selected_cart.id::text,
-    'amountMinor',(quote_payload->>'totalCents')::bigint,'currency',selected_cart.currency,
+  IF pg_catalog.jsonb_array_length(settlement_items)<>item_count THEN
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SNAPSHOT_INVALID';
+  END IF;
+  settlement_snapshot:=pg_catalog.jsonb_build_object(
     'customer',pg_catalog.jsonb_build_object(
       'name',selected_cart.customer_name,'email',selected_cart.customer_email,
       'phone',selected_cart.customer_phone,'shippingAddress',selected_cart.shipping_address,
       'billingAddress',selected_cart.billing_address
-    ),'basket',basket,'attemptId',p_attempt_id,'bridgeId',p_attempt_id,
-    'environment',selected_profile.execution_environment,'reservationStatus','held'
+    ),
+    'money',pg_catalog.jsonb_build_object(
+      'currency',selected_attempt.currency,
+      'subtotalCents',(quote_payload->>'subtotalCents')::bigint,
+      'shippingCents',(quote_payload->>'shippingCents')::bigint,
+      'discountCents',(quote_payload->>'discountCents')::bigint,
+      'totalCents',selected_attempt.amount_minor,
+      'discountCode',selected_cart.discount_code
+    ),
+    'items',settlement_items
+  );
+
+  INSERT INTO saas.storefront_checkout_payment_bridges(
+    attempt_id,store_id,cart_id,order_id,order_item_ids,order_event_id,
+    order_number,discount_record_id,settlement_snapshot,status,created_at
+  ) VALUES(
+    p_attempt_id,selected_cart.store_id,selected_cart.id,derived_order_id,
+    derived_order_item_ids,derived_order_event_id,derived_order_number,
+    selected_cart.discount_record_id,settlement_snapshot,'active',p_now
+  );
+
+  INSERT INTO saas.storefront_checkout_reserved_identities(
+    identity_kind,identity_value,attempt_id,ordinal,created_at
+  ) VALUES
+    ('order_id',derived_order_id::text,p_attempt_id,0,p_now),
+    ('order_event_id',derived_order_event_id::text,p_attempt_id,0,p_now),
+    ('order_number',derived_order_number,p_attempt_id,0,p_now);
+  INSERT INTO saas.storefront_checkout_reserved_identities(
+    identity_kind,identity_value,attempt_id,ordinal,created_at
+  )
+  SELECT 'order_item_id',identity.id::text,p_attempt_id,identity.ordinality::integer,p_now
+  FROM pg_catalog.unnest(derived_order_item_ids) WITH ORDINALITY identity(id,ordinality);
+
+  result:=pg_catalog.jsonb_build_object(
+    'storeId',selected_attempt.store_id,'paymentMethodId',selected_attempt.payment_method_id,
+    'profileId',selected_attempt.profile_id,'providerCode',selected_attempt.provider_code,
+    'orderReference',selected_attempt.order_reference,
+    'amountMinor',selected_attempt.amount_minor,'currency',selected_attempt.currency,
+    'customer',settlement_snapshot->'customer','basket',basket,
+    'attemptId',selected_attempt.id,'bridgeId',selected_attempt.id,
+    'environment',selected_attempt.environment,'reservationStatus','held'
   );
   INSERT INTO saas.storefront_checkout_operations(
     operation_id,store_id,cart_id,action,fingerprint,result_payload,committed_at
@@ -1772,109 +2070,100 @@ SET search_path=pg_catalog,saas
 AS $f$
 DECLARE
   selected_bridge saas.storefront_checkout_payment_bridges%ROWTYPE;
-  selected_cart saas.abandoned_carts%ROWTYPE;
-  selected_discount saas.merchant_admin_records%ROWTYPE;
-  selected_authority jsonb;
-  selected_basket_item jsonb;
+  selected_cart_id uuid;
   item_record record;
-  item_index integer:=0;
   tracked_count bigint;
   updated_count bigint;
-  used_count bigint;
-  usage_limit numeric;
 BEGIN
   IF NEW.status IS NOT DISTINCT FROM OLD.status THEN RETURN NEW; END IF;
+  IF NEW.order_reference!~
+    '^sf:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+  THEN RETURN NEW; END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock_shared(pg_catalog.hashtextextended(
+    'saas.storefront.checkout.settlement-admission',0
+  ));
   SELECT bridge.* INTO selected_bridge
   FROM saas.storefront_checkout_payment_bridges bridge
-  WHERE bridge.attempt_id=NEW.id FOR UPDATE OF bridge;
+  WHERE bridge.attempt_id=NEW.id;
   IF selected_bridge.attempt_id IS NULL OR selected_bridge.status<>'active' THEN
     RETURN NEW;
   END IF;
 
-  SELECT cart.* INTO selected_cart FROM saas.abandoned_carts cart
+  SELECT cart.id INTO selected_cart_id FROM saas.abandoned_carts cart
   WHERE cart.store_id=selected_bridge.store_id AND cart.id=selected_bridge.cart_id
   FOR UPDATE OF cart;
-  IF selected_cart.id IS NULL THEN
+  IF selected_cart_id IS NULL THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_CART_CONFLICT';
   END IF;
+  SELECT bridge.* INTO selected_bridge
+  FROM saas.storefront_checkout_payment_bridges bridge
+  WHERE bridge.attempt_id=NEW.id FOR UPDATE OF bridge;
+  IF selected_bridge.status<>'active' THEN RETURN NEW; END IF;
 
   IF NEW.status='captured' THEN
-    IF selected_cart.discount_record_id IS NOT NULL THEN
-      SELECT discount.* INTO selected_discount
-      FROM saas.merchant_admin_records discount
-      WHERE discount.store_id=selected_cart.store_id
-        AND discount.id=selected_cart.discount_record_id
-      FOR UPDATE OF discount;
-      IF selected_discount.id IS NULL OR selected_discount.status<>'active' THEN
-        RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_DISCOUNT_CONFLICT';
-      END IF;
-      IF selected_discount.config?'usageLimit' THEN
-        usage_limit:=(selected_discount.config->>'usageLimit')::numeric;
-        SELECT
-          (SELECT pg_catalog.count(*) FROM saas.merchant_admin_events event
-            WHERE event.store_id=selected_cart.store_id
-              AND event.record_id=selected_discount.id AND event.event_kind='coupon_used')
-          +(SELECT pg_catalog.count(*)
-            FROM saas.storefront_checkout_discount_redemptions redemption
-            WHERE redemption.store_id=selected_cart.store_id
-              AND redemption.discount_record_id=selected_discount.id)
-        INTO used_count;
-        IF used_count::numeric>=usage_limit THEN
-          RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_DISCOUNT_CONFLICT';
-        END IF;
-      END IF;
-    END IF;
-
-    PERFORM product.id FROM saas.products product
-    WHERE product.store_id=selected_cart.store_id AND EXISTS(
-      SELECT 1 FROM saas.abandoned_cart_items item
-      WHERE item.store_id=selected_cart.store_id AND item.cart_id=selected_cart.id
-        AND item.product_id=product.id
-    ) ORDER BY product.id FOR KEY SHARE OF product;
     PERFORM variant.id FROM saas.product_variants variant
-    WHERE variant.store_id=selected_cart.store_id AND EXISTS(
+    WHERE variant.store_id=selected_bridge.store_id AND EXISTS(
       SELECT 1 FROM saas.checkout_inventory_reservations reservation
-      WHERE reservation.store_id=selected_cart.store_id
+      WHERE reservation.store_id=selected_bridge.store_id
         AND reservation.payment_attempt_id=NEW.id AND reservation.variant_id=variant.id
     ) ORDER BY variant.id FOR UPDATE OF variant;
     PERFORM reservation.id FROM saas.checkout_inventory_reservations reservation
-    WHERE reservation.store_id=selected_cart.store_id
+    WHERE reservation.store_id=selected_bridge.store_id
       AND reservation.payment_attempt_id=NEW.id
     ORDER BY reservation.variant_id,reservation.id FOR UPDATE OF reservation;
 
-    SELECT operation.result_payload INTO selected_authority
-    FROM saas.storefront_checkout_operations operation
-    WHERE operation.store_id=selected_cart.store_id AND operation.cart_id=selected_cart.id
-      AND operation.action='submit_hosted'
-      AND operation.result_payload->>'attemptId'=NEW.id::text
-    ORDER BY operation.committed_at DESC,operation.operation_id DESC LIMIT 1;
-    IF selected_cart.status NOT IN('active','recovered')
-      OR selected_authority IS NULL
-      OR selected_cart.selected_payment_method_id IS DISTINCT FROM NEW.payment_method_id
-      OR selected_cart.currency<>NEW.currency
-      OR selected_cart.total_cents<>NEW.amount_minor
-      OR pg_catalog.jsonb_typeof(selected_authority->'basket')<>'array'
-      OR pg_catalog.jsonb_array_length(selected_authority->'basket')
+    IF NEW.store_id<>selected_bridge.store_id
+      OR selected_bridge.settlement_snapshot IS NULL
+      OR selected_bridge.settlement_snapshot#>>'{money,currency}'<>NEW.currency
+      OR (selected_bridge.settlement_snapshot#>>'{money,totalCents}')::bigint<>NEW.amount_minor
+      OR pg_catalog.jsonb_typeof(selected_bridge.settlement_snapshot->'items')<>'array'
+      OR pg_catalog.jsonb_array_length(selected_bridge.settlement_snapshot->'items')
         <>pg_catalog.cardinality(selected_bridge.order_item_ids)
       OR NOT EXISTS(
         SELECT 1 FROM saas.checkout_inventory_reservations reservation
-        WHERE reservation.store_id=selected_cart.store_id
+        WHERE reservation.store_id=selected_bridge.store_id
           AND reservation.payment_attempt_id=NEW.id
       )
       OR EXISTS(
         SELECT 1 FROM saas.checkout_inventory_reservations reservation
-        WHERE reservation.store_id=selected_cart.store_id
+        WHERE reservation.store_id=selected_bridge.store_id
           AND reservation.payment_attempt_id=NEW.id AND reservation.status<>'held'
+      )
+      OR EXISTS(
+        SELECT 1
+        FROM (
+          SELECT (entry->>'productId')::uuid AS product_id,
+            (entry->>'variantId')::uuid AS variant_id,
+            pg_catalog.sum((entry->>'quantity')::bigint) AS quantity
+          FROM pg_catalog.jsonb_array_elements(
+            selected_bridge.settlement_snapshot->'items'
+          ) entry
+          GROUP BY (entry->>'productId')::uuid,(entry->>'variantId')::uuid
+        ) snapshot_item
+        FULL JOIN (
+          SELECT reservation.product_id,reservation.variant_id,
+            pg_catalog.sum(reservation.quantity)::bigint AS quantity
+          FROM saas.checkout_inventory_reservations reservation
+          WHERE reservation.store_id=selected_bridge.store_id
+            AND reservation.payment_attempt_id=NEW.id
+          GROUP BY reservation.product_id,reservation.variant_id
+        ) held USING(product_id,variant_id)
+        WHERE snapshot_item.quantity IS DISTINCT FROM held.quantity
       )
       OR EXISTS(
         SELECT 1 FROM saas.checkout_inventory_reservations reservation
         JOIN saas.product_variants variant
           ON variant.store_id=reservation.store_id AND variant.id=reservation.variant_id
-        WHERE reservation.store_id=selected_cart.store_id
+        WHERE reservation.store_id=selected_bridge.store_id
           AND reservation.payment_attempt_id=NEW.id AND reservation.stock_tracked
           AND variant.stock_quantity<reservation.quantity
       )
     THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SETTLEMENT_CONFLICT'; END IF;
+
+    PERFORM pg_catalog.set_config(
+      'saas.storefront_checkout.settlement_attempt_id',NEW.id::text,true
+    );
 
     INSERT INTO saas.orders(
       id,store_id,order_number,source,customer_name,customer_email,customer_phone,
@@ -1882,35 +2171,41 @@ BEGIN
       payment_status,shipping_address,billing_address,storefront_cart_id,
       version,created_at,updated_at
     ) VALUES(
-      selected_bridge.order_id,selected_cart.store_id,selected_bridge.order_number,
-      'storefront',selected_cart.customer_name,selected_cart.customer_email,
-      selected_cart.customer_phone,selected_cart.currency,selected_cart.subtotal_cents,
-      selected_cart.shipping_cents,selected_cart.discount_cents,selected_cart.total_cents,
-      'confirmed','completed',selected_cart.shipping_address,selected_cart.billing_address,
-      selected_cart.id,1,NEW.updated_at,NEW.updated_at
+      selected_bridge.order_id,selected_bridge.store_id,selected_bridge.order_number,
+      'storefront',selected_bridge.settlement_snapshot#>>'{customer,name}',
+      selected_bridge.settlement_snapshot#>>'{customer,email}',
+      selected_bridge.settlement_snapshot#>>'{customer,phone}',
+      selected_bridge.settlement_snapshot#>>'{money,currency}',
+      (selected_bridge.settlement_snapshot#>>'{money,subtotalCents}')::bigint,
+      (selected_bridge.settlement_snapshot#>>'{money,shippingCents}')::bigint,
+      (selected_bridge.settlement_snapshot#>>'{money,discountCents}')::bigint,
+      (selected_bridge.settlement_snapshot#>>'{money,totalCents}')::bigint,
+      'confirmed','completed',selected_bridge.settlement_snapshot#>'{customer,shippingAddress}',
+      selected_bridge.settlement_snapshot#>'{customer,billingAddress}',
+      selected_bridge.cart_id,1,NEW.updated_at,NEW.updated_at
     );
 
     FOR item_record IN
-      SELECT item.* FROM saas.abandoned_cart_items item
-      WHERE item.store_id=selected_cart.store_id AND item.cart_id=selected_cart.id
-      ORDER BY item.position,item.id
+      SELECT entry.value AS snapshot_item,entry.ordinality::integer AS item_index
+      FROM pg_catalog.jsonb_array_elements(
+        selected_bridge.settlement_snapshot->'items'
+      ) WITH ORDINALITY entry(value,ordinality)
+      ORDER BY entry.ordinality
     LOOP
-      item_index:=item_index+1;
-      SELECT entry INTO selected_basket_item
-      FROM pg_catalog.jsonb_array_elements(selected_authority->'basket') entry
-      WHERE entry->>'reference'=item_record.id::text;
-      IF selected_basket_item IS NULL
-        OR (selected_basket_item->>'quantity')::bigint<>item_record.quantity
-      THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_BASKET_CONFLICT'; END IF;
       INSERT INTO saas.order_items(
         id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,
         unit_price_cents,quantity,discount_cents,line_total_cents,created_at
       ) VALUES(
-        selected_bridge.order_item_ids[item_index],selected_cart.store_id,
-        selected_bridge.order_id,item_record.product_id,item_record.variant_id,item_record.position,
-        selected_basket_item->>'name',item_record.variant_name,item_record.sku,
-        (selected_basket_item->>'unitAmountMinor')::bigint,item_record.quantity,0,
-        (selected_basket_item->>'unitAmountMinor')::bigint*item_record.quantity,NEW.updated_at
+        selected_bridge.order_item_ids[item_record.item_index],selected_bridge.store_id,
+        selected_bridge.order_id,(item_record.snapshot_item->>'productId')::uuid,
+        (item_record.snapshot_item->>'variantId')::uuid,
+        (item_record.snapshot_item->>'position')::integer,
+        item_record.snapshot_item->>'productName',item_record.snapshot_item->>'variantName',
+        item_record.snapshot_item->>'sku',
+        (item_record.snapshot_item->>'unitPriceCents')::bigint,
+        (item_record.snapshot_item->>'quantity')::integer,
+        (item_record.snapshot_item->>'discountCents')::bigint,
+        (item_record.snapshot_item->>'lineTotalCents')::bigint,NEW.updated_at
       );
     END LOOP;
 
@@ -1918,7 +2213,7 @@ BEGIN
       id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,
       message,payload,created_at
     ) VALUES(
-      selected_bridge.order_event_id,selected_cart.store_id,selected_bridge.order_id,
+      selected_bridge.order_event_id,selected_bridge.store_id,selected_bridge.order_id,
       NULL,'order_created',NULL,'confirmed','Storefront hosted payment captured',
       pg_catalog.jsonb_build_object('source','storefront','providerCode',NEW.provider_code),
       NEW.updated_at
@@ -1926,10 +2221,10 @@ BEGIN
 
     UPDATE saas.checkout_inventory_reservations SET
       status='consumed',consumed_at=NEW.updated_at,version=version+1,updated_at=NEW.updated_at
-    WHERE store_id=selected_cart.store_id AND payment_attempt_id=NEW.id AND status='held';
+    WHERE store_id=selected_bridge.store_id AND payment_attempt_id=NEW.id AND status='held';
     SELECT pg_catalog.count(*) INTO tracked_count
     FROM saas.checkout_inventory_reservations reservation
-    WHERE reservation.store_id=selected_cart.store_id
+    WHERE reservation.store_id=selected_bridge.store_id
       AND reservation.payment_attempt_id=NEW.id AND reservation.stock_tracked;
     PERFORM pg_catalog.set_config('saas.inventory.source_marker','checkout_sale',true);
     PERFORM pg_catalog.set_config('saas.inventory.source_id',NEW.id::text,true);
@@ -1938,7 +2233,7 @@ BEGIN
       stock_quantity=variant.stock_quantity-reservation.quantity,
       version=variant.version+1,updated_at=NEW.updated_at
     FROM saas.checkout_inventory_reservations reservation
-    WHERE reservation.store_id=selected_cart.store_id
+    WHERE reservation.store_id=selected_bridge.store_id
       AND reservation.payment_attempt_id=NEW.id AND reservation.stock_tracked
       AND variant.store_id=reservation.store_id AND variant.id=reservation.variant_id;
     GET DIAGNOSTICS updated_count=ROW_COUNT;
@@ -1949,29 +2244,30 @@ BEGIN
       RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_STOCK_CONFLICT';
     END IF;
 
-    IF selected_cart.discount_record_id IS NOT NULL THEN
+    IF selected_bridge.discount_record_id IS NOT NULL THEN
       INSERT INTO saas.storefront_checkout_discount_redemptions(
         store_id,discount_record_id,order_id,redeemed_at
       ) VALUES(
-        selected_cart.store_id,selected_cart.discount_record_id,
+        selected_bridge.store_id,selected_bridge.discount_record_id,
         selected_bridge.order_id,NEW.updated_at
       );
     END IF;
     UPDATE saas.abandoned_carts SET
       status='archived',archived_at=NEW.updated_at,recovered_order_id=selected_bridge.order_id,
-      version=version+1,last_activity_at=NEW.updated_at,updated_at=NEW.updated_at
-    WHERE store_id=selected_cart.store_id AND id=selected_cart.id;
+      version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=selected_bridge.store_id AND id=selected_bridge.cart_id;
     UPDATE saas.storefront_checkout_payment_bridges SET
       status='captured',settled_at=NEW.updated_at
     WHERE attempt_id=NEW.id;
+    PERFORM pg_catalog.set_config('saas.storefront_checkout.settlement_attempt_id','',true);
   ELSIF NEW.status IN('failed','cancelled','expired') THEN
     PERFORM reservation.id FROM saas.checkout_inventory_reservations reservation
-    WHERE reservation.store_id=selected_cart.store_id
+    WHERE reservation.store_id=selected_bridge.store_id
       AND reservation.payment_attempt_id=NEW.id
     ORDER BY reservation.variant_id,reservation.id FOR UPDATE OF reservation;
     UPDATE saas.checkout_inventory_reservations SET
       status='released',released_at=NEW.updated_at,version=version+1,updated_at=NEW.updated_at
-    WHERE store_id=selected_cart.store_id AND payment_attempt_id=NEW.id AND status='held';
+    WHERE store_id=selected_bridge.store_id AND payment_attempt_id=NEW.id AND status='held';
     UPDATE saas.storefront_checkout_payment_bridges SET
       status=NEW.status,settled_at=NEW.updated_at
     WHERE attempt_id=NEW.id;
@@ -2034,9 +2330,16 @@ BEGIN
       ('saas.storefront_checkout_payment_bridges','order_item_ids','uuid[]',true,NULL),
       ('saas.storefront_checkout_payment_bridges','order_event_id','uuid',true,NULL),
       ('saas.storefront_checkout_payment_bridges','order_number','text',true,NULL),
+      ('saas.storefront_checkout_payment_bridges','discount_record_id','uuid',false,NULL),
+      ('saas.storefront_checkout_payment_bridges','settlement_snapshot','jsonb',true,NULL),
       ('saas.storefront_checkout_payment_bridges','status','text',true,NULL),
       ('saas.storefront_checkout_payment_bridges','created_at','timestamp with time zone',true,NULL),
       ('saas.storefront_checkout_payment_bridges','settled_at','timestamp with time zone',false,NULL),
+      ('saas.storefront_checkout_reserved_identities','identity_kind','text',true,NULL),
+      ('saas.storefront_checkout_reserved_identities','identity_value','text',true,NULL),
+      ('saas.storefront_checkout_reserved_identities','attempt_id','uuid',true,NULL),
+      ('saas.storefront_checkout_reserved_identities','ordinal','integer',true,NULL),
+      ('saas.storefront_checkout_reserved_identities','created_at','timestamp with time zone',true,NULL),
       ('saas.storefront_checkout_operations','operation_id','uuid',true,NULL),
       ('saas.storefront_checkout_operations','store_id','uuid',true,NULL),
       ('saas.storefront_checkout_operations','cart_id','uuid',true,NULL),
@@ -2097,18 +2400,32 @@ BEGIN
        'PRIMARY KEY (attempt_id)'),
       ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_attempt_fk','f',
        'FOREIGN KEY (attempt_id) REFERENCES payment_attempts(id) ON DELETE RESTRICT'),
-      ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_cart_key','u',
-       'UNIQUE (store_id, cart_id)'),
       ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_cart_fk','f',
        'FOREIGN KEY (store_id, cart_id) REFERENCES abandoned_carts(store_id, id) ON DELETE RESTRICT'),
+      ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_discount_fk','f',
+       'FOREIGN KEY (store_id, discount_record_id) REFERENCES merchant_admin_records(store_id, id) ON DELETE RESTRICT'),
       ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_status_check','c',
        'CHECK ((status = ANY (ARRAY[''active''::text, ''captured''::text, ''failed''::text, ''cancelled''::text, ''expired''::text])))'),
       ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_items_check','c',
        'CHECK (((array_ndims(order_item_ids) = 1) AND (array_lower(order_item_ids, 1) = 1) AND ((cardinality(order_item_ids) >= 1) AND (cardinality(order_item_ids) <= 100)) AND (array_position(order_item_ids, NULL::uuid) IS NULL)))'),
       ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_order_number_check','c',
        'CHECK (((order_number = btrim(order_number)) AND ((char_length(order_number) >= 1) AND (char_length(order_number) <= 128)) AND (order_number !~ ''[[:cntrl:]]''::text)))'),
+      ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_snapshot_check','c',
+       'CHECK (((jsonb_typeof(settlement_snapshot) = ''object''::text) AND (settlement_snapshot ?& ARRAY[''customer''::text, ''money''::text, ''items''::text]) AND (jsonb_typeof((settlement_snapshot -> ''customer''::text)) = ''object''::text) AND (jsonb_typeof((settlement_snapshot -> ''money''::text)) = ''object''::text) AND (jsonb_typeof((settlement_snapshot -> ''items''::text)) = ''array''::text) AND ((jsonb_array_length((settlement_snapshot -> ''items''::text)) >= 1) AND (jsonb_array_length((settlement_snapshot -> ''items''::text)) <= 100)) AND (pg_column_size(settlement_snapshot) <= 1048576)))'),
       ('saas.storefront_checkout_payment_bridges','sf_checkout_payment_bridges_time_check','c',
        'CHECK ((isfinite(created_at) AND ((settled_at IS NULL) OR isfinite(settled_at)) AND (((status = ''active''::text) AND (settled_at IS NULL)) OR ((status <> ''active''::text) AND (settled_at IS NOT NULL)))))'),
+      ('saas.storefront_checkout_reserved_identities','storefront_checkout_reserved_identities_pkey','p',
+       'PRIMARY KEY (identity_kind, identity_value)'),
+      ('saas.storefront_checkout_reserved_identities','storefront_checkout_reserved__attempt_id_identity_kind_ordi_key','u',
+       'UNIQUE (attempt_id, identity_kind, ordinal)'),
+      ('saas.storefront_checkout_reserved_identities','sf_checkout_reserved_identities_attempt_fk','f',
+       'FOREIGN KEY (attempt_id) REFERENCES storefront_checkout_payment_bridges(attempt_id) ON DELETE RESTRICT'),
+      ('saas.storefront_checkout_reserved_identities','sf_checkout_reserved_identities_value_check','c',
+       'CHECK ((((identity_kind = ANY (ARRAY[''order_id''::text, ''order_item_id''::text, ''order_event_id''::text])) AND (identity_value ~ ''^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$''::text)) OR ((identity_kind = ''order_number''::text) AND (identity_value ~ ''^SF-[A-F0-9]{20}$''::text))))'),
+      ('saas.storefront_checkout_reserved_identities','sf_checkout_reserved_identities_ordinal_check','c',
+       'CHECK ((((identity_kind = ''order_item_id''::text) AND ((ordinal >= 1) AND (ordinal <= 100))) OR ((identity_kind <> ''order_item_id''::text) AND (ordinal = 0))))'),
+      ('saas.storefront_checkout_reserved_identities','sf_checkout_reserved_identities_created_check','c',
+       'CHECK (isfinite(created_at))'),
       ('saas.storefront_checkout_operations','storefront_checkout_operations_pkey','p','PRIMARY KEY (operation_id)'),
       ('saas.storefront_checkout_operations','storefront_checkout_operation_store_id_cart_id_operation_id_key','u','UNIQUE (store_id, cart_id, operation_id)'),
       ('saas.storefront_checkout_operations','storefront_checkout_operations_store_id_cart_id_fkey','f',
@@ -2137,6 +2454,7 @@ BEGIN
       ('saas.storefront_checkout_operations'),
       ('saas.storefront_checkout_discount_redemptions'),
       ('saas.storefront_checkout_payment_bridges'),
+      ('saas.storefront_checkout_reserved_identities'),
       ('saas.orders')
     ) expected(relation_name)
     LEFT JOIN pg_catalog.pg_class relation
@@ -2148,7 +2466,8 @@ BEGIN
     SELECT 1 FROM (VALUES
       ('saas.storefront_checkout_operations',7,7),
       ('saas.storefront_checkout_discount_redemptions',4,4),
-      ('saas.storefront_checkout_payment_bridges',10,8)
+      ('saas.storefront_checkout_payment_bridges',12,9),
+      ('saas.storefront_checkout_reserved_identities',5,6)
     ) expected(relation_name,column_count,constraint_count)
     LEFT JOIN pg_catalog.pg_class relation
       ON relation.oid=expected.relation_name::pg_catalog.regclass
@@ -2167,7 +2486,8 @@ BEGIN
     WHERE polrelid IN(
       'saas.storefront_checkout_operations'::regclass,
       'saas.storefront_checkout_discount_redemptions'::regclass,
-      'saas.storefront_checkout_payment_bridges'::regclass
+      'saas.storefront_checkout_payment_bridges'::regclass,
+      'saas.storefront_checkout_reserved_identities'::regclass
     )
   ) OR NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_class relation
@@ -2185,6 +2505,13 @@ BEGIN
           AND constraint_info.contype IN('p','u','f','c') AND constraint_info.convalidated
       )=7
   ) OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_index index_info
+    WHERE index_info.indexrelid='saas.sf_checkout_payment_bridges_active_cart_idx'::regclass
+      AND index_info.indrelid='saas.storefront_checkout_payment_bridges'::regclass
+      AND index_info.indisunique AND index_info.indisvalid AND index_info.indisready
+      AND pg_catalog.pg_get_indexdef(index_info.indexrelid)=
+        'CREATE UNIQUE INDEX sf_checkout_payment_bridges_active_cart_idx ON saas.storefront_checkout_payment_bridges USING btree (store_id, cart_id) WHERE (status = ''active''::text)'
+  ) OR NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_trigger
     WHERE tgrelid='saas.storefront_checkout_operations'::regclass
       AND tgname='storefront_checkout_operations_immutable'
@@ -2194,6 +2521,34 @@ BEGIN
       AND tgconstraint=0 AND tgconstrrelid=0
       AND NOT tgdeferrable AND NOT tginitdeferred
       AND tgoldtable IS NULL AND tgnewtable IS NULL
+  ) OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_trigger
+    WHERE tgrelid='saas.storefront_checkout_reserved_identities'::regclass
+      AND tgname='storefront_checkout_reserved_identities_immutable'
+      AND tgenabled='O' AND NOT tgisinternal
+      AND tgfoid='saas.guard_storefront_checkout_operation_mutation()'::regprocedure
+      AND tgtype=27 AND tgnargs=0 AND tgqual IS NULL
+      AND tgconstraint=0 AND tgconstrrelid=0
+      AND NOT tgdeferrable AND NOT tginitdeferred
+      AND tgoldtable IS NULL AND tgnewtable IS NULL
+  ) OR EXISTS(
+    SELECT 1 FROM (VALUES
+      ('saas.orders','orders_storefront_checkout_reserved_identity'),
+      ('saas.order_items','order_items_storefront_checkout_reserved_identity'),
+      ('saas.order_events','order_events_storefront_checkout_reserved_identity')
+    ) expected(relation_name,trigger_name)
+    LEFT JOIN pg_catalog.pg_trigger trigger_info
+      ON trigger_info.tgrelid=expected.relation_name::regclass
+      AND trigger_info.tgname=expected.trigger_name
+      AND trigger_info.tgenabled='O' AND NOT trigger_info.tgisinternal
+      AND trigger_info.tgfoid=
+        'saas.guard_storefront_checkout_reserved_identity_insert()'::regprocedure
+      AND trigger_info.tgtype=23 AND trigger_info.tgnargs=0
+      AND trigger_info.tgqual IS NULL AND trigger_info.tgconstraint=0
+      AND trigger_info.tgconstrrelid=0 AND NOT trigger_info.tgdeferrable
+      AND NOT trigger_info.tginitdeferred
+      AND trigger_info.tgoldtable IS NULL AND trigger_info.tgnewtable IS NULL
+    WHERE trigger_info.oid IS NULL
   ) OR NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_trigger
     WHERE tgrelid='saas.storefront_checkout_discount_redemptions'::regclass
@@ -2238,7 +2593,8 @@ BEGIN
     SELECT 1 FROM (VALUES
       ('saas.storefront_checkout_operations'),
       ('saas.storefront_checkout_discount_redemptions'),
-      ('saas.storefront_checkout_payment_bridges')
+      ('saas.storefront_checkout_payment_bridges'),
+      ('saas.storefront_checkout_reserved_identities')
     ) expected(relation_name)
     WHERE NOT pg_catalog.has_table_privilege(
       owner_oid,expected.relation_name,
@@ -2252,7 +2608,8 @@ BEGIN
       WHERE relation.oid IN(
           'saas.storefront_checkout_operations'::regclass,
           'saas.storefront_checkout_discount_redemptions'::regclass,
-          'saas.storefront_checkout_payment_bridges'::regclass
+          'saas.storefront_checkout_payment_bridges'::regclass,
+          'saas.storefront_checkout_reserved_identities'::regclass
         )
         AND (privilege.grantor<>owner_oid OR privilege.grantee<>owner_oid
           OR privilege.is_grantable OR privilege.privilege_type NOT IN(
@@ -2270,10 +2627,11 @@ BEGIN
     ('saas.storefront_checkout_policy_effective_at(jsonb)','5003a939d535c64b6fae689864657385','i'::"char",'plpgsql',false,false),
     ('saas.storefront_checkout_builtin_method_projection(uuid,text,text,jsonb)','8666c8906b07f18f9a282eba199951e0','i'::"char",'sql',false,false),
     ('saas.storefront_checkout_uuid(text,uuid,integer)','3ac502c4599ddcc05bfccfa119a90fc7','i'::"char",'sql',false,true),
-    ('saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamp with time zone)','476bdda5217e8c2a485ada158e92a9cc','s'::"char",'plpgsql',false,false),
+    ('saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamp with time zone)','771d877f57e5076f567c92e407cb21a2','s'::"char",'plpgsql',false,false),
     ('saas.guard_storefront_checkout_operation_mutation()','b82fe65c8b62c247ca772213f0a9ddf5','v'::"char",'plpgsql',false,false),
     ('saas.guard_storefront_checkout_payment_bridge_mutation()','393409bd2288bb92ed6fd2c0a1033565','v'::"char",'plpgsql',false,false),
-    ('saas.storefront_checkout_payment_attempt_terminal()','0f001a684da66c40395d7d4bf20b0f35','v'::"char",'plpgsql',true,false),
+    ('saas.guard_storefront_checkout_reserved_identity_insert()','e64434b18c6fdd81f1af8a3f35cf9a76','v'::"char",'plpgsql',true,false),
+    ('saas.storefront_checkout_payment_attempt_terminal()','95e015479ddba278c01060ebd38a90df','v'::"char",'plpgsql',true,false),
     ('saas.merchant_admin_config_valid(text,jsonb)','92fac9712cf88f9da42f326579611763','i'::"char",'sql',false,true),
     ('saas.merchant_admin_config_valid_without_checkout_flat_rate(text,jsonb)','18ffaa56eab1e91c53531405780836c6','i'::"char",'sql',false,true),
     ('saas.abandoned_cart_capture_store(text,timestamp with time zone)','2885f205f0901b662efd76c11cd23dbd','s'::"char",'sql',true,false)
@@ -2312,9 +2670,9 @@ BEGIN
     ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1','v'::"char"),
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char"),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e','v'::"char"),
-    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)','757ceee2101dc776a3d64bdf723d26c9','v'::"char"),
+    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)','0c27eb3c9493523d7353ff6f94fa0c51','v'::"char"),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char"),
-    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','3c1f0c4ac10435bd53275d6891df7362','s'::"char"),
+    ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','a094b754f97152d4a8177f0dd6d03bc0','s'::"char"),
     ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1','s'::"char"),
     ('saas.storefront_checkout_preflight()',NULL::text,'s'::"char")
   ) expected(signature,expected_hash,expected_volatility) LOOP
@@ -2372,6 +2730,7 @@ REVOKE ALL ON FUNCTION saas.storefront_checkout_text_valid(text,integer,integer)
   saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamptz),
   saas.guard_storefront_checkout_operation_mutation(),
   saas.guard_storefront_checkout_payment_bridge_mutation(),
+  saas.guard_storefront_checkout_reserved_identity_insert(),
   saas.storefront_checkout_payment_attempt_terminal()
 FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
   celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
