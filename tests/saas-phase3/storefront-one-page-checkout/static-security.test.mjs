@@ -60,6 +60,24 @@ test("fixed checkout owns every exact page and API route", async () => {
   }
 });
 
+test("hosted runtime checks current authority through a workflow-safe storefront boundary", async () => {
+  const [up, down, assertions, runtime] = await Promise.all([
+    readFile(path.join(repositoryRoot, "apps/owner/scripts/sql/saas/202607280064_storefront_one_page_checkout.up.sql"), "utf8"),
+    readFile(path.join(repositoryRoot, "apps/owner/scripts/sql/saas/202607280064_storefront_one_page_checkout.down.sql"), "utf8"),
+    readFile(path.join(repositoryRoot, "apps/owner/scripts/sql/saas/202607280064_storefront_one_page_checkout_assertions.sql"), "utf8"),
+    readFile(path.join(storefrontRoot, "lib/default-runtime.ts"), "utf8"),
+  ]);
+  const signature = /storefront_checkout_execution_authority_matches\(text,text,text,integer,text\)/;
+  assert.match(up, /CREATE FUNCTION saas[.]storefront_checkout_execution_authority_matches/);
+  assert.match(up, /SECURITY DEFINER\s+SET search_path=pg_catalog,saas/);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION[\s\S]*?saas[.]storefront_checkout_execution_authority_matches[\s\S]*?TO celebix_saas_workflow/);
+  assert.match(up, signature);
+  assert.match(assertions, signature);
+  assert.match(down, /DROP FUNCTION saas[.]storefront_checkout_execution_authority_matches/);
+  assert.match(runtime, /SELECT saas[.]storefront_checkout_execution_authority_matches/);
+  assert.doesNotMatch(runtime, /SELECT saas[.]merchant_provider_execution_authority_matches/);
+});
+
 test("browser proof is raw-CDP only and injects the locked axe asset", async () => {
   const acceptancePath = path.join(
     repositoryRoot,
@@ -69,10 +87,15 @@ test("browser proof is raw-CDP only and injects the locked axe asset", async () 
     repositoryRoot,
     "tests/saas-phase3/storefront-one-page-checkout/browser-fixture.mjs",
   );
+  const providerPreloadPath = path.join(
+    repositoryRoot,
+    "tests/saas-phase3/storefront-one-page-checkout/provider-fetch-preload.mjs",
+  );
   const axePath = path.join(repositoryRoot, "node_modules/axe-core/axe.min.js");
-  const [acceptance, fixture, axe] = await Promise.all([
+  const [acceptance, fixture, providerPreload, axe] = await Promise.all([
     readFile(acceptancePath, "utf8"),
     readFile(fixturePath, "utf8"),
+    readFile(providerPreloadPath, "utf8"),
     readFile(axePath),
   ]);
   assert.match(acceptance, /class Cdp/);
@@ -83,6 +106,18 @@ test("browser proof is raw-CDP only and injects the locked axe asset", async () 
   assert.match(fixture, /startCheckoutBrowserFixture/);
   assert.match(fixture, /initdb/);
   assert.match(fixture, /next", "build"|NEXT, "build"/);
+  assert.doesNotMatch(fixture, /isProviderSubmit|body[.]includes\(Buffer[.]from\(selected[.]methodIds[.]provider\)\)/);
+  assert.match(fixture, /--import/);
+  assert.match(providerPreload, /globalThis[.]fetch/);
+  assert.match(providerPreload, /https:\/\/www[.]paytr[.]com\/odeme\/api\/get-token/);
+  assert.match(providerPreload, /https:\/\/sandbox-api[.]iyzipay[.]com\/payment\/iyzipos\/checkoutform\/initialize\/auth\/ecom/);
+  assert.doesNotMatch(providerPreload, /api\/checkout\/submit/);
+  assert.match(acceptance, /visualViewport[.]scale/);
+  assert.doesNotMatch(acceptance, /\b(?:postData|responseBody)\s*:/);
+  assert.doesNotMatch(acceptance, /document[.]body[?][.]innerText|consoleErrors[.]push\(args[.]map/);
+  assert.match(acceptance, /safeBlockedUri/);
+  assert.match(acceptance, /safeRequestFieldNames/);
+  assert.doesNotMatch(fixture, /runtime_quote_(?:invalid|contract_invalid):|repository_quote_invalid:/);
   assert.equal(
     createHash("sha256").update(axe).digest("hex"),
     "7dbfabdfc6062936d79c873ddbb5f811a1219fca3928bd8cc9dd81f1e65f4720",

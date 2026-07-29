@@ -1553,6 +1553,14 @@ async function main() {
         assert.equal(priceRace.row?.result_payload?.amountMinor, 9500);
         assert.equal(priceRace.row?.result_payload?.basket?.[0]?.unitAmountMinor, 8000,
           "hosted basket must retain the one canonical pre-archive quote price");
+        assert.equal(
+          priceRace.row?.result_payload?.basket?.reduce(
+            (total, item) => total + item.quantity * item.unitAmountMinor,
+            0,
+          ),
+          priceRace.row?.result_payload?.amountMinor,
+          "hosted provider basket must equal the exact committed payable amount",
+        );
         assert.equal(sql(box, `SELECT
             (settlement_snapshot#>>'{money,subtotalCents}')||'|'||
             (settlement_snapshot#>>'{money,totalCents}')||'|'||
@@ -1852,6 +1860,15 @@ async function main() {
     }), MAX_PAYLOAD_DB);
     assert.equal(maximumHosted.outcome, "created");
     assert.equal(maximumHosted.payload.customer.identityNumber, null);
+    assert.ok(maximumHosted.payload.basket.length <= 100);
+    assert.equal(
+      maximumHosted.payload.basket.reduce(
+        (total, item) => total + item.quantity * item.unitAmountMinor,
+        0,
+      ),
+      maximumHosted.payload.amountMinor,
+      "maximum hosted provider basket must remain bounded and payment-exact",
+    );
     assert.equal(sql(box, `SELECT
         (order_id='${checkoutUuid("hosted-order", HOSTED_ATTEMPT)}')::text||'|'||
         pg_catalog.cardinality(order_item_ids)||'|'||

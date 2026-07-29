@@ -163,6 +163,8 @@ export function CheckoutClient(props: CheckoutClientProps) {
   }, []);
 
   const applyDelivery = useCallback(async (formElement: HTMLFormElement) => {
+    const applyButton = formElement.querySelector<HTMLElement>(`#${DELIVERY_APPLY_ID}`);
+    const restoreApplyFocus = document.activeElement === applyButton;
     const form = new FormData(formElement);
     const deliveryValues = readDeliveryFormValues(form, discountCode);
     const nextErrors = validateDeliveryFields(deliveryValues);
@@ -237,6 +239,11 @@ export function CheckoutClient(props: CheckoutClientProps) {
       setDeliveryAuthorityError(null);
       setDiscountCode(nextQuote.discountCode ?? "");
       setSubmitOperationId(crypto.randomUUID());
+      if (restoreApplyFocus) {
+        requestAnimationFrame(() => {
+          if (document.activeElement === document.body) applyButton?.focus();
+        });
+      }
       sendCheckoutAnalytics(props.tracker, {
         name: "checkout_delivery_saved",
         data: {

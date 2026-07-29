@@ -196,7 +196,11 @@ test("shared storefront uses literal 056 boot authority and rechecks exact provi
   assert.match(defaultRuntime, /saas[.]payment_provider_keyed_lifecycle_preflight\(\)/u);
   assert.match(
     defaultRuntime,
-    /merchant_provider_execution_authority_matches\(\s*\$1::text,\$2::text,\$3::text,\$4::integer,\$5::text/u,
+    /storefront_checkout_execution_authority_matches\(\s*\$1::text,\$2::text,\$3::text,\$4::integer,\$5::text/u,
+  );
+  assert.doesNotMatch(
+    defaultRuntime,
+    /SELECT saas[.]merchant_provider_execution_authority_matches/u,
   );
   assert.doesNotMatch(defaultRuntime, /paytr_iframe_activation_preflight|CROSS JOIN pg_catalog[.]pg_proc/u);
   assert.doesNotMatch(defaultRuntime, /EXECUTE\s+FORMAT|\$\{\s*authority[.]providerCode/u);

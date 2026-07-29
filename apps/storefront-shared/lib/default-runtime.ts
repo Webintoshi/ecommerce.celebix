@@ -104,7 +104,7 @@ async function currentExecutionAuthorityMatches(
 ): Promise<boolean> {
   try {
     const exact = await pool.query({
-      text: `SELECT saas.merchant_provider_execution_authority_matches(
+      text: `SELECT saas.storefront_checkout_execution_authority_matches(
         $1::text,$2::text,$3::text,$4::integer,$5::text
       ) AS exact_authority`,
       values: [
@@ -258,7 +258,7 @@ async function initializeHostedPaymentInfrastructure(
           AND to_regprocedure('saas.payment_callback_authority(text,text,timestamp with time zone)') IS NOT NULL
           AS migration_052,
         to_regclass('saas.merchant_provider_execution_authorities') IS NOT NULL
-          AND to_regprocedure('saas.merchant_provider_execution_authority_matches(text,text,text,integer,text)') IS NOT NULL
+          AND to_regprocedure('saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text)') IS NOT NULL
           AND to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL
           AND saas.payment_provider_keyed_lifecycle_preflight()
           AS migration_056,

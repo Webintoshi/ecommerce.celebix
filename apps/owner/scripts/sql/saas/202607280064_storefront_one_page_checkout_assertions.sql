@@ -15,12 +15,19 @@ BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='82519bfcdb20d4e7f6a6001626327e6e'
+      AND pg_catalog.md5(procedure.prosrc)='f8425b71433ce371e0a3a23ae3a1dbae'
   ) THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_FUNCTION_BODY_INVALID: preflight';
   END IF;
   IF saas.storefront_checkout_preflight() IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_PREFLIGHT_INVALID';
+  END IF;
+  IF pg_catalog.has_function_privilege(
+    workflow_oid,
+    'saas.merchant_provider_execution_authority_matches(text,text,text,integer,text)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_ASSERT_PRIVATE_AUTHORITY_EXPOSED';
   END IF;
   IF saas.merchant_admin_config_valid(
       'shipping_setting','{"regions":["TR"],"flatRateCents":2500,"freeShippingThresholdCents":50000,"estimatedDays":3}'::jsonb
@@ -219,11 +226,12 @@ BEGIN
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3'),
     ('saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)','203f23730750a28361129259ccb9d26f'),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e'),
-    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)','397531c6e482991b782ef989878e6abe'),
+    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)','3243cc467910c70e54e2ebc37348924b'),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121'),
     ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','a094b754f97152d4a8177f0dd6d03bc0'),
     ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1'),
-    ('saas.storefront_checkout_preflight()','82519bfcdb20d4e7f6a6001626327e6e')
+    ('saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text)','ecc60e8d9f01db9cfcccbcdf29814c9d'),
+    ('saas.storefront_checkout_preflight()','f8425b71433ce371e0a3a23ae3a1dbae')
   ) expected(signature,expected_hash) LOOP
     procedure_oid:=signature::regprocedure;
     IF NOT EXISTS(

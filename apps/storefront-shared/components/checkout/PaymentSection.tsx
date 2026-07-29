@@ -183,6 +183,7 @@ export function PaymentSection(props: PaymentSectionProps) {
                             onInvalid={(event) => {
                               const form = event.currentTarget.form;
                               event.preventDefault();
+                              event.currentTarget.focus();
                               props.onFieldInvalid(
                                 "identityNumber",
                                 event.currentTarget.validity.valueMissing

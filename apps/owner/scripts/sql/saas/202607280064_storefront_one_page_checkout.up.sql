@@ -24,6 +24,9 @@ BEGIN
     OR pg_catalog.to_regprocedure(
       'saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)'
     ) IS NOT NULL
+    OR pg_catalog.to_regprocedure(
+      'saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text)'
+    ) IS NOT NULL
     OR EXISTS(
       SELECT 1 FROM pg_catalog.pg_attribute
       WHERE attrelid='saas.abandoned_carts'::regclass AND attnum>0 AND NOT attisdropped
@@ -1821,6 +1824,13 @@ DECLARE
   quoted_line_sum numeric;
   quote_items_valid boolean;
   basket jsonb;
+  provider_basket jsonb;
+  basket_entry jsonb;
+  remaining_discount numeric;
+  shipping_payable numeric;
+  basket_line_amount numeric;
+  basket_adjusted_amount numeric;
+  provider_basket_total numeric;
   settlement_items jsonb;
   settlement_snapshot jsonb;
   derived_order_id uuid;
@@ -2043,6 +2053,70 @@ BEGIN
     OR pg_catalog.jsonb_array_length(basket)<>item_count
     OR pg_catalog.jsonb_array_length(settlement_items)<>item_count
   THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SNAPSHOT_INVALID'; END IF;
+
+  -- Provider basket prices must add up to the immutable payable amount. Keep
+  -- settlement/order lines untouched, absorb discounts against shipping first,
+  -- then against product lines, and bound the provider projection to 100 rows.
+  remaining_discount:=(quote_payload->>'discountCents')::numeric;
+  shipping_payable:=(quote_payload->>'shippingCents')::numeric;
+  IF remaining_discount>=shipping_payable THEN
+    remaining_discount:=remaining_discount-shipping_payable;
+    shipping_payable:=0;
+  ELSE
+    shipping_payable:=shipping_payable-remaining_discount;
+    remaining_discount:=0;
+  END IF;
+  provider_basket:='[]'::jsonb;
+  provider_basket_total:=0;
+  FOR basket_entry IN
+    SELECT entry.value
+    FROM pg_catalog.jsonb_array_elements(basket) WITH ORDINALITY entry(value,ordinality)
+    ORDER BY entry.ordinality
+  LOOP
+    basket_line_amount:=(basket_entry->>'quantity')::numeric
+      *(basket_entry->>'unitAmountMinor')::numeric;
+    basket_adjusted_amount:=GREATEST(
+      basket_line_amount-remaining_discount,0::numeric
+    );
+    remaining_discount:=GREATEST(
+      remaining_discount-basket_line_amount,0::numeric
+    );
+    IF basket_adjusted_amount>0 THEN
+      provider_basket:=provider_basket||pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object(
+          'reference',basket_entry->>'reference','name',basket_entry->>'name',
+          'quantity',1,'unitAmountMinor',basket_adjusted_amount::bigint,
+          'itemType',basket_entry->>'itemType'
+        )
+      );
+      provider_basket_total:=provider_basket_total+basket_adjusted_amount;
+    END IF;
+  END LOOP;
+  IF shipping_payable>0 THEN
+    IF pg_catalog.jsonb_array_length(provider_basket)<100 THEN
+      provider_basket:=provider_basket||pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object(
+          'reference','shipping:standard','name','Kargo','quantity',1,
+          'unitAmountMinor',shipping_payable::bigint,'itemType','PHYSICAL'
+        )
+      );
+    ELSE
+      basket_line_amount:=(provider_basket#>>ARRAY[
+        (pg_catalog.jsonb_array_length(provider_basket)-1)::text,'unitAmountMinor'
+      ])::numeric;
+      provider_basket:=pg_catalog.jsonb_set(
+        provider_basket,
+        ARRAY[(pg_catalog.jsonb_array_length(provider_basket)-1)::text,'unitAmountMinor'],
+        pg_catalog.to_jsonb((basket_line_amount+shipping_payable)::bigint),false
+      );
+    END IF;
+    provider_basket_total:=provider_basket_total+shipping_payable;
+  END IF;
+  IF remaining_discount<>0
+    OR pg_catalog.jsonb_array_length(provider_basket) NOT BETWEEN 1 AND 100
+    OR provider_basket_total<>(quote_payload->>'totalCents')::numeric
+  THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_PROVIDER_BASKET_INVALID'; END IF;
+  basket:=provider_basket;
 
   derived_order_id:=saas.storefront_checkout_uuid('hosted-order',p_attempt_id);
   SELECT pg_catalog.array_agg(
@@ -2538,6 +2612,24 @@ CREATE TRIGGER payment_attempt_storefront_checkout_terminal
 AFTER UPDATE OF status ON saas.payment_attempts
 FOR EACH ROW EXECUTE FUNCTION saas.storefront_checkout_payment_attempt_terminal();
 
+-- The underlying execution-authority matcher is intentionally owner-only. This
+-- narrow storefront boundary preserves that ACL while allowing the workflow
+-- runtime to re-check revocation immediately before provider transport.
+CREATE FUNCTION saas.storefront_checkout_execution_authority_matches(
+  p_provider_code text,p_capability text,p_environment text,
+  p_adapter_version integer,p_evidence_digest text
+)
+RETURNS boolean
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $f$
+BEGIN
+  RETURN saas.merchant_provider_execution_authority_matches(
+    p_provider_code,p_capability,p_environment,p_adapter_version,p_evidence_digest
+  );
+END
+$f$;
+
 CREATE FUNCTION saas.storefront_checkout_preflight()
 RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -2929,10 +3021,11 @@ BEGIN
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char"),
     ('saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)','203f23730750a28361129259ccb9d26f','s'::"char"),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e','v'::"char"),
-    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)','397531c6e482991b782ef989878e6abe','v'::"char"),
+    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)','3243cc467910c70e54e2ebc37348924b','v'::"char"),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char"),
     ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','a094b754f97152d4a8177f0dd6d03bc0','s'::"char"),
     ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1','s'::"char"),
+    ('saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text)','ecc60e8d9f01db9cfcccbcdf29814c9d','v'::"char"),
     ('saas.storefront_checkout_preflight()',NULL::text,'s'::"char")
   ) expected(signature,expected_hash,expected_volatility) LOOP
     procedure_oid:=pg_catalog.to_regprocedure(signature);
@@ -2965,6 +3058,12 @@ BEGIN
   IF pg_catalog.to_regprocedure(
     'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'
   ) IS NOT NULL THEN RETURN false; END IF;
+
+  IF pg_catalog.has_function_privilege(
+    workflow_oid,
+    'saas.merchant_provider_execution_authority_matches(text,text,text,integer,text)',
+    'EXECUTE'
+  ) THEN RETURN false; END IF;
 
   IF saas.merchant_admin_config_valid(
       'shipping_setting','{"regions":["TR"],"flatRateCents":2500,"freeShippingThresholdCents":50000,"estimatedDays":3}'::jsonb
@@ -3015,6 +3114,7 @@ REVOKE ALL ON FUNCTION
   saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamptz),
   saas.storefront_checkout_get_status(text,text,timestamptz),
   saas.storefront_checkout_get_policy(text,text,timestamptz),
+  saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text),
   saas.storefront_checkout_preflight()
 FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
   celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
@@ -3036,6 +3136,7 @@ GRANT EXECUTE ON FUNCTION
   saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamptz),
   saas.storefront_checkout_get_status(text,text,timestamptz),
   saas.storefront_checkout_get_policy(text,text,timestamptz),
+  saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text),
   saas.storefront_checkout_preflight()
 TO celebix_saas_workflow;
 

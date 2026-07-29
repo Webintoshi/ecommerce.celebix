@@ -173,9 +173,7 @@ class Cdp {
       returnByValue: true,
     });
     if (result.exceptionDetails) {
-      throw new Error(
-        `browser_evaluation_failed:${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`,
-      );
+      throw new Error("browser_evaluation_failed");
     }
     return result.result?.value;
   }
@@ -193,10 +191,35 @@ async function waitFor(cdp, expression, label, timeout = 30_000) {
     if (await cdp.evaluate(expression)) return;
     await new Promise((resolve) => setTimeout(resolve, 75));
   }
-  const diagnostic = await cdp.evaluate(
-    `document.body?.innerText?.replace(/\\s+/g," ").slice(0,2000)??""`,
-  ).catch(() => "");
-  throw new Error(`${label}_timeout:${diagnostic}`);
+  throw new Error(`${label}_timeout`);
+}
+
+function safeBlockedUri(value) {
+  if (["eval", "inline", "self"].includes(value)) return value;
+  try {
+    const selected = new URL(value);
+    return `${selected.origin}${selected.pathname}`;
+  } catch {
+    return "opaque";
+  }
+}
+
+function safeRequestFieldNames(postData, contentType) {
+  if (postData === undefined) return [];
+  try {
+    if (contentType.startsWith("application/json")) {
+      const parsed = JSON.parse(postData);
+      return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+        ? Object.keys(parsed).sort()
+        : [];
+    }
+    if (contentType.startsWith("application/x-www-form-urlencoded")) {
+      return [...new Set(new URLSearchParams(postData).keys())].sort();
+    }
+  } catch {
+    return [];
+  }
+  return [];
 }
 
 async function viewport(cdp, width, height, scale = 1) {
@@ -362,6 +385,88 @@ async function keyboardDelivery(cdp) {
   assert.ok(focus.outlineWidth >= 2);
   await key(cdp, "Enter");
   return initialVersion;
+}
+
+async function keyboardTabTo(cdp, expression, label, maximum = 16) {
+  const observed = [];
+  for (let index = 0; index <= maximum; index += 1) {
+    if (await cdp.evaluate(expression)) return;
+    observed.push(await cdp.evaluate(`(()=>({
+      classNames:[...(document.activeElement?.classList??[])].sort(),
+      id:document.activeElement?.id??"",
+      name:document.activeElement?.getAttribute?.("name")??"",
+      tag:document.activeElement?.tagName??"",
+      type:document.activeElement?.getAttribute?.("type")??"",
+    }))()`));
+    await key(cdp, "Tab");
+  }
+  throw new Error(`${label}_keyboard_tab_order_invalid:${JSON.stringify(observed)}`);
+}
+
+async function keyboardPaymentMethodTo(cdp, paymentMethodId) {
+  await keyboardTabTo(
+    cdp,
+    `document.activeElement?.getAttribute("name")==="paymentMethodId"`,
+    "payment_method_group",
+  );
+  const methodCount = await cdp.evaluate(
+    `globalThis.__checkoutRoot().querySelectorAll('input[name="paymentMethodId"]').length`,
+  );
+  for (let index = 0; index < methodCount; index += 1) {
+    if (await cdp.evaluate(
+      `document.activeElement?.value===${JSON.stringify(paymentMethodId)}`,
+    )) return;
+    await key(cdp, "ArrowDown", "ArrowDown");
+  }
+  throw new Error("payment_method_keyboard_arrow_order_invalid");
+}
+
+async function keyboardCodPurchase(cdp, fixture, scenario) {
+  await prepareScenario(cdp, scenario, true);
+  assert.equal(
+    await cdp.evaluate(`document.activeElement?.id`),
+    "checkout-delivery-apply",
+  );
+  await keyboardPaymentMethodTo(cdp, scenario.methodIds.cashOnDelivery);
+  await keyboardTabTo(
+    cdp,
+    `document.activeElement?.getAttribute("name")==="distanceSales"`,
+    "distance_sales",
+  );
+  await key(cdp, " ", "Space");
+  await keyboardTabTo(
+    cdp,
+    `document.activeElement?.getAttribute("name")==="preInformation"`,
+    "pre_information",
+  );
+  await key(cdp, " ", "Space");
+  await keyboardTabTo(
+    cdp,
+    `document.activeElement?.classList.contains("checkout-submit")===true`,
+    "checkout_submit",
+  );
+  const focus = await cdp.evaluate(`(()=>{
+    const style=getComputedStyle(document.activeElement);
+    return {outlineStyle:style.outlineStyle,outlineWidth:parseFloat(style.outlineWidth)};
+  })()`);
+  assert.notEqual(focus.outlineStyle, "none");
+  assert.ok(focus.outlineWidth >= 2);
+  const loaded = cdp.once("Page.loadEventFired");
+  await key(cdp, "Enter");
+  await loaded;
+  await waitFor(
+    cdp,
+    `location.pathname==="/odeme/sonuc"&&document.querySelector("h1")?.textContent==="Siparişiniz alındı"`,
+    "keyboard_cod_result",
+  );
+  const orderCount = fixture.database.query(
+    `SELECT count(*) FROM saas.orders WHERE store_id='${scenario.storeId}' AND storefront_cart_id='${scenario.cartId}';`,
+  );
+  assert.equal(orderCount, "1");
+  return {
+    heading: await cdp.evaluate(`document.querySelector("h1")?.textContent`),
+    orderCount: Number(orderCount),
+  };
 }
 
 async function fillDelivery(cdp) {
@@ -595,16 +700,21 @@ async function reducedMotion(cdp) {
 }
 
 async function zoomContract(cdp, host) {
-  await viewport(cdp, 640, 450, 2);
+  await viewport(cdp, 640, 450);
   await navigate(cdp, host);
   await checkoutReady(cdp, host);
+  await cdp.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+  await waitFor(cdp, `visualViewport.scale===2`, "page_zoom_200_percent");
   const result = await cdp.evaluate(`({
     overflow:document.documentElement.scrollWidth-innerWidth,
-    scale:window.devicePixelRatio,
+    scale:visualViewport.scale,
+    visualWidth:visualViewport.width,
     width:innerWidth,
   })`);
   assert.equal(result.overflow, 0);
   assert.equal(result.scale, 2);
+  assert.equal(result.visualWidth, 320);
+  await cdp.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
   return result;
 }
 
@@ -640,34 +750,149 @@ async function maskAndScreenshot(cdp, fixture, spec) {
   return target;
 }
 
-async function fakeProviderOutcomes(cdp, fixture, host) {
-  const outcomes = [];
-  for (const outcome of ["redirect", "processing", "rejected"]) {
-    fixture.setProviderOutcome(outcome);
-    const result = await cdp.evaluate(`fetch("/api/checkout/submit",{
+async function prepareScenario(cdp, scenario, keyboard = false) {
+  await setCartCookie(cdp, scenario);
+  await viewport(cdp, 1280, 900);
+  await navigate(cdp, scenario);
+  await checkoutReady(cdp, scenario);
+  const initialVersion = keyboard
+    ? await keyboardDelivery(cdp)
+    : await fillDelivery(cdp);
+  await waitDelivery(cdp, initialVersion);
+}
+
+async function canonicalSubmit(cdp) {
+  return cdp.evaluate(`(async()=>{
+    const form=globalThis.__checkoutRoot().querySelector(".checkout-payment-section form");
+    const body=new URLSearchParams(new FormData(form));
+    const response=await fetch("/api/checkout/submit",{
       method:"POST",
       credentials:"same-origin",
       headers:{"accept":"application/json","content-type":"application/x-www-form-urlencoded"},
-      body:new URLSearchParams({paymentMethodId:${JSON.stringify(host.methodIds.provider)}})
-    }).then(async response=>({status:response.status,body:await response.json()}))`);
-    if (outcome === "redirect") {
-      assert.equal(result.status, 200);
-      assert.deepEqual(Object.keys(result.body).sort(), ["kind", "location"]);
-      assert.equal(result.body.kind, "redirect");
-      assert.match(result.body.location, /^https:\/\/sandbox-cpp[.]iyzipay[.]com[?]/);
-    } else if (outcome === "processing") {
-      assert.deepEqual(result, { status: 202, body: { code: "processing" } });
-    } else {
-      assert.deepEqual(result, { status: 409, body: { code: "payment_unavailable" } });
+      body:body.toString(),
+    });
+    const payload=await response.json();
+    let redirectValid=false;
+    if(payload?.kind==="redirect"&&typeof payload.location==="string"){
+      const location=new URL(payload.location);
+      redirectValid=location.origin==="https://sandbox-cpp.iyzipay.com"
+        && location.pathname==="/"
+        && location.searchParams.get("lang")==="tr"
+        && /^[A-Za-z0-9_-]{36,256}$/.test(location.searchParams.get("token")??"");
     }
-    outcomes.push({ outcome, ...result });
+    return {
+      code:typeof payload?.code==="string"?payload.code:null,
+      fieldNames:[...new Set(body.keys())].sort(),
+      kind:typeof payload?.kind==="string"?payload.kind:null,
+      redirectValid,
+      status:response.status,
+    };
+  })()`);
+}
+
+function hostedDatabaseState(fixture, scenario) {
+  const value = fixture.database.query(`SELECT pg_catalog.concat_ws('|',
+      COALESCE(attempt.status,'missing'),
+      COALESCE(bridge.status,'missing'),
+      COALESCE((SELECT count(*)::text FROM saas.checkout_inventory_reservations reservation
+        WHERE reservation.payment_attempt_id=attempt.id AND reservation.status='held'),'0'),
+      COALESCE((SELECT count(*)::text FROM saas.orders orders
+        WHERE orders.store_id='${scenario.storeId}' AND orders.storefront_cart_id='${scenario.cartId}'),'0'))
+    FROM saas.abandoned_carts cart
+    LEFT JOIN saas.storefront_checkout_payment_bridges bridge
+      ON bridge.store_id=cart.store_id AND bridge.cart_id=cart.id
+    LEFT JOIN saas.payment_attempts attempt ON attempt.id=bridge.attempt_id
+    WHERE cart.store_id='${scenario.storeId}' AND cart.id='${scenario.cartId}';`);
+  const [attempt, bridge, heldReservations, orders] = value.split("|");
+  return {
+    attempt,
+    bridge,
+    heldReservations: Number(heldReservations),
+    orders: Number(orders),
+  };
+}
+
+function hostedSafeCode(fixture, scenario) {
+  return fixture.database.query(`SELECT COALESCE(attempt.safe_code,'missing')
+    FROM saas.abandoned_carts cart
+    LEFT JOIN saas.storefront_checkout_payment_bridges bridge
+      ON bridge.store_id=cart.store_id AND bridge.cart_id=cart.id
+    LEFT JOIN saas.payment_attempts attempt ON attempt.id=bridge.attempt_id
+    WHERE cart.store_id='${scenario.storeId}' AND cart.id='${scenario.cartId}';`);
+}
+
+async function providerSubmit(cdp, fixture, scenario, provider, outcome) {
+  await fixture.resetProviderCalls();
+  await fixture.setProviderOutcome(provider, outcome);
+  await prepareScenario(cdp, scenario);
+  await click(cdp, `input[name="paymentMethodId"][value="${scenario.methodIds.provider}"]`);
+  if (provider === "iyzico") {
+    await waitFor(
+      cdp,
+      `globalThis.__checkoutRoot().querySelector('input[name="paymentMethodId"][value="${scenario.methodIds.provider}"]')?.checked===true&&globalThis.__checkoutRoot().querySelector("#checkout-identity-number")?.getBoundingClientRect().height>0`,
+      "iyzico_method_ready",
+    );
+    const requestCount = { value: 0 };
+    const release = cdp.on("Network.requestWillBeSent", ({ request }) => {
+      if (request.method === "POST" && request.url.endsWith("/api/checkout/submit")) {
+        requestCount.value += 1;
+      }
+    });
+    await click(cdp, `input[name="distanceSales"]`);
+    await click(cdp, `input[name="preInformation"]`);
+    await cdp.evaluate(`globalThis.__checkoutRoot().querySelector(".checkout-submit")?.focus()`);
+    await key(cdp, "Enter");
+    await cdp.evaluate(`new Promise(resolve=>setTimeout(resolve,250))`);
+    const identityEnforcement = await cdp.evaluate(`(()=>{
+      const root=globalThis.__checkoutRoot();
+      const identity=root.querySelector("#checkout-identity-number");
+      const submit=root.querySelector(".checkout-submit");
+      return {
+        errorVisible:root.querySelector("#checkout-identityNumber-error")?.getBoundingClientRect().height>0,
+        focused:document.activeElement===identity,
+        invalid:identity?.matches(":invalid")===true,
+        submitDisabled:submit?.disabled===true,
+      };
+    })()`);
+    assert.deepEqual(identityEnforcement, {
+      errorVisible: true,
+      focused: true,
+      invalid: true,
+      submitDisabled: false,
+    });
+    release();
+    assert.equal(requestCount.value, 0);
+    await setInput(cdp, "#checkout-identity-number", "74300864791");
+  } else {
+    await click(cdp, `input[name="distanceSales"]`);
+    await click(cdp, `input[name="preInformation"]`);
+    fixture.disablePaytrExecutionAuthority();
   }
-  fixture.setProviderOutcome("passthrough");
-  return outcomes;
+  const result = await canonicalSubmit(cdp);
+  const expectedFields = [
+    "cartVersion",
+    "checkoutNonce",
+    "distanceSales",
+    "identityNumber",
+    "operationId",
+    "paymentMethodId",
+    "preInformation",
+  ].sort();
+  assert.deepEqual(result.fieldNames, expectedFields);
+  const providerState = await fixture.providerState();
+  return {
+    database: hostedDatabaseState(fixture, scenario),
+    safeCode: hostedSafeCode(fixture, scenario),
+    outcome,
+    provider,
+    providerCalls: providerState.calls,
+    result,
+  };
 }
 
 async function browserDuplicateGuard(cdp, fixture, host) {
-  fixture.setProviderOutcome("processing");
+  await fixture.resetProviderCalls();
+  await fixture.setProviderOutcome("iyzico", "processing");
   await cdp.evaluate(`(()=>{
     const active=globalThis.__checkoutRoot();
     const stale=active.cloneNode(true);
@@ -715,7 +940,6 @@ async function browserDuplicateGuard(cdp, fixture, host) {
   );
   release();
   await cdp.evaluate(`document.querySelector('[data-checkout-stale-root]')?.remove()`);
-  fixture.setProviderOutcome("passthrough");
   assert.equal(requestCount.value, 1);
   return requestCount.value;
 }
@@ -775,10 +999,10 @@ async function resultStates(cdp, fixture, host) {
     );
     const claims = await cdp.evaluate(`({
       heading:document.querySelector("h1")?.textContent,
-      orderNumber:document.querySelector(".checkout-result-order strong")?.textContent,
+      orderNumberValid:/^SF-/.test(document.querySelector(".checkout-result-order strong")?.textContent ?? ""),
     })`);
-    assert.match(claims.orderNumber, /^SF-/);
-    seen.push({ kind, ...claims });
+    assert.equal(claims.orderNumberValid, true);
+    seen.push({ kind, heading: claims.heading });
   }
   return seen;
 }
@@ -828,14 +1052,29 @@ async function main() {
     const cspViolations = [];
     cdp.on("Runtime.consoleAPICalled", ({ args, type }) => {
       if (["error", "assert"].includes(type)) {
-        consoleErrors.push(args.map(({ description, value }) => value ?? description).join(" "));
+        consoleErrors.push({ argumentCount: args.length, type });
       }
     });
     cdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
-      exceptions.push(exceptionDetails.exception?.description ?? exceptionDetails.text);
+      exceptions.push({
+        lineNumber: exceptionDetails.lineNumber ?? null,
+        text: exceptionDetails.text ?? "exception",
+      });
     });
     cdp.on("Network.loadingFailed", ({ canceled, errorText, type }) => {
       if (!canceled && type !== "Ping") failedRequests.push({ errorText, type });
+    });
+    cdp.on("Runtime.bindingCalled", ({ name, payload }) => {
+      if (name !== "__checkoutReportCspViolation") return;
+      try {
+        const selected = JSON.parse(payload);
+        cspViolations.push({
+          blockedURI: safeBlockedUri(selected.blockedURI),
+          effectiveDirective: selected.effectiveDirective,
+        });
+      } catch {
+        cspViolations.push({ blockedURI: "invalid", effectiveDirective: "invalid" });
+      }
     });
     cdp.on("Network.requestWillBeSent", ({ request, requestId }) => {
       if (new URL(request.url).pathname.startsWith("/api/checkout/")) {
@@ -847,14 +1086,19 @@ async function main() {
             .filter(([name]) => [
               "content-length",
               "content-type",
-              "cookie",
               "host",
               "origin",
               "transfer-encoding",
             ].includes(name))),
           method: request.method,
           pathname: new URL(request.url).pathname,
-          postData: request.postData ?? null,
+          requestBodyBytes: request.postData === undefined
+            ? 0
+            : Buffer.byteLength(request.postData, "utf8"),
+          requestFieldNames: safeRequestFieldNames(
+            request.postData,
+            normalizedHeaders["content-type"] ?? "",
+          ),
           requestId,
         };
         if (requestExtraInfo.has(requestId)) {
@@ -895,31 +1139,20 @@ async function main() {
       const selected = checkoutTraffic.find((entry) => entry.requestId === requestId);
       if (selected) selected.status = response.status;
     });
-    cdp.on("Network.loadingFinished", ({ requestId }) => {
-      const selected = checkoutTraffic.find((entry) => entry.requestId === requestId);
-      if (!selected) return;
-      void cdp.send("Network.getResponseBody", { requestId }).then(({ body, base64Encoded }) => {
-        selected.responseBody = base64Encoded
-          ? Buffer.from(body, "base64").toString("utf8")
-          : body;
-      }).catch((error) => {
-        selected.responseBodyError = String(error);
-      });
-    });
     await Promise.all([
       cdp.send("Page.enable"),
       cdp.send("Runtime.enable"),
       cdp.send("Network.enable"),
       cdp.send("Log.enable"),
     ]);
+    await cdp.send("Runtime.addBinding", { name: "__checkoutReportCspViolation" });
     await cdp.send("Page.bringToFront");
     await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
-      source: `globalThis.__checkoutCspViolations=[];
-globalThis.__checkoutRoot=()=>[...document.querySelectorAll("[data-checkout-root]")]
+      source: `globalThis.__checkoutRoot=()=>[...document.querySelectorAll("[data-checkout-root]")]
   .sort((left,right)=>right.getBoundingClientRect().width-left.getBoundingClientRect().width)[0]??null;
-addEventListener("securitypolicyviolation",event=>globalThis.__checkoutCspViolations.push({
+addEventListener("securitypolicyviolation",event=>globalThis.__checkoutReportCspViolation(JSON.stringify({
   blockedURI:event.blockedURI,effectiveDirective:event.effectiveDirective
-}));`,
+})));`,
     });
     for (const host of fixture.hosts) await setCartCookie(cdp, host);
 
@@ -965,9 +1198,6 @@ addEventListener("securitypolicyviolation",event=>globalThis.__checkoutCspViolat
         await applyDiscount(cdp, "GECERSIZ", "invalid");
         await applyDiscount(cdp, "ATOLYE10", "valid");
         await consentEnforcement(cdp, host);
-      } else {
-        providerOutcomes.push(...await fakeProviderOutcomes(cdp, fixture, host));
-        assert.equal(await browserDuplicateGuard(cdp, fixture, host), 1);
       }
 
       await viewport(cdp, 390, 844);
@@ -977,20 +1207,124 @@ addEventListener("securitypolicyviolation",event=>globalThis.__checkoutCspViolat
       accessibility.at(-1).mobile = await axe(cdp);
       accessibility.at(-1).mobileContract = mobile;
       accessibility.at(-1).reducedMotion = await reducedMotion(cdp);
-      cspViolations.push(...await cdp.evaluate(`globalThis.__checkoutCspViolations??[]`));
-      if (index === 0) {
-        await viewport(cdp, 1280, 900);
-        await navigate(cdp, host);
-        await checkoutReady(cdp, host);
-        const initialDeliveryVersion = await fillDelivery(cdp);
-        await waitDelivery(cdp, initialDeliveryVersion);
-        await consentEnforcement(cdp, host);
-        const replay = await serverIdempotency(cdp, fixture, host);
-        assert.equal(replay.length, 2);
-        const states = await resultStates(cdp, fixture, host);
-        assert.deepEqual(states.map(({ kind }) => kind), ["placed", "processing", "failed", "paid"]);
-      }
     }
+
+    const paytr = await providerSubmit(
+      cdp,
+      fixture,
+      fixture.scenarios.paytrUnavailable,
+      "paytr",
+      "redirect",
+    );
+    assert.deepEqual(paytr.result, {
+      code: "payment_unavailable",
+      fieldNames: [
+        "cartVersion", "checkoutNonce", "distanceSales", "identityNumber", "operationId",
+        "paymentMethodId", "preInformation",
+      ],
+      kind: null,
+      redirectValid: false,
+      status: 409,
+    });
+    assert.deepEqual(paytr.providerCalls, []);
+    assert.deepEqual(paytr.database, {
+      attempt: "missing",
+      bridge: "missing",
+      heldReservations: 0,
+      orders: 0,
+    });
+    providerOutcomes.push(paytr);
+
+    const iyzicoRedirect = await providerSubmit(
+      cdp,
+      fixture,
+      fixture.scenarios.iyzicoRedirect,
+      "iyzico",
+      "redirect",
+    );
+    assert.deepEqual(iyzicoRedirect.result, {
+      code: null,
+      fieldNames: [
+        "cartVersion", "checkoutNonce", "distanceSales", "identityNumber",
+        "operationId", "paymentMethodId", "preInformation",
+      ],
+      kind: "redirect",
+      redirectValid: true,
+      status: 200,
+    }, JSON.stringify({
+      database: iyzicoRedirect.database,
+      providerCalls: iyzicoRedirect.providerCalls,
+      safeCode: iyzicoRedirect.safeCode,
+    }));
+    assert.equal(iyzicoRedirect.providerCalls.length, 1);
+    assert.equal(iyzicoRedirect.providerCalls[0].provider, "iyzico");
+    assert.deepEqual(iyzicoRedirect.database, {
+      attempt: "awaiting_customer",
+      bridge: "active",
+      heldReservations: 1,
+      orders: 0,
+    });
+    providerOutcomes.push(iyzicoRedirect);
+
+    await prepareScenario(cdp, fixture.scenarios.iyzicoProcessing);
+    assert.equal(
+      await browserDuplicateGuard(cdp, fixture, fixture.scenarios.iyzicoProcessing),
+      1,
+    );
+    const processingProviderState = await fixture.providerState();
+    assert.equal(processingProviderState.calls.length, 1);
+    const iyzicoProcessing = {
+      database: hostedDatabaseState(fixture, fixture.scenarios.iyzicoProcessing),
+      outcome: "processing",
+      provider: "iyzico",
+      providerCalls: processingProviderState.calls,
+      result: { code: "processing", status: 202 },
+    };
+    assert.deepEqual(iyzicoProcessing.database, {
+      attempt: "provider_outcome_unknown",
+      bridge: "active",
+      heldReservations: 1,
+      orders: 0,
+    });
+    providerOutcomes.push(iyzicoProcessing);
+
+    const iyzicoRejected = await providerSubmit(
+      cdp,
+      fixture,
+      fixture.scenarios.iyzicoRejected,
+      "iyzico",
+      "rejected",
+    );
+    assert.deepEqual(iyzicoRejected.result, {
+      code: "unavailable",
+      fieldNames: [
+        "cartVersion", "checkoutNonce", "distanceSales", "identityNumber",
+        "operationId", "paymentMethodId", "preInformation",
+      ],
+      kind: null,
+      redirectValid: false,
+      status: 503,
+    });
+    assert.equal(iyzicoRejected.providerCalls.length, 1);
+    assert.deepEqual(iyzicoRejected.database, {
+      attempt: "failed",
+      bridge: "failed",
+      heldReservations: 0,
+      orders: 0,
+    });
+    providerOutcomes.push(iyzicoRejected);
+
+    await prepareScenario(cdp, fixture.scenarios.bankTransfer);
+    await consentEnforcement(cdp, fixture.scenarios.bankTransfer);
+    const replay = await serverIdempotency(cdp, fixture, fixture.scenarios.bankTransfer);
+    assert.equal(replay.length, 2);
+    const states = await resultStates(cdp, fixture, fixture.scenarios.bankTransfer);
+    assert.deepEqual(states.map(({ kind }) => kind), ["placed", "processing", "failed", "paid"]);
+    const keyboardPurchase = await keyboardCodPurchase(
+      cdp,
+      fixture,
+      fixture.scenarios.codKeyboard,
+    );
 
     assert.equal(shipping[0].text, "0,00 TRY", JSON.stringify(shipping));
     assert.notEqual(shipping[1].text, "0,00 TRY", JSON.stringify(shipping));
@@ -1016,6 +1350,11 @@ addEventListener("securitypolicyviolation",event=>globalThis.__checkoutCspViolat
       methods,
       parity,
       providerOutcomes,
+      builtIn: {
+        bankTransferIdempotentResponses: replay.length,
+        keyboardPurchase,
+        resultStates: states.map(({ heading, kind }) => ({ heading, kind })),
+      },
       screenshots,
       shipping,
       zoom,

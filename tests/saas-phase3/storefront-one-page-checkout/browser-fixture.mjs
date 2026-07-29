@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createCipheriv, createHash } from "node:crypto";
 import {
   accessSync,
   chmodSync,
@@ -59,6 +59,13 @@ const IYZICO_RUN = "60000000-0000-4000-8000-000000000081";
 const IYZICO_LEASE = "61000000-0000-4000-8000-000000000081";
 const IYZICO_ATTESTATION = "62000000-0000-4000-8000-000000000081";
 const IYZICO_WORKER = "checkout-browser-iyzico-worker";
+const PROVIDER_KEY_ID = "provider.current";
+const PROVIDER_KEY = Buffer.alloc(32, 0x7b);
+const PROVIDER_KEY_B64URL = PROVIDER_KEY.toString("base64url");
+const IYZICO_CREDENTIAL = Object.freeze({
+  apiKey: "sandbox-api-key",
+  secretKey: "sandbox-secret-key",
+});
 const IYZICO_MATRIX = Object.freeze([
   Object.freeze({ event: "63000000-0000-4000-8000-000000000081", caseKind: "success", eventKind: "success_captured", attempt: "64000000-0000-4000-8000-000000000081", observation: "1".repeat(64), code: "captured" }),
   Object.freeze({ event: "63000000-0000-4000-8000-000000000082", caseKind: "decline", eventKind: "declined", attempt: "64000000-0000-4000-8000-000000000082", observation: "2".repeat(64), code: "declined" }),
@@ -104,6 +111,100 @@ export const CHECKOUT_BROWSER_HOSTS = Object.freeze([
   }),
 ]);
 
+function scenario(name, hostIndex, suffix, credentialByte) {
+  const host = CHECKOUT_BROWSER_HOSTS[hostIndex];
+  return Object.freeze({
+    ...host,
+    cartId: `60000000-0000-4000-8000-${suffix}`,
+    credential: Buffer.alloc(32, credentialByte).toString("base64url"),
+    itemId: `76000000-0000-4000-8000-${suffix}`,
+    name,
+  });
+}
+
+export const CHECKOUT_BROWSER_SCENARIOS = Object.freeze({
+  paytrUnavailable: scenario("paytr-unavailable", 0, "000000000101", 0x31),
+  iyzicoRedirect: scenario("iyzico-redirect", 1, "000000000102", 0x32),
+  iyzicoProcessing: scenario("iyzico-processing", 1, "000000000103", 0x33),
+  iyzicoRejected: scenario("iyzico-rejected", 1, "000000000104", 0x34),
+  bankTransfer: scenario("bank-transfer", 0, "000000000105", 0x35),
+  codKeyboard: scenario("cod-keyboard", 0, "000000000106", 0x36),
+});
+
+function credentialDigest(credential) {
+  return createHash("sha256")
+    .update(Buffer.from(credential, "base64url"))
+    .digest("hex");
+}
+
+function sealProviderCredential({ credential, profileId, providerCode, storeId }) {
+  const plaintext = Buffer.from(JSON.stringify(credential), "utf8");
+  const iv = Buffer.alloc(12, 0x5c);
+  const associatedData = Buffer.from(JSON.stringify([
+    "celebix-provider-credential",
+    1,
+    storeId,
+    profileId,
+    providerCode,
+    "payment_processing",
+    1,
+    PROVIDER_KEY_ID,
+  ]), "utf8");
+  const cipher = createCipheriv("aes-256-gcm", PROVIDER_KEY, iv);
+  cipher.setAAD(associatedData);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  try {
+    return Object.freeze({
+      digest: createHash("sha256").update(plaintext).digest("hex"),
+      envelope: Object.freeze({
+        algorithm: "A256GCM",
+        ciphertext: ciphertext.toString("base64url"),
+        iv: iv.toString("base64url"),
+        keyId: PROVIDER_KEY_ID,
+        tag: tag.toString("base64url"),
+        version: 1,
+      }),
+    });
+  } finally {
+    plaintext.fill(0);
+    iv.fill(0);
+    associatedData.fill(0);
+    ciphertext.fill(0);
+    tag.fill(0);
+  }
+}
+
+function approvedIyzicoBuild() {
+  const generated = path.join(
+    ROOT,
+    "packages/payment-adapters/src/providers/iyzico/build-metadata.generated.ts",
+  );
+  const original = readFileSync(generated);
+  const sourceCommit = run(executable("git"), ["rev-parse", "HEAD"]).stdout.trim();
+  const baseEnvironment = { SOURCE_COMMIT: sourceCommit };
+  const candidateDigest = run(process.execPath, ["scripts/generate-iyzico-sandbox-build.mjs"], {
+    env: baseEnvironment,
+  }).stdout.trim();
+  if (!/^sha256:[a-f0-9]{64}$/.test(candidateDigest)) {
+    writeFileSync(generated, original);
+    throw new Error("checkout_browser_iyzico_candidate_invalid");
+  }
+  run(process.execPath, ["scripts/generate-iyzico-sandbox-build.mjs"], {
+    env: {
+      ...baseEnvironment,
+      CELEBIX_IYZICO_APPROVAL_MODE: "approved_test_sandbox",
+      CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST: candidateDigest,
+    },
+  });
+  return Object.freeze({
+    candidateDigest,
+    restore() {
+      writeFileSync(generated, original);
+    },
+  });
+}
+
 function executable(name) {
   const bundledRoot = path.join(homedir(), ".codex", "tmp");
   let bundled = [];
@@ -141,7 +242,7 @@ function run(program, args, options = {}) {
   });
   if (result.error) throw result.error;
   if (result.status !== 0 && options.allowFailure !== true) {
-    throw new Error(`${path.basename(program)} failed\n${result.stdout}\n${result.stderr}`);
+    throw new Error(`${path.basename(program)} failed\n${sanitizeDiagnostic(result.stdout)}\n${sanitizeDiagnostic(result.stderr)}`);
   }
   return result;
 }
@@ -213,7 +314,8 @@ async function startPostgres(root) {
   mkdirSync(socket, { mode: 0o700 });
   run(executable("initdb"), [
     "-D", data,
-    "--auth=trust",
+    "--auth-local=trust",
+    "--auth-host=scram-sha-256",
     "--username=postgres",
     "--no-locale",
     "--encoding=UTF8",
@@ -229,10 +331,12 @@ async function startPostgres(root) {
     "start",
   ]);
   const certificate = sslCertificate(root);
+  const boxTlsState = { secureConnections: 0 };
   const tlsBackend = tls.createServer({
     cert: readFileSync(certificate.certificate),
     key: readFileSync(certificate.key),
   }, (secured) => {
+    boxTlsState.secureConnections += 1;
     tlsDebug("secure-connection");
     const upstream = net.createConnection({
       host: "127.0.0.1",
@@ -290,6 +394,7 @@ async function startPostgres(root) {
     socket,
     tlsBackend,
     tlsProxy,
+    tlsState: boxTlsState,
   };
 }
 
@@ -303,6 +408,20 @@ function stopPostgres(box) {
 }
 
 function seedSql() {
+  const scenarioCarts = Object.values(CHECKOUT_BROWSER_SCENARIOS).map((selected) => {
+    const storeA = selected.storeId === STORE_A;
+    return `('${selected.cartId}','${selected.storeId}','${credentialDigest(selected.credential)}',
+      'active',NULL,NULL,NULL,'TRY',${storeA ? 25800 : 24500},${storeA ? 0 : 2750},0,
+      ${storeA ? 25800 : 27250},'standard','${NOW}','${NOW}',NULL,NULL,NULL,1,'${NOW}','${NOW}')`;
+  }).join(",\n  ");
+  const scenarioItems = Object.values(CHECKOUT_BROWSER_SCENARIOS).map((selected) => {
+    const storeA = selected.storeId === STORE_A;
+    return `('${selected.itemId}','${selected.storeId}','${selected.cartId}',
+      '${storeA ? PRODUCT_A : PRODUCT_B}','${storeA ? VARIANT_A : VARIANT_B}',0,
+      '${storeA ? "Keten Omuz Çantası" : "El Yapımı Seramik Vazo"}',
+      '${storeA ? "Kum" : "Gece mavisi"}','${storeA ? "AT-A-1" : "GL-B-1"}',NULL,
+      ${storeA ? 12900 : 24500},${storeA ? 2 : 1},0,${storeA ? 25800 : 24500},'${NOW}')`;
+  }).join(",\n  ");
   return `BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 UPDATE saas.stores
@@ -411,6 +530,18 @@ INSERT INTO saas.abandoned_cart_items(
    0,'Keten Omuz Çantası','Kum','AT-A-1',NULL,12900,2,0,25800,'${NOW}'),
   ('76000000-0000-4000-8000-000000000092','${STORE_B}','${CART_B}','${PRODUCT_B}','${VARIANT_B}',
    0,'El Yapımı Seramik Vazo','Gece mavisi','GL-B-1',NULL,24500,1,0,24500,'${NOW}');
+INSERT INTO saas.abandoned_carts(
+  id,store_id,public_cart_digest,status,customer_name,customer_email,customer_phone,
+  currency,subtotal_cents,shipping_cents,discount_cents,total_cents,shipping_method_code,
+  checkout_started_at,last_activity_at,abandoned_at,recovered_at,archived_at,
+  version,created_at,updated_at
+) VALUES
+  ${scenarioCarts};
+INSERT INTO saas.abandoned_cart_items(
+  id,store_id,cart_id,product_id,variant_id,position,product_name,variant_name,sku,
+  image_url,unit_price_cents,quantity,discount_cents,line_total_cents,created_at
+) VALUES
+  ${scenarioItems};
 RESET ROLE;
 COMMIT;`;
 }
@@ -422,7 +553,7 @@ function assertSqlOutcome(box, role, statement, expected) {
   }
 }
 
-function prepareAttestedIyzico(box) {
+function prepareAttestedIyzico(box, candidateDigest) {
   const authority = `'${STORE_B}'::uuid,'20000000-0000-4000-8000-000000000061'::uuid,` +
     `'30000000-0000-4000-8000-000000000062'::uuid,` +
     `'00000000-0000-4000-8000-000000000001'::uuid,'free_starter',1`;
@@ -431,7 +562,7 @@ function prepareAttestedIyzico(box) {
       ${authority},'2026-07-28T14:05:00.000Z'::timestamptz,
       '${IYZICO_RUN}'::uuid,'${"1".repeat(64)}',
       '40000000-0000-4000-8000-000000000062'::uuid,1,1,
-      'sha256:${"a".repeat(64)}',7
+      '${candidateDigest}',1
     )`, "created");
   assertSqlOutcome(box, "celebix_saas_workflow", `SELECT outcome
     FROM saas.iyzico_iframe_tenant_evidence_claim_next(
@@ -462,7 +593,13 @@ function prepareAttestedIyzico(box) {
     )`, "state_changed");
 }
 
-function prepareDatabase(box) {
+function prepareDatabase(box, candidateDigest) {
+  const sealedIyzico = sealProviderCredential({
+    credential: IYZICO_CREDENTIAL,
+    profileId: IYZICO_METHOD,
+    providerCode: "iyzico_iframe",
+    storeId: STORE_B,
+  });
   psql(box, `CREATE DATABASE ${DATABASE};`, "postgres");
   for (const { file } of MANIFEST.migrationChain) applySql(box, file);
   applySql(box, "202607280059_payment_method_single_active_provider.up.sql");
@@ -477,10 +614,26 @@ function prepareDatabase(box) {
       'Iyzico','disabled',NULL,0,
       '{"environment":"test"}',1,
       '2026-07-28T14:00:00.000Z','2026-07-28T14:00:00.000Z'
-    );`);
+    );
+    UPDATE saas.merchant_provider_execution_authorities
+    SET adapter_version=1,
+        evidence_digest='${candidateDigest}',
+        readiness='sandbox_ready',
+        enabled=true,
+        approved_at='2026-07-28T14:00:00.000Z'
+    WHERE provider_code='iyzico_iframe'
+      AND capability='payment_processing'
+      AND environment='test';
+    UPDATE saas.merchant_provider_profiles
+    SET sealed_credentials='${JSON.stringify(sealedIyzico.envelope)}'::jsonb,
+        credential_digest='${sealedIyzico.digest}',
+        credential_key_id='${PROVIDER_KEY_ID}',
+        validation_adapter_version=1,
+        updated_at='2026-07-28T14:00:00.000Z'
+    WHERE id='${IYZICO_METHOD}';`);
   applySql(box, "202607280060_iyzico_iframe_tenant_sandbox_evidence.up.sql");
   applySql(box, "202607280061_iyzico_iframe_tenant_activation_runtime.up.sql");
-  prepareAttestedIyzico(box);
+  prepareAttestedIyzico(box, candidateDigest);
   psql(box, `SET ROLE celebix_saas_owner;
     UPDATE saas.payment_methods SET
       config='{"bankName":"Örnek Banka","accountHolder":"Atölye A A.Ş.","iban":"TR330006100519786457841326","instructions":"Sipariş numaranızı açıklamaya yazın."}'::jsonb,
@@ -502,28 +655,63 @@ function prepareDatabase(box) {
   if (invalidBuiltins !== "[]") {
     throw new Error(`checkout_browser_fixture_builtin_config_invalid:${invalidBuiltins}`);
   }
-  psql(box, `CREATE ROLE ${DATABASE_USER}
+  psql(box, `SET password_encryption='scram-sha-256';
+    CREATE ROLE ${DATABASE_USER}
     LOGIN PASSWORD '${DATABASE_PASSWORD}'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
     GRANT celebix_saas_host_resolver,celebix_saas_workflow TO ${DATABASE_USER};`);
 }
 
-function appendLog(current, value) {
-  return `${current}${String(value)}`.slice(-MAX_LOG_BYTES);
+function sanitizeDiagnostic(value) {
+  return String(value)
+    .replace(/(authorization|cookie|set-cookie)\s*[:=][^\r\n]*/gi, "$1:[redacted]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(/\+?[0-9][0-9 ()-]{8,}[0-9]/g, "[redacted-number]")
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, "[redacted-id]")
+    .replace(/\b(?:sha256:)?[0-9a-f]{64}\b/gi, "[redacted-digest]")
+    .replace(/\b[A-Za-z0-9_-]{32,}\b/g, "[redacted-token]")
+    .replace(/([?&][^=&#\s]+)=([^&#\s]*)/g, "$1=[redacted]");
 }
 
-async function preflightRuntimeDatabase(environment) {
+function appendLog(current, value) {
+  return `${current}${sanitizeDiagnostic(value)}`.slice(-MAX_LOG_BYTES);
+}
+
+async function preflightRuntimeDatabase(environment, database, candidateDigest) {
   const child = spawn(process.execPath, [
     "--input-type=module",
     "--eval",
-    `import pg from "pg";
-import { PostgresPublicCheckoutRepository } from "@celebix/saas-data";
-import { parseCheckoutQuote } from "@celebix/saas-contracts";
+	`import pg from "pg";
+	import {
+	  PostgresPublicCheckoutRepository,
+	  parseMerchantProviderCredentialKeyring,
+	} from "@celebix/saas-data";
+	import { parseCheckoutQuote } from "@celebix/saas-contracts";
+	const keyring = parseMerchantProviderCredentialKeyring(process.env);
+	if (keyring.activeKeyId !== "${PROVIDER_KEY_ID}" || keyring.keys.length !== 1) {
+	  throw new Error("checkout_browser_runtime_keyring_invalid");
+	}
 const pool = new pg.Pool({
   connectionString: process.env.CELEBIX_SAAS_DATABASE_URL,
   connectionTimeoutMillis: 5_000,
 });
 try {
+  const rejectedPool = new pg.Pool({
+    connectionString: process.env.CELEBIX_SAAS_DATABASE_URL.replace(
+      ":${DATABASE_PASSWORD}@",
+      ":checkout-browser-wrong-password@",
+    ),
+    connectionTimeoutMillis: 5_000,
+  });
+  let wrongPasswordRejected = false;
+  try {
+    await rejectedPool.query("SELECT 1");
+  } catch {
+    wrongPasswordRejected = true;
+  } finally {
+    await rejectedPool.end();
+  }
+  if (!wrongPasswordRejected) throw new Error("checkout_browser_runtime_password_auth_missing");
   const result = await pool.query(
     \`SELECT current_user,
       current_setting('server_version_num')::integer AS version_num,
@@ -552,9 +740,24 @@ try {
         AND to_regprocedure('saas.abandoned_carts_mark_stale(timestamp with time zone,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.abandoned_carts_convert(text,text,uuid,timestamp with time zone)') IS NOT NULL
         AS migration_032,
-      to_regprocedure('saas.storefront_checkout_preflight()') IS NOT NULL
-        AND saas.storefront_checkout_preflight()
-        AS migration_064,
+	      to_regprocedure('saas.storefront_checkout_preflight()') IS NOT NULL
+	        AND saas.storefront_checkout_preflight()
+	        AS migration_064,
+	      to_regclass('saas.payment_attempts') IS NOT NULL
+	        AND to_regprocedure('saas.payment_attempt_begin(uuid,timestamp with time zone,uuid,text,uuid,text,bigint,text,text)') IS NOT NULL
+	        AND to_regprocedure('saas.payment_callback_authority(text,text,timestamp with time zone)') IS NOT NULL
+	        AS migration_052,
+	      to_regclass('saas.merchant_provider_execution_authorities') IS NOT NULL
+	        AND to_regprocedure('saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text)') IS NOT NULL
+	        AND to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL
+	        AND saas.payment_provider_keyed_lifecycle_preflight()
+	        AS migration_056,
+	      to_regprocedure('saas.quick_order_hosted_payment_authority_preflight()') IS NOT NULL
+	        AND saas.quick_order_hosted_payment_authority_preflight()
+	        AS migration_057,
+	      saas.storefront_checkout_execution_authority_matches(
+	        'iyzico_iframe','payment_processing','test',1,'${candidateDigest}'
+	      ) AS compiled_authority,
       saas.built_in_payment_methods_preflight() AS builtin_preflight,
       saas.iyzico_iframe_tenant_activation_runtime_preflight() AS iyzico_preflight,
       saas.payment_method_single_active_provider_preflight() AS single_provider_preflight,
@@ -565,19 +768,33 @@ try {
     WHERE role.rolname=current_user\`,
   );
   const row = result.rows[0];
+  const requiredTrue = [
+    "resolver_member",
+    "workflow_member",
+    "migration_020",
+    "migration_027",
+    "migration_028",
+    "migration_032",
+	    "migration_064",
+	    "migration_052",
+	    "migration_056",
+	    "migration_057",
+	    "compiled_authority",
+    "builtin_preflight",
+    "iyzico_preflight",
+    "single_provider_preflight",
+    "iyzico_evidence_preflight",
+    "keyed_preflight",
+    "bridge_preflight",
+  ];
   if (result.rows.length !== 1
     || row.current_user !== "${DATABASE_USER}"
     || Math.floor(Number(row.version_num) / 10_000) !== 16
     || row.database_name !== "${DATABASE}"
     || row.is_superuser !== false
     || row.resolver_member !== true
-    || row.workflow_member !== true
-    || row.migration_020 !== true
-    || row.migration_027 !== true
-    || row.migration_028 !== true
-    || row.migration_032 !== true
-    || row.migration_064 !== true) {
-    throw new Error("checkout_browser_runtime_database_role_invalid:" + JSON.stringify(result.rows));
+    || requiredTrue.some((name) => row[name] !== true)) {
+    throw new Error("checkout_browser_runtime_database_role_invalid");
   }
   for (const selected of ${JSON.stringify(CHECKOUT_BROWSER_HOSTS.map(({ hostname }, index) => ({
     credentialDigest: index === 0 ? DIGEST_A : DIGEST_B,
@@ -600,10 +817,7 @@ try {
         ],
       });
       if (issued.rowCount !== 1 || issued.rows[0]?.outcome !== "issued") {
-        throw new Error("checkout_browser_runtime_quote_invalid:" + JSON.stringify({
-          selected,
-          rows: issued.rows,
-        }));
+        throw new Error("checkout_browser_runtime_quote_invalid");
       }
       try {
         parseCheckoutQuote({
@@ -611,9 +825,7 @@ try {
           checkoutNonce: "${Buffer.alloc(32, 0x33).toString("base64url")}",
         });
       } catch (error) {
-        throw new Error("checkout_browser_runtime_quote_contract_invalid:" +
-          JSON.stringify({ selected, payload: issued.rows[0].result_payload }) +
-          ":" + (error?.stack ?? String(error)));
+        throw new Error("checkout_browser_runtime_quote_contract_invalid");
       }
     } finally {
       await client.query("ROLLBACK").catch(() => undefined);
@@ -669,8 +881,7 @@ try {
         now: new Date("2026-07-29T09:01:00.000Z"),
       });
     } catch (error) {
-      throw new Error("checkout_browser_runtime_repository_quote_invalid:" +
-        JSON.stringify(selected) + ":" + (error?.stack ?? String(error)));
+      throw new Error("checkout_browser_runtime_repository_quote_invalid");
     }
   }
 } finally {
@@ -695,6 +906,9 @@ try {
   });
   if (exitCode !== 0) {
     throw new Error(`checkout_browser_runtime_database_preflight_failed\n${stdout}\n${stderr}`);
+  }
+  if (database.tlsState.secureConnections < 2) {
+    throw new Error("checkout_browser_runtime_tls_path_missing");
   }
 }
 
@@ -782,7 +996,7 @@ function requestObservation({ body, incomingHost, request }) {
   });
 }
 
-function proxyRequest({ appPort, providerMode, request, requestObservations, response }) {
+function proxyRequest({ appPort, request, requestObservations, response }) {
   const incomingHost = String(request.headers.host ?? "").split(":", 1)[0];
   const selected = CHECKOUT_BROWSER_HOSTS.find(({ hostname }) => hostname === incomingHost);
   if (!selected) {
@@ -797,35 +1011,6 @@ function proxyRequest({ appPort, providerMode, request, requestObservations, res
     if (String(request.url).startsWith("/api/checkout/")) {
       requestObservations.push(requestObservation({ body, incomingHost, request }));
     }
-    const isProviderSubmit = request.method === "POST"
-      && request.url === "/api/checkout/submit"
-      && body.includes(Buffer.from(selected.methodIds.provider));
-    if (isProviderSubmit && providerMode.value !== "passthrough") {
-      const headers = {
-        "cache-control": "no-store",
-        "content-type": "application/json",
-        "referrer-policy": "no-referrer",
-        "x-content-type-options": "nosniff",
-      };
-      if (providerMode.value === "redirect") {
-        response.writeHead(200, headers);
-        response.end(JSON.stringify({
-          kind: "redirect",
-          location: "https://sandbox-cpp.iyzipay.com?token=fixture-token-000000000000000000000000",
-        }));
-        return;
-      }
-      if (providerMode.value === "processing") {
-        setTimeout(() => {
-          response.writeHead(202, headers);
-          response.end(JSON.stringify({ code: "processing" }));
-        }, 250);
-        return;
-      }
-      response.writeHead(409, headers);
-      response.end(JSON.stringify({ code: "payment_unavailable" }));
-      return;
-    }
     const forwarded = http.request({
       hostname: "127.0.0.1",
       port: appPort,
@@ -836,7 +1021,7 @@ function proxyRequest({ appPort, providerMode, request, requestObservations, res
         host: selected.hostname,
         "content-length": String(body.byteLength),
         "x-celebix-storefront-proxy": `p1.${PROXY_TOKEN}`,
-        "x-forwarded-for": "203.0.113.10",
+        "x-forwarded-for": "93.184.216.34",
         "x-forwarded-host": selected.hostname,
         "x-forwarded-proto": "https",
       },
@@ -869,13 +1054,20 @@ export async function startCheckoutBrowserFixture() {
   let database;
   let next;
   let proxy;
+  let iyzicoBuild;
   let nextLog = "";
-  const providerMode = { value: "passthrough" };
   const requestObservations = [];
   try {
+    iyzicoBuild = approvedIyzicoBuild();
     database = await startPostgres(root);
-    prepareDatabase(database);
-    const [appPort, proxyPort] = await Promise.all([freePort(), freePort()]);
+    prepareDatabase(database, iyzicoBuild.candidateDigest);
+    const [appPort, proxyPort, providerControlPort] = await Promise.all([
+      freePort(),
+      freePort(),
+      freePort(),
+    ]);
+    const providerControlToken = Buffer.alloc(32, 0x6d).toString("base64url");
+    const providerControlUrl = `http://127.0.0.1:${providerControlPort}`;
     const runtimeEnvironment = {
       CELEBIX_DEPLOYMENT_TIER: "staging",
       CELEBIX_STOREFRONT_DATA_MODE: "approved_staging",
@@ -887,23 +1079,37 @@ export async function startCheckoutBrowserFixture() {
       CELEBIX_R2_MEDIA_ENVIRONMENT: "staging",
       CELEBIX_R2_PUBLIC_ORIGIN: "https://checkout-browser-fixture.r2.dev",
       CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "disabled",
-      CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "disabled",
+      CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "approved_test_sandbox",
+      CELEBIX_MERCHANT_PROVIDER_CREDENTIAL_ACTIVE_KEY_ID: PROVIDER_KEY_ID,
+      CELEBIX_MERCHANT_PROVIDER_CREDENTIAL_KEYS:
+        `${PROVIDER_KEY_ID}:${PROVIDER_KEY_B64URL}`,
+      CELEBIX_CHECKOUT_PROVIDER_CONTROL_PORT: String(providerControlPort),
+      CELEBIX_CHECKOUT_PROVIDER_CONTROL_TOKEN: providerControlToken,
       NODE_EXTRA_CA_CERTS: database.ca,
       NEXT_TELEMETRY_DISABLED: "1",
     };
-    await preflightRuntimeDatabase(runtimeEnvironment);
+	    await preflightRuntimeDatabase(runtimeEnvironment, database, iyzicoBuild.candidateDigest);
     if (process.env.CELEBIX_CHECKOUT_BROWSER_SKIP_BUILD !== "1") {
       run(process.execPath, [NEXT, "build"], {
         cwd: STOREFRONT,
         env: runtimeEnvironment,
       });
     }
+    iyzicoBuild.restore();
+    iyzicoBuild = undefined;
     next = spawn(process.execPath, [NEXT, "start", "-p", String(appPort)], {
       cwd: STOREFRONT,
       env: {
         ...process.env,
         ...runtimeEnvironment,
         NODE_ENV: "production",
+        NODE_OPTIONS: [
+          process.env.NODE_OPTIONS,
+          `--import=${path.join(
+            ROOT,
+            "tests/saas-phase3/storefront-one-page-checkout/provider-fetch-preload.mjs",
+          )}`,
+        ].filter(Boolean).join(" "),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -913,10 +1119,14 @@ export async function startCheckoutBrowserFixture() {
     next.stderr.on("data", (value) => {
       nextLog = appendLog(nextLog, value);
     });
+    const controlHeaders = Object.freeze({ "x-checkout-control": providerControlToken });
+    await waitForHttp(`${providerControlUrl}/state`, "checkout_provider_control", {
+      headers: controlHeaders,
+    });
     await waitForHttp(`http://127.0.0.1:${appPort}/health`, "checkout_next");
     const certificate = proxyCertificate(root);
     proxy = https.createServer(certificate, (request, response) => {
-      proxyRequest({ appPort, providerMode, request, requestObservations, response });
+      proxyRequest({ appPort, request, requestObservations, response });
     });
     await new Promise((resolve, reject) => {
       proxy.once("error", reject);
@@ -943,12 +1153,50 @@ export async function startCheckoutBrowserFixture() {
         .map(({ hostname }) => `MAP ${hostname}:443 127.0.0.1:${proxyPort}`)
         .join(","),
       hosts: CHECKOUT_BROWSER_HOSTS,
+      scenarios: CHECKOUT_BROWSER_SCENARIOS,
       proxyPort,
-      setProviderOutcome(value) {
-        if (!["passthrough", "redirect", "processing", "rejected"].includes(value)) {
+      async providerState() {
+        const response = await fetch(`${providerControlUrl}/state`, { headers: controlHeaders });
+        if (!response.ok) throw new Error("checkout_fixture_provider_state_unavailable");
+        return await response.json();
+      },
+      async resetProviderCalls() {
+        const response = await fetch(`${providerControlUrl}/calls`, {
+          method: "DELETE",
+          headers: controlHeaders,
+        });
+        if (response.status !== 204) {
+          throw new Error("checkout_fixture_provider_reset_unavailable");
+        }
+      },
+      disablePaytrExecutionAuthority() {
+        const disabled = psql(database, `SET ROLE celebix_saas_owner;
+          WITH changed AS (
+            UPDATE saas.merchant_provider_execution_authorities
+            SET enabled=false
+            WHERE provider_code='paytr_iframe'
+              AND capability='payment_processing'
+              AND environment='test'
+              AND enabled
+            RETURNING 1
+          ) SELECT pg_catalog.count(*) FROM changed;`).stdout.trim();
+        if (disabled !== "1") {
+          throw new Error("checkout_fixture_paytr_authority_disable_failed");
+        }
+      },
+      async setProviderOutcome(provider, outcome) {
+        if (!['iyzico', 'paytr'].includes(provider)
+          || !["redirect", "processing", "rejected"].includes(outcome)) {
           throw new Error("checkout_fixture_provider_outcome_invalid");
         }
-        providerMode.value = value;
+        const response = await fetch(`${providerControlUrl}/outcome`, {
+          method: "PUT",
+          headers: { ...controlHeaders, "content-type": "application/json" },
+          body: JSON.stringify({ provider, outcome }),
+        });
+        if (response.status !== 204) {
+          throw new Error("checkout_fixture_provider_outcome_unavailable");
+        }
       },
       async stop() {
         await closeServer(proxy);
@@ -960,10 +1208,11 @@ export async function startCheckoutBrowserFixture() {
   } catch (error) {
     const postgresLogPath = path.join(root, "postgres.log");
     const postgresLog = existsSync(postgresLogPath)
-      ? readFileSync(postgresLogPath, "utf8")
+      ? sanitizeDiagnostic(readFileSync(postgresLogPath, "utf8"))
       : "";
     await closeServer(proxy);
     await stopProcess(next);
+    iyzicoBuild?.restore();
     stopPostgres(database);
     rmSync(root, { recursive: true, force: true });
     throw new Error(`${error instanceof Error ? error.stack : String(error)}\nPOSTGRES_LOG\n${postgresLog}\nNEXT_LOG\n${nextLog}`);

@@ -12,6 +12,9 @@ BEGIN
     OR pg_catalog.to_regclass('saas.storefront_checkout_reserved_identities') IS NULL
     OR pg_catalog.to_regprocedure('saas.storefront_checkout_preflight()') IS NULL
     OR pg_catalog.to_regprocedure(
+      'saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text)'
+    ) IS NULL
+    OR pg_catalog.to_regprocedure(
       'saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)'
     ) IS NULL
     OR pg_catalog.to_regprocedure(
@@ -69,7 +72,12 @@ BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc procedure
     WHERE procedure.oid='saas.storefront_checkout_preflight()'::regprocedure
-      AND pg_catalog.md5(procedure.prosrc)='82519bfcdb20d4e7f6a6001626327e6e'
+      AND pg_catalog.md5(procedure.prosrc)='f8425b71433ce371e0a3a23ae3a1dbae'
+  ) OR NOT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_proc procedure
+    WHERE procedure.oid=
+      'saas.storefront_checkout_execution_authority_matches(text,text,text,integer,text)'::regprocedure
+      AND pg_catalog.md5(procedure.prosrc)='ecc60e8d9f01db9cfcccbcdf29814c9d'
   ) OR saas.storefront_checkout_preflight() IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'STOREFRONT_CHECKOUT_DOWN_SOURCE_INVALID';
   END IF;
@@ -109,6 +117,9 @@ END
 $f$;
 
 DROP FUNCTION saas.storefront_checkout_preflight();
+DROP FUNCTION saas.storefront_checkout_execution_authority_matches(
+  text,text,text,integer,text
+);
 DROP FUNCTION saas.storefront_checkout_classify_payment_method(
   text,text,bigint,text,uuid,timestamptz
 );
