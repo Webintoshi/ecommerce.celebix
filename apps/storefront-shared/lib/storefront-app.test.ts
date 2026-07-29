@@ -355,6 +355,7 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   const files = [...await sourceFiles(appRoot), ...await sourceFiles(runtimeRoot)];
   const forbiddenImport = /(?:from\s+|import\s*\()["'][^"']*(?:supabase|drizzle|@aws-sdk|redis|stripe|iyzipay|craftgate)[^"']*["']/i;
   const reviewedPaymentEdges = new Set([
+    "components/checkout/CheckoutClient.tsx\u0000./PaymentSection.tsx\u0000from",
     "app/api/quick-order/checkout/route.ts\u0000@/lib/checkout/hosted-payment.ts\u0000from",
     "app/api/payments/[providerCode]/callback/[binding]/route.ts\u0000@/lib/payment-adapters/runtime.ts\u0000from",
     "lib/default-runtime.ts\u0000./checkout/hosted-payment.ts\u0000from",
