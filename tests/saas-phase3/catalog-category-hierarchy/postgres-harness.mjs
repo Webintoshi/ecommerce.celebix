@@ -188,18 +188,37 @@ function category(ordinal, name, slug, parentSlug) {
     ...(parentSlug === undefined ? {} : { parentSlug }),
   };
 }
-function beginExpression({
+function beginFingerprint({
   contextOrdinal,
-  operationOrdinal,
   jobOrdinal,
   sourceMarker,
   categories,
-  fingerprintMarker = sourceMarker,
   totalProducts = 1,
   totalMedia = 0,
 }) {
+  return digest(JSON.stringify({
+    storeId: context(contextOrdinal).store,
+    jobId: uuid("45", jobOrdinal),
+    sourceDigest: digest(sourceMarker),
+    totalProducts,
+    totalMedia,
+    categories,
+    brands: [],
+  }));
+}
+function beginExpression(request) {
+  const {
+    contextOrdinal,
+    operationOrdinal,
+    jobOrdinal,
+    sourceMarker,
+    categories,
+    totalProducts = 1,
+    totalMedia = 0,
+  } = request;
+  const fingerprint = request.fingerprint ?? beginFingerprint(request);
   return `saas.catalog_migration_begin(
-    ${authority(contextOrdinal)},'${uuid("4a", operationOrdinal)}','${digest(fingerprintMarker)}',
+    ${authority(contextOrdinal)},'${uuid("4a", operationOrdinal)}','${fingerprint}',
     '${uuid("45", jobOrdinal)}','${digest(sourceMarker)}',${totalProducts},${totalMedia},
     $json$${JSON.stringify(categories)}$json$::jsonb,'[]'::jsonb
   )`;
@@ -260,9 +279,12 @@ async function main() {
     await scenario("helper and begin functions have exact owner ACL volatility and security-definer authority", () => {
       const authorityRows = psql(box, `
         SELECT procedure.proname||'|'||pg_catalog.pg_get_userbyid(procedure.proowner)||'|'||
-          procedure.provolatile::text||'|'||procedure.prosecdef||'|'||
-          EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) acl WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE')||'|'||
-          pg_catalog.has_function_privilege('celebix_saas_app',procedure.oid,'EXECUTE')
+          procedure.provolatile::text||'|'||procedure.prosecdef||'|'||pg_catalog.array_to_string(procedure.proconfig,';')||'|'||
+          (SELECT pg_catalog.string_agg(
+            CASE WHEN acl.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(acl.grantee) END,
+            ',' ORDER BY CASE WHEN acl.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(acl.grantee) END
+          ) FROM pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) acl
+            WHERE acl.privilege_type='EXECUTE')
         FROM pg_catalog.pg_proc procedure
         WHERE procedure.oid IN(
           'saas.catalog_migration_category_manifest_valid(jsonb)'::regprocedure,
@@ -271,9 +293,9 @@ async function main() {
         ) ORDER BY procedure.proname;
       `).stdout.trim().split("\n");
       assert.deepEqual(authorityRows, [
-        "catalog_migration_begin|celebix_saas_owner|v|true|false|true",
-        "catalog_migration_category_manifest_matches|celebix_saas_owner|s|false|false|false",
-        "catalog_migration_category_manifest_valid|celebix_saas_owner|i|false|false|false",
+        "catalog_migration_begin|celebix_saas_owner|v|true|search_path=pg_catalog, saas|celebix_saas_app,celebix_saas_owner",
+        "catalog_migration_category_manifest_matches|celebix_saas_owner|s|false|search_path=pg_catalog, saas|celebix_saas_owner",
+        "catalog_migration_category_manifest_valid|celebix_saas_owner|i|false|search_path=pg_catalog, saas|celebix_saas_owner",
       ]);
     });
 
@@ -295,6 +317,23 @@ async function main() {
       assert.equal(createdTree.outcome, "begun");
       assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_categories WHERE store_id='${context(1).store}';`).stdout.trim(), "3");
       assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_jobs WHERE id='${uuid("45", 101)}';`).stdout.trim(), "1");
+
+      const persistedConflict = category(1602, "Kalıcı Çocuk", "kalici-cocuk");
+      insertCategories(box, 16, [persistedConflict]);
+      const partialConflict = outcome(box, beginExpression({
+        contextOrdinal: 16,
+        operationOrdinal: 1601,
+        jobOrdinal: 1601,
+        sourceMarker: "partial-loop-conflict",
+        categories: [
+          category(1601, "Yeni Ata", "yeni-ata"),
+          { ...persistedConflict, parentSlug: "yeni-ata" },
+        ],
+      }));
+      assert.equal(partialConflict.outcome, "import_conflict");
+      assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_categories WHERE store_id='${context(16).store}' AND slug='yeni-ata';`).stdout.trim(), "0");
+      assert.equal(psql(box, `SELECT parent_id IS NULL FROM saas.catalog_categories WHERE id='${persistedConflict.id}';`).stdout.trim(), "t");
+      assert.equal(counts(box, 16), "1|0|0");
     });
 
     await scenario("persisted parent_id and depth equal the requested tree", () => {
@@ -527,10 +566,35 @@ async function main() {
     });
 
     await scenario("exact operation replay returns the original immutable result", () => {
+      const product = {
+        sourceProductId: "201",
+        productId: uuid("48", 201),
+        title: "Kök Kategori Ürünü",
+        slug: "kok-kategori-urunu-201",
+        status: "active",
+        categorySlugs: ["kolyeler"],
+        brandSlugs: [],
+        variant: {
+          variantId: uuid("49", 201),
+          title: "Standart",
+          priceCents: 2000,
+          stockQuantity: 1,
+          attributes: {},
+        },
+        sourceImageDigests: [],
+      };
+      const imported = outcome(
+        box,
+        `saas.catalog_migration_import_batch(${authority(2)},'${uuid("4a", 202)}','${digest("root-only-batch")}','${uuid("45", 201)}','${digest("root-only")}',$json$${JSON.stringify([product])}$json$::jsonb)`,
+      );
+      assert.equal(imported.outcome, "batch_imported");
+      assert.equal(psql(box, `SELECT status||'|'||imported_products||'|'||version FROM saas.catalog_product_migration_jobs WHERE id='${uuid("45", 201)}';`).stdout.trim(), "completed|1|2");
       const replay = outcome(box, beginExpression(rootOnlyRequest));
       assert.equal(replay.outcome, "operation_replayed");
-      assert.equal(replay.result.jobId, uuid("45", 201));
-      assert.equal(replay.result.replayed, true);
+      assert.deepEqual(replay.result, { ...rootOnlyResult.result, replayed: true });
+      assert.equal(replay.result.status, "processing");
+      assert.equal(replay.result.importedProducts, 0);
+      assert.equal(replay.result.version, 1);
       assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_operations WHERE operation_id='${uuid("4a", 201)}';`).stdout.trim(), "1");
     });
 
@@ -543,11 +607,19 @@ async function main() {
         operationOrdinal: 301,
         jobOrdinal: 301,
         sourceMarker: "shared-tree",
-        fingerprintMarker: "changed-parent",
         categories: changed,
       }));
       assert.equal(result.outcome, "operation_mismatch");
+      const freshOperation = outcome(box, beginExpression({
+        contextOrdinal: 3,
+        operationOrdinal: 302,
+        jobOrdinal: 301,
+        sourceMarker: "shared-tree",
+        categories: changed,
+      }));
+      assert.equal(freshOperation.outcome, "job_mismatch");
       assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_categories WHERE store_id='${context(3).store}';`).stdout.trim(), "5");
+      assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_operations WHERE store_id='${context(3).store}';`).stdout.trim(), "1");
     });
 
     await scenario("concurrent equal begin calls leave one job and one exact tree", async () => {
@@ -570,6 +642,34 @@ async function main() {
         psql(box, `SELECT count(*) FROM saas.catalog_categories child
           JOIN saas.catalog_categories parent ON parent.store_id=child.store_id AND parent.id=child.parent_id
           WHERE child.store_id='${context(14).store}' AND child.slug='eszamanli-cocuk' AND parent.slug='eszamanli-kok';`).stdout.trim(),
+        "1",
+      );
+
+      const distinctOperationTree = [
+        category(1501, "Mağaza Kilidi Kök", "magaza-kilidi-kok"),
+        category(1502, "Mağaza Kilidi Çocuk", "magaza-kilidi-cocuk", "magaza-kilidi-kok"),
+      ];
+      const distinctRequest = {
+        contextOrdinal: 15,
+        jobOrdinal: 1501,
+        sourceMarker: "store-lock-tree",
+        categories: distinctOperationTree,
+      };
+      const distinctSql = (operationOrdinal) => `BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT outcome FROM ${beginExpression({
+        ...distinctRequest,
+        operationOrdinal,
+      })};COMMIT;`;
+      const distinctResults = await Promise.all([
+        psqlAsync(box, distinctSql(1501)),
+        psqlAsync(box, distinctSql(1502)),
+      ]);
+      assert.deepEqual(distinctResults, ["begun", "begun"]);
+      assert.equal(counts(box, 15), "2|1|2");
+      assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_operations WHERE store_id='${context(15).store}' AND operation_id IN('${uuid("4a", 1501)}','${uuid("4a", 1502)}');`).stdout.trim(), "2");
+      assert.equal(
+        psql(box, `SELECT count(*) FROM saas.catalog_categories child
+          JOIN saas.catalog_categories parent ON parent.store_id=child.store_id AND parent.id=child.parent_id
+          WHERE child.store_id='${context(15).store}' AND child.slug='magaza-kilidi-cocuk' AND parent.slug='magaza-kilidi-kok';`).stdout.trim(),
         "1",
       );
     });

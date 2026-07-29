@@ -5,7 +5,11 @@ DO $function$
 DECLARE
   procedure pg_catalog.pg_proc%ROWTYPE;
   function_definition text;
+  app_oid oid;
 BEGIN
+  SELECT role.oid INTO app_oid FROM pg_catalog.pg_roles role WHERE role.rolname='celebix_saas_app';
+  IF app_oid IS NULL THEN RAISE EXCEPTION 'CATALOG_CATEGORY_HIERARCHY_ASSERTION_FAILED: missing app role'; END IF;
+
   SELECT * INTO procedure
   FROM pg_catalog.pg_proc
   WHERE oid='saas.catalog_migration_category_manifest_valid(jsonb)'::regprocedure;
@@ -13,10 +17,11 @@ BEGIN
      OR pg_catalog.pg_get_userbyid(procedure.proowner)<>'celebix_saas_owner'
      OR procedure.prosecdef
      OR procedure.provolatile<>'i'
+     OR procedure.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
      OR EXISTS(
        SELECT 1
        FROM pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) acl
-       WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE'
+       WHERE acl.privilege_type='EXECUTE' AND acl.grantee<>procedure.proowner
      )
      OR pg_catalog.has_function_privilege('celebix_saas_app',procedure.oid,'EXECUTE')
   THEN RAISE EXCEPTION 'CATALOG_CATEGORY_HIERARCHY_ASSERTION_FAILED: validation helper authority'; END IF;
@@ -33,10 +38,11 @@ BEGIN
      OR pg_catalog.pg_get_userbyid(procedure.proowner)<>'celebix_saas_owner'
      OR procedure.prosecdef
      OR procedure.provolatile<>'s'
+     OR procedure.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
      OR EXISTS(
        SELECT 1
        FROM pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) acl
-       WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE'
+       WHERE acl.privilege_type='EXECUTE' AND acl.grantee<>procedure.proowner
      )
      OR pg_catalog.has_function_privilege('celebix_saas_app',procedure.oid,'EXECUTE')
   THEN RAISE EXCEPTION 'CATALOG_CATEGORY_HIERARCHY_ASSERTION_FAILED: comparison helper authority'; END IF;
@@ -53,10 +59,11 @@ BEGIN
      OR pg_catalog.pg_get_userbyid(procedure.proowner)<>'celebix_saas_owner'
      OR NOT procedure.prosecdef
      OR procedure.provolatile<>'v'
+     OR procedure.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
      OR EXISTS(
        SELECT 1
        FROM pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) acl
-       WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE'
+       WHERE acl.privilege_type='EXECUTE' AND acl.grantee NOT IN(procedure.proowner,app_oid)
      )
      OR NOT pg_catalog.has_function_privilege('celebix_saas_app',procedure.oid,'EXECUTE')
   THEN RAISE EXCEPTION 'CATALOG_CATEGORY_HIERARCHY_ASSERTION_FAILED: begin authority'; END IF;
