@@ -89,6 +89,48 @@ test("compiles the localized WooCommerce export without losing gram weight or or
   assert.deepEqual(manifest.batches, [["30794"]]);
 });
 
+test("compiles category paths root-to-leaf and assigns only leaves", async () => {
+  const manifest = await compileWooCommerceMigration(exportCsv(sourceRow({
+    Kategoriler: "Takı > Yüzük > Altın Yüzük, Kampanyalar > Yeni Gelenler",
+  })));
+  assert.deepEqual(manifest.categories, [
+    { name: "Takı", slug: "taki" },
+    { name: "Yüzük", slug: "yuzuk", parentSlug: "taki" },
+    { name: "Altın Yüzük", slug: "altin-yuzuk", parentSlug: "yuzuk" },
+    { name: "Kampanyalar", slug: "kampanyalar" },
+    { name: "Yeni Gelenler", slug: "yeni-gelenler", parentSlug: "kampanyalar" },
+  ]);
+  assert.deepEqual(manifest.products[0]?.categorySlugs, ["altin-yuzuk", "yeni-gelenler"]);
+});
+
+test("rejects malformed and over-depth category paths", async () => {
+  for (const categories of ["Takı > > Yüzük", "Takı >", Array.from({ length: 9 }, (_, index) => `S${index}`).join(" > ")]) {
+    await assert.rejects(() => compileWooCommerceMigration(exportCsv(sourceRow({ Kategoriler: categories }))));
+  }
+});
+
+test("disambiguates duplicate category leaves with stable full-path slugs", async () => {
+  const source = exportCsv(
+    sourceRow({ Kimlik: "10", Kategoriler: "Kadın > Yüzük" }),
+    sourceRow({ Kimlik: "11", "Stok kodu (SKU)": "SKU-11", "GTIN, UPC, EAN veya ISBN": "100000014582", Kategoriler: "Erkek > Yüzük" }),
+  );
+  const manifest = await compileWooCommerceMigration(source);
+  assert.deepEqual(manifest.categories, [
+    { name: "Kadın", slug: "kadin" },
+    { name: "Yüzük", slug: "kadin-yuzuk", parentSlug: "kadin" },
+    { name: "Erkek", slug: "erkek" },
+    { name: "Yüzük", slug: "erkek-yuzuk", parentSlug: "erkek" },
+  ]);
+  assert.deepEqual(manifest.products.map((product) => product.categorySlugs), [["kadin-yuzuk"], ["erkek-yuzuk"]]);
+});
+
+test("rejects category names that normalize to the same slug", async () => {
+  await assert.rejects(
+    () => compileWooCommerceMigration(exportCsv(sourceRow({ Kategoriler: "Kadın > Yüzük, Kadın > Yuzuk" }))),
+    /woocommerce_migration_source_invalid/,
+  );
+});
+
 test("drafts missing-price products and assigns deterministic source-id suffixes to duplicate title slugs", async () => {
   const source = exportCsv(
     sourceRow({ Kimlik: "10", "Normal fiyat": "", Görseller: "", Stok: "" }),

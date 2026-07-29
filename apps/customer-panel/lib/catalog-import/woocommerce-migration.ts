@@ -1,6 +1,7 @@
 export interface WooCommerceMigrationTaxonomy {
   readonly name: string;
   readonly slug: string;
+  readonly parentSlug?: string;
 }
 
 export interface WooCommerceMigrationVariant {
@@ -44,6 +45,16 @@ export interface WooCommerceMigrationManifest {
 }
 
 type SourceRecord = Readonly<Record<string, string>>;
+type CompiledCategoryPaths = Readonly<{
+  taxonomies: readonly WooCommerceMigrationTaxonomy[];
+  leafSlugs: readonly string[];
+}>;
+type CategoryPathNode = Readonly<Pick<WooCommerceMigrationTaxonomy, "name" | "slug">>;
+type ParsedCategoryPaths = readonly (readonly CategoryPathNode[])[];
+type ResolvedCategoryPaths = Readonly<{
+  categories: readonly WooCommerceMigrationTaxonomy[];
+  selections: readonly CompiledCategoryPaths[];
+}>;
 
 const MAX_BYTES = 4 * 1024 * 1024;
 const MAX_ROWS = 2_500;
@@ -295,6 +306,99 @@ function taxonomy(value: string, maximum: number): readonly WooCommerceMigration
   return Object.freeze(result);
 }
 
+function categoryPaths(value: string): ParsedCategoryPaths {
+  const paths: CategoryPathNode[][] = [];
+  const seen = new Map<string, readonly CategoryPathNode[]>();
+  for (const rawPath of value.split(",")) {
+    if (!rawPath.trim()) continue;
+    const levels = rawPath.split(">");
+    if (levels.length > 8 || levels.some((level) => level.trim().length === 0)) invalid();
+    const path = levels.map((rawLevel) => {
+      const name = boundedText(decodeEntities(rawLevel), 1, 120);
+      return Object.freeze({ name, slug: slug(name) });
+    });
+    const key = path.map(({ slug: selected }) => selected).join(">");
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, path);
+      paths.push(path);
+    } else if (existing.some((node, index) => node.name !== path[index]?.name)) paths.push(path);
+  }
+  if (seen.size > 8) invalid();
+  return Object.freeze(paths.map((path) => Object.freeze(path)));
+}
+
+function resolveCategoryPaths(values: readonly ParsedCategoryPaths[]): ResolvedCategoryPaths {
+  const names = new Map<string, string>();
+  const paths = new Map<string, Readonly<{ node: CategoryPathNode; parentKey?: string }>>();
+  const grouped = new Map<string, Map<string, true>>();
+  for (const selected of values) {
+    for (const path of selected) {
+      const segments: string[] = [];
+      for (const node of path) {
+        const named = names.get(node.slug);
+        if (named && named !== node.name) invalid();
+        if (!named) names.set(node.slug, node.name);
+        const parentKey = segments.join(">");
+        segments.push(node.slug);
+        const key = segments.join(">");
+        if (!paths.has(key)) paths.set(key, Object.freeze({ node, ...(parentKey ? { parentKey } : {}) }));
+        const members = grouped.get(node.slug) ?? new Map<string, true>();
+        members.set(key, true);
+        grouped.set(node.slug, members);
+      }
+    }
+  }
+
+  const resolvedSlugs = new Map<string, string>();
+  for (const [baseSlug, members] of grouped) {
+    for (const key of members.keys()) {
+      const selectedSlug = members.size === 1 ? baseSlug : key.replaceAll(">", "-");
+      if (selectedSlug.length > 100 || !SLUG.test(selectedSlug)) invalid();
+      resolvedSlugs.set(key, selectedSlug);
+    }
+  }
+  const slugOwners = new Map<string, string>();
+  const categories: WooCommerceMigrationTaxonomy[] = [];
+  for (const [key, { node, parentKey }] of paths) {
+    const selectedSlug = resolvedSlugs.get(key);
+    if (!selectedSlug) invalid();
+    const owner = slugOwners.get(selectedSlug);
+    if (owner && owner !== key) invalid();
+    slugOwners.set(selectedSlug, key);
+    const parentSlug = parentKey ? resolvedSlugs.get(parentKey) : undefined;
+    if (parentKey && !parentSlug) invalid();
+    categories.push(Object.freeze({ name: node.name, slug: selectedSlug, ...(parentSlug ? { parentSlug } : {}) }));
+  }
+  const selections = values.map((selected) => {
+    const taxonomies: WooCommerceMigrationTaxonomy[] = [];
+    const leafSlugs: string[] = [];
+    const seen = new Set<string>();
+    for (const path of selected) {
+      const segments: string[] = [];
+      for (const node of path) {
+        const parentKey = segments.join(">");
+        segments.push(node.slug);
+        const key = segments.join(">");
+        const selectedSlug = resolvedSlugs.get(key);
+        if (!selectedSlug) invalid();
+        const parentSlug = parentKey ? resolvedSlugs.get(parentKey) : undefined;
+        if (parentKey && !parentSlug) invalid();
+        if (!seen.has(key)) {
+          seen.add(key);
+          taxonomies.push(Object.freeze({ name: node.name, slug: selectedSlug, ...(parentSlug ? { parentSlug } : {}) }));
+        }
+      }
+      const leafKey = path.map(({ slug: nodeSlug }) => nodeSlug).join(">");
+      const leafSlug = resolvedSlugs.get(leafKey);
+      if (!leafSlug) invalid();
+      if (!leafSlugs.includes(leafSlug)) leafSlugs.push(leafSlug);
+    }
+    return Object.freeze({ taxonomies: Object.freeze(taxonomies), leafSlugs: Object.freeze(leafSlugs) });
+  });
+  return Object.freeze({ categories: Object.freeze(categories), selections: Object.freeze(selections) });
+}
+
 function canonicalImage(value: string): string {
   if (value !== value.trim() || value.length < 1 || value.length > 2_048 || CELL_CONTROL.test(value) || hasUnpairedSurrogate(value)) invalid();
   let parsed: URL;
@@ -356,9 +460,9 @@ export async function compileWooCommerceMigration(source: string): Promise<WooCo
     baseSlugCounts.set(row.baseSlug, (baseSlugCounts.get(row.baseSlug) ?? 0) + 1);
   }
 
-  const categories: WooCommerceMigrationTaxonomy[] = [];
+  const selectedCategoryPaths = prepared.map(({ record }) => categoryPaths(field(record, "categories")));
+  const resolvedCategoryPaths = resolveCategoryPaths(selectedCategoryPaths);
   const brands: WooCommerceMigrationTaxonomy[] = [];
-  const categorySet = new Set<string>();
   const brandSet = new Set<string>();
   const warningCounts = {
     availabilityStockMapped: 0,
@@ -368,7 +472,7 @@ export async function compileWooCommerceMigration(source: string): Promise<WooCo
     missingPriceDrafted: 0,
   };
   let mediaCount = 0;
-  const products = prepared.map(({ record, sourceProductId, title, baseSlug }) => {
+  const products = prepared.map(({ record, sourceProductId, title, baseSlug }, index) => {
     const selectedSku = canonicalSku(field(record, "sku"));
     const selectedBarcode = canonicalBarcode(field(record, "barcode"));
     if (selectedSku && skus.has(selectedSku)) invalid();
@@ -391,9 +495,9 @@ export async function compileWooCommerceMigration(source: string): Promise<WooCo
     const selectedWeight = canonicalWeight(field(record, "weight"));
     const selectedDescription = safeDescription(field(record, "description"));
     if (selectedDescription.sanitized) warningCounts.descriptionSanitized += 1;
-    const selectedCategories = taxonomy(field(record, "categories"), 8);
+    const selectedCategories = resolvedCategoryPaths.selections[index];
+    if (!selectedCategories) invalid();
     const selectedBrands = taxonomy(field(record, "brands"), 8);
-    appendTaxonomy(categories, categorySet, selectedCategories);
     appendTaxonomy(brands, brandSet, selectedBrands);
     const selectedImages = images(field(record, "images"));
     warningCounts.duplicateImagesRemoved += selectedImages.removed;
@@ -417,7 +521,7 @@ export async function compileWooCommerceMigration(source: string): Promise<WooCo
       slug: selectedSlug,
       ...(selectedDescription.value ? { description: selectedDescription.value } : {}),
       status: hasPrice && published(field(record, "published")) ? "active" as const : "draft" as const,
-      categorySlugs: Object.freeze(selectedCategories.map(({ slug: selected }) => selected)),
+      categorySlugs: selectedCategories.leafSlugs,
       brandSlugs: Object.freeze(selectedBrands.map(({ slug: selected }) => selected)),
       variants: Object.freeze([variant]),
       sourceImages: selectedImages.values,
@@ -430,7 +534,7 @@ export async function compileWooCommerceMigration(source: string): Promise<WooCo
   return Object.freeze({
     sourceDigest: await sha256(source),
     products: Object.freeze(products),
-    categories: Object.freeze(categories),
+    categories: resolvedCategoryPaths.categories,
     brands: Object.freeze(brands),
     batches: Object.freeze(batches),
     mediaCount,
