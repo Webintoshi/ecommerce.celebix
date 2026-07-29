@@ -375,6 +375,7 @@ test("completion and successor manifests pin every changed migration artifact", 
     "phase3u-built-in-payment-methods-manifest.json",
     "phase3v-payment-provider-builtin-compatibility-manifest.json",
     "phase3w-storefront-one-page-checkout-manifest.json",
+    "phase3x-storefront-default-shipping-manifest.json",
     "phase3-product-onboarding-manifest.json",
   ];
   const pinnedPaths = new Set(successorManifestNames.map((name) => `${SQL}/${name}`));

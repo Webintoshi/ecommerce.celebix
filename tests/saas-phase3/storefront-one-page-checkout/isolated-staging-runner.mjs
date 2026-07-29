@@ -13,12 +13,12 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL_ROOT = "apps/owner/scripts/sql/saas";
-const MANIFEST_PATH = `${SQL_ROOT}/phase3w-storefront-one-page-checkout-manifest.json`;
-const PREDECESSOR_FILE = "phase3v-payment-provider-builtin-compatibility-manifest.json";
-const UP_FILE = "202607280064_storefront_one_page_checkout.up.sql";
-const ASSERTIONS_FILE = "202607280064_storefront_one_page_checkout_assertions.sql";
-const DOWN_FILE = "202607280064_storefront_one_page_checkout.down.sql";
-const PRIOR_ASSERTIONS_FILE = "202607280063_payment_provider_builtin_compatibility_assertions.sql";
+const MANIFEST_PATH = `${SQL_ROOT}/phase3x-storefront-default-shipping-manifest.json`;
+const PREDECESSOR_FILE = "phase3w-storefront-one-page-checkout-manifest.json";
+const UP_FILE = "202607290065_storefront_default_shipping.up.sql";
+const ASSERTIONS_FILE = "202607290065_storefront_default_shipping_assertions.sql";
+const DOWN_FILE = "202607290065_storefront_default_shipping.down.sql";
+const PRIOR_ASSERTIONS_FILE = "202607280064_storefront_one_page_checkout_assertions.sql";
 const RUNNER_PATH = "tests/saas-phase3/storefront-one-page-checkout/isolated-staging-runner.mjs";
 const REMOTE_REF = "refs/remotes/origin/codex/celebix-managed-umami-analytics";
 const STAGING_DATABASE = "celebix_saas_staging_auth01";
@@ -126,7 +126,7 @@ function verifyPushedSource(deps, sourceSha) {
     fail();
   }
   if (
-    manifest?.phase !== "phase3w-storefront-one-page-checkout"
+    manifest?.phase !== "phase3x-storefront-default-shipping"
     || manifest?.postgresqlMajor !== 16
     || manifest?.externalConnections !== 0
     || manifest?.productionMutations !== 0
@@ -155,7 +155,7 @@ function verifyPushedSource(deps, sourceSha) {
     ? predecessor.artifacts.filter(({ file }) => file === PRIOR_ASSERTIONS_FILE)
     : [];
   if (
-    predecessor?.phase !== "phase3v-payment-provider-builtin-compatibility"
+    predecessor?.phase !== "phase3w-storefront-one-page-checkout"
     || priorAssertions.length !== 1
   ) fail();
   assertArtifactShape(priorAssertions[0]);
@@ -295,9 +295,9 @@ function psqlQuery(deps, environment, query) {
 }
 
 function assertDatabaseSentinel(deps, environment, expectedCheckoutState) {
-  const checkoutExpression = expectedCheckoutState === "absent"
-    ? "CASE WHEN pg_catalog.to_regprocedure('saas.storefront_checkout_preflight()') IS NULL THEN 'absent' ELSE 'invalid' END"
-    : "CASE WHEN pg_catalog.to_regprocedure('saas.storefront_checkout_preflight()') IS NOT NULL AND saas.storefront_checkout_preflight() IS TRUE THEN 'present' ELSE 'invalid' END";
+  const defaultShippingExpression = expectedCheckoutState === "absent"
+    ? "CASE WHEN pg_catalog.to_regprocedure('saas.storefront_checkout_default_shipping_preflight()') IS NULL THEN 'absent' ELSE 'invalid' END"
+    : "CASE WHEN pg_catalog.to_regprocedure('saas.storefront_checkout_default_shipping_preflight()') IS NOT NULL AND saas.storefront_checkout_default_shipping_preflight() IS TRUE THEN 'present' ELSE 'invalid' END";
   const query = [
     "SELECT current_setting('server_version_num')::int / 10000,",
     "current_database(),",
@@ -306,13 +306,15 @@ function assertDatabaseSentinel(deps, environment, expectedCheckoutState) {
     "current_setting('transaction_read_only') = 'on',",
     "saas.built_in_payment_methods_preflight() IS TRUE,",
     "saas.payment_provider_keyed_lifecycle_preflight() IS TRUE,",
-    `${checkoutExpression};`,
+    "saas.storefront_checkout_preflight() IS TRUE,",
+    `${defaultShippingExpression};`,
   ].join(" ");
   const expected = [
     "16",
     environment.PGDATABASE,
     "isolated_staging",
     "f",
+    "t",
     "t",
     "t",
     "t",
@@ -333,14 +335,14 @@ function createEncryptedBackup(deps, configuration, sourceSha, label) {
   const suffix = label === "apply" ? "" : "-rollback";
   const encryptedBackup = path.join(
     configuration.backupDirectory,
-    `storefront-checkout-before-064${suffix}-${sourceSha}.dump.enc`,
+    `storefront-checkout-before-065${suffix}-${sourceSha}.dump.enc`,
   );
   if (deps.exists(encryptedBackup)) fail();
 
   deps.chmod(configuration.backupDirectory, 0o700);
-  const temporaryDirectory = deps.mkdtemp(path.join(configuration.backupDirectory, ".storefront-checkout-064-"));
+  const temporaryDirectory = deps.mkdtemp(path.join(configuration.backupDirectory, ".storefront-checkout-065-"));
   deps.chmod(temporaryDirectory, 0o700);
-  const plainBackup = path.join(temporaryDirectory, "before-064.dump");
+  const plainBackup = path.join(temporaryDirectory, "before-065.dump");
   let encryptedReady = false;
   try {
     command(deps, "pg_dump", ["-Fc", "--no-password", "-f", plainBackup], {
@@ -394,43 +396,15 @@ function assertZeroImpactAndWritersDrained(deps, environment) {
       FROM pg_catalog.pg_locks lock_info
       WHERE lock_info.pid<>pg_catalog.pg_backend_pid() AND lock_info.granted
         AND lock_info.relation IN(
-          'saas.abandoned_carts'::regclass,
-          'saas.merchant_admin_records'::regclass,
-          'saas.payment_attempts'::regclass,
-          'saas.checkout_payment_attempts'::regclass,
-          'saas.checkout_inventory_reservations'::regclass,
-          'saas.orders'::regclass,
-          'saas.order_items'::regclass,
-          'saas.order_events'::regclass,
-          'saas.storefront_checkout_operations'::regclass,
-          'saas.storefront_checkout_discount_redemptions'::regclass,
-          'saas.storefront_checkout_payment_bridges'::regclass,
-          'saas.storefront_checkout_reserved_identities'::regclass
+          'saas.abandoned_carts'::regclass
         )
         AND lock_info.mode IN('RowExclusiveLock','ShareRowExclusiveLock','ExclusiveLock','AccessExclusiveLock')
     )
     SELECT (
       NOT EXISTS(
-        SELECT 1 FROM saas.merchant_admin_records
-        WHERE record_kind='shipping_setting' AND config?'flatRateCents'
-      )
-      AND NOT EXISTS(
         SELECT 1 FROM saas.abandoned_carts
-        WHERE marketing_opt_in OR shipping_address IS NOT NULL OR billing_address IS NOT NULL
-          OR shipping_method_code IS NOT NULL OR shipping_cents<>0
-          OR discount_record_id IS NOT NULL OR discount_code IS NOT NULL
-          OR checkout_nonce_digest IS NOT NULL OR selected_payment_method_id IS NOT NULL
+        WHERE shipping_method_code IS NOT NULL
       )
-      AND NOT EXISTS(SELECT 1 FROM saas.storefront_checkout_operations)
-      AND NOT EXISTS(SELECT 1 FROM saas.storefront_checkout_discount_redemptions)
-      AND NOT EXISTS(SELECT 1 FROM saas.storefront_checkout_payment_bridges)
-      AND NOT EXISTS(SELECT 1 FROM saas.storefront_checkout_reserved_identities)
-      AND NOT EXISTS(
-        SELECT 1 FROM saas.checkout_inventory_reservations
-        WHERE payment_attempt_id IS NOT NULL AND quick_order_link_id IS NULL
-      )
-      AND NOT EXISTS(SELECT 1 FROM saas.orders WHERE storefront_cart_id IS NOT NULL)
-      AND pg_catalog.to_regclass('saas.storefront_checkout_bridges') IS NULL
     ), (SELECT pg_catalog.count(*) FROM writer_pids);
   `;
   if (psqlQuery(deps, readOnlyEnvironment(environment), query) !== "t|0") fail();
@@ -486,7 +460,7 @@ export function runIsolatedStaging(argv, supplied = {}) {
       psqlQuery(
         deps,
         readOnlyEnvironment(configuration.environment),
-        "SELECT saas.storefront_checkout_preflight();",
+        "SELECT saas.storefront_checkout_default_shipping_preflight();",
       ) !== "t"
     ) fail();
     assertDatabaseSentinel(deps, configuration.environment, "present");

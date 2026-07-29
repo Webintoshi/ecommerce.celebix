@@ -25,6 +25,7 @@ function validResult(overrides: Record<string, unknown> = {}): QueryResult {
       migration_032: true,
       migration_039: true,
       migration_064: true,
+      migration_065: true,
       ...overrides,
     }],
   };
@@ -77,7 +78,7 @@ test("preflight rolls back and fails closed when an invariant is false", async (
     query: async (statement: string) => {
       statements.push(statement);
       return statement.startsWith("SELECT")
-        ? validResult({ migration_064: false })
+        ? validResult({ migration_065: false })
         : { rowCount: 0, rows: [] };
     },
   };

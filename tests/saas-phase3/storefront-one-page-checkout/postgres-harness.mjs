@@ -21,9 +21,21 @@ const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const UP = "202607280064_storefront_one_page_checkout.up.sql";
 const DOWN = "202607280064_storefront_one_page_checkout.down.sql";
 const ASSERTIONS = "202607280064_storefront_one_page_checkout_assertions.sql";
-const REQUIRED = [UP, DOWN, ASSERTIONS];
+const DEFAULT_SHIPPING_UP = "202607290065_storefront_default_shipping.up.sql";
+const DEFAULT_SHIPPING_DOWN = "202607290065_storefront_default_shipping.down.sql";
+const DEFAULT_SHIPPING_ASSERTIONS = "202607290065_storefront_default_shipping_assertions.sql";
+const REQUIRED = [
+  UP,
+  DOWN,
+  ASSERTIONS,
+  DEFAULT_SHIPPING_UP,
+  DEFAULT_SHIPPING_DOWN,
+  DEFAULT_SHIPPING_ASSERTIONS,
+];
 const DB = "storefront_one_page_checkout";
 const CLEAN_DOWN_DB = "storefront_one_page_checkout_clean_down";
+const DEFAULT_SHIPPING_DB = "storefront_default_shipping";
+const DEFAULT_SHIPPING_CLEAN_DOWN_DB = "storefront_default_shipping_clean_down";
 const ROLLBACK_DB = "storefront_one_page_checkout_rollback";
 const ROLLBACK_RACE_DB = "storefront_one_page_checkout_rollback_race";
 const SHIPPING_GUARD_DB = "storefront_one_page_checkout_shipping_guard";
@@ -1132,6 +1144,136 @@ async function main() {
       assert.notEqual(rawWrite.status, 0, `${role} must not write the checkout operation table`);
     }
     apply(box, ASSERTIONS);
+
+    sql(box, `CREATE DATABASE ${DEFAULT_SHIPPING_DB} TEMPLATE ${DB};`, "postgres");
+    addSecondCheckoutCart(box, DEFAULT_SHIPPING_DB);
+    sql(box, `SET ROLE celebix_saas_owner;
+      UPDATE saas.abandoned_carts
+      SET status='recovered',abandoned_at='${NOW}',
+        recovered_at='${NOW}',version=version+1,updated_at='${NOW}'
+      WHERE id='${CART_B}';`, DEFAULT_SHIPPING_DB);
+    apply(box, DEFAULT_SHIPPING_UP, DEFAULT_SHIPPING_DB);
+    apply(box, DEFAULT_SHIPPING_ASSERTIONS, DEFAULT_SHIPPING_DB);
+
+    const canonicalDefaultQuote = quote(box, HOST_A, CART_A_DIGEST, DEFAULT_SHIPPING_DB);
+    assert.deepEqual({
+      selectedShippingId: canonicalDefaultQuote.payload.selectedShippingId,
+      shippingCents: canonicalDefaultQuote.payload.shippingCents,
+      totalCents: canonicalDefaultQuote.payload.totalCents,
+      optionPriceCents: canonicalDefaultQuote.payload.shippingOptions[0].priceCents,
+    }, {
+      selectedShippingId: "standard",
+      shippingCents: 2_500,
+      totalCents: 12_500,
+      optionPriceCents: 2_500,
+    }, "a newly created checkout cart must quote its canonical standard shipping selection");
+    const recoveredDefaultQuote = quote(
+      box,
+      HOST_A,
+      CART_B_DIGEST,
+      DEFAULT_SHIPPING_DB,
+    );
+    assert.equal(recoveredDefaultQuote.outcome, "found");
+    assert.equal(recoveredDefaultQuote.payload.selectedShippingId, "standard");
+    assert.equal(
+      recoveredDefaultQuote.payload.shippingCents,
+      recoveredDefaultQuote.payload.shippingOptions[0].priceCents,
+      "a recovered cart must select the same shipping amount exposed by its quote option",
+    );
+    assert.equal(
+      recoveredDefaultQuote.payload.totalCents,
+      recoveredDefaultQuote.payload.subtotalCents
+        + recoveredDefaultQuote.payload.shippingCents
+        - recoveredDefaultQuote.payload.discountCents,
+      "canonical shipping must preserve quote total arithmetic",
+    );
+    assert.equal(sql(box, `SELECT pg_catalog.string_agg(
+        status||':'||shipping_method_code,',' ORDER BY status
+      )
+      FROM saas.abandoned_carts
+      WHERE id IN('${CART_A}','${CART_B}');`, DEFAULT_SHIPPING_DB).stdout.trim(),
+    "active:standard,recovered:standard",
+    "migration 065 must backfill both live checkout lifecycle states");
+
+    sql(box, `SET ROLE celebix_saas_owner;
+      INSERT INTO saas.abandoned_carts(
+        id,store_id,public_cart_digest,status,customer_name,customer_email,customer_phone,
+        currency,subtotal_cents,discount_cents,total_cents,checkout_started_at,last_activity_at,
+        abandoned_at,recovered_at,archived_at,version,created_at,updated_at
+      ) VALUES(
+        '60000000-0000-4000-8000-000000000066','${STORE_A}',repeat('9',64),'active',
+        NULL,NULL,NULL,'TRY',0,0,0,'${NOW}','${NOW}',NULL,NULL,NULL,1,'${NOW}','${NOW}'
+      );`, DEFAULT_SHIPPING_DB);
+    assert.equal(sql(box, `SELECT shipping_method_code
+      FROM saas.abandoned_carts
+      WHERE id='60000000-0000-4000-8000-000000000066';`,
+    DEFAULT_SHIPPING_DB).stdout.trim(), "standard",
+    "new carts must receive the canonical shipping method from the column default");
+    sql(box, `SET ROLE celebix_saas_owner;
+      INSERT INTO saas.abandoned_carts(
+        id,store_id,public_cart_digest,status,customer_name,customer_email,customer_phone,
+        currency,subtotal_cents,discount_cents,total_cents,checkout_started_at,last_activity_at,
+        abandoned_at,recovered_at,archived_at,version,created_at,updated_at,
+        shipping_method_code
+      ) VALUES(
+        '60000000-0000-4000-8000-000000000067','${STORE_A}',repeat('8',64),'abandoned',
+        NULL,NULL,NULL,'TRY',0,0,0,'${NOW}','${NOW}','${NOW}',NULL,NULL,1,'${NOW}','${NOW}',
+        NULL
+      );
+      UPDATE saas.abandoned_carts
+      SET status='recovered',recovered_at='${NOW}',version=version+1,updated_at='${NOW}'
+      WHERE id='60000000-0000-4000-8000-000000000067';`, DEFAULT_SHIPPING_DB);
+    assert.equal(sql(box, `SELECT shipping_method_code
+      FROM saas.abandoned_carts
+      WHERE id='60000000-0000-4000-8000-000000000067';`,
+    DEFAULT_SHIPPING_DB).stdout.trim(), "standard",
+    "a historical abandoned cart must become canonical when it is recovered later");
+    apply(box, DEFAULT_SHIPPING_ASSERTIONS, DEFAULT_SHIPPING_DB);
+
+    const repeatedDefaultShipping = apply(
+      box,
+      DEFAULT_SHIPPING_UP,
+      DEFAULT_SHIPPING_DB,
+      true,
+    );
+    assert.notEqual(repeatedDefaultShipping.status, 0,
+      "migration 065 must reject a repeated apply");
+    assert.match(repeatedDefaultShipping.stderr, /STOREFRONT_DEFAULT_SHIPPING_SOURCE_ALREADY_APPLIED/);
+    const impactedDefaultShippingDown = apply(
+      box,
+      DEFAULT_SHIPPING_DOWN,
+      DEFAULT_SHIPPING_DB,
+      true,
+    );
+    assert.notEqual(impactedDefaultShippingDown.status, 0,
+      "migration 065 rollback must reject durable canonical shipping state");
+    assert.match(impactedDefaultShippingDown.stderr,
+      /STOREFRONT_DEFAULT_SHIPPING_DOWN_GUARD: canonical shipping state exists/);
+    apply(box, DEFAULT_SHIPPING_ASSERTIONS, DEFAULT_SHIPPING_DB);
+
+    sql(box, `CREATE DATABASE ${DEFAULT_SHIPPING_CLEAN_DOWN_DB}
+      TEMPLATE ${CLEAN_DOWN_DB};`, "postgres");
+    apply(box, UP, DEFAULT_SHIPPING_CLEAN_DOWN_DB);
+    apply(box, DEFAULT_SHIPPING_UP, DEFAULT_SHIPPING_CLEAN_DOWN_DB);
+    apply(box, DEFAULT_SHIPPING_ASSERTIONS, DEFAULT_SHIPPING_CLEAN_DOWN_DB);
+    apply(box, DEFAULT_SHIPPING_DOWN, DEFAULT_SHIPPING_CLEAN_DOWN_DB);
+    apply(box, ASSERTIONS, DEFAULT_SHIPPING_CLEAN_DOWN_DB);
+    assert.equal(sql(box, `SELECT
+        pg_catalog.to_regprocedure(
+          'saas.storefront_checkout_default_shipping_preflight()'
+        ) IS NULL
+        AND NOT EXISTS(
+          SELECT 1
+          FROM pg_catalog.pg_attribute attribute
+          JOIN pg_catalog.pg_attrdef default_info
+            ON default_info.adrelid=attribute.attrelid
+            AND default_info.adnum=attribute.attnum
+          WHERE attribute.attrelid='saas.abandoned_carts'::regclass
+            AND attribute.attname='shipping_method_code'
+        );`, DEFAULT_SHIPPING_CLEAN_DOWN_DB).stdout.trim(), "t",
+    "clean 065 rollback must restore the exact 064 catalog shape");
+    apply(box, DEFAULT_SHIPPING_UP, DEFAULT_SHIPPING_CLEAN_DOWN_DB);
+    apply(box, DEFAULT_SHIPPING_ASSERTIONS, DEFAULT_SHIPPING_CLEAN_DOWN_DB);
 
     for (const database of [
       BUILTIN_SETTLEMENT_DB,

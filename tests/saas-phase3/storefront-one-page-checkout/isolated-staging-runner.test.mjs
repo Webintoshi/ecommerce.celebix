@@ -9,12 +9,12 @@ const SHA = "a".repeat(40);
 const REMOTE_REF = "refs/remotes/origin/codex/celebix-managed-umami-analytics";
 const STAGING_DATABASE = "celebix_saas_staging_auth01";
 const SQL_ROOT = "apps/owner/scripts/sql/saas";
-const MANIFEST = `${SQL_ROOT}/phase3w-storefront-one-page-checkout-manifest.json`;
-const PREDECESSOR = "phase3v-payment-provider-builtin-compatibility-manifest.json";
-const UP = "202607280064_storefront_one_page_checkout.up.sql";
-const ASSERTIONS = "202607280064_storefront_one_page_checkout_assertions.sql";
-const DOWN = "202607280064_storefront_one_page_checkout.down.sql";
-const PRIOR_ASSERTIONS = "202607280063_payment_provider_builtin_compatibility_assertions.sql";
+const MANIFEST = `${SQL_ROOT}/phase3x-storefront-default-shipping-manifest.json`;
+const PREDECESSOR = "phase3w-storefront-one-page-checkout-manifest.json";
+const UP = "202607290065_storefront_default_shipping.up.sql";
+const ASSERTIONS = "202607290065_storefront_default_shipping_assertions.sql";
+const DOWN = "202607290065_storefront_default_shipping.down.sql";
+const PRIOR_ASSERTIONS = "202607280064_storefront_one_page_checkout_assertions.sql";
 const RUNNER = "tests/saas-phase3/storefront-one-page-checkout/isolated-staging-runner.mjs";
 const SECRET = "not-rendered-database-password";
 
@@ -26,20 +26,20 @@ function fixture(overrides = {}) {
   const calls = [];
   const files = new Map([
     [`${SQL_ROOT}/${PRIOR_ASSERTIONS}`, "BEGIN READ ONLY; SELECT true; ROLLBACK;\n"],
-    [`${SQL_ROOT}/${UP}`, "BEGIN; SELECT '064 up'; COMMIT;\n"],
-    [`${SQL_ROOT}/${ASSERTIONS}`, "BEGIN READ ONLY; SELECT '064 assertions'; ROLLBACK;\n"],
-    [`${SQL_ROOT}/${DOWN}`, "BEGIN; SELECT '064 down'; COMMIT;\n"],
+    [`${SQL_ROOT}/${UP}`, "BEGIN; SELECT '065 up'; COMMIT;\n"],
+    [`${SQL_ROOT}/${ASSERTIONS}`, "BEGIN READ ONLY; SELECT '065 assertions'; ROLLBACK;\n"],
+    [`${SQL_ROOT}/${DOWN}`, "BEGIN; SELECT '065 down'; COMMIT;\n"],
     [RUNNER, "runner-source-bytes\n"],
   ]);
   files.set(`${SQL_ROOT}/${PREDECESSOR}`, `${JSON.stringify({
-    phase: "phase3v-payment-provider-builtin-compatibility",
+    phase: "phase3w-storefront-one-page-checkout",
     artifacts: [{
       file: PRIOR_ASSERTIONS,
       sha256: hash(files.get(`${SQL_ROOT}/${PRIOR_ASSERTIONS}`)),
     }],
   }, null, 2)}\n`);
   const manifest = `${JSON.stringify({
-    phase: "phase3w-storefront-one-page-checkout",
+    phase: "phase3x-storefront-default-shipping",
     postgresqlMajor: 16,
     artifacts: [PREDECESSOR, UP, ASSERTIONS].map((file) => ({
       file,
@@ -108,7 +108,7 @@ function fixture(overrides = {}) {
     chmod(file, mode) { calls.push(["chmod", file, mode]); },
     mkdtemp() {
       calls.push(["mkdtemp"]);
-      return "/safe/backups/plain-064-temp";
+      return "/safe/backups/plain-065-temp";
     },
     rm(file, options) { calls.push(["rm", file, options]); },
     spawn(executable, args, options = {}) {
@@ -116,13 +116,16 @@ function fixture(overrides = {}) {
       if (executable === "psql" && args.includes("-At") && args.includes("-c")) {
         const query = args[args.indexOf("-c") + 1];
         if (query.includes("zero_impact")) return { status: 0, stdout: "t|0\n", stderr: "" };
-        if (query.includes("storefront_checkout_preflight()") && !query.includes("server_version_num")) {
+        if (query.includes("storefront_checkout_default_shipping_preflight()")
+          && !query.includes("server_version_num")) {
           return { status: 0, stdout: "t\n", stderr: "" };
         }
-        const expectsAbsent = query.includes("to_regprocedure('saas.storefront_checkout_preflight()') IS NULL");
+        const expectsAbsent = query.includes(
+          "to_regprocedure('saas.storefront_checkout_default_shipping_preflight()') IS NULL",
+        );
         return {
           status: 0,
-          stdout: `16|${STAGING_DATABASE}|isolated_staging|f|t|t|t|${expectsAbsent ? "absent" : "present"}\n`,
+          stdout: `16|${STAGING_DATABASE}|isolated_staging|f|t|t|t|t|${expectsAbsent ? "absent" : "present"}\n`,
           stderr: "",
         };
       }
@@ -137,11 +140,11 @@ function processCalls(deps) {
   return deps.calls.filter(([kind]) => kind === "spawn");
 }
 
-test("phase3w manifest pins the exact predecessor and 064 migration bytes", () => {
+test("phase3x manifest pins the exact predecessor and 065 migration bytes", () => {
   const repositoryRoot = new URL("../../../", import.meta.url);
   const manifest = JSON.parse(readFileSync(new URL(MANIFEST, repositoryRoot), "utf8"));
   const expected = {
-    phase: "phase3w-storefront-one-page-checkout",
+    phase: "phase3x-storefront-default-shipping",
     postgresqlMajor: 16,
     artifacts: [PREDECESSOR, UP, ASSERTIONS],
     rollbackArtifacts: [DOWN],
@@ -194,7 +197,7 @@ test("dry-run requires a canonical source SHA at exact local and remote commit w
   assert.ok(deps.calls.some(([kind, args]) => kind === "git" && args[0] === "status"));
 });
 
-test("dry-run follows the pinned predecessor manifest and rejects drifted 063 assertion bytes", () => {
+test("dry-run follows the pinned predecessor manifest and rejects drifted 064 assertion bytes", () => {
   const clean = fixture();
   const deps = fixture({
     readFile(file) {
@@ -287,12 +290,12 @@ test("apply rejects a backup directory symlink that resolves to a broad target",
   assert.equal(processCalls(deps).length, 0);
 });
 
-test("apply proves the 063 base read-only, verifies backup inventory, encrypts it, applies exact 064, and rechecks source", () => {
+test("apply proves the 064 base read-only, verifies backup inventory, encrypts it, applies exact 065, and rechecks source", () => {
   const deps = fixture();
   const result = runIsolatedStaging(["--source-sha", SHA, "--apply"], deps);
   assert.equal(result.mode, "applied");
   assert.equal(result.sourceSha, SHA);
-  assert.match(result.encryptedBackup, /storefront-checkout-before-064-[a-f0-9]{40}[.]dump[.]enc$/);
+  assert.match(result.encryptedBackup, /storefront-checkout-before-065-[a-f0-9]{40}[.]dump[.]enc$/);
 
   const processes = processCalls(deps);
   const sequence = processes.map(([, command, args]) => `${command}:${args.join(" ")}`);
@@ -304,7 +307,7 @@ test("apply proves the 063 base read-only, verifies backup inventory, encrypts i
   assert.ok(at("openssl:enc -aes-256-cbc -pbkdf2") > at("pg_restore:-l"));
   assert.ok(at(UP) > at("openssl:enc -aes-256-cbc -pbkdf2"));
   assert.ok(at(ASSERTIONS) > at(UP));
-  assert.ok(at("SELECT saas.storefront_checkout_preflight()") > at(ASSERTIONS));
+  assert.ok(at("SELECT saas.storefront_checkout_default_shipping_preflight()") > at(ASSERTIONS));
 
   const migration = processes.find(([, command, args]) =>
     command === "psql" && args.some((argument) => argument.endsWith(UP)));
@@ -321,16 +324,16 @@ test("apply proves the 063 base read-only, verifies backup inventory, encrypts i
   assert.deepEqual(openssl[2].slice(0, 5), ["enc", "-aes-256-cbc", "-pbkdf2", "-salt", "-in"]);
   assert.match(openssl[2].join(" "), /-pass env:CELEBIX_SAAS_BACKUP_ENCRYPTION_KEY/);
   assert.ok(deps.calls.some(([kind, file, mode]) => kind === "chmod" && file === result.encryptedBackup && mode === 0o600));
-  assert.ok(deps.calls.some(([kind, file]) => kind === "rm" && file.endsWith("before-064.dump")));
+  assert.ok(deps.calls.some(([kind, file]) => kind === "rm" && file.endsWith("before-065.dump")));
   assert.ok(deps.calls.filter(([kind, args]) => kind === "git" && args[0] === "rev-parse" && args[1] === REMOTE_REF).length >= 2);
 });
 
-test("apply fails before backup when the database sentinel is not the exact writable 063 isolated-staging base", () => {
+test("apply fails before backup when the database sentinel is not the exact writable 064 isolated-staging base", () => {
   const deps = fixture({
     spawn(executable, args, options) {
       deps.calls.push(["spawn", executable, args, options]);
       if (executable === "psql" && args.includes("-At")) {
-        return { status: 0, stdout: `16|${STAGING_DATABASE}|isolated_staging|f|t|t|t|present\n`, stderr: "" };
+        return { status: 0, stdout: `16|${STAGING_DATABASE}|isolated_staging|f|t|t|t|t|present\n`, stderr: "" };
       }
       return { status: 0, stdout: "", stderr: "" };
     },
@@ -357,7 +360,7 @@ test("down requires writer-drain attestation and exact zero-impact state before 
       if (executable === "psql" && args.includes("-At") && args.includes("-c")) {
         const query = args[args.indexOf("-c") + 1];
         if (query.includes("zero_impact")) return { status: 0, stdout: "f|0\n", stderr: "" };
-        return { status: 0, stdout: `16|${STAGING_DATABASE}|isolated_staging|f|t|t|t|present\n`, stderr: "" };
+        return { status: 0, stdout: `16|${STAGING_DATABASE}|isolated_staging|f|t|t|t|t|present\n`, stderr: "" };
       }
       return { status: 0, stdout: "", stderr: "" };
     },
@@ -369,7 +372,7 @@ test("down requires writer-drain attestation and exact zero-impact state before 
   assert.equal(processCalls(impacted).some(([, command]) => command === "pg_dump"), false);
 });
 
-test("down drains writers, verifies zero impact, backs up, rolls 064 down, and proves 063 authority", () => {
+test("down drains writers, verifies zero impact, backs up, rolls 065 down, and proves 064 authority", () => {
   const deps = fixture();
   const result = runIsolatedStaging(["--source-sha", SHA, "--down"], deps);
   assert.equal(result.mode, "rolled-back");

@@ -38,6 +38,8 @@ const PREFLIGHT_QUERY = `SELECT current_setting('server_version_num')::integer A
     AS migration_032,
   to_regprocedure('saas.storefront_checkout_preflight()') IS NOT NULL
     AND saas.storefront_checkout_preflight() AS migration_064,
+  to_regprocedure('saas.storefront_checkout_default_shipping_preflight()') IS NOT NULL
+    AND saas.storefront_checkout_default_shipping_preflight() AS migration_065,
   to_regclass('saas.store_analytics_connections') IS NOT NULL
     AND to_regprocedure('saas.analytics_connection_get_for_host(text,timestamp with time zone)') IS NOT NULL
     AS migration_039
@@ -72,6 +74,7 @@ export async function runStorefrontDatabasePreflight(
       || row.migration_028 !== true
       || row.migration_032 !== true
       || row.migration_064 !== true
+      || row.migration_065 !== true
       || (analyticsMigrationRequired && row.migration_039 !== true)) {
       throw new Error("storefront_database_preflight_failed");
     }

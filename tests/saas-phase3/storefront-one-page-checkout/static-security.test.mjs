@@ -78,6 +78,25 @@ test("hosted runtime checks current authority through a workflow-safe storefront
   assert.doesNotMatch(runtime, /SELECT saas[.]merchant_provider_execution_authority_matches/);
 });
 
+test("canonical shipping migration is forward-only, guarded, and workflow-scoped", async () => {
+  const [up, down, assertions, preflight] = await Promise.all([
+    readFile(path.join(repositoryRoot, "apps/owner/scripts/sql/saas/202607290065_storefront_default_shipping.up.sql"), "utf8"),
+    readFile(path.join(repositoryRoot, "apps/owner/scripts/sql/saas/202607290065_storefront_default_shipping.down.sql"), "utf8"),
+    readFile(path.join(repositoryRoot, "apps/owner/scripts/sql/saas/202607290065_storefront_default_shipping_assertions.sql"), "utf8"),
+    readFile(path.join(storefrontRoot, "lib/database-preflight.ts"), "utf8"),
+  ]);
+  assert.match(up, /ALTER COLUMN shipping_method_code SET DEFAULT 'standard'/);
+  assert.match(up, /status IN\('active','recovered'\)/);
+  assert.match(up, /CREATE TRIGGER abandoned_carts_canonical_shipping_method/);
+  assert.match(up, /CREATE FUNCTION saas[.]storefront_checkout_default_shipping_preflight/);
+  assert.match(up, /REVOKE ALL ON FUNCTION saas[.]storefront_checkout_default_shipping_preflight/);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]storefront_checkout_default_shipping_preflight\(\)\s+TO celebix_saas_workflow/);
+  assert.match(down, /STOREFRONT_DEFAULT_SHIPPING_DOWN_GUARD/);
+  assert.match(assertions, /SET LOCAL TRANSACTION READ ONLY/);
+  assert.match(assertions, /abandoned_carts_total_check/);
+  assert.match(preflight, /migration_065/);
+});
+
 test("browser proof is raw-CDP only and injects the locked axe asset", async () => {
   const acceptancePath = path.join(
     repositoryRoot,

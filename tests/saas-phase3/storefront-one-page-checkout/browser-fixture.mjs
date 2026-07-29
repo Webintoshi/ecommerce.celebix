@@ -645,6 +645,7 @@ function prepareDatabase(box, candidateDigest) {
   applySql(box, "202607280063_payment_provider_builtin_compatibility.up.sql");
   applySql(box, "202607280064_storefront_one_page_checkout.up.sql");
   psql(box, seedSql());
+  applySql(box, "202607290065_storefront_default_shipping.up.sql");
   const invalidBuiltins = psql(box, `SET ROLE celebix_saas_owner;
     SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
       'id',method.id,'kind',method.kind,'config',method.config
@@ -743,6 +744,9 @@ try {
 	      to_regprocedure('saas.storefront_checkout_preflight()') IS NOT NULL
 	        AND saas.storefront_checkout_preflight()
 	        AS migration_064,
+	      to_regprocedure('saas.storefront_checkout_default_shipping_preflight()') IS NOT NULL
+	        AND saas.storefront_checkout_default_shipping_preflight()
+	        AS migration_065,
 	      to_regclass('saas.payment_attempts') IS NOT NULL
 	        AND to_regprocedure('saas.payment_attempt_begin(uuid,timestamp with time zone,uuid,text,uuid,text,bigint,text,text)') IS NOT NULL
 	        AND to_regprocedure('saas.payment_callback_authority(text,text,timestamp with time zone)') IS NOT NULL
@@ -776,6 +780,7 @@ try {
     "migration_028",
     "migration_032",
 	    "migration_064",
+	    "migration_065",
 	    "migration_052",
 	    "migration_056",
 	    "migration_057",
