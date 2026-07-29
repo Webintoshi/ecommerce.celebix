@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { types as nodeTypes } from "node:util";
 
 import type {
@@ -13,6 +13,7 @@ import {
   openMerchantProviderCredential,
   PaymentAttemptRepositoryError,
   type BeginPaymentAttemptResult,
+  type HostedCheckoutAuthority,
   type MerchantProviderCredentialKeyring,
   type PaymentAttemptAuthority,
   type PaymentAttemptReconciliationClaim,
@@ -25,6 +26,7 @@ import {
   readExactHostedPaymentCallbackByDigest,
   type ExactHostedPaymentCallback,
 } from "./callback-authority.ts";
+import { readCartCredential } from "../cart-capture/credential.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
@@ -39,6 +41,7 @@ const MAXIMUM_TOKEN_LENGTH = 4_096;
 const SUCCESS_PATH = "/odeme/hizli/sonuc?durum=basarili";
 const FAILURE_PATH = "/odeme/hizli/sonuc?durum=basarisiz";
 const PROCESSING_PATH = "/odeme/hizli/sonuc?durum=isleniyor";
+const STOREFRONT_CHECKOUT_RESULT_PATH = "/odeme/sonuc";
 const RECONCILIATION_LEASE_MS = 60_000;
 const PROVIDER_DEADLINE_MS = 5_000;
 const AUTHORITY_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
@@ -123,8 +126,21 @@ export type InitializeHostedPaymentInput = Readonly<{
   }>[];
 }>;
 
+export type InitializeCommittedHostedPaymentInput = Readonly<{
+  headers: Headers;
+  attemptId: string;
+  trustedClientIp: string;
+  begin(input: Readonly<{
+    attemptId: string;
+    callbackBindingDigest: string;
+  }>): Promise<HostedCheckoutAuthority>;
+}>;
+
 export type HostedPaymentRuntime = Readonly<{
   initialize(input: InitializeHostedPaymentInput): Promise<HostedPaymentPresentation>;
+  initializeCommitted(
+    input: InitializeCommittedHostedPaymentInput,
+  ): Promise<HostedPaymentPresentation>;
   callback(input: Readonly<{
     request: Request;
     providerCode: string;
@@ -843,6 +859,161 @@ async function markFailed(
   });
 }
 
+async function initializeCreatedAttempt(input: Readonly<{
+  dependencies: HostedPaymentRuntimeDependencies;
+  begun: BeginPaymentAttemptResult;
+  payment: InitializeHostedPaymentInput;
+  hostname: string;
+  binding: string;
+  now: Date;
+  providerTimeoutMs: number;
+  successPath: string;
+  failurePath: string;
+}>): Promise<HostedPaymentPresentation> {
+  const { dependencies, begun, payment, hostname, binding, now, providerTimeoutMs } = input;
+  const selectedAdapter = adapterFor(dependencies, begun, "initialize");
+  if (selectedAdapter === null) {
+    const safeCode = registeredAdapterPresent(dependencies, begun.providerCode)
+      ? "execution_authority_mismatch"
+      : "adapter_not_registered";
+    try { await markFailed(dependencies, begun, safeCode, now); } catch { /* safe rejection */ }
+    return PRESENTATION_REJECTED;
+  }
+  const adapter = selectedAdapter.adapter;
+  if (!environmentMatches(begun)) {
+    try { await markFailed(dependencies, begun, "environment_mismatch", now); } catch { /* safe rejection */ }
+    return PRESENTATION_REJECTED;
+  }
+  const projection = providerInitializeProjection(begun.providerCode, payment);
+  if (projection === null) {
+    try { await markFailed(dependencies, begun, "provider_input_invalid", now); } catch { /* safe rejection */ }
+    return PRESENTATION_REJECTED;
+  }
+  if (!await currentCompiledAuthorityMatches(dependencies, selectedAdapter)) {
+    try { await markFailed(dependencies, begun, "execution_authority_mismatch", now); } catch { /* safe rejection */ }
+    return PRESENTATION_REJECTED;
+  }
+  let opened: OpenedCredential | undefined;
+  try {
+    opened = openCredential(dependencies, begun, adapter);
+  } catch {
+    try { await markFailed(dependencies, begun, "credential_invalid", now); } catch { /* safe rejection */ }
+    return PRESENTATION_REJECTED;
+  }
+  try {
+    let result: HostedPaymentInitialization;
+    try {
+      result = await withinProviderDeadline(providerTimeoutMs, (signal) => adapter.initialize(Object.freeze({
+        environment: begun.environment,
+        credential: opened.credential,
+        attemptId: begun.attemptId,
+        orderReference: payment.orderReference,
+        amountMinor: payment.amountMinor,
+        currency: payment.currency,
+        callbackUrl: `https://${hostname}/api/payments/${begun.providerCode}/callback/${binding}`,
+        successUrl: `https://${hostname}${input.successPath}`,
+        failureUrl: `https://${hostname}${input.failurePath}`,
+        customer: projection.customer,
+        basket: projection.basket,
+        signal,
+      })));
+    } catch {
+      wipeOpenedCredential(opened);
+      const unknown = phase(
+        "initialize-unknown",
+        begun.attemptId,
+        begun.credentialVersion,
+        opened.credentialDigest,
+      );
+      try {
+        await dependencies.attempts.markUnknown({
+          attemptId: begun.attemptId,
+          ...unknown,
+          expectedVersion: 1,
+          credentialVersion: begun.credentialVersion,
+          providerReference: null,
+          safeCode: "provider_outcome_unknown",
+          now: new Date(now),
+        });
+      } catch { /* processing remains the only safe projection */ }
+      return PRESENTATION_PROCESSING;
+    }
+    if (
+      plainRecord(result)
+      && result.kind === "unknown"
+      && exactKeys(result, ["kind", "code", "providerReference"])
+      && result.code === "provider_outcome_unknown"
+      && validProviderReference(result.providerReference)
+    ) {
+      const unknown = phase(
+        "initialize-unknown",
+        begun.attemptId,
+        begun.credentialVersion,
+        opened.credentialDigest,
+      );
+      try {
+        await dependencies.attempts.markUnknown({
+          attemptId: begun.attemptId,
+          ...unknown,
+          expectedVersion: 1,
+          credentialVersion: begun.credentialVersion,
+          providerReference: result.providerReference,
+          safeCode: "provider_outcome_unknown",
+          now: new Date(now),
+        });
+      } catch { /* processing remains the only safe projection */ }
+      return PRESENTATION_PROCESSING;
+    }
+    const parsed = parseInitialization(adapter, begun.environment, result);
+    if (parsed === null) {
+      const unknown = phase(
+        "initialize-invalid-result",
+        begun.attemptId,
+        begun.credentialVersion,
+        opened.credentialDigest,
+      );
+      try {
+        await dependencies.attempts.markUnknown({
+          attemptId: begun.attemptId,
+          ...unknown,
+          expectedVersion: 1,
+          credentialVersion: begun.credentialVersion,
+          providerReference: null,
+          safeCode: "provider_outcome_unknown",
+          now: new Date(now),
+        });
+      } catch { /* the invalid presentation stays unavailable */ }
+      return PRESENTATION_REJECTED;
+    }
+    const initialized = phase(
+      "initialize",
+      begun.attemptId,
+      begun.credentialVersion,
+      opened.credentialDigest,
+      parsed.status,
+      parsed.providerReference,
+      parsed.safeCode,
+    );
+    try {
+      await dependencies.attempts.markInitialized({
+        attemptId: begun.attemptId,
+        ...initialized,
+        expectedVersion: 1,
+        credentialVersion: begun.credentialVersion,
+        status: parsed.status,
+        providerReference: parsed.providerReference,
+        safeCode: parsed.safeCode,
+        now: new Date(now),
+      });
+    } catch {
+      return parsed.status === "failed" ? PRESENTATION_REJECTED : PRESENTATION_PROCESSING;
+    }
+    return parsed.presentation;
+  } finally {
+    wipeOpenedCredential(opened);
+  }
+}
+
 async function initialize(
   dependencies: HostedPaymentRuntimeDependencies,
   input: InitializeHostedPaymentInput,
@@ -1034,6 +1205,190 @@ async function initialize(
     return PRESENTATION_REJECTED;
   } finally {
     try { random?.fill(0); } catch { /* cleanup remains opaque */ }
+    bindingBytes?.fill(0);
+  }
+}
+
+function checkoutAddress(authority: HostedCheckoutAuthority): string {
+  const selected = authority.customer.shippingAddress;
+  return [
+    selected.line1,
+    selected.line2,
+    selected.district,
+    selected.city,
+    selected.postalCode,
+    selected.countryCode,
+  ].filter((part): part is string => typeof part === "string" && part.length > 0).join(", ");
+}
+
+function exactCommittedAuthority(
+  selected: HostedCheckoutAuthority,
+  persisted: PaymentAttemptAuthority,
+  attemptId: string,
+): boolean {
+  try {
+    return selected.reservationStatus === "held"
+      && selected.attemptId === attemptId
+      && persisted.attemptId === attemptId
+      && selected.storeId === persisted.storeId
+      && selected.paymentMethodId === persisted.paymentMethodId
+      && selected.profileId === persisted.profileId
+      && selected.providerCode === persisted.providerCode
+      && selected.environment === persisted.environment
+      && selected.orderReference === persisted.orderReference
+      && selected.amountMinor === persisted.amountMinor
+      && selected.currency === persisted.currency;
+  } catch {
+    return false;
+  }
+}
+
+function committedPaymentInput(
+  headers: Headers,
+  attemptId: string,
+  trustedClientIp: string,
+  authority: HostedCheckoutAuthority,
+): InitializeHostedPaymentInput | null {
+  try {
+    const shipping = authority.customer.shippingAddress;
+    const payment = Object.freeze({
+      headers: new Headers(headers),
+      storeId: authority.storeId,
+      operationId: attemptId,
+      paymentMethodId: authority.paymentMethodId,
+      orderReference: authority.orderReference,
+      amountMinor: authority.amountMinor,
+      currency: authority.currency,
+      customer: Object.freeze({
+        name: authority.customer.name,
+        email: authority.customer.email,
+        phone: authority.customer.phone,
+        ipAddress: trustedClientIp,
+        address: checkoutAddress(authority),
+        ...(authority.customer.identityNumber === null
+          ? {}
+          : { identityNumber: authority.customer.identityNumber }),
+        city: shipping.city,
+        country: shipping.countryCode,
+        ...(shipping.postalCode === undefined ? {} : { postalCode: shipping.postalCode }),
+      }),
+      basket: Object.freeze(authority.basket.map((item) => Object.freeze({
+        reference: item.reference,
+        name: item.name,
+        quantity: item.quantity,
+        unitAmountMinor: item.unitAmountMinor,
+        itemType: item.itemType,
+      }))),
+    });
+    return validInitializeInput(payment) ? payment : null;
+  } catch {
+    return null;
+  }
+}
+
+async function initializeCommitted(
+  dependencies: HostedPaymentRuntimeDependencies,
+  input: InitializeCommittedHostedPaymentInput,
+  providerTimeoutMs: number,
+): Promise<HostedPaymentPresentation> {
+  if (
+    !plainRecord(input)
+    || !exactKeys(input, ["headers", "attemptId", "trustedClientIp", "begin"])
+    || !(input.headers instanceof Headers)
+    || !UUID.test(input.attemptId)
+    || typeof input.trustedClientIp !== "string"
+    || input.trustedClientIp.length < 1
+    || input.trustedClientIp.length > 64
+    || input.trustedClientIp !== input.trustedClientIp.trim()
+    || PROVIDER_REFERENCE_CONTROL.test(input.trustedClientIp)
+    || typeof input.begin !== "function"
+  ) return PRESENTATION_REJECTED;
+  const hostname = trustedHostname(dependencies, input.headers);
+  const now = selectedNow(dependencies);
+  if (hostname === null || now === null) return PRESENTATION_REJECTED;
+  const cartCredential = readCartCredential(input.headers.get("cookie"));
+  if (cartCredential.kind !== "present") return PRESENTATION_REJECTED;
+  let cartKeyBytes: Buffer | undefined;
+  let bindingBytes: Buffer | undefined;
+  try {
+    cartKeyBytes = Buffer.from(cartCredential.credential, "base64url");
+    if (
+      cartKeyBytes.byteLength !== CALLBACK_BINDING_BYTES
+      || cartKeyBytes.toString("base64url") !== cartCredential.credential
+    ) {
+      return PRESENTATION_REJECTED;
+    }
+    bindingBytes = createHmac("sha256", cartKeyBytes)
+      .update(JSON.stringify([
+        "celebix-hosted-payment",
+        1,
+        "committed-callback-binding",
+        hostname,
+        input.attemptId,
+      ]), "utf8")
+      .digest();
+    const binding = bindingBytes.toString("base64url");
+    if (binding.length !== 43 || Buffer.from(binding, "base64url").toString("base64url") !== binding) {
+      return PRESENTATION_REJECTED;
+    }
+    const callbackBindingDigest = createHash("sha256").update(bindingBytes).digest("hex");
+    const selected = await input.begin(Object.freeze({
+      attemptId: input.attemptId,
+      callbackBindingDigest,
+    }));
+    let persisted: PaymentAttemptAuthority;
+    try {
+      persisted = await dependencies.attempts.getReconciliationAuthority({
+        attemptId: input.attemptId,
+        now: new Date(now),
+      });
+    } catch {
+      return PRESENTATION_REJECTED;
+    }
+    if (!exactCommittedAuthority(selected, persisted, input.attemptId)) {
+      return PRESENTATION_REJECTED;
+    }
+    if (persisted.status !== "created" || persisted.version !== 1 || persisted.providerReference !== null) {
+      return ["failed", "cancelled", "expired", "refunded"].includes(persisted.status)
+        ? PRESENTATION_REJECTED
+        : PRESENTATION_PROCESSING;
+    }
+    const payment = committedPaymentInput(
+      input.headers,
+      input.attemptId,
+      input.trustedClientIp,
+      selected,
+    );
+    if (payment === null) return PRESENTATION_REJECTED;
+    const begun: BeginPaymentAttemptResult = Object.freeze({
+      outcome: "created",
+      attemptId: persisted.attemptId,
+      storeId: persisted.storeId,
+      paymentMethodId: persisted.paymentMethodId,
+      profileId: persisted.profileId,
+      providerCode: persisted.providerCode,
+      environment: persisted.environment,
+      executionAdapterVersion: persisted.executionAdapterVersion,
+      executionEvidenceDigest: persisted.executionEvidenceDigest,
+      credentialVersion: persisted.credentialVersion,
+      amountMinor: persisted.amountMinor,
+      currency: persisted.currency,
+      publicConfig: persisted.publicConfig,
+      sealedCredentials: persisted.sealedCredentials,
+    });
+    return await initializeCreatedAttempt({
+      dependencies,
+      begun,
+      payment,
+      hostname,
+      binding,
+      now,
+      providerTimeoutMs,
+      successPath: STOREFRONT_CHECKOUT_RESULT_PATH,
+      failurePath: STOREFRONT_CHECKOUT_RESULT_PATH,
+    });
+  } finally {
+    cartKeyBytes?.fill(0);
     bindingBytes?.fill(0);
   }
 }
@@ -1644,6 +1999,7 @@ export function createHostedPaymentRuntime(
   if (providerTimeoutMs === null) {
     return Object.freeze({
       initialize: async () => PRESENTATION_REJECTED,
+      initializeCommitted: async () => PRESENTATION_REJECTED,
       callback: async () => CALLBACK_REJECTED,
       callbackByDigest: async () => CALLBACK_REJECTED,
       reconcile: async () => RECONCILIATION_REJECTED,
@@ -1651,6 +2007,7 @@ export function createHostedPaymentRuntime(
   }
   return Object.freeze({
     initialize: (input) => initialize(dependencies, input, providerTimeoutMs),
+    initializeCommitted: (input) => initializeCommitted(dependencies, input, providerTimeoutMs),
     callback: (input) => callback(dependencies, input, providerTimeoutMs),
     callbackByDigest: (input) => callbackByDigest(dependencies, input, providerTimeoutMs),
     reconcile: (input) => reconcile(dependencies, input, providerTimeoutMs),

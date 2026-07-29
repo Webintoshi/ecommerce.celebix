@@ -80,6 +80,7 @@ function runtimeWithInitialize(
 ): HostedPaymentRuntime {
   return Object.freeze({
     initialize,
+    async initializeCommitted() { throw new Error("unused committed initialization"); },
     async callback() { throw new Error("unused callback"); },
     async callbackByDigest() { throw new Error("unused callback"); },
     async reconcile() { throw new Error("unused reconciliation"); },

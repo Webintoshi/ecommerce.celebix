@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
 import type {
@@ -12,6 +12,7 @@ import type {
 import type {
   ApplyHostedPaymentCallbackResult,
   BeginPaymentAttemptResult,
+  HostedCheckoutAuthority,
   MerchantProviderCredentialKeyring,
   PaymentAttemptAuthority,
   PaymentAttemptMutationResult,
@@ -37,6 +38,7 @@ const DIGEST = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0
 const PROVIDER = "fixture_provider";
 const ENDPOINT = "https://payments.example.test/hosted";
 const NOW = new Date("2026-07-27T12:00:00.000Z");
+const CART_CREDENTIAL = Buffer.alloc(32, 0x22).toString("base64url");
 const COMPILED_AUTHORITY = Object.freeze({
   providerCode: PROVIDER,
   environment: "test" as const,
@@ -236,6 +238,8 @@ function fixture(options: Readonly<{
     evidenceDigest: string;
   }> | null;
   authorityMatches?: boolean | Error;
+  hostname?: string;
+  randomBytes?: (size: number) => Uint8Array;
 }> = {}) {
   const calls: Calls = {
     begin: [], initialized: [], unknown: [], callbackAuthority: [], reconciliationAuthority: [], settled: [],
@@ -391,9 +395,9 @@ function fixture(options: Readonly<{
     },
     selectAuthority: () => options.trusted === false
       ? Object.freeze({ kind: "invalid_proxy_authority" })
-      : Object.freeze({ kind: "trusted", hostname: HOSTNAME }),
+      : Object.freeze({ kind: "trusted", hostname: options.hostname ?? HOSTNAME }),
     now: options.now ?? (() => new Date(NOW)),
-    randomBytes: (size) => new Uint8Array(size).fill(7),
+    randomBytes: options.randomBytes ?? ((size) => new Uint8Array(size).fill(7)),
     selectCompiledAuthority: (providerCode) => providerCode === PROVIDER
       ? options.compiledAuthority === undefined
         ? COMPILED_AUTHORITY
@@ -434,6 +438,49 @@ function initializeInput() {
       }),
     ]),
   };
+}
+
+function committedHeaders(credential = CART_CREDENTIAL): Headers {
+  return new Headers({ cookie: `__Host-celebix_cart=${credential}` });
+}
+
+function committedAuthority(attemptId = ATTEMPT_ID): HostedCheckoutAuthority {
+  return Object.freeze({
+    storeId: STORE_ID,
+    paymentMethodId: METHOD_ID,
+    profileId: PROFILE_ID,
+    providerCode: PROVIDER,
+    orderReference: "ORDER-100",
+    amountMinor: 12_345,
+    currency: "TRY",
+    customer: Object.freeze({
+      name: "Fixture Customer",
+      email: "fixture@example.test",
+      phone: "+905551112233",
+      identityNumber: null,
+      shippingAddress: Object.freeze({
+        firstName: "Fixture",
+        lastName: "Customer",
+        line1: "Fixture address",
+        district: "Kadıköy",
+        city: "İstanbul",
+        countryCode: "TR",
+        phone: "+905551112233",
+      }),
+      billingAddress: null,
+    }),
+    basket: Object.freeze([Object.freeze({
+      reference: "SKU-1",
+      name: "Fixture item",
+      quantity: 1,
+      unitAmountMinor: 12_345,
+      itemType: "PHYSICAL",
+    })]),
+    attemptId,
+    bridgeId: attemptId,
+    environment: "test",
+    reservationStatus: "held",
+  }) as unknown as HostedCheckoutAuthority;
 }
 
 function providerProjectionFixture(providerCode: "paytr_iframe" | "iyzico_iframe") {
@@ -655,6 +702,142 @@ test("initializes through durable method/profile authority and projects only ifr
     credentialVersion: 3,
     keyring: KEYRING,
   });
+});
+
+test("committed initialization begins once then opens only the persisted attempt authority", async () => {
+  const persisted = authority({ status: "created", version: 1, providerReference: null });
+  const selected = fixture({ reconciliationAuthority: persisted });
+  const beginCalls: Readonly<{ attemptId: string; callbackBindingDigest: string }>[] = [];
+
+  const presentation = await selected.runtime.initializeCommitted({
+    headers: committedHeaders(),
+    attemptId: ATTEMPT_ID,
+    trustedClientIp: "8.8.8.8",
+    begin: async (input) => {
+      beginCalls.push(input);
+      return committedAuthority();
+    },
+  });
+
+  assert.deepEqual(presentation, {
+    kind: "iframe",
+    url: ENDPOINT,
+    token: "browser_token_fixture",
+  });
+  assert.equal(beginCalls.length, 1);
+  assert.equal(beginCalls[0]?.attemptId, ATTEMPT_ID);
+  assert.match(beginCalls[0]?.callbackBindingDigest ?? "", /^[a-f0-9]{64}$/);
+  assert.equal(selected.calls.begin.length, 0);
+  assert.deepEqual(selected.calls.reconciliationAuthority, [{
+    attemptId: ATTEMPT_ID,
+    now: NOW,
+  }]);
+  assert.equal(selected.calls.opens.length, 1);
+  assert.equal(selected.calls.initializedAdapter.length, 1);
+  const callbackUrl = new URL(selected.calls.initializedAdapter[0]!.callbackUrl);
+  const binding = callbackUrl.pathname.split("/").at(-1)!;
+  const expectedBinding = createHmac("sha256", Buffer.from(CART_CREDENTIAL, "base64url"))
+    .update(JSON.stringify([
+      "celebix-hosted-payment",
+      1,
+      "committed-callback-binding",
+      HOSTNAME,
+      ATTEMPT_ID,
+    ]), "utf8")
+    .digest();
+  assert.equal(binding, expectedBinding.toString("base64url"));
+  assert.equal(
+    createHash("sha256").update(Buffer.from(binding, "base64url")).digest("hex"),
+    beginCalls[0]?.callbackBindingDigest,
+  );
+  expectedBinding.fill(0);
+  assert.equal(JSON.stringify(presentation).includes(CART_CREDENTIAL), false);
+  assert.equal(JSON.stringify(presentation).includes(binding), false);
+});
+
+test("committed retry reproduces callback authority across runtime instances without random bytes", async () => {
+  const first = fixture({
+    reconciliationAuthority: new Error("after_begin"),
+    randomBytes: () => { throw new Error("committed_random_forbidden"); },
+  });
+  const second = fixture({
+    reconciliationAuthority: authority({ status: "created", version: 1, providerReference: null }),
+    randomBytes: () => { throw new Error("committed_random_forbidden"); },
+  });
+  const digests: string[] = [];
+  const committedInput = () => ({
+    headers: committedHeaders(),
+    attemptId: ATTEMPT_ID,
+    trustedClientIp: "8.8.8.8",
+    begin: async (input: Readonly<{ attemptId: string; callbackBindingDigest: string }>) => {
+      digests.push(input.callbackBindingDigest);
+      return committedAuthority(input.attemptId);
+    },
+  });
+
+  assert.deepEqual(await first.runtime.initializeCommitted(committedInput()), { kind: "rejected" });
+  assert.deepEqual(await second.runtime.initializeCommitted(committedInput()), {
+    kind: "iframe",
+    url: ENDPOINT,
+    token: "browser_token_fixture",
+  });
+  assert.equal(digests.length, 2);
+  assert.equal(digests[0], digests[1]);
+  assert.equal(second.calls.initializedAdapter.length, 1);
+});
+
+test("committed callback authority binds cart credential host and attempt", async () => {
+  const cases = [
+    { credential: CART_CREDENTIAL, hostname: HOSTNAME, attemptId: ATTEMPT_ID },
+    { credential: Buffer.alloc(32, 0x23).toString("base64url"), hostname: HOSTNAME, attemptId: ATTEMPT_ID },
+    { credential: CART_CREDENTIAL, hostname: "other.saas-staging.celebix.site", attemptId: ATTEMPT_ID },
+    { credential: CART_CREDENTIAL, hostname: HOSTNAME, attemptId: "44444444-4444-4444-8444-444444444445" },
+  ] as const;
+  const digests: string[] = [];
+  for (const selectedCase of cases) {
+    const selected = fixture({
+      hostname: selectedCase.hostname,
+      reconciliationAuthority: new Error("after_begin"),
+      randomBytes: () => new Uint8Array(32).fill(7),
+    });
+    await selected.runtime.initializeCommitted({
+      headers: committedHeaders(selectedCase.credential),
+      attemptId: selectedCase.attemptId,
+      trustedClientIp: "8.8.8.8",
+      begin: async (input) => {
+        digests.push(input.callbackBindingDigest);
+        return committedAuthority(input.attemptId);
+      },
+    });
+  }
+  assert.equal(new Set(digests).size, cases.length);
+});
+
+test("committed initialization rejects missing malformed and duplicate cart cookies before begin", async () => {
+  const headers = [
+    new Headers(),
+    committedHeaders("malformed"),
+    new Headers({
+      cookie: `__Host-celebix_cart=${CART_CREDENTIAL}; __Host-celebix_cart=${CART_CREDENTIAL}`,
+    }),
+  ];
+  for (const selectedHeaders of headers) {
+    const selected = fixture();
+    let beginCalls = 0;
+    const presentation = await selected.runtime.initializeCommitted({
+      headers: selectedHeaders,
+      attemptId: ATTEMPT_ID,
+      trustedClientIp: "8.8.8.8",
+      begin: async () => {
+        beginCalls += 1;
+        return committedAuthority();
+      },
+    });
+    assert.deepEqual(presentation, { kind: "rejected" });
+    assert.equal(beginCalls, 0);
+    assert.equal(selected.calls.reconciliationAuthority.length, 0);
+    assert.equal(JSON.stringify(presentation).includes(CART_CREDENTIAL), false);
+  }
 });
 
 test("initialize rejects null malformed superseded and mismatched compiled provider authority before credential open", async () => {
@@ -1646,6 +1829,7 @@ test("callback route maps only stable acknowledgements and fails closed without 
   const callbackInputs: unknown[] = [];
   const runtime: HostedPaymentRuntime = Object.freeze({
     initialize: async () => Object.freeze({ kind: "rejected" }),
+    initializeCommitted: async () => Object.freeze({ kind: "rejected" }),
     reconcile: async () => Object.freeze({ kind: "rejected" }),
     callbackByDigest: async () => Object.freeze({ kind: "rejected" }),
     callback: async (input) => {
@@ -1703,6 +1887,7 @@ test("customer callback route redirects only to fixed same-origin relative resul
   ] as const) {
     const runtime: HostedPaymentRuntime = Object.freeze({
       initialize: async () => Object.freeze({ kind: "rejected" }),
+      initializeCommitted: async () => Object.freeze({ kind: "rejected" }),
       reconcile: async () => Object.freeze({ kind: "rejected" }),
       callbackByDigest: async () => Object.freeze({ kind: "rejected" }),
       callback: async () => Object.freeze({ kind: "customer_return", outcome }),
