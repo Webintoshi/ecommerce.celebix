@@ -50,6 +50,8 @@ const HOSTED_RETRY_DB = "storefront_one_page_checkout_hosted_retry";
 const HOSTED_IDENTITY_DB = "storefront_one_page_checkout_hosted_identity";
 const HOSTED_PRECOLLISION_DB = "storefront_one_page_checkout_hosted_precollision";
 const HOSTED_AUTHORITY_RACE_DB = "storefront_one_page_checkout_hosted_authority_race";
+const HOSTED_PRICE_RACE_DB = "storefront_one_page_checkout_hosted_price_race";
+const HOSTED_SNAPSHOT_TAMPER_DB = "storefront_one_page_checkout_hosted_snapshot_tamper";
 const DOWN_CALLBACK_RACE_DB = "storefront_one_page_checkout_down_callback_race";
 const QUICK_CHECKOUT_DOWN_RACE_DB = "storefront_one_page_checkout_quick_checkout_down_race";
 const prior = JSON.parse(readFileSync(path.join(
@@ -353,6 +355,71 @@ async function exerciseHostedAuthorityRace(box, database, expectedVersion) {
     await blocker.query("ROLLBACK").catch(() => undefined);
     await checkout.query("ROLLBACK").catch(() => undefined);
     await Promise.all([blocker.end(), checkout.end(), monitor.end()]);
+  }
+}
+
+function activePriceListFixture(box, database) {
+  sql(box, `SET ROLE celebix_saas_owner;
+    INSERT INTO saas.price_lists(
+      id,store_id,name,status,version,activated_at,archived_at,created_at,updated_at
+    ) VALUES(
+      '98000000-0000-4000-8000-000000000064','${STORE_A}','Hosted race price',
+      'active',1,'2026-07-28T14:00:00.000Z',NULL,
+      '2026-07-28T13:00:00.000Z','2026-07-28T14:00:00.000Z'
+    );
+    INSERT INTO saas.price_list_items(
+      store_id,price_list_id,variant_id,price_cents,created_at
+    ) VALUES(
+      '${STORE_A}','98000000-0000-4000-8000-000000000064','${VARIANT}',8000,
+      '2026-07-28T14:00:00.000Z'
+    );
+    INSERT INTO saas.price_list_rules(
+      id,store_id,price_list_id,channel,customer_tag_id,starts_at,ends_at,priority,created_at
+    ) VALUES(
+      '99000000-0000-4000-8000-000000000064','${STORE_A}',
+      '98000000-0000-4000-8000-000000000064','storefront',NULL,
+      '2026-07-28T14:00:00.000Z',NULL,100,'2026-07-28T14:00:00.000Z'
+    );`, database);
+}
+
+async function exerciseHostedPriceSnapshotRace(box, database, expectedVersion) {
+  const connection = (applicationName) => new Client({
+    host: box.socket,
+    port: box.port,
+    user: "postgres",
+    database,
+    application_name: applicationName,
+  });
+  const blocker = connection("hosted-price-race-blocker");
+  const checkout = connection("hosted-price-race-checkout");
+  const admin = connection("hosted-price-race-admin");
+  const monitor = connection("hosted-price-race-monitor");
+  await Promise.all([blocker.connect(), checkout.connect(), admin.connect(), monitor.connect()]);
+  try {
+    await blocker.query("BEGIN");
+    await blocker.query(`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+      'saas.payment.attempt.operation:${HOSTED_ATTEMPT}',0
+    ))`);
+    await checkout.query("BEGIN");
+    await checkout.query("SET LOCAL ROLE celebix_saas_workflow");
+    const beginPromise = checkout.query(beginHostedCall({ expectedVersion }));
+    const blocked = await waitForDatabaseCondition(monitor, {
+      text: `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity
+        WHERE application_name='hosted-price-race-checkout'
+          AND wait_event_type='Lock') AS matched`,
+    });
+    await admin.query(`SET ROLE celebix_saas_owner;
+      UPDATE saas.price_lists SET status='archived',version=version+1,
+        archived_at='2026-07-28T15:01:00.000Z',updated_at='2026-07-28T15:01:00.000Z'
+      WHERE id='98000000-0000-4000-8000-000000000064'`);
+    await blocker.query("COMMIT");
+    const result = await beginPromise;
+    await checkout.query("COMMIT");
+    return { blocked, row: result.rows[0] };
+  } finally {
+    await blocker.query("ROLLBACK").catch(() => undefined);
+    await checkout.query("ROLLBACK").catch(() => undefined);
+    await Promise.all([blocker.end(), checkout.end(), admin.end(), monitor.end()]);
   }
 }
 
@@ -1019,6 +1086,8 @@ async function main() {
       HOSTED_IDENTITY_DB,
       HOSTED_PRECOLLISION_DB,
       HOSTED_AUTHORITY_RACE_DB,
+      HOSTED_PRICE_RACE_DB,
+      HOSTED_SNAPSHOT_TAMPER_DB,
       DOWN_CALLBACK_RACE_DB,
       QUICK_CHECKOUT_DOWN_RACE_DB,
     ]) {
@@ -1281,6 +1350,78 @@ async function main() {
         WHERE id='${HOSTED_ATTEMPT}';`, HOSTED_AUTHORITY_RACE_DB).stdout.trim();
       assert.equal(authorityRace.row?.result_payload?.environment, attemptEnvironment,
         "returned hosted authority must be projected from the committed attempt row");
+
+        activePriceListFixture(box, HOSTED_PRICE_RACE_DB);
+        const priceRaceVersion = prepareSubmittedCart(box, HOSTED_PRICE_RACE_DB);
+        const priceRace = await exerciseHostedPriceSnapshotRace(
+          box, HOSTED_PRICE_RACE_DB, priceRaceVersion,
+        );
+        assert.equal(priceRace.blocked, true,
+          "test must archive the price list after canonical quote resolution");
+        assert.equal(priceRace.row?.outcome, "created");
+        assert.equal(priceRace.row?.result_payload?.amountMinor, 9500);
+        assert.equal(priceRace.row?.result_payload?.basket?.[0]?.unitAmountMinor, 8000,
+          "hosted basket must retain the one canonical pre-archive quote price");
+        assert.equal(sql(box, `SELECT
+            (settlement_snapshot#>>'{money,subtotalCents}')||'|'||
+            (settlement_snapshot#>>'{money,totalCents}')||'|'||
+            (settlement_snapshot#>>'{items,0,unitPriceCents}')||'|'||
+            (settlement_snapshot#>>'{items,0,lineTotalCents}')
+          FROM saas.storefront_checkout_payment_bridges
+          WHERE attempt_id='${HOSTED_ATTEMPT}';`, HOSTED_PRICE_RACE_DB).stdout.trim(),
+        "8000|9500|8000|8000",
+        "attempt, basket, and immutable settlement snapshot must use one price version");
+        assert.equal(initializeHosted(box, HOSTED_PRICE_RACE_DB).outcome, "awaiting_customer");
+        assert.equal(settleHosted(
+          box, HOSTED_PRICE_RACE_DB, "captured", HOSTED_ATTEMPT, "64", "8".repeat(64), 9500,
+        ).outcome, "captured");
+        assert.equal(sql(box, `SELECT order_row.subtotal_cents||'|'||order_row.total_cents||'|'||
+            item.unit_price_cents||'|'||item.line_total_cents||'|'||variant.stock_quantity
+          FROM saas.orders order_row
+          JOIN saas.order_items item ON item.order_id=order_row.id
+          JOIN saas.product_variants variant ON variant.id=item.variant_id
+          WHERE order_row.storefront_cart_id='${CART_A}';`, HOSTED_PRICE_RACE_DB).stdout.trim(),
+        "8000|9500|8000|8000|4",
+        "captured order rows must equal the provider-captured canonical quote amount");
+
+        const tamperVersion = prepareSubmittedCart(box, HOSTED_SNAPSHOT_TAMPER_DB);
+        assert.equal(call(box, beginHostedCall({ expectedVersion: tamperVersion }),
+          HOSTED_SNAPSHOT_TAMPER_DB).outcome, "created");
+        assert.equal(initializeHosted(box, HOSTED_SNAPSHOT_TAMPER_DB).outcome, "awaiting_customer");
+        sql(box, `SET ROLE celebix_saas_owner;
+          ALTER TABLE saas.storefront_checkout_payment_bridges
+            DISABLE TRIGGER storefront_checkout_payment_bridges_immutable;
+          UPDATE saas.storefront_checkout_payment_bridges SET settlement_snapshot=
+            pg_catalog.jsonb_set(
+              pg_catalog.jsonb_set(
+                settlement_snapshot,'{items,0,lineTotalCents}','9999'::jsonb,false
+              ),'{money,subtotalCents}','9999'::jsonb,false
+            )
+          WHERE attempt_id='${HOSTED_ATTEMPT}';
+          ALTER TABLE saas.storefront_checkout_payment_bridges
+            ENABLE TRIGGER storefront_checkout_payment_bridges_immutable;`,
+        HOSTED_SNAPSHOT_TAMPER_DB);
+        const corruptCapture = sql(box, `SET ROLE celebix_saas_workflow;
+          SELECT outcome,result_payload FROM saas.payment_attempt_apply_hosted_callback(
+            'paytr_iframe',repeat('8',64),'88000000-0000-4000-8000-000000000064'::uuid,
+            repeat('a',64),repeat('b',64),2,1,'captured','provider-64',
+            'payment_captured',11500,'TRY','2026-07-28T15:02:00.000Z'::timestamptz
+          );`, HOSTED_SNAPSHOT_TAMPER_DB, true);
+        assert.notEqual(corruptCapture.status, 0,
+          "capture must reject item and top-level snapshot arithmetic corruption");
+        assert.match(corruptCapture.stderr, /STOREFRONT_CHECKOUT_HOSTED_SETTLEMENT_CONFLICT/);
+        assert.equal(sql(box, `SELECT attempt.status||'|'||bridge.status||'|'||
+            reservation.status||'|'||variant.stock_quantity||'|'||
+            (SELECT count(*) FROM saas.orders WHERE storefront_cart_id='${CART_A}')||'|'||
+            (SELECT count(*) FROM saas.storefront_checkout_discount_redemptions)
+          FROM saas.payment_attempts attempt
+          JOIN saas.storefront_checkout_payment_bridges bridge ON bridge.attempt_id=attempt.id
+          JOIN saas.checkout_inventory_reservations reservation
+            ON reservation.payment_attempt_id=attempt.id
+          JOIN saas.product_variants variant ON variant.id=reservation.variant_id
+          WHERE attempt.id='${HOSTED_ATTEMPT}';`, HOSTED_SNAPSHOT_TAMPER_DB).stdout.trim(),
+        "awaiting_customer|active|held|5|0|0",
+        "corrupt capture must roll back before order, stock, reservation, or redemption effects");
 
       const downRaceVersion = prepareSubmittedCart(box, DOWN_CALLBACK_RACE_DB);
       assert.equal(call(box, beginHostedCall({ expectedVersion: downRaceVersion }),

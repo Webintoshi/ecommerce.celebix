@@ -1718,6 +1718,10 @@ DECLARE
   item_record record;
   held_quantity numeric;
   item_count bigint;
+  matched_item_count bigint;
+  unique_item_count bigint;
+  quoted_line_sum numeric;
+  quote_items_valid boolean;
   basket jsonb;
   settlement_items jsonb;
   settlement_snapshot jsonb;
@@ -1835,6 +1839,9 @@ BEGIN
     END IF;
   END IF;
 
+  PERFORM item.id FROM saas.abandoned_cart_items item
+  WHERE item.store_id=selected_cart.store_id AND item.cart_id=selected_cart.id
+  ORDER BY item.position,item.id FOR UPDATE OF item;
   PERFORM product.id FROM saas.products product
   WHERE product.store_id=selected_cart.store_id AND EXISTS(
     SELECT 1 FROM saas.abandoned_cart_items item
@@ -1872,9 +1879,72 @@ BEGIN
   END IF;
   SELECT pg_catalog.count(*) INTO item_count FROM saas.abandoned_cart_items item
   WHERE item.store_id=selected_cart.store_id AND item.cart_id=selected_cart.id;
-  IF item_count<>pg_catalog.cardinality(p_order_item_ids)
+  IF pg_catalog.jsonb_typeof(quote_payload->'items')<>'array'
+    OR item_count<>pg_catalog.cardinality(p_order_item_ids)
+    OR pg_catalog.jsonb_array_length(quote_payload->'items')<>item_count
+    OR quote_payload->>'currency'<>selected_cart.currency
     OR (quote_payload->>'totalCents')::bigint<1
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
+  WITH quoted AS (
+    SELECT entry.value AS quoted_item,entry.ordinality
+    FROM pg_catalog.jsonb_array_elements(quote_payload->'items')
+      WITH ORDINALITY entry(value,ordinality)
+  ),matched AS (
+    SELECT quoted.quoted_item,quoted.ordinality,item.*
+    FROM quoted
+    LEFT JOIN saas.abandoned_cart_items item
+      ON item.store_id=selected_cart.store_id AND item.cart_id=selected_cart.id
+        AND item.id=(quoted.quoted_item->>'id')::uuid
+  )
+  SELECT
+    pg_catalog.count(matched.id),
+    pg_catalog.count(DISTINCT matched.id),
+    COALESCE(pg_catalog.bool_and(
+      matched.id IS NOT NULL
+      AND pg_catalog.jsonb_typeof(matched.quoted_item)='object'
+      AND matched.quoted_item?&ARRAY[
+        'id','title','variantLabel','quantity','unitPriceCents','lineTotalCents','imagePath'
+      ]
+      AND pg_catalog.jsonb_typeof(matched.quoted_item->'id')='string'
+      AND pg_catalog.jsonb_typeof(matched.quoted_item->'title')='string'
+      AND pg_catalog.jsonb_typeof(matched.quoted_item->'quantity')='number'
+      AND pg_catalog.jsonb_typeof(matched.quoted_item->'unitPriceCents')='number'
+      AND pg_catalog.jsonb_typeof(matched.quoted_item->'lineTotalCents')='number'
+      AND (matched.quoted_item->>'quantity')::bigint=matched.quantity
+      AND (matched.quoted_item->>'unitPriceCents')::numeric>=0
+      AND (matched.quoted_item->>'lineTotalCents')::numeric=
+        (matched.quoted_item->>'unitPriceCents')::numeric*matched.quantity::numeric
+    ),false),
+    COALESCE(pg_catalog.sum((matched.quoted_item->>'lineTotalCents')::numeric),0),
+    pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      'reference',matched.quoted_item->>'id','name',matched.quoted_item->>'title',
+      'quantity',(matched.quoted_item->>'quantity')::bigint,
+      'unitAmountMinor',(matched.quoted_item->>'unitPriceCents')::bigint,
+      'itemType','PHYSICAL'
+    ) ORDER BY matched.ordinality),
+    pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      'reference',matched.quoted_item->>'id','productId',matched.product_id,
+      'variantId',matched.variant_id,'position',matched.position,
+      'productName',matched.quoted_item->>'title',
+      'variantName',matched.quoted_item->>'variantLabel','sku',matched.sku,
+      'unitPriceCents',(matched.quoted_item->>'unitPriceCents')::bigint,
+      'quantity',(matched.quoted_item->>'quantity')::bigint,'discountCents',0,
+      'lineTotalCents',(matched.quoted_item->>'lineTotalCents')::bigint
+    ) ORDER BY matched.ordinality)
+  INTO matched_item_count,unique_item_count,quote_items_valid,quoted_line_sum,
+    basket,settlement_items
+  FROM matched;
+  IF matched_item_count<>item_count OR unique_item_count<>item_count
+    OR quote_items_valid IS DISTINCT FROM true
+    OR quoted_line_sum<>(quote_payload->>'subtotalCents')::numeric
+    OR (quote_payload->>'subtotalCents')::numeric
+      +(quote_payload->>'shippingCents')::numeric
+      -(quote_payload->>'discountCents')::numeric
+      <>(quote_payload->>'totalCents')::numeric
+    OR pg_catalog.jsonb_array_length(basket)<>item_count
+    OR pg_catalog.jsonb_array_length(settlement_items)<>item_count
+  THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SNAPSHOT_INVALID'; END IF;
 
   derived_order_id:=saas.storefront_checkout_uuid('hosted-order',p_attempt_id);
   SELECT pg_catalog.array_agg(
@@ -1979,29 +2049,6 @@ BEGIN
     );
   END LOOP;
 
-  SELECT
-    pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-      'reference',item.id,'name',product.title,'quantity',item.quantity,
-      'unitAmountMinor',effective.price_cents,'itemType','PHYSICAL'
-    ) ORDER BY item.position,item.id),
-    pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-      'reference',item.id,'productId',item.product_id,'variantId',item.variant_id,
-      'position',item.position,'productName',product.title,
-      'variantName',item.variant_name,'sku',item.sku,
-      'unitPriceCents',effective.price_cents,'quantity',item.quantity,
-      'discountCents',0,'lineTotalCents',effective.price_cents*item.quantity
-    ) ORDER BY item.position,item.id)
-  INTO basket,settlement_items
-  FROM saas.abandoned_cart_items item
-  JOIN saas.products product
-    ON product.store_id=item.store_id AND product.id=item.product_id
-  JOIN LATERAL saas.resolve_effective_variant_price(
-    item.store_id,item.variant_id,'storefront',p_now,NULL
-  ) effective ON effective.outcome='found'
-  WHERE item.store_id=selected_cart.store_id AND item.cart_id=selected_cart.id;
-  IF pg_catalog.jsonb_array_length(settlement_items)<>item_count THEN
-    RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SNAPSHOT_INVALID';
-  END IF;
   settlement_snapshot:=pg_catalog.jsonb_build_object(
     'customer',pg_catalog.jsonb_build_object(
       'name',selected_cart.customer_name,'email',selected_cart.customer_email,
@@ -2074,6 +2121,18 @@ DECLARE
   item_record record;
   tracked_count bigint;
   updated_count bigint;
+  snapshot_money jsonb;
+  snapshot_items jsonb;
+  snapshot_item_count integer:=0;
+  snapshot_subtotal numeric;
+  snapshot_shipping numeric;
+  snapshot_discount numeric;
+  snapshot_total numeric;
+  snapshot_line_sum numeric:=0;
+  snapshot_unit numeric;
+  snapshot_quantity numeric;
+  snapshot_line numeric;
+  snapshot_item_discount numeric;
 BEGIN
   IF NEW.status IS NOT DISTINCT FROM OLD.status THEN RETURN NEW; END IF;
   IF NEW.order_reference!~
@@ -2102,6 +2161,113 @@ BEGIN
   IF selected_bridge.status<>'active' THEN RETURN NEW; END IF;
 
   IF NEW.status='captured' THEN
+    IF NEW.id<>selected_bridge.attempt_id OR NEW.store_id<>selected_bridge.store_id
+      OR selected_bridge.settlement_snapshot IS NULL
+      OR pg_catalog.jsonb_typeof(selected_bridge.settlement_snapshot)<>'object'
+      OR NOT selected_bridge.settlement_snapshot?&ARRAY['customer','money','items']
+      OR pg_catalog.jsonb_typeof(selected_bridge.settlement_snapshot->'customer')<>'object'
+      OR pg_catalog.jsonb_typeof(selected_bridge.settlement_snapshot->'money')<>'object'
+      OR pg_catalog.jsonb_typeof(selected_bridge.settlement_snapshot->'items')<>'array'
+    THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SETTLEMENT_CONFLICT'; END IF;
+
+    snapshot_money:=selected_bridge.settlement_snapshot->'money';
+    snapshot_items:=selected_bridge.settlement_snapshot->'items';
+    IF NOT snapshot_money?&ARRAY[
+        'currency','subtotalCents','shippingCents','discountCents','totalCents','discountCode'
+      ]
+      OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(snapshot_money))<>6
+      OR pg_catalog.jsonb_typeof(snapshot_money->'currency')<>'string'
+      OR pg_catalog.jsonb_typeof(snapshot_money->'subtotalCents')<>'number'
+      OR pg_catalog.jsonb_typeof(snapshot_money->'shippingCents')<>'number'
+      OR pg_catalog.jsonb_typeof(snapshot_money->'discountCents')<>'number'
+      OR pg_catalog.jsonb_typeof(snapshot_money->'totalCents')<>'number'
+      OR ((snapshot_money->>'subtotalCents')~'^(0|[1-9][0-9]{0,15})$') IS DISTINCT FROM true
+      OR ((snapshot_money->>'shippingCents')~'^(0|[1-9][0-9]{0,15})$') IS DISTINCT FROM true
+      OR ((snapshot_money->>'discountCents')~'^(0|[1-9][0-9]{0,15})$') IS DISTINCT FROM true
+      OR ((snapshot_money->>'totalCents')~'^[1-9][0-9]{0,15}$') IS DISTINCT FROM true
+      OR pg_catalog.jsonb_array_length(snapshot_items)
+        <>pg_catalog.cardinality(selected_bridge.order_item_ids)
+    THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SETTLEMENT_CONFLICT'; END IF;
+
+    snapshot_subtotal:=(snapshot_money->>'subtotalCents')::numeric;
+    snapshot_shipping:=(snapshot_money->>'shippingCents')::numeric;
+    snapshot_discount:=(snapshot_money->>'discountCents')::numeric;
+    snapshot_total:=(snapshot_money->>'totalCents')::numeric;
+    IF snapshot_subtotal>500000000000000
+      OR snapshot_shipping>500000000000000
+      OR snapshot_discount>500000000000000
+      OR snapshot_total>9007199254740991
+      OR snapshot_subtotal+snapshot_shipping-snapshot_discount<>snapshot_total
+      OR snapshot_money->>'currency'<>NEW.currency
+      OR snapshot_total<>NEW.amount_minor::numeric
+    THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SETTLEMENT_CONFLICT'; END IF;
+
+    FOR item_record IN
+      SELECT entry.value AS snapshot_item,entry.ordinality::integer AS item_index
+      FROM pg_catalog.jsonb_array_elements(snapshot_items)
+        WITH ORDINALITY entry(value,ordinality)
+      ORDER BY entry.ordinality
+    LOOP
+      snapshot_item_count:=snapshot_item_count+1;
+      IF pg_catalog.jsonb_typeof(item_record.snapshot_item)<>'object'
+        OR NOT item_record.snapshot_item?&ARRAY[
+          'reference','productId','variantId','position','productName','variantName','sku',
+          'unitPriceCents','quantity','discountCents','lineTotalCents'
+        ]
+        OR (SELECT pg_catalog.count(*)
+          FROM pg_catalog.jsonb_object_keys(item_record.snapshot_item))<>11
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'reference')<>'string'
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'productId')<>'string'
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'variantId')<>'string'
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'position')<>'number'
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'productName')<>'string'
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'variantName') NOT IN('string','null')
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'sku') NOT IN('string','null')
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'unitPriceCents')<>'number'
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'quantity')<>'number'
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'discountCents')<>'number'
+        OR pg_catalog.jsonb_typeof(item_record.snapshot_item->'lineTotalCents')<>'number'
+        OR ((item_record.snapshot_item->>'reference')~
+          '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$')
+          IS DISTINCT FROM true
+        OR ((item_record.snapshot_item->>'productId')~
+          '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$')
+          IS DISTINCT FROM true
+        OR ((item_record.snapshot_item->>'variantId')~
+          '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$')
+          IS DISTINCT FROM true
+        OR ((item_record.snapshot_item->>'position')~'^(0|[1-9][0-9]?)$')
+          IS DISTINCT FROM true
+        OR ((item_record.snapshot_item->>'unitPriceCents')~'^(0|[1-9][0-9]{0,15})$')
+          IS DISTINCT FROM true
+        OR ((item_record.snapshot_item->>'quantity')~'^[1-9][0-9]{0,3}$')
+          IS DISTINCT FROM true
+        OR ((item_record.snapshot_item->>'discountCents')~'^(0|[1-9][0-9]{0,15})$')
+          IS DISTINCT FROM true
+        OR ((item_record.snapshot_item->>'lineTotalCents')~'^(0|[1-9][0-9]{0,15})$')
+          IS DISTINCT FROM true
+      THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SETTLEMENT_CONFLICT'; END IF;
+
+      snapshot_unit:=(item_record.snapshot_item->>'unitPriceCents')::numeric;
+      snapshot_quantity:=(item_record.snapshot_item->>'quantity')::numeric;
+      snapshot_item_discount:=(item_record.snapshot_item->>'discountCents')::numeric;
+      snapshot_line:=(item_record.snapshot_item->>'lineTotalCents')::numeric;
+      IF (item_record.snapshot_item->>'position')::numeric NOT BETWEEN 0 AND 99
+        OR snapshot_unit>500000000000000 OR snapshot_quantity NOT BETWEEN 1 AND 9999
+        OR snapshot_item_discount<>0
+        OR snapshot_line<>snapshot_unit*snapshot_quantity
+        OR snapshot_line>500000000000000
+      THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SETTLEMENT_CONFLICT'; END IF;
+      snapshot_line_sum:=snapshot_line_sum+snapshot_line;
+    END LOOP;
+    IF snapshot_item_count<>pg_catalog.cardinality(selected_bridge.order_item_ids)
+      OR snapshot_line_sum<>snapshot_subtotal
+      OR (SELECT pg_catalog.count(DISTINCT entry->>'reference')
+        FROM pg_catalog.jsonb_array_elements(snapshot_items) entry)<>snapshot_item_count
+      OR (SELECT pg_catalog.count(DISTINCT entry->>'position')
+        FROM pg_catalog.jsonb_array_elements(snapshot_items) entry)<>snapshot_item_count
+    THEN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_HOSTED_SETTLEMENT_CONFLICT'; END IF;
+
     PERFORM variant.id FROM saas.product_variants variant
     WHERE variant.store_id=selected_bridge.store_id AND EXISTS(
       SELECT 1 FROM saas.checkout_inventory_reservations reservation
@@ -2113,14 +2279,7 @@ BEGIN
       AND reservation.payment_attempt_id=NEW.id
     ORDER BY reservation.variant_id,reservation.id FOR UPDATE OF reservation;
 
-    IF NEW.store_id<>selected_bridge.store_id
-      OR selected_bridge.settlement_snapshot IS NULL
-      OR selected_bridge.settlement_snapshot#>>'{money,currency}'<>NEW.currency
-      OR (selected_bridge.settlement_snapshot#>>'{money,totalCents}')::bigint<>NEW.amount_minor
-      OR pg_catalog.jsonb_typeof(selected_bridge.settlement_snapshot->'items')<>'array'
-      OR pg_catalog.jsonb_array_length(selected_bridge.settlement_snapshot->'items')
-        <>pg_catalog.cardinality(selected_bridge.order_item_ids)
-      OR NOT EXISTS(
+    IF NOT EXISTS(
         SELECT 1 FROM saas.checkout_inventory_reservations reservation
         WHERE reservation.store_id=selected_bridge.store_id
           AND reservation.payment_attempt_id=NEW.id
@@ -2631,7 +2790,7 @@ BEGIN
     ('saas.guard_storefront_checkout_operation_mutation()','b82fe65c8b62c247ca772213f0a9ddf5','v'::"char",'plpgsql',false,false),
     ('saas.guard_storefront_checkout_payment_bridge_mutation()','393409bd2288bb92ed6fd2c0a1033565','v'::"char",'plpgsql',false,false),
     ('saas.guard_storefront_checkout_reserved_identity_insert()','e64434b18c6fdd81f1af8a3f35cf9a76','v'::"char",'plpgsql',true,false),
-    ('saas.storefront_checkout_payment_attempt_terminal()','95e015479ddba278c01060ebd38a90df','v'::"char",'plpgsql',true,false),
+    ('saas.storefront_checkout_payment_attempt_terminal()','dc688e7a5245a8ed28080ed727946dc0','v'::"char",'plpgsql',true,false),
     ('saas.merchant_admin_config_valid(text,jsonb)','92fac9712cf88f9da42f326579611763','i'::"char",'sql',false,true),
     ('saas.merchant_admin_config_valid_without_checkout_flat_rate(text,jsonb)','18ffaa56eab1e91c53531405780836c6','i'::"char",'sql',false,true),
     ('saas.abandoned_cart_capture_store(text,timestamp with time zone)','2885f205f0901b662efd76c11cd23dbd','s'::"char",'sql',true,false)
@@ -2670,7 +2829,7 @@ BEGIN
     ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1','v'::"char"),
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char"),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e','v'::"char"),
-    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)','0c27eb3c9493523d7353ff6f94fa0c51','v'::"char"),
+    ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)','a8cd11aa88208fa6db788b42f08db0fa','v'::"char"),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char"),
     ('saas.storefront_checkout_get_status(text,text,timestamp with time zone)','a094b754f97152d4a8177f0dd6d03bc0','s'::"char"),
     ('saas.storefront_checkout_get_policy(text,text,timestamp with time zone)','443b25ad8174205f9fbe4ed29030f2f1','s'::"char"),
