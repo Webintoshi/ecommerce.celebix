@@ -10,8 +10,13 @@ export type StorefrontDatabasePreflightClient = Readonly<{
 const PREFLIGHT_QUERY = `SELECT current_setting('server_version_num')::integer AS version_num,
   current_database() AS database_name,
   role.rolsuper AS is_superuser,
+  role.rolinherit AS role_inherits,
   pg_has_role(session_user,'celebix_saas_host_resolver','MEMBER') AS resolver_member,
   pg_has_role(session_user,'celebix_saas_workflow','MEMBER') AS workflow_member,
+  pg_has_role(session_user,'celebix_saas_host_resolver','SET') AS resolver_set,
+  pg_has_role(session_user,'celebix_saas_workflow','SET') AS workflow_set,
+  pg_has_role(session_user,'celebix_saas_host_resolver','USAGE') AS resolver_usage,
+  pg_has_role(session_user,'celebix_saas_workflow','USAGE') AS workflow_usage,
   to_regclass('saas.store_domains') IS NOT NULL
     AND to_regclass('saas.product_media') IS NOT NULL
     AND to_regprocedure('saas.resolve_public_storefront(text,timestamp with time zone)') IS NOT NULL
@@ -55,8 +60,13 @@ export async function runStorefrontDatabasePreflight(
       || Math.floor(Number(row.version_num) / 10_000) !== 16
       || row.database_name !== expectedDatabaseName
       || row.is_superuser !== false
+      || row.role_inherits !== false
       || row.resolver_member !== true
       || row.workflow_member !== true
+      || row.resolver_set !== true
+      || row.workflow_set !== true
+      || row.resolver_usage !== false
+      || row.workflow_usage !== false
       || row.migration_020 !== true
       || row.migration_027 !== true
       || row.migration_028 !== true
