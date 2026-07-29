@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const BASE = "959de29d2ceb7a4ec8296f3f0b967fadbb3d1d61";
-const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
+const NEXT_SECURITY_HEAD = "ce3a2e0a14d0ab15e10b98b33b4f5e7d0eeeb043";
 const ROOT = new URL("../../", import.meta.url);
 
 const routeDepthPages = Object.freeze([

@@ -6,7 +6,7 @@ import test from "node:test";
 
 const BASE = "86b3a4ad";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
-const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
+const NEXT_SECURITY_HEAD = "ce3a2e0a14d0ab15e10b98b33b4f5e7d0eeeb043";
 const HISTORICAL_A1_HEAD = "301637111de040fc3bbf3cfed718a2d772e42130";
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");

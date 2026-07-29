@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const INVENTORY_BASE = "6cbbe8859c9ae01374ccd1488e24733e2256552c";
 const CUMULATIVE_HEAD = "1bc7a31f146a457222603d1999a179d90c6f5ebd";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
-const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
+const NEXT_SECURITY_HEAD = "ce3a2e0a14d0ab15e10b98b33b4f5e7d0eeeb043";
 const ROOT = new URL("../../../", import.meta.url);
 const ROOT_PATH = fileURLToPath(ROOT);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");

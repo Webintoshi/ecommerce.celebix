@@ -6,7 +6,7 @@ import test from "node:test";
 const BASE = "d020e96c6a7e5336e64d586683985fd6bf4f354e";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const HISTORICAL_A1_HEAD = "dcb8ad4e57653a53098f082e57fc5b2a1c5ec113";
-const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
+const NEXT_SECURITY_HEAD = "ce3a2e0a14d0ab15e10b98b33b4f5e7d0eeeb043";
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
