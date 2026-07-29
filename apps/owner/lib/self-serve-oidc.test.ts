@@ -31,6 +31,7 @@ class FakeProvider implements OidcProviderPort {
     this.lastAuthorizationRequest = input;
     const url = new URL("https://identity.example.test/authorize");
     url.searchParams.set("response_type", "code");
+    url.searchParams.set("response_mode", "query");
     url.searchParams.set("state", input.state);
     url.searchParams.set("nonce", input.nonce);
     url.searchParams.set("code_challenge", input.codeChallenge);
@@ -112,6 +113,8 @@ test("creates opaque state, nonce and an S256 challenge without exposing the PKC
   const url = new URL(result.authorizationUrl);
 
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
+  assert.deepEqual(url.searchParams.getAll("response_type"), ["code"]);
+  assert.deepEqual(url.searchParams.getAll("response_mode"), ["query"]);
   assert.match(url.searchParams.get("state") ?? "", /^[A-Za-z0-9_-]{40,}$/);
   assert.match(url.searchParams.get("nonce") ?? "", /^[A-Za-z0-9_-]{40,}$/);
   assert.match(url.searchParams.get("code_challenge") ?? "", /^[A-Za-z0-9_-]{40,}$/);
@@ -320,7 +323,16 @@ for (const [name, mutate] of [
   ["wrong redirect URI", (url: URL) => { url.searchParams.set("redirect_uri", "https://attacker.example/callback"); return url; }],
   ["duplicate redirect URI", (url: URL) => { url.searchParams.append("redirect_uri", REDIRECT_URI); return url; }],
   ["response type without code", (url: URL) => { url.searchParams.set("response_type", "token"); return url; }],
+  ["hybrid code and id token response type", (url: URL) => { url.searchParams.set("response_type", "code id_token"); return url; }],
+  ["hybrid code and token response type", (url: URL) => { url.searchParams.set("response_type", "code token"); return url; }],
+  ["implicit id token response type", (url: URL) => { url.searchParams.set("response_type", "id_token"); return url; }],
+  ["empty response type", (url: URL) => { url.searchParams.set("response_type", ""); return url; }],
   ["duplicate response type", (url: URL) => { url.searchParams.append("response_type", "code"); return url; }],
+  ["missing response mode", (url: URL) => { url.searchParams.delete("response_mode"); return url; }],
+  ["duplicate response mode", (url: URL) => { url.searchParams.append("response_mode", "query"); return url; }],
+  ["fragment response mode", (url: URL) => { url.searchParams.set("response_mode", "fragment"); return url; }],
+  ["form_post response mode", (url: URL) => { url.searchParams.set("response_mode", "form_post"); return url; }],
+  ["other response mode", (url: URL) => { url.searchParams.set("response_mode", "other"); return url; }],
   ["PKCE verifier", (url: URL) => { url.searchParams.set("code_verifier", "private"); return url; }],
 ] as const) {
   test(`rejects provider authorization output with ${name}`, async () => {

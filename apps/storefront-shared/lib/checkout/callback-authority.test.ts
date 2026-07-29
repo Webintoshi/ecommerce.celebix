@@ -1,0 +1,81 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+type CallbackAuthorityModule = typeof import("./callback-authority.ts");
+const callbackAuthority = await import("./callback-authority.ts")
+  .catch(() => ({} as Partial<CallbackAuthorityModule>));
+
+const hostname = "pilot.saas-staging.celebix.site";
+const callbackUrl = `https://${hostname}/api/payments/paytr/callback`;
+const form = new URLSearchParams({
+  merchant_oid: "abcdef0123456789abcdef0123456789",
+  status: "success",
+  total_amount: "3600",
+  hash: "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+  payment_type: "card",
+  test_mode: "1",
+}).toString();
+
+function request(target = callbackUrl, overrides: Readonly<{
+  method?: string; body?: string; headers?: Record<string, string>;
+}> = {}): Request {
+  return new Request(target, {
+    method: overrides.method ?? "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      "x-celebix-storefront-proxy": `p1.${Buffer.alloc(32, 0x41).toString("base64url")}`,
+      "x-forwarded-host": hostname,
+      "x-forwarded-proto": "https",
+      ...overrides.headers,
+    },
+    ...((overrides.method ?? "POST") === "POST" ? { body: overrides.body ?? form } : {}),
+  });
+}
+
+test("callback authority accepts one exact signed-host request without browser Origin or session", async () => {
+  assert.equal(typeof callbackAuthority.readExactPaytrCallbackRequest, "function");
+  const result = await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(), trustedHostname: hostname, configuredCallbackUrl: callbackUrl,
+  });
+  assert.deepEqual(result, {
+    merchantOid: "abcdef0123456789abcdef0123456789",
+    form,
+    callbackDigest: "4cafeff04ae5c17f1cc49635b8d33185d3a35e05e6ce43a7a9ee01dd5c96c0f0",
+  });
+});
+
+test("callback authority denies host, scheme, path, type, duplicate, unknown, and size near matches", async () => {
+  const read = callbackAuthority.readExactPaytrCallbackRequest!;
+  const cases = [
+    { request: request(`${callbackUrl}/`) },
+    { request: request(`${callbackUrl}?x=1`) },
+    { request: request(callbackUrl, { method: "GET" }) },
+    { request: request(callbackUrl, { headers: { "content-type": "application/json" } }) },
+    { request: request(callbackUrl, { headers: { cookie: "__Host-celebix_quick=q1.secret" } }) },
+    { request: request(callbackUrl, { headers: { origin: `https://${hostname}` } }) },
+    { request: request(callbackUrl, { body: `${form}&merchant_oid=duplicate` }) },
+    { request: request(callbackUrl, { body: `${form}&unknown=x` }) },
+    { request: request(callbackUrl, { body: "x".repeat(2_049) }) },
+  ];
+  for (const selected of cases) {
+    assert.equal(await read({ ...selected, trustedHostname: hostname, configuredCallbackUrl: callbackUrl }), null);
+  }
+  assert.equal(await read({ request: request(), trustedHostname: "other.example", configuredCallbackUrl: callbackUrl }), null);
+  assert.equal(await read({ request: request(), trustedHostname: hostname, configuredCallbackUrl: `https://other.example/api/payments/paytr/callback` }), null);
+});
+
+test("callback reader cancels the first streamed chunk that exceeds its fixed byte budget", async () => {
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) { controller.enqueue(new Uint8Array(2_049).fill(0x78)); },
+    cancel() { cancelled = true; },
+  });
+  const streamed = new Request(callbackUrl, {
+    method: "POST", body, duplex: "half",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+  } as RequestInit);
+  assert.equal(await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: streamed, trustedHostname: hostname, configuredCallbackUrl: callbackUrl,
+  }), null);
+  assert.equal(cancelled, true);
+});

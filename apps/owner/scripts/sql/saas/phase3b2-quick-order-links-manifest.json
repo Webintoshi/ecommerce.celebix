@@ -1,0 +1,51 @@
+{
+  "bundleId": "phase3b2-202607220025-quick-order-links-api",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Migration 024 rollback destroys checkout provider configuration and quick-order link data; migration 025 rollback removes only API functions. Both are for disposable rehearsal only.",
+  "artifacts": [
+    {
+      "id": "202607220024_quick_order_links_up",
+      "direction": "up",
+      "file": "202607220024_quick_order_links.up.sql",
+      "sha256": "519cda0360940c97dd1a63457fd6f27c0e8262de22176e3a893c1db2725e988a",
+      "purpose": "Add store-scoped checkout configuration and quick-order link persistence with forced RLS."
+    },
+    {
+      "id": "202607220024_quick_order_links_down",
+      "direction": "down",
+      "file": "202607220024_quick_order_links.down.sql",
+      "sha256": "53cb4665061ae58aeb1dc49555396e14ffffe940f7fd5c841e241c0ad2c9b519",
+      "purpose": "Remove only migration 024 quick-order link objects during disposable rollback rehearsal."
+    },
+    {
+      "id": "202607220024_quick_order_links_assertions",
+      "direction": "verify",
+      "file": "202607220024_quick_order_links_assertions.sql",
+      "sha256": "56336b5ac7b145a59c26cd79477680178f54a9b60656fc118b33425c864dd216",
+      "purpose": "Fail on quick-link catalog, constraint, tenant-FK, ACL, RLS, immutability, secret-envelope or authority drift."
+    },
+    {
+      "id": "202607220025_quick_order_links_api_up",
+      "direction": "up",
+      "file": "202607220025_quick_order_links_api.up.sql",
+      "sha256": "5e087e542a47840783ca0bdc851e8a7d8b8069ee01c3f5849b16773138094da9",
+      "purpose": "Add the least-privilege merchant quick-order link API and durable operation recovery."
+    },
+    {
+      "id": "202607220025_quick_order_links_api_down",
+      "direction": "down",
+      "file": "202607220025_quick_order_links_api.down.sql",
+      "sha256": "9500dd84143e980684891b39a09bba881dee592f6ce699be72e7de924022a788",
+      "purpose": "Remove only migration 025 API functions during disposable rollback rehearsal."
+    },
+    {
+      "id": "202607220025_quick_order_links_api_assertions",
+      "direction": "verify",
+      "file": "202607220025_quick_order_links_api_assertions.sql",
+      "sha256": "8d41750948ff907319fca63a01cefcb4cdacd3b853ac8f1166b5a372ec9b13de",
+      "purpose": "Fail on quick-link API signature, authority, deterministic projection, recovery or ACL drift."
+    }
+  ]
+}

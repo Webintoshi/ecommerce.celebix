@@ -1,0 +1,10 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DO $f$ BEGIN IF EXISTS(SELECT 1 FROM saas.customers LIMIT 1) THEN RAISE EXCEPTION 'CUSTOMER_HISTORY_PRESENT'; END IF; END $f$;
+ALTER TABLE saas.orders DROP CONSTRAINT orders_customer_store_fk;
+DROP INDEX saas.orders_store_customer_created_idx;
+ALTER TABLE saas.orders DROP COLUMN customer_id;
+DROP TABLE saas.customer_operations,saas.customer_segment_memberships,saas.customer_segments,saas.customer_tag_assignments,saas.customer_tags,saas.customer_notes,saas.customer_consents,saas.customer_addresses,saas.customers;
+DROP FUNCTION saas.guard_customer_operation_mutation();
+DROP FUNCTION saas.customer_text_has_control(text);
+COMMIT;

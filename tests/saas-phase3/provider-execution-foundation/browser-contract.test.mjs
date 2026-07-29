@@ -1,0 +1,83 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const ROOT = new URL("../../../", import.meta.url);
+const read = (file) => readFile(new URL(file, ROOT), "utf8");
+const ROUTES = Object.freeze([
+  Object.freeze(["/marketplaces", "marketplace_connection", "marketplace_sync"]),
+  Object.freeze(["/accounting/invoicing-integration", "invoice_integration", "invoice_reconciliation"]),
+  Object.freeze(["/marketing/email", "email_campaign", "email_delivery"]),
+  Object.freeze(["/marketing/phone", "phone_campaign", "phone_delivery"]),
+  Object.freeze(["/marketing/whatsapp", "whatsapp_campaign", "whatsapp_delivery"]),
+  Object.freeze(["/seo/fast-indexing", "indexing_request", "indexing"]),
+]);
+
+test("browser evidence covers every exact provider-gated route and capability", async () => {
+  const [acceptance, fixture, fixtureApi] = await Promise.all([
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs"),
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/full-parity-fixture.tsx"),
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/merchant-admin/[...slug]/route.ts"),
+  ]);
+  assert.match(acceptance, /const PROVIDER_FOUNDATION_ROUTES = Object[.]freeze/u);
+  for (const [route, kind, capability] of ROUTES) {
+    assert.match(acceptance, new RegExp(JSON.stringify(route).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(acceptance, new RegExp(JSON.stringify(capability).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(fixture, new RegExp(`case ${JSON.stringify(route).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:\\s*return <MerchantModuleConsole kind=${JSON.stringify(kind).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    assert.match(fixtureApi, new RegExp(`\\b${kind}\\b`));
+  }
+});
+
+test("browser evidence remains disabled, same-origin, responsive and credential-free", async () => {
+  const [acceptance, panel, panelCss, defaultRuntime] = await Promise.all([
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs"),
+    read("apps/customer-panel/components/merchant-admin/ProviderConnectionPanel.tsx"),
+    read("apps/customer-panel/components/merchant-admin/provider-connection-panel.module.css"),
+    read("apps/customer-panel/lib/provider-execution-http/default.ts"),
+  ]);
+  assert.match(defaultRuntime, /listDefaultCustomerPanelPaymentProviderCodes/u);
+  assert.match(defaultRuntime, /providerCodes:\s*\(capability\)\s*=>\s*capability === "payment_processing"[\s\S]*?listDefaultCustomerPanelPaymentProviderCodes\(\)[\s\S]*?: Object[.]freeze\(\[\]\)/u);
+  assert.match(panel, /type="password"/u);
+  assert.doesNotMatch(panel, /useState[^\n]*(?:credential|secret|token)/iu);
+  assert.match(panelCss, /min-(?:height|block-size):48px/u);
+  for (const width of [390, 1024, 1025]) assert.match(acceptance, new RegExp(`provider[^\\n]{0,200}${width}|${width}[^\\n]{0,200}provider`, "iu"));
+  assert.match(acceptance, /Sağlayıcı adaptörü etkin değil/u);
+  assert.match(acceptance, /externalRequests/u);
+  assert.match(acceptance, /credential[^\n]{0,120}(?:DOM|RSC|network|console)/iu);
+  assert.doesNotMatch(acceptance, /https?:\/\/(?:api|provider|sandbox)[.][a-z]/iu);
+});
+
+test("payment settings exposes Iyzico verification setup without browser execution authority or secret props", async () => {
+  const [consoleSource, drawer, model, defaults, catalog, handler, adapterDefaults] = await Promise.all([
+    read("apps/customer-panel/components/settings/payment/PaymentSettingsConsole.tsx"),
+    read("apps/customer-panel/components/settings/payment/PaymentProviderConnectionDrawer.tsx"),
+    read("apps/customer-panel/lib/payment-settings-ui/model.ts"),
+    read("apps/customer-panel/lib/payment-provider-adapters/default.ts"),
+    read("apps/customer-panel/lib/payment-providers/catalog-data.ts"),
+    read("apps/customer-panel/lib/provider-execution-http/handler.ts"),
+    import(new URL("apps/customer-panel/lib/payment-provider-adapters/default.ts", ROOT)),
+  ]);
+  const hosted = adapterDefaults.createDefaultHostedPaymentAdapterRegistry(Object.freeze({
+    request: Object.freeze(async () => { throw new Error("provider_transport_must_not_run"); }),
+  }));
+  const iyzico = adapterDefaults.createDefaultCustomerPanelPaymentProviderRegistry(hosted)
+    .get("iyzico_iframe", "payment_processing");
+  assert.ok(iyzico);
+  assert.equal(iyzico.executionAuthority, null);
+  assert.equal(iyzico.profileSaveMode, "verification");
+  assert.match(defaults, /IYZICO_IFRAME_PACKET/u);
+  assert.match(defaults, /label:\s*"iyzico · Checkout Form"/u);
+  assert.match(defaults, /`iyzico \$\{publicConfig[.]environment\} hesabı`/u);
+  assert.match(catalog, /logoPath:\s*`\/payment-providers\/\$\{input[.]familyCode\}[.]\$\{logoExtension\}`/u);
+  assert.match(catalog, /sourceSlug:\s*"iyzico-iframe",\s*familyCode:\s*"iyzico"/u);
+  assert.match(consoleSource, /readiness === "verification"/u);
+  assert.match(consoleSource, /configurableDescriptor/u);
+  assert.match(drawer, /aria-label="Sağlayıcı ortamı"/u);
+  assert.match(drawer, /selectedEnvironment/u);
+  assert.match(model, /Doğrulandı — sandbox kanıtı bekleniyor/u);
+  assert.match(model, /Aktivasyona hazır/u);
+  assert.match(handler, /profiles[.]saveVerification/u);
+  assert.match(handler, /validationIdentity/u);
+  assert.doesNotMatch(`${consoleSource}\n${drawer}`, /\b(?:apiKey|secretKey|merchantKey|merchantSalt)\b/u);
+  assert.doesNotMatch(`${consoleSource}\n${drawer}`, /console[.](?:log|warn|error)/u);
+});

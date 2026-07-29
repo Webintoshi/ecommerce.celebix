@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
-import { getSelfServeStatusLabel } from "./self-serve-onboarding";
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith("@/lib/")) {
+      return {
+        shortCircuit: true,
+        url: new URL(`${specifier.slice("@/lib/".length)}.ts`, import.meta.url).href,
+      };
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
+const { getSelfServeStatusLabel } = await import("./self-serve-onboarding.ts");
 
 test("legacy self-serve statuses use monitoring language instead of approval queue copy", () => {
   const labels = [

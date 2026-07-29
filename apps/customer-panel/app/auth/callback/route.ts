@@ -1,3 +1,11 @@
-import { createDisabledPanelOidcCallbackHandler } from "../../../lib/registration-completion.ts";
+import { getDefaultCustomerPanelAuthRouteSet } from "../../../lib/panel-auth-route-mount/route-set.ts";
 
-export const GET = createDisabledPanelOidcCallbackHandler();
+const routeSet = getDefaultCustomerPanelAuthRouteSet();
+
+export async function GET(request: Request) {
+  return routeSet.browserCallback(request);
+}
+
+export async function POST(request: Request) {
+  return routeSet.browserCallback(request);
+}

@@ -1,0 +1,18 @@
+{
+  "phase": "3C2B",
+  "description": "Additive rich catalog import and feed-preview authority",
+  "artifacts": [
+    {
+      "file": "202607260038_catalog_rich_import.up.sql",
+      "sha256": "e214c436e1934904a2570389c7427e43ce3f3005eee2568d7a6772377e8d3598"
+    },
+    {
+      "file": "202607260038_catalog_rich_import.down.sql",
+      "sha256": "092a4ef50dc7f1b9cab7bac60ba3646811f8f300e5c6ffbd4740fdd2aa4f2632"
+    },
+    {
+      "file": "202607260038_catalog_rich_import_assertions.sql",
+      "sha256": "9d9cfdce3f5acd77b6b1cc31d37a8add892c1ce31e2fbd25dcf40ad8b98cfd44"
+    }
+  ]
+}

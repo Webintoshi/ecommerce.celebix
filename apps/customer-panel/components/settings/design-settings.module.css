@@ -1,0 +1,6 @@
+.surface { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.card { display: grid; min-height: 48px; gap: .35rem; border: 1px solid #E3E7EE; border-radius: .75rem; color: #1F2937; padding: 1rem; text-decoration: none; }
+.card strong { font-weight: 700; }
+.card span, .card small { color: #596273; }
+.card:focus-visible { outline: 3px solid rgb(255 106 0 / 35%); outline-offset: 2px; }
+@media (max-width: 640px) { .surface { grid-template-columns: 1fr; } }

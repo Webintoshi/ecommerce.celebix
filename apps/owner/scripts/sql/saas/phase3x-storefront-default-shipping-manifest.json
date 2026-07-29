@@ -1,0 +1,26 @@
+{
+  "phase": "phase3x-storefront-default-shipping",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "phase3w-storefront-one-page-checkout-manifest.json",
+      "sha256": "3b8bc3467d8af0239d3a2262f1f09920bbbce4a2c5148219105c95ec56c8444d"
+    },
+    {
+      "file": "202607290065_storefront_default_shipping.up.sql",
+      "sha256": "12f8bc69b0942fc5803d4fe22c33144e756f668ce6e96188ba8ee5df325c4277"
+    },
+    {
+      "file": "202607290065_storefront_default_shipping_assertions.sql",
+      "sha256": "62d07af175a9fd3c3a82440f291069bb790f87aa6803a15d6235df329cf13e61"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607290065_storefront_default_shipping.down.sql",
+      "sha256": "2ac0ac1d0a5e8b6c4cb9f0dd93c45f6e2c9f311ab654f8967ce6252dd099c599"
+    }
+  ],
+  "externalConnections": 0,
+  "productionMutations": 0
+}

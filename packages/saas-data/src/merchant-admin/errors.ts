@@ -1,0 +1,3 @@
+export const MERCHANT_ADMIN_ERROR_CODES=Object.freeze(["invalid_input","unauthenticated","membership_denied","store_inactive","feature_not_enabled","record_not_found","profile_not_found","provider_capability_mismatch","provider_disabled","invalid_transition","version_conflict","operation_mismatch","operation_not_found","durable_authority_invalid","unavailable"] as const);
+export type MerchantAdminErrorCode=(typeof MERCHANT_ADMIN_ERROR_CODES)[number];
+export class MerchantAdminRepositoryError extends Error { readonly code:MerchantAdminErrorCode; constructor(code:MerchantAdminErrorCode){super(code);this.name="MerchantAdminRepositoryError";this.code=code} }

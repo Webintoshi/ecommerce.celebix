@@ -1,13 +1,30 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
-import { getSelfServeFeatureFlags } from "./self-serve-flags";
-import {
+import { getSelfServeFeatureFlags } from "./self-serve-flags.ts";
+import type { SelfServeRegistrationInput } from "./self-serve-registration.ts";
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "next/headers") {
+      return nextResolve("next/headers.js", context);
+    }
+    if (specifier.startsWith("@/lib/")) {
+      return {
+        shortCircuit: true,
+        url: new URL(`${specifier.slice("@/lib/".length)}.ts`, import.meta.url).href,
+      };
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
+const {
   createInMemorySelfServePersistentRegistrationAdapter,
   createSelfServeDirectPersistentRegistration,
   getSelfServePersistentAdapterReadiness,
-} from "./self-serve-persistent-registration-adapter";
-import type { SelfServeRegistrationInput } from "./self-serve-registration";
+} = await import("./self-serve-persistent-registration-adapter.ts");
 
 const SELF_SERVE_ENV_KEYS = [
   "SELF_SERVE_SIGNUP_ENABLED",

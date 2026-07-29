@@ -1,0 +1,18 @@
+{
+  "phase": "3H",
+  "description": "Tenant-scoped managed Umami connection and delivery-outbox authority",
+  "artifacts": [
+    {
+      "file": "202607260039_store_analytics_authority.up.sql",
+      "sha256": "9a28d4e6c745b9bb3f66e2ce0808f7f7e812e37ca8f59bf5b6d53d9d0807c6b2"
+    },
+    {
+      "file": "202607260039_store_analytics_authority.down.sql",
+      "sha256": "cf6e987623e842369ae479190d4a6c8d6abf29af46a98ab28ff5830ae46be1cf"
+    },
+    {
+      "file": "202607260039_store_analytics_authority_assertions.sql",
+      "sha256": "020084ea659ffb165509531827403bcbbca00ffd0aa2a4bc075068ad519b91ab"
+    }
+  ]
+}

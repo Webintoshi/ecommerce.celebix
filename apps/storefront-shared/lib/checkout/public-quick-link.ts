@@ -1,0 +1,244 @@
+import { createHash, randomBytes as secureRandomBytes, randomUUID as secureRandomUUID } from "node:crypto";
+import { QuickOrderLinkRepositoryError } from "@celebix/saas-data";
+import type { QuickOrderPublicQuote } from "../../../../packages/saas-contracts/src/quick-orders/index.ts";
+
+import type { CheckoutRuntime } from "./runtime.ts";
+import {
+  digestRedemptionCredential,
+  generateRedemptionCredential,
+  parseRedemptionCookie,
+  serializeRedemptionCookie,
+} from "./redemption-cookie.ts";
+
+const TOKEN_BYTES = 32;
+const REDEMPTION_SECONDS = 15 * 60;
+const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+const PRIVATE_HEADERS = Object.freeze(["authorization", "content-length", "content-type", "transfer-encoding"]);
+
+export type PublicQuickOrderClaimResult =
+  | Readonly<{ kind: "claimed"; status: 303; location: "/odeme/hizli"; setCookie: string; quote: QuickOrderPublicQuote }>
+  | Readonly<{ kind: "canonical_redirect"; status: 308; location: string }>
+  | Readonly<{ kind: "denied"; status: 404 }>
+  | Readonly<{ kind: "unavailable"; status: 503 }>;
+
+export type PublicQuickOrderResolution =
+  | Readonly<{ kind: "active"; quote: QuickOrderPublicQuote }>
+  | Readonly<{ kind: "denied" }>
+  | Readonly<{ kind: "unavailable" }>;
+
+type HostAuthority = Readonly<{ kind: "trusted"; hostname: string }> | Readonly<{ kind: string }>;
+type TokenRouteContext = Readonly<{ params: Promise<Readonly<{ token: string }>> }>;
+type RouteDependencies = Readonly<{
+  selectAuthority: (headers: Headers) => HostAuthority;
+  resolveRuntime: () => Promise<CheckoutRuntime | null>;
+  now?: () => Date;
+  randomBytes?: (size: number) => Uint8Array;
+  randomUUID?: () => `${string}-${string}-${string}-${string}-${string}` | string;
+}>;
+
+function canonicalHostname(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 253 && value === value.trim() &&
+    value === value.toLowerCase() && HOSTNAME.test(value);
+}
+
+function canonicalToken(value: unknown): value is string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value)) return false;
+  const bytes = Buffer.from(value, "base64url");
+  return bytes.byteLength === TOKEN_BYTES && bytes.toString("base64url") === value;
+}
+
+function tokenDigest(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function validDate(value: unknown): value is Date {
+  return value instanceof Date && Number.isFinite(value.getTime());
+}
+
+function repositoryUncertainty(error: unknown): boolean {
+  return error instanceof QuickOrderLinkRepositoryError &&
+    (error.code === "commit_unknown" || error.code === "unavailable");
+}
+
+function requestToken(request: Request): string | null {
+  if (request.method !== "GET") return null;
+  let url: URL;
+  try { url = new URL(request.url); } catch { return null; }
+  if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password || url.search || url.hash) return null;
+  for (const name of PRIVATE_HEADERS) if (request.headers.has(name)) return null;
+  for (const name of request.headers.keys()) if (name.toLowerCase().startsWith("x-celebix-") && name.toLowerCase() !== "x-celebix-storefront-proxy") return null;
+  const prefix = "/odeme/hizli/";
+  if (!url.pathname.startsWith(prefix)) return null;
+  const token = url.pathname.slice(prefix.length);
+  return !token.includes("/") && canonicalToken(token) && url.pathname === `${prefix}${token}` ? token : null;
+}
+
+function safePrimaryHostname(value: unknown): string | null {
+  return canonicalHostname(value) ? value : null;
+}
+
+export async function processPublicQuickOrderTokenRequest(input: Readonly<{
+  request: Request;
+  trustedHostname: string;
+  now: Date;
+  runtime: CheckoutRuntime;
+  routeToken?: string;
+  randomBytes?: (size: number) => Uint8Array;
+  randomUUID?: () => `${string}-${string}-${string}-${string}-${string}` | string;
+}>): Promise<PublicQuickOrderClaimResult> {
+  if (!canonicalHostname(input.trustedHostname) || !validDate(input.now)) return Object.freeze({ kind: "denied", status: 404 });
+  const token = requestToken(input.request);
+  if (token === null || (input.routeToken !== undefined && input.routeToken !== token) ||
+      parseRedemptionCookie(input.request.headers.get("cookie")).kind === "invalid") {
+    return Object.freeze({ kind: "denied", status: 404 });
+  }
+  return claimPublicQuickOrder({
+    trustedHostname: input.trustedHostname,
+    token,
+    now: input.now,
+  }, {
+    runtime: input.runtime,
+    randomBytes: input.randomBytes,
+    randomUUID: input.randomUUID,
+  });
+}
+
+export async function claimPublicQuickOrder(input: Readonly<{
+  trustedHostname: string;
+  token: string;
+  now: Date;
+}>, dependencies: Readonly<{
+  runtime: CheckoutRuntime;
+  randomBytes?: (size: number) => Uint8Array;
+  randomUUID?: () => `${string}-${string}-${string}-${string}-${string}` | string;
+}>): Promise<PublicQuickOrderClaimResult> {
+  if (!canonicalHostname(input.trustedHostname) || !canonicalToken(input.token) || !validDate(input.now)) {
+    return Object.freeze({ kind: "denied", status: 404 });
+  }
+  let storefront;
+  try {
+    storefront = await dependencies.runtime.storefrontRepository.getPublicStorefront({ hostname: input.trustedHostname, now: new Date(input.now) });
+  } catch {
+    return Object.freeze({ kind: "denied", status: 404 });
+  }
+  if (storefront.hostname !== input.trustedHostname) return Object.freeze({ kind: "unavailable", status: 503 });
+  const primaryHostname = safePrimaryHostname(storefront.primaryHostname);
+  if (primaryHostname === null) return Object.freeze({ kind: "unavailable", status: 503 });
+  if (primaryHostname !== input.trustedHostname) {
+    return Object.freeze({
+      kind: "canonical_redirect",
+      status: 308,
+      location: `https://${primaryHostname}/odeme/hizli/${input.token}`,
+    });
+  }
+  const credential = generateRedemptionCredential(dependencies.randomBytes ?? secureRandomBytes);
+  const expiresAt = new Date(input.now.getTime() + REDEMPTION_SECONDS * 1000);
+  try {
+    const claimed = await dependencies.runtime.quickOrderRepository.claimRedemption({
+      hostname: input.trustedHostname,
+      tokenDigest: tokenDigest(input.token),
+      redemptionId: (dependencies.randomUUID ?? secureRandomUUID)(),
+      redemptionDigest: digestRedemptionCredential(credential),
+      now: new Date(input.now),
+      expiresAt,
+    });
+    const persistedRemaining = Math.floor((new Date(claimed.expiresAt).getTime() - input.now.getTime()) / 1000);
+    const maxAge = Math.min(REDEMPTION_SECONDS, persistedRemaining);
+    if (!Number.isSafeInteger(maxAge) || maxAge < 1) return Object.freeze({ kind: "unavailable", status: 503 });
+    return Object.freeze({
+      kind: "claimed",
+      status: 303,
+      location: "/odeme/hizli",
+      setCookie: serializeRedemptionCookie(credential, maxAge),
+      quote: claimed.quote,
+    });
+  } catch (error) {
+    return repositoryUncertainty(error)
+      ? Object.freeze({ kind: "unavailable", status: 503 })
+      : Object.freeze({ kind: "denied", status: 404 });
+  }
+}
+
+const ROUTE_HEADERS = Object.freeze({
+  "Cache-Control": "private, no-store",
+  "Referrer-Policy": "no-referrer",
+  "X-Content-Type-Options": "nosniff",
+  "X-Robots-Tag": "noindex, nofollow",
+});
+
+function routeDenied(status = 404): Response {
+  return new Response("Not found", { status, headers: { ...ROUTE_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
+}
+
+export function createPublicQuickOrderTokenRoute(dependencies: RouteDependencies) {
+  return async (request: Request, context: TokenRouteContext): Promise<Response> => {
+    const authority = dependencies.selectAuthority(request.headers);
+    if (authority.kind !== "trusted" || !("hostname" in authority)) return routeDenied(503);
+    const runtime = await dependencies.resolveRuntime();
+    if (runtime === null) return routeDenied(503);
+    let token: string;
+    try { ({ token } = await context.params); } catch { return routeDenied(); }
+    const result = await processPublicQuickOrderTokenRequest({
+      request,
+      routeToken: token,
+      trustedHostname: authority.hostname,
+      now: (dependencies.now ?? (() => new Date()))(),
+      runtime,
+      randomBytes: dependencies.randomBytes,
+      randomUUID: dependencies.randomUUID,
+    });
+    if (result.kind === "claimed") return new Response(null, { status: 303, headers: { ...ROUTE_HEADERS, Location: result.location, "Set-Cookie": result.setCookie } });
+    if (result.kind === "canonical_redirect") return new Response(null, { status: 308, headers: { ...ROUTE_HEADERS, Location: result.location } });
+    return routeDenied(result.status);
+  };
+}
+
+export function createPublicQuickOrderStatusRoute(dependencies: Omit<RouteDependencies, "randomBytes" | "randomUUID">) {
+  return async (request: Request): Promise<Response> => {
+    let url: URL;
+    try { url = new URL(request.url); } catch { return Response.json({ kind: "unavailable" }, { status: 404, headers: ROUTE_HEADERS }); }
+    if (request.method !== "GET" || (url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password ||
+        url.pathname !== "/api/quick-order/status" || url.search || url.hash || request.headers.has("authorization") ||
+        request.headers.has("content-length") || request.headers.has("transfer-encoding")) {
+      return Response.json({ kind: "unavailable" }, { status: 404, headers: ROUTE_HEADERS });
+    }
+    const authority = dependencies.selectAuthority(request.headers);
+    const cookie = parseRedemptionCookie(request.headers.get("cookie"));
+    if (authority.kind !== "trusted" || !("hostname" in authority) || cookie.kind !== "valid") {
+      return Response.json({ kind: "unavailable" }, { status: 404, headers: ROUTE_HEADERS });
+    }
+    const runtime = await dependencies.resolveRuntime();
+    if (runtime === null) return Response.json({ kind: "unavailable" }, { status: 503, headers: ROUTE_HEADERS });
+    try {
+      const state = await runtime.quickOrderRepository.getStatus({
+        hostname: authority.hostname,
+        redemptionDigest: digestRedemptionCredential(cookie.credential),
+        now: (dependencies.now ?? (() => new Date()))(),
+      });
+      return Response.json(state, { status: 200, headers: ROUTE_HEADERS });
+    } catch {
+      return Response.json({ kind: "unavailable" }, { status: 404, headers: ROUTE_HEADERS });
+    }
+  };
+}
+
+export async function resolvePublicQuickOrder(input: Readonly<{
+  trustedHostname: string;
+  cookieHeader: string | null;
+  now: Date;
+  runtime: CheckoutRuntime;
+}>): Promise<PublicQuickOrderResolution> {
+  if (!canonicalHostname(input.trustedHostname) || !validDate(input.now)) return Object.freeze({ kind: "denied" });
+  const cookie = parseRedemptionCookie(input.cookieHeader);
+  if (cookie.kind !== "valid") return Object.freeze({ kind: "denied" });
+  try {
+    const quote = await input.runtime.quickOrderRepository.resolveRedemption({
+      hostname: input.trustedHostname,
+      redemptionDigest: digestRedemptionCredential(cookie.credential),
+      now: new Date(input.now),
+    });
+    return Object.freeze({ kind: "active", quote });
+  } catch {
+    return Object.freeze({ kind: "denied" });
+  }
+}

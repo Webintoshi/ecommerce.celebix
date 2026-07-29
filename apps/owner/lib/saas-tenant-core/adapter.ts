@@ -1,4 +1,3 @@
-import type { CreateStarterTenantInput } from "@celebix/saas-contracts";
 import type {
   CreateStarterTenantOutcome,
   CreateStarterTenantService,
@@ -15,7 +14,7 @@ export type OwnerTenantCoreOutcome =
   | { ok: false; error: OwnerServiceUnavailableError };
 
 export interface OwnerTenantCoreAdapter {
-  createStarterTenant(input: CreateStarterTenantInput): Promise<OwnerTenantCoreOutcome>;
+  createStarterTenant(input: unknown): Promise<OwnerTenantCoreOutcome>;
 }
 
 export function createUnavailableOwnerTenantCoreAdapter(): OwnerTenantCoreAdapter {

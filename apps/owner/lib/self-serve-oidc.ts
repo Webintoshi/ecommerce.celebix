@@ -12,6 +12,7 @@ export type OidcFlowErrorCode =
   | "oidc_issuer_mismatch"
   | "oidc_audience_mismatch"
   | "oidc_invalid_callback"
+  | "oidc_provider_unavailable"
   | "oidc_provider_rejected";
 
 export class OidcFlowError extends Error {
@@ -38,6 +39,7 @@ export interface OidcAuthorizationRequest {
 export interface OidcCallbackInput {
   code: string;
   state: string;
+  responseIssuer?: string;
 }
 
 export interface OidcProviderCallbackInput extends OidcCallbackInput {
@@ -89,6 +91,8 @@ export interface BeginOidcAuthorizationInput {
   expectedIssuer: string;
   expectedAudience: string;
   expectedAuthorizationOrigin?: string;
+  expectedCallbackAuthority?: string;
+  returnOrigin?: string;
   allowInsecureLocalAuthorization?: boolean;
   allowLocalTestCallback?: boolean;
   now?: () => Date;
@@ -98,6 +102,13 @@ export interface CompleteOidcCallbackInput {
   provider: OidcProviderPort;
   transactionStore: OidcTransactionStore;
   callback: OidcCallbackInput;
+  now?: () => Date;
+}
+
+export interface RejectOidcProviderCallbackInput {
+  transactionStore: OidcTransactionStore;
+  state: string;
+  responseIssuer?: string;
   now?: () => Date;
 }
 
@@ -112,10 +123,15 @@ async function createS256Challenge(verifier: string) {
   return Buffer.from(digest).toString("base64url");
 }
 
-export function sanitizeOidcReturnTo(value: string) {
+export function sanitizeOidcReturnTo(value: string, returnOrigin = "https://ecommerce.celebix.co") {
   try {
-    const parsed = new URL(value, "https://ecommerce.celebix.co");
-    if (parsed.origin !== "https://ecommerce.celebix.co" || !APPROVED_RETURN_PATHS.has(parsed.pathname)) {
+    const origin = new URL(returnOrigin);
+    if (
+      origin.protocol !== "https:" || origin.username || origin.password || origin.pathname !== "/" ||
+      origin.search || origin.hash || origin.origin !== returnOrigin
+    ) return "/kayit";
+    const parsed = new URL(value, returnOrigin);
+    if (parsed.origin !== returnOrigin || !APPROVED_RETURN_PATHS.has(parsed.pathname)) {
       return "/kayit";
     }
     return parsed.pathname;
@@ -199,8 +215,21 @@ function isExplicitLocalHttp(url: URL, allowed: boolean | undefined) {
   );
 }
 
-function assertCallbackUrl(value: string, allowLocalTestCallback: boolean | undefined) {
-  if (value === PANEL_OIDC_CALLBACK_URL) return;
+function assertCallbackUrl(
+  value: string,
+  expectedCallbackAuthority: string | undefined,
+  allowLocalTestCallback: boolean | undefined,
+) {
+  if (value === (expectedCallbackAuthority ?? PANEL_OIDC_CALLBACK_URL)) {
+    try {
+      const url = new URL(value);
+      if (
+        url.protocol === "https:" && !url.username && !url.password && !url.port &&
+        url.pathname === "/auth/callback" && !url.search && !url.hash &&
+        `${url.origin}${url.pathname}` === value
+      ) return;
+    } catch { /* Fall through. */ }
+  }
   try {
     const url = new URL(value);
     if (
@@ -251,10 +280,9 @@ function assertAuthorizationUrl(input: {
       throw new OidcFlowError("oidc_provider_rejected", `OIDC authorization URL has invalid ${name}.`);
     }
   }
-  const responseTypes = url.searchParams.getAll("response_type");
   if (
-    responseTypes.length !== 1 ||
-    !responseTypes[0].split(/\s+/).filter(Boolean).includes("code") ||
+    !hasExactly(url, "response_type", "code") ||
+    !hasExactly(url, "response_mode", "query") ||
     url.searchParams.has("code_verifier")
   ) {
     throw new OidcFlowError("oidc_provider_rejected", "OIDC authorization response type is invalid.");
@@ -262,13 +290,13 @@ function assertAuthorizationUrl(input: {
 }
 
 export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput) {
-  assertCallbackUrl(input.redirectUri, input.allowLocalTestCallback);
+  assertCallbackUrl(input.redirectUri, input.expectedCallbackAuthority, input.allowLocalTestCallback);
   const now = input.now?.() ?? new Date();
   const state = randomOpaqueValue(32);
   const nonce = randomOpaqueValue(32);
   const codeVerifier = randomOpaqueValue(64);
   const codeChallenge = await createS256Challenge(codeVerifier);
-  const returnTo = sanitizeOidcReturnTo(input.returnTo);
+  const returnTo = sanitizeOidcReturnTo(input.returnTo, input.returnOrigin);
   const transaction: OidcAuthorizationTransaction = {
     state,
     nonce,
@@ -301,7 +329,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
   } catch (error) {
     await input.transactionStore.discard(state).catch(() => undefined);
     if (error instanceof OidcFlowError) throw error;
-    throw new OidcFlowError("oidc_provider_rejected", "OIDC provider rejected authorization.");
+    throw new OidcFlowError("oidc_provider_unavailable", "OIDC provider is unavailable.");
   }
 
   return {
@@ -316,18 +344,66 @@ function assertVerifiedIdentity(
   identity: OidcVerifiedIdentity,
   transaction: OidcAuthorizationTransaction,
 ) {
-  if (identity.nonce !== transaction.nonce) {
+  if (!identity || typeof identity !== "object") {
+    throw new OidcFlowError("oidc_provider_rejected", "OIDC identity is invalid.");
+  }
+  if (typeof identity.nonce !== "string" || identity.nonce !== transaction.nonce) {
     throw new OidcFlowError("oidc_nonce_mismatch", "OIDC nonce validation failed.");
   }
-  if (identity.issuer !== transaction.expectedIssuer) {
+  if (typeof identity.issuer !== "string" || identity.issuer !== transaction.expectedIssuer) {
     throw new OidcFlowError("oidc_issuer_mismatch", "OIDC issuer validation failed.");
   }
-  if (!identity.audience.includes(transaction.expectedAudience)) {
+  if (!Array.isArray(identity.audience) || !identity.audience.every((value) => typeof value === "string") || !identity.audience.includes(transaction.expectedAudience)) {
     throw new OidcFlowError("oidc_audience_mismatch", "OIDC audience validation failed.");
   }
-  if (!identity.subject.trim()) {
+  if (typeof identity.subject !== "string" || !identity.subject.trim() || identity.subject.length > 512) {
     throw new OidcFlowError("oidc_provider_rejected", "OIDC subject is missing.");
   }
+  if (
+    identity.emailVerified !== true || typeof identity.email !== "string" ||
+    identity.email !== identity.email.trim() || identity.email.length > 320 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity.email)
+  ) throw new OidcFlowError("oidc_provider_rejected", "OIDC verified email is invalid.");
+  if (
+    identity.displayName !== undefined &&
+    (typeof identity.displayName !== "string" || identity.displayName !== identity.displayName.trim() || identity.displayName.length > 256)
+  ) throw new OidcFlowError("oidc_provider_rejected", "OIDC display name is invalid.");
+}
+
+function exactResponseIssuer(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== "string" || !value || value.length > 2_048 || value !== value.trim() ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  ) throw new OidcFlowError("oidc_invalid_callback", "OIDC response issuer is invalid.");
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" || url.username || url.password || url.search || url.hash ||
+      url.toString().replace(/\/$/, "") !== value
+    ) throw new Error("invalid");
+  } catch {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC response issuer is invalid.");
+  }
+  return value;
+}
+
+function assertResponseIssuer(
+  responseIssuer: string | undefined,
+  transaction: OidcAuthorizationTransaction,
+): void {
+  if (responseIssuer !== undefined && responseIssuer !== transaction.expectedIssuer) {
+    throw new OidcFlowError("oidc_issuer_mismatch", "OIDC response issuer validation failed.");
+  }
+}
+
+export async function rejectOidcProviderCallback(input: RejectOidcProviderCallbackInput): Promise<void> {
+  const now = input.now?.() ?? new Date();
+  const state = input.state.trim();
+  if (!state) throw new OidcFlowError("oidc_invalid_callback", "OIDC callback state is required.");
+  const responseIssuer = exactResponseIssuer(input.responseIssuer);
+  const transaction = await input.transactionStore.consume(state, now);
+  assertResponseIssuer(responseIssuer, transaction);
 }
 
 export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
@@ -337,13 +413,16 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   if (!state || !code) {
     throw new OidcFlowError("oidc_invalid_callback", "OIDC callback state and code are required.");
   }
+  const responseIssuer = exactResponseIssuer(input.callback.responseIssuer);
   const transaction = await input.transactionStore.consume(state, now);
+  assertResponseIssuer(responseIssuer, transaction);
   let identity: OidcVerifiedIdentity;
 
   try {
     identity = await input.provider.verifyCallback({
       code,
       state,
+      ...(responseIssuer ? { responseIssuer } : {}),
       codeVerifier: transaction.codeVerifier,
       redirectUri: transaction.redirectUri,
       expectedNonce: transaction.nonce,
@@ -352,7 +431,7 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
     });
   } catch (error) {
     if (error instanceof OidcFlowError) throw error;
-    throw new OidcFlowError("oidc_provider_rejected", "OIDC provider rejected the callback.");
+    throw new OidcFlowError("oidc_provider_unavailable", "OIDC provider is unavailable.");
   }
 
   assertVerifiedIdentity(identity, transaction);

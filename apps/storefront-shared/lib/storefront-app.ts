@@ -7,11 +7,17 @@ import {
   type StorefrontStoreRecord,
 } from "@celebix/saas-storefront-runtime";
 
+import {
+  selectTrustedStorefrontHostAuthority,
+  type TrustedStorefrontHostAuthority,
+} from "./trusted-host-authority.ts";
+
 export interface HeaderReader {
   get(name: string): string | null;
 }
 
 export interface StorefrontAppDependencies {
+  trustedHostAuthority?: (headers: HeaderReader) => TrustedStorefrontHostAuthority;
   resolver: StoreDomainResolver;
   loadStorefrontStore: (
     ...parameters: Parameters<Parameters<typeof resolveStorefrontRequestContext>[0]["loadStorefrontStore"]>
@@ -49,14 +55,6 @@ const HOST_NOT_CONFIGURED: StorefrontShellResult = {
   title: "Storefront unavailable",
   message: "This shared storefront runtime is not configured.",
 };
-
-/**
- * The Next server adapter selects Host directly. Production infrastructure must
- * establish proxy trust before any forwarded authority can be considered.
- */
-export function selectTrustedHostHeader(headers: HeaderReader): string | null {
-  return headers.get("host");
-}
 
 function errorShell(error: StorefrontResolutionError): StorefrontShellResult {
   switch (error.code) {
@@ -99,16 +97,18 @@ export function createStorefrontRequestHandler(dependencies?: StorefrontAppDepen
       return { ...HOST_NOT_CONFIGURED };
     }
 
-    const trustedHost = selectTrustedHostHeader(input.headers);
-    if (!trustedHost) {
-      return errorShell(new StorefrontResolutionError("invalid_input"));
+    const authority = (
+      dependencies.trustedHostAuthority ?? selectTrustedStorefrontHostAuthority
+    )(input.headers);
+    if (authority.kind !== "trusted") {
+      return { ...HOST_NOT_CONFIGURED };
     }
 
     let context: Awaited<ReturnType<typeof resolveStorefrontRequestContext>>;
     try {
       context = await resolveStorefrontRequestContext({
         requestId: input.requestId,
-        trustedHost,
+        trustedHost: authority.hostname,
         resolver: dependencies.resolver,
         loadStorefrontStore: dependencies.loadStorefrontStore,
         hostPolicy: dependencies.allowLocalTestHosts ? { allowLocalTestHosts: true } : undefined,

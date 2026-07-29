@@ -3,9 +3,13 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { CreateStarterTenantInput } from "@celebix/saas-contracts";
-import type { OwnerTenantCoreAdapter } from "../../../../lib/saas-tenant-core/adapter";
+import type {
+  OwnerTenantCoreAdapter,
+  OwnerTenantCoreOutcome,
+} from "../../../../lib/saas-tenant-core/adapter.ts";
+import type { OwnerSaaSTenantRuntime } from "../../../../lib/saas-tenant-core/runtime.ts";
 
-import { POST, createInternalSaaSTenantsPostHandler } from "./route";
+import { POST, createInternalSaaSTenantsPostHandler } from "./route.ts";
 
 const input: CreateStarterTenantInput = {
   schemaVersion: 1,
@@ -35,6 +39,65 @@ function request(body: unknown) {
   });
 }
 
+function postgresRuntime(adapter: OwnerTenantCoreAdapter): OwnerSaaSTenantRuntime {
+  return {
+    kind: "postgres",
+    tenantCore: adapter,
+    recovery: {
+      recover: async () => ({
+        ok: false,
+        error: { schemaVersion: 1, code: "service_unavailable", retryable: true },
+      }),
+    },
+  };
+}
+
+function successfulOutcome(replayed: boolean): OwnerTenantCoreOutcome {
+  return {
+    ok: true,
+    value: {
+      schemaVersion: 1,
+      operationId: "70000000-0000-4000-8000-000000000001",
+      replayed,
+      store: { id: "20000000-0000-4000-8000-000000000001", slug: input.store.slug, status: "active" },
+      primaryDomain: {
+        schemaVersion: 1,
+        hostname: `${input.store.slug}.example.test`,
+        domainId: "30000000-0000-4000-8000-000000000001",
+        domainType: "platform_subdomain",
+        storeId: "20000000-0000-4000-8000-000000000001",
+        storeSlug: input.store.slug,
+        canonicalHostname: `${input.store.slug}.example.test`,
+        status: "active",
+        cacheVersion: 1,
+      },
+      membership: {
+        schemaVersion: 1,
+        id: "40000000-0000-4000-8000-000000000001",
+        principalId: "10000000-0000-4000-8000-000000000001",
+        storeId: "20000000-0000-4000-8000-000000000001",
+        role: "store_owner",
+        status: "active",
+        createdAt: input.requestedAt,
+        updatedAt: input.requestedAt,
+      },
+      plan: {
+        schemaVersion: 1,
+        planId: "00000000-0000-4000-8000-000000000001",
+        planCode: "free_starter",
+        version: 1,
+        status: "active",
+        features: ["catalog", "orders", "customers", "content", "media", "analytics", "checkout"],
+        limits: { products: 100, staff: 1, storageBytes: 1_000_000_000, monthlyOrders: 100, customDomains: 0 },
+        validFrom: input.requestedAt,
+      },
+      provisioningStatus: "ready",
+      panelUrl: `https://panel.example.test/stores/${input.store.slug}`,
+      storefrontUrl: `https://${input.store.slug}.example.test`,
+    },
+  };
+}
+
 test("default route is disabled and returns controlled 503", async () => {
   const response = await POST(request(input));
   assert.equal(response.status, 503);
@@ -53,9 +116,8 @@ test("disabled route never calls the adapter", async () => {
     },
   };
   const handler = createInternalSaaSTenantsPostHandler({
-    enabled: false,
+    runtime: { kind: "disabled", tenantCore: adapter, recovery: null },
     isTrustedRequest: async () => true,
-    adapter,
   });
 
   const response = await handler(request(input));
@@ -66,14 +128,13 @@ test("disabled route never calls the adapter", async () => {
 test("enabled but untrusted request fails closed before body or adapter access", async () => {
   let calls = 0;
   const handler = createInternalSaaSTenantsPostHandler({
-    enabled: true,
-    isTrustedRequest: async () => false,
-    adapter: {
+    runtime: postgresRuntime({
       createStarterTenant: async () => {
         calls += 1;
         throw new Error("must not run");
       },
-    },
+    }),
+    isTrustedRequest: async () => false,
   });
 
   const response = await handler(request({ password: "must-never-be-read" }));
@@ -85,20 +146,41 @@ test("enabled but untrusted request fails closed before body or adapter access",
 test("trusted malformed input is rejected without adapter invocation", async () => {
   let calls = 0;
   const handler = createInternalSaaSTenantsPostHandler({
-    enabled: true,
-    isTrustedRequest: async () => true,
-    adapter: {
+    runtime: postgresRuntime({
       createStarterTenant: async () => {
         calls += 1;
         throw new Error("must not run");
       },
-    },
+    }),
+    isTrustedRequest: async () => true,
   });
 
   const response = await handler(request({ ...input, storeId: "caller-authority" }));
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error.code, "invalid_input");
   assert.equal(calls, 0);
+});
+
+test("unverified identity reaches Tenant Core mapping without database authority from the request", async () => {
+  let calls = 0;
+  const handler = createInternalSaaSTenantsPostHandler({
+    runtime: postgresRuntime({
+      createStarterTenant: async (received) => {
+        calls += 1;
+        assert.equal((received as { principal: { emailVerified: boolean } }).principal.emailVerified, false);
+        return {
+          ok: false,
+          error: { schemaVersion: 1, code: "identity_unverified", field: "principal.emailVerified", retryable: false },
+        };
+      },
+    }),
+    isTrustedRequest: async () => true,
+  });
+
+  const response = await handler(request({ ...input, principal: { ...input.principal, emailVerified: false } }));
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, "identity_unverified");
+  assert.equal(calls, 1);
 });
 
 test("trusted valid input delegates to the configured adapter", async () => {
@@ -114,9 +196,8 @@ test("trusted valid input delegates to the configured adapter", async () => {
     },
   };
   const handler = createInternalSaaSTenantsPostHandler({
-    enabled: true,
+    runtime: postgresRuntime(adapter),
     isTrustedRequest: async () => true,
-    adapter,
   });
 
   const response = await handler(request(input));
@@ -134,15 +215,14 @@ test("trust verifier exceptions fail closed before reading the body or invoking 
     },
   } as Request;
   const handler = createInternalSaaSTenantsPostHandler({
-    enabled: true,
-    isTrustedRequest: async () => {
-      throw new Error("private verifier detail");
-    },
-    adapter: {
+    runtime: postgresRuntime({
       createStarterTenant: async () => {
         adapterCalls += 1;
         throw new Error("must not run");
       },
+    }),
+    isTrustedRequest: async () => {
+      throw new Error("private verifier detail");
     },
   });
 
@@ -158,13 +238,12 @@ test("trust verifier exceptions fail closed before reading the body or invoking 
 
 test("adapter exceptions become a safe retryable transaction failure", async () => {
   const handler = createInternalSaaSTenantsPostHandler({
-    enabled: true,
-    isTrustedRequest: async () => true,
-    adapter: {
+    runtime: postgresRuntime({
       createStarterTenant: async () => {
         throw new Error("private database stack and provider response");
       },
-    },
+    }),
+    isTrustedRequest: async () => true,
   });
 
   const response = await handler(request(input));
@@ -175,6 +254,51 @@ test("adapter exceptions become a safe retryable transaction failure", async () 
     error: { schemaVersion: 1, code: "tenant_transaction_failed", retryable: true },
   });
   assert.doesNotMatch(JSON.stringify(body), /private|database|stack|provider/i);
+});
+
+test("first creation is 201, replay is 200, and unknown COMMIT stays non-retryable", async () => {
+  for (const [replayed, expectedStatus] of [[false, 201], [true, 200]] as const) {
+    const handler = createInternalSaaSTenantsPostHandler({
+      runtime: postgresRuntime({ createStarterTenant: async () => successfulOutcome(replayed) }),
+      isTrustedRequest: async () => true,
+    });
+    const response = await handler(request(input));
+    assert.equal(response.status, expectedStatus);
+    assert.equal((await response.json()).value.replayed, replayed);
+  }
+
+  const unknown = createInternalSaaSTenantsPostHandler({
+    runtime: postgresRuntime({
+      createStarterTenant: async () => ({
+        ok: false,
+        error: { schemaVersion: 1, code: "tenant_transaction_failed", retryable: false },
+      }),
+    }),
+    isTrustedRequest: async () => true,
+  });
+  const response = await unknown(request(input));
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    error: { schemaVersion: 1, code: "tenant_transaction_failed", retryable: false },
+  });
+});
+
+test("all tenant authority conflicts map to a safe 409 response", async () => {
+  for (const code of ["slug_taken", "domain_conflict", "membership_conflict", "idempotency_mismatch"] as const) {
+    const handler = createInternalSaaSTenantsPostHandler({
+      runtime: postgresRuntime({
+        createStarterTenant: async () => ({
+          ok: false,
+          error: { schemaVersion: 1, code, retryable: false },
+        }),
+      }),
+      isTrustedRequest: async () => true,
+    });
+    const response = await handler(request(input));
+    assert.equal(response.status, 409, code);
+    assert.equal((await response.json()).error.code, code);
+  }
 });
 
 test("responses and route sources expose no secrets or legacy provisioning fallback", async () => {

@@ -1,0 +1,93 @@
+{
+  "bundleId": "phase3b2-202607220026-202607220029-quick-order-checkout-authority",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Migration 029 rollback is authorized only for isolated disposable rehearsal, restores the exact migration-027 private projection bodies and retains all durable rows. Migration 028 rollback is authorized only for isolated disposable rehearsal, restores the exact migration-027 claim body and retains all durable rows. Migration 027 rollback is authorized only for isolated disposable rehearsal and fails closed with QUICK_ORDER_CHECKOUT_API_ROLLBACK_HISTORY_CONFLICT when provider or cleanup operation history exists; immutable receipts are never deleted. Migration 026 rollback destroys quick-order checkout runtime rows and fails closed with QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT when revoked provider history and a replacement share one store/provider key.",
+  "artifacts": [
+    {
+      "id": "202607220026_quick_order_checkout_runtime_up",
+      "direction": "up",
+      "file": "202607220026_quick_order_checkout_runtime.up.sql",
+      "sha256": "330658de00a1513d19070daf17176c6f8a2c483e9dc7549bf006b56e7d89aba3",
+      "purpose": "Add quick-order redemption, payment-attempt, inventory-reservation, callback, reconciliation and operation authority with deterministic catalog and cancellation guards."
+    },
+    {
+      "id": "202607220026_quick_order_checkout_runtime_down",
+      "direction": "down",
+      "file": "202607220026_quick_order_checkout_runtime.down.sql",
+      "sha256": "3bff69078e03907354f2bf0c2c046717ec9a91c06010ff3a338f363c03284a9b",
+      "purpose": "Remove only migration 026 objects and restore the exact migration-025 cancellation and migration-018 catalog archive behavior."
+    },
+    {
+      "id": "202607220026_quick_order_checkout_runtime_assertions",
+      "direction": "verify",
+      "file": "202607220026_quick_order_checkout_runtime_assertions.sql",
+      "sha256": "fe87085e2f22fe70c02a71f094213a88732e98f6ed86ae5a37b64ddd0cf1d30c",
+      "purpose": "Fail on checkout runtime ownership, FORCE RLS, ACL, identity, lifecycle, immutable receipt, deterministic lock or catalog guard drift."
+    },
+    {
+      "id": "202607220027_quick_order_checkout_api_up",
+      "direction": "up",
+      "file": "202607220027_quick_order_checkout_api.up.sql",
+      "sha256": "7179d3dedc9137f0df0320af3331e857b7dc736e2bc2899d1135fa1714841c20",
+      "purpose": "Add least-privilege merchant provider authority, exact-host redemption, bounded PayTR attempt initiation, atomic callback settlement, fenced reconciliation, presentation, status, cleanup and read-only operation recovery."
+    },
+    {
+      "id": "202607220027_quick_order_checkout_api_down",
+      "direction": "down",
+      "file": "202607220027_quick_order_checkout_api.down.sql",
+      "sha256": "998bc03bde272951470ca3373eedbc533048532a6bf9d674b022f00dcfcda008",
+      "purpose": "Fail closed on immutable migration-027 history, remove only migration-027 surfaces and restore exact migration-025 create and duplicate bodies."
+    },
+    {
+      "id": "202607220027_quick_order_checkout_api_assertions",
+      "direction": "verify",
+      "file": "202607220027_quick_order_checkout_api_assertions.sql",
+      "sha256": "66f9b1462b845317f03e065087b247613b076fea6b0af6bb4027d29f25941ada",
+      "purpose": "Fail on merchant/workflow ACL, schema usage, direct table or sequence privilege, exact settlement and reconciliation signatures, lock order, lease fencing and operation-scope drift."
+    },
+    {
+      "id": "202607220028_quick_order_redemption_expiry_authority_up",
+      "direction": "up",
+      "file": "202607220028_quick_order_redemption_expiry_authority.up.sql",
+      "sha256": "2b6438a669a24beee378e2a1bab38cd8617b70db2f375445c5f590d2c049e770",
+      "purpose": "Bind redemption expiry atomically under the exact-host link row lock to the lesser of the requested bounded maximum and persisted link expiry."
+    },
+    {
+      "id": "202607220028_quick_order_redemption_expiry_authority_down",
+      "direction": "down",
+      "file": "202607220028_quick_order_redemption_expiry_authority.down.sql",
+      "sha256": "ae7cd7eac93c422816d53809e93ea81cc805bb6a732be364423f2c78a272445b",
+      "purpose": "Restore the exact migration-027 redemption claim body without deleting or mutating durable checkout history."
+    },
+    {
+      "id": "202607220028_quick_order_redemption_expiry_authority_assertions",
+      "direction": "verify",
+      "file": "202607220028_quick_order_redemption_expiry_authority_assertions.sql",
+      "sha256": "2762c21a7215b605aba325c7b00f7c03bb28109cf6dfd5c6a1f24545570d7956",
+      "purpose": "Fail on expiry derivation order, persisted projection, owner, SECURITY DEFINER, search_path or least-privilege ACL drift."
+    },
+    {
+      "id": "202607220029_quick_order_settlement_authority_up",
+      "direction": "up",
+      "file": "202607220029_quick_order_settlement_authority.up.sql",
+      "sha256": "23bd0dd194141829f04bb0ccfdecdb9ebe3f7c83be816292434b51d8efa3788b",
+      "purpose": "Bind callback and reconciliation authority to the persisted quick-order item count while keeping worker fencing private."
+    },
+    {
+      "id": "202607220029_quick_order_settlement_authority_down",
+      "direction": "down",
+      "file": "202607220029_quick_order_settlement_authority.down.sql",
+      "sha256": "a4d6e83061164684ffc90ce9e4787b6cc8cbc5059e09d5ecbc91732307785ca2",
+      "purpose": "Restore the exact migration-027 private authority projections without deleting or mutating durable checkout history."
+    },
+    {
+      "id": "202607220029_quick_order_settlement_authority_assertions",
+      "direction": "verify",
+      "file": "202607220029_quick_order_settlement_authority_assertions.sql",
+      "sha256": "2ca603e264c8d65029a6a0b0a080a25894467270e71247e740f1f37ac89880b6",
+      "purpose": "Fail on persisted item-count derivation, worker-ID projection, helper ownership, volatility, search_path or private ACL drift."
+    }
+  ]
+}

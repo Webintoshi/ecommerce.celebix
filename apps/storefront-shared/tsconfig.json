@@ -6,7 +6,9 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
-      "@celebix/saas-storefront-runtime": ["../../packages/saas-storefront-runtime/src/index.ts"]
+      "@celebix/saas-storefront-runtime": ["../../packages/saas-storefront-runtime/src/index.ts"],
+      "@celebix/saas-data": ["../../packages/saas-data/src/index.ts"],
+      "@celebix/saas-contracts": ["../../packages/saas-contracts/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

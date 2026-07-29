@@ -10,6 +10,6 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-strip-types --test src/contracts.test.ts"
+    "test": "node --experimental-strip-types --test src/*.test.ts src/**/*.test.ts"
   }
 }

@@ -1,0 +1,1 @@
+import{handleMerchantAdminRecords,handleMerchantAdminSave}from"../../../../../lib/merchant-admin-http/default.ts";export const GET=handleMerchantAdminRecords;export const POST=handleMerchantAdminSave;

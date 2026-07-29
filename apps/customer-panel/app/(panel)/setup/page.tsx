@@ -1,7 +1,7 @@
 const STEPS = [
-  ["Kimlik doğrulama", "Bekleniyor"],
-  ["Mağaza kaydı", "Bekleniyor"],
-  ["Yayın hazırlığı", "Bekleniyor"],
+  ["Kimlik doğrulama", "Tamamlandı"],
+  ["Mağaza yetkisi", "Doğrulandı"],
+  ["Ürün kataloğu", "Kullanılabilir"],
 ] as const;
 
 export default function SetupPage() {
@@ -9,7 +9,7 @@ export default function SetupPage() {
     <section className="page-stack">
       <div className="page-heading">
         <h1>Kurulum durumu</h1>
-        <p>Mağazanız hazır olana kadar güvenli işlem adımlarını buradan izleyebilirsiniz.</p>
+        <p>Aktif oturumunuzun kullanabildiği panel özelliklerini buradan izleyebilirsiniz.</p>
       </div>
       <ol className="setup-list">
         {STEPS.map(([label, status], index) => (

@@ -7,10 +7,13 @@ import type {
   StoreMembership,
 } from "@celebix/saas-contracts";
 import {
+  SaaSDataUnknownCommitError,
   SaaSDataUniqueConflict,
   assertNormalizedExactHostname,
   assertNormalizedSlug,
   createCanonicalTenantFingerprint,
+  createPanelStoreUrl,
+  normalizeExactHttpsOrigin,
   type SaaSDataRepository,
   type SaaSDataTransaction,
   type UniqueConflictKind,
@@ -180,7 +183,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
   constructor(options: CreateStarterTenantServiceOptions) {
     this.repository = options.repository;
     this.platformDomainSuffix = options.platformDomainSuffix ?? "celebix.site";
-    this.panelBaseUrl = (options.panelBaseUrl ?? "https://panel.celebix.site").replace(/\/$/, "");
+    this.panelBaseUrl = normalizeExactHttpsOrigin(options.panelBaseUrl ?? "https://panel.celebix.site");
   }
 
   async execute(rawInput: unknown): Promise<CreateStarterTenantOutcome> {
@@ -216,8 +219,10 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         updatedAt: timestamp,
       });
       if (claim.kind === "existing") {
-        await transaction.rollback();
+        // Mark the terminal attempt before awaiting it. A failed rollback makes
+        // the adapter transaction broken and must never trigger a second call.
         transactionClosed = true;
+        await transaction.rollback();
         const priorOperation = claim.operation;
         if (priorOperation.fingerprint !== fingerprint) {
           return { ok: false, error: safeError("idempotency_mismatch", "idempotencyKey") };
@@ -354,7 +359,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         membership,
         plan: planEntitlements,
         provisioningStatus: "ready",
-        panelUrl: `${this.panelBaseUrl}/stores/${store.slug}`,
+        panelUrl: createPanelStoreUrl(this.panelBaseUrl, store.slug),
         storefrontUrl: `https://${domain.hostname}`,
       };
 
@@ -363,6 +368,10 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       transactionClosed = true;
       return { ok: true, value: structuredClone(result) };
     } catch (error) {
+      if (error instanceof SaaSDataUnknownCommitError) {
+        transactionClosed = true;
+        return { ok: false, error: safeError("tenant_transaction_failed", undefined, false) };
+      }
       if (!transactionClosed) {
         await rollbackSafely(transaction);
       }

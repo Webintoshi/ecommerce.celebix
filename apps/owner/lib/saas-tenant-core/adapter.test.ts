@@ -8,7 +8,7 @@ import type { CreateStarterTenantService } from "@celebix/saas-tenant-core";
 import {
   createOwnerTenantCoreAdapter,
   createUnavailableOwnerTenantCoreAdapter,
-} from "./adapter";
+} from "./adapter.ts";
 
 const input: CreateStarterTenantInput = {
   schemaVersion: 1,

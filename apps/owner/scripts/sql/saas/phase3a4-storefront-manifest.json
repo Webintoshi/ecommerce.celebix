@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3a4-202607160020-pilot-storefront-media-domains",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "STAGING_AFTER_LOCAL_GATE_NO_PRODUCTION_APPLY",
+  "rollbackLimitations": "The down migration destroys Phase 3A4 domain and media rows. It is authorized only for disposable rehearsal and must not be executed in staging or production.",
+  "artifacts": [
+    {
+      "id": "202607160020_pilot_storefront_media_domains_up",
+      "direction": "up",
+      "file": "202607160020_pilot_storefront_media_domains.up.sql",
+      "sha256": "b50e2218f7d292f27fcbe88c92597b3b351adf9db39221fc7ef54f2ca1eb3c23",
+      "purpose": "Add exact active storefront domains, tenant-namespaced product media, public catalog projections, FORCE RLS, and narrow read/mutation functions."
+    },
+    {
+      "id": "202607160020_pilot_storefront_media_domains_down",
+      "direction": "down",
+      "file": "202607160020_pilot_storefront_media_domains.down.sql",
+      "sha256": "2fed093f2a211d10a608b98ba8601bef5d235a8c5120f3d345d5debb6a20d961",
+      "purpose": "Remove only Phase 3A4 objects in dependency-safe order for disposable rollback rehearsal."
+    },
+    {
+      "id": "202607160020_pilot_storefront_media_domains_assertions",
+      "direction": "verify",
+      "file": "202607160020_pilot_storefront_media_domains_assertions.sql",
+      "sha256": "044580b5201ead3143b9cd87dccf2c6715f30f3b33cb4a8624ec512c0366b85f",
+      "purpose": "Fail on PostgreSQL major, ownership, FORCE RLS, ACL, role, function search-path, trigger, and partial-index drift."
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "phase": "phase3w-storefront-one-page-checkout",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "phase3v-payment-provider-builtin-compatibility-manifest.json",
+      "sha256": "c6a6f9fca4480c354fefe07727c4bcdd6319bc91f64784c344e8401783fec44c"
+    },
+    {
+      "file": "202607280064_storefront_one_page_checkout.up.sql",
+      "sha256": "de146013d883f7d770158b694c5c1b18f0700f0cf75c7a712d69d92b63428d58"
+    },
+    {
+      "file": "202607280064_storefront_one_page_checkout_assertions.sql",
+      "sha256": "43be04b65440538dd8d82abdc4e74b764d93a8a53071cce90165ed450b9dda2b"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607280064_storefront_one_page_checkout.down.sql",
+      "sha256": "4a3f50c2c5db7ac3c1bfabcae94e90205938fa8c35b3cb4204d5ac0c235463b5"
+    }
+  ],
+  "externalConnections": 0,
+  "productionMutations": 0
+}

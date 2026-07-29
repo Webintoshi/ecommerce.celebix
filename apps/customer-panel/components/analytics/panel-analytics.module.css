@@ -1,0 +1,188 @@
+.rangeBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rangeBar button,
+.metricTabs button,
+.error button {
+  min-width: 48px;
+  min-height: 48px;
+  border: 1px solid #e3e7ee;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 0.65rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rangeBar button[aria-pressed="true"],
+.metricTabs button[aria-selected="true"] {
+  border-color: #ff6a00;
+  background: #fff5ed;
+  color: #8a3500;
+}
+
+.rangeBar button:focus-visible,
+.metricTabs button:focus-visible,
+.error button:focus-visible {
+  outline: 3px solid rgb(255 106 0 / 35%);
+  outline-offset: 2px;
+}
+
+.liveRegion {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.state,
+.error,
+.chart,
+.breakdown {
+  min-width: 0;
+  border: 1px solid #e3e7ee;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  padding: 1.25rem;
+}
+
+.state {
+  min-height: 132px;
+}
+.state h2,
+.state p,
+.error h2,
+.error p,
+.chart h2,
+.chart p,
+.breakdown h2 {
+  margin: 0;
+}
+.state p,
+.error p,
+.chart p {
+  margin-top: 0.35rem;
+  color: #667085;
+}
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.metrics {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #e3e7ee;
+  border-radius: 0.75rem;
+  background: #ffffff;
+}
+
+.metrics article {
+  min-width: 0;
+  border-right: 1px solid #e3e7ee;
+  padding: 1rem;
+}
+.metrics article:last-child {
+  border-right: 0;
+}
+.metrics span,
+.metrics strong {
+  display: block;
+}
+.metrics span {
+  color: #667085;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.metrics strong {
+  margin-top: 0.5rem;
+  color: #111827;
+  font-size: 1.6rem;
+}
+.chartViewport {
+  min-width: 0;
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.chartViewport > :global(.recharts-responsive-container) {
+  min-width: 620px;
+}
+
+.metricTabs {
+  display: flex;
+  overflow-x: auto;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-bottom: 0.25rem;
+}
+.metricTabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.tableViewport {
+  min-width: 0;
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+.tableViewport table {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+}
+.tableViewport caption {
+  padding: 0.75rem 0;
+  color: #667085;
+  text-align: left;
+}
+.tableViewport th,
+.tableViewport td {
+  border-bottom: 1px solid #e3e7ee;
+  padding: 0.8rem;
+  text-align: left;
+}
+.tableViewport td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.metricError {
+  color: #667085;
+}
+
+@media (max-width: 720px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .metrics article:nth-child(2) {
+    border-right: 0;
+  }
+  .error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+  .metrics article {
+    border-right: 0;
+  }
+  .rangeBar button {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rangeBar button,
+  .metricTabs button {
+    scroll-behavior: auto;
+  }
+}

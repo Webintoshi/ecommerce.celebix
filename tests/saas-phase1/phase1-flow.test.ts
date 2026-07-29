@@ -20,8 +20,8 @@ import {
   type OidcProviderCallbackInput,
 } from "../../apps/owner/lib/self-serve-oidc.ts";
 import {
-  SELF_SERVE_SAAS_REGISTRATION_ENABLED,
   beginSelfServeRegistration,
+  resolveSelfServeRegistrationUiEnabled,
 } from "../../apps/owner/lib/self-serve-registration-orchestrator.ts";
 import { PANEL_OIDC_CALLBACK_URL } from "../../packages/platform-config/src/saas.ts";
 import type { CreateStarterTenantInput } from "@celebix/saas-contracts";
@@ -54,6 +54,7 @@ function fakeProvider(calls?: { verify: number }) {
       url.searchParams.set("code_challenge_method", input.codeChallengeMethod);
       url.searchParams.set("redirect_uri", input.redirectUri);
       url.searchParams.set("response_type", "code");
+      url.searchParams.set("response_mode", "query");
       return url;
     },
     async verifyCallback(input: OidcProviderCallbackInput) {
@@ -332,7 +333,11 @@ test("complete disposable Phase 1 flow is exact, idempotent, tenant-scoped, and 
   assert.ok(unknownHost instanceof StorefrontResolutionError);
   if (unknownHost instanceof StorefrontResolutionError) assert.equal(unknownHost.code, "host_not_found");
 
-  assert.equal(SELF_SERVE_SAAS_REGISTRATION_ENABLED, false);
+  assert.equal(resolveSelfServeRegistrationUiEnabled({}), false);
+  assert.equal(resolveSelfServeRegistrationUiEnabled({
+    CELEBIX_SAAS_AUTH_MODE: "approved_staging",
+    CELEBIX_DEPLOYMENT_TIER: "production",
+  }), false);
   assert.equal(CUSTOMER_PANEL_AUTH_ENABLED, false);
   assert.equal((await createDisabledPanelOidcCallbackHandler()(new Request(PANEL_OIDC_CALLBACK_URL))).status, 503);
   assert.deepEqual(

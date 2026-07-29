@@ -1,0 +1,72 @@
+{
+  "bundleId": "phase3b3-202607220030-032-abandoned-carts",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Migration 032 rollback removes workflow capture functions and recovered-order binding; migration 031 restores prior action authority; migration 030 refuses persisted cart history.",
+  "artifacts": [
+    {
+      "id": "202607220030_abandoned_carts_up",
+      "direction": "up",
+      "file": "202607220030_abandoned_carts.up.sql",
+      "sha256": "f8848e7f009cc87eeed53cc7cf911915f65a7e43f6a583c043cb2dbe07ab65c6",
+      "purpose": "Add forced-RLS store-scoped abandoned carts, immutable item snapshots and operation history."
+    },
+    {
+      "id": "202607220030_abandoned_carts_down",
+      "direction": "down",
+      "file": "202607220030_abandoned_carts.down.sql",
+      "sha256": "b8252bf92fffb5daec01ca86b3f941a0ac293eab28e82d75fd74273e668ee9bb",
+      "purpose": "Fail closed on persisted history and remove only migration-030 objects during disposable rollback."
+    },
+    {
+      "id": "202607220030_abandoned_carts_assertions",
+      "direction": "verify",
+      "file": "202607220030_abandoned_carts_assertions.sql",
+      "sha256": "734f6d5dbef520ec5c5678fbfdef2a7748b9fbf1c80a35397581606b52587a35",
+      "purpose": "Fail on owner, FORCE RLS, tenant FK, constraints, ACL, policy, index or immutability drift."
+    },
+    {
+      "id": "202607220031_abandoned_cart_api_up",
+      "direction": "up",
+      "file": "202607220031_abandoned_cart_api.up.sql",
+      "sha256": "1ba4a5c97bb0085ab5be1073181c99576611cccf8787e197933fa380843666d8",
+      "purpose": "Add bounded cart reads and replay-safe versioned mutations behind durable merchant authority."
+    },
+    {
+      "id": "202607220031_abandoned_cart_api_down",
+      "direction": "down",
+      "file": "202607220031_abandoned_cart_api.down.sql",
+      "sha256": "e935aff44ba3cd2ca6e1ffaf96571ab7798a294dadf370fcf462f6a664d716ca",
+      "purpose": "Remove only migration-031 API objects and restore the prior merchant order action authority."
+    },
+    {
+      "id": "202607220031_abandoned_cart_api_assertions",
+      "direction": "verify",
+      "file": "202607220031_abandoned_cart_api_assertions.sql",
+      "sha256": "cf49b374a055bb42784c6d631c4a7a6559d7262b5bd96ef08faecb039ae18437",
+      "purpose": "Fail on API signature, definer, search-path, ACL, action, store-binding, recovery or concurrency drift."
+    },
+    {
+      "id": "202607220032_abandoned_cart_capture_up",
+      "direction": "up",
+      "file": "202607220032_abandoned_cart_capture.up.sql",
+      "sha256": "328c435f9b864e3799808c6dcdabb1d46b91bbe206eeea1efb19399c9e690af7",
+      "purpose": "Add trusted-host workflow capture, stale lifecycle and exact persisted-order conversion authority."
+    },
+    {
+      "id": "202607220032_abandoned_cart_capture_down",
+      "direction": "down",
+      "file": "202607220032_abandoned_cart_capture.down.sql",
+      "sha256": "4adb5870e0a4dc5f07981e03686c615b0181cea4d7e3f52252132b907e3b285d",
+      "purpose": "Remove only migration-032 workflow functions and recovered-order binding."
+    },
+    {
+      "id": "202607220032_abandoned_cart_capture_assertions",
+      "direction": "verify",
+      "file": "202607220032_abandoned_cart_capture_assertions.sql",
+      "sha256": "9c65e5b556c2702c8e97cc7fcffe7ed708aea9ffdfb44ee86da53646694eb44d",
+      "purpose": "Fail on workflow ACL, trusted-host, catalog price, concurrency or order/store binding drift."
+    }
+  ]
+}

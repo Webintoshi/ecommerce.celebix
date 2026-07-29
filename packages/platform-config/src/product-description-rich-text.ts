@@ -1,3 +1,5 @@
+import MarkdownIt, { type Options as MarkdownItOptions } from "markdown-it";
+
 const INLINE_SECTION_LABELS = [
   "Özellikler:",
   "Malzeme:",
@@ -26,6 +28,7 @@ const ALLOWED_TAGS = new Set([
   "strong",
   "em",
   "u",
+  "del",
   "ul",
   "ol",
   "li",
@@ -34,7 +37,51 @@ const ALLOWED_TAGS = new Set([
   "h4",
   "blockquote",
   "a",
+  "pre",
+  "code",
+  "hr",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
 ]);
+
+export type ProductDescriptionRichTextTag =
+  | "p"
+  | "br"
+  | "strong"
+  | "em"
+  | "u"
+  | "del"
+  | "ul"
+  | "ol"
+  | "li"
+  | "h2"
+  | "h3"
+  | "h4"
+  | "blockquote"
+  | "a"
+  | "pre"
+  | "code"
+  | "hr"
+  | "table"
+  | "thead"
+  | "tbody"
+  | "tr"
+  | "th"
+  | "td";
+
+export type ProductDescriptionRichTextNode =
+  | Readonly<{ type: "text"; value: string }>
+  | Readonly<{
+      type: "element";
+      tag: ProductDescriptionRichTextTag;
+      href?: string;
+      external?: boolean;
+      children: readonly ProductDescriptionRichTextNode[];
+    }>;
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -48,6 +95,19 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+const markdownOptions: MarkdownItOptions & Readonly<{ maxNesting: number }> = {
+  html: false,
+  linkify: false,
+  typographer: false,
+  breaks: false,
+  maxNesting: 20,
+};
+
+const markdown = new MarkdownIt(markdownOptions);
+
+markdown.renderer.rules.image = (tokens, index) =>
+  escapeHtml(tokens[index]?.content ?? "");
 
 function decodeHtmlEntities(value: string): string {
   return value
@@ -129,6 +189,12 @@ function plainTextToHtml(rawDescription: string, productName?: string) {
     .join("");
 }
 
+function renderMarkdownSource(rawDescription: string, productName?: string) {
+  return markdown.render(
+    normalizePlainTextDescription(rawDescription, productName),
+  );
+}
+
 export function normalizeProductDescriptionHtml(
   rawDescription?: string | null,
   productName?: string,
@@ -137,11 +203,10 @@ export function normalizeProductDescriptionHtml(
     return "";
   }
 
-  if (!hasHtmlMarkup(rawDescription)) {
-    return plainTextToHtml(rawDescription, productName);
-  }
-
-  let html = rawDescription
+  const legacyHtml = hasHtmlMarkup(rawDescription);
+  let html = (legacyHtml
+    ? rawDescription
+    : renderMarkdownSource(rawDescription, productName))
     .replace(/\r\n?/g, "\n")
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(
@@ -160,6 +225,8 @@ export function normalizeProductDescriptionHtml(
     .replace(/<\s*\/\s*b\s*>/gi, "</strong>")
     .replace(/<\s*i\b[^>]*>/gi, "<em>")
     .replace(/<\s*\/\s*i\s*>/gi, "</em>")
+    .replace(/<\s*s\b[^>]*>/gi, "<del>")
+    .replace(/<\s*\/\s*s\s*>/gi, "</del>")
     .replace(/<\s*h1\b[^>]*>/gi, "<h2>")
     .replace(/<\s*\/\s*h1\s*>/gi, "</h2>")
     .replace(/<\s*h5\b[^>]*>/gi, "<h4>")
@@ -214,7 +281,85 @@ export function normalizeProductDescriptionHtml(
     )
     .trim();
 
-  return html || plainTextToHtml(rawDescription, productName);
+  return html || (legacyHtml ? "" : plainTextToHtml(rawDescription, productName));
+}
+
+type MutableRichTextElement = {
+  type: "element";
+  tag: ProductDescriptionRichTextTag | "root";
+  href?: string;
+  external?: boolean;
+  children: Array<ProductDescriptionRichTextNode | MutableRichTextElement>;
+};
+
+const VOID_RICH_TEXT_TAGS = new Set<ProductDescriptionRichTextTag>(["br", "hr"]);
+
+function freezeRichTextNode(
+  node: ProductDescriptionRichTextNode | MutableRichTextElement,
+): ProductDescriptionRichTextNode {
+  if (node.type === "text") return Object.freeze(node);
+  if (node.tag === "root") throw new Error("product_description_rich_text_root_not_renderable");
+  const children = Object.freeze(node.children.map(freezeRichTextNode));
+  return Object.freeze({
+    type: "element" as const,
+    tag: node.tag,
+    ...(node.href === undefined ? {} : { href: node.href }),
+    ...(node.external === undefined ? {} : { external: node.external }),
+    children,
+  });
+}
+
+export function normalizeProductDescriptionRichText(
+  rawDescription?: string | null,
+  productName?: string,
+): readonly ProductDescriptionRichTextNode[] {
+  const html = normalizeProductDescriptionHtml(rawDescription, productName);
+  if (!html) return Object.freeze([]);
+
+  const root: MutableRichTextElement = { type: "element", tag: "root", children: [] };
+  const stack: MutableRichTextElement[] = [root];
+  const tokens = html.match(/<[^>]*>|[^<]+/g) ?? [];
+
+  for (const token of tokens) {
+    const closingTag = token.match(/^<\s*\/\s*([a-z0-9]+)\s*>$/i);
+    if (closingTag) {
+      const tag = closingTag[1]?.toLowerCase();
+      let matchingIndex = -1;
+      for (let index = stack.length - 1; index > 0; index -= 1) {
+        if (stack[index]?.tag === tag) {
+          matchingIndex = index;
+          break;
+        }
+      }
+      if (matchingIndex > 0) stack.length = matchingIndex;
+      continue;
+    }
+
+    const openingTag = token.match(/^<\s*([a-z0-9]+)([^>]*)>$/i);
+    if (openingTag) {
+      const tag = openingTag[1]?.toLowerCase();
+      if (!tag || !ALLOWED_TAGS.has(tag)) continue;
+      const normalizedTag = tag as ProductDescriptionRichTextTag;
+      const rawAttributes = openingTag[2] ?? "";
+      const rawHref = rawAttributes.match(/\bhref\s*=\s*"([^"]*)"/i)?.[1];
+      const href = normalizedTag === "a" && rawHref ? sanitizeHref(rawHref) : "";
+      const element: MutableRichTextElement = {
+        type: "element",
+        tag: normalizedTag,
+        ...(href ? { href, external: /^https?:\/\//i.test(href) } : {}),
+        children: [],
+      };
+      stack.at(-1)!.children.push(element);
+      if (!VOID_RICH_TEXT_TAGS.has(normalizedTag)) stack.push(element);
+      continue;
+    }
+
+    const value = decodeHtmlEntities(token);
+    if (stack.length === 1 && /^\s*$/.test(value)) continue;
+    stack.at(-1)!.children.push(Object.freeze({ type: "text" as const, value }));
+  }
+
+  return Object.freeze(root.children.map(freezeRichTextNode));
 }
 
 export function extractPlainTextFromProductDescription(
@@ -231,7 +376,8 @@ export function extractPlainTextFromProductDescription(
     html
       .replace(/<\s*br\s*\/?>/gi, "\n")
       .replace(/<\s*li\s*>/gi, "• ")
-      .replace(/<\s*\/\s*(p|h2|h3|h4|blockquote|li|ul|ol)\s*>/gi, "\n")
+      .replace(/<\s*\/\s*(th|td)\s*>/gi, " ")
+      .replace(/<\s*\/\s*(p|h2|h3|h4|blockquote|li|ul|ol|pre|table|tr)\s*>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
       .replace(/[ \t]+\n/g, "\n")
       .replace(/\n[ \t]+/g, "\n")

@@ -1,0 +1,18 @@
+{
+  "phase": "3C1A",
+  "description": "Fix customer tag and segment assignment on migrated databases",
+  "artifacts": [
+    {
+      "file": "202607270040_customer_taxonomy_assignment_fix.up.sql",
+      "sha256": "72b90aad2b5269c045cb99d9f7e4312d6eedc9d2613cb0e99051cc4a957b0ba9"
+    },
+    {
+      "file": "202607270040_customer_taxonomy_assignment_fix.down.sql",
+      "sha256": "735afe83ba58b01afc33f64a5aa7b77f32131cf93aab7b707552976e299bfb0d"
+    },
+    {
+      "file": "202607270040_customer_taxonomy_assignment_fix_assertions.sql",
+      "sha256": "3b8b0e6f19c3bb8ab1c0bc4deb263a758b871989e3e1096bc26bed873e6fde99"
+    }
+  ]
+}

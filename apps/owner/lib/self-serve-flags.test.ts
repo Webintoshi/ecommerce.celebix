@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getSelfServeFeatureFlags, getSelfServePersistenceMode } from "./self-serve-flags";
+import { getSelfServeFeatureFlags, getSelfServePersistenceMode } from "./self-serve-flags.ts";
 
 const SELF_SERVE_ENV_KEYS = [
   "SELF_SERVE_SIGNUP_ENABLED",
