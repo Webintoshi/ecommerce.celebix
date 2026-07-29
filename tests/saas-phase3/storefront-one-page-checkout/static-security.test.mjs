@@ -368,6 +368,7 @@ test("proxy gives checkout HTML and APIs exact private response protections", as
     selectAuthority: () => ({ kind: "trusted", hostname: "shop.example.test" }),
     resolveMediaOrigin: () => "https://media.example.test",
     authorizePaytrIframe: async () => false,
+    checkoutRolloutAllows: (hostname) => hostname === "shop.example.test",
     now: () => new Date("2026-07-29T12:00:00.000Z"),
     resolveAnalytics: async () => ({
       scriptOrigin: "https://analytics.example.test",
@@ -406,6 +407,7 @@ test("proxy gives checkout HTML and APIs exact private response protections", as
     selectAuthority: () => ({ kind: "trusted", hostname: "shop.example.test" }),
     resolveMediaOrigin: () => "https://media.example.test",
     authorizePaytrIframe: async () => false,
+    checkoutRolloutAllows: (hostname) => hostname === "shop.example.test",
     now: () => new Date("2026-07-29T12:00:00.000Z"),
     resolveAnalytics: async () => null,
   });

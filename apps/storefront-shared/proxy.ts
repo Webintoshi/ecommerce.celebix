@@ -5,6 +5,7 @@ import { NextResponse } from "next/server.js";
 import { parseStorefrontDataConfig, STOREFRONT_DATA_ENVIRONMENT_FIELDS } from "./lib/runtime-config.ts";
 import { resolveDefaultCheckoutPaymentRuntime } from "./lib/checkout/runtime.ts";
 import { digestRedemptionCredential, parseRedemptionCookie } from "./lib/checkout/redemption-cookie.ts";
+import { checkoutRolloutAllowsHost } from "./lib/checkout/rollout-gate.ts";
 import { selectTrustedStorefrontHostAuthority } from "./lib/trusted-host-authority.ts";
 
 const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
@@ -21,6 +22,13 @@ function isCheckoutPath(pathname: string): boolean {
     || pathname.startsWith("/odeme/")
     || pathname === "/api/checkout"
     || pathname.startsWith("/api/checkout/");
+}
+
+function isCheckoutRolloutInitiationPath(pathname: string): boolean {
+  return pathname === "/odeme"
+    || pathname === "/api/checkout/quote"
+    || pathname === "/api/checkout/delivery"
+    || pathname === "/api/checkout/submit";
 }
 
 function unavailable(checkoutPath = false): NextResponse {
@@ -40,6 +48,7 @@ type StorefrontProxyDependencies = Readonly<{
   selectAuthority: (headers: Headers) => ProxyAuthority;
   resolveMediaOrigin: () => string;
   authorizePaytrIframe: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
+  checkoutRolloutAllows?: (hostname: string) => boolean;
   now: () => Date;
   resolveAnalytics?: (input: Readonly<{hostname:string;now:Date}>) => Promise<Readonly<{scriptOrigin:string;collectorOrigin:string}>|null>;
 }>;
@@ -65,6 +74,7 @@ const DEFAULT_DEPENDENCIES: StorefrontProxyDependencies = Object.freeze({
   selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers),
   resolveMediaOrigin: defaultMediaOrigin,
   authorizePaytrIframe: defaultIframeAuthorization,
+  checkoutRolloutAllows: (hostname) => checkoutRolloutAllowsHost(process.env, hostname),
   now: () => new Date(),
   async resolveAnalytics(input) {
     const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
@@ -81,6 +91,15 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const checkoutPath = isCheckoutPath(pathname);
     const authority = dependencies.selectAuthority(request.headers);
     if (authority.kind !== "trusted") return unavailable(checkoutPath);
+    if (isCheckoutRolloutInitiationPath(pathname)) {
+      let rolloutAllowed = false;
+      try {
+        rolloutAllowed = dependencies.checkoutRolloutAllows?.(authority.hostname) === true;
+      } catch {
+        rolloutAllowed = false;
+      }
+      if (!rolloutAllowed) return unavailable(true);
+    }
     const exactTarget = request.nextUrl.search === "" && request.nextUrl.hash === "";
     const callbackPath = pathname === "/api/payments/paytr/callback";
     if (callbackPath && exactTarget && request.method === "POST") {

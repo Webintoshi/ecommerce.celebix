@@ -35,20 +35,29 @@ The fixed application target is the existing shared storefront service:
 - Migration 063 assertions fail, migration 064 is already partially present,
   migration 064 assertions fail, or `saas.storefront_checkout_preflight()` is
   not exact `true`.
-- A checkout-only traffic gate cannot deny every host outside the current
-  allowlist without disabling verified provider callbacks.
+- The application checkout rollout gate is absent, malformed, not disabled by
+  default, or cannot deny every host outside the exact allowlist while keeping
+  verified callbacks and already-created-attempt result/status paths available.
 - Iyzico or PayTR is represented as ready without genuine evidence for the
   exact candidate source digest and the authorized tenant sandbox account.
 - Any command would expose a database URL, password, encryption material,
   provider value, session value, or Coolify access material.
 
-The current source defines `CELEBIX_STOREFRONT_PROXY_MODE`, but that switch
-gates the entire storefront; it is not a checkout-only feature flag or a tenant
-allowlist. No checkout-specific environment switch is defined in this source.
-Therefore the operator must identify and separately prove the existing
-upstream exact-host/path rollout control before deploying. If that control does
-not exist, the rollout is **BLOCKED**. Do not invent an application environment
-variable or treat the whole-storefront switch as the checkout flag.
+The application owns a checkout-only exact-host gate. It is disabled unless all
+three facts are exact: `CELEBIX_DEPLOYMENT_TIER=staging`,
+`CELEBIX_CHECKOUT_ROLLOUT_MODE=approved_staging`, and a valid
+`CELEBIX_CHECKOUT_ROLLOUT_HOSTS` comma-separated allowlist. The allowlist accepts
+only canonical lowercase DNS hostnames. Empty entries, duplicates, wildcards,
+ports, paths, whitespace, uppercase, malformed hostnames, missing variables,
+or any other mode fail closed for the entire new-checkout initiation surface.
+The gate consumes only the hostname selected by the authenticated storefront
+proxy authority; raw `Host`, `Forwarded`, or caller-selected forwarding headers
+cannot choose the tenant.
+
+The gate denies exact `/odeme`, `/api/checkout/quote`,
+`/api/checkout/delivery`, and `/api/checkout/submit`. It intentionally does not
+deny provider callbacks, `/odeme/sonuc`, `/api/checkout/status`, reconciliation,
+or legacy quick-order paths, so already-created attempts can drain truthfully.
 
 The read-only staging discovery on 2026-07-29 found auto-deploy enabled, the
 latest storefront deployment webhook-triggered, Coolify source-commit injection
@@ -79,7 +88,7 @@ git cat-file -e "${CANDIDATE_SHA}^{commit}"
 Before calling this commit deployable, require the complete repository gate,
 the checkout PostgreSQL harness, static security test, browser acceptance test,
 and cumulative phase-3 suite to pass. The candidate must also pin the reviewed
-published Next.js baseline, currently `16.2.10`, across every repository-owned
+published Next.js baseline, currently `16.2.12`, across every repository-owned
 Next.js application and matching tooling. Record the dependency output and the
 following execution-surface scan in the evidence record:
 
@@ -95,11 +104,9 @@ node tests/saas-phase3/storefront-one-page-checkout/browser-acceptance.mjs
 npm run test:saas-phase3:current
 ```
 
-`16.2.10` does not mean unpublished `16.2.11` or `16.2.12` fixes are
-installed. The reviewed source scan must continue to show that the shared
-storefront has no Server Actions, dynamic rewrite/redirect configuration, or
-`next/image` execution surface associated with that residual upstream patch
-gap. Do not describe unpublished coverage as patched.
+The reviewed source scan must continue to show that the shared storefront has
+no Server Actions, dynamic rewrite/redirect configuration, or `next/image`
+execution surface outside the reviewed baseline.
 
 ## 2. Freeze automatic delivery and record rollback state
 
@@ -115,8 +122,10 @@ project, environment, service ID, domain, repository, and fixed branch above.
    to be a lowercase 40-hex value equal to the recorded image/source commit.
 5. Save that value as `CURRENT_STOREFRONT_SHA`. Keep its image available for an
    application-first rollback.
-6. Verify the external checkout rollout control is disabled for every host and
-   that existing verified callback routes are unaffected.
+6. Leave both `CELEBIX_CHECKOUT_ROLLOUT_MODE` and
+   `CELEBIX_CHECKOUT_ROLLOUT_HOSTS` unset, verify `/odeme` is the bounded
+   unavailable response for every host, and verify existing callbacks and
+   result/status paths remain reachable.
 
 Do not continue if the running commit cannot be identified exactly. A branch
 name, `latest` tag, abbreviated SHA, deployment timestamp, or healthy status is
@@ -134,8 +143,11 @@ test "$CANDIDATE_SHA" = "$(git rev-parse HEAD)"
 test "$CANDIDATE_SHA" = "$(git rev-parse "$REMOTE_REF")"
 ```
 
-The migration runner rejects an unpushed commit, a dirty protected artifact,
-or any byte/hash mismatch in the phase3w manifest.
+The migration runner compares local source with the local remote-tracking ref;
+it does not independently contact the Git server. The immediate `git fetch` and
+local/remote equality checks above are therefore mandatory preconditions. The
+runner still rejects a dirty protected artifact or any byte/hash mismatch in
+the phase3w manifest.
 
 ## 4. Prove backup and apply migration 064
 
@@ -200,7 +212,7 @@ record the URL or any protected value.
 
 ## 5. Pin and manually deploy the immutable application
 
-Before deployment, keep the checkout rollout control disabled. In Coolify:
+Before deployment, keep both checkout rollout variables unset. In Coolify:
 
 1. Confirm the service still resolves to the fixed project/environment/service
    and branch.
@@ -222,18 +234,32 @@ is green.
 
 ## 6. Verify health, security headers, and two synthetic hosts
 
-The secured execution context supplies two distinct exact synthetic hostnames.
-They must already resolve only to staging and contain synthetic data only:
+The two reviewed synthetic hosts are exact and distinct. They must resolve only
+to this isolated staging service and contain synthetic data only:
 
 ```text
-SYNTHETIC_CHECKOUT_HOST_A
-SYNTHETIC_CHECKOUT_HOST_B
+SYNTHETIC_CHECKOUT_HOST_A=pilot-store.saas-staging.celebix.site
+SYNTHETIC_CHECKOUT_HOST_B=second-store.saas-staging.celebix.site
 ```
 
-With the rollout control still disabled, `/odeme` must be denied or return the
-reviewed controlled-unavailable response on both hosts, while `/health` remains
-healthy. Then allow only those two exact hosts through the checkout control.
-Wildcard, suffix, query-selected, and caller-header-selected hosts are
+With both rollout variables still unset, exact `/odeme` must return the reviewed
+`503 Storefront unavailable` response on both hosts, while `/health`, provider
+callbacks, `/odeme/sonuc`, and `/api/checkout/status` remain reachable. Record
+the no-store/noindex/no-referrer headers without recording cookies or bodies
+that contain identity data.
+
+Then set exactly these two non-secret values in the staging service and perform
+a controlled restart/manual deployment of the same immutable candidate image:
+
+```text
+CELEBIX_CHECKOUT_ROLLOUT_MODE=approved_staging
+CELEBIX_CHECKOUT_ROLLOUT_HOSTS=pilot-store.saas-staging.celebix.site,second-store.saas-staging.celebix.site
+```
+
+Do not add spaces, a trailing comma, duplicate hosts, wildcard, parent-domain
+suffix, port, path, uppercase character, or third host. Any malformed allowlist
+disables initiation for every host. Re-prove image/source equality after the
+configuration restart. Query-selected and caller-header-selected hosts are
 forbidden.
 
 Capture read-only HTTP evidence without cookies or redirects:
@@ -322,21 +348,24 @@ Expansion requires every threshold below to hold for the entire window:
 | Callback signature/replay, provider-authority, DB-preflight, or secret-redaction error | exactly 0 |
 | Browser console error and application restart | exactly 0 |
 
-After the window, add only the separately approved exact tenant hostnames to
-the external checkout control. Record the before/after exact allowlist and its
-owner. Do not use `*`, a parent-domain suffix, a user-supplied header, or a
-global storefront switch. Repeat the same threshold window before any further
-expansion. General or production enablement requires a separate decision and is
-outside this runbook.
+After the window, append only separately approved exact canonical lowercase
+tenant hostnames to `CELEBIX_CHECKOUT_ROLLOUT_HOSTS`, with no whitespace, and
+manually restart/deploy the same approved immutable image. Record the
+before/after exact value and its owner. Do not use `*`, a parent-domain suffix,
+a user-supplied header, or the whole-storefront proxy switch. Repeat source/image
+equality and the same threshold window before any further expansion. General or
+production enablement requires a separate decision and is outside this runbook.
 
 ## 9. Application-first rollback
 
 At any threshold breach, identity mismatch, provider ambiguity, callback
 failure, stock/order invariant failure, or suspicious log event:
 
-1. Remove every host from the checkout rollout control immediately. Keep
-   verified callback/reconciliation paths available for already-created hosted
-   attempts.
+1. Unset both `CELEBIX_CHECKOUT_ROLLOUT_MODE` and
+   `CELEBIX_CHECKOUT_ROLLOUT_HOSTS`, then immediately restart/manual-deploy the
+   selected immutable image. Do not use an empty allowlist as an enabled state.
+   Keep verified callback, result/status, and reconciliation paths available
+   for already-created hosted attempts.
 2. Pin the storefront service back to `CURRENT_STOREFRONT_SHA`, set its
    `SOURCE_COMMIT` to that exact SHA, and manually deploy the retained immutable
    image.

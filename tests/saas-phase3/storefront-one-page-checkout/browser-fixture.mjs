@@ -1070,6 +1070,10 @@ export async function startCheckoutBrowserFixture() {
     const providerControlUrl = `http://127.0.0.1:${providerControlPort}`;
     const runtimeEnvironment = {
       CELEBIX_DEPLOYMENT_TIER: "staging",
+      CELEBIX_CHECKOUT_ROLLOUT_MODE: "approved_staging",
+      CELEBIX_CHECKOUT_ROLLOUT_HOSTS: CHECKOUT_BROWSER_HOSTS
+        .map(({ hostname }) => hostname)
+        .join(","),
       CELEBIX_STOREFRONT_DATA_MODE: "approved_staging",
       CELEBIX_STOREFRONT_PROXY_MODE: "approved_staging",
       CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL: PROXY_TOKEN,
