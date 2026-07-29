@@ -175,16 +175,37 @@ async function recoverWordPressDerivative(sourceUrl: string, signal: AbortSignal
   }
   return null;
 }
-async function body(response: MigrationImageRawResponse): Promise<Uint8Array> {
+function signatureLength(mediaType: PublicImageMediaType): number {
+  return mediaType === "image/jpeg" ? 2 : mediaType === "image/png" ? 16 : 12;
+}
+function hasExpectedSignature(bytes: Uint8Array, mediaType: PublicImageMediaType): boolean {
+  if (mediaType === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8;
+  if (mediaType === "image/png") {
+    return Buffer.from(bytes.subarray(0, 8)).equals(Buffer.from("89504e470d0a1a0a", "hex"))
+      && Buffer.from(bytes.subarray(12, 16)).toString("ascii") === "IHDR";
+  }
+  return Buffer.from(bytes.subarray(0, 4)).toString("ascii") === "RIFF"
+    && Buffer.from(bytes.subarray(8, 12)).toString("ascii") === "WEBP";
+}
+async function body(response: MigrationImageRawResponse, selectedMediaType: PublicImageMediaType): Promise<Uint8Array> {
   const encoding = response.headers.get("content-encoding");
   if (encoding !== null && encoding.toLowerCase() !== "identity") fail("migration_image_response_invalid");
   const length = response.headers.get("content-length");
   if (length !== null && (!/^(?:0|[1-9][0-9]*)$/.test(length) || Number(length) > MAX_BYTES)) fail("migration_image_response_too_large");
   const chunks: Uint8Array[] = []; let total = 0;
+  const prefix = new Uint8Array(signatureLength(selectedMediaType)); let prefixLength = 0; let signatureChecked = false;
   for await (const raw of response.body) {
     if (!(raw instanceof Uint8Array)) fail("migration_image_response_invalid");
     const chunk = new Uint8Array(raw); total += chunk.byteLength;
     if (total > MAX_BYTES) fail("migration_image_response_too_large");
+    if (!signatureChecked) {
+      const selected = chunk.subarray(0, Math.min(chunk.byteLength, prefix.byteLength - prefixLength));
+      prefix.set(selected, prefixLength); prefixLength += selected.byteLength;
+      if (prefixLength === prefix.byteLength) {
+        signatureChecked = true;
+        if (!hasExpectedSignature(prefix, selectedMediaType)) fail("migration_image_response_invalid");
+      }
+    }
     chunks.push(chunk);
   }
   if (total < 24) fail("migration_image_response_invalid");
@@ -216,7 +237,7 @@ async function withinAuthority(urlValue: string, signal: AbortSignal, dependenci
     if (response.status !== 200) { discard(response); fail("migration_image_response_invalid"); }
     try {
       const selectedMediaType = mediaType(response.headers.get("content-type"));
-      const bytes = await body(response);
+      const bytes = await body(response, selectedMediaType);
       let validated: ReturnType<typeof validateProductImage>;
       try { validated = validateProductImage({ bytes, mediaType: selectedMediaType, fileName: fileName(selected, selectedMediaType) }); }
       catch { return fail("migration_image_response_invalid"); }

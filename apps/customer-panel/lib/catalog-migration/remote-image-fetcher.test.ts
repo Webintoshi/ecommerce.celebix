@@ -88,6 +88,26 @@ test("does not attempt WordPress recovery for an unrelated corrupt image path", 
   assert.equal(requests.length, 1);
 });
 
+test("rejects an invalid image signature before consuming the remaining response body", async () => {
+  let consumedChunks = 0;
+  await assert.rejects(() => fetchMigrationImage("https://media.example.test/assets/broken.png", {
+    lookup: async () => [{ address: "8.8.8.8", family: 4 }],
+    request: async () => ({
+      status: 200,
+      headers: new Headers({ "content-type": "image/png", "content-length": "1048600" }),
+      body: {
+        async *[Symbol.asyncIterator]() {
+          consumedChunks += 1;
+          yield new Uint8Array(24);
+          consumedChunks += 1;
+          yield new Uint8Array(1_048_576);
+        },
+      },
+    }),
+  }), (error: unknown) => error instanceof MigrationImageError && error.code === "migration_image_response_invalid");
+  assert.equal(consumedChunks, 1);
+});
+
 test("revalidates DNS on every redirect and denies rebinding before another request", async () => {
   let lookups = 0, requests = 0;
   await assert.rejects(() => fetchMigrationImage("https://media.example.test/a.png", {
