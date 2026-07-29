@@ -120,7 +120,7 @@ export class PostgresCatalogMigrationRepository implements CatalogMigrationRepos
     return this.mutate(authority, operationId, fingerprint, "begun", {
       text: "SELECT outcome,result_payload FROM saas.catalog_migration_begin($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::text,$13::integer,$14::integer,$15::jsonb,$16::jsonb)",
       values: [...authorityValues(authority), operationId, fingerprint, jobId, sourceDigest, totalProducts, totalMedia, JSON.stringify(persistedCategories), JSON.stringify(persistedBrands)],
-    }, (value, replayed) => { const result = this.job(value, replayed); if (!replayed && result.jobId !== jobId) throw unavailable(); return result; });
+    }, (value, replayed) => this.job(value, replayed));
   }
   async importBatch(input: ImportCatalogMigrationBatchInput): Promise<CatalogMigrationBatchResult> {
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "jobId", "sourceDigest", "products"]);

@@ -16,6 +16,7 @@ const BRAND = "31000000-0000-4000-8000-00000000000a";
 const DIGEST = "a".repeat(64);
 const IMAGE_DIGEST = "b".repeat(64);
 const MEDIA = "31000000-0000-4000-8000-00000000000b";
+const EXISTING_JOB = "31000000-0000-4000-8000-00000000000c";
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 
 function tenant(): TenantContext {
@@ -144,6 +145,35 @@ test("begin creates one tenant-scoped job and deterministic taxonomy authority",
   assert.equal(sql.values[10], JOB);
   assert.deepEqual(JSON.parse(String(sql.values[14])), [{ id: CATEGORY, name: "Yüzükler", slug: "yuzukler" }]);
   assert.deepEqual(JSON.parse(String(sql.values[15])), [{ id: BRAND, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu" }]);
+});
+
+test("begin resumes the authority-scoped job already persisted for the same source digest", async () => {
+  const writer = new Client((text) => text.includes("catalog_migration_begin")
+    ? [{ outcome: "begun", result_payload: projection({
+      jobId: EXISTING_JOB,
+      status: "media_processing",
+      importedProducts: 1_628,
+      failedMedia: 455,
+      version: 522,
+    }) }]
+    : []);
+
+  const result = await repository(new Pool([writer])).begin({
+    tenantContext: tenant(),
+    now: NOW,
+    operationId: OPERATION,
+    sourceDigest: DIGEST,
+    totalProducts: 1_628,
+    totalMedia: 5_423,
+    categories: [{ name: "Yüzükler", slug: "yuzukler" }],
+    brands: [{ name: "Güzide Kuyumcu", slug: "guzide-kuyumcu" }],
+  });
+
+  assert.equal(result.jobId, EXISTING_JOB);
+  assert.equal(result.status, "media_processing");
+  assert.equal(result.importedProducts, 1_628);
+  assert.equal(result.failedMedia, 455);
+  assert.equal(call(writer, "catalog_migration_begin").values[10], JOB);
 });
 
 test("importBatch writes at most 25 products and returns exact ordered source mappings", async () => {
