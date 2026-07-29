@@ -10,9 +10,29 @@ import { selectTrustedStorefrontHostAuthority } from "./lib/trusted-host-authori
 const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
 const PAYTR_IFRAME_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
 const SECURITY_HEADERS = Object.freeze({ "cache-control": "private, no-store", "referrer-policy": "strict-origin-when-cross-origin", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "permissions-policy": "camera=(), microphone=(), geolocation=()", "strict-transport-security": "max-age=31536000; includeSubDomains" });
+const CHECKOUT_SECURITY_HEADERS = Object.freeze({
+  "cache-control": "no-store",
+  "referrer-policy": "no-referrer",
+  "x-robots-tag": "noindex, nofollow",
+});
 
-function unavailable(): NextResponse {
-  return new NextResponse("Storefront unavailable", { status: 503, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, "content-type": "text/plain; charset=utf-8" } });
+function isCheckoutPath(pathname: string): boolean {
+  return pathname === "/odeme"
+    || pathname.startsWith("/odeme/")
+    || pathname === "/api/checkout"
+    || pathname.startsWith("/api/checkout/");
+}
+
+function unavailable(checkoutPath = false): NextResponse {
+  return new NextResponse("Storefront unavailable", {
+    status: 503,
+    headers: {
+      ...SECURITY_HEADERS,
+      ...(checkoutPath ? CHECKOUT_SECURITY_HEADERS : {}),
+      "content-security-policy": FALLBACK_CSP,
+      "content-type": "text/plain; charset=utf-8",
+    },
+  });
 }
 
 type ProxyAuthority = ReturnType<typeof selectTrustedStorefrontHostAuthority>;
@@ -57,9 +77,10 @@ const DEFAULT_DEPENDENCIES: StorefrontProxyDependencies = Object.freeze({
 
 export function createStorefrontProxy(dependencies: StorefrontProxyDependencies) {
   return async (request: NextRequest): Promise<NextResponse> => {
-    const authority = dependencies.selectAuthority(request.headers);
-    if (authority.kind !== "trusted") return unavailable();
     const pathname = request.nextUrl.pathname;
+    const checkoutPath = isCheckoutPath(pathname);
+    const authority = dependencies.selectAuthority(request.headers);
+    if (authority.kind !== "trusted") return unavailable(checkoutPath);
     const exactTarget = request.nextUrl.search === "" && request.nextUrl.hash === "";
     const callbackPath = pathname === "/api/payments/paytr/callback";
     if (callbackPath && exactTarget && request.method === "POST") {
@@ -72,7 +93,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     let mediaOrigin: string;
     try {
       mediaOrigin = dependencies.resolveMediaOrigin();
-    } catch { return unavailable(); }
+    } catch { return unavailable(checkoutPath); }
     const nonce = randomBytes(18).toString("base64");
     const requestHeaders = new Headers(request.headers); requestHeaders.set("x-nonce", nonce);
     const response = NextResponse.next({ request: { headers: requestHeaders } });
@@ -87,13 +108,18 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
           cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
       } catch { iframeAuthorized = false; }
     }
-    const csp = exactTarget && pathname === "/odeme/hizli"
+    const csp = exactTarget && (pathname === "/odeme" || pathname === "/odeme/hizli")
       ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
       : iframeAuthorized
         ? PAYTR_IFRAME_CSP
         : defaultCsp;
     response.headers.set("content-security-policy", csp);
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(name, value);
+    if (checkoutPath) {
+      for (const [name, value] of Object.entries(CHECKOUT_SECURITY_HEADERS)) {
+        response.headers.set(name, value);
+      }
+    }
     return response;
   };
 }

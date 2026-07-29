@@ -10,6 +10,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -17,6 +18,16 @@ import {
 } from "react";
 
 import styles from "../../app/odeme/checkout.module.css";
+import {
+  StorefrontAnalyticsEvent,
+  type StorefrontAnalyticsEventProps,
+} from "../StorefrontAnalyticsEvent.tsx";
+import {
+  createCheckoutCommerceEvent,
+  trackCommerceEvent,
+  type CheckoutCommerceEvent,
+} from "../../lib/analytics/events.ts";
+import { createSafeUmamiTracker } from "../../lib/analytics/tracker-client.ts";
 import { DeliverySection } from "./DeliverySection.tsx";
 import {
   buildDeliveryPayload,
@@ -44,7 +55,38 @@ const DELIVERY_APPLY_ERROR = "Teslimat bilgilerindeki değişiklikleri uygulayı
 type CheckoutClientProps = Readonly<{
   initialQuote: CheckoutQuote;
   initialOperationId: string;
+  tracker: StorefrontAnalyticsEventProps["tracker"];
 }>;
+
+function checkoutMethodFacts(
+  method: CheckoutQuote["paymentMethods"][number],
+): Readonly<{
+  methodKind: "provider" | "cash_on_delivery" | "bank_transfer";
+  providerCode?: "paytr_iframe" | "iyzico_iframe";
+}> {
+  return method.kind === "provider"
+    ? Object.freeze({
+        methodKind: "provider" as const,
+        providerCode: method.providerCode,
+      })
+    : Object.freeze({ methodKind: method.kind });
+}
+
+function sendCheckoutAnalytics(
+  tracker: CheckoutClientProps["tracker"],
+  event: CheckoutCommerceEvent,
+): void {
+  if (tracker === null) return;
+  try {
+    trackCommerceEvent(
+      createSafeUmamiTracker({
+        websiteId: tracker.websiteId,
+        hostname: tracker.hostname,
+      }),
+      createCheckoutCommerceEvent(event),
+    );
+  } catch {}
+}
 
 function optionalText(form: FormData, name: string): string | undefined {
   const value = form.get(name);
@@ -106,6 +148,13 @@ export function CheckoutClient(props: CheckoutClientProps) {
   const [submitErrors, setSubmitErrors] = useState<CheckoutFieldErrors<SubmitFieldName>>({});
   const deliveryAbort = useRef<AbortController | null>(null);
   const submitAbort = useRef<AbortController | null>(null);
+  const startedEvent = useMemo(() => createCheckoutCommerceEvent({
+    name: "checkout_started",
+    data: {
+      currency: props.initialQuote.currency,
+      itemCount: props.initialQuote.items.length,
+    },
+  }), [props.initialQuote.currency, props.initialQuote.items.length]);
 
   useEffect(() => () => {
     deliveryAbort.current?.abort();
@@ -187,13 +236,20 @@ export function CheckoutClient(props: CheckoutClientProps) {
       setDeliveryAuthorityError(null);
       setDiscountCode(nextQuote.discountCode ?? "");
       setSubmitOperationId(crypto.randomUUID());
+      sendCheckoutAnalytics(props.tracker, {
+        name: "checkout_delivery_saved",
+        data: {
+          currency: nextQuote.currency,
+          itemCount: nextQuote.items.length,
+        },
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       dispatch({ type: "failed", code: "unavailable" });
     } finally {
       if (deliveryAbort.current === controller) deliveryAbort.current = null;
     }
-  }, [discountCode, state.quote]);
+  }, [discountCode, props.tracker, state.quote]);
 
   function handleDeliverySubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -260,11 +316,17 @@ export function CheckoutClient(props: CheckoutClientProps) {
       preInformation,
     });
     const firstError = Object.keys(nextErrors)[0];
-    if (firstError !== undefined || state.selectedPaymentMethodId === null) {
+    if (
+      firstError !== undefined
+      || state.selectedPaymentMethodId === null
+      || selectedMethod === null
+    ) {
       setSubmitErrors(nextErrors);
       dispatch({
         type: "failed",
-        code: state.selectedPaymentMethodId === null ? "payment_unavailable" : "invalid_input",
+        code: state.selectedPaymentMethodId === null || selectedMethod === null
+          ? "payment_unavailable"
+          : "invalid_input",
       });
       focusNamedControl(formElement, firstError ?? "paymentMethodId");
       return;
@@ -296,6 +358,15 @@ export function CheckoutClient(props: CheckoutClientProps) {
     submitAbort.current = controller;
     setSubmitErrors({});
     dispatch({ type: "submit_started" });
+    const methodFacts = checkoutMethodFacts(selectedMethod);
+    sendCheckoutAnalytics(props.tracker, {
+      name: "checkout_submitted",
+      data: {
+        ...methodFacts,
+        currency: state.quote.currency,
+        itemCount: state.quote.items.length,
+      },
+    });
     const result = await requestCheckoutSubmission({
       body,
       deliveryReady: deliveryAuthority.kind === "ready",
@@ -311,6 +382,13 @@ export function CheckoutClient(props: CheckoutClientProps) {
     }
     if (result.kind === "failed") {
       dispatch({ type: "failed", code: result.code });
+      sendCheckoutAnalytics(props.tracker, {
+        name: "checkout_failed",
+        data: {
+          ...methodFacts,
+          resultCode: result.code,
+        },
+      });
       return;
     }
     window.location.assign(result.location);
@@ -349,6 +427,11 @@ export function CheckoutClient(props: CheckoutClientProps) {
 
   const pending = state.pending !== null;
   return <div className={styles.page} data-checkout-root="">
+    <StorefrontAnalyticsEvent
+      event={startedEvent}
+      tracker={props.tracker}
+      trigger="mount"
+    />
     <div className={styles.grid}>
       <div className={styles.leftColumn}>
         <main className={styles.main}>

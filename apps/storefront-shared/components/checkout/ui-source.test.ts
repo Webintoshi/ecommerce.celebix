@@ -14,8 +14,17 @@ test("checkout client owns the server-quote and bounded request workflow", async
   assert.match(value, /\/api\/checkout\/delivery/);
   assert.match(value, /application\/json/);
   assert.match(value, /reduceCheckout/);
+  assert.match(value, /createCheckoutCommerceEvent/);
+  for (const event of [
+    "checkout_started",
+    "checkout_delivery_saved",
+    "checkout_submitted",
+    "checkout_failed",
+  ]) {
+    assert.match(value, new RegExp(`"${event}"`));
+  }
   assert.doesNotMatch(value, /subtotalCents\s*[+*=-]|totalCents\s*[+*=-]/);
-  assert.doesNotMatch(value, /analytics|console[.]/i);
+  assert.doesNotMatch(value, /console[.]/i);
 });
 
 test("delivery uses accessible canonical fields and an explicit update action", async () => {

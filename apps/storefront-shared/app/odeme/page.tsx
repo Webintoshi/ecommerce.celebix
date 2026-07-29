@@ -5,7 +5,8 @@ import { cookies, headers } from "next/headers";
 
 import { CheckoutClient } from "@/components/checkout/CheckoutClient.tsx";
 import { resolveCheckoutPage } from "@/lib/checkout/public-checkout.ts";
-import { resolveDefaultPublicCheckoutRuntime } from "@/lib/default-runtime.ts";
+import { resolveDefaultPublicStorefrontRuntime } from "@/lib/default-runtime.ts";
+import { resolveStorefrontTracker } from "@/lib/page-context.ts";
 import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authority.ts";
 
 import styles from "./checkout.module.css";
@@ -32,7 +33,7 @@ export default async function CheckoutPage() {
   const [requestHeaders, cookieStore, runtime] = await Promise.all([
     headers(),
     cookies(),
-    resolveDefaultPublicCheckoutRuntime(),
+    resolveDefaultPublicStorefrontRuntime(),
   ]);
   const authority = selectTrustedStorefrontHostAuthority(requestHeaders);
   if (authority.kind !== "trusted" || runtime === null) {
@@ -42,8 +43,17 @@ export default async function CheckoutPage() {
     hostname: authority.hostname,
     cookieHeader: cookieStore.toString() || null,
     now: new Date(),
-    repository: runtime.checkout,
+    repository: runtime.publicCheckout,
   });
   if (selected.kind !== "active") return <CheckoutUnavailable kind={selected.kind} />;
-  return <CheckoutClient initialOperationId={randomUUID()} initialQuote={selected.quote} />;
+  const tracker = await resolveStorefrontTracker(
+    runtime,
+    authority.hostname,
+    new Date(),
+  ).catch(() => null);
+  return <CheckoutClient
+    initialOperationId={randomUUID()}
+    initialQuote={selected.quote}
+    tracker={tracker}
+  />;
 }
