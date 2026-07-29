@@ -113,3 +113,16 @@ test("optional product and variant fields must be omitted or canonical", () => {
   assert.throws(() => parseProduct(product({ description: "" })), /catalog_contract_invalid/);
   assert.throws(() => parseProductVariant(variant({ sku: null })), /catalog_contract_invalid/);
 });
+
+test("product descriptions preserve safe Markdown line breaks and reject other controls", () => {
+  const markdown = "Birinci paragraf\n\n- Birinci madde\n- İkinci madde";
+
+  assert.equal(parseProduct(product({ description: markdown })).description, markdown);
+
+  for (const control of ["\u0000", "\u0008", "\u000b", "\r", "\u001f", "\u007f"]) {
+    assert.throws(
+      () => parseProduct(product({ description: `Güvenli metin${control}değil` })),
+      /catalog_contract_invalid/,
+    );
+  }
+});

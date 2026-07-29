@@ -12,6 +12,7 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SKU = /^[A-Z0-9](?:[A-Z0-9._-]{0,63})$/;
 const ATTRIBUTE_KEY = /^[A-Za-z0-9](?:[A-Za-z0-9_.:-]{0,63})$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
+const DESCRIPTION_CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f]/;
 
 function invalid(): never {
   throw new TypeError("catalog_contract_invalid");
@@ -40,6 +41,17 @@ function string(value: unknown, minimum: number, maximum: number, pattern?: RegE
     value !== value.trim() ||
     CONTROL.test(value) ||
     (pattern !== undefined && !pattern.test(value))
+  ) invalid();
+  return value;
+}
+
+function description(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    value.length < 1 ||
+    value.length > 10_000 ||
+    value !== value.trim() ||
+    DESCRIPTION_CONTROL.test(value)
   ) invalid();
   return value;
 }
@@ -101,7 +113,7 @@ export function parseProduct(value: unknown): Product {
     slug: string(parsed.slug, 3, 100, SLUG),
     title: string(parsed.title, 1, 200),
     ...(Object.hasOwn(parsed, "description")
-      ? { description: string(parsed.description, 1, 10_000) }
+      ? { description: description(parsed.description) }
       : {}),
     status: status<ProductStatus>(parsed.status, PRODUCT_STATUSES),
     currency: string(parsed.currency, 3, 3, /^[A-Z]{3}$/),
