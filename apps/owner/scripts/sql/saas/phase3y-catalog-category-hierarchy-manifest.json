@@ -1,0 +1,24 @@
+{
+  "phase": "phase3y-catalog-category-hierarchy",
+  "postgresqlMajor": 16,
+  "classification": "additive-tenant-catalog-category-hierarchy-authority",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607290066_catalog_category_hierarchy.up.sql",
+      "direction": "up",
+      "sha256": "71b3033a2b1250ea872d6eb82896efa8c34210270e357bb684d8494bb47196a3"
+    },
+    {
+      "file": "202607290066_catalog_category_hierarchy.down.sql",
+      "direction": "down",
+      "sha256": "7961fad9f2f54567354523f47b196a1177bf06f5ceec1ea18b492e5ec2e38c2f"
+    },
+    {
+      "file": "202607290066_catalog_category_hierarchy_assertions.sql",
+      "direction": "verify",
+      "sha256": "1bd8eb318bf80d26e66ff5e86576fa613bf6a305dd54a50fae1b8f097e5547d6"
+    }
+  ]
+}
