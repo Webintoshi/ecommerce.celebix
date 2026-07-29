@@ -36,8 +36,10 @@ type InputRecord = Record<string, unknown>;
 type NodeUtilTypes = Readonly<{
   isProxy?: (value: unknown) => boolean;
 }>;
+type NodeUtilModule = Readonly<{
+  types?: NodeUtilTypes;
+}>;
 type NodeProcess = Readonly<{
-  binding?: (name: string) => unknown;
   getBuiltinModule?: (specifier: string) => unknown;
   versions?: Readonly<{ node?: unknown }>;
 }>;
@@ -49,18 +51,13 @@ const NODE_IS_PROXY = (() => {
   try {
     const getBuiltinModule = NODE_PROCESS.getBuiltinModule;
     if (typeof getBuiltinModule === "function") {
-      const nodeTypes = Reflect.apply(
+      const nodeUtil = Reflect.apply(
         getBuiltinModule,
         NODE_PROCESS,
-        [["node", "util/types"].join(":")],
-      ) as NodeUtilTypes | undefined;
-      if (typeof nodeTypes?.isProxy === "function") return nodeTypes.isProxy;
+        ["util"],
+      ) as NodeUtilModule | undefined;
+      if (typeof nodeUtil?.types?.isProxy === "function") return nodeUtil.types.isProxy;
     }
-    const binding = NODE_PROCESS.binding;
-    const legacyTypes = typeof binding === "function"
-      ? Reflect.apply(binding, NODE_PROCESS, ["util"]) as NodeUtilTypes | undefined
-      : undefined;
-    if (typeof legacyTypes?.isProxy === "function") return legacyTypes.isProxy;
     return null;
   } catch {
     return null;

@@ -1,5 +1,8 @@
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
 [start]
-runImage = "node:20-bookworm"
+runImage = "node:22.22.3-bookworm-slim"
 onlyIncludeFiles = [
   "package.json",
   "package-lock.json",

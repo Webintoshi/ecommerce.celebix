@@ -54,26 +54,20 @@ function isolated(script: string) {
 
 test("proxy inspection never uses cloning or undocumented proxy details", async () => {
   const source = await readFile(new URL("./validation.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(source, /structuredClone|getProxyDetails/);
-  assert.match(source, /legacyTypes[?][.]isProxy/);
+  assert.doesNotMatch(source, /structuredClone|getProxyDetails|process[.]binding|NODE_PROCESS[.]binding/);
+  assert.doesNotMatch(source, /node:util(?:\/types)?/);
+  assert.doesNotMatch(
+    source,
+    /(?:from|import\s*\(|require\s*\()[\s\S]{0,40}["'](?:node:)?util(?:\/types)?["']/,
+  );
+  assert.match(source, /getBuiltinModule/);
 });
 
-test("Node without getBuiltinModule parses a valid quote through captured binding isProxy", () => {
+test("the real declared Node runtime parses a valid quote and rejects a proxy", () => {
   const result = isolated(`
-    const { isProxy } = await import("node:util/types");
-    const originalBinding = process.binding.bind(process);
-    Object.defineProperty(process, "getBuiltinModule", {
-      configurable: true,
-      value: undefined,
-      writable: true,
-    });
-    Object.defineProperty(process, "binding", {
-      configurable: true,
-      value(name) {
-        return name === "util" ? { isProxy } : Reflect.apply(originalBinding, process, [name]);
-      },
-      writable: true,
-    });
+    if (typeof process.getBuiltinModule !== "function") throw new Error("unsupported_node_runtime");
+    const nodeTypes = process.getBuiltinModule("util")?.types;
+    if (typeof nodeTypes?.isProxy !== "function") throw new Error("missing_real_isProxy");
     const { parseCheckoutQuote } = await import(${JSON.stringify(moduleUrl)});
     const parsed = parseCheckoutQuote(${fixture});
     if (parsed.storeName !== "Celebix") throw new Error("valid_quote_rejected");
@@ -85,27 +79,37 @@ test("Node without getBuiltinModule parses a valid quote through captured bindin
   assert.equal(result.status, 0, result.stderr);
 });
 
-test("Node falls back to captured binding when getBuiltinModule has no isProxy", () => {
-  const result = isolated(`
-    const { isProxy } = await import("node:util/types");
-    const originalBinding = process.binding.bind(process);
-    Object.defineProperty(process, "getBuiltinModule", {
-      configurable: true,
-      value: () => ({}),
-      writable: true,
-    });
-    Object.defineProperty(process, "binding", {
-      configurable: true,
-      value(name) {
-        return name === "util" ? { isProxy } : Reflect.apply(originalBinding, process, [name]);
-      },
-      writable: true,
-    });
-    const { parseCheckoutQuote } = await import(${JSON.stringify(moduleUrl)});
-    const parsed = parseCheckoutQuote(${fixture});
-    if (parsed.storeName !== "Celebix") throw new Error("binding_fallback_rejected");
-  `);
-  assert.equal(result.status, 0, result.stderr);
+test("declared Node range and deployment runtimes require getBuiltinModule", async () => {
+  const rootPackage = JSON.parse(await readFile(
+    new URL("../../../../package.json", import.meta.url),
+    "utf8",
+  )) as { engines?: { node?: unknown } };
+  const lock = JSON.parse(await readFile(
+    new URL("../../../../package-lock.json", import.meta.url),
+    "utf8",
+  )) as { packages?: { ""?: { engines?: { node?: unknown } } } };
+  const nixpacks = await readFile(new URL("../../../../nixpacks.toml", import.meta.url), "utf8");
+  const workerDockerfile = await readFile(
+    new URL("../../../../Dockerfile.analytics-worker", import.meta.url),
+    "utf8",
+  );
+  const range = ">=22.7.0";
+  assert.equal(rootPackage.engines?.node, range);
+  assert.equal(lock.packages?.[""]?.engines?.node, range);
+  assert.match(nixpacks, /^nixPkgs = \["nodejs_22"\]$/m);
+  assert.match(nixpacks, /^runImage = "node:22[.]22[.]3-bookworm-slim"$/m);
+  assert.match(workerDockerfile, /^FROM node:22[.]22[.]3-bookworm-slim$/m);
+
+  const supportsRepositoryRuntime = (version: string) => {
+    const [major = 0, minor = 0] = version.split(".").map(Number);
+    return major > 22 || (major === 22 && minor >= 7);
+  };
+  for (const version of ["20.9.0", "20.16.0", "21.7.3", "22.0.0", "22.3.0", "22.6.0"]) {
+    assert.equal(supportsRepositoryRuntime(version), false, version);
+  }
+  for (const version of ["22.7.0", "22.22.3", "23.0.0", "24.0.0"]) {
+    assert.equal(supportsRepositoryRuntime(version), true, version);
+  }
 });
 
 test("a detected Node runtime without either synchronous proxy authority fails closed", () => {
