@@ -1,0 +1,24 @@
+{
+  "phase": "phase3z-catalog-category-replay-binding",
+  "postgresqlMajor": 16,
+  "classification": "additive-tenant-catalog-category-replay-binding-authority",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607290067_catalog_category_replay_binding.up.sql",
+      "direction": "up",
+      "sha256": "e123c7b0cc51dd687c4257e6c20a00bb17b74755614b6512fbbf5fdd7dbdfc01"
+    },
+    {
+      "file": "202607290067_catalog_category_replay_binding.down.sql",
+      "direction": "down",
+      "sha256": "f07a7868f80ebca6ef181f9d730e4004e5026297ce68e7ab0bb042959b209dd9"
+    },
+    {
+      "file": "202607290067_catalog_category_replay_binding_assertions.sql",
+      "direction": "verify",
+      "sha256": "e7ece28bb5a79a6e26dbed0f238f1886cdc8f44a57bf7e113c45f61ce9e27bad"
+    }
+  ]
+}

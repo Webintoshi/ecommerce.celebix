@@ -1,0 +1,51 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+
+DO $function$
+DECLARE
+  procedure pg_catalog.pg_proc%ROWTYPE;
+  function_definition text;
+  app_oid oid;
+BEGIN
+  SELECT role.oid INTO app_oid FROM pg_catalog.pg_roles role WHERE role.rolname='celebix_saas_app';
+  IF app_oid IS NULL THEN RAISE EXCEPTION 'CATALOG_CATEGORY_REPLAY_BINDING_ASSERTION_FAILED: missing app role'; END IF;
+
+  SELECT * INTO procedure
+  FROM pg_catalog.pg_proc
+  WHERE oid='saas.catalog_migration_begin(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,text,integer,integer,jsonb,jsonb)'::regprocedure;
+  IF NOT FOUND
+     OR pg_catalog.pg_get_userbyid(procedure.proowner)<>'celebix_saas_owner'
+     OR NOT procedure.prosecdef
+     OR procedure.provolatile<>'v'
+     OR procedure.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
+     OR pg_catalog.pg_get_function_result(procedure.oid)<>'TABLE(outcome text, result_payload jsonb)'
+     OR (
+       SELECT pg_catalog.count(*)
+       FROM pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) acl
+       WHERE acl.privilege_type='EXECUTE'
+     )<>2
+     OR EXISTS(
+       SELECT 1
+       FROM pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) acl
+       WHERE acl.privilege_type='EXECUTE'
+         AND (acl.grantee NOT IN(procedure.proowner,app_oid) OR acl.grantor<>procedure.proowner)
+     )
+     OR NOT EXISTS(
+       SELECT 1
+       FROM pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) acl
+       WHERE acl.privilege_type='EXECUTE' AND acl.grantee=app_oid
+     )
+  THEN RAISE EXCEPTION 'CATALOG_CATEGORY_REPLAY_BINDING_ASSERTION_FAILED: begin authority'; END IF;
+
+  function_definition:=pg_catalog.pg_get_functiondef(procedure.oid);
+  IF pg_catalog.strpos(function_definition,'catalog_migration_category_manifest_matches(p_store_id,p_categories)')=0
+     OR pg_catalog.strpos(function_definition,'FROM saas.catalog_product_migration_operations accepted_begin')=0
+     OR pg_catalog.strpos(function_definition,'accepted_begin.store_id=p_store_id')=0
+     OR pg_catalog.strpos(function_definition,'accepted_begin.job_id=existing_job.id')=0
+     OR pg_catalog.strpos(function_definition,'accepted_begin.operation_kind=''begin''')=0
+     OR pg_catalog.strpos(function_definition,'accepted_begin.payload_fingerprint=p_fingerprint')=0
+  THEN RAISE EXCEPTION 'CATALOG_CATEGORY_REPLAY_BINDING_ASSERTION_FAILED: begin definition'; END IF;
+END
+$function$;
+
+COMMIT;

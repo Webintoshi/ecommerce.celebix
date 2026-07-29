@@ -20,11 +20,15 @@ const MIGRATION_059_ASSERTIONS = "202607280059_catalog_product_migrations_assert
 const UP = "202607290066_catalog_category_hierarchy.up.sql";
 const DOWN = "202607290066_catalog_category_hierarchy.down.sql";
 const ASSERTIONS = "202607290066_catalog_category_hierarchy_assertions.sql";
+const REPLAY_UP = "202607290067_catalog_category_replay_binding.up.sql";
+const REPLAY_DOWN = "202607290067_catalog_category_replay_binding.down.sql";
+const REPLAY_ASSERTIONS = "202607290067_catalog_category_replay_binding_assertions.sql";
 const PRIOR = JSON.parse(readFileSync(path.join(SQL, "phase3n-hosted-callback-lifecycle-manifest.json"), "utf8"));
 const ONBOARDING = JSON.parse(readFileSync(path.join(SQL, "phase3-product-onboarding-manifest.json"), "utf8"));
 const MEDIA = JSON.parse(readFileSync(path.join(SQL, "phase3-tenant-r2-media-manifest.json"), "utf8"));
 const MIGRATION_059 = JSON.parse(readFileSync(path.join(SQL, "phase3-guzide-catalog-migration-manifest.json"), "utf8"));
 const MANIFEST = JSON.parse(readFileSync(path.join(SQL, "phase3y-catalog-category-hierarchy-manifest.json"), "utf8"));
+const REPLAY_MANIFEST = JSON.parse(readFileSync(path.join(SQL, "phase3z-catalog-category-replay-binding-manifest.json"), "utf8"));
 const TOTAL = 23;
 let completed = 0;
 
@@ -262,18 +266,26 @@ async function main() {
     psql(box, `CREATE DATABASE ${ROLLBACK} TEMPLATE ${DB};`, "postgres");
     apply(box, UP);
     apply(box, ASSERTIONS);
+    apply(box, REPLAY_UP);
+    apply(box, REPLAY_ASSERTIONS);
     seed(box);
     seed(box, ROLLBACK);
 
     await scenario("manifest checksums are exact", () => {
-      assert.deepEqual(MANIFEST.artifacts.map(({ direction }) => direction), ["up", "down", "verify"]);
-      for (const artifact of MANIFEST.artifacts) assert.equal(sha256(artifact.file), artifact.sha256, artifact.file);
+      for (const manifest of [MANIFEST, REPLAY_MANIFEST]) {
+        assert.deepEqual(manifest.artifacts.map(({ direction }) => direction), ["up", "down", "verify"]);
+        for (const artifact of manifest.artifacts) assert.equal(sha256(artifact.file), artifact.sha256, artifact.file);
+      }
     });
 
     await scenario("full base chain plus 066 and assertions apply on PostgreSQL 16", () => {
       assert.match(psql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
       assert.notEqual(psql(box, "SELECT to_regprocedure('saas.catalog_migration_category_manifest_valid(jsonb)');").stdout.trim(), "");
       assert.notEqual(psql(box, "SELECT to_regprocedure('saas.catalog_migration_category_manifest_matches(uuid,jsonb)');").stdout.trim(), "");
+      assert.match(
+        psql(box, "SELECT pg_get_functiondef('saas.catalog_migration_begin(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,text,integer,integer,jsonb,jsonb)'::regprocedure);").stdout,
+        /accepted_begin\.payload_fingerprint=p_fingerprint/,
+      );
     });
 
     await scenario("helper and begin functions have exact owner ACL volatility and security-definer authority", () => {
@@ -400,13 +412,14 @@ async function main() {
       category(304, "Altın Küpeler", "altin-kupeler", "kupeler"),
       category(305, "Altın Bileklikler", "altin-bileklikler", "bileklikler"),
     ];
-    const sharedResult = outcome(box, beginExpression({
+    const sharedRequest = {
       contextOrdinal: 3,
       operationOrdinal: 301,
       jobOrdinal: 301,
       sourceMarker: "shared-tree",
       categories: sharedTree,
-    }));
+    };
+    const sharedResult = outcome(box, beginExpression(sharedRequest));
 
     await scenario("repeated shared ancestors across multiple paths create once", () => {
       assert.equal(sharedResult.outcome, "begun");
@@ -598,28 +611,54 @@ async function main() {
       assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_operations WHERE operation_id='${uuid("4a", 201)}';`).stdout.trim(), "1");
     });
 
+    const changedSharedTree = sharedTree.map((candidate) => (
+      candidate.slug === "altin-kupeler" ? { ...candidate, parentSlug: "bileklikler" } : candidate
+    ));
     await scenario("changed parentSlug under the same operation ID returns operation_mismatch", () => {
-      const changed = sharedTree.map((candidate) => (
-        candidate.slug === "altin-kupeler" ? { ...candidate, parentSlug: "bileklikler" } : candidate
-      ));
       const result = outcome(box, beginExpression({
         contextOrdinal: 3,
         operationOrdinal: 301,
         jobOrdinal: 301,
         sourceMarker: "shared-tree",
-        categories: changed,
+        categories: changedSharedTree,
       }));
       assert.equal(result.outcome, "operation_mismatch");
+      const reparented = outcome(
+        box,
+        `saas.catalog_update_category(
+          ${authority(3)},'${uuid("4b", 301)}','${digest("reparent-altin-kupeler-to-bileklikler")}',
+          '${sharedTree[3].id}',1,
+          $json$${JSON.stringify({
+            name: sharedTree[3].name,
+            parentId: sharedTree[2].id,
+            position: 3,
+          })}$json$::jsonb
+        )`,
+      );
+      assert.equal(reparented.outcome, "updated");
+      assert.equal(
+        psql(box, `SELECT parent.slug FROM saas.catalog_categories child
+          JOIN saas.catalog_categories parent ON parent.store_id=child.store_id AND parent.id=child.parent_id
+          WHERE child.store_id='${context(3).store}' AND child.slug='altin-kupeler';`).stdout.trim(),
+        "bileklikler",
+      );
+      assert.equal(
+        psql(box, `SELECT saas.catalog_migration_category_manifest_matches(
+          '${context(3).store}',$json$${JSON.stringify(changedSharedTree)}$json$::jsonb
+        );`).stdout.trim(),
+        "t",
+      );
       const freshOperation = outcome(box, beginExpression({
         contextOrdinal: 3,
         operationOrdinal: 302,
         jobOrdinal: 301,
         sourceMarker: "shared-tree",
-        categories: changed,
+        categories: changedSharedTree,
       }));
       assert.equal(freshOperation.outcome, "job_mismatch");
       assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_categories WHERE store_id='${context(3).store}';`).stdout.trim(), "5");
       assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_operations WHERE store_id='${context(3).store}';`).stdout.trim(), "1");
+      assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_operations WHERE operation_id='${uuid("4a", 302)}';`).stdout.trim(), "0");
     });
 
     await scenario("concurrent equal begin calls leave one job and one exact tree", async () => {
@@ -690,12 +729,31 @@ async function main() {
       assert.equal(psql(box, "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='saas.catalog_product_migration_jobs'::regclass;", RESTORE).stdout.trim(), "t");
       assert.equal(psql(box, "SELECT has_function_privilege('celebix_saas_app','saas.catalog_migration_category_manifest_valid(jsonb)','EXECUTE');", RESTORE).stdout.trim(), "f");
       assert.notEqual(psql(box, "SET ROLE celebix_saas_app;SELECT count(*) FROM saas.catalog_product_migration_jobs;", RESTORE, true).status, 0);
+      assert.equal(
+        psql(box, `SELECT store_id||'|'||job_id||'|'||operation_kind||'|'||payload_fingerprint
+          FROM saas.catalog_product_migration_operations
+          WHERE operation_id='${uuid("4a", 301)}';`, RESTORE).stdout.trim(),
+        `${context(3).store}|${uuid("45", 301)}|begin|${beginFingerprint(sharedRequest)}`,
+      );
+      apply(box, MIGRATION_059_ASSERTIONS, RESTORE);
       apply(box, ASSERTIONS, RESTORE);
+      apply(box, REPLAY_ASSERTIONS, RESTORE);
+      const restoredMismatch = outcome(box, beginExpression({
+        contextOrdinal: 3,
+        operationOrdinal: 303,
+        jobOrdinal: 301,
+        sourceMarker: "shared-tree",
+        categories: changedSharedTree,
+      }), RESTORE);
+      assert.equal(restoredMismatch.outcome, "job_mismatch");
+      assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_operations WHERE operation_id='${uuid("4a", 303)}';`, RESTORE).stdout.trim(), "0");
     });
 
     await scenario("down restores migration 059 root-only behavior and reapply restores 066", () => {
       apply(box, UP, ROLLBACK);
       apply(box, ASSERTIONS, ROLLBACK);
+      apply(box, REPLAY_UP, ROLLBACK);
+      apply(box, REPLAY_ASSERTIONS, ROLLBACK);
       const hierarchy = [category(2001, "Rollback Kök", "rollback-kok"), category(2002, "Rollback Çocuk", "rollback-cocuk", "rollback-kok")];
       assert.equal(outcome(box, beginExpression({
         contextOrdinal: 20,
@@ -704,6 +762,15 @@ async function main() {
         sourceMarker: "rollback-hierarchy",
         categories: hierarchy,
       }), ROLLBACK).outcome, "begun");
+      apply(box, REPLAY_DOWN, ROLLBACK);
+      apply(box, ASSERTIONS, ROLLBACK);
+      const restored066Definition = psql(
+        box,
+        "SELECT pg_get_functiondef('saas.catalog_migration_begin(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,text,integer,integer,jsonb,jsonb)'::regprocedure);",
+        ROLLBACK,
+      ).stdout;
+      assert.match(restored066Definition, /catalog_migration_category_manifest_matches\(p_store_id,p_categories\)/);
+      assert.doesNotMatch(restored066Definition, /accepted_begin/);
       apply(box, DOWN, ROLLBACK);
       assert.equal(psql(box, "SELECT to_regprocedure('saas.catalog_migration_category_manifest_valid(jsonb)') IS NULL;", ROLLBACK).stdout.trim(), "t");
       assert.doesNotMatch(
@@ -727,14 +794,52 @@ async function main() {
       assert.equal(counts(box, 20, ROLLBACK), "3|2|2");
       apply(box, UP, ROLLBACK);
       apply(box, ASSERTIONS, ROLLBACK);
+      apply(box, REPLAY_UP, ROLLBACK);
+      apply(box, REPLAY_ASSERTIONS, ROLLBACK);
       assert.notEqual(psql(box, "SELECT to_regprocedure('saas.catalog_migration_category_manifest_valid(jsonb)');", ROLLBACK).stdout.trim(), "");
+      const reboundHierarchy = [
+        category(2006, "Bağlı A", "bagli-a"),
+        category(2007, "Bağlı B", "bagli-b"),
+        category(2008, "Bağlı X", "bagli-x", "bagli-a"),
+      ];
       assert.equal(outcome(box, beginExpression({
         contextOrdinal: 20,
         operationOrdinal: 2004,
         jobOrdinal: 2004,
         sourceMarker: "rollback-reapply",
-        categories: [category(2006, "Son Kök", "son-kok"), category(2007, "Son Çocuk", "son-cocuk", "son-kok")],
+        categories: reboundHierarchy,
       }), ROLLBACK).outcome, "begun");
+      const reboundReparent = outcome(
+        box,
+        `saas.catalog_update_category(
+          ${authority(20)},'${uuid("4b", 2004)}','${digest("rollback-reapply-reparent")}',
+          '${reboundHierarchy[2].id}',1,
+          $json$${JSON.stringify({
+            name: reboundHierarchy[2].name,
+            parentId: reboundHierarchy[1].id,
+            position: 2,
+          })}$json$::jsonb
+        )`,
+        ROLLBACK,
+      );
+      assert.equal(reboundReparent.outcome, "updated");
+      const reboundChanged = reboundHierarchy.map((candidate) => (
+        candidate.slug === "bagli-x" ? { ...candidate, parentSlug: "bagli-b" } : candidate
+      ));
+      assert.equal(
+        psql(box, `SELECT saas.catalog_migration_category_manifest_matches(
+          '${context(20).store}',$json$${JSON.stringify(reboundChanged)}$json$::jsonb
+        );`, ROLLBACK).stdout.trim(),
+        "t",
+      );
+      assert.equal(outcome(box, beginExpression({
+        contextOrdinal: 20,
+        operationOrdinal: 2005,
+        jobOrdinal: 2004,
+        sourceMarker: "rollback-reapply",
+        categories: reboundChanged,
+      }), ROLLBACK).outcome, "job_mismatch");
+      assert.equal(psql(box, `SELECT count(*) FROM saas.catalog_product_migration_operations WHERE operation_id='${uuid("4a", 2005)}';`, ROLLBACK).stdout.trim(), "0");
     });
 
     cleanupReady = true;
