@@ -1,0 +1,26 @@
+{
+  "phase": "phase3w-pilot-plan-authority",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "phase3v-payment-provider-builtin-compatibility-manifest.json",
+      "sha256": "c6a6f9fca4480c354fefe07727c4bcdd6319bc91f64784c344e8401783fec44c"
+    },
+    {
+      "file": "202607290064_pilot_plan_authority.up.sql",
+      "sha256": "e57bdfec30a1632075fc18eb8432a77d52c5363e425d63ce3b6bbb072348294d"
+    },
+    {
+      "file": "202607290064_pilot_plan_authority_assertions.sql",
+      "sha256": "bf272d8a04433514492847e169c0673148b1cb75e201965f7e47b6bf0a07a4e8"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607290064_pilot_plan_authority.down.sql",
+      "sha256": "ea849689a461dbb0d679ca150957198fade846bc2a558273d8b8452e83a115fd"
+    }
+  ],
+  "externalConnections": 0,
+  "productionMutations": 0
+}
