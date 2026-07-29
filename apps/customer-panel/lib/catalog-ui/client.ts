@@ -46,7 +46,12 @@ export class CatalogApiError extends Error {
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type RandomUUID = () => string;
 
-export type ProductListResult = Readonly<{ items: readonly Product[]; nextCursor?: string }>;
+export type ProductFeaturedImage = Readonly<{ publicUrl: string; altText: string }>;
+export type ProductListResult = Readonly<{
+  items: readonly Product[];
+  featuredImages?: Readonly<Record<string, ProductFeaturedImage>>;
+  nextCursor?: string;
+}>;
 export type ProductDetailResult = Readonly<{ product: Product; variants: readonly ProductVariant[] }>;
 export type CreateProductResult = Readonly<{ product: Product; initialVariant: ProductVariant; replayed: boolean }>;
 export type ProductMutationResult = Readonly<{ product: Product; replayed: boolean }>;
@@ -113,6 +118,36 @@ function count(value: unknown): number {
     throw new CatalogApiError("unavailable", 503);
   }
   return value as number;
+}
+
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+function productFeaturedImage(value: unknown): ProductFeaturedImage {
+  const parsed = record(value);
+  if (
+    parsed === null || Object.keys(parsed).sort().join(",") !== "altText,publicUrl" ||
+    typeof parsed.publicUrl !== "string" || parsed.publicUrl.length < 1 || parsed.publicUrl.length > 2048 ||
+    parsed.publicUrl !== parsed.publicUrl.trim() || CONTROL.test(parsed.publicUrl) ||
+    typeof parsed.altText !== "string" || parsed.altText.length > 500 ||
+    parsed.altText !== parsed.altText.trim() || CONTROL.test(parsed.altText)
+  ) throw new CatalogApiError("unavailable", 503);
+  let url: URL;
+  try { url = new URL(parsed.publicUrl); } catch { throw new CatalogApiError("unavailable", 503); }
+  if (
+    url.protocol !== "https:" || url.username !== "" || url.password !== "" ||
+    url.search !== "" || url.hash !== "" || url.toString() !== parsed.publicUrl
+  ) throw new CatalogApiError("unavailable", 503);
+  return Object.freeze({ publicUrl: parsed.publicUrl, altText: parsed.altText });
+}
+
+function productFeaturedImages(value: unknown, productIds: ReadonlySet<string>): Readonly<Record<string, ProductFeaturedImage>> {
+  const parsed = record(value);
+  if (parsed === null) throw new CatalogApiError("unavailable", 503);
+  const entries = Object.entries(parsed);
+  if (entries.length > productIds.size || entries.some(([productId]) => !productIds.has(productId))) {
+    throw new CatalogApiError("unavailable", 503);
+  }
+  return Object.freeze(Object.fromEntries(entries.map(([productId, image]) => [productId, productFeaturedImage(image)])));
 }
 
 function parseCatalogDashboardSummary(value: unknown): CatalogDashboardSummary {
@@ -187,10 +222,17 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       }));
       if (body === null || !Array.isArray(body.items)) throw new CatalogApiError("unavailable", 503);
       const items = Object.freeze(body.items.map(parseProduct));
+      const featuredImages = body.featuredImages === undefined
+        ? undefined
+        : productFeaturedImages(body.featuredImages, new Set(items.map((item) => item.id)));
       if (body.nextCursor !== undefined && (typeof body.nextCursor !== "string" || !CURSOR.test(body.nextCursor))) {
         throw new CatalogApiError("unavailable", 503);
       }
-      return Object.freeze({ items, ...(body.nextCursor === undefined ? {} : { nextCursor: body.nextCursor }) });
+      return Object.freeze({
+        items,
+        ...(featuredImages === undefined ? {} : { featuredImages }),
+        ...(body.nextCursor === undefined ? {} : { nextCursor: body.nextCursor }),
+      });
     },
 
     async getProduct(id: string, signal?: AbortSignal): Promise<ProductDetailResult> {

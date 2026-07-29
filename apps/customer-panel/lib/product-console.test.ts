@@ -525,6 +525,40 @@ test("mounted product console renders all four commands in the <=1024 mobile fal
   assert.match(styles, /@media \(max-width: 640px\)[^]*[.]product-mobile-commandbar [.]command-button[^}]*width:\s*100%[^}]*min-width:\s*0/s);
 });
 
+test("mounted product rows show the featured image and preserve the package fallback", async () => {
+  const withImage = productFixture("11111111-1111-4111-8111-111111111111", "active", 1, "Görselli ürün");
+  const withoutImage = productFixture("22222222-2222-4222-8222-222222222222", "draft", 2, "Görselsiz ürün");
+  const featuredImage = Object.freeze({
+    publicUrl: "https://media.celebix.site/stores/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/products/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333.webp",
+    altText: "Görselli ürün öne çıkan görseli",
+  });
+  const mounted = await createMountedProductConsole({
+    async listProducts() {
+      return {
+        items: [withImage, withoutImage],
+        featuredImages: { [withImage.id]: featuredImage },
+      };
+    },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct(id: string) { return { product: id === withImage.id ? withImage : withoutImage, variants: [] }; },
+    async updateProduct() { throw new Error("not used"); },
+    async archiveProduct() { throw new Error("not used"); },
+  });
+
+  const nodes = mountedNodes(await mounted.render());
+  const image = nodes.find((node) => node.type === "img" && node.props.src === featuredImage.publicUrl);
+  assert.ok(image);
+  assert.equal(image.props.alt, featuredImage.altText);
+  assert.equal(image.props.loading, "lazy");
+  assert.equal(image.props.decoding, "async");
+  assert.equal(nodes.filter((node) => node.props.className === "product-placeholder").length, 1);
+
+  const styles = await source("app/globals.css");
+  assert.match(styles, /[.]product-thumbnail\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(styles, /[.]product-thumbnail img\s*\{[^}]*object-fit:\s*cover/s);
+}
+);
+
 test("mounted store-wide metrics stay semantic and never duplicate loaded-row counts", async () => {
   const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1);
   const summaryResult = deferred<typeof catalogSummary>();

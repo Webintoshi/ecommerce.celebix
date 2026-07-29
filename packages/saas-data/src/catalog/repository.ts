@@ -8,6 +8,7 @@ import type {
   ArchiveProductInput,
   ArchiveVariantInput,
   CatalogDashboardSummary,
+  CatalogProductFeaturedImage,
   CatalogRepository,
   CreateProductInput,
   CreateProductResult,
@@ -69,6 +70,35 @@ function payload(value: unknown, keys: readonly string[]): Record<string, unknow
 function count(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 0) throw unavailable();
   return value as number;
+}
+
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+function featuredImage(value: unknown): CatalogProductFeaturedImage {
+  const parsed = payload(value, ["publicUrl", "altText"]);
+  if (
+    typeof parsed.publicUrl !== "string" || parsed.publicUrl.length < 1 || parsed.publicUrl.length > 2048 ||
+    parsed.publicUrl !== parsed.publicUrl.trim() || CONTROL.test(parsed.publicUrl) ||
+    typeof parsed.altText !== "string" || parsed.altText.length > 500 ||
+    parsed.altText !== parsed.altText.trim() || CONTROL.test(parsed.altText)
+  ) throw unavailable();
+  let url: URL;
+  try { url = new URL(parsed.publicUrl); } catch { throw unavailable(); }
+  if (
+    url.protocol !== "https:" || url.username !== "" || url.password !== "" ||
+    url.search !== "" || url.hash !== "" || url.toString() !== parsed.publicUrl
+  ) throw unavailable();
+  return Object.freeze({ publicUrl: parsed.publicUrl, altText: parsed.altText });
+}
+
+function featuredImageMap(value: unknown, productIds: ReadonlySet<string>): Readonly<Record<string, CatalogProductFeaturedImage>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) throw unavailable();
+  const parsed = value as Record<string, unknown>;
+  const entries = Object.entries(parsed);
+  if (entries.length > productIds.size || entries.some(([productId]) => !productIds.has(productId))) throw unavailable();
+  return Object.freeze(Object.fromEntries(entries.map(([productId, image]) => [productId, featuredImage(image)])));
 }
 
 function dashboardSummary(value: unknown): CatalogDashboardSummary {
@@ -392,10 +422,17 @@ export class PostgresCatalogRepository implements CatalogRepository {
       values: [...authorityValues(authority), filter ?? null, boundedPageSize, cursor?.createdAt ?? null, cursor?.id ?? null],
     });
     if (result.outcome !== "listed") throw unavailable();
-    const envelope = payload(result.resultPayload, ["items", "hasMore"]);
+    const resultPayload = result.resultPayload;
+    if (typeof resultPayload !== "object" || resultPayload === null || Array.isArray(resultPayload)) throw unavailable();
+    const envelope = resultPayload as Record<string, unknown>;
+    const envelopeKeys = Object.keys(envelope).sort().join(",");
+    if (envelopeKeys !== "hasMore,items" && envelopeKeys !== "featuredImages,hasMore,items") throw unavailable();
     if (!Array.isArray(envelope.items) || typeof envelope.hasMore !== "boolean" || envelope.items.length > boundedPageSize) throw unavailable();
     const items = Object.freeze(envelope.items.map((item) => parseProduct(item)));
     if (items.some((item) => item.storeId !== authority.storeId)) throw unavailable();
+    const featuredImages = envelope.featuredImages === undefined
+      ? undefined
+      : featuredImageMap(envelope.featuredImages, new Set(items.map((item) => item.id)));
     for (let index = 1; index < items.length; index += 1) {
       const previous = items[index - 1]!;
       const current = items[index]!;
@@ -404,6 +441,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     if (envelope.hasMore && items.length === 0) throw unavailable();
     return Object.freeze({
       items,
+      ...(featuredImages === undefined ? {} : { featuredImages }),
       ...(envelope.hasMore ? { nextCursor: encodeCursor(authority.storeId, filter, items.at(-1)!) } : {}),
     });
   }

@@ -264,6 +264,28 @@ test("store-bound cursors fail closed in another TenantContext", async () => {
   assert.equal(pool.connects, 0);
 });
 
+test("listProducts returns only the first active media public projection for each listed product", async () => {
+  const featuredImage = Object.freeze({
+    publicUrl: "https://media.celebix.site/stores/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.webp",
+    altText: "Ürün kapağı",
+  });
+  const client = new FakeClient((text) => text.includes("saas.catalog_list_products")
+    ? [{ outcome: "listed", result_payload: {
+      items: [product()],
+      hasMore: false,
+      featuredImages: { [PRODUCT_ID]: featuredImage },
+    } }]
+    : []);
+
+  const result = await repository(new FakePool(client)).listProducts({
+    tenantContext: tenantContext(), now: NOW, pageSize: 20,
+  });
+
+  assert.deepEqual(result.featuredImages, { [PRODUCT_ID]: featuredImage });
+  assert.equal(Object.isFrozen(result.featuredImages), true);
+  assert.equal(Object.isFrozen(result.featuredImages?.[PRODUCT_ID]), true);
+});
+
 test("getProductDetails derives store authority and returns ordered active variants from migration 019", async () => {
   const client = new FakeClient((text) => text.includes("saas.catalog_get_product_details")
     ? [{ outcome: "found", result_payload: { product: product(), variants: [variant()] } }]

@@ -1,0 +1,24 @@
+{
+  "phase": "phase3x-catalog-featured-image-listing",
+  "postgresqlMajor": 16,
+  "classification": "additive-tenant-catalog-read-projection",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607290065_catalog_featured_image_listing.up.sql",
+      "direction": "up",
+      "sha256": "edd723af860afcf8b3ba41d4763b7dcdf96dfb2007f1f4b681b504f727b838c9"
+    },
+    {
+      "file": "202607290065_catalog_featured_image_listing.down.sql",
+      "direction": "down",
+      "sha256": "302cbe76539dc80ffe2b6937e99e768fefc4ab60898827a0ca6aaa366e5838b3"
+    },
+    {
+      "file": "202607290065_catalog_featured_image_listing_assertions.sql",
+      "direction": "verify",
+      "sha256": "fcf4b4da816150cf8e2abb9222e8dec9f79835ca461eae889737da87b2ccdf31"
+    }
+  ]
+}

@@ -144,6 +144,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-link small { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
 .product-placeholder { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border: 1px solid #DDE4ED; border-radius: 11px; background: #F8FAFC; color: #98A2B3; font-weight: 850; }
 .product-placeholder svg { width: 18px; height: 18px; }
+.product-thumbnail { position: relative; display: grid; width: 42px; height: 42px; overflow: hidden; flex: 0 0 42px; place-items: center; border: 1px solid #DDE4ED; border-radius: 11px; background: #F8FAFC; color: #98A2B3; }
+.product-thumbnail-fallback { display: grid; position: absolute; inset: 0; place-items: center; }
+.product-thumbnail-fallback svg { width: 18px; height: 18px; }
+.product-thumbnail img { position: relative; z-index: 1; width: 100%; height: 100%; background: #fff; object-fit: cover; }
 .product-price { display: block; color: #1D2939; font-size: 13px; font-weight: 750; white-space: nowrap; }
 .catalog-table del { display: block; margin-bottom: 2px; color: #98A2B3; font-size: 10px; }
 .product-stock, .product-stock-low { font-size: 13px; font-weight: 700; white-space: nowrap; }

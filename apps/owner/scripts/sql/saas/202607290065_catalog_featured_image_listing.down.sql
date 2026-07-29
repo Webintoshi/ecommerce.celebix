@@ -1,0 +1,83 @@
+BEGIN;
+
+CREATE OR REPLACE FUNCTION saas.catalog_list_products(
+  p_store_id uuid,
+  p_principal_id uuid,
+  p_membership_id uuid,
+  p_plan_id uuid,
+  p_plan_code text,
+  p_plan_version bigint,
+  p_products_limit bigint,
+  p_now timestamptz,
+  p_status text,
+  p_page_size integer,
+  p_cursor_created_at timestamptz,
+  p_cursor_id uuid
+)
+RETURNS TABLE(outcome text, result_payload jsonb)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, saas
+AS $function$
+DECLARE
+  authority_error text;
+  listed_items jsonb;
+  listed_count integer;
+BEGIN
+  authority_error := saas.catalog_authority_error(
+    p_store_id, p_principal_id, p_membership_id, p_plan_id,
+    p_plan_code, p_plan_version, p_products_limit, p_now
+  );
+  IF authority_error IS NOT NULL THEN
+    RETURN QUERY SELECT authority_error, NULL::jsonb;
+    RETURN;
+  END IF;
+
+  IF p_page_size IS NULL OR p_page_size < 1 OR p_page_size > 100
+     OR (p_status IS NOT NULL AND p_status NOT IN ('draft', 'active', 'archived'))
+     OR ((p_cursor_created_at IS NULL) <> (p_cursor_id IS NULL)) THEN
+    RETURN QUERY SELECT 'invalid_input'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+
+  WITH selected AS MATERIALIZED (
+    SELECT product.id, product.created_at
+    FROM saas.products AS product
+    WHERE product.store_id = p_store_id
+      AND (
+        (p_status IS NULL AND product.status <> 'archived')
+        OR product.status = p_status
+      )
+      AND (
+        p_cursor_created_at IS NULL
+        OR (product.created_at, product.id) < (p_cursor_created_at, p_cursor_id)
+      )
+    ORDER BY product.created_at DESC, product.id DESC
+    LIMIT p_page_size + 1
+  ), page AS (
+    SELECT selected.id, selected.created_at
+    FROM selected
+    ORDER BY selected.created_at DESC, selected.id DESC
+    LIMIT p_page_size
+  )
+  SELECT
+    COALESCE(
+      pg_catalog.jsonb_agg(saas.catalog_product_projection(page.id) ORDER BY page.created_at DESC, page.id DESC),
+      '[]'::jsonb
+    ),
+    (SELECT pg_catalog.count(*)::integer FROM selected)
+  INTO listed_items, listed_count
+  FROM page;
+
+  RETURN QUERY SELECT 'listed'::text, pg_catalog.jsonb_build_object(
+    'items', listed_items,
+    'hasMore', listed_count > p_page_size
+  );
+END
+$function$;
+
+REVOKE ALL ON FUNCTION saas.catalog_list_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,text,integer,timestamptz,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION saas.catalog_list_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,text,integer,timestamptz,uuid) TO celebix_saas_app;
+
+COMMIT;

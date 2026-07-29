@@ -31,12 +31,13 @@ import {
   CatalogApiError,
   catalogApi,
   type CatalogDashboardSummary,
+  type ProductFeaturedImage,
 } from "@/lib/catalog-ui/client";
 
 type Filter = "all" | "draft" | "active";
 type Sort = "updated-desc" | "title-asc" | "title-desc";
 type BulkAction = "" | "active" | "draft" | "archive";
-type ProductRow = Readonly<{ product: Product; variant?: ProductVariant }>;
+type ProductRow = Readonly<{ product: Product; variant?: ProductVariant; featuredImage?: ProductFeaturedImage }>;
 type BulkCatalogApi = Pick<typeof catalogApi, "archiveProduct" | "updateProduct">;
 type LoadOptions = Readonly<{ cursor?: string; mutationToken?: number }>;
 type LoadResult = "applied" | "blocked" | "failed" | "stale";
@@ -172,16 +173,44 @@ export async function executeBulkProductAction(
   return Object.freeze({ completed, failed });
 }
 
-async function hydrateRows(products: readonly Product[]): Promise<readonly ProductRow[]> {
+async function hydrateRows(
+  products: readonly Product[],
+  featuredImages: Readonly<Record<string, ProductFeaturedImage>> = Object.freeze({}),
+): Promise<readonly ProductRow[]> {
   const details = await Promise.all(products.map(async (product) => {
     try {
       const detail = await catalogApi.getProduct(product.id);
-      return Object.freeze({ product, variant: detail.variants.find((variant) => variant.status === "active") ?? detail.variants[0] });
+      return Object.freeze({
+        product,
+        variant: detail.variants.find((variant) => variant.status === "active") ?? detail.variants[0],
+        ...(featuredImages[product.id] === undefined ? {} : { featuredImage: featuredImages[product.id] }),
+      });
     } catch {
-      return Object.freeze({ product });
+      return Object.freeze({
+        product,
+        ...(featuredImages[product.id] === undefined ? {} : { featuredImage: featuredImages[product.id] }),
+      });
     }
   }));
   return Object.freeze(details);
+}
+
+function ProductThumbnail({ product, featuredImage }: Readonly<{ product: Product; featuredImage?: ProductFeaturedImage }>) {
+  if (featuredImage === undefined) {
+    return <span className="product-placeholder" aria-hidden="true"><Package /></span>;
+  }
+  return (
+    <span className="product-thumbnail">
+      <span className="product-thumbnail-fallback" aria-hidden="true"><Package /></span>
+      <img
+        src={featuredImage.publicUrl}
+        alt={featuredImage.altText || `${product.title} ürün görseli`}
+        loading="lazy"
+        decoding="async"
+        onError={(event) => { event.currentTarget.hidden = true; }}
+      />
+    </span>
+  );
 }
 
 export function ProductListConsole() {
@@ -247,7 +276,7 @@ export function ProductListConsole() {
       }
       if (listOutcome.status === "rejected") throw listOutcome.reason;
       const result = listOutcome.value;
-      const hydrated = await hydrateRows(result.items);
+      const hydrated = await hydrateRows(result.items, result.featuredImages);
       if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
       setRows((current) => cursor === undefined ? hydrated : Object.freeze([...current, ...hydrated]));
       setNextCursor(result.nextCursor);
@@ -508,10 +537,10 @@ export function ProductListConsole() {
           <table className="catalog-table">
             <thead><tr><th>Seç</th><th>Ürün</th><th>SKU</th><th>Fiyat</th><th>Stok</th><th>Durum</th><th>Yayında</th><th>İşlemler</th></tr></thead>
             <tbody>
-              {visibleRows.map(({ product, variant }) => (
+              {visibleRows.map(({ product, variant, featuredImage }) => (
                 <tr key={product.id}>
                   <td data-label="Seç"><label className="catalog-checkbox-hit"><input type="checkbox" disabled={busy} checked={selected.includes(product.id)} onChange={(event) => setSelected((current) => event.target.checked ? Object.freeze([...current, product.id]) : Object.freeze(current.filter((id) => id !== product.id)))} aria-label={`${product.title} ürününü seç`} /></label></td>
-                  <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><span className="product-placeholder" aria-hidden="true"><Package /></span><span><strong>{product.title}</strong><small>/{product.slug}</small></span></Link></td>
+                  <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><ProductThumbnail product={product} featuredImage={featuredImage} /><span><strong>{product.title}</strong><small>/{product.slug}</small></span></Link></td>
                   <td data-label="SKU"><span className="mono-value">{variant?.sku ?? "—"}</span></td>
                   <td data-label="Fiyat">{variant?.compareAtCents ? <del>{money(variant.compareAtCents, product.currency)}</del> : null}<span className="product-price">{money(variant?.priceCents, product.currency)}</span></td>
                   <td data-label="Stok"><span className={variant?.stockTracking && variant.stockQuantity <= 10 ? "product-stock-low" : "product-stock"}>{variant === undefined ? "—" : variant.stockTracking ? `${variant.stockQuantity} adet` : "Takipsiz"}</span></td>

@@ -15,6 +15,7 @@ export type {
   GetProductInput,
   ListProductsInput,
   ListProductsResult,
+  CatalogProductFeaturedImage,
   PostgresCatalogRepositoryOptions,
   ProductDetailsResult,
   ProductMutationResult,

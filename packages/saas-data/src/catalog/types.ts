@@ -103,8 +103,14 @@ export interface VariantMutationResult {
   readonly replayed: boolean;
 }
 
+export type CatalogProductFeaturedImage = Readonly<{
+  readonly publicUrl: string;
+  readonly altText: string;
+}>;
+
 export interface ListProductsResult {
   readonly items: readonly Product[];
+  readonly featuredImages?: Readonly<Record<string, CatalogProductFeaturedImage>>;
   readonly nextCursor?: string;
 }
 

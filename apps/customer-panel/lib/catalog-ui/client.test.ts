@@ -65,6 +65,37 @@ test("list pagination accepts only a server cursor and preserves same-origin cre
   await assert.rejects(() => client.listProducts({ cursor: "unsafe%cursor" }), /catalog_client_invalid/);
 });
 
+test("list products accepts only a bounded canonical featured-image projection", async () => {
+  const featuredImage = Object.freeze({
+    publicUrl: "https://media.celebix.site/stores/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.webp",
+    altText: "Öne çıkan ürün görseli",
+  });
+  const client = createCatalogApiClient({
+    fetch: async () => jsonResponse({
+      items: [PRODUCT],
+      featuredImages: { [PRODUCT_ID]: featuredImage },
+    }),
+  });
+
+  const result = await client.listProducts();
+
+  assert.deepEqual(result.featuredImages, { [PRODUCT_ID]: featuredImage });
+  assert.equal(Object.isFrozen(result.featuredImages), true);
+  assert.equal(Object.isFrozen(result.featuredImages?.[PRODUCT_ID]), true);
+
+  for (const featuredImages of [
+    { [PRODUCT_ID]: { ...featuredImage, objectKey: "private/object.webp" } },
+    { [PRODUCT_ID]: { ...featuredImage, publicUrl: "http://media.celebix.site/object.webp" } },
+    { [PRODUCT_ID]: { ...featuredImage, publicUrl: `${featuredImage.publicUrl}?token=secret` } },
+    { "99999999-9999-4999-8999-999999999999": featuredImage },
+  ]) {
+    const hostile = createCatalogApiClient({
+      fetch: async () => jsonResponse({ items: [PRODUCT], featuredImages }),
+    });
+    await assert.rejects(() => hostile.listProducts(), /unavailable|catalog/i);
+  }
+});
+
 test("catalog list and detail reads forward the exact AbortSignal and preserve native aborts", async () => {
   const controller = new AbortController();
   const calls: RequestInit[] = [];
