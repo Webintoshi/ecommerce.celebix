@@ -38,11 +38,8 @@ type NodeProcess = Readonly<{
 
 const NODE_PROCESS = (globalThis as typeof globalThis & { process?: NodeProcess }).process;
 const IS_NODE_RUNTIME = typeof NODE_PROCESS?.versions?.node === "string";
-const NODE_UTIL_TYPES: NodeUtilTypes | undefined = IS_NODE_RUNTIME
-  ? await import(["node", "util/types"].join(":")).then(
-    (module) => module as NodeUtilTypes,
-    () => undefined,
-  )
+const NODE_UTIL_TYPES = IS_NODE_RUNTIME
+  ? NODE_PROCESS?.getBuiltinModule?.(["node", "util/types"].join(":")) as NodeUtilTypes | undefined
   : undefined;
 
 function isProxy(value: object): boolean {
