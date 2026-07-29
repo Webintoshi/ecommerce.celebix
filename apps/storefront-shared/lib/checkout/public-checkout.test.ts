@@ -78,6 +78,7 @@ function repository(overrides: Partial<PublicCheckoutRepository> = {}): PublicCh
   return Object.freeze({
     issueNonce: async () => quote(),
     updateDelivery: async () => quote({ cartVersion: 5 }),
+    classifyPaymentMethod: async () => Object.freeze({ kind: "built_in" as const }),
     submitBuiltIn: async (): Promise<CheckoutSubmissionResult> =>
       Object.freeze({
         kind: "placed",
@@ -87,7 +88,14 @@ function repository(overrides: Partial<PublicCheckoutRepository> = {}): PublicCh
     beginHosted: async () => { throw new PublicCheckoutRepositoryError("payment_method_unavailable"); },
     getStatus: async (): Promise<CheckoutStatus> => Object.freeze({ kind: "ready" }),
     getPolicy: async () => { throw new PublicCheckoutRepositoryError("not_found"); },
-    recover: async () => Object.freeze({ kind: "delivery" as const, quote: quote() }),
+    recover: async () => Object.freeze({
+      kind: "built_in" as const,
+      submission: Object.freeze({
+        kind: "placed" as const,
+        orderNumber: "SF-2026-000001",
+        statusPath: "/checkout/status",
+      }),
+    }),
     ...overrides,
   });
 }
@@ -238,6 +246,7 @@ test("built-in submit redirects only to the fixed same-origin result path", asyn
 });
 
 test("hosted-enabled built-ins place without client IP or hosted initialization", async () => {
+  let classificationCalls = 0;
   let builtInCalls = 0;
   let hostedCalls = 0;
   const hosted: HostedPaymentRuntime = Object.freeze({
@@ -254,6 +263,10 @@ test("hosted-enabled built-ins place without client IP or hosted initialization"
     selectAuthority: () => trusted(),
     resolveRuntime: async () => Object.freeze({
       checkout: repository({
+        classifyPaymentMethod: async () => {
+          classificationCalls += 1;
+          return Object.freeze({ kind: "built_in" as const });
+        },
         submitBuiltIn: async () => {
           builtInCalls += 1;
           return Object.freeze({
@@ -282,57 +295,108 @@ test("hosted-enabled built-ins place without client IP or hosted initialization"
   }));
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), "/odeme/sonuc");
+  assert.equal(classificationCalls, 1);
   assert.equal(builtInCalls, 1);
   assert.equal(hostedCalls, 0);
 });
 
-test("provider classification requires trusted IP and unrelated built-in errors never fall through", async () => {
-  for (const [errorCode, expectedStatus] of [
-    ["payment_method_unavailable", 400],
-    ["stock_unavailable", 409],
-  ] as const) {
-    let builtInCalls = 0;
-    let hostedCalls = 0;
-    const hosted: HostedPaymentRuntime = Object.freeze({
-      initialize: async () => Object.freeze({ kind: "rejected" as const }),
-      initializeCommitted: async () => {
-        hostedCalls += 1;
-        return Object.freeze({ kind: "rejected" as const });
-      },
-      callback: async () => Object.freeze({ kind: "rejected" as const }),
-      callbackByDigest: async () => Object.freeze({ kind: "rejected" as const }),
-      reconcile: async () => Object.freeze({ kind: "rejected" as const }),
-    });
-    const handlers = createPublicCheckoutHandlers({
-      selectAuthority: () => trusted(),
-      resolveRuntime: async () => Object.freeze({
-        checkout: repository({
-          submitBuiltIn: async () => {
-            builtInCalls += 1;
-            throw new PublicCheckoutRepositoryError(errorCode);
-          },
-        }),
-        hosted,
+test("hosted classification requires trusted IP without attempting built-in submission", async () => {
+  let classificationCalls = 0;
+  let builtInCalls = 0;
+  let hostedCalls = 0;
+  const hosted: HostedPaymentRuntime = Object.freeze({
+    initialize: async () => Object.freeze({ kind: "rejected" as const }),
+    initializeCommitted: async () => {
+      hostedCalls += 1;
+      return Object.freeze({ kind: "rejected" as const });
+    },
+    callback: async () => Object.freeze({ kind: "rejected" as const }),
+    callbackByDigest: async () => Object.freeze({ kind: "rejected" as const }),
+    reconcile: async () => Object.freeze({ kind: "rejected" as const }),
+  });
+  const handlers = createPublicCheckoutHandlers({
+    selectAuthority: () => trusted(),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        classifyPaymentMethod: async () => {
+          classificationCalls += 1;
+          return Object.freeze({ kind: "hosted" as const });
+        },
+        submitBuiltIn: async () => {
+          builtInCalls += 1;
+          return Object.freeze({
+            kind: "placed" as const,
+            orderNumber: "SF-2026-000001",
+            statusPath: "/checkout/status",
+          });
+        },
       }),
-      now: () => NOW,
-    });
-    const response = await handlers.submit(new Request(`https://${HOSTNAME}/api/checkout/submit`, {
-      method: "POST",
-      headers: headers("application/x-www-form-urlencoded"),
-      body: new URLSearchParams({
-        cartVersion: "4",
-        checkoutNonce: NONCE,
-        operationId: OPERATION_ID,
-        paymentMethodId: PAYMENT_METHOD_ID,
-        identityNumber: "74300864791",
-        distanceSales: "true",
-        preInformation: "true",
+      hosted,
+    }),
+    now: () => NOW,
+  });
+  const response = await handlers.submit(new Request(`https://${HOSTNAME}/api/checkout/submit`, {
+    method: "POST",
+    headers: headers("application/x-www-form-urlencoded"),
+    body: new URLSearchParams({
+      cartVersion: "4",
+      checkoutNonce: NONCE,
+      operationId: OPERATION_ID,
+      paymentMethodId: PAYMENT_METHOD_ID,
+      identityNumber: "74300864791",
+      distanceSales: "true",
+      preInformation: "true",
+    }),
+  }));
+  assert.equal(response.status, 400);
+  assert.equal(classificationCalls, 1);
+  assert.equal(builtInCalls, 0);
+  assert.equal(hostedCalls, 0);
+});
+
+test("built-in classification never falls through to hosted after a submit race", async () => {
+  let hostedCalls = 0;
+  const hosted: HostedPaymentRuntime = Object.freeze({
+    initialize: async () => Object.freeze({ kind: "rejected" as const }),
+    initializeCommitted: async () => {
+      hostedCalls += 1;
+      return Object.freeze({ kind: "rejected" as const });
+    },
+    callback: async () => Object.freeze({ kind: "rejected" as const }),
+    callbackByDigest: async () => Object.freeze({ kind: "rejected" as const }),
+    reconcile: async () => Object.freeze({ kind: "rejected" as const }),
+  });
+  const handlers = createPublicCheckoutHandlers({
+    selectAuthority: () => trusted(),
+    resolveRuntime: async () => Object.freeze({
+      checkout: repository({
+        classifyPaymentMethod: async () => Object.freeze({ kind: "built_in" as const }),
+        submitBuiltIn: async () => {
+          throw new PublicCheckoutRepositoryError("payment_method_unavailable");
+        },
       }),
-    }));
-    assert.equal(response.status, expectedStatus);
-    assert.equal(builtInCalls, 1);
-    assert.equal(hostedCalls, 0);
-  }
+      hosted,
+    }),
+    now: () => NOW,
+  });
+  const response = await handlers.submit(new Request(`https://${HOSTNAME}/api/checkout/submit`, {
+    method: "POST",
+    headers: {
+      ...headers("application/x-www-form-urlencoded"),
+      "x-forwarded-for": "93.184.216.34",
+    },
+    body: new URLSearchParams({
+      cartVersion: "4",
+      checkoutNonce: NONCE,
+      operationId: OPERATION_ID,
+      paymentMethodId: PAYMENT_METHOD_ID,
+      identityNumber: "",
+      distanceSales: "true",
+      preInformation: "true",
+    }),
+  }));
+  assert.equal(response.status, 409);
+  assert.equal(hostedCalls, 0);
 });
 
 test("submit redirects only to an exact hosted presentation", async () => {
@@ -357,6 +421,7 @@ test("submit redirects only to an exact hosted presentation", async () => {
     selectAuthority: () => trusted(),
     resolveRuntime: async () => Object.freeze({
       checkout: repository({
+        classifyPaymentMethod: async () => Object.freeze({ kind: "hosted" as const }),
         submitBuiltIn: async () => {
           throw new PublicCheckoutRepositoryError("payment_method_unavailable");
         },
@@ -416,6 +481,7 @@ test("hosted commit uncertainty recovers once and resumes the same initializatio
     selectAuthority: () => trusted(),
     resolveRuntime: async () => Object.freeze({
       checkout: repository({
+        classifyPaymentMethod: async () => Object.freeze({ kind: "hosted" as const }),
         submitBuiltIn: async () => {
           throw new PublicCheckoutRepositoryError("payment_method_unavailable");
         },
@@ -464,19 +530,16 @@ test("hosted commit uncertainty recovers once and resumes the same initializatio
   assert.equal(recoverCalls[0]?.expected.kind, "hosted");
 });
 
-test("delivery and built-in uncertainty recover one exact typed result", async () => {
-  const deliveryRecoveries: Parameters<PublicCheckoutRepository["recover"]>[0][] = [];
+test("delivery commit uncertainty never performs route recovery with the submitted nonce", async () => {
+  let deliveryRecoveries = 0;
   const deliveryHandlers = createPublicCheckoutHandlers({
     selectAuthority: () => trusted(),
     resolveRuntime: async () => Object.freeze({
       checkout: repository({
         updateDelivery: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
-        recover: async (input) => {
-          deliveryRecoveries.push(input);
-          return Object.freeze({
-            kind: "delivery" as const,
-            quote: quote({ cartVersion: 5 }),
-          });
+        recover: async () => {
+          deliveryRecoveries += 1;
+          throw new Error("route_delivery_recovery_forbidden");
         },
       }),
       hosted: null,
@@ -491,14 +554,14 @@ test("delivery and built-in uncertainty recover one exact typed result", async (
       body: JSON.stringify(delivery()),
     },
   ));
-  assert.equal(deliveryResponse.status, 200);
-  assert.equal((await deliveryResponse.json() as CheckoutQuote).cartVersion, 5);
-  assert.equal(deliveryRecoveries.length, 1);
-  assert.deepEqual(deliveryRecoveries[0]?.expected, {
-    kind: "delivery",
-    checkoutNonce: NONCE,
-  });
+  assert.equal(deliveryResponse.status, 202);
+  const deliveryBody = await deliveryResponse.clone().text();
+  assert.deepEqual(await deliveryResponse.json(), { code: "processing" });
+  assert.equal(deliveryBody.includes(NONCE), false);
+  assert.equal(deliveryRecoveries, 0);
+});
 
+test("built-in uncertainty recovers one exact typed result", async () => {
   const builtInRecoveries: Parameters<PublicCheckoutRepository["recover"]>[0][] = [];
   const builtInHandlers = createPublicCheckoutHandlers({
     selectAuthority: () => trusted(),
@@ -566,13 +629,18 @@ test("wrong-kind hosted recovery fails closed before presentation", async () => 
     selectAuthority: () => trusted(),
     resolveRuntime: async () => Object.freeze({
       checkout: repository({
+        classifyPaymentMethod: async () => Object.freeze({ kind: "hosted" as const }),
         submitBuiltIn: async () => {
           throw new PublicCheckoutRepositoryError("payment_method_unavailable");
         },
         beginHosted: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
         recover: async () => Object.freeze({
-          kind: "delivery" as const,
-          quote: quote(),
+          kind: "built_in" as const,
+          submission: Object.freeze({
+            kind: "placed" as const,
+            orderNumber: "SF-2026-000001",
+            statusPath: "/checkout/status",
+          }),
         }),
       }),
       hosted,
@@ -600,41 +668,16 @@ test("wrong-kind hosted recovery fails closed before presentation", async () => 
   assert.equal(hostedPresentations, 0);
 });
 
-test("wrong-kind delivery and built-in recovery fail closed", async () => {
-  const deliveryHandlers = createPublicCheckoutHandlers({
-    selectAuthority: () => trusted(),
-    resolveRuntime: async () => Object.freeze({
-      checkout: repository({
-        updateDelivery: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
-        recover: async () => Object.freeze({
-          kind: "built_in" as const,
-          submission: Object.freeze({
-            kind: "placed" as const,
-            orderNumber: "SF-2026-000001",
-            statusPath: "/checkout/status",
-          }),
-        }),
-      }),
-      hosted: null,
-    }),
-    now: () => NOW,
-  });
-  const deliveryResponse = await deliveryHandlers.delivery(new Request(
-    `https://${HOSTNAME}/api/checkout/delivery`,
-    {
-      method: "POST",
-      headers: headers("application/json"),
-      body: JSON.stringify(delivery()),
-    },
-  ));
-  assert.equal(deliveryResponse.status, 503);
-
+test("wrong-kind built-in recovery fails closed", async () => {
   const builtInHandlers = createPublicCheckoutHandlers({
     selectAuthority: () => trusted(),
     resolveRuntime: async () => Object.freeze({
       checkout: repository({
         submitBuiltIn: async () => { throw new PublicCheckoutRepositoryError("commit_unknown"); },
-        recover: async () => Object.freeze({ kind: "delivery" as const, quote: quote() }),
+        recover: async () => Object.freeze({
+          kind: "hosted" as const,
+          authority: hostedAuthority("99999999-9999-4999-8999-999999999999"),
+        }),
       }),
       hosted: null,
     }),

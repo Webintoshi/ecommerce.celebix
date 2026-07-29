@@ -183,6 +183,8 @@ test("request boundary requires the exact trusted HTTPS URL authority", async ()
     `http://${HOSTNAME}/api/checkout/delivery`,
     "https://other.celebix.site/api/checkout/delivery",
     `https://${HOSTNAME}:8443/api/checkout/delivery`,
+    `https://${HOSTNAME}/api/checkout/delivery?`,
+    `https://${HOSTNAME}/api/checkout/delivery#`,
   ]) {
     assert.deepEqual(await readCheckoutDeliveryRequest(
       deliveryRequest({ url }),

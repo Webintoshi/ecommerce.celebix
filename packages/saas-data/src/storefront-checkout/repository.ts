@@ -25,6 +25,8 @@ import {
 } from "./errors.ts";
 import type {
   BeginHostedCheckoutInput,
+  CheckoutPaymentMethodClassification,
+  ClassifyCheckoutPaymentMethodInput,
   CheckoutOperationRecovery,
   GetCheckoutPolicyInput,
   GetCheckoutStatusInput,
@@ -38,6 +40,7 @@ import type {
 } from "./types.ts";
 import {
   beginHostedCheckoutInput,
+  classifyCheckoutPaymentMethodInput,
   exactCheckoutInput,
   getCheckoutPolicyInput,
   getCheckoutStatusInput,
@@ -49,6 +52,14 @@ import {
 
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 type Selected = Readonly<{ outcome: string; resultPayload: unknown }>;
+type DeliveryRecoveryInput = Readonly<{
+  hostname: string;
+  credentialDigest: string;
+  operationId: string;
+  fingerprint: string;
+  checkoutNonce: string;
+  now: Date;
+}>;
 
 const QUOTE_KEYS = Object.freeze([
   "schemaVersion",
@@ -497,9 +508,8 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
   }
 
   private async recoverDelivery(
-    input: RecoverCheckoutOperationInput,
+    input: DeliveryRecoveryInput,
   ): Promise<CheckoutQuote> {
-    if (input.expected.kind !== "delivery") unavailable();
     const selected = await this.read({
       text: `SELECT outcome, result_payload FROM saas.storefront_checkout_recover_operation(
         $1::text,$2::text,$3::uuid,$4::text,$5::timestamptz
@@ -515,11 +525,11 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
     if (selected.outcome !== "operation_replayed") {
       throwOutcome(selected.outcome, selected.resultPayload);
     }
-    return safeQuote(selected.resultPayload, input.expected.checkoutNonce);
+    return safeQuote(selected.resultPayload, input.checkoutNonce);
   }
 
   private async recoverUnknownDelivery(
-    input: RecoverCheckoutOperationInput,
+    input: DeliveryRecoveryInput,
     observed: CheckoutQuote,
   ): Promise<CheckoutQuote> {
     try {
@@ -710,10 +720,7 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
               credentialDigest: parsed.credentialDigest,
               operationId: parsed.delivery.operationId,
               fingerprint: operationFingerprint,
-              expected: Object.freeze({
-                kind: "delivery" as const,
-                checkoutNonce: nextNonce.credential,
-              }),
+              checkoutNonce: nextNonce.credential,
               now: parsed.now,
             }),
             quote,
@@ -725,6 +732,32 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
         if (isTrustedPublicCheckoutError(error)) throw error;
         return unavailable();
       }
+    });
+  }
+
+  classifyPaymentMethod(
+    input: ClassifyCheckoutPaymentMethodInput,
+  ): Promise<CheckoutPaymentMethodClassification> {
+    return expose(async () => {
+      const parsed = classifyCheckoutPaymentMethodInput(input);
+      const selected = await this.read({
+        text: `SELECT outcome, result_payload FROM saas.storefront_checkout_classify_payment_method(
+          $1::text,$2::text,$3::bigint,$4::text,$5::uuid,$6::timestamptz
+        )`,
+        values: [
+          parsed.hostname,
+          parsed.credentialDigest,
+          parsed.submission.cartVersion,
+          digest(parsed.submission.checkoutNonce),
+          parsed.submission.paymentMethodId,
+          parsed.now,
+        ],
+      });
+      if (selected.resultPayload !== null) unavailable();
+      if (selected.outcome === "built_in" || selected.outcome === "hosted") {
+        return Object.freeze({ kind: selected.outcome });
+      }
+      throwOutcome(selected.outcome, selected.resultPayload);
     });
   }
 
@@ -855,12 +888,6 @@ export class PostgresPublicCheckoutRepository implements PublicCheckoutRepositor
       });
       if (selected.outcome !== "operation_replayed") {
         throwOutcome(selected.outcome, selected.resultPayload);
-      }
-      if (parsed.expected.kind === "delivery") {
-        return Object.freeze({
-          kind: "delivery" as const,
-          quote: safeQuote(selected.resultPayload, parsed.expected.checkoutNonce),
-        });
       }
       if (parsed.expected.kind === "built_in") {
         return Object.freeze({

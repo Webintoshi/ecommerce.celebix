@@ -370,11 +370,11 @@ function returnUrls(
     ) invalid();
   }
   const legacyPair =
-    `${success.pathname}${success.search}` === SUCCESS_PATH &&
-    `${failure.pathname}${failure.search}` === FAILURE_PATH;
+    selected[0] === `${origin}${SUCCESS_PATH}` &&
+    selected[1] === `${origin}${FAILURE_PATH}`;
   const normalPair =
-    success.pathname === NORMAL_RESULT_PATH && success.search === "" &&
-    failure.pathname === NORMAL_RESULT_PATH && failure.search === "";
+    selected[0] === `${origin}${NORMAL_RESULT_PATH}` &&
+    selected[1] === `${origin}${NORMAL_RESULT_PATH}`;
   if (!legacyPair && !normalPair) invalid();
   return Object.freeze({ successUrl: selected[0], failureUrl: selected[1] });
 }

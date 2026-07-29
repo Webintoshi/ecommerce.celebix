@@ -30,6 +30,12 @@ export type SubmitBuiltInCheckoutInput = Readonly<{
   submission: CheckoutSubmitInput;
 }>;
 
+export type ClassifyCheckoutPaymentMethodInput = SubmitBuiltInCheckoutInput;
+
+export type CheckoutPaymentMethodClassification =
+  | Readonly<{ kind: "built_in" }>
+  | Readonly<{ kind: "hosted" }>;
+
 export type BeginHostedCheckoutInput = SubmitBuiltInCheckoutInput & Readonly<{
   attemptId: string;
   callbackBindingDigest: string;
@@ -48,7 +54,6 @@ export type GetCheckoutPolicyInput = Readonly<{
 }>;
 
 export type CheckoutOperationRecoveryExpectation =
-  | Readonly<{ kind: "delivery"; checkoutNonce: string }>
   | Readonly<{ kind: "built_in" }>
   | Readonly<{
       kind: "hosted";
@@ -98,13 +103,15 @@ export type HostedCheckoutAuthority = Readonly<{
 }>;
 
 export type CheckoutOperationRecovery =
-  | Readonly<{ kind: "delivery"; quote: CheckoutQuote }>
   | Readonly<{ kind: "built_in"; submission: CheckoutSubmissionResult }>
   | Readonly<{ kind: "hosted"; authority: HostedCheckoutAuthority }>;
 
 export interface PublicCheckoutRepository {
   issueNonce(input: IssueCheckoutNonceInput): Promise<CheckoutQuote>;
   updateDelivery(input: UpdateCheckoutDeliveryInput): Promise<CheckoutQuote>;
+  classifyPaymentMethod(
+    input: ClassifyCheckoutPaymentMethodInput,
+  ): Promise<CheckoutPaymentMethodClassification>;
   submitBuiltIn(input: SubmitBuiltInCheckoutInput): Promise<CheckoutSubmissionResult>;
   beginHosted(input: BeginHostedCheckoutInput): Promise<HostedCheckoutAuthority>;
   getStatus(input: GetCheckoutStatusInput): Promise<CheckoutStatus>;

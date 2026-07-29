@@ -6,7 +6,6 @@ import {
   parseCheckoutQuote,
   parseCheckoutStatus,
   parseCheckoutSubmissionResult,
-  type CheckoutDeliveryInput,
   type CheckoutHttpError,
   type CheckoutQuote,
   type CheckoutSubmitInput,
@@ -110,28 +109,6 @@ function publicRepositoryError(error: unknown): PublicCheckoutRepositoryError | 
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
-}
-
-function deliveryFingerprint(input: Readonly<{
-  hostname: string;
-  credentialDigest: string;
-  delivery: CheckoutDeliveryInput;
-}>): string {
-  const { delivery } = input;
-  return sha256(JSON.stringify({
-    action: "delivery",
-    hostname: input.hostname,
-    credentialDigest: input.credentialDigest,
-    cartVersion: delivery.cartVersion,
-    currentNonceDigest: sha256(delivery.checkoutNonce),
-    operationId: delivery.operationId,
-    email: delivery.email,
-    marketingOptIn: delivery.marketingOptIn,
-    shippingAddress: delivery.shippingAddress,
-    billingAddress: delivery.billingAddress,
-    shippingId: delivery.shippingId,
-    discountCode: delivery.discountCode,
-  }));
 }
 
 function submissionFingerprint(input: Readonly<{
@@ -334,39 +311,17 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
         now: new Date(resolved.now),
       })));
     } catch (error) {
-      if (publicRepositoryError(error)?.code === "commit_unknown") {
-        const recovered = await recoverUnknown({
-          repository: resolved.runtime.checkout,
-          hostname: selected.hostname,
-          credentialDigest: selected.credentialDigest,
-          operationId: selected.delivery.operationId,
-          fingerprint: deliveryFingerprint(selected),
-          expected: Object.freeze({
-            kind: "delivery" as const,
-            checkoutNonce: selected.delivery.checkoutNonce,
-          }),
-          now: resolved.now,
-        });
-        if (recovered?.kind === "delivery") {
-          try {
-            return json(parseCheckoutQuote(recovered.quote));
-          } catch {
-            return response("unavailable");
-          }
-        }
-        return response("unavailable");
-      }
       return response(repositoryCode(error));
     }
   }
 
-  async function classifyBuiltIn(input: Readonly<{
+  async function submitBuiltIn(input: Readonly<{
     runtime: PublicCheckoutRuntime;
     hostname: string;
     credentialDigest: string;
     submission: CheckoutSubmitInput;
     now: Date;
-  }>): Promise<Response | null> {
+  }>): Promise<Response> {
     try {
       const result = await input.runtime.checkout.submitBuiltIn({
         hostname: input.hostname,
@@ -411,7 +366,6 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
         }
         return response("unavailable");
       }
-      if (publicRepositoryError(error)?.code === "payment_method_unavailable") return null;
       return response(repositoryCode(error));
     }
   }
@@ -423,14 +377,27 @@ export function createPublicCheckoutHandlers(dependencies: HandlerDependencies) 
     if (selected.kind !== "valid") return response(selected.code);
     const resolved = await runtimeAndNow();
     if (resolved === null) return response("unavailable");
-    const builtInResult = await classifyBuiltIn({
-      runtime: resolved.runtime,
-      hostname: selected.hostname,
-      credentialDigest: selected.credentialDigest,
-      submission: selected.submission,
-      now: resolved.now,
-    });
-    if (builtInResult !== null) return builtInResult;
+    let classification: Awaited<ReturnType<PublicCheckoutRepository["classifyPaymentMethod"]>>;
+    try {
+      classification = await resolved.runtime.checkout.classifyPaymentMethod({
+        hostname: selected.hostname,
+        credentialDigest: selected.credentialDigest,
+        submission: selected.submission,
+        now: new Date(resolved.now),
+      });
+    } catch (error) {
+      return response(repositoryCode(error));
+    }
+    if (classification.kind === "built_in") {
+      return await submitBuiltIn({
+        runtime: resolved.runtime,
+        hostname: selected.hostname,
+        credentialDigest: selected.credentialDigest,
+        submission: selected.submission,
+        now: resolved.now,
+      });
+    }
+    if (classification.kind !== "hosted") return response("unavailable");
     if (resolved.runtime.hosted === null) return response("payment_unavailable");
     const trustedClientIp = parseTrustedClientIp(request.headers.get("x-forwarded-for"));
     if (trustedClientIp === null) return response("invalid_input");

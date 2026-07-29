@@ -169,6 +169,50 @@ function hostedInput(): BeginHostedCheckoutInput {
   };
 }
 
+test("classifyPaymentMethod uses one read-only migration 064 authority and parses only finite kinds", async () => {
+  for (const [outcome, kind] of [
+    ["built_in", "built_in"],
+    ["hosted", "hosted"],
+  ] as const) {
+    const client = new FakeClient((text) => (
+      text.includes("saas.storefront_checkout_classify_payment_method")
+        ? [selected(outcome, null)]
+        : []
+    ));
+    const result = await repository(new FakePool([client])).classifyPaymentMethod(submissionInput());
+    assert.deepEqual(result, { kind });
+    assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+    const query = client.calls.find((call) => textIncludes(
+      call,
+      "storefront_checkout_classify_payment_method",
+    ));
+    assert.deepEqual(query?.values, [
+      "shop.celebix.site",
+      DIGEST,
+      1,
+      createHash("sha256").update(NONCE).digest("hex"),
+      PAYMENT_ID,
+      NOW,
+    ]);
+  }
+});
+
+test("classifyPaymentMethod fails closed for unavailable or malformed classifications", async () => {
+  for (const [row, code] of [
+    [selected("payment_method_unavailable", null), "payment_method_unavailable"],
+    [selected("built_in", { kind: "built_in" }), "unavailable"],
+    [selected("provider", null), "unavailable"],
+  ] as const) {
+    const client = new FakeClient((text) => (
+      text.includes("saas.storefront_checkout_classify_payment_method") ? [row] : []
+    ));
+    await assert.rejects(
+      repository(new FakePool([client])).classifyPaymentMethod(submissionInput()),
+      errorCode(code),
+    );
+  }
+});
+
 function hostedAuthorityPayload() {
   return {
     storeId: CART_ID,
@@ -415,18 +459,13 @@ test("issueNonce commit unknown performs one read-only quote recovery but cannot
   assert.equal(recovery.calls.some((call) => textIncludes(call, "storefront_checkout_issue_nonce")), false);
 });
 
-test("recover discriminates and parses delivery built-in and hosted operation results", async () => {
+test("recover discriminates and parses built-in and hosted operation results", async () => {
   const builtIn = {
     kind: "placed",
     orderNumber: "SF-2026-000001",
     statusPath: "/checkout/status",
   };
   const cases = [
-    {
-      expected: { kind: "delivery", checkoutNonce: NONCE },
-      payload: quotePayload(),
-      result: { kind: "delivery", quote: { ...quotePayload(), checkoutNonce: NONCE } },
-    },
     {
       expected: { kind: "built_in" },
       payload: builtIn,
@@ -470,9 +509,20 @@ test("recover discriminates and parses delivery built-in and hosted operation re
   }
 });
 
+test("public recover rejects delivery because only the repository owns the generated next nonce", async () => {
+  const checkout = repository(new FakePool([]));
+  await assert.rejects(Reflect.apply(checkout.recover, checkout, [{
+    hostname: "shop.celebix.site",
+    credentialDigest: DIGEST,
+    operationId: OPERATION_ID,
+    fingerprint: "b".repeat(64),
+    expected: { kind: "delivery", checkoutNonce: NONCE },
+    now: NOW,
+  }]), errorCode("invalid_input"));
+});
+
 test("recover rejects wrong-kind payloads and duplicated hosted authority before pool checkout", async () => {
   const wrongKinds = [
-    { expected: { kind: "delivery", checkoutNonce: NONCE }, payload: hostedAuthorityPayload() },
     { expected: { kind: "built_in" }, payload: quotePayload() },
     {
       expected: {

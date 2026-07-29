@@ -21,6 +21,9 @@ BEGIN
     OR pg_catalog.to_regprocedure(
       'saas.storefront_checkout_get_quote(text,text,timestamp with time zone)'
     ) IS NOT NULL
+    OR pg_catalog.to_regprocedure(
+      'saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)'
+    ) IS NOT NULL
     OR EXISTS(
       SELECT 1 FROM pg_catalog.pg_attribute
       WHERE attrelid='saas.abandoned_carts'::regclass AND attnum>0 AND NOT attisdropped
@@ -1440,6 +1443,96 @@ EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN
 END
 $f$;
 
+CREATE FUNCTION saas.storefront_checkout_classify_payment_method(
+  p_hostname text,p_credential_digest text,p_expected_version bigint,
+  p_nonce_digest text,p_payment_method_id uuid,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $f$
+DECLARE
+  selected_store_id uuid;
+  selected_cart saas.abandoned_carts%ROWTYPE;
+  selected_method saas.payment_methods%ROWTYPE;
+  selected_profile saas.merchant_provider_profiles%ROWTYPE;
+BEGIN
+  IF saas.storefront_checkout_hostname_valid(p_hostname) IS DISTINCT FROM true
+    OR p_credential_digest IS NULL OR p_credential_digest!~'^[a-f0-9]{64}$'
+    OR p_expected_version IS NULL OR p_expected_version NOT BETWEEN 1 AND 9007199254740991
+    OR p_nonce_digest IS NULL OR p_nonce_digest!~'^[a-f0-9]{64}$'
+    OR p_payment_method_id IS NULL
+    OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
+  selected_store_id:=saas.abandoned_cart_capture_store(p_hostname,p_now);
+  SELECT cart.* INTO selected_cart
+  FROM saas.abandoned_carts cart
+  WHERE cart.store_id=selected_store_id AND cart.public_cart_digest=p_credential_digest
+  ORDER BY cart.last_activity_at DESC,cart.id DESC LIMIT 1;
+  IF selected_cart.id IS NULL THEN
+    RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN;
+  END IF;
+  IF selected_cart.status NOT IN('active','recovered')
+    OR selected_cart.version<>p_expected_version
+    OR selected_cart.checkout_nonce_digest IS NULL
+    OR saas.quick_checkout_digest_matches(
+      selected_cart.checkout_nonce_digest,p_nonce_digest
+    ) IS DISTINCT FROM true
+  THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
+  IF p_now<selected_cart.created_at OR p_now<selected_cart.last_activity_at
+    OR selected_cart.version>=9007199254740991
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
+  SELECT method.* INTO selected_method
+  FROM saas.payment_methods method
+  WHERE method.store_id=selected_cart.store_id AND method.id=p_payment_method_id;
+  IF selected_method.id IS NULL OR selected_method.state<>'active' THEN
+    RETURN QUERY SELECT 'payment_method_unavailable',NULL::jsonb; RETURN;
+  END IF;
+  IF selected_method.kind IN('cash_on_delivery','bank_transfer') THEN
+    IF selected_method.profile_id IS NOT NULL OR selected_method.provider_code IS NOT NULL
+      OR saas.built_in_payment_method_config_valid(
+        selected_method.kind,selected_method.config
+      ) IS DISTINCT FROM true
+    THEN RETURN QUERY SELECT 'payment_method_unavailable',NULL::jsonb; RETURN; END IF;
+    RETURN QUERY SELECT 'built_in',NULL::jsonb; RETURN;
+  END IF;
+  IF selected_method.kind<>'provider'
+    OR selected_method.profile_id IS NULL
+    OR selected_method.provider_code NOT IN('paytr_iframe','iyzico_iframe')
+  THEN RETURN QUERY SELECT 'payment_method_unavailable',NULL::jsonb; RETURN; END IF;
+
+  SELECT profile.* INTO selected_profile
+  FROM saas.merchant_provider_profiles profile
+  WHERE profile.store_id=selected_cart.store_id AND profile.id=selected_method.profile_id
+    AND profile.provider_code=selected_method.provider_code;
+  IF selected_profile.id IS NULL OR selected_profile.status<>'active'
+    OR selected_profile.capability<>'payment_processing'
+    OR selected_profile.execution_environment NOT IN('test','live')
+    OR selected_profile.execution_adapter_version IS NULL
+    OR selected_profile.execution_evidence_digest IS NULL
+    OR selected_method.config IS DISTINCT FROM pg_catalog.jsonb_build_object(
+      'environment',selected_profile.execution_environment
+    )
+    OR saas.merchant_provider_execution_authority_matches(
+      selected_profile.provider_code,selected_profile.capability,
+      selected_profile.execution_environment,selected_profile.execution_adapter_version,
+      selected_profile.execution_evidence_digest
+    ) IS DISTINCT FROM true
+    OR NOT EXISTS(
+      SELECT 1 FROM saas.merchant_provider_definitions definition
+      WHERE definition.provider_code=selected_method.provider_code
+        AND definition.capability='payment_processing' AND definition.enabled
+    )
+    OR (SELECT pg_catalog.count(*) FROM saas.payment_methods active_method
+      WHERE active_method.store_id=selected_cart.store_id
+        AND active_method.kind='provider' AND active_method.state='active')<>1
+  THEN RETURN QUERY SELECT 'payment_method_unavailable',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'hosted',NULL::jsonb;
+END
+$f$;
+
 CREATE FUNCTION saas.storefront_checkout_submit_builtin(
   p_hostname text,p_credential_digest text,p_expected_version bigint,
   p_operation_id uuid,p_fingerprint text,p_nonce_digest text,
@@ -2828,6 +2921,7 @@ BEGIN
     ('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)','55a13b99a537cae6df50f09ca2994ebe','s'::"char"),
     ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1','v'::"char"),
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char"),
+    ('saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)','136a7c7c9d06d8e8bedf319c2685f619','s'::"char"),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e','v'::"char"),
     ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)','397531c6e482991b782ef989878e6abe','v'::"char"),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char"),
@@ -2905,6 +2999,9 @@ REVOKE ALL ON FUNCTION
   saas.storefront_checkout_update_delivery(
     text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamptz
   ),
+  saas.storefront_checkout_classify_payment_method(
+    text,text,bigint,text,uuid,timestamptz
+  ),
   saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamptz),
   saas.storefront_checkout_begin_hosted(
     text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamptz
@@ -2922,6 +3019,9 @@ GRANT EXECUTE ON FUNCTION
   saas.storefront_checkout_issue_nonce(text,text,text,timestamptz),
   saas.storefront_checkout_update_delivery(
     text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamptz
+  ),
+  saas.storefront_checkout_classify_payment_method(
+    text,text,bigint,text,uuid,timestamptz
   ),
   saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamptz),
   saas.storefront_checkout_begin_hosted(

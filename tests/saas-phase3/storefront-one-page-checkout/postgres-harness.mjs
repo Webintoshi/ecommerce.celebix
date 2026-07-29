@@ -31,6 +31,7 @@ const RACE_DB = "storefront_one_page_checkout_race";
 const PREFLIGHT_DB = "storefront_one_page_checkout_preflight";
 const MAX_PAYLOAD_DB = "storefront_one_page_checkout_max_payload";
 const BODY_TAMPER_DB = "storefront_one_page_checkout_body_tamper";
+const CLASSIFIER_BODY_TAMPER_DB = "storefront_one_page_checkout_classifier_body_tamper";
 const PREFLIGHT_BODY_TAMPER_DB = "storefront_one_page_checkout_preflight_body_tamper";
 const TRIGGER_TAMPER_DB = "storefront_one_page_checkout_trigger_tamper";
 const PERSISTENCE_TAMPER_DB = "storefront_one_page_checkout_persistence_tamper";
@@ -41,6 +42,7 @@ const BUILTIN_SETTLEMENT_DB = "storefront_one_page_checkout_builtin_settlement";
 const HOSTED_SETTLEMENT_DB = "storefront_one_page_checkout_hosted_settlement";
 const HOSTED_FAILURE_DB = "storefront_one_page_checkout_hosted_failure";
 const METHOD_DENIAL_DB = "storefront_one_page_checkout_method_denial";
+const CLASSIFICATION_DB = "storefront_one_page_checkout_method_classification";
 const BUILTIN_RACE_DB = "storefront_one_page_checkout_builtin_race";
 const EMERGENCY_RACE_DB = "storefront_one_page_checkout_emergency_race";
 const DISCOUNT_USAGE_RACE_DB = "storefront_one_page_checkout_discount_usage_race";
@@ -83,6 +85,7 @@ const SHIPPING_DRAFT = "72000000-0000-4000-8000-000000000065";
 const DISCOUNT = "73000000-0000-4000-8000-000000000064";
 const EXPIRED_DISCOUNT = "73000000-0000-4000-8000-000000000065";
 const BANK_METHOD = "50000000-0000-4000-8000-000000000063";
+const COD_METHOD = "50000000-0000-4000-8000-000000000062";
 const PROVIDER_METHOD = "50000000-0000-4000-8000-000000000061";
 const CROSS_STORE_METHOD = "50000000-0000-4000-8000-000000000064";
 const BUILTIN_OPERATION = "82000000-0000-4000-8000-000000000064";
@@ -226,6 +229,18 @@ function submitBuiltInCall({
   return `SELECT outcome,result_payload FROM saas.storefront_checkout_submit_builtin(
     '${HOST_A}','${credentialDigest}',${expectedVersion},'${operationId}'::uuid,'${fingerprint}',
     '${nonce}','${paymentMethodId}'::uuid,'${NOW}'::timestamptz
+  )`;
+}
+
+function classifyPaymentMethodCall({
+  expectedVersion,
+  nonce = NONCE_2,
+  paymentMethodId = BANK_METHOD,
+  credentialDigest = CART_A_DIGEST,
+}) {
+  return `SELECT outcome,result_payload FROM saas.storefront_checkout_classify_payment_method(
+    '${HOST_A}','${credentialDigest}',${expectedVersion},'${nonce}',
+    '${paymentMethodId}'::uuid,'${NOW}'::timestamptz
   )`;
 }
 
@@ -1035,6 +1050,7 @@ async function main() {
           'saas.storefront_checkout_get_quote(text,text,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)'::regprocedure,
+          'saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)'::regprocedure,
           'saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)'::regprocedure,
@@ -1043,7 +1059,7 @@ async function main() {
           'saas.storefront_checkout_preflight()'::regprocedure
         ])::oid
       )
-      SELECT pg_catalog.count(*)=9
+      SELECT pg_catalog.count(*)=10
         AND pg_catalog.bool_and(pg_catalog.has_function_privilege(
           'celebix_saas_workflow',oid,'EXECUTE'
         ))
@@ -1102,6 +1118,7 @@ async function main() {
       HOSTED_SETTLEMENT_DB,
       HOSTED_FAILURE_DB,
       METHOD_DENIAL_DB,
+      CLASSIFICATION_DB,
       BUILTIN_RACE_DB,
       EMERGENCY_RACE_DB,
       DISCOUNT_USAGE_RACE_DB,
@@ -1120,8 +1137,67 @@ async function main() {
       sql(box, `CREATE DATABASE ${database} TEMPLATE ${DB};`, "postgres");
     }
 
+    const classificationVersion = prepareSubmittedCart(box, CLASSIFICATION_DB, null);
+    const classificationEffects = () => sql(box, `SELECT
+        (SELECT count(*) FROM saas.storefront_checkout_operations)||'|'||
+        (SELECT count(*) FROM saas.payment_attempts)||'|'||
+        (SELECT count(*) FROM saas.storefront_checkout_payment_bridges)||'|'||
+        (SELECT count(*) FROM saas.checkout_inventory_reservations
+          WHERE payment_attempt_id IS NOT NULL)
+      ;`, CLASSIFICATION_DB).stdout.trim();
+    const effectsBeforeClassification = classificationEffects();
+    for (const [paymentMethodId, expectedOutcome] of [
+      [COD_METHOD, "built_in"],
+      [BANK_METHOD, "built_in"],
+      [PROVIDER_METHOD, "hosted"],
+      [CROSS_STORE_METHOD, "payment_method_unavailable"],
+      ["50000000-0000-4000-8000-000000000099", "payment_method_unavailable"],
+    ]) {
+      const classified = call(box, classifyPaymentMethodCall({
+        expectedVersion: classificationVersion,
+        paymentMethodId,
+      }), CLASSIFICATION_DB);
+      assert.equal(classified.outcome, expectedOutcome, paymentMethodId);
+      assert.equal(classified.payload, null, "classification must expose no method configuration");
+    }
+    sql(box, `SET ROLE celebix_saas_owner;
+      UPDATE saas.payment_methods SET state='disabled',version=version+1,updated_at='${NOW}'
+      WHERE id='${BANK_METHOD}';`, CLASSIFICATION_DB);
+    assert.equal(call(box, classifyPaymentMethodCall({
+      expectedVersion: classificationVersion,
+      paymentMethodId: BANK_METHOD,
+    }), CLASSIFICATION_DB).outcome, "payment_method_unavailable",
+    "inactive built-in methods must fail classification closed");
+    sql(box, `SET session_replication_role=replica;
+      UPDATE saas.payment_methods SET config='{"environment":"live"}'::jsonb
+      WHERE id='${PROVIDER_METHOD}';
+      SET session_replication_role=origin;`, CLASSIFICATION_DB);
+    assert.equal(call(box, classifyPaymentMethodCall({
+      expectedVersion: classificationVersion,
+      paymentMethodId: PROVIDER_METHOD,
+    }), CLASSIFICATION_DB).outcome, "payment_method_unavailable",
+    "provider configuration drift must fail classification closed");
+    assert.equal(call(box, classifyPaymentMethodCall({
+      expectedVersion: classificationVersion + 1,
+      paymentMethodId: COD_METHOD,
+    }), CLASSIFICATION_DB).outcome, "version_conflict",
+    "classification must bind the exact current cart version");
+    assert.equal(call(box, classifyPaymentMethodCall({
+      expectedVersion: classificationVersion,
+      nonce: WRONG_DIGEST,
+      paymentMethodId: COD_METHOD,
+    }), CLASSIFICATION_DB).outcome, "version_conflict",
+    "classification must bind the exact current nonce digest");
+    assert.equal(classificationEffects(), effectsBeforeClassification,
+      "classification must create no operation, attempt, bridge, or reservation effects");
+
     iyzicoProviderFixture(box, IYZICO_IDENTITY_DB);
     const iyzicoVersion = prepareSubmittedCart(box, IYZICO_IDENTITY_DB, null);
+    assert.equal(call(box, classifyPaymentMethodCall({
+      expectedVersion: iyzicoVersion,
+      paymentMethodId: PROVIDER_METHOD,
+    }), IYZICO_IDENTITY_DB).outcome, "hosted",
+    "an active Iyzico method must classify as hosted");
     assert.equal(call(box, beginHostedCall({
       expectedVersion: iyzicoVersion,
       paymentMethodId: PROVIDER_METHOD,
@@ -2117,6 +2193,24 @@ async function main() {
     assert.notEqual(apply(box, ASSERTIONS, BODY_TAMPER_DB, true).status, 0,
       "assertions must independently reject public function body drift");
 
+    sql(box, `CREATE DATABASE ${CLASSIFIER_BODY_TAMPER_DB} TEMPLATE ${DB};`, "postgres");
+    sql(box, `SET ROLE celebix_saas_owner;
+      CREATE OR REPLACE FUNCTION saas.storefront_checkout_classify_payment_method(
+        p_hostname text,p_credential_digest text,p_expected_version bigint,
+        p_nonce_digest text,p_payment_method_id uuid,p_now timestamptz
+      ) RETURNS TABLE(outcome text,result_payload jsonb)
+      LANGUAGE plpgsql STABLE SECURITY DEFINER
+      SET search_path=pg_catalog,saas
+      AS $body$ BEGIN
+        RETURN QUERY SELECT 'hosted'::text,NULL::jsonb;
+      END $body$;`, CLASSIFIER_BODY_TAMPER_DB);
+    assert.equal(sql(box, `SELECT saas.storefront_checkout_preflight();`, CLASSIFIER_BODY_TAMPER_DB).stdout.trim(), "f",
+      "preflight must reject payment-method classifier body drift");
+    assert.notEqual(apply(box, UP, CLASSIFIER_BODY_TAMPER_DB, true).status, 0,
+      "reapply over classifier body drift must fail closed");
+    assert.notEqual(apply(box, ASSERTIONS, CLASSIFIER_BODY_TAMPER_DB, true).status, 0,
+      "assertions must independently reject classifier body drift");
+
     sql(box, `CREATE DATABASE ${PREFLIGHT_BODY_TAMPER_DB} TEMPLATE ${DB};`, "postgres");
     sql(box, `SET ROLE celebix_saas_owner;
       CREATE OR REPLACE FUNCTION saas.storefront_checkout_preflight()
@@ -2234,6 +2328,7 @@ async function main() {
     apply(box, "202607280063_payment_provider_builtin_compatibility_assertions.sql", CLEAN_DOWN_DB);
     assert.equal(sql(box, `SELECT pg_catalog.to_regclass('saas.storefront_checkout_operations') IS NULL
       AND pg_catalog.to_regprocedure('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)') IS NULL
+      AND pg_catalog.to_regprocedure('saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)') IS NULL
       AND NOT saas.merchant_admin_config_valid('shipping_setting','{"flatRateCents":2500}'::jsonb);`, CLEAN_DOWN_DB).stdout.trim(), "t");
     apply(box, UP, CLEAN_DOWN_DB);
     apply(box, ASSERTIONS, CLEAN_DOWN_DB);

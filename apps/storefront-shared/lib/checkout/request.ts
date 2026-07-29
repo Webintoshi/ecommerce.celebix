@@ -94,6 +94,7 @@ function exactTarget(
     || url.pathname !== pathname
     || url.search
     || url.hash
+    || request.url !== `https://${hostname}${pathname}`
     || request.headers.has("transfer-encoding")
     || hasPrivateAuthority(request.headers)
   ) return INVALID;

@@ -13,6 +13,7 @@ import {
 } from "./errors.ts";
 import type {
   BeginHostedCheckoutInput,
+  ClassifyCheckoutPaymentMethodInput,
   GetCheckoutPolicyInput,
   GetCheckoutStatusInput,
   IssueCheckoutNonceInput,
@@ -159,6 +160,12 @@ export function submitBuiltInCheckoutInput(value: unknown): SubmitBuiltInCheckou
   return submitInput(value);
 }
 
+export function classifyCheckoutPaymentMethodInput(
+  value: unknown,
+): ClassifyCheckoutPaymentMethodInput {
+  return submitInput(value);
+}
+
 export function beginHostedCheckoutInput(value: unknown): BeginHostedCheckoutInput {
   const parsed = exactCheckoutInput(value, [
     "hostname", "credentialDigest", "now", "submission", "attemptId",
@@ -210,27 +217,8 @@ export function recoverCheckoutOperationInput(
   const fingerprint = checkoutDigest(parsed.fingerprint);
   const now = checkoutDate(parsed.now);
   const expectedKind = exactCheckoutInput(parsed.expected, ["kind"], [
-    "checkoutNonce", "submission", "attemptId", "callbackBindingDigest",
+    "submission", "attemptId", "callbackBindingDigest",
   ]).kind;
-  if (expectedKind === "delivery") {
-    const expected = exactCheckoutInput(parsed.expected, ["kind", "checkoutNonce"]);
-    const probe = safeSubmission({
-      cartVersion: 1,
-      checkoutNonce: expected.checkoutNonce,
-      operationId,
-      paymentMethodId: "00000000-0000-4000-8000-000000000000",
-      identityNumber: null,
-      consents: { distanceSales: true, preInformation: true },
-    });
-    return Object.freeze({
-      hostname,
-      credentialDigest,
-      operationId,
-      fingerprint,
-      expected: Object.freeze({ kind: "delivery" as const, checkoutNonce: probe.checkoutNonce }),
-      now,
-    });
-  }
   if (expectedKind === "built_in") {
     exactCheckoutInput(parsed.expected, ["kind"]);
     return Object.freeze({

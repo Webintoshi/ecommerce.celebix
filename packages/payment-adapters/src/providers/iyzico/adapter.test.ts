@@ -275,6 +275,9 @@ test("Iyzico rejects mixed or cross-authority normal-cart return pairs before tr
     { successUrl: normal, failureUrl: "https://other.celebix.site/odeme/sonuc" },
     { successUrl: normal, failureUrl: `${normal}?durum=basarisiz` },
     { successUrl: normal, failureUrl: `${normal}#failure` },
+    { successUrl: `${normal}?`, failureUrl: normal },
+    { successUrl: normal, failureUrl: `${normal}#` },
+    { successUrl: base.successUrl, failureUrl: `${base.failureUrl}#` },
     { successUrl: normal, failureUrl: normal.replace(".site/", ".site:443/") },
     { successUrl: normal, failureUrl: normal.replace("https://", "https://user@") },
   ]) {

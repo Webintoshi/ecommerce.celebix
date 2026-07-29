@@ -141,7 +141,8 @@ function validationReturnUrls(successValue: unknown, failureValue: unknown): Rea
   const successHost = success.hostname.replace(/^\[|\]$/g, "");
   const failureHost = failure.hostname.replace(/^\[|\]$/g, "");
   if (
-    success.search !== "?durum=basarili" || failure.search !== "?durum=basarisiz" ||
+    successUrl !== `${success.origin}/odeme/hizli/sonuc?durum=basarili` ||
+    failureUrl !== `${failure.origin}/odeme/hizli/sonuc?durum=basarisiz` ||
     success.origin !== failure.origin || success.hostname.endsWith(".invalid") ||
     success.hostname === "localhost" || !success.hostname.includes(".") ||
     isIP(successHost) !== 0 || isIP(failureHost) !== 0
@@ -167,13 +168,11 @@ function returnUrls(
   const success = new URL(successUrl);
   const failure = new URL(failureUrl);
   const legacyPair =
-    success.pathname === "/odeme/hizli/sonuc" &&
-    success.search === "?durum=basarili" &&
-    failure.pathname === "/odeme/hizli/sonuc" &&
-    failure.search === "?durum=basarisiz";
+    successUrl === `${success.origin}/odeme/hizli/sonuc?durum=basarili` &&
+    failureUrl === `${failure.origin}/odeme/hizli/sonuc?durum=basarisiz`;
   const normalPair =
-    success.pathname === "/odeme/sonuc" && success.search === "" &&
-    failure.pathname === "/odeme/sonuc" && failure.search === "";
+    successUrl === `${success.origin}/odeme/sonuc` &&
+    failureUrl === `${failure.origin}/odeme/sonuc`;
   if (
     (!legacyPair && !normalPair) ||
     success.origin !== failure.origin ||
