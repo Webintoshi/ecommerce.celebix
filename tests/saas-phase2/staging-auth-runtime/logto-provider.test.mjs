@@ -177,6 +177,21 @@ test("Logto callback exchanges the code exactly once and verifies a pinned asymm
   assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 1);
 });
 
+test("Logto callback accepts its documented null name claim as an absent display name", async () => {
+  const source = fixture({ token: idToken({ name: null }) });
+
+  const identity = await provider(source).verifyCallback(callbackInput);
+
+  assert.deepEqual(identity, {
+    issuer: ISSUER,
+    subject: "logto-subject-123",
+    audience: [CLIENT_ID],
+    nonce: authorizationInput.nonce,
+    email: "verified-owner@example.test",
+    emailVerified: true,
+  });
+});
+
 test("Logto callback audit reports only bounded verification stages", async () => {
   const accepted = [];
   await provider(fixture(), { audit: (event) => accepted.push(event) }).verifyCallback(callbackInput);

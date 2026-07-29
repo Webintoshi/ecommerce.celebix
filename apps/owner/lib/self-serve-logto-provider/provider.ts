@@ -330,7 +330,7 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         subject = exactText(payload.sub, 512);
         email = exactText(payload.email, 320);
         if (payload.email_verified !== true || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) rejected();
-        displayName = payload.name === undefined ? undefined : exactText(payload.name, 256);
+        displayName = payload.name == null ? undefined : exactText(payload.name, 256);
       } catch (error) {
         audit({ stage: "id_token_identity", outcome: failedOutcome(error) });
         throw error;
