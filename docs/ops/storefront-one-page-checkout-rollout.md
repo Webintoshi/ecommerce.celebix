@@ -16,8 +16,8 @@ The fixed application target is the existing shared storefront service:
 | Coolify storefront service | `vtc2aah63jbqnmtxmvykn6jl` |
 | PostgreSQL service | `ta8qw4jkvedkap7qqdakrb7y` |
 | PostgreSQL database | `celebix_saas_staging_auth01` |
-| Database migration | `202607280064_storefront_one_page_checkout.up.sql` |
-| Database rollback | `202607280064_storefront_one_page_checkout.down.sql` |
+| Database migration | `202607290065_storefront_default_shipping.up.sql` |
+| Database rollback | `202607290065_storefront_default_shipping.down.sql` |
 
 ## Non-negotiable stop conditions
 
@@ -32,9 +32,10 @@ The fixed application target is the existing shared storefront service:
   isolated restore target is not proven before migration.
 - The backup directory resolves to `/`, the repository root, a home directory,
   or any other broad/shared target.
-- Migration 063 assertions fail, migration 064 is already partially present,
-  migration 064 assertions fail, or `saas.storefront_checkout_preflight()` is
-  not exact `true`.
+- Migration 064 assertions fail, migration 065 is already partially present,
+  migration 065 assertions fail, `saas.storefront_checkout_preflight()` is not
+  exact `true`, or the migration-065 default-shipping preflight is not exact
+  `true` after apply.
 - The application checkout rollout gate is absent, malformed, not disabled by
   default, or cannot deny every host outside the exact allowlist while keeping
   verified callbacks and already-created-attempt result/status paths available.
@@ -147,9 +148,9 @@ The migration runner compares local source with the local remote-tracking ref;
 it does not independently contact the Git server. The immediate `git fetch` and
 local/remote equality checks above are therefore mandatory preconditions. The
 runner still rejects a dirty protected artifact or any byte/hash mismatch in
-the phase3w manifest.
+the phase3x manifest or its pinned phase3w predecessor.
 
-## 4. Prove backup and apply migration 064
+## 4. Prove backup and apply migration 065
 
 Run this only from a secured operator context where the variables below are
 already injected. Do not type values into command history and do not print
@@ -191,18 +192,20 @@ node tests/saas-phase3/storefront-one-page-checkout/isolated-staging-runner.mjs 
 
 The apply command must, in this order:
 
-1. re-prove local/remote source containment, exact phase3w hashes, and the
-   phase3v-manifest-pinned migration-063 assertion bytes;
+1. re-prove local/remote source containment, exact phase3x hashes, and the
+   phase3w-manifest-pinned migration-064 assertion bytes;
 2. use a read-only session to prove PostgreSQL 16, the exact database,
-   `celebix.deployment_tier=isolated_staging`, recovery off, the migration-063
-   built-in/provider preflights true, and migration 064 absent;
-3. run the migration-063 assertions read-only;
+   `celebix.deployment_tier=isolated_staging`, recovery off, the built-in,
+   provider, and migration-064 checkout preflights true, and migration 065
+   absent;
+3. run the migration-064 assertions read-only;
 4. create a `pg_dump -Fc` archive, require a non-empty `pg_restore -l`, encrypt
    it with AES-256-CBC/PBKDF2, and leave only the encrypted mode-0600 file;
-5. apply the exact manifest-pinned migration 064 in one transaction with
+5. apply the exact manifest-pinned migration 065 in one transaction with
    `ON_ERROR_STOP`;
-6. run the exact migration-064 assertions read-only and require
-   `saas.storefront_checkout_preflight()` to return true; and
+6. run the exact migration-065 assertions read-only and require both
+   `saas.storefront_checkout_preflight()` and
+   `saas.storefront_checkout_default_shipping_preflight()` to return true; and
 7. re-prove the database sentinel and source/hash containment after the write.
 
 Any fixed runner error is a hard stop. Do not apply SQL manually as a shortcut.
@@ -238,8 +241,8 @@ The two reviewed synthetic hosts are exact and distinct. They must resolve only
 to this isolated staging service and contain synthetic data only:
 
 ```text
-SYNTHETIC_CHECKOUT_HOST_A=pilot-store.saas-staging.celebix.site
-SYNTHETIC_CHECKOUT_HOST_B=second-store.saas-staging.celebix.site
+SYNTHETIC_CHECKOUT_HOST_A=pilot.saas-staging.celebix.site
+SYNTHETIC_CHECKOUT_HOST_B=hemenaku-ui-674cd2ca.saas-staging.celebix.site
 ```
 
 With both rollout variables still unset, exact `/odeme` must return the reviewed
@@ -253,7 +256,7 @@ a controlled restart/manual deployment of the same immutable candidate image:
 
 ```text
 CELEBIX_CHECKOUT_ROLLOUT_MODE=approved_staging
-CELEBIX_CHECKOUT_ROLLOUT_HOSTS=pilot-store.saas-staging.celebix.site,second-store.saas-staging.celebix.site
+CELEBIX_CHECKOUT_ROLLOUT_HOSTS=pilot.saas-staging.celebix.site,hemenaku-ui-674cd2ca.saas-staging.celebix.site
 ```
 
 Do not add spaces, a trailing comma, duplicate hosts, wildcard, parent-domain
@@ -371,7 +374,7 @@ failure, stock/order invariant failure, or suspicious log event:
    image.
 3. Verify the running image, container `SOURCE_COMMIT`, `/health`, controlled
    `/odeme` response, callback drain, and logs.
-4. Leave additive migration 064 in place by default. The previous application
+4. Leave additive migration 065 in place by default. The previous application
    must ignore it; database down is not required for application rollback.
 5. Preserve all orders, attempts, callbacks, reservations, and evidence. Never
    delete durable state to make rollback guards pass.
@@ -383,7 +386,7 @@ passed verification and the incident/rollout record is closed.
 
 Migration down is exceptional. It is allowed only after the application-first
 rollback, checkout control disablement, callback-safe writer drain, and an
-independent read-only review showing migration 064 has exactly zero durable
+independent read-only review showing migration 065 has exactly zero durable
 impact. Run it from the still-clean candidate checkout whose local and remote
 SHA contain the exact manifest-pinned down file.
 
@@ -396,15 +399,15 @@ node tests/saas-phase3/storefront-one-page-checkout/isolated-staging-runner.mjs 
   --source-sha "$CANDIDATE_SHA" --down
 ```
 
-The runner must first re-run the 064 assertions, prove zero qualifying writer
+The runner must first re-run the 065 assertions, prove zero qualifying writer
 sessions/locks, and reproduce every durable zero-impact guard from the down
 migration. It then creates and validates a second encrypted backup, runs the
-exact 064 down transaction with `ON_ERROR_STOP`, runs the 063 assertions
-read-only, proves 064 absent, and rechecks source containment. If any guard or
-drain check fails, leave migration 064 in place and investigate; do not weaken
+exact 065 down transaction with `ON_ERROR_STOP`, runs the 064 assertions
+read-only, proves 065 absent, and rechecks source containment. If any guard or
+drain check fails, leave migration 065 in place and investigate; do not weaken
 the SQL or manually drop objects.
 
 Record the final application SHA, checkout-control state, migration state,
-encrypted backup evidence, 063/064 preflight outcome, synthetic-host results,
+encrypted backup evidence, 064/065 preflight outcome, synthetic-host results,
 provider/built-in truth state, threshold window, and rollback readiness. A red
 or unavailable gate is reported as blocked, never as completed.
