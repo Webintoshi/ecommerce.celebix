@@ -421,7 +421,7 @@ test("14/14 production server emits one success-aware iframe CSP with no token s
   try {
     await mkdir(routeRoot, { recursive: true });
     await writeFile(path.join(fixture, "package.json"), JSON.stringify({ private: true, type: "module",
-      dependencies: { next: "16.2.10", react: "19.2.3", "react-dom": "19.2.3" } }), "utf8");
+      dependencies: { next: "16.2.12", react: "19.2.3", "react-dom": "19.2.3" } }), "utf8");
     await writeFile(path.join(fixture, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", lib: ["dom", "dom.iterable", "esnext"],
       allowJs: true, skipLibCheck: true, strict: true, noEmit: true, esModuleInterop: true, module: "esnext",
       moduleResolution: "bundler", resolveJsonModule: true, isolatedModules: true, jsx: "react-jsx",
