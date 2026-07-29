@@ -7,6 +7,7 @@ import test from "node:test";
 const BASE = "301637111de040fc3bbf3cfed718a2d772e42130";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const HISTORICAL_RUNTIME_HEAD = "3ebf4b2cfaf10a840c2df5058fbf1a0d70f80986";
+const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
 const ROOT = new URL("../../../", import.meta.url);
 const SQL = "apps/owner/scripts/sql/saas/";
 const MANIFEST = `${SQL}phase3b2-quick-order-runtime-manifest.json`;
@@ -39,7 +40,9 @@ function changedFiles(revision = "HEAD") {
 
 test("pins donor, admin immutability, current 026-029 manifest bytes and least-privilege roles", async () => {
   assert.equal(git(["rev-parse", `${DONOR}^{commit}`]).trim(), DONOR);
-  assert.equal(git(["diff", "--name-only", `${BASE}...HEAD`, "--", "apps/admin"]).trim(), "");
+  assert.equal(git(["rev-parse", `${NEXT_SECURITY_HEAD}^{commit}`]).trim(), NEXT_SECURITY_HEAD);
+  assert.equal(git(["diff", "--name-only", `${BASE}...${NEXT_SECURITY_HEAD}`, "--", "apps/admin"]).trim(), "apps/admin/package.json");
+  assert.equal(git(["diff", "--name-only", `${NEXT_SECURITY_HEAD}...HEAD`, "--", "apps/admin"]).trim(), "");
   const manifest = JSON.parse(await read(MANIFEST));
   assert.equal(manifest.postgresqlMajor, 16);
   assert.equal(manifest.artifacts.length, 12);

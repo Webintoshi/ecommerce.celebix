@@ -10,6 +10,7 @@ import { HEMENAKU_DONOR_PARITY } from "../../../apps/customer-panel/lib/panel-ui
 
 const BASE = "959de29d2ceb7a4ec8296f3f0b967fadbb3d1d61";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../");
 const SQL = "apps/owner/scripts/sql/saas";
 const FORBIDDEN_FIXTURE_IDS = Object.freeze([
@@ -68,6 +69,7 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/built-in-payment-methods/postgres-harness.mjs", 13],
   ["tests/saas-phase3/quick-order-runtime/postgres-harness.mjs", 49],
   ["tests/saas-phase3/shared-merchant-catalog-dashboard/postgres-harness.mjs", 18],
+  ["tests/saas-phase3/storefront-one-page-checkout/postgres-harness.mjs", 1, "PASS storefront one-page checkout PostgreSQL 16 harness"],
   ["tests/saas-phase3/typed-storefront-settings/postgres-harness.mjs", 24],
 ]);
 
@@ -251,7 +253,9 @@ test("pins the approved implementation base and immutable donor", () => {
   try { integrationHeads.push(git("rev-parse", "--verify", "-q", "MERGE_HEAD")); } catch {}
   assert.equal(integrationHeads.some((head) => git("merge-base", BASE, head) === BASE), true);
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
-  assert.equal(changedPaths("apps/admin").length, 0);
+  assert.equal(git("rev-parse", `${NEXT_SECURITY_HEAD}^{commit}`), NEXT_SECURITY_HEAD);
+  assert.deepEqual(changedPaths("apps/admin"), ["apps/admin/package.json"]);
+  assert.equal(git("diff", "--name-only", `${NEXT_SECURITY_HEAD}...HEAD`, "--", "apps/admin"), "");
 });
 
 test("every donor route has one final evidenced parity decision", async () => {
@@ -282,9 +286,13 @@ test("dependency lockfiles donor and deployment surfaces stay outside the comple
     "apps/*/package.json",
     "packages/*/package.json",
   ), [
+    "apps/admin/package.json",
     "apps/customer-panel/package.json",
     "apps/owner/package.json",
+    "apps/storefront-base/package.json",
+    "apps/storefront-deri-kordon/package.json",
     "apps/storefront-shared/package.json",
+    "apps/storefront-test1/package.json",
     "package-lock.json",
     "package.json",
     "packages/payment-adapters/package.json",
@@ -366,6 +374,7 @@ test("completion and successor manifests pin every changed migration artifact", 
     "phase3t-iyzico-iframe-tenant-activation-runtime-manifest.json",
     "phase3u-built-in-payment-methods-manifest.json",
     "phase3v-payment-provider-builtin-compatibility-manifest.json",
+    "phase3w-storefront-one-page-checkout-manifest.json",
     "phase3-product-onboarding-manifest.json",
   ];
   const pinnedPaths = new Set(successorManifestNames.map((name) => `${SQL}/${name}`));
@@ -389,20 +398,21 @@ test("completion and successor manifests pin every changed migration artifact", 
   assert.deepEqual(changedSql.filter((candidate) => !pinnedPaths.has(candidate)), []);
 });
 
-test("current Phase 3 PostgreSQL inventory is exactly 37 executable harnesses and 1012 scenarios", async () => {
+test("current Phase 3 PostgreSQL inventory is exactly 38 executable harnesses and 1013 scenarios", async () => {
   const expectedPaths = POSTGRES_HARNESSES.map(([harness]) => harness);
-  assert.equal(POSTGRES_HARNESSES.length, 37);
-  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 1012);
+  assert.equal(POSTGRES_HARNESSES.length, 38);
+  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 1013);
   assert.deepEqual(
     await findPostgresHarnesses(path.join(ROOT, "tests/saas-phase3")),
     [...expectedPaths].sort(),
   );
-  for (const [harness, scenarios] of POSTGRES_HARNESSES) {
+  for (const [harness, scenarios, aggregateMarker] of POSTGRES_HARNESSES) {
     const source = await read(harness);
     const hasTotalMarker = new RegExp(`const\\s+TOTAL\\s*=\\s*${scenarios}\\b`).test(source)
       || new RegExp(`assert[.]equal[(](?:count|scenarios)\\s*,\\s*${scenarios}[)]`).test(source)
       || source.includes(`${scenarios}/${scenarios} PASS`)
-      || source.includes(`\${SCENARIOS.length}/\${${scenarios}}`);
+      || source.includes(`\${SCENARIOS.length}/\${${scenarios}}`)
+      || (aggregateMarker !== undefined && source.includes(aggregateMarker));
     assert.equal(hasTotalMarker, true, harness);
     assert.match(source, /(?:(?:main|run)[(][)][.]catch|await main[(][)])/u, harness);
   }

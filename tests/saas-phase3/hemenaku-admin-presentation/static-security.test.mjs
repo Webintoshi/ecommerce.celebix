@@ -5,6 +5,7 @@ import test from "node:test";
 
 const BASE = "6563a1428434e1974f50af3ffb843eb4067f686a";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
 const ROOT = new URL("../../../", import.meta.url);
 const git = (...args) => execFileSync("git", args, {
   cwd: ROOT,
@@ -163,7 +164,9 @@ export const INVENTORY_PRICING_EXPECTED_ARTIFACTS = Object.freeze([
 
 test("pins the donor and leaves apps admin byte unchanged", () => {
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
-  assert.equal(git("diff", "--name-only", `${BASE}...HEAD`, "--", "apps/admin"), "");
+  assert.equal(git("rev-parse", `${NEXT_SECURITY_HEAD}^{commit}`), NEXT_SECURITY_HEAD);
+  assert.equal(git("diff", "--name-only", `${BASE}...${NEXT_SECURITY_HEAD}`, "--", "apps/admin"), "apps/admin/package.json");
+  assert.equal(git("diff", "--name-only", `${NEXT_SECURITY_HEAD}...HEAD`, "--", "apps/admin"), "");
 });
 
 test("declares only the approved presentation dependencies", async () => {
@@ -176,8 +179,12 @@ test("declares only the approved presentation dependencies", async () => {
 });
 
 test("keeps production deploy infrastructure and donor outside the diff", () => {
-  const changed = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter(Boolean);
-  assert.equal(changed.some((path) => /^(apps\/admin|deploy|infra|infrastructure)\//.test(path)), false);
+  const protectedRoots = ["apps/admin", "deploy", "infra", "infrastructure"];
+  assert.deepEqual(
+    git("diff", "--name-only", `${BASE}...${NEXT_SECURITY_HEAD}`, "--", ...protectedRoots).split("\n").filter(Boolean),
+    ["apps/admin/package.json"],
+  );
+  assert.equal(git("diff", "--name-only", `${NEXT_SECURITY_HEAD}...HEAD`, "--", ...protectedRoots), "");
 });
 
 test("ports the exact donor brand asset and core visual tokens", async () => {

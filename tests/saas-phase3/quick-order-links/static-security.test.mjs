@@ -7,6 +7,7 @@ import test from "node:test";
 const BASE = "301637111de040fc3bbf3cfed718a2d772e42130";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const HISTORICAL_FOUNDATION_HEAD = "eccbeeaf439d5bcdd393f333d73897ded877c51f";
+const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
 const bytes = (path) => readFile(new URL(path, ROOT));
@@ -99,7 +100,9 @@ const readAtFoundation = (path) => git("show", `${HISTORICAL_FOUNDATION_HEAD}:${
 
 test("pins the exact donor SHA and keeps apps admin byte unchanged", () => {
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
-  assert.equal(changedFiles("apps/admin").join("\n"), "");
+  assert.equal(git("rev-parse", `${NEXT_SECURITY_HEAD}^{commit}`), NEXT_SECURITY_HEAD);
+  assert.deepEqual(lines(git("diff", "--name-only", "--no-renames", `${BASE}..${NEXT_SECURITY_HEAD}`, "--", "apps/admin")), ["apps/admin/package.json"]);
+  assert.equal(git("diff", "--name-only", "--no-renames", `${NEXT_SECURITY_HEAD}..HEAD`, "--", "apps/admin"), "");
 });
 
 test("binds the exact six-artifact 024 and 025 manifest including bytes", async () => {

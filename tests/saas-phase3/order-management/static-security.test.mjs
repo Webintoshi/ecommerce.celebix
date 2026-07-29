@@ -6,6 +6,7 @@ import test from "node:test";
 
 const BASE = "86b3a4ad";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
 const HISTORICAL_A1_HEAD = "301637111de040fc3bbf3cfed718a2d772e42130";
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
@@ -42,7 +43,9 @@ const SQL_ARTIFACTS = Object.freeze({
 
 test("pins the exact donor SHA and keeps apps admin byte unchanged from implementation start", () => {
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
-  assert.equal(git("diff", "--name-only", `${BASE}...HEAD`, "--", "apps/admin"), "");
+  assert.equal(git("rev-parse", `${NEXT_SECURITY_HEAD}^{commit}`), NEXT_SECURITY_HEAD);
+  assert.equal(git("diff", "--name-only", `${BASE}...${NEXT_SECURITY_HEAD}`, "--", "apps/admin"), "apps/admin/package.json");
+  assert.equal(git("diff", "--name-only", `${NEXT_SECURITY_HEAD}...HEAD`, "--", "apps/admin"), "");
 });
 
 test("preserves the exact authorized A1 route snapshot at its closing SHA", () => {

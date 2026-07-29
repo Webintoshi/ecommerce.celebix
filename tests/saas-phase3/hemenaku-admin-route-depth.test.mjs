@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const BASE = "959de29d2ceb7a4ec8296f3f0b967fadbb3d1d61";
+const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
 const ROOT = new URL("../../", import.meta.url);
 
 const routeDepthPages = Object.freeze([
@@ -171,5 +172,7 @@ test("route-depth source keeps finite routes, exact record reads, and complete r
 });
 
 test("route-depth work leaves the pinned donor application unchanged", () => {
-  assert.equal(git("diff", "--name-only", `${BASE}...HEAD`, "--", "apps/admin"), "");
+  assert.equal(git("rev-parse", `${NEXT_SECURITY_HEAD}^{commit}`), NEXT_SECURITY_HEAD);
+  assert.equal(git("diff", "--name-only", `${BASE}...${NEXT_SECURITY_HEAD}`, "--", "apps/admin"), "apps/admin/package.json");
+  assert.equal(git("diff", "--name-only", `${NEXT_SECURITY_HEAD}...HEAD`, "--", "apps/admin"), "");
 });

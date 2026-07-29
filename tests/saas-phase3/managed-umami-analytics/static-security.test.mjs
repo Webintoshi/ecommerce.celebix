@@ -9,6 +9,8 @@ const BASE = "912df940d2f8aa1e4d43a076621ad592751f4f04";
 const ANALYTICS_HEAD = "c365bc2195df1af5929381f7e910f73059c13ba7";
 const PAYMENT_ADAPTERS_PREDECESSOR = "f14590b20c713c1bac8a223a9ecb46d85b6d2210";
 const PAYMENT_ADAPTERS_HEAD = "710c0221537099c419726b4d5f7b5da1ef891ec6";
+const LOCK_ALLOWLIST_HEAD = "676e7ea258bb71a009b6df2eb6d786707b8410f3";
+const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
 const PAYMENT_ADAPTER_WORKSPACE = Object.freeze({
   name: "@celebix/payment-adapters",
   version: "0.1.0",
@@ -144,7 +146,12 @@ test("migrations 001 through 038 remain byte-for-byte outside the analytics chan
 
 test("the pinned donor admin tree remains unchanged", () => {
   assert.equal(git(["rev-parse", "fc6c5318b47f045a7cefcedc7612d5b10563ba32^{commit}"]).trim(), "fc6c5318b47f045a7cefcedc7612d5b10563ba32");
-  assert.deepEqual(changedNames("apps/admin"), []);
+  assert.equal(git(["rev-parse", `${NEXT_SECURITY_HEAD}^{commit}`]).trim(), NEXT_SECURITY_HEAD);
+  assert.deepEqual(
+    git(["diff", "--name-only", `${BASE}...${NEXT_SECURITY_HEAD}`, "--", "apps/admin"]).trim().split("\n").filter(Boolean),
+    ["apps/admin/package.json"],
+  );
+  assert.equal(git(["diff", "--name-only", `${NEXT_SECURITY_HEAD}...HEAD`, "--", "apps/admin"]).trim(), "");
 });
 
 test("lockfile admits only pinned adapter successors, the approved Markdown parser, and the approved DOM test runtime", async () => {
@@ -222,8 +229,11 @@ test("lockfile admits only pinned adapter successors, the approved Markdown pars
     license: "MIT",
     engines: { node: ">=12" },
   };
+  const allowlistedLock = JSON.parse(git(["show", `${LOCK_ALLOWLIST_HEAD}:package-lock.json`]));
+  assert.deepEqual(allowlistedLock, expectedLock);
+  const approvedNextLock = JSON.parse(git(["show", `${NEXT_SECURITY_HEAD}:package-lock.json`]));
   const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
-  assert.deepEqual(currentLock, expectedLock);
+  assert.deepEqual(currentLock, approvedNextLock);
 
   const sensitive = changedNames().filter((path) => /(^|\/)[.]env($|[.])|credential|secret/i.test(path));
   assert.deepEqual(sensitive, [

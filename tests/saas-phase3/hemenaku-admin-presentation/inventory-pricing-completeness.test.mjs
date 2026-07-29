@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const INVENTORY_BASE = "6cbbe8859c9ae01374ccd1488e24733e2256552c";
 const CUMULATIVE_HEAD = "1bc7a31f146a457222603d1999a179d90c6f5ebd";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const NEXT_SECURITY_HEAD = "943ee5924ce2d486e3f0eb28947206bdcc51b8d7";
 const ROOT = new URL("../../../", import.meta.url);
 const ROOT_PATH = fileURLToPath(ROOT);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
@@ -449,7 +450,9 @@ test("shares one effective price authority across every required consumer", asyn
 
 test("resolves every static local import and re-export without donor or Supabase authority", async () => {
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
-  assert.equal(git("diff", "--name-only", `${INVENTORY_BASE}...HEAD`, "--", "apps/admin"), "");
+  assert.equal(git("rev-parse", `${NEXT_SECURITY_HEAD}^{commit}`), NEXT_SECURITY_HEAD);
+  assert.equal(git("diff", "--name-only", `${INVENTORY_BASE}...${NEXT_SECURITY_HEAD}`, "--", "apps/admin"), "apps/admin/package.json");
+  assert.equal(git("diff", "--name-only", `${NEXT_SECURITY_HEAD}...HEAD`, "--", "apps/admin"), "");
   const pinned = pinnedTaskArtifacts(await read(STATIC_SECURITY_PATH));
   for (const required of REQUIRED_GRAPH_ROOTS) assert.equal(pinned.includes(required), true, `missing graph root ${required}`);
   const imported = await import("typescript");
