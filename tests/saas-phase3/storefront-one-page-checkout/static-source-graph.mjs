@@ -5,18 +5,6 @@ import ts from "typescript";
 
 const SOURCE_EXTENSIONS = Object.freeze([".ts", ".tsx", ".js", ".jsx", ".mjs", ".css"]);
 const DATABASE_URL = /^postgres(?:ql)?:\/\//i;
-const THEME_SHELL_NAMES = new Set([
-  "Header",
-  "Footer",
-  "SiteHeader",
-  "SiteFooter",
-  "StorefrontHeader",
-  "StorefrontFooter",
-  "ShopHeader",
-  "ShopFooter",
-  "ThemeHeader",
-  "ThemeFooter",
-]);
 const JSX_SCRIPT_FACTORIES = new Set(["jsx", "jsxs", "jsxDEV", "_jsx", "_jsxs", "_jsxDEV"]);
 
 async function defaultLoadSource(file) {
@@ -82,48 +70,6 @@ function jsxTagName(node) {
   return ts.isIdentifier(node.tagName) ? node.tagName.text : node.tagName.getText();
 }
 
-function expressionReferencesNonce(expression) {
-  let found = false;
-  const visit = (node) => {
-    if (found) return;
-    if (
-      (ts.isIdentifier(node) && node.text === "nonce")
-      || (ts.isPropertyAccessExpression(node) && node.name.text === "nonce")
-    ) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(expression);
-  return found;
-}
-
-function scriptHasSafeJsxNonce(opening) {
-  return opening.attributes.properties.some((attribute) => {
-    if (
-      !ts.isJsxAttribute(attribute)
-      || !ts.isIdentifier(attribute.name)
-      || attribute.name.text !== "nonce"
-      || !attribute.initializer
-      || !ts.isJsxExpression(attribute.initializer)
-      || !attribute.initializer.expression
-    ) return false;
-    return expressionReferencesNonce(attribute.initializer.expression);
-  });
-}
-
-function scriptPropsHaveSafeNonce(properties) {
-  if (!properties || !ts.isObjectLiteralExpression(properties)) return false;
-  return properties.properties.some((property) => {
-    if (ts.isShorthandPropertyAssignment(property) && property.name.text === "nonce") return true;
-    if (!ts.isPropertyAssignment(property)) return false;
-    const name = property.name;
-    const isNonce = (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && name.text === "nonce";
-    return isNonce && expressionReferencesNonce(property.initializer);
-  });
-}
-
 function callName(expression) {
   if (ts.isIdentifier(expression)) return expression.text;
   if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
@@ -156,15 +102,13 @@ function scriptFactoryAliases(sourceFile) {
   return aliases;
 }
 
-function callCreatesScript(node, aliases) {
-  if (
-    !ts.isCallExpression(node)
-    || node.arguments.length === 0
-    || !ts.isStringLiteralLike(node.arguments[0])
-  ) return false;
-  if (node.arguments[0].text !== "script") return false;
+function unsafeScriptFactoryCall(node, aliases) {
+  if (!ts.isCallExpression(node)) return false;
   const name = callName(node.expression);
-  return name !== null && aliases.has(name);
+  if (name === null || !aliases.has(name)) return false;
+  const tag = node.arguments[0];
+  if (!tag || !ts.isStringLiteralLike(tag)) return true;
+  return tag.text.toLowerCase() === "script";
 }
 
 function cssQuotedValue(value, start) {
@@ -186,6 +130,45 @@ function cssStringEnd(value, start) {
     else if (value[index] === quote) return index + 1;
   }
   return null;
+}
+
+function cssStructureDiagnostics(source) {
+  const diagnostics = [];
+  const stack = [];
+  const closingFor = Object.freeze({ "(": ")", "[": "]", "{": "}" });
+  for (let index = 0; index < source.length; index += 1) {
+    if (source.startsWith("/*", index)) {
+      const closing = source.indexOf("*/", index + 2);
+      if (closing === -1) {
+        diagnostics.push("unterminated CSS comment");
+        break;
+      }
+      index = closing + 1;
+      continue;
+    }
+    if (source[index] === '"' || source[index] === "'") {
+      const closing = cssStringEnd(source, index);
+      if (closing === null) {
+        diagnostics.push("unterminated CSS string");
+        break;
+      }
+      index = closing - 1;
+      continue;
+    }
+    if (source[index] === "(" || source[index] === "[" || source[index] === "{") {
+      stack.push(source[index]);
+      continue;
+    }
+    if (source[index] === ")" || source[index] === "]" || source[index] === "}") {
+      const opening = stack.pop();
+      if (!opening || closingFor[opening] !== source[index]) {
+        diagnostics.push(`unexpected CSS delimiter ${source[index]}`);
+        break;
+      }
+    }
+  }
+  if (stack.length > 0) diagnostics.push(`unclosed CSS delimiter ${stack.at(-1)}`);
+  return Object.freeze([...new Set(diagnostics)]);
 }
 
 function cssImportSpecifier(clause) {
@@ -287,12 +270,53 @@ function analyzeCssSource(file, source) {
     source,
     imports: Object.freeze([...new Set(imports)]),
     identifiers: new Set(),
+    themeShellIdentifiers: new Set(),
     stringLiterals: Object.freeze([]),
     unsafeInlineScripts: 0,
     unresolvedDynamicDependencies: Object.freeze(unresolvedDynamicDependencies),
-    parseDiagnostics: Object.freeze([]),
+    parseDiagnostics: cssStructureDiagnostics(source),
     clientDirective: false,
   });
+}
+
+function themeShellName(value) {
+  return /(?:header|footer)$/i.test(value);
+}
+
+function importBindingNames(node) {
+  if (!ts.isImportDeclaration(node) || !node.importClause || node.importClause.isTypeOnly) return [];
+  const names = [];
+  if (node.importClause.name) names.push(node.importClause.name.text);
+  const bindings = node.importClause.namedBindings;
+  if (bindings && ts.isNamespaceImport(bindings)) names.push(bindings.name.text);
+  if (bindings && ts.isNamedImports(bindings)) {
+    for (const element of bindings.elements) {
+      if (!element.isTypeOnly) {
+        names.push(element.name.text);
+        if (element.propertyName) names.push(element.propertyName.text);
+      }
+    }
+  }
+  return names;
+}
+
+function declaredComponentName(node) {
+  if (
+    (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node))
+    && node.name
+  ) return node.name.text;
+  if (
+    ts.isVariableDeclaration(node)
+    && ts.isIdentifier(node.name)
+    && /^[A-Z][A-Za-z0-9]*$/.test(node.name.text)
+  ) return node.name.text;
+  if (
+    (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
+  ) {
+    const name = jsxTagName(ts.isJsxElement(node) ? node.openingElement : node);
+    return /^[A-Z][A-Za-z0-9]*$/.test(name) ? name : null;
+  }
+  return null;
 }
 
 function analyzeSource(file, source) {
@@ -310,6 +334,7 @@ function analyzeSource(file, source) {
   const scriptFactories = scriptFactoryAliases(selected);
   const imports = [];
   const identifiers = new Set();
+  const themeShellIdentifiers = new Set();
   const stringLiterals = [];
   const unresolvedDynamicDependencies = [];
   let unsafeInlineScripts = 0;
@@ -322,20 +347,23 @@ function analyzeSource(file, source) {
       && (node.arguments.length !== 1 || !ts.isStringLiteralLike(node.arguments[0]))
     ) unresolvedDynamicDependencies.push(`${dynamicKind}(non-literal)`);
     if (ts.isIdentifier(node)) identifiers.add(node.text);
+    for (const name of importBindingNames(node)) {
+      if (themeShellName(name)) themeShellIdentifiers.add(name);
+    }
+    const componentName = declaredComponentName(node);
+    if (componentName !== null && themeShellName(componentName)) {
+      themeShellIdentifiers.add(componentName);
+    }
     if (ts.isStringLiteralLike(node)) stringLiterals.push(node.text);
     if (
       ts.isJsxElement(node)
       && jsxTagName(node.openingElement) === "script"
-      && !scriptHasSafeJsxNonce(node.openingElement)
     ) unsafeInlineScripts += 1;
     if (
       ts.isJsxSelfClosingElement(node)
       && jsxTagName(node) === "script"
-      && !scriptHasSafeJsxNonce(node)
     ) unsafeInlineScripts += 1;
-    if (callCreatesScript(node, scriptFactories) && !scriptPropsHaveSafeNonce(node.arguments[1])) {
-      unsafeInlineScripts += 1;
-    }
+    if (unsafeScriptFactoryCall(node, scriptFactories)) unsafeInlineScripts += 1;
     ts.forEachChild(node, visit);
   };
   visit(selected);
@@ -344,6 +372,7 @@ function analyzeSource(file, source) {
     source,
     imports: Object.freeze([...new Set(imports)]),
     identifiers,
+    themeShellIdentifiers,
     stringLiterals: Object.freeze(stringLiterals),
     unsafeInlineScripts,
     unresolvedDynamicDependencies: Object.freeze(unresolvedDynamicDependencies),
@@ -443,18 +472,7 @@ function themeSpecifier(value) {
   return value.split("/").some((segment) => {
     const withoutExtension = segment.replace(/[.](?:tsx?|jsx?|mjs|css)$/i, "");
     const normalized = withoutExtension.replace(/[-_.]/g, "").toLowerCase();
-    return [
-      "header",
-      "footer",
-      "siteheader",
-      "sitefooter",
-      "storefrontheader",
-      "storefrontfooter",
-      "shopheader",
-      "shopfooter",
-      "themeheader",
-      "themefooter",
-    ].includes(normalized);
+    return themeShellName(normalized);
   });
 }
 
@@ -483,7 +501,7 @@ export function auditCheckoutSourceGraph(graph) {
       ) findings.push(finding("forbidden_browser_database", file, specifier));
     }
     if (
-      [...THEME_SHELL_NAMES].some((name) => metadata.identifiers.has(name))
+      metadata.themeShellIdentifiers.size > 0
       || metadata.identifiers.has("themeKey")
     ) findings.push(finding("forbidden_theme_dependency", file, "identifier"));
     if (

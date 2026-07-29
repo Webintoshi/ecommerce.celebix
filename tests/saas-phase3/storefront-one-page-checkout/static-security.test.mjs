@@ -136,7 +136,15 @@ test("import-closure gate catches forbidden mutations hidden behind local librar
     },
     {
       expectedCode: "unsafe_inline_script",
+      hiddenSource: 'import React from "react"; declare const tag: string; export const node = React.createElement(tag, { src: "/runtime.js" });',
+    },
+    {
+      expectedCode: "unsafe_inline_script",
       hiddenSource: 'import { jsx } from "react/jsx-runtime"; export const node = jsx("script", { src: "/runtime.js" });',
+    },
+    {
+      expectedCode: "unsafe_inline_script",
+      hiddenSource: 'import { jsx } from "react/jsx-runtime"; declare const tag: string; export const node = jsx(tag, { src: "/runtime.js" });',
     },
     {
       expectedCode: "unsafe_inline_script",
@@ -147,6 +155,10 @@ test("import-closure gate catches forbidden mutations hidden behind local librar
       hiddenSource: 'import React from "react"; export const node = React.createElement("script", { nonce: "fixed", src: "/runtime.js" });',
     },
     {
+      expectedCode: "unsafe_inline_script",
+      hiddenSource: 'import React from "react"; const nonce = "fixed"; export const node = React.createElement("script", { nonce, src: "/runtime.js" });',
+    },
+    {
       expectedCode: "forbidden_theme_dependency",
       hiddenSource: 'import SiteHeader from "@/layout/SiteHeader.tsx"; export const value = SiteHeader;',
     },
@@ -155,11 +167,31 @@ test("import-closure gate catches forbidden mutations hidden behind local librar
       hiddenSource: "export function SiteFooter() { return null; }",
     },
     {
+      expectedCode: "forbidden_theme_dependency",
+      hiddenSource: 'import MainHeader from "@/layout/MainHeader.tsx"; export const value = MainHeader;',
+    },
+    {
+      expectedCode: "forbidden_theme_dependency",
+      hiddenSource: "export function StoreHeader() { return null; }",
+    },
+    {
+      expectedCode: "forbidden_theme_dependency",
+      hiddenSource: 'import AppFooter from "@/layout/app-footer.tsx"; export const value = AppFooter;',
+    },
+    {
       expectedCode: "unresolved_dynamic_dependency",
       hiddenSource: 'import "@/styles/checkout.css"; export const value = true;',
       extraModules: [[
         path.join(virtualRoot, "styles/checkout.css"),
         "@import url(var(--runtime-theme));",
+      ]],
+    },
+    {
+      expectedCode: "unsafe_source_parse",
+      hiddenSource: 'import "@/styles/invalid.css"; export const value = true;',
+      extraModules: [[
+        path.join(virtualRoot, "styles/invalid.css"),
+        ".checkout { color: black;",
       ]],
     },
   ];
@@ -183,13 +215,13 @@ test("import-closure gate catches forbidden mutations hidden behind local librar
   }
 });
 
-test("script construction accepts request-derived nonce expressions", async () => {
+test("known non-script constructs and the audited Next Script component remain allowed", async () => {
   const virtualRoot = path.resolve("/virtual/checkout-safe-nonce");
   const root = path.join(virtualRoot, "app/odeme/page.tsx");
   const sources = [
-    'declare const nonce: string; export const node = <script nonce={nonce} src="/runtime.js" />;',
-    'import React from "react"; declare const nonce: string; export const node = React.createElement("script", { nonce, src: "/runtime.js" });',
-    'import { jsx } from "react/jsx-runtime"; declare const props: { nonce: string }; export const node = jsx("script", { nonce: props.nonce, src: "/runtime.js" });',
+    'import Script from "next/script"; declare const props: { nonce: string }; export const node = <Script nonce={props.nonce} src="/runtime.js" />;',
+    'import React from "react"; export const node = React.createElement("div", { id: "safe" });',
+    'import { jsx } from "react/jsx-runtime"; export const node = jsx("section", { children: "safe" });',
   ];
   for (const source of sources) {
     const graph = await traceCheckoutSourceGraph({
