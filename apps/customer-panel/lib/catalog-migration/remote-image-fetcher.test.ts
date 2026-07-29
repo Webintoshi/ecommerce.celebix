@@ -59,6 +59,29 @@ test("recovers a corrupt WordPress original from the largest exact same-origin d
   assert.equal(requests.includes(smaller), false);
 });
 
+test("checks WordPress derivatives with bounded two-request concurrency", async () => {
+  const original = "https://media.example.test/wp-content/uploads/2026/07/broken.png";
+  let inFlight = 0; let maximumInFlight = 0;
+  await assert.rejects(() => fetchMigrationImage(original, {
+    lookup: async () => [{ address: "8.8.8.8", family: 4 }],
+    request: async (input) => {
+      if (input.url === original) return response(200, { "content-type": "image/png" }, [new Uint8Array(24)]);
+      if (input.url.includes("/wp-json/wp/v2/media?")) return jsonResponse([{
+        source_url: original,
+        media_details: { sizes: Object.fromEntries([800, 700, 600, 500].map((width) => [String(width), {
+          width, height: width, mime_type: "image/png",
+          source_url: `https://media.example.test/wp-content/uploads/2026/07/broken-${width}x${width}.png`,
+        }])) },
+      }]);
+      inFlight += 1; maximumInFlight = Math.max(maximumInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return response(200, { "content-type": "image/png" }, [new Uint8Array(24)]);
+    },
+  }), (error: unknown) => error instanceof MigrationImageError && error.code === "migration_image_response_invalid");
+  assert.equal(maximumInFlight, 2);
+});
+
 test("never follows WordPress recovery metadata outside the exact source authority", async () => {
   const original = "https://media.example.test/wp-content/uploads/2026/07/broken.png";
   const requests: string[] = [];

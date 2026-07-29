@@ -167,11 +167,20 @@ async function recoverWordPressDerivative(sourceUrl: string, signal: AbortSignal
   let metadata: unknown;
   try { metadata = await wordpressMetadataBody(response); }
   catch { discard(response); return null; }
-  for (const candidate of wordpressDerivativeUrls(metadata, sourceUrl)) {
-    try { return await withinAuthority(candidate, signal, dependencies); }
-    catch (error) {
-      if (signal.aborted || (error instanceof MigrationImageError && error.code === "migration_image_timeout")) throw error;
-    }
+  const candidates = wordpressDerivativeUrls(metadata, sourceUrl);
+  const attempt = async (candidate: string): Promise<MigrationImage | null> => {
+      try { return await withinAuthority(candidate, signal, dependencies); }
+      catch (error) {
+        if (signal.aborted || (error instanceof MigrationImageError && error.code === "migration_image_timeout")) throw error;
+        return null;
+      }
+  };
+  const largest = candidates[0] ? await attempt(candidates[0]) : null;
+  if (largest) return largest;
+  for (let index = 1; index < candidates.length; index += 2) {
+    const results = await Promise.all(candidates.slice(index, index + 2).map(attempt));
+    const recovered = results.find((result): result is MigrationImage => result !== null);
+    if (recovered) return recovered;
   }
   return null;
 }
