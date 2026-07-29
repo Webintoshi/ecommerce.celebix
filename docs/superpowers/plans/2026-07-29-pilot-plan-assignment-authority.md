@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add immutable `pilot v1` entitlements and an atomic bootstrap-only store plan assignment so the 1,628-product Güzide staging migration can proceed without weakening `free_starter v1`.
+**Goal:** Add immutable `pilot v1` entitlements and an atomic bootstrap-only store plan assignment so an authorized large staging migration can proceed without weakening `free_starter v1`.
 
 **Architecture:** A versioned SQL migration seeds and verifies the exact pilot snapshot, then exposes one SECURITY DEFINER plan-assignment function. The target subscription UUID is the idempotency identity; the function locks durable store/subscription authority and changes the active subscription in one transaction.
 
@@ -13,7 +13,7 @@
 - `free_starter v1` and self-service registration remain byte-for-byte behaviorally unchanged.
 - No application-role, browser, session, cookie, header, slug, or client-body plan authority.
 - No production access, deploy, DNS, credential, merge, or customer-domain mutation.
-- No Güzide identity, slug, or credential in committed source.
+- No pilot merchant identity, name, slug, or credential in committed source.
 - Staging assignment must call the bootstrap-only function; no direct subscription table mutation.
 
 ---
@@ -140,8 +140,8 @@ Expected: all PASS and no secret-pattern hits in the tracked diff.
 - No customer identity in source files.
 
 **Interfaces:**
-- Consumes: bootstrap-only SQL function and exact Güzide staging subscription discovered read-only at runtime.
-- Produces: Güzide staging `pilot v1` active subscription and completed WooCommerce migration.
+- Consumes: bootstrap-only SQL function and exact authorized staging subscription discovered read-only at runtime.
+- Produces: authorized staging `pilot v1` active subscription and completed WooCommerce migration.
 
 - [ ] **Step 1: Commit and push**
 
@@ -151,7 +151,7 @@ Commit design/plan separately, then SQL/tests/manifest as independently reviewab
 
 Run the up migration and assertions with the existing staging migrator/owner workflow. Verify exact `pilot v1`, function ACL, and unchanged `free_starter v1` read-only.
 
-- [ ] **Step 3: Assign only the Güzide staging store**
+- [ ] **Step 3: Assign only the authorized pilot staging store**
 
 Read the store ID and exact active subscription ID by slug through a read-only owner query. Generate a fresh target subscription UUID locally. Invoke `saas.assign_store_plan` as `celebix_saas_bootstrap`; verify `assigned`, then replay the exact call once and verify `operation_replayed`. Confirm every other active subscription remains unchanged.
 
@@ -162,4 +162,3 @@ Use the already-selected official WooCommerce CSV. Verify preview `1,628 product
 - [ ] **Step 5: Verify durable results**
 
 Verify 1,628 non-archived products, 1,195 active, 433 draft, 1,628 variants, expected category/brand counts, 5,423 media terminal outcomes, sample gram/weight fields, tenant-prefixed R2 object keys, zero foreign-store rows, no raw-secret/log leak, and no production/domain/DNS change.
-

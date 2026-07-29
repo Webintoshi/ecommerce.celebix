@@ -11,7 +11,7 @@ Status: Kullanıcının “hepsini yap” yazılı yetkisiyle onaylandı.
 - `free_starter v1`, mevcut plan özellikleri, limitleri ve kayıt akışı değişmeyecek.
 - Uygulama rolü plan oluşturamayacak, değiştiremeyecek veya abonelik atayamayacak.
 - Tarayıcı, cookie, header, mağaza slug’ı veya istemci gövdesi plan yetkisi olmayacak.
-- Güzide’ye özgü kimlik, slug veya credential kaynak koduna girmeyecek.
+- Pilot mağazaya özgü kimlik, ad, slug veya credential kaynak koduna girmeyecek.
 - Production verisi, credential’ı, deploy’u, DNS’i ve müşteri domain’i değişmeyecek.
 - Plan ataması doğrudan tablo yazımıyla değil, bootstrap rolüne kapalı uçlu bir SQL fonksiyonuyla yapılacak.
 
@@ -56,5 +56,4 @@ Sonuç payload’ı yalnız store, önceki/yeni abonelik kimlikleri ve hedef pla
 
 Disposable PostgreSQL 16 testleri seed/reapply/drift, grant matrisi, yanlış beklenen abonelik, geçersiz hedef, replay/mismatch, eşzamanlı tek kazanan, rollback/reapply ve cleanup davranışını kanıtlayacak. Static testler manifest checksum’larını, exact snapshot’ı ve SECURITY DEFINER/search_path/grant sınırını doğrulayacak.
 
-Testlerden sonra migration yalnız staging PostgreSQL’e uygulanacak. Güzide mağazasının mevcut exact aktif aboneliği read-only bulunacak; bootstrap fonksiyonu tek kez çağrılacak. Mevcut panel session sonraki istekte durable aboneliği yeniden çözümlediği için cookie veya session değiştirilmeyecek. Ardından aynı WooCommerce dosyasıyla 1.628 ürün ve 5.423 medya aktarımı devam ettirilecek.
-
+Testlerden sonra migration yalnız staging PostgreSQL’e uygulanacak. Yetkilendirilen pilot mağazanın mevcut exact aktif aboneliği read-only bulunacak; bootstrap fonksiyonu tek kez çağrılacak. Mevcut panel session sonraki istekte durable aboneliği yeniden çözümlediği için cookie veya session değiştirilmeyecek. Ardından yetkilendirilen WooCommerce aktarımı devam ettirilecek.
