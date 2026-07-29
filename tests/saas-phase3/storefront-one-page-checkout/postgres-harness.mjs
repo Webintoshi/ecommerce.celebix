@@ -43,6 +43,8 @@ const HOSTED_SETTLEMENT_DB = "storefront_one_page_checkout_hosted_settlement";
 const HOSTED_FAILURE_DB = "storefront_one_page_checkout_hosted_failure";
 const METHOD_DENIAL_DB = "storefront_one_page_checkout_method_denial";
 const CLASSIFICATION_DB = "storefront_one_page_checkout_method_classification";
+const REPOSITORY_CLASSIFICATION_DB = "storefront_one_page_checkout_repository_classification";
+const IYZICO_REPOSITORY_CLASSIFICATION_DB = "storefront_one_page_checkout_iyzico_repository_classification";
 const BUILTIN_RACE_DB = "storefront_one_page_checkout_builtin_race";
 const EMERGENCY_RACE_DB = "storefront_one_page_checkout_emergency_race";
 const DISCOUNT_USAGE_RACE_DB = "storefront_one_page_checkout_discount_usage_race";
@@ -78,6 +80,8 @@ const WRONG_DIGEST = "b".repeat(64);
 const NONCE_1 = "c".repeat(64);
 const NONCE_2 = "d".repeat(64);
 const NONCE_3 = "e".repeat(64);
+const REPOSITORY_NONCE = "r".repeat(43);
+const REPOSITORY_NONCE_DIGEST = createHash("sha256").update(REPOSITORY_NONCE).digest("hex");
 const PRODUCT = "70000000-0000-4000-8000-000000000064";
 const VARIANT = "71000000-0000-4000-8000-000000000064";
 const SHIPPING = "72000000-0000-4000-8000-000000000064";
@@ -186,6 +190,22 @@ function call(box, statement, database = DB) {
   const outcome = separator < 0 ? output : output.slice(0, separator);
   const payloadText = separator < 0 ? "" : output.slice(separator + 1);
   return { outcome, payload: payloadText ? JSON.parse(payloadText) : null };
+}
+
+function repositoryClassifications(box, database, cartVersion, cases) {
+  const result = command(process.execPath, [
+    "--experimental-strip-types",
+    path.join(import.meta.dirname, "repository-read-only-integration.mjs"),
+    JSON.stringify({
+      socket: box.socket,
+      port: box.port,
+      database,
+      cartVersion,
+      checkoutNonce: REPOSITORY_NONCE,
+      cases,
+    }),
+  ]);
+  assert.match(result.stdout, /PASS real read-only checkout repository classification/);
 }
 
 function quote(box, hostname = HOST_A, digest = CART_A_DIGEST, database = DB) {
@@ -1119,6 +1139,8 @@ async function main() {
       HOSTED_FAILURE_DB,
       METHOD_DENIAL_DB,
       CLASSIFICATION_DB,
+      REPOSITORY_CLASSIFICATION_DB,
+      IYZICO_REPOSITORY_CLASSIFICATION_DB,
       BUILTIN_RACE_DB,
       EMERGENCY_RACE_DB,
       DISCOUNT_USAGE_RACE_DB,
@@ -1136,6 +1158,32 @@ async function main() {
     ]) {
       sql(box, `CREATE DATABASE ${database} TEMPLATE ${DB};`, "postgres");
     }
+
+    const repositoryClassificationVersion = prepareSubmittedCart(
+      box,
+      REPOSITORY_CLASSIFICATION_DB,
+      null,
+      { nextNonce: REPOSITORY_NONCE_DIGEST },
+    );
+    repositoryClassifications(box, REPOSITORY_CLASSIFICATION_DB, repositoryClassificationVersion, [
+      [COD_METHOD, "built_in"],
+      [BANK_METHOD, "built_in"],
+      [PROVIDER_METHOD, "hosted"],
+    ]);
+
+    iyzicoProviderFixture(box, IYZICO_REPOSITORY_CLASSIFICATION_DB);
+    const iyzicoRepositoryVersion = prepareSubmittedCart(
+      box,
+      IYZICO_REPOSITORY_CLASSIFICATION_DB,
+      null,
+      { nextNonce: REPOSITORY_NONCE_DIGEST },
+    );
+    repositoryClassifications(
+      box,
+      IYZICO_REPOSITORY_CLASSIFICATION_DB,
+      iyzicoRepositoryVersion,
+      [[PROVIDER_METHOD, "hosted"]],
+    );
 
     const classificationVersion = prepareSubmittedCart(box, CLASSIFICATION_DB, null);
     const classificationEffects = () => sql(box, `SELECT

@@ -1515,11 +1515,17 @@ BEGIN
     OR selected_method.config IS DISTINCT FROM pg_catalog.jsonb_build_object(
       'environment',selected_profile.execution_environment
     )
-    OR saas.merchant_provider_execution_authority_matches(
-      selected_profile.provider_code,selected_profile.capability,
-      selected_profile.execution_environment,selected_profile.execution_adapter_version,
-      selected_profile.execution_evidence_digest
-    ) IS DISTINCT FROM true
+    OR NOT EXISTS(
+      SELECT 1 FROM saas.merchant_provider_execution_authorities execution_authority
+      WHERE execution_authority.provider_code=selected_profile.provider_code
+        AND execution_authority.capability=selected_profile.capability
+        AND execution_authority.environment=selected_profile.execution_environment
+        AND execution_authority.adapter_version=selected_profile.execution_adapter_version
+        AND execution_authority.evidence_digest=selected_profile.execution_evidence_digest
+        AND execution_authority.readiness=CASE selected_profile.execution_environment
+          WHEN 'test' THEN 'sandbox_ready' ELSE 'production_ready' END
+        AND execution_authority.enabled
+    )
     OR NOT EXISTS(
       SELECT 1 FROM saas.merchant_provider_definitions definition
       WHERE definition.provider_code=selected_method.provider_code
@@ -2921,7 +2927,7 @@ BEGIN
     ('saas.storefront_checkout_get_quote(text,text,timestamp with time zone)','55a13b99a537cae6df50f09ca2994ebe','s'::"char"),
     ('saas.storefront_checkout_issue_nonce(text,text,text,timestamp with time zone)','75e8e2d7f00503fc5a35329acb90d7e1','v'::"char"),
     ('saas.storefront_checkout_update_delivery(text,text,bigint,uuid,text,text,text,text,boolean,jsonb,jsonb,text,text,timestamp with time zone)','fe56e71b3fdb8c694e3a0ea1650d33b3','v'::"char"),
-    ('saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)','136a7c7c9d06d8e8bedf319c2685f619','s'::"char"),
+    ('saas.storefront_checkout_classify_payment_method(text,text,bigint,text,uuid,timestamp with time zone)','203f23730750a28361129259ccb9d26f','s'::"char"),
     ('saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)','dd39a69adb7399f6e2a278c7a447683e','v'::"char"),
     ('saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)','397531c6e482991b782ef989878e6abe','v'::"char"),
     ('saas.storefront_checkout_recover_operation(text,text,uuid,text,timestamp with time zone)','ea527e8fd871eeebd57ba7bd16f88121','s'::"char"),
