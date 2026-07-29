@@ -49,7 +49,7 @@
     "gray-matter": "^4.0.3",
     "iyzipay": "github:iyzico/iyzipay-node#v2.0.67",
     "lucide-react": "^0.563.0",
-    "next": "16.2.1",
+    "next": "16.2.10",
     "next-mdx-remote": "^6.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -74,12 +74,12 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "eslint": "^9.38.0",
-    "eslint-config-next": "16.2.1",
+    "eslint-config-next": "16.2.10",
     "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3"
   },
   "optionalDependencies": {
-    "@next/swc-linux-x64-gnu": "16.2.1",
-    "@next/swc-linux-x64-musl": "16.2.1"
+    "@next/swc-linux-x64-gnu": "16.2.10",
+    "@next/swc-linux-x64-musl": "16.2.10"
   }
 }
