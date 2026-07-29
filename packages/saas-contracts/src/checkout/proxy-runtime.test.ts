@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const moduleUrl = new URL("./index.ts", import.meta.url).href;
@@ -51,16 +52,97 @@ function isolated(script: string) {
   ], { encoding: "utf8" });
 }
 
-test("Node without getBuiltinModule parses a valid quote through the captured synchronous fallback", () => {
+test("proxy inspection never uses cloning or undocumented proxy details", async () => {
+  const source = await readFile(new URL("./validation.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /structuredClone|getProxyDetails/);
+  assert.match(source, /legacyTypes[?][.]isProxy/);
+});
+
+test("Node without getBuiltinModule parses a valid quote through captured binding isProxy", () => {
+  const result = isolated(`
+    const { isProxy } = await import("node:util/types");
+    const originalBinding = process.binding.bind(process);
+    Object.defineProperty(process, "getBuiltinModule", {
+      configurable: true,
+      value: undefined,
+      writable: true,
+    });
+    Object.defineProperty(process, "binding", {
+      configurable: true,
+      value(name) {
+        return name === "util" ? { isProxy } : Reflect.apply(originalBinding, process, [name]);
+      },
+      writable: true,
+    });
+    const { parseCheckoutQuote } = await import(${JSON.stringify(moduleUrl)});
+    const parsed = parseCheckoutQuote(${fixture});
+    if (parsed.storeName !== "Celebix") throw new Error("valid_quote_rejected");
+    let rejected = false;
+    try { parseCheckoutQuote(new Proxy(${fixture}, {})); }
+    catch { rejected = true; }
+    if (!rejected) throw new Error("binding_proxy_accepted");
+  `);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("Node falls back to captured binding when getBuiltinModule has no isProxy", () => {
+  const result = isolated(`
+    const { isProxy } = await import("node:util/types");
+    const originalBinding = process.binding.bind(process);
+    Object.defineProperty(process, "getBuiltinModule", {
+      configurable: true,
+      value: () => ({}),
+      writable: true,
+    });
+    Object.defineProperty(process, "binding", {
+      configurable: true,
+      value(name) {
+        return name === "util" ? { isProxy } : Reflect.apply(originalBinding, process, [name]);
+      },
+      writable: true,
+    });
+    const { parseCheckoutQuote } = await import(${JSON.stringify(moduleUrl)});
+    const parsed = parseCheckoutQuote(${fixture});
+    if (parsed.storeName !== "Celebix") throw new Error("binding_fallback_rejected");
+  `);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("a detected Node runtime without either synchronous proxy authority fails closed", () => {
   const result = isolated(`
     Object.defineProperty(process, "getBuiltinModule", {
       configurable: true,
       value: undefined,
       writable: true,
     });
+    Object.defineProperty(process, "binding", {
+      configurable: true,
+      value: () => ({}),
+      writable: true,
+    });
     const { parseCheckoutQuote } = await import(${JSON.stringify(moduleUrl)});
-    const parsed = parseCheckoutQuote(${fixture});
-    if (parsed.storeName !== "Celebix") throw new Error("valid_quote_rejected");
+    let rejected = false;
+    try { parseCheckoutQuote(${fixture}); }
+    catch { rejected = true; }
+    if (!rejected) throw new Error("node_without_authority_accepted");
+  `);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("hostile accessors are rejected without invoking their getters", () => {
+  const result = isolated(`
+    const { parseCheckoutQuote } = await import(${JSON.stringify(moduleUrl)});
+    const hostile = ${fixture};
+    let reads = 0;
+    Object.defineProperty(hostile, "storeName", {
+      enumerable: true,
+      get() { reads += 1; return "Celebix"; },
+    });
+    let rejected = false;
+    try { parseCheckoutQuote(hostile); }
+    catch { rejected = true; }
+    if (!rejected) throw new Error("accessor_accepted");
+    if (reads !== 0) throw new Error("getter_invoked_" + reads);
   `);
   assert.equal(result.status, 0, result.stderr);
 });

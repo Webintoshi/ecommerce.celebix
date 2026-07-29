@@ -13,14 +13,17 @@ export type CheckoutUiState = Readonly<{
   summaryOpen: boolean;
   pending: null | "delivery" | "submit";
   selectedPaymentMethodId: string | null;
+  appliedDeliveryFingerprint: string | null;
+  deliveryDirty: boolean;
   error: string | null;
 }>;
 
 export type CheckoutUiAction =
   | Readonly<{ type: "toggle_summary" }>
   | Readonly<{ type: "select_payment"; paymentMethodId: string }>
+  | Readonly<{ type: "delivery_changed" }>
   | Readonly<{ type: "delivery_started" }>
-  | Readonly<{ type: "delivery_succeeded"; quote: CheckoutQuote }>
+  | Readonly<{ type: "delivery_succeeded"; quote: CheckoutQuote; fingerprint: string }>
   | Readonly<{ type: "submit_started" }>
   | Readonly<{ type: "failed"; code: CheckoutHttpError }>;
 
@@ -55,6 +58,16 @@ type DeliveryFieldValues = Readonly<Record<Exclude<DeliveryFieldName, "shippingI
   shippingId: "standard" | null;
 }>;
 
+export type DeliveryFormValues = Readonly<DeliveryFieldValues & {
+  marketingOptIn: boolean;
+  discountCode: string;
+}>;
+
+export type DeliveryAuthority =
+  | Readonly<{ kind: "invalid"; errors: CheckoutFieldErrors<DeliveryFieldName> }>
+  | Readonly<{ kind: "dirty"; fingerprint: string }>
+  | Readonly<{ kind: "ready"; fingerprint: string }>;
+
 type SubmitFieldValues = Readonly<{
   paymentKind: "paytr_iframe" | "iyzico_iframe" | "bank_transfer" | "cash_on_delivery" | null;
   identityNumber: string;
@@ -87,6 +100,8 @@ export function createCheckoutState(quote: CheckoutQuote): CheckoutUiState {
     summaryOpen: false,
     pending: null,
     selectedPaymentMethodId: quote.paymentMethods[0]?.id ?? null,
+    appliedDeliveryFingerprint: null,
+    deliveryDirty: true,
     error: null,
   });
 }
@@ -100,6 +115,10 @@ export function reduceCheckout(
   }
   if (action.type === "select_payment") {
     return Object.freeze({ ...state, selectedPaymentMethodId: action.paymentMethodId, error: null });
+  }
+  if (action.type === "delivery_changed") {
+    if (state.deliveryDirty) return state;
+    return Object.freeze({ ...state, deliveryDirty: true });
   }
   if (action.type === "delivery_started") {
     return Object.freeze({ ...state, pending: "delivery", error: null });
@@ -115,11 +134,13 @@ export function reduceCheckout(
       quote: action.quote,
       pending: null,
       selectedPaymentMethodId,
+      appliedDeliveryFingerprint: action.fingerprint,
+      deliveryDirty: false,
       error: null,
     });
   }
   if (action.type === "submit_started") {
-    if (state.pending !== null) return state;
+    if (state.pending !== null || state.deliveryDirty) return state;
     return Object.freeze({ ...state, pending: "submit", error: null });
   }
   return Object.freeze({
@@ -127,6 +148,39 @@ export function reduceCheckout(
     pending: null,
     error: ERROR_MESSAGES[action.code],
   });
+}
+
+export function deliveryFormFingerprint(values: DeliveryFormValues): string {
+  return JSON.stringify([
+    values.email,
+    values.marketingOptIn,
+    values.firstName,
+    values.lastName,
+    values.phone,
+    values.line1,
+    values.line2,
+    values.city,
+    values.district,
+    values.postalCode,
+    values.shippingId,
+    values.discountCode.trim(),
+  ]);
+}
+
+export function assessDeliveryAuthority(
+  values: DeliveryFormValues,
+  appliedFingerprint: string | null,
+  dirty: boolean,
+): DeliveryAuthority {
+  const errors = validateDeliveryFields(values);
+  if (Object.keys(errors).length > 0) {
+    return Object.freeze({ kind: "invalid", errors });
+  }
+  const fingerprint = deliveryFormFingerprint(values);
+  if (dirty || appliedFingerprint !== fingerprint) {
+    return Object.freeze({ kind: "dirty", fingerprint });
+  }
+  return Object.freeze({ kind: "ready", fingerprint });
 }
 
 export function buildDeliveryPayload(input: DeliveryPayloadInput): CheckoutDeliveryInput {

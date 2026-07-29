@@ -12,6 +12,7 @@ type Fetcher = (
 export type CheckoutSubmissionRequestResult =
   | Readonly<{ kind: "redirect"; location: string }>
   | Readonly<{ kind: "failed"; code: CheckoutHttpError }>
+  | Readonly<{ kind: "delivery_dirty" }>
   | Readonly<{ kind: "aborted" }>;
 
 const ERROR_STATUS: Readonly<Record<CheckoutHttpError, number>> = Object.freeze({
@@ -32,9 +33,11 @@ function unavailable(): CheckoutSubmissionRequestResult {
 
 export async function requestCheckoutSubmission(input: Readonly<{
   body: URLSearchParams;
+  deliveryReady: boolean;
   signal: AbortSignal;
   fetcher?: Fetcher;
 }>): Promise<CheckoutSubmissionRequestResult> {
+  if (!input.deliveryReady) return Object.freeze({ kind: "delivery_dirty" });
   const fetcher = input.fetcher ?? fetch;
   try {
     const selected = await fetcher("/api/checkout/submit", {

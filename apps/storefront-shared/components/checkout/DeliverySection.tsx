@@ -8,12 +8,16 @@ import {
 } from "./model.ts";
 
 type DeliverySectionProps = Readonly<{
+  applyButtonId: string;
+  applyError: string | null;
+  applyErrorId: string;
   formId: string;
   quote: CheckoutQuote;
   pending: boolean;
   errors: CheckoutFieldErrors<DeliveryFieldName>;
   onFieldChange(name: DeliveryFieldName): void;
   onFieldInvalid(name: DeliveryFieldName, message: string): void;
+  onDeliveryChange(): void;
   onSubmit(event: FormEvent<HTMLFormElement>): void;
 }>;
 
@@ -69,10 +73,20 @@ export function DeliverySection(props: DeliverySectionProps) {
         />
         <FieldError id="checkout-email-error" message={props.errors.email} />
       </label>
-      <label className="checkout-check checkout-marketing">
-        <input disabled={props.pending} name="marketingOptIn" type="checkbox" />
-        <span>Özel kampanyalar ve yeni ürünler hakkında e-posta ile bilgilendir.</span>
-      </label>
+      <div className="checkout-check checkout-marketing">
+        <span className="checkout-consent-control">
+          <input
+            aria-labelledby="checkout-marketing-copy"
+            disabled={props.pending}
+            name="marketingOptIn"
+            onChange={props.onDeliveryChange}
+            type="checkbox"
+          />
+        </span>
+        <span className="checkout-consent-copy" id="checkout-marketing-copy">
+          Özel kampanyalar ve yeni ürünler hakkında e-posta ile bilgilendir.
+        </span>
+      </div>
     </section>
 
     <section className="checkout-section">
@@ -227,8 +241,19 @@ export function DeliverySection(props: DeliverySectionProps) {
       <FieldError id="checkout-shippingId-error" message={props.errors.shippingId} />
     </fieldset>
 
-    <button className="checkout-delivery-submit" disabled={props.pending} type="submit">
+    <button
+      aria-describedby={props.applyError ? props.applyErrorId : undefined}
+      className="checkout-delivery-submit"
+      disabled={props.pending}
+      id={props.applyButtonId}
+      type="submit"
+    >
       {props.pending ? "Bilgiler uygulanıyor…" : "Bilgileri uygula"}
     </button>
+    {props.applyError
+      ? <span className="checkout-apply-error" id={props.applyErrorId} role="alert">
+          {props.applyError}
+        </span>
+      : null}
   </form>;
 }

@@ -3,7 +3,7 @@ import type {
   CheckoutPolicyLink,
   CheckoutQuote,
 } from "@celebix/saas-contracts";
-import type { FormEvent } from "react";
+import { Fragment, type FormEvent, type ReactNode } from "react";
 
 import type {
   CheckoutFieldErrors,
@@ -50,8 +50,13 @@ function policyLink(
 
 function MethodDetails({ method }: Readonly<{ method: CheckoutPaymentMethod }>) {
   if (method.kind === "provider") {
+    const providerName = method.providerCode === "iyzico_iframe" ? "iyzico"
+      : method.providerCode === "paytr_iframe" ? "PayTR"
+      : null;
     return <p className="checkout-method-instructions">
-      Ödeme işlemi, {method.label} güvenli ödeme sayfasında tamamlanır.
+      {providerName
+        ? `${providerName} güvenli ödeme sayfasına yönlendirileceksiniz.`
+        : "Ödeme sağlayıcınızın güvenli ödeme sayfasına yönlendirileceksiniz."}
     </p>;
   }
   if (method.kind === "bank_transfer") {
@@ -63,6 +68,43 @@ function MethodDetails({ method }: Readonly<{ method: CheckoutPaymentMethod }>) 
     </div>;
   }
   return <p className="checkout-method-instructions">{method.instructions}</p>;
+}
+
+function ConsentControl(props: Readonly<{
+  copy: ReactNode;
+  error: string | undefined;
+  field: "distanceSales" | "preInformation";
+  pending: boolean;
+  onFieldChange(name: SubmitFieldName): void;
+  onFieldInvalid(name: SubmitFieldName, message: string): void;
+}>) {
+  const copyId = `checkout-${props.field}-copy`;
+  const errorId = `checkout-${props.field}-error`;
+  return <div className="checkout-consent">
+    <div className="checkout-check">
+      <span className="checkout-consent-control">
+        <input
+          aria-describedby={props.error ? errorId : undefined}
+          aria-invalid={props.error ? true : undefined}
+          aria-labelledby={copyId}
+          disabled={props.pending}
+          name={props.field}
+          onChange={() => props.onFieldChange(props.field)}
+          onInvalid={(event) => {
+            const form = event.currentTarget.form;
+            event.preventDefault();
+            props.onFieldInvalid(props.field, "Devam etmek için onaylamanız gerekir.");
+            focusFirstInvalid(form);
+          }}
+          required
+          type="checkbox"
+          value="true"
+        />
+      </span>
+      <span className="checkout-consent-copy" id={copyId}>{props.copy}</span>
+    </div>
+    <FieldError id={errorId} message={props.error} />
+  </div>;
 }
 
 export function PaymentSection(props: PaymentSectionProps) {
@@ -88,8 +130,8 @@ export function PaymentSection(props: PaymentSectionProps) {
         <div className="checkout-method-list checkout-payment-methods">
           {props.quote.paymentMethods.map((method) => {
             const selected = method.id === props.selectedPaymentMethodId;
-            return <div className="checkout-payment-method" key={method.id}>
-              <label className="checkout-method">
+            return <Fragment key={method.id}>
+              <label className="checkout-method checkout-payment-method">
                 <input
                   aria-describedby={props.errors.paymentMethodId
                     ? "checkout-paymentMethodId-error"
@@ -114,11 +156,57 @@ export function PaymentSection(props: PaymentSectionProps) {
                 />
                 <strong>{method.label}</strong>
                 {method.kind === "provider"
-                  ? <img alt={method.label} height="28" src={method.logoPath} width="76" />
+                  ? <img alt="" height="28" src={method.logoPath} width="76" />
                   : null}
               </label>
-              {selected ? <MethodDetails method={method} /> : null}
-            </div>;
+              {selected
+                ? <div className="checkout-payment-details">
+                    <MethodDetails method={method} />
+                    {method.kind === "provider" && method.providerCode === "iyzico_iframe"
+                      ? <div className="checkout-identity">
+                          <label className="checkout-label" htmlFor="checkout-identity-number">
+                            T.C. kimlik / yabancı kimlik numarası
+                          </label>
+                          <input
+                            aria-describedby={props.errors.identityNumber
+                              ? "checkout-identity-help checkout-identityNumber-error"
+                              : "checkout-identity-help"}
+                            aria-invalid={props.errors.identityNumber ? true : undefined}
+                            autoComplete="off"
+                            className="checkout-field"
+                            disabled={props.pending}
+                            id="checkout-identity-number"
+                            maxLength={50}
+                            minLength={5}
+                            name="identityNumber"
+                            onChange={(event) => props.onIdentityNumberChange(event.currentTarget.value)}
+                            onInvalid={(event) => {
+                              const form = event.currentTarget.form;
+                              event.preventDefault();
+                              props.onFieldInvalid(
+                                "identityNumber",
+                                event.currentTarget.validity.valueMissing
+                                  ? "Bu alan zorunludur."
+                                  : "Geçerli bir kimlik numarası girin.",
+                              );
+                              focusFirstInvalid(form);
+                            }}
+                            required
+                            type="text"
+                            value={props.identityNumber}
+                          />
+                          <FieldError
+                            id="checkout-identityNumber-error"
+                            message={props.errors.identityNumber}
+                          />
+                          <small id="checkout-identity-help">
+                            Bu bilgi yalnızca iyzico ödemesinin güvenli şekilde başlatılması için kullanılır.
+                          </small>
+                        </div>
+                      : null}
+                  </div>
+                : null}
+            </Fragment>;
           })}
         </div>
         <FieldError
@@ -127,108 +215,26 @@ export function PaymentSection(props: PaymentSectionProps) {
         />
       </fieldset>
 
-      {selectedMethod?.kind === "provider"
-        && selectedMethod.providerCode === "iyzico_iframe"
-        ? <div className="checkout-identity">
-            <label className="checkout-label" htmlFor="checkout-identity-number">
-              T.C. kimlik / yabancı kimlik numarası
-            </label>
-            <input
-              aria-describedby={props.errors.identityNumber
-                ? "checkout-identity-help checkout-identityNumber-error"
-                : "checkout-identity-help"}
-              aria-invalid={props.errors.identityNumber ? true : undefined}
-              autoComplete="off"
-              className="checkout-field"
-              disabled={props.pending}
-              id="checkout-identity-number"
-              maxLength={50}
-              minLength={5}
-              name="identityNumber"
-              onChange={(event) => props.onIdentityNumberChange(event.currentTarget.value)}
-              onInvalid={(event) => {
-                const form = event.currentTarget.form;
-                event.preventDefault();
-                props.onFieldInvalid(
-                  "identityNumber",
-                  event.currentTarget.validity.valueMissing
-                    ? "Bu alan zorunludur."
-                    : "Geçerli bir kimlik numarası girin.",
-                );
-                focusFirstInvalid(form);
-              }}
-              required
-              type="text"
-              value={props.identityNumber}
-            />
-            <FieldError
-              id="checkout-identityNumber-error"
-              message={props.errors.identityNumber}
-            />
-            <small id="checkout-identity-help">
-              Bu bilgi yalnızca iyzico ödemesinin güvenli şekilde başlatılması için kullanılır.
-            </small>
-          </div>
-        : null}
-
       <div className="checkout-consents">
-        <div className="checkout-consent">
-          <label className="checkout-check">
-            <input
-              aria-describedby={props.errors.distanceSales
-                ? "checkout-distanceSales-error"
-                : undefined}
-              aria-invalid={props.errors.distanceSales ? true : undefined}
-              disabled={props.pending}
-              name="distanceSales"
-              onChange={() => props.onFieldChange("distanceSales")}
-              onInvalid={(event) => {
-                const form = event.currentTarget.form;
-                event.preventDefault();
-                props.onFieldInvalid("distanceSales", "Devam etmek için onaylamanız gerekir.");
-                focusFirstInvalid(form);
-              }}
-              required
-              type="checkbox"
-              value="true"
-            />
-            <span>
+        <ConsentControl
+          copy={<>
               {policyLink(props.quote.policyLinks, "pre_information", "Ön bilgilendirme formunu")} ve{" "}
               {policyLink(props.quote.policyLinks, "distance_sales", "mesafeli satış sözleşmesini")} okudum, anladım.
-            </span>
-          </label>
-          <FieldError
-            id="checkout-distanceSales-error"
-            message={props.errors.distanceSales}
-          />
-        </div>
-        <div className="checkout-consent">
-          <label className="checkout-check">
-            <input
-              aria-describedby={props.errors.preInformation
-                ? "checkout-preInformation-error"
-                : undefined}
-              aria-invalid={props.errors.preInformation ? true : undefined}
-              disabled={props.pending}
-              name="preInformation"
-              onChange={() => props.onFieldChange("preInformation")}
-              onInvalid={(event) => {
-                const form = event.currentTarget.form;
-                event.preventDefault();
-                props.onFieldInvalid("preInformation", "Devam etmek için onaylamanız gerekir.");
-                focusFirstInvalid(form);
-              }}
-              required
-              type="checkbox"
-              value="true"
-            />
-            <span>Sipariş ve teslimat bilgilerimin işlenmesini onaylıyorum.</span>
-          </label>
-          <FieldError
-            id="checkout-preInformation-error"
-            message={props.errors.preInformation}
-          />
-        </div>
+            </>}
+          error={props.errors.distanceSales}
+          field="distanceSales"
+          onFieldChange={props.onFieldChange}
+          onFieldInvalid={props.onFieldInvalid}
+          pending={props.pending}
+        />
+        <ConsentControl
+          copy="Sipariş ve teslimat bilgilerimin işlenmesini onaylıyorum."
+          error={props.errors.preInformation}
+          field="preInformation"
+          onFieldChange={props.onFieldChange}
+          onFieldInvalid={props.onFieldInvalid}
+          pending={props.pending}
+        />
       </div>
 
       <button

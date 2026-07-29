@@ -23,7 +23,10 @@ import {
   buildSubmitPayload,
   type CheckoutFieldErrors,
   createCheckoutState,
+  assessDeliveryAuthority,
+  deliveryFormFingerprint,
   type DeliveryFieldName,
+  type DeliveryFormValues,
   reduceCheckout,
   type SubmitFieldName,
   validateDeliveryFields,
@@ -34,6 +37,9 @@ import { PaymentSection } from "./PaymentSection.tsx";
 import { requestCheckoutSubmission } from "./submission.ts";
 
 const DELIVERY_FORM_ID = "checkout-delivery-form";
+const DELIVERY_APPLY_ID = "checkout-delivery-apply";
+const DELIVERY_APPLY_ERROR_ID = "checkout-delivery-apply-error";
+const DELIVERY_APPLY_ERROR = "Teslimat bilgilerindeki değişiklikleri uygulayın.";
 
 type CheckoutClientProps = Readonly<{
   initialQuote: CheckoutQuote;
@@ -53,6 +59,23 @@ function requiredText(form: FormData, name: string): string {
 function rawText(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
+}
+
+function readDeliveryFormValues(form: FormData, discountCode: string): DeliveryFormValues {
+  return Object.freeze({
+    email: rawText(form, "email"),
+    firstName: rawText(form, "firstName"),
+    lastName: rawText(form, "lastName"),
+    phone: rawText(form, "phone"),
+    line1: rawText(form, "line1"),
+    line2: rawText(form, "line2"),
+    city: rawText(form, "city"),
+    district: rawText(form, "district"),
+    postalCode: rawText(form, "postalCode"),
+    shippingId: form.get("shippingId") === "standard" ? "standard" : null,
+    marketingOptIn: form.get("marketingOptIn") === "on",
+    discountCode,
+  });
 }
 
 function responseError(value: unknown): CheckoutHttpError {
@@ -79,6 +102,7 @@ export function CheckoutClient(props: CheckoutClientProps) {
   const [identityNumber, setIdentityNumber] = useState("");
   const [submitOperationId, setSubmitOperationId] = useState(props.initialOperationId);
   const [deliveryErrors, setDeliveryErrors] = useState<CheckoutFieldErrors<DeliveryFieldName>>({});
+  const [deliveryAuthorityError, setDeliveryAuthorityError] = useState<string | null>(null);
   const [submitErrors, setSubmitErrors] = useState<CheckoutFieldErrors<SubmitFieldName>>({});
   const deliveryAbort = useRef<AbortController | null>(null);
   const submitAbort = useRef<AbortController | null>(null);
@@ -90,22 +114,12 @@ export function CheckoutClient(props: CheckoutClientProps) {
 
   const applyDelivery = useCallback(async (formElement: HTMLFormElement) => {
     const form = new FormData(formElement);
-    const deliveryValues = {
-      email: rawText(form, "email"),
-      firstName: rawText(form, "firstName"),
-      lastName: rawText(form, "lastName"),
-      phone: rawText(form, "phone"),
-      line1: rawText(form, "line1"),
-      line2: rawText(form, "line2"),
-      city: rawText(form, "city"),
-      district: rawText(form, "district"),
-      postalCode: rawText(form, "postalCode"),
-      shippingId: form.get("shippingId") === "standard" ? "standard" as const : null,
-    };
+    const deliveryValues = readDeliveryFormValues(form, discountCode);
     const nextErrors = validateDeliveryFields(deliveryValues);
     const firstError = Object.keys(nextErrors)[0];
     if (firstError !== undefined) {
       setDeliveryErrors(nextErrors);
+      setDeliveryAuthorityError(null);
       dispatch({ type: "failed", code: "invalid_input" });
       focusNamedControl(formElement, firstError);
       return;
@@ -160,8 +174,17 @@ export function CheckoutClient(props: CheckoutClientProps) {
         return;
       }
       const nextQuote = parseCheckoutQuote(body);
-      dispatch({ type: "delivery_succeeded", quote: nextQuote });
+      const appliedFingerprint = deliveryFormFingerprint({
+        ...deliveryValues,
+        discountCode: nextQuote.discountCode ?? "",
+      });
+      dispatch({
+        type: "delivery_succeeded",
+        quote: nextQuote,
+        fingerprint: appliedFingerprint,
+      });
       setDeliveryErrors({});
+      setDeliveryAuthorityError(null);
       setDiscountCode(nextQuote.discountCode ?? "");
       setSubmitOperationId(crypto.randomUUID());
     } catch (error) {
@@ -193,6 +216,34 @@ export function CheckoutClient(props: CheckoutClientProps) {
     event.preventDefault();
     if (state.pending !== null || submitAbort.current !== null) return;
     const formElement = event.currentTarget;
+    const deliveryFormElement = document.getElementById(DELIVERY_FORM_ID);
+    if (!(deliveryFormElement instanceof HTMLFormElement)) {
+      dispatch({ type: "failed", code: "unavailable" });
+      return;
+    }
+    const deliveryValues = readDeliveryFormValues(
+      new FormData(deliveryFormElement),
+      discountCode,
+    );
+    const deliveryAuthority = assessDeliveryAuthority(
+      deliveryValues,
+      state.appliedDeliveryFingerprint,
+      state.deliveryDirty,
+    );
+    if (deliveryAuthority.kind === "invalid") {
+      const firstError = Object.keys(deliveryAuthority.errors)[0];
+      setDeliveryErrors(deliveryAuthority.errors);
+      setDeliveryAuthorityError(null);
+      dispatch({ type: "failed", code: "invalid_input" });
+      if (firstError !== undefined) focusNamedControl(deliveryFormElement, firstError);
+      return;
+    }
+    if (deliveryAuthority.kind === "dirty") {
+      setDeliveryAuthorityError(DELIVERY_APPLY_ERROR);
+      document.getElementById(DELIVERY_APPLY_ID)?.focus();
+      return;
+    }
+    setDeliveryAuthorityError(null);
     const form = new FormData(formElement);
     const selectedMethod = state.quote.paymentMethods.find(
       (method) => method.id === state.selectedPaymentMethodId,
@@ -245,10 +296,19 @@ export function CheckoutClient(props: CheckoutClientProps) {
     submitAbort.current = controller;
     setSubmitErrors({});
     dispatch({ type: "submit_started" });
-    const result = await requestCheckoutSubmission({ body, signal: controller.signal });
+    const result = await requestCheckoutSubmission({
+      body,
+      deliveryReady: deliveryAuthority.kind === "ready",
+      signal: controller.signal,
+    });
     if (submitAbort.current !== controller) return;
     submitAbort.current = null;
     if (result.kind === "aborted") return;
+    if (result.kind === "delivery_dirty") {
+      setDeliveryAuthorityError(DELIVERY_APPLY_ERROR);
+      document.getElementById(DELIVERY_APPLY_ID)?.focus();
+      return;
+    }
     if (result.kind === "failed") {
       dispatch({ type: "failed", code: result.code });
       return;
@@ -257,12 +317,17 @@ export function CheckoutClient(props: CheckoutClientProps) {
   }
 
   function clearDeliveryError(name: DeliveryFieldName) {
+    dispatch({ type: "delivery_changed" });
     setDeliveryErrors((current) => {
       if (current[name] === undefined) return current;
       const next = { ...current };
       delete next[name];
       return next;
     });
+  }
+
+  function markDeliveryChanged() {
+    dispatch({ type: "delivery_changed" });
   }
 
   function setDeliveryInvalid(name: DeliveryFieldName, message: string) {
@@ -291,7 +356,10 @@ export function CheckoutClient(props: CheckoutClientProps) {
           <OrderSummary
             discountCode={discountCode}
             onApplyDiscount={requestDeliveryUpdate}
-            onDiscountChange={setDiscountCode}
+            onDiscountChange={(value) => {
+              setDiscountCode(value);
+              markDeliveryChanged();
+            }}
             onToggle={() => dispatch({ type: "toggle_summary" })}
             open={state.summaryOpen}
             pending={pending}
@@ -302,10 +370,14 @@ export function CheckoutClient(props: CheckoutClientProps) {
             ? <p className="checkout-error" id="checkout-error" role="alert">{state.error}</p>
             : null}
           <DeliverySection
+            applyButtonId={DELIVERY_APPLY_ID}
+            applyError={deliveryAuthorityError}
+            applyErrorId={DELIVERY_APPLY_ERROR_ID}
             errors={deliveryErrors}
             formId={DELIVERY_FORM_ID}
             onFieldChange={clearDeliveryError}
             onFieldInvalid={setDeliveryInvalid}
+            onDeliveryChange={markDeliveryChanged}
             onSubmit={handleDeliverySubmit}
             pending={pending}
             quote={state.quote}
@@ -338,7 +410,10 @@ export function CheckoutClient(props: CheckoutClientProps) {
           <OrderSummary
             discountCode={discountCode}
             onApplyDiscount={requestDeliveryUpdate}
-            onDiscountChange={setDiscountCode}
+            onDiscountChange={(value) => {
+              setDiscountCode(value);
+              markDeliveryChanged();
+            }}
             onToggle={() => dispatch({ type: "toggle_summary" })}
             open={state.summaryOpen}
             pending={pending}

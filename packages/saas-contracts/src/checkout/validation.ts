@@ -34,7 +34,6 @@ const PAYMENT_TOKEN = /^[A-Za-z0-9_-]{20,4096}$/;
 
 type InputRecord = Record<string, unknown>;
 type NodeUtilTypes = Readonly<{
-  getProxyDetails?: (value: unknown) => unknown;
   isProxy?: (value: unknown) => boolean;
 }>;
 type NodeProcess = Readonly<{
@@ -55,27 +54,14 @@ const NODE_IS_PROXY = (() => {
         NODE_PROCESS,
         [["node", "util/types"].join(":")],
       ) as NodeUtilTypes | undefined;
-      return typeof nodeTypes?.isProxy === "function" ? nodeTypes.isProxy : null;
+      if (typeof nodeTypes?.isProxy === "function") return nodeTypes.isProxy;
     }
     const binding = NODE_PROCESS.binding;
     const legacyTypes = typeof binding === "function"
       ? Reflect.apply(binding, NODE_PROCESS, ["util"]) as NodeUtilTypes | undefined
       : undefined;
     if (typeof legacyTypes?.isProxy === "function") return legacyTypes.isProxy;
-    if (typeof legacyTypes?.getProxyDetails === "function") {
-      const getProxyDetails = legacyTypes.getProxyDetails;
-      return (value: unknown) => getProxyDetails(value) !== undefined;
-    }
-    const clone = globalThis.structuredClone;
-    if (typeof clone !== "function") return null;
-    return (value: unknown) => {
-      try {
-        clone(value);
-        return false;
-      } catch {
-        return true;
-      }
-    };
+    return null;
   } catch {
     return null;
   }

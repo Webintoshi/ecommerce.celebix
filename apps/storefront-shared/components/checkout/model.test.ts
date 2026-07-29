@@ -12,11 +12,28 @@ import {
   buildDeliveryPayload,
   buildSubmitPayload,
   createCheckoutState,
+  deliveryFormFingerprint,
   formatCheckoutMoney,
   reduceCheckout,
+  assessDeliveryAuthority,
   validateDeliveryFields,
   validateSubmitFields,
 } from "./model.ts";
+
+const deliveryValues = Object.freeze({
+  email: "ornek@example.com",
+  firstName: "Ahmet",
+  lastName: "Yılmaz",
+  phone: "+905551234567",
+  line1: "Bağdat Caddesi 123",
+  line2: "Daire 4",
+  city: "İstanbul",
+  district: "Kadıköy",
+  postalCode: "34710",
+  shippingId: "standard" as const,
+  marketingOptIn: false,
+  discountCode: "",
+});
 
 const address: CheckoutAddress = Object.freeze({
   firstName: "Ahmet",
@@ -96,14 +113,73 @@ function quote(overrides: Partial<CheckoutQuote> = {}): CheckoutQuote {
 test("delivery success replaces the canonical server quote and clears pending state", () => {
   const initial = createCheckoutState(quote());
   const pending = reduceCheckout(initial, { type: "delivery_started" });
+  const fingerprint = deliveryFormFingerprint(deliveryValues);
   const next = reduceCheckout(pending, {
     type: "delivery_succeeded",
+    fingerprint,
     quote: quote({ cartVersion: 2, shippingCents: 2_500, totalCents: 12_500 }),
   });
 
   assert.equal(next.pending, null);
   assert.equal(next.quote.cartVersion, 2);
   assert.equal(next.quote.totalCents, 12_500);
+  assert.equal(next.appliedDeliveryFingerprint, fingerprint);
+  assert.equal(next.deliveryDirty, false);
+});
+
+test("final submit authority blocks skipped apply and every relevant post-apply edit", () => {
+  const fingerprint = deliveryFormFingerprint(deliveryValues);
+  assert.deepEqual(assessDeliveryAuthority(deliveryValues, null, true), {
+    kind: "dirty",
+    fingerprint,
+  });
+
+  const applied = reduceCheckout(createCheckoutState(quote()), {
+    type: "delivery_succeeded",
+    quote: quote({ cartVersion: 2 }),
+    fingerprint,
+  });
+  assert.deepEqual(assessDeliveryAuthority(
+    deliveryValues,
+    applied.appliedDeliveryFingerprint,
+    applied.deliveryDirty,
+  ), { kind: "ready", fingerprint });
+
+  const edited = reduceCheckout(applied, { type: "delivery_changed" });
+  assert.deepEqual(assessDeliveryAuthority(
+    { ...deliveryValues, firstName: "Ayşe" },
+    edited.appliedDeliveryFingerprint,
+    edited.deliveryDirty,
+  ), {
+    kind: "dirty",
+    fingerprint: deliveryFormFingerprint({ ...deliveryValues, firstName: "Ayşe" }),
+  });
+});
+
+test("discount and shipping participate in the deterministic delivery fingerprint", () => {
+  const base = deliveryFormFingerprint(deliveryValues);
+  assert.equal(base, deliveryFormFingerprint({ ...deliveryValues }));
+  assert.notEqual(base, deliveryFormFingerprint({ ...deliveryValues, discountCode: "YAZ10" }));
+  assert.notEqual(base, deliveryFormFingerprint({ ...deliveryValues, shippingId: null }));
+  assert.notEqual(base, deliveryFormFingerprint({ ...deliveryValues, marketingOptIn: true }));
+});
+
+test("successful reapply clears dirty while later submit errors preserve applied authority", () => {
+  const initial = reduceCheckout(createCheckoutState(quote()), { type: "delivery_changed" });
+  const fingerprint = deliveryFormFingerprint({ ...deliveryValues, discountCode: "YAZ10" });
+  const reapplied = reduceCheckout(initial, {
+    type: "delivery_succeeded",
+    quote: quote({ cartVersion: 2, discountCode: "YAZ10" }),
+    fingerprint,
+  });
+  const failed = reduceCheckout(
+    reduceCheckout(reapplied, { type: "submit_started" }),
+    { type: "failed", code: "payment_unavailable" },
+  );
+
+  assert.equal(reapplied.deliveryDirty, false);
+  assert.equal(failed.deliveryDirty, false);
+  assert.equal(failed.appliedDeliveryFingerprint, fingerprint);
 });
 
 test("stale cart keeps the last server quote and announces a visible error", () => {
@@ -259,6 +335,11 @@ test("submit validation scopes identity to iyzico and reports both required cons
 });
 
 test("a duplicate submit start cannot replace an in-flight operation", () => {
-  const pending = reduceCheckout(createCheckoutState(quote()), { type: "submit_started" });
+  const ready = reduceCheckout(createCheckoutState(quote()), {
+    type: "delivery_succeeded",
+    quote: quote(),
+    fingerprint: deliveryFormFingerprint(deliveryValues),
+  });
+  const pending = reduceCheckout(ready, { type: "submit_started" });
   assert.equal(reduceCheckout(pending, { type: "submit_started" }), pending);
 });
