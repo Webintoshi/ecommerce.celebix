@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const PATH = "/api/storefront-assets";
 const MAX_REQUEST_BYTES = 5_300_000;
-type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerStorefrontAssetRuntime | null>; now(): Date; requestId(): string; assetId(): string }>;
+type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerStorefrontAssetRuntime | null>; now(): Date; requestId(): string }>;
 type Authorized = Readonly<{ runtime: ServerStorefrontAssetRuntime; tenantContext: Extract<ServerPanelAccessResult, { kind: "authenticated" }>["tenantContext"]; now: Date }>;
 
 function response(code: string, status: number, body: Record<string, unknown> = {}) { return Response.json({ code, ...body }, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } }); }
@@ -63,7 +63,7 @@ export function createStorefrontAssetHttpHandlers(dependencies: Dependencies) {
         const recovered = await authorized.runtime.assets.recoverOperation({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, operationKind: "create_asset", fingerprint });
         if (recovered.kind === "found") return response("created", 201, recovered.result);
       } catch (error) { return repositoryFailure(error); }
-      let assetId: string; try { assetId = dependencies.assetId(); } catch { return response("unavailable", 503); } if (!UUID.test(assetId)) return response("unavailable", 503);
+      const assetId = operation;
       const storeId = authorized.tenantContext.store.id, objectKey = `stores/${storeId}/storefront/${kind}/${assetId}.${image.extension}`, publicUrl = authorized.runtime.storage.publicUrl(objectKey);
       const createInput = { tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, assetId, kind, objectKey, publicUrl, mediaType: image.mediaType, altText, width: image.width, height: image.height, byteSize: image.byteSize, contentDigest } as const;
       try { await authorized.runtime.storage.put({ objectKey, mediaType: image.mediaType, bytes }); } catch { return response("unavailable", 503); }

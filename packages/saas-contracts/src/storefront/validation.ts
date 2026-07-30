@@ -109,10 +109,18 @@ function parsePromotion(value: unknown): NonNullable<PublicStarterThemePresentat
 
 function parseMarquee(value: unknown): NonNullable<PublicStarterThemePresentation["marquee"]> {
   const parsed = exact(value, ["items", "icon", "speed", "direction", "animation"]);
-  if (!Array.isArray(parsed.items) || parsed.items.length < 1 || parsed.items.length > 12) invalid();
-  const descriptors = Object.getOwnPropertyDescriptors(parsed.items);
-  if (Object.keys(descriptors).length !== parsed.items.length + 1 || parsed.items.some((_, index) => !(index in (parsed.items as unknown[])))) invalid();
-  const items = Object.freeze(parsed.items.map((item) => string(item, 1, 160)));
+  if (!Array.isArray(parsed.items) || Object.getPrototypeOf(parsed.items) !== Array.prototype || parsed.items.length < 1 || parsed.items.length > 12) invalid();
+  const keys = Reflect.ownKeys(parsed.items);
+  const descriptors = Object.getOwnPropertyDescriptors(parsed.items) as unknown as Record<PropertyKey, PropertyDescriptor | undefined>;
+  const length = descriptors.length;
+  if (keys.length !== parsed.items.length + 1 || !length || !("value" in length) || length.value !== parsed.items.length) invalid();
+  const selected: string[] = [];
+  for (let index = 0; index < parsed.items.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) invalid();
+    selected.push(string(descriptor.value, 1, 160));
+  }
+  const items = Object.freeze(selected);
   return Object.freeze({ items, icon: oneOf(parsed.icon, MARQUEE_ICONS), speed: oneOf(parsed.speed, MARQUEE_SPEEDS), direction: oneOf(parsed.direction, MARQUEE_DIRECTIONS), animation: oneOf(parsed.animation, MARQUEE_ANIMATIONS) });
 }
 
@@ -121,7 +129,7 @@ function parseSeo(value: unknown): PublicStarterThemePresentation["seo"] {
   return Object.freeze({ ...(Object.hasOwn(parsed, "title") ? { title: string(parsed.title, 1, 160) } : {}), ...(Object.hasOwn(parsed, "description") ? { description: string(parsed.description, 1, 500) } : {}), allowIndex: boolean(parsed.allowIndex), ...(Object.hasOwn(parsed, "socialImage") ? { socialImage: parseStorefrontAsset(parsed.socialImage) } : {}) });
 }
 
-function parsePresentation(value: unknown): PublicStarterThemePresentation {
+export function parsePublicStarterThemePresentation(value: unknown): PublicStarterThemePresentation {
   const parsed = exact(value, ["schemaVersion", "displayName", "theme", "hero", "seo"], ["supportEmail", "promotion", "marquee"]);
   if (parsed.schemaVersion !== 1) invalid();
   return Object.freeze({ schemaVersion: 1, displayName: string(parsed.displayName, 1, 160), ...(Object.hasOwn(parsed, "supportEmail") ? { supportEmail: email(parsed.supportEmail) } : {}), theme: parseTheme(parsed.theme), hero: parseHero(parsed.hero), ...(Object.hasOwn(parsed, "promotion") ? { promotion: parsePromotion(parsed.promotion) } : {}), ...(Object.hasOwn(parsed, "marquee") ? { marquee: parseMarquee(parsed.marquee) } : {}), seo: parseSeo(parsed.seo) });
@@ -133,7 +141,7 @@ export function parsePublicStorefront(value: unknown): PublicStorefront {
   const primaryHostname = hostname(parsed.primaryHostname);
   const canonicalUrl = httpsUrl(parsed.canonicalUrl);
   if (parsed.schemaVersion !== 2 || parsed.currency !== "TRY" || parsed.locale !== "tr" || canonicalUrl !== `https://${selectedHostname}/`) invalid();
-  return Object.freeze({ schemaVersion: 2, id: uuid(parsed.id), name: string(parsed.name, 1, 160), slug: string(parsed.slug, 3, 63, SLUG), hostname: selectedHostname, primaryHostname, canonicalUrl, currency: "TRY", locale: "tr", themeKey: string(parsed.themeKey, 1, 80), presentation: parsePresentation(parsed.presentation) });
+  return Object.freeze({ schemaVersion: 2, id: uuid(parsed.id), name: string(parsed.name, 1, 160), slug: string(parsed.slug, 3, 63, SLUG), hostname: selectedHostname, primaryHostname, canonicalUrl, currency: "TRY", locale: "tr", themeKey: string(parsed.themeKey, 1, 80), presentation: parsePublicStarterThemePresentation(parsed.presentation) });
 }
 
 export function parsePublicProductMedia(value: unknown): PublicProductMedia {

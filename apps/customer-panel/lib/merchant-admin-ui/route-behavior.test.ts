@@ -60,6 +60,7 @@ function tenant(role: Role): contracts.TenantContext {
       limits: { products: 100, staff: 5, storageBytes: 100 },
       validFrom: "2026-01-01T00:00:00.000Z",
     },
+    resolvedHost: { schemaVersion: 1, hostname: "store.saas-staging.celebix.site", domainId: "50000000-0000-4000-8000-000000000001", domainType: "platform_subdomain", storeId: "20000000-0000-4000-8000-000000000001", storeSlug: "store", canonicalHostname: "store.saas-staging.celebix.site", status: "active", cacheVersion: 1 },
     locale: "tr-TR",
   } as contracts.TenantContext;
 }
@@ -336,11 +337,14 @@ async function compileBoundPage(
 ) {
   const output = await compiledPageSource(route);
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const designAccess = Object.freeze({ readiness: Object.freeze({ mode: "approved_staging" as const }), panelOrigin: "https://panel.test" });
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === componentModule) return { [componentExport]: Component };
     if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant(role) }) };
+    if (specifier === "@/lib/server-panel-access/default") return { resolveDefaultServerPanelAccessRuntime: async () => designAccess };
+    if (specifier === "@/lib/server-merchant-admin/runtime") return { resolveServerMerchantAdminRuntime: () => ({ access: designAccess, merchantAdmin: { getEffectiveStarterPresentation: async () => contracts.buildDefaultStarterPresentation({ name: "store" }) } }) };
     throw new Error(`unexpected_bound_page_import:${route}:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
@@ -370,6 +374,7 @@ test("merchant route matrix invokes every actual page, production console, clien
   const paths: string[] = [];
   const mutations: string[] = [];
   const repository: MerchantAdminRepository = {
+    async getEffectiveStarterPresentation() { throw new Error("unexpected"); },
     async list(input) {
       if (scenario.failure !== "none") throw new MerchantAdminRepositoryError(scenario.failure);
       return scenario.records === "empty" ? [] : [recordFor({ ...scenario, kind: input.kind })];
@@ -568,7 +573,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     const mounted = await mount(definition, { records: action === "create" ? "empty" : "loaded", save });
     const trigger = findElement(mounted.view, (element) => element.type === "button" && (
       action === "create"
-        ? textOf(element).includes("Yeni kayıt") || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
+        ? textOf(element).includes("Yeni kayıt") || textOf(element).includes("Ayar oluştur") || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
         : typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını düzenle")
     ));
     const originalDocument = globalThis.document;
@@ -745,6 +750,7 @@ test("merchant non-default route matrix invokes nine actual pages and exact crea
   }>> = [];
   const paths: string[] = [];
   const repository: MerchantAdminRepository = {
+    async getEffectiveStarterPresentation() { throw new Error("unexpected"); },
     async list(input) {
       assert.equal(input.kind, activeCase.kind);
       return stored ? [stored] : [];

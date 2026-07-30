@@ -7,6 +7,14 @@ export type StarterThemeTokens = Readonly<{
   imageClass: "images-portrait" | "images-square";
 }>;
 
+export type StarterMarqueeTokens = Readonly<{
+  iconSymbol: "" | "✦" | "🚚" | "✓";
+  iconClass: "marquee-icon-none" | "marquee-icon-sparkle" | "marquee-icon-truck" | "marquee-icon-shield";
+  speedClass: "marquee-speed-slow" | "marquee-speed-normal" | "marquee-speed-fast";
+  directionClass: "marquee-direction-left" | "marquee-direction-right";
+  animationClass: "marquee-animation-continuous" | "marquee-animation-step";
+}>;
+
 export function buildDefaultStarterPresentation(
   storefront: Readonly<{ name: string }>,
 ): PublicStarterThemePresentation {
@@ -40,4 +48,17 @@ export function starterThemeTokens(
     cardClass: `cards-${presentation.theme.productCardStyle}`,
     imageClass: `images-${presentation.theme.productImageRatio}`,
   } as StarterThemeTokens);
+}
+
+export function starterMarqueeTokens(
+  marquee: NonNullable<PublicStarterThemePresentation["marquee"]>,
+): StarterMarqueeTokens {
+  const icons = Object.freeze({ none: "", sparkle: "✦", truck: "🚚", shield: "✓" } as const);
+  return Object.freeze({
+    iconSymbol: icons[marquee.icon],
+    iconClass: `marquee-icon-${marquee.icon}`,
+    speedClass: `marquee-speed-${marquee.speed}`,
+    directionClass: `marquee-direction-${marquee.direction}`,
+    animationClass: `marquee-animation-${marquee.animation}`,
+  } as StarterMarqueeTokens);
 }

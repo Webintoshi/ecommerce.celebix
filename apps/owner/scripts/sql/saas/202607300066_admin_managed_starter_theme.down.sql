@@ -7,6 +7,8 @@ SET LOCAL statement_timeout='120s';
 DO $f$
 BEGIN
   IF pg_catalog.to_regprocedure('saas.public_starter_presentation(uuid,timestamp with time zone)') IS NULL
+    OR pg_catalog.to_regprocedure('saas.public_starter_presentation(uuid,timestamp with time zone,boolean)') IS NULL
+    OR pg_catalog.to_regprocedure('saas.merchant_admin_effective_starter_presentation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NULL
     OR pg_catalog.to_regprocedure('saas.merchant_admin_required_action_without_starter_theme(text,boolean)') IS NULL
     OR pg_catalog.to_regprocedure('saas.merchant_admin_config_valid_without_starter_theme(text,jsonb)') IS NULL
     OR pg_catalog.to_regprocedure('saas.merchant_admin_list_without_starter_theme(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NULL
@@ -55,7 +57,9 @@ BEGIN
 END
 $f$;
 
+DROP FUNCTION saas.merchant_admin_effective_starter_presentation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text);
 DROP FUNCTION saas.public_starter_presentation(uuid,timestamptz);
+DROP FUNCTION saas.public_starter_presentation(uuid,timestamptz,boolean);
 DROP FUNCTION saas.storefront_asset_create(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,text,text,text,text,integer,integer,bigint);
 DROP FUNCTION saas.storefront_asset_list(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,text,boolean);
 DROP FUNCTION saas.storefront_asset_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint);

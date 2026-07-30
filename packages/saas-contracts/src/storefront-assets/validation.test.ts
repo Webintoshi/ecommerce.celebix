@@ -30,3 +30,10 @@ test("storefront asset contract rejects partial archive state, unknown keys, MIM
   assert.throws(() => parseStorefrontAsset({ ...value, mediaType: "image/png" }), /storefront_asset_contract_invalid/);
   assert.throws(() => parseStorefrontAsset({ ...value, kind: "product" }), /storefront_asset_contract_invalid/);
 });
+
+test("storefront asset contract rejects accessors without invoking them", () => {
+  let invoked = false;
+  const candidate = Object.defineProperty({ ...value }, "publicUrl", { enumerable: true, get() { invoked = true; return value.publicUrl; } });
+  assert.throws(() => parseStorefrontAsset(candidate), /storefront_asset_contract_invalid/);
+  assert.equal(invoked, false);
+});

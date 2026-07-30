@@ -15,7 +15,7 @@ const timeouts = Object.freeze({ poolCheckoutMs: 100, statementMs: 100, lockMs: 
 function repository(outcome = "committed", payload: unknown = { asset }) {
   const queries: Array<{ text: string; values?: unknown[] }> = [];
   const client = { async query(text: string, values?: unknown[]) { queries.push({ text, values }); return text.startsWith("SELECT outcome") ? { rows: [{ outcome, result_payload: payload }], rowCount: 1 } : { rows: [], rowCount: 0 }; }, release() {} };
-  return { queries, value: new PostgresStorefrontAssetRepository({ pool: { async connect() { return client; } } as unknown as PostgresPoolLike, role: "celebix_saas_app", timeouts, audit() {} }) };
+  return { queries, value: new PostgresStorefrontAssetRepository({ pool: { async connect() { return client; } } as unknown as PostgresPoolLike, role: "celebix_saas_app", publicMediaOrigin: "https://media.saas-staging.celebix.site", timeouts, audit() {} }) };
 }
 
 test("storefront asset repository binds the exact server-owned store key", async () => {
@@ -28,15 +28,16 @@ test("storefront asset repository binds the exact server-owned store key", async
 
 test("storefront asset repository rejects cross-store and cross-kind keys before PostgreSQL", async () => {
   let connects = 0;
-  const value = new PostgresStorefrontAssetRepository({ pool: { async connect() { connects += 1; throw new Error(); } } as PostgresPoolLike, role: "celebix_saas_app", timeouts, audit() {} });
+  const value = new PostgresStorefrontAssetRepository({ pool: { async connect() { connects += 1; throw new Error(); } } as PostgresPoolLike, role: "celebix_saas_app", publicMediaOrigin: "https://media.saas-staging.celebix.site", timeouts, audit() {} });
   await assert.rejects(value.createAsset({ tenantContext, now: NOW, operationId: OPERATION, assetId: ASSET, kind: "hero", objectKey: asset.objectKey.replace("/hero/", "/logo/"), publicUrl: asset.publicUrl, mediaType: "image/webp", altText: "Hero", width: 1600, height: 900, byteSize: 2048, contentDigest: CONTENT_DIGEST }), /invalid_input/);
+  await assert.rejects(value.createAsset({ tenantContext, now: NOW, operationId: OPERATION, assetId: ASSET, kind: "hero", objectKey: asset.objectKey, publicUrl: `https://attacker.example/${asset.objectKey}`, mediaType: "image/webp", altText: "Hero", width: 1600, height: 900, byteSize: 2048, contentDigest: CONTENT_DIGEST }), /invalid_input/);
   assert.equal(connects, 0);
 });
 
 test("storefront asset repository exposes commit unknown and supports one read-only recovery", async () => {
   let releases: unknown[] = [];
   const client = { async query(text: string) { if (text === "COMMIT") throw new Error("socket lost"); return text.startsWith("SELECT outcome") ? { rows: [{ outcome: "committed", result_payload: { asset } }], rowCount: 1 } : { rows: [], rowCount: 0 }; }, release(value?: unknown) { releases.push(value); } };
-  const value = new PostgresStorefrontAssetRepository({ pool: { async connect() { return client; } } as unknown as PostgresPoolLike, role: "celebix_saas_app", timeouts, audit() {} });
+  const value = new PostgresStorefrontAssetRepository({ pool: { async connect() { return client; } } as unknown as PostgresPoolLike, role: "celebix_saas_app", publicMediaOrigin: "https://media.saas-staging.celebix.site", timeouts, audit() {} });
   await assert.rejects(value.createAsset({ tenantContext, now: NOW, operationId: OPERATION, assetId: ASSET, kind: "hero", objectKey: asset.objectKey, publicUrl: asset.publicUrl, mediaType: "image/webp", altText: "Hero", width: 1600, height: 900, byteSize: 2048, contentDigest: CONTENT_DIGEST }), (error: unknown) => error instanceof StorefrontAssetRepositoryError && error.code === "commit_unknown");
   assert.deepEqual(releases, [true]);
 });

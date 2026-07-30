@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
+import { ProductDescription } from "@/components/ProductDescription";
 import { ProductGallery } from "@/components/ProductGallery";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -11,4 +13,35 @@ import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 
 async function product(slug: string) { const { runtime, storefront, tracker } = requireStorefrontPage(await resolveStorefrontPage()); try { return { storefront, tracker, product: await runtime.repository.getPublicProductBySlug({ storefront, now: new Date(), slug }) }; } catch (error) { if (error instanceof PublicStorefrontRepositoryError && error.code === "not_found") notFound(); throw error; } }
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> { const selected = await product((await params).slug); const { presentation } = selected.storefront; return { title: `${selected.product.title} | ${presentation.displayName}`, description: selected.product.description ?? `${selected.product.title} ürün ayrıntıları`, robots: { index: presentation.seo.allowIndex, follow: presentation.seo.allowIndex }, alternates: { canonical: new URL(`/products/${selected.product.slug}`, selected.storefront.canonicalUrl).toString() }, openGraph: { title: selected.product.title, type: "website", images: selected.product.media[0]?.url ? [selected.product.media[0].url] : [] } }; }
-export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) { const selected = await product((await params).slug); const { storefront, product: item } = selected; return <StorefrontFrame storefront={storefront}><StorefrontAnalyticsEvent tracker={selected.tracker} event={PRODUCT_VIEW_EVENT} trigger="mount" /><section className="product-detail store-container"><ProductGallery product={item} /><div className="product-copy"><span>ÜRÜN DETAYI</span><h1>{item.title}</h1><div className="detail-price">{item.compareAtCents ? <del>{formatTry(item.compareAtCents)}</del> : null}<strong>{formatTry(item.priceCents)}</strong></div><p>{item.description ?? "Bu ürün için ayrıntılı açıklama yakında eklenecek."}</p><div className={`stock-callout ${item.available ? "is-available" : ""}`}><b>{item.available ? "Stokta" : "Tükendi"}</b><span>{item.available ? "Siparişe hazır aktif seçenekler mevcut." : "Aktif seçenekler şu anda stokta değil."}</span></div><section className="variant-panel" aria-labelledby="variants-title"><h2 id="variants-title">Varyantlar</h2>{item.variants.map((variant) => <article key={variant.id}><div><strong>{variant.title}</strong>{variant.sku ? <small>SKU {variant.sku}</small> : null}</div><div><span>{formatTry(variant.priceCents)}</span><em>{variant.available ? (variant.stockTracking ? `${variant.stockQuantity} adet` : "Stokta") : "Tükendi"}</em></div></article>)}</section></div></section></StorefrontFrame>; }
+export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  const selected = await product((await params).slug);
+  const { storefront, product: item } = selected;
+  return <StorefrontFrame storefront={storefront}>
+    <StorefrontAnalyticsEvent tracker={selected.tracker} event={PRODUCT_VIEW_EVENT} trigger="mount" />
+    <nav className="product-breadcrumb store-container" aria-label="İçerik yolu">
+      <Link href="/">Ana sayfa</Link><span aria-hidden="true">/</span>
+      <Link href="/products">Ürünler</Link><span aria-hidden="true">/</span>
+      <span aria-current="page">{item.title}</span>
+    </nav>
+    <section className="product-detail store-container">
+      <ProductGallery product={item} />
+      <div className="product-copy">
+        <span>ÜRÜN DETAYI</span>
+        <h1>{item.title}</h1>
+        <div className="detail-price">{item.compareAtCents ? <del>{formatTry(item.compareAtCents)}</del> : null}<strong>{formatTry(item.priceCents)}</strong></div>
+        <div className={`stock-callout ${item.available ? "is-available" : ""}`}>
+          <b>{item.available ? "Stokta" : "Tükendi"}</b>
+          <span>{item.available ? "Siparişe hazır aktif seçenekler mevcut." : "Aktif seçenekler şu anda stokta değil."}</span>
+        </div>
+        <section className="variant-panel" aria-labelledby="variants-title">
+          <h2 id="variants-title">Varyantlar</h2>
+          {item.variants.map((variant) => <article key={variant.id}>
+            <div><strong>{variant.title}</strong>{variant.sku ? <small>SKU {variant.sku}</small> : null}</div>
+            <div><span>{formatTry(variant.priceCents)}</span><em>{variant.available ? (variant.stockTracking ? `${variant.stockQuantity} adet` : "Stokta") : "Tükendi"}</em></div>
+          </article>)}
+        </section>
+      </div>
+    </section>
+    <ProductDescription product={item} />
+  </StorefrontFrame>;
+}

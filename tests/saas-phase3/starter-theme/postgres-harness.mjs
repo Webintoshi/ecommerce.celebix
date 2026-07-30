@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { accessSync, constants, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
@@ -14,6 +15,7 @@ const STORE_A = "10000000-0000-4000-8000-000000000066";
 const STORE_B = "10000000-0000-4000-8000-000000000067";
 const HOST_A = "starter-a.saas-staging.celebix.site";
 const HOST_B = "starter-b.saas-staging.celebix.site";
+const HOST_CUSTOM = "starter-a.example.test";
 const NOW = "2026-07-30T12:00:00.000Z";
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const PRINCIPAL_A = "20000000-0000-4000-8000-000000000066";
@@ -22,6 +24,7 @@ const MEMBERSHIP_A = "30000000-0000-4000-8000-000000000066";
 const MEMBERSHIP_B = "30000000-0000-4000-8000-000000000067";
 const ASSET_A = "61000000-0000-4000-8000-000000000066";
 const ASSET_B = "61000000-0000-4000-8000-000000000067";
+const ASSET_C = "61000000-0000-4000-8000-000000000068";
 const TOTAL = 21;
 let completed = 0;
 
@@ -64,6 +67,18 @@ function stop(box) {
 
 function psql(box, sql, database = DB, allowFailure = false) {
   return command(box.tools.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], sql, allowFailure);
+}
+
+function psqlAsync(box, sql) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(box.tools.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", DB], { cwd: ROOT, env: { ...process.env, LC_ALL: "C", LANG: "C" }, stdio: ["pipe", "pipe", "pipe"] });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (value) => { stdout += value.toString("utf8"); });
+    child.stderr.on("data", (value) => { stderr += value.toString("utf8"); });
+    child.once("error", reject);
+    child.once("exit", (code) => code === 0 ? resolve(stdout.trim().split("\n").at(-1)) : reject(new Error(`psql concurrent failed\n${stderr}`)));
+    child.stdin.end(sql);
+  });
 }
 
 function apply(box, file) { psql(box, readFileSync(path.join(SQL, file), "utf8")); }
@@ -141,13 +156,31 @@ async function main() {
         ('71000000-0000-4000-8000-000000000068','${STORE_B}','general_setting','B','{"storeDisplayName":"Başka Mağaza"}','active',1,'2026-01-01','2026-07-03'); COMMIT;`);
     await scenario("latest active singleton wins deterministically", () => assert.equal(resolve(box, HOST_A).payload.presentation.displayName, "Güzide"));
     await scenario("bounded theme settings project exactly", () => assert.deepEqual(resolve(box, HOST_A).payload.presentation.theme, { colorScheme: "warm", headingStyle: "sans", productCardStyle: "compact", productImageRatio: "square", homeProductLimit: 12, showBrandStory: false }));
-    await scenario("active hero promotion marquee and SEO project without admin authority", () => {
+    await scenario("SEO indexing requires the requested verified primary custom domain", () => {
       const presentation = resolve(box, HOST_A).payload.presentation;
-      assert.equal(presentation.hero.headline, "Yaz koleksiyonu"); assert.equal(presentation.promotion.headline, "Bugüne özel"); assert.equal(presentation.marquee.items.length, 2); assert.equal(presentation.seo.allowIndex, true);
+      assert.equal(presentation.hero.headline, "Yaz koleksiyonu"); assert.equal(presentation.promotion.headline, "Bugüne özel"); assert.equal(presentation.marquee.items.length, 2); assert.equal(presentation.seo.allowIndex, false);
+      psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
+        UPDATE saas.store_domains SET is_primary=false,updated_at='2026-07-30T12:00:01Z',version=version+1 WHERE hostname='${HOST_A}';
+        INSERT INTO saas.store_domains(id,store_id,hostname,hostname_type,status,is_primary,verified_at,created_at,updated_at,version)
+        VALUES('90000000-0000-4000-8000-000000000068','${STORE_A}','${HOST_CUSTOM}','custom_domain','active',true,'2026-01-01','2026-01-01','2026-07-30T11:59:59Z',1);
+        COMMIT;`);
+      assert.equal(resolve(box, HOST_A).payload.presentation.seo.allowIndex, false);
+      assert.equal(resolve(box, HOST_CUSTOM).payload.presentation.seo.allowIndex, true);
+      const appPlatform = psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT result_payload->'seo'->>'allowIndex' FROM saas.merchant_admin_effective_starter_presentation('${STORE_A}','${PRINCIPAL_A}','${MEMBERSHIP_A}','${PLAN}','free_starter',1,'${NOW}','${HOST_A}'); COMMIT;`).stdout.trim().split("\n").at(-1);
+      const appCustom = psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT result_payload->'seo'->>'allowIndex' FROM saas.merchant_admin_effective_starter_presentation('${STORE_A}','${PRINCIPAL_A}','${MEMBERSHIP_A}','${PLAN}','free_starter',1,'${NOW}','${HOST_CUSTOM}'); COMMIT;`).stdout.trim().split("\n").at(-1);
+      assert.equal(appPlatform, "false"); assert.equal(appCustom, "true");
       assert.doesNotMatch(JSON.stringify(presentation), /"(?:recordId|recordKind|version|principalId|membershipId|operationId|objectKey)"/i);
     });
     await scenario("authenticated app creates one exact store-scoped hero asset", () => assert.equal(createAsset(box, ASSET_A, "62000000-0000-4000-8000-000000000066"), "committed"));
-    await scenario("same operation and fingerprint replays without a second asset", () => { assert.equal(createAsset(box, ASSET_A, "62000000-0000-4000-8000-000000000066"), "operation_replayed"); assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT count(*) FROM saas.storefront_assets WHERE store_id='${STORE_A}';`).stdout.trim(), "1"); });
+    await scenario("same operation and fingerprint replays without a second asset", async () => {
+      assert.equal(createAsset(box, ASSET_A, "62000000-0000-4000-8000-000000000066"), "operation_replayed");
+      assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT count(*) FROM saas.storefront_assets WHERE store_id='${STORE_A}';`).stdout.trim(), "1");
+      const key = `stores/${STORE_A}/storefront/hero/${ASSET_C}.webp`, url = `https://media.saas-staging.celebix.site/${key}`;
+      const concurrent = `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.storefront_asset_create(${authority()},'62000000-0000-4000-8000-000000000071','${"e".repeat(64)}','${ASSET_C}','hero','${key}','${url}','image/webp','Eşzamanlı',1600,900,2048); COMMIT;`;
+      const outcomes = (await Promise.all([psqlAsync(box, concurrent), psqlAsync(box, concurrent)])).sort();
+      assert.deepEqual(outcomes, ["committed", "operation_replayed"]);
+      assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT count(*) FROM saas.storefront_assets WHERE store_id='${STORE_A}';`).stdout.trim(), "2");
+    });
     await scenario("operation mismatch is durable and cannot replace the original asset", () => assert.equal(createAsset(box, ASSET_B, "62000000-0000-4000-8000-000000000066", "hero", STORE_A, PRINCIPAL_A, MEMBERSHIP_A, "b".repeat(64)), "operation_mismatch"));
     await scenario("cross-store authority cannot read another store asset", () => assert.equal(psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT jsonb_array_length(result_payload) FROM saas.storefront_asset_list(${authority(STORE_B,PRINCIPAL_B,MEMBERSHIP_B)},NULL,false); COMMIT;`).stdout.trim().split("\n").at(-1), "0"));
     psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.merchant_admin_records SET config=config||'{"assetId":"${ASSET_A}"}'::jsonb,updated_at='2026-07-05',version=version+1 WHERE id='71000000-0000-4000-8000-000000000064'; COMMIT;`);
@@ -155,12 +188,25 @@ async function main() {
     await scenario("unbacked external URLs never enter public presentation", () => {
       assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.merchant_admin_config_valid('hero_banner','{"imageUrl":"https://external.example.test/hero.webp"}'::jsonb);`).stdout.trim(), "f");
       assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.public_storefront_asset('${STORE_A}','hero','{"imageUrl":"https://external.example.test/hero.webp"}'::jsonb) IS NULL;`).stdout.trim(), "t");
+      assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.merchant_admin_config_valid('hero_banner',jsonb_build_object('body',repeat('x',1001)));`).stdout.trim(), "f");
+      assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.merchant_admin_config_valid('hero_banner','{"destination":"/products?sort=new"}'::jsonb);`).stdout.trim(), "f");
+      assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.merchant_admin_config_valid('promotion_banner','{"enabled":true}'::jsonb);`).stdout.trim(), "f");
+      assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.merchant_admin_config_valid('marquee_setting','{"enabled":true}'::jsonb);`).stdout.trim(), "f");
+      assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.merchant_admin_config_valid('seo_control',jsonb_build_object('metaDescription',repeat('x',501),'allowIndex',false));`).stdout.trim(), "f");
+      assert.equal(psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.storefront_asset_create(${authority()},'62000000-0000-4000-8000-000000000068','${"c".repeat(64)}','${ASSET_B}','hero','stores/${STORE_A}/storefront/hero/${ASSET_B}.webp','https://attacker.example/stores/${STORE_A}/storefront/hero/${ASSET_B}.webp','image/webp','Vitrin',1600,900,2048); COMMIT;`).stdout.trim().split("\n").at(-1), "invalid_input");
     });
     await scenario("application and host roles have no direct storefront asset table access", () => {
       assert.notEqual(psql(box, "SET ROLE celebix_saas_app; SELECT count(*) FROM saas.storefront_assets;", DB, true).status, 0);
       assert.notEqual(psql(box, "SET ROLE celebix_saas_host_resolver; SELECT count(*) FROM saas.storefront_assets;", DB, true).status, 0);
       assert.equal(psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.storefront_asset_archive(${authority(STORE_A,PRINCIPAL_A,MEMBERSHIP_A)},NULL,NULL,'${ASSET_A}',0); COMMIT;`).stdout.trim().split("\n").at(-1), "invalid_input");
       assert.equal(psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.storefront_asset_recover(${authority(STORE_A,PRINCIPAL_A,MEMBERSHIP_A)},'62000000-0000-4000-8000-000000000066','wrong','bad'); COMMIT;`).stdout.trim().split("\n").at(-1), "invalid_input");
+      const archiveFingerprint = createHash("sha256").update(JSON.stringify({ kind: "archive_asset", input: { assetId: ASSET_A, expectedVersion: 1 } })).digest("hex");
+      assert.equal(psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.storefront_asset_archive(${authority()},'62000000-0000-4000-8000-000000000069','${archiveFingerprint}','${ASSET_A}',1); COMMIT;`).stdout.trim().split("\n").at(-1), "committed");
+      psql(box, `SET ROLE celebix_saas_owner; INSERT INTO saas.storefront_assets(id,store_id,asset_kind,object_key,public_url,media_type,alt_text,width,height,byte_size,status,created_at,updated_at,archived_at,version)
+        SELECT generated.id,'${STORE_A}','hero','stores/${STORE_A}/storefront/hero/'||generated.id||'.webp','https://media.saas-staging.celebix.site/stores/${STORE_A}/storefront/hero/'||generated.id||'.webp','image/webp','Arşiv',1,1,1,'archived','${NOW}','${NOW}','${NOW}',2
+        FROM (SELECT ('63000000-0000-4000-8000-'||pg_catalog.lpad(value::text,12,'0'))::uuid AS id FROM pg_catalog.generate_series(1,63) AS value) AS generated;`);
+      const replacement = "61000000-0000-4000-8000-000000000069", key = `stores/${STORE_A}/storefront/hero/${replacement}.webp`;
+      assert.equal(psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.storefront_asset_create(${authority()},'62000000-0000-4000-8000-000000000070','${"d".repeat(64)}','${replacement}','hero','${key}','https://media.saas-staging.celebix.site/${key}','image/webp','Vitrin',1600,900,2048); COMMIT;`).stdout.trim().split("\n").at(-1), "asset_limit_reached");
     });
     await scenario("promotion is absent before start and at exact end", () => { assert.equal(resolve(box, HOST_A, "2026-07-30T10:59:59.999Z").payload.presentation.promotion, undefined); assert.equal(resolve(box, HOST_A, "2026-07-30T13:00:00.000Z").payload.presentation.promotion, undefined); });
     await scenario("draft and archived settings never become public", () => { psql(box, `SET ROLE celebix_saas_owner; UPDATE saas.merchant_admin_records SET status='draft',updated_at='2026-07-04' WHERE id='71000000-0000-4000-8000-000000000064';`); assert.equal(resolve(box, HOST_A).payload.presentation.hero.headline, "Starter A"); });

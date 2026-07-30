@@ -19,13 +19,21 @@
 .previewViewport { width: 100%; min-width: 0; margin-inline: auto; border-radius: 1rem; overflow: hidden; border: 1px solid #dfe4eb; box-shadow: 0 12px 32px rgb(17 24 39 / 12%); transition: max-width .18s ease; }
 .previewViewport.mobile { max-width: 390px; }
 .previewViewport.desktop { max-width: 100%; }
-.previewStore { --preview-accent: #f36a12; --preview-bg: #faf8f5; --preview-ink: #1d2533; min-height: 360px; color: var(--preview-ink); background: var(--preview-bg); }
-.theme-warm { --preview-bg: #fff7ef; --preview-ink: #33251c; --preview-accent: #e96918; }
-.theme-dark { --preview-bg: #17191d; --preview-ink: #f7f7f5; --preview-accent: #ff7a1a; }
-.theme-ocean { --preview-bg: #eef8fa; --preview-ink: #17333b; --preview-accent: #007e91; }
+.previewStore { --preview-accent: #f36a12; --preview-accent-ink: #17120e; --preview-bg: #faf8f5; --preview-ink: #1d2533; min-height: 360px; color: var(--preview-ink); background: var(--preview-bg); }
+.theme-warm { --preview-bg: #fff7ef; --preview-ink: #33251c; --preview-accent: #e96918; --preview-accent-ink: #17120e; }
+.theme-dark { --preview-bg: #17191d; --preview-ink: #f7f7f5; --preview-accent: #ff7a1a; --preview-accent-ink: #17120e; }
+.theme-ocean { --preview-bg: #eef8fa; --preview-ink: #17333b; --preview-accent: #007e91; --preview-accent-ink: #fff; }
 .heading-serif h3, .heading-serif .previewNav strong { font-family: Georgia, "Times New Roman", serif; }
 .heading-sans h3, .heading-sans .previewNav strong { font-family: Arial, sans-serif; }
-.previewMarquee { padding: .45rem .8rem; color: #fff; background: var(--preview-accent); text-align: center; font-size: .72rem; font-weight: 700; }
+.previewMarquee { --preview-marquee-duration: 16s; display: flex; overflow: hidden; align-items: center; justify-content: center; gap: .35rem; padding: .45rem .8rem; color: var(--preview-accent-ink); background: var(--preview-accent); text-align: center; font-size: .72rem; font-weight: 700; }
+.previewMarqueeTrack { display: inline-block; min-width: max-content; animation: preview-marquee-flow var(--preview-marquee-duration) linear infinite alternate; }
+.marquee-speed-slow { --preview-marquee-duration: 24s; }
+.marquee-speed-normal { --preview-marquee-duration: 16s; }
+.marquee-speed-fast { --preview-marquee-duration: 10s; }
+.marquee-direction-left .previewMarqueeTrack { animation-direction: normal; }
+.marquee-direction-right .previewMarqueeTrack { animation-direction: reverse; }
+.marquee-animation-continuous .previewMarqueeTrack { animation-timing-function: linear; }
+.marquee-animation-step .previewMarqueeTrack { animation-timing-function: steps(8, end); }
 .previewNav { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 1rem; border-bottom: 1px solid rgb(120 127 138 / 18%); }
 .previewNav strong { font-size: 1rem; }
 .previewNav span { font-size: .72rem; }
@@ -34,7 +42,7 @@
 .previewHero small { color: var(--preview-accent); font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
 .previewHero h3 { max-width: 15ch; margin: .35rem 0; font-size: clamp(1.55rem, 4vw, 3.2rem); line-height: 1; }
 .previewHero p { max-width: 44ch; margin: .4rem 0 1rem; font-size: .8rem; opacity: .78; }
-.previewHero span { display: inline-flex; min-height: 40px; align-items: center; border-radius: 999px; padding: 0 .9rem; color: #fff; background: var(--preview-accent); font-size: .72rem; font-weight: 800; }
+.previewHero span { display: inline-flex; min-height: 40px; align-items: center; border-radius: 999px; padding: 0 .9rem; color: var(--preview-accent-ink); background: var(--preview-accent); font-size: .72rem; font-weight: 800; }
 .previewMedia { min-height: 145px; border-radius: 48% 48% 1.1rem 1.1rem; background: linear-gradient(145deg, rgb(255 255 255 / 80%), color-mix(in srgb, var(--preview-accent) 40%, #fff)); }
 .previewProducts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; padding: 0 clamp(1rem, 4vw, 2.4rem) 1.5rem; }
 .previewProducts article { display: grid; gap: .3rem; min-width: 0; }
@@ -45,6 +53,7 @@
 .cards-compact .previewProducts { gap: .4rem; }
 .cards-compact .previewProductMedia { border-radius: .4rem; }
 .previewNotice { margin: 0; font-size: .78rem; }
+@keyframes preview-marquee-flow { from { transform: translateX(8%); } to { transform: translateX(-8%); } }
 @media (max-width: 640px) {
   .surface { grid-template-columns: 1fr; }
   .previewHeading { display: grid; }
@@ -55,4 +64,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .card, .previewViewport { transition-duration: .01ms; }
+  .previewMarqueeTrack { animation-duration: .01ms; animation-iteration-count: 1; }
 }

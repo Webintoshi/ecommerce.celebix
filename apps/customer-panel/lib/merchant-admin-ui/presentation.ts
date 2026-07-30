@@ -153,6 +153,39 @@ export function buildMerchantModuleSummary(
   });
 }
 
+const SINGLETON_MERCHANT_MODULE_KINDS = Object.freeze([
+  "general_setting",
+  "theme_setting",
+  "hero_banner",
+  "promotion_banner",
+  "marquee_setting",
+  "seo_control",
+  "social_preview",
+] as const satisfies readonly MerchantAdminRecordKind[]);
+
+export function isSingletonMerchantModule(kind: MerchantAdminRecordKind): boolean {
+  return SINGLETON_MERCHANT_MODULE_KINDS.includes(kind as typeof SINGLETON_MERCHANT_MODULE_KINDS[number]);
+}
+
+function newestRecord(records: readonly MerchantAdminRecord[]) {
+  return [...records].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id))[0] ?? null;
+}
+
+export function selectSingletonEditorRecord(kind: MerchantAdminRecordKind, records: readonly MerchantAdminRecord[]) {
+  if (!isSingletonMerchantModule(kind)) return null;
+  return newestRecord(records.filter((record) => record.kind === kind && record.status === "active"))
+    ?? newestRecord(records.filter((record) => record.kind === kind && record.status === "draft"));
+}
+
+export function singletonRecordState(
+  kind: MerchantAdminRecordKind,
+  record: MerchantAdminRecord,
+  records: readonly MerchantAdminRecord[],
+): "effective" | "superseded" | null {
+  if (!isSingletonMerchantModule(kind) || record.kind !== kind || record.status !== "active") return null;
+  return selectSingletonEditorRecord(kind, records)?.id === record.id ? "effective" : "superseded";
+}
+
 function configured(value: MerchantAdminJson | undefined): boolean {
   if (value === true) return true;
   if (typeof value === "string") return value.length > 0 && value === value.trim();
