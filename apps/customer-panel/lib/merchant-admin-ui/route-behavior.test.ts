@@ -1021,6 +1021,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     {
       "@/components/panel/PanelPageShell": panelComponents(),
       "./StarterThemePreview": { StarterThemePreview: () => createElement("section", { "data-starter-theme-preview": true }) },
+      "./StorefrontAssetManager": { StorefrontAssetManager: () => createElement("section", { "data-storefront-asset-manager": true }) },
     },
   );
   const cases = [

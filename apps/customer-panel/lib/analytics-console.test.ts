@@ -292,7 +292,7 @@ test("five typed storefront settings expose exact safe field contracts without s
   const contracts = [
     ["notification_setting", ["emailEnabled", "smsEnabled", "pushEnabled", "senderLabel", "replyToEmail"]],
     ["theme_setting", ["colorScheme", "headingStyle", "productCardStyle", "productImageRatio", "homeProductLimit", "showBrandStory"]],
-    ["hero_banner", ["headline", "body", "imageUrl", "destination", "enabled"]],
+    ["hero_banner", ["headline", "body", "assetId", "destination", "enabled"]],
     ["promotion_banner", ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]],
     ["marquee_setting", ["items", "icon", "speed", "direction", "animation", "enabled"]],
   ] as const;

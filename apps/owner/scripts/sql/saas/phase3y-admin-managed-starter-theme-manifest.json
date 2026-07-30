@@ -8,17 +8,17 @@
     },
     {
       "file": "202607300066_admin_managed_starter_theme.up.sql",
-      "sha256": "b7b35929470a3e48892bcce782a1a1f575fba3436aa7e49bfdf10115e86af7b5"
+      "sha256": "392789af5c7d2e779ef79fedb5b91de26858fc3fa7f0b527dae6b1f813dc28e6"
     },
     {
       "file": "202607300066_admin_managed_starter_theme_assertions.sql",
-      "sha256": "efd4b38438885a735076a2de2d5f5de5295d3f9170e2229a80d0399513564e2c"
+      "sha256": "c93b2778f13a37943f0341564cecc4ce8cd043ab61edcf35ff1fa21f1e26ca25"
     }
   ],
   "rollbackArtifacts": [
     {
       "file": "202607300066_admin_managed_starter_theme.down.sql",
-      "sha256": "31978877d36afe77708bde173f3d64419f289927a8051521d23c659b17cd2302"
+      "sha256": "c124fba4986e8137bc1e06413ef66b9c54a8c1247bcde34930add67e9aca63ed"
     }
   ],
   "externalConnections": 0,

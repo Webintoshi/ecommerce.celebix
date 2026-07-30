@@ -19,6 +19,8 @@ $f$;
 LOCK TABLE saas.merchant_admin_records IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.merchant_admin_events IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.merchant_admin_operations IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.storefront_assets IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.storefront_asset_operations IN ACCESS EXCLUSIVE MODE;
 
 ALTER TABLE saas.merchant_admin_events DISABLE TRIGGER merchant_admin_events_immutable;
 ALTER TABLE saas.merchant_admin_operations DISABLE TRIGGER merchant_admin_operations_immutable;
@@ -54,6 +56,17 @@ END
 $f$;
 
 DROP FUNCTION saas.public_starter_presentation(uuid,timestamptz);
+DROP FUNCTION saas.storefront_asset_create(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,text,text,text,text,integer,integer,bigint);
+DROP FUNCTION saas.storefront_asset_list(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,text,boolean);
+DROP FUNCTION saas.storefront_asset_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint);
+DROP FUNCTION saas.storefront_asset_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,text);
+DROP FUNCTION saas.storefront_asset_operation_replay(uuid,uuid,text,text);
+DROP FUNCTION saas.public_storefront_asset(uuid,text,jsonb);
+DROP FUNCTION saas.storefront_asset_projection(uuid,uuid);
+DROP TABLE saas.storefront_asset_operations;
+DROP TABLE saas.storefront_assets;
+DROP FUNCTION saas.guard_storefront_asset_operation_mutation();
+DROP FUNCTION saas.guard_storefront_asset_authority();
 DROP FUNCTION saas.merchant_admin_required_action(text,boolean);
 DROP FUNCTION saas.merchant_admin_config_valid(text,jsonb);
 DROP FUNCTION saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text);
