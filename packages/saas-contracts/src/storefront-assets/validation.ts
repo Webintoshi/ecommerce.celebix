@@ -39,7 +39,7 @@ export function parseStorefrontAsset(value: unknown): StorefrontAsset {
   const allowed = new Set([...required, "archivedAt"]);
   if (required.some((key) => !Object.hasOwn(parsed, key)) || Object.keys(parsed).some((key) => !allowed.has(key))) invalid();
   const id = text(parsed.id, 36, 36, UUID), storeId = text(parsed.storeId, 36, 36, UUID);
-  const kind = text(parsed.kind, 4, 7) as StorefrontAssetKind;
+  const kind = text(parsed.kind, 4, 8) as StorefrontAssetKind;
   if (!STOREFRONT_ASSET_KINDS.includes(kind)) invalid();
   const mediaType = text(parsed.mediaType, 9, 10) as PublicImageMediaType;
   if (!MEDIA.includes(mediaType)) invalid();

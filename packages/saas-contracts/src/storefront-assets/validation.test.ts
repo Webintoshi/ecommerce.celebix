@@ -18,6 +18,11 @@ test("storefront asset contract parses and deeply freezes an exact store-owned a
   assert.equal(Object.isFrozen(parsed), true);
 });
 
+test("storefront asset contract accepts the finite category kind with its tenant key", () => {
+  const category = { ...value, kind: "category", objectKey: `stores/${STORE}/storefront/category/${ASSET}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/category/${ASSET}.webp` };
+  assert.deepEqual(parseStorefrontAsset(category), category);
+});
+
 test("storefront asset contract rejects cross-store keys and noncanonical public URLs", () => {
   assert.throws(() => parseStorefrontAsset({ ...value, objectKey: `stores/30000000-0000-4000-8000-000000000001/storefront/hero/${ASSET}.webp` }), /storefront_asset_contract_invalid/);
   assert.throws(() => parseStorefrontAsset({ ...value, publicUrl: `${value.publicUrl}?v=1` }), /storefront_asset_contract_invalid/);

@@ -12,6 +12,7 @@ export type PublicStarterThemePresentation = Readonly<{
   schemaVersion: 1;
   displayName: string;
   supportEmail?: string;
+  logo?: PublicStorefrontAsset;
   theme: Readonly<{
     colorScheme: "neutral" | "warm" | "dark" | "ocean";
     headingStyle: "serif" | "sans";
@@ -38,6 +39,15 @@ export type PublicStarterThemePresentation = Readonly<{
     speed: "slow" | "normal" | "fast";
     direction: "left" | "right";
     animation: "continuous" | "step";
+  }>;
+  categoryShowcase?: Readonly<{
+    heading: string;
+    items: readonly Readonly<{
+      id: string;
+      name: string;
+      slug: string;
+      image: PublicStorefrontAsset;
+    }>[];
   }>;
   seo: Readonly<{
     title?: string;

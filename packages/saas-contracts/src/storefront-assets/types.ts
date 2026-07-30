@@ -1,6 +1,6 @@
 import type { PublicImageMediaType } from "../storefront/types.ts";
 
-export const STOREFRONT_ASSET_KINDS = Object.freeze(["logo", "hero", "social", "favicon"] as const);
+export const STOREFRONT_ASSET_KINDS = Object.freeze(["logo", "hero", "social", "favicon", "category"] as const);
 export const STOREFRONT_ASSET_STATUSES = Object.freeze(["active", "archived"] as const);
 
 export type StorefrontAssetKind = (typeof STOREFRONT_ASSET_KINDS)[number];
