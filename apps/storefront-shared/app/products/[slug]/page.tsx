@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
 import { ProductGallery } from "@/components/ProductGallery";
+import { ProductDescription } from "@/components/ProductDescription";
 import { BuyNowButton, BuyNowProvider } from "@/components/BuyNowButton";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -40,7 +41,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <span>ÜRÜN DETAYI</span>
         <h1>{item.title}</h1>
         <div className="detail-price">{item.compareAtCents ? <del>{formatTry(item.compareAtCents)}</del> : null}<strong>{formatTry(item.priceCents)}</strong></div>
-        <p>{item.description ?? "Bu ürün için ayrıntılı açıklama yakında eklenecek."}</p>
         <div className={`stock-callout ${item.available ? "is-available" : ""}`}>
           <b>{item.available ? "Stokta" : "Tükendi"}</b>
           <span>{item.available ? "Siparişe hazır aktif seçenekler mevcut." : "Aktif seçenekler şu anda stokta değil."}</span>
@@ -50,5 +50,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           : variants}
       </div>
     </section>
+    <ProductDescription product={item} />
   </StorefrontFrame>;
 }

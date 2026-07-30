@@ -495,6 +495,18 @@ test("application configuration defines baseline security headers", async () => 
   assert.doesNotMatch(quotePage, /tokenDigest|redemptionDigest|customerEmail|customerPhone|shippingAddress|billingAddress/);
 });
 
+test("starter product detail owns one semantic rich description section", async () => {
+  const page = await readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8");
+  const description = await readFile(new URL("../components/ProductDescription.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /<ProductDescription product=/);
+  assert.doesNotMatch(page, /<p>\{item[.]description/);
+  assert.match(description, /aria-labelledby="product-description-title"/);
+  assert.match(description, />Ürün açıklaması</);
+  assert.match(description, /renderStarterProductDescription/);
+  assert.match(description, /dangerouslySetInnerHTML/);
+});
+
 test("checkout quote page uses one native exact-origin form and no client token transport", async () => {
   const quotePage = await readFile(new URL("../app/odeme/hizli/page.tsx", import.meta.url), "utf8");
   const checkoutRoute = await readFile(new URL("../app/api/quick-order/checkout/route.ts", import.meta.url), "utf8");
