@@ -62,15 +62,16 @@ function fixture(options: { redemption?: object; recovery?: object; brandKind?: 
   return { handler, get redeemCalls() { return redeemCalls; }, get recoveryCalls() { return recoveryCalls; } };
 }
 
-function request(overrides: { url?: string; host?: string; origin?: string; body?: string; contentType?: string; method?: string } = {}) {
+function request(overrides: { url?: string; host?: string; origin?: string | null; body?: string; contentType?: string; method?: string } = {}) {
   const body = overrides.body ?? new URLSearchParams({ handoff: HANDOFF }).toString();
+  const headers = new Headers({
+    host: overrides.host ?? HOSTNAME,
+    "content-type": overrides.contentType ?? "application/x-www-form-urlencoded",
+  });
+  if (overrides.origin !== null) headers.set("origin", overrides.origin ?? CENTRAL);
   return new Request(overrides.url ?? `${ORIGIN}/auth/handoff`, {
     method: overrides.method ?? "POST",
-    headers: {
-      host: overrides.host ?? HOSTNAME,
-      origin: overrides.origin ?? CENTRAL,
-      "content-type": overrides.contentType ?? "application/x-www-form-urlencoded",
-    },
+    headers,
     body: overrides.method === "GET" ? undefined : body,
   });
 }
@@ -94,6 +95,14 @@ test("redeems a destination-bound POST and installs only the host session cookie
 test("accepts reverse-proxy internal transport while pinning the validated Host authority to the canonical HTTPS admin origin", async () => {
   const current = fixture();
   const response = await current.handler(request({ url: "http://customer-panel:3400/auth/handoff" }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), `${ORIGIN}/`);
+  assert.equal(current.redeemCalls, 1);
+});
+
+test("accepts a privacy client that omits Origin while retaining destination-bound handoff authority", async () => {
+  const current = fixture();
+  const response = await current.handler(request({ origin: null }));
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), `${ORIGIN}/`);
   assert.equal(current.redeemCalls, 1);

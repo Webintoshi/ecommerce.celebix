@@ -134,7 +134,8 @@ export function createCrossHostHandoffHttpHandler(options: Readonly<{
       runtime = resolved as Record<string, any>;
       trustedNow = options.clock();
       if (!(trustedNow instanceof Date) || !Number.isFinite(trustedNow.getTime())) throw new Error("unavailable");
-      if (request.headers.get("origin") !== runtime.access?.panelOrigin) throw new Error("invalid");
+      const requestOrigin = request.headers.get("origin");
+      if (requestOrigin !== null && requestOrigin !== runtime.access?.panelOrigin) throw new Error("invalid");
       const brand = await runtime.adminDomains?.resolvePublicBrand({ hostname: authority.hostname, now: trustedNow });
       if (!brand || brand.kind !== "resolved" || brand.brand?.canonicalAdminOrigin !== authority.origin) throw new Error("invalid");
     } catch { return json("admin_handoff_unavailable", 503); }
