@@ -1,0 +1,24 @@
+{
+  "phase": "phase3-tenant-admin-auth",
+  "postgresqlMajor": 16,
+  "classification": "additive-tenant-admin-domain-and-session-authority",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607300069_tenant_admin_domains_and_principal_logout.up.sql",
+      "direction": "up",
+      "sha256": "429d8ed2ddd16484c6bacd09d829108479f1d4054c37f9b4edb2165e9e3e3254"
+    },
+    {
+      "file": "202607300069_tenant_admin_domains_and_principal_logout.down.sql",
+      "direction": "down",
+      "sha256": "b8901887cdc91174bdeab6764944b26fed45209bd7f1c87afe2eaf0e9d7e31e6"
+    },
+    {
+      "file": "202607300069_tenant_admin_domains_and_principal_logout_assertions.sql",
+      "direction": "verify",
+      "sha256": "555f8933a5b517f0e51b6e971098c86457f7a069b1ca2a7925833c5e9885942a"
+    }
+  ]
+}

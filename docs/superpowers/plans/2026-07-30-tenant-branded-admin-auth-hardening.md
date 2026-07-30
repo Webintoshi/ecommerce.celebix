@@ -49,14 +49,14 @@
 - Create: `apps/owner/scripts/sql/saas/tenant-admin-auth-migration-contract.test.ts`
 - Create: `tests/saas-phase3/tenant-admin-auth-postgres/tenant-admin-auth-postgres.test.mjs`
 
-- [ ] Add static failing tests for the new table, exact checks/indexes, row-level security, grants, hostname resolver, canonical-domain write function, single-use cross-host handoff functions, and principal-global revoke function.
-- [ ] Add a disposable PostgreSQL 16 integration test that provisions two stores for one principal and proves host isolation, handoff single-use, alias support, and revocation of every active family for that principal.
-- [ ] Implement `saas.admin_domains` with one active canonical domain per store, explicit alias kinds/statuses, verification timestamp invariants, timestamps, RLS, least-privilege grants, and lookup indexes.
-- [ ] Implement `saas.resolve_public_admin_brand(hostname, now)` returning only store slug, display name, public logo/accent fields when available, and canonical hostname.
-- [ ] Implement `saas.revoke_principal_panel_sessions(token_key_id, token_digest, reason, now)` so the presented credential must resolve to an active session before all active session families for its principal are revoked atomically.
-- [ ] Implement short-lived single-use cross-host handoff issue/redeem/recovery functions bound to principal, destination store, destination hostname, and expiration.
-- [ ] Run the static migration contract test, then the disposable PostgreSQL test against PostgreSQL 16.
-- [ ] Commit as `feat(auth): add tenant admin domain authority`.
+- [x] Add static failing tests for the new table, exact checks/indexes, row-level security, grants, hostname resolver, canonical-domain write function, single-use cross-host handoff functions, and principal-global revoke function.
+- [x] Add a disposable PostgreSQL 16 integration test that provisions two stores for one principal and proves host isolation, handoff single-use, alias support, and revocation of every active family for that principal.
+- [x] Implement `saas.admin_domains` with one active canonical domain per store, explicit alias kinds/statuses, verification timestamp invariants, timestamps, RLS, least-privilege grants, and lookup indexes.
+- [x] Implement `saas.resolve_public_admin_brand(hostname, now)` returning only store slug, display name, public logo/accent fields when available, and canonical hostname.
+- [x] Implement `saas.revoke_principal_panel_sessions(token_key_id, token_digest, reason, now)` so the presented credential must resolve to an active session before all active session families for its principal are revoked atomically.
+- [x] Implement short-lived single-use cross-host handoff issue/redeem/recovery functions bound to principal, destination store, destination hostname, and expiration.
+- [x] Run the static migration contract test, then the disposable PostgreSQL test against PostgreSQL 16.
+- [x] Commit as `feat(auth): add tenant admin domain authority`.
 
 ## Task 3: Data repositories and public brand resolver
 
