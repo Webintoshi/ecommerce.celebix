@@ -1,9 +1,9 @@
 # Admin-managed starter theme design
 
-**Status:** Kullanıcı tarafından yazılı olarak onaylandı  
-**Date:** 2026-07-30  
-**Implementation base:** `8d6b7897a04e406346c7f2ba18f4f67a600e6ec4`  
-**Target application:** `apps/storefront-shared`  
+**Status:** Kullanıcı tarafından yazılı olarak onaylandı
+**Date:** 2026-07-30
+**Implementation base:** `8d6b7897a04e406346c7f2ba18f4f67a600e6ec4`
+**Target application:** `apps/storefront-shared`
 **Management application:** `apps/customer-panel`
 
 ## Objective
