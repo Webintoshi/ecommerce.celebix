@@ -124,3 +124,28 @@ test("accepts only the signed fixed rejection matrix without retry", async () =>
     }), { schemaVersion: 1, kind: "browser_binding_rejected", code, retryable: false });
   }
 });
+
+test("starts returning login with schema v2 and authenticates the exact provider projection", async () => {
+  let captured: Request | undefined;
+  const result = await transport(async (request) => {
+    captured = request;
+    return signedResponse(request, {
+      body: JSON.stringify({
+        schemaVersion: 2,
+        kind: "panel_login_ready",
+        providerAuthorizationUrl: PROVIDER,
+        browserBindingExpiresAt: EXPIRES,
+      }),
+    });
+  }).start({ browserBindingCredential: PB });
+  assert.deepEqual(result, {
+    kind: "panel_login_ready",
+    providerAuthorizationUrl: PROVIDER,
+    browserBindingExpiresAt: EXPIRES,
+  });
+  assert.ok(captured);
+  assert.equal(await captured.clone().text(), JSON.stringify({
+    schemaVersion: 2,
+    browserBindingCredential: PB,
+  }));
+});

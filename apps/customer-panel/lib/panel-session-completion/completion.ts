@@ -128,6 +128,16 @@ function internalResult(value: unknown, clock: () => Date): Record<string, unkno
     if (expiresAt <= trustedNow || expiresAt > trustedNow + MAXIMUM_HANDOFF_MS) invalid();
     return row;
   }
+  if (row.kind === "session_ready") {
+    exact(row, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "redirectPath"]);
+    if (row.redirectPath !== "/") invalid();
+    credential(row.sessionCredential);
+    const trustedNow = now(clock).getTime();
+    const issuedAt = timestamp(row.sessionIssuedAt).milliseconds;
+    const expiresAt = timestamp(row.sessionExpiresAt).milliseconds;
+    if (issuedAt > trustedNow || expiresAt <= trustedNow || expiresAt > issuedAt + MAXIMUM_SESSION_MS) invalid();
+    return row;
+  }
   exact(row, ["schemaVersion", "kind", "code", "retryable"]);
   if (row.kind !== "fresh_login_required" || row.retryable !== false || typeof row.code !== "string") invalid();
   return row;
@@ -198,6 +208,31 @@ export function createPanelSessionCompletionHandler(options: {
       return result.code === "provider_rejected"
         ? failure("panel_session_provider_rejected", 400)
         : failure("panel_session_fresh_login_required", 409);
+    }
+
+    if (result.kind === "session_ready") {
+      try {
+        const trustedNow = now(clock);
+        const cookie = serializePersistentPanelSessionCookie({
+          credential: String(result.sessionCredential),
+          issuedAt: String(result.sessionIssuedAt),
+          expiresAt: String(result.sessionExpiresAt),
+          now: trustedNow,
+        });
+        const headers = new Headers({
+          location: panelHomeAuthority,
+          "cache-control": "no-store",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+        });
+        headers.append("set-cookie", cookie);
+        headers.append("set-cookie", PANEL_BROWSER_BINDING_DELETION_COOKIE);
+        auditSafely(audit, { stage: "browser_response", outcome: "completed" });
+        return new Response(null, { status: 303, headers });
+      } catch {
+        auditSafely(audit, { stage: "browser_response", outcome: "rejected" });
+        return failure("panel_session_redemption_failed", 409);
+      }
     }
 
     const handoffCredential = String(result.handoffCredential);

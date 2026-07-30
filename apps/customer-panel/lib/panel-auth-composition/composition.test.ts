@@ -76,10 +76,12 @@ test("customer composition returns only genuine frozen unmounted handlers and ex
   assert.deepEqual(Object.keys(composition), [
     "browserBootstrapHandler",
     "panelSessionCompletionHandler",
+    "panelReturningLoginHandler",
     "readiness",
   ]);
   assert.equal(typeof composition.browserBootstrapHandler, "function");
   assert.equal(typeof composition.panelSessionCompletionHandler, "function");
+  assert.equal(typeof composition.panelReturningLoginHandler, "function");
   assert.equal(Object.isFrozen(composition), true);
   assert.equal(Object.isSealed(composition), true);
   assert.doesNotThrow(() => assertDisabledCustomerPanelAuthComposition(composition));
@@ -92,6 +94,7 @@ test("customer composition returns only genuine frozen unmounted handlers and ex
     endpoints: {
       browserBootstrap: { method: "POST", path: "/auth/bootstrap", state: "disabled_unmounted" },
       browserCallback: { method: "GET", path: "/auth/callback", state: "disabled_unmounted" },
+      browserLogin: { method: "GET", path: "/auth/login", state: "disabled_unmounted" },
     },
   });
   assert.equal(Object.isFrozen(composition.readiness), true);

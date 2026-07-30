@@ -214,7 +214,7 @@ test("live auth callback remains disabled without setting a cookie", async () =>
   assert.equal(response.headers.has("set-cookie"), false);
 });
 
-test("login and logout remain disabled without a persistent session adapter", async () => {
+test("login and logout remain fail-closed without approved staging auth authority", async () => {
   const login = await load("../app/auth/login/route.ts");
   const logout = await load("../app/auth/logout/route.ts");
   const loginPageSource = await readFile(new URL("../app/login/page.tsx", import.meta.url), "utf8");
@@ -228,8 +228,10 @@ test("login and logout remain disabled without a persistent session adapter", as
   assert.doesNotMatch(loginRouteSource, /https:\/\/panel\.celebix\.site/);
 
   const loginResponse = await login.GET(new Request("https://panel.celebix.site/auth/login"));
-  assert.equal(loginResponse.status, 303);
-  assert.equal(loginResponse.headers.get("location"), "https://panel.celebix.site/login?auth=disabled");
+  assert.equal(loginResponse.status, 503);
+  assert.deepEqual(await loginResponse.json(), { code: "panel_login_disabled", retryable: false });
+  assert.equal(loginResponse.headers.has("location"), false);
+  assert.equal(loginResponse.headers.has("set-cookie"), false);
 
   const rejected = await logout.POST(new Request("https://panel.celebix.site/auth/logout", { method: "POST" }));
   assert.equal(rejected.status, 403);
@@ -245,7 +247,7 @@ test("login and logout remain disabled without a persistent session adapter", as
   assert.equal(logoutResponse.headers.has("set-cookie"), false);
 });
 
-test("disabled login redirects use only a validated public panel origin", async () => {
+test("disabled login never trusts environment or forwarded authority and emits no redirect", async () => {
   const login = await load("../app/auth/login/route.ts");
   assert.equal(typeof login.GET, "function");
   if (typeof login.GET !== "function") return;
@@ -259,11 +261,9 @@ test("disabled login redirects use only a validated public panel origin", async 
         "x-forwarded-host": "attacker.example",
       },
     }));
-    assert.equal(configured.status, 303);
-    assert.equal(
-      configured.headers.get("location"),
-      "https://panel.saas-staging.celebix.site/login?auth=disabled",
-    );
+    assert.equal(configured.status, 503);
+    assert.equal(configured.headers.has("location"), false);
+    assert.equal(configured.headers.has("set-cookie"), false);
 
     process.env.CELEBIX_PANEL_ORIGIN = "http://panel.saas-staging.celebix.site";
     const forwarded = await login.GET(new Request("http://customer-panel:3400/auth/login", {
@@ -272,19 +272,13 @@ test("disabled login redirects use only a validated public panel origin", async 
         "x-forwarded-host": "panel.saas-staging.celebix.site",
       },
     }));
-    assert.equal(forwarded.status, 303);
-    assert.equal(
-      forwarded.headers.get("location"),
-      "https://panel.saas-staging.celebix.site/login?auth=disabled",
-    );
+    assert.equal(forwarded.status, 503);
+    assert.equal(forwarded.headers.has("location"), false);
 
     delete process.env.CELEBIX_PANEL_ORIGIN;
     const requestOrigin = await login.GET(new Request("https://preview-panel.example.test/auth/login"));
-    assert.equal(requestOrigin.status, 303);
-    assert.equal(
-      requestOrigin.headers.get("location"),
-      "https://preview-panel.example.test/login?auth=disabled",
-    );
+    assert.equal(requestOrigin.status, 503);
+    assert.equal(requestOrigin.headers.has("location"), false);
 
     for (const request of [
       new Request("http://customer-panel:3400/auth/login"),
@@ -309,7 +303,7 @@ test("disabled login redirects use only a validated public panel origin", async 
       const denied = await login.GET(request);
       assert.equal(denied.status, 503);
       assert.equal(denied.headers.has("location"), false);
-      assert.deepEqual(await denied.json(), { code: "panel_auth_origin_unavailable" });
+      assert.deepEqual(await denied.json(), { code: "panel_login_disabled", retryable: false });
     }
   } finally {
     if (originalPanelOrigin === undefined) delete process.env.CELEBIX_PANEL_ORIGIN;

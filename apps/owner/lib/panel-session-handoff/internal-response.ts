@@ -42,6 +42,17 @@ export type OwnerPanelSessionHandoffInternalResult = Readonly<
       }>;
     }
   | {
+      status: 200;
+      body: Readonly<{
+        schemaVersion: 1;
+        kind: "session_ready";
+        sessionCredential: string;
+        sessionIssuedAt: string;
+        sessionExpiresAt: string;
+        redirectPath: "/";
+      }>;
+    }
+  | {
       status: 400 | 409 | 503;
       body: Readonly<{
         schemaVersion: 1;
@@ -73,6 +84,18 @@ function canonicalHandoffCredential(value: unknown): string {
   return value;
 }
 
+function canonicalSessionCredential(value: unknown): string {
+  if (typeof value !== "string" || value.trim() !== value || !value.startsWith("v1.")) invalid();
+  const separator = value.length - 44;
+  if (separator <= 3 || value[separator] !== ".") invalid();
+  const keyId = value.slice(3, separator);
+  const token = value.slice(separator + 1);
+  if (!KEY_ID.test(keyId) || keyId.startsWith(".") || keyId.endsWith(".") || keyId.includes("..") || !TOKEN.test(token)) invalid();
+  const bytes = Buffer.from(token, "base64url");
+  if (bytes.byteLength !== 32 || bytes.toString("base64url") !== token) invalid();
+  return value;
+}
+
 function canonicalTimestamp(value: unknown): string {
   if (typeof value !== "string" || value.length > 32 || value.trim() !== value) invalid();
   const milliseconds = Date.parse(value);
@@ -89,6 +112,22 @@ export function createSessionHandoffReadyResult(
     kind: "session_handoff_ready" as const,
     handoffCredential: canonicalHandoffCredential(handoffCredential),
     handoffExpiresAt: canonicalTimestamp(handoffExpiresAt),
+    redirectPath: "/" as const,
+  });
+  return Object.freeze({ status: 200 as const, body });
+}
+
+export function createSessionReadyResult(
+  sessionCredential: string,
+  sessionIssuedAt: string,
+  sessionExpiresAt: string,
+): OwnerPanelSessionHandoffInternalResult {
+  const body = Object.freeze({
+    schemaVersion: PANEL_SESSION_COMPLETION_SCHEMA_VERSION,
+    kind: "session_ready" as const,
+    sessionCredential: canonicalSessionCredential(sessionCredential),
+    sessionIssuedAt: canonicalTimestamp(sessionIssuedAt),
+    sessionExpiresAt: canonicalTimestamp(sessionExpiresAt),
     redirectPath: "/" as const,
   });
   return Object.freeze({ status: 200 as const, body });
@@ -115,15 +154,28 @@ export function canonicalOwnerPanelSessionHandoffResult(
   const body = result.body as unknown as Record<string, unknown>;
   let canonical: string;
   if (result.status === 200) {
-    exactKeys(body, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "redirectPath"]);
-    if (body.schemaVersion !== 1 || body.kind !== "session_handoff_ready" || body.redirectPath !== "/") invalid();
-    canonical = JSON.stringify({
-      schemaVersion: 1,
-      kind: "session_handoff_ready",
-      handoffCredential: canonicalHandoffCredential(body.handoffCredential),
-      handoffExpiresAt: canonicalTimestamp(body.handoffExpiresAt),
-      redirectPath: "/",
-    });
+    if (body.kind === "session_ready") {
+      exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "redirectPath"]);
+      if (body.schemaVersion !== 1 || body.redirectPath !== "/") invalid();
+      canonical = JSON.stringify({
+        schemaVersion: 1,
+        kind: "session_ready",
+        sessionCredential: canonicalSessionCredential(body.sessionCredential),
+        sessionIssuedAt: canonicalTimestamp(body.sessionIssuedAt),
+        sessionExpiresAt: canonicalTimestamp(body.sessionExpiresAt),
+        redirectPath: "/",
+      });
+    } else {
+      exactKeys(body, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "redirectPath"]);
+      if (body.schemaVersion !== 1 || body.kind !== "session_handoff_ready" || body.redirectPath !== "/") invalid();
+      canonical = JSON.stringify({
+        schemaVersion: 1,
+        kind: "session_handoff_ready",
+        handoffCredential: canonicalHandoffCredential(body.handoffCredential),
+        handoffExpiresAt: canonicalTimestamp(body.handoffExpiresAt),
+        redirectPath: "/",
+      });
+    }
   } else {
     exactKeys(body, ["schemaVersion", "kind", "code", "retryable"]);
     if (body.schemaVersion !== 1 || body.kind !== "fresh_login_required" || body.retryable !== false || typeof body.code !== "string") invalid();

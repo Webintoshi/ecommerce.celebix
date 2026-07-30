@@ -1,7 +1,9 @@
 import { PANEL_OIDC_CALLBACK_URL } from "../../../packages/platform-config/src/saas.ts";
 
 const OIDC_TRANSACTION_LIFETIME_MS = 10 * 60_000;
-const APPROVED_RETURN_PATHS = new Set(["/kayit"]);
+const APPROVED_RETURN_PATHS = new Set(["/kayit", "/login"]);
+const KEY_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?$/;
+const DIGEST = /^[a-f0-9]{64}$/;
 
 export type OidcFlowErrorCode =
   | "oidc_disabled"
@@ -75,6 +77,7 @@ export interface OidcAuthorizationTransaction {
   expectedAudience: string;
   createdAt: string;
   expiresAt: string;
+  panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
 }
 
 export interface OidcTransactionStore {
@@ -95,6 +98,7 @@ export interface BeginOidcAuthorizationInput {
   returnOrigin?: string;
   allowInsecureLocalAuthorization?: boolean;
   allowLocalTestCallback?: boolean;
+  panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
   now?: () => Date;
 }
 
@@ -102,6 +106,7 @@ export interface CompleteOidcCallbackInput {
   provider: OidcProviderPort;
   transactionStore: OidcTransactionStore;
   callback: OidcCallbackInput;
+  panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
   now?: () => Date;
 }
 
@@ -112,10 +117,22 @@ export interface RejectOidcProviderCallbackInput {
   now?: () => Date;
 }
 
-function randomOpaqueValue(byteLength: number) {
+function randomOpaqueValue(byteLength: number, prefix = "") {
   const bytes = new Uint8Array(byteLength);
   crypto.getRandomValues(bytes);
-  return Buffer.from(bytes).toString("base64url");
+  return `${prefix}${Buffer.from(bytes).toString("base64url")}`;
+}
+
+function exactPanelLoginBinding(value: unknown): Readonly<{ keyId: string; digest: string }> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
+  }
+  const row = value as Record<string, unknown>;
+  if (
+    Object.keys(row).join(",") !== "keyId,digest" || typeof row.keyId !== "string" ||
+    !KEY_ID.test(row.keyId) || row.keyId.includes("..") || typeof row.digest !== "string" || !DIGEST.test(row.digest)
+  ) throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
+  return Object.freeze({ keyId: row.keyId, digest: row.digest });
 }
 
 async function createS256Challenge(verifier: string) {
@@ -292,7 +309,13 @@ function assertAuthorizationUrl(input: {
 export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput) {
   assertCallbackUrl(input.redirectUri, input.expectedCallbackAuthority, input.allowLocalTestCallback);
   const now = input.now?.() ?? new Date();
-  const state = randomOpaqueValue(32);
+  const panelLoginBinding = input.panelLoginBinding === undefined
+    ? undefined
+    : exactPanelLoginBinding(input.panelLoginBinding);
+  if ((panelLoginBinding !== undefined) !== (input.returnTo === "/login")) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
+  }
+  const state = randomOpaqueValue(32, panelLoginBinding ? "plogin_" : "");
   const nonce = randomOpaqueValue(32);
   const codeVerifier = randomOpaqueValue(64);
   const codeChallenge = await createS256Challenge(codeVerifier);
@@ -307,6 +330,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     expectedAudience: input.expectedAudience,
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + OIDC_TRANSACTION_LIFETIME_MS).toISOString(),
+    ...(panelLoginBinding ? { panelLoginBinding } : {}),
   };
 
   await input.transactionStore.save(transaction);
@@ -415,6 +439,15 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   }
   const responseIssuer = exactResponseIssuer(input.callback.responseIssuer);
   const transaction = await input.transactionStore.consume(state, now);
+  if (transaction.panelLoginBinding) {
+    const proof = exactPanelLoginBinding(input.panelLoginBinding);
+    if (
+      proof.keyId !== transaction.panelLoginBinding.keyId ||
+      proof.digest !== transaction.panelLoginBinding.digest || transaction.returnTo !== "/login"
+    ) throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
+  } else if (input.panelLoginBinding !== undefined) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
+  }
   assertResponseIssuer(responseIssuer, transaction);
   let identity: OidcVerifiedIdentity;
 

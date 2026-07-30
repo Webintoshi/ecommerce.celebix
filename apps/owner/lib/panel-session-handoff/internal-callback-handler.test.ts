@@ -30,6 +30,7 @@ function fixture(options: {
   handlerNow?: Date;
   audit?: (event: unknown) => void | Promise<void>;
   claimKind?: "browser_callback_claimed" | "callback_replayed" | "operation_mismatch" | "expired" | "unauthenticated" | "durable_authority_invalid" | "commit_unknown" | "unavailable";
+  returningLogin?: "session_ready" | "callback_not_granted";
 } = {}) {
   const order: string[] = [];
   const edgeBoundary = createVerifiedEdgeTrustBoundary();
@@ -151,6 +152,15 @@ function fixture(options: {
   const handler = createOwnerPanelSessionInitialCallbackHandler({
     runtime, edgeTrustBoundary: edgeBoundary, initialCallbackGrantBoundary: grantBoundary, issuer,
     browserBindingRepository,
+    ...(options.returningLogin ? { returningLogin: {
+      async tryComplete() {
+        order.push("returning_login");
+        return options.returningLogin === "session_ready"
+          ? { kind: "session_ready" as const, credential: `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`, issuedAt: NOW.toISOString(), expiresAt: new Date(NOW.getTime() + 28_800_000).toISOString() }
+          : { kind: "fresh_login_required" as const, code: "callback_not_granted" as const };
+      },
+      async tryRejectProvider() { return { kind: "fresh_login_required" as const, code: "callback_not_granted" as const }; },
+    } } : {}),
     clock: () => new Date(options.handlerNow ?? NOW), audit: options.audit ?? (() => undefined),
   });
   return {
@@ -196,6 +206,24 @@ test("exact authorization-response issuer reaches OIDC completion before handoff
   assert.equal(current.providerCalls, 1);
   assert.equal(current.issueCalls, 1);
   assert.deepEqual(current.order.slice(0, 3), ["claim", "provider", "issuer"]);
+});
+
+test("browser-bound returning login bypasses tenant completion and returns one durable session", async () => {
+  const current = fixture({ returningLogin: "session_ready" });
+  const result = await invoke(current, `state=plogin_0123456789abcdefghijklmnop&code=verified-code`);
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, {
+    schemaVersion: 1,
+    kind: "session_ready",
+    sessionCredential: `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`,
+    sessionIssuedAt: NOW.toISOString(),
+    sessionExpiresAt: new Date(NOW.getTime() + 28_800_000).toISOString(),
+    redirectPath: "/",
+  });
+  assert.equal(current.claimCalls, 0);
+  assert.equal(current.providerCalls, 0);
+  assert.equal(current.issueCalls, 0);
+  assert.deepEqual(current.order, ["returning_login"]);
 });
 
 test("authorization-response issuer mismatch consumes state but stops provider, tenant, handoff, and session authority", async () => {

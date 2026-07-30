@@ -29,12 +29,18 @@ export type CustomerPanelAuthRouteReadiness = Readonly<{
       path: "/auth/callback";
       state: "mounted_disabled" | "mounted_approved_staging";
     }>;
+    browserLogin: Readonly<{
+      method: "GET";
+      path: "/auth/login";
+      state: "mounted_disabled" | "mounted_approved_staging";
+    }>;
   }>;
 }>;
 
 export type CustomerPanelAuthRouteSet = Readonly<{
   browserBootstrap: RouteHandler;
   browserCallback: RouteHandler;
+  browserLogin: RouteHandler;
   readiness: CustomerPanelAuthRouteReadiness;
 }>;
 
@@ -77,6 +83,11 @@ function readiness(): CustomerPanelAuthRouteReadiness {
       path: "/auth/callback" as const,
       state: "mounted_disabled" as const,
     }),
+    browserLogin: Object.freeze({
+      method: "GET" as const,
+      path: "/auth/login" as const,
+      state: "mounted_disabled" as const,
+    }),
   });
   return Object.freeze({
     schemaVersion: 1 as const,
@@ -98,6 +109,11 @@ function approvedStagingReadiness(): CustomerPanelAuthRouteReadiness {
     browserCallback: Object.freeze({
       method: "GET" as const,
       path: "/auth/callback" as const,
+      state: "mounted_approved_staging" as const,
+    }),
+    browserLogin: Object.freeze({
+      method: "GET" as const,
+      path: "/auth/login" as const,
       state: "mounted_approved_staging" as const,
     }),
   });
@@ -129,6 +145,9 @@ export function createDisabledCustomerPanelAuthRouteSet(): CustomerPanelAuthRout
     browserCallback: async (request) => request.method === "GET"
       ? secure(await disabledCallback(request))
       : controlled("panel_callback_method_not_allowed", 405),
+    browserLogin: async (request) => request.method === "GET"
+      ? controlled("panel_login_disabled", 503)
+      : controlled("panel_login_method_not_allowed", 405),
     readiness: readiness(),
   };
   routeSets.add(routeSet);
@@ -143,6 +162,9 @@ export function createUnavailableCustomerPanelStagingAuthRouteSet(): CustomerPan
     browserCallback: async (request) => request.method === "GET"
       ? controlled("panel_auth_route_unavailable", 503)
       : controlled("panel_callback_method_not_allowed", 405),
+    browserLogin: async (request) => request.method === "GET"
+      ? controlled("panel_auth_route_unavailable", 503)
+      : controlled("panel_login_method_not_allowed", 405),
     readiness: approvedStagingReadiness(),
   };
   routeSets.add(routeSet);
@@ -160,6 +182,7 @@ export function createApprovedStagingCustomerPanelAuthRouteSet(options: {
   const routeSet: CustomerPanelAuthRouteSet = {
     browserBootstrap: safeDelegate(options.composition.browserBootstrapHandler),
     browserCallback: safeDelegate(options.composition.panelSessionCompletionHandler),
+    browserLogin: safeDelegate(options.composition.panelReturningLoginHandler),
     readiness: approvedStagingReadiness(),
   };
   routeSets.add(routeSet);
@@ -172,6 +195,7 @@ const defaultRouteSet: CustomerPanelAuthRouteSet = (() => {
   const routeSet: CustomerPanelAuthRouteSet = {
     browserBootstrap: async (request) => (await resolve()).browserBootstrap(request),
     browserCallback: async (request) => (await resolve()).browserCallback(request),
+    browserLogin: async (request) => (await resolve()).browserLogin(request),
     readiness: readiness(),
   };
   routeSets.add(routeSet);

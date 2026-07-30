@@ -18,7 +18,10 @@ import {
 } from "./postgres-identity-common.ts";
 
 const PURPOSE = "saas.oidc_transactions";
-const SCHEMA_VERSION = 1;
+const REGISTRATION_SCHEMA_VERSION = 1;
+const PANEL_LOGIN_SCHEMA_VERSION = 2;
+const KEY_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?$/;
+const DIGEST = /^[a-f0-9]{64}$/;
 
 interface StoredOidcPayload extends Omit<OidcAuthorizationTransaction, "state"> {}
 
@@ -28,14 +31,18 @@ function callback(value: unknown, expectedCallbackAuthority: string): string {
   throw new OidcFlowError("oidc_invalid_callback", "OIDC callback URL is invalid.");
 }
 
-function payload(value: unknown, expectedCallbackAuthority: string): StoredOidcPayload {
-  const row = exactObject(value, [
+function payload(value: unknown, expectedCallbackAuthority: string, schemaVersion: number): StoredOidcPayload {
+  if (schemaVersion !== REGISTRATION_SCHEMA_VERSION && schemaVersion !== PANEL_LOGIN_SCHEMA_VERSION) throw new IdentityPersistenceError();
+  const required = [
     "nonce", "codeVerifier", "redirectUri", "returnTo", "expectedIssuer", "expectedAudience", "createdAt", "expiresAt",
-  ]);
+  ];
+  const row = exactObject(value, required, schemaVersion === PANEL_LOGIN_SCHEMA_VERSION ? ["panelLoginBinding"] : []);
   const createdAt = canonicalTimestamp(row.createdAt);
   const expiresAt = canonicalTimestamp(row.expiresAt);
   if (Date.parse(expiresAt) <= Date.parse(createdAt)) throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
-  if (row.returnTo !== "/kayit") throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
+  if (row.returnTo !== (schemaVersion === PANEL_LOGIN_SCHEMA_VERSION ? "/login" : "/kayit")) {
+    throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
+  }
   const nonce = requiredString(row.nonce, 512);
   const codeVerifier = requiredString(row.codeVerifier, 512);
   if (
@@ -44,25 +51,40 @@ function payload(value: unknown, expectedCallbackAuthority: string): StoredOidcP
   ) {
     throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
   }
+  let panelLoginBinding: Readonly<{ keyId: string; digest: string }> | undefined;
+  if (schemaVersion === PANEL_LOGIN_SCHEMA_VERSION) {
+    const binding = exactObject(row.panelLoginBinding, ["keyId", "digest"]);
+    const keyId = requiredString(binding.keyId, 64);
+    const digest = requiredString(binding.digest, 64);
+    if (!KEY_ID.test(keyId) || keyId.includes("..") || !DIGEST.test(digest)) {
+      throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
+    }
+    panelLoginBinding = Object.freeze({ keyId, digest });
+  }
   return {
     nonce,
     codeVerifier,
     redirectUri: callback(row.redirectUri, expectedCallbackAuthority),
-    returnTo: "/kayit",
+    returnTo: schemaVersion === PANEL_LOGIN_SCHEMA_VERSION ? "/login" : "/kayit",
     expectedIssuer: requiredString(row.expectedIssuer, 2048),
     expectedAudience: requiredString(row.expectedAudience, 512),
     createdAt,
     expiresAt,
+    ...(panelLoginBinding ? { panelLoginBinding } : {}),
   };
 }
 
-function transaction(value: unknown, expectedCallbackAuthority: string): OidcAuthorizationTransaction {
+function transaction(value: unknown, expectedCallbackAuthority: string): { value: OidcAuthorizationTransaction; schemaVersion: number } {
   const row = exactObject(value, [
     "state", "nonce", "codeVerifier", "redirectUri", "returnTo", "expectedIssuer", "expectedAudience", "createdAt", "expiresAt",
-  ]);
+  ], ["panelLoginBinding"]);
   const state = requiredString(row.state, 1024);
   if (state.length < 16) throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
-  return { state, ...payload({
+  const schemaVersion = row.panelLoginBinding === undefined ? REGISTRATION_SCHEMA_VERSION : PANEL_LOGIN_SCHEMA_VERSION;
+  if ((schemaVersion === PANEL_LOGIN_SCHEMA_VERSION) !== state.startsWith("plogin_")) {
+    throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
+  }
+  return { schemaVersion, value: { state, ...payload({
     nonce: row.nonce,
     codeVerifier: row.codeVerifier,
     redirectUri: row.redirectUri,
@@ -71,7 +93,8 @@ function transaction(value: unknown, expectedCallbackAuthority: string): OidcAut
     expectedAudience: row.expectedAudience,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
-  }, expectedCallbackAuthority) };
+    ...(row.panelLoginBinding === undefined ? {} : { panelLoginBinding: row.panelLoginBinding }),
+  }, expectedCallbackAuthority, schemaVersion) } };
 }
 
 function integer(value: unknown): number {
@@ -122,18 +145,20 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
   }
 
   async save(input: OidcAuthorizationTransaction): Promise<void> {
-    const validated = transaction(input, this.callbackAuthority);
+    const validatedTransaction = transaction(input, this.callbackAuthority);
+    const validated = validatedTransaction.value;
+    const schemaVersion = validatedTransaction.schemaVersion;
     const digest = this.options.stateDigester.digest(validated.state);
     const { state: _state, ...stored } = validated;
     const sealed = this.options.payloadCipher.encrypt({
-      binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion: SCHEMA_VERSION },
+      binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion },
       payload: stored,
     });
     await withIdentityTransaction(this.options, "oidc", async (client) => {
       try {
         await client.query(
           "INSERT INTO saas.oidc_transactions (state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, 'active', $6::timestamptz, $6::timestamptz, $7::timestamptz)",
-          [digest, Buffer.from(sealed.ciphertext), Buffer.from(sealed.iv), sealed.keyId, SCHEMA_VERSION, validated.createdAt, validated.expiresAt],
+          [digest, Buffer.from(sealed.ciphertext), Buffer.from(sealed.iv), sealed.keyId, schemaVersion, validated.createdAt, validated.expiresAt],
         );
       } catch (error) {
         if ((error as { code?: unknown })?.code === "23505") {
@@ -160,10 +185,11 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
       if (current === "consumed") throw new OidcFlowError("oidc_state_replayed", "OIDC state was already consumed.");
       if (current !== "active") throw new OidcFlowError("oidc_invalid_state", "OIDC state is invalid.");
 
+      const schemaVersion = integer(row.payload_schema_version);
       const stored = payload(this.options.payloadCipher.decrypt({
-        binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion: integer(row.payload_schema_version) },
+        binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion },
         encrypted: encrypted(row),
-      }), this.callbackAuthority);
+      }), this.callbackAuthority, schemaVersion);
       const dbCreatedAt = persistedTimestamp(row.created_at);
       const dbExpiresAt = persistedTimestamp(row.expires_at);
       if (stored.createdAt !== dbCreatedAt || stored.expiresAt !== dbExpiresAt) throw new IdentityPersistenceError();
@@ -185,6 +211,47 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
     });
     if (outcome.expired) throw new OidcFlowError("oidc_state_expired", "OIDC state has expired.");
     return { state: rawState, ...outcome.stored };
+  }
+
+  async inspectPanelLoginBinding(
+    rawState: string,
+    candidates: readonly Readonly<{ keyId: string; digest: string }>[],
+    now: Date,
+  ): Promise<"denied" | "not_panel_login" | Readonly<{ kind: "approved"; binding: Readonly<{ keyId: string; digest: string }> }>> {
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !Array.isArray(candidates) || candidates.length < 1 || candidates.length > 16) {
+      throw new IdentityPersistenceError();
+    }
+    const proofs = candidates.map((candidate) => {
+      if (!candidate || typeof candidate !== "object") throw new IdentityPersistenceError();
+      const keyId = requiredString(candidate.keyId, 64);
+      const digest = requiredString(candidate.digest, 64);
+      if (!KEY_ID.test(keyId) || keyId.includes("..") || !DIGEST.test(digest)) throw new IdentityPersistenceError();
+      return Object.freeze({ keyId, digest });
+    });
+    const digest = this.options.stateDigester.digest(rawState);
+    return withIdentityTransaction(this.options, "oidc", async (client) => {
+      const selected = await client.query(
+        "SELECT state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, created_at, expires_at FROM saas.oidc_transactions WHERE state_digest = $1",
+        [digest],
+      );
+      const row = selected.rows[0];
+      if (!row) return "not_panel_login" as const;
+      const schemaVersion = integer(row.payload_schema_version);
+      if (schemaVersion === REGISTRATION_SCHEMA_VERSION) return "not_panel_login" as const;
+      if (schemaVersion !== PANEL_LOGIN_SCHEMA_VERSION || status(row.status) !== "active") return "denied" as const;
+      const stored = payload(this.options.payloadCipher.decrypt({
+        binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion },
+        encrypted: encrypted(row),
+      }), this.callbackAuthority, schemaVersion);
+      if (
+        persistedTimestamp(row.created_at) !== stored.createdAt || persistedTimestamp(row.expires_at) !== stored.expiresAt ||
+        Date.parse(stored.expiresAt) <= now.getTime() || !stored.panelLoginBinding
+      ) return "denied" as const;
+      const matched = proofs.find((proof) =>
+        proof.keyId === stored.panelLoginBinding!.keyId && proof.digest === stored.panelLoginBinding!.digest
+      );
+      return matched ? Object.freeze({ kind: "approved" as const, binding: matched }) : "denied" as const;
+    });
   }
 
   async discard(rawState: string): Promise<void> {

@@ -30,13 +30,18 @@ const ROUTES = Object.freeze([
     resolver: "getDefaultCustomerPanelAuthRouteSet",
     handler: "browserCallback",
   }),
+  Object.freeze({
+    file: "apps/customer-panel/app/auth/login/route.ts",
+    resolver: "getDefaultCustomerPanelAuthRouteSet",
+    handler: "browserLogin",
+  }),
 ]);
 
 function read(file) {
   return readFileSync(resolve(ROOT, file), "utf8");
 }
 
-test("all five route files import only their default route-set resolver", () => {
+test("all six route files import only their default route-set resolver", () => {
   for (const route of ROUTES) {
     const path = resolve(ROOT, route.file);
     assert.equal(existsSync(path), true, `${route.file} must exist`);
@@ -62,6 +67,7 @@ test("default route files expose the exact disabled method matrix", async () => 
   const ownerCallback = await import(resolve(ROOT, ROUTES[2].file));
   const customerBootstrap = await import(resolve(ROOT, ROUTES[3].file));
   const customerCallback = await import(resolve(ROOT, ROUTES[4].file));
+  const customerLogin = await import(resolve(ROOT, ROUTES[5].file));
 
   const cases = [
     [ownerRegistration.GET, new Request("https://ecommerce.celebix.co/api/self-serve/register"), 405, "self_serve_register_read_disabled"],
@@ -74,6 +80,8 @@ test("default route files expose the exact disabled method matrix", async () => 
     [customerBootstrap.POST, new Request("https://panel.celebix.site/auth/bootstrap", { method: "POST" }), 503, "panel_browser_bootstrap_disabled"],
     [customerCallback.GET, new Request("https://panel.celebix.site/auth/callback"), 503, "panel_auth_disabled"],
     [customerCallback.POST, new Request("https://panel.celebix.site/auth/callback", { method: "POST" }), 405, "panel_callback_method_not_allowed"],
+    [customerLogin.GET, new Request("https://panel.celebix.site/auth/login"), 503, "panel_login_disabled"],
+    [customerLogin.POST, new Request("https://panel.celebix.site/auth/login", { method: "POST" }), 405, "panel_login_method_not_allowed"],
   ];
   for (const [handler, request, status, code] of cases) {
     const response = await handler(request);

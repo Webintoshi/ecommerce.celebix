@@ -202,6 +202,8 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
   stateDigester: OpaqueStateDigester;
   browserBindingCredentialCodec: PanelBrowserBindingAuthorityCodec;
   browserBindingRepository: PostgresPanelBrowserBindingRepository;
+  returningLogin?: NonNullable<Parameters<typeof createOwnerPanelSessionInitialCallbackHandler>[0]["returningLogin"]> &
+    NonNullable<Parameters<typeof createOwnerPanelBrowserBindingInternalGateway>[0]["returningLogin"]>;
   ownerInternalOrigin: string;
   browserBindingInternalKeys: ReadonlyMap<string, Uint8Array>;
   sessionCompletionInternalKeys: ReadonlyMap<string, Uint8Array>;
@@ -263,6 +265,7 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     clock,
     maximumBodyBytes: options.browserBindingMaximumBodyBytes,
     repository,
+    ...(options.returningLogin ? { returningLogin: options.returningLogin } : {}),
     audit: options.browserBindingGatewayAudit,
   });
 
@@ -282,6 +285,7 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     initialCallbackGrantBoundary,
     issuer,
     browserBindingRepository: repository,
+    ...(options.returningLogin ? { returningLogin: options.returningLogin } : {}),
     clock,
     audit: options.initialCallbackAudit,
   });

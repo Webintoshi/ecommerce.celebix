@@ -36,6 +36,15 @@ export type PanelBrowserBindingInternalResult = Readonly<
     }
 >;
 
+export type PanelReturningLoginInternalResult = Readonly<
+  | {
+      kind: "panel_login_ready";
+      providerAuthorizationUrl: string;
+      browserBindingExpiresAt: string;
+    }
+  | { kind: "panel_login_unavailable"; retryable: false }
+>;
+
 type Audit = (event: Readonly<{
   stage: "request" | "response_authentication" | "response_projection";
   outcome: "completed" | "rejected" | "unavailable";
@@ -170,6 +179,40 @@ function parseResult(
   return result;
 }
 
+function parseLoginResult(
+  raw: string,
+  status: number,
+  callbackAuthority: string,
+  clock: () => Date,
+): PanelReturningLoginInternalResult {
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return invalid(); }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) invalid();
+  const body = parsed as Record<string, unknown>;
+  let result: PanelReturningLoginInternalResult;
+  if (status === 200) {
+    exactKeys(body, ["schemaVersion", "kind", "providerAuthorizationUrl", "browserBindingExpiresAt"]);
+    if (body.schemaVersion !== 2 || body.kind !== "panel_login_ready") invalid();
+    const providerAuthorizationUrl = canonicalProviderUrl(body.providerAuthorizationUrl, callbackAuthority);
+    const browserBindingExpiresAt = timestamp(body.browserBindingExpiresAt);
+    const remaining = Date.parse(browserBindingExpiresAt) - trustedNow(clock).getTime();
+    if (remaining < 1_000 || remaining > 15 * 60_000) invalid();
+    result = Object.freeze({ kind: "panel_login_ready", providerAuthorizationUrl, browserBindingExpiresAt });
+  } else {
+    exactKeys(body, ["schemaVersion", "kind", "code", "retryable"]);
+    if (
+      body.schemaVersion !== 2 || body.kind !== "panel_login_rejected" ||
+      body.code !== "panel_login_unavailable" || body.retryable !== false || status !== 503
+    ) invalid();
+    result = Object.freeze({ kind: "panel_login_unavailable", retryable: false });
+  }
+  const canonical = result.kind === "panel_login_ready"
+    ? { schemaVersion: 2, ...result }
+    : { schemaVersion: 2, kind: "panel_login_rejected", code: result.kind, retryable: false };
+  if (JSON.stringify(canonical) !== raw) invalid();
+  return result;
+}
+
 function auditSafely(audit: Audit, event: Parameters<Audit>[0]): void {
   try { void Promise.resolve(audit(Object.freeze({ ...event }))).catch(() => undefined); }
   catch { /* Audit is observational only. */ }
@@ -205,72 +248,88 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
   const maximumResponseBytes = options.maximumResponseBytes;
   const audit = options.audit;
 
+  async function exchange(body: string): Promise<{ raw: string; status: number }> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
+    try {
+      const bodyBytes = new TextEncoder().encode(body);
+      const requestBodyDigest = createHash("sha256").update(bodyBytes).digest("hex");
+      if (!DIGEST.test(requestBodyDigest)) invalid();
+      const requestTimestamp = String(trustedNow(clock).getTime());
+      if (!/^\d{13}$/.test(requestTimestamp)) invalid();
+      const signature = createHmac("sha256", secret)
+        .update(`${PANEL_BROWSER_BOOTSTRAP_REQUEST_SIGNATURE_DOMAIN}\n${requestTimestamp}\n${requestBodyDigest}`, "utf8")
+        .digest("base64url");
+      const request = new Request(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "x-celebix-browser-bootstrap-key-id": keyId,
+          "x-celebix-browser-bootstrap-timestamp": requestTimestamp,
+          "x-celebix-browser-bootstrap-signature": signature,
+        },
+        body,
+        redirect: "manual",
+        credentials: "omit",
+      });
+      const deadline = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => { controller.abort(); reject(new Error("deadline")); }, deadlineMs);
+      });
+      const response = await Promise.race([fetch(new Request(request, { signal: controller.signal })), deadline]);
+      if (!(response instanceof Response) || response.redirected || response.status >= 300 && response.status < 400 ||
+          response.url !== endpoint || response.headers.get("content-type") !== "application/json; charset=utf-8" ||
+          response.headers.get("cache-control") !== "no-store" || response.headers.has("set-cookie") || response.headers.has("location") ||
+          ![200, 400, 401, 409, 503].includes(response.status)) invalid();
+      if (response.headers.get("x-celebix-browser-bootstrap-response-key-id") !== keyId ||
+          response.headers.get("x-celebix-browser-bootstrap-response-timestamp") !== requestTimestamp) invalid();
+      const responseSignature = canonicalSignature(response.headers.get("x-celebix-browser-bootstrap-response-signature"));
+      const rawBytes = await boundedBytes(response, maximumResponseBytes, controller.signal);
+      const responseBodyDigest = createHash("sha256").update(rawBytes).digest("hex");
+      const preimage = [
+        PANEL_BROWSER_BOOTSTRAP_RESPONSE_SIGNATURE_DOMAIN,
+        requestTimestamp,
+        requestBodyDigest,
+        String(response.status),
+        responseBodyDigest,
+      ].join("\n");
+      const expected = createHmac("sha256", secret).update(preimage, "utf8").digest();
+      if (responseSignature.byteLength !== expected.byteLength || !timingSafeEqual(responseSignature, expected)) invalid();
+      auditSafely(audit, { stage: "response_authentication", outcome: "completed" });
+      return { raw: new TextDecoder("utf-8", { fatal: true }).decode(rawBytes), status: response.status };
+    } catch {
+      auditSafely(audit, { stage: "response_authentication", outcome: "rejected" });
+      return invalid();
+    } finally { if (timer !== undefined) clearTimeout(timer); }
+  }
+
   return Object.freeze({
     async bind(input: {
       bootstrapCredential: string;
       providerAuthorizationUrl: string;
       browserBindingCredential: string;
     }): Promise<PanelBrowserBindingInternalResult> {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const controller = new AbortController();
-      try {
-        const body = JSON.stringify({
-          schemaVersion: 1,
-          bootstrapCredential: canonicalBootstrapCredential(input?.bootstrapCredential),
-          providerAuthorizationUrl: canonicalProviderUrl(input.providerAuthorizationUrl, panelCallbackAuthority),
-          browserBindingCredential: canonicalPanelBrowserBindingCredential(input.browserBindingCredential),
-        });
-        const bodyBytes = new TextEncoder().encode(body);
-        const requestBodyDigest = createHash("sha256").update(bodyBytes).digest("hex");
-        if (!DIGEST.test(requestBodyDigest)) invalid();
-        const requestTimestamp = String(trustedNow(clock).getTime());
-        if (!/^\d{13}$/.test(requestTimestamp)) invalid();
-        const signature = createHmac("sha256", secret)
-          .update(`${PANEL_BROWSER_BOOTSTRAP_REQUEST_SIGNATURE_DOMAIN}\n${requestTimestamp}\n${requestBodyDigest}`, "utf8")
-          .digest("base64url");
-        const request = new Request(endpoint, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "x-celebix-browser-bootstrap-key-id": keyId,
-            "x-celebix-browser-bootstrap-timestamp": requestTimestamp,
-            "x-celebix-browser-bootstrap-signature": signature,
-          },
-          body,
-          redirect: "manual",
-          credentials: "omit",
-        });
-        const deadline = new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(() => { controller.abort(); reject(new Error("deadline")); }, deadlineMs);
-        });
-        const response = await Promise.race([fetch(new Request(request, { signal: controller.signal })), deadline]);
-        if (!(response instanceof Response) || response.redirected || response.status >= 300 && response.status < 400 ||
-            response.url !== endpoint || response.headers.get("content-type") !== "application/json; charset=utf-8" ||
-            response.headers.get("cache-control") !== "no-store" || response.headers.has("set-cookie") || response.headers.has("location") ||
-            ![200, 400, 401, 409, 503].includes(response.status)) invalid();
-        if (response.headers.get("x-celebix-browser-bootstrap-response-key-id") !== keyId ||
-            response.headers.get("x-celebix-browser-bootstrap-response-timestamp") !== requestTimestamp) invalid();
-        const responseSignature = canonicalSignature(response.headers.get("x-celebix-browser-bootstrap-response-signature"));
-        const rawBytes = await boundedBytes(response, maximumResponseBytes, controller.signal);
-        const responseBodyDigest = createHash("sha256").update(rawBytes).digest("hex");
-        const preimage = [
-          PANEL_BROWSER_BOOTSTRAP_RESPONSE_SIGNATURE_DOMAIN,
-          requestTimestamp,
-          requestBodyDigest,
-          String(response.status),
-          responseBodyDigest,
-        ].join("\n");
-        const expected = createHmac("sha256", secret).update(preimage, "utf8").digest();
-        if (responseSignature.byteLength !== expected.byteLength || !timingSafeEqual(responseSignature, expected)) invalid();
-        auditSafely(audit, { stage: "response_authentication", outcome: "completed" });
-        const raw = new TextDecoder("utf-8", { fatal: true }).decode(rawBytes);
-        const result = parseResult(raw, response.status, input.providerAuthorizationUrl, panelCallbackAuthority, clock);
-        auditSafely(audit, { stage: "response_projection", outcome: "completed" });
-        return result;
-      } catch {
-        auditSafely(audit, { stage: "response_authentication", outcome: "rejected" });
-        return invalid();
-      } finally { if (timer !== undefined) clearTimeout(timer); }
+      const providerAuthorizationUrl = canonicalProviderUrl(input.providerAuthorizationUrl, panelCallbackAuthority);
+      const body = JSON.stringify({
+        schemaVersion: 1,
+        bootstrapCredential: canonicalBootstrapCredential(input?.bootstrapCredential),
+        providerAuthorizationUrl,
+        browserBindingCredential: canonicalPanelBrowserBindingCredential(input.browserBindingCredential),
+      });
+      const response = await exchange(body);
+      const result = parseResult(response.raw, response.status, providerAuthorizationUrl, panelCallbackAuthority, clock);
+      auditSafely(audit, { stage: "response_projection", outcome: "completed" });
+      return result;
+    },
+
+    async start(input: { browserBindingCredential: string }): Promise<PanelReturningLoginInternalResult> {
+      const body = JSON.stringify({
+        schemaVersion: 2,
+        browserBindingCredential: canonicalPanelBrowserBindingCredential(input?.browserBindingCredential),
+      });
+      const response = await exchange(body);
+      const result = parseLoginResult(response.raw, response.status, panelCallbackAuthority, clock);
+      auditSafely(audit, { stage: "response_projection", outcome: "completed" });
+      return result;
     },
   });
 }

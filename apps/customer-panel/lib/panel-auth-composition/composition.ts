@@ -7,6 +7,7 @@ import { createPanelBrowserBindingCredentialGenerator } from "../panel-browser-b
 import { createPanelBrowserBindingBootstrapApproval } from "../panel-browser-binding-bootstrap/activation.ts";
 import { createPanelBrowserBindingBootstrapHandler } from "../panel-browser-binding-bootstrap/handler.ts";
 import { createAuthenticatedPanelBrowserBindingTransport } from "../panel-browser-binding-bootstrap/transport.ts";
+import { createPanelReturningLoginHandler } from "../panel-returning-login/handler.ts";
 import { createPanelSessionCompletionApproval } from "../panel-session-completion/activation.ts";
 import { createPanelSessionCompletionHandler } from "../panel-session-completion/completion.ts";
 import { createAuthenticatedPanelSessionCompletionTransport } from "../panel-session-completion/transport.ts";
@@ -31,12 +32,14 @@ export type CustomerPanelAuthReadiness = Readonly<{
   endpoints: Readonly<{
     browserBootstrap: Readonly<{ method: "POST"; path: "/auth/bootstrap"; state: "disabled_unmounted" }>;
     browserCallback: Readonly<{ method: "GET"; path: "/auth/callback"; state: "disabled_unmounted" }>;
+    browserLogin: Readonly<{ method: "GET"; path: "/auth/login"; state: "disabled_unmounted" }>;
   }>;
 }>;
 
 export type DisabledCustomerPanelAuthComposition = Readonly<{
   browserBootstrapHandler: ReturnType<typeof createPanelBrowserBindingBootstrapHandler>;
   panelSessionCompletionHandler: ReturnType<typeof createPanelSessionCompletionHandler>;
+  panelReturningLoginHandler: ReturnType<typeof createPanelReturningLoginHandler>;
   readiness: CustomerPanelAuthReadiness;
 }>;
 
@@ -59,6 +62,11 @@ function readiness(): CustomerPanelAuthReadiness {
     browserCallback: Object.freeze({
       method: "GET" as const,
       path: "/auth/callback" as const,
+      state: "disabled_unmounted" as const,
+    }),
+    browserLogin: Object.freeze({
+      method: "GET" as const,
+      path: "/auth/login" as const,
       state: "disabled_unmounted" as const,
     }),
   });
@@ -130,6 +138,7 @@ export function createDisabledCustomerPanelAuthComposition(options: {
   });
 
   const browserApproval = createPanelBrowserBindingBootstrapApproval(environment);
+  const browserCredentialGenerator = createPanelBrowserBindingCredentialGenerator(randomBytes);
   const browserTransport = createAuthenticatedPanelBrowserBindingTransport({
     activationApproval: browserApproval,
     ownerInternalOrigin: options.ownerInternalOrigin,
@@ -147,10 +156,16 @@ export function createDisabledCustomerPanelAuthComposition(options: {
     sourceOrigin: authority.ownerOrigin,
     publicBootstrapAuthority: authority.panelBootstrapUrl,
     maximumBodyBytes: options.browserBinding.maximumBodyBytes,
-    credentialGenerator: createPanelBrowserBindingCredentialGenerator(randomBytes),
+    credentialGenerator: browserCredentialGenerator,
     transport: browserTransport,
     clock,
     audit: options.browserBinding.handlerAudit,
+  });
+  const panelReturningLoginHandler = createPanelReturningLoginHandler({
+    publicLoginAuthority: `${authority.panelOrigin}/auth/login`,
+    credentialGenerator: browserCredentialGenerator,
+    transport: browserTransport,
+    clock,
   });
 
   const sessionApproval = createPanelSessionCompletionApproval(environment);
@@ -180,6 +195,7 @@ export function createDisabledCustomerPanelAuthComposition(options: {
   const composition: DisabledCustomerPanelAuthComposition = {
     browserBootstrapHandler,
     panelSessionCompletionHandler,
+    panelReturningLoginHandler,
     readiness: readiness(),
   };
   compositions.add(composition);

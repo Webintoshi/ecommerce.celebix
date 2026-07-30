@@ -1,0 +1,24 @@
+{
+  "phase": "phase3-returning-panel-login",
+  "postgresqlMajor": 16,
+  "classification": "additive-verified-identity-panel-session-authority",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607300068_returning_panel_login_sessions.up.sql",
+      "direction": "up",
+      "sha256": "39e811e7fa0e6e9f5a10bde20eb3c99d58bd78b76d8230e610ad12acebd94c29"
+    },
+    {
+      "file": "202607300068_returning_panel_login_sessions.down.sql",
+      "direction": "down",
+      "sha256": "cbb1a8ffe7070d0950999259f766d361e09ee60f6ad290eb71e249ef722ff91c"
+    },
+    {
+      "file": "202607300068_returning_panel_login_sessions_assertions.sql",
+      "direction": "verify",
+      "sha256": "538649d6e5aaac096455704c26c7fa766e9c860b93b4158f90894ef8feaa5709"
+    }
+  ]
+}

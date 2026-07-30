@@ -6,6 +6,7 @@ import { createOwnerInternalCallbackRequestAuthenticator } from "../self-serve-h
 import {
   canonicalOwnerPanelSessionHandoffResult,
   createFreshLoginRequiredResult,
+  createSessionReadyResult,
   createSessionHandoffReadyResult,
   createSignedOwnerPanelSessionHandoffResponse,
   ownerPanelSessionHandoffResponseSignaturePreimage,
@@ -18,6 +19,8 @@ const NOW = new Date("2026-07-14T12:00:00.000Z");
 const SECRET = new Uint8Array(32).fill(0x35);
 const HANDOFF = `h1.handoff.active.${Buffer.alloc(32, 0x44).toString("base64url")}`;
 const EXPIRES = new Date(NOW.getTime() + 600_000).toISOString();
+const SESSION = `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`;
+const SESSION_EXPIRES = new Date(NOW.getTime() + 28_800_000).toISOString();
 
 async function authority() {
   const body = JSON.stringify({ schemaVersion: 1, callbackUrl: CALLBACK });
@@ -69,6 +72,19 @@ test("canonical success JSON and exact domain-separated response signature bind 
   assert.equal(Buffer.from(signature, "base64url").byteLength, 32);
   assert.equal(response.headers.has("set-cookie"), false);
   assert.equal(response.headers.has("location"), false);
+});
+
+test("returning login signs only the exact durable session projection", async () => {
+  const authenticated = await authority();
+  const result = createSessionReadyResult(SESSION, NOW.toISOString(), SESSION_EXPIRES);
+  const raw = canonicalOwnerPanelSessionHandoffResult(result);
+  assert.equal(raw, `{"schemaVersion":1,"kind":"session_ready","sessionCredential":"${SESSION}","sessionIssuedAt":"${NOW.toISOString()}","sessionExpiresAt":"${SESSION_EXPIRES}","redirectPath":"/"}`);
+  const response = createSignedOwnerPanelSessionHandoffResponse(result, authenticated);
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), raw);
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(response.headers.has("location"), false);
+  assert.throws(() => createSessionReadyResult("v1.bad", NOW.toISOString(), SESSION_EXPIRES), /owner_panel_session_handoff_response_invalid/);
 });
 
 test("fresh-login results use only the exact canonical status/code matrix", async () => {

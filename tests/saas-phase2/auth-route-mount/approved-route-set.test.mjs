@@ -35,7 +35,7 @@ test("approved-staging route sets require genuine approvals and genuine composit
   assert.deepEqual(Object.keys(owner), [
     "publicRegistration", "internalBrowserBinding", "internalCallback", "readiness",
   ]);
-  assert.deepEqual(Object.keys(customer), ["browserBootstrap", "browserCallback", "readiness"]);
+  assert.deepEqual(Object.keys(customer), ["browserBootstrap", "browserCallback", "browserLogin", "readiness"]);
   assert.equal(owner.readiness.mode, "approved_staging_injected");
   assert.equal(customer.readiness.mode, "approved_staging_injected");
   assert.equal(Object.isFrozen(owner), true);

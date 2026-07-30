@@ -122,7 +122,7 @@ test("all 48 merchant rows retain their exact route status evidence and action c
   const merchantRecordRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay";
   const paymentSettingsEvidence = "apps/customer-panel/lib/routes.test.ts#dedicated payment settings route validates hints and retires generic editors";
   const merchantHubEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#static merchant hubs invoke actual pages and expose only canonical destination links";
-  const loginEvidence = "apps/customer-panel/lib/routes.test.ts#login and logout remain disabled without a persistent session adapter";
+  const loginEvidence = "apps/customer-panel/lib/routes.test.ts#login and logout remain fail-closed without approved staging auth authority";
   const legacyEvidence = "apps/customer-panel/lib/panel-ui/navigation.test.ts#legacy donor spellings stay inert while canonical safe targets remain navigable";
   const crud = ["list_records", "read_exact_record", "create_record", "update_record", "archive_record"] as const;
   const provider = [...crud, "prepare_provider_action", "cancel_provider_preparation"] as const;

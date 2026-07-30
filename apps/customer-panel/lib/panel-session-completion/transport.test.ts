@@ -17,6 +17,9 @@ const SECRET = new Uint8Array(32).fill(0x35);
 const HANDOFF = `h1.handoff.active.${Buffer.alloc(32, 0x44).toString("base64url")}`;
 const EXPIRES = new Date(NOW.getTime() + 600_000).toISOString();
 const SUCCESS = `{"schemaVersion":1,"kind":"session_handoff_ready","handoffCredential":"${HANDOFF}","handoffExpiresAt":"${EXPIRES}","redirectPath":"/"}`;
+const SESSION = `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`;
+const SESSION_EXPIRES = new Date(NOW.getTime() + 28_800_000).toISOString();
+const SESSION_READY = `{"schemaVersion":1,"kind":"session_ready","sessionCredential":"${SESSION}","sessionIssuedAt":"${NOW.toISOString()}","sessionExpiresAt":"${SESSION_EXPIRES}","redirectPath":"/"}`;
 
 function withUrl(response: Response, url = ENDPOINT, redirected = false) {
   Object.defineProperty(response, "url", { configurable: true, value: url });
@@ -107,6 +110,19 @@ test("verifies the exact signed success before returning one frozen internal pro
     callbackUrl: CALLBACK,
     browserBindingCredential: BINDING,
   }));
+});
+
+test("accepts the exact signed returning-login session projection", async () => {
+  const result = await fixture((request) => signedResponse(request, { body: SESSION_READY })).complete(CALLBACK, BINDING);
+  assert.deepEqual(result, {
+    schemaVersion: 1,
+    kind: "session_ready",
+    sessionCredential: SESSION,
+    sessionIssuedAt: NOW.toISOString(),
+    sessionExpiresAt: SESSION_EXPIRES,
+    redirectPath: "/",
+  });
+  assert.equal(Object.isFrozen(result), true);
 });
 
 test("accepts only the canonical signed fresh-login result matrix", async () => {

@@ -383,6 +383,68 @@ test("OIDC consume rejects DB expiry authority that differs from its encrypted t
   }
 });
 
+test("persisted returning-login transaction keeps the binding encrypted and supports read-only pre-consumption proof", async () => {
+  const writer = new FakeClient();
+  const options = dependencies(writer);
+  const transaction = {
+    ...oidcTransaction(),
+    state: `plogin_${Buffer.alloc(32, 9).toString("base64url")}`,
+    returnTo: "/login",
+    panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) },
+  } satisfies OidcAuthorizationTransaction;
+  await new PostgresOidcTransactionStore(options).save(transaction);
+  const inserted = writer.calls.find((call) => call.text.startsWith("INSERT INTO saas.oidc_transactions"));
+  assert.ok(inserted);
+  assert.equal(inserted.values[4], 2);
+  assert.doesNotMatch(JSON.stringify(inserted.values), /browser-active|aaaaaaaaaaaaaaaa|plogin_/);
+
+  const authorityRow = {
+    state_digest: inserted.values[0],
+    payload_ciphertext: inserted.values[1],
+    payload_iv: inserted.values[2],
+    encryption_key_id: inserted.values[3],
+    payload_schema_version: inserted.values[4],
+    status: "active",
+    created_at: new Date(String(inserted.values[5])),
+    expires_at: new Date(String(inserted.values[6])),
+  };
+  for (const [candidates, expected] of [
+    [[{ keyId: "browser-active", digest: "a".repeat(64) }], { kind: "approved", binding: { keyId: "browser-active", digest: "a".repeat(64) } }],
+    [[{ keyId: "browser-old", digest: "a".repeat(64) }], "denied"],
+    [[{ keyId: "browser-active", digest: "b".repeat(64) }], "denied"],
+  ] as const) {
+    const reader = new FakeClient();
+    reader.queued.push([], [], [], [], [], [authorityRow]);
+    const result = await new PostgresOidcTransactionStore({ ...options, pool: { connect: async () => reader } })
+      .inspectPanelLoginBinding(transaction.state, candidates, now);
+    assert.deepEqual(result, expected);
+    assert.equal(reader.calls.at(-1)?.text, "COMMIT");
+    assert.equal(reader.calls.some((call) => /^UPDATE /.test(call.text)), false);
+  }
+
+  const registrationReader = new FakeClient();
+  const registrationWriter = new FakeClient();
+  const registrationOptions = dependencies(registrationWriter);
+  await new PostgresOidcTransactionStore(registrationOptions).save(oidcTransaction());
+  const registrationInsert = registrationWriter.calls.find((call) => call.text.startsWith("INSERT INTO saas.oidc_transactions"));
+  assert.ok(registrationInsert);
+  registrationReader.queued.push([], [], [], [], [], [{
+    ...authorityRow,
+    state_digest: registrationInsert.values[0],
+    payload_ciphertext: registrationInsert.values[1],
+    payload_iv: registrationInsert.values[2],
+    encryption_key_id: registrationInsert.values[3],
+    payload_schema_version: registrationInsert.values[4],
+    created_at: new Date(String(registrationInsert.values[5])),
+    expires_at: new Date(String(registrationInsert.values[6])),
+  }]);
+  assert.equal(
+    await new PostgresOidcTransactionStore({ ...registrationOptions, pool: { connect: async () => registrationReader } })
+      .inspectPanelLoginBinding(oidcState, [{ keyId: "browser-active", digest: "a".repeat(64) }], now),
+    "not_panel_login",
+  );
+});
+
 test("bounded expiry primitives use fenced fixed SQL and return counts only", async () => {
   const registrationClient = new FakeClient();
   registrationClient.queued.push([], [], [], [], [], [{ expired_count: 2 }]);

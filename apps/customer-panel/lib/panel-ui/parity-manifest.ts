@@ -54,7 +54,7 @@ export type DonorParityEntry = Readonly<{
 
 const EVIDENCE = Object.freeze({
   dashboard: "apps/customer-panel/lib/panel-shell.test.ts#dashboard renders safe chrome, catalog, and durable order facts with truthful working actions",
-  login: "apps/customer-panel/lib/routes.test.ts#login and logout remain disabled without a persistent session adapter",
+  login: "apps/customer-panel/lib/routes.test.ts#login and logout remain fail-closed without approved staging auth authority",
   ordersList: "apps/customer-panel/lib/order-console.test.ts#order client performs strict frozen same-origin summary, list, and detail reads",
   orderDetail: "apps/customer-panel/lib/order-console.test.ts#order client mutations use exact relative paths, JSON, idempotency, and safe frozen results",
   orderPrint: "apps/customer-panel/lib/order-console.test.ts#order print route projects immutable order snapshots without panel authority",

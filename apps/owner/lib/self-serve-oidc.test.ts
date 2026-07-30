@@ -243,6 +243,80 @@ test("returnTo is always the exact approved path without query or fragment", () 
   assert.equal(oidc.sanitizeOidcReturnTo("/kayit"), "/kayit");
 });
 
+test("returning panel login is explicitly browser-bound and cannot be completed as registration", async () => {
+  if (!oidc.beginOidcAuthorization || !oidc.completeOidcCallback || !oidc.InMemoryOidcTransactionStore) return;
+  const provider = new FakeProvider();
+  const store = new oidc.InMemoryOidcTransactionStore();
+  const binding = Object.freeze({ keyId: "browser-active", digest: "a".repeat(64) });
+  const started = await oidc.beginOidcAuthorization({
+    provider,
+    transactionStore: store,
+    redirectUri: REDIRECT_URI,
+    returnTo: "/login",
+    panelLoginBinding: binding,
+    expectedIssuer: EXPECTED_ISSUER,
+    expectedAudience: EXPECTED_AUDIENCE,
+    expectedAuthorizationOrigin: "https://identity.example.test",
+    now: () => NOW,
+  });
+  assert.match(started.state, /^plogin_[A-Za-z0-9_-]{40,}$/);
+  assert.equal(started.returnTo, "/login");
+  const nonce = new URL(started.authorizationUrl).searchParams.get("nonce");
+  assert.ok(nonce);
+  provider.identities.set("login-code", verifiedIdentity({ nonce }));
+
+  await assert.rejects(
+    () => oidc.completeOidcCallback!({
+      provider,
+      transactionStore: store,
+      callback: { code: "login-code", state: started.state },
+      now: () => NOW,
+    }),
+    (error: unknown) => (error as { code?: string }).code === "oidc_invalid_callback",
+  );
+  assert.equal(provider.lastCallbackInput, null);
+});
+
+test("returning panel login accepts only the exact persisted browser-binding proof", async () => {
+  if (!oidc.beginOidcAuthorization || !oidc.completeOidcCallback || !oidc.InMemoryOidcTransactionStore) return;
+  for (const proof of [
+    { keyId: "wrong", digest: "a".repeat(64) },
+    { keyId: "browser-active", digest: "b".repeat(64) },
+    { keyId: "browser-active", digest: "a".repeat(64) },
+  ]) {
+    const provider = new FakeProvider();
+    const store = new oidc.InMemoryOidcTransactionStore();
+    const started = await oidc.beginOidcAuthorization({
+      provider,
+      transactionStore: store,
+      redirectUri: REDIRECT_URI,
+      returnTo: "/login",
+      panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) },
+      expectedIssuer: EXPECTED_ISSUER,
+      expectedAudience: EXPECTED_AUDIENCE,
+      expectedAuthorizationOrigin: "https://identity.example.test",
+      now: () => NOW,
+    });
+    const nonce = new URL(started.authorizationUrl).searchParams.get("nonce");
+    assert.ok(nonce);
+    provider.identities.set("login-code", verifiedIdentity({ nonce }));
+    const completion = oidc.completeOidcCallback({
+      provider,
+      transactionStore: store,
+      callback: { code: "login-code", state: started.state },
+      panelLoginBinding: proof,
+      now: () => NOW,
+    });
+    if (proof.keyId === "browser-active" && proof.digest === "a".repeat(64)) {
+      assert.equal((await completion).returnTo, "/login");
+      assert.equal(provider.lastCallbackInput?.code, "login-code");
+    } else {
+      await assert.rejects(completion, (error: unknown) => (error as { code?: string }).code === "oidc_invalid_callback");
+      assert.equal(provider.lastCallbackInput, null);
+    }
+  }
+});
+
 test("rejects blank normalized callback state and code before consuming state or calling provider", async () => {
   if (!oidc.completeOidcCallback || !oidc.InMemoryOidcTransactionStore) return;
   const provider = new FakeProvider();

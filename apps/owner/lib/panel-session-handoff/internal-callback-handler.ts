@@ -17,6 +17,7 @@ import {
 } from "./initial-callback-grant.ts";
 import {
   createFreshLoginRequiredResult,
+  createSessionReadyResult,
   createSessionHandoffReadyResult,
   type OwnerPanelSessionHandoffInternalResult,
 } from "./internal-response.ts";
@@ -84,6 +85,25 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
   initialCallbackGrantBoundary: InitialVerifiedCallbackGrantBoundary;
   issuer: PostgresPanelSessionHandoffIssuer;
   browserBindingRepository: Pick<PostgresPanelBrowserBindingRepository, "claimCallback">;
+  returningLogin?: Readonly<{
+    tryComplete(
+      callback: Readonly<{ state: string; code: string; responseIssuer?: string }>,
+      browserBindingCredential: string,
+    ): Promise<Readonly<
+      | { kind: "not_panel_login" }
+      | { kind: "session_ready"; credential: string; issuedAt: string; expiresAt: string }
+      | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
+    >>;
+    tryRejectProvider(
+      state: string,
+      responseIssuer: string | undefined,
+      browserBindingCredential: string,
+    ): Promise<Readonly<
+      | { kind: "not_panel_login" }
+      | { kind: "session_ready"; credential: string; issuedAt: string; expiresAt: string }
+      | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
+    >>;
+  }>;
   clock(): Date;
   audit: HandlerAudit;
 }): OwnerPanelSessionInitialCallbackHandler {
@@ -93,6 +113,7 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
   if (!isInitialVerifiedCallbackGrantBoundaryForRuntime(input.initialCallbackGrantBoundary, input.runtime)) invalid();
   if (!isPostgresPanelSessionHandoffIssuerForBoundary(input.issuer, input.initialCallbackGrantBoundary)) invalid();
   if (!input.browserBindingRepository || typeof input.browserBindingRepository.claimCallback !== "function") invalid();
+  if (input.returningLogin && (typeof input.returningLogin.tryComplete !== "function" || typeof input.returningLogin.tryRejectProvider !== "function")) invalid();
   if (typeof input.clock !== "function" || typeof input.audit !== "function") invalid();
   trustedNow(input.clock);
   const runtime = input.runtime;
@@ -100,6 +121,10 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
   const clock = input.clock;
   const audit = input.audit;
   const claimBrowserCallback = input.browserBindingRepository.claimCallback.bind(input.browserBindingRepository);
+  const returningLogin = input.returningLogin && Object.freeze({
+    tryComplete: input.returningLogin.tryComplete.bind(input.returningLogin),
+    tryRejectProvider: input.returningLogin.tryRejectProvider.bind(input.returningLogin),
+  });
   const executor = createInitialCallbackPanelSessionHandoffExecutor({
     runtime,
     boundary: input.initialCallbackGrantBoundary,
@@ -136,12 +161,44 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
         return createFreshLoginRequiredResult("callback_not_granted");
       }
 
+      let browserCredential: string;
+      try { browserCredential = canonicalBrowserBindingCredential(browserBindingCredential); }
+      catch {
+        auditSafely(audit, { stage: "browser_claim", outcome: "rejected" });
+        return createFreshLoginRequiredResult("callback_not_granted");
+      }
+
+      if (returningLogin) {
+        try {
+          const returning = callback.kind === "provider_error"
+            ? await returningLogin.tryRejectProvider(callback.state, callback.responseIssuer, browserCredential)
+            : await returningLogin.tryComplete({
+                state: callback.state,
+                code: callback.code,
+                ...(callback.responseIssuer ? { responseIssuer: callback.responseIssuer } : {}),
+              }, browserCredential);
+          if (returning.kind === "session_ready") {
+            auditSafely(audit, { stage: "handoff", outcome: "accepted" });
+            return createSessionReadyResult(returning.credential, returning.issuedAt, returning.expiresAt);
+          }
+          if (returning.kind === "fresh_login_required") {
+            const code = returning.code === "callback_replayed"
+              ? "callback_replayed"
+              : returning.code === "callback_unavailable" ? "callback_unavailable" : "callback_not_granted";
+            auditSafely(audit, { stage: "callback", outcome: code === "callback_unavailable" ? "unavailable" : "rejected" });
+            return createFreshLoginRequiredResult(code);
+          }
+        } catch {
+          auditSafely(audit, { stage: "callback", outcome: "unavailable" });
+          return createFreshLoginRequiredResult("callback_unavailable");
+        }
+      }
+
       let claimed: Awaited<ReturnType<typeof claimBrowserCallback>>;
       try {
-        const credential = canonicalBrowserBindingCredential(browserBindingCredential);
         claimed = await claimBrowserCallback({
           rawState: callback.state,
-          browserBindingCredential: credential,
+          browserBindingCredential: browserCredential,
           now: trustedNow(clock),
         });
       } catch {

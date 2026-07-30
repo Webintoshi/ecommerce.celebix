@@ -974,6 +974,10 @@ async function main() {
           "apps/customer-panel/app/auth/callback/route.ts",
           "getDefaultCustomerPanelAuthRouteSet",
         ],
+        [
+          "apps/customer-panel/app/auth/login/route.ts",
+          "getDefaultCustomerPanelAuthRouteSet",
+        ],
       ];
       for (const [relativePath, defaultResolver] of mountedRoutes) {
         const absolutePath = path.join(ROOT, relativePath);
@@ -1039,6 +1043,7 @@ async function main() {
       assert.deepEqual(Object.keys(authorities.customer), [
         "browserBootstrapHandler",
         "panelSessionCompletionHandler",
+        "panelReturningLoginHandler",
         "readiness",
       ]);
       assert.equal(authorities.owner.readiness.productionActivation, "forbidden");

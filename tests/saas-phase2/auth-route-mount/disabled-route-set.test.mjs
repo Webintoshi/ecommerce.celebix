@@ -150,7 +150,7 @@ test("disabled customer route set is exact, genuine, frozen, and always the defa
   } = await import(CUSTOMER_MODULE);
 
   const routeSet = createDisabledCustomerPanelAuthRouteSet();
-  assert.deepEqual(Object.keys(routeSet), ["browserBootstrap", "browserCallback", "readiness"]);
+  assert.deepEqual(Object.keys(routeSet), ["browserBootstrap", "browserCallback", "browserLogin", "readiness"]);
   assert.equal(Object.isFrozen(routeSet), true);
   assert.equal(Object.isSealed(routeSet), true);
   assert.deepEqual(routeSet.readiness, {
@@ -168,6 +168,11 @@ test("disabled customer route set is exact, genuine, frozen, and always the defa
       browserCallback: {
         method: "GET",
         path: "/auth/callback",
+        state: "mounted_disabled",
+      },
+      browserLogin: {
+        method: "GET",
+        path: "/auth/login",
         state: "mounted_disabled",
       },
     },
@@ -210,6 +215,18 @@ test("disabled customer route set preserves fail-closed HTTP behavior", async ()
       request("https://panel.celebix.site/auth/callback", "POST"),
       405,
       "panel_callback_method_not_allowed",
+    ],
+    [
+      routeSet.browserLogin,
+      request("https://panel.celebix.site/auth/login", "GET"),
+      503,
+      "panel_login_disabled",
+    ],
+    [
+      routeSet.browserLogin,
+      request("https://panel.celebix.site/auth/login", "POST"),
+      405,
+      "panel_login_method_not_allowed",
     ],
   ];
   for (const [handler, input, status, code] of cases) {

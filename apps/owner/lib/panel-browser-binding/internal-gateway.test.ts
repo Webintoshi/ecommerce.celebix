@@ -57,6 +57,7 @@ function signedRequest(overrides: {
 
 function fixture(kind: PanelBrowserBindingResult["kind"] = "browser_binding_created") {
   const binds: unknown[] = [];
+  const loginStarts: string[] = [];
   const gateway = createOwnerPanelBrowserBindingInternalGateway({
     activationApproval: createPanelBrowserBindingInternalGatewayApproval("disposable_test"),
     ownerInternalOrigin: ORIGIN,
@@ -71,9 +72,15 @@ function fixture(kind: PanelBrowserBindingResult["kind"] = "browser_binding_crea
           : { kind };
       },
     },
+    returningLogin: {
+      async start(credential) {
+        loginStarts.push(credential);
+        return { kind: "panel_login_ready" as const, providerAuthorizationUrl: PROVIDER, browserBindingExpiresAt: new Date(NOW.getTime() + 600_000).toISOString() };
+      },
+    },
     audit() {},
   });
-  return { gateway, binds };
+  return { gateway, binds, loginStarts };
 }
 
 function verifyResponse(response: Response, requestBody: string) {
@@ -180,4 +187,20 @@ test("write uncertainty and URL mismatch are signed fail-closed responses withou
     assert.equal(response.headers.has("set-cookie"), false);
     assert.equal(response.headers.has("location"), false);
   }
+});
+
+test("schema v2 starts returning login after the same raw-byte HMAC authentication", async () => {
+  const current = fixture();
+  const body = JSON.stringify({ schemaVersion: 2, browserBindingCredential: PB });
+  const request = signedRequest({ body });
+  const response = await current.gateway(request);
+  assert.equal(response.status, 200);
+  assert.equal(await verifyResponse(response, body), JSON.stringify({
+    schemaVersion: 2,
+    kind: "panel_login_ready",
+    providerAuthorizationUrl: PROVIDER,
+    browserBindingExpiresAt: new Date(NOW.getTime() + 600_000).toISOString(),
+  }));
+  assert.deepEqual(current.loginStarts, [PB]);
+  assert.equal(current.binds.length, 0);
 });

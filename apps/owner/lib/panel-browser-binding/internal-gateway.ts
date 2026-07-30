@@ -157,15 +157,21 @@ function canonicalProviderUrl(value: unknown, callbackAuthority: string): string
 }
 
 function parseEnvelope(bytes: Uint8Array, callbackAuthority: string): {
+  schemaVersion: 1;
   bootstrapCredential: string;
   providerAuthorizationUrl: string;
   browserBindingCredential: string;
-} {
+} | { schemaVersion: 2; browserBindingCredential: string } {
   const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const parsed = JSON.parse(raw) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) invalid();
   const body = parsed as Record<string, unknown>;
   const keys = Object.keys(body);
+  if (keys.join(",") === "schemaVersion,browserBindingCredential" && body.schemaVersion === 2) {
+    const envelope = { schemaVersion: 2 as const, browserBindingCredential: canonicalBindingCredential(body.browserBindingCredential) };
+    if (JSON.stringify(envelope) !== raw) invalid();
+    return Object.freeze(envelope);
+  }
   if (keys.length !== 4 || keys.some((key, index) => key !== [
     "schemaVersion", "bootstrapCredential", "providerAuthorizationUrl", "browserBindingCredential",
   ][index]) || body.schemaVersion !== 1) invalid();
@@ -177,6 +183,7 @@ function parseEnvelope(bytes: Uint8Array, callbackAuthority: string): {
   };
   if (JSON.stringify(envelope) !== raw) invalid();
   return Object.freeze({
+    schemaVersion: 1 as const,
     bootstrapCredential: envelope.bootstrapCredential,
     providerAuthorizationUrl: envelope.providerAuthorizationUrl,
     browserBindingCredential: envelope.browserBindingCredential,
@@ -235,6 +242,10 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
   clock(): Date;
   maximumBodyBytes: number;
   repository: Pick<PostgresPanelBrowserBindingRepository, "bindBrowserCredential">;
+  returningLogin?: { start(browserBindingCredential: string): Promise<Readonly<
+    | { kind: "panel_login_ready"; providerAuthorizationUrl: string; browserBindingExpiresAt: string }
+    | { kind: "panel_login_unavailable"; retryable: false }
+  >> };
   audit: Audit;
 }) {
   assertApproval(options?.activationApproval);
@@ -311,11 +322,42 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
       });
     }
 
+    if (envelope.schemaVersion === 2) {
+      if (!options.returningLogin || typeof options.returningLogin.start !== "function") {
+        return signedResponse({
+          status: 503,
+          body: { schemaVersion: 2, kind: "panel_login_rejected", code: "panel_login_unavailable", retryable: false },
+          keyId, timestamp, requestBodyDigest, secret,
+        });
+      }
+      try {
+        const result = await options.returningLogin.start(envelope.browserBindingCredential);
+        if (result.kind !== "panel_login_ready") throw new Error("unavailable");
+        const providerAuthorizationUrl = canonicalProviderUrl(result.providerAuthorizationUrl, panelCallbackAuthority);
+        const expires = new Date(result.browserBindingExpiresAt);
+        const current = trustedNow(clock).getTime();
+        if (!Number.isFinite(expires.getTime()) || expires.toISOString() !== result.browserBindingExpiresAt || expires.getTime() <= current || expires.getTime() > current + 15 * 60_000) invalid();
+        return signedResponse({
+          status: 200,
+          body: { schemaVersion: 2, kind: "panel_login_ready", providerAuthorizationUrl, browserBindingExpiresAt: result.browserBindingExpiresAt },
+          keyId, timestamp, requestBodyDigest, secret,
+        });
+      } catch {
+        return signedResponse({
+          status: 503,
+          body: { schemaVersion: 2, kind: "panel_login_rejected", code: "panel_login_unavailable", retryable: false },
+          keyId, timestamp, requestBodyDigest, secret,
+        });
+      }
+    }
+
     let result;
     try {
       const at = trustedNow(clock);
       result = await bindBrowserCredential({
-        ...envelope,
+        bootstrapCredential: envelope.bootstrapCredential,
+        providerAuthorizationUrl: envelope.providerAuthorizationUrl,
+        browserBindingCredential: envelope.browserBindingCredential,
         now: at,
         expiresAt: new Date(at.getTime() + 15 * 60_000),
       });

@@ -40,6 +40,18 @@ function ready() {
   });
 }
 
+function sessionReady(overrides: Record<string, unknown> = {}) {
+  return Object.freeze({
+    schemaVersion: 1 as const,
+    kind: "session_ready" as const,
+    sessionCredential: CREDENTIAL,
+    sessionIssuedAt: NOW.toISOString(),
+    sessionExpiresAt: new Date(NOW.getTime() + 28_800_000).toISOString(),
+    redirectPath: "/" as const,
+    ...overrides,
+  });
+}
+
 function fixture(options: {
   transportResult?: object;
   transportError?: boolean;
@@ -110,6 +122,19 @@ test("first issuance and redemption replay return only the exact secure cookie a
     assert.equal(current.recoverCalls, 0);
     assert.deepEqual(current.completions, [[`${CALLBACK}?state=${STATE}&code=verified-code`, BINDING]]);
   }
+});
+
+test("returning login installs the already-issued session without invoking handoff redemption", async () => {
+  const current = fixture({ transportResult: sessionReady() });
+  const response = await current.handler(callback());
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "https://panel.celebix.site/");
+  assert.deepEqual(response.headers.getSetCookie(), [
+    `__Host-celebix_panel=${CREDENTIAL}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=28800`,
+    PRE_AUTH_DELETION,
+  ]);
+  assert.equal(current.redeemCalls, 0);
+  assert.equal(current.recoverCalls, 0);
 });
 
 test("redemption unknown COMMIT performs exactly one read-only recovery with the identical handoff", async () => {
