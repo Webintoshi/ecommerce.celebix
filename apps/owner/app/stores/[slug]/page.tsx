@@ -48,6 +48,7 @@ import {
   getPreviewOwnerAuthContext,
   hasOwnerPreviewDataFallback,
 } from "@/lib/owner-preview-fixtures";
+import { resolveStoreAdminAssignmentMode } from "@/lib/store-admin-assignment";
 
 interface StoreDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -134,6 +135,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   if (!store) {
     notFound();
   }
+
+  const storeAdminAssignmentMode = resolveStoreAdminAssignmentMode({
+    databaseMode: store.databaseMode,
+    authProvider: store.setup.auth.provider,
+  });
 
   const cleanupRuns = await listCleanupRuns({ unresolvedOnly: true, limit: 3, slug: store.slug }).catch(
     () => [],
@@ -848,7 +854,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           ) : null}
 
           <OwnerSectionCard title="Bu Mağazaya Admin Ata" copy="Bu mağazaya bağlı operasyon kullanıcılarını yönet.">
-            <CreateStoreAdminForm storeSlug={store.slug} disabled={writeDisabled} disabledReason={writeDisabledReason} />
+            <CreateStoreAdminForm
+              storeSlug={store.slug}
+              assignmentMode={storeAdminAssignmentMode}
+              disabled={writeDisabled}
+              disabledReason={writeDisabledReason}
+            />
           </OwnerSectionCard>
         </div>
 
