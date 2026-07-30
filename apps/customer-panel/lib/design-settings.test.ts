@@ -7,13 +7,21 @@ const source = (path: string) => readFile(new URL(`../${path}`, import.meta.url)
 test("design settings hub is server-authorized and links only persisted design surfaces", async () => {
   const page = await source("app/settings/design/page.tsx");
   const hub = await source("components/settings/DesignSettingsHub.tsx");
+  const preview = await source("components/settings/StarterThemePreview.tsx");
   assert.match(page, /requireServerPanelAccess\(\)/);
   assert.match(page, /configuration[.]manage/);
-  for (const href of ["/settings/hero-banner", "/settings/promotion-banner", "/settings/marquee", "/products/collections"]) assert.match(hub, new RegExp(`"${href}"`));
+  assert.match(page, /buildDefaultStarterPresentation/);
+  assert.match(page, /canonicalHostname/);
+  for (const href of ["/settings/theme", "/settings/general", "/settings/hero-banner", "/settings/promotion-banner", "/settings/marquee", "/seo", "/seo/social-preview", "/products/collections"]) assert.match(hub, new RegExp(`"${href}"`));
   const css = await source("components/settings/design-settings.module.css");
   assert.match(hub, /styles[.]surface/);
   assert.match(hub, /styles[.]card/);
+  assert.match(hub, /aria-disabled/);
+  assert.match(preview, /aria-pressed/);
+  assert.match(preview, /starterThemeTokens/);
+  assert.match(preview, /Örnek içerik/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /:focus-visible/);
-  assert.doesNotMatch(`${page}\n${hub}`, /theme editor|localStorage|sessionStorage|storeId|provider|credential/i);
+  assert.match(css, /@media\s*\(max-width:\s*640px\)/);
+  assert.doesNotMatch(`${page}\n${hub}\n${preview}`, /localStorage|sessionStorage|principalId|membershipId|provider|credential|fake KPI|alışveriş sepeti/i);
 });

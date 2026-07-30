@@ -362,6 +362,25 @@ export {
   parsePaymentProviderCatalogEntry,
 } from "./payment-providers/index.ts";
 export {
+  buildDefaultStarterPresentation,
+  parsePublicProduct,
+  parsePublicProductMedia,
+  parsePublicProductVariant,
+  parsePublicStorefront,
+  starterThemeTokens,
+} from "./storefront/index.ts";
+export type {
+  PublicImageMediaType,
+  PublicProduct,
+  PublicProductList,
+  PublicProductMedia,
+  PublicProductVariant,
+  PublicStarterThemePresentation,
+  PublicStorefront,
+  PublicStorefrontAsset,
+  StarterThemeTokens,
+} from "./storefront/index.ts";
+export {
   parseCheckoutAddress,
   parseCheckoutDeliveryInput,
   parseCheckoutHttpError,

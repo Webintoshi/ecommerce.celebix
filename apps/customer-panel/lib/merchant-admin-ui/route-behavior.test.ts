@@ -66,7 +66,7 @@ function tenant(role: Role): contracts.TenantContext {
 
 function configuredValue(field: MerchantModuleDefinition["fields"][number]): contracts.MerchantAdminJson {
   if (field.type === "boolean") return true;
-  if (field.type === "number") return 1;
+  if (field.type === "number") return field.allowedValues?.[0] === undefined ? 1 : Number(field.allowedValues[0]);
   if (field.type === "enum") return field.allowedValues?.[0] ?? "configured";
   if (field.type === "enum-list" || field.type === "string-list") return [field.allowedValues?.[0] ?? "configured"];
   return "configured";
@@ -606,7 +606,7 @@ test("merchant route matrix invokes every actual page, production console, clien
         values[field.key] = field.type === "boolean"
           ? "on"
           : field.type === "number"
-            ? "5"
+            ? field.allowedValues?.[0] ?? "5"
             : field.type === "datetime"
               ? "2026-07-22T15:00:00.000"
               : field.type === "enum-list"
@@ -1018,7 +1018,10 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     "../../components/settings/DesignSettingsHub.tsx",
     "DesignSettingsHub",
     React,
-    { "@/components/panel/PanelPageShell": panelComponents() },
+    {
+      "@/components/panel/PanelPageShell": panelComponents(),
+      "./StarterThemePreview": { StarterThemePreview: () => createElement("section", { "data-starter-theme-preview": true }) },
+    },
   );
   const cases = [
     {
@@ -1045,7 +1048,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       module: "@/components/settings/DesignSettingsHub",
       exportName: "DesignSettingsHub",
       Component: DesignHub,
-      destinations: ["/settings/hero-banner", "/settings/promotion-banner", "/settings/marquee", "/products/collections"],
+      destinations: ["/settings/theme", "/settings/general", "/settings/hero-banner", "/settings/promotion-banner", "/settings/marquee", "/seo", "/seo/social-preview", "/products/collections"],
     },
   ] as const;
   for (const entry of cases) {
