@@ -121,6 +121,7 @@ function parseFormConfig(
       continue;
     }
     if (field.type === "number") {
+      if (field.allowedValues && !field.allowedValues.includes(raw)) throw new TypeError("invalid_number");
       const number = Number(raw);
       if (!Number.isSafeInteger(number) || number < 0) throw new TypeError("invalid_number");
       entries[field.key] = number;
@@ -678,7 +679,7 @@ export function MerchantModuleConsole({
                     <textarea name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   ) : field.type === "boolean" ? (
                     <span className={styles.switchField}><input name={field.key} type="checkbox" defaultChecked={editing?.config[field.key] === true} /><span>Etkin</span></span>
-                  ) : field.type === "enum" ? (
+                  ) : field.type === "enum" || field.type === "number" && field.allowedValues ? (
                     <select name={field.key} defaultValue={inputValue(editing, field.key)}>
                       <option value="">Seçin</option>
                       {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}

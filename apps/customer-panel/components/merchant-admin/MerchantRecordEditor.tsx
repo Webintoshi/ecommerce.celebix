@@ -38,6 +38,7 @@ function parseFormConfig(
     const raw = String(data.get(field.key) ?? "").trim();
     if (!raw) continue;
     if (field.type === "number") {
+      if (field.allowedValues && !field.allowedValues.includes(raw)) throw new TypeError("merchant_record_form_invalid");
       const value = Number(raw);
       if (!Number.isSafeInteger(value) || value < 0) throw new TypeError("merchant_record_form_invalid");
       config[field.key] = value;
@@ -157,6 +158,8 @@ export function MerchantRecordEditor({
             <textarea name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
           ) : field.type === "boolean" ? (
             <span className={styles.switchField}><input name={field.key} type="checkbox" defaultChecked={record?.config[field.key] === true} /><span>Etkin</span></span>
+          ) : field.type === "enum" || field.type === "number" && field.allowedValues ? (
+            <select name={field.key} defaultValue={inputValue(record, field.key)}>{field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}</select>
           ) : (
             <input name={field.key} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
           )}
