@@ -67,6 +67,18 @@ test("signup promo keeps a flat poster fallback across responsive and reduced-mo
   assert.doesNotMatch(globalCssSource, /self-serve-register-(?:promo-badge|visual|store-)/);
 });
 
+test("desktop promo headline stays subordinate to the registration headline", () => {
+  const promoHeadlineRule =
+    globalCssSource.match(/\.self-serve-register-promo-copy h2\s*\{([^}]*)\}/)?.[1] ?? "";
+  const maxFontSize = Number(
+    promoHeadlineRule.match(/font-size:\s*clamp\([^,]+,[^,]+,\s*(\d+)px\)/)?.[1] ?? Number.NaN,
+  );
+
+  assert.equal(promoHeadlineRule.includes("text-align: center"), false);
+  assert.ok(Number.isFinite(maxFontSize), "promo headline must keep an explicit clamp maximum");
+  assert.ok(maxFontSize <= 46, `promo headline clamp maximum must be 46px or smaller, received ${maxFontSize}px`);
+});
+
 test("short-height desktop keeps every interactive registration control at least 50px tall", () => {
   const shortHeightCss =
     globalCssSource.match(
