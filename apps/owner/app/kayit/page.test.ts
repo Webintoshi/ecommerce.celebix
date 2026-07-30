@@ -32,55 +32,32 @@ test("/kayit includes the approved Celebix promotional region", () => {
   assert.match(pageSource, /self-serve-register-shell/);
   assert.match(pageSource, /SelfServeRegistrationPromo/);
   assert.match(promoSource, /self-serve-register-promo/);
-  assert.match(promoSource, /Ücretsiz mağazanı bugün aç/);
-  assert.match(promoSource, /Mağazanı dakikalar içinde oluştur, ürünlerini eklemeye başla\./);
+  assert.match(promoSource, /Fikrini mağazaya dönüştür\./);
+  assert.match(
+    promoSource,
+    /Celebix ile teknik bilgiye ihtiyaç duymadan mağazanı oluştur, ürünlerini ekle ve ilk satışına hazırlan\./,
+  );
+  assert.match(promoSource, /Dakikalar içinde hazır/);
 });
 
-test("/kayit uses the realistic video promo and removes the abstract illustration", () => {
+test("/kayit uses a static customer-experience scene instead of moving media", () => {
   assert.match(pageSource, /SelfServeRegistrationPromo/);
-  assert.match(promoSource, /signup-storefront-promo\.webm/);
-  assert.match(promoSource, /signup-storefront-promo\.mp4/);
-  assert.match(promoSource, /signup-storefront-promo-poster\.webp/);
-  assert.match(promoSource, /autoPlay/);
-  assert.match(promoSource, /muted/);
-  assert.match(promoSource, /loop/);
-  assert.match(promoSource, /playsInline/);
-  assert.match(promoSource, /Ücretsiz mağazanı bugün aç/);
-  assert.match(promoSource, /Mağazanı dakikalar içinde oluştur, ürünlerini eklemeye başla\./);
+  assert.match(promoSource, /signup-customer-experience\.jpg/);
+  assert.match(promoSource, /alt="Mağazasını Celebix ile yöneten girişimci"/);
+  assert.doesNotMatch(promoSource, /<video/);
+  assert.doesNotMatch(promoSource, /\.webm|\.mp4|autoPlay|playsInline/);
+  assert.doesNotMatch(promoSource, /useEffect|useState|matchMedia/);
   assert.doesNotMatch(pageSource, /self-serve-register-promo-badge/);
   assert.doesNotMatch(pageSource, /self-serve-register-visual-orbit/);
   assert.doesNotMatch(pageSource, /self-serve-register-store-card/);
 });
 
-test("signup promo mounts video only while the desktop no-motion query matches", () => {
-  const posterIndex = promoSource.indexOf('<img src="/media/signup-storefront-promo-poster.webp"');
-  const conditionalVideoIndex = promoSource.indexOf("{shouldMountVideo ? (");
-
-  assert.match(promoSource, /^"use client";/);
-  assert.match(promoSource, /useState\(false\)/);
-  assert.match(
-    promoSource,
-    /matchMedia\("\(min-width: 641px\) and \(prefers-reduced-motion: no-preference\)"\)/,
-  );
-  assert.match(promoSource, /setShouldMountVideo\(mediaQuery\.matches\)/);
-  assert.match(promoSource, /mediaQuery\.addEventListener\("change", syncVideoEligibility\)/);
-  assert.match(promoSource, /mediaQuery\.removeEventListener\("change", syncVideoEligibility\)/);
-  assert.ok(posterIndex >= 0, "poster fallback must remain in the server-rendered initial markup");
-  assert.ok(conditionalVideoIndex > posterIndex, "only the video element may be conditional");
-});
-
-test("signup promo keeps a flat poster fallback across responsive and reduced-motion modes", () => {
+test("signup promo keeps an open editorial layout across desktop and mobile", () => {
   assert.match(globalCssSource, /\.self-serve-register-promo\s*\{[^}]*border-radius:\s*0;/s);
   assert.match(globalCssSource, /\.self-serve-register-promo\s*\{[^}]*box-shadow:\s*none;/s);
-  assert.match(globalCssSource, /@media \(max-width: 1100px\)[\s\S]*aspect-ratio:\s*16\s*\/\s*9;/);
-  assert.match(
-    globalCssSource,
-    /@media \(max-width: 640px\)[\s\S]*\.self-serve-register-promo-media video\s*\{[^}]*display:\s*none;/,
-  );
-  assert.match(
-    globalCssSource,
-    /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.self-serve-register-promo-media video\s*\{[^}]*display:\s*none;/,
-  );
+  assert.match(globalCssSource, /@media \(max-width: 1100px\)[\s\S]*\.self-serve-register-promo-media/);
+  assert.match(globalCssSource, /@media \(max-width: 640px\)[\s\S]*\.self-serve-register-promo-copy/);
+  assert.doesNotMatch(globalCssSource, /\.self-serve-register-promo-media video/);
   assert.doesNotMatch(globalCssSource, /self-serve-register-(?:promo-badge|visual|store-)/);
 });
 
@@ -94,6 +71,24 @@ test("desktop promo headline stays subordinate to the registration headline", ()
   assert.equal(promoHeadlineRule.includes("text-align: center"), false);
   assert.ok(Number.isFinite(maxFontSize), "promo headline must keep an explicit clamp maximum");
   assert.ok(maxFontSize <= 46, `promo headline clamp maximum must be 46px or smaller, received ${maxFontSize}px`);
+});
+
+test("registration logo remains visibly prominent on desktop and mobile", () => {
+  const desktopLogoRule =
+    globalCssSource.match(/\.self-serve-register-page \.self-serve-logo\s*\{([^}]*)\}/)?.[1] ?? "";
+  const mobileCss = globalCssSource.match(/@media \(max-width: 640px\) \{([\s\S]*)\n\}/)?.[1] ?? "";
+  const mobileLogoRule =
+    mobileCss.match(/\.self-serve-register-page \.self-serve-logo\s*\{([^}]*)\}/)?.[1] ?? "";
+  const shortHeightCss =
+    globalCssSource.match(
+      /@media \(min-width: 1101px\) and \(max-height: 820px\) \{([\s\S]*?)\n\}\n\n@media \(max-width: 1100px\)/,
+    )?.[1] ?? "";
+  const shortHeightLogoRule =
+    shortHeightCss.match(/\.self-serve-register-page \.self-serve-logo\s*\{([^}]*)\}/)?.[1] ?? "";
+
+  assert.match(desktopLogoRule, /height:\s*(?:7[8-9]|[89]\d|\d{3,})px;/);
+  assert.match(mobileLogoRule, /height:\s*(?:6[8-9]|[7-9]\d|\d{3,})px;/);
+  assert.match(shortHeightLogoRule, /height:\s*(?:6[8-9]|[7-9]\d|\d{3,})px;/);
 });
 
 test("short-height desktop keeps every interactive registration control at least 50px tall", () => {
@@ -127,10 +122,11 @@ test("the direct form includes the approved unboxed legal and trust copy", () =>
   assert.doesNotMatch(formSource, /type="checkbox"/);
 });
 
-test("signup promo media stays inside the page performance budget", () => {
-  assert.ok(statSync(new URL("signup-storefront-promo.webm", mediaRoot)).size < 1_500_000);
-  assert.ok(statSync(new URL("signup-storefront-promo.mp4", mediaRoot)).size < 3_000_000);
-  assert.ok(statSync(new URL("signup-storefront-promo-poster.webp", mediaRoot)).size < 350_000);
+test("signup customer-experience image stays inside the page performance budget", () => {
+  const experienceAsset = new URL("signup-customer-experience.jpg", mediaRoot);
+
+  assert.equal(existsSync(experienceAsset), true);
+  assert.ok(statSync(experienceAsset).size < 500_000);
 });
 
 test("the direct form does not reintroduce Logto-first or onboarding explainer copy", () => {

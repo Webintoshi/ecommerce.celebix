@@ -5680,7 +5680,7 @@ html[data-theme="dark"] .login-card .owner-auth-message {
 
 .self-serve-register-page .self-serve-logo {
   width: auto;
-  height: 62px;
+  height: 80px;
 }
 
 .self-serve-register-login {
@@ -5985,55 +5985,72 @@ html[data-theme="dark"] .login-card .owner-auth-message {
   top: 16px;
   min-width: 0;
   min-height: calc(100vh - 32px);
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: #f3eee8;
+  background: #f7f7f5;
   box-shadow: none;
 }
 
 .self-serve-register-promo-media {
-  position: relative;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
 }
 
-.self-serve-register-promo-media img,
-.self-serve-register-promo-media video {
+.self-serve-register-promo-media img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.self-serve-register-promo-media video {
-  position: absolute;
-  inset: 0;
+  object-position: center center;
 }
 
 .self-serve-register-promo-copy {
-  padding: 24px clamp(24px, 4vw, 56px) 42px;
+  position: relative;
+  z-index: 1;
+  width: min(520px, 66%);
+  padding: clamp(42px, 5vw, 76px) 0 0 clamp(28px, 4.5vw, 68px);
   text-align: left;
 }
 
 .self-serve-register-promo-copy h2 {
-  max-width: 620px;
+  max-width: 470px;
   margin: 0;
   color: #242424;
   font-size: clamp(32px, 3vw, 46px);
   font-weight: 820;
-  line-height: 1.04;
+  line-height: 1.02;
   letter-spacing: -0.05em;
 }
 
 .self-serve-register-promo-copy p {
-  margin: 12px 0 0;
+  max-width: 440px;
+  margin: 18px 0 0;
   color: #717580;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 550;
-  line-height: 1.55;
+  line-height: 1.65;
+}
+
+.self-serve-register-promo-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 22px;
+  color: #34373d;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.self-serve-register-promo-proof svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #fe6100;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 @media (min-width: 1101px) and (max-height: 820px) {
@@ -6043,7 +6060,7 @@ html[data-theme="dark"] .login-card .owner-auth-message {
   }
 
   .self-serve-register-page .self-serve-logo {
-    height: 50px;
+    height: 68px;
   }
 
   .self-serve-register-hero {
@@ -6079,8 +6096,7 @@ html[data-theme="dark"] .login-card .owner-auth-message {
   }
 
   .self-serve-register-promo-copy {
-    padding-top: 18px;
-    padding-bottom: 24px;
+    padding-top: 34px;
   }
 }
 
@@ -6102,12 +6118,17 @@ html[data-theme="dark"] .login-card .owner-auth-message {
   .self-serve-register-promo {
     position: relative;
     top: auto;
-    min-height: 0;
-    grid-template-rows: auto auto;
+    min-height: 720px;
   }
 
   .self-serve-register-promo-media {
-    aspect-ratio: 16 / 9;
+    position: absolute;
+    inset: 0;
+  }
+
+  .self-serve-register-promo-copy {
+    width: min(510px, 64%);
+    padding: 46px 0 0 clamp(28px, 7vw, 58px);
   }
 }
 
@@ -6130,7 +6151,7 @@ html[data-theme="dark"] .login-card .owner-auth-message {
   }
 
   .self-serve-register-page .self-serve-logo {
-    height: 50px;
+    height: 68px;
   }
 
   .self-serve-register-login {
@@ -6174,24 +6195,27 @@ html[data-theme="dark"] .login-card .owner-auth-message {
   }
 
   .self-serve-register-promo {
-    min-height: 0;
-  }
-
-  .self-serve-register-promo-media video {
-    display: none;
+    min-height: 590px;
   }
 
   .self-serve-register-promo-copy {
-    padding: 20px 18px 28px;
+    width: min(330px, 78%);
+    padding: 28px 0 0 22px;
   }
 
   .self-serve-register-promo-copy h2 {
-    font-size: 32px;
+    font-size: 30px;
   }
 
   .self-serve-register-promo-copy p {
-    margin-top: 10px;
+    margin-top: 12px;
     font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .self-serve-register-promo-proof {
+    margin-top: 16px;
+    font-size: 12px;
   }
 
   .self-serve-register-trust-row {
@@ -6205,11 +6229,5 @@ html[data-theme="dark"] .login-card .owner-auth-message {
 
   .self-serve-register-trust-row > i {
     height: 20px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .self-serve-register-promo-media video {
-    display: none;
   }
 }
