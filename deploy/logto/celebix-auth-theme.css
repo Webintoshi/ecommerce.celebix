@@ -56,10 +56,10 @@
 
 #app main[class*='main'] img[class*='logo'] {
   display: block;
-  width: 184px;
-  max-width: 58%;
+  width: 270px;
+  max-width: 78%;
   height: auto;
-  max-height: 82px;
+  max-height: 104px;
   margin: 0 auto 28px;
   object-fit: contain;
 }
@@ -240,8 +240,8 @@
   }
 
   #app main[class*='main'] img[class*='logo'] {
-    width: 166px;
-    max-width: 56%;
+    width: 240px;
+    max-width: 72%;
     margin-bottom: 24px;
   }
 
@@ -268,8 +268,8 @@
   }
 
   #app main[class*='main'] img[class*='logo'] {
-    width: 160px;
-    max-height: 66px;
+    width: 220px;
+    max-height: 82px;
     margin-bottom: 18px;
   }
 }
