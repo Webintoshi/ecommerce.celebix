@@ -52,9 +52,11 @@ test("/kayit uses the realistic video promo and removes the abstract illustratio
 });
 
 test("the direct form includes the approved unboxed legal and trust copy", () => {
-  assert.match(formSource, /Kullanım sözleşmesi/);
-  assert.match(formSource, /Ömür boyu ücretsiz/);
-  assert.match(formSource, /Kredi kartı gerektirmez/);
+  const renderedFormCopy = formSource.replaceAll("&apos;", "'").replace(/\s+/g, " ");
+
+  assert.match(renderedFormCopy, /E-Ticaret Sistemi Kur'a tıklayarak Kullanım sözleşmesi’ni onaylıyorum\./);
+  assert.match(renderedFormCopy, />Ömür boyu ücretsiz</);
+  assert.match(renderedFormCopy, />Kredi kartı gerektirmez</);
   assert.match(formSource, /self-serve-register-trust-row/);
   assert.doesNotMatch(formSource, /type="checkbox"/);
 });
@@ -82,7 +84,10 @@ test("the direct form does not reintroduce Logto-first or onboarding explainer c
 });
 
 test("the direct form keeps only the requested six visible registration fields", () => {
-  for (const field of ["firstName", "lastName", "storeName", "phone", "email", "password"]) {
+  const visibleInputNames = ["firstName", "lastName", "storeName", "phone", "email", "password"];
+
+  assert.equal((formSource.match(/<input\b/g) ?? []).length, visibleInputNames.length);
+  for (const field of visibleInputNames) {
     assert.match(formSource, new RegExp(`name="${field}"`));
   }
 
