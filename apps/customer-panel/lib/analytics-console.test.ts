@@ -276,10 +276,11 @@ test("analytics page is behind server access and analytics capability only", asy
   assert.doesNotMatch(page, /tenantContext=|storeId=|membershipId=|planId=/);
 });
 
-test("settings navigation exposes only the four working typed pages", async () => {
+test("settings navigation exposes every working typed storefront page", async () => {
   const navigation = await source("lib/panel-ui/navigation.ts");
   for (const href of [
     "/settings/notifications",
+    "/settings/theme",
     "/settings/hero-banner",
     "/settings/promotion-banner",
     "/settings/marquee",
@@ -287,9 +288,10 @@ test("settings navigation exposes only the four working typed pages", async () =
   assert.match(navigation, /"\/analytics"/);
 });
 
-test("four typed storefront settings expose exact safe field contracts without secrets", () => {
+test("five typed storefront settings expose exact safe field contracts without secrets", () => {
   const contracts = [
     ["notification_setting", ["emailEnabled", "smsEnabled", "pushEnabled", "senderLabel", "replyToEmail"]],
+    ["theme_setting", ["colorScheme", "headingStyle", "productCardStyle", "productImageRatio", "homeProductLimit", "showBrandStory"]],
     ["hero_banner", ["headline", "body", "imageUrl", "destination", "enabled"]],
     ["promotion_banner", ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]],
     ["marquee_setting", ["items", "icon", "speed", "direction", "animation", "enabled"]],
@@ -302,13 +304,14 @@ test("four typed storefront settings expose exact safe field contracts without s
   assert.deepEqual(getMerchantModuleDefinition("promotion_banner").fields.filter(({ key }) => key === "startsAt" || key === "endsAt").map(({ type }) => type), ["datetime", "datetime"]);
   assert.deepEqual(getMerchantModuleDefinition("marquee_setting").fields.map(({ type }) => type), ["string-list", "enum", "enum", "enum", "enum", "boolean"]);
   assert.deepEqual(getMerchantModuleDefinition("marquee_setting").fields.find(({ key }) => key === "icon")?.allowedValues, ["none", "sparkle", "truck", "shield"]);
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 32);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 33);
   assert.equal(JSON.stringify(MERCHANT_MODULE_DEFINITIONS).match(/secret|password|credential|token|api.?key/gi), null);
 });
 
 test("typed setting pages remain server-authorized and do not send TenantContext to clients", async () => {
   for (const [path, kind] of [
     ["app/settings/notifications/page.tsx", "notification_setting"],
+    ["app/settings/theme/page.tsx", "theme_setting"],
     ["app/settings/hero-banner/page.tsx", "hero_banner"],
     ["app/settings/promotion-banner/page.tsx", "promotion_banner"],
     ["app/settings/marquee/page.tsx", "marquee_setting"],

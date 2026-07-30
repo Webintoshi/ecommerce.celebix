@@ -30,9 +30,9 @@ function record(
 }
 
 test("defines every durable merchant module with a unique route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 32);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 32);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 32);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 33);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 33);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 33);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
   assert.equal(getMerchantModuleDefinition("lucky_wheel").route, "/discounts/lucky-wheel");
@@ -42,6 +42,7 @@ test("defines every durable merchant module with a unique route and field contra
   assert.equal(getMerchantModuleDefinition("hero_banner").route, "/settings/hero-banner");
   assert.equal(getMerchantModuleDefinition("promotion_banner").route, "/settings/promotion-banner");
   assert.equal(getMerchantModuleDefinition("marquee_setting").route, "/settings/marquee");
+  assert.equal(getMerchantModuleDefinition("theme_setting").route, "/settings/theme");
 
   for (const definition of MERCHANT_MODULE_DEFINITIONS) {
     assert.equal(Object.isFrozen(definition), true);
@@ -49,6 +50,19 @@ test("defines every durable merchant module with a unique route and field contra
     assert.equal(definition.fields.length > 0, true);
     assert.equal(new Set(definition.fields.map(({ key }) => key)).size, definition.fields.length);
   }
+});
+
+test("theme settings expose only bounded visual choices and a numeric home product limit", () => {
+  const definition = getMerchantModuleDefinition("theme_setting");
+  assert.deepEqual(definition.fields.map(({ key, type, allowedValues }) => ({ key, type, allowedValues })), [
+    { key: "colorScheme", type: "enum", allowedValues: ["neutral", "warm", "dark", "ocean"] },
+    { key: "headingStyle", type: "enum", allowedValues: ["serif", "sans"] },
+    { key: "productCardStyle", type: "enum", allowedValues: ["editorial", "compact"] },
+    { key: "productImageRatio", type: "enum", allowedValues: ["portrait", "square"] },
+    { key: "homeProductLimit", type: "number", allowedValues: ["4", "8", "12"] },
+    { key: "showBrandStory", type: "boolean", allowedValues: undefined },
+  ]);
+  assert.equal(definition.fields.some(({ key }) => /css|html|script|font|url|colorValue/i.test(key)), false);
 });
 
 test("shipping settings expose the exact checkout rate fields", () => {

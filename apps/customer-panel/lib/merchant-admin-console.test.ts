@@ -3,7 +3,7 @@ const routes=Object.freeze([
  ["app/discounts/page.tsx","discount"],["app/discounts/new/page.tsx","discount"],["app/discounts/lucky-wheel/page.tsx","lucky_wheel"],
  ["app/marketing/page.tsx","MerchantMarketingOverview"],["app/marketing/email/page.tsx","email_campaign"],["app/marketing/phone/page.tsx","phone_campaign"],["app/marketing/whatsapp/page.tsx","whatsapp_campaign"],
  ["app/content/blog/page.tsx","blog_post"],["app/content/pages/page.tsx","page"],["app/content/policies/page.tsx","policy"],["app/marketplaces/page.tsx","marketplace_connection"],
- ["app/settings/general/page.tsx","general_setting"],["app/settings/language/page.tsx","language_setting"],["app/settings/shipping/page.tsx","shipping_setting"],["app/settings/administrators/page.tsx","administrator_invite"],
+ ["app/settings/general/page.tsx","general_setting"],["app/settings/theme/page.tsx","theme_setting"],["app/settings/language/page.tsx","language_setting"],["app/settings/shipping/page.tsx","shipping_setting"],["app/settings/administrators/page.tsx","administrator_invite"],
  ["app/accounting/page.tsx","accounting_profile"],["app/accounting/invoicing-integration/page.tsx","invoice_integration"],["app/seo/page.tsx","seo_control"],["app/seo/sitemap/page.tsx","sitemap"],["app/seo/social-preview/page.tsx","social_preview"],["app/seo/code-integrations/page.tsx","code_integration"],["app/seo/fast-indexing/page.tsx","indexing_request"],
 ]as const);
 test("every donor merchant module route is real and server-authorized",async()=>{for(const[path,kind]of routes){const value=await source(path);assert.match(value,/requireServerPanelAccess/);assert.match(value,new RegExp(kind));assert.match(value,/isMerchantActionAllowed/)}});
@@ -40,6 +40,13 @@ test("typed storefront settings render closed enum, local datetime roundtrip, fi
   for(const evidence of["field.type === \"enum\"","field.type === \"enum-list\"","field.type === \"datetime\"","field.type === \"string-list\"","field.maxItems","field.allowedValues","field.optionLabels","datetime-local","getFullYear","new Date(raw)","timestamp.toISOString","invalid_enum_value","invalid_enum_list","invalid_string_list_","activeSubmissionRef","loadVersionRef"])assert.match(value,new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
   assert.doesNotMatch(value,/localStorage|sessionStorage|document[.]cookie|apiSecret|clientSecret|accessToken/);
   assert.match(value,/defaultChecked=\{enumListDefaultChecked\(editing, field[.]key, value\)\}/);
+});
+
+test("bounded numeric theme choices serialize as numbers rather than strings",async()=>{
+  const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");
+  assert.match(value,/field\.type === "number" && field\.allowedValues/);
+  assert.match(value,/field\.allowedValues\.includes\(raw\)/);
+  assert.match(value,/entries\[field\.key\] = number/);
 });
 
 test("datetime-local, bounded list, and finite enum-list parsing reject unknown or duplicate values",async()=>{

@@ -5,7 +5,7 @@ import type { PostgresPoolLike } from "../postgres/pool.ts";
 
 const STORE_ID = "10000000-0000-4000-8000-000000000001";
 const HOSTNAME = "pilot.saas-staging.celebix.site";
-const storefront = { schemaVersion: 1, id: STORE_ID, name: "Pilot Store", slug: "pilot-store", hostname: HOSTNAME, primaryHostname: HOSTNAME, canonicalUrl: `https://${HOSTNAME}/`, currency: "TRY", locale: "tr", themeKey: "hemenaku" };
+const storefront = { schemaVersion: 2, id: STORE_ID, name: "Pilot Store", slug: "pilot-store", hostname: HOSTNAME, primaryHostname: HOSTNAME, canonicalUrl: `https://${HOSTNAME}/`, currency: "TRY", locale: "tr", themeKey: "starter", presentation: { schemaVersion: 1, displayName: "Pilot Store", theme: { colorScheme: "neutral", headingStyle: "serif", productCardStyle: "editorial", productImageRatio: "portrait", homeProductLimit: 8, showBrandStory: true }, hero: { enabled: true, headline: "Pilot Store", body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" }, seo: { allowIndex: false } } };
 
 function repository(outcome = "found", resultPayload: unknown = storefront) {
   const queries: string[] = [];
