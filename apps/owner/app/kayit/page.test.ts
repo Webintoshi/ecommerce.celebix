@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import test from "node:test";
 
 const pageSource = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
@@ -9,6 +9,9 @@ const formSource = readFileSync(
   new URL("../../components/self-serve/SelfServeDirectRegistrationForm.tsx", import.meta.url),
   "utf8",
 );
+const promoUrl = new URL("../../components/self-serve/SelfServeRegistrationPromo.tsx", import.meta.url);
+const promoSource = existsSync(promoUrl) ? readFileSync(promoUrl, "utf8") : "";
+const mediaRoot = new URL("../../public/media/", import.meta.url);
 
 test("/kayit is a single direct registration screen, not the old onboarding landing", () => {
   assert.match(pageSource, /E-Ticaret sitenizi açın!/);
@@ -30,6 +33,36 @@ test("/kayit includes the approved Celebix promotional region", () => {
   assert.match(pageSource, /Ücretsiz/);
   assert.match(pageSource, /E-Ticaret Yolculuğunu Başlat/);
   assert.match(pageSource, /KOBİ(?:'|&apos;)lerin yanında/);
+});
+
+test("/kayit uses the realistic video promo and removes the abstract illustration", () => {
+  assert.match(pageSource, /SelfServeRegistrationPromo/);
+  assert.match(promoSource, /signup-storefront-promo\.webm/);
+  assert.match(promoSource, /signup-storefront-promo\.mp4/);
+  assert.match(promoSource, /signup-storefront-promo-poster\.webp/);
+  assert.match(promoSource, /autoPlay/);
+  assert.match(promoSource, /muted/);
+  assert.match(promoSource, /loop/);
+  assert.match(promoSource, /playsInline/);
+  assert.match(promoSource, /Ücretsiz mağazanı bugün aç/);
+  assert.match(promoSource, /Mağazanı dakikalar içinde oluştur, ürünlerini eklemeye başla\./);
+  assert.doesNotMatch(pageSource, /self-serve-register-promo-badge/);
+  assert.doesNotMatch(pageSource, /self-serve-register-visual-orbit/);
+  assert.doesNotMatch(pageSource, /self-serve-register-store-card/);
+});
+
+test("the direct form includes the approved unboxed legal and trust copy", () => {
+  assert.match(formSource, /Kullanım sözleşmesi/);
+  assert.match(formSource, /Ömür boyu ücretsiz/);
+  assert.match(formSource, /Kredi kartı gerektirmez/);
+  assert.match(formSource, /self-serve-register-trust-row/);
+  assert.doesNotMatch(formSource, /type="checkbox"/);
+});
+
+test("signup promo media stays inside the page performance budget", () => {
+  assert.ok(statSync(new URL("signup-storefront-promo.webm", mediaRoot)).size < 1_500_000);
+  assert.ok(statSync(new URL("signup-storefront-promo.mp4", mediaRoot)).size < 3_000_000);
+  assert.ok(statSync(new URL("signup-storefront-promo-poster.webp", mediaRoot)).size < 350_000);
 });
 
 test("the direct form does not reintroduce Logto-first or onboarding explainer copy", () => {
