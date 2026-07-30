@@ -51,11 +51,11 @@ function providerJobFixture(status: string) {
     updatedAt: NOW,
   };
 }
-test("parses exact durable merchant module records", () => { const value = parseMerchantAdminRecord({ id: ID, kind: "discount", name: "Yaz indirimi", config: { discountType: "percent", value: 15 }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }); assert.equal(Object.isFrozen(value.config), true); assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 32); for (const hostile of [{ ...value, storeId: ID }, { ...value, config: { apiKey: "private" } }, { ...value, status: "deleted" }]) assert.throws(() => parseMerchantAdminRecord(hostile)); });
+test("parses exact durable merchant module records", () => { const value = parseMerchantAdminRecord({ id: ID, kind: "discount", name: "Yaz indirimi", config: { discountType: "percent", value: 15 }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }); assert.equal(Object.isFrozen(value.config), true); assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 33); for (const hostile of [{ ...value, storeId: ID }, { ...value, config: { apiKey: "private" } }, { ...value, status: "deleted" }]) assert.throws(() => parseMerchantAdminRecord(hostile)); });
 test("typed settings expose only finite public configuration", () => {
   const configurations = {
     notification_setting: { emailEnabled: true, smsEnabled: false, pushEnabled: true, senderLabel: "Celebix", replyToEmail: "support@example.test" },
-    hero_banner: { headline: "Yeni sezon", body: "Göz atın", imageUrl: "https://cdn.example.test/hero.webp", destination: "/collections/new", enabled: true },
+    hero_banner: { headline: "Yeni sezon", body: "Göz atın", assetId: ID, destination: "/collections/new", enabled: true },
     promotion_banner: { headline: "Yaz indirimi", body: "Sınırlı süre", destination: "/sale", startsAt: NOW, endsAt: "2026-08-22T19:00:00.000Z", enabled: true },
     marquee_setting: { items: ["Ücretsiz kargo"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true },
   } as const;
@@ -78,7 +78,7 @@ test("advanced SEO and AI records retain only their finite record kinds", () => 
       updatedAt: NOW,
     }));
   }
-  assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 32);
+  assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 33);
 });
 test("merchant-admin parsers reject hostile descriptors, prototypes, and sparse arrays without invoking getters", () => {
   const record = { id: ID, kind: "marquee_setting", name: "Ayar", config: { items: ["Duyuru"] }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };

@@ -3,6 +3,7 @@ import type { PublicStarterThemePresentation } from "@celebix/saas-contracts";
 
 import { PanelPageHeader, PanelPageShell, PanelPanel } from "@/components/panel/PanelPageShell";
 import { StarterThemePreview } from "./StarterThemePreview";
+import { StorefrontAssetManager } from "./StorefrontAssetManager";
 import styles from "./design-settings.module.css";
 
 const SURFACES = Object.freeze([
@@ -28,6 +29,7 @@ export function DesignSettingsHub({
   return <PanelPageShell>
     <PanelPageHeader title="Tasarım ayarları" description="Starter vitrinin görünümünü kalıcı, mağaza-bazlı ayarlardan yönetin." />
     <StarterThemePreview presentation={presentation} storefrontHostname={storefrontHostname} />
+    <StorefrontAssetManager canManage={canManage} />
     <PanelPanel title="Vitrin kontrolleri">
       <p className={styles.statusCopy}>Yalnız etkin kayıtlar vitrinde yayınlanır. Taslaklar müşterilere gösterilmez.</p>
       <div className={styles.surface}>

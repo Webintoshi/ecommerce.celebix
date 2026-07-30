@@ -48,6 +48,8 @@ export type {
   TenantContext,
 } from "./types.ts";
 
+export * from "./storefront-assets/index.ts";
+
 export { SAAS_ERROR_CODES } from "./errors.ts";
 export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";
 export {

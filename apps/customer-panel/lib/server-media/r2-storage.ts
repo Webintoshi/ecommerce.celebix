@@ -8,7 +8,7 @@ export interface ProductMediaStorage {
   delete(objectKey: string): Promise<void>;
 }
 type Fetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
-const OBJECT_KEY = /^stores\/[0-9a-f-]{36}\/products\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
+const OBJECT_KEY = /^stores\/[0-9a-f-]{36}\/(?:products\/[0-9a-f-]{36}\/[0-9a-f-]{36}|storefront\/(?:logo|hero|social|favicon)\/[0-9a-f-]{36})\.(?:jpg|png|webp)$/;
 function sha256(value: Uint8Array | string): string { return createHash("sha256").update(value).digest("hex"); }
 function hmac(key: Uint8Array | string, value: string): Buffer { return createHmac("sha256", key).update(value).digest(); }
 function key(value: string): string { if (!OBJECT_KEY.test(value)) throw new Error("product_media_storage_invalid"); return value; }
