@@ -8,7 +8,7 @@ It does not change the Logto container image, database schema, application defin
 
 ## Source of truth
 
-- Custom CSS: `deploy/logto/celebix-auth-theme.css`
+- Custom CSS: `branding/logto/celebix-auth-theme.css`
 - Company logo: `apps/customer-panel/public/Logo/celebix-koyu-logo.svg`
 - Light brand color: `#FE6100`
 - Experience mode: light
@@ -34,7 +34,7 @@ Use Logto Console at **Sign-in & account → Branding**, or the equivalent authe
 3. Set the light brand color to `#FE6100`.
 4. Keep the experience in light mode.
 5. Enable the supported setting that hides the Logto signature.
-6. Set omni `customCss` to the exact UTF-8 contents of `deploy/logto/celebix-auth-theme.css`.
+6. Set omni `customCss` to the exact UTF-8 contents of `branding/logto/celebix-auth-theme.css`.
 7. Save once after all presentation fields are staged.
 
 When using the Management API, patch only the presentation fields read during the pre-change step. Never construct a replacement payload from defaults and never change unrelated sign-in-experience fields.

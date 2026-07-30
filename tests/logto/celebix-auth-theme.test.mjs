@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const themeUrl = new URL("../../deploy/logto/celebix-auth-theme.css", import.meta.url);
+const themeUrl = new URL("../../branding/logto/celebix-auth-theme.css", import.meta.url);
 
 test("Celebix Logto theme keeps the approved visual and accessibility contract", async () => {
   const css = await readFile(themeUrl, "utf8");

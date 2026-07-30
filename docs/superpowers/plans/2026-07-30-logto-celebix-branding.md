@@ -21,7 +21,7 @@
 
 ## File map
 
-- Create `deploy/logto/celebix-auth-theme.css`: source-controlled omni custom CSS applied verbatim to Logto.
+- Create `branding/logto/celebix-auth-theme.css`: source-controlled omni custom CSS applied verbatim to Logto.
 - Create `tests/logto/celebix-auth-theme.test.mjs`: static contract for brand tokens, responsive behavior, focus visibility, selector scoping, and forbidden active content.
 - Create `docs/operations/logto-celebix-branding.md`: supported apply, validation, and rollback runbook without secrets.
 - Create `docs/operations/logto-celebix-branding-verification.md`: sanitized staging evidence and final outcome.
@@ -30,7 +30,7 @@
 
 **Files:**
 - Create: `tests/logto/celebix-auth-theme.test.mjs`
-- Create: `deploy/logto/celebix-auth-theme.css`
+- Create: `branding/logto/celebix-auth-theme.css`
 
 **Interfaces:**
 - Consumes: Logto's `#app` root and structural/partial CSS-module class selectors.
@@ -38,12 +38,12 @@
 
 - [ ] **Step 1: Write the failing theme contract test**
 
-Use `node:test` and `node:fs/promises` to load `deploy/logto/celebix-auth-theme.css`. Assert exact brand tokens, `#app` scoping, `:focus-visible`, `@media (max-width: 600px)`, minimum 48px controls, reduced-motion support, and the absence of `javascript:`, `<script`, `@import`, `data:`, credentials, or tenant/application identifiers.
+Use `node:test` and `node:fs/promises` to load `branding/logto/celebix-auth-theme.css`. Assert exact brand tokens, `#app` scoping, `:focus-visible`, `@media (max-width: 600px)`, minimum 48px controls, reduced-motion support, and the absence of `javascript:`, `<script`, `@import`, `data:`, credentials, or tenant/application identifiers.
 
 - [ ] **Step 2: Run the contract and prove it fails before the CSS exists**
 
 Run: `node --test tests/logto/celebix-auth-theme.test.mjs`  
-Expected: FAIL with `ENOENT` for `deploy/logto/celebix-auth-theme.css`.
+Expected: FAIL with `ENOENT` for `branding/logto/celebix-auth-theme.css`.
 
 - [ ] **Step 3: Implement the standalone CSS**
 
@@ -57,7 +57,7 @@ Expected: PASS and no whitespace errors.
 - [ ] **Step 5: Commit the theme**
 
 ```bash
-git add deploy/logto/celebix-auth-theme.css tests/logto/celebix-auth-theme.test.mjs
+git add branding/logto/celebix-auth-theme.css tests/logto/celebix-auth-theme.test.mjs
 git commit -m "feat(auth): add Celebix Logto theme"
 ```
 
@@ -67,7 +67,7 @@ git commit -m "feat(auth): add Celebix Logto theme"
 - Create: `docs/operations/logto-celebix-branding.md`
 
 **Interfaces:**
-- Consumes: `deploy/logto/celebix-auth-theme.css` and Logto's supported branding/custom CSS settings.
+- Consumes: `branding/logto/celebix-auth-theme.css` and Logto's supported branding/custom CSS settings.
 - Produces: an operator procedure that can apply or restore one complete branding configuration.
 
 - [ ] **Step 1: Document the exact supported settings**
@@ -93,7 +93,7 @@ git commit -m "docs(auth): add Logto branding runbook"
 ### Task 3: Apply the approved theme to staging Logto
 
 **Files:**
-- Read: `deploy/logto/celebix-auth-theme.css`
+- Read: `branding/logto/celebix-auth-theme.css`
 - Read: `apps/customer-panel/public/Logo/celebix-koyu-logo.svg`
 - Read: `docs/operations/logto-celebix-branding.md`
 
