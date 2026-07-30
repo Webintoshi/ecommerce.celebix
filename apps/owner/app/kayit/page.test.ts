@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import test from "node:test";
 
 const pageSource = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
+const globalCssSource = readFileSync(new URL("../globals.css", import.meta.url), "utf8");
 const rootLayoutSource = readFileSync(new URL("../layout.tsx", import.meta.url), "utf8");
 const middlewareSource = readFileSync(new URL("../../middleware.ts", import.meta.url), "utf8");
 const formSource = readFileSync(
@@ -29,10 +30,10 @@ test("/kayit is a single direct registration screen, not the old onboarding land
 
 test("/kayit includes the approved Celebix promotional region", () => {
   assert.match(pageSource, /self-serve-register-shell/);
-  assert.match(pageSource, /self-serve-register-promo/);
-  assert.match(pageSource, /Ücretsiz/);
-  assert.match(pageSource, /E-Ticaret Yolculuğunu Başlat/);
-  assert.match(pageSource, /KOBİ(?:'|&apos;)lerin yanında/);
+  assert.match(pageSource, /SelfServeRegistrationPromo/);
+  assert.match(promoSource, /self-serve-register-promo/);
+  assert.match(promoSource, /Ücretsiz mağazanı bugün aç/);
+  assert.match(promoSource, /Mağazanı dakikalar içinde oluştur, ürünlerini eklemeye başla\./);
 });
 
 test("/kayit uses the realistic video promo and removes the abstract illustration", () => {
@@ -51,12 +52,33 @@ test("/kayit uses the realistic video promo and removes the abstract illustratio
   assert.doesNotMatch(pageSource, /self-serve-register-store-card/);
 });
 
-test("the direct form includes the approved unboxed legal and trust copy", () => {
-  const renderedFormCopy = formSource.replaceAll("&apos;", "'").replace(/\s+/g, " ");
+test("signup promo keeps a flat poster fallback across responsive and reduced-motion modes", () => {
+  assert.match(globalCssSource, /\.self-serve-register-promo\s*\{[^}]*border-radius:\s*0;/s);
+  assert.match(globalCssSource, /\.self-serve-register-promo\s*\{[^}]*box-shadow:\s*none;/s);
+  assert.match(globalCssSource, /@media \(max-width: 1100px\)[\s\S]*aspect-ratio:\s*16\s*\/\s*9;/);
+  assert.match(
+    globalCssSource,
+    /@media \(max-width: 640px\)[\s\S]*\.self-serve-register-promo-media video\s*\{[^}]*display:\s*none;/,
+  );
+  assert.match(
+    globalCssSource,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.self-serve-register-promo-media video\s*\{[^}]*display:\s*none;/,
+  );
+  assert.doesNotMatch(globalCssSource, /self-serve-register-(?:promo-badge|visual|store-)/);
+});
 
-  assert.match(renderedFormCopy, /E-Ticaret Sistemi Kur'a tıklayarak Kullanım sözleşmesi’ni onaylıyorum\./);
-  assert.match(renderedFormCopy, />Ömür boyu ücretsiz</);
-  assert.match(renderedFormCopy, />Kredi kartı gerektirmez</);
+test("the direct form includes the approved unboxed legal and trust copy", () => {
+  const legalMarkup = formSource.match(/<p className="self-serve-register-legal">([\s\S]*?)<\/p>/)?.[1] ?? "";
+  const renderedLegalCopy = legalMarkup
+    .replace(/<[^>]+>/g, "")
+    .replaceAll("&apos;", "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  assert.equal(renderedLegalCopy, "E-Ticaret Sistemi Kur'a tıklayarak Kullanım sözleşmesi'ni onaylıyorum.");
+  assert.match(legalMarkup, /<em>Kullanım sözleşmesi<\/em>/);
+  assert.match(formSource, /Ömür boyu ücretsiz/);
+  assert.match(formSource, /Kredi kartı gerektirmez/);
   assert.match(formSource, /self-serve-register-trust-row/);
   assert.doesNotMatch(formSource, /type="checkbox"/);
 });
@@ -117,5 +139,6 @@ test("/kayit and legacy public aliases bypass Owner admin shell chrome", () => {
   assert.match(rootLayoutSource, /isPublicSelfServePage\s*\?\s*null/);
 
   assert.match(middlewareSource, /SELF_SERVE_PUBLIC_PREFIXES/);
+  assert.match(middlewareSource, /"\/media"/);
   assert.match(middlewareSource, /return withSecurity\(request, nextResponse\(request\)\)/);
 });

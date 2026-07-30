@@ -330,8 +330,25 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
       </button>
 
       <p className="self-serve-register-legal">
-        E-Ticaret Sistemi Kur&apos;a tıklayarak kullanım koşullarını ve gizlilik politikasını kabul etmiş olursunuz.
+        E-Ticaret Sistemi Kur&apos;a tıklayarak <em>Kullanım sözleşmesi</em>&apos;ni onaylıyorum.
       </p>
+      <div className="self-serve-register-trust-row" aria-label="Kayıt avantajları">
+        <span>
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 2.8 14 4l2.3-.1 1.1 2 2.1 1 .1 2.3 1.3 1.8-1.3 1.8-.1 2.3-2.1 1-1.1 2L14 20l-2 1.2L10 20l-2.3.1-1.1-2-2.1-1-.1-2.3L3.1 13l1.3-1.8.1-2.3 2.1-1 1.1-2L10 4l2-1.2Z" />
+            <path d="m8.7 12.1 2.1 2.1 4.5-4.7" />
+          </svg>
+          Ömür boyu ücretsiz
+        </span>
+        <i aria-hidden="true" />
+        <span>
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <rect x="2.8" y="5.2" width="18.4" height="12.5" rx="2" />
+            <path d="M3 9h18M16.8 14.2l4.4 4.4m0-4.4-4.4 4.4" />
+          </svg>
+          Kredi kartı gerektirmez
+        </span>
+      </div>
     </form>
   );
 }

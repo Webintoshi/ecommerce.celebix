@@ -1,4 +1,5 @@
 import { SelfServeDirectRegistrationForm } from "@/components/self-serve/SelfServeDirectRegistrationForm";
+import { SelfServeRegistrationPromo } from "@/components/self-serve/SelfServeRegistrationPromo";
 import { getSelfServeFeatureFlags } from "@/lib/self-serve-flags";
 import Link from "next/link";
 
@@ -36,27 +37,7 @@ export default function KayitPage() {
           </section>
         </section>
 
-        <aside className="self-serve-register-promo" aria-labelledby="self-serve-register-promo-title">
-          <span className="self-serve-register-promo-badge">
-            Celebix <i /> KOBİ&apos;lerin yanında
-          </span>
-
-          <div className="self-serve-register-visual" aria-hidden="true">
-            <span className="self-serve-register-visual-orbit" />
-            <div className="self-serve-register-store-card">
-              <span className="self-serve-register-store-mark">C</span>
-              <span className="self-serve-register-store-line is-wide" />
-              <span className="self-serve-register-store-line" />
-              <span className="self-serve-register-store-action">Mağazan hazır</span>
-            </div>
-          </div>
-
-          <div className="self-serve-register-promo-copy">
-            <p>Ücretsiz</p>
-            <h2 id="self-serve-register-promo-title">E-Ticaret Yolculuğunu Başlat</h2>
-            <span>Mağazanı dakikalar içinde oluştur, ürünlerini eklemeye başla.</span>
-          </div>
-        </aside>
+        <SelfServeRegistrationPromo />
       </div>
     </main>
   );

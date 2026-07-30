@@ -32,6 +32,7 @@ const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
 const SELF_SERVE_PUBLIC_PREFIXES = [
   "/branding",
+  "/media",
   "/magaza-ac",
   "/kayit",
   "/onboarding",
