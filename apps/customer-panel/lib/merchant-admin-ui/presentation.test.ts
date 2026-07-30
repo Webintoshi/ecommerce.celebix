@@ -7,6 +7,9 @@ import {
   buildProviderWorkflowState,
   formatMerchantAdminConfig,
   getMerchantModuleDefinition,
+  isSingletonMerchantModule,
+  selectSingletonEditorRecord,
+  singletonRecordState,
 } from "./presentation.ts";
 
 const NOW = "2026-07-22T19:00:00.000Z";
@@ -63,6 +66,22 @@ test("theme settings expose only bounded visual choices and a numeric home produ
     { key: "showBrandStory", type: "boolean", allowedValues: undefined },
   ]);
   assert.equal(definition.fields.some(({ key }) => /css|html|script|font|url|colorValue/i.test(key)), false);
+});
+
+test("starter presentation settings expose one effective singleton editor and identify superseded active rows", () => {
+  const singletonKinds = ["general_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "seo_control", "social_preview"] as const;
+  for (const kind of singletonKinds) assert.equal(isSingletonMerchantModule(kind), true);
+  assert.equal(isSingletonMerchantModule("discount"), false);
+  const older = { ...record("71000000-0000-4000-8000-000000000001", "active", "Eski tema", {}), kind: "theme_setting" as const, updatedAt: "2026-07-20T19:00:00.000Z" };
+  const winner = { ...record("71000000-0000-4000-8000-000000000002", "active", "Yeni tema", {}), kind: "theme_setting" as const, updatedAt: "2026-07-22T19:00:00.000Z" };
+  const draft = { ...record("71000000-0000-4000-8000-000000000003", "draft", "Taslak tema", {}), kind: "theme_setting" as const, updatedAt: "2026-07-23T19:00:00.000Z" };
+  const rows = Object.freeze([older, draft, winner]);
+  assert.equal(selectSingletonEditorRecord("theme_setting", rows)?.id, winner.id);
+  assert.equal(singletonRecordState("theme_setting", winner, rows), "effective");
+  assert.equal(singletonRecordState("theme_setting", older, rows), "superseded");
+  assert.equal(singletonRecordState("theme_setting", draft, rows), null);
+  assert.equal(selectSingletonEditorRecord("discount", rows as never), null);
+  assert.equal(selectSingletonEditorRecord("theme_setting", [draft])?.id, draft.id);
 });
 
 test("shipping settings expose the exact checkout rate fields", () => {

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildDefaultStarterPresentation, starterThemeTokens } from "./presentation.ts";
-import { parsePublicProduct, parsePublicStorefront } from "./validation.ts";
+import { buildDefaultStarterPresentation, starterMarqueeTokens, starterThemeTokens } from "./presentation.ts";
+import { parsePublicProduct, parsePublicStarterThemePresentation, parsePublicStorefront } from "./validation.ts";
 
 const STORE_ID = "10000000-0000-4000-8000-000000000001";
 const PRODUCT_ID = "20000000-0000-4000-8000-000000000001";
@@ -46,6 +46,19 @@ test("public storefront contract rejects getters and exotic presentation prototy
   assert.throws(() => parsePublicStorefront({ ...STOREFRONT, presentation: Object.assign(Object.create({ inherited: true }), PRESENTATION) }));
 });
 
+test("public storefront contract rejects marquee accessors without invoking them", () => {
+  let invoked = false;
+  const items = ["Güvenli ödeme"];
+  Object.defineProperty(items, "0", { enumerable: true, configurable: true, get() { invoked = true; return "Güvenli ödeme"; } });
+  assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, marquee: { ...PRESENTATION.marquee, items } }));
+  assert.equal(invoked, false);
+});
+
+test("starter presentation parser is reusable without weakening the public storefront envelope", () => {
+  assert.deepEqual(parsePublicStarterThemePresentation(PRESENTATION), PRESENTATION);
+  assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, privateAuthority: true }));
+});
+
 test("starter presentation defaults and token mapping are deterministic and bounded", () => {
   const defaults = buildDefaultStarterPresentation({ name: "Yeni Mağaza" });
   assert.deepEqual(defaults, {
@@ -57,6 +70,7 @@ test("starter presentation defaults and token mapping are deterministic and boun
   });
   assert.equal(Object.isFrozen(defaults.hero), true);
   assert.deepEqual(starterThemeTokens(PRESENTATION), { schemeClass: "theme-neutral", headingClass: "heading-serif", cardClass: "cards-editorial", imageClass: "images-portrait" });
+  assert.deepEqual(starterMarqueeTokens(PRESENTATION.marquee!), { iconSymbol: "✓", iconClass: "marquee-icon-shield", speedClass: "marquee-speed-normal", directionClass: "marquee-direction-left", animationClass: "marquee-animation-continuous" });
 });
 
 test("public product contract excludes cost and archived authority while preserving ordered active media", () => {

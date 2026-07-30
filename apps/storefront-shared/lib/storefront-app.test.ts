@@ -295,6 +295,8 @@ test("starter storefront consumes the public presentation and exposes no inert c
   assert.match(home, /presentation[.]theme[.]homeProductLimit/);
   assert.match(home, /presentation[.]hero[.]destination/);
   assert.match(home, /presentation[.]theme[.]showBrandStory/);
+  assert.match(home, /starterMarqueeTokens/);
+  assert.match(home, /iconSymbol/);
   assert.match(listing, /ProductExplorer/);
   assert.match(detail, /presentation/);
   assert.match(header, /presentation[.]displayName/);
@@ -302,6 +304,20 @@ test("starter storefront consumes the public presentation and exposes no inert c
   assert.match(frame, /starterThemeTokens/);
   assert.match(card, /productImageRatio|imageRatio/);
   assert.doesNotMatch(header, /Çanta|Sepet yakında|header-bag/);
+});
+
+test("dark theme and every marquee preference drive bounded CSS without sacrificing contrast", async () => {
+  const [home, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  for (const token of ["marquee-speed-slow", "marquee-speed-normal", "marquee-speed-fast", "marquee-direction-left", "marquee-direction-right", "marquee-animation-continuous", "marquee-animation-step"]) assert.match(css, new RegExp(token));
+  assert.match(css, /theme-dark[^}]+--paper:\s*#151719/);
+  assert.match(css, /theme-dark[^}]+--accent-ink:\s*#17120e/);
+  assert.match(css, /store-button[^}]+color:\s*var\(--paper\)/);
+  assert.match(css, /stock-callout[^}]+color:\s*#382624/);
+  assert.match(css, /prefers-reduced-motion/);
+  assert.doesNotMatch(home, /presentation[.]marquee[.]items[.]join\(" · "\)<\/aside>/);
 });
 
 test("storefront metadata is presentation-owned and defaults to noindex", async () => {
@@ -535,6 +551,9 @@ test("starter product detail owns one semantic rich description section", async 
   assert.match(description, />Ürün açıklaması</);
   assert.match(description, /renderStarterProductDescription/);
   assert.match(description, /dangerouslySetInnerHTML/);
+  assert.match(page, /aria-label="İçerik yolu"/);
+  assert.match(page, /href="\/">Ana sayfa/);
+  assert.match(page, /href="\/products">Ürünler/);
 });
 
 test("checkout quote page uses one native exact-origin form and no client token transport", async () => {

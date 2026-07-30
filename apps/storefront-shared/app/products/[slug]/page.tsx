@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
@@ -35,6 +36,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   </section>;
   return <StorefrontFrame storefront={storefront}>
     <StorefrontAnalyticsEvent tracker={selected.tracker} event={PRODUCT_VIEW_EVENT} trigger="mount" />
+    <nav className="product-breadcrumb store-container" aria-label="İçerik yolu">
+      <Link href="/">Ana sayfa</Link><span aria-hidden="true">/</span>
+      <Link href="/products">Ürünler</Link><span aria-hidden="true">/</span>
+      <span aria-current="page">{item.title}</span>
+    </nav>
     <section className="product-detail store-container">
       <ProductGallery product={item} />
       <div className="product-copy">

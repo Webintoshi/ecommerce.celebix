@@ -21,6 +21,14 @@ function providerKindTypeBoundary(api:MerchantAdminRepository){if(false){
 }}
 void providerKindTypeBoundary;
 
+test("reads the exact effective starter presentation through durable merchant authority",async()=>{
+ const presentation={schemaVersion:1,displayName:"Güzide",theme:{colorScheme:"warm",headingStyle:"sans",productCardStyle:"compact",productImageRatio:"square",homeProductLimit:12,showBrandStory:false},hero:{enabled:true,headline:"Yeni sezon",body:"Koleksiyonu keşfedin.",destination:"/products"},seo:{allowIndex:false}};
+ const reader=new Client((text)=>text.includes("merchant_admin_effective_starter_presentation")?[{outcome:"found",result_payload:presentation}]:[]);
+ const result=await repository(new Pool([reader])).getEffectiveStarterPresentation({tenantContext:tenant(),now:NOW,hostname:"store.saas-staging.celebix.site"});
+ assert.deepEqual(result,presentation);
+ assert.deepEqual(call(reader,"merchant_admin_effective_starter_presentation").values,[STORE,PRINCIPAL,MEMBERSHIP,PLAN,"growth",2,NOW,"store.saas-staging.celebix.site"]);
+});
+
 test("gets one exact fixed-kind record with durable authority",async()=>{
  const projected={id:RECORD,kind:"discount",name:"Yaz Indirimi",config:{discountType:"percent",value:15},status:"active",version:1,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString()};
  const reader=new Client((text)=>text.includes("merchant_admin_get_record")?[{outcome:"found",result_payload:projected}]:[]);
@@ -71,6 +79,22 @@ test("typed settings accept only finite public configuration before SQL",async()
  for(const hostile of [
   {colorScheme:"red"},{headingStyle:"display"},{productCardStyle:"dense"},{productImageRatio:"landscape"},{homeProductLimit:6},{homeProductLimit:"8"},{showBrandStory:"true"},{customCss:"body{}"},
  ]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"theme_setting" as never,name:"Tema",config:hostile as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+});
+
+test("active storefront settings cannot exceed or omit the public presentation contract",async()=>{
+ const hostile=[
+  ["hero_banner",{body:"x".repeat(1001)}],
+  ["hero_banner",{destination:"/products?sort=new"}],
+  ["promotion_banner",{enabled:true}],
+  ["promotion_banner",{headline:"Kampanya",body:"x".repeat(1001),enabled:true}],
+  ["promotion_banner",{headline:"Kampanya",destination:"/sale?coupon=private",enabled:true}],
+  ["marquee_setting",{enabled:true}],
+  ["seo_control",{metaDescription:"x".repeat(501),allowIndex:false}],
+ ] as const;
+ for(const [index,[kind,config]] of hostile.entries()) await assert.rejects(
+  ()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:`72000000-0000-4000-8000-${String(500+index).padStart(12,"0")}`,kind:kind as never,name:"Vitrin",config:config as never,status:"active"}),
+  (error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input",
+ );
 });
 
 test("advanced SEO and AI records reject code and provider material before SQL",async()=>{

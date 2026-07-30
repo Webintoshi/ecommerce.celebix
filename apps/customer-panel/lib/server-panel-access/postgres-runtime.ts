@@ -184,6 +184,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.catalog_admin_import_products(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,text,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.catalog_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_admin_repository,
       to_regprocedure('saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_admin_effective_starter_presentation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL

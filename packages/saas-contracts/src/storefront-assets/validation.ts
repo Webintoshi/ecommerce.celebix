@@ -10,7 +10,14 @@ function record(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) invalid();
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) invalid();
-  return value as Record<string, unknown>;
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== "string")) invalid();
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (keys.some((key) => {
+    const descriptor = descriptors[key as string];
+    return !descriptor || !descriptor.enumerable || !("value" in descriptor);
+  })) invalid();
+  return Object.fromEntries((keys as string[]).map((key) => [key, descriptors[key]!.value]));
 }
 function text(value: unknown, minimum: number, maximum: number, pattern?: RegExp): string {
   if (typeof value !== "string" || value.length < minimum || value.length > maximum || value !== value.trim() || CONTROL.test(value) || (pattern && !pattern.test(value))) invalid();

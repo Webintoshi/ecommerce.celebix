@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { starterMarqueeTokens } from "@celebix/saas-contracts";
 
 import { ProductGrid } from "@/components/ProductGrid";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -27,8 +28,9 @@ export default async function HomePage() {
   const { presentation } = storefront;
   const products = await runtime.repository.listPublicProducts({ storefront, now: new Date(), limit: presentation.theme.homeProductLimit });
   const heroMedia = presentation.hero.image ?? products.items.find((product) => product.media.length)?.media[0];
+  const marqueeTokens = presentation.marquee ? starterMarqueeTokens(presentation.marquee) : null;
   return <StorefrontFrame storefront={storefront}>
-    {presentation.marquee ? <aside className="store-marquee" aria-label="Mağaza duyuruları">{presentation.marquee.items.join(" · ")}</aside> : null}
+    {presentation.marquee && marqueeTokens ? <aside className={`store-marquee ${marqueeTokens.iconClass} ${marqueeTokens.speedClass} ${marqueeTokens.directionClass} ${marqueeTokens.animationClass}`} aria-label="Mağaza duyuruları"><span className="marquee-icon" aria-hidden="true">{marqueeTokens.iconSymbol}</span><span className="marquee-track">{presentation.marquee.items.join(" · ")}</span></aside> : null}
     {presentation.promotion ? <Link className="store-promotion" href={presentation.promotion.destination}>{presentation.promotion.headline}{presentation.promotion.body ? <small>{presentation.promotion.body}</small> : null}</Link> : null}
     {presentation.hero.enabled ? <section className={`home-hero ${heroMedia ? "has-hero-media" : ""}`}>
       {heroMedia ? <img className="hero-media" src={heroMedia.url} alt={heroMedia.altText} width={heroMedia.width} height={heroMedia.height} /> : null}

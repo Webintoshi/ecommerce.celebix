@@ -4,21 +4,25 @@ SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL statement_timeout='30s';
 
 DO $f$
-DECLARE helper_oid oid; resolver_oid oid; create_oid oid; list_oid oid; archive_oid oid; recover_oid oid;
+DECLARE helper_oid oid; gated_helper_oid oid; effective_oid oid; resolver_oid oid; create_oid oid; list_oid oid; archive_oid oid; recover_oid oid;
 BEGIN
   helper_oid:=pg_catalog.to_regprocedure('saas.public_starter_presentation(uuid,timestamp with time zone)');
+  gated_helper_oid:=pg_catalog.to_regprocedure('saas.public_starter_presentation(uuid,timestamp with time zone,boolean)');
+  effective_oid:=pg_catalog.to_regprocedure('saas.merchant_admin_effective_starter_presentation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)');
   resolver_oid:=pg_catalog.to_regprocedure('saas.resolve_public_storefront(text,timestamp with time zone)');
   create_oid:=pg_catalog.to_regprocedure('saas.storefront_asset_create(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,text,text,text,text,text,integer,integer,bigint)');
   list_oid:=pg_catalog.to_regprocedure('saas.storefront_asset_list(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,boolean)');
   archive_oid:=pg_catalog.to_regprocedure('saas.storefront_asset_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)');
   recover_oid:=pg_catalog.to_regprocedure('saas.storefront_asset_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,text)');
-  IF helper_oid IS NULL OR resolver_oid IS NULL OR create_oid IS NULL OR list_oid IS NULL OR archive_oid IS NULL OR recover_oid IS NULL THEN RAISE EXCEPTION 'STARTER_THEME_FUNCTION_MISSING'; END IF;
+  IF helper_oid IS NULL OR gated_helper_oid IS NULL OR effective_oid IS NULL OR resolver_oid IS NULL OR create_oid IS NULL OR list_oid IS NULL OR archive_oid IS NULL OR recover_oid IS NULL THEN RAISE EXCEPTION 'STARTER_THEME_FUNCTION_MISSING'; END IF;
 
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc p
-    WHERE p.oid=helper_oid AND p.proowner='celebix_saas_owner'::regrole
+    WHERE p.oid IN(helper_oid,gated_helper_oid) AND p.proowner='celebix_saas_owner'::regrole
       AND p.prosecdef AND p.provolatile='s'
       AND p.proconfig @> ARRAY['search_path=pg_catalog, saas']::text[]
+    GROUP BY p.proowner,p.prosecdef,p.provolatile,p.proconfig
+    HAVING pg_catalog.count(*)=2
   ) THEN RAISE EXCEPTION 'STARTER_THEME_HELPER_AUTHORITY_INVALID'; END IF;
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_proc p
@@ -26,16 +30,19 @@ BEGIN
       AND p.prosecdef AND p.provolatile='s'
       AND p.proconfig @> ARRAY['search_path=pg_catalog, saas']::text[]
       AND p.prosrc LIKE '%''schemaVersion'',2%'
-      AND p.prosrc LIKE '%public_starter_presentation(store.id,p_now)%'
+      AND p.prosrc LIKE '%domain.hostname_type=''custom_domain'' AND domain.is_primary%'
   ) THEN RAISE EXCEPTION 'STARTER_THEME_RESOLVER_INVALID'; END IF;
 
   IF NOT pg_catalog.has_function_privilege('celebix_saas_host_resolver',resolver_oid,'EXECUTE')
     OR pg_catalog.has_function_privilege('celebix_saas_host_resolver',helper_oid,'EXECUTE')
+    OR pg_catalog.has_function_privilege('celebix_saas_host_resolver',gated_helper_oid,'EXECUTE')
     OR pg_catalog.has_function_privilege('celebix_saas_app',helper_oid,'EXECUTE')
+    OR pg_catalog.has_function_privilege('celebix_saas_app',gated_helper_oid,'EXECUTE')
+    OR NOT pg_catalog.has_function_privilege('celebix_saas_app',effective_oid,'EXECUTE')
     OR EXISTS(
       SELECT 1 FROM pg_catalog.pg_proc p,
         LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) acl
-      WHERE p.oid=helper_oid AND acl.grantee=0 AND acl.privilege_type='EXECUTE'
+      WHERE p.oid IN(helper_oid,gated_helper_oid) AND acl.grantee=0 AND acl.privilege_type='EXECUTE'
     )
   THEN RAISE EXCEPTION 'STARTER_THEME_FUNCTION_ACL_INVALID'; END IF;
   IF pg_catalog.has_table_privilege('celebix_saas_host_resolver','saas.merchant_admin_records','SELECT')

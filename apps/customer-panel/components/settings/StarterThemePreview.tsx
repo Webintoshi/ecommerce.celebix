@@ -1,6 +1,6 @@
 "use client";
 
-import { starterThemeTokens, type PublicStarterThemePresentation } from "@celebix/saas-contracts";
+import { starterMarqueeTokens, starterThemeTokens, type PublicStarterThemePresentation } from "@celebix/saas-contracts";
 import { useState } from "react";
 
 import styles from "./design-settings.module.css";
@@ -16,6 +16,7 @@ export function StarterThemePreview({
 }>) {
   const [mode, setMode] = useState<PreviewMode>("desktop");
   const tokens = starterThemeTokens(presentation);
+  const marqueeTokens = presentation.marquee ? starterMarqueeTokens(presentation.marquee) : null;
   return <section className={styles.previewSection} aria-labelledby="starter-theme-preview-title">
     <div className={styles.previewHeading}>
       <div>
@@ -35,7 +36,7 @@ export function StarterThemePreview({
     </div>
     <div className={`${styles.previewViewport} ${styles[mode]}`}>
       <div className={`${styles.previewStore} ${styles[tokens.schemeClass]} ${styles[tokens.headingClass]} ${styles[tokens.cardClass]} ${styles[tokens.imageClass]}`}>
-        {presentation.marquee ? <div className={styles.previewMarquee}>{presentation.marquee.items.join(" · ")}</div> : null}
+        {presentation.marquee && marqueeTokens ? <div className={`${styles.previewMarquee} ${styles[marqueeTokens.speedClass]} ${styles[marqueeTokens.directionClass]} ${styles[marqueeTokens.animationClass]}`}><span aria-hidden="true">{marqueeTokens.iconSymbol}</span><span className={styles.previewMarqueeTrack}>{presentation.marquee.items.join(" · ")}</span></div> : null}
         <header className={styles.previewNav}>
           <strong>{presentation.displayName}</strong>
           <span>Ürünler</span>

@@ -9,6 +9,7 @@ test("storefront asset manager uses only same-origin durable asset and setting A
   assert.match(value, /\/api\/storefront-assets/);
   assert.match(value, /merchantAdminApi\.save/);
   assert.match(value, /assetId/);
+  assert.match(value, /pendingUploadOperation/);
   assert.doesNotMatch(value, /x-store-id|x-tenant-id|R2_ACCESS|R2_SECRET|publicOrigin|localStorage|sessionStorage/);
 });
 

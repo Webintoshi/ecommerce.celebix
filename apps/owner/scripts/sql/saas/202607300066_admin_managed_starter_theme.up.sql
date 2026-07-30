@@ -13,6 +13,7 @@ BEGIN
     OR pg_catalog.to_regprocedure('saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NULL
     OR pg_catalog.to_regprocedure('saas.merchant_admin_get_record(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid)') IS NULL
     OR pg_catalog.to_regprocedure('saas.public_starter_presentation(uuid,timestamp with time zone)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('saas.public_starter_presentation(uuid,timestamp with time zone,boolean)') IS NOT NULL
     OR pg_catalog.to_regprocedure('saas.merchant_admin_config_valid_without_starter_theme(text,jsonb)') IS NOT NULL
   THEN
     RAISE EXCEPTION 'ADMIN_MANAGED_STARTER_THEME_SOURCE_INVALID';
@@ -90,6 +91,19 @@ RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS
    NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_object_keys(p_config) AS field(key) WHERE field.key NOT IN('headline','body','assetId','destination','enabled'))
    AND saas.merchant_admin_config_valid_without_starter_theme(p_kind,p_config-'assetId')
    AND (NOT p_config?'assetId' OR (pg_catalog.jsonb_typeof(p_config->'assetId')='string' AND p_config->>'assetId'~'^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'))
+   AND (NOT p_config?'body' OR pg_catalog.char_length(p_config->>'body')<=1000)
+   AND (NOT p_config?'destination' OR (pg_catalog.char_length(p_config->>'destination')<=512 AND pg_catalog.strpos(p_config->>'destination','?')=0 AND pg_catalog.strpos(p_config->>'destination','#')=0 AND pg_catalog.strpos(p_config->>'destination','\\')=0 AND pg_catalog.strpos(p_config->>'destination','//')=0))
+ WHEN p_kind='promotion_banner' THEN
+   saas.merchant_admin_config_valid_without_starter_theme(p_kind,p_config)
+   AND (NOT p_config?'body' OR pg_catalog.char_length(p_config->>'body')<=1000)
+   AND (NOT p_config?'destination' OR (pg_catalog.char_length(p_config->>'destination')<=512 AND pg_catalog.strpos(p_config->>'destination','?')=0 AND pg_catalog.strpos(p_config->>'destination','#')=0 AND pg_catalog.strpos(p_config->>'destination','\\')=0 AND pg_catalog.strpos(p_config->>'destination','//')=0))
+   AND (p_config->'enabled' IS DISTINCT FROM 'true'::jsonb OR p_config?'headline')
+ WHEN p_kind='marquee_setting' THEN
+   saas.merchant_admin_config_valid_without_starter_theme(p_kind,p_config)
+   AND (p_config->'enabled' IS DISTINCT FROM 'true'::jsonb OR p_config?'items')
+ WHEN p_kind='seo_control' THEN
+   saas.merchant_admin_config_valid_without_starter_theme(p_kind,p_config)
+   AND (NOT p_config?'metaDescription' OR pg_catalog.char_length(p_config->>'metaDescription')<=500)
  WHEN p_kind='social_preview' THEN
    NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_object_keys(p_config) AS field(key) WHERE field.key NOT IN('title','description','assetId'))
    AND saas.merchant_admin_config_valid_without_starter_theme(p_kind,p_config-'assetId')
@@ -310,9 +324,11 @@ BEGIN
  IF FOUND THEN RETURN QUERY SELECT existing.outcome,existing.result_payload; RETURN; END IF;
  PERFORM 1 FROM saas.stores store WHERE store.id=p_store_id AND store.status='active' FOR UPDATE;
  IF NOT FOUND THEN RETURN QUERY SELECT 'store_inactive',NULL::jsonb; RETURN; END IF;
+ SELECT * INTO existing FROM saas.storefront_asset_operation_replay(p_operation_id,p_store_id,'create_asset',p_fingerprint);
+ IF FOUND THEN RETURN QUERY SELECT existing.outcome,existing.result_payload; RETURN; END IF;
  IF p_operation_id IS NULL OR p_asset_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' OR p_kind IS NULL OR p_kind NOT IN('logo','hero','social','favicon') OR p_media_type IS NULL OR p_media_type NOT IN('image/jpeg','image/png','image/webp') OR p_width IS NULL OR p_width NOT BETWEEN 1 AND 8192 OR p_height IS NULL OR p_height NOT BETWEEN 1 AND 8192 OR p_byte_size IS NULL OR p_byte_size NOT BETWEEN 1 AND 5242880 OR p_object_key IS NULL OR p_public_url IS NULL OR p_alt_text IS NULL OR p_alt_text<>pg_catalog.btrim(p_alt_text) OR pg_catalog.char_length(p_alt_text)>500 OR p_alt_text~'[[:cntrl:]]' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
- IF p_object_key<>'stores/'||p_store_id::text||'/storefront/'||p_kind||'/'||p_asset_id::text||(CASE p_media_type WHEN 'image/jpeg' THEN '.jpg' WHEN 'image/png' THEN '.png' ELSE '.webp' END) OR p_public_url!~'^https://[^/?#[:space:][:cntrl:]]+/' OR p_public_url~'[?#[:space:][:cntrl:]]' OR pg_catalog.right(p_public_url,pg_catalog.char_length(p_object_key)+1)<>'/'||p_object_key THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
- IF (SELECT pg_catalog.count(*) FROM saas.storefront_assets asset WHERE asset.store_id=p_store_id AND asset.status='active')>=64 OR (SELECT COALESCE(pg_catalog.sum(media.byte_size),0) FROM saas.product_media media WHERE media.store_id=p_store_id AND media.status IN('pending','active'))+(SELECT COALESCE(pg_catalog.sum(asset.byte_size),0) FROM saas.storefront_assets asset WHERE asset.store_id=p_store_id AND asset.status='active')+p_byte_size>p_storage_bytes THEN RETURN QUERY SELECT 'asset_limit_reached',NULL::jsonb; RETURN; END IF;
+ IF p_object_key<>'stores/'||p_store_id::text||'/storefront/'||p_kind||'/'||p_asset_id::text||(CASE p_media_type WHEN 'image/jpeg' THEN '.jpg' WHEN 'image/png' THEN '.png' ELSE '.webp' END) OR p_public_url!~'^https://media(\.saas-staging)?\.celebix\.site/' OR p_public_url~'[?#[:space:][:cntrl:]]' OR pg_catalog.right(p_public_url,pg_catalog.char_length(p_object_key)+1)<>'/'||p_object_key THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ IF (SELECT pg_catalog.count(*) FROM saas.storefront_assets asset WHERE asset.store_id=p_store_id)>=64 OR (SELECT COALESCE(pg_catalog.sum(media.byte_size),0) FROM saas.product_media media WHERE media.store_id=p_store_id AND media.status IN('pending','active'))+(SELECT COALESCE(pg_catalog.sum(asset.byte_size),0) FROM saas.storefront_assets asset WHERE asset.store_id=p_store_id)+p_byte_size>p_storage_bytes THEN RETURN QUERY SELECT 'asset_limit_reached',NULL::jsonb; RETURN; END IF;
  INSERT INTO saas.storefront_assets(id,store_id,asset_kind,object_key,public_url,media_type,alt_text,width,height,byte_size,status,created_at,updated_at,version) VALUES(p_asset_id,p_store_id,p_kind,p_object_key,p_public_url,p_media_type,p_alt_text,p_width,p_height,p_byte_size,'active',p_now,p_now,1);
  projection:=pg_catalog.jsonb_build_object('asset',saas.storefront_asset_projection(p_store_id,p_asset_id));
  INSERT INTO saas.storefront_asset_operations VALUES(p_operation_id,p_store_id,'create_asset',p_fingerprint,projection,p_now);
@@ -365,7 +381,7 @@ $f$;
 REVOKE ALL ON FUNCTION saas.storefront_asset_create(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,text,text,text,text,integer,integer,bigint),saas.storefront_asset_list(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,text,boolean),saas.storefront_asset_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint),saas.storefront_asset_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION saas.storefront_asset_create(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,text,text,text,text,text,integer,integer,bigint),saas.storefront_asset_list(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,text,boolean),saas.storefront_asset_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint),saas.storefront_asset_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,text) TO celebix_saas_app;
 
-CREATE FUNCTION saas.public_starter_presentation(p_store_id uuid, p_now timestamptz)
+CREATE FUNCTION saas.public_starter_presentation(p_store_id uuid, p_now timestamptz, p_allow_index boolean)
 RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
 AS $f$
@@ -382,7 +398,7 @@ DECLARE
   promotion jsonb;
   marquee jsonb;
 BEGIN
-  IF p_store_id IS NULL OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now) THEN RETURN NULL; END IF;
+  IF p_store_id IS NULL OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now) OR p_allow_index IS NULL THEN RETURN NULL; END IF;
   SELECT s.name INTO store_name FROM saas.stores s WHERE s.id=p_store_id AND s.status='active';
   IF store_name IS NULL THEN RETURN NULL; END IF;
 
@@ -456,10 +472,45 @@ BEGIN
     'seo',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
       'title',seo_config->>'metaTitle',
       'description',seo_config->>'metaDescription',
-      'allowIndex',COALESCE((seo_config->>'allowIndex')::boolean,false),
+      'allowIndex',COALESCE((seo_config->>'allowIndex')::boolean,false) AND p_allow_index,
       'socialImage',saas.public_storefront_asset(p_store_id,'social',social_config)
     ))
   ));
+END
+$f$;
+
+CREATE FUNCTION saas.public_starter_presentation(p_store_id uuid, p_now timestamptz)
+RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $f$
+  SELECT saas.public_starter_presentation(p_store_id,p_now,false)
+$f$;
+
+CREATE FUNCTION saas.merchant_admin_effective_starter_presentation(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_now timestamptz,p_hostname text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE authority_error text; projection jsonb;
+BEGIN
+  IF p_hostname IS NULL OR p_hostname<>pg_catalog.lower(p_hostname)
+     OR pg_catalog.char_length(p_hostname) NOT BETWEEN 3 AND 253
+     OR p_hostname~'[*:/?#@[:space:][:cntrl:]]'
+     OR p_hostname!~'^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+  THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
+  authority_error:=saas.merchant_admin_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'theme_setting',false
+  );
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  SELECT saas.public_starter_presentation(
+    p_store_id,p_now,domain.hostname_type='custom_domain' AND domain.is_primary
+  ) INTO projection
+  FROM saas.store_domains domain
+  WHERE domain.store_id=p_store_id AND domain.hostname=p_hostname
+    AND domain.status='active' AND domain.verified_at<=p_now;
+  IF projection IS NULL THEN RETURN QUERY SELECT 'record_not_found',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'found',projection;
 END
 $f$;
 
@@ -478,7 +529,9 @@ BEGIN
     'hostname',domain.hostname,'primaryHostname',primary_domain.hostname,
     'canonicalUrl','https://'||domain.hostname||'/','currency',store.currency,
     'locale',store.locale,'themeKey',store.theme_key,
-    'presentation',saas.public_starter_presentation(store.id,p_now)
+    'presentation',saas.public_starter_presentation(
+      store.id,p_now,domain.hostname_type='custom_domain' AND domain.is_primary
+    )
   ) INTO projection
   FROM saas.store_domains AS domain
   JOIN saas.stores AS store ON store.id=domain.store_id AND store.status='active'
@@ -496,6 +549,8 @@ REVOKE ALL ON FUNCTION
   saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
   saas.merchant_admin_get_record(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid),
   saas.public_starter_presentation(uuid,timestamptz),
+  saas.public_starter_presentation(uuid,timestamptz,boolean),
+  saas.merchant_admin_effective_starter_presentation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
   saas.resolve_public_storefront(text,timestamptz)
 FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
   celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
@@ -504,7 +559,8 @@ FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
 GRANT EXECUTE ON FUNCTION
   saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
   saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
-  saas.merchant_admin_get_record(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid)
+  saas.merchant_admin_get_record(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid),
+  saas.merchant_admin_effective_starter_presentation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text)
 TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.resolve_public_storefront(text,timestamptz)
 TO celebix_saas_host_resolver;

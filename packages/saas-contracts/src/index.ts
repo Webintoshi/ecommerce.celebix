@@ -368,7 +368,9 @@ export {
   parsePublicProduct,
   parsePublicProductMedia,
   parsePublicProductVariant,
+  parsePublicStarterThemePresentation,
   parsePublicStorefront,
+  starterMarqueeTokens,
   starterThemeTokens,
 } from "./storefront/index.ts";
 export type {
@@ -380,6 +382,7 @@ export type {
   PublicStarterThemePresentation,
   PublicStorefront,
   PublicStorefrontAsset,
+  StarterMarqueeTokens,
   StarterThemeTokens,
 } from "./storefront/index.ts";
 export {

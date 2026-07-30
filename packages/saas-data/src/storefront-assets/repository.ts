@@ -5,6 +5,7 @@ import { STOREFRONT_ASSET_ERROR_CODES, type ArchiveStorefrontAssetInput, type Cr
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
+const FIRST_PARTY_MEDIA_HOSTS = new Set(["media.saas-staging.celebix.site", "media.celebix.site"]);
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const EXPECTED = new Set<string>(STOREFRONT_ASSET_ERROR_CODES);
 type Authority = Readonly<{ storeId: string; principalId: string; membershipId: string; planId: string; planCode: string; planVersion: number; storageBytes: number; now: Date }>;
@@ -19,6 +20,7 @@ function exact<T extends object>(value: T, keys: readonly string[], optional: re
 function uuid(value: unknown): string { if (typeof value !== "string" || !UUID.test(value)) throw failure("invalid_input"); return value; }
 function text(value: unknown, minimum: number, maximum: number): string { if (typeof value !== "string" || value.length < minimum || value.length > maximum || value !== value.trim() || CONTROL.test(value)) throw failure("invalid_input"); return value; }
 function integer(value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): number { if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) throw failure("invalid_input"); return value as number; }
+function publicMediaOrigin(value: unknown): string { const raw = text(value, 1, 2048); let url: URL; try { url = new URL(raw); } catch { throw failure("unavailable"); } if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash || url.port || url.origin !== raw || !FIRST_PARTY_MEDIA_HOSTS.has(url.hostname)) throw failure("unavailable"); return raw; }
 function authority(context: TenantContext, now: Date): Authority {
   if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !context || context.store.status !== "active" || context.membership.status !== "active") throw failure("invalid_input");
   const storageBytes = getPlanLimit(context.entitlements, "storageBytes");
@@ -32,7 +34,7 @@ export function storefrontAssetFingerprint(kind: "create_asset" | "archive_asset
 
 export class PostgresStorefrontAssetRepository implements StorefrontAssetRepository {
   private readonly options: PostgresStorefrontAssetRepositoryOptions;
-  constructor(options: PostgresStorefrontAssetRepositoryOptions) { if (!options || options.role !== "celebix_saas_app" || typeof options.audit !== "function") throw failure("unavailable"); timeout(options.timeouts.poolCheckoutMs); timeout(options.timeouts.statementMs); timeout(options.timeouts.lockMs); timeout(options.timeouts.idleTransactionMs); this.options = options; }
+  constructor(options: PostgresStorefrontAssetRepositoryOptions) { if (!options || options.role !== "celebix_saas_app" || typeof options.audit !== "function") throw failure("unavailable"); timeout(options.timeouts.poolCheckoutMs); timeout(options.timeouts.statementMs); timeout(options.timeouts.lockMs); timeout(options.timeouts.idleTransactionMs); publicMediaOrigin(options.publicMediaOrigin); this.options = options; }
   private async configure(client: PostgresClientLike): Promise<void> { await client.query("SELECT pg_catalog.set_config('statement_timeout', $1, true)", [timeout(this.options.timeouts.statementMs)]); await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [timeout(this.options.timeouts.lockMs)]); await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.options.timeouts.idleTransactionMs)]); await client.query("SET LOCAL ROLE celebix_saas_app"); }
   private expected(outcome: string): never { if (EXPECTED.has(outcome)) throw failure(outcome as StorefrontAssetErrorCode); throw failure("unavailable"); }
   private audit(): void { try { const pending = this.options.audit({ type: "storefront_asset_commit_unknown" }); if (pending) void pending.catch(() => undefined); } catch { /* audit cannot redefine authority */ } }
@@ -59,7 +61,7 @@ export class PostgresStorefrontAssetRepository implements StorefrontAssetReposit
     const extension = parsed.mediaType === "image/jpeg" ? "jpg" : parsed.mediaType.slice(6), objectKey = text(parsed.objectKey, 1, 512);
     if (objectKey !== `stores/${auth.storeId}/storefront/${kind}/${assetId}.${extension}`) throw failure("invalid_input");
     const publicUrl = text(parsed.publicUrl, 1, 2048); let url: URL; try { url = new URL(publicUrl); } catch { throw failure("invalid_input"); }
-    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== `/${objectKey}` || url.toString() !== publicUrl) throw failure("invalid_input");
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.origin !== this.options.publicMediaOrigin || url.pathname !== `/${objectKey}` || url.toString() !== publicUrl) throw failure("invalid_input");
     const body = { kind, mediaType: parsed.mediaType, altText: text(parsed.altText, 0, 500), width: integer(parsed.width, 1, 8192), height: integer(parsed.height, 1, 8192), byteSize: integer(parsed.byteSize, 1, 5_242_880), contentDigest: text(parsed.contentDigest, 64, 64) };
     if (!SHA256.test(body.contentDigest)) throw failure("invalid_input");
     return this.mutation(await this.execute("SELECT outcome,result_payload FROM saas.storefront_asset_create($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::text,$13::text,$14::text,$15::text,$16::text,$17::integer,$18::integer,$19::bigint)", [...authorityValues(auth), operationId, storefrontAssetFingerprint("create_asset", body), assetId, kind, objectKey, publicUrl, body.mediaType, body.altText, body.width, body.height, body.byteSize], false));

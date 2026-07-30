@@ -28,6 +28,7 @@ export interface StorefrontAssetRepository {
 export type PostgresStorefrontAssetRepositoryOptions = Readonly<{
   pool: PostgresPoolLike;
   role: "celebix_saas_app";
+  publicMediaOrigin: string;
   timeouts: PostgresTimeoutOptions;
   audit: (event: Readonly<{ type: "storefront_asset_commit_unknown" }>) => void | Promise<void>;
 }>;

@@ -3,7 +3,7 @@ import test from "node:test";
 import { StorefrontAssetRepositoryError } from "@celebix/saas-data";
 import { createStorefrontAssetHttpHandlers } from "./handler.ts";
 
-const STORE = "10000000-0000-4000-8000-000000000001", ASSET = "20000000-0000-4000-8000-000000000001", OP = "30000000-0000-4000-8000-000000000001", REQUEST = "40000000-0000-4000-8000-000000000001";
+const STORE = "10000000-0000-4000-8000-000000000001", OP = "30000000-0000-4000-8000-000000000001", ASSET = OP, REQUEST = "40000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-30T12:00:00.000Z"), ORIGIN = "https://panel.saas-staging.celebix.site";
 const CREDENTIAL = `v1.test.${"A".repeat(43)}`;
 const tenantContext = { schemaVersion: 1, requestId: REQUEST, principal: { id: "50000000-0000-4000-8000-000000000001", issuer: "https://identity.example.test/oidc", subject: "merchant" }, store: { id: STORE, slug: "merchant", status: "active" }, membership: { id: "60000000-0000-4000-8000-000000000001", role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: "00000000-0000-4000-8000-000000000001", planCode: "free_starter", version: 1, status: "active", features: ["catalog", "media"], limits: { products: 100, staff: 1, storageBytes: 1_000_000_000 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" } as const;
@@ -20,7 +20,7 @@ function handlers(overrides: Record<string, unknown> = {}) {
   const assets = { async createAsset(input: unknown) { calls.push("create"); assert.equal((input as { tenantContext: typeof tenantContext }).tenantContext.store.id, STORE); return { asset, replayed: false }; }, async listAssets() { calls.push("list"); return [asset]; }, async archiveAsset() { calls.push("archive"); return { asset: { ...asset, status: "archived", archivedAt: NOW.toISOString(), version: 2 }, replayed: false }; }, async recoverOperation() { calls.push("recover"); return { kind: "absent" }; }, ...overrides };
   const storage = { publicUrl(key: string) { return `https://media.example.test/${key}`; }, async put(input: { objectKey: string }) { calls.push(`put:${input.objectKey}`); }, async delete(key: string) { calls.push(`delete:${key}`); } };
   const access = { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", tenantContext }; } };
-  const value = createStorefrontAssetHttpHandlers({ async resolveRuntime() { return { access, assets, storage } as never; }, now: () => NOW, requestId: () => REQUEST, assetId: () => ASSET });
+  const value = createStorefrontAssetHttpHandlers({ async resolveRuntime() { return { access, assets, storage } as never; }, now: () => NOW, requestId: () => REQUEST });
   return { calls, value };
 }
 
@@ -37,6 +37,20 @@ test("known persistence failure cleans the object while commit unknown performs 
   let recoveries = 0;
   const unknown = handlers({ async createAsset() { throw new StorefrontAssetRepositoryError("commit_unknown"); }, async recoverOperation() { recoveries += 1; return recoveries === 1 ? { kind: "absent" } : { kind: "found", result: { asset, replayed: true } }; } });
   assert.equal((await unknown.value.upload(multipart())).status, 201); assert.equal(recoveries, 2); assert.equal(unknown.calls.some((entry) => entry.startsWith("delete:")), false);
+});
+
+test("unresolved commit retry reuses one operation-derived R2 object identity", async () => {
+  const selected = handlers({
+    async createAsset() { throw new StorefrontAssetRepositoryError("commit_unknown"); },
+    async recoverOperation() { return { kind: "absent" }; },
+  });
+  assert.equal((await selected.value.upload(multipart())).status, 503);
+  assert.equal((await selected.value.upload(multipart())).status, 503);
+  const keys = selected.calls.filter((entry) => entry.startsWith("put:")).map((entry) => entry.slice(4));
+  assert.deepEqual(keys, [
+    `stores/${STORE}/storefront/hero/${OP}.png`,
+    `stores/${STORE}/storefront/hero/${OP}.png`,
+  ]);
 });
 
 test("an exact operation replay returns durable truth before a second object upload", async () => {

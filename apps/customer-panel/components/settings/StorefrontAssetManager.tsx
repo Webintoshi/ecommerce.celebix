@@ -15,6 +15,7 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
   const uploadRef = useRef<HTMLButtonElement | null>(null);
+  const pendingUploadOperation = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -31,10 +32,10 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!canManage || busy) return;
-    const form = event.currentTarget, data = new FormData(form), operationId = id(); setBusy(true); setError(""); setMessage("");
+    const form = event.currentTarget, data = new FormData(form), operationId = pendingUploadOperation.current ?? id(); pendingUploadOperation.current = operationId; setBusy(true); setError(""); setMessage("");
     try {
       const response = await fetch("/api/storefront-assets", { method: "POST", credentials: "same-origin", headers: { "idempotency-key": operationId }, body: data });
-      if (!response.ok) throw new Error(); await load(); form.reset(); setMessage("Görsel güvenle yüklendi.");
+      if (!response.ok) throw new Error(); pendingUploadOperation.current = null; await load(); form.reset(); setMessage("Görsel güvenle yüklendi.");
     } catch { setError(errorMessage()); } finally { setBusy(false); uploadRef.current?.focus(); }
   }
 
@@ -61,7 +62,7 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
     <div className={styles.heading}><div><p className={styles.eyebrow}>R2 · mağaza-bazlı</p><h2 id="storefront-assets-title">Vitrin görselleri</h2><p>Logo, hero, sosyal paylaşım ve favicon görsellerini yalnız bu mağazaya ait güvenli alanda yönetin.</p></div></div>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     {message ? <p role="status" className={styles.success}>{message}</p> : null}
-    {canManage ? <form className={styles.upload} onSubmit={upload}>
+    {canManage ? <form className={styles.upload} onChange={() => { if (!busy) pendingUploadOperation.current = null; }} onSubmit={upload}>
       <label>Tür<select name="kind" defaultValue="hero" disabled={busy}><option value="hero">Hero</option><option value="logo">Logo</option><option value="social">Sosyal</option><option value="favicon">Favicon</option></select></label>
       <label>Alternatif metin<input name="altText" maxLength={500} required /></label>
       <label>Görsel<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required /></label>

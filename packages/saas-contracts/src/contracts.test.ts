@@ -508,6 +508,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parsePublicProduct",
     "parsePublicProductMedia",
     "parsePublicProductVariant",
+    "parsePublicStarterThemePresentation",
     "parsePublicStorefront",
     "parsePurchaseOrder",
     "parsePurchaseOrderLine",
@@ -515,6 +516,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseQuickOrderLinkListItem",
     "parseQuickOrderLinkMutationResult",
     "parseStorefrontAsset",
+    "starterMarqueeTokens",
     "starterThemeTokens",
   ]);
 });
