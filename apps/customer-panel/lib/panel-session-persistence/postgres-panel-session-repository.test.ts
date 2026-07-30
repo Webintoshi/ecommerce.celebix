@@ -100,13 +100,14 @@ function harness(responder: QueryResponder, options: { commitFailure?: boolean; 
   return { repository, calls, releases, get connects() { return connects; } };
 }
 
-test("exports only the seven narrow persistent session operations", () => {
+test("exports only the eight narrow persistent session operations", () => {
   const { repository } = harness(() => empty());
   assert.deepEqual(Object.keys(repository).sort(), [
     "expireDueSessions",
     "issueSession",
     "recoverOperation",
     "resolveSession",
+    "revokePrincipalSessions",
     "revokeSession",
     "revokeSessionFamily",
     "rotateSession",
@@ -267,6 +268,23 @@ test("revokes one session and its family through fixed operations", async () => 
   const credential = await codecCredential(h);
   assert.deepEqual(await h.repository.revokeSession({ credential, reason: "logout", now: NOW }), { kind: "revoked" });
   assert.deepEqual(await h.repository.revokeSessionFamily({ credential, reason: "security", now: NOW }), { kind: "family_revoked" });
+});
+
+test("principal logout revokes every active family through one fixed authority call", async () => {
+  const h = harness((text, values) => {
+    if (text.includes("issue_panel_session")) return { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 };
+    assert.match(text, /^SELECT outcome, authority FROM saas\.revoke_principal_panel_sessions\(/);
+    assert.equal(values[2], "logout");
+    return { rows: [{ outcome: "principal_revoked", authority: { revokedCount: 3 } }], rowCount: 1 };
+  });
+  const credential = await codecCredential(h);
+  assert.deepEqual(
+    await h.repository.revokePrincipalSessions({ credential, reason: "logout", now: NOW }),
+    { kind: "principal_revoked" },
+  );
+  const serialized = JSON.stringify(h.calls);
+  assert.equal(serialized.includes(credential), false);
+  assert.equal(serialized.includes(credential.split(".").at(-1) ?? ""), false);
 });
 
 test("bounded cleanup uses the composed limit and rejects caller override authority", async () => {

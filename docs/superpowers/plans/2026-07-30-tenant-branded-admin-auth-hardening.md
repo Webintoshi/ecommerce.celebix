@@ -69,11 +69,11 @@
 - Modify: `apps/customer-panel/lib/panel-session-persistence/postgres-panel-session-repository.test.ts`
 - Modify: `apps/customer-panel/lib/server-panel-access/runtime.ts`
 
-- [ ] Add failing repository tests for exact result parsing, zero/multiple-row rejection, safe resolver outcomes, canonical host selection, principal-global revoke, cross-host handoff issue/redeem, commit-unknown recovery, and credential redaction in audit events.
-- [ ] Implement a read-only public admin-brand resolver using the host-resolver database role/function.
-- [ ] Extend the session repository/runtime with `revokePrincipalSessions`, `issueCrossHostHandoff`, and `redeemCrossHostHandoff` without weakening existing family/session methods.
-- [ ] Run the two repository suites with `--experimental-transform-types`.
-- [ ] Commit as `feat(auth): expose tenant admin session authority`.
+- [x] Add failing repository tests for exact result parsing, zero/multiple-row rejection, safe resolver outcomes, canonical host selection, principal-global revoke, cross-host handoff issue/redeem, commit-unknown recovery, and credential redaction in audit events.
+- [x] Implement a read-only public admin-brand resolver using the host-resolver database role/function.
+- [x] Extend the session repository/runtime with `revokePrincipalSessions`, `issueCrossHostHandoff`, and `redeemCrossHostHandoff` without weakening existing family/session methods.
+- [x] Run the two repository suites with `--experimental-transform-types`.
+- [x] Commit as `feat(auth): expose tenant admin session authority`.
 
 ## Task 4: Provision canonical admin domains and panel URLs
 

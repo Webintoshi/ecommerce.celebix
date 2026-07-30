@@ -62,6 +62,7 @@ export type PanelSessionSafeKind =
   | "rotated"
   | "revoked"
   | "family_revoked"
+  | "principal_revoked"
   | "expired"
   | "unauthenticated"
   | "membership_denied"
@@ -85,7 +86,7 @@ export interface PersistedPanelSession {
 }
 
 export interface PanelSessionAuditEvent {
-  operation: "issue" | "resolve" | "rotate" | "revoke" | "revoke_family" | "cleanup" | "recover";
+  operation: "issue" | "resolve" | "rotate" | "revoke" | "revoke_family" | "revoke_principal" | "cleanup" | "recover";
   result: PanelSessionSafeKind;
 }
 
@@ -94,7 +95,7 @@ type AuthorityResult =
   | { kind: "rotated" | "operation_replayed"; credential: string; session: PersistedPanelSession }
   | { kind: "operation_replayed"; session: PersistedPanelSession }
   | { kind: "commit_unknown"; credential: string }
-  | { kind: Exclude<PanelSessionSafeKind, "issued" | "resolved" | "rotated" | "revoked" | "family_revoked" | "expired" | "operation_replayed" | "commit_unknown"> };
+  | { kind: Exclude<PanelSessionSafeKind, "issued" | "resolved" | "rotated" | "revoked" | "family_revoked" | "principal_revoked" | "expired" | "operation_replayed" | "commit_unknown"> };
 
 export type PanelSessionResolveResult =
   | {
@@ -111,6 +112,7 @@ export interface PostgresPanelSessionRepository {
   rotateSession(input: { currentCredential: string; operationId: string; requestedStoreId?: string; now: Date }): Promise<AuthorityResult>;
   revokeSession(input: { credential: string; reason: PanelSessionRevocationReason; now: Date }): Promise<{ kind: PanelSessionSafeKind }>;
   revokeSessionFamily(input: { credential: string; reason: PanelSessionRevocationReason; now: Date }): Promise<{ kind: PanelSessionSafeKind }>;
+  revokePrincipalSessions(input: { credential: string; reason: PanelSessionRevocationReason; now: Date }): Promise<{ kind: PanelSessionSafeKind }>;
   expireDueSessions(input: { now: Date }): Promise<{ kind: PanelSessionSafeKind; count?: number }>;
   recoverOperation(input:
     | { operationId: string; operationKind: "issue"; credential: string; principalId: string; activeStoreId?: string }
@@ -289,7 +291,7 @@ function outcome(value: unknown): PanelSessionSafeKind {
   const parsed = string(value, 64) as PanelSessionSafeKind;
   if (![
     "issued", "resolved", "rotated", "revoked", "family_revoked", "expired", "unauthenticated",
-    "membership_denied", "operation_replayed", "operation_mismatch", "commit_unknown", "unavailable",
+    "principal_revoked", "membership_denied", "operation_replayed", "operation_mismatch", "commit_unknown", "unavailable",
     "durable_authority_invalid",
   ].includes(parsed)) throw new Error("invalid");
   return parsed;
@@ -358,7 +360,7 @@ function auditSafely(dependencies: RepositoryDependencies, event: PanelSessionAu
 }
 
 function nonAuthority(kind: PanelSessionSafeKind): AuthorityResult {
-  return { kind: kind as Exclude<PanelSessionSafeKind, "issued" | "resolved" | "rotated" | "revoked" | "family_revoked" | "expired" | "operation_replayed" | "commit_unknown"> };
+  return { kind: kind as Exclude<PanelSessionSafeKind, "issued" | "resolved" | "rotated" | "revoked" | "family_revoked" | "principal_revoked" | "expired" | "operation_replayed" | "commit_unknown"> };
 }
 
 export function createPostgresPanelSessionRepository(
@@ -469,6 +471,10 @@ export function createPostgresPanelSessionRepository(
       return revoke("revoke_family", "revoke_panel_session_family", "family_revoked", input);
     },
 
+    async revokePrincipalSessions(input) {
+      return revoke("revoke_principal", "revoke_principal_panel_sessions", "principal_revoked", input);
+    },
+
     async expireDueSessions(input) {
       let now: Date;
       try { now = canonicalNow(input.now, dependencies.clock); }
@@ -525,9 +531,9 @@ export function createPostgresPanelSessionRepository(
   };
 
   async function revoke(
-    operation: "revoke" | "revoke_family",
-    functionName: "revoke_panel_session" | "revoke_panel_session_family",
-    expected: "revoked" | "family_revoked",
+    operation: "revoke" | "revoke_family" | "revoke_principal",
+    functionName: "revoke_panel_session" | "revoke_panel_session_family" | "revoke_principal_panel_sessions",
+    expected: "revoked" | "family_revoked" | "principal_revoked",
     input: { credential: string; reason: PanelSessionRevocationReason; now: Date },
   ): Promise<{ kind: PanelSessionSafeKind }> {
     let proof;

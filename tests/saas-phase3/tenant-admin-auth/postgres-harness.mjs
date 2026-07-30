@@ -174,15 +174,20 @@ function main() {
     const issued = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_identity;
       SELECT outcome FROM saas.issue_cross_host_panel_handoff(
         '${key}','${sessionDigestA}','${ID.handoff}','${ID.handoffOperation}','${handoffKey}','${handoffDigest}',
-        '${ID.storeB}','hemenaku.admin.saas-staging.celebix.site','${ID.operationC}','${ID.sessionC}','${ID.familyC}',
-        '${key}','${sessionDigestC}','${now}','${handoffExpires}','${sessionExpires}');COMMIT;`).stdout.trim();
+        '${ID.storeB}','hemenaku.admin.saas-staging.celebix.site','${now}','${handoffExpires}');COMMIT;`).stdout.trim();
     assert.equal(issued, "handoff_issued");
     assert.equal(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_identity;
-      SELECT outcome FROM saas.redeem_cross_host_panel_handoff('${handoffKey}','${handoffDigest}','guzide-kuyumcu-4.admin.saas-staging.celebix.site','${now}');COMMIT;`).stdout.trim(), "unauthenticated");
+      SELECT outcome FROM saas.redeem_cross_host_panel_handoff(
+        '${handoffKey}','${handoffDigest}','guzide-kuyumcu-4.admin.saas-staging.celebix.site',
+        '${ID.operationC}','${ID.sessionC}','${ID.familyC}','${key}','${sessionDigestC}','${now}','${sessionExpires}');COMMIT;`).stdout.trim(), "unauthenticated");
     assert.equal(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_identity;
-      SELECT outcome FROM saas.redeem_cross_host_panel_handoff('${handoffKey}','${handoffDigest}','hemenaku.admin.saas-staging.celebix.site','${now}');COMMIT;`).stdout.trim(), "redeemed");
+      SELECT outcome FROM saas.redeem_cross_host_panel_handoff(
+        '${handoffKey}','${handoffDigest}','hemenaku.admin.saas-staging.celebix.site',
+        '${ID.operationC}','${ID.sessionC}','${ID.familyC}','${key}','${sessionDigestC}','${now}','${sessionExpires}');COMMIT;`).stdout.trim(), "redeemed");
     assert.equal(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_identity;
-      SELECT outcome FROM saas.redeem_cross_host_panel_handoff('${handoffKey}','${handoffDigest}','hemenaku.admin.saas-staging.celebix.site','${now}');COMMIT;`).stdout.trim(), "handoff_replayed");
+      SELECT outcome FROM saas.redeem_cross_host_panel_handoff(
+        '${handoffKey}','${handoffDigest}','hemenaku.admin.saas-staging.celebix.site',
+        '${ID.operationC}','${ID.sessionC}','${ID.familyC}','${key}','${sessionDigestC}','${now}','${sessionExpires}');COMMIT;`).stdout.trim(), "redeemed");
     process.stdout.write("PASS cross-host handoff is hostname-bound and single-use\n");
 
     const logout = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_identity;

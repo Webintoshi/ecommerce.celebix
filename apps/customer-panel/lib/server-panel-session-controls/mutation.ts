@@ -10,7 +10,7 @@ export type PanelSessionRotationAuthority = Pick<
 
 export type PanelSessionRevocationAuthority = Pick<
   PostgresPanelSessionRepository,
-  "revokeSession"
+  "revokePrincipalSessions"
 >;
 
 export type PanelSessionRotationResult = Readonly<
@@ -106,13 +106,14 @@ export async function revokePersistentPanelSessionCredential(input: {
 }): Promise<PanelSessionRevocationResult> {
   let result;
   try {
-    result = await input.authority.revokeSession({
+    result = await input.authority.revokePrincipalSessions({
       credential: input.credential,
       reason: "logout",
       now: input.now,
     });
   } catch { return frozenKind("unavailable"); }
-  if (result.kind === "revoked" || result.kind === "unauthenticated" || result.kind === "durable_authority_invalid") {
+  if (result.kind === "principal_revoked") return frozenKind("revoked");
+  if (result.kind === "unauthenticated" || result.kind === "durable_authority_invalid") {
     return frozenKind(result.kind);
   }
   return frozenKind("unavailable");

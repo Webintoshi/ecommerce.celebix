@@ -99,6 +99,12 @@ export type {
   PostgresRepositoryOptions,
   PostgresTimeoutOptions,
 } from "./postgres/repository.ts";
+export { PostgresAdminDomainRepository } from "./postgres/admin-domain-repository.ts";
+export type {
+  AdminDomainAuditEvent,
+  PostgresAdminDomainRepositoryOptions,
+  PublicAdminBrandResolution,
+} from "./postgres/admin-domain-repository.ts";
 export { PostgresTenantOperationRecovery } from "./postgres/recovery.ts";
 export type {
   PostgresTenantOperationRecoveryOptions,

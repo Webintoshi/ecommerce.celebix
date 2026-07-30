@@ -5,6 +5,7 @@ import process from "node:process";
 
 import {
   PostgresAbandonedCartRepository,
+  PostgresAdminDomainRepository,
   PostgresCatalogRepository,
   PostgresCatalogOnboardingRepository,
   PostgresCatalogAdminRepository,
@@ -35,6 +36,8 @@ import {
 } from "../payment-provider-adapters/default.ts";
 import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import { createPostgresPanelSessionRepository } from "../panel-session-persistence/postgres-panel-session-repository.ts";
+import { createPostgresCrossHostSessionHandoffRepository } from "../cross-host-session-handoff/postgres-repository.ts";
+import { registerServerAdminHostAuthRuntime } from "../server-admin-host-auth/runtime.ts";
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
@@ -77,6 +80,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       role.rolsuper AS is_superuser,
       pg_has_role(current_user, 'celebix_saas_identity', 'MEMBER') AS identity_member,
       pg_has_role(current_user, 'celebix_saas_app', 'MEMBER') AS catalog_member,
+      pg_has_role(current_user, 'celebix_saas_host_resolver', 'MEMBER') AS host_resolver_member,
       to_regclass('saas.principals') IS NOT NULL
         AND to_regclass('saas.stores') IS NOT NULL
         AND to_regclass('saas.memberships') IS NOT NULL
@@ -112,6 +116,13 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.checkout_reconciliation_receipts') IS NOT NULL
         AND to_regclass('saas.checkout_operations') IS NOT NULL AS migrations_024_026,
       to_regclass('saas.panel_sessions') IS NOT NULL AS sessions,
+      to_regclass('saas.admin_domains') IS NOT NULL
+        AND to_regclass('saas.cross_host_panel_handoffs') IS NOT NULL
+        AND to_regprocedure('saas.resolve_public_admin_brand(text,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.redeem_cross_host_panel_handoff(text,text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.recover_cross_host_panel_handoff(uuid,text,text,text,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.revoke_principal_panel_sessions(text,text,text,timestamp with time zone)') IS NOT NULL AS tenant_admin_auth,
       EXISTS (
         SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
         WHERE n.nspname='saas' AND proname='resolve_panel_session'
@@ -300,10 +311,10 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       result.rowCount !== 1 || !row ||
       Math.floor(Number(row.version_num) / 10_000) !== 16 ||
       row.database_name !== databaseName || row.is_superuser !== false ||
-      row.identity_member !== true || row.catalog_member !== true || row.migrations_001_019 !== true ||
+      row.identity_member !== true || row.catalog_member !== true || row.host_resolver_member !== true || row.migrations_001_019 !== true ||
       row.migrations_022 !== true ||
       row.migrations_024_026 !== true ||
-      row.sessions !== true || row.session_resolver !== true || row.session_rotator !== true ||
+      row.sessions !== true || row.tenant_admin_auth !== true || row.session_resolver !== true || row.session_rotator !== true ||
       row.session_revoker !== true || row.session_recovery !== true || row.catalog_reader !== true ||
       row.catalog_lister !== true || row.catalog_creator !== true || row.catalog_updater !== true ||
       row.catalog_archiver !== true || row.variant_creator !== true || row.variant_updater !== true ||
@@ -398,6 +409,26 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
         randomBytes: (size: number) => new Uint8Array(randomBytes(size)),
         timeouts: TIMEOUTS,
         cleanupLimit: 25,
+        audit: () => undefined,
+      },
+    );
+    const adminDomainRepository = new PostgresAdminDomainRepository({
+      pool,
+      clock: () => new Date(),
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
+    const crossHostHandoffRepository = createPostgresCrossHostSessionHandoffRepository(
+      createPanelSessionPersistenceApproval("approved_staging"),
+      {
+        pool,
+        handoffKeys: new Map([[config.keys.handoffKeyId, new Uint8Array(config.keys.handoff)]]),
+        activeHandoffKeyId: config.keys.handoffKeyId,
+        sessionKeys: new Map([[config.keys.sessionKeyId, new Uint8Array(config.keys.session)]]),
+        activeSessionKeyId: config.keys.sessionKeyId,
+        clock: () => new Date(),
+        randomBytes: (size: number) => new Uint8Array(randomBytes(size)),
+        timeouts: TIMEOUTS,
         audit: () => undefined,
       },
     );
@@ -515,6 +546,10 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       sessionRepository,
       config.authority.panelOrigin,
     );
+    registerServerAdminHostAuthRuntime(access, {
+      adminDomains: adminDomainRepository,
+      handoffs: crossHostHandoffRepository,
+    });
     registerServerCatalogRepository(access, catalogRepository);
     registerServerCatalogOnboardingRepository(access, catalogOnboardingRepository);
     registerServerOrderRepository(access, orderRepository);

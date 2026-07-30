@@ -8,17 +8,17 @@
     {
       "file": "202607300069_tenant_admin_domains_and_principal_logout.up.sql",
       "direction": "up",
-      "sha256": "429d8ed2ddd16484c6bacd09d829108479f1d4054c37f9b4edb2165e9e3e3254"
+      "sha256": "7e0f4bfe3370db4547a4cfe674579c78bc2ab8a8c401f899652aac8b2eb78fe4"
     },
     {
       "file": "202607300069_tenant_admin_domains_and_principal_logout.down.sql",
       "direction": "down",
-      "sha256": "b8901887cdc91174bdeab6764944b26fed45209bd7f1c87afe2eaf0e9d7e31e6"
+      "sha256": "fa1f48d8e2da8dfdedf82c8d93424f9d49bd856efd9c3b3e0598573f5e50717b"
     },
     {
       "file": "202607300069_tenant_admin_domains_and_principal_logout_assertions.sql",
       "direction": "verify",
-      "sha256": "555f8933a5b517f0e51b6e971098c86457f7a069b1ca2a7925833c5e9885942a"
+      "sha256": "7a405631c4bb8a39819345e6775fea1df5ba090ea677476c15c02c8d03f4c168"
     }
   ]
 }

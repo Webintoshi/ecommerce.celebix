@@ -82,7 +82,8 @@ test("handoff is hostname-bound, single-use, short-lived, and never stores plain
   assert.match(up, /CREATE TABLE saas\.cross_host_panel_handoffs/);
   assert.match(up, /destination_hostname text NOT NULL/);
   assert.match(up, /token_digest character\(64\) NOT NULL/);
-  assert.match(up, /session_token_digest character\(64\) NOT NULL/);
+  assert.match(up, /session_token_digest character\(64\)/);
+  assert.match(up, /CREATE FUNCTION saas\.redeem_cross_host_panel_handoff\([\s\S]+p_session_token_digest text/);
   assert.match(up, /expires_at <= issued_at \+ interval '2 minutes'/);
   assert.match(up, /redeemed_at IS NULL/);
   assert.match(up, /FOR UPDATE/);

@@ -68,7 +68,7 @@ export function createApprovedStagingServerPanelAccessRuntime(
   if (
     !authority || typeof authority.resolveSession !== "function" ||
     typeof authority.rotateSession !== "function" || typeof authority.recoverOperation !== "function" ||
-    typeof authority.revokeSession !== "function" || typeof panelOrigin !== "string" ||
+    typeof authority.revokePrincipalSessions !== "function" || typeof panelOrigin !== "string" ||
     !panelOrigin.startsWith("https://")
   ) {
     throw new Error("server_panel_access_runtime_invalid");

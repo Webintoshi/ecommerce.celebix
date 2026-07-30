@@ -36,6 +36,11 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
           assert.match(sql, /to_regprocedure\('saas[.]create_store_default_inventory_location\(\)'\) IS NOT NULL/);
           assert.match(sql, /tgname='stores_default_inventory_location'/);
           assert.match(sql, /AS inventory_default_location_lifecycle/);
+          assert.match(sql, /pg_has_role\(current_user, 'celebix_saas_host_resolver', 'MEMBER'\) AS host_resolver_member/);
+          assert.match(sql, /to_regclass\('saas\.admin_domains'\) IS NOT NULL/);
+          assert.match(sql, /to_regclass\('saas\.cross_host_panel_handoffs'\) IS NOT NULL/);
+          assert.match(sql, /to_regprocedure\('saas\.resolve_public_admin_brand\(text,timestamp with time zone\)'\) IS NOT NULL/);
+          assert.match(sql, /to_regprocedure\('saas\.revoke_principal_panel_sessions\(text,text,text,timestamp with time zone\)'\) IS NOT NULL/);
 
           return {
             rowCount: 1,

@@ -72,14 +72,14 @@ CREATE TABLE saas.cross_host_panel_handoffs (
   destination_store_id uuid NOT NULL,
   destination_admin_domain_id uuid NOT NULL,
   destination_hostname text NOT NULL,
-  session_operation_id uuid NOT NULL,
-  session_id uuid NOT NULL,
-  family_id uuid NOT NULL,
-  session_token_key_id text NOT NULL,
-  session_token_digest character(64) NOT NULL,
+  session_operation_id uuid,
+  session_id uuid,
+  family_id uuid,
+  session_token_key_id text,
+  session_token_digest character(64),
   issued_at timestamptz NOT NULL,
   expires_at timestamptz NOT NULL,
-  session_expires_at timestamptz NOT NULL,
+  session_expires_at timestamptz,
   redeemed_at timestamptz,
   version bigint NOT NULL DEFAULT 1,
   created_at timestamptz NOT NULL,
@@ -101,9 +101,13 @@ CREATE TABLE saas.cross_host_panel_handoffs (
   ),
   CONSTRAINT cross_host_panel_handoffs_token_digest_check CHECK (token_digest ~ '^[a-f0-9]{64}$'),
   CONSTRAINT cross_host_panel_handoffs_session_token_key_id_check CHECK (
-    session_token_key_id ~ '^[A-Za-z0-9._-]{1,64}$' AND session_token_key_id !~ '^\.|\.$|\.\.'
+    session_token_key_id IS NULL OR (
+      session_token_key_id ~ '^[A-Za-z0-9._-]{1,64}$' AND session_token_key_id !~ '^\.|\.$|\.\.'
+    )
   ),
-  CONSTRAINT cross_host_panel_handoffs_session_token_digest_check CHECK (session_token_digest ~ '^[a-f0-9]{64}$'),
+  CONSTRAINT cross_host_panel_handoffs_session_token_digest_check CHECK (
+    session_token_digest IS NULL OR session_token_digest ~ '^[a-f0-9]{64}$'
+  ),
   CONSTRAINT cross_host_panel_handoffs_hostname_check CHECK (
     destination_hostname = lower(destination_hostname)
     AND char_length(destination_hostname) BETWEEN 3 AND 253
@@ -113,11 +117,17 @@ CREATE TABLE saas.cross_host_panel_handoffs (
   CONSTRAINT cross_host_panel_handoffs_lifetime_check CHECK (
     issued_at < expires_at AND expires_at <= issued_at + interval '2 minutes'
   ),
-  CONSTRAINT cross_host_panel_handoffs_session_lifetime_check CHECK (
-    issued_at < session_expires_at AND session_expires_at <= issued_at + interval '8 hours'
-  ),
   CONSTRAINT cross_host_panel_handoffs_redemption_check CHECK (
-    redeemed_at IS NULL OR (redeemed_at >= issued_at AND redeemed_at < expires_at)
+    (
+      redeemed_at IS NULL
+      AND session_operation_id IS NULL AND session_id IS NULL AND family_id IS NULL
+      AND session_token_key_id IS NULL AND session_token_digest IS NULL AND session_expires_at IS NULL
+    ) OR (
+      redeemed_at IS NOT NULL AND redeemed_at >= issued_at AND redeemed_at < expires_at
+      AND session_operation_id IS NOT NULL AND session_id IS NOT NULL AND family_id IS NOT NULL
+      AND session_token_key_id IS NOT NULL AND session_token_digest IS NOT NULL
+      AND session_expires_at > redeemed_at AND session_expires_at <= redeemed_at + interval '8 hours'
+    )
   ),
   CONSTRAINT cross_host_panel_handoffs_version_check CHECK (
     (redeemed_at IS NULL AND version = 1) OR (redeemed_at IS NOT NULL AND version = 2)
@@ -150,18 +160,18 @@ BEGIN
      OR NEW.destination_store_id IS DISTINCT FROM OLD.destination_store_id
      OR NEW.destination_admin_domain_id IS DISTINCT FROM OLD.destination_admin_domain_id
      OR NEW.destination_hostname IS DISTINCT FROM OLD.destination_hostname
-     OR NEW.session_operation_id IS DISTINCT FROM OLD.session_operation_id
-     OR NEW.session_id IS DISTINCT FROM OLD.session_id
-     OR NEW.family_id IS DISTINCT FROM OLD.family_id
-     OR NEW.session_token_key_id IS DISTINCT FROM OLD.session_token_key_id
-     OR NEW.session_token_digest IS DISTINCT FROM OLD.session_token_digest
      OR NEW.issued_at IS DISTINCT FROM OLD.issued_at
      OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
-     OR NEW.session_expires_at IS DISTINCT FROM OLD.session_expires_at
      OR NEW.created_at IS DISTINCT FROM OLD.created_at
      OR OLD.redeemed_at IS NOT NULL
      OR NEW.redeemed_at IS NULL
      OR NEW.redeemed_at >= OLD.expires_at
+     OR OLD.session_operation_id IS NOT NULL OR NEW.session_operation_id IS NULL
+     OR OLD.session_id IS NOT NULL OR NEW.session_id IS NULL
+     OR OLD.family_id IS NOT NULL OR NEW.family_id IS NULL
+     OR OLD.session_token_key_id IS NOT NULL OR NEW.session_token_key_id IS NULL
+     OR OLD.session_token_digest IS NOT NULL OR NEW.session_token_digest IS NULL
+     OR OLD.session_expires_at IS NOT NULL OR NEW.session_expires_at IS NULL
      OR NEW.version <> OLD.version + 1
      OR NEW.updated_at <> NEW.redeemed_at THEN
     RAISE EXCEPTION 'PHASE3_CROSS_HOST_HANDOFF_INVALID_TRANSITION';
@@ -300,14 +310,8 @@ CREATE FUNCTION saas.issue_cross_host_panel_handoff(
   p_token_digest text,
   p_destination_store_id uuid,
   p_destination_hostname text,
-  p_session_operation_id uuid,
-  p_session_id uuid,
-  p_family_id uuid,
-  p_session_token_key_id text,
-  p_session_token_digest text,
   p_now timestamptz,
-  p_expires_at timestamptz,
-  p_session_expires_at timestamptz
+  p_expires_at timestamptz
 )
 RETURNS TABLE(outcome text, authority jsonb)
 LANGUAGE plpgsql
@@ -323,17 +327,13 @@ BEGIN
      OR p_source_token_digest !~ '^[a-f0-9]{64}$'
      OR p_token_key_id !~ '^[A-Za-z0-9._-]{1,64}$' OR p_token_key_id ~ '^\.|\.$|\.\.'
      OR p_token_digest !~ '^[a-f0-9]{64}$'
-     OR p_session_token_key_id !~ '^[A-Za-z0-9._-]{1,64}$' OR p_session_token_key_id ~ '^\.|\.$|\.\.'
-     OR p_session_token_digest !~ '^[a-f0-9]{64}$'
      OR p_handoff_id IS NULL OR p_operation_id IS NULL OR p_destination_store_id IS NULL
-     OR p_session_operation_id IS NULL OR p_session_id IS NULL OR p_family_id IS NULL
-     OR p_destination_hostname IS NULL OR p_now IS NULL OR p_expires_at IS NULL OR p_session_expires_at IS NULL
+     OR p_destination_hostname IS NULL OR p_now IS NULL OR p_expires_at IS NULL
      OR p_destination_hostname <> lower(p_destination_hostname)
      OR p_destination_hostname ~ '[*:/?#@[:space:]]'
      OR p_now < pg_catalog.clock_timestamp() - interval '30 seconds'
      OR p_now > pg_catalog.clock_timestamp() + interval '30 seconds'
-     OR p_expires_at <= p_now OR p_expires_at > p_now + interval '2 minutes'
-     OR p_session_expires_at <= p_now OR p_session_expires_at > p_now + interval '8 hours' THEN
+     OR p_expires_at <= p_now OR p_expires_at > p_now + interval '2 minutes' THEN
     RETURN QUERY SELECT 'durable_authority_invalid'::text, NULL::jsonb;
     RETURN;
   END IF;
@@ -356,12 +356,7 @@ BEGIN
        OR existing.token_key_id <> p_token_key_id OR existing.token_digest <> p_token_digest
        OR existing.destination_store_id <> p_destination_store_id
        OR existing.destination_hostname <> p_destination_hostname
-       OR existing.session_operation_id <> p_session_operation_id
-       OR existing.session_id <> p_session_id OR existing.family_id <> p_family_id
-       OR existing.session_token_key_id <> p_session_token_key_id
-       OR existing.session_token_digest <> p_session_token_digest
-       OR existing.issued_at <> p_now OR existing.expires_at <> p_expires_at
-       OR existing.session_expires_at <> p_session_expires_at THEN
+       OR existing.issued_at <> p_now OR existing.expires_at <> p_expires_at THEN
       RETURN QUERY SELECT 'operation_mismatch'::text, NULL::jsonb;
       RETURN;
     END IF;
@@ -404,13 +399,11 @@ BEGIN
   INSERT INTO saas.cross_host_panel_handoffs(
     handoff_id, operation_id, token_key_id, token_digest, principal_id, source_session_id,
     destination_store_id, destination_admin_domain_id, destination_hostname,
-    session_operation_id, session_id, family_id, session_token_key_id, session_token_digest,
-    issued_at, expires_at, session_expires_at, redeemed_at, version, created_at, updated_at
+    issued_at, expires_at, redeemed_at, version, created_at, updated_at
   ) VALUES (
     p_handoff_id, p_operation_id, p_token_key_id, p_token_digest, current_session.principal_id,
     current_session.session_id, p_destination_store_id, destination_domain.id, p_destination_hostname,
-    p_session_operation_id, p_session_id, p_family_id, p_session_token_key_id, p_session_token_digest,
-    p_now, p_expires_at, p_session_expires_at, NULL, 1, p_now, p_now
+    p_now, p_expires_at, NULL, 1, p_now, p_now
   );
   RETURN QUERY SELECT 'handoff_issued'::text, pg_catalog.jsonb_build_object(
     'destinationOrigin', 'https://' || p_destination_hostname,
@@ -423,7 +416,13 @@ CREATE FUNCTION saas.redeem_cross_host_panel_handoff(
   p_token_key_id text,
   p_token_digest text,
   p_destination_hostname text,
-  p_now timestamptz
+  p_session_operation_id uuid,
+  p_session_id uuid,
+  p_family_id uuid,
+  p_session_token_key_id text,
+  p_session_token_digest text,
+  p_now timestamptz,
+  p_session_expires_at timestamptz
 )
 RETURNS TABLE(outcome text, authority jsonb)
 LANGUAGE plpgsql
@@ -439,9 +438,13 @@ BEGIN
      OR p_token_digest !~ '^[a-f0-9]{64}$'
      OR p_destination_hostname IS NULL OR p_destination_hostname <> lower(p_destination_hostname)
      OR p_destination_hostname ~ '[*:/?#@[:space:]]'
-     OR p_now IS NULL
+     OR p_session_operation_id IS NULL OR p_session_id IS NULL OR p_family_id IS NULL
+     OR p_session_token_key_id !~ '^[A-Za-z0-9._-]{1,64}$' OR p_session_token_key_id ~ '^\.|\.$|\.\.'
+     OR p_session_token_digest !~ '^[a-f0-9]{64}$'
+     OR p_now IS NULL OR p_session_expires_at IS NULL
      OR p_now < pg_catalog.clock_timestamp() - interval '30 seconds'
-     OR p_now > pg_catalog.clock_timestamp() + interval '30 seconds' THEN
+     OR p_now > pg_catalog.clock_timestamp() + interval '30 seconds'
+     OR p_session_expires_at <= p_now OR p_session_expires_at > p_now + interval '8 hours' THEN
     RETURN QUERY SELECT 'durable_authority_invalid'::text, NULL::jsonb;
     RETURN;
   END IF;
@@ -456,7 +459,24 @@ BEGIN
     RETURN;
   END IF;
   IF handoff.redeemed_at IS NOT NULL THEN
-    RETURN QUERY SELECT 'handoff_replayed'::text, NULL::jsonb;
+    IF handoff.session_operation_id <> p_session_operation_id
+       OR handoff.session_id <> p_session_id OR handoff.family_id <> p_family_id
+       OR handoff.session_token_key_id <> p_session_token_key_id
+       OR handoff.session_token_digest <> p_session_token_digest
+       OR handoff.redeemed_at <> p_now OR handoff.session_expires_at <> p_session_expires_at THEN
+      RETURN QUERY SELECT 'handoff_replayed'::text, NULL::jsonb;
+      RETURN;
+    END IF;
+    SELECT recovered.outcome, recovered.authority INTO issued_outcome, issued_authority
+    FROM saas.recover_panel_session_operation(
+      p_session_operation_id, 'issue', p_session_token_key_id, p_session_token_digest,
+      handoff.principal_id, handoff.destination_store_id, NULL, NULL, NULL
+    ) AS recovered;
+    IF issued_outcome = 'operation_replayed' THEN
+      RETURN QUERY SELECT 'redeemed'::text, issued_authority;
+    ELSE
+      RETURN QUERY SELECT 'unavailable'::text, NULL::jsonb;
+    END IF;
     RETURN;
   END IF;
   IF p_now >= handoff.expires_at THEN
@@ -483,10 +503,10 @@ BEGIN
 
   SELECT issued.outcome, issued.authority INTO issued_outcome, issued_authority
   FROM saas.issue_panel_session(
-    handoff.session_id, handoff.family_id, handoff.session_operation_id,
-    handoff.session_token_key_id, handoff.session_token_digest,
+    p_session_id, p_family_id, p_session_operation_id,
+    p_session_token_key_id, p_session_token_digest,
     handoff.principal_id, handoff.destination_store_id,
-    handoff.issued_at, handoff.session_expires_at
+    p_now, p_session_expires_at
   ) AS issued;
   IF issued_outcome NOT IN ('issued', 'operation_replayed') THEN
     RETURN QUERY SELECT issued_outcome, NULL::jsonb;
@@ -494,7 +514,15 @@ BEGIN
   END IF;
 
   UPDATE saas.cross_host_panel_handoffs AS candidate
-  SET redeemed_at = p_now, version = candidate.version + 1, updated_at = p_now
+  SET session_operation_id = p_session_operation_id,
+      session_id = p_session_id,
+      family_id = p_family_id,
+      session_token_key_id = p_session_token_key_id,
+      session_token_digest = p_session_token_digest,
+      session_expires_at = p_session_expires_at,
+      redeemed_at = p_now,
+      version = candidate.version + 1,
+      updated_at = p_now
   WHERE candidate.handoff_id = handoff.handoff_id;
   RETURN QUERY SELECT 'redeemed'::text, issued_authority;
 END
@@ -589,8 +617,8 @@ $phase3_revoke_principal_sessions$;
 ALTER FUNCTION saas.guard_cross_host_panel_handoff_mutation() OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.provision_canonical_admin_domain(uuid,uuid,text,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.resolve_public_admin_brand(text,timestamptz) OWNER TO celebix_saas_owner;
-ALTER FUNCTION saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid,text,text,timestamptz,timestamptz,timestamptz) OWNER TO celebix_saas_owner;
-ALTER FUNCTION saas.redeem_cross_host_panel_handoff(text,text,text,timestamptz) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,timestamptz,timestamptz) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.redeem_cross_host_panel_handoff(text,text,text,uuid,uuid,uuid,text,text,timestamptz,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.recover_cross_host_panel_handoff(uuid,text,text,text,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.revoke_principal_panel_sessions(text,text,text,timestamptz) OWNER TO celebix_saas_owner;
 
@@ -604,15 +632,15 @@ REVOKE ALL ON saas.cross_host_panel_handoffs FROM celebix_saas_identity;
 REVOKE ALL ON FUNCTION saas.guard_cross_host_panel_handoff_mutation() FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.provision_canonical_admin_domain(uuid,uuid,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.resolve_public_admin_brand(text,timestamptz) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid,text,text,timestamptz,timestamptz,timestamptz) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.redeem_cross_host_panel_handoff(text,text,text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,timestamptz,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.redeem_cross_host_panel_handoff(text,text,text,uuid,uuid,uuid,text,text,timestamptz,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.recover_cross_host_panel_handoff(uuid,text,text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.revoke_principal_panel_sessions(text,text,text,timestamptz) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION saas.provision_canonical_admin_domain(uuid,uuid,text,timestamptz) TO celebix_saas_bootstrap;
 GRANT EXECUTE ON FUNCTION saas.resolve_public_admin_brand(text,timestamptz) TO celebix_saas_host_resolver;
-GRANT EXECUTE ON FUNCTION saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid,text,text,timestamptz,timestamptz,timestamptz) TO celebix_saas_identity;
-GRANT EXECUTE ON FUNCTION saas.redeem_cross_host_panel_handoff(text,text,text,timestamptz) TO celebix_saas_identity;
+GRANT EXECUTE ON FUNCTION saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,timestamptz,timestamptz) TO celebix_saas_identity;
+GRANT EXECUTE ON FUNCTION saas.redeem_cross_host_panel_handoff(text,text,text,uuid,uuid,uuid,text,text,timestamptz,timestamptz) TO celebix_saas_identity;
 GRANT EXECUTE ON FUNCTION saas.recover_cross_host_panel_handoff(uuid,text,text,text,timestamptz) TO celebix_saas_identity;
 GRANT EXECUTE ON FUNCTION saas.revoke_principal_panel_sessions(text,text,text,timestamptz) TO celebix_saas_identity;
 

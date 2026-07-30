@@ -23,8 +23,8 @@ BEGIN
   FOREACH function_name IN ARRAY ARRAY[
     'saas.provision_canonical_admin_domain(uuid,uuid,text,timestamp with time zone)',
     'saas.resolve_public_admin_brand(text,timestamp with time zone)',
-    'saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone)',
-    'saas.redeem_cross_host_panel_handoff(text,text,text,timestamp with time zone)',
+    'saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,timestamp with time zone,timestamp with time zone)',
+    'saas.redeem_cross_host_panel_handoff(text,text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)',
     'saas.recover_cross_host_panel_handoff(uuid,text,text,text,timestamp with time zone)',
     'saas.revoke_principal_panel_sessions(text,text,text,timestamp with time zone)'
   ] LOOP
@@ -35,8 +35,8 @@ BEGIN
 
   IF NOT pg_catalog.has_function_privilege('celebix_saas_bootstrap', 'saas.provision_canonical_admin_domain(uuid,uuid,text,timestamp with time zone)', 'EXECUTE')
      OR NOT pg_catalog.has_function_privilege('celebix_saas_host_resolver', 'saas.resolve_public_admin_brand(text,timestamp with time zone)', 'EXECUTE')
-     OR NOT pg_catalog.has_function_privilege('celebix_saas_identity', 'saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone)', 'EXECUTE')
-     OR NOT pg_catalog.has_function_privilege('celebix_saas_identity', 'saas.redeem_cross_host_panel_handoff(text,text,text,timestamp with time zone)', 'EXECUTE')
+     OR NOT pg_catalog.has_function_privilege('celebix_saas_identity', 'saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,timestamp with time zone,timestamp with time zone)', 'EXECUTE')
+     OR NOT pg_catalog.has_function_privilege('celebix_saas_identity', 'saas.redeem_cross_host_panel_handoff(text,text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)', 'EXECUTE')
      OR NOT pg_catalog.has_function_privilege('celebix_saas_identity', 'saas.recover_cross_host_panel_handoff(uuid,text,text,text,timestamp with time zone)', 'EXECUTE')
      OR NOT pg_catalog.has_function_privilege('celebix_saas_identity', 'saas.revoke_principal_panel_sessions(text,text,text,timestamp with time zone)', 'EXECUTE') THEN
     RAISE EXCEPTION 'PHASE3_TENANT_ADMIN_AUTH_ASSERTION_FAILED: required function grant drift';

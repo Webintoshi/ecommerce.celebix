@@ -58,7 +58,7 @@ test("approved staging runtime delegates exactly one durable resolve without exp
     },
     async rotateSession(input) { calls.push(input); return { kind: "unauthenticated" }; },
     async recoverOperation(input) { calls.push(input); return { kind: "operation_mismatch" }; },
-    async revokeSession(input) { calls.push(input); return { kind: "unauthenticated" }; },
+    async revokePrincipalSessions(input) { calls.push(input); return { kind: "unauthenticated" }; },
   }, PANEL_ORIGIN);
   assert.equal(runtime.readiness.mode, "approved_staging");
   assert.equal(runtime.panelOrigin, PANEL_ORIGIN);

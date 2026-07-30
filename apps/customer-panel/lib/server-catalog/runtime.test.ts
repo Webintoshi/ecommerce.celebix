@@ -18,7 +18,7 @@ function sessionAuthority() {
     async resolveSession() { return { kind: "unauthenticated" as const }; },
     async rotateSession() { return { kind: "unauthenticated" as const }; },
     async recoverOperation() { return { kind: "operation_mismatch" as const }; },
-    async revokeSession() { return { kind: "unauthenticated" as const }; },
+    async revokePrincipalSessions() { return { kind: "unauthenticated" as const }; },
   };
 }
 

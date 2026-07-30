@@ -94,12 +94,12 @@ test("unproved or mismatched rotation never emits a cookie", async () => {
   }
 });
 
-test("logout delegates only current-session revoke with reason logout", async () => {
+test("logout delegates principal-global revoke with reason logout", async () => {
   assert.equal(typeof mutations.revokePersistentPanelSessionCredential, "function");
   const calls: unknown[] = [];
   const result = await mutations.revokePersistentPanelSessionCredential?.({
     authority: {
-      async revokeSession(input) { calls.push(input); return { kind: "revoked" }; },
+      async revokePrincipalSessions(input) { calls.push(input); return { kind: "principal_revoked" }; },
     },
     credential: CURRENT,
     now: NOW,
