@@ -49,6 +49,10 @@ import {
   type ProvisioningStepSummary,
 } from "@/lib/store-lifecycle";
 import { diagnoseGeneratedRuntimeFailure } from "@/lib/generated-runtime-readiness";
+import {
+  runPostgresTransaction,
+  type PostgresQuery,
+} from "@/lib/postgres-transaction";
 
 type OwnerStoreStatus = "draft" | "active" | "paused";
 type StoreLifecycleStage = "onboarding" | "building" | "launch_ready" | "live" | "growth";
@@ -2390,6 +2394,31 @@ async function queryLightPostgresStore<TRow extends Record<string, unknown>>(
   try {
     const result = await client.query(sql, params);
     return result.rows as TRow[];
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+async function withLightPostgresStoreTransaction<TResult>(
+  store: StoreConfig,
+  callback: (transaction: { query: PostgresQuery }) => Promise<TResult>,
+): Promise<TResult> {
+  const connectionString = getLightPostgresRuntimeConnectionString(store);
+
+  if (!connectionString) {
+    throw new Error("Light Postgres runtime authority hazir degil.");
+  }
+
+  const { Client } = await import("pg");
+  const client = new Client({
+    connectionString,
+    ssl: normalizePostgresSsl(resolveLightPostgresDefaultSslMode()),
+  });
+
+  await client.connect();
+
+  try {
+    return await runPostgresTransaction(client, callback);
   } finally {
     await client.end().catch(() => undefined);
   }
