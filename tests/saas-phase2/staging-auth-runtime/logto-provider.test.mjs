@@ -155,6 +155,14 @@ test("Logto provider validates discovery and builds the exact Authorization Code
   assert.equal(source.calls[0].init.redirect, "manual");
 });
 
+test("Logto provider adds one exact login prompt only for returning merchant authorization", async () => {
+  const source = fixture();
+  const url = await provider(source).buildAuthorizationUrl(Object.freeze({ ...authorizationInput, prompt: "login" }));
+  assert.deepEqual(url.searchParams.getAll("prompt"), ["login"]);
+  assert.equal(url.searchParams.get("redirect_uri"), CALLBACK);
+  assert.equal(url.searchParams.get("state"), authorizationInput.state);
+});
+
 test("Logto callback exchanges the code exactly once and verifies a pinned asymmetric ID token", async () => {
   const source = fixture();
   const identity = await provider(source).verifyCallback(callbackInput);

@@ -37,6 +37,7 @@ class FakeProvider implements OidcProviderPort {
     url.searchParams.set("code_challenge", input.codeChallenge);
     url.searchParams.set("code_challenge_method", input.codeChallengeMethod);
     url.searchParams.set("redirect_uri", input.redirectUri);
+    if (input.prompt) url.searchParams.set("prompt", input.prompt);
     return this.mutateAuthorizationUrl?.(url, input) ?? url;
   }
 
@@ -115,6 +116,7 @@ test("creates opaque state, nonce and an S256 challenge without exposing the PKC
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
   assert.deepEqual(url.searchParams.getAll("response_type"), ["code"]);
   assert.deepEqual(url.searchParams.getAll("response_mode"), ["query"]);
+  assert.equal(url.searchParams.has("prompt"), false);
   assert.match(url.searchParams.get("state") ?? "", /^[A-Za-z0-9_-]{40,}$/);
   assert.match(url.searchParams.get("nonce") ?? "", /^[A-Za-z0-9_-]{40,}$/);
   assert.match(url.searchParams.get("code_challenge") ?? "", /^[A-Za-z0-9_-]{40,}$/);
@@ -261,6 +263,7 @@ test("returning panel login is explicitly browser-bound and cannot be completed 
   });
   assert.match(started.state, /^plogin_[A-Za-z0-9_-]{40,}$/);
   assert.equal(started.returnTo, "/login");
+  assert.deepEqual(new URL(started.authorizationUrl).searchParams.getAll("prompt"), ["login"]);
   const nonce = new URL(started.authorizationUrl).searchParams.get("nonce");
   assert.ok(nonce);
   provider.identities.set("login-code", verifiedIdentity({ nonce }));
@@ -275,6 +278,32 @@ test("returning panel login is explicitly browser-bound and cannot be completed 
     (error: unknown) => (error as { code?: string }).code === "oidc_invalid_callback",
   );
   assert.equal(provider.lastCallbackInput, null);
+});
+
+test("returning panel login rejects a missing, duplicate, or weakened login prompt", async () => {
+  if (!oidc.beginOidcAuthorization || !oidc.InMemoryOidcTransactionStore) return;
+  for (const mutate of [
+    (url: URL) => { url.searchParams.delete("prompt"); return url; },
+    (url: URL) => { url.searchParams.append("prompt", "login"); return url; },
+    (url: URL) => { url.searchParams.set("prompt", "none"); return url; },
+  ]) {
+    const provider = new FakeProvider();
+    provider.mutateAuthorizationUrl = mutate;
+    await assert.rejects(
+      () => oidc.beginOidcAuthorization!({
+        provider,
+        transactionStore: new oidc.InMemoryOidcTransactionStore(),
+        redirectUri: REDIRECT_URI,
+        returnTo: "/login",
+        panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) },
+        expectedIssuer: EXPECTED_ISSUER,
+        expectedAudience: EXPECTED_AUDIENCE,
+        expectedAuthorizationOrigin: "https://identity.example.test",
+        now: () => NOW,
+      }),
+      (error: unknown) => (error as { code?: string }).code === "oidc_provider_rejected",
+    );
+  }
 });
 
 test("returning panel login accepts only the exact persisted browser-binding proof", async () => {

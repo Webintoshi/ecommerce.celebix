@@ -47,6 +47,7 @@ function fixture() {
         ["response_type", "code"], ["response_mode", "query"], ["state", input.state], ["nonce", input.nonce],
         ["code_challenge", input.codeChallenge], ["code_challenge_method", input.codeChallengeMethod], ["redirect_uri", input.redirectUri],
       ]) url.searchParams.set(key, value);
+      if (input.prompt) url.searchParams.set("prompt", input.prompt);
       return url;
     },
     async verifyCallback(_input: OidcProviderCallbackInput): Promise<OidcVerifiedIdentity> {
@@ -82,6 +83,7 @@ test("returning login starts one browser-bound OIDC authorization and completes 
   const started = await f.service.start(PB);
   assert.equal(started.kind, "panel_login_ready");
   if (started.kind !== "panel_login_ready") return;
+  assert.deepEqual(new URL(started.providerAuthorizationUrl).searchParams.getAll("prompt"), ["login"]);
   const state = new URL(started.providerAuthorizationUrl).searchParams.get("state");
   assert.ok(state);
   const completed = await f.service.tryComplete({ state, code: "valid" }, PB);

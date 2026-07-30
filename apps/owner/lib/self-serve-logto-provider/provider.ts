@@ -250,6 +250,7 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         ["code_challenge", exactText(input.codeChallenge, 512)], ["code_challenge_method", "S256"],
       ] as const;
       for (const [name, value] of values) url.searchParams.set(name, value);
+      if (input.prompt === "login") url.searchParams.set("prompt", "login");
       return url;
     },
 

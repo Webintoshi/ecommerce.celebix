@@ -36,6 +36,7 @@ export interface OidcAuthorizationRequest {
   codeChallenge: string;
   codeChallengeMethod: "S256";
   redirectUri: string;
+  prompt?: "login";
 }
 
 export interface OidcCallbackInput {
@@ -300,6 +301,7 @@ function assertAuthorizationUrl(input: {
   if (
     !hasExactly(url, "response_type", "code") ||
     !hasExactly(url, "response_mode", "query") ||
+    (request.prompt === "login" ? !hasExactly(url, "prompt", "login") : url.searchParams.has("prompt")) ||
     url.searchParams.has("code_verifier")
   ) {
     throw new OidcFlowError("oidc_provider_rejected", "OIDC authorization response type is invalid.");
@@ -340,6 +342,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     codeChallenge,
     codeChallengeMethod: "S256",
     redirectUri: input.redirectUri,
+    ...(panelLoginBinding ? { prompt: "login" as const } : {}),
   };
   let authorizationUrl: URL;
   try {
