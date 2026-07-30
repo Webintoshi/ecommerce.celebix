@@ -13,6 +13,7 @@ import {
 import {
   createLogtoPkce,
   createLogtoTokenExchangeBody,
+  sanitizeLogtoTokenError,
 } from "@/lib/logto-pkce";
 import type { UserRole } from "@/lib/permissions";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
@@ -432,11 +433,12 @@ export async function exchangeLogtoCodeForTokens(
 ): Promise<LogtoTokenResponse> {
   const discovery = await getLogtoDiscoveryDocument();
   const clientId = getLogtoAppId();
+  const redirectUri = getLogtoCallbackUrl();
   const body = createLogtoTokenExchangeBody({
     clientId,
     code,
     codeVerifier,
-    redirectUri: getLogtoCallbackUrl(),
+    redirectUri,
   });
   const authorization = Buffer.from(`${clientId}:${getLogtoAppSecret()}`, "utf8").toString("base64");
 
@@ -451,6 +453,18 @@ export async function exchangeLogtoCodeForTokens(
   });
 
   if (!response.ok) {
+    const providerError = sanitizeLogtoTokenError(
+      await response.json().catch(() => null),
+    );
+    console.warn("Celebix admin authentication event", {
+      event: "logto_token_exchange_rejected",
+      status: response.status,
+      error: providerError.error ?? null,
+      providerCode: providerError.code ?? null,
+      hasClientId: clientId.length > 0,
+      hasCodeVerifier: codeVerifier.length > 0,
+      redirectHost: new URL(redirectUri).host,
+    });
     throw new Error(`Logto token exchange failed with status ${response.status}`);
   }
 

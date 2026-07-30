@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   createLogtoPkce,
   createLogtoTokenExchangeBody,
+  sanitizeLogtoTokenError,
 } from "./logto-pkce.ts";
 
 test("Logto PKCE values are URL-safe and the challenge matches the verifier", () => {
@@ -30,4 +31,28 @@ test("Logto token exchange body carries the confidential client and PKCE binding
   assert.equal(body.get("code"), "authorization-code");
   assert.equal(body.get("code_verifier"), "verifier");
   assert.equal(body.get("redirect_uri"), "https://admin.example.com/callback");
+});
+
+test("Logto token errors keep only safe OAuth identifiers", () => {
+  assert.deepEqual(
+    sanitizeLogtoTokenError({
+      error: "invalid_grant",
+      code: "oidc.invalid_grant",
+      error_description: "authorization code abc-secret was rejected",
+      access_token: "secret-token",
+    }),
+    {
+      error: "invalid_grant",
+      code: "oidc.invalid_grant",
+    },
+  );
+
+  assert.deepEqual(
+    sanitizeLogtoTokenError({
+      error: "invalid grant with spaces",
+      code: "<unsafe>",
+    }),
+    {},
+  );
+  assert.deepEqual(sanitizeLogtoTokenError("not-json"), {});
 });
