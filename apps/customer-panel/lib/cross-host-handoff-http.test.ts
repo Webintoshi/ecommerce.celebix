@@ -90,9 +90,9 @@ test("redeems a destination-bound POST and installs only the host session cookie
   assert.doesNotMatch(response.headers.get("location") ?? "", /v1\./);
 });
 
-test("accepts reverse-proxy HTTP transport while pinning the browser redirect to the canonical HTTPS admin origin", async () => {
+test("accepts reverse-proxy HTTP transport and its internal port while pinning the browser redirect to the canonical HTTPS admin origin", async () => {
   const current = fixture();
-  const response = await current.handler(request({ url: `http://${HOSTNAME}/auth/handoff` }));
+  const response = await current.handler(request({ url: `http://${HOSTNAME}:3000/auth/handoff` }));
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), `${ORIGIN}/`);
   assert.equal(current.redeemCalls, 1);

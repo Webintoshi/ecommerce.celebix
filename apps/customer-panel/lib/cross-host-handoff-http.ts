@@ -46,7 +46,7 @@ function canonicalRequest(request: Request): { hostname: string; origin: string 
   if (request.method !== "POST") throw new Error("invalid");
   const url = new URL(request.url);
   if (
-    !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.port || url.pathname !== "/auth/handoff" ||
+    !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/auth/handoff" ||
     url.search || url.hash
   ) throw new Error("invalid");
   try { parseCanonicalAdminHostname(url.hostname, "production"); }
