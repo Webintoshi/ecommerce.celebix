@@ -4,6 +4,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
+import { resolveAuthSchemaFallback } from "@/lib/auth-schema-fallback";
 import { queryAdminLightPostgresOne } from "@/lib/db/light-postgres-client";
 import {
   applyLogtoAuthorizeOptions,
@@ -472,21 +473,18 @@ export async function getLogtoLogoutRedirectUrl(
 export async function findLegacyAdminBridgeByLogtoSubject(
   providerSubject: string,
 ): Promise<LogtoAdminBridgeRecord | null> {
-  const membershipBridge = await findAdminMembershipBridgeByLogtoSubject(providerSubject);
-
-  if (membershipBridge) {
-    return membershipBridge;
-  }
-
-  const row = await queryLegacyAdminBridgeByLogtoSubject(providerSubject);
-  return normalizeAdminBridgeRow(row);
+  return resolveAuthSchemaFallback({
+    readPrimary: () => findAdminMembershipBridgeByLogtoSubject(providerSubject),
+    readLegacy: async () =>
+      normalizeAdminBridgeRow(await queryLegacyAdminBridgeByLogtoSubject(providerSubject)),
+    isMissingSchemaError: isMissingAuthMembershipTableError,
+  });
 }
 
 async function findAdminMembershipBridgeByLogtoSubject(
   providerSubject: string,
 ): Promise<LogtoAdminBridgeRecord | null> {
-  try {
-    const row = await queryAdminLightPostgresOne<{
+  const row = await queryAdminLightPostgresOne<{
       user_id: string;
       email: string | null;
       full_name: string | null;
@@ -526,19 +524,11 @@ async function findAdminMembershipBridgeByLogtoSubject(
       [STORE_RUNTIME.slug, providerSubject],
     );
 
-    return normalizeAdminBridgeRow(row);
-  } catch (error) {
-    if (isMissingAuthMembershipTableError(error)) {
-      return null;
-    }
-
-    throw error;
-  }
+  return normalizeAdminBridgeRow(row);
 }
 
 async function queryLegacyAdminBridgeByLogtoSubject(providerSubject: string) {
-  try {
-    return await queryAdminLightPostgresOne<{
+  return queryAdminLightPostgresOne<{
       user_id: string;
       email: string | null;
       full_name: string | null;
@@ -575,21 +565,13 @@ async function queryLegacyAdminBridgeByLogtoSubject(providerSubject: string) {
       `,
       [STORE_RUNTIME.slug, providerSubject],
     );
-  } catch (error) {
-    if (isMissingAuthMembershipTableError(error)) {
-      return null;
-    }
-
-    throw error;
-  }
 }
 
 async function findAdminMembershipBridgeByUserId(
   userId: string,
   providerSubject?: string | null,
 ): Promise<LogtoAdminBridgeRecord | null> {
-  try {
-    const row = await queryAdminLightPostgresOne<{
+  const row = await queryAdminLightPostgresOne<{
       user_id: string;
       email: string | null;
       full_name: string | null;
@@ -630,22 +612,14 @@ async function findAdminMembershipBridgeByUserId(
       [userId, STORE_RUNTIME.slug, providerSubject ?? null],
     );
 
-    return normalizeAdminBridgeRow(row);
-  } catch (error) {
-    if (isMissingAuthMembershipTableError(error)) {
-      return null;
-    }
-
-    throw error;
-  }
+  return normalizeAdminBridgeRow(row);
 }
 
 async function queryLegacyAdminBridgeByUserId(
   userId: string,
   providerSubject?: string | null,
 ) {
-  try {
-    return await queryAdminLightPostgresOne<{
+  return queryAdminLightPostgresOne<{
     user_id: string;
     email: string | null;
     full_name: string | null;
@@ -683,30 +657,20 @@ async function queryLegacyAdminBridgeByUserId(
       `,
       [userId, STORE_RUNTIME.slug, providerSubject ?? null],
     );
-  } catch (error) {
-    if (isMissingAuthMembershipTableError(error)) {
-      return null;
-    }
-
-    throw error;
-  }
 }
 
 export async function findLegacyAdminBridgeByUserId(
   userId: string,
   providerSubject?: string | null,
 ): Promise<LogtoAdminBridgeRecord | null> {
-  const membershipBridge = await findAdminMembershipBridgeByUserId(
-    userId,
-    providerSubject,
-  );
-
-  if (membershipBridge) {
-    return membershipBridge;
-  }
-
-  const row = await queryLegacyAdminBridgeByUserId(userId, providerSubject);
-  return normalizeAdminBridgeRow(row);
+  return resolveAuthSchemaFallback({
+    readPrimary: () => findAdminMembershipBridgeByUserId(userId, providerSubject),
+    readLegacy: async () =>
+      normalizeAdminBridgeRow(
+        await queryLegacyAdminBridgeByUserId(userId, providerSubject),
+      ),
+    isMissingSchemaError: isMissingAuthMembershipTableError,
+  });
 }
 
 export function resolveLogtoAdminSessionIdentity(cookies: CookieValue[]) {
