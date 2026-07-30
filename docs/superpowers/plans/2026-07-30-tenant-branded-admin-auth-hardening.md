@@ -207,14 +207,14 @@
 - Modify: `docs/superpowers/plans/2026-07-30-tenant-branded-admin-auth-hardening.md`
 - Create: `docs/operations/tenant-admin-auth-rollout.md`
 
-- [ ] Run migration up/assert/down/up in disposable PostgreSQL 16 and record exact results.
-- [ ] Run `npm test --workspace @celebix/customer-panel`.
-- [ ] Run `npm test --workspace @celebix/owner`.
-- [ ] Run the affected `@celebix/saas-data`, `@celebix/saas-contracts`, and `@celebix/saas-tenant-core` suites with the repository’s transform flags.
-- [ ] Run typecheck/build/lint commands defined by affected workspace packages.
+- [x] Run migration up/assert/down/up in disposable PostgreSQL 16 and record exact results.
+- [x] Run `npm test --workspace @celebix/customer-panel`.
+- [x] Run `npm test --workspace @celebix/owner`.
+- [x] Run the affected `@celebix/saas-data`, `@celebix/saas-contracts`, and `@celebix/saas-tenant-core` suites with the repository’s transform flags.
+- [x] Run typecheck/build/lint commands defined by affected workspace packages.
 - [ ] Start the panel locally with controlled host headers and browser-test desktop/mobile branded login, keyboard access, error states, handoff, switch, logout, and fresh re-login.
-- [ ] Apply migrations and Coolify wildcard routing first to Güzide staging; verify `guzide-kuyumcu-4.admin.saas-staging.celebix.site` end to end.
+- [x] Apply migrations and Coolify wildcard routing first to Güzide staging; verify `guzide-kuyumcu-4.admin.saas-staging.celebix.site` end to end.
 - [ ] Activate Hemenaku as a canary while retaining `admin.hemenaku.com`; verify both origins resolve the same store and all navigation prefers the canonical hostname.
-- [ ] Capture deployment ids, health checks, HTTP response evidence, and rollback commands in the operations document without secrets.
+- [x] Capture deployment ids, health checks, HTTP response evidence, and rollback commands in the operations document without secrets.
 - [ ] Use the verification-before-completion skill before claiming success, then use finishing-a-development-branch to prepare the branch for review/merge.
 - [ ] Commit as `docs(auth): record tenant admin rollout evidence`.
