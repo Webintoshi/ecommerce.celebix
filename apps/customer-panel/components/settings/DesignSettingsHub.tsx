@@ -4,12 +4,14 @@ import type { PublicStarterThemePresentation } from "@celebix/saas-contracts";
 import { PanelPageHeader, PanelPageShell, PanelPanel } from "@/components/panel/PanelPageShell";
 import { StarterThemePreview } from "./StarterThemePreview";
 import { StorefrontAssetManager } from "./StorefrontAssetManager";
+import { CategoryShowcaseEditor } from "./CategoryShowcaseEditor";
 import styles from "./design-settings.module.css";
 
 const SURFACES = Object.freeze([
   ["Tema", "/settings/theme", "Renk, başlık ve ürün kartı düzenini güvenli seçeneklerle yönetin."],
   ["Mağaza bilgileri", "/settings/general", "Vitrinde görünen mağaza adı ve destek bilgilerini yönetin."],
   ["Hero banner", "/settings/hero-banner", "Ana sayfa karşılama metnini ve hedefini yönetin."],
+  ["Kategori vitrini", "/settings/category-showcase", "Ana sayfa kategori kartlarını, görsellerini ve sırasını yönetin."],
   ["Promosyon banner", "/settings/promotion-banner", "Zaman sınırı olan promosyon alanlarını yönetin."],
   ["Kayan duyuru", "/settings/marquee", "Mağaza duyuru şeridini yönetin."],
   ["SEO", "/seo", "Vitrinin arama görünürlüğünü kalıcı ayarlardan yönetin."],
@@ -30,6 +32,7 @@ export function DesignSettingsHub({
     <PanelPageHeader title="Tasarım ayarları" description="Starter vitrinin görünümünü kalıcı, mağaza-bazlı ayarlardan yönetin." />
     <StarterThemePreview presentation={presentation} storefrontHostname={storefrontHostname} />
     <StorefrontAssetManager canManage={canManage} />
+    <CategoryShowcaseEditor canManage={canManage} />
     <PanelPanel title="Vitrin kontrolleri">
       <p className={styles.statusCopy}>Yalnız etkin kayıtlar vitrinde yayınlanır. Taslaklar müşterilere gösterilmez.</p>
       <div className={styles.surface}>

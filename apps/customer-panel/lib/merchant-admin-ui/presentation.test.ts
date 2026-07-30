@@ -33,9 +33,9 @@ function record(
 }
 
 test("defines every durable merchant module with a unique route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 33);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 33);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 33);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 34);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 34);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 34);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
   assert.equal(getMerchantModuleDefinition("lucky_wheel").route, "/discounts/lucky-wheel");
@@ -69,7 +69,7 @@ test("theme settings expose only bounded visual choices and a numeric home produ
 });
 
 test("starter presentation settings expose one effective singleton editor and identify superseded active rows", () => {
-  const singletonKinds = ["general_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "seo_control", "social_preview"] as const;
+  const singletonKinds = ["general_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "category_showcase", "seo_control", "social_preview"] as const;
   for (const kind of singletonKinds) assert.equal(isSingletonMerchantModule(kind), true);
   assert.equal(isSingletonMerchantModule("discount"), false);
   const older = { ...record("71000000-0000-4000-8000-000000000001", "active", "Eski tema", {}), kind: "theme_setting" as const, updatedAt: "2026-07-20T19:00:00.000Z" };

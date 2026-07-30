@@ -15,7 +15,8 @@ test("design settings hub is server-authorized and links only persisted design s
   assert.match(page, /getEffectiveStarterPresentation/);
   assert.doesNotMatch(page, /buildDefaultStarterPresentation/);
   assert.match(page, /canonicalHostname/);
-  for (const href of ["/settings/theme", "/settings/general", "/settings/hero-banner", "/settings/promotion-banner", "/settings/marquee", "/seo", "/seo/social-preview", "/products/collections"]) assert.match(hub, new RegExp(`"${href}"`));
+  for (const href of ["/settings/theme", "/settings/general", "/settings/hero-banner", "/settings/category-showcase", "/settings/promotion-banner", "/settings/marquee", "/seo", "/seo/social-preview", "/products/collections"]) assert.match(hub, new RegExp(`"${href}"`));
+  assert.match(hub, /CategoryShowcaseEditor/);
   const css = await source("components/settings/design-settings.module.css");
   assert.match(hub, /styles[.]surface/);
   assert.match(hub, /styles[.]card/);

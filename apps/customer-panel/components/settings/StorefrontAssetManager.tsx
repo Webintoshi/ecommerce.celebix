@@ -47,23 +47,24 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
     } catch { setError(errorMessage()); } finally { setBusy(false); uploadRef.current?.focus(); }
   }
 
-  async function useFor(asset: StorefrontAsset, usage: "hero_banner" | "social_preview") {
+  async function useFor(asset: StorefrontAsset, usage: "hero_banner" | "social_preview" | "theme_setting") {
     if (!canManage || busy) return; setBusy(true); setError(""); setMessage("");
     try {
       const current = selectRecord(await merchantAdminApi.records(usage));
-      const config = { ...(current?.config ?? {}), assetId: asset.id } as Record<string, MerchantAdminJson>;
+      const config = { ...(current?.config ?? {}), [usage === "theme_setting" ? "logoAssetId" : "assetId"]: asset.id } as Record<string, MerchantAdminJson>;
       delete config.imageUrl;
-      await merchantAdminApi.save(usage, { ...(current ? { recordId: current.id, expectedVersion: current.version } : {}), name: current?.name ?? (usage === "hero_banner" ? "Ana vitrin görseli" : "Sosyal paylaşım görseli"), config, status: current?.status === "draft" ? "draft" : "active" });
-      setMessage(usage === "hero_banner" ? "Hero görseli kaydedildi." : "Sosyal paylaşım görseli kaydedildi.");
+      const defaultName = usage === "hero_banner" ? "Ana vitrin görseli" : usage === "social_preview" ? "Sosyal paylaşım görseli" : "Starter tema";
+      await merchantAdminApi.save(usage, { ...(current ? { recordId: current.id, expectedVersion: current.version } : {}), name: current?.name ?? defaultName, config, status: current?.status === "draft" ? "draft" : "active" });
+      setMessage(usage === "hero_banner" ? "Hero görseli kaydedildi." : usage === "social_preview" ? "Sosyal paylaşım görseli kaydedildi." : "Logo kaydedildi.");
     } catch { setError(errorMessage()); } finally { setBusy(false); uploadRef.current?.focus(); }
   }
 
   return <section className={styles.manager} aria-labelledby="storefront-assets-title">
-    <div className={styles.heading}><div><p className={styles.eyebrow}>R2 · mağaza-bazlı</p><h2 id="storefront-assets-title">Vitrin görselleri</h2><p>Logo, hero, sosyal paylaşım ve favicon görsellerini yalnız bu mağazaya ait güvenli alanda yönetin.</p></div></div>
+    <div className={styles.heading}><div><p className={styles.eyebrow}>R2 · mağaza-bazlı</p><h2 id="storefront-assets-title">Vitrin görselleri</h2><p>Logo, hero, kategori, sosyal paylaşım ve favicon görsellerini yalnız bu mağazaya ait güvenli alanda yönetin.</p></div></div>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     {message ? <p role="status" className={styles.success}>{message}</p> : null}
     {canManage ? <form className={styles.upload} onChange={() => { if (!busy) pendingUploadOperation.current = null; }} onSubmit={upload}>
-      <label>Tür<select name="kind" defaultValue="hero" disabled={busy}><option value="hero">Hero</option><option value="logo">Logo</option><option value="social">Sosyal</option><option value="favicon">Favicon</option></select></label>
+      <label>Tür<select name="kind" defaultValue="hero" disabled={busy}><option value="hero">Hero</option><option value="logo">Logo</option><option value="category">Kategori görseli</option><option value="social">Sosyal</option><option value="favicon">Favicon</option></select></label>
       <label>Alternatif metin<input name="altText" maxLength={500} required /></label>
       <label>Görsel<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required /></label>
       <button ref={uploadRef} type="submit" disabled={busy}>{busy ? <LoaderCircle aria-hidden="true" /> : <ImagePlus aria-hidden="true" />} Yükle</button>
@@ -71,9 +72,10 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
     {loading ? <p className={styles.state}>Yükleniyor…</p> : assets.length === 0 ? <p className={styles.state}>Henüz vitrin görseli yok.</p> : <ul className={styles.grid}>
       {assets.map((asset) => <li key={asset.id} className={styles.card}>
         {/* eslint-disable-next-line @next/next/no-img-element */}<img src={asset.publicUrl} alt={asset.altText} width={asset.width} height={asset.height} />
-        <div><strong>{({ logo: "Logo", hero: "Hero", social: "Sosyal", favicon: "Favicon" } as Record<StorefrontAssetKind, string>)[asset.kind]}</strong><small>{asset.width}×{asset.height} · {Math.ceil(asset.byteSize / 1024)} KB</small></div>
+        <div><strong>{({ logo: "Logo", hero: "Hero", category: "Kategori görseli", social: "Sosyal", favicon: "Favicon" } as Record<StorefrontAssetKind, string>)[asset.kind]}</strong><small>{asset.width}×{asset.height} · {Math.ceil(asset.byteSize / 1024)} KB</small></div>
         {canManage ? <div className={styles.actions}>
           {asset.kind === "hero" ? <button type="button" disabled={busy} onClick={() => void useFor(asset, "hero_banner")}>Hero olarak kullan</button> : null}
+          {asset.kind === "logo" ? <button type="button" disabled={busy} onClick={() => void useFor(asset, "theme_setting")}>Logo olarak kullan</button> : null}
           {asset.kind === "social" ? <button type="button" disabled={busy} onClick={() => void useFor(asset, "social_preview")}>Sosyal görsel olarak kullan</button> : null}
           <button type="button" disabled={busy} onClick={() => void archive(asset)}><Archive aria-hidden="true" /> Arşivle</button>
         </div> : null}
