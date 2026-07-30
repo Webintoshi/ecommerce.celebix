@@ -108,6 +108,14 @@ test("accepts a privacy client that omits Origin while retaining destination-bou
   assert.equal(current.redeemCalls, 1);
 });
 
+test("accepts an opaque privacy client Origin while retaining destination-bound handoff authority", async () => {
+  const current = fixture();
+  const response = await current.handler(request({ origin: "null" }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), `${ORIGIN}/`);
+  assert.equal(current.redeemCalls, 1);
+});
+
 test("recovers an unknown redemption commit with the retained session authority", async () => {
   const recovery = Object.freeze({
     operationId: "20000000-0000-4000-8000-000000000001",
