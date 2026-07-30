@@ -172,7 +172,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
     if (detail === undefined) return;
     const data = new FormData(event.currentTarget);
     const parsed = buildProductUpdatePayload({
-      title: value(data, "title"), slug: value(data, "slug"), description: value(data, "description"),
+      title: value(data, "title"), slug: detail.product.slug, description: value(data, "description"),
       status: value(data, "status"), currency: value(data, "currency"),
     }, detail.product.version);
     if (!parsed.ok) { setError(parsed.message); return; }
@@ -244,7 +244,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
           <span className="eyebrow">ÜRÜN BİLGİLERİ</span>
           <div className="heading-meta"><span className={`status-pill status-${product.status}`}>{product.status === "active" ? "Aktif" : "Taslak"}</span><span className="version-badge">v{product.version}</span></div>
           <h1 id="product-title">{product.title}</h1>
-          <p>/{product.slug} · {product.currency}</p>
+          <p>{product.currency}</p>
         </div>
         <div className="heading-actions">
           <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={onboarding === undefined}>Satış ayarları</button>
@@ -264,7 +264,6 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
             <legend><span>01</span><span><strong>Ürün Bilgileri</strong><small>Güncel sürüm: v{product.version}</small></span></legend>
             <div className="form-grid">
               <label className="field field-wide"><span>Ürün adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={product.title} /></label>
-              <label className="field"><span>URL anahtarı <b>*</b></span><input name="slug" required minLength={3} maxLength={100} defaultValue={product.slug} /></label>
               <label className="field"><span>Durum <b>*</b></span><select name="status" defaultValue={product.status}><option value="draft">Taslak</option><option value="active">Aktif</option></select></label>
               <label className="field"><span>Para birimi</span><select name="currency" defaultValue={product.currency}><option value="TRY">TRY — Türk lirası</option></select></label>
               <ProductDescriptionField className="field field-wide" rows={4} defaultValue={product.description ?? ""} />

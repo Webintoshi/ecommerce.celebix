@@ -540,7 +540,7 @@ export function ProductListConsole() {
               {visibleRows.map(({ product, variant, featuredImage }) => (
                 <tr key={product.id}>
                   <td data-label="Seç"><label className="catalog-checkbox-hit"><input type="checkbox" disabled={busy} checked={selected.includes(product.id)} onChange={(event) => setSelected((current) => event.target.checked ? Object.freeze([...current, product.id]) : Object.freeze(current.filter((id) => id !== product.id)))} aria-label={`${product.title} ürününü seç`} /></label></td>
-                  <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><ProductThumbnail product={product} featuredImage={featuredImage} /><span><strong>{product.title}</strong><small>/{product.slug}</small></span></Link></td>
+                  <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><ProductThumbnail product={product} featuredImage={featuredImage} /><span><strong>{product.title}</strong></span></Link></td>
                   <td data-label="SKU"><span className="mono-value">{variant?.sku ?? "—"}</span></td>
                   <td data-label="Fiyat">{variant?.compareAtCents ? <del>{money(variant.compareAtCents, product.currency)}</del> : null}<span className="product-price">{money(variant?.priceCents, product.currency)}</span></td>
                   <td data-label="Stok"><span className={variant?.stockTracking && variant.stockQuantity <= 10 ? "product-stock-low" : "product-stock"}>{variant === undefined ? "—" : variant.stockTracking ? `${variant.stockQuantity} adet` : "Takipsiz"}</span></td>

@@ -559,6 +559,33 @@ test("mounted product rows show the featured image and preserve the package fall
 }
 );
 
+test("mounted product rows keep technical slugs out of merchant presentation", async () => {
+  const product = productFixture(
+    "11111111-1111-4111-8111-111111111111",
+    "active",
+    1,
+    "Gizli teknik slug",
+  );
+  const mounted = await createMountedProductConsole({
+    async listProducts() { return { items: [product] }; },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { return { product, variants: [] }; },
+    async updateProduct() { throw new Error("not used"); },
+    async archiveProduct() { throw new Error("not used"); },
+  });
+
+  const renderedText = (await mounted.render()).map(mountedText).join(" ");
+  assert.match(renderedText, /Gizli teknik slug/);
+  assert.doesNotMatch(renderedText, /gizli-teknik-slug/);
+});
+
+test("product detail hides the technical slug while preserving it in versioned edits", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+
+  assert.match(detail, /slug:\s*detail[.]product[.]slug/);
+  assert.doesNotMatch(detail, /name="slug"|URL anahtarı|<p>\/{product[.]slug}/);
+});
+
 test("mounted store-wide metrics stay semantic and never duplicate loaded-row counts", async () => {
   const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1);
   const summaryResult = deferred<typeof catalogSummary>();

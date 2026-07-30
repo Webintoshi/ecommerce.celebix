@@ -74,7 +74,7 @@ export function CategoryManager() {
       <div className={styles.categoryList} aria-busy={loading}>
         {loading ? <p role="status">Kategoriler yükleniyor…</p> : hierarchy.rows.length === 0 ? <div className={styles.categoryEmpty}><strong>Henüz kategori yok</strong><p>İlk kategoriyi soldaki kısa formdan oluşturun.</p></div> : hierarchy.rows.map(({ category, depth, label }) => <article key={category.id} data-status={category.status}>
           <span className={styles.categoryDepth} style={{ "--depth": depth } as CSSProperties} aria-hidden="true" />
-          <div><strong>{label}</strong><small>/{category.slug} · Seviye {depth} · Sıra {category.position}</small></div>
+          <div><strong>{label}</strong><small>Seviye {depth} · Sıra {category.position}</small></div>
           <span className={category.status === "active" ? styles.activeBadge : styles.archiveBadge}>{category.status === "active" ? "Aktif" : "Arşiv"}</span>
           {category.status === "active" ? <div className={styles.categoryActions}><button type="button" className={styles.categoryChildAction} onClick={() => createChild(category)} disabled={busy || depth >= 8} aria-label={`${category.name} altında alt kategori ekle`}><Plus aria-hidden="true" /><span>Alt kategori ekle</span></button><button type="button" onClick={() => { setCreatingUnderId(undefined); setEditing(category); }} disabled={busy} aria-label={`${category.name} kategorisini düzenle`}><Pencil /></button><button type="button" onClick={() => void archive(category)} disabled={busy} aria-label={`${category.name} kategorisini arşivle`}><Archive /></button></div> : null}
         </article>)}
