@@ -6070,8 +6070,8 @@ html[data-theme="dark"] .login-card .owner-auth-message {
   .self-serve-register-page .self-serve-phone-field input,
   .self-serve-register-page .self-serve-password-field input,
   .self-serve-register-page .self-serve-password-field button {
-    min-height: 48px;
-    height: 48px;
+    min-height: 50px;
+    height: 50px;
   }
 
   .self-serve-register-page .self-serve-direct-submit {

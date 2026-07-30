@@ -67,6 +67,21 @@ test("signup promo keeps a flat poster fallback across responsive and reduced-mo
   assert.doesNotMatch(globalCssSource, /self-serve-register-(?:promo-badge|visual|store-)/);
 });
 
+test("short-height desktop keeps every interactive registration control at least 50px tall", () => {
+  const shortHeightCss =
+    globalCssSource.match(
+      /@media \(min-width: 1101px\) and \(max-height: 820px\) \{([\s\S]*?)\n\}\n\n@media \(max-width: 1100px\)/,
+    )?.[1] ?? "";
+  const nestedControlRule =
+    shortHeightCss.match(
+      /\.self-serve-register-page \.self-serve-store-name-field input,[\s\S]*?\.self-serve-register-page \.self-serve-password-field button \{([^}]*)\}/,
+    )?.[1] ?? "";
+
+  assert.match(nestedControlRule, /min-height:\s*50px;/);
+  assert.match(nestedControlRule, /height:\s*50px;/);
+  assert.doesNotMatch(shortHeightCss, /(?:min-)?height:\s*(?:[0-4]?\d)px;/);
+});
+
 test("the direct form includes the approved unboxed legal and trust copy", () => {
   const legalMarkup = formSource.match(/<p className="self-serve-register-legal">([\s\S]*?)<\/p>/)?.[1] ?? "";
   const renderedLegalCopy = legalMarkup
