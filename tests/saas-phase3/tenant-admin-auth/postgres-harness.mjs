@@ -14,6 +14,15 @@ const ROLLBACK_DB = `${DB}_rollback`;
 const UP = "202607300069_tenant_admin_domains_and_principal_logout.up.sql";
 const DOWN = "202607300069_tenant_admin_domains_and_principal_logout.down.sql";
 const VERIFY = "202607300069_tenant_admin_domains_and_principal_logout_assertions.sql";
+const RETURNING_UP = "202607300071_returning_login_admin_host.up.sql";
+const RETURNING_DOWN = "202607300071_returning_login_admin_host.down.sql";
+const RETURNING_VERIFY = "202607300071_returning_login_admin_host_assertions.sql";
+const OPTIONS_UP = "202607300072_panel_store_options.up.sql";
+const OPTIONS_DOWN = "202607300072_panel_store_options.down.sql";
+const OPTIONS_VERIFY = "202607300072_panel_store_options_assertions.sql";
+const PILOT_UP = "202607300073_seed_guzide_pilot_admin_domain.up.sql";
+const PILOT_DOWN = "202607300073_seed_guzide_pilot_admin_domain.down.sql";
+const PILOT_VERIFY = "202607300073_seed_guzide_pilot_admin_domain_assertions.sql";
 
 const ID = Object.freeze({
   principal: "10000000-0000-4000-8000-000000000001",
@@ -21,7 +30,7 @@ const ID = Object.freeze({
   storeB: "20000000-0000-4000-8000-000000000002",
   membershipA: "30000000-0000-4000-8000-000000000001",
   membershipB: "30000000-0000-4000-8000-000000000002",
-  domainA: "40000000-0000-4000-8000-000000000001",
+  domainA: "f3f8a04d-0af7-4de5-9b89-70a33d01f001",
   domainB: "40000000-0000-4000-8000-000000000002",
   aliasA: "40000000-0000-4000-8000-000000000003",
   sessionA: "50000000-0000-4000-8000-000000000001",
@@ -35,7 +44,11 @@ const ID = Object.freeze({
   operationC: "70000000-0000-4000-8000-000000000003",
   handoff: "80000000-0000-4000-8000-000000000001",
   handoffOperation: "90000000-0000-4000-8000-000000000001",
+  subscriptionA: "a0000000-0000-4000-8000-000000000001",
+  subscriptionB: "a0000000-0000-4000-8000-000000000002",
 });
+
+const FREE_PLAN = "00000000-0000-4000-8000-000000000001";
 
 const key = "panel.active.v1";
 const handoffKey = "panel.handoff.v1";
@@ -113,6 +126,28 @@ function applyBase(box, database = DB) {
   ]) apply(box, file, database);
 }
 
+function applyTenantAdminMigrations(box, database = DB) {
+  for (const file of [UP, VERIFY, RETURNING_UP, RETURNING_VERIFY, OPTIONS_UP, OPTIONS_VERIFY]) {
+    apply(box, file, database);
+  }
+}
+
+function seedBaseAuthority(box, now, database = DB) {
+  psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+    INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at)
+      VALUES('${ID.principal}','https://identity.example.test/oidc','merchant','merchant@example.test',true,'${now}','${now}');
+    INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES
+      ('${ID.storeA}','Guzide Kuyumcu','guzide-kuyumcu-4','active','tr','TRY','starter','${now}','${now}'),
+      ('${ID.storeB}','Hemenaku','hemenaku','active','tr','TRY','starter','${now}','${now}');
+    INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at) VALUES
+      ('${ID.membershipA}','${ID.principal}','${ID.storeA}','store_owner','active','${now}','${now}'),
+      ('${ID.membershipB}','${ID.principal}','${ID.storeB}','admin','active','${now}','${now}');
+    INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,valid_until,created_at,updated_at) VALUES
+      ('${ID.subscriptionA}','${ID.storeA}','${FREE_PLAN}','free_starter',1,'active','2026-01-01',NULL,'${now}','${now}'),
+      ('${ID.subscriptionB}','${ID.storeB}','${FREE_PLAN}','free_starter',1,'active','2026-01-01',NULL,'${now}','${now}');
+    COMMIT;`, database);
+}
+
 function issueSession(box, now, session, family, operation, store, tokenDigest) {
   const expires = new Date(Date.parse(now) + 8 * 60 * 60_000).toISOString();
   return psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_identity;
@@ -128,29 +163,22 @@ function main() {
     psql(box, `CREATE DATABASE ${DB};`, "postgres");
     applyBase(box);
     psql(box, `CREATE DATABASE ${ROLLBACK_DB} TEMPLATE ${DB};`, "postgres");
-    apply(box, UP);
-    apply(box, VERIFY);
+    applyTenantAdminMigrations(box);
     assert.match(psql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
-    process.stdout.write("PASS PostgreSQL 16 applies and verifies tenant admin authority\n");
+    process.stdout.write("PASS PostgreSQL 16 applies and verifies tenant admin authority, returning login, and store options\n");
 
+    const seedTime = new Date().toISOString();
+    seedBaseAuthority(box, seedTime);
+    apply(box, PILOT_UP);
+    apply(box, PILOT_VERIFY);
     const now = new Date().toISOString();
-    psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
-      INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at)
-        VALUES('${ID.principal}','https://identity.example.test/oidc','merchant','merchant@example.test',true,'${now}','${now}');
-      INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES
-        ('${ID.storeA}','Guzide Kuyumcu','guzide-kuyumcu-4','active','tr','TRY','starter','${now}','${now}'),
-        ('${ID.storeB}','Hemenaku','hemenaku','active','tr','TRY','starter','${now}','${now}');
-      INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at) VALUES
-        ('${ID.membershipA}','${ID.principal}','${ID.storeA}','store_owner','active','${now}','${now}'),
-        ('${ID.membershipB}','${ID.principal}','${ID.storeB}','admin','active','${now}','${now}');
-      COMMIT;`);
-    for (const [domain, store, hostname] of [
-      [ID.domainA, ID.storeA, "guzide-kuyumcu-4.admin.saas-staging.celebix.site"],
-      [ID.domainB, ID.storeB, "hemenaku.admin.saas-staging.celebix.site"],
+    for (const [domain, store, hostname, expected] of [
+      [ID.domainA, ID.storeA, "guzide-kuyumcu-4.admin.saas-staging.celebix.site", "operation_replayed"],
+      [ID.domainB, ID.storeB, "hemenaku.admin.saas-staging.celebix.site", "provisioned"],
     ]) {
       const outcome = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_bootstrap;
         SELECT outcome FROM saas.provision_canonical_admin_domain('${domain}','${store}','${hostname}','${now}');COMMIT;`).stdout.trim();
-      assert.equal(outcome, "provisioned");
+      assert.equal(outcome, expected);
     }
     psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
       INSERT INTO saas.admin_domains(id,store_id,hostname,kind,status,canonical,verified_at,version,created_at,updated_at)
@@ -169,6 +197,10 @@ function main() {
 
     assert.equal(issueSession(box, now, ID.sessionA, ID.familyA, ID.operationA, ID.storeA, sessionDigestA), "issued");
     assert.equal(issueSession(box, now, ID.sessionB, ID.familyB, ID.operationB, ID.storeB, sessionDigestB), "issued");
+    assert.equal(psql(box, `BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_identity;
+      SELECT outcome||'|'||pg_catalog.jsonb_array_length(authority->'stores')
+      FROM saas.list_panel_session_store_options('${key}','${sessionDigestA}','${now}');COMMIT;`).stdout.trim(), "resolved|2");
+    process.stdout.write("PASS store switch options remain principal, subscription, and canonical-host bound\n");
     const handoffExpires = new Date(Date.parse(now) + 2 * 60_000).toISOString();
     const sessionExpires = new Date(Date.parse(now) + 8 * 60 * 60_000).toISOString();
     const issued = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_identity;
@@ -197,13 +229,19 @@ function main() {
     assert.equal(psql(box, `SELECT count(*) FROM saas.panel_sessions WHERE principal_id='${ID.principal}' AND revoked_at IS NULL;`).stdout.trim(), "0");
     process.stdout.write("PASS principal logout revokes every active session family\n");
 
-    apply(box, UP, ROLLBACK_DB);
-    apply(box, VERIFY, ROLLBACK_DB);
+    applyTenantAdminMigrations(box, ROLLBACK_DB);
+    seedBaseAuthority(box, now, ROLLBACK_DB);
+    apply(box, PILOT_UP, ROLLBACK_DB);
+    apply(box, PILOT_VERIFY, ROLLBACK_DB);
+    apply(box, PILOT_DOWN, ROLLBACK_DB);
+    apply(box, OPTIONS_DOWN, ROLLBACK_DB);
+    apply(box, RETURNING_DOWN, ROLLBACK_DB);
     apply(box, DOWN, ROLLBACK_DB);
     assert.equal(psql(box, "SELECT to_regclass('saas.admin_domains') IS NULL AND to_regclass('saas.cross_host_panel_handoffs') IS NULL;", ROLLBACK_DB).stdout.trim(), "t");
-    apply(box, UP, ROLLBACK_DB);
-    apply(box, VERIFY, ROLLBACK_DB);
-    process.stdout.write("PASS rollback removes only phase objects and reapply verifies\n");
+    applyTenantAdminMigrations(box, ROLLBACK_DB);
+    apply(box, PILOT_UP, ROLLBACK_DB);
+    apply(box, PILOT_VERIFY, ROLLBACK_DB);
+    process.stdout.write("PASS full auth migration rollback removes only phase objects and reapply verifies\n");
   } finally {
     stop(box);
   }

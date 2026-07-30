@@ -1,3 +1,6 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+
 DO $assertions$
 BEGIN
   IF to_regprocedure('saas.issue_returning_panel_session_for_admin_host(text,text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)') IS NULL
@@ -9,3 +12,5 @@ BEGIN
   END IF;
 END
 $assertions$;
+
+COMMIT;

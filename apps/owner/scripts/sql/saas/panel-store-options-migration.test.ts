@@ -20,8 +20,9 @@ test("store option discovery is session-bound, entitlement-bound, canonical, and
 });
 
 test("store option migration is transactional and narrowly reversible", () => {
-  for (const source of [up, down]) {
+  for (const source of [up, down, assertions]) {
     assert.match(source, /^BEGIN;/);
+    assert.match(source, /SET LOCAL ROLE celebix_saas_owner;/);
     assert.match(source, /COMMIT;\s*$/);
   }
   assert.match(down, /DROP FUNCTION saas\.list_panel_session_store_options/);

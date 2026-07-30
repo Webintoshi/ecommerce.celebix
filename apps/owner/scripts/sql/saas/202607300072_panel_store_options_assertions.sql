@@ -1,3 +1,6 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+
 DO $panel_store_options_assertions$
 BEGIN
   IF pg_catalog.to_regprocedure('saas.list_panel_session_store_options(text,text,timestamp with time zone)') IS NULL THEN
@@ -12,3 +15,5 @@ BEGIN
   END IF;
 END
 $panel_store_options_assertions$;
+
+COMMIT;

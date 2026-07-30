@@ -20,6 +20,8 @@ test("returning login is bound to one verified canonical admin host and active m
 });
 
 test("migration rollback and assertions cover only the new bounded functions", () => {
+  assert.match(assertions, /^BEGIN;\nSET LOCAL ROLE celebix_saas_owner;/);
+  assert.match(assertions, /COMMIT;\s*$/);
   assert.match(down, /DROP FUNCTION saas\.recover_returning_panel_session_for_admin_host/);
   assert.match(down, /DROP FUNCTION saas\.issue_returning_panel_session_for_admin_host/);
   assert.match(assertions, /returning_login_admin_host_functions_missing/);
