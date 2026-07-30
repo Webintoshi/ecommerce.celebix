@@ -1,6 +1,6 @@
 # Güzide kategori ve marka uzlaştırma tasarımı
 
-Durum: Kullanıcı tarafından sözlü olarak onaylandı; yazılı spec incelemesi bekleniyor.
+Durum: Kullanıcı tarafından yazılı olarak onaylandı.
 
 ## Amaç
 
@@ -34,7 +34,7 @@ Uzlaştırma sırasında aşağıdakiler değişmeyecek:
 
 Mevcut 50 kategori korunur. Yalnız 36 alt kategori için:
 
-1. WordPress `parent` ilişkisi mevcut Celebix üst kategori kimliğine çevrilir.
+1. WordPress `parent` ilişkisi mevcut Celebix üst kategori kimliğine çevrilir ve kalıcı derinlik üst kategorinin derinliği + 1 olarak güncellenir.
 2. `Bileklikler > Şahmeran` gibi düzleştirilmiş görünen ad, `Şahmeran` olarak düzeltilir.
 3. Mevcut dahili slug korunur; aynı mağazada slug benzersizliği bozulmaz.
 4. Mevcut konum, durum ve ürün ilişkileri korunur.
