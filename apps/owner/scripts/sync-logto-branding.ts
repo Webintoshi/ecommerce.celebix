@@ -8,6 +8,10 @@ import {
 } from "../lib/logto-branding.ts";
 
 const ROLLBACK_PATH = "/tmp/celebix-logto-branding-rollback.json";
+const APPLICATION_ROLLBACK_PATH =
+  "/tmp/celebix-logto-application-branding-rollback.json";
+const ORGANIZATION_ROLLBACK_PATH =
+  "/tmp/celebix-logto-organization-branding-rollback.json";
 
 function readEnv(keys: string[]): string | null {
   for (const key of keys) {
@@ -129,6 +133,34 @@ function hashCss(value: unknown): string {
     .digest("hex");
 }
 
+function createCelebixExperiencePatch(experience: Record<string, unknown>) {
+  return {
+    color: {
+      ...(asRecord(experience.color) ?? {}),
+      ...CELEBIX_LOGTO_BRANDING.color,
+    },
+    branding: {
+      ...(asRecord(experience.branding) ?? {}),
+      ...CELEBIX_LOGTO_BRANDING.branding,
+    },
+    customCss: CELEBIX_LOGTO_CUSTOM_CSS,
+  };
+}
+
+function isCelebixExperienceActive(experience: Record<string, unknown>): boolean {
+  const color = asRecord(experience.color);
+  const branding = asRecord(experience.branding);
+
+  return (
+    hashCss(experience.customCss) === hashCss(CELEBIX_LOGTO_CUSTOM_CSS) &&
+    color?.primaryColor === CELEBIX_LOGTO_BRANDING.color.primaryColor &&
+    color?.darkPrimaryColor === CELEBIX_LOGTO_BRANDING.color.darkPrimaryColor &&
+    color?.isDarkModeEnabled === CELEBIX_LOGTO_BRANDING.color.isDarkModeEnabled &&
+    branding?.logoUrl === CELEBIX_LOGTO_BRANDING.branding.logoUrl &&
+    branding?.darkLogoUrl === CELEBIX_LOGTO_BRANDING.branding.darkLogoUrl
+  );
+}
+
 async function run(): Promise<void> {
   const apiBaseUrl = getManagementApiBaseUrl();
   const token = await getManagementToken(apiBaseUrl);
@@ -173,6 +205,11 @@ async function run(): Promise<void> {
     await request("/api/applications?page=1&page_size=100"),
   );
   let applicationOverrides = 0;
+  let applicationOverridesChanged = 0;
+  const applicationSnapshots: Array<{
+    applicationId: string;
+    experience: Record<string, unknown>;
+  }> = [];
 
   for (const application of applications) {
     if (typeof application.id !== "string") {
@@ -189,22 +226,102 @@ async function run(): Promise<void> {
         hasValues(experience.color)
       ) {
         applicationOverrides += 1;
+        applicationSnapshots.push({
+          applicationId: application.id,
+          experience,
+        });
       }
     } catch {
       // Most first-party apps do not have an application-level experience.
     }
   }
 
+  if (applicationSnapshots.length > 0 && !existsSync(APPLICATION_ROLLBACK_PATH)) {
+    writeFileSync(
+      APPLICATION_ROLLBACK_PATH,
+      JSON.stringify(applicationSnapshots),
+      { encoding: "utf8", mode: 0o600 },
+    );
+  }
+
+  for (const snapshot of applicationSnapshots) {
+    if (!isCelebixExperienceActive(snapshot.experience)) {
+      const existing = snapshot.experience;
+      await request(
+        `/api/applications/${encodeURIComponent(snapshot.applicationId)}/sign-in-experience`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            ...createCelebixExperiencePatch(existing),
+            displayName:
+              typeof existing.displayName === "string" ? existing.displayName : null,
+            termsOfUseUrl:
+              typeof existing.termsOfUseUrl === "string"
+                ? existing.termsOfUseUrl
+                : null,
+            privacyPolicyUrl:
+              typeof existing.privacyPolicyUrl === "string"
+                ? existing.privacyPolicyUrl
+                : null,
+          }),
+        },
+      );
+      applicationOverridesChanged += 1;
+    }
+
+    const verified = await request<Record<string, unknown>>(
+      `/api/applications/${encodeURIComponent(snapshot.applicationId)}/sign-in-experience`,
+    );
+    if (!isCelebixExperienceActive(verified)) {
+      throw new Error("CELEBIX_LOGTO_APPLICATION_BRANDING_VERIFICATION_FAILED");
+    }
+  }
+
   const organizations = normalizeList(
     await request("/api/organizations?page=1&page_size=100"),
   );
-  const organizationOverrides = organizations.filter(
+  const organizationSnapshots = organizations.filter(
     (organization) =>
       (typeof organization.customCss === "string" &&
         organization.customCss.length > 0) ||
       hasValues(organization.branding) ||
       hasValues(organization.color),
-  ).length;
+  );
+  const organizationOverrides = organizationSnapshots.length;
+  let organizationOverridesChanged = 0;
+
+  if (organizationSnapshots.length > 0 && !existsSync(ORGANIZATION_ROLLBACK_PATH)) {
+    writeFileSync(
+      ORGANIZATION_ROLLBACK_PATH,
+      JSON.stringify(organizationSnapshots),
+      { encoding: "utf8", mode: 0o600 },
+    );
+  }
+
+  for (const organization of organizationSnapshots) {
+    if (typeof organization.id !== "string") {
+      continue;
+    }
+
+    if (!isCelebixExperienceActive(organization)) {
+      await request(
+        `/api/organizations/${encodeURIComponent(organization.id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(createCelebixExperiencePatch(organization)),
+        },
+      );
+      organizationOverridesChanged += 1;
+    }
+
+    const verified = await request<Record<string, unknown>>(
+      `/api/organizations/${encodeURIComponent(organization.id)}`,
+    );
+    if (!isCelebixExperienceActive(verified)) {
+      throw new Error("CELEBIX_LOGTO_ORGANIZATION_BRANDING_VERIFICATION_FAILED");
+    }
+  }
+
   const result = await synchronizeCelebixLogtoBranding({ request });
   const after = await request<Record<string, unknown>>("/api/sign-in-exp");
   const activeCssSha256 = hashCss(after.customCss);
@@ -232,8 +349,10 @@ async function run(): Promise<void> {
       rollbackPath: ROLLBACK_PATH,
       applicationsScanned: applications.length,
       applicationOverrides,
+      applicationOverridesChanged,
       organizationsScanned: organizations.length,
       organizationOverrides,
+      organizationOverridesChanged,
     }),
   );
 }
