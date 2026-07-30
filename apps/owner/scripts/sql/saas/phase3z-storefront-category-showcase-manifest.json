@@ -1,0 +1,26 @@
+{
+  "phase": "phase3z-storefront-category-showcase",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "phase3y-admin-managed-starter-theme-manifest.json",
+      "sha256": "14ecb4320a4a50680a03219d9fa63f4c3fb586a3d2e66f1e91ad0a38a0501022"
+    },
+    {
+      "file": "202607300067_storefront_category_showcase.up.sql",
+      "sha256": "b467f2f2a15a4ed08898229eac7d7ca4c4a7fe561ce8a429dc0714f787ad1e00"
+    },
+    {
+      "file": "202607300067_storefront_category_showcase_assertions.sql",
+      "sha256": "a61be9011627eaa0d74aab75e1c74839dee05fc3132d5f03ffaad2352c9e2e88"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607300067_storefront_category_showcase.down.sql",
+      "sha256": "faf8b4a03fd70b601c9e80c15301f344c9767fd23856288c56d38041887f75c0"
+    }
+  ],
+  "externalConnections": 0,
+  "productionMutations": 0
+}
