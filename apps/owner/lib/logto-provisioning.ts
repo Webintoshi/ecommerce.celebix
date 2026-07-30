@@ -18,6 +18,11 @@ import {
   type GeneratedLogtoAppConfig,
   type LogtoAuthorityRequirement,
 } from "@/lib/logto-app-config";
+import { synchronizeCelebixLogtoBranding } from "@/lib/logto-branding";
+import {
+  normalizeLogtoManagementApiPath,
+  type LogtoManagementTransport,
+} from "@/lib/logto-management-transport";
 
 export interface LogtoProvisioningStatus {
   configured: boolean;
@@ -293,6 +298,17 @@ async function logtoFetch(pathname: string, init: RequestInit = {}): Promise<unk
     return null;
   }
 }
+
+export async function requestLogtoManagementApi<T>(
+  pathname: string,
+  init: RequestInit = {},
+): Promise<T> {
+  return (await logtoFetch(normalizeLogtoManagementApiPath(pathname), init)) as T;
+}
+
+const logtoManagementTransport: LogtoManagementTransport = {
+  request: requestLogtoManagementApi,
+};
 
 async function readLogtoErrorSummary(response: Response): Promise<string> {
   try {
@@ -606,6 +622,7 @@ export async function provisionLogtoAppsForStore(
   let customerApplication: AppliedLogtoApplication | null = null;
 
   try {
+    await synchronizeCelebixLogtoBranding(logtoManagementTransport);
     adminApplication = await applyLogtoApplication(store, "admin", config.adminApp, config);
     customerApplication = await applyLogtoApplication(store, "storefront", config.customerApp, config);
     persistAdminLogtoRuntimeSecrets(store, adminApplication);
