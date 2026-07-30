@@ -18,6 +18,8 @@ const SKU = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const KEY = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+const RESOURCE_PRODUCT_IDS_MAX = 10_000;
+const RESOURCE_PRODUCT_IDS_BYTES_MAX = 400_000;
 
 function invalid(): never {
   throw new Error("catalog_admin_contract_invalid");
@@ -159,7 +161,12 @@ export function parseCatalogAdminResource(
   if (typeof config !== "object" || config === null || Array.isArray(config))
     invalid();
   const resourceConfig = config as Readonly<Record<string, CatalogAdminJson>>;
-  if (!Array.isArray(parsed.productIds) || parsed.productIds.length > 100)
+  if (
+    !Array.isArray(parsed.productIds) ||
+    parsed.productIds.length > RESOURCE_PRODUCT_IDS_MAX ||
+    new TextEncoder().encode(JSON.stringify(parsed.productIds)).byteLength >
+      RESOURCE_PRODUCT_IDS_BYTES_MAX
+  )
     invalid();
   const productIds = Object.freeze(parsed.productIds.map(uuid));
   if (

@@ -15,6 +15,10 @@ const LATER = "2026-07-22T18:15:00.000Z";
 const ID = "11111111-1111-4111-8111-111111111111";
 const VARIANT_ID = "22222222-2222-4222-8222-222222222222";
 
+function productId(index: number) {
+  return `71000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
+
 test("tag is the only added catalog resource kind", () => {
   assert.deepEqual(CATALOG_ADMIN_RESOURCE_KINDS, [
     "collection",
@@ -135,6 +139,40 @@ test("parses and freezes exact catalog administration resources", () => {
     { ...value, config: { secret: "x".repeat(9000) } },
   ])
     assert.throws(() => parseCatalogAdminResource(hostile));
+});
+
+test("accepts a bounded merchant brand projection larger than the legacy import batch", () => {
+  const productIds = Array.from({ length: 1_628 }, (_, index) =>
+    productId(index + 1),
+  );
+  const value = parseCatalogAdminResource({
+    id: ID,
+    kind: "brand",
+    name: "Güzide Kuyumcu",
+    slug: "guzide-kuyumcu",
+    config: {},
+    status: "active",
+    productIds,
+    productCount: productIds.length,
+    version: 1,
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+
+  assert.equal(value.productCount, 1_628);
+  assert.equal(value.productIds.at(-1), productId(1_628));
+  assert.equal(Object.isFrozen(value.productIds), true);
+
+  const oversizedProductIds = Array.from({ length: 10_001 }, (_, index) =>
+    productId(index + 1),
+  );
+  assert.throws(() =>
+    parseCatalogAdminResource({
+      ...value,
+      productIds: oversizedProductIds,
+      productCount: oversizedProductIds.length,
+    }),
+  );
 });
 
 test("parses strict review moderation DTOs", () => {
