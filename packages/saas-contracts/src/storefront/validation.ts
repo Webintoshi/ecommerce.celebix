@@ -129,10 +129,29 @@ function parseSeo(value: unknown): PublicStarterThemePresentation["seo"] {
   return Object.freeze({ ...(Object.hasOwn(parsed, "title") ? { title: string(parsed.title, 1, 160) } : {}), ...(Object.hasOwn(parsed, "description") ? { description: string(parsed.description, 1, 500) } : {}), allowIndex: boolean(parsed.allowIndex), ...(Object.hasOwn(parsed, "socialImage") ? { socialImage: parseStorefrontAsset(parsed.socialImage) } : {}) });
 }
 
+function parseCategoryShowcase(value: unknown): NonNullable<PublicStarterThemePresentation["categoryShowcase"]> {
+  const parsed = exact(value, ["heading", "items"]);
+  if (!Array.isArray(parsed.items) || Object.getPrototypeOf(parsed.items) !== Array.prototype || parsed.items.length < 1 || parsed.items.length > 8) invalid();
+  const descriptors = Object.getOwnPropertyDescriptors(parsed.items) as unknown as Record<PropertyKey, PropertyDescriptor | undefined>;
+  if (Reflect.ownKeys(parsed.items).length !== parsed.items.length + 1 || descriptors.length?.value !== parsed.items.length) invalid();
+  const items: Array<NonNullable<PublicStarterThemePresentation["categoryShowcase"]>["items"][number]> = [];
+  const ids = new Set<string>(), slugs = new Set<string>();
+  for (let index = 0; index < parsed.items.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) invalid();
+    const item = exact(descriptor.value, ["id", "name", "slug", "image"]);
+    const id = uuid(item.id), selectedSlug = string(item.slug, 1, 100, SLUG);
+    if (ids.has(id) || slugs.has(selectedSlug)) invalid();
+    ids.add(id); slugs.add(selectedSlug);
+    items.push(Object.freeze({ id, name: string(item.name, 1, 160), slug: selectedSlug, image: parseStorefrontAsset(item.image) }));
+  }
+  return Object.freeze({ heading: string(parsed.heading, 1, 160), items: Object.freeze(items) });
+}
+
 export function parsePublicStarterThemePresentation(value: unknown): PublicStarterThemePresentation {
-  const parsed = exact(value, ["schemaVersion", "displayName", "theme", "hero", "seo"], ["supportEmail", "promotion", "marquee"]);
+  const parsed = exact(value, ["schemaVersion", "displayName", "theme", "hero", "seo"], ["supportEmail", "logo", "promotion", "marquee", "categoryShowcase"]);
   if (parsed.schemaVersion !== 1) invalid();
-  return Object.freeze({ schemaVersion: 1, displayName: string(parsed.displayName, 1, 160), ...(Object.hasOwn(parsed, "supportEmail") ? { supportEmail: email(parsed.supportEmail) } : {}), theme: parseTheme(parsed.theme), hero: parseHero(parsed.hero), ...(Object.hasOwn(parsed, "promotion") ? { promotion: parsePromotion(parsed.promotion) } : {}), ...(Object.hasOwn(parsed, "marquee") ? { marquee: parseMarquee(parsed.marquee) } : {}), seo: parseSeo(parsed.seo) });
+  return Object.freeze({ schemaVersion: 1, displayName: string(parsed.displayName, 1, 160), ...(Object.hasOwn(parsed, "supportEmail") ? { supportEmail: email(parsed.supportEmail) } : {}), ...(Object.hasOwn(parsed, "logo") ? { logo: parseStorefrontAsset(parsed.logo) } : {}), theme: parseTheme(parsed.theme), hero: parseHero(parsed.hero), ...(Object.hasOwn(parsed, "promotion") ? { promotion: parsePromotion(parsed.promotion) } : {}), ...(Object.hasOwn(parsed, "marquee") ? { marquee: parseMarquee(parsed.marquee) } : {}), ...(Object.hasOwn(parsed, "categoryShowcase") ? { categoryShowcase: parseCategoryShowcase(parsed.categoryShowcase) } : {}), seo: parseSeo(parsed.seo) });
 }
 
 export function parsePublicStorefront(value: unknown): PublicStorefront {
