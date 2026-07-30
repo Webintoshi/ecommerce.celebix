@@ -33,6 +33,8 @@ test("posts the handoff only in a CSP-bound request body", async () => {
   assert.match(body, new RegExp(`action="${DESTINATION}/auth/handoff"`));
   assert.match(body, /method="post"/);
   assert.match(body, new RegExp(`name="handoff" value="${HANDOFF.replaceAll(".", "\\.")}"`));
+  assert.match(body, /<button type="submit">Devam et<\/button>/);
+  assert.doesNotMatch(body, /<noscript>/);
   assert.match(body, new RegExp(`nonce="${nonce}"`));
   assert.doesNotMatch(`${DESTINATION}/auth/handoff`, /v1\./);
   assert.equal(response.headers.has("location"), false);
