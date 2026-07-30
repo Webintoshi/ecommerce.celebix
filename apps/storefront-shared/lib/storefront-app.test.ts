@@ -283,10 +283,12 @@ test("health response is safe and carries no tenant data", () => {
 });
 
 test("starter storefront consumes the public presentation and exposes no inert cart control", async () => {
-  const [home, listing, detail, header, footer, frame, card] = await Promise.all([
+  const [home, listing, detail, category, categoryShowcase, header, footer, frame, card] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/categories/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/CategoryShowcase.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/Header.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/Footer.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/StorefrontFrame.tsx", import.meta.url), "utf8"),
@@ -297,9 +299,19 @@ test("starter storefront consumes the public presentation and exposes no inert c
   assert.match(home, /presentation[.]theme[.]showBrandStory/);
   assert.match(home, /starterMarqueeTokens/);
   assert.match(home, /iconSymbol/);
+  assert.match(home, /<CategoryShowcase showcase=\{presentation[.]categoryShowcase\}/);
   assert.match(listing, /ProductExplorer/);
+  assert.match(category, /listPublicProductsByCategory/);
+  assert.match(category, /PublicStorefrontRepositoryError/);
+  assert.match(category, /notFound\(\)/);
+  assert.match(category, /new URL\(`\/categories\/\$\{selected[.]category[.]slug\}`/);
+  assert.match(categoryShowcase, /href=\{`\/categories\/\$\{item[.]slug\}`\}/);
+  assert.match(categoryShowcase, /showcase[.]heading/);
+  assert.match(categoryShowcase, /item[.]image[.]url/);
   assert.match(detail, /presentation/);
-  assert.match(header, /presentation[.]displayName/);
+  assert.match(header, /displayName, logo[^\n]+storefront[.]presentation/);
+  assert.match(header, /logo[.]url/);
+  assert.match(header, /className="store-logo"/);
   assert.match(footer, /displayName, supportEmail[^\n]+storefront[.]presentation/);
   assert.match(frame, /starterThemeTokens/);
   assert.match(card, /productImageRatio|imageRatio/);

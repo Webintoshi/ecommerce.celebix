@@ -23,7 +23,7 @@ function repositories(selected = "shop.example.test", primary = "shop.example.te
   const calls = { storefront: [] as string[], claim: [] as unknown[], resolve: [] as unknown[], status: [] as unknown[] };
   const storefrontRepository = {
     async getPublicStorefront(input: { hostname: string }) { calls.storefront.push(input.hostname); return { schemaVersion: 2, id: "00000000-0000-4000-8000-000000000001", name: "Atlas Store", slug: "atlas", hostname: selected, primaryHostname: primary, canonicalUrl: `https://${selected}/`, currency: "TRY", locale: "tr", themeKey: "starter", presentation: buildDefaultStarterPresentation({ name: "Atlas Store" }) }; },
-    async listPublicProducts() { return { items: [] }; }, async getPublicProductBySlug() { throw new Error("unused"); }, async listPublicProductMedia() { return []; },
+    async listPublicProducts() { return { items: [] }; }, async listPublicProductsByCategory() { throw new Error("unused"); }, async getPublicProductBySlug() { throw new Error("unused"); }, async listPublicProductMedia() { return []; },
   } satisfies PublicStorefrontRepository;
   const quickOrderRepository = {
     async claimRedemption(input: unknown) { calls.claim.push(input); return { quote, expiresAt: "2026-07-22T09:15:00.000000Z" }; },

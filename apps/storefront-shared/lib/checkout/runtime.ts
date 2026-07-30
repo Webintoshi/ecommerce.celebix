@@ -53,7 +53,7 @@ export function createCheckoutRuntime(input: Readonly<{
   quickOrderRepository: PublicQuickOrderRepository;
 }>): CheckoutRuntime {
   const parsed = exactObject(input, ["storefrontRepository", "quickOrderRepository"]);
-  methods(parsed.storefrontRepository, ["getPublicStorefront", "listPublicProducts", "getPublicProductBySlug", "listPublicProductMedia"]);
+  methods(parsed.storefrontRepository, ["getPublicStorefront", "listPublicProducts", "listPublicProductsByCategory", "getPublicProductBySlug", "listPublicProductMedia"]);
   methods(parsed.quickOrderRepository, ["claimRedemption", "resolveRedemption", "getStatus", "revokeRedemption"]);
   return Object.freeze({
     storefrontRepository: parsed.storefrontRepository as PublicStorefrontRepository,
