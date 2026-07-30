@@ -53,6 +53,13 @@ import {
   runPostgresTransaction,
   type PostgresQuery,
 } from "@/lib/postgres-transaction";
+import { findOrCreateLogtoAdminIdentity } from "@/lib/logto-admin-identity";
+import {
+  persistLogtoStoreAdminMembership,
+  type StoreAdminRole,
+} from "@/lib/logto-store-admin-membership";
+import { requestLogtoManagementApi } from "@/lib/logto-provisioning";
+import { resolveStoreAdminAssignmentMode } from "@/lib/store-admin-assignment";
 
 type OwnerStoreStatus = "draft" | "active" | "paused";
 type StoreLifecycleStage = "onboarding" | "building" | "launch_ready" | "live" | "growth";
@@ -120,8 +127,6 @@ interface OwnerStoreAccessRow {
   commission_rate: number;
   created_at: string;
 }
-
-type StoreAdminRole = "super_admin" | "product_manager" | "content_creator" | "order_manager";
 
 interface StoreAdminProfileRow {
   id: string;
@@ -2475,7 +2480,17 @@ async function countStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: stri
   if (store.databaseMode === "light_postgres") {
     const rows = await queryLightPostgresStore<{ count: number | string }>(
       store,
-      "SELECT COUNT(*)::int AS count FROM public.profiles;",
+      `
+        SELECT COUNT(DISTINCT ap.id)::int AS count
+        FROM public.auth_principals AS ap
+        INNER JOIN public.auth_store_memberships AS asm
+          ON asm.principal_id = ap.id
+        WHERE ap.provider = 'logto'
+          AND ap.status = 'active'
+          AND asm.status = 'active'
+          AND asm.store_slug = $1;
+      `,
+      [store.slug],
     );
 
     return Number(rows[0]?.count ?? 0);
@@ -2503,16 +2518,22 @@ async function listStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: strin
       store,
       `
         SELECT
-          p.id::text AS id,
-          u.email::text AS email,
-          p.full_name,
-          p.role::text AS role,
-          p.task_definition,
-          p.created_at
-        FROM public.profiles AS p
-        LEFT JOIN auth.users AS u ON u.id = p.id
-        ORDER BY p.created_at DESC;
+          ap.id::text AS id,
+          ap.email::text AS email,
+          NULLIF(ap.metadata ->> 'fullName', '') AS full_name,
+          asm.role::text AS role,
+          NULLIF(asm.metadata ->> 'taskDefinition', '') AS task_definition,
+          asm.created_at
+        FROM public.auth_principals AS ap
+        INNER JOIN public.auth_store_memberships AS asm
+          ON asm.principal_id = ap.id
+        WHERE ap.provider = 'logto'
+          AND ap.status = 'active'
+          AND asm.status = 'active'
+          AND asm.store_slug = $1
+        ORDER BY asm.created_at DESC;
       `,
+      [store.slug],
     );
 
     return rows.map((profile) => ({
@@ -4486,7 +4507,7 @@ export async function createOrAssignStoreAdmin(
   input: {
     email: string;
     fullName?: string;
-    password: string;
+    password?: string;
     storeSlug: string;
     role: StoreAdminRole;
     taskDefinition?: string;
@@ -4504,19 +4525,67 @@ export async function createOrAssignStoreAdmin(
     throw new Error("Store konfigurasyonu bulunamadi.");
   }
 
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const password = input.password?.trim() || "";
+  const fullName = input.fullName?.trim() || "";
+  const taskDefinition = input.taskDefinition?.trim() || null;
+
+  if (!normalizedEmail || !input.role) {
+    throw new Error("E-posta ve store admin rolu zorunludur.");
+  }
+
+  const assignmentMode = resolveStoreAdminAssignmentMode(storeConfig);
   const ownerStoreId = allowedStore.id;
+
+  if (assignmentMode === "logto_light_postgres") {
+    const identity = await findOrCreateLogtoAdminIdentity(
+      {
+        email: normalizedEmail,
+        fullName,
+        password: password || undefined,
+      },
+      { request: requestLogtoManagementApi },
+    );
+
+    await withLightPostgresStoreTransaction(storeConfig, async ({ query }) =>
+      persistLogtoStoreAdminMembership({
+        query,
+        subject: identity.subject,
+        email: identity.email,
+        fullName: identity.fullName ?? (fullName || null),
+        storeSlug: input.storeSlug,
+        role: input.role,
+        taskDefinition,
+      }),
+    );
+
+    await recordOwnerAuditLog({
+      actorId: context.user.id,
+      action: identity.created ? "store_admin_created" : "store_admin_updated",
+      targetType: "store",
+      targetId: input.storeSlug,
+      details: {
+        email: identity.email,
+        role: input.role,
+        taskDefinition,
+        identityProvider: "logto",
+      },
+    });
+
+    return {
+      userId: identity.subject,
+      email: identity.email,
+      created: identity.created,
+    };
+  }
+
   const client = await createStoreServiceClient(storeConfig, ownerStoreId);
 
   if (!client) {
     throw new Error("Store Supabase baglantisi hazir degil.");
   }
 
-  const normalizedEmail = input.email.trim().toLowerCase();
-  const password = input.password.trim();
-  const fullName = input.fullName?.trim() || "";
-  const taskDefinition = input.taskDefinition?.trim() || null;
-
-  if (!normalizedEmail || !password || !input.role) {
+  if (!password) {
     throw new Error("Tum store admin alanlari zorunludur.");
   }
 

@@ -31,11 +31,11 @@ export async function POST(request: Request, { params }: RouteContext) {
     };
 
     const email = body.email?.trim() || "";
-    const password = body.password || "";
+    const password = body.password?.trim() || undefined;
     const role = body.role;
 
-    if (!slug || !email || !password || !role) {
-      return NextResponse.json({ error: "Tum store admin alanlari zorunludur." }, { status: 400 });
+    if (!slug || !email || !role) {
+      return NextResponse.json({ error: "E-posta ve store admin rolu zorunludur." }, { status: 400 });
     }
 
     await assertStoreConsistencyForAdminMutation(auth, slug, "Store admin atamasi yapmadan");

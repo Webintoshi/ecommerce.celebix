@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
+import type { StoreAdminAssignmentMode } from "@/lib/store-admin-assignment";
 
 type StoreAdminRole = "super_admin" | "product_manager" | "content_creator" | "order_manager";
 
@@ -14,12 +15,14 @@ const ROLE_OPTIONS: Array<{ value: StoreAdminRole; label: string }> = [
 
 interface CreateStoreAdminFormProps {
   storeSlug: string;
+  assignmentMode: StoreAdminAssignmentMode;
   disabled?: boolean;
   disabledReason?: string;
 }
 
 export function CreateStoreAdminForm({
   storeSlug,
+  assignmentMode,
   disabled = false,
   disabledReason,
 }: CreateStoreAdminFormProps) {
@@ -32,6 +35,7 @@ export function CreateStoreAdminForm({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const usesCentralLogtoIdentity = assignmentMode === "logto_light_postgres";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,7 +56,7 @@ export function CreateStoreAdminForm({
         body: JSON.stringify({
           email,
           fullName,
-          password,
+          password: password || undefined,
           role,
           taskDefinition
         })
@@ -89,15 +93,20 @@ export function CreateStoreAdminForm({
       </label>
 
       <label className="field">
-        <span>Geçici şifre</span>
+        <span>{usesCentralLogtoIdentity ? "Yeni hesap için geçici şifre" : "Geçici şifre"}</span>
         <input
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="En az 8 karakter"
           minLength={8}
-          required
+          required={!usesCentralLogtoIdentity}
         />
+        {usesCentralLogtoIdentity ? (
+          <small>
+            Bu e-posta Logto&apos;da varsa mevcut hesap kullanılır ve kullanıcının şifresi değiştirilmez.
+          </small>
+        ) : null}
       </label>
 
       <label className="field">
