@@ -49,12 +49,17 @@ function canonicalRequest(request: Request): { hostname: string; origin: string 
     !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/auth/handoff" ||
     url.search || url.hash
   ) throw new Error("invalid");
-  try { parseCanonicalAdminHostname(url.hostname, "production"); }
+  const hostname = request.headers.get("host");
+  if (
+    !hostname || hostname !== hostname.trim() || hostname !== hostname.toLowerCase() || hostname.includes(":") ||
+    !/^[a-z0-9.-]{3,253}$/.test(hostname)
+  ) throw new Error("invalid");
+  try { parseCanonicalAdminHostname(hostname, "production"); }
   catch {
-    try { parseCanonicalAdminHostname(url.hostname, "staging"); }
+    try { parseCanonicalAdminHostname(hostname, "staging"); }
     catch { throw new Error("invalid"); }
   }
-  return { hostname: url.hostname, origin: `https://${url.hostname}` };
+  return { hostname, origin: `https://${hostname}` };
 }
 
 async function boundedBody(request: Request, maximumBytes: number): Promise<string> {

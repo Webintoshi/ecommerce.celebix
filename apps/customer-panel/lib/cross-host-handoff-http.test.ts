@@ -62,11 +62,12 @@ function fixture(options: { redemption?: object; recovery?: object; brandKind?: 
   return { handler, get redeemCalls() { return redeemCalls; }, get recoveryCalls() { return recoveryCalls; } };
 }
 
-function request(overrides: { url?: string; origin?: string; body?: string; contentType?: string; method?: string } = {}) {
+function request(overrides: { url?: string; host?: string; origin?: string; body?: string; contentType?: string; method?: string } = {}) {
   const body = overrides.body ?? new URLSearchParams({ handoff: HANDOFF }).toString();
   return new Request(overrides.url ?? `${ORIGIN}/auth/handoff`, {
     method: overrides.method ?? "POST",
     headers: {
+      host: overrides.host ?? HOSTNAME,
       origin: overrides.origin ?? CENTRAL,
       "content-type": overrides.contentType ?? "application/x-www-form-urlencoded",
     },
@@ -90,9 +91,9 @@ test("redeems a destination-bound POST and installs only the host session cookie
   assert.doesNotMatch(response.headers.get("location") ?? "", /v1\./);
 });
 
-test("accepts reverse-proxy HTTP transport and its internal port while pinning the browser redirect to the canonical HTTPS admin origin", async () => {
+test("accepts reverse-proxy internal transport while pinning the validated Host authority to the canonical HTTPS admin origin", async () => {
   const current = fixture();
-  const response = await current.handler(request({ url: `http://${HOSTNAME}:3000/auth/handoff` }));
+  const response = await current.handler(request({ url: "http://customer-panel:3400/auth/handoff" }));
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), `${ORIGIN}/`);
   assert.equal(current.redeemCalls, 1);
@@ -117,7 +118,7 @@ test("recovers an unknown redemption commit with the retained session authority"
 test("fails closed before redemption for foreign origins, hosts, queries, methods, media types, and bodies", async () => {
   const cases = [
     request({ origin: "https://evil.example" }),
-    request({ url: "https://evil.example/auth/handoff" }),
+    request({ host: "evil.example" }),
     request({ url: `${ORIGIN}/auth/handoff?handoff=${encodeURIComponent(HANDOFF)}` }),
     request({ method: "GET" }),
     request({ contentType: "application/json" }),
