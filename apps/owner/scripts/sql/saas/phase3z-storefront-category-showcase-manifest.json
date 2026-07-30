@@ -18,7 +18,7 @@
   "rollbackArtifacts": [
     {
       "file": "202607300067_storefront_category_showcase.down.sql",
-      "sha256": "faf8b4a03fd70b601c9e80c15301f344c9767fd23856288c56d38041887f75c0"
+      "sha256": "b99e83bf950f2bdb78b834a9153c76607fd9937c108733155b1273bd514cf530"
     }
   ],
   "externalConnections": 0,

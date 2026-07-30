@@ -15,6 +15,8 @@ const MARQUEE_ICONS = Object.freeze(["none", "sparkle", "truck", "shield"] as co
 const MARQUEE_SPEEDS = Object.freeze(["slow", "normal", "fast"] as const);
 const MARQUEE_DIRECTIONS = Object.freeze(["left", "right"] as const);
 const MARQUEE_ANIMATIONS = Object.freeze(["continuous", "step"] as const);
+const STOREFRONT_ASSET_HOSTS = Object.freeze(["media.celebix.site", "media.saas-staging.celebix.site"] as const);
+const STOREFRONT_ASSET_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/(?:logo|hero|social|favicon|category)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 
 function invalid(): never { throw new TypeError("storefront_contract_invalid"); }
 function record(value: unknown): Record<string, unknown> {
@@ -64,6 +66,13 @@ function httpsUrl(value: unknown, maximum = 2048): string {
   if (url.protocol !== "https:" || url.username || url.password || url.hash || url.toString() !== raw) invalid();
   return raw;
 }
+function storefrontAssetUrl(value: unknown, selectedMediaType: PublicImageMediaType): string {
+  const raw = httpsUrl(value);
+  const url = new URL(raw);
+  const expectedExtension = selectedMediaType === "image/jpeg" ? ".jpg" : selectedMediaType === "image/png" ? ".png" : ".webp";
+  if (!STOREFRONT_ASSET_HOSTS.includes(url.hostname as (typeof STOREFRONT_ASSET_HOSTS)[number]) || url.port || url.search || !STOREFRONT_ASSET_PATH.test(url.pathname) || !url.pathname.endsWith(expectedExtension)) invalid();
+  return raw;
+}
 function hostname(value: unknown): string { return string(value, 3, 253, HOSTNAME); }
 function email(value: unknown): string {
   const selected = string(value, 3, 254);
@@ -87,7 +96,8 @@ function attributes(value: unknown): Readonly<Record<string, string>> {
 
 function parseStorefrontAsset(value: unknown): PublicStorefrontAsset {
   const parsed = exact(value, ["url", "mediaType", "altText", "width", "height"]);
-  return Object.freeze({ url: httpsUrl(parsed.url), mediaType: mediaType(parsed.mediaType), altText: string(parsed.altText, 1, 500), width: integer(parsed.width, 1, 8192), height: integer(parsed.height, 1, 8192) });
+  const selectedMediaType = mediaType(parsed.mediaType);
+  return Object.freeze({ url: storefrontAssetUrl(parsed.url, selectedMediaType), mediaType: selectedMediaType, altText: string(parsed.altText, 1, 500), width: integer(parsed.width, 1, 8192), height: integer(parsed.height, 1, 8192) });
 }
 
 function parseTheme(value: unknown): PublicStarterThemePresentation["theme"] {

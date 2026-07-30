@@ -13,4 +13,6 @@ test("category showcase editor uses same-origin durable category asset and setti
 test("category showcase editor exposes bounded ordered accessible controls", async () => {
   const value = await source();
   for (const token of ["Kart ekle", "yukarı taşı", "aşağı taşı", "kartı kaldır", "Kategori seçin", "Görsel seçin", "role=\"alert\"", "role=\"status\"", "rows.length >= 8"]) assert.match(value, new RegExp(token));
+  assert.match(value, /key=\{row[.]rowKey\}/);
+  assert.doesNotMatch(value, /key=\{`\$\{index\}-\$\{row[.]categoryId\}-\$\{row[.]assetId\}`\}/);
 });

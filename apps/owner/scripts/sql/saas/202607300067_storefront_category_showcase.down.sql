@@ -23,7 +23,14 @@ LOCK TABLE saas.storefront_asset_operations IN ACCESS EXCLUSIVE MODE;
 ALTER TABLE saas.merchant_admin_events DISABLE TRIGGER merchant_admin_events_immutable;
 ALTER TABLE saas.merchant_admin_operations DISABLE TRIGGER merchant_admin_operations_immutable;
 DELETE FROM saas.merchant_admin_operations WHERE result_payload->>'kind'='category_showcase';
+DELETE FROM saas.merchant_admin_operations operation
+USING saas.merchant_admin_events event
+WHERE operation.operation_id=event.id
+  AND operation.store_id=event.store_id
+  AND event.record_kind='theme_setting'
+  AND event.summary->'config'?'logoAssetId';
 DELETE FROM saas.merchant_admin_events WHERE record_kind='category_showcase';
+DELETE FROM saas.merchant_admin_events WHERE record_kind='theme_setting' AND summary->'config'?'logoAssetId';
 DELETE FROM saas.merchant_admin_records WHERE record_kind='category_showcase';
 UPDATE saas.merchant_admin_records SET config=config-'logoAssetId',version=version+1,updated_at=GREATEST(updated_at,pg_catalog.clock_timestamp()) WHERE record_kind='theme_setting' AND config?'logoAssetId';
 ALTER TABLE saas.merchant_admin_events ENABLE TRIGGER merchant_admin_events_immutable;

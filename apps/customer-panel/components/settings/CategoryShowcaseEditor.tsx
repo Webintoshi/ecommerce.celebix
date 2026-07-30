@@ -2,41 +2,44 @@
 
 import { parseStorefrontAsset, type CatalogCategory, type MerchantAdminRecord, type StorefrontAsset } from "@celebix/saas-contracts";
 import { ArrowDown, ArrowUp, LoaderCircle, Plus, Save, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { buildCategoryShowcaseConfig, type CategoryShowcaseRow } from "@/lib/category-showcase-model";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import styles from "./category-showcase-editor.module.css";
 
-const EMPTY_ROW = Object.freeze({ categoryId: "", assetId: "" });
+type EditorRow = Readonly<CategoryShowcaseRow & { rowKey: string }>;
+const emptyRow = (rowKey: string): EditorRow => Object.freeze({ rowKey, categoryId: "", assetId: "" });
 
 function selectRecord(records: readonly MerchantAdminRecord[]) {
   return records.find((record) => record.status === "active") ?? records.find((record) => record.status === "draft") ?? null;
 }
 
 function existingState(record: MerchantAdminRecord | null) {
-  if (!record) return { heading: "Kategorileri keşfedin", enabled: true, rows: [EMPTY_ROW] as readonly CategoryShowcaseRow[] };
+  if (!record) return { heading: "Kategorileri keşfedin", enabled: true, rows: [emptyRow("initial-0")] as readonly EditorRow[] };
   const items = record.config.items;
   if (typeof record.config.heading !== "string" || typeof record.config.enabled !== "boolean" || !Array.isArray(items)) throw new TypeError("category_showcase_unavailable");
+  const rows = items.map((item, index) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item) || typeof item.categoryId !== "string" || typeof item.assetId !== "string") throw new TypeError("category_showcase_unavailable");
+    return Object.freeze({ rowKey: `persisted-${index}`, categoryId: item.categoryId, assetId: item.assetId });
+  });
   const config = buildCategoryShowcaseConfig({
     heading: record.config.heading,
     enabled: record.config.enabled,
-    rows: items.map((item) => {
-      if (typeof item !== "object" || item === null || Array.isArray(item) || typeof item.categoryId !== "string" || typeof item.assetId !== "string") throw new TypeError("category_showcase_unavailable");
-      return { categoryId: item.categoryId, assetId: item.assetId };
-    }),
+    rows,
   });
-  return { heading: config.heading as string, enabled: config.enabled as boolean, rows: config.items as readonly CategoryShowcaseRow[] };
+  return { heading: config.heading as string, enabled: config.enabled as boolean, rows: Object.freeze(rows) as readonly EditorRow[] };
 }
 
 export function CategoryShowcaseEditor({ canManage }: Readonly<{ canManage: boolean }>) {
+  const rowSerial = useRef(1);
   const [categories, setCategories] = useState<readonly CatalogCategory[]>([]);
   const [assets, setAssets] = useState<readonly StorefrontAsset[]>([]);
   const [current, setCurrent] = useState<MerchantAdminRecord | null>(null);
   const [heading, setHeading] = useState("Kategorileri keşfedin");
   const [enabled, setEnabled] = useState(true);
-  const [rows, setRows] = useState<readonly CategoryShowcaseRow[]>([EMPTY_ROW]);
+  const [rows, setRows] = useState<readonly EditorRow[]>([emptyRow("initial-0")]);
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
 
@@ -105,7 +108,7 @@ export function CategoryShowcaseEditor({ canManage }: Readonly<{ canManage: bool
       </div>
       {categories.length === 0 || assets.length === 0 ? <p className={styles.notice}>En az bir etkin kategori ve “Kategori görseli” türünde yüklenmiş görsel gerekir.</p> : null}
       <ol className={styles.rows}>
-        {rows.map((row, index) => <li key={`${index}-${row.categoryId}-${row.assetId}`} className={styles.row}>
+        {rows.map((row, index) => <li key={row.rowKey} className={styles.row}>
           <span className={styles.index} aria-hidden="true">{index + 1}</span>
           <label>Kategori<select value={row.categoryId} onChange={(event) => updateRow(index, { categoryId: event.currentTarget.value })} disabled={!canManage || busy} required><option value="">Kategori seçin</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label>Görsel<select value={row.assetId} onChange={(event) => updateRow(index, { assetId: event.currentTarget.value })} disabled={!canManage || busy} required><option value="">Görsel seçin</option>{assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
@@ -117,7 +120,7 @@ export function CategoryShowcaseEditor({ canManage }: Readonly<{ canManage: bool
         </li>)}
       </ol>
       {canManage ? <div className={styles.footer}>
-        <button type="button" className={styles.secondary} onClick={() => setRows((value) => value.length >= 8 ? value : Object.freeze([...value, EMPTY_ROW]))} disabled={busy || rows.length >= 8}><Plus aria-hidden="true" /> Kart ekle</button>
+        <button type="button" className={styles.secondary} onClick={() => setRows((value) => value.length >= 8 ? value : Object.freeze([...value, emptyRow(`new-${rowSerial.current++}`)]))} disabled={busy || rows.length >= 8}><Plus aria-hidden="true" /> Kart ekle</button>
         <button type="submit" className={styles.primary} disabled={busy || categories.length === 0 || assets.length === 0}>{busy ? <LoaderCircle aria-hidden="true" /> : <Save aria-hidden="true" />} Kaydet</button>
       </div> : null}
     </form>}

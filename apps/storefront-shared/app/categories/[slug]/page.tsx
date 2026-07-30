@@ -14,7 +14,7 @@ async function category(slug: string) {
     const selected = await runtime.repository.listPublicProductsByCategory({ storefront, now: new Date(), slug, limit: 48 });
     return { storefront, category: selected.category, products: selected.items };
   } catch (error) {
-    if (error instanceof PublicStorefrontRepositoryError && error.code === "not_found") notFound();
+    if (error instanceof PublicStorefrontRepositoryError && (error.code === "not_found" || error.code === "invalid_input")) notFound();
     throw error;
   }
 }
