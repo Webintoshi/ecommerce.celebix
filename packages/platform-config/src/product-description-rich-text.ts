@@ -155,6 +155,7 @@ function sanitizeHref(rawHref: string) {
 
 function normalizePlainTextDescription(rawDescription: string, productName?: string) {
   let text = rawDescription
+    .replace(/\\r\\n|\\n|\\r/g, "\n")
     .replace(/\r\n?/g, "\n")
     .replace(/\u00A0/g, " ");
 

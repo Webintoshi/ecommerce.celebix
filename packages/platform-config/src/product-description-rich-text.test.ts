@@ -74,6 +74,17 @@ test("preserves existing plain text and sanitized legacy HTML behavior", () => {
   );
 });
 
+test("normalizes imported escaped newlines before rendering Markdown", () => {
+  const html = normalizeProductDescriptionHtml(
+    "Altın Ağırlığı: 2.16 gram.\\n\\n## Neden tercih etmelisiniz?\\n\\n- Gerçek altın\\n- Sigortalı kargo",
+  );
+
+  assert.match(html, /<p>Altın Ağırlığı: 2[.]16 gram[.]<\/p>/);
+  assert.match(html, /<h2>Neden tercih etmelisiniz[?]<\/h2>/);
+  assert.match(html, /<ul>[\s\S]*<li>Gerçek altın<\/li>[\s\S]*<li>Sigortalı kargo<\/li>/);
+  assert.doesNotMatch(html, /\\n/);
+});
+
 test("projects sanitized Markdown into a browser-safe immutable rich-text tree", () => {
   const richText = normalizeProductDescriptionRichText(
     "## Başlık\n\n**Güvenli** [bağlantı](https://docs.example.com/product?q=1)",
