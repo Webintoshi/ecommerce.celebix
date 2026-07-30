@@ -23,3 +23,24 @@ test("public product contract excludes cost and archived authority while preserv
   assert.throws(() => parsePublicProduct({ ...parsed, costCents: 1 }));
   assert.throws(() => parsePublicProduct({ ...parsed, status: "draft" }));
 });
+
+test("public product contract preserves bounded multiline Markdown descriptions", () => {
+  const markdown = "## Ürün özeti\n\n- 14 ayar altın\n- El işçiliği\n\n**Bakım:** Yumuşak bir bez kullanın.\nÖlçü bilgisi ürün detayındadır.";
+  const product = {
+    id: PRODUCT_ID,
+    slug: "markdown-product",
+    title: "Markdown Product",
+    description: markdown,
+    currency: "TRY",
+    status: "active",
+    priceCents: 12_500,
+    available: true,
+    variants: [{ id: VARIANT_ID, title: "Default", sku: "MARKDOWN-ONE", priceCents: 12_500, stockTracking: true, stockQuantity: 3, available: true, attributes: {} }],
+    media: [],
+  };
+
+  assert.equal(parsePublicProduct(product).description, markdown);
+  assert.throws(() => parsePublicProduct({ ...product, description: "Güvenli\u0000olmayan açıklama" }));
+  assert.throws(() => parsePublicProduct({ ...product, description: "Güvenli\tolmayan açıklama" }));
+  assert.throws(() => parsePublicProduct({ ...product, description: "Güvenli\rolmayan açıklama" }));
+});

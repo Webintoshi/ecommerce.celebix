@@ -5,6 +5,7 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const SKU = /^[A-Z0-9](?:[A-Z0-9._-]{0,63})$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
+const DESCRIPTION_CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f]/;
 const MEDIA_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"] as const);
 
 function invalid(): never { throw new TypeError("storefront_contract_invalid"); }
@@ -22,6 +23,10 @@ function exact(value: unknown, required: readonly string[], optional: readonly s
 }
 function string(value: unknown, minimum: number, maximum: number, pattern?: RegExp): string {
   if (typeof value !== "string" || value.length < minimum || value.length > maximum || value !== value.trim() || CONTROL.test(value) || (pattern && !pattern.test(value))) invalid();
+  return value;
+}
+function description(value: unknown): string {
+  if (typeof value !== "string" || value.length < 1 || value.length > 10_000 || value !== value.trim() || DESCRIPTION_CONTROL.test(value)) invalid();
   return value;
 }
 function uuid(value: unknown): string { return string(value, 36, 36, UUID); }
@@ -87,5 +92,5 @@ export function parsePublicProduct(value: unknown): PublicProduct {
   for (let index = 1; index < media.length; index += 1) if (media[index - 1]!.sortOrder >= media[index]!.sortOrder) invalid();
   const id = uuid(parsed.id);
   if (media.some((item) => item.productId !== id)) invalid();
-  return Object.freeze({ id, slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: string(parsed.description, 1, 10_000) } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media });
+  return Object.freeze({ id, slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media });
 }
