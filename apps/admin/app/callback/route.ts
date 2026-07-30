@@ -88,7 +88,8 @@ export async function GET(request: NextRequest) {
   }
 
   const callbackResult = await resolveAdminCallback({
-    exchangeCode: () => exchangeLogtoCodeForTokens(code),
+    exchangeCode: () =>
+      exchangeLogtoCodeForTokens(code, stateCookie.codeVerifier),
     fetchIdentity: (tokens) => fetchLogtoUserInfo(tokens.access_token),
     readSubject: (identity) =>
       typeof identity.sub === "string" ? identity.sub : null,

@@ -10,6 +10,10 @@ import {
   applyLogtoAuthorizeOptions,
   type LogtoAuthorizeOptions,
 } from "@/lib/logto-authorize-options";
+import {
+  createLogtoPkce,
+  createLogtoTokenExchangeBody,
+} from "@/lib/logto-pkce";
 import type { UserRole } from "@/lib/permissions";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 
@@ -76,6 +80,7 @@ export type LogtoAdminSessionPayload = SignedCookiePayload & {
 
 type LogtoAdminStatePayload = SignedCookiePayload & {
   state: string;
+  codeVerifier: string;
   nextPath: string;
   issuedAt: string;
 };
@@ -337,10 +342,14 @@ export function clearLogtoAdminSessionCookies(response: NextResponse) {
   clearCookie(response, LOGTO_ADMIN_STATE_COOKIE_NAME);
 }
 
-function createLogtoAdminStatePayload(nextPath: string): LogtoAdminStatePayload {
+function createLogtoAdminStatePayload(
+  nextPath: string,
+  codeVerifier: string,
+): LogtoAdminStatePayload {
   return {
     version: 1,
     state: randomBytes(24).toString("base64url"),
+    codeVerifier,
     nextPath: sanitizeInternalRedirectPath(nextPath, "/admin"),
     issuedAt: new Date().toISOString(),
   };
@@ -360,7 +369,12 @@ export function writeLogtoAdminStateCookie(response: NextResponse, payload: Logt
 export function readLogtoAdminStateCookie(cookies: CookieValue[]): LogtoAdminStatePayload | null {
   const payload = readSignedCookie<LogtoAdminStatePayload>(cookies, LOGTO_ADMIN_STATE_COOKIE_NAME);
 
-  if (!payload || payload.version !== 1 || !payload.state) {
+  if (
+    !payload ||
+    payload.version !== 1 ||
+    !payload.state ||
+    !payload.codeVerifier
+  ) {
     return null;
   }
 
@@ -387,13 +401,19 @@ export async function buildLogtoAuthorizeUrl(
   options?: LogtoAuthorizeOptions,
 ) {
   const discovery = await getLogtoDiscoveryDocument();
-  const statePayload = createLogtoAdminStatePayload(nextPath);
+  const pkce = createLogtoPkce();
+  const statePayload = createLogtoAdminStatePayload(
+    nextPath,
+    pkce.codeVerifier,
+  );
   const url = new URL(discovery.authorization_endpoint);
   url.searchParams.set("client_id", getLogtoAppId());
   url.searchParams.set("redirect_uri", getLogtoCallbackUrl());
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid profile email");
   url.searchParams.set("state", statePayload.state);
+  url.searchParams.set("code_challenge", pkce.codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
   applyLogtoAuthorizeOptions(url, options);
 
   return {
@@ -402,14 +422,19 @@ export async function buildLogtoAuthorizeUrl(
   };
 }
 
-export async function exchangeLogtoCodeForTokens(code: string): Promise<LogtoTokenResponse> {
+export async function exchangeLogtoCodeForTokens(
+  code: string,
+  codeVerifier: string,
+): Promise<LogtoTokenResponse> {
   const discovery = await getLogtoDiscoveryDocument();
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
+  const clientId = getLogtoAppId();
+  const body = createLogtoTokenExchangeBody({
+    clientId,
     code,
-    redirect_uri: getLogtoCallbackUrl(),
+    codeVerifier,
+    redirectUri: getLogtoCallbackUrl(),
   });
-  const authorization = Buffer.from(`${getLogtoAppId()}:${getLogtoAppSecret()}`, "utf8").toString("base64");
+  const authorization = Buffer.from(`${clientId}:${getLogtoAppSecret()}`, "utf8").toString("base64");
 
   const response = await fetch(discovery.token_endpoint, {
     method: "POST",
