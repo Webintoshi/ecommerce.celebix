@@ -52,6 +52,23 @@ test("/kayit uses the realistic video promo and removes the abstract illustratio
   assert.doesNotMatch(pageSource, /self-serve-register-store-card/);
 });
 
+test("signup promo mounts video only while the desktop no-motion query matches", () => {
+  const posterIndex = promoSource.indexOf('<img src="/media/signup-storefront-promo-poster.webp"');
+  const conditionalVideoIndex = promoSource.indexOf("{shouldMountVideo ? (");
+
+  assert.match(promoSource, /^"use client";/);
+  assert.match(promoSource, /useState\(false\)/);
+  assert.match(
+    promoSource,
+    /matchMedia\("\(min-width: 641px\) and \(prefers-reduced-motion: no-preference\)"\)/,
+  );
+  assert.match(promoSource, /setShouldMountVideo\(mediaQuery\.matches\)/);
+  assert.match(promoSource, /mediaQuery\.addEventListener\("change", syncVideoEligibility\)/);
+  assert.match(promoSource, /mediaQuery\.removeEventListener\("change", syncVideoEligibility\)/);
+  assert.ok(posterIndex >= 0, "poster fallback must remain in the server-rendered initial markup");
+  assert.ok(conditionalVideoIndex > posterIndex, "only the video element may be conditional");
+});
+
 test("signup promo keeps a flat poster fallback across responsive and reduced-motion modes", () => {
   assert.match(globalCssSource, /\.self-serve-register-promo\s*\{[^}]*border-radius:\s*0;/s);
   assert.match(globalCssSource, /\.self-serve-register-promo\s*\{[^}]*box-shadow:\s*none;/s);
@@ -102,7 +119,7 @@ test("the direct form includes the approved unboxed legal and trust copy", () =>
     .replace(/\s+/g, " ")
     .trim();
 
-  assert.equal(renderedLegalCopy, "E-Ticaret Sistemi Kur'a tıklayarak Kullanım sözleşmesi'ni onaylıyorum.");
+  assert.equal(renderedLegalCopy, "E-Ticaret Sistemi Kur'a tıklayarak Kullanım sözleşmesi’ni onaylıyorum.");
   assert.match(legalMarkup, /<em>Kullanım sözleşmesi<\/em>/);
   assert.match(formSource, /Ömür boyu ücretsiz/);
   assert.match(formSource, /Kredi kartı gerektirmez/);

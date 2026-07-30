@@ -330,7 +330,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
       </button>
 
       <p className="self-serve-register-legal">
-        E-Ticaret Sistemi Kur&apos;a tıklayarak <em>Kullanım sözleşmesi</em>&apos;ni onaylıyorum.
+        E-Ticaret Sistemi Kur&apos;a tıklayarak <em>Kullanım sözleşmesi</em>’ni onaylıyorum.
       </p>
       <div className="self-serve-register-trust-row" aria-label="Kayıt avantajları">
         <span>
