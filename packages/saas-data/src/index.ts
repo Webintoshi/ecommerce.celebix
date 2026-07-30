@@ -8,6 +8,7 @@ export {
 export { SaaSDataUniqueConflict } from "./errors.ts";
 export {
   createCanonicalAdminOrigin,
+  createCanonicalAdminOriginFromPanelOrigin,
   createPanelStoreUrl,
   normalizeExactHttpsOrigin,
   parseCanonicalAdminHostname,
@@ -111,6 +112,7 @@ export type {
   PostgresTenantOperationRecoveryResult,
 } from "./postgres/recovery.ts";
 export type {
+  AdminDomainRepositoryPort,
   DomainRepositoryPort,
   MembershipRepositoryPort,
   PlanRepositoryPort,
@@ -124,6 +126,7 @@ export type {
   TenantOperationRepositoryPort,
 } from "./ports.ts";
 export type {
+  AdminDomainRecord,
   CanonicalTenantFingerprint,
   DomainRecord,
   InMemoryFailurePoint,

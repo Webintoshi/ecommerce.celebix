@@ -68,7 +68,7 @@ const result: CreateStarterTenantResult = {
   },
   mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
   provisioningStatus: "ready",
-  panelUrl: "https://panel.saas-staging.celebix.site/stores/ornek-magaza",
+  panelUrl: "https://ornek-magaza.admin.saas-staging.celebix.site",
   storefrontUrl: "https://ornek-magaza.saas-staging.celebix.site",
 };
 

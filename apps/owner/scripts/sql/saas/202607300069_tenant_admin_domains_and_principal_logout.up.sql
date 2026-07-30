@@ -200,8 +200,6 @@ DECLARE
   existing saas.admin_domains%ROWTYPE;
 BEGIN
   IF p_domain_id IS NULL OR p_store_id IS NULL OR p_hostname IS NULL OR p_now IS NULL
-     OR p_now < pg_catalog.clock_timestamp() - interval '30 seconds'
-     OR p_now > pg_catalog.clock_timestamp() + interval '30 seconds'
      OR p_hostname <> lower(p_hostname)
      OR char_length(p_hostname) NOT BETWEEN 3 AND 253
      OR p_hostname ~ '[*:/?#@[:space:]]'

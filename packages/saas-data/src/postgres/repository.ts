@@ -3,10 +3,16 @@ import type { QueryResult } from "pg";
 import type { PlanFeatureKey } from "@celebix/saas-contracts";
 import type { SaaSDataRepository, SaaSDataTransaction } from "../ports.ts";
 import type {
-  DomainRecord, MembershipRecord, PlanRecord, PrincipalRecord, SaaSGeneratedIdKind,
+  AdminDomainRecord, DomainRecord, MembershipRecord, PlanRecord, PrincipalRecord, SaaSGeneratedIdKind,
   StoreMediaNamespaceRecord, StoreRecord, StoreSettingRecord, SubscriptionRecord, TenantOperationRecord,
 } from "../types.ts";
-import { normalizeExactHttpsOrigin } from "../panel-origin.ts";
+import { SaaSDataUniqueConflict } from "../errors.ts";
+import {
+  createCanonicalAdminOrigin,
+  normalizeExactHttpsOrigin,
+  parseCanonicalAdminHostname,
+  type AdminOriginEnvironment,
+} from "../panel-origin.ts";
 import {
   SaaSDataPersistenceError,
   SaaSDataCorruptionError,
@@ -27,11 +33,12 @@ export interface PostgresRepositoryOptions {
   timeouts: PostgresTimeoutOptions;
   bootstrapRole: "celebix_saas_bootstrap";
   panelOrigin: string;
+  adminOriginEnvironment?: AdminOriginEnvironment;
 }
 
 export type PostgresFailurePoint =
   | "after_operation_claim" | "after_principal_create_or_update" | "after_store_create"
-  | "after_domain_create" | "after_membership_create" | "after_subscription_create"
+  | "after_domain_create" | "after_admin_domain_create" | "after_membership_create" | "after_subscription_create"
   | "after_media_namespace_create"
   | "after_each_setting_create" | "before_mark_committed" | "after_mark_committed"
   | "before_commit" | "commit_forwarded_then_connection_failure" | "commit_blocked_before_forwarding";
@@ -57,10 +64,12 @@ class PostgresTransaction implements SaaSDataTransaction {
   private readonly audit: (event: PostgresAuditEvent) => void | Promise<void>;
   private readonly failAt: PostgresFailurePoint | undefined;
   private readonly panelOrigin: string;
+  private readonly adminOriginEnvironment: AdminOriginEnvironment;
 
   readonly principals;
   readonly stores;
   readonly domains;
+  readonly adminDomains;
   readonly memberships;
   readonly plans;
   readonly subscriptions;
@@ -73,12 +82,14 @@ class PostgresTransaction implements SaaSDataTransaction {
     idGenerator: (kind: SaaSGeneratedIdKind) => string,
     audit: (event: PostgresAuditEvent) => void | Promise<void>,
     panelOrigin: string,
+    adminOriginEnvironment: AdminOriginEnvironment,
     failAt?: PostgresFailurePoint,
   ) {
     this.client = client;
     this.idGenerator = idGenerator;
     this.audit = audit;
     this.panelOrigin = panelOrigin;
+    this.adminOriginEnvironment = adminOriginEnvironment;
     this.failAt = failAt;
     this.principals = {
       findByIdentity: async (issuer: string, subject: string) => this.optional(
@@ -119,6 +130,12 @@ class PostgresTransaction implements SaaSDataTransaction {
          RETURNING id, store_id, normalized_hostname, domain_type, status, canonical, cache_version, created_at, updated_at`,
         [value.id, value.storeId, value.hostname, value.type, value.status, value.canonical, value.cacheVersion, value.createdAt, value.updatedAt], domainRow,
       ), "after_domain_create"),
+    };
+    this.adminDomains = {
+      provisionCanonical: async (value: AdminDomainRecord) => this.after(
+        this.provisionCanonicalAdminDomain(value),
+        "after_admin_domain_create",
+      ),
     };
     this.memberships = {
       find: async (principalId: string, storeId: string, role: string) => this.optional(
@@ -247,6 +264,43 @@ class PostgresTransaction implements SaaSDataTransaction {
     return completePlan(base, featuresResult.rows, limitsResult.rows);
   }
 
+  private async provisionCanonicalAdminDomain(value: AdminDomainRecord): Promise<AdminDomainRecord> {
+    let slug: string;
+    try {
+      slug = parseCanonicalAdminHostname(value.hostname, this.adminOriginEnvironment);
+    } catch {
+      throw new SaaSDataPersistenceError();
+    }
+    if (
+      Object.keys(value).sort().join(",") !== [
+        "canonical", "createdAt", "hostname", "id", "kind", "status", "storeId",
+        "updatedAt", "verifiedAt", "version",
+      ].sort().join(",") ||
+      value.kind !== "platform_subdomain" || value.status !== "active" || value.canonical !== true ||
+      value.version !== 1 || value.verifiedAt !== value.createdAt || value.createdAt !== value.updatedAt ||
+      createCanonicalAdminOrigin(slug, this.adminOriginEnvironment) !== `https://${value.hostname}`
+    ) {
+      throw new SaaSDataPersistenceError();
+    }
+    const response = await this.query(
+      "SELECT outcome, authority FROM saas.provision_canonical_admin_domain($1, $2, $3, $4::timestamptz)",
+      [value.id, value.storeId, value.hostname, value.createdAt],
+    );
+    if (response.rows.length !== 1) throw new SaaSDataCorruptionError();
+    const row = exactRow(response.rows[0], ["outcome", "authority"]);
+    const outcome = text(row.outcome);
+    if (outcome === "admin_domain_conflict") throw new SaaSDataUniqueConflict("admin_domain_hostname");
+    if (outcome !== "provisioned" && outcome !== "operation_replayed") {
+      throw new SaaSDataPersistenceError();
+    }
+    const authority = exactRow(row.authority, ["storeSlug", "canonicalAdminOrigin"]);
+    if (
+      text(authority.storeSlug) !== slug ||
+      text(authority.canonicalAdminOrigin) !== createCanonicalAdminOrigin(slug, this.adminOriginEnvironment)
+    ) throw new SaaSDataCorruptionError();
+    return structuredClone(value);
+  }
+
   private async claimOperation(value: TenantOperationRecord) {
     const insert = await this.query(
       `INSERT INTO saas.tenant_operations (id, idempotency_key, payload_fingerprint, status, requested_at, created_at, updated_at)
@@ -256,21 +310,21 @@ class PostgresTransaction implements SaaSDataTransaction {
       [value.id, value.idempotencyKey, value.fingerprint, value.status, value.createdAt, value.createdAt, value.updatedAt],
     );
     if (insert.rows.length === 1) {
-      const claim = { kind: "created" as const, operation: parseTenantOperationRow(insert.rows[0], this.panelOrigin) };
+      const claim = { kind: "created" as const, operation: parseTenantOperationRow(insert.rows[0], this.panelOrigin, this.adminOriginEnvironment) };
       this.checkpoint("after_operation_claim");
       return claim;
     }
     if (insert.rows.length !== 0) throw new SaaSDataCorruptionError();
     const winner = await this.required(
       `SELECT id, idempotency_key, payload_fingerprint, status, result_payload, created_at, updated_at
-      FROM saas.tenant_operations WHERE idempotency_key = $1`, [value.idempotencyKey], (row) => parseTenantOperationRow(row, this.panelOrigin),
+      FROM saas.tenant_operations WHERE idempotency_key = $1`, [value.idempotencyKey], (row) => parseTenantOperationRow(row, this.panelOrigin, this.adminOriginEnvironment),
     );
     this.checkpoint("after_operation_claim");
     return { kind: "existing" as const, operation: winner };
   }
 
   private async markCommitted(operationId: string, resultPayload: NonNullable<TenantOperationRecord["result"]>, updatedAt: string) {
-    const result = parseCreateStarterTenantResult(resultPayload, this.panelOrigin);
+    const result = parseCreateStarterTenantResult(resultPayload, this.panelOrigin, this.adminOriginEnvironment);
     this.checkpoint("before_mark_committed");
     const subscription = await this.required(
       `SELECT id FROM saas.subscriptions WHERE store_id = $1 AND plan_id = $2 AND status = 'active'`,
@@ -285,7 +339,7 @@ class PostgresTransaction implements SaaSDataTransaction {
        RETURNING id, idempotency_key, payload_fingerprint, status, result_payload, created_at, updated_at`,
       [operationId, result.store.id, result.primaryDomain.domainId, result.membership.id,
         result.membership.principalId, subscription, result.plan.planId, JSON.stringify(result), updatedAt],
-      (row) => parseTenantOperationRow(row, this.panelOrigin),
+      (row) => parseTenantOperationRow(row, this.panelOrigin, this.adminOriginEnvironment),
     );
     this.checkpoint("after_mark_committed");
     return committed;
@@ -426,12 +480,17 @@ function timeout(value: number): string {
 export class PostgresSaaSDataRepository implements SaaSDataRepository {
   private readonly options: PostgresRepositoryOptions;
   private readonly panelOrigin: string;
+  private readonly adminOriginEnvironment: AdminOriginEnvironment;
 
   constructor(options: PostgresRepositoryOptions) {
     if (options.bootstrapRole !== "celebix_saas_bootstrap") throw new SaaSDataPersistenceError();
     this.options = options;
     try { this.panelOrigin = normalizeExactHttpsOrigin(options.panelOrigin); }
     catch { throw new SaaSDataPersistenceError(); }
+    if (options.adminOriginEnvironment !== undefined && options.adminOriginEnvironment !== "production" && options.adminOriginEnvironment !== "staging") {
+      throw new SaaSDataPersistenceError();
+    }
+    this.adminOriginEnvironment = options.adminOriginEnvironment ?? "production";
   }
 
   async beginTransaction(): Promise<SaaSDataTransaction> {
@@ -444,7 +503,14 @@ export class PostgresSaaSDataRepository implements SaaSDataRepository {
       await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [timeout(this.options.timeouts.lockMs)]);
       await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.options.timeouts.idleTransactionMs)]);
       await client.query("SET LOCAL ROLE celebix_saas_bootstrap");
-      return new PostgresTransaction(client, this.options.generateId, this.options.audit, this.panelOrigin, TEST_FAILURES.get(this.options));
+      return new PostgresTransaction(
+        client,
+        this.options.generateId,
+        this.options.audit,
+        this.panelOrigin,
+        this.adminOriginEnvironment,
+        TEST_FAILURES.get(this.options),
+      );
     } catch (error) {
       if (began) {
         try { await client.query("ROLLBACK"); client.release(); }

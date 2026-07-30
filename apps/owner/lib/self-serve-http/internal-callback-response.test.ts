@@ -78,7 +78,7 @@ function successBody(state: (typeof successStates)[number] = successStates[0]) {
     state,
     storeSlug: "ornek-magaza",
     storefrontUrl: "https://ornek-magaza.celebix.site",
-    panelUrl: "https://panel.celebix.site",
+    panelUrl: "https://ornek-magaza.admin.celebix.site",
     provisioningStatus: "ready",
     session: "pending",
   };
@@ -124,6 +124,16 @@ test("Owner projector accepts every reachable exact B1B2A response and re-emits 
       assert.deepEqual(await response.json(), expected, `${fixture.state}:${fixture.code}`);
     }
   }
+});
+
+test("Owner projector accepts an aligned staging storefront and tenant admin origin", async () => {
+  const expected = {
+    ...successBody(),
+    storefrontUrl: "https://ornek-magaza.saas-staging.celebix.site",
+    panelUrl: "https://ornek-magaza.admin.saas-staging.celebix.site",
+  };
+  const response = await projectOwnerInternalCallbackResponse(upstream(expected, 200), 4_096);
+  assert.deepEqual(await response.json(), expected);
 });
 
 test("Owner projector rejects arbitrary, PII, callback-secret, token, SQL, identifier, URL, and stack messages", async () => {

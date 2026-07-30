@@ -81,7 +81,7 @@ const tenantResult: CreateStarterTenantResult = {
   },
   mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
   provisioningStatus: "ready",
-  panelUrl: "https://panel.celebix.site/stores/safe-store",
+  panelUrl: "https://safe-store.admin.celebix.site",
   storefrontUrl: "https://safe-store.celebix.site",
 };
 

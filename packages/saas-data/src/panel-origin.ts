@@ -72,6 +72,20 @@ export function createCanonicalAdminOrigin(
   return `https://${hostname}`;
 }
 
+export function createCanonicalAdminOriginFromPanelOrigin(
+  panelOrigin: unknown,
+  storeSlug: unknown,
+): string {
+  const origin = normalizeExactHttpsOrigin(panelOrigin);
+  if (origin === "https://panel.celebix.site") {
+    return createCanonicalAdminOrigin(storeSlug, "production");
+  }
+  if (origin === "https://panel.saas-staging.celebix.site") {
+    return createCanonicalAdminOrigin(storeSlug, "staging");
+  }
+  invalidOrigin();
+}
+
 export function parseCanonicalAdminHostname(
   hostname: unknown,
   environment: AdminOriginEnvironment,

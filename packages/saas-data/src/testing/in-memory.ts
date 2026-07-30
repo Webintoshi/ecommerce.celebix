@@ -3,6 +3,7 @@ import type { PlanFeatureKey } from "@celebix/saas-contracts";
 import { SaaSDataUniqueConflict } from "../errors.ts";
 import type { SaaSDataRepository, SaaSDataTransaction } from "../ports.ts";
 import type {
+  AdminDomainRecord,
   DomainRecord,
   InMemoryFailurePoint,
   InMemoryRepositoryMetrics,
@@ -53,6 +54,7 @@ function initialState(overrides?: Partial<SaaSDataState>): SaaSDataState {
     principals: [],
     stores: [],
     domains: [],
+    adminDomains: [],
     memberships: [],
     plans: [DEFAULT_PLAN],
     subscriptions: [],
@@ -72,6 +74,7 @@ class InMemoryTransaction implements SaaSDataTransaction {
   readonly principals;
   readonly stores;
   readonly domains;
+  readonly adminDomains;
   readonly memberships;
   readonly plans;
   readonly subscriptions;
@@ -165,6 +168,38 @@ class InMemoryTransaction implements SaaSDataTransaction {
         }
         this.state.domains.push(structuredClone(record));
         maybeFail("after_domain_create");
+        return structuredClone(record);
+      },
+    };
+
+    this.adminDomains = {
+      provisionCanonical: async (record: AdminDomainRecord) => {
+        ensureActive();
+        const store = this.state.stores.find((entry) => entry.id === record.storeId && entry.status === "active");
+        const validHostname = store && (
+          record.hostname === `${store.slug}.admin.celebix.site` ||
+          record.hostname === `${store.slug}.admin.saas-staging.celebix.site`
+        );
+        if (
+          !validHostname ||
+          record.kind !== "platform_subdomain" ||
+          record.status !== "active" ||
+          record.canonical !== true ||
+          record.version !== 1 ||
+          record.verifiedAt !== record.createdAt ||
+          record.createdAt !== record.updatedAt
+        ) {
+          throw new Error("Invalid canonical admin domain record");
+        }
+        const conflict = this.state.adminDomains.find(
+          (entry) => entry.hostname === record.hostname || (entry.storeId === record.storeId && entry.canonical),
+        );
+        if (conflict) {
+          if (JSON.stringify(conflict) === JSON.stringify(record)) return structuredClone(conflict);
+          throw new SaaSDataUniqueConflict("admin_domain_hostname");
+        }
+        this.state.adminDomains.push(structuredClone(record));
+        maybeFail("after_admin_domain_create");
         return structuredClone(record);
       },
     };

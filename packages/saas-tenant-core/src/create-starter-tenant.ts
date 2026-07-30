@@ -11,9 +11,10 @@ import {
   SaaSDataUniqueConflict,
   assertNormalizedExactHostname,
   assertNormalizedSlug,
+  createCanonicalAdminOrigin,
   createCanonicalTenantFingerprint,
-  createPanelStoreUrl,
   normalizeExactHttpsOrigin,
+  type AdminOriginEnvironment,
   type SaaSDataRepository,
   type SaaSDataTransaction,
   type UniqueConflictKind,
@@ -31,6 +32,7 @@ export interface CreateStarterTenantServiceOptions {
   repository: SaaSDataRepository;
   platformDomainSuffix?: string;
   panelBaseUrl?: string;
+  adminOriginEnvironment?: AdminOriginEnvironment;
 }
 
 class TenantCoreFailure extends Error {
@@ -158,6 +160,9 @@ function mapUniqueConflict(kind: UniqueConflictKind): SaaSContractError {
   if (kind === "domain_hostname") {
     return safeError("domain_conflict", "store.slug");
   }
+  if (kind === "admin_domain_hostname") {
+    return safeError("domain_conflict", "store.slug");
+  }
   if (kind === "membership") {
     return safeError("membership_conflict");
   }
@@ -178,12 +183,18 @@ async function rollbackSafely(transaction: SaaSDataTransaction): Promise<void> {
 class DefaultCreateStarterTenantService implements CreateStarterTenantService {
   private readonly repository: SaaSDataRepository;
   private readonly platformDomainSuffix: string;
-  private readonly panelBaseUrl: string;
+  private readonly adminOriginEnvironment: AdminOriginEnvironment;
 
   constructor(options: CreateStarterTenantServiceOptions) {
     this.repository = options.repository;
     this.platformDomainSuffix = options.platformDomainSuffix ?? "celebix.site";
-    this.panelBaseUrl = normalizeExactHttpsOrigin(options.panelBaseUrl ?? "https://panel.celebix.site");
+    normalizeExactHttpsOrigin(options.panelBaseUrl ?? "https://panel.celebix.site");
+    if (
+      options.adminOriginEnvironment !== undefined &&
+      options.adminOriginEnvironment !== "production" &&
+      options.adminOriginEnvironment !== "staging"
+    ) throw new Error("invalid_exact_https_origin");
+    this.adminOriginEnvironment = options.adminOriginEnvironment ?? "production";
   }
 
   async execute(rawInput: unknown): Promise<CreateStarterTenantOutcome> {
@@ -286,6 +297,21 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         updatedAt: timestamp,
       });
 
+      const canonicalAdminOrigin = createCanonicalAdminOrigin(store.slug, this.adminOriginEnvironment);
+      const canonicalAdminHostname = new URL(canonicalAdminOrigin).hostname;
+      await transaction.adminDomains.provisionCanonical({
+        id: transaction.generateId("domain"),
+        storeId: store.id,
+        hostname: canonicalAdminHostname,
+        kind: "platform_subdomain",
+        status: "active",
+        canonical: true,
+        verifiedAt: timestamp,
+        version: 1,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
       const membershipRecord: StoreMembership = {
         schemaVersion: 1,
         id: transaction.generateId("membership"),
@@ -381,7 +407,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         plan: planEntitlements,
         mediaStorage: { schemaVersion: 1, status: "ready", version: mediaNamespace.version },
         provisioningStatus: "ready",
-        panelUrl: createPanelStoreUrl(this.panelBaseUrl, store.slug),
+        panelUrl: canonicalAdminOrigin,
         storefrontUrl: `https://${domain.hostname}`,
       };
 

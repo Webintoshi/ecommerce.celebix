@@ -1,4 +1,5 @@
 import type {
+  AdminDomainRecord,
   DomainRecord,
   MembershipRecord,
   PlanRecord,
@@ -26,6 +27,10 @@ export interface StoreRepositoryPort {
 export interface DomainRepositoryPort {
   findByHostname(hostname: string): Promise<DomainRecord | null>;
   create(record: DomainRecord): Promise<DomainRecord>;
+}
+
+export interface AdminDomainRepositoryPort {
+  provisionCanonical(record: AdminDomainRecord): Promise<AdminDomainRecord>;
 }
 
 export interface MembershipRepositoryPort {
@@ -69,6 +74,7 @@ export interface SaaSDataTransaction {
   readonly principals: PrincipalRepositoryPort;
   readonly stores: StoreRepositoryPort;
   readonly domains: DomainRepositoryPort;
+  readonly adminDomains: AdminDomainRepositoryPort;
   readonly memberships: MembershipRepositoryPort;
   readonly plans: PlanRepositoryPort;
   readonly subscriptions: SubscriptionRepositoryPort;

@@ -113,3 +113,36 @@ test("store creation uses fixed parameterized SQL and maps only its named constr
   assert.doesNotMatch(call.text, /Tenant A|tenant-a|starter/);
   await transaction.rollback();
 });
+
+test("canonical admin domain provisioning uses the bootstrap function and validates its authority", async () => {
+  const client = new MethodClient();
+  client.handler = (text) => {
+    if (/saas\.provision_canonical_admin_domain/.test(text)) return result([{
+      outcome: "provisioned",
+      authority: {
+        storeSlug: "tenant-a",
+        canonicalAdminOrigin: "https://tenant-a.admin.celebix.site",
+      },
+    }]);
+    return result([]);
+  };
+  const transaction = await make(client).beginTransaction();
+  const record = {
+    id: "30000000-0000-4000-8000-000000000002",
+    storeId: "20000000-0000-4000-8000-000000000001",
+    hostname: "tenant-a.admin.celebix.site",
+    kind: "platform_subdomain",
+    status: "active",
+    canonical: true,
+    verifiedAt: time.toISOString(),
+    version: 1,
+    createdAt: time.toISOString(),
+    updatedAt: time.toISOString(),
+  } as const;
+
+  assert.deepEqual(await transaction.adminDomains.provisionCanonical(record), record);
+  const call = client.calls.at(-1)!;
+  assert.match(call.text, /SELECT outcome, authority FROM saas\.provision_canonical_admin_domain\(\$1, \$2, \$3, \$4::timestamptz\)/);
+  assert.deepEqual(call.values, [record.id, record.storeId, record.hostname, record.createdAt]);
+  await transaction.rollback();
+});

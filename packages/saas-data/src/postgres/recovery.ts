@@ -1,7 +1,7 @@
 import type { CreateStarterTenantResult } from "@celebix/saas-contracts";
 
 import type { CanonicalTenantFingerprint } from "../types.ts";
-import { normalizeExactHttpsOrigin } from "../panel-origin.ts";
+import { normalizeExactHttpsOrigin, type AdminOriginEnvironment } from "../panel-origin.ts";
 import { SaaSDataCorruptionError, SaaSDataPersistenceError, mapPostgresError } from "./errors.ts";
 import { parseTenantOperationRow, postgresParserInternals as parse } from "./parsers.ts";
 import { acquirePostgresClient, type PostgresPoolLike, type PostgresTimeoutOptions } from "./pool.ts";
@@ -19,6 +19,7 @@ export interface PostgresTenantOperationRecoveryOptions {
   timeouts: PostgresTimeoutOptions;
   bootstrapRole: "celebix_saas_bootstrap";
   panelOrigin: string;
+  adminOriginEnvironment?: AdminOriginEnvironment;
 }
 
 function timeout(value: number): string {
@@ -29,11 +30,16 @@ function timeout(value: number): string {
 export class PostgresTenantOperationRecovery {
   private readonly options: PostgresTenantOperationRecoveryOptions;
   private readonly panelOrigin: string;
+  private readonly adminOriginEnvironment: AdminOriginEnvironment;
   constructor(options: PostgresTenantOperationRecoveryOptions) {
     if (options.bootstrapRole !== "celebix_saas_bootstrap") throw new SaaSDataPersistenceError();
     this.options = options;
     try { this.panelOrigin = normalizeExactHttpsOrigin(options.panelOrigin); }
     catch { throw new SaaSDataPersistenceError(); }
+    if (options.adminOriginEnvironment !== undefined && options.adminOriginEnvironment !== "production" && options.adminOriginEnvironment !== "staging") {
+      throw new SaaSDataPersistenceError();
+    }
+    this.adminOriginEnvironment = options.adminOriginEnvironment ?? "production";
   }
 
   async recover(idempotencyKey: string, fingerprint: CanonicalTenantFingerprint): Promise<PostgresTenantOperationRecoveryResult> {
@@ -53,7 +59,9 @@ export class PostgresTenantOperationRecovery {
       let classification: PostgresTenantOperationRecoveryResult;
       if (query.rows.length === 0) classification = { kind: "absent" };
       else if (query.rows.length !== 1) classification = { kind: "corrupt" };
-      else classification = classify(query.rows[0], idempotencyKey, fingerprint, this.panelOrigin);
+      else classification = classify(
+        query.rows[0], idempotencyKey, fingerprint, this.panelOrigin, this.adminOriginEnvironment,
+      );
       commitAttempted = true;
       await client.query("COMMIT");
       client.release();
@@ -70,10 +78,16 @@ export class PostgresTenantOperationRecovery {
   }
 }
 
-function classify(rowValue: unknown, idempotencyKey: string, fingerprint: CanonicalTenantFingerprint, panelOrigin: string): PostgresTenantOperationRecoveryResult {
+function classify(
+  rowValue: unknown,
+  idempotencyKey: string,
+  fingerprint: CanonicalTenantFingerprint,
+  panelOrigin: string,
+  adminOriginEnvironment: AdminOriginEnvironment,
+): PostgresTenantOperationRecoveryResult {
   try {
     parse.exact(rowValue, ["id", "idempotency_key", "payload_fingerprint", "status", "result_payload", "created_at", "updated_at"]);
-    const operation = parseTenantOperationRow(rowValue, panelOrigin);
+    const operation = parseTenantOperationRow(rowValue, panelOrigin, adminOriginEnvironment);
     if (operation.idempotencyKey !== idempotencyKey) throw new SaaSDataCorruptionError();
     if (operation.status === "processing") return { kind: "processing" };
     if (operation.status === "failed") return { kind: "failed" };

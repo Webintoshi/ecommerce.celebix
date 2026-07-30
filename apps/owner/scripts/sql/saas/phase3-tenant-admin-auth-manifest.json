@@ -8,7 +8,7 @@
     {
       "file": "202607300069_tenant_admin_domains_and_principal_logout.up.sql",
       "direction": "up",
-      "sha256": "7e0f4bfe3370db4547a4cfe674579c78bc2ab8a8c401f899652aac8b2eb78fe4"
+      "sha256": "09a652c3d251241dd15157ff98aa72e743feb289e9deda99abdc0a16375758b6"
     },
     {
       "file": "202607300069_tenant_admin_domains_and_principal_logout.down.sql",

@@ -150,6 +150,9 @@ export function createPostgresOwnerSaaSTenantRuntime(
     throw new Error("owner_postgres_activation_not_approved");
   }
   assertValidRuntimeBounds(options);
+  const adminOriginEnvironment = options.activationApproval.environment === "approved_staging"
+    ? "staging" as const
+    : "production" as const;
 
   const repository = new PostgresSaaSDataRepository({
     pool: options.pool,
@@ -158,17 +161,20 @@ export function createPostgresOwnerSaaSTenantRuntime(
     timeouts: options.timeouts,
     bootstrapRole: "celebix_saas_bootstrap",
     panelOrigin: options.panelOrigin,
+    adminOriginEnvironment,
   });
   const recovery = new PostgresTenantOperationRecovery({
     pool: options.pool,
     timeouts: options.timeouts,
     bootstrapRole: "celebix_saas_bootstrap",
     panelOrigin: options.panelOrigin,
+    adminOriginEnvironment,
   });
   const service = createStarterTenantService({
     repository,
     platformDomainSuffix: options.platformDomainSuffix,
     panelBaseUrl: options.panelOrigin,
+    adminOriginEnvironment,
   });
 
   return {

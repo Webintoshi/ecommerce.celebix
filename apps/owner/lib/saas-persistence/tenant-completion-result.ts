@@ -1,5 +1,5 @@
 import type { CreateStarterTenantInput, CreateStarterTenantResult } from "@celebix/saas-contracts";
-import { createPanelStoreUrl, normalizeExactHttpsOrigin } from "@celebix/saas-data";
+import { createCanonicalAdminOriginFromPanelOrigin, normalizeExactHttpsOrigin } from "@celebix/saas-data";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const HOST = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -70,6 +70,6 @@ export function validateTenantCompletionResult(
   if (!exactKeys(mediaStorage, ["schemaVersion", "status", "version"])) return false;
   if (mediaStorage.schemaVersion !== 1 || mediaStorage.status !== "ready" || !Number.isSafeInteger(mediaStorage.version) || Number(mediaStorage.version) < 1) return false;
   let expectedPanelUrl: string;
-  try { expectedPanelUrl = createPanelStoreUrl(authorities.panelOrigin, tenantInput.store.slug); } catch { return false; }
+  try { expectedPanelUrl = createCanonicalAdminOriginFromPanelOrigin(authorities.panelOrigin, tenantInput.store.slug); } catch { return false; }
   return value.panelUrl === expectedPanelUrl && value.storefrontUrl === `https://${hostname}`;
 }

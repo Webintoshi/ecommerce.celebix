@@ -68,7 +68,7 @@ function exactHttps(value: unknown, hostname: string): value is string {
   try {
     const url = new URL(value);
     return url.protocol === "https:" && url.hostname === hostname && !url.port && !url.username &&
-      !url.password && !url.search && !url.hash;
+      !url.password && url.pathname === "/" && !url.search && !url.hash;
   } catch {
     return false;
   }
@@ -84,9 +84,15 @@ function validate(value: unknown, status: number): Record<string, unknown> {
     throw new Error("internal_callback_response_invalid");
   }
   if (semantic.code === null) {
+    const production = safeText(body.storeSlug, 63) &&
+      exactHttps(body.storefrontUrl, `${body.storeSlug}.celebix.site`) &&
+      exactHttps(body.panelUrl, `${body.storeSlug}.admin.celebix.site`);
+    const staging = safeText(body.storeSlug, 63) &&
+      exactHttps(body.storefrontUrl, `${body.storeSlug}.saas-staging.celebix.site`) &&
+      exactHttps(body.panelUrl, `${body.storeSlug}.admin.saas-staging.celebix.site`);
     if (
       !safeText(body.storeSlug, 63) || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(body.storeSlug) ||
-      !exactHttps(body.storefrontUrl, `${body.storeSlug}.celebix.site`) || !exactHttps(body.panelUrl, "panel.celebix.site") ||
+      (!production && !staging) ||
       body.provisioningStatus !== "ready" || body.session !== "pending"
     ) throw new Error("internal_callback_response_invalid");
     return {

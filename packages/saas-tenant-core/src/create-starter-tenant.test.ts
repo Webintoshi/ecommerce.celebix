@@ -71,6 +71,7 @@ function overrideTransaction(
     principals: overrides.principals ?? transaction.principals,
     stores: transaction.stores,
     domains: transaction.domains,
+    adminDomains: transaction.adminDomains,
     memberships: transaction.memberships,
     plans: transaction.plans,
     subscriptions: overrides.subscriptions ?? transaction.subscriptions,
@@ -120,6 +121,18 @@ test("successfully bootstraps an atomic free starter tenant", async () => {
   assert.equal(state.principals.length, 1);
   assert.equal(state.stores.length, 1);
   assert.equal(state.domains.length, 1);
+  assert.deepEqual(state.adminDomains, [{
+    id: "domain_0002",
+    storeId: result.store.id,
+    hostname: "ornek-magaza.admin.celebix.site",
+    kind: "platform_subdomain",
+    status: "active",
+    canonical: true,
+    verifiedAt: baseInput.requestedAt,
+    version: 1,
+    createdAt: baseInput.requestedAt,
+    updatedAt: baseInput.requestedAt,
+  }]);
   assert.equal(state.memberships.length, 1);
   assert.equal(state.subscriptions.length, 1);
   assert.deepEqual(state.mediaNamespaces, [{
@@ -427,10 +440,21 @@ test("service construction accepts only an exact HTTPS panel origin", () => {
   }
 });
 
-test("one trailing slash is normalized before constructing the panel store URL", async () => {
+test("panel callback origin normalization cannot change the canonical store admin URL", async () => {
   const repository = createInMemorySaaSDataRepository();
   const value = requireSuccess(await createStarterTenantService({ repository, panelBaseUrl: "https://panel.example.test/" }).execute(baseInput));
-  assert.equal(value.panelUrl, "https://panel.example.test/stores/ornek-magaza");
+  assert.equal(value.panelUrl, "https://ornek-magaza.admin.celebix.site");
+});
+
+test("staging tenant creation provisions the exact staging admin hostname", async () => {
+  const repository = createInMemorySaaSDataRepository();
+  const value = requireSuccess(await createStarterTenantService({
+    repository,
+    panelBaseUrl: "https://panel.saas-staging.celebix.site",
+    adminOriginEnvironment: "staging",
+  }).execute(baseInput));
+  assert.equal(value.panelUrl, "https://ornek-magaza.admin.saas-staging.celebix.site");
+  assert.equal(repository.inspectState().adminDomains[0]?.hostname, "ornek-magaza.admin.saas-staging.celebix.site");
 });
 
 test("unknown COMMIT outcome is non-retryable and never triggers rollback", async () => {
@@ -709,7 +733,7 @@ test("result URLs and plan entitlements derive from persisted records", async ()
   const state = repository.inspectState();
 
   assert.equal(result.storefrontUrl, `https://${state.domains[0]?.hostname}`);
-  assert.equal(result.panelUrl, `https://panel.celebix.site/stores/${state.stores[0]?.slug}`);
+  assert.equal(result.panelUrl, `https://${state.adminDomains[0]?.hostname}`);
   assert.equal(result.plan.planId, state.plans[0]?.id);
   assert.ok(result.plan.features.every((feature) => PLAN_FEATURE_KEYS.includes(feature)));
   assert.ok(Object.keys(result.plan.limits).every((limit) => PLAN_LIMIT_KEYS.includes(limit as never)));

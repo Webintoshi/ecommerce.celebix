@@ -60,7 +60,7 @@ const result = {
   },
   mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
   provisioningStatus: "ready",
-  panelUrl: "https://panel.example.test/stores/tenant-a",
+  panelUrl: "https://tenant-a.admin.celebix.site",
   storefrontUrl: "https://tenant-a.example.test",
 };
 
@@ -150,15 +150,15 @@ test("persisted committed snapshots require replayed false and preserve the sour
 
 test("strict snapshot parser binds panelUrl to the approved origin and exact store path", () => {
   const maliciousPanelUrls = [
-    "https://user:password@panel.example.test/stores/tenant-a",
-    "https://panel.example.test/stores/tenant-a?next=evil",
-    "https://panel.example.test/stores/tenant-a#fragment",
+    "https://user:password@tenant-a.admin.celebix.site",
+    "https://tenant-a.admin.celebix.site?next=evil",
+    "https://tenant-a.admin.celebix.site#fragment",
     "https://wrong.example.test/stores/tenant-a",
-    "https://panel.example.test/stores/tenant-b",
-    "https://panel.example.test/stores/tenant-a/extra",
-    "https://panel.example.test/stores%2Ftenant-a",
-    "https://panel.example.test//stores/tenant-a",
-    "http://panel.example.test/stores/tenant-a",
+    "https://tenant-b.admin.celebix.site",
+    "https://tenant-a.admin.celebix.site/extra",
+    "https://tenant-a.admin.celebix.site%2Fevil",
+    "https://tenant-a.admin.celebix.site//",
+    "http://tenant-a.admin.celebix.site",
   ];
   for (const panelUrl of maliciousPanelUrls) {
     const candidate = structuredClone(result);

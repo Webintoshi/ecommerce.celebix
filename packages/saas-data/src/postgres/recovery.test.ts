@@ -48,7 +48,7 @@ const validSnapshot = {
   },
   mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
   provisioningStatus: "ready",
-  panelUrl: "https://panel.example.test/stores/tenant-a",
+  panelUrl: "https://tenant-a.admin.celebix.site",
   storefrontUrl: "https://tenant-a.example.test",
 };
 function operation(status: "processing" | "failed" | "committed", fingerprint = "a".repeat(64), resultPayload: unknown = null) {

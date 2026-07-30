@@ -27,6 +27,7 @@ export type UniqueConflictKind =
   | "principal_identity"
   | "store_slug"
   | "domain_hostname"
+  | "admin_domain_hostname"
   | "membership"
   | "subscription"
   | "media_namespace"
@@ -38,6 +39,7 @@ export type InMemoryFailurePoint =
   | "after_principal_email_update"
   | "after_store_create"
   | "after_domain_create"
+  | "after_admin_domain_create"
   | "after_membership_create"
   | "after_subscription_create"
   | "after_media_namespace_create"
@@ -75,6 +77,19 @@ export interface DomainRecord {
   status: StoreHostStatus;
   canonical: boolean;
   cacheVersion: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminDomainRecord {
+  id: DomainId;
+  storeId: StoreId;
+  hostname: string;
+  kind: "platform_subdomain";
+  status: "active";
+  canonical: true;
+  verifiedAt: string;
+  version: 1;
   createdAt: string;
   updatedAt: string;
 }
@@ -145,6 +160,7 @@ export interface StoreBootstrapRecords {
   principal: PrincipalRecord;
   store: StoreRecord;
   domain: DomainRecord;
+  adminDomain: AdminDomainRecord;
   membership: MembershipRecord;
   plan: PlanRecord;
   subscription: SubscriptionRecord;
@@ -157,6 +173,7 @@ export interface SaaSDataState {
   principals: PrincipalRecord[];
   stores: StoreRecord[];
   domains: DomainRecord[];
+  adminDomains: AdminDomainRecord[];
   memberships: MembershipRecord[];
   plans: PlanRecord[];
   subscriptions: SubscriptionRecord[];

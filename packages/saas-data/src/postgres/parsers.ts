@@ -1,7 +1,11 @@
 import type { CreateStarterTenantResult, PlanFeatureKey } from "@celebix/saas-contracts";
 
 import type { TenantOperationRecord } from "../types.ts";
-import { createPanelStoreUrl, normalizeExactHttpsOrigin } from "../panel-origin.ts";
+import {
+  createCanonicalAdminOrigin,
+  normalizeExactHttpsOrigin,
+  type AdminOriginEnvironment,
+} from "../panel-origin.ts";
 import { SaaSDataCorruptionError } from "./errors.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -38,9 +42,12 @@ function url(value: unknown): string {
   return result;
 }
 
-export function parseCreateStarterTenantResult(value: unknown, approvedPanelOrigin: string): CreateStarterTenantResult {
-  let panelOrigin: string;
-  try { panelOrigin = normalizeExactHttpsOrigin(approvedPanelOrigin); } catch { corrupt(); }
+export function parseCreateStarterTenantResult(
+  value: unknown,
+  approvedPanelOrigin: string,
+  adminOriginEnvironment: AdminOriginEnvironment = "production",
+): CreateStarterTenantResult {
+  try { normalizeExactHttpsOrigin(approvedPanelOrigin); } catch { corrupt(); }
   const root = exact(value, ["schemaVersion", "operationId", "replayed", "store", "primaryDomain", "membership", "plan", "mediaStorage", "provisioningStatus", "panelUrl", "storefrontUrl"]);
   if (root.schemaVersion !== 1 || root.replayed !== false || root.provisioningStatus !== "ready") corrupt();
   const operationId = uuid(root.operationId);
@@ -77,20 +84,26 @@ export function parseCreateStarterTenantResult(value: unknown, approvedPanelOrig
   if (mediaStorage.schemaVersion !== 1 || mediaStorage.status !== "ready") corrupt();
   integer(mediaStorage.version, 1);
   let expectedPanelUrl: string;
-  try { expectedPanelUrl = createPanelStoreUrl(panelOrigin, slug); } catch { corrupt(); }
+  try { expectedPanelUrl = createCanonicalAdminOrigin(slug, adminOriginEnvironment); } catch { corrupt(); }
   if (root.panelUrl !== expectedPanelUrl) corrupt();
   const storefrontUrl = url(root.storefrontUrl);
   if (storefrontUrl !== `https://${hostname}`) corrupt();
   return structuredClone(root) as unknown as CreateStarterTenantResult;
 }
 
-export function parseTenantOperationRow(value: unknown, approvedPanelOrigin: string): TenantOperationRecord {
+export function parseTenantOperationRow(
+  value: unknown,
+  approvedPanelOrigin: string,
+  adminOriginEnvironment: AdminOriginEnvironment = "production",
+): TenantOperationRecord {
   const row = exact(value, ["id", "idempotency_key", "payload_fingerprint", "status", "result_payload", "created_at", "updated_at"]);
   const status = string(row.status);
   if (!["processing", "committed", "failed"].includes(status)) corrupt();
   const fingerprint = string(row.payload_fingerprint);
   if (!/^[a-f0-9]{64}$/.test(fingerprint)) corrupt();
-  const result = row.result_payload === null ? undefined : parseCreateStarterTenantResult(row.result_payload, approvedPanelOrigin);
+  const result = row.result_payload === null
+    ? undefined
+    : parseCreateStarterTenantResult(row.result_payload, approvedPanelOrigin, adminOriginEnvironment);
   if ((status === "committed") !== Boolean(result)) corrupt();
   const id = uuid(row.id);
   if (result && result.operationId !== id) corrupt();

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createCanonicalAdminOrigin,
+  createCanonicalAdminOriginFromPanelOrigin,
   createPanelStoreUrl,
   normalizeExactHttpsOrigin,
   parseCanonicalAdminHostname,
@@ -40,6 +41,28 @@ test("creates exact production and staging tenant admin origins", () => {
     createCanonicalAdminOrigin("guzide-kuyumcu-4", "staging"),
     "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
   );
+});
+
+test("derives only the approved production or staging admin environment from the panel origin", () => {
+  assert.equal(
+    createCanonicalAdminOriginFromPanelOrigin("https://panel.celebix.site", "guzide-kuyumcu-4"),
+    "https://guzide-kuyumcu-4.admin.celebix.site",
+  );
+  assert.equal(
+    createCanonicalAdminOriginFromPanelOrigin("https://panel.saas-staging.celebix.site/", "guzide-kuyumcu-4"),
+    "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+  );
+  for (const origin of [
+    "https://panel.example.test",
+    "https://guzide-kuyumcu-4.admin.celebix.site",
+    "https://panel.saas-staging.celebix.site.attacker.test",
+  ]) {
+    assert.throws(
+      () => createCanonicalAdminOriginFromPanelOrigin(origin, "guzide-kuyumcu-4"),
+      /invalid_exact_https_origin/,
+      origin,
+    );
+  }
 });
 
 test("parses only exact canonical tenant admin hostnames", () => {

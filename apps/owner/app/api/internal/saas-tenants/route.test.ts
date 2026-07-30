@@ -93,7 +93,7 @@ function successfulOutcome(replayed: boolean): OwnerTenantCoreOutcome {
       },
       mediaStorage: { schemaVersion: 1, status: "ready", version: 1 },
       provisioningStatus: "ready",
-      panelUrl: `https://panel.example.test/stores/${input.store.slug}`,
+      panelUrl: `https://${input.store.slug}.admin.celebix.site`,
       storefrontUrl: `https://${input.store.slug}.example.test`,
     },
   };

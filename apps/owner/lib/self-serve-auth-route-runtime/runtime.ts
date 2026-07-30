@@ -50,17 +50,19 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regclass('saas.panel_browser_bindings') IS NOT NULL AS browser_bindings,
       to_regclass('saas.panel_session_handoffs') IS NOT NULL AS handoffs,
       to_regclass('saas.panel_sessions') IS NOT NULL AS sessions,
+      to_regclass('saas.admin_domains') IS NOT NULL AS admin_domains,
       (SELECT count(DISTINCT proname) FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
        WHERE n.nspname='saas' AND proname IN (
          'create_panel_browser_bootstrap','bind_panel_browser_credential','claim_panel_browser_callback',
          'create_panel_session_handoff','redeem_panel_session_handoff','resolve_panel_session',
-         'issue_returning_panel_session','recover_returning_panel_session'
-       )) = 8 AS required_functions
+         'issue_returning_panel_session','recover_returning_panel_session',
+         'provision_canonical_admin_domain'
+       )) = 9 AS required_functions
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (!row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== databaseName ||
         row.is_superuser !== false || row.identity_member !== true || row.bootstrap_member !== true ||
-        ["workflows", "oidc_transactions", "identities", "completions", "browser_bindings", "handoffs", "sessions", "required_functions"]
+        ["workflows", "oidc_transactions", "identities", "completions", "browser_bindings", "handoffs", "sessions", "admin_domains", "required_functions"]
           .some((key) => row[key] !== true)) throw new Error("owner_staging_database_preflight_failed");
   } finally { client.release(); }
 }
@@ -114,6 +116,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     timeouts: TIMEOUTS,
     bootstrapRole: "celebix_saas_bootstrap" as const,
     panelOrigin: config.authority.panelOrigin,
+    adminOriginEnvironment: "staging" as const,
   };
   const tenantRepository = new PostgresSaaSDataRepository(repositoryOptions);
   const completion = createPersistentRegistrationCompletionService({
@@ -122,6 +125,7 @@ export async function initializeOwnerStagingAuthRouteSet(
       repository: tenantRepository,
       platformDomainSuffix: config.authority.platformDomainSuffix,
       panelBaseUrl: config.authority.panelOrigin,
+      adminOriginEnvironment: "staging",
     })),
     recovery: new PostgresTenantOperationRecovery(repositoryOptions),
     panelOrigin: config.authority.panelOrigin,
