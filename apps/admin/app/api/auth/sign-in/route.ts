@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("login_hint") ??
     request.nextUrl.searchParams.get("email");
   const { url, statePayload } = await buildLogtoAuthorizeUrl(nextPath, {
+    prompt:
+      request.nextUrl.searchParams.get("force_account") === "1"
+        ? "login"
+        : undefined,
     firstScreen:
       screen === "reset_password"
         ? "reset_password"

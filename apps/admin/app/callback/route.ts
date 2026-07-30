@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   try {
     const tokens = await exchangeLogtoCodeForTokens(code);
     const userInfo = await fetchLogtoUserInfo(tokens.access_token);
-    const bridge = await findLegacyAdminBridgeByLogtoSubject(userInfo.sub, userInfo.email);
+    const bridge = await findLegacyAdminBridgeByLogtoSubject(userInfo.sub);
 
     if (!bridge) {
       const response = NextResponse.redirect(buildLoginRedirect({ error: "unauthorized" }));

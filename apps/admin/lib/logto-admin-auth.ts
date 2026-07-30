@@ -5,6 +5,10 @@ import type { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { queryAdminLightPostgresOne } from "@/lib/db/light-postgres-client";
+import {
+  applyLogtoAuthorizeOptions,
+  type LogtoAuthorizeOptions,
+} from "@/lib/logto-authorize-options";
 import type { UserRole } from "@/lib/permissions";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 
@@ -377,7 +381,10 @@ export async function getLogtoDiscoveryDocument(): Promise<LogtoDiscoveryDocumen
   return (await response.json()) as LogtoDiscoveryDocument;
 }
 
-export async function buildLogtoAuthorizeUrl(nextPath: string) {
+export async function buildLogtoAuthorizeUrl(
+  nextPath: string,
+  options?: LogtoAuthorizeOptions,
+) {
   const discovery = await getLogtoDiscoveryDocument();
   const statePayload = createLogtoAdminStatePayload(nextPath);
   const url = new URL(discovery.authorization_endpoint);
@@ -386,6 +393,7 @@ export async function buildLogtoAuthorizeUrl(nextPath: string) {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid profile email");
   url.searchParams.set("state", statePayload.state);
+  applyLogtoAuthorizeOptions(url, options);
 
   return {
     url,
@@ -413,8 +421,7 @@ export async function exchangeLogtoCodeForTokens(code: string): Promise<LogtoTok
   });
 
   if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Logto token exchange failed (${response.status}): ${errorBody}`);
+    throw new Error(`Logto token exchange failed with status ${response.status}`);
   }
 
   return (await response.json()) as LogtoTokenResponse;
@@ -464,12 +471,8 @@ export async function getLogtoLogoutRedirectUrl(
 
 export async function findLegacyAdminBridgeByLogtoSubject(
   providerSubject: string,
-  email?: string | null,
 ): Promise<LogtoAdminBridgeRecord | null> {
-  const membershipBridge = await findAdminMembershipBridgeByLogtoSubject(
-    providerSubject,
-    email,
-  );
+  const membershipBridge = await findAdminMembershipBridgeByLogtoSubject(providerSubject);
 
   if (membershipBridge) {
     return membershipBridge;
@@ -481,7 +484,6 @@ export async function findLegacyAdminBridgeByLogtoSubject(
 
 async function findAdminMembershipBridgeByLogtoSubject(
   providerSubject: string,
-  email?: string | null,
 ): Promise<LogtoAdminBridgeRecord | null> {
   try {
     const row = await queryAdminLightPostgresOne<{
@@ -511,10 +513,7 @@ async function findAdminMembershipBridgeByLogtoSubject(
          and coalesce(asm.status, 'active') = 'active'
         where ap.provider = 'logto'
           and coalesce(ap.status, 'active') = 'active'
-          and (
-            ap.subject = $2
-            or ($3::text is not null and lower(ap.email) = lower($3::text))
-          )
+          and ap.subject = $2
         order by case asm.role
           when 'super_admin' then 0
           when 'product_manager' then 1
@@ -524,7 +523,7 @@ async function findAdminMembershipBridgeByLogtoSubject(
         end
         limit 1
       `,
-      [STORE_RUNTIME.slug, providerSubject, email ?? null],
+      [STORE_RUNTIME.slug, providerSubject],
     );
 
     return normalizeAdminBridgeRow(row);
