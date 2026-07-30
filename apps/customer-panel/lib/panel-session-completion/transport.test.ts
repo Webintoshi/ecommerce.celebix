@@ -16,10 +16,12 @@ const NOW = new Date("2026-07-14T12:00:00.000Z");
 const SECRET = new Uint8Array(32).fill(0x35);
 const HANDOFF = `h1.handoff.active.${Buffer.alloc(32, 0x44).toString("base64url")}`;
 const EXPIRES = new Date(NOW.getTime() + 600_000).toISOString();
-const SUCCESS = `{"schemaVersion":1,"kind":"session_handoff_ready","handoffCredential":"${HANDOFF}","handoffExpiresAt":"${EXPIRES}","redirectPath":"/"}`;
+const DESTINATION_STORE_ID = "40000000-0000-4000-8000-000000000001";
+const DESTINATION_ORIGIN = "https://store-slug.admin.celebix.site";
+const SUCCESS = `{"schemaVersion":1,"kind":"session_handoff_ready","handoffCredential":"${HANDOFF}","handoffExpiresAt":"${EXPIRES}","destinationStoreId":"${DESTINATION_STORE_ID}","destinationOrigin":"${DESTINATION_ORIGIN}","redirectPath":"/"}`;
 const SESSION = `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`;
 const SESSION_EXPIRES = new Date(NOW.getTime() + 28_800_000).toISOString();
-const SESSION_READY = `{"schemaVersion":1,"kind":"session_ready","sessionCredential":"${SESSION}","sessionIssuedAt":"${NOW.toISOString()}","sessionExpiresAt":"${SESSION_EXPIRES}","redirectPath":"/"}`;
+const SESSION_READY = `{"schemaVersion":1,"kind":"session_ready","sessionCredential":"${SESSION}","sessionIssuedAt":"${NOW.toISOString()}","sessionExpiresAt":"${SESSION_EXPIRES}","destinationStoreId":"${DESTINATION_STORE_ID}","destinationOrigin":"${DESTINATION_ORIGIN}","redirectPath":"/"}`;
 
 function withUrl(response: Response, url = ENDPOINT, redirected = false) {
   Object.defineProperty(response, "url", { configurable: true, value: url });
@@ -93,6 +95,8 @@ test("verifies the exact signed success before returning one frozen internal pro
     kind: "session_handoff_ready",
     handoffCredential: HANDOFF,
     handoffExpiresAt: EXPIRES,
+    destinationStoreId: DESTINATION_STORE_ID,
+    destinationOrigin: DESTINATION_ORIGIN,
     redirectPath: "/",
   });
   assert.equal(Object.isFrozen(result), true);
@@ -120,6 +124,8 @@ test("accepts the exact signed returning-login session projection", async () => 
     sessionCredential: SESSION,
     sessionIssuedAt: NOW.toISOString(),
     sessionExpiresAt: SESSION_EXPIRES,
+    destinationStoreId: DESTINATION_STORE_ID,
+    destinationOrigin: DESTINATION_ORIGIN,
     redirectPath: "/",
   });
   assert.equal(Object.isFrozen(result), true);

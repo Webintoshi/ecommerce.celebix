@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import pg from "pg";
 
@@ -12,6 +12,8 @@ import {
 } from "../panel-auth-route-mount/route-set.ts";
 import { createPanelSessionHandoffApproval } from "../panel-session-handoff/activation.ts";
 import { createPostgresPanelSessionHandoffRedeemer } from "../panel-session-handoff/postgres-handoff-redeemer.ts";
+import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
+import { createPostgresCrossHostSessionHandoffRepository } from "../cross-host-session-handoff/postgres-repository.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({
@@ -32,6 +34,11 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regclass('saas.panel_browser_bindings') IS NOT NULL AS browser_bindings,
       to_regclass('saas.panel_session_handoffs') IS NOT NULL AS handoffs,
       to_regclass('saas.panel_sessions') IS NOT NULL AS sessions,
+      to_regclass('saas.admin_domains') IS NOT NULL
+        AND to_regclass('saas.cross_host_panel_handoffs') IS NOT NULL
+        AND to_regprocedure('saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.recover_cross_host_panel_handoff(uuid,text,text,text,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.redeem_cross_host_panel_handoff(text,text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL AS cross_host_auth,
       (SELECT count(DISTINCT proname) FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
        WHERE n.nspname='saas' AND proname IN (
          'bind_panel_browser_credential','recover_panel_session_handoff',
@@ -41,7 +48,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
     const row = result.rows[0];
     if (!row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== databaseName ||
         row.is_superuser !== false || row.identity_member !== true ||
-        ["browser_bindings", "handoffs", "sessions", "required_functions"].some((key) => row[key] !== true)) {
+        ["browser_bindings", "handoffs", "sessions", "cross_host_auth", "required_functions"].some((key) => row[key] !== true)) {
       throw new Error("customer_panel_staging_database_preflight_failed");
     }
   } finally { client.release(); }
@@ -77,6 +84,20 @@ export async function initializeCustomerPanelStagingAuthRouteSet(
       audit: () => undefined,
     },
   );
+  const crossHostHandoff = createPostgresCrossHostSessionHandoffRepository(
+    createPanelSessionPersistenceApproval("approved_staging"),
+    {
+      pool,
+      handoffKeys: new Map([[config.keys.handoffKeyId, new Uint8Array(config.keys.handoff)]]),
+      activeHandoffKeyId: config.keys.handoffKeyId,
+      sessionKeys: new Map([[config.keys.sessionKeyId, new Uint8Array(config.keys.session)]]),
+      activeSessionKeyId: config.keys.sessionKeyId,
+      clock,
+      randomBytes: bytes,
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    },
+  );
   const composition = createDisabledCustomerPanelAuthComposition({
     activationApproval: createCustomerPanelAuthCompositionApproval("approved_staging"),
     authorityProfile: config.authority,
@@ -103,6 +124,10 @@ export async function initializeCustomerPanelStagingAuthRouteSet(
       handlerAudit: () => undefined,
     },
     handoffRedeemer: redeemer,
+    crossHostHandoff: {
+      repository: crossHostHandoff,
+      randomUuid: () => randomUUID(),
+    },
   });
   return createApprovedStagingCustomerPanelAuthRouteSet({
     approval: createCustomerPanelAuthRouteMountApproval("approved_staging"),

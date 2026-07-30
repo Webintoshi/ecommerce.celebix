@@ -9,6 +9,7 @@ const STATE = "state_0123456789abcdefghijklmnop";
 const NOW = new Date("2026-07-14T12:00:00.000Z");
 const HANDOFF = `h1.handoff.active.${Buffer.alloc(32, 0x44).toString("base64url")}`;
 const CREDENTIAL = `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`;
+const TRANSFER_HANDOFF = `v1.cross-host.active.${Buffer.alloc(32, 0x77).toString("base64url")}`;
 const BINDING = `pb1.${Buffer.alloc(32, 0x66).toString("base64url")}`;
 const PRE_AUTH_COOKIE = `__Host-celebix_panel_pre_auth=${BINDING}`;
 const PRE_AUTH_DELETION = "__Host-celebix_panel_pre_auth=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0";
@@ -18,6 +19,8 @@ const UUIDS = {
   principalId: "10000000-0000-4000-8000-000000000003",
   activeStoreId: "10000000-0000-4000-8000-000000000004",
 };
+const DESTINATION_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const TRANSFER_OPERATION_ID = "20000000-0000-4000-8000-000000000001";
 
 function session(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
@@ -36,6 +39,8 @@ function ready() {
     kind: "session_handoff_ready" as const,
     handoffCredential: HANDOFF,
     handoffExpiresAt: new Date(NOW.getTime() + 600_000).toISOString(),
+    destinationStoreId: UUIDS.activeStoreId,
+    destinationOrigin: DESTINATION_ORIGIN,
     redirectPath: "/" as const,
   });
 }
@@ -47,6 +52,8 @@ function sessionReady(overrides: Record<string, unknown> = {}) {
     sessionCredential: CREDENTIAL,
     sessionIssuedAt: NOW.toISOString(),
     sessionExpiresAt: new Date(NOW.getTime() + 28_800_000).toISOString(),
+    destinationStoreId: UUIDS.activeStoreId,
+    destinationOrigin: DESTINATION_ORIGIN,
     redirectPath: "/" as const,
     ...overrides,
   });
@@ -57,11 +64,16 @@ function fixture(options: {
   transportError?: boolean;
   redeemResult?: object;
   recoverResult?: object;
+  crossHostTransfer?: boolean;
+  issueResult?: object;
+  recoverIssueResult?: object;
   audit?: (event: unknown) => void | Promise<void>;
 } = {}) {
   let transportCalls = 0;
   let redeemCalls = 0;
   let recoverCalls = 0;
+  let issueCalls = 0;
+  let recoverIssueCalls = 0;
   const handoffs: string[] = [];
   const completions: Array<readonly [string, string]> = [];
   const handler = createPanelSessionCompletionHandler({
@@ -86,6 +98,30 @@ function fixture(options: {
         return options.recoverResult ?? Object.freeze({ kind: "session_replayed", credential: CREDENTIAL, session: session() });
       },
     },
+    ...(options.crossHostTransfer ? {
+      crossHostTransfer: {
+        async issueHandoff() {
+          issueCalls += 1;
+          return options.issueResult ?? Object.freeze({
+            kind: "handoff_issued",
+            credential: TRANSFER_HANDOFF,
+            destinationOrigin: DESTINATION_ORIGIN,
+            expiresAt: new Date(NOW.getTime() + 120_000).toISOString(),
+          });
+        },
+        async recoverIssuedHandoff() {
+          recoverIssueCalls += 1;
+          return options.recoverIssueResult ?? Object.freeze({
+            kind: "operation_replayed",
+            credential: TRANSFER_HANDOFF,
+            destinationOrigin: DESTINATION_ORIGIN,
+            expiresAt: new Date(NOW.getTime() + 120_000).toISOString(),
+          });
+        },
+        randomUuid: () => TRANSFER_OPERATION_ID,
+        randomBytes: (size: number) => new Uint8Array(size).fill(0x52),
+      },
+    } : {}),
     clock: () => new Date(NOW),
     audit: options.audit ?? (() => undefined),
   });
@@ -94,10 +130,37 @@ function fixture(options: {
     get transportCalls() { return transportCalls; },
     get redeemCalls() { return redeemCalls; },
     get recoverCalls() { return recoverCalls; },
+    get issueCalls() { return issueCalls; },
+    get recoverIssueCalls() { return recoverIssueCalls; },
     handoffs,
     completions,
   };
 }
+
+test("registration completion transfers the session to the canonical store host with one body-only POST", async () => {
+  const current = fixture({ crossHostTransfer: true });
+  const response = await current.handler(callback());
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.has("location"), false);
+  assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
+  assert.match(body, new RegExp(`action="${DESTINATION_ORIGIN}/auth/handoff"`));
+  assert.match(body, new RegExp(`value="${TRANSFER_HANDOFF.replaceAll(".", "\\.")}"`));
+  assert.equal(current.redeemCalls, 1);
+  assert.equal(current.issueCalls, 1);
+  assert.equal(current.recoverIssueCalls, 0);
+});
+
+test("unknown cross-host issue commit recovers with the same one-time candidate", async () => {
+  const current = fixture({
+    crossHostTransfer: true,
+    issueResult: Object.freeze({ kind: "commit_unknown", credential: TRANSFER_HANDOFF }),
+  });
+  assert.equal((await current.handler(callback())).status, 200);
+  assert.equal(current.issueCalls, 1);
+  assert.equal(current.recoverIssueCalls, 1);
+});
 
 function callback(query = `state=${STATE}&code=verified-code`, cookie = PRE_AUTH_COOKIE): Request {
   return new Request(`${CALLBACK}?${query}`, { headers: cookie ? { cookie } : undefined });
@@ -135,6 +198,18 @@ test("returning login installs the already-issued session without invoking hando
   ]);
   assert.equal(current.redeemCalls, 0);
   assert.equal(current.recoverCalls, 0);
+});
+
+test("destination-bound returning login crosses to the store host without installing a central session cookie", async () => {
+  const current = fixture({ transportResult: sessionReady(), crossHostTransfer: true });
+  const response = await current.handler(callback());
+  const body = await response.text();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.has("location"), false);
+  assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
+  assert.match(body, new RegExp(`action="${DESTINATION_ORIGIN}/auth/handoff"`));
+  assert.equal(current.redeemCalls, 0);
+  assert.equal(current.issueCalls, 1);
 });
 
 test("redemption unknown COMMIT performs exactly one read-only recovery with the identical handoff", async () => {

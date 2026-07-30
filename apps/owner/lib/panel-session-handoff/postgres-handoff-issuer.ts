@@ -81,7 +81,7 @@ export interface PanelSessionHandoffIssuerAuditEvent {
 }
 
 export type PanelSessionHandoffIssuerResult =
-  | { kind: "handoff_created" | "handoff_replayed"; credential: string; expiresAt: string }
+  | { kind: "handoff_created" | "handoff_replayed"; credential: string; expiresAt: string; activeStoreId: string }
   | { kind: "commit_unknown"; credential: string }
   | { kind: "expired" | "membership_denied" | "operation_mismatch" | "unavailable" | "durable_authority_invalid" };
 
@@ -328,7 +328,12 @@ export function createPostgresPanelSessionHandoffIssuer(approval: unknown, rawDe
       if (persisted.tokenKeyId !== candidate.tokenKeyId
         || persisted.tokenDigest !== candidate.tokenDigest
         || persisted.sessionTokenKeyId !== dependencies.sessionTokenKeyId) throw new Error("invalid");
-      return finish(operation, { kind, credential: candidate.credential, expiresAt: persisted.expiresAt });
+      return finish(operation, {
+        kind,
+        credential: candidate.credential,
+        expiresAt: persisted.expiresAt,
+        activeStoreId: persisted.activeStoreId,
+      });
     } catch { return finish(operation, { kind: "durable_authority_invalid" }); }
   }
 

@@ -13,7 +13,7 @@ interface Pool { connect(): Promise<Client> }
 
 type SafeKind = "membership_denied" | "durable_authority_invalid" | "operation_mismatch" | "unavailable";
 export type ReturningPanelSessionIssuerResult = Readonly<
-  | { kind: "session_issued"; credential: string; issuedAt: string; expiresAt: string }
+  | { kind: "session_issued"; credential: string; activeStoreId: string; issuedAt: string; expiresAt: string }
   | { kind: SafeKind }
 >;
 
@@ -66,7 +66,8 @@ function projected(kind: string, authority: unknown, credential: string): Return
     if (!session || typeof session !== "object" || Array.isArray(session)) return Object.freeze({ kind: "durable_authority_invalid" });
     const issuedAt = timestamp((session as Record<string, unknown>).issuedAt);
     const expiresAt = timestamp((session as Record<string, unknown>).expiresAt);
-    return Object.freeze({ kind: "session_issued", credential, issuedAt, expiresAt });
+    const activeStoreId = uuid((session as Record<string, unknown>).activeStoreId);
+    return Object.freeze({ kind: "session_issued", credential, activeStoreId, issuedAt, expiresAt });
   }
   if (["membership_denied", "durable_authority_invalid", "operation_mismatch", "unavailable"].includes(kind)) {
     return Object.freeze({ kind: kind as SafeKind });
@@ -157,29 +158,32 @@ export function createPostgresReturningPanelSessionIssuer(options: {
   }
 
   return Object.freeze({
-    async issue(identityInput: { issuer: string; subject: string }): Promise<ReturningPanelSessionIssuerResult> {
+    async issue(identityInput: { issuer: string; subject: string }, destinationHostnameInput: string): Promise<ReturningPanelSessionIssuerResult> {
       let identity: { issuer: string; subject: string };
       let credential: string;
       let digest: string;
       let ids: string[];
       let now: Date;
+      let destinationHostname: string;
       try {
         identity = exactIdentity(identityInput);
+        destinationHostname = destinationHostnameInput;
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(destinationHostname)) invalid();
         ({ credential, digest } = candidate());
         ids = [uuid(options.randomUuid()), uuid(options.randomUuid()), uuid(options.randomUuid())];
         now = options.clock();
         if (!(now instanceof Date) || !Number.isFinite(now.getTime())) invalid();
       } catch { return Object.freeze({ kind: "durable_authority_invalid" }); }
       const expiresAt = new Date(now.getTime() + SESSION_LIFETIME_MS);
-      const values = [identity.issuer, identity.subject, ids[0], ids[1], ids[2], activeKeyId, digest, now, expiresAt] as const;
+      const values = [identity.issuer, identity.subject, destinationHostname, ids[0], ids[1], ids[2], activeKeyId, digest, now, expiresAt] as const;
       const written = await transaction("write", async (client) => resultRow(await client.query(
-        "SELECT outcome, authority FROM saas.issue_returning_panel_session($1,$2,$3,$4,$5,$6,$7,$8,$9)", values,
+        "SELECT outcome, authority FROM saas.issue_returning_panel_session_for_admin_host($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", values,
       )));
       let result: ReturningPanelSessionIssuerResult;
       if (written.status === "commit_unknown") {
         const recovered = await transaction("read", async (client) => resultRow(await client.query(
-          "SELECT outcome, authority FROM saas.recover_returning_panel_session($1,$2,$3,$4,$5)",
-          [identity.issuer, identity.subject, ids[2], activeKeyId, digest],
+          "SELECT outcome, authority FROM saas.recover_returning_panel_session_for_admin_host($1,$2,$3,$4,$5,$6)",
+          [identity.issuer, identity.subject, destinationHostname, ids[2], activeKeyId, digest],
         )));
         result = recovered.status === "ok" ? projected(recovered.value.outcome, recovered.value.authority, credential) : Object.freeze({ kind: "unavailable" });
       } else {

@@ -79,6 +79,7 @@ export interface OidcAuthorizationTransaction {
   createdAt: string;
   expiresAt: string;
   panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
+  panelLoginDestinationHostname?: string;
 }
 
 export interface OidcTransactionStore {
@@ -100,6 +101,7 @@ export interface BeginOidcAuthorizationInput {
   allowInsecureLocalAuthorization?: boolean;
   allowLocalTestCallback?: boolean;
   panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
+  panelLoginDestinationHostname?: string;
   now?: () => Date;
 }
 
@@ -134,6 +136,13 @@ function exactPanelLoginBinding(value: unknown): Readonly<{ keyId: string; diges
     !KEY_ID.test(row.keyId) || row.keyId.includes("..") || typeof row.digest !== "string" || !DIGEST.test(row.digest)
   ) throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
   return Object.freeze({ keyId: row.keyId, digest: row.digest });
+}
+
+function exactPanelLoginDestinationHostname(value: unknown): string {
+  if (typeof value !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(value)) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login destination is invalid.");
+  }
+  return value;
 }
 
 async function createS256Challenge(verifier: string) {
@@ -314,7 +323,13 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
   const panelLoginBinding = input.panelLoginBinding === undefined
     ? undefined
     : exactPanelLoginBinding(input.panelLoginBinding);
-  if ((panelLoginBinding !== undefined) !== (input.returnTo === "/login")) {
+  const panelLoginDestinationHostname = input.panelLoginDestinationHostname === undefined
+    ? undefined
+    : exactPanelLoginDestinationHostname(input.panelLoginDestinationHostname);
+  if (
+    (panelLoginBinding !== undefined) !== (input.returnTo === "/login") ||
+    (panelLoginBinding !== undefined) !== (panelLoginDestinationHostname !== undefined)
+  ) {
     throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
   }
   const state = randomOpaqueValue(32, panelLoginBinding ? "plogin_" : "");
@@ -333,6 +348,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + OIDC_TRANSACTION_LIFETIME_MS).toISOString(),
     ...(panelLoginBinding ? { panelLoginBinding } : {}),
+    ...(panelLoginDestinationHostname ? { panelLoginDestinationHostname } : {}),
   };
 
   await input.transactionStore.save(transaction);
@@ -446,7 +462,9 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
     const proof = exactPanelLoginBinding(input.panelLoginBinding);
     if (
       proof.keyId !== transaction.panelLoginBinding.keyId ||
-      proof.digest !== transaction.panelLoginBinding.digest || transaction.returnTo !== "/login"
+      proof.digest !== transaction.panelLoginBinding.digest || transaction.returnTo !== "/login" ||
+      !transaction.panelLoginDestinationHostname ||
+      exactPanelLoginDestinationHostname(transaction.panelLoginDestinationHostname) !== transaction.panelLoginDestinationHostname
     ) throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
   } else if (input.panelLoginBinding !== undefined) {
     throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
@@ -475,5 +493,6 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   return {
     identity,
     returnTo: transaction.returnTo,
+    ...(transaction.panelLoginDestinationHostname ? { panelLoginDestinationHostname: transaction.panelLoginDestinationHostname } : {}),
   };
 }

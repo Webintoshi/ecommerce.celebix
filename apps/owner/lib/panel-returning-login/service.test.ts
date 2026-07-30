@@ -12,6 +12,8 @@ import { createPanelReturningLoginService } from "./service.ts";
 const NOW = new Date("2026-07-30T12:00:00.000Z");
 const PB = `pb1.${Buffer.alloc(32, 4).toString("base64url")}`;
 const PROOF = Object.freeze({ keyId: "browser-active", digest: "a".repeat(64) });
+const HOSTNAME = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const STORE_ID = "30000000-0000-4000-8000-000000000001";
 
 class Store {
   private rows = new Map<string, OidcAuthorizationTransaction>();
@@ -64,10 +66,11 @@ function fixture() {
         credential === PB ? PROOF : Object.freeze({ keyId: "browser-active", digest: "b".repeat(64) }),
       ]),
     },
-    sessionIssuer: { async issue(identity) {
+    sessionIssuer: { async issue(identity, destinationHostname) {
       issuerCalls += 1;
       assert.deepEqual(identity, { issuer: "https://identity.example.test/oidc", subject: "merchant" });
-      return { kind: "session_issued" as const, credential: `v1.session.${Buffer.alloc(32, 5).toString("base64url")}`, issuedAt: NOW.toISOString(), expiresAt: new Date(NOW.getTime() + 28_800_000).toISOString() };
+      assert.equal(destinationHostname, HOSTNAME);
+      return { kind: "session_issued" as const, credential: `v1.session.${Buffer.alloc(32, 5).toString("base64url")}`, activeStoreId: STORE_ID, issuedAt: NOW.toISOString(), expiresAt: new Date(NOW.getTime() + 28_800_000).toISOString() };
     } },
     callbackAuthority: "https://panel.celebix.site/auth/callback",
     expectedIssuer: "https://identity.example.test/oidc",
@@ -80,7 +83,7 @@ function fixture() {
 
 test("returning login starts one browser-bound OIDC authorization and completes it into a session", async () => {
   const f = fixture();
-  const started = await f.service.start(PB);
+  const started = await f.service.start(PB, HOSTNAME);
   assert.equal(started.kind, "panel_login_ready");
   if (started.kind !== "panel_login_ready") return;
   assert.deepEqual(new URL(started.providerAuthorizationUrl).searchParams.getAll("prompt"), ["login"]);
@@ -88,13 +91,17 @@ test("returning login starts one browser-bound OIDC authorization and completes 
   assert.ok(state);
   const completed = await f.service.tryComplete({ state, code: "valid" }, PB);
   assert.equal(completed.kind, "session_ready");
+  if (completed.kind === "session_ready") {
+    assert.equal(completed.activeStoreId, STORE_ID);
+    assert.equal(completed.destinationOrigin, `https://${HOSTNAME}`);
+  }
   assert.equal(f.providerCalls(), 1);
   assert.equal(f.issuerCalls(), 1);
 });
 
 test("wrong browser binding and registration states never reach provider or session issuer", async () => {
   const f = fixture();
-  const started = await f.service.start(PB);
+  const started = await f.service.start(PB, HOSTNAME);
   assert.equal(started.kind, "panel_login_ready");
   if (started.kind !== "panel_login_ready") return;
   const state = new URL(started.providerAuthorizationUrl).searchParams.get("state")!;

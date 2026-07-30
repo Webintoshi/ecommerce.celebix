@@ -41,6 +41,8 @@ export type PanelSessionCompletionInternalResult = Readonly<
       kind: "session_handoff_ready";
       handoffCredential: string;
       handoffExpiresAt: string;
+      destinationStoreId: string;
+      destinationOrigin: string;
       redirectPath: "/";
     }
   | {
@@ -49,6 +51,8 @@ export type PanelSessionCompletionInternalResult = Readonly<
       sessionCredential: string;
       sessionIssuedAt: string;
       sessionExpiresAt: string;
+      destinationStoreId: string;
+      destinationOrigin: string;
       redirectPath: "/";
     }
   | {
@@ -108,6 +112,23 @@ function canonicalTimestamp(value: unknown): string {
   return value;
 }
 
+function canonicalUuid(value: unknown): string {
+  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) invalid();
+  return value;
+}
+
+function canonicalAdminOrigin(value: unknown): string {
+  if (typeof value !== "string" || value.length > 2_048 || value !== value.trim()) invalid();
+  let url: URL;
+  try { url = new URL(value); } catch { return invalid(); }
+  if (
+    url.protocol !== "https:" || url.username || url.password || url.port ||
+    url.pathname !== "/" || url.search || url.hash || url.origin !== value ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(url.hostname)
+  ) invalid();
+  return value;
+}
+
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): void {
   const keys = Object.keys(value);
   if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) invalid();
@@ -122,7 +143,7 @@ function parseCanonicalResult(raw: string, status: number): PanelSessionCompleti
   let result: PanelSessionCompletionInternalResult;
   if (status === 200) {
     if (body.kind === "session_ready") {
-      exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "redirectPath"]);
+      exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.redirectPath !== "/") invalid();
       result = Object.freeze({
         schemaVersion: 1,
@@ -130,16 +151,20 @@ function parseCanonicalResult(raw: string, status: number): PanelSessionCompleti
         sessionCredential: canonicalSessionCredential(body.sessionCredential),
         sessionIssuedAt: canonicalTimestamp(body.sessionIssuedAt),
         sessionExpiresAt: canonicalTimestamp(body.sessionExpiresAt),
+        destinationStoreId: canonicalUuid(body.destinationStoreId),
+        destinationOrigin: canonicalAdminOrigin(body.destinationOrigin),
         redirectPath: "/",
       });
     } else {
-      exactKeys(body, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "redirectPath"]);
+      exactKeys(body, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.kind !== "session_handoff_ready" || body.redirectPath !== "/") invalid();
       result = Object.freeze({
         schemaVersion: 1,
         kind: "session_handoff_ready",
         handoffCredential: canonicalHandoffCredential(body.handoffCredential),
         handoffExpiresAt: canonicalTimestamp(body.handoffExpiresAt),
+        destinationStoreId: canonicalUuid(body.destinationStoreId),
+        destinationOrigin: canonicalAdminOrigin(body.destinationOrigin),
         redirectPath: "/",
       });
     }

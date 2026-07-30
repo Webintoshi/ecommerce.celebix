@@ -19,6 +19,8 @@ const NOW = new Date("2026-07-14T12:00:00.000Z");
 const SECRET = new Uint8Array(32).fill(0x35);
 const HANDOFF = `h1.handoff.active.${Buffer.alloc(32, 0x44).toString("base64url")}`;
 const EXPIRES = new Date(NOW.getTime() + 600_000).toISOString();
+const DESTINATION_STORE_ID = "40000000-0000-4000-8000-000000000001";
+const DESTINATION_ORIGIN = "https://store-slug.admin.celebix.site";
 const SESSION = `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`;
 const SESSION_EXPIRES = new Date(NOW.getTime() + 28_800_000).toISOString();
 
@@ -48,9 +50,9 @@ async function authority() {
 
 test("canonical success JSON and exact domain-separated response signature bind request, status, and raw body", async () => {
   const authenticated = await authority();
-  const result = createSessionHandoffReadyResult(HANDOFF, EXPIRES);
+  const result = createSessionHandoffReadyResult(HANDOFF, EXPIRES, DESTINATION_STORE_ID, DESTINATION_ORIGIN);
   const raw = canonicalOwnerPanelSessionHandoffResult(result);
-  assert.equal(raw, `{"schemaVersion":1,"kind":"session_handoff_ready","handoffCredential":"${HANDOFF}","handoffExpiresAt":"${EXPIRES}","redirectPath":"/"}`);
+  assert.equal(raw, `{"schemaVersion":1,"kind":"session_handoff_ready","handoffCredential":"${HANDOFF}","handoffExpiresAt":"${EXPIRES}","destinationStoreId":"${DESTINATION_STORE_ID}","destinationOrigin":"${DESTINATION_ORIGIN}","redirectPath":"/"}`);
   const responseDigest = createHash("sha256").update(raw).digest("hex");
   const preimage = ownerPanelSessionHandoffResponseSignaturePreimage({
     requestTimestamp: authenticated.timestamp,
@@ -76,15 +78,15 @@ test("canonical success JSON and exact domain-separated response signature bind 
 
 test("returning login signs only the exact durable session projection", async () => {
   const authenticated = await authority();
-  const result = createSessionReadyResult(SESSION, NOW.toISOString(), SESSION_EXPIRES);
+  const result = createSessionReadyResult(SESSION, NOW.toISOString(), SESSION_EXPIRES, DESTINATION_STORE_ID, DESTINATION_ORIGIN);
   const raw = canonicalOwnerPanelSessionHandoffResult(result);
-  assert.equal(raw, `{"schemaVersion":1,"kind":"session_ready","sessionCredential":"${SESSION}","sessionIssuedAt":"${NOW.toISOString()}","sessionExpiresAt":"${SESSION_EXPIRES}","redirectPath":"/"}`);
+  assert.equal(raw, `{"schemaVersion":1,"kind":"session_ready","sessionCredential":"${SESSION}","sessionIssuedAt":"${NOW.toISOString()}","sessionExpiresAt":"${SESSION_EXPIRES}","destinationStoreId":"${DESTINATION_STORE_ID}","destinationOrigin":"${DESTINATION_ORIGIN}","redirectPath":"/"}`);
   const response = createSignedOwnerPanelSessionHandoffResponse(result, authenticated);
   assert.equal(response.status, 200);
   assert.equal(await response.text(), raw);
   assert.equal(response.headers.has("set-cookie"), false);
   assert.equal(response.headers.has("location"), false);
-  assert.throws(() => createSessionReadyResult("v1.bad", NOW.toISOString(), SESSION_EXPIRES), /owner_panel_session_handoff_response_invalid/);
+  assert.throws(() => createSessionReadyResult("v1.bad", NOW.toISOString(), SESSION_EXPIRES, DESTINATION_STORE_ID, DESTINATION_ORIGIN), /owner_panel_session_handoff_response_invalid/);
 });
 
 test("fresh-login results use only the exact canonical status/code matrix", async () => {
@@ -107,14 +109,14 @@ test("fresh-login results use only the exact canonical status/code matrix", asyn
 });
 
 test("response construction rejects malformed credentials, timestamps, digests, statuses, and unauthenticated copies", async () => {
-  assert.throws(() => createSessionHandoffReadyResult("h1.bad", EXPIRES), /owner_panel_session_handoff_response_invalid/);
-  assert.throws(() => createSessionHandoffReadyResult(HANDOFF, "2026-07-14"), /owner_panel_session_handoff_response_invalid/);
+  assert.throws(() => createSessionHandoffReadyResult("h1.bad", EXPIRES, DESTINATION_STORE_ID, DESTINATION_ORIGIN), /owner_panel_session_handoff_response_invalid/);
+  assert.throws(() => createSessionHandoffReadyResult(HANDOFF, "2026-07-14", DESTINATION_STORE_ID, DESTINATION_ORIGIN), /owner_panel_session_handoff_response_invalid/);
   assert.throws(() => ownerPanelSessionHandoffResponseSignaturePreimage({
     requestTimestamp: String(NOW.getTime()), requestBodyDigest: "A".repeat(64), status: 200, responseBodyDigest: "b".repeat(64),
   }), /owner_panel_session_handoff_response_invalid/);
   const authenticated = await authority();
   assert.throws(
-    () => createSignedOwnerPanelSessionHandoffResponse(createSessionHandoffReadyResult(HANDOFF, EXPIRES), { ...authenticated } as never),
+    () => createSignedOwnerPanelSessionHandoffResponse(createSessionHandoffReadyResult(HANDOFF, EXPIRES, DESTINATION_STORE_ID, DESTINATION_ORIGIN), { ...authenticated } as never),
     /owner_internal_callback_authenticated_request_invalid/,
   );
 });

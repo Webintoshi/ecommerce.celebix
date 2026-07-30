@@ -41,7 +41,7 @@ function fixture(options: {
   const tenantResult = {
     store: { slug: "verified-store" },
     storefrontUrl: "https://verified-store.celebix.site",
-    panelUrl: "https://panel.celebix.site",
+    panelUrl: "https://verified-store.admin.celebix.site",
     operationId: "operation_verified",
     replayed: false,
   } as CreateStarterTenantResult;
@@ -156,7 +156,7 @@ function fixture(options: {
       async tryComplete() {
         order.push("returning_login");
         return options.returningLogin === "session_ready"
-          ? { kind: "session_ready" as const, credential: `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`, issuedAt: NOW.toISOString(), expiresAt: new Date(NOW.getTime() + 28_800_000).toISOString() }
+          ? { kind: "session_ready" as const, credential: `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`, activeStoreId: "40000000-0000-4000-8000-000000000001", destinationOrigin: "https://verified-store.admin.celebix.site", issuedAt: NOW.toISOString(), expiresAt: new Date(NOW.getTime() + 28_800_000).toISOString() }
           : { kind: "fresh_login_required" as const, code: "callback_not_granted" as const };
       },
       async tryRejectProvider() { return { kind: "fresh_login_required" as const, code: "callback_not_granted" as const }; },
@@ -189,6 +189,8 @@ test("exact active edge context executes one genuine initial callback and return
   if (result.body.kind === "session_handoff_ready") {
     assert.match(result.body.handoffCredential, /^h1\./);
     assert.equal(result.body.handoffExpiresAt, new Date(NOW.getTime() + 600_000).toISOString());
+    assert.equal(result.body.destinationStoreId, "40000000-0000-4000-8000-000000000001");
+    assert.equal(result.body.destinationOrigin, "https://verified-store.admin.celebix.site");
   }
   assert.equal(current.providerCalls, 1);
   assert.equal(current.issueCalls, 1);
@@ -218,6 +220,8 @@ test("browser-bound returning login bypasses tenant completion and returns one d
     sessionCredential: `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`,
     sessionIssuedAt: NOW.toISOString(),
     sessionExpiresAt: new Date(NOW.getTime() + 28_800_000).toISOString(),
+    destinationStoreId: "40000000-0000-4000-8000-000000000001",
+    destinationOrigin: "https://verified-store.admin.celebix.site",
     redirectPath: "/",
   });
   assert.equal(current.claimCalls, 0);

@@ -115,6 +115,24 @@ export function createDisabledCustomerPanelAuthComposition(options: {
     redeemHandoff(input: { credential: string }): Promise<unknown>;
     recoverRedemption(input: { credential: string }): Promise<unknown>;
   };
+  crossHostHandoff?: {
+    repository: {
+      issueHandoff(input: {
+        currentCredential: string;
+        operationId: string;
+        destinationStoreId: string;
+        destinationHostname: string;
+        now: Date;
+      }): Promise<unknown>;
+      recoverIssuedHandoff(input: {
+        operationId: string;
+        credential: string;
+        destinationHostname: string;
+        now: Date;
+      }): Promise<unknown>;
+    };
+    randomUuid(): string;
+  };
 }): DisabledCustomerPanelAuthComposition {
   assertCustomerPanelAuthCompositionApproval(options?.activationApproval);
   if (
@@ -123,6 +141,12 @@ export function createDisabledCustomerPanelAuthComposition(options: {
     typeof options.handoffRedeemer.redeemHandoff !== "function" ||
     typeof options.handoffRedeemer.recoverRedemption !== "function"
   ) invalid();
+  if (options.crossHostHandoff && (
+    !options.crossHostHandoff.repository ||
+    typeof options.crossHostHandoff.repository.issueHandoff !== "function" ||
+    typeof options.crossHostHandoff.repository.recoverIssuedHandoff !== "function" ||
+    typeof options.crossHostHandoff.randomUuid !== "function"
+  )) invalid();
   const environment: Environment = options.activationApproval.environment;
   const authority = options.authorityProfile ?? DEFAULT_SAAS_AUTH_AUTHORITY_PROFILE;
   try { assertSaaSAuthAuthorityProfile(authority); } catch { return invalid(); }
@@ -136,6 +160,14 @@ export function createDisabledCustomerPanelAuthComposition(options: {
     redeemHandoff: options.handoffRedeemer.redeemHandoff.bind(options.handoffRedeemer),
     recoverRedemption: options.handoffRedeemer.recoverRedemption.bind(options.handoffRedeemer),
   });
+  const crossHostTransfer = options.crossHostHandoff
+    ? Object.freeze({
+        issueHandoff: options.crossHostHandoff.repository.issueHandoff.bind(options.crossHostHandoff.repository),
+        recoverIssuedHandoff: options.crossHostHandoff.repository.recoverIssuedHandoff.bind(options.crossHostHandoff.repository),
+        randomUuid: options.crossHostHandoff.randomUuid,
+        randomBytes,
+      })
+    : undefined;
 
   const browserApproval = createPanelBrowserBindingBootstrapApproval(environment);
   const browserCredentialGenerator = createPanelBrowserBindingCredentialGenerator(randomBytes);
@@ -188,6 +220,7 @@ export function createDisabledCustomerPanelAuthComposition(options: {
     maximumQueryBytes: options.sessionCompletion.maximumQueryBytes,
     transport: sessionTransport,
     redeemer: handoffRedeemer,
+    ...(crossHostTransfer ? { crossHostTransfer } : {}),
     clock,
     audit: options.sessionCompletion.handlerAudit,
   });

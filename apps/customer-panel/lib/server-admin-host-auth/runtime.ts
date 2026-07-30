@@ -44,10 +44,10 @@ function handoffFacade(repository: HandoffAuthority): HandoffAuthority {
     || typeof repository.recoverRedemption !== "function"
   ) invalid();
   return Object.freeze({
-    issueHandoff: (input) => repository.issueHandoff(input),
-    recoverIssuedHandoff: (input) => repository.recoverIssuedHandoff(input),
-    redeemHandoff: (input) => repository.redeemHandoff(input),
-    recoverRedemption: (input) => repository.recoverRedemption(input),
+    issueHandoff: (input: Parameters<HandoffAuthority["issueHandoff"]>[0]) => repository.issueHandoff(input),
+    recoverIssuedHandoff: (input: Parameters<HandoffAuthority["recoverIssuedHandoff"]>[0]) => repository.recoverIssuedHandoff(input),
+    redeemHandoff: (input: Parameters<HandoffAuthority["redeemHandoff"]>[0]) => repository.redeemHandoff(input),
+    recoverRedemption: (input: Parameters<HandoffAuthority["recoverRedemption"]>[0]) => repository.recoverRedemption(input),
   });
 }
 

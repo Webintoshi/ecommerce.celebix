@@ -36,7 +36,7 @@ function payload(value: unknown, expectedCallbackAuthority: string, schemaVersio
   const required = [
     "nonce", "codeVerifier", "redirectUri", "returnTo", "expectedIssuer", "expectedAudience", "createdAt", "expiresAt",
   ];
-  const row = exactObject(value, required, schemaVersion === PANEL_LOGIN_SCHEMA_VERSION ? ["panelLoginBinding"] : []);
+  const row = exactObject(value, required, schemaVersion === PANEL_LOGIN_SCHEMA_VERSION ? ["panelLoginBinding", "panelLoginDestinationHostname"] : []);
   const createdAt = canonicalTimestamp(row.createdAt);
   const expiresAt = canonicalTimestamp(row.expiresAt);
   if (Date.parse(expiresAt) <= Date.parse(createdAt)) throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
@@ -52,6 +52,7 @@ function payload(value: unknown, expectedCallbackAuthority: string, schemaVersio
     throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
   }
   let panelLoginBinding: Readonly<{ keyId: string; digest: string }> | undefined;
+  let panelLoginDestinationHostname: string | undefined;
   if (schemaVersion === PANEL_LOGIN_SCHEMA_VERSION) {
     const binding = exactObject(row.panelLoginBinding, ["keyId", "digest"]);
     const keyId = requiredString(binding.keyId, 64);
@@ -60,6 +61,10 @@ function payload(value: unknown, expectedCallbackAuthority: string, schemaVersio
       throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
     }
     panelLoginBinding = Object.freeze({ keyId, digest });
+    panelLoginDestinationHostname = requiredString(row.panelLoginDestinationHostname, 253);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(panelLoginDestinationHostname)) {
+      throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
+    }
   }
   return {
     nonce,
@@ -71,16 +76,20 @@ function payload(value: unknown, expectedCallbackAuthority: string, schemaVersio
     createdAt,
     expiresAt,
     ...(panelLoginBinding ? { panelLoginBinding } : {}),
+    ...(panelLoginDestinationHostname ? { panelLoginDestinationHostname } : {}),
   };
 }
 
 function transaction(value: unknown, expectedCallbackAuthority: string): { value: OidcAuthorizationTransaction; schemaVersion: number } {
   const row = exactObject(value, [
     "state", "nonce", "codeVerifier", "redirectUri", "returnTo", "expectedIssuer", "expectedAudience", "createdAt", "expiresAt",
-  ], ["panelLoginBinding"]);
+  ], ["panelLoginBinding", "panelLoginDestinationHostname"]);
   const state = requiredString(row.state, 1024);
   if (state.length < 16) throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
   const schemaVersion = row.panelLoginBinding === undefined ? REGISTRATION_SCHEMA_VERSION : PANEL_LOGIN_SCHEMA_VERSION;
+  if ((row.panelLoginBinding === undefined) !== (row.panelLoginDestinationHostname === undefined)) {
+    throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
+  }
   if ((schemaVersion === PANEL_LOGIN_SCHEMA_VERSION) !== state.startsWith("plogin_")) {
     throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
   }
@@ -94,6 +103,7 @@ function transaction(value: unknown, expectedCallbackAuthority: string): { value
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
     ...(row.panelLoginBinding === undefined ? {} : { panelLoginBinding: row.panelLoginBinding }),
+    ...(row.panelLoginDestinationHostname === undefined ? {} : { panelLoginDestinationHostname: row.panelLoginDestinationHostname }),
   }, expectedCallbackAuthority, schemaVersion) } };
 }
 

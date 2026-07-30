@@ -4,6 +4,7 @@ import {
   validateCustomerPanelCallbackAuthority,
 } from "../self-serve-callback-edge/callback-request.ts";
 import { PANEL_BROWSER_BINDING_DELETION_COOKIE } from "../panel-browser-binding/cookie.ts";
+import { createCrossHostHandoffAutoPostResponse } from "../cross-host-handoff-auto-post.ts";
 import { assertPanelSessionCompletionApproval } from "./activation.ts";
 import { serializePersistentPanelSessionCookie } from "./cookie.ts";
 
@@ -12,6 +13,7 @@ const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const MAXIMUM_SESSION_MS = 8 * 60 * 60_000;
 const MAXIMUM_HANDOFF_MS = 10 * 60_000;
+const MAXIMUM_CROSS_HOST_HANDOFF_MS = 2 * 60_000;
 
 type CompletionAudit = (event: Readonly<{
   stage: "callback" | "transport" | "redemption" | "browser_response";
@@ -92,7 +94,24 @@ function timestamp(value: unknown): { iso: string; milliseconds: number } {
   return { iso: value, milliseconds };
 }
 
-function successfulRedemption(value: unknown, trustedNow: Date): { credential: string; issuedAt: string; expiresAt: string } {
+function canonicalUuid(value: unknown): string {
+  if (typeof value !== "string" || !UUID.test(value)) invalid();
+  return value;
+}
+
+function canonicalAdminOrigin(value: unknown): string {
+  if (typeof value !== "string" || value !== value.trim() || value.length > 2_048) invalid();
+  let url: URL;
+  try { url = new URL(value); } catch { return invalid(); }
+  if (
+    url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/" ||
+    url.search || url.hash || url.origin !== value ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(url.hostname)
+  ) invalid();
+  return value;
+}
+
+function successfulRedemption(value: unknown, trustedNow: Date): { credential: string; activeStoreId: string; issuedAt: string; expiresAt: string } {
   if (!value || typeof value !== "object" || !Object.isFrozen(value)) invalid();
   const result = exact(value, ["kind", "credential", "session"]);
   if (result.kind !== "session_issued" && result.kind !== "session_replayed") invalid();
@@ -112,7 +131,29 @@ function successfulRedemption(value: unknown, trustedNow: Date): { credential: s
     rotatedAt.milliseconds >= expiresAt.milliseconds || expiresAt.milliseconds <= trustedNow.getTime() ||
     expiresAt.milliseconds > issuedAt.milliseconds + MAXIMUM_SESSION_MS
   ) invalid();
-  return { credential: credential(result.credential), issuedAt: issuedAt.iso, expiresAt: expiresAt.iso };
+  return {
+    credential: credential(result.credential),
+    activeStoreId: canonicalUuid(session.activeStoreId),
+    issuedAt: issuedAt.iso,
+    expiresAt: expiresAt.iso,
+  };
+}
+
+function successfulCrossHostIssue(
+  value: unknown,
+  expectedOrigin: string,
+  trustedNow: Date,
+): { credential: string; destinationOrigin: string; expiresAt: string } {
+  if (!value || typeof value !== "object" || !Object.isFrozen(value)) invalid();
+  const result = exact(value, ["kind", "credential", "destinationOrigin", "expiresAt"]);
+  if (result.kind !== "handoff_issued" && result.kind !== "operation_replayed") invalid();
+  const destinationOrigin = canonicalAdminOrigin(result.destinationOrigin);
+  const expiresAt = timestamp(result.expiresAt);
+  if (
+    destinationOrigin !== expectedOrigin || expiresAt.milliseconds <= trustedNow.getTime() ||
+    expiresAt.milliseconds > trustedNow.getTime() + MAXIMUM_CROSS_HOST_HANDOFF_MS
+  ) invalid();
+  return { credential: credential(result.credential), destinationOrigin, expiresAt: expiresAt.iso };
 }
 
 function internalResult(value: unknown, clock: () => Date): Record<string, unknown> {
@@ -120,21 +161,25 @@ function internalResult(value: unknown, clock: () => Date): Record<string, unkno
   const row = value as Record<string, unknown>;
   if (row.schemaVersion !== 1) invalid();
   if (row.kind === "session_handoff_ready") {
-    exact(row, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "redirectPath"]);
+    exact(row, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
     if (row.redirectPath !== "/") invalid();
     handoffCredential(row.handoffCredential);
+    canonicalUuid(row.destinationStoreId);
+    canonicalAdminOrigin(row.destinationOrigin);
     const trustedNow = now(clock).getTime();
     const expiresAt = timestamp(row.handoffExpiresAt).milliseconds;
     if (expiresAt <= trustedNow || expiresAt > trustedNow + MAXIMUM_HANDOFF_MS) invalid();
     return row;
   }
   if (row.kind === "session_ready") {
-    exact(row, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "redirectPath"]);
+    exact(row, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
     if (row.redirectPath !== "/") invalid();
     credential(row.sessionCredential);
     const trustedNow = now(clock).getTime();
     const issuedAt = timestamp(row.sessionIssuedAt).milliseconds;
     const expiresAt = timestamp(row.sessionExpiresAt).milliseconds;
+    canonicalUuid(row.destinationStoreId);
+    canonicalAdminOrigin(row.destinationOrigin);
     if (issuedAt > trustedNow || expiresAt <= trustedNow || expiresAt > issuedAt + MAXIMUM_SESSION_MS) invalid();
     return row;
   }
@@ -152,6 +197,23 @@ export function createPanelSessionCompletionHandler(options: {
   redeemer: {
     redeemHandoff(input: { credential: string }): Promise<unknown>;
     recoverRedemption(input: { credential: string }): Promise<unknown>;
+  };
+  crossHostTransfer?: {
+    issueHandoff(input: {
+      currentCredential: string;
+      operationId: string;
+      destinationStoreId: string;
+      destinationHostname: string;
+      now: Date;
+    }): Promise<unknown>;
+    recoverIssuedHandoff(input: {
+      operationId: string;
+      credential: string;
+      destinationHostname: string;
+      now: Date;
+    }): Promise<unknown>;
+    randomUuid(): string;
+    randomBytes(size: number): Uint8Array;
   };
   clock(): Date;
   audit: CompletionAudit;
@@ -173,12 +235,56 @@ export function createPanelSessionCompletionHandler(options: {
     typeof options.redeemer.redeemHandoff !== "function" || typeof options.redeemer.recoverRedemption !== "function" ||
     typeof options.clock !== "function" || typeof options.audit !== "function"
   ) invalid();
+  if (options.crossHostTransfer && (
+    typeof options.crossHostTransfer.issueHandoff !== "function" ||
+    typeof options.crossHostTransfer.recoverIssuedHandoff !== "function" ||
+    typeof options.crossHostTransfer.randomUuid !== "function" ||
+    typeof options.crossHostTransfer.randomBytes !== "function"
+  )) invalid();
   now(options.clock);
   const maximumQueryBytes = options.maximumQueryBytes;
   const transport = options.transport;
   const redeemer = options.redeemer;
   const clock = options.clock;
   const audit = options.audit;
+  const crossHostTransfer = options.crossHostTransfer;
+
+  async function transferSession(
+    currentCredential: string,
+    activeStoreId: string,
+    destinationOrigin: string,
+    trustedNow: Date,
+  ): Promise<Response> {
+    if (!crossHostTransfer) invalid();
+    const destinationStoreId = canonicalUuid(activeStoreId);
+    const canonicalDestinationOrigin = canonicalAdminOrigin(destinationOrigin);
+    const destinationHostname = new URL(canonicalDestinationOrigin).hostname;
+    const operationId = canonicalUuid(crossHostTransfer.randomUuid());
+    let transferred = await crossHostTransfer.issueHandoff({
+      currentCredential: credential(currentCredential),
+      operationId,
+      destinationStoreId,
+      destinationHostname,
+      now: trustedNow,
+    });
+    if (transferred && typeof transferred === "object" && (transferred as Record<string, unknown>).kind === "commit_unknown") {
+      const unknown = exact(transferred, ["kind", "credential"]);
+      transferred = await crossHostTransfer.recoverIssuedHandoff({
+        operationId,
+        credential: credential(unknown.credential),
+        destinationHostname,
+        now: trustedNow,
+      });
+    }
+    const transfer = successfulCrossHostIssue(transferred, canonicalDestinationOrigin, trustedNow);
+    const response = createCrossHostHandoffAutoPostResponse({
+      destinationOrigin: transfer.destinationOrigin,
+      handoffCredential: transfer.credential,
+      randomBytes: crossHostTransfer.randomBytes,
+    });
+    response.headers.append("set-cookie", PANEL_BROWSER_BINDING_DELETION_COOKIE);
+    return response;
+  }
 
   return async function panelSessionCompletionHandler(request: Request): Promise<Response> {
     let callback;
@@ -213,6 +319,16 @@ export function createPanelSessionCompletionHandler(options: {
     if (result.kind === "session_ready") {
       try {
         const trustedNow = now(clock);
+        if (crossHostTransfer) {
+          const response = await transferSession(
+            String(result.sessionCredential),
+            String(result.destinationStoreId),
+            String(result.destinationOrigin),
+            trustedNow,
+          );
+          auditSafely(audit, { stage: "browser_response", outcome: "completed" });
+          return response;
+        }
         const cookie = serializePersistentPanelSessionCookie({
           credential: String(result.sessionCredential),
           issuedAt: String(result.sessionIssuedAt),
@@ -244,6 +360,15 @@ export function createPanelSessionCompletionHandler(options: {
       }
       const trustedNow = now(clock);
       const session = successfulRedemption(redeemed, trustedNow);
+      if (crossHostTransfer) {
+        const destinationStoreId = canonicalUuid(result.destinationStoreId);
+        const destinationOrigin = canonicalAdminOrigin(result.destinationOrigin);
+        if (session.activeStoreId !== destinationStoreId) invalid();
+        auditSafely(audit, { stage: "redemption", outcome: "completed" });
+        const response = await transferSession(session.credential, destinationStoreId, destinationOrigin, trustedNow);
+        auditSafely(audit, { stage: "browser_response", outcome: "completed" });
+        return response;
+      }
       const cookie = serializePersistentPanelSessionCookie({
         credential: session.credential,
         issuedAt: session.issuedAt,

@@ -17,6 +17,7 @@ const BS = `bs1.bootstrap.${Buffer.alloc(32, 0x11).toString("base64url")}`;
 const PB = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 const PROVIDER = "https://identity.example.test/authorize?state=state_0123456789abcdefghijklmnop&redirect_uri=https%3A%2F%2Fpanel.celebix.site%2Fauth%2Fcallback&response_type=code&response_mode=query";
 const EXPIRES = new Date(NOW.getTime() + 600_000).toISOString();
+const DESTINATION = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 
 function withUrl(response: Response, url = ENDPOINT, redirected = false) {
   Object.defineProperty(response, "url", { configurable: true, value: url });
@@ -125,7 +126,7 @@ test("accepts only the signed fixed rejection matrix without retry", async () =>
   }
 });
 
-test("starts returning login with schema v2 and authenticates the exact provider projection", async () => {
+test("starts returning login with a destination-bound schema v3 request and authenticates the exact provider projection", async () => {
   let captured: Request | undefined;
   const result = await transport(async (request) => {
     captured = request;
@@ -137,7 +138,7 @@ test("starts returning login with schema v2 and authenticates the exact provider
         browserBindingExpiresAt: EXPIRES,
       }),
     });
-  }).start({ browserBindingCredential: PB });
+  }).start({ browserBindingCredential: PB, destinationHostname: DESTINATION });
   assert.deepEqual(result, {
     kind: "panel_login_ready",
     providerAuthorizationUrl: PROVIDER,
@@ -145,7 +146,8 @@ test("starts returning login with schema v2 and authenticates the exact provider
   });
   assert.ok(captured);
   assert.equal(await captured.clone().text(), JSON.stringify({
-    schemaVersion: 2,
+    schemaVersion: 3,
     browserBindingCredential: PB,
+    destinationHostname: DESTINATION,
   }));
 });

@@ -6,6 +6,7 @@ import { createPostgresReturningPanelSessionIssuer } from "./postgres-session-is
 
 const NOW = new Date("2026-07-30T12:00:00.000Z");
 const SECRET = Buffer.alloc(32, 11);
+const HOSTNAME = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 const IDS = [
   "10000000-0000-4000-8000-000000000001",
   "10000000-0000-4000-8000-000000000002",
@@ -61,16 +62,18 @@ test("verified OIDC identity issues one durable session with a server-owned cred
   const result = await issuer([client]).issue({
     issuer: "https://identity.example.test/oidc",
     subject: "merchant-subject",
-  });
+  }, HOSTNAME);
   assert.equal(result.kind, "session_issued");
   if (result.kind !== "session_issued") return;
   assert.match(result.credential, /^v1\.session-active\.[A-Za-z0-9_-]{43}$/);
   const expectedDigest = createHmac("sha256", SECRET)
     .update(`celebix-panel-session-v1\n${result.credential}`, "utf8").digest("hex");
-  const call = client.calls.find((entry) => entry.text.includes("saas.issue_returning_panel_session"));
+  const call = client.calls.find((entry) => entry.text.includes("saas.issue_returning_panel_session_for_admin_host"));
   assert.ok(call);
   assert.deepEqual(call.values.slice(0, 2), ["https://identity.example.test/oidc", "merchant-subject"]);
-  assert.equal(call.values[6], expectedDigest);
+  assert.equal(call.values[2], HOSTNAME);
+  assert.equal(call.values[7], expectedDigest);
+  assert.equal(result.activeStoreId, "30000000-0000-4000-8000-000000000001");
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
   assert.deepEqual(client.releaseCalls, [undefined]);
 });
@@ -84,7 +87,7 @@ test("unknown COMMIT destroys the writer and performs exactly one read-only reco
   const result = await issuer([writer, reader]).issue({
     issuer: "https://identity.example.test/oidc",
     subject: "merchant-subject",
-  });
+  }, HOSTNAME);
   assert.equal(result.kind, "session_issued");
   assert.deepEqual(writer.releaseCalls, [true]);
   assert.match(reader.calls[0]?.text ?? "", /^BEGIN READ ONLY$/);
@@ -95,7 +98,7 @@ test("unknown COMMIT destroys the writer and performs exactly one read-only reco
 test("missing identity or membership fails closed without exposing a credential", async () => {
   const client = new Client();
   client.queue.push([], [], [], [], [], [{ outcome: "membership_denied", authority: null }], []);
-  const result = await issuer([client]).issue({ issuer: "https://identity.example.test/oidc", subject: "unknown" });
+  const result = await issuer([client]).issue({ issuer: "https://identity.example.test/oidc", subject: "unknown" }, HOSTNAME);
   assert.deepEqual(result, { kind: "membership_denied" });
   assert.equal("credential" in result, false);
 });

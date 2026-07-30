@@ -17,7 +17,7 @@ export type PanelReturningLoginStart = Readonly<
 
 export type PanelReturningLoginCompletion = Readonly<
   | { kind: "not_panel_login" }
-  | { kind: "session_ready"; credential: string; issuedAt: string; expiresAt: string }
+  | { kind: "session_ready"; credential: string; activeStoreId: string; destinationOrigin: string; issuedAt: string; expiresAt: string }
   | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
 >;
 
@@ -55,7 +55,7 @@ export function createPanelReturningLoginService(options: {
     import("../panel-browser-binding/credential-codec.ts").PanelBrowserBindingAuthorityCodec,
     "digestBrowserBindingCredential" | "digestBrowserBindingCredentialCandidates"
   >;
-  sessionIssuer: { issue(identity: { issuer: string; subject: string }): Promise<ReturningPanelSessionIssuerResult> };
+  sessionIssuer: { issue(identity: { issuer: string; subject: string }, destinationHostname: string): Promise<ReturningPanelSessionIssuerResult> };
   callbackAuthority: string;
   expectedIssuer: string;
   expectedAudience: string;
@@ -73,15 +73,17 @@ export function createPanelReturningLoginService(options: {
   trustedNow(options.clock);
 
   return Object.freeze({
-    async start(browserBindingCredential: string): Promise<PanelReturningLoginStart> {
+    async start(browserBindingCredential: string, destinationHostname: string): Promise<PanelReturningLoginStart> {
       try {
         const binding = options.browserBindingCodec.digestBrowserBindingCredential(browserBindingCredential);
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(destinationHostname)) throw new Error("invalid");
         const started = await beginOidcAuthorization({
           provider: options.provider,
           transactionStore: options.transactionStore,
           redirectUri: options.callbackAuthority,
           returnTo: "/login",
           panelLoginBinding: binding,
+          panelLoginDestinationHostname: destinationHostname,
           expectedIssuer: options.expectedIssuer,
           expectedAudience: options.expectedAudience,
           expectedAuthorizationOrigin: options.expectedAuthorizationOrigin,
@@ -118,8 +120,20 @@ export function createPanelReturningLoginService(options: {
           now: options.clock,
         });
         if (completed.returnTo !== "/login") return Object.freeze({ kind: "fresh_login_required", code: "callback_not_granted" });
-        const issued = await options.sessionIssuer.issue({ issuer: completed.identity.issuer, subject: completed.identity.subject });
-        if (issued.kind === "session_issued") return Object.freeze({ kind: "session_ready", credential: issued.credential, issuedAt: issued.issuedAt, expiresAt: issued.expiresAt });
+        const destinationHostname = completed.panelLoginDestinationHostname;
+        if (!destinationHostname) return Object.freeze({ kind: "fresh_login_required", code: "callback_not_granted" });
+        const issued = await options.sessionIssuer.issue(
+          { issuer: completed.identity.issuer, subject: completed.identity.subject },
+          destinationHostname,
+        );
+        if (issued.kind === "session_issued") return Object.freeze({
+          kind: "session_ready",
+          credential: issued.credential,
+          activeStoreId: issued.activeStoreId,
+          destinationOrigin: `https://${destinationHostname}`,
+          issuedAt: issued.issuedAt,
+          expiresAt: issued.expiresAt,
+        });
         return Object.freeze({
           kind: "fresh_login_required",
           code: issued.kind === "membership_denied" ? "membership_denied" : "callback_unavailable",

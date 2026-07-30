@@ -224,7 +224,9 @@ test("login and logout remain fail-closed without approved staging auth authorit
   assert.equal(typeof logout.GET, "undefined");
   if (typeof login.GET !== "function" || typeof logout.POST !== "function") return;
 
-  assert.match(loginPageSource, /<Link[^>]+href="\/auth\/login"[^>]+prefetch=\{false\}/s);
+  assert.match(loginPageSource, /<Link[^>]+href=\{model\.loginHref\}[^>]+prefetch=\{false\}/s);
+  assert.match(loginPageSource, /resolveTenantAdminLoginModel/);
+  assert.doesNotMatch(loginPageSource, /localStorage|sessionStorage|handoffCredential|sessionCredential/);
   assert.doesNotMatch(loginRouteSource, /https:\/\/panel\.celebix\.site/);
 
   const loginResponse = await login.GET(new Request("https://panel.celebix.site/auth/login"));

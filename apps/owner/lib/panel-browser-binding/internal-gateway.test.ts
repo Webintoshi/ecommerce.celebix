@@ -20,6 +20,7 @@ const SECRET = Buffer.alloc(32, 0x44);
 const BS = `bs1.bootstrap.${Buffer.alloc(32, 0x11).toString("base64url")}`;
 const PB = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 const PROVIDER = "https://identity.example.test/authorize?state=state_0123456789abcdefghijklmnop&redirect_uri=https%3A%2F%2Fpanel.celebix.site%2Fauth%2Fcallback&response_type=code&response_mode=query";
+const DESTINATION = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 
 function signedRequest(overrides: {
   body?: string;
@@ -57,7 +58,7 @@ function signedRequest(overrides: {
 
 function fixture(kind: PanelBrowserBindingResult["kind"] = "browser_binding_created") {
   const binds: unknown[] = [];
-  const loginStarts: string[] = [];
+  const loginStarts: Array<readonly [string, string]> = [];
   const gateway = createOwnerPanelBrowserBindingInternalGateway({
     activationApproval: createPanelBrowserBindingInternalGatewayApproval("disposable_test"),
     ownerInternalOrigin: ORIGIN,
@@ -73,8 +74,8 @@ function fixture(kind: PanelBrowserBindingResult["kind"] = "browser_binding_crea
       },
     },
     returningLogin: {
-      async start(credential) {
-        loginStarts.push(credential);
+      async start(credential, destinationHostname) {
+        loginStarts.push([credential, destinationHostname]);
         return { kind: "panel_login_ready" as const, providerAuthorizationUrl: PROVIDER, browserBindingExpiresAt: new Date(NOW.getTime() + 600_000).toISOString() };
       },
     },
@@ -189,9 +190,9 @@ test("write uncertainty and URL mismatch are signed fail-closed responses withou
   }
 });
 
-test("schema v2 starts returning login after the same raw-byte HMAC authentication", async () => {
+test("schema v3 starts destination-bound returning login after the same raw-byte HMAC authentication", async () => {
   const current = fixture();
-  const body = JSON.stringify({ schemaVersion: 2, browserBindingCredential: PB });
+  const body = JSON.stringify({ schemaVersion: 3, browserBindingCredential: PB, destinationHostname: DESTINATION });
   const request = signedRequest({ body });
   const response = await current.gateway(request);
   assert.equal(response.status, 200);
@@ -201,6 +202,6 @@ test("schema v2 starts returning login after the same raw-byte HMAC authenticati
     providerAuthorizationUrl: PROVIDER,
     browserBindingExpiresAt: new Date(NOW.getTime() + 600_000).toISOString(),
   }));
-  assert.deepEqual(current.loginStarts, [PB]);
+  assert.deepEqual(current.loginStarts, [[PB, DESTINATION]]);
   assert.equal(current.binds.length, 0);
 });

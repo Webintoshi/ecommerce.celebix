@@ -56,8 +56,9 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
          'create_panel_browser_bootstrap','bind_panel_browser_credential','claim_panel_browser_callback',
          'create_panel_session_handoff','redeem_panel_session_handoff','resolve_panel_session',
          'issue_returning_panel_session','recover_returning_panel_session',
+         'issue_returning_panel_session_for_admin_host','recover_returning_panel_session_for_admin_host',
          'provision_canonical_admin_domain'
-       )) = 9 AS required_functions
+       )) = 11 AS required_functions
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (!row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== databaseName ||

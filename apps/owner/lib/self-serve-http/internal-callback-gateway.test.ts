@@ -64,7 +64,7 @@ function safeSuccess() {
     state: "tenant_created_session_pending",
     storeSlug: "ornek-magaza",
     storefrontUrl: "https://ornek-magaza.celebix.site",
-    panelUrl: "https://panel.celebix.site",
+    panelUrl: "https://ornek-magaza.admin.celebix.site",
     provisioningStatus: "ready",
     session: "pending",
   }, { status: 200, headers: { "set-cookie": "secret", location: "/private" } });

@@ -91,7 +91,7 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
       browserBindingCredential: string,
     ): Promise<Readonly<
       | { kind: "not_panel_login" }
-      | { kind: "session_ready"; credential: string; issuedAt: string; expiresAt: string }
+      | { kind: "session_ready"; credential: string; activeStoreId: string; destinationOrigin: string; issuedAt: string; expiresAt: string }
       | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
     >>;
     tryRejectProvider(
@@ -100,7 +100,7 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
       browserBindingCredential: string,
     ): Promise<Readonly<
       | { kind: "not_panel_login" }
-      | { kind: "session_ready"; credential: string; issuedAt: string; expiresAt: string }
+      | { kind: "session_ready"; credential: string; activeStoreId: string; destinationOrigin: string; issuedAt: string; expiresAt: string }
       | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
     >>;
   }>;
@@ -179,7 +179,13 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
               }, browserCredential);
           if (returning.kind === "session_ready") {
             auditSafely(audit, { stage: "handoff", outcome: "accepted" });
-            return createSessionReadyResult(returning.credential, returning.issuedAt, returning.expiresAt);
+            return createSessionReadyResult(
+              returning.credential,
+              returning.issuedAt,
+              returning.expiresAt,
+              returning.activeStoreId,
+              returning.destinationOrigin,
+            );
           }
           if (returning.kind === "fresh_login_required") {
             const code = returning.code === "callback_replayed"
@@ -256,7 +262,12 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
         const now = trustedNow(clock).getTime();
         const expires = canonicalExpiry(handoff.expiresAt);
         if (expires <= now || expires > now + MAXIMUM_HANDOFF_MS) invalid();
-        const result = createSessionHandoffReadyResult(handoff.credential, handoff.expiresAt);
+        const result = createSessionHandoffReadyResult(
+          handoff.credential,
+          handoff.expiresAt,
+          handoff.activeStoreId,
+          executed.completion.panelUrl,
+        );
         auditSafely(audit, { stage: "handoff", outcome: "accepted" });
         return result;
       } catch {

@@ -161,14 +161,19 @@ function parseEnvelope(bytes: Uint8Array, callbackAuthority: string): {
   bootstrapCredential: string;
   providerAuthorizationUrl: string;
   browserBindingCredential: string;
-} | { schemaVersion: 2; browserBindingCredential: string } {
+} | { schemaVersion: 3; browserBindingCredential: string; destinationHostname: string } {
   const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const parsed = JSON.parse(raw) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) invalid();
   const body = parsed as Record<string, unknown>;
   const keys = Object.keys(body);
-  if (keys.join(",") === "schemaVersion,browserBindingCredential" && body.schemaVersion === 2) {
-    const envelope = { schemaVersion: 2 as const, browserBindingCredential: canonicalBindingCredential(body.browserBindingCredential) };
+  if (keys.join(",") === "schemaVersion,browserBindingCredential,destinationHostname" && body.schemaVersion === 3) {
+    if (typeof body.destinationHostname !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(body.destinationHostname)) invalid();
+    const envelope = {
+      schemaVersion: 3 as const,
+      browserBindingCredential: canonicalBindingCredential(body.browserBindingCredential),
+      destinationHostname: body.destinationHostname,
+    };
     if (JSON.stringify(envelope) !== raw) invalid();
     return Object.freeze(envelope);
   }
@@ -242,7 +247,7 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
   clock(): Date;
   maximumBodyBytes: number;
   repository: Pick<PostgresPanelBrowserBindingRepository, "bindBrowserCredential">;
-  returningLogin?: { start(browserBindingCredential: string): Promise<Readonly<
+  returningLogin?: { start(browserBindingCredential: string, destinationHostname: string): Promise<Readonly<
     | { kind: "panel_login_ready"; providerAuthorizationUrl: string; browserBindingExpiresAt: string }
     | { kind: "panel_login_unavailable"; retryable: false }
   >> };
@@ -322,7 +327,7 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
       });
     }
 
-    if (envelope.schemaVersion === 2) {
+    if (envelope.schemaVersion === 3) {
       if (!options.returningLogin || typeof options.returningLogin.start !== "function") {
         return signedResponse({
           status: 503,
@@ -331,7 +336,7 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
         });
       }
       try {
-        const result = await options.returningLogin.start(envelope.browserBindingCredential);
+        const result = await options.returningLogin.start(envelope.browserBindingCredential, envelope.destinationHostname);
         if (result.kind !== "panel_login_ready") throw new Error("unavailable");
         const providerAuthorizationUrl = canonicalProviderUrl(result.providerAuthorizationUrl, panelCallbackAuthority);
         const expires = new Date(result.browserBindingExpiresAt);

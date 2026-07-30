@@ -321,10 +321,12 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
       return result;
     },
 
-    async start(input: { browserBindingCredential: string }): Promise<PanelReturningLoginInternalResult> {
+    async start(input: { browserBindingCredential: string; destinationHostname: string }): Promise<PanelReturningLoginInternalResult> {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(input?.destinationHostname)) invalid();
       const body = JSON.stringify({
-        schemaVersion: 2,
+        schemaVersion: 3,
         browserBindingCredential: canonicalPanelBrowserBindingCredential(input?.browserBindingCredential),
+        destinationHostname: input.destinationHostname,
       });
       const response = await exchange(body);
       const result = parseLoginResult(response.raw, response.status, panelCallbackAuthority, clock);

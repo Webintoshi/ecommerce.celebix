@@ -38,6 +38,8 @@ export type OwnerPanelSessionHandoffInternalResult = Readonly<
         kind: "session_handoff_ready";
         handoffCredential: string;
         handoffExpiresAt: string;
+        destinationStoreId: string;
+        destinationOrigin: string;
         redirectPath: "/";
       }>;
     }
@@ -49,6 +51,8 @@ export type OwnerPanelSessionHandoffInternalResult = Readonly<
         sessionCredential: string;
         sessionIssuedAt: string;
         sessionExpiresAt: string;
+        destinationStoreId: string;
+        destinationOrigin: string;
         redirectPath: "/";
       }>;
     }
@@ -103,15 +107,36 @@ function canonicalTimestamp(value: unknown): string {
   return value;
 }
 
+function canonicalUuid(value: unknown): string {
+  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) invalid();
+  return value;
+}
+
+function canonicalAdminOrigin(value: unknown): string {
+  if (typeof value !== "string" || value.length > 2_048 || value !== value.trim()) invalid();
+  let url: URL;
+  try { url = new URL(value); } catch { return invalid(); }
+  if (
+    url.protocol !== "https:" || url.username || url.password || url.port ||
+    url.pathname !== "/" || url.search || url.hash || url.origin !== value ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(url.hostname)
+  ) invalid();
+  return value;
+}
+
 export function createSessionHandoffReadyResult(
   handoffCredential: string,
   handoffExpiresAt: string,
+  destinationStoreId: string,
+  destinationOrigin: string,
 ): OwnerPanelSessionHandoffInternalResult {
   const body = Object.freeze({
     schemaVersion: PANEL_SESSION_COMPLETION_SCHEMA_VERSION,
     kind: "session_handoff_ready" as const,
     handoffCredential: canonicalHandoffCredential(handoffCredential),
     handoffExpiresAt: canonicalTimestamp(handoffExpiresAt),
+    destinationStoreId: canonicalUuid(destinationStoreId),
+    destinationOrigin: canonicalAdminOrigin(destinationOrigin),
     redirectPath: "/" as const,
   });
   return Object.freeze({ status: 200 as const, body });
@@ -121,6 +146,8 @@ export function createSessionReadyResult(
   sessionCredential: string,
   sessionIssuedAt: string,
   sessionExpiresAt: string,
+  destinationStoreId: string,
+  destinationOrigin: string,
 ): OwnerPanelSessionHandoffInternalResult {
   const body = Object.freeze({
     schemaVersion: PANEL_SESSION_COMPLETION_SCHEMA_VERSION,
@@ -128,6 +155,8 @@ export function createSessionReadyResult(
     sessionCredential: canonicalSessionCredential(sessionCredential),
     sessionIssuedAt: canonicalTimestamp(sessionIssuedAt),
     sessionExpiresAt: canonicalTimestamp(sessionExpiresAt),
+    destinationStoreId: canonicalUuid(destinationStoreId),
+    destinationOrigin: canonicalAdminOrigin(destinationOrigin),
     redirectPath: "/" as const,
   });
   return Object.freeze({ status: 200 as const, body });
@@ -155,7 +184,7 @@ export function canonicalOwnerPanelSessionHandoffResult(
   let canonical: string;
   if (result.status === 200) {
     if (body.kind === "session_ready") {
-      exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "redirectPath"]);
+      exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.redirectPath !== "/") invalid();
       canonical = JSON.stringify({
         schemaVersion: 1,
@@ -163,16 +192,20 @@ export function canonicalOwnerPanelSessionHandoffResult(
         sessionCredential: canonicalSessionCredential(body.sessionCredential),
         sessionIssuedAt: canonicalTimestamp(body.sessionIssuedAt),
         sessionExpiresAt: canonicalTimestamp(body.sessionExpiresAt),
+        destinationStoreId: canonicalUuid(body.destinationStoreId),
+        destinationOrigin: canonicalAdminOrigin(body.destinationOrigin),
         redirectPath: "/",
       });
     } else {
-      exactKeys(body, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "redirectPath"]);
+      exactKeys(body, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.kind !== "session_handoff_ready" || body.redirectPath !== "/") invalid();
       canonical = JSON.stringify({
         schemaVersion: 1,
         kind: "session_handoff_ready",
         handoffCredential: canonicalHandoffCredential(body.handoffCredential),
         handoffExpiresAt: canonicalTimestamp(body.handoffExpiresAt),
+        destinationStoreId: canonicalUuid(body.destinationStoreId),
+        destinationOrigin: canonicalAdminOrigin(body.destinationOrigin),
         redirectPath: "/",
       });
     }

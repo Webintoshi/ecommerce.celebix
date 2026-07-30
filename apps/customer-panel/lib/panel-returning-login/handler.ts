@@ -37,15 +37,18 @@ function exactPublicLoginAuthority(value: unknown): string {
   return value;
 }
 
-function requestDecision(request: Request): "approved" | "method_not_allowed" | "denied" {
-  if (request.method !== "GET") return "method_not_allowed";
+function requestDecision(request: Request): { kind: "approved"; destinationHostname: string } | { kind: "method_not_allowed" | "denied" } {
+  if (request.method !== "GET") return { kind: "method_not_allowed" };
   let url: URL;
-  try { url = new URL(request.url); } catch { return "denied"; }
+  try { url = new URL(request.url); } catch { return { kind: "denied" }; }
   if (
     (url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password ||
-    url.pathname !== "/auth/login" || url.search || url.hash
-  ) return "denied";
-  return "approved";
+    url.pathname !== "/auth/login" || url.hash || [...url.searchParams.keys()].join(",") !== "destination"
+  ) return { kind: "denied" };
+  const values = url.searchParams.getAll("destination");
+  const destinationHostname = values[0];
+  if (values.length !== 1 || !destinationHostname || !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(destinationHostname)) return { kind: "denied" };
+  return { kind: "approved", destinationHostname };
 }
 
 function providerUrl(value: unknown): string {
@@ -65,7 +68,7 @@ function now(clock: () => Date): Date {
 export function createPanelReturningLoginHandler(options: {
   publicLoginAuthority: string;
   credentialGenerator: CredentialGenerator;
-  transport: { start(input: { browserBindingCredential: string }): Promise<PanelReturningLoginStartResult> };
+  transport: { start(input: { browserBindingCredential: string; destinationHostname: string }): Promise<PanelReturningLoginStartResult> };
   clock(): Date;
 }) {
   exactPublicLoginAuthority(options?.publicLoginAuthority);
@@ -80,14 +83,14 @@ export function createPanelReturningLoginHandler(options: {
 
   return async function panelReturningLoginHandler(request: Request): Promise<Response> {
     const decision = requestDecision(request);
-    if (decision === "method_not_allowed") return controlled("panel_login_method_not_allowed", 405);
-    if (decision !== "approved") return controlled("panel_login_request_invalid", 400);
+    if (decision.kind === "method_not_allowed") return controlled("panel_login_method_not_allowed", 405);
+    if (decision.kind !== "approved") return controlled("panel_login_request_invalid", 400);
 
     let credential: string;
     let result: PanelReturningLoginStartResult;
     try {
       credential = generate();
-      result = await start({ browserBindingCredential: credential });
+      result = await start({ browserBindingCredential: credential, destinationHostname: decision.destinationHostname });
     } catch {
       return controlled("panel_login_unavailable", 503);
     }

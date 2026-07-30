@@ -256,6 +256,7 @@ test("returning panel login is explicitly browser-bound and cannot be completed 
     redirectUri: REDIRECT_URI,
     returnTo: "/login",
     panelLoginBinding: binding,
+    panelLoginDestinationHostname: "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
     expectedIssuer: EXPECTED_ISSUER,
     expectedAudience: EXPECTED_AUDIENCE,
     expectedAuthorizationOrigin: "https://identity.example.test",
@@ -296,6 +297,7 @@ test("returning panel login rejects a missing, duplicate, or weakened login prom
         redirectUri: REDIRECT_URI,
         returnTo: "/login",
         panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) },
+        panelLoginDestinationHostname: "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
         expectedIssuer: EXPECTED_ISSUER,
         expectedAudience: EXPECTED_AUDIENCE,
         expectedAuthorizationOrigin: "https://identity.example.test",
@@ -321,6 +323,7 @@ test("returning panel login accepts only the exact persisted browser-binding pro
       redirectUri: REDIRECT_URI,
       returnTo: "/login",
       panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) },
+      panelLoginDestinationHostname: "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
       expectedIssuer: EXPECTED_ISSUER,
       expectedAudience: EXPECTED_AUDIENCE,
       expectedAuthorizationOrigin: "https://identity.example.test",
@@ -338,6 +341,7 @@ test("returning panel login accepts only the exact persisted browser-binding pro
     });
     if (proof.keyId === "browser-active" && proof.digest === "a".repeat(64)) {
       assert.equal((await completion).returnTo, "/login");
+      assert.equal((await completion).panelLoginDestinationHostname, "guzide-kuyumcu-4.admin.saas-staging.celebix.site");
       assert.equal(provider.lastCallbackInput?.code, "login-code");
     } else {
       await assert.rejects(completion, (error: unknown) => (error as { code?: string }).code === "oidc_invalid_callback");
