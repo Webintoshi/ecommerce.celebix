@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { resolveAdminAssetUrl } from "@/lib/asset-url";
 import { getAdminAuthProvider } from "@/lib/admin-auth-provider";
 import {
   getOptionalLogtoIssuer,
   LOGTO_ADMIN_SESSION_COOKIE_NAME,
 } from "@/lib/logto-admin-auth";
 import { getStoreRuntime } from "@/lib/store-runtime";
+import { getStoreInfo } from "@/lib/db/settings";
 import {
   getOptionalSupabaseAnonKey,
   getOptionalSupabaseAuthStorageKey,
@@ -15,6 +17,20 @@ import {
 
 export async function GET() {
   const runtime = getStoreRuntime();
+  let publicStoreName = runtime.name;
+  let logoUrl: string | null = null;
+
+  try {
+    const storeInfo = await getStoreInfo();
+    publicStoreName = storeInfo?.name?.trim() || runtime.name;
+    const resolvedLogoUrl = resolveAdminAssetUrl(storeInfo?.logoUrl);
+    logoUrl = /^(?:https?:\/\/|\/|data:image\/)/i.test(resolvedLogoUrl)
+      ? resolvedLogoUrl
+      : null;
+  } catch {
+    // Runtime identity remains available even if optional store branding cannot be read.
+  }
+
   const authProvider = getAdminAuthProvider();
   const supabaseUrl = getOptionalSupabaseUrl();
   const supabaseAnonKey = getOptionalSupabaseAnonKey();
@@ -38,7 +54,8 @@ export async function GET() {
     return NextResponse.json(
       {
         slug: runtime.slug,
-        name: runtime.name,
+        name: publicStoreName,
+        logoUrl,
         databaseMode: runtime.databaseMode,
         authSetupStatus: runtime.authSetupStatus,
         storefrontDomain: runtime.storefrontDomain,
@@ -62,7 +79,8 @@ export async function GET() {
 
   return NextResponse.json({
     slug: runtime.slug,
-    name: runtime.name,
+    name: publicStoreName,
+    logoUrl,
     databaseMode: runtime.databaseMode,
     authSetupStatus: runtime.authSetupStatus,
     storefrontDomain: runtime.storefrontDomain,

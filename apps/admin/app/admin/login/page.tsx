@@ -2,14 +2,33 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock, ShieldCheck, Mail } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
+import {
+  buildAdminSignInPath,
+  getAdminLoginErrorPresentation,
+  parseAdminLoginErrorCode,
+  type AdminLoginErrorCode,
+} from "@/lib/admin-login-contract";
 import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
+
+type PublicRuntimeBranding = {
+  name?: string;
+  logoUrl?: string | null;
+};
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const authProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
+  const authProvider =
+    process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
   const isLogtoProvider = authProvider === "logto";
   const hasBrowserSupabaseAuthEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -17,51 +36,84 @@ export default function AdminLoginPage() {
   const authBlocked =
     process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE === "light_postgres" &&
     process.env.NEXT_PUBLIC_AUTH_SETUP_STATUS === "blocked_auth_setup";
-  const authUnavailable = authBlocked || (!isLogtoProvider && !hasBrowserSupabaseAuthEnv);
+  const authUnavailable =
+    authBlocked || (!isLogtoProvider && !hasBrowserSupabaseAuthEnv);
   const supabase = useMemo(
-    () => (authUnavailable || isLogtoProvider ? null : getOptionalBrowserSupabaseClient()),
+    () =>
+      authUnavailable || isLogtoProvider
+        ? null
+        : getOptionalBrowserSupabaseClient(),
     [authUnavailable, isLogtoProvider],
   );
   const [nextPath, setNextPath] = useState("/admin");
-  const logtoSignInHref = `/api/auth/sign-in?next=${encodeURIComponent(nextPath)}`;
+  const [storeName, setStoreName] = useState(
+    process.env.NEXT_PUBLIC_STORE_NAME || "Mağaza",
+  );
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [loginErrorCode, setLoginErrorCode] =
+    useState<AdminLoginErrorCode | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const logtoSignInHref = buildAdminSignInPath(nextPath);
+  const logtoSwitchAccountHref = buildAdminSignInPath(nextPath, {
+    forceAccountSelection: true,
+  });
+  const errorPresentation = loginErrorCode
+    ? getAdminLoginErrorPresentation(loginErrorCode)
+    : null;
+  const storeInitial = storeName.trim().charAt(0).toLocaleUpperCase("tr") || "M";
+
   useEffect(() => {
     let mounted = true;
 
-    const redirectIfAuthenticated = async () => {
-      const params =
-        typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-      const next =
-        typeof window !== "undefined"
-          ? sanitizeInternalRedirectPath(params?.get("next"), "/admin")
-          : "/admin";
-      const loggedOut = params?.get("logged_out") === "1";
+    const initializeLogin = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const next = sanitizeInternalRedirectPath(params.get("next"), "/admin");
+      const loggedOut = params.get("logged_out") === "1";
+
       if (mounted) {
         setNextPath(next);
+        setLoginErrorCode(parseAdminLoginErrorCode(params.get("error")));
       }
 
       if (loggedOut) {
         try {
           await getOptionalBrowserSupabaseClient()?.auth.signOut();
-        } catch (error) {
-          console.warn("Admin logout cleanup failed:", error);
+        } catch {
+          // The server-side logout has already cleared the authoritative admin session.
         }
       }
 
-      const response = await fetch("/api/admin/me", {
-        credentials: "same-origin",
-        cache: "no-store",
-      }).catch(() => null);
+      const [runtimeResponse, sessionResponse] = await Promise.all([
+        fetch("/api/public/runtime", {
+          credentials: "same-origin",
+          cache: "no-store",
+        }).catch(() => null),
+        fetch("/api/admin/me", {
+          credentials: "same-origin",
+          cache: "no-store",
+        }).catch(() => null),
+      ]);
 
-      if (mounted && response?.ok) {
+      const runtimePayload = runtimeResponse
+        ? ((await runtimeResponse.json().catch(() => null)) as PublicRuntimeBranding | null)
+        : null;
+
+      if (mounted && runtimePayload) {
+        if (runtimePayload.name?.trim()) {
+          setStoreName(runtimePayload.name.trim());
+        }
+        setLogoUrl(runtimePayload.logoUrl?.trim() || null);
+      }
+
+      if (mounted && sessionResponse?.ok) {
         router.replace(next);
       }
     };
 
-    redirectIfAuthenticated();
+    void initializeLogin();
 
     return () => {
       mounted = false;
@@ -70,17 +122,17 @@ export default function AdminLoginPage() {
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+
     if (isLogtoProvider) {
-      if (typeof window !== "undefined") {
-        window.location.assign(`/api/auth/sign-in?next=${encodeURIComponent(nextPath)}`);
-      }
+      window.location.assign(logtoSignInHref);
       return;
     }
 
     if (authBlocked || !hasBrowserSupabaseAuthEnv || !supabase) {
-      toast.error("Bu store icin admin auth kurulumu henuz tamamlanmadi.");
+      toast.error("Bu mağaza için yönetici girişi henüz kullanıma hazır değil.");
       return;
     }
+
     setLoading(true);
 
     try {
@@ -92,7 +144,6 @@ export default function AdminLoginPage() {
           password,
         }),
       });
-
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -116,11 +167,9 @@ export default function AdminLoginPage() {
         return;
       }
 
-      toast.success("Giriş yapıldı.");
       router.replace(nextPath);
       router.refresh();
-    } catch (error) {
-      console.error("Admin login error:", error);
+    } catch {
       toast.error("Beklenmeyen bir hata oluştu.");
     } finally {
       setLoading(false);
@@ -128,124 +177,178 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: "#F8F8F8" }}
-    >
-      <div
-        className="fixed inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}
-      />
+    <main className="min-h-screen bg-[#F6F7F9] text-[#202124]">
+      <div className="mx-auto grid min-h-screen w-full max-w-[1440px] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(480px,0.78fr)]">
+        <section className="relative flex min-h-[320px] flex-col justify-between overflow-hidden px-6 py-8 sm:px-10 sm:py-10 lg:min-h-screen lg:px-16 lg:py-14 xl:px-24">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-24 top-1/2 h-80 w-80 -translate-y-1/2 rounded-full border-[56px] border-[#FE6100]/[0.07]"
+          />
+          <div className="relative flex items-center gap-3">
+            {logoUrl ? (
+              <div className="flex min-h-16 min-w-16 max-w-[220px] items-center rounded-2xl bg-white px-4 py-3 shadow-[0_12px_30px_rgba(31,41,55,0.07)] ring-1 ring-[#E2E7EE]">
+                <img
+                  src={logoUrl}
+                  alt={`${storeName} logosu`}
+                  className="max-h-10 w-auto max-w-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#202124] text-2xl font-semibold text-white shadow-[0_12px_30px_rgba(31,41,55,0.12)]">
+                {storeInitial}
+              </div>
+            )}
+          </div>
 
-      <div className="w-full max-w-md relative">
-        <div className="bg-white rounded-[8px] shadow-sm border border-gray-100 p-8">
-          <div className="text-center mb-8">
-            <div
-              className="w-16 h-16 rounded-[8px] flex items-center justify-center mx-auto mb-4"
-              style={{ backgroundColor: "#D4A574" }}
-            >
-              <ShieldCheck className="w-8 h-8 text-white" strokeWidth={2} />
-            </div>
-            <h1 className="text-2xl font-semibold text-neutral-900 mb-1">
-              Yönetici Girişi
+          <div className="relative max-w-xl py-10 lg:py-0">
+            <h1 className="text-[clamp(2.25rem,5vw,4.75rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-[#202124]">
+              {storeName}
+              <span className="mt-2 block text-[#757B85]">Yönetim Paneli</span>
             </h1>
-            <p className="text-sm text-gray-500">
-              Mağaza paneline erişmek için giriş yapın
+            <p className="mt-7 max-w-md text-base leading-7 text-[#626975] sm:text-lg sm:leading-8">
+              Mağazanızı, siparişlerinizi ve ürünlerinizi güvenli yönetim alanından kontrol edin.
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            {authUnavailable ? (
-              <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
-                {authBlocked
-                  ? "Admin uygulamasi olustu ancak bu yeni light_postgres store icin giris kimligi henuz tamamlanmadi."
-                  : "Bu ortamda admin auth degiskenleri henuz tanimli olmadigi icin giris gecici olarak pasif."}{" "}
-                Owner provisioning bu adimi acikca
-                <code className="mx-1 rounded bg-amber-100 px-1.5 py-0.5 text-[12px]">blocked_auth_setup</code>
-                olarak isaretler.
+          <div className="relative flex items-center gap-3 text-sm font-medium text-[#626975]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF0E7] text-[#D95200]">
+              <ShieldCheck className="h-[18px] w-[18px]" aria-hidden="true" />
+            </span>
+            Güvenli, mağazaya özel erişim
+          </div>
+        </section>
+
+        <section className="flex items-center border-t border-[#E2E7EE] bg-white px-6 py-12 sm:px-10 lg:min-h-screen lg:border-l lg:border-t-0 lg:px-14 xl:px-20">
+          <div className="mx-auto w-full max-w-[480px]">
+            <div className="mb-9">
+              <h2 className="text-3xl font-semibold tracking-[-0.035em] text-[#202124] sm:text-[2.15rem]">
+                Yönetici girişi
+              </h2>
+              <p className="mt-3 text-[15px] leading-6 text-[#6B7280]">
+                Devam etmek için yönetici hesabınızla giriş yapın.
+              </p>
+            </div>
+
+            {errorPresentation ? (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="mb-6 rounded-2xl border border-[#FED7C2] bg-[#FFF7F2] px-4 py-4 text-[#7A3210]"
+              >
+                <div className="flex gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#D95200]" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-semibold">{errorPresentation.title}</p>
+                    <p className="mt-1 text-sm leading-6 text-[#8A4A2A]">
+                      {errorPresentation.message}
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : null}
 
-            {isLogtoProvider ? (
-              <div className="rounded-[8px] border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-700">
-                Bu panel Celebix merkezi kimlik altyapısı ile giriş yapıyor. Devam ettiğinizde güvenli Logto oturumu başlatılacak.
+            {authUnavailable ? (
+              <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-900">
+                Bu mağaza için yönetici girişi henüz kullanıma hazır değil.
               </div>
-            ) : (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                    E-posta
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="yonetici@magaza.com"
-                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-[8px] text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
-                      required
-                    />
-                  </div>
-                </div>
+            ) : null}
 
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                    Şifre
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-[8px] text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
-                      required
-                      minLength={8}
-                    />
+            <form onSubmit={handleLogin} className="space-y-5">
+              {!isLogtoProvider ? (
+                <>
+                  <div>
+                    <label htmlFor="admin-email" className="mb-2 block text-sm font-semibold text-[#34383F]">
+                      E-posta
+                    </label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8B919B]" aria-hidden="true" />
+                      <input
+                        id="admin-email"
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        autoComplete="email"
+                        placeholder="yonetici@magaza.com"
+                        className="min-h-14 w-full rounded-2xl border border-[#DCE1E8] bg-white pl-12 pr-4 text-[15px] text-[#202124] outline-none transition placeholder:text-[#A3A8B0] focus:border-[#FE6100] focus:ring-4 focus:ring-[#FE6100]/15"
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
 
-            {isLogtoProvider ? (
-              <a
-                href={logtoSignInHref}
-                className="w-full py-3.5 rounded-[8px] font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
-              >
-                Celebix Auth ile Devam Et
-              </a>
-            ) : (
-              <button
-                type="submit"
-                disabled={loading || authUnavailable}
-                className="w-full py-3.5 rounded-[8px] font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <div>
+                    <label htmlFor="admin-password" className="mb-2 block text-sm font-semibold text-[#34383F]">
+                      Şifre
+                    </label>
+                    <div className="relative">
+                      <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8B919B]" aria-hidden="true" />
+                      <input
+                        id="admin-password"
+                        type="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        autoComplete="current-password"
+                        placeholder="••••••••"
+                        className="min-h-14 w-full rounded-2xl border border-[#DCE1E8] bg-white pl-12 pr-4 text-[15px] text-[#202124] outline-none transition placeholder:text-[#A3A8B0] focus:border-[#FE6100] focus:ring-4 focus:ring-[#FE6100]/15"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : null}
+
+              {isLogtoProvider ? (
+                authUnavailable ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#C9CDD3] px-5 text-[15px] font-semibold text-white"
+                  >
+                    Güvenli giriş yap
+                  </button>
                 ) : (
-                  "Giriş Yap"
-                )}
-              </button>
-            )}
-          </form>
+                  <a
+                    href={logtoSignInHref}
+                    className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#FE6100] px-5 text-[15px] font-semibold text-white shadow-[0_12px_24px_rgba(254,97,0,0.20)] transition hover:bg-[#D95200] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/25 active:translate-y-px"
+                  >
+                    Güvenli giriş yap
+                    <ArrowRight className="h-[18px] w-[18px]" aria-hidden="true" />
+                  </a>
+                )
+              ) : (
+                <button
+                  type="submit"
+                  disabled={loading || authUnavailable}
+                  className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#FE6100] px-5 text-[15px] font-semibold text-white shadow-[0_12px_24px_rgba(254,97,0,0.20)] transition hover:bg-[#D95200] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" aria-label="Giriş yapılıyor" />
+                  ) : (
+                    <>
+                      Giriş yap
+                      <ArrowRight className="h-[18px] w-[18px]" aria-hidden="true" />
+                    </>
+                  )}
+                </button>
+              )}
+            </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-100 text-center">
-            <p className="text-xs text-gray-400">
-              Güvenli bağlantı ile korunmaktadır
-            </p>
+            {isLogtoProvider && !authUnavailable ? (
+              <a
+                href={logtoSwitchAccountHref}
+                className="mt-4 flex min-h-12 w-full items-center justify-center rounded-xl px-4 text-sm font-semibold text-[#555C66] transition hover:bg-[#F6F7F9] hover:text-[#202124] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+              >
+                Başka hesapla giriş yap
+              </a>
+            ) : null}
+
+            <div className="mt-9 flex items-center justify-center gap-2 border-t border-[#ECEFF3] pt-6 text-xs font-medium text-[#8B919B]">
+              <ShieldCheck className="h-4 w-4 text-[#FE6100]" aria-hidden="true" />
+              Celebix altyapısıyla korunuyor
+            </div>
           </div>
-        </div>
-
-        <div className="text-center mt-6">
-          <p className="text-xs text-gray-400 tracking-wide uppercase">
-            Celebix Admin
-          </p>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
