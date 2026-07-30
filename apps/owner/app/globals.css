@@ -5638,3 +5638,581 @@ html[data-theme="dark"] .login-card .owner-auth-message {
 .self-serve-direct-status-grid strong{display:block;color:var(--text-primary);font-size:14px;overflow-wrap:anywhere}
 @media (max-width:960px){.self-serve-direct-page{display:block;padding:18px}.self-serve-direct-shell{grid-template-columns:1fr;gap:18px}.self-serve-direct-copy{padding:8px}.self-serve-direct-card{padding:20px;border-radius:24px}.self-serve-direct-copy h1{font-size:44px}.self-serve-direct-copy p{font-size:16px}}
 @media (max-width:560px){.self-serve-direct-page{padding:12px}.self-serve-direct-inline,.self-serve-direct-status-grid{grid-template-columns:1fr}.self-serve-direct-card{padding:16px;border-radius:22px}.self-serve-direct-form-head{grid-template-columns:1fr}.self-serve-direct-copy h1{font-size:38px}.self-serve-slug-field{grid-template-columns:1fr}.self-serve-slug-field b{padding:0 16px 14px}.self-serve-password-field button{padding:0 10px}}
+
+/* Celebix registration page */
+.self-serve-register-page {
+  min-height: 100vh;
+  padding: 16px;
+  overflow: clip;
+  background: #ffffff;
+  color: #242424;
+}
+
+.self-serve-register-shell {
+  width: min(1560px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.98fr) minmax(440px, 1.02fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.self-serve-register-main {
+  width: 100%;
+  min-width: 0;
+  padding: clamp(28px, 4vw, 62px) clamp(22px, 4.6vw, 72px) 48px;
+  background: #ffffff;
+}
+
+.self-serve-register-header,
+.self-serve-register-hero,
+.self-serve-register-form-wrap {
+  width: min(680px, 100%);
+  margin-inline: auto;
+}
+
+.self-serve-register-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.self-serve-register-page .self-serve-logo {
+  width: auto;
+  height: 38px;
+}
+
+.self-serve-register-login {
+  color: #777b85;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: right;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.self-serve-register-login strong {
+  color: #fe6100;
+  font-weight: 800;
+}
+
+.self-serve-register-login:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.self-serve-register-login:focus-visible {
+  border-radius: 8px;
+  outline: 3px solid rgba(254, 97, 0, 0.28);
+  outline-offset: 5px;
+}
+
+.self-serve-register-hero {
+  margin-top: clamp(38px, 5vw, 72px);
+  margin-bottom: 28px;
+}
+
+.self-serve-register-hero h1 {
+  margin: 0;
+  color: #242424;
+  font-size: clamp(36px, 3.2vw, 48px);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+}
+
+.self-serve-register-hero p {
+  margin: 14px 0 0;
+  color: #717580;
+  font-size: 16px;
+  font-weight: 550;
+  line-height: 1.6;
+}
+
+.self-serve-register-page .self-serve-direct-form {
+  gap: 14px;
+}
+
+.self-serve-register-page .self-serve-direct-inline {
+  gap: 12px;
+}
+
+.self-serve-register-page .self-serve-direct-form label {
+  gap: 7px;
+  color: #4d515a;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.self-serve-register-page .self-serve-direct-form input {
+  min-height: 52px;
+  border-color: #dfe2e7;
+  border-radius: 13px;
+  color: #242424;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.self-serve-register-page .self-serve-direct-form input::placeholder {
+  color: #9a9ea7;
+  opacity: 1;
+}
+
+.self-serve-register-page .self-serve-direct-form input:focus,
+.self-serve-register-page .self-serve-slug-field:focus-within,
+.self-serve-register-page .self-serve-password-field:focus-within {
+  border-color: #fe6100;
+  box-shadow: 0 0 0 4px rgba(254, 97, 0, 0.12);
+}
+
+.self-serve-register-page .self-serve-slug-field,
+.self-serve-register-page .self-serve-password-field {
+  min-height: 52px;
+  border-color: #dfe2e7;
+  border-radius: 13px;
+}
+
+.self-serve-register-page .self-serve-slug-field b {
+  color: #555a64;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.self-serve-register-page .self-serve-password-field button {
+  min-width: 72px;
+  border-left-color: #e5e7eb;
+  background: #fafafa;
+  color: #e95600;
+}
+
+.self-serve-register-page .self-serve-password-field button:hover {
+  background: #fff1e8;
+}
+
+.self-serve-register-page .self-serve-password-field button:focus-visible {
+  outline: 3px solid rgba(254, 97, 0, 0.3);
+  outline-offset: -4px;
+}
+
+.self-serve-register-page .self-serve-consent-stack {
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.self-serve-register-page .self-serve-direct-consent {
+  gap: 10px !important;
+  padding: 11px 12px;
+  border-color: #e5e7eb;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.self-serve-register-page .self-serve-direct-consent span {
+  color: #666b74;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.self-serve-register-page .self-serve-direct-consent input:focus-visible {
+  outline: 3px solid rgba(254, 97, 0, 0.32);
+  outline-offset: 2px;
+}
+
+.self-serve-register-page .self-serve-direct-submit {
+  min-height: 54px;
+  margin-top: 2px;
+  border: 1px solid #fe6100;
+  border-radius: 13px;
+  background: #fe6100;
+  box-shadow: 0 10px 24px rgba(254, 97, 0, 0.2);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.self-serve-register-page .self-serve-direct-submit:hover:not(:disabled) {
+  border-color: #df5100;
+  background: #df5100;
+  transform: translateY(-1px);
+}
+
+.self-serve-register-page .self-serve-direct-submit:focus-visible {
+  outline: 4px solid rgba(254, 97, 0, 0.25);
+  outline-offset: 3px;
+}
+
+.self-serve-register-disabled {
+  padding: 22px;
+  border: 1px solid #ffd9c2;
+  border-radius: 16px;
+  background: #fff8f4;
+}
+
+.self-serve-register-disabled h2 {
+  margin: 0;
+  color: #242424;
+  font-size: 22px;
+}
+
+.self-serve-register-disabled p {
+  margin: 9px 0 0;
+  color: #6b6f78;
+  line-height: 1.6;
+}
+
+.self-serve-register-page .self-serve-direct-success {
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.self-serve-register-promo {
+  position: sticky;
+  top: 16px;
+  min-width: 0;
+  min-height: calc(100vh - 32px);
+  padding: clamp(28px, 3vw, 48px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #e6e3df;
+  border-radius: 24px;
+  background: #f7f6f3;
+  box-shadow: 0 18px 55px rgba(43, 43, 43, 0.08);
+}
+
+.self-serve-register-promo::before,
+.self-serve-register-promo::after {
+  position: absolute;
+  z-index: 0;
+  border-radius: 999px;
+  content: "";
+  pointer-events: none;
+}
+
+.self-serve-register-promo::before {
+  top: 17%;
+  right: -74px;
+  width: 210px;
+  height: 210px;
+  background: #ffe4d3;
+}
+
+.self-serve-register-promo::after {
+  bottom: -90px;
+  left: -70px;
+  width: 240px;
+  height: 240px;
+  border: 42px solid #fff0e7;
+}
+
+.self-serve-register-promo-badge {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid #ddd9d4;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #333333;
+  font-size: 13px;
+  font-weight: 750;
+  box-shadow: 0 8px 24px rgba(43, 43, 43, 0.06);
+}
+
+.self-serve-register-promo-badge i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fe6100;
+}
+
+.self-serve-register-visual {
+  position: relative;
+  z-index: 1;
+  width: min(76%, 460px);
+  aspect-ratio: 1.38;
+  display: grid;
+  place-items: center;
+}
+
+.self-serve-register-visual-orbit {
+  position: absolute;
+  inset: 8% 2%;
+  border: 1px solid #f5c6a9;
+  border-radius: 50%;
+  transform: rotate(-8deg);
+}
+
+.self-serve-register-visual-orbit::before,
+.self-serve-register-visual-orbit::after {
+  position: absolute;
+  border-radius: 50%;
+  background: #fe6100;
+  box-shadow: 0 0 0 8px #fff2e9;
+  content: "";
+}
+
+.self-serve-register-visual-orbit::before {
+  top: 10%;
+  right: 7%;
+  width: 12px;
+  height: 12px;
+}
+
+.self-serve-register-visual-orbit::after {
+  bottom: 9%;
+  left: 7%;
+  width: 9px;
+  height: 9px;
+}
+
+.self-serve-register-store-card {
+  position: relative;
+  width: min(82%, 350px);
+  min-height: 210px;
+  padding: 54px 30px 28px;
+  border: 1px solid #ebe7e3;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 24px 50px rgba(84, 61, 45, 0.14);
+  transform: rotate(-3deg);
+}
+
+.self-serve-register-store-card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 34px;
+  border-bottom: 1px solid #eeeae6;
+  border-radius: 22px 22px 0 0;
+  background: #fbfaf8;
+  content: "";
+}
+
+.self-serve-register-store-card::after {
+  position: absolute;
+  top: 13px;
+  left: 18px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fe6100;
+  box-shadow: 12px 0 0 #ffc39d, 24px 0 0 #ffe2cf;
+  content: "";
+}
+
+.self-serve-register-store-mark {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border-radius: 18px;
+  background: #fe6100;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 900;
+  box-shadow: 0 12px 22px rgba(254, 97, 0, 0.22);
+}
+
+.self-serve-register-store-line {
+  display: block;
+  width: 48%;
+  height: 9px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: #ece9e5;
+}
+
+.self-serve-register-store-line.is-wide {
+  width: 74%;
+  margin-top: 18px;
+  background: #ddd8d2;
+}
+
+.self-serve-register-store-action {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: #fff0e6;
+  color: #d94f00;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.self-serve-register-promo-copy {
+  position: relative;
+  z-index: 2;
+  width: min(620px, 100%);
+  text-align: center;
+}
+
+.self-serve-register-promo-copy p {
+  margin: 0 0 5px;
+  color: #fe6100;
+  font-size: clamp(24px, 2.5vw, 34px);
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+.self-serve-register-promo-copy h2 {
+  margin: 0;
+  color: #242424;
+  font-size: clamp(34px, 3.5vw, 52px);
+  font-weight: 820;
+  line-height: 1.04;
+  letter-spacing: -0.05em;
+}
+
+.self-serve-register-promo-copy span {
+  display: block;
+  margin: 14px auto 0;
+  color: #74777f;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.55;
+}
+
+@media (max-width: 1100px) {
+  .self-serve-register-page {
+    padding: 14px;
+    overflow: visible;
+  }
+
+  .self-serve-register-shell {
+    width: min(820px, 100%);
+    grid-template-columns: 1fr;
+  }
+
+  .self-serve-register-main {
+    padding: 32px clamp(20px, 6vw, 58px) 42px;
+  }
+
+  .self-serve-register-promo {
+    position: relative;
+    top: auto;
+    min-height: 540px;
+    gap: 34px;
+  }
+
+  .self-serve-register-visual {
+    width: min(70%, 430px);
+  }
+}
+
+@media (max-width: 640px) {
+  .self-serve-register-page {
+    padding: 8px;
+  }
+
+  .self-serve-register-shell {
+    gap: 10px;
+  }
+
+  .self-serve-register-main {
+    padding: 22px 14px 32px;
+  }
+
+  .self-serve-register-header {
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .self-serve-register-page .self-serve-logo {
+    height: 31px;
+  }
+
+  .self-serve-register-login {
+    max-width: 155px;
+    font-size: 12px;
+    white-space: normal;
+  }
+
+  .self-serve-register-hero {
+    margin-top: 34px;
+    margin-bottom: 22px;
+  }
+
+  .self-serve-register-hero h1 {
+    font-size: 34px;
+  }
+
+  .self-serve-register-hero p {
+    font-size: 14px;
+  }
+
+  .self-serve-register-page .self-serve-direct-inline,
+  .self-serve-register-page .self-serve-direct-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .self-serve-register-page .self-serve-slug-field {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .self-serve-register-page .self-serve-slug-field b {
+    padding: 0 12px;
+    font-size: 11px;
+  }
+
+  .self-serve-register-page .self-serve-direct-form input,
+  .self-serve-register-page .self-serve-slug-field,
+  .self-serve-register-page .self-serve-password-field {
+    min-height: 50px;
+  }
+
+  .self-serve-register-page .self-serve-direct-consent {
+    padding: 10px;
+  }
+
+  .self-serve-register-promo {
+    min-height: 460px;
+    padding: 26px 18px 30px;
+    border-radius: 19px;
+  }
+
+  .self-serve-register-promo-badge {
+    min-height: 36px;
+    font-size: 11px;
+  }
+
+  .self-serve-register-visual {
+    width: min(92%, 380px);
+  }
+
+  .self-serve-register-store-card {
+    min-height: 170px;
+    padding: 46px 22px 22px;
+  }
+
+  .self-serve-register-store-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+    font-size: 24px;
+  }
+
+  .self-serve-register-promo-copy p {
+    font-size: 22px;
+  }
+
+  .self-serve-register-promo-copy h2 {
+    font-size: 32px;
+  }
+
+  .self-serve-register-promo-copy span {
+    margin-top: 10px;
+    font-size: 13px;
+  }
+}
