@@ -16,7 +16,7 @@ function createRecorder(failAt?: number) {
       throw new Error("sql failed");
     }
     if (calls.length === 1) {
-      return [{ principal_id: "principal-1" }] as TRow[];
+      return [{ principal_id: "principal-1" }] as unknown as TRow[];
     }
     return [];
   };

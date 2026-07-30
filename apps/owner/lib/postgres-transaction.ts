@@ -4,10 +4,10 @@ export type PostgresQuery = <TRow extends Record<string, unknown>>(
 ) => Promise<TRow[]>;
 
 export interface PostgresTransactionClient {
-  query<TRow extends Record<string, unknown> = Record<string, unknown>>(
+  query(
     sql: string,
     params?: unknown[],
-  ): Promise<{ rows: TRow[] }>;
+  ): Promise<{ rows: Array<Record<string, unknown>> }>;
 }
 
 export async function runPostgresTransaction<TResult>(
@@ -22,8 +22,8 @@ export async function runPostgresTransaction<TResult>(
         sql: string,
         params: unknown[] = [],
       ) => {
-        const response = await client.query<TRow>(sql, params);
-        return response.rows;
+        const response = await client.query(sql, params);
+        return response.rows as TRow[];
       },
     });
     await client.query("COMMIT");
