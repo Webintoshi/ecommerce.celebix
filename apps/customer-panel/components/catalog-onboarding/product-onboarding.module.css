@@ -101,6 +101,8 @@
 .categoryForm label { display: grid; gap: 6px; color: #344054; font-size: 12px; font-weight: 720; }
 .categoryForm input, .categoryForm select { min-height: 48px; border: 1px solid #d8dee8; border-radius: 13px; background: #fff; padding: 0 13px; }
 .categoryForm > .primary { min-height: 48px; border-radius: 14px; }
+.categoryGroup { display: grid; gap: 8px; }
+.categoryChildren { display: grid; gap: 8px; border-left: 2px solid #ffe1cc; margin-left: 24px; padding-left: 14px; }
 .categoryList article { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px; min-height: 70px; border: 1px solid #edf0f4; border-radius: 16px; padding: 11px 13px; }
 .categoryList article[data-status="archived"] { opacity: .62; }
 .categoryList article > div:nth-child(2) { display: grid; gap: 3px; }
@@ -111,6 +113,9 @@
 .archiveBadge { background: #f2f4f7; color: #667085; }
 .categoryActions { display: flex; gap: 6px; }
 .categoryActions button { display: grid; min-width: 48px; min-height: 48px; place-items: center; border: 1px solid #d8dee8; border-radius: 12px; background: #fff; color: #475467; }
+.categoryActions .categoryToggle { color: #c75200; }
+.categoryToggle svg { transition: transform 160ms ease; }
+.categoryToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 .categoryActions .categoryChildAction { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; color: #c75200; }
 .categoryActions svg { width: 17px; }
 .categoryEmpty { padding: 30px; text-align: center; }
@@ -146,10 +151,11 @@
   .categoryManager > header { align-items: flex-start; flex-direction: column; }
   .categoryList article { grid-template-columns: auto 1fr auto; }
   .categoryActions { grid-column: 2 / -1; justify-content: flex-end; }
+  .categoryChildren { margin-left: 10px; padding-left: 10px; }
 }
 
 @keyframes sheet-enter { from { opacity: 0; transform: translateY(24px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .dialog, .sections :global(.onboarding-editor-section > summary i) { animation-duration: 0.01ms; transition-duration: 0.01ms; }
+  .dialog, .sections :global(.onboarding-editor-section > summary i), .categoryToggle svg { animation-duration: 0.01ms; transition-duration: 0.01ms; }
 }

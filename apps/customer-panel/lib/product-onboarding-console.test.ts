@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import {
+  buildCategoryAccordionGroups,
+  presentCategoryAccordion,
+  toggleCategoryAccordion,
+} from "./catalog-onboarding-ui/category-accordion.ts";
+import { buildCatalogCategoryHierarchy } from "./catalog-onboarding-ui/category-tree.ts";
 import { buildVariantMatrix } from "./catalog-onboarding-ui/variant-matrix.ts";
 
 const ROOT = new URL("../", import.meta.url);
@@ -85,4 +91,41 @@ test("category manager presents hierarchy without exposing technical slugs", asy
 
   assert.match(manager, /Seviye \{depth\} · Sıra \{category[.]position\}/);
   assert.doesNotMatch(manager, /\/\{category[.]slug\}/);
+});
+
+test("category accordion groups descendants under roots and toggles roots independently", () => {
+  const categories = [
+    { id: "root-a", name: "Kolyeler", slug: "kolyeler", position: 0, status: "active", version: 1 },
+    { id: "child-a", name: "Altın Kolyeler", slug: "altin-kolyeler", parentId: "root-a", position: 0, status: "active", version: 1 },
+    { id: "root-b", name: "Saatler", slug: "saatler", position: 1, status: "active", version: 1 },
+    { id: "child-b", name: "Kadın Saatleri", slug: "kadin-saatleri", parentId: "root-b", position: 0, status: "active", version: 1 },
+    { id: "root-c", name: "Aksesuar", slug: "aksesuar", position: 2, status: "active", version: 1 },
+  ] as const;
+  const hierarchy = buildCatalogCategoryHierarchy(categories);
+  assert.equal(hierarchy.valid, true);
+
+  const groups = buildCategoryAccordionGroups(hierarchy.rows);
+  assert.deepEqual(groups.map(({ root, descendants }) => [root.category.id, descendants.map(({ category }) => category.id)]), [
+    ["root-a", ["child-a"]],
+    ["root-b", ["child-b"]],
+    ["root-c", []],
+  ]);
+
+  const openedA = toggleCategoryAccordion(new Set(), "root-a");
+  const openedBoth = toggleCategoryAccordion(openedA, "root-b");
+  const closedA = toggleCategoryAccordion(openedBoth, "root-a");
+  assert.deepEqual([...openedBoth], ["root-a", "root-b"]);
+  assert.deepEqual([...closedA], ["root-b"]);
+  assert.equal(Object.isFrozen(groups), true);
+
+  const initial = presentCategoryAccordion(groups, new Set());
+  const bothOpen = presentCategoryAccordion(groups, openedBoth);
+  assert.deepEqual(initial.map(({ expanded, visibleDescendants }) => [expanded, visibleDescendants.length]), [
+    [false, 0], [false, 0], [false, 0],
+  ]);
+  assert.deepEqual(bothOpen.map(({ hasChildren, expanded, visibleDescendants }) => [hasChildren, expanded, visibleDescendants.length]), [
+    [true, true, 1], [true, true, 1], [false, false, 0],
+  ]);
+  assert.equal(bothOpen[0]?.childrenId, "category-children-root-a");
+  assert.equal(bothOpen[2]?.childrenId, undefined);
 });

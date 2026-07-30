@@ -1,11 +1,20 @@
 "use client";
 
-import { Archive, Pencil, Plus, RefreshCw, X } from "lucide-react";
+import { Archive, ChevronDown, Pencil, Plus, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { CatalogCategory } from "@celebix/saas-contracts";
 
+import {
+  buildCategoryAccordionGroups,
+  presentCategoryAccordion,
+  toggleCategoryAccordion,
+  type CategoryAccordionPresentation,
+} from "@/lib/catalog-onboarding-ui/category-accordion";
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
-import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/category-tree";
+import {
+  buildCatalogCategoryHierarchy,
+  type CatalogCategoryTreeRow,
+} from "@/lib/catalog-onboarding-ui/category-tree";
 import styles from "./product-onboarding.module.css";
 
 function value(data: FormData, key: string) { const selected = data.get(key); return typeof selected === "string" ? selected.trim() : ""; }
@@ -18,6 +27,7 @@ export function CategoryManager() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [expandedRootIds, setExpandedRootIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -54,10 +64,46 @@ export function CategoryManager() {
   const hierarchy = buildCatalogCategoryHierarchy(categories);
   const unavailableParents = new Set(editing ? [editing.id, ...hierarchy.descendantIds(editing.id)] : []);
   const activeRows = hierarchy.rows.filter(({ category }) => category.status === "active");
+  const categoryGroups = presentCategoryAccordion(
+    buildCategoryAccordionGroups(hierarchy.rows),
+    expandedRootIds,
+  );
 
   function createChild(category: CatalogCategory) {
     setEditing(undefined);
     setCreatingUnderId(category.id);
+  }
+
+  function toggleRoot(rootId: string) {
+    setExpandedRootIds((current) => toggleCategoryAccordion(current, rootId));
+  }
+
+  function renderCategoryRow(
+    { category, depth, label }: CatalogCategoryTreeRow<CatalogCategory>,
+    accordion?: CategoryAccordionPresentation<CatalogCategory>,
+  ) {
+    const hasControls = accordion?.hasChildren === true || category.status === "active";
+
+    return <article key={category.id} data-status={category.status}>
+      <span className={styles.categoryDepth} style={{ "--depth": depth } as CSSProperties} aria-hidden="true" />
+      <div><strong>{label}</strong><small>Seviye {depth} · Sıra {category.position}</small></div>
+      <span className={category.status === "active" ? styles.activeBadge : styles.archiveBadge}>{category.status === "active" ? "Aktif" : "Arşiv"}</span>
+      {hasControls ? <div className={styles.categoryActions}>
+        {accordion?.hasChildren ? <button
+          type="button"
+          className={styles.categoryToggle}
+          aria-expanded={accordion.expanded}
+          aria-controls={accordion.childrenId}
+          aria-label={`${category.name} alt kategorilerini ${accordion.expanded ? "kapat" : "aç"}`}
+          onClick={() => toggleRoot(category.id)}
+        ><ChevronDown aria-hidden="true" /></button> : null}
+        {category.status === "active" ? <>
+          <button type="button" className={styles.categoryChildAction} onClick={() => createChild(category)} disabled={busy || depth >= 8} aria-label={`${category.name} altında alt kategori ekle`}><Plus aria-hidden="true" /><span>Alt kategori ekle</span></button>
+          <button type="button" onClick={() => { setCreatingUnderId(undefined); setEditing(category); }} disabled={busy} aria-label={`${category.name} kategorisini düzenle`}><Pencil /></button>
+          <button type="button" onClick={() => void archive(category)} disabled={busy} aria-label={`${category.name} kategorisini arşivle`}><Archive /></button>
+        </> : null}
+      </div> : null}
+    </article>;
   }
 
   return <section className={styles.categoryManager} aria-labelledby="category-manager-title">
@@ -72,12 +118,12 @@ export function CategoryManager() {
         <button className={styles.primary} type="submit" disabled={busy}>{busy ? "Kaydediliyor…" : editing ? "Değişiklikleri kaydet" : "Kategori oluştur"}</button>
       </form>
       <div className={styles.categoryList} aria-busy={loading}>
-        {loading ? <p role="status">Kategoriler yükleniyor…</p> : hierarchy.rows.length === 0 ? <div className={styles.categoryEmpty}><strong>Henüz kategori yok</strong><p>İlk kategoriyi soldaki kısa formdan oluşturun.</p></div> : hierarchy.rows.map(({ category, depth, label }) => <article key={category.id} data-status={category.status}>
-          <span className={styles.categoryDepth} style={{ "--depth": depth } as CSSProperties} aria-hidden="true" />
-          <div><strong>{label}</strong><small>Seviye {depth} · Sıra {category.position}</small></div>
-          <span className={category.status === "active" ? styles.activeBadge : styles.archiveBadge}>{category.status === "active" ? "Aktif" : "Arşiv"}</span>
-          {category.status === "active" ? <div className={styles.categoryActions}><button type="button" className={styles.categoryChildAction} onClick={() => createChild(category)} disabled={busy || depth >= 8} aria-label={`${category.name} altında alt kategori ekle`}><Plus aria-hidden="true" /><span>Alt kategori ekle</span></button><button type="button" onClick={() => { setCreatingUnderId(undefined); setEditing(category); }} disabled={busy} aria-label={`${category.name} kategorisini düzenle`}><Pencil /></button><button type="button" onClick={() => void archive(category)} disabled={busy} aria-label={`${category.name} kategorisini arşivle`}><Archive /></button></div> : null}
-        </article>)}
+        {loading ? <p role="status">Kategoriler yükleniyor…</p> : categoryGroups.length === 0 ? <div className={styles.categoryEmpty}><strong>Henüz kategori yok</strong><p>İlk kategoriyi soldaki kısa formdan oluşturun.</p></div> : categoryGroups.map((group) => <div className={styles.categoryGroup} key={group.root.category.id}>
+          {renderCategoryRow(group.root, group)}
+          {group.expanded ? <div id={group.childrenId} className={styles.categoryChildren} role="group" aria-label={`${group.root.category.name} alt kategorileri`}>
+            {group.visibleDescendants.map((row) => renderCategoryRow(row))}
+          </div> : null}
+        </div>)}
       </div>
     </div> : null}
   </section>;

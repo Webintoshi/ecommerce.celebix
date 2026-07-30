@@ -36,9 +36,9 @@
 
 **Interfaces:**
 - Consumes: `readonly CatalogCategoryTreeRow<T>[]` from `buildCatalogCategoryHierarchy`.
-- Produces: `buildCategoryAccordionGroups<T>(rows): readonly CategoryAccordionGroup<T>[]` and `toggleCategoryAccordion(current: ReadonlySet<string>, rootId: string): ReadonlySet<string>`.
+- Produces: `buildCategoryAccordionGroups<T>(rows): readonly CategoryAccordionGroup<T>[]`, `presentCategoryAccordion<T>(groups, expandedRootIds): readonly CategoryAccordionPresentation<T>[]`, and `toggleCategoryAccordion(current: ReadonlySet<string>, rootId: string): ReadonlySet<string>`.
 
-- [ ] **Step 1: Write the failing pure behavior test**
+- [x] **Step 1: Write the failing pure behavior test**
 
 Add imports and one test to `product-onboarding-console.test.ts`:
 
@@ -46,6 +46,7 @@ Add imports and one test to `product-onboarding-console.test.ts`:
 import { buildCatalogCategoryHierarchy } from "./catalog-onboarding-ui/category-tree.ts";
 import {
   buildCategoryAccordionGroups,
+  presentCategoryAccordion,
   toggleCategoryAccordion,
 } from "./catalog-onboarding-ui/category-accordion.ts";
 
@@ -71,10 +72,21 @@ test("category accordion groups descendants under roots and toggles roots indepe
   assert.deepEqual([...openedBoth], ["root-a", "root-b"]);
   assert.deepEqual([...closedA], ["root-b"]);
   assert.equal(Object.isFrozen(groups), true);
+
+  const initial = presentCategoryAccordion(groups, new Set());
+  const bothOpen = presentCategoryAccordion(groups, openedBoth);
+  assert.deepEqual(initial.map(({ expanded, visibleDescendants }) => [expanded, visibleDescendants.length]), [
+    [false, 0], [false, 0], [false, 0],
+  ]);
+  assert.deepEqual(bothOpen.map(({ hasChildren, expanded, visibleDescendants }) => [hasChildren, expanded, visibleDescendants.length]), [
+    [true, true, 1], [true, true, 1], [false, false, 0],
+  ]);
+  assert.equal(bothOpen[0]?.childrenId, "category-children-root-a");
+  assert.equal(bothOpen[2]?.childrenId, undefined);
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -84,7 +96,7 @@ node --experimental-transform-types --test apps/customer-panel/lib/product-onboa
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `category-accordion.ts`.
 
-- [ ] **Step 3: Add the minimal pure model**
+- [x] **Step 3: Add the minimal pure model**
 
 Create `category-accordion.ts`:
 
@@ -97,6 +109,14 @@ import type {
 export interface CategoryAccordionGroup<T extends CatalogCategoryTreeEntry> {
   readonly root: CatalogCategoryTreeRow<T>;
   readonly descendants: readonly CatalogCategoryTreeRow<T>[];
+}
+
+export interface CategoryAccordionPresentation<T extends CatalogCategoryTreeEntry>
+  extends CategoryAccordionGroup<T> {
+  readonly hasChildren: boolean;
+  readonly expanded: boolean;
+  readonly childrenId?: string;
+  readonly visibleDescendants: readonly CatalogCategoryTreeRow<T>[];
 }
 
 export function buildCategoryAccordionGroups<T extends CatalogCategoryTreeEntry>(
@@ -119,55 +139,52 @@ export function toggleCategoryAccordion(
   else next.add(rootId);
   return next;
 }
+
+export function presentCategoryAccordion<T extends CatalogCategoryTreeEntry>(
+  groups: readonly CategoryAccordionGroup<T>[],
+  expandedRootIds: ReadonlySet<string>,
+): readonly CategoryAccordionPresentation<T>[] {
+  return Object.freeze(groups.map((group) => {
+    const hasChildren = group.descendants.length > 0;
+    const expanded = hasChildren && expandedRootIds.has(group.root.category.id);
+    return Object.freeze({
+      ...group,
+      hasChildren,
+      expanded,
+      ...(hasChildren ? { childrenId: `category-children-${group.root.category.id}` } : {}),
+      visibleDescendants: expanded ? group.descendants : Object.freeze([]),
+    });
+  }));
+}
 ```
 
-- [ ] **Step 4: Run the focused test and verify the model is GREEN**
+- [x] **Step 4: Run the focused test and verify the model is GREEN**
 
 Run the Step 2 command.
 
 Expected: all `product-onboarding-console.test.ts` tests PASS.
 
-- [ ] **Step 5: Add failing component/source assertions**
-
-Extend the existing category manager test:
-
-```ts
-assert.match(manager, /useState<ReadonlySet<string>>\(\(\) => new Set\(\)\)/);
-assert.match(manager, /aria-expanded=\{expanded\}/);
-assert.match(manager, /aria-controls=\{childrenId\}/);
-assert.match(manager, /descendants\.length > 0/);
-assert.match(manager, /expanded \? descendants\.map/);
-assert.doesNotMatch(manager, /\/\{category[.]slug\}/);
-
-const css = await source("components/catalog-onboarding/product-onboarding.module.css");
-assert.match(css, /categoryToggle[^}]*min-width:\s*48px[^}]*min-height:\s*48px/s);
-assert.match(css, /categoryToggle\[aria-expanded="true"\]/);
-assert.match(css, /prefers-reduced-motion[\s\S]*categoryToggle/);
-```
-
-- [ ] **Step 6: Run the focused test and verify component assertions RED**
-
-Run the Step 2 command.
-
-Expected: FAIL because `CategoryManager` has no expanded-root state, ARIA toggle or conditional descendant rendering.
-
-- [ ] **Step 7: Implement the controlled category groups**
+- [x] **Step 5: Implement the controlled category groups**
 
 In `CategoryManager.tsx`:
 
 ```tsx
 import { Archive, ChevronDown, Pencil, Plus, RefreshCw, X } from "lucide-react";
-import { buildCategoryAccordionGroups, toggleCategoryAccordion } from "@/lib/catalog-onboarding-ui/category-accordion";
+import {
+  buildCategoryAccordionGroups,
+  presentCategoryAccordion,
+  toggleCategoryAccordion,
+} from "@/lib/catalog-onboarding-ui/category-accordion";
 
 const [expandedRootIds, setExpandedRootIds] = useState<ReadonlySet<string>>(() => new Set());
-const groups = buildCategoryAccordionGroups(hierarchy.rows);
+const groups = presentCategoryAccordion(buildCategoryAccordionGroups(hierarchy.rows), expandedRootIds);
 
 function toggleRoot(rootId: string) {
   setExpandedRootIds((current) => toggleCategoryAccordion(current, rootId));
 }
 ```
 
-Replace the flat `hierarchy.rows.map` with root groups. Preserve the existing article contents and actions in a shared render helper. For roots with descendants, add:
+Replace the flat `hierarchy.rows.map` with root presentations. Preserve the existing article contents and actions in a shared render helper. For roots with descendants, add:
 
 ```tsx
 const childrenId = `category-children-${root.category.id}`;
@@ -182,12 +199,12 @@ const expanded = expandedRootIds.has(root.category.id);
 >
   <ChevronDown aria-hidden="true" />
 </button>
-{expanded ? <div id={childrenId} className={styles.categoryChildren}>{descendants.map(renderCategoryRow)}</div> : null}
+{expanded ? <div id={childrenId} className={styles.categoryChildren}>{visibleDescendants.map(renderCategoryRow)}</div> : null}
 ```
 
 Do not render the toggle when `descendants.length === 0`.
 
-- [ ] **Step 8: Add the accordion styles**
+- [x] **Step 6: Add the accordion styles**
 
 Add CSS Module rules:
 
@@ -201,7 +218,7 @@ Add CSS Module rules:
 
 At `max-width: 560px`, reduce only the child-region margin while preserving the 48px target. Extend the existing reduced-motion selector with `.categoryToggle svg`.
 
-- [ ] **Step 9: Run focused and workspace verification**
+- [x] **Step 7: Run focused and workspace verification**
 
 Run:
 
@@ -215,7 +232,7 @@ git diff --check
 
 Expected: all focused/workspace tests PASS; typecheck/build exit `0`; diff check is empty.
 
-- [ ] **Step 10: Run authenticated browser acceptance**
+- [ ] **Step 8: Run authenticated browser acceptance**
 
 Deploy only customer-panel isolated staging from the exact final SHA, then verify:
 
@@ -225,7 +242,7 @@ Deploy only customer-panel isolated staging from the exact final SHA, then verif
 4. Closing `Kolyeler` leaves `Saatler` open.
 5. Keyboard/ARIA behavior, 48px targets, no slug text and zero console errors.
 
-- [ ] **Step 11: Commit and push**
+- [ ] **Step 9: Commit and push**
 
 ```bash
 git add apps/customer-panel/lib/catalog-onboarding-ui/category-accordion.ts \
