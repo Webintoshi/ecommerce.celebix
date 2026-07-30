@@ -61,22 +61,32 @@ export function createStorefrontAssetHttpHandlers(dependencies: Dependencies) {
       const fingerprint = storefrontAssetFingerprint("create_asset", { kind, mediaType: image.mediaType, altText, width: image.width, height: image.height, byteSize: image.byteSize, contentDigest });
       try {
         const recovered = await authorized.runtime.assets.recoverOperation({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, operationKind: "create_asset", fingerprint });
-        if (recovered.kind === "found") return response("created", 201, recovered.result);
+        if (recovered.kind === "found") {
+          await authorized.runtime.storage.publish({ objectKey: recovered.result.asset.objectKey, mediaType: recovered.result.asset.mediaType, byteSize: recovered.result.asset.byteSize, payloadSha256: contentDigest });
+          return response("created", 201, recovered.result);
+        }
       } catch (error) { return repositoryFailure(error); }
       const assetId = operation;
       const storeId = authorized.tenantContext.store.id, objectKey = `stores/${storeId}/storefront/${kind}/${assetId}.${image.extension}`, publicUrl = authorized.runtime.storage.publicUrl(objectKey);
       const createInput = { tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, assetId, kind, objectKey, publicUrl, mediaType: image.mediaType, altText, width: image.width, height: image.height, byteSize: image.byteSize, contentDigest } as const;
-      try { await authorized.runtime.storage.put({ objectKey, mediaType: image.mediaType, bytes }); } catch { return response("unavailable", 503); }
+      try { await authorized.runtime.storage.put({ objectKey, mediaType: image.mediaType, bytes, payloadSha256: contentDigest }); } catch { return response("unavailable", 503); }
       try {
         const result = await authorized.runtime.assets.createAsset(createInput);
         if (result.replayed && result.asset.objectKey !== objectKey) {
           try { await authorized.runtime.storage.delete(objectKey); } catch { return response("unavailable", 503); }
         }
+        try { await authorized.runtime.storage.publish({ objectKey: result.asset.objectKey, mediaType: result.asset.mediaType, byteSize: result.asset.byteSize, payloadSha256: contentDigest }); } catch { return response("unavailable", 503); }
         return response("created", 201, result);
       }
       catch (error) {
         if (error instanceof StorefrontAssetRepositoryError && error.code === "commit_unknown") {
-          try { const recovered = await authorized.runtime.assets.recoverOperation({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, operationKind: "create_asset", fingerprint }); if (recovered.kind === "found") return response("created", 201, recovered.result); } catch { /* fail closed */ }
+          try {
+            const recovered = await authorized.runtime.assets.recoverOperation({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, operationKind: "create_asset", fingerprint });
+            if (recovered.kind === "found") {
+              await authorized.runtime.storage.publish({ objectKey: recovered.result.asset.objectKey, mediaType: recovered.result.asset.mediaType, byteSize: recovered.result.asset.byteSize, payloadSha256: contentDigest });
+              return response("created", 201, recovered.result);
+            }
+          } catch { /* fail closed */ }
           return response("unavailable", 503);
         }
         await authorized.runtime.storage.delete(objectKey).catch(() => undefined);
@@ -87,7 +97,11 @@ export function createStorefrontAssetHttpHandlers(dependencies: Dependencies) {
       const authorized = await authorize(dependencies, request, "DELETE"); if (isResponse(authorized)) return authorized;
       const operation = operationId(request), body = await jsonBody(request);
       if (!operation || !body || Object.keys(body).sort().join(",") !== "assetId,expectedVersion" || typeof body.assetId !== "string" || !UUID.test(body.assetId) || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 1) return response("invalid_input", 400);
-      try { return response("archived", 200, await authorized.runtime.assets.archiveAsset({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, assetId: body.assetId, expectedVersion: body.expectedVersion as number })); } catch (error) { return repositoryFailure(error); }
+      try {
+        const result = await authorized.runtime.assets.archiveAsset({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, assetId: body.assetId, expectedVersion: body.expectedVersion as number });
+        await authorized.runtime.storage.unpublish(result.asset.objectKey);
+        return response("archived", 200, result);
+      } catch (error) { return repositoryFailure(error); }
     },
   });
 }
