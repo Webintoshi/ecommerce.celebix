@@ -90,6 +90,14 @@ test("redeems a destination-bound POST and installs only the host session cookie
   assert.doesNotMatch(response.headers.get("location") ?? "", /v1\./);
 });
 
+test("accepts reverse-proxy HTTP transport while pinning the browser redirect to the canonical HTTPS admin origin", async () => {
+  const current = fixture();
+  const response = await current.handler(request({ url: `http://${HOSTNAME}/auth/handoff` }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), `${ORIGIN}/`);
+  assert.equal(current.redeemCalls, 1);
+});
+
 test("recovers an unknown redemption commit with the retained session authority", async () => {
   const recovery = Object.freeze({
     operationId: "20000000-0000-4000-8000-000000000001",

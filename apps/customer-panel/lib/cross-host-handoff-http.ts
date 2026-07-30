@@ -46,7 +46,7 @@ function canonicalRequest(request: Request): { hostname: string; origin: string 
   if (request.method !== "POST") throw new Error("invalid");
   const url = new URL(request.url);
   if (
-    url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/auth/handoff" ||
+    !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.port || url.pathname !== "/auth/handoff" ||
     url.search || url.hash
   ) throw new Error("invalid");
   try { parseCanonicalAdminHostname(url.hostname, "production"); }
@@ -54,7 +54,7 @@ function canonicalRequest(request: Request): { hostname: string; origin: string 
     try { parseCanonicalAdminHostname(url.hostname, "staging"); }
     catch { throw new Error("invalid"); }
   }
-  return { hostname: url.hostname, origin: url.origin };
+  return { hostname: url.hostname, origin: `https://${url.hostname}` };
 }
 
 async function boundedBody(request: Request, maximumBytes: number): Promise<string> {
