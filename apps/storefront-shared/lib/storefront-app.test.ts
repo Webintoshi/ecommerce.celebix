@@ -303,11 +303,13 @@ test("starter storefront consumes the public presentation and exposes no inert c
   assert.match(listing, /ProductExplorer/);
   assert.match(category, /listPublicProductsByCategory/);
   assert.match(category, /PublicStorefrontRepositoryError/);
+  assert.match(category, /error[.]code === "not_found" \|\| error[.]code === "invalid_input"/);
   assert.match(category, /notFound\(\)/);
   assert.match(category, /new URL\(`\/categories\/\$\{selected[.]category[.]slug\}`/);
   assert.match(categoryShowcase, /href=\{`\/categories\/\$\{item[.]slug\}`\}/);
   assert.match(categoryShowcase, /showcase[.]heading/);
   assert.match(categoryShowcase, /item[.]image[.]url/);
+  assert.match(categoryShowcase, /alt=\{item[.]name\}/);
   assert.match(detail, /presentation/);
   assert.match(header, /displayName, logo[^\n]+storefront[.]presentation/);
   assert.match(header, /logo[.]url/);
@@ -330,6 +332,11 @@ test("dark theme and every marquee preference drive bounded CSS without sacrific
   assert.match(css, /stock-callout[^}]+color:\s*#382624/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(home, /presentation[.]marquee[.]items[.]join\(" · "\)<\/aside>/);
+});
+
+test("category showcase becomes one column on narrow mobile screens", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]+[.]category-showcase-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
 });
 
 test("storefront metadata is presentation-owned and defaults to noindex", async () => {

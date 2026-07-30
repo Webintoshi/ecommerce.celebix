@@ -188,7 +188,7 @@ img { display: block; max-width: 100%; }
   .hero-copy { padding-block: 62px; }
   .hero-copy h1 { font-size: clamp(49px, 18vw, 78px); }
   .section-heading { align-items: start; flex-direction: column; }
-  .category-showcase-grid { gap: 22px 10px; }
+  .category-showcase-grid { grid-template-columns: 1fr; gap: 22px 10px; }
   .product-grid { gap: 28px 10px; }
   .product-card { gap: 11px; }
   .product-card h3 { font-size: 14px; }

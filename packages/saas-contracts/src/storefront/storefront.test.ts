@@ -53,6 +53,13 @@ test("category showcase remains exact bounded canonical and duplicate-free", () 
   assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: { heading: "Kategoriler", items: [item, item] } }));
   assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: { heading: "Kategoriler", items: [{ ...item, slug: "Bileklikler" }] } }));
   assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, logo: { ...PRESENTATION.logo, url: "http://media.example/logo.webp" } }));
+  for (const url of [
+    "https://guzide.example/wp-content/logo.webp",
+    `${PRESENTATION.logo.url}?tracking=1`,
+    "https://media.saas-staging.celebix.site:444/stores/10000000-0000-4000-8000-000000000001/storefront/logo/50000000-0000-4000-8000-000000000002.webp",
+    "https://media.saas-staging.celebix.site/stores/not-a-store/storefront/logo/not-an-asset.webp",
+  ]) assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, logo: { ...PRESENTATION.logo, url } }));
+  assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: { heading: "Kategoriler", items: [{ ...item, image: { ...item.image, url: "https://guzide.example/wp-content/category.webp" } }] } }));
 });
 
 test("public storefront contract rejects getters and exotic presentation prototypes", () => {
