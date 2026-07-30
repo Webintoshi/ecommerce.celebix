@@ -310,7 +310,7 @@ BEGIN
  IF FOUND THEN RETURN QUERY SELECT existing.outcome,existing.result_payload; RETURN; END IF;
  PERFORM 1 FROM saas.stores store WHERE store.id=p_store_id AND store.status='active' FOR UPDATE;
  IF NOT FOUND THEN RETURN QUERY SELECT 'store_inactive',NULL::jsonb; RETURN; END IF;
- IF p_operation_id IS NULL OR p_asset_id IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' OR p_kind NOT IN('logo','hero','social','favicon') OR p_media_type NOT IN('image/jpeg','image/png','image/webp') OR p_width NOT BETWEEN 1 AND 8192 OR p_height NOT BETWEEN 1 AND 8192 OR p_byte_size NOT BETWEEN 1 AND 5242880 OR p_alt_text IS NULL OR p_alt_text<>pg_catalog.btrim(p_alt_text) OR pg_catalog.char_length(p_alt_text)>500 OR p_alt_text~'[[:cntrl:]]' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ IF p_operation_id IS NULL OR p_asset_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' OR p_kind IS NULL OR p_kind NOT IN('logo','hero','social','favicon') OR p_media_type IS NULL OR p_media_type NOT IN('image/jpeg','image/png','image/webp') OR p_width IS NULL OR p_width NOT BETWEEN 1 AND 8192 OR p_height IS NULL OR p_height NOT BETWEEN 1 AND 8192 OR p_byte_size IS NULL OR p_byte_size NOT BETWEEN 1 AND 5242880 OR p_object_key IS NULL OR p_public_url IS NULL OR p_alt_text IS NULL OR p_alt_text<>pg_catalog.btrim(p_alt_text) OR pg_catalog.char_length(p_alt_text)>500 OR p_alt_text~'[[:cntrl:]]' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
  IF p_object_key<>'stores/'||p_store_id::text||'/storefront/'||p_kind||'/'||p_asset_id::text||(CASE p_media_type WHEN 'image/jpeg' THEN '.jpg' WHEN 'image/png' THEN '.png' ELSE '.webp' END) OR p_public_url!~'^https://[^/?#[:space:][:cntrl:]]+/' OR p_public_url~'[?#[:space:][:cntrl:]]' OR pg_catalog.right(p_public_url,pg_catalog.char_length(p_object_key)+1)<>'/'||p_object_key THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
  IF (SELECT pg_catalog.count(*) FROM saas.storefront_assets asset WHERE asset.store_id=p_store_id AND asset.status='active')>=64 OR (SELECT COALESCE(pg_catalog.sum(media.byte_size),0) FROM saas.product_media media WHERE media.store_id=p_store_id AND media.status IN('pending','active'))+(SELECT COALESCE(pg_catalog.sum(asset.byte_size),0) FROM saas.storefront_assets asset WHERE asset.store_id=p_store_id AND asset.status='active')+p_byte_size>p_storage_bytes THEN RETURN QUERY SELECT 'asset_limit_reached',NULL::jsonb; RETURN; END IF;
  INSERT INTO saas.storefront_assets(id,store_id,asset_kind,object_key,public_url,media_type,alt_text,width,height,byte_size,status,created_at,updated_at,version) VALUES(p_asset_id,p_store_id,p_kind,p_object_key,p_public_url,p_media_type,p_alt_text,p_width,p_height,p_byte_size,'active',p_now,p_now,1);
@@ -341,6 +341,7 @@ RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFIN
 DECLARE authority_error text; existing record; current_version bigint; projection jsonb;
 BEGIN
  authority_error:=saas.media_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_storage_bytes,p_now); IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+ IF p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' OR p_asset_id IS NULL OR p_expected_version IS NULL OR p_expected_version<1 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
  SELECT * INTO existing FROM saas.storefront_asset_operation_replay(p_operation_id,p_store_id,'archive_asset',p_fingerprint); IF FOUND THEN RETURN QUERY SELECT existing.outcome,existing.result_payload; RETURN; END IF;
  SELECT asset.version INTO current_version FROM saas.storefront_assets asset WHERE asset.id=p_asset_id AND asset.store_id=p_store_id AND asset.status='active' FOR UPDATE;
  IF current_version IS NULL THEN RETURN QUERY SELECT 'asset_not_found',NULL::jsonb; RETURN; END IF; IF current_version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
@@ -356,6 +357,7 @@ RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURIT
 DECLARE authority_error text; existing record;
 BEGIN
  authority_error:=saas.media_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_storage_bytes,p_now); IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+ IF p_operation_id IS NULL OR p_kind IS NULL OR p_kind NOT IN('create_asset','archive_asset') OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
  SELECT * INTO existing FROM saas.storefront_asset_operation_replay(p_operation_id,p_store_id,p_kind,p_fingerprint); IF NOT FOUND THEN RETURN QUERY SELECT 'operation_not_found',NULL::jsonb; RETURN; END IF; RETURN QUERY SELECT existing.outcome,existing.result_payload;
 END
 $f$;

@@ -156,7 +156,12 @@ async function main() {
       assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.merchant_admin_config_valid('hero_banner','{"imageUrl":"https://external.example.test/hero.webp"}'::jsonb);`).stdout.trim(), "f");
       assert.equal(psql(box, `SET ROLE celebix_saas_owner; SELECT saas.public_storefront_asset('${STORE_A}','hero','{"imageUrl":"https://external.example.test/hero.webp"}'::jsonb) IS NULL;`).stdout.trim(), "t");
     });
-    await scenario("application and host roles have no direct storefront asset table access", () => { assert.notEqual(psql(box, "SET ROLE celebix_saas_app; SELECT count(*) FROM saas.storefront_assets;", DB, true).status, 0); assert.notEqual(psql(box, "SET ROLE celebix_saas_host_resolver; SELECT count(*) FROM saas.storefront_assets;", DB, true).status, 0); });
+    await scenario("application and host roles have no direct storefront asset table access", () => {
+      assert.notEqual(psql(box, "SET ROLE celebix_saas_app; SELECT count(*) FROM saas.storefront_assets;", DB, true).status, 0);
+      assert.notEqual(psql(box, "SET ROLE celebix_saas_host_resolver; SELECT count(*) FROM saas.storefront_assets;", DB, true).status, 0);
+      assert.equal(psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.storefront_asset_archive(${authority(STORE_A,PRINCIPAL_A,MEMBERSHIP_A)},NULL,NULL,'${ASSET_A}',0); COMMIT;`).stdout.trim().split("\n").at(-1), "invalid_input");
+      assert.equal(psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.storefront_asset_recover(${authority(STORE_A,PRINCIPAL_A,MEMBERSHIP_A)},'62000000-0000-4000-8000-000000000066','wrong','bad'); COMMIT;`).stdout.trim().split("\n").at(-1), "invalid_input");
+    });
     await scenario("promotion is absent before start and at exact end", () => { assert.equal(resolve(box, HOST_A, "2026-07-30T10:59:59.999Z").payload.presentation.promotion, undefined); assert.equal(resolve(box, HOST_A, "2026-07-30T13:00:00.000Z").payload.presentation.promotion, undefined); });
     await scenario("draft and archived settings never become public", () => { psql(box, `SET ROLE celebix_saas_owner; UPDATE saas.merchant_admin_records SET status='draft',updated_at='2026-07-04' WHERE id='71000000-0000-4000-8000-000000000064';`); assert.equal(resolve(box, HOST_A).payload.presentation.hero.headline, "Starter A"); });
     await scenario("another store cannot influence the selected host", () => assert.equal(resolve(box, HOST_B).payload.presentation.displayName, "Başka Mağaza"));
