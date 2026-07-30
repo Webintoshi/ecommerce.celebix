@@ -7,9 +7,9 @@ import { spawn, spawnSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
-const UP = "202607300066_admin_managed_starter_theme.up.sql";
-const DOWN = "202607300066_admin_managed_starter_theme.down.sql";
-const ASSERTIONS = "202607300066_admin_managed_starter_theme_assertions.sql";
+const UP = "202607300069_admin_managed_starter_theme.up.sql";
+const DOWN = "202607300069_admin_managed_starter_theme.down.sql";
+const ASSERTIONS = "202607300069_admin_managed_starter_theme_assertions.sql";
 const DB = "admin_managed_starter_theme";
 const STORE_A = "10000000-0000-4000-8000-000000000066";
 const STORE_B = "10000000-0000-4000-8000-000000000067";
@@ -87,7 +87,7 @@ function migrationFiles() {
   const accepted = /(?:\.up|\.seed|\.freeze|_grants|_assertions|catalog_assertions)\.sql$/;
   return readdirSync(SQL).filter((file) => {
     const sequence = Number.parseInt(file.slice(8, 12), 10);
-    return Number.isSafeInteger(sequence) && sequence <= 65 && accepted.test(file) && !file.includes(".down.");
+    return Number.isSafeInteger(sequence) && sequence <= 68 && accepted.test(file) && !file.includes(".down.");
   }).sort((left, right) => {
     const leftSequence = Number.parseInt(left.slice(8, 12), 10), rightSequence = Number.parseInt(right.slice(8, 12), 10);
     if (leftSequence !== rightSequence) return leftSequence - rightSequence;

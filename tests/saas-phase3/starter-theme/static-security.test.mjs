@@ -18,7 +18,7 @@ test("starter theme manifest pins every forward and rollback artifact", () => {
 });
 
 test("starter theme projection remains hostname-first and server-owned", () => {
-  const migration = read("apps/owner/scripts/sql/saas/202607300066_admin_managed_starter_theme.up.sql");
+  const migration = read("apps/owner/scripts/sql/saas/202607300069_admin_managed_starter_theme.up.sql");
   assert.match(migration, /public_starter_presentation\(p_store_id uuid, p_now timestamptz, p_allow_index boolean\)/);
   assert.match(migration, /resolve_public_storefront\(p_hostname text, p_now timestamptz\)/);
   assert.match(migration, /ORDER BY r\.updated_at DESC, r\.id DESC/);
@@ -28,7 +28,7 @@ test("starter theme projection remains hostname-first and server-owned", () => {
 });
 
 test("host resolver receives no merchant table or helper authority", () => {
-  const migration = read("apps/owner/scripts/sql/saas/202607300066_admin_managed_starter_theme.up.sql");
+  const migration = read("apps/owner/scripts/sql/saas/202607300069_admin_managed_starter_theme.up.sql");
   assert.match(migration, /REVOKE ALL ON FUNCTION[^;]+saas\.public_starter_presentation\(uuid,timestamptz\)[^;]+FROM PUBLIC/s);
   assert.match(migration, /REVOKE ALL ON FUNCTION[^;]+saas\.public_starter_presentation\(uuid,timestamptz,boolean\)[^;]+FROM PUBLIC/s);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION saas\.resolve_public_storefront[^;]+TO celebix_saas_host_resolver/s);

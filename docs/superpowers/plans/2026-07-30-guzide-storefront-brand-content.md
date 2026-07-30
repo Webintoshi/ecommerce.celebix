@@ -45,9 +45,9 @@
 ### Task 2: Add PostgreSQL 067 authority
 
 **Files:**
-- Create: `apps/owner/scripts/sql/saas/202607300067_storefront_category_showcase.up.sql`
-- Create: `apps/owner/scripts/sql/saas/202607300067_storefront_category_showcase.down.sql`
-- Create: `apps/owner/scripts/sql/saas/202607300067_storefront_category_showcase_assertions.sql`
+- Create: `apps/owner/scripts/sql/saas/202607300070_storefront_category_showcase.up.sql`
+- Create: `apps/owner/scripts/sql/saas/202607300070_storefront_category_showcase.down.sql`
+- Create: `apps/owner/scripts/sql/saas/202607300070_storefront_category_showcase_assertions.sql`
 - Create: `apps/owner/scripts/sql/saas/phase3z-storefront-category-showcase-manifest.json`
 - Test: `tests/saas-phase3/storefront-category-showcase/postgres-harness.mjs`
 - Test: `tests/saas-phase3/storefront-category-showcase/static-security.test.mjs`

@@ -4,20 +4,20 @@
   "artifacts": [
     {
       "file": "phase3y-admin-managed-starter-theme-manifest.json",
-      "sha256": "14ecb4320a4a50680a03219d9fa63f4c3fb586a3d2e66f1e91ad0a38a0501022"
+      "sha256": "bb509aee0abeec20a85c25b94a08b162c2dd4ba3aba1f9576f33791f29cf2682"
     },
     {
-      "file": "202607300067_storefront_category_showcase.up.sql",
+      "file": "202607300070_storefront_category_showcase.up.sql",
       "sha256": "b467f2f2a15a4ed08898229eac7d7ca4c4a7fe561ce8a429dc0714f787ad1e00"
     },
     {
-      "file": "202607300067_storefront_category_showcase_assertions.sql",
+      "file": "202607300070_storefront_category_showcase_assertions.sql",
       "sha256": "a61be9011627eaa0d74aab75e1c74839dee05fc3132d5f03ffaad2352c9e2e88"
     }
   ],
   "rollbackArtifacts": [
     {
-      "file": "202607300067_storefront_category_showcase.down.sql",
+      "file": "202607300070_storefront_category_showcase.down.sql",
       "sha256": "b99e83bf950f2bdb78b834a9153c76607fd9937c108733155b1273bd514cf530"
     }
   ],
