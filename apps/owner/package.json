@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next dev --port 3100",
     "build": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next build",
+    "logto:branding:sync": "node --experimental-strip-types ./scripts/sync-logto-branding.ts",
     "smoke:store": "node ./scripts/smoke-store.mjs",
     "start": "node ./scripts/start-production.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
