@@ -13,6 +13,11 @@ test("callback exchanges the authorization code with the signed PKCE verifier", 
   assert.match(routeSource, /exchangeLogtoCodeForTokens\(code, stateCookie\.codeVerifier\)/);
 });
 
+test("duplicate callback requests share the signed state result", () => {
+  assert.match(routeSource, /resolveAdminCallbackOnce\(/);
+  assert.match(routeSource, /stateCookie\.state/);
+});
+
 test("successful callback clears only the one-time state cookie before writing the session", () => {
   const successStart = routeSource.indexOf(
     "const response = NextResponse.redirect(buildAdminRedirect(nextPath));",

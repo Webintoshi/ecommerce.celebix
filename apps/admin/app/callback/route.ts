@@ -4,6 +4,7 @@ import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-
 import { clearAdminRoleCookie, writeAdminRoleCookie } from "@/lib/admin-role-cookie";
 import { isLogtoAdminAuthEnabled } from "@/lib/admin-auth-provider";
 import { resolveAdminCallback } from "@/lib/admin-callback-flow";
+import { resolveAdminCallbackOnce } from "@/lib/admin-callback-once";
 import type { AdminLoginErrorCode } from "@/lib/admin-login-contract";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import {
@@ -88,14 +89,19 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const callbackResult = await resolveAdminCallback({
-    exchangeCode: () =>
-      exchangeLogtoCodeForTokens(code, stateCookie.codeVerifier),
-    fetchIdentity: (tokens) => fetchLogtoUserInfo(tokens.access_token),
-    readSubject: (identity) =>
-      typeof identity.sub === "string" ? identity.sub : null,
-    findMembership: (subject) => findLegacyAdminBridgeByLogtoSubject(subject),
-  });
+  const callbackResult = await resolveAdminCallbackOnce(
+    stateCookie.state,
+    () =>
+      resolveAdminCallback({
+        exchangeCode: () =>
+          exchangeLogtoCodeForTokens(code, stateCookie.codeVerifier),
+        fetchIdentity: (tokens) => fetchLogtoUserInfo(tokens.access_token),
+        readSubject: (identity) =>
+          typeof identity.sub === "string" ? identity.sub : null,
+        findMembership: (subject) =>
+          findLegacyAdminBridgeByLogtoSubject(subject),
+      }),
+  );
 
   if (!callbackResult.ok) {
     return buildLoginFailureResponse({
