@@ -84,11 +84,10 @@ test("starter presentation settings expose one effective singleton editor and id
   assert.equal(selectSingletonEditorRecord("theme_setting", [draft])?.id, draft.id);
 });
 
-test("shipping settings expose the exact checkout rate fields", () => {
+test("shipping settings preserve the exact durable delivery fields", () => {
   const shipping = MERCHANT_MODULE_DEFINITIONS.find((entry) => entry.kind === "shipping_setting");
   assert.deepEqual(shipping?.fields.map((field) => field.key), [
     "regions",
-    "flatRateCents",
     "freeShippingThresholdCents",
     "estimatedDays",
   ]);
