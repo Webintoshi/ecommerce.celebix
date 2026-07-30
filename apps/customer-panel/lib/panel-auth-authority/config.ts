@@ -13,6 +13,7 @@ const FIELDS = Object.freeze([
   "CELEBIX_BROWSER_INTERNAL_KEY_B64URL", "CELEBIX_CALLBACK_INTERNAL_KEY_ID",
   "CELEBIX_CALLBACK_INTERNAL_KEY_B64URL", "CELEBIX_HANDOFF_KEY_ID", "CELEBIX_HANDOFF_KEY_B64URL",
   "CELEBIX_SESSION_KEY_ID", "CELEBIX_SESSION_KEY_B64URL",
+  "CELEBIX_LOGTO_END_SESSION_ENDPOINT", "CELEBIX_LOGTO_CLIENT_ID",
 ]);
 
 type Environment = Record<string, string | undefined>;
@@ -21,6 +22,7 @@ export type CustomerPanelStagingAuthConfig = Readonly<{
   activationId: string;
   authority: SaaSAuthAuthorityProfile;
   database: Readonly<{ url: string; name: string }>;
+  logto: Readonly<{ endSessionEndpoint: string; clientId: string }>;
   keys: Readonly<{
     browserInternalKeyId: string;
     browserInternal: Uint8Array;
@@ -80,6 +82,18 @@ function database(source: Environment): Readonly<{ url: string; name: string }> 
   return Object.freeze({ url: value, name });
 }
 
+function logto(source: Environment): Readonly<{ endSessionEndpoint: string; clientId: string }> {
+  const endSessionEndpoint = required(source, "CELEBIX_LOGTO_END_SESSION_ENDPOINT", 2048);
+  let url: URL;
+  try { url = new URL(endSessionEndpoint); } catch { return invalid(); }
+  if (
+    url.protocol !== "https:" || url.username || url.password || url.port || url.search || url.hash ||
+    !url.pathname.endsWith("/oidc/session/end") || url.toString() !== endSessionEndpoint
+  ) invalid();
+  const clientId = required(source, "CELEBIX_LOGTO_CLIENT_ID", 256);
+  return Object.freeze({ endSessionEndpoint, clientId });
+}
+
 export function parseCustomerPanelStagingAuthConfig(source: Environment): CustomerPanelStagingAuthConfig {
   if (!source || typeof source !== "object" || Array.isArray(source)) invalid();
   const actual = Object.keys(source);
@@ -105,7 +119,7 @@ export function parseCustomerPanelStagingAuthConfig(source: Environment): Custom
     sessionKeyId: keyId(source, "CELEBIX_SESSION_KEY_ID"),
     session: secret(source, "CELEBIX_SESSION_KEY_B64URL"),
   });
-  return Object.freeze({ activationId, authority, database: database(source), keys });
+  return Object.freeze({ activationId, authority, database: database(source), logto: logto(source), keys });
 }
 
 export const CUSTOMER_PANEL_STAGING_AUTH_ENVIRONMENT_FIELDS = FIELDS;

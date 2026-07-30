@@ -10,4 +10,6 @@ export interface PanelPublicChromeModel {
 
 export interface PanelClientChromeModel extends PanelPublicChromeModel {
   readonly analyticsAvailable: boolean;
+  readonly activeStoreId?: string;
+  readonly storeOptions?: readonly import("../panel-store-options/postgres-repository").PanelStoreOption[];
 }

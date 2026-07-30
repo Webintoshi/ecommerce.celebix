@@ -37,6 +37,7 @@ import {
 import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import { createPostgresPanelSessionRepository } from "../panel-session-persistence/postgres-panel-session-repository.ts";
 import { createPostgresCrossHostSessionHandoffRepository } from "../cross-host-session-handoff/postgres-repository.ts";
+import { createPostgresPanelStoreOptionRepository } from "../panel-store-options/postgres-repository.ts";
 import { registerServerAdminHostAuthRuntime } from "../server-admin-host-auth/runtime.ts";
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
@@ -122,6 +123,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.issue_cross_host_panel_handoff(text,text,uuid,uuid,text,text,uuid,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.redeem_cross_host_panel_handoff(text,text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.recover_cross_host_panel_handoff(uuid,text,text,text,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.list_panel_session_store_options(text,text,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.revoke_principal_panel_sessions(text,text,text,timestamp with time zone)') IS NOT NULL AS tenant_admin_auth,
       EXISTS (
         SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
@@ -432,6 +434,16 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
         audit: () => undefined,
       },
     );
+    const panelStoreOptionRepository = createPostgresPanelStoreOptionRepository(
+      createPanelSessionPersistenceApproval("approved_staging"),
+      {
+        pool,
+        keys: new Map([[config.keys.sessionKeyId, new Uint8Array(config.keys.session)]]),
+        activeKeyId: config.keys.sessionKeyId,
+        clock: () => new Date(),
+        timeouts: TIMEOUTS,
+      },
+    );
     const catalogRepository = new PostgresCatalogRepository({
       pool,
       role: "celebix_saas_app",
@@ -549,6 +561,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerAdminHostAuthRuntime(access, {
       adminDomains: adminDomainRepository,
       handoffs: crossHostHandoffRepository,
+      storeOptions: panelStoreOptionRepository,
+      logout: {
+        endSessionEndpoint: config.logto.endSessionEndpoint,
+        clientId: config.logto.clientId,
+        stateKey: new Uint8Array(config.keys.handoff),
+      },
     });
     registerServerCatalogRepository(access, catalogRepository);
     registerServerCatalogOnboardingRepository(access, catalogOnboardingRepository);

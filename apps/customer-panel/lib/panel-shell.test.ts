@@ -617,10 +617,10 @@ test("server layout projects TenantContext before entering the client shell", as
   const layout = await source("app/(panel)/layout.tsx");
   const shell = await source("components/panel/PanelShell.tsx");
   const client = await source("components/panel/PanelLayoutClient.tsx");
-  assert.match(layout, /createPanelChromeModel\(tenantContext\)/);
-  assert.match(layout, /PanelShell model=/);
+  assert.match(layout, /PanelShell tenantContext=/);
+  assert.match(shell, /createPanelChromeModel/);
   assert.doesNotMatch(client, /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
-  assert.doesNotMatch(shell, /tenantContext/);
+  assert.match(shell, /SERVER_CONTEXT_PROP/);
 });
 
 test("desktop shell carries exact donor tokens, fixed width, topbar, and supported navigation", async () => {
@@ -976,7 +976,7 @@ test("desktop sidebar matches the approved compact Celebix navigation anatomy", 
   assert.match(sidebar, /styles[.]sidebarAvatar/);
   assert.doesNotMatch(sidebar, /className=\{styles[.]merchantIdentity\}/);
   assert.match(logout, /LogOut/);
-  assert.match(logout, /:\s*"Çıkış"/);
+  assert.match(logout, />Çıkış</);
   const navigationSource = await source("components/panel/PanelNavigation.tsx");
   assert.match(navigationSource, /discounts:\s*Percent/);
   assert.match(navigationSource, /content:\s*FileText/);
@@ -1197,14 +1197,12 @@ test("orders/quick-links marks only Hızlı Siparişler as the current page", as
   assert.deepEqual(currentLinks, [{ href: "/orders/quick-links", label: "Hızlı Siparişler" }]);
 });
 
-test("logout stays on the existing same-origin JSON mutation", async () => {
+test("logout uses a top-level form so the browser follows the Logto redirect without reading credentials", async () => {
   const logout = await source("components/panel/LogoutButton.tsx");
-  assert.match(logout, /fetch\(["']\/api\/session\/logout["']/);
-  assert.match(logout, /method:\s*["']POST["']/);
-  assert.match(logout, /credentials:\s*["']same-origin["']/);
-  assert.match(logout, /application\/json/);
-  assert.match(logout, /location\.assign\(["']\/login["']\)/);
-  assert.doesNotMatch(logout, /document\.cookie|localStorage|sessionStorage/);
+  assert.match(logout, /action="\/api\/session\/logout"/);
+  assert.match(logout, /method="post"/);
+  assert.match(logout, /type="submit"/);
+  assert.doesNotMatch(logout, /fetch\(|location\.assign|document\.cookie|localStorage|sessionStorage/);
 });
 
 test("mobile drawer has dialog, Escape, backdrop, focus-return, and swipe-close behavior", async () => {
@@ -1311,6 +1309,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
   const LogoutButton: HookTestComponent = () => harness.jsxRuntime.jsx("button", {
     children: "Çıkış",
   });
+  const StoreSwitcher: HookTestComponent = () => null;
   const drawerExit = { complete: null as (() => void) | null };
 
   try {
@@ -1353,6 +1352,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
         if (specifier === "next/link") return Link;
         if (specifier === "./LogoutButton") return { LogoutButton };
         if (specifier === "./PanelNavigation") return { PanelNavigation };
+        if (specifier === "./StoreSwitcher") return { StoreSwitcher };
         if (specifier === "./panel-shell.module.css") return styles;
         throw new Error(`unexpected_panel_sidebar_import:${specifier}`);
       },

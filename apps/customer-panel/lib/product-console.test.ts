@@ -244,7 +244,7 @@ test("catalog browser code is same-origin and contains no browser tenant or cred
   assert.doesNotMatch(combined, /postgres|repository|database/i);
 });
 
-test("authenticated shell shows store role and uses JSON session logout with a full navigation", async () => {
+test("authenticated shell shows store role and uses a top-level secure logout navigation", async () => {
   const layout = await source("app/(panel)/layout.tsx");
   const shell = await source("components/panel/PanelShell.tsx");
   const clientFiles = await Promise.all([
@@ -253,16 +253,14 @@ test("authenticated shell shows store role and uses JSON session logout with a f
     "components/panel/PanelNavigation.tsx",
   ].map(source));
   const logout = await source("components/panel/LogoutButton.tsx");
-  assert.match(layout, /createPanelChromeModel\(tenantContext\)/);
-  assert.match(layout, /PanelShell model=/);
+  assert.match(layout, /PanelShell tenantContext=/);
   assert.match(shell, /PanelLayoutClient/);
   assert.match(shell, /createPanelChromeModel/);
   assert.match(shell, /SERVER_CONTEXT_PROP/);
   assert.doesNotMatch(clientFiles.join("\n"), /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
   assert.match(logout, /\/api\/session\/logout/);
-  assert.match(logout, /application\/json/);
-  assert.match(logout, /credentials:\s*["']same-origin["']/);
-  assert.match(logout, /location\.assign\(["']\/login["']\)/);
+  assert.match(logout, /method="post"/);
+  assert.doesNotMatch(logout, /fetch\(|location\.assign/);
   assert.doesNotMatch(`${shell}\n${logout}`, /document\.cookie|localStorage|sessionStorage/);
 });
 

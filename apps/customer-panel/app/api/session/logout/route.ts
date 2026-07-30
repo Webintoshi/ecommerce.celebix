@@ -1,3 +1,3 @@
-import { handleDefaultPanelSessionLogout } from "../../../../lib/server-panel-session-controls/default.ts";
+import { handleDefaultTenantPanelSessionLogout } from "../../../../lib/server-panel-session-controls/default.ts";
 
-export const POST = handleDefaultPanelSessionLogout;
+export const POST = handleDefaultTenantPanelSessionLogout;

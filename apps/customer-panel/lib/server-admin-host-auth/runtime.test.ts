@@ -26,18 +26,25 @@ test("registers frozen public-brand and handoff facades only for approved access
       async redeemHandoff() { calls.push("redeem"); return { kind: "unavailable" as const }; },
       async recoverRedemption() { calls.push("recover_redeem"); return { kind: "unavailable" as const }; },
     },
+    storeOptions: {
+      async listForCredential() { calls.push("stores"); return { kind: "unavailable" as const }; },
+    },
+    logout: { endSessionEndpoint: "https://auth.celebix.co/oidc/session/end", clientId: "celebix-panel", stateKey: new Uint8Array(32).fill(0x41) },
   });
   const runtime = resolveServerAdminHostAuthRuntime(approved);
   assert.ok(runtime);
   assert.equal(Object.isFrozen(runtime), true);
   assert.equal(Object.isFrozen(runtime.adminDomains), true);
   assert.equal(Object.isFrozen(runtime.handoffs), true);
+  assert.equal(Object.isFrozen(runtime.storeOptions), true);
+  assert.equal(Object.isFrozen(runtime.logout), true);
   await runtime.adminDomains.resolvePublicBrand({ hostname: "x", now: new Date() });
   await runtime.handoffs.issueHandoff({} as never);
   await runtime.handoffs.recoverIssuedHandoff({} as never);
   await runtime.handoffs.redeemHandoff({} as never);
   await runtime.handoffs.recoverRedemption({} as never);
-  assert.deepEqual(calls, ["brand", "issue", "recover_issue", "redeem", "recover_redeem"]);
+  await runtime.storeOptions.listForCredential({} as never);
+  assert.deepEqual(calls, ["brand", "issue", "recover_issue", "redeem", "recover_redeem", "stores"]);
   for (const forbidden of ["pool", "keys", "database", "connectionString"]) assert.equal(forbidden in runtime, false);
 });
 
@@ -54,6 +61,8 @@ test("disabled, missing, and duplicate registrations fail closed", () => {
       async redeemHandoff() { return { kind: "unavailable" as const }; },
       async recoverRedemption() { return { kind: "unavailable" as const }; },
     },
+    storeOptions: { async listForCredential() { return { kind: "unavailable" as const }; } },
+    logout: { endSessionEndpoint: "https://auth.celebix.co/oidc/session/end", clientId: "celebix-panel", stateKey: new Uint8Array(32).fill(0x41) },
   };
   registerServerAdminHostAuthRuntime(approved, repositories);
   assert.throws(() => registerServerAdminHostAuthRuntime(approved, repositories), /server_admin_host_auth_runtime_invalid/);

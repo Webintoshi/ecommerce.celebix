@@ -15,6 +15,7 @@ import {
 import type { PanelClientChromeModel } from "@/lib/panel-ui/client-chrome-model";
 import { LogoutButton } from "./LogoutButton";
 import { PanelNavigation } from "./PanelNavigation";
+import { StoreSwitcher } from "./StoreSwitcher";
 import styles from "./panel-shell.module.css";
 
 function PanelBrand({ onClick }: { onClick?: () => void }) {
@@ -32,6 +33,9 @@ function SidebarFooter({ model }: { model: PanelClientChromeModel }) {
 
   return (
     <div className={styles.sidebarFooter}>
+      {model.activeStoreId && model.storeOptions ? (
+        <StoreSwitcher stores={model.storeOptions} activeStoreId={model.activeStoreId} />
+      ) : null}
       <div className={styles.sidebarAccount} aria-label="Etkin mağaza">
         <span className={styles.sidebarAvatar} aria-hidden="true">{initial}</span>
         <span className={styles.sidebarAccountCopy}>

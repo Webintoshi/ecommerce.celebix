@@ -31,6 +31,8 @@ function validEnvironment() {
     CELEBIX_HANDOFF_KEY_B64URL: KEY,
     CELEBIX_SESSION_KEY_ID: "session.v1",
     CELEBIX_SESSION_KEY_B64URL: KEY,
+    CELEBIX_LOGTO_END_SESSION_ENDPOINT: "https://auth.celebix.co/oidc/session/end",
+    CELEBIX_LOGTO_CLIENT_ID: "celebix-panel",
   };
 }
 
