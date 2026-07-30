@@ -1,0 +1,26 @@
+{
+  "phase": "phase3y-admin-managed-starter-theme",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "phase3x-storefront-default-shipping-manifest.json",
+      "sha256": "574520aec2a243602f153e9f64dd9f3c22c1845c00d50433441b5383f9996401"
+    },
+    {
+      "file": "202607300066_admin_managed_starter_theme.up.sql",
+      "sha256": "b7b35929470a3e48892bcce782a1a1f575fba3436aa7e49bfdf10115e86af7b5"
+    },
+    {
+      "file": "202607300066_admin_managed_starter_theme_assertions.sql",
+      "sha256": "efd4b38438885a735076a2de2d5f5de5295d3f9170e2229a80d0399513564e2c"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607300066_admin_managed_starter_theme.down.sql",
+      "sha256": "31978877d36afe77708bde173f3d64419f289927a8051521d23c659b17cd2302"
+    }
+  ],
+  "externalConnections": 0,
+  "productionMutations": 0
+}
