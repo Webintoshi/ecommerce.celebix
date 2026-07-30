@@ -3,6 +3,7 @@ import Link from "next/link";
 import { starterMarqueeTokens } from "@celebix/saas-contracts";
 
 import { ProductGrid } from "@/components/ProductGrid";
+import { CategoryShowcase } from "@/components/CategoryShowcase";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
@@ -36,6 +37,7 @@ export default async function HomePage() {
       {heroMedia ? <img className="hero-media" src={heroMedia.url} alt={heroMedia.altText} width={heroMedia.width} height={heroMedia.height} /> : null}
       <div className="store-container hero-copy"><span>YENİ SEÇKİ</span><h1>{presentation.hero.headline}</h1><p>{presentation.hero.body}</p><Link className="store-button" href={presentation.hero.destination}>Koleksiyonu keşfet</Link></div>
     </section> : null}
+    {presentation.categoryShowcase ? <CategoryShowcase showcase={presentation.categoryShowcase} /> : null}
     <section className="store-section store-container"><div className="section-heading"><div><span>SEÇİLİ KOLEKSİYON</span><h2>Yeni Ürünler</h2></div><Link href="/products">Tümünü gör →</Link></div><ProductGrid products={products.items} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio} /></section>
     {presentation.theme.showBrandStory ? <section className="brand-story"><div className="store-container"><span>MAĞAZA DENEYİMİ</span><h2>Az, öz ve özenle seçilmiş.</h2><p>{presentation.displayName}, ürünlerini güvenli Celebix altyapısı üzerinden aynı sade vitrin diliyle sunar.</p></div></section> : null}
   </StorefrontFrame>;
