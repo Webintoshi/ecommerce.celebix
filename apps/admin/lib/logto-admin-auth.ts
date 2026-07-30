@@ -339,6 +339,10 @@ export function writeLogtoAdminSessionCookie(response: NextResponse, payload: Om
 
 export function clearLogtoAdminSessionCookies(response: NextResponse) {
   clearCookie(response, LOGTO_ADMIN_SESSION_COOKIE_NAME);
+  clearLogtoAdminStateCookie(response);
+}
+
+export function clearLogtoAdminStateCookie(response: NextResponse) {
   clearCookie(response, LOGTO_ADMIN_STATE_COOKIE_NAME);
 }
 

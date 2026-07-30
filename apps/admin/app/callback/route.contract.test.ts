@@ -13,6 +13,17 @@ test("callback exchanges the authorization code with the signed PKCE verifier", 
   assert.match(routeSource, /exchangeLogtoCodeForTokens\(code, stateCookie\.codeVerifier\)/);
 });
 
+test("successful callback clears only the one-time state cookie before writing the session", () => {
+  const successStart = routeSource.indexOf(
+    "const response = NextResponse.redirect(buildAdminRedirect(nextPath));",
+  );
+  const successEnd = routeSource.indexOf("return response;", successStart);
+  const successBlock = routeSource.slice(successStart, successEnd);
+
+  assert.match(successBlock, /clearLogtoAdminStateCookie\(response\)/);
+  assert.doesNotMatch(successBlock, /clearLogtoAdminSessionCookies\(response\)/);
+});
+
 test("callback failure redirects preserve safe next, typed error, and correlation id", () => {
   assert.match(routeSource, /sanitizeInternalRedirectPath/);
   assert.match(routeSource, /nextPath/);

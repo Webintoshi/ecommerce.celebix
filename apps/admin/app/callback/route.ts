@@ -9,6 +9,7 @@ import { STORE_RUNTIME } from "@/lib/store-runtime";
 import {
   buildLogtoAdminSessionPayload,
   clearLogtoAdminSessionCookies,
+  clearLogtoAdminStateCookie,
   exchangeLogtoCodeForTokens,
   fetchLogtoUserInfo,
   findLegacyAdminBridgeByLogtoSubject,
@@ -112,7 +113,7 @@ export async function GET(request: NextRequest) {
       idToken: callbackResult.tokens.id_token ?? null,
     });
 
-    clearLogtoAdminSessionCookies(response);
+    clearLogtoAdminStateCookie(response);
     writeLogtoAdminSessionCookie(response, sessionPayload);
     writeAdminRoleCookie(response, {
       userId: callbackResult.membership.userId,
