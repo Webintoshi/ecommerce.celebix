@@ -1,7 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { clearAdminRoleCookie, writeAdminRoleCookie } from "@/lib/admin-role-cookie";
 import { isLogtoAdminAuthEnabled } from "@/lib/admin-auth-provider";
+import { resolveAdminCallback } from "@/lib/admin-callback-flow";
+import type { AdminLoginErrorCode } from "@/lib/admin-login-contract";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import {
   buildLogtoAdminSessionPayload,
@@ -22,64 +25,105 @@ function buildAdminRedirect(pathname: string, params?: Record<string, string>) {
   return url;
 }
 
-function buildLoginRedirect(params: Record<string, string>) {
-  const url = buildAdminRedirect("/admin/login");
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
-  }
+function logCallbackFailure(input: {
+  errorCode: AdminLoginErrorCode;
+  correlationId: string;
+}) {
+  console.warn("Celebix admin authentication event", {
+    event: "admin_callback_failed",
+    errorCode: input.errorCode,
+    storeSlug: STORE_RUNTIME.slug,
+    correlationId: input.correlationId,
+  });
+}
 
-  return url;
+function buildLoginFailureResponse(input: {
+  errorCode: AdminLoginErrorCode;
+  nextPath: string;
+  correlationId: string;
+}) {
+  logCallbackFailure(input);
+
+  const response = NextResponse.redirect(
+    buildAdminRedirect("/admin/login", {
+      error: input.errorCode,
+      next: sanitizeInternalRedirectPath(input.nextPath, "/admin"),
+      cid: input.correlationId,
+    }),
+  );
+  clearAdminRoleCookie(response);
+  clearLogtoAdminSessionCookies(response);
+  return response;
 }
 
 export async function GET(request: NextRequest) {
+  const correlationId = randomUUID();
+  const requestedNextPath = sanitizeInternalRedirectPath(
+    request.nextUrl.searchParams.get("next"),
+    "/admin",
+  );
+
   if (!isLogtoAdminAuthEnabled()) {
-    return NextResponse.redirect(buildLoginRedirect({ error: "provider_disabled" }));
+    return buildLoginFailureResponse({
+      errorCode: "provider_disabled",
+      nextPath: requestedNextPath,
+      correlationId,
+    });
   }
 
   const stateCookie = readLogtoAdminStateCookie(request.cookies.getAll());
+  const nextPath = sanitizeInternalRedirectPath(
+    stateCookie?.nextPath ?? requestedNextPath,
+    "/admin",
+  );
   const stateParam = request.nextUrl.searchParams.get("state");
   const code = request.nextUrl.searchParams.get("code");
 
   if (!stateCookie || !stateParam || stateCookie.state !== stateParam || !code) {
-    const response = NextResponse.redirect(buildLoginRedirect({ error: "invalid_callback" }));
-    clearAdminRoleCookie(response);
-    clearLogtoAdminSessionCookies(response);
-    return response;
+    return buildLoginFailureResponse({
+      errorCode: "invalid_callback",
+      nextPath,
+      correlationId,
+    });
+  }
+
+  const callbackResult = await resolveAdminCallback({
+    exchangeCode: () => exchangeLogtoCodeForTokens(code),
+    fetchIdentity: (tokens) => fetchLogtoUserInfo(tokens.access_token),
+    readSubject: (identity) =>
+      typeof identity.sub === "string" ? identity.sub : null,
+    findMembership: (subject) => findLegacyAdminBridgeByLogtoSubject(subject),
+  });
+
+  if (!callbackResult.ok) {
+    return buildLoginFailureResponse({
+      errorCode: callbackResult.error,
+      nextPath,
+      correlationId,
+    });
   }
 
   try {
-    const tokens = await exchangeLogtoCodeForTokens(code);
-    const userInfo = await fetchLogtoUserInfo(tokens.access_token);
-    const bridge = await findLegacyAdminBridgeByLogtoSubject(userInfo.sub);
-
-    if (!bridge) {
-      const response = NextResponse.redirect(buildLoginRedirect({ error: "unauthorized" }));
-      clearAdminRoleCookie(response);
-      clearLogtoAdminSessionCookies(response);
-      return response;
-    }
-
-    const nextPath = sanitizeInternalRedirectPath(stateCookie.nextPath, "/admin");
     const response = NextResponse.redirect(buildAdminRedirect(nextPath));
     const sessionPayload = buildLogtoAdminSessionPayload({
-      bridge,
-      userInfo,
-      idToken: tokens.id_token ?? null,
+      bridge: callbackResult.membership,
+      userInfo: callbackResult.identity,
+      idToken: callbackResult.tokens.id_token ?? null,
     });
 
     clearLogtoAdminSessionCookies(response);
     writeLogtoAdminSessionCookie(response, sessionPayload);
     writeAdminRoleCookie(response, {
-      userId: bridge.userId,
-      role: bridge.role,
+      userId: callbackResult.membership.userId,
+      role: callbackResult.membership.role,
     });
 
     return response;
-  } catch (error) {
-    console.error("Logto admin callback failed:", error);
-    const response = NextResponse.redirect(buildLoginRedirect({ error: "login_failed" }));
-    clearAdminRoleCookie(response);
-    clearLogtoAdminSessionCookies(response);
-    return response;
+  } catch {
+    return buildLoginFailureResponse({
+      errorCode: "session_write_failed",
+      nextPath,
+      correlationId,
+    });
   }
 }
