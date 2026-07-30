@@ -282,6 +282,36 @@ test("health response is safe and carries no tenant data", () => {
   });
 });
 
+test("starter storefront consumes the public presentation and exposes no inert cart control", async () => {
+  const [home, listing, detail, header, footer, frame, card] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/Header.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/Footer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/StorefrontFrame.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/ProductCard.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(home, /presentation[.]theme[.]homeProductLimit/);
+  assert.match(home, /presentation[.]hero[.]destination/);
+  assert.match(home, /presentation[.]theme[.]showBrandStory/);
+  assert.match(listing, /ProductExplorer/);
+  assert.match(detail, /presentation/);
+  assert.match(header, /presentation[.]displayName/);
+  assert.match(footer, /displayName, supportEmail[^\n]+storefront[.]presentation/);
+  assert.match(frame, /starterThemeTokens/);
+  assert.match(card, /productImageRatio|imageRatio/);
+  assert.doesNotMatch(header, /Çanta|Sepet yakında|header-bag/);
+});
+
+test("storefront metadata is presentation-owned and defaults to noindex", async () => {
+  const home = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(home, /presentation[.]seo[.]allowIndex/);
+  assert.match(home, /robots/);
+  assert.match(home, /presentation[.]seo[.]title/);
+  assert.match(home, /presentation[.]seo[.]description/);
+});
+
 async function sourceFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map(async (entry) => {
