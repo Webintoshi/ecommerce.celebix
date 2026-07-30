@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox-style progress and test-first delivery.
 
-**Goal:** Allow one Logto identity to enter every customer admin panel to which it has been explicitly assigned, while keeping all other customer panels denied and making callback failures understandable and recoverable.
+**Goal:** Allow one Logto identity to enter every customer admin panel to which it has been explicitly assigned, keep all other customer panels denied, make callback failures understandable and recoverable, and present every Logto-hosted identity flow with a reversible Celebix theme.
 
-**Architecture:** Logto remains the central identity provider. Authorization remains local to each store database through `auth_principals` and `auth_store_memberships`; no callback path grants access from email alone and no global allow-list is introduced. The shared admin runtime classifies callback failures and renders store-specific recovery UI. The owner control plane provisions or reuses one Logto identity and writes an active membership into the selected store database. Admin and owner releases remain separate because they are deployed from different live branches.
+**Architecture:** Logto remains the central identity provider. Authorization remains local to each store database through `auth_principals` and `auth_store_memberships`; no callback path grants access from email alone and no global allow-list is introduced. The shared admin runtime classifies callback failures and renders store-specific recovery UI. The owner control plane provisions or reuses one Logto identity, writes an active membership into the selected store database, and idempotently synchronizes the tenant-level Celebix hosted sign-in theme. Admin and owner releases remain separate because they are deployed from different live branches.
 
 **Tech Stack:** Next.js 16 App Router, React 19, TypeScript, Node test runner, PostgreSQL (`pg`), Logto OIDC and Management API, Coolify, GHCR.
 
@@ -14,6 +14,9 @@
 - Match Logto identities by exact normalized `primaryEmail` only inside the owner provisioning flow; callback authorization must match the authenticated `sub` only.
 - Never update an existing Logto user's password merely because that identity is assigned to another store.
 - Never log authorization codes, access tokens, ID tokens, passwords, cookie values, or full Management API response bodies.
+- Never hide or disable Logto validation, error, consent, password-requirement, verification, recovery, or MFA controls through branding CSS.
+- Read and record the non-secret previous sign-in experience branding before the first live patch so the Logto theme is exactly reversible.
+- Audit application and organization branding overrides before claiming the tenant-level Celebix theme covers every hosted entry flow.
 - Keep legacy Supabase admin assignment working for `full_supabase` stores.
 - Keep admin and owner changes in separate commits so each can be cherry-picked into its own live branch without unrelated code.
 - Do not claim success from a build alone. Live acceptance requires one identity allowed on two assigned stores and denied on one unassigned store.
@@ -24,6 +27,7 @@
 - Owner integration branch: `codex/owner-logto-admin-memberships`, created from `origin/deploy/owner` after the admin commits are complete.
 - Hemenaku admin runtime: `https://admin.hemenaku.com`, Coolify application UUID `krwcu6xj870bb3lzfsbz9bxl`, image `ghcr.io/celebixco/hemenaku-admin:production`.
 - Owner runtime stays on `deploy/owner`; only owner-only commits from this plan may be cherry-picked there.
+- Logto Omni sign-in experience is tenant-wide external state; its previous branding snapshot must be captured before the owner release applies the Celebix theme.
 - Candidate second and denied test stores are selected from configured Logto stores at execution time. The first candidates are `atlas-final-acceptance-20260612-121322` and `atlas-template-visual-20260612-233753`; their health must be confirmed before any assignment.
 
 ## Task 1: Add a shared admin-login error contract
@@ -335,7 +339,91 @@ git add apps/admin/app/api/public/runtime/route.ts apps/admin/app/admin/login/pa
 git commit -m "feat(admin): add store-branded secure login"
 ```
 
-## Task 6: Add an exact-match Logto admin identity service in owner
+## Task 6: Add reversible tenant-level Celebix Logto branding
+
+**Files:**
+
+- Modify: `apps/owner/lib/logto-provisioning.ts`
+- Create: `apps/owner/lib/logto-management-transport.ts`
+- Create: `apps/owner/lib/logto-branding.ts`
+- Create: `apps/owner/lib/logto-branding.test.ts`
+
+- [ ] **Step 1: Write failing branding synchronization tests**
+
+Use a fake Management API transport and cover:
+
+- the versioned CSS is scoped beneath `#app` and contains `#FE6100`, `#D95200`, `#2B2B2B`, `#F6F7F9`, a visible focus rule, responsive rules, and a dark-mode media query;
+- the CSS does not contain rules that hide or disable error, validation, consent, recovery, password-requirement, verification, or MFA controls;
+- synchronization first reads `GET /api/sign-in-exp` and returns the previous non-secret branding snapshot and CSS hash;
+- identical target CSS produces no mutation;
+- changed CSS produces one `PATCH /api/sign-in-exp` request containing only supported branding fields;
+- restoration sends the exact captured previous CSS/branding values;
+- errors expose only method, path, and status—not response bodies, tokens, cookies, or credentials.
+
+The pure service contracts are:
+
+```ts
+export interface LogtoManagementTransport {
+  request<T>(pathname: string, init?: RequestInit): Promise<T>;
+}
+
+export interface LogtoBrandingSnapshot {
+  customCss: string | null;
+  cssSha256: string;
+  branding: Record<string, unknown> | null;
+}
+
+export async function synchronizeCelebixLogtoBranding(
+  transport: LogtoManagementTransport,
+): Promise<{ changed: boolean; previous: LogtoBrandingSnapshot }>;
+
+export async function restoreLogtoBranding(
+  snapshot: LogtoBrandingSnapshot,
+  transport: LogtoManagementTransport,
+): Promise<void>;
+```
+
+- [ ] **Step 2: Run the tests and verify RED**
+
+Run: `node --test apps/owner/lib/logto-branding.test.ts`
+
+Expected: failure because the branding module does not exist.
+
+- [ ] **Step 3: Export one sanitized Management API transport**
+
+Move the transport interface into `logto-management-transport.ts`. Expose an authenticated `requestLogtoManagementApi(pathname, init?)` implementation from `logto-provisioning.ts`, reusing its current M2M token cache. Parse JSON only after success and throw method/path/status-only errors. The transport receives `/api/...` paths and must never log request authorization headers or response bodies.
+
+- [ ] **Step 4: Implement the versioned Celebix theme and idempotent synchronization**
+
+Keep the CSS as an exported versioned string in `logto-branding.ts`. Use Celebix's dark logo through Logto's official Omni branding field and the approved design tokens:
+
+- orange `#FE6100` and pressed/hover orange `#D95200`;
+- charcoal `#2B2B2B`, canvas `#F6F7F9`, white surface, neutral borders;
+- `Plus Jakarta Sans` with a local/system fallback chain;
+- 12–16px radii, restrained shadow, at least 44px primary controls, and orange `:focus-visible` treatment;
+- responsive small-screen rules and `prefers-color-scheme: dark` values.
+
+Do not inject HTML or JavaScript. Do not use broad selectors that replace social-provider icons. Preserve every unrelated sign-in experience field by patching only `customCss` and the officially supported Omni branding values verified against the live Management API schema.
+
+Call synchronization idempotently from the trusted owner-side Logto provisioning boundary so future configuration runs repair theme drift. Do not add a public unauthenticated branding route.
+
+- [ ] **Step 5: Run focused tests and inspect the patch contract**
+
+```bash
+node --test apps/owner/lib/logto-branding.test.ts
+git diff --check
+```
+
+Expected: all branding tests pass and the API mutation contains no auth-flow settings.
+
+- [ ] **Step 6: Commit owner branding files separately**
+
+```bash
+git add apps/owner/lib/logto-provisioning.ts apps/owner/lib/logto-management-transport.ts apps/owner/lib/logto-branding.ts apps/owner/lib/logto-branding.test.ts
+git commit -m "feat(owner): apply Celebix Logto branding"
+```
+
+## Task 7: Add an exact-match Logto admin identity service in owner
 
 **Files:**
 
@@ -347,7 +435,7 @@ git commit -m "feat(admin): add store-branded secure login"
 
 Use a fake Management API transport. Cover:
 
-- `GET /users` uses `search.primaryEmail`, `mode.primaryEmail=exact`, `page=1`, and `page_size=2`;
+- `GET /api/users` uses `search.primaryEmail`, `mode.primaryEmail=exact`, `page=1`, and `page_size=2`;
 - returned users are still filtered by normalized exact email locally;
 - an existing identity is reused and no password mutation request occurs;
 - a new identity without an eight-character password is rejected before the API call;
@@ -357,10 +445,6 @@ Use a fake Management API transport. Cover:
 The service contract must be:
 
 ```ts
-export interface LogtoManagementTransport {
-  request<T>(pathname: string, init?: RequestInit): Promise<T>;
-}
-
 export interface LogtoAdminIdentity {
   subject: string;
   email: string;
@@ -383,7 +467,7 @@ Expected: failure because the identity service does not exist.
 
 - [ ] **Step 3: Export a narrow Management API transport**
 
-Expose an authenticated `requestLogtoManagementApi(pathname, init?)` wrapper from `logto-provisioning.ts`. Reuse the existing M2M token cache. Return parsed JSON only on success and throw status/method/path-only errors. Keep `logto-admin-identity.ts` free of `server-only`; production code injects this authenticated wrapper while tests inject a fake transport.
+Import the shared `LogtoManagementTransport` from `logto-management-transport.ts` and reuse the authenticated `requestLogtoManagementApi(pathname, init?)` wrapper added in Task 6. Keep `logto-admin-identity.ts` free of `server-only`; production code injects the authenticated wrapper while tests inject a fake transport.
 
 - [ ] **Step 4: Implement exact lookup and idempotent creation**
 
@@ -407,7 +491,7 @@ git add apps/owner/lib/logto-provisioning.ts apps/owner/lib/logto-admin-identity
 git commit -m "feat(owner): provision reusable Logto admins"
 ```
 
-## Task 7: Add transactional per-store membership persistence
+## Task 8: Add transactional per-store membership persistence
 
 **Files:**
 
@@ -470,7 +554,7 @@ git add apps/owner/lib/logto-store-admin-membership.ts apps/owner/lib/logto-stor
 git commit -m "feat(owner): persist store-scoped admin memberships"
 ```
 
-## Task 8: Route owner admin assignment by store architecture
+## Task 9: Route owner admin assignment by store architecture
 
 **Files:**
 
@@ -538,11 +622,11 @@ git add apps/owner/lib/store-admin-assignment.ts apps/owner/lib/control-plane.ts
 git commit -m "feat(owner): assign one admin to multiple stores"
 ```
 
-## Task 9: Verify admin and owner builds without hiding baseline debt
+## Task 10: Verify admin and owner builds without hiding baseline debt
 
 **Files:**
 
-- Modify only if a new error is proven to originate from Tasks 1-8.
+- Modify only if a new error is proven to originate from Tasks 1-9.
 
 - [ ] **Step 1: Run every focused test**
 
@@ -553,6 +637,7 @@ node --test \
   apps/admin/lib/admin-callback-flow.test.ts \
   apps/admin/app/callback/route.contract.test.ts \
   apps/admin/app/admin/login/page.contract.test.ts \
+  apps/owner/lib/logto-branding.test.ts \
   apps/owner/lib/logto-admin-identity.test.ts \
   apps/owner/lib/logto-store-admin-membership.test.ts \
   apps/owner/lib/postgres-transaction.test.ts \
@@ -589,7 +674,7 @@ git log --oneline --max-count=12
 
 Expected: no uncommitted generated artifacts and all changes split by admin/owner responsibility.
 
-## Task 10: Prepare separate live branches safely
+## Task 11: Prepare separate live branches safely
 
 **Files:** Git operations only.
 
@@ -603,6 +688,7 @@ git push -u origin codex/admin-multistore-login-security
 
 Identify the commits beginning with:
 
+- `feat(owner): apply Celebix Logto branding`
 - `feat(owner): provision reusable Logto admins`
 - `feat(owner): persist store-scoped admin memberships`
 - `feat(owner): assign one admin to multiple stores`
@@ -616,12 +702,13 @@ git switch -c codex/owner-logto-admin-memberships origin/deploy/owner
 
 - [ ] **Step 4: Cherry-pick only owner commits**
 
-Cherry-pick the three recorded owner-only commits in their original order. Do not cherry-pick admin commits or the Hemenaku UI history.
+Cherry-pick the four recorded owner-only commits in their original order. Do not cherry-pick admin commits or the Hemenaku UI history.
 
 - [ ] **Step 5: Re-run owner verification on the real owner base**
 
 ```bash
 node --test \
+  apps/owner/lib/logto-branding.test.ts \
   apps/owner/lib/logto-admin-identity.test.ts \
   apps/owner/lib/logto-store-admin-membership.test.ts \
   apps/owner/lib/postgres-transaction.test.ts \
@@ -636,7 +723,7 @@ git diff --check origin/deploy/owner...HEAD
 git push -u origin codex/owner-logto-admin-memberships
 ```
 
-## Task 11: Deploy shared admin, then owner
+## Task 12: Deploy shared admin, then owner and hosted branding
 
 **Files:** External deployment state; no source edits unless verification proves a defect.
 
@@ -667,13 +754,29 @@ Anonymous checks must show:
 
 - [ ] **Step 5: Fast-forward owner delivery**
 
-After the owner integration branch build passes, update `deploy/owner` only by fast-forwarding or cherry-picking the verified three owner commits. Never overwrite the live owner branch with the admin branch.
+After the owner integration branch build passes, update `deploy/owner` only by fast-forwarding or cherry-picking the verified four owner commits. Never overwrite the live owner branch with the admin branch.
 
 - [ ] **Step 6: Deploy and smoke-test owner**
 
 Wait for the Coolify owner application to report healthy. Confirm the store detail page loads and existing `full_supabase` admin forms remain available.
 
-## Task 12: Live multi-store authorization acceptance
+- [ ] **Step 7: Capture and apply the live Celebix Omni theme**
+
+Using only the owner runtime's existing Management API credentials:
+
+1. read the current `/api/sign-in-exp` value;
+2. record the non-secret previous CSS/branding snapshot and SHA-256 hash in the deployment evidence;
+3. inventory application and organization branding overrides before mutation;
+4. run `synchronizeCelebixLogtoBranding` once from the trusted operator context;
+5. read `/api/sign-in-exp` again and verify the target hash is active.
+
+Do not print the M2M client secret, access token, full user data, or full Management API environment in terminal output.
+
+- [ ] **Step 8: Verify all reachable hosted identity states**
+
+In a clean browser context, inspect the Celebix theme on sign-in, forgot/reset password, verification, provider selection, an intentional validation error, and any enabled MFA/recovery step. Check desktop, mobile, keyboard focus, light mode, and dark mode. If any security control is obscured or the auth flow changes, immediately restore the captured snapshot.
+
+## Task 13: Live multi-store authorization acceptance
 
 **Files:** External test data only.
 
@@ -705,6 +808,8 @@ From the denial state, use “Başka hesapla giriş yap” and confirm Logto pro
 
 Inspect the login page at desktop and mobile widths. Confirm logo/name, primary action, typed error, and trust copy remain visible without horizontal scrolling.
 
+Also confirm the hosted Logto page keeps the Celebix logo, token colors, visible validation content, and keyboard focus in both widths.
+
 - [ ] **Step 8: Review production logs**
 
 Confirm successful and denied callbacks include correlation IDs and error codes but contain no password, authorization code, access token, ID token, or cookie value.
@@ -713,7 +818,7 @@ Confirm successful and denied callbacks include correlation IDs and error codes 
 
 Deactivate the temporary test memberships in the selected store databases after acceptance. The central Logto identity may remain without active memberships for audit/retry safety, or be removed separately through an explicitly approved cleanup action.
 
-## Task 13: Final verification and handoff
+## Task 14: Final verification and handoff
 
 - [ ] **Step 1: Re-run public smoke checks after cleanup**
 
@@ -727,6 +832,7 @@ Record:
 - owner branch and commit SHA;
 - GHCR digest;
 - Coolify deployment IDs;
+- applied Logto CSS hash, previous rollback hash, and override inventory result;
 - focused test counts;
 - build results;
 - allowed A, allowed B, denied C browser outcomes;
@@ -734,7 +840,7 @@ Record:
 
 - [ ] **Step 3: Roll back if an acceptance condition fails**
 
-If admin callback/session behavior fails, restore the recorded Hemenaku image digest and redeploy. If owner assignment fails, restore the recorded owner commit and redeploy. Do not weaken membership checks as a workaround.
+If admin callback/session behavior fails, restore the recorded Hemenaku image digest and redeploy. If owner assignment fails, restore the recorded owner commit and redeploy. If hosted identity styling hides a required control or breaks any flow, restore the recorded Logto branding snapshot. Do not weaken membership checks as a workaround.
 
 ## Official Logto references used by this plan
 
@@ -742,3 +848,5 @@ If admin callback/session behavior fails, restore the recorded Hemenaku image di
 - Create user: `https://openapi.logto.io/operation/operation-createuser`
 - Update password API, intentionally not used for existing identities during assignment: `https://openapi.logto.io/operation/operation-updateuserpassword`
 - Invitation-only and pre-provisioned user guidance: `https://docs.logto.io/end-user-flows/sign-up-and-sign-in/disable-user-registration`
+- Custom CSS: `https://docs.logto.io/customization/custom-css`
+- Omni, application, and organization branding precedence: `https://docs.logto.io/customization/match-your-brand`
