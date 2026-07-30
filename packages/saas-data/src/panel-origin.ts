@@ -1,4 +1,10 @@
 const NORMALIZED_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const ADMIN_HOST_SUFFIXES = Object.freeze({
+  production: ".admin.celebix.site",
+  staging: ".admin.saas-staging.celebix.site",
+} as const);
+
+export type AdminOriginEnvironment = keyof typeof ADMIN_HOST_SUFFIXES;
 
 function invalidOrigin(): never {
   throw new Error("invalid_exact_https_origin");
@@ -39,4 +45,41 @@ export function createPanelStoreUrl(panelOrigin: unknown, storeSlug: unknown): s
     || result.hash !== ""
   ) invalidOrigin();
   return result.href;
+}
+
+function normalizedAdminSlug(value: unknown): string {
+  if (
+    typeof value !== "string"
+    || value.length === 0
+    || value.length > 63
+    || !NORMALIZED_SLUG.test(value)
+  ) invalidOrigin();
+  return value;
+}
+
+function adminHostSuffix(environment: unknown): string {
+  if (environment !== "production" && environment !== "staging") invalidOrigin();
+  return ADMIN_HOST_SUFFIXES[environment];
+}
+
+export function createCanonicalAdminOrigin(
+  storeSlug: unknown,
+  environment: AdminOriginEnvironment,
+): string {
+  const slug = normalizedAdminSlug(storeSlug);
+  const hostname = `${slug}${adminHostSuffix(environment)}`;
+  if (parseCanonicalAdminHostname(hostname, environment) !== slug) invalidOrigin();
+  return `https://${hostname}`;
+}
+
+export function parseCanonicalAdminHostname(
+  hostname: unknown,
+  environment: AdminOriginEnvironment,
+): string {
+  if (typeof hostname !== "string" || hostname.length === 0 || hostname !== hostname.trim()) invalidOrigin();
+  const suffix = adminHostSuffix(environment);
+  if (!hostname.endsWith(suffix)) invalidOrigin();
+  const slug = normalizedAdminSlug(hostname.slice(0, -suffix.length));
+  if (`${slug}${suffix}` !== hostname) invalidOrigin();
+  return slug;
 }

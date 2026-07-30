@@ -6,6 +6,8 @@
  * and must not redefine them locally.
  */
 export {
+  ADMIN_DOMAIN_KINDS,
+  ADMIN_DOMAIN_STATUSES,
   PLAN_ENTITLEMENT_STATUSES,
   PLAN_FEATURE_KEYS,
   PLAN_LIMIT_KEYS,
@@ -23,6 +25,8 @@ export {
 } from "./types.ts";
 
 export type {
+  AdminDomainKind,
+  AdminDomainStatus,
   CreateStarterTenantInput,
   CreateStarterTenantResult,
   DomainId,
@@ -35,6 +39,7 @@ export type {
   PlanId,
   PlanLimitKey,
   PrincipalId,
+  PublicAdminBrand,
   ProvisioningStatus,
   ResolvedStoreHost,
   SaaSContractSchemaVersion,

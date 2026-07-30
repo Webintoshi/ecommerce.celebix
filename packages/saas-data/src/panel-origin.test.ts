@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createPanelStoreUrl, normalizeExactHttpsOrigin } from "./panel-origin.ts";
+import {
+  createCanonicalAdminOrigin,
+  createPanelStoreUrl,
+  normalizeExactHttpsOrigin,
+  parseCanonicalAdminHostname,
+} from "./panel-origin.ts";
 
 test("exact HTTPS origins accept canonical roots and normalize one trailing slash", () => {
   assert.equal(normalizeExactHttpsOrigin("https://panel.celebix.site"), "https://panel.celebix.site");
@@ -24,4 +29,61 @@ test("exact HTTPS origins reject authority, path, encoding, and protocol ambigui
     "https:///empty-host",
     "",
   ]) assert.throws(() => normalizeExactHttpsOrigin(value), /invalid_exact_https_origin/, value);
+});
+
+test("creates exact production and staging tenant admin origins", () => {
+  assert.equal(
+    createCanonicalAdminOrigin("guzide-kuyumcu-4", "production"),
+    "https://guzide-kuyumcu-4.admin.celebix.site",
+  );
+  assert.equal(
+    createCanonicalAdminOrigin("guzide-kuyumcu-4", "staging"),
+    "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+  );
+});
+
+test("parses only exact canonical tenant admin hostnames", () => {
+  assert.equal(
+    parseCanonicalAdminHostname("guzide-kuyumcu-4.admin.celebix.site", "production"),
+    "guzide-kuyumcu-4",
+  );
+  assert.equal(
+    parseCanonicalAdminHostname("guzide-kuyumcu-4.admin.saas-staging.celebix.site", "staging"),
+    "guzide-kuyumcu-4",
+  );
+});
+
+test("rejects ambiguous admin origins, slugs, environments, and hostnames", () => {
+  for (const slug of ["", "Guzide", "-guzide", "guzide-", "guzide--kuyumcu", "güzide", "admin.celebix.site"]) {
+    assert.throws(
+      () => createCanonicalAdminOrigin(slug, "production"),
+      /invalid_exact_https_origin/,
+      `slug=${slug}`,
+    );
+  }
+
+  assert.throws(
+    () => createCanonicalAdminOrigin("guzide", "preview" as "production"),
+    /invalid_exact_https_origin/,
+  );
+
+  for (const [hostname, environment] of [
+    ["GUZIDE.admin.celebix.site", "production"],
+    ["guzide.admin.celebix.site.", "production"],
+    ["guzide.admin.celebix.site:443", "production"],
+    ["guzide.admin.celebix.site/path", "production"],
+    ["guzide.admin.celebix.site?query=1", "production"],
+    ["guzide.admin.celebix.site#fragment", "production"],
+    ["user@guzide.admin.celebix.site", "production"],
+    ["güzide.admin.celebix.site", "production"],
+    ["guzide.admin.evil.test", "production"],
+    ["guzide.admin.saas-staging.celebix.site", "production"],
+    ["guzide.admin.celebix.site", "staging"],
+  ] as const) {
+    assert.throws(
+      () => parseCanonicalAdminHostname(hostname, environment),
+      /invalid_exact_https_origin/,
+      `${environment}:${hostname}`,
+    );
+  }
 });

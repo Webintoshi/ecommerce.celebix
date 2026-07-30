@@ -7,9 +7,12 @@ export {
 } from "./canonical.ts";
 export { SaaSDataUniqueConflict } from "./errors.ts";
 export {
+  createCanonicalAdminOrigin,
   createPanelStoreUrl,
   normalizeExactHttpsOrigin,
+  parseCanonicalAdminHostname,
 } from "./panel-origin.ts";
+export type { AdminOriginEnvironment } from "./panel-origin.ts";
 export {
   CATALOG_ERROR_CODES,
   CatalogRepositoryError,

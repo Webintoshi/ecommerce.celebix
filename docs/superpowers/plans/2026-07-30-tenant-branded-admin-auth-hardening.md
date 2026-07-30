@@ -31,12 +31,12 @@
 - Modify: `packages/saas-contracts/src/types.ts`
 - Modify: `packages/saas-contracts/src/contracts.test.ts`
 
-- [ ] Add failing tests for `createCanonicalAdminOrigin(slug, environment)` and strict normalization of platform admin hostnames.
-- [ ] Cover production `<slug>.admin.celebix.site`, staging `<slug>.admin.saas-staging.celebix.site`, invalid slugs, credentials, ports, paths, queries, fragments, uppercase labels, trailing dots, Unicode confusables, and unrelated suffixes.
-- [ ] Add immutable `PublicAdminBrand` and `AdminDomainKind`/`AdminDomainStatus` contracts with exact-key tests.
-- [ ] Implement the minimum origin helpers and export them from `@celebix/saas-data`.
-- [ ] Run `node --experimental-transform-types --test packages/saas-data/src/panel-origin.test.ts packages/saas-contracts/src/contracts.test.ts`.
-- [ ] Commit as `feat(auth): define canonical tenant admin origins`.
+- [x] Add failing tests for `createCanonicalAdminOrigin(slug, environment)` and strict normalization of platform admin hostnames.
+- [x] Cover production `<slug>.admin.celebix.site`, staging `<slug>.admin.saas-staging.celebix.site`, invalid slugs, credentials, ports, paths, queries, fragments, uppercase labels, trailing dots, Unicode confusables, and unrelated suffixes.
+- [x] Add immutable `PublicAdminBrand` and `AdminDomainKind`/`AdminDomainStatus` contracts with exact-key tests.
+- [x] Implement the minimum origin helpers and export them from `@celebix/saas-data`.
+- [x] Run `node --experimental-transform-types --test packages/saas-data/src/panel-origin.test.ts packages/saas-contracts/src/contracts.test.ts`.
+- [x] Commit as `feat(auth): define canonical tenant admin origins`.
 
 ## Task 2: PostgreSQL admin-domain and principal-revocation authority
 

@@ -8,6 +8,7 @@ import type {
   PlanEntitlements,
   PlanFeatureKey,
   PlanLimitKey,
+  PublicAdminBrand,
   ResolvedStoreHost,
   SaaSContractError,
   StoreMembership,
@@ -146,6 +147,14 @@ const activeHost: ResolvedStoreHost & { status: "active" } = {
   cacheVersion: 1,
 };
 
+const publicAdminBrand: PublicAdminBrand = {
+  storeSlug: "ornek",
+  displayName: "Örnek Mağaza",
+  logoUrl: null,
+  accentColor: "#ff5a00",
+  canonicalAdminOrigin: "https://ornek.admin.celebix.site",
+};
+
 const starterInput: CreateStarterTenantInput = {
   schemaVersion: 1,
   idempotencyKey: "opaque-request-1",
@@ -227,6 +236,25 @@ const tenantContext: TenantContext = {
 
 test("freezes the SaaS contract schema at version 1", () => {
   assert.equal(contracts.SAAS_CONTRACT_SCHEMA_VERSION, 1);
+});
+
+test("exports exact tenant admin domain registries", () => {
+  assert.deepEqual(contracts.ADMIN_DOMAIN_KINDS, ["platform_subdomain", "custom_alias"]);
+  assert.deepEqual(contracts.ADMIN_DOMAIN_STATUSES, ["pending_verification", "active", "disabled"]);
+  assert.equal(new Set(contracts.ADMIN_DOMAIN_KINDS).size, 2);
+  assert.equal(new Set(contracts.ADMIN_DOMAIN_STATUSES).size, 3);
+});
+
+test("public admin brand exposes presentation and canonical origin only", () => {
+  assert.deepEqual(Object.keys(publicAdminBrand).sort(), [
+    "accentColor",
+    "canonicalAdminOrigin",
+    "displayName",
+    "logoUrl",
+    "storeSlug",
+  ]);
+  assert.deepEqual(collectSensitiveKeys(publicAdminBrand), []);
+  assert.equal(Object.values(publicAdminBrand).includes("store_1"), false);
 });
 
 test("requires schemaVersion on every top-level contract", () => {
@@ -368,6 +396,8 @@ test("keeps the public runtime export surface frozen", () => {
   assert.deepEqual(Object.keys(contracts).sort(), [
     "ABANDONED_CART_SORTS",
     "ABANDONED_CART_STATUSES",
+    "ADMIN_DOMAIN_KINDS",
+    "ADMIN_DOMAIN_STATUSES",
     "ANALYTICS_CONNECTION_STATUSES",
     "ANALYTICS_METRIC_TYPES",
     "ANALYTICS_PERIODS",

@@ -67,6 +67,21 @@ export type StoreDomainType = (typeof STORE_DOMAIN_TYPES)[number];
 export const STORE_HOST_STATUSES = ["pending_verification", "active", "disabled"] as const;
 export type StoreHostStatus = (typeof STORE_HOST_STATUSES)[number];
 
+export const ADMIN_DOMAIN_KINDS = ["platform_subdomain", "custom_alias"] as const;
+export type AdminDomainKind = (typeof ADMIN_DOMAIN_KINDS)[number];
+
+export const ADMIN_DOMAIN_STATUSES = ["pending_verification", "active", "disabled"] as const;
+export type AdminDomainStatus = (typeof ADMIN_DOMAIN_STATUSES)[number];
+
+/** Public, non-authorizing presentation resolved from an exact active admin hostname. */
+export type PublicAdminBrand = Readonly<{
+  storeSlug: string;
+  displayName: string;
+  logoUrl: string | null;
+  accentColor: string | null;
+  canonicalAdminOrigin: string;
+}>;
+
 /**
  * Input accepted by Tenant Core for an automatic free-starter tenant bootstrap.
  *
