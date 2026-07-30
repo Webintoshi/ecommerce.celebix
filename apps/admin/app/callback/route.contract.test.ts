@@ -9,6 +9,10 @@ test("callback route delegates stage classification to the tested callback flow"
   assert.doesNotMatch(routeSource, /login_failed|unauthorized/);
 });
 
+test("callback exchanges the authorization code with the signed PKCE verifier", () => {
+  assert.match(routeSource, /exchangeLogtoCodeForTokens\(code, stateCookie\.codeVerifier\)/);
+});
+
 test("callback failure redirects preserve safe next, typed error, and correlation id", () => {
   assert.match(routeSource, /sanitizeInternalRedirectPath/);
   assert.match(routeSource, /nextPath/);
