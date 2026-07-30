@@ -48,6 +48,18 @@ test("the direct form does not reintroduce Logto-first or onboarding explainer c
   assert.doesNotMatch(formSource, /owner approval/i);
 });
 
+test("the direct form keeps only the requested six visible registration fields", () => {
+  for (const field of ["firstName", "lastName", "storeName", "phone", "email", "password"]) {
+    assert.match(formSource, new RegExp(`name="${field}"`));
+  }
+
+  assert.match(formSource, /self-serve-store-name-field/);
+  assert.match(formSource, /privacyConsent: true/);
+  assert.doesNotMatch(formSource, /name="storeSlug"/);
+  assert.doesNotMatch(formSource, /type="checkbox"/);
+  assert.doesNotMatch(formSource, /self-serve-consent-stack/);
+});
+
 test("/kayit customer-facing copy is store creation language, not an application queue", () => {
   const customerFacingSource = `${pageSource}\n${formSource}`;
 

@@ -42,7 +42,7 @@ const initialForm: SelfServeRegistrationInput = {
   email: "",
   password: "",
   marketingConsent: false,
-  privacyConsent: false,
+  privacyConsent: true,
 };
 
 const fieldLabels: Record<keyof SelfServeRegistrationInput, string> = {
@@ -92,7 +92,6 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
   const [success, setSuccess] = useState<RegistrationSuccess | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [slugTouched, setSlugTouched] = useState(false);
 
   const domainSuffix = flags.defaultDomainSuffix || "celebix.site";
 
@@ -100,7 +99,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
     setForm((current) => {
       const next = { ...current, [field]: value };
 
-      if (field === "storeName" && !slugTouched && typeof value === "string") {
+      if (field === "storeName" && typeof value === "string") {
         next.storeSlug = suggestSelfServeStoreSlug(value);
       }
 
@@ -114,6 +113,9 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
 
       const next = { ...current };
       delete next[field];
+      if (field === "storeName") {
+        delete next.storeSlug;
+      }
       return next;
     });
     setGlobalError(null);
@@ -121,10 +123,6 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
 
   function handleTextChange(field: keyof SelfServeRegistrationInput) {
     return (event: ChangeEvent<HTMLInputElement>) => {
-      if (field === "storeSlug") {
-        setSlugTouched(true);
-      }
-
       updateField(field, event.target.value as never);
     };
   }
@@ -168,7 +166,6 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
       saveBrowserRequest(payload.request);
       setSuccess(payload);
       setForm({ ...initialForm, phone: normalized.phone, email: normalized.email });
-      setSlugTouched(false);
     } catch {
       setGlobalError("Kayit servisine ulasilamadi. Lutfen kisa bir sure sonra tekrar deneyin.");
     } finally {
@@ -217,25 +214,25 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
     <form className="self-serve-direct-form" onSubmit={handleSubmit} noValidate>
       <div className="self-serve-direct-inline">
         <label>
-          <span>{fieldName("firstName")}</span>
+          <span className="self-serve-register-sr-only">{fieldName("firstName")}</span>
           <input
             name="firstName"
             value={form.firstName}
             onChange={handleTextChange("firstName")}
             autoComplete="given-name"
-            placeholder="Harun"
+            placeholder="Ad"
             aria-invalid={Boolean(fieldErrors.firstName)}
           />
           {fieldErrors.firstName ? <small>{fieldErrors.firstName}</small> : null}
         </label>
         <label>
-          <span>{fieldName("lastName")}</span>
+          <span className="self-serve-register-sr-only">{fieldName("lastName")}</span>
           <input
             name="lastName"
             value={form.lastName}
             onChange={handleTextChange("lastName")}
             autoComplete="family-name"
-            placeholder="Yilmaz"
+            placeholder="Soyad"
             aria-invalid={Boolean(fieldErrors.lastName)}
           />
           {fieldErrors.lastName ? <small>{fieldErrors.lastName}</small> : null}
@@ -243,108 +240,98 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
       </div>
 
       <label>
-        <span>{fieldName("storeName")}</span>
-        <input
-          name="storeName"
-          value={form.storeName}
-          onChange={handleTextChange("storeName")}
-          autoComplete="organization"
-          placeholder="Örnek Mağaza"
-          aria-invalid={Boolean(fieldErrors.storeName)}
-        />
-        {fieldErrors.storeName ? <small>{fieldErrors.storeName}</small> : null}
-      </label>
-
-      <label>
-        <span>{fieldName("storeSlug")}</span>
-        <div className="self-serve-slug-field">
+        <span className="self-serve-register-sr-only">{fieldName("storeName")}</span>
+        <div
+          className={`self-serve-store-name-field${fieldErrors.storeName || fieldErrors.storeSlug ? " has-error" : ""}`}
+        >
           <input
-            name="storeSlug"
-            value={form.storeSlug}
-            onChange={handleTextChange("storeSlug")}
-            autoComplete="off"
-            placeholder="ornek-magaza"
-            aria-invalid={Boolean(fieldErrors.storeSlug)}
+            name="storeName"
+            value={form.storeName}
+            onChange={handleTextChange("storeName")}
+            autoComplete="organization"
+            placeholder="Mağazanızın Adı"
+            aria-invalid={Boolean(fieldErrors.storeName || fieldErrors.storeSlug)}
           />
           <b>.{domainSuffix}</b>
         </div>
-        {fieldErrors.storeSlug ? <small>{fieldErrors.storeSlug}</small> : null}
+        {fieldErrors.storeName || fieldErrors.storeSlug ? (
+          <small>{fieldErrors.storeName ?? fieldErrors.storeSlug}</small>
+        ) : null}
       </label>
 
-      <div className="self-serve-direct-inline">
-        <label>
-          <span>{fieldName("phone")}</span>
-          <input
-            name="phone"
-            value={form.phone}
-            onChange={handleTextChange("phone")}
-            autoComplete="tel"
-            inputMode="tel"
-            placeholder="+905551112233"
-            aria-invalid={Boolean(fieldErrors.phone)}
-          />
-          {fieldErrors.phone ? <small>{fieldErrors.phone}</small> : null}
-        </label>
-        <label>
-          <span>{fieldName("email")}</span>
-          <input
-            name="email"
-            value={form.email}
-            onChange={handleTextChange("email")}
-            autoComplete="email"
-            inputMode="email"
-            placeholder="mail@ornek.com"
-            aria-invalid={Boolean(fieldErrors.email)}
-          />
-          {fieldErrors.email ? <small>{fieldErrors.email}</small> : null}
-        </label>
-      </div>
+      <label>
+        <span className="self-serve-register-sr-only">{fieldName("phone")}</span>
+        <div className={`self-serve-phone-field${fieldErrors.phone ? " has-error" : ""}`}>
+          <span className="self-serve-phone-prefix" aria-hidden="true">
+            🇹🇷
+          </span>
+          <span className="self-serve-phone-control">
+            <span className="self-serve-phone-label" aria-hidden="true">
+              Telefon
+            </span>
+            <input
+              name="phone"
+              value={form.phone}
+              onChange={handleTextChange("phone")}
+              autoComplete="tel"
+              inputMode="tel"
+              aria-invalid={Boolean(fieldErrors.phone)}
+            />
+          </span>
+        </div>
+        {fieldErrors.phone ? <small>{fieldErrors.phone}</small> : null}
+      </label>
 
       <label>
-        <span>{fieldName("password")}</span>
-        <div className="self-serve-password-field">
+        <span className="self-serve-register-sr-only">{fieldName("email")}</span>
+        <input
+          name="email"
+          value={form.email}
+          onChange={handleTextChange("email")}
+          autoComplete="email"
+          inputMode="email"
+          placeholder="E-posta"
+          aria-invalid={Boolean(fieldErrors.email)}
+        />
+        {fieldErrors.email ? <small>{fieldErrors.email}</small> : null}
+      </label>
+
+      <label>
+        <span className="self-serve-register-sr-only">{fieldName("password")}</span>
+        <div className={`self-serve-password-field${fieldErrors.password ? " has-error" : ""}`}>
           <input
             name="password"
             value={form.password}
             onChange={handleTextChange("password")}
             autoComplete="new-password"
             type={showPassword ? "text" : "password"}
-            placeholder="En az 8 karakter"
+            placeholder="Şifre"
             aria-invalid={Boolean(fieldErrors.password)}
           />
-          <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label="Sifreyi goster veya gizle">
-            {showPassword ? "Gizle" : "Göster"}
+          <button
+            type="button"
+            onClick={() => setShowPassword((value) => !value)}
+            aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" />
+              <circle cx="12" cy="12" r="2.7" />
+              {showPassword ? <path d="m4 4 16 16" /> : null}
+            </svg>
           </button>
         </div>
         {fieldErrors.password ? <small>{fieldErrors.password}</small> : null}
       </label>
-
-      <div className="self-serve-consent-stack">
-        <label className="self-serve-direct-consent">
-          <input
-            type="checkbox"
-            checked={form.marketingConsent}
-            onChange={(event) => updateField("marketingConsent", event.target.checked)}
-          />
-          <span>Fırsatlar ve bilgilendirmeler için ticari elektronik ileti almak istiyorum. (Opsiyonel)</span>
-        </label>
-        <label className="self-serve-direct-consent">
-          <input
-            type="checkbox"
-            checked={form.privacyConsent}
-            onChange={(event) => updateField("privacyConsent", event.target.checked)}
-            aria-invalid={Boolean(fieldErrors.privacyConsent)}
-          />
-          <span>KVKK, gizlilik ve açık rıza metinlerini okudum; mağaza kaydı için kabul ediyorum.</span>
-        </label>
-        {fieldErrors.privacyConsent ? <small>{fieldErrors.privacyConsent}</small> : null}
-      </div>
 
       {globalError ? <p className="form-error self-serve-form-error">{globalError}</p> : null}
 
       <button className="button button-primary self-serve-direct-submit" type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Kayıt hazırlanıyor..." : "E-Ticaret Sistemi Kur"}
       </button>
+
+      <p className="self-serve-register-legal">
+        E-Ticaret Sistemi Kur&apos;a tıklayarak kullanım koşullarını ve gizlilik politikasını kabul etmiş olursunuz.
+      </p>
     </form>
   );
 }
