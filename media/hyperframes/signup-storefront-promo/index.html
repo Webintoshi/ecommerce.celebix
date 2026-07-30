@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, height=720">
+    <title>Celebix Storefront Promo</title>
+    <style>
+      @font-face {
+        font-family: "Manrope";
+        src: url("assets/manrope-300.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 300;
+        font-display: block;
+      }
+
+      @font-face {
+        font-family: "Manrope";
+        src: url("assets/manrope-600.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 600;
+        font-display: block;
+      }
+
+      @font-face {
+        font-family: "Manrope";
+        src: url("assets/manrope-800.ttf") format("truetype");
+        font-style: normal;
+        font-weight: 800;
+        font-display: block;
+      }
+
+      :root {
+        --commerce: #fe6100;
+        --ink: #242424;
+        --surface: #ffffff;
+        --studio: #f3eee8;
+        --muted: #777b85;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1280px;
+        height: 720px;
+        margin: 0;
+        overflow: hidden;
+        background: var(--studio);
+      }
+
+      body {
+        font-family: "Manrope", ui-sans-serif, sans-serif;
+      }
+
+      #signup-storefront-promo {
+        position: relative;
+        width: 1280px;
+        height: 720px;
+        overflow: hidden;
+        background: var(--studio);
+        isolation: isolate;
+      }
+
+      #studio {
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform-origin: 50% 51%;
+        will-change: transform, opacity;
+      }
+
+      .laptop-screen {
+        position: absolute;
+        z-index: 2;
+        top: 113px;
+        left: 342px;
+        width: 595px;
+        height: 370px;
+        overflow: hidden;
+        border-radius: 2px;
+        color: var(--ink);
+        background: var(--surface);
+        box-shadow: inset 0 0 0 1px rgb(36 36 36 / 8%);
+        transform-origin: 50% 50%;
+        will-change: transform, opacity;
+      }
+
+      .store-nav {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        height: 47px;
+        padding: 0 20px;
+        gap: 15px;
+        border-bottom: 1px solid #f3eee8;
+        white-space: nowrap;
+      }
+
+      .store-nav > * {
+        flex: 0 0 auto;
+      }
+
+      .store-nav b {
+        margin-right: auto;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+      }
+
+      .store-nav span {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.04em;
+      }
+
+      .store-nav i {
+        display: grid;
+        place-items: center;
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        color: var(--surface);
+        background: var(--commerce);
+        font-size: 20px;
+        font-style: normal;
+        font-weight: 800;
+        line-height: 1;
+        transform-origin: 50% 50%;
+        will-change: transform;
+      }
+
+      .store-hero {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        width: 100%;
+        height: 146px;
+        overflow: hidden;
+        background: #f3eee8;
+      }
+
+      .store-hero > div:first-child {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 14px 10px 13px 23px;
+      }
+
+      .store-hero small {
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+      }
+
+      .store-hero h1 {
+        max-width: 300px;
+        margin: 0 0 11px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 34px;
+        font-weight: 400;
+        line-height: 0.98;
+        letter-spacing: -0.05em;
+      }
+
+      .store-hero button {
+        height: 36px;
+        padding: 0 17px;
+        border: 0;
+        border-radius: 2px;
+        color: var(--surface);
+        background: var(--commerce);
+        font: 800 20px/1 "Manrope", ui-sans-serif, sans-serif;
+      }
+
+      .hero-product {
+        position: relative;
+        overflow: hidden;
+        background: var(--surface);
+      }
+
+      .hero-product::before {
+        position: absolute;
+        top: 35px;
+        left: 57px;
+        width: 118px;
+        height: 82px;
+        border: 5px solid var(--ink);
+        border-radius: 27px 27px 18px 18px;
+        background: #f3eee8;
+        box-shadow: inset 0 -14px 0 rgb(36 36 36 / 8%);
+        content: "";
+      }
+
+      .hero-product::after {
+        position: absolute;
+        top: 21px;
+        left: 87px;
+        width: 58px;
+        height: 52px;
+        border: 5px solid var(--ink);
+        border-bottom: 0;
+        border-radius: 34px 34px 0 0;
+        content: "";
+      }
+
+      .product-row {
+        display: flex;
+        width: max-content;
+        height: 177px;
+        gap: 8px;
+        padding: 10px 14px 13px 38px;
+        will-change: transform;
+      }
+
+      .product-row article {
+        display: flex;
+        flex: 0 0 130px;
+        min-width: 0;
+        flex-direction: column;
+        color: var(--ink);
+        will-change: transform, opacity;
+      }
+
+      .product-photo {
+        position: relative;
+        flex: 0 0 83px;
+        margin-bottom: 5px;
+        overflow: hidden;
+        border-radius: 4px;
+        background: #f3eee8;
+      }
+
+      .product-row article b {
+        display: block;
+        height: 40px;
+        overflow-wrap: break-word;
+        font-size: 20px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+
+      .product-row article span {
+        display: block;
+        color: var(--ink);
+        font-size: 20px;
+        font-weight: 600;
+        line-height: 1.2;
+        letter-spacing: -0.04em;
+      }
+
+      .is-bag::before {
+        position: absolute;
+        top: 28px;
+        left: 35px;
+        width: 63px;
+        height: 45px;
+        border: 3px solid var(--ink);
+        border-radius: 13px;
+        background: var(--surface);
+        content: "";
+      }
+
+      .is-bag::after {
+        position: absolute;
+        top: 15px;
+        left: 50px;
+        width: 31px;
+        height: 26px;
+        border: 3px solid var(--ink);
+        border-bottom: 0;
+        border-radius: 18px 18px 0 0;
+        content: "";
+      }
+
+      .is-shirt::before {
+        position: absolute;
+        top: 12px;
+        left: 42px;
+        width: 52px;
+        height: 67px;
+        background: var(--surface);
+        clip-path: polygon(25% 0, 40% 9%, 60% 9%, 75% 0, 100% 18%, 83% 38%, 76% 31%, 76% 100%, 24% 100%, 24% 31%, 17% 38%, 0 18%);
+        content: "";
+      }
+
+      .is-shirt::after {
+        position: absolute;
+        top: 23px;
+        left: 67px;
+        width: 2px;
+        height: 49px;
+        background: var(--muted);
+        content: "";
+      }
+
+      .is-watch::before {
+        position: absolute;
+        top: 4px;
+        left: 57px;
+        width: 22px;
+        height: 79px;
+        border-radius: 5px;
+        background: var(--ink);
+        content: "";
+      }
+
+      .is-watch::after {
+        position: absolute;
+        top: 24px;
+        left: 43px;
+        width: 44px;
+        height: 44px;
+        border: 4px solid var(--ink);
+        border-radius: 50%;
+        background: var(--surface);
+        content: "";
+      }
+
+      .is-wallet::before {
+        position: absolute;
+        top: 23px;
+        left: 26px;
+        width: 84px;
+        height: 52px;
+        border: 3px solid var(--ink);
+        border-radius: 7px;
+        background: #f3eee8;
+        box-shadow: inset 0 -12px 0 rgb(36 36 36 / 8%);
+        content: "";
+      }
+
+      .is-wallet::after {
+        position: absolute;
+        top: 38px;
+        left: 70px;
+        width: 38px;
+        height: 21px;
+        border-radius: 5px 0 0 5px;
+        background: var(--ink);
+        content: "";
+      }
+
+      .order-toast {
+        position: absolute;
+        z-index: 4;
+        right: 49px;
+        bottom: 35px;
+        display: flex;
+        align-items: center;
+        width: 380px;
+        min-height: 96px;
+        padding: 16px 19px;
+        gap: 15px;
+        border: 1px solid rgb(36 36 36 / 9%);
+        border-radius: 9px;
+        color: var(--ink);
+        background: var(--surface);
+        box-shadow: 0 20px 55px rgb(36 36 36 / 16%);
+        will-change: transform, opacity;
+      }
+
+      .order-toast i {
+        display: grid;
+        flex: 0 0 48px;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        color: var(--surface);
+        background: var(--commerce);
+        font-size: 27px;
+        font-style: normal;
+        font-weight: 800;
+      }
+
+      .order-toast div {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .order-toast b {
+        font-size: 23px;
+        font-weight: 800;
+        line-height: 1.1;
+      }
+
+      .order-toast span {
+        color: var(--ink);
+        font-size: 20px;
+        font-weight: 600;
+        line-height: 1.28;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-sp5r" id="signup-storefront-promo" class="clip" data-composition-id="signup-storefront-promo" data-start="0" data-duration="8" data-track-index="0" data-width="1280" data-height="720">
+      <img data-hf-id="hf-2rp0" id="studio" src="assets/studio-laptop.png" alt="">
+      <section data-hf-id="hf-8vxv" class="laptop-screen" aria-label="Celebix mağaza önizlemesi">
+        <header data-hf-id="hf-ce9f" class="store-nav">
+          <b data-hf-id="hf-whkt">LUMINA</b><span data-hf-id="hf-lfnc">Yeni Gelenler</span><span data-hf-id="hf-fps0">Kadın</span><span data-hf-id="hf-dpye">Aksesuar</span><i data-hf-id="hf-8psa">2</i>
+        </header>
+        <div data-hf-id="hf-dzus" class="store-hero">
+          <div data-hf-id="hf-yeow">
+            <small data-hf-id="hf-yvll">YENİ KOLEKSİYON</small>
+            <h1 data-hf-id="hf-82cp">Zamansız seçimler.</h1>
+            <button data-hf-id="hf-7xup">Alışverişe Başla</button>
+          </div>
+          <div data-hf-id="hf-qhyn" class="hero-product" aria-hidden="true"></div>
+        </div>
+        <div data-hf-id="hf-s0x3" class="product-row" data-layout-allow-overflow="" data-layout-allow-occlusion="">
+          <article data-hf-id="hf-02ux">
+            <div data-hf-id="hf-0yg7" class="product-photo is-bag"></div>
+            <b data-hf-id="hf-udpz">Luna Omuz Çantası</b><span data-hf-id="hf-7o7u">1.299,00 TL</span>
+          </article>
+          <article data-hf-id="hf-d4jx">
+            <div data-hf-id="hf-524d" class="product-photo is-shirt"></div>
+            <b data-hf-id="hf-k1a0">Keten Gömlek</b><span data-hf-id="hf-rxf8">799,00 TL</span>
+          </article>
+          <article data-hf-id="hf-ebh0">
+            <div data-hf-id="hf-xhkc" class="product-photo is-watch"></div>
+            <b data-hf-id="hf-rnjh">Minimal Saat</b><span data-hf-id="hf-uau0">1.099,00 TL</span>
+          </article>
+          <article data-hf-id="hf-dx5z">
+            <div data-hf-id="hf-l8hs" class="product-photo is-wallet"></div>
+            <b data-hf-id="hf-v7bz">Deri Cüzdan</b><span data-hf-id="hf-okv9">499,00 TL</span>
+          </article>
+        </div>
+      </section>
+      <div data-hf-id="hf-xcnu" class="order-toast">
+        <i data-hf-id="hf-q7i5">✓</i>
+        <div data-hf-id="hf-y7yw"><b data-hf-id="hf-os65">Sipariş alındı</b><span data-hf-id="hf-7m0w">#1024 numaralı sipariş başarıyla alındı.</span></div>
+      </div>
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+        tl.from(
+          "#studio",
+          { opacity: 0, scale: 1.025, duration: 0.8, ease: "sine.out" },
+          0.2,
+        )
+          .from(
+            ".laptop-screen",
+            { opacity: 0, scale: 0.985, duration: 0.65, ease: "power3.out" },
+            0.35,
+          )
+          .from(
+            ".store-nav > *",
+            { opacity: 0, y: -10, stagger: 0.06, duration: 0.35, ease: "expo.out" },
+            0.65,
+          )
+          .from(
+            ".store-hero > div",
+            { opacity: 0, x: -20, stagger: 0.12, duration: 0.55, ease: "power2.out" },
+            0.9,
+          )
+          .from(
+            ".product-row article",
+            { opacity: 0, y: 24, stagger: 0.09, duration: 0.5, ease: "back.out(1.2)" },
+            1.6,
+          )
+          .to("#studio", { scale: 1.012, duration: 6.1, ease: "none" }, 1.05)
+          .to(".product-row", { x: -24, duration: 2.2, ease: "sine.inOut" }, 2.5)
+          .from(".store-nav i", { scale: 0, duration: 0.28, ease: "back.out(2)" }, 4.2)
+          .from(
+            ".order-toast",
+            { opacity: 0, x: 90, scale: 0.96, duration: 0.42, ease: "expo.out" },
+            4.45,
+          )
+          .to(
+            ".order-toast",
+            { opacity: 0, x: 40, duration: 0.3, ease: "power3.in" },
+            7.15,
+          )
+          .to(".laptop-screen", { opacity: 0, duration: 0.45, ease: "sine.in" }, 7.3)
+          .to(
+            "#studio",
+            { opacity: 0, scale: 1.025, duration: 0.5, ease: "power1.in" },
+            7.35,
+          );
+        window.__timelines["signup-storefront-promo"] = tl;
+      </script>
+    </div>
+  </body>
+</html>
