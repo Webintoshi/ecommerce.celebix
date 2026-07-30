@@ -68,6 +68,7 @@ test("typed settings accept only finite public configuration before SQL",async()
   promotion_banner:{headline:"Yaz indirimi",body:"Sınırlı süre",destination:"/sale",startsAt:NOW.toISOString(),endsAt:"2026-08-22T19:00:00.000Z",enabled:true},
   marquee_setting:{items:["Ücretsiz kargo"],icon:"truck",speed:"normal",direction:"left",animation:"continuous",enabled:true},
   theme_setting:{colorScheme:"warm",headingStyle:"sans",productCardStyle:"compact",productImageRatio:"square",homeProductLimit:12,showBrandStory:false},
+  category_showcase:{heading:"Koleksiyonları keşfedin",enabled:true,items:[{categoryId:"81000000-0000-4000-8000-000000000001",assetId:"82000000-0000-4000-8000-000000000001"}]},
  } as const;
  for(const [kind,config] of Object.entries(configurations)){
   const writer=new Client((text)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{...mutation(),kind}}]:[]);
@@ -79,6 +80,12 @@ test("typed settings accept only finite public configuration before SQL",async()
  for(const hostile of [
   {colorScheme:"red"},{headingStyle:"display"},{productCardStyle:"dense"},{productImageRatio:"landscape"},{homeProductLimit:6},{homeProductLimit:"8"},{showBrandStory:"true"},{customCss:"body{}"},
  ]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"theme_setting" as never,name:"Tema",config:hostile as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ for(const hostile of [
+  {heading:"Kategoriler",enabled:true,items:[]},
+  {heading:"Kategoriler",enabled:true,items:[{categoryId:RECORD,assetId:RECORD},{categoryId:RECORD,assetId:"82000000-0000-4000-8000-000000000002"}]},
+  {heading:"Kategoriler",enabled:true,items:[{categoryId:RECORD,assetId:RECORD},{categoryId:"81000000-0000-4000-8000-000000000002",assetId:RECORD}]},
+  {heading:"Kategoriler",enabled:true,items:[{categoryId:"not-a-uuid",assetId:RECORD}]},
+ ]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"category_showcase",name:"Kategoriler",config:hostile as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
 test("active storefront settings cannot exceed or omit the public presentation contract",async()=>{

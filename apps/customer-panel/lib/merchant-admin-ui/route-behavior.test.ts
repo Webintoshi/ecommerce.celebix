@@ -522,7 +522,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting");
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "category_showcase");
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     assert.match(textOf(mounted.view), new RegExp(`${definition.kind} durable record`), `${definition.kind}:loaded`);
@@ -642,7 +642,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     }
   }
 
-  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => recordRoute.createRouteFor(kind) === undefined);
+  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "category_showcase" && recordRoute.createRouteFor(kind) === undefined);
   for (const definition of inlineDefinitions) {
     await submitInlineRecord(definition, "create", "success");
     await submitInlineRecord(definition, "update", "success");
@@ -1028,6 +1028,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       "@/components/panel/PanelPageShell": panelComponents(),
       "./StarterThemePreview": { StarterThemePreview: () => createElement("section", { "data-starter-theme-preview": true }) },
       "./StorefrontAssetManager": { StorefrontAssetManager: () => createElement("section", { "data-storefront-asset-manager": true }) },
+      "./CategoryShowcaseEditor": { CategoryShowcaseEditor: () => createElement("section", { "data-category-showcase-editor": true }) },
     },
   );
   const cases = [
@@ -1055,7 +1056,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       module: "@/components/settings/DesignSettingsHub",
       exportName: "DesignSettingsHub",
       Component: DesignHub,
-      destinations: ["/settings/theme", "/settings/general", "/settings/hero-banner", "/settings/promotion-banner", "/settings/marquee", "/seo", "/seo/social-preview", "/products/collections"],
+      destinations: ["/settings/theme", "/settings/general", "/settings/hero-banner", "/settings/category-showcase", "/settings/promotion-banner", "/settings/marquee", "/seo", "/seo/social-preview", "/products/collections"],
     },
   ] as const;
   for (const entry of cases) {
@@ -1074,5 +1075,22 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     });
     assert.deepEqual(destinations, entry.destinations, entry.route);
     assert.doesNotMatch(textOf(view), /Toplam kayıt|Kalıcı kayıt/u, entry.route);
+  }
+});
+
+test("category showcase page mounts only its custom server-authorized editor", async () => {
+  const CategoryShowcaseEditor = (props: Record<string, unknown>) => createElement("section", { ...props, "data-category-showcase-editor": true });
+  for (const [role, canManage] of [["store_owner", true], ["analyst", false]] as const) {
+    const Page = await compileBoundPage(
+      "/settings/category-showcase",
+      "@/components/settings/CategoryShowcaseEditor",
+      "CategoryShowcaseEditor",
+      CategoryShowcaseEditor,
+      role,
+    );
+    const tree = await Page();
+    const editor = findElement(tree, (element) => element.type === CategoryShowcaseEditor);
+    assert.equal(editor.props.canManage, canManage);
+    assert.equal(editor.props.kind, undefined);
   }
 });

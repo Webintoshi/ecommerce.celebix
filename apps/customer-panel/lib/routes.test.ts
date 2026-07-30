@@ -38,6 +38,7 @@ test("analytics and typed storefront setting pages are server-authorized routes"
     ["../app/settings/hero-banner/page.tsx", "hero_banner"],
     ["../app/settings/promotion-banner/page.tsx", "promotion_banner"],
     ["../app/settings/marquee/page.tsx", "marquee_setting"],
+    ["../app/settings/category-showcase/page.tsx", "CategoryShowcaseEditor"],
   ] as const) {
     const source = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
