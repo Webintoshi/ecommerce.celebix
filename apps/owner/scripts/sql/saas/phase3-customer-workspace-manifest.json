@@ -1,0 +1,24 @@
+{
+  "phase": "phase3-customer-workspace",
+  "postgresqlMajor": 16,
+  "classification": "additive-store-scoped-customer-workspace",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607310076_customer_workspace.up.sql",
+      "direction": "up",
+      "sha256": "01c28360603bc6140cf799cd83ddfe01708018bc6bd4b43f24ee089e38923792"
+    },
+    {
+      "file": "202607310076_customer_workspace.down.sql",
+      "direction": "down",
+      "sha256": "22ee5a828e29e9de489a17d89807988d1a55ab45e5c1be986e2acc6330de9427"
+    },
+    {
+      "file": "202607310076_customer_workspace_assertions.sql",
+      "direction": "verify",
+      "sha256": "582d83ed3b0da75d5603e329674396cc2dc66d3013142f594a8195aea7d93280"
+    }
+  ]
+}
