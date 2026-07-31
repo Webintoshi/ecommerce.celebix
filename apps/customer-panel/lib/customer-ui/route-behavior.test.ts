@@ -389,6 +389,8 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     if (match) return handlers.setTags(request(path, init), match[1]!);
     match = /^\/api\/customers\/([^/]+)\/segments$/u.exec(path);
     if (match) return handlers.setSegments(request(path, init), match[1]!);
+    match = /^\/api\/customers\/([^/]+)\/workspace$/u.exec(path);
+    if (match) return handlers.workspace(request(path, init), match[1]!);
     match = /^\/api\/customers\/([^/]+)$/u.exec(path);
     if (match) return init?.method === "POST" ? handlers.update(request(path, init), match[1]!) : handlers.get(request(path, init), match[1]!);
     throw new Error(`unexpected_customer_route_path:${path}`);
@@ -563,19 +565,21 @@ test("customer route matrix invokes actual list detail edit and new pages throug
       { customerId: detailElement.props.customerId, canManage: detailElement.props.canManage, canArchive: detailElement.props.canArchive },
       { customerId: CUSTOMER_ID, canManage: true, canArchive: true },
     );
-    const renderDetail = () => DetailConsole(detailElement.props);
+    const renderDetail = () => {
+      const view = DetailConsole(detailElement.props);
+      if (React.isValidElement<Record<string, unknown>>(view) && typeof view.type === "function" && view.type.name === "CustomerDetailPresentation") {
+        return (view.type as (props: Record<string, unknown>) => ReactNode)(view.props);
+      }
+      return view;
+    };
     let detailView = await detailHooks.flush(renderDetail);
     assert.ok(repositoryCalls.includes(`get:${CUSTOMER_ID}`), "detail-exact-read");
+    assert.ok(repositoryCalls.includes("workspace"), "detail-workspace-read");
+    assert.match(textOf(detailView), /Müşteri bilgilerini düzenle/u);
+    findElement(detailView, (element) => element.props.href === `/customers/${CUSTOMER_ID}/edit`);
+    assert.equal(repositoryCalls.includes("update"), false, "detail-does-not-own-profile-update");
 
-    let profileForm = findElement(detailView, (element) => element.type === "form" && textOf(element).includes("Değişiklikleri Kaydet"));
-    await (profileForm.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>> } }) => Promise<void>)({
-      preventDefault() {},
-      currentTarget: { values: { firstName: "Ada", lastName: "King", email: "ada@example.com", phone: "+905551112233", emailConsent: "on" } },
-    });
-    detailView = await detailHooks.flush(renderDetail);
-    assert.ok(repositoryCalls.includes("update"), "detail-update");
-
-    const noteForm = findElement(detailView, (element) => element.type === "form" && textOf(element).includes("Yeni not"));
+    const noteForm = findElement(detailView, (element) => element.type === "form" && textOf(element).includes("Yeni dahili not"));
     await (noteForm.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>>; reset(): void } }) => Promise<void>)({
       preventDefault() {},
       currentTarget: { values: { text: "Kalıcı müşteri notu" }, reset() {} },
@@ -603,7 +607,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     detailView = await detailHooks.flush(renderDetail);
     assert.ok(repositoryCalls.includes("set-segments"), "detail-set-segments");
 
-    const archiveButton = findElement(detailView, (element) => element.type === "button" && textOf(element).includes("Müşteriyi Arşivle"));
+    const archiveButton = findElement(detailView, (element) => element.type === "button" && textOf(element).includes("Arşivlemeyi onayla"));
     (archiveButton.props.onClick as () => void)();
     for (let pass = 0; pass < 3; pass += 1) await new Promise<void>((resolve) => setImmediate(resolve));
     detailView = await detailHooks.flush(renderDetail);

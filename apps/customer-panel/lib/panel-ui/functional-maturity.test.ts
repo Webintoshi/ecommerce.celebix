@@ -30,6 +30,17 @@ test("order maturity stays truthful until every advertised commerce workflow is 
   });
 });
 
+test("customer maturity records the linked order workspace and editable address book without hiding privacy gaps", () => {
+  assert.deepEqual(getAdminModuleMaturity("customers"), {
+    module: "customers",
+    state: "foundation",
+    operational: [
+      "list", "detail", "create", "update", "archive", "notes", "tags", "segments", "export", "address_book", "order_history",
+    ],
+    gaps: ["consent_history", "privacy_erasure"],
+  });
+});
+
 test("functional maturity covers every top-level admin family exactly once and never overclaims readiness", () => {
   assert.deepEqual(ADMIN_MODULE_MATURITY.map(({ module }) => module), EXPECTED_MODULES);
   assert.equal(new Set(ADMIN_MODULE_MATURITY.map(({ module }) => module)).size, EXPECTED_MODULES.length);

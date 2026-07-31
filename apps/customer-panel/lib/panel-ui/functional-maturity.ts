@@ -47,9 +47,9 @@ export const ADMIN_MODULE_MATURITY: readonly AdminModuleMaturity[] = Object.free
     "billing", "taxes", "fulfillment_locations", "tags", "payment_requests", "provider_refunds", "invoices", "shipping_labels",
   ]),
   maturity("customers", "foundation", [
-    "list", "detail", "create", "update", "archive", "notes", "tags", "segments", "export",
+    "list", "detail", "create", "update", "archive", "notes", "tags", "segments", "export", "address_book", "order_history",
   ], [
-    "address_book", "consent_history", "order_history", "privacy_erasure",
+    "consent_history", "privacy_erasure",
   ]),
   maturity("catalog_inventory", "foundation", [
     "products", "variants", "media", "collections", "brands", "attributes", "extras", "reviews", "barcode_labels",

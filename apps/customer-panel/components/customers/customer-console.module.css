@@ -367,6 +367,330 @@
   font-size: 0.82rem;
   font-weight: 700;
 }
+.customerDetailTopbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 1rem;
+  align-items: center;
+  border: 1px solid #e1e6ef;
+  border-radius: 12px;
+  background: #fff;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 2px rgb(17 24 39/0.03);
+}
+.detailBack,
+.detailNavigation a,
+.detailNavigation span {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e1e6ef;
+  border-radius: 8px;
+  color: #4b5563;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+.detailBack {
+  width: 44px;
+  font-size: 1rem;
+}
+.detailIdentity {
+  min-width: 0;
+}
+.detailIdentity p,
+.detailIdentity span,
+.detailTitleRow h1 {
+  margin: 0;
+}
+.detailIdentity p,
+.detailIdentity > span {
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detailTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0.25rem 0;
+}
+.detailTitleRow h1 {
+  overflow: hidden;
+  color: #111827;
+  font-size: 1.25rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detailNavigation {
+  display: flex;
+  gap: 0.5rem;
+}
+.detailNavigation a,
+.detailNavigation span {
+  padding: 0 0.75rem;
+}
+.detailNavigation span {
+  color: #9ca3af;
+}
+.customerWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+  gap: 1rem;
+  align-items: start;
+}
+.customerWorkspaceMain {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+.customerWorkspaceMain > .detail {
+  overflow: hidden;
+}
+.customerSummaryRail {
+  position: sticky;
+  top: 5.5rem;
+  display: grid;
+  gap: 1rem;
+}
+.contactGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+}
+.contactGrid > div {
+  min-width: 0;
+  border-top: 1px solid #eef1f4;
+  padding: 1rem 1.25rem;
+}
+.contactGrid > div:nth-child(odd) {
+  border-right: 1px solid #eef1f4;
+}
+.contactGrid dt,
+.summaryFacts dt {
+  color: #6b7280;
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+.contactGrid dd,
+.summaryFacts dd {
+  margin: 0.3rem 0 0;
+  overflow-wrap: anywhere;
+  color: #1f2937;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.orderHistoryList {
+  display: grid;
+}
+.orderHistoryRow {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) minmax(12rem, auto) auto auto;
+  gap: 1rem;
+  align-items: center;
+  min-height: 68px;
+  border-top: 1px solid #eef1f4;
+  padding: 0.75rem 1.25rem;
+  color: #374151;
+  font-size: 0.8rem;
+}
+.orderHistoryRow:hover {
+  background: #fff8f3;
+}
+.orderHistoryRow > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+.orderHistoryRow > div:first-child span {
+  color: #6b7280;
+  font-size: 0.72rem;
+}
+.orderHistoryStatuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.orderHistoryStatuses span,
+.addressTitle span {
+  border-radius: 999px;
+  background: #f2f4f7;
+  padding: 0.25rem 0.5rem;
+  color: #5d6675;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+.inlineEmpty {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  color: #6b7280;
+  font-size: 0.82rem;
+}
+.customerWorkspaceMain .addressList,
+.customerWorkspaceMain .noteList,
+.customerWorkspaceMain .noteForm {
+  padding: 1rem 1.25rem;
+}
+.customerWorkspaceMain .noteList {
+  padding-top: 0;
+}
+.addressList article p,
+.noteList article p,
+.noteList article small {
+  margin: 0;
+}
+.addressTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+.summaryCard {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid #e1e6ef;
+  border-radius: 12px;
+  background: #fff;
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgb(17 24 39/0.03);
+}
+.summaryCard > span:first-child {
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+.summaryHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.summaryHeading h2,
+.summaryHeading span {
+  margin: 0;
+}
+.summaryHeading h2 {
+  font-size: 0.9rem;
+}
+.summaryHeading span,
+.summaryHeading a {
+  color: #6b7280;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.summaryFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.summaryFacts > div {
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 0.75rem;
+}
+.consentList {
+  display: grid;
+  gap: 0.65rem;
+}
+.consentList > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem 0.75rem;
+  align-items: center;
+  border-top: 1px solid #eef1f4;
+  padding-top: 0.65rem;
+  font-size: 0.78rem;
+}
+.consentList small {
+  grid-column: 1/-1;
+  color: #6b7280;
+}
+.taxonomyChecks {
+  display: grid;
+  gap: 0.45rem;
+}
+.taxonomyChecks label {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid #e8edf4;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  color: #374151;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.taxonomyChecks input {
+  width: 1rem;
+  height: 1rem;
+}
+.archiveConfirm {
+  border-top: 1px solid #eef1f4;
+  padding-top: 0.75rem;
+}
+.archiveConfirm summary {
+  min-height: 44px;
+  color: #9f282d;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+.archiveConfirm p {
+  color: #6b7280;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.addressEditorList {
+  display: grid;
+  gap: 1rem;
+}
+.addressEditor {
+  min-width: 0;
+  border: 1px solid #dfe5ed;
+  border-radius: 10px;
+  padding: 1rem;
+}
+.addressEditor legend {
+  padding: 0 0.5rem;
+  color: #374151;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+.addressEditorActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.defaultAddress {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.55rem;
+  color: #374151;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.defaultAddress input {
+  width: 1rem;
+  height: 1rem;
+}
 @media (max-width: 1024px) {
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -388,6 +712,14 @@
   }
   .columns {
     grid-template-columns: 1fr;
+  }
+  .customerWorkspace {
+    grid-template-columns: 1fr;
+  }
+  .customerSummaryRail {
+    position: static;
+    grid-row: 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 640px) {
@@ -414,6 +746,37 @@
   .primary,
   .danger {
     width: 100%;
+  }
+  .customerDetailTopbar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .detailNavigation,
+  .customerDetailTopbar > .primary {
+    grid-column: 1/-1;
+  }
+  .detailNavigation a,
+  .detailNavigation span {
+    flex: 1;
+  }
+  .customerSummaryRail,
+  .contactGrid,
+  .summaryFacts {
+    grid-template-columns: 1fr;
+  }
+  .contactGrid > div:nth-child(odd) {
+    border-right: 0;
+  }
+  .orderHistoryRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .orderHistoryStatuses {
+    grid-column: 1/-1;
+    grid-row: 2;
+  }
+  .sectionHeader,
+  .addressEditorActions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 @media (prefers-reduced-motion: reduce) {

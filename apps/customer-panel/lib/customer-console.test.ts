@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as React from "react";
 import { createElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 
@@ -11,6 +12,7 @@ const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
 const CUSTOMER_A = "81000000-0000-4000-8000-000000000001";
 const CUSTOMER_B = "81000000-0000-4000-8000-000000000002";
 const NOW = "2026-07-22T15:00:00.000Z";
+const ORDER_ID = "71000000-0000-4000-8000-000000000001";
 
 function customer(id: string, version: number, firstName: string) {
   return Object.freeze({
@@ -102,6 +104,29 @@ async function compileCustomerEditor(overrides: Readonly<{ react: typeof React; 
   return { Editor: compiled.exports.CustomerEditConsole as (props: { customerId: string }) => ReactNode, CustomerApiError: CompiledCustomerApiError };
 }
 
+async function compileCustomerDetailPresentation() {
+  const output = ts.transpileModule(await source("components/customers/CustomerDetailConsole.tsx"), {
+    compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const styles = new Proxy({}, { get: (_target, property) => property === "__esModule" ? true : property === "default" ? styles : String(property) });
+  const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return React;
+    if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
+    if (specifier === "@/components/panel/PanelPageShell") return {
+      PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
+      PanelStatusBadge: ({ children }: { children?: ReactNode }) => createElement("span", null, children),
+    };
+    if (specifier === "@/lib/customer-ui/client") return { CustomerApiError: class extends Error {}, customerApi: {} };
+    if (specifier === "./customer-console.module.css") return styles;
+    if (specifier === "@celebix/saas-contracts") return {};
+    throw new Error(`unexpected_customer_detail_import:${specifier}`);
+  };
+  Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
+  return compiled.exports.CustomerDetailPresentation as (props: Record<string, unknown>) => ReactNode;
+}
+
 function firstElement(node: ReactNode, type: string) {
   let result: React.ReactElement<Record<string, unknown>> | undefined;
   visitElements(node, (element) => { if (element.type === type && result === undefined) result = element; });
@@ -157,12 +182,43 @@ test("customer console exposes truthful loaded empty error export and responsive
   assert.match(list, /CSV Dışa Aktar/);
   assert.match(detail, /Dahili notlar/);
   assert.match(detail, /Müşteriyi Arşivle/);
-  assert.match(detail, /customerApi[.]update\(customerId/);
-  assert.match(detail, /expectedVersion:\s*data[.]version/);
+  assert.match(detail, /customerApi[.]workspace\(customerId/);
+  assert.match(detail, /Sipariş geçmişi/);
+  assert.doesNotMatch(detail, /customerApi[.]update\(customerId/);
   assert.match(taxonomy, /müşteri/);
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)/);
   assert.match(styles, /min-height:\s*48px/);
   assert.match(styles, /prefers-reduced-motion/);
+  assert.match(styles, /position:\s*sticky/);
+  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(18rem,\s*22rem\)/);
+});
+
+test("customer detail presentation exposes linked orders navigation and truthful operations", async () => {
+  const Presentation = await compileCustomerDetailPresentation();
+  const detail = {
+    ...customer(CUSTOMER_A, 7, "Ada"),
+    orderCount: 61,
+    totalSpentCents: 3250260,
+    notes: [],
+    addresses: [{ id: "82000000-0000-4000-8000-000000000001", label: "Ev", recipientName: "Ada Lovelace", line1: "Test Sokak 1", city: "İstanbul", country: "TR", isDefault: true, version: 1 }],
+    consents: [{ channel: "email", status: "granted", recordedAt: NOW }],
+  };
+  const markup = renderToStaticMarkup(createElement(Presentation, {
+    data: detail,
+    workspace: {
+      neighbors: { next: { id: CUSTOMER_B, displayName: "Grace Lovelace" } },
+      orders: [{ id: ORDER_ID, orderNumber: "CX-1042", status: "delivered", paymentStatus: "completed", totalCents: 3250260, currency: "TRY", createdAt: NOW }],
+    },
+    tags: [], segments: [], canManage: true, canArchive: true, busy: false, notice: "", error: "",
+    onAddNote() {}, onAssign() {}, onArchive() {},
+  }));
+  assert.match(markup, /aria-label="Müşteri özeti ve işlemleri"/);
+  assert.match(markup, new RegExp(`/orders/${ORDER_ID}`));
+  assert.match(markup, new RegExp(`/customers/${CUSTOMER_B}`));
+  assert.match(markup, /Son 50 sipariş/);
+  assert.match(markup, /İzin tarihi/);
+  assert.match(markup, /Müşteriyi Arşivle/);
+  assert.doesNotMatch(markup, /storeId|tenantId|customer_email/);
 });
 
 test("customer edit route sends the loaded version and leaves stale conflicts visible", async () => {
@@ -176,6 +232,9 @@ test("customer edit route sends the loaded version and leaves stale conflicts vi
   assert.match(editor, /version_conflict/);
   assert.match(editor, /sizden önce güncellendi/i);
   assert.match(editor, /router[.]push\(`\/customers\/\$\{result[.]id\}`\)/);
+  assert.match(editor, /Adres defteri/);
+  assert.match(editor, /Adres ekle/);
+  assert.match(editor, /setAddresses/);
   assert.match(detail, /href=\{`\/customers\/\$\{encodeURIComponent\(data[.]id\)\}\/edit`\}/);
   assert.match(page, /requireServerPanelAccess\(\)/);
   assert.match(page, /customers[.]manage/);
@@ -285,6 +344,10 @@ test("customer route files expose only the reviewed methods", async () => {
     [
       "app/api/customers/[customerId]/archive/route.ts",
       { POST: "handleCustomerArchive" },
+    ],
+    [
+      "app/api/customers/[customerId]/workspace/route.ts",
+      { GET: "handleCustomerWorkspace" },
     ],
     [
       "app/api/customers/[customerId]/notes/route.ts",
