@@ -93,6 +93,7 @@ async function main() {
   const chrome = spawn(CHROME, [`--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, "--headless=new", "--disable-extensions", "--disable-background-networking", "--no-first-run", "--no-default-browser-check", "about:blank"], { stdio: "ignore" });
   let cdp;
   const consoleErrors = [], networkFailures = [], sensitiveSurface = { dom: false, console: false, networkUrl: false };
+  let checkoutCompleteResponse;
   try {
     await waitForHttp(`http://127.0.0.1:${debugPort}/json/version`);
     const tabs = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
@@ -104,6 +105,7 @@ async function main() {
     cdp.on("Runtime.consoleAPICalled", ({ type, args = [] }) => { const text = args.map(({ value, description }) => String(value ?? description ?? "")).join(" "); if (/__Host-celebix_(?:cart|checkout_intent|customer|receipt)=|\b(?:c1|i1|u1|r1)\.[a-z][a-z0-9_-]{2,31}\.[A-Za-z0-9_-]{43}\b/u.test(text)) sensitiveSurface.console = true; if (["error", "assert"].includes(type)) consoleErrors.push(type); });
     cdp.on("Network.loadingFailed", ({ canceled }) => { if (!canceled) networkFailures.push("failed"); });
     cdp.on("Network.requestWillBeSent", ({ request }) => { if (/__Host-celebix_|(?:c1|i1|u1|r1)[.]current/iu.test(request.url)) sensitiveSurface.networkUrl = true; });
+    cdp.on("Network.responseReceived", ({ requestId, response }) => { if (new URL(response.url).pathname === "/api/checkout/complete") checkoutCompleteResponse = { requestId, status: response.status }; });
 
     const measurements = [], screenshots = [];
     await viewport(cdp, 1440, 900); await navigate(cdp, "/"); await waitFor(cdp, "document.querySelector('.starter-storefront')&&document.querySelector('.product-card-link')&&!document.body.innerText.includes('Mağaza yükleniyor')", "home");
@@ -127,11 +129,12 @@ async function main() {
     await click(cdp, "[...document.querySelectorAll('.purchase-actions button')].find((node)=>node.textContent.includes('Şimdi satın al'))", "buy_now");
     await waitFor(cdp, "location.pathname==='/checkout'&&location.search==='?intent=buy-now'", "buy_now_checkout");
     await viewport(cdp, 390, 844); await waitFor(cdp, "document.querySelectorAll('.checkout-fields input').length===8&&document.querySelector('.checkout-submit:not(:disabled)')", "checkout_form");
-    for (const [name, value] of Object.entries({ name: "Güzide Elif", email: "info@example.com", phone: "+905551112233", addressLine1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", postalCode: "34710", note: "Kapıyı çalınız." })) await fill(cdp, `[name="${name}"]`, value);
+    for (const [name, value] of Object.entries({ name: "Güzide Elif", email: "info@example.com", phone: "+905559998877", addressLine1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", postalCode: "34710", note: "Kapıyı çalınız." })) await fill(cdp, `[name="${name}"]`, value);
     measurements.push(await measure(cdp, "mobile-checkout-390x844")); screenshots.push(await screenshot(cdp, "checkout-390x844.png"));
     await click(cdp, "document.querySelector('.checkout-submit')", "delivery_continue"); await waitFor(cdp, "document.querySelector('.payment-methods input:checked')", "payment_method");
     await click(cdp, "[...document.querySelectorAll('.checkout-form-actions button')].find((node)=>node.textContent.includes('Siparişi oluştur'))", "complete_checkout");
-    await waitFor(cdp, "location.pathname==='/checkout/success'&&document.body.innerText.includes('Sipariş alındı')", "receipt");
+    try { await waitFor(cdp, "location.pathname==='/checkout/success'&&document.body.innerText.includes('Sipariş alındı')", "receipt"); }
+    catch (error) { const state = await cdp.evaluate("({href:location.href,text:document.body.innerText.slice(0,800),status:document.querySelector('.checkout-status')?.textContent})"); const response = checkoutCompleteResponse ? { status: checkoutCompleteResponse.status, body: (await cdp.send("Network.getResponseBody", { requestId: checkoutCompleteResponse.requestId }).catch(() => ({ body: "unavailable" }))).body } : null; throw new Error(`${error.message}:${JSON.stringify({ state, response })}`); }
     screenshots.push(await screenshot(cdp, "receipt-390x844.png"));
     await navigate(cdp, "/account"); await waitFor(cdp, "document.querySelector('.account-order')", "account_order");
     await viewport(cdp, 1024, 768); measurements.push(await measure(cdp, "mobile-1024x768")); screenshots.push(await screenshot(cdp, "account-1024x768.png"));

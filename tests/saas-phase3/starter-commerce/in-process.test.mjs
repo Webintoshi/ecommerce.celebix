@@ -19,7 +19,7 @@ function request(path, body, cookie) {
 function dependencies(overrides = {}) {
   const calls = [];
   const runtime = Object.freeze({
-    async resolveCart(hostname, cookieHeader) { calls.push(["resolve", hostname, cookieHeader]); return CART; },
+    async resolveCart(hostname, cookieHeader) { calls.push(["resolve", hostname, cookieHeader]); return Object.freeze({ cart: CART }); },
     async mutateCart(hostname, cookieHeader, command) { calls.push(["mutate", hostname, cookieHeader, command]); return Object.freeze({ cart: CART, setCookie: "__Host-celebix_cart=safe; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax" }); },
     async quote(hostname, cookieHeader, intentKind) { calls.push(["quote", hostname, cookieHeader, intentKind]); return QUOTE; },
     async complete(hostname, cookieHeader, input) { calls.push(["complete", hostname, cookieHeader, input]); return Object.freeze({ receipt: RECEIPT, setCookies: Object.freeze(["__Host-celebix_customer=safe; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax", "__Host-celebix_receipt=safe; Path=/; Max-Age=900; HttpOnly; Secure; SameSite=Lax"]) }); },

@@ -107,15 +107,15 @@ const requiredHarnesses = Object.freeze([
   }),
   Object.freeze({
     file: "tests/saas-phase3/storefront-policy-search/postgres-harness.mjs",
-    total: 30,
-    line: /^PASS \d+\/30 .+$/gm,
-    completion: /^30\/30 PASS$/m,
+    total: 32,
+    line: /^PASS \d+\/32 .+$/gm,
+    completion: /^32\/32 PASS$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/storefront-cart-checkout/postgres-harness.mjs",
-    total: 33,
-    line: /^PASS \d+\/33 .+$/gm,
-    completion: /^33\/33 PASS$/m,
+    total: 35,
+    line: /^PASS \d+\/35 .+$/gm,
+    completion: /^35\/35 PASS$/m,
   }),
 ]);
 const gateRank = Object.freeze({

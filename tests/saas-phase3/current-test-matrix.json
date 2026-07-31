@@ -4,11 +4,11 @@
   "requiredPostgresqlHarnesses": [
     {
       "file": "tests/saas-phase3/storefront-policy-search/postgres-harness.mjs",
-      "total": 30
+      "total": 32
     },
     {
       "file": "tests/saas-phase3/storefront-cart-checkout/postgres-harness.mjs",
-      "total": 33
+      "total": 35
     }
   ],
   "browserAcceptance": {
