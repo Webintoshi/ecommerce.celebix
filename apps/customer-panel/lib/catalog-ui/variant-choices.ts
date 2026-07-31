@@ -5,13 +5,18 @@ import {
   type ProductVariant,
 } from "@celebix/saas-contracts";
 
-import { catalogApi, type ProductDetailResult, type ProductListResult } from "./client.ts";
+import {
+  catalogApi,
+  type CatalogVariantChoiceResult,
+  type ProductDetailResult,
+  type ProductListResult,
+} from "./client.ts";
 
 const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
 const DEFAULT_LIMITS = Object.freeze({
   maximumPages: 25,
   maximumProducts: 500,
-  maximumVariants: 2_000,
+  maximumVariants: 5_000,
   maximumDetailConcurrency: 4,
 });
 
@@ -34,6 +39,7 @@ export type CatalogVariantChoices = Readonly<{
 }>;
 
 export type CatalogVariantChoiceApi = Readonly<{
+  listVariantChoices?(signal?: AbortSignal): Promise<readonly CatalogVariantChoiceResult[]>;
   listProducts(
     input: Readonly<{ status: "active"; cursor?: string }>,
     signal?: AbortSignal,
@@ -124,6 +130,38 @@ export async function loadCatalogVariantChoices(
     ),
   });
   try {
+    if (api.listVariantChoices !== undefined) {
+      const direct = dense(await api.listVariantChoices(signal), limits.maximumVariants, (entry) => {
+        const parsed = exactRoot(entry, ["productId", "productTitle", "variantId", "variantTitle"], ["sku"]);
+        if (
+          typeof parsed.productId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(parsed.productId) ||
+          typeof parsed.variantId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(parsed.variantId) ||
+          typeof parsed.productTitle !== "string" || parsed.productTitle.length < 1 || parsed.productTitle.length > 200 || parsed.productTitle !== parsed.productTitle.trim() ||
+          typeof parsed.variantTitle !== "string" || parsed.variantTitle.length < 1 || parsed.variantTitle.length > 200 || parsed.variantTitle !== parsed.variantTitle.trim() ||
+          (parsed.sku !== undefined && (typeof parsed.sku !== "string" || !/^[A-Z0-9][A-Z0-9._-]{0,63}$/.test(parsed.sku)))
+        ) return unavailable();
+        return Object.freeze({
+          productId: parsed.productId,
+          productTitle: parsed.productTitle,
+          variantId: parsed.variantId,
+          variantTitle: parsed.variantTitle,
+          ...(parsed.sku === undefined ? {} : { sku: parsed.sku as string }),
+        });
+      });
+      signal.throwIfAborted();
+      const productsById = new Map<string, CatalogProductChoice>();
+      const variantIds = new Set<string>();
+      for (const choice of direct) {
+        const known = productsById.get(choice.productId);
+        if ((known !== undefined && known.title !== choice.productTitle) || variantIds.has(choice.variantId)) unavailable();
+        if (known === undefined) productsById.set(choice.productId, Object.freeze({ productId: choice.productId, title: choice.productTitle }));
+        variantIds.add(choice.variantId);
+      }
+      return Object.freeze({
+        products: Object.freeze([...productsById.values()]),
+        variants: direct,
+      });
+    }
     const products: Product[] = [];
     const productIds = new Set<string>();
     const cursors = new Set<string>();

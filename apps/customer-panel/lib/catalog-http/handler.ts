@@ -12,6 +12,7 @@ import { readPersistentPanelSessionCookie } from "../server-panel-session-contro
 import type { ServerCatalogRuntime } from "../server-catalog/runtime.ts";
 import {
   CATALOG_SUMMARY_PATH,
+  CATALOG_VARIANT_CHOICES_PATH,
   createCatalogRequestAuthorityValidator,
   type CatalogRequestExpectation,
 } from "./request-authority.ts";
@@ -193,6 +194,20 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
           ...input.value,
         }),
         (result) => json(result, 200),
+      );
+    },
+
+    async listVariantChoices(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, {
+        method: "GET", pathname: CATALOG_VARIANT_CHOICES_PATH, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      return execute(
+        () => authorized.runtime.catalog.listVariantChoices({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+        }),
+        (items) => json({ items }, 200),
       );
     },
 

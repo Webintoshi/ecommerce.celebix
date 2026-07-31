@@ -53,6 +53,13 @@ export type ProductListResult = Readonly<{
   nextCursor?: string;
 }>;
 export type ProductDetailResult = Readonly<{ product: Product; variants: readonly ProductVariant[] }>;
+export type CatalogVariantChoiceResult = Readonly<{
+  productId: string;
+  productTitle: string;
+  variantId: string;
+  variantTitle: string;
+  sku?: string;
+}>;
 export type CreateProductResult = Readonly<{ product: Product; initialVariant: ProductVariant; replayed: boolean }>;
 export type ProductMutationResult = Readonly<{ product: Product; replayed: boolean }>;
 export type VariantMutationResult = Readonly<{ variant: ProductVariant; replayed: boolean }>;
@@ -106,6 +113,33 @@ async function json(response: Response): Promise<unknown> {
 function productId(value: string): string {
   if (!UUID.test(value)) throw new TypeError("catalog_client_invalid");
   return value;
+}
+
+function variantChoice(value: unknown): CatalogVariantChoiceResult {
+  const parsed = record(value);
+  if (parsed === null) throw new CatalogApiError("unavailable", 503);
+  const allowed = parsed.sku === undefined
+    ? "productId,productTitle,variantId,variantTitle"
+    : "productId,productTitle,sku,variantId,variantTitle";
+  if (
+    Object.keys(parsed).sort().join(",") !== allowed ||
+    typeof parsed.productId !== "string" || !UUID.test(parsed.productId) ||
+    typeof parsed.variantId !== "string" || !UUID.test(parsed.variantId) ||
+    typeof parsed.productTitle !== "string" || parsed.productTitle.length < 1 || parsed.productTitle.length > 200 ||
+    parsed.productTitle !== parsed.productTitle.trim() || CONTROL.test(parsed.productTitle) ||
+    typeof parsed.variantTitle !== "string" || parsed.variantTitle.length < 1 || parsed.variantTitle.length > 200 ||
+    parsed.variantTitle !== parsed.variantTitle.trim() || CONTROL.test(parsed.variantTitle) ||
+    (parsed.sku !== undefined && (
+      typeof parsed.sku !== "string" || !/^[A-Z0-9][A-Z0-9._-]{0,63}$/.test(parsed.sku)
+    ))
+  ) throw new CatalogApiError("unavailable", 503);
+  return Object.freeze({
+    productId: parsed.productId,
+    productTitle: parsed.productTitle,
+    variantId: parsed.variantId,
+    variantTitle: parsed.variantTitle,
+    ...(parsed.sku === undefined ? {} : { sku: parsed.sku as string }),
+  });
 }
 
 function version(value: number): number {
@@ -233,6 +267,23 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
         ...(featuredImages === undefined ? {} : { featuredImages }),
         ...(body.nextCursor === undefined ? {} : { nextCursor: body.nextCursor }),
       });
+    },
+
+    async listVariantChoices(signal?: AbortSignal): Promise<readonly CatalogVariantChoiceResult[]> {
+      const body = record(await request("/api/catalog/variant-choices", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        ...(signal ? { signal } : {}),
+      }));
+      if (body === null || Object.keys(body).join(",") !== "items" || !Array.isArray(body.items) || body.items.length > 5_000) {
+        throw new CatalogApiError("unavailable", 503);
+      }
+      const items = Object.freeze(body.items.map(variantChoice));
+      if (new Set(items.map((item) => item.variantId)).size !== items.length) {
+        throw new CatalogApiError("unavailable", 503);
+      }
+      return items;
     },
 
     async getProduct(id: string, signal?: AbortSignal): Promise<ProductDetailResult> {

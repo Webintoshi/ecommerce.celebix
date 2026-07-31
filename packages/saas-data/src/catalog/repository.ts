@@ -9,6 +9,7 @@ import type {
   ArchiveVariantInput,
   CatalogDashboardSummary,
   CatalogProductFeaturedImage,
+  CatalogVariantChoice,
   CatalogRepository,
   CreateProductInput,
   CreateProductResult,
@@ -18,6 +19,7 @@ import type {
   GetCatalogDashboardSummaryInput,
   ListProductsInput,
   ListProductsResult,
+  ListCatalogVariantChoicesInput,
   PostgresCatalogRepositoryOptions,
   ProductDetailsResult,
   ProductMutationResult,
@@ -73,6 +75,32 @@ function count(value: unknown): number {
 }
 
 const CONTROL = /[\u0000-\u001f\u007f]/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const SKU = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
+
+function choiceText(value: unknown): string {
+  if (
+    typeof value !== "string" || value.length < 1 || value.length > 200 ||
+    value !== value.trim() || CONTROL.test(value)
+  ) throw unavailable();
+  return value;
+}
+
+function variantChoice(value: unknown): CatalogVariantChoice {
+  const parsed = payload(value, ["productId", "productTitle", "variantId", "variantTitle", ...(typeof (value as Record<string, unknown>)?.sku === "string" ? ["sku"] : [])]);
+  if (
+    typeof parsed.productId !== "string" || !UUID.test(parsed.productId) ||
+    typeof parsed.variantId !== "string" || !UUID.test(parsed.variantId) ||
+    (parsed.sku !== undefined && (typeof parsed.sku !== "string" || !SKU.test(parsed.sku)))
+  ) throw unavailable();
+  return Object.freeze({
+    productId: parsed.productId,
+    productTitle: choiceText(parsed.productTitle),
+    variantId: parsed.variantId,
+    variantTitle: choiceText(parsed.variantTitle),
+    ...(parsed.sku === undefined ? {} : { sku: parsed.sku }),
+  });
+}
 
 function featuredImage(value: unknown): CatalogProductFeaturedImage {
   const parsed = payload(value, ["publicUrl", "altText"]);
@@ -406,6 +434,26 @@ export class PostgresCatalogRepository implements CatalogRepository {
       }
     }
     return Object.freeze({ product, variants });
+  }
+
+  async listVariantChoices(input: ListCatalogVariantChoicesInput): Promise<readonly CatalogVariantChoice[]> {
+    const exact = exactInput(input, ["tenantContext", "now"]);
+    const authority = catalogAuthority(
+      exact.tenantContext as ListCatalogVariantChoicesInput["tenantContext"],
+      exact.now as Date,
+    );
+    const result = await this.read(authority, {
+      text: `SELECT outcome, result_payload FROM saas.catalog_list_variant_choices(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz
+      )`,
+      values: authorityValues(authority),
+    });
+    if (result.outcome !== "listed") throw unavailable();
+    const envelope = payload(result.resultPayload, ["items"]);
+    if (!Array.isArray(envelope.items) || envelope.items.length > 5_000) throw unavailable();
+    const choices = Object.freeze(envelope.items.map(variantChoice));
+    if (new Set(choices.map((choice) => choice.variantId)).size !== choices.length) throw unavailable();
+    return choices;
   }
 
   async listProducts(input: ListProductsInput): Promise<ListProductsResult> {

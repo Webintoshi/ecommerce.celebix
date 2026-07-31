@@ -49,6 +49,29 @@ test("catalog variant choices follow every cursor and include active variants be
   assert.ok(maximumDetails > 1 && maximumDetails <= 4);
 });
 
+test("catalog variant choices use the bounded server projection for stores larger than 500 products", async () => {
+  const items = Array.from({ length: 1_600 }, (_, index) => Object.freeze({
+    productId: id(index + 1),
+    productTitle: `Ürün ${index + 1}`,
+    variantId: id(index + 2_000),
+    variantTitle: "Varsayılan",
+    sku: `SKU-${index + 1}`,
+  }));
+  let directCalls = 0;
+  const choices = await loadCatalogVariantChoices({
+    async listVariantChoices() {
+      directCalls += 1;
+      return items;
+    },
+    async listProducts() { throw new Error("product crawl must not run"); },
+    async getProduct() { throw new Error("detail crawl must not run"); },
+  }, new AbortController().signal);
+  assert.equal(directCalls, 1);
+  assert.equal(choices.products.length, 1_600);
+  assert.equal(choices.variants.length, 1_600);
+  assert.equal(choices.variants.at(-1)?.sku, "SKU-1600");
+});
+
 test("catalog variant choices reject cursor loops bounds duplicates and hostile partial projections", async () => {
   const signal = new AbortController().signal;
   const valid = {

@@ -11,7 +11,7 @@ import { inventoryApi } from "./client.ts";
 const DEFAULT_LIMITS = Object.freeze({
   maximumPages: 25,
   maximumProducts: 500,
-  maximumVariants: 2_000,
+  maximumVariants: 5_000,
   maximumLocations: 500,
   maximumDetailConcurrency: 4,
 });

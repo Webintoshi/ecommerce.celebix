@@ -96,6 +96,29 @@ test("list products accepts only a bounded canonical featured-image projection",
   }
 });
 
+test("variant choice client performs one bounded same-origin read and rejects duplicate or private fields", async () => {
+  const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
+  const choice = Object.freeze({
+    productId: PRODUCT_ID,
+    productTitle: "Atlas Kupa",
+    variantId: VARIANT_ID,
+    variantTitle: "Standart",
+    sku: "ATLAS-KUPA-1",
+  });
+  const client = createCatalogApiClient({ fetch: async (input, init) => {
+    calls.push([input, init]);
+    return jsonResponse({ items: [choice] });
+  } });
+  assert.deepEqual(await client.listVariantChoices(), [choice]);
+  assert.deepEqual(calls, [["/api/catalog/variant-choices", {
+    method: "GET", credentials: "same-origin", cache: "no-store",
+  }]]);
+  for (const items of [[choice, choice], [{ ...choice, storeId: PRODUCT.storeId }]]) {
+    const hostile = createCatalogApiClient({ fetch: async () => jsonResponse({ items }) });
+    await assert.rejects(() => hostile.listVariantChoices(), /unavailable|catalog/i);
+  }
+});
+
 test("catalog list and detail reads forward the exact AbortSignal and preserve native aborts", async () => {
   const controller = new AbortController();
   const calls: RequestInit[] = [];

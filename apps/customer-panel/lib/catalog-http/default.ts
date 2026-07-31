@@ -20,6 +20,7 @@ type VariantRouteContext = Readonly<{
 }>;
 
 export const handleDefaultCatalogListProducts = handlers.listProducts;
+export const handleDefaultCatalogListVariantChoices = handlers.listVariantChoices;
 export const handleDefaultCatalogCreateProduct = handlers.createProduct;
 export const handleDefaultCatalogGetDashboardSummary = handlers.getDashboardSummary;
 

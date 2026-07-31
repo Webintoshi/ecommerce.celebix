@@ -12,6 +12,7 @@ const handlersModule = await import("./handler.ts").catch(() => ({} as Partial<H
 const PANEL_ORIGIN = "https://panel.saas-staging.celebix.site";
 const PRODUCTS = "/api/catalog/products";
 const SUMMARY_PATH = "/api/catalog/summary";
+const VARIANT_CHOICES_PATH = "/api/catalog/variant-choices";
 const STORE_ID = "33333333-3333-4333-8333-333333333333";
 const PRINCIPAL_ID = "44444444-4444-4444-8444-444444444444";
 const MEMBERSHIP_ID = "55555555-5555-4555-8555-555555555555";
@@ -127,6 +128,7 @@ function repository(overrides: Partial<CatalogRepository> = {}): CatalogReposito
     getProduct: unavailable,
     getProductDetails: unavailable,
     listProducts: unavailable,
+    listVariantChoices: unavailable,
     updateProduct: unavailable,
     archiveProduct: unavailable,
     createVariant: unavailable,
@@ -226,6 +228,25 @@ test("authenticated list and detail remain store-scoped and detail excludes arch
     { tenantContext: tenantContext(), now: NOW, pageSize: 10, status: "draft" },
     { tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID },
   ]);
+});
+
+test("variant choices GET returns the exact authenticated store projection", async () => {
+  const calls: unknown[] = [];
+  const items = Object.freeze([Object.freeze({
+    productId: PRODUCT_ID,
+    productTitle: "Atlas Mug",
+    variantId: VARIANT_ID,
+    variantTitle: "Default",
+    sku: "ATLAS-MUG-1",
+  })]);
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async listVariantChoices(input) { calls.push(input); return items; },
+  })));
+  const response = await handlers?.listVariantChoices(request(VARIANT_CHOICES_PATH));
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response?.json(), { items });
+  assert.deepEqual(calls, [{ tenantContext: tenantContext(), now: NOW }]);
 });
 
 test("durable access decisions map to 401 403 and 503 without repository calls or redirects", async () => {

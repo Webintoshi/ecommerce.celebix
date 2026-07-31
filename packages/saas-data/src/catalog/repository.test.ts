@@ -286,6 +286,32 @@ test("listProducts returns only the first active media public projection for eac
   assert.equal(Object.isFrozen(result.featuredImages?.[PRODUCT_ID]), true);
 });
 
+test("listVariantChoices returns one bounded tenant-scoped projection without crawling product details", async () => {
+  const expected = [{
+    productId: PRODUCT_ID,
+    productTitle: "Atlas Mug",
+    variantId: VARIANT_ID,
+    variantTitle: "Default",
+    sku: "ATLAS-MUG-1",
+  }];
+  const client = new FakeClient((text) => text.includes("saas.catalog_list_variant_choices")
+    ? [{ outcome: "listed", result_payload: { items: expected } }]
+    : []);
+  const result = await repository(new FakePool(client)).listVariantChoices({
+    tenantContext: tenantContext(),
+    now: NOW,
+  });
+  assert.deepEqual(result, expected);
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result[0]), true);
+  const query = client.calls.find((call) => call.text.includes("saas.catalog_list_variant_choices"));
+  assert.ok(query);
+  assert.deepEqual(query.values, [
+    STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "free_starter", 1, 10, NOW,
+  ]);
+  assert.equal(client.calls.some((call) => call.text.includes("catalog_get_product_details")), false);
+});
+
 test("getProductDetails derives store authority and returns ordered active variants from migration 019", async () => {
   const client = new FakeClient((text) => text.includes("saas.catalog_get_product_details")
     ? [{ outcome: "found", result_payload: { product: product(), variants: [variant()] } }]

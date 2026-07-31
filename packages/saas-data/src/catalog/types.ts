@@ -55,6 +55,16 @@ export interface ListProductsInput extends CatalogAuthorityInput {
   readonly status?: ProductStatus;
 }
 
+export interface ListCatalogVariantChoicesInput extends CatalogAuthorityInput {}
+
+export type CatalogVariantChoice = Readonly<{
+  readonly productId: string;
+  readonly productTitle: string;
+  readonly variantId: string;
+  readonly variantTitle: string;
+  readonly sku?: string;
+}>;
+
 export interface UpdateProductInput extends CatalogAuthorityInput {
   readonly operationId: string;
   readonly productId: string;
@@ -136,6 +146,7 @@ export interface CatalogRepository {
   getProduct(input: GetProductInput): Promise<Product>;
   getProductDetails(input: GetProductDetailsInput): Promise<ProductDetailsResult>;
   listProducts(input: ListProductsInput): Promise<ListProductsResult>;
+  listVariantChoices(input: ListCatalogVariantChoicesInput): Promise<readonly CatalogVariantChoice[]>;
   updateProduct(input: UpdateProductInput): Promise<ProductMutationResult>;
   archiveProduct(input: ArchiveProductInput): Promise<ProductMutationResult>;
   createVariant(input: CreateVariantInput): Promise<VariantMutationResult>;

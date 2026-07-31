@@ -55,6 +55,8 @@ const MIGRATIONS = [
   "202607270040_customer_taxonomy_assignment_fix.up.sql",
   "202607310076_customer_workspace.up.sql",
   "202607310076_customer_workspace_assertions.sql",
+  "202607310077_catalog_variant_choices.up.sql",
+  "202607310077_catalog_variant_choices_assertions.sql",
 ];
 
 function executable(name) {
@@ -120,6 +122,15 @@ function workspace(box, customerId) {
     FROM saas.customers_get_workspace(${authorityArguments()},'${customerId}'::uuid);COMMIT;`));
 }
 
+function variantChoices(box) {
+  return JSON.parse(psql(box, `BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_app;
+    SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+    FROM saas.catalog_list_variant_choices(
+      '${STORE_A}'::uuid,'${PRINCIPAL}'::uuid,'${MEMBERSHIP}'::uuid,'${PLAN}'::uuid,
+      'free_starter',1,100,'${NOW}'::timestamptz
+    );COMMIT;`));
+}
+
 function orderId(index) {
   return `41000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
@@ -149,6 +160,10 @@ function seed(box) {
     INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at,customer_id) VALUES
       ('42000000-0000-4000-8000-000000000001','${STORE_A}','EMAIL-ONLY','storefront','Alan Turing','alan@example.test','TRY',999,0,0,999,'delivered','completed','{}',1,'2026-07-31 12:00:00+00','2026-07-31 12:00:00+00',NULL),
       ('42000000-0000-4000-8000-000000000002','${STORE_B}','OTHER-STORE','storefront','Other Store','other@example.test','TRY',999,0,0,999,'delivered','completed','{}',1,'2026-07-31 12:00:00+00','2026-07-31 12:00:00+00','${OTHER_CUSTOMER}');
+    INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at)
+      VALUES('43000000-0000-4000-8000-000000000077','${STORE_A}','altin-yuzuk','Altın Yüzük','active','TRY',1,'2026-01-01','2026-01-01');
+    INSERT INTO saas.product_variants(id,product_id,store_id,title,sku,price_cents,stock_tracking,stock_quantity,status,attributes,version,created_at,updated_at)
+      VALUES('44000000-0000-4000-8000-000000000077','43000000-0000-4000-8000-000000000077','${STORE_A}','Varsayılan','ALTIN-77',10000,true,7,'active','{}',1,'2026-01-01','2026-01-01');
     COMMIT;`);
 }
 
@@ -174,6 +189,10 @@ function main() {
     assert.deepEqual(workspace(box, CUSTOMER_3).result.neighbors, { next: { id: CUSTOMER_2, displayName: "Alan Turing" } });
     assert.deepEqual(workspace(box, CUSTOMER_1).result.neighbors, { previous: { id: CUSTOMER_2, displayName: "Alan Turing" } });
     assert.equal(workspace(box, OTHER_CUSTOMER).outcome, "customer_not_found");
+    assert.deepEqual(variantChoices(box), {
+      outcome: "listed",
+      result: { items: [{ productId: "43000000-0000-4000-8000-000000000077", productTitle: "Altın Yüzük", variantId: "44000000-0000-4000-8000-000000000077", variantTitle: "Varsayılan", sku: "ALTIN-77" }] },
+    });
 
     psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;UPDATE saas.memberships SET role='analyst' WHERE id='${MEMBERSHIP}';COMMIT;`);
     assert.equal(workspace(box, CUSTOMER_2).outcome, "found");
@@ -187,7 +206,12 @@ function main() {
     apply(box, "202607310076_customer_workspace.up.sql");
     apply(box, "202607310076_customer_workspace_assertions.sql");
     assert.equal(workspace(box, CUSTOMER_2).result.orders.length, 50);
-    process.stdout.write("PASS customer workspace is linked, tenant-scoped, bounded, rollback-safe, and authority-gated\n");
+    apply(box, "202607310077_catalog_variant_choices.down.sql");
+    assert.equal(psql(box, "SELECT pg_catalog.to_regprocedure('saas.catalog_list_variant_choices(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz)') IS NULL;"), "t");
+    apply(box, "202607310077_catalog_variant_choices.up.sql");
+    apply(box, "202607310077_catalog_variant_choices_assertions.sql");
+    assert.equal(variantChoices(box).result.items[0].sku, "ALTIN-77");
+    process.stdout.write("PASS customer workspace and catalog variant choices are tenant-scoped, bounded, rollback-safe, and authority-gated\n");
   } finally {
     stop(box);
   }
