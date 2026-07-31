@@ -1,5 +1,11 @@
 {
   "schemaVersion": 1,
   "policy": "Every Phase 3 *.test.mjs file runs in the current cumulative suite unless it is explicitly classified below as an immutable historical scope snapshot.",
+  "requiredPostgresqlHarnesses": [
+    {
+      "file": "tests/saas-phase3/storefront-cart-checkout/postgres-harness.mjs",
+      "total": 33
+    }
+  ],
   "historicalSnapshots": []
 }
