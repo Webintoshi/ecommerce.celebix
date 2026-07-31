@@ -1,0 +1,20 @@
+{
+  "phase": "4A",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "202607310071_storefront_policy_search.up.sql",
+      "sha256": "d540aa70c7aa117973106a11a14196ea465361ad78f668e4ce3d3742fc00f08d"
+    },
+    {
+      "file": "202607310071_storefront_policy_search_assertions.sql",
+      "sha256": "dfc9cbbe1a8c402fc03bfdf53bc56091ad193fd5a70d555a0063cff78ae4f2a1"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607310071_storefront_policy_search.down.sql",
+      "sha256": "23d4d54d3266689c5e17e76506a6f30a65999e86727958c62dbaaf19ea0be87a"
+    }
+  ]
+}
