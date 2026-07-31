@@ -520,7 +520,13 @@ test("merchant route matrix invokes every actual page, production console, clien
   const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting");
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
-    assert.match(textOf(mounted.view), new RegExp(`${definition.kind} durable record`), `${definition.kind}:loaded`);
+    if (definition.cardinality === "singleton") {
+      assert.match(textOf(mounted.view), /Kayıtlı ayarlar/u, `${definition.kind}:loaded-singleton`);
+      assert.match(textOf(mounted.view), /Ayarları kaydet/u, `${definition.kind}:save-singleton`);
+      assert.doesNotMatch(textOf(mounted.view), /Toplam kayıt/u, `${definition.kind}:no-collection-metrics`);
+    } else {
+      assert.match(textOf(mounted.view), new RegExp(`${definition.kind} durable record`), `${definition.kind}:loaded`);
+    }
     assert.ok(paths.includes(`/api/merchant-admin/records/${definition.kind}`), `${definition.kind}:handler-list`);
     assert.ok(paths.includes(`/api/merchant-admin/events/${definition.kind}`), `${definition.kind}:handler-events`);
     const exact = await api.record(definition.kind, RECORD_ID);
@@ -529,7 +535,12 @@ test("merchant route matrix invokes every actual page, production console, clien
     assert.ok(mutations.includes(`read:${definition.kind}:${RECORD_ID}`), `${definition.kind}:repository-exact-record`);
 
     mounted = await mount(definition, { records: "empty" });
-    assert.match(textOf(mounted.view), new RegExp(`Henüz ${definition.singular} yok`, "u"), `${definition.kind}:empty`);
+    if (definition.cardinality === "singleton") {
+      assert.match(textOf(mounted.view), /İlk yapılandırma/u, `${definition.kind}:empty-singleton`);
+      assert.doesNotMatch(textOf(mounted.view), new RegExp(`Henüz ${definition.singular} yok`, "u"), `${definition.kind}:no-empty-list`);
+    } else {
+      assert.match(textOf(mounted.view), new RegExp(`Henüz ${definition.singular} yok`, "u"), `${definition.kind}:empty`);
+    }
 
     mounted = await mount(definition, { failure: "unavailable" });
     assert.match(textOf(mounted.view), /şu anda kullanılamıyor/u, `${definition.kind}:unavailable`);
@@ -540,24 +551,26 @@ test("merchant route matrix invokes every actual page, production console, clien
     mounted = await mount(definition, { role: "analyst" });
     assert.doesNotMatch(textOf(mounted.view), /Yeni kayıt|kaydını arşivle/u, `${definition.kind}:read-only`);
 
-    mounted = await mount(definition, { archive: "version_conflict" });
-    const conflictArchive = findElement(mounted.view, (element) =>
-      typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını arşivle"),
-    );
-    (conflictArchive.props.onClick as () => void)();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    mounted.view = await mounted.hooks.flush(mounted.render);
-    assert.match(textOf(mounted.view), /sizden önce güncellendi/u, `${definition.kind}:conflict`);
+    if (definition.cardinality === "collection") {
+      mounted = await mount(definition, { archive: "version_conflict" });
+      const conflictArchive = findElement(mounted.view, (element) =>
+        typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını arşivle"),
+      );
+      (conflictArchive.props.onClick as () => void)();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      mounted.view = await mounted.hooks.flush(mounted.render);
+      assert.match(textOf(mounted.view), /sizden önce güncellendi/u, `${definition.kind}:conflict`);
 
-    mounted = await mount(definition, { archive: "replayed" });
-    const replayArchive = findElement(mounted.view, (element) =>
-      typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını arşivle"),
-    );
-    (replayArchive.props.onClick as () => void)();
-    for (let pass = 0; pass < 4; pass += 1) await new Promise<void>((resolve) => setImmediate(resolve));
-    mounted.view = await mounted.hooks.flush(mounted.render);
-    assert.match(textOf(mounted.view), /Kayıt arşivlendi/u, `${definition.kind}:replay`);
-    assert.ok(mutations.includes(`archive:${definition.kind}`), `${definition.kind}:archive-handler`);
+      mounted = await mount(definition, { archive: "replayed" });
+      const replayArchive = findElement(mounted.view, (element) =>
+        typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını arşivle"),
+      );
+      (replayArchive.props.onClick as () => void)();
+      for (let pass = 0; pass < 4; pass += 1) await new Promise<void>((resolve) => setImmediate(resolve));
+      mounted.view = await mounted.hooks.flush(mounted.render);
+      assert.match(textOf(mounted.view), /Kayıt arşivlendi/u, `${definition.kind}:replay`);
+      assert.ok(mutations.includes(`archive:${definition.kind}`), `${definition.kind}:archive-handler`);
+    }
   }
 
   async function submitInlineRecord(
@@ -566,11 +579,11 @@ test("merchant route matrix invokes every actual page, production console, clien
     save: Scenario["save"],
   ) {
     const mounted = await mount(definition, { records: action === "create" ? "empty" : "loaded", save });
-    const trigger = findElement(mounted.view, (element) => element.type === "button" && (
+    const trigger = definition.cardinality === "collection" ? findElement(mounted.view, (element) => element.type === "button" && (
       action === "create"
         ? textOf(element).includes("Yeni kayıt") || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
         : typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını düzenle")
-    ));
+    )) : undefined;
     const originalDocument = globalThis.document;
     const originalWindow = globalThis.window;
     const originalFormData = globalThis.FormData;
@@ -595,8 +608,10 @@ test("merchant route matrix invokes every actual page, production console, clien
     });
     Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
     try {
-      (trigger.props.onClick as (event: { currentTarget: { focus(): void } }) => void)({ currentTarget: { focus() {} } });
-      mounted.view = await mounted.hooks.flush(mounted.render);
+      if (trigger) {
+        (trigger.props.onClick as (event: { currentTarget: { focus(): void } }) => void)({ currentTarget: { focus() {} } });
+        mounted.view = await mounted.hooks.flush(mounted.render);
+      }
       const form = findElement(mounted.view, (element) => element.type === "form");
       const values: Record<string, string | readonly string[]> = {
         name: `${definition.kind} ${action} persisted`,
@@ -627,7 +642,7 @@ test("merchant route matrix invokes every actual page, production console, clien
       if (save === "version_conflict") {
         assert.match(textOf(mounted.view), /sizden önce güncellendi/u, `${definition.kind}:${action}:conflict`);
       } else {
-        assert.match(textOf(mounted.view), /Kayıt kalıcı olarak kaydedildi/u, `${definition.kind}:${action}:${save}:saved`);
+        assert.match(textOf(mounted.view), definition.cardinality === "singleton" ? /Ayarlar kalıcı olarak kaydedildi/u : /Kayıt kalıcı olarak kaydedildi/u, `${definition.kind}:${action}:${save}:saved`);
         assert.equal(scenario.recordName, `${definition.kind} ${action} persisted`);
       }
     } finally {

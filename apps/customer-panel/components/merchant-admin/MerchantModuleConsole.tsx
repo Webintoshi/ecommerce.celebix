@@ -233,6 +233,7 @@ export function MerchantModuleConsole({
   createFirst?: boolean;
 }) {
   const definition = getMerchantModuleDefinition(kind);
+  const singleton = definition.cardinality === "singleton";
   const providerRecordKind = toProviderRecordKind(kind);
   const providerCapability = providerRecordKind ? capabilityForProviderKind(providerRecordKind) : null;
   const [items, setItems] = useState<readonly MerchantAdminRecord[]>([]);
@@ -259,6 +260,13 @@ export function MerchantModuleConsole({
     () => buildMerchantModuleSummary(items, query, statusFilter),
     [items, query, statusFilter],
   );
+  const activeRecords = useMemo(
+    () => items
+      .filter((record) => record.status !== "archived")
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id)),
+    [items],
+  );
+  const singletonRecord = singleton ? activeRecords[0] ?? null : null;
 
   const load = useCallback(async () => {
     const version = loadVersionRef.current + 1;
@@ -373,17 +381,20 @@ export function MerchantModuleConsole({
     setBusy(true);
     setError("");
     setMessage("");
+    const selectedRecord = singleton ? singletonRecord : editing;
     try {
       await merchantAdminApi.save(kind, {
-        ...(editing ? { recordId: editing.id, expectedVersion: editing.version } : {}),
+        ...(selectedRecord ? { recordId: selectedRecord.id, expectedVersion: selectedRecord.version } : {}),
         name: String(data.get("name") ?? "").trim(),
-        config: parseFormConfig(definition.fields, data, editing?.config),
+        config: parseFormConfig(definition.fields, data, selectedRecord?.config),
         status: data.get("status") === "active" ? "active" : "draft",
       });
       if (!mountedRef.current || activeSubmissionRef.current !== submission) return;
-      setMessage("Kayıt kalıcı olarak kaydedildi.");
-      closeEditor();
-      form.reset();
+      setMessage(singleton ? "Ayarlar kalıcı olarak kaydedildi." : "Kayıt kalıcı olarak kaydedildi.");
+      if (!singleton) {
+        closeEditor();
+        form.reset();
+      }
       await load();
     } catch (caught) {
       if (mountedRef.current && activeSubmissionRef.current === submission) {
@@ -508,7 +519,7 @@ export function MerchantModuleConsole({
             <button type="button" className={styles.button} disabled={loading} onClick={() => void load()}>
               <RefreshCcw aria-hidden="true" /> Yenile
             </button>
-            {canManage ? createRoute ? (
+            {canManage && !singleton ? createRoute ? (
               <Link href={createRoute} className={styles.primary}>
                 <Plus aria-hidden="true" /> Yeni kayıt
               </Link>
@@ -521,12 +532,12 @@ export function MerchantModuleConsole({
         )}
       />
 
-      <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
+      {!singleton ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
         <PanelMetricCard label="Toplam kayıt" value={summary.total.toLocaleString("tr-TR")} detail="Kalıcı kayıt" />
         <PanelMetricCard label={definition.workflow ? "Hazır yapılandırma" : "Aktif"} value={summary.active.toLocaleString("tr-TR")} detail={definition.workflow ? "Harici çalıştırma değil" : "Yayında"} />
         <PanelMetricCard label="Taslak" value={summary.draft.toLocaleString("tr-TR")} detail="Çalışma halinde" />
         <PanelMetricCard label="Arşiv" value={summary.archived.toLocaleString("tr-TR")} detail="Salt-okunur geçmiş" />
-      </section>
+      </section> : null}
 
       {definition.execution === "provider_required" ? (
         <aside className={styles.providerNotice} aria-label="Sağlayıcı durumu">
@@ -543,7 +554,62 @@ export function MerchantModuleConsole({
       {message ? <p className={styles.success} role="status">{message}</p> : null}
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
 
-      <section className={styles.surface}>
+      <section className={styles.surface} data-merchant-workspace={singleton ? "singleton" : "collection"}>
+        {singleton ? (
+          <div className={styles.singletonWorkspace}>
+            {loading ? (
+              <div className={styles.state} role="status">{definition.title} yükleniyor…</div>
+            ) : !error ? (
+              <>
+                <div className={styles.singletonIntro}>
+                  <div>
+                    <span>Mağaza yapılandırması</span>
+                    <h2>{singletonRecord ? "Kayıtlı ayarlar" : "İlk yapılandırma"}</h2>
+                    <p>{singletonRecord ? "Değişiklikler bu mağaza için kalıcı olarak saklanır." : "Ayarları doldurup kaydettiğinizde bu mağaza için etkinleşir."}</p>
+                  </div>
+                  {singletonRecord ? <small>Son güncelleme: <time dateTime={singletonRecord.updatedAt}>{new Date(singletonRecord.updatedAt).toLocaleString("tr-TR")}</time> · v{singletonRecord.version}</small> : null}
+                </div>
+                {activeRecords.length > 1 ? <p className={styles.warning} role="status">Birden fazla etkin yapılandırma bulundu. Güvenli biçimde en son güncellenen kayıt düzenleniyor.</p> : null}
+                <form key={`${singletonRecord?.id ?? "new"}:${singletonRecord?.version ?? 0}`} className={`${styles.form} ${styles.singletonForm}`} onSubmit={submit}>
+                  <input name="name" type="hidden" value={singletonRecord?.name ?? definition.title} readOnly />
+                  <input name="status" type="hidden" value="active" readOnly />
+                  {definition.fields.map((field) => field.type === "enum-list" ? (
+                    <fieldset className={styles.wide} disabled={!canManage || busy} key={field.key}>
+                      <legend>{field.label}</legend>
+                      {field.allowedValues?.map((value) => (
+                        <label key={value}>
+                          <input name={field.key} type="checkbox" value={value} defaultChecked={enumListDefaultChecked(singletonRecord, field.key, value)} />
+                          <span>{field.optionLabels?.[value] ?? value}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : (
+                    <label className={field.type === "textarea" || field.type === "string-list" ? styles.wide : undefined} key={field.key}>
+                      {field.label}
+                      {field.type === "textarea" || field.type === "string-list" ? (
+                        <textarea disabled={!canManage || busy} name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
+                      ) : field.type === "boolean" ? (
+                        <span className={styles.switchField}><input disabled={!canManage || busy} name={field.key} type="checkbox" defaultChecked={singletonRecord?.config[field.key] === true} /><span>Etkin</span></span>
+                      ) : field.type === "enum" ? (
+                        <select disabled={!canManage || busy} name={field.key} defaultValue={inputValue(singletonRecord, field.key)}>
+                          <option value="">Seçin</option>
+                          {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}
+                        </select>
+                      ) : field.type === "datetime" ? (
+                        <input disabled={!canManage || busy} name={field.key} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(singletonRecord, field.key)} />
+                      ) : (
+                        <input disabled={!canManage || busy} name={field.key} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
+                      )}
+                    </label>
+                  ))}
+                  <div className={`${styles.wide} ${styles.actions}`}>
+                    {canManage ? <button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Ayarları kaydet"}</button> : <p className={styles.readOnly}>Bu yapılandırmayı görüntüleme yetkiniz var; değiştirme yetkiniz yok.</p>}
+                  </div>
+                </form>
+              </>
+            ) : null}
+          </div>
+        ) : <>
         <PanelToolbar>
           <label className={styles.search}>
             <Search aria-hidden="true" />
@@ -632,7 +698,7 @@ export function MerchantModuleConsole({
               })}
             </div>
           </>
-        )}
+        )}</>}
 
         <details className={styles.audit}>
           <summary><DatabaseZap aria-hidden="true" /> İşlem geçmişi ({events.length})</summary>

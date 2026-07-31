@@ -8,6 +8,19 @@ const routes=Object.freeze([
 ]as const);
 test("every donor merchant module route is real and server-authorized",async()=>{for(const[path,kind]of routes){const value=await source(path);assert.match(value,/requireServerPanelAccess/);assert.match(value,new RegExp(kind));assert.match(value,/isMerchantActionAllowed/)}});
 test("shared console has truthful durable states, audit, archive and no fake provider send",async()=>{const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");assert.match(value,/merchantAdminApi\.records/);assert.match(value,/merchantAdminApi\.events/);assert.match(value,/merchantAdminApi\.save/);assert.match(value,/merchantAdminApi\.archive/);assert.match(value,/Yükleniyor|yükleniyor/);assert.match(value,/Henüz/);assert.match(value,/role="alert"/);assert.doesNotMatch(value,/sendEmail|sendWhatsapp|sendSms|Math\.random|fake|mock/i)});
+test("singleton configuration modules open as direct settings workspaces",async()=>{
+  const [consoleSource,presentationSource]=await Promise.all([
+    source("components/merchant-admin/MerchantModuleConsole.tsx"),
+    source("lib/merchant-admin-ui/presentation.ts"),
+  ]);
+  for(const kind of["general_setting","language_setting","shipping_setting","notification_setting","hero_banner","promotion_banner","marquee_setting","ai_setting","accounting_profile","seo_control","sitemap","social_preview"]){
+    assert.match(presentationSource,new RegExp(`kind: \\"${kind}\\"[^\\n]+cardinality: \\"singleton\\"`));
+  }
+  assert.match(consoleSource,/definition\.cardinality === "singleton"/);
+  assert.match(consoleSource,/Ayarları kaydet/);
+  assert.match(consoleSource,/data-merchant-workspace=\{singleton \? "singleton" : "collection"\}/);
+  assert.match(consoleSource,/activeRecords\.length > 1/);
+});
 test("merchant console never accepts browser tenant or provider secret authority",async()=>{const value=(await Promise.all(["components/merchant-admin/MerchantModuleConsole.tsx","lib/merchant-admin-ui/client.ts"].map(source))).join("\n");assert.doesNotMatch(value,/x-store-id|x-tenant-id|localStorage|sessionStorage|supabase|\/api\/admin|apiSecret|clientSecret|accessToken/)});
 test("production merchant records retain all five headers without shared three-column sizing",async()=>{
   const [consoleSource,shellCss]=await Promise.all([
