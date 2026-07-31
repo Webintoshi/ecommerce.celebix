@@ -490,6 +490,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseCustomerSegment",
     "parseCustomerSummary",
     "parseCustomerTag",
+    "parseCustomerWorkspace",
     "parseEffectivePrice",
     "parseInventoryBalance",
     "parseInventoryCount",

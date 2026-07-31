@@ -314,6 +314,7 @@ export {
   parseCustomerSegment,
   parseCustomerSummary,
   parseCustomerTag,
+  parseCustomerWorkspace,
 } from "./customers/index.ts";
 export type {
   CustomerAddress,
@@ -323,12 +324,15 @@ export type {
   CustomerDetail,
   CustomerListItem,
   CustomerMutationResult,
+  CustomerNeighbor,
+  CustomerOrderSummary,
   CustomerSegment,
   CustomerSegmentRef,
   CustomerStatus,
   CustomerSummary,
   CustomerTag,
   CustomerTagRef,
+  CustomerWorkspace,
 } from "./customers/index.ts";
 export type {
   AbandonedCartDetail,

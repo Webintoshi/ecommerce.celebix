@@ -28,3 +28,14 @@ export interface CustomerSummary { readonly active: number; readonly archived: n
 export interface CustomerTag extends CustomerTagRef { readonly customerCount: number; readonly version: number }
 export interface CustomerSegment extends CustomerSegmentRef { readonly description?: string; readonly customerCount: number; readonly version: number }
 export interface CustomerMutationResult { readonly id: string; readonly version: number; readonly status: CustomerStatus; readonly updatedAt: string; readonly replayed: boolean }
+export interface CustomerNeighbor { readonly id: string; readonly displayName: string }
+export interface CustomerOrderSummary {
+  readonly id: string; readonly orderNumber: string; readonly status: OrderStatus;
+  readonly paymentStatus: OrderPaymentStatus; readonly totalCents: number;
+  readonly currency: string; readonly createdAt: string;
+}
+export interface CustomerWorkspace {
+  readonly neighbors: Readonly<{ readonly previous?: Readonly<CustomerNeighbor>; readonly next?: Readonly<CustomerNeighbor> }>;
+  readonly orders: readonly Readonly<CustomerOrderSummary>[];
+}
+import type { OrderPaymentStatus, OrderStatus } from "../orders/types.ts";
