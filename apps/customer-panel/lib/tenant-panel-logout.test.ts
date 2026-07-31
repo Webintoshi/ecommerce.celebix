@@ -7,6 +7,8 @@ const logout = await import("./tenant-panel-logout.ts").catch(() => ({} as Parti
 const SOURCE = "https://admin.hemenaku.com";
 const CANONICAL = "https://hemenaku.admin.saas-staging.celebix.site";
 const CENTRAL = "https://panel.saas-staging.celebix.site";
+const SOURCE_HOST = new URL(SOURCE).hostname;
+const CENTRAL_HOST = new URL(CENTRAL).hostname;
 const END_SESSION = "https://auth.celebix.co/oidc/session/end";
 const CURRENT = `v1.panel.active.v1.${Buffer.alloc(32, 0x31).toString("base64url")}`;
 const NOW = new Date("2026-07-30T12:00:00.000Z");
@@ -50,6 +52,7 @@ test("logout revokes every Celebix session before clearing the host cookie and r
   const response = await handler(new Request(`${SOURCE}/api/session/logout`, {
     method: "POST",
     headers: {
+      host: SOURCE_HOST,
       origin: SOURCE,
       cookie: `__Host-celebix_panel=${CURRENT}`,
       "content-type": "application/x-www-form-urlencoded",
@@ -67,6 +70,38 @@ test("logout revokes every Celebix session before clearing the host cookie and r
   assert.equal(location.toString().includes(CURRENT), false);
 });
 
+test("logout survives reverse-proxy transport and returns to the canonical tenant login", async () => {
+  if (typeof logout.createTenantPanelLogoutHandler !== "function" || typeof logout.createTenantPanelLogoutCallbackHandler !== "function") return;
+  const value = runtime();
+  const start = logout.createTenantPanelLogoutHandler({
+    async resolveRuntime() { return value; },
+    now: () => new Date(NOW),
+    randomBytes: (size) => new Uint8Array(size).fill(0x42),
+    maximumBodyBytes: 64,
+  });
+  const started = await start(new Request("http://customer-panel:3400/api/session/logout", {
+    method: "POST",
+    headers: {
+      host: SOURCE_HOST,
+      origin: SOURCE,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: "",
+  }));
+  assert.equal(started.status, 303);
+
+  const state = new URL(started.headers.get("location") ?? "").searchParams.get("state") ?? "";
+  const callback = logout.createTenantPanelLogoutCallbackHandler({
+    async resolveRuntime() { return value; },
+    now: () => new Date(NOW.getTime() + 60_000),
+  });
+  const response = await callback(new Request(`http://customer-panel:3400/auth/logout/callback?state=${encodeURIComponent(state)}`, {
+    headers: { host: CENTRAL_HOST },
+  }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), `${CANONICAL}/login`);
+});
+
 test("logout callback validates state on the fixed central host and returns to the verified canonical login", async () => {
   if (typeof logout.createTenantPanelLogoutHandler !== "function" || typeof logout.createTenantPanelLogoutCallbackHandler !== "function") return;
   const start = logout.createTenantPanelLogoutHandler({
@@ -77,7 +112,7 @@ test("logout callback validates state on the fixed central host and returns to t
   });
   const started = await start(new Request(`${SOURCE}/api/session/logout`, {
     method: "POST",
-    headers: { origin: SOURCE, "content-type": "application/x-www-form-urlencoded" },
+    headers: { host: SOURCE_HOST, origin: SOURCE, "content-type": "application/x-www-form-urlencoded" },
     body: "",
   }));
   const state = new URL(started.headers.get("location") ?? "").searchParams.get("state") ?? "";
@@ -85,12 +120,16 @@ test("logout callback validates state on the fixed central host and returns to t
     async resolveRuntime() { return runtime(); },
     now: () => new Date(NOW.getTime() + 60_000),
   });
-  const response = await callback(new Request(`${CENTRAL}/auth/logout/callback?state=${encodeURIComponent(state)}`));
+  const response = await callback(new Request(`${CENTRAL}/auth/logout/callback?state=${encodeURIComponent(state)}`, {
+    headers: { host: CENTRAL_HOST },
+  }));
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), `${CANONICAL}/login`);
   assert.equal(response.headers.get("set-cookie"), DELETION);
 
-  const tampered = await callback(new Request(`${CENTRAL}/auth/logout/callback?state=${encodeURIComponent(`${state}x`)}`));
+  const tampered = await callback(new Request(`${CENTRAL}/auth/logout/callback?state=${encodeURIComponent(`${state}x`)}`, {
+    headers: { host: CENTRAL_HOST },
+  }));
   assert.equal(tampered.status, 400);
   assert.equal(tampered.headers.get("location"), null);
 });
@@ -110,7 +149,7 @@ test("logout fails closed on cross-site requests or durable revocation failure",
     });
     const response = await handler(new Request(`${SOURCE}/api/session/logout`, {
       method: "POST",
-      headers: { origin, cookie: `__Host-celebix_panel=${CURRENT}`, "content-type": "application/x-www-form-urlencoded" },
+      headers: { host: SOURCE_HOST, origin, cookie: `__Host-celebix_panel=${CURRENT}`, "content-type": "application/x-www-form-urlencoded" },
       body: "",
     }));
     assert.equal(response.status, status);

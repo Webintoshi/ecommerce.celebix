@@ -44,6 +44,14 @@ function validHostname(value: unknown): string | null {
     value === value.toLowerCase() && HOSTNAME.test(value) ? value : null;
 }
 
+function publicRequestAuthority(request: Request): Readonly<{ url: URL; hostname: string; origin: string }> | null {
+  let url: URL;
+  try { url = new URL(request.url); } catch { return null; }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
+  const hostname = validHostname(request.headers.get("host"));
+  return hostname ? Object.freeze({ url, hostname, origin: `https://${hostname}` }) : null;
+}
+
 function canonicalAdminOrigin(value: unknown): Readonly<{ origin: string; hostname: string }> | null {
   if (typeof value !== "string") return null;
   let url: URL;
@@ -111,12 +119,10 @@ export function createTenantPanelLogoutHandler(dependencies: Dependencies) {
     throw new Error("tenant_panel_logout_handler_invalid");
   }
   return async function handle(request: Request): Promise<Response> {
-    let requestUrl: URL;
-    try { requestUrl = new URL(request.url); } catch { return json("panel_logout_request_invalid", 400); }
-    const requestedHostname = validHostname(requestUrl.hostname);
+    const authority = publicRequestAuthority(request);
     if (request.method !== "POST") return json("method_not_allowed", 405, { allow: "POST" });
-    if (requestUrl.protocol !== "https:" || requestUrl.username || requestUrl.password || requestUrl.port || requestUrl.pathname !== "/api/session/logout" || requestUrl.search || requestUrl.hash || !requestedHostname) return json("panel_logout_request_invalid", 400);
-    if (request.headers.get("origin") !== requestUrl.origin) return json("panel_origin_required", 403);
+    if (!authority || authority.url.pathname !== "/api/session/logout" || authority.url.search || authority.url.hash) return json("panel_logout_request_invalid", 400);
+    if (request.headers.get("origin") !== authority.origin) return json("panel_origin_required", 403);
     if (!(await emptyForm(request, dependencies.maximumBodyBytes))) return json("panel_logout_request_invalid", 400);
 
     let runtime: LogoutRuntime;
@@ -128,7 +134,7 @@ export function createTenantPanelLogoutHandler(dependencies: Dependencies) {
       runtime = resolved as LogoutRuntime;
       now = dependencies.now();
       if (!validNow(now)) throw new Error("unavailable");
-      const brand = await runtime.adminDomains.resolvePublicBrand({ hostname: requestedHostname, now });
+      const brand = await runtime.adminDomains.resolvePublicBrand({ hostname: authority.hostname, now });
       const canonical = brand.kind === "resolved" ? canonicalAdminOrigin(brand.brand?.canonicalAdminOrigin) : null;
       if (!canonical) throw new Error("unavailable");
       destinationOrigin = canonical.origin;
@@ -168,14 +174,13 @@ export function createTenantPanelLogoutCallbackHandler(dependencies: Readonly<{
   return async function handle(request: Request): Promise<Response> {
     if (request.method !== "GET") return json("method_not_allowed", 405, { allow: "GET" });
     let runtime: LogoutRuntime;
-    let url: URL;
     let now: Date;
     try {
       runtime = await dependencies.resolveRuntime() as LogoutRuntime;
-      url = new URL(request.url);
+      const authority = publicRequestAuthority(request);
       now = dependencies.now();
-      if (!runtime || !validNow(now) || url.origin !== runtime.access.panelOrigin || url.pathname !== "/auth/logout/callback" || url.hash || url.searchParams.size !== 1 || url.searchParams.getAll("state").length !== 1) throw new Error("invalid");
-      const verified = createPanelLogoutStateCodec(runtime.logout.stateKey).verify({ state: url.searchParams.get("state") ?? "", now });
+      if (!runtime || !authority || !validNow(now) || authority.origin !== runtime.access.panelOrigin || authority.url.pathname !== "/auth/logout/callback" || authority.url.hash || authority.url.searchParams.size !== 1 || authority.url.searchParams.getAll("state").length !== 1) throw new Error("invalid");
+      const verified = createPanelLogoutStateCodec(runtime.logout.stateKey).verify({ state: authority.url.searchParams.get("state") ?? "", now });
       const destination = canonicalAdminOrigin(verified.destinationOrigin);
       if (!destination) throw new Error("invalid");
       const brand = await runtime.adminDomains.resolvePublicBrand({ hostname: destination.hostname, now });
