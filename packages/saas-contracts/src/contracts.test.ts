@@ -381,6 +381,7 @@ test("keeps the public runtime export surface frozen", () => {
     "CATALOG_ONBOARDING_UNITS",
     "CUSTOMER_CONSENT_CHANNELS",
     "CUSTOMER_STATUSES",
+    "FIXED_STOREFRONT_POLICIES",
     "INVENTORY_COUNT_STATUSES",
     "INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS",
     "INVENTORY_MOVEMENT_KINDS",
@@ -500,8 +501,14 @@ test("keeps the public runtime export surface frozen", () => {
     "parseProduct",
     "parseProductReview",
     "parseProductVariant",
+    "parsePublicCart",
+    "parsePublicCheckoutQuote",
+    "parsePublicCheckoutReceipt",
+    "parsePublicPolicyIndex",
+    "parsePublicPolicyPage",
     "parsePublicProduct",
     "parsePublicProductMedia",
+    "parsePublicProductSearch",
     "parsePublicProductVariant",
     "parsePublicStarterThemePresentation",
     "parsePublicStorefront",
@@ -562,6 +569,7 @@ test("contract sources import no runtime application code", async () => {
     "quick-orders/index.ts",
     "quick-orders/types.ts",
     "quick-orders/validation.ts",
+    "storefront/commerce.ts",
   ];
   const sources = await Promise.all(sourceFiles.map((file) => readFile(new URL(file, import.meta.url), "utf8")));
 

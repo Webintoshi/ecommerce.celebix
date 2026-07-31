@@ -366,8 +366,15 @@ export {
 } from "./payment-providers/index.ts";
 export {
   buildDefaultStarterPresentation,
+  FIXED_STOREFRONT_POLICIES,
+  parsePublicCart,
+  parsePublicCheckoutQuote,
+  parsePublicCheckoutReceipt,
+  parsePublicPolicyIndex,
+  parsePublicPolicyPage,
   parsePublicProduct,
   parsePublicProductMedia,
+  parsePublicProductSearch,
   parsePublicProductVariant,
   parsePublicStarterThemePresentation,
   parsePublicStorefront,
@@ -376,15 +383,23 @@ export {
 } from "./storefront/index.ts";
 export type {
   PublicImageMediaType,
+  PublicCart,
+  PublicCartLine,
+  PublicCheckoutQuote,
+  PublicCheckoutReceipt,
+  PublicPaymentMethod,
+  PublicPolicyPage,
   PublicProduct,
   PublicProductList,
   PublicProductMedia,
+  PublicProductSearch,
   PublicProductVariant,
   PublicStarterThemePresentation,
   PublicStorefront,
   PublicStorefrontAsset,
   StarterMarqueeTokens,
   StarterThemeTokens,
+  StorefrontPolicyKey,
 } from "./storefront/index.ts";
 export type {
   BuiltInPaymentMethodKind,
