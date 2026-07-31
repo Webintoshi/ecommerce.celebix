@@ -693,6 +693,42 @@ test("order detail renders immutable items, events, and merchant notes", async (
   assert.match(html, /tel:[+]905551112233/);
 });
 
+test("order detail exposes deterministic previous/next navigation in a responsive workspace", async () => {
+  const Presentation = await compilePresentation("components/orders/OrderDetailConsole.tsx", "OrderDetailPresentation");
+  const html = renderToStaticMarkup(createElement(Presentation, {
+    detail,
+    neighbors: {
+      previous: { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", orderNumber: "HMK-1043" },
+      next: { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", orderNumber: "HMK-1041" },
+    },
+    state: "loaded",
+    error: "",
+    notice: "",
+    busy: "",
+    capabilities: { fulfill: true, manage: true, payment: true, shipping: true, note: true },
+    onRetry() {}, onStatusChange() {}, onPaymentChange() {}, onShippingSubmit() {}, onNoteSubmit() {}, onNoteArchive() {},
+  }));
+  assert.match(html, /aria-label="Siparişler arasında gezinme"/);
+  assert.match(html, /href="\/orders\/cccccccc-cccc-4ccc-8ccc-cccccccccccc"/);
+  assert.match(html, /Önceki/);
+  assert.match(html, /href="\/orders\/dddddddd-dddd-4ddd-8ddd-dddddddddddd"/);
+  assert.match(html, /Sonraki/);
+  assert.match(html, /class="orderWorkspace"/);
+  assert.match(html, /class="workspaceRail"/);
+
+  const css = await source("components/orders/order-console.module.css");
+  assert.match(css, /[.]orderWorkspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(18rem,\s*22rem\)/s);
+  assert.match(css, /[.]workspaceRail\s*\{[^}]*position:\s*sticky/s);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]orderWorkspace\s*\{[^}]*grid-template-columns:\s*1fr/s);
+});
+
+test("order detail treats neighbor navigation as non-blocking auxiliary data", async () => {
+  const component = await source("components/orders/OrderDetailConsole.tsx");
+  assert.match(component, /orderApi[.]getOrderNeighbors\(orderId\)[.]catch\(\(\)\s*=>\s*undefined\)/);
+  assert.match(component, /Promise[.]all\(/);
+  assert.match(component, /setNeighbors\(adjacent\)/);
+});
+
 test("order detail offers only authorized SQL 023 status and payment transitions", async () => {
   const { exports } = await compileOrderModule("components/orders/OrderDetailConsole.tsx");
   const Presentation = exports.OrderDetailPresentation as ComponentType<Record<string, unknown>>;

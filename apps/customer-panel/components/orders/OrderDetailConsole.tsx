@@ -5,12 +5,13 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   type OrderAddress,
   type OrderDetail,
+  type OrderNeighbors,
   type OrderPaymentStatus,
   type OrderStatus,
   type OrderTracking,
 } from "@celebix/saas-contracts";
 
-import { PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
 import styles from "./order-console.module.css";
 
@@ -148,6 +149,7 @@ export function buildOrderShippingUpdate(order: OrderDetail, data: FormData) {
 export interface OrderDetailPresentationProps {
   readonly state: DetailState;
   readonly detail?: OrderDetail;
+  readonly neighbors?: OrderNeighbors;
   readonly error: string;
   readonly notice: string;
   readonly busy: string;
@@ -170,22 +172,24 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
   const paymentOptions = getAuthorizedOrderPaymentOptions(order.paymentStatus, props.capabilities.payment);
   return (
     <PanelPageShell>
-      <Link className={styles.backLink} href="/orders">Siparişlere dön</Link>
-      <PanelPageHeader
-        title={`#${order.orderNumber}`}
-        description={`${date(order.createdAt)} · sürüm ${order.version}`}
-        actions={<Link className={styles.detailLink} href={`/orders/${encodeURIComponent(order.id)}/print`}>Yazdır</Link>}
-      />
+      <header className={styles.orderTopbar}>
+        <div className={styles.orderIdentity}>
+          <Link className={styles.backLink} href="/orders" aria-label="Sipariş listesine dön">←</Link>
+          <div><p>Siparişler / {order.orderNumber}</p><h1>#{order.orderNumber}</h1><span>{date(order.createdAt)} · sürüm {order.version}</span></div>
+        </div>
+        <div className={styles.orderTopbarActions}>
+          <nav className={styles.neighborNavigation} aria-label="Siparişler arasında gezinme">
+            {props.neighbors?.previous ? <Link href={`/orders/${encodeURIComponent(props.neighbors.previous.id)}`} title={`Önceki sipariş: ${props.neighbors.previous.orderNumber}`}>← <span>Önceki</span></Link> : <span aria-disabled="true">← <span>Önceki</span></span>}
+            {props.neighbors?.next ? <Link href={`/orders/${encodeURIComponent(props.neighbors.next.id)}`} title={`Sonraki sipariş: ${props.neighbors.next.orderNumber}`}><span>Sonraki</span> →</Link> : <span aria-disabled="true"><span>Sonraki</span> →</span>}
+          </nav>
+          <Link className={styles.printLink} href={`/orders/${encodeURIComponent(order.id)}/print`}>Yazdır</Link>
+        </div>
+      </header>
       {props.error ? <div className={styles.inlineError} role="alert">{props.error}</div> : null}
       {props.notice ? <div className={styles.notice} role="status">{props.notice}</div> : null}
 
-      <section className={styles.detailHero} aria-label="Sipariş özeti">
-        <div><span>Sipariş durumu</span><PanelStatusBadge>{STATUS_LABELS[order.status]}</PanelStatusBadge></div>
-        <div><span>Ödeme durumu</span><strong>{PAYMENT_LABELS[order.paymentStatus]}</strong></div>
-        <div><span>Müşteri</span><strong>{order.customerName}</strong><small>{order.customerEmail}</small></div>
-        <div><span>Sipariş toplamı</span><strong>{money(order.totalCents, order.currency)}</strong></div>
-      </section>
-
+      <div className={styles.orderWorkspace}>
+        <main className={styles.workspaceMain}>
       <div className={styles.orderInfoGrid}>
         <section className={styles.orderInfoCard} aria-labelledby="order-information-title">
           <div className={styles.sectionHeading}><div><h2 id="order-information-title">Sipariş bilgileri</h2><p>Kaynak ve kayıt bilgileri</p></div></div>
@@ -205,13 +209,6 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
           </dl>
         </section>
       </div>
-
-      {(statusOptions.length > 0 || paymentOptions.length > 0) ? (
-        <section className={styles.operationBar} aria-label="Sipariş operasyonları">
-          {statusOptions.length > 0 ? <label><span>Sipariş durumu</span><select aria-label="Sipariş durumunu güncelle" value={order.status} disabled={props.busy !== ""} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus)}>{statusOptions.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label> : null}
-          {paymentOptions.length > 0 ? <label><span>Ödeme durumu</span><select aria-label="Ödeme durumunu güncelle" value={order.paymentStatus} disabled={props.busy !== ""} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus)}>{paymentOptions.map((status) => <option key={status} value={status}>{PAYMENT_LABELS[status]}</option>)}</select></label> : null}
-        </section>
-      ) : null}
 
       <section className={styles.itemsPanel} aria-labelledby="order-items-title">
         <div className={styles.sectionHeading}><div><h2 id="order-items-title">Sipariş ürünleri</h2><p>{order.itemCount} kalem</p></div></div>
@@ -248,6 +245,26 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
       </div>
 
       <section className={styles.timeline} aria-labelledby="timeline-title"><div className={styles.sectionHeading}><div><h2 id="timeline-title">Sipariş geçmişi</h2><p>Değiştirilemez operasyon kayıtları</p></div></div>{order.events.length === 0 ? <p className={styles.muted}>Sipariş olayı bulunmuyor.</p> : <ol>{order.events.map((event) => <li key={event.id}><span aria-hidden="true" /><div><strong>{event.message}</strong><small>{date(event.createdAt)} · {event.type}</small></div></li>)}</ol>}</section>
+        </main>
+
+        <aside className={styles.workspaceRail} aria-label="Sipariş özeti ve işlemleri">
+          <section className={styles.detailHero} aria-label="Sipariş özeti">
+            <div><span>Sipariş durumu</span><PanelStatusBadge>{STATUS_LABELS[order.status]}</PanelStatusBadge></div>
+            <div><span>Ödeme durumu</span><strong>{PAYMENT_LABELS[order.paymentStatus]}</strong></div>
+            <div><span>Kanal</span><strong>{SOURCE_LABELS[order.source]}</strong></div>
+            <div><span>Müşteri</span><strong>{order.customerName}</strong><small>{order.customerEmail}</small></div>
+            <div className={styles.summaryTotal}><span>Sipariş toplamı</span><strong>{money(order.totalCents, order.currency)}</strong></div>
+          </section>
+
+          {(statusOptions.length > 0 || paymentOptions.length > 0) ? (
+            <section className={styles.operationBar} aria-label="Sipariş operasyonları">
+              <div><h2>İşlemler</h2><p>Yalnızca izin verilen geçişler gösterilir.</p></div>
+              {statusOptions.length > 0 ? <label><span>Sipariş durumu</span><select aria-label="Sipariş durumunu güncelle" value={order.status} disabled={props.busy !== ""} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus)}>{statusOptions.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label> : null}
+              {paymentOptions.length > 0 ? <label><span>Ödeme durumu</span><select aria-label="Ödeme durumunu güncelle" value={order.paymentStatus} disabled={props.busy !== ""} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus)}>{paymentOptions.map((status) => <option key={status} value={status}>{PAYMENT_LABELS[status]}</option>)}</select></label> : null}
+            </section>
+          ) : null}
+        </aside>
+      </div>
     </PanelPageShell>
   );
 }
@@ -258,6 +275,7 @@ function safeMessage(error: unknown) {
 
 export function OrderDetailConsole({ orderId, capabilities }: { orderId: string; capabilities: OrderUiCapabilities }) {
   const [detail, setDetail] = useState<OrderDetail>();
+  const [neighbors, setNeighbors] = useState<OrderNeighbors>();
   const [state, setState] = useState<DetailState>("loading");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -266,8 +284,12 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
   const load = useCallback(async (conflict = false) => {
     setError("");
     try {
-      const current = await orderApi.getOrder(orderId);
+      const [current, adjacent] = await Promise.all([
+        orderApi.getOrder(orderId),
+        orderApi.getOrderNeighbors(orderId).catch(() => undefined),
+      ]);
       setDetail(current);
+      setNeighbors(adjacent);
       setState("loaded");
       if (conflict) setNotice("Başka bir güncelleme algılandı; en güncel veriler yeniden yüklendi. Değişiklikleriniz gönderilmedi.");
     } catch (failure) {
@@ -276,7 +298,12 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     }
   }, [orderId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    setDetail(undefined);
+    setNeighbors(undefined);
+    setState("loading");
+    void load();
+  }, [load]);
 
   async function mutation(name: string, operation: () => Promise<unknown>, success: string): Promise<OrderMutationOutcome> {
     setBusy(name); setError(""); setNotice("");
@@ -317,5 +344,5 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     void mutation(`note-${noteId}`, () => orderApi.archiveNote(orderId, noteId), "Dahili not arşivlendi.");
   }
 
-  return <OrderDetailPresentation state={state} detail={detail} error={error} notice={notice} busy={busy} capabilities={capabilities} onRetry={() => { setState("loading"); void load(); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
+  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} error={error} notice={notice} busy={busy} capabilities={capabilities} onRetry={() => { setState("loading"); void load(); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
 }
