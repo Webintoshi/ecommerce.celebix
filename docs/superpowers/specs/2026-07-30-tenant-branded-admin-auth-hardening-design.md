@@ -1,7 +1,7 @@
 # Mağaza Markalı Yönetim Kimlik Akışı Sertleştirme Tasarımı
 
-Tarih: 30 Temmuz 2026  
-Durum: Kullanıcı tarafından yönü ve ana kararları onaylandı; uygulama planı öncesi yazılı inceleme bekleniyor.
+Tarih: 31 Temmuz 2026
+Durum: Cloudflare wildcard TLS ve anında Starter erişimi dahil ana kararlar onaylandı; uygulama planı öncesi yazılı inceleme bekleniyor.
 
 ## 1. Problem
 
@@ -44,14 +44,38 @@ Vitrin son müşterilerinin üyelik, parola sıfırlama ve hesap yönetimi bu ç
 
 ### 4.1 Tek uygulama, mağaza bazlı hostname
 
-Wildcard DNS ve TLS bir kez tanımlanır:
+Cloudflare DNS Challenge kullanan wildcard DNS ve TLS platform kurulumu sırasında bir kez tanımlanır:
 
-- production: `*.admin.celebix.site`;
-- staging: `*.admin.saas-staging.celebix.site`.
+- production admin: `*.admin.celebix.site`;
+- production storefront: `*.celebix.site`;
+- staging admin: `*.admin.saas-staging.celebix.site`;
+- staging storefront: `*.saas-staging.celebix.site`.
 
-Traefik/Coolify bütün eşleşen hostname'leri aynı customer-panel uygulamasına iletir. Uygulama `Host`, `Forwarded` ve `X-Forwarded-Host` değerlerini mevcut proxy otoritesi kurallarıyla doğrular. Tarayıcıdan gelen slug, query parametresi veya JSON store kimliği tenant otoritesi değildir.
+Cloudflare yalnız DNS ve ACME DNS-01 doğrulama katmanıdır; tenant veya oturum otoritesi değildir. Wildcard sertifikalar Coolify tarafından yönetilen Traefik üzerinde sonlandırılır. Admin wildcard router bütün admin hostname'lerini aynı customer-panel uygulamasına, storefront wildcard router ise bütün mağaza hostname'lerini aynı shared storefront uygulamasına iletir. Admin ve storefront router kuralları birbirine düşmeyecek şekilde açıkça ayrılır; staging ve production router/certificate kapsamları karıştırılmaz.
 
-### 4.2 Admin domain otoritesi
+`auth`, `panel`, `ecommerce`, `api`, `admin` ve diğer platform servis adları kayıt slug'ı olarak rezerve edilir. Exact platform router'ları wildcard storefront router'ından daha yüksek önceliklidir. Bu iki koruma, `*.celebix.site` ve `*.saas-staging.celebix.site` sertifika kapsamlarının merkezi servisleri yanlışlıkla shared storefront'a yönlendirmesini engeller.
+
+Uygulamalar `Host`, `Forwarded` ve `X-Forwarded-Host` değerlerini mevcut güvenilir proxy otoritesi kurallarıyla doğrular. Ardından exact hostname'i PostgreSQL'deki aktif domain kaydından çözer. Wildcard eşleşmesi tek başına mağaza erişimi vermez. Tarayıcıdan gelen slug, query parametresi veya JSON store kimliği tenant otoritesi değildir; bilinmeyen, disabled veya yanlış ortama ait hostname fail-closed olur.
+
+Cloudflare ve Coolify API'leri müşteri kayıt isteğinin kritik yolunda çağrılmaz. Yeni mağaza başına DNS kaydı veya ACME sertifikası üretilmez. Böylece kayıt işlemi harici ağ gecikmesine, sertifika kuyruğuna veya Let's Encrypt rate limitlerine bağlı kalmaz.
+
+### 4.2 Kayıt anında hazır tenant sözleşmesi
+
+Kayıt operasyonu aşağıdaki kaynakları tek PostgreSQL transaction'ı ve aynı idempotency operation ID'si altında oluşturur:
+
+- aktif mağaza ve owner üyeliği;
+- aktif `free_starter` plan aboneliği;
+- mağaza ayarlarında `themeKey = "starter"`;
+- aktif canonical storefront domain'i;
+- aktif canonical admin domain'i;
+- Starter tema için gerekli media namespace'i;
+- güvenli ilk panel handoff'una kaynak olacak committed provisioning sonucu.
+
+İşlem ancak bunların tamamı commit edildikten sonra `provisioningStatus = "ready"` döndürür. Commit belirsiz kalırsa aynı operation ID ile kayıtlar ikinci kez oluşturulmaz; committed sonuç okunur veya güvenli, tekrar denenebilir hata döner. Cloudflare, Coolify ya da başka bir dış servis çağrısı transaction içinde tutulmaz.
+
+`ready` sonucu alan kullanıcı için `panelUrl` canonical admin origin'ini, `storefrontUrl` ise canonical Starter vitrin origin'ini gösterir. Kayıt callback'i panel handoff'unu hemen tamamlar; kullanıcı ikinci parola girmeden paneli açar ve Starter vitrin aynı anda güvenli HTTPS üzerinden erişilebilir olur.
+
+### 4.3 Admin domain otoritesi
 
 Append-only migration `202607300069` aşağıdaki kalıcı otoriteyi ekler:
 
@@ -74,7 +98,7 @@ Starter tenant kurulumu canonical admin hostname'ini deterministik biçimde üre
 
 Migration `069` ayrıca mevcut panel credential'ından principal'ı bulan ve aynı principal'a ait bütün aktif session family kayıtlarını tek transaction içinde iptal eden `saas.revoke_principal_panel_sessions(...)` güvenlik fonksiyonunu ekler. Fonksiyon ham principal ID kabul etmez; çağıranın mevcut geçerli credential kanıtını sunması zorunludur.
 
-### 4.3 Güvenli public marka projeksiyonu
+### 4.4 Güvenli public marka projeksiyonu
 
 Anonim giriş ekranı yalnız aşağıdaki dondurulmuş projeksiyonu alabilir:
 
@@ -97,11 +121,11 @@ Logo yalnız aynı mağazanın aktif R2 storefront/admin asset kaydından üreti
 1. Kullanıcı `https://ecommerce.celebix.co/kayit` formunda mağaza adını ve slug'ını gönderir.
 2. Owner katmanı kaydı doğrular, OIDC transaction/state/nonce/PKCE kayıtlarını PostgreSQL'e yazar ve Logto'ya yönlendirir.
 3. Merkezi callback; issuer, audience, nonce, code verifier, doğrulanmış e-posta ve tek kullanımlık state'i doğrular.
-4. Starter tenant, mağaza üyeliği ve canonical admin domain'i tek idempotent operasyonla oluşturulur.
+4. Starter tenant; owner üyeliği, `free_starter` planı, `starter` tema ayarı, canonical storefront domain'i ve canonical admin domain'iyle tek idempotent PostgreSQL operasyonunda oluşturulur.
 5. Owner mevcut tek kullanımlık panel handoff kaydını canonical admin origin'e bağlar.
 6. Merkezi callback, kısa ömürlü handoff kanıtını URL'ye yazmadan, sıkı CSP'li tek kullanımlık bir HTML formuyla `<slug>.admin.celebix.site/auth/handoff` adresine top-level POST eder.
 7. Customer-panel handoff'u bir kez kullanır, PostgreSQL panel session credential'ını oluşturur ve host-only cookie yazar.
-8. Kullanıcı ikinci kez parola girmeden yeni mağazasının panel ana sayfasına girer.
+8. Kullanıcı ikinci kez parola girmeden yeni mağazasının panel ana sayfasına girer; aynı committed sonuçtaki Starter vitrin URL'si de hazırdır.
 
 Kayıt tamamlanıp session yazımı belirsiz kalırsa tenant tekrar oluşturulmaz. Mevcut operation recovery sonucu kullanılır ve güvenli şekilde yeni bir handoff üretilir.
 
@@ -151,6 +175,7 @@ Başka mağaza hostunda eski cookie tarayıcıda kalsa bile PostgreSQL principal
 - Handoff credential URL, fragment, browser storage veya referrer'a yazılmayacaktır. Yalnız exact-origin kontrollü, boyutu sınırlı, top-level POST form body içinde taşınacak; hedef `/auth/handoff` GET isteklerini 405 ile reddedecektir.
 - Authorization code, access token, ID token, cookie değeri, DB URL'si ve imza anahtarı loglanmayacaktır.
 - `returnTo` yalnız aynı admin origin'deki izinli internal panel yollarından seçilecektir.
+- Staging panel runtime'ı yalnız `*.admin.saas-staging.celebix.site`, production panel runtime'ı yalnız `*.admin.celebix.site` hedefi üretebilir. Veritabanından gelen canonical origin diğer ortama aitse login, handoff, mağaza değiştirme ve logout yönlendirmeleri fail-closed olur.
 - Callback, login ve logout yanıtları `Cache-Control: no-store`, `Referrer-Policy: no-referrer` ve `X-Content-Type-Options: nosniff` taşıyacaktır.
 - Session issuance, rotation, store switch ve logout idempotent operasyon kimliğiyle çalışacaktır.
 - Replay edilmiş state, browser binding veya handoff fail-closed olur.
@@ -204,7 +229,10 @@ Legacy Supabase mağazaları sessizce PostgreSQL/Logto standardına geçirilmez.
 ### 9.1 Otomatik testler
 
 - admin hostname exact çözümleme, büyük/küçük harf canonicalization ve spoofed forwarded-host reddi;
-- kayıt → tenant → canonical admin domain → handoff → session zinciri;
+- admin ve storefront wildcard router ayrımı; bilinmeyen wildcard hostun uygulamaya erişse bile PostgreSQL çözümlemesinde reddi;
+- staging runtime'dan production admin origin'ine ve production runtime'dan staging admin origin'ine yönlendirme reddi;
+- kayıt → tenant → `free_starter` → `starter` tema → canonical storefront/admin domain → handoff → session zinciri;
+- kayıt sonucunun yalnız bütün Starter kaynakları commit edildikten sonra `ready` olması ve aynı operation ID replay'inin ikinci tenant üretmemesi;
 - aynı principal için iki aktif mağaza kabulü ve üçüncü mağaza reddi;
 - iptal edilmiş üyelik, arşivli mağaza ve disabled alias reddi;
 - state, nonce, PKCE, handoff ve session replay reddi;
@@ -223,31 +251,39 @@ Testler gerçek PostgreSQL 16 disposable veritabanında migration, rollback ve r
 
 Güzide staging pilotunda:
 
-1. yeni kayıt kullanıcıyı doğrudan Güzide admin paneline alır;
-2. anonim kullanıcı Güzide markalı giriş ekranını görür;
-3. yetkili kullanıcı giriş yapar;
-4. aynı kullanıcı ikinci atanmış test mağazasına geçer;
-5. aynı kullanıcı atanmamış mağazada 403 alır;
-6. global çıkıştan sonra eski Güzide ve ikinci mağaza sekmeleri 401 alır;
-7. yeniden giriş yeni session family ile başarılı olur;
-8. desktop ve mobile görünümler taşma olmadan çalışır.
+1. wildcard DNS ve TLS ön kontrolü rastgele bilinmeyen hostta güvenli sertifika sunar, uygulama ise hostu tenant olarak kabul etmez;
+2. yeni kayıt kullanıcıyı doğrudan Güzide admin paneline alır ve aynı anda Starter vitrin URL'si 200 döner;
+3. anonim kullanıcı Güzide markalı giriş ekranını görür;
+4. yetkili kullanıcı giriş yapar;
+5. aynı kullanıcı ikinci atanmış test mağazasına geçer;
+6. aynı kullanıcı atanmamış mağazada 403 alır;
+7. global çıkıştan sonra eski Güzide ve ikinci mağaza sekmeleri 401 alır;
+8. yeniden giriş yeni session family ile başarılı olur;
+9. desktop ve mobile görünümler taşma olmadan çalışır.
 
 Hemenaku canary aynı matrisi `admin.hemenaku.com` custom alias'ı üzerinde doğrular. Gerçek müşteri parolası, siparişi veya ödeme verisi testte kullanılmaz.
 
 ## 10. Dağıtım ve geri dönüş
 
 1. Güzide staging entegrasyon dalı, kategori vitrini ve returning-login commitlerini içeren temiz bir auth entegrasyon worktree'sinde birleştirilir.
-2. Migration `069` disposable PostgreSQL kanıtları geçmeden staging veritabanına uygulanmaz.
-3. Wildcard DNS/TLS ve router hedefi sağlık kontrolüyle doğrulanır.
-4. Customer-panel staging deploy edilir ve Güzide canonical admin domain kaydı oluşturulur.
-5. Tam tarayıcı matrisi geçerse Hemenaku alias canary yapılır.
-6. Production açılışı mağaza grupları halinde ilerler; yeni mağaza provisioning'i canonical admin domain üretmeden `ready` durumuna geçmez.
-7. Uygulama hatasında önceki image digest'e, domain routing hatasında önceki router hedefine dönülür.
-8. Migration geri dönüşü yalnız yeni admin domain/handoff kayıtları kullanımda değilse uygulanır; session otoritesi zayıflatılarak rollback yapılmaz.
+2. Cloudflare API token'ı en az ayrıcalıkla yalnız ilgili zone için `Zone:DNS:Edit` ve gerekli okuma yetkileriyle oluşturulur; token source control'a veya uygulama env'ine yazılmaz, yalnız Traefik ACME secret'ı olarak tutulur.
+3. Önce staging Traefik DNS Challenge resolver'ı ve admin/storefront wildcard router'ları yapılandırılır. Proxy reload/restart öncesi mevcut dinamik yapı ve sertifika deposu yedeklenir.
+4. Rastgele staging admin ve storefront hostname'lerinde sertifika zinciri doğrulanır; Traefik default certificate görülürse rollout durur. Aynı isteklerin uygulama katmanında bilinmeyen tenant olarak fail-closed olduğu ayrıca doğrulanır.
+5. Migration `069` disposable PostgreSQL kanıtları geçmeden staging veritabanına uygulanmaz.
+6. Customer-panel ve shared storefront staging deploy edilir; Güzide canonical admin/storefront domain kayıtları oluşturulur.
+7. Yeni bir staging kaydıyla admin handoff ve Starter tema anlık erişimi dahil tam tarayıcı matrisi geçerse Hemenaku alias canary yapılır.
+8. Production wildcard DNS Challenge/TLS ancak staging kanıtı ve eylem anındaki açık operasyon onayından sonra uygulanır. Production açılışı mağaza grupları halinde ilerler; yeni mağaza provisioning'i Starter planı, tema ve iki canonical domain commit edilmeden `ready` durumuna geçmez.
+9. Uygulama hatasında önceki image digest'e, domain routing hatasında önceki router hedefine dönülür. Wildcard router geri dönüşü mevcut exact-domain router'larını bozmadan yapılır.
+10. Migration geri dönüşü yalnız yeni admin domain/handoff kayıtları kullanımda değilse uygulanır; session otoritesi zayıflatılarak rollback yapılmaz.
+
+Wildcard sertifika yenilemesi günlük gözlemlenir. Kalan süre 30 günün altına indiğinde uyarı, 14 günün altına indiğinde kritik alarm üretilir ve yeni production tenant açılışı sertifika sağlığı düzelene kadar durdurulur. Son başarılı yenileme zamanı ile aktif certificate SAN kapsamı deployment kanıtına eklenir.
 
 ## 11. Kabul kriterleri
 
 - Her yeni mağaza tek shared uygulamaya bağlı mağazaya özel admin hostname'i alır.
+- Her yeni mağaza kayıt transaction'ı tamamlanır tamamlanmaz `free_starter` planı ve `starter` temalı canonical storefront URL'siyle HTTPS üzerinden erişilebilir olur.
+- Yeni mağaza kaydı sırasında müşteri bazlı Cloudflare/Coolify/ACME çağrısı yapılmaz.
+- Admin ve storefront wildcard sertifikaları staging ve production ortamlarında doğru SAN kapsamıyla geçerlidir; rastgele bilinmeyen host uygulama katmanında tenant erişimi kazanmaz.
 - Güzide markalı admin giriş ekranı canonical staging hostname'inde açılır.
 - Kayıt sonrası ikinci parola istemeden güvenli ilk panel oturumu oluşur.
 - Giriş, global çıkış ve yeniden giriş akışı otomatik ve tarayıcı testlerinde geçer.
@@ -262,5 +298,7 @@ Hemenaku canary aynı matrisi `admin.hemenaku.com` custom alias'ı üzerinde do�
 
 - İKAS mağaza adını `magazaadi.myikas.com/admin` yönetim URL'sine bağlar: https://support.ikas.com/tr/magaza-ayarlari
 - İKAS personel hesaplarını erişim izinleri ve satış kanalı izinleriyle sınırlar: https://support.ikas.com/tr/personeller
+- Coolify, Traefik wildcard sertifikaları için DNS Challenge yapılandırmasını tarif eder: https://coolify.io/docs/knowledge-base/proxy/traefik/dns-challenge
+- Coolify domain modeli ve wildcard domain davranışı: https://coolify.io/docs/knowledge-base/domains
 
 Bu referans yalnız kullanıcı deneyimi ve URL modelini doğrular. Celebix'in kimlik, cookie, session family, PostgreSQL RLS ve callback güvenliği kendi otorite modeline göre uygulanacaktır.
