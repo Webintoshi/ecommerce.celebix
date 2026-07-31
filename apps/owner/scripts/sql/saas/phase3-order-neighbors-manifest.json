@@ -1,0 +1,24 @@
+{
+  "phase": "phase3-order-neighbors",
+  "postgresqlMajor": 16,
+  "classification": "additive-store-scoped-order-navigation",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607310075_order_neighbors.up.sql",
+      "direction": "up",
+      "sha256": "0240e080eb002dfa7ecb008a64ea42faa0442ffeb37c0fcb27184ef70f74c885"
+    },
+    {
+      "file": "202607310075_order_neighbors.down.sql",
+      "direction": "down",
+      "sha256": "775f4b1f43e0fe3b5aba960414f65337060f9524c79103f9d77e62b294949df7"
+    },
+    {
+      "file": "202607310075_order_neighbors_assertions.sql",
+      "direction": "verify",
+      "sha256": "f245372f73cf50c99d4d55dca38255dd8bcf0b085274d436016d163856d528ac"
+    }
+  ]
+}
