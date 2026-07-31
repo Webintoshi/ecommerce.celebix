@@ -19,6 +19,18 @@ test("cart mutation parser accepts only the exact action-owned command", async (
   assert.deepEqual(await readCartMutationRequest(request("/api/cart/buy-now", { operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 }), ORIGIN), { kind: "buy_now", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
 });
 
+test("commerce requests preserve only the edge-verified storefront proxy authority header", async () => {
+  const proxy = { "x-celebix-storefront-proxy": `p1.${Buffer.alloc(32, 0x41).toString("base64url")}` };
+  assert.deepEqual(
+    await readCartMutationRequest(request("/api/cart/add", { operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 }, proxy), ORIGIN),
+    { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 },
+  );
+  assert.deepEqual(
+    await readCheckoutRequest(request("/api/checkout/quote", { intentKind: "cart" }, proxy), ORIGIN),
+    { kind: "quote", intentKind: "cart" },
+  );
+});
+
 test("cart authority rejects wrong paths origins private headers and browser totals", async () => {
   for (const candidate of [
     request("/api/cart/add?store=evil", { operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 }),

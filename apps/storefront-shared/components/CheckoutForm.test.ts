@@ -15,6 +15,8 @@ test("checkout form has bounded two-step delivery and server-projected payment c
   assert.match(form, /disabled=\{pending/u);
   for (const field of ["name", "email", "phone", "addressLine1", "city", "district", "postalCode", "note"]) assert.equal(form.includes(`name="${field}"`), true, field);
   assert.match(form, /validateCheckoutFormDraft/u);
+  assert.match(form, /const value = event\.currentTarget\.value;[\s\S]*setDraft\(\(current\).*\[name\]: value/u);
+  assert.doesNotMatch(form, /setDraft\(\(current\)[\s\S]{0,160}event\.currentTarget/u);
 });
 
 test("checkout submission contains only the exact server-owned contract and fixed success path", () => {

@@ -43,7 +43,7 @@ async function jsonBody(request: Request, expectedPaths: readonly string[], publ
   const origin = canonicalOrigin(publicOrigin, invalid);
   if (request.method !== "POST" || (url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password || !expectedPaths.includes(url.pathname) || url.search || url.hash || request.headers.get("origin") !== origin) invalid();
   if (request.headers.get("content-type") !== "application/json" || request.headers.has("transfer-encoding") || request.headers.has("authorization") || request.body === null) invalid();
-  for (const name of request.headers.keys()) if (name.startsWith("x-celebix-")) invalid();
+  for (const name of request.headers.keys()) if (name.startsWith("x-celebix-") && name !== "x-celebix-storefront-proxy") invalid();
   const declared = request.headers.get("content-length");
   if (declared !== null && (!/^(?:0|[1-9]\d*)$/.test(declared) || Number(declared) > MAXIMUM_BODY_BYTES)) invalid();
   const reader = request.body.getReader(); const chunks: Uint8Array[] = []; let total = 0;

@@ -49,13 +49,13 @@ test("exact-host analytics extends only the approved CSP destinations", async ()
   const active = await handler(new NextRequest("https://internal.example.test/products", { headers: { "x-storefront-host": "shop.example.test" } }));
   const activeCsp = active.headers.get("content-security-policy") ?? "";
   assert.match(activeCsp, /script-src 'nonce-[^']+' 'strict-dynamic' https:\/\/analytics[.]example[.]test/);
-  assert.match(activeCsp, /connect-src https:\/\/analytics[.]example[.]test/);
+  assert.match(activeCsp, /connect-src 'self' https:\/\/analytics[.]example[.]test/);
   assert.match(activeCsp, /style-src 'self' 'unsafe-inline'/);
   assert.doesNotMatch(activeCsp, /script-src[^;]*(?:\*|unsafe-inline| https:;)/);
 
   const inactive = await handler(new NextRequest("https://internal.example.test/products", { headers: { "x-storefront-host": "alias.example.test" } }));
   const inactiveCsp = inactive.headers.get("content-security-policy") ?? "";
-  assert.match(inactiveCsp, /connect-src 'none'/);
+  assert.match(inactiveCsp, /connect-src 'self'/);
   assert.doesNotMatch(inactiveCsp, /analytics[.]example[.]test/);
   assert.deepEqual(calls, ["shop.example.test", "alias.example.test"]);
 });

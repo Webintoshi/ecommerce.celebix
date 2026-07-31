@@ -35,7 +35,10 @@ export function CheckoutForm({ intentKind }: Readonly<{ intentKind: CheckoutInte
 
   const field = (name: keyof CheckoutFormDraft) => ({
     value: draft[name],
-    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft((current) => Object.freeze({ ...current, [name]: event.currentTarget.value })),
+    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = event.currentTarget.value;
+      setDraft((current) => Object.freeze({ ...current, [name]: value }));
+    },
   });
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {

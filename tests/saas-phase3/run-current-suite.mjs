@@ -141,6 +141,8 @@ const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/quick-order-hosted-payment-bridge/static-security.test.mjs",
   "tests/saas-phase3/iyzico-iframe-tenant-sandbox-evidence/static-security.test.mjs",
   "tests/saas-phase3/iyzico-iframe-tenant-activation-runtime/static-security.test.mjs",
+  "tests/saas-phase3/starter-commerce/in-process.test.mjs",
+  "tests/saas-phase3/starter-commerce/static-security.test.mjs",
 ]);
 
 function runRequiredHarness({ file, total, line, completion }) {
