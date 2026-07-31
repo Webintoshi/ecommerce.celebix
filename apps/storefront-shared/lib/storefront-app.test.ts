@@ -532,7 +532,11 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   }
   const publicRuntime = await readFile(new URL("./default-runtime.ts", import.meta.url), "utf8");
   assert.match(publicRuntime, /PostgresPublicStorefrontRepository/);
+  assert.match(publicRuntime, /PostgresPublicStorefrontContentRepository/);
   assert.match(publicRuntime, /celebix_saas_host_resolver/);
+  assert.match(publicRuntime, /AS migration_071/);
+  assert.match(publicRuntime, /row[.]migration_071 !== true/);
+  assert.match(publicRuntime, /content,/);
   assert.doesNotMatch(publicRuntime, /ProductMediaRepository|INSERT|UPDATE|DELETE/);
 });
 
