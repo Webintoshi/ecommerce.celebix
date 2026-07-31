@@ -40,6 +40,33 @@ test("approved merchant record subpages are server-authorized and keep fixed kin
  ["app/content/policies/new/page.tsx","policy","content.manage"],["app/content/policies/[recordId]/edit/page.tsx","policy","content.manage"],
 ]as const){const value=await source(path);assert.match(value,/requireServerPanelAccess\(\)/);assert.match(value,new RegExp(`kind=\\"${kind}\\"`));assert.match(value,new RegExp(permission.replace(".","\\.")));assert.doesNotMatch(value,/searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/)} });
 
+test("every collection module has canonical create and exact-record edit depth",async()=>{
+  const helper=await source("components/merchant-admin/render-merchant-record-page.tsx");
+  assert.match(helper,/requireServerPanelAccess\(\)/);assert.match(helper,/isMerchantActionAllowed/);assert.match(helper,/MerchantRecordEditor/);
+  assert.doesNotMatch(helper,/searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  for(const[base,kind,permission]of[
+    ["discounts/lucky-wheel","lucky_wheel","promotions.manage"],
+    ["marketing/email","email_campaign","marketing.manage"],
+    ["marketing/phone","phone_campaign","marketing.manage"],
+    ["marketing/whatsapp","whatsapp_campaign","marketing.manage"],
+    ["marketplaces","marketplace_connection","integrations.manage"],
+    ["settings/administrators","administrator_invite","configuration.manage"],
+    ["accounting/invoicing-integration","invoice_integration","integrations.manage"],
+    ["seo/code-integrations","code_integration","integrations.manage"],
+    ["seo/fast-indexing","indexing_request","integrations.manage"],
+    ["seo/geo-optimization","seo_geo_profile","integrations.manage"],
+    ["seo/internal-linking","seo_internal_link","integrations.manage"],
+    ["seo/content","seo_content_entry","integrations.manage"],
+    ["seo/categories","seo_category_entry","integrations.manage"],
+    ["seo/pages","seo_page_entry","integrations.manage"],
+    ["seo/products","seo_product_entry","integrations.manage"],
+  ]as const){
+    const[create,edit]=await Promise.all([source(`app/${base}/new/page.tsx`),source(`app/${base}/[recordId]/edit/page.tsx`)]);
+    for(const page of[create,edit]){assert.match(page,/renderMerchantRecordPage/);assert.match(page,new RegExp(`kind: \\"${kind}\\"`));assert.match(page,new RegExp(permission.replace(".","\\.")));}
+    assert.match(edit,/recordId/);
+  }
+});
+
 test("payment settings use the dedicated console and legacy routes only redirect",async()=>{
   const [page,create,edit]=await Promise.all([source("app/settings/payment/page.tsx"),source("app/settings/payment/new/page.tsx"),source("app/settings/payment/[recordId]/edit/page.tsx")]);
   assert.match(page,/PaymentSettingsConsole/);assert.doesNotMatch(page,/MerchantModuleConsole|kind="payment_setting"/);

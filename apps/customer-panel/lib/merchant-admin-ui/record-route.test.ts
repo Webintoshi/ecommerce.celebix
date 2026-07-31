@@ -12,8 +12,12 @@ import { getMerchantRecordRouteDefinition } from "./record-route.ts";
 test("locks each editor route to one merchant record kind", () => {
   assert.equal(getMerchantRecordRouteDefinition("content-blog").kind, "blog_post");
   assert.equal(getMerchantRecordRouteDefinition("payment").kind, "payment_setting");
+  assert.equal(getMerchantRecordRouteDefinition("marketplaces").kind, "marketplace_connection");
+  assert.equal(getMerchantRecordRouteDefinition("settings-administrators").kind, "administrator_invite");
+  assert.equal(getMerchantRecordRouteDefinition("accounting-invoicing").kind, "invoice_integration");
+  assert.equal(getMerchantRecordRouteDefinition("seo-products").kind, "seo_product_entry");
   assert.throws(
-    () => getMerchantRecordRouteDefinition("marketplace_connection"),
+    () => getMerchantRecordRouteDefinition("unknown-route"),
     /merchant_record_route_invalid/,
   );
   for (const hostileKey of ["constructor", "toString", "__proto__"]) {
@@ -191,6 +195,29 @@ test("record editor selects an exact persisted kind and uses its returned versio
   assert.match(source, /merchantAdminApi[.]record[(]kind,\s*recordId[)]/);
   assert.match(source, /expectedVersion:\s*record[.]version/);
   assert.match(source, /requestSequence[.]current\s*!==\s*sequence/);
+});
+
+test("record editor supports every bounded merchant field type used by deep routes", async () => {
+  const source = await readFile(
+    new URL("../../components/merchant-admin/MerchantRecordEditor.tsx", import.meta.url),
+    "utf8",
+  );
+  for (const evidence of [
+    'field.type === "enum"',
+    'field.type === "enum-list"',
+    'field.type === "datetime"',
+    'field.type === "string-list"',
+    "field.allowedValues",
+    "field.maxItems",
+    "datetime-local",
+    "invalid_enum_value",
+    "invalid_enum_list",
+    "invalid_string_list_",
+  ]) assert.match(source, new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(source, /type=\{field[.]type\}/);
+  assert.match(source, /definition[.]execution === "provider_required"/);
+  assert.match(source, /Hazırlık durumu/);
+  assert.match(source, /harici çalıştırma başlatılmaz/i);
 });
 
 test("policy type remains read-only and approved route links are canonical", async () => {
