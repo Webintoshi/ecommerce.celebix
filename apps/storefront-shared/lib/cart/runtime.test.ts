@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 
-import type { PublicCart } from "@celebix/saas-contracts";
+import type { PublicCart, PublicCheckoutReceipt } from "@celebix/saas-contracts";
 import type { StorefrontCommerceRepository } from "@celebix/saas-data";
 
 import { parseStorefrontCommerceCredentialKeyring, readStorefrontCredentialCookie } from "./credential.ts";
@@ -15,6 +15,7 @@ const OPERATION = "30000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-31T12:00:00.000Z");
 const EMPTY: PublicCart = Object.freeze({ version: 0, currency: "TRY", itemCount: 0, subtotalCents: 0, shippingCents: 0, totalCents: 0, checkoutReady: false, items: Object.freeze([]) });
 const CART: PublicCart = Object.freeze({ version: 1, currency: "TRY", itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, items: Object.freeze([Object.freeze({ productId: PRODUCT, variantId: VARIANT, slug: "urun-bir", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 100, lineTotalCents: 100, available: true })]) });
+const RECEIPT: PublicCheckoutReceipt = Object.freeze({ orderReference: "CBX-2026-000001", currency: "TRY", subtotalCents: 100, shippingCents: 0, totalCents: 100, paymentStatus: "pending", paymentMethod: Object.freeze({ kind: "bank_transfer", label: "Banka havalesi", instructions: "Sipariş numaranızı açıklamaya yazın.", bankName: "Celebix Bank", accountHolder: "Güzide", iban: "TR330006100519786457841326" }), items: CART.items, createdAt: NOW.toISOString() });
 const keyring = parseStorefrontCommerceCredentialKeyring({ CELEBIX_DEPLOYMENT_TIER: "staging", CELEBIX_STOREFRONT_COMMERCE_CREDENTIALS_MODE: "approved_staging", CELEBIX_STOREFRONT_COMMERCE_ACTIVE_KEY_ID: "current_01", CELEBIX_STOREFRONT_COMMERCE_KEYS: JSON.stringify([{ keyId: "current_01", key: Buffer.alloc(32, 7).toString("base64url") }]) });
 
 function fake(overrides: Partial<StorefrontCommerceRepository> = {}): StorefrontCommerceRepository {
@@ -64,4 +65,22 @@ test("buy now persists a purpose-isolated intent and returns only the fixed dest
   assert.match(result.setCookie ?? "", /^__Host-celebix_checkout_intent=i1[.]current_01[.]/u);
   assert.match(seen, /^[a-f0-9]{64}$/u);
   assert.equal(readStorefrontCredentialCookie("cart", result.setCookie ?? "").kind, "missing");
+});
+
+test("receipt and account reads require their isolated HttpOnly credentials and persist only digests", async () => {
+  const observations: unknown[] = [];
+  const selected = runtime(fake({
+    mutateCart: async () => ({ credentialCreated: true, cart: CART }),
+    complete: async () => RECEIPT,
+    getReceipt: async (input) => { observations.push(input); return RECEIPT; },
+    listAccountOrders: async (input) => { observations.push(input); return [RECEIPT]; },
+  }));
+  const cart = await selected.mutateCart(HOST, null, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
+  const completed = await selected.complete(HOST, cart.setCookie ?? null, { kind: "complete", operationId: OPERATION, cartVersion: 1, intentKind: "cart", contact: { name: "Güzide Elif", email: "info@example.com", phone: "+905551112233" }, shippingAddress: { addressLine1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", postalCode: "34710" }, shippingMethod: "standard", paymentKind: "bank_transfer" });
+  const header = completed.setCookies.join("; ");
+  assert.deepEqual(await selected.getReceipt(HOST, header), RECEIPT);
+  assert.deepEqual(await selected.listAccountOrders(HOST, header, 20), [RECEIPT]);
+  assert.equal(JSON.stringify(observations).includes("r1.current_01"), false);
+  assert.equal(JSON.stringify(observations).includes("u1.current_01"), false);
+  assert.equal(JSON.stringify(observations).match(/[a-f0-9]{64}/gu)?.length, 2);
 });

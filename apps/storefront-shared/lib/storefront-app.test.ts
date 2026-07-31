@@ -350,6 +350,20 @@ test("public content shell owns exact fixed policies search favorites and siblin
   assert.doesNotMatch(card, /<Link[\s\S]*<FavoriteButton[\s\S]*<\/Link>/);
 });
 
+test("native cart checkout success and account pages remain public-projection only", async () => {
+  const [cart, checkout, success, account] = await Promise.all([
+    readFile(new URL("../app/cart/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/checkout/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/account/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(cart, /CartPageClient/u);
+  assert.match(checkout, /CheckoutForm/u);
+  assert.match(success, /getReceipt/u);
+  assert.match(account, /listAccountOrders/u);
+  assert.doesNotMatch(`${cart}\n${checkout}\n${success}\n${account}`, /storeId|tenantId|membershipId|customerId|orderId|credential/u);
+});
+
 test("dark theme and every marquee preference drive bounded CSS without sacrificing contrast", async () => {
   const [home, css] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),

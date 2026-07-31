@@ -35,6 +35,8 @@ export type StorefrontCommerceRuntime = Readonly<{
   mutateCart(hostname: string, cookieHeader: string | null, command: CartCommand): Promise<Readonly<{ cart?: PublicCart; destination?: "/checkout?intent=buy-now"; setCookie?: string }>>;
   quote(hostname: string, cookieHeader: string | null, intentKind: CheckoutIntentKind): Promise<PublicCheckoutQuote>;
   complete(hostname: string, cookieHeader: string | null, request: Extract<CheckoutRequest, { kind: "complete" }>): Promise<Readonly<{ receipt: PublicCheckoutReceipt; setCookies: readonly string[] }>>;
+  getReceipt(hostname: string, cookieHeader: string | null): Promise<PublicCheckoutReceipt>;
+  listAccountOrders(hostname: string, cookieHeader: string | null, limit: number): Promise<readonly PublicCheckoutReceipt[]>;
 }>;
 
 type Dependencies = Readonly<{
@@ -149,6 +151,13 @@ export function createStorefrontCommerceRuntime(dependencies: Dependencies): Sto
         }),
       });
       return Object.freeze({ receipt: result, setCookies: Object.freeze([serializeStorefrontCredentialCookie("customer", customer.raw), serializeStorefrontCredentialCookie("receipt", receipt.raw)]) });
+    },
+    async getReceipt(hostname, cookieHeader) {
+      return dependencies.repository.getReceipt({ hostname, now: date(dependencies), candidates: candidates("receipt", cookieHeader, dependencies.keyring) });
+    },
+    async listAccountOrders(hostname, cookieHeader, limit) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new StorefrontCommerceRuntimeError("invalid_input");
+      return dependencies.repository.listAccountOrders({ hostname, now: date(dependencies), candidates: candidates("customer", cookieHeader, dependencies.keyring), limit });
     },
   });
 }
