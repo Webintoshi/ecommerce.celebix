@@ -6,14 +6,19 @@ const root = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
 test("shared storefront exposes the required Hemenaku-derived public routes", async () => {
-  const [home, products, detail, card, gallery, styles] = await Promise.all([
+  const [home, products, detail, purchasePanel, card, gallery, styles] = await Promise.all([
     read("apps/storefront-shared/app/page.tsx"), read("apps/storefront-shared/app/products/page.tsx"),
-    read("apps/storefront-shared/app/products/[slug]/page.tsx"), read("apps/storefront-shared/components/ProductCard.tsx"),
-    read("apps/storefront-shared/components/ProductGallery.tsx"), read("apps/storefront-shared/app/globals.css"),
+    read("apps/storefront-shared/app/products/[slug]/page.tsx"), read("apps/storefront-shared/components/ProductPurchasePanel.tsx"),
+    read("apps/storefront-shared/components/ProductCard.tsx"), read("apps/storefront-shared/components/ProductGallery.tsx"),
+    read("apps/storefront-shared/app/globals.css"),
   ]);
   assert.match(home, /Yeni Ürünler|Yeni ürünler/);
   assert.match(products, /Ürünler/);
-  assert.match(detail, /variants|varyant/i);
+  assert.match(detail, /<ProductPurchasePanel product=\{item\} \/>/);
+  assert.match(purchasePanel, /product[.]variants/);
+  assert.match(purchasePanel, /Varyant/);
+  assert.match(purchasePanel, /Sepete ekle/);
+  assert.match(purchasePanel, /Şimdi satın al/);
   assert.match(card, /media\[0\]/);
   assert.match(gallery, /sortOrder|product\.media/);
   assert.match(styles, /@media \(max-width:/);
