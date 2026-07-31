@@ -7,16 +7,16 @@ SET LOCAL statement_timeout='120s';
 DO $f$
 BEGIN
   IF pg_catalog.to_regclass('saas.storefront_carts') IS NULL
-    OR pg_catalog.to_regprocedure('saas.public_checkout_complete(text,timestamp with time zone,text,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)') IS NULL
+    OR pg_catalog.to_regprocedure('saas.public_checkout_complete(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)') IS NULL
     OR pg_catalog.to_regprocedure('saas.merchant_admin_config_valid_without_storefront_checkout(text,jsonb)') IS NULL
   THEN RAISE EXCEPTION 'STOREFRONT_CART_CHECKOUT_DOWN_SOURCE_INVALID'; END IF;
 END
 $f$;
 
 DROP FUNCTION saas.public_account_orders(text,timestamptz,jsonb,integer);
-DROP FUNCTION saas.public_receipt_get(text,timestamptz,jsonb);
+DROP FUNCTION saas.public_receipt_get(text,timestamptz,jsonb,jsonb);
 DROP FUNCTION saas.public_checkout_recover(text,timestamptz,uuid,text);
-DROP FUNCTION saas.public_checkout_complete(text,timestamptz,text,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz);
+DROP FUNCTION saas.public_checkout_complete(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz);
 DROP FUNCTION saas.public_checkout_quote(text,timestamptz,text,jsonb);
 DROP FUNCTION saas.public_buy_now_create(text,timestamptz,uuid,text,text,timestamptz,uuid,uuid,integer);
 DROP FUNCTION saas.public_cart_mutate(text,timestamptz,jsonb,uuid,text,text,timestamptz,uuid,text,text,bigint,uuid,uuid,integer);

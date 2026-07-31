@@ -2,7 +2,7 @@ BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
 DO $assertions$
-DECLARE selected_count bigint;
+DECLARE selected_count bigint; search_body text;
 BEGIN
   IF pg_catalog.to_regclass('saas.store_policy_pages') IS NULL
      OR pg_catalog.to_regclass('saas.store_policy_operations') IS NULL
@@ -37,6 +37,14 @@ BEGIN
      OR pg_catalog.has_table_privilege('celebix_saas_app','saas.store_policy_pages','UPDATE')
      OR pg_catalog.has_table_privilege('celebix_saas_host_resolver','saas.store_policy_pages','SELECT')
   THEN RAISE EXCEPTION 'STOREFRONT_POLICY_SEARCH_TABLE_ACL_INVALID'; END IF;
+
+  SELECT pg_catalog.pg_get_functiondef('saas.public_search_products(text,timestamp with time zone,text,integer,text)'::regprocedure) INTO search_body;
+  IF pg_catalog.strpos(search_body,'pg_catalog.octet_length(p_query)>100')=0
+    OR pg_catalog.strpos(search_body,'catalog_product_categories')=0
+    OR pg_catalog.strpos(search_body,'catalog_admin_resource_products')=0
+    OR pg_catalog.strpos(search_body,'resource.resource_kind IN(''brand'',''tag'')')=0
+    OR pg_catalog.strpos(search_body,'SELECT * FROM candidates WHERE payload IS NOT NULL')=0
+  THEN RAISE EXCEPTION 'STOREFRONT_POLICY_SEARCH_AUTHORITY_BODY_INVALID'; END IF;
 END
 $assertions$;
 

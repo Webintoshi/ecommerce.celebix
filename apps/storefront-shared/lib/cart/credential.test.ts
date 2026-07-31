@@ -3,9 +3,11 @@ import test from "node:test";
 
 import {
   createStorefrontCredential,
+  createStorefrontOperationCredential,
   credentialDigestCandidates,
   parseStorefrontCommerceCredentialKeyring,
   readStorefrontCredentialCookie,
+  serializeStorefrontCredentialDeletionCookie,
   serializeStorefrontCredentialCookie,
 } from "./credential.ts";
 
@@ -31,6 +33,33 @@ test("purpose-bound credentials are canonical and produce only keyed digest cand
   assert.notEqual(createStorefrontCredential("receipt", keyring, (size) => new Uint8Array(size).fill(3)).digest, created.digest);
 });
 
+test("checkout credentials are deterministic only for the exact operation and purpose", () => {
+  const operation = "30000000-0000-4000-8000-000000000001";
+  const first = createStorefrontOperationCredential("receipt", operation, keyring);
+  const replay = createStorefrontOperationCredential("receipt", operation, keyring);
+  const customer = createStorefrontOperationCredential("customer", operation, keyring);
+  const changed = createStorefrontOperationCredential("receipt", "30000000-0000-4000-8000-000000000002", keyring);
+  assert.deepEqual(replay, first);
+  assert.notEqual(customer.value, first.value);
+  assert.notEqual(changed.value, first.value);
+});
+
+test("checkout replay can reproduce its original credential across active-key rotation", () => {
+  const operation = "30000000-0000-4000-8000-000000000001";
+  const first = createStorefrontOperationCredential("receipt", operation, keyring);
+  const rotated = parseStorefrontCommerceCredentialKeyring({
+    CELEBIX_DEPLOYMENT_TIER: "staging",
+    CELEBIX_STOREFRONT_COMMERCE_CREDENTIALS_MODE: "approved_staging",
+    CELEBIX_STOREFRONT_COMMERCE_ACTIVE_KEY_ID: "previous_01",
+    CELEBIX_STOREFRONT_COMMERCE_KEYS: JSON.stringify([
+      { keyId: "previous_01", key: KEY_B },
+      { keyId: "current_01", key: KEY_A },
+    ]),
+  });
+  assert.notEqual(createStorefrontOperationCredential("receipt", operation, rotated).value, first.value);
+  assert.deepEqual(createStorefrontOperationCredential("receipt", operation, rotated, first.keyId), first);
+});
+
 test("cookie readers isolate purposes and reject duplicate or noncanonical credentials", () => {
   const cart = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4)).value;
   const intent = createStorefrontCredential("intent", keyring, (size) => new Uint8Array(size).fill(5)).value;
@@ -52,6 +81,7 @@ test("every credential cookie has exact secure host-only attributes and bounded 
     const value = createStorefrontCredential(purpose, keyring, (size) => new Uint8Array(size).fill(maxAge % 251)).value;
     assert.equal(serializeStorefrontCredentialCookie(purpose, value), `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`);
   }
+  assert.equal(serializeStorefrontCredentialDeletionCookie("cart"), "__Host-celebix_cart=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
 });
 
 test("credential keyring activates only an exact isolated staging authority", () => {

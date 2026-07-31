@@ -316,7 +316,8 @@ RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $function$
     CROSS JOIN LATERAL saas.resolve_effective_variant_price(p_store_id,variant.id,'storefront',p_now,NULL) resolved
     WHERE variant.store_id=p_store_id AND variant.product_id=p_product_id AND variant.status='active' AND resolved.outcome='found'
   ), selected_price AS (
-    SELECT * FROM resolved_variants ORDER BY effective_price,created_at,id LIMIT 1
+    SELECT * FROM resolved_variants
+    ORDER BY (NOT stock_tracking OR stock_quantity>0) DESC,effective_price,created_at,id LIMIT 1
   ), variants AS (
     SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
       'id',variant.id,'title',variant.title,'sku',variant.sku,'priceCents',variant.effective_price,
@@ -345,7 +346,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fun
 DECLARE selected_store uuid; cursor_time timestamptz; cursor_id uuid; items jsonb; next_cursor text; last_time timestamptz; last_id uuid; available_count integer;
 BEGIN
   IF p_now IS NULL OR NOT saas.store_policy_hostname_valid(p_hostname) OR p_query IS NULL OR p_query<>pg_catalog.btrim(p_query)
-     OR pg_catalog.octet_length(p_query)>200 OR pg_catalog.regexp_replace(p_query,E'[\n\r\t]','','g')~'[[:cntrl:]]'
+     OR pg_catalog.octet_length(p_query)>100 OR pg_catalog.regexp_replace(p_query,E'[\n\r\t]','','g')~'[[:cntrl:]]'
      OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 48
      OR (p_cursor IS NOT NULL AND p_cursor!~'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
@@ -359,7 +360,7 @@ BEGIN
   END IF;
   selected_store:=saas.store_policy_public_store(p_hostname,p_now);
   IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
-  WITH eligible AS MATERIALIZED (
+  WITH candidates AS MATERIALIZED (
     SELECT product.id,product.created_at,saas.public_effective_product_projection(selected_store,product.id,p_now) payload
     FROM saas.products product
     WHERE product.store_id=selected_store AND product.status='active'
@@ -367,10 +368,14 @@ BEGIN
       AND (p_query='' OR pg_catalog.strpos(pg_catalog.lower(product.title),pg_catalog.lower(p_query))>0
         OR pg_catalog.strpos(pg_catalog.lower(product.slug),pg_catalog.lower(p_query))>0
         OR pg_catalog.strpos(pg_catalog.lower(COALESCE(product.description,'')),pg_catalog.lower(p_query))>0
-        OR EXISTS(SELECT 1 FROM saas.product_variants variant WHERE variant.store_id=selected_store AND variant.product_id=product.id AND variant.status='active' AND pg_catalog.strpos(pg_catalog.lower(COALESCE(variant.sku,'')),pg_catalog.lower(p_query))>0))
-    ORDER BY product.created_at DESC,product.id DESC LIMIT p_limit+1
+        OR EXISTS(SELECT 1 FROM saas.product_variants variant WHERE variant.store_id=selected_store AND variant.product_id=product.id AND variant.status='active' AND pg_catalog.strpos(pg_catalog.lower(COALESCE(variant.sku,'')),pg_catalog.lower(p_query))>0)
+        OR EXISTS(SELECT 1 FROM saas.catalog_product_categories assignment JOIN saas.catalog_categories category ON category.store_id=assignment.store_id AND category.id=assignment.category_id WHERE assignment.store_id=selected_store AND assignment.product_id=product.id AND category.status='active' AND (pg_catalog.strpos(pg_catalog.lower(category.name),pg_catalog.lower(p_query))>0 OR pg_catalog.strpos(pg_catalog.lower(category.slug),pg_catalog.lower(p_query))>0))
+        OR EXISTS(SELECT 1 FROM saas.catalog_admin_resource_products assignment JOIN saas.catalog_admin_resources resource ON resource.store_id=assignment.store_id AND resource.id=assignment.resource_id WHERE assignment.store_id=selected_store AND assignment.product_id=product.id AND resource.status='active' AND resource.resource_kind IN('brand','tag') AND (pg_catalog.strpos(pg_catalog.lower(resource.name),pg_catalog.lower(p_query))>0 OR pg_catalog.strpos(pg_catalog.lower(resource.slug),pg_catalog.lower(p_query))>0)))
+  ), eligible AS MATERIALIZED (
+    SELECT * FROM candidates WHERE payload IS NOT NULL
+    ORDER BY created_at DESC,id DESC LIMIT p_limit+1
   ), page AS (
-    SELECT * FROM eligible WHERE payload IS NOT NULL ORDER BY created_at DESC,id DESC LIMIT p_limit
+    SELECT * FROM eligible ORDER BY created_at DESC,id DESC LIMIT p_limit
   )
   SELECT COALESCE((SELECT pg_catalog.jsonb_agg(page.payload ORDER BY page.created_at DESC,page.id DESC) FROM page),'[]'::jsonb),
     (SELECT pg_catalog.count(*)::integer FROM eligible),

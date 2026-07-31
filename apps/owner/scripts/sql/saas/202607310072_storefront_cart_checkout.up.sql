@@ -302,7 +302,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE selected_store uuid; selected_cart saas.storefront_carts%ROWTYPE;
   existing_operation saas.storefront_cart_operations%ROWTYPE;
   resolved_price record; selected_variant saas.product_variants%ROWTYPE;
-  projection jsonb; selected_position integer; created boolean:=false;
+  projection jsonb; selected_position integer; current_quantity integer:=0; created boolean:=false;
 BEGIN
   IF p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
     OR p_cart_id IS NULL OR p_operation_id IS NULL
@@ -367,13 +367,16 @@ BEGIN
   IF resolved_price.outcome<>'found' THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
 
   IF p_action='add' THEN
-    IF selected_variant.stock_tracking AND selected_variant.stock_quantity<p_quantity THEN RETURN QUERY SELECT 'stock_unavailable',NULL::jsonb; RETURN; END IF;
+    SELECT COALESCE((SELECT item.quantity FROM saas.storefront_cart_items item
+      WHERE item.store_id=selected_store AND item.cart_id=selected_cart.id AND item.variant_id=p_variant_id),0) INTO current_quantity;
+    IF current_quantity+p_quantity>99 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+    IF selected_variant.stock_tracking AND selected_variant.stock_quantity<current_quantity+p_quantity THEN RETURN QUERY SELECT 'stock_unavailable',NULL::jsonb; RETURN; END IF;
     SELECT COALESCE(pg_catalog.max(position),-1)+1 INTO selected_position FROM saas.storefront_cart_items WHERE store_id=selected_store AND cart_id=selected_cart.id;
     IF selected_position>99 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
     INSERT INTO saas.storefront_cart_items(cart_id,store_id,product_id,variant_id,quantity,unit_price_cents,position,created_at,updated_at)
       VALUES(selected_cart.id,selected_store,p_product_id,p_variant_id,p_quantity,resolved_price.price_cents,selected_position,p_now,p_now)
     ON CONFLICT(store_id,cart_id,variant_id) DO UPDATE SET
-      quantity=LEAST(99,saas.storefront_cart_items.quantity+EXCLUDED.quantity),
+      quantity=saas.storefront_cart_items.quantity+EXCLUDED.quantity,
       unit_price_cents=EXCLUDED.unit_price_cents,updated_at=p_now;
   ELSIF p_action='quantity' THEN
     UPDATE saas.storefront_cart_items SET quantity=p_quantity,unit_price_cents=resolved_price.price_cents,updated_at=p_now
@@ -478,7 +481,7 @@ END
 $f$;
 
 CREATE FUNCTION saas.public_checkout_complete(
-  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,
+  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,p_customer_credentials jsonb,
   p_operation_id uuid,p_fingerprint text,p_expected_version bigint,
   p_delivery jsonb,p_payment_kind text,
   p_order_id uuid,p_customer_id uuid,p_address_id uuid,p_event_id uuid,
@@ -492,12 +495,14 @@ DECLARE selected_store uuid; selected_cart saas.storefront_carts%ROWTYPE;
   existing_operation saas.storefront_checkout_operations%ROWTYPE;
   selected_payment saas.payment_methods%ROWTYPE; selected_shipping jsonb;
   selected_customer saas.customers%ROWTYPE; selected_address saas.customer_addresses%ROWTYPE;
+  selected_customer_credential saas.storefront_customer_credentials%ROWTYPE;
   line record; resolved_price record; cart_payload jsonb; receipt_payload jsonb; result jsonb;
   source_cart_id uuid; source_intent_id uuid; subtotal bigint:=0; shipping bigint:=0;
-  order_number text; position integer:=0;
+  order_number text; position integer:=0; customer_credential_created boolean:=false;
 BEGIN
   IF p_kind IS NULL OR p_kind NOT IN('cart','buy_now')
     OR NOT saas.storefront_credential_candidates_valid(p_credentials,false)
+    OR NOT saas.storefront_credential_candidates_valid(p_customer_credentials,true)
     OR p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
     OR p_expected_version IS NULL OR p_expected_version<1
     OR NOT saas.storefront_delivery_valid(p_delivery)
@@ -523,6 +528,13 @@ BEGIN
     RETURN;
   END IF;
 
+  SELECT credential.* INTO selected_customer_credential
+  FROM saas.storefront_customer_credentials credential
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) candidate
+    ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+  WHERE credential.store_id=selected_store AND credential.expires_at>p_now
+  ORDER BY credential.created_at DESC,credential.id LIMIT 1 FOR UPDATE OF credential;
+
   IF p_kind='cart' THEN
     SELECT cart.* INTO selected_cart FROM saas.storefront_carts cart
     JOIN saas.storefront_cart_credentials credential ON credential.store_id=cart.store_id AND credential.cart_id=cart.id
@@ -545,9 +557,7 @@ BEGIN
     cart_payload:=saas.storefront_intent_projection(selected_store,selected_intent.id,p_now);
   END IF;
 
-  IF cart_payload IS NULL OR NOT COALESCE((cart_payload->>'checkoutReady')::boolean,false) THEN
-    RETURN QUERY SELECT 'stock_unavailable',cart_payload; RETURN;
-  END IF;
+  IF cart_payload IS NULL THEN RETURN QUERY SELECT 'stock_unavailable',NULL::jsonb; RETURN; END IF;
   selected_shipping:=saas.storefront_shipping_projection(selected_store);
   IF selected_shipping IS NULL THEN RETURN QUERY SELECT 'shipping_unavailable',NULL::jsonb; RETURN; END IF;
   shipping:=(selected_shipping->>'shippingCents')::bigint;
@@ -560,36 +570,63 @@ BEGIN
   IF p_kind='cart' THEN
     FOR line IN
       SELECT item.*,variant.stock_tracking,variant.stock_quantity,variant.title variant_title,
-        variant.sku,product.title product_title,product.slug
+        variant.sku,variant.status variant_status,product.title product_title,product.slug,product.status product_status
       FROM saas.storefront_cart_items item
       JOIN saas.product_variants variant ON variant.store_id=item.store_id AND variant.id=item.variant_id AND variant.product_id=item.product_id
       JOIN saas.products product ON product.store_id=item.store_id AND product.id=item.product_id
       WHERE item.store_id=selected_store AND item.cart_id=source_cart_id
       ORDER BY item.position,item.variant_id FOR UPDATE OF variant
     LOOP
+      IF line.product_status<>'active' OR line.variant_status<>'active' THEN RETURN QUERY SELECT 'stock_unavailable',cart_payload; RETURN; END IF;
       SELECT * INTO resolved_price FROM saas.resolve_effective_variant_price(selected_store,line.variant_id,'storefront',p_now,NULL);
       IF resolved_price.outcome<>'found' OR resolved_price.price_cents<>line.unit_price_cents THEN RETURN QUERY SELECT 'price_changed',cart_payload; RETURN; END IF;
       IF line.stock_tracking AND line.stock_quantity<line.quantity THEN RETURN QUERY SELECT 'stock_unavailable',cart_payload; RETURN; END IF;
       subtotal:=subtotal+resolved_price.price_cents*line.quantity;
     END LOOP;
   ELSE
-    SELECT variant.stock_tracking,variant.stock_quantity,variant.title variant_title,variant.sku,
-      product.title product_title,product.slug,selected_intent.product_id,selected_intent.variant_id,
+    SELECT variant.stock_tracking,variant.stock_quantity,variant.title variant_title,variant.sku,variant.status variant_status,
+      product.title product_title,product.slug,product.status product_status,selected_intent.product_id,selected_intent.variant_id,
       selected_intent.quantity,selected_intent.unit_price_cents,0 position
     INTO line
     FROM saas.product_variants variant JOIN saas.products product ON product.store_id=variant.store_id AND product.id=variant.product_id
     WHERE variant.store_id=selected_store AND variant.id=selected_intent.variant_id AND product.id=selected_intent.product_id
     FOR UPDATE OF variant;
+    IF line.product_status<>'active' OR line.variant_status<>'active' THEN RETURN QUERY SELECT 'stock_unavailable',cart_payload; RETURN; END IF;
     SELECT * INTO resolved_price FROM saas.resolve_effective_variant_price(selected_store,line.variant_id,'storefront',p_now,NULL);
     IF resolved_price.outcome<>'found' OR resolved_price.price_cents<>line.unit_price_cents THEN RETURN QUERY SELECT 'price_changed',cart_payload; RETURN; END IF;
     IF line.stock_tracking AND line.stock_quantity<line.quantity THEN RETURN QUERY SELECT 'stock_unavailable',cart_payload; RETURN; END IF;
     subtotal:=resolved_price.price_cents*line.quantity;
   END IF;
 
-  SELECT customer.* INTO selected_customer FROM saas.customers customer
-  WHERE customer.store_id=selected_store AND customer.email=p_delivery->'contact'->>'email'
-  FOR UPDATE;
+  IF selected_customer_credential.id IS NOT NULL THEN
+    SELECT customer.* INTO selected_customer FROM saas.customers customer
+    WHERE customer.store_id=selected_store AND customer.id=selected_customer_credential.customer_id
+    FOR UPDATE;
+    IF NOT FOUND OR selected_customer.status<>'active'
+      OR selected_customer.email<>p_delivery->'contact'->>'email'
+      OR selected_customer.phone IS DISTINCT FROM p_delivery->'contact'->>'phone'
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+    UPDATE saas.customers SET first_name=p_delivery->'contact'->>'firstName',last_name=p_delivery->'contact'->>'lastName',
+      version=version+1,updated_at=p_now
+    WHERE store_id=selected_store AND id=selected_customer.id RETURNING * INTO selected_customer;
+    UPDATE saas.storefront_customer_credentials SET last_seen_at=GREATEST(last_seen_at,p_now)
+    WHERE store_id=selected_store AND id=selected_customer_credential.id;
+  ELSE
+    PERFORM customer.id FROM saas.customers customer
+    WHERE customer.store_id=selected_store
+      AND (customer.email=p_delivery->'contact'->>'email' OR customer.phone=p_delivery->'contact'->>'phone')
+    ORDER BY customer.id FOR UPDATE;
+    SELECT customer.* INTO selected_customer FROM saas.customers customer
+    WHERE customer.store_id=selected_store
+      AND (customer.email=p_delivery->'contact'->>'email' OR customer.phone=p_delivery->'contact'->>'phone')
+    ORDER BY customer.id LIMIT 1;
   IF FOUND THEN
+    IF selected_customer.email<>p_delivery->'contact'->>'email'
+      OR selected_customer.phone IS DISTINCT FROM p_delivery->'contact'->>'phone'
+      OR EXISTS(SELECT 1 FROM saas.customers customer WHERE customer.store_id=selected_store
+        AND customer.id<>selected_customer.id
+        AND (customer.email=p_delivery->'contact'->>'email' OR customer.phone=p_delivery->'contact'->>'phone'))
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
     IF selected_customer.status<>'active' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
     UPDATE saas.customers SET first_name=p_delivery->'contact'->>'firstName',last_name=p_delivery->'contact'->>'lastName',
       phone=p_delivery->'contact'->>'phone',version=version+1,updated_at=p_now
@@ -599,6 +636,7 @@ BEGIN
       VALUES(p_customer_id,selected_store,'active',p_delivery->'contact'->>'firstName',p_delivery->'contact'->>'lastName',
         p_delivery->'contact'->>'email',p_delivery->'contact'->>'phone',1,p_now,p_now)
       RETURNING * INTO selected_customer;
+  END IF;
   END IF;
   SELECT address.* INTO selected_address FROM saas.customer_addresses address
   WHERE address.store_id=selected_store AND address.customer_id=selected_customer.id AND address.is_default FOR UPDATE;
@@ -657,10 +695,14 @@ BEGIN
   INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at)
     VALUES(p_event_id,selected_store,p_order_id,NULL,'order_created',NULL,'pending','Storefront siparişi oluşturuldu.',
       pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('paymentKind',p_payment_kind,'note',p_delivery->'note')),p_now);
-  INSERT INTO saas.storefront_customer_credentials(id,store_id,customer_id,key_id,credential_digest,expires_at,created_at,last_seen_at)
-    VALUES(p_customer_credential_id,selected_store,selected_customer.id,p_customer_key_id,p_customer_digest,p_customer_expires_at,p_now,p_now);
+  IF selected_customer_credential.id IS NULL THEN
+    INSERT INTO saas.storefront_customer_credentials(id,store_id,customer_id,key_id,credential_digest,expires_at,created_at,last_seen_at)
+      VALUES(p_customer_credential_id,selected_store,selected_customer.id,p_customer_key_id,p_customer_digest,p_customer_expires_at,p_now,p_now)
+      RETURNING * INTO selected_customer_credential;
+    customer_credential_created:=true;
+  END IF;
   INSERT INTO saas.storefront_order_receipts(id,store_id,order_id,customer_credential_id,key_id,credential_digest,expires_at,created_at)
-    VALUES(p_receipt_id,selected_store,p_order_id,p_customer_credential_id,p_receipt_key_id,p_receipt_digest,p_receipt_expires_at,p_now);
+    VALUES(p_receipt_id,selected_store,p_order_id,selected_customer_credential.id,p_receipt_key_id,p_receipt_digest,p_receipt_expires_at,p_now);
 
   receipt_payload:=pg_catalog.jsonb_build_object(
     'orderReference',order_number,'currency','TRY','subtotalCents',subtotal,'shippingCents',shipping,
@@ -671,9 +713,21 @@ BEGIN
       'accountHolder',CASE WHEN selected_payment.kind='bank_transfer' THEN selected_payment.config->>'accountHolder' END,
       'iban',CASE WHEN selected_payment.kind='bank_transfer' THEN selected_payment.config->>'iban' END
     )),
+    'delivery',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+      'recipientName',selected_customer.first_name||' '||selected_customer.last_name,
+      'addressLine1',p_delivery->'shippingAddress'->>'line1','addressLine2',p_delivery->'shippingAddress'->>'line2',
+      'city',p_delivery->'shippingAddress'->>'city','district',p_delivery->'shippingAddress'->>'district',
+      'postalCode',p_delivery->'shippingAddress'->>'postalCode','country','TR'
+    )),
     'items',cart_payload->'items','createdAt',saas.storefront_commerce_timestamp(p_now)
   );
-  result:=pg_catalog.jsonb_build_object('receipt',receipt_payload);
+  result:=pg_catalog.jsonb_build_object(
+    'receipt',receipt_payload,
+    'credentialPersistence',pg_catalog.jsonb_build_object(
+      'receipt',true,'customer',customer_credential_created,
+      'receiptKeyId',p_receipt_key_id,'customerKeyId',selected_customer_credential.key_id
+    )
+  );
   INSERT INTO saas.storefront_checkout_operations(operation_id,store_id,cart_id,intent_id,order_id,payload_fingerprint,result_payload,committed_at)
     VALUES(p_operation_id,selected_store,source_cart_id,source_intent_id,p_order_id,p_fingerprint,result,p_now);
   IF p_kind='cart' THEN UPDATE saas.storefront_carts SET status='converted',version=version+1,updated_at=p_now WHERE store_id=selected_store AND id=source_cart_id;
@@ -701,18 +755,26 @@ END
 $f$;
 
 CREATE FUNCTION saas.public_receipt_get(
-  p_hostname text,p_now timestamptz,p_credentials jsonb
+  p_hostname text,p_now timestamptz,p_receipt_credentials jsonb,p_customer_credentials jsonb
 )
 RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE selected_store uuid; selected_receipt saas.storefront_order_receipts%ROWTYPE; result jsonb;
 BEGIN
-  IF NOT saas.storefront_credential_candidates_valid(p_credentials,false) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  IF NOT saas.storefront_credential_candidates_valid(p_receipt_credentials,false)
+    OR NOT saas.storefront_credential_candidates_valid(p_customer_credentials,false)
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
   selected_store:=saas.storefront_public_store(p_hostname,p_now);
   IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
   SELECT receipt.* INTO selected_receipt FROM saas.storefront_order_receipts receipt
-  JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate ON candidate->>'keyId'=receipt.key_id AND candidate->>'digest'=receipt.credential_digest
-  WHERE receipt.store_id=selected_store AND receipt.expires_at>p_now ORDER BY receipt.created_at DESC,receipt.id LIMIT 1;
+  JOIN pg_catalog.jsonb_array_elements(p_receipt_credentials) receipt_candidate
+    ON receipt_candidate->>'keyId'=receipt.key_id AND receipt_candidate->>'digest'=receipt.credential_digest
+  JOIN saas.storefront_customer_credentials customer_credential
+    ON customer_credential.store_id=receipt.store_id AND customer_credential.id=receipt.customer_credential_id
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) customer_candidate
+    ON customer_candidate->>'keyId'=customer_credential.key_id AND customer_candidate->>'digest'=customer_credential.credential_digest
+  WHERE receipt.store_id=selected_store AND receipt.expires_at>p_now AND customer_credential.expires_at>p_now
+  ORDER BY receipt.created_at DESC,receipt.id LIMIT 1;
   IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
   SELECT operation.result_payload->'receipt' INTO result FROM saas.storefront_checkout_operations operation
   WHERE operation.store_id=selected_store AND operation.order_id=selected_receipt.order_id;
@@ -738,10 +800,11 @@ BEGIN
     WHERE store_id=selected_store AND id=selected_credential.id;
   SELECT COALESCE(pg_catalog.jsonb_agg(entry.receipt ORDER BY entry.created_at DESC,entry.order_id DESC),'[]'::jsonb) INTO items FROM (
     SELECT operation.result_payload->'receipt' receipt,orders.created_at,orders.id order_id
-    FROM saas.orders orders
+    FROM saas.storefront_order_receipts receipt
+    JOIN saas.orders orders ON orders.store_id=receipt.store_id AND orders.id=receipt.order_id
     JOIN saas.storefront_checkout_operations operation ON operation.store_id=orders.store_id AND operation.order_id=orders.id
-    WHERE orders.store_id=selected_store AND orders.customer_id=selected_credential.customer_id
-    ORDER BY orders.created_at DESC,orders.id DESC LIMIT p_limit
+    WHERE receipt.store_id=selected_store AND receipt.customer_credential_id=selected_credential.id
+    ORDER BY receipt.created_at DESC,receipt.order_id DESC LIMIT p_limit
   ) entry;
   RETURN QUERY SELECT 'found',pg_catalog.jsonb_build_object('items',items);
 END
@@ -752,9 +815,9 @@ REVOKE ALL ON FUNCTION
   saas.public_cart_mutate(text,timestamptz,jsonb,uuid,text,text,timestamptz,uuid,text,text,bigint,uuid,uuid,integer),
   saas.public_buy_now_create(text,timestamptz,uuid,text,text,timestamptz,uuid,uuid,integer),
   saas.public_checkout_quote(text,timestamptz,text,jsonb),
-  saas.public_checkout_complete(text,timestamptz,text,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz),
+  saas.public_checkout_complete(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz),
   saas.public_checkout_recover(text,timestamptz,uuid,text),
-  saas.public_receipt_get(text,timestamptz,jsonb),
+  saas.public_receipt_get(text,timestamptz,jsonb,jsonb),
   saas.public_account_orders(text,timestamptz,jsonb,integer)
 FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
   celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
@@ -765,9 +828,9 @@ GRANT EXECUTE ON FUNCTION
   saas.public_cart_mutate(text,timestamptz,jsonb,uuid,text,text,timestamptz,uuid,text,text,bigint,uuid,uuid,integer),
   saas.public_buy_now_create(text,timestamptz,uuid,text,text,timestamptz,uuid,uuid,integer),
   saas.public_checkout_quote(text,timestamptz,text,jsonb),
-  saas.public_checkout_complete(text,timestamptz,text,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz),
+  saas.public_checkout_complete(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz),
   saas.public_checkout_recover(text,timestamptz,uuid,text),
-  saas.public_receipt_get(text,timestamptz,jsonb),
+  saas.public_receipt_get(text,timestamptz,jsonb,jsonb),
   saas.public_account_orders(text,timestamptz,jsonb,integer)
 TO celebix_saas_host_resolver;
 
@@ -812,35 +875,43 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,sa
   WITH lines AS (
     SELECT item.position,item.quantity,product.id product_id,variant.id variant_id,
       product.slug,product.title,variant.title variant_title,
-      resolved.price_cents,
+      item.unit_price_cents price_cents,primary_media.projection media,
       product.status='active' AND variant.status='active'
+        AND resolved.outcome='found' AND resolved.price_cents=item.unit_price_cents
         AND (NOT variant.stock_tracking OR variant.stock_quantity>=item.quantity) available
     FROM saas.storefront_cart_items item
     JOIN saas.products product ON product.store_id=item.store_id AND product.id=item.product_id
     JOIN saas.product_variants variant ON variant.store_id=item.store_id AND variant.id=item.variant_id AND variant.product_id=item.product_id
-    CROSS JOIN LATERAL saas.resolve_effective_variant_price(item.store_id,item.variant_id,'storefront',p_now,NULL) resolved
-    WHERE item.store_id=p_store_id AND item.cart_id=p_cart_id AND resolved.outcome='found'
+    LEFT JOIN LATERAL saas.resolve_effective_variant_price(item.store_id,item.variant_id,'storefront',p_now,NULL) resolved ON true
+    LEFT JOIN LATERAL (
+      SELECT saas.public_media_projection(media.id) projection FROM saas.product_media media
+      WHERE media.store_id=item.store_id AND media.product_id=item.product_id AND media.status='active'
+      ORDER BY media.sort_order,media.id LIMIT 1
+    ) primary_media ON true
+    WHERE item.store_id=p_store_id AND item.cart_id=p_cart_id
   ), aggregate AS (
     SELECT COALESCE(pg_catalog.sum(quantity),0)::bigint item_count,
       COALESCE(pg_catalog.sum(price_cents*quantity),0)::bigint subtotal,
       COALESCE(pg_catalog.bool_and(available),false) all_available,
-      COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
         'productId',product_id,'variantId',variant_id,'slug',slug,'title',title,
-        'variantTitle',variant_title,'quantity',quantity,'unitPriceCents',price_cents,
+        'variantTitle',variant_title,'media',media,'quantity',quantity,'unitPriceCents',price_cents,
         'lineTotalCents',price_cents*quantity,'available',available
-      ) ORDER BY position,variant_id),'[]'::jsonb) items
+      )) ORDER BY position,variant_id),'[]'::jsonb) items
     FROM lines
   ), shipping AS (
-    SELECT COALESCE((saas.storefront_shipping_projection(p_store_id)->>'shippingCents')::bigint,0) shipping_cents
+    SELECT saas.storefront_shipping_projection(p_store_id) projection
+  ), payments AS (
+    SELECT saas.storefront_payment_methods_projection(p_store_id) methods
   )
   SELECT pg_catalog.jsonb_build_object(
     'version',cart.version,'currency','TRY','itemCount',aggregate.item_count,
-    'subtotalCents',aggregate.subtotal,'shippingCents',CASE WHEN aggregate.item_count=0 THEN 0 ELSE shipping.shipping_cents END,
-    'totalCents',aggregate.subtotal+CASE WHEN aggregate.item_count=0 THEN 0 ELSE shipping.shipping_cents END,
-    'checkoutReady',aggregate.item_count>0 AND aggregate.all_available,
+    'subtotalCents',aggregate.subtotal,'shippingCents',CASE WHEN aggregate.item_count=0 THEN 0 ELSE COALESCE((shipping.projection->>'shippingCents')::bigint,0) END,
+    'totalCents',aggregate.subtotal+CASE WHEN aggregate.item_count=0 THEN 0 ELSE COALESCE((shipping.projection->>'shippingCents')::bigint,0) END,
+    'checkoutReady',aggregate.item_count>0 AND aggregate.all_available AND shipping.projection IS NOT NULL AND pg_catalog.jsonb_array_length(payments.methods)>0,
     'items',aggregate.items
   )
-  FROM saas.storefront_carts cart CROSS JOIN aggregate CROSS JOIN shipping
+  FROM saas.storefront_carts cart CROSS JOIN aggregate CROSS JOIN shipping CROSS JOIN payments
   WHERE cart.store_id=p_store_id AND cart.id=p_cart_id
 $f$;
 
@@ -848,29 +919,37 @@ CREATE FUNCTION saas.storefront_intent_projection(p_store_id uuid,p_intent_id uu
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
   WITH selected AS (
     SELECT intent.quantity,product.id product_id,variant.id variant_id,product.slug,
-      product.title,variant.title variant_title,resolved.price_cents,
+      product.title,variant.title variant_title,intent.unit_price_cents price_cents,primary_media.projection media,
       product.status='active' AND variant.status='active'
+        AND resolved.outcome='found' AND resolved.price_cents=intent.unit_price_cents
         AND (NOT variant.stock_tracking OR variant.stock_quantity>=intent.quantity) available
     FROM saas.storefront_checkout_intents intent
     JOIN saas.products product ON product.store_id=intent.store_id AND product.id=intent.product_id
     JOIN saas.product_variants variant ON variant.store_id=intent.store_id AND variant.id=intent.variant_id AND variant.product_id=intent.product_id
-    CROSS JOIN LATERAL saas.resolve_effective_variant_price(intent.store_id,intent.variant_id,'storefront',p_now,NULL) resolved
-    WHERE intent.store_id=p_store_id AND intent.id=p_intent_id AND resolved.outcome='found'
+    LEFT JOIN LATERAL saas.resolve_effective_variant_price(intent.store_id,intent.variant_id,'storefront',p_now,NULL) resolved ON true
+    LEFT JOIN LATERAL (
+      SELECT saas.public_media_projection(media.id) projection FROM saas.product_media media
+      WHERE media.store_id=intent.store_id AND media.product_id=intent.product_id AND media.status='active'
+      ORDER BY media.sort_order,media.id LIMIT 1
+    ) primary_media ON true
+    WHERE intent.store_id=p_store_id AND intent.id=p_intent_id
   ), shipping AS (
-    SELECT COALESCE((saas.storefront_shipping_projection(p_store_id)->>'shippingCents')::bigint,0) shipping_cents
+    SELECT saas.storefront_shipping_projection(p_store_id) projection
+  ), payments AS (
+    SELECT saas.storefront_payment_methods_projection(p_store_id) methods
   )
   SELECT pg_catalog.jsonb_build_object(
     'version',1,'currency','TRY','itemCount',selected.quantity,
-    'subtotalCents',selected.price_cents*selected.quantity,'shippingCents',shipping.shipping_cents,
-    'totalCents',selected.price_cents*selected.quantity+shipping.shipping_cents,
-    'checkoutReady',selected.available,
-    'items',pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+    'subtotalCents',selected.price_cents*selected.quantity,'shippingCents',COALESCE((shipping.projection->>'shippingCents')::bigint,0),
+    'totalCents',selected.price_cents*selected.quantity+COALESCE((shipping.projection->>'shippingCents')::bigint,0),
+    'checkoutReady',selected.available AND shipping.projection IS NOT NULL AND pg_catalog.jsonb_array_length(payments.methods)>0,
+    'items',pg_catalog.jsonb_build_array(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
       'productId',selected.product_id,'variantId',selected.variant_id,'slug',selected.slug,
-      'title',selected.title,'variantTitle',selected.variant_title,'quantity',selected.quantity,
+      'title',selected.title,'variantTitle',selected.variant_title,'media',selected.media,'quantity',selected.quantity,
       'unitPriceCents',selected.price_cents,'lineTotalCents',selected.price_cents*selected.quantity,
       'available',selected.available
-    ))
-  ) FROM selected CROSS JOIN shipping
+    )))
+  ) FROM selected CROSS JOIN shipping CROSS JOIN payments
 $f$;
 
 CREATE FUNCTION saas.storefront_delivery_valid(p_delivery jsonb)
@@ -891,7 +970,7 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,saas AS $f$
     AND (p_delivery->'contact'->>'email')=pg_catalog.lower(pg_catalog.btrim(p_delivery->'contact'->>'email'))
     AND pg_catalog.char_length(p_delivery->'contact'->>'email') BETWEEN 3 AND 320
     AND (p_delivery->'contact'->>'email')~'^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
-    AND (p_delivery->'contact'->>'phone')~'^\+[1-9][0-9]{7,14}$'
+    AND (p_delivery->'contact'->>'phone')~'^\+90[1-9][0-9]{9}$'
     AND (p_delivery->'shippingAddress'->>'line1')=pg_catalog.btrim(p_delivery->'shippingAddress'->>'line1')
     AND pg_catalog.char_length(p_delivery->'shippingAddress'->>'line1') BETWEEN 1 AND 300
     AND (p_delivery->'shippingAddress'->>'city')=pg_catalog.btrim(p_delivery->'shippingAddress'->>'city')

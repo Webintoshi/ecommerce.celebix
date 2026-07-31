@@ -13,6 +13,12 @@ export type StorefrontGeneratedCredential = Readonly<{
   digest: string;
   expiresAt: Date;
 }>;
+export type StorefrontCheckoutCredentialPersistence = Readonly<{
+  receipt: true;
+  customer: boolean;
+  receiptKeyId: string;
+  customerKeyId: string;
+}>;
 
 export type StorefrontDelivery = Readonly<{
   contact: Readonly<{ firstName: string; lastName: string; email: string; phone: string }>;
@@ -60,6 +66,7 @@ export interface StorefrontCommerceRepository {
     now: Date;
     intentKind: "cart" | "buy_now";
     candidates: readonly StorefrontCredentialCandidate[];
+    customerCandidates: readonly StorefrontCredentialCandidate[];
     operationId: string;
     cartVersion: number;
     delivery: StorefrontDelivery;
@@ -72,8 +79,8 @@ export interface StorefrontCommerceRepository {
       receipt: StorefrontGeneratedCredential;
       customer: StorefrontGeneratedCredential;
     }>;
-  }>): Promise<PublicCheckoutReceipt>;
-  getReceipt(input: Readonly<{ hostname: string; now: Date; candidates: readonly StorefrontCredentialCandidate[] }>): Promise<PublicCheckoutReceipt>;
+  }>): Promise<Readonly<{ receipt: PublicCheckoutReceipt; credentialPersistence: StorefrontCheckoutCredentialPersistence }>>;
+  getReceipt(input: Readonly<{ hostname: string; now: Date; receiptCandidates: readonly StorefrontCredentialCandidate[]; customerCandidates: readonly StorefrontCredentialCandidate[] }>): Promise<PublicCheckoutReceipt>;
   listAccountOrders(input: Readonly<{ hostname: string; now: Date; candidates: readonly StorefrontCredentialCandidate[]; limit: number }>): Promise<readonly PublicCheckoutReceipt[]>;
 }
 

@@ -3,7 +3,7 @@ import type { CartCommand, CheckoutContact, CheckoutRequest, CheckoutShippingAdd
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE = /^\+?[0-9][0-9 ()-]{6,30}[0-9]$/;
+const PHONE = /^\+90[1-9][0-9]{9}$/;
 const POSTAL = /^[A-Za-z0-9 -]{2,16}$/;
 const MAXIMUM_BODY_BYTES = 32_768;
 
@@ -69,8 +69,8 @@ export async function readCartMutationRequest(request: Request, publicOrigin: st
   const row = exact(selected.body, ["operationId", "productId", "variantId", "quantity"], [], cartInvalid); return Object.freeze({ kind: "buy_now", operationId: operation(row), productId: uuid(row.productId, cartInvalid), variantId: uuid(row.variantId, cartInvalid), quantity: integer(row.quantity, 1, 9_999, cartInvalid) });
 }
 
-function contact(value: unknown): CheckoutContact { const row = exact(value, ["name", "email", "phone"], [], checkoutInvalid); return Object.freeze({ name: text(row.name, 2, 200, checkoutInvalid), email: text(row.email, 3, 320, checkoutInvalid, EMAIL).toLowerCase(), phone: text(row.phone, 8, 32, checkoutInvalid, PHONE) }); }
-function address(value: unknown): CheckoutShippingAddress { const row = exact(value, ["addressLine1", "city", "district", "postalCode"], ["addressLine2"], checkoutInvalid); return Object.freeze({ addressLine1: text(row.addressLine1, 3, 300, checkoutInvalid), ...(Object.hasOwn(row, "addressLine2") ? { addressLine2: text(row.addressLine2, 1, 300, checkoutInvalid) } : {}), city: text(row.city, 2, 100, checkoutInvalid), district: text(row.district, 2, 100, checkoutInvalid), postalCode: text(row.postalCode, 2, 16, checkoutInvalid, POSTAL) }); }
+function contact(value: unknown): CheckoutContact { const row = exact(value, ["name", "email", "phone"], [], checkoutInvalid); return Object.freeze({ name: text(row.name, 2, 200, checkoutInvalid), email: text(row.email, 3, 320, checkoutInvalid, EMAIL).toLowerCase(), phone: text(row.phone, 13, 13, checkoutInvalid, PHONE) }); }
+function address(value: unknown): CheckoutShippingAddress { const row = exact(value, ["addressLine1", "city", "district"], ["addressLine2", "postalCode"], checkoutInvalid); return Object.freeze({ addressLine1: text(row.addressLine1, 3, 300, checkoutInvalid), ...(Object.hasOwn(row, "addressLine2") ? { addressLine2: text(row.addressLine2, 1, 300, checkoutInvalid) } : {}), city: text(row.city, 2, 100, checkoutInvalid), district: text(row.district, 2, 100, checkoutInvalid), ...(Object.hasOwn(row, "postalCode") ? { postalCode: text(row.postalCode, 1, 16, checkoutInvalid, POSTAL) } : {}) }); }
 
 export async function readCheckoutRequest(request: Request, publicOrigin: string): Promise<CheckoutRequest> {
   let selected: { path: string; body: unknown };
@@ -78,5 +78,5 @@ export async function readCheckoutRequest(request: Request, publicOrigin: string
   if (selected.path === "/api/checkout/quote") { const row = exact(selected.body, ["intentKind"], [], checkoutInvalid); if (row.intentKind !== "cart" && row.intentKind !== "buy_now") checkoutInvalid(); return Object.freeze({ kind: "quote", intentKind: row.intentKind }); }
   const row = exact(selected.body, ["operationId", "cartVersion", "intentKind", "contact", "shippingAddress", "shippingMethod", "paymentKind"], ["note"], checkoutInvalid);
   if (row.intentKind !== "cart" && row.intentKind !== "buy_now" || row.shippingMethod !== "standard" || row.paymentKind !== "bank_transfer" && row.paymentKind !== "cash_on_delivery") checkoutInvalid();
-  return Object.freeze({ kind: "complete", operationId: uuid(row.operationId, checkoutInvalid), cartVersion: integer(row.cartVersion, 0, Number.MAX_SAFE_INTEGER, checkoutInvalid), intentKind: row.intentKind, contact: contact(row.contact), shippingAddress: address(row.shippingAddress), shippingMethod: "standard", paymentKind: row.paymentKind, ...(Object.hasOwn(row, "note") ? { note: text(row.note, 1, 1_000, checkoutInvalid) } : {}) });
+  return Object.freeze({ kind: "complete", operationId: uuid(row.operationId, checkoutInvalid), cartVersion: integer(row.cartVersion, 0, Number.MAX_SAFE_INTEGER, checkoutInvalid), intentKind: row.intentKind, contact: contact(row.contact), shippingAddress: address(row.shippingAddress), shippingMethod: "standard", paymentKind: row.paymentKind, ...(Object.hasOwn(row, "note") ? { note: text(row.note, 1, 500, checkoutInvalid) } : {}) });
 }

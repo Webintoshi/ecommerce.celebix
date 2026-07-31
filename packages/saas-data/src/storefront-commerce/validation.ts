@@ -12,7 +12,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const DIGEST = /^[a-f0-9]{64}$/u;
 const KEY_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
-const PHONE = /^\+[1-9][0-9]{7,14}$/u;
+const PHONE = /^\+90[1-9][0-9]{9}$/u;
 
 export function exactCommerceInput(value: unknown, required: readonly string[], optional: readonly string[] = []): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) invalid();
@@ -98,17 +98,17 @@ export function commerceDelivery(value: unknown): StorefrontDelivery {
   const firstName = text(contact.firstName, 1, 100);
   const lastName = text(contact.lastName, 1, 100);
   const email = text(contact.email, 3, 254, EMAIL).toLowerCase();
-  const phone = text(contact.phone, 8, 16, PHONE);
+  const phone = text(contact.phone, 13, 13, PHONE);
   const line2 = optionalText(address, "line2", 300);
-  const district = optionalText(address, "district", 120);
+  const district = optionalText(address, "district", 100);
   const postalCode = optionalText(address, "postalCode", 20);
-  const note = optionalText(parsed, "note", 1_000);
+  const note = optionalText(parsed, "note", 500);
   return Object.freeze({
     contact: Object.freeze({ firstName, lastName, email, phone }),
     shippingAddress: Object.freeze({
       line1: text(address.line1, 1, 300),
       ...(line2 ? { line2 } : {}),
-      city: text(address.city, 1, 120),
+      city: text(address.city, 1, 100),
       ...(district ? { district } : {}),
       ...(postalCode ? { postalCode } : {}),
       country: "TR" as const,
@@ -116,9 +116,19 @@ export function commerceDelivery(value: unknown): StorefrontDelivery {
     ...(note ? { note } : {}),
   });
 }
-export function parseReceiptEnvelope(value: unknown, parse: (input: unknown) => PublicCheckoutReceipt): PublicCheckoutReceipt {
-  const selected = exactCommerceInput(value, ["receipt"]);
-  return parse(selected.receipt);
+export function parseReceiptEnvelope(value: unknown, parse: (input: unknown) => PublicCheckoutReceipt) {
+  const selected = exactCommerceInput(value, ["receipt", "credentialPersistence"]);
+  const persistence = exactCommerceInput(selected.credentialPersistence, ["receipt", "customer", "receiptKeyId", "customerKeyId"]);
+  if (persistence.receipt !== true || typeof persistence.customer !== "boolean") invalid();
+  return Object.freeze({
+    receipt: parse(selected.receipt),
+    credentialPersistence: Object.freeze({
+      receipt: true as const,
+      customer: persistence.customer,
+      receiptKeyId: text(persistence.receiptKeyId, 1, 32, KEY_ID),
+      customerKeyId: text(persistence.customerKeyId, 1, 32, KEY_ID),
+    }),
+  });
 }
 export function parseReceiptList(value: unknown, parse: (input: unknown) => PublicCheckoutReceipt): readonly PublicCheckoutReceipt[] {
   const selected = exactCommerceInput(value, ["items"]);

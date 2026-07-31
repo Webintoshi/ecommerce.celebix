@@ -9,10 +9,10 @@ const OPERATION = "30000000-0000-4000-8000-000000000001";
 const PRODUCT = "10000000-0000-4000-8000-000000000001";
 const VARIANT = "20000000-0000-4000-8000-000000000001";
 const CART = Object.freeze({ version: 1, currency: "TRY" as const, itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, items: Object.freeze([Object.freeze({ productId: PRODUCT, variantId: VARIANT, slug: "urun-bir", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 100, lineTotalCents: 100, available: true })]) });
-const RECEIPT = Object.freeze({ orderReference: "SF-40000000000040008000000000000001", currency: "TRY" as const, subtotalCents: 100, shippingCents: 0, totalCents: 100, paymentStatus: "pending" as const, paymentMethod: Object.freeze({ kind: "cash_on_delivery" as const, label: "Kapıda ödeme", instructions: "Teslimatta ödeyin." }), items: CART.items, createdAt: "2026-07-31T12:00:00.000Z" });
+const RECEIPT = Object.freeze({ orderReference: "SF-40000000000040008000000000000001", currency: "TRY" as const, subtotalCents: 100, shippingCents: 0, totalCents: 100, paymentStatus: "pending" as const, paymentMethod: Object.freeze({ kind: "cash_on_delivery" as const, label: "Kapıda ödeme", instructions: "Teslimatta ödeyin." }), delivery: Object.freeze({ recipientName: "Güzide Elif", addressLine1: "Cadde 1", city: "İstanbul", country: "TR" as const }), items: CART.items, createdAt: "2026-07-31T12:00:00.000Z" });
 const trusted = (): TrustedStorefrontHostAuthority => ({ kind: "trusted", hostname: HOST });
 const baseRuntime = {
-  resolveCart: async () => CART,
+  resolveCart: async () => ({ cart: CART }),
   mutateCart: async () => ({ cart: CART }),
   quote: async () => ({ cart: CART, paymentMethods: [] }),
   complete: async () => { throw new Error("unused"); },
@@ -23,6 +23,12 @@ test("cart GET returns only canonical cart under trusted proxy authority", async
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { cart: CART });
   assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("cart GET forwards only the exact local credential deletion cookie", async () => {
+  const response = await createCartGetRoute({ selectAuthority: trusted, resolveRuntime: async () => ({ ...baseRuntime, resolveCart: async () => ({ cart: CART, setCookie: "__Host-celebix_cart=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax" }) }) })(new Request("http://internal:3400/api/cart"));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("set-cookie"), "__Host-celebix_cart=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
 });
 
 test("cart mutation requires exact same-origin authority and sets credential only after success", async () => {

@@ -165,10 +165,12 @@ test("checkout receipt stays pending and rejects durable private identifiers", (
     totalCents: CART.totalCents,
     paymentStatus: "pending",
     paymentMethod: BANK_TRANSFER,
+    delivery: { recipientName: "Güzide Elif", addressLine1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", country: "TR" },
     items: CART.items,
     createdAt: "2026-07-31T12:00:00.000Z",
   });
   assert.equal(receipt.paymentStatus, "pending");
+  assert.equal(receipt.delivery.city, "İstanbul");
   assert.equal(Object.isFrozen(receipt), true);
   assert.throws(() => parsePublicCheckoutReceipt({ ...receipt, paymentStatus: "paid" }));
   assert.throws(() => parsePublicCheckoutReceipt({ ...receipt, orderId: crypto.randomUUID() }));

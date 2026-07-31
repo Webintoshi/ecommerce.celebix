@@ -3,10 +3,10 @@
   "phase": "4b-storefront-cart-checkout",
   "postgresqlMajor": 16,
   "artifacts": [
-    { "file": "202607310072_storefront_cart_checkout.up.sql", "sha256": "15f298d7aeb325ae80fcb892f3fad9213d761182ca04952eae0068d0849fc331" },
-    { "file": "202607310072_storefront_cart_checkout_assertions.sql", "sha256": "1c93f2e9d6f601a33236bee7a1e1857dd89a48f493b43771dfa8a9bd5ea6880f" }
+    { "file": "202607310072_storefront_cart_checkout.up.sql", "sha256": "03564b0f68fff7b69649c878bb373a54bf1bcd5aa05386160a02b74deff718b4" },
+    { "file": "202607310072_storefront_cart_checkout_assertions.sql", "sha256": "d4d73e4fba3c55a38b8631d804a9d0094d1a8effa208a45e755164bdda3aadc2" }
   ],
   "rollbackArtifacts": [
-    { "file": "202607310072_storefront_cart_checkout.down.sql", "sha256": "01e56d6b39c4ee5c430203fed9c9b39f57e7552bde426facb7aa296ea993694b" }
+    { "file": "202607310072_storefront_cart_checkout.down.sql", "sha256": "a0ee0b8cf5fc8339ceba9ef4535aea2ef0dc8fa9ebe1b7efea0e04be5fc04ef8" }
   ]
 }

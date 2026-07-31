@@ -6,6 +6,7 @@ export {
 export type {
   PostgresStorefrontCommerceRepositoryOptions,
   StorefrontCommerceAuditEvent,
+  StorefrontCheckoutCredentialPersistence,
   StorefrontCommerceRepository,
   StorefrontCredentialCandidate,
   StorefrontDelivery,

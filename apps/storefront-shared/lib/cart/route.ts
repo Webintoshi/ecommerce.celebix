@@ -38,7 +38,7 @@ export function createCartGetRoute(dependencies: Dependencies) {
     if (!selected) return json({ code: "unavailable" }, 503);
     if (request.method !== "GET" || !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/api/cart" || url.search || url.hash) return json({ code: "invalid_input" }, 400);
     const selectedRuntime = await runtime(dependencies); if (!selectedRuntime) return json({ code: "unavailable" }, 503);
-    try { return json({ cart: await selectedRuntime.resolveCart(selected.hostname, request.headers.get("cookie")) }, 200); } catch (error) { return failure(error); }
+    try { const result=await selectedRuntime.resolveCart(selected.hostname, request.headers.get("cookie")); return json({ cart: result.cart }, 200, result.setCookie ? { "set-cookie": result.setCookie } : undefined); } catch (error) { return failure(error); }
   };
 }
 

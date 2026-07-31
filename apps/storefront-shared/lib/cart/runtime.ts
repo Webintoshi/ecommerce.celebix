@@ -4,11 +4,14 @@ import type {
   PublicCheckoutReceipt,
 } from "@celebix/saas-contracts";
 import type { StorefrontCommerceRepository } from "@celebix/saas-data";
+import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
 
 import {
   createStorefrontCredential,
+  createStorefrontOperationCredential,
   credentialDigestCandidates,
   readStorefrontCredentialCookie,
+  serializeStorefrontCredentialDeletionCookie,
   serializeStorefrontCredentialCookie,
   type StorefrontCommerceCredentialKeyring,
 } from "./credential.ts";
@@ -31,7 +34,7 @@ export class StorefrontCommerceRuntimeError extends Error {
 }
 
 export type StorefrontCommerceRuntime = Readonly<{
-  resolveCart(hostname: string, cookieHeader: string | null): Promise<PublicCart>;
+  resolveCart(hostname: string, cookieHeader: string | null): Promise<Readonly<{ cart: PublicCart; setCookie?: string }>>;
   mutateCart(hostname: string, cookieHeader: string | null, command: CartCommand): Promise<Readonly<{ cart?: PublicCart; destination?: "/checkout?intent=buy-now"; setCookie?: string }>>;
   quote(hostname: string, cookieHeader: string | null, intentKind: CheckoutIntentKind): Promise<PublicCheckoutQuote>;
   complete(hostname: string, cookieHeader: string | null, request: Extract<CheckoutRequest, { kind: "complete" }>): Promise<Readonly<{ receipt: PublicCheckoutReceipt; setCookies: readonly string[] }>>;
@@ -67,10 +70,23 @@ function generated(dependencies: Dependencies, selectedPurpose: "cart" | "intent
     persisted: Object.freeze({ id: dependencies.randomUuid(), keyId: credential.keyId, digest: credential.digest, expiresAt: new Date(now.getTime() + lifetimeMs) }),
   });
 }
+function operationGenerated(dependencies: Dependencies, selectedPurpose: "receipt" | "customer", operationId: string, now: Date, lifetimeMs: number) {
+  const credential = createStorefrontOperationCredential(selectedPurpose, operationId, dependencies.keyring);
+  return Object.freeze({
+    raw: credential.value,
+    persisted: Object.freeze({ id: dependencies.randomUuid(), keyId: credential.keyId, digest: credential.digest, expiresAt: new Date(now.getTime() + lifetimeMs) }),
+  });
+}
+function optionalCandidates(selectedPurpose: "customer", cookieHeader: string | null, keyring: StorefrontCommerceCredentialKeyring) {
+  const cookie = readStorefrontCredentialCookie(selectedPurpose, cookieHeader);
+  if (cookie.kind !== "present") return Object.freeze([]);
+  return credentialDigestCandidates(selectedPurpose, cookie.value, keyring);
+}
 function delivery(request: Extract<CheckoutRequest, { kind: "complete" }>) {
-  const split = request.contact.name.lastIndexOf(" ");
-  const firstName = split > 0 ? request.contact.name.slice(0, split) : request.contact.name;
-  const lastName = split > 0 ? request.contact.name.slice(split + 1) : "-";
+  const normalizedName = request.contact.name.trim().replace(/ +/gu, " ");
+  const split = normalizedName.lastIndexOf(" ");
+  const firstName = split > 0 ? normalizedName.slice(0, split) : normalizedName;
+  const lastName = split > 0 ? normalizedName.slice(split + 1) : "-";
   const digits = request.contact.phone.replace(/[^0-9+]/gu, "");
   const phone = digits.startsWith("+") ? digits : digits.startsWith("0") ? `+90${digits.slice(1)}` : `+${digits}`;
   return Object.freeze({
@@ -80,7 +96,7 @@ function delivery(request: Extract<CheckoutRequest, { kind: "complete" }>) {
       ...(request.shippingAddress.addressLine2 ? { line2: request.shippingAddress.addressLine2 } : {}),
       city: request.shippingAddress.city,
       district: request.shippingAddress.district,
-      postalCode: request.shippingAddress.postalCode,
+      ...(request.shippingAddress.postalCode ? { postalCode: request.shippingAddress.postalCode } : {}),
       country: "TR" as const,
     }),
     ...(request.note ? { note: request.note } : {}),
@@ -91,11 +107,15 @@ export function createStorefrontCommerceRuntime(dependencies: Dependencies): Sto
   return Object.freeze({
     async resolveCart(hostname, cookieHeader) {
       const cookie = readStorefrontCredentialCookie("cart", cookieHeader);
-      if (cookie.kind === "missing") return EMPTY_CART;
-      if (cookie.kind === "invalid") throw new StorefrontCommerceRuntimeError("invalid_input");
+      if (cookie.kind === "missing") return Object.freeze({ cart: EMPTY_CART });
+      if (cookie.kind === "invalid") return Object.freeze({ cart: EMPTY_CART, setCookie: serializeStorefrontCredentialDeletionCookie("cart") });
       const selected = credentialDigestCandidates("cart", cookie.value, dependencies.keyring);
-      if (selected.length < 1) throw new StorefrontCommerceRuntimeError("invalid_input");
-      return dependencies.repository.resolveCart({ hostname, now: date(dependencies), candidates: selected });
+      if (selected.length < 1) return Object.freeze({ cart: EMPTY_CART, setCookie: serializeStorefrontCredentialDeletionCookie("cart") });
+      try { return Object.freeze({ cart: await dependencies.repository.resolveCart({ hostname, now: date(dependencies), candidates: selected }) }); }
+      catch (error) {
+        if (error instanceof StorefrontCommerceRepositoryError && (error.code === "not_found" || error.code === "cart_expired")) return Object.freeze({ cart: EMPTY_CART, setCookie: serializeStorefrontCredentialDeletionCookie("cart") });
+        throw error;
+      }
     },
     async mutateCart(hostname, cookieHeader, command) {
       const now = date(dependencies);
@@ -105,16 +125,27 @@ export function createStorefrontCommerceRuntime(dependencies: Dependencies): Sto
         return Object.freeze({ destination: "/checkout?intent=buy-now" as const, setCookie: serializeStorefrontCredentialCookie("intent", intent.raw) });
       }
       const cookie = readStorefrontCredentialCookie("cart", cookieHeader);
-      if (cookie.kind === "invalid") throw new StorefrontCommerceRuntimeError("invalid_input");
-      const isNew = cookie.kind === "missing";
+      const recoverableAdd = command.kind === "add";
+      const isNew = cookie.kind === "missing" || (recoverableAdd && cookie.kind === "invalid");
+      if (cookie.kind === "invalid" && !recoverableAdd) throw new StorefrontCommerceRuntimeError("invalid_input");
       if (isNew && command.kind !== "add") throw new StorefrontCommerceRuntimeError("invalid_input");
       let selectedCandidates = Object.freeze([]) as ReturnType<typeof credentialDigestCandidates>;
       let existingCart: PublicCart | undefined;
       let cartCredential: ReturnType<typeof generated> | undefined;
       if (cookie.kind === "present") {
         selectedCandidates = credentialDigestCandidates("cart", cookie.value, dependencies.keyring);
-        if (selectedCandidates.length < 1) throw new StorefrontCommerceRuntimeError("invalid_input");
-        existingCart = await dependencies.repository.resolveCart({ hostname, now, candidates: selectedCandidates });
+        if (selectedCandidates.length < 1) {
+          if (!recoverableAdd) throw new StorefrontCommerceRuntimeError("invalid_input");
+          selectedCandidates = Object.freeze([]);
+          cartCredential = generated(dependencies, "cart", now, 30 * 86_400_000);
+        } else {
+          try { existingCart = await dependencies.repository.resolveCart({ hostname, now, candidates: selectedCandidates }); }
+          catch (error) {
+            if (!recoverableAdd || !(error instanceof StorefrontCommerceRepositoryError) || error.code !== "not_found" && error.code !== "cart_expired") throw error;
+            selectedCandidates = Object.freeze([]);
+            cartCredential = generated(dependencies, "cart", now, 30 * 86_400_000);
+          }
+        }
       } else {
         cartCredential = generated(dependencies, "cart", now, 30 * 86_400_000);
       }
@@ -139,10 +170,11 @@ export function createStorefrontCommerceRuntime(dependencies: Dependencies): Sto
     async complete(hostname, cookieHeader, request) {
       const now = date(dependencies);
       const intentCandidates = candidates(purpose(request.intentKind), cookieHeader, dependencies.keyring);
-      const receipt = generated(dependencies, "receipt", now, 15 * 60_000);
-      const customer = generated(dependencies, "customer", now, 30 * 86_400_000);
+      const receipt = operationGenerated(dependencies, "receipt", request.operationId, now, 15 * 60_000);
+      const customer = operationGenerated(dependencies, "customer", request.operationId, now, 30 * 86_400_000);
+      const customerCandidates = optionalCandidates("customer", cookieHeader, dependencies.keyring);
       const result = await dependencies.repository.complete({
-        hostname, now, intentKind: request.intentKind, candidates: intentCandidates,
+        hostname, now, intentKind: request.intentKind, candidates: intentCandidates, customerCandidates,
         operationId: request.operationId, cartVersion: request.cartVersion,
         delivery: delivery(request), paymentKind: request.paymentKind,
         generated: Object.freeze({
@@ -150,10 +182,18 @@ export function createStorefrontCommerceRuntime(dependencies: Dependencies): Sto
           receipt: receipt.persisted, customer: customer.persisted,
         }),
       });
-      return Object.freeze({ receipt: result, setCookies: Object.freeze([serializeStorefrontCredentialCookie("customer", customer.raw), serializeStorefrontCredentialCookie("receipt", receipt.raw)]) });
+      const persistedReceipt = createStorefrontOperationCredential("receipt", request.operationId, dependencies.keyring, result.credentialPersistence.receiptKeyId);
+      const persistedCustomer = result.credentialPersistence.customer
+        ? createStorefrontOperationCredential("customer", request.operationId, dependencies.keyring, result.credentialPersistence.customerKeyId)
+        : undefined;
+      const setCookies = [
+        ...(persistedCustomer ? [serializeStorefrontCredentialCookie("customer", persistedCustomer.value)] : []),
+        ...(result.credentialPersistence.receipt ? [serializeStorefrontCredentialCookie("receipt", persistedReceipt.value)] : []),
+      ];
+      return Object.freeze({ receipt: result.receipt, setCookies: Object.freeze(setCookies) });
     },
     async getReceipt(hostname, cookieHeader) {
-      return dependencies.repository.getReceipt({ hostname, now: date(dependencies), candidates: candidates("receipt", cookieHeader, dependencies.keyring) });
+      return dependencies.repository.getReceipt({ hostname, now: date(dependencies), receiptCandidates: candidates("receipt", cookieHeader, dependencies.keyring), customerCandidates: candidates("customer", cookieHeader, dependencies.keyring) });
     },
     async listAccountOrders(hostname, cookieHeader, limit) {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new StorefrontCommerceRuntimeError("invalid_input");

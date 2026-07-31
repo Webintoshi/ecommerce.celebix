@@ -6,6 +6,7 @@ const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const KEY_ID = /^[a-z][a-z0-9_-]{2,31}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PREFIX: Readonly<Record<StorefrontCredentialPurpose, string>> = Object.freeze({ cart: "c1", intent: "i1", customer: "u1", receipt: "r1" });
 const COOKIE: Readonly<Record<StorefrontCredentialPurpose, Readonly<{ name: string; maxAge: number }>>> = Object.freeze({
   cart: Object.freeze({ name: "__Host-celebix_cart", maxAge: 2_592_000 }),
@@ -64,17 +65,30 @@ export function parseStorefrontCommerceCredentialKeyring(source: Readonly<Record
   return Object.freeze({ activeKeyId, keys: Object.freeze(keys) });
 }
 
-export function createStorefrontCredential(purpose: StorefrontCredentialPurpose, keyring: StorefrontCommerceCredentialKeyring, random: (size: number) => Uint8Array): Readonly<{ value: string; keyId: string; digest: string }> {
-  const active = keyring.keys.find(({ keyId }) => keyId === keyring.activeKeyId);
-  if (!active) unavailable();
+function createStorefrontCredentialForKey(purpose: StorefrontCredentialPurpose, keyring: StorefrontCommerceCredentialKeyring, keyId: string, random: (size: number) => Uint8Array): Readonly<{ value: string; keyId: string; digest: string }> {
+  const selected = keyring.keys.find((entry) => entry.keyId === keyId);
+  if (!selected) unavailable();
   const randomValue = random(32);
   if (!(randomValue instanceof Uint8Array) || randomValue.byteLength !== 32) unavailable();
   const bytes = Buffer.from(randomValue);
   try {
     const token = bytes.toString("base64url");
     if (!canonicalToken(token)) unavailable();
-    return Object.freeze({ value: `${PREFIX[purpose]}.${active.keyId}.${token}`, keyId: active.keyId, digest: digest(purpose, active.keyId, token, active.key) });
+    return Object.freeze({ value: `${PREFIX[purpose]}.${selected.keyId}.${token}`, keyId: selected.keyId, digest: digest(purpose, selected.keyId, token, selected.key) });
   } finally { bytes.fill(0); }
+}
+
+export function createStorefrontCredential(purpose: StorefrontCredentialPurpose, keyring: StorefrontCommerceCredentialKeyring, random: (size: number) => Uint8Array): Readonly<{ value: string; keyId: string; digest: string }> {
+  return createStorefrontCredentialForKey(purpose, keyring, keyring.activeKeyId, random);
+}
+
+export function createStorefrontOperationCredential(purpose: "customer" | "receipt", operationId: string, keyring: StorefrontCommerceCredentialKeyring, persistedKeyId = keyring.activeKeyId): Readonly<{ value: string; keyId: string; digest: string }> {
+  const selected = KEY_ID.test(persistedKeyId) ? keyring.keys.find(({ keyId }) => keyId === persistedKeyId) : undefined;
+  if (!selected || !UUID.test(operationId)) unavailable();
+  const frame = Buffer.from(`celebix\0storefront-operation-credential\0v1\0${purpose}\0${operationId}`, "utf8");
+  const seed = createHmac("sha256", selected.key).update(frame).digest();
+  try { return createStorefrontCredentialForKey(purpose, keyring, selected.keyId, () => new Uint8Array(seed)); }
+  finally { frame.fill(0); seed.fill(0); }
 }
 
 export function credentialDigestCandidates(purpose: StorefrontCredentialPurpose, value: string, keyring: StorefrontCommerceCredentialKeyring): readonly Readonly<{ keyId: string; digest: string }>[] {
@@ -108,4 +122,8 @@ export function serializeStorefrontCredentialCookie(purpose: StorefrontCredentia
   if (parseCredential(purpose, value) === null) throw new TypeError("storefront_commerce_credential_invalid");
   const selected = COOKIE[purpose];
   return `${selected.name}=${value}; Path=/; Max-Age=${selected.maxAge}; HttpOnly; Secure; SameSite=Lax`;
+}
+
+export function serializeStorefrontCredentialDeletionCookie(purpose: StorefrontCredentialPurpose): string {
+  return `${COOKIE[purpose].name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 }

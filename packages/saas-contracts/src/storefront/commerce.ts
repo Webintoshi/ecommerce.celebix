@@ -82,6 +82,15 @@ export type PublicCheckoutReceipt = Readonly<{
   totalCents: number;
   paymentStatus: "pending";
   paymentMethod: PublicPaymentMethod;
+  delivery: Readonly<{
+    recipientName: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    district?: string;
+    postalCode?: string;
+    country: "TR";
+  }>;
   items: readonly PublicCartLine[];
   createdAt: string;
 }>;
@@ -222,6 +231,20 @@ function paymentMethod(value: unknown): PublicPaymentMethod {
   return invalid();
 }
 
+function receiptDelivery(value: unknown): PublicCheckoutReceipt["delivery"] {
+  const parsed = exact(value, ["recipientName", "addressLine1", "city", "country"], ["addressLine2", "district", "postalCode"]);
+  if (parsed.country !== "TR") invalid();
+  return Object.freeze({
+    recipientName: text(parsed.recipientName, 2, 201),
+    addressLine1: text(parsed.addressLine1, 1, 300),
+    ...(Object.hasOwn(parsed, "addressLine2") ? { addressLine2: text(parsed.addressLine2, 1, 300) } : {}),
+    city: text(parsed.city, 1, 100),
+    ...(Object.hasOwn(parsed, "district") ? { district: text(parsed.district, 1, 100) } : {}),
+    ...(Object.hasOwn(parsed, "postalCode") ? { postalCode: text(parsed.postalCode, 1, 20) } : {}),
+    country: "TR",
+  });
+}
+
 export function parsePublicPolicyPage(value: unknown): PublicPolicyPage {
   const parsed = exact(value, ["key", "label", "route", "published"], ["html", "updatedAt"]);
   const definition = fixedPolicy(parsed.key);
@@ -271,7 +294,7 @@ export function parsePublicCart(value: unknown): PublicCart {
   const computedSubtotal = items.reduce((sum, item) => sum + item.lineTotalCents, 0);
   if (!Number.isSafeInteger(computedSubtotal) || itemCount !== computedCount || subtotalCents !== computedSubtotal || totalCents !== subtotalCents + shippingCents) invalid();
   const checkoutReady = bool(parsed.checkoutReady);
-  if (checkoutReady !== (items.length > 0 && items.every(({ available }) => available))) invalid();
+  if (checkoutReady && (items.length === 0 || items.some(({ available }) => !available))) invalid();
   return Object.freeze({
     version: integer(parsed.version, 0),
     currency: "TRY",
@@ -297,7 +320,7 @@ export function parsePublicCheckoutQuote(value: unknown): PublicCheckoutQuote {
 }
 
 export function parsePublicCheckoutReceipt(value: unknown): PublicCheckoutReceipt {
-  const parsed = exact(value, ["orderReference", "currency", "subtotalCents", "shippingCents", "totalCents", "paymentStatus", "paymentMethod", "items", "createdAt"]);
+  const parsed = exact(value, ["orderReference", "currency", "subtotalCents", "shippingCents", "totalCents", "paymentStatus", "paymentMethod", "delivery", "items", "createdAt"]);
   if (parsed.currency !== "TRY" || parsed.paymentStatus !== "pending") invalid();
   const items = cartLines(parsed.items, 1, 100);
   const subtotalCents = integer(parsed.subtotalCents, 0, MAX_MONEY_CENTS);
@@ -313,6 +336,7 @@ export function parsePublicCheckoutReceipt(value: unknown): PublicCheckoutReceip
     totalCents,
     paymentStatus: "pending",
     paymentMethod: paymentMethod(parsed.paymentMethod),
+    delivery: receiptDelivery(parsed.delivery),
     items,
     createdAt: timestamp(parsed.createdAt),
   });

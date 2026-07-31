@@ -5,7 +5,6 @@ import {
   parsePublicCheckoutQuote,
   parsePublicCheckoutReceipt,
   type PublicCart,
-  type PublicCheckoutReceipt,
 } from "@celebix/saas-contracts";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
@@ -203,7 +202,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
     } catch (error) { if (error instanceof StorefrontCommerceRepositoryError) throw error; throw failure("invalid_input"); }
   }
 
-  private async recover(hostname: string, now: Date, operationId: string, operationFingerprint: string, observed: PublicCheckoutReceipt): Promise<PublicCheckoutReceipt> {
+  private async recover(hostname: string, now: Date, operationId: string, operationFingerprint: string, observed: ReturnType<typeof parseReceiptEnvelope>): Promise<ReturnType<typeof parseReceiptEnvelope>> {
     try {
       const recovered = await this.read(
         "SELECT outcome,result_payload FROM saas.public_checkout_recover($1::text,$2::timestamptz,$3::uuid,$4::text)",
@@ -215,32 +214,35 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
     } catch { throw failure("commit_unknown"); }
   }
 
-  async complete(input: Parameters<StorefrontCommerceRepository["complete"]>[0]): Promise<PublicCheckoutReceipt> {
-    let validated: Readonly<{ hostname: string; now: Date; intentKind: "cart" | "buy_now"; candidates: ReturnType<typeof commerceCandidates>; operationId: string; cartVersion: number; delivery: ReturnType<typeof commerceDelivery>; paymentKind: "bank_transfer" | "cash_on_delivery"; orderId: string; customerId: string; addressId: string; eventId: string; receipt: ReturnType<typeof commerceGeneratedCredential>; customer: ReturnType<typeof commerceGeneratedCredential>; operationFingerprint: string }>;
+  async complete(input: Parameters<StorefrontCommerceRepository["complete"]>[0]) {
+    let validated: Readonly<{ hostname: string; now: Date; intentKind: "cart" | "buy_now"; candidates: ReturnType<typeof commerceCandidates>; customerCandidates: ReturnType<typeof commerceCandidates>; operationId: string; cartVersion: number; delivery: ReturnType<typeof commerceDelivery>; paymentKind: "bank_transfer" | "cash_on_delivery"; orderId: string; customerId: string; addressId: string; eventId: string; receipt: ReturnType<typeof commerceGeneratedCredential>; customer: ReturnType<typeof commerceGeneratedCredential>; operationFingerprint: string }>;
     try {
-      const parsed = exactCommerceInput(input, ["hostname", "now", "intentKind", "candidates", "operationId", "cartVersion", "delivery", "paymentKind", "generated"]);
+      const parsed = exactCommerceInput(input, ["hostname", "now", "intentKind", "candidates", "customerCandidates", "operationId", "cartVersion", "delivery", "paymentKind", "generated"]);
       if (parsed.intentKind !== "cart" && parsed.intentKind !== "buy_now") throw failure("invalid_input");
       if (parsed.paymentKind !== "bank_transfer" && parsed.paymentKind !== "cash_on_delivery") throw failure("invalid_input");
       const now = commerceDate(parsed.now);
       const generated = exactCommerceInput(parsed.generated, ["orderId", "customerId", "addressId", "eventId", "receipt", "customer"]);
       const delivery = commerceDelivery(parsed.delivery);
       const candidates = commerceCandidates(parsed.candidates);
+      const customerCandidates = commerceCandidates(parsed.customerCandidates, true);
       const operationId = commerceUuid(parsed.operationId);
       const cartVersion = commerceVersion(parsed.cartVersion);
-      const operationFingerprint = fingerprint(["storefront-checkout/v1", parsed.intentKind, candidates, operationId, cartVersion, delivery, parsed.paymentKind]);
-      validated = Object.freeze({ hostname: commerceHostname(parsed.hostname), now, intentKind: parsed.intentKind, candidates, operationId, cartVersion, delivery, paymentKind: parsed.paymentKind, orderId: commerceUuid(generated.orderId), customerId: commerceUuid(generated.customerId), addressId: commerceUuid(generated.addressId), eventId: commerceUuid(generated.eventId), receipt: commerceGeneratedCredential(generated.receipt, now, 1), customer: commerceGeneratedCredential(generated.customer, now, 31), operationFingerprint });
+      const receipt = commerceGeneratedCredential(generated.receipt, now, 1);
+      const customer = commerceGeneratedCredential(generated.customer, now, 31);
+      const operationFingerprint = fingerprint(["storefront-checkout/v3", parsed.intentKind, candidates, customerCandidates, operationId, cartVersion, delivery, parsed.paymentKind]);
+      validated = Object.freeze({ hostname: commerceHostname(parsed.hostname), now, intentKind: parsed.intentKind, candidates, customerCandidates, operationId, cartVersion, delivery, paymentKind: parsed.paymentKind, orderId: commerceUuid(generated.orderId), customerId: commerceUuid(generated.customerId), addressId: commerceUuid(generated.addressId), eventId: commerceUuid(generated.eventId), receipt, customer, operationFingerprint });
     } catch (error) { if (error instanceof StorefrontCommerceRepositoryError) throw error; throw failure("invalid_input"); }
 
     const client = await this.acquire();
     let began = false;
     let terminal = false;
-    let observed: PublicCheckoutReceipt | undefined;
+    let observed: ReturnType<typeof parseReceiptEnvelope> | undefined;
     try {
       await client.query("BEGIN ISOLATION LEVEL READ COMMITTED"); began = true;
       await this.configure(client);
       const selected = envelope(await client.query(
-        "SELECT outcome,result_payload FROM saas.public_checkout_complete($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::uuid,$6::text,$7::bigint,$8::jsonb,$9::text,$10::uuid,$11::uuid,$12::uuid,$13::uuid,$14::uuid,$15::text,$16::text,$17::timestamptz,$18::uuid,$19::text,$20::text,$21::timestamptz)",
-        [validated.hostname, validated.now, validated.intentKind, JSON.stringify(validated.candidates), validated.operationId, validated.operationFingerprint, validated.cartVersion, JSON.stringify(validated.delivery), validated.paymentKind, validated.orderId, validated.customerId, validated.addressId, validated.eventId, validated.receipt.id, validated.receipt.keyId, validated.receipt.digest, validated.receipt.expiresAt, validated.customer.id, validated.customer.keyId, validated.customer.digest, validated.customer.expiresAt],
+        "SELECT outcome,result_payload FROM saas.public_checkout_complete($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::uuid,$7::text,$8::bigint,$9::jsonb,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::uuid,$15::uuid,$16::text,$17::text,$18::timestamptz,$19::uuid,$20::text,$21::text,$22::timestamptz)",
+        [validated.hostname, validated.now, validated.intentKind, JSON.stringify(validated.candidates), JSON.stringify(validated.customerCandidates), validated.operationId, validated.operationFingerprint, validated.cartVersion, JSON.stringify(validated.delivery), validated.paymentKind, validated.orderId, validated.customerId, validated.addressId, validated.eventId, validated.receipt.id, validated.receipt.keyId, validated.receipt.digest, validated.receipt.expiresAt, validated.customer.id, validated.customer.keyId, validated.customer.digest, validated.customer.expiresAt],
       ));
       const error = mapped(selected.outcome);
       if (error) throw error;
@@ -260,10 +262,10 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
 
   async getReceipt(input: Parameters<StorefrontCommerceRepository["getReceipt"]>[0]) {
     try {
-      const parsed = exactCommerceInput(input, ["hostname", "now", "candidates"]);
+      const parsed = exactCommerceInput(input, ["hostname", "now", "receiptCandidates", "customerCandidates"]);
       return await this.read(
-        "SELECT outcome,result_payload FROM saas.public_receipt_get($1::text,$2::timestamptz,$3::jsonb)",
-        [commerceHostname(parsed.hostname), commerceDate(parsed.now), JSON.stringify(commerceCandidates(parsed.candidates))], "found", parsePublicCheckoutReceipt,
+        "SELECT outcome,result_payload FROM saas.public_receipt_get($1::text,$2::timestamptz,$3::jsonb,$4::jsonb)",
+        [commerceHostname(parsed.hostname), commerceDate(parsed.now), JSON.stringify(commerceCandidates(parsed.receiptCandidates)), JSON.stringify(commerceCandidates(parsed.customerCandidates))], "found", parsePublicCheckoutReceipt,
       );
     } catch (error) { if (error instanceof StorefrontCommerceRepositoryError) throw error; throw failure("invalid_input"); }
   }
