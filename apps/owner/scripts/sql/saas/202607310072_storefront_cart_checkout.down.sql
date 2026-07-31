@@ -33,6 +33,20 @@ DROP FUNCTION saas.storefront_commerce_timestamp(timestamptz);
 DROP FUNCTION saas.storefront_commerce_uuid(text);
 
 DROP TABLE saas.storefront_checkout_operations;
+DO $f$
+BEGIN
+  IF pg_catalog.to_regclass('saas.storefront_checkout_operations_legacy_064') IS NULL
+  THEN RETURN; END IF;
+  IF pg_catalog.to_regclass('saas.storefront_checkout_operations') IS NOT NULL
+    OR pg_catalog.to_regclass('saas.storefront_checkout_operations_pkey') IS NOT NULL
+    OR pg_catalog.to_regclass('saas.storefront_checkout_operations_legacy_064_pkey') IS NULL
+  THEN RAISE EXCEPTION 'STOREFRONT_CART_CHECKOUT_LEGACY_064_RESTORE_INVALID'; END IF;
+  ALTER TABLE saas.storefront_checkout_operations_legacy_064
+    RENAME TO storefront_checkout_operations;
+  ALTER INDEX saas.storefront_checkout_operations_legacy_064_pkey
+    RENAME TO storefront_checkout_operations_pkey;
+END
+$f$;
 DROP TABLE saas.storefront_order_receipts;
 DROP TABLE saas.storefront_customer_credentials;
 DROP TABLE saas.storefront_checkout_intents;

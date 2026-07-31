@@ -31,8 +31,9 @@ const INTENT = "61000000-0000-4000-8000-000000000081";
 const INTENT_DIGEST = "b".repeat(64);
 const NOW = "2026-07-31T12:00:00.000Z";
 const LATER = "2026-07-31T12:05:00.000Z";
-const TOTAL = 35;
+const TOTAL = 36;
 let completed = 0;
+let legacyCheckoutOperationOid;
 
 function executable(name) {
   const bundled = path.join(homedir(), ".codex", "tmp");
@@ -150,6 +151,44 @@ INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,stat
 COMMIT;`);
 }
 
+function installLegacyCheckoutAuthority(box) {
+  psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+CREATE TABLE saas.storefront_checkout_operations(
+  operation_id uuid PRIMARY KEY,
+  store_id uuid NOT NULL,
+  cart_id uuid NOT NULL,
+  action text NOT NULL CHECK(action IN('delivery','submit_builtin','submit_hosted')),
+  fingerprint character(64) NOT NULL,
+  result_payload jsonb NOT NULL,
+  committed_at timestamptz NOT NULL,
+  UNIQUE(store_id,cart_id,operation_id),
+  FOREIGN KEY(store_id,cart_id) REFERENCES saas.abandoned_carts(store_id,id) ON DELETE RESTRICT,
+  CONSTRAINT storefront_checkout_operations_fingerprint_check CHECK(fingerprint~'^[a-f0-9]{64}$'),
+  CONSTRAINT storefront_checkout_operations_result_check CHECK(pg_catalog.jsonb_typeof(result_payload)='object'),
+  CONSTRAINT storefront_checkout_operations_committed_check CHECK(pg_catalog.isfinite(committed_at))
+);
+CREATE INDEX storefront_checkout_operations_cart_committed_idx
+  ON saas.storefront_checkout_operations(store_id,cart_id,committed_at DESC,operation_id);
+CREATE FUNCTION saas.guard_storefront_checkout_operation_mutation()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $f$
+BEGIN RAISE EXCEPTION 'STOREFRONT_CHECKOUT_OPERATION_IMMUTABLE'; END
+$f$;
+CREATE TRIGGER storefront_checkout_operations_immutable
+  BEFORE UPDATE OR DELETE ON saas.storefront_checkout_operations
+  FOR EACH ROW EXECUTE FUNCTION saas.guard_storefront_checkout_operation_mutation();
+ALTER TABLE saas.storefront_checkout_operations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.storefront_checkout_operations FORCE ROW LEVEL SECURITY;
+REVOKE ALL ON saas.storefront_checkout_operations
+FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
+  celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
+  celebix_saas_migrator;
+COMMIT;`);
+  legacyCheckoutOperationOid = psql(
+    box,
+    "SELECT 'saas.storefront_checkout_operations'::regclass::oid;",
+  ).stdout.trim();
+}
+
 async function main() {
   let box;
   try {
@@ -157,12 +196,21 @@ async function main() {
     box = start();
     psql(box, `CREATE DATABASE ${DB};`, "postgres");
     for (const file of migrations()) apply(box, file);
+    installLegacyCheckoutAuthority(box);
     seed(box);
     apply(box, UP); apply(box, ASSERTIONS);
     psql(box, `SET ROLE celebix_saas_owner;UPDATE saas.merchant_admin_records SET config=config||'{"shippingPriceCents":9900}'::jsonb WHERE id='82000000-0000-4000-8000-000000000081';`);
 
     await scenario("manifest pins migration 072 artifacts", () => { const manifest = JSON.parse(readFileSync(path.join(SQL, MANIFEST), "utf8")); assert.equal(manifest.postgresqlMajor, 16); for (const artifact of [...manifest.artifacts, ...manifest.rollbackArtifacts]) assert.equal(createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex"), artifact.sha256, artifact.file); });
     await scenario("PostgreSQL 16 applies durable commerce authority", () => { assert.match(psql(box, "SHOW server_version;").stdout, /^16\./); for (const table of ["storefront_carts", "storefront_cart_credentials", "storefront_cart_items", "storefront_cart_operations", "storefront_checkout_intents", "storefront_customer_credentials", "storefront_order_receipts", "storefront_checkout_operations"]) assert.equal(psql(box, `SELECT to_regclass('saas.${table}') IS NOT NULL;`).stdout.trim(), "t"); });
+    await scenario("migration preserves the legacy 064 checkout operation authority", () => {
+      assert.equal(psql(box, "SELECT 'saas.storefront_checkout_operations_legacy_064'::regclass::oid;").stdout.trim(), legacyCheckoutOperationOid);
+      assert.equal(psql(box, "SELECT to_regclass('saas.storefront_checkout_operations')::oid<>to_regclass('saas.storefront_checkout_operations_legacy_064')::oid;").stdout.trim(), "t");
+      assert.equal(psql(box, "SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='saas.storefront_checkout_operations_legacy_064'::regclass AND attname='action' AND attnum>0 AND NOT attisdropped); ").stdout.trim(), "t");
+      assert.equal(psql(box, "SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='saas.storefront_checkout_operations'::regclass AND attname='order_id' AND attnum>0 AND NOT attisdropped); ").stdout.trim(), "t");
+      assert.equal(psql(box, "SELECT to_regclass('saas.storefront_checkout_operations_legacy_064_pkey') IS NOT NULL;").stdout.trim(), "t");
+      assert.equal(psql(box, "SELECT has_table_privilege('celebix_saas_app','saas.storefront_checkout_operations_legacy_064','SELECT,INSERT,UPDATE,DELETE');").stdout.trim(), "f");
+    });
     await scenario("new cart add creates a bound credential and trusted projection", () => { const result = mutate(box); assert.equal(result.outcome, "committed"); assert.equal(result.result_payload.credentialCreated, true); assert.equal(result.result_payload.cart.version, 1); assert.equal(result.result_payload.cart.itemCount, 2); assert.equal(result.result_payload.cart.totalCents, 2264100); assert.equal(result.result_payload.cart.items[0].media.url.startsWith("https://media.saas-staging.celebix.site/"),true); assert.doesNotMatch(JSON.stringify(result), /storeId|credentialDigest|operationId/); });
     await scenario("cart credential resolves only for its exact hostname", () => { assert.equal(resolveCart(box).outcome, "found"); assert.equal(resolveCart(box, CART_KEY, CART_DIGEST, OTHER_HOST).outcome, "not_found"); assert.equal(resolveCart(box, CART_KEY, "9".repeat(64)).outcome, "not_found"); });
     await scenario("incremental add validates resulting stock instead of only the requested increment", () => { psql(box, `SET ROLE celebix_saas_owner;SELECT pg_catalog.set_config('saas.inventory.source_marker','catalog_adjustment',false);SELECT pg_catalog.set_config('saas.inventory.source_id','83000000-0000-4000-8000-000000000080',false);SELECT pg_catalog.set_config('saas.inventory.source_time','${NOW}',false);UPDATE saas.product_variants SET stock_quantity=2,version=version+1,updated_at='${NOW}' WHERE id='${VARIANT}';`); const credentials=JSON.stringify([{keyId:CART_KEY,digest:CART_DIGEST}]); assert.equal(mutate(box,{operation:"70000000-0000-4000-8000-000000000080",expected:1,quantity:1,credentials}).outcome,"stock_unavailable"); psql(box, `SET ROLE celebix_saas_owner;SELECT pg_catalog.set_config('saas.inventory.source_marker','catalog_adjustment',false);SELECT pg_catalog.set_config('saas.inventory.source_id','83000000-0000-4000-8000-000000000079',false);SELECT pg_catalog.set_config('saas.inventory.source_time','${NOW}',false);UPDATE saas.product_variants SET stock_quantity=8,version=version+1,updated_at='${NOW}' WHERE id='${VARIANT}';`); });
@@ -193,7 +241,7 @@ async function main() {
     await scenario("only the host resolver executes public commerce workflows", () => { for (const signature of ["saas.public_cart_resolve(text,timestamp with time zone,jsonb)", "saas.public_checkout_quote(text,timestamp with time zone,text,jsonb)", "saas.public_receipt_get(text,timestamp with time zone,jsonb,jsonb)"]) { assert.equal(psql(box, `SELECT has_function_privilege('celebix_saas_host_resolver','${signature}','EXECUTE');`).stdout.trim(), "t"); assert.equal(psql(box, `SELECT has_function_privilege('celebix_saas_app','${signature}','EXECUTE');`).stdout.trim(), "f"); } });
     await scenario("operation rows are immutable", () => { for (const table of ["storefront_cart_operations", "storefront_checkout_operations"]) assert.notEqual(psql(box, `SET ROLE celebix_saas_owner;DELETE FROM saas.${table};`, DB, true).status, 0); });
     await scenario("backup and restore preserve receipt and account authority", () => { const dump = path.join(box.root, "commerce.dump"); psql(box, `CREATE DATABASE ${RESTORE_DB};`, "postgres"); command(box.tools.pg_dump, ["-h", box.socket, "-p", String(box.port), "-U", "postgres", "-Fc", "-f", dump, DB]); command(box.tools.pg_restore, ["-h", box.socket, "-p", String(box.port), "-U", "postgres", "--exit-on-error", "-d", RESTORE_DB, dump]); assert.equal(publicCall(box, `saas.public_receipt_get('${HOST}','${NOW}','${candidates("receipt-key-01", "e".repeat(64))}'::jsonb,'${candidates("customer-key-01", "f".repeat(64))}'::jsonb)`, RESTORE_DB).outcome, "found"); });
-    await scenario("rollback removes only migration 072 authority", () => { apply(box, DOWN); assert.equal(psql(box, "SELECT to_regclass('saas.storefront_carts') IS NULL;").stdout.trim(), "t"); assert.equal(psql(box, "SELECT to_regprocedure('saas.public_policy_index(text,timestamp with time zone)') IS NOT NULL;").stdout.trim(), "t"); });
+    await scenario("rollback removes only migration 072 authority", () => { apply(box, DOWN); assert.equal(psql(box, "SELECT to_regclass('saas.storefront_carts') IS NULL;").stdout.trim(), "t"); assert.equal(psql(box, "SELECT to_regprocedure('saas.public_policy_index(text,timestamp with time zone)') IS NOT NULL;").stdout.trim(), "t"); assert.equal(psql(box, "SELECT 'saas.storefront_checkout_operations'::regclass::oid;").stdout.trim(), legacyCheckoutOperationOid); assert.equal(psql(box, "SELECT to_regclass('saas.storefront_checkout_operations_legacy_064') IS NULL;").stdout.trim(), "t"); });
     await scenario("reapply restores commerce schema and functions", () => { apply(box, UP); apply(box, ASSERTIONS); assert.equal(psql(box, "SELECT to_regclass('saas.storefront_carts') IS NOT NULL;").stdout.trim(), "t"); assert.equal(psql(box, "SELECT to_regprocedure('saas.public_checkout_complete(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)') IS NOT NULL;").stdout.trim(), "t"); });
     assert.equal(completed, TOTAL - 1);
   } finally {

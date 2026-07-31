@@ -18,6 +18,29 @@ BEGIN
       OR pg_catalog.has_table_privilege('celebix_saas_host_resolver','saas.'||table_name,'INSERT,UPDATE,DELETE')
     THEN RAISE EXCEPTION 'STOREFRONT_COMMERCE_TABLE_PRIVILEGE_LEAK: %',table_name; END IF;
   END LOOP;
+  IF pg_catalog.to_regclass('saas.storefront_checkout_operations_legacy_064') IS NOT NULL
+    AND (
+      pg_catalog.to_regclass('saas.storefront_checkout_operations_legacy_064_pkey') IS NULL
+      OR NOT EXISTS(
+        SELECT 1 FROM pg_catalog.pg_attribute attribute
+        WHERE attribute.attrelid='saas.storefront_checkout_operations_legacy_064'::regclass
+          AND attribute.attname='action' AND attribute.attnum>0 AND NOT attribute.attisdropped
+      )
+      OR EXISTS(
+        SELECT 1 FROM pg_catalog.pg_attribute attribute
+        WHERE attribute.attrelid='saas.storefront_checkout_operations_legacy_064'::regclass
+          AND attribute.attname='order_id' AND attribute.attnum>0 AND NOT attribute.attisdropped
+      )
+      OR pg_catalog.has_table_privilege(
+        'celebix_saas_app','saas.storefront_checkout_operations_legacy_064',
+        'SELECT,INSERT,UPDATE,DELETE'
+      )
+      OR pg_catalog.has_table_privilege(
+        'celebix_saas_host_resolver','saas.storefront_checkout_operations_legacy_064',
+        'SELECT,INSERT,UPDATE,DELETE'
+      )
+    )
+  THEN RAISE EXCEPTION 'STOREFRONT_COMMERCE_LEGACY_064_AUTHORITY_INVALID'; END IF;
   FOREACH signature IN ARRAY ARRAY[
     'saas.public_cart_resolve(text,timestamp with time zone,jsonb)',
     'saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)',

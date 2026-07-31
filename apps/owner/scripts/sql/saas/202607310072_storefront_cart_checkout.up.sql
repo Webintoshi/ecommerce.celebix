@@ -18,6 +18,83 @@ BEGIN
 END
 $f$;
 
+-- A retired Phase 3W migration used this relation name for a different
+-- immutable operation ledger. Some staging databases applied that migration
+-- before its sequence number was reused. Preserve that authority by OID and
+-- free the canonical name only when the complete legacy shape is proven.
+DO $f$
+DECLARE
+  legacy_relation regclass:=pg_catalog.to_regclass('saas.storefront_checkout_operations');
+BEGIN
+  IF legacy_relation IS NULL THEN RETURN; END IF;
+  IF pg_catalog.to_regclass('saas.storefront_checkout_operations_legacy_064') IS NOT NULL
+    OR pg_catalog.to_regclass('saas.storefront_checkout_operations_legacy_064_pkey') IS NOT NULL
+    OR pg_catalog.to_regclass('saas.storefront_checkout_operations_pkey') IS NULL
+    OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_class relation
+      WHERE relation.oid=legacy_relation
+        AND relation.relkind='r'
+        AND relation.relowner='celebix_saas_owner'::regrole
+        AND relation.relrowsecurity AND relation.relforcerowsecurity
+    )
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_attribute attribute
+        WHERE attribute.attrelid=legacy_relation
+          AND attribute.attnum>0 AND NOT attribute.attisdropped)<>7
+    OR EXISTS(
+      SELECT 1
+      FROM (VALUES
+        ('operation_id','uuid',true),('store_id','uuid',true),('cart_id','uuid',true),
+        ('action','text',true),('fingerprint','character(64)',true),
+        ('result_payload','jsonb',true),('committed_at','timestamp with time zone',true)
+      ) expected(column_name,data_type,required)
+      LEFT JOIN pg_catalog.pg_attribute attribute
+        ON attribute.attrelid=legacy_relation
+        AND attribute.attname=expected.column_name
+        AND attribute.attnum>0 AND NOT attribute.attisdropped
+      WHERE attribute.attname IS NULL
+        OR pg_catalog.format_type(attribute.atttypid,attribute.atttypmod)<>expected.data_type
+        OR attribute.attnotnull IS DISTINCT FROM expected.required
+    )
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_constraint constraint_info
+        WHERE constraint_info.conrelid=legacy_relation
+          AND constraint_info.contype IN('p','u','f','c')
+          AND constraint_info.convalidated)<>7
+    OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_index index_info
+      WHERE index_info.indexrelid='saas.storefront_checkout_operations_pkey'::regclass
+        AND index_info.indrelid=legacy_relation
+        AND index_info.indisprimary AND index_info.indisunique
+        AND index_info.indisvalid AND index_info.indisready
+    )
+    OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_constraint constraint_info
+      WHERE constraint_info.conrelid=legacy_relation
+        AND constraint_info.contype='f' AND constraint_info.convalidated
+        AND constraint_info.confrelid='saas.abandoned_carts'::regclass
+    )
+    OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_trigger trigger_info
+      WHERE trigger_info.tgrelid=legacy_relation
+        AND trigger_info.tgname='storefront_checkout_operations_immutable'
+        AND trigger_info.tgenabled='O' AND NOT trigger_info.tgisinternal
+        AND trigger_info.tgfoid=
+          'saas.guard_storefront_checkout_operation_mutation()'::regprocedure
+    )
+    OR pg_catalog.has_table_privilege(
+      'celebix_saas_app',legacy_relation,'SELECT,INSERT,UPDATE,DELETE'
+    )
+    OR pg_catalog.has_table_privilege(
+      'celebix_saas_host_resolver',legacy_relation,'SELECT,INSERT,UPDATE,DELETE'
+    )
+  THEN RAISE EXCEPTION 'STOREFRONT_CART_CHECKOUT_LEGACY_064_AUTHORITY_INVALID'; END IF;
+
+  ALTER TABLE saas.storefront_checkout_operations
+    RENAME TO storefront_checkout_operations_legacy_064;
+  ALTER INDEX saas.storefront_checkout_operations_pkey
+    RENAME TO storefront_checkout_operations_legacy_064_pkey;
+END
+$f$;
+
 ALTER FUNCTION saas.merchant_admin_config_valid(text,jsonb)
   RENAME TO merchant_admin_config_valid_without_storefront_checkout;
 REVOKE ALL ON FUNCTION saas.merchant_admin_config_valid_without_storefront_checkout(text,jsonb)
