@@ -4,9 +4,11 @@ import {
   parseOrderDashboardSummary,
   parseOrderDetail,
   parseOrderListItem,
+  parseOrderNeighbors,
   type OrderDashboardSummary,
   type OrderDetail,
   type OrderListItem,
+  type OrderNeighbors,
   type OrderPaymentStatus,
   type OrderSort,
   type OrderStatus,
@@ -131,6 +133,11 @@ function safeListItem(value: unknown): OrderListItem {
 
 function safeDetail(value: unknown): OrderDetail {
   try { return parseOrderDetail(value); }
+  catch { throw unavailable(); }
+}
+
+function safeNeighbors(value: unknown): OrderNeighbors {
+  try { return parseOrderNeighbors(value); }
   catch { throw unavailable(); }
 }
 
@@ -427,6 +434,22 @@ export class PostgresOrderRepository implements OrderRepository {
     }, "found", (value) => {
       const result = safeDetail(value);
       if (result.id !== orderId) throw unavailable();
+      return result;
+    });
+  }
+
+  async getOrderNeighbors(input: GetOrderInput): Promise<OrderNeighbors> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const orderId = orderUuid(exact.orderId);
+    return this.read(authority, {
+      text: `SELECT outcome, result_payload FROM saas.orders_get_neighbors(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
+      )`,
+      values: [...authorityValues(authority), orderId],
+    }, "found", (value) => {
+      const result = safeNeighbors(value);
+      if (result.previous?.id === orderId || result.next?.id === orderId) throw unavailable();
       return result;
     });
   }

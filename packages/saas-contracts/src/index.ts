@@ -232,6 +232,7 @@ export {
   parseOrderDashboardSummary,
   parseOrderDetail,
   parseOrderListItem,
+  parseOrderNeighbors,
 } from "./orders/index.ts";
 export {
   CATALOG_ADMIN_RESOURCE_KINDS,
@@ -346,6 +347,8 @@ export type {
   OrderItem,
   OrderListItem,
   OrderNote,
+  OrderNeighbor,
+  OrderNeighbors,
   OrderPaymentStatus,
   OrderSource,
   OrderSort,

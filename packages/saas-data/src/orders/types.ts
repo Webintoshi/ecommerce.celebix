@@ -3,6 +3,7 @@ import type {
   OrderDashboardSummary,
   OrderDetail,
   OrderListItem,
+  OrderNeighbors,
   OrderPaymentStatus,
   OrderSort,
   OrderStatus,
@@ -75,6 +76,7 @@ export interface OrderRepository {
   getDashboardSummary(input: OrderAuthorityInput): Promise<OrderDashboardSummary>;
   listOrders(input: ListOrdersInput): Promise<ListOrdersResult>;
   getOrder(input: GetOrderInput): Promise<OrderDetail>;
+  getOrderNeighbors(input: GetOrderInput): Promise<OrderNeighbors>;
   transitionStatus(input: TransitionOrderStatusInput): Promise<OrderMutationResult>;
   transitionPayment(input: TransitionOrderPaymentInput): Promise<OrderMutationResult>;
   updateShipping(input: UpdateOrderShippingInput): Promise<OrderMutationResult>;

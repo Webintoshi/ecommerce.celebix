@@ -36,6 +36,7 @@ function orders(): OrderRepository {
     getDashboardSummary: reject,
     listOrders: reject,
     getOrder: reject,
+    getOrderNeighbors: reject,
     transitionStatus: reject,
     transitionPayment: reject,
     updateShipping: reject,
@@ -53,7 +54,7 @@ test("approved access resolves an immutable order-only repository facade", () =>
   assert.equal(Object.isFrozen(runtime), true);
   assert.equal(Object.isFrozen(runtime.orders), true);
   assert.deepEqual(Object.keys(runtime.orders).sort(), [
-    "addNote", "archiveNote", "getDashboardSummary", "getOrder", "listOrders",
+    "addNote", "archiveNote", "getDashboardSummary", "getOrder", "getOrderNeighbors", "listOrders",
     "transitionPayment", "transitionStatus", "updateShipping",
   ]);
   for (const forbidden of ["pool", "options", "database", "connectionString", "tenantContext"]) {
@@ -93,6 +94,7 @@ test("approved staging preflight gates one shared pool on exact order tables and
     "orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
     "orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)",
     "orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "orders_get_neighbors(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
     "orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
     "orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
     "orders_update_shipping(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb,jsonb)",

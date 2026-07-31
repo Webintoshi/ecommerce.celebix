@@ -7,10 +7,12 @@ export type {
   OrderItem,
   OrderListItem,
   OrderNote,
+  OrderNeighbor,
+  OrderNeighbors,
   OrderPaymentStatus,
   OrderSource,
   OrderSort,
   OrderStatus,
   OrderTracking,
 } from "./types.ts";
-export { parseOrderDashboardSummary, parseOrderDetail, parseOrderListItem } from "./validation.ts";
+export { parseOrderDashboardSummary, parseOrderDetail, parseOrderListItem, parseOrderNeighbors } from "./validation.ts";

@@ -17,6 +17,7 @@ const PLAN_ID = "66666666-6666-4666-8666-666666666666";
 const DOMAIN_ID = "88888888-8888-4888-8888-888888888888";
 const ORDER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const NEXT_ORDER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
 const NOW = new Date("2026-07-21T08:00:00.000Z");
 const PRIVATE_REQUEST_ID = "private-order-request";
@@ -132,6 +133,14 @@ function summary(overrides: Record<string, unknown> = {}) {
     revenueCents: 42_000,
     currency: "TRY",
     asOf: NOW.toISOString(),
+    ...overrides,
+  };
+}
+
+function neighbors(overrides: Record<string, unknown> = {}) {
+  return {
+    previous: { id: NOTE_ID, orderNumber: "HMN-1002" },
+    next: { id: NEXT_ORDER_ID, orderNumber: "HMN-1000" },
     ...overrides,
   };
 }
@@ -450,6 +459,56 @@ test("detail read strictly parses and deeply freezes the safe order contract", a
   ]);
 });
 
+test("neighbor read uses the exact authority signature and returns only frozen safe identities", async () => {
+  const client = new FakeClient((text) => text.includes("saas.orders_get_neighbors")
+    ? [{ outcome: "found", result_payload: neighbors() }]
+    : []);
+
+  const result = await repository(new FakePool(client)).getOrderNeighbors({
+    tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+  });
+
+  assert.deepEqual(result, neighbors());
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.previous), true);
+  assert.equal(Object.isFrozen(result.next), true);
+  const call = functionCall(client, "orders_get_neighbors");
+  assert.match(call.text, /\$1::uuid,\$2::uuid,\$3::uuid,\$4::uuid,\$5::text,\$6::bigint,\$7::timestamptz,\$8::uuid/);
+  assert.deepEqual(call.values, [
+    STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, ORDER_ID,
+  ]);
+  assert.equal(call.values.includes(PRIVATE_REQUEST_ID), false);
+  assert.equal(call.values.includes(PRIVATE_SUBJECT), false);
+});
+
+test("neighbor read fails closed on missing corrupt cross-order and unavailable outcomes", async () => {
+  const corrupt = [
+    neighbors({ storeId: STORE_ID }),
+    neighbors({ previous: { id: ORDER_ID, orderNumber: "HMN-1001" } }),
+    neighbors({ next: { id: NOTE_ID, orderNumber: "HMN-1002" } }),
+    neighbors({ previous: { id: "bad", orderNumber: "HMN-1002" } }),
+  ];
+  for (const resultPayload of corrupt) {
+    const client = new FakeClient((text) => text.includes("saas.orders_get_neighbors")
+      ? [{ outcome: "found", result_payload: resultPayload }]
+      : []);
+    await assert.rejects(repository(new FakePool(client)).getOrderNeighbors({
+      tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+    }), orderError("unavailable"));
+  }
+
+  const missing = new FakeClient((text) => text.includes("saas.orders_get_neighbors")
+    ? [{ outcome: "order_not_found", result_payload: null }]
+    : []);
+  await assert.rejects(repository(new FakePool(missing)).getOrderNeighbors({
+    tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+  }), orderError("order_not_found"));
+
+  await assert.rejects(repository(failingPool(new Error(PRIVATE_PROXY_SECRET))).getOrderNeighbors({
+    tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+  }), orderError("unavailable"));
+});
+
 test("status transition uses the exact parameterized signature and a stable authority-free fingerprint", async () => {
   const clients = [0, 1, 2].map((index) => new FakeClient((text) => text.includes("saas.orders_transition_status")
     ? [{ outcome: "committed", result_payload: mutationProjection({ version: index === 2 ? 6 : 5 }) }]
@@ -562,6 +621,7 @@ test("finite mismatch, missing entity, conflict, transition, and role denials ma
 test("unknown keys, malformed IDs, versions, filters, notes, addresses, and tracking fail before checkout", async () => {
   const cases = [
     () => repository(new FakePool()).getOrder({ tenantContext: tenantContext(), now: NOW, orderId: "bad" }),
+    () => repository(new FakePool()).getOrderNeighbors({ tenantContext: tenantContext(), now: NOW, orderId: "bad" }),
     () => repository(new FakePool()).listOrders({ tenantContext: tenantContext(), now: NOW, pageSize: 101 }),
     () => repository(new FakePool()).listOrders({ tenantContext: tenantContext(), now: NOW, pageSize: 10, search: " padded " }),
     () => repository(new FakePool()).transitionStatus({ tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, expectedVersion: 0, nextStatus: "shipped" }),
@@ -580,6 +640,7 @@ test("unknown keys, malformed IDs, versions, filters, notes, addresses, and trac
     { input: { tenantContext: tenantContext(), now: NOW }, call: (value: never, repo: PostgresOrderRepository) => repo.getDashboardSummary(value) },
     { input: { tenantContext: tenantContext(), now: NOW, pageSize: 10 }, call: (value: never, repo: PostgresOrderRepository) => repo.listOrders(value) },
     { input: { tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }, call: (value: never, repo: PostgresOrderRepository) => repo.getOrder(value) },
+    { input: { tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }, call: (value: never, repo: PostgresOrderRepository) => repo.getOrderNeighbors(value) },
     { input: { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, expectedVersion: 4, nextStatus: "shipped" }, call: (value: never, repo: PostgresOrderRepository) => repo.transitionStatus(value) },
     { input: { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, expectedVersion: 4, nextPaymentStatus: "refunded" }, call: (value: never, repo: PostgresOrderRepository) => repo.transitionPayment(value) },
     { input: { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, expectedVersion: 4, shippingAddress: { recipientName: "Ada", line1: "1 Road", city: "Istanbul", country: "TR" } }, call: (value: never, repo: PostgresOrderRepository) => repo.updateShipping(value) },

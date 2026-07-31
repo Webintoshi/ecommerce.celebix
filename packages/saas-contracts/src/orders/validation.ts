@@ -9,6 +9,8 @@ import {
   type OrderItem,
   type OrderListItem,
   type OrderNote,
+  type OrderNeighbor,
+  type OrderNeighbors,
   type OrderPaymentStatus,
   type OrderSource,
   type OrderStatus,
@@ -153,6 +155,25 @@ function parseNote(value: unknown): Readonly<OrderNote> {
   const updatedAt = timestamp(parsed.updatedAt);
   if (comparableTimestamp(updatedAt) < comparableTimestamp(createdAt)) invalid();
   return freeze({ id: uuid(parsed.id), body: string(parsed.body, 1, 2_000), createdAt, updatedAt } satisfies OrderNote);
+}
+
+function parseNeighbor(value: unknown): Readonly<OrderNeighbor> {
+  const parsed = exact(value, ["id", "orderNumber"]);
+  return freeze({
+    id: uuid(parsed.id),
+    orderNumber: string(parsed.orderNumber, 1, 64),
+  } satisfies OrderNeighbor);
+}
+
+export function parseOrderNeighbors(value: unknown): Readonly<OrderNeighbors> {
+  const parsed = exact(value, [], ["previous", "next"]);
+  const previous = Object.hasOwn(parsed, "previous") ? parseNeighbor(parsed.previous) : undefined;
+  const next = Object.hasOwn(parsed, "next") ? parseNeighbor(parsed.next) : undefined;
+  if (previous !== undefined && next !== undefined && previous.id === next.id) invalid();
+  return freeze({
+    ...(previous === undefined ? {} : { previous }),
+    ...(next === undefined ? {} : { next }),
+  } satisfies OrderNeighbors);
 }
 
 export function parseOrderListItem(value: unknown): Readonly<OrderListItem> {

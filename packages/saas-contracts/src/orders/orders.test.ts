@@ -9,12 +9,15 @@ import {
   parseOrderDashboardSummary,
   parseOrderDetail,
   parseOrderListItem,
+  parseOrderNeighbors,
 } from "./index.ts";
 
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";
 const ITEM_ID = "22222222-2222-4222-8222-222222222222";
 const EVENT_ID = "33333333-3333-4333-8333-333333333333";
 const NOTE_ID = "44444444-4444-4444-8444-444444444444";
+const PREVIOUS_ORDER_ID = "55555555-5555-4555-8555-555555555555";
+const NEXT_ORDER_ID = "66666666-6666-4666-8666-666666666666";
 const CREATED_AT = "2026-07-21T08:00:00.000Z";
 const UPDATED_AT = "2026-07-21T09:00:00.000Z";
 
@@ -164,4 +167,37 @@ test("rejects invalid order timestamps", () => {
 
 test("rejects private authority keys", () => {
   assert.throws(() => parseOrderDetail(detail({ storeId: ORDER_ID })), /order_contract_invalid/);
+});
+
+test("parses exact deeply frozen order neighbors with either side optional", () => {
+  const both = parseOrderNeighbors({
+    previous: { id: PREVIOUS_ORDER_ID, orderNumber: "HMN-1002" },
+    next: { id: NEXT_ORDER_ID, orderNumber: "HMN-1000" },
+  });
+  assert.deepEqual(both, {
+    previous: { id: PREVIOUS_ORDER_ID, orderNumber: "HMN-1002" },
+    next: { id: NEXT_ORDER_ID, orderNumber: "HMN-1000" },
+  });
+  assert.equal(Object.isFrozen(both), true);
+  assert.equal(Object.isFrozen(both.previous), true);
+  assert.equal(Object.isFrozen(both.next), true);
+  assert.deepEqual(parseOrderNeighbors({ previous: { id: PREVIOUS_ORDER_ID, orderNumber: "HMN-1002" } }), {
+    previous: { id: PREVIOUS_ORDER_ID, orderNumber: "HMN-1002" },
+  });
+  assert.deepEqual(parseOrderNeighbors({ next: { id: NEXT_ORDER_ID, orderNumber: "HMN-1000" } }), {
+    next: { id: NEXT_ORDER_ID, orderNumber: "HMN-1000" },
+  });
+  assert.deepEqual(parseOrderNeighbors({}), {});
+});
+
+test("rejects malformed duplicate private and unexpected neighbor values", () => {
+  assert.throws(() => parseOrderNeighbors({ previous: { id: "not-a-uuid", orderNumber: "HMN-1002" } }), /order_contract_invalid/);
+  assert.throws(() => parseOrderNeighbors({ previous: { id: PREVIOUS_ORDER_ID, orderNumber: "" } }), /order_contract_invalid/);
+  assert.throws(() => parseOrderNeighbors({
+    previous: { id: PREVIOUS_ORDER_ID, orderNumber: "HMN-1002" },
+    next: { id: PREVIOUS_ORDER_ID, orderNumber: "HMN-1002" },
+  }), /order_contract_invalid/);
+  assert.throws(() => parseOrderNeighbors({ storeId: ORDER_ID }), /order_contract_invalid/);
+  assert.throws(() => parseOrderNeighbors({ previous: { id: PREVIOUS_ORDER_ID, orderNumber: "HMN-1002", storeId: ORDER_ID } }), /order_contract_invalid/);
+  assert.throws(() => parseOrderNeighbors({ previous: null }), /order_contract_invalid/);
 });

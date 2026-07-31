@@ -514,6 +514,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseOrderDashboardSummary",
     "parseOrderDetail",
     "parseOrderListItem",
+    "parseOrderNeighbors",
     "parsePaymentMethodMutationResult",
     "parsePaymentMethodReorderResult",
     "parsePaymentProviderCatalog",

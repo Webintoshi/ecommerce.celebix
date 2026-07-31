@@ -85,6 +85,16 @@ export interface OrderDetail extends OrderListItem {
   readonly notes: readonly OrderNote[];
 }
 
+export interface OrderNeighbor {
+  readonly id: string;
+  readonly orderNumber: string;
+}
+
+export interface OrderNeighbors {
+  readonly previous?: Readonly<OrderNeighbor>;
+  readonly next?: Readonly<OrderNeighbor>;
+}
+
 export interface OrderDashboardSummary {
   readonly totalOrders: number;
   readonly pendingOrders: number;
