@@ -296,6 +296,10 @@ test("customer route matrix invokes actual list detail edit and new pages throug
       assert.equal(input.customerId, CUSTOMER_ID);
       return stored;
     },
+    async getWorkspace() {
+      repositoryCalls.push("workspace");
+      return { neighbors: {}, orders: [] };
+    },
     async save(input) {
       repositoryCalls.push(input.customerId ? "update" : "create");
       saveInputs.push(input);

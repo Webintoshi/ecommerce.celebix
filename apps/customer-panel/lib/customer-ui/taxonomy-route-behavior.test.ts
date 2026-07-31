@@ -228,6 +228,7 @@ test("customer taxonomy routes invoke actual pages, production consoles, clients
     getSummary: unexpected,
     list: unexpected,
     get: unexpected,
+    getWorkspace: unexpected,
     save: unexpected,
     archive: unexpected,
     addNote: unexpected,
