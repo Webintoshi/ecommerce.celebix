@@ -6,28 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   favoritesStorageKey,
   parseFavoriteProductIds,
+  parseFavoriteResolutionResponse,
   reconcileFavoriteProductIds,
 } from "@/lib/favorites.ts";
 import { ProductGrid } from "./ProductGrid";
 
 type State = Readonly<{ kind: "loading" }> | Readonly<{ kind: "error" }> | Readonly<{ kind: "loaded"; products: readonly PublicProduct[] }>;
-
-function isProduct(value: unknown): value is PublicProduct {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const row = value as Record<string, unknown>;
-  return typeof row.id === "string" && /^[0-9a-f-]{36}$/.test(row.id)
-    && typeof row.slug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug)
-    && typeof row.title === "string" && row.title.length > 0 && row.title.length <= 200
-    && row.currency === "TRY" && row.status === "active" && Number.isSafeInteger(row.priceCents)
-    && typeof row.available === "boolean" && Array.isArray(row.variants) && Array.isArray(row.media);
-}
-
-function responseProducts(value: unknown): readonly PublicProduct[] | null {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
-  const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
-  if (Reflect.ownKeys(descriptors).length !== 1 || !descriptors.items || !("value" in descriptors.items) || !descriptors.items.enumerable || !Array.isArray(descriptors.items.value) || descriptors.items.value.length > 100 || !descriptors.items.value.every(isProduct)) return null;
-  return Object.freeze([...descriptors.items.value] as PublicProduct[]);
-}
 
 export function FavoritesPageClient({ cardStyle, imageRatio }: Readonly<{ cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"]; imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"] }>) {
   const [state, setState] = useState<State>(Object.freeze({ kind: "loading" }));
@@ -38,7 +22,7 @@ export function FavoritesPageClient({ cardStyle, imageRatio }: Readonly<{ cardSt
       if (ids.length === 0) { setState(Object.freeze({ kind: "loaded", products: Object.freeze([]) })); return; }
       const response = await fetch("/api/favorites/resolve", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify({ productIds: ids }), signal });
       if (!response.ok || response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") throw new Error();
-      const products = responseProducts(await response.json());
+      const products = parseFavoriteResolutionResponse(await response.json());
       if (!products) throw new Error();
       const canonicalIds = reconcileFavoriteProductIds(ids, products);
       window.localStorage.setItem(key, JSON.stringify(canonicalIds));

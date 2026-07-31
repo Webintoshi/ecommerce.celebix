@@ -347,6 +347,9 @@ test("public content shell owns exact fixed policies search favorites and siblin
   assert.match(footer, /FIXED_STOREFRONT_POLICIES[.]map/);
   assert.match(card, /<article/);
   assert.match(card, /<FavoriteButton/);
+  assert.match(card, /<ProductCardCartButton/);
+  assert.match(card, /available && priceCents === product[.]priceCents/);
+  assert.match(search, /nextCursor/);
   assert.doesNotMatch(card, /<Link[\s\S]*<FavoriteButton[\s\S]*<\/Link>/);
 });
 

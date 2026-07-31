@@ -5,6 +5,16 @@ const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:
 const MAXIMUM_FAVORITES = 100;
 const MAXIMUM_BODY_BYTES = 8_192;
 
+function isPublicProduct(value: unknown): value is PublicProduct {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.id === "string" && UUID.test(row.id)
+    && typeof row.slug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug)
+    && typeof row.title === "string" && row.title.length > 0 && row.title.length <= 200
+    && row.currency === "TRY" && row.status === "active" && Number.isSafeInteger(row.priceCents)
+    && typeof row.available === "boolean" && Array.isArray(row.variants) && Array.isArray(row.media);
+}
+
 function uniqueProductIds(value: unknown): readonly string[] | null {
   if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > MAXIMUM_FAVORITES) return null;
   const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
@@ -44,6 +54,14 @@ export function favoritesStorageKey(hostname: string): string {
 export function parseFavoriteProductIds(raw: string | null): readonly string[] {
   if (raw === null || typeof raw !== "string" || raw.length > MAXIMUM_BODY_BYTES) return Object.freeze([]);
   try { return uniqueProductIds(JSON.parse(raw)) ?? Object.freeze([]); } catch { return Object.freeze([]); }
+}
+
+export function parseFavoriteResolutionResponse(value: unknown): readonly PublicProduct[] | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
+  const items = descriptors.items;
+  if (Reflect.ownKeys(descriptors).length !== 1 || !items || !("value" in items) || !items.enumerable || !Array.isArray(items.value) || items.value.length > MAXIMUM_FAVORITES || !items.value.every(isPublicProduct)) return null;
+  return Object.freeze([...items.value] as PublicProduct[]);
 }
 
 export function reconcileFavoriteProductIds(stored: readonly string[], products: readonly PublicProduct[]): readonly string[] {

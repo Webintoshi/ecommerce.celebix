@@ -4,6 +4,7 @@ import test from "node:test";
 import type { PublicProduct } from "@celebix/saas-contracts";
 import {
   favoritesStorageKey,
+  parseFavoriteResolutionResponse,
   parseFavoriteProductIds,
   readFavoriteResolutionRequest,
   reconcileFavoriteProductIds,
@@ -32,6 +33,13 @@ test("favorites never exceed one hundred and canonical resolution removes missin
   assert.deepEqual(reconcileFavoriteProductIds([FIRST, SECOND], [product(SECOND)]), [SECOND]);
   assert.deepEqual(toggleFavoriteProductId([FIRST], SECOND), [FIRST, SECOND]);
   assert.deepEqual(toggleFavoriteProductId([FIRST, SECOND], FIRST), [SECOND]);
+});
+
+test("favorite resolution responses expose only bounded active public products", () => {
+  assert.deepEqual(parseFavoriteResolutionResponse({ items: [product(FIRST)] })?.map(({ id }) => id), [FIRST]);
+  assert.equal(parseFavoriteResolutionResponse({ items: [product(FIRST)], storeId: SECOND }), null);
+  assert.equal(parseFavoriteResolutionResponse({ items: [{ ...product(FIRST), status: "draft" }] }), null);
+  assert.equal(parseFavoriteResolutionResponse({ items: Array.from({ length: 101 }, () => product(FIRST)) }), null);
 });
 
 test("favorite resolution accepts only exact same-origin JSON POST authority", async () => {

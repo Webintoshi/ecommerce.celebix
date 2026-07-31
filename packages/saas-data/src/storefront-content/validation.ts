@@ -101,7 +101,7 @@ export function storefrontContentBody(value: unknown, status: StorePolicyStatus,
 }
 
 export function storefrontContentQuery(value: unknown): string {
-  return text(value, 0, 200, "invalid_input");
+  return text(value, 0, 100, "invalid_input");
 }
 
 export function storefrontContentLimit(value: unknown): number {
