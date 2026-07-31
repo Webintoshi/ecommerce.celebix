@@ -234,7 +234,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
     <>
       <div className={styles.desktopTable}>
         <table aria-label="Sipariş listesi">
-          <thead><tr><th>Sipariş</th>{props.visibleColumns.date ? <th>Tarih</th> : null}{props.visibleColumns.customer ? <th>Müşteri</th> : null}{props.visibleColumns.status ? <th>Durum</th> : null}{props.visibleColumns.payment ? <th>Ödeme</th> : null}{props.visibleColumns.items ? <th>Ürün</th> : null}{props.visibleColumns.source ? <th>Kanal</th> : null}{props.visibleColumns.total ? <th>Toplam</th> : null}</tr></thead>
+          <thead><tr><th>Sipariş</th>{props.visibleColumns.date ? <th>Tarih</th> : null}{props.visibleColumns.customer ? <th>Müşteri</th> : null}{props.visibleColumns.status ? <th>Durum</th> : null}{props.visibleColumns.payment ? <th>Ödeme</th> : null}{props.visibleColumns.items ? <th>Ürün</th> : null}{props.visibleColumns.source ? <th>Kanal</th> : null}{props.visibleColumns.total ? <th>Toplam</th> : null}<th>İşlem</th></tr></thead>
           <tbody>{props.items.map((order) => (
             <tr key={order.id}>
               <td><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link></td>
@@ -245,6 +245,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
               {props.visibleColumns.items ? <td>{order.itemCount.toLocaleString("tr-TR")}</td> : null}
               {props.visibleColumns.source ? <td>{SOURCE_LABELS[order.source]}</td> : null}
               {props.visibleColumns.total ? <td><strong>{money(order.totalCents, order.currency)}</strong></td> : null}
+              <td><Link className={styles.rowDetailLink} href={`/orders/${order.id}`}>Sipariş detayını aç</Link></td>
             </tr>
           ))}</tbody>
         </table>

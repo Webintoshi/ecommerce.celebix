@@ -1,6 +1,7 @@
 .listSurface,
 .itemsPanel,
 .detailPanel,
+.orderInfoCard,
 .timeline {
   min-width: 0;
   overflow: hidden;
@@ -206,7 +207,7 @@ button:disabled.primaryButton,
 .errorState p { margin-top: .35rem; color: #6B7280; font-size: .8125rem; }
 
 .desktopTable { max-width: 100%; overflow-x: auto; }
-.desktopTable table { width: 100%; min-width: 980px; border-collapse: collapse; }
+.desktopTable table { width: 100%; min-width: 1120px; border-collapse: collapse; }
 .desktopTable th { height: 48px; background: #EEF2F6; padding: 0 1rem; color: #5E6878; font-size: .72rem; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
 .desktopTable td { height: 74px; border-top: 1px solid #EEF1F4; padding: .8rem 1rem; color: #374151; font-size: .82rem; }
 .desktopTable td strong,
@@ -222,6 +223,21 @@ button:disabled.primaryButton,
   font-weight: 750;
 }
 .orderLink:hover { color: #B94B00; }
+.rowDetailLink {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #FFD7BF;
+  border-radius: 8px;
+  padding: 0 .85rem;
+  color: #B94B00;
+  font-size: .76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.rowDetailLink:hover { background: #FFF7F2; }
 
 .mobileCards { display: grid; gap: .75rem; padding: 1rem; }
 .orderCard { display: grid; gap: 1rem; border: 1px solid #E1E6EF; border-radius: 12px; padding: 1rem; }
@@ -253,6 +269,14 @@ button:disabled.primaryButton,
 .operationBar label { display: grid; min-width: min(100%, 16rem); gap: .35rem; }
 .operationBar label > span,
 .compactForm label > span { color: #596273; font-size: .75rem; font-weight: 700; }
+
+.orderInfoGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.orderInfoCard dl { display: grid; gap: 0; margin: 0; padding: .35rem 1.25rem; }
+.orderInfoCard dl div { display: grid; grid-template-columns: minmax(8rem, .45fr) minmax(0, 1fr); gap: 1rem; border-bottom: 1px solid #EEF1F4; padding: .85rem 0; }
+.orderInfoCard dl div:last-child { border-bottom: 0; }
+.orderInfoCard dt { color: #6B7280; font-size: .76rem; font-weight: 700; }
+.orderInfoCard dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: #1F2937; font-size: .82rem; font-weight: 650; }
+.orderInfoCard a { color: #B94B00; text-decoration: underline; text-decoration-color: #FFD7BF; text-underline-offset: 3px; }
 
 .itemList { display: grid; }
 .itemList article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 1rem; border-bottom: 1px solid #EEF1F4; padding: 1rem 1.25rem; }
@@ -322,6 +346,7 @@ button:disabled.primaryButton,
   .detailHero > div:nth-child(2) { border-right: 0; }
   .detailHero > div:nth-child(-n + 2) { border-bottom: 1px solid #E8EDF4; }
   .detailColumns { grid-template-columns: 1fr; }
+  .orderInfoGrid { grid-template-columns: 1fr; }
 }
 
 @media (min-width: 1025px) {
@@ -337,6 +362,7 @@ button:disabled.primaryButton,
   .detailHero > div:last-child { border-bottom: 0; }
   .cardFacts,
   .compactForm { grid-template-columns: 1fr; }
+  .orderInfoCard dl div { grid-template-columns: 1fr; gap: .3rem; }
   .filterToolbar { grid-template-columns: 1fr; }
   .columnPicker summary,
   .exportButton { width: 100%; }

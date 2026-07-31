@@ -1,0 +1,24 @@
+{
+  "phase": "phase3-panel-session-storefront-authority",
+  "postgresqlMajor": 16,
+  "classification": "additive-panel-session-storefront-projection",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607310074_panel_session_storefront_authority.up.sql",
+      "direction": "up",
+      "sha256": "37f640749d5e7a833eab2d51cc67c8a4ac7bd7e125474bf35ab85430b3863d67"
+    },
+    {
+      "file": "202607310074_panel_session_storefront_authority.down.sql",
+      "direction": "down",
+      "sha256": "15a08d5640ea854e6da7255b5d7e4749c7a50d3899649100c174e968f98a4664"
+    },
+    {
+      "file": "202607310074_panel_session_storefront_authority_assertions.sql",
+      "direction": "verify",
+      "sha256": "ca0c5030c71dfaec6c5f31c4792dc3fe80e11108deecbcd66c67b0bd79bf7e92"
+    }
+  ]
+}

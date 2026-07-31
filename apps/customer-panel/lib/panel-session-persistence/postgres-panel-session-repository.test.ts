@@ -10,6 +10,7 @@ const PRINCIPAL_ID = "22222222-2222-4222-8222-222222222222";
 const STORE_ID = "33333333-3333-4333-8333-333333333333";
 const MEMBERSHIP_ID = "44444444-4444-4444-8444-444444444444";
 const PLAN_ID = "00000000-0000-4000-8000-000000000001";
+const DOMAIN_ID = "77777777-7777-4777-8777-777777777777";
 
 type QueryResponder = (text: string, values: readonly unknown[]) => { rows: Record<string, unknown>[]; rowCount: number | null };
 
@@ -46,6 +47,17 @@ function resolvedAuthority() {
     tenant: {
       store: { id: STORE_ID, slug: "test-store", status: "active" },
       membership: { id: MEMBERSHIP_ID, role: "store_owner", status: "active" },
+      resolvedHost: {
+        schemaVersion: 1,
+        hostname: "test-store.saas-staging.celebix.site",
+        domainId: DOMAIN_ID,
+        domainType: "platform_subdomain",
+        storeId: STORE_ID,
+        storeSlug: "test-store",
+        canonicalHostname: "test-store.saas-staging.celebix.site",
+        status: "active",
+        cacheVersion: 1,
+      },
       entitlements: {
         schemaVersion: 1,
         planId: PLAN_ID,
@@ -177,8 +189,44 @@ test("resolves persisted authority into the frozen TenantContext contract", asyn
   assert.equal(result.tenantContext?.principal.id, PRINCIPAL_ID);
   assert.equal(result.tenantContext?.store.id, STORE_ID);
   assert.equal(result.tenantContext?.membership.id, MEMBERSHIP_ID);
+  assert.deepEqual(result.tenantContext?.resolvedHost, {
+    schemaVersion: 1,
+    hostname: "test-store.saas-staging.celebix.site",
+    domainId: DOMAIN_ID,
+    domainType: "platform_subdomain",
+    storeId: STORE_ID,
+    storeSlug: "test-store",
+    canonicalHostname: "test-store.saas-staging.celebix.site",
+    status: "active",
+    cacheVersion: 1,
+  });
   assert.equal(result.tenantContext?.locale, "tr");
   assert.equal(JSON.stringify(result).includes("email"), false);
+});
+
+test("rejects malformed or cross-tenant storefront authority without weakening the session", async () => {
+  const invalidAuthorities = [
+    (() => {
+      const authority = structuredClone(resolvedAuthority());
+      authority.tenant.resolvedHost.storeId = PRINCIPAL_ID;
+      return authority;
+    })(),
+    (() => {
+      const authority = structuredClone(resolvedAuthority());
+      authority.tenant.resolvedHost.hostname = "TEST-store.saas-staging.celebix.site";
+      return authority;
+    })(),
+  ];
+  for (const authority of invalidAuthorities) {
+    const h = harness((text, values) => text.includes("issue_panel_session")
+      ? { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }
+      : { rows: [{ outcome: "resolved", authority }], rowCount: 1 });
+    const credential = await codecCredential(h);
+    assert.deepEqual(
+      await h.repository.resolveSession({ credential, requestId: "request_invalid_host", now: NOW }),
+      { kind: "durable_authority_invalid" },
+    );
+  }
 });
 
 test("returns one controlled selection candidate but never fabricates TenantContext", async () => {
@@ -212,11 +260,13 @@ test("deep-freezes successful session, TenantContext, features, limits, and resu
   assertAuthorityMutationBlocked(issued, () => { (issued.session as { activeStoreId?: string }).activeStoreId = PRINCIPAL_ID; });
   assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.store as { id: string }).id = PRINCIPAL_ID; });
   assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.membership as { role: string }).role = "admin"; });
+  assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.resolvedHost as { canonicalHostname: string }).canonicalHostname = "other.saas-staging.celebix.site"; });
   assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.entitlements.features as string[]).push("promotions"); });
   assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.entitlements.limits as { products: number }).products = 999999; });
   assert.equal(Object.isFrozen(issued.session), true);
   assert.equal(Object.isFrozen(resolved), true);
   assert.equal(Object.isFrozen(resolved.tenantContext), true);
+  assert.equal(Object.isFrozen(resolved.tenantContext.resolvedHost), true);
   assert.equal(Object.isFrozen(resolved.tenantContext.entitlements.features), true);
   assert.equal(Object.isFrozen(resolved.tenantContext.entitlements.limits), true);
 });

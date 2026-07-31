@@ -30,6 +30,12 @@ const STATUS_LABELS: Readonly<Record<OrderStatus, string>> = Object.freeze({
 const PAYMENT_LABELS: Readonly<Record<OrderPaymentStatus, string>> = Object.freeze({
   pending: "Ödeme bekleniyor", processing: "İşleniyor", completed: "Başarılı", failed: "Başarısız", refunded: "İade edildi",
 });
+const SOURCE_LABELS: Readonly<Record<OrderDetail["source"], string>> = Object.freeze({
+  storefront: "Online mağaza",
+  quick_link: "Hızlı sipariş",
+  marketplace: "Pazar yeri",
+  manual_import: "Manuel aktarım",
+});
 
 export function getAuthorizedOrderStatusOptions(
   current: OrderStatus,
@@ -179,6 +185,26 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         <div><span>Müşteri</span><strong>{order.customerName}</strong><small>{order.customerEmail}</small></div>
         <div><span>Sipariş toplamı</span><strong>{money(order.totalCents, order.currency)}</strong></div>
       </section>
+
+      <div className={styles.orderInfoGrid}>
+        <section className={styles.orderInfoCard} aria-labelledby="order-information-title">
+          <div className={styles.sectionHeading}><div><h2 id="order-information-title">Sipariş bilgileri</h2><p>Kaynak ve kayıt bilgileri</p></div></div>
+          <dl>
+            <div><dt>Kanal</dt><dd>{SOURCE_LABELS[order.source]}</dd></div>
+            <div><dt>Oluşturulma</dt><dd>{date(order.createdAt)}</dd></div>
+            <div><dt>Son güncelleme</dt><dd>{date(order.updatedAt)}</dd></div>
+            <div><dt>Kayıt sürümü</dt><dd>{order.version}</dd></div>
+          </dl>
+        </section>
+        <section className={styles.orderInfoCard} aria-labelledby="customer-contact-title">
+          <div className={styles.sectionHeading}><div><h2 id="customer-contact-title">Müşteri iletişimi</h2><p>Siparişe ait iletişim bilgileri</p></div></div>
+          <dl>
+            <div><dt>Müşteri</dt><dd>{order.customerName}</dd></div>
+            <div><dt>E-posta</dt><dd><a href={`mailto:${order.customerEmail}`}>{order.customerEmail}</a></dd></div>
+            <div><dt>Telefon</dt><dd>{order.customerPhone ? <a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a> : "Belirtilmemiş"}</dd></div>
+          </dl>
+        </section>
+      </div>
 
       {(statusOptions.length > 0 || paymentOptions.length > 0) ? (
         <section className={styles.operationBar} aria-label="Sipariş operasyonları">

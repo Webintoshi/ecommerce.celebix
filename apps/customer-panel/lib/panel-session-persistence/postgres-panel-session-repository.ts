@@ -2,6 +2,7 @@ import type {
   PlanEntitlements,
   PlanFeatureKey,
   PlanLimitKey,
+  ResolvedStoreHost,
   StoreMembershipRole,
   TenantContext,
 } from "@celebix/saas-contracts";
@@ -13,6 +14,7 @@ import {
 } from "./credential-codec.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const HOSTNAME_PATTERN = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:@/-]{1,512}$/;
 const MAXIMUM_SESSION_MS = 8 * 60 * 60_000;
 const MAXIMUM_CLOCK_SKEW_MS = 30_000;
@@ -162,6 +164,39 @@ function timestamp(value: unknown): string {
   return normalized;
 }
 
+function hostname(value: unknown): string {
+  const parsed = string(value, 253);
+  if (parsed.length < 3 || parsed !== parsed.toLowerCase() || !HOSTNAME_PATTERN.test(parsed)) throw new Error("invalid");
+  return parsed;
+}
+
+function resolvedHostAuthority(value: unknown, store: Readonly<{ id: string; slug: string }>): ResolvedStoreHost & { status: "active" } {
+  const row = exact(value, [
+    "schemaVersion", "hostname", "domainId", "domainType", "storeId", "storeSlug",
+    "canonicalHostname", "status", "cacheVersion",
+  ]);
+  const resolvedHostname = hostname(row.hostname);
+  const canonicalHostname = hostname(row.canonicalHostname);
+  const storeId = uuid(row.storeId);
+  const storeSlug = string(row.storeSlug, 63);
+  if (
+    row.schemaVersion !== 1 || row.status !== "active" ||
+    (row.domainType !== "platform_subdomain" && row.domainType !== "custom") ||
+    storeId !== store.id || storeSlug !== store.slug || resolvedHostname !== canonicalHostname
+  ) throw new Error("invalid");
+  return deepFreezeProjection({
+    schemaVersion: 1,
+    hostname: resolvedHostname,
+    domainId: uuid(row.domainId),
+    domainType: row.domainType,
+    storeId,
+    storeSlug,
+    canonicalHostname,
+    status: "active",
+    cacheVersion: integer(row.cacheVersion),
+  });
+}
+
 function sessionAuthority(value: unknown): PersistedPanelSession {
   const row = exact(value, ["sessionId", "familyId", "principalId", "version", "issuedAt", "rotatedAt", "expiresAt"], ["activeStoreId"]);
   const issuedAt = timestamp(row.issuedAt);
@@ -220,13 +255,17 @@ function resolvedAuthority(value: unknown, requestId: string): Extract<PanelSess
   if (authority.tenant !== undefined && authority.selectionCandidate !== undefined) throw new Error("invalid");
   if (authority.tenant !== undefined) {
     if (!session.activeStoreId) throw new Error("invalid");
-    const tenant = exact(authority.tenant, ["store", "membership", "entitlements", "locale"]);
+    const tenant = exact(authority.tenant, ["store", "membership", "entitlements", "locale"], ["resolvedHost"]);
     const store = exact(tenant.store, ["id", "slug", "status"]);
     const membership = exact(tenant.membership, ["id", "role", "status"]);
     const storeId = uuid(store.id);
     if (store.status !== "active" || storeId !== session.activeStoreId || membership.status !== "active") throw new Error("invalid");
     const role = string(membership.role, 32) as StoreMembershipRole;
     if (!MEMBERSHIP_ROLES.has(role)) throw new Error("invalid");
+    const storeProjection = { id: storeId, slug: string(store.slug, 63) };
+    const resolvedHost = tenant.resolvedHost === undefined
+      ? undefined
+      : resolvedHostAuthority(tenant.resolvedHost, storeProjection);
     return deepFreezeProjection({
       kind: "resolved",
       session,
@@ -234,9 +273,10 @@ function resolvedAuthority(value: unknown, requestId: string): Extract<PanelSess
         schemaVersion: 1,
         requestId,
         principal: { id: session.principalId, issuer: string(principal.issuer), subject: string(principal.subject, 512) },
-        store: { id: storeId, slug: string(store.slug, 63), status: "active" },
+        store: { ...storeProjection, status: "active" },
         membership: { id: uuid(membership.id), role, status: "active" },
         entitlements: entitlements(tenant.entitlements),
+        ...(resolvedHost === undefined ? {} : { resolvedHost }),
         locale: string(tenant.locale, 16),
       },
     });

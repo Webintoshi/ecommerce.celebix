@@ -473,6 +473,7 @@ test("order list renders the dense desktop order table from real DTOs", async ()
   assert.match(html, /Onaylandı/);
   assert.match(html, /Başarılı/);
   assert.match(html, new RegExp(`/orders/${ORDER_ID}`));
+  assert.match(html, /Sipariş detayını aç/);
 });
 
 test("order list exposes search, status, sort, and cursor pagination controls", async () => {
@@ -675,6 +676,12 @@ test("order detail renders immutable items, events, and merchant notes", async (
   assert.match(html, /value="https:\/\/track[.]example\/YK123"/);
   assert.match(html, /Kargoya veriliş zamanı/);
   assert.match(html, new RegExp(`value="${NOW.replaceAll(".", "[.]")}"`));
+  assert.match(html, /Sipariş bilgileri/);
+  assert.match(html, /Online mağaza/);
+  assert.match(html, /Son güncelleme/);
+  assert.match(html, /Müşteri iletişimi/);
+  assert.match(html, /mailto:ada@example[.]com/);
+  assert.match(html, /tel:[+]905551112233/);
 });
 
 test("order detail offers only authorized SQL 023 status and payment transitions", async () => {
