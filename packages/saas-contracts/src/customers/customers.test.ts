@@ -66,6 +66,16 @@ test("customer contracts reject private authority, unknown keys and malformed va
   ]) assert.throws(() => parseCustomerListItem(invalid), /customer_contract_invalid/);
 });
 
+test("customer list accepts historical imported orders that predate the customer profile import", () => {
+  const imported = parseCustomerListItem({
+    ...listItem,
+    createdAt: "2026-07-22T15:00:00.000Z",
+    updatedAt: "2026-07-22T15:00:00.000Z",
+    lastOrderAt: "2024-05-10T11:30:00.000Z",
+  });
+  assert.equal(imported.lastOrderAt, "2024-05-10T11:30:00.000Z");
+});
+
 test("customer summary, tag, segment and mutation projections stay exact", () => {
   assert.deepEqual(parseCustomerSummary({ active: 4, archived: 1, consentedEmail: 2, totalSpentCents: 75_000, currency: "TRY", asOf: NOW }), { active: 4, archived: 1, consentedEmail: 2, totalSpentCents: 75_000, currency: "TRY", asOf: NOW });
   assert.equal(parseCustomerTag({ id: TAG, name: "VIP", color: "#7c3aed", customerCount: 3, version: 1 }).customerCount, 3);
