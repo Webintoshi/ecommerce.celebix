@@ -320,6 +320,36 @@ test("starter storefront consumes the public presentation and exposes no inert c
   assert.doesNotMatch(header, /Çanta|Sepet yakında|header-bag/);
 });
 
+test("public content shell owns exact fixed policies search favorites and sibling card controls", async () => {
+  const [policy, search, favorites, resolveRoute, utilities, favoriteButton, footer, card] = await Promise.all([
+    readFile(new URL("../app/policies/[policyKey]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/favorites/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/favorites/resolve/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/StoreUtilities.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/FavoriteButton.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/Footer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/ProductCard.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(policy, /resolveStorefrontPolicyRoute/);
+  assert.match(policy, /buildPublicPolicyPage/);
+  assert.match(policy, /henüz yayımlanmadı/);
+  assert.match(policy, /index: false, follow: false/);
+  assert.match(search, /runtime[.]content[.]search/);
+  assert.match(search, /ProductGrid/);
+  assert.doesNotMatch(search, /storeId|tenantId|membershipId/);
+  assert.match(favorites, /FavoritesPageClient/);
+  assert.match(resolveRoute, /readFavoriteResolutionRequest/);
+  assert.match(resolveRoute, /resolveProductIds/);
+  for (const path of ["/search", "/favorites", "/account", "/cart"]) assert.match(utilities, new RegExp(`href: ['\"]${path.replace("/", "\\/")}`));
+  assert.match(favoriteButton, /favoritesStorageKey/);
+  assert.match(favoriteButton, /aria-pressed/);
+  assert.match(footer, /FIXED_STOREFRONT_POLICIES[.]map/);
+  assert.match(card, /<article/);
+  assert.match(card, /<FavoriteButton/);
+  assert.doesNotMatch(card, /<Link[\s\S]*<FavoriteButton[\s\S]*<\/Link>/);
+});
+
 test("dark theme and every marquee preference drive bounded CSS without sacrificing contrast", async () => {
   const [home, css] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
