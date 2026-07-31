@@ -9,6 +9,7 @@ import {
   PostgresCatalogOnboardingRepository,
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
+  PostgresStorePolicyAdminRepository,
   PostgresMerchantProviderProfileRepository,
   PostgresPaymentMethodRepository,
   PostgresAnalyticsRepository,
@@ -39,6 +40,7 @@ import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
+import { registerServerStorePolicyRepository } from "../server-store-policy/runtime.ts";
 import { registerServerPaymentMethodRepository } from "../server-payment-methods/runtime.ts";
 import { registerServerAnalyticsRepository } from "../server-analytics/runtime.ts";
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
@@ -189,6 +191,10 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS merchant_admin_repository,
+      to_regclass('saas.store_policy_pages') IS NOT NULL
+        AND to_regprocedure('saas.store_policy_list_admin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.store_policy_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,bigint,text,text)') IS NOT NULL
+        AND to_regprocedure('saas.store_policy_recover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS store_policy_repository,
       to_regprocedure('saas.merchant_provider_profile_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_provider_profile_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,text,bigint)') IS NOT NULL
         AND to_regprocedure('saas.merchant_provider_profile_save_verification(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,jsonb,text,jsonb,text,text,integer,text,integer,bigint)') IS NOT NULL
@@ -319,6 +325,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.customer_repository !== true ||
       row.catalog_admin_repository !== true ||
       row.merchant_admin_repository !== true ||
+      row.store_policy_repository !== true ||
       row.merchant_provider_profile_repository !== true ||
       row.payment_method_repository !== true || row.payment_provider_keyed_lifecycle !== true ||
       row.iyzico_activation_runtime !== true ||
@@ -450,6 +457,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const storePolicyRepository = new PostgresStorePolicyAdminRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
     const paymentMethodRepository = new PostgresPaymentMethodRepository({
       pool,
       role: "celebix_saas_app",
@@ -523,6 +536,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCustomerRepository(access, customerRepository);
     registerServerCatalogAdminRepository(access, catalogAdminRepository);
     registerServerMerchantAdminRepository(access, merchantAdminRepository);
+    registerServerStorePolicyRepository(access, storePolicyRepository);
     registerServerPaymentMethodRepository(access, paymentMethodRepository);
     registerServerProviderExecutionRuntime(
       access,

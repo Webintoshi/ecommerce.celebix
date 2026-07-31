@@ -420,8 +420,6 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
     ["../app/content/blog/[recordId]/edit/page.tsx", "blog_post"],
     ["../app/content/pages/new/page.tsx", "page"],
     ["../app/content/pages/[recordId]/edit/page.tsx", "page"],
-    ["../app/content/policies/new/page.tsx", "policy"],
-    ["../app/content/policies/[recordId]/edit/page.tsx", "policy"],
   ] as const;
   for (const [path, kind] of cases) {
     const page = await readFile(new URL(path, import.meta.url), "utf8");
@@ -429,6 +427,23 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
     assert.match(page, new RegExp(`kind=["']${kind}["']`));
     assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
   }
+});
+
+test("storefront policies use the fixed seven-page console instead of generic record creation", async () => {
+  const [page, legacyCreate, edit] = await Promise.all([
+    readFile(new URL("../app/content/policies/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/content/policies/new/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/content/policies/[policyKey]/edit/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /PolicyConsole/);
+  assert.match(page, /requireServerPanelAccess\(\)/);
+  assert.match(page, /content[.]manage/);
+  assert.match(legacyCreate, /permanentRedirect\("\/content\/policies"\)/);
+  assert.doesNotMatch(legacyCreate, /MerchantRecordEditor|kind=["']policy/);
+  assert.match(edit, /FIXED_STOREFRONT_POLICIES/);
+  assert.match(edit, /initialPolicyKey/);
+  assert.match(edit, /requireServerPanelAccess\(\)/);
+  assert.doesNotMatch(edit, /recordId|MerchantRecordEditor|searchParams|x-store-id|x-tenant-id/);
 });
 
 test("dedicated payment settings route validates hints and retires generic editors", async () => {

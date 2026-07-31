@@ -1,0 +1,35 @@
+.grid { display: grid; gap: .9rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 1rem; min-height: 8.5rem; padding: 1.2rem; border: 1px solid #e2e7ee; border-radius: 1.15rem; background: #fff; box-shadow: 0 8px 24px rgb(17 24 39 / 5%); }
+.icon { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #ffd4b8; border-radius: .9rem; background: #fff4ec; color: #fe6100; }
+.icon svg, .refresh svg, .edit svg, .success svg { width: 1.1rem; height: 1.1rem; }
+.cardBody { display: grid; gap: .45rem; min-width: 0; }
+.cardTitle { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.cardTitle h2 { margin: 0; color: #1f2937; font-size: 1rem; }
+.card code, .editor code { overflow: hidden; color: #667085; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.card p { margin: 0; color: #7a8495; font-size: .75rem; }
+.edit, .refresh, .secondary, .primary, .editor header button { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: .5rem; border-radius: .85rem; cursor: pointer; font: inherit; font-weight: 700; }
+.edit, .refresh, .secondary { border: 1px solid #dfe5ed; background: #fff; color: #344054; padding: 0 .9rem; }
+.primary { border: 1px solid #fe6100; background: #fe6100; color: #fff; padding: 0 1.2rem; }
+.edit:disabled, .refresh:disabled, .primary:disabled { cursor: not-allowed; opacity: .55; }
+.state { padding: 2rem; text-align: center; color: #667085; }
+.backdrop { position: fixed; inset: 0; z-index: 80; display: grid; justify-items: end; background: rgb(15 23 42 / 46%); }
+.editor { display: flex; width: min(46rem, 100vw); height: 100dvh; flex-direction: column; overflow: hidden; background: #fff; box-shadow: -24px 0 60px rgb(15 23 42 / 18%); }
+.editor header, .editor footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e7ebf0; padding: 1.1rem 1.25rem; }
+.editor header div { display: grid; min-width: 0; gap: .25rem; }
+.editor header small { color: #fe6100; font-size: .65rem; font-weight: 800; letter-spacing: .18em; }
+.editor h2 { margin: 0; font-size: 1.35rem; }
+.editor header button { width: 48px; flex: 0 0 48px; border: 1px solid #e2e7ee; background: #f8fafc; color: #344054; }
+.formBody { display: grid; flex: 1; gap: 1.1rem; overflow: auto; padding: 1.25rem; }
+.statusField, .bodyField { display: grid; gap: .5rem; color: #344054; font-size: .85rem; font-weight: 700; }
+.statusField select, .bodyField textarea { width: 100%; border: 1px solid #d6dde7; border-radius: .85rem; background: #fff; color: #1f2937; font: inherit; }
+.statusField select { min-height: 48px; padding: 0 .8rem; }
+.bodyField small { color: #fe6100; font-weight: 700; }
+.bodyField textarea { min-height: 18rem; resize: vertical; padding: .9rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.65; }
+.preview { display: grid; gap: .65rem; border: 1px solid #e4e9f0; border-radius: 1rem; background: #fafbfc; padding: 1rem; }
+.preview > :global(.product-description-preview) > strong { display: none; }
+.editor footer { justify-content: flex-end; border-top: 1px solid #e7ebf0; border-bottom: 0; }
+.success { display: flex; align-items: center; gap: .45rem; margin: 0; color: #14804a; }
+.error { margin: .75rem 0; border: 1px solid #fecaca; border-radius: .8rem; background: #fff1f2; padding: .8rem; color: #b42318; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .card { grid-template-columns: 48px minmax(0, 1fr); } .edit { grid-column: 1 / -1; width: 100%; } }
+@media (prefers-reduced-motion: no-preference) { .editor { animation: policy-in .18s ease-out; } @keyframes policy-in { from { transform: translateX(1rem); opacity: .85; } } }
+@media (prefers-reduced-motion: reduce) { .editor { animation-duration: .01ms; } }

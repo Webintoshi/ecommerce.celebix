@@ -10,7 +10,6 @@ const ROUTES = Object.freeze({
   discount: Object.freeze({ kind: "discount", returnTo: "/discounts", createPath: "/discounts/new" }),
   "content-blog": Object.freeze({ kind: "blog_post", returnTo: "/content/blog", createPath: "/content/blog/new" }),
   "content-pages": Object.freeze({ kind: "page", returnTo: "/content/pages", createPath: "/content/pages/new" }),
-  "content-policies": Object.freeze({ kind: "policy", returnTo: "/content/policies", createPath: "/content/policies/new" }),
   payment: Object.freeze({ kind: "payment_setting", returnTo: "/settings/payment", createPath: "/settings/payment/new" }),
 } as const satisfies Readonly<Record<string, MerchantRecordRouteDefinition>>);
 

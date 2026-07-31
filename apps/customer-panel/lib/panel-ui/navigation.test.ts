@@ -488,7 +488,7 @@ test("presents every mounted create edit preview and print route truthfully on f
     ["/content/blog/new", "Yeni blog yazısı"],
     ["/content/blog/post-123/edit", "Blog yazısını düzenle"],
     ["/content/pages/new", "Yeni sayfa"],
-    ["/content/policies/policy-123/edit", "Politikayı düzenle"],
+    ["/content/policies/kvkk/edit", "Politikayı düzenle"],
     ["/settings/payment/new", "Yeni ödeme ayarı"],
     ["/settings/payment/payment-123/edit", "Ödeme ayarını düzenle"],
   ] as const;

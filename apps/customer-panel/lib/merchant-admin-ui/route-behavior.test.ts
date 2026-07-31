@@ -522,7 +522,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "category_showcase");
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "category_showcase" && kind !== "policy");
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     assert.match(textOf(mounted.view), new RegExp(`${definition.kind} durable record`), `${definition.kind}:loaded`);
@@ -642,7 +642,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     }
   }
 
-  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "category_showcase" && recordRoute.createRouteFor(kind) === undefined);
+  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "category_showcase" && kind !== "policy" && recordRoute.createRouteFor(kind) === undefined);
   for (const definition of inlineDefinitions) {
     await submitInlineRecord(definition, "create", "success");
     await submitInlineRecord(definition, "update", "success");
@@ -719,7 +719,7 @@ test("merchant route matrix invokes every actual page, production console, clien
   assert.match(textOf(readOnlyMarketingView).replace(/\s+/gu, " "), /E-posta 1 Kalıcı kampanya kaydı Görüntüle/u);
 });
 
-test("merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay", async () => {
+test("merchant non-default route matrix invokes generic record pages and exact create update handlers across success conflict and replay", async () => {
   type SaveMode = "success" | "version_conflict" | "replayed";
   type RouteCase = Readonly<{
     route: string;
@@ -733,7 +733,6 @@ test("merchant non-default route matrix invokes nine actual pages and exact crea
     { route: "/content/blog/[recordId]/edit", kind: "blog_post", returnTo: "/content/blog", mode: "edit", component: "editor" },
     { route: "/content/pages/new", kind: "page", returnTo: "/content/pages", mode: "create", component: "editor" },
     { route: "/content/pages/[recordId]/edit", kind: "page", returnTo: "/content/pages", mode: "edit", component: "editor" },
-    { route: "/content/policies/[recordId]/edit", kind: "policy", returnTo: "/content/policies", mode: "edit", component: "editor" },
     { route: "/discounts/new", kind: "discount", returnTo: "/discounts", mode: "create", component: "console" },
     { route: "/discounts/[recordId]/edit", kind: "discount", returnTo: "/discounts", mode: "edit", component: "editor" },
   ]);
