@@ -1,11 +1,8 @@
-import { createCartGetRoute } from "@/lib/cart/route.ts";
+import { createCheckoutCompleteRoute } from "@/lib/cart/route.ts";
 import { resolveDefaultPublicStorefrontRuntime } from "@/lib/default-runtime.ts";
 import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authority.ts";
 
-export const GET = createCartGetRoute({
+export const POST = createCheckoutCompleteRoute({
   selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers),
-  resolveRuntime: async () => {
-    const runtime = await resolveDefaultPublicStorefrontRuntime();
-    return runtime?.cart ?? null;
-  },
+  resolveRuntime: async () => (await resolveDefaultPublicStorefrontRuntime())?.cart ?? null,
 });

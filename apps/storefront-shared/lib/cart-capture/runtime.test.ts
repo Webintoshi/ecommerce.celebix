@@ -13,7 +13,7 @@ function request(body: unknown, overrides: { url?: string; origin?: string | nul
   const headers = new Headers({ "content-type": "application/json", origin: overrides.origin ?? "https://pilot.saas-staging.celebix.site", ...(overrides.headers ?? {}) });
   if (overrides.origin === null) headers.delete("origin");
   if (overrides.cookie) headers.set("cookie", overrides.cookie);
-  return new Request(overrides.url ?? "http://internal:3450/api/cart", { method: "POST", headers, body: JSON.stringify(body) });
+  return new Request(overrides.url ?? "http://internal:3450/api/cart/capture", { method: "POST", headers, body: JSON.stringify(body) });
 }
 
 function body(overrides: Record<string, unknown> = {}) {
@@ -92,8 +92,8 @@ test("wrong origin path query private headers and untrusted proxy authority fail
   for (const selected of [
     request(body(), { origin: null }),
     request(body(), { origin: "https://attacker.example" }),
-    request(body(), { url: "http://internal:3450/api/cart?storeId=evil" }),
-    request(body(), { url: "http://internal:3450/api/cart/child" }),
+    request(body(), { url: "http://internal:3450/api/cart/capture?storeId=evil" }),
+    request(body(), { url: "http://internal:3450/api/cart/capture/child" }),
     request(body(), { headers: { authorization: "Bearer private" } }),
     request(body(), { headers: { "x-store-id": CART_ID } }),
   ]) {

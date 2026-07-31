@@ -34,7 +34,7 @@ export function createCartCaptureRoute(dependencies: Dependencies) {
     if (authority.kind !== "trusted") return json({ code: "unavailable" }, 503);
     let url: URL;
     try { url = new URL(request.url); } catch { return json({ code: "invalid_input" }, 400); }
-    if (request.method !== "POST" || !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/api/cart" || url.search || url.hash || request.headers.get("origin") !== `https://${authority.hostname}` || privateAuthority(request)) return json({ code: request.headers.get("origin") !== `https://${authority.hostname}` ? "origin_denied" : "invalid_input" }, request.headers.get("origin") !== `https://${authority.hostname}` ? 403 : 400);
+    if (request.method !== "POST" || !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/api/cart/capture" || url.search || url.hash || request.headers.get("origin") !== `https://${authority.hostname}` || privateAuthority(request)) return json({ code: request.headers.get("origin") !== `https://${authority.hostname}` ? "origin_denied" : "invalid_input" }, request.headers.get("origin") !== `https://${authority.hostname}` ? 403 : 400);
     const body = await readCartCaptureBody(request); if (body === null) return json({ code: "invalid_input" }, 400);
     const cookie = readCartCredential(request.headers.get("cookie")); if (cookie.kind === "invalid") return json({ code: "invalid_input" }, 400);
     let created: Readonly<{ credential: string; digest: string }> | undefined;
