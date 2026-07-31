@@ -62,6 +62,13 @@ function adminHostSuffix(environment: unknown): string {
   return ADMIN_HOST_SUFFIXES[environment];
 }
 
+function adminOriginEnvironmentFromPanelOrigin(panelOrigin: unknown): AdminOriginEnvironment {
+  const origin = normalizeExactHttpsOrigin(panelOrigin);
+  if (origin === "https://panel.celebix.site") return "production";
+  if (origin === "https://panel.saas-staging.celebix.site") return "staging";
+  invalidOrigin();
+}
+
 export function createCanonicalAdminOrigin(
   storeSlug: unknown,
   environment: AdminOriginEnvironment,
@@ -76,14 +83,43 @@ export function createCanonicalAdminOriginFromPanelOrigin(
   panelOrigin: unknown,
   storeSlug: unknown,
 ): string {
-  const origin = normalizeExactHttpsOrigin(panelOrigin);
-  if (origin === "https://panel.celebix.site") {
-    return createCanonicalAdminOrigin(storeSlug, "production");
+  return createCanonicalAdminOrigin(storeSlug, adminOriginEnvironmentFromPanelOrigin(panelOrigin));
+}
+
+export function parseCanonicalAdminOriginFromPanelOrigin(
+  canonicalAdminOrigin: unknown,
+  panelOrigin: unknown,
+): Readonly<{
+  origin: string;
+  hostname: string;
+  storeSlug: string;
+  environment: AdminOriginEnvironment;
+}> {
+  if (typeof canonicalAdminOrigin !== "string" || canonicalAdminOrigin.length === 0) invalidOrigin();
+  let parsed: URL;
+  try {
+    parsed = new URL(canonicalAdminOrigin);
+  } catch {
+    invalidOrigin();
   }
-  if (origin === "https://panel.saas-staging.celebix.site") {
-    return createCanonicalAdminOrigin(storeSlug, "staging");
-  }
-  invalidOrigin();
+  if (
+    parsed.protocol !== "https:"
+    || parsed.username !== ""
+    || parsed.password !== ""
+    || parsed.port !== ""
+    || parsed.pathname !== "/"
+    || parsed.search !== ""
+    || parsed.hash !== ""
+    || parsed.origin !== canonicalAdminOrigin
+  ) invalidOrigin();
+  const environment = adminOriginEnvironmentFromPanelOrigin(panelOrigin);
+  const storeSlug = parseCanonicalAdminHostname(parsed.hostname, environment);
+  return Object.freeze({
+    origin: canonicalAdminOrigin,
+    hostname: parsed.hostname,
+    storeSlug,
+    environment,
+  });
 }
 
 export function parseCanonicalAdminHostname(

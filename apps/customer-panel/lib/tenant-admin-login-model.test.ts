@@ -52,3 +52,24 @@ test("unknown, spoofed, or mismatched hosts use the generic safe model", async (
     });
   }
 });
+
+test("staging login model refuses a production canonical admin destination", async () => {
+  const model = await resolveTenantAdminLoginModel({
+    hostHeader: HOSTNAME,
+    clock: () => new Date("2026-07-30T10:00:00.000Z"),
+    async resolveRuntime() {
+      return {
+        access: { panelOrigin: PANEL },
+        adminDomains: { async resolvePublicBrand() { return { kind: "resolved", brand: {
+          storeSlug: "guzide-kuyumcu-4",
+          displayName: "Güzide Kuyumcu",
+          logoUrl: null,
+          accentColor: "#b58a4a",
+          canonicalAdminOrigin: "https://guzide-kuyumcu-4.admin.celebix.site",
+        } }; } },
+      };
+    },
+  });
+  assert.equal(model.kind, "generic");
+  assert.equal(model.loginHref, "/auth/login");
+});

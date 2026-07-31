@@ -6,6 +6,7 @@ import {
   createCanonicalAdminOriginFromPanelOrigin,
   createPanelStoreUrl,
   normalizeExactHttpsOrigin,
+  parseCanonicalAdminOriginFromPanelOrigin,
   parseCanonicalAdminHostname,
 } from "./panel-origin.ts";
 
@@ -61,6 +62,48 @@ test("derives only the approved production or staging admin environment from the
       () => createCanonicalAdminOriginFromPanelOrigin(origin, "guzide-kuyumcu-4"),
       /invalid_exact_https_origin/,
       origin,
+    );
+  }
+});
+
+test("parses a canonical tenant admin origin only in the central panel environment", () => {
+  assert.deepEqual(
+    parseCanonicalAdminOriginFromPanelOrigin(
+      "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "https://panel.saas-staging.celebix.site",
+    ),
+    {
+      origin: "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      hostname: "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      storeSlug: "guzide-kuyumcu-4",
+      environment: "staging",
+    },
+  );
+  assert.deepEqual(
+    parseCanonicalAdminOriginFromPanelOrigin(
+      "https://guzide-kuyumcu-4.admin.celebix.site",
+      "https://panel.celebix.site",
+    ),
+    {
+      origin: "https://guzide-kuyumcu-4.admin.celebix.site",
+      hostname: "guzide-kuyumcu-4.admin.celebix.site",
+      storeSlug: "guzide-kuyumcu-4",
+      environment: "production",
+    },
+  );
+});
+
+test("rejects canonical admin origins from the other panel environment", () => {
+  for (const [canonicalAdminOrigin, panelOrigin] of [
+    ["https://guzide-kuyumcu-4.admin.celebix.site", "https://panel.saas-staging.celebix.site"],
+    ["https://guzide-kuyumcu-4.admin.saas-staging.celebix.site", "https://panel.celebix.site"],
+    ["https://admin.hemenaku.com", "https://panel.saas-staging.celebix.site"],
+    ["https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/", "https://panel.saas-staging.celebix.site"],
+  ] as const) {
+    assert.throws(
+      () => parseCanonicalAdminOriginFromPanelOrigin(canonicalAdminOrigin, panelOrigin),
+      /invalid_exact_https_origin/,
+      `${panelOrigin}:${canonicalAdminOrigin}`,
     );
   }
 });

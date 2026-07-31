@@ -24,7 +24,7 @@ function session() {
   });
 }
 
-function fixture(options: { redemption?: object; recovery?: object; brandKind?: string } = {}) {
+function fixture(options: { redemption?: object; recovery?: object; brandKind?: string; brandOrigin?: string } = {}) {
   let redeemCalls = 0;
   let recoveryCalls = 0;
   const handler = createCrossHostHandoffHttpHandler({
@@ -40,7 +40,7 @@ function fixture(options: { redemption?: object; recovery?: object; brandKind?: 
                   displayName: "Güzide Kuyumcu",
                   logoUrl: null,
                   accentColor: "#ff6500",
-                  canonicalAdminOrigin: ORIGIN,
+                  canonicalAdminOrigin: options.brandOrigin ?? ORIGIN,
                 } };
           },
         },
@@ -114,6 +114,19 @@ test("accepts an opaque privacy client Origin while retaining destination-bound 
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), `${ORIGIN}/`);
   assert.equal(current.redeemCalls, 1);
+});
+
+test("staging handoff refuses a production canonical admin host", async () => {
+  const productionHostname = "guzide-kuyumcu-4.admin.celebix.site";
+  const productionOrigin = `https://${productionHostname}`;
+  const current = fixture({ brandOrigin: productionOrigin });
+  const response = await current.handler(request({
+    host: productionHostname,
+    url: `${productionOrigin}/auth/handoff`,
+  }));
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(current.redeemCalls, 0);
 });
 
 test("recovers an unknown redemption commit with the retained session authority", async () => {

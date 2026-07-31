@@ -35,6 +35,20 @@ export interface CreateStarterTenantServiceOptions {
   adminOriginEnvironment?: AdminOriginEnvironment;
 }
 
+const RESERVED_PLATFORM_SLUGS: ReadonlySet<string> = new Set([
+  "admin",
+  "api",
+  "assets",
+  "auth",
+  "cdn",
+  "ecommerce",
+  "media",
+  "panel",
+  "status",
+  "support",
+  "www",
+]);
+
 class TenantCoreFailure extends Error {
   readonly code: SaaSErrorCode;
   readonly field: string | undefined;
@@ -116,13 +130,16 @@ function validateInput(value: unknown): CreateStarterTenantInput {
   } catch {
     throw new TenantCoreFailure("invalid_input", "store.slug");
   }
+  if (RESERVED_PLATFORM_SLUGS.has(value.store.slug)) {
+    throw new TenantCoreFailure("invalid_input", "store.slug");
+  }
   if (value.store.locale !== "tr") {
     throw new TenantCoreFailure("invalid_input", "store.locale");
   }
   if (value.store.currency !== "TRY") {
     throw new TenantCoreFailure("invalid_input", "store.currency");
   }
-  if (!isNonEmptyString(value.store.themeKey)) {
+  if (value.store.themeKey !== "starter") {
     throw new TenantCoreFailure("invalid_input", "store.themeKey");
   }
   if (!isRecord(value.consents) || !hasOnlyKeys(value.consents, ["privacyAcceptedAt", "marketingAcceptedAt"])) {

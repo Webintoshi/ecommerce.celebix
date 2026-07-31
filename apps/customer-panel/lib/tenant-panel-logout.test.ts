@@ -70,6 +70,36 @@ test("logout revokes every Celebix session before clearing the host cookie and r
   assert.equal(location.toString().includes(CURRENT), false);
 });
 
+test("staging logout refuses a production canonical admin destination", async () => {
+  if (typeof logout.createTenantPanelLogoutHandler !== "function") return;
+  const value = runtime();
+  const handler = logout.createTenantPanelLogoutHandler({
+    async resolveRuntime() {
+      return Object.freeze({
+        ...value,
+        adminDomains: Object.freeze({
+          async resolvePublicBrand() {
+            return Object.freeze({
+              kind: "resolved",
+              brand: Object.freeze({ canonicalAdminOrigin: "https://hemenaku.admin.celebix.site" }),
+            });
+          },
+        }),
+      });
+    },
+    now: () => new Date(NOW),
+    randomBytes: (size) => new Uint8Array(size).fill(0x42),
+    maximumBodyBytes: 64,
+  });
+  const response = await handler(new Request(`${SOURCE}/api/session/logout`, {
+    method: "POST",
+    headers: { host: SOURCE_HOST, origin: SOURCE, "content-type": "application/x-www-form-urlencoded" },
+    body: "",
+  }));
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.has("location"), false);
+});
+
 test("logout survives reverse-proxy transport and returns to the canonical tenant login", async () => {
   if (typeof logout.createTenantPanelLogoutHandler !== "function" || typeof logout.createTenantPanelLogoutCallbackHandler !== "function") return;
   const value = runtime();

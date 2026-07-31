@@ -321,6 +321,48 @@ test("runtime-unverified identity cannot create a tenant", async () => {
   assert.equal(repository.inspectMetrics().begins, 0);
 });
 
+test("reserved Celebix platform host labels cannot become tenant slugs", async () => {
+  for (const slug of [
+    "admin",
+    "api",
+    "assets",
+    "auth",
+    "cdn",
+    "ecommerce",
+    "media",
+    "panel",
+    "status",
+    "support",
+    "www",
+  ]) {
+    const repository = createInMemorySaaSDataRepository();
+    const error = requireError(
+      await createStarterTenantService({ repository }).execute({
+        ...baseInput,
+        store: { ...baseInput.store, slug },
+      }),
+    );
+    assert.equal(error.code, "invalid_input", slug);
+    assert.equal(error.field, "store.slug", slug);
+    assert.equal(repository.inspectMetrics().begins, 0, slug);
+  }
+});
+
+test("starter tenant authority rejects caller-selected themes before a transaction begins", async () => {
+  for (const themeKey of ["hemenaku", "premium", "custom"] as const) {
+    const repository = createInMemorySaaSDataRepository();
+    const error = requireError(
+      await createStarterTenantService({ repository }).execute({
+        ...baseInput,
+        store: { ...baseInput.store, themeKey },
+      }),
+    );
+    assert.equal(error.code, "invalid_input", themeKey);
+    assert.equal(error.field, "store.themeKey", themeKey);
+    assert.equal(repository.inspectMetrics().begins, 0, themeKey);
+  }
+});
+
 test("timestamps must use canonical millisecond UTC form before a transaction begins", async () => {
   for (const timestamp of [
     "2026-07-10T03:00:00.000+03:00",

@@ -1,4 +1,7 @@
-import { parseCanonicalAdminHostname } from "@celebix/saas-data";
+import {
+  parseCanonicalAdminHostname,
+  parseCanonicalAdminOriginFromPanelOrigin,
+} from "@celebix/saas-data";
 
 import { serializePersistentPanelSessionCookie } from "./panel-session-completion/cookie.ts";
 
@@ -134,6 +137,11 @@ export function createCrossHostHandoffHttpHandler(options: Readonly<{
       runtime = resolved as Record<string, any>;
       trustedNow = options.clock();
       if (!(trustedNow instanceof Date) || !Number.isFinite(trustedNow.getTime())) throw new Error("unavailable");
+      const environmentBoundAuthority = parseCanonicalAdminOriginFromPanelOrigin(
+        authority.origin,
+        runtime.access?.panelOrigin,
+      );
+      if (environmentBoundAuthority.hostname !== authority.hostname) throw new Error("invalid");
       const requestOrigin = request.headers.get("origin");
       if (requestOrigin !== null && requestOrigin !== "null" && requestOrigin !== runtime.access?.panelOrigin) throw new Error("invalid");
       const brand = await runtime.adminDomains?.resolvePublicBrand({ hostname: authority.hostname, now: trustedNow });

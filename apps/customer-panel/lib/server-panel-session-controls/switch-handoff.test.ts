@@ -124,6 +124,42 @@ test("unknown commit recovers the exact candidate and alias source still lands o
   });
 });
 
+test("staging store switch refuses a production canonical admin destination", async () => {
+  let issued = 0;
+  const value = runtime(async () => {
+    issued += 1;
+    return Object.freeze({ kind: "handoff_issued", credential: HANDOFF, destinationOrigin: DESTINATION_ORIGIN });
+  });
+  const crossEnvironment = Object.freeze({
+    ...value,
+    storeOptions: Object.freeze({
+      async listForCredential() {
+        return Object.freeze({
+          kind: "resolved",
+          activeStoreId: "20000000-0000-4000-8000-000000000001",
+          stores: Object.freeze([Object.freeze({
+            storeId: DESTINATION_STORE_ID,
+            storeSlug: "guzide-kuyumcu-4",
+            displayName: "Güzide Kuyumcu",
+            canonicalAdminOrigin: "https://guzide-kuyumcu-4.admin.celebix.site",
+          })]),
+        });
+      },
+    }),
+  });
+  const handler = handlers.createPanelStoreSwitchHandoffHandler!({
+    async resolveRuntime() { return crossEnvironment; },
+    operationId: () => OPERATION_ID,
+    randomBytes: (size) => new Uint8Array(size).fill(0x41),
+    now: () => new Date(NOW),
+    maximumBodyBytes: 512,
+  });
+  const response = await handler(request());
+  assert.equal(response.status, 409);
+  assert.equal(issued, 0);
+  assert.equal(response.headers.has("location"), false);
+});
+
 test("switch rejects cross-site, malformed, unauthenticated, and unauthorized destinations without a bridge", async () => {
   for (const [input, expected, result] of [
     [request({ origin: "https://attacker.example" }), 403, "handoff_issued"],

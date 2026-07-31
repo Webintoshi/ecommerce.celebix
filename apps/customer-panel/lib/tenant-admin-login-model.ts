@@ -1,4 +1,4 @@
-import { parseCanonicalAdminHostname } from "@celebix/saas-data";
+import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
 
 export type TenantAdminLoginModel = Readonly<{
   kind: "tenant" | "generic";
@@ -27,14 +27,6 @@ function hostname(value: unknown): string | null {
   return value;
 }
 
-function canonicalPlatformHostname(value: string): boolean {
-  try { parseCanonicalAdminHostname(value, "production"); return true; }
-  catch {
-    try { parseCanonicalAdminHostname(value, "staging"); return true; }
-    catch { return false; }
-  }
-}
-
 export async function resolveTenantAdminLoginModel(options: Readonly<{
   hostHeader: string | null;
   resolveRuntime(): Promise<unknown>;
@@ -46,24 +38,26 @@ export async function resolveTenantAdminLoginModel(options: Readonly<{
     const runtime = await options.resolveRuntime() as any;
     const now = options.clock();
     if (!runtime || !(now instanceof Date) || !Number.isFinite(now.getTime())) return GENERIC;
-    const result = await runtime.adminDomains.resolvePublicBrand({ hostname: requestedHostname, now });
-    if (result?.kind !== "resolved" || typeof result.brand?.canonicalAdminOrigin !== "string") return GENERIC;
-    const canonicalAdminUrl = new URL(result.brand.canonicalAdminOrigin);
-    if (canonicalAdminUrl.protocol !== "https:" || canonicalAdminUrl.pathname !== "/" || canonicalAdminUrl.search || canonicalAdminUrl.hash) return GENERIC;
-    if (!canonicalPlatformHostname(canonicalAdminUrl.hostname)) return GENERIC;
-    const accentColor = result.brand.accentColor ?? "#ff6500";
-    if (!/^#[0-9a-fA-F]{6}$/.test(accentColor)) return GENERIC;
     const panelOrigin = runtime.access?.panelOrigin;
     if (typeof panelOrigin !== "string") return GENERIC;
+    const result = await runtime.adminDomains.resolvePublicBrand({ hostname: requestedHostname, now });
+    if (result?.kind !== "resolved" || typeof result.brand?.canonicalAdminOrigin !== "string") return GENERIC;
+    const canonicalAdmin = parseCanonicalAdminOriginFromPanelOrigin(
+      result.brand.canonicalAdminOrigin,
+      panelOrigin,
+    );
+    if (result.brand.storeSlug !== canonicalAdmin.storeSlug) return GENERIC;
+    const accentColor = result.brand.accentColor ?? "#ff6500";
+    if (!/^#[0-9a-fA-F]{6}$/.test(accentColor)) return GENERIC;
     const loginUrl = new URL("/auth/login", panelOrigin);
     if (loginUrl.origin !== panelOrigin || loginUrl.pathname !== "/auth/login") return GENERIC;
-    loginUrl.searchParams.set("destination", canonicalAdminUrl.hostname);
+    loginUrl.searchParams.set("destination", canonicalAdmin.hostname);
     return Object.freeze({
       kind: "tenant" as const,
       displayName: String(result.brand.displayName),
       logoUrl: result.brand.logoUrl === null ? null : String(result.brand.logoUrl),
       accentColor,
-      canonicalAdminOrigin: result.brand.canonicalAdminOrigin,
+      canonicalAdminOrigin: canonicalAdmin.origin,
       loginHref: loginUrl.toString(),
     });
   } catch { return GENERIC; }

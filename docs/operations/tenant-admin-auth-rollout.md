@@ -10,6 +10,41 @@ Canonical hosts:
 - Staging: `https://<store-slug>.admin.saas-staging.celebix.site`
 - Shared staging callback/login authority: `https://panel.saas-staging.celebix.site`
 
+## Wildcard TLS and instant Starter readiness
+
+Cloudflare is used only for DNS and Traefik ACME DNS-01 validation. Tenant authority remains the exact active PostgreSQL storefront/admin domain record. Customer registration must never call Cloudflare, Coolify, Traefik, or ACME: wildcard DNS, certificates, and shared routers are platform prerequisites.
+
+Required certificate scopes:
+
+| Environment | Admin | Storefront |
+| --- | --- | --- |
+| Staging | `*.admin.saas-staging.celebix.site` | `*.saas-staging.celebix.site` |
+| Production | `*.admin.celebix.site` | `*.celebix.site` |
+
+Exact platform routers for `auth`, `panel`, `ecommerce`, `api`, `media`, and other reserved services must have higher priority than the storefront wildcard router. Existing exact-domain routers and certificates remain installed during the wildcard canary.
+
+Run the read-only staging preflight before and after every router/certificate change:
+
+```bash
+npm run verify:tenant-wildcard -- \
+  --environment staging \
+  --known-admin guzide-kuyumcu-4.admin.saas-staging.celebix.site \
+  --known-storefront guzide-kuyumcu-4.saas-staging.celebix.site
+```
+
+The verifier requires both wildcard SANs, rejects certificates below the critical 14-day threshold, warns below 30 days, checks that central platform hosts remain healthy, compares route body fingerprints, and requires random unknown tenant hosts to fail closed with 404 or 503. Any TLS verification failure, Traefik default certificate, route collision, accepted unknown tenant, or unhealthy platform host aborts rollout.
+
+Before a proxy reload/restart, capture without secrets:
+
+- current proxy container/image identifier and health;
+- current static/dynamic configuration digests;
+- current certificate-store backup path and digest;
+- existing exact router names, priorities, services, and certificate resolvers;
+- current application deployment ids/image digests;
+- the pre-change verifier output and timestamp.
+
+Rollback restores the captured proxy configuration and certificate store, reloads the last known-good proxy, then re-runs the same verifier and every pre-existing exact-host health check. Never delete exact-domain configuration merely because a wildcard router exists.
+
 ## Required PostgreSQL runtime roles
 
 The customer-panel database login is a `LOGIN NOINHERIT` workload role. It must not be a superuser, own tenant tables, bypass RLS, create roles/databases, or receive direct tenant-table privileges. It must be a member of exactly the bounded roles needed by the shared panel runtime:

@@ -11,6 +11,7 @@ export {
   createCanonicalAdminOriginFromPanelOrigin,
   createPanelStoreUrl,
   normalizeExactHttpsOrigin,
+  parseCanonicalAdminOriginFromPanelOrigin,
   parseCanonicalAdminHostname,
 } from "./panel-origin.ts";
 export type { AdminOriginEnvironment } from "./panel-origin.ts";

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCanonicalAdminHostname } from "@celebix/saas-data";
+import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
 
 import { createCrossHostHandoffAutoPostResponse } from "../cross-host-handoff-auto-post.ts";
 import type { ServerAdminHostAuthRuntime } from "../server-admin-host-auth/runtime.ts";
@@ -91,16 +91,6 @@ function exactHostname(value: unknown): string | null {
     value === value.trim() && value === value.toLowerCase() && HOSTNAME.test(value)
     ? value
     : null;
-}
-
-function canonicalAdminHostname(value: unknown): string | null {
-  const candidate = exactHostname(value);
-  if (candidate === null) return null;
-  try { parseCanonicalAdminHostname(candidate, "production"); return candidate; }
-  catch {
-    try { parseCanonicalAdminHostname(candidate, "staging"); return candidate; }
-    catch { return null; }
-  }
 }
 
 async function boundedForm(request: Request, maximumBytes: number): Promise<URLSearchParams | null> {
@@ -204,14 +194,17 @@ export function createPanelStoreSwitchHandoffHandler(dependencies: StoreSwitchDe
       if (options.kind !== "resolved") return switchFailure(options.kind);
       const selected = options.stores.find((store) => store.storeId === destinationStoreId);
       if (!selected) return json("membership_denied", 403);
-      const destination = new URL(selected.canonicalAdminOrigin);
-      const parsedHostname = canonicalAdminHostname(destination.hostname);
-      if (
-        parsedHostname === null || destination.protocol !== "https:" || destination.username || destination.password ||
-        destination.port || destination.pathname !== "/" || destination.search || destination.hash ||
-        destination.origin !== selected.canonicalAdminOrigin
-      ) return json("durable_authority_invalid", 409);
-      destinationHostname = parsedHostname;
+      let destination: ReturnType<typeof parseCanonicalAdminOriginFromPanelOrigin>;
+      try {
+        destination = parseCanonicalAdminOriginFromPanelOrigin(
+          selected.canonicalAdminOrigin,
+          runtime.access.panelOrigin,
+        );
+      } catch {
+        return json("durable_authority_invalid", 409);
+      }
+      if (destination.storeSlug !== selected.storeSlug) return json("durable_authority_invalid", 409);
+      destinationHostname = destination.hostname;
     } catch { return unavailable(); }
     let operationId: string;
     try { operationId = dependencies.operationId(); } catch { return unavailable(); }

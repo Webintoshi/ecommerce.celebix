@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCanonicalAdminHostname } from "@celebix/saas-data";
+import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
 
 import { createPanelLogoutStateCodec } from "./panel-logout-state.ts";
 import { serializePersistentPanelSessionDeletionCookie } from "./panel-session-completion/cookie.ts";
@@ -50,19 +50,6 @@ function publicRequestAuthority(request: Request): Readonly<{ url: URL; hostname
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
   const hostname = validHostname(request.headers.get("host"));
   return hostname ? Object.freeze({ url, hostname, origin: `https://${hostname}` }) : null;
-}
-
-function canonicalAdminOrigin(value: unknown): Readonly<{ origin: string; hostname: string }> | null {
-  if (typeof value !== "string") return null;
-  let url: URL;
-  try { url = new URL(value); } catch { return null; }
-  if (url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/" || url.search || url.hash || url.origin !== value) return null;
-  try { parseCanonicalAdminHostname(url.hostname, "production"); }
-  catch {
-    try { parseCanonicalAdminHostname(url.hostname, "staging"); }
-    catch { return null; }
-  }
-  return Object.freeze({ origin: value, hostname: url.hostname });
 }
 
 function validNow(value: unknown): Date | null {
@@ -135,7 +122,12 @@ export function createTenantPanelLogoutHandler(dependencies: Dependencies) {
       now = dependencies.now();
       if (!validNow(now)) throw new Error("unavailable");
       const brand = await runtime.adminDomains.resolvePublicBrand({ hostname: authority.hostname, now });
-      const canonical = brand.kind === "resolved" ? canonicalAdminOrigin(brand.brand?.canonicalAdminOrigin) : null;
+      const canonical = brand.kind === "resolved"
+        ? parseCanonicalAdminOriginFromPanelOrigin(
+            brand.brand?.canonicalAdminOrigin,
+            runtime.access.panelOrigin,
+          )
+        : null;
       if (!canonical) throw new Error("unavailable");
       destinationOrigin = canonical.origin;
     } catch { return json("panel_session_retry_required", 503); }
@@ -181,8 +173,10 @@ export function createTenantPanelLogoutCallbackHandler(dependencies: Readonly<{
       now = dependencies.now();
       if (!runtime || !authority || !validNow(now) || authority.origin !== runtime.access.panelOrigin || authority.url.pathname !== "/auth/logout/callback" || authority.url.hash || authority.url.searchParams.size !== 1 || authority.url.searchParams.getAll("state").length !== 1) throw new Error("invalid");
       const verified = createPanelLogoutStateCodec(runtime.logout.stateKey).verify({ state: authority.url.searchParams.get("state") ?? "", now });
-      const destination = canonicalAdminOrigin(verified.destinationOrigin);
-      if (!destination) throw new Error("invalid");
+      const destination = parseCanonicalAdminOriginFromPanelOrigin(
+        verified.destinationOrigin,
+        runtime.access.panelOrigin,
+      );
       const brand = await runtime.adminDomains.resolvePublicBrand({ hostname: destination.hostname, now });
       if (brand.kind !== "resolved" || brand.brand?.canonicalAdminOrigin !== destination.origin) throw new Error("invalid");
       return new Response(null, { status: 303, headers: {

@@ -76,3 +76,27 @@ test("login start failure is fail-closed and never emits a cookie or redirect", 
   assert.equal(response.headers.has("location"), false);
   assert.equal(response.headers.has("set-cookie"), false);
 });
+
+test("staging login authority refuses a production canonical admin destination", async () => {
+  let calls = 0;
+  const value = createPanelReturningLoginHandler({
+    publicLoginAuthority: `${PANEL}/auth/login`,
+    credentialGenerator: Object.freeze({ generate: () => PB1 }),
+    transport: Object.freeze({ async start() {
+      calls += 1;
+      return Object.freeze({
+        kind: "panel_login_ready" as const,
+        providerAuthorizationUrl: PROVIDER,
+        browserBindingExpiresAt: "2026-07-30T12:10:00.000Z",
+      });
+    } }),
+    clock: () => new Date("2026-07-30T12:00:00.000Z"),
+  });
+  const response = await value(new Request(
+    `${PANEL}/auth/login?destination=guzide-kuyumcu-4.admin.celebix.site`,
+  ));
+  assert.equal(response.status, 400);
+  assert.equal(calls, 0);
+  assert.equal(response.headers.has("location"), false);
+  assert.equal(response.headers.has("set-cookie"), false);
+});

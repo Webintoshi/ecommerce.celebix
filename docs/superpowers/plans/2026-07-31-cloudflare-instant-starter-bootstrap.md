@@ -25,10 +25,10 @@
 - Modify: `packages/saas-tenant-core/src/create-starter-tenant.test.ts`
 - Modify: `packages/saas-tenant-core/src/create-starter-tenant.ts`
 
-- [ ] Add failing tests proving a non-`starter` `themeKey` and every reserved platform slug is rejected before a transaction begins.
-- [ ] Run `node --experimental-strip-types --test packages/saas-tenant-core/src/create-starter-tenant.test.ts` and observe the new failures.
-- [ ] Add the minimum immutable reserved-slug policy and require `themeKey === "starter"` at the tenant-core authority boundary.
-- [ ] Re-run the focused test and `npm run typecheck --workspace @celebix/saas-tenant-core`.
+- [x] Add failing tests proving a non-`starter` `themeKey` and every reserved platform slug is rejected before a transaction begins.
+- [x] Run `node --experimental-strip-types --test packages/saas-tenant-core/src/create-starter-tenant.test.ts` and observe the new failures.
+- [x] Add the minimum immutable reserved-slug policy and require `themeKey === "starter"` at the tenant-core authority boundary.
+- [x] Re-run the focused test and `npm run typecheck --workspace @celebix/saas-tenant-core`.
 
 ## Task 2: Bind canonical admin redirects to the active environment
 
@@ -41,12 +41,12 @@
 - Modify: `apps/customer-panel/lib/tenant-panel-logout.ts`
 - Modify only if focused tests expose the same gap: `apps/customer-panel/lib/tenant-admin-login-model.ts`, `apps/customer-panel/lib/server-panel-session-controls/switch-handoff.ts`, and their tests.
 
-- [ ] Add failing origin-helper tests proving a staging panel rejects production canonical admin origins and production rejects staging.
-- [ ] Add failing logout start/callback tests for the same cross-environment redirect attempt.
-- [ ] Run the focused tests and observe the expected failures.
-- [ ] Implement one shared exact-origin parser derived from the fixed central panel origin and use it in logout.
-- [ ] Audit login, handoff, and store-switch destination parsing; reuse the helper wherever a database projection could cross environments.
-- [ ] Re-run `npm test --workspace @celebix/saas-data`, the focused customer-panel suites, and both workspace typechecks.
+- [x] Add failing origin-helper tests proving a staging panel rejects production canonical admin origins and production rejects staging.
+- [x] Add failing logout start/callback tests for the same cross-environment redirect attempt.
+- [x] Run the focused tests and observe the expected failures.
+- [x] Implement one shared exact-origin parser derived from the fixed central panel origin and use it in logout.
+- [x] Audit login, handoff, and store-switch destination parsing; reuse the helper wherever a database projection could cross environments.
+- [x] Re-run `npm test --workspace @celebix/saas-data`, the focused customer-panel suites, and both workspace typechecks.
 
 ## Task 3: Add repeatable wildcard TLS and routing verification
 
@@ -57,17 +57,17 @@
 - Modify: `package.json`
 - Modify: `docs/operations/tenant-admin-auth-rollout.md`
 
-- [ ] Add failing tests for certificate SAN coverage, certificate expiry thresholds, admin/storefront route separation, exact platform-host preservation, and unknown-host fail-closed results.
-- [ ] Implement a read-only verifier that accepts explicit environment/host inputs, performs bounded DNS/TLS/HTTPS checks, and emits no secrets.
-- [ ] Add a root package script for the verifier and document staging/production commands plus rollback checks.
-- [ ] Run the verifier unit test and a read-only preflight against current Güzide, central panel, and random unknown staging hosts.
+- [x] Add failing tests for certificate SAN coverage, certificate expiry thresholds, admin/storefront route separation, exact platform-host preservation, and unknown-host fail-closed results.
+- [x] Implement a read-only verifier that accepts explicit environment/host inputs, performs bounded DNS/TLS/HTTPS checks, and emits no secrets.
+- [x] Add a root package script for the verifier and document staging/production commands plus rollback checks.
+- [x] Run the verifier unit test and a read-only preflight against current Güzide, central panel, and random unknown staging hosts.
 
 ## Task 4: Verify the code candidate before infrastructure mutation
 
-- [ ] Run focused tenant-core, saas-data, customer-panel, owner registration, and storefront tests.
-- [ ] Run affected workspace typechecks and production builds.
-- [ ] Run `git diff --check` and review the complete diff for secret leakage and unrelated changes.
-- [ ] Commit the verified code and operations changes with a narrow auth/bootstrap commit.
+- [x] Run focused tenant-core, saas-data, customer-panel, owner registration, and storefront tests.
+- [x] Run affected workspace typechecks and production builds.
+- [x] Run `git diff --check` and review the complete diff for secret leakage and unrelated changes.
+- [x] Commit the verified code and operations changes with a narrow auth/bootstrap commit.
 
 ## Task 5: Configure staging Cloudflare DNS-01 wildcard TLS without replacing current routes
 

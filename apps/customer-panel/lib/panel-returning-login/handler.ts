@@ -1,3 +1,5 @@
+import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+
 import type { createPanelBrowserBindingCredentialGenerator } from "../panel-browser-binding/credential-codec.ts";
 import { serializePanelBrowserBindingCookie } from "../panel-browser-binding/cookie.ts";
 
@@ -37,7 +39,7 @@ function exactPublicLoginAuthority(value: unknown): string {
   return value;
 }
 
-function requestDecision(request: Request): { kind: "approved"; destinationHostname: string } | { kind: "method_not_allowed" | "denied" } {
+function requestDecision(request: Request, panelOrigin: string): { kind: "approved"; destinationHostname: string } | { kind: "method_not_allowed" | "denied" } {
   if (request.method !== "GET") return { kind: "method_not_allowed" };
   let url: URL;
   try { url = new URL(request.url); } catch { return { kind: "denied" }; }
@@ -48,6 +50,11 @@ function requestDecision(request: Request): { kind: "approved"; destinationHostn
   const values = url.searchParams.getAll("destination");
   const destinationHostname = values[0];
   if (values.length !== 1 || !destinationHostname || !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(destinationHostname)) return { kind: "denied" };
+  try {
+    parseCanonicalAdminOriginFromPanelOrigin(`https://${destinationHostname}`, panelOrigin);
+  } catch {
+    return { kind: "denied" };
+  }
   return { kind: "approved", destinationHostname };
 }
 
@@ -71,7 +78,8 @@ export function createPanelReturningLoginHandler(options: {
   transport: { start(input: { browserBindingCredential: string; destinationHostname: string }): Promise<PanelReturningLoginStartResult> };
   clock(): Date;
 }) {
-  exactPublicLoginAuthority(options?.publicLoginAuthority);
+  const publicLoginAuthority = exactPublicLoginAuthority(options?.publicLoginAuthority);
+  const panelOrigin = new URL(publicLoginAuthority).origin;
   if (
     !options.credentialGenerator || typeof options.credentialGenerator.generate !== "function" ||
     !options.transport || typeof options.transport.start !== "function" || typeof options.clock !== "function"
@@ -82,7 +90,7 @@ export function createPanelReturningLoginHandler(options: {
   const clock = options.clock;
 
   return async function panelReturningLoginHandler(request: Request): Promise<Response> {
-    const decision = requestDecision(request);
+    const decision = requestDecision(request, panelOrigin);
     if (decision.kind === "method_not_allowed") return controlled("panel_login_method_not_allowed", 405);
     if (decision.kind !== "approved") return controlled("panel_login_request_invalid", 400);
 
