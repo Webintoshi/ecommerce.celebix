@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
 import { ProductDescription } from "@/components/ProductDescription";
 import { ProductGallery } from "@/components/ProductGallery";
+import { ProductPurchasePanel } from "@/components/ProductPurchasePanel";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { PRODUCT_VIEW_EVENT } from "@/lib/analytics/events.ts";
@@ -33,13 +34,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <b>{item.available ? "Stokta" : "Tükendi"}</b>
           <span>{item.available ? "Siparişe hazır aktif seçenekler mevcut." : "Aktif seçenekler şu anda stokta değil."}</span>
         </div>
-        <section className="variant-panel" aria-labelledby="variants-title">
-          <h2 id="variants-title">Varyantlar</h2>
-          {item.variants.map((variant) => <article key={variant.id}>
-            <div><strong>{variant.title}</strong>{variant.sku ? <small>SKU {variant.sku}</small> : null}</div>
-            <div><span>{formatTry(variant.priceCents)}</span><em>{variant.available ? (variant.stockTracking ? `${variant.stockQuantity} adet` : "Stokta") : "Tükendi"}</em></div>
-          </article>)}
-        </section>
+        <ProductPurchasePanel product={item} />
       </div>
     </section>
     <ProductDescription product={item} />
