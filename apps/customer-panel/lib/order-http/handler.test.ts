@@ -92,6 +92,13 @@ function detail() {
   });
 }
 
+function neighbors() {
+  return Object.freeze({
+    previous: Object.freeze({ id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", orderNumber: "HMN-1002" }),
+    next: Object.freeze({ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", orderNumber: "HMN-1000" }),
+  });
+}
+
 function mutation() {
   return Object.freeze({
     id: ORDER_ID,
@@ -109,6 +116,7 @@ function repository(overrides: Partial<OrderRepository> = {}): OrderRepository {
     getDashboardSummary: reject,
     listOrders: reject,
     getOrder: reject,
+    getOrderNeighbors: reject,
     transitionStatus: reject,
     transitionPayment: reject,
     updateShipping: reject,
@@ -232,6 +240,19 @@ test("authenticated order detail validates the path ID and calls once", async ()
   assert.deepEqual(calls, [{ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }]);
 });
 
+test("authenticated order neighbors are tenant-scoped, parsed, and no-store", async () => {
+  const calls: unknown[] = [];
+  const handlers = createOrderHttpHandlers(dependencies(repository({
+    async getOrderNeighbors(input) { calls.push(input); return neighbors(); },
+  })));
+  const response = await handlers.getOrderNeighbors(request(`${ORDERS}/${ORDER_ID}/neighbors`), ORDER_ID);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await body(response), neighbors());
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(calls, [{ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }]);
+  assert.doesNotMatch(JSON.stringify(await (await handlers.getOrderNeighbors(request(`${ORDERS}/${ORDER_ID}/neighbors`), ORDER_ID)).json()), /storeId|principalId|membershipId|issuer|subject/i);
+});
+
 test("five authenticated mutation endpoints forward exact safe commands", async () => {
   const calls: Array<readonly [string, unknown]> = [];
   const handlers = createOrderHttpHandlers(dependencies(repository({
@@ -267,6 +288,7 @@ test("every endpoint enforces its exact method", async () => {
     [(r: Request) => handlers.getDashboardSummary(r), "GET"],
     [(r: Request) => handlers.listOrders(r), "GET"],
     [(r: Request) => handlers.getOrder(r, ORDER_ID), "GET"],
+    [(r: Request) => handlers.getOrderNeighbors(r, ORDER_ID), "GET"],
     [(r: Request) => handlers.transitionStatus(r, ORDER_ID), "PATCH"],
     [(r: Request) => handlers.transitionPayment(r, ORDER_ID), "PATCH"],
     [(r: Request) => handlers.updateShipping(r, ORDER_ID), "PATCH"],
@@ -296,6 +318,8 @@ test("GET routes reject exact-path near matches, fragments, and forbidden querie
     await handlers.getDashboardSummary(request(`${SUMMARY}?storeId=${STORE_ID}`)),
     await handlers.getOrder(request(`${ORDERS}/${ORDER_ID}?x=1`), ORDER_ID),
     await handlers.getOrder(request(`${ORDERS}/${ORDER_ID}#fragment`), ORDER_ID),
+    await handlers.getOrderNeighbors(request(`${ORDERS}/${ORDER_ID}/neighbors?x=1`), ORDER_ID),
+    await handlers.getOrderNeighbors(request(`${ORDERS}/${ORDER_ID}/neighbors/`), ORDER_ID),
   ]) {
     assert.equal(response.status, 400);
     assert.deepEqual(await body(response), { code: "invalid_input" });

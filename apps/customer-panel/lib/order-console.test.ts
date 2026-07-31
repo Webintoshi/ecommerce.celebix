@@ -306,6 +306,10 @@ test("order client performs strict frozen same-origin summary, list, and detail 
     { items: [], nextCursor: undefined },
     { items: [] },
     detail,
+    {
+      previous: { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", orderNumber: "HMN-1002" },
+      next: { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", orderNumber: "HMN-1000" },
+    },
   ];
   const api = createOrderApiClient({ fetch: async (input, init) => { calls.push([input, init]); return json(bodies.shift()); } });
   const summary = await api.getDashboardSummary();
@@ -313,12 +317,14 @@ test("order client performs strict frozen same-origin summary, list, and detail 
   const next = await api.listOrders({ pageSize: 20, cursor: list.nextCursor, status: "confirmed", search: "Ada Lovelace", sort: "highest" });
   await api.listOrders();
   const loaded = await api.getOrder(ORDER_ID);
+  const neighbors = await api.getOrderNeighbors(ORDER_ID);
   assert.deepEqual(calls.map(([path]) => path), [
     "/api/orders/summary",
     "/api/orders?pageSize=20&status=confirmed&search=Ada+Lovelace&sort=highest",
     "/api/orders?pageSize=20&cursor=eyJ2IjoxfQ&status=confirmed&search=Ada+Lovelace&sort=highest",
     "/api/orders?pageSize=20&sort=newest",
     `/api/orders/${ORDER_ID}`,
+    `/api/orders/${ORDER_ID}/neighbors`,
   ]);
   assert.equal(calls.every(([, init]) => init?.credentials === "same-origin" && init.method === "GET"), true);
   assert.equal(Object.isFrozen(summary), true);
@@ -327,6 +333,8 @@ test("order client performs strict frozen same-origin summary, list, and detail 
   assert.equal(next.items.length, 0);
   assert.equal("nextCursor" in next, false);
   assert.equal(Object.isFrozen(loaded.items[0]), true);
+  assert.equal(Object.isFrozen(neighbors), true);
+  assert.equal(Object.isFrozen(neighbors.previous), true);
 });
 
 test("order client mutations use exact relative paths, JSON, idempotency, and safe frozen results", async () => {
@@ -415,6 +423,7 @@ test("order client fails closed on unsafe payloads and contains no browser autho
   const paymentGetter = Object.defineProperty({ expectedVersion: 4 }, "nextPaymentStatus", { enumerable: true, get() { throw new Error("payment getter escaped"); } });
   await assert.rejects(async () => guarded.transitionPayment(ORDER_ID, paymentGetter as never), { name: "TypeError", message: "order_client_invalid" });
   await assert.rejects(async () => guarded.getOrder(new Proxy({}, {}) as never), { name: "TypeError", message: "order_client_invalid" });
+  await assert.rejects(async () => guarded.getOrderNeighbors(new Proxy({}, {}) as never), { name: "TypeError", message: "order_client_invalid" });
   await assert.rejects(async () => guarded.addNote(ORDER_ID, new Proxy({}, {}) as never), { name: "TypeError", message: "order_client_invalid" });
   await assert.rejects(async () => guarded.archiveNote(ORDER_ID, new Proxy({}, {}) as never), { name: "TypeError", message: "order_client_invalid" });
   assert.equal(fetches, 0);

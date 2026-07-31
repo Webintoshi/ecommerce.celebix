@@ -5,10 +5,12 @@ import {
   parseOrderDashboardSummary,
   parseOrderDetail,
   parseOrderListItem,
+  parseOrderNeighbors,
   type OrderAddress,
   type OrderDashboardSummary,
   type OrderDetail,
   type OrderListItem,
+  type OrderNeighbors,
   type OrderPaymentStatus,
   type OrderSort,
   type OrderStatus,
@@ -325,6 +327,12 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
       const order = local(() => id(orderId));
       const body = await request(`/api/orders/${order}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
       return safeParse(() => parseOrderDetail(body));
+    },
+
+    async getOrderNeighbors(orderId: string): Promise<Readonly<OrderNeighbors>> {
+      const order = local(() => id(orderId));
+      const body = await request(`/api/orders/${order}/neighbors`, { method: "GET", credentials: "same-origin", cache: "no-store" });
+      return safeParse(() => parseOrderNeighbors(body));
     },
 
     transitionStatus(orderId: string, input: Readonly<{ expectedVersion: number; nextStatus: OrderStatus }>) {

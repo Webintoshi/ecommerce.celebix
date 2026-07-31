@@ -2,6 +2,7 @@ import {
   parseOrderDashboardSummary,
   parseOrderDetail,
   parseOrderListItem,
+  parseOrderNeighbors,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import {
@@ -264,6 +265,23 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
           orderId,
         }),
         parseOrderDetail,
+      );
+    },
+
+    async getOrderNeighbors(request: Request, rawOrderId: unknown): Promise<Response> {
+      const orderId = pathId(rawOrderId);
+      if (isResponse(orderId)) return orderId;
+      const authorized = await authorize(dependencies, request, {
+        method: "GET", pathname: `${ORDERS_PATH}/${orderId}/neighbors`, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      return execute(
+        () => authorized.runtime.orders.getOrderNeighbors({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          orderId,
+        }),
+        parseOrderNeighbors,
       );
     },
 

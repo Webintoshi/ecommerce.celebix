@@ -32,6 +32,11 @@ export async function handleDefaultOrderGet(request: Request, context: OrderRout
   return handlers.getOrder(request, orderId);
 }
 
+export async function handleDefaultOrderGetNeighbors(request: Request, context: OrderRouteContext) {
+  const { orderId } = await context.params;
+  return handlers.getOrderNeighbors(request, orderId);
+}
+
 export async function handleDefaultOrderTransitionStatus(request: Request, context: OrderRouteContext) {
   const { orderId } = await context.params;
   return handlers.transitionStatus(request, orderId);
