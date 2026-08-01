@@ -52,3 +52,25 @@ test("side-cart stays responsive with 48px targets and reduced motion", () => {
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
   assert.match(css, /transition-duration:\s*[.]01ms/u);
 });
+
+test("drawer never claims shipping progress without canonical threshold authority", () => {
+  assert.match(drawer, /data-campaign-cart="true"/u);
+  assert.doesNotMatch(drawer, /Ücretsiz kargoya|shipping-progress/u);
+});
+
+test("campaign checkout action preserves the existing checkout route", () => {
+  assert.match(drawer, /className="store-button campaign-side-cart-checkout" href="\/checkout"/u);
+});
+
+test("campaign line keeps canonical first media and exact variant copy", () => {
+  assert.match(drawer, /campaign-side-cart-item/u);
+  assert.match(drawer, /line[.]media[.]url/u);
+  assert.match(drawer, /line[.]variantTitle/u);
+  assert.match(drawer, /loading="lazy"/u);
+});
+
+test("campaign summary preserves canonical totals and checkout blocker truth", () => {
+  assert.match(drawer, /campaign-side-cart-summary/u);
+  for (const proof of ["cart.subtotalCents", "cart.shippingCents", "cart.totalCents", "cart.checkoutBlocker"]) assert.match(drawer, new RegExp(proof.replace(".", "\\."), "u"));
+  assert.doesNotMatch(drawer, /reduce\(|computedSubtotal|estimatedShipping/u);
+});
