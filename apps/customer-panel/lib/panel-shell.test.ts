@@ -582,9 +582,15 @@ async function renderPanelDashboard(
 
 test("topbar chrome exposes a provider, page bridge, and dedicated action portal", async () => {
   const topbar = await source("components/panel/PanelTopbarChrome.tsx");
+  const layout = await source("components/panel/PanelLayoutClient.tsx");
+  const styles = await source("components/panel/panel-shell.module.css");
   assert.match(topbar, /PanelTopbarChromeProvider/);
   assert.match(topbar, /PanelTopbarBridge/);
   assert.match(topbar, /panel-topbar-actions/);
+  assert.match(topbar, /readonly context\?: ReactNode/);
+  assert.match(topbar, /panel-topbar-context/);
+  assert.match(layout, /id="panel-topbar-context"/);
+  assert.match(styles, /[.]desktopTopbarContext/);
   assert.match(topbar, /createPortal/);
   assert.match(topbar, /new Map<symbol, PanelTopbarChromeSnapshot>/);
   assert.match(topbar, /const owner = Symbol\("panel-topbar-owner"\)/);

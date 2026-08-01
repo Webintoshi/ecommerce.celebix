@@ -15,6 +15,7 @@ export interface PanelTopbarChromeState {
   readonly title: string;
   readonly subtitle?: string;
   readonly actions?: ReactNode;
+  readonly context?: ReactNode;
 }
 
 type PanelTopbarChromeSnapshot = Pick<PanelTopbarChromeState, "title" | "subtitle">;
@@ -79,26 +80,34 @@ export function usePanelTopbarChrome(state: PanelTopbarChromeState) {
   }, [registerOwner, state.subtitle, state.title]);
 }
 
-function useTopbarActionsTarget() {
+type PanelTopbarTargetId = "panel-topbar-actions" | "panel-topbar-context";
+
+function useTopbarTarget(id: PanelTopbarTargetId) {
   const [target, setTarget] = useState<HTMLElement | null>(null);
   useEffect(() => {
     let frame = window.requestAnimationFrame(() => {
-      setTarget(document.getElementById("panel-topbar-actions"));
+      setTarget(document.getElementById(id));
     });
     const observer = new MutationObserver(() => {
-      setTarget(document.getElementById("panel-topbar-actions"));
+      setTarget(document.getElementById(id));
     });
     observer.observe(document.body, { childList: true, subtree: true });
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, []);
+  }, [id]);
   return target;
 }
 
 export function PanelTopbarBridge(state: PanelTopbarChromeState) {
   usePanelTopbarChrome(state);
-  const target = useTopbarActionsTarget();
-  return target && state.actions ? createPortal(state.actions, target) : null;
+  const actionsTarget = useTopbarTarget("panel-topbar-actions");
+  const contextTarget = useTopbarTarget("panel-topbar-context");
+  return (
+    <>
+      {contextTarget && state.context ? createPortal(state.context, contextTarget) : null}
+      {actionsTarget && state.actions ? createPortal(state.actions, actionsTarget) : null}
+    </>
+  );
 }
