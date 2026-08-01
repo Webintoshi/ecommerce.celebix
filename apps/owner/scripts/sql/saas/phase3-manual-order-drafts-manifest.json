@@ -1,0 +1,24 @@
+{
+  "phase": "phase3-manual-order-drafts",
+  "postgresqlMajor": 16,
+  "classification": "additive-tenant-manual-order-draft-authority",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608010078_manual_order_drafts.up.sql",
+      "direction": "up",
+      "sha256": "18ecca98e0a7632a73f8860ae3932cddea100cf3843ce9c4fbe3b8d73c542c87"
+    },
+    {
+      "file": "202608010078_manual_order_drafts.down.sql",
+      "direction": "down",
+      "sha256": "6b390580bfc1118ffe9d5d2b45904841326d41e38fd375b49d8cc26b696667b5"
+    },
+    {
+      "file": "202608010078_manual_order_drafts_assertions.sql",
+      "direction": "verify",
+      "sha256": "61f5f6d0bed949c16ed9b28302c1d6f9edd43213fb9493d11900a48c6229c8a5"
+    }
+  ]
+}
