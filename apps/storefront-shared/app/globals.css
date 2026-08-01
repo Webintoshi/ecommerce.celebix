@@ -217,7 +217,7 @@ img { display: block; max-width: 100%; }
 .side-cart-media { display: grid; width: 88px; height: 100px; overflow: hidden; place-items: center; background: var(--media-surface); color: var(--muted); }
 .side-cart-media img { width: 100%; height: 100%; object-fit: cover; }
 .side-cart-line-copy { display: grid; min-width: 0; gap: 5px; }
-.side-cart-line-copy > a { overflow: hidden; font-family: Georgia, serif; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.side-cart-line-copy > a { display: flex; min-height: 48px; overflow: hidden; align-items: center; font-family: Georgia, serif; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .side-cart-line-copy > span { color: var(--muted); font-size: 10px; }
 .side-cart-line-copy > strong { font-size: 11px; }
 .side-cart-line-copy > em { color: #8b302d; font-size: 10px; font-style: normal; }

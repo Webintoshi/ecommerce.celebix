@@ -46,6 +46,7 @@ test("side-cart stays responsive with 48px targets and reduced motion", () => {
   assert.match(css, /[.]side-cart-dialog/u);
   assert.match(css, /[.]side-cart-backdrop/u);
   assert.match(css, /min-height:\s*48px/u);
+  assert.match(css, /[.]side-cart-line-copy > a \{[^}]*min-height:\s*48px/u);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
   assert.match(css, /transition-duration:\s*[.]01ms/u);
 });
