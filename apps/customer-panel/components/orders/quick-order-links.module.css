@@ -83,7 +83,7 @@
   pointer-events: none;
 }
 
-.searchField input {
+.console .searchField input {
   padding-left: 2.5rem;
 }
 

@@ -1066,6 +1066,10 @@ test("responsive table/cards, 48px targets, and visible focus stay in the accept
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)[^]*\.desktopTable\s*\{\s*display:\s*none/s);
   assert.match(styles, /@media\s*\(min-width:\s*1025px\)[^]*\.mobileCards\s*\{\s*display:\s*none/s);
   assert.match(styles, /prefers-reduced-motion/);
+  assert.match(
+    styles,
+    /[.]console [.]searchField input\s*\{[\s\S]*?padding-left:\s*2[.]5rem;/,
+  );
 });
 
 test("client and console contain no browser authority, private provider material, or donor runtime", async () => {
