@@ -11,11 +11,18 @@ const [form, summary, checkout, success, account, readiness] = await Promise.all
   readFile(new URL("./checkout-readiness.ts", import.meta.url), "utf8"),
 ]);
 
-test("checkout form has bounded two-step delivery and server-projected payment controls", () => {
-  for (const proof of ["Teslimat", "Ödeme", "paymentMethods", "bank_transfer", "cash_on_delivery", "aria-live", "pending"]) assert.match(form, new RegExp(proof, "u"));
-  assert.match(form, /disabled=\{pending/u);
+test("checkout renders delivery and server-projected payment on one screen", () => {
+  for (const proof of [
+    'className="checkout-section checkout-contact"',
+    'className="checkout-section checkout-delivery"',
+    'className="checkout-section checkout-shipping"',
+    'className="checkout-section checkout-payment"',
+    "paymentMethods",
+    "validateCheckoutFormDraft",
+    "Siparişi tamamla",
+  ]) assert.match(form, new RegExp(proof, "u"));
+  assert.doesNotMatch(form, /setStep|step ===|Teslimata dön|Ödemeye devam et/u);
   for (const field of ["name", "email", "phone", "addressLine1", "city", "district", "postalCode", "note"]) assert.equal(form.includes(`name="${field}"`), true, field);
-  assert.match(form, /validateCheckoutFormDraft/u);
   assert.match(form, /const value = event\.currentTarget\.value;[\s\S]*setDraft\(\(current\).*\[name\]: value/u);
   assert.doesNotMatch(form, /setDraft\(\(current\)[\s\S]{0,160}event\.currentTarget/u);
 });
