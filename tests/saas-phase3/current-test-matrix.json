@@ -8,7 +8,7 @@
     },
     {
       "file": "tests/saas-phase3/storefront-cart-checkout/postgres-harness.mjs",
-      "total": 35
+      "total": 38
     }
   ],
   "browserAcceptance": {

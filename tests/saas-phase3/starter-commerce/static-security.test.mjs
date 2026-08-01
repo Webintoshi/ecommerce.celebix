@@ -54,12 +54,14 @@ test("seven fixed policy routes and all truthful commerce destinations are mount
   assert.doesNotMatch(`${product}\n${cart}\n${checkout}`, /yakında|demo|placeholder action|disabled feature/iu);
 });
 
-test("default runtime preflights both policy-search and durable commerce migrations", () => {
+test("default runtime preflights policy search durable commerce and checkout readiness migrations", () => {
   const runtime = read("apps/storefront-shared/lib/default-runtime.ts");
   assert.match(runtime, /migration_071/u);
   assert.match(runtime, /migration_072/u);
+  assert.match(runtime, /migration_073/u);
   assert.match(runtime, /row[.]migration_071 !== true/u);
   assert.match(runtime, /row[.]migration_072 !== true/u);
+  assert.match(runtime, /row[.]migration_073 !== true/u);
 });
 
 test("browser acceptance contract owns the exact responsive matrix and untracked artifact root", () => {

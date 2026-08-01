@@ -7,6 +7,8 @@ const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const up = readFileSync(path.join(SQL, "202607310072_storefront_cart_checkout.up.sql"), "utf8");
 const down = readFileSync(path.join(SQL, "202607310072_storefront_cart_checkout.down.sql"), "utf8");
+const readinessUp = readFileSync(path.join(SQL, "202608010073_storefront_checkout_readiness.up.sql"), "utf8");
+const readinessDown = readFileSync(path.join(SQL, "202608010073_storefront_checkout_readiness.down.sql"), "utf8");
 
 test("commerce authority stores credential digests and never raw credentials", () => {
   assert.match(up, /credential_digest/);
@@ -36,4 +38,17 @@ test("runtime roles cannot access commerce tables directly", () => {
 test("rollback is scoped to migration 072", () => {
   assert.match(down, /DROP TABLE saas\.storefront_carts/);
   assert.doesNotMatch(down, /DROP TABLE saas\.(orders|customers|products|payment_methods)/);
+});
+
+test("checkout readiness exposes only a finite server-owned blocker", () => {
+  for (const blocker of ["empty_cart", "stock_unavailable", "shipping_unavailable", "payment_unavailable"]) assert.match(readinessUp, new RegExp(`'${blocker}'`, "u"));
+  assert.match(readinessUp, /CREATE OR REPLACE FUNCTION saas[.]storefront_cart_projection/u);
+  assert.match(readinessUp, /CREATE OR REPLACE FUNCTION saas[.]storefront_intent_projection/u);
+  assert.doesNotMatch(readinessUp, /tenantId|storeId|x-forwarded|referer|origin header/iu);
+});
+
+test("readiness rollback restores migration 072 projection without dropping durable data", () => {
+  assert.doesNotMatch(readinessDown, /checkoutBlocker/u);
+  assert.doesNotMatch(readinessDown, /DROP (TABLE|FUNCTION)/u);
+  assert.match(readinessDown, /CREATE OR REPLACE FUNCTION saas[.]storefront_cart_projection/u);
 });
