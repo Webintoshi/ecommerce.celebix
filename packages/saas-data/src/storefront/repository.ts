@@ -123,7 +123,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     const payload = this.projection(result); if (!Array.isArray(payload)) throw failure("unavailable");
     try { return Object.freeze(payload.map(parsePublicProductMedia)); } catch { throw failure("unavailable"); }
   }
-  async resolveCampaignHome(input: Parameters<PublicStorefrontRepository["resolveCampaignHome"]>[0]): Promise<CampaignHomeProjection> {
+  async resolveCampaignHome(input: Parameters<NonNullable<PublicStorefrontRepository["resolveCampaignHome"]>>[0]): Promise<CampaignHomeProjection> {
     const parsed = exact(input, ["storefront", "now"]); const store = context({ storefront: parsed.storefront });
     const result = await this.read("SELECT outcome, result_payload FROM saas.public_campaign_home($1::uuid,$2::text,$3::timestamptz)", [store.id, store.hostname, date(parsed.now)]);
     return campaignHomePayload(this.projection(result));
