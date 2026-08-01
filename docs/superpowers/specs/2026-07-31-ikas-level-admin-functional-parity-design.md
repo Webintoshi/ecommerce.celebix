@@ -113,3 +113,45 @@ A module is production-ready only when:
 - live DOM, console, screenshot, and at least one safe interaction prove the deployed behavior;
 - the functional maturity ledger matches the evidence and contains no unsupported `production_ready` claim.
 
+## 2026-08-01 live parity audit
+
+The user approved continuous page-by-page comparison against the authenticated İkas merchant panel. The comparison is capability based: Celebix does not copy İkas branding or source code, but every supported merchant job must be at least as complete, durable, safe, and usable.
+
+The live audit confirmed that Celebix is already at parity or ahead in these areas:
+
+- dashboard sales, order, customer, catalog, stock, and growth metrics backed by the active store;
+- product list search, filters, import, export, bulk lifecycle actions, detail routes, and extended catalog taxonomy;
+- purchasing, stock counts, stock locations/transfers, price lists, barcode labels, and bulk catalog migration;
+- order list search, status/payment/delivery filters, sorting, CSV export, real detail routes, shipping edits, internal notes, immutable history, print, and deterministic neighboring orders;
+- customer list/detail/edit, address book, order history, segments, tags, notes, export, and archive;
+- content, SEO, payment settings, marketplace configuration, accounting configuration, and tenant-branded authentication.
+
+The audit identified these remaining parity gaps. A visible substitute does not count unless it completes the same merchant job:
+
+1. **Order extensions:** durable draft orders, manual order creation from a draft, order tags, gift cards, structured billing address, hosted payment request links, invoice artifacts, and shipping labels.
+2. **Inbox:** merchant message list/detail, assignment/status, customer context, channel settings, and truthful provider delivery evidence.
+3. **Marketing depth:** automation rules and runs, popup lifecycle, affiliate records/reports, and consolidated channel/provider settings. Existing e-mail, phone, and WhatsApp records remain preparation-only where delivery adapters are absent.
+4. **Reporting:** live tracking, dedicated sales and conversion reports, products bought together, purchasing reports, and crawler reports. Dashboard and analytics aggregates may be reused, but each report needs its own filters, explanations, export, and unavailable states.
+5. **Applications:** installed-application inventory and a Celebix-approved integration catalog. Installation must never imply provider authorization before the provider account and scopes are verified.
+6. **Advanced store settings:** tax rules, dynamic contracts, domains, product search/filter configuration, shipping-label templates, customer custom fields, number/currency formatting, store activity history, e-mail-domain configuration, SMS provider configuration, account-deletion requests, migration jobs, and AI-image history.
+
+The following İkas concepts are mapped to existing Celebix capabilities rather than duplicated:
+
+- İkas customer groups map to Celebix customer segments.
+- İkas stock locations and transfers map to Celebix stock location/transfer workflows.
+- İkas marketing customer segments map to the shared Celebix customer-segment authority.
+- İkas AI assistant maps to Toshi, subject to tenant-safe read and action boundaries.
+- İkas sales-channel management maps to the verified storefront plus marketplace connection model.
+- İkas contracts map to Celebix policy/content records only after dynamic template variables and publication evidence are implemented.
+
+## Remaining delivery waves
+
+Remaining work is delivered in independently deployable waves so existing stores never wait for the entire program:
+
+1. **Commerce core:** draft/manual orders, order tags, gift cards, billing, payment requests, invoice and shipping artifacts.
+2. **Inbox and marketing:** conversations, channel settings, automation, popup, affiliate, and delivery/run evidence.
+3. **Operational reporting:** live, sales, conversion, bought-together, purchasing, and crawler workspaces.
+4. **Applications and advanced settings:** integration catalog/installed apps followed by the advanced store-setting gaps.
+5. **Full regression:** every main route and subroute is exercised through list, detail, create, edit, lifecycle, empty, error, role, tenant, desktop, and mobile states. Sign-up, sign-in, sign-out, and store-specific admin handoff remain release gates.
+
+Each wave follows test-driven vertical slices and is committed, pushed, migrated, deployed, and verified on Güzide Kuyumcu before the next wave starts. Provider-dependent work remains `provider_gated` until a verified external response proves the side effect.
