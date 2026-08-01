@@ -48,7 +48,8 @@ test("seven fixed policy routes and all truthful commerce destinations are mount
   assert.match(footer, /FIXED_STOREFRONT_POLICIES[.]map/u);
   for (const destination of ["/search", "/favorites", "/account", "/cart"]) assert.match(utilities, new RegExp(destination.replaceAll("/", "\\/"), "u"));
   assert.match(product, /storefrontCartClient[.]add/u);
-  assert.match(product, /storefrontCartClient[.]buyNow/u);
+  assert.match(product, /router[.]push\("\/checkout"\)/u);
+  assert.doesNotMatch(product, /storefrontCartClient[.]buyNow/u);
   assert.match(cart, /href="\/checkout"/u);
   assert.match(checkout, /\/api\/checkout\/complete/u);
   assert.doesNotMatch(`${product}\n${cart}\n${checkout}`, /yakında|demo|placeholder action|disabled feature/iu);
@@ -72,4 +73,33 @@ test("browser acceptance contract owns the exact responsive matrix and untracked
   assert.match(browser, /minimumTarget/u);
   assert.match(browser, /primaryContrast/u);
   assert.match(browser, /reducedMotionDuration/u);
+});
+
+test("campaign starter stays on the server-owned public projection boundary", () => {
+  const [page, context, repository] = [
+    read("apps/storefront-shared/app/page.tsx"),
+    read("apps/storefront-shared/lib/page-context.ts"),
+    read("packages/saas-data/src/storefront/repository.ts"),
+  ];
+  assert.match(page, /context[.]campaign/u);
+  assert.match(context, /presentation[.]schemaVersion === 2/u);
+  assert.match(context, /repository[.]resolveCampaignHome/u);
+  assert.match(repository, /SET LOCAL ROLE celebix_saas_host_resolver/u);
+  assert.match(repository, /saas[.]public_campaign_home/u);
+  assert.match(repository, /saas[.]public_storefront_related_products/u);
+  assert.doesNotMatch(`${page}\n${context}`, /tenantId|storeId|x-forwarded|document[.]cookie|localStorage|sessionStorage/iu);
+});
+
+test("campaign application sources contain no donor identity secret or arbitrary media authority", () => {
+  const files = [
+    "CampaignHeader.tsx", "CampaignHeaderClient.tsx", "CampaignHero.tsx", "CampaignHome.tsx",
+    "CampaignPanels.tsx", "CampaignProductRow.tsx", "ProductCard.tsx", "ProductQuickView.tsx",
+    "ProductDetailExperience.tsx", "SideCartDrawer.tsx",
+  ];
+  const source = files.map((file) => read(`apps/storefront-shared/components/${file}`)).join("\n");
+  assert.doesNotMatch(source, /shopify|impulse|archetype|BEGIN (?:RSA|EC|OPENSSH) PRIVATE KEY|AWS_SECRET|R2_SECRET|DATABASE_URL/iu);
+  assert.doesNotMatch(source, /tenantId|storeId|objectKey|dangerouslySetInnerHTML/iu);
+  assert.doesNotMatch(source, /https?:\/\//u);
+  const validation = read("packages/saas-contracts/src/storefront/validation.ts");
+  assert.match(validation, /STOREFRONT_ASSET_HOSTS = Object[.]freeze\(\["media[.]celebix[.]site", "media[.]saas-staging[.]celebix[.]site"\]/u);
 });

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createCartActionRoute, createCartGetRoute, createCheckoutCompleteRoute, createCheckoutQuoteRoute } from "../../../apps/storefront-shared/lib/cart/route.ts";
+import { PostgresPublicStorefrontRepository, PublicStorefrontRepositoryError } from "@celebix/saas-data";
 
 const HOST = "guzide-cart.example.test";
 const ORIGIN = `https://${HOST}`;
@@ -72,4 +73,29 @@ test("near-match cart and checkout paths remain denied without repository access
     assert.equal(response.status, 400, candidate);
   }
   assert.equal(fixture.calls.length, 0);
+});
+
+test("real public repository accepts an empty v2 campaign and rejects legacy campaign output", async () => {
+  const presentation = Object.freeze({
+    schemaVersion: 2,
+    displayName: "Campaign Store",
+    theme: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", productCardStyle: "editorial", productImageRatio: "portrait", homeProductLimit: 8, showBrandStory: false }),
+    hero: Object.freeze({ enabled: true, headline: "Campaign Store", body: "Seçki", destination: "/products" }),
+    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait" }),
+    navigation: Object.freeze({ items: Object.freeze([]) }),
+    sections: Object.freeze([Object.freeze({ kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 })]),
+    productDetail: Object.freeze({ galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true }),
+    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true }),
+    seo: Object.freeze({ allowIndex: false }),
+  });
+  const storefront = Object.freeze({ schemaVersion: 2, id: "50000000-0000-4000-8000-000000000001", name: "Campaign Store", slug: "campaign-store", hostname: HOST, primaryHostname: HOST, canonicalUrl: ORIGIN + "/", currency: "TRY", locale: "tr", themeKey: "starter", presentation });
+  let resultPayload = { presentation, productRows: [{ key: "latest-0", items: [] }] };
+  const calls = [];
+  const client = { async query(text, values = []) { calls.push({ text, values }); return text.includes("saas.public_campaign_home") ? { rows: [{ outcome: "found", result_payload: resultPayload }] } : { rows: [] }; }, release() {} };
+  const repository = new PostgresPublicStorefrontRepository({ pool: { async connect() { return client; } }, role: "celebix_saas_host_resolver", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 } });
+  const projected = await repository.resolveCampaignHome({ storefront, now: new Date("2026-08-01T12:00:00.000Z") });
+  assert.deepEqual(projected.productRows, [{ key: "latest-0", items: [] }]);
+  assert.equal(calls.filter(({ text }) => text.includes("saas.public_campaign_home")).length, 1);
+  resultPayload = { presentation: { ...presentation, schemaVersion: 1 }, productRows: [] };
+  await assert.rejects(repository.resolveCampaignHome({ storefront, now: new Date("2026-08-01T12:00:00.000Z") }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
 });
