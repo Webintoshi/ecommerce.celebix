@@ -86,8 +86,7 @@ type StarterThemeSectionConfig =
   | Readonly<{ kind: "category_grid"; enabled: boolean; heading: string; categoryIds: readonly string[] }>
   | Readonly<{ kind: "product_row"; enabled: boolean; heading: string; source: "latest" | "sale" | "category"; categoryId?: string; limit: 4 | 8 | 12 }>
   | Readonly<{ kind: "split_campaign"; enabled: boolean; panels: readonly StarterCampaignPanelConfig[] }>
-  | Readonly<{ kind: "brand_story"; enabled: boolean; eyebrow?: string; heading: string; body: string; assetId?: string; destination?: string }>
-  | Readonly<{ kind: "video"; enabled: boolean; heading?: string; posterAssetId: string; videoAssetId: string; destination?: string }>;
+  | Readonly<{ kind: "brand_story"; enabled: boolean; eyebrow?: string; heading: string; body: string; assetId?: string; destination?: string }>;
 ```
 
 Every array is length-bounded, every string is trimmed and bounded, every destination is an exact safe storefront-relative route, and every identifier is validated under the authenticated `TenantContext`. The repository rejects cross-store products, categories, assets, and inactive/deleted references. Draft configuration never reaches the public storefront.
@@ -117,7 +116,7 @@ New stores receive the Campaign Starter section order:
 5. split campaign, when configured;
 6. sale-product row, when real sale products exist;
 7. brand story, when configured;
-8. related editorial/video content, when configured.
+8. related editorial content, when configured.
 
 Defaults never create fake products, categories, discounts, reviews, shipping claims, social links, currencies, policy content, or payment methods. An empty store renders a polished brand-first empty state and setup guidance; unavailable optional sections are omitted without leaving blank bands.
 
@@ -140,7 +139,7 @@ For existing schema-version-1 presentations, a pure compatibility adapter maps c
 - Category grids use real category hierarchy and category media.
 - Product rows use canonical public products and derived truth-based badges such as sale or unavailable. No rating, popularity, scarcity, or “new” claim is invented.
 - Split campaigns use at most two real panels and safe relative destinations.
-- Brand-story and video blocks render only persisted copy and tenant-owned media.
+- Brand-story blocks render only persisted copy and tenant-owned media.
 - Section ordering is admin-controlled but constrained to the finite union, maximum counts, and at most one instance of singleton section kinds.
 
 ### Product cards and quick access
@@ -174,14 +173,14 @@ The existing canonical cart and `CartStatusProvider` remain the single browser c
 
 `/settings/theme` becomes the entry point for the Campaign Starter composer while preserving the existing focused setting routes. It provides:
 
-- visual tokens, announcement, header, navigation, section ordering, hero slides, product rows, split campaigns, story/video, product-detail, and cart controls;
+- visual tokens, announcement, header, navigation, section ordering, hero slides, product rows, split campaigns, brand story, product-detail, and cart controls;
 - store-scoped product, category, and R2 asset pickers rather than raw identifier inputs;
 - deterministic desktop and mobile previews that consume the same public contract as the storefront;
 - draft/save/publish state with optimistic concurrency and an explicit published version;
 - field-level validation and truthful missing-data explanations;
 - keyboard-reorder controls in addition to pointer-based ordering.
 
-The panel cannot paste arbitrary external media URLs for theme sections. Media must be an active, tenant-owned storefront asset. Video support is introduced only with bounded supported media types and R2 delivery; otherwise the video section remains unavailable rather than accepting arbitrary embeds.
+The panel cannot paste arbitrary external media URLs for theme sections. Media must be an active, tenant-owned storefront image asset. A future video section requires a separate bounded R2 video authority and is not simulated with arbitrary embeds in this implementation.
 
 ## Error handling and fail-closed behavior
 
