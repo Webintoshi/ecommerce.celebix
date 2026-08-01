@@ -365,6 +365,7 @@ export {
   parsePaymentProviderCatalogEntry,
 } from "./payment-providers/index.ts";
 export {
+  adaptStarterPresentationV1,
   buildDefaultStarterPresentation,
   FIXED_STOREFRONT_POLICIES,
   parsePublicCart,
@@ -378,6 +379,7 @@ export {
   parsePublicProductVariant,
   parsePublicStarterThemePresentation,
   parsePublicStorefront,
+  parseStarterThemeCompositionConfig,
   starterMarqueeTokens,
   starterThemeTokens,
 } from "./storefront/index.ts";
@@ -394,10 +396,20 @@ export type {
   PublicProductMedia,
   PublicProductSearch,
   PublicProductVariant,
+  PublicStarterHomeSection,
+  PublicStarterNavigation,
+  PublicStarterNavigationItem,
   PublicStarterThemePresentation,
+  PublicStarterThemePresentationV1,
+  PublicStarterThemePresentationV2,
   PublicStorefront,
   PublicStorefrontAsset,
   StarterMarqueeTokens,
+  StarterCampaignPanelConfig,
+  StarterHeroSlideConfig,
+  StarterThemeCompositionConfig,
+  StarterThemeSectionConfig,
+  StarterThemeVisual,
   StarterThemeTokens,
   StorefrontPolicyKey,
 } from "./storefront/index.ts";

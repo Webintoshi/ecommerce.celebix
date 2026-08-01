@@ -84,10 +84,18 @@ test("starter presentation parser is reusable without weakening the public store
 test("starter presentation defaults and token mapping are deterministic and bounded", () => {
   const defaults = buildDefaultStarterPresentation({ name: "Yeni Mağaza" });
   assert.deepEqual(defaults, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     displayName: "Yeni Mağaza",
-    theme: { colorScheme: "neutral", headingStyle: "serif", productCardStyle: "editorial", productImageRatio: "portrait", homeProductLimit: 8, showBrandStory: true },
+    theme: { colorScheme: "neutral", headingStyle: "serif", productCardStyle: "editorial", productImageRatio: "portrait", homeProductLimit: 8, showBrandStory: false },
     hero: { enabled: true, headline: "Yeni Mağaza", body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" },
+    visual: { colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait" },
+    navigation: { items: [] },
+    sections: [
+      { kind: "hero", slides: [{ heading: "Yeni Mağaza", body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" }] },
+      { kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 },
+    ],
+    productDetail: { galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true },
+    cart: { showCheckoutReadiness: true, showShippingProgress: true },
     seo: { allowIndex: false },
   });
   assert.equal(Object.isFrozen(defaults.hero), true);
