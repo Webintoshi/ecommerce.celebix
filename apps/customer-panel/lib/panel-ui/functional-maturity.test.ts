@@ -23,6 +23,7 @@ test("order maturity stays truthful until every advertised commerce workflow is 
     state: "foundation",
     operational: [
       "list", "detail", "status", "payment_status", "shipping", "notes", "print", "quick_links", "abandoned_carts",
+      "manual_order_drafts", "manual_order_creation",
     ],
     gaps: [
       "billing", "taxes", "fulfillment_locations", "tags", "payment_requests", "provider_refunds", "invoices", "shipping_labels",

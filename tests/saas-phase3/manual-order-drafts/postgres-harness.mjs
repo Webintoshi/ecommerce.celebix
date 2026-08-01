@@ -32,6 +32,7 @@ const FINGERPRINT = "a".repeat(64);
 const NOW = "2026-08-01T12:00:00.000Z";
 const LATER = "2026-08-01T12:05:00.000Z";
 const ADDRESS = { recipientName: "Ada Lovelace", line1: "Ada Sokak 1", district: "Kadikoy", city: "Istanbul", postalCode: "34710", country: "TR" };
+const CONTRACT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const PRIOR = [
   "202607110001_roles.up.sql", "202607110002_foundation.up.sql", "202607110003_free_starter.seed.sql", "202607110003_plan_versions.freeze.sql", "202607110004_grants.sql", "202607110005_catalog_assertions.sql",
@@ -123,12 +124,17 @@ function main() {
     apply(box, "202607220043_inventory_purchasing_assertions.sql");
     apply(box, "202608010078_manual_order_drafts.up.sql");
     apply(box, "202608010078_manual_order_drafts_assertions.sql");
+    apply(box, "202608010079_manual_order_uuid_contract.up.sql");
+    apply(box, "202608010079_manual_order_uuid_contract_assertions.sql");
     assert.match(psql(box, "SHOW server_version;"), /^16[.]/);
 
+    apply(box, "202608010079_manual_order_uuid_contract.down.sql");
     apply(box, "202608010078_manual_order_drafts.down.sql");
     assert.equal(psql(box, "SELECT pg_catalog.to_regclass('saas.order_drafts') IS NULL;"), "t");
     apply(box, "202608010078_manual_order_drafts.up.sql");
     apply(box, "202608010078_manual_order_drafts_assertions.sql");
+    apply(box, "202608010079_manual_order_uuid_contract.up.sql");
+    apply(box, "202608010079_manual_order_uuid_contract_assertions.sql");
 
     const created = result(box, createCall());
     assert.equal(created.outcome, "created");
@@ -156,16 +162,20 @@ function main() {
     const converted = result(box, convertCall());
     assert.equal(converted.outcome, "converted");
     assert.equal(converted.result.adjustedInventory, true);
+    assert.match(converted.result.orderId, CONTRACT_UUID);
     assert.match(converted.result.orderNumber, /^MAN-[0-9a-f]{20}$/);
     assert.equal(psql(box, `SELECT stock_quantity FROM saas.product_variants WHERE store_id='${STORE}' AND id='${VARIANT}';`), "8");
     assert.equal(psql(box, `SELECT source||':'||status||':'||payment_status FROM saas.orders WHERE store_id='${STORE}' AND id='${converted.result.orderId}';`), "manual:pending:pending");
     assert.equal(psql(box, `SELECT count(*) FROM saas.order_items WHERE store_id='${STORE}' AND order_id='${converted.result.orderId}';`), "1");
+    assert.match(psql(box, `SELECT id::text FROM saas.order_items WHERE store_id='${STORE}' AND order_id='${converted.result.orderId}';`), CONTRACT_UUID);
+    assert.match(psql(box, `SELECT id::text FROM saas.order_events WHERE store_id='${STORE}' AND order_id='${converted.result.orderId}' AND event_type='order_created';`), CONTRACT_UUID);
     assert.equal(psql(box, `SELECT count(*) FROM saas.manual_order_inventory_commitments WHERE store_id='${STORE}' AND order_id='${converted.result.orderId}' AND restoration_operation_id IS NULL;`), "1");
     assert.equal(result(box, convertCall()).outcome, "operation_replayed");
     assert.equal(psql(box, `SELECT stock_quantity FROM saas.product_variants WHERE store_id='${STORE}' AND id='${VARIANT}';`), "8");
 
     const cancelCall = `saas.orders_transition_status(${authority()},'${CANCEL_OPERATION}'::uuid,'${FINGERPRINT}','${converted.result.orderId}'::uuid,1,'cancelled')`;
     assert.equal(result(box, cancelCall).outcome, "committed");
+    assert.match(psql(box, `SELECT id::text FROM saas.order_events WHERE store_id='${STORE}' AND order_id='${converted.result.orderId}' AND event_type='status_transition';`), CONTRACT_UUID);
     assert.equal(psql(box, `SELECT stock_quantity FROM saas.product_variants WHERE store_id='${STORE}' AND id='${VARIANT}';`), "10");
     assert.equal(result(box, cancelCall).outcome, "operation_replayed");
     assert.equal(psql(box, `SELECT stock_quantity FROM saas.product_variants WHERE store_id='${STORE}' AND id='${VARIANT}';`), "10");

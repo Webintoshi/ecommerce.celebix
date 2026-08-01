@@ -43,6 +43,7 @@ function maturity(
 export const ADMIN_MODULE_MATURITY: readonly AdminModuleMaturity[] = Object.freeze([
   maturity("orders", "foundation", [
     "list", "detail", "status", "payment_status", "shipping", "notes", "print", "quick_links", "abandoned_carts",
+    "manual_order_drafts", "manual_order_creation",
   ], [
     "billing", "taxes", "fulfillment_locations", "tags", "payment_requests", "provider_refunds", "invoices", "shipping_labels",
   ]),

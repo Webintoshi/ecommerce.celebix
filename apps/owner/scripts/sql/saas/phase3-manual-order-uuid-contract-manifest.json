@@ -1,0 +1,24 @@
+{
+  "phase": "phase3-manual-order-uuid-contract",
+  "postgresqlMajor": 16,
+  "classification": "corrective-manual-order-uuid-contract",
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608010079_manual_order_uuid_contract.up.sql",
+      "direction": "up",
+      "sha256": "aa527c938aae990c4500c3d72a2bd6b27c4692d2a9bf977d46b3718333dd78a2"
+    },
+    {
+      "file": "202608010079_manual_order_uuid_contract.down.sql",
+      "direction": "down",
+      "sha256": "208c716fa853857d97994ebdb1e6c6f3e53f311b7f4651803c22b30f91021666"
+    },
+    {
+      "file": "202608010079_manual_order_uuid_contract_assertions.sql",
+      "direction": "verify",
+      "sha256": "02d9bde526a6c8568da7ffc8a83a494eba8a92ac179367b079a1ac044339bd8a"
+    }
+  ]
+}
