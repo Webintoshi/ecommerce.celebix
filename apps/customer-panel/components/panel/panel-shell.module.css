@@ -881,11 +881,16 @@
   gap: 1.5rem;
 }
 
+.pageActions,
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+}
+
+.pageActions {
+  justify-content: flex-end;
 }
 
 .panel {
@@ -1100,6 +1105,12 @@
 
   .metric > strong {
     font-size: 1.8rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .pageActions {
+    display: none;
   }
 }
 

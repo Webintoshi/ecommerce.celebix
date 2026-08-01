@@ -626,10 +626,15 @@ test("page headers publish one route identity without duplicate content copy", a
     pageShell.indexOf("export function PanelPageHeader"),
     pageShell.indexOf("export function PanelPanel"),
   );
-  assert.match(header, /return \(\s*<PanelTopbarBridge\s+title=\{props[.]title\}/);
+  assert.match(header, /<PanelTopbarBridge\s+title=\{props[.]title\}/);
+  assert.match(header, /props[.]actions \? <div className=\{styles[.]pageActions\}/);
   assert.doesNotMatch(header, /<header className=\{styles[.]pageHeader\}/);
   assert.doesNotMatch(header, /<h1>\{props[.]title\}<\/h1>/);
   assert.doesNotMatch(header, /<p>\{props[.]description\}<\/p>/);
+
+  const styles = await source("components/panel/panel-shell.module.css");
+  assert.match(styles, /[.]pageActions,\s*[.]toolbar\s*\{[\s\S]*?display:\s*flex;/);
+  assert.match(styles, /@media \(min-width: 1025px\)[\s\S]*?[.]pageActions\s*\{\s*display:\s*none;/);
 });
 
 test("server layout projects TenantContext before entering the client shell", async () => {
