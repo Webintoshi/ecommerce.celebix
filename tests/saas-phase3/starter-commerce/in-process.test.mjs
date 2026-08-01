@@ -8,7 +8,7 @@ const ORIGIN = `https://${HOST}`;
 const PRODUCT = "10000000-0000-4000-8000-000000000001";
 const VARIANT = "20000000-0000-4000-8000-000000000001";
 const OPERATION = "30000000-0000-4000-8000-000000000001";
-const CART = Object.freeze({ version: 1, currency: "TRY", itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, items: Object.freeze([Object.freeze({ productId: PRODUCT, variantId: VARIANT, slug: "altin-yuzuk", title: "Altın Yüzük", variantTitle: "14 Ayar", quantity: 1, unitPriceCents: 100, lineTotalCents: 100, available: true })]) });
+const CART = Object.freeze({ version: 1, currency: "TRY", itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, checkoutBlocker: null, items: Object.freeze([Object.freeze({ productId: PRODUCT, variantId: VARIANT, slug: "altin-yuzuk", title: "Altın Yüzük", variantTitle: "14 Ayar", quantity: 1, unitPriceCents: 100, lineTotalCents: 100, available: true })]) });
 const QUOTE = Object.freeze({ cart: CART, paymentMethods: Object.freeze([Object.freeze({ kind: "bank_transfer", label: "Banka havalesi", instructions: "Sipariş numaranızı yazın.", bankName: "Celebix Bank", accountHolder: "Güzide", iban: "TR330006100519786457841326" })]) });
 const RECEIPT = Object.freeze({ orderReference: "CBX-2026-000001", currency: "TRY", subtotalCents: 100, shippingCents: 0, totalCents: 100, paymentStatus: "pending", paymentMethod: QUOTE.paymentMethods[0], items: CART.items, createdAt: "2026-07-31T12:00:00.000Z" });
 

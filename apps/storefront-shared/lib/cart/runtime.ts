@@ -25,6 +25,7 @@ const EMPTY_CART: PublicCart = Object.freeze({
   shippingCents: 0,
   totalCents: 0,
   checkoutReady: false,
+  checkoutBlocker: "empty_cart",
   items: Object.freeze([]),
 });
 

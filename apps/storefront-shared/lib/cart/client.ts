@@ -5,14 +5,22 @@ import type { StorefrontCartClient } from "./types.ts";
 
 const MAXIMUM = 524_288;
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type PublicCartClientFailure = "cart_empty" | "price_changed" | "stock_unavailable" | "shipping_unavailable" | "payment_unavailable";
+type StorefrontCartClientErrorCode = "invalid_response" | "request_failed" | PublicCartClientFailure;
+const PUBLIC_FAILURES = new Set<PublicCartClientFailure>(["cart_empty", "price_changed", "stock_unavailable", "shipping_unavailable", "payment_unavailable"]);
 
-export class StorefrontCartClientError extends Error { constructor(readonly code: "invalid_response" | "request_failed") { super(code); this.name = "StorefrontCartClientError"; } }
+export class StorefrontCartClientError extends Error { constructor(readonly code: StorefrontCartClientErrorCode) { super(code); this.name = "StorefrontCartClientError"; } }
 function exact(value: unknown, required: readonly string[]): Record<string, unknown> | null { if (typeof value !== "object" || value === null || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) return null; const keys = Object.keys(value); return keys.length === required.length && required.every((key) => Object.hasOwn(value, key)) ? value as Record<string, unknown> : null; }
 function cart(value: unknown): PublicCart {
-  const row = exact(value, ["version", "currency", "itemCount", "subtotalCents", "shippingCents", "totalCents", "checkoutReady", "items"]);
+  const row = exact(value, ["version", "currency", "itemCount", "subtotalCents", "shippingCents", "totalCents", "checkoutReady", "checkoutBlocker", "items"]);
   if (!row || row.currency !== "TRY" || !Number.isSafeInteger(row.version) || (row.version as number) < 0 || !Number.isSafeInteger(row.itemCount) || (row.itemCount as number) < 0 || !Number.isSafeInteger(row.subtotalCents) || !Number.isSafeInteger(row.shippingCents) || !Number.isSafeInteger(row.totalCents) || typeof row.checkoutReady !== "boolean" || !Array.isArray(row.items) || row.items.length > 100) throw new StorefrontCartClientError("invalid_response");
-  return Object.freeze({ version: row.version as number, currency: "TRY", itemCount: row.itemCount as number, subtotalCents: row.subtotalCents as number, shippingCents: row.shippingCents as number, totalCents: row.totalCents as number, checkoutReady: row.checkoutReady, items: Object.freeze([...row.items]) }) as PublicCart;
+  const blocker = row.checkoutBlocker;
+  if (blocker !== null && blocker !== "empty_cart" && blocker !== "stock_unavailable" && blocker !== "shipping_unavailable" && blocker !== "payment_unavailable") throw new StorefrontCartClientError("invalid_response");
+  const unavailable = row.items.some((item) => typeof item === "object" && item !== null && Object.getPrototypeOf(item) === Object.prototype && (item as Record<string, unknown>).available === false);
+  if (row.checkoutReady !== (blocker === null) || (blocker === "empty_cart") !== (row.items.length === 0) || (blocker === null && unavailable) || (blocker === "stock_unavailable" && !unavailable) || ((blocker === "shipping_unavailable" || blocker === "payment_unavailable") && unavailable)) throw new StorefrontCartClientError("invalid_response");
+  return Object.freeze({ version: row.version as number, currency: "TRY", itemCount: row.itemCount as number, subtotalCents: row.subtotalCents as number, shippingCents: row.shippingCents as number, totalCents: row.totalCents as number, checkoutReady: row.checkoutReady, checkoutBlocker: blocker, items: Object.freeze([...row.items]) }) as PublicCart;
 }
+function publicFailure(value: unknown): PublicCartClientFailure | null { const row = exact(value, ["code"]); return row && typeof row.code === "string" && PUBLIC_FAILURES.has(row.code as PublicCartClientFailure) ? row.code as PublicCartClientFailure : null; }
 async function payload(response: Response): Promise<unknown> {
   if (response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json" || response.body === null) throw new StorefrontCartClientError("invalid_response");
   const declared = response.headers.get("content-length"); if (declared !== null && (!/^(?:0|[1-9]\d*)$/.test(declared) || Number(declared) > MAXIMUM)) throw new StorefrontCartClientError("invalid_response");
@@ -21,7 +29,7 @@ async function payload(response: Response): Promise<unknown> {
 }
 
 export function createStorefrontCartClient(fetcher: Fetcher = fetch, uuid: () => string = crypto.randomUUID.bind(crypto)): StorefrontCartClient {
-  async function call(path: string, body?: unknown, method = "POST") { try { const response = await fetcher(path, { method, credentials: "same-origin", cache: "no-store", ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) }); const value = await payload(response); if (!response.ok) throw new StorefrontCartClientError("request_failed"); return value; } catch (error) { if (error instanceof StorefrontCartClientError) throw error; throw new StorefrontCartClientError("request_failed"); } }
+  async function call(path: string, body?: unknown, method = "POST") { try { const response = await fetcher(path, { method, credentials: "same-origin", cache: "no-store", ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) }); const value = await payload(response); if (!response.ok) throw new StorefrontCartClientError(publicFailure(value) ?? "request_failed"); return value; } catch (error) { if (error instanceof StorefrontCartClientError) throw error; throw new StorefrontCartClientError("request_failed"); } }
   const mutation = async (path: string, body: Record<string, unknown>) => { const root = exact(await call(path, body), ["cart"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return cart(root.cart); };
   return Object.freeze({
     async resolve() { const root = exact(await call("/api/cart", undefined, "GET"), ["cart"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return cart(root.cart); },
