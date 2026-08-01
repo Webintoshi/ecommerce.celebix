@@ -37,6 +37,7 @@ const SOURCE_LABELS: Readonly<Record<OrderListItem["source"], string>> = Object.
   quick_link: "Hızlı sipariş",
   marketplace: "Pazar yeri",
   manual_import: "Manuel aktarım",
+  manual: "Manuel sipariş",
 });
 const FULFILLMENT_FILTER_LABELS: Readonly<Record<OrderFulfillment, string>> = Object.freeze({
   all: "Tüm teslimatlar",

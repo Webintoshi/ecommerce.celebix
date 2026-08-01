@@ -23,6 +23,12 @@ const METHODS = Object.freeze([
   "updateShipping",
   "addNote",
   "archiveNote",
+  "listDrafts",
+  "getDraft",
+  "createDraft",
+  "updateDraft",
+  "archiveDraft",
+  "convertDraft",
 ] as const);
 
 function invalid(): never {

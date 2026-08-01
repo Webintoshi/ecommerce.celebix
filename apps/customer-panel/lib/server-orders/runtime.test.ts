@@ -42,6 +42,12 @@ function orders(): OrderRepository {
     updateShipping: reject,
     addNote: reject,
     archiveNote: reject,
+    listDrafts: reject,
+    getDraft: reject,
+    createDraft: reject,
+    updateDraft: reject,
+    archiveDraft: reject,
+    convertDraft: reject,
   } as OrderRepository;
 }
 
@@ -54,8 +60,9 @@ test("approved access resolves an immutable order-only repository facade", () =>
   assert.equal(Object.isFrozen(runtime), true);
   assert.equal(Object.isFrozen(runtime.orders), true);
   assert.deepEqual(Object.keys(runtime.orders).sort(), [
-    "addNote", "archiveNote", "getDashboardSummary", "getOrder", "getOrderNeighbors", "listOrders",
-    "transitionPayment", "transitionStatus", "updateShipping",
+    "addNote", "archiveDraft", "archiveNote", "convertDraft", "createDraft", "getDashboardSummary",
+    "getDraft", "getOrder", "getOrderNeighbors", "listDrafts", "listOrders", "transitionPayment",
+    "transitionStatus", "updateDraft", "updateShipping",
   ]);
   for (const forbidden of ["pool", "options", "database", "connectionString", "tenantContext"]) {
     assert.equal(forbidden in runtime.orders, false);
@@ -90,6 +97,9 @@ test("approved staging preflight gates one shared pool on exact order tables and
   for (const table of ["orders", "order_items", "order_events", "order_notes", "order_operations"]) {
     assert.match(source, new RegExp(`to_regclass\\('saas\\.${table}'\\) IS NOT NULL`));
   }
+  for (const table of ["order_drafts", "order_draft_lines", "order_draft_operations", "manual_order_inventory_commitments"]) {
+    assert.match(source, new RegExp(`to_regclass\\('saas\\.${table}'\\) IS NOT NULL`));
+  }
   for (const signature of [
     "orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
     "orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)",
@@ -101,6 +111,13 @@ test("approved staging preflight gates one shared pool on exact order tables and
     "orders_add_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)",
     "orders_archive_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid)",
     "orders_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+    "order_drafts_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,uuid)",
+    "order_drafts_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "order_drafts_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,jsonb)",
+    "order_drafts_update(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)",
+    "order_drafts_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+    "order_drafts_convert(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+    "order_drafts_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
   ]) {
     assert.equal(source.includes(`to_regprocedure('saas.${signature}') IS NOT NULL`), true);
   }

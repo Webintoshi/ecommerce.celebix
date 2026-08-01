@@ -3,10 +3,16 @@ import {
   ORDER_STATUSES,
   parseOrderDashboardSummary,
   parseOrderDetail,
+  parseOrderDraftConversionResult,
+  parseOrderDraftDetail,
+  parseOrderDraftListItem,
   parseOrderListItem,
   parseOrderNeighbors,
   type OrderDashboardSummary,
   type OrderDetail,
+  type OrderDraftConversionResult,
+  type OrderDraftDetail,
+  type OrderDraftListItem,
   type OrderListItem,
   type OrderNeighbors,
   type OrderPaymentStatus,
@@ -16,26 +22,39 @@ import {
 } from "@celebix/saas-contracts";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
-import { orderFingerprint } from "./canonical.ts";
+import {
+  canonicalOrderJson,
+  decodeDraftCursor,
+  encodeDraftCursor,
+  orderFingerprint,
+  parseDatabaseDraftCursor,
+} from "./canonical.ts";
 import { decodeOrderCursor, encodeOrderCursor, parseDatabaseCursor } from "./cursor.ts";
 import { ORDER_ERROR_CODES, OrderRepositoryError, type OrderErrorCode } from "./errors.ts";
 import type {
   AddOrderNoteInput,
   ArchiveOrderNoteInput,
+  CreateOrderDraftInput,
+  GetOrderDraftInput,
   GetOrderInput,
   ListOrdersInput,
   ListOrdersResult,
+  ListOrderDraftsInput,
+  ListOrderDraftsResult,
   OrderAuthorityInput,
   OrderMutationResult,
   OrderRepository,
+  OrderDraftOperationInput,
   PostgresOrderRepositoryOptions,
   TransitionOrderPaymentInput,
   TransitionOrderStatusInput,
+  UpdateOrderDraftInput,
   UpdateOrderShippingInput,
 } from "./types.ts";
 import {
   exactOrderInput,
   orderAuthority,
+  orderDraftSaveIntent,
   orderNoteBody,
   orderPageSize,
   orderPaymentStatus,
@@ -50,7 +69,8 @@ import {
 } from "./validation.ts";
 
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
-type MutationParser = (value: unknown, replayed: boolean) => OrderMutationResult;
+type MutationParser<T> = (value: unknown, replayed: boolean) => T;
+type RecoveryFunction = "orders_recover_operation" | "order_drafts_recover_operation";
 const ERROR_CODES = new Set<string>(ORDER_ERROR_CODES);
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
@@ -141,6 +161,16 @@ function safeNeighbors(value: unknown): OrderNeighbors {
   catch { throw unavailable(); }
 }
 
+function safeDraftListItem(value: unknown): OrderDraftListItem {
+  try { return parseOrderDraftListItem(value); }
+  catch { throw unavailable(); }
+}
+
+function safeDraftDetail(value: unknown): OrderDraftDetail {
+  try { return parseOrderDraftDetail(value); }
+  catch { throw unavailable(); }
+}
+
 function compareOrderListItems(left: OrderListItem, right: OrderListItem, sort: OrderSort): number {
   const compare = (leftValue: number | string, rightValue: number | string) =>
     leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
@@ -157,6 +187,12 @@ function compareOrderListItems(left: OrderListItem, right: OrderListItem, sort: 
   return sort === "newest" || sort === "highest"
     ? compare(right.id, left.id)
     : compare(left.id, right.id);
+}
+
+function compareDraftListItems(left: OrderDraftListItem, right: OrderDraftListItem): number {
+  if (left.updatedAt !== right.updatedAt) return left.updatedAt > right.updatedAt ? -1 : 1;
+  if (left.id === right.id) return 0;
+  return left.id > right.id ? -1 : 1;
 }
 
 function authorityValues(authority: ValidatedOrderAuthority): unknown[] {
@@ -292,12 +328,13 @@ export class PostgresOrderRepository implements OrderRepository {
     }
   }
 
-  private async recover(
+  private async recover<T>(
     authority: ValidatedOrderAuthority,
     operationId: string,
     fingerprint: string,
-    parser: MutationParser,
-  ): Promise<OrderMutationResult> {
+    parser: MutationParser<T>,
+    recoveryFunction: RecoveryFunction,
+  ): Promise<T> {
     const client = await this.acquire();
     let began = false;
     let terminal = false;
@@ -306,7 +343,7 @@ export class PostgresOrderRepository implements OrderRepository {
       began = true;
       await this.configure(client);
       const recovered = single(await client.query(
-        `SELECT outcome, result_payload FROM saas.orders_recover_operation(
+        `SELECT outcome, result_payload FROM saas.${recoveryFunction}(
           $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text
         )`,
         [...authorityValues(authority), operationId, fingerprint],
@@ -333,13 +370,15 @@ export class PostgresOrderRepository implements OrderRepository {
     }
   }
 
-  private async mutate(
+  private async mutate<T>(
     authority: ValidatedOrderAuthority,
     operationId: string,
     fingerprint: string,
     spec: QuerySpec,
-    parser: MutationParser,
-  ): Promise<OrderMutationResult> {
+    parser: MutationParser<T>,
+    committedOutcome = "committed",
+    recoveryFunction: RecoveryFunction = "orders_recover_operation",
+  ): Promise<T> {
     const client = await this.acquire();
     let began = false;
     let terminal = false;
@@ -350,7 +389,7 @@ export class PostgresOrderRepository implements OrderRepository {
       const mutation = single(await client.query(spec.text, spec.values));
       const expected = this.expectedError(mutation.outcome);
       if (expected) throw expected;
-      if (mutation.outcome !== "committed" && mutation.outcome !== "operation_replayed") throw unavailable();
+      if (mutation.outcome !== committedOutcome && mutation.outcome !== "operation_replayed") throw unavailable();
       const parsed = parser(mutation.resultPayload, mutation.outcome === "operation_replayed");
       try {
         await client.query("COMMIT");
@@ -361,7 +400,7 @@ export class PostgresOrderRepository implements OrderRepository {
         terminal = true;
         safeRelease(client, true);
         this.emitUnknownCommitAudit();
-        return await this.recover(authority, operationId, fingerprint, parser);
+        return await this.recover(authority, operationId, fingerprint, parser, recoveryFunction);
       }
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
@@ -462,7 +501,7 @@ export class PostgresOrderRepository implements OrderRepository {
     const expectedVersion = positiveOrderVersion(exact.expectedVersion);
     const nextStatus = orderStatus(exact.nextStatus);
     const fingerprint = orderFingerprint("transition_status", authority.storeId, { orderId, expectedVersion, nextStatus });
-    const parser: MutationParser = (value, replayed) => {
+    const parser: MutationParser<OrderMutationResult> = (value, replayed) => {
       const result = mutationResult(value, replayed);
       if (result.id !== orderId || result.version !== expectedVersion + 1 || result.status !== nextStatus) throw unavailable();
       return result;
@@ -484,7 +523,7 @@ export class PostgresOrderRepository implements OrderRepository {
     const expectedVersion = positiveOrderVersion(exact.expectedVersion);
     const nextPaymentStatus = orderPaymentStatus(exact.nextPaymentStatus);
     const fingerprint = orderFingerprint("transition_payment", authority.storeId, { orderId, expectedVersion, nextPaymentStatus });
-    const parser: MutationParser = (value, replayed) => {
+    const parser: MutationParser<OrderMutationResult> = (value, replayed) => {
       const result = mutationResult(value, replayed);
       if (result.id !== orderId || result.version !== expectedVersion + 1 || result.paymentStatus !== nextPaymentStatus) throw unavailable();
       return result;
@@ -506,7 +545,7 @@ export class PostgresOrderRepository implements OrderRepository {
     const expectedVersion = positiveOrderVersion(exact.expectedVersion);
     const shipping = orderShipping(exact.shippingAddress, exact.tracking);
     const fingerprint = orderFingerprint("update_shipping", authority.storeId, { orderId, expectedVersion, ...shipping });
-    const parser: MutationParser = (value, replayed) => {
+    const parser: MutationParser<OrderMutationResult> = (value, replayed) => {
       const result = mutationResult(value, replayed);
       if (result.id !== orderId || result.version !== expectedVersion + 1) throw unavailable();
       return result;
@@ -533,7 +572,7 @@ export class PostgresOrderRepository implements OrderRepository {
     try { noteId = orderUuid(this.options.generateId("note")); }
     catch { throw unavailable(); }
     const fingerprint = orderFingerprint("add_note", authority.storeId, { orderId, body });
-    const parser: MutationParser = (value, replayed) => {
+    const parser: MutationParser<OrderMutationResult> = (value, replayed) => {
       const result = mutationResult(value, replayed);
       if (result.id !== orderId) throw unavailable();
       return result;
@@ -554,7 +593,7 @@ export class PostgresOrderRepository implements OrderRepository {
     const orderId = orderUuid(exact.orderId);
     const noteId = orderUuid(exact.noteId);
     const fingerprint = orderFingerprint("archive_note", authority.storeId, { orderId, noteId });
-    const parser: MutationParser = (value, replayed) => {
+    const parser: MutationParser<OrderMutationResult> = (value, replayed) => {
       const result = mutationResult(value, replayed);
       if (result.id !== orderId) throw unavailable();
       return result;
@@ -566,5 +605,123 @@ export class PostgresOrderRepository implements OrderRepository {
       )`,
       values: [...authorityValues(authority), operationId, fingerprint, orderId, noteId],
     }, parser);
+  }
+
+  async listDrafts(input: ListOrderDraftsInput): Promise<ListOrderDraftsResult> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "pageSize"], ["cursor"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const pageSize = orderPageSize(exact.pageSize);
+    const cursor = decodeDraftCursor(exact.cursor as string | undefined, authority.storeId);
+    return this.read(authority, {
+      text: "SELECT outcome, result_payload FROM saas.order_drafts_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::integer,$9::timestamptz,$10::uuid)",
+      values: [...authorityValues(authority), pageSize, cursor?.updatedAt ?? null, cursor?.id ?? null],
+    }, "listed", (value) => {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
+      const envelope = value as Record<string, unknown>;
+      const keys = Object.keys(envelope).sort().join(",");
+      if (keys !== "items" && keys !== "items,nextCursor") throw unavailable();
+      if (!Array.isArray(envelope.items) || envelope.items.length > pageSize) throw unavailable();
+      const items = Object.freeze(envelope.items.map(safeDraftListItem));
+      for (let index = 1; index < items.length; index += 1) {
+        if (compareDraftListItems(items[index - 1]!, items[index]!) >= 0) throw unavailable();
+      }
+      if (!Object.hasOwn(envelope, "nextCursor")) return Object.freeze({ items });
+      if (items.length !== pageSize || items.length === 0) throw unavailable();
+      let databaseCursor;
+      try { databaseCursor = parseDatabaseDraftCursor(envelope.nextCursor, items.at(-1)!); }
+      catch { throw unavailable(); }
+      return Object.freeze({ items, nextCursor: encodeDraftCursor(authority.storeId, databaseCursor) });
+    });
+  }
+
+  async getDraft(input: GetOrderDraftInput): Promise<OrderDraftDetail> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "draftId"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const draftId = orderUuid(exact.draftId);
+    return this.read(authority, {
+      text: "SELECT outcome, result_payload FROM saas.order_drafts_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+      values: [...authorityValues(authority), draftId],
+    }, "found", (value) => {
+      const result = safeDraftDetail(value);
+      if (result.id !== draftId) throw unavailable();
+      return result;
+    });
+  }
+
+  async createDraft(input: CreateOrderDraftInput): Promise<OrderDraftDetail> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "operationId", "intent"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const operationId = orderUuid(exact.operationId);
+    const intent = orderDraftSaveIntent(exact.intent);
+    let draftId: string;
+    try { draftId = orderUuid(this.options.generateId("draft")); }
+    catch { throw unavailable(); }
+    const fingerprint = orderFingerprint("draft_create", authority.storeId, intent);
+    const parser: MutationParser<OrderDraftDetail> = (value, replayed) => {
+      const result = safeDraftDetail(value);
+      if (result.status !== "draft" || result.version !== 1 || (!replayed && result.id !== draftId)) throw unavailable();
+      return result;
+    };
+    return this.mutate(authority, operationId, fingerprint, {
+      text: "SELECT outcome, result_payload FROM saas.order_drafts_create($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::jsonb)",
+      values: [...authorityValues(authority), operationId, fingerprint, draftId, canonicalOrderJson(intent)],
+    }, parser, "created", "order_drafts_recover_operation");
+  }
+
+  async updateDraft(input: UpdateOrderDraftInput): Promise<OrderDraftDetail> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "operationId", "draftId", "expectedVersion", "intent"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const operationId = orderUuid(exact.operationId);
+    const draftId = orderUuid(exact.draftId);
+    const expectedVersion = positiveOrderVersion(exact.expectedVersion);
+    const intent = orderDraftSaveIntent(exact.intent, expectedVersion);
+    const fingerprint = orderFingerprint("draft_update", authority.storeId, { draftId, expectedVersion, intent });
+    const parser: MutationParser<OrderDraftDetail> = (value) => {
+      const result = safeDraftDetail(value);
+      if (result.id !== draftId || result.status !== "draft" || result.version !== expectedVersion + 1) throw unavailable();
+      return result;
+    };
+    return this.mutate(authority, operationId, fingerprint, {
+      text: "SELECT outcome, result_payload FROM saas.order_drafts_update($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::jsonb)",
+      values: [...authorityValues(authority), operationId, fingerprint, draftId, expectedVersion, canonicalOrderJson(intent)],
+    }, parser, "updated", "order_drafts_recover_operation");
+  }
+
+  async archiveDraft(input: OrderDraftOperationInput): Promise<OrderDraftDetail> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "operationId", "draftId", "expectedVersion"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const operationId = orderUuid(exact.operationId);
+    const draftId = orderUuid(exact.draftId);
+    const expectedVersion = positiveOrderVersion(exact.expectedVersion);
+    const fingerprint = orderFingerprint("draft_archive", authority.storeId, { draftId, expectedVersion });
+    const parser: MutationParser<OrderDraftDetail> = (value) => {
+      const result = safeDraftDetail(value);
+      if (result.id !== draftId || result.status !== "archived" || result.version !== expectedVersion + 1) throw unavailable();
+      return result;
+    };
+    return this.mutate(authority, operationId, fingerprint, {
+      text: "SELECT outcome, result_payload FROM saas.order_drafts_archive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
+      values: [...authorityValues(authority), operationId, fingerprint, draftId, expectedVersion],
+    }, parser, "archived", "order_drafts_recover_operation");
+  }
+
+  async convertDraft(input: OrderDraftOperationInput): Promise<OrderDraftConversionResult> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "operationId", "draftId", "expectedVersion"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const operationId = orderUuid(exact.operationId);
+    const draftId = orderUuid(exact.draftId);
+    const expectedVersion = positiveOrderVersion(exact.expectedVersion);
+    const fingerprint = orderFingerprint("draft_convert", authority.storeId, { draftId, expectedVersion });
+    const parser: MutationParser<OrderDraftConversionResult> = (value, replayed) => {
+      let parsed: OrderDraftConversionResult;
+      try { parsed = parseOrderDraftConversionResult(value); }
+      catch { throw unavailable(); }
+      if (parsed.draftId !== draftId || parsed.draftVersion !== expectedVersion + 1) throw unavailable();
+      return Object.freeze({ ...parsed, replayed });
+    };
+    return this.mutate(authority, operationId, fingerprint, {
+      text: "SELECT outcome, result_payload FROM saas.order_drafts_convert($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
+      values: [...authorityValues(authority), operationId, fingerprint, draftId, expectedVersion],
+    }, parser, "converted", "order_drafts_recover_operation");
   }
 }

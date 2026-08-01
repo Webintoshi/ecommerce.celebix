@@ -490,7 +490,8 @@ test("shipping and note inputs enforce exact safe bounded contracts", async () =
 test("all stable repository errors map to their safe HTTP statuses", async () => {
   const statuses: Readonly<Record<OrderErrorCode, number>> = {
     invalid_input: 400, unauthenticated: 401, membership_denied: 403, store_inactive: 403,
-    feature_not_enabled: 403, order_not_found: 404, note_not_found: 404, invalid_transition: 409,
+    feature_not_enabled: 403, order_not_found: 404, note_not_found: 404, draft_not_found: 404,
+    draft_not_editable: 409, inventory_conflict: 409, catalog_conflict: 409, customer_conflict: 409, invalid_transition: 409,
     version_conflict: 409, operation_replayed: 409, operation_mismatch: 409,
     durable_authority_invalid: 409, unavailable: 503,
   };

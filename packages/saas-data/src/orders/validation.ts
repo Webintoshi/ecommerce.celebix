@@ -5,7 +5,9 @@ import {
   PLAN_FEATURE_KEYS,
   STORE_DOMAIN_TYPES,
   parseOrderDetail,
+  parseOrderDraftSaveIntent,
   type OrderAddress,
+  type OrderDraftSaveIntent,
   type OrderPaymentStatus,
   type OrderSort,
   type OrderStatus,
@@ -172,6 +174,25 @@ export function orderUuid(value: unknown): string {
 export function positiveOrderVersion(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1) fail();
   return value as number;
+}
+
+export function orderDraftSaveIntent(
+  value: unknown,
+  expectedVersion?: number,
+): Readonly<OrderDraftSaveIntent> {
+  try {
+    const parsed = parseOrderDraftSaveIntent(value);
+    if (expectedVersion === undefined) {
+      if (parsed.expectedVersion !== undefined) fail();
+      return parsed;
+    }
+    const version = positiveOrderVersion(expectedVersion);
+    if (parsed.expectedVersion !== undefined && parsed.expectedVersion !== version) fail();
+    return Object.freeze({ ...parsed, expectedVersion: version });
+  } catch (error) {
+    if (error instanceof OrderRepositoryError) throw error;
+    fail();
+  }
 }
 
 export function trustedOrderNow(value: unknown): Date {

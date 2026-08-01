@@ -19,6 +19,11 @@ const ORDER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const NEXT_ORDER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
+const DRAFT_ID = "12121212-1212-4121-8121-121212121212";
+const DRAFT_OPERATION_ID = "13131313-1313-4131-8131-131313131313";
+const DRAFT_LINE_ID = "14141414-1414-4141-8141-141414141414";
+const PRODUCT_ID = "15151515-1515-4151-8151-151515151515";
+const VARIANT_ID = "16161616-1616-4161-8161-161616161616";
 const NOW = new Date("2026-07-21T08:00:00.000Z");
 const PRIVATE_REQUEST_ID = "private-order-request";
 const PRIVATE_SUBJECT = "private-provider-subject";
@@ -68,7 +73,7 @@ function listItem(overrides: Record<string, unknown> = {}) {
     source: "storefront",
     customerName: "Ada Lovelace",
     customerEmail: "ada@example.com",
-    currency: "TRY",
+    currency: "TRY" as const,
     totalCents: 13_000,
     status: "confirmed",
     paymentStatus: "completed",
@@ -152,6 +157,68 @@ function mutationProjection(overrides: Record<string, unknown> = {}) {
     paymentStatus: "completed",
     version: 5,
     updatedAt: NOW.toISOString(),
+    ...overrides,
+  };
+}
+
+function draftIntent(overrides: Record<string, unknown> = {}) {
+  return {
+    customerName: "Ada Lovelace",
+    customerEmail: "ada@example.com",
+    customerPhone: "+905551112233",
+    currency: "TRY" as const,
+    shippingCents: 500,
+    discountCents: 100,
+    shippingAddress: { recipientName: "Ada Lovelace", line1: "1 Logic Street", city: "Istanbul", country: "TR" },
+    billingAddress: { recipientName: "Ada Lovelace", line1: "2 Billing Street", city: "Istanbul", country: "TR" },
+    note: "Hediye paketi",
+    adjustInventory: true,
+    lines: [{ lineId: DRAFT_LINE_ID, productId: PRODUCT_ID, variantId: VARIANT_ID, quantity: 2, discountCents: 100 }],
+    ...overrides,
+  };
+}
+
+function draftListItem(overrides: Record<string, unknown> = {}) {
+  return {
+    id: DRAFT_ID,
+    draftNumber: "TSL-a1b2c3d4e5f6a7b8c9d0",
+    status: "draft",
+    customerName: "Ada Lovelace",
+    customerEmail: "ada@example.com",
+    currency: "TRY",
+    totalCents: 2_300,
+    lineCount: 1,
+    adjustInventory: true,
+    createdAt: "2026-07-20T10:00:00.000Z",
+    updatedAt: "2026-07-20T10:30:00.000Z",
+    version: 1,
+    ...overrides,
+  };
+}
+
+function draftDetail(overrides: Record<string, unknown> = {}) {
+  return {
+    ...draftListItem(),
+    customerPhone: "+905551112233",
+    subtotalCents: 1_900,
+    shippingCents: 500,
+    discountCents: 100,
+    shippingAddress: draftIntent().shippingAddress,
+    billingAddress: draftIntent().billingAddress,
+    note: "Hediye paketi",
+    lines: [{
+      lineId: DRAFT_LINE_ID,
+      position: 0,
+      productId: PRODUCT_ID,
+      variantId: VARIANT_ID,
+      productName: "Atlas Kolye",
+      variantName: "Altın",
+      sku: "ATL-KOL-ALT",
+      unitPriceCents: 1_000,
+      quantity: 2,
+      discountCents: 100,
+      lineTotalCents: 1_900,
+    }],
     ...overrides,
   };
 }
@@ -457,6 +524,152 @@ test("detail read strictly parses and deeply freezes the safe order contract", a
   assert.deepEqual(functionCall(client, "orders_get").values, [
     STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, ORDER_ID,
   ]);
+});
+
+test("draft list and detail use exact tenant authority, strict parsing, and a store-bound cursor", async () => {
+  const cursorTimestamp = "2026-07-20T10:30:00.000000Z";
+  const firstClient = new FakeClient((text) => {
+    if (text.includes("saas.order_drafts_list")) {
+      return [{ outcome: "listed", result_payload: { items: [draftListItem()], nextCursor: { updatedAt: cursorTimestamp, id: DRAFT_ID } } }];
+    }
+    return [];
+  });
+  const first = await repository(new FakePool(firstClient)).listDrafts({
+    tenantContext: tenantContext(), now: NOW, pageSize: 1,
+  });
+  assert.equal(Object.isFrozen(first), true);
+  assert.equal(Object.isFrozen(first.items), true);
+  assert.equal(Object.isFrozen(first.items[0]), true);
+  assert.equal(typeof first.nextCursor, "string");
+  assert.equal(first.nextCursor?.includes(STORE_ID), false);
+  const listCall = functionCall(firstClient, "order_drafts_list");
+  assert.deepEqual(listCall.values, [
+    STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, 1, null, null,
+  ]);
+
+  const secondClient = new FakeClient((text) => text.includes("saas.order_drafts_list")
+    ? [{ outcome: "listed", result_payload: { items: [] } }]
+    : []);
+  await repository(new FakePool(secondClient)).listDrafts({
+    tenantContext: tenantContext(), now: NOW, pageSize: 1, cursor: first.nextCursor,
+  });
+  assert.deepEqual(functionCall(secondClient, "order_drafts_list").values.slice(8), [cursorTimestamp, DRAFT_ID]);
+
+  const otherStore = tenantContext({ store: { id: OTHER_STORE_ID, slug: "other", status: "active" } });
+  const unused = new FakePool();
+  await assert.rejects(repository(unused).listDrafts({
+    tenantContext: otherStore, now: NOW, pageSize: 1, cursor: first.nextCursor,
+  }), orderError("invalid_input"));
+  assert.equal(unused.connects, 0);
+
+  const detailClient = new FakeClient((text) => text.includes("saas.order_drafts_get")
+    ? [{ outcome: "found", result_payload: draftDetail() }]
+    : []);
+  const selected = await repository(new FakePool(detailClient)).getDraft({
+    tenantContext: tenantContext(), now: NOW, draftId: DRAFT_ID,
+  });
+  assert.deepEqual(selected, draftDetail());
+  assert.equal(Object.isFrozen(selected.lines), true);
+  assert.deepEqual(functionCall(detailClient, "order_drafts_get").values, [
+    STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, DRAFT_ID,
+  ]);
+});
+
+test("draft create update archive and convert bind exact SQL, canonical fingerprints, and strict results", async () => {
+  const createClient = new FakeClient((text) => text.includes("saas.order_drafts_create")
+    ? [{ outcome: "created", result_payload: draftDetail() }]
+    : []);
+  const created = await repository(new FakePool(createClient), {
+    generateId: (kind) => kind === "draft" ? DRAFT_ID : NOTE_ID,
+  }).createDraft({
+    tenantContext: tenantContext(), now: NOW, operationId: DRAFT_OPERATION_ID, intent: draftIntent(),
+  });
+  assert.deepEqual(created, draftDetail());
+  const create = functionCall(createClient, "order_drafts_create");
+  assert.match(create.text, /\$8::uuid,\$9::text,\$10::uuid,\$11::jsonb/);
+  assert.deepEqual(create.values.slice(9, 10), [DRAFT_ID]);
+  assert.deepEqual(JSON.parse(String(create.values[10])), draftIntent());
+
+  const updateClient = new FakeClient((text) => text.includes("saas.order_drafts_update")
+    ? [{ outcome: "updated", result_payload: draftDetail({ version: 2 }) }]
+    : []);
+  await repository(new FakePool(updateClient)).updateDraft({
+    tenantContext: tenantContext(), now: NOW, operationId: DRAFT_OPERATION_ID, draftId: DRAFT_ID,
+    expectedVersion: 1, intent: draftIntent(),
+  });
+  const update = functionCall(updateClient, "order_drafts_update");
+  assert.match(update.text, /\$8::uuid,\$9::text,\$10::uuid,\$11::bigint,\$12::jsonb/);
+  assert.deepEqual(update.values.slice(9, 11), [DRAFT_ID, 1]);
+  assert.deepEqual(JSON.parse(String(update.values[11])), { ...draftIntent(), expectedVersion: 1 });
+  assert.match(String(create.values[8]), /^[a-f0-9]{64}$/);
+  assert.match(String(update.values[8]), /^[a-f0-9]{64}$/);
+  assert.notEqual(create.values[8], update.values[8]);
+
+  const archiveClient = new FakeClient((text) => text.includes("saas.order_drafts_archive")
+    ? [{ outcome: "archived", result_payload: draftDetail({ status: "archived", version: 2 }) }]
+    : []);
+  const archived = await repository(new FakePool(archiveClient)).archiveDraft({
+    tenantContext: tenantContext(), now: NOW, operationId: DRAFT_OPERATION_ID, draftId: DRAFT_ID, expectedVersion: 1,
+  });
+  assert.equal(archived.status, "archived");
+  assert.deepEqual(functionCall(archiveClient, "order_drafts_archive").values.slice(9), [DRAFT_ID, 1]);
+
+  const conversionPayload = {
+    draftId: DRAFT_ID,
+    orderId: ORDER_ID,
+    orderNumber: "MAN-aaaaaaaaaaaa4aaa8aaa",
+    draftVersion: 2,
+    adjustedInventory: true,
+    replayed: false,
+  };
+  const convertClient = new FakeClient((text) => text.includes("saas.order_drafts_convert")
+    ? [{ outcome: "operation_replayed", result_payload: conversionPayload }]
+    : []);
+  const converted = await repository(new FakePool(convertClient)).convertDraft({
+    tenantContext: tenantContext(), now: NOW, operationId: DRAFT_OPERATION_ID, draftId: DRAFT_ID, expectedVersion: 1,
+  });
+  assert.deepEqual(converted, { ...conversionPayload, replayed: true });
+  assert.deepEqual(functionCall(convertClient, "order_drafts_convert").values.slice(9), [DRAFT_ID, 1]);
+});
+
+test("unknown draft commit destroys the writer and recovers only through draft operation authority", async () => {
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.order_drafts_create")) return [{ outcome: "created", result_payload: draftDetail() }];
+    if (text === "COMMIT") throw new Error(PRIVATE_PROXY_SECRET);
+    return [];
+  });
+  const recovery = new FakeClient((text) => text.includes("saas.order_drafts_recover_operation")
+    ? [{ outcome: "operation_replayed", result_payload: draftDetail() }]
+    : []);
+  const result = await repository(new FakePool(writer, recovery), {
+    generateId: (kind) => kind === "draft" ? DRAFT_ID : NOTE_ID,
+  }).createDraft({
+    tenantContext: tenantContext(), now: NOW, operationId: DRAFT_OPERATION_ID, intent: draftIntent(),
+  });
+  assert.deepEqual(result, draftDetail());
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(recovery.calls.filter(({ text }) => text.includes("order_drafts_recover_operation")).length, 1);
+  assert.equal(recovery.calls.some(({ text }) => text.includes("order_drafts_create")), false);
+});
+
+test("draft errors and malformed private inputs fail closed", async () => {
+  for (const outcome of ["draft_not_found", "draft_not_editable", "inventory_conflict", "catalog_conflict", "customer_conflict"] as const) {
+    const client = new FakeClient((text) => text.includes("saas.order_drafts_archive")
+      ? [{ outcome, result_payload: null }]
+      : []);
+    await assert.rejects(repository(new FakePool(client)).archiveDraft({
+      tenantContext: tenantContext(), now: NOW, operationId: DRAFT_OPERATION_ID, draftId: DRAFT_ID, expectedVersion: 1,
+    }), orderError(outcome));
+  }
+  for (const invoke of [
+    () => repository(new FakePool()).listDrafts({ tenantContext: tenantContext(), now: NOW, pageSize: 101 }),
+    () => repository(new FakePool()).getDraft({ tenantContext: tenantContext(), now: NOW, draftId: "bad" }),
+    () => repository(new FakePool()).createDraft({ tenantContext: tenantContext(), now: NOW, operationId: DRAFT_OPERATION_ID, intent: { ...draftIntent(), storeId: STORE_ID } as never }),
+    () => repository(new FakePool()).updateDraft({ tenantContext: tenantContext(), now: NOW, operationId: DRAFT_OPERATION_ID, draftId: DRAFT_ID, expectedVersion: 2, intent: { ...draftIntent(), expectedVersion: 1 } }),
+  ]) {
+    await assert.rejects(invoke(), orderError("invalid_input"));
+  }
 });
 
 test("neighbor read uses the exact authority signature and returns only frozen safe identities", async () => {
@@ -908,7 +1121,8 @@ test("every public failure contains only its stable code and never private autho
 test("the finite error vocabulary is frozen and constructor policy rejects unsafe role or timeout configuration", () => {
   assert.deepEqual(ORDER_ERROR_CODES, [
     "invalid_input", "unauthenticated", "membership_denied", "store_inactive",
-    "feature_not_enabled", "order_not_found", "note_not_found", "invalid_transition",
+    "feature_not_enabled", "order_not_found", "note_not_found", "draft_not_found",
+    "draft_not_editable", "inventory_conflict", "catalog_conflict", "customer_conflict", "invalid_transition",
     "version_conflict", "operation_replayed", "operation_mismatch",
     "durable_authority_invalid", "unavailable",
   ]);

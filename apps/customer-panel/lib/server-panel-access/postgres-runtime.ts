@@ -104,6 +104,10 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.order_events') IS NOT NULL
         AND to_regclass('saas.order_notes') IS NOT NULL
         AND to_regclass('saas.order_operations') IS NOT NULL AS migrations_022,
+      to_regclass('saas.order_drafts') IS NOT NULL
+        AND to_regclass('saas.order_draft_lines') IS NOT NULL
+        AND to_regclass('saas.order_draft_operations') IS NOT NULL
+        AND to_regclass('saas.manual_order_inventory_commitments') IS NOT NULL AS migrations_078,
       to_regclass('saas.checkout_provider_configs') IS NOT NULL
         AND to_regclass('saas.quick_order_links') IS NOT NULL
         AND to_regclass('saas.quick_order_link_items') IS NOT NULL
@@ -180,6 +184,13 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.orders_add_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)') IS NOT NULL AS order_note_adder,
       to_regprocedure('saas.orders_archive_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid)') IS NOT NULL AS order_note_archiver,
       to_regprocedure('saas.orders_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS order_recovery,
+      to_regprocedure('saas.order_drafts_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.order_drafts_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.order_drafts_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.order_drafts_update(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.order_drafts_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.order_drafts_convert(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.order_drafts_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS order_draft_repository,
       to_regprocedure('saas.abandoned_carts_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.abandoned_carts_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.abandoned_carts_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
@@ -317,6 +328,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.database_name !== databaseName || row.is_superuser !== false ||
       row.identity_member !== true || row.catalog_member !== true || row.host_resolver_member !== true || row.migrations_001_019 !== true ||
       row.migrations_022 !== true ||
+      row.migrations_078 !== true ||
       row.migrations_024_026 !== true ||
       row.sessions !== true || row.tenant_admin_auth !== true || row.session_resolver !== true || row.session_rotator !== true ||
       row.session_revoker !== true || row.session_recovery !== true || row.catalog_reader !== true ||
@@ -329,6 +341,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.order_reader !== true || row.order_neighbors !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
       row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true ||
+      row.order_draft_repository !== true ||
       row.abandoned_cart_repository !== true ||
       row.customer_repository !== true ||
       row.catalog_admin_repository !== true ||

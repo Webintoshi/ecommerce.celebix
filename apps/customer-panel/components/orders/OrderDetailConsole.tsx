@@ -36,6 +36,7 @@ const SOURCE_LABELS: Readonly<Record<OrderDetail["source"], string>> = Object.fr
   quick_link: "Hızlı sipariş",
   marketplace: "Pazar yeri",
   manual_import: "Manuel aktarım",
+  manual: "Manuel sipariş",
 });
 
 export function getAuthorizedOrderStatusOptions(

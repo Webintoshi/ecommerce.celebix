@@ -1,6 +1,10 @@
 import type {
   OrderAddress,
   OrderDashboardSummary,
+  OrderDraftConversionResult,
+  OrderDraftDetail,
+  OrderDraftListItem,
+  OrderDraftSaveIntent,
   OrderDetail,
   OrderListItem,
   OrderNeighbors,
@@ -28,6 +32,29 @@ export interface ListOrdersInput extends OrderAuthorityInput {
 
 export interface GetOrderInput extends OrderAuthorityInput {
   readonly orderId: string;
+}
+
+export interface ListOrderDraftsInput extends OrderAuthorityInput {
+  readonly pageSize: number;
+  readonly cursor?: string;
+}
+
+export interface GetOrderDraftInput extends OrderAuthorityInput {
+  readonly draftId: string;
+}
+
+export interface CreateOrderDraftInput extends OrderAuthorityInput {
+  readonly operationId: string;
+  readonly intent: Readonly<OrderDraftSaveIntent>;
+}
+
+export interface OrderDraftOperationInput extends GetOrderDraftInput {
+  readonly operationId: string;
+  readonly expectedVersion: number;
+}
+
+export interface UpdateOrderDraftInput extends OrderDraftOperationInput {
+  readonly intent: Readonly<OrderDraftSaveIntent>;
 }
 
 export interface OrderOperationInput extends GetOrderInput {
@@ -72,6 +99,11 @@ export interface ListOrdersResult {
   readonly nextCursor?: string;
 }
 
+export interface ListOrderDraftsResult {
+  readonly items: readonly OrderDraftListItem[];
+  readonly nextCursor?: string;
+}
+
 export interface OrderRepository {
   getDashboardSummary(input: OrderAuthorityInput): Promise<OrderDashboardSummary>;
   listOrders(input: ListOrdersInput): Promise<ListOrdersResult>;
@@ -82,6 +114,12 @@ export interface OrderRepository {
   updateShipping(input: UpdateOrderShippingInput): Promise<OrderMutationResult>;
   addNote(input: AddOrderNoteInput): Promise<OrderMutationResult>;
   archiveNote(input: ArchiveOrderNoteInput): Promise<OrderMutationResult>;
+  listDrafts(input: ListOrderDraftsInput): Promise<ListOrderDraftsResult>;
+  getDraft(input: GetOrderDraftInput): Promise<OrderDraftDetail>;
+  createDraft(input: CreateOrderDraftInput): Promise<OrderDraftDetail>;
+  updateDraft(input: UpdateOrderDraftInput): Promise<OrderDraftDetail>;
+  archiveDraft(input: OrderDraftOperationInput): Promise<OrderDraftDetail>;
+  convertDraft(input: OrderDraftOperationInput): Promise<OrderDraftConversionResult>;
 }
 
 export interface OrderAuditEvent {
@@ -92,6 +130,6 @@ export interface PostgresOrderRepositoryOptions {
   readonly pool: PostgresPoolLike;
   readonly role: "celebix_saas_app";
   readonly timeouts: PostgresTimeoutOptions;
-  readonly generateId: (kind: "note") => string;
+  readonly generateId: (kind: "note" | "draft") => string;
   readonly audit: (event: OrderAuditEvent) => void | Promise<void>;
 }
