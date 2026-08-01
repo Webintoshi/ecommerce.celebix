@@ -348,7 +348,9 @@ test("public content shell owns exact fixed policies search favorites and siblin
   assert.match(card, /<article/);
   assert.match(card, /<FavoriteButton/);
   assert.match(card, /<ProductCardCartButton/);
-  assert.match(card, /available && priceCents === product[.]priceCents/);
+  assert.match(card, /cardAction/);
+  assert.match(card, /action === "quick_add"/);
+  assert.match(card, /ProductQuickView/);
   assert.match(search, /nextCursor/);
   assert.doesNotMatch(card, /<Link[\s\S]*<FavoriteButton[\s\S]*<\/Link>/);
 });
