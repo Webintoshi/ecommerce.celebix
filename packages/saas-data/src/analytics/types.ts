@@ -4,7 +4,7 @@ import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.
 export type AnalyticsConnectionAuthority = Readonly<{ connectionId:string; websiteId:string; hostname:string; status:AnalyticsConnectionStatus; version:number; lastVerifiedAt:string|null }>;
 export type AnalyticsPendingAuthority = AnalyticsConnectionAuthority & Readonly<{ outcome:"pending"|"active"; replayed:boolean }>;
 export type PublicAnalyticsTrackerConfig = Readonly<{ websiteId:string; hostname:string }>;
-export type AnalyticsPurchaseSource = "storefront"|"quick_link"|"marketplace"|"manual_import";
+export type AnalyticsPurchaseSource = "storefront"|"quick_link"|"marketplace"|"manual_import"|"manual";
 export type AnalyticsOutboxClaim = Readonly<{ eventId:string; leaseToken:string; websiteId:string; hostname:string; attemptCount:number; payload:Readonly<{name:"purchase";valueCents:number;currency:string;source:AnalyticsPurchaseSource}> }>;
 export type AnalyticsDeliveryErrorCode = "collector_unavailable"|"collector_rejected"|"collector_response_invalid";
 

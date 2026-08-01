@@ -33,6 +33,7 @@
 - Modify: `packages/saas-contracts/src/orders/validation.ts`
 - Modify: `packages/saas-contracts/src/orders/index.ts`
 - Modify: `packages/saas-contracts/src/orders/orders.test.ts`
+- Modify: `packages/saas-contracts/src/contracts.test.ts`
 - Modify: `packages/saas-contracts/src/index.ts`
 - Modify: `packages/saas-data/src/analytics/types.ts`
 - Modify: `packages/saas-data/src/analytics/validation.ts`
