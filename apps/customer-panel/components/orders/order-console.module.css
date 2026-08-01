@@ -451,3 +451,14 @@ button:disabled.primaryButton,
   .printActions { display: none; }
   .printPage { max-width: none; }
 }
+.primaryAction {
+  align-items: center;
+  background: #ff5c00;
+  border-radius: 12px;
+  color: #fff;
+  display: inline-flex;
+  font-weight: 750;
+  min-height: 44px;
+  padding: 0 18px;
+  text-decoration: none;
+}

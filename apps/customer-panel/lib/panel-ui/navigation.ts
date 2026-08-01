@@ -2,6 +2,7 @@ export type PanelNavigationHref =
   | "/"
   | "/analytics"
   | "/orders"
+  | "/orders/drafts"
   | "/orders/quick-links"
   | "/orders/abandoned-carts"
   | "/customers"
@@ -137,6 +138,7 @@ function item(
 
 const ORDER_CHILDREN = Object.freeze([
   item("all-orders", "Tüm Siparişler", "/orders", "orders"),
+  item("order-drafts", "Taslak Siparişler", "/orders/drafts", "orders"),
   item("quick-orders", "Hızlı Siparişler", "/orders/quick-links", "quick-orders"),
   item("abandoned-carts", "Terk Edilen Sepetler", "/orders/abandoned-carts", "abandoned-carts"),
 ]);
@@ -249,6 +251,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/": presentation("Özet"),
   "/analytics": presentation("Analizler"),
   "/orders": presentation("Siparişler"),
+  "/orders/drafts": presentation("Taslak Siparişler"),
   "/orders/quick-links": presentation("Hızlı Siparişler"),
   "/orders/abandoned-carts": presentation("Terk Edilen Sepetler"),
   "/customers": presentation("Müşteriler"),
@@ -318,6 +321,7 @@ export const PANEL_ROUTE_PRESENTATIONS = Object.freeze({
   summary: TITLES["/"]!,
   analytics: TITLES["/analytics"]!,
   orders: TITLES["/orders"]!,
+  orderDrafts: TITLES["/orders/drafts"]!,
   quickOrders: TITLES["/orders/quick-links"]!,
   abandonedCarts: TITLES["/orders/abandoned-carts"]!,
   abandonedCartDetail: presentation("Sepet ayrıntısı"),
@@ -418,6 +422,7 @@ const FAMILY_HREFS = new Set<PanelNavigationHref>(
 );
 
 const DETAIL_DEPTHS = new Map<PanelNavigationHref, number>([
+  ["/orders/drafts", 1],
   ["/orders/abandoned-carts", 1],
   ["/products/collections", 2],
   ["/products/brands", 2],
@@ -462,6 +467,8 @@ const DYNAMIC_TITLES = Object.freeze<readonly Readonly<{
   pattern: readonly string[];
   presentation: PanelRoutePresentation;
 }>[]>([
+  { pattern: ["orders", "drafts", "new"], presentation: presentation("Yeni Taslak Sipariş") },
+  { pattern: ["orders", "drafts", "*"], presentation: presentation("Taslak Sipariş Ayrıntısı") },
   { pattern: ["customers", "*", "edit"], presentation: presentation("Müşteriyi düzenle") },
   { pattern: ["products", "collections", "new"], presentation: presentation("Yeni koleksiyon") },
   { pattern: ["products", "collections", "*", "edit"], presentation: presentation("Koleksiyonu düzenle") },

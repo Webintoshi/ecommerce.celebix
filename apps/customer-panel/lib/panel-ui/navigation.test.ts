@@ -36,6 +36,7 @@ test("contains every and only currently working merchant destination", () => {
       "/",
       "/analytics",
       "/orders",
+      "/orders/drafts",
       "/orders/quick-links",
       "/orders/abandoned-carts",
       "/customers",

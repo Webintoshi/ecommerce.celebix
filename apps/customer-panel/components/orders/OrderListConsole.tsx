@@ -257,7 +257,11 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
 
   return (
     <PanelPageShell>
-      <PanelPageHeader title="Siparişler" description="Sipariş, ödeme ve teslimat akışını gerçek mağaza verileriyle yönetin." />
+      <PanelPageHeader
+        title="Siparişler"
+        description="Sipariş, ödeme ve teslimat akışını gerçek mağaza verileriyle yönetin."
+        actions={<Link className={styles.primaryAction} href="/orders/drafts/new">Manuel sipariş oluştur</Link>}
+      />
       <section className={styles.listSurface} aria-labelledby="orders-list-title">
         <div className={styles.surfaceHeading}><div><h2 id="orders-list-title">Tüm Siparişler</h2><p>Arama, durum ve sıralama sunucuda; ek filtreler yüklenen siparişlerde uygulanır.</p></div></div>
         <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}>

@@ -1062,6 +1062,7 @@ test("orders navigation exposes every genuine child with exact activation and sa
   const orders = navigation.PANEL_NAVIGATION.find(({ key }) => key === "orders");
   assert.deepEqual(orders?.children?.map(({ label, href }) => [label, href]), [
     ["Tüm Siparişler", "/orders"],
+    ["Taslak Siparişler", "/orders/drafts"],
     ["Hızlı Siparişler", "/orders/quick-links"],
     ["Terk Edilen Sepetler", "/orders/abandoned-carts"],
   ]);
@@ -1071,9 +1072,41 @@ test("orders navigation exposes every genuine child with exact activation and sa
     assert.equal(navigation.isPanelNavigationPathActive(unsafe, "/orders"), false);
   }
   assert.equal(navigation.getPanelRoutePresentation("/orders").title, "Siparişler");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts").title, "Taslak Siparişler");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts/new").title, "Yeni Taslak Sipariş");
+  assert.equal(navigation.getPanelRoutePresentation(`/orders/drafts/${DRAFT_ID}`).title, "Taslak Sipariş Ayrıntısı");
   assert.equal(navigation.getPanelRoutePresentation("/orders/quick-links").title, "Hızlı Siparişler");
   assert.equal(navigation.getPanelRoutePresentation("/orders/abandoned-carts").title, "Terk Edilen Sepetler");
   assert.equal(navigation.getPanelRoutePresentation(`/orders/${ORDER_ID}`).title, "Sipariş ayrıntısı");
+});
+
+test("manual order draft workspace is wired to real catalog customer and durable order routes", async () => {
+  const list = await source("components/orders/OrderDraftListConsole.tsx");
+  const editor = await source("components/orders/OrderDraftEditor.tsx");
+  const styles = await source("components/orders/order-drafts.module.css");
+  const listPage = await source("app/orders/drafts/page.tsx");
+  const newPage = await source("app/orders/drafts/new/page.tsx");
+  const detailPage = await source("app/orders/drafts/[draftId]/page.tsx");
+  const orderList = await source("components/orders/OrderListConsole.tsx");
+  const combined = [list, editor, listPage, newPage, detailPage].join("\n");
+
+  assert.match(list, /orderApi[.]listDrafts/);
+  assert.match(list, /href=\{`\/orders\/drafts\/\$\{draft[.]id\}`\}/);
+  assert.match(editor, /loadCatalogVariantChoices/);
+  assert.match(editor, /customerApi[.]list/);
+  assert.match(editor, /orderApi[.]createDraft/);
+  assert.match(editor, /orderApi[.]updateDraft/);
+  assert.match(editor, /orderApi[.]archiveDraft/);
+  assert.match(editor, /orderApi[.]convertDraft/);
+  assert.match(editor, /router[.]replace\(`\/orders\/\$\{result[.]orderId\}`\)/);
+  assert.match(editor, /expectedVersion/);
+  assert.match(newPage, /orders[.]manage/);
+  assert.match(detailPage, /orders[.]manage/);
+  assert.match(orderList, /href="\/orders\/drafts\/new"/);
+  assert.match(styles, /position:\s*sticky/);
+  assert.match(styles, /@media\s*\(max-width:\s*1024px\)/);
+  assert.match(styles, /@media\s*\(max-width:\s*640px\)/);
+  assert.doesNotMatch(combined, /storeId|tenantId|principalId|membershipId|planId|authorization|document[.]cookie|localStorage|sessionStorage/i);
 });
 
 test("dashboard and order pages expose only durable order facts without private authority or fake routes", async () => {
