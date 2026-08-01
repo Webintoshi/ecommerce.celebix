@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
+import type { CampaignHomeProjection } from "@celebix/saas-data";
 
 import { resolveDefaultPublicStorefrontRuntime, type PublicStorefrontRuntime } from "./default-runtime.ts";
 import { resolvePublicStorefrontRequest } from "./public-storefront.ts";
@@ -9,6 +10,7 @@ export type StorefrontTrackerContext = Readonly<{ websiteId: string; hostname: s
 export type StorefrontPageContext = Readonly<{
   runtime: PublicStorefrontRuntime;
   storefront: Extract<Awaited<ReturnType<typeof resolvePublicStorefrontRequest>>, { kind: "active" }>["storefront"];
+  campaign: CampaignHomeProjection | null;
   tracker: StorefrontTrackerContext | null;
 }>;
 export type StorefrontPageResolution = Readonly<{ kind: "active"; context: StorefrontPageContext }> | Readonly<{ kind: "not_found" }> | Readonly<{ kind: "unavailable" }>;
@@ -16,10 +18,14 @@ export type StorefrontPageResolution = Readonly<{ kind: "active"; context: Store
 export const resolveStorefrontPage = cache(async (): Promise<StorefrontPageResolution> => {
   const runtime = await resolveDefaultPublicStorefrontRuntime();
   if (runtime === null) return Object.freeze({ kind: "unavailable" });
-  const selected = await resolvePublicStorefrontRequest({ headers: await headers(), repository: runtime.repository, now: new Date() });
+  const now = new Date();
+  const selected = await resolvePublicStorefrontRequest({ headers: await headers(), repository: runtime.repository, now });
   if (selected.kind !== "active") return selected;
-  const tracker = await resolveStorefrontTracker(runtime, selected.storefront.hostname, new Date()).catch(() => null);
-  return Object.freeze({ kind: "active", context: Object.freeze({ runtime, storefront: selected.storefront, tracker }) });
+  const campaign = selected.storefront.presentation.schemaVersion === 2 && runtime.repository.resolveCampaignHome
+    ? await runtime.repository.resolveCampaignHome({ storefront: selected.storefront, now }).catch(() => null)
+    : null;
+  const tracker = await resolveStorefrontTracker(runtime, selected.storefront.hostname, now).catch(() => null);
+  return Object.freeze({ kind: "active", context: Object.freeze({ runtime, storefront: selected.storefront, campaign, tracker }) });
 });
 
 export async function resolveStorefrontTracker(runtime: PublicStorefrontRuntime, hostname: string, now: Date): Promise<StorefrontTrackerContext | null> {

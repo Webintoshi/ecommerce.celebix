@@ -5,6 +5,7 @@ import { starterMarqueeTokens } from "@celebix/saas-contracts";
 import { ProductGrid } from "@/components/ProductGrid";
 import { CategoryShowcase } from "@/components/CategoryShowcase";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
+import { CampaignHome } from "@/components/CampaignHome";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 
@@ -25,7 +26,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const { runtime, storefront } = requireStorefrontPage(await resolveStorefrontPage());
+  const context = requireStorefrontPage(await resolveStorefrontPage());
+  const { runtime, storefront } = context;
+  if (context.campaign) return <CampaignHome storefront={storefront} projection={context.campaign} />;
   const { presentation } = storefront;
   const products = await runtime.repository.listPublicProducts({ storefront, now: new Date(), limit: presentation.theme.homeProductLimit });
   const heroMedia = presentation.hero.image ?? products.items.find((product) => product.media.length)?.media[0];
