@@ -7,13 +7,16 @@ import { StorefrontCartClientError, storefrontCartClient } from "@/lib/cart/clie
 import type { CheckoutIntentKind } from "@/lib/cart/types.ts";
 import { type CheckoutFormDraft, validateCheckoutFormDraft } from "@/lib/checkout-form.ts";
 import { formatTry } from "@/lib/format.ts";
+import { useCartStatus } from "./CartStatusProvider";
 import { CheckoutSummary } from "./CheckoutSummary";
-import { checkoutBlockerMessage, checkoutFailureMessage } from "./checkout-readiness";
+import { checkoutBlockerMessage, checkoutFailureMessage, resolveCheckoutSummaryState } from "./checkout-readiness";
 
 const EMPTY: CheckoutFormDraft = Object.freeze({ name: "", email: "", phone: "", addressLine1: "", addressLine2: "", city: "", district: "", postalCode: "", note: "" });
 
 export function CheckoutForm({ intentKind }: Readonly<{ intentKind: CheckoutIntentKind }>) {
+  const { cart, loading: cartLoading } = useCartStatus();
   const [quote, setQuote] = useState<PublicCheckoutQuote | null>(null);
+  const [quoteSettled, setQuoteSettled] = useState(false);
   const [draft, setDraft] = useState<CheckoutFormDraft>(EMPTY);
   const [paymentKind, setPaymentKind] = useState<"bank_transfer" | "cash_on_delivery" | "">("");
   const [pending, setPending] = useState(false);
@@ -22,16 +25,20 @@ export function CheckoutForm({ intentKind }: Readonly<{ intentKind: CheckoutInte
   const formRef = useRef<HTMLFormElement>(null);
   const operation = useRef<string | null>(null);
   const validation = useMemo(() => validateCheckoutFormDraft(draft), [draft]);
+  const summaryState = resolveCheckoutSummaryState(intentKind, quote, cart, quoteSettled && (intentKind === "buy_now" || !cartLoading));
 
   useEffect(() => {
     let active = true;
+    setQuote(null);
+    setQuoteSettled(false);
     setStatus("Sipariş özeti yükleniyor.");
     void storefrontCartClient.quote(intentKind).then((selected) => {
       if (!active) return;
       setQuote(selected);
+      setQuoteSettled(true);
       setPaymentKind(selected.paymentMethods[0]?.kind ?? "");
       setStatus(selected.cart.checkoutReady ? "Sipariş özeti güncel." : checkoutBlockerMessage(selected.cart.checkoutBlocker) ?? "Sepet ödeme için hazır değil.");
-    }).catch((error: unknown) => { if (active) setStatus(checkoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null)); });
+    }).catch((error: unknown) => { if (active) { setQuoteSettled(true); setStatus(checkoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null)); } });
     return () => { active = false; };
   }, [intentKind]);
 
@@ -98,7 +105,7 @@ export function CheckoutForm({ intentKind }: Readonly<{ intentKind: CheckoutInte
         <fieldset disabled={pending}><div className="payment-methods">{quote?.paymentMethods.map((method) => <label key={method.kind}><input checked={paymentKind === method.kind} name="paymentMethod" onChange={() => setPaymentKind(method.kind)} type="radio" value={method.kind} /><span><b>{method.label}</b><small>{method.instructions}</small>{method.kind === "bank_transfer" ? <em>{method.bankName} · {method.accountHolder}<br />{method.iban}</em> : null}</span></label>)}</div>{quote?.paymentMethods.length ? null : <p className="checkout-unavailable">Ödeme yöntemi henüz yapılandırılmadı.</p>}</fieldset>
       </section>
     </div>
-    {quote ? <CheckoutSummary summary={quote.cart} /> : <aside className="checkout-summary" aria-busy="true"><span>SİPARİŞ ÖZETİ</span><h2>Yükleniyor</h2></aside>}
+    {summaryState.kind === "summary" ? <CheckoutSummary summary={summaryState.cart} /> : summaryState.kind === "loading" ? <aside className="checkout-summary" aria-busy="true"><span>SİPARİŞ ÖZETİ</span><h2>Yükleniyor</h2></aside> : <aside className="checkout-summary checkout-summary-unavailable"><span>SİPARİŞ ÖZETİ</span><h2>Özet kullanılamıyor</h2><p>{status}</p></aside>}
     <footer className="checkout-terminal"><p className="checkout-status" aria-live="polite">{status}</p><button className="store-button checkout-submit" type="submit" disabled={pending || !quote?.cart.checkoutReady || !paymentKind}>{pending ? "Oluşturuluyor…" : "Siparişi tamamla"}</button></footer>
   </form>;
 }
