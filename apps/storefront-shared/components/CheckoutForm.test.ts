@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [form, summary, checkout, success, account, readiness] = await Promise.all([
+const [form, summary, checkout, success, account, readiness, css] = await Promise.all([
   readFile(new URL("./CheckoutForm.tsx", import.meta.url), "utf8"),
   readFile(new URL("./CheckoutSummary.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/checkout/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/account/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("./checkout-readiness.ts", import.meta.url), "utf8"),
+  readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
 ]);
 
 test("checkout renders delivery and server-projected payment on one screen", () => {
@@ -46,4 +47,12 @@ test("checkout summary receipt and account render truthful public projections on
   for (const proof of ["orderReference", "paymentMethod", "bankName", "accountHolder", "iban", "Sipariş alındı"]) assert.match(success, new RegExp(proof, "u"));
   for (const proof of ["listAccountOrders", "Siparişlerim", "orderReference"]) assert.match(account, new RegExp(proof, "u"));
   assert.doesNotMatch(`${success}\n${account}`, /orderId|customerId|storeId|tenantId|credential/u);
+});
+
+test("checkout owns a white single-screen shell and canonical media summary", () => {
+  assert.match(checkout, /className="checkout-page"/u);
+  assert.match(summary, /item[.]media[.]url/u);
+  assert.match(summary, /item[.]media[.]altText/u);
+  assert.equal(css.includes("background: var(--white)"), true);
+  for (const proof of ["checkout-page", "checkout-section", "checkout-summary-line", "min-height: 48px"]) assert.match(css, new RegExp(proof, "u"));
 });

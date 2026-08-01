@@ -40,6 +40,8 @@ test("side-cart renders canonical lines and uses only replay-safe mutations", ()
   for (const proof of ["line.media", "line.title", "line.variantTitle", "line.unitPriceCents", "line.lineTotalCents", "cart.subtotalCents", "cart.shippingCents", "cart.totalCents", "setQuantity", "remove", "expectedVersion", "Sepeti görüntüle", "Ödemeye geç"]) assert.match(drawer, new RegExp(proof, "u"));
   assert.doesNotMatch(drawer, /fetch\(|localStorage|sessionStorage|document.cookie/u);
   assert.match(drawer, /Ödeme durumunu görüntüle/u);
+  assert.match(drawer, /side-cart-notice is-configuration/u);
+  assert.match(css, /[.]side-cart-notice[.]is-configuration/u);
 });
 
 test("side-cart stays responsive with 48px targets and reduced motion", () => {

@@ -12,5 +12,5 @@ function intent(value: string | string[] | undefined): CheckoutIntentKind { retu
 
 export default async function CheckoutPage({ searchParams }: Readonly<{ searchParams: Promise<{ intent?: string | string[] }> }>) {
   const { storefront } = requireStorefrontPage(await resolveStorefrontPage());
-  return <StorefrontFrame storefront={storefront}><section className="listing-hero"><div className="store-container"><span>GÜVENLİ SİPARİŞ</span><h1>Ödeme</h1><p>Teslimat bilgilerinizi girin ve mağazanın etkin ödeme yöntemini seçin.</p></div></section><section className="store-section store-container"><CheckoutForm intentKind={intent((await searchParams).intent)} /></section></StorefrontFrame>;
+  return <StorefrontFrame storefront={storefront}><main className="checkout-page"><header className="checkout-page-header store-container"><span>GÜVENLİ ÖDEME</span><h1>Siparişinizi tamamlayın</h1><p>Teslimat ve ödeme bilgilerinizi tek ekranda güvenle tamamlayın.</p></header><section className="checkout-page-body store-container"><CheckoutForm intentKind={intent((await searchParams).intent)} /></section></main></StorefrontFrame>;
 }
