@@ -10,29 +10,29 @@
   border: 0;
 }
 
-.summaryToolbar {
+.dashboardContext {
   display: flex;
+  width: max-content;
   min-width: 0;
   align-items: center;
-  gap: .75rem;
-  padding-bottom: 1rem;
+  gap: .5rem;
 }
 
 .channelFilter,
 .periodFilter,
 .retryButton {
   display: inline-flex;
-  min-width: 48px;
-  min-height: 48px;
+  min-width: 40px;
+  min-height: 40px;
   align-items: center;
   gap: .625rem;
   border: 1px solid #E3E7EE;
   border-radius: .5rem;
   background: #FFFFFF;
   color: #1F2937;
-  padding: 0 .875rem;
+  padding: 0 .75rem;
   font: inherit;
-  font-size: .875rem;
+  font-size: .75rem;
   font-weight: 700;
 }
 
@@ -46,7 +46,7 @@
 .periodFilter { padding-right: .25rem; }
 
 .periodFilter select {
-  min-height: 48px;
+  min-height: 38px;
   border: 0;
   outline: 0;
   background: transparent;
@@ -62,24 +62,27 @@
   outline-offset: 2px;
 }
 
-.authorityNote,
+.freshness,
 .updatedAt {
   color: #697586;
   font-size: .75rem;
   font-weight: 650;
+  white-space: nowrap;
 }
 
-.authorityNote::before {
+.freshness::before {
   display: inline-block;
   width: .5rem;
   height: .5rem;
   margin-right: .45rem;
   border-radius: 999px;
-  background: #22A06B;
   content: "";
 }
 
-.updatedAt { margin-left: auto; }
+.freshness[data-state="loaded"]::before { background: #22A06B; }
+.freshness[data-state="loading"]::before { background: #F79009; }
+.freshness[data-state="error"]::before { background: #D92D20; }
+.freshness[data-state="unsupported"]::before { background: #98A2B3; }
 
 .readinessBanner {
   display: grid;
@@ -522,8 +525,6 @@
 @media (max-width: 1024px) {
   .dashboardMobileActions { display: flex; }
   .dashboardMobileActions > a { flex: 1; }
-  .summaryToolbar { flex-wrap: wrap; }
-  .updatedAt { width: 100%; margin-left: 0; }
   .readinessBanner { grid-template-columns: auto minmax(0, 1fr); }
   .readinessBanner > a { grid-column: 1 / -1; }
   .insightGrid { grid-template-columns: 1fr; }
@@ -531,11 +532,6 @@
 }
 
 @media (max-width: 640px) {
-  .summaryToolbar { display: grid; grid-template-columns: 1fr 1fr; }
-  .channelFilter,
-  .periodFilter { width: 100%; }
-  .authorityNote,
-  .updatedAt { grid-column: 1 / -1; }
   .readinessBanner { grid-template-columns: 1fr; }
   .readinessIcon { display: none; }
   .readinessBanner > a { width: 100%; }
@@ -558,7 +554,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .summaryToolbar *,
+  .dashboardContext *,
   .performancePanel *,
   .insightGrid *,
   .operationsGrid * {

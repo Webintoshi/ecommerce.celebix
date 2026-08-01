@@ -211,6 +211,13 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
   );
   const hasStorefront = storefront?.status === "Doğrulandı";
   const period = props.period ?? analytics?.period ?? "month";
+  const freshness = analyticsState === "loaded" && analytics
+    ? "Canlı"
+    : analyticsState === "loading"
+      ? "Güncelleniyor"
+      : analyticsState === "error"
+        ? "Veri alınamadı"
+        : "Veri bekleniyor";
   const pendingOrders =
     props.dashboard.orders.state === "ready"
       ? props.dashboard.orders.value.pendingOrders
@@ -304,6 +311,40 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
       <PanelTopbarBridge
         title={props.dashboard.title}
         subtitle={props.dashboard.description}
+        context={(
+          <div className={styles.dashboardContext} aria-label="Mağaza canlı verileri">
+            <div className={styles.channelFilter}>
+              <Globe2 aria-hidden="true" />
+              {hasStorefront ? "Doğrulanmış satış kanalı" : "Satış kanalı bekleniyor"}
+            </div>
+            <label className={styles.periodFilter}>
+              <CalendarDays aria-hidden="true" />
+              <span className={styles.visuallyHidden}>Dönem</span>
+              <select
+                aria-label="Dönem"
+                value={period}
+                onChange={(event) => {
+                  const nextPeriod = event.target.value as AnalyticsPeriod;
+                  if (ANALYTICS_PERIODS.includes(nextPeriod)) {
+                    props.onPeriodChange?.(nextPeriod);
+                  }
+                }}
+              >
+                {ANALYTICS_PERIODS.map((value) => (
+                  <option key={value} value={value}>
+                    {PERIOD_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className={styles.freshness} data-state={analyticsState}>{freshness}</span>
+            {analytics ? (
+              <time className={styles.updatedAt} dateTime={analytics.generatedAt}>
+                Son güncelleme {formatGeneratedAt(analytics.generatedAt)}
+              </time>
+            ) : null}
+          </div>
+        )}
         actions={(
           <div className={styles.dashboardTopbarActions} aria-label="Hızlı işlemler">
             <PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton>
@@ -316,39 +357,6 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
         <PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton>
         <PanelActionButton href="/products/new" primary>Ürün ekle</PanelActionButton>
       </nav>
-
-      <div className={styles.summaryToolbar} aria-label="Mağaza özeti filtreleri">
-        <div className={styles.channelFilter}>
-          <Globe2 aria-hidden="true" />
-          {hasStorefront ? "Doğrulanmış satış kanalı" : "Satış kanalı bekleniyor"}
-        </div>
-        <label className={styles.periodFilter}>
-          <CalendarDays aria-hidden="true" />
-          <span className={styles.visuallyHidden}>Dönem</span>
-          <select
-            aria-label="Dönem"
-            value={period}
-            onChange={(event) => {
-              const nextPeriod = event.target.value as AnalyticsPeriod;
-              if (ANALYTICS_PERIODS.includes(nextPeriod)) {
-                props.onPeriodChange?.(nextPeriod);
-              }
-            }}
-          >
-            {ANALYTICS_PERIODS.map((value) => (
-              <option key={value} value={value}>
-                {PERIOD_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className={styles.authorityNote}>Kalıcı verilere göre</span>
-        {analytics ? (
-          <time className={styles.updatedAt} dateTime={analytics.generatedAt}>
-            Son güncelleme {formatGeneratedAt(analytics.generatedAt)}
-          </time>
-        ) : null}
-      </div>
 
       <section className={styles.readinessBanner} aria-label="Mağaza durumu">
         <span className={styles.readinessIcon} aria-hidden="true">

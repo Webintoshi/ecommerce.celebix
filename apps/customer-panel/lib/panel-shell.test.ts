@@ -541,7 +541,10 @@ async function renderPanelDashboard(
       return { usePanelChromeModel: () => model };
     }
     if (specifier === "@/components/panel/PanelTopbarChrome") {
-      return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => actions ?? null };
+      return {
+        PanelTopbarBridge: ({ actions, context }: { actions?: ReactNode; context?: ReactNode }) =>
+          createElement("div", { "data-topbar-bridge": true }, context, actions),
+      };
     }
     if (specifier === "@/lib/catalog-ui/client") {
       return { catalogApi: { getDashboardSummary: async () => undefined } };
@@ -1719,10 +1722,22 @@ test("dashboard presentation renders analytics loading ready and retry states wi
     assert.match(html, /En çok satanlar/);
   }
   assert.match(loading, /Satış özeti yükleniyor/);
+  assert.match(loading, /Güncelleniyor/);
   assert.match(rendered, /Bu ay/);
+  assert.match(rendered, />Canlı</);
+  assert.match(rendered, /Son güncelleme/);
+  assert.doesNotMatch(rendered, /Kalıcı verilere göre/);
   assert.match(rendered, /1[,.]250/);
   assert.match(failed, /Satış özeti yüklenemedi/);
+  assert.match(failed, /Veri alınamadı/);
   assert.match(failed, />Tekrar dene<\/button>/);
+});
+
+test("dashboard publishes live filters in topbar context without a body summary toolbar", async () => {
+  const dashboard = await source("components/dashboard/PanelDashboardHomeView.tsx");
+  assert.match(dashboard, /<PanelTopbarBridge[\s\S]*?context=\{/);
+  assert.doesNotMatch(dashboard, /className=\{styles[.]summaryToolbar\}/);
+  assert.doesNotMatch(dashboard, /Kalıcı verilere göre/);
 });
 
 test("dashboard presentation follows the ikas store-summary anatomy using only durable facts", async () => {
