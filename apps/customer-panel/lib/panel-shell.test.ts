@@ -598,19 +598,24 @@ test("topbar chrome exposes a provider, page bridge, and dedicated action portal
 
 test("page shell exports the fixed Hemenaku-derived primitive set without donor imports", async () => {
   const pageShell = await source("components/panel/PanelPageShell.tsx");
-  const styles = await source("components/panel/panel-shell.module.css");
   for (const name of [
     "PanelPageShell", "PanelPageHeader", "PanelPanel", "PanelToolbar", "PanelBadge",
     "PanelStatusBadge", "PanelMetricCard", "PanelDataTable", "PanelLoadingState",
     "PanelActionButton", "PanelEmptyState",
   ]) assert.match(pageShell, new RegExp("export function " + name));
   assert.doesNotMatch(pageShell, /apps\/admin|@\/components\/admin|\/api\/admin|supabase/i);
-  assert.match(pageShell, /styles\.pageActions/);
-  assert.match(styles, /\.pageActions,[\s\S]*?display: flex/);
-  assert.match(
-    styles,
-    /@media \(min-width: 1025px\)\s*\{\s*\.pageActions\s*\{\s*display: none;\s*\}\s*\}/,
+});
+
+test("page headers publish one route identity without duplicate content copy", async () => {
+  const pageShell = await source("components/panel/PanelPageShell.tsx");
+  const header = pageShell.slice(
+    pageShell.indexOf("export function PanelPageHeader"),
+    pageShell.indexOf("export function PanelPanel"),
   );
+  assert.match(header, /return \(\s*<PanelTopbarBridge\s+title=\{props[.]title\}/);
+  assert.doesNotMatch(header, /<header className=\{styles[.]pageHeader\}/);
+  assert.doesNotMatch(header, /<h1>\{props[.]title\}<\/h1>/);
+  assert.doesNotMatch(header, /<p>\{props[.]description\}<\/p>/);
 });
 
 test("server layout projects TenantContext before entering the client shell", async () => {

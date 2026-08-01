@@ -14,13 +14,11 @@ export function PanelPageHeader(props: {
   actions?: ReactNode;
 }) {
   return (
-    <>
-      <PanelTopbarBridge title={props.title} subtitle={props.description} actions={props.actions} />
-      <header className={styles.pageHeader}>
-        <div><h1>{props.title}</h1>{props.description ? <p>{props.description}</p> : null}</div>
-        {props.actions ? <div className={styles.pageActions}>{props.actions}</div> : null}
-      </header>
-    </>
+    <PanelTopbarBridge
+      title={props.title}
+      subtitle={props.description}
+      actions={props.actions}
+    />
   );
 }
 

@@ -837,10 +837,6 @@
     display: none;
   }
 
-  .pageHeader,
-  .pageActions {
-    display: none;
-  }
 }
 
 .pageShell {
@@ -849,28 +845,6 @@
   gap: 1.5rem;
 }
 
-.pageHeader {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1.5rem;
-}
-
-.pageHeader > div:first-child {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.pageHeader h1,
-.pageHeader p {
-  margin: 0;
-}
-
-.pageHeader p {
-  color: var(--muted);
-}
-
-.pageActions,
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1088,12 +1062,6 @@
 
   .metric > strong {
     font-size: 1.8rem;
-  }
-}
-
-@media (min-width: 1025px) {
-  .pageActions {
-    display: none;
   }
 }
 
