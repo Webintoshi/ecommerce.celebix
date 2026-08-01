@@ -24,6 +24,10 @@ type OrderNoteRouteContext = Readonly<{
   params: Promise<Readonly<{ orderId: string; noteId: string }>>;
 }>;
 
+type OrderDraftRouteContext = Readonly<{
+  params: Promise<Readonly<{ draftId: string }>>;
+}>;
+
 export const handleDefaultOrderGetDashboardSummary = handlers.getDashboardSummary;
 export const handleDefaultOrderList = handlers.listOrders;
 
@@ -60,4 +64,27 @@ export async function handleDefaultOrderAddNote(request: Request, context: Order
 export async function handleDefaultOrderArchiveNote(request: Request, context: OrderNoteRouteContext) {
   const { orderId, noteId } = await context.params;
   return handlers.archiveNote(request, orderId, noteId);
+}
+
+export const handleDefaultOrderDraftList = handlers.listDrafts;
+export const handleDefaultOrderDraftCreate = handlers.createDraft;
+
+export async function handleDefaultOrderDraftGet(request: Request, context: OrderDraftRouteContext) {
+  const { draftId } = await context.params;
+  return handlers.getDraft(request, draftId);
+}
+
+export async function handleDefaultOrderDraftUpdate(request: Request, context: OrderDraftRouteContext) {
+  const { draftId } = await context.params;
+  return handlers.updateDraft(request, draftId);
+}
+
+export async function handleDefaultOrderDraftArchive(request: Request, context: OrderDraftRouteContext) {
+  const { draftId } = await context.params;
+  return handlers.archiveDraft(request, draftId);
+}
+
+export async function handleDefaultOrderDraftConvert(request: Request, context: OrderDraftRouteContext) {
+  const { draftId } = await context.params;
+  return handlers.convertDraft(request, draftId);
 }

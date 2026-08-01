@@ -1,6 +1,9 @@
 import {
   parseOrderDashboardSummary,
   parseOrderDetail,
+  parseOrderDraftConversionResult,
+  parseOrderDraftDetail,
+  parseOrderDraftListItem,
   parseOrderListItem,
   parseOrderNeighbors,
   type TenantContext,
@@ -19,12 +22,15 @@ import {
 } from "./request-authority.ts";
 import {
   readOrderListInput,
+  readOrderDraftListInput,
+  readOrderDraftMutationInput,
   readOrderMutationInput,
   readOrderPanelSessionCookie,
   readOrderPathId,
 } from "./request-input.ts";
 
 const ORDERS_PATH = "/api/orders";
+const DRAFTS_PATH = "/api/orders/drafts";
 const SUMMARY_PATH = "/api/orders/summary";
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -253,6 +259,135 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
             ...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
           });
         },
+      );
+    },
+
+    async listDrafts(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, {
+        method: "GET", pathname: DRAFTS_PATH, query: "allowed",
+      });
+      if (isResponse(authorized)) return authorized;
+      const input = readOrderDraftListInput(request);
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(
+        () => authorized.runtime.orders.listDrafts({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          ...input.value,
+        }),
+        (result) => {
+          if (
+            typeof result !== "object" || result === null || Array.isArray(result) ||
+            (Object.keys(result).sort().join(",") !== "items" && Object.keys(result).sort().join(",") !== "items,nextCursor") ||
+            !Array.isArray(result.items) ||
+            (result.nextCursor !== undefined && (
+              typeof result.nextCursor !== "string" || !/^[A-Za-z0-9_-]{1,1024}$/.test(result.nextCursor)
+            ))
+          ) throw new TypeError("invalid");
+          return Object.freeze({
+            items: Object.freeze(result.items.map(parseOrderDraftListItem)),
+            ...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
+          });
+        },
+      );
+    },
+
+    async createDraft(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, {
+        method: "POST", pathname: DRAFTS_PATH, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      const input = await readOrderDraftMutationInput(request, "create");
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(
+        () => authorized.runtime.orders.createDraft({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          operationId: input.operationId,
+          intent: input.value,
+        }),
+        parseOrderDraftDetail,
+      );
+    },
+
+    async getDraft(request: Request, rawDraftId: unknown): Promise<Response> {
+      const draftId = pathId(rawDraftId);
+      if (isResponse(draftId)) return draftId;
+      const authorized = await authorize(dependencies, request, {
+        method: "GET", pathname: DRAFTS_PATH + "/" + draftId, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      return execute(
+        () => authorized.runtime.orders.getDraft({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          draftId,
+        }),
+        parseOrderDraftDetail,
+      );
+    },
+
+    async updateDraft(request: Request, rawDraftId: unknown): Promise<Response> {
+      const draftId = pathId(rawDraftId);
+      if (isResponse(draftId)) return draftId;
+      const authorized = await authorize(dependencies, request, {
+        method: "POST", pathname: DRAFTS_PATH + "/" + draftId, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      const input = await readOrderDraftMutationInput(request, "update");
+      if (input.kind !== "valid" || input.value.expectedVersion === undefined) return error("invalid_input", 400);
+      return execute(
+        () => authorized.runtime.orders.updateDraft({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          operationId: input.operationId,
+          draftId,
+          expectedVersion: input.value.expectedVersion!,
+          intent: input.value,
+        }),
+        parseOrderDraftDetail,
+      );
+    },
+
+    async archiveDraft(request: Request, rawDraftId: unknown): Promise<Response> {
+      const draftId = pathId(rawDraftId);
+      if (isResponse(draftId)) return draftId;
+      const authorized = await authorize(dependencies, request, {
+        method: "POST", pathname: DRAFTS_PATH + "/" + draftId + "/archive", query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      const input = await readOrderDraftMutationInput(request, "archive");
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(
+        () => authorized.runtime.orders.archiveDraft({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          operationId: input.operationId,
+          draftId,
+          expectedVersion: input.value.expectedVersion,
+        }),
+        parseOrderDraftDetail,
+      );
+    },
+
+    async convertDraft(request: Request, rawDraftId: unknown): Promise<Response> {
+      const draftId = pathId(rawDraftId);
+      if (isResponse(draftId)) return draftId;
+      const authorized = await authorize(dependencies, request, {
+        method: "POST", pathname: DRAFTS_PATH + "/" + draftId + "/convert", query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      const input = await readOrderDraftMutationInput(request, "convert");
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(
+        () => authorized.runtime.orders.convertDraft({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          operationId: input.operationId,
+          draftId,
+          expectedVersion: input.value.expectedVersion,
+        }),
+        parseOrderDraftConversionResult,
       );
     },
 

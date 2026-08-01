@@ -4,11 +4,19 @@ import {
   ORDER_STATUSES,
   parseOrderDashboardSummary,
   parseOrderDetail,
+  parseOrderDraftConversionResult,
+  parseOrderDraftDetail,
+  parseOrderDraftListItem,
+  parseOrderDraftSaveIntent,
   parseOrderListItem,
   parseOrderNeighbors,
   type OrderAddress,
   type OrderDashboardSummary,
   type OrderDetail,
+  type OrderDraftConversionResult,
+  type OrderDraftDetail,
+  type OrderDraftListItem,
+  type OrderDraftSaveIntent,
   type OrderListItem,
   type OrderNeighbors,
   type OrderPaymentStatus,
@@ -23,7 +31,8 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.]\d{3}Z$/;
 const ERROR_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled",
-  "order_not_found", "note_not_found", "invalid_transition", "version_conflict", "operation_replayed",
+  "order_not_found", "note_not_found", "draft_not_found", "draft_not_editable", "inventory_conflict",
+  "catalog_conflict", "customer_conflict", "invalid_transition", "version_conflict", "operation_replayed",
   "operation_mismatch", "durable_authority_invalid", "unavailable",
 ] as const);
 export type OrderApiErrorCode = (typeof ERROR_CODES)[number];
@@ -36,6 +45,11 @@ const MESSAGES: Readonly<Record<OrderApiErrorCode, string>> = Object.freeze({
   feature_not_enabled: "Sipariş yönetimi mevcut planınızda etkin değil.",
   order_not_found: "Sipariş bulunamadı veya artık erişilemiyor.",
   note_not_found: "Dahili not bulunamadı veya artık erişilemiyor.",
+  draft_not_found: "Taslak sipariş bulunamadı veya artık erişilemiyor.",
+  draft_not_editable: "Bu taslak artık düzenlenemez.",
+  inventory_conflict: "Taslağı siparişe dönüştürmek için yeterli stok yok.",
+  catalog_conflict: "Taslakta seçilen ürün veya varyant artık kullanılamıyor.",
+  customer_conflict: "Taslakta seçilen müşteri artık kullanılamıyor.",
   invalid_transition: "Bu durum geçişine izin verilmiyor.",
   version_conflict: "Sipariş sizden önce başka bir işlem tarafından güncellendi.",
   operation_replayed: "Bu işlem daha önce tamamlandı. Güncel sipariş yeniden yüklenecek.",
@@ -64,6 +78,7 @@ function isOrderApiError(value: unknown): value is OrderApiError {
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type RandomUUID = () => string;
 export type OrderListResult = Readonly<{ items: readonly OrderListItem[]; nextCursor?: string }>;
+export type OrderDraftListResult = Readonly<{ items: readonly OrderDraftListItem[]; nextCursor?: string }>;
 export type OrderMutationResult = Readonly<{
   id: string;
   status: OrderStatus;
@@ -293,6 +308,22 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
     return safeParse(() => parseMutation(result));
   }
 
+  async function draftMutation<T>(
+    path: string,
+    body: unknown,
+    parser: (value: unknown) => T,
+  ): Promise<T> {
+    const operationId = local(() => randomUUID());
+    if (typeof operationId !== "string" || !UUID.test(operationId)) throw new TypeError("order_client_invalid");
+    const result = await request(path, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json", "idempotency-key": operationId },
+      body: local(() => JSON.stringify(body)),
+    });
+    return safeParse(() => parser(result));
+  }
+
   return Object.freeze({
     async getDashboardSummary(): Promise<Readonly<OrderDashboardSummary>> {
       const body = await request("/api/orders/summary", { method: "GET", credentials: "same-origin", cache: "no-store" });
@@ -363,6 +394,69 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
       const order = local(() => id(orderId));
       const note = local(() => id(noteId));
       return mutation(`/api/orders/${order}/notes/${note}/archive`, "POST", Object.freeze({}));
+    },
+    async listDrafts(input: Readonly<{ pageSize?: number; cursor?: string }> = {}): Promise<OrderDraftListResult> {
+      const parsed = local(() => exactDataObject(input, [], ["pageSize", "cursor"]));
+      const pageSize = parsed.pageSize ?? 20;
+      if (!Number.isSafeInteger(pageSize) || (pageSize as number) < 1 || (pageSize as number) > 100) invalid();
+      if (parsed.cursor !== undefined && (typeof parsed.cursor !== "string" || !CURSOR.test(parsed.cursor))) invalid();
+      const query = new URLSearchParams({ pageSize: String(pageSize) });
+      if (parsed.cursor !== undefined) query.set("cursor", parsed.cursor as string);
+      const result = await request("/api/orders/drafts?" + query.toString(), {
+        method: "GET", credentials: "same-origin", cache: "no-store",
+      });
+      return safeParse(() => {
+        const body = record(result);
+        if (
+          body === null || !Array.isArray(body.items) ||
+          !["items", "items,nextCursor"].includes(Object.keys(body).sort().join(","))
+        ) throw new TypeError("order_response_invalid");
+        if (body.nextCursor !== undefined && (typeof body.nextCursor !== "string" || !CURSOR.test(body.nextCursor))) {
+          throw new TypeError("order_response_invalid");
+        }
+        return Object.freeze({
+          items: Object.freeze(body.items.map(parseOrderDraftListItem)),
+          ...(body.nextCursor === undefined ? {} : { nextCursor: body.nextCursor }),
+        });
+      });
+    },
+
+    async getDraft(draftId: string): Promise<Readonly<OrderDraftDetail>> {
+      const draft = local(() => id(draftId));
+      const result = await request("/api/orders/drafts/" + draft, {
+        method: "GET", credentials: "same-origin", cache: "no-store",
+      });
+      return safeParse(() => parseOrderDraftDetail(result));
+    },
+
+    createDraft(intent: Readonly<OrderDraftSaveIntent>): Promise<Readonly<OrderDraftDetail>> {
+      const parsed = local(() => parseOrderDraftSaveIntent(intent));
+      if (parsed.expectedVersion !== undefined) invalid();
+      return draftMutation("/api/orders/drafts", parsed, parseOrderDraftDetail);
+    },
+
+    updateDraft(draftId: string, intent: Readonly<OrderDraftSaveIntent>): Promise<Readonly<OrderDraftDetail>> {
+      const draft = local(() => id(draftId));
+      const parsed = local(() => parseOrderDraftSaveIntent(intent));
+      if (parsed.expectedVersion === undefined) invalid();
+      return draftMutation("/api/orders/drafts/" + draft, parsed, parseOrderDraftDetail);
+    },
+
+    archiveDraft(draftId: string, input: Readonly<{ expectedVersion: number }>): Promise<Readonly<OrderDraftDetail>> {
+      const draft = local(() => id(draftId));
+      const parsed = local(() => exactDataObject(input, ["expectedVersion"]));
+      const expectedVersion = local(() => positiveVersion(parsed.expectedVersion));
+      return draftMutation("/api/orders/drafts/" + draft + "/archive", { expectedVersion }, parseOrderDraftDetail);
+    },
+
+    convertDraft(
+      draftId: string,
+      input: Readonly<{ expectedVersion: number }>,
+    ): Promise<Readonly<OrderDraftConversionResult>> {
+      const draft = local(() => id(draftId));
+      const parsed = local(() => exactDataObject(input, ["expectedVersion"]));
+      const expectedVersion = local(() => positiveVersion(parsed.expectedVersion));
+      return draftMutation("/api/orders/drafts/" + draft + "/convert", { expectedVersion }, parseOrderDraftConversionResult);
     },
   });
 }

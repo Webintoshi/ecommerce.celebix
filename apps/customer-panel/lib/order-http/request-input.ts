@@ -3,7 +3,9 @@ import {
   ORDER_SORTS,
   ORDER_STATUSES,
   parseOrderDetail,
+  parseOrderDraftSaveIntent,
   type OrderAddress,
+  type OrderDraftSaveIntent,
   type OrderPaymentStatus,
   type OrderSort,
   type OrderStatus,
@@ -242,6 +244,73 @@ export function readOrderListInput(request: Request): Invalid | Readonly<{ kind:
 
 export function readOrderPathId(value: unknown): string | null {
   return typeof value === "string" && UUID.test(value) ? value : null;
+}
+
+export type OrderDraftMutationKind = "create" | "update" | "archive" | "convert";
+export type OrderDraftMutationValue<K extends OrderDraftMutationKind> =
+  K extends "create" | "update" ? Readonly<OrderDraftSaveIntent> : Readonly<{ expectedVersion: number }>;
+
+export async function readOrderDraftMutationInput<K extends OrderDraftMutationKind>(
+  request: Request,
+  kind: K,
+): Promise<Invalid | Readonly<{ kind: "valid"; operationId: string; value: OrderDraftMutationValue<K> }>> {
+  const operationId = request.headers.get("idempotency-key");
+  if (operationId === null || !UUID.test(operationId) || operationId !== operationId.trim() || operationId.includes(",")) {
+    return INVALID;
+  }
+  const raw = await boundedJson(request);
+  if (raw === null) return INVALID;
+  if (kind === "archive" || kind === "convert") {
+    const parsed = exact(raw, ["expectedVersion"]);
+    const expectedVersion = version(parsed?.expectedVersion);
+    return parsed === null || expectedVersion === null
+      ? INVALID
+      : Object.freeze({
+        kind: "valid" as const,
+        operationId,
+        value: Object.freeze({ expectedVersion }) as OrderDraftMutationValue<K>,
+      });
+  }
+  try {
+    const parsed = parseOrderDraftSaveIntent(raw);
+    if (
+      (kind === "create" && parsed.expectedVersion !== undefined) ||
+      (kind === "update" && parsed.expectedVersion === undefined)
+    ) return INVALID;
+    return Object.freeze({
+      kind: "valid" as const,
+      operationId,
+      value: parsed as OrderDraftMutationValue<K>,
+    });
+  } catch { return INVALID; }
+}
+
+export function readOrderDraftListInput(request: Request): Invalid | Readonly<{
+  kind: "valid";
+  value: Readonly<{ pageSize: number; cursor?: string }>;
+}> {
+  let url: URL;
+  try { url = new URL(request.url); } catch { return INVALID; }
+  const raw = url.search.startsWith("?") ? url.search.slice(1) : url.search;
+  if (
+    new TextEncoder().encode(raw).byteLength > QUERY_MAXIMUM_BYTES ||
+    (raw !== "" && (raw.startsWith("&") || raw.endsWith("&") || raw.includes("&&")))
+  ) return INVALID;
+  const entries = [...url.searchParams.entries()];
+  if (
+    entries.some(([key]) => key !== "pageSize" && key !== "cursor") ||
+    new Set(entries.map(([key]) => key)).size !== entries.length
+  ) return INVALID;
+  const rawPageSize = url.searchParams.get("pageSize");
+  const pageSize = rawPageSize === null
+    ? 20
+    : /^(?:[1-9]|[1-9]\d|100)$/.test(rawPageSize) ? Number(rawPageSize) : null;
+  const cursor = url.searchParams.get("cursor");
+  if (pageSize === null || (cursor !== null && !CURSOR.test(cursor))) return INVALID;
+  return Object.freeze({
+    kind: "valid" as const,
+    value: Object.freeze({ pageSize, ...(cursor === null ? {} : { cursor }) }),
+  });
 }
 
 export type OrderPanelSessionCookieRead = Readonly<

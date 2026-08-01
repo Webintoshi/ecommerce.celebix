@@ -19,6 +19,10 @@ const SUMMARY = "/api/orders/summary";
 const ORDER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
+const DRAFT_ID = "12121212-1212-4121-8121-121212121212";
+const DRAFT_LINE_ID = "13131313-1313-4131-8131-131313131313";
+const PRODUCT_ID = "14141414-1414-4141-8141-141414141414";
+const VARIANT_ID = "15151515-1515-4151-8151-151515151515";
 const REQUEST_ID = "88888888-8888-4888-8888-888888888888";
 const STORE_ID = "33333333-3333-4333-8333-333333333333";
 const PRINCIPAL_ID = "44444444-4444-4444-8444-444444444444";
@@ -110,6 +114,73 @@ function mutation() {
   });
 }
 
+function draftIntent(expectedVersion?: number) {
+  return Object.freeze({
+    customerName: "Ada Lovelace",
+    customerEmail: "ada@example.com",
+    customerPhone: "+905551112233",
+    currency: "TRY" as const,
+    shippingCents: 500,
+    discountCents: 100,
+    shippingAddress: Object.freeze({ recipientName: "Ada Lovelace", line1: "1 Road", city: "Istanbul", country: "TR" }),
+    billingAddress: Object.freeze({ recipientName: "Ada Lovelace", line1: "2 Road", city: "Istanbul", country: "TR" }),
+    note: "Hediye paketi",
+    adjustInventory: true,
+    lines: Object.freeze([Object.freeze({
+      lineId: DRAFT_LINE_ID, productId: PRODUCT_ID, variantId: VARIANT_ID, quantity: 2, discountCents: 100,
+    })]),
+    ...(expectedVersion === undefined ? {} : { expectedVersion }),
+  });
+}
+
+function draftDetail(overrides: Record<string, unknown> = {}) {
+  return Object.freeze({
+    id: DRAFT_ID,
+    draftNumber: "TSL-a1b2c3d4e5f6a7b8c9d0",
+    status: "draft" as const,
+    customerName: "Ada Lovelace",
+    customerEmail: "ada@example.com",
+    customerPhone: "+905551112233",
+    currency: "TRY" as const,
+    totalCents: 2_300,
+    lineCount: 1,
+    adjustInventory: true,
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+    version: 1,
+    subtotalCents: 1_900,
+    shippingCents: 500,
+    discountCents: 100,
+    shippingAddress: draftIntent().shippingAddress,
+    billingAddress: draftIntent().billingAddress,
+    note: "Hediye paketi",
+    lines: Object.freeze([Object.freeze({
+      lineId: DRAFT_LINE_ID, position: 0, productId: PRODUCT_ID, variantId: VARIANT_ID,
+      productName: "Atlas Kolye", variantName: "Altın", sku: "ATL-KOL-ALT",
+      unitPriceCents: 1_000, quantity: 2, discountCents: 100, lineTotalCents: 1_900,
+    })]),
+    ...overrides,
+  });
+}
+
+function draftListItem() {
+  const draft = draftDetail();
+  return Object.freeze({
+    id: draft.id,
+    draftNumber: draft.draftNumber,
+    status: draft.status,
+    customerName: draft.customerName,
+    customerEmail: draft.customerEmail,
+    currency: draft.currency,
+    totalCents: draft.totalCents,
+    lineCount: draft.lineCount,
+    adjustInventory: draft.adjustInventory,
+    createdAt: draft.createdAt,
+    updatedAt: draft.updatedAt,
+    version: draft.version,
+  });
+}
+
 function repository(overrides: Partial<OrderRepository> = {}): OrderRepository {
   const reject = async () => { throw new Error("unexpected repository call"); };
   return Object.freeze({
@@ -122,6 +193,12 @@ function repository(overrides: Partial<OrderRepository> = {}): OrderRepository {
     updateShipping: reject,
     addNote: reject,
     archiveNote: reject,
+    listDrafts: reject,
+    getDraft: reject,
+    createDraft: reject,
+    updateDraft: reject,
+    archiveDraft: reject,
+    convertDraft: reject,
     ...overrides,
   }) as OrderRepository;
 }
@@ -238,6 +315,72 @@ test("authenticated order detail validates the path ID and calls once", async ()
   assert.equal(response.status, 200);
   assert.deepEqual(await body(response), detail());
   assert.deepEqual(calls, [{ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }]);
+});
+
+test("draft HTTP surface lists reads saves archives and converts with session-only authority", async () => {
+  const calls: Array<readonly [string, unknown]> = [];
+  const converted = Object.freeze({
+    draftId: DRAFT_ID,
+    orderId: ORDER_ID,
+    orderNumber: "MAN-aaaaaaaaaaaa4aaa8aaa",
+    draftVersion: 2,
+    adjustedInventory: true,
+    replayed: false,
+  });
+  const handlers = createOrderHttpHandlers(dependencies(repository({
+    async listDrafts(input) { calls.push(["list", input]); return Object.freeze({ items: Object.freeze([draftListItem()]), nextCursor: "eyJ2IjoxfQ" }); },
+    async getDraft(input) { calls.push(["get", input]); return draftDetail(); },
+    async createDraft(input) { calls.push(["create", input]); return draftDetail(); },
+    async updateDraft(input) { calls.push(["update", input]); return draftDetail({ version: 2 }); },
+    async archiveDraft(input) { calls.push(["archive", input]); return draftDetail({ status: "archived", version: 2 }); },
+    async convertDraft(input) { calls.push(["convert", input]); return converted; },
+  })));
+  const base = ORDERS + "/drafts";
+  const detailPath = base + "/" + DRAFT_ID;
+  const responses = [
+    await handlers.listDrafts(request(base + "?pageSize=10&cursor=eyJ2IjoxfQ")),
+    await handlers.getDraft(request(detailPath), DRAFT_ID),
+    await handlers.createDraft(request(base, { method: "POST", body: draftIntent() })),
+    await handlers.updateDraft(request(detailPath, { method: "POST", body: draftIntent(1) }), DRAFT_ID),
+    await handlers.archiveDraft(request(detailPath + "/archive", { method: "POST", body: { expectedVersion: 1 } }), DRAFT_ID),
+    await handlers.convertDraft(request(detailPath + "/convert", { method: "POST", body: { expectedVersion: 1 } }), DRAFT_ID),
+  ];
+  assert.equal(responses.every((response) => response.status === 200), true);
+  assert.deepEqual(await body(responses[5]), converted);
+  assert.deepEqual(calls[0]?.[1], {
+    tenantContext: tenantContext(), now: NOW, pageSize: 10, cursor: "eyJ2IjoxfQ",
+  });
+  assert.deepEqual(calls[2]?.[1], {
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, intent: draftIntent(),
+  });
+  assert.deepEqual(calls[3]?.[1], {
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, draftId: DRAFT_ID,
+    expectedVersion: 1, intent: draftIntent(1),
+  });
+  assert.deepEqual(calls[5]?.[1], {
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, draftId: DRAFT_ID, expectedVersion: 1,
+  });
+  assert.doesNotMatch(JSON.stringify(await body(responses[0])), /storeId|principalId|membershipId|planId|database|provider/i);
+  for (const response of responses) assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("draft HTTP rejects unsafe methods origins queries IDs bodies and private authority", async () => {
+  const handlers = createOrderHttpHandlers(dependencies(repository()));
+  const base = ORDERS + "/drafts";
+  const detailPath = base + "/" + DRAFT_ID;
+  const cases = [
+    handlers.listDrafts(request(base + "?status=draft")),
+    handlers.getDraft(request(base + "/bad"), "bad"),
+    handlers.createDraft(request(base, { method: "GET" })),
+    handlers.createDraft(request(base, { method: "POST", body: { ...draftIntent(), storeId: STORE_ID } })),
+    handlers.createDraft(request(base, { method: "POST", body: draftIntent(), origin: "https://attacker.example" })),
+    handlers.updateDraft(request(detailPath, { method: "POST", body: draftIntent() }), DRAFT_ID),
+    handlers.convertDraft(request(detailPath + "/convert", {
+      method: "POST", body: { expectedVersion: 1 }, headers: { "x-store-id": STORE_ID },
+    }), DRAFT_ID),
+  ];
+  const responses = await Promise.all(cases);
+  assert.deepEqual(responses.map(({ status }) => status), [400, 400, 405, 400, 403, 400, 400]);
 });
 
 test("authenticated order neighbors are tenant-scoped, parsed, and no-store", async () => {

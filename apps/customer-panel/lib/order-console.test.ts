@@ -16,6 +16,10 @@ const ITEM_ID = "22222222-2222-4222-8222-222222222222";
 const EVENT_ID = "33333333-3333-4333-8333-333333333333";
 const NOTE_ID = "44444444-4444-4444-8444-444444444444";
 const OPERATION_ID = "55555555-5555-4555-8555-555555555555";
+const DRAFT_ID = "66666666-6666-4666-8666-666666666666";
+const DRAFT_LINE_ID = "77777777-7777-4777-8777-777777777777";
+const PRODUCT_ID = "88888888-8888-4888-8888-888888888888";
+const VARIANT_ID = "99999999-9999-4999-8999-999999999999";
 const NOW = "2026-07-21T09:30:00.000Z";
 
 const item = Object.freeze({
@@ -79,6 +83,64 @@ const detail = Object.freeze({
     updatedAt: NOW,
   })]),
 }) satisfies OrderDetail;
+
+const draftIntent = Object.freeze({
+  customerName: "Ada Lovelace",
+  customerEmail: "ada@example.com",
+  customerPhone: "+905551112233",
+  currency: "TRY" as const,
+  shippingCents: 500,
+  discountCents: 100,
+  shippingAddress: Object.freeze({ recipientName: "Ada Lovelace", line1: "Örnek Sokak 1", city: "İstanbul", country: "TR" }),
+  billingAddress: Object.freeze({ recipientName: "Ada Lovelace", line1: "Fatura Sokak 2", city: "İstanbul", country: "TR" }),
+  note: "Hediye paketi",
+  adjustInventory: true,
+  lines: Object.freeze([Object.freeze({
+    lineId: DRAFT_LINE_ID, productId: PRODUCT_ID, variantId: VARIANT_ID, quantity: 2, discountCents: 100,
+  })]),
+});
+
+const draftDetail = Object.freeze({
+  id: DRAFT_ID,
+  draftNumber: "TSL-a1b2c3d4e5f6a7b8c9d0",
+  status: "draft" as const,
+  customerName: "Ada Lovelace",
+  customerEmail: "ada@example.com",
+  customerPhone: "+905551112233",
+  currency: "TRY" as const,
+  totalCents: 2_300,
+  lineCount: 1,
+  adjustInventory: true,
+  createdAt: NOW,
+  updatedAt: NOW,
+  version: 1,
+  subtotalCents: 1_900,
+  shippingCents: 500,
+  discountCents: 100,
+  shippingAddress: draftIntent.shippingAddress,
+  billingAddress: draftIntent.billingAddress,
+  note: "Hediye paketi",
+  lines: Object.freeze([Object.freeze({
+    lineId: DRAFT_LINE_ID, position: 0, productId: PRODUCT_ID, variantId: VARIANT_ID,
+    productName: "Atlas Kolye", variantName: "Altın", sku: "ATL-KOL-ALT",
+    unitPriceCents: 1_000, quantity: 2, discountCents: 100, lineTotalCents: 1_900,
+  })]),
+});
+
+const draftListItem = Object.freeze({
+  id: draftDetail.id,
+  draftNumber: draftDetail.draftNumber,
+  status: draftDetail.status,
+  customerName: draftDetail.customerName,
+  customerEmail: draftDetail.customerEmail,
+  currency: draftDetail.currency,
+  totalCents: draftDetail.totalCents,
+  lineCount: draftDetail.lineCount,
+  adjustInventory: draftDetail.adjustInventory,
+  createdAt: draftDetail.createdAt,
+  updatedAt: draftDetail.updatedAt,
+  version: draftDetail.version,
+});
 
 function json(value: unknown, init: ResponseInit = {}) {
   return Response.json(value, { status: 200, ...init });
@@ -446,6 +508,69 @@ test("order client fails closed on unsafe payloads and contains no browser autho
   const client = await source("lib/order-ui/client.ts");
   assert.doesNotMatch(client, /localStorage|sessionStorage|document[.]cookie|authorization|x-(?:store|tenant|principal|membership)|TenantContext|storeId|principalId|membershipId/i);
   assert.doesNotMatch(client, /https?:\/\/|\/api\/admin|supabase/i);
+});
+
+test("draft client uses exact same-origin routes strict DTOs and no private authority", async () => {
+  const { createOrderApiClient } = await import("./order-ui/client.ts");
+  const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
+  const conversion = {
+    draftId: DRAFT_ID,
+    orderId: ORDER_ID,
+    orderNumber: "MAN-11111111111141118111",
+    draftVersion: 2,
+    adjustedInventory: true,
+    replayed: false,
+  };
+  const bodies = [
+    { items: [draftListItem], nextCursor: "eyJ2IjoxfQ" },
+    draftDetail,
+    draftDetail,
+    { ...draftDetail, version: 2 },
+    { ...draftDetail, status: "archived", version: 2 },
+    conversion,
+  ];
+  const api = createOrderApiClient({
+    fetch: async (input, init) => { calls.push([input, init]); return json(bodies.shift()); },
+    randomUUID: () => OPERATION_ID,
+  });
+  const listed = await api.listDrafts({ pageSize: 20 });
+  await api.getDraft(DRAFT_ID);
+  await api.createDraft(draftIntent);
+  await api.updateDraft(DRAFT_ID, { ...draftIntent, expectedVersion: 1 });
+  await api.archiveDraft(DRAFT_ID, { expectedVersion: 1 });
+  const converted = await api.convertDraft(DRAFT_ID, { expectedVersion: 1 });
+  assert.deepEqual(calls.map(([path]) => path), [
+    "/api/orders/drafts?pageSize=20",
+    "/api/orders/drafts/" + DRAFT_ID,
+    "/api/orders/drafts",
+    "/api/orders/drafts/" + DRAFT_ID,
+    "/api/orders/drafts/" + DRAFT_ID + "/archive",
+    "/api/orders/drafts/" + DRAFT_ID + "/convert",
+  ]);
+  assert.equal(calls[0]?.[1]?.method, "GET");
+  assert.equal(calls[0]?.[1]?.cache, "no-store");
+  assert.equal(calls.every(([, init]) => init?.credentials === "same-origin"), true);
+  assert.equal(calls.slice(2).every(([, init]) => init?.method === "POST"), true);
+  assert.equal(calls.slice(2).every(([, init]) => new Headers(init?.headers).get("idempotency-key") === OPERATION_ID), true);
+  assert.doesNotMatch(JSON.stringify(calls.map(([, init]) => init?.body)), /storeId|tenantId|membershipId|planId|database|providerSecret/i);
+  assert.equal(Object.isFrozen(listed.items[0]), true);
+  assert.equal(Object.isFrozen(converted), true);
+
+  let fetches = 0;
+  const guarded = createOrderApiClient({
+    fetch: async () => { fetches += 1; return json({}); },
+    randomUUID: () => OPERATION_ID,
+  });
+  assert.throws(() => guarded.createDraft({ ...draftIntent, storeId: ORDER_ID } as never), {
+    name: "TypeError", message: "order_client_invalid",
+  });
+  assert.throws(() => guarded.createDraft({ ...draftIntent, expectedVersion: 1 }), {
+    name: "TypeError", message: "order_client_invalid",
+  });
+  assert.throws(() => guarded.updateDraft(DRAFT_ID, draftIntent), {
+    name: "TypeError", message: "order_client_invalid",
+  });
+  assert.equal(fetches, 0);
 });
 
 test("order list renders a controlled loading state without records", async () => {
