@@ -22,8 +22,8 @@
 .periodFilter,
 .retryButton {
   display: inline-flex;
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 48px;
+  min-height: 48px;
   align-items: center;
   gap: .625rem;
   border: 1px solid #E3E7EE;
@@ -46,7 +46,7 @@
 .periodFilter { padding-right: .25rem; }
 
 .periodFilter select {
-  min-height: 38px;
+  min-height: 48px;
   border: 0;
   outline: 0;
   background: transparent;
