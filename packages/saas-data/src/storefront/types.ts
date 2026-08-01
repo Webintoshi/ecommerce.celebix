@@ -16,6 +16,7 @@ export interface PublicStorefrontRepository {
   getPublicProductBySlug(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string }>): Promise<PublicProduct>;
   listPublicProductMedia(input: TrustedStorefrontContext & Readonly<{ now: Date; productId: string }>): Promise<readonly PublicProductMedia[]>;
   resolveCampaignHome?(input: TrustedStorefrontContext & Readonly<{ now: Date }>): Promise<CampaignHomeProjection>;
+  listRelatedPublicProducts?(input: TrustedStorefrontContext & Readonly<{ now: Date; productSlug: string; limit: number }>): Promise<PublicProductList>;
 }
 
 export type PostgresPublicStorefrontRepositoryOptions = Readonly<{

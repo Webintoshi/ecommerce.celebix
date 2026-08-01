@@ -264,6 +264,57 @@ $f$;
 CREATE OR REPLACE FUNCTION saas.public_starter_presentation(p_store_id uuid,p_now timestamptz)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$ SELECT saas.public_starter_presentation(p_store_id,p_now,false) $f$;
 
+ALTER FUNCTION saas.public_get_product_by_slug(uuid,text,timestamptz,text) RENAME TO public_get_product_by_slug_without_campaign_detail;
+
+CREATE FUNCTION saas.public_campaign_product_projection(p_store_id uuid,p_product_id uuid,p_now timestamptz)
+RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
+ SELECT (
+   WITH RECURSIVE resolved_variants AS (
+     SELECT variant.*,resolved.price_cents AS effective_price FROM saas.product_variants variant
+     CROSS JOIN LATERAL saas.resolve_effective_variant_price(p_store_id,variant.id,'storefront',p_now,NULL) resolved
+     WHERE variant.store_id=p_store_id AND variant.product_id=product.id AND variant.status='active' AND resolved.outcome='found'
+   ), selected_price AS (SELECT * FROM resolved_variants ORDER BY effective_price,created_at,id LIMIT 1),
+   variants AS (SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('id',variant.id,'title',variant.title,'sku',variant.sku,'priceCents',variant.effective_price,'compareAtCents',variant.compare_at_cents,'stockTracking',variant.stock_tracking,'stockQuantity',variant.stock_quantity,'available',(NOT variant.stock_tracking OR variant.stock_quantity>0),'attributes',variant.attributes)) ORDER BY variant.created_at,variant.id) payload FROM resolved_variants variant),
+   media AS (SELECT COALESCE(pg_catalog.jsonb_agg(saas.public_media_projection(media.id) ORDER BY media.sort_order,media.id),'[]'::jsonb) payload FROM saas.product_media media WHERE media.store_id=p_store_id AND media.product_id=product.id AND media.status='active'),
+   selected_category AS (SELECT category.id,category.parent_id,category.name,category.slug,category.depth FROM saas.catalog_product_categories relation JOIN saas.catalog_categories category ON category.store_id=relation.store_id AND category.id=relation.category_id AND category.status='active' WHERE relation.store_id=p_store_id AND relation.product_id=product.id ORDER BY relation.position,category.depth DESC,category.id LIMIT 1),
+   category_ancestors(id,parent_id,name,slug,depth) AS (SELECT id,parent_id,name,slug,depth FROM selected_category UNION ALL SELECT parent.id,parent.parent_id,parent.name,parent.slug,parent.depth FROM saas.catalog_categories parent JOIN category_ancestors child ON child.parent_id=parent.id WHERE parent.store_id=p_store_id AND parent.status='active'),
+   category_path AS (SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('name',name,'slug',slug) ORDER BY depth),'[]'::jsonb) payload FROM category_ancestors),
+   brand AS (SELECT pg_catalog.jsonb_build_object('name',resource.name,'slug',resource.slug) payload FROM saas.catalog_admin_resource_products relation JOIN saas.catalog_admin_resources resource ON resource.store_id=relation.store_id AND resource.id=relation.resource_id AND resource.resource_kind='brand' AND resource.status='active' WHERE relation.store_id=p_store_id AND relation.product_id=product.id ORDER BY relation.position,resource.id LIMIT 1)
+   SELECT pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('id',product.id,'slug',product.slug,'title',product.title,'description',product.description,'brand',(SELECT payload FROM brand),'categoryPath',category_path.payload,'currency',product.currency,'status','active','priceCents',selected_price.effective_price,'compareAtCents',selected_price.compare_at_cents,'available',EXISTS(SELECT 1 FROM resolved_variants available WHERE NOT available.stock_tracking OR available.stock_quantity>0),'variants',variants.payload,'media',media.payload))
+   FROM selected_price CROSS JOIN variants CROSS JOIN media CROSS JOIN category_path
+ ) FROM saas.products product WHERE product.store_id=p_store_id AND product.id=p_product_id AND product.status='active'
+$f$;
+
+CREATE FUNCTION saas.public_get_product_by_slug(p_store_id uuid,p_hostname text,p_now timestamptz,p_slug text)
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE projection jsonb;
+BEGIN
+ IF p_slug IS NULL OR p_slug<>pg_catalog.lower(p_slug) OR pg_catalog.char_length(p_slug) NOT BETWEEN 3 AND 100 OR p_slug!~'^[a-z0-9]+(-[a-z0-9]+)*$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ IF NOT saas.public_storefront_authorized(p_store_id,p_hostname,p_now) THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+ SELECT saas.public_campaign_product_projection(p_store_id,product.id,p_now) INTO projection FROM saas.products product WHERE product.store_id=p_store_id AND product.slug=p_slug AND product.status='active';
+ RETURN QUERY SELECT CASE WHEN projection IS NULL THEN 'not_found' ELSE 'found' END,projection;
+END
+$f$;
+
+CREATE FUNCTION saas.public_storefront_related_products(p_store_id uuid,p_hostname text,p_now timestamptz,p_slug text,p_limit integer)
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE selected_product uuid; selected_category uuid; items jsonb;
+BEGIN
+ IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 12 OR p_slug IS NULL OR p_slug<>pg_catalog.lower(p_slug) OR pg_catalog.char_length(p_slug) NOT BETWEEN 3 AND 100 OR p_slug!~'^[a-z0-9]+(-[a-z0-9]+)*$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ IF NOT saas.public_storefront_authorized(p_store_id,p_hostname,p_now) THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+ SELECT product.id INTO selected_product FROM saas.products product WHERE product.store_id=p_store_id AND product.slug=p_slug AND product.status='active'; IF selected_product IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+ SELECT relation.category_id INTO selected_category FROM saas.catalog_product_categories relation JOIN saas.catalog_categories category ON category.store_id=relation.store_id AND category.id=relation.category_id AND category.status='active' WHERE relation.store_id=p_store_id AND relation.product_id=selected_product ORDER BY relation.position,category.depth DESC,category.id LIMIT 1;
+ SELECT COALESCE(pg_catalog.jsonb_agg(candidate.projection ORDER BY candidate.created_at DESC,candidate.id DESC),'[]'::jsonb) INTO items FROM (
+   SELECT product.id,product.created_at,saas.public_campaign_product_projection(p_store_id,product.id,p_now) projection
+   FROM saas.products product
+   WHERE product.store_id=p_store_id AND product.status='active' AND product.id<>selected_product
+     AND (selected_category IS NULL OR EXISTS(SELECT 1 FROM saas.catalog_product_categories relation WHERE relation.store_id=p_store_id AND relation.product_id=product.id AND relation.category_id=selected_category))
+   ORDER BY product.created_at DESC,product.id DESC LIMIT p_limit
+ ) candidate WHERE candidate.projection IS NOT NULL;
+ RETURN QUERY SELECT 'found',items;
+END
+$f$;
+
 CREATE FUNCTION saas.public_campaign_home(p_store_id uuid,p_hostname text,p_now timestamptz)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE presentation jsonb; section jsonb; result record; items jsonb; rows jsonb:='[]'::jsonb;
@@ -279,7 +330,8 @@ BEGIN
 END
 $f$;
 
-REVOKE ALL ON FUNCTION saas.campaign_starter_text_valid(jsonb,integer,integer),saas.campaign_starter_uuid_valid(jsonb),saas.campaign_starter_destination_valid(jsonb),saas.campaign_starter_exact_keys(jsonb,text[],text[]),saas.campaign_starter_composition_valid(jsonb),saas.merchant_admin_required_action(text,boolean),saas.merchant_admin_config_valid(text,jsonb),saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_get_record(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid),saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,jsonb,text),saas.public_campaign_asset(uuid,uuid),saas.public_campaign_navigation_item(uuid,uuid,integer,uuid,uuid),saas.public_starter_presentation(uuid,timestamptz),saas.public_starter_presentation(uuid,timestamptz,boolean),saas.public_campaign_home(uuid,text,timestamptz) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+REVOKE ALL ON FUNCTION saas.campaign_starter_text_valid(jsonb,integer,integer),saas.campaign_starter_uuid_valid(jsonb),saas.campaign_starter_destination_valid(jsonb),saas.campaign_starter_exact_keys(jsonb,text[],text[]),saas.campaign_starter_composition_valid(jsonb),saas.merchant_admin_required_action(text,boolean),saas.merchant_admin_config_valid(text,jsonb),saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_get_record(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid),saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,jsonb,text),saas.public_campaign_asset(uuid,uuid),saas.public_campaign_navigation_item(uuid,uuid,integer,uuid,uuid),saas.public_starter_presentation(uuid,timestamptz),saas.public_starter_presentation(uuid,timestamptz,boolean),saas.public_campaign_product_projection(uuid,uuid,timestamptz),saas.public_get_product_by_slug(uuid,text,timestamptz,text),saas.public_storefront_related_products(uuid,text,timestamptz,text,integer),saas.public_campaign_home(uuid,text,timestamptz) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 GRANT EXECUTE ON FUNCTION saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_get_record(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid),saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,jsonb,text) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.public_campaign_home(uuid,text,timestamptz) TO celebix_saas_host_resolver;
+GRANT EXECUTE ON FUNCTION saas.public_get_product_by_slug(uuid,text,timestamptz,text),saas.public_storefront_related_products(uuid,text,timestamptz,text,integer) TO celebix_saas_host_resolver;
 COMMIT;

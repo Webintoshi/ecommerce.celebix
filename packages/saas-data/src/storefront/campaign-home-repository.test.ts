@@ -31,7 +31,7 @@ function fixture(resultPayload: unknown = { presentation, productRows: [{ key: "
   const client = {
     async query(text: string, values: unknown[] = []) {
       calls.push({ text, values });
-      const rows = text.includes("saas.public_campaign_home") ? [{ outcome, result_payload: resultPayload }] : [];
+      const rows = text.includes("saas.public_campaign_home") ? [{ outcome, result_payload: resultPayload }] : text.includes("saas.public_storefront_related_products") ? [{ outcome: "found", result_payload: [product] }] : [];
       return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
     },
     release() {},
@@ -51,6 +51,10 @@ test("campaign home uses one exact host-resolver SQL boundary", async () => {
   assert.ok(call);
   assert.deepEqual(call.values, [STORE, HOST, NOW]);
   assert.equal(selected.calls.filter((entry) => entry.text.includes("saas.public_campaign_home")).length, 1);
+  const related = await selected.repository.listRelatedPublicProducts({ storefront, now: NOW, productSlug: "altin-bileklik", limit: 4 });
+  assert.equal(related.items[0]?.slug, "altin-bileklik");
+  const relatedCall = selected.calls.find((entry) => entry.text.includes("saas.public_storefront_related_products"));
+  assert.deepEqual(relatedCall?.values, [STORE, HOST, NOW, "altin-bileklik", 4]);
 });
 
 test("campaign home never accepts a browser store selector", async () => {

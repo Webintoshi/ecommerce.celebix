@@ -181,11 +181,16 @@ export type PublicProductVariant = Readonly<{
   attributes: Readonly<Record<string, string>>;
 }>;
 
+export type PublicProductBrand = Readonly<{ name: string; slug: string }>;
+export type PublicProductCategoryPathItem = Readonly<{ name: string; slug: string }>;
+
 export type PublicProduct = Readonly<{
   id: string;
   slug: string;
   title: string;
   description?: string;
+  brand?: PublicProductBrand;
+  categoryPath?: readonly PublicProductCategoryPathItem[];
   currency: "TRY";
   status: "active";
   priceCents: number;

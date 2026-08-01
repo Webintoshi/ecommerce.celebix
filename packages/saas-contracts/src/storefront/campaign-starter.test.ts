@@ -72,6 +72,7 @@ function validPublicPresentation() {
 type CampaignValidation = {
   parseStarterThemeCompositionConfig(value: unknown): Readonly<Record<string, unknown>>;
   parsePublicStarterThemePresentation(value: unknown): Readonly<Record<string, unknown>>;
+  parsePublicProduct(value: unknown): Readonly<Record<string, unknown>>;
 };
 type CampaignPresentation = {
   adaptStarterPresentationV1(value: unknown): Readonly<Record<string, unknown>>;
@@ -133,6 +134,9 @@ test("public campaign projection is deeply frozen and excludes private reference
   assert.equal(encoded.includes("assetId"), false);
   assert.equal(encoded.includes("categoryId"), false);
   assert.equal(encoded.includes("productId"), false);
+  const publicProduct = campaignValidation.parsePublicProduct({ id: PRODUCT, slug: "ornek-urun", title: "Örnek ürün", description: "**Kalıcı** açıklama", brand: { name: "Celebix", slug: "celebix" }, categoryPath: [{ name: "Takılar", slug: "takilar" }, { name: "Yüzükler", slug: "yuzukler" }], currency: "TRY", status: "active", priceCents: 12500, available: true, variants: [{ id: ASSET, title: "Standart", priceCents: 12500, stockTracking: true, stockQuantity: 2, available: true, attributes: {} }], media: [] });
+  assert.deepEqual(publicProduct.brand, { name: "Celebix", slug: "celebix" });
+  assert.equal(Object.isFrozen(publicProduct.categoryPath), true);
 });
 
 test("public navigation is canonical bounded and duplicate-free", () => {

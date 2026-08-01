@@ -128,4 +128,12 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     const result = await this.read("SELECT outcome, result_payload FROM saas.public_campaign_home($1::uuid,$2::text,$3::timestamptz)", [store.id, store.hostname, date(parsed.now)]);
     return campaignHomePayload(this.projection(result));
   }
+  async listRelatedPublicProducts(input: Parameters<NonNullable<PublicStorefrontRepository["listRelatedPublicProducts"]>>[0]) {
+    const parsed = exact(input, ["storefront", "now", "productSlug", "limit"]); const store = context({ storefront: parsed.storefront });
+    if (!Number.isSafeInteger(parsed.limit) || parsed.limit < 1 || parsed.limit > 12) throw failure("invalid_input");
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_storefront_related_products($1::uuid,$2::text,$3::timestamptz,$4::text,$5::integer)", [store.id, store.hostname, date(parsed.now), slug(parsed.productSlug), parsed.limit]);
+    const payload = this.projection(result);
+    if (!Array.isArray(payload)) throw failure("unavailable");
+    try { return Object.freeze({ items: Object.freeze(payload.map(parsePublicProduct)) }); } catch { throw failure("unavailable"); }
+  }
 }

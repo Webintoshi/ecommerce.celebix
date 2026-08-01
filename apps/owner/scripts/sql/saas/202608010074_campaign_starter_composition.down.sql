@@ -7,6 +7,8 @@ SET LOCAL statement_timeout='120s';
 DO $f$
 BEGIN
  IF pg_catalog.to_regprocedure('saas.public_campaign_home(uuid,text,timestamp with time zone)') IS NULL
+   OR pg_catalog.to_regprocedure('saas.public_storefront_related_products(uuid,text,timestamp with time zone,text,integer)') IS NULL
+   OR pg_catalog.to_regprocedure('saas.public_get_product_by_slug_without_campaign_detail(uuid,text,timestamp with time zone,text)') IS NULL
    OR pg_catalog.to_regprocedure('saas.merchant_admin_save_without_campaign_starter(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)') IS NULL
    OR pg_catalog.to_regprocedure('saas.public_starter_presentation_without_campaign_starter(uuid,timestamp with time zone,boolean)') IS NULL
  THEN RAISE EXCEPTION 'CAMPAIGN_STARTER_DOWN_SOURCE_INVALID'; END IF;
@@ -25,6 +27,10 @@ ALTER TABLE saas.merchant_admin_operations ENABLE TRIGGER merchant_admin_operati
 ALTER TABLE saas.merchant_admin_events ENABLE TRIGGER merchant_admin_events_immutable;
 
 DROP FUNCTION saas.public_campaign_home(uuid,text,timestamptz);
+DROP FUNCTION saas.public_storefront_related_products(uuid,text,timestamptz,text,integer);
+DROP FUNCTION saas.public_get_product_by_slug(uuid,text,timestamptz,text);
+ALTER FUNCTION saas.public_get_product_by_slug_without_campaign_detail(uuid,text,timestamptz,text) RENAME TO public_get_product_by_slug;
+DROP FUNCTION saas.public_campaign_product_projection(uuid,uuid,timestamptz);
 DROP FUNCTION saas.public_starter_presentation(uuid,timestamptz);
 DROP FUNCTION saas.public_starter_presentation(uuid,timestamptz,boolean);
 DROP FUNCTION saas.public_campaign_navigation_item(uuid,uuid,integer,uuid,uuid);

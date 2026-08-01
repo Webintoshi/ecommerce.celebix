@@ -437,7 +437,7 @@ export function parsePublicProductVariant(value: unknown): PublicProductVariant 
 }
 
 export function parsePublicProduct(value: unknown): PublicProduct {
-  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media"], ["description", "compareAtCents"]);
+  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media"], ["description", "compareAtCents", "brand", "categoryPath"]);
   if (parsed.currency !== "TRY" || parsed.status !== "active" || !Array.isArray(parsed.variants) || !Array.isArray(parsed.media) || parsed.variants.length < 1 || parsed.variants.length > 100 || parsed.media.length > 16) invalid();
   const priceCents = integer(parsed.priceCents, 0);
   const compareAtCents = optionalInteger(parsed, "compareAtCents", priceCents, Number.MAX_SAFE_INTEGER);
@@ -446,5 +446,7 @@ export function parsePublicProduct(value: unknown): PublicProduct {
   for (let index = 1; index < media.length; index += 1) if (media[index - 1]!.sortOrder >= media[index]!.sortOrder) invalid();
   const id = uuid(parsed.id);
   if (media.some((item) => item.productId !== id)) invalid();
-  return Object.freeze({ id, slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media });
+  const categoryPath = Object.hasOwn(parsed, "categoryPath") ? Object.freeze(arrayValues(parsed.categoryPath, 0, 8).map((value) => { const item = exact(value, ["name", "slug"]); return Object.freeze({ name: string(item.name, 1, 120), slug: string(item.slug, 1, 100, SLUG) }); })) : undefined;
+  const brand = Object.hasOwn(parsed, "brand") ? (() => { const value = exact(parsed.brand, ["name", "slug"]); return Object.freeze({ name: string(value.name, 1, 200), slug: string(value.slug, 1, 100, SLUG) }); })() : undefined;
+  return Object.freeze({ id, slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), ...(brand ? { brand } : {}), ...(categoryPath ? { categoryPath } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media });
 }

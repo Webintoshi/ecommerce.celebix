@@ -613,17 +613,19 @@ test("application configuration defines baseline security headers", async () => 
 
 test("starter product detail owns one semantic rich description section", async () => {
   const page = await readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8");
+  const experience = await readFile(new URL("../components/ProductDetailExperience.tsx", import.meta.url), "utf8");
   const description = await readFile(new URL("../components/ProductDescription.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /<ProductDescription product=/);
+  assert.match(page, /<ProductDetailExperience product=/);
+  assert.match(experience, /<ProductDescription product=/);
   assert.doesNotMatch(page, /<p>\{item[.]description/);
   assert.match(description, /aria-labelledby="product-description-title"/);
   assert.match(description, />Ürün açıklaması</);
   assert.match(description, /renderStarterProductDescription/);
   assert.match(description, /dangerouslySetInnerHTML/);
-  assert.match(page, /aria-label="İçerik yolu"/);
-  assert.match(page, /href="\/">Ana sayfa/);
-  assert.match(page, /href="\/products">Ürünler/);
+  assert.match(experience, /aria-label="İçerik yolu"/);
+  assert.match(experience, /href="\/">Ana sayfa/);
+  assert.match(experience, /categoryPath/);
 });
 
 test("checkout quote page uses one native exact-origin form and no client token transport", async () => {

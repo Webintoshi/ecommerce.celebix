@@ -10,7 +10,9 @@ test("purchase panel requires an available variant and exposes both real purchas
   assert.match(source, /Sepete ekle/u);
   assert.match(source, /Şimdi satın al/u);
   assert.match(source, /storefrontCartClient[.]add/u);
-  assert.match(source, /storefrontCartClient[.]buyNow/u);
+  assert.match(source, /replaceCart/u);
+  assert.match(source, /router[.]push\("\/checkout"\)/u);
+  assert.doesNotMatch(source, /window[.]location/u);
 });
 
 test("purchase panel is bounded while pending and reports finite accessible status", () => {
