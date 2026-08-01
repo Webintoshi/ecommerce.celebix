@@ -11,7 +11,7 @@ import { useCartStatus } from "./CartStatusProvider";
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export function SideCartDrawer() {
-  const { cart, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
+  const { cart, loading, unavailable, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);
   const [status, setStatus] = useState("");
@@ -36,8 +36,8 @@ export function SideCartDrawer() {
       replaceCart(next);
       setStatus(quantity === null ? `${line.title} sepetten çıkarıldı.` : `${line.title} adedi güncellendi.`);
     } catch {
-      await refresh();
-      setStatus("Sepet güncellenemedi. Güncel sepet yeniden yüklendi.");
+      const recovered = await refresh();
+      setStatus(recovered ? "Sepet güncellenemedi. Güncel sepet yeniden yüklendi." : "Sepet güncellenemedi. Güncel durum doğrulanamadı.");
     } finally { setPendingVariant(null); }
   };
 
@@ -56,7 +56,7 @@ export function SideCartDrawer() {
   return <div className="side-cart-backdrop" data-state="open" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
     <section className="side-cart-dialog" role="dialog" aria-modal="true" aria-labelledby="side-cart-title" onKeyDown={trapKeyboard}>
       <header className="side-cart-header"><div><span>SEPETİNİZ</span><h2 id="side-cart-title">Sepet özeti</h2></div><button ref={closeRef} type="button" aria-label="Sepeti kapat" onClick={closeDrawer}>×</button></header>
-      {!cart || cart.items.length === 0 ? <div className="side-cart-empty"><span aria-hidden="true">◇</span><h3>Sepetiniz boş</h3><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href="/products" onClick={closeDrawer}>Ürünleri keşfet</Link></div> : <>
+      {!cart && unavailable ? <div className="side-cart-empty is-unavailable" role="status"><span aria-hidden="true">!</span><h3>Sepet şu anda kullanılamıyor</h3><p>Güncel sepet doğrulanamadı. Lütfen yeniden deneyin.</p><button className="store-button" type="button" disabled={loading} onClick={() => void refresh()}>{loading ? "Yükleniyor…" : "Tekrar dene"}</button></div> : !cart ? <div className="side-cart-empty" aria-busy="true" role="status"><span aria-hidden="true">◇</span><h3>Sepet yükleniyor</h3><p>Güncel ürünleriniz hazırlanıyor.</p></div> : cart.items.length === 0 ? <div className="side-cart-empty"><span aria-hidden="true">◇</span><h3>Sepetiniz boş</h3><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href="/products" onClick={closeDrawer}>Ürünleri keşfet</Link></div> : <>
         <div className="side-cart-lines" aria-label="Sepetteki ürünler">{cart.items.map((line) => {
           const pending = pendingVariant === line.variantId;
           return <article className="side-cart-line" key={line.variantId}>

@@ -23,6 +23,12 @@ test("a stale mount refresh cannot overwrite a later cart mutation", () => {
   assert.match(provider, /requestGeneration === refreshGenerationRef[.]current[\s\S]+requestEpoch === cartEpochRef[.]current/u);
 });
 
+test("an unavailable refresh is never presented as an empty or recovered cart", () => {
+  for (const proof of ["unavailable", "Sepet şu anda kullanılamıyor", "Güncel durum doğrulanamadı", "recovered"]) assert.match(`${provider}\n${drawer}`, new RegExp(proof, "u"));
+  assert.match(drawer, /recovered[\s\S]+Güncel sepet yeniden yüklendi/u);
+  assert.match(drawer, /!cart && unavailable/u);
+});
+
 test("side-cart is modal keyboard-safe and restores the opening control", () => {
   for (const proof of ['role="dialog"', 'aria-modal="true"', "Escape", "Tab", "document.body.style.overflow", "focus()", "aria-labelledby"]) assert.match(drawer, new RegExp(proof, "u"));
   assert.match(utilities, /aria-haspopup="dialog"/u);
