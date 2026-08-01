@@ -52,6 +52,7 @@ export function SideCartDrawer() {
   };
 
   const checkoutBlockedByStock = cart?.checkoutBlocker === "stock_unavailable" || cart?.checkoutBlocker === "empty_cart";
+  const configurationBlocked = cart?.checkoutBlocker === "shipping_unavailable" || cart?.checkoutBlocker === "payment_unavailable";
   return <div className="side-cart-backdrop" data-state="open" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
     <section className="side-cart-dialog" role="dialog" aria-modal="true" aria-labelledby="side-cart-title" onKeyDown={trapKeyboard}>
       <header className="side-cart-header"><div><span>SEPETİNİZ</span><h2 id="side-cart-title">Sepet özeti</h2></div><button ref={closeRef} type="button" aria-label="Sepeti kapat" onClick={closeDrawer}>×</button></header>
@@ -67,7 +68,7 @@ export function SideCartDrawer() {
             <strong className="side-cart-line-total">{formatTry(line.lineTotalCents)}</strong>
           </article>;
         })}</div>
-        <footer className="side-cart-footer"><dl><div><dt>Ara toplam</dt><dd>{formatTry(cart.subtotalCents)}</dd></div><div><dt>Kargo</dt><dd>{cart.shippingCents === 0 ? "Ücretsiz" : formatTry(cart.shippingCents)}</dd></div><div><dt>Toplam</dt><dd>{formatTry(cart.totalCents)}</dd></div></dl>{cart.checkoutBlocker === "payment_unavailable" ? <p className="side-cart-notice">Ödeme yöntemi henüz yapılandırılmadı.</p> : cart.checkoutBlocker === "shipping_unavailable" ? <p className="side-cart-notice">Teslimat yöntemi henüz yapılandırılmadı.</p> : cart.checkoutBlocker === "stock_unavailable" ? <p className="side-cart-notice is-error">Sepetinizde stok veya fiyatı değişen bir ürün var.</p> : null}<div className="side-cart-actions"><Link className="store-button store-button-secondary" href="/cart" onClick={closeDrawer}>Sepeti görüntüle</Link>{checkoutBlockedByStock ? <span className="store-button is-disabled" aria-disabled="true">Ödemeye geç</span> : <Link className="store-button" href="/checkout" onClick={closeDrawer}>Ödemeye geç</Link>}</div></footer>
+        <footer className="side-cart-footer"><dl><div><dt>Ara toplam</dt><dd>{formatTry(cart.subtotalCents)}</dd></div><div><dt>Kargo</dt><dd>{cart.shippingCents === 0 ? "Ücretsiz" : formatTry(cart.shippingCents)}</dd></div><div><dt>Toplam</dt><dd>{formatTry(cart.totalCents)}</dd></div></dl>{cart.checkoutBlocker === "payment_unavailable" ? <p className="side-cart-notice">Ödeme yöntemi henüz yapılandırılmadı.</p> : cart.checkoutBlocker === "shipping_unavailable" ? <p className="side-cart-notice">Teslimat yöntemi henüz yapılandırılmadı.</p> : cart.checkoutBlocker === "stock_unavailable" ? <p className="side-cart-notice is-error">Sepetinizde stok veya fiyatı değişen bir ürün var.</p> : null}<div className="side-cart-actions"><Link className="store-button store-button-secondary" href="/cart" onClick={closeDrawer}>Sepeti görüntüle</Link>{checkoutBlockedByStock ? <span className="store-button is-disabled" aria-disabled="true">Ödemeye geç</span> : <Link className="store-button" href="/checkout" onClick={closeDrawer}>{configurationBlocked ? "Ödeme durumunu görüntüle" : "Ödemeye geç"}</Link>}</div></footer>
       </>}
       <p className="sr-only" aria-live="polite">{status}</p>
     </section>

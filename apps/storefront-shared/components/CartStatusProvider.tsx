@@ -25,11 +25,21 @@ export function CartStatusProvider({ children }: Readonly<{ children: React.Reac
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const refreshGenerationRef = useRef(0);
+  const cartEpochRef = useRef(0);
   const refresh = useCallback(async () => {
+    const requestGeneration = refreshGenerationRef.current + 1;
+    refreshGenerationRef.current = requestGeneration;
+    const requestEpoch = cartEpochRef.current;
     setLoading(true);
-    try { setCart(await storefrontCartClient.resolve()); }
-    catch { setCart(null); }
-    finally { setLoading(false); }
+    try {
+      const resolved = await storefrontCartClient.resolve();
+      if (requestGeneration === refreshGenerationRef.current && requestEpoch === cartEpochRef.current) setCart(resolved);
+    } catch {
+      if (requestGeneration === refreshGenerationRef.current && requestEpoch === cartEpochRef.current) setCart(null);
+    } finally {
+      if (requestGeneration === refreshGenerationRef.current) setLoading(false);
+    }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
   const openDrawer = useCallback((trigger?: HTMLElement | null) => { triggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null); setDrawerOpen(true); }, []);
@@ -39,7 +49,12 @@ export function CartStatusProvider({ children }: Readonly<{ children: React.Reac
     triggerRef.current = null;
     window.requestAnimationFrame(() => trigger?.focus());
   }, []);
-  const replaceCart = useCallback((nextCart: PublicCart, options?: ReplaceCartOptions) => { setCart(nextCart); if (options?.openDrawer) openDrawer(options.trigger); }, [openDrawer]);
+  const replaceCart = useCallback((nextCart: PublicCart, options?: ReplaceCartOptions) => {
+    cartEpochRef.current += 1;
+    setCart(nextCart);
+    setLoading(false);
+    if (options?.openDrawer) openDrawer(options.trigger);
+  }, [openDrawer]);
   const value = useMemo<CartStatus>(() => Object.freeze({ cart, loading, drawerOpen, refresh, replaceCart, openDrawer, closeDrawer }), [cart, loading, drawerOpen, refresh, replaceCart, openDrawer, closeDrawer]);
   return <Context.Provider value={value}>{children}<SideCartDrawer /><span className="sr-only" aria-live="polite">{loading ? "Sepet yükleniyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
 }

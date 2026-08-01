@@ -48,3 +48,13 @@ test("cart client validates checkout blocker consistency", async () => {
   const second = createStorefrontCartClient(async () => new Response(JSON.stringify({ cart: unavailable }), { status: 200, headers: { "content-type": "application/json" } }), () => OPERATION);
   await assert.rejects(second.resolve(), (error: unknown) => error instanceof StorefrontCartClientError && error.code === "invalid_response");
 });
+
+test("cart client deeply validates cart lines and checkout quote payment methods", async () => {
+  const unsafeLine = { version: 1, currency: "TRY", itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, checkoutBlocker: null, items: [{ productId: PRODUCT, variantId: VARIANT, slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 100, lineTotalCents: 100, available: true, tenantId: PRODUCT }] };
+  const cartClient = createStorefrontCartClient(async () => new Response(JSON.stringify({ cart: unsafeLine }), { status: 200, headers: { "content-type": "application/json" } }), () => OPERATION);
+  await assert.rejects(cartClient.resolve(), (error: unknown) => error instanceof StorefrontCartClientError && error.code === "invalid_response");
+
+  const safeCart = { version: 1, currency: "TRY", itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, checkoutBlocker: null, items: [{ productId: PRODUCT, variantId: VARIANT, slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 100, lineTotalCents: 100, available: true }] };
+  const quoteClient = createStorefrontCartClient(async () => new Response(JSON.stringify({ quote: { cart: safeCart, estimatedDays: 3, paymentMethods: [{ kind: "card", label: "Kart", instructions: "Private" }] } }), { status: 200, headers: { "content-type": "application/json" } }), () => OPERATION);
+  await assert.rejects(quoteClient.quote("cart"), (error: unknown) => error instanceof StorefrontCartClientError && error.code === "invalid_response");
+});

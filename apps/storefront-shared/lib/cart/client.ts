@@ -1,6 +1,6 @@
 "use client";
 
-import type { PublicCart, PublicCheckoutQuote } from "@celebix/saas-contracts";
+import { parsePublicCart, parsePublicCheckoutQuote, type PublicCart, type PublicCheckoutQuote } from "@celebix/saas-contracts";
 import type { StorefrontCartClient } from "./types.ts";
 
 const MAXIMUM = 524_288;
@@ -11,15 +11,8 @@ const PUBLIC_FAILURES = new Set<PublicCartClientFailure>(["cart_empty", "price_c
 
 export class StorefrontCartClientError extends Error { constructor(readonly code: StorefrontCartClientErrorCode) { super(code); this.name = "StorefrontCartClientError"; } }
 function exact(value: unknown, required: readonly string[]): Record<string, unknown> | null { if (typeof value !== "object" || value === null || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) return null; const keys = Object.keys(value); return keys.length === required.length && required.every((key) => Object.hasOwn(value, key)) ? value as Record<string, unknown> : null; }
-function cart(value: unknown): PublicCart {
-  const row = exact(value, ["version", "currency", "itemCount", "subtotalCents", "shippingCents", "totalCents", "checkoutReady", "checkoutBlocker", "items"]);
-  if (!row || row.currency !== "TRY" || !Number.isSafeInteger(row.version) || (row.version as number) < 0 || !Number.isSafeInteger(row.itemCount) || (row.itemCount as number) < 0 || !Number.isSafeInteger(row.subtotalCents) || !Number.isSafeInteger(row.shippingCents) || !Number.isSafeInteger(row.totalCents) || typeof row.checkoutReady !== "boolean" || !Array.isArray(row.items) || row.items.length > 100) throw new StorefrontCartClientError("invalid_response");
-  const blocker = row.checkoutBlocker;
-  if (blocker !== null && blocker !== "empty_cart" && blocker !== "stock_unavailable" && blocker !== "shipping_unavailable" && blocker !== "payment_unavailable") throw new StorefrontCartClientError("invalid_response");
-  const unavailable = row.items.some((item) => typeof item === "object" && item !== null && Object.getPrototypeOf(item) === Object.prototype && (item as Record<string, unknown>).available === false);
-  if (row.checkoutReady !== (blocker === null) || (blocker === "empty_cart") !== (row.items.length === 0) || (blocker === null && unavailable) || (blocker === "stock_unavailable" && !unavailable) || ((blocker === "shipping_unavailable" || blocker === "payment_unavailable") && unavailable)) throw new StorefrontCartClientError("invalid_response");
-  return Object.freeze({ version: row.version as number, currency: "TRY", itemCount: row.itemCount as number, subtotalCents: row.subtotalCents as number, shippingCents: row.shippingCents as number, totalCents: row.totalCents as number, checkoutReady: row.checkoutReady, checkoutBlocker: blocker, items: Object.freeze([...row.items]) }) as PublicCart;
-}
+function cart(value: unknown): PublicCart { try { return parsePublicCart(value); } catch { throw new StorefrontCartClientError("invalid_response"); } }
+function quote(value: unknown): PublicCheckoutQuote { try { return parsePublicCheckoutQuote(value); } catch { throw new StorefrontCartClientError("invalid_response"); } }
 function publicFailure(value: unknown): PublicCartClientFailure | null { const row = exact(value, ["code"]); return row && typeof row.code === "string" && PUBLIC_FAILURES.has(row.code as PublicCartClientFailure) ? row.code as PublicCartClientFailure : null; }
 async function payload(response: Response): Promise<unknown> {
   if (response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json" || response.body === null) throw new StorefrontCartClientError("invalid_response");
@@ -37,7 +30,7 @@ export function createStorefrontCartClient(fetcher: Fetcher = fetch, uuid: () =>
     async setQuantity(input) { return mutation("/api/cart/quantity", { operationId: uuid(), ...input }); },
     async remove(input) { return mutation("/api/cart/remove", { operationId: uuid(), ...input }); },
     async buyNow(input) { const root = exact(await call("/api/cart/buy-now", { operationId: uuid(), ...input }), ["destination"]); if (!root || root.destination !== "/checkout?intent=buy-now") throw new StorefrontCartClientError("invalid_response"); return Object.freeze({ destination: "/checkout?intent=buy-now" as const }); },
-    async quote(intentKind) { const root = exact(await call("/api/checkout/quote", { intentKind }), ["quote"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return root.quote as PublicCheckoutQuote; },
+    async quote(intentKind) { const root = exact(await call("/api/checkout/quote", { intentKind }), ["quote"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return quote(root.quote); },
   });
 }
 
