@@ -6,7 +6,7 @@ export const MERCHANT_ADMIN_RECORD_KINDS = Object.freeze([
   "general_setting", "language_setting", "payment_setting", "shipping_setting", "administrator_invite",
   "accounting_profile", "invoice_integration",
   "seo_control", "sitemap", "social_preview", "code_integration", "indexing_request",
-  "notification_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "category_showcase",
+  "notification_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "category_showcase", "starter_theme_composition",
   "seo_geo_profile", "seo_internal_link", "seo_content_entry", "seo_category_entry",
   "seo_page_entry", "seo_product_entry", "ai_setting",
 ] as const);

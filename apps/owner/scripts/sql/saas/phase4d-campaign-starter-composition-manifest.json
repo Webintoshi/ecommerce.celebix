@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "phase": "4d-campaign-starter-composition",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    { "file": "202608010074_campaign_starter_composition.up.sql", "sha256": "12b9ada2cbbad8eaee8f81c27b4e750601201d52230aa17418ed472809706396" },
+    { "file": "202608010074_campaign_starter_composition_assertions.sql", "sha256": "c4d72c1d399b5bf575807aa91d34fc33d0e72846c6ca662d80688178506466f7" }
+  ],
+  "rollbackArtifacts": [
+    { "file": "202608010074_campaign_starter_composition.down.sql", "sha256": "50d815f32c9ec7168b7d41aca318c76c01643623c12cdaea98c92713154eaf37" }
+  ]
+}
