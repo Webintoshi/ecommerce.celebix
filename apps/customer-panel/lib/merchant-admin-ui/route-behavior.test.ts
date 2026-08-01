@@ -522,7 +522,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "category_showcase" && kind !== "policy");
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "category_showcase" && kind !== "policy" && kind !== "theme_setting");
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     assert.match(textOf(mounted.view), new RegExp(`${definition.kind} durable record`), `${definition.kind}:loaded`);
@@ -642,7 +642,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     }
   }
 
-  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "category_showcase" && kind !== "policy" && recordRoute.createRouteFor(kind) === undefined);
+  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "category_showcase" && kind !== "policy" && kind !== "theme_setting" && recordRoute.createRouteFor(kind) === undefined);
   for (const definition of inlineDefinitions) {
     await submitInlineRecord(definition, "create", "success");
     await submitInlineRecord(definition, "update", "success");

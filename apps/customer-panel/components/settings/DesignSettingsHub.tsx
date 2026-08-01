@@ -8,7 +8,7 @@ import { CategoryShowcaseEditor } from "./CategoryShowcaseEditor";
 import styles from "./design-settings.module.css";
 
 const SURFACES = Object.freeze([
-  ["Tema", "/settings/theme", "Renk, başlık ve ürün kartı düzenini güvenli seçeneklerle yönetin."],
+  ["Campaign Starter", "/settings/theme", "Navigasyon, modüler ana sayfa, ürün detayı ve sepet deneyimini tek sürümlü taslakta yönetin."],
   ["Mağaza bilgileri", "/settings/general", "Vitrinde görünen mağaza adı ve destek bilgilerini yönetin."],
   ["Hero banner", "/settings/hero-banner", "Ana sayfa karşılama metnini ve hedefini yönetin."],
   ["Kategori vitrini", "/settings/category-showcase", "Ana sayfa kategori kartlarını, görsellerini ve sırasını yönetin."],

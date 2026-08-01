@@ -311,7 +311,6 @@ test("five typed storefront settings expose exact safe field contracts without s
 test("typed setting pages remain server-authorized and do not send TenantContext to clients", async () => {
   for (const [path, kind] of [
     ["app/settings/notifications/page.tsx", "notification_setting"],
-    ["app/settings/theme/page.tsx", "theme_setting"],
     ["app/settings/hero-banner/page.tsx", "hero_banner"],
     ["app/settings/promotion-banner/page.tsx", "promotion_banner"],
     ["app/settings/marquee/page.tsx", "marquee_setting"],
@@ -322,6 +321,11 @@ test("typed setting pages remain server-authorized and do not send TenantContext
     assert.match(value, /configuration[.]manage/);
     assert.doesNotMatch(value, /tenantContext=|storeId=|membershipId=|secret|password|token/i);
   }
+  const themePage = await source("app/settings/theme/page.tsx");
+  assert.match(themePage, /requireServerPanelAccess\(\)/);
+  assert.match(themePage, /StarterThemeComposer/);
+  assert.match(themePage, /configuration[.]manage/);
+  assert.doesNotMatch(themePage, /tenantContext=|storeId=|membershipId=|secret|password|token/i);
 });
 
 test("dashboard model links to analytics only after the real route exists", async () => {

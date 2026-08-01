@@ -3,7 +3,7 @@ const routes=Object.freeze([
  ["app/discounts/page.tsx","discount"],["app/discounts/new/page.tsx","discount"],["app/discounts/lucky-wheel/page.tsx","lucky_wheel"],
  ["app/marketing/page.tsx","MerchantMarketingOverview"],["app/marketing/email/page.tsx","email_campaign"],["app/marketing/phone/page.tsx","phone_campaign"],["app/marketing/whatsapp/page.tsx","whatsapp_campaign"],
  ["app/content/blog/page.tsx","blog_post"],["app/content/pages/page.tsx","page"],["app/marketplaces/page.tsx","marketplace_connection"],
- ["app/settings/general/page.tsx","general_setting"],["app/settings/theme/page.tsx","theme_setting"],["app/settings/language/page.tsx","language_setting"],["app/settings/shipping/page.tsx","shipping_setting"],["app/settings/administrators/page.tsx","administrator_invite"],
+ ["app/settings/general/page.tsx","general_setting"],["app/settings/theme/page.tsx","StarterThemeComposer"],["app/settings/language/page.tsx","language_setting"],["app/settings/shipping/page.tsx","shipping_setting"],["app/settings/administrators/page.tsx","administrator_invite"],
  ["app/accounting/page.tsx","accounting_profile"],["app/accounting/invoicing-integration/page.tsx","invoice_integration"],["app/seo/page.tsx","seo_control"],["app/seo/sitemap/page.tsx","sitemap"],["app/seo/social-preview/page.tsx","social_preview"],["app/seo/code-integrations/page.tsx","code_integration"],["app/seo/fast-indexing/page.tsx","indexing_request"],
 ]as const);
 test("every donor merchant module route is real and server-authorized",async()=>{for(const[path,kind]of routes){const value=await source(path);assert.match(value,/requireServerPanelAccess/);assert.match(value,new RegExp(kind));assert.match(value,/isMerchantActionAllowed/)}});

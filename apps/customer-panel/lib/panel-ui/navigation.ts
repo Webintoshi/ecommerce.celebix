@@ -192,7 +192,7 @@ const CONTENT_CHILDREN = Object.freeze([
 const SETTINGS_CHILDREN = Object.freeze([
   item("general-settings", "Genel", "/settings/general", "settings"),
   item("design-settings", "Tasarım", "/settings/design", "design"),
-  item("theme-settings", "Tema", "/settings/theme", "design"),
+  item("theme-settings", "Campaign Starter", "/settings/theme", "design"),
   item("language-settings", "Dil", "/settings/language", "language"),
   item("payment-settings", "Ödeme", "/settings/payment", "payment"),
   item("shipping-settings", "Kargo", "/settings/shipping", "shipping"),
@@ -290,7 +290,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings": presentation("Ayarlar"),
   "/settings/design": presentation("Tasarım Ayarları"),
   "/settings/general": presentation("Genel Ayarlar"),
-  "/settings/theme": presentation("Tema"),
+  "/settings/theme": presentation("Campaign Starter"),
   "/settings/language": presentation("Dil Ayarları"),
   "/settings/payment": presentation("Ödeme Ayarları"),
   "/settings/shipping": presentation("Kargo Ayarları"),

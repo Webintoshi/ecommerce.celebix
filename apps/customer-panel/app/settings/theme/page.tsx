@@ -1,9 +1,9 @@
 import { isMerchantActionAllowed } from "@celebix/saas-contracts";
 
-import { MerchantModuleConsole } from "@/components/merchant-admin/MerchantModuleConsole";
+import { StarterThemeComposer } from "@/components/settings/StarterThemeComposer";
 import { requireServerPanelAccess } from "@/lib/server-access";
 
 export default async function ThemeSettingsPage() {
   const { tenantContext } = await requireServerPanelAccess();
-  return <MerchantModuleConsole kind="theme_setting" canManage={isMerchantActionAllowed(tenantContext.membership.role, "configuration.manage")} />;
+  return <StarterThemeComposer canManage={isMerchantActionAllowed(tenantContext.membership.role, "configuration.manage")} />;
 }
