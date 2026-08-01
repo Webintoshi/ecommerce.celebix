@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { PublicCheckoutQuote } from "@celebix/saas-contracts";
-import { storefrontCartClient } from "@/lib/cart/client.ts";
+import { StorefrontCartClientError, storefrontCartClient } from "@/lib/cart/client.ts";
 import type { CheckoutIntentKind } from "@/lib/cart/types.ts";
 import { type CheckoutFormDraft, type ValidCheckoutForm, validateCheckoutFormDraft } from "@/lib/checkout-form.ts";
 import { CheckoutSummary } from "./CheckoutSummary";
+import { checkoutBlockerMessage, checkoutFailureMessage } from "./checkout-readiness";
 
 const EMPTY: CheckoutFormDraft = Object.freeze({ name: "", email: "", phone: "", addressLine1: "", addressLine2: "", city: "", district: "", postalCode: "", note: "" });
 
@@ -29,8 +30,8 @@ export function CheckoutForm({ intentKind }: Readonly<{ intentKind: CheckoutInte
       if (!active) return;
       setQuote(selected);
       setPaymentKind(selected.paymentMethods[0]?.kind ?? "");
-      setStatus(selected.cart.checkoutReady ? "Sipariş özeti güncel." : "Sepet ödeme için hazır değil.");
-    }).catch(() => { if (active) setStatus("Sipariş özeti alınamadı. Lütfen sepetinizi kontrol edin."); });
+      setStatus(selected.cart.checkoutReady ? "Sipariş özeti güncel." : checkoutBlockerMessage(selected.cart.checkoutBlocker) ?? "Sepet ödeme için hazır değil.");
+    }).catch((error: unknown) => { if (active) setStatus(checkoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null)); });
     return () => { active = false; };
   }, [intentKind]);
 
