@@ -14,6 +14,8 @@ import { createOrderRequestAuthorityValidator } from "./request-authority.ts";
 import type { ServerOrdersRuntime } from "../server-orders/runtime.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const TENANT_ADMIN_HOSTNAME = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 const ORDERS = "/api/orders";
 const SUMMARY = "/api/orders/summary";
 const ORDER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -362,6 +364,32 @@ test("draft HTTP surface lists reads saves archives and converts with session-on
   });
   assert.doesNotMatch(JSON.stringify(await body(responses[0])), /storeId|principalId|membershipId|planId|database|provider/i);
   for (const response of responses) assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("tenant admin same-origin draft mutations work without trusting a different tenant admin origin", async () => {
+  const calls: unknown[] = [];
+  const handlers = createOrderHttpHandlers(dependencies(repository({
+    async createDraft(input) { calls.push(input); return draftDetail(); },
+  })));
+  const base = ORDERS + "/drafts";
+  const accepted = await handlers.createDraft(request(base, {
+    method: "POST",
+    body: draftIntent(),
+    origin: TENANT_ADMIN_ORIGIN,
+    headers: { host: TENANT_ADMIN_HOSTNAME },
+  }));
+  assert.equal(accepted.status, 200);
+  assert.equal(calls.length, 1);
+
+  const rejected = await handlers.createDraft(request(base, {
+    method: "POST",
+    body: draftIntent(),
+    origin: "https://other-store.admin.saas-staging.celebix.site",
+    headers: { host: TENANT_ADMIN_HOSTNAME },
+  }));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await body(rejected), { code: "origin_denied" });
+  assert.equal(calls.length, 1);
 });
 
 test("draft HTTP rejects unsafe methods origins queries IDs bodies and private authority", async () => {

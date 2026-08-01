@@ -1,3 +1,5 @@
+import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const ORDER_PATH = new RegExp(
   `^(?:/api/orders|/api/orders/summary|/api/orders/drafts|/api/orders/drafts/${UUID}|/api/orders/drafts/${UUID}/(?:archive|convert)|/api/orders/${UUID}|/api/orders/${UUID}/(?:status|payment|shipping|notes|neighbors)|/api/orders/${UUID}/notes/${UUID}/archive)$`,
@@ -48,6 +50,19 @@ function exactExpectation(value: OrderRequestExpectation): OrderRequestExpectati
   return value;
 }
 
+function approvedMutationOrigin(request: Request, panelOrigin: string): boolean {
+  const requestOrigin = request.headers.get("origin");
+  if (requestOrigin === panelOrigin) return true;
+  const requestHostname = request.headers.get("host");
+  if (requestOrigin === null || requestHostname === null) return false;
+  try {
+    const tenantAdmin = parseCanonicalAdminOriginFromPanelOrigin(requestOrigin, panelOrigin);
+    return tenantAdmin.hostname === requestHostname;
+  } catch {
+    return false;
+  }
+}
+
 export function createOrderRequestAuthorityValidator(options: {
   panelOrigin: string;
 }): OrderRequestAuthorityValidator {
@@ -65,7 +80,7 @@ export function createOrderRequestAuthorityValidator(options: {
         const exact = exactExpectation(expectation);
         if (!(request instanceof Request)) return "request_invalid";
         if (request.method !== exact.method) return "method_not_allowed";
-        if (exact.method !== "GET" && request.headers.get("origin") !== panelOrigin) return "origin_denied";
+        if (exact.method !== "GET" && !approvedMutationOrigin(request, panelOrigin)) return "origin_denied";
         const url = new URL(request.url);
         if (
           (url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password ||
