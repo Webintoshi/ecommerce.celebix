@@ -70,6 +70,7 @@ const CART = Object.freeze({
   shippingCents: 0,
   totalCents: 11_271_00,
   checkoutReady: true,
+  checkoutBlocker: null,
   items: Object.freeze([CART_LINE]),
 });
 
@@ -145,6 +146,16 @@ test("public cart validates server-computed totals and exact line authority", ()
   assert.throws(() => parsePublicCart({ ...CART, itemCount: 2 }));
   assert.throws(() => parsePublicCart({ ...CART, items: [{ ...CART_LINE, credential: "raw" }] }));
   assert.throws(() => parsePublicCart({ ...CART, items: [{ ...CART_LINE, lineTotalCents: 1 }] }));
+});
+
+test("public cart checkout blocker is exact and readiness-consistent", () => {
+  const paymentBlocked = parsePublicCart({ ...CART, checkoutReady: false, checkoutBlocker: "payment_unavailable" });
+  assert.equal(paymentBlocked.checkoutBlocker, "payment_unavailable");
+  assert.throws(() => parsePublicCart({ ...CART, checkoutReady: true, checkoutBlocker: "payment_unavailable" }));
+  assert.throws(() => parsePublicCart({ ...CART, checkoutReady: false, checkoutBlocker: null }));
+  assert.throws(() => parsePublicCart({ ...CART, checkoutReady: false, checkoutBlocker: "provider_unavailable" }));
+  assert.throws(() => parsePublicCart({ ...CART, checkoutReady: false, checkoutBlocker: "empty_cart" }));
+  assert.equal(parsePublicCart({ ...CART, checkoutReady: false, checkoutBlocker: "stock_unavailable", items: [{ ...CART_LINE, available: false }] }).checkoutBlocker, "stock_unavailable");
 });
 
 test("checkout quote exposes only eligible finite payment methods", () => {

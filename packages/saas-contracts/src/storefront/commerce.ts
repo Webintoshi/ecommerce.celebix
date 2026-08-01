@@ -48,6 +48,13 @@ export type PublicCartLine = Readonly<{
   available: boolean;
 }>;
 
+export type PublicCartCheckoutBlocker =
+  | "empty_cart"
+  | "stock_unavailable"
+  | "shipping_unavailable"
+  | "payment_unavailable"
+  | null;
+
 export type PublicCart = Readonly<{
   version: number;
   currency: "TRY";
@@ -56,6 +63,7 @@ export type PublicCart = Readonly<{
   shippingCents: number;
   totalCents: number;
   checkoutReady: boolean;
+  checkoutBlocker: PublicCartCheckoutBlocker;
   items: readonly PublicCartLine[];
 }>;
 
@@ -283,7 +291,7 @@ export function parsePublicProductSearch(value: unknown): PublicProductSearch {
 }
 
 export function parsePublicCart(value: unknown): PublicCart {
-  const parsed = exact(value, ["version", "currency", "itemCount", "subtotalCents", "shippingCents", "totalCents", "checkoutReady", "items"]);
+  const parsed = exact(value, ["version", "currency", "itemCount", "subtotalCents", "shippingCents", "totalCents", "checkoutReady", "checkoutBlocker", "items"]);
   if (parsed.currency !== "TRY") invalid();
   const items = cartLines(parsed.items, 0, 100);
   const itemCount = integer(parsed.itemCount, 0, 999_900);
@@ -294,7 +302,21 @@ export function parsePublicCart(value: unknown): PublicCart {
   const computedSubtotal = items.reduce((sum, item) => sum + item.lineTotalCents, 0);
   if (!Number.isSafeInteger(computedSubtotal) || itemCount !== computedCount || subtotalCents !== computedSubtotal || totalCents !== subtotalCents + shippingCents) invalid();
   const checkoutReady = bool(parsed.checkoutReady);
-  if (checkoutReady && (items.length === 0 || items.some(({ available }) => !available))) invalid();
+  const unavailable = items.some(({ available }) => !available);
+  const checkoutBlocker: PublicCartCheckoutBlocker = parsed.checkoutBlocker === null
+    ? null
+    : parsed.checkoutBlocker === "empty_cart"
+      || parsed.checkoutBlocker === "stock_unavailable"
+      || parsed.checkoutBlocker === "shipping_unavailable"
+      || parsed.checkoutBlocker === "payment_unavailable"
+      ? parsed.checkoutBlocker
+      : invalid();
+  if (checkoutReady !== (checkoutBlocker === null)) invalid();
+  if (checkoutReady && (items.length === 0 || unavailable)) invalid();
+  if (checkoutBlocker === "empty_cart" && items.length !== 0) invalid();
+  if (checkoutBlocker !== "empty_cart" && items.length === 0) invalid();
+  if (checkoutBlocker === "stock_unavailable" && !unavailable) invalid();
+  if ((checkoutBlocker === "shipping_unavailable" || checkoutBlocker === "payment_unavailable") && unavailable) invalid();
   return Object.freeze({
     version: integer(parsed.version, 0),
     currency: "TRY",
@@ -303,6 +325,7 @@ export function parsePublicCart(value: unknown): PublicCart {
     shippingCents,
     totalCents,
     checkoutReady,
+    checkoutBlocker,
     items,
   });
 }
