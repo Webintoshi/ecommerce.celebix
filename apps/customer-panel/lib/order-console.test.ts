@@ -578,7 +578,7 @@ test("order list renders a controlled loading state without records", async () =
   const html = renderToStaticMarkup(createElement(Presentation, renderProps("loading")));
   assert.match(html, /role="status"/);
   assert.match(html, /Siparişler yükleniyor/);
-  assert.match(html, /Sipariş kapsamı yükleniyor/u);
+  assert.doesNotMatch(html, /Sipariş kapsamı yükleniyor/u);
   assert.doesNotMatch(html, /HMK-1042/);
   assert.match(html, /<button class="exportButton" type="button" disabled="">CSV Dışa Aktar<\/button>/u);
 });
@@ -756,9 +756,8 @@ test("order list renders usable local filters, column visibility, and truthful l
   assert.match(html, /Sütunlar/u);
   assert.match(html, /Kanal sütununu göster/u);
   assert.match(html, /CSV Dışa Aktar/u);
-  assert.match(html, /Filtreler yüklenen 7 sipariş üzerinde uygulanır/u);
-  assert.match(html, /Daha fazla yükledikçe kapsam genişler/u);
-  assert.match(html, /Teslimat filtresi sipariş durumundan türetilir/u);
+  assert.doesNotMatch(html, /Filtreler yüklenen/u);
+  assert.doesNotMatch(html, /Teslimat filtresi sipariş durumundan türetilir/u);
   assert.doesNotMatch(html, /Toplu durum|Seçilileri güncelle/u);
 });
 

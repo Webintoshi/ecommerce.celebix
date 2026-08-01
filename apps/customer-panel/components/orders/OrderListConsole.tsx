@@ -215,11 +215,6 @@ function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleCol
 }
 
 export function OrderListPresentation(props: OrderListPresentationProps) {
-  const scope = props.state === "loading"
-    ? "Sipariş kapsamı yükleniyor."
-    : props.state === "error"
-      ? "Sipariş kapsamı şu anda kullanılamıyor."
-      : `Filtreler yüklenen ${props.loadedCount.toLocaleString("tr-TR")} sipariş üzerinde uygulanır.${props.nextCursor ? " Daha fazla yükledikçe kapsam genişler." : " Yüklenen sonuçların tamamı kapsamdadır."}`;
   const content = props.state === "loading" ? (
     <div className={styles.loading} role="status" aria-live="polite">Siparişler yükleniyor…</div>
   ) : props.state === "error" ? (
@@ -263,7 +258,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
         actions={<Link className={styles.primaryAction} href="/orders/drafts/new">Manuel sipariş oluştur</Link>}
       />
       <section className={styles.listSurface} aria-labelledby="orders-list-title">
-        <div className={styles.surfaceHeading}><div><h2 id="orders-list-title">Tüm Siparişler</h2><p>Arama, durum ve sıralama sunucuda; ek filtreler yüklenen siparişlerde uygulanır.</p></div></div>
+        <div className={styles.surfaceHeading}><div><h2 id="orders-list-title">Tüm Siparişler</h2></div></div>
         <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}>
           <label className={styles.searchField}><span className="sr-only">Sipariş ara</span><input value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş ara" maxLength={200} /><button type="submit">Ara</button></label>
           <label><span className="sr-only">Sipariş durumu</span><select value={props.status} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -279,7 +274,6 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
           </details>
           <button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={props.onExport}>CSV Dışa Aktar</button>
         </div>
-        <p className={styles.scopeNote}>{scope} Teslimat filtresi sipariş durumundan türetilir.</p>
         {content}
         {props.state === "loaded" && props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : "Daha fazla sipariş yükle"}</button> : null}
       </section>

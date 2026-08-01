@@ -164,7 +164,7 @@ function formatOrderDate(value: string): string {
 
 function stateDetail(state: OptionalLoadState): string {
   if (state === "loading") return "Yükleniyor";
-  if (state === "loaded") return "Kalıcı veriden";
+  if (state === "loaded") return "Canlı veri";
   return "Kullanılamıyor";
 }
 
@@ -294,7 +294,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
       value: analytics
         ? analytics.catalog.activeProducts.toLocaleString("tr-TR")
         : emptyValue,
-      detail: analytics ? "Kalıcı katalogda" : stateDetail(analyticsState),
+      detail: analytics ? "Canlı katalog" : stateDetail(analyticsState),
     },
     {
       key: "refunds",
@@ -388,7 +388,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
           </div>
         </div>
 
-        <div className={styles.salesChart} role="img" aria-label="Kalıcı satış grafiği">
+        <div className={styles.salesChart} role="img" aria-label="Canlı satış grafiği">
           {analyticsState === "loading" ? (
             <div className={styles.chartLoading} role="status">
               Satış özeti yükleniyor…
@@ -398,7 +398,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
             <div className={styles.chartError} role="alert">
               <div>
                 <strong>Satış özeti yüklenemedi</strong>
-                <span>Kalıcı ticari veriler şu anda kullanılamıyor.</span>
+                <span>Satış verileri şu anda kullanılamıyor.</span>
               </div>
               <SummaryRetryButton
                 onRetry={props.onRefreshAnalytics ?? props.onRefresh}
@@ -447,7 +447,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
             ) : (
               <div className={styles.emptyChart}>
                 <strong>Bu dönemde satış hareketi yok</strong>
-                <span>Kalıcı ödenmiş sipariş oluştuğunda grafik burada görünür.</span>
+                <span>Ödenmiş sipariş oluştuğunda grafik burada görünür.</span>
               </div>
             )
           ) : null}
@@ -509,7 +509,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
               <div className={styles.emptyProducts}>
                 <PackageCheck aria-hidden="true" />
                 <strong>Seçilen dönemde satış bulunmuyor</strong>
-                <span>Kalıcı ürün satışı oluştuğunda liste burada görünür.</span>
+                <span>Ürün satışı oluştuğunda liste burada görünür.</span>
               </div>
             )
           ) : null}
@@ -549,7 +549,6 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
           <header>
             <div>
               <h2 id="recent-orders-title">Son siparişler</h2>
-              <p>En yeni kalıcı sipariş kayıtları</p>
             </div>
             <PanelActionButton href="/orders">Tüm siparişler</PanelActionButton>
           </header>
@@ -595,7 +594,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
                 </table>
               </div>
             ) : (
-              <p className={styles.recentOrdersState}>Henüz kalıcı sipariş bulunmuyor.</p>
+              <p className={styles.recentOrdersState}>Henüz sipariş bulunmuyor.</p>
             )
           ) : null}
         </section>

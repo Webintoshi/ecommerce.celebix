@@ -1806,7 +1806,7 @@ test("dashboard presentation follows the ikas store-summary anatomy using only d
   ]) assert.match(html, new RegExp(copy, "i"));
   assert.doesNotMatch(html, /Tüm operasyonlar/);
   assert.match(html, /aria-label="Mağaza performans metrikleri"/);
-  assert.match(html, /aria-label="Kalıcı satış grafiği"/);
+  assert.match(html, /aria-label="Canlı satış grafiği"/);
   assert.match(html, /href="\/orders"/);
   assert.doesNotMatch(html, /Oturum sayısı|Dönüşüm oranı|Ziyaretçi|Katalog dağılımı/);
   assert.doesNotMatch(html, /Etkin mağaza|Mağaza sahibi|free_starter|\/api\/admin/);
