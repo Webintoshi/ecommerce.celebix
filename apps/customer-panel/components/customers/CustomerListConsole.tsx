@@ -127,13 +127,7 @@ export function CustomerListConsole({ canManage }: { canManage: boolean }) {
           </div>
         </section>
       ) : null}
-      <section className={styles.surface}>
-        <div className={styles.heading}>
-          <div>
-            <h2>Tüm Müşteriler</h2>
-            <p>Kalıcı mağaza verilerinden gelen güncel müşteri listesi.</p>
-          </div>
-        </div>
+      <section className={styles.surface} aria-label="Müşteri çalışma alanı" data-panel-surface="open">
         <form
           className={styles.toolbar}
           onSubmit={(e) => {

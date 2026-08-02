@@ -98,11 +98,7 @@ export function OrderDraftListConsole({ canManage }: { canManage: boolean }) {
         description="Telefon, e-posta veya mağaza içi talepleri kaydedin; hazır olduğunda gerçek siparişe dönüştürün."
         actions={canManage ? <PanelActionButton primary href="/orders/drafts/new">Yeni taslak sipariş</PanelActionButton> : undefined}
       />
-      <section className={styles.listSurface} aria-labelledby="draft-list-title">
-        <div className={styles.sectionHeading}>
-          <div className={styles.listHeadingCopy}><h2 id="draft-list-title">Manuel sipariş çalışma alanı</h2><p>Yalnızca bu mağazanın PostgreSQL üzerinde doğrulanmış taslakları gösterilir.</p></div>
-          <span>{phase === "loaded" ? `${items.length.toLocaleString("tr-TR")} kayıt` : "—"}</span>
-        </div>
+      <section className={styles.listSurface} aria-label="Taslak sipariş çalışma alanı" data-panel-surface="open">
         {phase === "loading" ? <p className={styles.state} role="status">Taslak siparişler yükleniyor…</p> : null}
         {phase === "error" ? <div className={styles.error} role="alert"><div><h2>Taslaklar yüklenemedi</h2><p>{error}</p></div><button type="button" onClick={() => void load()}>Tekrar dene</button></div> : null}
         {phase === "loaded" && items.length === 0 ? (

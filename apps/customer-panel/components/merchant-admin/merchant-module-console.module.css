@@ -6,11 +6,11 @@
 }
 
 .surface {
-  overflow: hidden;
-  border: 1px solid #e1e6ef;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(17 24 39 / 3%);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .headerActions,
@@ -486,8 +486,8 @@
   .metrics > article:nth-child(2) { border-right: 0; }
   .metrics > article:nth-child(-n + 2) { border-bottom: 1px solid #e1e6ef; }
   .desktopTable { display: none; }
-  .mobileCards { display: grid; gap: 0.75rem; padding: 1rem; }
-  .mobileCard { display: grid; gap: 1rem; border: 1px solid #e1e6ef; border-radius: 10px; padding: 1rem; }
+  .mobileCards { display: grid; gap: 0; padding: 0; }
+  .mobileCard { display: grid; gap: 1rem; border: 0; border-bottom: 1px solid #e8edf4; border-radius: 0; background: transparent; padding: 1rem 0; box-shadow: none; }
   .mobileCard header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
   .mobileCard h2,
   .mobileCard small { margin: 0; }

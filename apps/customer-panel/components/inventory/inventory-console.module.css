@@ -1,9 +1,9 @@
 .desktopTable,
 .lineTable {
   overflow-x: auto;
-  border: 1px solid #e7e5e4;
-  border-radius: 18px;
-  background: #fff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .desktopTable table,
@@ -289,8 +289,8 @@
 
 @media (max-width: 760px) {
   .desktopTable { display: none; }
-  .mobileCards { display: grid; gap: 12px; }
-  .mobileCard { padding: 16px; border: 1px solid #e7e5e4; border-radius: 16px; background: #fff; }
+  .mobileCards { display: grid; gap: 0; }
+  .mobileCard { padding: 16px 0; border: 0; border-bottom: 1px solid #e8edf4; border-radius: 0; background: transparent; box-shadow: none; }
   .cardHeading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; }
   .mobileCard dl { display: grid; gap: 10px; margin: 14px 0 0; }
   .mobileCard dl > div { display: grid; grid-template-columns: minmax(92px, .7fr) 1fr; gap: 12px; }

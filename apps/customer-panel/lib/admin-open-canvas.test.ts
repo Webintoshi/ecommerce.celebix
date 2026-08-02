@@ -38,3 +38,23 @@ test("orders use a flat workspace and divider-based mobile rows", async () => {
   assert.match(rule(css, ".orderCard"), /border-bottom:\s*1px solid #E8EDF4/i);
   assert.match(rule(css, ".orderCard"), /border-radius:\s*0/);
 });
+
+const OPEN_SURFACES = Object.freeze([
+  ["components/customers/customer-console.module.css", ".surface"],
+  ["components/catalog-admin/catalog-admin-console.module.css", ".surface"],
+  ["components/orders/abandoned-cart-console.module.css", ".surface"],
+  ["components/orders/order-drafts.module.css", ".listSurface"],
+  ["components/orders/quick-order-links.module.css", ".panel"],
+  ["components/merchant-admin/merchant-module-console.module.css", ".surface"],
+] as const);
+
+test("core admin workspaces do not use decorative outer cards", async () => {
+  for (const [path, selector] of OPEN_SURFACES) {
+    const body = rule(await source(path), selector);
+
+    assert.match(body, /border:\s*0/, `${path} ${selector}`);
+    assert.match(body, /border-radius:\s*0/, `${path} ${selector}`);
+    assert.match(body, /background:\s*transparent/, `${path} ${selector}`);
+    assert.match(body, /box-shadow:\s*none/, `${path} ${selector}`);
+  }
+});
