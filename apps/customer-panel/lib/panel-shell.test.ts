@@ -2501,7 +2501,7 @@ function assertSmallShellContrast(css: string): void {
   }
 }
 
-function assertDonorCardGeometry(css: string): void {
+function assertOpenPanelAndMetricGeometry(css: string): void {
   const panel: CssTestElement = { tagName: "section", classNames: ["panel"] };
   const metric: CssTestElement = { tagName: "article", classNames: ["metric"] };
   const elements = {
@@ -2520,18 +2520,18 @@ function assertDonorCardGeometry(css: string): void {
     readonly string[],
     string,
   ][] = [
-    ["panel border", 390, elements.panel, ["border"], "1px solid #E3E7EE"],
-    ["panel radius", 390, elements.panel, ["border-radius"], "1rem"],
-    ["panel surface", 390, elements.panel, ["background", "background-color"], "#FFFFFF"],
-    ["panel shadow", 390, elements.panel, ["box-shadow"], "0 8px 18px rgba(17, 24, 39, 0.045)"],
-    ["panel mobile padding", 390, elements.panel, ["padding"], "1rem"],
+    ["panel border", 390, elements.panel, ["border"], "0"],
+    ["panel radius", 390, elements.panel, ["border-radius"], "0"],
+    ["panel surface", 390, elements.panel, ["background", "background-color"], "transparent"],
+    ["panel shadow", 390, elements.panel, ["box-shadow"], "none"],
+    ["panel mobile padding", 390, elements.panel, ["padding"], "0 0 1.5rem"],
     ["panel heading size", 390, elements.panelHeading, ["font-size"], "0.98rem"],
     ["panel heading weight", 390, elements.panelHeading, ["font-weight"], "600"],
     ["panel heading leading", 390, elements.panelHeading, ["line-height"], "1.5"],
     ["panel heading tracking", 390, elements.panelHeading, ["letter-spacing"], "-0.025em"],
     ["panel heading color", 390, elements.panelHeading, ["color"], "#1F2937"],
     ["panel heading spacing", 390, elements.panelHeading, ["margin"], "0 0 1rem"],
-    ["panel desktop padding", 1440, elements.panel, ["padding"], "1.5rem"],
+    ["panel desktop padding", 1440, elements.panel, ["padding"], "0 0 1.5rem"],
     ["metric border", 390, elements.metric, ["border"], "1px solid #E3E7EE"],
     ["metric radius", 390, elements.metric, ["border-radius"], "1rem"],
     ["metric surface", 390, elements.metric, ["background", "background-color"], "#FFFFFF"],
@@ -2565,13 +2565,13 @@ function assertDonorCardGeometry(css: string): void {
   }
 }
 
-test("panel and dashboard metrics retain the pinned donor card geometry", async () => {
+test("shared panels stay open while dashboard metrics retain functional card geometry", async () => {
   const css = await source("components/panel/panel-shell.module.css");
-  assertDonorCardGeometry(css);
+  assertOpenPanelAndMetricGeometry(css);
 
   for (const [override, expectedFailure] of [
     [`.panel { border-radius: 20px; }`, /panel radius cascade winner/],
-    [`.panel { box-shadow: none; }`, /panel shadow cascade winner/],
+    [`.panel { box-shadow: 0 8px 18px rgb(17 24 39 \/ 8%); }`, /panel shadow cascade winner/],
     [`.metric { min-height: 112px; }`, /metric height cascade winner/],
     [`.metric { gap: 0.5rem; }`, /metric gap cascade winner/],
     [`.metric > span { font-size: 12px; }`, /metric label size cascade winner/],
@@ -2582,7 +2582,7 @@ test("panel and dashboard metrics retain the pinned donor card geometry", async 
       /metric desktop padding cascade winner/,
     ],
   ] as const) {
-    assert.throws(() => assertDonorCardGeometry(`${css}\n${override}`), expectedFailure);
+    assert.throws(() => assertOpenPanelAndMetricGeometry(`${css}\n${override}`), expectedFailure);
   }
 });
 

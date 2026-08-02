@@ -5,7 +5,7 @@ import { PanelTopbarBridge } from "./PanelTopbarChrome";
 import styles from "./panel-shell.module.css";
 
 export function PanelPageShell({ children }: { children: ReactNode }) {
-  return <section className={styles.pageShell}>{children}</section>;
+  return <section className={styles.pageShell} data-panel-layout="open-canvas">{children}</section>;
 }
 
 export function PanelPageHeader(props: {
@@ -26,7 +26,7 @@ export function PanelPageHeader(props: {
 }
 
 export function PanelPanel({ children, title }: { children: ReactNode; title?: string }) {
-  return <section className={styles.panel}>{title ? <h2>{title}</h2> : null}{children}</section>;
+  return <section className={styles.panel} data-panel-surface="open">{title ? <h2>{title}</h2> : null}{children}</section>;
 }
 
 export function PanelToolbar({ children }: { children: ReactNode }) {
