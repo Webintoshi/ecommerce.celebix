@@ -1,7 +1,4 @@
-.metric,
-.form,
-.detail,
-.taxonomy {
+.metric {
   border: 1px solid #e1e6ef;
   border-radius: 12px;
   background: #fff;
@@ -217,7 +214,18 @@
 .form {
   display: grid;
   gap: 1rem;
-  padding: 1.25rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+.detail {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .grid {
   display: grid;
@@ -333,7 +341,11 @@
   margin-top: 1rem;
 }
 .taxonomy {
-  overflow: hidden;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .taxonomyForm {
   display: grid;

@@ -2,10 +2,6 @@
 .formSection,
 .summaryCard {
   min-width: 0;
-  border: 1px solid #e3e7ee;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(17 24 39 / 3%);
 }
 
 .listSurface { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
@@ -86,7 +82,7 @@
 
 .editorWorkspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); align-items: start; gap: 1.25rem; }
 .editorForm { display: grid; gap: 1rem; min-width: 0; }
-.formSection { overflow: hidden; }
+.formSection { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .formSection > fieldset { margin: 0; border: 0; padding: 1.25rem; }
 .formSection fieldset:disabled { opacity: .72; }
 .fieldGrid,
@@ -151,7 +147,7 @@
 .notice { border: 1px solid #b9e2ca; background: #f1fbf5; color: #17643a; }
 .readOnlyNotice { border: 1px solid #d9dee6; background: #f7f8fa; color: #576170; }
 
-.summaryCard { position: sticky; top: 92px; overflow: hidden; }
+.summaryCard { position: sticky; top: 92px; overflow: visible; border: 0; border-left: 1px solid #e3e7ee; border-radius: 0; background: transparent; box-shadow: none; }
 .summaryHeading { border-bottom: 1px solid #edf0f4; padding: 1.15rem; }
 .summaryHeading > div span,
 .summaryHeading > div strong { display: block; }

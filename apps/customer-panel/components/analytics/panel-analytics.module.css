@@ -39,14 +39,30 @@
 }
 
 .state,
-.error,
-.chart,
-.breakdown {
+.error {
   min-width: 0;
   border: 1px solid #e3e7ee;
   border-radius: 0.75rem;
   background: #ffffff;
   padding: 1.25rem;
+}
+
+.chart {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 1.25rem 0;
+  box-shadow: none;
+}
+
+.breakdown {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 1.25rem 0;
+  box-shadow: none;
 }
 
 .state {

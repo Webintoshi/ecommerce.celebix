@@ -3,11 +3,11 @@
 .orderInfoCard,
 .timeline {
   min-width: 0;
-  overflow: hidden;
-  border: 1px solid #E1E6EF;
-  border-radius: 12px;
-  background: #FFFFFF;
-  box-shadow: 0 1px 2px rgb(17 24 39 / 3%);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .listSurface {
@@ -325,8 +325,8 @@ button:disabled.primaryButton,
 
 .orderWorkspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem); align-items: start; gap: 1rem; }
 .workspaceMain { display: grid; min-width: 0; gap: 1rem; }
-.workspaceRail { position: sticky; top: 5.5rem; display: grid; min-width: 0; gap: 1rem; align-self: start; }
-.detailHero { display: grid; overflow: hidden; border: 1px solid #E1E6EF; border-radius: 12px; background: #FFFFFF; }
+.workspaceRail { position: sticky; top: 5.5rem; display: grid; min-width: 0; gap: 1rem; align-self: start; border-left: 1px solid #E8EDF4; padding-left: 1rem; }
+.detailHero { display: grid; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .detailHero > div { display: grid; min-width: 0; align-content: start; gap: .45rem; border-bottom: 1px solid #E8EDF4; padding: 1rem 1.1rem; }
 .detailHero > div:last-child { border-bottom: 0; }
 .detailHero span { color: #6B7280; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
@@ -335,7 +335,7 @@ button:disabled.primaryButton,
 .detailHero .summaryTotal { background: #FFF8F2; }
 .detailHero .summaryTotal strong { color: #B94B00; font-size: 1.25rem; }
 
-.operationBar { display: grid; gap: .75rem; border: 1px solid #E1E6EF; border-radius: 12px; background: #F9F9F9; padding: 1rem; }
+.operationBar { display: grid; gap: .75rem; border: 0; border-top: 1px solid #E8EDF4; border-radius: 0; background: transparent; padding: 1rem 0 0; box-shadow: none; }
 .operationBar h2,
 .operationBar p { margin: 0; }
 .operationBar h2 { color: #1F2937; font-size: .92rem; }
@@ -417,7 +417,7 @@ button:disabled.primaryButton,
   .toolbar { grid-template-columns: 1fr; }
   .filterToolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .orderWorkspace { grid-template-columns: 1fr; }
-  .workspaceRail { position: static; grid-row: 1; grid-template-columns: minmax(0, 1fr) minmax(16rem, .75fr); }
+  .workspaceRail { position: static; grid-row: 1; grid-template-columns: minmax(0, 1fr) minmax(16rem, .75fr); border-left: 0; border-bottom: 1px solid #E8EDF4; padding: 0 0 1rem; }
   .detailHero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detailHero > div:nth-child(2) { border-right: 0; }
   .detailHero > div:nth-child(-n + 2) { border-bottom: 1px solid #E8EDF4; }

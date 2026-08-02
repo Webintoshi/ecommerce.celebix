@@ -58,3 +58,23 @@ test("core admin workspaces do not use decorative outer cards", async () => {
     assert.match(body, /box-shadow:\s*none/, `${path} ${selector}`);
   }
 });
+
+const OPEN_PAGE_FRAMES = Object.freeze([
+  ["components/orders/order-console.module.css", ".detailHero"],
+  ["components/orders/order-drafts.module.css", ".formSection"],
+  ["components/customers/customer-console.module.css", ".form"],
+  ["components/catalog-onboarding/product-onboarding.module.css", ".page"],
+  ["components/settings/payment/payment-settings.module.css", ".methodsPanel"],
+  ["components/analytics/panel-analytics.module.css", ".chart"],
+] as const);
+
+test("detail form settings and analytics page frames stay open", async () => {
+  for (const [path, selector] of OPEN_PAGE_FRAMES) {
+    const body = rule(await source(path), selector);
+
+    assert.match(body, /border:\s*0/, `${path} ${selector}`);
+    assert.match(body, /border-radius:\s*0/, `${path} ${selector}`);
+    assert.match(body, /background:\s*transparent/, `${path} ${selector}`);
+    assert.match(body, /box-shadow:\s*none/, `${path} ${selector}`);
+  }
+});

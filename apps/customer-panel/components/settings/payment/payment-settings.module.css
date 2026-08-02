@@ -177,11 +177,11 @@
 
 .methodsPanel {
   min-width: 0;
-  overflow: hidden;
-  border: 1px solid #e1e6ed;
-  border-radius: 0.85rem;
-  background: #fff;
-  box-shadow: 0 2px 8px rgb(17 24 39 / 4%);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .methodsHeader {
