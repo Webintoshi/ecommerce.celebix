@@ -454,6 +454,9 @@ test("keeps the public runtime export surface frozen", () => {
     "STORE_MEMBERSHIP_ROLES",
     "STORE_MEMBERSHIP_STATUSES",
     "STORE_STATUSES",
+    "TOSHI_PROVIDERS",
+    "TOSHI_PROVIDER_CONNECTION_STATUSES",
+    "TOSHI_PROVIDER_ERROR_CODES",
     "VARIANT_STATUSES",
     "getPlanLimit",
     "isBuiltInPaymentMethodKind",
@@ -539,6 +542,8 @@ test("keeps the public runtime export surface frozen", () => {
     "parseQuickOrderLinkDetail",
     "parseQuickOrderLinkListItem",
     "parseQuickOrderLinkMutationResult",
+    "parseToshiProviderConnection",
+    "parseToshiProviderConnectionList",
   ]);
 });
 
@@ -568,6 +573,7 @@ test("contract sources import no runtime application code", async () => {
     "inventory/types.ts",
     "inventory/validation.ts",
     "pricing/index.ts",
+    "toshi/providers.ts",
     "pricing/types.ts",
     "pricing/validation.ts",
     "analytics/index.ts",

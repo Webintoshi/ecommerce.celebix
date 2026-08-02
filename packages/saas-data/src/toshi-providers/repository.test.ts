@@ -73,7 +73,8 @@ type Responder = (text: string, values: unknown[]) => Row[] | Promise<Row[]>;
 class Client {
   readonly calls: Array<{ text: string; values: unknown[] }> = [];
   readonly releases: unknown[] = [];
-  constructor(private readonly responder: Responder = () => []) {}
+  private readonly responder: Responder;
+  constructor(responder: Responder = () => []) { this.responder = responder; }
   async query(text: string, values: unknown[] = []) {
     this.calls.push({ text, values });
     const rows = await this.responder(text, values);

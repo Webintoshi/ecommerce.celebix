@@ -23,11 +23,17 @@ test("advanced SEO routes bind fixed server-owned kinds and capabilities", async
   }
 });
 
-test("the AI preference page remains provider-unavailable and secret-free", async () => {
-  const source = await readFile(
+test("the AI preference page delegates provider connections without embedding secrets", async () => {
+  const page = await readFile(
     new URL("../app/settings/artificial-intelligence/page.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(source, /Sağlayıcı etkinleştirilmeden içerik üretilmez/);
-  assert.doesNotMatch(source, /API anahtarı|secret|hemen üret|fetch\s*\(/i);
+  const client = await readFile(
+    new URL("toshi-provider-ui/client.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(page, /ArtificialIntelligenceSettings/);
+  assert.match(client, /\/api\/settings\/artificial-intelligence\/providers/);
+  assert.doesNotMatch(page, /API anahtarı|apiKey|secret|fetch\s*\(/i);
+  assert.doesNotMatch(`${page}\n${client}`, /içerik (?:üretildi|oluşturuldu)|senkronizasyon tamamlandı/i);
 });

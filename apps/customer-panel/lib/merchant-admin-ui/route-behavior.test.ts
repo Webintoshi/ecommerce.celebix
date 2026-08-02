@@ -320,6 +320,9 @@ async function compilePage(
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === "@/components/merchant-admin/MerchantModuleConsole") return { MerchantModuleConsole: Console };
+    if (specifier === "@/components/toshi-settings/ArtificialIntelligenceSettings") {
+      return { ArtificialIntelligenceSettings: (props: Record<string, unknown>) => createElement("section", { ...props, "data-toshi-settings": true }) };
+    }
     if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant(role) }) };
     throw new Error(`unexpected_merchant_page_import:${route}:${specifier}`);
   };

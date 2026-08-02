@@ -110,8 +110,14 @@ test("Shopify import is explicitly local file conversion and never claims a prov
   assert.doesNotMatch(value, /fetch\(["'`]https?:|shopify[.]com|apiKey|clientSecret|accessToken|<iframe/i);
 });
 
-test("AI remains preference-only until a provider is enabled", async () => {
-  const value = await source("app/settings/artificial-intelligence/page.tsx");
-  assert.match(value, /Sağlayıcı etkinleştirilmeden içerik üretilmez[.]/);
+test("AI exposes provider setup without claiming content generation", async () => {
+  const value = (await Promise.all([
+    "app/settings/artificial-intelligence/page.tsx",
+    "components/toshi-settings/ArtificialIntelligenceSettings.tsx",
+  ].map(source))).join("\n");
+  assert.match(value, /ArtificialIntelligenceSettings/);
+  assert.match(value, /OpenAI/);
+  assert.match(value, /Google Gemini/);
+  assert.match(value, /Anthropic Claude/);
   assert.doesNotMatch(value, /içerik (?:üretildi|oluşturuldu)|senkronizasyon tamamlandı/i);
 });
