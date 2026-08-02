@@ -611,18 +611,18 @@ test("application configuration defines baseline security headers", async () => 
   assert.doesNotMatch(quotePage, /tokenDigest|redemptionDigest|customerEmail|customerPhone|shippingAddress|billingAddress/);
 });
 
-test("starter product detail owns one semantic rich description section", async () => {
+test("starter product detail owns one ordered sanitized rich-information surface", async () => {
   const page = await readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8");
   const experience = await readFile(new URL("../components/ProductDetailExperience.tsx", import.meta.url), "utf8");
-  const description = await readFile(new URL("../components/ProductDescription.tsx", import.meta.url), "utf8");
+  const disclosures = await readFile(new URL("../components/ProductInformationDisclosures.tsx", import.meta.url), "utf8");
 
   assert.match(page, /<ProductDetailExperience product=/);
-  assert.match(experience, /<ProductDescription product=/);
+  assert.match(experience, /<ProductInformationDisclosures informationSections=/);
   assert.doesNotMatch(page, /<p>\{item[.]description/);
-  assert.match(description, /aria-labelledby="product-description-title"/);
-  assert.match(description, />Ürün açıklaması</);
-  assert.match(description, /renderStarterProductDescription/);
-  assert.match(description, /dangerouslySetInnerHTML/);
+  assert.match(disclosures, /aria-labelledby="product-information-title"/);
+  assert.match(disclosures, /label: "Açıklama"/);
+  assert.match(disclosures, /renderStarterProductDescription/);
+  assert.match(disclosures, /dangerouslySetInnerHTML/);
   assert.match(experience, /aria-label="İçerik yolu"/);
   assert.match(experience, /href="\/">Ana sayfa/);
   assert.match(experience, /categoryPath/);
