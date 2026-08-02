@@ -20,6 +20,7 @@ import {
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
+  PostgresToshiProviderRepository,
   parseMerchantProviderCredentialKeyring,
 } from "@celebix/saas-data";
 import {
@@ -52,6 +53,8 @@ import { registerServerInventoryRepository } from "../server-inventory/runtime.t
 import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
 import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
+import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
+import { createToshiProviderAdapterRegistry } from "../toshi-provider-adapters/registry.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
   parseQuickLinkServerConfig,
@@ -173,6 +176,15 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL AS catalog_category_repository,
       to_regprocedure('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)') IS NOT NULL AS merchant_action_authority,
+      to_regclass('saas.toshi_provider_configs') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_connection_identity(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_connect(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb,text,bigint,text,text,jsonb,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_select_model(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,text,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_set_default(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_get_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS toshi_provider_repository,
       to_regprocedure('saas.merchant_analytics_dashboard(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL AS analytics_dashboard,
       to_regprocedure('saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL AS order_summary,
       to_regprocedure('saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL AS order_lister,
@@ -337,7 +349,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true ||
       row.catalog_onboarding_repository !== true ||
       row.catalog_category_repository !== true ||
-      row.merchant_action_authority !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
+      row.merchant_action_authority !== true || row.toshi_provider_repository !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_neighbors !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
       row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true ||
@@ -519,6 +531,17 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       timeouts: TIMEOUTS,
       audit: () => undefined,
     });
+    const toshiProviderRepository = new PostgresToshiProviderRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
+    const toshiProviderAdapters = createToshiProviderAdapterRegistry({
+      openai: (input, init) => fetch(input, init),
+      gemini: (input, init) => fetch(input, init),
+      anthropic: (input, init) => fetch(input, init),
+    });
     const iyzicoActivationRepository = new PostgresIyzicoSandboxEvidenceAppRepository({
       pool,
       role: "celebix_saas_app",
@@ -597,6 +620,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       providerCredentialKeyring,
       paymentProviderRegistry,
       hostedPaymentAdapters,
+    );
+    registerServerToshiProviderRuntime(
+      access,
+      toshiProviderRepository,
+      providerCredentialKeyring,
+      toshiProviderAdapters,
     );
     registerServerIyzicoActivationRuntime(
       access,
