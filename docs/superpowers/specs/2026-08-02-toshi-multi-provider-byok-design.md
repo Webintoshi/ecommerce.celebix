@@ -58,6 +58,12 @@ Her sağlayıcı kartında şunlar bulunur:
 - son başarılı doğrulama zamanı;
 - bağlantıyı kaldırma işlemi.
 
+Yüzey mevcut panel diliyle uyumlu, düz ve kompakt kalır; tekrar eden sayfa başlığı,
+tanıtım metni veya büyük iç içe kutular kullanılmaz. Mevcut `ai_setting` kaydı yalnız
+dil, ton ve özellik tercihlerini tutmaya devam eder. API anahtarı veya sağlayıcı
+credential'ı `MerchantModuleConsole` formuna ve `merchant_admin_records.config`
+alanına hiçbir zaman girmez.
+
 ### 3.1 Kaydetme ve etkinleştirme
 
 `Bağlan` işlemi iki aşamayı tek sunucu akışında yürütür:
@@ -173,6 +179,11 @@ saklanır. Şifreleme bağlamı en az `storeId`, provider config ID, provider t�
 ID içerir. Secret yalnız provider çağrısının yapıldığı kısa sunucu kapsamı içinde
 çözülür; istemci component, browser storage, analytics veya hata cevabına girmez.
 
+Yeni ve paralel bir kripto uygulaması yazılmaz. Mevcut
+`packages/saas-data/src/provider-execution/credential-crypto.ts` envelope sözleşmesi
+Toshi'ye özgü capability/domain ayrımıyla yeniden kullanılır. Toshi credential kaydı,
+ödeme sağlayıcısı profiline dönüştürülmez; yalnız kripto ve keyring sözleşmesi paylaşılır.
+
 Tablo erişimi mağaza sınırı ve FORCE RLS ile korunur. Uygulama yalnız kontrollü
 SECURITY DEFINER fonksiyonları/repository sınırı üzerinden okur ve yazar.
 
@@ -191,7 +202,9 @@ izinli modeller, seçili model ve doğrulama zamanını döndürür. Secret echo
 
 Mutasyonlar mevcut panel güvenlik sözleşmelerine ek olarak exact origin, exact path,
 JSON content type, body sınırı, şema doğrulaması ve idempotency key ister. Provider route
-parametresi yalnız sabit enum olabilir.
+parametresi yalnız sabit enum olabilir. Listeleme için geçerli panel oturumu ve mağaza
+üyeliği; bağlama, model değiştirme, varsayılan seçme ve kaldırma için ayrıca
+`configuration.manage` yetkisi gerekir. Yetki her istekte sunucuda tekrar değerlendirilir.
 
 ## 7. Toshi Çalışma Akışı
 
