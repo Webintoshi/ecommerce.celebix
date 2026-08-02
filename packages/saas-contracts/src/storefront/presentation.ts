@@ -1,5 +1,5 @@
 import { parsePublicStarterThemePresentation } from "./validation.ts";
-import type { PublicStarterHomeSection, PublicStarterThemePresentation, PublicStarterThemePresentationV2 } from "./types.ts";
+import type { PublicStarterHomeSectionV2, PublicStarterThemePresentation, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3 } from "./types.ts";
 
 export type StarterThemeTokens = Readonly<{
   schemeClass: "theme-neutral" | "theme-warm" | "theme-dark" | "theme-ocean";
@@ -18,7 +18,7 @@ export type StarterMarqueeTokens = Readonly<{
 
 export function buildDefaultStarterPresentation(
   storefront: Readonly<{ name: string }>,
-): PublicStarterThemePresentation {
+): PublicStarterThemePresentationV3 {
   const theme = Object.freeze({
     colorScheme: "neutral" as const,
     headingStyle: "serif" as const,
@@ -34,26 +34,39 @@ export function buildDefaultStarterPresentation(
     destination: "/products",
   });
   return Object.freeze({
-    schemaVersion: 2,
+    schemaVersion: 3,
     displayName: storefront.name,
     theme,
     hero,
-    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait" }),
+    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" }),
     navigation: Object.freeze({ items: Object.freeze([]) }),
     sections: Object.freeze([
       Object.freeze({ kind: "hero", slides: Object.freeze([Object.freeze({ heading: storefront.name, body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" })]) }),
       Object.freeze({ kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 }),
     ]),
-    productDetail: Object.freeze({ galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true }),
+    productDetail: Object.freeze({ galleryStyle: "rail", showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const) }),
     cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true }),
+    footer: defaultRetailFooter(),
     seo: Object.freeze({ allowIndex: false }),
   });
 }
 
-export function adaptStarterPresentationV1(value: unknown): PublicStarterThemePresentationV2 {
+function defaultRetailFooter(): PublicStarterThemePresentationV3["footer"] {
+  return Object.freeze({
+    tone: "dark",
+    groups: Object.freeze([
+      Object.freeze({ heading: "Mağaza", links: Object.freeze([Object.freeze({ label: "Ana Sayfa", destination: "/" }), Object.freeze({ label: "Tüm Ürünler", destination: "/products" }), Object.freeze({ label: "Favoriler", destination: "/favorites" })]) }),
+      Object.freeze({ heading: "Politikalar", links: Object.freeze([Object.freeze({ label: "Gizlilik ve Güvenlik", destination: "/policies/privacy-security" }), Object.freeze({ label: "İade ve Değişim", destination: "/policies/returns-exchange" })]) }),
+    ]),
+    newsletter: Object.freeze({ enabled: false, heading: "Bültene katılın", body: "Yeni ürünleri ilk siz öğrenin.", consentLabel: "E-posta iletişimine izin veriyorum." }),
+    social: Object.freeze([]),
+  });
+}
+
+function adaptStarterPresentationV1ToV2(value: unknown): PublicStarterThemePresentationV2 {
   const legacy = parsePublicStarterThemePresentation(value);
   if (legacy.schemaVersion !== 1) throw new TypeError("storefront_contract_invalid");
-  const sections: PublicStarterHomeSection[] = [];
+  const sections: PublicStarterHomeSectionV2[] = [];
   if (legacy.hero.enabled) sections.push(Object.freeze({
     kind: "hero",
     slides: Object.freeze([Object.freeze({ heading: legacy.hero.headline, body: legacy.hero.body, ...(legacy.hero.image ? { desktopImage: legacy.hero.image } : {}), destination: legacy.hero.destination })]),
@@ -78,6 +91,34 @@ export function adaptStarterPresentationV1(value: unknown): PublicStarterThemePr
     cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true }),
     seo: legacy.seo,
   });
+}
+
+export function adaptStarterPresentationV2(value: unknown): PublicStarterThemePresentationV3 {
+  const campaign = parsePublicStarterThemePresentation(value);
+  if (campaign.schemaVersion !== 2) throw new TypeError("storefront_contract_invalid");
+  return Object.freeze({
+    schemaVersion: 3,
+    displayName: campaign.displayName,
+    ...(campaign.supportEmail ? { supportEmail: campaign.supportEmail } : {}),
+    ...(campaign.logo ? { logo: campaign.logo } : {}),
+    theme: campaign.theme,
+    hero: campaign.hero,
+    ...(campaign.promotion ? { promotion: campaign.promotion } : {}),
+    ...(campaign.marquee ? { marquee: campaign.marquee } : {}),
+    ...(campaign.categoryShowcase ? { categoryShowcase: campaign.categoryShowcase } : {}),
+    visual: Object.freeze({ ...campaign.visual, headerWidth: "wide", sectionSpacing: "balanced" }),
+    ...(campaign.announcement ? { announcement: campaign.announcement } : {}),
+    navigation: campaign.navigation,
+    sections: campaign.sections,
+    productDetail: Object.freeze({ ...campaign.productDetail, showBreadcrumbs: true, showApprovedReviews: true, showSizeGuide: true, informationSections: Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const) }),
+    cart: campaign.cart,
+    footer: defaultRetailFooter(),
+    seo: campaign.seo,
+  });
+}
+
+export function adaptStarterPresentationV1(value: unknown): PublicStarterThemePresentationV3 {
+  return adaptStarterPresentationV2(adaptStarterPresentationV1ToV2(value));
 }
 
 export function starterThemeTokens(

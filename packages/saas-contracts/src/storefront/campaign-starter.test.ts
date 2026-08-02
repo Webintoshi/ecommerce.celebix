@@ -157,9 +157,9 @@ test("public campaign sections reject unsafe routes malformed assets and invente
   assert.throws(() => campaignValidation.parsePublicStarterThemePresentation({ ...value, sections: [{ ...hero, slides: [{ ...hero.slides[0], hotspot: { ...(hero.slides[0]!.hotspot as object), currency: "USD" } }] }] }), /storefront_contract_invalid/);
 });
 
-test("legacy presentation adapts deterministically to campaign schema v2", () => {
+test("legacy presentation adapts deterministically to retail schema v3", () => {
   const adapted = campaignPresentation.adaptStarterPresentationV1(legacyPresentation);
-  assert.equal(adapted.schemaVersion, 2);
+  assert.equal(adapted.schemaVersion, 3);
   assert.deepEqual((adapted.navigation as { items: unknown[] }).items.length, 1);
   assert.deepEqual((adapted.sections as Array<{ kind: string }>).map(({ kind }) => kind), ["hero", "category_grid", "product_row", "brand_story"]);
   assert.equal(Object.isFrozen(adapted), true);
@@ -167,10 +167,10 @@ test("legacy presentation adapts deterministically to campaign schema v2", () =>
 
 test("new-store defaults are premium deterministic and contain no fake commerce data", () => {
   const defaults = campaignPresentation.buildDefaultStarterPresentation({ name: "Yeni Mağaza" });
-  assert.equal(defaults.schemaVersion, 2);
+  assert.equal(defaults.schemaVersion, 3);
   assert.equal((defaults.navigation as { items: unknown[] }).items.length, 0);
   assert.deepEqual((defaults.sections as Array<{ kind: string }>).map(({ kind }) => kind), ["hero", "product_row"]);
-  assert.equal(JSON.stringify(defaults).includes("review"), false);
+  assert.equal((defaults.footer as { newsletter: { enabled: boolean } }).newsletter.enabled, false);
   assert.equal(JSON.stringify(defaults).includes("discount"), false);
 });
 

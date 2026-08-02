@@ -1,4 +1,4 @@
-import type { PublicImageMediaType, PublicProduct, PublicProductMedia, PublicProductVariant, PublicStarterHomeSection, PublicStarterNavigation, PublicStarterNavigationItem, PublicStarterThemePresentation, PublicStarterThemePresentationV1, PublicStarterThemePresentationV2, PublicStorefront, PublicStorefrontAsset, StarterCampaignPanelConfig, StarterHeroSlideConfig, StarterThemeCompositionConfig, StarterThemeSectionConfig, StarterThemeVisual } from "./types.ts";
+import type { PublicImageMediaType, PublicProduct, PublicProductMedia, PublicProductMerchandising, PublicProductVariant, PublicStarterFooter, PublicStarterHomeSection, PublicStarterHomeSectionV2, PublicStarterNavigation, PublicStarterNavigationItem, PublicStarterReview, PublicStarterThemePresentation, PublicStarterThemePresentationV1, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStorefront, PublicStorefrontAsset, StarterCampaignPanelConfig, StarterFooterConfig, StarterHeroSlideConfig, StarterProductDetailConfigV2, StarterThemeComposition, StarterThemeCompositionConfig, StarterThemeCompositionConfigV2, StarterThemeSectionConfig, StarterThemeSectionConfigV2, StarterThemeVisual, StarterThemeVisualV2 } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -17,8 +17,24 @@ const MARQUEE_DIRECTIONS = Object.freeze(["left", "right"] as const);
 const MARQUEE_ANIMATIONS = Object.freeze(["continuous", "step"] as const);
 const CORNER_STYLES = Object.freeze(["square", "soft"] as const);
 const HEADER_STYLES = Object.freeze(["overlay", "solid"] as const);
+const HEADER_WIDTHS = Object.freeze(["contained", "wide"] as const);
+const SECTION_SPACINGS = Object.freeze(["compact", "balanced", "airy"] as const);
 const GALLERY_STYLES = Object.freeze(["grid", "rail"] as const);
 const PRODUCT_ROW_SOURCES = Object.freeze(["latest", "sale", "category"] as const);
+const VALUE_ICONS = Object.freeze(["sparkles", "cotton", "heart", "shield", "truck", "return"] as const);
+const INFORMATION_SECTIONS = Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const);
+const FOOTER_TONES = Object.freeze(["light", "dark"] as const);
+const FOOTER_POLICY_KEYS = Object.freeze(["privacy_security", "distance_sales", "kvkk", "payment_delivery", "cookie_usage", "returns_exchange", "membership"] as const);
+const FOOTER_SYSTEM_DESTINATIONS = Object.freeze(["/", "/products", "/favorites", "/account"] as const);
+const SOCIAL_NETWORKS = Object.freeze(["instagram", "facebook", "youtube", "pinterest", "tiktok", "x"] as const);
+const SOCIAL_HOSTS = Object.freeze({
+  instagram: Object.freeze(["instagram.com", "www.instagram.com"]),
+  facebook: Object.freeze(["facebook.com", "www.facebook.com"]),
+  youtube: Object.freeze(["youtube.com", "www.youtube.com"]),
+  pinterest: Object.freeze(["pinterest.com", "www.pinterest.com"]),
+  tiktok: Object.freeze(["tiktok.com", "www.tiktok.com"]),
+  x: Object.freeze(["x.com", "www.x.com"]),
+} as const);
 const STOREFRONT_ASSET_HOSTS = Object.freeze(["media.celebix.site", "media.saas-staging.celebix.site"] as const);
 const STOREFRONT_ASSET_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/(?:logo|hero|social|favicon|category)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 
@@ -100,6 +116,12 @@ function destination(value: unknown): string {
   if (!selected.startsWith("/") || selected.startsWith("//") || selected.includes("\\") || selected.includes("?") || selected.includes("#") || selected.includes("//")) invalid();
   const segments = selected.split("/");
   if (segments.some((segment, index) => index > 0 && (segment === "" || segment === "." || segment === ".."))) invalid();
+  return selected;
+}
+function socialUrl(value: unknown, network: (typeof SOCIAL_NETWORKS)[number]): string {
+  const selected = httpsUrl(value, 512);
+  const parsed = new URL(selected);
+  if (parsed.port || parsed.search || parsed.pathname === "/" || !SOCIAL_HOSTS[network].some((host) => host === parsed.hostname)) invalid();
   return selected;
 }
 function attributes(value: unknown): Readonly<Record<string, string>> {
@@ -186,6 +208,20 @@ function parseVisual(value: unknown): StarterThemeVisual {
   });
 }
 
+function parseVisualV2(value: unknown): StarterThemeVisualV2 {
+  const parsed = exact(value, ["colorScheme", "headingStyle", "cornerStyle", "headerStyle", "productCardStyle", "productImageRatio", "headerWidth", "sectionSpacing"]);
+  return Object.freeze({
+    colorScheme: oneOf(parsed.colorScheme, COLOR_SCHEMES),
+    headingStyle: oneOf(parsed.headingStyle, HEADING_STYLES),
+    cornerStyle: oneOf(parsed.cornerStyle, CORNER_STYLES),
+    headerStyle: oneOf(parsed.headerStyle, HEADER_STYLES),
+    productCardStyle: oneOf(parsed.productCardStyle, CARD_STYLES),
+    productImageRatio: oneOf(parsed.productImageRatio, IMAGE_RATIOS),
+    headerWidth: oneOf(parsed.headerWidth, HEADER_WIDTHS),
+    sectionSpacing: oneOf(parsed.sectionSpacing, SECTION_SPACINGS),
+  });
+}
+
 function uuidArray(value: unknown, minimum: number, maximum: number): readonly string[] {
   const selected = arrayValues(value, minimum, maximum).map(uuid);
   if (new Set(selected).size !== selected.length) invalid();
@@ -250,9 +286,95 @@ function parseConfigSection(value: unknown): StarterThemeSectionConfig {
   });
 }
 
-export function parseStarterThemeCompositionConfig(value: unknown): StarterThemeCompositionConfig {
-  const parsed = exact(value, ["schemaVersion", "visual", "announcement", "navigation", "sections", "productDetail", "cart"]);
-  if (parsed.schemaVersion !== 1) invalid();
+function parseConfigSectionV2(value: unknown): StarterThemeSectionConfigV2 {
+  const candidate = record(value);
+  if (candidate.kind === "value_propositions") {
+    const parsed = exact(candidate, ["kind", "enabled", "items"]);
+    const items = Object.freeze(arrayValues(parsed.items, 2, 4).map((entry) => {
+      const item = exact(entry, ["icon", "heading", "body"]);
+      return Object.freeze({ icon: oneOf(item.icon, VALUE_ICONS), heading: string(item.heading, 1, 120), body: string(item.body, 1, 300) });
+    }));
+    const headings = items.map(({ heading }) => heading);
+    if (new Set(headings).size !== headings.length) invalid();
+    return Object.freeze({ kind: "value_propositions", enabled: boolean(parsed.enabled), items });
+  }
+  if (candidate.kind === "testimonials") {
+    const parsed = exact(candidate, ["kind", "enabled", "heading", "source", "limit", "minimumRating"]);
+    const limit = integer(parsed.limit, 3, 9);
+    const minimumRating = integer(parsed.minimumRating, 4, 5);
+    if (![3, 6, 9].includes(limit) || ![4, 5].includes(minimumRating) || parsed.source !== "approved_product_reviews") invalid();
+    return Object.freeze({ kind: "testimonials", enabled: boolean(parsed.enabled), heading: string(parsed.heading, 1, 160), source: "approved_product_reviews", limit: limit as 3 | 6 | 9, minimumRating: minimumRating as 4 | 5 });
+  }
+  return parseConfigSection(candidate);
+}
+
+function parseProductDetailV2(value: unknown): StarterProductDetailConfigV2 {
+  const parsed = exact(value, ["galleryStyle", "showSku", "showBrand", "showBreadcrumbs", "showRelatedProducts", "showApprovedReviews", "mobileStickyPurchase", "showSizeGuide", "informationSections"]);
+  const informationSections = Object.freeze(arrayValues(parsed.informationSections, 1, 4).map((entry) => oneOf(entry, INFORMATION_SECTIONS)));
+  if (new Set(informationSections).size !== informationSections.length) invalid();
+  return Object.freeze({
+    galleryStyle: oneOf(parsed.galleryStyle, GALLERY_STYLES),
+    showSku: boolean(parsed.showSku),
+    showBrand: boolean(parsed.showBrand),
+    showBreadcrumbs: boolean(parsed.showBreadcrumbs),
+    showRelatedProducts: boolean(parsed.showRelatedProducts),
+    showApprovedReviews: boolean(parsed.showApprovedReviews),
+    mobileStickyPurchase: boolean(parsed.mobileStickyPurchase),
+    showSizeGuide: boolean(parsed.showSizeGuide),
+    informationSections,
+  });
+}
+
+function parseFooterLinkConfig(value: unknown): StarterFooterConfig["groups"][number]["links"][number] {
+  const candidate = record(value);
+  if (candidate.kind === "fixed_policy") {
+    const parsed = exact(candidate, ["kind", "policyKey"]);
+    return Object.freeze({ kind: "fixed_policy", policyKey: oneOf(parsed.policyKey, FOOTER_POLICY_KEYS) });
+  }
+  if (candidate.kind === "category") {
+    const parsed = exact(candidate, ["kind", "categoryId"]);
+    return Object.freeze({ kind: "category", categoryId: uuid(parsed.categoryId) });
+  }
+  if (candidate.kind === "page") {
+    const parsed = exact(candidate, ["kind", "pageId"]);
+    return Object.freeze({ kind: "page", pageId: uuid(parsed.pageId) });
+  }
+  if (candidate.kind === "system") {
+    const parsed = exact(candidate, ["kind", "destination"]);
+    return Object.freeze({ kind: "system", destination: oneOf(parsed.destination, FOOTER_SYSTEM_DESTINATIONS) });
+  }
+  return invalid();
+}
+
+function parseFooterConfig(value: unknown): StarterFooterConfig {
+  const parsed = exact(value, ["tone", "groups", "newsletter", "social"]);
+  const groups = Object.freeze(arrayValues(parsed.groups, 2, 4).map((entry) => {
+    const group = exact(entry, ["heading", "links"]);
+    const links = Object.freeze(arrayValues(group.links, 1, 8).map(parseFooterLinkConfig));
+    if (new Set(links.map((link) => JSON.stringify(link))).size !== links.length) invalid();
+    return Object.freeze({ heading: string(group.heading, 1, 80), links });
+  }));
+  if (new Set(groups.map(({ heading }) => heading)).size !== groups.length) invalid();
+  const newsletter = exact(parsed.newsletter, ["enabled", "heading", "body", "consentLabel"]);
+  const social = Object.freeze(arrayValues(parsed.social, 0, 6).map((entry) => {
+    const item = exact(entry, ["network", "url"]);
+    const network = oneOf(item.network, SOCIAL_NETWORKS);
+    return Object.freeze({ network, url: socialUrl(item.url, network) });
+  }));
+  if (new Set(social.map(({ network }) => network)).size !== social.length) invalid();
+  return Object.freeze({
+    tone: oneOf(parsed.tone, FOOTER_TONES),
+    groups,
+    newsletter: Object.freeze({ enabled: boolean(newsletter.enabled), heading: string(newsletter.heading, 1, 120), body: string(newsletter.body, 1, 500), consentLabel: string(newsletter.consentLabel, 1, 300) }),
+    social,
+  });
+}
+
+export function parseStarterThemeCompositionConfig(value: unknown): StarterThemeComposition {
+  const root = record(value);
+  const retail = root.schemaVersion === 2;
+  const parsed = exact(root, retail ? ["schemaVersion", "visual", "announcement", "navigation", "sections", "productDetail", "cart", "footer"] : ["schemaVersion", "visual", "announcement", "navigation", "sections", "productDetail", "cart"]);
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) invalid();
   const announcementValue = exact(parsed.announcement, ["enabled", "items"], ["destination"]);
   const announcementItems = Object.freeze(arrayValues(announcementValue.items, 0, 12).map((item) => string(item, 1, 160)));
   const announcementEnabled = boolean(announcementValue.enabled);
@@ -261,24 +383,23 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
   const hasFeaturedCategory = Object.hasOwn(navigationValue, "featuredCategoryId");
   const hasFeaturedAsset = Object.hasOwn(navigationValue, "featuredAssetId");
   if (hasFeaturedCategory !== hasFeaturedAsset) invalid();
-  const sections = Object.freeze(arrayValues(parsed.sections, 1, 12).map(parseConfigSection));
+  const sections = Object.freeze(arrayValues(parsed.sections, 1, 12).map(retail ? parseConfigSectionV2 : parseConfigSection));
   const singletonKinds = new Set<string>();
   for (const section of sections) {
     if (section.kind === "product_row") continue;
     if (singletonKinds.has(section.kind)) invalid();
     singletonKinds.add(section.kind);
   }
-  const productDetailValue = exact(parsed.productDetail, ["galleryStyle", "showSku", "showBrand", "showRelatedProducts", "mobileStickyPurchase"]);
   const cartValue = exact(parsed.cart, ["showCheckoutReadiness", "showShippingProgress"], ["trustMessage"]);
-  return Object.freeze({
-    schemaVersion: 1,
-    visual: parseVisual(parsed.visual),
+  const common = {
     announcement: Object.freeze({ enabled: announcementEnabled, items: announcementItems, ...(Object.hasOwn(announcementValue, "destination") ? { destination: destination(announcementValue.destination) } : {}) }),
     navigation: Object.freeze({ rootCategoryIds: uuidArray(navigationValue.rootCategoryIds, 0, 8), ...(hasFeaturedCategory ? { featuredCategoryId: uuid(navigationValue.featuredCategoryId), featuredAssetId: uuid(navigationValue.featuredAssetId) } : {}) }),
     sections,
-    productDetail: Object.freeze({ galleryStyle: oneOf(productDetailValue.galleryStyle, GALLERY_STYLES), showSku: boolean(productDetailValue.showSku), showBrand: boolean(productDetailValue.showBrand), showRelatedProducts: boolean(productDetailValue.showRelatedProducts), mobileStickyPurchase: boolean(productDetailValue.mobileStickyPurchase) }),
     cart: Object.freeze({ showCheckoutReadiness: boolean(cartValue.showCheckoutReadiness), showShippingProgress: boolean(cartValue.showShippingProgress), ...(Object.hasOwn(cartValue, "trustMessage") ? { trustMessage: string(cartValue.trustMessage, 1, 160) } : {}) }),
-  });
+  };
+  if (retail) return Object.freeze({ schemaVersion: 2, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV2);
+  const productDetailValue = exact(parsed.productDetail, ["galleryStyle", "showSku", "showBrand", "showRelatedProducts", "mobileStickyPurchase"]);
+  return Object.freeze({ schemaVersion: 1, visual: parseVisual(parsed.visual), ...common, productDetail: Object.freeze({ galleryStyle: oneOf(productDetailValue.galleryStyle, GALLERY_STYLES), showSku: boolean(productDetailValue.showSku), showBrand: boolean(productDetailValue.showBrand), showRelatedProducts: boolean(productDetailValue.showRelatedProducts), mobileStickyPurchase: boolean(productDetailValue.mobileStickyPurchase) }) } as StarterThemeCompositionConfig);
 }
 
 function parsePublicNavigationItem(value: unknown, depth: number): PublicStarterNavigationItem {
@@ -309,8 +430,33 @@ function parseAnnouncement(value: unknown): NonNullable<PublicStarterThemePresen
   return Object.freeze({ items: Object.freeze(arrayValues(parsed.items, 1, 12).map((item) => string(item, 1, 160))), ...(Object.hasOwn(parsed, "destination") ? { destination: destination(parsed.destination) } : {}) });
 }
 
-function parsePublicHomeSection(value: unknown): PublicStarterHomeSection {
+function parsePublicReview(value: unknown): PublicStarterReview {
+  const parsed = exact(value, ["reviewerName", "rating", "body"], ["title", "merchantReply"]);
+  const rating = integer(parsed.rating, 1, 5) as 1 | 2 | 3 | 4 | 5;
+  return Object.freeze({
+    reviewerName: string(parsed.reviewerName, 1, 120),
+    rating,
+    ...(Object.hasOwn(parsed, "title") ? { title: string(parsed.title, 1, 200) } : {}),
+    body: string(parsed.body, 1, 2000),
+    ...(Object.hasOwn(parsed, "merchantReply") ? { merchantReply: string(parsed.merchantReply, 1, 1000) } : {}),
+  });
+}
+
+function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHomeSection {
   const candidate = record(value);
+  if (retail && candidate.kind === "value_propositions") {
+    const parsed = exact(candidate, ["kind", "items"]);
+    const items = Object.freeze(arrayValues(parsed.items, 2, 4).map((entry) => {
+      const item = exact(entry, ["icon", "heading", "body"]);
+      return Object.freeze({ icon: oneOf(item.icon, VALUE_ICONS), heading: string(item.heading, 1, 120), body: string(item.body, 1, 300) });
+    }));
+    if (new Set(items.map(({ heading }) => heading)).size !== items.length) invalid();
+    return Object.freeze({ kind: "value_propositions", items });
+  }
+  if (retail && candidate.kind === "testimonials") {
+    const parsed = exact(candidate, ["kind", "heading", "items"]);
+    return Object.freeze({ kind: "testimonials", heading: string(parsed.heading, 1, 160), items: Object.freeze(arrayValues(parsed.items, 1, 9).map(parsePublicReview)) });
+  }
   const kind = oneOf(candidate.kind, Object.freeze(["hero", "category_grid", "product_row", "split_campaign", "brand_story"] as const));
   if (kind === "hero") {
     const parsed = exact(candidate, ["kind", "slides"]);
@@ -354,6 +500,32 @@ function parsePublicHomeSection(value: unknown): PublicStarterHomeSection {
   return Object.freeze({ kind: "brand_story", ...(Object.hasOwn(parsed, "eyebrow") ? { eyebrow: string(parsed.eyebrow, 1, 80) } : {}), heading: string(parsed.heading, 1, 160), body: string(parsed.body, 1, 1000), ...(Object.hasOwn(parsed, "image") ? { image: parseStorefrontAsset(parsed.image) } : {}), ...(Object.hasOwn(parsed, "destination") ? { destination: destination(parsed.destination) } : {}) });
 }
 
+function parsePublicFooter(value: unknown): PublicStarterFooter {
+  const parsed = exact(value, ["tone", "groups", "newsletter", "social"]);
+  const groups = Object.freeze(arrayValues(parsed.groups, 2, 4).map((entry) => {
+    const group = exact(entry, ["heading", "links"]);
+    const links = Object.freeze(arrayValues(group.links, 1, 8).map((entry) => {
+      const link = exact(entry, ["label", "destination"]);
+      return Object.freeze({ label: string(link.label, 1, 120), destination: destination(link.destination) });
+    }));
+    if (new Set(links.map(({ destination: selected }) => selected)).size !== links.length) invalid();
+    return Object.freeze({ heading: string(group.heading, 1, 80), links });
+  }));
+  if (new Set(groups.map(({ heading }) => heading)).size !== groups.length) invalid();
+  const newsletter = exact(parsed.newsletter, ["enabled", "heading", "body", "consentLabel"]);
+  const social = Object.freeze(arrayValues(parsed.social, 0, 6).map((entry) => {
+    const item = exact(entry, ["network", "url"]);
+    const network = oneOf(item.network, SOCIAL_NETWORKS);
+    return Object.freeze({ network, url: socialUrl(item.url, network) });
+  }));
+  if (new Set(social.map(({ network }) => network)).size !== social.length) invalid();
+  return Object.freeze({
+    tone: oneOf(parsed.tone, FOOTER_TONES), groups,
+    newsletter: Object.freeze({ enabled: boolean(newsletter.enabled), heading: string(newsletter.heading, 1, 120), body: string(newsletter.body, 1, 500), consentLabel: string(newsletter.consentLabel, 1, 300) }),
+    social,
+  });
+}
+
 function parseProductDetail(value: unknown): PublicStarterThemePresentationV2["productDetail"] {
   const parsed = exact(value, ["galleryStyle", "showSku", "showBrand", "showRelatedProducts", "mobileStickyPurchase"]);
   return Object.freeze({ galleryStyle: oneOf(parsed.galleryStyle, GALLERY_STYLES), showSku: boolean(parsed.showSku), showBrand: boolean(parsed.showBrand), showRelatedProducts: boolean(parsed.showRelatedProducts), mobileStickyPurchase: boolean(parsed.mobileStickyPurchase) });
@@ -373,7 +545,7 @@ function parsePresentationV1(value: unknown): PublicStarterThemePresentationV1 {
 function parsePresentationV2(value: unknown): PublicStarterThemePresentationV2 {
   const parsed = exact(value, ["schemaVersion", "displayName", "theme", "hero", "visual", "navigation", "sections", "productDetail", "cart", "seo"], ["supportEmail", "logo", "promotion", "marquee", "categoryShowcase", "announcement"]);
   if (parsed.schemaVersion !== 2) invalid();
-  const sections = Object.freeze(arrayValues(parsed.sections, 1, 12).map(parsePublicHomeSection));
+  const sections = Object.freeze(arrayValues(parsed.sections, 1, 12).map((section) => parsePublicHomeSection(section, false) as PublicStarterHomeSectionV2));
   const singletonKinds = new Set<string>();
   const keys = new Set<string>();
   for (const section of sections) {
@@ -405,10 +577,38 @@ function parsePresentationV2(value: unknown): PublicStarterThemePresentationV2 {
   });
 }
 
+function parsePresentationV3(value: unknown): PublicStarterThemePresentationV3 {
+  const parsed = exact(value, ["schemaVersion", "displayName", "theme", "hero", "visual", "navigation", "sections", "productDetail", "cart", "footer", "seo"], ["supportEmail", "logo", "promotion", "marquee", "categoryShowcase", "announcement"]);
+  if (parsed.schemaVersion !== 3) invalid();
+  const sections = Object.freeze(arrayValues(parsed.sections, 1, 12).map((section) => parsePublicHomeSection(section, true)));
+  const singletonKinds = new Set<string>(), keys = new Set<string>();
+  for (const section of sections) {
+    if (section.kind === "product_row") { if (keys.has(section.key)) invalid(); keys.add(section.key); continue; }
+    if (singletonKinds.has(section.kind)) invalid();
+    singletonKinds.add(section.kind);
+  }
+  return Object.freeze({
+    schemaVersion: 3,
+    displayName: string(parsed.displayName, 1, 160),
+    ...(Object.hasOwn(parsed, "supportEmail") ? { supportEmail: email(parsed.supportEmail) } : {}),
+    ...(Object.hasOwn(parsed, "logo") ? { logo: parseStorefrontAsset(parsed.logo) } : {}),
+    theme: parseTheme(parsed.theme), hero: parseHero(parsed.hero),
+    ...(Object.hasOwn(parsed, "promotion") ? { promotion: parsePromotion(parsed.promotion) } : {}),
+    ...(Object.hasOwn(parsed, "marquee") ? { marquee: parseMarquee(parsed.marquee) } : {}),
+    ...(Object.hasOwn(parsed, "categoryShowcase") ? { categoryShowcase: parseCategoryShowcase(parsed.categoryShowcase) } : {}),
+    visual: parseVisualV2(parsed.visual),
+    ...(Object.hasOwn(parsed, "announcement") ? { announcement: parseAnnouncement(parsed.announcement) } : {}),
+    navigation: parseNavigation(parsed.navigation), sections,
+    productDetail: parseProductDetailV2(parsed.productDetail), cart: parseCartOptions(parsed.cart),
+    footer: parsePublicFooter(parsed.footer), seo: parseSeo(parsed.seo),
+  });
+}
+
 export function parsePublicStarterThemePresentation(value: unknown): PublicStarterThemePresentation {
   const parsed = record(value);
   if (parsed.schemaVersion === 1) return parsePresentationV1(parsed);
   if (parsed.schemaVersion === 2) return parsePresentationV2(parsed);
+  if (parsed.schemaVersion === 3) return parsePresentationV3(parsed);
   return invalid();
 }
 
@@ -436,8 +636,21 @@ export function parsePublicProductVariant(value: unknown): PublicProductVariant 
   return Object.freeze({ id: uuid(parsed.id), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "sku") ? { sku: string(parsed.sku, 1, 64, SKU) } : {}), priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), stockTracking: boolean(parsed.stockTracking), stockQuantity: integer(parsed.stockQuantity, 0), available: boolean(parsed.available), attributes: attributes(parsed.attributes) });
 }
 
+function parsePublicProductMerchandising(value: unknown): PublicProductMerchandising {
+  const parsed = exact(value, ["highlights", "certifications"], ["materialsAndCare", "sizeGuide"]);
+  const highlights = Object.freeze(arrayValues(parsed.highlights, 0, 12).map((item) => string(item, 1, 300)));
+  const certifications = Object.freeze(arrayValues(parsed.certifications, 0, 12).map((item) => string(item, 1, 200)));
+  if (new Set(highlights).size !== highlights.length || new Set(certifications).size !== certifications.length) invalid();
+  let sizeGuide: PublicProductMerchandising["sizeGuide"];
+  if (Object.hasOwn(parsed, "sizeGuide")) {
+    const selected = exact(parsed.sizeGuide, ["heading", "body"]);
+    sizeGuide = Object.freeze({ heading: string(selected.heading, 1, 120), body: description(selected.body) });
+  }
+  return Object.freeze({ highlights, ...(Object.hasOwn(parsed, "materialsAndCare") ? { materialsAndCare: description(parsed.materialsAndCare) } : {}), certifications, ...(sizeGuide ? { sizeGuide } : {}) });
+}
+
 export function parsePublicProduct(value: unknown): PublicProduct {
-  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media"], ["description", "compareAtCents", "brand", "categoryPath"]);
+  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media"], ["description", "compareAtCents", "brand", "categoryPath", "merchandising", "reviews"]);
   if (parsed.currency !== "TRY" || parsed.status !== "active" || !Array.isArray(parsed.variants) || !Array.isArray(parsed.media) || parsed.variants.length < 1 || parsed.variants.length > 100 || parsed.media.length > 16) invalid();
   const priceCents = integer(parsed.priceCents, 0);
   const compareAtCents = optionalInteger(parsed, "compareAtCents", priceCents, Number.MAX_SAFE_INTEGER);
@@ -448,5 +661,7 @@ export function parsePublicProduct(value: unknown): PublicProduct {
   if (media.some((item) => item.productId !== id)) invalid();
   const categoryPath = Object.hasOwn(parsed, "categoryPath") ? Object.freeze(arrayValues(parsed.categoryPath, 0, 8).map((value) => { const item = exact(value, ["name", "slug"]); return Object.freeze({ name: string(item.name, 1, 120), slug: string(item.slug, 1, 100, SLUG) }); })) : undefined;
   const brand = Object.hasOwn(parsed, "brand") ? (() => { const value = exact(parsed.brand, ["name", "slug"]); return Object.freeze({ name: string(value.name, 1, 200), slug: string(value.slug, 1, 100, SLUG) }); })() : undefined;
-  return Object.freeze({ id, slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), ...(brand ? { brand } : {}), ...(categoryPath ? { categoryPath } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media });
+  const merchandising = Object.hasOwn(parsed, "merchandising") ? parsePublicProductMerchandising(parsed.merchandising) : undefined;
+  const reviews = Object.hasOwn(parsed, "reviews") ? Object.freeze(arrayValues(parsed.reviews, 0, 20).map(parsePublicReview)) : undefined;
+  return Object.freeze({ id, slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), ...(brand ? { brand } : {}), ...(categoryPath ? { categoryPath } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media, ...(merchandising ? { merchandising } : {}), ...(reviews ? { reviews } : {}) });
 }

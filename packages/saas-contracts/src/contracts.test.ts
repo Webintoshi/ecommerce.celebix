@@ -428,6 +428,7 @@ test("keeps the public runtime export surface frozen", () => {
     "STORE_STATUSES",
     "VARIANT_STATUSES",
     "adaptStarterPresentationV1",
+    "adaptStarterPresentationV2",
     "buildDefaultStarterPresentation",
     "getPlanLimit",
     "isBuiltInPaymentMethodKind",

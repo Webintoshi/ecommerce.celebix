@@ -84,18 +84,27 @@ test("starter presentation parser is reusable without weakening the public store
 test("starter presentation defaults and token mapping are deterministic and bounded", () => {
   const defaults = buildDefaultStarterPresentation({ name: "Yeni Mağaza" });
   assert.deepEqual(defaults, {
-    schemaVersion: 2,
+    schemaVersion: 3,
     displayName: "Yeni Mağaza",
     theme: { colorScheme: "neutral", headingStyle: "serif", productCardStyle: "editorial", productImageRatio: "portrait", homeProductLimit: 8, showBrandStory: false },
     hero: { enabled: true, headline: "Yeni Mağaza", body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" },
-    visual: { colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait" },
+    visual: { colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" },
     navigation: { items: [] },
     sections: [
       { kind: "hero", slides: [{ heading: "Yeni Mağaza", body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" }] },
       { kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 },
     ],
-    productDetail: { galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true },
+    productDetail: { galleryStyle: "rail", showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: ["description", "materials_and_care", "certifications", "shipping_and_returns"] },
     cart: { showCheckoutReadiness: true, showShippingProgress: true },
+    footer: {
+      tone: "dark",
+      groups: [
+        { heading: "Mağaza", links: [{ label: "Ana Sayfa", destination: "/" }, { label: "Tüm Ürünler", destination: "/products" }, { label: "Favoriler", destination: "/favorites" }] },
+        { heading: "Politikalar", links: [{ label: "Gizlilik ve Güvenlik", destination: "/policies/privacy-security" }, { label: "İade ve Değişim", destination: "/policies/returns-exchange" }] },
+      ],
+      newsletter: { enabled: false, heading: "Bültene katılın", body: "Yeni ürünleri ilk siz öğrenin.", consentLabel: "E-posta iletişimine izin veriyorum." },
+      social: [],
+    },
     seo: { allowIndex: false },
   });
   assert.equal(Object.isFrozen(defaults.hero), true);
