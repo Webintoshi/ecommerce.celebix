@@ -1,4 +1,6 @@
 export { parsePublicProduct, parsePublicProductMedia, parsePublicProductVariant, parsePublicStarterThemePresentation, parsePublicStorefront, parseStarterThemeCompositionConfig } from "./validation.ts";
+export { parseNewsletterSubscribeInput } from "./newsletter.ts";
+export type { NewsletterSubscribeInput } from "./newsletter.ts";
 export {
   FIXED_STOREFRONT_POLICIES,
   parsePublicCart,

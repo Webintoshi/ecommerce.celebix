@@ -82,3 +82,14 @@ test("newsletter inputs fail closed before pool checkout", async () => {
   await assert.rejects(() => selected.repository.subscribe({ hostname: "shop.example.test", now: NOW, email: "ada@example.test", consentVersion: "starter-v1", storeId: STORE } as never));
   assert.equal(selected.calls.length, 0);
 });
+
+test("public-only newsletter repository cannot execute merchant listing", async () => {
+  let checkouts = 0;
+  const publicOnly = new PostgresNewsletterRepository({
+    pool: { connect: async () => { checkouts += 1; throw new Error("must_not_connect"); } } as unknown as PostgresPoolLike,
+    publicRole: "celebix_saas_host_resolver",
+    timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 },
+  });
+  await assert.rejects(() => publicOnly.list({ tenantContext: tenant(), now: NOW, limit: 100 }));
+  assert.equal(checkouts, 0);
+});

@@ -5,6 +5,7 @@ import { resolveCampaignPageProjection } from "./campaign-page-resolution.ts";
 
 const legacyStorefront = Object.freeze({ presentation: Object.freeze({ schemaVersion: 1 }) });
 const campaignStorefront = Object.freeze({ presentation: Object.freeze({ schemaVersion: 2 }) });
+const retailStorefront = Object.freeze({ presentation: Object.freeze({ schemaVersion: 3 }) });
 
 test("legacy storefronts never request a campaign projection", async () => {
   let calls = 0;
@@ -22,6 +23,18 @@ test("schema-v2 storefronts expose only a complete campaign projection", async (
   let calls = 0;
   const result = await resolveCampaignPageProjection({
     storefront: campaignStorefront as never,
+    repository: { resolveCampaignHome: async () => { calls += 1; return projection; } } as never,
+    now: new Date("2026-08-02T00:00:00.000Z"),
+  });
+  assert.deepEqual(result, { kind: "campaign", projection });
+  assert.equal(calls, 1);
+});
+
+test("schema-v3 storefronts resolve the complete retail campaign projection", async () => {
+  const projection = Object.freeze({ presentation: Object.freeze({ schemaVersion: 3 }) });
+  let calls = 0;
+  const result = await resolveCampaignPageProjection({
+    storefront: retailStorefront as never,
     repository: { resolveCampaignHome: async () => { calls += 1; return projection; } } as never,
     now: new Date("2026-08-02T00:00:00.000Z"),
   });

@@ -38,7 +38,7 @@ function subscriber(value: unknown): NewsletterSubscriber {
 export class PostgresNewsletterRepository implements NewsletterRepository {
   private readonly options: PostgresNewsletterRepositoryOptions;
   constructor(options: PostgresNewsletterRepositoryOptions) {
-    if (!options || Object.getPrototypeOf(options) !== Object.prototype || options.publicRole !== "celebix_saas_host_resolver" || options.merchantRole !== "celebix_saas_app") throw failure("unavailable");
+    if (!options || Object.getPrototypeOf(options) !== Object.prototype || options.publicRole !== "celebix_saas_host_resolver" || (options.merchantRole !== undefined && options.merchantRole !== "celebix_saas_app")) throw failure("unavailable");
     timeout(options.timeouts.poolCheckoutMs); timeout(options.timeouts.statementMs); timeout(options.timeouts.lockMs); timeout(options.timeouts.idleTransactionMs);
     this.options = options;
   }
@@ -71,6 +71,7 @@ export class PostgresNewsletterRepository implements NewsletterRepository {
     return Object.freeze({ outcome: "subscribed" });
   }
   async list(input: Parameters<NewsletterRepository["list"]>[0]): Promise<readonly NewsletterSubscriber[]> {
+    if (this.options.merchantRole !== "celebix_saas_app") throw failure("unavailable");
     const parsed = exact(input, ["tenantContext", "now", "limit"]);
     let authority;
     try { authority = merchantAuthority(parsed.tenantContext as TenantContext, date(parsed.now), "content"); } catch { throw failure("invalid_input"); }

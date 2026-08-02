@@ -487,6 +487,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseMerchantPaymentMethod",
     "parseMerchantProviderDescriptor",
     "parseMerchantProviderProfile",
+    "parseNewsletterSubscribeInput",
     "parseOrderDashboardSummary",
     "parseOrderDetail",
     "parseOrderListItem",

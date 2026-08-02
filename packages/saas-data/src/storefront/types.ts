@@ -24,7 +24,7 @@ export interface NewsletterRepository {
 export type PostgresNewsletterRepositoryOptions = Readonly<{
   pool: PostgresPoolLike;
   publicRole: "celebix_saas_host_resolver";
-  merchantRole: "celebix_saas_app";
+  merchantRole?: "celebix_saas_app";
   timeouts: PostgresTimeoutOptions;
 }>;
 
