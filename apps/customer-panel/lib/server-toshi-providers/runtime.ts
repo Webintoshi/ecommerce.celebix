@@ -2,7 +2,7 @@ import type {
   MerchantProviderCredentialKeyring,
   ToshiProviderRepository,
 } from "@celebix/saas-data";
-import { TOSHI_PROVIDERS } from "@celebix/saas-contracts";
+import { TOSHI_PROVIDERS, type ToshiProvider } from "@celebix/saas-contracts";
 
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 import type {
@@ -100,7 +100,7 @@ function adapterFacade(value: ToshiProviderAdapterRegistry): ToshiProviderAdapte
     adapters.set(provider, Object.freeze({ provider, verify: selected.verify.bind(selected) }));
   }
   return Object.freeze({
-    get(provider) {
+    get(provider: ToshiProvider) {
       const selected = adapters.get(provider);
       if (!selected) invalid();
       return selected;

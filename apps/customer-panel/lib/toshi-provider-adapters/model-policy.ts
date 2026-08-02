@@ -1,6 +1,9 @@
 import type { ToshiProviderModel } from "@celebix/saas-contracts";
 
-import { ToshiProviderAdapterError } from "./types.ts";
+import {
+  ToshiProviderAdapterError,
+  type ToshiProviderFetch,
+} from "./types.ts";
 
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
 const ENCODER = new TextEncoder();
@@ -14,7 +17,7 @@ function unavailable(): never {
 
 export function plainRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) unavailable();
-  const descriptors = Object.getOwnPropertyDescriptors(value) as Record<PropertyKey, PropertyDescriptor>;
+  const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
   if (Reflect.ownKeys(descriptors).some((key) => {
     const descriptor = descriptors[key];
     return typeof key !== "string" || !descriptor || !("value" in descriptor) || !descriptor.enumerable;
@@ -30,7 +33,7 @@ export function ownValue(record: Record<string, unknown>, key: string): unknown 
 
 export function boundedArray(value: unknown): readonly unknown[] {
   if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > MAXIMUM_PROVIDER_MODELS) unavailable();
-  const descriptors = Object.getOwnPropertyDescriptors(value) as Record<PropertyKey, PropertyDescriptor>;
+  const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
   if (Reflect.ownKeys(descriptors).length !== value.length + 1) unavailable();
   const result: unknown[] = [];
   for (let index = 0; index < value.length; index += 1) {
@@ -57,7 +60,7 @@ export function finalizeModels(models: readonly ToshiProviderModel[], preference
   for (const entry of models) {
     if (!byId.has(entry.id)) byId.set(entry.id, Object.freeze({ id: boundedText(entry.id), label: boundedText(entry.label) }));
   }
-  const selected = [...byId.values()].sort((left, right) => left.id.localeCompare(right)).slice(0, MAXIMUM_PUBLIC_MODELS);
+  const selected = [...byId.values()].sort((left, right) => left.id.localeCompare(right.id)).slice(0, MAXIMUM_PUBLIC_MODELS);
   if (selected.length === 0) throw new ToshiProviderAdapterError("model_unavailable");
   const preferred = preferences.map((pattern) => selected.find(({ id }) => pattern.test(id))).find(Boolean) ?? selected[0];
   if (!preferred) throw new ToshiProviderAdapterError("model_unavailable");

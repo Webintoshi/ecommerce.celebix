@@ -90,7 +90,7 @@ function fixture(options: Readonly<{
       async rotateCredential() { return { kind: "unavailable" }; },
       async revokeCredential() { return { kind: "unavailable" }; },
     },
-  } as ServerToshiProviderRuntime;
+  } as unknown as ServerToshiProviderRuntime;
   return {
     calls,
     handlers: createToshiProviderHttpHandlers({ async resolveRuntime() { return runtime; }, now: () => new Date(NOW), requestId: () => REQUEST, uuid: () => CONFIG }),
