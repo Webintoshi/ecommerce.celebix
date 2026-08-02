@@ -180,7 +180,7 @@ git commit -m "feat: define Toshi provider contracts"
 **Interfaces:**
 - Produces table: `saas.toshi_provider_configs` and append-only `saas.toshi_provider_events`.
 - Produces functions: `toshi_provider_list`, `toshi_provider_connect`, `toshi_provider_select_model`, `toshi_provider_set_default`, `toshi_provider_revoke`, `toshi_provider_get_authority`, `toshi_provider_recover_operation`.
-- Consumes: `saas.merchant_action_authority_error(..., 'configuration', 'configuration.manage')` for writes and existing tenant context columns for reads.
+- Consumes: `saas.merchant_action_authority_error(..., 'catalog', 'configuration.manage')` for writes, `configuration.read` for reads and existing tenant context columns. `catalog` intentionally keeps Toshi available to starter stores while action authorization remains configuration-specific.
 
 - [ ] **Step 1: Write failing migration artifact test**
 
@@ -192,7 +192,7 @@ test("Toshi provider vault is store-scoped, encrypted-only and secret-free in pr
   assert.doesNotMatch(up, /api_key\s+text/i);
   assert.match(up, /CREATE UNIQUE INDEX toshi_provider_one_live_provider/);
   assert.match(up, /CREATE UNIQUE INDEX toshi_provider_one_default/);
-  assert.match(up, /merchant_action_authority_error\([^;]+?'configuration','configuration[.]manage'/s);
+  assert.match(up, /merchant_action_authority_error\([^;]+?'catalog','configuration[.]manage'/s);
   assert.match(up, /REVOKE ALL ON TABLE saas[.]toshi_provider_configs FROM PUBLIC/);
 });
 ```

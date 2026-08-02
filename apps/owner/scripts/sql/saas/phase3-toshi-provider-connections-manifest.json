@@ -1,0 +1,23 @@
+{
+  "phase": "phase3-toshi-provider-connections",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608020080_toshi_provider_connections.up.sql",
+      "direction": "up",
+      "sha256": "ec64900d106da8e052d266887fe3187a004dced54888b4fdcb331417b4ec04b8"
+    },
+    {
+      "file": "202608020080_toshi_provider_connections.down.sql",
+      "direction": "down",
+      "sha256": "c731b0e7e77b73078f337637f4ef8734f8de31008c472d602e65ead47b94514d"
+    },
+    {
+      "file": "202608020080_toshi_provider_connections_assertions.sql",
+      "direction": "verify",
+      "sha256": "48a82161c50bc49ae0c6b5de224df29ea4af27ea185ef1897e879d18449e8c7d"
+    }
+  ]
+}
