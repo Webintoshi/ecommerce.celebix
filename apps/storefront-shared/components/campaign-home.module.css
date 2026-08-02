@@ -6,3 +6,4 @@
 @media(prefers-reduced-motion:reduce){.heroRail,.testimonials ul{scroll-behavior:auto}.categoryGrid img{transition-duration:.01ms}.categoryGrid>a:hover img{transform:none}}
 .announcement a{display:flex;min-height:48px;align-items:center;justify-content:center;color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
 .heroSlide,.categoryGrid>a,.panels>a,.story{border-radius:var(--campaign-corner,0)}
+.announcement{min-height:48px;padding-block:0}

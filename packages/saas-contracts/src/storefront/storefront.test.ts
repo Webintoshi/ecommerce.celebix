@@ -100,7 +100,15 @@ test("starter presentation defaults and token mapping are deterministic and boun
       tone: "dark",
       groups: [
         { heading: "Mağaza", links: [{ label: "Ana Sayfa", destination: "/" }, { label: "Tüm Ürünler", destination: "/products" }, { label: "Favoriler", destination: "/favorites" }] },
-        { heading: "Politikalar", links: [{ label: "Gizlilik ve Güvenlik", destination: "/policies/privacy-security" }, { label: "İade ve Değişim", destination: "/policies/returns-exchange" }] },
+        { heading: "Politikalar", links: [
+          { label: "Gizlilik ve Güvenlik", destination: "/policies/privacy-security" },
+          { label: "Mesafeli Satış Sözleşmesi", destination: "/policies/distance-sales" },
+          { label: "KVKK", destination: "/policies/kvkk" },
+          { label: "Ödeme & Teslimat", destination: "/policies/payment-delivery" },
+          { label: "Çerez Kullanımı", destination: "/policies/cookies" },
+          { label: "İade & Değişim", destination: "/policies/returns-exchanges" },
+          { label: "Üyelik", destination: "/policies/membership" },
+        ] },
       ],
       newsletter: { enabled: false, heading: "Bültene katılın", body: "Yeni ürünleri ilk siz öğrenin.", consentLabel: "E-posta iletişimine izin veriyorum." },
       social: [],

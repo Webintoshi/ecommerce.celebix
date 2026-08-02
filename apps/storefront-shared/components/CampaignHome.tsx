@@ -33,5 +33,5 @@ export function CampaignHome({ storefront, projection }: Readonly<{ storefront: 
   if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3) return null;
   const effective = Object.freeze({ ...storefront, presentation });
   const announcement = campaignAnnouncement(presentation);
-  return <StorefrontFrame storefront={effective}>{announcement ? <aside className={styles.announcement} aria-label="Mağaza duyuruları">{announcement.destination ? <Link href={announcement.destination}>{announcement.text}</Link> : announcement.text}</aside> : null}<div className={styles.home}>{presentation.sections.map((section, index) => <Section key={`${section.kind}-${index}`} section={section} presentation={presentation} productRows={projection.productRows} />)}</div></StorefrontFrame>;
+  return <StorefrontFrame storefront={effective} hasAnnouncement={Boolean(announcement)}>{announcement ? <aside className={styles.announcement} aria-label="Mağaza duyuruları">{announcement.destination ? <Link href={announcement.destination}>{announcement.text}</Link> : announcement.text}</aside> : null}<div className={styles.home}>{presentation.sections.map((section, index) => <Section key={`${section.kind}-${index}`} section={section} presentation={presentation} productRows={projection.productRows} />)}</div></StorefrontFrame>;
 }

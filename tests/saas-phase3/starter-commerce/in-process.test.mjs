@@ -91,11 +91,11 @@ test("real public repository accepts an empty v2 campaign and rejects legacy cam
   const storefront = Object.freeze({ schemaVersion: 2, id: "50000000-0000-4000-8000-000000000001", name: "Campaign Store", slug: "campaign-store", hostname: HOST, primaryHostname: HOST, canonicalUrl: ORIGIN + "/", currency: "TRY", locale: "tr", themeKey: "starter", presentation });
   let resultPayload = { presentation, productRows: [{ key: "latest-0", items: [] }] };
   const calls = [];
-  const client = { async query(text, values = []) { calls.push({ text, values }); return text.includes("saas.public_campaign_home") ? { rows: [{ outcome: "found", result_payload: resultPayload }] } : { rows: [] }; }, release() {} };
+  const client = { async query(text, values = []) { calls.push({ text, values }); return text.includes("saas.public_starter_retail_home") ? { rows: [{ outcome: "found", result_payload: resultPayload }] } : { rows: [] }; }, release() {} };
   const repository = new PostgresPublicStorefrontRepository({ pool: { async connect() { return client; } }, role: "celebix_saas_host_resolver", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 } });
   const projected = await repository.resolveCampaignHome({ storefront, now: new Date("2026-08-01T12:00:00.000Z") });
   assert.deepEqual(projected.productRows, [{ key: "latest-0", items: [] }]);
-  assert.equal(calls.filter(({ text }) => text.includes("saas.public_campaign_home")).length, 1);
+  assert.equal(calls.filter(({ text }) => text.includes("saas.public_starter_retail_home")).length, 1);
   resultPayload = { presentation: { ...presentation, schemaVersion: 1 }, productRows: [] };
   await assert.rejects(repository.resolveCampaignHome({ storefront, now: new Date("2026-08-01T12:00:00.000Z") }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
 });

@@ -113,6 +113,7 @@ function email(value: unknown): string {
 }
 function destination(value: unknown): string {
   const selected = string(value, 1, 512);
+  if (selected === "/") return selected;
   if (!selected.startsWith("/") || selected.startsWith("//") || selected.includes("\\") || selected.includes("?") || selected.includes("#") || selected.includes("//")) invalid();
   const segments = selected.split("/");
   if (segments.some((segment, index) => index > 0 && (segment === "" || segment === "." || segment === ".."))) invalid();

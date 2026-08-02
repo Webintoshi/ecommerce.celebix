@@ -111,6 +111,7 @@ type RetailValidation = {
 };
 type RetailPresentation = {
   adaptStarterPresentationV2(value: unknown): Readonly<Record<string, unknown>>;
+  buildDefaultStarterPresentation(value: Readonly<{ name: string }>): Readonly<Record<string, unknown>>;
 };
 const retailValidation = validationModule as unknown as RetailValidation;
 const retailPresentation = presentationModule as unknown as RetailPresentation;
@@ -145,6 +146,24 @@ test("presentation v2 adapts to v3 without invented retail content", () => {
   assert.equal((adapted.footer as { newsletter: { enabled: boolean } }).newsletter.enabled, false);
   assert.deepEqual((adapted.sections as Array<{ kind: string }>).filter(({ kind }) => kind === "testimonials"), []);
   assert.deepEqual((adapted.sections as Array<{ kind: string }>).filter(({ kind }) => kind === "value_propositions"), []);
+});
+
+test("new starter storefronts expose every fixed policy route in the default footer", () => {
+  const defaults = retailPresentation.buildDefaultStarterPresentation({ name: "Yeni Mağaza" });
+  assert.doesNotThrow(() => retailValidation.parsePublicStarterThemePresentation(defaults));
+  const footer = defaults.footer as { groups: readonly { heading: string; links: readonly { destination: string }[] }[] };
+  assert.deepEqual(
+    footer.groups.find(({ heading }) => heading === "Politikalar")?.links.map(({ destination }) => destination),
+    [
+      "/policies/privacy-security",
+      "/policies/distance-sales",
+      "/policies/kvkk",
+      "/policies/payment-delivery",
+      "/policies/cookies",
+      "/policies/returns-exchanges",
+      "/policies/membership",
+    ],
+  );
 });
 
 test("public product accepts bounded merchandising and approved review projections only", () => {

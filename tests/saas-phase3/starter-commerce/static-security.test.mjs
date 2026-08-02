@@ -76,18 +76,20 @@ test("browser acceptance contract owns the exact responsive matrix and untracked
 });
 
 test("campaign starter stays on the server-owned public projection boundary", () => {
-  const [page, context, repository] = [
+  const [page, context, resolution, repository] = [
     read("apps/storefront-shared/app/page.tsx"),
     read("apps/storefront-shared/lib/page-context.ts"),
+    read("apps/storefront-shared/lib/campaign-page-resolution.ts"),
     read("packages/saas-data/src/storefront/repository.ts"),
   ];
   assert.match(page, /context[.]campaign/u);
-  assert.match(context, /presentation[.]schemaVersion === 2/u);
-  assert.match(context, /repository[.]resolveCampaignHome/u);
+  assert.match(context, /resolveCampaignPageProjection/u);
+  assert.match(resolution, /presentation[.]schemaVersion === 1/u);
+  assert.match(resolution, /repository[.]resolveCampaignHome/u);
   assert.match(repository, /SET LOCAL ROLE celebix_saas_host_resolver/u);
-  assert.match(repository, /saas[.]public_campaign_home/u);
+  assert.match(repository, /saas[.]public_starter_retail_home/u);
   assert.match(repository, /saas[.]public_storefront_related_products/u);
-  assert.doesNotMatch(`${page}\n${context}`, /tenantId|storeId|x-forwarded|document[.]cookie|localStorage|sessionStorage/iu);
+  assert.doesNotMatch(`${page}\n${context}\n${resolution}`, /tenantId|storeId|x-forwarded|document[.]cookie|localStorage|sessionStorage/iu);
 });
 
 test("campaign application sources contain no donor identity secret or arbitrary media authority", () => {

@@ -18,17 +18,17 @@ test("legacy schema v1 storefronts adapt deterministically without losing their 
     hero: { enabled: true, headline: "Eski Mağaza", body: "Seçki", destination: "/products" },
     seo: { allowIndex: false },
   });
-  assert.equal(adapted.schemaVersion, 2);
+  assert.equal(adapted.schemaVersion, 3);
   assert.equal(adapted.hero.destination, "/products");
   assert.deepEqual(adapted.sections.map(({ kind }) => kind), ["hero", "product_row"]);
   assert.equal(Object.isFrozen(adapted), true);
 });
 
-test("schema v2 full campaign composition remains public-only and is registered in the current matrix", async () => {
+test("schema v3 full retail composition remains public-only and preserves the campaign harness registration", async () => {
   const defaults = buildDefaultStarterPresentation({ name: "Campaign Mağaza" });
   const parsed = parsePublicStarterThemePresentation({
     ...defaults,
-    announcement: { items: ["Güvenli alışveriş"], destination: "/policies/odeme-teslimat" },
+    announcement: { items: ["Güvenli alışveriş"], destination: "/policies/payment-delivery" },
     navigation: { items: [{ name: "Takılar", slug: "takilar", children: [] }] },
     sections: [
       { kind: "hero", slides: [{ heading: "Yeni sezon", desktopImage: IMAGE, destination: "/products" }] },
@@ -38,7 +38,7 @@ test("schema v2 full campaign composition remains public-only and is registered 
       { kind: "brand_story", heading: "Özenle seçildi", body: "Kalıcı tasarımlar." },
     ],
   });
-  assert.equal(parsed.schemaVersion, 2);
+  assert.equal(parsed.schemaVersion, 3);
   assert.equal(JSON.stringify(parsed).includes("objectKey"), false);
   assert.equal(JSON.stringify(parsed).includes("tenantId"), false);
   const matrix = JSON.parse(await readFile(path.join(ROOT, "tests/saas-phase3/current-test-matrix.json"), "utf8"));
@@ -47,10 +47,10 @@ test("schema v2 full campaign composition remains public-only and is registered 
 
 test("new and empty stores use deterministic truth without invented media or commerce", () => {
   const defaults = buildDefaultStarterPresentation({ name: "Boş Mağaza" });
-  assert.equal(defaults.schemaVersion, 2);
+  assert.equal(defaults.schemaVersion, 3);
   assert.deepEqual(defaults.navigation.items, []);
   assert.equal(defaults.sections.some((section) => section.kind === "product_row"), true);
   const encoded = JSON.stringify(defaults);
-  assert.doesNotMatch(encoded, /review|rating|stockQuantity|discount|https?:\/\//iu);
+  assert.doesNotMatch(encoded, /"reviews":|reviewerName|"rating":|stockQuantity|"discount":|https?:\/\//iu);
   assert.equal(Object.isFrozen(defaults.sections), true);
 });

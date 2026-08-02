@@ -1,4 +1,5 @@
 import { parsePublicStarterThemePresentation } from "./validation.ts";
+import { FIXED_STOREFRONT_POLICIES } from "./commerce.ts";
 import type { PublicStarterHomeSectionV2, PublicStarterThemePresentation, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3 } from "./types.ts";
 
 export type StarterThemeTokens = Readonly<{
@@ -56,7 +57,7 @@ function defaultRetailFooter(): PublicStarterThemePresentationV3["footer"] {
     tone: "dark",
     groups: Object.freeze([
       Object.freeze({ heading: "Mağaza", links: Object.freeze([Object.freeze({ label: "Ana Sayfa", destination: "/" }), Object.freeze({ label: "Tüm Ürünler", destination: "/products" }), Object.freeze({ label: "Favoriler", destination: "/favorites" })]) }),
-      Object.freeze({ heading: "Politikalar", links: Object.freeze([Object.freeze({ label: "Gizlilik ve Güvenlik", destination: "/policies/privacy-security" }), Object.freeze({ label: "İade ve Değişim", destination: "/policies/returns-exchange" })]) }),
+      Object.freeze({ heading: "Politikalar", links: Object.freeze(FIXED_STOREFRONT_POLICIES.map(({ label, route }) => Object.freeze({ label, destination: route }))) }),
     ]),
     newsletter: Object.freeze({ enabled: false, heading: "Bültene katılın", body: "Yeni ürünleri ilk siz öğrenin.", consentLabel: "E-posta iletişimine izin veriyorum." }),
     social: Object.freeze([]),
