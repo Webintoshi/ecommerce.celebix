@@ -6,8 +6,8 @@ import styles from "./campaign-header.module.css";
 
 export function CampaignHeader({ storefront }: Readonly<{ storefront: PublicStorefront }>) {
   const presentation = storefront.presentation;
-  if (presentation.schemaVersion !== 2) return null;
-  return <header className={styles.header} data-header-style={presentation.visual.headerStyle}>
+  if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3) return null;
+  return <header className={styles.header} data-header-style={presentation.visual.headerStyle} data-header-width={presentation.schemaVersion === 3 ? presentation.visual.headerWidth : "wide"}>
     <CampaignHeaderClient displayName={presentation.displayName} logo={presentation.logo} navigation={presentation.navigation} desktopNavigation={<nav className={styles.desktopNav} aria-label="Ana menü">
       <Link href="/">Ana Sayfa</Link><Link href="/products">Ürünler</Link>
       {presentation.navigation.items.map((item) => <div className={styles.megaTrigger} key={item.slug}>

@@ -20,8 +20,13 @@ test("campaign announcement preserves exact parsed text and same-store destinati
   assert.equal(campaignAnnouncement(campaign({ announcement: undefined }) as never), null);
 });
 
-test("frame settings expose exact corner class and only schema-v2 cart presentation", () => {
+test("frame settings expose exact corner class for schema-v2 and schema-v3 cart presentation", () => {
   assert.deepEqual(campaignFrameSettings(campaign() as never), {
+    campaignClass: "campaign-storefront",
+    cornerClass: "corners-soft",
+    cart: campaign().cart,
+  });
+  assert.deepEqual(campaignFrameSettings(campaign({ schemaVersion: 3 }) as never), {
     campaignClass: "campaign-storefront",
     cornerClass: "corners-soft",
     cart: campaign().cart,
