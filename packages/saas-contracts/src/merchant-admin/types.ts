@@ -31,6 +31,7 @@ export type MerchantAdminProviderRecordKind = (typeof MERCHANT_ADMIN_PROVIDER_RE
 export const MERCHANT_PROVIDER_CAPABILITIES = Object.freeze([
   "marketplace_sync", "invoice_reconciliation", "email_delivery",
   "phone_delivery", "whatsapp_delivery", "indexing", "payment_processing",
+  "ai_assistant",
 ] as const);
 export type MerchantProviderCapability = (typeof MERCHANT_PROVIDER_CAPABILITIES)[number];
 export const MERCHANT_PROVIDER_PROFILE_STATUSES = Object.freeze([

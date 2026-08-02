@@ -287,6 +287,21 @@ export type {
   MerchantProviderProfile,
   MerchantProviderProfileStatus,
 } from "./merchant-admin/index.ts";
+export {
+  TOSHI_PROVIDER_CONNECTION_STATUSES,
+  TOSHI_PROVIDER_ERROR_CODES,
+  TOSHI_PROVIDERS,
+  parseToshiProviderConnection,
+  parseToshiProviderConnectionList,
+} from "./toshi/index.ts";
+export type {
+  ToshiProvider,
+  ToshiProviderConnection,
+  ToshiProviderConnectionList,
+  ToshiProviderConnectionStatus,
+  ToshiProviderErrorCode,
+  ToshiProviderModel,
+} from "./toshi/index.ts";
 export type {
   BarcodeLabelRow,
   CatalogAdminImportJob,
