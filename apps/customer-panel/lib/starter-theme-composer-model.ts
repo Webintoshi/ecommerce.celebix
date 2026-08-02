@@ -2,27 +2,71 @@ import {
   parseStarterThemeCompositionConfig,
   type StarterCampaignPanelConfig,
   type StarterHeroSlideConfig,
-  type StarterThemeCompositionConfig,
-  type StarterThemeSectionConfig,
+  type StarterThemeComposition,
+  type StarterThemeCompositionConfigV2,
+  type StarterThemeSectionConfigV2,
 } from "@celebix/saas-contracts";
 
-export type StarterThemeEditorState = Omit<StarterThemeCompositionConfig, "schemaVersion">;
-type HeroSection = Extract<StarterThemeSectionConfig, { kind: "hero" }>;
-type SplitCampaignSection = Extract<StarterThemeSectionConfig, { kind: "split_campaign" }>;
+export type StarterThemeEditorState = Omit<StarterThemeCompositionConfigV2, "schemaVersion">;
+type HeroSection = Extract<StarterThemeSectionConfigV2, { kind: "hero" }>;
+type SplitCampaignSection = Extract<StarterThemeSectionConfigV2, { kind: "split_campaign" }>;
 
-export function buildStarterThemeComposition(input: StarterThemeEditorState): StarterThemeCompositionConfig {
+export function buildStarterThemeComposition(input: StarterThemeEditorState): StarterThemeCompositionConfigV2 {
   return parseStarterThemeCompositionConfig({
-    schemaVersion: 1,
+    schemaVersion: 2,
     ...input,
     cart: { ...input.cart, showShippingProgress: false },
+  }) as StarterThemeCompositionConfigV2;
+}
+
+function defaultFooter(): StarterThemeEditorState["footer"] {
+  return Object.freeze({
+    tone: "dark",
+    groups: Object.freeze([
+      Object.freeze({ heading: "Mağaza", links: Object.freeze([
+        Object.freeze({ kind: "system", destination: "/products" }),
+        Object.freeze({ kind: "system", destination: "/favorites" }),
+        Object.freeze({ kind: "system", destination: "/account" }),
+      ]) }),
+      Object.freeze({ heading: "Yasal", links: Object.freeze([
+        Object.freeze({ kind: "fixed_policy", policyKey: "privacy_security" }),
+        Object.freeze({ kind: "fixed_policy", policyKey: "distance_sales" }),
+        Object.freeze({ kind: "fixed_policy", policyKey: "kvkk" }),
+        Object.freeze({ kind: "fixed_policy", policyKey: "payment_delivery" }),
+        Object.freeze({ kind: "fixed_policy", policyKey: "cookie_usage" }),
+        Object.freeze({ kind: "fixed_policy", policyKey: "returns_exchange" }),
+        Object.freeze({ kind: "fixed_policy", policyKey: "membership" }),
+      ]) }),
+    ]),
+    newsletter: Object.freeze({ enabled: false, heading: "Bizden haber alın", body: "Yeni ürün ve mağaza duyurularını e-postanızda alın.", consentLabel: "Aydınlatma metnini okudum ve iletişime izin veriyorum." }),
+    social: Object.freeze([]),
+  });
+}
+
+export function upgradeStarterThemeComposition(input: StarterThemeComposition): StarterThemeCompositionConfigV2 {
+  if (input.schemaVersion === 2) return input;
+  return buildStarterThemeComposition({
+    visual: Object.freeze({ ...input.visual, headerWidth: "wide", sectionSpacing: "balanced" }),
+    announcement: input.announcement,
+    navigation: input.navigation,
+    sections: input.sections,
+    productDetail: Object.freeze({
+      ...input.productDetail,
+      showBreadcrumbs: true,
+      showApprovedReviews: true,
+      showSizeGuide: true,
+      informationSections: Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const),
+    }),
+    cart: input.cart,
+    footer: defaultFooter(),
   });
 }
 
 export function moveStarterSection(
-  sections: readonly StarterThemeSectionConfig[],
+  sections: readonly StarterThemeSectionConfigV2[],
   index: number,
   offset: -1 | 1,
-): readonly StarterThemeSectionConfig[] {
+): readonly StarterThemeSectionConfigV2[] {
   const destination = index + offset;
   if (destination < 0 || destination >= sections.length) return sections;
   const next = [...sections];
@@ -89,11 +133,12 @@ export function updateStarterNavigationRoots(
 
 export function createStarterThemeEditorState(): StarterThemeEditorState {
   return Object.freeze({
-    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait" }),
+    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" }),
     announcement: Object.freeze({ enabled: true, items: Object.freeze(["Güvenli alışveriş"]), destination: "/pages/odeme-teslimat" }),
     navigation: Object.freeze({ rootCategoryIds: Object.freeze([]) }),
     sections: Object.freeze([Object.freeze({ kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 })]),
-    productDetail: Object.freeze({ galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true }),
+    productDetail: Object.freeze({ galleryStyle: "grid", showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const) }),
     cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: false, trustMessage: "Güvenli ödeme" }),
+    footer: defaultFooter(),
   });
 }

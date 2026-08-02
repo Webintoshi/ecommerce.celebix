@@ -39,6 +39,18 @@ function invalidInput(error: unknown) {
   return error instanceof MerchantAdminRepositoryError && error.code === "invalid_input";
 }
 
+function retailComposition() {
+  const legacy = composition();
+  return {
+    ...legacy,
+    schemaVersion: 2,
+    visual: { ...legacy.visual, headerWidth: "wide", sectionSpacing: "balanced" },
+    sections: [...legacy.sections, { kind: "value_propositions", enabled: true, items: [{ icon: "shield", heading: "Güvenli alışveriş", body: "Korunan ödeme akışı." }, { icon: "return", heading: "Kolay iade", body: "Yayımlanmış koşulları inceleyin." }] }],
+    productDetail: { ...legacy.productDetail, showBreadcrumbs: true, showApprovedReviews: true, showSizeGuide: true, informationSections: ["description", "materials_and_care", "certifications", "shipping_and_returns"] },
+    footer: { tone: "dark", groups: [{ heading: "Mağaza", links: [{ kind: "system", destination: "/products" }] }, { heading: "Yasal", links: [{ kind: "fixed_policy", policyKey: "privacy_security" }] }], newsletter: { enabled: false, heading: "Bizden haber alın", body: "Duyuruları alın.", consentLabel: "İzin veriyorum." }, social: [] },
+  };
+}
+
 test("starter theme composition is a finite merchant-admin record kind", () => {
   assert.equal(merchantAdminKind("starter_theme_composition"), "starter_theme_composition");
 });
@@ -47,6 +59,13 @@ test("starter theme composition accepts the exact bounded contract", () => {
   const parsed = merchantAdminConfig("starter_theme_composition" as never, composition());
   assert.equal(parsed.schemaVersion, 1);
   assert.equal(JSON.stringify(parsed).includes("https://"), false);
+});
+
+test("starter retail composition accepts the exact v2 footer and product controls", () => {
+  const parsed = merchantAdminConfig("starter_theme_composition" as never, retailComposition());
+  assert.equal(parsed.schemaVersion, 2);
+  assert.equal(Object.hasOwn(parsed, "footer"), true);
+  assert.throws(() => merchantAdminConfig("starter_theme_composition" as never, { ...retailComposition(), customCss: "*{}" }), invalidInput);
 });
 
 test("starter theme composition rejects unknown and secret-bearing root fields", () => {
