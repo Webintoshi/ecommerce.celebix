@@ -22,6 +22,13 @@ const PRODUCT_ID = "88888888-8888-4888-8888-888888888888";
 const VARIANT_ID = "99999999-9999-4999-8999-999999999999";
 const NOW = "2026-07-21T09:30:00.000Z";
 
+test("order list omits the duplicate body heading", async () => {
+  const text = await source("components/orders/OrderListConsole.tsx");
+
+  assert.doesNotMatch(text, />Tüm Siparişler</);
+  assert.match(text, /aria-label="Sipariş çalışma alanı"/);
+});
+
 const item = Object.freeze({
   id: ORDER_ID,
   orderNumber: "HMK-1042",

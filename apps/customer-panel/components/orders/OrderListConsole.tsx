@@ -257,8 +257,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
         description="Sipariş, ödeme ve teslimat akışını gerçek mağaza verileriyle yönetin."
         actions={<Link className={styles.primaryAction} href="/orders/drafts/new">Manuel sipariş oluştur</Link>}
       />
-      <section className={styles.listSurface} aria-labelledby="orders-list-title">
-        <div className={styles.surfaceHeading}><div><h2 id="orders-list-title">Tüm Siparişler</h2></div></div>
+      <section className={styles.listSurface} aria-label="Sipariş çalışma alanı" data-panel-surface="open">
         <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}>
           <label className={styles.searchField}><span className="sr-only">Sipariş ara</span><input value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş ara" maxLength={200} /><button type="submit">Ara</button></label>
           <label><span className="sr-only">Sipariş durumu</span><select value={props.status} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

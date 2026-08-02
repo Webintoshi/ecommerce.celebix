@@ -23,3 +23,18 @@ test("shared panel pages publish the open-canvas contract", async () => {
   assert.match(rule(css, ".panel"), /background:\s*transparent/);
   assert.match(rule(css, ".panel"), /box-shadow:\s*none/);
 });
+
+test("orders use a flat workspace and divider-based mobile rows", async () => {
+  const css = await source("components/orders/order-console.module.css");
+
+  for (const declaration of [
+    /border:\s*0/,
+    /border-radius:\s*0/,
+    /background:\s*transparent/,
+    /box-shadow:\s*none/,
+  ]) {
+    assert.match(rule(css, ".listSurface"), declaration);
+  }
+  assert.match(rule(css, ".orderCard"), /border-bottom:\s*1px solid #E8EDF4/i);
+  assert.match(rule(css, ".orderCard"), /border-radius:\s*0/);
+});
