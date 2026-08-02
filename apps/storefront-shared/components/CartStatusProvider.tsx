@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import type { PublicCart } from "@celebix/saas-contracts";
+import type { PublicCart, PublicStarterThemePresentationV2 } from "@celebix/saas-contracts";
 import { storefrontCartClient } from "@/lib/cart/client.ts";
 import { SideCartDrawer } from "./SideCartDrawer";
 
@@ -21,7 +21,7 @@ export type CartStatus = Readonly<{
 
 const Context = createContext<CartStatus | null>(null);
 
-export function CartStatusProvider({ children }: Readonly<{ children: React.ReactNode }>) {
+export function CartStatusProvider({ children, presentation }: Readonly<{ children: React.ReactNode; presentation?: PublicStarterThemePresentationV2["cart"] }>) {
   const [cart, setCart] = useState<PublicCart | null>(null);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
@@ -68,7 +68,7 @@ export function CartStatusProvider({ children }: Readonly<{ children: React.Reac
     if (options?.openDrawer) openDrawer(options.trigger);
   }, [openDrawer]);
   const value = useMemo<CartStatus>(() => Object.freeze({ cart, loading, unavailable, drawerOpen, refresh, replaceCart, openDrawer, closeDrawer }), [cart, loading, unavailable, drawerOpen, refresh, replaceCart, openDrawer, closeDrawer]);
-  return <Context.Provider value={value}>{children}<SideCartDrawer /><span className="sr-only" aria-live="polite">{loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
+  return <Context.Provider value={value}>{children}<SideCartDrawer presentation={presentation} /><span className="sr-only" aria-live="polite">{loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
 }
 
 export function useCartStatus(): CartStatus {

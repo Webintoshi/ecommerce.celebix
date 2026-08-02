@@ -10,5 +10,17 @@ test("hero uses stable desktop mobile media and canonical hotspot", async () => 
 test("hero rotation is explicit scroll snap without autoplay", async () => { const [client, css] = await Promise.all([read("CampaignHeroClient.tsx"), read("campaign-home.module.css")]); assert.match(client, /scrollBy/); assert.match(client, /Önceki slayt/); assert.match(client, /Sonraki slayt/); assert.doesNotMatch(client, /setInterval|autoplay/); assert.match(css, /scroll-snap-type/); });
 test("category and campaign panels use only safe public relative destinations", async () => { const source = await read("CampaignPanels.tsx"); assert.match(source, /`\/categories\/\$\{item[.]slug\}`/); assert.match(source, /panel[.]destination/); assert.doesNotMatch(source, /assetId|categoryId|storeId|tenantId/); });
 test("product rows bind exact projection keys to canonical product cards", async () => { const source = await read("CampaignProductRow.tsx"); assert.match(source, /section[.]key/); assert.match(source, /ProductGrid/); assert.match(source, /products/); assert.doesNotMatch(source, /Math[.]random|fake|mock/); });
-test("home page resolves campaign projection only through server page context", async () => { const [page, context] = await Promise.all([read("../app/page.tsx"), read("../lib/page-context.ts")]); assert.match(page, /context[.]campaign/); assert.match(context, /resolveCampaignHome/); assert.doesNotMatch(`${page}\n${context}`, /localStorage|sessionStorage|x-store-id|tenantId/); });
+test("home page resolves campaign projection only through server page context", async () => { const [page, context, campaignResolution] = await Promise.all([read("../app/page.tsx"), read("../lib/page-context.ts"), read("../lib/campaign-page-resolution.ts")]); assert.match(page, /context[.]campaign/); assert.match(context, /resolveCampaignPageProjection/); assert.match(campaignResolution, /resolveCampaignHome/); assert.doesNotMatch(`${page}\n${context}\n${campaignResolution}`, /localStorage|sessionStorage|x-store-id|tenantId/); });
+test("campaign announcement keeps its exact safe destination and visual controls reach the storefront", async () => {
+  const [home, frame, model, css, campaignCss] = await Promise.all([read("CampaignHome.tsx"), read("StorefrontFrame.tsx"), read("campaign-ui-model.ts"), read("../app/globals.css"), read("campaign-home.module.css")]);
+  assert.match(home, /announcement[.]destination/);
+  assert.match(home, /href=\{announcement[.]destination\}/);
+  assert.match(home, /campaignAnnouncement\(projection[.]presentation\)/);
+  assert.match(frame, /campaignFrameSettings\(storefront[.]presentation\)/);
+  assert.match(frame, /presentation=\{campaign[.]cart\}/);
+  assert.match(model, /presentation[.]visual[.]cornerStyle/);
+  assert.match(css, /--campaign-corner/);
+  assert.match(css, /[.]campaign-storefront [.]product-card[.]card-compact [.]product-image-shell\s*\{[^}]*border-radius:\s*var\(--campaign-corner\)/u);
+  assert.match(campaignCss, /var\(--campaign-corner/);
+});
 test("campaign home remains responsive stable and reduced-motion safe", async () => { const css = await read("campaign-home.module.css"); assert.match(css, /aspect-ratio/); assert.match(css, /@media\(max-width:700px\)/); assert.match(css, /prefers-reduced-motion/); assert.match(css, /min-height:48px/); });

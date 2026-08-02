@@ -11,6 +11,7 @@ BEGIN
    OR pg_catalog.to_regprocedure('saas.public_get_product_by_slug_without_campaign_detail(uuid,text,timestamp with time zone,text)') IS NULL
    OR pg_catalog.to_regprocedure('saas.merchant_admin_save_without_campaign_starter(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)') IS NULL
    OR pg_catalog.to_regprocedure('saas.public_starter_presentation_without_campaign_starter(uuid,timestamp with time zone,boolean)') IS NULL
+   OR pg_catalog.to_regclass('saas.campaign_starter_publications') IS NULL
  THEN RAISE EXCEPTION 'CAMPAIGN_STARTER_DOWN_SOURCE_INVALID'; END IF;
 END
 $f$;
@@ -18,6 +19,8 @@ $f$;
 LOCK TABLE saas.merchant_admin_records IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.merchant_admin_events IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE saas.merchant_admin_operations IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE saas.campaign_starter_publications IN ACCESS EXCLUSIVE MODE;
+DROP TABLE saas.campaign_starter_publications;
 ALTER TABLE saas.merchant_admin_events DISABLE TRIGGER merchant_admin_events_immutable;
 ALTER TABLE saas.merchant_admin_operations DISABLE TRIGGER merchant_admin_operations_immutable;
 DELETE FROM saas.merchant_admin_operations WHERE result_payload->>'kind'='starter_theme_composition';

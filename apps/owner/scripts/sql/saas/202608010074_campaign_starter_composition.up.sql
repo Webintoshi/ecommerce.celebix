@@ -140,6 +140,24 @@ RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f
  SELECT CASE WHEN p_kind='starter_theme_composition' THEN CASE WHEN p_mutation THEN 'configuration.manage' ELSE 'configuration.read' END ELSE saas.merchant_admin_required_action_without_campaign_starter(p_kind,p_mutation) END
 $f$;
 
+CREATE TABLE saas.campaign_starter_publications(
+  store_id uuid NOT NULL,
+  record_id uuid NOT NULL,
+  record_version bigint NOT NULL,
+  config jsonb NOT NULL,
+  published_at timestamptz NOT NULL,
+  PRIMARY KEY(store_id),
+  UNIQUE(store_id,record_id),
+  FOREIGN KEY(store_id) REFERENCES saas.stores(id) ON DELETE RESTRICT,
+  FOREIGN KEY(store_id,record_id) REFERENCES saas.merchant_admin_records(store_id,id) ON DELETE RESTRICT,
+  CHECK(record_version>0),
+  CHECK(saas.campaign_starter_composition_valid(config)),
+  CHECK(pg_catalog.isfinite(published_at))
+);
+ALTER TABLE saas.campaign_starter_publications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.campaign_starter_publications FORCE ROW LEVEL SECURITY;
+REVOKE ALL ON saas.campaign_starter_publications FROM PUBLIC,celebix_saas_app,celebix_saas_host_resolver,celebix_saas_identity,celebix_saas_workflow,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+
 CREATE FUNCTION saas.merchant_admin_config_valid(p_kind text,p_config jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
  SELECT CASE WHEN p_kind='starter_theme_composition' THEN saas.campaign_starter_composition_valid(p_config) ELSE saas.merchant_admin_config_valid_without_campaign_starter(p_kind,p_config) END
@@ -179,7 +197,7 @@ $f$;
 
 CREATE FUNCTION saas.merchant_admin_save(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_record_id uuid,p_expected_version bigint,p_kind text,p_name text,p_config jsonb,p_status text)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE authority_error text; reference jsonb; selected_id uuid; existing_id uuid;
+DECLARE authority_error text; reference jsonb; selected_id uuid; existing_id uuid; delegated_outcome text; delegated_payload jsonb;
 BEGIN
  IF p_kind IS DISTINCT FROM 'starter_theme_composition' THEN RETURN QUERY SELECT * FROM saas.merchant_admin_save_without_campaign_starter(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,p_fingerprint,p_record_id,p_expected_version,p_kind,p_name,p_config,p_status); RETURN; END IF;
  authority_error:=saas.merchant_admin_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_kind,true); IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
@@ -209,7 +227,14 @@ BEGIN
    ELSIF reference->>'kind'='brand_story' AND reference?'assetId' THEN selected_id:=(reference->>'assetId')::uuid; PERFORM 1 FROM saas.storefront_assets WHERE store_id=p_store_id AND id=selected_id AND asset_kind='hero' AND status='active' FOR KEY SHARE; IF NOT FOUND THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
    END IF;
  END LOOP;
- RETURN QUERY SELECT * FROM saas.merchant_admin_save_without_campaign_starter(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,p_fingerprint,p_record_id,p_expected_version,p_kind,p_name,p_config,p_status);
+ SELECT delegated.outcome,delegated.result_payload INTO delegated_outcome,delegated_payload
+ FROM saas.merchant_admin_save_without_campaign_starter(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,p_fingerprint,p_record_id,p_expected_version,p_kind,p_name,p_config,p_status) delegated;
+ IF delegated_outcome='saved' AND p_status='active' THEN
+   INSERT INTO saas.campaign_starter_publications(store_id,record_id,record_version,config,published_at)
+   VALUES(p_store_id,p_record_id,(delegated_payload->>'version')::bigint,p_config,p_now)
+   ON CONFLICT(store_id) DO UPDATE SET record_id=EXCLUDED.record_id,record_version=EXCLUDED.record_version,config=EXCLUDED.config,published_at=EXCLUDED.published_at;
+ END IF;
+ RETURN QUERY SELECT delegated_outcome,delegated_payload;
 END
 $f$;
 
@@ -221,40 +246,54 @@ $f$;
 
 CREATE FUNCTION saas.public_campaign_navigation_item(p_store_id uuid,p_category_id uuid,p_depth integer,p_featured_category_id uuid,p_featured_asset_id uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE category_record record; children jsonb; featured jsonb;
+DECLARE category_record record; children jsonb; featured jsonb; featured_image jsonb;
 BEGIN
  SELECT category.name,category.slug INTO category_record FROM saas.catalog_categories category WHERE category.store_id=p_store_id AND category.id=p_category_id AND category.status='active'; IF NOT FOUND THEN RETURN NULL; END IF;
- IF p_depth<2 THEN SELECT COALESCE(pg_catalog.jsonb_agg(saas.public_campaign_navigation_item(p_store_id,child.id,p_depth+1,p_featured_category_id,p_featured_asset_id) ORDER BY child.position,child.id),'[]'::jsonb) INTO children FROM saas.catalog_categories child WHERE child.store_id=p_store_id AND child.parent_id=p_category_id AND child.status='active'; ELSE children:='[]'::jsonb; END IF;
- IF p_category_id=p_featured_category_id THEN featured:=pg_catalog.jsonb_build_object('name',category_record.name,'slug',category_record.slug,'image',saas.public_campaign_asset(p_store_id,p_featured_asset_id)); END IF;
+ IF p_depth<2 THEN
+   SELECT COALESCE(pg_catalog.jsonb_agg(resolved.value ORDER BY child.position,child.id) FILTER(WHERE resolved.value IS NOT NULL),'[]'::jsonb) INTO children
+   FROM saas.catalog_categories child
+   CROSS JOIN LATERAL (SELECT saas.public_campaign_navigation_item(p_store_id,child.id,p_depth+1,p_featured_category_id,p_featured_asset_id) value) resolved
+   WHERE child.store_id=p_store_id AND child.parent_id=p_category_id AND child.status='active';
+ ELSE children:='[]'::jsonb; END IF;
+ IF p_category_id=p_featured_category_id THEN featured_image:=saas.public_campaign_asset(p_store_id,p_featured_asset_id); IF featured_image IS NOT NULL THEN featured:=pg_catalog.jsonb_build_object('name',category_record.name,'slug',category_record.slug,'image',featured_image); END IF; END IF;
  RETURN pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('name',category_record.name,'slug',category_record.slug,'children',children,'featured',featured));
 END
 $f$;
 
 CREATE FUNCTION saas.public_starter_presentation(p_store_id uuid,p_now timestamptz,p_allow_index boolean)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE base jsonb; config jsonb; section jsonb; item jsonb; resolved jsonb; sections jsonb:='[]'::jsonb; navigation jsonb:='[]'::jsonb; slides jsonb; panels jsonb; categories jsonb; hero jsonb; row_index integer:=0; asset jsonb; hotspot jsonb; featured_category uuid; featured_asset uuid;
+DECLARE
+ base jsonb; config jsonb; section jsonb; item jsonb; resolved jsonb;
+ sections jsonb:='[]'::jsonb; navigation jsonb:='[]'::jsonb; slides jsonb; panels jsonb; categories jsonb; hero jsonb;
+ row_index integer:=0; asset jsonb; hotspot jsonb; featured_category uuid; featured_asset uuid; category_slug text;
 BEGIN
  base:=saas.public_starter_presentation_without_campaign_starter(p_store_id,p_now,p_allow_index); IF base IS NULL THEN RETURN NULL; END IF;
- SELECT record.config INTO config FROM saas.merchant_admin_records record WHERE record.store_id=p_store_id AND record.record_kind='starter_theme_composition' AND record.status='active' ORDER BY record.updated_at DESC,record.id DESC LIMIT 1; IF config IS NULL THEN RETURN base; END IF;
+ SELECT publication.config INTO config FROM saas.campaign_starter_publications publication WHERE publication.store_id=p_store_id; IF config IS NULL THEN RETURN base; END IF;
  IF config->'navigation'?'featuredCategoryId' THEN featured_category:=(config->'navigation'->>'featuredCategoryId')::uuid; featured_asset:=(config->'navigation'->>'featuredAssetId')::uuid; END IF;
- SELECT COALESCE(pg_catalog.jsonb_agg(saas.public_campaign_navigation_item(p_store_id,value::uuid,0,featured_category,featured_asset) ORDER BY ordinality),'[]'::jsonb) INTO navigation FROM pg_catalog.jsonb_array_elements_text(config->'navigation'->'rootCategoryIds') WITH ORDINALITY root(value,ordinality);
+ SELECT COALESCE(pg_catalog.jsonb_agg(resolved_root.value ORDER BY root.ordinality) FILTER(WHERE resolved_root.value IS NOT NULL),'[]'::jsonb) INTO navigation
+ FROM pg_catalog.jsonb_array_elements_text(config->'navigation'->'rootCategoryIds') WITH ORDINALITY root(value,ordinality)
+ CROSS JOIN LATERAL (SELECT saas.public_campaign_navigation_item(p_store_id,root.value::uuid,0,featured_category,featured_asset) value) resolved_root;
  FOR section IN SELECT value FROM pg_catalog.jsonb_array_elements(config->'sections') LOOP
    IF NOT (section->>'enabled')::boolean THEN CONTINUE; END IF;
    IF section->>'kind'='hero' THEN
      slides:='[]'::jsonb; FOR item IN SELECT value FROM pg_catalog.jsonb_array_elements(section->'slides') LOOP
-       asset:=saas.public_campaign_asset(p_store_id,(item->>'desktopAssetId')::uuid); IF asset IS NULL THEN RETURN NULL; END IF; hotspot:=NULL;
-       IF item?'productId' THEN SELECT pg_catalog.jsonb_build_object('productSlug',product.slug,'title',product.title,'priceCents',(projection.value->>'priceCents')::bigint,'currency','TRY') INTO hotspot FROM saas.products product CROSS JOIN LATERAL (SELECT saas.public_category_product_projection(p_store_id,product.id,p_now) value) projection WHERE product.store_id=p_store_id AND product.id=(item->>'productId')::uuid AND projection.value IS NOT NULL; IF hotspot IS NULL THEN RETURN NULL; END IF; END IF;
+       asset:=saas.public_campaign_asset(p_store_id,(item->>'desktopAssetId')::uuid); IF asset IS NULL THEN CONTINUE; END IF; hotspot:=NULL;
+       IF item?'productId' THEN SELECT pg_catalog.jsonb_build_object('productSlug',product.slug,'title',product.title,'priceCents',(projection.value->>'priceCents')::bigint,'currency','TRY') INTO hotspot FROM saas.products product CROSS JOIN LATERAL (SELECT saas.public_category_product_projection(p_store_id,product.id,p_now) value) projection WHERE product.store_id=p_store_id AND product.id=(item->>'productId')::uuid AND projection.value IS NOT NULL; END IF;
        slides:=slides||pg_catalog.jsonb_build_array(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('eyebrow',item->>'eyebrow','heading',item->>'heading','body',item->>'body','desktopImage',asset,'mobileImage',CASE WHEN item?'mobileAssetId' THEN saas.public_campaign_asset(p_store_id,(item->>'mobileAssetId')::uuid) END,'destination',item->>'destination','hotspot',hotspot)));
-     END LOOP; resolved:=pg_catalog.jsonb_build_object('kind','hero','slides',slides); IF hero IS NULL THEN hero:=slides->0; END IF;
+     END LOOP; IF pg_catalog.jsonb_array_length(slides)=0 THEN CONTINUE; END IF; resolved:=pg_catalog.jsonb_build_object('kind','hero','slides',slides); IF hero IS NULL THEN hero:=slides->0; END IF;
    ELSIF section->>'kind'='category_grid' THEN
-     SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('name',category.name,'slug',category.slug,'image',saas.public_campaign_asset(p_store_id,(showcase_item->>'assetId')::uuid)) ORDER BY requested.ordinality) INTO categories
+     SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('name',category.name,'slug',category.slug,'image',saas.public_campaign_asset(p_store_id,asset.id)) ORDER BY requested.ordinality) INTO categories
      FROM pg_catalog.jsonb_array_elements_text(section->'categoryIds') WITH ORDINALITY requested(id,ordinality)
      JOIN saas.catalog_categories category ON category.store_id=p_store_id AND category.id=requested.id::uuid AND category.status='active'
-     JOIN LATERAL (SELECT showcase_item FROM saas.merchant_admin_records showcase CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(showcase.config->'items') showcase_item WHERE showcase.store_id=p_store_id AND showcase.record_kind='category_showcase' AND showcase.status='active' AND showcase_item->>'categoryId'=requested.id ORDER BY showcase.updated_at DESC LIMIT 1) mapping ON true;
-     IF categories IS NULL OR pg_catalog.jsonb_array_length(categories)<>pg_catalog.jsonb_array_length(section->'categoryIds') THEN RETURN NULL; END IF; resolved:=pg_catalog.jsonb_build_object('kind','category_grid','heading',section->>'heading','items',categories);
-   ELSIF section->>'kind'='product_row' THEN resolved:=pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('kind','product_row','key',(section->>'source')||'-'||row_index,'heading',section->>'heading','source',section->>'source','categorySlug',CASE WHEN section->>'source'='category' THEN (SELECT slug FROM saas.catalog_categories WHERE store_id=p_store_id AND id=(section->>'categoryId')::uuid AND status='active') END,'limit',(section->>'limit')::integer)); row_index:=row_index+1;
-   ELSIF section->>'kind'='split_campaign' THEN panels:='[]'::jsonb; FOR item IN SELECT value FROM pg_catalog.jsonb_array_elements(section->'panels') LOOP asset:=saas.public_campaign_asset(p_store_id,(item->>'assetId')::uuid); IF asset IS NULL THEN RETURN NULL; END IF; panels:=panels||pg_catalog.jsonb_build_array(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('eyebrow',item->>'eyebrow','heading',item->>'heading','body',item->>'body','image',asset,'destination',item->>'destination'))); END LOOP; resolved:=pg_catalog.jsonb_build_object('kind','split_campaign','panels',panels);
-   ELSE asset:=CASE WHEN section?'assetId' THEN saas.public_campaign_asset(p_store_id,(section->>'assetId')::uuid) END; IF section?'assetId' AND asset IS NULL THEN RETURN NULL; END IF; resolved:=pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('kind','brand_story','eyebrow',section->>'eyebrow','heading',section->>'heading','body',section->>'body','image',asset,'destination',section->>'destination'));
+     JOIN LATERAL (SELECT showcase_item FROM saas.merchant_admin_records showcase CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(showcase.config->'items') showcase_item WHERE showcase.store_id=p_store_id AND showcase.record_kind='category_showcase' AND showcase.status='active' AND showcase_item->>'categoryId'=requested.id ORDER BY showcase.updated_at DESC LIMIT 1) mapping ON true
+     JOIN saas.storefront_assets asset ON asset.store_id=p_store_id AND asset.id=(mapping.showcase_item->>'assetId')::uuid AND asset.asset_kind='category' AND asset.status='active';
+     IF categories IS NULL OR pg_catalog.jsonb_array_length(categories)=0 THEN CONTINUE; END IF; resolved:=pg_catalog.jsonb_build_object('kind','category_grid','heading',section->>'heading','items',categories);
+   ELSIF section->>'kind'='product_row' THEN
+     category_slug:=NULL; IF section->>'source'='category' THEN SELECT slug INTO category_slug FROM saas.catalog_categories WHERE store_id=p_store_id AND id=(section->>'categoryId')::uuid AND status='active'; IF category_slug IS NULL THEN CONTINUE; END IF; END IF;
+     resolved:=pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('kind','product_row','key',(section->>'source')||'-'||row_index,'heading',section->>'heading','source',section->>'source','categorySlug',category_slug,'limit',(section->>'limit')::integer)); row_index:=row_index+1;
+   ELSIF section->>'kind'='split_campaign' THEN
+     panels:='[]'::jsonb; FOR item IN SELECT value FROM pg_catalog.jsonb_array_elements(section->'panels') LOOP asset:=saas.public_campaign_asset(p_store_id,(item->>'assetId')::uuid); IF asset IS NULL THEN CONTINUE; END IF; panels:=panels||pg_catalog.jsonb_build_array(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('eyebrow',item->>'eyebrow','heading',item->>'heading','body',item->>'body','image',asset,'destination',item->>'destination'))); END LOOP; IF pg_catalog.jsonb_array_length(panels)=0 THEN CONTINUE; END IF; resolved:=pg_catalog.jsonb_build_object('kind','split_campaign','panels',panels);
+   ELSE asset:=CASE WHEN section?'assetId' THEN saas.public_campaign_asset(p_store_id,(section->>'assetId')::uuid) END; resolved:=pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('kind','brand_story','eyebrow',section->>'eyebrow','heading',section->>'heading','body',section->>'body','image',asset,'destination',section->>'destination'));
    END IF; sections:=sections||pg_catalog.jsonb_build_array(resolved);
  END LOOP;
  RETURN pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('schemaVersion',2,'displayName',base->>'displayName','supportEmail',base->>'supportEmail','logo',base->'logo','theme',pg_catalog.jsonb_build_object('colorScheme',config->'visual'->>'colorScheme','headingStyle',config->'visual'->>'headingStyle','productCardStyle',config->'visual'->>'productCardStyle','productImageRatio',config->'visual'->>'productImageRatio','homeProductLimit',COALESCE((SELECT (s->>'limit')::integer FROM pg_catalog.jsonb_array_elements(config->'sections') s WHERE s->>'kind'='product_row' LIMIT 1),8),'showBrandStory',EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(config->'sections') s WHERE s->>'kind'='brand_story' AND (s->>'enabled')::boolean)),'hero',COALESCE(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('enabled',hero IS NOT NULL,'headline',COALESCE(hero->>'heading',base->'hero'->>'headline'),'body',COALESCE(hero->>'body',''),'destination',COALESCE(hero->>'destination','/products'),'image',hero->'desktopImage')),base->'hero'),'promotion',base->'promotion','marquee',base->'marquee','categoryShowcase',base->'categoryShowcase','visual',config->'visual','announcement',CASE WHEN (config->'announcement'->>'enabled')::boolean THEN ((config->'announcement')-'enabled'::text) END,'navigation',pg_catalog.jsonb_build_object('items',navigation),'sections',sections,'productDetail',config->'productDetail','cart',config->'cart','seo',base->'seo'));

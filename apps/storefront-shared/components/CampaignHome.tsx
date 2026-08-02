@@ -1,10 +1,12 @@
 import type { CampaignHomeProjection } from "@celebix/saas-data";
 import type { PublicStarterHomeSection, PublicStorefront } from "@celebix/saas-contracts";
+import Link from "next/link";
 
 import { StorefrontFrame } from "./StorefrontFrame";
 import { CampaignHero } from "./CampaignHero";
 import { CampaignCategories, CampaignPanels, CampaignStory } from "./CampaignPanels";
 import { CampaignProductRow } from "./CampaignProductRow";
+import { campaignAnnouncement } from "./campaign-ui-model";
 import styles from "./campaign-home.module.css";
 
 function assertNever(value: never): never { throw new TypeError(`campaign_section_unreachable:${String(value)}`); }
@@ -22,5 +24,6 @@ function Section({ section, projection }: Readonly<{ section: PublicStarterHomeS
 
 export function CampaignHome({ storefront, projection }: Readonly<{ storefront: PublicStorefront; projection: CampaignHomeProjection }>) {
   const effective = Object.freeze({ ...storefront, presentation: projection.presentation });
-  return <StorefrontFrame storefront={effective}>{projection.presentation.announcement ? <aside className={styles.announcement} aria-label="Mağaza duyuruları">{projection.presentation.announcement.items.join(" · ")}</aside> : null}<div className={styles.home}>{projection.presentation.sections.map((section, index) => <Section key={`${section.kind}-${index}`} section={section} projection={projection} />)}</div></StorefrontFrame>;
+  const announcement = campaignAnnouncement(projection.presentation);
+  return <StorefrontFrame storefront={effective}>{announcement ? <aside className={styles.announcement} aria-label="Mağaza duyuruları">{announcement.destination ? <Link href={announcement.destination}>{announcement.text}</Link> : announcement.text}</aside> : null}<div className={styles.home}>{projection.presentation.sections.map((section, index) => <Section key={`${section.kind}-${index}`} section={section} projection={projection} />)}</div></StorefrontFrame>;
 }

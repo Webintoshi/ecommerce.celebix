@@ -26,10 +26,24 @@ test("detail experience composes canonical brand category policy and recommendat
 
 test("detail gallery and mobile purchase stay keyboard and viewport safe", async () => {
   const gallery = await read("ProductGallery.tsx");
+  const galleryModel = await read("product-gallery-model.ts");
   const styles = await read("product-detail-experience.module.css");
+  const globalStyles = await read("../app/globals.css");
   assert.match(gallery, /aria-current/);
+  assert.match(gallery, /aria-modal="true"/);
+  assert.match(gallery, /galleryEscapeRequested\(event[.]key\)/);
+  assert.match(gallery, /scheduleGalleryFocus\(zoomTriggerRef[.]current/);
+  assert.match(gallery, /productGalleryReducer/);
+  assert.match(galleryModel, /key === "Escape"/);
+  assert.match(galleryModel, /target\?\.focus\(\)/);
+  assert.match(gallery, /style\?: "grid" \| "rail"/);
+  assert.match(gallery, /gallery-\$\{style\}/);
   assert.match(gallery, /gallery-mobile-track/);
-  assert.match(await read("../app/globals.css"), /scroll-snap-type:\s*x mandatory/);
+  assert.match(globalStyles, /scroll-snap-type:\s*x mandatory/);
+  assert.match(globalStyles, /[.]gallery-mobile-track img\s*\{[^}]*height:\s*auto/u);
+  assert.match(globalStyles, /[.]gallery-rail [.]gallery-mobile-track/u);
+  assert.match(globalStyles, /[.]gallery-rail [.]gallery-mobile-track\s*\{[^}]*display:\s*flex[^}]*overflow-x:\s*auto[^}]*scroll-snap-type:\s*x mandatory/u);
+  assert.match(globalStyles, /[.]gallery-zoom-backdrop/u);
   assert.match(styles, /position:\s*sticky/);
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);

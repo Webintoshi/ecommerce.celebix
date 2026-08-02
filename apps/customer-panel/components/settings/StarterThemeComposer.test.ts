@@ -12,5 +12,26 @@ test("composer preserves disabled role authority", async () => { const value = a
 test("composer has distinct draft and publish actions with optimistic version", async () => { const value = await source("StarterThemeComposer.tsx"); assert.match(value, /Taslak kaydet/); assert.match(value, /Yayınla/); assert.match(value, /expectedVersion:\s*current[.]version/); });
 test("section order works without drag and has accessible labels", async () => { const value = await source("StarterThemeComposer.tsx"); assert.match(value, /moveStarterSection/); assert.match(value, /yukarı taşı/); assert.match(value, /aşağı taşı/); });
 test("composer provides bounded visual product detail and cart controls", async () => { const value = await source("StarterThemeComposer.tsx"); for (const token of ["Renk paleti", "Başlık stili", "Ürün detayı", "Sepet deneyimi"]) assert.match(value, new RegExp(token)); });
+test("composer exposes accessible bounded editors for every hero slide and split panel", async () => {
+  const value = await source("StarterThemeComposer.tsx");
+  assert.match(value, /section[.]slides[.]map/);
+  assert.match(value, /section[.]panels[.]map/);
+  for (const token of ["Hero slaytı ekle", "Hero slaytını kaldır", "Kampanya paneli ekle", "Kampanya panelini kaldır"]) assert.match(value, new RegExp(token));
+  assert.match(value, /slides[.]length\s*>=\s*3/);
+  assert.match(value, /panels[.]length\s*>=\s*2/);
+});
+test("composer preserves featured navigation authority and disables unavailable shipping threshold control", async () => {
+  const value = await source("StarterThemeComposer.tsx");
+  assert.match(value, /updateStarterNavigationRoots/);
+  assert.match(value, /Kargo ilerlemesi için doğrulanmış ücretsiz kargo eşiği gerekli/);
+  assert.match(value, /aria-describedby="shipping-progress-authority"/);
+  assert.match(value, /checked=\{false\}/);
+});
 test("preview consumes parsed composition and offers responsive modes", async () => { const value = await source("StarterThemePreview.tsx"); assert.match(value, /desktop/); assert.match(value, /mobile/); assert.match(value, /presentation/); });
+test("composition preview truthfully renders configurable corners announcement destination gallery and cart settings", async () => {
+  const value = await source("StarterThemePreview.tsx");
+  for (const token of ["cornerStyle", "announcement.destination", "galleryStyle", "showCheckoutReadiness", "trustMessage", "mobileStickyPurchase"]) assert.match(value, new RegExp(token.replace(".", "[.]")));
+  assert.doesNotMatch(value, /showShippingProgress\s*\?\s*<[^>]*(progress|shipping)/i);
+  assert.match(value, /canonical ücretsiz kargo eşiği/);
+});
 test("theme page is server-authorized and passes only role capability", async () => { const value = await source("../../app/settings/theme/page.tsx"); assert.match(value, /requireServerPanelAccess\(\)/); assert.match(value, /configuration[.]manage/); assert.match(value, /StarterThemeComposer/); assert.doesNotMatch(value, /tenantContext=|storeId=|membershipId=/); });

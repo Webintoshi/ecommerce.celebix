@@ -30,15 +30,21 @@ test("campaign starter keeps every application-owned destination same-store rela
 });
 
 test("responsive campaign controls preserve the exact 320 1024 and 1025 boundaries", async () => {
-  const [globalCss, headerCss, homeCss] = await Promise.all([
+  const [globalCss, headerCss, headerClient, homeCss] = await Promise.all([
     read("apps/storefront-shared/app/globals.css"),
     read("apps/storefront-shared/components/campaign-header.module.css"),
+    read("apps/storefront-shared/components/CampaignHeaderClient.tsx"),
     read("apps/storefront-shared/components/campaign-home.module.css"),
   ]);
   assert.match(globalCss, /body\s*\{[^}]*min-width:\s*320px/u);
   assert.match(headerCss, /[.]desktopNav\{[^}]*display:flex/u);
   assert.match(headerCss, /@media\(max-width:1024px\)\{[^}]*[\s\S]*?[.]desktopNav\{display:none/u);
+  assert.match(headerCss, /@media\(max-width:1024px\)\{[.]container\{[^}]*gap:3px/u);
+  assert.match(headerCss, /[.]wordmark\{[^}]*min-width:0[^}]*overflow:hidden/u);
+  assert.match(headerClient, /pathname\s*===\s*["']\/["']\s*\?\s*["']["']\s*:\s*styles[.]nonHome/u);
+  assert.match(headerCss, /[.]header\[data-header-style=["']overlay["']\]\s+[.]bar[.]nonHome\{[^}]*position:relative/u);
   assert.match(`${globalCss}\n${headerCss}\n${homeCss}`, /min-(?:width|height):\s*48px/u);
+  assert.match(globalCss, /[.]footer-grid a\s*\{[^}]*min-height:\s*48px/u);
   assert.match(`${globalCss}\n${headerCss}\n${homeCss}`, /prefers-reduced-motion/u);
   assert.match(`${globalCss}\n${headerCss}\n${homeCss}`, /[.]01ms/u);
 });

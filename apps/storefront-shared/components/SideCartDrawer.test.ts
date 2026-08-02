@@ -12,9 +12,16 @@ const [drawer, provider, utilities, card, detail, css] = await Promise.all([
 ]);
 
 test("one provider owns a canonical side-cart and both add surfaces auto-open it", () => {
-  assert.match(provider, /<SideCartDrawer\s*\/>/u);
+  assert.match(provider, /<SideCartDrawer\s+presentation=\{presentation\}\s*\/>/u);
   for (const proof of ["drawerOpen", "openDrawer", "closeDrawer", "openDrawer: true"]) assert.match(`${provider}\n${card}\n${detail}`, new RegExp(proof, "u"));
   assert.doesNotMatch(`${provider}\n${drawer}`, /tenantId|storeId|priceCents\s*:/u);
+});
+
+test("campaign cart presentation is truthful and never invents shipping progress", () => {
+  assert.match(provider, /PublicStarterThemePresentationV2/);
+  assert.match(drawer, /showCheckoutReadiness/);
+  assert.match(drawer, /trustMessage/);
+  assert.doesNotMatch(drawer, /showShippingProgress|freeShippingThreshold|Ücretsiz kargoya/u);
 });
 
 test("a stale mount refresh cannot overwrite a later cart mutation", () => {

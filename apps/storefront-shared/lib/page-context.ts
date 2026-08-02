@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import type { CampaignHomeProjection } from "@celebix/saas-data";
 
 import { resolveDefaultPublicStorefrontRuntime, type PublicStorefrontRuntime } from "./default-runtime.ts";
+import { resolveCampaignPageProjection } from "./campaign-page-resolution.ts";
 import { resolvePublicStorefrontRequest } from "./public-storefront.ts";
 
 export type StorefrontTrackerContext = Readonly<{ websiteId: string; hostname: string; trackerScriptUrl: string; collectorOrigin: string }>;
@@ -21,9 +22,9 @@ export const resolveStorefrontPage = cache(async (): Promise<StorefrontPageResol
   const now = new Date();
   const selected = await resolvePublicStorefrontRequest({ headers: await headers(), repository: runtime.repository, now });
   if (selected.kind !== "active") return selected;
-  const campaign = selected.storefront.presentation.schemaVersion === 2 && runtime.repository.resolveCampaignHome
-    ? await runtime.repository.resolveCampaignHome({ storefront: selected.storefront, now }).catch(() => null)
-    : null;
+  const campaignResolution = await resolveCampaignPageProjection({ storefront: selected.storefront, repository: runtime.repository, now });
+  if (campaignResolution.kind === "unavailable") return Object.freeze({ kind: "unavailable" });
+  const campaign = campaignResolution.kind === "campaign" ? campaignResolution.projection : null;
   const tracker = await resolveStorefrontTracker(runtime, selected.storefront.hostname, now).catch(() => null);
   return Object.freeze({ kind: "active", context: Object.freeze({ runtime, storefront: selected.storefront, campaign, tracker }) });
 });
