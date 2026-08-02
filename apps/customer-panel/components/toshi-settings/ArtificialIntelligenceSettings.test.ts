@@ -9,7 +9,7 @@ const CSS = new URL("./artificial-intelligence-settings.module.css", import.meta
 test("AI settings page uses the dedicated provider surface and removes old warning copy", async () => {
   const page = await readFile(PAGE, "utf8");
   assert.match(page, /ArtificialIntelligenceSettings/);
-  assert.match(page, /MerchantModuleConsole kind="ai_setting"/);
+  assert.doesNotMatch(page, /MerchantModuleConsole|ai_setting|İlk yapılandırma|İşlem geçmişi/);
   assert.doesNotMatch(page, /Sağlayıcı etkinleştirilmeden içerik üretilmez/);
 });
 

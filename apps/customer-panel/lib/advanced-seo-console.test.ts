@@ -9,7 +9,6 @@ const ADVANCED_SEO_ROUTES = [
   ["../app/seo/categories/page.tsx", "seo_category_entry", "integrations.manage"],
   ["../app/seo/pages/page.tsx", "seo_page_entry", "integrations.manage"],
   ["../app/seo/products/page.tsx", "seo_product_entry", "integrations.manage"],
-  ["../app/settings/artificial-intelligence/page.tsx", "ai_setting", "configuration.manage"],
 ] as const;
 
 test("advanced SEO routes bind fixed server-owned kinds and capabilities", async () => {
@@ -33,6 +32,8 @@ test("the AI preference page delegates provider connections without embedding se
     "utf8",
   );
   assert.match(page, /ArtificialIntelligenceSettings/);
+  assert.match(page, /configuration[.]manage/);
+  assert.doesNotMatch(page, /MerchantModuleConsole|ai_setting/);
   assert.match(client, /\/api\/settings\/artificial-intelligence\/providers/);
   assert.doesNotMatch(page, /API anahtarı|apiKey|secret|fetch\s*\(/i);
   assert.doesNotMatch(`${page}\n${client}`, /içerik (?:üretildi|oluşturuldu)|senkronizasyon tamamlandı/i);

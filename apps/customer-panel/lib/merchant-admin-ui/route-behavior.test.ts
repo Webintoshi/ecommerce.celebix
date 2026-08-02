@@ -350,6 +350,29 @@ async function compileBoundPage(
   return compiled.exports.default as (props?: Record<string, unknown>) => Promise<ReactNode>;
 }
 
+test("AI settings page renders only provider connections and omits the legacy setup console", async () => {
+  const LegacyConsole = (props: Record<string, unknown>) => createElement("section", {
+    ...props,
+    "data-legacy-ai-settings": true,
+  });
+  const Page = await compilePage(
+    "/settings/artificial-intelligence",
+    LegacyConsole as (props: { kind: contracts.MerchantAdminRecordKind; canManage: boolean }) => ReactNode,
+    "store_owner",
+  );
+  const pageTree = await Page();
+  let providerSettings: React.ReactElement<Record<string, unknown>> | undefined;
+  let legacySettings: React.ReactElement<Record<string, unknown>> | undefined;
+  visitElements(pageTree, (element) => {
+    if (typeof element.type === "function" && element.type !== LegacyConsole) providerSettings = element;
+    if (element.type === LegacyConsole) legacySettings = element;
+  });
+
+  assert.ok(providerSettings);
+  assert.equal(providerSettings.props.canManage, true);
+  assert.equal(legacySettings, undefined);
+});
+
 function request(path: string, init?: RequestInit) {
   const headers = new Headers(init?.headers);
   headers.set("cookie", `__Host-celebix_panel=${CREDENTIAL}`);
@@ -520,7 +543,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting");
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "ai_setting");
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     if (definition.cardinality === "singleton") {
@@ -655,7 +678,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     }
   }
 
-  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => recordRoute.createRouteFor(kind) === undefined);
+  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "ai_setting" && recordRoute.createRouteFor(kind) === undefined);
   for (const definition of inlineDefinitions) {
     await submitInlineRecord(definition, "create", "success");
     await submitInlineRecord(definition, "update", "success");
