@@ -1,4 +1,4 @@
-import { parsePublicProduct, parsePublicProductMedia, parsePublicStarterThemePresentation, parsePublicStorefront, type PublicProduct, type PublicProductMedia, type PublicStarterThemePresentationV2, type PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
+import { parsePublicProduct, parsePublicProductMedia, parsePublicStarterThemePresentation, parsePublicStorefront, type PublicProduct, type PublicProductMedia, type PublicStarterThemePresentation, type PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { PublicStorefrontRepositoryError } from "./errors.ts";
 import type { CampaignHomeProjection, PostgresPublicStorefrontRepositoryOptions, PublicStorefrontCategoryProductList, PublicStorefrontRepository } from "./types.ts";
@@ -40,14 +40,14 @@ function categoryPayload(value: unknown): PublicStorefrontCategoryProductList {
 function campaignHomePayload(value: unknown): CampaignHomeProjection {
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).sort().join(",") !== "presentation,productRows") throw failure("unavailable");
   const payload = value as { presentation: unknown; productRows: unknown };
-  let presentation: PublicStarterThemePresentationV2;
+  let presentation: PublicStarterThemePresentation;
   try {
     const parsed = parsePublicStarterThemePresentation(payload.presentation);
-    if (parsed.schemaVersion !== 2) throw failure("unavailable");
+    if (parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) throw failure("unavailable");
     presentation = parsed;
   } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
   if (!Array.isArray(payload.productRows) || payload.productRows.length > 12) throw failure("unavailable");
-  const declaredRows = presentation.sections.filter((section) => section.kind === "product_row");
+  const declaredRows = presentation.sections.flatMap((section) => section.kind === "product_row" ? [Object.freeze({ key: section.key, limit: section.limit })] : []);
   const limits = new Map(declaredRows.map((section) => [section.key, section.limit]));
   const rows = payload.productRows.map((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry) || Object.keys(entry).sort().join(",") !== "items,key") throw failure("unavailable");
@@ -114,7 +114,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
   }
   async getPublicProductBySlug(input: Parameters<PublicStorefrontRepository["getPublicProductBySlug"]>[0]): Promise<PublicProduct> {
     const parsed = exact(input, ["storefront", "now", "slug"]); const store = context({ storefront: parsed.storefront });
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_get_product_by_slug($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)]);
     try { return parsePublicProduct(this.projection(result)); } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
   }
   async listPublicProductMedia(input: Parameters<PublicStorefrontRepository["listPublicProductMedia"]>[0]): Promise<readonly PublicProductMedia[]> {
@@ -125,7 +125,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
   }
   async resolveCampaignHome(input: Parameters<NonNullable<PublicStorefrontRepository["resolveCampaignHome"]>>[0]): Promise<CampaignHomeProjection> {
     const parsed = exact(input, ["storefront", "now"]); const store = context({ storefront: parsed.storefront });
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_campaign_home($1::uuid,$2::text,$3::timestamptz)", [store.id, store.hostname, date(parsed.now)]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_retail_home($1::uuid,$2::text,$3::timestamptz)", [store.id, store.hostname, date(parsed.now)]);
     return campaignHomePayload(this.projection(result));
   }
   async listRelatedPublicProducts(input: Parameters<NonNullable<PublicStorefrontRepository["listRelatedPublicProducts"]>>[0]) {

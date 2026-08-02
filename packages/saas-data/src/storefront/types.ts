@@ -1,12 +1,31 @@
-import type { PublicProduct, PublicProductList, PublicProductMedia, PublicStarterThemePresentationV2, PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
+import type { PublicProduct, PublicProductList, PublicProductMedia, PublicStarterThemePresentation, PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
+import type { TenantContext } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 
 export type TrustedStorefrontContext = Readonly<{ storefront: PublicStorefront }>;
 export type PublicStorefrontCategory = Readonly<{ id: string; name: string; slug: string }>;
 export type PublicStorefrontCategoryProductList = Readonly<{ category: PublicStorefrontCategory; items: readonly PublicProduct[] }>;
 export type CampaignHomeProjection = Readonly<{
-  presentation: PublicStarterThemePresentationV2;
+  presentation: PublicStarterThemePresentation;
   productRows: readonly Readonly<{ key: string; items: readonly PublicProduct[] }>[];
+}>;
+
+export type NewsletterSubscriptionResult = Readonly<{ outcome: "subscribed" }>;
+export type NewsletterSubscriber = Readonly<{
+  email: string;
+  status: "subscribed" | "unsubscribed";
+  consentVersion: string;
+  consentedAt: string;
+}>;
+export interface NewsletterRepository {
+  subscribe(input: Readonly<{ hostname: string; now: Date; email: string; consentVersion: string }>): Promise<NewsletterSubscriptionResult>;
+  list(input: Readonly<{ tenantContext: TenantContext; now: Date; limit: number }>): Promise<readonly NewsletterSubscriber[]>;
+}
+export type PostgresNewsletterRepositoryOptions = Readonly<{
+  pool: PostgresPoolLike;
+  publicRole: "celebix_saas_host_resolver";
+  merchantRole: "celebix_saas_app";
+  timeouts: PostgresTimeoutOptions;
 }>;
 
 export interface PublicStorefrontRepository {
