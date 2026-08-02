@@ -3,10 +3,10 @@
   "phase": "4e-complete-starter-retail-experience",
   "postgresqlMajor": 16,
   "artifacts": [
-    { "file": "202608020075_complete_starter_retail_experience.up.sql", "sha256": "de9f42247d9d9410e71de12470c26c8e94ab6ad557bb8e6c1d92353fdd367231" },
-    { "file": "202608020075_complete_starter_retail_experience_assertions.sql", "sha256": "6e63874b89f1740389eb480a9d4785e3febf498df61758d3f8b468b70d0c3378" }
+    { "file": "202608020075_complete_starter_retail_experience.up.sql", "sha256": "d126d6580b5ffbabf1054c053a22126065b3c45285131db4a58d505824e6e145" },
+    { "file": "202608020075_complete_starter_retail_experience_assertions.sql", "sha256": "09adc821dc1d1cd5fe5a25776854aaa442bca3704dda93036e1c06898e3e420b" }
   ],
   "rollbackArtifacts": [
-    { "file": "202608020075_complete_starter_retail_experience.down.sql", "sha256": "c31a90d4ed8c6e3ab2a871f6424fa513d0bf26ccd1baa91f8a1566437538723c" }
+    { "file": "202608020075_complete_starter_retail_experience.down.sql", "sha256": "b69011016fc39ebed5cd4fa0a47e2e24b9dc374cae435ca7e96e715fcd23a5a9" }
   ]
 }

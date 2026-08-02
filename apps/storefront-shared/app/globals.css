@@ -353,6 +353,7 @@ img { display: block; max-width: 100%; }
 .retail-footer-grid { display: grid; grid-template-columns: minmax(220px,1.15fr) repeat(3,minmax(140px,.7fr)) minmax(280px,1.5fr); gap: clamp(26px,4vw,64px); padding-bottom: 54px; }
 .retail-footer-grid > *, .retail-footer-brand { min-width: 0; }
 .retail-footer-grid nav, .retail-footer-brand { display: grid; align-content: start; gap: 8px; }
+.retail-footer-mobile { display: none; }
 .retail-footer-grid nav > span { margin-bottom: 9px; color: var(--retail-footer-fg); font-size: .73rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 .retail-footer-grid a, .retail-footer-grid p, .retail-footer-social a { color: var(--retail-footer-muted); }
 .retail-footer-grid a { display: flex; align-items: center; min-height: 48px; text-decoration: none; }
@@ -447,6 +448,14 @@ img { display: block; max-width: 100%; }
   .store-container { width: min(100% - 28px, 1240px); }
   .retail-footer-grid { grid-template-columns: 1fr; }
   .retail-footer-brand, .retail-footer-newsletter { grid-column: auto; }
+  .retail-footer-desktop-group { display: none!important; }
+  .retail-footer-mobile { display: grid; gap: 0; border-block: 1px solid var(--retail-footer-line); }
+  .retail-footer-mobile details + details { border-top: 1px solid var(--retail-footer-line); }
+  .retail-footer-mobile summary { display: flex; min-height: 48px; align-items: center; justify-content: space-between; color: var(--retail-footer-fg); font-size: .76rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; list-style: none; }
+  .retail-footer-mobile summary::-webkit-details-marker { display: none; }
+  .retail-footer-mobile summary::after { content: "+"; font-size: 1.2rem; font-weight: 400; }
+  .retail-footer-mobile details[open] summary::after { content: "−"; }
+  .retail-footer-mobile nav { padding: 0 0 12px; }
   .retail-newsletter-form label > span:last-child { grid-template-columns: minmax(0, 1fr) auto; }
   .header-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
   .header-actions { min-width: 0; }

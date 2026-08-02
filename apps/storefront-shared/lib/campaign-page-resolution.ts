@@ -6,6 +6,10 @@ export type CampaignPageProjectionResolution =
   | Readonly<{ kind: "campaign"; projection: CampaignHomeProjection }>
   | Readonly<{ kind: "unavailable" }>;
 
+export function withCampaignPresentation(storefront: PublicStorefront, projection: CampaignHomeProjection): PublicStorefront {
+  return Object.freeze({ ...storefront, presentation: projection.presentation });
+}
+
 export async function resolveCampaignPageProjection(input: Readonly<{
   storefront: PublicStorefront;
   repository: PublicStorefrontRepository;

@@ -31,7 +31,6 @@ export async function parseNewsletterSubscribeRequest(request: Request, publicOr
     || request.headers.get("origin") !== origin
     || request.headers.get("content-type") !== "application/json"
     || request.headers.has("authorization")
-    || request.headers.has("cookie")
     || request.headers.has("transfer-encoding")
     || request.body === null
   ) invalid();

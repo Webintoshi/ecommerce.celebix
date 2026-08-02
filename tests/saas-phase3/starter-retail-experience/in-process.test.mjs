@@ -73,3 +73,11 @@ test("browser acceptance is loopback-only and covers every approved visual surfa
   assert.match(source, /127[.]0[.]0[.]1|localhost/u);
   assert.doesNotMatch(source, /https:\/\/|production|staging|--disable-web-security/iu);
 });
+
+test("built browser acceptance uses the real routes page context and disposable PostgreSQL", () => {
+  const browser = read("tests/saas-phase3/starter-retail-experience/browser-acceptance.mjs");
+  const postgres = read("tests/saas-phase3/starter-retail-experience/postgres-harness.mjs");
+  for (const proof of ["STOREFRONT_ACCEPTANCE_MODE", "cart_cookie_must_remain_httponly", "newsletterAfterCart"]) assert.match(browser, new RegExp(proof, "u"));
+  for (const proof of ["STARTER_RETAIL_BUILT_BROWSER", "next/dist/bin/next", "startStorefrontAuthorityProxy", "x-celebix-storefront-proxy", "STOREFRONT_BASE_URL", "storefront_carts", "storefront_newsletter_subscribers", "browser@example.test"]) assert.match(postgres, new RegExp(proof, "u"));
+  assert.doesNotMatch(postgres, /docker|podman|externalConnections\s*:\s*[1-9]/iu);
+});

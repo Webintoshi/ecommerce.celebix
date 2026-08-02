@@ -21,12 +21,21 @@ function validateBase(raw) {
   return url.origin;
 }
 let BASE = "";
+const BUILT_MODE = process.env.STOREFRONT_ACCEPTANCE_MODE === "built";
+const PUBLIC_ORIGIN = BUILT_MODE ? (() => {
+  const value = process.env.STOREFRONT_PUBLIC_ORIGIN ?? "";
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/" || url.search || url.hash || url.origin !== value) throw new Error("STOREFRONT_PUBLIC_ORIGIN_must_be_canonical_https_origin");
+  return value;
+})() : null;
 
 function createFixtureApp() {
   const fixture = path.join(ARTIFACTS, "browser-fixture");
   const app = path.join(fixture, "app");
   const api = path.join(app, "api/cart/[action]");
+  const newsletterApi = path.join(app, "api/newsletter/subscriptions");
   mkdirSync(api, { recursive: true });
+  mkdirSync(newsletterApi, { recursive: true });
   writeFileSync(path.join(fixture, "package.json"), `${JSON.stringify({ private: true }, null, 2)}\n`);
   writeFileSync(path.join(fixture, "next.config.mjs"), "export default Object.freeze({allowedDevOrigins:Object.freeze(['127.0.0.1']),devIndicators:false,experimental:Object.freeze({externalDir:true})});\n");
   writeFileSync(path.join(fixture, "tsconfig.json"), `${JSON.stringify({ compilerOptions: { jsx: "react-jsx", lib: ["dom", "dom.iterable", "esnext"], module: "esnext", moduleResolution: "bundler", noEmit: true, paths: { "@/*": ["../../../apps/storefront-shared/*"] }, target: "ES2022", allowJs: true, skipLibCheck: true, strict: false, incremental: true, esModuleInterop: true, resolveJsonModule: true, isolatedModules: true, plugins: [{ name: "next" }] }, include: ["next-env.d.ts", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "**/*.ts", "**/*.tsx"], exclude: ["node_modules"] }, null, 2)}\n`);
@@ -55,7 +64,8 @@ export function FixturePage({path}:{path:string}){if(path==="/")return <Campaign
   const emptyCart = { version: 1, currency: "TRY", itemCount: 0, subtotalCents: 0, shippingCents: 0, totalCents: 0, checkoutReady: false, checkoutBlocker: "empty_cart", items: [] };
   const line = { productId: "10000000-0000-4000-8000-000000000001", variantId: "20000000-0000-4000-8000-000000000001", slug: "urun-1", title: "İnci Işıltılı Kolye", variantTitle: "Standart", quantity: 1, unitPriceCents: 1289000, lineTotalCents: 1289000, available: true };
   writeFileSync(path.join(app, "api/cart/route.ts"), `const cart=${JSON.stringify(emptyCart)};\nexport function GET(){return Response.json({cart})}\n`);
-  writeFileSync(path.join(api, "route.ts"), `const cart=${JSON.stringify({ version: 2, currency: "TRY", itemCount: 1, subtotalCents: 1289000, shippingCents: 0, totalCents: 1289000, checkoutReady: true, checkoutBlocker: null, items: [line] })};\nexport function POST(){return Response.json({cart})}\n`);
+  writeFileSync(path.join(api, "route.ts"), `const cart=${JSON.stringify({ version: 2, currency: "TRY", itemCount: 1, subtotalCents: 1289000, shippingCents: 0, totalCents: 1289000, checkoutReady: true, checkoutBlocker: null, items: [line] })};\nexport function POST(){return Response.json({cart},{headers:{"set-cookie":"fixture_cart=present; Path=/; SameSite=Lax"}})}\n`);
+  writeFileSync(path.join(newsletterApi, "route.ts"), `export function POST(request:Request){return request.headers.has("cookie")?Response.json({outcome:"subscribed"}):Response.json({code:"cart_cookie_required"},{status:412})}\n`);
   return fixture;
 }
 
@@ -100,7 +110,7 @@ async function measure(cdp, label) {
 }
 
 async function capture(cdp, measurements, screenshots, route, width, height, name, waitExpression = "document.querySelector('.starter-storefront')") {
-  await viewport(cdp, width, height); await navigate(cdp, route); await waitFor(cdp, waitExpression, name);
+  await viewport(cdp, width, height); await navigate(cdp, route); try { await waitFor(cdp, `(${waitExpression})&&!document.querySelector('.loading-page')`, name); } catch (error) { const state = await cdp.evaluate("({href:location.href,status:document.readyState,title:document.title,text:document.body?.innerText?.slice(0,500),html:document.documentElement?.outerHTML?.slice(0,500)})"); throw new Error(`${error.message}:${JSON.stringify(state)}`); }
   measurements.push(await measure(cdp, name)); screenshots.push(await screenshot(cdp, `${name}.png`));
 }
 
@@ -109,6 +119,7 @@ async function main() {
   rmSync(ARTIFACTS, { recursive: true, force: true }); mkdirSync(ARTIFACTS, { recursive: true });
   let fixture = null, fixtureServer = null, fixtureLog = "";
   if (process.env.STOREFRONT_BASE_URL) {
+    assert.equal(BUILT_MODE, true, "external_base_requires_built_mode");
     BASE = validateBase(process.env.STOREFRONT_BASE_URL);
   } else {
     fixture = createFixtureApp();
@@ -123,13 +134,14 @@ async function main() {
   const debugPort = await freePort();
   const chrome = spawn(CHROME, [`--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, "--headless=new", "--disable-extensions", "--disable-background-networking", "--no-first-run", "--no-default-browser-check", "about:blank"], { stdio: "ignore" });
   let cdp;
-  const consoleErrors = [], networkFailures = [], sensitiveSurface = { dom: false, console: false, networkUrl: false };
+  const consoleErrors = [], networkFailures = [], interceptionErrors = [], sensitiveSurface = { dom: false, console: false, networkUrl: false };
   try {
     await waitForHttp(`http://127.0.0.1:${debugPort}/json/version`);
     const tabs = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
     const page = tabs.find((tab) => tab.type === "page" && tab.url === "about:blank") ?? tabs.find((tab) => tab.type === "page");
     assert.ok(page?.webSocketDebuggerUrl, "browser_page_target_required"); cdp = new Cdp(page.webSocketDebuggerUrl);
     await Promise.all([cdp.send("Page.enable"), cdp.send("Runtime.enable"), cdp.send("Network.enable")]);
+    if (BUILT_MODE) assert.equal(new URL(PUBLIC_ORIGIN).protocol, "https:", "built_public_authority_required");
     cdp.on("Runtime.consoleAPICalled", ({ type, args = [] }) => { const value = args.map(({ value: text, description }) => String(text ?? description ?? "")).join(" "); if (/__Host-celebix_|(?:c1|i1|u1|r1)[.][A-Za-z0-9_-]+/u.test(value)) sensitiveSurface.console = true; if (["error", "assert"].includes(type)) consoleErrors.push(type); });
     cdp.on("Network.loadingFailed", ({ canceled }) => { if (!canceled) networkFailures.push("failed"); });
     cdp.on("Network.requestWillBeSent", ({ request }) => { if (/__Host-celebix_|(?:c1|i1|u1|r1)[.]current/u.test(request.url)) sensitiveSurface.networkUrl = true; });
@@ -141,18 +153,23 @@ async function main() {
     await capture(cdp, measurements, screenshots, "/products", 390, 844, "listing-390x844", "document.querySelector('.product-card-link')");
     const productPath = await cdp.evaluate("document.querySelector('.product-card-link')?.getAttribute('href')"); assert.match(productPath, /^\/products\/[a-z0-9-]+$/u);
     for (const [width, height] of [[1440, 1000], [1024, 768], [390, 844], [320, 720]]) await capture(cdp, measurements, screenshots, productPath, width, height, `product-detail-${width}x${height}`, "document.querySelector('.purchase-panel')");
-    await viewport(cdp, 1440, 1000); await navigate(cdp, productPath); await waitFor(cdp, "document.querySelector('.purchase-panel')", "side-cart-product");
+    await viewport(cdp, 1440, 1000); await navigate(cdp, productPath); await waitFor(cdp, "document.querySelector('.purchase-panel')&&!document.querySelector('.loading-page')", "side-cart-product");
     const variant = "document.querySelector('.purchase-panel input[type=radio]:not(:disabled)')?.closest('label')"; if (await cdp.evaluate(`Boolean(${variant})`)) await click(cdp, variant, "variant");
     await click(cdp, "[...document.querySelectorAll('.purchase-actions button')].find((node)=>node.textContent.includes('Sepete ekle'))", "add-to-cart"); await waitFor(cdp, "document.querySelector('.side-cart-dialog')", "side-cart"); screenshots.push(await screenshot(cdp, "side-cart-1440x1000.png")); measurements.push(await measure(cdp, "side-cart-1440x1000"));
+    if (BUILT_MODE) assert.equal(await cdp.evaluate("document.cookie.includes('__Host-celebix_cart=')"), false, "cart_cookie_must_remain_httponly");
+    else await waitFor(cdp, "document.cookie.includes('fixture_cart=present')", "cart-cookie");
     await viewport(cdp, 390, 844); screenshots.push(await screenshot(cdp, "side-cart-390x844.png")); measurements.push(await measure(cdp, "side-cart-390x844")); await key(cdp, "Escape"); await waitFor(cdp, "!document.querySelector('.side-cart-dialog')&&getComputedStyle(document.body).overflow!=='hidden'", "side-cart-closed");
     for (const [width, height] of [[1440, 1000], [390, 844]]) { await viewport(cdp, width, height); await navigate(cdp, "/"); await waitFor(cdp, "document.querySelector('.retail-newsletter-form')", "footer-newsletter"); await cdp.evaluate("scrollTo(0,document.documentElement.scrollHeight)"); await waitFor(cdp, "scrollY>0&&document.querySelector('.retail-footer')?.getBoundingClientRect().bottom<=innerHeight+1", "footer-visible"); screenshots.push(await screenshot(cdp, `footer-newsletter-${width}x${height}.png`)); measurements.push(await measure(cdp, `footer-newsletter-${width}x${height}`)); }
+    await cdp.evaluate(`(() => { const input=document.querySelector('.retail-newsletter-form input[type=email]'),checkbox=document.querySelector('.retail-newsletter-form input[type=checkbox]');const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set;if(!(input instanceof HTMLInputElement)||!(checkbox instanceof HTMLInputElement)||!setter)return false;setter.call(input,'browser@example.test');input.dispatchEvent(new Event('input',{bubbles:true}));checkbox.click();return true;})()`);
+    await click(cdp, "document.querySelector('.retail-newsletter-form button[type=submit]')", "newsletter-submit-after-cart");
+    await waitFor(cdp, "document.querySelector('.retail-newsletter-form [aria-live=polite]')?.textContent==='Aboneliğiniz kaydedildi.'", "newsletter-cookie-compatible");
     await capture(cdp, measurements, screenshots, "/search?q=none", 390, 844, "empty-partial-390x844", "document.querySelector('.store-empty')");
     await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
     const reducedMotionDuration = await cdp.evaluate("getComputedStyle(document.documentElement).scrollBehavior==='auto'?[...document.querySelectorAll('*')].filter((node)=>getComputedStyle(node).transitionDuration!=='0s').map((node)=>getComputedStyle(node).transitionDuration).at(0)??'0.00001s':'invalid'");
     assert.ok(["1e-05s", "0.00001s", "0.01ms"].includes(reducedMotionDuration), `reducedMotionDuration:${reducedMotionDuration}`);
     sensitiveSurface.dom = /__Host-celebix_|(?:c1|i1|u1|r1)[.][A-Za-z0-9_-]{20,}/u.test(await cdp.evaluate("document.documentElement.innerHTML"));
-    assert.deepEqual(sensitiveSurface, { dom: false, console: false, networkUrl: false }); assert.deepEqual(consoleErrors, []); assert.deepEqual(networkFailures, []);
-    const result = Object.freeze({ baseOrigin: "loopback", viewportMatrix: VIEWPORTS.map(([width, height]) => ({ width, height })), measurements, reducedMotionDuration, screenshotCount: screenshots.length, screenshots: screenshots.map((file) => path.relative(ROOT, file)), consoleErrors: 0, networkFailures: 0, sensitiveSurface });
+    assert.deepEqual(sensitiveSurface, { dom: false, console: false, networkUrl: false }); assert.deepEqual(consoleErrors, []); assert.deepEqual(networkFailures, []); assert.deepEqual(interceptionErrors, []);
+    const result = Object.freeze({ applicationMode: BUILT_MODE ? "built" : "fixture", baseOrigin: "loopback", viewportMatrix: VIEWPORTS.map(([width, height]) => ({ width, height })), measurements, newsletterAfterCart: true, reducedMotionDuration, screenshotCount: screenshots.length, screenshots: screenshots.map((file) => path.relative(ROOT, file)), consoleErrors: 0, networkFailures: 0, sensitiveSurface });
     writeFileSync(path.join(ARTIFACTS, "browser-acceptance.json"), `${JSON.stringify(result, null, 2)}\n`);
     process.stdout.write(`PASS starter retail browser acceptance (${screenshots.length} screenshots)\n`);
   } finally {

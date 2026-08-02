@@ -37,7 +37,7 @@
 - Consumes: existing `StarterThemeCompositionConfig`, `PublicStarterThemePresentationV1/V2`, `PublicProduct`, and `StorefrontPolicyKey`.
 - Produces: `StarterThemeCompositionConfigV2`, `StarterThemeSectionConfigV2`, `StarterFooterConfig`, `PublicStarterThemePresentationV3`, `PublicStarterReview`, and `PublicProductMerchandising`; `adaptStarterPresentationV2(value): PublicStarterThemePresentationV3`.
 
-- [ ] **Step 1: Write failing exact-contract tests**
+- [x] **Step 1: Write failing exact-contract tests**
 
 ```ts
 test("composition v2 accepts retail sections and rejects fake testimonial copy", () => {
@@ -62,13 +62,13 @@ test("presentation v3 is exact deeply frozen and v2 adapts without invented reta
 });
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run: `npm test --workspace @celebix/saas-contracts -- --test-name-pattern='composition v2|presentation v3'`
 
 Expected: FAIL because schema v2/v3 types and parsers are not defined.
 
-- [ ] **Step 3: Implement the minimal finite contracts and parsers**
+- [x] **Step 3: Implement the minimal finite contracts and parsers**
 
 ```ts
 export type StarterValueIcon = "sparkles" | "cotton" | "heart" | "shield" | "truck" | "return";
@@ -92,13 +92,13 @@ export type PublicStarterThemePresentationV3 = Readonly<{
 
 Parsers must use exact key sets, bounded arrays/strings, enum selection, uniqueness checks, safe relative destinations, canonical reviewed social URLs, and recursive freezing.
 
-- [ ] **Step 4: Run contracts tests and typecheck GREEN**
+- [x] **Step 4: Run contracts tests and typecheck GREEN**
 
 Run: `npm test --workspace @celebix/saas-contracts && npm run typecheck --workspace @celebix/saas-contracts`
 
 Expected: all contract tests and typecheck PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-contracts/src/storefront packages/saas-contracts/src/index.ts
@@ -123,7 +123,7 @@ git commit -m "feat(storefront): extend starter retail contracts"
 - Consumes: composition v2/public v3 contracts and existing `public_campaign_home`, product-review, catalog-resource, policy, hostname, and application-role authorities.
 - Produces: `saas.public_starter_retail_home`, `saas.public_starter_product_detail`, `saas.public_newsletter_subscribe`, `saas.merchant_newsletter_list`; `NewsletterRepository.subscribe(input)` and `.list(input)`.
 
-- [ ] **Step 1: Write failing repository and PostgreSQL scenarios**
+- [x] **Step 1: Write failing repository and PostgreSQL scenarios**
 
 ```ts
 test("newsletter subscription sends only hostname-derived store input and fixed consent", async () => {
@@ -136,7 +136,7 @@ test("newsletter subscription sends only hostname-derived store input and fixed 
 
 Harness scenarios must start RED for missing migration 075 and prove cross-store publication rejection, approved-review-only projection, inactive product exclusion, newsletter isolation, idempotency, concurrent double-submit, existence privacy, RLS/ACL, backup/restore, rollback/reapply, and cleanup.
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 Run: `npm test --workspace @celebix/saas-data -- --test-name-pattern='newsletter'`
 
@@ -144,7 +144,7 @@ Run: `node tests/saas-phase3/starter-retail-experience/postgres-harness.mjs`
 
 Expected: FAIL because repository/functions/table do not exist.
 
-- [ ] **Step 3: Implement migration and repository**
+- [x] **Step 3: Implement migration and repository**
 
 ```sql
 CREATE TABLE saas.storefront_newsletter_subscribers (
@@ -168,7 +168,7 @@ REVOKE ALL ON saas.storefront_newsletter_subscribers FROM PUBLIC,celebix_saas_ap
 
 The subscribe function normalizes and validates email, resolves the store from exact hostname, locks/upserts one `(store_id,email_digest)` row, never returns existence, and returns only `{ outcome: "subscribed" }`. Public v3 projection resolves assets/categories/pages/resources/reviews by `store_id` on every join.
 
-- [ ] **Step 4: Run GREEN repository and PostgreSQL suites**
+- [x] **Step 4: Run GREEN repository and PostgreSQL suites**
 
 Run: `npm test --workspace @celebix/saas-data && npm run typecheck --workspace @celebix/saas-data`
 
@@ -176,7 +176,7 @@ Run: `node tests/saas-phase3/starter-retail-experience/postgres-harness.mjs && n
 
 Expected: all focused tests and every declared PostgreSQL scenario PASS; cleanup leaves no disposable container/database.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/owner/scripts/sql/saas packages/saas-data/src/storefront tests/saas-phase3/starter-retail-experience
@@ -198,7 +198,7 @@ git commit -m "feat(storefront): persist complete starter retail authority"
 - Consumes: `StarterThemeCompositionConfigV2`, same-store categories/products/pages/assets, and current merchant-admin save/publish API.
 - Produces: `createStarterThemeEditorStateV2`, `buildStarterThemeCompositionV2`, ordered section editors, product-detail controls, footer editor, and deterministic preview.
 
-- [ ] **Step 1: Write failing model/static behavior tests**
+- [x] **Step 1: Write failing model/static behavior tests**
 
 ```ts
 test("new editor state exposes every approved retail section without fake content", () => {
@@ -215,13 +215,13 @@ test("composer renders value, testimonial, footer and product disclosure control
 });
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 Run: `node --experimental-transform-types --test apps/customer-panel/lib/starter-theme-composer-model.test.ts`
 
 Expected: FAIL on schemaVersion/footer/new section assertions.
 
-- [ ] **Step 3: Implement minimal accessible editors**
+- [x] **Step 3: Implement minimal accessible editors**
 
 ```tsx
 {section.kind === "value_propositions" ? <ValuePropositionsEditor section={section} update={update} /> : null}
@@ -231,13 +231,13 @@ Expected: FAIL on schemaVersion/footer/new section assertions.
 
 Use typed pickers, finite selects, `maxLength`, visible errors, keyboard reorder buttons, and existing optimistic publish/version flow. Do not expose raw UUID or arbitrary URL text inputs except reviewed social profile URLs.
 
-- [ ] **Step 4: Run GREEN customer-panel tests/typecheck**
+- [x] **Step 4: Run GREEN customer-panel tests/typecheck**
 
 Run: `npm test --workspace @celebix/customer-panel && npm run typecheck --workspace @celebix/customer-panel`
 
 Expected: all customer-panel tests and typecheck PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/customer-panel/lib/starter-theme-composer-model* apps/customer-panel/components/settings
@@ -266,7 +266,7 @@ git commit -m "feat(customer-panel): manage complete starter retail theme"
 - Consumes: `PublicStarterThemePresentationV3` and `PublicStarterHomeSectionV3`.
 - Produces: complete reference-led home composition and footer with real links/reviews.
 
-- [ ] **Step 1: Write failing section/header/footer tests**
+- [x] **Step 1: Write failing section/header/footer tests**
 
 ```ts
 test("campaign home exhaustively renders the two retail section kinds", async () => {
@@ -284,13 +284,13 @@ test("retail footer consumes resolved groups and never invents links", async () 
 });
 ```
 
-- [ ] **Step 2: Run RED storefront tests**
+- [x] **Step 2: Run RED storefront tests**
 
 Run: `npm test --workspace @celebix/storefront-shared -- --test-name-pattern='campaign home|retail footer|campaign header'`
 
 Expected: FAIL because new renderers and footer projection are absent.
 
-- [ ] **Step 3: Implement server-first section rendering and responsive styles**
+- [x] **Step 3: Implement server-first section rendering and responsive styles**
 
 ```tsx
 case "value_propositions":
@@ -301,13 +301,13 @@ case "testimonials":
 
 Header must support overlay/solid state, centered logo, exact category disclosures, and real utility routes. Footer must render resolved groups, optional social links, and newsletter only when `enabled` is true. Use semantic lists/nav/details, stable image sizes, CSS grid, and no copied reference assets.
 
-- [ ] **Step 4: Run GREEN storefront tests/typecheck**
+- [x] **Step 4: Run GREEN storefront tests/typecheck**
 
 Run: `npm test --workspace @celebix/storefront-shared && npm run typecheck --workspace @celebix/storefront-shared`
 
 Expected: all storefront tests and typecheck PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/storefront-shared/components apps/storefront-shared/app/globals.css
@@ -331,7 +331,7 @@ git commit -m "feat(storefront): render complete starter retail home"
 - Consumes: `NewsletterRepository.subscribe`, exact hostname/runtime config, and footer newsletter projection.
 - Produces: `parseNewsletterSubscribeRequest`, `processNewsletterSubscription`, exact public success/error response, and accessible form state.
 
-- [ ] **Step 1: Write failing request/runtime tests**
+- [x] **Step 1: Write failing request/runtime tests**
 
 ```ts
 test("newsletter accepts only exact consented JSON without private authority", async () => {
@@ -344,13 +344,13 @@ test("newsletter accepts only exact consented JSON without private authority", a
 });
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 Run: `node --experimental-transform-types --test apps/storefront-shared/lib/newsletter/*.test.ts`
 
 Expected: FAIL because newsletter request/runtime modules do not exist.
 
-- [ ] **Step 3: Implement exact fail-closed endpoint and form**
+- [x] **Step 3: Implement exact fail-closed endpoint and form**
 
 ```tsx
 const response = await fetch("/api/newsletter/subscriptions", {
@@ -365,13 +365,13 @@ else setStatus("Aboneliğiniz kaydedildi.");
 
 The runtime must use trusted request hostname, never request-body store authority, return `cache-control: no-store`, and expose identical success for initial/repeated subscription.
 
-- [ ] **Step 4: Run GREEN tests/typecheck**
+- [x] **Step 4: Run GREEN tests/typecheck**
 
 Run: `npm test --workspace @celebix/saas-contracts && npm test --workspace @celebix/storefront-shared && npm run typecheck --workspace @celebix/storefront-shared`
 
 Expected: all newsletter, contract, and storefront tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-contracts/src/storefront apps/storefront-shared/lib/newsletter apps/storefront-shared/app/api/newsletter apps/storefront-shared/components
@@ -394,7 +394,7 @@ git commit -m "feat(storefront): capture tenant newsletter consent"
 - Consumes: public product merchandising, approved reviews, published policies, related products, canonical variants/cart.
 - Produces: reference-led vertical thumbnail gallery, purchase summary, size guide, ordered disclosures, reviews, and responsive sticky purchase.
 
-- [ ] **Step 1: Write failing truthful product-detail tests**
+- [x] **Step 1: Write failing truthful product-detail tests**
 
 ```ts
 test("product detail renders only resolved merchandising and policy disclosures", async () => {
@@ -405,13 +405,13 @@ test("product detail renders only resolved merchandising and policy disclosures"
 });
 ```
 
-- [ ] **Step 2: Run RED tests**
+- [x] **Step 2: Run RED tests**
 
 Run: `npm test --workspace @celebix/storefront-shared -- --test-name-pattern='product detail|gallery|purchase'`
 
 Expected: FAIL because merchandising/review components are absent.
 
-- [ ] **Step 3: Implement product experience without parallel commerce state**
+- [x] **Step 3: Implement product experience without parallel commerce state**
 
 ```tsx
 <ProductInformationDisclosures
@@ -425,13 +425,13 @@ Expected: FAIL because merchandising/review components are absent.
 
 Retain `storefrontCartClient.add`, `CartStatusProvider`, real variant selection, buy-now route, safe Markdown, and current related-product authority. Missing size/material/certification data must remove the control.
 
-- [ ] **Step 4: Run GREEN storefront regression**
+- [x] **Step 4: Run GREEN storefront regression**
 
 Run: `npm test --workspace @celebix/storefront-shared && npm run typecheck --workspace @celebix/storefront-shared`
 
 Expected: all product/cart/checkout and storefront tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/storefront-shared/components apps/storefront-shared/lib/campaign-page-resolution*
@@ -449,7 +449,7 @@ git commit -m "feat(storefront): complete starter product experience"
 - Consumes: complete v3 composer/storefront.
 - Produces: automated overflow, focus, reduced-motion, touch-target, contrast, screenshot, and forbidden-source evidence.
 
-- [ ] **Step 1: Add failing acceptance assertions**
+- [x] **Step 1: Add failing acceptance assertions**
 
 ```js
 for (const viewport of [[1440,1000],[1025,768],[1024,768],[390,844],[320,720]]) {
@@ -459,17 +459,17 @@ for (const viewport of [[1440,1000],[1025,768],[1024,768],[390,844],[320,720]]) 
 assert.equal(await page.locator('[data-store-utility="cart"]').evaluate((node) => Math.min(node.getBoundingClientRect().width, node.getBoundingClientRect().height) >= 48), true);
 ```
 
-- [ ] **Step 2: Run acceptance RED against the local build**
+- [x] **Step 2: Run acceptance RED against the local build**
 
 Run: `node tests/saas-phase3/starter-retail-experience/in-process.test.mjs`
 
 Expected: any uncovered reference, overflow, focus, or source-scan assertion fails with the exact deficient component.
 
-- [ ] **Step 3: Make only measured CSS/semantic corrections**
+- [x] **Step 3: Make only measured CSS/semantic corrections**
 
 Use CSS grid/flex, `min-width: 0`, intrinsic aspect ratios, `:focus-visible`, semantic buttons/details/dialogs, `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }`, and no brittle viewport-specific content duplication.
 
-- [ ] **Step 4: Run complete local matrix GREEN**
+- [x] **Step 4: Run complete local matrix GREEN**
 
 Run:
 
@@ -497,11 +497,11 @@ git diff --check
 
 Expected: all commands PASS, PostgreSQL resources cleaned, `apps/admin/**` diff count 0, and secret/forbidden-ID scans empty.
 
-- [ ] **Step 5: Capture untracked local evidence**
+- [x] **Step 5: Capture untracked local evidence**
 
 Capture home, navigation, listing, product detail, side cart, footer/newsletter, and empty/partial states at the exact viewport matrix into an untracked evidence directory. Compare each artifact with the nine-item coverage ledger and record measured overflow, target size, contrast, focus, and reduced-motion values.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/saas-phase3/starter-retail-experience apps/storefront-shared apps/customer-panel packages/saas-contracts packages/saas-data apps/owner/scripts/sql/saas
@@ -517,13 +517,13 @@ git commit -m "test(storefront): verify complete starter retail experience"
 - Consumes: Tasks 1–7.
 - Produces: clean reviewed branch, exact commit map, remote parity, and a deployment-not-executed report.
 
-- [ ] **Step 1: Inspect the complete diff and commit boundaries**
+- [x] **Step 1: Inspect the complete diff and commit boundaries**
 
 Run: `git diff --stat c6327e60c67a34be59da81a32e012063befd3bbe...HEAD && git log --oneline c6327e60c67a34be59da81a32e012063befd3bbe..HEAD`
 
 Expected: only design/plan, contract, data, SQL, customer-panel, storefront-shared, and focused test files; `apps/admin/**` absent.
 
-- [ ] **Step 2: Run forbidden and secret scans**
+- [x] **Step 2: Run forbidden and secret scans**
 
 ```bash
 git diff --name-only c6327e60c67a34be59da81a32e012063befd3bbe...HEAD | rg '^apps/admin/' && exit 1 || true
@@ -532,11 +532,11 @@ git diff c6327e60c67a34be59da81a32e012063befd3bbe...HEAD | rg -i 'shopify|impuls
 
 Expected: no forbidden application source or secrets. Documentation may name the approved visual reference only in its explicit non-copying statement.
 
-- [ ] **Step 3: Repair and re-run any Critical/Important findings**
+- [x] **Step 3: Repair and re-run any Critical/Important findings**
 
 Every repair must begin with a reproducing failing test, then pass the focused suite and the complete Task 7 matrix. Cosmetic suggestions that do not affect the approved acceptance criteria do not expand scope.
 
-- [ ] **Step 4: Push normally and prove parity**
+- [x] **Step 4: Push normally and prove parity**
 
 ```bash
 git push origin codex/starter-theme-impulse-quality
@@ -546,6 +546,6 @@ git status --short
 
 Expected: local HEAD equals remote SHA and worktree is clean.
 
-- [ ] **Step 5: Report code complete without deployment**
+- [x] **Step 5: Report code complete without deployment**
 
 Report the final SHA, commit map, changed files, exact test totals, PostgreSQL result, accessibility/visual evidence paths, `apps/admin/**` diff 0, secret scan, remote parity, deployment 0, production impact 0, and any separately gated staging action.
