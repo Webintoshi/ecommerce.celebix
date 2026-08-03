@@ -6,6 +6,15 @@ import type { PostgresPoolLike } from "../postgres/pool.ts";
 const STORE_ID = "10000000-0000-4000-8000-000000000001";
 const HOSTNAME = "pilot.saas-staging.celebix.site";
 const storefront = { schemaVersion: 1, id: STORE_ID, name: "Pilot Store", slug: "pilot-store", hostname: HOSTNAME, primaryHostname: HOSTNAME, canonicalUrl: `https://${HOSTNAME}/`, currency: "TRY", locale: "tr", themeKey: "hemenaku" };
+const publicDesign = {
+  schemaVersion: 1,
+  publicationVersion: 2,
+  publishedAt: "2026-08-03T12:00:00.000Z",
+  brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "inter" },
+  hero: { headline: "Pilot Store", body: "", image: null, destination: null, enabled: true },
+  promotion: { headline: "Ücretsiz kargo", body: "", destination: null, startsAt: null, endsAt: null, enabled: false },
+  announcement: { items: ["Pilot Store"], icon: "none", speed: "normal", direction: "left", animation: "continuous", enabled: false },
+};
 
 function repository(outcome = "found", resultPayload: unknown = storefront) {
   const queries: string[] = [];
@@ -25,4 +34,19 @@ test("public storefront repository selects exact host through the narrow resolve
 test("public storefront repository maps unknown host to a finite not-found result", async () => {
   const fixture = repository("not_found", null);
   await assert.rejects(fixture.value.getPublicStorefront({ hostname: "unknown.saas-staging.celebix.site", now: new Date() }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "not_found");
+});
+
+test("public storefront design is read only through the trusted host context", async () => {
+  const fixture = repository("found", publicDesign);
+  const selected = await fixture.value.getPublicStorefrontDesign({ storefront, now: new Date("2026-08-03T12:00:00.000Z") });
+  assert.deepEqual(selected, publicDesign);
+  assert.equal(fixture.queries.some((query) => query.includes("storefront_design_get_public")), true);
+});
+
+test("public storefront design rejects private media identity in a projection", async () => {
+  const fixture = repository("found", { ...publicDesign, hero: { ...publicDesign.hero, mediaId: "40000000-0000-4000-8000-000000000001" } });
+  await assert.rejects(
+    fixture.value.getPublicStorefrontDesign({ storefront, now: new Date("2026-08-03T12:00:00.000Z") }),
+    (error) => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable",
+  );
 });

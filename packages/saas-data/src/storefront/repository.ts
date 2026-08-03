@@ -1,3 +1,4 @@
+import { parsePublicStorefrontDesign, type PublicStorefrontDesign } from "../../../saas-contracts/src/storefront-design/index.ts";
 import { parsePublicProduct, parsePublicProductMedia, parsePublicStorefront, type PublicProduct, type PublicProductMedia, type PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { PublicStorefrontRepositoryError } from "./errors.ts";
@@ -53,7 +54,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     }
   }
   private projection(result: { outcome: string; resultPayload: unknown }): unknown {
-    if (result.outcome === "not_found") throw failure("not_found");
+    if (result.outcome === "not_found" || result.outcome === "storefront_not_found") throw failure("not_found");
     if (result.outcome === "invalid_input") throw failure("invalid_input");
     if (result.outcome !== "found") throw failure("unavailable");
     return result.resultPayload;
@@ -81,5 +82,11 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     const result = await this.read("SELECT outcome, result_payload FROM saas.public_list_product_media($1::uuid,$2::text,$3::timestamptz,$4::uuid)", [store.id, store.hostname, date(parsed.now), uuid(parsed.productId)]);
     const payload = this.projection(result); if (!Array.isArray(payload)) throw failure("unavailable");
     try { return Object.freeze(payload.map(parsePublicProductMedia)); } catch { throw failure("unavailable"); }
+  }
+  async getPublicStorefrontDesign(input: Parameters<PublicStorefrontRepository["getPublicStorefrontDesign"]>[0]): Promise<PublicStorefrontDesign> {
+    const parsed = exact(input, ["storefront", "now"]);
+    const store = context({ storefront: parsed.storefront });
+    const result = await this.read("SELECT outcome, result_payload FROM saas.storefront_design_get_public($1::uuid,$2::text,$3::timestamptz)", [store.id, store.hostname, date(parsed.now)]);
+    try { return parsePublicStorefrontDesign(this.projection(result)); } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
   }
 }
