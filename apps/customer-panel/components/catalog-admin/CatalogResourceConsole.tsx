@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import type { CatalogAdminResource, CatalogAdminResourceKind } from "@celebix/saas-contracts";
+import type { CatalogAdminResource, CatalogAdminResourceKind, StorefrontAsset } from "@celebix/saas-contracts";
 
 import { PanelEmptyState, PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { CatalogAdminApiError, catalogAdminApi } from "@/lib/catalog-admin-ui/client";
+import { selectBrandLogoAssets } from "@/lib/catalog-admin-ui/brand-logo";
 import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
 import styles from "./catalog-admin-console.module.css";
 
@@ -22,6 +23,7 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
   const route = getCatalogResourceRouteDefinitionForKind(kind);
   const meta = META[kind];
   const [items, setItems] = useState<readonly CatalogAdminResource[]>([]);
+  const [brandLogos, setBrandLogos] = useState<readonly StorefrontAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -30,7 +32,12 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
     setLoading(true);
     setError("");
     try {
-      setItems(await catalogAdminApi.resources(kind));
+      const [resources, logoEnvelope] = await Promise.all([
+        catalogAdminApi.resources(kind),
+        kind === "brand" ? fetch("/api/storefront-assets", { credentials: "same-origin", cache: "no-store" }).then(async (response) => { if (!response.ok) throw new CatalogAdminApiError("unavailable", response.status); return response.json() as Promise<unknown>; }) : Promise.resolve(undefined),
+      ]);
+      setItems(resources);
+      setBrandLogos(kind === "brand" ? selectBrandLogoAssets(logoEnvelope).assets : []);
     } catch (caught) {
       setError(caught instanceof CatalogAdminApiError ? caught.message : `${meta.title} yüklenemedi.`);
     } finally {
@@ -53,8 +60,13 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
     }
   }
 
+  function brandLogoFor(resource: CatalogAdminResource) {
+    const selectedId = typeof resource.config.logoAssetId === "string" ? resource.config.logoAssetId : undefined;
+    return brandLogos.find(({ id }) => id === selectedId);
+  }
+
   return <PanelPageShell><PanelPageHeader title={meta.title} description={meta.description} actions={canManage ? <Link className={styles.primary} href={`/products/${route.segment}/new`}>Yeni {meta.singular}</Link> : undefined} /><section className={styles.surface}>
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
-    {loading ? <div className={styles.state} role="status">{meta.title} yükleniyor…</div> : items.length === 0 ? <PanelEmptyState title={`Henüz ${meta.singular} yok`} description="İlk gerçek kayıt oluşturulduğunda burada görünecek." /> : <div className={styles.list}>{items.map((resource) => <article className={styles.item} key={resource.id}><div><h2>{resource.name}</h2><p>/{resource.slug} · {resource.productCount} ürün</p>{resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.status}>v{resource.version}</span>{kind === "extra" ? <Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/preview`}>Önizle</Link> : null}{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div></article>)}</div>}
+    {loading ? <div className={styles.state} role="status">{meta.title} yükleniyor…</div> : items.length === 0 ? <PanelEmptyState title={`Henüz ${meta.singular} yok`} description="İlk gerçek kayıt oluşturulduğunda burada görünecek." /> : <div className={styles.list}>{items.map((resource) => { const logo = kind === "brand" ? brandLogoFor(resource) : undefined; return <article className={styles.item} key={resource.id}><div className={styles.resourceIdentity}>{logo ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img className={styles.brandLogoThumbnail} src={logo.publicUrl} alt={`${resource.name} logosu`} width={logo.width} height={logo.height} /></> : null}<div><h2>{resource.name}</h2><p>/{resource.slug} · {resource.productCount} ürün</p>{resource.description ? <small>{resource.description}</small> : null}</div></div><div className={styles.actions}><span className={styles.status}>v{resource.version}</span>{kind === "extra" ? <Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/preview`}>Önizle</Link> : null}{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div></article>; })}</div>}
   </section></PanelPageShell>;
 }

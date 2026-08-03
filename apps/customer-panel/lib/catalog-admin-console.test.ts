@@ -80,6 +80,8 @@ test("catalog resource lists use canonical create, edit, and extra-preview route
   assert.match(value, /products\/\$\{route\.segment\}\/new/);
   assert.match(value, /products\/\$\{route\.segment\}\/\$\{encodeURIComponent\(resource\.id\)\}\/edit/);
   assert.match(value, /kind === "extra"/);
+  assert.match(value, /brandLogoFor/);
+  assert.match(value, /className=\{styles\.brandLogoThumbnail\}/);
   assert.doesNotMatch(value, /searchParams|localStorage|sessionStorage|x-store-id|x-tenant-id/);
 });
 

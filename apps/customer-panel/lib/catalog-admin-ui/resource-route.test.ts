@@ -98,6 +98,12 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
       PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       PanelPageHeader: ({ title, description }: { title: string; description: string }) => createElement("header", null, createElement("h1", null, title), createElement("p", null, description)),
     };
+    if (specifier === "@/components/catalog-admin/BrandLogoField") return { BrandLogoField: () => createElement("fieldset", null) };
+    if (specifier === "@/lib/catalog-admin-ui/brand-logo") return {
+      selectBrandLogoAssets: () => Object.freeze({ assets: Object.freeze([]) }),
+      uploadBrandLogo: async () => { throw new Error("brand_logo_upload_not_expected"); },
+      withBrandLogoConfig: (config: Readonly<Record<string, unknown>>, logoAssetId?: string) => Object.freeze(logoAssetId ? { ...config, logoAssetId } : { ...config }),
+    };
     if (specifier === "@/lib/catalog-admin-ui/client") return { CatalogAdminApiError: CompiledCatalogAdminApiError, catalogAdminApi: Object.freeze({ resource: overrides.resource, saveResource: overrides.save }) };
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({ listProducts: overrides.products ?? (async () => ({ items: [] })) }) };
     if (specifier === "@/lib/catalog-admin-ui/resource-route") return route;
@@ -233,6 +239,9 @@ test("editor only writes an exact resource selected from the fixed-kind API resu
   assert.match(editor, /Daha fazla ürün yükle/);
   assert.match(editor, /Yüklenen ürünlerde ara/);
   assert.match(editor, /resourceId: resource\.id, expectedVersion: resource\.version/);
+  assert.match(editor, /<BrandLogoField/);
+  assert.match(editor, /withBrandLogoConfig/);
+  assert.match(editor, /kind === "brand"/);
   assert.doesNotMatch(editor, /searchParams|localStorage|sessionStorage|x-store-id|x-tenant-id|supabase|\/api\/admin/);
 });
 

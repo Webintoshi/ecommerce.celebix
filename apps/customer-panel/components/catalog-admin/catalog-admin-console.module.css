@@ -17,6 +17,15 @@
 .item h2,.item p { margin: 0; }
 .item h2 { font-size: .95rem; }
 .item p,.item small { color: #6b7280; font-size: .76rem; }
+.resourceIdentity { display: flex; min-width: 0; align-items: center; gap: .8rem; }
+.brandLogoThumbnail { width: 64px; height: 48px; flex: 0 0 auto; border: 1px solid #e1e6ef; border-radius: 8px; background: #fff; object-fit: contain; padding: .35rem; }
+.brandLogoField { display: grid; gap: .85rem; border: 1px solid #e1e6ef; border-radius: 10px; padding: 1rem; }
+.brandLogoField legend { padding: 0 .35rem; color: #374151; font-size: .82rem; font-weight: 800; }
+.brandLogoLayout { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); gap: 1rem; }
+.brandLogoPreview { display: grid; min-height: 150px; place-items: center; overflow: hidden; border: 1px dashed #d4dbe6; border-radius: 10px; background: #f8fafc; padding: 1rem; color: #6b7280; text-align: center; }
+.brandLogoPreview img { width: 100%; max-width: 260px; max-height: 120px; object-fit: contain; }
+.brandLogoControls { display: grid; align-content: start; gap: .75rem; }
+.brandLogoControls small { color: #6b7280; line-height: 1.5; }
 .status { border-radius: 999px; background: #eef2f6; padding: .3rem .55rem; font-size: .7rem; font-weight: 750; }
 .error,.notice { margin: 1rem; border-radius: 8px; padding: .85rem; }
 .error { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
@@ -102,7 +111,7 @@
 .historyHeading { border-bottom: 1px solid #e8edf4; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; margin: -1px; clip: rect(0,0,0,0); white-space: nowrap; }
 .providerCard:focus-within,.sourceTabs button:focus-visible,.sourceForm input:focus-visible,.primary:focus-visible,.secondaryButton:focus-visible { outline: 3px solid rgb(255 106 0 / 30%); outline-offset: 2px; }
-@media (max-width: 700px) { .form,.checks { grid-template-columns: 1fr; } .wide { grid-column: auto; } .item { align-items: stretch; flex-direction: column; } .actions,.actions > * { width: 100%; } .previewHero { align-items: stretch; flex-direction: column; } .previewPrice { width: 100%; } .previewOptionGrid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .form,.checks,.brandLogoLayout { grid-template-columns: 1fr; } .wide { grid-column: auto; } .item { align-items: stretch; flex-direction: column; } .actions,.actions > * { width: 100%; } .previewHero { align-items: stretch; flex-direction: column; } .previewPrice { width: 100%; } .previewOptionGrid { grid-template-columns: 1fr; } }
 @media (max-width: 1024px) { .providerGrid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (max-width: 700px) { .steps { grid-template-columns: repeat(2,minmax(0,1fr)); } .steps li:nth-child(2) { border-right: 0; } .steps li { min-height: 54px; border-bottom: 1px solid #e8edf4; font-size: .7rem; } .steps li:nth-child(3),.steps li:nth-child(4) { border-bottom: 0; } .providerGrid { grid-template-columns: repeat(2,minmax(0,1fr)); padding: .85rem; } .providerCard { min-height: 96px; padding: .8rem; } .sectionHeading,.historyHeading,.importActions { align-items: stretch; flex-direction: column; } .sectionHeading .secondaryButton,.historyHeading .secondaryButton,.importActions .primary { width: 100%; } .sourceTabs { display: grid; grid-template-columns: 1fr 1fr; padding-inline: .8rem; } .sourceTabs button { justify-content: center; padding: 0 .35rem; } .sourceForm { grid-template-columns: 1fr; padding: .9rem; } .previewMetrics { grid-template-columns: repeat(2,minmax(0,1fr)); padding: .9rem; } .migrationProgress { grid-template-columns: 1fr auto; } .migrationProgress progress { grid-column: 1/-1; grid-row: 2; } }
 @media (max-width: 360px) { .providerGrid { grid-template-columns: 1fr; } }

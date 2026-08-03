@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { CatalogAdminJson, CatalogAdminResource, CatalogAdminResourceKind, Product } from "@celebix/saas-contracts";
+import type { CatalogAdminJson, CatalogAdminResource, CatalogAdminResourceKind, Product, StorefrontAsset } from "@celebix/saas-contracts";
 
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
+import { BrandLogoField } from "@/components/catalog-admin/BrandLogoField";
+import { selectBrandLogoAssets, uploadBrandLogo, withBrandLogoConfig } from "@/lib/catalog-admin-ui/brand-logo";
 import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/client";
 import { catalogApi } from "@/lib/catalog-ui/client";
 import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
@@ -27,14 +29,14 @@ function values(data: FormData, name: string) {
   return Object.freeze(value(data, name).split(",").map((entry) => entry.trim()).filter(Boolean).slice(0, 64));
 }
 
-function config(kind: CatalogAdminResourceKind, data: FormData): Readonly<Record<string, CatalogAdminJson>> {
+function config(kind: CatalogAdminResourceKind, data: FormData, logoAssetId?: string): Readonly<Record<string, CatalogAdminJson>> {
   if (kind === "tag") return Object.freeze({});
   if (kind === "collection") return Object.freeze({ featured: data.get("featured") === "on" });
   if (kind === "brand") {
     const website = value(data, "website");
     const result: Record<string, CatalogAdminJson> = {};
     if (website) result.website = website;
-    return Object.freeze(result);
+    return withBrandLogoConfig(result, logoAssetId);
   }
   if (kind === "attribute") return Object.freeze({ values: values(data, "values") });
   if (kind === "extra") {
@@ -67,6 +69,9 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
   const [selectedProductIds, setSelectedProductIds] = useState<readonly string[]>([]);
   const [productCursor, setProductCursor] = useState<string>();
   const [productSearch, setProductSearch] = useState("");
+  const [logoAssets, setLogoAssets] = useState<readonly StorefrontAsset[]>([]);
+  const [selectedLogoId, setSelectedLogoId] = useState<string>();
+  const [brandName, setBrandName] = useState("");
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -83,18 +88,28 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     setSelectedProductIds([]);
     setProductCursor(undefined);
     setProductSearch("");
+    setLogoAssets([]);
+    setSelectedLogoId(undefined);
+    setBrandName("");
     setLoadingProducts(false);
     setBusy(false);
     try {
-      const [selected, catalog] = await Promise.all([
+      const [selected, catalog, logoEnvelope] = await Promise.all([
         resourceId === undefined ? Promise.resolve(undefined) : catalogAdminApi.resource(kind, resourceId),
         hasProductRelations(kind) ? catalogApi.listProducts() : Promise.resolve({ items: [] as readonly Product[], nextCursor: undefined }),
+        kind === "brand" ? fetch("/api/storefront-assets", { credentials: "same-origin", cache: "no-store" }).then(async (response) => { if (!response.ok) throw new CatalogAdminApiError("unavailable", response.status); return response.json() as Promise<unknown>; }) : Promise.resolve(undefined),
       ]);
       if (requestSequence.current !== sequence) return;
       if (selected) setResource(selected);
       setProducts(catalog.items);
       setSelectedProductIds(selected?.productIds ?? []);
       setProductCursor(catalog.nextCursor);
+      setBrandName(selected?.name ?? "");
+      if (kind === "brand") {
+        const logoSelection = selectBrandLogoAssets(logoEnvelope, selected?.config.logoAssetId);
+        setLogoAssets(logoSelection.assets);
+        setSelectedLogoId(logoSelection.selectedId);
+      }
     } catch (caught) {
       if (requestSequence.current === sequence) setError(safeError(caught));
     } finally {
@@ -121,7 +136,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
         name: value(data, "name"),
         slug: value(data, "slug"),
         ...(value(data, "description") ? { description: value(data, "description") } : {}),
-        config: config(kind, data),
+        config: config(kind, data, selectedLogoId),
         productIds: selectedProductIds,
       });
       if (requestSequence.current === sequence) {
@@ -159,6 +174,12 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       : Object.freeze(current.filter((id) => id !== productId)));
   }
 
+  async function uploadLogo(file: File) {
+    const selected = await uploadBrandLogo(file, brandName.trim() || "Marka logosu", crypto.randomUUID());
+    setLogoAssets((current) => Object.freeze([...current.filter(({ id }) => id !== selected.id), selected]));
+    setSelectedLogoId(selected.id);
+  }
+
   const title = resourceId === undefined ? `Yeni ${route.title}` : `${route.title} düzenle`;
   const normalizedSearch = productSearch.trim().toLocaleLowerCase("tr-TR");
   const visibleProducts = normalizedSearch
@@ -172,11 +193,11 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     {loading ? <p className={styles.state} role="status">Kayıt yükleniyor…</p> : null}
     {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
     {!loading && !error ? <form className={styles.form} onSubmit={submit}>
-      <label>Ad<input name="name" required maxLength={120} defaultValue={resource?.name ?? ""} /></label>
+      <label>Ad<input name="name" required maxLength={120} defaultValue={resource?.name ?? ""} onChange={(event) => { if (kind === "brand") setBrandName(event.currentTarget.value); }} /></label>
       <label>URL anahtarı<input name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={resource?.slug ?? ""} /></label>
       <label className={styles.wide}>Açıklama<textarea name="description" maxLength={2000} defaultValue={resource?.description ?? ""} /></label>
       {kind === "collection" ? <label><span>Vitrinde öne çıkar</span><input name="featured" type="checkbox" defaultChecked={resource?.config.featured === true} /></label> : null}
-      {kind === "brand" ? <label>Marka sitesi<input name="website" type="url" maxLength={1000} defaultValue={configValue(resource, "website")} /></label> : null}
+      {kind === "brand" ? <><label>Marka sitesi<input name="website" type="url" maxLength={1000} defaultValue={configValue(resource, "website")} /></label><BrandLogoField assets={logoAssets} selectedId={selectedLogoId} disabled={busy} brandName={brandName} onChange={setSelectedLogoId} onUpload={uploadLogo} /></> : null}
       {kind === "attribute" ? <label className={styles.wide}>Değerler (virgülle ayırın)<input name="values" required maxLength={1000} defaultValue={configValue(resource, "values")} /></label> : null}
       {kind === "extra" ? <><label>Seçenekler (virgülle ayırın)<input name="options" required maxLength={1000} defaultValue={configValue(resource, "options")} /></label><label>Fiyat farkı (kuruş)<input name="priceAdjustmentCents" type="number" min={0} step={1} defaultValue={configValue(resource, "priceAdjustmentCents") || "0"} /></label></> : null}
       {kind === "definition" ? <><label>Tanım anahtarı<input name="definitionKey" required maxLength={64} defaultValue={configValue(resource, "key")} /></label><label>Tanım değeri<input name="definitionValue" required maxLength={1000} defaultValue={configValue(resource, "value")} /></label></> : null}
