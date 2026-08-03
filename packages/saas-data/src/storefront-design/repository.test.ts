@@ -17,9 +17,9 @@ const OPERATION = "88888888-8888-4888-8888-888888888888";
 const NOW = new Date("2026-08-03T12:00:00.000Z");
 
 const DESIGN = {
-  schemaVersion: 1 as const,
+  schemaVersion: 2 as const,
   brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "inter" as const },
-  hero: { headline: "Güzide Kuyumcu", body: "", image: null, destination: { kind: "none" as const }, enabled: true },
+  hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "", desktopImage: null, mobileImage: null, destination: { kind: "none" as const }, enabled: true }] },
   promotion: { headline: "Ücretsiz kargo", body: "", destination: { kind: "none" as const }, startsAt: null, endsAt: null, enabled: false },
   announcement: { items: ["Güzide Kuyumcu"], icon: "none" as const, speed: "normal" as const, direction: "left" as const, animation: "continuous" as const, enabled: false },
 };
@@ -29,12 +29,12 @@ const PUBLIC = {
   publicationVersion: 1,
   publishedAt: NOW.toISOString(),
   brand: { ...DESIGN.brand, logo: null, favicon: null },
-  hero: { ...DESIGN.hero, image: null, destination: null },
+  hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "", desktopImage: null, mobileImage: null, destination: null }] },
   promotion: { ...DESIGN.promotion, destination: null },
 };
 
 const WORKSPACE = {
-  schemaVersion: 1 as const,
+  schemaVersion: 2 as const,
   draftVersion: 1,
   publishedVersion: 1,
   draftUpdatedAt: NOW.toISOString(),
