@@ -19,7 +19,7 @@ export function ProductDetailExperience({ product, relatedProducts, publishedPol
       <div className={styles.purchaseColumn}>
         <div className={styles.summaryHeader}>
           <h1>{product.title}</h1>
-          {options.showBrand && product.brand ? <Link className={styles.brand} href={`/search?q=${encodeURIComponent(product.brand.name)}`}>{product.brand.name}</Link> : null}
+          {options.showBrand && product.brand?.logo ? <Link className={styles.brand} href={`/search?q=${encodeURIComponent(product.brand.name)}`} aria-label={`${product.brand.name} ürünlerini ara`}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={product.brand.logo.url} alt={product.brand.name} width={product.brand.logo.width} height={product.brand.logo.height} /></Link> : null}
           {options.showSku && primaryVariant?.sku ? <p className={styles.sku}>Ürün Kodu: {primaryVariant.sku}</p> : null}
         </div>
         <div className={styles.price}>{product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{formatTry(product.compareAtCents)}</del> : null}<strong>{formatTry(product.priceCents)}</strong></div>
