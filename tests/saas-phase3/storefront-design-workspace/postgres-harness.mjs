@@ -29,7 +29,7 @@ const NOW = "2026-08-03T12:00:00.000Z";
 const PRIOR = JSON.parse(readFileSync(path.join(SQL, "phase3n-hosted-callback-lifecycle-manifest.json"), "utf8"));
 const ONBOARDING = JSON.parse(readFileSync(path.join(SQL, "phase3-product-onboarding-manifest.json"), "utf8"));
 const MEDIA = JSON.parse(readFileSync(path.join(SQL, "phase3-tenant-r2-media-manifest.json"), "utf8"));
-const TOTAL = 18;
+const TOTAL = 20;
 let completed = 0;
 
 function executable(name) {
@@ -149,11 +149,14 @@ function main() {
     seed(box);
     apply(box, "202608030081_storefront_design_workspace.up.sql");
     apply(box, "202608030081_storefront_design_workspace_assertions.sql");
+    apply(box, "202608030082_storefront_hero_slider.up.sql");
+    apply(box, "202608030082_storefront_hero_slider_assertions.sql");
 
     scenario("PostgreSQL 16 and migration artifacts execute", () => assert.match(psql(box, "SHOW server_version;").stdout, /^16[.]/));
     scenario("one row per store preserves legacy publication", () => {
       assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs;").stdout.trim(), "2");
-      assert.equal(psql(box, `SELECT (published_config->'hero'->>'headline')||'|'||(published_config->'hero'->'image'->>'kind') FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "Eski vitrin|legacy_https");
+      assert.equal(psql(box, `SELECT (published_config->'hero'->'slides'->0->>'headline')||'|'||(published_config->'hero'->'slides'->0->'desktopImage'->>'kind') FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "Eski vitrin|legacy_https");
+      assert.equal(psql(box, `SELECT draft_config->'hero'->'slides'->0->'desktopImage'='null'::jsonb FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "t");
     });
     scenario("relations have no direct app or host grants", () => assert.equal(psql(box, "SELECT has_table_privilege('celebix_saas_app','saas.storefront_designs','SELECT') OR has_table_privilege('celebix_saas_host_resolver','saas.storefront_designs','SELECT');").stdout.trim(), "f"));
     scenario("owner reads versioned workspace", () => assert.equal(rpc(box, `saas.storefront_design_get(${authority()})`).outcome, "found"));
@@ -169,10 +172,16 @@ function main() {
       assert.equal(reserve.result.objectKey, `stores/${STORE_A}/design/${MEDIA_A}.webp`);
     });
     psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;INSERT INTO saas.storefront_design_media VALUES('${MEDIA_B}','${STORE_B}','stores/${STORE_B}/design/${MEDIA_B}.webp','https://media.saas-staging.celebix.site/stores/${STORE_B}/design/${MEDIA_B}.webp','image/webp','Diğer',100,100,100,'${fingerprint("content-b")}','active','${NOW}','${NOW}');COMMIT;`);
-    scenario("cross-store media is rejected by document authority", () => assert.equal(psql(box, `SELECT saas.storefront_design_document_valid('${STORE_A}',jsonb_set(draft_config,'{hero,image}','{"kind":"media","mediaId":"${MEDIA_B}"}'::jsonb),false) FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "f"));
-    scenario("active tenant product destination is accepted", () => assert.equal(psql(box, `SELECT saas.storefront_design_document_valid('${STORE_A}',jsonb_set(jsonb_set(draft_config,'{hero,image}','{"kind":"media","mediaId":"${MEDIA_A}"}'::jsonb),'{hero,destination}','{"kind":"product","resourceId":"${PRODUCT}"}'::jsonb),false) FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "t"));
+    scenario("cross-store media is rejected by document authority", () => assert.equal(psql(box, `SELECT saas.storefront_design_document_valid('${STORE_A}',jsonb_set(draft_config,'{hero,slides,0,desktopImage}','{"kind":"media","mediaId":"${MEDIA_B}"}'::jsonb),false) FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "f"));
+    scenario("active tenant product destination is accepted", () => assert.equal(psql(box, `SELECT saas.storefront_design_document_valid('${STORE_A}',jsonb_set(jsonb_set(draft_config,'{hero,slides,0,desktopImage}','{"kind":"media","mediaId":"${MEDIA_A}"}'::jsonb),'{hero,slides,0,destination}','{"kind":"product","resourceId":"${PRODUCT}"}'::jsonb),false) FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "t"));
 
-    const configSql = `jsonb_set(jsonb_set(jsonb_set(draft_config,'{hero,image}','{"kind":"media","mediaId":"${MEDIA_A}"}'::jsonb),'{hero,destination}','{"kind":"product","resourceId":"${PRODUCT}"}'::jsonb),'{hero,headline}','"Yeni vitrin"'::jsonb)`;
+    scenario("zero and four slide drafts are rejected", () => {
+      assert.equal(psql(box, `SELECT saas.storefront_design_document_valid('${STORE_A}',jsonb_set(draft_config,'{hero,slides}','[]'::jsonb),false) FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "f");
+      assert.equal(psql(box, `SELECT saas.storefront_design_document_valid('${STORE_A}',jsonb_set(draft_config,'{hero,slides}',pg_catalog.jsonb_build_array(draft_config->'hero'->'slides'->0,draft_config->'hero'->'slides'->0,draft_config->'hero'->'slides'->0,draft_config->'hero'->'slides'->0)),false) FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "f");
+    });
+    scenario("publish requires a desktop image on each enabled slide", () => assert.equal(psql(box, `SELECT saas.storefront_design_publishable('${STORE_A}',draft_config) FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "f"));
+
+    const configSql = `jsonb_set(jsonb_set(jsonb_set(draft_config,'{hero,slides,0,desktopImage}','{"kind":"media","mediaId":"${MEDIA_A}"}'::jsonb),'{hero,slides,0,destination}','{"kind":"product","resourceId":"${PRODUCT}"}'::jsonb),'{hero,slides,0,headline}','"Yeni vitrin"'::jsonb)`;
     const saveConfig = psql(box, `SELECT (${configSql})::text FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim();
     const saveConfigSql = `$storefront_design_config$${saveConfig}$storefront_design_config$::jsonb`;
     const saveOp = "a3000000-0000-4000-8000-000000000081";
@@ -182,22 +191,23 @@ function main() {
     scenario("valid draft saves one complete document", () => { assert.equal(saved.outcome, "saved"); assert.equal(saved.result.draftVersion, 2); });
     scenario("same operation replays byte-identically", () => assert.deepEqual(rpc(box, `saas.storefront_design_save_draft(${authority()},'${saveOp}','${saveFingerprint}',1,${saveConfigSql})`).result, saved.result));
     scenario("same operation with different fingerprint is rejected", () => assert.equal(rpc(box, `saas.storefront_design_save_draft(${authority()},'${saveOp}','${fingerprint("different")}',2,${saveConfigSql})`).outcome, "operation_mismatch"));
-    scenario("public resolver excludes unpublished draft", () => assert.equal(rpc(box, `saas.storefront_design_get_public('${STORE_A}','guzide-design-81.example.test','${NOW}')`, "celebix_saas_host_resolver").result.hero.headline, "Eski vitrin"));
+    scenario("public resolver excludes unpublished draft", () => assert.equal(rpc(box, `saas.storefront_design_get_public('${STORE_A}','guzide-design-81.example.test','${NOW}')`, "celebix_saas_host_resolver").result.hero.slides[0].headline, "Eski vitrin"));
     const published = rpc(box, `saas.storefront_design_publish(${authority()},'a4000000-0000-4000-8000-000000000081','${fingerprint("publish-a")}',2,1)`);
-    scenario("publish atomically copies the durable draft", () => { assert.equal(published.outcome, "published"); assert.equal(published.result.published.hero.headline, "Yeni vitrin"); assert.equal(published.result.publishedVersion, 2); });
+    scenario("publish atomically copies the durable draft", () => { assert.equal(published.outcome, "published"); assert.equal(published.result.published.hero.slides[0].headline, "Yeni vitrin"); assert.equal(published.result.publishedVersion, 2); });
     scenario("stale published version returns conflict", () => assert.equal(rpc(box, `saas.storefront_design_publish(${authority()},'a4000000-0000-4000-8000-000000000082','${fingerprint("stale-publish")}',2,1)`).outcome, "published_version_conflict"));
     scenario("public resolver binds hostname to store", () => assert.equal(rpc(box, `saas.storefront_design_get_public('${STORE_A}','ikinci-design-82.example.test','${NOW}')`, "celebix_saas_host_resolver").outcome, "storefront_not_found"));
-    scenario("backup restore and guarded down-up preserve authority", () => {
+    scenario("backup restore and guarded slider down-up preserve authority", () => {
       const archive = path.join(box.root, "design.dump");
       command(box.tools.pg_dump, ["-h", box.socket, "-p", String(box.port), "-U", "postgres", "-d", DB, "-Fc", "-f", archive]);
       command(box.tools.createdb, ["-h", box.socket, "-p", String(box.port), "-U", "postgres", RESTORE_DB]);
       command(box.tools.pg_restore, ["-h", box.socket, "-p", String(box.port), "-U", "postgres", "-d", RESTORE_DB, archive]);
       assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs;", RESTORE_DB).stdout.trim(), "2");
-      const guarded = psql(box, readFileSync(path.join(SQL, "202608030081_storefront_design_workspace.down.sql"), "utf8"), DB, true);
+      const guarded = psql(box, readFileSync(path.join(SQL, "202608030082_storefront_hero_slider.down.sql"), "utf8"), DB, true);
       assert.notEqual(guarded.status, 0);
-      apply(box, "202608030081_storefront_design_workspace.down.sql", DB, "SET celebix.allow_storefront_design_down='on';\n");
-      apply(box, "202608030081_storefront_design_workspace.up.sql");
-      apply(box, "202608030081_storefront_design_workspace_assertions.sql");
+      apply(box, "202608030082_storefront_hero_slider.down.sql", DB, "SET celebix.allow_storefront_hero_slider_down='on';\n");
+      assert.equal(psql(box, `SELECT schema_version FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "1");
+      apply(box, "202608030082_storefront_hero_slider.up.sql");
+      apply(box, "202608030082_storefront_hero_slider_assertions.sql");
       assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs;").stdout.trim(), "2");
     });
     assert.equal(completed, TOTAL);

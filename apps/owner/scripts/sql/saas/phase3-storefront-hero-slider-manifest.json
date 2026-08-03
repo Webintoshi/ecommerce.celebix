@@ -1,0 +1,23 @@
+{
+  "phase": "phase3-storefront-hero-slider",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608030082_storefront_hero_slider.up.sql",
+      "direction": "up",
+      "sha256": "08f9a55ba83bf2e7ea83b867cf49c00447c4243ff4bc0d8d1e1ac4e7c571c66e"
+    },
+    {
+      "file": "202608030082_storefront_hero_slider.down.sql",
+      "direction": "down",
+      "sha256": "65246423f21001eb61873c33e0df2063ddef9ea2b2f31e6473cf26ffc91a1b1e"
+    },
+    {
+      "file": "202608030082_storefront_hero_slider_assertions.sql",
+      "direction": "verify",
+      "sha256": "5f0df0aa50d6c58b203dada4663ff3b0e8bd9f759cddb4dd0cafa108dec322f3"
+    }
+  ]
+}
