@@ -35,3 +35,20 @@ export function createStorefrontCartClient(fetcher: Fetcher = fetch, uuid: () =>
 }
 
 export const storefrontCartClient = createStorefrontCartClient();
+
+type CartAddInput = Parameters<StorefrontCartClient["add"]>[0];
+
+export async function addCartLineAndOpenDrawer<TTrigger>(
+  input: CartAddInput,
+  trigger: TTrigger,
+  dependencies: Readonly<{
+    add(value: CartAddInput): Promise<PublicCart>;
+    openDrawer(value: TTrigger): void;
+    replaceCart(value: PublicCart): void;
+  }>,
+): Promise<PublicCart> {
+  dependencies.openDrawer(trigger);
+  const nextCart = await dependencies.add(input);
+  dependencies.replaceCart(nextCart);
+  return nextCart;
+}

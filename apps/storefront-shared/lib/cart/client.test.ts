@@ -1,11 +1,39 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { PublicCart } from "@celebix/saas-contracts";
 import { createStorefrontCartClient, StorefrontCartClientError } from "./client.ts";
+import * as cartClientModule from "./client.ts";
 
 const PRODUCT = "10000000-0000-4000-8000-000000000001";
 const VARIANT = "20000000-0000-4000-8000-000000000001";
 const OPERATION = "30000000-0000-4000-8000-000000000001";
+
+test("add-to-cart opens the drawer before the network result and then installs the canonical cart", async () => {
+  const candidate = (cartClientModule as unknown as Record<string, unknown>).addCartLineAndOpenDrawer;
+  assert.equal(typeof candidate, "function");
+  const addCartLineAndOpenDrawer = candidate as <TTrigger>(input: Readonly<{ productId: string; variantId: string; quantity: number }>, trigger: TTrigger, dependencies: Readonly<{ add(value: Readonly<{ productId: string; variantId: string; quantity: number }>): Promise<PublicCart>; openDrawer(value: TTrigger): void; replaceCart(value: PublicCart): void }>) => Promise<PublicCart>;
+  const canonicalCart = Object.freeze({ version: 1, currency: "TRY", itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, checkoutBlocker: null, items: Object.freeze([Object.freeze({ productId: PRODUCT, variantId: VARIANT, slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 100, lineTotalCents: 100, available: true })]) }) satisfies PublicCart;
+  const events: string[] = [];
+  let resolveAdd: ((cart: PublicCart) => void) | undefined;
+  const response = new Promise<PublicCart>((resolve) => { resolveAdd = resolve; });
+  const trigger = Object.freeze({ id: "product-card" });
+
+  const pending = addCartLineAndOpenDrawer(
+    { productId: PRODUCT, variantId: VARIANT, quantity: 1 },
+    trigger,
+    {
+      add() { events.push("add"); return response; },
+      openDrawer(value) { events.push(`open:${value.id}`); },
+      replaceCart(value) { events.push(`replace:${value.version}`); },
+    },
+  );
+
+  assert.deepEqual(events, ["open:product-card", "add"]);
+  resolveAdd?.(canonicalCart);
+  assert.equal(await pending, canonicalCart);
+  assert.deepEqual(events, ["open:product-card", "add", "replace:1"]);
+});
 
 test("cart client sends exact same-origin commands and never serializes price or credential", async () => {
   const calls: Array<{ input: string; init?: RequestInit }> = [];

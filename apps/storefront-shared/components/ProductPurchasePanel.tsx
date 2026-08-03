@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { PublicProduct } from "@celebix/saas-contracts";
-import { storefrontCartClient } from "@/lib/cart/client.ts";
+import { addCartLineAndOpenDrawer, storefrontCartClient } from "@/lib/cart/client.ts";
 import { formatTry } from "@/lib/format.ts";
 import { useCartStatus } from "./CartStatusProvider";
 
 export function ProductPurchasePanel({ product, mobileSticky = false }: Readonly<{ product: PublicProduct; mobileSticky?: boolean }>) {
   const router = useRouter();
-  const { replaceCart } = useCartStatus();
+  const { openDrawer, replaceCart } = useCartStatus();
   const [selectedId, setSelectedId] = useState(product.variants.find(({ available }) => available)?.id ?? "");
   const [quantity, setQuantity] = useState(1);
   const [pending, setPending] = useState<"add" | "buy" | null>(null);
@@ -22,11 +22,11 @@ export function ProductPurchasePanel({ product, mobileSticky = false }: Readonly
     if (!variant || !allowed || pending) { setStatus("Lütfen stokta olan bir varyant seçin."); return; }
     setPending(kind); setStatus("");
     try {
-      const nextCart = await storefrontCartClient.add({ productId: product.id, variantId: variant.id, quantity });
-      replaceCart(nextCart, { openDrawer: kind === "add", trigger });
       if (kind === "add") {
+        await addCartLineAndOpenDrawer({ productId: product.id, variantId: variant.id, quantity }, trigger, { add: storefrontCartClient.add, openDrawer, replaceCart });
         setStatus("Ürün sepete eklendi.");
       } else {
+        replaceCart(await storefrontCartClient.add({ productId: product.id, variantId: variant.id, quantity }));
         router.push("/checkout");
       }
     } catch { setStatus("İşlem tamamlanamadı. Lütfen yeniden deneyin."); }

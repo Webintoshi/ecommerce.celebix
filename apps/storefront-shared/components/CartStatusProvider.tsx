@@ -6,15 +6,13 @@ import type { PublicCart, PublicStarterThemePresentationV2 } from "@celebix/saas
 import { storefrontCartClient } from "@/lib/cart/client.ts";
 import { SideCartDrawer } from "./SideCartDrawer";
 
-type ReplaceCartOptions = Readonly<{ openDrawer?: boolean; trigger?: HTMLElement | null }>;
-
 export type CartStatus = Readonly<{
   cart: PublicCart | null;
   loading: boolean;
   unavailable: boolean;
   drawerOpen: boolean;
   refresh(): Promise<boolean>;
-  replaceCart(cart: PublicCart, options?: ReplaceCartOptions): void;
+  replaceCart(cart: PublicCart): void;
   openDrawer(trigger?: HTMLElement | null): void;
   closeDrawer(): void;
 }>;
@@ -60,13 +58,12 @@ export function CartStatusProvider({ children, presentation }: Readonly<{ childr
     triggerRef.current = null;
     window.requestAnimationFrame(() => trigger?.focus());
   }, []);
-  const replaceCart = useCallback((nextCart: PublicCart, options?: ReplaceCartOptions) => {
+  const replaceCart = useCallback((nextCart: PublicCart) => {
     cartEpochRef.current += 1;
     setCart(nextCart);
     setUnavailable(false);
     setLoading(false);
-    if (options?.openDrawer) openDrawer(options.trigger);
-  }, [openDrawer]);
+  }, []);
   const value = useMemo<CartStatus>(() => Object.freeze({ cart, loading, unavailable, drawerOpen, refresh, replaceCart, openDrawer, closeDrawer }), [cart, loading, unavailable, drawerOpen, refresh, replaceCart, openDrawer, closeDrawer]);
   return <Context.Provider value={value}>{children}<SideCartDrawer presentation={presentation} /><span className="sr-only" aria-live="polite">{loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
 }
