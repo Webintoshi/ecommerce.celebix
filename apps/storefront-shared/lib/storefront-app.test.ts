@@ -369,6 +369,24 @@ test("native cart checkout success and account pages remain public-projection on
   assert.doesNotMatch(`${cart}\n${checkout}\n${success}\n${account}`, /storeId|tenantId|membershipId|customerId|orderId|credential/u);
 });
 
+test("secondary storefront pages omit oversized listing headers without losing accessible titles", async () => {
+  const pages = await Promise.all([
+    readFile(new URL("../app/favorites/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/categories/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cart/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/account/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/policies/[policyKey]/page.tsx", import.meta.url), "utf8"),
+  ]);
+  const source = pages.join("\n");
+  assert.doesNotMatch(source, /className="listing-hero"/u);
+  for (const page of pages) {
+    assert.match(page, /<h1 className="sr-only">/u);
+  }
+});
+
 test("dark theme and every marquee preference drive bounded CSS without sacrificing contrast", async () => {
   const [home, css] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),

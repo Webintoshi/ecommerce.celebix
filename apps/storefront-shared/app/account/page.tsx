@@ -24,14 +24,8 @@ export default async function AccountPage() {
     .catch(() => Object.freeze([]));
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      <section className="listing-hero">
-        <div className="store-container">
-          <span>BU TARAYICIDAKİ KAYITLAR</span>
-          <h1>Siparişlerim</h1>
-          <p>Bu mağazada oluşturduğunuz son siparişler.</p>
-        </div>
-      </section>
       <section className="store-section store-container account-orders">
+        <h1 className="sr-only">Siparişlerim</h1>
         {orders.length ? (
           orders.map((order) => (
             <article className="account-order" key={order.orderReference}>

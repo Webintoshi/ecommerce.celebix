@@ -73,14 +73,8 @@ export default async function CategoryPage({
         <span aria-hidden="true">/</span>
         <span aria-current="page">{selected.category.name}</span>
       </nav>
-      <section className="listing-hero">
-        <div className="store-container">
-          <span>KATEGORİ</span>
-          <h1>{selected.category.name}</h1>
-          <p>{selected.products.length} aktif ürün</p>
-        </div>
-      </section>
       <section className="store-section store-container">
+        <h1 className="sr-only">{selected.category.name}</h1>
         <ProductGrid
           products={selected.products}
           cardStyle={presentation.theme.productCardStyle}

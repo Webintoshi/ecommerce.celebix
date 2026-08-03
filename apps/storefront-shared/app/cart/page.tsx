@@ -14,14 +14,8 @@ export default async function CartPage() {
   const { storefront, design } = requireStorefrontPage(await resolveStorefrontPage());
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      <section className="listing-hero">
-        <div className="store-container">
-          <span>ALIŞVERİŞİNİZ</span>
-          <h1>Sepet</h1>
-          <p>Ürünlerinizi ve güncel toplamları kontrol edin.</p>
-        </div>
-      </section>
       <section className="store-section store-container">
+        <h1 className="sr-only">Sepet</h1>
         <CartPageClient />
       </section>
     </StorefrontFrame>

@@ -61,32 +61,27 @@ export default async function SearchPage({
         : "Aramanızla eşleşen ürün bulunamadı.";
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      <section className="listing-hero">
-        <div className="store-container">
-          <span>MAĞAZADA ARA</span>
-          <h1>Arama</h1>
-          <form action="/search" className="store-search-form" method="get">
-            <label htmlFor="store-search">
-              Ürün adı, SKU, marka, kategori veya etiket
-            </label>
-            <div>
-              <input
-                autoComplete="off"
-                defaultValue={selected ?? ""}
-                id="store-search"
-                maxLength={100}
-                name="q"
-                placeholder="Ne aramıştınız?"
-                type="search"
-              />
-              <button className="store-button" type="submit">
-                Ara
-              </button>
-            </div>
-          </form>
-        </div>
-      </section>
       <section className="store-section store-container">
+        <h1 className="sr-only">Arama</h1>
+        <form action="/search" className="store-search-form" method="get">
+          <label htmlFor="store-search">
+            Ürün adı, SKU, marka, kategori veya etiket
+          </label>
+          <div>
+            <input
+              autoComplete="off"
+              defaultValue={selected ?? ""}
+              id="store-search"
+              maxLength={100}
+              name="q"
+              placeholder="Ne aramıştınız?"
+              type="search"
+            />
+            <button className="store-button" type="submit">
+              Ara
+            </button>
+          </div>
+        </form>
         <p className="search-result-count" aria-live="polite">
           {selected ? `${products.length} sonuç` : ""}
         </p>
