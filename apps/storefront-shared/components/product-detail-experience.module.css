@@ -1,9 +1,9 @@
 .breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; padding-block: 1.15rem; color: var(--muted); font-size: .82rem; }
 .breadcrumb > span { display: inline-flex; gap: .55rem; }
-.experience { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(24rem, .88fr); gap: clamp(2rem, 4vw, 4.5rem); align-items: start; padding-block: clamp(1rem, 3vw, 3rem) clamp(3.5rem, 8vw, 7rem); }
+.experience { display: grid; grid-template-columns: minmax(0, .72fr) minmax(34rem, 1.28fr); gap: clamp(1.5rem, 3vw, 3rem); align-items: start; padding-block: clamp(1rem, 3vw, 3rem) clamp(3.5rem, 8vw, 7rem); }
 .purchaseColumn { position: sticky; top: 7rem; display: grid; min-width: 0; gap: 1.2rem; }
 .eyebrow { margin: 0 0 .7rem; color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .18em; }
-.purchaseColumn h1 { max-width: 20ch; margin: 0; overflow-wrap: anywhere; font-family: Arial, Helvetica, sans-serif !important; font-size: clamp(2.25rem, 3.4vw, 3rem); font-weight: 450; line-height: 1.08; letter-spacing: -.025em; }
+.purchaseColumn h1 { max-width: none; margin: 0; overflow-wrap: normal; white-space: nowrap; font-family: Arial, Helvetica, sans-serif !important; font-size: clamp(1.25rem, 1.6vw, 1.55rem); font-weight: 450; line-height: 1.15; letter-spacing: -.015em; }
 .metadata { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem 1rem; }
 .brand { display: inline-flex; min-height: 32px; align-items: center; color: var(--muted); font-size: .88rem; text-decoration: underline; text-underline-offset: .25rem; }
 .sku { margin: 0; color: #9a9a9a; font-size: clamp(.9rem, 1.35vw, 1.1rem); }
@@ -49,6 +49,7 @@
 @media (max-width: 1024px) {
   .experience { grid-template-columns: 1fr; gap: 1.5rem; padding-bottom: 2rem; }
   .purchaseColumn { position: static; }
+  .purchaseColumn h1 { max-width: 20ch; overflow-wrap: anywhere; white-space: normal; font-size: clamp(1.75rem, 8vw, 2.4rem); }
   .purchaseColumn :global(.purchase-panel.is-mobile-sticky) :global(.purchase-actions) { position: sticky; z-index: 18; bottom: 0; padding: .75rem 0 calc(.75rem + env(safe-area-inset-bottom)); background: var(--paper); box-shadow: 0 -12px 28px rgb(0 0 0 / .08); }
   .relatedGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .disclosures { grid-template-columns: 1fr; gap: 1.5rem; }
