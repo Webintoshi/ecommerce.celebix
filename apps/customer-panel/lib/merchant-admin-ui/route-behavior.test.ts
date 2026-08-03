@@ -273,6 +273,7 @@ async function compileComponent(
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return react;
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => (props: Record<string, unknown>) => createElement("svg", props) });
     if (specifier.endsWith(".module.css")) return styles;
     if (Object.hasOwn(modules, specifier)) return modules[specifier];
     throw new Error(`unexpected_route_behavior_component_import:${relativePath}:${specifier}`);
@@ -543,7 +544,13 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "ai_setting");
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => ![
+    "payment_setting",
+    "ai_setting",
+    "hero_banner",
+    "promotion_banner",
+    "marquee_setting",
+  ].includes(kind));
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     if (definition.cardinality === "singleton") {
@@ -678,7 +685,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     }
   }
 
-  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "ai_setting" && recordRoute.createRouteFor(kind) === undefined);
+  const inlineDefinitions = genericDefinitions.filter(({ kind }) => recordRoute.createRouteFor(kind) === undefined);
   for (const definition of inlineDefinitions) {
     await submitInlineRecord(definition, "create", "success");
     await submitInlineRecord(definition, "update", "success");
@@ -1055,38 +1062,33 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       "@/lib/merchant-admin-ui/presentation": presentation,
     },
   );
-  const DesignHub = await compileComponent(
-    "../../components/settings/DesignSettingsHub.tsx",
-    "DesignSettingsHub",
-    React,
-    { "@/components/panel/PanelPageShell": panelComponents() },
-  );
   const cases = [
     {
       route: "/settings",
       title: "Ayarlar",
+      hasDescription: false,
       module: "@/components/merchant-admin/MerchantFamilyOverview",
       exportName: "MerchantFamilyOverview",
       Component: FamilyOverview,
-      destinations: MERCHANT_MODULE_DEFINITIONS
-        .filter(({ family }) => family === "settings")
-        .flatMap(({ route }) => route === "/settings/general" ? [route, "/settings/design"] : [route]),
+      destinations: [
+        "/settings/general",
+        "/settings/language",
+        "/settings/administrators",
+        "/settings/payment",
+        "/settings/shipping",
+        "/settings/notifications",
+        "/settings/artificial-intelligence",
+        "/settings/design",
+      ],
     },
     {
       route: "/content",
       title: "İçerik",
+      hasDescription: true,
       module: "@/components/merchant-admin/MerchantFamilyOverview",
       exportName: "MerchantFamilyOverview",
       Component: FamilyOverview,
       destinations: MERCHANT_MODULE_DEFINITIONS.filter(({ family }) => family === "content").map(({ route }) => route),
-    },
-    {
-      route: "/settings/design",
-      title: null,
-      module: "@/components/settings/DesignSettingsHub",
-      exportName: "DesignSettingsHub",
-      Component: DesignHub,
-      destinations: ["/settings/hero-banner", "/settings/promotion-banner", "/settings/marquee", "/products/collections"],
     },
   ] as const;
   for (const entry of cases) {
@@ -1094,11 +1096,9 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     const pageTree = await Page();
     const componentElement = findElement(pageTree, (element) => element.type === entry.Component);
     const view = entry.Component(componentElement.props);
-    if (entry.title) {
-      const heading = findElement(view, (element) => element.props.title === entry.title);
-      assert.equal(heading.props.title, entry.title, `${entry.route}:visible-heading`);
-      assert.equal(typeof heading.props.description, "string", `${entry.route}:visible-description`);
-    }
+    const heading = findElement(view, (element) => element.props.title === entry.title);
+    assert.equal(heading.props.title, entry.title, `${entry.route}:visible-heading`);
+    assert.equal(typeof heading.props.description === "string", entry.hasDescription, `${entry.route}:description-contract`);
     const destinations: string[] = [];
     visitElements(view, (element) => {
       if (typeof element.props.href === "string") destinations.push(element.props.href);

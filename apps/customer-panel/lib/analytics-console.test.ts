@@ -307,16 +307,20 @@ test("four typed storefront settings expose exact safe field contracts without s
 });
 
 test("typed setting pages remain server-authorized and do not send TenantContext to clients", async () => {
-  for (const [path, kind] of [
-    ["app/settings/notifications/page.tsx", "notification_setting"],
-    ["app/settings/hero-banner/page.tsx", "hero_banner"],
-    ["app/settings/promotion-banner/page.tsx", "promotion_banner"],
-    ["app/settings/marquee/page.tsx", "marquee_setting"],
+  const notifications = await source("app/settings/notifications/page.tsx");
+  assert.match(notifications, /requireServerPanelAccess\(\)/);
+  assert.match(notifications, /kind="notification_setting"/);
+  assert.match(notifications, /configuration[.]manage/);
+  assert.doesNotMatch(notifications, /tenantContext=|storeId=|membershipId=|secret|password|token/i);
+
+  for (const [path, section] of [
+    ["app/settings/hero-banner/page.tsx", "hero"],
+    ["app/settings/promotion-banner/page.tsx", "promotion"],
+    ["app/settings/marquee/page.tsx", "announcement"],
   ] as const) {
     const value = await source(path);
     assert.match(value, /requireServerPanelAccess\(\)/);
-    assert.match(value, new RegExp(`kind=\"${kind}\"`));
-    assert.match(value, /configuration[.]manage/);
+    assert.match(value, new RegExp(`redirect\\(\"/settings/design\\?section=${section}\"\\)`));
     assert.doesNotMatch(value, /tenantContext=|storeId=|membershipId=|secret|password|token/i);
   }
 });

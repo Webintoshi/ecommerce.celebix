@@ -5,7 +5,7 @@ import type { PostgresPoolLike } from "../postgres/pool.ts";
 
 const STORE_ID = "10000000-0000-4000-8000-000000000001";
 const HOSTNAME = "pilot.saas-staging.celebix.site";
-const storefront = { schemaVersion: 1, id: STORE_ID, name: "Pilot Store", slug: "pilot-store", hostname: HOSTNAME, primaryHostname: HOSTNAME, canonicalUrl: `https://${HOSTNAME}/`, currency: "TRY", locale: "tr", themeKey: "hemenaku" };
+const storefront = { schemaVersion: 1, id: STORE_ID, name: "Pilot Store", slug: "pilot-store", hostname: HOSTNAME, primaryHostname: HOSTNAME, canonicalUrl: `https://${HOSTNAME}/`, currency: "TRY", locale: "tr", themeKey: "hemenaku" } as const;
 const publicDesign = {
   schemaVersion: 1,
   publicationVersion: 2,

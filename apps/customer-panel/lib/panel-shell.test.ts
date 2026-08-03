@@ -2020,7 +2020,9 @@ function mediaApplies(query: string, viewportWidth: number): boolean {
 
 function parseApplicableCss(css: string, viewportWidth: number): CssTestDeclaration[] {
   const declarations: CssTestDeclaration[] = [];
-  const input = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const input = css
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/@import\s+(?:url\([^)]*\)|["'][^"']+["'])\s*;/gi, "");
   let order = 0;
 
   function closingBrace(openingBrace: number): number {
