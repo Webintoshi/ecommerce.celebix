@@ -23,12 +23,19 @@ test("R2 storage signs an exact tenant object without exposing credentials in it
   assert.equal(JSON.stringify(storage).includes(config.secretAccessKey), false);
 });
 
-test("R2 storage accepts the exact tenant design namespace and rejects neighboring paths", () => {
+test("R2 storage accepts only exact tenant media namespaces", () => {
   const storage = createR2ProductMediaStorage(config, { async fetch() { throw new Error("not called"); }, now: () => new Date("2026-07-18T10:00:00.000Z") });
-  const designKey = `stores/${STORE}/design/${MEDIA}.png`;
-  assert.equal(storage.publicUrl(designKey), `https://media.saas-staging.celebix.site/${designKey}`);
-  assert.throws(() => storage.publicUrl(`stores/${STORE}/design/nested/${MEDIA}.png`), /product_media_storage_invalid/);
-  assert.throws(() => storage.publicUrl(`stores/${STORE}/themes/${MEDIA}.png`), /product_media_storage_invalid/);
+  for (const extension of ["jpg", "png", "webp"]) {
+    const objectKey = `stores/${STORE}/design/${MEDIA}.${extension}`;
+    assert.equal(storage.publicUrl(objectKey), `https://media.saas-staging.celebix.site/${objectKey}`);
+  }
+  for (const objectKey of [
+    `stores/${STORE}/design/nested/${MEDIA}.png`,
+    `stores/${STORE}/themes/${MEDIA}.png`,
+    `stores/${STORE}/design/${MEDIA}.gif`,
+    `stores/${STORE}/design/not-a-uuid.png`,
+    `stores/${STORE}/design/${MEDIA}.png/extra`,
+  ]) assert.throws(() => storage.publicUrl(objectKey), /product_media_storage_invalid/);
 });
 
 test("R2 HEAD verifies exact length media type and payload digest", async () => {

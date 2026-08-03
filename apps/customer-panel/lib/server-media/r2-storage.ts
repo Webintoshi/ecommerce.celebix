@@ -20,7 +20,8 @@ export class ProductMediaStorageError extends Error {
   constructor(code: ProductMediaStorageErrorCode) { super(`product_media_storage_${code}`); this.name = "ProductMediaStorageError"; this.code = code; }
 }
 type Fetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
-const OBJECT_KEY = /^stores\/[0-9a-f-]{36}\/(?:products\/[0-9a-f-]{36}\/[0-9a-f-]{36}|storefront\/(?:logo|hero|social|favicon)\/[0-9a-f-]{36})\.(?:jpg|png|webp)$/;
+const UUID_SEGMENT = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const OBJECT_KEY = new RegExp(`^stores/${UUID_SEGMENT}/(?:products/${UUID_SEGMENT}/${UUID_SEGMENT}|storefront/(?:logo|hero|social|favicon)/${UUID_SEGMENT}|design/${UUID_SEGMENT})[.](?:jpg|png|webp)$`);
 const REQUEST_TIMEOUT_MS = 10_000;
 function sha256(value: Uint8Array | string): string { return createHash("sha256").update(value).digest("hex"); }
 function hmac(key: Uint8Array | string, value: string): Buffer { return createHmac("sha256", key).update(value).digest(); }
