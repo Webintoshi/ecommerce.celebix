@@ -47,8 +47,8 @@ export function ProductInformationDisclosures({ informationSections, merchandisi
     })] : [];
   });
   if (disclosures.length === 0) return null;
-  return <section className={`${styles.disclosures} store-container`} aria-labelledby="product-information-title">
-    <header><p className={styles.eyebrow}>ÜRÜN BİLGİLERİ</p><h2 id="product-information-title">Ayrıntılar</h2></header>
-    <div>{disclosures.map((disclosure, index) => <details key={disclosure.key} open={index === 0}><summary>{disclosure.label}<span aria-hidden="true">⌄</span></summary><div className={styles.disclosureBody}>{disclosure.content}</div></details>)}</div>
+  return <section className={styles.disclosures} aria-labelledby="product-information-title">
+    <h2 className="sr-only" id="product-information-title">Ürün bilgileri</h2>
+    <div>{disclosures.map((disclosure, index) => <details key={disclosure.key} open={index === 0}><summary>{index === 0 ? "Ürün Bilgisi" : disclosure.label}<span aria-hidden="true">⌄</span></summary><div className={styles.disclosureBody}>{disclosure.content}</div></details>)}</div>
   </section>;
 }

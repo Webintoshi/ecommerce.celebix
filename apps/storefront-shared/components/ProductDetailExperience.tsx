@@ -17,18 +17,19 @@ export function ProductDetailExperience({ product, relatedProducts, publishedPol
     <section className={`${styles.experience} store-container`}>
       <ProductGallery product={product} style={options.galleryStyle} />
       <div className={styles.purchaseColumn}>
-        <p className={styles.eyebrow}>ÜRÜN DETAYI</p>
-        {options.showBrand && product.brand ? <Link className={styles.brand} href={`/search?q=${encodeURIComponent(product.brand.name)}`}>{product.brand.name}</Link> : null}
         <h1>{product.title}</h1>
-        {options.showSku && primaryVariant?.sku ? <p className={styles.sku}>SKU: {primaryVariant.sku}</p> : null}
+        <div className={styles.metadata}>
+          {options.showSku && primaryVariant?.sku ? <p className={styles.sku}>Ürün Kodu: {primaryVariant.sku}</p> : null}
+          {options.showBrand && product.brand ? <Link className={styles.brand} href={`/search?q=${encodeURIComponent(product.brand.name)}`}>{product.brand.name}</Link> : null}
+        </div>
         <div className={styles.price}>{product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{formatTry(product.compareAtCents)}</del> : null}<strong>{formatTry(product.priceCents)}</strong></div>
         <div className={`${styles.stock} ${product.available ? styles.available : ""}`}><b>{product.available ? "Stokta" : "Tükendi"}</b><span>{product.available ? "Siparişe hazır seçenekler mevcut." : "Aktif seçenekler şu anda stokta değil."}</span></div>
         {product.merchandising?.highlights.length ? <ul className={styles.highlights}>{product.merchandising.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul> : null}
         {options.showSizeGuide && product.merchandising?.sizeGuide ? <ProductSizeGuide heading={product.merchandising.sizeGuide.heading} body={product.merchandising.sizeGuide.body} /> : null}
         <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} />
+        <ProductInformationDisclosures informationSections={options.informationSections} merchandising={product.merchandising} description={product.description} publishedPolicies={publishedPolicies} />
       </div>
     </section>
-    <ProductInformationDisclosures informationSections={options.informationSections} merchandising={product.merchandising} description={product.description} publishedPolicies={publishedPolicies} />
     {options.showApprovedReviews && product.reviews?.length ? <ProductApprovedReviews reviews={product.reviews} /> : null}
     {options.showRelatedProducts && relatedProducts.length > 0 ? <section className={`${styles.related} store-container`} aria-labelledby="related-products-title"><header><p className={styles.eyebrow}>SİZE ÖZEL SEÇKİ</p><h2 id="related-products-title">Benzer ürünler</h2></header><div className={styles.relatedGrid}>{relatedProducts.map((item) => <ProductCard key={item.id} product={item} cardStyle={cardStyle} imageRatio={imageRatio} />)}</div></section> : null}
   </>;

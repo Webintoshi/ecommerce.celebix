@@ -21,3 +21,9 @@ test("purchase panel is bounded while pending and reports finite accessible stat
   assert.doesNotMatch(source, /priceCents\s*:/u);
   assert.doesNotMatch(source, /storeId|tenantId|credential/u);
 });
+
+test("one default variant does not create a redundant selection step", () => {
+  assert.match(source, /showVariantChoices/u);
+  assert.match(source, /product[.]variants[.]length > 1/u);
+  assert.match(source, /showVariantChoices \? <fieldset/u);
+});
