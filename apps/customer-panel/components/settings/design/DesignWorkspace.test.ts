@@ -38,6 +38,9 @@ test("workspace source exposes six child-friendly sections, truthful save states
   assert.match(inspector, /Varsayılana dön/);
   assert.match(inspector, /Bağlantı yok/);
   assert.match(css, /min-height:\s*48px/);
+  assert.match(css, /\.workspace\s*\{[^}]*grid-template-columns:\s*320px minmax\(0, 1fr\)/s);
+  assert.match(css, /\.sectionRail\s*\{[^}]*flex-direction:\s*row/s);
+  assert.doesNotMatch(css, /\.sectionRail\s*\{[^}]*border-right:/s);
   assert.doesNotMatch(`${workspace}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
 });
 

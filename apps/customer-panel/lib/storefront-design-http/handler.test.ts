@@ -8,6 +8,8 @@ import { StorefrontDesignRepositoryError, type StorefrontDesignRepository } from
 import { createStorefrontDesignHttpHandlers } from "./handler.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const TENANT_ADMIN_HOST = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 const STORE = "10000000-0000-4000-8000-000000000001";
 const PRINCIPAL = "20000000-0000-4000-8000-000000000001";
 const MEMBERSHIP = "30000000-0000-4000-8000-000000000001";
@@ -131,6 +133,28 @@ test("draft save parses the exact document and binds the idempotency key and exp
   assert.equal(saved.expectedDraftVersion, 1);
   assert.deepEqual(saved.design, DESIGN);
   assert.equal(saved.tenantContext.store.id, STORE);
+});
+
+test("tenant admin same-origin design mutations persist without trusting another tenant origin", async () => {
+  const selected = fixture();
+  const accepted = await selected.handlers.saveDraft(request(
+    "/api/storefront-design/draft",
+    "PATCH",
+    { expectedDraftVersion: 1, design: DESIGN },
+    { "idempotency-key": OPERATION, origin: TENANT_ADMIN_ORIGIN, host: TENANT_ADMIN_HOST },
+  ));
+  assert.equal(accepted.status, 200);
+  assert.equal(selected.calls.filter((call) => call.method === "save").length, 1);
+
+  const rejected = await selected.handlers.saveDraft(request(
+    "/api/storefront-design/draft",
+    "PATCH",
+    { expectedDraftVersion: 1, design: DESIGN },
+    { "idempotency-key": OPERATION, origin: "https://other-store.admin.saas-staging.celebix.site", host: TENANT_ADMIN_HOST },
+  ));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: "origin_denied" });
+  assert.equal(selected.calls.filter((call) => call.method === "save").length, 1);
 });
 
 test("publication requires configuration.manage and never trusts browser tenant headers", async () => {
