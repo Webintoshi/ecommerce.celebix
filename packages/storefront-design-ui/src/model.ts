@@ -6,6 +6,7 @@ import {
   type PublicStorefrontDesign,
   type StorefrontDesignDestinationOption,
   type StorefrontDesignDocument,
+  type StorefrontDesignHeroSlide,
   type StorefrontDesignMediaOption,
   type StorefrontDesignPromotion,
 } from "@celebix/saas-contracts";
@@ -27,7 +28,7 @@ function media(input: PreviewInput, reference: StorefrontDesignDocument["brand"]
   return Object.freeze({ url: selected.url, altText: selected.altText });
 }
 
-function destination(input: PreviewInput, reference: StorefrontDesignDocument["hero"]["destination"]): PublicDesignDestination {
+function destination(input: PreviewInput, reference: StorefrontDesignHeroSlide["destination"]): PublicDesignDestination {
   if (reference.kind === "none") return null;
   const selected = input.destinations.find(({ kind, resourceId }) => kind === reference.kind && resourceId === reference.resourceId);
   if (!selected) invalid();
@@ -38,7 +39,7 @@ export function createPreviewStorefrontDesign(value: PreviewInput): PublicStoref
   try {
     const input = Object.freeze({ ...value, draft: parseStorefrontDesignDocument(value.draft) });
     return parsePublicStorefrontDesign({
-      schemaVersion: 1,
+      schemaVersion: 2,
       publicationVersion: input.publishedVersion,
       publishedAt: input.publishedAt,
       brand: {
@@ -51,11 +52,14 @@ export function createPreviewStorefrontDesign(value: PreviewInput): PublicStoref
         fontFamily: input.draft.brand.fontFamily,
       },
       hero: {
-        headline: input.draft.hero.headline,
-        body: input.draft.hero.body,
-        image: media(input, input.draft.hero.image),
-        destination: destination(input, input.draft.hero.destination),
         enabled: input.draft.hero.enabled,
+        slides: input.draft.hero.slides.filter((slide) => slide.enabled).map((slide) => ({
+          headline: slide.headline,
+          body: slide.body,
+          desktopImage: media(input, slide.desktopImage),
+          mobileImage: media(input, slide.mobileImage),
+          destination: destination(input, slide.destination),
+        })),
       },
       promotion: {
         headline: input.draft.promotion.headline,
