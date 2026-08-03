@@ -26,7 +26,7 @@
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(520px, 1.12fr) minmax(440px, .88fr);
+  grid-template-columns: minmax(0, 1.12fr) minmax(380px, .88fr);
   align-items: start;
   gap: 28px;
   max-width: 1600px;

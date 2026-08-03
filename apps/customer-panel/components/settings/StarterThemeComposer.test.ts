@@ -41,6 +41,11 @@ test("theme composer stays subordinate to the shared page topbar", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.doesNotMatch(value, /<h1|KAMPANYA STARTER|Yayın yetkisi etkin/);
 });
+test("composer columns can shrink inside the design rail without horizontal clipping", async () => {
+  const value = await source("starter-theme-composer.module.css");
+  assert.match(value, /grid-template-columns:\s*minmax\(0,\s*1[.]12fr\)\s+minmax\(380px,\s*[.]88fr\)/);
+  assert.doesNotMatch(value, /minmax\((?:440|520)px/);
+});
 test("composition preview truthfully renders configurable corners announcement destination gallery and cart settings", async () => {
   const value = await source("StarterThemePreview.tsx");
   for (const token of ["cornerStyle", "announcement.destination", "galleryStyle", "showCheckoutReadiness", "trustMessage", "mobileStickyPurchase"]) assert.match(value, new RegExp(token.replace(".", "[.]")));
