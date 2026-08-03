@@ -65,6 +65,8 @@ The initial groups are:
 
 `Hero Banner`, `Promosyon Banner`, and `Kayan Duyuru` no longer appear as Settings siblings. Collections remain under Products because they are catalog data, but Design controls may select a live collection as a destination or content source.
 
+Settings states are optional projections from their owning runtime, not labels inferred by the browser. For example, payment state comes from the active payment-method authority and administrator count comes from current memberships. A destination without a trustworthy state shows no state label; `Hazır`, `Bağlı`, or a count must never be hard-coded.
+
 ## Design Workspace Experience
 
 `/settings/design` is an open workspace with three stable regions:
@@ -112,6 +114,8 @@ The version-one document contains four exact subdocuments:
 
 Media is stored by tenant media identifier, not an arbitrary URL. Public projections resolve those identifiers to safe public media URLs. Destination values are typed references to a product, collection, page, or `none`; the server resolves the canonical path and rejects cross-store or inactive resources.
 
+The schema permits one migration-only `legacy_https` image variant so deployment can preserve a previously published hero image that cannot be matched to the tenant media library. Only the owner migration may create this variant. Admin draft and publication endpoints reject new or changed `legacy_https` values. The editor identifies the legacy image and provides a media-library replacement; after replacement it can never be converted back to a remote URL.
+
 PostgreSQL constraints and security-definer functions validate exact keys, field lengths, colors, enum values, time ranges, media ownership, destination ownership, permissions, and optimistic versions. Direct table access remains revoked from application roles.
 
 ## Legacy Data Migration
@@ -120,6 +124,7 @@ The deployment seeds `saas.storefront_designs` idempotently for every existing s
 
 - brand defaults come from the store identity and the starter theme defaults;
 - the newest valid active `hero_banner`, `promotion_banner`, and `marquee_setting` records are transformed into the corresponding design sections;
+- a hero URL that resolves to an existing tenant media export is converted to its media identifier; any other already-published valid HTTPS hero URL uses the read-only migration variant until the merchant replaces it;
 - missing records use explicit starter defaults, never invented merchant activity;
 - the initial draft and publication are identical, so deployment cannot visually change an existing storefront.
 
