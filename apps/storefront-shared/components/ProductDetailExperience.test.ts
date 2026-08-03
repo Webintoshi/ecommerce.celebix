@@ -80,8 +80,9 @@ test("product summary follows the compact jewelry detail hierarchy", async () =>
   assert.match(disclosures, /index === 0 \? "Ürün Bilgisi"/u);
   assert.match(purchase, /showVariantChoices/u);
   assert.match(purchase, /product[.]variants[.]length > 1/u);
-  assert.match(styles, /[.]experience\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*[.]72fr\)\s*minmax\(34rem,\s*1[.]28fr\)/u);
-  assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*max-width:\s*none[^}]*white-space:\s*nowrap[^}]*font-size:\s*clamp\(1[.]25rem,\s*1[.]6vw,\s*1[.]55rem\)/u);
+  assert.match(styles, /[.]experience\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1[.]12fr\)\s*minmax\(24rem,\s*[.]88fr\)[^}]*gap:\s*clamp\(2rem,\s*4vw,\s*4[.]5rem\)/u);
+  assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*max-width:\s*none[^}]*white-space:\s*nowrap[^}]*font-size:\s*clamp\(1rem,\s*1[.]15vw,\s*1[.]125rem\)/u);
+  assert.doesNotMatch(styles, /minmax\(34rem,\s*1[.]28fr\)/u);
   const mobileStyles = styles.slice(styles.indexOf("@media (max-width: 1024px)"), styles.indexOf("@media (max-width: 700px)"));
   assert.match(mobileStyles, /[.]purchaseColumn h1\s*\{[^}]*white-space:\s*normal/u);
   assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*font-family:\s*Arial, Helvetica, sans-serif !important/u);
