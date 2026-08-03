@@ -37,6 +37,8 @@ AS $f$
         AND asset.id=(p_config->>'logoAssetId')::uuid
         AND asset.asset_kind='logo'
         AND asset.status='active'
+        AND asset.alt_text<>''
+        AND asset.public_url IN('https://media.celebix.site/'||asset.object_key,'https://media.saas-staging.celebix.site/'||asset.object_key)
     )
   END
 $f$;
@@ -70,4 +72,3 @@ REVOKE ALL ON FUNCTION saas.public_product_brand_logo(uuid,jsonb) FROM PUBLIC,ce
 REVOKE ALL ON FUNCTION saas.public_campaign_product_projection(uuid,uuid,timestamptz) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 
 COMMIT;
-

@@ -71,3 +71,27 @@ test("mounted brand logo field uploads, previews, selects and removes without ar
     window.close();
   }
 });
+
+test("brand logo field preserves and can explicitly remove an existing logo while the library is unavailable", async () => {
+  const window = new Window({ url: "https://panel.example.test/products/brands/brand-a/edit" });
+  const restore = installDomGlobals(window);
+  const container = window.document.createElement("div");
+  window.document.body.append(container);
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  const changes: Array<string | undefined> = [];
+  try {
+    const Field = await compileField();
+    await act(async () => { root.render(createElement(Field, { assets: [], selectedId: LOGO, disabled: false, brandName: "Güzide Kuyumcu", onChange(value: string | undefined) { changes.push(value); }, async onUpload() {} })); });
+    assert.match(container.textContent ?? "", /Mevcut logo korunuyor/);
+    const select = container.querySelector("select");
+    assert.equal(select?.value, LOGO);
+    const remove = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Logoyu kaldır");
+    assert.ok(remove);
+    await act(async () => { remove.dispatchEvent(new window.MouseEvent("click", { bubbles: true })); });
+    assert.deepEqual(changes, [undefined]);
+  } finally {
+    await act(async () => { root.unmount(); });
+    restore();
+    window.close();
+  }
+});

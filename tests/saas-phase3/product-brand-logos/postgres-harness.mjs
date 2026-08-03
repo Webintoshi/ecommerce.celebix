@@ -19,9 +19,11 @@ const LOGO = "50000000-0000-4000-8000-000000000082";
 const OTHER_LOGO = "50000000-0000-4000-8000-000000000083";
 const HERO = "50000000-0000-4000-8000-000000000084";
 const ARCHIVED_LOGO = "50000000-0000-4000-8000-000000000085";
+const EMPTY_ALT_LOGO = "50000000-0000-4000-8000-000000000086";
+const UNTRUSTED_HOST_LOGO = "50000000-0000-4000-8000-000000000087";
 const NOW = "2026-08-03T12:00:00.000Z";
 let completed = 0;
-const TOTAL = 10;
+const TOTAL = 12;
 
 function executable(name) {
   const candidates = [process.env.POSTGRES_BIN, ...(process.env.PATH ?? "").split(path.delimiter)];
@@ -115,6 +117,16 @@ async function main() {
       "202608010074_campaign_starter_composition_assertions.sql",
       "202608020075_complete_starter_retail_experience.up.sql",
       "202608020075_complete_starter_retail_experience_assertions.sql",
+      "202607310076_customer_workspace.up.sql",
+      "202607310076_customer_workspace_assertions.sql",
+      "202607310077_catalog_variant_choices.up.sql",
+      "202607310077_catalog_variant_choices_assertions.sql",
+      "202608010078_manual_order_drafts.up.sql",
+      "202608010078_manual_order_drafts_assertions.sql",
+      "202608010079_manual_order_uuid_contract.up.sql",
+      "202608010079_manual_order_uuid_contract_assertions.sql",
+      "202608020080_toshi_provider_connections.up.sql",
+      "202608020080_toshi_provider_connections_assertions.sql",
       "202608030081_storefront_design_workspace.up.sql",
       "202608030081_storefront_design_workspace_assertions.sql",
     ]) apply(box, file);
@@ -136,7 +148,9 @@ async function main() {
         ('${LOGO}','${STORE}','logo','stores/${STORE}/storefront/logo/${LOGO}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/storefront/logo/${LOGO}.webp','image/webp','Güzide Kuyumcu',480,160,2048,'active','2026-01-01','2026-01-01',NULL,1),
         ('${OTHER_LOGO}','${OTHER_STORE}','logo','stores/${OTHER_STORE}/storefront/logo/${OTHER_LOGO}.webp','https://media.saas-staging.celebix.site/stores/${OTHER_STORE}/storefront/logo/${OTHER_LOGO}.webp','image/webp','Diğer Marka',480,160,2048,'active','2026-01-01','2026-01-01',NULL,1),
         ('${HERO}','${STORE}','hero','stores/${STORE}/storefront/hero/${HERO}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/storefront/hero/${HERO}.webp','image/webp','Hero',1600,900,4096,'active','2026-01-01','2026-01-01',NULL,1),
-        ('${ARCHIVED_LOGO}','${STORE}','logo','stores/${STORE}/storefront/logo/${ARCHIVED_LOGO}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/storefront/logo/${ARCHIVED_LOGO}.webp','image/webp','Arşiv Logo',480,160,2048,'archived','2026-01-01','${NOW}','${NOW}',2);
+        ('${ARCHIVED_LOGO}','${STORE}','logo','stores/${STORE}/storefront/logo/${ARCHIVED_LOGO}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/storefront/logo/${ARCHIVED_LOGO}.webp','image/webp','Arşiv Logo',480,160,2048,'archived','2026-01-01','${NOW}','${NOW}',2),
+        ('${EMPTY_ALT_LOGO}','${STORE}','logo','stores/${STORE}/storefront/logo/${EMPTY_ALT_LOGO}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/storefront/logo/${EMPTY_ALT_LOGO}.webp','image/webp','',480,160,2048,'active','2026-01-01','2026-01-01',NULL,1),
+        ('${UNTRUSTED_HOST_LOGO}','${STORE}','logo','stores/${STORE}/storefront/logo/${UNTRUSTED_HOST_LOGO}.webp','https://assets.attacker.example/stores/${STORE}/storefront/logo/${UNTRUSTED_HOST_LOGO}.webp','image/webp','Güvensiz Host',480,160,2048,'active','2026-01-01','2026-01-01',NULL,1);
       INSERT INTO saas.catalog_admin_resources(id,store_id,resource_kind,name,slug,config,status,version,created_at,updated_at) VALUES
         ('${BRAND}','${STORE}','brand','Güzide Kuyumcu','guzide-kuyumcu',pg_catalog.jsonb_build_object('logoAssetId','${LOGO}'),'active',1,'2026-01-01','2026-01-01');
       INSERT INTO saas.catalog_admin_resource_products(store_id,resource_id,product_id,position) VALUES('${STORE}','${BRAND}','${PRODUCT}',0);
@@ -155,6 +169,8 @@ async function main() {
     await scenario("cross-store logo omits only the logo", () => { setBrandConfig(box, { logoAssetId: OTHER_LOGO }); assertBrandWithoutLogo(product(box)); });
     await scenario("wrong asset kind omits only the logo", () => { setBrandConfig(box, { logoAssetId: HERO }); assertBrandWithoutLogo(product(box)); });
     await scenario("archived logo omits only the logo", () => { setBrandConfig(box, { logoAssetId: ARCHIVED_LOGO }); assertBrandWithoutLogo(product(box)); setBrandConfig(box, { logoAssetId: LOGO }); });
+    await scenario("empty logo alt text omits only the logo", () => { setBrandConfig(box, { logoAssetId: EMPTY_ALT_LOGO }); assertBrandWithoutLogo(product(box)); });
+    await scenario("untrusted logo host omits only the logo", () => { setBrandConfig(box, { logoAssetId: UNTRUSTED_HOST_LOGO }); assertBrandWithoutLogo(product(box)); setBrandConfig(box, { logoAssetId: LOGO }); });
     await scenario("runtime roles cannot execute the raw logo helper", () => {
       assert.equal(psql(box, "SELECT pg_catalog.has_function_privilege('public','saas.public_product_brand_logo(uuid,jsonb)','EXECUTE');").stdout.trim(), "f");
       assert.equal(psql(box, "SELECT pg_catalog.has_function_privilege('celebix_saas_host_resolver','saas.public_product_brand_logo(uuid,jsonb)','EXECUTE');").stdout.trim(), "f");

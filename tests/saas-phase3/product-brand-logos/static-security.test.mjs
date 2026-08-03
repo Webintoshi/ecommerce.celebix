@@ -20,9 +20,11 @@ test("logo projection is exact tenant-scoped and fail closed", () => {
   assert.match(sql, /asset[.]store_id=p_store_id/);
   assert.match(sql, /asset[.]asset_kind='logo'/);
   assert.match(sql, /asset[.]status='active'/);
+  assert.match(sql, /asset[.]alt_text<>''/);
+  assert.match(sql, /asset[.]public_url IN\('https:\/\/media[.]celebix[.]site\/'\|\|asset[.]object_key,'https:\/\/media[.]saas-staging[.]celebix[.]site\/'\|\|asset[.]object_key\)/);
   assert.match(sql, /p_config->>'logoAssetId'~'\^\[0-9a-f\]/);
   assert.match(sql, /jsonb_strip_nulls[\s\S]+?'logo',saas[.]public_product_brand_logo/);
-  assert.doesNotMatch(sql, /object_key|logoAssetId'\s*,\s*asset[.]id/);
+  assert.doesNotMatch(sql, /logoAssetId'\s*,\s*asset[.]id/);
 });
 
 test("raw logo helper is not a public authority surface", () => {

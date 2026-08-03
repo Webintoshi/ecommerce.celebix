@@ -11,6 +11,10 @@ export type BrandLogoSelection = Readonly<{
   selectedId?: string;
 }>;
 
+export function selectBrandLogoId(value: unknown): string | undefined {
+  return typeof value === "string" && UUID.test(value) ? value : undefined;
+}
+
 function unavailable(status = 503): never {
   throw new CatalogAdminApiError("unavailable", status);
 }
@@ -32,7 +36,8 @@ export function selectBrandLogoAssets(value: unknown, selectedId?: unknown): Bra
   try { parsed = Object.freeze(envelope.assets.map(parseStorefrontAsset)); }
   catch { return unavailable(); }
   const assets = Object.freeze(parsed.filter((asset) => asset.kind === "logo" && asset.status === "active"));
-  const retained = typeof selectedId === "string" && UUID.test(selectedId) && assets.some(({ id }) => id === selectedId) ? selectedId : undefined;
+  const candidate = selectBrandLogoId(selectedId);
+  const retained = candidate && assets.some(({ id }) => id === candidate) ? candidate : undefined;
   return Object.freeze({ assets, ...(retained ? { selectedId: retained } : {}) });
 }
 

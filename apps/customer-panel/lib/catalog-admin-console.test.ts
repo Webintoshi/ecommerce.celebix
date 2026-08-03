@@ -82,6 +82,8 @@ test("catalog resource lists use canonical create, edit, and extra-preview route
   assert.match(value, /kind === "extra"/);
   assert.match(value, /brandLogoFor/);
   assert.match(value, /className=\{styles\.brandLogoThumbnail\}/);
+  assert.match(value, /Logo arşivi şu anda yüklenemedi/);
+  assert.doesNotMatch(value, /Promise[.]all\(\[\s*catalogAdminApi[.]resources\(kind\)/);
   assert.doesNotMatch(value, /searchParams|localStorage|sessionStorage|x-store-id|x-tenant-id/);
 });
 

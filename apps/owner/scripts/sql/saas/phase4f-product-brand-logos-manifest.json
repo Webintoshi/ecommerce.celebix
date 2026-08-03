@@ -5,7 +5,7 @@
   "artifacts": [
     {
       "file": "202608030082_product_brand_logos.up.sql",
-      "sha256": "4f4925429c6b849a899498e02d78ca53031ac3b7418b810f5686673262ba886d"
+      "sha256": "346070afbf0078edbec07b695b8e5a8326f32e9a212ce8f72cd4e7bd1b5897b7"
     },
     {
       "file": "202608030082_product_brand_logos_assertions.sql",

@@ -82,6 +82,7 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
   products?: (input?: Readonly<{ cursor?: string }>) => Promise<Readonly<{ items: readonly Record<string, unknown>[]; nextCursor?: string }>>;
   save: (kind: string, input: unknown) => Promise<unknown>;
   push: (path: string) => void;
+  uploadBrandLogo?: () => Promise<Record<string, unknown>>;
 }>) {
   const output = ts.transpileModule(await source("components/catalog-admin/CatalogResourceEditor.tsx"), {
     compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -98,10 +99,14 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
       PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       PanelPageHeader: ({ title, description }: { title: string; description: string }) => createElement("header", null, createElement("h1", null, title), createElement("p", null, description)),
     };
-    if (specifier === "@/components/catalog-admin/BrandLogoField") return { BrandLogoField: () => createElement("fieldset", null) };
+    if (specifier === "@/components/catalog-admin/BrandLogoField") return { BrandLogoField: (props: Record<string, unknown>) => createElement("brand-logo-field", props) };
     if (specifier === "@/lib/catalog-admin-ui/brand-logo") return {
-      selectBrandLogoAssets: () => Object.freeze({ assets: Object.freeze([]) }),
-      uploadBrandLogo: async () => { throw new Error("brand_logo_upload_not_expected"); },
+      selectBrandLogoAssets: (value: { assets?: readonly Record<string, unknown>[] } | undefined, selectedId?: string) => {
+        const assets = Object.freeze(value?.assets ?? []);
+        return Object.freeze({ assets, ...(selectedId && assets.some(({ id }) => id === selectedId) ? { selectedId } : {}) });
+      },
+      selectBrandLogoId: (value: unknown) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value) ? value : undefined,
+      uploadBrandLogo: overrides.uploadBrandLogo ?? (async () => { throw new Error("brand_logo_upload_not_expected"); }),
       withBrandLogoConfig: (config: Readonly<Record<string, unknown>>, logoAssetId?: string) => Object.freeze(logoAssetId ? { ...config, logoAssetId } : { ...config }),
     };
     if (specifier === "@/lib/catalog-admin-ui/client") return { CatalogAdminApiError: CompiledCatalogAdminApiError, catalogAdminApi: Object.freeze({ resource: overrides.resource, saveResource: overrides.save }) };
@@ -112,7 +117,57 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
     throw new Error(`unexpected_catalog_resource_editor_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
-  return compiled.exports.CatalogResourceEditor as (props: { kind: "collection"; resourceId: string; canManage: boolean }) => ReactNode;
+  return compiled.exports.CatalogResourceEditor as (props: { kind: "collection" | "brand"; resourceId: string; canManage: boolean }) => ReactNode;
+}
+
+async function compileCatalogResourceConsole(overrides: Readonly<{
+  react: typeof React;
+  resources: (kind: string) => Promise<readonly Record<string, unknown>[]>;
+}>) {
+  const output = ts.transpileModule(await source("components/catalog-admin/CatalogResourceConsole.tsx"), {
+    compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const styles = new Proxy({}, { get: (_target, property) => property === "__esModule" ? true : property === "default" ? styles : String(property) });
+  class CompiledCatalogAdminApiError extends Error { }
+  const route = await import("./resource-route.ts");
+  const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return overrides.react;
+    if (specifier === "next/link") return ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as ReactNode);
+    if (specifier === "@/components/panel/PanelPageShell") return {
+      PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
+      PanelPageHeader: ({ title }: { title: string }) => createElement("header", null, title),
+      PanelEmptyState: ({ title }: { title: string }) => createElement("div", null, title),
+    };
+    if (specifier === "@/lib/catalog-admin-ui/client") return { CatalogAdminApiError: CompiledCatalogAdminApiError, catalogAdminApi: Object.freeze({ resources: overrides.resources, archiveResource: async () => ({}) }) };
+    if (specifier === "@/lib/catalog-admin-ui/brand-logo") return { selectBrandLogoAssets: () => Object.freeze({ assets: Object.freeze([]) }) };
+    if (specifier === "@/lib/catalog-admin-ui/resource-route") return route;
+    if (specifier === "./catalog-admin-console.module.css") return styles;
+    if (specifier === "@celebix/saas-contracts") return {};
+    throw new Error(`unexpected_catalog_resource_console_import:${specifier}`);
+  };
+  Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
+  return compiled.exports.CatalogResourceConsole as (props: { kind: "brand"; canManage: boolean }) => ReactNode;
+}
+
+function textContent(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  let result = "";
+  React.Children.forEach(node, (child) => {
+    if (React.isValidElement<Record<string, unknown>>(child)) result += textContent(child.props.children as ReactNode);
+    else if (typeof child === "string" || typeof child === "number") result += String(child);
+  });
+  return result;
+}
+
+function brandLogoField(node: ReactNode) {
+  let result: React.ReactElement<Record<string, unknown>> | undefined;
+  visitElements(node, (element) => {
+    if (typeof element.props.onUpload === "function" && typeof element.props.onChange === "function") result = element;
+  });
+  assert.ok(result, "expected_brand_logo_field");
+  return result;
 }
 
 test("binds catalog route segments to fixed resource kinds", async () => {
@@ -218,6 +273,171 @@ test("catalog editor preserves an existing product relation outside the first pa
     Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
   }
   assert.deepEqual(saves, [{ resourceId: "resource-a", expectedVersion: 7, name: "A", slug: "a", config: { featured: false }, productIds: [unseen] }]);
+});
+
+test("brand editor keeps the loaded form and selected logo after a failed save so the merchant can retry", async () => {
+  const hookRuntime = createHookRuntime();
+  const logoId = "50000000-0000-4000-8000-000000000082";
+  const logo = Object.freeze({ id: logoId, kind: "logo", status: "active" });
+  const saves: unknown[] = [];
+  let attempts = 0;
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  Object.defineProperty(globalThis, "fetch", { configurable: true, value: async () => ({ ok: true, json: async () => ({ code: "ok", assets: [logo] }) }) });
+  class TestFormData {
+    get(name: string) { return ({ name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", description: "", website: "" } as Record<string, string>)[name] ?? null; }
+  }
+  Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
+  try {
+    const Editor = await compileCatalogResourceEditor({
+      react: hookRuntime.runtime,
+      resource: async () => ({ id: "brand-a", kind: "brand", version: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: { logoAssetId: logoId }, productIds: [] }),
+      save: async (_kind, input) => { saves.push(input); attempts += 1; if (attempts === 1) throw new Error("write_failed"); return {}; },
+      push() {},
+    });
+    const Console = () => Editor({ kind: "brand", resourceId: "brand-a", canManage: true });
+    let view = await hookRuntime.flush(Console);
+    await (firstElement(view, "form").props.onSubmit as (event: { preventDefault(): void; currentTarget: unknown }) => Promise<void>)({ preventDefault() {}, currentTarget: {} });
+    view = await hookRuntime.flush(Console);
+    assert.ok(firstElement(view, "form"));
+    assert.match(textContent(view), /Kayıt tamamlanamadı/);
+    await (firstElement(view, "form").props.onSubmit as (event: { preventDefault(): void; currentTarget: unknown }) => Promise<void>)({ preventDefault() {}, currentTarget: {} });
+    assert.deepEqual(saves.at(-1), { resourceId: "brand-a", expectedVersion: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: { logoAssetId: logoId }, productIds: [] });
+  } finally {
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
+    Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
+  }
+});
+
+test("brand editor remains usable and preserves its persisted logo when the optional logo library fails", async () => {
+  const hookRuntime = createHookRuntime();
+  const logoId = "50000000-0000-4000-8000-000000000082";
+  const saves: unknown[] = [];
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  Object.defineProperty(globalThis, "fetch", { configurable: true, value: async () => { throw new Error("asset_service_down"); } });
+  class TestFormData {
+    get(name: string) { return ({ name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", description: "", website: "" } as Record<string, string>)[name] ?? null; }
+  }
+  Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
+  try {
+    const Editor = await compileCatalogResourceEditor({
+      react: hookRuntime.runtime,
+      resource: async () => ({ id: "brand-a", kind: "brand", version: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: { logoAssetId: logoId }, productIds: [] }),
+      save: async (_kind, input) => { saves.push(input); return {}; },
+      push() {},
+    });
+    let view = await hookRuntime.flush(() => Editor({ kind: "brand", resourceId: "brand-a", canManage: true }));
+    assert.ok(firstElement(view, "form"));
+    assert.match(textContent(view), /Logo arşivi şu anda yüklenemedi/);
+    await (firstElement(view, "form").props.onSubmit as (event: { preventDefault(): void; currentTarget: unknown }) => Promise<void>)({ preventDefault() {}, currentTarget: {} });
+    view = await hookRuntime.flush(() => Editor({ kind: "brand", resourceId: "brand-a", canManage: true }));
+    assert.deepEqual(saves.at(-1), { resourceId: "brand-a", expectedVersion: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: { logoAssetId: logoId }, productIds: [] });
+  } finally {
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
+    Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
+  }
+});
+
+test("brand editor renders without waiting for a never-settling optional logo request", async () => {
+  const hookRuntime = createHookRuntime();
+  const originalFetch = globalThis.fetch;
+  Object.defineProperty(globalThis, "fetch", { configurable: true, value: async () => new Promise<Response>(() => {}) });
+  try {
+    const Editor = await compileCatalogResourceEditor({
+      react: hookRuntime.runtime,
+      resource: async () => ({ id: "brand-a", kind: "brand", version: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: {}, productIds: [] }),
+      save: async () => ({}),
+      push() {},
+    });
+    const view = await hookRuntime.flush(() => Editor({ kind: "brand", resourceId: "brand-a", canManage: true }));
+    assert.ok(firstElement(view, "form"));
+  } finally {
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
+  }
+});
+
+test("brand list renders without waiting for a never-settling optional logo request", async () => {
+  const hookRuntime = createHookRuntime();
+  const originalFetch = globalThis.fetch;
+  Object.defineProperty(globalThis, "fetch", { configurable: true, value: async () => new Promise<Response>(() => {}) });
+  try {
+    const Console = await compileCatalogResourceConsole({
+      react: hookRuntime.runtime,
+      resources: async () => [Object.freeze({ id: "brand-a", kind: "brand", version: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: {}, productCount: 2 })],
+    });
+    const view = await hookRuntime.flush(() => Console({ kind: "brand", canManage: true }));
+    assert.ok(firstElement(view, "article"));
+    assert.match(textContent(view), /Güzide Kuyumcu/);
+  } finally {
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
+  }
+});
+
+test("a late logo-list response cannot undo an explicit logo removal", async () => {
+  const hookRuntime = createHookRuntime();
+  const logoId = "50000000-0000-4000-8000-000000000082";
+  const saves: unknown[] = [];
+  let resolveAssets: ((response: unknown) => void) | undefined;
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  Object.defineProperty(globalThis, "fetch", { configurable: true, value: async () => new Promise((resolve) => { resolveAssets = resolve; }) });
+  class TestFormData {
+    get(name: string) { return ({ name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", description: "", website: "" } as Record<string, string>)[name] ?? null; }
+  }
+  Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
+  try {
+    const Editor = await compileCatalogResourceEditor({
+      react: hookRuntime.runtime,
+      resource: async () => ({ id: "brand-a", kind: "brand", version: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: { logoAssetId: logoId }, productIds: [] }),
+      save: async (_kind, input) => { saves.push(input); return {}; },
+      push() {},
+    });
+    const Console = () => Editor({ kind: "brand", resourceId: "brand-a", canManage: true });
+    let view = await hookRuntime.flush(Console);
+    (brandLogoField(view).props.onChange as (value: undefined) => void)(undefined);
+    resolveAssets?.({ ok: true, json: async () => ({ code: "ok", assets: [{ id: logoId }] }) });
+    view = await hookRuntime.flush(Console);
+    await (firstElement(view, "form").props.onSubmit as (event: { preventDefault(): void; currentTarget: unknown }) => Promise<void>)({ preventDefault() {}, currentTarget: {} });
+    assert.deepEqual(saves.at(-1), { resourceId: "brand-a", expectedVersion: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: {}, productIds: [] });
+  } finally {
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
+    Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
+  }
+});
+
+test("a late logo-list response cannot replace a newly uploaded logo", async () => {
+  const hookRuntime = createHookRuntime();
+  const oldLogoId = "50000000-0000-4000-8000-000000000082";
+  const newLogoId = "50000000-0000-4000-8000-000000000083";
+  const saves: unknown[] = [];
+  let resolveAssets: ((response: unknown) => void) | undefined;
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  Object.defineProperty(globalThis, "fetch", { configurable: true, value: async () => new Promise((resolve) => { resolveAssets = resolve; }) });
+  class TestFormData {
+    get(name: string) { return ({ name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", description: "", website: "" } as Record<string, string>)[name] ?? null; }
+  }
+  Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
+  try {
+    const Editor = await compileCatalogResourceEditor({
+      react: hookRuntime.runtime,
+      resource: async () => ({ id: "brand-a", kind: "brand", version: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: { logoAssetId: oldLogoId }, productIds: [] }),
+      uploadBrandLogo: async () => ({ id: newLogoId }),
+      save: async (_kind, input) => { saves.push(input); return {}; },
+      push() {},
+    });
+    const Console = () => Editor({ kind: "brand", resourceId: "brand-a", canManage: true });
+    let view = await hookRuntime.flush(Console);
+    await (brandLogoField(view).props.onUpload as (file: File) => Promise<void>)(new File([new Uint8Array([1])], "new.webp", { type: "image/webp" }));
+    resolveAssets?.({ ok: true, json: async () => ({ code: "ok", assets: [{ id: oldLogoId }] }) });
+    view = await hookRuntime.flush(Console);
+    await (firstElement(view, "form").props.onSubmit as (event: { preventDefault(): void; currentTarget: unknown }) => Promise<void>)({ preventDefault() {}, currentTarget: {} });
+    assert.deepEqual(saves.at(-1), { resourceId: "brand-a", expectedVersion: 3, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu", config: { logoAssetId: newLogoId }, productIds: [] });
+  } finally {
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
+    Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
+  }
 });
 
 test("every catalog kind has fixed create and edit pages, with a preview only for extras", async () => {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { CatalogAdminApiError } from "./client.ts";
-import { selectBrandLogoAssets, uploadBrandLogo, withBrandLogoConfig } from "./brand-logo.ts";
+import { selectBrandLogoAssets, selectBrandLogoId, uploadBrandLogo, withBrandLogoConfig } from "./brand-logo.ts";
 
 const STORE = "10000000-0000-4000-8000-000000000001";
 const LOGO = "20000000-0000-4000-8000-000000000001";
@@ -39,6 +39,12 @@ test("brand logo selection parses the whole envelope and retains only active log
   assert.equal(Object.isFrozen(selected), true);
   assert.equal(Object.isFrozen(selected.assets), true);
   assert.equal(selectBrandLogoAssets({ code: "ok", assets: [asset(LOGO, "logo")] }, HERO).selectedId, undefined);
+});
+
+test("persisted brand logo IDs are retained only when canonical", () => {
+  assert.equal(selectBrandLogoId(LOGO), LOGO);
+  assert.equal(selectBrandLogoId("not-a-uuid"), undefined);
+  assert.equal(selectBrandLogoId(null), undefined);
 });
 
 test("brand logo selection rejects malformed and oversized asset envelopes", () => {
