@@ -27,11 +27,29 @@ test("composer preserves featured navigation authority and disables unavailable 
   assert.match(value, /aria-describedby="shipping-progress-authority"/);
   assert.match(value, /checked=\{false\}/);
 });
-test("preview consumes parsed composition, exposes category image slots, and offers responsive modes", async () => { const value = await source("StarterThemePreview.tsx"); assert.match(value, /desktop/); assert.match(value, /mobile/); assert.match(value, /presentation/); assert.match(value, /starterThemeCategoryPlaceholderLabels/); assert.match(value, /previewCategoryPlaceholders/); });
+test("preview consumes parsed composition, real catalog titles, category image slots, and responsive modes", async () => { const value = await source("StarterThemePreview.tsx"); assert.match(value, /desktop/); assert.match(value, /mobile/); assert.match(value, /presentation/); assert.match(value, /productTitles/); assert.match(value, /starterThemeCategoryPlaceholderLabels/); assert.match(value, /previewCategoryPlaceholders/); });
+test("preview CSS module defines every static class consumed by the rendered component", async () => {
+  const value = await source("StarterThemePreview.tsx");
+  const stylesheet = value.match(/import styles from "([.][^"]+[.]module[.]css)"/);
+  assert.ok(stylesheet, "preview must own an explicit CSS module");
+  const css = await source(stylesheet[1]);
+  const referenced = new Set([...value.matchAll(/styles[.]([A-Za-z][A-Za-z0-9_-]*)/g)].map((match) => match[1]));
+  const defined = new Set([...css.matchAll(/[.]([A-Za-z][A-Za-z0-9_-]*)/g)].map((match) => match[1]));
+  assert.deepEqual([...referenced].filter((className) => !defined.has(className)).sort(), []);
+});
+test("theme composer stays subordinate to the shared page topbar", async () => {
+  const value = await source("StarterThemeComposer.tsx");
+  assert.doesNotMatch(value, /<h1|KAMPANYA STARTER|Yayın yetkisi etkin/);
+});
 test("composition preview truthfully renders configurable corners announcement destination gallery and cart settings", async () => {
   const value = await source("StarterThemePreview.tsx");
   for (const token of ["cornerStyle", "announcement.destination", "galleryStyle", "showCheckoutReadiness", "trustMessage", "mobileStickyPurchase"]) assert.match(value, new RegExp(token.replace(".", "[.]")));
   assert.doesNotMatch(value, /showShippingProgress\s*\?\s*<[^>]*(progress|shipping)/i);
   assert.match(value, /canonical ücretsiz kargo eşiği/);
 });
-test("theme page is server-authorized and passes only role capability", async () => { const value = await source("../../app/settings/theme/page.tsx"); assert.match(value, /requireServerPanelAccess\(\)/); assert.match(value, /configuration[.]manage/); assert.match(value, /StarterThemeComposer/); assert.doesNotMatch(value, /tenantContext=|storeId=|membershipId=/); });
+test("legacy theme route stays server-authorized and redirects into the unified design workspace", async () => {
+  const value = await source("../../app/settings/theme/page.tsx");
+  assert.match(value, /requireServerPanelAccess\(\)/);
+  assert.match(value, /redirect\("\/settings\/design[?]section=theme"\)/);
+  assert.doesNotMatch(value, /StarterThemeComposer|tenantContext=|storeId=|membershipId=/);
+});

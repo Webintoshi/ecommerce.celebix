@@ -11,7 +11,7 @@ import {
   type StarterThemeSectionConfigV2,
   type StorefrontAsset,
 } from "@celebix/saas-contracts";
-import { ArrowDown, ArrowUp, Eye, LoaderCircle, Plus, Save, Send, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, LoaderCircle, Plus, Save, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { StarterThemePreview } from "@/components/settings/StarterThemePreview";
@@ -181,6 +181,7 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
   useEffect(() => { void load(); }, [load]);
 
   const preview = useMemo(() => { try { return buildStarterThemeComposition(state); } catch { return null; } }, [state]);
+  const productTitles = useMemo(() => Object.freeze(products.slice(0, 3).map(({ title }) => title)), [products]);
   const disabled = !canManage || busy;
   const patch = (value: Partial<StarterThemeEditorState>) => setState((previous) => ({ ...previous, ...value }));
   const updateSection = (index: number, section: StarterThemeSectionConfigV2) => patch({ sections: Object.freeze(state.sections.map((entry, position) => position === index ? section : entry)) });
@@ -212,12 +213,9 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
   }
 
   return <main className={styles.shell}>
-    <header className={styles.header}>
-      <div><p className={styles.eyebrow}>KAMPANYA STARTER</p><h1>Vitrin düzenleyici</h1><p>Menü, ana sayfa, ürün detayı ve sepet deneyimini tek, sürümlü taslakta yönetin.</p></div>
-      <span className={styles.authority}>{canManage ? "Yayın yetkisi etkin" : "Yalnız görüntüleme"}</span>
-    </header>
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {message ? <p className={styles.success} role="status">{message}</p> : null}
+    {!canManage ? <p className={styles.readOnly} role="status">Yalnız görüntüleme</p> : null}
     {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={styles.workspace} onSubmit={(event) => { event.preventDefault(); void persist("draft"); }}>
       <div className={styles.editor}>
         {!current ? <p className={styles.notice}>Henüz kaydedilmiş tema yok. Güvenli başlangıç düzeni hazırlandı.</p> : <p className={styles.notice}>{current.status === "draft" ? "Taslak düzenleniyor" : "Yayındaki sürüm düzenleniyor"} · sürüm {current.version}</p>}
@@ -271,7 +269,7 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
         <StarterFooterEditor categories={categories} disabled={disabled} pages={pages} update={(footer) => patch({ footer })} value={state.footer} />
         <footer className={styles.actions}><button className={styles.secondary} type="submit" disabled={!canManage || busy}>{busy ? <LoaderCircle aria-hidden="true" /> : <Save aria-hidden="true" />} Taslak kaydet</button><button className={styles.primary} type="button" onClick={() => void persist("active")} disabled={!canManage || busy}><Send aria-hidden="true" /> Yayınla</button></footer>
       </div>
-      <aside className={styles.preview}><div className={styles.previewTitle}><Eye aria-hidden="true" /><strong>Canlı önizleme</strong></div>{preview ? <StarterThemePreview composition={preview} storefrontHostname={null} /> : <p role="alert">Önizleme için zorunlu alanları tamamlayın.</p>}</aside>
+      <aside className={styles.preview}>{preview ? <StarterThemePreview composition={preview} productTitles={productTitles} storefrontHostname={null} /> : <p role="alert">Önizleme için zorunlu alanları tamamlayın.</p>}</aside>
     </form>}
   </main>;
 }
