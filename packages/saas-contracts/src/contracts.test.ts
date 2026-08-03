@@ -449,6 +449,12 @@ test("keeps the public runtime export surface frozen", () => {
     "QUICK_ORDER_MAX_UNIT_PRICE_CENTS",
     "SAAS_CONTRACT_SCHEMA_VERSION",
     "SAAS_ERROR_CODES",
+    "STOREFRONT_DESIGN_ANNOUNCEMENT_ANIMATIONS",
+    "STOREFRONT_DESIGN_ANNOUNCEMENT_DIRECTIONS",
+    "STOREFRONT_DESIGN_ANNOUNCEMENT_ICONS",
+    "STOREFRONT_DESIGN_ANNOUNCEMENT_SPEEDS",
+    "STOREFRONT_DESIGN_DESTINATION_KINDS",
+    "STOREFRONT_DESIGN_FONT_FAMILIES",
     "STORE_DOMAIN_TYPES",
     "STORE_HOST_STATUSES",
     "STORE_MEMBERSHIP_ROLES",
@@ -537,11 +543,14 @@ test("keeps the public runtime export surface frozen", () => {
     "parseProduct",
     "parseProductReview",
     "parseProductVariant",
+    "parsePublicStorefrontDesign",
     "parsePurchaseOrder",
     "parsePurchaseOrderLine",
     "parseQuickOrderLinkDetail",
     "parseQuickOrderLinkListItem",
     "parseQuickOrderLinkMutationResult",
+    "parseStorefrontDesignDocument",
+    "parseStorefrontDesignWorkspace",
     "parseToshiProviderConnection",
     "parseToshiProviderConnectionList",
   ]);
@@ -594,6 +603,9 @@ test("contract sources import no runtime application code", async () => {
     "quick-orders/index.ts",
     "quick-orders/types.ts",
     "quick-orders/validation.ts",
+    "storefront-design/index.ts",
+    "storefront-design/types.ts",
+    "storefront-design/validation.ts",
   ];
   const sources = await Promise.all(sourceFiles.map((file) => readFile(new URL(file, import.meta.url), "utf8")));
 
