@@ -12,6 +12,7 @@ export type {
   PublicDesignDestination,
   PublicDesignMedia,
   PublicStorefrontDesign,
+  PublicStorefrontDesignHeroSlide,
   StorefrontDesignAnnouncement,
   StorefrontDesignAnnouncementAnimation,
   StorefrontDesignAnnouncementDirection,
@@ -24,12 +25,15 @@ export type {
   StorefrontDesignDraftMutation,
   StorefrontDesignFontFamily,
   StorefrontDesignHero,
+  StorefrontDesignHeroSlide,
   StorefrontDesignMediaOption,
   StorefrontDesignPromotion,
+  StorefrontDesignPublishIssue,
   StorefrontDesignPublicationMutation,
   StorefrontDesignWorkspace,
 } from "./types.ts";
 export {
+  getStorefrontDesignPublishIssue,
   parsePublicStorefrontDesign,
   parseStorefrontDesignDocument,
   parseStorefrontDesignWorkspace,

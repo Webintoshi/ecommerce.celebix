@@ -29,12 +29,18 @@ export type StorefrontDesignBrand = Readonly<{
   fontFamily: StorefrontDesignFontFamily;
 }>;
 
-export type StorefrontDesignHero = Readonly<{
+export type StorefrontDesignHeroSlide = Readonly<{
   headline: string;
   body: string;
-  image: DesignMediaReference;
+  desktopImage: DesignMediaReference;
+  mobileImage: DesignMediaReference;
   destination: DesignDestination;
   enabled: boolean;
+}>;
+
+export type StorefrontDesignHero = Readonly<{
+  enabled: boolean;
+  slides: readonly StorefrontDesignHeroSlide[];
 }>;
 
 export type StorefrontDesignPromotion = Readonly<{
@@ -56,7 +62,7 @@ export type StorefrontDesignAnnouncement = Readonly<{
 }>;
 
 export type StorefrontDesignDocument = Readonly<{
-  schemaVersion: 1;
+  schemaVersion: 2;
   brand: StorefrontDesignBrand;
   hero: StorefrontDesignHero;
   promotion: StorefrontDesignPromotion;
@@ -66,8 +72,16 @@ export type StorefrontDesignDocument = Readonly<{
 export type PublicDesignMedia = Readonly<{ url: string; altText: string }> | null;
 export type PublicDesignDestination = Readonly<{ path: string }> | null;
 
+export type PublicStorefrontDesignHeroSlide = Readonly<{
+  headline: string;
+  body: string;
+  desktopImage: PublicDesignMedia;
+  mobileImage: PublicDesignMedia;
+  destination: PublicDesignDestination;
+}>;
+
 export type PublicStorefrontDesign = Readonly<{
-  schemaVersion: 1;
+  schemaVersion: 2;
   publicationVersion: number;
   publishedAt: string;
   brand: Readonly<{
@@ -80,11 +94,8 @@ export type PublicStorefrontDesign = Readonly<{
     fontFamily: StorefrontDesignFontFamily;
   }>;
   hero: Readonly<{
-    headline: string;
-    body: string;
-    image: PublicDesignMedia;
-    destination: PublicDesignDestination;
     enabled: boolean;
+    slides: readonly PublicStorefrontDesignHeroSlide[];
   }>;
   promotion: Readonly<{
     headline: string;
@@ -114,7 +125,7 @@ export type StorefrontDesignDestinationOption = Readonly<{
 }>;
 
 export type StorefrontDesignWorkspace = Readonly<{
-  schemaVersion: 1;
+  schemaVersion: 2;
   draftVersion: number;
   publishedVersion: number;
   draftUpdatedAt: string;
@@ -137,4 +148,9 @@ export type StorefrontDesignPublicationMutation = Readonly<{
   publishedVersion: number;
   publishedAt: string;
   published: PublicStorefrontDesign;
+}>;
+
+export type StorefrontDesignPublishIssue = Readonly<{
+  code: "hero_enabled_slide_missing" | "hero_slide_headline_missing" | "hero_slide_desktop_image_missing";
+  slideIndex?: number;
 }>;

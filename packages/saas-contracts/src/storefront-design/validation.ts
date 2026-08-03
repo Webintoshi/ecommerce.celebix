@@ -14,7 +14,9 @@ import type {
   StorefrontDesignAnnouncement,
   StorefrontDesignDestinationOption,
   StorefrontDesignDocument,
+  StorefrontDesignHeroSlide,
   StorefrontDesignMediaOption,
+  StorefrontDesignPublishIssue,
   StorefrontDesignWorkspace,
 } from "./types.ts";
 
@@ -180,17 +182,44 @@ function parseAnnouncement(value: unknown): StorefrontDesignAnnouncement {
 
 export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignDocument {
   const parsed = exact(value, ["schemaVersion", "brand", "hero", "promotion", "announcement"]);
-  if (parsed.schemaVersion !== 1) invalid();
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) invalid();
 
   const brand = exact(parsed.brand, ["logo", "favicon", "primaryColor", "accentColor", "backgroundColor", "textColor", "fontFamily"]);
-  const hero = exact(parsed.hero, ["headline", "body", "image", "destination", "enabled"]);
   const promotion = exact(parsed.promotion, ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]);
   const startsAt = optionalTimestamp(promotion.startsAt);
   const endsAt = optionalTimestamp(promotion.endsAt);
   if ((startsAt === null) !== (endsAt === null) || (startsAt !== null && endsAt !== null && startsAt >= endsAt)) invalid();
+  let heroEnabled: boolean;
+  let heroSlides: readonly StorefrontDesignHeroSlide[];
+  if (parsed.schemaVersion === 1) {
+    const hero = exact(parsed.hero, ["headline", "body", "image", "destination", "enabled"]);
+    heroEnabled = boolean(hero.enabled);
+    heroSlides = Object.freeze([Object.freeze({
+      headline: text(hero.headline, 1, 120),
+      body: text(hero.body, 0, 500),
+      desktopImage: parseMediaReference(hero.image),
+      mobileImage: null,
+      destination: parseDestination(hero.destination),
+      enabled: true,
+    })]);
+  } else {
+    const hero = exact(parsed.hero, ["enabled", "slides"]);
+    heroEnabled = boolean(hero.enabled);
+    heroSlides = Object.freeze(array(hero.slides, 1, 3).map((value) => {
+      const slide = exact(value, ["headline", "body", "desktopImage", "mobileImage", "destination", "enabled"]);
+      return Object.freeze({
+        headline: text(slide.headline, 0, 120),
+        body: text(slide.body, 0, 500),
+        desktopImage: parseMediaReference(slide.desktopImage),
+        mobileImage: parseMediaReference(slide.mobileImage),
+        destination: parseDestination(slide.destination),
+        enabled: boolean(slide.enabled),
+      });
+    }));
+  }
 
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: 2,
     brand: Object.freeze({
       logo: parseMediaReference(brand.logo),
       favicon: parseMediaReference(brand.favicon),
@@ -200,13 +229,7 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
       textColor: color(brand.textColor),
       fontFamily: oneOf(brand.fontFamily, STOREFRONT_DESIGN_FONT_FAMILIES),
     }),
-    hero: Object.freeze({
-      headline: text(hero.headline, 1, 120),
-      body: text(hero.body, 0, 500),
-      image: parseMediaReference(hero.image),
-      destination: parseDestination(hero.destination),
-      enabled: boolean(hero.enabled),
-    }),
+    hero: Object.freeze({ enabled: heroEnabled, slides: heroSlides }),
     promotion: Object.freeze({
       headline: text(promotion.headline, 1, 120),
       body: text(promotion.body, 0, 500),
@@ -217,6 +240,19 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
     }),
     announcement: parseAnnouncement(parsed.announcement),
   });
+}
+
+export function getStorefrontDesignPublishIssue(value: StorefrontDesignDocument): StorefrontDesignPublishIssue | null {
+  const design = parseStorefrontDesignDocument(value);
+  const enabled = design.hero.slides
+    .map((slide, slideIndex) => Object.freeze({ slide, slideIndex }))
+    .filter(({ slide }) => slide.enabled);
+  if (!enabled.length) return Object.freeze({ code: "hero_enabled_slide_missing" });
+  for (const { slide, slideIndex } of enabled) {
+    if (!slide.headline) return Object.freeze({ code: "hero_slide_headline_missing", slideIndex });
+    if (slide.desktopImage === null) return Object.freeze({ code: "hero_slide_desktop_image_missing", slideIndex });
+  }
+  return null;
 }
 
 function parsePublicMedia(value: unknown): PublicDesignMedia {
@@ -233,16 +269,41 @@ function parsePublicDestination(value: unknown): PublicDesignDestination {
 
 export function parsePublicStorefrontDesign(value: unknown): PublicStorefrontDesign {
   const parsed = exact(value, ["schemaVersion", "publicationVersion", "publishedAt", "brand", "hero", "promotion", "announcement"]);
-  if (parsed.schemaVersion !== 1) invalid();
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) invalid();
   const brand = exact(parsed.brand, ["logo", "favicon", "primaryColor", "accentColor", "backgroundColor", "textColor", "fontFamily"]);
-  const hero = exact(parsed.hero, ["headline", "body", "image", "destination", "enabled"]);
   const promotion = exact(parsed.promotion, ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]);
   const startsAt = optionalTimestamp(promotion.startsAt);
   const endsAt = optionalTimestamp(promotion.endsAt);
   if ((startsAt === null) !== (endsAt === null) || (startsAt !== null && endsAt !== null && startsAt >= endsAt)) invalid();
+  let heroEnabled: boolean;
+  let heroSlides: readonly PublicStorefrontDesign["hero"]["slides"][number][];
+  if (parsed.schemaVersion === 1) {
+    const hero = exact(parsed.hero, ["headline", "body", "image", "destination", "enabled"]);
+    heroEnabled = boolean(hero.enabled);
+    heroSlides = Object.freeze([Object.freeze({
+      headline: text(hero.headline, 1, 120),
+      body: text(hero.body, 0, 500),
+      desktopImage: parsePublicMedia(hero.image),
+      mobileImage: null,
+      destination: parsePublicDestination(hero.destination),
+    })]);
+  } else {
+    const hero = exact(parsed.hero, ["enabled", "slides"]);
+    heroEnabled = boolean(hero.enabled);
+    heroSlides = Object.freeze(array(hero.slides, 0, 3).map((value) => {
+      const slide = exact(value, ["headline", "body", "desktopImage", "mobileImage", "destination"]);
+      return Object.freeze({
+        headline: text(slide.headline, 0, 120),
+        body: text(slide.body, 0, 500),
+        desktopImage: parsePublicMedia(slide.desktopImage),
+        mobileImage: parsePublicMedia(slide.mobileImage),
+        destination: parsePublicDestination(slide.destination),
+      });
+    }));
+  }
 
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: 2,
     publicationVersion: positiveInteger(parsed.publicationVersion),
     publishedAt: timestamp(parsed.publishedAt),
     brand: Object.freeze({
@@ -254,13 +315,7 @@ export function parsePublicStorefrontDesign(value: unknown): PublicStorefrontDes
       textColor: color(brand.textColor),
       fontFamily: oneOf(brand.fontFamily, STOREFRONT_DESIGN_FONT_FAMILIES),
     }),
-    hero: Object.freeze({
-      headline: text(hero.headline, 1, 120),
-      body: text(hero.body, 0, 500),
-      image: parsePublicMedia(hero.image),
-      destination: parsePublicDestination(hero.destination),
-      enabled: boolean(hero.enabled),
-    }),
+    hero: Object.freeze({ enabled: heroEnabled, slides: heroSlides }),
     promotion: Object.freeze({
       headline: text(promotion.headline, 1, 120),
       body: text(promotion.body, 0, 500),
@@ -296,7 +351,7 @@ function parseDestinationOption(value: unknown): StorefrontDesignDestinationOpti
 
 export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesignWorkspace {
   const parsed = exact(value, ["schemaVersion", "draftVersion", "publishedVersion", "draftUpdatedAt", "publishedAt", "draft", "published", "store", "media", "destinations"]);
-  if (parsed.schemaVersion !== 1) invalid();
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) invalid();
   const publishedVersion = positiveInteger(parsed.publishedVersion);
   const publishedAt = timestamp(parsed.publishedAt);
   const published = parsePublicStorefrontDesign(parsed.published);
@@ -308,7 +363,7 @@ export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesign
   if (new Set(destinations.map((item) => `${item.kind}:${item.resourceId}`)).size !== destinations.length) invalid();
 
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: 2,
     draftVersion: positiveInteger(parsed.draftVersion),
     publishedVersion,
     draftUpdatedAt: timestamp(parsed.draftUpdatedAt),

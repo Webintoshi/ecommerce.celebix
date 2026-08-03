@@ -471,6 +471,7 @@ test("keeps the public runtime export surface frozen", () => {
     "adaptStarterPresentationV2",
     "buildDefaultStarterPresentation",
     "getPlanLimit",
+    "getStorefrontDesignPublishIssue",
     "isBuiltInPaymentMethodKind",
     "isMerchantActionAllowed",
     "isPlanFeatureEnabled",
