@@ -16,6 +16,7 @@ import {
 import {
   MERCHANT_ADMIN_ERROR_CODES,
   MerchantAdminRepositoryError,
+  parseCanonicalAdminOriginFromPanelOrigin,
   type MerchantAdminErrorCode,
 } from "@celebix/saas-data";
 
@@ -47,6 +48,7 @@ function isResponse(value: unknown): value is Response { return value instanceof
 function object(value: unknown) { return typeof value === "object" && value !== null && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype ? value as Record<string, unknown> : null; }
 function exact(value: unknown, required: readonly string[], optional: readonly string[] = []) { const parsed = object(value), allowed = new Set([...required, ...optional]); return !parsed || required.some((key) => !Object.hasOwn(parsed, key)) || Object.keys(parsed).some((key) => !allowed.has(key)) ? null : parsed; }
 function privateHeaders(request: Request) { for (const [name] of request.headers) if (name === "authorization" || name.startsWith("x-celebix") || ["x-store-id", "x-tenant-id", "x-principal-id", "x-membership-id", "x-plan-id", "x-database-url"].includes(name)) return true; return false; }
+function approvedMutationOrigin(request: Request, panelOrigin: string) { const requestOrigin=request.headers.get("origin");if(requestOrigin===panelOrigin)return true;const requestHostname=request.headers.get("host");if(requestOrigin===null||requestHostname===null)return false;try{return parseCanonicalAdminOriginFromPanelOrigin(requestOrigin,panelOrigin).hostname===requestHostname}catch{return false} }
 function operation(request: Request) { const value = request.headers.get("idempotency-key"); return value && UUID.test(value) && !value.includes(",") ? value : null; }
 function kind(value: unknown): MerchantAdminRecordKind | null { return MERCHANT_ADMIN_RECORD_KINDS.includes(value as never) ? value as MerchantAdminRecordKind : null; }
 function providerKind(value: unknown): MerchantAdminProviderRecordKind | null { return MERCHANT_ADMIN_PROVIDER_RECORD_KINDS.includes(value as never) ? value as MerchantAdminProviderRecordKind : null; }
@@ -71,7 +73,7 @@ async function authorize(deps: Deps, request: Request, method: "GET" | "POST", p
   try { runtime = await deps.resolveRuntime(); } catch { return error("unavailable", 503); }
   if (!runtime) return error("unavailable", 503);
   if (request.method !== method) return error("method_not_allowed", 405, { allow: method });
-  if (method === "POST" && request.headers.get("origin") !== runtime.access.panelOrigin) return error("origin_denied", 403);
+  if (method === "POST" && !approvedMutationOrigin(request, runtime.access.panelOrigin)) return error("origin_denied", 403);
   let url: URL;
   try { url = new URL(request.url); } catch { return error("invalid_input", 400); }
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== pathname || url.search || url.hash || privateHeaders(request)) return error("invalid_input", 400);

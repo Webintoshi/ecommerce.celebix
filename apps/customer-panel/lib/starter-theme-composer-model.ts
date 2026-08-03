@@ -26,16 +26,9 @@ function defaultFooter(): StarterThemeEditorState["footer"] {
       Object.freeze({ heading: "Mağaza", links: Object.freeze([
         Object.freeze({ kind: "system", destination: "/products" }),
         Object.freeze({ kind: "system", destination: "/favorites" }),
-        Object.freeze({ kind: "system", destination: "/account" }),
       ]) }),
-      Object.freeze({ heading: "Yasal", links: Object.freeze([
-        Object.freeze({ kind: "fixed_policy", policyKey: "privacy_security" }),
-        Object.freeze({ kind: "fixed_policy", policyKey: "distance_sales" }),
-        Object.freeze({ kind: "fixed_policy", policyKey: "kvkk" }),
-        Object.freeze({ kind: "fixed_policy", policyKey: "payment_delivery" }),
-        Object.freeze({ kind: "fixed_policy", policyKey: "cookie_usage" }),
-        Object.freeze({ kind: "fixed_policy", policyKey: "returns_exchange" }),
-        Object.freeze({ kind: "fixed_policy", policyKey: "membership" }),
+      Object.freeze({ heading: "Hesap", links: Object.freeze([
+        Object.freeze({ kind: "system", destination: "/account" }),
       ]) }),
     ]),
     newsletter: Object.freeze({ enabled: false, heading: "Bizden haber alın", body: "Yeni ürün ve mağaza duyurularını e-postanızda alın.", consentLabel: "Aydınlatma metnini okudum ve iletişime izin veriyorum." }),
