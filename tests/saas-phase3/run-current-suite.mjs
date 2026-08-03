@@ -105,6 +105,12 @@ const requiredHarnesses = Object.freeze([
     line: /^PASS \d+\/13 .+$/gm,
     completion: /^PASS 13\/13 .+$/m,
   }),
+  Object.freeze({
+    file: "tests/saas-phase3/storefront-design-workspace/postgres-harness.mjs",
+    total: 18,
+    line: /^PASS \d+\/18 .+$/gm,
+    completion: /^PASS STOREFRONT DESIGN WORKSPACE PostgreSQL harness \(18\/18\)$/m,
+  }),
 ]);
 const gateRank = Object.freeze({
   "provider-execution-foundation": 0,

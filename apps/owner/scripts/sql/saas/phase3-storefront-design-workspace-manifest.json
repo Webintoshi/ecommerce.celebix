@@ -1,0 +1,23 @@
+{
+  "phase": "phase3-storefront-design-workspace",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608030081_storefront_design_workspace.up.sql",
+      "direction": "up",
+      "sha256": "1f6f35d4fafaae98812f874b51d58ef56114ddf811f0474dff06770aa8205210"
+    },
+    {
+      "file": "202608030081_storefront_design_workspace.down.sql",
+      "direction": "down",
+      "sha256": "1a977858f3b935ca80a1be4a865c426fa9c662c99c5618b491d4edc6c1f0d7ec"
+    },
+    {
+      "file": "202608030081_storefront_design_workspace_assertions.sql",
+      "direction": "verify",
+      "sha256": "06b581134948a514bd6613817b03cbbf8ec020a42a6b945153dcfaac61f51c28"
+    }
+  ]
+}
