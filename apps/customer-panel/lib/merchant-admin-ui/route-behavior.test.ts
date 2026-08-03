@@ -1116,7 +1116,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     const view = entry.Component(componentElement.props);
     const heading = findElement(view, (element) => element.props.title === entry.title);
     assert.equal(heading.props.title, entry.title, `${entry.route}:visible-heading`);
-    assert.equal(typeof heading.props.description === "string", entry.hasDescription, `${entry.route}:description-contract`);
+    assert.equal(typeof heading.props.description === "string", "hasDescription" in entry ? entry.hasDescription : false, `${entry.route}:description-contract`);
     const destinations: string[] = [];
     visitElements(view, (element) => {
       if (typeof element.props.href === "string") destinations.push(element.props.href);
