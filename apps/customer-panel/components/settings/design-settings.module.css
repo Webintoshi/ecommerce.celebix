@@ -15,6 +15,17 @@
 .field input:focus, .field select:focus, .field textarea:focus, .schedule input:focus { border-color: #ff9b59; outline: 3px solid rgb(255 90 0 / 12%); }
 .uploadButton { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; border: 1px solid #ffd0b2; border-radius: 10px; background: #fff8f3; color: #b54708; cursor: pointer; font-size: 12px; font-weight: 750; }
 .uploadButton input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.mediaThumbnail { width: 100%; aspect-ratio: 16 / 7; border: 1px solid #e8edf4; border-radius: 10px; object-fit: cover; }
+.fieldError { color: #b42318; font-size: 12px; line-height: 1.45; }
+.bannerCard { display: grid; gap: 18px; border-top: 1px solid #e8edf4; padding-top: 20px; }
+.bannerCard > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bannerCard > header strong { color: #1d2939; font-size: 14px; }
+.bannerCard > header div { display: flex; gap: 4px; }
+.bannerCard > header button { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid #e1e6ee; border-radius: 8px; background: #fff; color: #475467; cursor: pointer; }
+.bannerCard > header button:disabled { cursor: not-allowed; opacity: .35; }
+.addBannerButton { display: flex; min-height: 48px; align-items: center; justify-content: center; gap: 8px; border: 1px dashed #ffb985; border-radius: 10px; background: #fffaf6; color: #b54708; cursor: pointer; font-size: 12px; font-weight: 750; }
+.addBannerButton span { color: #98a2b3; font-weight: 650; }
+.addBannerButton:disabled { cursor: not-allowed; opacity: .5; }
 .colorField > div { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
 .colorField input { width: 48px; height: 48px; border: 1px solid #d8dee8; border-radius: 10px; background: #fff; padding: 4px; }
 .colorField output { display: flex; min-height: 48px; align-items: center; border-bottom: 1px solid #e8edf4; color: #344054; font-family: ui-monospace, monospace; font-size: 12px; }

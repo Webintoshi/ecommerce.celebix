@@ -5,19 +5,19 @@ import test from "node:test";
 import { applyDesignEdit, beginDesignSave, completeDesignSave, createDesignEditorState } from "./workspace-model.ts";
 
 const NOW = "2026-08-03T09:00:00.000Z";
-const DESIGN = { schemaVersion: 1, brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, hero: { headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", image: null, destination: { kind: "none" }, enabled: true }, promotion: { headline: "Yeni sezon", body: "", destination: { kind: "none" }, startsAt: null, endsAt: null, enabled: false }, announcement: { items: ["Ücretsiz kargo"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true } } as const;
-const PUBLIC = { schemaVersion: 1, publicationVersion: 1, publishedAt: NOW, brand: DESIGN.brand, hero: { ...DESIGN.hero, destination: null }, promotion: { ...DESIGN.promotion, destination: null }, announcement: DESIGN.announcement } as const;
-const WORKSPACE = { schemaVersion: 1, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW, publishedAt: NOW, draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] } as const;
+const DESIGN = { schemaVersion: 2, brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: { kind: "none" }, enabled: true }] }, promotion: { headline: "Yeni sezon", body: "", destination: { kind: "none" }, startsAt: null, endsAt: null, enabled: false }, announcement: { items: ["Ücretsiz kargo"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true } } as const;
+const PUBLIC = { schemaVersion: 2, publicationVersion: 1, publishedAt: NOW, brand: DESIGN.brand, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: null }] }, promotion: { ...DESIGN.promotion, destination: null }, announcement: DESIGN.announcement } as const;
+const WORKSPACE = { schemaVersion: 2, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW, publishedAt: NOW, draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] } as const;
 
 test("editor state never reports a newer local edit as saved by an older request", () => {
   const initial = createDesignEditorState(WORKSPACE);
-  const first = applyDesignEdit(initial, { ...DESIGN, hero: { ...DESIGN.hero, headline: "İlk" } });
+  const first = applyDesignEdit(initial, { ...DESIGN, hero: { ...DESIGN.hero, slides: [{ ...DESIGN.hero.slides[0], headline: "İlk" }] } });
   const saving = beginDesignSave(first);
-  const newer = applyDesignEdit(saving.state, { ...DESIGN, hero: { ...DESIGN.hero, headline: "Daha yeni" } });
+  const newer = applyDesignEdit(saving.state, { ...DESIGN, hero: { ...DESIGN.hero, slides: [{ ...DESIGN.hero.slides[0], headline: "Daha yeni" }] } });
   const completed = completeDesignSave(newer, saving.token, { draftVersion: 2, draftUpdatedAt: NOW, draft: saving.token.design });
   assert.equal(completed.status, "dirty");
   assert.equal(completed.draftVersion, 2);
-  assert.equal(completed.design.hero.headline, "Daha yeni");
+  assert.equal(completed.design.hero.slides[0]?.headline, "Daha yeni");
 });
 
 test("workspace source exposes six child-friendly sections, truthful save states and one shared preview", async () => {
@@ -34,8 +34,11 @@ test("workspace source exposes six child-friendly sections, truthful save states
   assert.match(workspace, /Mobil/);
   assert.match(workspace, /Yayınla/);
   assert.match(preview, /StorefrontDesignRenderer/);
-  assert.match(inspector, /Görsel yükle/);
-  assert.match(inspector, /showUpload={false}/);
+  assert.match(inspector, /Yeni görsel yükle/);
+  assert.match(inspector, /Banner ekle/);
+  assert.match(inspector, /Masaüstü görseli/);
+  assert.match(inspector, /Mobil görseli/);
+  assert.doesNotMatch(inspector, /showUpload={false}/);
   assert.match(inspector, /Varsayılana dön/);
   assert.match(inspector, /Bağlantı yok/);
   assert.match(css, /min-height:\s*48px/);
