@@ -48,6 +48,10 @@
 .previewProducts article { display: grid; gap: .3rem; min-width: 0; }
 .previewProducts strong { font-size: .74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .previewProducts small { font-size: .64rem; opacity: .65; }
+.previewCategoryPlaceholders { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: 0 clamp(1rem, 4vw, 2.4rem) 1.5rem; }
+.previewCategoryPlaceholders > div { display: grid; place-content: center; gap: .25rem; min-height: 110px; border: 1px solid rgb(120 127 138 / 28%); background: repeating-linear-gradient(135deg, transparent 0 8px, rgb(120 127 138 / 7%) 8px 9px); text-align: center; }
+.previewCategoryPlaceholders strong { font-size: .66rem; letter-spacing: .09em; }
+.previewCategoryPlaceholders small { font-size: .56rem; opacity: .65; }
 .previewProductMedia { aspect-ratio: 4 / 5; border-radius: .75rem; background: linear-gradient(145deg, #ece8e2, #fff); border: 1px solid rgb(120 127 138 / 15%); }
 .images-square .previewProductMedia { aspect-ratio: 1; }
 .cards-compact .previewProducts { gap: .4rem; }
@@ -74,6 +78,7 @@
   .previewHero { grid-template-columns: 1fr; }
   .previewMedia { display: none; }
   .previewExperience { grid-template-columns: 1fr; }
+  .previewCategoryPlaceholders { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .card, .previewViewport { transition-duration: .01ms; }

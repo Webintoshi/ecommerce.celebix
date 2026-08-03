@@ -1,6 +1,7 @@
 import type { CampaignHomeProjection } from "@celebix/saas-data";
 import type { PublicStarterHomeSection, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStorefront } from "@celebix/saas-contracts";
 import Link from "next/link";
+import { Fragment } from "react";
 
 import { StorefrontFrame } from "./StorefrontFrame";
 import { CampaignHero } from "./CampaignHero";
@@ -8,7 +9,9 @@ import { CampaignCategories, CampaignPanels, CampaignStory } from "./CampaignPan
 import { CampaignProductRow } from "./CampaignProductRow";
 import { CampaignTestimonials } from "./CampaignTestimonials";
 import { CampaignValuePropositions } from "./CampaignValuePropositions";
+import { JewelryCategoryPlaceholders } from "./JewelryCategoryPlaceholders";
 import { campaignAnnouncement } from "./campaign-ui-model";
+import { deriveJewelryCategoryPlaceholders } from "./jewelry-category-placeholders";
 import styles from "./campaign-home.module.css";
 
 function assertNever(value: never): never { throw new TypeError(`campaign_section_unreachable:${String(value)}`); }
@@ -33,5 +36,8 @@ export function CampaignHome({ storefront, projection }: Readonly<{ storefront: 
   if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3) return null;
   const effective = Object.freeze({ ...storefront, presentation });
   const announcement = campaignAnnouncement(presentation);
-  return <StorefrontFrame storefront={effective} hasAnnouncement={Boolean(announcement)}>{announcement ? <aside className={styles.announcement} aria-label="Mağaza duyuruları">{announcement.destination ? <Link href={announcement.destination}>{announcement.text}</Link> : announcement.text}</aside> : null}<div className={styles.home}>{presentation.sections.map((section, index) => <Section key={`${section.kind}-${index}`} section={section} presentation={presentation} productRows={projection.productRows} />)}</div></StorefrontFrame>;
+  const categoryPlaceholders = deriveJewelryCategoryPlaceholders(presentation.navigation, presentation.sections);
+  const supportingStart = presentation.sections.findIndex(({ kind }) => kind === "value_propositions" || kind === "testimonials");
+  const placeholderIndex = supportingStart === -1 ? presentation.sections.length : supportingStart;
+  return <StorefrontFrame storefront={effective} hasAnnouncement={Boolean(announcement)}>{announcement ? <aside className={styles.announcement} aria-label="Mağaza duyuruları">{announcement.destination ? <Link href={announcement.destination}>{announcement.text}</Link> : announcement.text}</aside> : null}<div className={styles.home}>{presentation.sections.map((section, index) => <Fragment key={`${section.kind}-${index}`}>{index === placeholderIndex ? <JewelryCategoryPlaceholders items={categoryPlaceholders} /> : null}<Section section={section} presentation={presentation} productRows={projection.productRows} /></Fragment>)}{placeholderIndex === presentation.sections.length ? <JewelryCategoryPlaceholders items={categoryPlaceholders} /> : null}</div></StorefrontFrame>;
 }

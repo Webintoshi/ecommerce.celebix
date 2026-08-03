@@ -27,7 +27,7 @@ test("composer preserves featured navigation authority and disables unavailable 
   assert.match(value, /aria-describedby="shipping-progress-authority"/);
   assert.match(value, /checked=\{false\}/);
 });
-test("preview consumes parsed composition and offers responsive modes", async () => { const value = await source("StarterThemePreview.tsx"); assert.match(value, /desktop/); assert.match(value, /mobile/); assert.match(value, /presentation/); });
+test("preview consumes parsed composition, exposes category image slots, and offers responsive modes", async () => { const value = await source("StarterThemePreview.tsx"); assert.match(value, /desktop/); assert.match(value, /mobile/); assert.match(value, /presentation/); assert.match(value, /starterThemeCategoryPlaceholderLabels/); assert.match(value, /previewCategoryPlaceholders/); });
 test("composition preview truthfully renders configurable corners announcement destination gallery and cart settings", async () => {
   const value = await source("StarterThemePreview.tsx");
   for (const token of ["cornerStyle", "announcement.destination", "galleryStyle", "showCheckoutReadiness", "trustMessage", "mobileStickyPurchase"]) assert.match(value, new RegExp(token.replace(".", "[.]")));

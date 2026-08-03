@@ -10,6 +10,7 @@ import {
   moveStarterSection,
   removeStarterCampaignPanel,
   removeStarterHeroSlide,
+  starterThemeCategoryPlaceholderLabels,
   updateStarterCampaignPanel,
   updateStarterHeroSlide,
   updateStarterNavigationRoots,
@@ -17,6 +18,9 @@ import {
 } from "./starter-theme-composer-model.ts";
 
 const CATEGORY = "20000000-0000-4000-8000-000000000001";
+const CATEGORY_TWO = "20000000-0000-4000-8000-000000000002";
+const CATEGORY_THREE = "20000000-0000-4000-8000-000000000003";
+const CATEGORY_FOUR = "20000000-0000-4000-8000-000000000004";
 const ASSET = "30000000-0000-4000-8000-000000000001";
 const PRODUCT = "40000000-0000-4000-8000-000000000001";
 
@@ -122,6 +126,7 @@ test("new editor state exposes the complete retail schema without fake content",
   assert.deepEqual(value.sections.map(({ kind }) => kind), ["product_row"]);
   assert.equal(value.visual.headerWidth, "wide");
   assert.equal(value.visual.sectionSpacing, "balanced");
+  assert.equal(value.visual.cornerStyle, "square");
   assert.equal(value.productDetail.showBreadcrumbs, true);
   assert.equal(value.productDetail.showApprovedReviews, true);
   assert.equal(value.productDetail.showSizeGuide, true);
@@ -130,6 +135,36 @@ test("new editor state exposes the complete retail schema without fake content",
   assert.equal(value.footer.groups.length, 2);
   assert.equal(JSON.stringify(value).includes("testimonial quote"), false);
   assert.equal(Object.isFrozen(value.footer.groups), true);
+});
+
+test("editor preview exposes bounded category image slots without leaking catalog identifiers", () => {
+  const labels = starterThemeCategoryPlaceholderLabels(buildStarterThemeComposition(state()));
+
+  assert.deepEqual(labels, ["PLACEHOLDER 1"]);
+  assert.equal(Object.isFrozen(labels), true);
+  assert.doesNotMatch(JSON.stringify(labels), new RegExp(CATEGORY));
+});
+
+test("editor preview counts every configured category authority instead of only the first grid", () => {
+  const input = state();
+  const composition = buildStarterThemeComposition({
+    ...input,
+    navigation: {
+      ...input.navigation,
+      rootCategoryIds: [CATEGORY, CATEGORY_TWO, CATEGORY_THREE, CATEGORY_FOUR],
+    },
+  });
+
+  assert.deepEqual(starterThemeCategoryPlaceholderLabels(composition), [
+    "PLACEHOLDER 1",
+    "PLACEHOLDER 2",
+    "PLACEHOLDER 3",
+    "PLACEHOLDER 4",
+  ]);
+});
+
+test("editor preview has no invented category slots when no category authority is configured", () => {
+  assert.deepEqual(starterThemeCategoryPlaceholderLabels(buildStarterThemeComposition(createStarterThemeEditorState())), []);
 });
 
 test("v1 editor state upgrades to v2 without inventing testimonials or social profiles", () => {

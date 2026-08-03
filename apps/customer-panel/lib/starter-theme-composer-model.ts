@@ -131,9 +131,21 @@ export function updateStarterNavigationRoots(
   return Object.freeze({ ...navigation, rootCategoryIds: Object.freeze([...rootCategoryIds]) });
 }
 
+export function starterThemeCategoryPlaceholderLabels(composition: StarterThemeComposition): readonly `PLACEHOLDER ${number}`[] {
+  const configuredCategoryIds = new Set(composition.navigation.rootCategoryIds);
+  for (const section of composition.sections) {
+    if (section.kind !== "category_grid" || !section.enabled) continue;
+    for (const categoryId of section.categoryIds) configuredCategoryIds.add(categoryId);
+  }
+
+  return Object.freeze(
+    Array.from({ length: Math.min(4, configuredCategoryIds.size) }, (_, index) => `PLACEHOLDER ${index + 1}` as const),
+  );
+}
+
 export function createStarterThemeEditorState(): StarterThemeEditorState {
   return Object.freeze({
-    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" }),
+    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" }),
     announcement: Object.freeze({ enabled: true, items: Object.freeze(["Güvenli alışveriş"]), destination: "/pages/odeme-teslimat" }),
     navigation: Object.freeze({ rootCategoryIds: Object.freeze([]) }),
     sections: Object.freeze([Object.freeze({ kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 })]),
