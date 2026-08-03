@@ -74,6 +74,8 @@ test("product summary follows the compact jewelry detail hierarchy", async () =>
 
   assert.doesNotMatch(experience, />ÜRÜN DETAYI</u);
   assert.match(experience, /Ürün Kodu:/u);
+  assert.match(experience, /className=\{styles[.]summaryHeader\}/u);
+  assert.doesNotMatch(experience, /Siparişe hazır seçenekler mevcut[.]/u);
   assert.ok(experience.lastIndexOf("<ProductInformationDisclosures") > experience.lastIndexOf("<ProductPurchasePanel"));
   assert.match(disclosures, /aria-labelledby="product-information-title"/u);
   assert.match(disclosures, /className="sr-only" id="product-information-title">Ürün bilgileri/u);
@@ -81,11 +83,15 @@ test("product summary follows the compact jewelry detail hierarchy", async () =>
   assert.match(purchase, /showVariantChoices/u);
   assert.match(purchase, /product[.]variants[.]length > 1/u);
   assert.match(styles, /[.]experience\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1[.]12fr\)\s*minmax\(24rem,\s*[.]88fr\)[^}]*gap:\s*clamp\(2rem,\s*4vw,\s*4[.]5rem\)/u);
-  assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*max-width:\s*none[^}]*white-space:\s*nowrap[^}]*font-size:\s*clamp\(1rem,\s*1[.]15vw,\s*1[.]125rem\)/u);
+  assert.match(styles, /[.]summaryHeader\s*\{[^}]*display:\s*grid[^}]*grid-template-areas:\s*"brand"\s*"title"\s*"sku"/u);
+  assert.match(styles, /[.]brand\s*\{[^}]*grid-area:\s*brand[^}]*justify-self:\s*end[^}]*font-size:\s*[.]75rem/u);
+  assert.match(styles, /[.]sku\s*\{[^}]*grid-area:\s*sku[^}]*font-size:\s*[.]76rem/u);
+  assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*grid-area:\s*title[^}]*max-width:\s*none[^}]*white-space:\s*nowrap[^}]*font-size:\s*clamp\(1[.]15rem,\s*1[.]4vw,\s*1[.]35rem\)/u);
   assert.doesNotMatch(styles, /minmax\(34rem,\s*1[.]28fr\)/u);
   const mobileStyles = styles.slice(styles.indexOf("@media (max-width: 1024px)"), styles.indexOf("@media (max-width: 700px)"));
   assert.match(mobileStyles, /[.]purchaseColumn h1\s*\{[^}]*white-space:\s*normal/u);
   assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*font-family:\s*Arial, Helvetica, sans-serif !important/u);
   assert.match(styles, /[.]disclosures\s*\{[^}]*display:\s*grid[^}]*border-top/u);
-  assert.match(globalStyles, /[.]purchase-actions\s*\{[^}]*grid-template-columns:\s*1fr/u);
+  assert.match(globalStyles, /[.]purchase-actions\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
+  assert.doesNotMatch(globalStyles, /[.]purchase-actions\s*\{\s*grid-template-columns:\s*1fr;\s*\}/u);
 });

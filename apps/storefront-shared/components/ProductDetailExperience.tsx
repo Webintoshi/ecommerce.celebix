@@ -17,13 +17,13 @@ export function ProductDetailExperience({ product, relatedProducts, publishedPol
     <section className={`${styles.experience} store-container`}>
       <ProductGallery product={product} style={options.galleryStyle} />
       <div className={styles.purchaseColumn}>
-        <h1>{product.title}</h1>
-        <div className={styles.metadata}>
-          {options.showSku && primaryVariant?.sku ? <p className={styles.sku}>Ürün Kodu: {primaryVariant.sku}</p> : null}
+        <div className={styles.summaryHeader}>
+          <h1>{product.title}</h1>
           {options.showBrand && product.brand ? <Link className={styles.brand} href={`/search?q=${encodeURIComponent(product.brand.name)}`}>{product.brand.name}</Link> : null}
+          {options.showSku && primaryVariant?.sku ? <p className={styles.sku}>Ürün Kodu: {primaryVariant.sku}</p> : null}
         </div>
         <div className={styles.price}>{product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{formatTry(product.compareAtCents)}</del> : null}<strong>{formatTry(product.priceCents)}</strong></div>
-        <div className={`${styles.stock} ${product.available ? styles.available : ""}`}><b>{product.available ? "Stokta" : "Tükendi"}</b><span>{product.available ? "Siparişe hazır seçenekler mevcut." : "Aktif seçenekler şu anda stokta değil."}</span></div>
+        <div className={`${styles.stock} ${product.available ? styles.available : ""}`}><b>{product.available ? "Stokta" : "Tükendi"}</b></div>
         {product.merchandising?.highlights.length ? <ul className={styles.highlights}>{product.merchandising.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul> : null}
         {options.showSizeGuide && product.merchandising?.sizeGuide ? <ProductSizeGuide heading={product.merchandising.sizeGuide.heading} body={product.merchandising.sizeGuide.body} /> : null}
         <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} />
