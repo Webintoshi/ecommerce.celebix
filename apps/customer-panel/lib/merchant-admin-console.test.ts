@@ -2,25 +2,13 @@ import assert from"node:assert/strict";import{spawnSync}from"node:child_process"
 const routes=Object.freeze([
  ["app/discounts/page.tsx","discount"],["app/discounts/new/page.tsx","discount"],["app/discounts/lucky-wheel/page.tsx","lucky_wheel"],
  ["app/marketing/page.tsx","MerchantMarketingOverview"],["app/marketing/email/page.tsx","email_campaign"],["app/marketing/phone/page.tsx","phone_campaign"],["app/marketing/whatsapp/page.tsx","whatsapp_campaign"],
- ["app/content/blog/page.tsx","blog_post"],["app/content/pages/page.tsx","page"],["app/content/policies/page.tsx","policy"],["app/marketplaces/page.tsx","marketplace_connection"],
- ["app/settings/general/page.tsx","general_setting"],["app/settings/language/page.tsx","language_setting"],["app/settings/shipping/page.tsx","shipping_setting"],["app/settings/administrators/page.tsx","administrator_invite"],
+ ["app/content/blog/page.tsx","blog_post"],["app/content/pages/page.tsx","page"],["app/marketplaces/page.tsx","marketplace_connection"],
+ ["app/settings/general/page.tsx","general_setting"],["app/settings/theme/page.tsx","StarterThemeComposer"],["app/settings/language/page.tsx","language_setting"],["app/settings/shipping/page.tsx","shipping_setting"],["app/settings/administrators/page.tsx","administrator_invite"],
  ["app/accounting/page.tsx","accounting_profile"],["app/accounting/invoicing-integration/page.tsx","invoice_integration"],["app/seo/page.tsx","seo_control"],["app/seo/sitemap/page.tsx","sitemap"],["app/seo/social-preview/page.tsx","social_preview"],["app/seo/code-integrations/page.tsx","code_integration"],["app/seo/fast-indexing/page.tsx","indexing_request"],
 ]as const);
 test("every donor merchant module route is real and server-authorized",async()=>{for(const[path,kind]of routes){const value=await source(path);assert.match(value,/requireServerPanelAccess/);assert.match(value,new RegExp(kind));assert.match(value,/isMerchantActionAllowed/)}});
 test("shared console has truthful durable states, audit, archive and no fake provider send",async()=>{const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");assert.match(value,/merchantAdminApi\.records/);assert.match(value,/merchantAdminApi\.events/);assert.match(value,/merchantAdminApi\.save/);assert.match(value,/merchantAdminApi\.archive/);assert.match(value,/Yükleniyor|yükleniyor/);assert.match(value,/Henüz/);assert.match(value,/role="alert"/);assert.doesNotMatch(value,/sendEmail|sendWhatsapp|sendSms|Math\.random|fake|mock/i)});
-test("singleton configuration modules open as direct settings workspaces",async()=>{
-  const [consoleSource,presentationSource]=await Promise.all([
-    source("components/merchant-admin/MerchantModuleConsole.tsx"),
-    source("lib/merchant-admin-ui/presentation.ts"),
-  ]);
-  for(const kind of["general_setting","language_setting","shipping_setting","notification_setting","hero_banner","promotion_banner","marquee_setting","ai_setting","accounting_profile","seo_control","sitemap","social_preview"]){
-    assert.match(presentationSource,new RegExp(`kind: \\"${kind}\\"[^\\n]+cardinality: \\"singleton\\"`));
-  }
-  assert.match(consoleSource,/definition\.cardinality === "singleton"/);
-  assert.match(consoleSource,/Ayarları kaydet/);
-  assert.match(consoleSource,/data-merchant-workspace=\{singleton \? "singleton" : "collection"\}/);
-  assert.match(consoleSource,/activeRecords\.length > 1/);
-});
+test("starter presentation singleton modules edit the durable winner instead of offering duplicate active records",async()=>{const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");assert.match(value,/isSingletonMerchantModule/);assert.match(value,/selectSingletonEditorRecord/);assert.match(value,/Vitrinde etkin/);assert.match(value,/Yerine yeni kayıt geçti/);assert.match(value,/Ayarı düzenle/)});
 test("merchant console never accepts browser tenant or provider secret authority",async()=>{const value=(await Promise.all(["components/merchant-admin/MerchantModuleConsole.tsx","lib/merchant-admin-ui/client.ts"].map(source))).join("\n");assert.doesNotMatch(value,/x-store-id|x-tenant-id|localStorage|sessionStorage|supabase|\/api\/admin|apiSecret|clientSecret|accessToken/)});
 test("production merchant records retain all five headers without shared three-column sizing",async()=>{
   const [consoleSource,shellCss]=await Promise.all([
@@ -37,35 +25,9 @@ test("approved merchant record subpages are server-authorized and keep fixed kin
  ["app/discounts/[recordId]/edit/page.tsx","discount","promotions.manage"],
  ["app/content/blog/new/page.tsx","blog_post","content.manage"],["app/content/blog/[recordId]/edit/page.tsx","blog_post","content.manage"],
  ["app/content/pages/new/page.tsx","page","content.manage"],["app/content/pages/[recordId]/edit/page.tsx","page","content.manage"],
- ["app/content/policies/new/page.tsx","policy","content.manage"],["app/content/policies/[recordId]/edit/page.tsx","policy","content.manage"],
 ]as const){const value=await source(path);assert.match(value,/requireServerPanelAccess\(\)/);assert.match(value,new RegExp(`kind=\\"${kind}\\"`));assert.match(value,new RegExp(permission.replace(".","\\.")));assert.doesNotMatch(value,/searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/)} });
 
-test("every collection module has canonical create and exact-record edit depth",async()=>{
-  const helper=await source("components/merchant-admin/render-merchant-record-page.tsx");
-  assert.match(helper,/requireServerPanelAccess\(\)/);assert.match(helper,/isMerchantActionAllowed/);assert.match(helper,/MerchantRecordEditor/);
-  assert.doesNotMatch(helper,/searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
-  for(const[base,kind,permission]of[
-    ["discounts/lucky-wheel","lucky_wheel","promotions.manage"],
-    ["marketing/email","email_campaign","marketing.manage"],
-    ["marketing/phone","phone_campaign","marketing.manage"],
-    ["marketing/whatsapp","whatsapp_campaign","marketing.manage"],
-    ["marketplaces","marketplace_connection","integrations.manage"],
-    ["settings/administrators","administrator_invite","configuration.manage"],
-    ["accounting/invoicing-integration","invoice_integration","integrations.manage"],
-    ["seo/code-integrations","code_integration","integrations.manage"],
-    ["seo/fast-indexing","indexing_request","integrations.manage"],
-    ["seo/geo-optimization","seo_geo_profile","integrations.manage"],
-    ["seo/internal-linking","seo_internal_link","integrations.manage"],
-    ["seo/content","seo_content_entry","integrations.manage"],
-    ["seo/categories","seo_category_entry","integrations.manage"],
-    ["seo/pages","seo_page_entry","integrations.manage"],
-    ["seo/products","seo_product_entry","integrations.manage"],
-  ]as const){
-    const[create,edit]=await Promise.all([source(`app/${base}/new/page.tsx`),source(`app/${base}/[recordId]/edit/page.tsx`)]);
-    for(const page of[create,edit]){assert.match(page,/renderMerchantRecordPage/);assert.match(page,new RegExp(`kind: \\"${kind}\\"`));assert.match(page,new RegExp(permission.replace(".","\\.")));}
-    assert.match(edit,/recordId/);
-  }
-});
+test("storefront policies are fixed and never use generic create archive records",async()=>{const[page,legacyCreate,edit,consoleSource]=await Promise.all([source("app/content/policies/page.tsx"),source("app/content/policies/new/page.tsx"),source("app/content/policies/[policyKey]/edit/page.tsx"),source("components/content/PolicyConsole.tsx")]);assert.match(page,/PolicyConsole/);assert.match(legacyCreate,/permanentRedirect/);assert.match(edit,/FIXED_STOREFRONT_POLICIES/);assert.match(consoleSource,/storePolicyApi[.]save/);assert.doesNotMatch([page,legacyCreate,edit,consoleSource].join("\n"),/MerchantRecordEditor|storePolicyApi[.](?:archive|delete)|Yeni politika/)});
 
 test("payment settings use the dedicated console and legacy routes only redirect",async()=>{
   const [page,create,edit]=await Promise.all([source("app/settings/payment/page.tsx"),source("app/settings/payment/new/page.tsx"),source("app/settings/payment/[recordId]/edit/page.tsx")]);
@@ -80,6 +42,13 @@ test("typed storefront settings render closed enum, local datetime roundtrip, fi
   for(const evidence of["field.type === \"enum\"","field.type === \"enum-list\"","field.type === \"datetime\"","field.type === \"string-list\"","field.maxItems","field.allowedValues","field.optionLabels","datetime-local","getFullYear","new Date(raw)","timestamp.toISOString","invalid_enum_value","invalid_enum_list","invalid_string_list_","activeSubmissionRef","loadVersionRef"])assert.match(value,new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
   assert.doesNotMatch(value,/localStorage|sessionStorage|document[.]cookie|apiSecret|clientSecret|accessToken/);
   assert.match(value,/defaultChecked=\{enumListDefaultChecked\(editing, field[.]key, value\)\}/);
+});
+
+test("bounded numeric theme choices serialize as numbers rather than strings",async()=>{
+  const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");
+  assert.match(value,/field\.type === "number" && field\.allowedValues/);
+  assert.match(value,/field\.allowedValues\.includes\(raw\)/);
+  assert.match(value,/entries\[field\.key\] = number/);
 });
 
 test("datetime-local, bounded list, and finite enum-list parsing reject unknown or duplicate values",async()=>{

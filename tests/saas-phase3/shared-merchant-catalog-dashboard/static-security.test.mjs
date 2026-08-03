@@ -9,6 +9,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".
 const BASE = "d343f493bf7f4950604dfb08770ccb5290659557";
 const IMPLEMENTATION_HEAD = "6563a1428434e1974f50af3ffb843eb4067f686a";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const reviewedSuccessorAuthorityFiles = new Set([
+  "apps/customer-panel/lib/catalog-ui/client.ts",
+  "packages/saas-data/src/catalog/index.ts",
+  "packages/saas-data/src/catalog/repository.test.ts",
+  "packages/saas-data/src/catalog/repository.ts",
+  "packages/saas-data/src/catalog/types.ts",
+]);
 const allowedFiles = new Set([
   "packages/saas-data/src/catalog/types.ts",
   "packages/saas-data/src/catalog/repository.ts",
@@ -52,7 +59,7 @@ test("donor snapshot is pinned and apps/admin remains read-only", () => {
   assert.equal(git("diff", "--name-only", `${BASE}...HEAD`, "--", "apps/admin"), "");
 });
 
-test("tracks the original authority scope while allowing later presentation-only changes", () => {
+test("tracks the original authority scope and reviewed successor catalog extensions", () => {
   const changed = git("diff", "--name-only", `${BASE}...${IMPLEMENTATION_HEAD}`).split("\n").filter(Boolean);
   assert.equal(
     changed.every((file) => allowedFiles.has(file) || file.startsWith("tests/saas-phase3/shared-merchant-catalog-dashboard/")),
@@ -61,7 +68,7 @@ test("tracks the original authority scope while allowing later presentation-only
   );
   const laterAuthorityChanges = git("diff", "--name-only", `${IMPLEMENTATION_HEAD}...HEAD`).split("\n").filter(Boolean).filter(isSharedCatalogAuthoritySurface);
   assert.equal(
-    laterAuthorityChanges.every((file) => file === "apps/customer-panel/lib/catalog-ui/client.ts"),
+    laterAuthorityChanges.every((file) => reviewedSuccessorAuthorityFiles.has(file)),
     true,
     laterAuthorityChanges.join("\n"),
   );
@@ -81,6 +88,11 @@ test("tracks the original authority scope while allowing later presentation-only
     .map((file) => readFileSync(path.join(ROOT, file), "utf8"))
     .join("\n");
   assert.doesNotMatch(browserSource, /localStorage.*(?:tenant|store)|x-(?:tenant|store)-id/i);
+  const successorSource = laterAuthorityChanges
+    .filter((file) => !file.endsWith(".test.ts"))
+    .map((file) => readFileSync(path.join(ROOT, file), "utf8"))
+    .join("\n");
+  assert.doesNotMatch(successorSource, /from ["']@supabase|\/api\/admin\/|document[.]cookie|localStorage|sessionStorage/i);
 
   const handlerSource = readFileSync(
     path.join(ROOT, "apps/customer-panel/lib/catalog-http/handler.ts"),

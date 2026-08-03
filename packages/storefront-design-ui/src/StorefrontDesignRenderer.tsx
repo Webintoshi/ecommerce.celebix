@@ -8,12 +8,13 @@ type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
 const ICONS = Object.freeze({ none: "", sparkle: "✦", truck: "▰", shield: "◇" } as const);
 
-export function StorefrontDesignRenderer({ design, storeName, now, children, compact = false, showHomeSurfaces = true }: Readonly<{
+export function StorefrontDesignRenderer({ design, storeName, now, children, compact = false, showHeader = true, showHomeSurfaces = true }: Readonly<{
   design: PublicStorefrontDesign;
   storeName: string;
   now: Date;
   children?: ReactNode;
   compact?: boolean;
+  showHeader?: boolean;
   showHomeSurfaces?: boolean;
 }>) {
   const style: DesignStyle = {
@@ -30,13 +31,13 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
           <div>{design.announcement.items.map((item, index) => <span key={`${index}-${item}`}>{ICONS[design.announcement.icon] ? <i aria-hidden="true">{ICONS[design.announcement.icon]}</i> : null}{item}</span>)}</div>
         </div>
       ) : null}
-      <header className="celebix-store-header">
+      {showHeader ? <header className="celebix-store-header">
         <a className="celebix-store-brand" href="/" aria-label={`${storeName} ana sayfa`}>
           {design.brand.logo ? <img src={design.brand.logo.url} alt={design.brand.logo.altText || storeName} /> : <strong>{storeName}</strong>}
         </a>
         <nav aria-label="Ana menü"><a href="/">Ana Sayfa</a><a href="/products">Ürünler</a></nav>
         <span className="celebix-store-bag">Çanta <b>0</b></span>
-      </header>
+      </header> : null}
       {showHomeSurfaces && design.hero.enabled ? (
         <section className="celebix-store-hero" data-has-image={design.hero.image ? "true" : "false"}>
           <div className="celebix-store-hero-copy"><small>{storeName}</small><h1>{design.hero.headline}</h1>{design.hero.body ? <p>{design.hero.body}</p> : null}{design.hero.destination ? <a href={design.hero.destination.path}>Keşfet</a> : null}</div>

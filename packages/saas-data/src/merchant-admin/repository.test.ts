@@ -21,6 +21,14 @@ function providerKindTypeBoundary(api:MerchantAdminRepository){if(false){
 }}
 void providerKindTypeBoundary;
 
+test("reads the exact effective starter presentation through durable merchant authority",async()=>{
+ const presentation={schemaVersion:1,displayName:"Güzide",theme:{colorScheme:"warm",headingStyle:"sans",productCardStyle:"compact",productImageRatio:"square",homeProductLimit:12,showBrandStory:false},hero:{enabled:true,headline:"Yeni sezon",body:"Koleksiyonu keşfedin.",destination:"/products"},seo:{allowIndex:false}};
+ const reader=new Client((text)=>text.includes("merchant_admin_effective_starter_presentation")?[{outcome:"found",result_payload:presentation}]:[]);
+ const result=await repository(new Pool([reader])).getEffectiveStarterPresentation({tenantContext:tenant(),now:NOW,hostname:"store.saas-staging.celebix.site"});
+ assert.deepEqual(result,presentation);
+ assert.deepEqual(call(reader,"merchant_admin_effective_starter_presentation").values,[STORE,PRINCIPAL,MEMBERSHIP,PLAN,"growth",2,NOW,"store.saas-staging.celebix.site"]);
+});
+
 test("gets one exact fixed-kind record with durable authority",async()=>{
  const projected={id:RECORD,kind:"discount",name:"Yaz Indirimi",config:{discountType:"percent",value:15},status:"active",version:1,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString()};
  const reader=new Client((text)=>text.includes("merchant_admin_get_record")?[{outcome:"found",result_payload:projected}]:[]);
@@ -55,15 +63,45 @@ test("rejects secret-bearing config before SQL",async()=>{
 test("typed settings accept only finite public configuration before SQL",async()=>{
  const configurations={
   notification_setting:{emailEnabled:true,smsEnabled:false,pushEnabled:true,senderLabel:"Celebix",replyToEmail:"support@example.test"},
-  hero_banner:{headline:"Yeni sezon",body:"Göz atın",imageUrl:"https://cdn.example.test/hero.webp",destination:"/collections/new",enabled:true},
+  hero_banner:{headline:"Yeni sezon",body:"Göz atın",assetId:RECORD,destination:"/collections/new",enabled:true},
+  social_preview:{title:"Celebix",description:"Paylaşım",assetId:RECORD},
   promotion_banner:{headline:"Yaz indirimi",body:"Sınırlı süre",destination:"/sale",startsAt:NOW.toISOString(),endsAt:"2026-08-22T19:00:00.000Z",enabled:true},
   marquee_setting:{items:["Ücretsiz kargo"],icon:"truck",speed:"normal",direction:"left",animation:"continuous",enabled:true},
+  theme_setting:{colorScheme:"warm",headingStyle:"sans",productCardStyle:"compact",productImageRatio:"square",homeProductLimit:12,showBrandStory:false},
+  category_showcase:{heading:"Koleksiyonları keşfedin",enabled:true,items:[{categoryId:"81000000-0000-4000-8000-000000000001",assetId:"82000000-0000-4000-8000-000000000001"}]},
  } as const;
  for(const [kind,config] of Object.entries(configurations)){
   const writer=new Client((text)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{...mutation(),kind}}]:[]);
   await assert.doesNotReject(()=>repository(new Pool([writer])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:kind as never,name:"Ayar",config,status:"active"}));
  }
  for(const hostile of [{smtpPassword:"x"},{apiKey:"x"},{pushToken:"x"},{html:"<script>x</script>"}]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"notification_setting" as never,name:"Ayar",config:hostile as unknown as Record<string,string>,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"hero_banner",name:"Ayar",config:{imageUrl:"https://cdn.example.test/hero.webp"},status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"social_preview",name:"Ayar",config:{assetId:"not-a-uuid"},status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ for(const hostile of [
+  {colorScheme:"red"},{headingStyle:"display"},{productCardStyle:"dense"},{productImageRatio:"landscape"},{homeProductLimit:6},{homeProductLimit:"8"},{showBrandStory:"true"},{customCss:"body{}"},
+ ]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"theme_setting" as never,name:"Tema",config:hostile as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ for(const hostile of [
+  {heading:"Kategoriler",enabled:true,items:[]},
+  {heading:"Kategoriler",enabled:true,items:[{categoryId:RECORD,assetId:RECORD},{categoryId:RECORD,assetId:"82000000-0000-4000-8000-000000000002"}]},
+  {heading:"Kategoriler",enabled:true,items:[{categoryId:RECORD,assetId:RECORD},{categoryId:"81000000-0000-4000-8000-000000000002",assetId:RECORD}]},
+  {heading:"Kategoriler",enabled:true,items:[{categoryId:"not-a-uuid",assetId:RECORD}]},
+ ]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"category_showcase",name:"Kategoriler",config:hostile as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+});
+
+test("active storefront settings cannot exceed or omit the public presentation contract",async()=>{
+ const hostile=[
+  ["hero_banner",{body:"x".repeat(1001)}],
+  ["hero_banner",{destination:"/products?sort=new"}],
+  ["promotion_banner",{enabled:true}],
+  ["promotion_banner",{headline:"Kampanya",body:"x".repeat(1001),enabled:true}],
+  ["promotion_banner",{headline:"Kampanya",destination:"/sale?coupon=private",enabled:true}],
+  ["marquee_setting",{enabled:true}],
+  ["seo_control",{metaDescription:"x".repeat(501),allowIndex:false}],
+ ] as const;
+ for(const [index,[kind,config]] of hostile.entries()) await assert.rejects(
+  ()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:`72000000-0000-4000-8000-${String(500+index).padStart(12,"0")}`,kind:kind as never,name:"Vitrin",config:config as never,status:"active"}),
+  (error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input",
+ );
 });
 
 test("advanced SEO and AI records reject code and provider material before SQL",async()=>{
@@ -122,7 +160,7 @@ test("typed settings reject finite-grammar URL email and Unicode-boundary bypass
 test("typed settings unknown commit recovers once without repeating the write",async()=>{
  let commits=0;const writer=new Client((text)=>{if(text.includes("merchant_admin_save"))return[{outcome:"saved",result_payload:{...mutation(),kind:"hero_banner"}}];if(text==="COMMIT"&&commits++===0)throw new Error("wire");return[]});
  const recovery=new Client((text)=>text.includes("merchant_admin_recover_operation")?[{outcome:"operation_replayed",result_payload:{...mutation(),kind:"hero_banner"}}]:[]);
- const result=await repository(new Pool([writer,recovery])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"hero_banner",name:"Ayar",config:{headline:"Hero",body:"Metin",imageUrl:"https://cdn.example.test/hero.webp",destination:"/hero",enabled:true},status:"active"});
+ const result=await repository(new Pool([writer,recovery])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"hero_banner",name:"Ayar",config:{headline:"Hero",body:"Metin",assetId:RECORD,destination:"/hero",enabled:true},status:"active"});
  assert.equal(result.replayed,true);assert.equal(writer.calls.filter((entry)=>entry.text.includes("merchant_admin_save")).length,1);assert.equal(recovery.calls[0]?.text,"BEGIN READ ONLY");
 });
 

@@ -71,6 +71,15 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/shared-merchant-catalog-dashboard/postgres-harness.mjs", 18],
   ["tests/saas-phase3/tenant-r2-media/postgres-harness.mjs", 24],
   ["tests/saas-phase3/typed-storefront-settings/postgres-harness.mjs", 24],
+  ["tests/saas-phase3/catalog-category-hierarchy/postgres-harness.mjs", 23],
+  ["tests/saas-phase3/pilot-plan-authority/postgres-harness.mjs", 12],
+  ["tests/saas-phase3/returning-panel-login/postgres-harness.mjs", 14],
+  ["tests/saas-phase3/starter-retail-experience/postgres-harness.mjs", 20],
+  ["tests/saas-phase3/starter-theme-composition/postgres-harness.mjs", 32],
+  ["tests/saas-phase3/starter-theme/postgres-harness.mjs", 21],
+  ["tests/saas-phase3/storefront-cart-checkout/postgres-harness.mjs", 38],
+  ["tests/saas-phase3/storefront-category-showcase/postgres-harness.mjs", 14],
+  ["tests/saas-phase3/storefront-policy-search/postgres-harness.mjs", 32],
 ]);
 
 const COMPLETION_MIGRATIONS = Object.freeze([
@@ -109,7 +118,7 @@ async function findPostgresHarnesses(directory) {
 
 function isProductionGatePath(candidate) {
   if (!/^(?:apps\/customer-panel|packages|apps\/owner\/scripts\/sql\/saas)\//.test(candidate)) return false;
-  return !/(?:^|\/)(?:tests?|__tests__|fixtures?|__fixtures__)(?:\/|$)|[.](?:test|spec|fixture)[.][cm]?[jt]sx?$/i.test(candidate);
+  return !/(?:^|\/)(?:tests?|__tests__|fixtures?|__fixtures__)(?:\/|$)|[.](?:test|spec|fixture)[.][cm]?[jt]sx?$|_assertions[.]sql$/i.test(candidate);
 }
 
 function parseProductionAddedLines(diff) {
@@ -349,30 +358,9 @@ test("completion and successor manifests pin every changed migration artifact", 
     const bytes = await readFile(path.join(ROOT, SQL, artifact.file));
     assert.equal(createHash("sha256").update(bytes).digest("hex"), artifact.sha256, artifact.file);
   }
-  const successorManifestNames = [
-    "phase3c1a-customer-taxonomy-assignment-fix-manifest.json",
-    "phase3c2a-catalog-import-authority-manifest.json",
-    "phase3c2b-catalog-rich-import-manifest.json",
-    "phase3h-analytics-manifest.json",
-    "phase3h-merchant-completion-manifest.json",
-    "phase3i-provider-execution-foundation-manifest.json",
-    "phase3j-payment-method-admin-manifest.json",
-    "phase3k-payment-adapter-runtime-manifest.json",
-    "phase3l-paytr-iframe-activation-authority-manifest.json",
-    "phase3m-paytr-iframe-sandbox-evidence-history-manifest.json",
-    "phase3n-hosted-callback-lifecycle-manifest.json",
-    "phase3o-payment-provider-keyed-lifecycle-manifest.json",
-    "phase3p-quick-order-hosted-payment-authority-manifest.json",
-    "phase3q-quick-order-hosted-payment-bridge-manifest.json",
-    "phase3r-payment-method-single-active-provider-manifest.json",
-    "phase3s-iyzico-iframe-tenant-sandbox-evidence-manifest.json",
-    "phase3t-iyzico-iframe-tenant-activation-runtime-manifest.json",
-    "phase3u-built-in-payment-methods-manifest.json",
-    "phase3v-payment-provider-builtin-compatibility-manifest.json",
-    "phase3-product-onboarding-manifest.json",
-    "phase3-tenant-r2-media-manifest.json",
-    "phase3-guzide-catalog-migration-manifest.json",
-  ];
+  const successorManifestNames = (await readdir(path.join(ROOT, SQL)))
+    .filter((name) => name.endsWith("-manifest.json"))
+    .sort();
   const pinnedPaths = new Set(successorManifestNames.map((name) => `${SQL}/${name}`));
   for (const name of successorManifestNames) {
     const current = JSON.parse(await read(`${SQL}/${name}`));
@@ -394,10 +382,10 @@ test("completion and successor manifests pin every changed migration artifact", 
   assert.deepEqual(changedSql.filter((candidate) => !pinnedPaths.has(candidate)), []);
 });
 
-test("current Phase 3 PostgreSQL inventory is exactly 39 executable harnesses and 1067 scenarios", async () => {
+test("current Phase 3 PostgreSQL inventory is exactly 48 executable harnesses and 1273 scenarios", async () => {
   const expectedPaths = POSTGRES_HARNESSES.map(([harness]) => harness);
-  assert.equal(POSTGRES_HARNESSES.length, 39);
-  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 1067);
+  assert.equal(POSTGRES_HARNESSES.length, 48);
+  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 1273);
   assert.deepEqual(
     await findPostgresHarnesses(path.join(ROOT, "tests/saas-phase3")),
     [...expectedPaths].sort(),

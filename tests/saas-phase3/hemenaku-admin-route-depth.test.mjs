@@ -28,7 +28,7 @@ const routeDepthPages = Object.freeze([
   "apps/customer-panel/app/content/pages/new/page.tsx",
   "apps/customer-panel/app/content/pages/[recordId]/edit/page.tsx",
   "apps/customer-panel/app/content/policies/new/page.tsx",
-  "apps/customer-panel/app/content/policies/[recordId]/edit/page.tsx",
+  "apps/customer-panel/app/content/policies/[policyKey]/edit/page.tsx",
   "apps/customer-panel/app/settings/payment/page.tsx",
   "apps/customer-panel/app/settings/payment/new/page.tsx",
   "apps/customer-panel/app/settings/payment/[recordId]/edit/page.tsx",
@@ -83,6 +83,14 @@ test("route-depth pages remain authority-safe and server-gated", async () => {
 
   for (const file of routeDepthPages) {
     const source = await read(file);
+    if (file === "apps/customer-panel/app/content/policies/new/page.tsx") {
+      assert.equal(
+        source,
+        'import { permanentRedirect } from "next/navigation";\n\nexport default async function NewPolicyPage() {\n  permanentRedirect("/content/policies");\n}\n',
+        `${file} must remain a finite redirect to the protected fixed-policy console`,
+      );
+      continue;
+    }
     assertExecutedServerAccess(source, file);
     assert.doesNotMatch(source, forbiddenBrowserAuthority);
     assert.doesNotMatch(source, /(?:tenantContext|access)\s*=\s*\{[^}]*\}/);
@@ -114,8 +122,7 @@ test("route-depth mutations receive a concrete server-derived capability or serv
     ["apps/customer-panel/app/content/blog/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
     ["apps/customer-panel/app/content/pages/new/page.tsx", "MerchantRecordEditor", "content.manage"],
     ["apps/customer-panel/app/content/pages/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
-    ["apps/customer-panel/app/content/policies/new/page.tsx", "MerchantRecordEditor", "content.manage"],
-    ["apps/customer-panel/app/content/policies/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/content/policies/[policyKey]/edit/page.tsx", "PolicyConsole", "content.manage"],
   ];
 
   for (const [file, component, action] of capabilityBoundRoutes) {

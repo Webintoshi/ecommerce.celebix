@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "phase": "4b-storefront-cart-checkout",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    { "file": "202607310072_storefront_cart_checkout.up.sql", "sha256": "dc88d9f00dbbb98c05b61b38092784c373455e61dfd9d6aa0359a1a427cf7a26" },
+    { "file": "202607310072_storefront_cart_checkout_assertions.sql", "sha256": "ac4a2b5d60c10793788e415c41c3d654746a401296a9b533644da72fa37e8efe" }
+  ],
+  "rollbackArtifacts": [
+    { "file": "202607310072_storefront_cart_checkout.down.sql", "sha256": "818b3fe2efa0be45fda55f9a437a9ae23cc4b76f243ad821a2ac423adeabb3d3" }
+  ]
+}

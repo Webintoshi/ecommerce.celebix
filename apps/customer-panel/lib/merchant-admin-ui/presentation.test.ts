@@ -7,6 +7,9 @@ import {
   buildProviderWorkflowState,
   formatMerchantAdminConfig,
   getMerchantModuleDefinition,
+  isSingletonMerchantModule,
+  selectSingletonEditorRecord,
+  singletonRecordState,
 } from "./presentation.ts";
 
 const NOW = "2026-07-22T19:00:00.000Z";
@@ -30,9 +33,9 @@ function record(
 }
 
 test("defines every durable merchant module with a unique route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 32);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 32);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 32);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 34);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 34);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 34);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
   assert.equal(getMerchantModuleDefinition("lucky_wheel").route, "/discounts/lucky-wheel");
@@ -42,6 +45,7 @@ test("defines every durable merchant module with a unique route and field contra
   assert.equal(getMerchantModuleDefinition("hero_banner").route, "/settings/hero-banner");
   assert.equal(getMerchantModuleDefinition("promotion_banner").route, "/settings/promotion-banner");
   assert.equal(getMerchantModuleDefinition("marquee_setting").route, "/settings/marquee");
+  assert.equal(getMerchantModuleDefinition("theme_setting").route, "/settings/theme");
 
   for (const definition of MERCHANT_MODULE_DEFINITIONS) {
     assert.equal(Object.isFrozen(definition), true);
@@ -49,6 +53,44 @@ test("defines every durable merchant module with a unique route and field contra
     assert.equal(definition.fields.length > 0, true);
     assert.equal(new Set(definition.fields.map(({ key }) => key)).size, definition.fields.length);
   }
+});
+
+test("theme settings expose only bounded visual choices and a numeric home product limit", () => {
+  const definition = getMerchantModuleDefinition("theme_setting");
+  assert.deepEqual(definition.fields.map(({ key, type, allowedValues }) => ({ key, type, allowedValues })), [
+    { key: "colorScheme", type: "enum", allowedValues: ["neutral", "warm", "dark", "ocean"] },
+    { key: "headingStyle", type: "enum", allowedValues: ["serif", "sans"] },
+    { key: "productCardStyle", type: "enum", allowedValues: ["editorial", "compact"] },
+    { key: "productImageRatio", type: "enum", allowedValues: ["portrait", "square"] },
+    { key: "homeProductLimit", type: "number", allowedValues: ["4", "8", "12"] },
+    { key: "showBrandStory", type: "boolean", allowedValues: undefined },
+  ]);
+  assert.equal(definition.fields.some(({ key }) => /css|html|script|font|url|colorValue/i.test(key)), false);
+});
+
+test("starter presentation settings expose one effective singleton editor and identify superseded active rows", () => {
+  const singletonKinds = ["general_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "category_showcase", "seo_control", "social_preview"] as const;
+  for (const kind of singletonKinds) assert.equal(isSingletonMerchantModule(kind), true);
+  assert.equal(isSingletonMerchantModule("discount"), false);
+  const older = { ...record("71000000-0000-4000-8000-000000000001", "active", "Eski tema", {}), kind: "theme_setting" as const, updatedAt: "2026-07-20T19:00:00.000Z" };
+  const winner = { ...record("71000000-0000-4000-8000-000000000002", "active", "Yeni tema", {}), kind: "theme_setting" as const, updatedAt: "2026-07-22T19:00:00.000Z" };
+  const draft = { ...record("71000000-0000-4000-8000-000000000003", "draft", "Taslak tema", {}), kind: "theme_setting" as const, updatedAt: "2026-07-23T19:00:00.000Z" };
+  const rows = Object.freeze([older, draft, winner]);
+  assert.equal(selectSingletonEditorRecord("theme_setting", rows)?.id, winner.id);
+  assert.equal(singletonRecordState("theme_setting", winner, rows), "effective");
+  assert.equal(singletonRecordState("theme_setting", older, rows), "superseded");
+  assert.equal(singletonRecordState("theme_setting", draft, rows), null);
+  assert.equal(selectSingletonEditorRecord("discount", rows as never), null);
+  assert.equal(selectSingletonEditorRecord("theme_setting", [draft])?.id, draft.id);
+});
+
+test("shipping settings preserve the exact durable delivery fields", () => {
+  const shipping = MERCHANT_MODULE_DEFINITIONS.find((entry) => entry.kind === "shipping_setting");
+  assert.deepEqual(shipping?.fields.map((field) => field.key), [
+    "regions",
+    "freeShippingThresholdCents",
+    "estimatedDays",
+  ]);
 });
 
 test("marks only real in-application workflows durable and external execution provider-gated", () => {

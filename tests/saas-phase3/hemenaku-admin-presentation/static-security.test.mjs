@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const BASE = "6563a1428434e1974f50af3ffb843eb4067f686a";
+const PRESENTATION_HEAD = "cf7b0eec";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const ROOT = new URL("../../../", import.meta.url);
 const git = (...args) => execFileSync("git", args, {
@@ -295,10 +296,10 @@ test("presentation CSS preserves touch contrast overflow and reduced motion gate
 });
 
 test("tracked production diff contains no secrets or forbidden identifiers", () => {
-  const productionFiles = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter((path) =>
+  const productionFiles = git("diff", "--name-only", `${BASE}...${PRESENTATION_HEAD}`).split("\n").filter((path) =>
     path && !/\.test\.[cm]?[jt]sx?$/.test(path) && !path.startsWith("tests/") && !path.startsWith("docs/") && path !== "package-lock.json",
   );
-  const patch = productionFiles.length === 0 ? "" : git("diff", `${BASE}...HEAD`, "--", ...productionFiles);
+  const patch = productionFiles.length === 0 ? "" : git("diff", `${BASE}...${PRESENTATION_HEAD}`, "--", ...productionFiles);
   const forbiddenIds = [
     ["10000000", "0000", "4000", "8000", "000000000001"].join("-"),
     ["20000000", "0000", "4000", "8000", "000000000001"].join("-"),

@@ -5,18 +5,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StorefrontDesignDocument, StorefrontDesignMediaOption, StorefrontDesignWorkspace } from "@celebix/saas-contracts";
 
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
+import { StarterThemeComposer } from "@/components/settings/StarterThemeComposer";
 import { StorefrontDesignApiError, storefrontDesignApi } from "@/lib/storefront-design-ui/client";
 import { DesignInspector, type DesignSection } from "./DesignInspector";
 import { DesignPreview } from "./DesignPreview";
 import { applyDesignEdit, beginDesignSave, completeDesignSave, createDesignEditorState, type DesignSaveToken } from "./workspace-model";
 import styles from "../design-settings.module.css";
 
-const SECTIONS = Object.freeze([["brand", "Marka"], ["colors", "Renkler"], ["typography", "Yazı"], ["hero", "Ana sayfa"], ["promotion", "Promosyon"], ["announcement", "Duyuru"]] as const);
+type WorkspaceSection = DesignSection | "theme";
+const SECTIONS = Object.freeze([["theme", "Tema düzeni"], ["brand", "Marka"], ["colors", "Renkler"], ["typography", "Yazı"], ["hero", "Ana sayfa"], ["promotion", "Promosyon"], ["announcement", "Duyuru"]] as const);
 const STATUS_LABEL = Object.freeze({ saved: "Taslak kaydedildi", dirty: "Yayınlanmamış değişiklik", saving: "Kaydediliyor", publishing: "Yayınlanıyor", error: "Kaydedilemedi", conflict: "Başka bir oturumda değişti" } as const);
 
-export function DesignWorkspace({ workspace, canManage, initialSection = "brand" }: Readonly<{ workspace: StorefrontDesignWorkspace; canManage: boolean; initialSection?: DesignSection }>) {
+export function DesignWorkspace({ workspace, canManage, initialSection = "brand" }: Readonly<{ workspace: StorefrontDesignWorkspace; canManage: boolean; initialSection?: WorkspaceSection }>) {
   const [editor, setEditor] = useState(() => createDesignEditorState(workspace));
-  const [section, setSection] = useState<DesignSection>(initialSection);
+  const [section, setSection] = useState<WorkspaceSection>(initialSection);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [media, setMedia] = useState(workspace.media);
   const editorRef = useRef(editor);
@@ -78,7 +80,7 @@ export function DesignWorkspace({ workspace, canManage, initialSection = "brand"
     }
   }, [canManage, queueSave]);
 
-  const topbarActions = useMemo(() => <div className={styles.topbarActions}><div className={styles.previewSwitch} role="group" aria-label="Önizleme boyutu"><button type="button" className={previewMode === "desktop" ? styles.active : ""} onClick={() => setPreviewMode("desktop")}><Monitor size={17} />Masaüstü</button><button type="button" className={previewMode === "mobile" ? styles.active : ""} onClick={() => setPreviewMode("mobile")}><Smartphone size={17} />Mobil</button></div><button type="button" className={styles.publishButton} disabled={!canManage || ["saving", "publishing", "conflict"].includes(editor.status)} onClick={() => void publish()}>Yayınla</button></div>, [canManage, editor.status, previewMode, publish]);
+  const topbarActions = useMemo(() => section === "theme" ? null : <div className={styles.topbarActions}><div className={styles.previewSwitch} role="group" aria-label="Önizleme boyutu"><button type="button" className={previewMode === "desktop" ? styles.active : ""} onClick={() => setPreviewMode("desktop")}><Monitor size={17} />Masaüstü</button><button type="button" className={previewMode === "mobile" ? styles.active : ""} onClick={() => setPreviewMode("mobile")}><Smartphone size={17} />Mobil</button></div><button type="button" className={styles.publishButton} disabled={!canManage || ["saving", "publishing", "conflict"].includes(editor.status)} onClick={() => void publish()}>Yayınla</button></div>, [canManage, editor.status, previewMode, publish, section]);
 
-  return <section className={styles.workspace} data-panel-layout="open-canvas"><PanelTopbarBridge title="Tasarım" subtitle={STATUS_LABEL[editor.status]} actions={topbarActions} /><nav className={styles.sectionRail} aria-label="Tasarım bölümleri">{SECTIONS.map(([key, label]) => <button type="button" key={key} className={section === key ? styles.active : ""} aria-current={section === key ? "page" : undefined} onClick={() => setSection(key)}>{label}</button>)}</nav><div className={styles.inspector}><DesignInspector section={section} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} onChange={change} onUpload={upload} /></div><main className={styles.preview}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} /></main></section>;
+  return <section className={styles.workspace} data-panel-layout="open-canvas"><PanelTopbarBridge title="Tasarım" subtitle={section === "theme" ? undefined : STATUS_LABEL[editor.status]} actions={topbarActions} /><nav className={styles.sectionRail} aria-label="Tasarım bölümleri">{SECTIONS.map(([key, label]) => <button type="button" key={key} className={section === key ? styles.active : ""} aria-current={section === key ? "page" : undefined} onClick={() => setSection(key)}>{label}</button>)}</nav>{section === "theme" ? <div className={styles.themeCanvas}><StarterThemeComposer canManage={canManage} /></div> : <><div className={styles.inspector}><DesignInspector section={section} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} onChange={change} onUpload={upload} /></div><main className={styles.preview}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} /></main></>}</section>;
 }

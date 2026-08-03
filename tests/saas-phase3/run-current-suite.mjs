@@ -106,10 +106,22 @@ const requiredHarnesses = Object.freeze([
     completion: /^PASS 13\/13 .+$/m,
   }),
   Object.freeze({
-    file: "tests/saas-phase3/storefront-design-workspace/postgres-harness.mjs",
-    total: 18,
-    line: /^PASS \d+\/18 .+$/gm,
-    completion: /^PASS STOREFRONT DESIGN WORKSPACE PostgreSQL harness \(18\/18\)$/m,
+    file: "tests/saas-phase3/storefront-policy-search/postgres-harness.mjs",
+    total: 32,
+    line: /^PASS \d+\/32 .+$/gm,
+    completion: /^32\/32 PASS$/m,
+  }),
+  Object.freeze({
+    file: "tests/saas-phase3/storefront-cart-checkout/postgres-harness.mjs",
+    total: 38,
+    line: /^PASS \d+\/38 .+$/gm,
+    completion: /^38\/38 PASS$/m,
+  }),
+  Object.freeze({
+    file: "tests/saas-phase3/starter-theme-composition/postgres-harness.mjs",
+    total: 32,
+    line: /^PASS \d+\/32 .+$/gm,
+    completion: /^32\/32 PASS$/m,
   }),
 ]);
 const gateRank = Object.freeze({
@@ -126,6 +138,9 @@ const gateRank = Object.freeze({
   "iyzico-iframe-tenant-sandbox-evidence": 10,
   "iyzico-iframe-tenant-activation-runtime": 11,
   "built-in-payment-methods": 12,
+  "storefront-policy-search": 13,
+  "storefront-cart-checkout": 14,
+  "starter-theme-composition": 15,
 });
 const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/payment-adapter-runtime/evidence-artifact.test.mjs",
@@ -133,6 +148,8 @@ const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/quick-order-hosted-payment-bridge/static-security.test.mjs",
   "tests/saas-phase3/iyzico-iframe-tenant-sandbox-evidence/static-security.test.mjs",
   "tests/saas-phase3/iyzico-iframe-tenant-activation-runtime/static-security.test.mjs",
+  "tests/saas-phase3/starter-commerce/in-process.test.mjs",
+  "tests/saas-phase3/starter-commerce/static-security.test.mjs",
 ]);
 
 function runRequiredHarness({ file, total, line, completion }) {

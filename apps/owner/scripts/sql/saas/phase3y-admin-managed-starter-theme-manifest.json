@@ -1,0 +1,26 @@
+{
+  "phase": "phase3y-admin-managed-starter-theme",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "phase3-returning-panel-login-manifest.json",
+      "sha256": "6e7d08b8da09a1c7e4c318508e8caf15f0a3b5581720b00e6242c26266c32f6c"
+    },
+    {
+      "file": "202607300069_admin_managed_starter_theme.up.sql",
+      "sha256": "1d44701bb47f2c4ee45fd0c231e6ce960330636d11240a50dca5ea2f7f0662c1"
+    },
+    {
+      "file": "202607300069_admin_managed_starter_theme_assertions.sql",
+      "sha256": "1ef8a7bce63c7d079b51b82b36e8189f9c50eababe7969b31305e2ce704986f1"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202607300069_admin_managed_starter_theme.down.sql",
+      "sha256": "416d9b33903e2243937b347735c0f5a0a67d8daaf51dd129339510e015acf1ac"
+    }
+  ],
+  "externalConnections": 0,
+  "productionMutations": 0
+}

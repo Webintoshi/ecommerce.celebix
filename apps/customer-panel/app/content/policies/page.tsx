@@ -1,1 +1,9 @@
-import{isMerchantActionAllowed}from"@celebix/saas-contracts";import{MerchantModuleConsole}from"@/components/merchant-admin/MerchantModuleConsole";import{requireServerPanelAccess}from"@/lib/server-access";export default async function ContentPoliciesPageTsx(){const{tenantContext}=await requireServerPanelAccess();return<MerchantModuleConsole kind="policy" canManage={isMerchantActionAllowed(tenantContext.membership.role,"content.manage")}/>}
+import { isMerchantActionAllowed } from "@celebix/saas-contracts";
+
+import { PolicyConsole } from "@/components/content/PolicyConsole";
+import { requireServerPanelAccess } from "@/lib/server-access";
+
+export default async function ContentPoliciesPage() {
+  const { tenantContext } = await requireServerPanelAccess();
+  return <PolicyConsole canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
+}

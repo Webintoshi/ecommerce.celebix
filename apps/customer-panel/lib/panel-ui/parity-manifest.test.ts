@@ -119,7 +119,8 @@ test("static merchant hubs claim navigation only while marketing retains durable
 
 test("all 48 merchant rows retain their exact route status evidence and action contract", () => {
   const merchantRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states";
-  const merchantRecordRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay";
+  const merchantRecordRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant non-default route matrix invokes generic record pages and exact create update handlers across success conflict and replay";
+  const fixedPolicyEvidence = "apps/customer-panel/components/content/PolicyConsole.test.ts#fixed policy console owns no create delete archive or tenant authority";
   const paymentSettingsEvidence = "apps/customer-panel/lib/routes.test.ts#dedicated payment settings route validates hints and retires generic editors";
   const merchantHubEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#static merchant hubs invoke actual pages and expose only canonical destination links";
   const loginEvidence = "apps/customer-panel/lib/routes.test.ts#login and logout remain fail-closed without approved staging auth authority";
@@ -147,8 +148,8 @@ test("all 48 merchant rows retain their exact route status evidence and action c
     ["/cms/blog", "/content/blog", "complete", merchantRouteEvidence, crud],
     ["/cms/blog/[id]", "/content/blog/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
     ["/cms/blog/yeni", "/content/blog/new", "complete", merchantRecordRouteEvidence, create],
-    ["/cms/politikalar", "/content/policies", "complete", merchantRouteEvidence, crud],
-    ["/cms/politikalar/[slug]", "/content/policies/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
+    ["/cms/politikalar", "/content/policies", "complete", fixedPolicyEvidence, ["list_records", "read_exact_record", "update_record"]],
+    ["/cms/politikalar/[slug]", "/content/policies/[policyKey]/edit", "complete", fixedPolicyEvidence, edit],
     ["/cms/sayfalar", "/content/pages", "complete", merchantRouteEvidence, crud],
     ["/cms/sayfalar/[id]", "/content/pages/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
     ["/cms/sayfalar/yeni", "/content/pages/new", "complete", merchantRecordRouteEvidence, create],
@@ -185,7 +186,7 @@ test("all 48 merchant rows retain their exact route status evidence and action c
     expected,
   );
   assert.equal(new Set(merchantRows.map(({ donorPath }) => donorPath)).size, 48);
-  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, paymentSettingsEvidence, merchantHubEvidence, loginEvidence, legacyEvidence].includes(evidenceTest)), true);
+  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, fixedPolicyEvidence, paymentSettingsEvidence, merchantHubEvidence, loginEvidence, legacyEvidence].includes(evidenceTest)), true);
   assert.equal(merchantRows.some(({ evidenceTest }) => /client[.]test[.]ts|presentation[.]test[.]ts|route files expose only/u.test(evidenceTest)), false);
 });
 

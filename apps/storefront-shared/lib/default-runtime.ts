@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import process from "node:process";
 import {
   IYZICO_IFRAME_PACKET,
@@ -13,10 +13,16 @@ import {
   PostgresPublicQuickOrderRepository,
   PostgresPublicAbandonedCartRepository,
   PostgresPublicStorefrontRepository,
+  PostgresPublicStorefrontContentRepository,
+  PostgresNewsletterRepository,
+  PostgresStorefrontCommerceRepository,
   PostgresPublicAnalyticsRepository,
   parseMerchantProviderCredentialKeyring,
   type PaymentAttemptRepository,
+  type PublicStorefrontContentRepository,
   type PublicStorefrontRepository,
+  type NewsletterRepository,
+  type StorefrontCommerceRepository,
 } from "@celebix/saas-data";
 import pg from "pg";
 
@@ -43,15 +49,21 @@ import type {
   HostedPaymentRuntimeDependencies,
 } from "./payment-adapters/runtime.ts";
 import { selectTrustedStorefrontHostAuthority } from "./trusted-host-authority.ts";
+import { parseStorefrontCommerceCredentialKeyring } from "./cart/credential.ts";
+import { createStorefrontCommerceRuntime, type StorefrontCommerceRuntime } from "./cart/runtime.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
 export type PublicStorefrontRuntime = Readonly<{
   repository: PublicStorefrontRepository;
+  content: PublicStorefrontContentRepository;
+  commerce: StorefrontCommerceRepository;
+  cart: StorefrontCommerceRuntime;
   checkout: CheckoutRuntime;
   abandonedCarts: InstanceType<typeof PostgresPublicAbandonedCartRepository>;
   analytics: InstanceType<typeof PostgresPublicAnalyticsRepository> | null;
   analyticsCollector: UmamiPublicCollectorConfig | null;
+  newsletter: NewsletterRepository;
   mediaOrigin: string;
 }>;
 let initialization: Promise<PublicStorefrontRuntime | null> | undefined;
@@ -130,10 +142,14 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
   const pool = new Pool({ connectionString: checkoutConfig.database.url, max: 8, connectionTimeoutMillis: TIMEOUTS.poolCheckoutMs, idleTimeoutMillis: 10_000, statement_timeout: TIMEOUTS.statementMs, lock_timeout: TIMEOUTS.lockMs, idle_in_transaction_session_timeout: TIMEOUTS.idleTransactionMs, application_name: "celebix-shared-storefront-staging" });
   pool.on("error", () => undefined);
   try {
-    const result = await pool.query(`SELECT current_setting('server_version_num')::integer AS version_num,current_database() AS database_name,role.rolsuper AS is_superuser,pg_has_role(current_user,'celebix_saas_host_resolver','MEMBER') AS resolver_member,pg_has_role(current_user,'celebix_saas_workflow','MEMBER') AS workflow_member,to_regclass('saas.store_domains') IS NOT NULL AND to_regclass('saas.product_media') IS NOT NULL AND to_regprocedure('saas.resolve_public_storefront(text,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.public_list_products(uuid,text,timestamp with time zone,integer)') IS NOT NULL AND to_regprocedure('saas.public_get_product_by_slug(uuid,text,timestamp with time zone,text)') IS NOT NULL AND to_regprocedure('saas.public_list_product_media(uuid,text,timestamp with time zone,uuid)') IS NOT NULL AS migration_020,to_regprocedure('saas.quick_links_claim_redemption(text,text,uuid,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.quick_links_resolve_redemption(text,text,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.checkout_get_redemption_status(text,text,timestamp with time zone)') IS NOT NULL AS migration_027,pg_catalog.strpos(COALESCE((SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=to_regprocedure('saas.quick_links_claim_redemption(text,text,uuid,text,timestamp with time zone,timestamp with time zone)')),''),'effective_expires_at:=LEAST(p_expires_at,current_link.expires_at)')>0 AS migration_028,to_regprocedure('saas.abandoned_carts_capture(text,uuid,text,timestamp with time zone,jsonb,jsonb)') IS NOT NULL AND to_regprocedure('saas.abandoned_carts_mark_stale(timestamp with time zone,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.abandoned_carts_convert(text,text,uuid,timestamp with time zone)') IS NOT NULL AS migration_032,to_regclass('saas.store_analytics_connections') IS NOT NULL AND to_regprocedure('saas.analytics_connection_get_for_host(text,timestamp with time zone)') IS NOT NULL AS migration_039,to_regprocedure('saas.storefront_design_get_public(uuid,text,timestamp with time zone)') IS NOT NULL AS migration_081 FROM pg_roles AS role WHERE role.rolname=current_user`);
+    const result = await pool.query(`SELECT current_setting('server_version_num')::integer AS version_num,current_database() AS database_name,role.rolsuper AS is_superuser,pg_has_role(current_user,'celebix_saas_host_resolver','MEMBER') AS resolver_member,pg_has_role(current_user,'celebix_saas_workflow','MEMBER') AS workflow_member,to_regclass('saas.store_domains') IS NOT NULL AND to_regclass('saas.product_media') IS NOT NULL AND to_regprocedure('saas.resolve_public_storefront(text,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.public_list_products(uuid,text,timestamp with time zone,integer)') IS NOT NULL AND to_regprocedure('saas.public_get_product_by_slug(uuid,text,timestamp with time zone,text)') IS NOT NULL AND to_regprocedure('saas.public_list_product_media(uuid,text,timestamp with time zone,uuid)') IS NOT NULL AS migration_020,to_regprocedure('saas.quick_links_claim_redemption(text,text,uuid,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.quick_links_resolve_redemption(text,text,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.checkout_get_redemption_status(text,text,timestamp with time zone)') IS NOT NULL AS migration_027,pg_catalog.strpos(COALESCE((SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=to_regprocedure('saas.quick_links_claim_redemption(text,text,uuid,text,timestamp with time zone,timestamp with time zone)')),''),'effective_expires_at:=LEAST(p_expires_at,current_link.expires_at)')>0 AS migration_028,to_regprocedure('saas.abandoned_carts_capture(text,uuid,text,timestamp with time zone,jsonb,jsonb)') IS NOT NULL AND to_regprocedure('saas.abandoned_carts_mark_stale(timestamp with time zone,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.abandoned_carts_convert(text,text,uuid,timestamp with time zone)') IS NOT NULL AS migration_032,to_regclass('saas.store_analytics_connections') IS NOT NULL AND to_regprocedure('saas.analytics_connection_get_for_host(text,timestamp with time zone)') IS NOT NULL AS migration_039,to_regclass('saas.store_policy_pages') IS NOT NULL AND to_regprocedure('saas.public_policy_index(text,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.public_policy_get(text,timestamp with time zone,text)') IS NOT NULL AND to_regprocedure('saas.public_search_products(text,timestamp with time zone,text,integer,text)') IS NOT NULL AND to_regprocedure('saas.public_resolve_product_ids(text,timestamp with time zone,uuid[])') IS NOT NULL AS migration_071,to_regclass('saas.storefront_carts') IS NOT NULL AND to_regclass('saas.storefront_checkout_operations') IS NOT NULL AND to_regprocedure('saas.public_cart_resolve(text,timestamp with time zone,jsonb)') IS NOT NULL AND to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)') IS NOT NULL AND to_regprocedure('saas.public_checkout_complete(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)') IS NOT NULL AS migration_072,pg_catalog.strpos(COALESCE((SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=to_regprocedure('saas.storefront_cart_projection(uuid,uuid,timestamp with time zone)')),''),'''checkoutBlocker''')>0 AS migration_073,to_regclass('saas.storefront_newsletter_subscribers') IS NOT NULL AND to_regprocedure('saas.public_newsletter_subscribe(text,timestamp with time zone,text,text)') IS NOT NULL AS migration_075,to_regprocedure('saas.storefront_design_get_public(uuid,text,timestamp with time zone)') IS NOT NULL AS migration_081 FROM pg_roles AS role WHERE role.rolname=current_user`);
     const row = result.rows[0];
-    if (result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== checkoutConfig.database.name || row.is_superuser !== false || row.resolver_member !== true || row.workflow_member !== true || row.migration_020 !== true || row.migration_027 !== true || row.migration_028 !== true || row.migration_032 !== true || row.migration_081 !== true || (analyticsCollector !== null && row.migration_039 !== true)) throw new Error("storefront_database_preflight_failed");
+    if (result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== checkoutConfig.database.name || row.is_superuser !== false || row.resolver_member !== true || row.workflow_member !== true || row.migration_020 !== true || row.migration_027 !== true || row.migration_028 !== true || row.migration_032 !== true || row.migration_071 !== true || row.migration_072 !== true || row.migration_073 !== true || row.migration_075 !== true || row.migration_081 !== true || (analyticsCollector !== null && row.migration_039 !== true)) throw new Error("storefront_database_preflight_failed");
     const repository = new PostgresPublicStorefrontRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+    const content = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+    const commerce = new PostgresStorefrontCommerceRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined });
+    const commerceKeyring = parseStorefrontCommerceCredentialKeyring(process.env);
+    const cart = createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID });
     const quickOrderRepository = new PostgresPublicQuickOrderRepository({
       pool,
       role: "celebix_saas_workflow",
@@ -147,12 +163,17 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       audit: () => undefined,
     });
     const analytics = analyticsCollector === null ? null : new PostgresPublicAnalyticsRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+    const newsletter = new PostgresNewsletterRepository({ pool, publicRole: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
     return Object.freeze({
       repository,
+      content,
+      commerce,
+      cart,
       checkout: createCheckoutRuntime({ storefrontRepository: repository, quickOrderRepository }),
       abandonedCarts,
       analytics,
       analyticsCollector,
+      newsletter,
       mediaOrigin: config.mediaOrigin,
     });
   } catch { await pool.end().catch(() => undefined); return null; }

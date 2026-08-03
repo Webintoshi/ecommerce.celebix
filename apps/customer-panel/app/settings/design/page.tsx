@@ -5,7 +5,7 @@ import { DesignWorkspace } from "@/components/settings/design/DesignWorkspace";
 import { requireServerPanelAccess } from "@/lib/server-access";
 import { resolveDefaultServerStorefrontDesignRuntime } from "@/lib/server-storefront-design/default";
 
-const SECTIONS = Object.freeze(["brand", "colors", "typography", "hero", "promotion", "announcement"] as const);
+const SECTIONS = Object.freeze(["theme", "brand", "colors", "typography", "hero", "promotion", "announcement"] as const);
 
 export default async function DesignSettingsPage({ searchParams }: Readonly<{ searchParams: Promise<{ section?: string }> }>) {
   const { tenantContext } = await requireServerPanelAccess();

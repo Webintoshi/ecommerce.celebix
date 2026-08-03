@@ -36,5 +36,7 @@ test("renderer source owns exact brand tokens and no unsafe HTML path", async ()
   assert.match(source, /isStorefrontPromotionActive/);
   assert.match(source, /design[.]announcement[.]enabled/);
   assert.match(source, /design[.]hero[.]enabled/);
+  assert.match(source, /showHeader = true/);
+  assert.match(source, /showHeader \?/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML|mediaId|resourceId/);
 });

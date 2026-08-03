@@ -282,6 +282,120 @@ test("health response is safe and carries no tenant data", () => {
   });
 });
 
+test("starter storefront consumes the public presentation and exposes no inert cart control", async () => {
+  const [home, listing, detail, category, categoryShowcase, header, footer, frame, card] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/categories/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/CategoryShowcase.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/Header.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/Footer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/StorefrontFrame.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/ProductCard.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(home, /presentation[.]theme[.]homeProductLimit/);
+  assert.match(home, /presentation[.]hero[.]destination/);
+  assert.match(home, /presentation[.]theme[.]showBrandStory/);
+  assert.match(home, /starterMarqueeTokens/);
+  assert.match(home, /iconSymbol/);
+  assert.match(home, /<CategoryShowcase showcase=\{presentation[.]categoryShowcase\}/);
+  assert.match(listing, /ProductExplorer/);
+  assert.match(category, /listPublicProductsByCategory/);
+  assert.match(category, /PublicStorefrontRepositoryError/);
+  assert.match(category, /error[.]code === "not_found" \|\| error[.]code === "invalid_input"/);
+  assert.match(category, /notFound\(\)/);
+  assert.match(category, /new URL\(`\/categories\/\$\{selected[.]category[.]slug\}`/);
+  assert.match(categoryShowcase, /href=\{`\/categories\/\$\{item[.]slug\}`\}/);
+  assert.match(categoryShowcase, /showcase[.]heading/);
+  assert.match(categoryShowcase, /item[.]image[.]url/);
+  assert.match(categoryShowcase, /alt=\{item[.]name\}/);
+  assert.match(detail, /presentation/);
+  assert.match(header, /displayName, logo[^\n]+storefront[.]presentation/);
+  assert.match(header, /logo[.]url/);
+  assert.match(header, /className="store-logo"/);
+  assert.match(footer, /displayName, supportEmail[^\n]+storefront[.]presentation/);
+  assert.match(frame, /starterThemeTokens/);
+  assert.match(card, /productImageRatio|imageRatio/);
+  assert.doesNotMatch(header, /Çanta|Sepet yakında|header-bag/);
+});
+
+test("public content shell owns exact fixed policies search favorites and sibling card controls", async () => {
+  const [policy, search, favorites, resolveRoute, utilities, favoriteButton, footer, card] = await Promise.all([
+    readFile(new URL("../app/policies/[policyKey]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/favorites/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/favorites/resolve/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/StoreUtilities.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/FavoriteButton.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/Footer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/ProductCard.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(policy, /resolveStorefrontPolicyRoute/);
+  assert.match(policy, /buildPublicPolicyPage/);
+  assert.match(policy, /henüz yayımlanmadı/);
+  assert.match(policy, /index: false, follow: false/);
+  assert.match(search, /runtime[.]content[.]search/);
+  assert.match(search, /ProductGrid/);
+  assert.doesNotMatch(search, /storeId|tenantId|membershipId/);
+  assert.match(favorites, /FavoritesPageClient/);
+  assert.match(resolveRoute, /readFavoriteResolutionRequest/);
+  assert.match(resolveRoute, /resolveProductIds/);
+  for (const path of ["/search", "/favorites", "/account", "/cart"]) assert.match(utilities, new RegExp(`href: ['\"]${path.replace("/", "\\/")}`));
+  assert.match(favoriteButton, /favoritesStorageKey/);
+  assert.match(favoriteButton, /aria-pressed/);
+  assert.match(footer, /FIXED_STOREFRONT_POLICIES[.]map/);
+  assert.match(card, /<article/);
+  assert.match(card, /<FavoriteButton/);
+  assert.match(card, /<ProductCardCartButton/);
+  assert.match(card, /cardAction/);
+  assert.match(card, /action === "quick_add"/);
+  assert.match(card, /ProductQuickView/);
+  assert.match(search, /nextCursor/);
+  assert.doesNotMatch(card, /<Link[\s\S]*<FavoriteButton[\s\S]*<\/Link>/);
+});
+
+test("native cart checkout success and account pages remain public-projection only", async () => {
+  const [cart, checkout, success, account] = await Promise.all([
+    readFile(new URL("../app/cart/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/checkout/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/account/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(cart, /CartPageClient/u);
+  assert.match(checkout, /CheckoutForm/u);
+  assert.match(success, /getReceipt/u);
+  assert.match(account, /listAccountOrders/u);
+  assert.doesNotMatch(`${cart}\n${checkout}\n${success}\n${account}`, /storeId|tenantId|membershipId|customerId|orderId|credential/u);
+});
+
+test("dark theme and every marquee preference drive bounded CSS without sacrificing contrast", async () => {
+  const [home, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  for (const token of ["marquee-speed-slow", "marquee-speed-normal", "marquee-speed-fast", "marquee-direction-left", "marquee-direction-right", "marquee-animation-continuous", "marquee-animation-step"]) assert.match(css, new RegExp(token));
+  assert.match(css, /theme-dark[^}]+--paper:\s*#151719/);
+  assert.match(css, /theme-dark[^}]+--accent-ink:\s*#17120e/);
+  assert.match(css, /store-button[^}]+color:\s*var\(--paper\)/);
+  assert.match(css, /stock-callout[^}]+color:\s*#382624/);
+  assert.match(css, /prefers-reduced-motion/);
+  assert.doesNotMatch(home, /presentation[.]marquee[.]items[.]join\(" · "\)<\/aside>/);
+});
+
+test("category showcase becomes one column on narrow mobile screens", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]+[.]category-showcase-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
+});
+
+test("storefront metadata is presentation-owned and defaults to noindex", async () => {
+  const home = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(home, /presentation[.]seo[.]allowIndex/);
+  assert.match(home, /robots/);
+  assert.match(home, /presentation[.]seo[.]title/);
+  assert.match(home, /presentation[.]seo[.]description/);
+});
+
 async function sourceFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map(async (entry) => {
@@ -467,7 +581,13 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   }
   const publicRuntime = await readFile(new URL("./default-runtime.ts", import.meta.url), "utf8");
   assert.match(publicRuntime, /PostgresPublicStorefrontRepository/);
+  assert.match(publicRuntime, /PostgresPublicStorefrontContentRepository/);
   assert.match(publicRuntime, /celebix_saas_host_resolver/);
+  assert.match(publicRuntime, /AS migration_071/);
+  assert.match(publicRuntime, /row[.]migration_071 !== true/);
+  assert.match(publicRuntime, /AS migration_073/);
+  assert.match(publicRuntime, /row[.]migration_073 !== true/);
+  assert.match(publicRuntime, /content,/);
   assert.doesNotMatch(publicRuntime, /ProductMediaRepository|INSERT|UPDATE|DELETE/);
 });
 
@@ -489,6 +609,23 @@ test("application configuration defines baseline security headers", async () => 
   assert.match(quotePage, /referrer: "no-referrer"/);
   assert.match(quotePage, /force-dynamic/);
   assert.doesNotMatch(quotePage, /tokenDigest|redemptionDigest|customerEmail|customerPhone|shippingAddress|billingAddress/);
+});
+
+test("starter product detail owns one ordered sanitized rich-information surface", async () => {
+  const page = await readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8");
+  const experience = await readFile(new URL("../components/ProductDetailExperience.tsx", import.meta.url), "utf8");
+  const disclosures = await readFile(new URL("../components/ProductInformationDisclosures.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /<ProductDetailExperience product=/);
+  assert.match(experience, /<ProductInformationDisclosures informationSections=/);
+  assert.doesNotMatch(page, /<p>\{item[.]description/);
+  assert.match(disclosures, /aria-labelledby="product-information-title"/);
+  assert.match(disclosures, /label: "Açıklama"/);
+  assert.match(disclosures, /renderStarterProductDescription/);
+  assert.match(disclosures, /dangerouslySetInnerHTML/);
+  assert.match(experience, /aria-label="İçerik yolu"/);
+  assert.match(experience, /href="\/">Ana sayfa/);
+  assert.match(experience, /categoryPath/);
 });
 
 test("checkout quote page uses one native exact-origin form and no client token transport", async () => {

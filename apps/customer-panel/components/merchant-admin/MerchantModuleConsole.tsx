@@ -52,6 +52,9 @@ import {
   buildProviderWorkflowState,
   formatMerchantAdminConfig,
   getMerchantModuleDefinition,
+  isSingletonMerchantModule,
+  selectSingletonEditorRecord,
+  singletonRecordState,
   type MerchantModuleFieldDefinition,
   type MerchantModuleStatusFilter,
 } from "@/lib/merchant-admin-ui/presentation";
@@ -121,6 +124,7 @@ function parseFormConfig(
       continue;
     }
     if (field.type === "number") {
+      if (field.allowedValues && !field.allowedValues.includes(raw)) throw new TypeError("invalid_number");
       const number = Number(raw);
       if (!Number.isSafeInteger(number) || number < 0) throw new TypeError("invalid_number");
       entries[field.key] = number;
@@ -479,6 +483,11 @@ export function MerchantModuleConsole({
     [providerJobs],
   );
   const activeProviderProfile = providerProfiles.find((profile) => profile.capability === providerCapability && profile.status === "active");
+  const singletonModule = isSingletonMerchantModule(kind);
+  const singletonEditorRecord = useMemo(
+    () => selectSingletonEditorRecord(kind, items),
+    [items, kind],
+  );
 
   function providerControls(record: MerchantAdminRecord) {
     if (!definition.workflow) return null;
@@ -523,9 +532,13 @@ export function MerchantModuleConsole({
               <Link href={createRoute} className={styles.primary}>
                 <Plus aria-hidden="true" /> Yeni kayıt
               </Link>
+            ) : singletonEditorRecord ? (
+              <button type="button" className={styles.primary} onClick={(event) => openEdit(singletonEditorRecord, event)}>
+                <Pencil aria-hidden="true" /> Ayarı düzenle
+              </button>
             ) : (
               <button type="button" className={styles.primary} onClick={openCreate}>
-                <Plus aria-hidden="true" /> Yeni kayıt
+                <Plus aria-hidden="true" /> {singletonModule ? "Ayar oluştur" : "Yeni kayıt"}
               </button>
             ) : null}
           </div>
@@ -656,11 +669,12 @@ export function MerchantModuleConsole({
                 <tbody>
                   {summary.visible.map((record) => {
                     const status = statusPresentation(record.status);
+                    const singletonState = singletonRecordState(kind, record, items);
                     const editRoute = editRouteFor(definition.kind, record.id);
                     return (
                       <tr key={record.id}>
                         <td><strong>{record.name}</strong><small>v{record.version}</small></td>
-                        <td><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></td>
+                        <td><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge>{singletonState ? <small className={styles.muted}>{singletonState === "effective" ? "Vitrinde etkin" : "Yerine yeni kayıt geçti"}</small> : null}</td>
                         <td><ConfigSummary record={record} />{providerControls(record)}</td>
                         <td><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleString("tr-TR")}</time></td>
                         <td>
@@ -681,10 +695,11 @@ export function MerchantModuleConsole({
             <div className={styles.mobileCards}>
               {summary.visible.map((record) => {
                 const status = statusPresentation(record.status);
+                const singletonState = singletonRecordState(kind, record, items);
                 const editRoute = editRouteFor(definition.kind, record.id);
                 return (
                   <article className={styles.mobileCard} key={record.id}>
-                    <header><div><h2>{record.name}</h2><small>v{record.version}</small></div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></header>
+                    <header><div><h2>{record.name}</h2><small>v{record.version}</small>{singletonState ? <small className={styles.muted}>{singletonState === "effective" ? "Vitrinde etkin" : "Yerine yeni kayıt geçti"}</small> : null}</div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></header>
                     <ConfigSummary record={record} />
                     {providerControls(record)}
                     {canManage ? (
@@ -744,7 +759,7 @@ export function MerchantModuleConsole({
                     <textarea name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   ) : field.type === "boolean" ? (
                     <span className={styles.switchField}><input name={field.key} type="checkbox" defaultChecked={editing?.config[field.key] === true} /><span>Etkin</span></span>
-                  ) : field.type === "enum" ? (
+                  ) : field.type === "enum" || field.type === "number" && field.allowedValues ? (
                     <select name={field.key} defaultValue={inputValue(editing, field.key)}>
                       <option value="">Seçin</option>
                       {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}

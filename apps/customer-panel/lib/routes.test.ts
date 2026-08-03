@@ -55,6 +55,8 @@ test("analytics and legacy appearance redirects are server-authorized routes", a
     ["../app/settings/hero-banner/page.tsx", "hero"],
     ["../app/settings/promotion-banner/page.tsx", "promotion"],
     ["../app/settings/marquee/page.tsx", "announcement"],
+    ["../app/settings/theme/page.tsx", "theme"],
+    ["../app/settings/category-showcase/page.tsx", "theme"],
   ] as const) {
     const source = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
@@ -445,8 +447,6 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
     ["../app/content/blog/[recordId]/edit/page.tsx", "blog_post"],
     ["../app/content/pages/new/page.tsx", "page"],
     ["../app/content/pages/[recordId]/edit/page.tsx", "page"],
-    ["../app/content/policies/new/page.tsx", "policy"],
-    ["../app/content/policies/[recordId]/edit/page.tsx", "policy"],
   ] as const;
   for (const [path, kind] of cases) {
     const page = await readFile(new URL(path, import.meta.url), "utf8");
@@ -454,6 +454,13 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
     assert.match(page, new RegExp(`kind=["']${kind}["']`));
     assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
   }
+  const policyNew = await readFile(new URL("../app/content/policies/new/page.tsx", import.meta.url), "utf8");
+  const policyEdit = await readFile(new URL("../app/content/policies/[policyKey]/edit/page.tsx", import.meta.url), "utf8");
+  assert.match(policyNew, /permanentRedirect\("\/content\/policies"\)/);
+  assert.match(policyEdit, /requireServerPanelAccess\(\)/);
+  assert.match(policyEdit, /FIXED_STOREFRONT_POLICIES/);
+  assert.match(policyEdit, /PolicyConsole/);
+  assert.doesNotMatch(`${policyNew}\n${policyEdit}`, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
 });
 
 test("dedicated payment settings route validates hints and retires generic editors", async () => {

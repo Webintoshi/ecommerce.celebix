@@ -1,5 +1,24 @@
 {
   "schemaVersion": 1,
   "policy": "Every Phase 3 *.test.mjs file runs in the current cumulative suite unless it is explicitly classified below as an immutable historical scope snapshot.",
+  "requiredPostgresqlHarnesses": [
+    {
+      "file": "tests/saas-phase3/storefront-policy-search/postgres-harness.mjs",
+      "total": 32
+    },
+    {
+      "file": "tests/saas-phase3/storefront-cart-checkout/postgres-harness.mjs",
+      "total": 38
+    },
+    {
+      "file": "tests/saas-phase3/starter-theme-composition/postgres-harness.mjs",
+      "total": 32
+    }
+  ],
+  "browserAcceptance": {
+    "file": "tests/saas-phase3/starter-commerce/browser-acceptance.mjs",
+    "artifactRoot": ".codex-artifacts/starter-commerce",
+    "requires": "STOREFRONT_BASE_URL loopback disposable fixture"
+  },
   "historicalSnapshots": []
 }

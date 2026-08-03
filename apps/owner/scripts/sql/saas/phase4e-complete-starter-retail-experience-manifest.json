@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "phase": "4e-complete-starter-retail-experience",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    { "file": "202608020075_complete_starter_retail_experience.up.sql", "sha256": "d126d6580b5ffbabf1054c053a22126065b3c45285131db4a58d505824e6e145" },
+    { "file": "202608020075_complete_starter_retail_experience_assertions.sql", "sha256": "09adc821dc1d1cd5fe5a25776854aaa442bca3704dda93036e1c06898e3e420b" }
+  ],
+  "rollbackArtifacts": [
+    { "file": "202608020075_complete_starter_retail_experience.down.sql", "sha256": "b69011016fc39ebed5cd4fa0a47e2e24b9dc374cae435ca7e96e715fcd23a5a9" }
+  ]
+}

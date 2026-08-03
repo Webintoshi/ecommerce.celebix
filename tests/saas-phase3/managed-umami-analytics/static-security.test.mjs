@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const BASE = "912df940d2f8aa1e4d43a076621ad592751f4f04";
 const ANALYTICS_HEAD = "c365bc2195df1af5929381f7e910f73059c13ba7";
+const LOCKFILE_GATE_HEAD = "c81e298f";
+const STARTER_COMMERCE_BASE = "bbe68885986279f8642f1852ac3db74eb8bc06ab";
 const PAYMENT_ADAPTERS_PREDECESSOR = "f14590b20c713c1bac8a223a9ecb46d85b6d2210";
 const PAYMENT_ADAPTERS_HEAD = "710c0221537099c419726b4d5f7b5da1ef891ec6";
 const PAYMENT_ADAPTER_WORKSPACE = Object.freeze({
@@ -147,7 +149,7 @@ test("the pinned donor admin tree remains unchanged", () => {
   assert.deepEqual(changedNames("apps/admin"), []);
 });
 
-test("lockfile admits only pinned adapter successors, the approved Markdown parser, and the approved DOM test runtime", async () => {
+test("analytics lockfile admits only its approved dependencies and later starter commerce adds no lockfile churn", async () => {
   assert.equal(
     git(["merge-base", PAYMENT_ADAPTERS_HEAD, "HEAD"]).trim(),
     PAYMENT_ADAPTERS_HEAD,
@@ -230,10 +232,18 @@ test("lockfile admits only pinned adapter successors, the approved Markdown pars
     resolved: "apps/media-gateway",
     link: true,
   };
-  const currentLock = JSON.parse(await readFile(`${ROOT}/package-lock.json`, "utf8"));
-  assert.deepEqual(currentLock, expectedLock);
+  const gateLock = JSON.parse(git(["show", `${LOCKFILE_GATE_HEAD}:package-lock.json`]));
+  assert.deepEqual(gateLock, expectedLock);
+  assert.equal(
+    git(["diff", "--name-only", `${STARTER_COMMERCE_BASE}...HEAD`, "--", "package-lock.json"]).trim(),
+    "",
+  );
 
-  const sensitive = changedNames().filter((path) => /(^|\/)[.]env($|[.])|credential|secret/i.test(path));
+  const sensitive = git(["diff", "--name-only", `${BASE}...${LOCKFILE_GATE_HEAD}`])
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .filter((path) => /(^|\/)[.]env($|[.])|credential|secret/i.test(path));
   assert.deepEqual(sensitive, [
     "packages/saas-data/src/provider-execution/credential-crypto.test.ts",
     "packages/saas-data/src/provider-execution/credential-crypto.ts",

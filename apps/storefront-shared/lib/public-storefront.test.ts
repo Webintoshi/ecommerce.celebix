@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PublicStorefrontRepositoryError, type PublicStorefrontRepository } from "@celebix/saas-data";
+import { buildDefaultStarterPresentation } from "@celebix/saas-contracts";
 
 import { resolvePublicStorefrontRequest } from "./public-storefront.ts";
 
-const STOREFRONT = Object.freeze({ schemaVersion: 1 as const, id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "Pilot Mağaza", slug: "pilot-store", hostname: "pilot-store.saas-staging.celebix.site", primaryHostname: "pilot-store.saas-staging.celebix.site", canonicalUrl: "https://pilot-store.saas-staging.celebix.site/", currency: "TRY" as const, locale: "tr" as const, themeKey: "hemenaku" });
+const STOREFRONT = Object.freeze({ schemaVersion: 2 as const, id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "Pilot Mağaza", slug: "pilot-store", hostname: "pilot-store.saas-staging.celebix.site", primaryHostname: "pilot-store.saas-staging.celebix.site", canonicalUrl: "https://pilot-store.saas-staging.celebix.site/", currency: "TRY" as const, locale: "tr" as const, themeKey: "hemenaku", presentation: buildDefaultStarterPresentation({ name: "Pilot Mağaza" }) });
 function headers(values: Record<string, string>) { return { get(name: string) { return values[name.toLowerCase()] ?? null; } }; }
-function repository(get: PublicStorefrontRepository["getPublicStorefront"]): PublicStorefrontRepository { return { getPublicStorefront: get, async listPublicProducts() { throw new Error(); }, async getPublicProductBySlug() { throw new Error(); }, async listPublicProductMedia() { throw new Error(); }, async getPublicStorefrontDesign() { throw new Error(); } }; }
+function repository(get: PublicStorefrontRepository["getPublicStorefront"]): PublicStorefrontRepository { return { getPublicStorefront: get, async listPublicProducts() { throw new Error(); }, async listPublicProductsByCategory() { throw new Error(); }, async getPublicProductBySlug() { throw new Error(); }, async listPublicProductMedia() { throw new Error(); }, async getPublicStorefrontDesign() { throw new Error(); } }; }
 
 test("invalid proxy authority fails before the persisted exact-host resolver", async () => {
   let calls = 0;

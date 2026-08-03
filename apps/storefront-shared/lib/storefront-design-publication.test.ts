@@ -22,20 +22,26 @@ test("storefront runtime requires the reviewed public design authority", async (
   assert.match(runtime, /row\.migration_081 !== true/);
 });
 
-test("all storefront pages render through the shared published design surface", async () => {
+test("published design augments the complete storefront without removing commerce chrome", async () => {
   const frame = await source("../components/StorefrontFrame.tsx");
   const home = await source("../app/page.tsx");
   const products = await source("../app/products/page.tsx");
   const product = await source("../app/products/[slug]/page.tsx");
   const globals = await source("../app/globals.css");
 
-  assert.match(frame, /StorefrontDesignRenderer/);
   assert.match(frame, /design:\s*PublicStorefrontDesign/);
-  assert.doesNotMatch(frame, /<Header/);
-  assert.match(home, /design=\{design\}/);
+  assert.match(frame, /<Header[^>]+design=\{design\}/);
+  assert.match(frame, /<Footer/);
+  assert.match(frame, /publicationVersion > 1/);
+  assert.match(home, /StorefrontDesignRenderer/);
+  assert.match(home, /showHeader=\{false\}/);
+  assert.match(home, /publicationVersion > 1/);
   assert.match(home, /design\.brand\.favicon/);
-  assert.doesNotMatch(home, /home-hero|YENİ NESİL MAĞAZA|MAĞAZA DENEYİMİ/);
-  assert.match(products, /showHomeSurfaces=\{false\}/);
-  assert.match(product, /showHomeSurfaces=\{false\}/);
+  assert.match(home, /<CampaignHome/);
+  assert.match(products, /design=\{design\}/);
+  assert.match(product, /design=\{selected\.design\}/);
   assert.match(globals, /@celebix\/storefront-design-ui\/styles\.css/);
+  assert.match(globals, /data-published-design="true"[^}]+--ink:\s*var\(--store-text\)/s);
+  assert.match(globals, /data-published-design="true"[^}]+--accent:\s*var\(--store-accent\)/s);
+  assert.match(globals, /data-published-design="true"[^}]+--paper:\s*var\(--store-background\)/s);
 });

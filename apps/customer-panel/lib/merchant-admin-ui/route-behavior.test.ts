@@ -60,13 +60,14 @@ function tenant(role: Role): contracts.TenantContext {
       limits: { products: 100, staff: 5, storageBytes: 100 },
       validFrom: "2026-01-01T00:00:00.000Z",
     },
+    resolvedHost: { schemaVersion: 1, hostname: "store.saas-staging.celebix.site", domainId: "50000000-0000-4000-8000-000000000001", domainType: "platform_subdomain", storeId: "20000000-0000-4000-8000-000000000001", storeSlug: "store", canonicalHostname: "store.saas-staging.celebix.site", status: "active", cacheVersion: 1 },
     locale: "tr-TR",
   } as contracts.TenantContext;
 }
 
 function configuredValue(field: MerchantModuleDefinition["fields"][number]): contracts.MerchantAdminJson {
   if (field.type === "boolean") return true;
-  if (field.type === "number") return 1;
+  if (field.type === "number") return field.allowedValues?.[0] === undefined ? 1 : Number(field.allowedValues[0]);
   if (field.type === "enum") return field.allowedValues?.[0] ?? "configured";
   if (field.type === "enum-list" || field.type === "string-list") return [field.allowedValues?.[0] ?? "configured"];
   return "configured";
@@ -340,11 +341,14 @@ async function compileBoundPage(
 ) {
   const output = await compiledPageSource(route);
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const designAccess = Object.freeze({ readiness: Object.freeze({ mode: "approved_staging" as const }), panelOrigin: "https://panel.test" });
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === componentModule) return { [componentExport]: Component };
     if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant(role) }) };
+    if (specifier === "@/lib/server-panel-access/default") return { resolveDefaultServerPanelAccessRuntime: async () => designAccess };
+    if (specifier === "@/lib/server-merchant-admin/runtime") return { resolveServerMerchantAdminRuntime: () => ({ access: designAccess, merchantAdmin: { getEffectiveStarterPresentation: async () => contracts.buildDefaultStarterPresentation({ name: "store" }) } }) };
     throw new Error(`unexpected_bound_page_import:${route}:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
@@ -397,6 +401,7 @@ test("merchant route matrix invokes every actual page, production console, clien
   const paths: string[] = [];
   const mutations: string[] = [];
   const repository: MerchantAdminRepository = {
+    async getEffectiveStarterPresentation() { throw new Error("unexpected"); },
     async list(input) {
       if (scenario.failure !== "none") throw new MerchantAdminRepositoryError(scenario.failure);
       return scenario.records === "empty" ? [] : [recordFor({ ...scenario, kind: input.kind })];
@@ -544,13 +549,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => ![
-    "payment_setting",
-    "ai_setting",
-    "hero_banner",
-    "promotion_banner",
-    "marquee_setting",
-  ].includes(kind));
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "category_showcase" && kind !== "policy" && kind !== "theme_setting");
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     if (definition.cardinality === "singleton") {
@@ -614,7 +613,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     const mounted = await mount(definition, { records: action === "create" ? "empty" : "loaded", save });
     const trigger = definition.cardinality === "collection" ? findElement(mounted.view, (element) => element.type === "button" && (
       action === "create"
-        ? textOf(element).includes("Yeni kayıt") || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
+        ? textOf(element).includes("Yeni kayıt") || textOf(element).includes("Ayar oluştur") || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
         : typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını düzenle")
     )) : undefined;
     const originalDocument = globalThis.document;
@@ -654,7 +653,7 @@ test("merchant route matrix invokes every actual page, production console, clien
         values[field.key] = field.type === "boolean"
           ? "on"
           : field.type === "number"
-            ? "5"
+            ? field.allowedValues?.[0] ?? "5"
             : field.type === "datetime"
               ? "2026-07-22T15:00:00.000"
               : field.type === "enum-list"
@@ -685,7 +684,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     }
   }
 
-  const inlineDefinitions = genericDefinitions.filter(({ kind }) => recordRoute.createRouteFor(kind) === undefined);
+  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "category_showcase" && kind !== "policy" && kind !== "theme_setting" && recordRoute.createRouteFor(kind) === undefined);
   for (const definition of inlineDefinitions) {
     await submitInlineRecord(definition, "create", "success");
     await submitInlineRecord(definition, "update", "success");
@@ -762,7 +761,7 @@ test("merchant route matrix invokes every actual page, production console, clien
   assert.match(textOf(readOnlyMarketingView).replace(/\s+/gu, " "), /E-posta 1 Kalıcı kampanya kaydı Görüntüle/u);
 });
 
-test("merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay", async () => {
+test("merchant non-default route matrix invokes generic record pages and exact create update handlers across success conflict and replay", async () => {
   type SaveMode = "success" | "version_conflict" | "replayed";
   type RouteCase = Readonly<{
     route: string;
@@ -776,7 +775,6 @@ test("merchant non-default route matrix invokes nine actual pages and exact crea
     { route: "/content/blog/[recordId]/edit", kind: "blog_post", returnTo: "/content/blog", mode: "edit", component: "editor" },
     { route: "/content/pages/new", kind: "page", returnTo: "/content/pages", mode: "create", component: "editor" },
     { route: "/content/pages/[recordId]/edit", kind: "page", returnTo: "/content/pages", mode: "edit", component: "editor" },
-    { route: "/content/policies/[recordId]/edit", kind: "policy", returnTo: "/content/policies", mode: "edit", component: "editor" },
     { route: "/discounts/new", kind: "discount", returnTo: "/discounts", mode: "create", component: "console" },
     { route: "/discounts/[recordId]/edit", kind: "discount", returnTo: "/discounts", mode: "edit", component: "editor" },
   ]);
@@ -793,6 +791,7 @@ test("merchant non-default route matrix invokes nine actual pages and exact crea
   }>> = [];
   const paths: string[] = [];
   const repository: MerchantAdminRepository = {
+    async getEffectiveStarterPresentation() { throw new Error("unexpected"); },
     async list(input) {
       assert.equal(input.kind, activeCase.kind);
       return stored ? [stored] : [];
@@ -1062,6 +1061,17 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       "@/lib/merchant-admin-ui/presentation": presentation,
     },
   );
+  const DesignHub = await compileComponent(
+    "../../components/settings/DesignSettingsHub.tsx",
+    "DesignSettingsHub",
+    React,
+    {
+      "@/components/panel/PanelPageShell": panelComponents(),
+      "./StarterThemePreview": { StarterThemePreview: () => createElement("section", { "data-starter-theme-preview": true }) },
+      "./StorefrontAssetManager": { StorefrontAssetManager: () => createElement("section", { "data-storefront-asset-manager": true }) },
+      "./CategoryShowcaseEditor": { CategoryShowcaseEditor: () => createElement("section", { "data-category-showcase-editor": true }) },
+    },
+  );
   const cases = [
     {
       route: "/settings",
@@ -1090,6 +1100,14 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       Component: FamilyOverview,
       destinations: MERCHANT_MODULE_DEFINITIONS.filter(({ family }) => family === "content").map(({ route }) => route),
     },
+    {
+      route: "/settings/design",
+      title: null,
+      module: "@/components/settings/DesignSettingsHub",
+      exportName: "DesignSettingsHub",
+      Component: DesignHub,
+      destinations: ["/settings/theme", "/settings/general", "/settings/hero-banner", "/settings/category-showcase", "/settings/promotion-banner", "/settings/marquee", "/seo", "/seo/social-preview", "/products/collections"],
+    },
   ] as const;
   for (const entry of cases) {
     const Page = await compileBoundPage(entry.route, entry.module, entry.exportName, entry.Component, "store_owner");
@@ -1105,5 +1123,22 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     });
     assert.deepEqual(destinations, entry.destinations, entry.route);
     assert.doesNotMatch(textOf(view), /Toplam kayıt|Kalıcı kayıt/u, entry.route);
+  }
+});
+
+test("category showcase page mounts only its custom server-authorized editor", async () => {
+  const CategoryShowcaseEditor = (props: Record<string, unknown>) => createElement("section", { ...props, "data-category-showcase-editor": true });
+  for (const [role, canManage] of [["store_owner", true], ["analyst", false]] as const) {
+    const Page = await compileBoundPage(
+      "/settings/category-showcase",
+      "@/components/settings/CategoryShowcaseEditor",
+      "CategoryShowcaseEditor",
+      CategoryShowcaseEditor,
+      role,
+    );
+    const tree = await Page();
+    const editor = findElement(tree, (element) => element.type === CategoryShowcaseEditor);
+    assert.equal(editor.props.canManage, canManage);
+    assert.equal(editor.props.kind, undefined);
   }
 });
