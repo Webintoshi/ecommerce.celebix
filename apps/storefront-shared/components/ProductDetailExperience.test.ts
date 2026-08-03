@@ -100,6 +100,8 @@ test("product summary follows the compact jewelry detail hierarchy", async () =>
   assert.match(mobileStyles, /[.]purchaseColumn h1\s*\{[^}]*white-space:\s*normal/u);
   assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*font-family:\s*Arial, Helvetica, sans-serif !important/u);
   assert.match(styles, /[.]disclosures\s*\{[^}]*display:\s*grid[^}]*border-top/u);
-  assert.match(globalStyles, /[.]purchase-actions\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
-  assert.doesNotMatch(globalStyles, /[.]purchase-actions\s*\{\s*grid-template-columns:\s*1fr;\s*\}/u);
+  assert.match(globalStyles, /[.]purchase-actions\s*\{[^}]*grid-template-columns:\s*140px\s+repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
+  const mobilePurchaseStyles = globalStyles.slice(globalStyles.indexOf("@media (max-width: 640px)"));
+  assert.match(mobilePurchaseStyles, /[.]purchase-actions\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
+  assert.match(mobilePurchaseStyles, /[.]purchase-quantity\s*\{[^}]*grid-column:\s*1\s*\/\s*-1[^}]*justify-self:\s*start/u);
 });
