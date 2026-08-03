@@ -34,14 +34,8 @@ export default async function ProductsPage() {
   });
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      <section className="listing-hero">
-        <div className="store-container">
-          <span>KOLEKSİYON</span>
-          <h1>Ürünler</h1>
-          <p>{products.items.length} aktif ürün</p>
-        </div>
-      </section>
       <section className="store-section store-container">
+        <h1 className="sr-only">Ürünler</h1>
         <ProductExplorer
           products={products.items}
           cardStyle={storefront.presentation.theme.productCardStyle}
