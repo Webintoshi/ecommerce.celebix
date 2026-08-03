@@ -56,7 +56,7 @@ hero: {
 
 Each draft slide contains `headline`, `body`, `desktopImage`, `mobileImage`, `destination`, and `enabled`. Media fields are tenant-bound design media references. The public projection contains resolved public media URLs and resolved internal destination paths, never media IDs or tenant authority.
 
-A draft always stores between one and three slides. Publication requires at least one enabled slide, and every enabled slide requires a valid desktop image. Disabled slides may remain incomplete in the draft and are omitted from the public projection. The public hero keeps its own `enabled` gate and contains only the enabled, publishable slides in their saved order.
+A draft always stores between one and three slides. Publication requires at least one enabled slide, and every enabled slide requires a valid desktop image. Disabled slides may remain incomplete in the draft and are omitted from the public projection. The public hero keeps its own `enabled` gate and contains only the enabled, publishable slides in their saved order. As a rollout-only compatibility exception, an already-published version 1 text hero whose image is null remains readable and visible after migration; the next publication must satisfy the version 2 image rule.
 
 Schema version 1 documents remain readable during migration. Their existing single hero becomes the first schema version 2 slide. The former hero `enabled` value becomes the version 2 hero-level `enabled` value, while the migrated slide itself is enabled, preserving the former visible/hidden behavior without creating a draft that has no enabled slide. Text, image, and destination remain unchanged. New writes and publications use schema version 2 only. No existing store loses its published hero during rollout.
 
