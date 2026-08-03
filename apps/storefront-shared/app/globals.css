@@ -1,3 +1,5 @@
+@import "@celebix/storefront-design-ui/styles.css";
+
 :root { --ink: #171717; --muted: #70706b; --paper: #f8f8f6; --white: #fff; --line: #e6e4de; --dark: #0b1120; color: var(--ink); background: var(--paper); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }

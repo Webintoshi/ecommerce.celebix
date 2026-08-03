@@ -612,7 +612,7 @@ function paymentFixture(status: "reserved" | "provider_ready" | "initiation_unkn
     async getStatus() { calls.status += 1; return currentStatus === "failed" ? { kind: "failed" as const } : { kind: "processing" as const }; },
     async revokeRedemption() { throw new Error("unused"); },
   };
-  const storefrontRepository = { async getPublicStorefront() { throw new Error("unused"); }, async listPublicProducts() { throw new Error("unused"); }, async getPublicProductBySlug() { throw new Error("unused"); }, async listPublicProductMedia() { throw new Error("unused"); } };
+  const storefrontRepository = { async getPublicStorefront() { throw new Error("unused"); }, async listPublicProducts() { throw new Error("unused"); }, async getPublicProductBySlug() { throw new Error("unused"); }, async listPublicProductMedia() { throw new Error("unused"); }, async getPublicStorefrontDesign() { throw new Error("unused"); } };
   return { calls, providerToken, paymentRepository, runtime: Object.freeze({ checkout: { storefrontRepository, quickOrderRepository }, paymentRepository, keyring }) };
 }
 

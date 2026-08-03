@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createCheckoutRuntime } from "./runtime.ts";
 
-const storefrontRepository = { getPublicStorefront: async () => { throw new Error("unused"); }, listPublicProducts: async () => ({ items: [] }), getPublicProductBySlug: async () => { throw new Error("unused"); }, listPublicProductMedia: async () => [] };
+const storefrontRepository = { getPublicStorefront: async () => { throw new Error("unused"); }, listPublicProducts: async () => ({ items: [] }), getPublicProductBySlug: async () => { throw new Error("unused"); }, listPublicProductMedia: async () => [], getPublicStorefrontDesign: async () => { throw new Error("unused"); } };
 const quickOrderRepository = { claimRedemption: async () => { throw new Error("unused"); }, resolveRedemption: async () => { throw new Error("unused"); }, getStatus: async () => ({ kind: "unavailable" as const }), revokeRedemption: async () => undefined };
 
 test("creates an immutable runtime with only public storefront and workflow repositories", () => {

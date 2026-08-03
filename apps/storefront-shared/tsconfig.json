@@ -8,7 +8,8 @@
       "@/*": ["./*"],
       "@celebix/saas-storefront-runtime": ["../../packages/saas-storefront-runtime/src/index.ts"],
       "@celebix/saas-data": ["../../packages/saas-data/src/index.ts"],
-      "@celebix/saas-contracts": ["../../packages/saas-contracts/src/index.ts"]
+      "@celebix/saas-contracts": ["../../packages/saas-contracts/src/index.ts"],
+      "@celebix/storefront-design-ui": ["../../packages/storefront-design-ui/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
