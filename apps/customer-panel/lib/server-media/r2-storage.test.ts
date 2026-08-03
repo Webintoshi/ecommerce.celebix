@@ -23,6 +23,14 @@ test("R2 storage signs an exact tenant object without exposing credentials in it
   assert.equal(JSON.stringify(storage).includes(config.secretAccessKey), false);
 });
 
+test("R2 storage accepts the exact tenant design namespace and rejects neighboring paths", () => {
+  const storage = createR2ProductMediaStorage(config, { async fetch() { throw new Error("not called"); }, now: () => new Date("2026-07-18T10:00:00.000Z") });
+  const designKey = `stores/${STORE}/design/${MEDIA}.png`;
+  assert.equal(storage.publicUrl(designKey), `https://media.saas-staging.celebix.site/${designKey}`);
+  assert.throws(() => storage.publicUrl(`stores/${STORE}/design/nested/${MEDIA}.png`), /product_media_storage_invalid/);
+  assert.throws(() => storage.publicUrl(`stores/${STORE}/themes/${MEDIA}.png`), /product_media_storage_invalid/);
+});
+
 test("R2 HEAD verifies exact length media type and payload digest", async () => {
   const objectKey = `stores/${STORE}/products/${PRODUCT}/${MEDIA}.webp`;
   const payloadSha256 = "a".repeat(64);

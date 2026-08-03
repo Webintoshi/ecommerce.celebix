@@ -20,6 +20,20 @@ test("exports the authenticated catalog dashboard summary route", async () => {
   assert.doesNotMatch(routeSource, /export const POST/);
 });
 
+test("storefront design exposes only its four exact authenticated route methods", async () => {
+  const routes = [
+    ["../app/api/storefront-design/route.ts", "GET", "handleDefaultStorefrontDesignWorkspace"],
+    ["../app/api/storefront-design/draft/route.ts", "PATCH", "handleDefaultStorefrontDesignSaveDraft"],
+    ["../app/api/storefront-design/publish/route.ts", "POST", "handleDefaultStorefrontDesignPublish"],
+    ["../app/api/storefront-design/media/route.ts", "POST", "handleDefaultStorefrontDesignMediaUpload"],
+  ] as const;
+  for (const [path, method, handler] of routes) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, new RegExp(`export const ${method} = ${handler};`));
+    for (const denied of ["GET", "POST", "PUT", "PATCH", "DELETE"].filter((candidate) => candidate !== method)) assert.doesNotMatch(source, new RegExp(`export const ${denied}`));
+  }
+});
+
 test("exports only the finite authenticated pricing catch-all methods", async () => {
   const route = await readFile(new URL("../app/api/pricing/[...path]/route.ts", import.meta.url), "utf8");
   assert.match(route, /export const GET = handlePricingRequest;/);
