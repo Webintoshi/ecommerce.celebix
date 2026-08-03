@@ -272,7 +272,11 @@ export type PublicProductVariant = Readonly<{
   attributes: Readonly<Record<string, string>>;
 }>;
 
-export type PublicProductBrand = Readonly<{ name: string; slug: string }>;
+export type PublicProductBrand = Readonly<{
+  name: string;
+  slug: string;
+  logo?: PublicStorefrontAsset;
+}>;
 export type PublicProductCategoryPathItem = Readonly<{ name: string; slug: string }>;
 export type PublicProductMerchandising = Readonly<{
   highlights: readonly string[];

@@ -128,6 +128,39 @@ test("public product contract excludes cost and archived authority while preserv
   assert.throws(() => parsePublicProduct({ ...parsed, status: "draft" }));
 });
 
+test("public product brand accepts only an optional canonical storefront logo", () => {
+  const product = {
+    id: PRODUCT_ID,
+    slug: "branded-product",
+    title: "Branded Product",
+    currency: "TRY",
+    status: "active",
+    priceCents: 12_500,
+    available: true,
+    variants: [{ id: VARIANT_ID, title: "Default", sku: "BRAND-ONE", priceCents: 12_500, stockTracking: true, stockQuantity: 3, available: true, attributes: {} }],
+    media: [],
+  };
+  const logo = {
+    url: `https://media.saas-staging.celebix.site/stores/${STORE_ID}/storefront/logo/50000000-0000-4000-8000-000000000003.webp`,
+    mediaType: "image/webp",
+    altText: "Pilot Marka",
+    width: 480,
+    height: 180,
+  };
+
+  const parsed = parsePublicProduct({ ...product, brand: { name: "Pilot Marka", slug: "pilot-marka", logo } });
+  assert.deepEqual(parsed.brand, { name: "Pilot Marka", slug: "pilot-marka", logo });
+  assert.equal(Object.isFrozen(parsed.brand), true);
+  assert.equal(Object.isFrozen(parsed.brand?.logo), true);
+  assert.deepEqual(parsePublicProduct({ ...product, brand: { name: "Pilot Marka", slug: "pilot-marka" } }).brand, { name: "Pilot Marka", slug: "pilot-marka" });
+
+  assert.throws(() => parsePublicProduct({ ...product, brand: { name: "Pilot Marka", slug: "pilot-marka", logo: { ...logo, url: logo.url.replace("https://", "http://") } } }));
+  assert.throws(() => parsePublicProduct({ ...product, brand: { name: "Pilot Marka", slug: "pilot-marka", logo: { ...logo, objectKey: "private/storefront/logo.webp" } } }));
+  const { height: _height, ...logoWithoutHeight } = logo;
+  assert.throws(() => parsePublicProduct({ ...product, brand: { name: "Pilot Marka", slug: "pilot-marka", logo: logoWithoutHeight } }));
+  assert.throws(() => parsePublicProduct({ ...product, brand: { name: "Pilot Marka", slug: "pilot-marka", logo, privateAssetId: MEDIA_ID } }));
+});
+
 test("public product contract preserves bounded multiline Markdown descriptions", () => {
   const markdown = "## Ürün özeti\n\n- 14 ayar altın\n- El işçiliği\n\n**Bakım:** Yumuşak bir bez kullanın.\nÖlçü bilgisi ürün detayındadır.";
   const product = {
