@@ -41,22 +41,25 @@ test("exports only the finite authenticated pricing catch-all methods", async ()
   for (const method of ["PUT", "PATCH", "DELETE"]) assert.doesNotMatch(route, new RegExp(`export const ${method}`));
 });
 
-test("analytics and typed storefront setting pages are server-authorized routes", async () => {
+test("analytics and legacy appearance redirects are server-authorized routes", async () => {
   const analytics = await readFile(new URL("../app/analytics/page.tsx", import.meta.url), "utf8");
   assert.match(analytics, /requireServerPanelAccess\(\)/);
   assert.match(analytics, /analytics[.]read/);
   assert.match(analytics, /<AnalyticsDashboard/);
   assert.match(analytics, /<PanelAnalyticsView/);
-  for (const [path, kind] of [
-    ["../app/settings/notifications/page.tsx", "notification_setting"],
-    ["../app/settings/hero-banner/page.tsx", "hero_banner"],
-    ["../app/settings/promotion-banner/page.tsx", "promotion_banner"],
-    ["../app/settings/marquee/page.tsx", "marquee_setting"],
+  const notification = await readFile(new URL("../app/settings/notifications/page.tsx", import.meta.url), "utf8");
+  assert.match(notification, /requireServerPanelAccess\(\)/);
+  assert.match(notification, /notification_setting/);
+  assert.match(notification, /configuration[.]manage/);
+  for (const [path, section] of [
+    ["../app/settings/hero-banner/page.tsx", "hero"],
+    ["../app/settings/promotion-banner/page.tsx", "promotion"],
+    ["../app/settings/marquee/page.tsx", "announcement"],
   ] as const) {
     const source = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
-    assert.match(source, new RegExp(kind));
-    assert.match(source, /configuration[.]manage/);
+    assert.match(source, new RegExp(`redirect\\(\"/settings/design\\?section=${section}\"\\)`));
+    assert.doesNotMatch(source, /MerchantModuleConsole|kind=/);
   }
 });
 

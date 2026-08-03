@@ -5,6 +5,69 @@
   gap: 1rem;
 }
 
+.settingsGroups {
+  display: grid;
+  width: min(100%, 960px);
+  gap: 2rem;
+}
+
+.settingsGroup {
+  min-width: 0;
+}
+
+.settingsGroup h2 {
+  margin: 0 0 .5rem;
+  color: #667085;
+  font-size: .75rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.settingsRows {
+  border-top: 1px solid #e8edf4;
+}
+
+.settingsRow {
+  display: grid;
+  min-height: 64px;
+  grid-template-columns: 40px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: .75rem;
+  border-bottom: 1px solid #e8edf4;
+  color: #171717;
+  text-decoration: none;
+}
+
+.settingsRow:hover {
+  background: #fafafa;
+}
+
+.settingsRow:focus-visible {
+  outline: 3px solid rgb(255 90 0 / 28%);
+  outline-offset: -3px;
+}
+
+.settingsIcon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff3ec;
+  color: #ff5a00;
+}
+
+.settingsRow strong {
+  min-width: 0;
+  font-size: .9375rem;
+  font-weight: 650;
+}
+
+.settingsArrow {
+  color: #98a2b3;
+}
+
 .card {
   display: flex;
   min-width: 0;
@@ -67,6 +130,7 @@
 @media (max-width: 640px) {
   .grid { grid-template-columns: 1fr; }
   .card { min-height: 132px; }
+  .settingsGroups { gap: 1.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

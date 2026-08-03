@@ -111,17 +111,17 @@ export function createStorefrontDesignApi(fetcher: typeof fetch = fetch, uuid: (
     workspace(signal?: AbortSignal) {
       return request("/api/storefront-design", (value) => parseStorefrontDesignWorkspace(record(value, ["code", "workspace"]).workspace), { method: "GET", signal });
     },
-    saveDraft(input, signal?: AbortSignal) {
+    saveDraft(input: Readonly<{ expectedDraftVersion: number; design: StorefrontDesignDocument }>, signal?: AbortSignal) {
       const expectedDraftVersion = positive(input?.expectedDraftVersion);
       const design = parseStorefrontDesignDocument(input?.design);
       return mutate("/api/storefront-design/draft", "PATCH", { expectedDraftVersion, design }, (value) => draftMutation(record(value, ["code", "result"]).result), signal);
     },
-    publish(input, signal?: AbortSignal) {
+    publish(input: Readonly<{ expectedDraftVersion: number; expectedPublishedVersion: number }>, signal?: AbortSignal) {
       const expectedDraftVersion = positive(input?.expectedDraftVersion);
       const expectedPublishedVersion = positive(input?.expectedPublishedVersion);
       return mutate("/api/storefront-design/publish", "POST", { expectedDraftVersion, expectedPublishedVersion }, (value) => publicationMutation(record(value, ["code", "result"]).result), signal);
     },
-    uploadMedia(input, signal?: AbortSignal) {
+    uploadMedia(input: Readonly<{ file: File; altText: string }>, signal?: AbortSignal) {
       if (!(input?.file instanceof File) || typeof input.altText !== "string" || input.altText !== input.altText.trim() || input.altText.length > 500) throw new StorefrontDesignApiError("invalid_input", 400);
       const form = new FormData(); form.set("file", input.file); form.set("altText", input.altText);
       return request("/api/storefront-design/media", (value) => mediaOption(record(value, ["code", "media"]).media), { method: "POST", headers: Object.freeze({ "idempotency-key": operation(uuid()) }), body: form, signal });

@@ -43,7 +43,7 @@ function tenant(role: TenantContext["membership"]["role"] = "store_owner"): Tena
     principal: { id: PRINCIPAL, issuer: "https://identity.example.test/oidc", subject: "guzide-owner" },
     store: { id: STORE, slug: "guzide-kuyumcu-4", status: "active" },
     membership: { id: MEMBERSHIP, role, status: "active" },
-    entitlements: { schemaVersion: 1, planId: PLAN, planCode: "free_starter", version: 1, status: "active", features: ["storefront", "media"], limits: { products: 100, staff: 5, storageBytes: 1_000_000_000 }, validFrom: "2026-01-01T00:00:00.000Z" },
+    entitlements: { schemaVersion: 1, planId: PLAN, planCode: "free_starter", version: 1, status: "active", features: ["content", "media"], limits: { products: 100, staff: 5, storageBytes: 1_000_000_000 }, validFrom: "2026-01-01T00:00:00.000Z" },
     locale: "tr-TR",
   };
 }
@@ -159,7 +159,7 @@ test("mutation origin, missing session, unknown body fields, and stale versions 
 test("design media validates image bytes then uses the authenticated tenant object key", async () => {
   const selected = fixture();
   const form = new FormData();
-  form.set("file", new File([png()], "guzide-hero.png", { type: "image/png" }));
+  form.set("file", new File([Uint8Array.from(png())], "guzide-hero.png", { type: "image/png" }));
   form.set("altText", "Güzide hero");
   const response = await selected.handlers.uploadMedia(new Request("http://customer-panel:3400/api/storefront-design/media", { method: "POST", headers: { origin: ORIGIN, cookie: `__Host-celebix_panel=${CREDENTIAL}`, "idempotency-key": OPERATION, "content-length": "1024" }, body: form }));
   assert.equal(response.status, 201);

@@ -5,7 +5,8 @@
     "incremental": false,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@celebix/storefront-design-ui": ["../../packages/storefront-design-ui/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx"],

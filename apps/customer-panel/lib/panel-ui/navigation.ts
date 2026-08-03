@@ -192,16 +192,13 @@ const CONTENT_CHILDREN = Object.freeze([
 
 const SETTINGS_CHILDREN = Object.freeze([
   item("general-settings", "Genel", "/settings/general", "settings"),
-  item("design-settings", "Tasarım", "/settings/design", "design"),
   item("language-settings", "Dil", "/settings/language", "language"),
+  item("administrators", "Yöneticiler", "/settings/administrators", "administrators"),
   item("payment-settings", "Ödeme", "/settings/payment", "payment"),
   item("shipping-settings", "Kargo", "/settings/shipping", "shipping"),
-  item("administrators", "Yöneticiler", "/settings/administrators", "administrators"),
   item("notifications", "Bildirimler", "/settings/notifications", "email"),
-  item("hero-banner", "Hero Banner", "/settings/hero-banner", "content"),
-  item("promotion-banner", "Promosyon Banner", "/settings/promotion-banner", "discounts"),
-  item("marquee", "Kayan Duyuru", "/settings/marquee", "marketing"),
   item("artificial-intelligence", "Yapay Zeka", "/settings/artificial-intelligence", "settings"),
+  item("design-settings", "Tasarım", "/settings/design", "design"),
 ]);
 
 const ACCOUNTING_CHILDREN = Object.freeze([
