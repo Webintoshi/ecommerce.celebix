@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "phase": "4f-product-brand-logos",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "202608030082_product_brand_logos.up.sql",
+      "sha256": "4f4925429c6b849a899498e02d78ca53031ac3b7418b810f5686673262ba886d"
+    },
+    {
+      "file": "202608030082_product_brand_logos_assertions.sql",
+      "sha256": "12a646b01b1546bd4e79e979e9a12655572649897c76427161866137312abdc5"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202608030082_product_brand_logos.down.sql",
+      "sha256": "3ed5c6e4884414a0b10993352c285174eb884b17a13316fa4119c7389dc93025"
+    }
+  ]
+}
