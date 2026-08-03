@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StarterThemePreview } from "@/components/settings/StarterThemePreview";
 import { StarterFooterEditor } from "@/components/settings/StarterFooterEditor";
 import { StarterRetailSectionEditor } from "@/components/settings/StarterRetailSectionEditors";
+import { StarterThemeSubnavigation } from "@/components/settings/StarterThemeSubnavigation";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { catalogApi } from "@/lib/catalog-ui/client";
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
@@ -34,6 +35,10 @@ import {
   upgradeStarterThemeComposition,
   type StarterThemeEditorState,
 } from "@/lib/starter-theme-composer-model";
+import {
+  DEFAULT_THEME_PANEL,
+  type ThemePanelKey,
+} from "./starter-theme-subnavigation-model";
 import styles from "./starter-theme-composer.module.css";
 
 type SaveStatus = "draft" | "active";
@@ -153,6 +158,7 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
   const [newSection, setNewSection] = useState<SectionKind>("product_row");
+  const [activePanel, setActivePanel] = useState<ThemePanelKey>(DEFAULT_THEME_PANEL);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -217,9 +223,17 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
     {message ? <p className={styles.success} role="status">{message}</p> : null}
     {!canManage ? <p className={styles.readOnly} role="status">Yalnız görüntüleme</p> : null}
     {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={styles.workspace} onSubmit={(event) => { event.preventDefault(); void persist("draft"); }}>
+      <StarterThemeSubnavigation activePanel={activePanel} onSelect={setActivePanel} />
       <div className={styles.editor}>
         {!current ? <p className={styles.notice}>Henüz kaydedilmiş tema yok. Güvenli başlangıç düzeni hazırlandı.</p> : <p className={styles.notice}>{current.status === "draft" ? "Taslak düzenleniyor" : "Yayındaki sürüm düzenleniyor"} · sürüm {current.version}</p>}
-        <fieldset className={styles.panel} disabled={disabled}>
+        <section
+          className={styles.themePanel}
+          role="tabpanel"
+          id={`starter-theme-panel-${activePanel}`}
+          aria-labelledby={`starter-theme-tab-${activePanel}`}
+          tabIndex={0}
+        >
+        {activePanel === "visual" ? <fieldset className={styles.panel} disabled={disabled}>
           <legend>Görsel sistem</legend>
           <div className={styles.fieldGrid}>
             <label>Renk paleti<select value={state.visual.colorScheme} onChange={(event) => patch({ visual: { ...state.visual, colorScheme: event.currentTarget.value as StarterThemeEditorState["visual"]["colorScheme"] } })}><option value="neutral">Nötr</option><option value="warm">Sıcak</option><option value="dark">Koyu</option><option value="ocean">Okyanus</option></select></label>
@@ -231,8 +245,8 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
             <label>Ürün kartı<select value={state.visual.productCardStyle} onChange={(event) => patch({ visual: { ...state.visual, productCardStyle: event.currentTarget.value as StarterThemeEditorState["visual"]["productCardStyle"] } })}><option value="editorial">Editoryal</option><option value="compact">Kompakt</option></select></label>
             <label>Ürün görseli<select value={state.visual.productImageRatio} onChange={(event) => patch({ visual: { ...state.visual, productImageRatio: event.currentTarget.value as StarterThemeEditorState["visual"]["productImageRatio"] } })}><option value="portrait">Dikey</option><option value="square">Kare</option></select></label>
           </div>
-        </fieldset>
-        <fieldset className={styles.panel} disabled={disabled}>
+        </fieldset> : null}
+        {activePanel === "navigation" ? <fieldset className={styles.panel} disabled={disabled}>
           <legend>Duyuru ve navigasyon</legend>
           <label className={styles.check}><input type="checkbox" checked={state.announcement.enabled} onChange={(event) => patch({ announcement: { ...state.announcement, enabled: event.currentTarget.checked } })} /> Duyuru şeridini göster</label>
           <label>Duyuru metni<input maxLength={160} value={state.announcement.items.join(" · ")} onChange={(event) => patch({ announcement: { ...state.announcement, items: Object.freeze(event.currentTarget.value.split("·").map((item) => item.trim()).filter(Boolean).slice(0, 12)) } })} /></label>
@@ -243,8 +257,8 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
             <label>Öne çıkan kategori<select value={state.navigation.featuredCategoryId ?? ""} onChange={(event) => { const navigation = { ...state.navigation }; if (event.currentTarget.value) navigation.featuredCategoryId = event.currentTarget.value; else delete navigation.featuredCategoryId; patch({ navigation }); }}><option value="">Öne çıkan kategori yok</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
             <label>Öne çıkan görsel<select value={state.navigation.featuredAssetId ?? ""} onChange={(event) => { const navigation = { ...state.navigation }; if (event.currentTarget.value) navigation.featuredAssetId = event.currentTarget.value; else delete navigation.featuredAssetId; patch({ navigation }); }}><option value="">Öne çıkan görsel yok</option>{assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
           </div>
-        </fieldset>
-        <section className={styles.sectionList} aria-labelledby="starter-sections-title">
+        </fieldset> : null}
+        {activePanel === "home" ? <section className={styles.sectionList} aria-labelledby="starter-sections-title">
           <div className={styles.sectionHeading}><div><h2 id="starter-sections-title">Ana sayfa bölümleri</h2><p>Sıralama için sürükleme gerekmez; yukarı ve aşağı kontrolleri klavyeyle çalışır.</p></div></div>
           <ol>{state.sections.map((section, index) => <li className={styles.sectionCard} key={`${section.kind}-${index}`}>
             <div className={styles.sectionToolbar}><div><span>{index + 1}</span><strong>{SECTION_LABELS[section.kind]}</strong></div><div>
@@ -261,12 +275,11 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
             {section.kind === "value_propositions" || section.kind === "testimonials" ? <StarterRetailSectionEditor disabled={disabled} section={section} update={(updated) => updateSection(index, updated)} /> : null}
           </li>)}</ol>
           <div className={styles.addBar}><label>Yeni bölüm<select value={newSection} onChange={(event) => setNewSection(event.currentTarget.value as SectionKind)} disabled={disabled}>{Object.entries(SECTION_LABELS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label><button type="button" onClick={addSection} disabled={disabled}><Plus aria-hidden="true" /> Bölüm ekle</button></div>
+        </section> : null}
+        {activePanel === "product" ? <fieldset className={styles.panel} disabled={disabled}><legend>Ürün detayı</legend><label>Galeri<select value={state.productDetail.galleryStyle} onChange={(event) => patch({ productDetail: { ...state.productDetail, galleryStyle: event.currentTarget.value as "grid" | "rail" } })}><option value="grid">Izgara</option><option value="rail">Kaydırmalı</option></select></label>{(["showSku", "showBrand", "showBreadcrumbs", "showRelatedProducts", "showApprovedReviews", "mobileStickyPurchase", "showSizeGuide"] as const).map((key) => <label className={styles.check} key={key}><input type="checkbox" checked={state.productDetail[key]} onChange={(event) => patch({ productDetail: { ...state.productDetail, [key]: event.currentTarget.checked } })} />{{ showSku: "SKU göster", showBrand: "Marka göster", showBreadcrumbs: "İçerik yolunu göster", showRelatedProducts: "Benzer ürünleri göster", showApprovedReviews: "Onaylı yorumlar", mobileStickyPurchase: "Mobil sabit satın alma", showSizeGuide: "Boyut rehberi" }[key]}</label>)}<p className={styles.label}>Ürün bilgi blokları</p>{(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const).map((key) => <label className={styles.check} key={key}><input type="checkbox" checked={state.productDetail.informationSections.includes(key)} onChange={(event) => { const informationSections = event.currentTarget.checked ? [...state.productDetail.informationSections, key] : state.productDetail.informationSections.filter((item) => item !== key); if (informationSections.length) patch({ productDetail: { ...state.productDetail, informationSections: Object.freeze(informationSections) } }); }} />{{ description: "Açıklama", materials_and_care: "Malzeme ve bakım", certifications: "Sertifikalar", shipping_and_returns: "Kargo ve iade" }[key]}</label>)}</fieldset> : null}
+        {activePanel === "cart" ? <fieldset className={styles.panel} disabled={disabled}><legend>Sepet deneyimi</legend><label className={styles.check}><input type="checkbox" checked={state.cart.showCheckoutReadiness} onChange={(event) => patch({ cart: { ...state.cart, showCheckoutReadiness: event.currentTarget.checked } })} /> Ödeme hazırlığını göster</label><label className={styles.check}><input type="checkbox" checked={false} aria-describedby="shipping-progress-authority" disabled /> Kargo ilerlemesini göster</label><p className={styles.fieldHelp} id="shipping-progress-authority">Kargo ilerlemesi için doğrulanmış ücretsiz kargo eşiği gerekli. Eşik authority’si sağlanana kadar bu seçenek kapalı kaydedilir ve vitrinde gösterilmez.</p><label>Güven mesajı<input maxLength={160} value={state.cart.trustMessage ?? ""} onChange={(event) => patch({ cart: { ...state.cart, trustMessage: event.currentTarget.value } })} /></label></fieldset> : null}
+        {activePanel === "footer" ? <StarterFooterEditor categories={categories} disabled={disabled} pages={pages} update={(footer) => patch({ footer })} value={state.footer} /> : null}
         </section>
-        <div className={styles.twoColumns}>
-          <fieldset className={styles.panel} disabled={disabled}><legend>Ürün detayı</legend><label>Galeri<select value={state.productDetail.galleryStyle} onChange={(event) => patch({ productDetail: { ...state.productDetail, galleryStyle: event.currentTarget.value as "grid" | "rail" } })}><option value="grid">Izgara</option><option value="rail">Kaydırmalı</option></select></label>{(["showSku", "showBrand", "showBreadcrumbs", "showRelatedProducts", "showApprovedReviews", "mobileStickyPurchase", "showSizeGuide"] as const).map((key) => <label className={styles.check} key={key}><input type="checkbox" checked={state.productDetail[key]} onChange={(event) => patch({ productDetail: { ...state.productDetail, [key]: event.currentTarget.checked } })} />{{ showSku: "SKU göster", showBrand: "Marka göster", showBreadcrumbs: "İçerik yolunu göster", showRelatedProducts: "Benzer ürünleri göster", showApprovedReviews: "Onaylı yorumlar", mobileStickyPurchase: "Mobil sabit satın alma", showSizeGuide: "Boyut rehberi" }[key]}</label>)}<p className={styles.label}>Ürün bilgi blokları</p>{(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const).map((key) => <label className={styles.check} key={key}><input type="checkbox" checked={state.productDetail.informationSections.includes(key)} onChange={(event) => { const informationSections = event.currentTarget.checked ? [...state.productDetail.informationSections, key] : state.productDetail.informationSections.filter((item) => item !== key); if (informationSections.length) patch({ productDetail: { ...state.productDetail, informationSections: Object.freeze(informationSections) } }); }} />{{ description: "Açıklama", materials_and_care: "Malzeme ve bakım", certifications: "Sertifikalar", shipping_and_returns: "Kargo ve iade" }[key]}</label>)}</fieldset>
-          <fieldset className={styles.panel} disabled={disabled}><legend>Sepet deneyimi</legend><label className={styles.check}><input type="checkbox" checked={state.cart.showCheckoutReadiness} onChange={(event) => patch({ cart: { ...state.cart, showCheckoutReadiness: event.currentTarget.checked } })} /> Ödeme hazırlığını göster</label><label className={styles.check}><input type="checkbox" checked={false} aria-describedby="shipping-progress-authority" disabled /> Kargo ilerlemesini göster</label><p className={styles.fieldHelp} id="shipping-progress-authority">Kargo ilerlemesi için doğrulanmış ücretsiz kargo eşiği gerekli. Eşik authority’si sağlanana kadar bu seçenek kapalı kaydedilir ve vitrinde gösterilmez.</p><label>Güven mesajı<input maxLength={160} value={state.cart.trustMessage ?? ""} onChange={(event) => patch({ cart: { ...state.cart, trustMessage: event.currentTarget.value } })} /></label></fieldset>
-        </div>
-        <StarterFooterEditor categories={categories} disabled={disabled} pages={pages} update={(footer) => patch({ footer })} value={state.footer} />
         <footer className={styles.actions}><button className={styles.secondary} type="submit" disabled={!canManage || busy}>{busy ? <LoaderCircle aria-hidden="true" /> : <Save aria-hidden="true" />} Taslak kaydet</button><button className={styles.primary} type="button" onClick={() => void persist("active")} disabled={!canManage || busy}><Send aria-hidden="true" /> Yayınla</button></footer>
       </div>
       <aside className={styles.preview}>{preview ? <StarterThemePreview composition={preview} productTitles={productTitles} storefrontHostname={null} /> : <p role="alert">Önizleme için zorunlu alanları tamamlayın.</p>}</aside>

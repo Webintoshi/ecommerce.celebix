@@ -41,6 +41,16 @@ test("theme composer stays subordinate to the shared page topbar", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.doesNotMatch(value, /<h1|KAMPANYA STARTER|Yayın yetkisi etkin/);
 });
+test("composer keeps one editor state while the submenu exposes one settings group", async () => {
+  const value = await source("StarterThemeComposer.tsx");
+  assert.match(value, /StarterThemeSubnavigation/);
+  assert.match(value, /useState<ThemePanelKey>\(DEFAULT_THEME_PANEL\)/);
+  assert.match(value, /role="tabpanel"/);
+  for (const key of ["visual", "navigation", "home", "product", "cart", "footer"]) {
+    assert.match(value, new RegExp(`activePanel === "${key}"`));
+  }
+  assert.equal((value.match(/useState<StarterThemeEditorState>/g) ?? []).length, 1);
+});
 test("composer columns can shrink inside the design rail without horizontal clipping", async () => {
   const value = await source("starter-theme-composer.module.css");
   assert.match(value, /grid-template-columns:\s*minmax\(0,\s*1[.]12fr\)\s+minmax\(380px,\s*[.]88fr\)/);

@@ -71,6 +71,17 @@
 
 .editor { display: grid; gap: 0; min-width: 0; }
 
+.themePanel {
+  display: grid;
+  min-width: 0;
+  gap: 0;
+}
+
+.themePanel:focus-visible {
+  outline: 3px solid rgb(255 101 0 / 22%);
+  outline-offset: 4px;
+}
+
 .panel,
 .sectionList {
   min-width: 0;
@@ -385,7 +396,9 @@
 
 @media (max-width: 1180px) {
   .workspace { grid-template-columns: 1fr; }
-  .preview { position: static; grid-row: 1; max-height: none; border-left: 0; border-bottom: 1px solid #e5e8ed; padding: 0 0 24px; }
+  .themeSubnav { grid-row: 1; }
+  .preview { position: static; grid-row: 2; max-height: none; border-left: 0; border-bottom: 1px solid #e5e8ed; padding: 0 0 24px; }
+  .editor { grid-row: 3; }
 }
 
 @media (max-width: 700px) {
