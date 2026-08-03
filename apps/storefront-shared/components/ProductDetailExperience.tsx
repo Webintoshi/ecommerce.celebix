@@ -23,10 +23,9 @@ export function ProductDetailExperience({ product, relatedProducts, publishedPol
           {options.showSku && primaryVariant?.sku ? <p className={styles.sku}>Ürün Kodu: {primaryVariant.sku}</p> : null}
         </div>
         <div className={styles.price}>{product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{formatTry(product.compareAtCents)}</del> : null}<strong>{formatTry(product.priceCents)}</strong></div>
-        <div className={`${styles.stock} ${product.available ? styles.available : ""}`}><b>{product.available ? "Stokta" : "Tükendi"}</b></div>
         {product.merchandising?.highlights.length ? <ul className={styles.highlights}>{product.merchandising.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul> : null}
         {options.showSizeGuide && product.merchandising?.sizeGuide ? <ProductSizeGuide heading={product.merchandising.sizeGuide.heading} body={product.merchandising.sizeGuide.body} /> : null}
-        <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} />
+        <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} available={product.available} />
         <ProductInformationDisclosures informationSections={options.informationSections} merchandising={product.merchandising} description={product.description} publishedPolicies={publishedPolicies} />
       </div>
     </section>

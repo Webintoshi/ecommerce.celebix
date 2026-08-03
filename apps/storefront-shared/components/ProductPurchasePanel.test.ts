@@ -22,6 +22,16 @@ test("purchase panel is bounded while pending and reports finite accessible stat
   assert.doesNotMatch(source, /storeId|tenantId|credential/u);
 });
 
+test("purchase panel renders stock beside an accessible bounded stepper", () => {
+  assert.match(source, /available:\s*boolean/u);
+  assert.match(source, /available \? "Stokta" : "Tükendi"/u);
+  assert.match(source, /aria-label="Adedi azalt"/u);
+  assert.match(source, /aria-label="Adedi artır"/u);
+  assert.match(source, /decrementPurchaseQuantity/u);
+  assert.match(source, /incrementPurchaseQuantity/u);
+  assert.doesNotMatch(source, /type="number"/u);
+});
+
 test("one default variant does not create a redundant selection step", () => {
   assert.match(source, /showVariantChoices/u);
   assert.match(source, /product[.]variants[.]length > 1/u);

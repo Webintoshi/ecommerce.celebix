@@ -76,6 +76,8 @@ test("product summary follows the compact jewelry detail hierarchy", async () =>
   assert.match(experience, /Ürün Kodu:/u);
   assert.match(experience, /className=\{styles[.]summaryHeader\}/u);
   assert.doesNotMatch(experience, /Siparişe hazır seçenekler mevcut[.]/u);
+  assert.doesNotMatch(experience, /styles[.]stock/u);
+  assert.match(experience, /available=\{product[.]available\}/u);
   assert.ok(experience.lastIndexOf("<ProductInformationDisclosures") > experience.lastIndexOf("<ProductPurchasePanel"));
   assert.match(disclosures, /aria-labelledby="product-information-title"/u);
   assert.match(disclosures, /className="sr-only" id="product-information-title">Ürün bilgileri/u);
