@@ -35,6 +35,7 @@ test("workspace source exposes six child-friendly sections, truthful save states
   assert.match(workspace, /Yayınla/);
   assert.match(preview, /StorefrontDesignRenderer/);
   assert.match(inspector, /Görsel yükle/);
+  assert.match(inspector, /showUpload={false}/);
   assert.match(inspector, /Varsayılana dön/);
   assert.match(inspector, /Bağlantı yok/);
   assert.match(css, /min-height:\s*48px/);
