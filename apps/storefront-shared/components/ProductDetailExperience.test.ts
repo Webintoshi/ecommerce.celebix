@@ -81,6 +81,7 @@ test("product summary follows the compact jewelry detail hierarchy", async () =>
   assert.match(purchase, /showVariantChoices/u);
   assert.match(purchase, /product[.]variants[.]length > 1/u);
   assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*max-width:\s*18ch[^}]*font-size:\s*clamp\(2rem,\s*2[.]6vw,\s*3rem\)/u);
+  assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*font-family:\s*Arial, Helvetica, sans-serif !important/u);
   assert.match(styles, /[.]disclosures\s*\{[^}]*display:\s*grid[^}]*border-top/u);
   assert.match(globalStyles, /[.]purchase-actions\s*\{[^}]*grid-template-columns:\s*1fr/u);
 });

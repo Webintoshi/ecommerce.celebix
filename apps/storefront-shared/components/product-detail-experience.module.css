@@ -3,7 +3,7 @@
 .experience { display: grid; grid-template-columns: minmax(0, 1.28fr) minmax(21rem, .72fr); gap: clamp(2rem, 5vw, 5.5rem); align-items: start; padding-block: clamp(1rem, 3vw, 3rem) clamp(3.5rem, 8vw, 7rem); }
 .purchaseColumn { position: sticky; top: 7rem; display: grid; min-width: 0; gap: 1.2rem; }
 .eyebrow { margin: 0 0 .7rem; color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .18em; }
-.purchaseColumn h1 { max-width: 18ch; margin: 0; overflow-wrap: anywhere; font-family: Arial, Helvetica, sans-serif; font-size: clamp(2rem, 2.6vw, 3rem); font-weight: 450; line-height: 1.08; letter-spacing: -.025em; }
+.purchaseColumn h1 { max-width: 18ch; margin: 0; overflow-wrap: anywhere; font-family: Arial, Helvetica, sans-serif !important; font-size: clamp(2rem, 2.6vw, 3rem); font-weight: 450; line-height: 1.08; letter-spacing: -.025em; }
 .metadata { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem 1rem; }
 .brand { display: inline-flex; min-height: 32px; align-items: center; color: var(--muted); font-size: .88rem; text-decoration: underline; text-underline-offset: .25rem; }
 .sku { margin: 0; color: #9a9a9a; font-size: clamp(.9rem, 1.35vw, 1.1rem); }
