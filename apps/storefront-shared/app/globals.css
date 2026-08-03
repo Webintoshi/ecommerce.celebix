@@ -120,14 +120,14 @@ img { display: block; max-width: 100%; }
 .gallery-main, .gallery-empty { display: grid; overflow: hidden; aspect-ratio: 1 / 1; place-items: center; background: var(--media-surface); color: var(--muted); }
 .gallery-zoom-trigger { position: relative; width: 100%; height: 100%; border: 0; background: transparent; padding: 0; cursor: zoom-in; }
 .gallery-zoom-trigger > span { position: absolute; right: 14px; bottom: 14px; display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid var(--line); background: color-mix(in srgb, var(--white) 92%, transparent); color: var(--ink); font-size: 20px; }
-.gallery-main img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-main img { width: 100%; height: 100%; object-fit: contain; }
 .gallery-mobile-track { display: none; }
 .gallery-mobile-track button { overflow: hidden; border: 0; background: var(--media-surface); padding: 0; cursor: zoom-in; }
 .gallery-rail { grid-template-columns: 1fr; }
 .gallery-rail .gallery-main { display: none; }
 .gallery-rail .gallery-mobile-track { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; gap: 10px; }
 .gallery-rail .gallery-mobile-track button { flex: 0 0 calc(50% - 5px); aspect-ratio: 1; scroll-snap-align: start; }
-.gallery-rail .gallery-mobile-track img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-rail .gallery-mobile-track img { width: 100%; height: 100%; object-fit: contain; }
 .gallery-rail .gallery-thumbnails { display: none; }
 .gallery-zoom-backdrop { position: fixed; z-index: 95; inset: 0; display: grid; place-items: center; background: rgb(10 10 10 / 82%); padding: 24px; animation: side-cart-fade .18s ease both; }
 .gallery-zoom-dialog { position: relative; display: grid; width: min(100%, 1100px); max-height: calc(100dvh - 48px); place-items: center; background: var(--white); box-shadow: 0 24px 80px rgb(0 0 0 / 32%); }
@@ -461,7 +461,7 @@ img { display: block; max-width: 100%; }
   .gallery-mobile-track { display: flex; overflow-x: auto; gap: 8px; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .gallery-rail .gallery-mobile-track { display: flex; }
   .gallery-mobile-track button { flex: 0 0 100%; width: 100%; scroll-snap-align: start; }
-  .gallery-mobile-track img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; background: var(--media-surface); }
+  .gallery-mobile-track img { width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; background: var(--media-surface); }
   .gallery-thumbnails { display: none; }
 }
 @media (max-width: 640px) {

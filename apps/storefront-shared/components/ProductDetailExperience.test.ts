@@ -41,6 +41,7 @@ test("detail gallery and mobile purchase stay keyboard and viewport safe", async
   const galleryModel = await read("product-gallery-model.ts");
   const styles = await read("product-detail-experience.module.css");
   const globalStyles = await read("../app/globals.css");
+  const mobileGlobalStyles = globalStyles.slice(globalStyles.indexOf("@media (max-width: 1024px)"), globalStyles.indexOf("@media (max-width: 640px)"));
   assert.match(gallery, /aria-current/);
   assert.match(gallery, /aria-modal="true"/);
   assert.match(gallery, /galleryEscapeRequested\(event[.]key\)/);
@@ -53,6 +54,11 @@ test("detail gallery and mobile purchase stay keyboard and viewport safe", async
   assert.match(gallery, /gallery-mobile-track/);
   assert.match(globalStyles, /scroll-snap-type:\s*x mandatory/);
   assert.match(globalStyles, /[.]gallery-mobile-track img\s*\{[^}]*height:\s*auto/u);
+  assert.match(globalStyles, /[.]gallery-main img\s*\{[^}]*object-fit:\s*contain/u);
+  assert.match(globalStyles, /[.]gallery-rail [.]gallery-mobile-track img\s*\{[^}]*object-fit:\s*contain/u);
+  assert.match(mobileGlobalStyles, /[.]gallery-mobile-track img\s*\{[^}]*object-fit:\s*contain/u);
+  assert.match(globalStyles, /[.]gallery-thumbnails img\s*\{[^}]*object-fit:\s*cover/u);
+  assert.match(globalStyles, /[.]product-image-shell img\s*\{[^}]*object-fit:\s*cover/u);
   assert.match(globalStyles, /[.]gallery-rail [.]gallery-mobile-track/u);
   assert.match(globalStyles, /[.]gallery-rail [.]gallery-mobile-track\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(2/u);
   assert.match(globalStyles, /[.]gallery-thumbnails\s*\{[^}]*flex-direction:\s*column/u);
