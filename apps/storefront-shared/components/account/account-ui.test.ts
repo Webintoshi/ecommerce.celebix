@@ -14,7 +14,25 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.match(auth, /role="status"/u);
   assert.match(auth, /\/api\/account\/auth\/start/u);
   assert.match(auth, /\/api\/account\/auth\/verify/u);
+  assert.match(auth, /Giriş bağlantısı gönder/u);
+  assert.match(auth, /Bağlantı 10 dakika geçerlidir/u);
+  assert.match(auth, /ticket: ticket/u);
+  assert.match(auth, /Kod ile devam et/u);
+  assert.doesNotMatch(auth, /window[.]location[.]assign\(`\/account\/verify/u);
   assert.doesNotMatch(auth, /password/u);
+});
+
+test("account entry is compact store-branded and confirmation requires an explicit post", async () => {
+  const login = await source("app/account/login/page.tsx");
+  const verify = await source("app/account/verify/page.tsx");
+  const css = await source("app/globals.css");
+  assert.match(login, /Hesabınıza giriş yapın/u);
+  assert.match(login, /Siparişlerinizi takip edin/u);
+  assert.match(login, /Adreslerinizi saklayın/u);
+  assert.match(verify, /ticket=/u);
+  assert.match(verify, /Girişi onaylayın/u);
+  assert.match(css, /max-width: 480px/u);
+  assert.doesNotMatch(css, /\.account-auth-layout h1[^}]+font-family: Georgia/su);
 });
 
 test("account dashboard exposes working shopper destinations without private authority", async () => {

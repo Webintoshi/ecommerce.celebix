@@ -11,5 +11,9 @@ export const dynamic = "force-dynamic";
 
 export default async function LoginPage({ searchParams }: Readonly<{ searchParams: Promise<{ returnTo?: string }> }>) {
   const { storefront, design } = requireStorefrontPage(await resolveStorefrontPage()); const returnTo = safeAccountReturnTo((await searchParams).returnTo);
-  return <StorefrontFrame storefront={storefront} design={design}><section className="account-auth-layout store-container"><div><span>HESABINIZ</span><h1>Giriş yapın veya hesap oluşturun</h1><p>E-posta adresinize tek kullanımlık kod göndereceğiz.</p></div><AccountAuthForm mode="email" returnTo={returnTo} /></section></StorefrontFrame>;
+  return <StorefrontFrame storefront={storefront} design={design}><main className="account-auth-layout store-container">
+    <header className="account-auth-intro"><span>HESABINIZ</span><h1>Hesabınıza giriş yapın</h1><p>E-posta adresinize güvenli, tek kullanımlık bir bağlantı göndereceğiz.</p></header>
+    <AccountAuthForm mode="email" returnTo={returnTo} />
+    <ul className="account-auth-benefits"><li>Siparişlerinizi takip edin</li><li>Adreslerinizi saklayın</li><li>Favorilerinize her cihazdan ulaşın</li></ul>
+  </main></StorefrontFrame>;
 }

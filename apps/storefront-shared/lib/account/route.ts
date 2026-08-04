@@ -17,6 +17,7 @@ type Dependencies = Readonly<{
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const CODE = /^[0-9]{6}$/u;
+const MAGIC_TICKET = /^ch1[.][a-z][a-z0-9_-]{2,31}[.][A-Za-z0-9_-]{16}[.][A-Za-z0-9_-]{1,1024}[.][A-Za-z0-9_-]{22}[.]tk1[.][A-Za-z0-9_-]{43}$/u;
 const PHONE = /^\+[1-9][0-9]{7,14}$/u;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
 
@@ -40,7 +41,7 @@ function authority(dependencies: Dependencies, request: Request): Readonly<{ hos
 async function selectedRuntime(dependencies: Dependencies): Promise<StorefrontIdentityRuntime | null> { try { return await dependencies.resolveRuntime(); } catch { return null; } }
 function failure(error: unknown): Response {
   const code = error instanceof StorefrontIdentityRepositoryError ? error.code : error instanceof TypeError ? "invalid_input" : "unavailable";
-  if (code === "challenge_invalid") return json({ code, message: "Kod geçersiz veya süresi dolmuş." }, 401);
+  if (code === "challenge_invalid") return json({ code, message: "Bağlantı veya kod geçersiz ya da süresi dolmuş." }, 401);
   if (code === "unauthenticated") return json({ code, message: "Oturumunuz sona erdi." }, 401);
   if (code === "account_suspended") return json({ code, message: "Bu hesap şu anda kullanılamıyor." }, 403);
   if (code === "invalid_input") return json({ code, message: "Bilgileri kontrol edin." }, 400);
@@ -66,7 +67,7 @@ export function createAccountAuthStartRoute(dependencies: Dependencies) {
     const [runtime, brand] = await Promise.all([selectedRuntime(dependencies), dependencies.resolveBrand(selected.hostname).catch(() => null)]); if (!runtime || !brand) return failure(new Error());
     try {
       const result = await runtime.start({ hostname: selected.hostname, email: input.email, requestAuthority: dependencies.requestAuthority(request.headers), returnTo: input.returnTo, brand });
-      return json({ ...result.result, destination: "/account/verify", returnTo: input.returnTo }, 200, [result.setCookie]);
+      return json({ ...result.result, message: "Giriş bağlantısı gönderildi. Gelen kutunuzu kontrol edin.", returnTo: input.returnTo }, 200, [result.setCookie]);
     } catch (error) { return failure(error); }
   };
 }
@@ -74,11 +75,20 @@ export function createAccountAuthStartRoute(dependencies: Dependencies) {
 export function createAccountAuthVerifyRoute(dependencies: Dependencies) {
   return async function POST(request: Request): Promise<Response> {
     const selected = authority(dependencies, request); if (!selected) return failure(new Error());
-    let input: { code: string; returnTo: string };
-    try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["code"], ["returnTo"]); const code = text(p.code, 6, 6); if (!CODE.test(code)) invalid(); return { code, returnTo: Object.hasOwn(p, "returnTo") ? safeAccountReturnTo(p.returnTo) : "/account" }; }); } catch { return failure(new TypeError()); }
+    let input: ({ ticket: string } | { code: string }) & { returnTo: string };
+    try {
+      input = await readAccountJsonRequest(request, selected.origin, (value) => {
+        const p = exact(value, [], ["ticket", "code", "returnTo"]); const hasTicket = Object.hasOwn(p, "ticket"); const hasCode = Object.hasOwn(p, "code");
+        if (hasTicket === hasCode) invalid();
+        const returnTo = Object.hasOwn(p, "returnTo") ? safeAccountReturnTo(p.returnTo) : "/account";
+        if (hasTicket) { const ticket = text(p.ticket, 100, 1_600); if (!MAGIC_TICKET.test(ticket)) invalid(); return { ticket, returnTo }; }
+        const code = text(p.code, 6, 6); if (!CODE.test(code)) invalid(); return { code, returnTo };
+      });
+    } catch { return failure(new TypeError()); }
     const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
     try {
-      const result = await runtime.verify({ hostname: selected.hostname, challengeCookie: request.headers.get("cookie"), code: input.code, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" });
+      const base = { hostname: selected.hostname, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" };
+      const result = await runtime.verify("ticket" in input ? { ...base, ticket: input.ticket } : { ...base, challengeCookie: request.headers.get("cookie"), code: input.code });
       return json({ ...result.result, destination: result.result.profileRequired ? "/account/profile" : input.returnTo }, 200, result.setCookies);
     } catch (error) { return failure(error); }
   };
