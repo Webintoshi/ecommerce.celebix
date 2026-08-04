@@ -37,7 +37,7 @@ function state() {
       { kind: "brand_story" as const, enabled: true, heading: "Hikâyemiz", body: "Özenle seçilmiş ürünler.", assetId: ASSET, destination: "/pages/hakkimizda" },
     ],
     productDetail: { galleryStyle: "grid" as const, showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: ["description" as const, "materials_and_care" as const, "certifications" as const, "shipping_and_returns" as const] },
-    cart: { showCheckoutReadiness: true, showShippingProgress: true, trustMessage: "Güvenli ödeme" },
+    cart: { showCheckoutReadiness: true, showShippingProgress: true, showQuantitySelector: true, trustMessage: "Güvenli ödeme" },
     footer: { tone: "dark" as const, groups: [{ heading: "Mağaza", links: [{ kind: "system" as const, destination: "/products" as const }] }, { heading: "Yasal", links: [{ kind: "fixed_policy" as const, policyKey: "privacy_security" as const }] }], newsletter: { enabled: false, heading: "Bizden haber alın", body: "Duyuruları alın.", consentLabel: "İzin veriyorum." }, social: [] },
   };
 }
@@ -49,6 +49,16 @@ test("composer rejects category product rows without a category", () => { const 
 test("composer rejects raw tenant authority", () => { const value = state(); assert.throws(() => buildStarterThemeComposition({ ...value, storeId: CATEGORY } as never)); });
 test("default editor state is publishable, contains no invented durable references, and disables unsupported shipping progress", () => { const state = createStarterThemeEditorState(); const value = buildStarterThemeComposition(state); assert.deepEqual(value.navigation.rootCategoryIds, []); assert.equal(state.cart.showShippingProgress, false); assert.equal(value.cart.showShippingProgress, false); assert.doesNotMatch(JSON.stringify(value), /assetId|categoryId|productId|pageId|fixed_policy/); });
 test("composer normalization cannot republish shipping progress without canonical threshold authority", () => { const value = buildStarterThemeComposition(state()); assert.equal(value.cart.showShippingProgress, false); });
+test("quantity-selector visibility is preserved by composer normalization", () => {
+  const enabled = buildStarterThemeComposition(state());
+  const current = state();
+  const disabled = buildStarterThemeComposition({
+    ...current,
+    cart: { ...current.cart, showQuantitySelector: false },
+  });
+  assert.equal(enabled.cart.showQuantitySelector, true);
+  assert.equal(disabled.cart.showQuantitySelector, false);
+});
 test("move reorders sections immutably", () => { const sections = state().sections; const moved = moveStarterSection(sections, 1, -1); assert.notEqual(moved, sections); assert.equal(moved[0]?.kind, "category_grid"); assert.equal(Object.isFrozen(moved), true); });
 test("move keeps the first section stable at the upper boundary", () => { const sections = Object.freeze(state().sections); assert.equal(moveStarterSection(sections, 0, -1), sections); });
 test("move keeps the last section stable at the lower boundary", () => { const sections = Object.freeze(state().sections); assert.equal(moveStarterSection(sections, sections.length - 1, 1), sections); });
@@ -132,6 +142,7 @@ test("new editor state exposes the complete retail schema without fake content",
   assert.equal(value.productDetail.showSizeGuide, true);
   assert.deepEqual(value.productDetail.informationSections, ["description", "materials_and_care", "certifications", "shipping_and_returns"]);
   assert.equal(value.footer.newsletter.enabled, false);
+  assert.equal(value.cart.showQuantitySelector, true);
   assert.equal(value.footer.groups.length, 2);
   assert.equal(JSON.stringify(value).includes("testimonial quote"), false);
   assert.equal(Object.isFrozen(value.footer.groups), true);
@@ -180,6 +191,7 @@ test("v1 editor state upgrades to v2 without inventing testimonials or social pr
   } as StarterThemeCompositionConfig;
   const upgraded = upgradeStarterThemeComposition(legacy);
   assert.equal(upgraded.schemaVersion, 2);
+  assert.equal(upgraded.cart.showQuantitySelector, true);
   assert.equal(upgraded.sections.some(({ kind }) => kind === "testimonials"), false);
   assert.deepEqual(upgraded.footer.social, []);
   assert.equal(upgraded.footer.newsletter.enabled, false);

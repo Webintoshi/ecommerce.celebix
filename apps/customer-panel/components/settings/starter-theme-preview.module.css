@@ -484,6 +484,35 @@
   text-transform: uppercase;
 }
 
+.previewQuantity {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(24px, auto));
+  width: fit-content;
+  min-height: 30px;
+  align-items: center;
+  border-block: 1px solid color-mix(in srgb, var(--preview-ink) 18%, transparent);
+}
+
+.previewCheckout .previewQuantity button,
+.previewQuantity span {
+  display: grid;
+  min-width: 28px;
+  min-height: 28px;
+  place-items: center;
+  border: 0;
+  color: var(--preview-ink);
+  background: transparent;
+  font: inherit;
+  font-size: .58rem;
+  font-weight: 760;
+}
+
+.previewQuantity > span:only-child {
+  grid-column: 1 / -1;
+  min-width: auto;
+  color: var(--preview-muted);
+}
+
 .previewCheckout button {
   min-height: 34px;
   border: 0;

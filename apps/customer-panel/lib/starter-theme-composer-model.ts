@@ -50,7 +50,7 @@ export function upgradeStarterThemeComposition(input: StarterThemeComposition): 
       showSizeGuide: true,
       informationSections: Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const),
     }),
-    cart: input.cart,
+    cart: Object.freeze({ ...input.cart, showQuantitySelector: true }),
     footer: defaultFooter(),
   });
 }
@@ -143,7 +143,7 @@ export function createStarterThemeEditorState(): StarterThemeEditorState {
     navigation: Object.freeze({ rootCategoryIds: Object.freeze([]) }),
     sections: Object.freeze([Object.freeze({ kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 })]),
     productDetail: Object.freeze({ galleryStyle: "grid", showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const) }),
-    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: false, trustMessage: "Güvenli ödeme" }),
+    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: false, showQuantitySelector: true, trustMessage: "Güvenli ödeme" }),
     footer: defaultFooter(),
   });
 }
