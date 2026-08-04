@@ -12,16 +12,21 @@ import { getMerchantRecordRouteDefinition } from "./record-route.ts";
 test("locks each editor route to one merchant record kind", () => {
   assert.equal(getMerchantRecordRouteDefinition("content-blog").kind, "blog_post");
   assert.equal(getMerchantRecordRouteDefinition("payment").kind, "payment_setting");
-  assert.equal(getMerchantRecordRouteDefinition("marketplaces").kind, "marketplace_connection");
-  assert.equal(getMerchantRecordRouteDefinition("settings-administrators").kind, "administrator_invite");
-  assert.equal(getMerchantRecordRouteDefinition("accounting-invoicing").kind, "invoice_integration");
-  assert.equal(getMerchantRecordRouteDefinition("seo-products").kind, "seo_product_entry");
+  assert.equal(getMerchantRecordRouteDefinition("discount").kind, "discount");
+  assert.equal(getMerchantRecordRouteDefinition("lucky-wheel").kind, "lucky_wheel");
+  assert.equal(getMerchantRecordRouteDefinition("marketing-email").kind, "email_campaign");
+  assert.equal(getMerchantRecordRouteDefinition("marketing-phone").kind, "phone_campaign");
+  assert.equal(getMerchantRecordRouteDefinition("marketing-whatsapp").kind, "whatsapp_campaign");
+  assert.equal(getMerchantRecordRouteDefinition("content-pages").kind, "page");
   assert.throws(
     () => getMerchantRecordRouteDefinition("unknown-route"),
     /merchant_record_route_invalid/,
   );
   for (const hostileKey of ["constructor", "toString", "__proto__"]) {
     assert.throws(() => getMerchantRecordRouteDefinition(hostileKey), /merchant_record_route_invalid/);
+  }
+  for (const inlineEditorKey of ["marketplaces", "settings-administrators", "accounting-invoicing", "seo-products"]) {
+    assert.throws(() => getMerchantRecordRouteDefinition(inlineEditorKey), /merchant_record_route_invalid/);
   }
 });
 
