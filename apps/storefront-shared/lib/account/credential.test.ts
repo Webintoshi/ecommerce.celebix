@@ -6,6 +6,10 @@ import {
   accountCredentialDigestCandidates,
   accountCsrfDigest,
   accountEmailDigest,
+  accountHostnameCodeDigest,
+  accountHostnameEmailDigest,
+  accountRequestDigest,
+  accountUserAgentDigest,
   createAccountSessionCredential,
   createStorefrontLoginCode,
   openAccountChallenge,
@@ -51,6 +55,16 @@ test("low entropy codes and authority values use purpose-bound keyed digests", (
   assert.notEqual(accountEmailDigest(authority.storeId, authority.email, keyring).digest, code.digest);
   assert.notEqual(accountCsrfDigest("30000000-0000-4000-8000-000000000001", "csrf-value", keyring).digest, code.digest);
   assert.equal(createStorefrontLoginCode((maximum) => maximum - 1), "999999");
+});
+
+test("hostname-bound public identity digests isolate stores without exposing authority", () => {
+  const hostname = "identity-a.saas-staging.celebix.site";
+  const email = accountHostnameEmailDigest(hostname, "Ada@Example.com", keyring);
+  const code = accountHostnameCodeDigest({ challengeId: "10000000-0000-4000-8000-000000000001", hostname, email: "Ada@Example.com", code: "042319" }, keyring);
+  assert.match(email.digest, /^[a-f0-9]{64}$/u);
+  assert.notEqual(email.digest, accountHostnameEmailDigest("identity-b.saas-staging.celebix.site", "ada@example.com", keyring).digest);
+  assert.notEqual(code.digest, email.digest);
+  assert.notEqual(accountRequestDigest(hostname, "request-bucket", keyring).digest, accountUserAgentDigest(hostname, "request-bucket", keyring).digest);
 });
 
 test("challenge cookies are authenticated encrypted exact and short-lived", () => {

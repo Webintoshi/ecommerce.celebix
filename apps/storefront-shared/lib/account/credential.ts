@@ -11,6 +11,7 @@ const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const CREDENTIAL = /^a1[.]([a-z][a-z0-9_-]{2,31})[.]([A-Za-z0-9_-]{43})$/;
 const CHALLENGE = /^ch1[.]([a-z][a-z0-9_-]{2,31})[.]([A-Za-z0-9_-]{16})[.]([A-Za-z0-9_-]{1,1024})[.]([A-Za-z0-9_-]{22})$/;
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 export type StorefrontIdentityKeyring = Readonly<{
   activeKeyId: string;
@@ -111,6 +112,33 @@ export function accountCodeDigest(authority: Readonly<{ challengeId: string; sto
 export function accountEmailDigest(storeId: string, emailValue: string, keyring: StorefrontIdentityKeyring, keyId = keyring.activeKeyId): Readonly<{ keyId: string; digest: string }> {
   if (!UUID.test(storeId)) credentialInvalid();
   return issueDigest("email", [storeId, normalizeStorefrontAccountEmail(emailValue)], keyring, keyId);
+}
+
+function identityHostname(value: string): string {
+  if (typeof value !== "string" || value.length < 3 || value.length > 253 || value !== value.toLowerCase() || !HOSTNAME.test(value)) credentialInvalid();
+  return value;
+}
+
+export function accountHostnameEmailDigest(hostnameValue: string, emailValue: string, keyring: StorefrontIdentityKeyring, keyId = keyring.activeKeyId): Readonly<{ keyId: string; digest: string }> {
+  return issueDigest("hostname-email", [identityHostname(hostnameValue), normalizeStorefrontAccountEmail(emailValue)], keyring, keyId);
+}
+
+export function accountHostnameCodeDigest(authority: Readonly<{ challengeId: string; hostname: string; email: string; code: string }>, keyring: StorefrontIdentityKeyring, keyId = keyring.activeKeyId): Readonly<{ keyId: string; digest: string }> {
+  if (!UUID.test(authority.challengeId) || !CODE.test(authority.code)) credentialInvalid();
+  return issueDigest("hostname-code", [authority.challengeId, identityHostname(authority.hostname), normalizeStorefrontAccountEmail(authority.email), authority.code], keyring, keyId);
+}
+
+function boundedAuthority(value: string, maximum: number): string {
+  if (typeof value !== "string" || value.length < 1 || value.length > maximum || CONTROL.test(value)) credentialInvalid();
+  return value;
+}
+
+export function accountRequestDigest(hostnameValue: string, requestAuthority: string, keyring: StorefrontIdentityKeyring, keyId = keyring.activeKeyId): Readonly<{ keyId: string; digest: string }> {
+  return issueDigest("request-authority", [identityHostname(hostnameValue), boundedAuthority(requestAuthority, 512)], keyring, keyId);
+}
+
+export function accountUserAgentDigest(hostnameValue: string, userAgent: string, keyring: StorefrontIdentityKeyring, keyId = keyring.activeKeyId): Readonly<{ keyId: string; digest: string }> {
+  return issueDigest("user-agent", [identityHostname(hostnameValue), boundedAuthority(userAgent, 2_048)], keyring, keyId);
 }
 
 export function accountCsrfDigest(sessionId: string, csrfValue: string, keyring: StorefrontIdentityKeyring, keyId = keyring.activeKeyId): Readonly<{ keyId: string; digest: string }> {
