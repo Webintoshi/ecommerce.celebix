@@ -7,7 +7,7 @@ import { PostgresStorefrontIdentityRepository, StorefrontIdentityRepositoryError
 const HOST = "identity-a.saas-staging.celebix.site";
 const NOW = new Date("2026-08-04T09:00:00.000Z");
 const UUIDS = Object.freeze({ challenge: "40000000-0000-4000-8000-000000000083", account: "50000000-0000-4000-8000-000000000083", session: "60000000-0000-4000-8000-000000000083", outbox: "70000000-0000-4000-8000-000000000083" });
-const DIGESTS = Object.freeze({ email: "a".repeat(64), request: "f".repeat(64), code: "b".repeat(64), session: "c".repeat(64), csrf: "d".repeat(64), userAgent: "e".repeat(64) });
+const DIGESTS = Object.freeze({ email: "a".repeat(64), request: "f".repeat(64), code: "b".repeat(64), ticket: "8".repeat(64), session: "c".repeat(64), csrf: "d".repeat(64), userAgent: "e".repeat(64) });
 const CANDIDATES = Object.freeze([Object.freeze({ keyId: "session_01", digest: DIGESTS.session })]);
 
 type Row = Record<string, unknown>;
@@ -32,21 +32,26 @@ function responder(outcome: string, result: unknown): Responder { return (text) 
 
 test("auth start queues only digest and encrypted delivery authority in one transaction", async () => {
   const client = new Client(responder("accepted", { retryAfterSeconds: 60 }));
-  const result = await repository(new Pool([client])).start({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, emailDigest: DIGESTS.email, requestDigest: DIGESTS.request, codeKeyId: "code_01", codeDigest: DIGESTS.code, expiresAt: new Date("2026-08-04T09:10:00.000Z"), outboxId: UUIDS.outbox, recipientCiphertext: "encrypted-recipient-authority-083", brandSnapshot: { name: "Güzide" }, correlationId: "correlation_083" });
+  const result = await repository(new Pool([client])).start({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, emailDigest: DIGESTS.email, requestDigest: DIGESTS.request, codeKeyId: "code_01", codeDigest: DIGESTS.code, ticketKeyId: "ticket_01", ticketDigest: DIGESTS.ticket, expiresAt: new Date("2026-08-04T09:10:00.000Z"), outboxId: UUIDS.outbox, recipientCiphertext: "encrypted-recipient-authority-083", brandSnapshot: { name: "Güzide" }, correlationId: "correlation_083" });
   assert.deepEqual(result, { outcome: "accepted", retryAfterSeconds: 60 });
   const selected = client.calls.find(({ text }) => text.includes("saas.public_account_auth_start"));
   assert.equal(selected?.values.includes("ada@example.com"), false);
   assert.equal(selected?.values.includes(DIGESTS.code), true);
+  assert.equal(selected?.values.includes(DIGESTS.ticket), true);
+  assert.match(selected?.text ?? "", /saas[.]public_account_auth_start_v2/u);
   assert.equal(client.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });
 
 test("verification passes server-derived authority and returns only the finite public result", async () => {
   const client = new Client(responder("authenticated", { profileRequired: false }));
-  const result = await repository(new Pool([client])).verify({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, emailDigest: DIGESTS.email, codeDigest: DIGESTS.code, email: "ada@example.test", accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari macOS", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_00083" });
+  const result = await repository(new Pool([client])).verify({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, emailDigest: DIGESTS.email, verifierKind: "ticket", verifierDigest: DIGESTS.ticket, email: "ada@example.test", accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari macOS", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_00083" });
   assert.deepEqual(result, { outcome: "authenticated", profileRequired: false });
   const selected = client.calls.find(({ text }) => text.includes("saas.public_account_auth_verify"));
-  assert.equal(selected?.values.length, 14);
+  assert.equal(selected?.values.length, 15);
+  assert.equal(selected?.values[4], "ticket");
+  assert.equal(selected?.values[5], DIGESTS.ticket);
+  assert.match(selected?.text ?? "", /saas[.]public_account_auth_verify_v2/u);
   assert.equal(JSON.stringify(result).includes("accountId"), false);
 });
 
@@ -68,7 +73,7 @@ test("account order list rejects database authority and parses public references
 
 test("known account failures map to bounded codes and always roll back", async () => {
   const client = new Client(responder("challenge_invalid", null));
-  await assert.rejects(repository(new Pool([client])).verify({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, emailDigest: DIGESTS.email, codeDigest: DIGESTS.code, email: "ada@example.test", accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari macOS", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_00083" }), (error: unknown) => error instanceof StorefrontIdentityRepositoryError && error.code === "challenge_invalid");
+  await assert.rejects(repository(new Pool([client])).verify({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, emailDigest: DIGESTS.email, verifierKind: "code", verifierDigest: DIGESTS.code, email: "ada@example.test", accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari macOS", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_00083" }), (error: unknown) => error instanceof StorefrontIdentityRepositoryError && error.code === "challenge_invalid");
   assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
 });
 

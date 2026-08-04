@@ -28,6 +28,8 @@ export interface StorefrontIdentityRepository {
     requestDigest: string;
     codeKeyId: string;
     codeDigest: string;
+    ticketKeyId: string;
+    ticketDigest: string;
     expiresAt: Date;
     outboxId: string;
     recipientCiphertext: string;
@@ -37,7 +39,8 @@ export interface StorefrontIdentityRepository {
   verify(input: Authority & Readonly<{
     challengeId: string;
     emailDigest: string;
-    codeDigest: string;
+    verifierKind: "ticket" | "code";
+    verifierDigest: string;
     email: string;
     accountId: string;
     sessionId: string;
