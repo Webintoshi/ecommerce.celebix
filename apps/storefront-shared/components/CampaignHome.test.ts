@@ -11,12 +11,22 @@ test("hero rotation is explicit scroll snap without autoplay", async () => { con
 test("category and campaign panels use only safe public relative destinations", async () => { const source = await read("CampaignPanels.tsx"); assert.match(source, /`\/categories\/\$\{item[.]slug\}`/); assert.match(source, /panel[.]destination/); assert.doesNotMatch(source, /assetId|categoryId|storeId|tenantId/); });
 test("campaign home mounts jewelry category placeholders from public navigation authority", async () => {
   const source = await read("CampaignHome.tsx");
-  assert.match(source, /deriveJewelryCategoryPlaceholders\(presentation[.]navigation, presentation[.]sections\)/);
+  assert.match(source, /deriveJewelryCategoryPlaceholders\(presentation[.]navigation, sections\)/);
   assert.match(source, /<JewelryCategoryPlaceholders items=\{categoryPlaceholders\}/);
   assert.doesNotMatch(source, /tenantId|storeId|categoryId|assetId/);
 });
 test("product rows bind exact projection keys to canonical product cards", async () => { const source = await read("CampaignProductRow.tsx"); assert.match(source, /section[.]key/); assert.match(source, /ProductGrid/); assert.match(source, /products/); assert.doesNotMatch(source, /Math[.]random|fake|mock/); });
 test("home page resolves campaign projection only through server page context", async () => { const [page, context, campaignResolution] = await Promise.all([read("../app/page.tsx"), read("../lib/page-context.ts"), read("../lib/campaign-page-resolution.ts")]); assert.match(page, /context[.]campaign/); assert.match(context, /resolveCampaignPageProjection/); assert.match(campaignResolution, /resolveCampaignHome/); assert.doesNotMatch(`${page}\n${context}\n${campaignResolution}`, /localStorage|sessionStorage|x-store-id|tenantId/); });
+test("published design banner augments campaign sections without a duplicate hero", async () => {
+  const source = await read("CampaignHome.tsx");
+  assert.match(source, /designHeroActive\s*=\s*design[.]publicationVersion > 1/);
+  assert.match(source, /designHeroActive\s*\?\s*presentation[.]sections[.]filter/);
+  assert.match(source, /section[.]kind !== "hero"/);
+  assert.match(source, /<StorefrontDesignRenderer/);
+  assert.match(source, /showHeader=\{false\}/);
+  assert.match(source, /sections[.]map/);
+  assert.doesNotMatch(source, /designHeroActive\s*\?\s*null\s*:\s*<CampaignHome/);
+});
 test("campaign announcement keeps its exact safe destination and visual controls reach the storefront", async () => {
   const [home, frame, model, css, campaignCss] = await Promise.all([read("CampaignHome.tsx"), read("StorefrontFrame.tsx"), read("campaign-ui-model.ts"), read("../app/globals.css"), read("campaign-home.module.css")]);
   assert.match(home, /announcement[.]destination/);

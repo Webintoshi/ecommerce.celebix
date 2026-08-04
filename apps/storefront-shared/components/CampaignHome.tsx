@@ -6,6 +6,7 @@ import type {
   PublicStorefront,
   PublicStorefrontDesign,
 } from "@celebix/saas-contracts";
+import { StorefrontDesignRenderer } from "@celebix/storefront-design-ui";
 import Link from "next/link";
 import { Fragment } from "react";
 
@@ -90,45 +91,68 @@ export function CampaignHome({
   if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3)
     return null;
   const effective = Object.freeze({ ...storefront, presentation });
+  const customized = design.publicationVersion > 1;
+  const designHeroActive = design.publicationVersion > 1
+    && design.hero.enabled
+    && design.hero.slides.length > 0;
   const announcement = campaignAnnouncement(presentation);
-  const categoryPlaceholders = deriveJewelryCategoryPlaceholders(presentation.navigation, presentation.sections);
-  const supportingStart = presentation.sections.findIndex(
+  const sections = designHeroActive
+    ? presentation.sections.filter((section) => section.kind !== "hero")
+    : presentation.sections;
+  const categoryPlaceholders = deriveJewelryCategoryPlaceholders(presentation.navigation, sections);
+  const supportingStart = sections.findIndex(
     ({ kind }) => kind === "value_propositions" || kind === "testimonials",
   );
   const placeholderIndex =
-    supportingStart === -1 ? presentation.sections.length : supportingStart;
+    supportingStart === -1 ? sections.length : supportingStart;
+  const campaignSections = (
+    <div className={styles.home}>
+      {sections.map((section, index) => (
+        <Fragment key={`${section.kind}-${index}`}>
+          {index === placeholderIndex ? (
+            <JewelryCategoryPlaceholders items={categoryPlaceholders} />
+          ) : null}
+          <Section
+            section={section}
+            presentation={presentation}
+            productRows={projection.productRows}
+          />
+        </Fragment>
+      ))}
+      {placeholderIndex === sections.length ? (
+        <JewelryCategoryPlaceholders items={categoryPlaceholders} />
+      ) : null}
+    </div>
+  );
   return (
     <StorefrontFrame
       storefront={effective}
       design={design}
-      hasAnnouncement={Boolean(announcement)}
+      hasAnnouncement={customized ? design.announcement.enabled : Boolean(announcement)}
     >
-      {announcement ? (
-        <aside className={styles.announcement} aria-label="Mağaza duyuruları">
-          {announcement.destination ? (
-            <Link href={announcement.destination}>{announcement.text}</Link>
-          ) : (
-            announcement.text
-          )}
-        </aside>
-      ) : null}
-      <div className={styles.home}>
-        {presentation.sections.map((section, index) => (
-          <Fragment key={`${section.kind}-${index}`}>
-            {index === placeholderIndex ? (
-              <JewelryCategoryPlaceholders items={categoryPlaceholders} />
-            ) : null}
-            <Section
-              section={section}
-              presentation={presentation}
-              productRows={projection.productRows}
-            />
-          </Fragment>
-        ))}
-        {placeholderIndex === presentation.sections.length ? (
-          <JewelryCategoryPlaceholders items={categoryPlaceholders} />
-        ) : null}
-      </div>
+      {customized ? (
+        <StorefrontDesignRenderer
+          design={design}
+          storeName={presentation.displayName}
+          now={new Date()}
+          showHeader={false}
+        >
+          {campaignSections}
+        </StorefrontDesignRenderer>
+      ) : (
+        <>
+          {announcement ? (
+            <aside className={styles.announcement} aria-label="Mağaza duyuruları">
+              {announcement.destination ? (
+                <Link href={announcement.destination}>{announcement.text}</Link>
+              ) : (
+                announcement.text
+              )}
+            </aside>
+          ) : null}
+          {campaignSections}
+        </>
+      )}
     </StorefrontFrame>
   );
 }

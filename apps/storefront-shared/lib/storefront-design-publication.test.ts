@@ -38,6 +38,11 @@ test("published design augments the complete storefront without removing commerc
   assert.match(home, /publicationVersion > 1/);
   assert.match(home, /design\.brand\.favicon/);
   assert.match(home, /<CampaignHome/);
+  assert.match(home, /if \(context[.]campaign\)/);
+  assert.doesNotMatch(home, /context[.]campaign && design[.]publicationVersion === 1/);
+  assert.match(await source("../components/CampaignHome.tsx"), /designHeroActive/);
+  assert.match(await source("../components/CampaignHome.tsx"), /section[.]kind !== "hero"/);
+  assert.match(await source("../components/CampaignHome.tsx"), /<StorefrontDesignRenderer/);
   assert.match(products, /design=\{design\}/);
   assert.match(product, /design=\{selected\.design\}/);
   assert.match(globals, /@celebix\/storefront-design-ui\/styles\.css/);

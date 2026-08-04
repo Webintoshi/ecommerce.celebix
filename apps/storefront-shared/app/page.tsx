@@ -49,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const context = requireStorefrontPage(await resolveStorefrontPage());
   const { runtime, storefront, design } = context;
-  if (context.campaign && design.publicationVersion === 1)
+  if (context.campaign)
     return (
       <CampaignHome
         storefront={storefront}
