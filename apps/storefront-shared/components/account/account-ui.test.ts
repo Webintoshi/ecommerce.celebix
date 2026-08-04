@@ -13,11 +13,14 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.match(auth, /autoComplete="one-time-code"/u);
   assert.match(auth, /role="status"/u);
   assert.match(auth, /\/api\/account\/auth\/start/u);
-  assert.match(auth, /\/api\/account\/auth\/verify/u);
+  assert.match(auth, /method="post" action="\/api\/account\/auth\/verify-browser"/u);
+  assert.match(auth, /type="hidden" name="ticket"/u);
+  assert.match(auth, /type="hidden" name="returnTo"/u);
+  assert.match(auth, /name="code"/u);
   assert.match(auth, /Giriş bağlantısı gönder/u);
   assert.match(auth, /Bağlantı 10 dakika geçerlidir/u);
-  assert.match(auth, /ticket: ticket/u);
   assert.match(auth, /Kod ile devam et/u);
+  assert.doesNotMatch(auth, /publicPost\("\/api\/account\/auth\/verify"|window[.]location[.]assign/u);
   assert.doesNotMatch(auth, /window[.]location[.]assign\(`\/account\/verify/u);
   assert.doesNotMatch(auth, /password/u);
 });

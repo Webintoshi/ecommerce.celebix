@@ -682,6 +682,29 @@ test("proxy owns exact checkout form and PayTR iframe CSP while every near-match
   assert.doesNotMatch(proxy, /form-action 'self'|form-action https:(?:[;'\s])|form-action \*|frame-src \*/);
 });
 
+test("proxy grants exact-origin form authority only to the account verification page", async () => {
+  type Factory = (dependencies: Readonly<{
+    selectAuthority: (headers: Headers) => Readonly<{ kind: "trusted"; hostname: string }>;
+    resolveMediaOrigin: () => string;
+    authorizePaytrIframe: () => Promise<boolean>;
+    now: () => Date;
+  }>) => (request: import("next/server.js").NextRequest) => Promise<import("next/server.js").NextResponse>;
+  const { createStorefrontProxy } = await import("../proxy.ts") as unknown as { createStorefrontProxy: Factory };
+  const { NextRequest } = await import("next/server.js");
+  const handler = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "pilot.saas-staging.celebix.site" }),
+    resolveMediaOrigin: () => "https://media.celebix.net",
+    authorizePaytrIframe: async () => false,
+    now: () => new Date("2026-08-04T12:00:00.000Z"),
+  });
+  const exact = await handler(new NextRequest("https://internal.example/account/verify"));
+  assert.match(exact.headers.get("content-security-policy") ?? "", /form-action https:\/\/pilot[.]saas-staging[.]celebix[.]site(?:;|$)/u);
+  for (const path of ["/account/login", "/account/verify/", "/account/verify?x=1"]) {
+    const response = await handler(new NextRequest(`https://internal.example${path}`));
+    assert.match(response.headers.get("content-security-policy") ?? "", /form-action 'none'/u);
+  }
+});
+
 test("exact signed PayTR callback bypasses presentation dependencies while near matches remain unavailable", async () => {
   type Factory = (dependencies: Readonly<{
     selectAuthority: (headers: Headers) => Readonly<{ kind: string; hostname?: string }>;

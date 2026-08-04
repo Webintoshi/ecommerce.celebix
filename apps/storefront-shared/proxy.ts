@@ -87,7 +87,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
           cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
       } catch { iframeAuthorized = false; }
     }
-    const csp = exactTarget && pathname === "/odeme/hizli"
+    const csp = exactTarget && (pathname === "/odeme/hizli" || pathname === "/account/verify")
       ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
       : iframeAuthorized
         ? PAYTR_IFRAME_CSP

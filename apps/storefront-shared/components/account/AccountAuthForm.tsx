@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { favoritesStorageKey, parseFavoriteProductIds } from "@/lib/favorites.ts";
-
-type PublicResponse = Readonly<{ destination?: string; returnTo?: string; message?: string; retryAfterSeconds?: number }>;
+type PublicResponse = Readonly<{ returnTo?: string; message?: string; retryAfterSeconds?: number }>;
 type AccountAuthFormProps = Readonly<{ mode: "email"; returnTo: string }> | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
 
 async function publicPost(path: string, body: unknown): Promise<PublicResponse> {
@@ -12,14 +10,6 @@ async function publicPost(path: string, body: unknown): Promise<PublicResponse> 
   const payload = await response.json().catch(() => null) as PublicResponse | null;
   if (!response.ok || !payload) throw new Error(payload?.message || "İşlem tamamlanamadı.");
   return payload;
-}
-
-async function syncFavorites(): Promise<void> {
-  try {
-    const token = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("__Host-celebix_account_csrf="))?.slice("__Host-celebix_account_csrf=".length) ?? "";
-    const ids = parseFavoriteProductIds(window.localStorage.getItem(favoritesStorageKey(window.location.hostname)));
-    await Promise.all(ids.map((productId) => fetch("/api/account/favorites", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json", "x-celebix-account-csrf": token }, body: JSON.stringify({ operationId: crypto.randomUUID(), productId, enabled: true }) }).catch(() => null)));
-  } catch {}
 }
 
 export function AccountAuthForm(props: AccountAuthFormProps) {
@@ -43,14 +33,6 @@ export function AccountAuthForm(props: AccountAuthFormProps) {
     finally { setBusy(false); }
   }
 
-  async function verify(body: Readonly<{ ticket: string } | { code: string }>) {
-    if (busy) return; setBusy(true); setStatus("");
-    try {
-      const payload = await publicPost("/api/account/auth/verify", { ...body, returnTo });
-      await syncFavorites(); window.location.assign(payload.destination || "/account");
-    } catch (error) { setStatus(error instanceof Error ? error.message : "İşlem tamamlanamadı."); setBusy(false); }
-  }
-
   if (mode === "email") {
     if (sent) return <div className="account-auth-form account-auth-sent">
       <span className="account-auth-confirmation" aria-hidden="true">✓</span>
@@ -69,14 +51,17 @@ export function AccountAuthForm(props: AccountAuthFormProps) {
 
   const ticket = props.ticket;
   return <div className="account-auth-form account-auth-verify">
-    {ticket ? <form onSubmit={(event) => { event.preventDefault(); void verify({ ticket: ticket }); }}>
-      <button className="store-button" type="submit" disabled={busy}>{busy ? "Giriş yapılıyor…" : "Güvenli giriş yap"}</button>
+    {ticket ? <form method="post" action="/api/account/auth/verify-browser">
+      <input type="hidden" name="ticket" value={ticket} />
+      <input type="hidden" name="returnTo" value={returnTo} />
+      <button className="store-button" type="submit">Güvenli giriş yap</button>
     </form> : null}
     <details open={!ticket}>
       <summary>Kod ile devam et</summary>
-      <form onSubmit={(event) => { event.preventDefault(); void verify({ code }); }} noValidate>
-        <label><span>6 haneli kod</span><input type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" /></label>
-        <button className="account-auth-secondary" type="submit" disabled={busy || code.length !== 6}>Kodla giriş yap</button>
+      <form method="post" action="/api/account/auth/verify-browser" noValidate>
+        <input type="hidden" name="returnTo" value={returnTo} />
+        <label><span>6 haneli kod</span><input name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" /></label>
+        <button className="account-auth-secondary" type="submit" disabled={code.length !== 6}>Kodla giriş yap</button>
       </form>
     </details>
     <p className="account-form-status" role="status" aria-live="polite">{status}</p>

@@ -4,7 +4,7 @@ import { StorefrontIdentityRepositoryError } from "@celebix/saas-data";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 import { normalizeStorefrontAccountEmail } from "./email.ts";
-import { readAccountJsonRequest, safeAccountReturnTo } from "./request.ts";
+import { readAccountFormRequest, readAccountJsonRequest, safeAccountReturnTo } from "./request.ts";
 import type { StorefrontIdentityRuntime } from "./runtime.ts";
 
 type Brand = Readonly<{ storeName: string; logoUrl: string | null; primaryColor: string | null }>;
@@ -90,6 +90,31 @@ export function createAccountAuthVerifyRoute(dependencies: Dependencies) {
       const base = { hostname: selected.hostname, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" };
       const result = await runtime.verify("ticket" in input ? { ...base, ticket: input.ticket } : { ...base, challengeCookie: request.headers.get("cookie"), code: input.code });
       return json({ ...result.result, destination: result.result.profileRequired ? "/account/profile" : input.returnTo }, 200, result.setCookies);
+    } catch (error) { return failure(error); }
+  };
+}
+
+export function createAccountAuthVerifyBrowserRoute(dependencies: Dependencies) {
+  return async function POST(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request); if (!selected) return failure(new Error());
+    let input: ({ ticket: string } | { code: string }) & { returnTo: string };
+    try {
+      input = await readAccountFormRequest(request, selected.origin, "/api/account/auth/verify-browser", (value) => {
+        const p = exact(value, [], ["ticket", "code", "returnTo"]); const hasTicket = Object.hasOwn(p, "ticket"); const hasCode = Object.hasOwn(p, "code");
+        if (hasTicket === hasCode) invalid();
+        const returnTo = Object.hasOwn(p, "returnTo") ? safeAccountReturnTo(p.returnTo) : "/account";
+        if (hasTicket) { const ticket = text(p.ticket, 100, 1_600); if (!MAGIC_TICKET.test(ticket)) invalid(); return { ticket, returnTo }; }
+        const code = text(p.code, 6, 6); if (!CODE.test(code)) invalid(); return { code, returnTo };
+      });
+    } catch { return failure(new TypeError()); }
+    const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
+    try {
+      const base = { hostname: selected.hostname, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" };
+      const result = await runtime.verify("ticket" in input ? { ...base, ticket: input.ticket } : { ...base, challengeCookie: request.headers.get("cookie"), code: input.code });
+      const destination = result.result.profileRequired ? "/account/profile" : input.returnTo;
+      const headers = new Headers({ "cache-control": "no-store, max-age=0", location: `${selected.origin}${destination}`, "referrer-policy": "no-referrer", "x-content-type-options": "nosniff" });
+      for (const cookie of result.setCookies) headers.append("set-cookie", cookie);
+      return new Response(null, { status: 303, headers });
     } catch (error) { return failure(error); }
   };
 }
