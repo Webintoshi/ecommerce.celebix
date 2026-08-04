@@ -118,6 +118,12 @@ const requiredHarnesses = Object.freeze([
     completion: /^38\/38 PASS$/m,
   }),
   Object.freeze({
+    file: "tests/saas-phase3/storefront-customer-identity/postgres-harness.mjs",
+    total: 18,
+    line: /^PASS \d+\/18 .+$/gm,
+    completion: /^18\/18 PASS$/m,
+  }),
+  Object.freeze({
     file: "tests/saas-phase3/starter-theme-composition/postgres-harness.mjs",
     total: 32,
     line: /^PASS \d+\/32 .+$/gm,
@@ -140,7 +146,8 @@ const gateRank = Object.freeze({
   "built-in-payment-methods": 12,
   "storefront-policy-search": 13,
   "storefront-cart-checkout": 14,
-  "starter-theme-composition": 15,
+  "storefront-customer-identity": 15,
+  "starter-theme-composition": 16,
 });
 const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/payment-adapter-runtime/evidence-artifact.test.mjs",

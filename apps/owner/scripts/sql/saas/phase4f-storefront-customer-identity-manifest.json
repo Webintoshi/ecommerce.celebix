@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase4f-storefront-customer-identity",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608040083_storefront_customer_identity.up.sql",
+      "direction": "up",
+      "sha256": "3d1141b6970f323845680ca87ab002abbf38a4d0534f2e7f0c37b982bde7f257"
+    },
+    {
+      "file": "202608040083_storefront_customer_identity.down.sql",
+      "direction": "down",
+      "sha256": "b4b63c1750948ffea98fc6a9cfa82d67939402212c53b6fd328485ed7f5c2cff"
+    },
+    {
+      "file": "202608040083_storefront_customer_identity_assertions.sql",
+      "direction": "verify",
+      "sha256": "7ab62bfca449d24889b4a45eea07f81c347187899a2b49b9cb599624076b1eb1"
+    }
+  ]
+}
