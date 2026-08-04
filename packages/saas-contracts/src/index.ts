@@ -471,6 +471,33 @@ export type {
   StarterValueIcon,
   StorefrontPolicyKey,
 } from "./storefront/index.ts";
+export {
+  STOREFRONT_ACCOUNT_MUTATION_OUTCOMES,
+  STOREFRONT_ACCOUNT_SESSION_KINDS,
+  STOREFRONT_ACCOUNT_STATUSES,
+  parseStorefrontAccountMutationResult,
+  parseStorefrontAccountOrder,
+  parseStorefrontAccountSession,
+  parseStorefrontAccountSnapshot,
+  parseStorefrontAuthStartResult,
+  parseStorefrontAuthVerifyResult,
+} from "./storefront-identity/index.ts";
+export type {
+  StorefrontAccountAddress,
+  StorefrontAccountDevice,
+  StorefrontAccountFavorite,
+  StorefrontAccountMutationOutcome,
+  StorefrontAccountMutationResult,
+  StorefrontAccountOrder,
+  StorefrontAccountOrderItem,
+  StorefrontAccountProfile,
+  StorefrontAccountSession,
+  StorefrontAccountSessionKind,
+  StorefrontAccountSnapshot,
+  StorefrontAccountStatus,
+  StorefrontAuthStartResult,
+  StorefrontAuthVerifyResult,
+} from "./storefront-identity/index.ts";
 export type {
   BuiltInPaymentMethodKind,
   MerchantPaymentMethod,

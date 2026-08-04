@@ -18,7 +18,13 @@ export function FavoritesPageClient({ cardStyle, imageRatio }: Readonly<{ cardSt
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const key = favoritesStorageKey(window.location.hostname);
-      const ids = parseFavoriteProductIds(window.localStorage.getItem(key));
+      let ids = parseFavoriteProductIds(window.localStorage.getItem(key));
+      const session = await fetch("/api/account/session", { method: "GET", credentials: "same-origin", cache: "no-store", signal }).then((response) => response.ok ? response.json() : null).catch(() => null) as { outcome?: string; snapshot?: { favorites?: Array<{ productId?: string }> } } | null;
+      if (session?.outcome === "found" && Array.isArray(session.snapshot?.favorites)) {
+        const remote = session.snapshot.favorites.flatMap((item) => typeof item.productId === "string" ? [item.productId] : []);
+        ids = parseFavoriteProductIds(JSON.stringify([...ids, ...remote]));
+        window.localStorage.setItem(key, JSON.stringify(ids));
+      }
       if (ids.length === 0) { setState(Object.freeze({ kind: "loaded", products: Object.freeze([]) })); return; }
       const response = await fetch("/api/favorites/resolve", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify({ productIds: ids }), signal });
       if (!response.ok || response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") throw new Error();

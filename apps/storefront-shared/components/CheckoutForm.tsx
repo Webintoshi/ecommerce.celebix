@@ -13,11 +13,11 @@ import { checkoutBlockerMessage, checkoutFailureMessage, resolveCheckoutSummaryS
 
 const EMPTY: CheckoutFormDraft = Object.freeze({ name: "", email: "", phone: "", addressLine1: "", addressLine2: "", city: "", district: "", postalCode: "", note: "" });
 
-export function CheckoutForm({ intentKind }: Readonly<{ intentKind: CheckoutIntentKind }>) {
+export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind: CheckoutIntentKind; initialDraft?: Partial<CheckoutFormDraft> }>) {
   const { cart, loading: cartLoading } = useCartStatus();
   const [quote, setQuote] = useState<PublicCheckoutQuote | null>(null);
   const [quoteSettled, setQuoteSettled] = useState(false);
-  const [draft, setDraft] = useState<CheckoutFormDraft>(EMPTY);
+  const [draft, setDraft] = useState<CheckoutFormDraft>(() => Object.freeze({ ...EMPTY, ...initialDraft }));
   const [paymentKind, setPaymentKind] = useState<"bank_transfer" | "cash_on_delivery" | "">("");
   const [pending, setPending] = useState(false);
   const [attemptedDelivery, setAttemptedDelivery] = useState(false);

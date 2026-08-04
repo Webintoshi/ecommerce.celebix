@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase4g-storefront-magic-link-auth",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608040085_storefront_magic_link_auth.up.sql",
+      "direction": "up",
+      "sha256": "b58c83d7bd0b80e3461b2a0175cbbabbb65daf274e6e5d34749390ded5790b92"
+    },
+    {
+      "file": "202608040085_storefront_magic_link_auth.down.sql",
+      "direction": "down",
+      "sha256": "84838f2e29dbb235bc3ac96ef1a3063a7e14a81886c4446328df340d5a844783"
+    },
+    {
+      "file": "202608040085_storefront_magic_link_auth_assertions.sql",
+      "direction": "verify",
+      "sha256": "94dab3731a687465d9731aca1527ca48460388a34d2aee8143d006b2e716e84a"
+    }
+  ]
+}
