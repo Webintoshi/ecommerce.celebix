@@ -15,6 +15,25 @@ const getStorefrontDesignPublishIssue = (validation as typeof validation & {
 const MEDIA_ID = "40000000-0000-4000-8000-000000000001";
 const PRODUCT_ID = "20000000-0000-4000-8000-000000000001";
 
+const COMPOSITION = {
+  schemaVersion: 2,
+  visual: { colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" },
+  announcement: { enabled: true, items: ["Güvenli alışveriş"], destination: "/pages/odeme-teslimat" },
+  navigation: { rootCategoryIds: [] },
+  sections: [{ kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 }],
+  productDetail: { galleryStyle: "grid", showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: ["description", "materials_and_care", "certifications", "shipping_and_returns"] },
+  cart: { showCheckoutReadiness: true, showShippingProgress: false, trustMessage: "Güvenli ödeme" },
+  footer: {
+    tone: "dark",
+    groups: [
+      { heading: "Mağaza", links: [{ kind: "system", destination: "/products" }, { kind: "system", destination: "/favorites" }] },
+      { heading: "Hesap", links: [{ kind: "system", destination: "/account" }] },
+    ],
+    newsletter: { enabled: false, heading: "Bizden haber alın", body: "Yeni ürün ve mağaza duyurularını e-postanızda alın.", consentLabel: "Aydınlatma metnini okudum ve iletişime izin veriyorum." },
+    social: [],
+  },
+} as const;
+
 const SLIDE = {
   headline: "Zarafetin ışıltısı",
   body: "Her anınıza değer katan zamansız tasarımlar.",
@@ -25,7 +44,7 @@ const SLIDE = {
 } as const;
 
 const DESIGN = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   brand: {
     logo: { kind: "media", mediaId: MEDIA_ID },
     favicon: null,
@@ -52,10 +71,12 @@ const DESIGN = {
     animation: "continuous",
     enabled: true,
   },
+  composition: COMPOSITION,
 } as const;
 
+const { composition: _LEGACY_COMPOSITION, ...DESIGN_WITHOUT_COMPOSITION } = DESIGN;
 const LEGACY_DESIGN = {
-  ...DESIGN,
+  ...DESIGN_WITHOUT_COMPOSITION,
   schemaVersion: 1,
   hero: {
     headline: SLIDE.headline,
@@ -118,7 +139,7 @@ const LEGACY_PUBLIC_DESIGN = {
 } as const;
 
 const WORKSPACE = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   draftVersion: 4,
   publishedVersion: 3,
   draftUpdatedAt: "2026-08-03T10:01:00.000Z",
@@ -130,13 +151,18 @@ const WORKSPACE = {
   destinations: [{ kind: "product", resourceId: PRODUCT_ID, label: "Pırlanta Kolye", path: `/products/${PRODUCT_ID}` }],
 } as const;
 
-test("design contract accepts version two and normalizes one legacy hero without losing visibility", () => {
+test("storefront design composition accepts version three and normalizes one legacy hero without losing visibility", () => {
   assert.deepEqual(parseStorefrontDesignDocument(DESIGN), DESIGN);
   assert.equal(Object.isFrozen(parseStorefrontDesignDocument(DESIGN).hero.slides), true);
   const legacy = parseStorefrontDesignDocument(LEGACY_DESIGN);
-  assert.equal(legacy.schemaVersion, 2);
+  assert.equal(legacy.schemaVersion, 3);
   assert.equal(legacy.hero.enabled, false);
   assert.deepEqual(legacy.hero.slides[0], { ...SLIDE, enabled: true });
+});
+
+test("storefront design composition rejects malformed or unknown composition fields", () => {
+  assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, composition: { ...COMPOSITION, storeId: PRODUCT_ID } }));
+  assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, composition: { ...COMPOSITION, sections: [] } }));
 });
 
 test("design contract rejects unknown fields, unsafe values, invalid schedules, hostile shapes, and slider bounds", () => {
@@ -175,6 +201,7 @@ test("public contract resolves private identifiers and normalizes a legacy publi
   assert.throws(() => parsePublicStorefrontDesign({ ...PUBLIC_DESIGN, hero: { ...PUBLIC_DESIGN.hero, slides: [{ ...PUBLIC_SLIDE, destination: { path: "https://evil.example/" } }] } }));
   const serialized = JSON.stringify(parsePublicStorefrontDesign(PUBLIC_DESIGN));
   assert.doesNotMatch(serialized, /"(?:mediaId|resourceId)":/);
+  assert.doesNotMatch(serialized, /"composition":/);
 });
 
 test("authenticated workspace keeps exact tenant choices and versioned state", () => {

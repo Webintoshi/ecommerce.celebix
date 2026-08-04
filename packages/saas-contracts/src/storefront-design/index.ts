@@ -1,4 +1,7 @@
 export {
+  createDefaultStarterThemeComposition,
+} from "./defaults.ts";
+export {
   STOREFRONT_DESIGN_ANNOUNCEMENT_ANIMATIONS,
   STOREFRONT_DESIGN_ANNOUNCEMENT_DIRECTIONS,
   STOREFRONT_DESIGN_ANNOUNCEMENT_ICONS,
