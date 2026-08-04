@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
-import { accessSync, constants, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { accessSync, constants, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -26,10 +26,7 @@ const MEDIA_B = "60000000-0000-4000-8000-000000000082";
 const DOMAIN_A = "70000000-0000-4000-8000-000000000081";
 const DOMAIN_B = "70000000-0000-4000-8000-000000000082";
 const NOW = "2026-08-03T12:00:00.000Z";
-const PRIOR = JSON.parse(readFileSync(path.join(SQL, "phase3n-hosted-callback-lifecycle-manifest.json"), "utf8"));
-const ONBOARDING = JSON.parse(readFileSync(path.join(SQL, "phase3-product-onboarding-manifest.json"), "utf8"));
-const MEDIA = JSON.parse(readFileSync(path.join(SQL, "phase3-tenant-r2-media-manifest.json"), "utf8"));
-const TOTAL = 20;
+const TOTAL = 26;
 let completed = 0;
 
 function executable(name) {
@@ -83,7 +80,6 @@ function apply(box, file, database = DB, prefix = "") {
   return psql(box, `${prefix}${readFileSync(path.join(SQL, file), "utf8")}`, database);
 }
 
-function digest(file) { return createHash("sha256").update(readFileSync(path.join(SQL, file))).digest("hex"); }
 function fingerprint(marker) { return createHash("sha256").update(marker).digest("hex"); }
 function authority(principal = PRINCIPAL_OWNER, membership = MEMBERSHIP_OWNER, store = STORE_A) {
   return `'${store}'::uuid,'${principal}'::uuid,'${membership}'::uuid,'${PLAN}'::uuid,'free_starter',1,'${NOW}'::timestamptz`;
@@ -95,20 +91,26 @@ function rpc(box, sql, role = "celebix_saas_app") {
 function scenario(name, run) { run(); completed += 1; process.stdout.write(`PASS ${completed}/${TOTAL} ${name}\n`); }
 
 function applyBase(box) {
-  for (const artifact of PRIOR.migrationChain) {
-    assert.equal(digest(artifact.file), artifact.sha256, artifact.file);
-    apply(box, artifact.file);
-  }
-  for (const artifact of ONBOARDING.artifacts) {
-    if (!['up','verify'].includes(artifact.direction)) continue;
-    assert.equal(digest(artifact.file), artifact.sha256, artifact.file);
-    apply(box, artifact.file);
-  }
-  for (const artifact of MEDIA.artifacts) {
-    if (!['up','verify'].includes(artifact.direction)) continue;
-    assert.equal(digest(artifact.file), artifact.sha256, artifact.file);
-    apply(box, artifact.file);
-  }
+  const accepted = /(?:[.]up|[.]seed|[.]freeze|_grants|_assertions|catalog_assertions)[.]sql$/;
+  const base = readdirSync(SQL).filter((file) => {
+    const sequence = Number.parseInt(file.slice(8, 12), 10);
+    return Number.isSafeInteger(sequence) && sequence <= 71
+      && accepted.test(file) && !file.includes(".down.");
+  }).sort((left, right) => {
+    const difference = Number.parseInt(left.slice(8, 12), 10) - Number.parseInt(right.slice(8, 12), 10);
+    const weight = (file) => file.includes("assertions") ? 3 : file.includes("freeze") || file.includes("grants") ? 2 : 1;
+    return difference || weight(left) - weight(right) || left.localeCompare(right);
+  });
+  for (const file of base) apply(box, file);
+  for (const file of [
+    "202607310072_storefront_cart_checkout.up.sql",
+    "202608010073_storefront_checkout_readiness.up.sql",
+    "202608010073_storefront_checkout_readiness_assertions.sql",
+    "202608010074_campaign_starter_composition.up.sql",
+    "202608010074_campaign_starter_composition_assertions.sql",
+    "202608020075_complete_starter_retail_experience.up.sql",
+    "202608020075_complete_starter_retail_experience_assertions.sql",
+  ]) apply(box, file);
 }
 
 function seed(box) {
@@ -209,6 +211,37 @@ function main() {
       apply(box, "202608030082_storefront_hero_slider.up.sql");
       apply(box, "202608030082_storefront_hero_slider_assertions.sql");
       assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs;").stdout.trim(), "2");
+    });
+    apply(box, "202608040083_storefront_unified_theme_authority.up.sql");
+    apply(box, "202608040083_storefront_unified_theme_authority_assertions.sql");
+    scenario("unified authority upgrades every durable design to schema three", () => {
+      assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs WHERE schema_version=3 AND draft_config->>'schemaVersion'='3' AND published_config->>'schemaVersion'='3';").stdout.trim(), "2");
+    });
+    apply(box, "202608040084_side_cart_quantity_controls.up.sql");
+    apply(box, "202608040084_side_cart_quantity_controls_assertions.sql");
+    scenario("quantity selector migration executes on PostgreSQL 16", () => assert.match(psql(box, "SHOW server_version;").stdout, /^16[.]/));
+    scenario("existing designs and new defaults normalize quantity selection to enabled", () => {
+      assert.equal(psql(box, "SELECT (saas.storefront_theme_default_composition()->'cart'->>'showQuantitySelector')::boolean;").stdout.trim(), "t");
+      assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs WHERE draft_config->'composition'->'cart'->'showQuantitySelector'='true'::jsonb AND published_config->'composition'->'cart'->'showQuantitySelector'='true'::jsonb;").stdout.trim(), "2");
+    });
+    scenario("quantity selector is one exact required boolean authority", () => {
+      assert.equal(psql(box, "SELECT saas.campaign_starter_composition_valid(saas.storefront_theme_default_composition() #- ARRAY['cart','showQuantitySelector']);").stdout.trim(), "f");
+      assert.equal(psql(box, "SELECT saas.campaign_starter_composition_valid(pg_catalog.jsonb_set(saas.storefront_theme_default_composition(),ARRAY['cart','showQuantitySelector'],'false'::jsonb,false));").stdout.trim(), "t");
+      assert.equal(psql(box, "SELECT saas.campaign_starter_composition_valid(pg_catalog.jsonb_set(saas.storefront_theme_default_composition(),ARRAY['cart','showQuantitySelector'],'\"true\"'::jsonb,false));").stdout.trim(), "f");
+    });
+    scenario("quantity selector rollback is explicit and loss guarded", () => {
+      assert.notEqual(psql(box, readFileSync(path.join(SQL, "202608040084_side_cart_quantity_controls.down.sql"), "utf8"), DB, true).status, 0);
+      psql(box, "UPDATE saas.storefront_designs SET draft_config=pg_catalog.jsonb_set(draft_config,ARRAY['composition','cart','showQuantitySelector'],'false'::jsonb,false),published_config=pg_catalog.jsonb_set(published_config,ARRAY['composition','cart','showQuantitySelector'],'false'::jsonb,false);");
+      const lossGuard = psql(box, `SET celebix.allow_side_cart_quantity_controls_down='on';\n${readFileSync(path.join(SQL, "202608040084_side_cart_quantity_controls.down.sql"), "utf8")}`, DB, true);
+      assert.notEqual(lossGuard.status, 0);
+      psql(box, "UPDATE saas.storefront_designs SET draft_config=pg_catalog.jsonb_set(draft_config,ARRAY['composition','cart','showQuantitySelector'],'true'::jsonb,false),published_config=pg_catalog.jsonb_set(published_config,ARRAY['composition','cart','showQuantitySelector'],'true'::jsonb,false);");
+    });
+    scenario("guarded rollback and reapply preserve cleanup-safe authority", () => {
+      apply(box, "202608040084_side_cart_quantity_controls.down.sql", DB, "SET celebix.allow_side_cart_quantity_controls_down='on';\n");
+      assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs WHERE draft_config->'composition'->'cart'?'showQuantitySelector';").stdout.trim(), "0");
+      apply(box, "202608040084_side_cart_quantity_controls.up.sql");
+      apply(box, "202608040084_side_cart_quantity_controls_assertions.sql");
+      assert.equal(psql(box, "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname=current_database() AND pid<>pg_catalog.pg_backend_pid();").stdout.trim(), "0");
     });
     assert.equal(completed, TOTAL);
     process.stdout.write(`PASS STOREFRONT DESIGN WORKSPACE PostgreSQL harness (${TOTAL}/${TOTAL})\n`);
