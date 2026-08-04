@@ -370,21 +370,26 @@ test("native cart checkout success and account pages remain public-projection on
 });
 
 test("secondary storefront pages omit oversized listing headers without losing accessible titles", async () => {
-  const pages = await Promise.all([
-    readFile(new URL("../app/favorites/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/categories/[slug]/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/cart/page.tsx", import.meta.url), "utf8"),
+  const [pages, account, accountDashboard] = await Promise.all([
+    Promise.all([
+      readFile(new URL("../app/favorites/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/categories/[slug]/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/cart/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/policies/[policyKey]/page.tsx", import.meta.url), "utf8"),
+    ]),
     readFile(new URL("../app/account/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/policies/[policyKey]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/account/AccountDashboard.tsx", import.meta.url), "utf8"),
   ]);
-  const source = pages.join("\n");
+  const source = [...pages, account, accountDashboard].join("\n");
   assert.doesNotMatch(source, /className="listing-hero"/u);
   for (const page of pages) {
     assert.match(page, /<h1 className="sr-only">/u);
   }
+  assert.match(account, /<AccountDashboard/u);
+  assert.match(accountDashboard, /<h1>/u);
 });
 
 test("dark theme and every marquee preference drive bounded CSS without sacrificing contrast", async () => {

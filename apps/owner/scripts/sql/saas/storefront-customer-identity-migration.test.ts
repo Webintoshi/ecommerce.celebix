@@ -20,7 +20,7 @@ const up = source("up");
 const down = source("down");
 const assertions = source("assertions");
 
-test("083 creates only store-scoped identity authority with composite references", () => {
+test("084 creates only store-scoped identity authority with composite references", () => {
   for (const table of [
     "storefront_accounts",
     "storefront_login_challenges",
@@ -40,7 +40,7 @@ test("083 creates only store-scoped identity authority with composite references
   assert.doesNotMatch(up, /\b(?:raw_email|raw_code|credential|provider_response|user_agent)\b\s+(?:text|jsonb)/iu);
 });
 
-test("083 forces RLS and removes every direct runtime table privilege", () => {
+test("084 forces RLS and removes every direct runtime table privilege", () => {
   for (const table of ["storefront_accounts", "storefront_login_challenges", "storefront_account_sessions", "storefront_account_order_links", "storefront_account_favorites", "storefront_account_cart_links", "storefront_identity_operations", "storefront_identity_audit", "storefront_identity_email_outbox"]) {
     assert.match(up, new RegExp(`['\"]${table}['\"]`));
   }
@@ -52,7 +52,7 @@ test("083 forces RLS and removes every direct runtime table privilege", () => {
   assert.match(up, /guard_storefront_identity_outbox_mutation/);
 });
 
-test("083 public functions derive store authority from hostname and expose only RPC execution", () => {
+test("084 public functions derive store authority from hostname and expose only RPC execution", () => {
   for (const name of [
     "public_account_auth_start",
     "public_account_auth_verify",
@@ -77,7 +77,7 @@ test("083 public functions derive store authority from hostname and expose only 
   assert.doesNotMatch(up, /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE).*storefront_account.*TO celebix_saas_host_resolver/is);
 });
 
-test("083 verification consumes one challenge and creates store-isolated account sessions", () => {
+test("084 verification consumes one challenge and creates store-isolated account sessions", () => {
   assert.match(up, /FROM saas[.]storefront_login_challenges[\s\S]+FOR UPDATE/);
   assert.match(up, /consumed_at=p_now/);
   assert.match(up, /attempt_count=attempt_count\+1/);
@@ -89,7 +89,7 @@ test("083 verification consumes one challenge and creates store-isolated account
   assert.match(up, /operation_replayed/);
 });
 
-test("083 artifacts are checksum pinned and rollback refuses active or durable account authority", () => {
+test("084 artifacts are checksum pinned and rollback refuses active or durable account authority", () => {
   for (const name of Object.values(files)) assert.equal(existsSync(new URL(name, root)), true, `${name} missing`);
   const manifest = JSON.parse(source("manifest")) as { phase: string; postgresqlMajor: number; externalConnections: number; productionMutations: number; artifacts: Array<{ file: string; direction: string; sha256: string }> };
   assert.deepEqual({ phase: manifest.phase, postgresqlMajor: manifest.postgresqlMajor, externalConnections: manifest.externalConnections, productionMutations: manifest.productionMutations }, { phase: "phase4f-storefront-customer-identity", postgresqlMajor: 16, externalConnections: 0, productionMutations: 0 });
