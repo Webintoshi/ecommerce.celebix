@@ -52,9 +52,9 @@ test("retail CSS and semantics own the exact responsive accessibility gates", ()
   assert.match(globalCss, /body\s*\{[^}]*min-width:\s*320px[^}]*overflow-x:\s*clip/u);
   assert.match(`${globalCss}\n${headerCss}\n${homeCss}\n${detailCss}`, /@media\s*\(max-width:\s*1024px\)/u);
   assert.match(headerCss, /[.]desktopNav\{[^}]*display:flex/u);
-  assert.match(headerCss, /[.]sentinel\{top:0\}/u);
+  assert.match(headerCss, /[.]sentinel\{[^}]*top:0/u);
   assert.match(headerCss, /:global\([.]has-announcement\)\s+[.]bar:not\([.]opaque\)\{top:48px\}/u);
-  assert.match(homeCss, /[.]announcement\{min-height:48px;padding-block:0\}/u);
+  assert.match(homeCss, /[.]announcement\s*\{[^}]*min-height:\s*48px[^}]*padding:\s*0\s+18px/u);
   assert.match(headerCss, /@media\(max-width:1024px\)\{[\s\S]*?[.]desktopNav\{display:none/u);
   assert.match(globalCss, /\*, \*::before, \*::after\s*\{[^}]*animation-duration:\s*[.]01ms[^}]*transition-duration:\s*[.]01ms/u);
   assert.match(`${globalCss}\n${headerCss}\n${homeCss}\n${detailCss}`, /min-(?:width|height):\s*48px/u);
