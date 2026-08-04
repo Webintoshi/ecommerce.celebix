@@ -54,7 +54,7 @@ function parseOrders(value: unknown) {
 function parseDevices(value: unknown): readonly StorefrontAccountDevice[] {
   const selected = parseExact(value, ["items"]);
   try {
-    return parseStorefrontAccountSnapshot({ status: "active", profile: { email: "parser@celebix.test", firstName: "C", lastName: "X" }, addresses: [], favorites: [], devices: selected.items }).devices;
+    return parseStorefrontAccountSnapshot({ status: "active", version: 1, profile: { email: "parser@celebix.test", firstName: "C", lastName: "X" }, addresses: [], favorites: [], devices: selected.items }).devices;
   } catch { throw failure(); }
 }
 
@@ -115,7 +115,7 @@ export class PostgresStorefrontIdentityRepository implements StorefrontIdentityR
       return await this.transaction(
         "SELECT outcome,result_payload FROM saas.public_account_auth_start($1::text,$2::timestamptz,$3::uuid,$4::text,$5::text,$6::text,$7::text,$8::timestamptz,$9::uuid,$10::text,$11::jsonb,$12::text)",
         [commerceHostname(p.hostname), now, commerceUuid(p.challengeId), identityDigest(p.emailDigest), identityDigest(p.requestDigest), identityKeyId(p.codeKeyId), identityDigest(p.codeDigest), expiresAt, commerceUuid(p.outboxId), identityText(p.recipientCiphertext, 20, 2048, /^[A-Za-z0-9_.-]+$/u), JSON.stringify(identityBrand(p.brandSnapshot)), identityCorrelation(p.correlationId)],
-        ["accepted"], parseStorefrontAuthStartResult,
+        ["accepted"], (value) => { const selected = parseExact(value, ["retryAfterSeconds"]); return parseStorefrontAuthStartResult({ outcome: "accepted", retryAfterSeconds: selected.retryAfterSeconds }); },
       );
     } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure("invalid_input"); }
   }
@@ -126,7 +126,7 @@ export class PostgresStorefrontIdentityRepository implements StorefrontIdentityR
       return await this.transaction(
         "SELECT outcome,result_payload FROM saas.public_account_auth_verify($1::text,$2::timestamptz,$3::uuid,$4::text,$5::text,$6::text,$7::uuid,$8::uuid,$9::text,$10::text,$11::text,$12::text,$13::text,$14::text)",
         [commerceHostname(p.hostname), commerceDate(p.now), commerceUuid(p.challengeId), identityDigest(p.emailDigest), identityDigest(p.codeDigest), identityEmail(p.email), commerceUuid(p.accountId), commerceUuid(p.sessionId), identityKeyId(p.sessionKeyId), identityDigest(p.sessionDigest), identityDigest(p.csrfDigest), identityText(p.deviceLabel, 1, 100), identityDigest(p.userAgentDigest), identityCorrelation(p.correlationId)],
-        ["authenticated", "profile_required"], parseStorefrontAuthVerifyResult,
+        ["authenticated", "profile_required"], (value) => { const selected = parseExact(value, ["profileRequired"]); return parseStorefrontAuthVerifyResult(selected.profileRequired === true ? { outcome: "profile_required", profileRequired: true } : { outcome: "authenticated", profileRequired: selected.profileRequired }); },
       );
     } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure("invalid_input"); }
   }

@@ -15,13 +15,15 @@ type Responder = (text: string, values: unknown[]) => Row[] | Promise<Row[]>;
 class Client {
   readonly calls: Array<{ text: string; values: unknown[] }> = [];
   readonly releases: unknown[] = [];
-  constructor(private readonly responder: Responder) {}
+  private readonly responder: Responder;
+  constructor(responder: Responder) { this.responder = responder; }
   async query(text: string, values: unknown[] = []) { this.calls.push({ text, values }); const rows = await this.responder(text, values); return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] }; }
   release(value?: unknown) { this.releases.push(value); }
 }
 class Pool implements PostgresPoolLike {
   private index = 0;
-  constructor(private readonly clients: readonly Client[]) {}
+  private readonly clients: readonly Client[];
+  constructor(clients: readonly Client[]) { this.clients = clients; }
   async connect() { const selected = this.clients[this.index++]; if (!selected) throw new Error("pool"); return selected; }
 }
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 });
@@ -49,7 +51,7 @@ test("verification passes server-derived authority and returns only the finite p
 });
 
 test("session parsing deeply validates the exact public snapshot", async () => {
-  const snapshot = { status: "active", profile: { email: "ada@example.test", firstName: "Ada", lastName: "Lovelace" }, addresses: [], favorites: [], devices: [{ id: "device_60000000000040008000000000000083", label: "Safari macOS", current: true, lastSeenAt: NOW.toISOString(), createdAt: NOW.toISOString() }] };
+  const snapshot = { status: "active", version: 3, profile: { email: "ada@example.test", firstName: "Ada", lastName: "Lovelace" }, addresses: [], favorites: [], devices: [{ id: "device_60000000000040008000000000000083", label: "Safari macOS", current: true, lastSeenAt: NOW.toISOString(), createdAt: NOW.toISOString() }] };
   const client = new Client(responder("found", snapshot));
   assert.deepEqual(await repository(new Pool([client])).session({ hostname: HOST, now: NOW, candidates: CANDIDATES }), { outcome: "found", snapshot });
   const parsed = await repository(new Pool([new Client(responder("found", snapshot))])).session({ hostname: HOST, now: NOW, candidates: CANDIDATES });

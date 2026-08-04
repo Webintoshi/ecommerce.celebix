@@ -61,6 +61,7 @@ export interface StorefrontAccountDevice {
 
 export interface StorefrontAccountSnapshot {
   readonly status: StorefrontAccountStatus;
+  readonly version: number;
   readonly profile: Readonly<StorefrontAccountProfile>;
   readonly addresses: readonly Readonly<StorefrontAccountAddress>[];
   readonly favorites: readonly Readonly<StorefrontAccountFavorite>[];

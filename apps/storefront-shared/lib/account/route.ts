@@ -111,3 +111,63 @@ export function createAccountLogoutAllRoute(dependencies: Dependencies) {
     try { const result = await runtime.logoutAll({ hostname: selected.hostname, cookieHeader: request.headers.get("cookie") }); return json({ outcome: "logged_out", revoked: result.revoked, destination: "/account/login" }, 200, result.setCookies); } catch (error) { return failure(error); }
   };
 }
+
+export function createAccountProfileUpdateRoute(dependencies: Dependencies) {
+  return async function POST(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request); if (!selected) return failure(new Error()); const csrfFailure = requireCsrf(request); if (csrfFailure) return csrfFailure;
+    let input: { operationId: string; firstName: string; lastName: string; phone?: string; expectedVersion: number };
+    try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["operationId", "firstName", "lastName", "expectedVersion"], ["phone"]); const operationId = text(p.operationId, 36, 36); if (!UUID.test(operationId) || !Number.isSafeInteger(p.expectedVersion) || (p.expectedVersion as number) < 1) invalid(); const phone = Object.hasOwn(p, "phone") ? text(p.phone, 9, 16) : undefined; if (phone && !PHONE.test(phone)) invalid(); return { operationId, firstName: text(p.firstName, 1, 100), lastName: text(p.lastName, 1, 100), ...(phone ? { phone } : {}), expectedVersion: p.expectedVersion as number }; }); } catch { return failure(new TypeError()); }
+    const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
+    try { const result = await runtime.updateProfile({ hostname: selected.hostname, cookieHeader: request.headers.get("cookie"), ...input }); return json(result.result, 200); } catch (error) { return failure(error); }
+  };
+}
+
+export function createAccountAddressSaveRoute(dependencies: Dependencies) {
+  return async function POST(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request); if (!selected) return failure(new Error()); const csrfFailure = requireCsrf(request); if (csrfFailure) return csrfFailure;
+    let input: { operationId: string; expectedVersion: number; address: Parameters<StorefrontIdentityRuntime["saveAddress"]>[0]["address"] };
+    try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["operationId", "expectedVersion", "address"]); const operationId = text(p.operationId, 36, 36); if (!UUID.test(operationId) || !Number.isSafeInteger(p.expectedVersion) || (p.expectedVersion as number) < 0) invalid(); const a = exact(p.address, ["id", "label", "recipientName", "line1", "city", "country", "isDefault", "version"], ["line2", "district", "postalCode"]); const id = text(a.id, 36, 36); if (!UUID.test(id) || a.country !== "TR" || typeof a.isDefault !== "boolean" || !Number.isSafeInteger(a.version) || (a.version as number) < 1) invalid(); return { operationId, expectedVersion: p.expectedVersion as number, address: { id, label: text(a.label, 1, 50), recipientName: text(a.recipientName, 1, 200), line1: text(a.line1, 1, 300), ...(Object.hasOwn(a, "line2") ? { line2: text(a.line2, 1, 300) } : {}), city: text(a.city, 1, 100), ...(Object.hasOwn(a, "district") ? { district: text(a.district, 1, 100) } : {}), ...(Object.hasOwn(a, "postalCode") ? { postalCode: text(a.postalCode, 1, 20) } : {}), country: "TR", isDefault: a.isDefault, version: a.version as number } }; }); } catch { return failure(new TypeError()); }
+    const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
+    try { return json((await runtime.saveAddress({ hostname: selected.hostname, cookieHeader: request.headers.get("cookie"), ...input })).result, 200); } catch (error) { return failure(error); }
+  };
+}
+
+export function createAccountAddressDeleteRoute(dependencies: Dependencies) {
+  return async function POST(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request); if (!selected) return failure(new Error()); const csrfFailure = requireCsrf(request); if (csrfFailure) return csrfFailure;
+    let input: { operationId: string; addressId: string; expectedVersion: number };
+    try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["operationId", "addressId", "expectedVersion"]); const operationId = text(p.operationId, 36, 36); const addressId = text(p.addressId, 36, 36); if (!UUID.test(operationId) || !UUID.test(addressId) || !Number.isSafeInteger(p.expectedVersion) || (p.expectedVersion as number) < 1) invalid(); return { operationId, addressId, expectedVersion: p.expectedVersion as number }; }); } catch { return failure(new TypeError()); }
+    const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
+    try { return json((await runtime.deleteAddress({ hostname: selected.hostname, cookieHeader: request.headers.get("cookie"), ...input })).result, 200); } catch (error) { return failure(error); }
+  };
+}
+
+export function createAccountFavoriteRoute(dependencies: Dependencies) {
+  return async function POST(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request); if (!selected) return failure(new Error()); const csrfFailure = requireCsrf(request); if (csrfFailure) return csrfFailure;
+    let input: { operationId: string; productId: string; enabled: boolean };
+    try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["operationId", "productId", "enabled"]); const operationId = text(p.operationId, 36, 36); const productId = text(p.productId, 36, 36); if (!UUID.test(operationId) || !UUID.test(productId) || typeof p.enabled !== "boolean") invalid(); return { operationId, productId, enabled: p.enabled }; }); } catch { return failure(new TypeError()); }
+    const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
+    try { return json((await runtime.favorite({ hostname: selected.hostname, cookieHeader: request.headers.get("cookie"), ...input })).result, 200); } catch (error) { return failure(error); }
+  };
+}
+
+export function createAccountDeviceRevokeRoute(dependencies: Dependencies) {
+  return async function POST(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request); if (!selected) return failure(new Error()); const csrfFailure = requireCsrf(request); if (csrfFailure) return csrfFailure;
+    let input: { operationId: string; deviceId: string };
+    try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["operationId", "deviceId"]); const operationId = text(p.operationId, 36, 36); const deviceId = text(p.deviceId, 39, 39); if (!UUID.test(operationId) || !/^device_[a-f0-9]{32}$/u.test(deviceId)) invalid(); return { operationId, deviceId }; }); } catch { return failure(new TypeError()); }
+    const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
+    try { return json((await runtime.revokeDevice({ hostname: selected.hostname, cookieHeader: request.headers.get("cookie"), ...input })).result, 200); } catch (error) { return failure(error); }
+  };
+}
+
+export function createAccountSessionRoute(dependencies: Dependencies) {
+  return async function GET(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request); if (!selected) return failure(new Error());
+    let url: URL; try { url = new URL(request.url); } catch { return failure(new TypeError()); }
+    if (request.method !== "GET" || url.pathname !== "/api/account/session" || url.search || url.hash) return failure(new TypeError());
+    const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
+    try { const result = await runtime.session(selected.hostname, request.headers.get("cookie")); return json(result.outcome === "found" ? { outcome: "found", snapshot: result.snapshot } : { outcome: result.outcome }, 200, result.setCookie ? [result.setCookie] : []); } catch (error) { return failure(error); }
+  };
+}

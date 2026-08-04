@@ -45,8 +45,14 @@ test("checkout summary receipt and account render truthful public projections on
   for (const proof of ["Ara toplam", "Kargo", "Toplam"]) assert.match(summary, new RegExp(proof, "u"));
   assert.match(checkout, /intent=buy-now|buy_now/u);
   for (const proof of ["orderReference", "paymentMethod", "bankName", "accountHolder", "iban", "Sipariş alındı"]) assert.match(success, new RegExp(proof, "u"));
-  for (const proof of ["listAccountOrders", "Siparişlerim", "orderReference"]) assert.match(account, new RegExp(proof, "u"));
+  for (const proof of ["AccountDashboard", "snapshot", "resolveAccountPage"]) assert.match(account, new RegExp(proof, "u"));
   assert.doesNotMatch(`${success}\n${account}`, /orderId|customerId|storeId|tenantId|credential/u);
+});
+
+test("authenticated customers receive a server-authorized checkout prefill while guest checkout remains optional", () => {
+  assert.match(checkout, /runtime[.]identity/u);
+  assert.match(checkout, /initialDraft/u);
+  assert.match(form, /initialDraft/u);
 });
 
 test("checkout owns a white single-screen shell and canonical media summary", () => {

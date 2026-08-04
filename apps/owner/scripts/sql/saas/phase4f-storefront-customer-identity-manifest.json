@@ -8,7 +8,7 @@
     {
       "file": "202608040083_storefront_customer_identity.up.sql",
       "direction": "up",
-      "sha256": "3d1141b6970f323845680ca87ab002abbf38a4d0534f2e7f0c37b982bde7f257"
+      "sha256": "d04dfceb7f22af1461d49293dd5494381c58518a5adb6e5217634eaf568111ab"
     },
     {
       "file": "202608040083_storefront_customer_identity.down.sql",

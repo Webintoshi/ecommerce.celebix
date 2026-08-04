@@ -33,9 +33,12 @@ export function FavoriteButton({ productId, productTitle }: Readonly<{ productId
   const toggle = () => {
     try {
       const key = favoritesStorageKey(window.location.hostname);
-      const next = toggleFavoriteProductId(parseFavoriteProductIds(window.localStorage.getItem(key)), productId);
+      const current = parseFavoriteProductIds(window.localStorage.getItem(key));
+      const next = toggleFavoriteProductId(current, productId);
       window.localStorage.setItem(key, JSON.stringify(next));
       window.dispatchEvent(new Event(CHANGE_EVENT));
+      const token = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("__Host-celebix_account_csrf="))?.slice("__Host-celebix_account_csrf=".length) ?? "";
+      if (token) void fetch("/api/account/favorites", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json", "x-celebix-account-csrf": token }, body: JSON.stringify({ operationId: crypto.randomUUID(), productId, enabled: next.includes(productId) }) }).catch(() => undefined);
     } catch { setSelected(false); }
   };
 

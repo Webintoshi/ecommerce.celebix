@@ -244,7 +244,7 @@ END $f$;
 CREATE FUNCTION saas.storefront_identity_snapshot(p_store_id uuid,p_account_id uuid,p_current_session uuid)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
   SELECT pg_catalog.jsonb_build_object(
-    'status',account.status,
+    'status',account.status,'version',account.version,
     'profile',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('email',account.email_normalized,'firstName',customer.first_name,'lastName',customer.last_name,'phone',customer.phone)),
     'addresses',COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('id',address.id,'label',address.label,'recipientName',address.recipient_name,'line1',address.line1,'line2',address.line2,'city',address.city,'district',address.district,'postalCode',address.postal_code,'country',address.country,'isDefault',address.is_default,'version',address.version)) ORDER BY address.is_default DESC,address.updated_at DESC,address.id) FROM saas.customer_addresses address WHERE address.store_id=account.store_id AND address.customer_id=account.customer_id),'[]'::jsonb),
     'favorites',COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('productId',favorite.product_id,'createdAt',saas.storefront_commerce_timestamp(favorite.created_at)) ORDER BY favorite.created_at DESC,favorite.product_id) FROM saas.storefront_account_favorites favorite WHERE favorite.store_id=account.store_id AND favorite.account_id=account.id),'[]'::jsonb),

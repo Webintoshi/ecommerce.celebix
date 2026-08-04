@@ -64,6 +64,7 @@ test("auth start and verify results expose no private authority", () => {
 test("account snapshot is exact deeply frozen and uses public order references", () => {
   const snapshot = parseStorefrontAccountSnapshot({
     status: "active",
+    version: 3,
     profile,
     addresses: [address],
     favorites: [{ productId: "73000000-0000-4000-8000-000000000001", createdAt: NOW }],
@@ -77,7 +78,7 @@ test("account snapshot is exact deeply frozen and uses public order references",
 });
 
 test("account projections reject malformed values and hidden database authority", () => {
-  const base = { status: "active", profile, addresses: [], favorites: [], devices: [] };
+  const base = { status: "active", version: 1, profile, addresses: [], favorites: [], devices: [] };
   for (const invalid of [
     { ...base, storeId: "81000000-0000-4000-8000-000000000001" },
     { ...base, profile: { ...profile, email: " Ada@example.com" } },

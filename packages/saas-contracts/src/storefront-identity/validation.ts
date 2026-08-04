@@ -168,7 +168,7 @@ export function parseStorefrontAccountSession(value: unknown): Readonly<Storefro
 }
 
 export function parseStorefrontAccountSnapshot(value: unknown): Readonly<StorefrontAccountSnapshot> {
-  const parsed = exact(value, ["status", "profile", "addresses", "favorites", "devices"]);
+  const parsed = exact(value, ["status", "version", "profile", "addresses", "favorites", "devices"]);
   const addresses = list(parsed.addresses, 20).map(address);
   const favorites = list(parsed.favorites, 500).map(favorite);
   const devices = list(parsed.devices, 50).map(device);
@@ -176,6 +176,7 @@ export function parseStorefrontAccountSnapshot(value: unknown): Readonly<Storefr
   if (new Set(addresses.map((entry) => entry.id)).size !== addresses.length || new Set(favorites.map((entry) => entry.productId)).size !== favorites.length || new Set(devices.map((entry) => entry.id)).size !== devices.length) invalid();
   return freeze({
     status: oneOf(parsed.status, STOREFRONT_ACCOUNT_STATUSES) as StorefrontAccountStatus,
+    version: integer(parsed.version, 1),
     profile: profile(parsed.profile),
     addresses: Object.freeze(addresses),
     favorites: Object.freeze(favorites),
