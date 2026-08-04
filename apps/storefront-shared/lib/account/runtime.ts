@@ -12,14 +12,18 @@ import {
   accountCsrfDigest,
   accountHostnameCodeDigest,
   accountHostnameEmailDigest,
+  accountHostnameTicketDigest,
   accountRequestDigest,
   accountUserAgentDigest,
   createAccountSessionCredential,
+  createStorefrontMagicTicket,
   openAccountChallenge,
+  openAccountMagicTicket,
   readAccountCookie,
   sealAccountChallenge,
   serializeAccountChallengeCookie,
   serializeAccountChallengeCookieDeletion,
+  serializeAccountMagicTicket,
   serializeAccountCookie,
   serializeAccountCookieDeletion,
   type StorefrontIdentityKeyring,
@@ -38,7 +42,7 @@ export type StorefrontIdentityRuntimeDependencies = Readonly<{
   randomBytes: (size: number) => Uint8Array;
   randomUuid: () => string;
   randomLoginCode: () => string;
-  deliverLoginCode: (message: Readonly<{ email: string; code: string; storeName: string }>) => Promise<void>;
+  deliverLoginCode: (message: Readonly<{ email: string; ticket: string; code: string; storeName: string; storeOrigin: string; returnTo: string; idempotencyKey: string }>) => Promise<void>;
 }>;
 
 type CookieAuthority = Readonly<{ hostname: string; cookieHeader: string | null }>;
@@ -46,8 +50,8 @@ type OperationAuthority = CookieAuthority & Readonly<{ operationId: string }>;
 type MutationResponse = Readonly<{ result: StorefrontAccountMutationResult }>;
 
 export interface StorefrontIdentityRuntime {
-  start(input: Readonly<{ hostname: string; email: string; requestAuthority: string; brand: Readonly<{ storeName: string; logoUrl: string | null; primaryColor: string | null }> }>): Promise<Readonly<{ result: Readonly<{ outcome: "accepted"; retryAfterSeconds: number }>; setCookie: string }>>;
-  verify(input: Readonly<{ hostname: string; challengeCookie: string | null; code: string; deviceLabel: string; userAgent: string }>): Promise<Readonly<{ result: Readonly<{ outcome: "authenticated"; profileRequired: false } | { outcome: "profile_required"; profileRequired: true }>; setCookies: readonly string[] }>>;
+  start(input: Readonly<{ hostname: string; email: string; requestAuthority: string; returnTo: string; brand: Readonly<{ storeName: string; logoUrl: string | null; primaryColor: string | null }> }>): Promise<Readonly<{ result: Readonly<{ outcome: "accepted"; retryAfterSeconds: number }>; setCookie: string }>>;
+  verify(input: Readonly<{ hostname: string; deviceLabel: string; userAgent: string }> & Readonly<{ ticket: string } | { challengeCookie: string | null; code: string }>): Promise<Readonly<{ result: Readonly<{ outcome: "authenticated"; profileRequired: false } | { outcome: "profile_required"; profileRequired: true }>; setCookies: readonly string[] }>>;
   completeProfile(input: OperationAuthority & Readonly<{ firstName: string; lastName: string; phone?: string; deviceLabel: string; userAgent: string }>): Promise<Readonly<{ result: StorefrontAccountMutationResult; setCookies: readonly string[] }>>;
   session(hostname: string, cookieHeader: string | null): Promise<StorefrontIdentitySessionResult & Readonly<{ setCookie?: string }>>;
   logout(hostname: string, cookieHeader: string | null): Promise<Readonly<{ setCookies: readonly string[] }>>;
@@ -102,29 +106,35 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
 
   const runtime: StorefrontIdentityRuntime = {
     async start(input) {
-      const current = nowValue(now); const email = normalizeStorefrontAccountEmail(input.email); const challengeId = uuid(randomUuid); const outboxId = uuid(randomUuid); const code = randomLoginCode();
+      const current = nowValue(now); const email = normalizeStorefrontAccountEmail(input.email); const challengeId = uuid(randomUuid); const outboxId = uuid(randomUuid); const code = randomLoginCode(); const ticket = createStorefrontMagicTicket(randomBytes);
       if (!CODE.test(code)) invalid();
       const emailAuthority = accountHostnameEmailDigest(input.hostname, email, hmacKeyring);
       const requestAuthority = accountRequestDigest(input.hostname, input.requestAuthority, hmacKeyring);
       const codeAuthority = accountHostnameCodeDigest({ challengeId, hostname: input.hostname, email, code }, hmacKeyring);
+      const ticketAuthority = accountHostnameTicketDigest({ challengeId, hostname: input.hostname, ticket }, hmacKeyring);
       const expiresAt = new Date(current.getTime() + 600_000);
       const sealed = sealAccountChallenge(Object.freeze({ challengeId, email, expiresAt: expiresAt.toISOString() }), sealKeyring, randomBytes);
       const result = await repository.start({
         hostname: input.hostname, now: current, challengeId, emailDigest: emailAuthority.digest, requestDigest: requestAuthority.digest,
-        codeKeyId: codeAuthority.keyId, codeDigest: codeAuthority.digest, expiresAt, outboxId, recipientCiphertext: sealed,
+        codeKeyId: codeAuthority.keyId, codeDigest: codeAuthority.digest, ticketKeyId: ticketAuthority.keyId, ticketDigest: ticketAuthority.digest, expiresAt, outboxId, recipientCiphertext: sealed,
         brandSnapshot: Object.freeze({ name: input.brand.storeName, logoUrl: input.brand.logoUrl, primaryColor: input.brand.primaryColor }), correlationId: correlation("auth", challengeId),
       });
-      await deliverLoginCode(Object.freeze({ email, code, storeName: input.brand.storeName }));
+      await deliverLoginCode(Object.freeze({ email, ticket: serializeAccountMagicTicket(sealed, ticket), code, storeName: input.brand.storeName, storeOrigin: `https://${input.hostname}`, returnTo: input.returnTo, idempotencyKey: outboxId }));
       return Object.freeze({ result, setCookie: serializeAccountChallengeCookie(sealed) });
     },
     async verify(input) {
-      const current = nowValue(now); const raw = challengeValue(input.challengeCookie); const challenge = raw ? openAccountChallenge(raw, sealKeyring) : null;
-      if (!challenge || new Date(challenge.expiresAt) <= current || !CODE.test(input.code)) invalid();
+      const current = nowValue(now);
+      const ticketAuthority = "ticket" in input ? openAccountMagicTicket(input.ticket, sealKeyring) : null;
+      const raw = "ticket" in input ? null : challengeValue(input.challengeCookie);
+      const challenge = ticketAuthority?.challenge ?? (raw ? openAccountChallenge(raw, sealKeyring) : null);
+      if (!challenge || new Date(challenge.expiresAt) <= current || (!("ticket" in input) && !CODE.test(input.code))) invalid();
       const emailAuthority = accountHostnameEmailDigest(input.hostname, challenge.email, hmacKeyring);
-      const codeAuthority = accountHostnameCodeDigest({ challengeId: challenge.challengeId, hostname: input.hostname, email: challenge.email, code: input.code }, hmacKeyring);
+      const verifier = "ticket" in input
+        ? accountHostnameTicketDigest({ challengeId: challenge.challengeId, hostname: input.hostname, ticket: ticketAuthority!.ticket }, hmacKeyring)
+        : accountHostnameCodeDigest({ challengeId: challenge.challengeId, hostname: input.hostname, email: challenge.email, code: input.code }, hmacKeyring);
       const accountId = uuid(randomUuid); const sessionId = uuid(randomUuid); const sessionCredential = createAccountSessionCredential(hmacKeyring, randomBytes); const csrf = csrfValue(randomBytes);
       const result = await repository.verify({
-        hostname: input.hostname, now: current, challengeId: challenge.challengeId, emailDigest: emailAuthority.digest, codeDigest: codeAuthority.digest,
+        hostname: input.hostname, now: current, challengeId: challenge.challengeId, emailDigest: emailAuthority.digest, verifierKind: "ticket" in input ? "ticket" : "code", verifierDigest: verifier.digest,
         email: challenge.email, accountId, sessionId, sessionKeyId: sessionCredential.keyId, sessionDigest: sessionCredential.digest,
         csrfDigest: accountCsrfDigest(sessionId, csrf, hmacKeyring).digest, deviceLabel: input.deviceLabel,
         userAgentDigest: accountUserAgentDigest(input.hostname, input.userAgent, hmacKeyring).digest, correlationId: correlation("verify", sessionId),

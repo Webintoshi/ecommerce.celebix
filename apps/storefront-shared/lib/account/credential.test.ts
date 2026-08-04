@@ -37,6 +37,8 @@ const magic = credential as typeof credential & Readonly<{
     selectedKeyring: typeof keyring,
     keyId?: string,
   ): Readonly<{ keyId: string; digest: string }>;
+  serializeAccountMagicTicket(challenge: string, ticket: string): string;
+  openAccountMagicTicket(value: string, selectedKeyring: typeof keyring): Readonly<{ challenge: Readonly<{ challengeId: string; email: string; expiresAt: string }>; ticket: string }> | null;
 }>;
 
 test("magic ticket has 256 bits and uses hostname-bound rotating authority", () => {
@@ -63,6 +65,19 @@ test("magic ticket rejects short randomness and malformed bearer values", () => 
   for (const ticket of ["short", "!".repeat(43), "a".repeat(42), "a".repeat(44)]) {
     assert.throws(() => magic.accountHostnameTicketDigest({ challengeId: "10000000-0000-4000-8000-000000000001", hostname: "identity-a.saas-staging.celebix.site", ticket }, keyring), /storefront_identity_credential_invalid/u);
   }
+});
+
+test("magic-link bearer carries an authenticated challenge without exposing email", () => {
+  assert.equal(typeof magic.serializeAccountMagicTicket, "function");
+  assert.equal(typeof magic.openAccountMagicTicket, "function");
+  const challenge = Object.freeze({ challengeId: "10000000-0000-4000-8000-000000000001", email: "ada@example.com", expiresAt: "2026-08-04T08:10:00.000Z" });
+  const sealed = sealAccountChallenge(challenge, keyring, (size) => new Uint8Array(size).fill(11));
+  const ticket = magic.createStorefrontMagicTicket((size) => new Uint8Array(size).fill(13));
+  const bearer = magic.serializeAccountMagicTicket(sealed, ticket);
+  assert.match(bearer, /^ch1[.].+[.]tk1[.][A-Za-z0-9_-]{43}$/u);
+  assert.doesNotMatch(bearer, /ada@example/u);
+  assert.deepEqual(magic.openAccountMagicTicket(bearer, keyring), { challenge, ticket });
+  assert.equal(magic.openAccountMagicTicket(`${bearer.slice(0, -1)}!`, keyring), null);
 });
 
 test("session cookie is host-only and token storage is keyed", () => {

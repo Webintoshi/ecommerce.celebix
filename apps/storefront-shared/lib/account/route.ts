@@ -65,7 +65,7 @@ export function createAccountAuthStartRoute(dependencies: Dependencies) {
     try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["email"], ["returnTo"]); return { email: normalizeStorefrontAccountEmail(p.email), returnTo: Object.hasOwn(p, "returnTo") ? safeAccountReturnTo(p.returnTo) : "/account" }; }); } catch { return failure(new TypeError()); }
     const [runtime, brand] = await Promise.all([selectedRuntime(dependencies), dependencies.resolveBrand(selected.hostname).catch(() => null)]); if (!runtime || !brand) return failure(new Error());
     try {
-      const result = await runtime.start({ hostname: selected.hostname, email: input.email, requestAuthority: dependencies.requestAuthority(request.headers), brand });
+      const result = await runtime.start({ hostname: selected.hostname, email: input.email, requestAuthority: dependencies.requestAuthority(request.headers), returnTo: input.returnTo, brand });
       return json({ ...result.result, destination: "/account/verify", returnTo: input.returnTo }, 200, [result.setCookie]);
     } catch (error) { return failure(error); }
   };

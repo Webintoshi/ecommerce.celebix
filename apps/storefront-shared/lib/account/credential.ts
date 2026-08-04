@@ -10,6 +10,7 @@ const DIGEST = /^[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const CREDENTIAL = /^a1[.]([a-z][a-z0-9_-]{2,31})[.]([A-Za-z0-9_-]{43})$/;
 const CHALLENGE = /^ch1[.]([a-z][a-z0-9_-]{2,31})[.]([A-Za-z0-9_-]{16})[.]([A-Za-z0-9_-]{1,1024})[.]([A-Za-z0-9_-]{22})$/;
+const MAGIC_TICKET_SEPARATOR = ".tk1.";
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
@@ -216,6 +217,22 @@ export function openAccountChallenge(value: string, keyring: StorefrontIdentityK
     return parseChallengePayload(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)));
   } catch { return null; }
   finally { nonce.fill(0); encrypted.fill(0); tag.fill(0); aad.fill(0); plaintext?.fill(0); }
+}
+
+export function serializeAccountMagicTicket(challenge: string, ticket: string): string {
+  if (!CHALLENGE.test(challenge) || !TOKEN.test(ticket) || !canonicalBase64(ticket, 32)) credentialInvalid();
+  return `${challenge}${MAGIC_TICKET_SEPARATOR}${ticket}`;
+}
+
+export function openAccountMagicTicket(value: string, keyring: StorefrontIdentityKeyring): Readonly<{ challenge: AccountChallenge; ticket: string }> | null {
+  if (typeof value !== "string" || value.length > 1_600 || CONTROL.test(value)) return null;
+  const separator = value.indexOf(MAGIC_TICKET_SEPARATOR);
+  if (separator < 1 || separator !== value.lastIndexOf(MAGIC_TICKET_SEPARATOR)) return null;
+  const sealedChallenge = value.slice(0, separator);
+  const ticket = value.slice(separator + MAGIC_TICKET_SEPARATOR.length);
+  if (!TOKEN.test(ticket) || !canonicalBase64(ticket, 32)) return null;
+  const challenge = openAccountChallenge(sealedChallenge, keyring);
+  return challenge ? Object.freeze({ challenge, ticket }) : null;
 }
 
 export function readAccountCookie(cookieHeader: string | null): AccountCookieRead {
