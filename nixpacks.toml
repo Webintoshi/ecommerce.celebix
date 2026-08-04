@@ -1,3 +1,6 @@
+[phases.setup]
+aptPkgs = []
+
 [start]
 runImage = "node:20-bookworm"
 onlyIncludeFiles = [
