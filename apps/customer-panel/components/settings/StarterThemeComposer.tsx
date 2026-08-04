@@ -2,16 +2,14 @@
 
 import {
   parseStorefrontAsset,
-  parseStarterThemeCompositionConfig,
   type CatalogCategory,
-  type MerchantAdminJson,
   type MerchantAdminRecord,
   type Product,
-  type StarterThemeComposition,
+  type StarterThemeCompositionConfigV2,
   type StarterThemeSectionConfigV2,
   type StorefrontAsset,
 } from "@celebix/saas-contracts";
-import { ArrowDown, ArrowUp, LoaderCircle, Plus, Save, Send, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { StarterThemePreview } from "@/components/settings/StarterThemePreview";
@@ -20,19 +18,17 @@ import { StarterRetailSectionEditor } from "@/components/settings/StarterRetailS
 import { StarterThemeSubnavigation } from "@/components/settings/StarterThemeSubnavigation";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { catalogApi } from "@/lib/catalog-ui/client";
-import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
+import { merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import {
   addStarterCampaignPanel,
   addStarterHeroSlide,
   buildStarterThemeComposition,
-  createStarterThemeEditorState,
   moveStarterSection,
   removeStarterCampaignPanel,
   removeStarterHeroSlide,
   updateStarterCampaignPanel,
   updateStarterHeroSlide,
   updateStarterNavigationRoots,
-  upgradeStarterThemeComposition,
   type StarterThemeEditorState,
 } from "@/lib/starter-theme-composer-model";
 import {
@@ -41,7 +37,6 @@ import {
 } from "./starter-theme-subnavigation-model";
 import styles from "./starter-theme-composer.module.css";
 
-type SaveStatus = "draft" | "active";
 type SectionKind = StarterThemeSectionConfigV2["kind"];
 
 const SECTION_LABELS: Readonly<Record<SectionKind, string>> = Object.freeze({
@@ -54,14 +49,8 @@ const SECTION_LABELS: Readonly<Record<SectionKind, string>> = Object.freeze({
   testimonials: "Müşteri yorumları",
 });
 
-function activeRecord(records: readonly MerchantAdminRecord[]) {
-  return records.find((record) => record.status === "draft")
-    ?? records.find((record) => record.status === "active")
-    ?? null;
-}
-
-function editorState(config: StarterThemeComposition): StarterThemeEditorState {
-  const { schemaVersion: _schemaVersion, ...state } = upgradeStarterThemeComposition(config);
+function editorState(config: StarterThemeCompositionConfigV2): StarterThemeEditorState {
+  const { schemaVersion: _schemaVersion, ...state } = config;
   return state;
 }
 
@@ -148,23 +137,28 @@ function SplitCampaignPanelsEditor({
   </div>;
 }
 
-export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolean }>) {
-  const [current, setCurrent] = useState<MerchantAdminRecord | null>(null);
-  const [state, setState] = useState<StarterThemeEditorState>(() => createStarterThemeEditorState());
+export function StarterThemeComposer({
+  canManage,
+  value,
+  onChange,
+}: Readonly<{
+  canManage: boolean;
+  value: StarterThemeCompositionConfigV2;
+  onChange: (value: StarterThemeCompositionConfigV2) => void;
+}>) {
   const [categories, setCategories] = useState<readonly CatalogCategory[]>([]);
   const [products, setProducts] = useState<readonly Product[]>([]);
   const [assets, setAssets] = useState<readonly StorefrontAsset[]>([]);
   const [pages, setPages] = useState<readonly MerchantAdminRecord[]>([]);
-  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false);
-  const [error, setError] = useState(""), [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [newSection, setNewSection] = useState<SectionKind>("product_row");
   const [activePanel, setActivePanel] = useState<ThemePanelKey>(DEFAULT_THEME_PANEL);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const [records, loadedPages, loadedCategories, productPage, response] = await Promise.all([
-        merchantAdminApi.records("starter_theme_composition"),
+      const [loadedPages, loadedCategories, productPage, response] = await Promise.all([
         merchantAdminApi.records("page"),
         catalogOnboardingClient.listCategories(),
         catalogApi.listProducts({ status: "active" }),
@@ -173,9 +167,6 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
       if (!response.ok) throw new Error("asset_unavailable");
       const body = await response.json() as { assets?: unknown };
       if (!Array.isArray(body.assets) || body.assets.length > 64) throw new Error("asset_unavailable");
-      const record = activeRecord(records);
-      setCurrent(record);
-      setState(record ? editorState(parseStarterThemeCompositionConfig(record.config)) : createStarterThemeEditorState());
       setPages(Object.freeze(loadedPages.filter((entry) => entry.status === "active" && entry.config.published === true)));
       setCategories(Object.freeze(loadedCategories.filter((entry) => entry.status === "active")));
       setProducts(Object.freeze(productPage.items.filter((entry) => entry.status === "active")));
@@ -186,10 +177,18 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
 
   useEffect(() => { void load(); }, [load]);
 
+  const state = useMemo(() => editorState(value), [value]);
   const preview = useMemo(() => { try { return buildStarterThemeComposition(state); } catch { return null; } }, [state]);
   const productTitles = useMemo(() => Object.freeze(products.slice(0, 3).map(({ title }) => title)), [products]);
-  const disabled = !canManage || busy;
-  const patch = (value: Partial<StarterThemeEditorState>) => setState((previous) => ({ ...previous, ...value }));
+  const disabled = !canManage;
+  const patch = (patchValue: Partial<StarterThemeEditorState>) => {
+    try {
+      onChange(buildStarterThemeComposition({ ...state, ...patchValue }));
+      setError("");
+    } catch {
+      setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
+    }
+  };
   const updateSection = (index: number, section: StarterThemeSectionConfigV2) => patch({ sections: Object.freeze(state.sections.map((entry, position) => position === index ? section : entry)) });
 
   function addSection() {
@@ -199,33 +198,13 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
     patch({ sections: Object.freeze([...state.sections, section]) }); setError("");
   }
 
-  async function persist(status: SaveStatus) {
-    if (disabled) return;
-    setBusy(true); setError(""); setMessage("");
-    try {
-      const config = buildStarterThemeComposition(state);
-      await merchantAdminApi.save("starter_theme_composition", {
-        ...(current ? { recordId: current.id, expectedVersion: current.version } : {}),
-        name: current?.name ?? "Campaign Starter",
-        config: config as unknown as Readonly<Record<string, MerchantAdminJson>>,
-        status,
-      });
-      await load(); setMessage(status === "active" ? "Kaydedildi ve vitrinde yayınlandı." : "Taslak kaydedildi; vitrinde henüz görünmüyor.");
-    } catch (caught) {
-      setError(caught instanceof MerchantAdminApiError && caught.code === "version_conflict"
-        ? "version_conflict: Bu tema başka bir oturumda güncellendi. Yeniden yükleyin."
-        : "Tema eksik veya geçersiz. Seçimleri kontrol edin; hiçbir değişiklik yayınlanmadı.");
-    } finally { setBusy(false); }
-  }
-
   return <main className={styles.shell}>
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
-    {message ? <p className={styles.success} role="status">{message}</p> : null}
     {!canManage ? <p className={styles.readOnly} role="status">Yalnız görüntüleme</p> : null}
-    {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={styles.workspace} onSubmit={(event) => { event.preventDefault(); void persist("draft"); }}>
+    {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={styles.workspace} onSubmit={(event) => event.preventDefault()}>
       <StarterThemeSubnavigation activePanel={activePanel} onSelect={setActivePanel} />
       <div className={styles.editor}>
-        {!current ? <p className={styles.notice}>Henüz kaydedilmiş tema yok. Güvenli başlangıç düzeni hazırlandı.</p> : <p className={styles.notice}>{current.status === "draft" ? "Taslak düzenleniyor" : "Yayındaki sürüm düzenleniyor"} · sürüm {current.version}</p>}
+        <p className={styles.notice}>Bu alanlar aynı tasarım taslağına otomatik kaydedilir. Vitrine çıkarmak için üstteki tek Yayınla düğmesini kullanın.</p>
         <section
           className={styles.themePanel}
           role="tabpanel"
@@ -280,7 +259,6 @@ export function StarterThemeComposer({ canManage }: Readonly<{ canManage: boolea
         {activePanel === "cart" ? <fieldset className={styles.panel} disabled={disabled}><legend>Sepet deneyimi</legend><label className={styles.check}><input type="checkbox" checked={state.cart.showCheckoutReadiness} onChange={(event) => patch({ cart: { ...state.cart, showCheckoutReadiness: event.currentTarget.checked } })} /> Ödeme hazırlığını göster</label><label className={styles.check}><input type="checkbox" checked={false} aria-describedby="shipping-progress-authority" disabled /> Kargo ilerlemesini göster</label><p className={styles.fieldHelp} id="shipping-progress-authority">Kargo ilerlemesi için doğrulanmış ücretsiz kargo eşiği gerekli. Eşik authority’si sağlanana kadar bu seçenek kapalı kaydedilir ve vitrinde gösterilmez.</p><label>Güven mesajı<input maxLength={160} value={state.cart.trustMessage ?? ""} onChange={(event) => patch({ cart: { ...state.cart, trustMessage: event.currentTarget.value } })} /></label></fieldset> : null}
         {activePanel === "footer" ? <StarterFooterEditor categories={categories} disabled={disabled} pages={pages} update={(footer) => patch({ footer })} value={state.footer} /> : null}
         </section>
-        <footer className={styles.actions}><button className={styles.secondary} type="submit" disabled={!canManage || busy}>{busy ? <LoaderCircle aria-hidden="true" /> : <Save aria-hidden="true" />} Taslak kaydet</button><button className={styles.primary} type="button" onClick={() => void persist("active")} disabled={!canManage || busy}><Send aria-hidden="true" /> Yayınla</button></footer>
       </div>
       <aside className={styles.preview}>{preview ? <StarterThemePreview composition={preview} productTitles={productTitles} storefrontHostname={null} /> : <p role="alert">Önizleme için zorunlu alanları tamamlayın.</p>}</aside>
     </form>}

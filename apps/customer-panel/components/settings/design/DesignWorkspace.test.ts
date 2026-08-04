@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { createDefaultStarterThemeComposition } from "@celebix/saas-contracts";
 import { applyDesignEdit, beginDesignSave, completeDesignSave, createDesignEditorState } from "./workspace-model.ts";
 
 const NOW = "2026-08-03T09:00:00.000Z";
-const DESIGN = { schemaVersion: 2, brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: { kind: "none" }, enabled: true }] }, promotion: { headline: "Yeni sezon", body: "", destination: { kind: "none" }, startsAt: null, endsAt: null, enabled: false }, announcement: { items: ["Ücretsiz kargo"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true } } as const;
+const DESIGN = { schemaVersion: 3, brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: { kind: "none" }, enabled: true }] }, promotion: { headline: "Yeni sezon", body: "", destination: { kind: "none" }, startsAt: null, endsAt: null, enabled: false }, announcement: { items: ["Ücretsiz kargo"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true }, composition: createDefaultStarterThemeComposition() } as const;
 const PUBLIC = { schemaVersion: 2, publicationVersion: 1, publishedAt: NOW, brand: DESIGN.brand, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: null }] }, promotion: { ...DESIGN.promotion, destination: null }, announcement: DESIGN.announcement } as const;
-const WORKSPACE = { schemaVersion: 2, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW, publishedAt: NOW, draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] } as const;
+const WORKSPACE = { schemaVersion: 3, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW, publishedAt: NOW, draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] } as const;
 
 test("editor state never reports a newer local edit as saved by an older request", () => {
   const initial = createDesignEditorState(WORKSPACE);
@@ -46,6 +47,14 @@ test("workspace source exposes six child-friendly sections, truthful save states
   assert.match(css, /\.sectionRail\s*\{[^}]*flex-direction:\s*row/s);
   assert.doesNotMatch(css, /\.sectionRail\s*\{[^}]*border-right:/s);
   assert.doesNotMatch(`${workspace}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
+});
+
+test("theme section edits the same draft and keeps the one workspace publish action", async () => {
+  const workspace = await readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(workspace, /<StarterThemeComposer\s+canManage=\{canManage\}\s+value=\{editor[.]design[.]composition\}/);
+  assert.match(workspace, /composition:\s*value/);
+  assert.doesNotMatch(workspace, /section\s*===\s*"theme"\s*\?\s*null/);
+  assert.equal((workspace.match(/>Yayınla<\/button>/g) ?? []).length, 1);
 });
 
 test("design page loads durable workspace server-side and legacy appearance pages only redirect", async () => {
