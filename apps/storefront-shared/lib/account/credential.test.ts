@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import * as credential from "./credential.ts";
+
 import {
   accountCodeDigest,
   accountCredentialDigestCandidates,
@@ -27,6 +29,41 @@ const keyring = parseStorefrontIdentityKeyring("current_01", JSON.stringify([
   { keyId: "current_01", key: KEY_A },
   { keyId: "previous_01", key: KEY_B },
 ]));
+
+const magic = credential as typeof credential & Readonly<{
+  createStorefrontMagicTicket(random: (size: number) => Uint8Array): string;
+  accountHostnameTicketDigest(
+    authority: Readonly<{ challengeId: string; hostname: string; ticket: string }>,
+    selectedKeyring: typeof keyring,
+    keyId?: string,
+  ): Readonly<{ keyId: string; digest: string }>;
+}>;
+
+test("magic ticket has 256 bits and uses hostname-bound rotating authority", () => {
+  assert.equal(typeof magic.createStorefrontMagicTicket, "function");
+  assert.equal(typeof magic.accountHostnameTicketDigest, "function");
+  const ticket = magic.createStorefrontMagicTicket((size) => {
+    assert.equal(size, 32);
+    return new Uint8Array(size).fill(13);
+  });
+  assert.equal(ticket, "DQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0");
+  const authority = Object.freeze({ challengeId: "10000000-0000-4000-8000-000000000001", hostname: "identity-a.saas-staging.celebix.site", ticket });
+  const current = magic.accountHostnameTicketDigest(authority, keyring);
+  const previous = magic.accountHostnameTicketDigest(authority, keyring, "previous_01");
+  assert.equal(current.keyId, "current_01");
+  assert.match(current.digest, /^[a-f0-9]{64}$/u);
+  assert.notEqual(current.digest, previous.digest);
+  assert.notEqual(current.digest, magic.accountHostnameTicketDigest({ ...authority, hostname: "identity-b.saas-staging.celebix.site" }, keyring).digest);
+});
+
+test("magic ticket rejects short randomness and malformed bearer values", () => {
+  assert.equal(typeof magic.createStorefrontMagicTicket, "function");
+  assert.equal(typeof magic.accountHostnameTicketDigest, "function");
+  assert.throws(() => magic.createStorefrontMagicTicket(() => new Uint8Array(31)), /storefront_identity_credentials_unavailable/u);
+  for (const ticket of ["short", "!".repeat(43), "a".repeat(42), "a".repeat(44)]) {
+    assert.throws(() => magic.accountHostnameTicketDigest({ challengeId: "10000000-0000-4000-8000-000000000001", hostname: "identity-a.saas-staging.celebix.site", ticket }, keyring), /storefront_identity_credential_invalid/u);
+  }
+});
 
 test("session cookie is host-only and token storage is keyed", () => {
   const issued = createAccountSessionCredential(keyring, (size) => new Uint8Array(size).fill(7));

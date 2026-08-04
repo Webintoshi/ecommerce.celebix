@@ -128,6 +128,11 @@ export function accountHostnameCodeDigest(authority: Readonly<{ challengeId: str
   return issueDigest("hostname-code", [authority.challengeId, identityHostname(authority.hostname), normalizeStorefrontAccountEmail(authority.email), authority.code], keyring, keyId);
 }
 
+export function accountHostnameTicketDigest(authority: Readonly<{ challengeId: string; hostname: string; ticket: string }>, keyring: StorefrontIdentityKeyring, keyId = keyring.activeKeyId): Readonly<{ keyId: string; digest: string }> {
+  if (!UUID.test(authority.challengeId) || !TOKEN.test(authority.ticket) || !canonicalBase64(authority.ticket, 32)) credentialInvalid();
+  return issueDigest("hostname-ticket", [authority.challengeId, identityHostname(authority.hostname), authority.ticket], keyring, keyId);
+}
+
 function boundedAuthority(value: string, maximum: number): string {
   if (typeof value !== "string" || value.length < 1 || value.length > maximum || CONTROL.test(value)) credentialInvalid();
   return value;
@@ -150,6 +155,17 @@ export function createStorefrontLoginCode(random: (maximumExclusive: number) => 
   const value = random(1_000_000);
   if (!Number.isSafeInteger(value) || value < 0 || value >= 1_000_000) unavailable();
   return String(value).padStart(6, "0");
+}
+
+export function createStorefrontMagicTicket(random: (size: number) => Uint8Array): string {
+  const randomValue = random(32);
+  if (!(randomValue instanceof Uint8Array) || randomValue.byteLength !== 32) unavailable();
+  const bytes = Buffer.from(randomValue);
+  try {
+    const ticket = bytes.toString("base64url");
+    if (!TOKEN.test(ticket) || !canonicalBase64(ticket, 32)) unavailable();
+    return ticket;
+  } finally { bytes.fill(0); }
 }
 
 function parseChallengePayload(value: unknown): AccountChallenge | null {
