@@ -32,9 +32,9 @@
 - Modify: `packages/saas-contracts/src/storefront/retail-presentation.test.ts`
 - Modify: `packages/saas-contracts/src/storefront/storefront.test.ts`
 - Modify: `packages/saas-contracts/src/storefront-design/storefront-design.test.ts`
-- Create: `apps/owner/scripts/sql/saas/202608040084_side_cart_quantity_controls.up.sql`
-- Create: `apps/owner/scripts/sql/saas/202608040084_side_cart_quantity_controls.down.sql`
-- Create: `apps/owner/scripts/sql/saas/202608040084_side_cart_quantity_controls_assertions.sql`
+- Create: `apps/owner/scripts/sql/saas/202608040086_side_cart_quantity_controls.up.sql`
+- Create: `apps/owner/scripts/sql/saas/202608040086_side_cart_quantity_controls.down.sql`
+- Create: `apps/owner/scripts/sql/saas/202608040086_side_cart_quantity_controls_assertions.sql`
 - Create: `apps/owner/scripts/sql/saas/phase3-side-cart-quantity-controls-manifest.json`
 - Create: `apps/owner/scripts/sql/saas/side-cart-quantity-controls-migration.test.ts`
 
@@ -97,7 +97,7 @@ Run:
 node --experimental-transform-types --test apps/owner/scripts/sql/saas/side-cart-quantity-controls-migration.test.ts
 ```
 
-Expected: FAIL because the 084 artifacts do not exist.
+Expected: FAIL because the 086 artifacts do not exist.
 
 - [ ] **Step 5: Implement the contract and migration**
 
@@ -138,9 +138,9 @@ Run:
 
 ```bash
 shasum -a 256 \
-  apps/owner/scripts/sql/saas/202608040084_side_cart_quantity_controls.up.sql \
-  apps/owner/scripts/sql/saas/202608040084_side_cart_quantity_controls.down.sql \
-  apps/owner/scripts/sql/saas/202608040084_side_cart_quantity_controls_assertions.sql
+  apps/owner/scripts/sql/saas/202608040086_side_cart_quantity_controls.up.sql \
+  apps/owner/scripts/sql/saas/202608040086_side_cart_quantity_controls.down.sql \
+  apps/owner/scripts/sql/saas/202608040086_side_cart_quantity_controls_assertions.sql
 npm test --workspace @celebix/saas-contracts
 node --experimental-transform-types --test apps/owner/scripts/sql/saas/side-cart-quantity-controls-migration.test.ts
 ```

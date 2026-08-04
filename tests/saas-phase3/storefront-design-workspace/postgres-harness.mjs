@@ -217,8 +217,12 @@ function main() {
     scenario("unified authority upgrades every durable design to schema three", () => {
       assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs WHERE schema_version=3 AND draft_config->>'schemaVersion'='3' AND published_config->>'schemaVersion'='3';").stdout.trim(), "2");
     });
-    apply(box, "202608040084_side_cart_quantity_controls.up.sql");
-    apply(box, "202608040084_side_cart_quantity_controls_assertions.sql");
+    apply(box, "202608040084_storefront_customer_identity.up.sql");
+    apply(box, "202608040084_storefront_customer_identity_assertions.sql");
+    apply(box, "202608040085_storefront_magic_link_auth.up.sql");
+    apply(box, "202608040085_storefront_magic_link_auth_assertions.sql");
+    apply(box, "202608040086_side_cart_quantity_controls.up.sql");
+    apply(box, "202608040086_side_cart_quantity_controls_assertions.sql");
     scenario("quantity selector migration executes on PostgreSQL 16", () => assert.match(psql(box, "SHOW server_version;").stdout, /^16[.]/));
     scenario("existing designs and new defaults normalize quantity selection to enabled", () => {
       assert.equal(psql(box, "SELECT (saas.storefront_theme_default_composition()->'cart'->>'showQuantitySelector')::boolean;").stdout.trim(), "t");
@@ -230,17 +234,17 @@ function main() {
       assert.equal(psql(box, "SELECT saas.campaign_starter_composition_valid(pg_catalog.jsonb_set(saas.storefront_theme_default_composition(),ARRAY['cart','showQuantitySelector'],'\"true\"'::jsonb,false));").stdout.trim(), "f");
     });
     scenario("quantity selector rollback is explicit and loss guarded", () => {
-      assert.notEqual(psql(box, readFileSync(path.join(SQL, "202608040084_side_cart_quantity_controls.down.sql"), "utf8"), DB, true).status, 0);
+      assert.notEqual(psql(box, readFileSync(path.join(SQL, "202608040086_side_cart_quantity_controls.down.sql"), "utf8"), DB, true).status, 0);
       psql(box, "UPDATE saas.storefront_designs SET draft_config=pg_catalog.jsonb_set(draft_config,ARRAY['composition','cart','showQuantitySelector'],'false'::jsonb,false),published_config=pg_catalog.jsonb_set(published_config,ARRAY['composition','cart','showQuantitySelector'],'false'::jsonb,false);");
-      const lossGuard = psql(box, `SET celebix.allow_side_cart_quantity_controls_down='on';\n${readFileSync(path.join(SQL, "202608040084_side_cart_quantity_controls.down.sql"), "utf8")}`, DB, true);
+      const lossGuard = psql(box, `SET celebix.allow_side_cart_quantity_controls_down='on';\n${readFileSync(path.join(SQL, "202608040086_side_cart_quantity_controls.down.sql"), "utf8")}`, DB, true);
       assert.notEqual(lossGuard.status, 0);
       psql(box, "UPDATE saas.storefront_designs SET draft_config=pg_catalog.jsonb_set(draft_config,ARRAY['composition','cart','showQuantitySelector'],'true'::jsonb,false),published_config=pg_catalog.jsonb_set(published_config,ARRAY['composition','cart','showQuantitySelector'],'true'::jsonb,false);");
     });
     scenario("guarded rollback and reapply preserve cleanup-safe authority", () => {
-      apply(box, "202608040084_side_cart_quantity_controls.down.sql", DB, "SET celebix.allow_side_cart_quantity_controls_down='on';\n");
+      apply(box, "202608040086_side_cart_quantity_controls.down.sql", DB, "SET celebix.allow_side_cart_quantity_controls_down='on';\n");
       assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs WHERE draft_config->'composition'->'cart'?'showQuantitySelector';").stdout.trim(), "0");
-      apply(box, "202608040084_side_cart_quantity_controls.up.sql");
-      apply(box, "202608040084_side_cart_quantity_controls_assertions.sql");
+      apply(box, "202608040086_side_cart_quantity_controls.up.sql");
+      apply(box, "202608040086_side_cart_quantity_controls_assertions.sql");
       assert.equal(psql(box, "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname=current_database() AND pid<>pg_catalog.pg_backend_pid();").stdout.trim(), "0");
     });
     assert.equal(completed, TOTAL);

@@ -5,9 +5,9 @@ import test from "node:test";
 
 const root = new URL("./", import.meta.url);
 const files = {
-  up: "202608040084_side_cart_quantity_controls.up.sql",
-  down: "202608040084_side_cart_quantity_controls.down.sql",
-  assertions: "202608040084_side_cart_quantity_controls_assertions.sql",
+  up: "202608040086_side_cart_quantity_controls.up.sql",
+  down: "202608040086_side_cart_quantity_controls.down.sql",
+  assertions: "202608040086_side_cart_quantity_controls_assertions.sql",
   manifest: "phase3-side-cart-quantity-controls-manifest.json",
 } as const;
 
@@ -16,7 +16,7 @@ function source(name: keyof typeof files): string {
   return existsSync(url) ? readFileSync(url, "utf8") : "";
 }
 
-test("084 normalizes and validates the published quantity-selector authority", () => {
+test("086 normalizes and validates the published quantity-selector authority", () => {
   const up = source("up");
   assert.match(up, /showQuantitySelector/);
   assert.match(up, /jsonb_set/);
@@ -25,7 +25,7 @@ test("084 normalizes and validates the published quantity-selector authority", (
   assert.match(up, /storefront_theme_composition_upgrade_v2/);
 });
 
-test("084 rollback is guarded and verification covers defaults and publication", () => {
+test("086 rollback is guarded and verification covers defaults and publication", () => {
   const down = source("down");
   const assertions = source("assertions");
   assert.match(down, /celebix[.]allow_side_cart_quantity_controls_down/);
@@ -33,7 +33,7 @@ test("084 rollback is guarded and verification covers defaults and publication",
   assert.match(assertions, /SIDE_CART_QUANTITY_SELECTOR_PUBLICATION_INVALID/);
 });
 
-test("084 artifacts are PostgreSQL 16 pinned and checksum verified", () => {
+test("086 artifacts are PostgreSQL 16 pinned and checksum verified", () => {
   for (const name of Object.values(files)) assert.equal(existsSync(new URL(name, root)), true, `${name} missing`);
   const manifest = JSON.parse(source("manifest")) as {
     phase: string;

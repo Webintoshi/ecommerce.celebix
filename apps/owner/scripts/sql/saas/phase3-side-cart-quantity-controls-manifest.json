@@ -6,17 +6,17 @@
   "productionMutations": 0,
   "artifacts": [
     {
-      "file": "202608040084_side_cart_quantity_controls.up.sql",
+      "file": "202608040086_side_cart_quantity_controls.up.sql",
       "direction": "up",
       "sha256": "a62755b509b06e3328fb64e30e91c8456692283bf90dabc95e339a9d5b534c12"
     },
     {
-      "file": "202608040084_side_cart_quantity_controls.down.sql",
+      "file": "202608040086_side_cart_quantity_controls.down.sql",
       "direction": "down",
       "sha256": "21bba011faedf8814a84cbccef8348f3a18afd56e75fda38458268deeb9edb29"
     },
     {
-      "file": "202608040084_side_cart_quantity_controls_assertions.sql",
+      "file": "202608040086_side_cart_quantity_controls_assertions.sql",
       "direction": "verify",
       "sha256": "5b90efd56f1551011c1b3bde3df6ab8663f660f41e53f08ab046ed067859bd41"
     }
