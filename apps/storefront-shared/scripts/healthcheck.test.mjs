@@ -61,6 +61,7 @@ test("aborts a health request at the configured deadline", async () => {
 test("dedicated storefront image builds and healthchecks without apt mirror authority", async () => {
   const dockerfile = await readFile(new URL("../../../Dockerfile.storefront", import.meta.url), "utf8");
   assert.match(dockerfile, /FROM node:22-bookworm AS build/u);
+  assert.match(dockerfile, /COPY tsconfig\.base\.json \.\//u);
   assert.match(dockerfile, /RUN npm ci/u);
   assert.match(dockerfile, /RUN npm run build:coolify:storefront-shared/u);
   assert.match(dockerfile, /HEALTHCHECK[^\n]+node[^\n]+health/u);
