@@ -8,6 +8,7 @@ import { storefrontCartClient } from "@/lib/cart/client.ts";
 import { formatTry } from "@/lib/format.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { sideCartPresentation } from "./campaign-ui-model";
+import { mutateSideCartLine } from "./side-cart-mutation";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -31,14 +32,7 @@ export function SideCartDrawer({ presentation }: Readonly<{ presentation?: Publi
     if (!cart || pendingVariant) return;
     setPendingVariant(line.variantId); setStatus("");
     try {
-      const next = quantity === null
-        ? await storefrontCartClient.remove({ variantId: line.variantId, expectedVersion: cart.version })
-        : await storefrontCartClient.setQuantity({ variantId: line.variantId, quantity, expectedVersion: cart.version });
-      replaceCart(next);
-      setStatus(quantity === null ? `${line.title} sepetten çıkarıldı.` : `${line.title} adedi güncellendi.`);
-    } catch {
-      const recovered = await refresh();
-      setStatus(recovered ? "Sepet güncellenemedi. Güncel sepet yeniden yüklendi." : "Sepet güncellenemedi. Güncel durum doğrulanamadı.");
+      setStatus(await mutateSideCartLine({ line, cartVersion: cart.version, quantity, client: storefrontCartClient, replaceCart, refresh }));
     } finally { setPendingVariant(null); }
   };
 
@@ -64,7 +58,9 @@ export function SideCartDrawer({ presentation }: Readonly<{ presentation?: Publi
           return <article className="side-cart-line campaign-side-cart-item" key={line.variantId}>
             <Link className="side-cart-media" href={`/products/${line.slug}`} onClick={closeDrawer}>{line.media ? /* eslint-disable-next-line @next/next/no-img-element */<img src={line.media.url} alt={line.media.altText || line.title} loading="lazy" width={line.media.width ?? 96} height={line.media.height ?? 96} /> : <span aria-hidden="true">◇</span>}</Link>
             <div className="side-cart-line-copy"><Link href={`/products/${line.slug}`} onClick={closeDrawer}>{line.title}</Link><span>{line.variantTitle}</span><strong>{formatTry(line.unitPriceCents)}</strong>{line.available ? null : <em>Stok veya fiyat bilgisi değişti</em>}
-              <div className="side-cart-quantity" aria-label={`${line.title} adet`}><button type="button" aria-label={`${line.title} adet azalt`} disabled={pending || line.quantity <= 1} onClick={() => void mutate(line, line.quantity - 1)}>−</button><span>{line.quantity}</span><button type="button" aria-label={`${line.title} adet artır`} disabled={pending || line.quantity >= 99} onClick={() => void mutate(line, line.quantity + 1)}>+</button></div>
+              {campaignPresentation.showQuantitySelector
+                ? <div className="side-cart-quantity" aria-label={`${line.title} adet`}><button type="button" aria-label={`${line.title} adet azalt`} disabled={pending || line.quantity <= 1} onClick={() => void mutate(line, line.quantity - 1)}>−</button><span>{line.quantity}</span><button type="button" aria-label={`${line.title} adet artır`} disabled={pending || line.quantity >= 99} onClick={() => void mutate(line, line.quantity + 1)}>+</button></div>
+                : <span className="side-cart-quantity-copy">{line.quantity} adet</span>}
               <button className="side-cart-remove" type="button" disabled={pending} onClick={() => void mutate(line, null)}>Sepetten çıkar</button>
             </div>
             <strong className="side-cart-line-total">{formatTry(line.lineTotalCents)}</strong>

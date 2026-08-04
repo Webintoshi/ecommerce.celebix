@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [drawer, provider, utilities, card, detail, css] = await Promise.all([
+const [drawer, provider, utilities, card, detail, mutation, css] = await Promise.all([
   readFile(new URL("./SideCartDrawer.tsx", import.meta.url), "utf8"),
   readFile(new URL("./CartStatusProvider.tsx", import.meta.url), "utf8"),
   readFile(new URL("./StoreUtilities.tsx", import.meta.url), "utf8"),
   readFile(new URL("./ProductCardCartButton.tsx", import.meta.url), "utf8"),
   readFile(new URL("./ProductPurchasePanel.tsx", import.meta.url), "utf8"),
+  readFile(new URL("./side-cart-mutation.ts", import.meta.url), "utf8"),
   readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
 ]);
 
@@ -31,8 +32,8 @@ test("a stale mount refresh cannot overwrite a later cart mutation", () => {
 });
 
 test("an unavailable refresh is never presented as an empty or recovered cart", () => {
-  for (const proof of ["unavailable", "Sepet şu anda kullanılamıyor", "Güncel durum doğrulanamadı", "recovered"]) assert.match(`${provider}\n${drawer}`, new RegExp(proof, "u"));
-  assert.match(drawer, /recovered[\s\S]+Güncel sepet yeniden yüklendi/u);
+  for (const proof of ["unavailable", "Sepet şu anda kullanılamıyor", "Güncel durum doğrulanamadı", "refresh"]) assert.match(`${provider}\n${drawer}\n${mutation}`, new RegExp(proof, "u"));
+  assert.match(mutation, /refresh[\s\S]+Güncel sepet yeniden yüklendi/u);
   assert.match(drawer, /!cart && unavailable/u);
 });
 
@@ -44,11 +45,18 @@ test("side-cart is modal keyboard-safe and restores the opening control", () => 
 });
 
 test("side-cart renders canonical lines and uses only replay-safe mutations", () => {
-  for (const proof of ["line.media", "line.title", "line.variantTitle", "line.unitPriceCents", "line.lineTotalCents", "cart.subtotalCents", "cart.shippingCents", "cart.totalCents", "setQuantity", "remove", "expectedVersion", "Sepeti görüntüle", "Ödemeye geç"]) assert.match(drawer, new RegExp(proof, "u"));
-  assert.doesNotMatch(drawer, /fetch\(|localStorage|sessionStorage|document.cookie/u);
+  for (const proof of ["line.media", "line.title", "line.variantTitle", "line.unitPriceCents", "line.lineTotalCents", "cart.subtotalCents", "cart.shippingCents", "cart.totalCents", "setQuantity", "remove", "expectedVersion", "Sepeti görüntüle", "Ödemeye geç"]) assert.match(`${drawer}\n${mutation}`, new RegExp(proof, "u"));
+  assert.doesNotMatch(`${drawer}\n${mutation}`, /fetch\(|localStorage|sessionStorage|document.cookie/u);
   assert.match(drawer, /Ödeme durumunu görüntüle/u);
   assert.match(drawer, /side-cart-notice is-configuration/u);
   assert.match(css, /[.]side-cart-notice[.]is-configuration/u);
+});
+
+test("side-cart quantity selector follows published design and preserves read-only quantity", () => {
+  assert.match(drawer, /campaignPresentation[.]showQuantitySelector/u);
+  assert.match(drawer, /side-cart-quantity-copy/u);
+  assert.match(drawer, /\{line[.]quantity\} adet/u);
+  assert.match(drawer, /mutateSideCartLine/u);
 });
 
 test("side-cart stays responsive with 48px targets and reduced motion", () => {

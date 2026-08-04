@@ -6,7 +6,7 @@ import { campaignAnnouncement, campaignFrameSettings, sideCartPresentation } fro
 const campaign = (overrides: Record<string, unknown> = {}) => ({
   schemaVersion: 2,
   visual: { cornerStyle: "soft" },
-  cart: { showCheckoutReadiness: false, showShippingProgress: false, trustMessage: "Güvenli ödeme" },
+  cart: { showCheckoutReadiness: false, showShippingProgress: false, showQuantitySelector: false, trustMessage: "Güvenli ödeme" },
   announcement: { items: ["Aynı gün kargo", "Güvenli ödeme"], destination: "/pages/odeme-teslimat" },
   ...overrides,
 });
@@ -34,7 +34,7 @@ test("frame settings expose exact corner class for schema-v2 and schema-v3 cart 
   assert.deepEqual(campaignFrameSettings({ schemaVersion: 1 } as never), { campaignClass: "", cornerClass: "", cart: undefined });
 });
 
-test("side-cart visibility follows checkout readiness while trust copy stays exact", () => {
-  assert.deepEqual(sideCartPresentation(campaign().cart as never), { showCheckoutReadiness: false, trustMessage: "Güvenli ödeme" });
-  assert.deepEqual(sideCartPresentation(undefined), { showCheckoutReadiness: true, trustMessage: undefined });
+test("side-cart visibility follows published authority while legacy fallback stays enabled", () => {
+  assert.deepEqual(sideCartPresentation(campaign().cart as never), { showCheckoutReadiness: false, showQuantitySelector: false, trustMessage: "Güvenli ödeme" });
+  assert.deepEqual(sideCartPresentation(undefined), { showCheckoutReadiness: true, showQuantitySelector: true, trustMessage: undefined });
 });

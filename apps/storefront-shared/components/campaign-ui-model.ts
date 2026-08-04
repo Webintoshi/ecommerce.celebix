@@ -17,10 +17,12 @@ export function campaignFrameSettings(presentation: PublicStarterThemePresentati
 
 export function sideCartPresentation(presentation?: PublicStarterThemePresentationV2["cart"]): Readonly<{
   showCheckoutReadiness: boolean;
+  showQuantitySelector: boolean;
   trustMessage: string | undefined;
 }> {
   return Object.freeze({
     showCheckoutReadiness: presentation?.showCheckoutReadiness ?? true,
+    showQuantitySelector: presentation?.showQuantitySelector ?? true,
     trustMessage: presentation?.trustMessage,
   });
 }
