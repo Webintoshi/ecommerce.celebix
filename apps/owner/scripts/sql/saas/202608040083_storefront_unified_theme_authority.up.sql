@@ -209,7 +209,7 @@ BEGIN
   SELECT procedure.prosrc INTO source FROM pg_catalog.pg_proc procedure WHERE procedure.oid='saas.public_starter_retail_presentation(uuid,timestamp with time zone,boolean)'::regprocedure;
   IF pg_catalog.strpos(source,old_source)=0 THEN RAISE EXCEPTION 'STOREFRONT_UNIFIED_THEME_PUBLIC_RESOLVER_SOURCE_INVALID'; END IF;
   source:=pg_catalog.replace(source,old_source,new_source);
-  EXECUTE pg_catalog.format('CREATE OR REPLACE FUNCTION saas.public_starter_retail_presentation(uuid,timestamptz,boolean) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS %L',source);
+  EXECUTE pg_catalog.format('CREATE OR REPLACE FUNCTION saas.public_starter_retail_presentation(p_store_id uuid,p_now timestamptz,p_allow_index boolean) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS %L',source);
 END
 $storefront_unified_theme_public_resolver$;
 

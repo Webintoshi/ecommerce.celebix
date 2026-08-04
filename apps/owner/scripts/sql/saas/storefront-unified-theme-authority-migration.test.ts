@@ -46,6 +46,9 @@ test("083 validates exact tenant references and preserves atomic publication", (
 });
 
 test("083 rollback is explicit and loss guarded", () => {
+  const namedResolverSignature = /CREATE OR REPLACE FUNCTION saas[.]public_starter_retail_presentation\(p_store_id uuid,p_now timestamptz,p_allow_index boolean\)/;
+  assert.match(up, namedResolverSignature);
+  assert.match(down, namedResolverSignature);
   assert.match(down, /STOREFRONT_UNIFIED_THEME_DOWN_BLOCKED/);
   assert.match(down, /STOREFRONT_UNIFIED_THEME_DOWN_DATA_LOSS/);
   assert.match(down, /published_config-'composition'/);
