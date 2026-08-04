@@ -16,6 +16,7 @@ export const STOREFRONT_IDENTITY_ENVIRONMENT_FIELDS = Object.freeze([
   "CELEBIX_STOREFRONT_ACCOUNT_SEAL_KEYS",
   "CELEBIX_STOREFRONT_ACCOUNT_EMAIL_MODE",
   "CELEBIX_STOREFRONT_ACCOUNT_EMAIL_FROM",
+  "CELEBIX_STOREFRONT_ACCOUNT_RESEND_API_KEY",
 ] as const);
 
 type Environment = Record<string, string | undefined>;
@@ -25,7 +26,7 @@ export type StorefrontIdentityConfig = Readonly<{
   allowedOriginSuffix: ".saas-staging.celebix.site";
   hmacKeyring: StorefrontIdentityKeyring;
   sealKeyring: StorefrontIdentityKeyring;
-  email: Readonly<{ mode: "platform_resend"; from: string }>;
+  email: Readonly<{ mode: "platform_resend"; from: string; apiKey: string }>;
 }>;
 const DATABASE = /^[a-z][a-z0-9_]{2,62}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -51,17 +52,19 @@ export function parseStorefrontIdentityConfig(source: Environment): StorefrontId
   let hmacKeyring: StorefrontIdentityKeyring;
   let sealKeyring: StorefrontIdentityKeyring;
   let from: string;
+  let apiKey: string;
   try {
     hmacKeyring = parseStorefrontIdentityKeyring(source.CELEBIX_STOREFRONT_ACCOUNT_HMAC_ACTIVE_KEY_ID, source.CELEBIX_STOREFRONT_ACCOUNT_HMAC_KEYS);
     sealKeyring = parseStorefrontIdentityKeyring(source.CELEBIX_STOREFRONT_ACCOUNT_SEAL_ACTIVE_KEY_ID, source.CELEBIX_STOREFRONT_ACCOUNT_SEAL_KEYS);
     from = normalizeStorefrontAccountEmail(source.CELEBIX_STOREFRONT_ACCOUNT_EMAIL_FROM);
+    apiKey = required(source, "CELEBIX_STOREFRONT_ACCOUNT_RESEND_API_KEY", 256);
   } catch { return identityInvalid(); }
-  if (hmacKeyring.activeKeyId === sealKeyring.activeKeyId || !from.endsWith("@celebix.test") && !from.endsWith("@celebix.co")) identityInvalid();
+  if (hmacKeyring.activeKeyId === sealKeyring.activeKeyId || !from.endsWith("@celebix.test") && !from.endsWith("@celebix.co") || !/^re_[A-Za-z0-9_-]{16,200}$/u.test(apiKey)) identityInvalid();
   return Object.freeze({
     mode: "approved_staging",
     allowedOriginSuffix: ".saas-staging.celebix.site",
     hmacKeyring,
     sealKeyring,
-    email: Object.freeze({ mode: "platform_resend", from }),
+    email: Object.freeze({ mode: "platform_resend", from, apiKey }),
   });
 }

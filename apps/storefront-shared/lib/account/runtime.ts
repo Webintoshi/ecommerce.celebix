@@ -100,7 +100,7 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
     return Object.freeze({ hostname: input.hostname, now: current, candidates: requiredCredentials(input.cookieHeader), operationId: input.operationId, fingerprint: fingerprint(kind, payload), correlationId: correlation(kind, input.operationId) });
   }
 
-  return Object.freeze({
+  const runtime: StorefrontIdentityRuntime = {
     async start(input) {
       const current = nowValue(now); const email = normalizeStorefrontAccountEmail(input.email); const challengeId = uuid(randomUuid); const outboxId = uuid(randomUuid); const code = randomLoginCode();
       if (!CODE.test(code)) invalid();
@@ -161,5 +161,6 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
     async order(input) { return repository.order({ hostname: input.hostname, now: nowValue(now), candidates: requiredCredentials(input.cookieHeader), orderReference: input.orderReference }); },
     async devices(input) { return repository.devices({ hostname: input.hostname, now: nowValue(now), candidates: requiredCredentials(input.cookieHeader) }); },
     async revokeDevice(input) { return Object.freeze({ result: await repository.revokeDevice({ ...operationBase(input, { deviceId: input.deviceId }, "device_revoke"), deviceId: input.deviceId }) }); },
-  });
+  };
+  return Object.freeze(runtime);
 }

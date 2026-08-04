@@ -35,6 +35,7 @@ const identity = Object.freeze({
   CELEBIX_STOREFRONT_ACCOUNT_SEAL_KEYS: JSON.stringify([{ keyId: "seal_01", key: Buffer.alloc(32, 9).toString("base64url") }]),
   CELEBIX_STOREFRONT_ACCOUNT_EMAIL_MODE: "platform_resend",
   CELEBIX_STOREFRONT_ACCOUNT_EMAIL_FROM: "accounts@celebix.test",
+  CELEBIX_STOREFRONT_ACCOUNT_RESEND_API_KEY: "re_test_authority_0000000000000001",
 });
 
 test("storefront identity config activates only one isolated staging authority", () => {
@@ -43,7 +44,7 @@ test("storefront identity config activates only one isolated staging authority",
   assert.equal(parsed.allowedOriginSuffix, ".saas-staging.celebix.site");
   assert.equal(parsed.hmacKeyring.activeKeyId, "hmac_01");
   assert.equal(parsed.sealKeyring.activeKeyId, "seal_01");
-  assert.deepEqual(parsed.email, { mode: "platform_resend", from: "accounts@celebix.test" });
+  assert.deepEqual(parsed.email, { mode: "platform_resend", from: "accounts@celebix.test", apiKey: "re_test_authority_0000000000000001" });
 });
 
 test("storefront identity config fails closed on incomplete or production settings", () => {
@@ -54,5 +55,6 @@ test("storefront identity config fails closed on incomplete or production settin
     { ...identity, CELEBIX_STOREFRONT_ACCOUNT_ALLOWED_ORIGIN_SUFFIX: ".celebix.site" },
     { ...identity, CELEBIX_STOREFRONT_ACCOUNT_SEAL_ACTIVE_KEY_ID: "missing_01" },
     { ...identity, CELEBIX_STOREFRONT_ACCOUNT_EMAIL_MODE: "merchant_smtp" },
+    { ...identity, CELEBIX_STOREFRONT_ACCOUNT_RESEND_API_KEY: undefined },
   ]) assert.throws(() => parseStorefrontIdentityConfig(candidate), /storefront_identity_config_invalid/u);
 });

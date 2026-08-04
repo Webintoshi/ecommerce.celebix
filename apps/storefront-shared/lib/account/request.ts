@@ -25,7 +25,7 @@ export async function readAccountJsonRequest<T>(request: Request, configuredOrig
     if (request.headers.get("origin") !== origin || request.headers.get("content-type") !== "application/json" || request.headers.has("authorization") || request.headers.has("transfer-encoding") || request.body === null) invalid();
     const fetchSite = request.headers.get("sec-fetch-site");
     if (fetchSite !== null && fetchSite !== "same-origin") invalid();
-    for (const name of request.headers.keys()) if (name.startsWith("x-celebix-") && name !== "x-celebix-storefront-proxy") invalid();
+    for (const name of request.headers.keys()) if (name.startsWith("x-celebix-") && name !== "x-celebix-storefront-proxy" && name !== "x-celebix-account-csrf") invalid();
     const declared = request.headers.get("content-length");
     if (declared !== null && (!/^(?:0|[1-9]\d*)$/.test(declared) || Number(declared) > MAXIMUM_BODY_BYTES)) invalid();
 
