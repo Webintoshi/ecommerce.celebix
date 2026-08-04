@@ -365,7 +365,7 @@ test("native cart checkout success and account pages remain public-projection on
   assert.match(cart, /CartPageClient/u);
   assert.match(checkout, /CheckoutForm/u);
   assert.match(success, /getReceipt/u);
-  assert.match(account, /listAccountOrders/u);
+  assert.match(account, /identity[.]orders/u);
   assert.doesNotMatch(`${cart}\n${checkout}\n${success}\n${account}`, /storeId|tenantId|membershipId|customerId|orderId|credential/u);
 });
 

@@ -411,6 +411,13 @@ img { display: block; max-width: 100%; }
 .account-order-list > a > span { display: grid; gap: 7px; }
 .account-order-list > a > span:nth-child(2) { justify-items: end; }
 .account-order-list small { color: var(--muted); font-size: 11px; }
+.account-recent-orders { display: grid; margin-top: 48px; }
+.account-recent-orders > header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ink); padding-bottom: 14px; }
+.account-recent-orders h2 { margin: 0; font-size: 18px; }
+.account-recent-orders > header a { color: var(--accent); font-size: 12px; font-weight: 800; }
+.account-recent-orders > a { display: flex; min-height: 78px; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
+.account-recent-orders > a span { display: grid; gap: 5px; }
+.account-recent-orders small { color: var(--muted); font-size: 11px; }
 .account-inline-empty { margin: 0; border-bottom: 1px solid var(--line); padding-block: 32px; color: var(--muted); font-size: 13px; }
 .account-order-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); padding-bottom: 34px; }
 .account-order-heading > div { display: grid; gap: 8px; }

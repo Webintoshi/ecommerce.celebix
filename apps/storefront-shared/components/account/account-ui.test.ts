@@ -20,6 +20,7 @@ test("customer account forms are accessible and use the passwordless private rou
 test("account dashboard exposes working shopper destinations without private authority", async () => {
   const dashboard = await source("components/account/AccountDashboard.tsx");
   for (const path of ["/account/orders", "/account/addresses", "/account/profile", "/account/security", "/favorites"]) assert.match(dashboard, new RegExp(path));
+  assert.match(dashboard, /recentOrders/u);
   assert.doesNotMatch(dashboard, /tenantId|storeId|accountId|customerId/u);
   const css = await source("app/globals.css");
   assert.match(css, /\.account-auth-layout/u);
