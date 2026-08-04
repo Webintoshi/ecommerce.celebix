@@ -59,7 +59,7 @@ export function parseStorefrontIdentityConfig(source: Environment): StorefrontId
     from = normalizeStorefrontAccountEmail(source.CELEBIX_STOREFRONT_ACCOUNT_EMAIL_FROM);
     apiKey = required(source, "CELEBIX_STOREFRONT_ACCOUNT_RESEND_API_KEY", 256);
   } catch { return identityInvalid(); }
-  if (hmacKeyring.activeKeyId === sealKeyring.activeKeyId || !from.endsWith("@celebix.test") && !from.endsWith("@celebix.co") || !/^re_[A-Za-z0-9_-]{16,200}$/u.test(apiKey)) identityInvalid();
+  if (hmacKeyring.activeKeyId === sealKeyring.activeKeyId || !from.endsWith("@celebix.test") && !from.endsWith("@celebix.co") && !from.endsWith("@noreply.celebix.net") || !/^re_[A-Za-z0-9_-]{16,200}$/u.test(apiKey)) identityInvalid();
   return Object.freeze({
     mode: "approved_staging",
     allowedOriginSuffix: ".saas-staging.celebix.site",

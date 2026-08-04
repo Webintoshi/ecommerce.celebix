@@ -47,6 +47,15 @@ test("storefront identity config activates only one isolated staging authority",
   assert.deepEqual(parsed.email, { mode: "platform_resend", from: "accounts@celebix.test", apiKey: "re_test_authority_0000000000000001" });
 });
 
+test("storefront identity config accepts the verified Celebix Resend sender domain", () => {
+  const parsed = parseStorefrontIdentityConfig({
+    ...identity,
+    CELEBIX_STOREFRONT_ACCOUNT_EMAIL_FROM: "hesap@noreply.celebix.net",
+  });
+
+  assert.equal(parsed.email.from, "hesap@noreply.celebix.net");
+});
+
 test("storefront identity config fails closed on incomplete or production settings", () => {
   for (const candidate of [
     {},
