@@ -234,7 +234,7 @@ export function MerchantRecordEditor({
           ) : field.type === "enum" || field.type === "number" && field.allowedValues ? (
             <select name={field.key} defaultValue={inputValue(record, field.key)}>{field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}</select>
           ) : (
-            <input name={field.key} type={field.type === "email" || field.type === "url" ? field.type : field.type === "number" ? "number" : "text"} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
+            <input name={field.key} type={field.type === "email" || field.type === "url" ? field.type : field.type === "number" ? "number" : field.type === "datetime" ? "datetime-local" : "text"} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
           )}
         </label>
       ))}
