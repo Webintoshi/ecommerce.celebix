@@ -549,7 +549,16 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "payment_setting" && kind !== "category_showcase" && kind !== "policy" && kind !== "theme_setting");
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => ![
+    "ai_setting",
+    "payment_setting",
+    "category_showcase",
+    "hero_banner",
+    "marquee_setting",
+    "policy",
+    "promotion_banner",
+    "theme_setting",
+  ].includes(kind));
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     if (definition.cardinality === "singleton") {
@@ -684,7 +693,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     }
   }
 
-  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => kind !== "category_showcase" && kind !== "policy" && kind !== "theme_setting" && recordRoute.createRouteFor(kind) === undefined);
+  const inlineDefinitions = genericDefinitions.filter(({ kind }) => recordRoute.createRouteFor(kind) === undefined);
   for (const definition of inlineDefinitions) {
     await submitInlineRecord(definition, "create", "success");
     await submitInlineRecord(definition, "update", "success");
@@ -1061,17 +1070,6 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       "@/lib/merchant-admin-ui/presentation": presentation,
     },
   );
-  const DesignHub = await compileComponent(
-    "../../components/settings/DesignSettingsHub.tsx",
-    "DesignSettingsHub",
-    React,
-    {
-      "@/components/panel/PanelPageShell": panelComponents(),
-      "./StarterThemePreview": { StarterThemePreview: () => createElement("section", { "data-starter-theme-preview": true }) },
-      "./StorefrontAssetManager": { StorefrontAssetManager: () => createElement("section", { "data-storefront-asset-manager": true }) },
-      "./CategoryShowcaseEditor": { CategoryShowcaseEditor: () => createElement("section", { "data-category-showcase-editor": true }) },
-    },
-  );
   const cases = [
     {
       route: "/settings",
@@ -1100,14 +1098,6 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       Component: FamilyOverview,
       destinations: MERCHANT_MODULE_DEFINITIONS.filter(({ family }) => family === "content").map(({ route }) => route),
     },
-    {
-      route: "/settings/design",
-      title: null,
-      module: "@/components/settings/DesignSettingsHub",
-      exportName: "DesignSettingsHub",
-      Component: DesignHub,
-      destinations: ["/settings/theme", "/settings/general", "/settings/hero-banner", "/settings/category-showcase", "/settings/promotion-banner", "/settings/marquee", "/seo", "/seo/social-preview", "/products/collections"],
-    },
   ] as const;
   for (const entry of cases) {
     const Page = await compileBoundPage(entry.route, entry.module, entry.exportName, entry.Component, "store_owner");
@@ -1126,19 +1116,47 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
   }
 });
 
-test("category showcase page mounts only its custom server-authorized editor", async () => {
-  const CategoryShowcaseEditor = (props: Record<string, unknown>) => createElement("section", { ...props, "data-category-showcase-editor": true });
-  for (const [role, canManage] of [["store_owner", true], ["analyst", false]] as const) {
-    const Page = await compileBoundPage(
-      "/settings/category-showcase",
-      "@/components/settings/CategoryShowcaseEditor",
-      "CategoryShowcaseEditor",
-      CategoryShowcaseEditor,
-      role,
-    );
-    const tree = await Page();
-    const editor = findElement(tree, (element) => element.type === CategoryShowcaseEditor);
-    assert.equal(editor.props.canManage, canManage);
-    assert.equal(editor.props.kind, undefined);
+test("legacy design routes authenticate and redirect into the unified workspace", async () => {
+  for (const [route, destination] of [
+    ["/settings/theme", "/settings/design?section=theme"],
+    ["/settings/hero-banner", "/settings/design?section=hero"],
+    ["/settings/category-showcase", "/settings/design?section=theme"],
+    ["/settings/promotion-banner", "/settings/design?section=promotion"],
+    ["/settings/marquee", "/settings/design?section=announcement"],
+  ] as const) {
+    const output = await compiledPageSource(route);
+    let authenticated = false;
+    let redirectedTo: string | undefined;
+    const compiled: { exports: Record<string, unknown> } = { exports: {} };
+    const requireModule = (specifier: string): unknown => {
+      if (specifier === "next/navigation") return { redirect(value: string) { assert.equal(authenticated, true); redirectedTo = value; } };
+      if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => { authenticated = true; return { tenantContext: tenant("store_owner") }; } };
+      throw new Error(`unexpected_design_redirect_import:${route}:${specifier}`);
+    };
+    Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
+    await (compiled.exports.default as () => Promise<void>)();
+    assert.equal(redirectedTo, destination, route);
   }
+});
+
+test("design settings mounts the canonical unified workspace", async () => {
+  const output = await compiledPageSource("/settings/design");
+  const workspace = Object.freeze({ schemaVersion: 3, marker: "unified" });
+  const DesignWorkspace = (props: Record<string, unknown>) => createElement("section", { ...props, "data-design-workspace": true });
+  const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "@celebix/saas-contracts") return contracts;
+    if (specifier === "next/navigation") return { redirect(value: string) { throw new Error(`unexpected_design_redirect:${value}`); } };
+    if (specifier === "@/components/settings/design/DesignWorkspace") return { DesignWorkspace };
+    if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant("store_owner") }) };
+    if (specifier === "@/lib/server-storefront-design/default") return { resolveDefaultServerStorefrontDesignRuntime: async () => ({ repository: { getWorkspace: async () => workspace } }) };
+    throw new Error(`unexpected_unified_design_import:${specifier}`);
+  };
+  Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
+  const tree = await (compiled.exports.default as (props: { searchParams: Promise<{ section?: string }> }) => Promise<ReactNode>)({ searchParams: Promise.resolve({ section: "theme" }) });
+  const mounted = findElement(tree, (element) => element.type === DesignWorkspace);
+  assert.equal(mounted.props.workspace, workspace);
+  assert.equal(mounted.props.canManage, true);
+  assert.equal(mounted.props.initialSection, "theme");
 });

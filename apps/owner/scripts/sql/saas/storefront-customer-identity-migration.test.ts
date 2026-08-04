@@ -5,9 +5,9 @@ import test from "node:test";
 
 const root = new URL("./", import.meta.url);
 const files = {
-  up: "202608040083_storefront_customer_identity.up.sql",
-  down: "202608040083_storefront_customer_identity.down.sql",
-  assertions: "202608040083_storefront_customer_identity_assertions.sql",
+  up: "202608040084_storefront_customer_identity.up.sql",
+  down: "202608040084_storefront_customer_identity.down.sql",
+  assertions: "202608040084_storefront_customer_identity_assertions.sql",
   manifest: "phase4f-storefront-customer-identity-manifest.json",
 } as const;
 

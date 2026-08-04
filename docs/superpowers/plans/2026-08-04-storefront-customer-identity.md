@@ -142,9 +142,9 @@ git commit -m "feat(storefront): add customer identity security primitives"
 ### Task 3: Add PostgreSQL Storefront Identity Authority
 
 **Files:**
-- Create: `apps/owner/scripts/sql/saas/202608040083_storefront_customer_identity.up.sql`
-- Create: `apps/owner/scripts/sql/saas/202608040083_storefront_customer_identity.down.sql`
-- Create: `apps/owner/scripts/sql/saas/202608040083_storefront_customer_identity_assertions.sql`
+- Create: `apps/owner/scripts/sql/saas/202608040084_storefront_customer_identity.up.sql`
+- Create: `apps/owner/scripts/sql/saas/202608040084_storefront_customer_identity.down.sql`
+- Create: `apps/owner/scripts/sql/saas/202608040084_storefront_customer_identity_assertions.sql`
 - Create: `apps/owner/scripts/sql/saas/phase4f-storefront-customer-identity-manifest.json`
 - Create: `apps/owner/scripts/sql/saas/storefront-customer-identity-migration.test.ts`
 - Create: `tests/saas-phase3/storefront-customer-identity/postgres-harness.mjs`
@@ -194,7 +194,7 @@ Expected: PASS on PostgreSQL 16.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/owner/scripts/sql/saas/202608040083_* apps/owner/scripts/sql/saas/phase4f-storefront-customer-identity-manifest.json apps/owner/scripts/sql/saas/storefront-customer-identity-migration.test.ts tests/saas-phase3/storefront-customer-identity tests/saas-phase3/run-current-suite.mjs
+git add apps/owner/scripts/sql/saas/202608040084_* apps/owner/scripts/sql/saas/phase4f-storefront-customer-identity-manifest.json apps/owner/scripts/sql/saas/storefront-customer-identity-migration.test.ts tests/saas-phase3/storefront-customer-identity tests/saas-phase3/run-current-suite.mjs
 git commit -m "feat(db): add storefront customer identity authority"
 ```
 

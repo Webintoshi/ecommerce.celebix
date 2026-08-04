@@ -5,6 +5,8 @@ import {
   STOREFRONT_DESIGN_ANNOUNCEMENT_SPEEDS,
   STOREFRONT_DESIGN_FONT_FAMILIES,
 } from "./types.ts";
+import { createDefaultStarterThemeComposition } from "./defaults.ts";
+import { parseStarterThemeCompositionConfig } from "../storefront/validation.ts";
 import type {
   DesignDestination,
   DesignMediaReference,
@@ -181,8 +183,11 @@ function parseAnnouncement(value: unknown): StorefrontDesignAnnouncement {
 }
 
 export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignDocument {
-  const parsed = exact(value, ["schemaVersion", "brand", "hero", "promotion", "announcement"]);
-  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) invalid();
+  const root = record(value);
+  const parsed = exact(root, root.schemaVersion === 3
+    ? ["schemaVersion", "brand", "hero", "promotion", "announcement", "composition"]
+    : ["schemaVersion", "brand", "hero", "promotion", "announcement"]);
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) invalid();
 
   const brand = exact(parsed.brand, ["logo", "favicon", "primaryColor", "accentColor", "backgroundColor", "textColor", "fontFamily"]);
   const promotion = exact(parsed.promotion, ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]);
@@ -219,7 +224,7 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
   }
 
   return Object.freeze({
-    schemaVersion: 2,
+    schemaVersion: 3,
     brand: Object.freeze({
       logo: parseMediaReference(brand.logo),
       favicon: parseMediaReference(brand.favicon),
@@ -239,6 +244,9 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
       enabled: boolean(promotion.enabled),
     }),
     announcement: parseAnnouncement(parsed.announcement),
+    composition: parsed.schemaVersion === 3
+      ? parseStarterThemeCompositionConfig(parsed.composition) as StorefrontDesignDocument["composition"]
+      : createDefaultStarterThemeComposition(),
   });
 }
 
@@ -351,7 +359,7 @@ function parseDestinationOption(value: unknown): StorefrontDesignDestinationOpti
 
 export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesignWorkspace {
   const parsed = exact(value, ["schemaVersion", "draftVersion", "publishedVersion", "draftUpdatedAt", "publishedAt", "draft", "published", "store", "media", "destinations"]);
-  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) invalid();
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) invalid();
   const publishedVersion = positiveInteger(parsed.publishedVersion);
   const publishedAt = timestamp(parsed.publishedAt);
   const published = parsePublicStorefrontDesign(parsed.published);
@@ -363,7 +371,7 @@ export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesign
   if (new Set(destinations.map((item) => `${item.kind}:${item.resourceId}`)).size !== destinations.length) invalid();
 
   return Object.freeze({
-    schemaVersion: 2,
+    schemaVersion: 3,
     draftVersion: positiveInteger(parsed.draftVersion),
     publishedVersion,
     draftUpdatedAt: timestamp(parsed.draftUpdatedAt),

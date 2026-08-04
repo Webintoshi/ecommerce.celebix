@@ -68,18 +68,8 @@ export default async function PolicyPage({
   const { storefront, design, page } = await policy((await params).policyKey);
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      <section className="listing-hero">
-        <div className="store-container">
-          <span>MAĞAZA POLİTİKASI</span>
-          <h1>{page.label}</h1>
-          <p>
-            {page.published
-              ? "Mağazanın güncel politika metni"
-              : "Bu metin mağaza tarafından henüz yayımlanmadı"}
-          </p>
-        </div>
-      </section>
       <article className="store-section store-container policy-page">
+        <h1 className="sr-only">{page.label}</h1>
         {page.published && page.html ? (
           <div
             className="product-description-rich-text"

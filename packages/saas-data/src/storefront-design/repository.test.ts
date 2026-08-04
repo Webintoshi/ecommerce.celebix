@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { TenantContext } from "@celebix/saas-contracts";
+import {
+  createDefaultStarterThemeComposition,
+  type TenantContext,
+} from "@celebix/saas-contracts";
 
 import {
   PostgresStorefrontDesignRepository,
@@ -17,24 +20,26 @@ const OPERATION = "88888888-8888-4888-8888-888888888888";
 const NOW = new Date("2026-08-03T12:00:00.000Z");
 
 const DESIGN = {
-  schemaVersion: 2 as const,
+  schemaVersion: 3 as const,
   brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "inter" as const },
   hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "", desktopImage: null, mobileImage: null, destination: { kind: "none" as const }, enabled: true }] },
   promotion: { headline: "Ücretsiz kargo", body: "", destination: { kind: "none" as const }, startsAt: null, endsAt: null, enabled: false },
   announcement: { items: ["Güzide Kuyumcu"], icon: "none" as const, speed: "normal" as const, direction: "left" as const, animation: "continuous" as const, enabled: false },
+  composition: createDefaultStarterThemeComposition(),
 };
 
 const PUBLIC = {
-  ...DESIGN,
+  schemaVersion: 2 as const,
   publicationVersion: 1,
   publishedAt: NOW.toISOString(),
   brand: { ...DESIGN.brand, logo: null, favicon: null },
   hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "", desktopImage: null, mobileImage: null, destination: null }] },
   promotion: { ...DESIGN.promotion, destination: null },
+  announcement: DESIGN.announcement,
 };
 
 const WORKSPACE = {
-  schemaVersion: 2 as const,
+  schemaVersion: 3 as const,
   draftVersion: 1,
   publishedVersion: 1,
   draftUpdatedAt: NOW.toISOString(),

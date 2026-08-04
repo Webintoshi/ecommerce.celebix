@@ -62,11 +62,12 @@ export type StorefrontDesignAnnouncement = Readonly<{
 }>;
 
 export type StorefrontDesignDocument = Readonly<{
-  schemaVersion: 2;
+  schemaVersion: 3;
   brand: StorefrontDesignBrand;
   hero: StorefrontDesignHero;
   promotion: StorefrontDesignPromotion;
   announcement: StorefrontDesignAnnouncement;
+  composition: StarterThemeCompositionConfigV2;
 }>;
 
 export type PublicDesignMedia = Readonly<{ url: string; altText: string }> | null;
@@ -125,7 +126,7 @@ export type StorefrontDesignDestinationOption = Readonly<{
 }>;
 
 export type StorefrontDesignWorkspace = Readonly<{
-  schemaVersion: 2;
+  schemaVersion: 3;
   draftVersion: number;
   publishedVersion: number;
   draftUpdatedAt: string;
@@ -154,3 +155,4 @@ export type StorefrontDesignPublishIssue = Readonly<{
   code: "hero_enabled_slide_missing" | "hero_slide_headline_missing" | "hero_slide_desktop_image_missing";
   slideIndex?: number;
 }>;
+import type { StarterThemeCompositionConfigV2 } from "../storefront/types.ts";

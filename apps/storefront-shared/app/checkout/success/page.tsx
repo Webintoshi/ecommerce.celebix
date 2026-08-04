@@ -24,18 +24,10 @@ export default async function CheckoutSuccessPage() {
     .catch(() => null);
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      <section className="listing-hero">
-        <div className="store-container">
-          <span>SİPARİŞ DURUMU</span>
-          <h1>{receipt ? "Sipariş alındı" : "Sipariş özeti bulunamadı"}</h1>
-          <p>
-            {receipt
-              ? `Sipariş numaranız: ${receipt.orderReference}`
-              : "Bu tarayıcıda görüntülenebilen güncel bir sipariş özeti yok."}
-          </p>
-        </div>
-      </section>
       <section className="store-section store-container">
+        <h1 className="sr-only">
+          {receipt ? "Sipariş alındı" : "Sipariş özeti bulunamadı"}
+        </h1>
         {receipt ? (
           <div className="receipt-layout">
             <article className="receipt-card">

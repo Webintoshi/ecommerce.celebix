@@ -6,17 +6,17 @@
   "productionMutations": 0,
   "artifacts": [
     {
-      "file": "202608040083_storefront_customer_identity.up.sql",
+      "file": "202608040084_storefront_customer_identity.up.sql",
       "direction": "up",
       "sha256": "d04dfceb7f22af1461d49293dd5494381c58518a5adb6e5217634eaf568111ab"
     },
     {
-      "file": "202608040083_storefront_customer_identity.down.sql",
+      "file": "202608040084_storefront_customer_identity.down.sql",
       "direction": "down",
       "sha256": "b4b63c1750948ffea98fc6a9cfa82d67939402212c53b6fd328485ed7f5c2cff"
     },
     {
-      "file": "202608040083_storefront_customer_identity_assertions.sql",
+      "file": "202608040084_storefront_customer_identity_assertions.sql",
       "direction": "verify",
       "sha256": "7ab62bfca449d24889b4a45eea07f81c347187899a2b49b9cb599624076b1eb1"
     }

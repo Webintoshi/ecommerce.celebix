@@ -520,6 +520,7 @@ export {
   STOREFRONT_DESIGN_ANNOUNCEMENT_SPEEDS,
   STOREFRONT_DESIGN_DESTINATION_KINDS,
   STOREFRONT_DESIGN_FONT_FAMILIES,
+  createDefaultStarterThemeComposition,
   getStorefrontDesignPublishIssue,
   parsePublicStorefrontDesign,
   parseStorefrontDesignDocument,

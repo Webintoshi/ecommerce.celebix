@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import type { StorefrontDesignDocument, TenantContext } from "@celebix/saas-contracts";
+import { createDefaultStarterThemeComposition, type StorefrontDesignDocument, type TenantContext } from "@celebix/saas-contracts";
 import { StorefrontDesignRepositoryError, type StorefrontDesignRepository } from "@celebix/saas-data";
 
 import { createStorefrontDesignHttpHandlers } from "./handler.ts";
@@ -21,11 +21,12 @@ const NOW = new Date("2026-08-03T09:00:00.000Z");
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x61).toString("base64url")}`;
 
 const DESIGN: StorefrontDesignDocument = Object.freeze({
-  schemaVersion: 2,
+  schemaVersion: 3,
   brand: Object.freeze({ logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }),
   hero: Object.freeze({ enabled: true, slides: Object.freeze([Object.freeze({ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: Object.freeze({ kind: "none" }), enabled: true })]) }),
   promotion: Object.freeze({ headline: "Yeni sezon", body: "", destination: Object.freeze({ kind: "none" }), startsAt: null, endsAt: null, enabled: false }),
   announcement: Object.freeze({ items: Object.freeze(["Ücretsiz kargo"]), icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true }),
+  composition: createDefaultStarterThemeComposition(),
 });
 
 const PUBLIC = Object.freeze({
@@ -51,7 +52,7 @@ function tenant(role: TenantContext["membership"]["role"] = "store_owner"): Tena
 }
 
 function workspace() {
-  return { schemaVersion: 2 as const, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW.toISOString(), publishedAt: NOW.toISOString(), draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] };
+  return { schemaVersion: 3 as const, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW.toISOString(), publishedAt: NOW.toISOString(), draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] };
 }
 
 function repository(overrides: Partial<StorefrontDesignRepository> = {}): StorefrontDesignRepository {

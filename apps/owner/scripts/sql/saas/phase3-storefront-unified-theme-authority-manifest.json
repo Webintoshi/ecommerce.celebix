@@ -1,0 +1,11 @@
+{
+  "phase": "phase3-storefront-unified-theme-authority",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    { "file": "202608040083_storefront_unified_theme_authority.up.sql", "direction": "up", "sha256": "573902f6dfb801389574500dfd69b093cfc4dbc5564ba96690fe56b107174da9" },
+    { "file": "202608040083_storefront_unified_theme_authority.down.sql", "direction": "down", "sha256": "59c267edc491be767f2e80a99c33fc52b2a0f77fde5c633d131e8e0659411612" },
+    { "file": "202608040083_storefront_unified_theme_authority_assertions.sql", "direction": "verify", "sha256": "b4ce700811e3b93f0b2a16464e9238aaf1cc47a5aa411f5db18671704f0bc39f" }
+  ]
+}
