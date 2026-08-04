@@ -21,3 +21,10 @@ test("purchase quantity normalizes decimals and non-finite values", () => {
   assert.equal(decrementPurchaseQuantity(5), 4);
   assert.equal(incrementPurchaseQuantity(5), 6);
 });
+
+test("purchase quantity cannot exceed the selected variant's tracked stock", () => {
+  assert.equal(clampPurchaseQuantity(3, 1), 1);
+  assert.equal(incrementPurchaseQuantity(1, 1), 1);
+  assert.equal(incrementPurchaseQuantity(2, 5), 3);
+  assert.equal(clampPurchaseQuantity(100, 5), 5);
+});

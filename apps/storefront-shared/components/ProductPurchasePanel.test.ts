@@ -22,13 +22,16 @@ test("purchase panel is bounded while pending and reports finite accessible stat
   assert.doesNotMatch(source, /storeId|tenantId|credential/u);
 });
 
-test("purchase panel renders stock beside an accessible bounded stepper", () => {
+test("purchase panel bounds the accessible stepper to tracked variant stock", () => {
   assert.match(source, /available:\s*boolean/u);
-  assert.match(source, /available \? "Stokta" : "Tükendi"/u);
+  assert.match(source, /quantityLimit/u);
+  assert.match(source, /quantity <= quantityLimit/u);
+  assert.match(source, /incrementPurchaseQuantity\(value, quantityLimit\)/u);
   assert.match(source, /aria-label="Adedi azalt"/u);
   assert.match(source, /aria-label="Adedi artır"/u);
   assert.match(source, /decrementPurchaseQuantity/u);
   assert.match(source, /incrementPurchaseQuantity/u);
+  assert.doesNotMatch(source, /purchase-stock/u);
   assert.doesNotMatch(source, /type="number"/u);
 });
 

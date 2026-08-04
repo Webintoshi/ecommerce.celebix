@@ -187,11 +187,15 @@ async function main() {
     for (const [width, height] of [[1440, 1000], [1024, 768], [390, 844], [320, 720]]) await capture(cdp, measurements, screenshots, productPath, width, height, `product-detail-${width}x${height}`, "document.querySelector('.purchase-panel')");
     await viewport(cdp, 1440, 1000); await navigate(cdp, productPath); await waitFor(cdp, "document.querySelector('.purchase-panel')&&!document.querySelector('.loading-page')", "side-cart-product");
     const variant = "document.querySelector('.purchase-panel input[type=radio]:not(:disabled)')?.closest('label')"; if (await cdp.evaluate(`Boolean(${variant})`)) await click(cdp, variant, "variant");
+    await click(cdp, "document.querySelector('.purchase-quantity button[aria-label=\"Adedi artır\"]')", "purchase-quantity-two");
+    await click(cdp, "document.querySelector('.purchase-quantity button[aria-label=\"Adedi artır\"]')", "purchase-quantity-three");
+    await waitFor(cdp, "document.querySelector('.purchase-quantity output')?.textContent==='3'", "purchase-quantity-selected");
     await click(cdp, "[...document.querySelectorAll('.purchase-actions button')].find((node)=>node.textContent.includes('Sepete ekle'))", "add-to-cart"); await waitFor(cdp, "document.querySelector('.side-cart-dialog')", "side-cart"); await waitFor(cdp, "document.querySelector('.side-cart-quantity')", "enabled-quantity-selector"); screenshots.push(await screenshot(cdp, "side-cart-1440x1000.png")); measurements.push(await measure(cdp, "side-cart-1440x1000"));
     assert.equal(await cdp.evaluate("document.querySelectorAll('.side-cart-quantity').length"), 1, "enabled_quantity_selector_required");
+    assert.equal(await cdp.evaluate("document.querySelector('.side-cart-quantity span')?.textContent"), "3", "selected_purchase_quantity_must_reach_side_cart");
     const quantityWritesBefore = quantityMutationRequests;
     await click(cdp, "[...document.querySelectorAll('.side-cart-quantity button')].find((node)=>node.getAttribute('aria-label')?.endsWith('adet artır'))", "side-cart-increment");
-    await waitFor(cdp, "document.querySelector('.side-cart-quantity span')?.textContent==='2'", "side-cart-incremented");
+    await waitFor(cdp, "document.querySelector('.side-cart-quantity span')?.textContent==='4'", "side-cart-incremented");
     assert.equal(quantityMutationRequests, quantityWritesBefore + 1, "quantity_increment_must_write_once");
     if (BUILT_MODE) assert.equal(await cdp.evaluate("document.cookie.includes('__Host-celebix_cart=')"), false, "cart_cookie_must_remain_httponly");
     else await waitFor(cdp, "document.cookie.includes('fixture_cart=present')", "cart-cookie");
