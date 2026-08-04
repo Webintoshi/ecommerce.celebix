@@ -64,7 +64,7 @@ function validPublicPresentation() {
       { kind: "brand_story", eyebrow: "Hikâyemiz", heading: "Özenle seçildi", body: "Kalıcı tasarımlar.", image: HERO, destination: "/pages/hakkimizda" },
     ],
     productDetail: { galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true },
-    cart: { showCheckoutReadiness: true, showShippingProgress: true, trustMessage: "Güvenli ödeme" },
+    cart: { showCheckoutReadiness: true, showShippingProgress: true, showQuantitySelector: true, trustMessage: "Güvenli ödeme" },
     seo: { allowIndex: false },
   };
 }

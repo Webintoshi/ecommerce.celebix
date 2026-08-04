@@ -42,7 +42,7 @@ function compositionV2() {
       showSizeGuide: true,
       informationSections: ["description", "materials_and_care", "certifications", "shipping_and_returns"],
     },
-    cart: { showCheckoutReadiness: true, showShippingProgress: false },
+    cart: { showCheckoutReadiness: true, showShippingProgress: false, showQuantitySelector: true },
     footer: {
       tone: "dark",
       groups: [
@@ -65,7 +65,7 @@ function presentationV2() {
     navigation: { items: [] },
     sections: [{ kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 }],
     productDetail: { galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true },
-    cart: { showCheckoutReadiness: true, showShippingProgress: false },
+    cart: { showCheckoutReadiness: true, showShippingProgress: false, showQuantitySelector: true },
     seo: { allowIndex: false },
   };
 }
@@ -119,9 +119,19 @@ const retailPresentation = presentationModule as unknown as RetailPresentation;
 test("composition v2 accepts retail sections footer and exact product information controls", () => {
   const parsed = retailValidation.parseStarterThemeCompositionConfig(compositionV2());
   assert.equal(parsed.schemaVersion, 2);
+  assert.equal((parsed.cart as { showQuantitySelector: boolean }).showQuantitySelector, true);
   assert.equal(Object.isFrozen(parsed), true);
   assert.equal(Object.isFrozen(parsed.footer), true);
   assert.equal(Object.isFrozen((parsed.footer as { groups: unknown }).groups), true);
+});
+
+test("composition v2 requires one exact boolean quantity-selector authority", () => {
+  const value = compositionV2();
+  const { showQuantitySelector: _missing, ...withoutQuantitySelector } = value.cart;
+  assert.throws(() => retailValidation.parseStarterThemeCompositionConfig({ ...value, cart: withoutQuantitySelector }), /storefront_contract_invalid/);
+  assert.throws(() => retailValidation.parseStarterThemeCompositionConfig({ ...value, cart: { ...value.cart, showQuantitySelector: "true" } }), /storefront_contract_invalid/);
+  const disabled = retailValidation.parseStarterThemeCompositionConfig({ ...value, cart: { ...value.cart, showQuantitySelector: false } });
+  assert.equal((disabled.cart as { showQuantitySelector: boolean }).showQuantitySelector, false);
 });
 
 test("composition v2 rejects fake testimonial copy unsafe social authority and duplicate information panels", () => {
@@ -146,6 +156,7 @@ test("presentation v2 adapts to v3 without invented retail content", () => {
   assert.equal((adapted.footer as { newsletter: { enabled: boolean } }).newsletter.enabled, false);
   assert.deepEqual((adapted.sections as Array<{ kind: string }>).filter(({ kind }) => kind === "testimonials"), []);
   assert.deepEqual((adapted.sections as Array<{ kind: string }>).filter(({ kind }) => kind === "value_propositions"), []);
+  assert.equal((adapted.cart as { showQuantitySelector: boolean }).showQuantitySelector, true);
 });
 
 test("new starter storefronts expose every fixed policy route in the default footer", () => {

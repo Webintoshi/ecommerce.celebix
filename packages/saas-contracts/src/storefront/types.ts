@@ -85,6 +85,16 @@ export type StarterProductDetailConfigV2 = Readonly<{
   informationSections: readonly StarterProductInformationSection[];
 }>;
 
+export type StarterCartConfig = Readonly<{
+  showCheckoutReadiness: boolean;
+  showShippingProgress: boolean;
+  trustMessage?: string;
+}>;
+
+export type StarterCartConfigV2 = Readonly<StarterCartConfig & {
+  showQuantitySelector: boolean;
+}>;
+
 export type StarterThemeCompositionConfig = Readonly<{
   schemaVersion: 1;
   visual: StarterThemeVisual;
@@ -92,7 +102,7 @@ export type StarterThemeCompositionConfig = Readonly<{
   navigation: Readonly<{ rootCategoryIds: readonly string[]; featuredCategoryId?: string; featuredAssetId?: string }>;
   sections: readonly StarterThemeSectionConfig[];
   productDetail: Readonly<{ galleryStyle: "grid" | "rail"; showSku: boolean; showBrand: boolean; showRelatedProducts: boolean; mobileStickyPurchase: boolean }>;
-  cart: Readonly<{ showCheckoutReadiness: boolean; showShippingProgress: boolean; trustMessage?: string }>;
+  cart: StarterCartConfig;
 }>;
 
 export type StarterThemeCompositionConfigV2 = Readonly<{
@@ -102,7 +112,7 @@ export type StarterThemeCompositionConfigV2 = Readonly<{
   navigation: StarterThemeCompositionConfig["navigation"];
   sections: readonly StarterThemeSectionConfigV2[];
   productDetail: StarterProductDetailConfigV2;
-  cart: StarterThemeCompositionConfig["cart"];
+  cart: StarterCartConfigV2;
   footer: StarterFooterConfig;
 }>;
 
@@ -208,7 +218,7 @@ export type PublicStarterThemePresentationV2 = Readonly<{
   navigation: PublicStarterNavigation;
   sections: readonly PublicStarterHomeSectionV2[];
   productDetail: Readonly<{ galleryStyle: "grid" | "rail"; showSku: boolean; showBrand: boolean; showRelatedProducts: boolean; mobileStickyPurchase: boolean }>;
-  cart: Readonly<{ showCheckoutReadiness: boolean; showShippingProgress: boolean; trustMessage?: string }>;
+  cart: StarterCartConfigV2;
   seo: PublicStarterThemePresentationV1["seo"];
 }>;
 
@@ -227,7 +237,7 @@ export type PublicStarterThemePresentationV3 = Readonly<{
   navigation: PublicStarterNavigation;
   sections: readonly PublicStarterHomeSection[];
   productDetail: StarterProductDetailConfigV2;
-  cart: StarterThemeCompositionConfig["cart"];
+  cart: StarterCartConfigV2;
   footer: PublicStarterFooter;
   seo: PublicStarterThemePresentationV1["seo"];
 }>;

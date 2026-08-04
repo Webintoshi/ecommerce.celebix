@@ -46,7 +46,7 @@ export function buildDefaultStarterPresentation(
       Object.freeze({ kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 }),
     ]),
     productDetail: Object.freeze({ galleryStyle: "rail", showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const) }),
-    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true }),
+    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true, showQuantitySelector: true }),
     footer: defaultRetailFooter(),
     seo: Object.freeze({ allowIndex: false }),
   });
@@ -89,7 +89,7 @@ function adaptStarterPresentationV1ToV2(value: unknown): PublicStarterThemePrese
     navigation: Object.freeze({ items: Object.freeze((legacy.categoryShowcase?.items ?? []).map((item) => Object.freeze({ name: item.name, slug: item.slug, children: Object.freeze([]) }))) }),
     sections: Object.freeze(sections),
     productDetail: Object.freeze({ galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true }),
-    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true }),
+    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true, showQuantitySelector: true }),
     seo: legacy.seo,
   });
 }

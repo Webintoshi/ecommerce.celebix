@@ -95,7 +95,7 @@ test("starter presentation defaults and token mapping are deterministic and boun
       { kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 },
     ],
     productDetail: { galleryStyle: "rail", showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: ["description", "materials_and_care", "certifications", "shipping_and_returns"] },
-    cart: { showCheckoutReadiness: true, showShippingProgress: true },
+    cart: { showCheckoutReadiness: true, showShippingProgress: true, showQuantitySelector: true },
     footer: {
       tone: "dark",
       groups: [

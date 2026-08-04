@@ -391,12 +391,14 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
     if (singletonKinds.has(section.kind)) invalid();
     singletonKinds.add(section.kind);
   }
-  const cartValue = exact(parsed.cart, ["showCheckoutReadiness", "showShippingProgress"], ["trustMessage"]);
+  const cartValue = exact(parsed.cart, retail
+    ? ["showCheckoutReadiness", "showShippingProgress", "showQuantitySelector"]
+    : ["showCheckoutReadiness", "showShippingProgress"], ["trustMessage"]);
   const common = {
     announcement: Object.freeze({ enabled: announcementEnabled, items: announcementItems, ...(Object.hasOwn(announcementValue, "destination") ? { destination: destination(announcementValue.destination) } : {}) }),
     navigation: Object.freeze({ rootCategoryIds: uuidArray(navigationValue.rootCategoryIds, 0, 8), ...(hasFeaturedCategory ? { featuredCategoryId: uuid(navigationValue.featuredCategoryId), featuredAssetId: uuid(navigationValue.featuredAssetId) } : {}) }),
     sections,
-    cart: Object.freeze({ showCheckoutReadiness: boolean(cartValue.showCheckoutReadiness), showShippingProgress: boolean(cartValue.showShippingProgress), ...(Object.hasOwn(cartValue, "trustMessage") ? { trustMessage: string(cartValue.trustMessage, 1, 160) } : {}) }),
+    cart: Object.freeze({ showCheckoutReadiness: boolean(cartValue.showCheckoutReadiness), showShippingProgress: boolean(cartValue.showShippingProgress), ...(retail ? { showQuantitySelector: boolean(cartValue.showQuantitySelector) } : {}), ...(Object.hasOwn(cartValue, "trustMessage") ? { trustMessage: string(cartValue.trustMessage, 1, 160) } : {}) }),
   };
   if (retail) return Object.freeze({ schemaVersion: 2, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV2);
   const productDetailValue = exact(parsed.productDetail, ["galleryStyle", "showSku", "showBrand", "showRelatedProducts", "mobileStickyPurchase"]);
@@ -533,8 +535,8 @@ function parseProductDetail(value: unknown): PublicStarterThemePresentationV2["p
 }
 
 function parseCartOptions(value: unknown): PublicStarterThemePresentationV2["cart"] {
-  const parsed = exact(value, ["showCheckoutReadiness", "showShippingProgress"], ["trustMessage"]);
-  return Object.freeze({ showCheckoutReadiness: boolean(parsed.showCheckoutReadiness), showShippingProgress: boolean(parsed.showShippingProgress), ...(Object.hasOwn(parsed, "trustMessage") ? { trustMessage: string(parsed.trustMessage, 1, 160) } : {}) });
+  const parsed = exact(value, ["showCheckoutReadiness", "showShippingProgress", "showQuantitySelector"], ["trustMessage"]);
+  return Object.freeze({ showCheckoutReadiness: boolean(parsed.showCheckoutReadiness), showShippingProgress: boolean(parsed.showShippingProgress), showQuantitySelector: boolean(parsed.showQuantitySelector), ...(Object.hasOwn(parsed, "trustMessage") ? { trustMessage: string(parsed.trustMessage, 1, 160) } : {}) });
 }
 
 function parsePresentationV1(value: unknown): PublicStarterThemePresentationV1 {
