@@ -7,5 +7,11 @@ export async function register(): Promise<void> {
   const { startDefaultMerchantProviderProductionWorker } = await import(
     "./lib/merchant-provider-execution/default.ts"
   );
-  root[RUNTIME] = await startDefaultMerchantProviderProductionWorker();
+  const { startDefaultStoreDomainProductionWorker } = await import(
+    "./lib/store-domain-reconciliation/default.ts"
+  );
+  root[RUNTIME] = Object.freeze({
+    merchantProvider: await startDefaultMerchantProviderProductionWorker(),
+    storeDomains: await startDefaultStoreDomainProductionWorker(),
+  });
 }

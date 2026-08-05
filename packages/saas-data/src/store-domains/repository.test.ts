@@ -119,11 +119,22 @@ test("prepares one idempotent custom hostname without browser tenant authority",
     provider: "cloudflare_for_saas",
     cnameTarget: "shops.celebix.site",
   });
-  assert.deepEqual(result, domain);
+  assert.deepEqual(result, { domain, replayed: false });
   assert.deepEqual(call(client, "merchant_store_domain_prepare_create").values, [
     STORE, PRINCIPAL, MEMBERSHIP, PLAN, "pilot", 1, NOW, OPERATION, "a".repeat(64), DOMAIN,
     "www.example.com", "cloudflare_for_saas", "shops.celebix.site",
   ]);
+});
+
+test("marks a durable prepare replay so provider creation is never repeated", async () => {
+  const client = new Client((text) => text.includes("merchant_store_domain_prepare_create")
+    ? [{ outcome: "operation_replayed", result_payload: domain }]
+    : []);
+  const result = await merchant(new Pool([client])).prepareCreate({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION, fingerprint: "a".repeat(64), domainId: DOMAIN,
+    hostname: "www.example.com", provider: "cloudflare_for_saas", cnameTarget: "shops.celebix.site",
+  });
+  assert.deepEqual(result, { domain, replayed: true });
 });
 
 test("claims bounded reconciliation work with the workflow role", async () => {

@@ -126,7 +126,10 @@ export class PostgresStoreDomainRepository extends PostgresStoreDomainBase imple
       [...this.authority(parsed as never), uuid(parsed.operationId), fingerprint(parsed.fingerprint), uuid(parsed.domainId), hostname(parsed.hostname), parsed.provider, hostname(parsed.cnameTarget)],
       false,
     );
-    return this.selected(result, ["prepared", "operation_replayed"]);
+    return Object.freeze({
+      domain: this.selected(result, ["prepared", "operation_replayed"]),
+      replayed: result.outcome === "operation_replayed",
+    });
   }
 
   async bindProvider(input: Parameters<StoreDomainRepository["bindProvider"]>[0]) {

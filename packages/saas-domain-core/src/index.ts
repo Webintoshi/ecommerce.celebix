@@ -1,6 +1,9 @@
 export { normalizeStorefrontHostname } from "./hostname.ts";
 export { CloudflareCustomHostnameError, createCloudflareCustomHostnameProvider } from "./cloudflare.ts";
-export { CLOUDFLARE_CUSTOM_HOSTNAME_ERROR_CODES } from "./types.ts";
+export { StoreDomainServiceError, createStoreDomainService } from "./service.ts";
+export { createStoreDomainReconciler } from "./reconciler.ts";
+export type { StoreDomainReconcilerResult } from "./reconciler.ts";
+export { CLOUDFLARE_CUSTOM_HOSTNAME_ERROR_CODES, STORE_DOMAIN_SERVICE_ERROR_CODES } from "./types.ts";
 export type {
   CloudflareCustomHostnameErrorCode,
   CloudflareForSaaSConfig,
@@ -9,5 +12,10 @@ export type {
   ProviderHostnameSnapshot,
   ProviderHostnameStatus,
   ProviderValidationInstruction,
+  StoreDomainPersistence,
+  StoreDomainServiceErrorCode,
+  StoreDomainVersionedServiceInput,
+  StoreDomainWorkflowClaim,
+  StoreDomainWorkflowPersistence,
   StorefrontHostnamePolicy,
 } from "./types.ts";

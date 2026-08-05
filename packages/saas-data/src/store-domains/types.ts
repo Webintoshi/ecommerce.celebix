@@ -23,7 +23,7 @@ export interface StoreDomainRepository {
     hostname: string;
     provider: StoreDomainProvider;
     cnameTarget: string;
-  }>): Promise<StoreDomainView>;
+  }>): Promise<Readonly<{ domain: StoreDomainView; replayed: boolean }>>;
   bindProvider(input: StoreDomainVersionedInput & Readonly<{
     providerHostnameId: string;
     ownershipValidation: readonly StoreDomainDnsInstruction[];
