@@ -15,6 +15,7 @@ BEGIN
     ('saas.store_domain_work_claim(text,timestamp with time zone,timestamp with time zone,integer,uuid)'::regprocedure),
     ('saas.store_domain_work_complete(uuid,uuid,text,timestamp with time zone,text,text,text,text,text,timestamp with time zone)'::regprocedure),
     ('saas.store_domain_work_fail(uuid,uuid,text,timestamp with time zone,text,timestamp with time zone,boolean)'::regprocedure),
+    ('saas.resolve_store_domain_origin_health(text,timestamp with time zone)'::regprocedure),
     ('saas.resolve_public_storefront(text,timestamp with time zone)'::regprocedure)
   ) AS expected(proc) WHERE expected.proc IS NULL;
   IF missing_functions <> 0 THEN RAISE EXCEPTION 'STOREFRONT_CUSTOM_DOMAINS_FUNCTIONS_MISSING'; END IF;
@@ -24,6 +25,10 @@ BEGIN
   IF table_grants <> 0 THEN RAISE EXCEPTION 'STOREFRONT_CUSTOM_DOMAINS_TABLE_GRANT_LEAK'; END IF;
   IF NOT pg_catalog.has_function_privilege('celebix_saas_workflow','saas.store_domain_work_claim(text,timestamp with time zone,timestamp with time zone,integer,uuid)','EXECUTE') THEN
     RAISE EXCEPTION 'STOREFRONT_CUSTOM_DOMAINS_WORKFLOW_GRANT_MISSING';
+  END IF;
+  IF NOT pg_catalog.has_function_privilege('celebix_saas_host_resolver','saas.resolve_store_domain_origin_health(text,timestamp with time zone)','EXECUTE')
+     OR pg_catalog.has_function_privilege('celebix_saas_app','saas.resolve_store_domain_origin_health(text,timestamp with time zone)','EXECUTE') THEN
+    RAISE EXCEPTION 'STOREFRONT_CUSTOM_DOMAINS_ORIGIN_HEALTH_GRANT_INVALID';
   END IF;
   IF pg_catalog.strpos(COALESCE((
     SELECT procedure.prosrc

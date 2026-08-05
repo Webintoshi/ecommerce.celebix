@@ -39,6 +39,7 @@ test("088 exposes tenant-authorized merchant RPCs and leased worker RPCs only", 
     "store_domain_work_claim",
     "store_domain_work_complete",
     "store_domain_work_fail",
+    "resolve_store_domain_origin_health",
   ]) assert.match(up, new RegExp(`CREATE FUNCTION saas[.]${name}\\(`, "u"), name);
   assert.match(up, /merchant_action_authority_error[\s\S]+'custom_domains'[\s\S]+'configuration[.]manage'/u);
   assert.match(up, /FOR UPDATE/u);

@@ -22,6 +22,7 @@ BEGIN
 END
 $function$;
 
+DROP FUNCTION saas.resolve_store_domain_origin_health(text,timestamptz);
 DROP FUNCTION saas.store_domain_work_fail(uuid,uuid,text,timestamptz,text,timestamptz,boolean);
 DROP FUNCTION saas.store_domain_work_complete(uuid,uuid,text,timestamptz,text,text,text,text,text,timestamptz);
 DROP FUNCTION saas.store_domain_work_claim(text,timestamptz,timestamptz,integer,uuid);

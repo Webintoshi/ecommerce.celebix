@@ -4,7 +4,9 @@ import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool
 import { StoreDomainRepositoryError, type StoreDomainRepositoryErrorCode } from "./errors.ts";
 import type {
   PostgresStoreDomainRepositoryOptions,
+  PostgresStoreDomainOriginHealthRepositoryOptions,
   PostgresStoreDomainWorkflowRepositoryOptions,
+  StoreDomainOriginHealthRepository,
   StoreDomainRepository,
   StoreDomainWorkflowRepository,
 } from "./types.ts";
@@ -15,6 +17,7 @@ import {
   exact,
   fingerprint,
   hostname,
+  originHealth,
   safeError,
   safeId,
   uuid,
@@ -22,7 +25,7 @@ import {
   workflowClaim,
 } from "./validation.ts";
 
-type Options = PostgresStoreDomainRepositoryOptions | PostgresStoreDomainWorkflowRepositoryOptions;
+type Options = PostgresStoreDomainRepositoryOptions | PostgresStoreDomainOriginHealthRepositoryOptions | PostgresStoreDomainWorkflowRepositoryOptions;
 
 function failure(code: StoreDomainRepositoryErrorCode): StoreDomainRepositoryError {
   return new StoreDomainRepositoryError(code);
@@ -46,7 +49,7 @@ function mappedOutcome(outcome: string): StoreDomainRepositoryErrorCode {
   if (outcome === "limit_reached") return "limit_reached";
   if (outcome === "hostname_already_claimed") return "hostname_already_claimed";
   if (outcome === "stale_version" || outcome === "not_ready") return "stale_version";
-  if (outcome === "domain_not_found") return "not_found";
+  if (outcome === "domain_not_found" || outcome === "not_found") return "not_found";
   if (outcome === "operation_mismatch") return "operation_mismatch";
   return "unavailable";
 }
@@ -90,6 +93,21 @@ abstract class PostgresStoreDomainBase {
       if (caught instanceof StoreDomainRepositoryError) throw caught;
       throw failure("unavailable");
     }
+  }
+}
+
+export class PostgresStoreDomainOriginHealthRepository extends PostgresStoreDomainBase implements StoreDomainOriginHealthRepository {
+  constructor(options: PostgresStoreDomainOriginHealthRepositoryOptions) { super(options, "celebix_saas_host_resolver"); }
+
+  async get(input: Parameters<StoreDomainOriginHealthRepository["get"]>[0]) {
+    const parsed = exact(input, ["hostname", "now"]);
+    const result = await this.execute(
+      "SELECT outcome,result_payload FROM saas.resolve_store_domain_origin_health($1::text,$2::timestamptz)",
+      [hostname(parsed.hostname), date(parsed.now)],
+      true,
+    );
+    if (result.outcome !== "found") throw failure(mappedOutcome(result.outcome));
+    return originHealth(result.payload);
   }
 }
 

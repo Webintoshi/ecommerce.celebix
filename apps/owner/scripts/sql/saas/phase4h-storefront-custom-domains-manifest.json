@@ -7,17 +7,17 @@
     {
       "file": "202608050088_storefront_custom_domains.up.sql",
       "direction": "up",
-      "sha256": "22fb3a1cf1d8f5fd9a480d195d4f1b53eefdd1729de94a8cffea2876ff41946f"
+      "sha256": "12a5ea23790bebb4211e36bd7d8239480f2d5d30c762f0df20f956534114eccc"
     },
     {
       "file": "202608050088_storefront_custom_domains.down.sql",
       "direction": "down",
-      "sha256": "13e19f13fb511aa9d3ae3e63f5366d5029e7f1885ba9db3a9d521b7fcc28c70a"
+      "sha256": "d21fb14cadf3d72e078e1b365d361bf59ac659530eccb9ef9dd0a9c8b82af72f"
     },
     {
       "file": "202608050088_storefront_custom_domains_assertions.sql",
       "direction": "verify",
-      "sha256": "8435a3a3d86e722eb4360dc2e92ae70626ced027cee3bd23c1dcb485edf18fe7"
+      "sha256": "4cfd6a3ca024151199c64dc4d7b169bc45161ecd45fbf501377e4da06c097d67"
     }
   ]
 }

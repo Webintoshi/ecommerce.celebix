@@ -76,6 +76,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const pathname = request.nextUrl.pathname;
     const exactTarget = request.nextUrl.search === "" && request.nextUrl.hash === "";
     const callbackPath = pathname === "/api/payments/paytr/callback";
+    const originHealthPath = exactTarget && pathname === "/api/health" && request.method === "GET";
     if (callbackPath && exactTarget && request.method === "POST") {
       const callback = NextResponse.next();
       callback.headers.set("content-security-policy", FALLBACK_CSP);
@@ -83,7 +84,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
       return callback;
     }
     if (callbackPath || pathname.startsWith("/api/payments/paytr/callback/")) return unavailable();
-    if (dependencies.resolveCanonicalHostname) {
+    if (dependencies.resolveCanonicalHostname && !originHealthPath) {
       try {
         const primaryHostname = await dependencies.resolveCanonicalHostname({ hostname: authority.hostname, now: dependencies.now() });
         if (primaryHostname !== null) {

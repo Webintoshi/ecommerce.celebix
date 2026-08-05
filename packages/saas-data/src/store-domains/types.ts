@@ -71,6 +71,17 @@ export interface StoreDomainWorkflowRepository {
   }>): Promise<void>;
 }
 
+export type StoreDomainOriginHealth = Readonly<{
+  schemaVersion: 1;
+  status: "ok";
+  storeId: string;
+  hostname: string;
+}>;
+
+export interface StoreDomainOriginHealthRepository {
+  get(input: Readonly<{ hostname: string; now: Date }>): Promise<StoreDomainOriginHealth>;
+}
+
 export type PostgresStoreDomainRepositoryOptions = Readonly<{
   pool: PostgresPoolLike;
   role: "celebix_saas_app";
@@ -80,5 +91,11 @@ export type PostgresStoreDomainRepositoryOptions = Readonly<{
 export type PostgresStoreDomainWorkflowRepositoryOptions = Readonly<{
   pool: PostgresPoolLike;
   role: "celebix_saas_workflow";
+  timeouts: PostgresTimeoutOptions;
+}>;
+
+export type PostgresStoreDomainOriginHealthRepositoryOptions = Readonly<{
+  pool: PostgresPoolLike;
+  role: "celebix_saas_host_resolver";
   timeouts: PostgresTimeoutOptions;
 }>;

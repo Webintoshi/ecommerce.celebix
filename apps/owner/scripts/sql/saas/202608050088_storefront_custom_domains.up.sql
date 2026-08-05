@@ -478,6 +478,44 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.resolve_store_domain_origin_health(p_hostname text,p_now timestamptz)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE projection jsonb;
+BEGIN
+  IF p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
+     OR p_hostname IS NULL OR p_hostname<>pg_catalog.lower(p_hostname)
+     OR pg_catalog.char_length(p_hostname) NOT BETWEEN 3 AND 253
+     OR p_hostname~'[*:/?#@[:space:][:cntrl:]]'
+     OR p_hostname!~'^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$' THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT pg_catalog.jsonb_build_object(
+    'schemaVersion',1,
+    'status','ok',
+    'storeId',store.id,
+    'hostname',domain.hostname
+  ) INTO projection
+  FROM saas.store_domains AS domain
+  JOIN saas.stores AS store ON store.id=domain.store_id AND store.status='active'
+  LEFT JOIN saas.store_domain_provisioning AS provisioning ON provisioning.domain_id=domain.id
+  WHERE domain.hostname=p_hostname
+    AND domain.created_at<=p_now
+    AND (
+      (domain.hostname_type='platform_subdomain' AND domain.status='active' AND domain.verified_at<=p_now)
+      OR (
+        domain.hostname_type='custom_domain'
+        AND domain.status IN('pending','active')
+        AND provisioning.provider_hostname_id IS NOT NULL
+        AND provisioning.requested_removal=false
+        AND provisioning.hostname_status<>'deleted'
+      )
+    );
+  RETURN QUERY SELECT CASE WHEN projection IS NULL THEN 'not_found' ELSE 'found' END,projection;
+END
+$function$;
+
 REVOKE ALL ON FUNCTION saas.store_domain_timestamp(timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.store_domain_projection(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.merchant_store_domain_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz) FROM PUBLIC;
@@ -489,6 +527,7 @@ REVOKE ALL ON FUNCTION saas.merchant_store_domain_disable(uuid,uuid,uuid,uuid,te
 REVOKE ALL ON FUNCTION saas.store_domain_work_claim(text,timestamptz,timestamptz,integer,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.store_domain_work_complete(uuid,uuid,text,timestamptz,text,text,text,text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.store_domain_work_fail(uuid,uuid,text,timestamptz,text,timestamptz,boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.resolve_store_domain_origin_health(text,timestamptz) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 REVOKE ALL ON FUNCTION saas.resolve_public_storefront(text,timestamptz) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 
 GRANT EXECUTE ON FUNCTION saas.merchant_store_domain_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz) TO celebix_saas_app;
@@ -500,6 +539,7 @@ GRANT EXECUTE ON FUNCTION saas.merchant_store_domain_disable(uuid,uuid,uuid,uuid
 GRANT EXECUTE ON FUNCTION saas.store_domain_work_claim(text,timestamptz,timestamptz,integer,uuid) TO celebix_saas_workflow;
 GRANT EXECUTE ON FUNCTION saas.store_domain_work_complete(uuid,uuid,text,timestamptz,text,text,text,text,text,timestamptz) TO celebix_saas_workflow;
 GRANT EXECUTE ON FUNCTION saas.store_domain_work_fail(uuid,uuid,text,timestamptz,text,timestamptz,boolean) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.resolve_store_domain_origin_health(text,timestamptz) TO celebix_saas_host_resolver;
 GRANT EXECUTE ON FUNCTION saas.resolve_public_storefront(text,timestamptz) TO celebix_saas_host_resolver;
 
 COMMIT;

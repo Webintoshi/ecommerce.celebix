@@ -1,7 +1,7 @@
 import { STORE_DOMAIN_UI_STATUSES, type StoreDomainDnsInstruction, type StoreDomainView, type TenantContext } from "@celebix/saas-contracts";
 
 import { StoreDomainRepositoryError } from "./errors.ts";
-import type { StoreDomainWorkflowClaim } from "./types.ts";
+import type { StoreDomainOriginHealth, StoreDomainWorkflowClaim } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
@@ -140,5 +140,16 @@ export function workflowClaim(value: unknown): StoreDomainWorkflowClaim {
     leaseOwner: safeId(parsed.leaseOwner, "unavailable"),
     leaseExpiresAt: timestamp(parsed.leaseExpiresAt),
     requestedRemoval: parsed.requestedRemoval,
+  });
+}
+
+export function originHealth(value: unknown): StoreDomainOriginHealth {
+  const parsed = exact(value, ["schemaVersion", "status", "storeId", "hostname"], "unavailable");
+  if (parsed.schemaVersion !== 1 || parsed.status !== "ok") fail("unavailable");
+  return Object.freeze({
+    schemaVersion: 1,
+    status: "ok",
+    storeId: uuid(parsed.storeId, "unavailable"),
+    hostname: hostname(parsed.hostname, "unavailable"),
   });
 }

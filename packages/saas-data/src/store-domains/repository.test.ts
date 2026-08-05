@@ -5,6 +5,7 @@ import type { TenantContext } from "@celebix/saas-contracts";
 
 import {
   PostgresStoreDomainRepository,
+  PostgresStoreDomainOriginHealthRepository,
   PostgresStoreDomainWorkflowRepository,
   StoreDomainRepositoryError,
 } from "./index.ts";
@@ -89,6 +90,18 @@ function merchant(pool: Pool) {
 function workflow(pool: Pool) {
   return new PostgresStoreDomainWorkflowRepository({ pool, role: "celebix_saas_workflow", timeouts: TIMEOUTS });
 }
+
+test("resolves one exact pending custom hostname to its public origin-health marker", async () => {
+  const marker = Object.freeze({ schemaVersion: 1, status: "ok", storeId: STORE, hostname: "www.example.com" });
+  const client = new Client((text) => text.includes("resolve_store_domain_origin_health")
+    ? [{ outcome: "found", result_payload: marker }]
+    : []);
+  const repository = new PostgresStoreDomainOriginHealthRepository({ pool: new Pool([client]), role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+
+  assert.deepEqual(await repository.get({ hostname: "www.example.com", now: NOW }), marker);
+  assert.deepEqual(call(client, "resolve_store_domain_origin_health").values, ["www.example.com", NOW]);
+  assert.equal(client.calls.some((entry) => entry.text === "SET LOCAL ROLE celebix_saas_host_resolver"), true);
+});
 
 function call(client: Client, name: string) {
   const found = client.calls.find((entry) => entry.text.includes(`saas.${name}`));
