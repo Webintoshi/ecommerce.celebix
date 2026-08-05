@@ -130,6 +130,19 @@ function apiUrl(pathname, search = undefined) {
   return selected;
 }
 
+function activeConnectorId(connector) {
+  if (!connector || typeof connector !== "object" || Array.isArray(connector) || !UUID.test(connector.id)) return undefined;
+  if (Array.isArray(connector.conns)) {
+    const active = connector.conns.some((connection) => connection
+      && typeof connection === "object"
+      && !Array.isArray(connection)
+      && UUID.test(connection.id)
+      && connection.is_pending_reconnect === false);
+    return active ? connector.id : undefined;
+  }
+  return connector.is_pending_reconnect === false ? connector.id : undefined;
+}
+
 export async function verifyReadiness(rawConfig, dependencies = {}) {
   const config = Object.freeze({ ...rawConfig });
   const fetchImpl = dependencies.fetch ?? globalThis.fetch;
@@ -178,7 +191,7 @@ export async function verifyReadiness(rawConfig, dependencies = {}) {
       ]);
       const status = tunnelEnvelope.result?.id === config.tunnelId ? tunnelEnvelope.result?.status : undefined;
       if (!Array.isArray(connectionsEnvelope.result) || !["healthy", "degraded", "down", "inactive"].includes(status)) return "unavailable";
-      const activeReplicas = new Set(connectionsEnvelope.result.filter((connection) => connection && typeof connection === "object" && !Array.isArray(connection) && UUID.test(connection.id) && connection.is_pending_reconnect === false).map((connection) => connection.id)).size;
+      const activeReplicas = new Set(connectionsEnvelope.result.map(activeConnectorId).filter(Boolean)).size;
       if (status === "down" || status === "inactive") return status;
       return status === "healthy" && activeReplicas >= 2 ? "healthy" : "degraded";
     } catch { return "unavailable"; }

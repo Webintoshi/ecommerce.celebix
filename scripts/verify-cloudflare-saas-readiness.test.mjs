@@ -63,6 +63,41 @@ test("read-only preflight verifies the exact Cloudflare for SaaS and redundant T
   assert.equal(new URL(fixture.calls.find((request) => new URL(request.url).hostname === CONFIG.storefrontProbeHostname)?.url ?? "https://invalid.test").pathname, "/api/health");
 });
 
+test("preflight recognizes Cloudflare's current connector payload as redundant", async () => {
+  const connector = (id, connectionId) => ({
+    id,
+    arch: "amd64",
+    version: "2026.7.0",
+    run_at: "2026-08-05T10:00:00Z",
+    ha_status: null,
+    conns: [{
+      id: connectionId,
+      uuid: connectionId,
+      is_pending_reconnect: false,
+      colo_name: "cdg01",
+      opened_at: "2026-08-05T10:00:00Z",
+    }],
+  });
+  const fixture = dependencies({
+    fetch: async (request) => {
+      const url = new URL(request.url);
+      if (url.hostname === CONFIG.storefrontProbeHostname) return Response.json({ schemaVersion: 1, status: "ok", storeId: CONFIG.storefrontProbeStoreId, hostname: CONFIG.storefrontProbeHostname });
+      if (url.pathname === `/client/v4/zones/${CONFIG.zoneId}`) return cloudflare({ id: CONFIG.zoneId, status: "active" });
+      if (url.pathname.endsWith("/custom_hostnames/fallback_origin")) return cloudflare({ origin: CONFIG.fallbackOrigin, status: "active" });
+      if (url.pathname.endsWith("/custom_hostnames")) return cloudflare([], { page: 1, per_page: 5, count: 0, total_count: 4 });
+      if (url.pathname.endsWith("/dns_records")) return cloudflare([{ id: "c".repeat(32), type: "CNAME", name: CONFIG.cnameTarget, content: CONFIG.fallbackOrigin, proxied: true }]);
+      if (url.pathname.endsWith("/connections")) return cloudflare([
+        connector("20000000-0000-4000-8000-000000000001", "30000000-0000-4000-8000-000000000001"),
+        connector("20000000-0000-4000-8000-000000000002", "30000000-0000-4000-8000-000000000002"),
+      ]);
+      if (url.pathname.endsWith(`/${CONFIG.tunnelId}`)) return cloudflare({ id: CONFIG.tunnelId, status: "healthy" });
+      throw new Error("unexpected_request");
+    },
+  });
+
+  assert.equal((await verifyReadiness(CONFIG, fixture.value)).tunnel, "healthy");
+});
+
 test("preflight reports exhausted quota inactive fallback wrong proxied target and unavailable tunnel", async () => {
   const fixture = dependencies({
     resolveDns: async () => [],
