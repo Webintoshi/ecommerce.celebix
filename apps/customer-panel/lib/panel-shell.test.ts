@@ -1743,6 +1743,36 @@ test("dashboard presentation renders analytics loading ready and retry states wi
   assert.match(failed, />Tekrar dene<\/button>/);
 });
 
+test("dashboard active product count follows the live catalog authority when analytics differs", async () => {
+  const chrome = Object.freeze({ storeSlug: "pilot-store", membershipLabel: "Mağaza sahibi", planCode: "growth", planVersion: 3, entitlementStatus: "active", storefrontHostname: "pilot-store.celebix.site", locale: "tr-TR" });
+  const catalog = Object.freeze({ totalProducts: 48, activeProducts: 47, draftProducts: 1, productLimit: 100, activeVariants: 52, outOfStockVariants: 2, productsWithoutMedia: 1, activeMedia: 70 });
+  const analytics = Object.freeze({
+    period: "month" as const,
+    rangeStart: "2026-07-01T00:00:00.000Z",
+    rangeEnd: "2026-07-22T12:00:00.000Z",
+    generatedAt: "2026-07-22T12:00:00.000Z",
+    currency: "TRY",
+    revenueCents: 0,
+    orders: { total: 0, paid: 0, cancelled: 0, refunded: 0 },
+    customers: { total: 0, newInPeriod: 0 },
+    catalog: { activeProducts: 3, lowStockVariants: 2 },
+    series: [],
+    topProducts: [],
+  });
+  const dashboard = createMerchantDashboardViewModel(
+    chrome,
+    readyAuthority(catalog, analytics.generatedAt),
+    undefined,
+    undefined,
+    undefined,
+    readyAuthority(analytics, analytics.generatedAt),
+  );
+  const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded", analyticsState: "loaded" });
+
+  assert.match(html, /<span>Aktif ürün<\/span><strong>47<\/strong><small>Canlı katalog<\/small>/);
+  assert.doesNotMatch(html, /<span>Aktif ürün<\/span><strong>3<\/strong>/);
+});
+
 test("dashboard publishes live filters in topbar context without a body summary toolbar", async () => {
   const dashboard = await source("components/dashboard/PanelDashboardHomeView.tsx");
   assert.match(dashboard, /<PanelTopbarBridge[\s\S]*?context=\{/);

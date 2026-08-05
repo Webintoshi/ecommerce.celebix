@@ -234,6 +234,9 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
   const outOfStockVariants = catalog?.metrics.find(
     ({ key }) => key === "out-of-stock",
   )?.value ?? 0;
+  const activeProducts = catalog?.metrics.find(
+    ({ key }) => key === "active-products",
+  )?.value;
   const tasks = [
     ...(pendingOrders > 0 ? [{
       key: "orders",
@@ -291,10 +294,10 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
     {
       key: "products",
       label: "Aktif ürün",
-      value: analytics
-        ? analytics.catalog.activeProducts.toLocaleString("tr-TR")
+      value: activeProducts !== undefined
+        ? activeProducts.toLocaleString("tr-TR")
         : emptyValue,
-      detail: analytics ? "Canlı katalog" : stateDetail(analyticsState),
+      detail: activeProducts !== undefined ? "Canlı katalog" : stateDetail(props.state),
     },
     {
       key: "refunds",
