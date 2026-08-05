@@ -12,7 +12,7 @@ const REQUEST = "78000000-0000-4000-8000-000000000088";
 const OPERATION = "79000000-0000-4000-8000-000000000088";
 const DOMAIN = "77000000-0000-4000-8000-000000000088";
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 1).toString("base64url")}`;
-const DOMAIN_VIEW: StoreDomainView = Object.freeze({ schemaVersion: 1, id: DOMAIN, hostname: "www.example.com", hostnameType: "custom_domain", status: "pending", primary: false, uiStatus: "dns_pending", dnsInstructions: Object.freeze([{ type: "CNAME", name: "www.example.com", value: "shops.celebix.site" }]), verifiedAt: null, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() });
+const DOMAIN_VIEW: StoreDomainView = Object.freeze({ schemaVersion: 1, id: DOMAIN, hostname: "www.example.com", hostnameType: "custom_domain", status: "pending", primary: false, uiStatus: "dns_pending", dnsInstructions: Object.freeze([{ type: "CNAME" as const, name: "www.example.com", value: "shops.celebix.site" }]), verifiedAt: null, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() });
 
 function tenant(role: "store_owner" | "analyst" = "store_owner"): TenantContext {
   return { schemaVersion: 1, requestId: REQUEST, principal: { id: "10000000-0000-4000-8000-000000000088", issuer: "https://id.test", subject: "private" }, store: { id: "20000000-0000-4000-8000-000000000088", slug: "store", status: "active" }, membership: { id: "30000000-0000-4000-8000-000000000088", role, status: "active" }, entitlements: { schemaVersion: 1, planId: "40000000-0000-4000-8000-000000000088", planCode: "pilot", version: 1, status: "active", features: ["custom_domains"], limits: { products: 100, staff: 5, storageBytes: 100, customDomains: 1 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" };

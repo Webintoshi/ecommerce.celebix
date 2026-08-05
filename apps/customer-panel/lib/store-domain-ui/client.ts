@@ -2,7 +2,7 @@ import type { StoreDomainDnsInstruction, StoreDomainUiStatus, StoreDomainView } 
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
-const STATUSES = Object.freeze(["hostname_pending", "ssl_pending", "origin_pending", "active", "action_required", "disabled"] as const);
+const STATUSES = Object.freeze(["dns_pending", "hostname_pending", "ssl_pending", "origin_pending", "active", "action_required", "disabled"] as const);
 const ERROR_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "forbidden", "feature_not_enabled", "limit_reached",
   "hostname_already_claimed", "stale_version", "not_found", "operation_mismatch", "provider_unavailable", "unavailable",

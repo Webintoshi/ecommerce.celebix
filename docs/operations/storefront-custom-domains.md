@@ -93,6 +93,8 @@ Başarılı sonuçta `zone=active`, `customHostnameQuota=ready`, `fallbackOrigin
 5. Özel hostu primary yapın; platform hostundaki path/query isteğinin özel hosta `308` döndüğünü doğrulayın.
 6. Platform hostunu tekrar primary yapın, özel hostu kaldırın ve platform vitrininin çalıştığını doğrulayın.
 
+Tekrarlanabilir staging akışının gerekli değişkenleri ve güvenli cleanup davranışı `tests/saas-phase3/storefront-custom-domains/README.md` dosyasında tanımlıdır. Mutasyon testi açıkça `CELEBIX_CUSTOM_DOMAIN_STAGING_RUN=approved`; browser kabul testi de `CELEBIX_CUSTOM_DOMAIN_BROWSER_RUN=approved` verilmeden başlamaz.
+
 ## 6. Olay yönetimi
 
 - `dns_pending`: Müşterinin CNAME değerini ve proxy durumunu kontrol edin; `shops` hedefini değiştirmeyin.

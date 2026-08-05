@@ -312,9 +312,19 @@ BEGIN
   IF current_version IS NULL THEN RETURN QUERY SELECT 'domain_not_found'::text,NULL::jsonb; RETURN; END IF;
   IF current_version<>p_expected_version THEN RETURN QUERY SELECT 'stale_version'::text,NULL::jsonb; RETURN; END IF;
   IF NOT EXISTS(
-    SELECT 1 FROM saas.store_domains d JOIN saas.store_domain_provisioning p ON p.domain_id=d.id
-    WHERE d.id=p_domain_id AND d.status='active' AND p.hostname_status='active' AND p.ssl_status='active'
-      AND p.dns_status='ready' AND p.origin_status='ready' AND p.last_provider_error_code IS NULL
+    SELECT 1
+    FROM saas.store_domains d
+    LEFT JOIN saas.store_domain_provisioning p ON p.domain_id=d.id
+    WHERE d.id=p_domain_id AND d.status='active' AND (
+      (d.hostname_type='platform_subdomain' AND d.verified_at<=p_now)
+      OR (
+        d.hostname_type='custom_domain'
+        AND p.hostname_status='active' AND p.ssl_status='active'
+        AND p.dns_status='ready' AND p.origin_status='ready'
+        AND p.last_provider_error_code IS NULL
+        AND p.requested_removal=false
+      )
+    )
   ) THEN RETURN QUERY SELECT 'not_ready'::text,NULL::jsonb; RETURN; END IF;
   UPDATE saas.store_domains SET is_primary=false,updated_at=p_now,version=version+1
     WHERE store_id=p_store_id AND is_primary AND id<>p_domain_id;

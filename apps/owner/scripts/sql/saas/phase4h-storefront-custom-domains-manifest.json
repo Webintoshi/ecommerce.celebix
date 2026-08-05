@@ -7,7 +7,7 @@
     {
       "file": "202608050088_storefront_custom_domains.up.sql",
       "direction": "up",
-      "sha256": "12a5ea23790bebb4211e36bd7d8239480f2d5d30c762f0df20f956534114eccc"
+      "sha256": "6ae7570152fd9d2026db415367c70d3ef5cffdd412313f34df1a3f45d7f58a77"
     },
     {
       "file": "202608050088_storefront_custom_domains.down.sql",

@@ -5,6 +5,7 @@ export type StoreDomainStatusTone = "neutral" | "pending" | "warning" | "success
 export function getStoreDomainStatusPresentation(domain: StoreDomainView): Readonly<{ label: string; tone: StoreDomainStatusTone }> {
   if (domain.hostnameType === "platform_subdomain" && domain.status === "active") return Object.freeze({ label: "Celebix adresi", tone: "success" });
   switch (domain.uiStatus) {
+    case "dns_pending": return Object.freeze({ label: "DNS bekleniyor", tone: "pending" });
     case "hostname_pending": return Object.freeze({ label: "Alan adı ekleniyor", tone: "pending" });
     case "ssl_pending": return Object.freeze({ label: "SSL hazırlanıyor", tone: "pending" });
     case "origin_pending": return Object.freeze({ label: "Bağlantı doğrulanıyor", tone: "pending" });

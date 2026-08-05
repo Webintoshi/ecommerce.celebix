@@ -7,7 +7,7 @@ const DOMAIN_ID = "77000000-0000-4000-8000-000000000088";
 const OPERATION_ID = "79000000-0000-4000-8000-000000000088";
 const DOMAIN = Object.freeze({
   schemaVersion: 1, id: DOMAIN_ID, hostname: "shop.example.com", hostnameType: "custom_domain",
-  status: "pending", primary: false, uiStatus: "action_required",
+  status: "pending", primary: false, uiStatus: "dns_pending",
   dnsInstructions: [{ type: "CNAME", name: "shop", value: "custom.saas-staging.celebix.site" }],
   verifiedAt: null, version: 2, createdAt: "2026-08-05T10:00:00.000Z", updatedAt: "2026-08-05T10:00:00.000Z",
 });

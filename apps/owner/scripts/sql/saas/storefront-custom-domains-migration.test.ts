@@ -56,6 +56,17 @@ test("088 makes the persisted active primary domain the only public canonical au
   assert.match(assertions, /STOREFRONT_CUSTOM_DOMAINS_CANONICAL_AUTHORITY_INVALID/u);
 });
 
+test("088 can restore the active platform hostname as primary", () => {
+  const up = source("up");
+  const start = up.indexOf("CREATE FUNCTION saas.merchant_store_domain_make_primary(");
+  const end = up.indexOf("CREATE FUNCTION saas.merchant_store_domain_disable(", start);
+  assert.ok(start >= 0 && end > start);
+  const primary = up.slice(start, end);
+  assert.match(primary, /hostname_type='platform_subdomain'/u);
+  assert.match(primary, /hostname_type='custom_domain'/u);
+  assert.match(primary, /hostname_status='active'[\s\S]+ssl_status='active'[\s\S]+dns_status='ready'[\s\S]+origin_status='ready'/u);
+});
+
 test("088 guards rollback and pins all SQL artifacts", () => {
   for (const name of Object.values(files)) assert.equal(existsSync(new URL(name, root)), true, `${name} missing`);
   const down = source("down");

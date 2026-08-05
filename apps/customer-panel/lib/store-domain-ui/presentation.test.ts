@@ -12,6 +12,7 @@ const DOMAIN = Object.freeze({
 }) as StoreDomainView;
 
 test("maps durable lifecycle states to short Turkish status labels", () => {
+  assert.deepEqual(getStoreDomainStatusPresentation({ ...DOMAIN, uiStatus: "dns_pending" }), { label: "DNS bekleniyor", tone: "pending" });
   assert.deepEqual(getStoreDomainStatusPresentation(DOMAIN), { label: "Alan adı ekleniyor", tone: "pending" });
   assert.deepEqual(getStoreDomainStatusPresentation({ ...DOMAIN, uiStatus: "action_required" }), { label: "DNS ayarı gerekli", tone: "warning" });
   assert.deepEqual(getStoreDomainStatusPresentation({ ...DOMAIN, status: "active", uiStatus: "active" }), { label: "Yayında", tone: "success" });
