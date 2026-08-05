@@ -23,7 +23,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+[1-9][0-9]{7,14}$/;
-const DEVICE = /^device_[0-9A-Z]{16,40}$/;
+const DEVICE = /^device_[a-f0-9]{32}$/;
 const ORDER_REFERENCE = /^[A-Z0-9][A-Z0-9-]{0,63}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 

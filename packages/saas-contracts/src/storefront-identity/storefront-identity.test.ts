@@ -68,7 +68,7 @@ test("account snapshot is exact deeply frozen and uses public order references",
     profile,
     addresses: [address],
     favorites: [{ productId: "73000000-0000-4000-8000-000000000001", createdAt: NOW }],
-    devices: [{ id: "device_01HZZZZZZZZZZZZZZZZZZZZZZZ", label: "Safari · macOS", current: true, lastSeenAt: NOW, createdAt: NOW }],
+    devices: [{ id: "device_0123456789abcdef0123456789abcdef", label: "Safari · macOS", current: true, lastSeenAt: NOW, createdAt: NOW }],
   });
   assert.equal(snapshot.profile.email, "ada@example.com");
   assert.equal(Object.isFrozen(snapshot), true);
@@ -84,6 +84,7 @@ test("account projections reject malformed values and hidden database authority"
     { ...base, profile: { ...profile, email: " Ada@example.com" } },
     { ...base, addresses: [{ ...address, country: "tr" }] },
     { ...base, devices: [{ id: "bad", label: "Safari", current: true, lastSeenAt: NOW, createdAt: NOW }] },
+    { ...base, devices: [{ id: "device_0123456789ABCDEF0123456789ABCDEF", label: "Safari", current: true, lastSeenAt: NOW, createdAt: NOW }] },
     { ...order, orderId: "71000000-0000-4000-8000-000000000001" },
     { ...order, totalCents: -1 },
     { ...order, items: [{ ...order.items[0], lineTotalCents: 1 }] },
