@@ -62,7 +62,7 @@ test("rejects secret-bearing config before SQL",async()=>{
 
 test("typed settings accept only finite public configuration before SQL",async()=>{
  const configurations={
-  notification_setting:{emailEnabled:true,smsEnabled:false,pushEnabled:true,senderLabel:"Celebix",replyToEmail:"support@example.test"},
+  notification_setting:{emailEnabled:true,smsEnabled:false,pushEnabled:true,orderNotificationsEnabled:true,notificationEmail:"orders@example.test",senderLabel:"Celebix",replyToEmail:"support@example.test"},
   hero_banner:{headline:"Yeni sezon",body:"Göz atın",assetId:RECORD,destination:"/collections/new",enabled:true},
   social_preview:{title:"Celebix",description:"Paylaşım",assetId:RECORD},
   promotion_banner:{headline:"Yaz indirimi",body:"Sınırlı süre",destination:"/sale",startsAt:NOW.toISOString(),endsAt:"2026-08-22T19:00:00.000Z",enabled:true},
@@ -75,6 +75,7 @@ test("typed settings accept only finite public configuration before SQL",async()
   await assert.doesNotReject(()=>repository(new Pool([writer])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:kind as never,name:"Ayar",config,status:"active"}));
  }
  for(const hostile of [{smtpPassword:"x"},{apiKey:"x"},{pushToken:"x"},{html:"<script>x</script>"}]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"notification_setting" as never,name:"Ayar",config:hostile as unknown as Record<string,string>,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ for(const hostile of [{orderNotificationsEnabled:"true"},{notificationEmail:"bad"},{notificationEmail:".lead@example.test"},{notificationEmail:"orders@example.test",unknown:true}]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"notification_setting",name:"Ayar",config:hostile as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"hero_banner",name:"Ayar",config:{imageUrl:"https://cdn.example.test/hero.webp"},status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"social_preview",name:"Ayar",config:{assetId:"not-a-uuid"},status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
  for(const hostile of [

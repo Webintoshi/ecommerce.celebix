@@ -288,7 +288,7 @@ test("settings navigation exposes the unified design workspace and working setti
 
 test("five typed storefront settings expose exact safe field contracts without secrets", () => {
   const contracts = [
-    ["notification_setting", ["emailEnabled", "smsEnabled", "pushEnabled", "senderLabel", "replyToEmail"]],
+    ["notification_setting", ["orderNotificationsEnabled", "notificationEmail", "senderLabel", "replyToEmail"]],
     ["theme_setting", ["colorScheme", "headingStyle", "productCardStyle", "productImageRatio", "homeProductLimit", "showBrandStory"]],
     ["hero_banner", ["headline", "body", "assetId", "destination", "enabled"]],
     ["promotion_banner", ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]],

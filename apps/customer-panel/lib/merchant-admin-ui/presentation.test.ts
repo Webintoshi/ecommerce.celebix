@@ -42,6 +42,13 @@ test("defines every durable merchant module with a unique route and field contra
   assert.equal(getMerchantModuleDefinition("administrator_invite").route, "/settings/administrators");
   assert.equal(getMerchantModuleDefinition("indexing_request").route, "/seo/fast-indexing");
   assert.equal(getMerchantModuleDefinition("notification_setting").route, "/settings/notifications");
+  assert.equal(getMerchantModuleDefinition("notification_setting").cardinality, "singleton");
+  assert.deepEqual(getMerchantModuleDefinition("notification_setting").fields.map(({ key, label, type }) => ({ key, label, type })), [
+    { key: "orderNotificationsEnabled", label: "Yeni sipariş e-postası", type: "boolean" },
+    { key: "notificationEmail", label: "Bildirim adresi", type: "email" },
+    { key: "senderLabel", label: "Gönderici adı", type: "text" },
+    { key: "replyToEmail", label: "Yanıt adresi", type: "email" },
+  ]);
   assert.equal(getMerchantModuleDefinition("hero_banner").route, "/settings/hero-banner");
   assert.equal(getMerchantModuleDefinition("promotion_banner").route, "/settings/promotion-banner");
   assert.equal(getMerchantModuleDefinition("marquee_setting").route, "/settings/marquee");
@@ -69,7 +76,7 @@ test("theme settings expose only bounded visual choices and a numeric home produ
 });
 
 test("starter presentation settings expose one effective singleton editor and identify superseded active rows", () => {
-  const singletonKinds = ["general_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "category_showcase", "seo_control", "social_preview"] as const;
+  const singletonKinds = ["general_setting", "notification_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "category_showcase", "seo_control", "social_preview"] as const;
   for (const kind of singletonKinds) assert.equal(isSingletonMerchantModule(kind), true);
   assert.equal(isSingletonMerchantModule("discount"), false);
   const older = { ...record("71000000-0000-4000-8000-000000000001", "active", "Eski tema", {}), kind: "theme_setting" as const, updatedAt: "2026-07-20T19:00:00.000Z" };
