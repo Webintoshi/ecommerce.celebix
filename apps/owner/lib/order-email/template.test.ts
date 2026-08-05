@@ -75,4 +75,3 @@ test("tracking appears only for shipped mail and unsafe logos fall back to escap
   assert.match(fallback.html, /Güzide &lt;Kuyumcu&gt;/u);
   assert.match(fallback.html, /#171717/u);
 });
-

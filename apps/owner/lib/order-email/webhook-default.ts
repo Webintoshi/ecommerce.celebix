@@ -23,4 +23,3 @@ export async function getDefaultOrderEmailWebhookHandler(): Promise<(request: Re
   root[SINGLETON] = handler;
   return handler;
 }
-

@@ -50,4 +50,3 @@ test("configuration fails closed on transport, mode, sender, key, and test-recip
   ];
   for (const selected of cases) assert.throws(() => parseOrderEmailConfig(environment(selected)), /order_email_config_invalid/u);
 });
-

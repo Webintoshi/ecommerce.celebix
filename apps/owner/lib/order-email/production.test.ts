@@ -53,4 +53,3 @@ test("failed lifecycle preflight closes the pool and starts no worker", async ()
   }), /order_email_production_preflight_failed/u);
   assert.equal(ended, 1);
 });
-

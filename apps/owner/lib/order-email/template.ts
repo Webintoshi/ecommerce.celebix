@@ -90,4 +90,3 @@ export function renderOrderEmail(input: OrderEmailTemplateInput): RenderedOrderE
   const text = `${heading}\n${orderNumber}\n\n${customerName}, siparişinizle ilgili güncel bilgiler aşağıdadır.\n\n${textItems}\n\nAra toplam: ${money(value.subtotalCents, value.currency)}\nKargo: ${money(value.shippingCents, value.currency)}${value.discountCents > 0 ? `\nİndirim: −${money(value.discountCents, value.currency)}` : ""}\nToplam: ${money(value.totalCents, value.currency)}${input.eventType === "order_shipped" && value.tracking ? `\n\n${value.tracking.carrier}: ${value.tracking.trackingNumber}` : ""}\n\n${actionUrl}\n\n${storeName}`;
   return Object.freeze({ subject, html, text });
 }
-

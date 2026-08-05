@@ -91,4 +91,3 @@ export function parseOrderEmailConfig(source: Environment): OrderEmailConfig {
     keyring: selectedKeyring, ...(testRecipient ? { testRecipient } : {}),
   });
 }
-

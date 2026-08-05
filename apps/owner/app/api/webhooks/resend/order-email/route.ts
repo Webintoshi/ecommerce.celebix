@@ -11,4 +11,3 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(null, { status: 503, headers: { "cache-control": "no-store" } });
   }
 }
-

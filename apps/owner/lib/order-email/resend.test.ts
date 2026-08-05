@@ -69,4 +69,3 @@ test("retry schedule is exact and rejects attempts outside one through seven", (
   assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((attempt) => retryDelayMs(attempt as 1 | 2 | 3 | 4 | 5 | 6 | 7)), [30_000, 120_000, 600_000, 3_600_000, 10_800_000, 21_600_000, 43_200_000]);
   assert.throws(() => retryDelayMs(8 as 7), /order_email_resend_invalid/u);
 });
-

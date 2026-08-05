@@ -53,4 +53,3 @@ test("tampering, wrong key, malformed requests, and unknown rotation keys fail c
   assert.throws(() => sealOrderEmailRequest({ ...request, to: "not-an-email" }, keyring()), /order_email_seal_invalid/u);
   assert.throws(() => sealOrderEmailRequest({ ...request, html: `${request.html}<script>x</script>` }, keyring()), /order_email_seal_invalid/u);
 });
-
