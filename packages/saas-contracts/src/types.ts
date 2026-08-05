@@ -67,6 +67,50 @@ export type StoreDomainType = (typeof STORE_DOMAIN_TYPES)[number];
 export const STORE_HOST_STATUSES = ["pending_verification", "active", "disabled"] as const;
 export type StoreHostStatus = (typeof STORE_HOST_STATUSES)[number];
 
+export const STORE_DOMAIN_UI_STATUSES = [
+  "dns_pending",
+  "hostname_pending",
+  "ssl_pending",
+  "origin_pending",
+  "active",
+  "action_required",
+  "disabled",
+] as const;
+export type StoreDomainUiStatus = (typeof STORE_DOMAIN_UI_STATUSES)[number];
+
+export type StoreDomainDnsInstruction = Readonly<{
+  type: "CNAME" | "TXT";
+  name: string;
+  value: string;
+}>;
+
+export type StoreDomainView = Readonly<{
+  schemaVersion: 1;
+  id: DomainId;
+  hostname: string;
+  hostnameType: "platform_subdomain" | "custom_domain";
+  status: "pending" | "active" | "disabled";
+  primary: boolean;
+  uiStatus: StoreDomainUiStatus;
+  dnsInstructions: readonly StoreDomainDnsInstruction[];
+  verifiedAt: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type CreateStoreDomainInput = Readonly<{
+  schemaVersion: 1;
+  operationId: OperationId;
+  hostname: string;
+}>;
+
+export type StoreDomainMutationResult = Readonly<{
+  schemaVersion: 1;
+  domain: StoreDomainView;
+  replayed: boolean;
+}>;
+
 export const ADMIN_DOMAIN_KINDS = ["platform_subdomain", "custom_alias"] as const;
 export type AdminDomainKind = (typeof ADMIN_DOMAIN_KINDS)[number];
 
