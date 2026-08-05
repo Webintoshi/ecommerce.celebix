@@ -50,6 +50,7 @@ export * from "./storefront-content/index.ts";
 export * from "./storefront-commerce/index.ts";
 export * from "./storefront-identity/index.ts";
 export * from "./storefront-assets/index.ts";
+export * from "./store-domains/index.ts";
 export * from "./media/index.ts";
 export * from "./orders/index.ts";
 export * from "./quick-orders/index.ts";

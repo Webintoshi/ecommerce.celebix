@@ -1,0 +1,23 @@
+{
+  "phase": "phase4h-storefront-custom-domains",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608050088_storefront_custom_domains.up.sql",
+      "direction": "up",
+      "sha256": "b268ee837a42ee41ec3250775f3ecf6729d56df35c12f8bba349637f22a7a33c"
+    },
+    {
+      "file": "202608050088_storefront_custom_domains.down.sql",
+      "direction": "down",
+      "sha256": "8e8c1c91361c51c36fa8d1cd2d1a13da395ca52b0506dfb722c834c9a434b674"
+    },
+    {
+      "file": "202608050088_storefront_custom_domains_assertions.sql",
+      "direction": "verify",
+      "sha256": "414ebb445460144d2c3a6f744c5d009640dcd56eb3021d4dd1f24c2e832e0d13"
+    }
+  ]
+}
