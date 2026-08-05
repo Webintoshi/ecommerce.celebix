@@ -157,6 +157,7 @@ test("presentation v2 adapts to v3 without invented retail content", () => {
   assert.deepEqual((adapted.sections as Array<{ kind: string }>).filter(({ kind }) => kind === "testimonials"), []);
   assert.deepEqual((adapted.sections as Array<{ kind: string }>).filter(({ kind }) => kind === "value_propositions"), []);
   assert.equal((adapted.cart as { showQuantitySelector: boolean }).showQuantitySelector, true);
+  assert.equal((adapted.visual as { headerLayout?: string }).headerLayout, "centered");
 });
 
 test("new starter storefronts expose every fixed policy route in the default footer", () => {

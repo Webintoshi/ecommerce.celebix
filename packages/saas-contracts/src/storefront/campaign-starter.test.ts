@@ -114,6 +114,32 @@ test("retail composition canonicalizes legacy logo controls and accepts bounded 
   }), /storefront_contract_invalid/);
 });
 
+test("retail composition defaults legacy header layout and accepts four bounded selections", () => {
+  const legacy = createDefaultStarterThemeComposition();
+  const visualWithoutLayout = { ...legacy.visual } as Record<string, unknown>;
+  delete visualWithoutLayout.headerLayout;
+  const parsedLegacy = campaignValidation.parseStarterThemeCompositionConfig({
+    ...legacy,
+    visual: visualWithoutLayout,
+  });
+  assert.equal((parsedLegacy.visual as { headerLayout: string }).headerLayout, "centered");
+
+  for (const headerLayout of ["centered", "logo_left", "logo_top", "menu_top"] as const) {
+    const parsed = campaignValidation.parseStarterThemeCompositionConfig({
+      ...legacy,
+      visual: { ...legacy.visual, headerLayout },
+    });
+    assert.equal((parsed.visual as { headerLayout: string }).headerLayout, headerLayout);
+  }
+
+  for (const headerLayout of ["", "Logo_left", " logo_left", "logo-left", "freeform"]) {
+    assert.throws(() => campaignValidation.parseStarterThemeCompositionConfig({
+      ...legacy,
+      visual: { ...legacy.visual, headerLayout },
+    }), /storefront_contract_invalid/);
+  }
+});
+
 test("campaign composition rejects unknown and incomplete root fields", () => {
   assert.throws(() => campaignValidation.parseStarterThemeCompositionConfig({ ...validComposition(), tenantId: STORE }), /storefront_contract_invalid/);
   const { cart: _cart, ...missing } = validComposition();
@@ -198,6 +224,7 @@ test("new-store defaults are premium deterministic and contain no fake commerce 
   assert.equal((defaults.footer as { newsletter: { enabled: boolean } }).newsletter.enabled, false);
   assert.equal((defaults.visual as { logoSize?: string }).logoSize, "medium");
   assert.equal((defaults.visual as { logoAlignment?: string }).logoAlignment, "center");
+  assert.equal((defaults.visual as { headerLayout?: string }).headerLayout, "centered");
   assert.equal(JSON.stringify(defaults).includes("discount"), false);
 });
 

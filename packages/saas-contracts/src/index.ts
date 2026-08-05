@@ -463,6 +463,7 @@ export type {
   StarterThemeComposition,
   StarterThemeCompositionConfig,
   StarterThemeCompositionConfigV2,
+  StarterThemeHeaderLayout,
   StarterThemeSectionConfig,
   StarterThemeSectionConfigV2,
   StarterThemeVisual,
