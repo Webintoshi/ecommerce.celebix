@@ -18,7 +18,9 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.match(auth, /type="hidden" name="returnTo"/u);
   assert.match(auth, /name="code"/u);
   assert.match(auth, /Bağlantı gönder/u);
-  assert.match(auth, /Şifre gerekmez/u);
+  assert.match(auth, /aria-label="Giriş güvenliği"/u);
+  assert.match(auth, /Güvenilir Giriş/u);
+  assert.match(auth, /%100 Korumalı/u);
   assert.match(auth, /E-postanı kontrol et/u);
   assert.match(auth, /maskAccountEmail/u);
   assert.match(auth, /E-postayı değiştir/u);
@@ -28,6 +30,7 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.doesNotMatch(auth, /Bağlantı 10 dakika geçerlidir|<b>\{email\}<\/b>/u);
   assert.doesNotMatch(auth, /publicPost\("\/api\/account\/auth\/verify"|window[.]location[.]assign/u);
   assert.doesNotMatch(auth, /window[.]location[.]assign\(`\/account\/verify/u);
+  assert.doesNotMatch(auth, /Şifre gerekmez/u);
   assert.doesNotMatch(auth, /password/u);
 });
 
@@ -41,9 +44,10 @@ test("account entry uses one universal tenant-branded shell without storefront c
   assert.doesNotMatch(login, /StorefrontFrame|Siparişlerinizi takip edin|Adreslerinizi saklayın/u);
   assert.doesNotMatch(verify, /StorefrontFrame|Bu isteği siz yapmadıysanız/u);
   assert.match(shell, /resolveAccountAuthBranding/u);
-  assert.match(shell, /Alışverişiniz, kaldığınız yerden[.]/u);
-  assert.match(shell, /Mağazaya dön/u);
+  assert.match(shell, /Giriş Yap &amp; Hesap Oluştur/u);
+  assert.match(shell, /className=\{styles[.]visuallyHidden\}/u);
   assert.match(shell, /aria-label=.*ana sayfa/u);
+  assert.doesNotMatch(shell, /Alışverişiniz|Mağazaya dön/u);
   assert.doesNotMatch(shell, /--account-brand-ink/u);
   assert.match(shell, /account-auth[.]module[.]css/u);
   assert.match(form, /account-auth[.]module[.]css/u);
@@ -66,11 +70,13 @@ test("universal account auth layout is responsive accessible and locally scoped"
   assert.match(css, /--auth-brand-surface:\s*color-mix\(in srgb, var\(--store-primary\) 14%, #f7f7f5\)/u);
   assert.match(css, /background:\s*var\(--auth-brand-surface\)/u);
   assert.match(css, /[.]primaryButton\s*\{[^}]*background:\s*#171717[^}]*color:\s*#fff/su);
+  assert.match(css, /[.]trustList\s*\{[^}]*display:\s*flex/su);
+  assert.match(css, /[.]trustList svg\s*\{[^}]*width:\s*14px/su);
+  assert.match(css, /[.]visuallyHidden\s*\{[^}]*position:\s*absolute/su);
   assert.match(css, /font-size:\s*clamp\(38px, 5vw, 68px\)/u);
   assert.match(css, /font-size:\s*clamp\(30px, 9vw, 40px\)/u);
-  assert.match(css, /font-size:\s*clamp\(28px, 3vw, 36px\)/u);
-  assert.match(css, /font-size:\s*clamp\(27px, 8vw, 34px\)/u);
   assert.doesNotMatch(css, /[.]brand\s*\{[^}]*background:\s*var\(--store-primary\)/su);
+  assert.doesNotMatch(css, /[.]panelInner h1\s*\{/u);
   assert.doesNotMatch(globalCss, /[.]account-auth-(?:layout|intro|form|benefits|sent|confirmation|secondary|text|verify|trust|footnote)/u);
 });
 

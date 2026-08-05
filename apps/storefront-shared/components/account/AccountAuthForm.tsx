@@ -47,7 +47,22 @@ export function AccountAuthForm(props: AccountAuthFormProps) {
     return <form className={styles.form} onSubmit={sendLink} noValidate>
       <label className={styles.field}><span>E-posta</span><input className={styles.input} type="email" autoComplete="email" inputMode="email" required value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
       <button className={styles.primaryButton} type="submit" disabled={busy}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
-      <p className={styles.trust}>Şifre gerekmez</p>
+      <div className={styles.trustList} aria-label="Giriş güvenliği">
+        <span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3 19 6v5c0 4.4-2.7 8-7 10-4.3-2-7-5.6-7-10V6l7-3Z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          Güvenilir Giriş
+        </span>
+        <span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+            <rect x="5" y="10" width="14" height="10" rx="2" />
+            <path d="M8 10V8a4 4 0 0 1 8 0v2" />
+          </svg>
+          %100 Korumalı
+        </span>
+      </div>
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </form>;
   }

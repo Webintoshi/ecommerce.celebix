@@ -18,7 +18,7 @@
   display: grid;
   overflow: hidden;
   min-width: 0;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
   padding: clamp(30px, 4.2vw, 68px);
   background: var(--auth-brand-surface);
   color: #171717;
@@ -85,27 +85,6 @@
   letter-spacing: -.06em;
 }
 
-.returnLink {
-  z-index: 1;
-  display: inline-flex;
-  width: fit-content;
-  min-height: 48px;
-  align-items: center;
-  gap: 10px;
-  color: inherit;
-  font-size: 12px;
-  font-weight: 720;
-}
-
-.returnLink span {
-  font-size: 18px;
-  transition: transform .18s ease;
-}
-
-.returnLink:hover span {
-  transform: translateX(-4px);
-}
-
 .panel {
   display: grid;
   min-width: 0;
@@ -119,17 +98,16 @@
   display: grid;
   width: 100%;
   max-width: 380px;
-  gap: 34px;
 }
 
-.panelInner h1 {
-  margin: 0;
-  color: var(--auth-ink);
-  font-family: inherit;
-  font-size: clamp(28px, 3vw, 36px);
-  font-weight: 650;
-  line-height: 1.03;
-  letter-spacing: -.052em;
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .form {
@@ -211,7 +189,6 @@
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible,
 .textButton:focus-visible,
-.returnLink:focus-visible,
 .wordmark:focus-visible,
 .verify summary:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--store-primary) 34%, #0000);
@@ -227,7 +204,6 @@
   transform: none;
 }
 
-.trust,
 .status {
   margin: 0;
   color: var(--auth-muted);
@@ -236,11 +212,33 @@
   text-align: center;
 }
 
-.trust::before {
-  margin-right: 7px;
-  content: "✓";
-  color: var(--store-primary);
-  font-weight: 850;
+.trustList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 18px;
+  color: var(--auth-muted);
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1.4;
+}
+
+.trustList span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.trustList svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  stroke: var(--store-primary);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .status {
@@ -356,22 +354,11 @@
     line-height: .95;
   }
 
-  .returnLink {
-    display: none;
-  }
-
   .panel {
     place-items: start center;
     padding: 34px 20px 52px;
   }
 
-  .panelInner {
-    gap: 26px;
-  }
-
-  .panelInner h1 {
-    font-size: clamp(27px, 8vw, 34px);
-  }
 }
 
 @media (max-width: 360px) {
@@ -402,15 +389,11 @@
     padding: 30px 48px;
   }
 
-  .panelInner {
-    gap: 24px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .input,
-  .primaryButton,
-  .returnLink span {
+  .primaryButton {
     transition: none;
   }
 }
