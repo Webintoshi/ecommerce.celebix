@@ -34,7 +34,7 @@ Görsel içermeyen geriye uyumlu banner, mağazanın boş/legacy kalmaması içi
 
 ### Banner üzerinde
 
-`headerStyle === "overlay"` ve görünür banner görseli bulunduğunda header, hero alanının üst kısmında şeffaf bir katman olarak yer alır. Navigasyon banner'ın üzerine gelir; yüksek z-index, kontrollü kontrast ve metin gölgesi ile okunabilir kalır. Header banner görselini daraltmaz veya aşağı itmez.
+`headerStyle === "overlay"` ve görünür banner görseli bulunduğunda header, hero alanının üst kısmında şeffaf bir katman olarak yer alır. Canlı storefront'ta bu karar mevcut `CampaignHeader` tarafından public starter presentation üzerinden uygulanır. Tasarım önizlemesinde aynı enum `StorefrontDesignRenderer` bileşenine açık bir prop olarak aktarılır. Navigasyon banner'ın üzerine gelir; yüksek z-index ve kontrollü kontrast ile okunabilir kalır. Header banner görselini daraltmaz veya aşağı itmez.
 
 ### Düz zemin
 
@@ -55,14 +55,16 @@ Tema önizlemesi seçilen modu anında yansıtır. Banner görseli olan önizlem
 
 ## Bileşen Sınırları
 
-- `StorefrontDesignRenderer` yayınlanmış `composition.visual.headerStyle` değerini okur, etkili header modunu fail-closed hesaplar ve header/hero yerleşimini ortak bir hero shell içinde render eder.
+- `CampaignHeader` canlı storefront'ta mevcut public starter presentation içindeki `visual.headerStyle` değerini okumaya devam eder; bu authority yolu değiştirilmez.
+- `DesignPreview`, draft içindeki `composition.visual.headerStyle` değerini `StorefrontDesignRenderer` bileşenine açık prop olarak geçirir. Public design sözleşmesine kompozisyon eklenmez.
+- `StorefrontDesignRenderer` verilen header stilinden etkili önizleme modunu fail-closed hesaplar ve header/hero yerleşimini ortak bir hero shell içinde render eder.
 - `storefront-design.css` tam genişlik görseli, overlay header katmanını, solid header akışını ve responsive davranışı uygular.
 - `StarterThemeComposer` yalnız mevcut strict enum'un anlaşılır etiketlerini sunar.
 - `StarterThemePreview` aynı enum'a göre overlay/solid yerleşimi gösterir; ikinci bir ayar veya browser authority üretmez.
 
 ## Güvenlik ve Veri Yetkisi
 
-- Header modu yalnız yayınlanmış tenant-bound tema belgesinden gelir.
+- Canlı header modu yalnız yayınlanmış tenant-bound starter presentation'dan; admin önizlemesi yalnız aynı tenant'ın doğrulanmış draft kompozisyonundan gelir.
 - Browser header, query, cookie, hostname veya local state kalıcı otorite değildir.
 - Media URL'leri mevcut public storefront projection tarafından çözümlenir; media ID veya store ID renderer'a sızdırılmaz.
 - Banner metni HTML olarak yorumlanmaz ve unsafe HTML yolu eklenmez.

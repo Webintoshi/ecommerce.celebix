@@ -4,7 +4,7 @@
 
 **Goal:** Render uploaded storefront banners as uncropped full-width artwork and apply the existing tenant-owned `overlay | solid` header selection consistently in the live storefront and admin preview.
 
-**Architecture:** Reuse `design.composition.visual.headerStyle`; do not add a contract, migration, or browser authority. `StorefrontDesignRenderer` derives a fail-closed effective header mode, renders one shared header either inside an overlay hero shell or in normal flow, and renders image-backed slides without the legacy copy column. The admin composer keeps the same enum and its preview uses matching layout classes.
+**Architecture:** Reuse the existing tenant-owned header enum; do not add a contract, migration, or browser authority. Live storefront header placement remains owned by `CampaignHeader` through `presentation.visual.headerStyle`. `DesignPreview` passes its draft `design.composition.visual.headerStyle` explicitly to `StorefrontDesignRenderer`, which derives a fail-closed preview mode and renders image-backed slides without the legacy copy column. The admin composer keeps the same enum and its secondary composition preview uses matching layout classes.
 
 **Tech Stack:** React 19, TypeScript 5.9, CSS/CSS Modules, Node test runner, Next.js 16 workspaces.
 
@@ -27,7 +27,7 @@
 - Modify: `packages/storefront-design-ui/src/storefront-design.css:23-71`
 
 **Interfaces:**
-- Consumes: `PublicStorefrontDesign["composition"]["visual"]["headerStyle"]`, `PublicStorefrontDesignHeroSlide.desktopImage`, `showHeader`, and `showHomeSurfaces`.
+- Consumes: explicit optional `headerStyle: "overlay" | "solid"`, `PublicStorefrontDesignHeroSlide.desktopImage`, `showHeader`, and `showHomeSurfaces`. Live storefront authority remains in `CampaignHeader`.
 - Produces: `effectiveHeaderStyle: "overlay" | "solid"`, `.celebix-store-hero-shell[data-header-style]`, and image-backed slides without `.celebix-store-hero-copy`.
 
 - [ ] **Step 1: Write failing renderer and stylesheet authority tests**
@@ -35,7 +35,7 @@
 Extend the existing source-security test with assertions equivalent to:
 
 ```ts
-assert.match(source, /design[.]composition[.]visual[.]headerStyle/);
+assert.match(source, /headerStyle\s*=\s*"solid"/);
 assert.match(source, /effectiveHeaderStyle/);
 assert.match(source, /celebix-store-hero-shell/);
 assert.match(source, /slide[.]desktopImage\s*[?]/);
@@ -70,12 +70,12 @@ const homeHeroVisible = showHomeSurfaces && design.hero.enabled && slides.length
 const activeHeroHasImage = Boolean(slides[activeSlide]?.desktopImage);
 const effectiveHeaderStyle = homeHeroVisible
   && activeHeroHasImage
-  && design.composition.visual.headerStyle === "overlay"
+  && headerStyle === "overlay"
   ? "overlay"
   : "solid";
 ```
 
-Create one `header` JSX value. Render it before the hero only for `solid`; render the same value inside `.celebix-store-hero-shell[data-header-style="overlay"]` only for `overlay`. Preserve `showHeader=false` exactly.
+Add `headerStyle?: "overlay" | "solid"` to the renderer props with the fail-closed default `"solid"`. `DesignPreview` passes `design.composition.visual.headerStyle`; the public design contract remains unchanged. Create one `header` JSX value. Render it before the hero only for `solid`; render the same value inside `.celebix-store-hero-shell[data-header-style="overlay"]` only for `overlay`. Preserve `showHeader=false` exactly.
 
 Within each slide, use an image-or-fallback branch:
 
