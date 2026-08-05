@@ -47,3 +47,22 @@ test("renderer source owns exact brand tokens and no unsafe HTML path", async ()
   assert.match(source, /showHeader \?/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML|mediaId|resourceId/);
 });
+
+test("renderer derives one fail-closed header mode and renders designed banners without a copy split", async () => {
+  const source = await readFile(new URL("./StorefrontDesignRenderer.tsx", import.meta.url), "utf8");
+  assert.match(source, /headerStyle\s*=\s*"solid"/);
+  assert.match(source, /headerStyle\s*===\s*"overlay"/);
+  assert.match(source, /effectiveHeaderStyle/);
+  assert.match(source, /celebix-store-hero-shell/);
+  assert.match(source, /data-header-style=\{effectiveHeaderStyle\}/);
+  assert.match(source, /slide[.]desktopImage\s*[?]\s*\(\s*<picture>[\s\S]*?\)\s*:\s*\(\s*<div className="celebix-store-hero-copy">/);
+});
+
+test("renderer stylesheet keeps image banners full-width uncropped and overlays only the selected header mode", async () => {
+  const css = await readFile(new URL("./storefront-design.css", import.meta.url), "utf8");
+  assert.doesNotMatch(css, /celebix-store-hero\[data-has-image="true"\]\s*\{[^}]*grid-template-columns/);
+  assert.match(css, /celebix-store-hero-shell\[data-header-style="overlay"\][\s\S]*?position:\s*absolute/);
+  assert.match(css, /celebix-store-hero\[data-has-image="true"\]\s*\{[^}]*min-height:\s*0/);
+  assert.match(css, /celebix-store-hero\[data-has-image="true"\][^}]*>\s*picture\s+img\s*\{[^}]*height:\s*auto/);
+  assert.doesNotMatch(css, /celebix-store-hero\[data-has-image="true"\][^}]*>\s*picture\s+img\s*\{[^}]*object-fit:\s*cover/);
+});
