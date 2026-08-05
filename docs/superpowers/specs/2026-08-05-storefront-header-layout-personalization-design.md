@@ -1,6 +1,6 @@
 # Storefront Header Layout Personalization Design
 
-Status: Kullanıcı yazılı incelemesini bekliyor
+Status: Kullanıcı tarafından yazılı olarak onaylandı
 
 Date: 2026-08-05
 
