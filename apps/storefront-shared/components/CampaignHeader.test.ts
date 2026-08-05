@@ -11,3 +11,10 @@ test("mobile navigation has nested disclosure focus trap and backdrop closure", 
 test("campaign header keeps canonical search favorite account and cart utilities", async () => { const source = await read("CampaignHeaderClient.tsx"); assert.match(source, /StoreUtilities/); assert.doesNotMatch(source, /localStorage|sessionStorage|document[.]cookie|x-forwarded|storeId|tenantId/); });
 test("campaign navigation has 48px controls reduced motion and bounded desktop mega menu", async () => { const source = await read("campaign-header.module.css"); assert.match(source, /min-(?:width|height):48px/); assert.match(source, /prefers-reduced-motion/); assert.match(source, /max-width:1440px/); assert.match(source, /[.]mega/); });
 test("retail header supports the schema v3 centered wide and contained layouts", async () => { const [source, css] = await Promise.all([read("CampaignHeader.tsx"), read("campaign-header.module.css")]); assert.match(source, /schemaVersion !== 2 && presentation[.]schemaVersion !== 3/); assert.match(source, /data-header-width/); assert.match(css, /grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/); assert.match(css, /data-header-width="contained"/); });
+test("published presentation remains the sole live overlay or solid header authority", async () => {
+  const [source, css] = await Promise.all([read("CampaignHeader.tsx"), read("campaign-header.module.css")]);
+  assert.match(source, /data-header-style=\{presentation[.]visual[.]headerStyle\}/);
+  assert.match(css, /header\[data-header-style="overlay"\] [.]bar\{[^}]*position:absolute/);
+  assert.match(css, /header\[data-header-style="overlay"\] [.]bar[.]nonHome\{[^}]*position:relative/);
+  assert.doesNotMatch(source, /process[.]env|localStorage|sessionStorage|x-forwarded|storeId|tenantId/);
+});
