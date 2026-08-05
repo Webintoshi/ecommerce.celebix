@@ -75,6 +75,7 @@ test("contains every and only currently working merchant destination", () => {
       "/marketplaces",
       "/settings",
       "/settings/general",
+      "/settings/domains",
       "/settings/language",
       "/settings/administrators",
       "/settings/payment",

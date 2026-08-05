@@ -1080,6 +1080,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
       Component: FamilyOverview,
       destinations: [
         "/settings/general",
+        "/settings/domains",
         "/settings/language",
         "/settings/administrators",
         "/settings/payment",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, Building2, ChevronRight, CreditCard, Languages, Palette, Sparkles, Truck, Users, type LucideIcon } from "lucide-react";
+import { Bell, Building2, ChevronRight, CreditCard, Globe2, Languages, Palette, Sparkles, Truck, Users, type LucideIcon } from "lucide-react";
 
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import {
@@ -27,6 +27,7 @@ const SETTINGS_GROUPS: readonly Readonly<{
 }>[] = Object.freeze([
   Object.freeze({ title: "Mağaza", items: Object.freeze([
     Object.freeze({ href: "/settings/general", label: "Genel", icon: Building2 }),
+    Object.freeze({ href: "/settings/domains", label: "Alan Adı", icon: Globe2 }),
     Object.freeze({ href: "/settings/language", label: "Dil", icon: Languages }),
     Object.freeze({ href: "/settings/administrators", label: "Yöneticiler", icon: Users }),
   ]) }),
