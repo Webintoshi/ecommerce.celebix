@@ -1,3 +1,5 @@
+import { X509Certificate } from "node:crypto";
+
 import {
   createApprovedStagingSaaSAuthAuthorityProfile,
   type SaaSAuthAuthorityProfile,
@@ -13,7 +15,8 @@ const SAFE_ALGORITHMS = new Set([
 const FIELDS = Object.freeze([
   "CELEBIX_SAAS_AUTH_MODE", "CELEBIX_DEPLOYMENT_TIER", "CELEBIX_STAGING_ACTIVATION_ID",
   "CELEBIX_OWNER_ORIGIN", "CELEBIX_PANEL_ORIGIN", "CELEBIX_PLATFORM_DOMAIN_SUFFIX",
-  "CELEBIX_SAAS_DATABASE_URL", "CELEBIX_SAAS_DATABASE_NAME", "CELEBIX_LOGTO_ISSUER",
+  "CELEBIX_SAAS_DATABASE_URL", "CELEBIX_SAAS_DATABASE_NAME", "CELEBIX_STAGING_DB_CA_B64",
+  "CELEBIX_LOGTO_ISSUER",
   "CELEBIX_LOGTO_DISCOVERY_URL", "CELEBIX_LOGTO_CLIENT_ID", "CELEBIX_LOGTO_CLIENT_SECRET",
   "CELEBIX_LOGTO_TOKEN_AUTH_METHOD", "CELEBIX_LOGTO_ID_TOKEN_ALGS",
   "CELEBIX_IDENTITY_HMAC_KEY_B64URL", "CELEBIX_IDENTITY_ENCRYPTION_KEY_ID",
@@ -30,7 +33,7 @@ type Environment = Record<string, string | undefined>;
 export type OwnerStagingAuthConfig = Readonly<{
   activationId: string;
   authority: SaaSAuthAuthorityProfile;
-  database: Readonly<{ url: string; name: string }>;
+  database: Readonly<{ url: string; name: string; ca: string }>;
   logto: Readonly<{
     issuer: string;
     discoveryUrl: string;
@@ -101,7 +104,19 @@ function exactHttpsUrl(value: string): URL {
   return parsed;
 }
 
-function database(source: Environment): Readonly<{ url: string; name: string }> {
+function certificateAuthority(source: Environment): string {
+  const encoded = required(source, "CELEBIX_STAGING_DB_CA_B64", 16_384);
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) invalid();
+  const decoded = Buffer.from(encoded, "base64");
+  if (!decoded.byteLength || decoded.toString("base64") !== encoded) invalid();
+  const pem = decoded.toString("utf8");
+  if (!Buffer.from(pem, "utf8").equals(decoded)) invalid();
+  try { new X509Certificate(pem); } catch { decoded.fill(0); return invalid(); }
+  decoded.fill(0);
+  return pem;
+}
+
+function database(source: Environment): Readonly<{ url: string; name: string; ca: string }> {
   const name = required(source, "CELEBIX_SAAS_DATABASE_NAME", 63);
   if (!DATABASE_NAME.test(name)) invalid();
   const value = required(source, "CELEBIX_SAAS_DATABASE_URL", 4096);
@@ -110,9 +125,23 @@ function database(source: Environment): Readonly<{ url: string; name: string }> 
   if (
     !["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname || !url.username || !url.password ||
     url.hash || url.pathname !== `/${name}` || url.searchParams.size !== 1 ||
-    url.searchParams.get("sslmode") !== "require"
+    url.searchParams.get("sslmode") !== "verify-full"
   ) invalid();
-  return Object.freeze({ url: value, name });
+  return Object.freeze({ url: value, name, ca: certificateAuthority(source) });
+}
+
+export function createOwnerStagingDatabasePoolConfig(
+  databaseConfig: OwnerStagingAuthConfig["database"],
+): Readonly<{
+  connectionString: string;
+  ssl: Readonly<{ ca: string; rejectUnauthorized: true }>;
+}> {
+  const connectionUrl = new URL(databaseConfig.url);
+  connectionUrl.search = "";
+  return Object.freeze({
+    connectionString: connectionUrl.toString(),
+    ssl: Object.freeze({ ca: databaseConfig.ca, rejectUnauthorized: true as const }),
+  });
 }
 
 export function parseOwnerStagingAuthConfig(source: Environment): OwnerStagingAuthConfig {

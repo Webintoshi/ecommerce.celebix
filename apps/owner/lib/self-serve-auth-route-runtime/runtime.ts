@@ -11,7 +11,10 @@ import {
   createApprovedStagingOwnerSelfServeAuthRouteSet,
   type OwnerSelfServeAuthRouteSet,
 } from "../self-serve-auth-route-mount/route-set.ts";
-import type { OwnerStagingAuthConfig } from "../self-serve-auth-authority/config.ts";
+import {
+  createOwnerStagingDatabasePoolConfig,
+  type OwnerStagingAuthConfig,
+} from "../self-serve-auth-authority/config.ts";
 import { createApprovedStagingSelfServeRequestGate } from "../self-serve-auth-authority/request-gate.ts";
 import { createLogtoOidcProvider } from "../self-serve-logto-provider/provider.ts";
 import { createPanelBrowserBindingAuthorityCodec } from "../panel-browser-binding/credential-codec.ts";
@@ -72,7 +75,7 @@ export async function initializeOwnerStagingAuthRouteSet(
   config: OwnerStagingAuthConfig,
 ): Promise<OwnerSelfServeAuthRouteSet> {
   const pool = new Pool({
-    connectionString: config.database.url,
+    ...createOwnerStagingDatabasePoolConfig(config.database),
     max: 10,
     connectionTimeoutMillis: TIMEOUTS.poolCheckoutMs,
     idleTimeoutMillis: 10_000,
