@@ -81,6 +81,8 @@ export function StarterThemePreview(props: PreviewProps) {
     const categoryPlaceholders = starterThemeCategoryPlaceholderLabels(composition);
     const announcementContent = <span className={styles.previewMarqueeTrack}>{composition.announcement.items.join(" · ")}</span>;
     const previewHeaderStyle = hero?.kind === "hero" && hero.enabled ? composition.visual.headerStyle : "solid";
+    const previewLogoSize = composition.schemaVersion === 2 ? composition.visual.logoSize : "medium";
+    const previewLogoAlignment = composition.schemaVersion === 2 ? composition.visual.logoAlignment : "center";
 
     return <section className={styles.previewSection} aria-labelledby="starter-composition-preview-title">
       <div className={styles.previewHeading}>
@@ -99,7 +101,11 @@ export function StarterThemePreview(props: PreviewProps) {
             : null}
 
           <div className={styles.previewHeroShell} data-header-style={previewHeaderStyle}>
-            <header className={styles.previewNav}>
+            <header
+              className={styles.previewNav}
+              data-logo-alignment={previewLogoAlignment}
+              data-logo-size={previewLogoSize}
+            >
               <strong>Mağazanız</strong>
               <nav aria-label="Mağaza menüsü">
                 <span>Yeni</span><span>Koleksiyon</span><span>Hakkımızda</span>

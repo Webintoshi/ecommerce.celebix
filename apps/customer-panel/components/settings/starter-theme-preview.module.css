@@ -211,6 +211,13 @@
   letter-spacing: -.02em;
 }
 
+.previewNav[data-logo-size="small"] > strong { font-size: 12px; }
+.previewNav[data-logo-size="medium"] > strong { font-size: 15px; }
+.previewNav[data-logo-size="large"] > strong { font-size: 18px; }
+.previewNav[data-logo-size="xlarge"] > strong { font-size: 22px; }
+.previewNav[data-logo-alignment="left"] > strong { justify-self: start; }
+.previewNav[data-logo-alignment="center"] > strong { justify-self: center; }
+
 .previewNav nav {
   display: flex;
   align-items: center;

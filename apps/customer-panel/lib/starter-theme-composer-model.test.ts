@@ -26,7 +26,7 @@ const PRODUCT = "40000000-0000-4000-8000-000000000001";
 
 function state() {
   return {
-    visual: { colorScheme: "neutral" as const, headingStyle: "serif" as const, cornerStyle: "soft" as const, headerStyle: "overlay" as const, productCardStyle: "editorial" as const, productImageRatio: "portrait" as const, headerWidth: "wide" as const, sectionSpacing: "balanced" as const },
+    visual: { colorScheme: "neutral" as const, headingStyle: "serif" as const, cornerStyle: "soft" as const, headerStyle: "overlay" as const, productCardStyle: "editorial" as const, productImageRatio: "portrait" as const, headerWidth: "wide" as const, sectionSpacing: "balanced" as const, logoSize: "medium" as const, logoAlignment: "center" as const },
     announcement: { enabled: true, items: ["Ücretsiz kargo"], destination: "/pages/odeme-teslimat" },
     navigation: { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: ASSET },
     sections: [
@@ -136,6 +136,8 @@ test("new editor state exposes the complete retail schema without fake content",
   assert.deepEqual(value.sections.map(({ kind }) => kind), ["product_row"]);
   assert.equal(value.visual.headerWidth, "wide");
   assert.equal(value.visual.sectionSpacing, "balanced");
+  assert.equal(value.visual.logoSize, "medium");
+  assert.equal(value.visual.logoAlignment, "center");
   assert.equal(value.visual.cornerStyle, "square");
   assert.equal(value.productDetail.showBreadcrumbs, true);
   assert.equal(value.productDetail.showApprovedReviews, true);

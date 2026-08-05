@@ -28,6 +28,28 @@ test("composer exposes the two existing header modes with explicit placement lab
   assert.match(value, /Banner dışında \(düz zemin\)/);
   assert.doesNotMatch(value, /fixedHeader|headerPosition/);
 });
+test("composer exposes finite logo size and alignment controls with a truthful preview", async () => {
+  const [composer, preview, css] = await Promise.all([
+    source("StarterThemeComposer.tsx"),
+    source("StarterThemePreview.tsx"),
+    source("starter-theme-preview.module.css"),
+  ]);
+  for (const label of ["Logo boyutu", "Küçük", "Orta", "Büyük", "Çok büyük", "Logo hizası", "Sola yasla", "Ortala"]) {
+    assert.match(composer, new RegExp(label));
+  }
+  for (const value of ["small", "medium", "large", "xlarge"]) {
+    assert.match(composer, new RegExp(`<option value="${value}">`));
+  }
+  assert.match(preview, /composition[.]schemaVersion === 2 \? composition[.]visual[.]logoSize : "medium"/);
+  assert.match(preview, /composition[.]schemaVersion === 2 \? composition[.]visual[.]logoAlignment : "center"/);
+  assert.match(preview, /data-logo-size=\{previewLogoSize\}/);
+  assert.match(preview, /data-logo-alignment=\{previewLogoAlignment\}/);
+  for (const [size, pixels] of [["small", "12"], ["medium", "15"], ["large", "18"], ["xlarge", "22"]]) {
+    assert.match(css, new RegExp(`previewNav\\[data-logo-size="${size}"\\][\\s\\S]*?font-size:\\s*${pixels}px`));
+  }
+  assert.match(css, /previewNav\[data-logo-alignment="left"\][\s\S]*?justify-self:\s*start/);
+  assert.match(css, /previewNav\[data-logo-alignment="center"\][\s\S]*?justify-self:\s*center/);
+});
 test("composer controls side-cart quantity visibility from the unified composition", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.match(value, /Miktar seçiciyi göster/);
