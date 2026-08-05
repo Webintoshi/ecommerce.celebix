@@ -83,6 +83,7 @@ export function StarterThemePreview(props: PreviewProps) {
     const previewHeaderStyle = hero?.kind === "hero" && hero.enabled ? composition.visual.headerStyle : "solid";
     const previewLogoSize = composition.schemaVersion === 2 ? composition.visual.logoSize : "medium";
     const previewLogoAlignment = composition.schemaVersion === 2 ? composition.visual.logoAlignment : "center";
+    const previewHeaderLayout = composition.schemaVersion === 2 ? composition.visual.headerLayout : "centered";
 
     return <section className={styles.previewSection} aria-labelledby="starter-composition-preview-title">
       <div className={styles.previewHeading}>
@@ -103,6 +104,7 @@ export function StarterThemePreview(props: PreviewProps) {
           <div className={styles.previewHeroShell} data-header-style={previewHeaderStyle}>
             <header
               className={styles.previewNav}
+              data-header-layout={previewHeaderLayout}
               data-logo-alignment={previewLogoAlignment}
               data-logo-size={previewLogoSize}
             >

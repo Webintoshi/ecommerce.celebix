@@ -26,7 +26,7 @@ const PRODUCT = "40000000-0000-4000-8000-000000000001";
 
 function state() {
   return {
-    visual: { colorScheme: "neutral" as const, headingStyle: "serif" as const, cornerStyle: "soft" as const, headerStyle: "overlay" as const, productCardStyle: "editorial" as const, productImageRatio: "portrait" as const, headerWidth: "wide" as const, sectionSpacing: "balanced" as const, logoSize: "medium" as const, logoAlignment: "center" as const },
+    visual: { colorScheme: "neutral" as const, headingStyle: "serif" as const, cornerStyle: "soft" as const, headerStyle: "overlay" as const, productCardStyle: "editorial" as const, productImageRatio: "portrait" as const, headerWidth: "wide" as const, sectionSpacing: "balanced" as const, logoSize: "medium" as const, logoAlignment: "center" as const, headerLayout: "centered" as const },
     announcement: { enabled: true, items: ["Ücretsiz kargo"], destination: "/pages/odeme-teslimat" },
     navigation: { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: ASSET },
     sections: [
@@ -58,6 +58,16 @@ test("quantity-selector visibility is preserved by composer normalization", () =
   });
   assert.equal(enabled.cart.showQuantitySelector, true);
   assert.equal(disabled.cart.showQuantitySelector, false);
+});
+test("composer preserves every bounded header layout", () => {
+  for (const headerLayout of ["centered", "logo_left", "logo_top", "menu_top"] as const) {
+    const input = state();
+    const value = buildStarterThemeComposition({
+      ...input,
+      visual: { ...input.visual, headerLayout },
+    });
+    assert.equal(value.visual.headerLayout, headerLayout);
+  }
 });
 test("move reorders sections immutably", () => { const sections = state().sections; const moved = moveStarterSection(sections, 1, -1); assert.notEqual(moved, sections); assert.equal(moved[0]?.kind, "category_grid"); assert.equal(Object.isFrozen(moved), true); });
 test("move keeps the first section stable at the upper boundary", () => { const sections = Object.freeze(state().sections); assert.equal(moveStarterSection(sections, 0, -1), sections); });
@@ -138,6 +148,7 @@ test("new editor state exposes the complete retail schema without fake content",
   assert.equal(value.visual.sectionSpacing, "balanced");
   assert.equal(value.visual.logoSize, "medium");
   assert.equal(value.visual.logoAlignment, "center");
+  assert.equal(value.visual.headerLayout, "centered");
   assert.equal(value.visual.cornerStyle, "square");
   assert.equal(value.productDetail.showBreadcrumbs, true);
   assert.equal(value.productDetail.showApprovedReviews, true);

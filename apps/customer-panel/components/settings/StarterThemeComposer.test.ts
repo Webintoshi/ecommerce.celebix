@@ -50,6 +50,23 @@ test("composer exposes finite logo size and alignment controls with a truthful p
   assert.match(css, /previewNav\[data-logo-alignment="left"\][\s\S]*?justify-self:\s*start/);
   assert.match(css, /previewNav\[data-logo-alignment="center"\][\s\S]*?justify-self:\s*center/);
 });
+test("composer exposes four finite header arrangements through the truthful preview", async () => {
+  const [composer, preview, css] = await Promise.all([
+    source("StarterThemeComposer.tsx"),
+    source("StarterThemePreview.tsx"),
+    source("starter-theme-preview.module.css"),
+  ]);
+  for (const label of ["Header yerleşimi", "Ortalı klasik", "Logo solda", "Logo üstte, menü altta", "Menü üstte, logo altta"]) {
+    assert.match(composer, new RegExp(label));
+  }
+  for (const value of ["centered", "logo_left", "logo_top", "menu_top"]) {
+    assert.match(composer, new RegExp(`<option value="${value}">`));
+    assert.match(css, new RegExp(`data-header-layout="${value}"`));
+  }
+  assert.match(preview, /composition[.]schemaVersion === 2 \? composition[.]visual[.]headerLayout : "centered"/);
+  assert.match(preview, /data-header-layout=\{previewHeaderLayout\}/);
+  assert.doesNotMatch(`${composer}\n${preview}`, /process[.]env|localStorage|sessionStorage|document[.]cookie|x-forwarded|storeId|tenantId/);
+});
 test("composer controls side-cart quantity visibility from the unified composition", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.match(value, /Miktar seçiciyi göster/);

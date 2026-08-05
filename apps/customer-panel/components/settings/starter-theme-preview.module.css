@@ -184,12 +184,34 @@
 .previewNav {
   display: grid;
   grid-template-columns: minmax(80px, 1fr) auto minmax(80px, 1fr);
+  grid-template-areas: "nav logo cart";
   min-height: 52px;
   align-items: center;
   gap: 12px;
   padding: 0 18px;
   border-bottom: 1px solid color-mix(in srgb, var(--preview-ink) 12%, transparent);
   background: color-mix(in srgb, var(--preview-surface) 90%, transparent);
+}
+
+.previewNav[data-header-layout="centered"] {
+  grid-template-areas: "nav logo cart";
+}
+
+.previewNav[data-header-layout="logo_left"] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "logo nav cart";
+}
+
+.previewNav[data-header-layout="logo_top"] {
+  grid-template-areas: ". logo cart" "nav nav nav";
+  grid-template-rows: minmax(34px, auto) minmax(28px, auto);
+  padding-block: 7px;
+}
+
+.previewNav[data-header-layout="menu_top"] {
+  grid-template-areas: "nav nav cart" ". logo .";
+  grid-template-rows: minmax(28px, auto) minmax(34px, auto);
+  padding-block: 7px;
 }
 
 .previewHeroShell[data-header-style="overlay"] .previewNav {
@@ -207,6 +229,7 @@
 .previewHeroShell[data-header-style="solid"] .previewNav { position: relative; }
 
 .previewNav > strong {
+  grid-area: logo;
   font-size: .92rem;
   letter-spacing: -.02em;
 }
@@ -220,6 +243,7 @@
 
 .previewNav nav {
   display: flex;
+  grid-area: nav;
   align-items: center;
   justify-content: center;
   gap: 16px;
@@ -232,7 +256,9 @@
   font-weight: 690;
 }
 
-.previewCart { justify-self: end; }
+.previewCart { grid-area: cart; justify-self: end; }
+
+.previewNav[data-header-layout="logo_left"] nav { justify-content: flex-start; }
 
 .previewPromotion {
   display: block;
@@ -588,12 +614,15 @@
   .previewHero { grid-template-columns: 1fr; min-height: 230px; }
   .previewHero .previewMedia { display: block; min-height: 230px; }
   .previewNav nav { display: none; }
-  .previewNav { grid-template-columns: 1fr auto; }
+  .previewNav { grid-template-columns: 1fr auto; grid-template-areas: "logo cart"; grid-template-rows: minmax(52px, auto); padding-block: 0; }
   .previewProducts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .previewProducts article:nth-child(3) { display: none; }
   .previewExperience { grid-template-columns: 1fr; }
   .previewFooter { grid-template-columns: 1fr; }
 }
+
+.mobile .previewNav { grid-template-columns: 1fr auto; grid-template-areas: "logo cart"; grid-template-rows: minmax(52px, auto); padding-block: 0; }
+.mobile .previewNav nav { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .modeButton,

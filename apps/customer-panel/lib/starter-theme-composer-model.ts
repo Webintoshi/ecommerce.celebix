@@ -39,7 +39,7 @@ function defaultFooter(): StarterThemeEditorState["footer"] {
 export function upgradeStarterThemeComposition(input: StarterThemeComposition): StarterThemeCompositionConfigV2 {
   if (input.schemaVersion === 2) return input;
   return buildStarterThemeComposition({
-    visual: Object.freeze({ ...input.visual, headerWidth: "wide", sectionSpacing: "balanced", logoSize: "medium", logoAlignment: "center" }),
+    visual: Object.freeze({ ...input.visual, headerWidth: "wide", sectionSpacing: "balanced", logoSize: "medium", logoAlignment: "center", headerLayout: "centered" }),
     announcement: input.announcement,
     navigation: input.navigation,
     sections: input.sections,
@@ -138,7 +138,7 @@ export function starterThemeCategoryPlaceholderLabels(composition: StarterThemeC
 
 export function createStarterThemeEditorState(): StarterThemeEditorState {
   return Object.freeze({
-    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced", logoSize: "medium", logoAlignment: "center" }),
+    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced", logoSize: "medium", logoAlignment: "center", headerLayout: "centered" }),
     announcement: Object.freeze({ enabled: true, items: Object.freeze(["Güvenli alışveriş"]), destination: "/pages/odeme-teslimat" }),
     navigation: Object.freeze({ rootCategoryIds: Object.freeze([]) }),
     sections: Object.freeze([Object.freeze({ kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 })]),
