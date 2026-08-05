@@ -37,7 +37,7 @@
 - Produces: required canonical `StarterThemeVisualV2.logoSize` and `StarterThemeVisualV2.logoAlignment`.
 - Consumes: existing `parseStarterThemeCompositionConfig`, `parsePublicStarterThemePresentation`, and presentation adapters.
 
-- [ ] **Step 1: Write the failing contract tests**
+- [x] **Step 1: Write the failing contract tests**
 
 ```ts
 const legacyVisual = { ...composition.visual } as Record<string, unknown>;
@@ -60,13 +60,13 @@ assert.throws(() => parseStarterThemeCompositionConfig({
 }), /storefront_contract_invalid/);
 ```
 
-- [ ] **Step 2: Run test to verify RED**
+- [x] **Step 2: Run test to verify RED**
 
 Run: `npm test --workspace @celebix/saas-contracts -- storefront/campaign-starter.test.ts storefront/storefront.test.ts`
 
 Expected: FAIL because the canonical logo fields do not exist.
 
-- [ ] **Step 3: Implement minimal canonical contract**
+- [x] **Step 3: Implement minimal canonical contract**
 
 ```ts
 const LOGO_SIZES = Object.freeze(["small", "medium", "large", "xlarge"] as const);
@@ -83,13 +83,13 @@ logoAlignment: Object.hasOwn(parsed, "logoAlignment") ? oneOf(parsed.logoAlignme
 
 Set `logoSize: "medium"` and `logoAlignment: "center"` in default builders and adapters.
 
-- [ ] **Step 4: Run focused contract tests and verify GREEN**
+- [x] **Step 4: Run focused contract tests and verify GREEN**
 
 Run: `npm test --workspace @celebix/saas-contracts -- storefront/campaign-starter.test.ts storefront/storefront.test.ts`
 
 Expected: PASS with invalid values denied and legacy inputs normalized.
 
-- [ ] **Step 5: Commit canonical contract**
+- [x] **Step 5: Commit canonical contract**
 
 ```bash
 git add packages/saas-contracts/src/storefront/types.ts packages/saas-contracts/src/storefront/validation.ts packages/saas-contracts/src/storefront/presentation.ts packages/saas-contracts/src/storefront-design/defaults.ts packages/saas-contracts/src/storefront/campaign-starter.test.ts packages/saas-contracts/src/storefront/storefront.test.ts
@@ -109,7 +109,7 @@ git commit -m "feat(storefront): add canonical logo controls"
 - Consumes: `StarterThemeVisualV2.logoSize` and `.logoAlignment` from Task 1.
 - Produces: two controlled selects and preview attributes `data-logo-size` / `data-logo-alignment`.
 
-- [ ] **Step 1: Write failing admin/preview tests**
+- [x] **Step 1: Write failing admin/preview tests**
 
 ```ts
 for (const label of ["Küçük", "Orta", "Büyük", "Çok büyük", "Sola yasla", "Ortala"])
@@ -120,13 +120,13 @@ assert.match(previewSource, /data-logo-size=\{composition[.]visual[.]logoSize\}/
 assert.match(previewSource, /data-logo-alignment=\{composition[.]visual[.]logoAlignment\}/);
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `node --experimental-transform-types --test apps/customer-panel/components/settings/StarterThemeComposer.test.ts apps/customer-panel/components/settings/design/DesignWorkspace.test.ts`
 
 Expected: FAIL because controls and preview attributes do not exist.
 
-- [ ] **Step 3: Implement minimal controls and preview**
+- [x] **Step 3: Implement minimal controls and preview**
 
 ```tsx
 <label>Logo boyutu<select value={state.visual.logoSize} onChange={(event) => patch({
@@ -139,13 +139,13 @@ Expected: FAIL because controls and preview attributes do not exist.
 
 Set both data attributes on the preview header and map the four heights with CSS. Keep width `auto`, `object-fit: contain`, and a bounded `max-width`.
 
-- [ ] **Step 4: Run focused tests and verify GREEN**
+- [x] **Step 4: Run focused tests and verify GREEN**
 
 Run: `node --experimental-transform-types --test apps/customer-panel/components/settings/StarterThemeComposer.test.ts apps/customer-panel/components/settings/design/DesignWorkspace.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit customer-panel controls**
+- [x] **Step 5: Commit customer-panel controls**
 
 ```bash
 git add apps/customer-panel/components/settings/StarterThemeComposer.tsx apps/customer-panel/components/settings/StarterThemePreview.tsx apps/customer-panel/components/settings/starter-theme-preview.module.css apps/customer-panel/components/settings/StarterThemeComposer.test.ts apps/customer-panel/components/settings/design/DesignWorkspace.test.ts
@@ -165,7 +165,7 @@ git commit -m "feat(customer-panel): add logo layout controls"
 - Consumes: canonical published `presentation.visual.logoSize` and `.logoAlignment`.
 - Produces: finite `data-logo-size` and `data-logo-alignment` on the wordmark.
 
-- [ ] **Step 1: Write failing storefront tests**
+- [x] **Step 1: Write failing storefront tests**
 
 ```ts
 assert.match(source, /logoSize=\{presentation[.]visual[.]logoSize\}/);
@@ -176,13 +176,13 @@ for (const token of ["small", "medium", "large", "xlarge", "left", "center"])
   assert.match(css, new RegExp(token));
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `node --experimental-transform-types --test apps/storefront-shared/components/CampaignHeader.test.ts apps/storefront-shared/lib/storefront-app.test.ts`
 
 Expected: FAIL because published logo controls are not forwarded or rendered.
 
-- [ ] **Step 3: Implement minimal published rendering**
+- [x] **Step 3: Implement minimal published rendering**
 
 ```tsx
 <CampaignHeaderClient
@@ -205,13 +205,13 @@ Expected: FAIL because published logo controls are not forwarded or rendered.
 
 Add responsive `max-height`/`max-width` constraints without overriding 48px action targets.
 
-- [ ] **Step 4: Run focused tests and verify GREEN**
+- [x] **Step 4: Run focused tests and verify GREEN**
 
 Run: `node --experimental-transform-types --test apps/storefront-shared/components/CampaignHeader.test.ts apps/storefront-shared/lib/storefront-app.test.ts`
 
 Expected: PASS with finite published authority and no browser authority.
 
-- [ ] **Step 5: Commit published rendering**
+- [x] **Step 5: Commit published rendering**
 
 ```bash
 git add apps/storefront-shared/components/CampaignHeader.tsx apps/storefront-shared/components/CampaignHeaderClient.tsx apps/storefront-shared/components/campaign-header.module.css apps/storefront-shared/components/CampaignHeader.test.ts apps/storefront-shared/lib/storefront-app.test.ts
@@ -227,7 +227,7 @@ git commit -m "feat(storefront): render published logo controls"
 - Consumes: Tasks 1-3.
 - Produces: exact commit/push/deploy and browser evidence.
 
-- [ ] **Step 1: Run full non-deployment verification**
+- [x] **Step 1: Run full non-deployment verification**
 
 ```bash
 npm test --workspace @celebix/saas-contracts
@@ -242,7 +242,7 @@ git diff --check
 
 Expected: every command exits 0.
 
-- [ ] **Step 2: Run scope/security checks**
+- [x] **Step 2: Run scope/security checks**
 
 ```bash
 git diff --name-only b486d18b9a33d62e20e3814580c23ac0493ba703...HEAD -- apps/admin
