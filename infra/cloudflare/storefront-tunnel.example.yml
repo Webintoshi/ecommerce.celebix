@@ -1,0 +1,8 @@
+tunnel: STORE_TUNNEL_UUID
+credentials-file: /etc/cloudflared/storefront-tunnel.json
+no-autoupdate: true
+protocol: quic
+metrics: 0.0.0.0:2000
+
+ingress:
+  - service: http://storefront-shared:3450

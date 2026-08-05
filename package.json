@@ -22,6 +22,7 @@
     "check:iyzico-sandbox-build": "node --experimental-strip-types ./scripts/generate-iyzico-sandbox-build.mjs --check",
     "test:iyzico-sandbox-build": "node --experimental-strip-types --test ./scripts/generate-iyzico-sandbox-build.test.mjs",
     "verify:tenant-wildcard": "node ./scripts/verify-tenant-wildcard-readiness.mjs",
+    "verify:custom-domains": "node ./scripts/verify-cloudflare-saas-readiness.mjs",
     "build:coolify:customer-panel": "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/customer-panel",
     "build:coolify:owner": "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/owner",
     "build:coolify:storefront-shared": "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/storefront-shared",
