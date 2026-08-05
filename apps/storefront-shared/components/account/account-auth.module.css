@@ -2,6 +2,7 @@
   --auth-ink: #171717;
   --auth-muted: #6d6d6d;
   --auth-line: #dedede;
+  --auth-brand-surface: color-mix(in srgb, var(--store-primary) 14%, #f7f7f5);
   display: grid;
   min-width: 320px;
   min-height: 100vh;
@@ -12,7 +13,6 @@
 }
 
 .brand {
-  --auth-brand-surface: color-mix(in srgb, var(--store-primary) 14%, #f7f7f5);
   position: relative;
   isolation: isolate;
   display: grid;
@@ -79,7 +79,7 @@
 .brandMessage p {
   max-width: 11ch;
   margin: 0;
-  font-size: clamp(38px, 5vw, 68px);
+  font-size: clamp(34px, 4.5vw, 60px);
   font-weight: 620;
   line-height: .94;
   letter-spacing: -.06em;
@@ -235,7 +235,7 @@
   width: 14px;
   height: 14px;
   flex: 0 0 14px;
-  stroke: var(--store-primary);
+  stroke: var(--auth-brand-surface);
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -350,8 +350,9 @@
 
   .brandMessage p {
     max-width: none;
-    font-size: clamp(30px, 9vw, 40px);
+    font-size: clamp(27px, 7.5vw, 34px);
     line-height: .95;
+    text-align: center;
   }
 
   .panel {
@@ -368,7 +369,7 @@
   }
 
   .brandMessage p {
-    font-size: 30px;
+    font-size: 27px;
   }
 }
 
@@ -382,7 +383,7 @@
   }
 
   .brandMessage p {
-    font-size: clamp(36px, 5vw, 56px);
+    font-size: clamp(34px, 4.5vw, 50px);
   }
 
   .panel {
