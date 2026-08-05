@@ -25,17 +25,22 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.doesNotMatch(auth, /password/u);
 });
 
-test("account entry is compact store-branded and confirmation requires an explicit post", async () => {
+test("account entry uses one universal tenant-branded shell without storefront chrome", async () => {
   const login = await source("app/account/login/page.tsx");
   const verify = await source("app/account/verify/page.tsx");
-  const css = await source("app/globals.css");
-  assert.match(login, /Hesabınıza giriş yapın/u);
-  assert.match(login, /Siparişlerinizi takip edin/u);
-  assert.match(login, /Adreslerinizi saklayın/u);
+  const shell = await source("components/account/AccountAuthShell.tsx");
+  assert.match(login, /AccountAuthShell/u);
+  assert.match(verify, /AccountAuthShell/u);
+  assert.doesNotMatch(login, /StorefrontFrame|Siparişlerinizi takip edin|Adreslerinizi saklayın/u);
+  assert.doesNotMatch(verify, /StorefrontFrame|Bu isteği siz yapmadıysanız/u);
+  assert.match(shell, /resolveAccountAuthBranding/u);
+  assert.match(shell, /Hesabınız, alışverişiniz[.]/u);
+  assert.match(shell, /Mağazaya dön/u);
+  assert.match(shell, /aria-label=.*ana sayfa/u);
+  assert.match(shell, /--account-brand-ink/u);
+  assert.match(login, /Giriş yap veya hesap oluştur/u);
+  assert.match(verify, /Güvenli giriş/u);
   assert.match(verify, /ticket=/u);
-  assert.match(verify, /Girişi onaylayın/u);
-  assert.match(css, /max-width: 480px/u);
-  assert.doesNotMatch(css, /\.account-auth-layout h1[^}]+font-family: Georgia/su);
 });
 
 test("account dashboard exposes working shopper destinations without private authority", async () => {
