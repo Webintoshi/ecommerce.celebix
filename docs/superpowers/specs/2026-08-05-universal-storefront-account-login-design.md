@@ -1,7 +1,7 @@
 # Universal Storefront Account Login Design
 
-**Date:** 2026-08-05  
-**Status:** Approved visual direction  
+**Date:** 2026-08-05
+**Status:** Approved visual direction
 **Target:** `apps/storefront-shared` customer account authentication surfaces
 
 ## Objective
@@ -120,4 +120,3 @@ Implementation acceptance requires:
 ## Rollout
 
 The implementation ships once in the shared storefront application. Existing and newly provisioned starter/custom storefront domains inherit it automatically after the shared deployment. No per-store deployment, copied page, seeded product image, or manual configuration is introduced.
-
