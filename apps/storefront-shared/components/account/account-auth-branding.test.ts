@@ -69,11 +69,9 @@ test("account branding keeps two resolved stores isolated", () => {
 
   assert.equal(first.displayName, "Mağaza A");
   assert.equal(first.primaryColor, "#2457D6");
-  assert.equal(first.brandForeground, "#FFFFFF");
   assert.equal(first.logo?.url, "https://media.example/published-a.png");
   assert.equal(second.displayName, "Mağaza B");
   assert.equal(second.primaryColor, "#F4C542");
-  assert.equal(second.brandForeground, "#000000");
   assert.equal(second.logo?.url, "https://media.example/published-b.png");
   assert.notDeepEqual(first, second);
 });

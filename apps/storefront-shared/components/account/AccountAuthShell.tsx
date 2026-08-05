@@ -14,7 +14,6 @@ type AccountAuthStyle = CSSProperties &
     "--store-accent": string;
     "--store-background": string;
     "--store-text": string;
-    "--account-brand-ink": string;
   }>;
 
 export function AccountAuthShell({
@@ -35,7 +34,6 @@ export function AccountAuthShell({
     "--store-accent": branding.accentColor,
     "--store-background": branding.backgroundColor,
     "--store-text": branding.textColor,
-    "--account-brand-ink": branding.brandForeground,
   };
 
   return (

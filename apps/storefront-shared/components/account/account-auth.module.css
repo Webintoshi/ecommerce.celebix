@@ -12,6 +12,7 @@
 }
 
 .brand {
+  --auth-brand-surface: color-mix(in srgb, var(--store-primary) 14%, #f7f7f5);
   position: relative;
   isolation: isolate;
   display: grid;
@@ -19,15 +20,15 @@
   min-width: 0;
   grid-template-rows: auto 1fr auto;
   padding: clamp(30px, 4.2vw, 68px);
-  background: var(--store-primary);
-  color: var(--account-brand-ink);
+  background: var(--auth-brand-surface);
+  color: #171717;
 }
 
 .brand::before,
 .brand::after {
   position: absolute;
   z-index: -1;
-  border: 1px solid color-mix(in srgb, var(--account-brand-ink) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--store-primary) 34%, transparent);
   border-radius: 50%;
   content: "";
   pointer-events: none;
@@ -78,7 +79,7 @@
 .brandMessage p {
   max-width: 8ch;
   margin: 0;
-  font-size: clamp(52px, 7.2vw, 104px);
+  font-size: clamp(46px, 6.3vw, 88px);
   font-weight: 620;
   line-height: .91;
   letter-spacing: -.068em;
@@ -125,7 +126,7 @@
   margin: 0;
   color: var(--auth-ink);
   font-family: inherit;
-  font-size: clamp(32px, 4vw, 45px);
+  font-size: clamp(30px, 3.5vw, 40px);
   font-weight: 650;
   line-height: 1.03;
   letter-spacing: -.052em;
@@ -179,9 +180,9 @@
 }
 
 .primaryButton {
-  border: 1px solid var(--store-primary);
-  background: var(--store-primary);
-  color: var(--account-brand-ink);
+  border: 1px solid #171717;
+  background: #171717;
+  color: #fff;
   transition: filter .18s ease, transform .18s ease;
 }
 
@@ -351,7 +352,7 @@
 
   .brandMessage p {
     max-width: none;
-    font-size: clamp(35px, 11.5vw, 54px);
+    font-size: clamp(35px, 11.5vw, 48px);
     line-height: .95;
   }
 

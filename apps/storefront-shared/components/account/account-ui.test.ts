@@ -44,7 +44,7 @@ test("account entry uses one universal tenant-branded shell without storefront c
   assert.match(shell, /Hesabınız, alışverişiniz[.]/u);
   assert.match(shell, /Mağazaya dön/u);
   assert.match(shell, /aria-label=.*ana sayfa/u);
-  assert.match(shell, /--account-brand-ink/u);
+  assert.doesNotMatch(shell, /--account-brand-ink/u);
   assert.match(shell, /account-auth[.]module[.]css/u);
   assert.match(form, /account-auth[.]module[.]css/u);
   assert.match(login, /Giriş yap veya hesap oluştur/u);
@@ -58,11 +58,17 @@ test("universal account auth layout is responsive accessible and locally scoped"
   assert.match(css, /grid-template-columns:\s*minmax\(0, 46fr\) minmax\(0, 54fr\)/u);
   assert.match(css, /min-height:\s*100svh/u);
   assert.match(css, /max-width:\s*380px/u);
-  assert.match(css, /--account-brand-ink/u);
+  assert.doesNotMatch(css, /--account-brand-ink/u);
   assert.match(css, /:focus-visible/u);
   assert.match(css, /@media \(max-width: 760px\)/u);
   assert.match(css, /max-height:\s*36svh/u);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
+  assert.match(css, /--auth-brand-surface:\s*color-mix\(in srgb, var\(--store-primary\) 14%, #f7f7f5\)/u);
+  assert.match(css, /background:\s*var\(--auth-brand-surface\)/u);
+  assert.match(css, /[.]primaryButton\s*\{[^}]*background:\s*#171717[^}]*color:\s*#fff/su);
+  assert.match(css, /font-size:\s*clamp\(46px, 6[.]3vw, 88px\)/u);
+  assert.match(css, /font-size:\s*clamp\(35px, 11[.]5vw, 48px\)/u);
+  assert.doesNotMatch(css, /[.]brand\s*\{[^}]*background:\s*var\(--store-primary\)/su);
   assert.doesNotMatch(globalCss, /[.]account-auth-(?:layout|intro|form|benefits|sent|confirmation|secondary|text|verify|trust|footnote)/u);
 });
 
