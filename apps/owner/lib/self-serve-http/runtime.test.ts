@@ -1,0 +1,278 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+type RuntimeModule = typeof import("./runtime.ts");
+
+const runtimeModule = await import(new URL("./runtime.ts", import.meta.url).href).catch(
+  () => ({} as Partial<RuntimeModule>),
+);
+
+function dependencyOptions(activationApproval: unknown) {
+  return {
+    activationApproval,
+    registrationAttemptStore: {
+      async save() {},
+      async consume() { throw new Error("not used"); },
+    },
+    oidcTransactionStore: {
+      async save() {},
+      async consume() { throw new Error("not used"); },
+      async discard() {},
+    },
+    registrationCompletion: {
+      async recordVerifiedIdentity() {
+        return { kind: "identity_recorded", status: "identity_verified", version: 2 } as const;
+      },
+      async resumeTenantCreation() {
+        return { kind: "in_progress" } as const;
+      },
+      async reconcileUnknownCommit() {
+        return { kind: "pending" } as const;
+      },
+    },
+    consumedCallbackRecovery: {
+      async classifyConsumedCallback() { return { kind: "missing" } as const; },
+    },
+    oidcProvider: {
+      buildAuthorizationUrl() { throw new Error("not used"); },
+      async verifyCallback() { throw new Error("not used"); },
+    },
+    requestGate: {
+      async verify() { return "allowed" as const; },
+    },
+    clock: () => new Date("2026-07-13T12:00:00.000Z"),
+    audit() {},
+    bodyPolicy: { maximumBytes: 4_096, maximumCallbackQueryBytes: 2_048 },
+    registrationOrigin: "https://ecommerce.celebix.co",
+    callbackAuthority: "https://panel.celebix.site/auth/callback",
+    panelOrigin: "https://panel.celebix.site",
+    platformDomainSuffix: "celebix.site",
+    providerAuthority: {
+      issuer: "https://identity.example.test/oidc",
+      audience: "customer-panel",
+      authorizationOrigin: "https://identity.example.test",
+    },
+  };
+}
+
+test("exports only explicit disabled and approved persistent HTTP runtime factories", () => {
+  assert.equal(typeof runtimeModule.createDisabledSelfServeRuntime, "function");
+  assert.equal(typeof runtimeModule.createSelfServeHttpActivationApproval, "function");
+  assert.equal(typeof runtimeModule.createPersistentSelfServeRuntime, "function");
+  assert.equal(typeof runtimeModule.assertPersistentSelfServeRuntime, "function");
+});
+
+test("default runtime is disabled and environment values cannot activate dependencies", () => {
+  assert.ok(runtimeModule.createDisabledSelfServeRuntime);
+  const prior = process.env.SELF_SERVE_SAAS_REGISTRATION_ENABLED;
+  process.env.SELF_SERVE_SAAS_REGISTRATION_ENABLED = "true";
+  try {
+    const runtime = runtimeModule.createDisabledSelfServeRuntime();
+    assert.deepEqual(runtime, {
+      kind: "disabled",
+      registrationOrigin: "https://ecommerce.celebix.co",
+    });
+    assert.equal(Object.isFrozen(runtime), true);
+  } finally {
+    if (prior === undefined) delete process.env.SELF_SERVE_SAAS_REGISTRATION_ENABLED;
+    else process.env.SELF_SERVE_SAAS_REGISTRATION_ENABLED = prior;
+  }
+});
+
+test("activation approval is sealed, frozen, non-serializable authority with no production value", () => {
+  assert.ok(runtimeModule.createSelfServeHttpActivationApproval);
+  assert.ok(runtimeModule.createPersistentSelfServeRuntime);
+  const approval = runtimeModule.createSelfServeHttpActivationApproval("disposable_test");
+  assert.equal(Object.isFrozen(approval), true);
+  assert.equal(Object.isSealed(approval), true);
+  assert.deepEqual(Object.keys(approval).sort(), [
+    "environment",
+    "providerNetworking",
+    "purpose",
+    "registration",
+    "sessions",
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(approval)), {
+    purpose: "phase2b1b2a_self_serve_http_wiring",
+    environment: "disposable_test",
+    registration: "disabled_public_activation",
+    sessions: "forbidden",
+    providerNetworking: "injected_only",
+  });
+
+  const options = dependencyOptions(approval);
+  assert.equal(runtimeModule.createPersistentSelfServeRuntime(options).kind, "persistent");
+  assert.throws(
+    () => runtimeModule.createPersistentSelfServeRuntime(dependencyOptions({ ...approval })),
+    /self_serve_http_activation_not_approved/,
+  );
+  assert.throws(
+    () => runtimeModule.createPersistentSelfServeRuntime(dependencyOptions(JSON.parse(JSON.stringify(approval)))),
+    /self_serve_http_activation_not_approved/,
+  );
+  assert.throws(
+    () => runtimeModule.createSelfServeHttpActivationApproval("production" as never),
+    /self_serve_http_activation_not_approved/,
+  );
+});
+
+test("persistent runtime exposes narrow operations without raw database, query, keys, or generic fetch", () => {
+  assert.ok(runtimeModule.createSelfServeHttpActivationApproval);
+  assert.ok(runtimeModule.createPersistentSelfServeRuntime);
+  const runtime = runtimeModule.createPersistentSelfServeRuntime(
+    dependencyOptions(runtimeModule.createSelfServeHttpActivationApproval("approved_staging")),
+  );
+  const keys = Reflect.ownKeys(runtime).map(String);
+  for (const required of [
+    "kind",
+    "bodyPolicy",
+    "registrationOrigin",
+    "callbackAuthority",
+    "panelOrigin",
+    "platformDomainSuffix",
+    "verifyRequest",
+    "beginRegistration",
+    "completeCallback",
+    "recoverConsumedCallback",
+    "rejectProviderCallback",
+    "audit",
+  ]) assert.equal(keys.includes(required), true, `missing narrow runtime operation ${required}`);
+  for (const prohibited of [
+    "pool",
+    "client",
+    "query",
+    "encryptionKey",
+    "hmacKey",
+    "providerSecret",
+    "fetch",
+    "registrationAttemptStore",
+    "oidcTransactionStore",
+    "registrationCompletion",
+    "consumedCallbackRecovery",
+    "oidcProvider",
+  ]) assert.equal(keys.includes(prohibited), false, `runtime exposed ${prohibited}`);
+  assert.equal(Object.isFrozen(runtime), true);
+  assert.doesNotThrow(() => runtimeModule.assertPersistentSelfServeRuntime(runtime));
+  assert.throws(
+    () => runtimeModule.assertPersistentSelfServeRuntime({ ...runtime } as never),
+    /self_serve_http_activation_not_approved/,
+  );
+});
+
+test("runtime rejects browser-sized authority expansion and invalid server authorities before dependency use", () => {
+  assert.ok(runtimeModule.createSelfServeHttpActivationApproval);
+  assert.ok(runtimeModule.createPersistentSelfServeRuntime);
+  const approval = runtimeModule.createSelfServeHttpActivationApproval("disposable_test");
+  for (const override of [
+    { bodyPolicy: { maximumBytes: 0, maximumCallbackQueryBytes: 2_048 } },
+    { bodyPolicy: { maximumBytes: 16_385, maximumCallbackQueryBytes: 2_048 } },
+    { bodyPolicy: { maximumBytes: 4_096, maximumCallbackQueryBytes: 0 } },
+    { registrationOrigin: "http://ecommerce.celebix.co" },
+    { registrationOrigin: "https://ecommerce.celebix.co/path" },
+    { registrationOrigin: "https://ecommerce.celebix.co?query=1" },
+    { registrationOrigin: "https://user:secret@ecommerce.celebix.co" },
+    { registrationOrigin: "https://*.celebix.co" },
+    { callbackAuthority: "http://panel.celebix.site/auth/callback" },
+    { callbackAuthority: "https://attacker.example/auth/callback" },
+    { panelOrigin: "https://panel.celebix.site/path" },
+    { platformDomainSuffix: "CELEBIX.SITE" },
+    { consumedCallbackRecovery: {} },
+    { providerAuthority: { issuer: "", audience: "customer-panel", authorizationOrigin: "https://identity.example.test" } },
+  ]) {
+    assert.throws(
+      () => runtimeModule.createPersistentSelfServeRuntime({ ...dependencyOptions(approval), ...override } as never),
+      /self_serve_http_runtime_invalid/,
+    );
+  }
+});
+
+test("response issuer mismatch consumes OIDC authority once and stops provider, identity, and tenant completion", async () => {
+  assert.ok(runtimeModule.createSelfServeHttpActivationApproval);
+  assert.ok(runtimeModule.createPersistentSelfServeRuntime);
+  const expectedIssuer = "https://identity.example.test/oidc";
+  const state = "state_0123456789abcdefghijklmnop";
+  let consumeCalls = 0;
+  let providerCalls = 0;
+  let attemptCalls = 0;
+  let identityCalls = 0;
+  let tenantCalls = 0;
+  const runtime = runtimeModule.createPersistentSelfServeRuntime({
+    ...dependencyOptions(runtimeModule.createSelfServeHttpActivationApproval("disposable_test")),
+    oidcTransactionStore: {
+      async save() {},
+      async discard() {},
+      async consume() {
+        consumeCalls += 1;
+        return {
+          state,
+          nonce: "nonce_0123456789abcdefghijklmnop",
+          codeVerifier: "verifier_0123456789abcdefghijklmnop",
+          redirectUri: "https://panel.celebix.site/auth/callback",
+          returnTo: "/kayit",
+          expectedIssuer,
+          expectedAudience: "customer-panel",
+          createdAt: "2026-07-13T12:00:00.000Z",
+          expiresAt: "2026-07-13T12:10:00.000Z",
+        };
+      },
+    },
+    oidcProvider: {
+      buildAuthorizationUrl() { throw new Error("not used"); },
+      async verifyCallback() { providerCalls += 1; throw new Error("must not run"); },
+    },
+    registrationAttemptStore: {
+      async save() {},
+      async consume() { attemptCalls += 1; throw new Error("must not run"); },
+    },
+    registrationCompletion: {
+      async recordVerifiedIdentity() { identityCalls += 1; throw new Error("must not run"); },
+      async resumeTenantCreation() { tenantCalls += 1; throw new Error("must not run"); },
+      async reconcileUnknownCommit() { throw new Error("must not run"); },
+    },
+  } as never);
+
+  await assert.rejects(
+    () => runtime.completeCallback({
+      state,
+      code: "verified-code",
+      responseIssuer: "https://attacker.example/oidc",
+    }),
+    (error: unknown) => (error as { code?: string }).code === "oidc_issuer_mismatch",
+  );
+  assert.deepEqual({ consumeCalls, providerCalls, attemptCalls, identityCalls, tenantCalls }, {
+    consumeCalls: 1,
+    providerCalls: 0,
+    attemptCalls: 0,
+    identityCalls: 0,
+    tenantCalls: 0,
+  });
+});
+
+test("provider-error response issuer is compared after transaction consume and remains optional", async () => {
+  assert.ok(runtimeModule.createSelfServeHttpActivationApproval);
+  assert.ok(runtimeModule.createPersistentSelfServeRuntime);
+  const expectedIssuer = "https://identity.example.test/oidc";
+  const state = "state_0123456789abcdefghijklmnop";
+  const runtimeWith = (consume: () => Promise<Record<string, string>>) => runtimeModule.createPersistentSelfServeRuntime({
+    ...dependencyOptions(runtimeModule.createSelfServeHttpActivationApproval!("disposable_test")),
+    oidcTransactionStore: { async save() {}, async discard() {}, consume },
+  } as never);
+  const transaction = async () => ({
+    state,
+    nonce: "nonce_0123456789abcdefghijklmnop",
+    codeVerifier: "verifier_0123456789abcdefghijklmnop",
+    redirectUri: "https://panel.celebix.site/auth/callback",
+    returnTo: "/kayit",
+    expectedIssuer,
+    expectedAudience: "customer-panel",
+    createdAt: "2026-07-13T12:00:00.000Z",
+    expiresAt: "2026-07-13T12:10:00.000Z",
+  });
+
+  await assert.doesNotReject(() => runtimeWith(transaction).rejectProviderCallback(state, expectedIssuer));
+  await assert.doesNotReject(() => runtimeWith(transaction).rejectProviderCallback(state));
+  await assert.rejects(
+    () => runtimeWith(transaction).rejectProviderCallback(state, "https://attacker.example/oidc"),
+    (error: unknown) => (error as { code?: string }).code === "oidc_issuer_mismatch",
+  );
+});

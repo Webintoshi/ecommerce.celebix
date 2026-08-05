@@ -1,0 +1,4 @@
+;
+; Invalid synthetic entry with no exact archive item ID.
+;
+; 1259 20001 TABLE app_sandbox tenant_registry fixture_owner

@@ -1,0 +1,21 @@
+{
+  "bundleId": "phase2b2a-202607140015",
+  "postgresqlMajor": 16,
+  "productionDistributionCompatibility": "OPEN_INFRASTRUCTURE_GATE",
+  "artifacts": [
+    {
+      "id": "202607140015_panel_sessions_up",
+      "direction": "up",
+      "file": "202607140015_panel_sessions.up.sql",
+      "sha256": "6f250c8b117c2d778b9566316f3c4d32fb9b8316516e7b2dfadcb7764dfd96a5",
+      "purpose": "Create the disabled panel-session table, immutable replacement graph, narrow SECURITY DEFINER operations, and exact identity-role grants."
+    },
+    {
+      "id": "202607140015_panel_sessions_down",
+      "direction": "down",
+      "file": "202607140015_panel_sessions.down.sql",
+      "sha256": "aa3653fc65a1709800ae4d6eb7215131525141069bd6152599f93e5610ab6b94",
+      "purpose": "Remove only Phase 2B2A panel-session functions, guard, table, and indexes."
+    }
+  ]
+}

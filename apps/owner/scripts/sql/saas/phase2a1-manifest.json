@@ -1,0 +1,70 @@
+{
+  "bundleId": "phase2a1-202607110001",
+  "postgresqlMajor": 16,
+  "productionDistributionCompatibility": "OPEN_INFRASTRUCTURE_GATE",
+  "artifacts": [
+    {
+      "id": "202607110001_roles_up",
+      "direction": "up",
+      "file": "202607110001_roles.up.sql",
+      "sha256": "6be0dba8dd5b4bdde4a93b5fa2b4a047f41aa1683cedd61b52be2cedaa533c8c",
+      "purpose": "Create passwordless NOLOGIN authority roles for disposable privilege proof."
+    },
+    {
+      "id": "202607110002_foundation_up",
+      "direction": "up",
+      "file": "202607110002_foundation.up.sql",
+      "sha256": "e74044b59e3425dc4e53de6aaf747e31194399e9c3938ca8aa08fc62e2acb02b",
+      "purpose": "Create the tenant authority schema, RLS, exact-host resolver, and persisted-graph snapshot validation."
+    },
+    {
+      "id": "202607110002_foundation_down",
+      "direction": "down",
+      "file": "202607110002_foundation.down.sql",
+      "sha256": "6df96fe3a02643706b73be29a8c00ac21a1850a59d49acb758edacda0a57e14b",
+      "purpose": "Remove only Phase 2A1 schema objects in explicit dependency-safe order."
+    },
+    {
+      "id": "202607110002_forward_recovery",
+      "direction": "verify",
+      "file": "202607110002_forward_recovery.sql",
+      "sha256": "62b058ec66cdcb3585b254ae7b70c75ae7ade59cee63c39151fbcd31c4c0e02e",
+      "purpose": "Classify clean, core-match, and drifted states while requiring external checksum and exact ACL verification."
+    },
+    {
+      "id": "202607110003_free_starter_seed",
+      "direction": "seed",
+      "file": "202607110003_free_starter.seed.sql",
+      "sha256": "21efdadf7eeb37292c2c881b6ea332d6f3367e8464153e3dd43fa6096c2ca316",
+      "purpose": "Insert or verify the frozen free_starter version and reject deterministic drift."
+    },
+    {
+      "id": "202607110003_plan_versions_freeze",
+      "direction": "up",
+      "file": "202607110003_plan_versions.freeze.sql",
+      "sha256": "21596787b77533b256820f4993442d9b7e9498dfefc928b84526493445ddaf4c",
+      "purpose": "Seal the verified plan, feature, and limit rows against mutation after the deterministic seed."
+    },
+    {
+      "id": "202607110004_grants",
+      "direction": "up",
+      "file": "202607110004_grants.sql",
+      "sha256": "89c27a2c46f14f9687647383eace6a272d7ef070c1a3ea4d2ed799068c33cd12",
+      "purpose": "Apply exact bootstrap rights, read-only application principal access, RLS rights, and resolver execution grants."
+    },
+    {
+      "id": "202607110005_catalog_assertions",
+      "direction": "verify",
+      "file": "202607110005_catalog_assertions.sql",
+      "sha256": "d991d3106153a9569857e08518fda49cb0e5a8adbc970fab3f331ee8968ed694",
+      "purpose": "Fail on ownership, role, RLS, PUBLIC, function, or exact read-only application ACL drift."
+    },
+    {
+      "id": "202607110006_roles_down",
+      "direction": "down",
+      "file": "202607110006_roles.down.sql",
+      "sha256": "455251539012b59a41e3896e0ba80379d63f0cb0c1c9ea294805f90645f6ade8",
+      "purpose": "Remove disposable cluster roles after every dependent schema has been rolled back."
+    }
+  ]
+}

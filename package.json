@@ -16,6 +16,7 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "validate:deploy-branches": "node ./scripts/validate-deployment-branches.mjs",
+    "test:saas-phase1": "node --experimental-transform-types --test tests/saas-phase1/*.test.ts",
     "create:store": "node ./scripts/create-store.mjs",
     "preview:butik-waya:categories": "node ./scripts/preview-butik-waya-ticimax-categories.mjs",
     "repair:butik-waya:categories": "node ./scripts/repair-butik-waya-ticimax-categories.mjs",

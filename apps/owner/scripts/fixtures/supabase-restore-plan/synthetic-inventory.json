@@ -1,0 +1,141 @@
+{
+  "formatVersion": 2,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "targetInventoryEvidence": {
+    "version": "synthetic-bootstrap-inventory-v1",
+    "sha256": "sha256:d9cb4ac6d0e9f5017bd86f06ee3dd148a814145d1f29871a277fe4dca70d812b"
+  },
+  "targetObjects": [
+    {
+      "schema": null,
+      "objectType": "SCHEMA",
+      "name": "identity_seed",
+      "management": "bootstrap",
+      "owner": "bootstrap_target_owner",
+      "fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "schema": "identity_seed",
+      "objectType": "FUNCTION",
+      "name": "issue_session_token()",
+      "management": "bootstrap",
+      "owner": "bootstrap_target_owner",
+      "fingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "schema": "secrets_engine",
+      "objectType": "FUNCTION",
+      "name": "seal_value(text)",
+      "management": "extension",
+      "owner": "extension_target_owner",
+      "extension": {
+        "name": "synthetic_secrets_extension",
+        "version": "1.2.3-synthetic",
+        "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
+        "membershipEvidenceSha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "fingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "schema": "secrets_engine",
+      "objectType": "VIEW",
+      "name": "revealed_values",
+      "management": "extension",
+      "owner": "extension_target_owner",
+      "extension": {
+        "name": "synthetic_secrets_extension",
+        "version": "1.2.3-synthetic",
+        "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
+        "membershipEvidenceSha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "fingerprint": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "reviewedCandidates": [
+    {
+      "archiveItemId": "102",
+      "schema": null,
+      "objectType": "SCHEMA",
+      "name": "identity_seed",
+      "management": "bootstrap",
+      "archiveOwner": "fixture_owner",
+      "expectedTargetOwner": "bootstrap_target_owner",
+      "reasonCode": "SOURCE_MATCHED_BOOTSTRAP_OBJECT",
+      "expectedTargetFingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "archiveItemId": "103",
+      "schema": "identity_seed",
+      "objectType": "FUNCTION",
+      "name": "issue_session_token()",
+      "management": "bootstrap",
+      "archiveOwner": "fixture_owner",
+      "expectedTargetOwner": "bootstrap_target_owner",
+      "reasonCode": "SOURCE_MATCHED_BOOTSTRAP_OBJECT",
+      "expectedTargetFingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "archiveItemId": "104",
+      "schema": "secrets_engine",
+      "objectType": "FUNCTION",
+      "name": "seal_value(text)",
+      "management": "extension",
+      "archiveOwner": "fixture_owner",
+      "expectedTargetOwner": "extension_target_owner",
+      "sourceExtension": {
+        "name": "synthetic_secrets_extension",
+        "version": "1.2.3-synthetic",
+        "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
+        "membershipEvidenceSha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "expectedTargetExtension": {
+        "name": "synthetic_secrets_extension",
+        "version": "1.2.3-synthetic",
+        "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
+        "membershipEvidenceSha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "reasonCode": "SOURCE_MATCHED_EXTENSION_OBJECT",
+      "expectedTargetFingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "archiveItemId": "105",
+      "schema": "secrets_engine",
+      "objectType": "VIEW",
+      "name": "revealed_values",
+      "management": "extension",
+      "archiveOwner": "fixture_owner",
+      "expectedTargetOwner": "extension_target_owner",
+      "sourceExtension": {
+        "name": "synthetic_secrets_extension",
+        "version": "1.2.3-synthetic",
+        "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
+        "membershipEvidenceSha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "expectedTargetExtension": {
+        "name": "synthetic_secrets_extension",
+        "version": "1.2.3-synthetic",
+        "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
+        "membershipEvidenceSha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "reasonCode": "SOURCE_MATCHED_EXTENSION_OBJECT",
+      "expectedTargetFingerprint": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ]
+}

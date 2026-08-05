@@ -19,6 +19,7 @@ export * from "./policy-pages";
 export * from "./floating-contact";
 export * from "./content-pages";
 export * from "./light-postgres-runtime";
+export * from "./saas";
 
 export interface StoreRegistryEntry {
   slug: string;

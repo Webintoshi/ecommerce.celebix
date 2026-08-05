@@ -1,0 +1,30 @@
+{
+  "formatVersion": 2,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "targetInventoryEvidence": {
+    "version": "synthetic-bootstrap-inventory-v1",
+    "sha256": "sha256:fdee1a2c5215190f16c370604cd42ee90712dfffd43fb7e3da5d61b28f817706"
+  },
+  "targetObjects": [
+    {
+      "schema": "app_sandbox",
+      "objectType": "TABLE",
+      "name": "tenant_registry",
+      "management": "unknown",
+      "owner": "unknown_target_owner",
+      "fingerprint": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "reviewedCandidates": []
+}

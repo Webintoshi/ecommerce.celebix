@@ -1,0 +1,266 @@
+# Self-Serve Supabase Extension-Aware Restore Strategy
+
+Status: **DESIGN ONLY - NOT APPROVED FOR RESTORE EXECUTION**
+
+This document defines a deterministic, reviewable, fail-closed strategy for a future isolated Owner database restore rehearsal. It does not authorize backup access, catalog extraction, restore execution, SQL apply, deployment, environment changes, or infrastructure mutation.
+
+## 1. Problem Statement
+
+The latest isolated Owner database rehearsal proved that the retained custom archive is readable, but it did not produce a complete restored database. A source-compatible Supabase image supplies bootstrap and extension-managed objects that also appear as independent archive entries. One narrowly diagnosed duplicate was followed by another independent duplicate, so speculative filtering was stopped correctly.
+
+A safe retry needs a complete, version-pinned inventory and an exact archive-item policy before execution. It must never infer ownership from schema names alone and must stop on every unknown collision.
+
+The database remains **PostgreSQL**. This strategy does not replace PostgreSQL or introduce a new database mode. The collision class comes from exact PostgreSQL distribution image bootstrap objects and extension-managed objects already present on the target.
+
+## 2. Confirmed Sanitized Evidence
+
+Only repository files and sanitized documentation were reviewed. No backup or archive was accessed.
+
+| Evidence | Confirmed result |
+| --- | --- |
+| Source database family | Self-hosted Supabase PostgreSQL |
+| Source image | `supabase/postgres:15.8.1.048` |
+| Archive validation | Custom archive header and list-format readability previously passed |
+| Default-image collision | The image-initialized identity/authentication schema collided with an archive entry |
+| Ownership collision | A pre-existing PostgREST event trigger had an incompatible owner |
+| Role limitation | The image's ordinary database role could not restore a function-level PostgreSQL setting |
+| Extension collision | Objects supplied by the `supabase_vault` extension also appeared independently in the archive |
+| Independent duplicates | A narrowly identified duplicate function was followed by a separate duplicate view |
+| Transaction safety | Failed attempts used a single transaction and left no restored production data behind |
+| Complete restore | Not achieved |
+| Baseline/parity | Not captured because the restore prerequisite failed |
+| Proposal/rollback SQL | Not run; production SQL remains unapproved |
+
+Repository schema evidence represents these namespaces and dependencies:
+
+- `public`: Owner application tables, functions, policies, triggers, enums, and indexes.
+- `auth`: referenced by `owner_profiles`, `auth.uid()`, `auth.role()`, and the Owner user-created trigger. The repository does not define the complete Supabase `auth` bootstrap.
+- `uuid-ossp`: explicitly requested by the Owner schema.
+- `supabase_vault`: represented only by the sanitized rehearsal result as an extension-managed collision family.
+- PostgREST event-trigger behavior: represented only by the sanitized rehearsal result.
+
+The repository also contains Supabase bootstrap paths for managed and self-hosted deployments. Those runtime provisioning paths are not restore planners and are not changed by this strategy.
+
+## 3. Confirmed Failure Classes And Unknowns
+
+### Confirmed failure classes
+
+1. Bootstrap-managed schema/object already present on the target.
+2. Target object ownership differs from archive ownership.
+3. Restore role lacks a required privilege for a database/function setting.
+4. Extension-managed function/view duplicates appear as independent archive entries.
+5. Duplicate classes are not exhausted by the first observed failure.
+
+### Still unknown
+
+- The complete archive catalog and exact archive item IDs.
+- The complete source extension list, versions, ownership, membership, and configuration.
+- The complete target bootstrap object inventory and deterministic object fingerprints.
+- Whether every duplicate is bootstrap-managed, extension-managed, or application-owned.
+- Required role/ownership mappings for a complete restore.
+- Whether any application-owned object resides in an extension-adjacent or identity-like schema.
+- The full restored Owner schema fingerprint and aggregate parity baseline.
+- Whether a complete restore can pass before proposal and rollback rehearsal begins.
+
+### Why broad exclusion is unsafe
+
+Schema names do not prove object ownership or extension membership. The Owner schema directly depends on `auth` objects, and an application-owned table or trigger may legally live beside bootstrap-managed objects. Excluding an entire schema, object type, or wildcard pattern could silently remove required application DDL, data, policies, triggers, or dependencies. It would also make skipped entries unreviewable and destroy parity evidence.
+
+## 4. Strategy Comparison
+
+| Strategy | Deterministic inputs | Safety guarantees | Failure modes | Reproducibility / auditability | Existing archive | New backup | Complexity | Decision |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **A. Source-matched bootstrap plus exact TOC item policy** | Source/target PostgreSQL major and exact version; pinned image tag and digest; sanitized catalog; target object inventory; source/target owner plus extension membership/version evidence; exact item ID, schema, type, name, reason, and target fingerprint for every candidate; input and plan hashes | One-to-one review; no wildcard; unknown collision blocks; application objects default to restore | Incomplete inventory, false fingerprint, ownership mismatch, unreviewed duplicate, role incompatibility | High when inputs and plan are hashed and retained; exact IDs make each decision traceable | Compatible in principle | No | High | **Primary**, with Strategy C phase gates |
+| **B. Fresh Supabase-aware logical backup** | Separately approved source inventory; extension membership query design; reviewed export policy; new archive checksum/catalog | Avoids known bootstrap/extension duplicates at backup time while retaining application data | Incorrect source-side policy can omit application objects; requires source access and a new backup approval | High only if export policy, inventory, archive, and catalog are versioned and independently reviewed | Does not use the current archive | Yes | Medium to high | **Fallback** if Strategy A cannot reach zero unknown conflicts |
+| **C. Controlled staged restore** | Approved Strategy A plan; stage manifests for pre-data, data, post-data; between-stage inventory/fingerprint gates | Limits blast radius and stops before later stages when ownership/membership diverges | Staging alone does not resolve duplicate selection; a wrong exact policy remains wrong | High when every stage is transactional, hashed, and evidenced | Compatible | No | Highest operationally | Required execution overlay for A, not a standalone duplicate-resolution strategy |
+
+## 5. Recommended Primary Strategy
+
+Use **Strategy A**, executed through the phase gates in **Strategy C**.
+
+The target must start from the exact source-compatible Supabase image and an approved bootstrap state. A separately approved operator may later generate a sanitized archive catalog and target inventory. The analyzer in this change compares those two local inputs and surfaces every catalog entry together. Only exact, independently reviewed bootstrap or extension matches may become exclusion candidates. Every other entry remains `restore`, while any target collision without an exact review becomes `unknown_conflict` and blocks the packet.
+
+Strategy C is mandatory during a future execution: pre-data, data, and post-data each require a clean stop boundary and ownership/membership verification. It does not replace the exact policy.
+
+## 6. Recommended Fallback
+
+Use **Strategy B** only if the existing archive cannot produce a zero-unknown exact plan or cannot be restored without unsafe ownership manipulation. It requires a separate Atlas gate for source access and a new backup. The source-side export policy must derive exclusions from verified extension membership and approved bootstrap ownership, never from schema-name patterns. The current archive remains unchanged and retained as evidence.
+
+Supabase's [self-hosted restore guidance](https://supabase.com/docs/guides/self-hosting/restore-from-platform) recommends its filtered dump workflow because it removes internal schemas and reserved-role material that a raw dump can carry into a conflicting restore. That guidance supports Strategy B as the fallback, but it does not authorize a new backup in this task.
+
+Supabase has also announced that the default self-hosted image is moving from PostgreSQL 15 to PostgreSQL 17. The [breaking-change notice](https://supabase.com/changelog/46080-self-hosted-supabase-upgrading-from-pg-15-to-17-breaking-change) reinforces why a future rehearsal must pin the approved PostgreSQL 15 image tag and digest rather than accepting the current default.
+
+## 7. Rejected Unsafe Approaches
+
+- Broad schema, wildcard, object-type, owner, or name-pattern exclusions.
+- Repeated trial-and-error exclusion after each duplicate error.
+- A speculative retry loop that changes the catalog without a complete review.
+- Destructive clean/drop behavior against a non-disposable target.
+- Restoring into production, staging, Supabase Cloud, or a customer database.
+- Using a different PostgreSQL major or Supabase image/bootstrap version.
+- Treating elevated restore privileges as proof that ownership/membership is correct.
+- Treating the PostgreSQL 16 disposable migration rehearsal as a substitute for the Owner Supabase restore.
+- Starting proposal, parity, fake-data, or rollback testing before a complete restore.
+
+## 8. Immutable Restore Invariants
+
+1. Source and target PostgreSQL major, exact PostgreSQL version, distribution image name, pinned image tag, image SHA-256 digest, and bootstrap compatibility must be exact and evidenced. A matching major version alone is insufficient, and floating image tags are forbidden.
+2. The target must be isolated, non-public, disposable, and empty except approved bootstrap objects.
+3. Every candidate exclusion must identify the exact archive item ID, schema, object type, and object name.
+4. Every candidate must include a stable reason code, exact archive owner, expected target owner, extension when applicable, and deterministic target fingerprint.
+5. Wildcards and schema-wide exclusions are forbidden.
+6. Repeated trial-and-error exclusions are forbidden.
+7. Any unknown duplicate, ownership ambiguity, fingerprint mismatch, missing ID, or version mismatch stops the rehearsal.
+8. Extension ownership, exact source/target extension name and version, membership verification, membership evidence type, and membership evidence SHA-256 must be verified independently and match exactly; schema location and matching owners are insufficient.
+9. Application-owned objects must never be silently excluded. Unreviewed target collisions are `unknown_conflict`.
+10. Catalog, inventory, combined inputs, and proposed advisory plan must have deterministic SHA-256 values.
+11. The complete advisory plan must be human-reviewable before any use-list is produced or used.
+12. No archive entry may be silently skipped; every item receives one classification.
+13. Proposal/parity testing cannot start until the restore completes successfully.
+14. A generated analyzer report is advisory and never grants execution approval.
+15. The target inventory requires an exact evidence version and a SHA-256 equal to the canonical, stably sorted target-object inventory. A syntactically valid but stale or unrelated hash blocks the report.
+
+## 9. Exact TOC Review Policy
+
+Each reviewed candidate record must contain:
+
+- Exact numeric archive item ID.
+- Exact schema (`null` only for schema-less catalog objects).
+- Exact object type.
+- Exact object name/signature.
+- Management class: `bootstrap` or `extension` only.
+- Exact archive owner from the catalog.
+- Exact expected target owner from the target inventory.
+- Stable reason code.
+- Expected target fingerprint.
+- Exact source and target extension identity/version when extension-managed.
+- Verified source and target extension-membership evidence SHA-256 when extension-managed.
+- Exact source and target membership evidence type when extension-managed.
+
+The target inventory must independently contain the same object identity, management class, exact owner, fingerprint, and extension evidence. A candidate with a missing catalog ID, mismatched identity, owner mismatch, multiple target matches, extension version/membership mismatch, or mismatched fingerprint is an unknown conflict. Candidate classification does not itself authorize exclusion. An execution use-list may be prepared only after separate human review and Atlas approval; this task does not generate one.
+
+## 10. Extension Ownership And Membership Policy
+
+Before another rehearsal, the approval packet must establish for each extension-managed candidate:
+
+1. Extension name and exact version on source and target.
+2. Source and target extension membership for the exact object, each represented by `membershipVerified=true`, an exact evidence type, and a reviewed evidence SHA-256.
+3. Exact archive owner, target object owner, and expected bootstrap/extension owner.
+4. Stable object definition/fingerprint suitable for that object type.
+5. Evidence that the archive item is not application-owned and has no application data payload that would be lost.
+
+An object located in an extension-adjacent schema is not automatically extension-managed. Missing membership evidence is a stop condition.
+
+## 11. Advisory Catalog Analyzer
+
+`apps/owner/scripts/supabase-restore-plan-analyzer.mjs` is a local, non-executing planner. It:
+
+- Requires inventory `formatVersion: 2`.
+- Reads only two caller-supplied local text files: a sanitized list-format catalog and sanitized target inventory JSON.
+- Parses exact numeric item IDs and object metadata.
+- Returns a deterministic blocked advisory report with machine reason codes for all discoverable malformed evidence instead of stopping after the first validation error.
+- Rejects wildcard/schema-wide/object-type-wide candidates, duplicate IDs, missing IDs, missing owner evidence, missing/unverified extension-membership evidence, generic extension labels, malformed fingerprints, floating image tags, URLs, and credential-like input.
+- Classifies every entry as `restore`, `exact_bootstrap_duplicate_candidate`, `extension_managed_candidate`, or `unknown_conflict`.
+- Machine-checks PostgreSQL major/exact version, distribution image name/tag/digest, canonical target inventory version/hash, archive/target owner, extension name/version, and membership evidence type/hash.
+- Marks the report `blocked` on any unknown conflict, owner mismatch, extension evidence mismatch, or source/target version/image mismatch.
+- Produces deterministic JSON and Markdown plus SHA-256 values for canonical parsed inputs, combined inputs, and the advisory plan. JSON property order, timestamps, absolute paths, and machine metadata do not participate in valid-input hashes.
+- Emits no executable restore command or use-list.
+- Has no process execution, shell, database, HTTP, or network capability.
+- Does not change runtime application behavior.
+
+Every output is marked **NOT APPROVED FOR RESTORE EXECUTION**.
+
+### Machine-readable stop reasons
+
+Machine codes are separate from human-readable messages and participate in the proposed-plan hash. The analyzer emits deterministic codes from these families:
+
+- Catalog/input: `CATALOG_INPUT_MISSING`, `CATALOG_INPUT_NOT_SANITIZED`, `CATALOG_EMPTY`, `CATALOG_ITEM_ID_MISSING`, `CATALOG_ITEM_ID_DUPLICATE`, `CATALOG_OBJECT_TYPE_UNSUPPORTED`, `CATALOG_OBJECT_METADATA_INCOMPLETE`, `CATALOG_OBJECT_NAME_MISSING`, `CATALOG_OWNER_MISSING`, `INVENTORY_INPUT_MISSING`, `INVENTORY_INPUT_NOT_SANITIZED`, `INVENTORY_JSON_INVALID`, `INVENTORY_ROOT_INVALID`, `INVENTORY_FORMAT_UNSUPPORTED`.
+- Platform/inventory: `SOURCE_PLATFORM_EVIDENCE_MISSING`, `TARGET_PLATFORM_EVIDENCE_MISSING`, source/target `POSTGRES_MAJOR_INVALID`, `POSTGRES_VERSION_INVALID`, `POSTGRES_VERSION_MAJOR_INCONSISTENT`, `IMAGE_EVIDENCE_MISSING`, `IMAGE_REFERENCE_INVALID`, `IMAGE_TAG_FLOATING`, `IMAGE_DIGEST_INVALID`, plus `TARGET_INVENTORY_EVIDENCE_MISSING`, `TARGET_INVENTORY_VERSION_MISSING`, `TARGET_INVENTORY_HASH_INVALID`, and `TARGET_INVENTORY_HASH_MISMATCH`.
+- Exact compatibility: `SOURCE_TARGET_POSTGRES_MAJOR_MISMATCH`, `SOURCE_TARGET_POSTGRES_VERSION_MISMATCH`, `DISTRIBUTION_IMAGE_NAME_MISMATCH`, `DISTRIBUTION_IMAGE_TAG_MISMATCH`, `DISTRIBUTION_IMAGE_DIGEST_MISMATCH`, and `PLATFORM_COMPATIBILITY_BLOCKED`.
+- Owner/object/candidate: missing or invalid target/candidate identity, owner, management, fingerprint, reason, and item-ID codes; `APPLICATION_OWNED_COLLISION`, `REVIEWED_ID_NOT_PRESENT_IN_CATALOG`, `TARGET_OBJECT_NOT_EXACTLY_REVIEWED`, `TARGET_OBJECT_MATCH_COUNT_MISMATCH`, `REVIEWED_CANDIDATE_IDENTITY_MISMATCH`, `REVIEWED_CANDIDATE_MANAGEMENT_MISMATCH`, `REVIEWED_CANDIDATE_OWNER_MISMATCH`, and `TARGET_OBJECT_FINGERPRINT_MISMATCH`.
+- Extension/membership: source, expected-target, and target `EVIDENCE_MISSING`, `NAME_MISSING`, `NAME_GENERIC`, `VERSION_MISSING`, `MEMBERSHIP_UNVERIFIED`, `MEMBERSHIP_TYPE_MISSING`, `MEMBERSHIP_TYPE_GENERIC`, `MEMBERSHIP_FINGERPRINT_INVALID`, plus `REVIEWED_EXTENSION_NAME_MISMATCH`, `REVIEWED_EXTENSION_VERSION_MISMATCH`, `REVIEWED_EXTENSION_MEMBERSHIP_TYPE_MISMATCH`, and `REVIEWED_EXTENSION_MEMBERSHIP_FINGERPRINT_MISMATCH`.
+- Broad-policy rejection: `OBJECT_NAME_WILDCARD_FORBIDDEN`, `SCHEMA_WIDE_EXCLUSION_FORBIDDEN`, `OBJECT_TYPE_WIDE_EXCLUSION_FORBIDDEN`, and `INPUT_VALIDATION_BLOCKED`.
+
+The source/target prefixes above are literal parts of emitted codes. Missing evidence never degrades to a candidate classification. Candidate means only “advisory human-review candidate”; it is not an approved exclusion and cannot produce an executable plan.
+
+The committed fixtures are synthetic. Names, object IDs, object fingerprints, and versions are invented and do not reproduce archive contents, private object names, PII, credentials, or customer data.
+
+## 12. Restore-Plan Review Process
+
+1. Obtain separate Atlas approval to generate sanitized catalog metadata and target inventory; do not access the archive under this design-only task.
+2. Record exact source and target PostgreSQL major/version plus image tag/digest evidence.
+3. Build a target inventory from approved bootstrap and extension ownership/membership evidence.
+4. Run the non-executing analyzer on local sanitized inputs.
+5. Require zero `unknown_conflict`, exact deterministic hashes, and complete entry accounting.
+6. Review every candidate row manually with its reason, archive/target owner, extension evidence, and target fingerprint.
+7. Archive the sanitized report and review decision without credentials, URLs, archive contents, or PII.
+8. Request a separate Atlas execution gate. Only that future gate may authorize creation/use of an exact use-list and an isolated restore attempt.
+
+## 13. Stop Conditions
+
+Stop before or during a future rehearsal if any of these occur:
+
+- Source/target PostgreSQL major, exact version, Supabase image tag, or image digest mismatch.
+- Target is reachable publicly, non-disposable, non-empty beyond approved bootstrap, or connected to traffic.
+- Catalog, inventory, or plan hash differs from the approved packet.
+- Missing, duplicate, wildcard, or non-numeric archive item ID.
+- Unknown target collision or multiple target matches.
+- Archive/target ownership, source/target extension version, membership evidence, or fingerprint cannot be proven.
+- An application-owned object is proposed for exclusion.
+- A new duplicate appears that was not in the approved plan.
+- Any stage fails transactionally or leaves an unverifiable state.
+- Complete restore, cleanup, parity, or rollback evidence cannot be captured safely.
+- Atlas approval does not explicitly cover the exact plan hash and isolated target.
+
+## 14. Required Evidence For The Next Approval
+
+Atlas must review all of the following before another restore attempt:
+
+- Source PostgreSQL major/exact version and Supabase image tag/digest evidence.
+- Target bootstrap PostgreSQL major/exact version and image tag/digest evidence.
+- Sanitized archive catalog metadata summary, generated under separate approval.
+- Sanitized target bootstrap and extension inventory summary.
+- Proposed exact-ID candidate policy.
+- Candidate reason table with exact identity, archive/target owner, and target fingerprint.
+- Source/target extension ownership, exact version, and membership evidence SHA-256.
+- Zero unknown-conflict confirmation.
+- Catalog, inventory, combined-input, and proposed-plan SHA-256 values.
+- Isolated target topology: no public network, no traffic, disposable storage, and source separation.
+- Transaction and stage boundaries.
+- Cleanup plan and proof method.
+- Full-restore parity verification plan.
+- Proposal and rollback verification plan, to run only after restore success.
+- Explicit confirmation that production SQL and runtime cutover remain outside the approval.
+
+## 15. Future Isolated Rehearsal Sequence
+
+After a separate Atlas execution approval:
+
+1. Re-verify approved hashes, image versions, target isolation, and cleanup controls.
+2. Verify the target contains only the approved bootstrap inventory.
+3. Apply the approved exact-item policy to the pre-data stage and stop on any divergence.
+4. Verify schemas, roles, ownership, extension versions, and membership before data.
+5. Restore the data stage transactionally and verify complete table/data accounting.
+6. Restore the post-data stage transactionally and verify functions, policies, triggers, constraints, ownership, and extension membership.
+7. Require complete restore success before collecting baseline and Owner aggregate parity.
+8. Only after parity passes, run the separately approved proposal, synthetic constraints, rollback, and post-rollback parity on the isolated target.
+9. Destroy the target and archive only sanitized evidence.
+
+No step may continue after an unknown conflict or hash mismatch.
+
+## 16. Production Safety Boundaries
+
+- No backup or archive was accessed while producing this strategy.
+- No catalog from a real archive and no real use-list was generated.
+- No restore command or restore attempt was run.
+- No production, staging, customer, or Supabase Cloud database connection was opened.
+- No proposal or rollback SQL was applied.
+- Production SQL remains explicitly unapproved.
+- No deploy, `deploy/owner` promotion, environment change, or infrastructure mutation occurred.
+- `persistent_db_adapter` remains disabled.
+- Store creation, provisioning, and auto-provisioning remain disabled.
+- Runtime Owner behavior and `owner_*` authority were not changed.
+
+Another explicit Atlas gate is required before backup access, real catalog generation, target inventory collection, exact use-list production, restore execution, or SQL application.
+
+PR #22 does not approve backup access, real archive catalog extraction, real target inventory extraction, use-list generation, restore execution, production SQL, deployment, or runtime authority cutover.

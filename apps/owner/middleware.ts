@@ -4,8 +4,13 @@ import { createClient } from "@supabase/supabase-js";
 import {
   applySecurityHeaders,
   isMutationMethod,
+  type SecurityHeaderOptions,
   validateSameOriginRequest,
 } from "@celebix/platform-config/src/http-security";
+import {
+  PANEL_BROWSER_BINDING_INTERNAL_PATH,
+  SELF_SERVE_INTERNAL_CALLBACK_PATH,
+} from "@celebix/platform-config/src/saas";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import {
   expireOwnerAuthCookies,
@@ -23,6 +28,7 @@ import { hasOwnerPreviewDataFallback } from "@/lib/owner-preview-fixtures";
 const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
 const OWNER_PUBLIC_RUNTIME_API_PATH = "/api/public/runtime";
+const OWNER_PUBLIC_REGISTRATION_PATH = "/api/self-serve/register";
 const OWNER_ACCEPTANCE_CREATE_API_PATH = "/api/internal/acceptance/create-store";
 const OWNER_INTERNAL_STORE_SMOKE_REFRESH_PREFIX = "/api/internal/stores/";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
@@ -30,6 +36,10 @@ const OWNER_RECOVER_PATH = "/auth/recover";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
+const INTERNAL_HMAC_PATHS = new Set([
+  PANEL_BROWSER_BINDING_INTERNAL_PATH,
+  SELF_SERVE_INTERNAL_CALLBACK_PATH,
+]);
 const SELF_SERVE_PUBLIC_PREFIXES = [
   "/branding",
   "/media",
@@ -46,8 +56,12 @@ type OwnerProfileRecord = {
   is_active: boolean;
 };
 
-function withSecurity(request: NextRequest, response: NextResponse) {
-  return applySecurityHeaders(request, response, "owner");
+function withSecurity(
+  request: NextRequest,
+  response: NextResponse,
+  options?: SecurityHeaderOptions,
+) {
+  return applySecurityHeaders(request, response, "owner", options);
 }
 
 function buildRequestHeaders(request: NextRequest) {
@@ -79,6 +93,10 @@ function isProtectedOwnerPage(pathname: string) {
 
 function isPublicSelfServeRoute(pathname: string) {
   return SELF_SERVE_PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function isInternalHmacRoute(pathname: string) {
+  return INTERNAL_HMAC_PATHS.has(pathname);
 }
 
 function isProtectedOwnerApi(pathname: string) {
@@ -128,6 +146,16 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (isPublicSelfServeRoute(pathname)) {
+    return withSecurity(
+      request,
+      nextResponse(request),
+      pathname === OWNER_PUBLIC_REGISTRATION_PATH
+        ? { contentSecurityPolicy: "route-owned" }
+        : undefined,
+    );
+  }
+
+  if (isInternalHmacRoute(pathname)) {
     return withSecurity(request, nextResponse(request));
   }
 
