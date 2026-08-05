@@ -9,8 +9,8 @@ const CONFIG = Object.freeze({
   accountId: "a".repeat(32),
   zoneId: "b".repeat(32),
   tunnelId: "10000000-0000-4000-8000-000000000001",
-  fallbackOrigin: "shops-origin.saas-staging.celebix.site",
-  cnameTarget: "shops.saas-staging.celebix.site",
+  fallbackOrigin: "shops-origin-staging.celebix.site",
+  cnameTarget: "shops-staging.celebix.site",
   storefrontProbeHostname: "guzide-kuyumcu-4.saas-staging.celebix.site",
   storefrontProbeStoreId: "33333333-3333-4333-8333-333333333333",
   customHostnameLimit: 100,
@@ -119,4 +119,9 @@ test("configuration is exact staging-bound and refuses missing quota or producti
   assert.deepEqual(parseReadinessConfig(environment), CONFIG);
   assert.throws(() => parseReadinessConfig({ ...environment, CELEBIX_CLOUDFLARE_CUSTOM_HOSTNAME_LIMIT: undefined }), /custom_domain_readiness_config_invalid/u);
   assert.throws(() => parseReadinessConfig({ ...environment, CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET: "shops.celebix.site" }), /custom_domain_readiness_config_invalid/u);
+  assert.throws(() => parseReadinessConfig({
+    ...environment,
+    CELEBIX_CUSTOM_DOMAIN_FALLBACK_ORIGIN: "shops-origin.saas-staging.celebix.site",
+    CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET: "shops.saas-staging.celebix.site",
+  }), /custom_domain_readiness_config_invalid/u);
 });

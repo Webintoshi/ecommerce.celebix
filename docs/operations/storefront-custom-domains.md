@@ -5,8 +5,8 @@ Bu akış yalnızca mağaza vitrinleri içindir. Yönetim paneli adresleri Celeb
 ## Değişmez mimari
 
 - Cloudflare for SaaS Custom Hostnames sertifika ve host yaşam döngüsünü yönetir.
-- `shops.<tier-suffix>` müşterinin ekleyeceği proxied CNAME hedefidir.
-- `shops-origin.<tier-suffix>` Cloudflare fallback origin’idir ve Cloudflare Tunnel’a bağlıdır.
+- `shops-staging.celebix.site` staging müşterisinin ekleyeceği proxied CNAME hedefidir.
+- `shops-origin-staging.celebix.site` staging fallback origin’idir ve Cloudflare Tunnel’a bağlıdır. Tek etiketli ad, Cloudflare Universal SSL kapsamını korur.
 - PostgreSQL `saas.store_domains` hangi hostun hangi mağazaya ait olduğunun tek otoritesidir.
 - `storefront-shared` yalnızca güvenilir edge tarafından imzalanmış `x-forwarded-host` değerini kullanır.
 - Platform mağaza adresi özel alan adı ekleme, hata, kaldırma ve geri alma sırasında aktif kalır.
@@ -19,22 +19,23 @@ Staging ve production için ayrı zone, API token, Tunnel ve fallback origin kul
 
 1. Zone’da Cloudflare for SaaS’ı etkinleştirin. Sertifika minimum TLS sürümünü `1.2` seçin.
 2. Named Tunnel oluşturun. İki ayrı cloudflared replica çalıştırın; ikisi de aynı Tunnel kimliğiyle `infra/cloudflare/storefront-tunnel.example.yml` yapılandırmasını kullansın.
-3. `shops-origin.saas-staging.celebix.site` kaydını Tunnel public hostname’i olarak `http://storefront-shared:3450` servisine bağlayın.
-4. `shops.saas-staging.celebix.site` için proxied CNAME oluşturun; içeriği `shops-origin.saas-staging.celebix.site` olsun.
-5. Cloudflare for SaaS fallback origin değerini tam olarak `shops-origin.saas-staging.celebix.site` yapın ve durum `active` olana kadar bekleyin.
-6. Müşteriye gösterilecek DNS talimatı her zaman `CNAME <müşteri-hostu> shops.saas-staging.celebix.site` olmalıdır.
+3. `shops-origin-staging.celebix.site` kaydını Tunnel public hostname’i olarak yalnız Coolify ağına açık `http://celebix-storefront-router:8080` servisine bağlayın.
+4. `shops-staging.celebix.site` için proxied CNAME oluşturun; içeriği `shops-origin-staging.celebix.site` olsun.
+5. Cloudflare for SaaS fallback origin değerini tam olarak `shops-origin-staging.celebix.site` yapın ve durum `active` olana kadar bekleyin.
+6. Müşteriye gösterilecek DNS talimatı her zaman `CNAME <müşteri-hostu> shops-staging.celebix.site` olmalıdır.
 
 Production için aynı isimlerin `.celebix.site` karşılığını ve production’a özel kaynakları kullanın. Staging token’ını production zone’a vermeyin.
 
 ## 2. Güvenilir edge header sınırı
 
-Storefront doğrudan tarayıcıdan gelen `Host` veya `x-forwarded-host` değerine güvenmez. Cloudflare’da sadece storefront route’larına uygulanan bir Request Header Transform Rule oluşturun:
+Storefront doğrudan tarayıcıdan gelen `x-forwarded-host` değerine güvenmez. Tunnel’ın internete açık portu bulunmayan `celebix-storefront-router` origin’i her istekte:
 
-- `x-celebix-storefront-proxy`: `p1.<CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL>` sabit değeriyle overwrite.
-- `x-forwarded-host`: dinamik `http.host` değeriyle overwrite.
-- `x-forwarded-proto`: Cloudflare’ın sağladığı `https` değeri korunur.
+- `x-forwarded-host` değerini gerçek Cloudflare for SaaS `Host` değerinden yeniden yazar.
+- `x-forwarded-proto` değerini `https` yapar.
+- `x-celebix-storefront-proxy` değerini `p1.<CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL>` ile yeniden yazar.
+- Coolify proxy yönlendirmesi için iç `Host` değerini bilinen platform storefront hostuna sabitler.
 
-Aynı 32-byte base64url secret’ı Coolify’de `storefront-shared` için `CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL` olarak kaydedin. Secret’ı kaynak koda, SQL’e, loga veya müşteri paneline yazmayın. Origin portunu internete açmayın; erişim yalnız Tunnel ağı üzerinden olmalıdır.
+Aynı 32-byte base64url secret’ı Coolify’de `storefront-shared` ve router için `CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL` olarak kaydedin. Secret’ı kaynak koda, SQL’e, loga veya müşteri paneline yazmayın. Origin portunu internete açmayın; erişim yalnız Tunnel ağı üzerinden olmalıdır. Cloudflare for SaaS fallback bağlantısı müşteri `Host` değerini koruduğu için tenant çözümlemesi router’da bu değer üzerinden yapılır.
 
 ## 3. Coolify ortam değişkenleri
 
@@ -45,7 +46,7 @@ CELEBIX_DEPLOYMENT_TIER=staging
 CLOUDFLARE_SAAS_API_TOKEN=<server-only-token>
 CLOUDFLARE_SAAS_ZONE_ID=<staging-zone-id>
 CLOUDFLARE_SAAS_API_BASE_URL=https://api.cloudflare.com/client/v4
-CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET=shops.saas-staging.celebix.site
+CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET=shops-staging.celebix.site
 CELEBIX_CUSTOM_DOMAIN_RESERVED_SUFFIXES=celebix.site,saas-staging.celebix.site
 CELEBIX_STORE_DOMAIN_WORKER_ID=owner.domains.1
 CELEBIX_STORE_DOMAIN_WORKER_ENABLED=false
@@ -57,7 +58,7 @@ Readiness komutunun çalıştığı güvenli operasyon ortamı ayrıca şunları
 ```text
 CLOUDFLARE_SAAS_ACCOUNT_ID=<account-id>
 CLOUDFLARE_SAAS_TUNNEL_ID=<tunnel-uuid>
-CELEBIX_CUSTOM_DOMAIN_FALLBACK_ORIGIN=shops-origin.saas-staging.celebix.site
+CELEBIX_CUSTOM_DOMAIN_FALLBACK_ORIGIN=shops-origin-staging.celebix.site
 CELEBIX_CUSTOM_DOMAIN_STOREFRONT_PROBE_HOSTNAME=<staging-probe-host>
 CELEBIX_CUSTOM_DOMAIN_STOREFRONT_PROBE_STORE_ID=<probe-store-uuid>
 CELEBIX_CLOUDFLARE_CUSTOM_HOSTNAME_LIMIT=<approved-zone-limit>

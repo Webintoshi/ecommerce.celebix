@@ -39,10 +39,16 @@ function underSuffix(value, suffix) {
   return value.endsWith(suffix) && value.length > suffix.length;
 }
 
+function stagingInfrastructureHostname(value) {
+  const suffix = ".celebix.site";
+  if (!underSuffix(value, suffix)) return false;
+  const label = value.slice(0, -suffix.length);
+  return !label.includes(".") && label.endsWith("-staging") && label.length > "-staging".length;
+}
+
 export function parseReadinessConfig(source) {
   const deploymentTier = required(source, "CELEBIX_DEPLOYMENT_TIER", 10);
   if (deploymentTier !== "staging" && deploymentTier !== "production") invalid();
-  const suffix = deploymentTier === "staging" ? ".saas-staging.celebix.site" : ".celebix.site";
   const apiToken = required(source, "CLOUDFLARE_SAAS_API_TOKEN");
   if (apiToken.length < 8 || /\s/u.test(apiToken)) invalid();
   const accountId = required(source, "CLOUDFLARE_SAAS_ACCOUNT_ID", 32);
@@ -54,7 +60,12 @@ export function parseReadinessConfig(source) {
   const storefrontProbeHostname = hostname(required(source, "CELEBIX_CUSTOM_DOMAIN_STOREFRONT_PROBE_HOSTNAME", 253));
   const storefrontProbeStoreId = required(source, "CELEBIX_CUSTOM_DOMAIN_STOREFRONT_PROBE_STORE_ID", 36);
   if (!UUID.test(storefrontProbeStoreId)) invalid();
-  if (![fallbackOrigin, cnameTarget, storefrontProbeHostname].every((value) => underSuffix(value, suffix)) || fallbackOrigin === cnameTarget || storefrontProbeHostname === fallbackOrigin || storefrontProbeHostname === cnameTarget) invalid();
+  const hostsMatchTier = deploymentTier === "staging"
+    ? stagingInfrastructureHostname(fallbackOrigin)
+      && stagingInfrastructureHostname(cnameTarget)
+      && underSuffix(storefrontProbeHostname, ".saas-staging.celebix.site")
+    : [fallbackOrigin, cnameTarget, storefrontProbeHostname].every((value) => underSuffix(value, ".celebix.site"));
+  if (!hostsMatchTier || fallbackOrigin === cnameTarget || storefrontProbeHostname === fallbackOrigin || storefrontProbeHostname === cnameTarget) invalid();
   const rawLimit = required(source, "CELEBIX_CLOUDFLARE_CUSTOM_HOSTNAME_LIMIT", 5);
   if (!/^[1-9][0-9]{0,4}$/u.test(rawLimit)) invalid();
   const customHostnameLimit = Number(rawLimit);
