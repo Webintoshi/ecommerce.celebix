@@ -7,17 +7,17 @@
     {
       "file": "202608050089_order_transactional_email.up.sql",
       "direction": "up",
-      "sha256": "8aa710f15a14d6ea33bdeca17e80a6b1a91b9bea0d301a61bf3de4fc8aa448c8"
+      "sha256": "1b73c61f3f3c249f95b40695cb4fb766bc7e27d04b5456c9fc860d849274f3d0"
     },
     {
       "file": "202608050089_order_transactional_email.down.sql",
       "direction": "down",
-      "sha256": "a2677631befbc3264e8db2153b33ec719f8a8c6d7fc4a9523e3a87c4ba2b8cb4"
+      "sha256": "da912a4d82f19907b889622a130bcb7575394855af5fae7c57f3547cbf563e53"
     },
     {
       "file": "202608050089_order_transactional_email_assertions.sql",
       "direction": "verify",
-      "sha256": "1aada3eb9446ecf7516895db11761f15b9cb16c96fa7af4254b201c96f609af9"
+      "sha256": "4d7db06568f42774898732adde0b74a27e4ef952649d8d0f2eabc0e9513aa29b"
     }
   ]
 }

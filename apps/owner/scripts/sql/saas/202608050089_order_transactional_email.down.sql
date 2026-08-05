@@ -15,6 +15,8 @@ BEGIN
 END
 $order_transactional_email_down_guard$;
 
+DROP TRIGGER order_email_seed_notification_setting ON saas.memberships;
+DROP FUNCTION saas.order_email_seed_notification_setting();
 DROP FUNCTION saas.order_email_admin_retry(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid);
 DROP FUNCTION saas.order_email_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid);
 DROP FUNCTION saas.order_email_admin_projection(uuid,uuid,timestamptz);

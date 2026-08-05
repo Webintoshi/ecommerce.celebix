@@ -6,6 +6,7 @@ DECLARE
   missing_functions integer;
   table_grants integer;
   trigger_definition text;
+  seed_trigger_definition text;
   delivery_rls record;
   provider_rls record;
 BEGIN
@@ -45,6 +46,17 @@ BEGIN
      OR trigger_definition!~'AFTER INSERT ON saas[.]order_events'
      OR trigger_definition!~'EXECUTE FUNCTION saas[.]order_events_enqueue_email[(][)]' THEN
     RAISE EXCEPTION 'ORDER_TRANSACTIONAL_EMAIL_CONTRACT_INVALID: trigger';
+  END IF;
+
+  SELECT pg_catalog.pg_get_triggerdef(trigger_row.oid) INTO seed_trigger_definition
+  FROM pg_catalog.pg_trigger trigger_row
+  WHERE trigger_row.tgrelid='saas.memberships'::regclass
+    AND trigger_row.tgname='order_email_seed_notification_setting'
+    AND NOT trigger_row.tgisinternal;
+  IF seed_trigger_definition IS NULL
+     OR seed_trigger_definition!~'AFTER INSERT OR UPDATE ON saas[.]memberships'
+     OR seed_trigger_definition!~'EXECUTE FUNCTION saas[.]order_email_seed_notification_setting[(][)]' THEN
+    RAISE EXCEPTION 'ORDER_TRANSACTIONAL_EMAIL_CONTRACT_INVALID: seed trigger';
   END IF;
 
   SELECT count(*) INTO table_grants FROM information_schema.role_table_grants

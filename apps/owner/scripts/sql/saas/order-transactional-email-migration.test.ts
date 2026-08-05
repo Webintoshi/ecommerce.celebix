@@ -23,6 +23,8 @@ test("089 installs a private event-triggered transactional outbox", () => {
   assert.match(up, /CREATE TRIGGER order_events_enqueue_email/u);
   assert.match(up, /AFTER INSERT ON saas[.]order_events/u);
   assert.match(up, /FOR UPDATE SKIP LOCKED/u);
+  assert.match(up, /ON CONFLICT DO NOTHING/u);
+  assert.doesNotMatch(up, /ON CONFLICT[(]store_id,order_id,event_type,recipient_kind[)] DO NOTHING/u);
   assert.match(up, /ALTER TABLE saas[.]order_email_deliveries FORCE ROW LEVEL SECURITY/u);
   assert.match(up, /ALTER TABLE saas[.]order_email_provider_events FORCE ROW LEVEL SECURITY/u);
   assert.doesNotMatch(up, /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE).*order_email/isu);
@@ -59,6 +61,10 @@ test("089 extends notification settings without making them customer-mail author
   assert.match(up, /notificationEmail/u);
   assert.match(up, /emailEnabled/u);
   assert.match(up, /replyToEmail/u);
+  assert.match(up, /UPDATE saas[.]merchant_admin_records/u);
+  assert.match(up, /CREATE TRIGGER order_email_seed_notification_setting/u);
+  assert.match(up, /AFTER INSERT OR UPDATE ON saas[.]memberships/u);
+  assert.match(up, /principal[.]email_verified/u);
   assert.doesNotMatch(up, /customerNotificationsEnabled/u);
 });
 

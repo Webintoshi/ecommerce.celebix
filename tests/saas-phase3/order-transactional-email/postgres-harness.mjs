@@ -17,8 +17,11 @@ const ASSERTIONS = "202608050089_order_transactional_email_assertions.sql";
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const STORE_A = "10000000-0000-4000-8000-000000000089";
 const STORE_B = "10000000-0000-4000-8000-000000000090";
+const STORE_C = "10000000-0000-4000-8000-000000000091";
 const PRINCIPAL_A = "20000000-0000-4000-8000-000000000089";
+const PRINCIPAL_C = "20000000-0000-4000-8000-000000000091";
 const MEMBERSHIP_A = "30000000-0000-4000-8000-000000000089";
+const MEMBERSHIP_C = "30000000-0000-4000-8000-000000000091";
 const NOW = "2026-08-05T12:00:00.000Z";
 const TOTAL = 10;
 let completed = 0;
@@ -172,6 +175,10 @@ function seed(box) {
     INSERT INTO saas.admin_domains(id,store_id,hostname,kind,status,canonical,verified_at,version,created_at,updated_at) VALUES
       ('60000000-0000-4000-8000-000000000089','${STORE_A}','order-email-a.admin.saas-staging.celebix.site','platform_subdomain','active',true,'2026-01-01',1,'2026-01-01','2026-01-01'),
       ('60000000-0000-4000-8000-000000000090','${STORE_B}','order-email-b.admin.saas-staging.celebix.site','platform_subdomain','active',true,'2026-01-01',1,'2026-01-01','2026-01-01');
+    INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,status,version,created_at,updated_at)
+      VALUES('70000000-0000-4000-8000-000000000089','${STORE_A}','notification_setting','Sipariş bildirimleri',
+        '{"emailEnabled":true,"senderLabel":"Güzide Kuyumcu","replyToEmail":"support@example.test"}',
+        'active',1,'${NOW}','${NOW}');
     COMMIT;`);
 }
 
@@ -187,16 +194,32 @@ async function main() {
     apply(box, "202608030081_storefront_design_workspace.up.sql");
     apply(box, UP);
     apply(box, ASSERTIONS);
+    const migratedSetting = psql(box, `SELECT (config->>'orderNotificationsEnabled')||'|'||(config->>'notificationEmail')||'|'||version
+      FROM saas.merchant_admin_records WHERE store_id='${STORE_A}' AND record_kind='notification_setting';`).stdout.trim();
+    psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;DELETE FROM saas.merchant_admin_records
+      WHERE store_id='${STORE_A}' AND record_kind='notification_setting';COMMIT;`);
     psql(box, `CREATE DATABASE ${EMPTY} TEMPLATE ${DB};`, "postgres");
     psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
       INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,status,version,created_at,updated_at)
       VALUES('70000000-0000-4000-8000-000000000089','${STORE_A}','notification_setting','Sipariş bildirimleri',
         '{"emailEnabled":true,"orderNotificationsEnabled":true,"notificationEmail":"orders@example.test","senderLabel":"Güzide Kuyumcu","replyToEmail":"support@example.test"}',
-        'active',1,'${NOW}','${NOW}');COMMIT;`);
+        'active',1,'${NOW}','${NOW}');
+      INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at) VALUES
+        ('${PRINCIPAL_C}','https://identity.example.test/oidc','order-email-new-owner','new-owner@example.test',true,'${NOW}','${NOW}');
+      INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES
+        ('${STORE_C}','Yeni Mağaza','order-email-c','active','tr','TRY','hemenaku','${NOW}','${NOW}');
+      INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at) VALUES
+        ('${MEMBERSHIP_C}','${PRINCIPAL_C}','${STORE_C}','store_owner','active','${NOW}','${NOW}');
+      COMMIT;`);
+    const seededSetting = psql(box, `SELECT (config->>'orderNotificationsEnabled')||'|'||(config->>'notificationEmail')||'|'||
+        (config->>'senderLabel')||'|'||(config->>'replyToEmail')
+      FROM saas.merchant_admin_records WHERE store_id='${STORE_C}' AND record_kind='notification_setting';`).stdout.trim();
 
     scenario("PostgreSQL 16 installs the private outbox contract", () => {
       assert.match(psql(box, "SHOW server_version;").stdout, /^16[.]/);
       assert.equal(psql(box, "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='saas.order_email_deliveries'::regclass;").stdout.trim(), "t");
+      assert.equal(migratedSetting, "true|support@example.test|2");
+      assert.equal(seededSetting, "true|new-owner@example.test|Yeni Mağaza|new-owner@example.test");
     });
 
     const storefront = "80000000-0000-4000-8000-000000000089";

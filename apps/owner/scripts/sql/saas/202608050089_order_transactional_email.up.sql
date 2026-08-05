@@ -31,6 +31,62 @@ AS $function$
   ELSE saas.merchant_admin_config_valid_without_order_email(p_kind,p_config) END
 $function$;
 
+UPDATE saas.merchant_admin_records record
+SET config=record.config||CASE
+      WHEN COALESCE((record.config->>'emailEnabled')::boolean,false)
+           AND record.config?'replyToEmail'
+           AND saas.merchant_admin_setting_email(record.config->'replyToEmail')
+      THEN pg_catalog.jsonb_build_object(
+        'orderNotificationsEnabled',true,
+        'notificationEmail',record.config->'replyToEmail'
+      )
+      ELSE pg_catalog.jsonb_build_object('orderNotificationsEnabled',false)
+    END,
+    version=record.version+1,
+    updated_at=GREATEST(record.updated_at,CURRENT_TIMESTAMP)
+WHERE record.record_kind='notification_setting'
+  AND record.status IN('draft','active')
+  AND NOT record.config?'orderNotificationsEnabled'
+  AND NOT record.config?'notificationEmail';
+
+CREATE FUNCTION saas.order_email_seed_notification_setting()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE principal saas.principals%ROWTYPE; store saas.stores%ROWTYPE;
+BEGIN
+  IF NEW.role<>'store_owner' OR NEW.status<>'active' THEN RETURN NEW; END IF;
+  SELECT * INTO principal FROM saas.principals row WHERE row.id=NEW.principal_id;
+  SELECT * INTO store FROM saas.stores row WHERE row.id=NEW.store_id;
+  IF NOT FOUND OR NOT principal.email_verified THEN RETURN NEW; END IF;
+  IF EXISTS(
+    SELECT 1 FROM saas.merchant_admin_records record
+    WHERE record.store_id=NEW.store_id
+      AND record.record_kind='notification_setting'
+      AND record.status IN('draft','active')
+  ) THEN RETURN NEW; END IF;
+  INSERT INTO saas.merchant_admin_records(
+    id,store_id,record_kind,name,config,status,version,created_at,updated_at
+  ) VALUES(
+    saas.inventory_deterministic_uuid('order-email-notification-setting',NEW.store_id::text),
+    NEW.store_id,'notification_setting','Sipariş bildirimleri',
+    pg_catalog.jsonb_build_object(
+      'emailEnabled',true,
+      'orderNotificationsEnabled',true,
+      'notificationEmail',principal.email,
+      'senderLabel',store.name,
+      'replyToEmail',principal.email
+    ),
+    'active',1,NEW.updated_at,NEW.updated_at
+  ) ON CONFLICT(id) DO NOTHING;
+  RETURN NEW;
+END
+$function$;
+
+CREATE TRIGGER order_email_seed_notification_setting
+  AFTER INSERT OR UPDATE ON saas.memberships
+  FOR EACH ROW EXECUTE FUNCTION saas.order_email_seed_notification_setting();
+
 CREATE TABLE saas.order_email_deliveries(
   id uuid PRIMARY KEY,
   store_id uuid NOT NULL,
@@ -151,7 +207,7 @@ BEGIN
   ) VALUES(
     delivery_id,p_store_id,p_order_id,p_order_event_id,p_event_type,p_recipient_kind,
     'pending',0,p_created_at,'order-email/v1/'||delivery_id::text,p_created_at,p_created_at
-  ) ON CONFLICT(store_id,order_id,event_type,recipient_kind) DO NOTHING;
+  ) ON CONFLICT DO NOTHING;
 END
 $function$;
 
@@ -517,6 +573,7 @@ END
 $function$;
 
 ALTER FUNCTION saas.merchant_admin_config_valid(text,jsonb) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.order_email_seed_notification_setting() OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.order_email_enqueue(uuid,uuid,uuid,text,text,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.order_events_enqueue_email() OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.order_email_timestamp(timestamptz) OWNER TO celebix_saas_owner;
@@ -531,6 +588,7 @@ ALTER FUNCTION saas.order_email_admin_list(uuid,uuid,uuid,uuid,text,bigint,times
 ALTER FUNCTION saas.order_email_admin_retry(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid) OWNER TO celebix_saas_owner;
 
 REVOKE ALL ON FUNCTION saas.merchant_admin_config_valid(text,jsonb),
+  saas.order_email_seed_notification_setting(),
   saas.order_email_enqueue(uuid,uuid,uuid,text,text,timestamptz),saas.order_events_enqueue_email(),
   saas.order_email_timestamp(timestamptz),
   saas.order_email_work_claim(text,timestamptz,timestamptz,integer,uuid),
