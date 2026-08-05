@@ -37,6 +37,8 @@ function orders(): OrderRepository {
     listOrders: reject,
     getOrder: reject,
     getOrderNeighbors: reject,
+    listEmailDeliveries: reject,
+    retryEmailDelivery: reject,
     transitionStatus: reject,
     transitionPayment: reject,
     updateShipping: reject,
@@ -61,8 +63,8 @@ test("approved access resolves an immutable order-only repository facade", () =>
   assert.equal(Object.isFrozen(runtime.orders), true);
   assert.deepEqual(Object.keys(runtime.orders).sort(), [
     "addNote", "archiveDraft", "archiveNote", "convertDraft", "createDraft", "getDashboardSummary",
-    "getDraft", "getOrder", "getOrderNeighbors", "listDrafts", "listOrders", "transitionPayment",
-    "transitionStatus", "updateDraft", "updateShipping",
+    "getDraft", "getOrder", "getOrderNeighbors", "listDrafts", "listEmailDeliveries", "listOrders",
+    "retryEmailDelivery", "transitionPayment", "transitionStatus", "updateDraft", "updateShipping",
   ]);
   for (const forbidden of ["pool", "options", "database", "connectionString", "tenantContext"]) {
     assert.equal(forbidden in runtime.orders, false);
@@ -94,7 +96,7 @@ test("approved staging preflight gates one shared pool on exact order tables and
   assert.equal((source.match(/new Pool\(/g) ?? []).length, 1);
   assert.match(source, /new PostgresOrderRepository\([\s\S]*?pool,/);
   assert.match(source, /registerServerOrderRepository\(access, orderRepository\)/);
-  for (const table of ["orders", "order_items", "order_events", "order_notes", "order_operations"]) {
+  for (const table of ["orders", "order_items", "order_events", "order_notes", "order_operations", "order_email_deliveries"]) {
     assert.match(source, new RegExp(`to_regclass\\('saas\\.${table}'\\) IS NOT NULL`));
   }
   for (const table of ["order_drafts", "order_draft_lines", "order_draft_operations", "manual_order_inventory_commitments"]) {
@@ -105,6 +107,8 @@ test("approved staging preflight gates one shared pool on exact order tables and
     "orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)",
     "orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
     "orders_get_neighbors(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "order_email_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "order_email_admin_retry(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid)",
     "orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
     "orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
     "orders_update_shipping(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb,jsonb)",

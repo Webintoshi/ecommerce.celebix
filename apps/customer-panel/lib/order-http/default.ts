@@ -24,6 +24,10 @@ type OrderNoteRouteContext = Readonly<{
   params: Promise<Readonly<{ orderId: string; noteId: string }>>;
 }>;
 
+type OrderEmailDeliveryRouteContext = Readonly<{
+  params: Promise<Readonly<{ orderId: string; deliveryId: string }>>;
+}>;
+
 type OrderDraftRouteContext = Readonly<{
   params: Promise<Readonly<{ draftId: string }>>;
 }>;
@@ -39,6 +43,19 @@ export async function handleDefaultOrderGet(request: Request, context: OrderRout
 export async function handleDefaultOrderGetNeighbors(request: Request, context: OrderRouteContext) {
   const { orderId } = await context.params;
   return handlers.getOrderNeighbors(request, orderId);
+}
+
+export async function handleDefaultOrderListEmailDeliveries(request: Request, context: OrderRouteContext) {
+  const { orderId } = await context.params;
+  return handlers.listEmailDeliveries(request, orderId);
+}
+
+export async function handleDefaultOrderRetryEmailDelivery(
+  request: Request,
+  context: OrderEmailDeliveryRouteContext,
+) {
+  const { orderId, deliveryId } = await context.params;
+  return handlers.retryEmailDelivery(request, orderId, deliveryId);
 }
 
 export async function handleDefaultOrderTransitionStatus(request: Request, context: OrderRouteContext) {

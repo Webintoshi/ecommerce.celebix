@@ -20,6 +20,7 @@ const ORDERS = "/api/orders";
 const SUMMARY = "/api/orders/summary";
 const ORDER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const DELIVERY_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
 const DRAFT_ID = "12121212-1212-4121-8121-121212121212";
 const DRAFT_LINE_ID = "13131313-1313-4131-8131-131313131313";
@@ -102,6 +103,18 @@ function neighbors() {
   return Object.freeze({
     previous: Object.freeze({ id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", orderNumber: "HMN-1002" }),
     next: Object.freeze({ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", orderNumber: "HMN-1000" }),
+  });
+}
+
+function delivery() {
+  return Object.freeze({
+    id: DELIVERY_ID,
+    eventType: "order_received" as const,
+    recipientKind: "customer" as const,
+    recipientMask: "ada•••@example.com",
+    status: "failed" as const,
+    occurredAt: NOW.toISOString(),
+    canRetry: true,
   });
 }
 
@@ -190,6 +203,8 @@ function repository(overrides: Partial<OrderRepository> = {}): OrderRepository {
     listOrders: reject,
     getOrder: reject,
     getOrderNeighbors: reject,
+    listEmailDeliveries: reject,
+    retryEmailDelivery: reject,
     transitionStatus: reject,
     transitionPayment: reject,
     updateShipping: reject,
@@ -424,6 +439,27 @@ test("authenticated order neighbors are tenant-scoped, parsed, and no-store", as
   assert.doesNotMatch(JSON.stringify(await (await handlers.getOrderNeighbors(request(`${ORDERS}/${ORDER_ID}/neighbors`), ORDER_ID)).json()), /storeId|principalId|membershipId|issuer|subject/i);
 });
 
+test("order notification history and retry stay tenant-scoped and expose only masked delivery facts", async () => {
+  const calls: Array<readonly [string, unknown]> = [];
+  const handlers = createOrderHttpHandlers(dependencies(repository({
+    async listEmailDeliveries(input) { calls.push(["list", input]); return Object.freeze([delivery()]); },
+    async retryEmailDelivery(input) { calls.push(["retry", input]); return delivery(); },
+  })));
+  const listPath = `${ORDERS}/${ORDER_ID}/notifications`;
+  const retryPath = `${listPath}/${DELIVERY_ID}/retry`;
+  const listed = await handlers.listEmailDeliveries(request(listPath), ORDER_ID);
+  const retried = await handlers.retryEmailDelivery(request(retryPath, { method: "POST" }), ORDER_ID, DELIVERY_ID);
+  assert.equal(listed.status, 200);
+  assert.equal(retried.status, 200);
+  assert.deepEqual(await body(listed), { items: [delivery()] });
+  assert.deepEqual(await body(retried), delivery());
+  assert.deepEqual(calls, [
+    ["list", { tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }],
+    ["retry", { tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID, deliveryId: DELIVERY_ID }],
+  ]);
+  assert.doesNotMatch(JSON.stringify(await body(await handlers.listEmailDeliveries(request(listPath), ORDER_ID))), /storeId|tenantId|provider|email_address/i);
+});
+
 test("five authenticated mutation endpoints forward exact safe commands", async () => {
   const calls: Array<readonly [string, unknown]> = [];
   const handlers = createOrderHttpHandlers(dependencies(repository({
@@ -460,6 +496,8 @@ test("every endpoint enforces its exact method", async () => {
     [(r: Request) => handlers.listOrders(r), "GET"],
     [(r: Request) => handlers.getOrder(r, ORDER_ID), "GET"],
     [(r: Request) => handlers.getOrderNeighbors(r, ORDER_ID), "GET"],
+    [(r: Request) => handlers.listEmailDeliveries(r, ORDER_ID), "GET"],
+    [(r: Request) => handlers.retryEmailDelivery(r, ORDER_ID, DELIVERY_ID), "POST"],
     [(r: Request) => handlers.transitionStatus(r, ORDER_ID), "PATCH"],
     [(r: Request) => handlers.transitionPayment(r, ORDER_ID), "PATCH"],
     [(r: Request) => handlers.updateShipping(r, ORDER_ID), "PATCH"],

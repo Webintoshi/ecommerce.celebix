@@ -15,6 +15,7 @@ const ORDER_ID = "11111111-1111-4111-8111-111111111111";
 const ITEM_ID = "22222222-2222-4222-8222-222222222222";
 const EVENT_ID = "33333333-3333-4333-8333-333333333333";
 const NOTE_ID = "44444444-4444-4444-8444-444444444444";
+const DELIVERY_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const OPERATION_ID = "55555555-5555-4555-8555-555555555555";
 const DRAFT_ID = "66666666-6666-4666-8666-666666666666";
 const DRAFT_LINE_ID = "77777777-7777-4777-8777-777777777777";
@@ -90,6 +91,16 @@ const detail = Object.freeze({
     updatedAt: NOW,
   })]),
 }) satisfies OrderDetail;
+
+const delivery = Object.freeze({
+  id: DELIVERY_ID,
+  eventType: "order_received" as const,
+  recipientKind: "customer" as const,
+  recipientMask: "ada•••@example.com",
+  status: "failed" as const,
+  occurredAt: NOW,
+  canRetry: true,
+});
 
 const draftIntent = Object.freeze({
   customerName: "Ada Lovelace",
@@ -450,6 +461,30 @@ test("order client mutations use exact relative paths, JSON, idempotency, and sa
     },
   });
   assert.equal(results.every(Object.isFrozen), true);
+});
+
+test("order client reads masked notification history and retries only by strict delivery ID", async () => {
+  const { createOrderApiClient } = await import("./order-ui/client.ts");
+  const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
+  const bodies = [{ items: [delivery] }, delivery];
+  const api = createOrderApiClient({
+    fetch: async (input, init) => { calls.push([input, init]); return json(bodies.shift()); },
+  });
+  const history = await api.getOrderNotifications(ORDER_ID);
+  const retried = await api.retryOrderNotification(ORDER_ID, DELIVERY_ID);
+  assert.deepEqual(calls.map(([path]) => path), [
+    `/api/orders/${ORDER_ID}/notifications`,
+    `/api/orders/${ORDER_ID}/notifications/${DELIVERY_ID}/retry`,
+  ]);
+  assert.equal(calls[0]?.[1]?.method, "GET");
+  assert.equal(calls[1]?.[1]?.method, "POST");
+  assert.equal(calls.every(([, init]) => init?.credentials === "same-origin"), true);
+  assert.equal(Object.isFrozen(history), true);
+  assert.equal(Object.isFrozen(history[0]), true);
+  assert.equal(Object.isFrozen(retried), true);
+  await assert.rejects(() => api.retryOrderNotification(ORDER_ID, "bad"), {
+    name: "TypeError", message: "order_client_invalid",
+  });
 });
 
 test("order client fails closed on unsafe payloads and contains no browser authority channel", async () => {
@@ -822,6 +857,28 @@ test("order detail renders immutable items, events, and merchant notes", async (
   assert.match(html, /Müşteri iletişimi/);
   assert.match(html, /mailto:ada@example[.]com/);
   assert.match(html, /tel:[+]905551112233/);
+});
+
+test("order detail shows quiet Turkish notification history and retries only failed deliveries", async () => {
+  const Presentation = await compilePresentation("components/orders/OrderDetailConsole.tsx", "OrderDetailPresentation");
+  const html = renderToStaticMarkup(createElement(Presentation, {
+    detail,
+    notifications: [delivery, { ...delivery, id: EVENT_ID, status: "delivered", canRetry: false }],
+    state: "loaded",
+    error: "",
+    notice: "",
+    busy: "",
+    notificationBusy: "",
+    capabilities: { fulfill: true, manage: true, payment: true, shipping: true, note: true },
+    onRetry() {}, onNotificationRetry() {}, onStatusChange() {}, onPaymentChange() {}, onShippingSubmit() {}, onNoteSubmit() {}, onNoteArchive() {},
+  }));
+  assert.match(html, /Bildirimler/);
+  assert.match(html, /Sipariş alındı/);
+  assert.match(html, /ada•••@example[.]com/);
+  assert.match(html, /Gönderilemedi/);
+  assert.match(html, /Teslim edildi/);
+  assert.equal((html.match(/Tekrar dene/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /provider|queue|outbox|Resend/i);
 });
 
 test("order detail exposes deterministic previous/next navigation in a responsive workspace", async () => {

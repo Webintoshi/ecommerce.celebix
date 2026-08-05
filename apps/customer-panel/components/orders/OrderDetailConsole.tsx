@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   type OrderAddress,
   type OrderDetail,
+  type OrderEmailDeliveryStatus,
+  type OrderEmailDeliverySummary,
+  type OrderEmailEventType,
   type OrderNeighbors,
   type OrderPaymentStatus,
   type OrderStatus,
@@ -37,6 +40,26 @@ const SOURCE_LABELS: Readonly<Record<OrderDetail["source"], string>> = Object.fr
   marketplace: "Pazar yeri",
   manual_import: "Manuel aktarım",
   manual: "Manuel sipariş",
+});
+const EMAIL_EVENT_LABELS: Readonly<Record<OrderEmailEventType, string>> = Object.freeze({
+  order_received: "Sipariş alındı",
+  payment_completed: "Ödeme tamamlandı",
+  order_shipped: "Kargoya verildi",
+  order_delivered: "Teslim edildi",
+  order_cancelled: "Sipariş iptal edildi",
+  refund_completed: "İade tamamlandı",
+  merchant_new_order: "Yeni sipariş bildirimi",
+});
+const EMAIL_STATUS_LABELS: Readonly<Record<OrderEmailDeliveryStatus, string>> = Object.freeze({
+  pending: "Hazırlanıyor",
+  leased: "Gönderiliyor",
+  accepted: "Gönderildi",
+  delivered: "Teslim edildi",
+  delayed: "Gecikti",
+  failed: "Gönderilemedi",
+  bounced: "Ulaşmadı",
+  complained: "İstenmeyen olarak işaretlendi",
+  suppressed: "Gönderim engellendi",
 });
 
 export function getAuthorizedOrderStatusOptions(
@@ -151,11 +174,14 @@ export interface OrderDetailPresentationProps {
   readonly state: DetailState;
   readonly detail?: OrderDetail;
   readonly neighbors?: OrderNeighbors;
+  readonly notifications?: readonly OrderEmailDeliverySummary[];
   readonly error: string;
   readonly notice: string;
   readonly busy: string;
+  readonly notificationBusy?: string;
   readonly capabilities: OrderUiCapabilities;
   readonly onRetry: () => void;
+  readonly onNotificationRetry?: (deliveryId: string) => void;
   readonly onStatusChange: (status: OrderStatus) => void;
   readonly onPaymentChange: (status: OrderPaymentStatus) => void;
   readonly onShippingSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -171,6 +197,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
   const order = props.detail;
   const statusOptions = getAuthorizedOrderStatusOptions(order.status, props.capabilities);
   const paymentOptions = getAuthorizedOrderPaymentOptions(order.paymentStatus, props.capabilities.payment);
+  const notifications = props.notifications ?? Object.freeze([]);
   return (
     <PanelPageShell>
       <header className={styles.orderTopbar}>
@@ -245,6 +272,28 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         </section>
       </div>
 
+      {notifications.length > 0 ? (
+        <section className={styles.notifications} aria-labelledby="order-notifications-title">
+          <div className={styles.sectionHeading}><div><h2 id="order-notifications-title">Bildirimler</h2></div></div>
+          <div className={styles.notificationList}>
+            {notifications.map((notification) => (
+              <article key={notification.id}>
+                <div><strong>{EMAIL_EVENT_LABELS[notification.eventType]}</strong><span>{notification.recipientMask}</span></div>
+                <span className={styles.notificationStatus}>{EMAIL_STATUS_LABELS[notification.status]}</span>
+                <time dateTime={notification.occurredAt}>{date(notification.occurredAt)}</time>
+                {notification.canRetry && props.onNotificationRetry ? (
+                  <button
+                    type="button"
+                    disabled={props.notificationBusy !== undefined && props.notificationBusy !== ""}
+                    onClick={() => props.onNotificationRetry?.(notification.id)}
+                  >{props.notificationBusy === notification.id ? "Gönderiliyor…" : "Tekrar dene"}</button>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className={styles.timeline} aria-labelledby="timeline-title"><div className={styles.sectionHeading}><div><h2 id="timeline-title">Sipariş geçmişi</h2><p>Değiştirilemez operasyon kayıtları</p></div></div>{order.events.length === 0 ? <p className={styles.muted}>Sipariş olayı bulunmuyor.</p> : <ol>{order.events.map((event) => <li key={event.id}><span aria-hidden="true" /><div><strong>{event.message}</strong><small>{date(event.createdAt)} · {event.type}</small></div></li>)}</ol>}</section>
         </main>
 
@@ -277,20 +326,24 @@ function safeMessage(error: unknown) {
 export function OrderDetailConsole({ orderId, capabilities }: { orderId: string; capabilities: OrderUiCapabilities }) {
   const [detail, setDetail] = useState<OrderDetail>();
   const [neighbors, setNeighbors] = useState<OrderNeighbors>();
+  const [notifications, setNotifications] = useState<readonly OrderEmailDeliverySummary[]>(Object.freeze([]));
   const [state, setState] = useState<DetailState>("loading");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [notificationBusy, setNotificationBusy] = useState("");
 
   const load = useCallback(async (conflict = false) => {
     setError("");
     try {
-      const [current, adjacent] = await Promise.all([
+      const [current, adjacent, deliveries] = await Promise.all([
         orderApi.getOrder(orderId),
         orderApi.getOrderNeighbors(orderId).catch(() => undefined),
+        orderApi.getOrderNotifications(orderId).catch(() => undefined),
       ]);
       setDetail(current);
       setNeighbors(adjacent);
+      if (deliveries !== undefined) setNotifications(deliveries);
       setState("loaded");
       if (conflict) setNotice("Başka bir güncelleme algılandı; en güncel veriler yeniden yüklendi. Değişiklikleriniz gönderilmedi.");
     } catch (failure) {
@@ -302,6 +355,7 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
   useEffect(() => {
     setDetail(undefined);
     setNeighbors(undefined);
+    setNotifications(Object.freeze([]));
     setState("loading");
     void load();
   }, [load]);
@@ -345,5 +399,20 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     void mutation(`note-${noteId}`, () => orderApi.archiveNote(orderId, noteId), "Dahili not arşivlendi.");
   }
 
-  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} error={error} notice={notice} busy={busy} capabilities={capabilities} onRetry={() => { setState("loading"); void load(); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
+  async function retryNotification(deliveryId: string) {
+    setNotificationBusy(deliveryId);
+    setError("");
+    setNotice("");
+    try {
+      const retried = await orderApi.retryOrderNotification(orderId, deliveryId);
+      setNotifications((current) => Object.freeze(current.map((item) => item.id === retried.id ? retried : item)));
+      setNotice("Bildirim yeniden gönderime alındı.");
+    } catch (failure) {
+      setError(safeMessage(failure));
+    } finally {
+      setNotificationBusy("");
+    }
+  }
+
+  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onRetry={() => { setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
 }

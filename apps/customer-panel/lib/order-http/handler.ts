@@ -4,6 +4,7 @@ import {
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,
   parseOrderDraftListItem,
+  parseOrderEmailDeliverySummary,
   parseOrderListItem,
   parseOrderNeighbors,
   type TenantContext,
@@ -422,6 +423,52 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
           orderId,
         }),
         parseOrderNeighbors,
+      );
+    },
+
+    async listEmailDeliveries(request: Request, rawOrderId: unknown): Promise<Response> {
+      const orderId = pathId(rawOrderId);
+      if (isResponse(orderId)) return orderId;
+      const authorized = await authorize(dependencies, request, {
+        method: "GET", pathname: `${ORDERS_PATH}/${orderId}/notifications`, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      return execute(
+        () => authorized.runtime.orders.listEmailDeliveries({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          orderId,
+        }),
+        (result) => {
+          if (!Array.isArray(result) || result.length > 16) throw new TypeError("invalid");
+          return Object.freeze({ items: Object.freeze(result.map(parseOrderEmailDeliverySummary)) });
+        },
+      );
+    },
+
+    async retryEmailDelivery(
+      request: Request,
+      rawOrderId: unknown,
+      rawDeliveryId: unknown,
+    ): Promise<Response> {
+      const orderId = pathId(rawOrderId);
+      const deliveryId = pathId(rawDeliveryId);
+      if (isResponse(orderId)) return orderId;
+      if (isResponse(deliveryId)) return deliveryId;
+      const authorized = await authorize(dependencies, request, {
+        method: "POST",
+        pathname: `${ORDERS_PATH}/${orderId}/notifications/${deliveryId}/retry`,
+        query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      return execute(
+        () => authorized.runtime.orders.retryEmailDelivery({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          orderId,
+          deliveryId,
+        }),
+        parseOrderEmailDeliverySummary,
       );
     },
 

@@ -18,6 +18,8 @@ const METHODS = Object.freeze([
   "listOrders",
   "getOrder",
   "getOrderNeighbors",
+  "listEmailDeliveries",
+  "retryEmailDelivery",
   "transitionStatus",
   "transitionPayment",
   "updateShipping",

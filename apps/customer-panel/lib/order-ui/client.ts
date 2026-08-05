@@ -8,6 +8,7 @@ import {
   parseOrderDraftDetail,
   parseOrderDraftListItem,
   parseOrderDraftSaveIntent,
+  parseOrderEmailDeliverySummary,
   parseOrderListItem,
   parseOrderNeighbors,
   type OrderAddress,
@@ -17,6 +18,7 @@ import {
   type OrderDraftDetail,
   type OrderDraftListItem,
   type OrderDraftSaveIntent,
+  type OrderEmailDeliverySummary,
   type OrderListItem,
   type OrderNeighbors,
   type OrderPaymentStatus,
@@ -364,6 +366,32 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
       const order = local(() => id(orderId));
       const body = await request(`/api/orders/${order}/neighbors`, { method: "GET", credentials: "same-origin", cache: "no-store" });
       return safeParse(() => parseOrderNeighbors(body));
+    },
+
+    async getOrderNotifications(orderId: string): Promise<readonly Readonly<OrderEmailDeliverySummary>[]> {
+      const order = local(() => id(orderId));
+      const result = await request(`/api/orders/${order}/notifications`, {
+        method: "GET", credentials: "same-origin", cache: "no-store",
+      });
+      return safeParse(() => {
+        const body = record(result);
+        if (body === null || Object.keys(body).join(",") !== "items" || !Array.isArray(body.items) || body.items.length > 16) {
+          throw new TypeError("order_response_invalid");
+        }
+        return Object.freeze(body.items.map(parseOrderEmailDeliverySummary));
+      });
+    },
+
+    async retryOrderNotification(orderId: string, deliveryId: string): Promise<Readonly<OrderEmailDeliverySummary>> {
+      const order = local(() => id(orderId));
+      const delivery = local(() => id(deliveryId));
+      const result = await request(`/api/orders/${order}/notifications/${delivery}/retry`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      return safeParse(() => parseOrderEmailDeliverySummary(result));
     },
 
     transitionStatus(orderId: string, input: Readonly<{ expectedVersion: number; nextStatus: OrderStatus }>) {

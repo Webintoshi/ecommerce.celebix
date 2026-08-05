@@ -109,6 +109,9 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.order_events') IS NOT NULL
         AND to_regclass('saas.order_notes') IS NOT NULL
         AND to_regclass('saas.order_operations') IS NOT NULL AS migrations_022,
+      to_regclass('saas.order_email_deliveries') IS NOT NULL
+        AND to_regprocedure('saas.order_email_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.order_email_admin_retry(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid)') IS NOT NULL AS order_email_repository,
       to_regclass('saas.order_drafts') IS NOT NULL
         AND to_regclass('saas.order_draft_lines') IS NOT NULL
         AND to_regclass('saas.order_draft_operations') IS NOT NULL
@@ -347,6 +350,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.database_name !== databaseName || row.is_superuser !== false ||
       row.identity_member !== true || row.catalog_member !== true || row.host_resolver_member !== true || row.migrations_001_019 !== true ||
       row.migrations_022 !== true ||
+      row.order_email_repository !== true ||
       row.migrations_078 !== true ||
       row.migrations_024_026 !== true ||
       row.sessions !== true || row.tenant_admin_auth !== true || row.session_resolver !== true || row.session_rotator !== true ||

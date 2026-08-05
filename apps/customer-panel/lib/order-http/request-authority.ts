@@ -2,7 +2,7 @@ import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const ORDER_PATH = new RegExp(
-  `^(?:/api/orders|/api/orders/summary|/api/orders/drafts|/api/orders/drafts/${UUID}|/api/orders/drafts/${UUID}/(?:archive|convert)|/api/orders/${UUID}|/api/orders/${UUID}/(?:status|payment|shipping|notes|neighbors)|/api/orders/${UUID}/notes/${UUID}/archive)$`,
+  `^(?:/api/orders|/api/orders/summary|/api/orders/drafts|/api/orders/drafts/${UUID}|/api/orders/drafts/${UUID}/(?:archive|convert)|/api/orders/${UUID}|/api/orders/${UUID}/(?:status|payment|shipping|notes|neighbors|notifications)|/api/orders/${UUID}/notes/${UUID}/archive|/api/orders/${UUID}/notifications/${UUID}/retry)$`,
 );
 
 export type OrderRequestAuthorityDecision =
