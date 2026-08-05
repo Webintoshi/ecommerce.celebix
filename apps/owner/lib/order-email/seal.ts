@@ -13,6 +13,7 @@ const KEY_ID = /^[a-z][a-z0-9_-]{2,31}$/u;
 const EMAIL = /^[^@\s]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?[.][A-Za-z]{2,63}$/u;
 const FROM = /^.{1,160} <[^@\s]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?[.][A-Za-z]{2,63}>$/u;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
+const BODY_CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/u;
 const FORBIDDEN_HTML = /<(?:script|style|form|iframe|object|embed|link)\b|\bdata:/iu;
 
 export type OrderEmailProviderRequest = Readonly<{
@@ -59,6 +60,11 @@ function bounded(value: unknown, minimum: number, maximum: number, pattern?: Reg
   return value;
 }
 
+function bodyText(value: unknown): string {
+  if (typeof value !== "string" || value.length < 1 || value.length > 100_000 || value !== value.trim() || BODY_CONTROL.test(value)) invalid();
+  return value;
+}
+
 function parseRequest(value: unknown): OrderEmailProviderRequest {
   const parsed = exact(value, ["from", "to", "subject", "html", "text"], ["replyTo"]);
   const html = bounded(parsed.html, 1, 200_000);
@@ -69,7 +75,7 @@ function parseRequest(value: unknown): OrderEmailProviderRequest {
     ...(Object.hasOwn(parsed, "replyTo") ? { replyTo: bounded(parsed.replyTo, 3, 320, EMAIL) } : {}),
     subject: bounded(parsed.subject, 1, 250),
     html,
-    text: bounded(parsed.text, 1, 100_000),
+    text: bodyText(parsed.text),
   });
 }
 

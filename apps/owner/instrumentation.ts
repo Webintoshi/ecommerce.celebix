@@ -10,8 +10,12 @@ export async function register(): Promise<void> {
   const { startDefaultStoreDomainProductionWorker } = await import(
     "./lib/store-domain-reconciliation/default.ts"
   );
+  const { startDefaultOrderEmailProductionWorker } = await import(
+    "./lib/order-email/default.ts"
+  );
   root[RUNTIME] = Object.freeze({
     merchantProvider: await startDefaultMerchantProviderProductionWorker(),
     storeDomains: await startDefaultStoreDomainProductionWorker(),
+    orderEmail: await startDefaultOrderEmailProductionWorker(),
   });
 }

@@ -16,11 +16,16 @@ const ENDPOINT = "https://api.resend.com/emails";
 const RESPONSE_LIMIT = 16_384;
 const KEY = /^order-email\/v1\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
+const BODY_CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/u;
 const DELAYS = Object.freeze([30_000, 120_000, 600_000, 3_600_000, 10_800_000, 21_600_000, 43_200_000] as const);
 
 function invalid(): never { throw new Error("order_email_resend_invalid"); }
 function text(value: unknown, minimum: number, maximum: number): string {
   if (typeof value !== "string" || value.length < minimum || value.length > maximum || value !== value.trim() || CONTROL.test(value)) invalid();
+  return value;
+}
+function body(value: unknown, maximum: number): string {
+  if (typeof value !== "string" || value.length < 1 || value.length > maximum || value !== value.trim() || BODY_CONTROL.test(value)) invalid();
   return value;
 }
 function ordinary(value: unknown): Record<string, unknown> {
@@ -39,7 +44,7 @@ function validateRequest(value: OrderEmailProviderRequest): OrderEmailProviderRe
   return Object.freeze({
     from: text(parsed.from, 7, 320), to: text(parsed.to, 3, 320),
     ...(Object.hasOwn(parsed, "replyTo") ? { replyTo: text(parsed.replyTo, 3, 320) } : {}),
-    subject: text(parsed.subject, 1, 250), html: text(parsed.html, 1, 200_000), text: text(parsed.text, 1, 100_000),
+    subject: text(parsed.subject, 1, 250), html: body(parsed.html, 200_000), text: body(parsed.text, 100_000),
   });
 }
 
@@ -142,4 +147,3 @@ export async function sendOrderEmail(
     clearTimeout(timer);
   }
 }
-
