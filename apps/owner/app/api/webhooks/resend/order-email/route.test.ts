@@ -9,3 +9,9 @@ test("public order email webhook route delegates the raw request and disables ca
   assert.doesNotMatch(source, /request[.]json\(/u);
   assert.match(source, /force-dynamic/u);
 });
+
+test("owner middleware lets the signed Resend webhook reach its route without an owner session", async () => {
+  const middleware = await readFile(new URL("../../../../../middleware.ts", import.meta.url), "utf8");
+  assert.match(middleware, /OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH\s*=\s*["']\/api\/webhooks\/resend\/order-email["']/u);
+  assert.match(middleware, /pathname\s*===\s*OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH/u);
+});

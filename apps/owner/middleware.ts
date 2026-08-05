@@ -28,6 +28,7 @@ const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
 const OWNER_PUBLIC_RUNTIME_API_PATH = "/api/public/runtime";
 const OWNER_PUBLIC_REGISTRATION_PATH = "/api/self-serve/register";
+const OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH = "/api/webhooks/resend/order-email";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
 const OWNER_RECOVER_PATH = "/auth/recover";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
@@ -134,6 +135,10 @@ function getSameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginR
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  if (pathname === OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH) {
+    return withSecurity(request, nextResponse(request));
+  }
 
   if (isPublicSelfServeRoute(pathname)) {
     return withSecurity(
