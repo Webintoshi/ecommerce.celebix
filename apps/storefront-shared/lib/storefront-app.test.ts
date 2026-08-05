@@ -699,7 +699,9 @@ test("proxy grants exact-origin form authority only to the account verification 
   });
   const exact = await handler(new NextRequest("https://internal.example/account/verify"));
   assert.match(exact.headers.get("content-security-policy") ?? "", /form-action https:\/\/pilot[.]saas-staging[.]celebix[.]site(?:;|$)/u);
-  for (const path of ["/account/login", "/account/verify/", "/account/verify?x=1"]) {
+  const magicLink = await handler(new NextRequest("https://internal.example/account/verify?ticket=opaque&returnTo=%2Faccount"));
+  assert.match(magicLink.headers.get("content-security-policy") ?? "", /form-action https:\/\/pilot[.]saas-staging[.]celebix[.]site(?:;|$)/u);
+  for (const path of ["/account/login", "/account/verify/"]) {
     const response = await handler(new NextRequest(`https://internal.example${path}`));
     assert.match(response.headers.get("content-security-policy") ?? "", /form-action 'none'/u);
   }
