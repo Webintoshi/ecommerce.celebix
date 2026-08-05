@@ -28,7 +28,7 @@ Typography becomes quieter without changing the visible copy:
 - Primary action: `#171717` background with white text.
 - Form surface: white.
 - Borders: light neutral gray.
-- Tenant primary color: accent-only use for motif lines, focus rings, trust mark, and confirmation state.
+- Direct tenant primary color use: motif lines, focus rings, trust mark, and confirmation state; the large surface uses only the 14% derived tint.
 
 ## Invariants
 
