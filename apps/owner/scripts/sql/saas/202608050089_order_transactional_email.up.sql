@@ -342,7 +342,8 @@ BEGIN
     accepted_at=p_now,lease_id=NULL,lease_owner=NULL,lease_expires_at=NULL,last_error_code=NULL,
     last_error_retryable=false,updated_at=p_now
   WHERE delivery.id=p_delivery_id AND delivery.status='leased' AND delivery.lease_id=p_lease_id
-    AND delivery.lease_owner=p_worker AND delivery.lease_expires_at>p_now;
+    AND delivery.lease_owner=p_worker AND delivery.lease_expires_at>p_now
+    AND delivery.sealed_request IS NOT NULL;
   IF NOT FOUND THEN RETURN QUERY SELECT 'lease_lost',NULL::jsonb; RETURN; END IF;
   FOR provider_event IN
     SELECT event.event_type,event.occurred_at,event.safe_reason_code

@@ -7,7 +7,7 @@
     {
       "file": "202608050089_order_transactional_email.up.sql",
       "direction": "up",
-      "sha256": "a3f734221aaab34f561b829ec515bf4d5eb80c8bf6b5d483443578d1d2b0a47c"
+      "sha256": "8aa710f15a14d6ea33bdeca17e80a6b1a91b9bea0d301a61bf3de4fc8aa448c8"
     },
     {
       "file": "202608050089_order_transactional_email.down.sql",
