@@ -1,6 +1,6 @@
 # Storefront Logo Size and Alignment Design
 
-Status: Kullanıcı tarafından sözlü olarak onaylandı; yazılı spec incelemesini bekliyor.
+Status: Kullanıcı tarafından yazılı olarak onaylandı.
 
 ## Amaç
 
