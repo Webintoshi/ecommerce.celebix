@@ -26,10 +26,14 @@ export function isActivePath(pathname: string, href: string) {
 export function CampaignHeaderClient({
   displayName,
   logo,
+  logoAlignment,
+  logoSize,
   navigation,
   desktopNavigation,
 }: Readonly<{
   displayName: string;
+  logoSize: "small" | "medium" | "large" | "xlarge";
+  logoAlignment: "left" | "center";
   logo?: Readonly<{
     url: string;
     altText: string;
@@ -113,6 +117,8 @@ export function CampaignHeaderClient({
             className={styles.wordmark}
             href="/"
             aria-label={`${displayName} ana sayfa`}
+            data-logo-alignment={logoAlignment}
+            data-logo-size={logoSize}
           >
             {logo ? (
               /* eslint-disable-next-line @next/next/no-img-element */ <img

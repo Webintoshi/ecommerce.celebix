@@ -18,3 +18,22 @@ test("published presentation remains the sole live overlay or solid header autho
   assert.match(css, /header\[data-header-style="overlay"\] [.]bar[.]nonHome\{[^}]*position:relative/);
   assert.doesNotMatch(source, /process[.]env|localStorage|sessionStorage|x-forwarded|storeId|tenantId/);
 });
+test("published presentation controls finite logo size and alignment with legacy defaults", async () => {
+  const [server, client, css] = await Promise.all([
+    read("CampaignHeader.tsx"),
+    read("CampaignHeaderClient.tsx"),
+    read("campaign-header.module.css"),
+  ]);
+  assert.match(server, /logoSize=\{[\s\S]*?presentation[.]schemaVersion === 3[\s\S]*?presentation[.]visual[.]logoSize[\s\S]*?: "medium"[\s\S]*?\}/);
+  assert.match(server, /logoAlignment=\{[\s\S]*?presentation[.]schemaVersion === 3[\s\S]*?presentation[.]visual[.]logoAlignment[\s\S]*?: "center"[\s\S]*?\}/);
+  assert.match(client, /logoSize: "small" \| "medium" \| "large" \| "xlarge"/);
+  assert.match(client, /logoAlignment: "left" \| "center"/);
+  assert.match(client, /data-logo-size=\{logoSize\}/);
+  assert.match(client, /data-logo-alignment=\{logoAlignment\}/);
+  for (const [size, pixels] of [["small", "32"], ["medium", "46"], ["large", "60"], ["xlarge", "76"]]) {
+    assert.match(css, new RegExp(`wordmark\\[data-logo-size="${size}"\\] img\\{[^}]*height:${pixels}px`));
+  }
+  assert.match(css, /wordmark\[data-logo-alignment="left"\]\{[^}]*justify-content:flex-start/);
+  assert.match(css, /wordmark\[data-logo-alignment="center"\]\{[^}]*justify-content:center/);
+  assert.doesNotMatch(`${server}\n${client}`, /process[.]env|localStorage|sessionStorage|document[.]cookie|x-forwarded|storeId|tenantId/);
+});
