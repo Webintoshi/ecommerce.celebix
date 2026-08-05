@@ -186,8 +186,8 @@ Expected: FAIL because published logo controls are not forwarded or rendered.
 
 ```tsx
 <CampaignHeaderClient
-  logoSize={presentation.visual.logoSize}
-  logoAlignment={presentation.visual.logoAlignment}
+  logoSize={presentation.schemaVersion === 3 ? presentation.visual.logoSize : "medium"}
+  logoAlignment={presentation.schemaVersion === 3 ? presentation.visual.logoAlignment : "center"}
   {...existingProps}
 />
 
