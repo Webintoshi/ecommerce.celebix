@@ -1,0 +1,23 @@
+{
+  "phase": "phase4i-order-transactional-email",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608050089_order_transactional_email.up.sql",
+      "direction": "up",
+      "sha256": "a3f734221aaab34f561b829ec515bf4d5eb80c8bf6b5d483443578d1d2b0a47c"
+    },
+    {
+      "file": "202608050089_order_transactional_email.down.sql",
+      "direction": "down",
+      "sha256": "a2677631befbc3264e8db2153b33ec719f8a8c6d7fc4a9523e3a87c4ba2b8cb4"
+    },
+    {
+      "file": "202608050089_order_transactional_email_assertions.sql",
+      "direction": "verify",
+      "sha256": "1aada3eb9446ecf7516895db11761f15b9cb16c96fa7af4254b201c96f609af9"
+    }
+  ]
+}
