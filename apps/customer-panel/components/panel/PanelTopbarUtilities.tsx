@@ -2,19 +2,36 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, ExternalLink } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { ToshiDrawer } from "@/components/toshi/ToshiDrawer";
 
+import { usePanelChromeModel } from "./PanelLayoutClient";
 import styles from "./panel-shell.module.css";
 
 export function PanelTopbarUtilities() {
+  const model = usePanelChromeModel();
   const [helpOpen, setHelpOpen] = useState(false);
   const helpButtonRef = useRef<HTMLButtonElement>(null);
+  const storefrontHref = model.storefrontHostname
+    ? `https://${model.storefrontHostname}/`
+    : undefined;
 
   return (
     <div className={styles.desktopTopbarUtilities}>
+      {storefrontHref ? (
+        <a
+          className={styles.topbarStorefrontLink}
+          href={storefrontHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Mağazayı Gör"
+        >
+          <ExternalLink aria-hidden="true" />
+          <span>Mağazayı Gör</span>
+        </a>
+      ) : null}
       <Link
         className={styles.topbarUtilityButton}
         href="/settings/notifications"

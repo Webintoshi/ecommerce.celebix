@@ -33,7 +33,7 @@
 - Consumes: `PanelClientChromeModel.storefrontHostname?: string`, already validated by `createPanelChromeModel`.
 - Produces: an external anchor with `href`, `target`, `rel`, accessible name, icon, and visible label; produces no anchor when the hostname is absent.
 
-- [ ] **Step 1: Add the failing component behavior test**
+- [x] **Step 1: Add the failing component behavior test**
 
 Add a hook-harness test that compiles `PanelTopbarUtilities.tsx` twice: once with `storefrontHostname: "pilot-store.celebix.site"` and once without it. Assert the first render contains exactly one anchor with:
 
@@ -46,17 +46,17 @@ assert.equal(storefrontLink.props["aria-label"], "Mağazayı Gör");
 
 Assert the second render contains no element with `aria-label === "Mağazayı Gör"`. Mock only `next/image`, `next/link`, `lucide-react`, `react`, the chrome hook, `ToshiDrawer`, and the CSS module using the existing `compileHookTestComponent`/`createPanelInteractionHarness` pattern.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
 ```bash
-node --experimental-strip-types --test --test-name-pattern='topbar opens only the server-projected canonical storefront' apps/customer-panel/lib/panel-shell.test.ts
+node --experimental-transform-types --test --test-name-pattern='topbar opens only the server-projected canonical storefront' apps/customer-panel/lib/panel-shell.test.ts
 ```
 
 Expected: FAIL because `PanelTopbarUtilities` does not render an element labelled `Mağazayı Gör`.
 
-- [ ] **Step 3: Implement the minimal topbar link**
+- [x] **Step 3: Implement the minimal topbar link**
 
 Update imports and the component:
 
@@ -91,18 +91,18 @@ export function PanelTopbarUtilities() {
 
 Insert the conditional anchor immediately before the existing notification `Link`; leave that notification link, the Toshi launcher, and `ToshiDrawer` byte-for-byte unchanged apart from any formatter-required import ordering.
 
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 4: Run the focused test and verify GREEN**
 
 Run the Step 2 command again.
 
 Expected: `1` matching test passes, `0` failures.
 
-- [ ] **Step 5: Verify the existing authority projection tests**
+- [x] **Step 5: Verify the existing authority projection tests**
 
 Run:
 
 ```bash
-node --experimental-strip-types --test apps/customer-panel/lib/panel-ui/chrome-model.test.ts
+node --experimental-transform-types --test apps/customer-panel/lib/panel-ui/chrome-model.test.ts
 ```
 
 Expected: all tests pass, including absence behavior and rejection of mismatched/ported host authority.
@@ -119,7 +119,7 @@ Expected: all tests pass, including absence behavior and rejection of mismatched
 - Consumes: `.topbarStorefrontLink` from `PanelTopbarUtilities`.
 - Produces: a wide labelled action, a 48-pixel compact desktop action, visible focus state, and an icon that remains decorative to assistive technology.
 
-- [ ] **Step 1: Add failing style/security assertions**
+- [x] **Step 1: Add failing style/security assertions**
 
 Extend the topbar test with assertions that the CSS contains a `.topbarStorefrontLink` rule with `min-width: 48px`, `min-height: 48px`, inline-flex alignment, and a narrow-desktop media rule hiding only `.topbarStorefrontLink span`. Also assert the utility source does not contain:
 
@@ -127,17 +127,17 @@ Extend the topbar test with assertions that the CSS contains a `.topbarStorefron
 /window[.]location|process[.]env|headers\(|cookies\(|storeSlug|x-forwarded|\/api\//i
 ```
 
-- [ ] **Step 2: Run the focused topbar test and verify RED**
+- [x] **Step 2: Run the focused topbar test and verify RED**
 
 Run:
 
 ```bash
-node --experimental-strip-types --test --test-name-pattern='desktop topbar matches|topbar opens only' apps/customer-panel/lib/panel-shell.test.ts
+node --experimental-transform-types --test --test-name-pattern='desktop topbar matches|topbar opens only' apps/customer-panel/lib/panel-shell.test.ts
 ```
 
 Expected: FAIL because `.topbarStorefrontLink` styling and compact media behavior do not exist.
 
-- [ ] **Step 3: Implement minimal CSS**
+- [x] **Step 3: Implement minimal CSS**
 
 Add:
 
@@ -178,13 +178,13 @@ Add:
 
 Keep the existing notification and Toshi CSS unchanged.
 
-- [ ] **Step 4: Run focused tests and verify GREEN**
+- [x] **Step 4: Run focused tests and verify GREEN**
 
 Run the Step 2 command again.
 
 Expected: both matching topbar tests pass with `0` failures.
 
-- [ ] **Step 5: Commit the complete feature**
+- [x] **Step 5: Commit the complete feature**
 
 ```bash
 git add apps/customer-panel/components/panel/PanelTopbarUtilities.tsx \
@@ -205,7 +205,7 @@ git commit -m "feat(customer-panel): add storefront shortcut"
 - Consumes: committed branch `codex/customer-panel-storefront-shortcut`.
 - Produces: pushed exact SHA and one customer-panel staging deployment.
 
-- [ ] **Step 1: Run the complete local verification matrix**
+- [x] **Step 1: Run the complete local verification matrix**
 
 ```bash
 npm ci
@@ -218,7 +218,7 @@ git status --short
 
 Expected: customer-panel tests, typecheck, and build pass; diff check is clean; worktree has no uncommitted files.
 
-- [ ] **Step 2: Run forbidden-authority and secret scans**
+- [x] **Step 2: Run forbidden-authority and secret scans**
 
 ```bash
 git diff 3ad0fb78752bfd1a004e45a313cb0ebb803419cf...HEAD -- \

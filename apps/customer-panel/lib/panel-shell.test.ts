@@ -671,18 +671,85 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.match(layout, /PanelTopbarUtilities/);
   assert.match(utilities, /Bildirim merkezi/);
   assert.match(utilities, /Bana Sorun/);
+  assert.match(utilities, /Mağazayı Gör/);
   assert.match(utilities, /href="\/settings\/notifications"/);
   assert.match(styles, /[.]desktopTopbar\s*\{[\s\S]*?min-height:\s*5[.]5rem;/);
   assert.match(styles, /[.]desktopTopbarEyebrow\s*\{[\s\S]*?letter-spacing:/);
   assert.match(styles, /[.]desktopTopbarUtilities\s*\{[\s\S]*?display:\s*flex;/);
+  assert.match(styles, /[.]topbarStorefrontLink\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?min-width:\s*48px;[\s\S]*?min-height:\s*48px;/);
+  assert.match(styles, /@media\s*\(min-width:\s*1025px\)\s*and\s*\(max-width:\s*1280px\)[\s\S]*?[.]topbarStorefrontLink span\s*\{[\s\S]*?display:\s*none;/);
   assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
+  assert.doesNotMatch(utilities, /window[.]location|process[.]env|headers\(|cookies\(|storeSlug|x-forwarded|\/api\//i);
+});
+
+test("topbar opens only the server-projected canonical storefront", async () => {
+  async function renderUtilities(storefrontHostname?: string) {
+    const documentState: HookTestDocumentState = { activeElement: null };
+    const EmptyRoot: HookTestComponent = () => null;
+    const harness = createPanelInteractionHarness(EmptyRoot, {}, documentState);
+    const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
+    const Image: HookTestComponent = (props) => harness.jsxRuntime.jsx("img", props);
+    const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
+    const ToshiDrawer: HookTestComponent = () => null;
+    const chrome = Object.freeze({
+      storeSlug: "pilot-store",
+      membershipLabel: "Mağaza sahibi",
+      planCode: "free_starter",
+      planVersion: 1,
+      entitlementStatus: "active" as const,
+      ...(storefrontHostname ? { storefrontHostname } : {}),
+      locale: "tr-TR",
+      analyticsAvailable: false,
+    });
+    const PanelTopbarUtilities = await compileHookTestComponent(
+      "components/panel/PanelTopbarUtilities.tsx",
+      (specifier) => {
+        if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+        if (specifier === "react") return harness.react;
+        if (specifier === "next/image") return Image;
+        if (specifier === "next/link") return Link;
+        if (specifier === "lucide-react") return new Proxy(
+          { __esModule: true },
+          { get: (_target, property) => property === "__esModule" ? true : Icon },
+        );
+        if (specifier === "@/components/toshi/ToshiDrawer") return { ToshiDrawer };
+        if (specifier === "./PanelLayoutClient") return { usePanelChromeModel: () => chrome };
+        if (specifier === "./panel-shell.module.css") {
+          const styles = new Proxy({}, {
+            get: (_target, property) => property === "__esModule"
+              ? true
+              : property === "default"
+                ? styles
+                : String(property),
+          });
+          return styles;
+        }
+        throw new Error(`unexpected_panel_topbar_utilities_import:${specifier}`);
+      },
+    );
+    harness.setRoot(PanelTopbarUtilities);
+    harness.flush();
+    return harness.hosts();
+  }
+
+  const ready = await renderUtilities("pilot-store.celebix.site");
+  const storefrontLink = ready.find((host) => host.props["aria-label"] === "Mağazayı Gör");
+  assert.ok(storefrontLink);
+  assert.equal(storefrontLink.type, "a");
+  assert.equal(storefrontLink.props.href, "https://pilot-store.celebix.site/");
+  assert.equal(storefrontLink.props.target, "_blank");
+  assert.equal(storefrontLink.props.rel, "noopener noreferrer");
+  assert.ok(ready.some((host) => host.type === "span" && host.props.children === "Mağazayı Gör"));
+
+  const unavailable = await renderUtilities();
+  assert.equal(unavailable.some((host) => host.props["aria-label"] === "Mağazayı Gör"), false);
 });
 
 test("topbar launches the real Toshi identity without a remote or generated avatar", async () => {
   const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
   assert.match(utilities, /src="\/toshi\/toshi-profile[.]webp"/);
   assert.match(utilities, /alt="Toshi yapay zekâ mağaza asistanı"/);
-  assert.doesNotMatch(utilities, /<Bot\b|https?:\/\//);
+  assert.doesNotMatch(utilities, /<Bot\b|src=["']https?:\/\//);
 });
 
 test("Toshi drawer is an accessible modal with complete close and focus-return behavior", async () => {

@@ -168,6 +168,39 @@
   box-shadow: 0 3px 9px rgb(17 24 39 / 8%);
 }
 
+.topbarStorefrontLink {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid #DDE4ED;
+  border-radius: 0.875rem;
+  background: #FFFFFF;
+  padding: 0 1rem;
+  color: #344054;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.topbarStorefrontLink svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.topbarStorefrontLink:hover {
+  border-color: #FFB37F;
+  color: #D94F00;
+}
+
+.topbarStorefrontLink:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgb(255 101 0 / 24%);
+}
+
 .topbarUtilityButton svg {
   width: 1.1rem;
   height: 1.1rem;
@@ -872,6 +905,17 @@
   .desktopTopbarContext {
     grid-row: 2;
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .topbarStorefrontLink {
+    width: 48px;
+    padding: 0;
+  }
+
+  .topbarStorefrontLink span {
+    display: none;
   }
 }
 
