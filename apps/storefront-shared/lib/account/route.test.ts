@@ -11,7 +11,7 @@ const ORIGIN = `https://${HOST}`;
 const MAGIC_TICKET = `ch1.seal_01.${"A".repeat(16)}.${"B".repeat(24)}.${"C".repeat(22)}.tk1.${"D".repeat(43)}`;
 const authority = () => ({ kind: "trusted" as const, hostname: HOST });
 function request(path: string, body: unknown, headers: Record<string, string> = {}) { return new Request(`${ORIGIN}${path}`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json", "sec-fetch-site": "same-origin", ...headers }, body: JSON.stringify(body) }); }
-function formRequest(body: URLSearchParams, headers: Record<string, string> = {}, path = "/api/account/auth/verify-browser") { return new Request(`${ORIGIN}${path}`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/x-www-form-urlencoded", "sec-fetch-site": "same-origin", ...headers }, body }); }
+function formRequest(body: URLSearchParams, headers: Record<string, string> = {}, path = "/api/account/auth/verify-browser", requestOrigin = ORIGIN) { return new Request(`${requestOrigin}${path}`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/x-www-form-urlencoded", "sec-fetch-site": "same-origin", ...headers }, body }); }
 function runtime(overrides: Partial<StorefrontIdentityRuntime> = {}): StorefrontIdentityRuntime {
   return {
     start: async () => ({ result: { outcome: "accepted", retryAfterSeconds: 60 }, setCookie: "__Host-celebix_account_challenge=ch1.test" }),
@@ -77,6 +77,18 @@ test("browser verify accepts a challenge-bound code and sends profile-required a
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), `${ORIGIN}/account/profile`);
   assert.deepEqual(verifyInput, { hostname: HOST, deviceLabel: "Web tarayıcısı", userAgent: "Bilinmeyen tarayıcı", challengeCookie: "__Host-celebix_account_challenge=ch1.test", code: "042319" });
+});
+
+test("browser verify accepts the internal request URL only after the edge-selected public origin matches", async () => {
+  const route = createAccountAuthVerifyBrowserRoute(deps(runtime()));
+  const response = await route(formRequest(
+    new URLSearchParams({ ticket: MAGIC_TICKET, returnTo: "/account" }),
+    {},
+    "/api/account/auth/verify-browser",
+    "http://storefront.internal:3000",
+  ));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), `${ORIGIN}/account`);
 });
 
 test("browser verify rejects cross-origin, malformed, ambiguous, and near-match submissions", async () => {

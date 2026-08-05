@@ -60,7 +60,7 @@ export async function readAccountFormRequest<T>(request: Request, configuredOrig
   try {
     const url = new URL(request.url);
     const origin = canonicalOrigin(configuredOrigin);
-    if (request.method !== "POST" || url.origin !== origin || url.pathname !== expectedPath || url.search || url.hash) invalid();
+    if (request.method !== "POST" || (url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password || url.pathname !== expectedPath || url.search || url.hash) invalid();
     if (request.headers.get("origin") !== origin || request.headers.get("content-type") !== "application/x-www-form-urlencoded" || request.headers.has("authorization") || request.headers.has("transfer-encoding") || request.body === null) invalid();
     const fetchSite = request.headers.get("sec-fetch-site");
     if (fetchSite !== null && fetchSite !== "same-origin") invalid();
