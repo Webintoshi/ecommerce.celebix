@@ -1,5 +1,7 @@
 import {
   ORDER_DRAFT_STATUSES,
+  ORDER_EMAIL_DELIVERY_STATUSES,
+  ORDER_EMAIL_EVENT_TYPES,
   ORDER_PAYMENT_STATUSES,
   ORDER_SOURCES,
   ORDER_STATUSES,
@@ -12,6 +14,10 @@ import {
   type OrderDraftSaveIntent,
   type OrderDraftSaveLineIntent,
   type OrderDraftStatus,
+  type OrderEmailDeliveryStatus,
+  type OrderEmailDeliverySummary,
+  type OrderEmailEventType,
+  type OrderEmailRecipientKind,
   type OrderDetail,
   type OrderEvent,
   type OrderItem,
@@ -187,6 +193,33 @@ export function parseOrderNeighbors(value: unknown): Readonly<OrderNeighbors> {
     ...(previous === undefined ? {} : { previous }),
     ...(next === undefined ? {} : { next }),
   } satisfies OrderNeighbors);
+}
+
+export function parseOrderEmailDeliverySummary(value: unknown): Readonly<OrderEmailDeliverySummary> {
+  const parsed = exact(value, [
+    "id", "eventType", "recipientKind", "recipientMask", "status", "occurredAt", "canRetry",
+  ]);
+  const eventType = status<OrderEmailEventType>(parsed.eventType, ORDER_EMAIL_EVENT_TYPES);
+  const recipientKind = status<OrderEmailRecipientKind>(parsed.recipientKind, ["customer", "merchant"] as const);
+  const recipientMask = string(
+    parsed.recipientMask,
+    3,
+    320,
+    /^(?:•{3}|[^@\s•]{1,8}•{2,8}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?[.][A-Za-z]{2,63})$/,
+  );
+  const deliveryStatus = status<OrderEmailDeliveryStatus>(parsed.status, ORDER_EMAIL_DELIVERY_STATUSES);
+  const canRetry = boolean(parsed.canRetry);
+  if ((eventType === "merchant_new_order") !== (recipientKind === "merchant")) invalid();
+  if (canRetry && deliveryStatus !== "failed") invalid();
+  return freeze({
+    id: uuid(parsed.id),
+    eventType,
+    recipientKind,
+    recipientMask,
+    status: deliveryStatus,
+    occurredAt: timestamp(parsed.occurredAt),
+    canRetry,
+  } satisfies OrderEmailDeliverySummary);
 }
 
 export function parseOrderListItem(value: unknown): Readonly<OrderListItem> {

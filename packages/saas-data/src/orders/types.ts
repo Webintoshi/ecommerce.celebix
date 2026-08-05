@@ -6,6 +6,7 @@ import type {
   OrderDraftListItem,
   OrderDraftSaveIntent,
   OrderDetail,
+  OrderEmailDeliverySummary,
   OrderListItem,
   OrderNeighbors,
   OrderPaymentStatus,
@@ -32,6 +33,10 @@ export interface ListOrdersInput extends OrderAuthorityInput {
 
 export interface GetOrderInput extends OrderAuthorityInput {
   readonly orderId: string;
+}
+
+export interface RetryOrderEmailDeliveryInput extends GetOrderInput {
+  readonly deliveryId: string;
 }
 
 export interface ListOrderDraftsInput extends OrderAuthorityInput {
@@ -109,6 +114,8 @@ export interface OrderRepository {
   listOrders(input: ListOrdersInput): Promise<ListOrdersResult>;
   getOrder(input: GetOrderInput): Promise<OrderDetail>;
   getOrderNeighbors(input: GetOrderInput): Promise<OrderNeighbors>;
+  listEmailDeliveries(input: GetOrderInput): Promise<readonly OrderEmailDeliverySummary[]>;
+  retryEmailDelivery(input: RetryOrderEmailDeliveryInput): Promise<OrderEmailDeliverySummary>;
   transitionStatus(input: TransitionOrderStatusInput): Promise<OrderMutationResult>;
   transitionPayment(input: TransitionOrderPaymentInput): Promise<OrderMutationResult>;
   updateShipping(input: UpdateOrderShippingInput): Promise<OrderMutationResult>;

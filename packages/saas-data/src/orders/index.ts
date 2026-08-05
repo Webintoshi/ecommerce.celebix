@@ -17,6 +17,7 @@ export type {
   OrderOperationInput,
   OrderDraftOperationInput,
   OrderRepository,
+  RetryOrderEmailDeliveryInput,
   PostgresOrderRepositoryOptions,
   TransitionOrderPaymentInput,
   TransitionOrderStatusInput,

@@ -1,4 +1,12 @@
-export { ORDER_DRAFT_STATUSES, ORDER_PAYMENT_STATUSES, ORDER_SOURCES, ORDER_STATUSES, ORDER_SORTS } from "./types.ts";
+export {
+  ORDER_DRAFT_STATUSES,
+  ORDER_EMAIL_DELIVERY_STATUSES,
+  ORDER_EMAIL_EVENT_TYPES,
+  ORDER_PAYMENT_STATUSES,
+  ORDER_SOURCES,
+  ORDER_STATUSES,
+  ORDER_SORTS,
+} from "./types.ts";
 export type {
   OrderAddress,
   OrderDashboardSummary,
@@ -10,6 +18,10 @@ export type {
   OrderDraftSaveIntent,
   OrderDraftSaveLineIntent,
   OrderDraftStatus,
+  OrderEmailDeliveryStatus,
+  OrderEmailDeliverySummary,
+  OrderEmailEventType,
+  OrderEmailRecipientKind,
   OrderEvent,
   OrderItem,
   OrderListItem,
@@ -25,6 +37,7 @@ export type {
 export {
   parseOrderDashboardSummary,
   parseOrderDetail,
+  parseOrderEmailDeliverySummary,
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,
   parseOrderDraftListItem,

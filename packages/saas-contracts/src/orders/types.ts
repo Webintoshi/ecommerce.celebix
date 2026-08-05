@@ -11,6 +11,29 @@ export type OrderPaymentStatus = (typeof ORDER_PAYMENT_STATUSES)[number];
 export const ORDER_SOURCES = Object.freeze(["storefront", "quick_link", "marketplace", "manual_import", "manual"] as const);
 export type OrderSource = (typeof ORDER_SOURCES)[number];
 
+export const ORDER_EMAIL_EVENT_TYPES = Object.freeze([
+  "order_received", "payment_completed", "order_shipped", "order_delivered",
+  "order_cancelled", "refund_completed", "merchant_new_order",
+] as const);
+export type OrderEmailEventType = (typeof ORDER_EMAIL_EVENT_TYPES)[number];
+
+export const ORDER_EMAIL_DELIVERY_STATUSES = Object.freeze([
+  "pending", "leased", "accepted", "delivered", "delayed", "failed",
+  "bounced", "complained", "suppressed",
+] as const);
+export type OrderEmailDeliveryStatus = (typeof ORDER_EMAIL_DELIVERY_STATUSES)[number];
+export type OrderEmailRecipientKind = "customer" | "merchant";
+
+export interface OrderEmailDeliverySummary {
+  readonly id: string;
+  readonly eventType: OrderEmailEventType;
+  readonly recipientKind: OrderEmailRecipientKind;
+  readonly recipientMask: string;
+  readonly status: OrderEmailDeliveryStatus;
+  readonly occurredAt: string;
+  readonly canRetry: boolean;
+}
+
 export const ORDER_DRAFT_STATUSES = Object.freeze(["draft", "converted", "archived"] as const);
 export type OrderDraftStatus = (typeof ORDER_DRAFT_STATUSES)[number];
 

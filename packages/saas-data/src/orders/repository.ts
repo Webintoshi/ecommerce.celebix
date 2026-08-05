@@ -3,6 +3,7 @@ import {
   ORDER_STATUSES,
   parseOrderDashboardSummary,
   parseOrderDetail,
+  parseOrderEmailDeliverySummary,
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,
   parseOrderDraftListItem,
@@ -10,6 +11,7 @@ import {
   parseOrderNeighbors,
   type OrderDashboardSummary,
   type OrderDetail,
+  type OrderEmailDeliverySummary,
   type OrderDraftConversionResult,
   type OrderDraftDetail,
   type OrderDraftListItem,
@@ -46,6 +48,7 @@ import type {
   OrderRepository,
   OrderDraftOperationInput,
   PostgresOrderRepositoryOptions,
+  RetryOrderEmailDeliveryInput,
   TransitionOrderPaymentInput,
   TransitionOrderStatusInput,
   UpdateOrderDraftInput,
@@ -158,6 +161,11 @@ function safeDetail(value: unknown): OrderDetail {
 
 function safeNeighbors(value: unknown): OrderNeighbors {
   try { return parseOrderNeighbors(value); }
+  catch { throw unavailable(); }
+}
+
+function safeEmailDelivery(value: unknown): OrderEmailDeliverySummary {
+  try { return parseOrderEmailDeliverySummary(value); }
   catch { throw unavailable(); }
 }
 
@@ -328,6 +336,43 @@ export class PostgresOrderRepository implements OrderRepository {
     }
   }
 
+  private async writeRpc<T>(
+    authority: ValidatedOrderAuthority,
+    spec: QuerySpec,
+    expectedOutcome: string,
+    parser: (value: unknown) => T,
+  ): Promise<T> {
+    const client = await this.acquire();
+    let began = false;
+    let terminal = false;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      began = true;
+      await this.configure(client);
+      const result = single(await client.query(spec.text, spec.values));
+      const expected = this.expectedError(result.outcome);
+      if (expected) throw expected;
+      if (result.outcome !== expectedOutcome) throw unavailable();
+      const parsed = parser(result.resultPayload);
+      try {
+        await client.query("COMMIT");
+        terminal = true;
+        safeRelease(client);
+        return parsed;
+      } catch {
+        terminal = true;
+        safeRelease(client, true);
+        this.emitUnknownCommitAudit();
+        throw unavailable();
+      }
+    } catch (error) {
+      if (began && !terminal) await this.rollback(client);
+      else if (!began && !terminal) safeRelease(client, true);
+      if (error instanceof OrderRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+
   private async recover<T>(
     authority: ValidatedOrderAuthority,
     operationId: string,
@@ -490,6 +535,39 @@ export class PostgresOrderRepository implements OrderRepository {
       const result = safeNeighbors(value);
       if (result.previous?.id === orderId || result.next?.id === orderId) throw unavailable();
       return result;
+    });
+  }
+
+  async listEmailDeliveries(input: GetOrderInput): Promise<readonly OrderEmailDeliverySummary[]> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const orderId = orderUuid(exact.orderId);
+    return this.read(authority, {
+      text: `SELECT outcome, result_payload FROM saas.order_email_admin_list(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
+      )`,
+      values: [...authorityValues(authority), orderId],
+    }, "listed", (value) => {
+      const envelope = payload(value, ["items"]);
+      if (!Array.isArray(envelope.items) || envelope.items.length > 16) throw unavailable();
+      return Object.freeze(envelope.items.map(safeEmailDelivery));
+    });
+  }
+
+  async retryEmailDelivery(input: RetryOrderEmailDeliveryInput): Promise<OrderEmailDeliverySummary> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId", "deliveryId"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const orderId = orderUuid(exact.orderId);
+    const deliveryId = orderUuid(exact.deliveryId);
+    return this.writeRpc(authority, {
+      text: `SELECT outcome, result_payload FROM saas.order_email_admin_retry(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid
+      )`,
+      values: [...authorityValues(authority), orderId, deliveryId],
+    }, "scheduled", (value) => {
+      const selected = safeEmailDelivery(value);
+      if (selected.id !== deliveryId || !selected.canRetry) throw unavailable();
+      return selected;
     });
   }
 

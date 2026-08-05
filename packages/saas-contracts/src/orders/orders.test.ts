@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   ORDER_DRAFT_STATUSES,
   ORDER_PAYMENT_STATUSES,
+  ORDER_EMAIL_DELIVERY_STATUSES,
+  ORDER_EMAIL_EVENT_TYPES,
   ORDER_SOURCES,
   ORDER_STATUSES,
   ORDER_SORTS,
@@ -13,6 +15,7 @@ import {
   parseOrderDraftSaveIntent,
   parseOrderDashboardSummary,
   parseOrderDetail,
+  parseOrderEmailDeliverySummary,
   parseOrderListItem,
   parseOrderNeighbors,
 } from "./index.ts";
@@ -30,6 +33,7 @@ const LINE_ID = "88888888-8888-4888-8888-888888888888";
 const PRODUCT_ID = "99999999-9999-4999-8999-999999999999";
 const VARIANT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CUSTOMER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const DELIVERY_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
 function listItem(overrides: Record<string, unknown> = {}) {
   return {
@@ -375,4 +379,43 @@ test("requires converted order identity only for converted drafts", () => {
   assert.equal(converted.convertedOrderId, ORDER_ID);
   assert.equal(converted.convertedOrderNumber, "MAN-11111111111141118111");
   assert.throws(() => parseOrderDraftDetail(draftDetail({ convertedOrderId: ORDER_ID, convertedOrderNumber: "MAN-11111111111141118111" })), /order_contract_invalid/);
+});
+
+test("parses exact frozen masked order email delivery summaries", () => {
+  const value = {
+    id: DELIVERY_ID,
+    eventType: "order_shipped",
+    recipientKind: "customer",
+    recipientMask: "a•••@example.com",
+    status: "delivered",
+    occurredAt: UPDATED_AT,
+    canRetry: false,
+  };
+  const parsed = parseOrderEmailDeliverySummary(value);
+  assert.deepEqual(parsed, value);
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.deepEqual(ORDER_EMAIL_EVENT_TYPES, [
+    "order_received", "payment_completed", "order_shipped", "order_delivered",
+    "order_cancelled", "refund_completed", "merchant_new_order",
+  ]);
+  assert.deepEqual(ORDER_EMAIL_DELIVERY_STATUSES, [
+    "pending", "leased", "accepted", "delivered", "delayed", "failed",
+    "bounced", "complained", "suppressed",
+  ]);
+});
+
+test("rejects unmasked, cross-tenant, impossible, and extended email summaries", () => {
+  const valid = {
+    id: DELIVERY_ID,
+    eventType: "order_received",
+    recipientKind: "customer",
+    recipientMask: "a•••@example.com",
+    status: "failed",
+    occurredAt: UPDATED_AT,
+    canRetry: true,
+  };
+  assert.throws(() => parseOrderEmailDeliverySummary({ ...valid, recipientMask: "ada@example.com" }), /order_contract_invalid/);
+  assert.throws(() => parseOrderEmailDeliverySummary({ ...valid, storeId: ORDER_ID }), /order_contract_invalid/);
+  assert.throws(() => parseOrderEmailDeliverySummary({ ...valid, status: "delivered", canRetry: true }), /order_contract_invalid/);
+  assert.throws(() => parseOrderEmailDeliverySummary({ ...valid, eventType: "order_preparing" }), /order_contract_invalid/);
 });
