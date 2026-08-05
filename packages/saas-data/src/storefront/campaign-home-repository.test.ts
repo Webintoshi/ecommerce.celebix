@@ -19,7 +19,7 @@ const presentation = {
   navigation: { items: [] },
   sections: [{ kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 }],
   productDetail: { galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true },
-  cart: { showCheckoutReadiness: true, showShippingProgress: true, trustMessage: "Güvenli ödeme" },
+  cart: { showCheckoutReadiness: true, showShippingProgress: true, showQuantitySelector: true, trustMessage: "Güvenli ödeme" },
   seo: { allowIndex: false },
 } as const;
 const storefront = { schemaVersion: 2, id: STORE, name: "Pilot Store", slug: "pilot-store", hostname: HOST, primaryHostname: HOST, canonicalUrl: `https://${HOST}/`, currency: "TRY", locale: "tr", themeKey: "starter", presentation } as const;
@@ -101,9 +101,9 @@ test("campaign home maps controlled not-found without returning a partial view",
   await assert.rejects(fixture(null, "not_found").repository.resolveCampaignHome({ storefront, now: NOW }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "not_found");
 });
 
-test("campaign home rejects hostname drift and malformed dates before SQL", async () => {
+test("campaign home rejects malformed hostnames and dates before SQL", async () => {
   const selected = fixture();
-  await assert.rejects(selected.repository.resolveCampaignHome({ storefront: { ...storefront, hostname: "other.saas-staging.celebix.site" } as never, now: NOW }), invalidInput);
+  await assert.rejects(selected.repository.resolveCampaignHome({ storefront: { ...storefront, hostname: "https://other.example/" } as never, now: NOW }), invalidInput);
   await assert.rejects(selected.repository.resolveCampaignHome({ storefront, now: new Date("invalid") }), invalidInput);
   assert.equal(selected.checkoutCount(), 0);
 });
