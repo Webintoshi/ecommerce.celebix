@@ -17,9 +17,15 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.match(auth, /type="hidden" name="ticket"/u);
   assert.match(auth, /type="hidden" name="returnTo"/u);
   assert.match(auth, /name="code"/u);
-  assert.match(auth, /Giriş bağlantısı gönder/u);
-  assert.match(auth, /Bağlantı 10 dakika geçerlidir/u);
-  assert.match(auth, /Kod ile devam et/u);
+  assert.match(auth, /Bağlantı gönder/u);
+  assert.match(auth, /Şifre gerekmez/u);
+  assert.match(auth, /E-postanı kontrol et/u);
+  assert.match(auth, /maskAccountEmail/u);
+  assert.match(auth, /E-postayı değiştir/u);
+  assert.match(auth, /Kod ile giriş/u);
+  assert.match(auth, />Devam et</u);
+  assert.match(auth, />Giriş yap</u);
+  assert.doesNotMatch(auth, /Bağlantı 10 dakika geçerlidir|<b>\{email\}<\/b>/u);
   assert.doesNotMatch(auth, /publicPost\("\/api\/account\/auth\/verify"|window[.]location[.]assign/u);
   assert.doesNotMatch(auth, /window[.]location[.]assign\(`\/account\/verify/u);
   assert.doesNotMatch(auth, /password/u);
