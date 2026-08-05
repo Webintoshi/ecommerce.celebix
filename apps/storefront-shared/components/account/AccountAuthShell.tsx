@@ -61,7 +61,7 @@ export function AccountAuthShell({
           )}
         </Link>
         <div className={styles.brandMessage}>
-          <p>Hesabınız, alışverişiniz.</p>
+          <p>Alışverişiniz, kaldığınız yerden.</p>
         </div>
         <Link className={styles.returnLink} href="/">
           <span aria-hidden="true">←</span> Mağazaya dön

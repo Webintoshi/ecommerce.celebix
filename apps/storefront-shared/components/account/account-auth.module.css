@@ -77,12 +77,12 @@
 }
 
 .brandMessage p {
-  max-width: 8ch;
+  max-width: 11ch;
   margin: 0;
-  font-size: clamp(46px, 6.3vw, 88px);
+  font-size: clamp(38px, 5vw, 68px);
   font-weight: 620;
-  line-height: .91;
-  letter-spacing: -.068em;
+  line-height: .94;
+  letter-spacing: -.06em;
 }
 
 .returnLink {
@@ -126,7 +126,7 @@
   margin: 0;
   color: var(--auth-ink);
   font-family: inherit;
-  font-size: clamp(30px, 3.5vw, 40px);
+  font-size: clamp(28px, 3vw, 36px);
   font-weight: 650;
   line-height: 1.03;
   letter-spacing: -.052em;
@@ -352,7 +352,7 @@
 
   .brandMessage p {
     max-width: none;
-    font-size: clamp(35px, 11.5vw, 48px);
+    font-size: clamp(30px, 9vw, 40px);
     line-height: .95;
   }
 
@@ -370,7 +370,7 @@
   }
 
   .panelInner h1 {
-    font-size: clamp(30px, 9.5vw, 39px);
+    font-size: clamp(27px, 8vw, 34px);
   }
 }
 
@@ -381,7 +381,7 @@
   }
 
   .brandMessage p {
-    font-size: 35px;
+    font-size: 30px;
   }
 }
 
@@ -395,7 +395,7 @@
   }
 
   .brandMessage p {
-    font-size: clamp(46px, 6vw, 72px);
+    font-size: clamp(36px, 5vw, 56px);
   }
 
   .panel {

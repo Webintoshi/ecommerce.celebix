@@ -41,7 +41,7 @@ test("account entry uses one universal tenant-branded shell without storefront c
   assert.doesNotMatch(login, /StorefrontFrame|Siparişlerinizi takip edin|Adreslerinizi saklayın/u);
   assert.doesNotMatch(verify, /StorefrontFrame|Bu isteği siz yapmadıysanız/u);
   assert.match(shell, /resolveAccountAuthBranding/u);
-  assert.match(shell, /Hesabınız, alışverişiniz[.]/u);
+  assert.match(shell, /Alışverişiniz, kaldığınız yerden[.]/u);
   assert.match(shell, /Mağazaya dön/u);
   assert.match(shell, /aria-label=.*ana sayfa/u);
   assert.doesNotMatch(shell, /--account-brand-ink/u);
@@ -66,8 +66,10 @@ test("universal account auth layout is responsive accessible and locally scoped"
   assert.match(css, /--auth-brand-surface:\s*color-mix\(in srgb, var\(--store-primary\) 14%, #f7f7f5\)/u);
   assert.match(css, /background:\s*var\(--auth-brand-surface\)/u);
   assert.match(css, /[.]primaryButton\s*\{[^}]*background:\s*#171717[^}]*color:\s*#fff/su);
-  assert.match(css, /font-size:\s*clamp\(46px, 6[.]3vw, 88px\)/u);
-  assert.match(css, /font-size:\s*clamp\(35px, 11[.]5vw, 48px\)/u);
+  assert.match(css, /font-size:\s*clamp\(38px, 5vw, 68px\)/u);
+  assert.match(css, /font-size:\s*clamp\(30px, 9vw, 40px\)/u);
+  assert.match(css, /font-size:\s*clamp\(28px, 3vw, 36px\)/u);
+  assert.match(css, /font-size:\s*clamp\(27px, 8vw, 34px\)/u);
   assert.doesNotMatch(css, /[.]brand\s*\{[^}]*background:\s*var\(--store-primary\)/su);
   assert.doesNotMatch(globalCss, /[.]account-auth-(?:layout|intro|form|benefits|sent|confirmation|secondary|text|verify|trust|footnote)/u);
 });
