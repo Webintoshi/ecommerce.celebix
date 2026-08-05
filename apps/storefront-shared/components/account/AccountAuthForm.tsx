@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { maskAccountEmail } from "./account-auth-view-model.ts";
+import styles from "./account-auth.module.css";
 
 type PublicResponse = Readonly<{ returnTo?: string; message?: string; retryAfterSeconds?: number }>;
 type AccountAuthFormProps = Readonly<{ mode: "email"; returnTo: string }> | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
@@ -36,36 +37,36 @@ export function AccountAuthForm(props: AccountAuthFormProps) {
   }
 
   if (mode === "email") {
-    if (sent) return <div className="account-auth-form account-auth-sent">
-      <span className="account-auth-confirmation" aria-hidden="true">✓</span>
+    if (sent) return <div className={`${styles.form} ${styles.sent}`}>
+      <span className={styles.confirmation} aria-hidden="true">✓</span>
       <div><strong>E-postanı kontrol et</strong><p>{maskAccountEmail(email)}</p></div>
-      <form onSubmit={sendLink}><button className="account-auth-secondary" type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
-      <button className="account-auth-text" type="button" onClick={() => { setSent(false); setRetry(0); setStatus(""); }}>E-postayı değiştir</button>
-      <p className="account-form-status" role="status" aria-live="polite">{status}</p>
+      <form onSubmit={sendLink}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
+      <button className={styles.textButton} type="button" onClick={() => { setSent(false); setRetry(0); setStatus(""); }}>E-postayı değiştir</button>
+      <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </div>;
-    return <form className="account-auth-form" onSubmit={sendLink} noValidate>
-      <label><span>E-posta</span><input type="email" autoComplete="email" inputMode="email" required value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
-      <button className="store-button" type="submit" disabled={busy}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
-      <p className="account-auth-trust">Şifre gerekmez</p>
-      <p className="account-form-status" role="status" aria-live="polite">{status}</p>
+    return <form className={styles.form} onSubmit={sendLink} noValidate>
+      <label className={styles.field}><span>E-posta</span><input className={styles.input} type="email" autoComplete="email" inputMode="email" required value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
+      <button className={styles.primaryButton} type="submit" disabled={busy}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
+      <p className={styles.trust}>Şifre gerekmez</p>
+      <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </form>;
   }
 
   const ticket = props.ticket;
-  return <div className="account-auth-form account-auth-verify">
+  return <div className={`${styles.form} ${styles.verify}`}>
     {ticket ? <form method="post" action="/api/account/auth/verify-browser">
       <input type="hidden" name="ticket" value={ticket} />
       <input type="hidden" name="returnTo" value={returnTo} />
-      <button className="store-button" type="submit">Devam et</button>
+      <button className={styles.primaryButton} type="submit">Devam et</button>
     </form> : null}
     <details open={!ticket}>
       <summary>Kod ile giriş</summary>
       <form method="post" action="/api/account/auth/verify-browser" noValidate>
         <input type="hidden" name="returnTo" value={returnTo} />
-        <label><span>6 haneli kod</span><input name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" /></label>
-        <button className="account-auth-secondary" type="submit" disabled={code.length !== 6}>Giriş yap</button>
+        <label className={styles.field}><span>6 haneli kod</span><input className={styles.input} name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" /></label>
+        <button className={styles.secondaryButton} type="submit" disabled={code.length !== 6}>Giriş yap</button>
       </form>
     </details>
-    <p className="account-form-status" role="status" aria-live="polite">{status}</p>
+    <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </div>;
 }

@@ -6,6 +6,7 @@ import type {
 } from "@celebix/saas-contracts";
 
 import { resolveAccountAuthBranding } from "./account-auth-branding.ts";
+import styles from "./account-auth.module.css";
 
 type AccountAuthStyle = CSSProperties &
   Readonly<{
@@ -39,14 +40,14 @@ export function AccountAuthShell({
 
   return (
     <main
-      className={`starter-storefront account-auth-shell ${branding.themeClasses}`}
+      className={`starter-storefront celebix-store-design ${branding.themeClasses} ${styles.shell}`}
       data-published-design={customized ? "true" : "false"}
       data-font={customized ? branding.fontFamily : undefined}
       style={style}
     >
-      <section className="account-auth-brand" aria-label={branding.displayName}>
+      <section className={styles.brand} aria-label={branding.displayName}>
         <Link
-          className="account-auth-wordmark"
+          className={styles.wordmark}
           href="/"
           aria-label={`${branding.displayName} ana sayfa`}
         >
@@ -61,15 +62,15 @@ export function AccountAuthShell({
             branding.displayName
           )}
         </Link>
-        <div className="account-auth-brand-message">
+        <div className={styles.brandMessage}>
           <p>Hesabınız, alışverişiniz.</p>
         </div>
-        <Link className="account-auth-return" href="/">
+        <Link className={styles.returnLink} href="/">
           <span aria-hidden="true">←</span> Mağazaya dön
         </Link>
       </section>
-      <section className="account-auth-panel">
-        <div className="account-auth-panel-inner">
+      <section className={styles.panel}>
+        <div className={styles.panelInner}>
           <h1>{title}</h1>
           {children}
         </div>

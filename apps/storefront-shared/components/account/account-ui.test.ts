@@ -35,6 +35,7 @@ test("account entry uses one universal tenant-branded shell without storefront c
   const login = await source("app/account/login/page.tsx");
   const verify = await source("app/account/verify/page.tsx");
   const shell = await source("components/account/AccountAuthShell.tsx");
+  const form = await source("components/account/AccountAuthForm.tsx");
   assert.match(login, /AccountAuthShell/u);
   assert.match(verify, /AccountAuthShell/u);
   assert.doesNotMatch(login, /StorefrontFrame|Siparişlerinizi takip edin|Adreslerinizi saklayın/u);
@@ -44,9 +45,25 @@ test("account entry uses one universal tenant-branded shell without storefront c
   assert.match(shell, /Mağazaya dön/u);
   assert.match(shell, /aria-label=.*ana sayfa/u);
   assert.match(shell, /--account-brand-ink/u);
+  assert.match(shell, /account-auth[.]module[.]css/u);
+  assert.match(form, /account-auth[.]module[.]css/u);
   assert.match(login, /Giriş yap veya hesap oluştur/u);
   assert.match(verify, /Güvenli giriş/u);
   assert.match(verify, /ticket=/u);
+});
+
+test("universal account auth layout is responsive accessible and locally scoped", async () => {
+  const css = await source("components/account/account-auth.module.css");
+  const globalCss = await source("app/globals.css");
+  assert.match(css, /grid-template-columns:\s*minmax\(0, 46fr\) minmax\(0, 54fr\)/u);
+  assert.match(css, /min-height:\s*100svh/u);
+  assert.match(css, /max-width:\s*380px/u);
+  assert.match(css, /--account-brand-ink/u);
+  assert.match(css, /:focus-visible/u);
+  assert.match(css, /@media \(max-width: 760px\)/u);
+  assert.match(css, /max-height:\s*36svh/u);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
+  assert.doesNotMatch(globalCss, /[.]account-auth-(?:layout|intro|form|benefits|sent|confirmation|secondary|text|verify|trust|footnote)/u);
 });
 
 test("account dashboard exposes working shopper destinations without private authority", async () => {
@@ -55,6 +72,6 @@ test("account dashboard exposes working shopper destinations without private aut
   assert.match(dashboard, /recentOrders/u);
   assert.doesNotMatch(dashboard, /tenantId|storeId|accountId|customerId/u);
   const css = await source("app/globals.css");
-  assert.match(css, /\.account-auth-layout/u);
+  assert.match(css, /\.account-page/u);
   assert.match(css, /@media \(max-width: 640px\)/u);
 });
