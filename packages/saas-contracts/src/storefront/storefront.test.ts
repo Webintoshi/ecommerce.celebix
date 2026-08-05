@@ -46,6 +46,18 @@ test("public storefront contract accepts only the exact schema-v2 presentation p
   assert.throws(() => parsePublicStorefront({ ...parsed, presentation: { ...PRESENTATION, hero: { ...PRESENTATION.hero, image: { ...PRESENTATION.hero.image, height: undefined } } } }));
 });
 
+test("public storefront contract keeps the requested alias but canonicalizes to the active primary hostname", () => {
+  const alias = {
+    ...STOREFRONT,
+    hostname: "shop.pilot.example",
+    primaryHostname: "www.pilot.example",
+    canonicalUrl: "https://www.pilot.example/",
+  };
+
+  assert.deepEqual(parsePublicStorefront(alias), alias);
+  assert.throws(() => parsePublicStorefront({ ...alias, canonicalUrl: "https://shop.pilot.example/" }));
+});
+
 test("category showcase remains exact bounded canonical and duplicate-free", () => {
   const item = PRESENTATION.categoryShowcase!.items[0]!;
   assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: { heading: "Kategoriler", items: [] } }));

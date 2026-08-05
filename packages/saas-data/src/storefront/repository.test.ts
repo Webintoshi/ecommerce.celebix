@@ -26,6 +26,22 @@ test("public storefront repository selects exact host through the narrow resolve
   assert.equal(fixture.queries.some((query) => query.includes("resolve_public_storefront")), true);
 });
 
+test("public storefront repository preserves requested aliases and the persisted primary authority", async () => {
+  const alias = {
+    ...storefront,
+    hostname: "shop.pilot.example",
+    primaryHostname: "www.pilot.example",
+    canonicalUrl: "https://www.pilot.example/",
+  };
+  const fixture = repository("found", alias);
+
+  const selected = await fixture.value.getPublicStorefront({ hostname: alias.hostname, now: new Date("2026-08-05T10:00:00.000Z") });
+
+  assert.equal(selected.hostname, alias.hostname);
+  assert.equal(selected.primaryHostname, alias.primaryHostname);
+  assert.equal(selected.canonicalUrl, alias.canonicalUrl);
+});
+
 test("public storefront repository maps unknown host to a finite not-found result", async () => {
   const fixture = repository("not_found", null);
   await assert.rejects(fixture.value.getPublicStorefront({ hostname: "unknown.saas-staging.celebix.site", now: new Date() }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "not_found");

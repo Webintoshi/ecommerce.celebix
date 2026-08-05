@@ -620,7 +620,7 @@ export function parsePublicStorefront(value: unknown): PublicStorefront {
   const selectedHostname = hostname(parsed.hostname);
   const primaryHostname = hostname(parsed.primaryHostname);
   const canonicalUrl = httpsUrl(parsed.canonicalUrl);
-  if (parsed.schemaVersion !== 2 || parsed.currency !== "TRY" || parsed.locale !== "tr" || canonicalUrl !== `https://${selectedHostname}/`) invalid();
+  if (parsed.schemaVersion !== 2 || parsed.currency !== "TRY" || parsed.locale !== "tr" || canonicalUrl !== `https://${primaryHostname}/`) invalid();
   return Object.freeze({ schemaVersion: 2, id: uuid(parsed.id), name: string(parsed.name, 1, 160), slug: string(parsed.slug, 3, 63, SLUG), hostname: selectedHostname, primaryHostname, canonicalUrl, currency: "TRY", locale: "tr", themeKey: string(parsed.themeKey, 1, 80), presentation: parsePublicStarterThemePresentation(parsed.presentation) });
 }
 

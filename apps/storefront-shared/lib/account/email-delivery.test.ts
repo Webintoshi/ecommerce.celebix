@@ -33,6 +33,22 @@ test("platform delivery sends one bounded store-branded verification message", a
   assert.match(body.html, /Giriş yap/u);
 });
 
+test("custom primary domains receive a magic link on their own HTTPS origin", async () => {
+  let captured: Request | undefined;
+  const deliver = createResendStorefrontIdentityEmailDelivery({
+    apiKey: "re_test_authority_0000000000000001",
+    from: "accounts@celebix.test",
+    fetch: async (request) => { captured = request; return new Response('{"id":"email_02"}', { status: 200 }); },
+    timeoutMs: 5_000,
+  });
+
+  await deliver({ ...message, storeOrigin: "https://www.guzidekuyumcu.com" });
+
+  const body = JSON.parse(await captured!.text());
+  assert.match(body.text, /https:\/\/www[.]guzidekuyumcu[.]com\/account\/verify[?]/u);
+  assert.doesNotMatch(body.text, /saas-staging[.]celebix[.]site/u);
+});
+
 test("provider errors and oversized responses collapse to one private failure", async () => {
   for (const response of [new Response("secret-provider-detail", { status: 500 }), new Response("x".repeat(40_000), { status: 200 })]) {
     const deliver = createResendStorefrontIdentityEmailDelivery({ apiKey: "re_test_authority_0000000000000001", from: "accounts@celebix.test", fetch: async () => response, timeoutMs: 5_000 });

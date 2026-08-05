@@ -6,6 +6,7 @@ import { parseStorefrontDataConfig, STOREFRONT_DATA_ENVIRONMENT_FIELDS } from ".
 import { resolveDefaultCheckoutPaymentRuntime } from "./lib/checkout/runtime.ts";
 import { digestRedemptionCredential, parseRedemptionCookie } from "./lib/checkout/redemption-cookie.ts";
 import { selectTrustedStorefrontHostAuthority } from "./lib/trusted-host-authority.ts";
+import { createCanonicalStorefrontLocation } from "./lib/custom-domain-canonicalization.ts";
 
 const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
 const PAYTR_IFRAME_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
@@ -21,6 +22,7 @@ type StorefrontProxyDependencies = Readonly<{
   resolveMediaOrigin: () => string;
   authorizePaytrIframe: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
   now: () => Date;
+  resolveCanonicalHostname?: (input: Readonly<{hostname:string;now:Date}>) => Promise<string|null>;
   resolveAnalytics?: (input: Readonly<{hostname:string;now:Date}>) => Promise<Readonly<{scriptOrigin:string;collectorOrigin:string}>|null>;
 }>;
 
@@ -46,6 +48,18 @@ const DEFAULT_DEPENDENCIES: StorefrontProxyDependencies = Object.freeze({
   resolveMediaOrigin: defaultMediaOrigin,
   authorizePaytrIframe: defaultIframeAuthorization,
   now: () => new Date(),
+  async resolveCanonicalHostname(input) {
+    const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
+    const runtime = await resolveDefaultPublicStorefrontRuntime();
+    if (!runtime) throw new Error("storefront_runtime_unavailable");
+    try {
+      const storefront = await runtime.repository.getPublicStorefront({ hostname: input.hostname, now: new Date(input.now) });
+      return storefront.primaryHostname;
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "not_found") return null;
+      throw error;
+    }
+  },
   async resolveAnalytics(input) {
     const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
     const runtime = await resolveDefaultPublicStorefrontRuntime();
@@ -69,6 +83,15 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
       return callback;
     }
     if (callbackPath || pathname.startsWith("/api/payments/paytr/callback/")) return unavailable();
+    if (dependencies.resolveCanonicalHostname) {
+      try {
+        const primaryHostname = await dependencies.resolveCanonicalHostname({ hostname: authority.hostname, now: dependencies.now() });
+        if (primaryHostname !== null) {
+          const location = createCanonicalStorefrontLocation({ requestedHostname: authority.hostname, primaryHostname, pathname, search: request.nextUrl.search });
+          if (location !== null) return new NextResponse(null, { status: 308, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, location } });
+        }
+      } catch { return unavailable(); }
+    }
     let mediaOrigin: string;
     try {
       mediaOrigin = dependencies.resolveMediaOrigin();

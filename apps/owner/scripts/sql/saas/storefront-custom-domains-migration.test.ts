@@ -46,6 +46,15 @@ test("088 exposes tenant-authorized merchant RPCs and leased worker RPCs only", 
   assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]store_domain_work_claim[\s\S]+TO celebix_saas_workflow/u);
 });
 
+test("088 makes the persisted active primary domain the only public canonical authority", () => {
+  const up = source("up");
+  const assertions = source("assertions");
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]resolve_public_storefront/u);
+  assert.match(up, /'canonicalUrl','https:\/\/'\|\|primary_domain[.]hostname\|\|'\/'/u);
+  assert.doesNotMatch(up, /'canonicalUrl','https:\/\/'\|\|domain[.]hostname\|\|'\/'/u);
+  assert.match(assertions, /STOREFRONT_CUSTOM_DOMAINS_CANONICAL_AUTHORITY_INVALID/u);
+});
+
 test("088 guards rollback and pins all SQL artifacts", () => {
   for (const name of Object.values(files)) assert.equal(existsSync(new URL(name, root)), true, `${name} missing`);
   const down = source("down");
