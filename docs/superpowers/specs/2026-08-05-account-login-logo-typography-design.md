@@ -15,6 +15,7 @@ Tüm mağazaların ortak müşteri hesap giriş ekranını daha sakin ve modern 
 - Logo oranı bozulmadan `object-fit: contain` ile gösterilecek; mobil ve masaüstünde taşmayacak.
 - Renkler, mağazanın yayınlanmış marka renklerinden gelmeye devam edecek.
 - Sihirli bağlantı, tek kullanımlık kod, misafir ödeme ve hesap oturumu akışlarına dokunulmayacak.
+- Tasarımı yayınlamayı engelleyen `draft_updated_at>=published_at` kısıtı kaldırılacak. Taslak kaydı ile daha sonraki yayın zamanı doğal olarak ters sırada olabildiğinden bu kısıt geçerli bir veri değişmezi değildir; yayın RPC'si, yetki kontrolleri ve sürüm kilitleri korunacak.
 
 ## Kabul Ölçütleri
 
@@ -25,4 +26,4 @@ Tüm mağazaların ortak müşteri hesap giriş ekranını daha sakin ve modern 
 5. Logosuz mağazalar güvenli metin geri dönüşü ile çalışmaya devam eder.
 6. Odak durumları, alan etiketleri ve mağazaya dönüş bağlantısı korunur.
 7. Mevcut hesap UI testleri, tip kontrolü ve üretim derlemesi geçer.
-
+8. Bir taslak daha sonraki bir zaman damgasıyla güvenli biçimde yayınlanabilir; doğrudan tablo yazma yetkisi verilmez.

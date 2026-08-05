@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase3-storefront-design-publication-timestamp-fix",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608050087_storefront_design_publication_timestamp_fix.up.sql",
+      "direction": "up",
+      "sha256": "48756abbaf0eea40fa1688b380512aab0c22c3b36f1da1a3fe7b12aa4b75b391"
+    },
+    {
+      "file": "202608050087_storefront_design_publication_timestamp_fix.down.sql",
+      "direction": "down",
+      "sha256": "09e6da0c1478ae78c0012cebdeb823f58788d0d6576d7c59f3bd211537786449"
+    },
+    {
+      "file": "202608050087_storefront_design_publication_timestamp_fix_assertions.sql",
+      "direction": "verify",
+      "sha256": "002b7b89c9c507c62d8b635192ac1c19fcf6bb449dde48d233e56f589a9884a9"
+    }
+  ]
+}

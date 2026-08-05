@@ -26,7 +26,7 @@ const MEDIA_B = "60000000-0000-4000-8000-000000000082";
 const DOMAIN_A = "70000000-0000-4000-8000-000000000081";
 const DOMAIN_B = "70000000-0000-4000-8000-000000000082";
 const NOW = "2026-08-03T12:00:00.000Z";
-const TOTAL = 26;
+const TOTAL = 27;
 let completed = 0;
 
 function executable(name) {
@@ -83,6 +83,9 @@ function apply(box, file, database = DB, prefix = "") {
 function fingerprint(marker) { return createHash("sha256").update(marker).digest("hex"); }
 function authority(principal = PRINCIPAL_OWNER, membership = MEMBERSHIP_OWNER, store = STORE_A) {
   return `'${store}'::uuid,'${principal}'::uuid,'${membership}'::uuid,'${PLAN}'::uuid,'free_starter',1,'${NOW}'::timestamptz`;
+}
+function authorityAt(now) {
+  return `'${STORE_A}'::uuid,'${PRINCIPAL_OWNER}'::uuid,'${MEMBERSHIP_OWNER}'::uuid,'${PLAN}'::uuid,'free_starter',1,'${now}'::timestamptz`;
 }
 function rpc(box, sql, role = "celebix_saas_app") {
   const value = psql(box, `BEGIN;SET LOCAL ROLE ${role};SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM ${sql};COMMIT;`).stdout.trim();
@@ -216,6 +219,16 @@ function main() {
     apply(box, "202608040083_storefront_unified_theme_authority_assertions.sql");
     scenario("unified authority upgrades every durable design to schema three", () => {
       assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs WHERE schema_version=3 AND draft_config->>'schemaVersion'='3' AND published_config->>'schemaVersion'='3';").stdout.trim(), "2");
+    });
+    apply(box, "202608050087_storefront_design_publication_timestamp_fix.up.sql");
+    apply(box, "202608050087_storefront_design_publication_timestamp_fix_assertions.sql");
+    scenario("a later publication may follow an earlier draft save", () => {
+      const unchangedDraft = psql(box, `SELECT draft_config::text FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim();
+      const draft = rpc(box, `saas.storefront_design_save_draft(${authorityAt("2026-08-03T12:01:00.000Z")},'a5000000-0000-4000-8000-000000000081','${fingerprint("later-draft")}',2,$later_draft$${unchangedDraft}$later_draft$::jsonb)`);
+      assert.equal(draft.outcome, "saved");
+      const publication = rpc(box, `saas.storefront_design_publish(${authorityAt("2026-08-03T12:02:00.000Z")},'a5000000-0000-4000-8000-000000000082','${fingerprint("later-publication")}',3,2)`);
+      assert.equal(publication.outcome, "published");
+      assert.equal(psql(box, `SELECT published_at>draft_updated_at FROM saas.storefront_designs WHERE store_id='${STORE_A}';`).stdout.trim(), "t");
     });
     apply(box, "202608040084_storefront_customer_identity.up.sql");
     apply(box, "202608040084_storefront_customer_identity_assertions.sql");
