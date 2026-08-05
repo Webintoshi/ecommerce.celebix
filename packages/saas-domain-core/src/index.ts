@@ -1,6 +1,7 @@
 export { normalizeStorefrontHostname } from "./hostname.ts";
 export { CloudflareCustomHostnameError, createCloudflareCustomHostnameProvider } from "./cloudflare.ts";
 export { StoreDomainServiceError, createStoreDomainService } from "./service.ts";
+export type { StoreDomainService } from "./service.ts";
 export { createStoreDomainReconciler } from "./reconciler.ts";
 export type { StoreDomainReconcilerResult } from "./reconciler.ts";
 export { CLOUDFLARE_CUSTOM_HOSTNAME_ERROR_CODES, STORE_DOMAIN_SERVICE_ERROR_CODES } from "./types.ts";
