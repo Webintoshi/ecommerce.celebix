@@ -12,7 +12,7 @@ function environment(overrides: Record<string, string | undefined> = {}) {
     CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET: "shops.celebix.site",
     CELEBIX_CUSTOM_DOMAIN_RESERVED_SUFFIXES: "celebix.site,saas-staging.celebix.site",
     CELEBIX_STORE_DOMAIN_WORKER_ID: "owner.domains.1",
-    CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@postgres:5432/celebix_saas_production",
+    CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@postgres:5432/celebix_saas_production?sslmode=verify-full",
     ...overrides,
   };
 }
@@ -25,7 +25,7 @@ test("parses one server-only Cloudflare worker configuration", () => {
     minimumTlsVersion: "1.2", timeoutMs: 5_000,
   });
   assert.deepEqual(config.hostnamePolicy, { reservedSuffixes: ["celebix.site", "saas-staging.celebix.site"], cnameTarget: "shops.celebix.site" });
-  assert.deepEqual(config.database, { url: "postgresql://worker:secret@postgres:5432/celebix_saas_production", name: "celebix_saas_production" });
+  assert.deepEqual(config.database, { url: "postgresql://worker:secret@postgres:5432/celebix_saas_production?sslmode=verify-full", name: "celebix_saas_production" });
   assert.equal(Object.isFrozen(config), true);
 });
 
@@ -40,5 +40,7 @@ test("disabled mode requires no secrets and enabled mode rejects public or ambig
     { CELEBIX_STORE_DOMAIN_WORKER_ID: "worker with spaces" },
     { CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@db.example.com:5432/celebix_saas_production" },
     { CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@8.8.8.8:5432/celebix_saas_production" },
+    { CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@postgres:5432/celebix_saas_production?sslmode=require" },
+    { CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@postgres:5432/celebix_saas_production?sslmode=verify-full&application_name=worker" },
   ]) assert.throws(() => parseStoreDomainWorkerConfig(environment(overrides)), /store_domain_worker_config_invalid/u);
 });

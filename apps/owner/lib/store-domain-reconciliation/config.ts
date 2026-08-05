@@ -38,8 +38,9 @@ function database(source: Environment): StoreDomainWorkerConfig["database"] {
   let parsed: URL;
   try { parsed = new URL(value); } catch { return invalid(); }
   const name = decodeURIComponent(parsed.pathname.slice(1));
+  const secureTransport = parsed.searchParams.size === 1 && parsed.searchParams.get("sslmode") === "verify-full";
   if ((parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") || !parsed.username || !parsed.password || !parsed.hostname
-      || parsed.hash || parsed.search || parsed.pathname !== `/${name}` || !DATABASE.test(name) || !isPrivateHost(parsed.hostname) || parsed.toString() !== value) invalid();
+      || parsed.hash || !secureTransport || parsed.pathname !== `/${name}` || !DATABASE.test(name) || !isPrivateHost(parsed.hostname) || parsed.toString() !== value) invalid();
   return Object.freeze({ url: value, name });
 }
 
