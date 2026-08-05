@@ -3,6 +3,7 @@ import test from "node:test";
 
 import * as presentationModule from "./presentation.ts";
 import * as validationModule from "./validation.ts";
+import { createDefaultStarterThemeComposition } from "../storefront-design/defaults.ts";
 
 const STORE = "10000000-0000-4000-8000-000000000001";
 const CATEGORY = "20000000-0000-4000-8000-000000000001";
@@ -89,6 +90,30 @@ test("campaign composition parses exact bounded input and freezes nested values"
   assert.equal(Object.isFrozen((parsed.sections as readonly unknown[])[0]), true);
 });
 
+test("retail composition canonicalizes legacy logo controls and accepts bounded selections", () => {
+  const legacy = createDefaultStarterThemeComposition();
+  const parsedLegacy = campaignValidation.parseStarterThemeCompositionConfig(legacy);
+  assert.deepEqual(
+    (parsedLegacy.visual as { logoSize?: string; logoAlignment?: string }),
+    { ...legacy.visual, logoSize: "medium", logoAlignment: "center" },
+  );
+
+  const selected = campaignValidation.parseStarterThemeCompositionConfig({
+    ...legacy,
+    visual: { ...legacy.visual, logoSize: "xlarge", logoAlignment: "left" },
+  });
+  assert.equal((selected.visual as { logoSize: string }).logoSize, "xlarge");
+  assert.equal((selected.visual as { logoAlignment: string }).logoAlignment, "left");
+  assert.throws(() => campaignValidation.parseStarterThemeCompositionConfig({
+    ...legacy,
+    visual: { ...legacy.visual, logoSize: "fluid", logoAlignment: "center" },
+  }), /storefront_contract_invalid/);
+  assert.throws(() => campaignValidation.parseStarterThemeCompositionConfig({
+    ...legacy,
+    visual: { ...legacy.visual, logoSize: "medium", logoAlignment: "right" },
+  }), /storefront_contract_invalid/);
+});
+
 test("campaign composition rejects unknown and incomplete root fields", () => {
   assert.throws(() => campaignValidation.parseStarterThemeCompositionConfig({ ...validComposition(), tenantId: STORE }), /storefront_contract_invalid/);
   const { cart: _cart, ...missing } = validComposition();
@@ -171,6 +196,8 @@ test("new-store defaults are premium deterministic and contain no fake commerce 
   assert.equal((defaults.navigation as { items: unknown[] }).items.length, 0);
   assert.deepEqual((defaults.sections as Array<{ kind: string }>).map(({ kind }) => kind), ["hero", "product_row"]);
   assert.equal((defaults.footer as { newsletter: { enabled: boolean } }).newsletter.enabled, false);
+  assert.equal((defaults.visual as { logoSize?: string }).logoSize, "medium");
+  assert.equal((defaults.visual as { logoAlignment?: string }).logoAlignment, "center");
   assert.equal(JSON.stringify(defaults).includes("discount"), false);
 });
 

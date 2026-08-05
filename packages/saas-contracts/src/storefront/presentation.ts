@@ -39,7 +39,7 @@ export function buildDefaultStarterPresentation(
     displayName: storefront.name,
     theme,
     hero,
-    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" }),
+    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced", logoSize: "medium", logoAlignment: "center" }),
     navigation: Object.freeze({ items: Object.freeze([]) }),
     sections: Object.freeze([
       Object.freeze({ kind: "hero", slides: Object.freeze([Object.freeze({ heading: storefront.name, body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" })]) }),
@@ -107,7 +107,7 @@ export function adaptStarterPresentationV2(value: unknown): PublicStarterThemePr
     ...(campaign.promotion ? { promotion: campaign.promotion } : {}),
     ...(campaign.marquee ? { marquee: campaign.marquee } : {}),
     ...(campaign.categoryShowcase ? { categoryShowcase: campaign.categoryShowcase } : {}),
-    visual: Object.freeze({ ...campaign.visual, headerWidth: "wide", sectionSpacing: "balanced" }),
+    visual: Object.freeze({ ...campaign.visual, headerWidth: "wide", sectionSpacing: "balanced", logoSize: "medium", logoAlignment: "center" }),
     ...(campaign.announcement ? { announcement: campaign.announcement } : {}),
     navigation: campaign.navigation,
     sections: campaign.sections,

@@ -19,6 +19,8 @@ const CORNER_STYLES = Object.freeze(["square", "soft"] as const);
 const HEADER_STYLES = Object.freeze(["overlay", "solid"] as const);
 const HEADER_WIDTHS = Object.freeze(["contained", "wide"] as const);
 const SECTION_SPACINGS = Object.freeze(["compact", "balanced", "airy"] as const);
+const LOGO_SIZES = Object.freeze(["small", "medium", "large", "xlarge"] as const);
+const LOGO_ALIGNMENTS = Object.freeze(["left", "center"] as const);
 const GALLERY_STYLES = Object.freeze(["grid", "rail"] as const);
 const PRODUCT_ROW_SOURCES = Object.freeze(["latest", "sale", "category"] as const);
 const VALUE_ICONS = Object.freeze(["sparkles", "cotton", "heart", "shield", "truck", "return"] as const);
@@ -210,7 +212,7 @@ function parseVisual(value: unknown): StarterThemeVisual {
 }
 
 function parseVisualV2(value: unknown): StarterThemeVisualV2 {
-  const parsed = exact(value, ["colorScheme", "headingStyle", "cornerStyle", "headerStyle", "productCardStyle", "productImageRatio", "headerWidth", "sectionSpacing"]);
+  const parsed = exact(value, ["colorScheme", "headingStyle", "cornerStyle", "headerStyle", "productCardStyle", "productImageRatio", "headerWidth", "sectionSpacing"], ["logoSize", "logoAlignment"]);
   return Object.freeze({
     colorScheme: oneOf(parsed.colorScheme, COLOR_SCHEMES),
     headingStyle: oneOf(parsed.headingStyle, HEADING_STYLES),
@@ -220,6 +222,8 @@ function parseVisualV2(value: unknown): StarterThemeVisualV2 {
     productImageRatio: oneOf(parsed.productImageRatio, IMAGE_RATIOS),
     headerWidth: oneOf(parsed.headerWidth, HEADER_WIDTHS),
     sectionSpacing: oneOf(parsed.sectionSpacing, SECTION_SPACINGS),
+    logoSize: Object.hasOwn(parsed, "logoSize") ? oneOf(parsed.logoSize, LOGO_SIZES) : "medium",
+    logoAlignment: Object.hasOwn(parsed, "logoAlignment") ? oneOf(parsed.logoAlignment, LOGO_ALIGNMENTS) : "center",
   });
 }
 

@@ -3,7 +3,7 @@ import type { StarterThemeCompositionConfigV2 } from "../storefront/types.ts";
 export function createDefaultStarterThemeComposition(): StarterThemeCompositionConfigV2 {
   return Object.freeze({
     schemaVersion: 2,
-    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" }),
+    visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced", logoSize: "medium", logoAlignment: "center" }),
     announcement: Object.freeze({ enabled: true, items: Object.freeze(["Güvenli alışveriş"]), destination: "/pages/odeme-teslimat" }),
     navigation: Object.freeze({ rootCategoryIds: Object.freeze([]) }),
     sections: Object.freeze([Object.freeze({ kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 })]),
