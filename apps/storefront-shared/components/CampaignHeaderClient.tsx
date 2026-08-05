@@ -1,6 +1,6 @@
 "use client";
 
-import type { PublicStarterNavigation } from "@celebix/saas-contracts";
+import type { PublicStarterNavigation, StarterThemeHeaderLayout } from "@celebix/saas-contracts";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,6 +25,7 @@ export function isActivePath(pathname: string, href: string) {
 
 export function CampaignHeaderClient({
   displayName,
+  headerLayout,
   logo,
   logoAlignment,
   logoSize,
@@ -32,6 +33,7 @@ export function CampaignHeaderClient({
   desktopNavigation,
 }: Readonly<{
   displayName: string;
+  headerLayout: StarterThemeHeaderLayout;
   logoSize: "small" | "medium" | "large" | "xlarge";
   logoAlignment: "left" | "center";
   logo?: Readonly<{
@@ -111,7 +113,7 @@ export function CampaignHeaderClient({
       <div
         className={`${styles.bar} ${opaque && !nonHome ? styles.opaque : ""} ${nonHome}`}
       >
-        <div className={styles.container}>
+        <div className={styles.container} data-header-layout={headerLayout}>
           {desktopNavigation}
           <Link
             className={styles.wordmark}

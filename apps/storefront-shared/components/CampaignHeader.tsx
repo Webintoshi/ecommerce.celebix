@@ -26,6 +26,11 @@ export function CampaignHeader({
     >
       <CampaignHeaderClient
         displayName={presentation.displayName}
+        headerLayout={
+          presentation.schemaVersion === 3
+            ? presentation.visual.headerLayout
+            : "centered"
+        }
         logoAlignment={
           presentation.schemaVersion === 3
             ? presentation.visual.logoAlignment

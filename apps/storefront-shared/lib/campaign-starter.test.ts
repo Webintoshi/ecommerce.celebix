@@ -39,7 +39,7 @@ test("responsive campaign controls preserve the exact 320 1024 and 1025 boundari
   assert.match(globalCss, /body\s*\{[^}]*min-width:\s*320px/u);
   assert.match(headerCss, /[.]desktopNav\{[^}]*display:flex/u);
   assert.match(headerCss, /@media\(max-width:1024px\)\{[^}]*[\s\S]*?[.]desktopNav\{display:none/u);
-  assert.match(headerCss, /@media\(max-width:1024px\)\{[.]container\{[^}]*gap:3px/u);
+  assert.match(headerCss, /@media\(max-width:1024px\)\{[.]container\[data-header-layout\]\{[^}]*grid-template-areas:"logo actions"[^}]*gap:3px/u);
   assert.match(headerCss, /[.]wordmark\{[^}]*min-width:0[^}]*overflow:hidden/u);
   assert.match(headerClient, /pathname\s*===\s*["']\/["']\s*\?\s*["']["']\s*:\s*styles[.]nonHome/u);
   assert.match(headerCss, /[.]header\[data-header-style=["']overlay["']\]\s+[.]bar[.]nonHome\{[^}]*position:relative/u);

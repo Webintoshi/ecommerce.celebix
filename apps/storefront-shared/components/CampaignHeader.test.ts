@@ -37,3 +37,18 @@ test("published presentation controls finite logo size and alignment with legacy
   assert.match(css, /wordmark\[data-logo-alignment="center"\]\{[^}]*justify-content:center/);
   assert.doesNotMatch(`${server}\n${client}`, /process[.]env|localStorage|sessionStorage|document[.]cookie|x-forwarded|storeId|tenantId/);
 });
+test("published presentation selects four desktop layouts on one canonical header tree", async () => {
+  const [server, client, css] = await Promise.all([
+    read("CampaignHeader.tsx"),
+    read("CampaignHeaderClient.tsx"),
+    read("campaign-header.module.css"),
+  ]);
+  assert.match(server, /headerLayout=\{[\s\S]*?presentation[.]schemaVersion === 3[\s\S]*?presentation[.]visual[.]headerLayout[\s\S]*?: "centered"[\s\S]*?\}/);
+  assert.match(client, /data-header-layout=\{headerLayout\}/);
+  assert.equal((client.match(/\{desktopNavigation\}/g) ?? []).length, 1);
+  for (const layout of ["centered", "logo_left", "logo_top", "menu_top"]) {
+    assert.match(css, new RegExp(`data-header-layout="${layout}"`));
+  }
+  assert.match(css, /@media\(max-width:1024px\)[\s\S]*?grid-template-areas:"logo actions"/);
+  assert.doesNotMatch(`${server}\n${client}`, /process[.]env|localStorage|sessionStorage|document[.]cookie|x-forwarded|storeId|tenantId/);
+});
