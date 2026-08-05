@@ -80,6 +80,7 @@ export function StarterThemePreview(props: PreviewProps) {
     const testimonials = composition.sections.find((section) => section.kind === "testimonials");
     const categoryPlaceholders = starterThemeCategoryPlaceholderLabels(composition);
     const announcementContent = <span className={styles.previewMarqueeTrack}>{composition.announcement.items.join(" · ")}</span>;
+    const previewHeaderStyle = hero?.kind === "hero" && hero.enabled ? composition.visual.headerStyle : "solid";
 
     return <section className={styles.previewSection} aria-labelledby="starter-composition-preview-title">
       <div className={styles.previewHeading}>
@@ -97,23 +98,19 @@ export function StarterThemePreview(props: PreviewProps) {
             : <div className={styles.previewMarquee}>{announcementContent}</div>
             : null}
 
-          <header className={styles.previewNav}>
-            <strong>Mağazanız</strong>
-            <nav aria-label="Mağaza menüsü">
-              <span>Yeni</span><span>Koleksiyon</span><span>Hakkımızda</span>
-            </nav>
-            <span className={styles.previewCart}>Sepet · 0</span>
-          </header>
+          <div className={styles.previewHeroShell} data-header-style={previewHeaderStyle}>
+            <header className={styles.previewNav}>
+              <strong>Mağazanız</strong>
+              <nav aria-label="Mağaza menüsü">
+                <span>Yeni</span><span>Koleksiyon</span><span>Hakkımızda</span>
+              </nav>
+              <span className={styles.previewCart}>Sepet · 0</span>
+            </header>
 
-          {hero?.kind === "hero" && hero.enabled ? <section className={styles.previewHero}>
-            <div>
-              <small>{hero.slides[0]?.eyebrow ?? "Yeni sezon"}</small>
-              <h3>{hero.slides[0]?.heading ?? "Yeni koleksiyonu keşfedin"}</h3>
-              {hero.slides[0]?.body ? <p>{hero.slides[0].body}</p> : null}
-              <span>Şimdi keşfet</span>
-            </div>
-            <div className={styles.previewMedia} aria-label="Seçili hero görsel alanı"><i /><i /></div>
-          </section> : null}
+            {hero?.kind === "hero" && hero.enabled ? <section className={styles.previewHero} aria-label="Tam genişlik banner önizlemesi">
+              <div className={styles.previewMedia} aria-hidden="true"><i /><i /></div>
+            </section> : null}
+          </div>
 
           {productRow?.kind === "product_row"
             ? <ProductCards heading={productRow.heading} productTitles={props.productTitles} />

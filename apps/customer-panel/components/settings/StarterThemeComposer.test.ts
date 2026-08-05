@@ -22,6 +22,12 @@ test("composer delegates draft autosave and publishing to its parent workspace",
 });
 test("section order works without drag and has accessible labels", async () => { const value = await source("StarterThemeComposer.tsx"); assert.match(value, /moveStarterSection/); assert.match(value, /yukarı taşı/); assert.match(value, /aşağı taşı/); });
 test("composer provides bounded visual product detail and cart controls", async () => { const value = await source("StarterThemeComposer.tsx"); for (const token of ["Renk paleti", "Başlık stili", "Ürün detayı", "Sepet deneyimi"]) assert.match(value, new RegExp(token)); });
+test("composer exposes the two existing header modes with explicit placement labels", async () => {
+  const value = await source("StarterThemeComposer.tsx");
+  assert.match(value, /Banner üzerinde \(şeffaf\)/);
+  assert.match(value, /Banner dışında \(düz zemin\)/);
+  assert.doesNotMatch(value, /fixedHeader|headerPosition/);
+});
 test("composer controls side-cart quantity visibility from the unified composition", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.match(value, /Miktar seçiciyi göster/);
@@ -43,6 +49,15 @@ test("composer preserves featured navigation authority and disables unavailable 
   assert.match(value, /checked=\{false\}/);
 });
 test("preview consumes parsed composition, real catalog titles, category image slots, and responsive modes", async () => { const value = await source("StarterThemePreview.tsx"); assert.match(value, /desktop/); assert.match(value, /mobile/); assert.match(value, /presentation/); assert.match(value, /productTitles/); assert.match(value, /starterThemeCategoryPlaceholderLabels/); assert.match(value, /previewCategoryPlaceholders/); });
+test("composition preview applies the persisted header style to one full-width hero surface", async () => {
+  const [value, css] = await Promise.all([source("StarterThemePreview.tsx"), source("starter-theme-preview.module.css")]);
+  assert.match(value, /composition[.]visual[.]headerStyle/);
+  assert.match(value, /previewHeroShell/);
+  assert.match(value, /data-header-style=\{previewHeaderStyle\}/);
+  assert.match(value, /aria-label="Tam genişlik banner önizlemesi"/);
+  assert.match(css, /previewHeroShell\[data-header-style="overlay"\][\s\S]*?position:\s*absolute/);
+  assert.match(css, /previewHeroShell\[data-header-style="solid"\][\s\S]*?position:\s*relative/);
+});
 test("preview CSS module defines every static class consumed by the rendered component", async () => {
   const value = await source("StarterThemePreview.tsx");
   const stylesheet = value.match(/import styles from "([.][^"]+[.]module[.]css)"/);

@@ -179,6 +179,8 @@
 .marquee-animation-continuous .previewMarqueeTrack { animation-timing-function: linear; }
 .marquee-animation-step .previewMarqueeTrack { animation-timing-function: steps(8, end); }
 
+.previewHeroShell { position: relative; }
+
 .previewNav {
   display: grid;
   grid-template-columns: minmax(80px, 1fr) auto minmax(80px, 1fr);
@@ -189,6 +191,20 @@
   border-bottom: 1px solid color-mix(in srgb, var(--preview-ink) 12%, transparent);
   background: color-mix(in srgb, var(--preview-surface) 90%, transparent);
 }
+
+.previewHeroShell[data-header-style="overlay"] .previewNav {
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 auto;
+  color: #fff;
+  border-bottom-color: rgb(255 255 255 / 24%);
+  background: linear-gradient(180deg, rgb(0 0 0 / 48%), transparent);
+}
+
+.previewHeroShell[data-header-style="overlay"] .previewNav nav span,
+.previewHeroShell[data-header-style="overlay"] .previewCart { color: #fff; }
+
+.previewHeroShell[data-header-style="solid"] .previewNav { position: relative; }
 
 .previewNav > strong {
   font-size: .92rem;
@@ -223,15 +239,10 @@
 }
 
 .previewHero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(140px, .92fr);
+  display: block;
   min-height: 250px;
-  align-items: center;
-  gap: 28px;
-  padding: clamp(24px, 4vw, 42px);
-  background:
-    radial-gradient(circle at 83% 20%, color-mix(in srgb, var(--preview-accent) 13%, transparent) 0 13%, transparent 14%),
-    var(--preview-bg);
+  padding: 0;
+  background: var(--preview-bg);
 }
 
 .previewHero > div:first-child { position: relative; z-index: 1; }
@@ -275,11 +286,12 @@
 
 .previewMedia {
   position: relative;
-  min-height: 174px;
+  min-height: 250px;
   overflow: hidden;
-  border-radius: 52% 52% 18px 18px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--preview-accent) 12%, var(--preview-surface)), color-mix(in srgb, var(--preview-accent) 45%, #fff));
+    radial-gradient(circle at 18% 38%, color-mix(in srgb, var(--preview-accent) 42%, transparent) 0 12%, transparent 13%),
+    radial-gradient(circle at 72% 44%, color-mix(in srgb, var(--preview-accent) 28%, transparent) 0 18%, transparent 19%),
+    linear-gradient(120deg, color-mix(in srgb, var(--preview-accent) 10%, var(--preview-surface)), color-mix(in srgb, var(--preview-accent) 48%, #fff));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--preview-ink) 10%, transparent);
 }
 
@@ -548,6 +560,9 @@
 .corner-soft .previewProductMedia,
 .corner-soft .previewCategoryPlaceholders article > div { border-radius: 9px; }
 
+.corner-square .previewHero .previewMedia,
+.corner-soft .previewHero .previewMedia { border-radius: 0; }
+
 .previewNotice {
   margin: 0;
   color: #7b8493;
@@ -564,7 +579,7 @@
   .previewHeading { align-items: flex-start; }
   .modeButton span { display: none; }
   .previewHero { grid-template-columns: 1fr; min-height: 230px; }
-  .previewMedia { display: none; }
+  .previewHero .previewMedia { display: block; min-height: 230px; }
   .previewNav nav { display: none; }
   .previewNav { grid-template-columns: 1fr auto; }
   .previewProducts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
