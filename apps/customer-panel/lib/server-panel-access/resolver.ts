@@ -11,13 +11,24 @@ import type { ServerPanelAccessRuntime } from "./runtime.ts";
 export type { ServerPanelAccessRuntime } from "./runtime.ts";
 
 type Environment = Record<string, string | undefined>;
+type ServerPanelAccessDiagnosticCode =
+  | "server_panel_access_initialization_failed"
+  | "server_panel_access_database_preflight_failed"
+  | "server_iyzico_activation_runtime_preflight_failed"
+  | "server_shipping_runtime_invalid";
+
+const SAFE_INITIALIZATION_DIAGNOSTICS = new Set<ServerPanelAccessDiagnosticCode>([
+  "server_panel_access_database_preflight_failed",
+  "server_iyzico_activation_runtime_preflight_failed",
+  "server_shipping_runtime_invalid",
+]);
 
 export function createServerPanelAccessRuntimeResolver(options: {
   source: Environment;
   disabled(): ServerPanelAccessRuntime;
   unavailable(): ServerPanelAccessRuntime;
   initialize(config: CustomerPanelStagingAuthConfig): Promise<ServerPanelAccessRuntime>;
-  diagnostic(code: "server_panel_access_initialization_failed"): void;
+  diagnostic(code: ServerPanelAccessDiagnosticCode): void;
 }) {
   if (
     !options || typeof options.source !== "object" ||
@@ -28,8 +39,12 @@ export function createServerPanelAccessRuntimeResolver(options: {
   let disabled: ServerPanelAccessRuntime | undefined;
   let initialization: Promise<ServerPanelAccessRuntime> | undefined;
   const disabledRuntime = () => (disabled ??= options.disabled());
-  const diagnose = () => {
-    try { options.diagnostic("server_panel_access_initialization_failed"); }
+  const diagnose = (error?: unknown) => {
+    const code = error instanceof Error
+      && SAFE_INITIALIZATION_DIAGNOSTICS.has(error.message as ServerPanelAccessDiagnosticCode)
+      ? error.message as ServerPanelAccessDiagnosticCode
+      : "server_panel_access_initialization_failed";
+    try { options.diagnostic(code); }
     catch { /* Diagnostic is best effort and never access authority. */ }
   };
 
@@ -43,9 +58,9 @@ export function createServerPanelAccessRuntimeResolver(options: {
       ) as Environment;
       let config: CustomerPanelStagingAuthConfig;
       try { config = parseCustomerPanelStagingAuthConfig(snapshot); }
-      catch { diagnose(); return disabledRuntime(); }
+      catch (error) { diagnose(error); return disabledRuntime(); }
       try { return await options.initialize(config); }
-      catch { diagnose(); return options.unavailable(); }
+      catch (error) { diagnose(error); return options.unavailable(); }
     })();
     return initialization;
   };

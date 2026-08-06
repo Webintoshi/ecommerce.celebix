@@ -119,3 +119,17 @@ test("a database/runtime initialization failure is memoized as controlled unavai
   assert.deepEqual(diagnostics, ["server_panel_access_initialization_failed"]);
   assert.equal(JSON.stringify(diagnostics).includes("database credentials"), false);
 });
+
+test("a known initialization failure emits its safe diagnostic without exposing arbitrary errors", async () => {
+  const diagnostics: string[] = [];
+  const resolver = createServerPanelAccessRuntimeResolver({
+    source: validEnvironment(),
+    disabled: () => runtime("disabled"),
+    unavailable: () => runtime("unavailable"),
+    async initialize() { throw new Error("server_panel_access_database_preflight_failed"); },
+    diagnostic(code) { diagnostics.push(code); },
+  });
+
+  assert.equal((await resolver.resolve()).readiness.mode, "unavailable");
+  assert.deepEqual(diagnostics, ["server_panel_access_database_preflight_failed"]);
+});
