@@ -133,6 +133,16 @@
   white-space: nowrap;
 }
 
+.desktopTopbarSubtitle {
+  overflow: hidden;
+  color: #667085;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .desktopTopbarCommands,
 .desktopTopbarCommands > div:first-child,
 .desktopTopbarUtilities {

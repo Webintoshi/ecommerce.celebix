@@ -135,6 +135,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
             <div className={styles.desktopTopbarHeading}>
               <span className={styles.desktopTopbarEyebrow}>ORTAK ADMİN</span>
               <strong className={styles.desktopTopbarTitle}>{activeChrome?.title ?? routePresentation.title}</strong>
+              {activeChrome?.subtitle ? <span className={styles.desktopTopbarSubtitle} role="status">{activeChrome.subtitle}</span> : null}
             </div>
             <div id="panel-topbar-context" className={styles.desktopTopbarContext} />
             <div className={styles.desktopTopbarCommands}>
