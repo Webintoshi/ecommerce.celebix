@@ -344,15 +344,15 @@ git commit -m "feat(checkout): validate hosted payment start"
 **Interfaces:**
 - Produces `StandardHostedCheckoutRuntime.start`, `.presentation`, `.status`, and `createHostedCheckoutStartRoute`.
 
-- [ ] **Step 1: Write RED runtime and route tests**
+- [x] **Step 1: Write RED runtime and route tests**
 
 Cover trusted host, exact method, iyzico identity requirement, deterministic authority, scoped attempt begin, provider rejected/processing/iframe/redirect results, sealed presentation persistence, replay, same-origin destination, and absence of raw token/URL in JSON.
 
-- [ ] **Step 2: Observe RED**
+- [x] **Step 2: Observe RED**
 
 Run focused runtime, cart runtime, and route tests; failures must identify missing hosted behavior.
 
-- [ ] **Step 3: Implement the scoped payment-attempt bridge**
+- [x] **Step 3: Implement the scoped payment-attempt bridge**
 
 ```ts
 const attempts: PaymentAttemptRepository = Object.freeze({
@@ -375,15 +375,15 @@ const attempts: PaymentAttemptRepository = Object.freeze({
 
 Generate receipt/customer/session credentials before begin, set only raw browser cookies, keep identity in request memory for initialize, exact-validate adapter presentation, seal under a dedicated purpose, and persist.
 
-- [ ] **Step 4: Wire approved-staging runtime and quote filter**
+- [x] **Step 4: Wire approved-staging runtime and quote filter**
 
 Require migrations `090/091`, workflow membership, current compiled authority, and provider-specific activation flag. If unavailable, remove hosted card from quote and recompute a truthful payment blocker only when no offline method remains.
 
-- [ ] **Step 5: Add start and token-free presentation routes**
+- [x] **Step 5: Add start and token-free presentation routes**
 
 Start returns only `{destination:"/checkout/payment"}` plus exact cookies. Presentation GET opens the cookie-bound sealed presentation; redirect uses exact provider origin/path/query allowlist and iframe emits provider-specific CSP without wildcard origins.
 
-- [ ] **Step 6: Run GREEN, regression, and commit**
+- [x] **Step 6: Run GREEN, regression, and commit**
 
 ```bash
 NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types --test apps/storefront-shared/lib/checkout/standard-hosted-payment.test.ts apps/storefront-shared/lib/cart/runtime.test.ts apps/storefront-shared/lib/cart/route.test.ts

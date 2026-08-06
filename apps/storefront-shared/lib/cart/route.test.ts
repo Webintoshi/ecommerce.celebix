@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
-import { createCartActionRoute, createCartGetRoute, createCheckoutCompleteRoute } from "./route.ts";
+import { createCartActionRoute, createCartGetRoute, createCheckoutCompleteRoute, createHostedCheckoutStartRoute } from "./route.ts";
 
 const HOST = "shop.example.test";
 const OPERATION = "30000000-0000-4000-8000-000000000001";
@@ -55,4 +55,40 @@ test("checkout failure has neither Location nor Set-Cookie and success redirects
   assert.equal(completed.status, 303);
   assert.equal(completed.headers.get("location"), "/checkout/success");
   assert.match(completed.headers.get("set-cookie") ?? "", /__Host-celebix_receipt/u);
+});
+
+test("hosted checkout start returns only the fixed same-origin destination and browser cookies", async () => {
+  const body = { operationId: OPERATION, cartVersion: 1, intentKind: "cart", contact: { name: "Güzide Elif", email: "guzide@example.test", phone: "+905551112233" }, shippingAddress: { addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy", postalCode: "34710" }, shippingMethod: "standard", paymentMethodId: "40000000-0000-4000-8000-000000000001", identityNumber: "10000000146" };
+  const handler = createHostedCheckoutStartRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({
+      start: async () => ({
+        destination: "/checkout/payment" as const,
+        state: "ready" as const,
+        setCookies: [
+          "__Host-celebix_hosted_checkout=safe; Path=/checkout/payment; Secure; HttpOnly; SameSite=Lax",
+          "__Host-celebix_receipt=safe; Path=/; Secure; HttpOnly; SameSite=Lax",
+        ],
+      }),
+    }),
+  });
+  const response = await handler(new Request("http://internal:3400/api/checkout/payment/start", { method: "POST", headers: { origin: `https://${HOST}`, "content-type": "application/json", "x-forwarded-for": "8.8.8.8" }, body: JSON.stringify(body) }));
+  assert.equal(response.status, 200);
+  const raw = await response.clone().text();
+  assert.deepEqual(await response.json(), { destination: "/checkout/payment" });
+  assert.equal(response.headers.has("location"), false);
+  assert.doesNotMatch(raw, /iyzipay|paytr|token/iu);
+  assert.match(response.headers.get("set-cookie") ?? "", /__Host-celebix_hosted_checkout/u);
+});
+
+test("hosted checkout start fails closed without leaking cookies or redirect authority", async () => {
+  const handler = createHostedCheckoutStartRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({ start: async () => { throw new Error("provider token https://evil.example"); } }),
+  });
+  const response = await handler(new Request("http://internal:3400/api/checkout/payment/start", { method: "GET" }));
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { code: "invalid_input" });
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(response.headers.has("location"), false);
 });

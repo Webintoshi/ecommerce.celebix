@@ -298,6 +298,8 @@ BEGIN
     END LOOP;
     result:=begin_result||pg_catalog.jsonb_build_object(
       'sessionId',p_session_id,'sessionStatus','active','sessionVersion',1,
+      'paymentSessionKeyId',p_payment_session_key_id,
+      'receiptKeyId',p_receipt_key_id,'customerKeyId',p_customer_key_id,
       'paymentSessionExpiresAt',saas.storefront_commerce_timestamp(p_now+interval '15 minutes'),
       'receiptExpiresAt',saas.storefront_commerce_timestamp(p_now+interval '1 day'),
       'customerExpiresAt',saas.storefront_commerce_timestamp(p_now+interval '30 days')

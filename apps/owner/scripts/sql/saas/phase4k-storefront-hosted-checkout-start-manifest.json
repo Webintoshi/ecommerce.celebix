@@ -7,7 +7,7 @@
     {
       "file": "202608060091_storefront_hosted_checkout_start.up.sql",
       "direction": "up",
-      "sha256": "e0fb145822dc88b0e0344a1029072911d57c9c16fb9d3ce677ed6afdb2ac4882"
+      "sha256": "69b8b12391097954f30dfe1db6308b98ac9f1399c87bdaaf7b7c6cd3442afe6f"
     },
     {
       "file": "202608060091_storefront_hosted_checkout_start.down.sql",

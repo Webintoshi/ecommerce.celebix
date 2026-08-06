@@ -15,7 +15,7 @@ import {
   paymentAttemptTimestamp,
   paymentAttemptUuid,
 } from "../payment-attempts/validation.ts";
-import type { BeginPaymentAttemptResult } from "../payment-attempts/types.ts";
+import type { HostedCheckoutBeginResult } from "./types.ts";
 import { commerceCandidates, commerceDate, commerceDelivery, commerceHostname, commerceVersion } from "../storefront-commerce/validation.ts";
 import type { HostedCheckoutAuthority, HostedCheckoutPresentationState, HostedCheckoutPublicStatus, HostedCheckoutProviderCode, HostedCheckoutSessionStatus } from "./types.ts";
 
@@ -152,12 +152,13 @@ export function parseHostedAuthority(value: unknown): HostedCheckoutAuthority {
   });
 }
 
-export function parseHostedBegin(value: unknown, outcome: string, expected: Readonly<{ operationId: string; paymentMethodId: string; sessionId: string }>): BeginPaymentAttemptResult {
+export function parseHostedBegin(value: unknown, outcome: string, expected: Readonly<{ operationId: string; paymentMethodId: string; sessionId: string }>): HostedCheckoutBeginResult {
   const parsed = hostedExact(value, [
     "attemptId", "storeId", "paymentMethodId", "profileId", "providerCode", "environment",
     "executionAdapterVersion", "executionEvidenceDigest", "credentialVersion", "amountMinor", "currency",
     "publicConfig", "sealedCredentials", "sessionId", "sessionStatus", "sessionVersion",
     "paymentSessionExpiresAt", "receiptExpiresAt", "customerExpiresAt",
+    "paymentSessionKeyId", "receiptKeyId", "customerKeyId",
   ]);
   if (outcome !== "created" && outcome !== "operation_replayed") invalid();
   if (parsed.sessionStatus !== "active" || paymentAttemptInteger(parsed.sessionVersion) !== 1
@@ -175,6 +176,9 @@ export function parseHostedBegin(value: unknown, outcome: string, expected: Read
     credentialVersion: paymentAttemptInteger(parsed.credentialVersion), amountMinor: paymentAttemptInteger(parsed.amountMinor),
     currency: paymentAttemptCurrency(parsed.currency), publicConfig,
     sealedCredentials: paymentAttemptSealedCredentials(plain(parsed.sealedCredentials)),
+    paymentSessionKeyId: text(parsed.paymentSessionKeyId, 1, 128, KEY_ID),
+    receiptKeyId: text(parsed.receiptKeyId, 1, 128, KEY_ID),
+    customerKeyId: text(parsed.customerKeyId, 1, 128, KEY_ID),
   });
   if (result.attemptId !== expected.operationId || result.paymentMethodId !== expected.paymentMethodId
     || result.currency !== "TRY" || publicConfig.environment !== environment) invalid();

@@ -16,6 +16,7 @@ import {
   PostgresPublicStorefrontContentRepository,
   PostgresNewsletterRepository,
   PostgresStorefrontCommerceRepository,
+  PostgresStorefrontHostedCheckoutRepository,
   PostgresStorefrontIdentityRepository,
   PostgresPublicAnalyticsRepository,
   PostgresStoreDomainOriginHealthRepository,
@@ -54,6 +55,7 @@ import type {
 import { selectTrustedStorefrontHostAuthority } from "./trusted-host-authority.ts";
 import { parseStorefrontCommerceCredentialKeyring } from "./cart/credential.ts";
 import { createStorefrontCommerceRuntime, type StorefrontCommerceRuntime } from "./cart/runtime.ts";
+import { createStandardHostedCheckoutRuntime, type StandardHostedCheckoutRuntime } from "./checkout/standard-hosted-payment.ts";
 import { createStorefrontLoginCode } from "./account/credential.ts";
 import { createResendStorefrontIdentityEmailDelivery } from "./account/email-delivery.ts";
 import { createStorefrontIdentityRuntime, type StorefrontIdentityRuntime } from "./account/runtime.ts";
@@ -65,6 +67,7 @@ export type PublicStorefrontRuntime = Readonly<{
   content: PublicStorefrontContentRepository;
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
+  hostedCheckout: StandardHostedCheckoutRuntime | null;
   checkout: CheckoutRuntime;
   abandonedCarts: InstanceType<typeof PostgresPublicAbandonedCartRepository>;
   analytics: InstanceType<typeof PostgresPublicAnalyticsRepository> | null;
@@ -160,7 +163,36 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     const content = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
     const commerce = new PostgresStorefrontCommerceRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined });
     const commerceKeyring = parseStorefrontCommerceCredentialKeyring(process.env);
-    const cart = createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID });
+    const hostedMigration = await pool.query(`SELECT
+      to_regclass('saas.storefront_hosted_checkout_sessions') IS NOT NULL
+        AND to_regclass('saas.checkout_inventory_reservations') IS NOT NULL
+        AND to_regprocedure('saas.storefront_available_stock(uuid,uuid,timestamp with time zone,uuid)') IS NOT NULL AS migration_090,
+      to_regprocedure('saas.public_storefront_hosted_checkout_authority(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.public_storefront_hosted_checkout_begin(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text)') IS NOT NULL
+        AND to_regprocedure('saas.public_storefront_hosted_checkout_presentation(text,timestamp with time zone,jsonb)') IS NOT NULL AS migration_091`);
+    const hostedReady = hostedMigration.rowCount === 1
+      && hostedMigration.rows[0]?.migration_090 === true
+      && hostedMigration.rows[0]?.migration_091 === true;
+    const presentationInfrastructure = hostedReady ? await resolveDefaultCheckoutPaymentRuntime() : null;
+    const hostedCheckout = hostedReady && presentationInfrastructure !== null
+      ? createStandardHostedCheckoutRuntime({
+          repository: new PostgresStorefrontHostedCheckoutRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined }),
+          commerceKeyring,
+          presentationKeyring: presentationInfrastructure.keyring,
+          now: () => new Date(),
+          randomUuid: randomUUID,
+          resolveExecution: async () => {
+            const execution = await resolveDefaultHostedPaymentInfrastructure();
+            return execution === null ? null : Object.freeze({ attempts: execution.attempts, createRuntime: execution.createRuntime });
+          },
+        })
+      : null;
+    const activeHostedProviders = new Set(executableCompiledAuthorities(compiledHostedPaymentAuthorities(), Object.freeze({
+      CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
+      CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
+    })).map(({ providerCode }) => providerCode));
+    const cart = createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
+      hostedPaymentAvailable: async (method) => hostedCheckout !== null && activeHostedProviders.has(method.providerCode) });
     const quickOrderRepository = new PostgresPublicQuickOrderRepository({
       pool,
       role: "celebix_saas_workflow",
@@ -191,6 +223,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       content,
       commerce,
       cart,
+      hostedCheckout,
       checkout: createCheckoutRuntime({ storefrontRepository: repository, quickOrderRepository }),
       abandonedCarts,
       analytics,

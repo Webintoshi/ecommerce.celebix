@@ -1,6 +1,5 @@
 import { types as nodeTypes } from "node:util";
 
-import type { BeginPaymentAttemptResult } from "../payment-attempts/types.ts";
 import { paymentAttemptSealedCredentials } from "../payment-attempts/validation.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import {
@@ -159,7 +158,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
   }
 
-  async begin(input: HostedCheckoutBeginInput): Promise<BeginPaymentAttemptResult> {
+  async begin(input: HostedCheckoutBeginInput): ReturnType<StorefrontHostedCheckoutRepository["begin"]> {
     try {
       const parsed = hostedExact(input, [
         "hostname", "now", "intentKind", "candidates", "cartVersion", "delivery", "paymentMethodId",
@@ -188,7 +187,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         await client.query("BEGIN ISOLATION LEVEL READ COMMITTED"); began = true; await this.configure(client);
         const selectedResult = selected(await client.query(text, values));
         if (selectedResult.outcome !== "created" && selectedResult.outcome !== "operation_replayed") return mapOutcome(selectedResult.outcome);
-        let observed: BeginPaymentAttemptResult;
+        let observed: Awaited<ReturnType<StorefrontHostedCheckoutRepository["begin"]>>;
         try { observed = parseHostedBegin(selectedResult.result, selectedResult.outcome, { operationId, paymentMethodId: base.paymentMethodId, sessionId }); }
         catch { return unavailable(); }
         try { await client.query("COMMIT"); terminal = true; release(client); return observed; }

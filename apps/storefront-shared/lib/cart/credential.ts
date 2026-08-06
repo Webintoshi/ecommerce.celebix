@@ -83,7 +83,7 @@ export function createStorefrontCredential(purpose: StorefrontCredentialPurpose,
   return createStorefrontCredentialForKey(purpose, keyring, keyring.activeKeyId, random);
 }
 
-export function createStorefrontOperationCredential(purpose: "customer" | "receipt", operationId: string, keyring: StorefrontCommerceCredentialKeyring, persistedKeyId = keyring.activeKeyId): Readonly<{ value: string; keyId: string; digest: string }> {
+export function createStorefrontOperationCredential(purpose: "customer" | "receipt" | "hosted_checkout", operationId: string, keyring: StorefrontCommerceCredentialKeyring, persistedKeyId = keyring.activeKeyId): Readonly<{ value: string; keyId: string; digest: string }> {
   const selected = KEY_ID.test(persistedKeyId) ? keyring.keys.find(({ keyId }) => keyId === persistedKeyId) : undefined;
   if (!selected || !UUID.test(operationId)) unavailable();
   const frame = Buffer.from(`celebix\0storefront-operation-credential\0v1\0${purpose}\0${operationId}`, "utf8");

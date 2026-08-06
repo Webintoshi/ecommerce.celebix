@@ -15,6 +15,7 @@ import {
 
 const KEY_A = Buffer.alloc(32, 7).toString("base64url");
 const KEY_B = Buffer.alloc(32, 9).toString("base64url");
+const OPERATION = "30000000-0000-4000-8000-000000000001";
 const source = (activeKeyId: string) => ({
   CELEBIX_DEPLOYMENT_TIER: "staging",
   CELEBIX_STOREFRONT_COMMERCE_CREDENTIALS_MODE: "approved_staging",
@@ -27,7 +28,7 @@ const source = (activeKeyId: string) => ({
 test("hosted checkout credential has an independent purpose and cannot be reused as commerce authority", () => {
   const keyring = parseStorefrontCommerceCredentialKeyring(source("current_01"));
   const random = (size: number) => new Uint8Array(size).fill(3);
-  const hosted = createStandardHostedCheckoutCredential(keyring, random);
+  const hosted = createStandardHostedCheckoutCredential(keyring, OPERATION);
   assert.match(hosted.value, /^h1[.]current_01[.][A-Za-z0-9_-]{43}$/u);
   for (const purpose of ["cart", "intent", "customer", "receipt"] as const) {
     assert.notEqual(hosted.digest, createStorefrontCredential(purpose, keyring, random).digest);
@@ -37,7 +38,7 @@ test("hosted checkout credential has an independent purpose and cannot be reused
 test("hosted checkout accepts retained-key credentials after active-key rotation", () => {
   const previous = createStandardHostedCheckoutCredential(
     parseStorefrontCommerceCredentialKeyring(source("previous_01")),
-    (size) => new Uint8Array(size).fill(4),
+    OPERATION,
   );
   const rotated = parseStorefrontCommerceCredentialKeyring(source("current_01"));
   assert.deepEqual(standardHostedCheckoutDigestCandidates(previous.value, rotated), [
@@ -47,7 +48,7 @@ test("hosted checkout accepts retained-key credentials after active-key rotation
 
 test("hosted checkout cookie is host-only, short-lived, path-bounded and deletable", () => {
   const keyring = parseStorefrontCommerceCredentialKeyring(source("current_01"));
-  const created = createStandardHostedCheckoutCredential(keyring, (size) => new Uint8Array(size).fill(5));
+  const created = createStandardHostedCheckoutCredential(keyring, OPERATION);
   const serialized = serializeStandardHostedCheckoutCookie(created.value);
   assert.equal(serialized, `__Host-celebix_hosted_checkout=${created.value}; Path=/checkout/payment; Max-Age=900; HttpOnly; Secure; SameSite=Lax`);
   assert.doesNotMatch(serialized, /Domain=/iu);
@@ -56,7 +57,7 @@ test("hosted checkout cookie is host-only, short-lived, path-bounded and deletab
 
 test("hosted checkout cookie reader rejects duplicates and every other credential purpose", () => {
   const keyring = parseStorefrontCommerceCredentialKeyring(source("current_01"));
-  const hosted = createStandardHostedCheckoutCredential(keyring, (size) => new Uint8Array(size).fill(6)).value;
+  const hosted = createStandardHostedCheckoutCredential(keyring, OPERATION).value;
   const cart = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(6)).value;
   assert.deepEqual(readStandardHostedCheckoutCookie(`theme=light; __Host-celebix_hosted_checkout=${hosted}`), { kind: "present", value: hosted });
   assert.deepEqual(readStandardHostedCheckoutCookie(`__Host-celebix_hosted_checkout=${cart}`), { kind: "invalid" });

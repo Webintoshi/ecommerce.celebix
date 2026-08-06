@@ -1,12 +1,17 @@
 import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
+import type { StandardHostedCheckoutRuntime } from "../checkout/standard-hosted-payment.ts";
 import { readCartMutationRequest, readCheckoutRequest } from "./request.ts";
 import { StorefrontCommerceRuntimeError, type StorefrontCommerceRuntime } from "./runtime.ts";
 
 type Dependencies = Readonly<{
   selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
   resolveRuntime(): Promise<Pick<StorefrontCommerceRuntime, "resolveCart" | "mutateCart" | "quote" | "complete"> | null>;
+}>;
+type HostedDependencies = Readonly<{
+  selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
+  resolveRuntime(): Promise<Pick<StandardHostedCheckoutRuntime, "start"> | null>;
 }>;
 
 function json(body: unknown, status: number, headers?: HeadersInit): Response {
@@ -15,7 +20,7 @@ function json(body: unknown, status: number, headers?: HeadersInit): Response {
   selected.set("x-content-type-options", "nosniff");
   return Response.json(body, { status, headers: selected });
 }
-function authority(dependencies: Dependencies, request: Request): Readonly<{ hostname: string; origin: string }> | null {
+function authority(dependencies: Readonly<{ selectAuthority(headers: Headers): TrustedStorefrontHostAuthority }>, request: Request): Readonly<{ hostname: string; origin: string }> | null {
   try {
     const selected = dependencies.selectAuthority(request.headers);
     return selected.kind === "trusted" ? Object.freeze({ hostname: selected.hostname, origin: `https://${selected.hostname}` }) : null;
@@ -28,7 +33,9 @@ function failure(error: unknown): Response {
   if (["cart_expired", "version_conflict", "cart_empty", "price_changed", "stock_unavailable", "shipping_unavailable", "payment_unavailable", "operation_mismatch"].includes(code)) return json({ code }, 409);
   return json({ code: "unavailable" }, 503);
 }
-async function runtime(dependencies: Dependencies) { try { return await dependencies.resolveRuntime(); } catch { return null; } }
+async function runtime<T>(dependencies: Readonly<{ resolveRuntime(): Promise<T | null> }>): Promise<T | null> {
+  try { return await dependencies.resolveRuntime(); } catch { return null; }
+}
 
 export function createCartGetRoute(dependencies: Dependencies) {
   return async function GET(request: Request): Promise<Response> {
@@ -77,6 +84,31 @@ export function createCheckoutCompleteRoute(dependencies: Dependencies) {
       const headers = new Headers({ "cache-control": "no-store", location: "/checkout/success", "x-content-type-options": "nosniff" });
       for (const cookie of result.setCookies) headers.append("set-cookie", cookie);
       return new Response(null, { status: 303, headers });
+    } catch (error) { return failure(error); }
+  };
+}
+
+export function createHostedCheckoutStartRoute(dependencies: HostedDependencies) {
+  return async function POST(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request);
+    if (!selected) return json({ code: "unavailable" }, 503);
+    let input;
+    try { input = await readCheckoutRequest(request, selected.origin); }
+    catch { return json({ code: "invalid_input" }, 400); }
+    if (input.kind !== "hosted_start") return json({ code: "invalid_input" }, 400);
+    const selectedRuntime = await runtime(dependencies);
+    if (!selectedRuntime) return json({ code: "unavailable" }, 503);
+    try {
+      const result = await selectedRuntime.start({
+        hostname: selected.hostname,
+        cookieHeader: request.headers.get("cookie"),
+        headers: new Headers(request.headers),
+        request: input,
+      });
+      if (result.destination !== "/checkout/payment") return json({ code: "unavailable" }, 503);
+      const headers = new Headers();
+      for (const cookie of result.setCookies) headers.append("set-cookie", cookie);
+      return json({ destination: "/checkout/payment" }, 200, headers);
     } catch (error) { return failure(error); }
   };
 }

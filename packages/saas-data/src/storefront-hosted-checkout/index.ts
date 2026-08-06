@@ -7,6 +7,7 @@ export type {
   HostedCheckoutAuthority,
   HostedCheckoutAuthorityInput,
   HostedCheckoutBeginInput,
+  HostedCheckoutBeginResult,
   HostedCheckoutIssuedCredential,
   HostedCheckoutPresentationInput,
   HostedCheckoutPresentationSaveInput,

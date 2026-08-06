@@ -1,6 +1,6 @@
 import type { StorefrontCredentialRead } from "../cart/credential.ts";
 import {
-  createStorefrontCredential,
+  createStorefrontOperationCredential,
   credentialDigestCandidates,
   readStorefrontCredentialCookie,
   serializeStorefrontCredentialCookie,
@@ -10,9 +10,9 @@ import {
 
 export function createStandardHostedCheckoutCredential(
   keyring: StorefrontCommerceCredentialKeyring,
-  random: (size: number) => Uint8Array,
+  operationId: string,
 ) {
-  return createStorefrontCredential("hosted_checkout", keyring, random);
+  return createStorefrontOperationCredential("hosted_checkout", operationId, keyring);
 }
 
 export function standardHostedCheckoutDigestCandidates(

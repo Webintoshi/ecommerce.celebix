@@ -45,6 +45,7 @@ const beginPayload = () => ({
   executionEvidenceDigest: EVIDENCE, credentialVersion: 4, amountMinor: 10_000, currency: "TRY",
   publicConfig: { environment: "test" }, sealedCredentials: envelope(), sessionId: SESSION,
   sessionStatus: "active", sessionVersion: 1,
+  paymentSessionKeyId: "current_01", receiptKeyId: "current_01", customerKeyId: "current_01",
   paymentSessionExpiresAt: "2026-08-06T12:15:00.000Z",
   receiptExpiresAt: "2026-08-07T12:00:00.000Z", customerExpiresAt: "2026-09-05T12:00:00.000Z",
 });

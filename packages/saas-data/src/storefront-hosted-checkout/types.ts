@@ -8,6 +8,11 @@ import type { StorefrontCredentialCandidate, StorefrontDelivery } from "../store
 export type HostedCheckoutProviderCode = "paytr_iframe" | "iyzico_iframe";
 export type HostedCheckoutSessionStatus = "active" | "provider_ready" | "processing" | "captured" | "failed" | "cancelled" | "expired" | "stock_conflict";
 export type HostedCheckoutIssuedCredential = Readonly<{ keyId: string; digest: string }>;
+export type HostedCheckoutBeginResult = BeginPaymentAttemptResult & Readonly<{
+  paymentSessionKeyId: string;
+  receiptKeyId: string;
+  customerKeyId: string;
+}>;
 
 export type HostedCheckoutAuthorityInput = Readonly<{
   hostname: string;
@@ -112,7 +117,7 @@ export type HostedCheckoutPublicStatus = Readonly<{
 
 export interface StorefrontHostedCheckoutRepository {
   authority(input: HostedCheckoutAuthorityInput): Promise<HostedCheckoutAuthority>;
-  begin(input: HostedCheckoutBeginInput): Promise<BeginPaymentAttemptResult>;
+  begin(input: HostedCheckoutBeginInput): Promise<HostedCheckoutBeginResult>;
   savePresentation(input: HostedCheckoutPresentationSaveInput): Promise<HostedCheckoutPresentationState>;
   presentation(input: HostedCheckoutPresentationInput): Promise<HostedCheckoutPresentationState>;
   status(input: HostedCheckoutStatusInput): Promise<HostedCheckoutPublicStatus>;

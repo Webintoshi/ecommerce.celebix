@@ -35,6 +35,13 @@ test("checkout submission contains only the exact server-owned contract and fixe
   assert.doesNotMatch(form, /priceCents\s*:|shippingCents\s*:|iban\s*:|storeId|tenantId|customerId|orderId|credential(?:Id|Value|Cookie)/u);
 });
 
+test("hosted card uses the fixed start route and renders only provider-required identity", () => {
+  for (const proof of ["hosted_card", "requiredCustomerFields", "identityNumber", "/api/checkout/payment/start", '"/checkout/payment"', "Güvenli ödemeye geç"]) {
+    assert.match(form, new RegExp(proof, "u"));
+  }
+  assert.doesNotMatch(form, /cardNumber|cvv|cvc|expiry|holderName/u);
+});
+
 test("checkout maps finite quote failures without inventing a payment option", () => {
   for (const proof of ["StorefrontCartClientError", "checkoutFailureMessage", "payment_unavailable", "Ödeme yöntemi henüz yapılandırılmadı."]) assert.match(`${form}\n${readiness}`, new RegExp(proof, "u"));
   assert.match(form, /!quote[?][.]cart[.]checkoutReady/u);
