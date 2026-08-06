@@ -7,6 +7,7 @@ const ORIGIN = "https://shop.example.test";
 const PRODUCT = "10000000-0000-4000-8000-000000000001";
 const VARIANT = "20000000-0000-4000-8000-000000000001";
 const OPERATION = "30000000-0000-4000-8000-000000000001";
+const PAYMENT_METHOD = "40000000-0000-4000-8000-000000000001";
 
 function request(path: string, body: unknown, headers: HeadersInit = {}, method = "POST") {
   return new Request(`http://storefront.internal:3450${path}`, { method, headers: { origin: ORIGIN, "content-type": "application/json", ...headers }, body: method === "POST" ? JSON.stringify(body) : undefined });
@@ -63,4 +64,52 @@ test("checkout parser accepts quote and bounded complete payload without browser
     { ...COMPLETE, shippingMethod: "express" },
     { ...COMPLETE, paymentKind: "credit_card" },
   ]) await assert.rejects(readCheckoutRequest(request("/api/checkout/complete", injected), ORIGIN), /storefront_checkout_request_invalid/u);
+});
+
+const HOSTED_START = Object.freeze({
+  operationId: OPERATION,
+  cartVersion: 4,
+  intentKind: "cart",
+  contact: COMPLETE.contact,
+  shippingAddress: COMPLETE.shippingAddress,
+  shippingMethod: "standard",
+  paymentMethodId: PAYMENT_METHOD,
+  identityNumber: "10000000146",
+  note: "Kapıya bırakmayın",
+});
+
+test("hosted start accepts only the exact server-priced checkout command", async () => {
+  assert.deepEqual(
+    await readCheckoutRequest(request("/api/checkout/payment/start", HOSTED_START), ORIGIN),
+    { kind: "hosted_start", ...HOSTED_START },
+  );
+  assert.deepEqual(
+    await readCheckoutRequest(request("/api/checkout/payment/start", { ...HOSTED_START, identityNumber: undefined, note: undefined }), ORIGIN),
+    { kind: "hosted_start", ...Object.fromEntries(Object.entries(HOSTED_START).filter(([key]) => key !== "identityNumber" && key !== "note")) },
+  );
+  for (const injected of [
+    { ...HOSTED_START, amountMinor: 1 },
+    { ...HOSTED_START, providerCode: "paytr_iframe" },
+    { ...HOSTED_START, storeId: PRODUCT },
+    { ...HOSTED_START, paymentMethodId: "not-a-uuid" },
+    { ...HOSTED_START, shippingMethod: "express" },
+  ]) await assert.rejects(readCheckoutRequest(request("/api/checkout/payment/start", injected), ORIGIN), /storefront_checkout_request_invalid/u);
+});
+
+test("hosted identity authority rejects fake repeated controlled and non-eleven-digit values", async () => {
+  for (const identityNumber of [
+    "12345678901", "11111111111", "00000000000", "1000000014", "100000001460", "1000000014\n",
+  ]) await assert.rejects(
+    readCheckoutRequest(request("/api/checkout/payment/start", { ...HOSTED_START, identityNumber }), ORIGIN),
+    /storefront_checkout_request_invalid/u,
+  );
+});
+
+test("hosted start retains exact origin content-type and body limits", async () => {
+  for (const candidate of [
+    request("/api/checkout/payment/start?tenant=evil", HOSTED_START),
+    request("/api/checkout/payment/start", HOSTED_START, { origin: "https://evil.example" }),
+    request("/api/checkout/payment/start", HOSTED_START, { "content-type": "application/json; charset=utf-8" }),
+    request("/api/checkout/payment/start", HOSTED_START, { "content-length": "32769" }),
+  ]) await assert.rejects(readCheckoutRequest(candidate, ORIGIN), /storefront_checkout_request_invalid/u);
 });

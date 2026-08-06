@@ -291,7 +291,7 @@ git commit -m "feat(checkout): add hosted checkout repository"
 **Interfaces:**
 - Produces `HostedCheckoutStartRequest` and purpose-separated payment-session cookie helpers.
 
-- [ ] **Step 1: Write RED parser and cookie tests**
+- [x] **Step 1: Write RED parser and cookie tests**
 
 Use the exact request:
 
@@ -312,17 +312,17 @@ type HostedCheckoutStartRequest = Readonly<{
 
 Accept only `/api/checkout/payment/start`; reject extras, bad origin/content type, oversized bodies, fake `12345678901`, repeated digits, controls, and non-11-digit identity. Cookie tests prove purpose separation, key rotation candidates, Secure/HttpOnly/SameSite=Lax/Path=/checkout/payment, expiry, and deletion.
 
-- [ ] **Step 2: Observe RED**
+- [x] **Step 2: Observe RED**
 
 ```bash
 NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types --test apps/storefront-shared/lib/cart/request.test.ts apps/storefront-shared/lib/checkout/standard-hosted-cookie.test.ts
 ```
 
-- [ ] **Step 3: Implement minimum parser and cookie helper**
+- [x] **Step 3: Implement minimum parser and cookie helper**
 
 Reuse existing credential cryptography with a new `hosted_checkout` purpose and independent cookie name. Never reuse cart, intent, customer, or receipt digests.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types --test apps/storefront-shared/lib/cart/request.test.ts apps/storefront-shared/lib/checkout/standard-hosted-cookie.test.ts

@@ -5,6 +5,7 @@ const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+90[1-9][0-9]{9}$/;
 const POSTAL = /^[A-Za-z0-9 -]{2,16}$/;
+const IDENTITY_NUMBER = /^[1-9][0-9]{10}$/;
 const MAXIMUM_BODY_BYTES = 32_768;
 
 function cartInvalid(): never { throw new TypeError("storefront_cart_request_invalid"); }
@@ -72,10 +73,34 @@ export async function readCartMutationRequest(request: Request, publicOrigin: st
 function contact(value: unknown): CheckoutContact { const row = exact(value, ["name", "email", "phone"], [], checkoutInvalid); return Object.freeze({ name: text(row.name, 2, 200, checkoutInvalid), email: text(row.email, 3, 320, checkoutInvalid, EMAIL).toLowerCase(), phone: text(row.phone, 13, 13, checkoutInvalid, PHONE) }); }
 function address(value: unknown): CheckoutShippingAddress { const row = exact(value, ["addressLine1", "city", "district"], ["addressLine2", "postalCode"], checkoutInvalid); return Object.freeze({ addressLine1: text(row.addressLine1, 3, 300, checkoutInvalid), ...(Object.hasOwn(row, "addressLine2") ? { addressLine2: text(row.addressLine2, 1, 300, checkoutInvalid) } : {}), city: text(row.city, 2, 100, checkoutInvalid), district: text(row.district, 2, 100, checkoutInvalid), ...(Object.hasOwn(row, "postalCode") ? { postalCode: text(row.postalCode, 1, 16, checkoutInvalid, POSTAL) } : {}) }); }
 
+function identityNumber(value: unknown): string {
+  const selected = text(value, 11, 11, checkoutInvalid, IDENTITY_NUMBER);
+  if (/^([0-9])\1{10}$/u.test(selected) || selected === "12345678901") checkoutInvalid();
+  const digits = [...selected].map(Number);
+  const odd = digits[0]! + digits[2]! + digits[4]! + digits[6]! + digits[8]!;
+  const even = digits[1]! + digits[3]! + digits[5]! + digits[7]!;
+  const tenth = ((odd * 7 - even) % 10 + 10) % 10;
+  const eleventh = digits.slice(0, 10).reduce((sum, digit) => sum + digit, 0) % 10;
+  if (digits[9] !== tenth || digits[10] !== eleventh) checkoutInvalid();
+  return selected;
+}
+
 export async function readCheckoutRequest(request: Request, publicOrigin: string): Promise<CheckoutRequest> {
   let selected: { path: string; body: unknown };
-  try { selected = await jsonBody(request, ["/api/checkout/quote", "/api/checkout/complete"], publicOrigin, checkoutInvalid); } catch { return checkoutInvalid(); }
+  try { selected = await jsonBody(request, ["/api/checkout/quote", "/api/checkout/complete", "/api/checkout/payment/start"], publicOrigin, checkoutInvalid); } catch { return checkoutInvalid(); }
   if (selected.path === "/api/checkout/quote") { const row = exact(selected.body, ["intentKind"], [], checkoutInvalid); if (row.intentKind !== "cart" && row.intentKind !== "buy_now") checkoutInvalid(); return Object.freeze({ kind: "quote", intentKind: row.intentKind }); }
+  if (selected.path === "/api/checkout/payment/start") {
+    const row = exact(selected.body, ["operationId", "cartVersion", "intentKind", "contact", "shippingAddress", "shippingMethod", "paymentMethodId"], ["identityNumber", "note"], checkoutInvalid);
+    if (row.intentKind !== "cart" && row.intentKind !== "buy_now" || row.shippingMethod !== "standard") checkoutInvalid();
+    return Object.freeze({
+      kind: "hosted_start", operationId: uuid(row.operationId, checkoutInvalid),
+      cartVersion: integer(row.cartVersion, 1, Number.MAX_SAFE_INTEGER, checkoutInvalid),
+      intentKind: row.intentKind, contact: contact(row.contact), shippingAddress: address(row.shippingAddress),
+      shippingMethod: "standard", paymentMethodId: uuid(row.paymentMethodId, checkoutInvalid),
+      ...(Object.hasOwn(row, "identityNumber") ? { identityNumber: identityNumber(row.identityNumber) } : {}),
+      ...(Object.hasOwn(row, "note") ? { note: text(row.note, 1, 500, checkoutInvalid) } : {}),
+    });
+  }
   const row = exact(selected.body, ["operationId", "cartVersion", "intentKind", "contact", "shippingAddress", "shippingMethod", "paymentKind"], ["note"], checkoutInvalid);
   if (row.intentKind !== "cart" && row.intentKind !== "buy_now" || row.shippingMethod !== "standard" || row.paymentKind !== "bank_transfer" && row.paymentKind !== "cash_on_delivery") checkoutInvalid();
   return Object.freeze({ kind: "complete", operationId: uuid(row.operationId, checkoutInvalid), cartVersion: integer(row.cartVersion, 0, Number.MAX_SAFE_INTEGER, checkoutInvalid), intentKind: row.intentKind, contact: contact(row.contact), shippingAddress: address(row.shippingAddress), shippingMethod: "standard", paymentKind: row.paymentKind, ...(Object.hasOwn(row, "note") ? { note: text(row.note, 1, 500, checkoutInvalid) } : {}) });

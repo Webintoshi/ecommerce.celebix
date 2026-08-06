@@ -1,6 +1,6 @@
 import type { PublicCart, PublicCheckoutQuote } from "@celebix/saas-contracts";
 
-export type StorefrontCredentialPurpose = "cart" | "intent" | "customer" | "receipt";
+export type StorefrontCredentialPurpose = "cart" | "intent" | "customer" | "receipt" | "hosted_checkout";
 
 export type CartCommand =
   | Readonly<{ kind: "add"; operationId: string; productId: string; variantId: string; quantity: number; expectedVersion?: number }>
@@ -13,7 +13,21 @@ export type CheckoutContact = Readonly<{ name: string; email: string; phone: str
 export type CheckoutShippingAddress = Readonly<{ addressLine1: string; addressLine2?: string; city: string; district: string; postalCode?: string }>;
 export type CheckoutRequest =
   | Readonly<{ kind: "quote"; intentKind: CheckoutIntentKind }>
-  | Readonly<{ kind: "complete"; operationId: string; cartVersion: number; intentKind: CheckoutIntentKind; contact: CheckoutContact; shippingAddress: CheckoutShippingAddress; shippingMethod: "standard"; paymentKind: "bank_transfer" | "cash_on_delivery"; note?: string }>;
+  | Readonly<{ kind: "complete"; operationId: string; cartVersion: number; intentKind: CheckoutIntentKind; contact: CheckoutContact; shippingAddress: CheckoutShippingAddress; shippingMethod: "standard"; paymentKind: "bank_transfer" | "cash_on_delivery"; note?: string }>
+  | HostedCheckoutStartRequest;
+
+export type HostedCheckoutStartRequest = Readonly<{
+  kind: "hosted_start";
+  operationId: string;
+  cartVersion: number;
+  intentKind: CheckoutIntentKind;
+  contact: CheckoutContact;
+  shippingAddress: CheckoutShippingAddress;
+  shippingMethod: "standard";
+  paymentMethodId: string;
+  identityNumber?: string;
+  note?: string;
+}>;
 
 export type StorefrontCartClient = Readonly<{
   resolve(): Promise<PublicCart>;

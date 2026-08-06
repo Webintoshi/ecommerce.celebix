@@ -7,12 +7,13 @@ const KEY_ID = /^[a-z][a-z0-9_-]{2,31}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const PREFIX: Readonly<Record<StorefrontCredentialPurpose, string>> = Object.freeze({ cart: "c1", intent: "i1", customer: "u1", receipt: "r1" });
-const COOKIE: Readonly<Record<StorefrontCredentialPurpose, Readonly<{ name: string; maxAge: number }>>> = Object.freeze({
-  cart: Object.freeze({ name: "__Host-celebix_cart", maxAge: 2_592_000 }),
-  intent: Object.freeze({ name: "__Host-celebix_checkout_intent", maxAge: 900 }),
-  customer: Object.freeze({ name: "__Host-celebix_customer", maxAge: 2_592_000 }),
-  receipt: Object.freeze({ name: "__Host-celebix_receipt", maxAge: 900 }),
+const PREFIX: Readonly<Record<StorefrontCredentialPurpose, string>> = Object.freeze({ cart: "c1", intent: "i1", customer: "u1", receipt: "r1", hosted_checkout: "h1" });
+const COOKIE: Readonly<Record<StorefrontCredentialPurpose, Readonly<{ name: string; maxAge: number; path: string }>>> = Object.freeze({
+  cart: Object.freeze({ name: "__Host-celebix_cart", maxAge: 2_592_000, path: "/" }),
+  intent: Object.freeze({ name: "__Host-celebix_checkout_intent", maxAge: 900, path: "/" }),
+  customer: Object.freeze({ name: "__Host-celebix_customer", maxAge: 2_592_000, path: "/" }),
+  receipt: Object.freeze({ name: "__Host-celebix_receipt", maxAge: 900, path: "/" }),
+  hosted_checkout: Object.freeze({ name: "__Host-celebix_hosted_checkout", maxAge: 900, path: "/checkout/payment" }),
 });
 
 export type StorefrontCommerceCredentialKeyring = Readonly<{
@@ -121,9 +122,9 @@ export function readStorefrontCredentialCookie(purpose: StorefrontCredentialPurp
 export function serializeStorefrontCredentialCookie(purpose: StorefrontCredentialPurpose, value: string): string {
   if (parseCredential(purpose, value) === null) throw new TypeError("storefront_commerce_credential_invalid");
   const selected = COOKIE[purpose];
-  return `${selected.name}=${value}; Path=/; Max-Age=${selected.maxAge}; HttpOnly; Secure; SameSite=Lax`;
+  return `${selected.name}=${value}; Path=${selected.path}; Max-Age=${selected.maxAge}; HttpOnly; Secure; SameSite=Lax`;
 }
 
 export function serializeStorefrontCredentialDeletionCookie(purpose: StorefrontCredentialPurpose): string {
-  return `${COOKIE[purpose].name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+  return `${COOKIE[purpose].name}=; Path=${COOKIE[purpose].path}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 }
