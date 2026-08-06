@@ -19,11 +19,13 @@ $function$;
 REVOKE ALL ON FUNCTION
   saas.shipping_connection_projection(uuid,uuid),
   saas.shipping_connection_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
+  saas.shipping_connection_setup(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
   saas.shipping_connection_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,text,jsonb,text,text,bigint),
   saas.shipping_connection_select_resources(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,uuid,boolean,bigint),
   saas.shipping_connection_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint),
   saas.shipping_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),
   saas.shipping_validation_claim(text,timestamptz,integer,uuid),
+  saas.shipping_validation_claim_job(uuid,text,timestamptz,integer,uuid),
   saas.shipping_validation_open_credential(uuid,text,uuid,bigint,timestamptz),
   saas.shipping_validation_complete(uuid,text,uuid,bigint,timestamptz,text,jsonb),
   saas.shipping_validation_fail(uuid,text,uuid,bigint,timestamptz,text,text,integer),
@@ -35,11 +37,13 @@ DROP FUNCTION saas.shipping_provider_preflight();
 DROP FUNCTION saas.shipping_validation_fail(uuid,text,uuid,bigint,timestamptz,text,text,integer);
 DROP FUNCTION saas.shipping_validation_complete(uuid,text,uuid,bigint,timestamptz,text,jsonb);
 DROP FUNCTION saas.shipping_validation_open_credential(uuid,text,uuid,bigint,timestamptz);
+DROP FUNCTION saas.shipping_validation_claim_job(uuid,text,timestamptz,integer,uuid);
 DROP FUNCTION saas.shipping_validation_claim(text,timestamptz,integer,uuid);
 DROP FUNCTION saas.shipping_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text);
 DROP FUNCTION saas.shipping_connection_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint);
 DROP FUNCTION saas.shipping_connection_select_resources(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,uuid,boolean,bigint);
 DROP FUNCTION saas.shipping_connection_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,text,jsonb,text,text,bigint);
+DROP FUNCTION saas.shipping_connection_setup(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text);
 DROP FUNCTION saas.shipping_connection_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text);
 DROP FUNCTION saas.shipping_connection_projection(uuid,uuid);
 

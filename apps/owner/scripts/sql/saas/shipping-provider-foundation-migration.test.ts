@@ -39,6 +39,7 @@ test("093 exposes exact application connection commands", () => {
   const up = source("up");
   for (const name of [
     "shipping_connection_current",
+    "shipping_connection_setup",
     "shipping_connection_save",
     "shipping_connection_select_resources",
     "shipping_connection_revoke",
@@ -48,6 +49,7 @@ test("093 exposes exact application connection commands", () => {
   assert.match(up, /'shipping[.]manage'/u);
   const appGrant = up.match(/GRANT EXECUTE ON FUNCTION[\s\S]*?TO celebix_saas_app;/u)?.[0] ?? "";
   assert.match(appGrant, /shipping_connection_current/u);
+  assert.match(appGrant, /shipping_connection_setup/u);
   assert.match(appGrant, /shipping_connection_save/u);
   assert.doesNotMatch(appGrant, /shipping_validation_claim|shipping_validation_complete/u);
 });
@@ -56,6 +58,7 @@ test("093 gives workflow only fenced validation authority", () => {
   const up = source("up");
   for (const name of [
     "shipping_validation_claim",
+    "shipping_validation_claim_job",
     "shipping_validation_open_credential",
     "shipping_validation_complete",
     "shipping_validation_fail",

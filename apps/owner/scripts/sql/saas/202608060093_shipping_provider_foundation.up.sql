@@ -414,6 +414,42 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.shipping_connection_setup(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_now timestamptz,p_provider_code text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text; selected_profile saas.shipping_provider_profiles%ROWTYPE; payload jsonb;
+BEGIN
+  authority_error:=saas.merchant_action_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'integrations','shipping.read'
+  );
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  IF p_provider_code<>'basit_kargo' THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
+  SELECT profile.* INTO selected_profile FROM saas.shipping_provider_profiles profile
+  WHERE profile.store_id=p_store_id AND profile.provider_code=p_provider_code AND profile.status<>'revoked';
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  SELECT pg_catalog.jsonb_build_object(
+    'profileId',selected_profile.id,
+    'credentialVersion',selected_profile.credential_version,
+    'version',selected_profile.version,
+    'connection',saas.shipping_connection_projection(p_store_id,selected_profile.id),
+    'resources',COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      'id',resource.id,'kind',resource.resource_kind,'label',resource.display_label,
+      'active',resource.active,'verifiedAt',saas.shipping_timestamp(resource.verified_at)
+    ) ORDER BY resource.resource_kind,resource.display_label,resource.id)
+      FILTER(WHERE resource.id IS NOT NULL),'[]'::jsonb)
+  ) INTO payload
+  FROM (SELECT 1) singleton
+  LEFT JOIN saas.shipping_provider_resources resource
+    ON resource.store_id=p_store_id AND resource.profile_id=selected_profile.id
+      AND resource.credential_version=selected_profile.credential_version;
+  RETURN QUERY SELECT 'found'::text,payload;
+END
+$function$;
+
 CREATE FUNCTION saas.shipping_connection_select_resources(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
   p_plan_code text,p_plan_version bigint,p_now timestamptz,
@@ -580,6 +616,39 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.shipping_validation_claim_job(
+  p_job_id uuid,p_worker_id text,p_now timestamptz,p_lease_seconds integer,p_lease_id uuid
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE selected_job saas.shipping_validation_jobs%ROWTYPE;
+BEGIN
+  IF p_job_id IS NULL OR p_worker_id IS NULL OR p_worker_id<>pg_catalog.btrim(p_worker_id)
+    OR pg_catalog.octet_length(p_worker_id) NOT BETWEEN 1 AND 128 OR p_worker_id~'[[:cntrl:]]'
+    OR p_now IS NULL OR p_lease_seconds NOT BETWEEN 5 AND 900 OR p_lease_id IS NULL
+  THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
+  SELECT candidate.* INTO selected_job FROM saas.shipping_validation_jobs candidate
+  JOIN saas.shipping_provider_profiles profile
+    ON profile.store_id=candidate.store_id AND profile.id=candidate.profile_id
+  WHERE candidate.id=p_job_id AND candidate.status='queued' AND candidate.next_run_at<=p_now
+    AND candidate.attempt_count<5 AND profile.status='pending'
+    AND profile.credential_version=candidate.credential_version
+  FOR UPDATE OF candidate SKIP LOCKED;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'empty'::text,NULL::jsonb; RETURN; END IF;
+  UPDATE saas.shipping_validation_jobs SET status='leased',attempt_count=attempt_count+1,
+    lease_id=p_lease_id,lease_owner=p_worker_id,
+    lease_expires_at=p_now+pg_catalog.make_interval(secs=>p_lease_seconds),
+    fence_token=fence_token+1,version=version+1,updated_at=p_now
+  WHERE id=selected_job.id RETURNING * INTO selected_job;
+  RETURN QUERY SELECT 'claimed'::text,pg_catalog.jsonb_build_object(
+    'jobId',selected_job.id,'storeId',selected_job.store_id,'profileId',selected_job.profile_id,
+    'providerCode','basit_kargo','credentialVersion',selected_job.credential_version,
+    'leaseId',selected_job.lease_id,'fenceToken',selected_job.fence_token,'version',selected_job.version
+  );
+END
+$function$;
+
 CREATE FUNCTION saas.shipping_validation_complete(
   p_job_id uuid,p_worker_id text,p_lease_id uuid,p_fence_token bigint,p_now timestamptz,
   p_account_identity_digest text,p_resources jsonb
@@ -667,11 +736,13 @@ $function$;
 REVOKE ALL ON FUNCTION
   saas.shipping_connection_projection(uuid,uuid),
   saas.shipping_connection_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
+  saas.shipping_connection_setup(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
   saas.shipping_connection_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,text,jsonb,text,text,bigint),
   saas.shipping_connection_select_resources(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,uuid,boolean,bigint),
   saas.shipping_connection_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint),
   saas.shipping_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),
   saas.shipping_validation_claim(text,timestamptz,integer,uuid),
+  saas.shipping_validation_claim_job(uuid,text,timestamptz,integer,uuid),
   saas.shipping_validation_open_credential(uuid,text,uuid,bigint,timestamptz),
   saas.shipping_validation_complete(uuid,text,uuid,bigint,timestamptz,text,jsonb),
   saas.shipping_validation_fail(uuid,text,uuid,bigint,timestamptz,text,text,integer),
@@ -681,14 +752,17 @@ FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix
 
 GRANT EXECUTE ON FUNCTION
   saas.shipping_connection_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
+  saas.shipping_connection_setup(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
   saas.shipping_connection_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,text,jsonb,text,text,bigint),
   saas.shipping_connection_select_resources(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,uuid,boolean,bigint),
   saas.shipping_connection_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint),
-  saas.shipping_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text)
+  saas.shipping_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),
+  saas.shipping_provider_preflight()
 TO celebix_saas_app;
 
 GRANT EXECUTE ON FUNCTION
   saas.shipping_validation_claim(text,timestamptz,integer,uuid),
+  saas.shipping_validation_claim_job(uuid,text,timestamptz,integer,uuid),
   saas.shipping_validation_open_credential(uuid,text,uuid,bigint,timestamptz),
   saas.shipping_validation_complete(uuid,text,uuid,bigint,timestamptz,text,jsonb),
   saas.shipping_validation_fail(uuid,text,uuid,bigint,timestamptz,text,text,integer),

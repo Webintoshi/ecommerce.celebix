@@ -263,6 +263,10 @@ try {
   const resourcesA = resources("a"), resourcesB = resources("b");
   completeValidation(box, JOB_A, resourcesA, 1);
   completeValidation(box, winner.job, resourcesB, 2);
+  const setupA = app(box, "shipping_connection_setup", "'basit_kargo'");
+  assert.equal(setupA.outcome, "found");
+  assert.equal(setupA.result.profileId, PROFILE_A);
+  assert.equal(setupA.result.resources.length, 3);
   const crossStore = app(box, "shipping_connection_select_resources",
     `'60000000-0000-4000-8000-000000000010','${"4".repeat(64)}','${PROFILE_A}','${resourcesB[0].id}','${resourcesB[1].id}',false,2`);
   assert.equal(crossStore.outcome, "resource_invalid");
@@ -279,6 +283,11 @@ try {
   assert.equal(rotated.result.credentialVersion, 2);
   const oldResourceCount = Number(psql(box, `SET ROLE celebix_saas_owner; SELECT count(*) FROM saas.shipping_provider_resources WHERE profile_id='${PROFILE_A}';`).stdout.trim());
   assert.equal(oldResourceCount, 0);
+  const exactLease = "80000000-0000-4000-8000-000000000099";
+  const exactClaim = workflow(box, "shipping_validation_claim_job",
+    `'50000000-0000-4000-8000-000000000102','worker-99','${NOW}',60,'${exactLease}'`);
+  assert.equal(exactClaim.outcome, "claimed");
+  assert.equal(exactClaim.result.jobId, "50000000-0000-4000-8000-000000000102");
 
   const revoked = app(box, "shipping_connection_revoke",
     `'60000000-0000-4000-8000-000000000013','${"7".repeat(64)}','${PROFILE_A}',4`);
