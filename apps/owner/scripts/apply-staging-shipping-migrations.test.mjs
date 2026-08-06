@@ -17,7 +17,7 @@ const approved = Object.freeze({
 test("shipping staging migration rejects production, wrong activation, and database mismatch", () => {
   for (const source of [
     { ...approved, CELEBIX_DEPLOYMENT_TIER: "production" },
-    { ...approved, CELEBIX_STAGING_ACTIVATION_ID: "staging_other" },
+    { ...approved, CELEBIX_STAGING_ACTIVATION_ID: "production_other" },
     { ...approved, CELEBIX_SAAS_DATABASE_NAME: "production" },
   ]) assert.throws(() => resolveShippingMigrationConfiguration(source), /shipping_staging_/);
 

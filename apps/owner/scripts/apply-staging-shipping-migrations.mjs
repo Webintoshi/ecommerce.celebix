@@ -33,10 +33,11 @@ const MIGRATIONS = Object.freeze([
 ]);
 
 export function resolveShippingMigrationConfiguration(source = process.env) {
+  const activationId = source.CELEBIX_STAGING_ACTIVATION_ID?.trim() ?? "";
   if (
     source.CELEBIX_DEPLOYMENT_TIER !== "staging"
     || source.CELEBIX_SAAS_AUTH_MODE !== "approved_staging"
-    || source.CELEBIX_STAGING_ACTIVATION_ID !== "staging_auth01"
+    || !/^staging_[a-z0-9_]{3,80}$/u.test(activationId)
   ) throw new Error("shipping_staging_migration_not_approved");
 
   const databaseUrl = source.CELEBIX_SAAS_DATABASE_URL?.trim();
