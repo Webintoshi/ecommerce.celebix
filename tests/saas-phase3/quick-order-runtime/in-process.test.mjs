@@ -311,6 +311,7 @@ test("12/13 provider activation and revocation remain server-owned and navigatio
   const orders = navigation.PANEL_NAVIGATION.find(({ key }) => key === "orders");
   assert.deepEqual(orders?.children?.map(({ label, href }) => ({ label, href })), [
     { label: "Tüm Siparişler", href: "/orders" },
+    { label: "Taslak Siparişler", href: "/orders/drafts" },
     { label: "Hızlı Siparişler", href: "/orders/quick-links" },
     { label: "Terk Edilen Sepetler", href: "/orders/abandoned-carts" },
   ]);

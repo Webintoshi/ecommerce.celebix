@@ -1,0 +1,23 @@
+{
+  "phase": "phase3-panel-store-options",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607300072_panel_store_options.up.sql",
+      "direction": "up",
+      "sha256": "08994d6c56b7a9c7734a7cc49d0172090c66d0a1213d77a63aa75c8c2e83d6ed"
+    },
+    {
+      "file": "202607300072_panel_store_options.down.sql",
+      "direction": "down",
+      "sha256": "bbe482c99c829028fd2a8a2df1d6faf135968cc577cde428982849c95e84b33a"
+    },
+    {
+      "file": "202607300072_panel_store_options_assertions.sql",
+      "direction": "verify",
+      "sha256": "9e2108c3136e496639f6b03ed9c7d5a5792d8e8228b20b4e9a1e903f7bd3a46b"
+    }
+  ]
+}

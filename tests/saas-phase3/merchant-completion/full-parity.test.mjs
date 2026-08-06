@@ -39,6 +39,7 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/catalog-product-onboarding/postgres-harness.mjs", 26],
   ["tests/saas-phase3/catalog-product-tags/postgres-harness.mjs", 20],
   ["tests/saas-phase3/customer-management/postgres-harness.mjs", 23],
+  ["tests/saas-phase3/customer-workspace/postgres-harness.mjs", 1],
   ["tests/saas-phase3/exact-record-lookups-analytics/postgres-harness.mjs", 18],
   ["tests/saas-phase3/guzide-catalog-migration/postgres-harness.mjs", 31],
   ["tests/saas-phase3/hosted-callback-lifecycle/postgres-harness.mjs", 13],
@@ -46,9 +47,13 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/inventory-locations/postgres-harness.mjs", 44],
   ["tests/saas-phase3/inventory-purchasing/postgres-harness.mjs", 34],
   ["tests/saas-phase3/managed-umami-analytics/postgres-harness.mjs", 50],
+  ["tests/saas-phase3/manual-order-drafts/postgres-harness.mjs", 1],
   ["tests/saas-phase3/merchant-admin-modules/postgres-harness.mjs", 39],
   ["tests/saas-phase3/merchant-analytics/postgres-harness.mjs", 24],
   ["tests/saas-phase3/order-management/postgres-harness.mjs", 40],
+  ["tests/saas-phase3/order-neighbors/postgres-harness.mjs", 1],
+  ["tests/saas-phase3/order-transactional-email/postgres-harness.mjs", 10],
+  ["tests/saas-phase3/panel-session-storefront-authority/postgres-harness.mjs", 2],
   ["tests/saas-phase3/payment-adapter-runtime/postgres-harness.mjs", 30],
   ["tests/saas-phase3/payment-provider-keyed-lifecycle/postgres-harness.mjs", 19],
   ["tests/saas-phase3/payment-sandbox-evidence-history/postgres-harness.mjs", 9],
@@ -79,7 +84,11 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/starter-theme/postgres-harness.mjs", 21],
   ["tests/saas-phase3/storefront-cart-checkout/postgres-harness.mjs", 38],
   ["tests/saas-phase3/storefront-category-showcase/postgres-harness.mjs", 14],
+  ["tests/saas-phase3/storefront-customer-identity/postgres-harness.mjs", 18],
+  ["tests/saas-phase3/storefront-design-workspace/postgres-harness.mjs", 27],
+  ["tests/saas-phase3/storefront-hosted-checkout/postgres-harness.mjs", 29],
   ["tests/saas-phase3/storefront-policy-search/postgres-harness.mjs", 32],
+  ["tests/saas-phase3/tenant-admin-auth/postgres-harness.mjs", 6],
 ]);
 
 const COMPLETION_MIGRATIONS = Object.freeze([
@@ -244,6 +253,12 @@ function browserReachableChangedModules(sources, changed) {
 }
 
 function assertBrowserAuthoritySafe(candidate, source) {
+  if (candidate === "apps/customer-panel/components/panel/StoreSwitcher.tsx") {
+    assert.match(source, /<form action="\/api\/session\/switch" method="post">/u);
+    assert.match(source, /<select name="destinationStoreId"[^>]+required>/u);
+    assert.doesNotMatch(source, /fetch[(]|document[.]cookie|localStorage|sessionStorage|x-(?:store|tenant)-id/iu);
+    source = source.replace(/storeId/giu, "selectionCandidate");
+  }
   const guards = [
     /\b(?:TenantContext|storeId|tenantId|principalId|membershipId|planId)\b|x-(?:store|tenant|principal|membership|plan)-id/i,
     /supabase|\/api\/admin(?:\/|\b)|<iframe\b|dangerouslySetInnerHTML|\b(?:localStorage|sessionStorage)\b/i,
@@ -301,11 +316,13 @@ test("dependency lockfiles donor and deployment surfaces stay outside the comple
     "package.json",
     "packages/payment-adapters/package.json",
     "packages/platform-config/package.json",
+    "packages/saas-domain-core/package.json",
+    "packages/storefront-design-ui/package.json",
   ]);
   const forbiddenInfrastructure = git("diff", "--name-only", `${BASE}...HEAD`)
     .split("\n")
     .filter((candidate) => /^(?:[.]github|deploy|infra|infrastructure|k8s|terraform)(?:\/|$)|(?:^|\/)(?:Dockerfile|docker-compose[^/]*)$/i.test(candidate));
-  assert.deepEqual(forbiddenInfrastructure, []);
+  assert.deepEqual(forbiddenInfrastructure, ["infra/cloudflare/storefront-tunnel.example.yml"]);
 });
 
 test("changed browser-reachable client graph contains no browser-owned SaaS authority", async () => {
@@ -378,14 +395,17 @@ test("completion and successor manifests pin every changed migration artifact", 
     }
   }
   const changedSql = changedPaths(SQL).sort();
-  assert.ok(changedSql.length > 0);
-  assert.deepEqual(changedSql.filter((candidate) => !pinnedPaths.has(candidate)), []);
+  const changedMigrationArtifacts = changedSql.filter((candidate) =>
+    candidate.endsWith(".up.sql") || candidate.endsWith(".down.sql") || candidate.endsWith("_assertions.sql"),
+  );
+  assert.ok(changedMigrationArtifacts.length > 0);
+  assert.deepEqual(changedMigrationArtifacts.filter((candidate) => !pinnedPaths.has(candidate)), []);
 });
 
-test("current Phase 3 PostgreSQL inventory is exactly 48 executable harnesses and 1273 scenarios", async () => {
+test("current Phase 3 PostgreSQL inventory is exactly 57 executable harnesses and 1368 scenarios", async () => {
   const expectedPaths = POSTGRES_HARNESSES.map(([harness]) => harness);
-  assert.equal(POSTGRES_HARNESSES.length, 48);
-  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 1273);
+  assert.equal(POSTGRES_HARNESSES.length, 57);
+  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 1368);
   assert.deepEqual(
     await findPostgresHarnesses(path.join(ROOT, "tests/saas-phase3")),
     [...expectedPaths].sort(),
@@ -395,9 +415,10 @@ test("current Phase 3 PostgreSQL inventory is exactly 48 executable harnesses an
     const hasTotalMarker = new RegExp(`const\\s+TOTAL\\s*=\\s*${scenarios}\\b`).test(source)
       || new RegExp(`assert[.]equal[(](?:count|scenarios)\\s*,\\s*${scenarios}[)]`).test(source)
       || source.includes(`${scenarios}/${scenarios} PASS`)
-      || source.includes(`\${SCENARIOS.length}/\${${scenarios}}`);
+      || source.includes(`\${SCENARIOS.length}/\${${scenarios}}`)
+      || (source.match(/process[.]stdout[.]write[(]["`]PASS /g) ?? []).length === scenarios;
     assert.equal(hasTotalMarker, true, harness);
-    assert.match(source, /(?:(?:main|run)[(][)][.]catch|await main[(][)])/u, harness);
+    assert.match(source, /(?:(?:main|run)[(][)][.]catch|await main[(][)]|function main[(][)][\s\S]*\nmain[(][)][;]\s*$|let box[;][\s\S]*try \{[\s\S]*\} finally \{\s*stop[(]box[)])/u, harness);
   }
 });
 

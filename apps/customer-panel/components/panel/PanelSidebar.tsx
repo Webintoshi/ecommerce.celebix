@@ -33,8 +33,8 @@ function SidebarFooter({ model }: { model: PanelClientChromeModel }) {
 
   return (
     <div className={styles.sidebarFooter}>
-      {model.activeStoreId && model.storeOptions ? (
-        <StoreSwitcher stores={model.storeOptions} activeStoreId={model.activeStoreId} />
+      {model.activeStoreSelectionKey && model.storeOptions ? (
+        <StoreSwitcher stores={model.storeOptions} activeStoreSelectionKey={model.activeStoreSelectionKey} />
       ) : null}
       <div className={styles.sidebarAccount} aria-label="Etkin mağaza">
         <span className={styles.sidebarAvatar} aria-hidden="true">{initial}</span>

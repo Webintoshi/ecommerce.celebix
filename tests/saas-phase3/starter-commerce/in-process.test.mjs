@@ -85,7 +85,7 @@ test("real public repository accepts an empty v2 campaign and rejects legacy cam
     navigation: Object.freeze({ items: Object.freeze([]) }),
     sections: Object.freeze([Object.freeze({ kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 })]),
     productDetail: Object.freeze({ galleryStyle: "grid", showSku: true, showBrand: true, showRelatedProducts: true, mobileStickyPurchase: true }),
-    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true }),
+    cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: true, showQuantitySelector: true }),
     seo: Object.freeze({ allowIndex: false }),
   });
   const storefront = Object.freeze({ schemaVersion: 2, id: "50000000-0000-4000-8000-000000000001", name: "Campaign Store", slug: "campaign-store", hostname: HOST, primaryHostname: HOST, canonicalUrl: ORIGIN + "/", currency: "TRY", locale: "tr", themeKey: "starter", presentation });

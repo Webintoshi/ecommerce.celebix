@@ -8,7 +8,7 @@ const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const BASE = "912df940d2f8aa1e4d43a076621ad592751f4f04";
 const ANALYTICS_HEAD = "c365bc2195df1af5929381f7e910f73059c13ba7";
 const LOCKFILE_GATE_HEAD = "c81e298f";
-const STARTER_COMMERCE_BASE = "bbe68885986279f8642f1852ac3db74eb8bc06ab";
+const LOCKFILE_SUCCESSOR_HEAD = "c5b8d39a8383c8034260c68a0cfa7a183845ce8d";
 const PAYMENT_ADAPTERS_PREDECESSOR = "f14590b20c713c1bac8a223a9ecb46d85b6d2210";
 const PAYMENT_ADAPTERS_HEAD = "710c0221537099c419726b4d5f7b5da1ef891ec6";
 const PAYMENT_ADAPTER_WORKSPACE = Object.freeze({
@@ -149,7 +149,7 @@ test("the pinned donor admin tree remains unchanged", () => {
   assert.deepEqual(changedNames("apps/admin"), []);
 });
 
-test("analytics lockfile admits only its approved dependencies and later starter commerce adds no lockfile churn", async () => {
+test("analytics lockfile admits only approved dependencies and the current successor lock is stable", async () => {
   assert.equal(
     git(["merge-base", PAYMENT_ADAPTERS_HEAD, "HEAD"]).trim(),
     PAYMENT_ADAPTERS_HEAD,
@@ -235,7 +235,11 @@ test("analytics lockfile admits only its approved dependencies and later starter
   const gateLock = JSON.parse(git(["show", `${LOCKFILE_GATE_HEAD}:package-lock.json`]));
   assert.deepEqual(gateLock, expectedLock);
   assert.equal(
-    git(["diff", "--name-only", `${STARTER_COMMERCE_BASE}...HEAD`, "--", "package-lock.json"]).trim(),
+    git(["merge-base", LOCKFILE_SUCCESSOR_HEAD, "HEAD"]).trim(),
+    LOCKFILE_SUCCESSOR_HEAD,
+  );
+  assert.equal(
+    git(["diff", "--name-only", `${LOCKFILE_SUCCESSOR_HEAD}...HEAD`, "--", "package-lock.json"]).trim(),
     "",
   );
 

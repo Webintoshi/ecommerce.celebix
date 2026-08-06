@@ -501,19 +501,19 @@ git commit -m "feat(checkout): present hosted card checkout"
 - The current-suite runner includes the hosted-checkout PostgreSQL harness and static security test.
 - Capability reporting changes only when the named registry capability is fully satisfied; a similarly named inventory-admin gap must remain open.
 
-- [ ] **Step 1: Add RED security assertions**
+- [x] **Step 1: Add RED security assertions**
 
 Assert the browser surface contains no payment credentials, provider callback secrets, raw identity numbers, presentation seals, unrestricted external redirect, or client-authoritative paid state. Assert the standard start and result surfaces use the purpose-bound cookie and server repository.
 
-- [ ] **Step 2: Register the complete disposable-database lifecycle**
+- [x] **Step 2: Register the complete disposable-database lifecycle**
 
 Add the `090` through `092` harness and security test to `run-current-suite.mjs` with exact expected test totals. Run the suite once and observe the expected registration or implementation failure before correcting production or runner code.
 
-- [ ] **Step 3: Audit maturity without inflating it**
+- [x] **Step 3: Audit maturity without inflating it**
 
 Search the registry for the exact standard-hosted-checkout capability. Remove a gap only if its acceptance wording is now met by the committed database, runtime, UI, and tests. Do not remove `stock_reservations` when it describes inventory-management UX rather than checkout holds.
 
-- [ ] **Step 4: Run all cumulative gates**
+- [x] **Step 4: Run all cumulative gates**
 
 ```bash
 npm test --workspace @celebix/saas-contracts
@@ -526,7 +526,7 @@ npm test --workspace @celebix/customer-panel
 node tests/saas-phase3/run-current-suite.mjs
 ```
 
-- [ ] **Step 5: Commit gates separately**
+- [x] **Step 5: Commit gates separately**
 
 ```bash
 git add tests/saas-phase3/storefront-hosted-payment-security.test.mjs tests/saas-phase3/run-current-suite.mjs packages/saas-contracts/src/functional-maturity.ts packages/saas-contracts/src/functional-maturity.test.ts

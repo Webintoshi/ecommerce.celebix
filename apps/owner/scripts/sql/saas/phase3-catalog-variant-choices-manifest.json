@@ -1,0 +1,23 @@
+{
+  "phase": "phase3-catalog-variant-choices",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607310077_catalog_variant_choices.up.sql",
+      "direction": "up",
+      "sha256": "85be863c2760815c62685e7ccb7828f5d90edfcefd666221e58e27ef8135801f"
+    },
+    {
+      "file": "202607310077_catalog_variant_choices.down.sql",
+      "direction": "down",
+      "sha256": "063403eee5d272c107b7412d74dd72d7361ea6bb7688d602ee5081ba4dc70906"
+    },
+    {
+      "file": "202607310077_catalog_variant_choices_assertions.sql",
+      "direction": "verify",
+      "sha256": "3c782379abe2cf07c7aa2432eff370392b0d3011f367283329302f780f26ce27"
+    }
+  ]
+}
