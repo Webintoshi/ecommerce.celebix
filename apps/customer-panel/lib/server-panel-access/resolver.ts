@@ -14,11 +14,17 @@ type Environment = Record<string, string | undefined>;
 type ServerPanelAccessDiagnosticCode =
   | "server_panel_access_initialization_failed"
   | "server_panel_access_database_preflight_failed"
+  | "server_panel_access_database_contract_preflight_failed"
+  | "server_panel_access_database_activation_preflight_failed"
+  | "server_panel_access_database_commit_preflight_failed"
   | "server_iyzico_activation_runtime_preflight_failed"
   | "server_shipping_runtime_invalid";
 
 const SAFE_INITIALIZATION_DIAGNOSTICS = new Set<ServerPanelAccessDiagnosticCode>([
   "server_panel_access_database_preflight_failed",
+  "server_panel_access_database_contract_preflight_failed",
+  "server_panel_access_database_activation_preflight_failed",
+  "server_panel_access_database_commit_preflight_failed",
   "server_iyzico_activation_runtime_preflight_failed",
   "server_shipping_runtime_invalid",
 ]);

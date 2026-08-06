@@ -401,7 +401,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.inventory_relations !== true || row.inventory_default_location_lifecycle !== true ||
       row.inventory_repository !== true ||
       row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true
-    ) throw new Error("server_panel_access_database_preflight_failed");
+    ) throw new Error("server_panel_access_database_contract_preflight_failed");
 
     await client.query("BEGIN READ ONLY");
     transactionActive = true;
@@ -420,7 +420,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       || activation.rows[0]?.quick_order_hosted_authority !== true
       || activation.rows[0]?.shipping_provider !== true
     ) {
-      throw new Error("server_panel_access_database_preflight_failed");
+      throw new Error("server_panel_access_database_activation_preflight_failed");
     }
     try {
       await client.query("COMMIT");
@@ -428,7 +428,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
     } catch {
       transactionActive = false;
       destroyClient = true;
-      throw new Error("server_panel_access_database_preflight_failed");
+      throw new Error("server_panel_access_database_commit_preflight_failed");
     }
   } catch (error) {
     if (transactionActive) {

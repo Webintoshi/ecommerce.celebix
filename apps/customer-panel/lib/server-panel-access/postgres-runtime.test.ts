@@ -66,7 +66,7 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
     const { initializeApprovedStagingServerPanelAccessRuntime } = await import(`./postgres-runtime.ts?preflight=${Date.now()}`);
     await assert.rejects(
       initializeApprovedStagingServerPanelAccessRuntime({ database: { name: "celebix_saas" } } as CustomerPanelStagingAuthConfig),
-      /server_panel_access_database_preflight_failed/,
+      /server_panel_access_database_contract_preflight_failed/,
     );
   } finally {
     Object.defineProperty(pg, "Pool", originalPool);
@@ -147,7 +147,7 @@ test("approved staging preflight executes the provider lifecycle probes through 
     const { initializeApprovedStagingServerPanelAccessRuntime } = await import(`./postgres-runtime.ts?noinherit=${Date.now()}`);
     await assert.rejects(
       initializeApprovedStagingServerPanelAccessRuntime({ database: { name: "celebix_saas" } } as CustomerPanelStagingAuthConfig),
-      /server_panel_access_database_preflight_failed/,
+      /server_panel_access_database_activation_preflight_failed/,
     );
   } finally {
     Object.defineProperty(pg, "Pool", originalPool);
