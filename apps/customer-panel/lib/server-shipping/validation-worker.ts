@@ -61,41 +61,43 @@ export async function runShippingValidationJob(input: Readonly<{
     !input || typeof input.jobId !== "string" || !UUID.test(input.jobId) ||
     typeof input.workerId !== "string" || !WORKER.test(input.workerId) || !input.runtime
   ) invalid();
-  const now = input.now === undefined ? new Date() : new Date(input.now.getTime());
-  if (!Number.isFinite(now.getTime())) invalid();
+  const fixedNow = input.now === undefined ? null : new Date(input.now.getTime());
+  if (fixedNow !== null && !Number.isFinite(fixedNow.getTime())) invalid();
+  const currentTime = () => fixedNow === null ? new Date() : new Date(fixedNow.getTime());
+  const now = currentTime();
   const leaseId = input.runtime.generateId();
   if (!UUID.test(leaseId)) invalid();
   const claim = await input.runtime.workflow.claimValidation({
     jobId: input.jobId, workerId: input.workerId, now, leaseSeconds: 60, leaseId,
   });
   if (claim === null) return "requeued";
-  const opened = await input.runtime.workflow.openClaimedCredential({ claim, now });
+  const opened = await input.runtime.workflow.openClaimedCredential({ claim, now: currentTime() });
   try {
     let token: string;
     try { token = DECODER.decode(opened.tokenBytes); }
     catch {
-      return finalizeFailure(input.runtime, claim, now, Object.freeze({ kind: "credential_invalid", safeCode: "credential_invalid" }));
+      return finalizeFailure(input.runtime, claim, currentTime(), Object.freeze({ kind: "credential_invalid", safeCode: "credential_invalid" }));
     }
     let credential;
     try { credential = input.runtime.adapter.parseCredential({ token }); }
     catch {
-      return finalizeFailure(input.runtime, claim, now, Object.freeze({ kind: "credential_invalid", safeCode: "credential_invalid" }));
+      return finalizeFailure(input.runtime, claim, currentTime(), Object.freeze({ kind: "credential_invalid", safeCode: "credential_invalid" }));
     }
     const verified = await input.runtime.adapter.verifyCredential({ credential, signal: AbortSignal.timeout(10_000) });
-    if (verified.kind !== "succeeded") return finalizeFailure(input.runtime, claim, now, verified);
+    if (verified.kind !== "succeeded") return finalizeFailure(input.runtime, claim, currentTime(), verified);
     const brands = await input.runtime.adapter.listBrands({ credential, signal: AbortSignal.timeout(10_000) });
-    if (brands.kind !== "succeeded") return finalizeFailure(input.runtime, claim, now, brands);
+    if (brands.kind !== "succeeded") return finalizeFailure(input.runtime, claim, currentTime(), brands);
     const addresses = await input.runtime.adapter.listSenderAddresses({ credential, signal: AbortSignal.timeout(10_000) });
-    if (addresses.kind !== "succeeded") return finalizeFailure(input.runtime, claim, now, addresses);
+    if (addresses.kind !== "succeeded") return finalizeFailure(input.runtime, claim, currentTime(), addresses);
     const handlers = await input.runtime.adapter.listHandlers({ credential, signal: AbortSignal.timeout(10_000) });
-    if (handlers.kind !== "succeeded") return finalizeFailure(input.runtime, claim, now, handlers);
+    if (handlers.kind !== "succeeded") return finalizeFailure(input.runtime, claim, currentTime(), handlers);
     const resources = Object.freeze([
       ...brands.resources.map((entry) => validationResource(input.runtime, "brand", entry.providerResourceId, entry.label, entry.active)),
       ...addresses.resources.map((entry) => validationResource(input.runtime, "address", entry.providerResourceId, entry.label, entry.active)),
       ...handlers.handlers.map((entry) => validationResource(input.runtime, "handler", entry.handlerCode, entry.handlerName, entry.active)),
     ]);
     await input.runtime.workflow.completeValidation({
-      claim, now, accountIdentityDigest: digest(verified.accountIdentity), resources,
+      claim, now: currentTime(), accountIdentityDigest: digest(verified.accountIdentity), resources,
     });
     return "completed";
   } finally { opened.tokenBytes.fill(0); }
