@@ -250,21 +250,21 @@ export interface StorefrontHostedCheckoutRepository {
 }
 ```
 
-- [ ] **Step 1: Write RED repository tests**
+- [x] **Step 1: Write RED repository tests**
 
 Assert exact SQL signatures/values, descriptor-safe deep-frozen output, private/secret field rejection, finite error mapping, replay, and one read-only status recovery after an ambiguous write.
 
-- [ ] **Step 2: Observe RED**
+- [x] **Step 2: Observe RED**
 
 Run: `node --experimental-strip-types --test packages/saas-data/src/storefront-hosted-checkout/repository.test.ts`
 
 Expected: module and repository are missing.
 
-- [ ] **Step 3: Implement validation and repository**
+- [x] **Step 3: Implement validation and repository**
 
 Follow the transaction and parser patterns in `quick-orders/hosted-payment-repository.ts` and `storefront-commerce/repository.ts`. Public methods use role `celebix_saas_host_resolver`; future worker methods use `celebix_saas_workflow`. Enforce bounded timeouts, exact input keys, safe integer cents, canonical UUID/hostname/timestamp, and finite outcomes.
 
-- [ ] **Step 4: Run GREEN and package regression**
+- [x] **Step 4: Run GREEN and package regression**
 
 ```bash
 node --experimental-strip-types --test packages/saas-data/src/storefront-hosted-checkout/repository.test.ts
@@ -272,7 +272,7 @@ npm test --workspace @celebix/saas-data
 npm run typecheck --workspace @celebix/saas-data
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-data/src/storefront-hosted-checkout packages/saas-data/src/index.ts
