@@ -668,12 +668,15 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.match(layout, />ORTAK ADMİN</);
   assert.match(layout, /styles[.]desktopTopbarEyebrow/);
   assert.match(layout, /styles[.]desktopTopbarTitle/);
+  assert.match(layout, /activeChrome[?][.]subtitle/);
+  assert.match(layout, /styles[.]desktopTopbarSubtitle/);
   assert.match(layout, /PanelTopbarUtilities/);
   assert.match(utilities, /Bildirim merkezi/);
   assert.match(utilities, /Bana Sorun/);
   assert.match(utilities, /href="\/settings\/notifications"/);
   assert.match(styles, /[.]desktopTopbar\s*\{[\s\S]*?min-height:\s*5[.]5rem;/);
   assert.match(styles, /[.]desktopTopbarEyebrow\s*\{[\s\S]*?letter-spacing:/);
+  assert.match(styles, /[.]desktopTopbarSubtitle\s*\{[\s\S]*?text-overflow:\s*ellipsis;/);
   assert.match(styles, /[.]desktopTopbarUtilities\s*\{[\s\S]*?display:\s*flex;/);
   assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
 });

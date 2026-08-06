@@ -21,14 +21,14 @@ test("editor state never reports a newer local edit as saved by an older request
   assert.equal(completed.design.hero.slides[0]?.headline, "Daha yeni");
 });
 
-test("workspace source exposes six child-friendly sections, truthful save states and one shared preview", async () => {
+test("workspace source exposes child-friendly sections, truthful save states and one shared preview", async () => {
   const [workspace, inspector, preview, css] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignInspector.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignPreview.tsx", import.meta.url), "utf8"),
     readFile(new URL("../design-settings.module.css", import.meta.url), "utf8"),
   ]);
-  for (const label of ["Marka", "Renkler", "Yazı", "Ana sayfa", "Promosyon", "Duyuru"]) assert.match(workspace, new RegExp(`"${label}"`));
+  for (const label of ["Marka", "Renkler", "Yazı", "Ana sayfa", "Promosyon", "Duyuru", "Vitrin görselleri"]) assert.match(workspace, new RegExp(`"${label}"`));
   for (const state of ["Kaydediliyor", "Taslak kaydedildi", "Yayınlanmamış değişiklik", "Kaydedilemedi"]) assert.match(workspace, new RegExp(state));
   assert.match(workspace, /PanelTopbarBridge/);
   assert.match(workspace, /Masaüstü/);
@@ -47,6 +47,16 @@ test("workspace source exposes six child-friendly sections, truthful save states
   assert.match(css, /\.sectionRail\s*\{[^}]*flex-direction:\s*row/s);
   assert.doesNotMatch(css, /\.sectionRail\s*\{[^}]*border-right:/s);
   assert.doesNotMatch(`${workspace}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
+});
+
+test("storefront asset and category-showcase authorities are reachable from the design workspace", async () => {
+  const workspace = await readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(workspace, /import \{ CategoryShowcaseEditor \}/);
+  assert.match(workspace, /import \{ StorefrontAssetManager \}/);
+  assert.match(workspace, /<StorefrontAssetManager canManage=\{canManage\} \/>/);
+  assert.match(workspace, /<CategoryShowcaseEditor canManage=\{canManage\} \/>/);
+  assert.match(workspace, /section === "assets"/);
+  assert.doesNotMatch(workspace, /x-store-id|localStorage|sessionStorage/);
 });
 
 test("theme section edits the same draft and keeps the one workspace publish action", async () => {
