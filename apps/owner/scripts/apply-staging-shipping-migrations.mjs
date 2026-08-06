@@ -58,6 +58,58 @@ export function resolveShippingMigrationConfiguration(source = process.env) {
   return Object.freeze({ databaseUrl, databaseName });
 }
 
+function quoteIdentifier(value) {
+  return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+async function ensurePanelWorkflowMembership(client, write) {
+  const candidates = await client.query(`SELECT
+    candidate.rolname,
+    pg_catalog.pg_has_role(candidate.oid, 'celebix_saas_workflow', 'MEMBER') AS workflow_member
+  FROM pg_catalog.pg_roles AS candidate
+  WHERE candidate.rolcanlogin
+    AND NOT candidate.rolinherit
+    AND NOT candidate.rolsuper
+    AND NOT candidate.rolcreatedb
+    AND NOT candidate.rolcreaterole
+    AND NOT candidate.rolreplication
+    AND NOT candidate.rolbypassrls
+    AND pg_catalog.pg_has_role(candidate.oid, 'celebix_saas_identity', 'MEMBER')
+    AND pg_catalog.pg_has_role(candidate.oid, 'celebix_saas_app', 'MEMBER')
+    AND pg_catalog.pg_has_role(candidate.oid, 'celebix_saas_host_resolver', 'MEMBER')
+  ORDER BY candidate.rolname`);
+  if (candidates.rowCount !== 1) {
+    throw new Error("shipping_staging_panel_runtime_candidate_invalid");
+  }
+  const candidate = candidates.rows[0];
+  if (candidate.workflow_member === true) {
+    write("panel_workflow_membership=already_present");
+    return;
+  }
+
+  let transactionActive = false;
+  try {
+    await client.query("BEGIN");
+    transactionActive = true;
+    await client.query(`GRANT celebix_saas_workflow TO ${quoteIdentifier(candidate.rolname)}`);
+    const verified = await client.query(
+      "SELECT pg_catalog.pg_has_role($1, 'celebix_saas_workflow', 'MEMBER') AS workflow_member",
+      [candidate.rolname],
+    );
+    if (verified.rowCount !== 1 || verified.rows[0]?.workflow_member !== true) {
+      throw new Error("shipping_staging_panel_workflow_membership_invalid");
+    }
+    await client.query("COMMIT");
+    transactionActive = false;
+    write("panel_workflow_membership=granted");
+  } catch (error) {
+    if (transactionActive) {
+      try { await client.query("ROLLBACK"); } catch { /* connection closes below */ }
+    }
+    throw error;
+  }
+}
+
 export async function runShippingMigrations({ client, databaseName, readSql, write }) {
   await client.connect();
   try {
@@ -67,7 +119,23 @@ export async function runShippingMigrations({ client, databaseName, readSql, wri
       current_setting('celebix.deployment_tier', true) = 'isolated_staging' AS tier_matches,
       NOT pg_catalog.pg_is_in_recovery() AS writable_primary,
       current_setting('transaction_read_only') = 'off' AS writable_transaction,
-      pg_catalog.pg_has_role(current_user, 'celebix_saas_owner', 'MEMBER') AS owner_member`, [databaseName]);
+      pg_catalog.pg_has_role(current_user, 'celebix_saas_owner', 'MEMBER') AS owner_member,
+      EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_roles AS authority
+        WHERE authority.rolname = current_user
+          AND (
+            authority.rolsuper
+            OR authority.rolcreaterole
+            OR EXISTS (
+              SELECT 1
+              FROM pg_catalog.pg_auth_members AS membership
+              WHERE membership.roleid = 'celebix_saas_workflow'::pg_catalog.regrole
+                AND membership.member = authority.oid
+                AND membership.admin_option
+            )
+          )
+      ) AS workflow_grant_authority`, [databaseName]);
     const authority = preflight.rowCount === 1 ? preflight.rows[0] : null;
     if (
       authority?.database_matches !== true
@@ -76,6 +144,7 @@ export async function runShippingMigrations({ client, databaseName, readSql, wri
       || authority.writable_primary !== true
       || authority.writable_transaction !== true
       || authority.owner_member !== true
+      || authority.workflow_grant_authority !== true
     ) throw new Error("shipping_staging_authority_invalid");
 
     for (const migration of MIGRATIONS) {
@@ -88,6 +157,7 @@ export async function runShippingMigrations({ client, databaseName, readSql, wri
       await client.query(readSql(migration.assertions));
       write(`shipping_migration_${migration.code}=${state?.ready === true ? "already_applied" : "applied"}`);
     }
+    await ensurePanelWorkflowMembership(client, write);
   } finally {
     await client.end();
   }
