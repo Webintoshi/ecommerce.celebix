@@ -18,6 +18,7 @@ const MARQUEE_ANIMATIONS = Object.freeze(["continuous", "step"] as const);
 const CORNER_STYLES = Object.freeze(["square", "soft"] as const);
 const HEADER_STYLES = Object.freeze(["overlay", "solid"] as const);
 const HEADER_WIDTHS = Object.freeze(["contained", "wide"] as const);
+const HEADER_LAYOUTS = Object.freeze(["menu_logo_actions", "logo_menu_actions", "stacked"] as const);
 const SECTION_SPACINGS = Object.freeze(["compact", "balanced", "airy"] as const);
 const GALLERY_STYLES = Object.freeze(["grid", "rail"] as const);
 const PRODUCT_ROW_SOURCES = Object.freeze(["latest", "sale", "category"] as const);
@@ -210,7 +211,7 @@ function parseVisual(value: unknown): StarterThemeVisual {
 }
 
 function parseVisualV2(value: unknown): StarterThemeVisualV2 {
-  const parsed = exact(value, ["colorScheme", "headingStyle", "cornerStyle", "headerStyle", "productCardStyle", "productImageRatio", "headerWidth", "sectionSpacing"]);
+  const parsed = exact(value, ["colorScheme", "headingStyle", "cornerStyle", "headerStyle", "productCardStyle", "productImageRatio", "headerWidth", "headerLayout", "sectionSpacing"]);
   return Object.freeze({
     colorScheme: oneOf(parsed.colorScheme, COLOR_SCHEMES),
     headingStyle: oneOf(parsed.headingStyle, HEADING_STYLES),
@@ -219,6 +220,7 @@ function parseVisualV2(value: unknown): StarterThemeVisualV2 {
     productCardStyle: oneOf(parsed.productCardStyle, CARD_STYLES),
     productImageRatio: oneOf(parsed.productImageRatio, IMAGE_RATIOS),
     headerWidth: oneOf(parsed.headerWidth, HEADER_WIDTHS),
+    headerLayout: oneOf(parsed.headerLayout, HEADER_LAYOUTS),
     sectionSpacing: oneOf(parsed.sectionSpacing, SECTION_SPACINGS),
   });
 }

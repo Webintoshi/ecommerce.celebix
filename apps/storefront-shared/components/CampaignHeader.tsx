@@ -23,6 +23,11 @@ export function CampaignHeader({
           ? presentation.visual.headerWidth
           : "wide"
       }
+      data-header-layout={
+        presentation.schemaVersion === 3
+          ? presentation.visual.headerLayout
+          : "menu_logo_actions"
+      }
     >
       <CampaignHeaderClient
         displayName={presentation.displayName}

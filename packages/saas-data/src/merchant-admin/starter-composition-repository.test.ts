@@ -44,7 +44,7 @@ function retailComposition() {
   return {
     ...legacy,
     schemaVersion: 2,
-    visual: { ...legacy.visual, headerWidth: "wide", sectionSpacing: "balanced" },
+    visual: { ...legacy.visual, headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" },
     sections: [...legacy.sections, { kind: "value_propositions", enabled: true, items: [{ icon: "shield", heading: "Güvenli alışveriş", body: "Korunan ödeme akışı." }, { icon: "return", heading: "Kolay iade", body: "Yayımlanmış koşulları inceleyin." }] }],
     productDetail: { ...legacy.productDetail, showBreadcrumbs: true, showApprovedReviews: true, showSizeGuide: true, informationSections: ["description", "materials_and_care", "certifications", "shipping_and_returns"] },
     cart: { ...legacy.cart, showQuantitySelector: true },

@@ -20,7 +20,7 @@ const IMAGE = Object.freeze({
 const baseTheme = Object.freeze({ colorScheme: "neutral", headingStyle: "serif", productCardStyle: "editorial", productImageRatio: "portrait", homeProductLimit: 8, showBrandStory: true });
 const legacyHero = Object.freeze({ enabled: true, headline: "Yeni sezon", body: "Yeni ürünleri keşfedin.", destination: "/products", image: IMAGE });
 const visualV1 = Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait" });
-const visualV2 = Object.freeze({ ...visualV1, headerWidth: "wide", sectionSpacing: "airy" });
+const visualV2 = Object.freeze({ ...visualV1, headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "airy" });
 
 function compositionV2() {
   return {

@@ -174,6 +174,23 @@ test("new-store defaults are premium deterministic and contain no fake commerce 
   assert.equal(JSON.stringify(defaults).includes("discount"), false);
 });
 
+test("retail header layout is bounded to three merchant-selectable arrangements", () => {
+  const defaults = campaignPresentation.buildDefaultStarterPresentation({ name: "Yeni Mağaza" });
+  const visual = defaults.visual as Record<string, unknown>;
+  assert.equal(visual.headerLayout, "menu_logo_actions");
+  for (const headerLayout of ["menu_logo_actions", "logo_menu_actions", "stacked"] as const) {
+    const parsed = campaignValidation.parsePublicStarterThemePresentation({
+      ...defaults,
+      visual: { ...visual, headerLayout },
+    });
+    assert.equal((parsed.visual as Record<string, unknown>).headerLayout, headerLayout);
+  }
+  assert.throws(() => campaignValidation.parsePublicStarterThemePresentation({
+    ...defaults,
+    visual: { ...visual, headerLayout: "browser_custom" },
+  }), /storefront_contract_invalid/);
+});
+
 test("public campaign parser rejects unknown private and inconsistent fields", () => {
   const value = validPublicPresentation();
   campaignValidation.parsePublicStarterThemePresentation(value);

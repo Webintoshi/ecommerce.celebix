@@ -17,7 +17,7 @@ const PRODUCT_ID = "20000000-0000-4000-8000-000000000001";
 
 const COMPOSITION = {
   schemaVersion: 2,
-  visual: { colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" },
+  visual: { colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" },
   announcement: { enabled: true, items: ["Güvenli alışveriş"], destination: "/pages/odeme-teslimat" },
   navigation: { rootCategoryIds: [] },
   sections: [{ kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 }],

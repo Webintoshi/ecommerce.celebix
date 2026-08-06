@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase3-starter-header-layouts",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608070095_starter_header_layouts.up.sql",
+      "direction": "up",
+      "sha256": "b6eea8936bd9c8852d5bc2b8b09fb8c3221674b7c9ea7481be910acc18ac3386"
+    },
+    {
+      "file": "202608070095_starter_header_layouts.down.sql",
+      "direction": "down",
+      "sha256": "921f30a3239435132be0cf7a8a3fe379967481761a8d85f2fb4f05cc985a122b"
+    },
+    {
+      "file": "202608070095_starter_header_layouts_assertions.sql",
+      "direction": "verify",
+      "sha256": "14d7c4015f5d31c4f8b697a6c735e6903cbeb038c9a94e9edad7200048802cf3"
+    }
+  ]
+}

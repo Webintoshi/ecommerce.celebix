@@ -100,7 +100,7 @@ test("starter presentation defaults and token mapping are deterministic and boun
     displayName: "Yeni Mağaza",
     theme: { colorScheme: "neutral", headingStyle: "serif", productCardStyle: "editorial", productImageRatio: "portrait", homeProductLimit: 8, showBrandStory: false },
     hero: { enabled: true, headline: "Yeni Mağaza", body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" },
-    visual: { colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", sectionSpacing: "balanced" },
+    visual: { colorScheme: "neutral", headingStyle: "serif", cornerStyle: "soft", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" },
     navigation: { items: [] },
     sections: [
       { kind: "hero", slides: [{ heading: "Yeni Mağaza", body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products" }] },

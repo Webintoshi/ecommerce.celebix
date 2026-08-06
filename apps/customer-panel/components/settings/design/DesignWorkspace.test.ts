@@ -60,11 +60,22 @@ test("storefront asset and category-showcase authorities are reachable from the 
 });
 
 test("theme section edits the same draft and keeps the one workspace publish action", async () => {
-  const workspace = await readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8");
+  const [workspace, composer] = await Promise.all([
+    readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../StarterThemeComposer.tsx", import.meta.url), "utf8"),
+  ]);
   assert.match(workspace, /<StarterThemeComposer\s+canManage=\{canManage\}\s+value=\{editor[.]design[.]composition\}/);
   assert.match(workspace, /composition:\s*value/);
   assert.doesNotMatch(workspace, /section\s*===\s*"theme"\s*\?\s*null/);
   assert.equal((workspace.match(/>Yayınla<\/button>/g) ?? []).length, 1);
+  const visualPanel = composer.slice(composer.indexOf('activePanel === "visual"'), composer.indexOf('activePanel === "navigation"'));
+  const navigationPanel = composer.slice(composer.indexOf('activePanel === "navigation"'), composer.indexOf('activePanel === "home"'));
+  assert.doesNotMatch(visualPanel, /Header düzeni|Header genişliği|>Header</);
+  assert.match(navigationPanel, /Header düzeni/);
+  assert.match(navigationPanel, /Menü solda · logo ortada/);
+  assert.match(navigationPanel, /Logo solda · menü yanında/);
+  assert.match(navigationPanel, /Logo üstte · menü altta/);
+  assert.match(navigationPanel, /Header genişliği/);
 });
 
 test("design page loads durable workspace server-side and legacy appearance pages only redirect", async () => {

@@ -12,6 +12,7 @@ export type StarterThemeColorScheme = "neutral" | "warm" | "dark" | "ocean";
 export type StarterThemeHeadingStyle = "serif" | "sans";
 export type StarterThemeProductCardStyle = "editorial" | "compact";
 export type StarterThemeProductImageRatio = "portrait" | "square";
+export type StarterThemeHeaderLayout = "menu_logo_actions" | "logo_menu_actions" | "stacked";
 
 export type StarterThemeVisual = Readonly<{
   colorScheme: StarterThemeColorScheme;
@@ -24,6 +25,7 @@ export type StarterThemeVisual = Readonly<{
 
 export type StarterThemeVisualV2 = Readonly<StarterThemeVisual & {
   headerWidth: "contained" | "wide";
+  headerLayout: StarterThemeHeaderLayout;
   sectionSpacing: "compact" | "balanced" | "airy";
 }>;
 

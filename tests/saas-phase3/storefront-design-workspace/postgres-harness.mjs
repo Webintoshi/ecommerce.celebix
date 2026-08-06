@@ -26,7 +26,7 @@ const MEDIA_B = "60000000-0000-4000-8000-000000000082";
 const DOMAIN_A = "70000000-0000-4000-8000-000000000081";
 const DOMAIN_B = "70000000-0000-4000-8000-000000000082";
 const NOW = "2026-08-03T12:00:00.000Z";
-const TOTAL = 27;
+const TOTAL = 31;
 let completed = 0;
 
 function executable(name) {
@@ -259,6 +259,31 @@ function main() {
       apply(box, "202608040086_side_cart_quantity_controls.up.sql");
       apply(box, "202608040086_side_cart_quantity_controls_assertions.sql");
       assert.equal(psql(box, "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname=current_database() AND pid<>pg_catalog.pg_backend_pid();").stdout.trim(), "0");
+    });
+    apply(box, "202608070095_starter_header_layouts.up.sql");
+    apply(box, "202608070095_starter_header_layouts_assertions.sql");
+    scenario("header layout migration executes on PostgreSQL 16", () => assert.match(psql(box, "SHOW server_version;").stdout, /^16[.]/));
+    scenario("existing designs and new defaults normalize to menu logo actions", () => {
+      assert.equal(psql(box, "SELECT saas.storefront_theme_default_composition()->'visual'->>'headerLayout';").stdout.trim(), "menu_logo_actions");
+      assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs WHERE draft_config->'composition'->'visual'->>'headerLayout'='menu_logo_actions' AND published_config->'composition'->'visual'->>'headerLayout'='menu_logo_actions';").stdout.trim(), "2");
+    });
+    scenario("header layout accepts only the three exact merchant choices", () => {
+      for (const layout of ["menu_logo_actions", "logo_menu_actions", "stacked"]) {
+        assert.equal(psql(box, `SELECT saas.campaign_starter_composition_valid(pg_catalog.jsonb_set(saas.storefront_theme_default_composition(),ARRAY['visual','headerLayout'],'"${layout}"'::jsonb,false));`).stdout.trim(), "t");
+      }
+      assert.equal(psql(box, "SELECT saas.campaign_starter_composition_valid(saas.storefront_theme_default_composition() #- ARRAY['visual','headerLayout']);").stdout.trim(), "f");
+      assert.equal(psql(box, "SELECT saas.campaign_starter_composition_valid(pg_catalog.jsonb_set(saas.storefront_theme_default_composition(),ARRAY['visual','headerLayout'],'\"browser\"'::jsonb,false));").stdout.trim(), "f");
+    });
+    scenario("header layout rollback is explicit loss guarded and reapplicable", () => {
+      assert.notEqual(psql(box, readFileSync(path.join(SQL, "202608070095_starter_header_layouts.down.sql"), "utf8"), DB, true).status, 0);
+      psql(box, "UPDATE saas.storefront_designs SET draft_config=pg_catalog.jsonb_set(draft_config,ARRAY['composition','visual','headerLayout'],'\"stacked\"'::jsonb,false);");
+      const lossGuard = psql(box, `SET celebix.allow_starter_header_layouts_down='on';\n${readFileSync(path.join(SQL, "202608070095_starter_header_layouts.down.sql"), "utf8")}`, DB, true);
+      assert.notEqual(lossGuard.status, 0);
+      psql(box, "UPDATE saas.storefront_designs SET draft_config=pg_catalog.jsonb_set(draft_config,ARRAY['composition','visual','headerLayout'],'\"menu_logo_actions\"'::jsonb,false);");
+      apply(box, "202608070095_starter_header_layouts.down.sql", DB, "SET celebix.allow_starter_header_layouts_down='on';\n");
+      assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_designs WHERE draft_config->'composition'->'visual'?'headerLayout';").stdout.trim(), "0");
+      apply(box, "202608070095_starter_header_layouts.up.sql");
+      apply(box, "202608070095_starter_header_layouts_assertions.sql");
     });
     assert.equal(completed, TOTAL);
     process.stdout.write(`PASS STOREFRONT DESIGN WORKSPACE PostgreSQL harness (${TOTAL}/${TOTAL})\n`);
