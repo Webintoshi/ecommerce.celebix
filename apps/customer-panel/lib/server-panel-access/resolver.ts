@@ -20,6 +20,9 @@ type ServerPanelAccessDiagnosticCode =
   | "server_iyzico_activation_runtime_preflight_failed"
   | "server_shipping_runtime_invalid";
 
+type ServerPanelAccessFieldDiagnosticCode =
+  `server_panel_access_database_contract_preflight_failed:${string}`;
+
 const SAFE_INITIALIZATION_DIAGNOSTICS = new Set<ServerPanelAccessDiagnosticCode>([
   "server_panel_access_database_preflight_failed",
   "server_panel_access_database_contract_preflight_failed",
@@ -34,7 +37,7 @@ export function createServerPanelAccessRuntimeResolver(options: {
   disabled(): ServerPanelAccessRuntime;
   unavailable(): ServerPanelAccessRuntime;
   initialize(config: CustomerPanelStagingAuthConfig): Promise<ServerPanelAccessRuntime>;
-  diagnostic(code: ServerPanelAccessDiagnosticCode): void;
+  diagnostic(code: ServerPanelAccessDiagnosticCode | ServerPanelAccessFieldDiagnosticCode): void;
 }) {
   if (
     !options || typeof options.source !== "object" ||
@@ -46,9 +49,10 @@ export function createServerPanelAccessRuntimeResolver(options: {
   let initialization: Promise<ServerPanelAccessRuntime> | undefined;
   const disabledRuntime = () => (disabled ??= options.disabled());
   const diagnose = (error?: unknown) => {
-    const code = error instanceof Error
-      && SAFE_INITIALIZATION_DIAGNOSTICS.has(error.message as ServerPanelAccessDiagnosticCode)
-      ? error.message as ServerPanelAccessDiagnosticCode
+    const message = error instanceof Error ? error.message : "";
+    const isFieldDiagnostic = /^server_panel_access_database_contract_preflight_failed:[a-z0-9_,]+$/.test(message);
+    const code = SAFE_INITIALIZATION_DIAGNOSTICS.has(message as ServerPanelAccessDiagnosticCode) || isFieldDiagnostic
+      ? message as ServerPanelAccessDiagnosticCode | ServerPanelAccessFieldDiagnosticCode
       : "server_panel_access_initialization_failed";
     try { options.diagnostic(code); }
     catch { /* Diagnostic is best effort and never access authority. */ }

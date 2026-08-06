@@ -133,3 +133,17 @@ test("a known initialization failure emits its safe diagnostic without exposing 
   assert.equal((await resolver.resolve()).readiness.mode, "unavailable");
   assert.deepEqual(diagnostics, ["server_panel_access_database_contract_preflight_failed"]);
 });
+
+test("a contract field diagnostic is preserved without admitting arbitrary error messages", async () => {
+  const diagnostics: string[] = [];
+  const resolver = createServerPanelAccessRuntimeResolver({
+    source: validEnvironment(),
+    disabled: () => runtime("disabled"),
+    unavailable: () => runtime("unavailable"),
+    async initialize() { throw new Error("server_panel_access_database_contract_preflight_failed:shipping_repository"); },
+    diagnostic(code) { diagnostics.push(code); },
+  });
+
+  assert.equal((await resolver.resolve()).readiness.mode, "unavailable");
+  assert.deepEqual(diagnostics, ["server_panel_access_database_contract_preflight_failed:shipping_repository"]);
+});
