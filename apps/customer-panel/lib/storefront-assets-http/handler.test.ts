@@ -39,6 +39,23 @@ test("storefront asset upload derives the store-scoped key and never accepts bro
   assert.equal((await selected.value.list(forged)).status, 400);
 });
 
+test("storefront asset upload accepts the exact tenant admin origin serving the authenticated panel", async () => {
+  const tenantAdminOrigin = "https://merchant.admin.saas-staging.celebix.site";
+  const form = new FormData(); form.set("kind", "hero"); form.set("altText", "Hero"); form.set("file", new File([png], "hero.png", { type: "image/png" }));
+  const request = new Request(`${tenantAdminOrigin}/api/storefront-assets`, { method: "POST", headers: { origin: tenantAdminOrigin, host: "merchant.admin.saas-staging.celebix.site", cookie: `__Host-celebix_panel=${CREDENTIAL}`, "idempotency-key": OP }, body: form });
+  const selected = handlers();
+  assert.equal((await selected.value.upload(request)).status, 201);
+  assert.deepEqual(selected.calls, ["recover", `put:${asset.objectKey}`, "create", `publish:${asset.objectKey}`]);
+});
+
+test("a foreign tenant origin cannot be rescued by forwarded admin headers", async () => {
+  const form = new FormData(); form.set("kind", "hero"); form.set("altText", "Hero"); form.set("file", new File([png], "hero.png", { type: "image/png" }));
+  const request = new Request("https://merchant.admin.saas-staging.celebix.site/api/storefront-assets", { method: "POST", headers: { origin: "https://other-store.admin.saas-staging.celebix.site", host: "merchant.admin.saas-staging.celebix.site", "x-forwarded-host": "merchant.admin.saas-staging.celebix.site", "x-forwarded-proto": "https", cookie: `__Host-celebix_panel=${CREDENTIAL}`, "idempotency-key": OP }, body: form });
+  const selected = handlers();
+  assert.equal((await selected.value.upload(request)).status, 403);
+  assert.deepEqual(selected.calls, []);
+});
+
 test("known persistence failure cleans the object while commit unknown performs one read-only recovery", async () => {
   const known = handlers({ async createAsset() { throw new StorefrontAssetRepositoryError("asset_limit_reached"); } });
   assert.equal((await known.value.upload(multipart())).status, 409); assert.deepEqual(known.calls.filter((entry) => entry.startsWith("delete:")), [`delete:${asset.objectKey}`]);

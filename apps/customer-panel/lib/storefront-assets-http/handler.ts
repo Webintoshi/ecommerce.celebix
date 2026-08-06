@@ -6,6 +6,7 @@ import { readPersistentPanelSessionCookie } from "../server-panel-session-contro
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import { validateProductImage } from "../server-media/image-validation.ts";
 import type { ServerStorefrontAssetRuntime } from "../server-storefront-assets/runtime.ts";
+import { approvedStorefrontMutationOrigin } from "../storefront-design-http/request-authority.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -25,7 +26,7 @@ function validText(value: unknown, maximum: number): value is string { return ty
 async function authorize(dependencies: Dependencies, request: Request, method: "GET" | "POST" | "DELETE"): Promise<Response | Authorized> {
   let runtime: ServerStorefrontAssetRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return response("unavailable", 503); } if (!runtime) return response("unavailable", 503);
   if (request.method !== method) return response("method_not_allowed", 405);
-  if (method !== "GET" && request.headers.get("origin") !== runtime.access.panelOrigin) return response("origin_denied", 403);
+  if (method !== "GET" && !approvedStorefrontMutationOrigin(request, runtime.access.panelOrigin)) return response("origin_denied", 403);
   let url: URL; try { url = new URL(request.url); } catch { return response("invalid_input", 400); }
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== PATH || url.search || url.hash || privateHeaders(request)) return response("invalid_input", 400);
   const cookie = readPersistentPanelSessionCookie(request); if (cookie.kind !== "present") return response("unauthenticated", 401);
