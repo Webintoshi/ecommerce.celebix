@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { rootCertificates } from "node:tls";
 
 import type {
   RegistrationAttempt,
@@ -37,8 +38,9 @@ function approvedStagingEnvironment(): Record<string, string | undefined> {
     CELEBIX_PANEL_ORIGIN: "https://panel.c3a-staging.example.test",
     CELEBIX_PLATFORM_DOMAIN_SUFFIX: "shops.c3a-staging.example.test",
     CELEBIX_SAAS_DATABASE_URL:
-      `postgresql://${stagingDatabaseCredential}@db.c3a-staging.example.test:5432/celebix_saas_staging_c3a?sslmode=require`,
+      `postgresql://${stagingDatabaseCredential}@db.c3a-staging.example.test:5432/celebix_saas_staging_c3a?sslmode=verify-full`,
     CELEBIX_SAAS_DATABASE_NAME: "celebix_saas_staging_c3a",
+    CELEBIX_STAGING_DB_CA_B64: Buffer.from(rootCertificates[0], "utf8").toString("base64"),
     CELEBIX_LOGTO_ISSUER: "https://identity.c3a-staging.example.test/oidc",
     CELEBIX_LOGTO_DISCOVERY_URL:
       "https://identity.c3a-staging.example.test/oidc/.well-known/openid-configuration",

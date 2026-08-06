@@ -2,6 +2,7 @@ import type {
   PublicCart,
   PublicCheckoutQuote,
   PublicCheckoutReceipt,
+  PublicPaymentMethod,
 } from "@celebix/saas-contracts";
 import type { StorefrontCommerceRepository } from "@celebix/saas-data";
 import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
@@ -49,6 +50,7 @@ type Dependencies = Readonly<{
   now(): Date;
   randomBytes(size: number): Uint8Array;
   randomUuid(): string;
+  hostedPaymentAvailable?(method: Extract<PublicPaymentMethod, { kind: "hosted_card" }>): Promise<boolean>;
 }>;
 
 function date(dependencies: Dependencies): Date {
@@ -166,7 +168,27 @@ export function createStorefrontCommerceRuntime(dependencies: Dependencies): Sto
       return Object.freeze({ cart: result.cart, ...(cartCredential ? { setCookie: serializeStorefrontCredentialCookie("cart", cartCredential.raw) } : {}) });
     },
     async quote(hostname, cookieHeader, intentKind) {
-      return dependencies.repository.quote({ hostname, now: date(dependencies), intentKind, candidates: candidates(purpose(intentKind), cookieHeader, dependencies.keyring) });
+      const quoted = await dependencies.repository.quote({ hostname, now: date(dependencies), intentKind, candidates: candidates(purpose(intentKind), cookieHeader, dependencies.keyring) });
+      const methods = [] as PublicCheckoutQuote["paymentMethods"][number][];
+      for (const method of quoted.paymentMethods) {
+        if (method.kind !== "hosted_card") { methods.push(method); continue; }
+        let available = false;
+        try { available = await dependencies.hostedPaymentAvailable?.(method) === true; }
+        catch { available = false; }
+        if (available) methods.push(method);
+      }
+      if (methods.length === quoted.paymentMethods.length) return quoted;
+      const paymentUnavailable = methods.length === 0 && quoted.cart.checkoutBlocker === null;
+      const cart = paymentUnavailable ? Object.freeze({
+        ...quoted.cart,
+        checkoutReady: false,
+        checkoutBlocker: "payment_unavailable" as const,
+      }) : quoted.cart;
+      return Object.freeze({
+        cart,
+        paymentMethods: Object.freeze(methods),
+        ...(quoted.estimatedDays === undefined ? {} : { estimatedDays: quoted.estimatedDays }),
+      });
     },
     async complete(hostname, cookieHeader, request) {
       const now = date(dependencies);

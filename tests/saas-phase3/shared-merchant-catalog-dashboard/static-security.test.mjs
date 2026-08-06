@@ -10,7 +10,13 @@ const BASE = "d343f493bf7f4950604dfb08770ccb5290659557";
 const IMPLEMENTATION_HEAD = "6563a1428434e1974f50af3ffb843eb4067f686a";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const reviewedSuccessorAuthorityFiles = new Set([
+  "apps/customer-panel/lib/catalog-http/default.ts",
+  "apps/customer-panel/lib/catalog-http/handler.test.ts",
+  "apps/customer-panel/lib/catalog-http/handler.ts",
+  "apps/customer-panel/lib/catalog-http/request-authority.ts",
   "apps/customer-panel/lib/catalog-ui/client.ts",
+  "apps/customer-panel/lib/server-catalog/runtime.test.ts",
+  "apps/customer-panel/lib/server-catalog/runtime.ts",
   "packages/saas-data/src/catalog/index.ts",
   "packages/saas-data/src/catalog/repository.test.ts",
   "packages/saas-data/src/catalog/repository.ts",

@@ -15,6 +15,7 @@ import {
 } from "@celebix/saas-contracts";
 
 import { PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { OrderShipmentConsole } from "@/components/shipping/OrderShipmentConsole";
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
 import styles from "./order-console.module.css";
 
@@ -249,7 +250,8 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
           <div className={styles.sectionHeading}><div><h2 id="shipping-title">Kargo bilgileri</h2><p>Adres ve takip kaydı</p></div></div>
           <address>{order.shippingAddress.recipientName}<br />{order.shippingAddress.line1}{order.shippingAddress.line2 ? <><br />{order.shippingAddress.line2}</> : null}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")} · {order.shippingAddress.country}</address>
           {order.tracking ? <p className={styles.tracking}><strong>{order.tracking.carrier}</strong><span>{order.tracking.trackingNumber}</span></p> : <p className={styles.muted}>Takip kaydı eklenmemiş.</p>}
-          {props.capabilities.shipping ? <form className={styles.compactForm} onSubmit={props.onShippingSubmit}>
+          {props.capabilities.shipping ? <OrderShipmentConsole key={`${order.id}:${order.version}`} orderId={order.id} orderVersion={order.version} /> : null}
+          {props.capabilities.shipping ? <details><summary>Manuel kargo bilgisi</summary><form className={styles.compactForm} onSubmit={props.onShippingSubmit}>
             <label><span>Alıcı</span><input name="recipientName" required maxLength={200} defaultValue={order.shippingAddress.recipientName} /></label>
             <label className={styles.wide}><span>Adres</span><input name="line1" required maxLength={300} defaultValue={order.shippingAddress.line1} /></label>
             <label className={styles.wide}><span>Adres devamı</span><input name="line2" maxLength={300} defaultValue={order.shippingAddress.line2 ?? ""} /></label>
@@ -262,7 +264,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
             <label className={styles.wide}><span>Takip bağlantısı</span><input name="trackingUrl" inputMode="url" maxLength={2048} defaultValue={order.tracking?.trackingUrl ?? ""} /></label>
             <label className={styles.wide}><span>Kargoya veriliş zamanı</span><input name="shippedAt" maxLength={24} defaultValue={order.tracking?.shippedAt ?? ""} /></label>
             <button className={styles.primaryButton} type="submit" disabled={props.busy !== ""}>{props.busy === "shipping" ? "Kaydediliyor…" : "Kargo bilgilerini kaydet"}</button>
-          </form> : null}
+          </form></details> : null}
         </section>
 
         <section className={styles.detailPanel} aria-labelledby="notes-title">

@@ -1,0 +1,23 @@
+{
+  "phase": "phase4k-storefront-hosted-checkout-start",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608060091_storefront_hosted_checkout_start.up.sql",
+      "direction": "up",
+      "sha256": "69b8b12391097954f30dfe1db6308b98ac9f1399c87bdaaf7b7c6cd3442afe6f"
+    },
+    {
+      "file": "202608060091_storefront_hosted_checkout_start.down.sql",
+      "direction": "down",
+      "sha256": "630a54864f8441cc712eeac182297757587a193748f2600c746143d922eb13ce"
+    },
+    {
+      "file": "202608060091_storefront_hosted_checkout_start_assertions.sql",
+      "direction": "verify",
+      "sha256": "ea6ffaaffbee2e2a5b00cd5f981b916a90165c1fc5949135d3d7008757d62da8"
+    }
+  ]
+}

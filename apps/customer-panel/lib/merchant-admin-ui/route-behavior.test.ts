@@ -557,6 +557,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     "marquee_setting",
     "policy",
     "promotion_banner",
+    "shipping_setting",
     "theme_setting",
   ].includes(kind));
   for (const definition of genericDefinitions) {

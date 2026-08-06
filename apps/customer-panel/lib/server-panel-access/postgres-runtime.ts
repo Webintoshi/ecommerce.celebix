@@ -21,6 +21,8 @@ import {
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
+  PostgresShippingAdminRepository,
+  PostgresShippingWorkflowRepository,
   PostgresToshiProviderRepository,
   parseMerchantProviderCredentialKeyring,
 } from "@celebix/saas-data";
@@ -56,6 +58,8 @@ import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activati
 import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
+import { createDefaultShippingAdapter } from "../server-shipping/default.ts";
+import { registerServerShippingRuntime } from "../server-shipping/runtime.ts";
 import { createToshiProviderAdapterRegistry } from "../toshi-provider-adapters/registry.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
@@ -86,6 +90,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       role.rolsuper AS is_superuser,
       pg_has_role(current_user, 'celebix_saas_identity', 'MEMBER') AS identity_member,
       pg_has_role(current_user, 'celebix_saas_app', 'MEMBER') AS catalog_member,
+      pg_has_role(current_user, 'celebix_saas_workflow', 'MEMBER') AS workflow_member,
       pg_has_role(current_user, 'celebix_saas_host_resolver', 'MEMBER') AS host_resolver_member,
       to_regclass('saas.principals') IS NOT NULL
         AND to_regclass('saas.stores') IS NOT NULL
@@ -181,6 +186,23 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL AS catalog_category_repository,
       to_regprocedure('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)') IS NOT NULL AS merchant_action_authority,
+      to_regclass('saas.shipping_provider_profiles') IS NOT NULL
+        AND to_regclass('saas.shipping_provider_resources') IS NOT NULL
+        AND to_regclass('saas.shipping_shipments') IS NOT NULL
+        AND to_regprocedure('saas.shipping_connection_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_connection_setup(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_connection_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,jsonb,text,text,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_validation_claim_job(uuid,text,timestamp with time zone,integer,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_validation_open_credential(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_quote_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb,uuid,text,uuid,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,uuid,uuid,text,uuid,uuid,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_for_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_fulfillment_claim_job(uuid,text,timestamp with time zone,integer,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_fulfillment_open(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_action_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,uuid,text,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_action_claim(uuid,text,timestamp with time zone,integer,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_action_open(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_label_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid)') IS NOT NULL AS shipping_repository,
       to_regclass('saas.toshi_provider_configs') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_connection_identity(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
@@ -348,7 +370,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       result.rowCount !== 1 || !row ||
       Math.floor(Number(row.version_num) / 10_000) !== 16 ||
       row.database_name !== databaseName || row.is_superuser !== false ||
-      row.identity_member !== true || row.catalog_member !== true || row.host_resolver_member !== true || row.migrations_001_019 !== true ||
+      row.identity_member !== true || row.catalog_member !== true || row.workflow_member !== true || row.host_resolver_member !== true || row.migrations_001_019 !== true ||
       row.migrations_022 !== true ||
       row.order_email_repository !== true ||
       row.migrations_078 !== true ||
@@ -360,7 +382,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true ||
       row.catalog_onboarding_repository !== true ||
       row.catalog_category_repository !== true ||
-      row.merchant_action_authority !== true || row.toshi_provider_repository !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
+      row.merchant_action_authority !== true || row.shipping_repository !== true || row.toshi_provider_repository !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_neighbors !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
       row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true ||
@@ -388,13 +410,15 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       saas.built_in_payment_methods_preflight() AS built_in_payment_methods,
       saas.payment_provider_keyed_lifecycle_preflight() AS payment_provider_keyed_lifecycle,
       saas.iyzico_iframe_tenant_activation_runtime_preflight() AS iyzico_activation_runtime,
-      saas.quick_order_hosted_payment_authority_preflight() AS quick_order_hosted_authority`);
+      saas.quick_order_hosted_payment_authority_preflight() AS quick_order_hosted_authority,
+      saas.shipping_provider_preflight() AS shipping_provider`);
     if (
       activation.rowCount !== 1
       || activation.rows[0]?.built_in_payment_methods !== true
       || activation.rows[0]?.payment_provider_keyed_lifecycle !== true
       || activation.rows[0]?.iyzico_activation_runtime !== true
       || activation.rows[0]?.quick_order_hosted_authority !== true
+      || activation.rows[0]?.shipping_provider !== true
     ) {
       throw new Error("server_panel_access_database_preflight_failed");
     }
@@ -549,6 +573,20 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       timeouts: TIMEOUTS,
       audit: () => undefined,
     });
+    const shippingAdminRepository = new PostgresShippingAdminRepository({
+      pool,
+      role: "celebix_saas_app",
+      keyring: providerCredentialKeyring,
+      generateId: randomUUID,
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
+    const shippingWorkflowRepository = new PostgresShippingWorkflowRepository({
+      pool,
+      role: "celebix_saas_workflow",
+      keyring: providerCredentialKeyring,
+      timeouts: TIMEOUTS,
+    });
     const toshiProviderRepository = new PostgresToshiProviderRepository({
       pool,
       role: "celebix_saas_app",
@@ -639,6 +677,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       providerCredentialKeyring,
       paymentProviderRegistry,
       hostedPaymentAdapters,
+    );
+    registerServerShippingRuntime(
+      access,
+      shippingAdminRepository,
+      shippingWorkflowRepository,
+      createDefaultShippingAdapter(),
+      randomUUID,
     );
     registerServerToshiProviderRuntime(
       access,

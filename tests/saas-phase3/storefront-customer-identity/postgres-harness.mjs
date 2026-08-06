@@ -32,6 +32,7 @@ const CSRF_DIGEST = "d".repeat(64);
 const UA_DIGEST = "e".repeat(64);
 const TOTAL = 18;
 let completed = 0;
+let activeSessionDigest = SESSION_DIGEST;
 
 function executable(name) {
   const directories = [process.env.POSTGRES_BIN, ...(process.env.PATH ?? "").split(path.delimiter)];
@@ -101,7 +102,7 @@ function migrations() {
 function escape(value) { return value.replaceAll("'", "''"); }
 function envelope(output) { const line = output.stdout.trim().split("\n").at(-1); return line ? JSON.parse(line) : null; }
 function publicCall(box, expression, database = DB) { return envelope(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result_payload',result_payload) FROM ${expression};COMMIT;`, database)); }
-function candidates(keyId = "session_01", digest = SESSION_DIGEST) { return escape(JSON.stringify([{ keyId, digest }])); }
+function candidates(keyId = "session_01", digest = activeSessionDigest) { return escape(JSON.stringify([{ keyId, digest }])); }
 function authStart(box, hostname = HOST_A, challenge = CHALLENGE_A, emailDigest = EMAIL_DIGEST, codeDigest = CODE_DIGEST, suffix = "083", ticketDigest = TICKET_DIGEST) {
   return publicCall(box, `saas.public_account_auth_start_v2('${hostname}','${NOW}','${challenge}','${emailDigest}','${"f".repeat(64)}','code_01','${codeDigest}','ticket_01','${ticketDigest}','2026-08-04T09:10:00Z','70000000-0000-4000-8000-000000000${suffix}','encrypted-recipient-authority-${suffix}','{"name":"Güzide"}'::jsonb,'correlation_${suffix}')`);
 }
@@ -142,7 +143,22 @@ async function main() {
 
     await scenario("PostgreSQL 16 installs identity migrations 084 and 085", () => assert.match(psql(box, "SHOW server_version;").stdout, /^16[.]/));
     await scenario("auth start stores only digests and encrypted recipient authority", () => { const result = authStart(box); assert.equal(result.outcome, "accepted"); assert.equal(psql(box, `SELECT count(*) FROM saas.storefront_login_challenges WHERE code_digest='${CODE_DIGEST}' AND email_digest='${EMAIL_DIGEST}';`).stdout.trim(), "1"); assert.doesNotMatch(psql(box, "SELECT row_to_json(challenge)::text FROM saas.storefront_login_challenges challenge;").stdout, /ada@example/u); });
-    await scenario("concurrent verification consumes one challenge and creates one session", async () => { const sql = (call) => `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM ${call};COMMIT;`; const outcomes = (await Promise.all([psqlAsync(box, sql(verifySql())), psqlAsync(box, sql(verifySql({ account: "50000000-0000-4000-8000-000000000084", session: "60000000-0000-4000-8000-000000000084", sessionDigest: "9".repeat(64), correlation: "verify_00084" })))] )).map(({ stdout }) => stdout.trim().split("\n").at(-1)).sort(); assert.deepEqual(outcomes, ["authenticated", "challenge_invalid"]); assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_accounts;").stdout.trim(), "1"); assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_account_sessions;").stdout.trim(), "1"); });
+    await scenario("concurrent verification consumes one challenge and creates one session", async () => {
+      const sql = (call) => `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM ${call};COMMIT;`;
+      const attempts = [
+        { digest: SESSION_DIGEST, call: verifySql() },
+        { digest: "9".repeat(64), call: verifySql({ account: "50000000-0000-4000-8000-000000000084", session: "60000000-0000-4000-8000-000000000084", sessionDigest: "9".repeat(64), correlation: "verify_00084" }) },
+      ];
+      const results = await Promise.all(attempts.map(async (attempt) => ({
+        digest: attempt.digest,
+        outcome: (await psqlAsync(box, sql(attempt.call))).stdout.trim().split("\n").at(-1),
+      })));
+      assert.deepEqual(results.map(({ outcome }) => outcome).sort(), ["authenticated", "challenge_invalid"]);
+      activeSessionDigest = results.find(({ outcome }) => outcome === "authenticated")?.digest ?? "";
+      assert.match(activeSessionDigest, /^[a-f0-9]{64}$/u);
+      assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_accounts;").stdout.trim(), "1");
+      assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_account_sessions;").stdout.trim(), "1");
+    });
     await scenario("consumed code replay fails closed", () => assert.equal(publicCall(box, verifySql({ account: "50000000-0000-4000-8000-000000000085", session: "60000000-0000-4000-8000-000000000085", sessionDigest: "8".repeat(64), correlation: "verify_00085" })).outcome, "challenge_invalid"));
     await scenario("verified account claims exact historical same-store order", () => { assert.equal(psql(box, "SELECT count(*) FROM saas.storefront_account_order_links;").stdout.trim(), "1"); const result = publicCall(box, `saas.public_account_orders('${HOST_A}','${NOW}','${candidates()}'::jsonb,20,NULL)`); assert.equal(result.outcome, "found"); assert.equal(result.result_payload.items[0].orderReference, "CX-083"); assert.doesNotMatch(JSON.stringify(result), /orderId|storeId|customerId/u); });
     await scenario("session resolves only on its exact storefront hostname", () => { assert.equal(publicCall(box, `saas.public_account_session_get('${HOST_A}','${NOW}','${candidates()}'::jsonb)`).outcome, "found"); assert.equal(publicCall(box, `saas.public_account_session_get('${HOST_B}','${NOW}','${candidates()}'::jsonb)`).outcome, "unauthenticated"); });

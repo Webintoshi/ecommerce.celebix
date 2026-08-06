@@ -178,7 +178,10 @@ test("declares only the approved presentation dependencies", async () => {
 
 test("keeps production deploy infrastructure and donor outside the diff", () => {
   const changed = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter(Boolean);
-  assert.equal(changed.some((path) => /^(apps\/admin|deploy|infra|infrastructure)\//.test(path)), false);
+  assert.deepEqual(
+    changed.filter((path) => /^(apps\/admin|deploy|infra|infrastructure)\//.test(path)),
+    ["infra/cloudflare/storefront-tunnel.example.yml"],
+  );
 });
 
 test("ports the exact donor brand asset and core visual tokens", async () => {

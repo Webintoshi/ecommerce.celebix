@@ -497,9 +497,12 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
     "lib/default-runtime.ts\u0000./checkout/hosted-payment.ts\u0000from",
     "lib/default-runtime.ts\u0000./payment-adapters/default.ts\u0000from",
     "lib/default-runtime.ts\u0000./payment-adapters/runtime.ts\u0000from",
+    "lib/default-runtime.ts\u0000./checkout/standard-hosted-payment.ts\u0000from",
     "lib/default-runtime.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/checkout/paytr.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/checkout/hosted-payment.ts\u0000../payment-adapters/runtime.ts\u0000from",
+    "lib/checkout/standard-hosted-payment.ts\u0000../payment-adapters/runtime.ts\u0000from",
+    "lib/cart/route.ts\u0000../checkout/standard-hosted-payment.ts\u0000from",
     "lib/payment-adapters/default.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/payment-adapters/callback-authority.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/payment-adapters/runtime.ts\u0000@celebix/payment-adapters\u0000from",
@@ -610,6 +613,8 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   assert.match(publicRuntime, /row[.]migration_071 !== true/);
   assert.match(publicRuntime, /AS migration_073/);
   assert.match(publicRuntime, /row[.]migration_073 !== true/);
+  assert.match(publicRuntime, /storefront_hosted_checkout_settlement_preflight/);
+  assert.match(publicRuntime, /hostedMigration[.]rows\[0\][?][.]migration_092 === true/);
   assert.match(publicRuntime, /content,/);
   assert.doesNotMatch(publicRuntime, /ProductMediaRepository|INSERT|UPDATE|DELETE/);
 });

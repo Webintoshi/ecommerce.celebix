@@ -1,0 +1,23 @@
+{
+  "phase": "phase4n-shipping-fulfillment-runtime",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608060094_shipping_fulfillment_runtime.up.sql",
+      "direction": "up",
+      "sha256": "7d5f4938ac25e7cf521726892c22b4dab84a8a5064df128674a1310e60aad7f5"
+    },
+    {
+      "file": "202608060094_shipping_fulfillment_runtime.down.sql",
+      "direction": "down",
+      "sha256": "d743fb4e4e3c9945977b73f7186a08320d3cf85442588fcca25d007158c49489"
+    },
+    {
+      "file": "202608060094_shipping_fulfillment_runtime_assertions.sql",
+      "direction": "verify",
+      "sha256": "9b5014564bc443ed447b892d0626567189afd8ef0745756143a65e7c87b3a4f2"
+    }
+  ]
+}

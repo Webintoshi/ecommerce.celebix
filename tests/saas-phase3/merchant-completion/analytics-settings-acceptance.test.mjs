@@ -12,8 +12,8 @@ const secretNames = Object.freeze([
   ["push", "Token"].join(""),
 ]);
 
-test("analytics and typed storefront settings retain durable authority boundaries", async () => {
-  const [analyticsSql, analyticsRepository, analyticsRuntime, analyticsHandler, analyticsClient, analyticsPage, settingsSql, settingsValidation, notificationPage, heroPage, promotionPage, marqueePage, merchantConsole] = await Promise.all([
+test("analytics, typed settings, and the unified design workspace retain durable authority boundaries", async () => {
+  const [analyticsSql, analyticsRepository, analyticsRuntime, analyticsHandler, analyticsClient, analyticsPage, settingsSql, settingsValidation, notificationPage, heroPage, promotionPage, marqueePage, designPage, merchantConsole] = await Promise.all([
     source("apps/owner/scripts/sql/saas/202607220038_merchant_analytics.up.sql"),
     source("packages/saas-data/src/analytics/repository.ts"),
     source("apps/customer-panel/lib/server-analytics/runtime.ts"),
@@ -26,6 +26,7 @@ test("analytics and typed storefront settings retain durable authority boundarie
     source("apps/customer-panel/app/settings/hero-banner/page.tsx"),
     source("apps/customer-panel/app/settings/promotion-banner/page.tsx"),
     source("apps/customer-panel/app/settings/marquee/page.tsx"),
+    source("apps/customer-panel/app/settings/design/page.tsx"),
     source("apps/customer-panel/components/merchant-admin/MerchantModuleConsole.tsx"),
   ]);
 
@@ -64,10 +65,15 @@ test("analytics and typed storefront settings retain durable authority boundarie
     assert.doesNotMatch(settingsSql, new RegExp(name));
   }
 
-  for (const [page, kind] of [[notificationPage, "notification_setting"], [heroPage, "hero_banner"], [promotionPage, "promotion_banner"], [marqueePage, "marquee_setting"]]) {
+  assert.match(notificationPage, /await requireServerPanelAccess\(\)/);
+  assert.match(notificationPage, /kind="notification_setting"/);
+  for (const [page, section] of [[heroPage, "hero"], [promotionPage, "promotion"], [marqueePage, "announcement"]]) {
     assert.match(page, /await requireServerPanelAccess\(\)/);
-    assert.match(page, new RegExp(`kind="${kind}"`));
+    assert.match(page, new RegExp(`redirect\\(\"/settings/design\\?section=${section}\"\\)`));
+    assert.doesNotMatch(page, /MerchantModuleConsole|kind=/);
   }
+  assert.match(designPage, /await requireServerPanelAccess\(\)/);
+  assert.match(designPage, /<DesignWorkspace/);
   assert.match(merchantConsole, /status === "awaiting_provider_activation"/);
   assert.match(merchantConsole, /provider_outcome_unknown/);
   assert.match(merchantConsole, /Sonuç doğrulanıyor — tekrar göndermeyin/);

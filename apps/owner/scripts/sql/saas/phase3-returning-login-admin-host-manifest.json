@@ -1,0 +1,23 @@
+{
+  "phase": "phase3-returning-login-admin-host",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607300071_returning_login_admin_host.up.sql",
+      "direction": "up",
+      "sha256": "70bbfe0fc5045df447d8b7f0e795691a63352572d74b5c0a5df84e983944fcfd"
+    },
+    {
+      "file": "202607300071_returning_login_admin_host.down.sql",
+      "direction": "down",
+      "sha256": "cdbcd2660df8ad3d3995f12daf9daf0485c7861f51ca84eac9751e753015b9f0"
+    },
+    {
+      "file": "202607300071_returning_login_admin_host_assertions.sql",
+      "direction": "verify",
+      "sha256": "f9941e290a79fc412c11e765ac9ea160cdbc74fab0f346886626f35c93c3e0d0"
+    }
+  ]
+}

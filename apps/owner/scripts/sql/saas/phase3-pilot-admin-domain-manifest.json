@@ -1,0 +1,23 @@
+{
+  "phase": "phase3-pilot-admin-domain",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202607300073_seed_guzide_pilot_admin_domain.up.sql",
+      "direction": "up",
+      "sha256": "8d20bd8e5953988b25b9e58c77c7e984135dadbda3eb8bab7cbf89ade864789f"
+    },
+    {
+      "file": "202607300073_seed_guzide_pilot_admin_domain.down.sql",
+      "direction": "down",
+      "sha256": "a201942dbaab9a6659a4e1d37cf53b05e9052c4586882d6b396143ec818f9a5e"
+    },
+    {
+      "file": "202607300073_seed_guzide_pilot_admin_domain_assertions.sql",
+      "direction": "verify",
+      "sha256": "35959c4b042bfbe6979defb1fee1fa81df5bba653a43c4d63de7f00ec0a86f84"
+    }
+  ]
+}

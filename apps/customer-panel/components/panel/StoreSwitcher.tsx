@@ -1,14 +1,14 @@
 import { ArrowRightLeft } from "lucide-react";
 
-import type { PanelStoreOption } from "@/lib/panel-store-options/postgres-repository";
+import type { PanelClientStoreOption } from "@/lib/panel-ui/client-chrome-model";
 import styles from "./panel-shell.module.css";
 
-export function StoreSwitcher({ stores, activeStoreId }: {
-  stores: readonly PanelStoreOption[];
-  activeStoreId: string;
+export function StoreSwitcher({ stores, activeStoreSelectionKey }: {
+  stores: readonly PanelClientStoreOption[];
+  activeStoreSelectionKey: string;
 }) {
   if (stores.length < 2) return null;
-  const active = stores.find((store) => store.storeId === activeStoreId);
+  const active = stores.find((store) => store.selectionKey === activeStoreSelectionKey);
   if (!active) return null;
 
   return (
@@ -20,9 +20,9 @@ export function StoreSwitcher({ stores, activeStoreId }: {
       <form action="/api/session/switch" method="post">
         <label>
           <span>Geçiş yapılacak mağaza</span>
-          <select name="destinationStoreId" defaultValue={activeStoreId} required>
+          <select name="destinationStoreId" defaultValue={activeStoreSelectionKey} required>
             {stores.map((store) => (
-              <option key={store.storeId} value={store.storeId}>{store.displayName}</option>
+              <option key={store.selectionKey} value={store.selectionKey}>{store.displayName}</option>
             ))}
           </select>
         </label>

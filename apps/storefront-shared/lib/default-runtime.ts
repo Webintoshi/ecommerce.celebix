@@ -16,6 +16,8 @@ import {
   PostgresPublicStorefrontContentRepository,
   PostgresNewsletterRepository,
   PostgresStorefrontCommerceRepository,
+  PostgresStorefrontHostedCheckoutRepository,
+  PostgresStorefrontHostedCheckoutWorkerRepository,
   PostgresStorefrontIdentityRepository,
   PostgresPublicAnalyticsRepository,
   PostgresStoreDomainOriginHealthRepository,
@@ -26,6 +28,7 @@ import {
   type NewsletterRepository,
   type StorefrontCommerceRepository,
   type StoreDomainOriginHealthRepository,
+  type StorefrontHostedCheckoutWorkerRepository,
 } from "@celebix/saas-data";
 import pg from "pg";
 
@@ -54,6 +57,7 @@ import type {
 import { selectTrustedStorefrontHostAuthority } from "./trusted-host-authority.ts";
 import { parseStorefrontCommerceCredentialKeyring } from "./cart/credential.ts";
 import { createStorefrontCommerceRuntime, type StorefrontCommerceRuntime } from "./cart/runtime.ts";
+import { createStandardHostedCheckoutRuntime, type StandardHostedCheckoutRuntime } from "./checkout/standard-hosted-payment.ts";
 import { createStorefrontLoginCode } from "./account/credential.ts";
 import { createResendStorefrontIdentityEmailDelivery } from "./account/email-delivery.ts";
 import { createStorefrontIdentityRuntime, type StorefrontIdentityRuntime } from "./account/runtime.ts";
@@ -65,6 +69,7 @@ export type PublicStorefrontRuntime = Readonly<{
   content: PublicStorefrontContentRepository;
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
+  hostedCheckout: StandardHostedCheckoutRuntime | null;
   checkout: CheckoutRuntime;
   abandonedCarts: InstanceType<typeof PostgresPublicAbandonedCartRepository>;
   analytics: InstanceType<typeof PostgresPublicAnalyticsRepository> | null;
@@ -79,6 +84,8 @@ type HostedPaymentInfrastructure = Readonly<{
   runtime: HostedPaymentRuntime;
   attempts: PaymentAttemptRepository;
   createRuntime: (attempts: PaymentAttemptRepository) => HostedPaymentRuntime | null;
+  pool: InstanceType<typeof Pool>;
+  close: () => Promise<void>;
 }>;
 let hostedPaymentInitialization: Promise<HostedPaymentInfrastructure | null> | undefined;
 let quickOrderHostedBridgeInitialization: Promise<QuickOrderHostedPaymentBridgeRuntime | null> | undefined;
@@ -160,7 +167,39 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     const content = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
     const commerce = new PostgresStorefrontCommerceRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined });
     const commerceKeyring = parseStorefrontCommerceCredentialKeyring(process.env);
-    const cart = createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID });
+    const hostedMigration = await pool.query(`SELECT
+      to_regclass('saas.storefront_hosted_checkout_sessions') IS NOT NULL
+        AND to_regclass('saas.checkout_inventory_reservations') IS NOT NULL
+        AND to_regprocedure('saas.storefront_available_stock(uuid,uuid,timestamp with time zone,uuid)') IS NOT NULL AS migration_090,
+      to_regprocedure('saas.public_storefront_hosted_checkout_authority(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.public_storefront_hosted_checkout_begin(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text)') IS NOT NULL
+        AND to_regprocedure('saas.public_storefront_hosted_checkout_presentation(text,timestamp with time zone,jsonb)') IS NOT NULL AS migration_091,
+      to_regprocedure('saas.storefront_hosted_checkout_settlement_preflight()') IS NOT NULL
+        AND saas.storefront_hosted_checkout_settlement_preflight() AS migration_092`);
+    const hostedReady = hostedMigration.rowCount === 1
+      && hostedMigration.rows[0]?.migration_090 === true
+      && hostedMigration.rows[0]?.migration_091 === true
+      && hostedMigration.rows[0]?.migration_092 === true;
+    const presentationInfrastructure = hostedReady ? await resolveDefaultCheckoutPaymentRuntime() : null;
+    const hostedCheckout = hostedReady && presentationInfrastructure !== null
+      ? createStandardHostedCheckoutRuntime({
+          repository: new PostgresStorefrontHostedCheckoutRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined }),
+          commerceKeyring,
+          presentationKeyring: presentationInfrastructure.keyring,
+          now: () => new Date(),
+          randomUuid: randomUUID,
+          resolveExecution: async () => {
+            const execution = await resolveDefaultHostedPaymentInfrastructure();
+            return execution === null ? null : Object.freeze({ attempts: execution.attempts, createRuntime: execution.createRuntime });
+          },
+        })
+      : null;
+    const activeHostedProviders = new Set(executableCompiledAuthorities(compiledHostedPaymentAuthorities(), Object.freeze({
+      CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
+      CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
+    })).map(({ providerCode }) => providerCode));
+    const cart = createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
+      hostedPaymentAvailable: async (method) => hostedCheckout !== null && activeHostedProviders.has(method.providerCode) });
     const quickOrderRepository = new PostgresPublicQuickOrderRepository({
       pool,
       role: "celebix_saas_workflow",
@@ -191,6 +230,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       content,
       commerce,
       cart,
+      hostedCheckout,
       checkout: createCheckoutRuntime({ storefrontRepository: repository, quickOrderRepository }),
       abandonedCarts,
       analytics,
@@ -224,6 +264,29 @@ export async function resolveDefaultHostedPaymentRuntime(): Promise<HostedPaymen
     executableAuthorities,
   );
   return (await hostedPaymentInitialization)?.runtime ?? null;
+}
+
+export type DefaultStandardCheckoutReconciliationRuntime = Readonly<{
+  sessions: StorefrontHostedCheckoutWorkerRepository;
+  attempts: PaymentAttemptRepository;
+  runtime: HostedPaymentRuntime;
+  close: () => Promise<void>;
+}>;
+
+export async function resolveDefaultStandardCheckoutReconciliationRuntime(): Promise<DefaultStandardCheckoutReconciliationRuntime | null> {
+  const infrastructure = await resolveDefaultHostedPaymentInfrastructure();
+  if (infrastructure === null) return null;
+  return Object.freeze({
+    sessions: new PostgresStorefrontHostedCheckoutWorkerRepository({
+      pool: infrastructure.pool,
+      role: "celebix_saas_workflow",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    }),
+    attempts: infrastructure.attempts,
+    runtime: infrastructure.runtime,
+    close: infrastructure.close,
+  });
 }
 
 async function resolveDefaultHostedPaymentInfrastructure(): Promise<HostedPaymentInfrastructure | null> {
@@ -289,7 +352,10 @@ async function initializeHostedPaymentInfrastructure(
           AS migration_056,
         to_regprocedure('saas.quick_order_hosted_payment_authority_preflight()') IS NOT NULL
           AND saas.quick_order_hosted_payment_authority_preflight()
-          AS migration_057
+          AS migration_057,
+        to_regprocedure('saas.storefront_hosted_checkout_settlement_preflight()') IS NOT NULL
+          AND saas.storefront_hosted_checkout_settlement_preflight()
+          AS migration_092
       FROM pg_catalog.pg_roles AS role
       WHERE role.rolname=current_user`,
       values: [],
@@ -305,6 +371,7 @@ async function initializeHostedPaymentInfrastructure(
       || row.migration_052 !== true
       || row.migration_056 !== true
       || row.migration_057 !== true
+      || row.migration_092 !== true
     ) throw new Error("storefront_hosted_payment_preflight_failed");
     for (const { providerCode, authority } of executableAuthorities) {
       if (!await currentExecutionAuthorityMatches(pool, Object.freeze({
@@ -343,8 +410,15 @@ async function initializeHostedPaymentInfrastructure(
     });
     const runtime = createRuntime(attempts);
     if (runtime === null) throw new Error("storefront_hosted_payment_disabled");
+    let closed = false;
+    const close = async () => {
+      if (closed) return;
+      closed = true;
+      for (const { key } of keyring.keys) key.fill(0);
+      await pool!.end();
+    };
     runtimeOwnsKeyring = true;
-    return Object.freeze({ runtime, attempts, createRuntime });
+    return Object.freeze({ runtime, attempts, createRuntime, pool, close });
   } catch {
     await pool?.end().catch(() => undefined);
     return null;

@@ -140,6 +140,10 @@ export async function middleware(request: NextRequest) {
     return withSecurity(request, nextResponse(request));
   }
 
+  if (pathname === OWNER_PUBLIC_RUNTIME_API_PATH) {
+    return withSecurity(request, nextResponse(request));
+  }
+
   if (isPublicSelfServeRoute(pathname)) {
     return withSecurity(
       request,

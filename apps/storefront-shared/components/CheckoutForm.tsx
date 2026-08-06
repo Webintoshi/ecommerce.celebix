@@ -18,7 +18,8 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
   const [quote, setQuote] = useState<PublicCheckoutQuote | null>(null);
   const [quoteSettled, setQuoteSettled] = useState(false);
   const [draft, setDraft] = useState<CheckoutFormDraft>(() => Object.freeze({ ...EMPTY, ...initialDraft }));
-  const [paymentKind, setPaymentKind] = useState<"bank_transfer" | "cash_on_delivery" | "">("");
+  const [paymentKind, setPaymentKind] = useState<"bank_transfer" | "cash_on_delivery" | "hosted_card" | "">("");
+  const [identityNumber, setIdentityNumber] = useState("");
   const [pending, setPending] = useState(false);
   const [attemptedDelivery, setAttemptedDelivery] = useState(false);
   const [status, setStatus] = useState("Sipariş özeti yükleniyor.");
@@ -75,9 +76,20 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
       setStatus(checkoutBlockerMessage(quote?.cart.checkoutBlocker ?? null) ?? "Sipariş şu anda tamamlanamıyor.");
       return;
     }
+    const identityRequired = selectedMethod.kind === "hosted_card" && selectedMethod.requiredCustomerFields.includes("identity_number");
+    if (identityRequired && !/^[0-9]{11}$/u.test(identityNumber)) {
+      setStatus("T.C. kimlik numaranızı kontrol edin.");
+      window.requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[name="identityNumber"]')?.focus());
+      return;
+    }
     const delivery = validation.value;
-    setPending(true); setStatus("Siparişiniz güvenle oluşturuluyor.");
+    setPending(true); setStatus(selectedMethod.kind === "hosted_card" ? "Güvenli ödeme ekranı hazırlanıyor." : "Siparişiniz güvenle oluşturuluyor.");
     try {
+      if (selectedMethod.kind === "hosted_card") {
+        const result = await storefrontCartClient.startHosted({ cartVersion: quote.cart.version, intentKind, contact: delivery.contact, shippingAddress: delivery.shippingAddress, shippingMethod: "standard", paymentMethodId: selectedMethod.id, ...(identityRequired ? { identityNumber } : {}), ...(delivery.note ? { note: delivery.note } : {}) });
+        window.location.assign(result.destination);
+        return;
+      }
       operation.current ??= crypto.randomUUID();
       const response = await fetch("/api/checkout/complete", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify({ operationId: operation.current, cartVersion: quote.cart.version, intentKind, contact: delivery.contact, shippingAddress: delivery.shippingAddress, shippingMethod: "standard", paymentKind: selectedMethod.kind, ...(delivery.note ? { note: delivery.note } : {}) }) });
       const destination = new URL(response.url, window.location.href);
@@ -102,10 +114,10 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
       </section>
       <section className="checkout-section checkout-payment" aria-labelledby="checkout-payment-title">
         <header><span>4</span><h2 id="checkout-payment-title">Ödeme yöntemi</h2></header>
-        <fieldset disabled={pending}><div className="payment-methods">{quote?.paymentMethods.map((method) => <label key={method.kind}><input checked={paymentKind === method.kind} name="paymentMethod" onChange={() => setPaymentKind(method.kind)} type="radio" value={method.kind} /><span><b>{method.label}</b><small>{method.instructions}</small>{method.kind === "bank_transfer" ? <em>{method.bankName} · {method.accountHolder}<br />{method.iban}</em> : null}</span></label>)}</div>{quote?.paymentMethods.length ? null : <p className="checkout-unavailable">Ödeme yöntemi henüz yapılandırılmadı.</p>}</fieldset>
+        <fieldset disabled={pending}><div className="payment-methods">{quote?.paymentMethods.map((method) => <label key={method.kind}><input checked={paymentKind === method.kind} name="paymentMethod" onChange={() => setPaymentKind(method.kind)} type="radio" value={method.kind} /><span><b>{method.label}</b><small>{method.instructions}</small>{method.kind === "bank_transfer" ? <em>{method.bankName} · {method.accountHolder}<br />{method.iban}</em> : null}</span></label>)}</div>{quote?.paymentMethods.some((method) => method.kind === "hosted_card" && paymentKind === "hosted_card" && method.requiredCustomerFields.includes("identity_number")) ? <label className="checkout-identity">T.C. kimlik numarası<input name="identityNumber" inputMode="numeric" autoComplete="off" maxLength={11} pattern="[0-9]{11}" required value={identityNumber} onChange={(event) => setIdentityNumber(event.currentTarget.value.replace(/[^0-9]/gu, "").slice(0, 11))} /></label> : null}{quote?.paymentMethods.length ? null : <p className="checkout-unavailable">Ödeme yöntemi henüz yapılandırılmadı.</p>}</fieldset>
       </section>
     </div>
     {summaryState.kind === "summary" ? <CheckoutSummary summary={summaryState.cart} /> : summaryState.kind === "loading" ? <aside className="checkout-summary" aria-busy="true"><span>SİPARİŞ ÖZETİ</span><h2>Yükleniyor</h2></aside> : <aside className="checkout-summary checkout-summary-unavailable"><span>SİPARİŞ ÖZETİ</span><h2>Özet kullanılamıyor</h2><p>{status}</p></aside>}
-    <footer className="checkout-terminal"><p className="checkout-status" aria-live="polite">{status}</p><button className="store-button checkout-submit" type="submit" disabled={pending || !quote?.cart.checkoutReady || !paymentKind}>{pending ? "Oluşturuluyor…" : "Siparişi tamamla"}</button></footer>
+    <footer className="checkout-terminal"><p className="checkout-status" aria-live="polite">{status}</p><button className="store-button checkout-submit" type="submit" disabled={pending || !quote?.cart.checkoutReady || !paymentKind}>{pending ? "Hazırlanıyor…" : paymentKind === "hosted_card" ? "Güvenli ödemeye geç" : "Siparişi tamamla"}</button></footer>
   </form>;
 }

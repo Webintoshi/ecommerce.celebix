@@ -16,13 +16,16 @@ export async function PanelShell(props: PanelShellProps) {
     ? await resolvePanelAnalyticsAvailability(props[SERVER_CONTEXT_PROP])
     : false;
   const storeOptions = props[SERVER_CONTEXT_PROP]
-    ? await resolveDefaultPanelStoreOptions(props[SERVER_CONTEXT_PROP].store.id)
+    ? (await resolveDefaultPanelStoreOptions(props[SERVER_CONTEXT_PROP].store.id)).map((store) => Object.freeze({
+        selectionKey: store.storeId,
+        displayName: store.displayName,
+      }))
     : undefined;
   const model = Object.freeze({
     ...entitledModel,
     analyticsAvailable,
     ...(props[SERVER_CONTEXT_PROP] ? {
-      activeStoreId: props[SERVER_CONTEXT_PROP].store.id,
+      activeStoreSelectionKey: props[SERVER_CONTEXT_PROP].store.id,
       storeOptions,
     } : {}),
   });

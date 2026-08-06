@@ -48,6 +48,7 @@ export * from "./storefront/index.ts";
 export * from "./storefront-design/index.ts";
 export * from "./storefront-content/index.ts";
 export * from "./storefront-commerce/index.ts";
+export * from "./storefront-hosted-checkout/index.ts";
 export * from "./storefront-identity/index.ts";
 export * from "./storefront-assets/index.ts";
 export * from "./store-domains/index.ts";
@@ -69,6 +70,7 @@ export * from "./provider-execution/index.ts";
 export * from "./toshi-providers/index.ts";
 export * from "./payment-methods/index.ts";
 export * from "./payment-attempts/index.ts";
+export * from "./shipping/index.ts";
 export {
   CHECKOUT_PAYMENT_ERROR_CODES,
   CheckoutPaymentRepositoryError,

@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [form, summary, checkout, success, account, readiness, css] = await Promise.all([
+const [form, summary, checkout, success, hostedResult, account, readiness, css] = await Promise.all([
   readFile(new URL("./CheckoutForm.tsx", import.meta.url), "utf8"),
   readFile(new URL("./CheckoutSummary.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/checkout/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/checkout/payment/result/page.tsx", import.meta.url), "utf8").catch(() => ""),
   readFile(new URL("../app/account/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("./checkout-readiness.ts", import.meta.url), "utf8"),
   readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -33,6 +34,21 @@ test("checkout submission contains only the exact server-owned contract and fixe
   assert.match(form, /\/api\/checkout\/complete/u);
   assert.match(form, /\/checkout\/success/u);
   assert.doesNotMatch(form, /priceCents\s*:|shippingCents\s*:|iban\s*:|storeId|tenantId|customerId|orderId|credential(?:Id|Value|Cookie)/u);
+});
+
+test("hosted card uses the fixed start route and renders only provider-required identity", () => {
+  for (const proof of ["hosted_card", "requiredCustomerFields", "identityNumber", "startHosted", "Güvenli ödemeye geç"]) {
+    assert.match(form, new RegExp(proof, "u"));
+  }
+  assert.doesNotMatch(form, /fetch\(["']\/api\/checkout\/payment\/start/u);
+  assert.doesNotMatch(form, /cardNumber|cvv|cvc|expiry|holderName/u);
+});
+
+test("hosted payment result trusts server status and never query-string success", () => {
+  for (const proof of ["hostedCheckout.status", "captured", "processing", "stock_conflict", "getReceipt", "/cart"]) {
+    assert.match(hostedResult, new RegExp(proof, "u"));
+  }
+  assert.doesNotMatch(hostedResult, /searchParams|[?](?:durum|success)=|providerReference|paymentAttempt/u);
 });
 
 test("checkout maps finite quote failures without inventing a payment option", () => {

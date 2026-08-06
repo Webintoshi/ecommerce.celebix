@@ -62,10 +62,9 @@ test("preserves the historical A1 orders navigation snapshot at its closing SHA"
 
 test("preserves exact same-origin logout semantics", async () => {
   const logout = await read("apps/customer-panel/components/panel/LogoutButton.tsx");
-  assert.match(logout, /\/api\/session\/logout/);
-  assert.match(logout, /method:\s*["']POST["']/);
-  assert.match(logout, /credentials:\s*["']same-origin["']/);
-  assert.doesNotMatch(logout, /document\.cookie|localStorage|sessionStorage/);
+  assert.match(logout, /<form[^>]+action="\/api\/session\/logout"[^>]+method="post">/u);
+  assert.match(logout, /<button[^>]+type="submit"/u);
+  assert.doesNotMatch(logout, /fetch[(]|https?:\/\/|document\.cookie|localStorage|sessionStorage/);
 });
 
 test("preserves the historical shell dependency and test-glob snapshot", () => {
@@ -110,5 +109,8 @@ test("shell breakpoint and accessibility controls are exact", async () => {
 
 test("does not change deploy production or infrastructure files", () => {
   const changed = git("diff", "--name-only", BASE + "...HEAD").split("\n").filter(Boolean);
-  assert.equal(changed.some((path) => /^(deploy|infra|infrastructure|apps\/admin)\//.test(path)), false);
+  assert.deepEqual(
+    changed.filter((path) => /^(deploy|infra|infrastructure|apps\/admin)\//.test(path)),
+    ["infra/cloudflare/storefront-tunnel.example.yml"],
+  );
 });

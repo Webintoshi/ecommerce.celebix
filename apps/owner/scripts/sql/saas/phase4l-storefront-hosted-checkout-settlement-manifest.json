@@ -1,0 +1,23 @@
+{
+  "phase": "phase4l-storefront-hosted-checkout-settlement",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608060092_storefront_hosted_checkout_settlement.up.sql",
+      "direction": "up",
+      "sha256": "432027bb27f753b81097a5c0d0e6b828747af10a373212d62becd615f6b871ee"
+    },
+    {
+      "file": "202608060092_storefront_hosted_checkout_settlement.down.sql",
+      "direction": "down",
+      "sha256": "b648b3e486c5a064b5917e25b6933e3bcc3859cbf4d282a121f6f2666f0df0a4"
+    },
+    {
+      "file": "202608060092_storefront_hosted_checkout_settlement_assertions.sql",
+      "direction": "verify",
+      "sha256": "21bd6b8b32405a2ad29ae3c629fdb8bde54b11f0a8911457c672394612d980a9"
+    }
+  ]
+}
