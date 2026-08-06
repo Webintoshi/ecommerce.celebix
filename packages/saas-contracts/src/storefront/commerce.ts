@@ -67,7 +67,7 @@ export type PublicCart = Readonly<{
   items: readonly PublicCartLine[];
 }>;
 
-export type PublicPaymentMethod = Readonly<{
+export type PublicOfflinePaymentMethod = Readonly<{
   kind: "bank_transfer" | "cash_on_delivery";
   label: string;
   instructions: string;
@@ -75,6 +75,18 @@ export type PublicPaymentMethod = Readonly<{
   accountHolder?: string;
   iban?: string;
 }>;
+
+export type PublicHostedCardPaymentMethod = Readonly<{
+  kind: "hosted_card";
+  id: string;
+  label: string;
+  instructions: string;
+  providerCode: "paytr_iframe" | "iyzico_iframe";
+  presentation: "iframe" | "redirect";
+  requiredCustomerFields: readonly "identity_number"[];
+}>;
+
+export type PublicPaymentMethod = PublicOfflinePaymentMethod | PublicHostedCardPaymentMethod;
 
 export type PublicCheckoutQuote = Readonly<{
   cart: PublicCart;
@@ -88,7 +100,7 @@ export type PublicCheckoutReceipt = Readonly<{
   subtotalCents: number;
   shippingCents: number;
   totalCents: number;
-  paymentStatus: "pending";
+  paymentStatus: "pending" | "completed";
   paymentMethod: PublicPaymentMethod;
   delivery: Readonly<{
     recipientName: string;
@@ -218,11 +230,23 @@ function cartLines(value: unknown, minimum: number, maximum: number): readonly P
 }
 
 function paymentMethod(value: unknown): PublicPaymentMethod {
-  const parsed = exact(value, ["kind", "label", "instructions"], ["bankName", "accountHolder", "iban"]);
+  const parsed = exact(
+    value,
+    ["kind", "label", "instructions"],
+    ["bankName", "accountHolder", "iban", "id", "providerCode", "presentation", "requiredCustomerFields"],
+  );
   const label = text(parsed.label, 1, 120);
   const instructions = text(parsed.instructions, 1, 2_000);
   if (parsed.kind === "bank_transfer") {
-    if (!Object.hasOwn(parsed, "bankName") || !Object.hasOwn(parsed, "accountHolder") || !Object.hasOwn(parsed, "iban")) invalid();
+    if (
+      !Object.hasOwn(parsed, "bankName")
+      || !Object.hasOwn(parsed, "accountHolder")
+      || !Object.hasOwn(parsed, "iban")
+      || Object.hasOwn(parsed, "id")
+      || Object.hasOwn(parsed, "providerCode")
+      || Object.hasOwn(parsed, "presentation")
+      || Object.hasOwn(parsed, "requiredCustomerFields")
+    ) invalid();
     return Object.freeze({
       kind: "bank_transfer",
       label,
@@ -233,8 +257,45 @@ function paymentMethod(value: unknown): PublicPaymentMethod {
     });
   }
   if (parsed.kind === "cash_on_delivery") {
-    if (Object.hasOwn(parsed, "bankName") || Object.hasOwn(parsed, "accountHolder") || Object.hasOwn(parsed, "iban")) invalid();
+    if (
+      Object.hasOwn(parsed, "bankName")
+      || Object.hasOwn(parsed, "accountHolder")
+      || Object.hasOwn(parsed, "iban")
+      || Object.hasOwn(parsed, "id")
+      || Object.hasOwn(parsed, "providerCode")
+      || Object.hasOwn(parsed, "presentation")
+      || Object.hasOwn(parsed, "requiredCustomerFields")
+    ) invalid();
     return Object.freeze({ kind: "cash_on_delivery", label, instructions });
+  }
+  if (parsed.kind === "hosted_card") {
+    if (
+      !Object.hasOwn(parsed, "id")
+      || !Object.hasOwn(parsed, "providerCode")
+      || !Object.hasOwn(parsed, "presentation")
+      || !Object.hasOwn(parsed, "requiredCustomerFields")
+      || Object.hasOwn(parsed, "bankName")
+      || Object.hasOwn(parsed, "accountHolder")
+      || Object.hasOwn(parsed, "iban")
+    ) invalid();
+    const providerCode = parsed.providerCode === "paytr_iframe" || parsed.providerCode === "iyzico_iframe"
+      ? parsed.providerCode
+      : invalid();
+    const presentation = parsed.presentation === "iframe" || parsed.presentation === "redirect"
+      ? parsed.presentation
+      : invalid();
+    const requiredCustomerFields = Object.freeze(denseArray(parsed.requiredCustomerFields, 0, 1).map<"identity_number">((field) => (
+      field === "identity_number" ? field : invalid()
+    )));
+    return Object.freeze({
+      kind: "hosted_card",
+      id: text(parsed.id, 36, 36, UUID),
+      label,
+      instructions,
+      providerCode,
+      presentation,
+      requiredCustomerFields,
+    });
   }
   return invalid();
 }
@@ -333,8 +394,10 @@ export function parsePublicCart(value: unknown): PublicCart {
 export function parsePublicCheckoutQuote(value: unknown): PublicCheckoutQuote {
   const parsed = exact(value, ["cart", "paymentMethods"], ["estimatedDays"]);
   const cart = parsePublicCart(parsed.cart);
-  const methods = denseArray(parsed.paymentMethods, 0, 2).map(paymentMethod);
+  const methods = denseArray(parsed.paymentMethods, 0, 3).map(paymentMethod);
   if (new Set(methods.map(({ kind }) => kind)).size !== methods.length) invalid();
+  const hostedIds = methods.flatMap((method) => method.kind === "hosted_card" ? [method.id] : []);
+  if (new Set(hostedIds).size !== hostedIds.length) invalid();
   return Object.freeze({
     cart,
     paymentMethods: Object.freeze(methods),
@@ -344,7 +407,9 @@ export function parsePublicCheckoutQuote(value: unknown): PublicCheckoutQuote {
 
 export function parsePublicCheckoutReceipt(value: unknown): PublicCheckoutReceipt {
   const parsed = exact(value, ["orderReference", "currency", "subtotalCents", "shippingCents", "totalCents", "paymentStatus", "paymentMethod", "delivery", "items", "createdAt"]);
-  if (parsed.currency !== "TRY" || parsed.paymentStatus !== "pending") invalid();
+  if (parsed.currency !== "TRY" || (parsed.paymentStatus !== "pending" && parsed.paymentStatus !== "completed")) invalid();
+  const selectedPaymentMethod = paymentMethod(parsed.paymentMethod);
+  if (parsed.paymentStatus === "completed" && selectedPaymentMethod.kind !== "hosted_card") invalid();
   const items = cartLines(parsed.items, 1, 100);
   const subtotalCents = integer(parsed.subtotalCents, 0, MAX_MONEY_CENTS);
   const shippingCents = integer(parsed.shippingCents, 0, MAX_MONEY_CENTS);
@@ -357,8 +422,8 @@ export function parsePublicCheckoutReceipt(value: unknown): PublicCheckoutReceip
     subtotalCents,
     shippingCents,
     totalCents,
-    paymentStatus: "pending",
-    paymentMethod: paymentMethod(parsed.paymentMethod),
+    paymentStatus: parsed.paymentStatus,
+    paymentMethod: selectedPaymentMethod,
     delivery: receiptDelivery(parsed.delivery),
     items,
     createdAt: timestamp(parsed.createdAt),

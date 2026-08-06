@@ -52,7 +52,7 @@
 - Produces: `PublicHostedCardPaymentMethod`, expanded `PublicPaymentMethod`, and `PublicCheckoutReceipt.paymentStatus: "pending" | "completed"`.
 - Consumed by: quote repository, checkout UI, hosted receipt finalizer.
 
-- [ ] **Step 1: Write the failing exact-contract tests**
+- [x] **Step 1: Write the failing exact-contract tests**
 
 ```ts
 const HOSTED_CARD = Object.freeze({
@@ -77,13 +77,13 @@ test("only hosted receipts may be completed", () => {
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run: `node --experimental-strip-types --test packages/saas-contracts/src/storefront/commerce.test.ts`
 
 Expected: FAIL because hosted cards and completed receipts are not accepted.
 
-- [ ] **Step 3: Implement the discriminated union**
+- [x] **Step 3: Implement the discriminated union**
 
 ```ts
 export type PublicHostedCardPaymentMethod = Readonly<{
@@ -99,7 +99,7 @@ export type PublicHostedCardPaymentMethod = Readonly<{
 
 Keep built-in shapes unchanged, raise quote cardinality from two to three, reject duplicate kinds/IDs, and require `completed` only with `hosted_card`.
 
-- [ ] **Step 4: Run GREEN and regression**
+- [x] **Step 4: Run GREEN and regression**
 
 ```bash
 node --experimental-strip-types --test packages/saas-contracts/src/storefront/commerce.test.ts
@@ -107,7 +107,7 @@ npm test --workspace @celebix/saas-contracts
 npm run typecheck --workspace @celebix/saas-contracts
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/saas-contracts/src/storefront/commerce.ts packages/saas-contracts/src/storefront/commerce.test.ts

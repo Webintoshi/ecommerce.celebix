@@ -83,6 +83,35 @@ const BANK_TRANSFER = Object.freeze({
   iban: "TR330006100519786457841326",
 });
 
+const HOSTED_CARD = Object.freeze({
+  kind: "hosted_card" as const,
+  id: "81000000-0000-4000-8000-000000000083",
+  label: "Kredi veya banka kartı",
+  instructions: "Güvenli sağlayıcı ekranında tamamlanır.",
+  providerCode: "iyzico_iframe" as const,
+  presentation: "redirect" as const,
+  requiredCustomerFields: Object.freeze(["identity_number"] as const),
+});
+
+const RECEIPT = Object.freeze({
+  orderReference: "CBX-2026-000001",
+  currency: "TRY" as const,
+  subtotalCents: CART.subtotalCents,
+  shippingCents: CART.shippingCents,
+  totalCents: CART.totalCents,
+  paymentStatus: "pending" as const,
+  paymentMethod: BANK_TRANSFER,
+  delivery: Object.freeze({
+    recipientName: "Güzide Elif",
+    addressLine1: "Bağdat Caddesi 10",
+    city: "İstanbul",
+    district: "Kadıköy",
+    country: "TR" as const,
+  }),
+  items: CART.items,
+  createdAt: "2026-07-31T12:00:00.000Z",
+});
+
 test("fixed policy definitions expose seven immutable public routes", () => {
   assert.deepEqual(
     FIXED_STOREFRONT_POLICIES.map(({ key, route, label }) => ({ key, route, label })),
@@ -167,25 +196,38 @@ test("checkout quote exposes only eligible finite payment methods", () => {
   assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ kind: "cash_on_delivery", label: "Kapıda ödeme", instructions: "Kurye teslimatında ödeyin.", iban: BANK_TRANSFER.iban }] }));
 });
 
+test("checkout quote accepts one exact hosted card without private authority", () => {
+  const quote = parsePublicCheckoutQuote({ cart: CART, paymentMethods: [HOSTED_CARD] });
+  assert.deepEqual(quote.paymentMethods, [HOSTED_CARD]);
+  assert.equal(Object.isFrozen(quote.paymentMethods[0]), true);
+  assert.equal(Object.isFrozen(quote.paymentMethods[0]?.requiredCustomerFields), true);
+  assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ ...HOSTED_CARD, profileId: crypto.randomUUID() }] }));
+  assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ ...HOSTED_CARD, requiredCustomerFields: ["card_number"] }] }));
+  assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ ...HOSTED_CARD, providerCode: "stripe" }] }));
+  assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ ...HOSTED_CARD, presentation: "embedded_html" }] }));
+  assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [HOSTED_CARD, HOSTED_CARD] }));
+});
+
 test("checkout receipt stays pending and rejects durable private identifiers", () => {
-  const receipt = parsePublicCheckoutReceipt({
-    orderReference: "CBX-2026-000001",
-    currency: "TRY",
-    subtotalCents: CART.subtotalCents,
-    shippingCents: CART.shippingCents,
-    totalCents: CART.totalCents,
-    paymentStatus: "pending",
-    paymentMethod: BANK_TRANSFER,
-    delivery: { recipientName: "Güzide Elif", addressLine1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", country: "TR" },
-    items: CART.items,
-    createdAt: "2026-07-31T12:00:00.000Z",
-  });
+  const receipt = parsePublicCheckoutReceipt(RECEIPT);
   assert.equal(receipt.paymentStatus, "pending");
   assert.equal(receipt.delivery.city, "İstanbul");
   assert.equal(Object.isFrozen(receipt), true);
   assert.throws(() => parsePublicCheckoutReceipt({ ...receipt, paymentStatus: "paid" }));
   assert.throws(() => parsePublicCheckoutReceipt({ ...receipt, orderId: crypto.randomUUID() }));
   assert.throws(() => parsePublicCheckoutReceipt({ ...receipt, operationId: crypto.randomUUID() }));
+});
+
+test("only hosted receipts may be completed", () => {
+  const completed = parsePublicCheckoutReceipt({
+    ...RECEIPT,
+    paymentMethod: HOSTED_CARD,
+    paymentStatus: "completed",
+  });
+  assert.equal(completed.paymentStatus, "completed");
+  assert.deepEqual(completed.paymentMethod, HOSTED_CARD);
+  assert.throws(() => parsePublicCheckoutReceipt({ ...RECEIPT, paymentMethod: BANK_TRANSFER, paymentStatus: "completed" }));
+  assert.throws(() => parsePublicCheckoutReceipt({ ...RECEIPT, paymentMethod: HOSTED_CARD, paymentStatus: "captured" }));
 });
 
 test("commerce contracts reject getters without invoking them", () => {
