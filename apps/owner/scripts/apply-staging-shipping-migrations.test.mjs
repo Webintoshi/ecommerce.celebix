@@ -10,21 +10,25 @@ const approved = Object.freeze({
   CELEBIX_DEPLOYMENT_TIER: "staging",
   CELEBIX_SAAS_AUTH_MODE: "approved_staging",
   CELEBIX_STAGING_ACTIVATION_ID: "staging_auth01",
+  CELEBIX_STAGING_MIGRATION_MODE: "approved_staging",
   CELEBIX_SAAS_DATABASE_NAME: "celebix_saas_staging_auth01",
-  CELEBIX_SAAS_DATABASE_URL: "postgres://owner:secret@database.internal/celebix_saas_staging_auth01",
+  CELEBIX_SAAS_DATABASE_URL: "postgres://application:secret@database.internal/celebix_saas_staging_auth01",
+  CELEBIX_TOSHI_MIGRATION_DATABASE_URL: "postgres://owner:secret@database.internal/celebix_saas_staging_auth01",
 });
 
 test("shipping staging migration rejects production, wrong activation, and database mismatch", () => {
   for (const source of [
     { ...approved, CELEBIX_DEPLOYMENT_TIER: "production" },
     { ...approved, CELEBIX_STAGING_ACTIVATION_ID: "production_other" },
+    { ...approved, CELEBIX_STAGING_MIGRATION_MODE: "disabled" },
+    { ...approved, CELEBIX_TOSHI_MIGRATION_DATABASE_URL: "" },
     { ...approved, CELEBIX_SAAS_DATABASE_NAME: "production" },
   ]) assert.throws(() => resolveShippingMigrationConfiguration(source), /shipping_staging_/);
 
   const resolved = resolveShippingMigrationConfiguration(approved);
   assert.deepEqual(resolved, {
     databaseName: "celebix_saas_staging_auth01",
-    databaseUrl: approved.CELEBIX_SAAS_DATABASE_URL,
+    databaseUrl: approved.CELEBIX_TOSHI_MIGRATION_DATABASE_URL,
   });
 });
 

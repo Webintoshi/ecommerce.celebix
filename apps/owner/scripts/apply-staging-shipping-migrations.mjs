@@ -37,10 +37,11 @@ export function resolveShippingMigrationConfiguration(source = process.env) {
   if (
     source.CELEBIX_DEPLOYMENT_TIER !== "staging"
     || source.CELEBIX_SAAS_AUTH_MODE !== "approved_staging"
+    || source.CELEBIX_STAGING_MIGRATION_MODE !== "approved_staging"
     || !/^staging_[a-z0-9_]{3,80}$/u.test(activationId)
   ) throw new Error("shipping_staging_migration_not_approved");
 
-  const databaseUrl = source.CELEBIX_SAAS_DATABASE_URL?.trim();
+  const databaseUrl = source.CELEBIX_TOSHI_MIGRATION_DATABASE_URL?.trim();
   const databaseName = source.CELEBIX_SAAS_DATABASE_NAME?.trim();
   if (!databaseUrl || !databaseName) throw new Error("shipping_staging_database_missing");
 
