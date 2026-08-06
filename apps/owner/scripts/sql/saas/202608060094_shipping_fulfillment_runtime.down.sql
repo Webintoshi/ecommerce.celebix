@@ -24,6 +24,7 @@ REVOKE ALL ON FUNCTION
   saas.shipping_quote_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),
   saas.shipping_shipment_begin(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,bigint,text,uuid,uuid,text,uuid,uuid,uuid),
   saas.shipping_shipment_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),
+  saas.shipping_shipment_for_order(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),
   saas.shipping_fulfillment_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),
   saas.shipping_fulfillment_claim(text,timestamptz,integer,uuid),
   saas.shipping_fulfillment_claim_job(uuid,text,timestamptz,integer,uuid),
@@ -45,6 +46,7 @@ DROP FUNCTION saas.shipping_fulfillment_open(uuid,text,uuid,bigint,timestamptz);
 DROP FUNCTION saas.shipping_fulfillment_claim_job(uuid,text,timestamptz,integer,uuid);
 DROP FUNCTION saas.shipping_fulfillment_claim(text,timestamptz,integer,uuid);
 DROP FUNCTION saas.shipping_fulfillment_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text);
+DROP FUNCTION saas.shipping_shipment_for_order(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid);
 DROP FUNCTION saas.shipping_shipment_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid);
 DROP FUNCTION saas.shipping_shipment_begin(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,bigint,text,uuid,uuid,text,uuid,uuid,uuid);
 DROP FUNCTION saas.shipping_quote_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text);

@@ -1,0 +1,29 @@
+.console { display: grid; gap: 1rem; margin: 1rem 0; padding: 1rem 0; border-top: 1px solid #e4e8ee; border-bottom: 1px solid #e4e8ee; }
+.provider { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.provider strong { color: #171717; font-size: .9rem; }
+.provider span { color: #14845b; font-size: .72rem; font-weight: 750; }
+.packageForm fieldset { display: grid; grid-template-columns: repeat(4, minmax(76px, 1fr)) auto; align-items: end; gap: .65rem; margin: 0; padding: 0; border: 0; }
+.packageForm legend { grid-column: 1 / -1; margin-bottom: .2rem; color: #667085; font-size: .72rem; font-weight: 750; }
+.packageForm label { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: .3rem; border-bottom: 1px solid #cfd6df; }
+.packageForm label > span { grid-column: 1 / -1; color: #667085; font-size: .66rem; font-weight: 700; }
+.packageForm input { width: 100%; min-width: 0; height: 38px; border: 0; outline: 0; background: transparent; color: #171717; font: inherit; }
+.packageForm small { padding-bottom: .7rem; color: #98a2b3; font-size: .65rem; }
+.packageForm button, .create { min-height: 40px; border: 0; border-radius: 8px; padding: .65rem .9rem; background: #171717; color: #fff; font: inherit; font-size: .75rem; font-weight: 750; cursor: pointer; }
+.packageForm button:disabled, .create:disabled { cursor: not-allowed; opacity: .45; }
+.quotes { display: grid; border-top: 1px solid #e4e8ee; }
+.option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; min-height: 58px; border-bottom: 1px solid #e4e8ee; cursor: pointer; }
+.option input { width: 17px; height: 17px; accent-color: #ff5a00; }
+.option span { display: grid; gap: .15rem; }
+.option strong, .option b { font-size: .8rem; }
+.option small { color: #667085; font-size: .68rem; }
+.create { width: max-content; margin-top: .8rem; background: #ff5a00; }
+.result { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin: 0; padding: .9rem 0; border-top: 1px solid #e4e8ee; }
+.result div { display: grid; gap: .22rem; min-width: 0; }
+.result dt { color: #667085; font-size: .66rem; font-weight: 700; }
+.result dd { overflow-wrap: anywhere; margin: 0; color: #171717; font-size: .78rem; font-weight: 750; }
+.message { min-height: 1rem; margin: 0; color: #b42318; font-size: .72rem; }
+@media (max-width: 760px) {
+  .packageForm fieldset { grid-template-columns: 1fr 1fr; }
+  .packageForm button { grid-column: 1 / -1; width: 100%; }
+  .result { grid-template-columns: 1fr 1fr; }
+}

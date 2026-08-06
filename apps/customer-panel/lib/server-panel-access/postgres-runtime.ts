@@ -188,11 +188,17 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)') IS NOT NULL AS merchant_action_authority,
       to_regclass('saas.shipping_provider_profiles') IS NOT NULL
         AND to_regclass('saas.shipping_provider_resources') IS NOT NULL
+        AND to_regclass('saas.shipping_shipments') IS NOT NULL
         AND to_regprocedure('saas.shipping_connection_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
         AND to_regprocedure('saas.shipping_connection_setup(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
         AND to_regprocedure('saas.shipping_connection_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,jsonb,text,text,bigint)') IS NOT NULL
         AND to_regprocedure('saas.shipping_validation_claim_job(uuid,text,timestamp with time zone,integer,uuid)') IS NOT NULL
-        AND to_regprocedure('saas.shipping_validation_open_credential(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL AS shipping_repository,
+        AND to_regprocedure('saas.shipping_validation_open_credential(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_quote_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb,uuid,text,uuid,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,uuid,uuid,text,uuid,uuid,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_for_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_fulfillment_claim_job(uuid,text,timestamp with time zone,integer,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_fulfillment_open(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL AS shipping_repository,
       to_regclass('saas.toshi_provider_configs') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_connection_identity(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { resolveDefaultServerPanelAccessRuntime } from "../server-panel-access/default.ts";
 import { resolveServerShippingRuntime } from "../server-shipping/runtime.ts";
+import { runShippingFulfillmentJob } from "../server-shipping/fulfillment-worker.ts";
 import { runShippingValidationJob } from "../server-shipping/validation-worker.ts";
 import { createShippingHttpHandlers } from "./handler.ts";
 
@@ -20,8 +21,37 @@ const handlers = createShippingHttpHandlers({
     workerId,
     runtime: selectedRuntime,
   }),
+  fulfillJob: ({ jobId, workerId, runtime: selectedRuntime, now }) => runShippingFulfillmentJob({
+    jobId,
+    workerId,
+    runtime: selectedRuntime,
+    now,
+  }),
 });
 
 export const handleShippingConnection = handlers.connection;
 export const handleShippingConnectionResources = handlers.resources;
 export const handleShippingConnectionRevoke = handlers.revoke;
+
+type OrderRouteContext = Readonly<{ params: Promise<Readonly<{ orderId: string }>> }>;
+type ShipmentRouteContext = Readonly<{ params: Promise<Readonly<{ orderId: string; shipmentId: string }>> }>;
+
+export async function handleShippingQuote(request: Request, context: OrderRouteContext) {
+  const { orderId } = await context.params;
+  return handlers.quote(request, orderId);
+}
+
+export async function handleShippingShipment(request: Request, context: OrderRouteContext) {
+  const { orderId } = await context.params;
+  return handlers.shipment(request, orderId);
+}
+
+export async function handleShippingShipmentForOrder(request: Request, context: OrderRouteContext) {
+  const { orderId } = await context.params;
+  return handlers.shipmentForOrder(request, orderId);
+}
+
+export async function handleShippingShipmentDetail(request: Request, context: ShipmentRouteContext) {
+  const { orderId, shipmentId } = await context.params;
+  return handlers.shipmentDetail(request, orderId, shipmentId);
+}

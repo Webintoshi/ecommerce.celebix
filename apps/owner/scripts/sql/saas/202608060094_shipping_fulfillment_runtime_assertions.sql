@@ -25,6 +25,11 @@ BEGIN
       'EXECUTE'
     )
     OR NOT pg_catalog.has_function_privilege(
+      'celebix_saas_app',
+      'saas.shipping_shipment_for_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+      'EXECUTE'
+    )
+    OR NOT pg_catalog.has_function_privilege(
       'celebix_saas_workflow',
       'saas.shipping_fulfillment_claim(text,timestamp with time zone,integer,uuid)',
       'EXECUTE'

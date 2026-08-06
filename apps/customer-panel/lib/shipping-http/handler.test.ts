@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ShippingConnection, ShippingResource, TenantContext } from "@celebix/saas-contracts";
+import type { Shipment, ShippingConnection, ShippingQuoteSession, ShippingResource, TenantContext } from "@celebix/saas-contracts";
 import type { ServerShippingRuntime } from "../server-shipping/runtime.ts";
 import { createShippingHttpHandlers } from "./handler.ts";
 
@@ -11,6 +11,11 @@ const OPERATION = "72000000-0000-4000-8000-000000000003";
 const JOB = "72000000-0000-4000-8000-000000000004";
 const BRAND = "72000000-0000-4000-8000-000000000005";
 const ADDRESS = "72000000-0000-4000-8000-000000000006";
+const ORDER = "72000000-0000-4000-8000-000000000007";
+const QUOTE = "72000000-0000-4000-8000-000000000008";
+const OPTION = "72000000-0000-4000-8000-000000000009";
+const SHIPMENT = "72000000-0000-4000-8000-000000000010";
+const QUOTE_CREDENTIAL = "quote_0123456789abcdef0123456789abcdef";
 const NOW = new Date("2026-08-06T12:00:00.000Z");
 const COOKIE = `v1.panel.current.${Buffer.alloc(32, 1).toString("base64url")}`;
 
@@ -25,6 +30,18 @@ const RESOURCES: readonly ShippingResource[] = Object.freeze([
   Object.freeze({ id: BRAND, kind: "brand", label: "Güzide", active: true, verifiedAt: NOW.toISOString() }),
   Object.freeze({ id: ADDRESS, kind: "address", label: "Merkez", active: true, verifiedAt: NOW.toISOString() }),
 ]);
+const QUOTED: ShippingQuoteSession = Object.freeze({
+  credential: QUOTE_CREDENTIAL, status: "quoted", expiresAt: "2026-08-06T12:15:00.000Z", currency: "TRY",
+  packages: Object.freeze([Object.freeze({ heightCm: 10, widthCm: 20, depthCm: 30, weightKg: 2 })]),
+  options: Object.freeze([Object.freeze({ id: OPTION, handlerCode: "YURTICI", handlerName: "Yurtiçi Kargo", desiKg: 2, priceCents: 12990, currency: "TRY" })]),
+});
+const READY: Shipment = Object.freeze({
+  id: SHIPMENT, providerCode: "basit_kargo", direction: "outgoing", status: "ready", carrier: "Yurtiçi Kargo",
+  barcode: "BK-123", trackingNumber: "TRK-123", priceCents: 12990, codAmountCents: 0, currency: "TRY",
+  items: Object.freeze([Object.freeze({ orderItemId: "72000000-0000-4000-8000-000000000015", productName: "Kolye", quantity: 1 })]),
+  events: Object.freeze([Object.freeze({ id: "72000000-0000-4000-8000-000000000016", status: "ready", occurredAt: NOW.toISOString() })]),
+  label: Object.freeze({ available: false }), version: 2, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+});
 
 function tenant(role: "store_owner" | "analyst" = "store_owner"): TenantContext {
   return {
@@ -50,7 +67,10 @@ function request(path: string, method = "GET", value?: unknown, origin = ORIGIN,
 }
 
 function fixture(role: "store_owner" | "analyst" = "store_owner") {
-  const calls = { saved: [] as unknown[], selected: [] as unknown[], revoked: [] as unknown[], validated: [] as unknown[] };
+  const calls = {
+    saved: [] as unknown[], selected: [] as unknown[], revoked: [] as unknown[], validated: [] as unknown[],
+    quoted: [] as unknown[], shipped: [] as unknown[], fulfilled: [] as unknown[],
+  };
   let setup: Readonly<{ connection: ShippingConnection; resources: readonly ShippingResource[] }> | null = null;
   const admin = {
     async current() { return setup?.connection ?? null; },
@@ -58,6 +78,11 @@ function fixture(role: "store_owner" | "analyst" = "store_owner") {
     async saveConnection(input: unknown) { calls.saved.push(input); setup = { connection: PENDING, resources: RESOURCES }; return { connection: PENDING, validationJobId: JOB }; },
     async selectResources(input: unknown) { calls.selected.push(input); setup = { connection: ACTIVE, resources: RESOURCES }; return ACTIVE; },
     async revokeConnection(input: unknown) { calls.revoked.push(input); setup = { connection: { ...ACTIVE, status: "revoked", version: 4 }, resources: [] }; return setup.connection; },
+    async beginQuote(input: unknown) { calls.quoted.push(input); return { credential: QUOTE_CREDENTIAL, quoteId: QUOTE, jobId: JOB, expiresAt: QUOTED.expiresAt, packages: QUOTED.packages, replayed: false }; },
+    async currentQuote() { return QUOTED; },
+    async beginShipment(input: unknown) { calls.shipped.push(input); return { shipment: { ...READY, status: "creating" }, jobId: JOB, replayed: false }; },
+    async currentShipment() { return READY; },
+    async currentShipmentForOrder() { return READY; },
   };
   const runtime = {
     access: {
@@ -71,6 +96,7 @@ function fixture(role: "store_owner" | "analyst" = "store_owner") {
     handlers: createShippingHttpHandlers({
       async resolveRuntime() { return runtime; }, now: () => new Date(NOW), requestId: () => REQUEST,
       async validateJob(input) { calls.validated.push(input); return "completed"; },
+      async fulfillJob(input) { calls.fulfilled.push(input); return "completed"; },
     }),
   };
 }
@@ -81,6 +107,43 @@ test("shipping connection GET returns only safe tenant connection resources", as
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { connection: null, resources: [] });
   assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("order quote and shipment endpoints accept only safe browser choices", async () => {
+  const selected = fixture();
+  const quoteResponse = await selected.handlers.quote(request(`/api/orders/${ORDER}/shipping/quotes`, "POST", {
+    operationId: OPERATION, expectedOrderVersion: 3,
+    packages: [{ heightCm: 10, widthCm: 20, depthCm: 30, weightKg: 2 }],
+  }), ORDER);
+  assert.equal(quoteResponse.status, 200);
+  assert.deepEqual(await quoteResponse.json(), { quote: QUOTED });
+  assert.equal(selected.calls.quoted.length, 1);
+  assert.equal(selected.calls.fulfilled.length, 1);
+
+  const shipmentResponse = await selected.handlers.shipment(request(`/api/orders/${ORDER}/shipping/shipments`, "POST", {
+    operationId: OPERATION, expectedOrderVersion: 3, quoteCredential: QUOTE_CREDENTIAL, optionId: OPTION,
+  }), ORDER);
+  assert.equal(shipmentResponse.status, 201);
+  assert.deepEqual(await shipmentResponse.json(), { shipment: READY });
+  assert.equal(selected.calls.shipped.length, 1);
+
+  const currentResponse = await selected.handlers.shipmentDetail(request(`/api/orders/${ORDER}/shipping/shipments/${SHIPMENT}`), ORDER, SHIPMENT);
+  assert.equal(currentResponse.status, 200);
+  assert.deepEqual(await currentResponse.json(), { shipment: READY });
+  const orderShipmentResponse = await selected.handlers.shipmentForOrder(request(`/api/orders/${ORDER}/shipping/shipments`), ORDER);
+  assert.equal(orderShipmentResponse.status, 200);
+  assert.deepEqual(await orderShipmentResponse.json(), { shipment: READY });
+});
+
+test("fulfillment endpoints reject forged identifiers and private provider input", async () => {
+  const selected = fixture();
+  const invalid = [
+    await selected.handlers.quote(request(`/api/orders/${ORDER}/shipping/quotes`, "POST", { operationId: OPERATION, expectedOrderVersion: 3, packages: [], storeId: BRAND }), ORDER),
+    await selected.handlers.shipment(request(`/api/orders/${ORDER}/shipping/shipments`, "POST", { operationId: OPERATION, expectedOrderVersion: 3, quoteCredential: QUOTE_CREDENTIAL, optionId: OPTION, handlerCode: "FORGED" }), ORDER),
+    await selected.handlers.shipmentDetail(request(`/api/orders/${ORDER}/shipping/shipments/not-a-uuid`), ORDER, "not-a-uuid"),
+  ];
+  for (const response of invalid) assert.equal(response.status, 400);
+  assert.equal(selected.calls.quoted.length + selected.calls.shipped.length, 0);
 });
 
 test("connection save accepts only token and operation identity then runs exact validation job", async () => {

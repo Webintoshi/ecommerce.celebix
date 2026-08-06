@@ -35,7 +35,7 @@ test("094 exposes exact app quote and shipment commands", () => {
   const up = source("up");
   for (const name of [
     "shipping_quote_begin", "shipping_quote_current", "shipping_shipment_begin",
-    "shipping_shipment_current", "shipping_fulfillment_recover_operation",
+    "shipping_shipment_current", "shipping_shipment_for_order", "shipping_fulfillment_recover_operation",
   ]) assert.match(up, new RegExp(`CREATE FUNCTION saas[.]${name}[(]`, "u"), name);
   assert.match(up, /'orders[.]fulfill'/u);
   assert.match(up, /FOR UPDATE/u);

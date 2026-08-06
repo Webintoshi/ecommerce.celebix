@@ -1,7 +1,12 @@
 import {
   parseShippingConnection,
+  parseShipment,
+  parseShippingQuoteSession,
+  type Shipment,
   parseShippingResource,
   type ShippingConnection,
+  type ShippingPackage,
+  type ShippingQuoteSession,
   type ShippingResource,
 } from "@celebix/saas-contracts";
 
@@ -103,3 +108,95 @@ export function createShippingSettingsApi(fetcher: typeof fetch = fetch, uuid: (
 }
 
 export const shippingSettingsApi = createShippingSettingsApi();
+
+const QUOTE_CREDENTIAL = /^[A-Za-z0-9_-]{32,512}$/u;
+const FULFILLMENT_ERROR_CODES = Object.freeze([
+  ...ERROR_CODES,
+  "order_not_found", "order_version_mismatch", "order_not_fulfillable", "currency_unsupported",
+  "provider_not_ready", "quote_not_found", "quote_expired", "quote_not_ready", "option_invalid",
+  "shipment_exists", "operation_not_found",
+] as const);
+type ShippingFulfillmentErrorCode = (typeof FULFILLMENT_ERROR_CODES)[number];
+const FULFILLMENT_MESSAGES: Readonly<Record<ShippingFulfillmentErrorCode, string>> = Object.freeze({
+  ...MESSAGES,
+  order_not_found: "Sipariş bulunamadı.", order_version_mismatch: "Sipariş değişti; yeniden yükleyin.",
+  order_not_fulfillable: "Bu sipariş kargoya uygun değil.", currency_unsupported: "Para birimi desteklenmiyor.",
+  provider_not_ready: "Önce Basit Kargo bağlantısını tamamlayın.", quote_not_found: "Kargo teklifi bulunamadı.",
+  quote_expired: "Kargo teklifi sona erdi; yeniden fiyat alın.", quote_not_ready: "Kargo teklifi henüz hazır değil.",
+  option_invalid: "Kargo seçeneği geçerli değil.", shipment_exists: "Bu sipariş için kargo zaten oluşturulmuş.",
+  operation_not_found: "İşlem bulunamadı.",
+});
+
+export class ShippingFulfillmentApiError extends Error {
+  constructor(readonly code: ShippingFulfillmentErrorCode = "unavailable", readonly status = 503) {
+    super(FULFILLMENT_MESSAGES[code]);
+    this.name = "ShippingFulfillmentApiError";
+  }
+}
+
+function fulfillmentCode(value: unknown): ShippingFulfillmentErrorCode {
+  try {
+    const code = record(value, ["code"]).code;
+    return typeof code === "string" && FULFILLMENT_ERROR_CODES.includes(code as ShippingFulfillmentErrorCode)
+      ? code as ShippingFulfillmentErrorCode
+      : "unavailable";
+  } catch { return "unavailable"; }
+}
+
+function packageInput(value: ShippingPackage): Readonly<ShippingPackage> {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).sort().join(",") !== "depthCm,heightCm,weightKg,widthCm") throw new ShippingFulfillmentApiError("invalid_input", 400);
+  const dimensions = [value.heightCm, value.widthCm, value.depthCm, value.weightKg];
+  if (dimensions.some((entry) => typeof entry !== "number" || !Number.isFinite(entry) || entry < 0.001 || entry > 10_000)) throw new ShippingFulfillmentApiError("invalid_input", 400);
+  return Object.freeze({ heightCm: value.heightCm, widthCm: value.widthCm, depthCm: value.depthCm, weightKg: value.weightKg });
+}
+
+export function createShippingFulfillmentApi(fetcher: typeof fetch = fetch, uuid: () => string = crypto.randomUUID.bind(crypto)) {
+  function operationId(): string {
+    const value = uuid();
+    if (!UUID.test(value)) throw new ShippingFulfillmentApiError("invalid_input", 400);
+    return value;
+  }
+  async function request(path: string, init?: RequestInit): Promise<unknown> {
+    let response: Response;
+    try { response = await fetcher(path, { credentials: "same-origin", cache: "no-store", ...init }); }
+    catch { throw new ShippingFulfillmentApiError(); }
+    const value = await responseJson(response);
+    if (!response.ok) throw new ShippingFulfillmentApiError(fulfillmentCode(value), response.status);
+    return value;
+  }
+  function path(orderId: string, suffix: string): string {
+    if (!UUID.test(orderId)) throw new ShippingFulfillmentApiError("invalid_input", 400);
+    return `/api/orders/${orderId}/shipping/${suffix}`;
+  }
+  function mutation(selectedPath: string, body: Record<string, unknown>, signal?: AbortSignal) {
+    return request(selectedPath, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operationId: operationId(), ...body }), signal,
+    });
+  }
+  return Object.freeze({
+    async quote(orderId: string, expectedOrderVersion: number, packages: readonly ShippingPackage[], signal?: AbortSignal): Promise<ShippingQuoteSession> {
+      if (!Number.isSafeInteger(expectedOrderVersion) || expectedOrderVersion < 1 || !Array.isArray(packages) || packages.length < 1 || packages.length > 20) throw new ShippingFulfillmentApiError("invalid_input", 400);
+      const value = await mutation(path(orderId, "quotes"), { expectedOrderVersion, packages: packages.map(packageInput) }, signal);
+      try { return parseShippingQuoteSession(record(value, ["quote"]).quote); } catch { throw new ShippingFulfillmentApiError(); }
+    },
+    async createShipment(orderId: string, expectedOrderVersion: number, quoteCredential: string, optionId: string, signal?: AbortSignal): Promise<Shipment> {
+      if (!Number.isSafeInteger(expectedOrderVersion) || expectedOrderVersion < 1 || !QUOTE_CREDENTIAL.test(quoteCredential) || !UUID.test(optionId)) throw new ShippingFulfillmentApiError("invalid_input", 400);
+      const value = await mutation(path(orderId, "shipments"), { expectedOrderVersion, quoteCredential, optionId }, signal);
+      try { return parseShipment(record(value, ["shipment"]).shipment); } catch { throw new ShippingFulfillmentApiError(); }
+    },
+    async shipment(orderId: string, shipmentId: string, signal?: AbortSignal): Promise<Shipment> {
+      if (!UUID.test(shipmentId)) throw new ShippingFulfillmentApiError("invalid_input", 400);
+      const value = await request(path(orderId, `shipments/${shipmentId}`), { signal });
+      try { return parseShipment(record(value, ["shipment"]).shipment); } catch { throw new ShippingFulfillmentApiError(); }
+    },
+    async currentShipmentForOrder(orderId: string, signal?: AbortSignal): Promise<Shipment | null> {
+      const value = await request(path(orderId, "shipments"), { signal });
+      try {
+        const selected = record(value, ["shipment"]).shipment;
+        return selected === null ? null : parseShipment(selected);
+      } catch { throw new ShippingFulfillmentApiError(); }
+    },
+  });
+}
+
+export const shippingFulfillmentApi = createShippingFulfillmentApi();

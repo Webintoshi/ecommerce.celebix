@@ -13,6 +13,13 @@ const PLAN = "00000000-0000-4000-8000-000000000101";
 const PROFILE = "40000000-0000-4000-8000-000000000001";
 const JOB = "50000000-0000-4000-8000-000000000001";
 const OPERATION = "60000000-0000-4000-8000-000000000001";
+const ORDER = "70000000-0000-4000-8000-000000000001";
+const QUOTE = "71000000-0000-4000-8000-000000000001";
+const QUOTE_JOB = "72000000-0000-4000-8000-000000000001";
+const OPTION = "73000000-0000-4000-8000-000000000001";
+const SHIPMENT = "74000000-0000-4000-8000-000000000001";
+const SHIPMENT_JOB = "75000000-0000-4000-8000-000000000001";
+const EVENT = "76000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-08-06T12:00:00.000Z");
 const CONNECTION = Object.freeze({
   providerCode: "basit_kargo" as const,
@@ -92,4 +99,48 @@ test("current returns only the public connection projection", async () => {
     timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
   });
   assert.deepEqual(await repository.current({ tenantContext: tenant(), now: NOW, providerCode: "basit_kargo" }), CONNECTION);
+});
+
+test("shipping quote begins with a deterministic opaque credential and replays the same durable job", async () => {
+  let beginCalls = 0;
+  const packages = Object.freeze([{ heightCm: 10, widthCm: 20, depthCm: 30, weightKg: 1.5 }]);
+  const client = new Client((text) => text.includes("shipping_quote_begin") ? [{
+    outcome: beginCalls++ === 0 ? "queued" : "operation_replayed",
+    result_payload: { jobId: QUOTE_JOB, quote: { quoteId: QUOTE, status: "queued", expiresAt: "2026-08-06T12:10:00.000000Z", currency: "TRY", packages, options: [], version: 1 } },
+  }] : []);
+  const ids = [QUOTE, QUOTE_JOB, "71000000-0000-4000-8000-000000000002", "72000000-0000-4000-8000-000000000002"];
+  const repository = new PostgresShippingAdminRepository({
+    pool: { async connect() { return client; } }, role: "celebix_saas_app", keyring: keyring(), generateId() { return ids.shift()!; }, audit() {},
+    timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
+  });
+  const input = { tenantContext: tenant(), now: NOW, orderId: ORDER, expectedOrderVersion: 3, packages, operationId: OPERATION };
+  const first = await repository.beginQuote(input), replay = await repository.beginQuote(input);
+  assert.match(first.credential, /^[A-Za-z0-9_-]{43}$/u);
+  assert.equal(first.credential, replay.credential);
+  assert.equal(replay.jobId, QUOTE_JOB);
+  assert.equal(replay.replayed, true);
+  assert.doesNotMatch(JSON.stringify(client.calls), new RegExp(first.credential, "u"));
+});
+
+test("shipment begin sends only quote digest and parses the safe shipment projection", async () => {
+  const projection = {
+    id: SHIPMENT, providerCode: "basit_kargo", direction: "outgoing", status: "creating", priceCents: 12900,
+    codAmountCents: 0, currency: "TRY", items: [{ orderItemId: ORDER, productName: "Ürün", quantity: 1 }],
+    events: [{ id: EVENT, status: "creating", occurredAt: "2026-08-06T12:00:00.000000Z" }],
+    label: { available: false }, version: 1, createdAt: "2026-08-06T12:00:00.000000Z", updatedAt: "2026-08-06T12:00:00.000000Z",
+  };
+  const client = new Client((text) => text.includes("shipping_shipment_begin")
+    ? [{ outcome: "queued", result_payload: { jobId: SHIPMENT_JOB, shipment: projection } }]
+    : text.includes("shipping_shipment_for_order") ? [{ outcome: "found", result_payload: projection }] : []);
+  const ids = [SHIPMENT, SHIPMENT_JOB, EVENT];
+  const repository = new PostgresShippingAdminRepository({
+    pool: { async connect() { return client; } }, role: "celebix_saas_app", keyring: keyring(), generateId() { return ids.shift()!; }, audit() {},
+    timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
+  });
+  const quoteCredential = "quote_0123456789abcdef0123456789abcdef";
+  const result = await repository.beginShipment({ tenantContext: tenant(), now: NOW, orderId: ORDER, expectedOrderVersion: 3, quoteCredential, optionId: OPTION, operationId: OPERATION });
+  assert.equal(result.shipment.id, SHIPMENT);
+  assert.equal(result.jobId, SHIPMENT_JOB);
+  assert.doesNotMatch(JSON.stringify(client.calls), new RegExp(quoteCredential, "u"));
+  assert.equal((await repository.currentShipmentForOrder({ tenantContext: tenant(), now: NOW, orderId: ORDER }))?.id, SHIPMENT);
 });

@@ -1,10 +1,15 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 import {
   parseShippingConnection,
+  parseShipment,
+  parseShippingQuoteSession,
   parseShippingResource,
+  type Shipment,
   type ShippingConnection,
+  type ShippingPackage,
   type ShippingProviderCode,
+  type ShippingQuoteSession,
   type ShippingResource,
   type TenantContext,
 } from "@celebix/saas-contracts";
@@ -17,6 +22,13 @@ import {
   type ShippingAdminErrorCode,
 } from "./errors.ts";
 import type {
+  BeginShippingQuoteInput,
+  BeginShippingQuoteResult,
+  BeginShippingShipmentInput,
+  BeginShippingShipmentResult,
+  CurrentShippingQuoteInput,
+  CurrentShippingShipmentForOrderInput,
+  CurrentShippingShipmentInput,
   PostgresShippingAdminRepositoryOptions,
   RevokeShippingConnectionInput,
   SaveShippingConnectionInput,
@@ -29,6 +41,7 @@ import type {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const TOKEN = /^[\x21-\x7e]{16,4096}$/;
+const QUOTE_CREDENTIAL = /^[A-Za-z0-9_-]{32,512}$/;
 const CODES = new Set<string>(SHIPPING_ADMIN_ERROR_CODES);
 type Authority = Readonly<{
   storeId: string; principalId: string; membershipId: string; planId: string;
@@ -69,6 +82,20 @@ function version(value: unknown, minimum: number): number {
 function date(value: unknown): Date {
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) invalid();
   return new Date(value.getTime());
+}
+
+function packages(value: unknown): readonly ShippingPackage[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 20) invalid();
+  const parsed = value.map((entry) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry) || Object.keys(entry).sort().join(",") !== "depthCm,heightCm,weightKg,widthCm") invalid();
+    const selected = entry as Record<string, unknown>;
+    for (const key of ["heightCm", "widthCm", "depthCm", "weightKg"] as const) {
+      const number = selected[key];
+      if (typeof number !== "number" || !Number.isFinite(number) || number <= 0 || number > 10_000 || Math.round(number * 1_000) !== number * 1_000) invalid();
+    }
+    return Object.freeze({ heightCm: selected.heightCm as number, widthCm: selected.widthCm as number, depthCm: selected.depthCm as number, weightKg: selected.weightKg as number });
+  });
+  return Object.freeze(parsed);
 }
 
 function provider(value: unknown): ShippingProviderCode {
@@ -144,6 +171,38 @@ function copyKeyring(value: ShippingCredentialKeyring): ShippingCredentialKeyrin
     const keys = value.keys.map((entry) => Object.freeze({ keyId: entry.keyId, key: new Uint8Array(entry.key) }));
     return Object.freeze({ activeKeyId: value.activeKeyId, keys: Object.freeze(keys) });
   } catch { throw unavailable(); }
+}
+
+function object(value: unknown): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
+  return value as Record<string, unknown>;
+}
+
+function parseQuoteBegin(value: unknown, credential: string, replayed: boolean): BeginShippingQuoteResult {
+  const wrapper = object(value), quote = object(wrapper.quote);
+  if (Object.keys(wrapper).sort().join(",") !== "jobId,quote" || Object.keys(quote).sort().join(",") !== "currency,expiresAt,options,packages,quoteId,status,version") throw unavailable();
+  const expiresAt = typeof quote.expiresAt === "string" && Number.isFinite(new Date(quote.expiresAt).getTime()) ? quote.expiresAt : null;
+  if (typeof wrapper.jobId !== "string" || !UUID.test(wrapper.jobId) || typeof quote.quoteId !== "string" || !UUID.test(quote.quoteId) || quote.status !== "queued" || quote.currency !== "TRY" || !expiresAt || !Array.isArray(quote.options) || quote.options.length !== 0) throw unavailable();
+  return Object.freeze({ credential, quoteId: quote.quoteId, jobId: wrapper.jobId, expiresAt, packages: packages(quote.packages), replayed });
+}
+
+function parseQuote(value: unknown, credential: string): ShippingQuoteSession {
+  const quote = object(value);
+  if (typeof quote.quoteId !== "string" || !UUID.test(quote.quoteId) || !Number.isSafeInteger(quote.version)) throw unavailable();
+  const { quoteId: _quoteId, version: _version, ...projection } = quote;
+  try { return parseShippingQuoteSession({ credential, ...projection }); } catch { throw unavailable(); }
+}
+
+function parseShipmentBegin(value: unknown, replayed: boolean): BeginShippingShipmentResult {
+  const wrapper = object(value);
+  if (Object.keys(wrapper).sort().join(",") !== "jobId,shipment" || typeof wrapper.jobId !== "string" || !UUID.test(wrapper.jobId)) throw unavailable();
+  try { return Object.freeze({ shipment: parseShipment(wrapper.shipment), jobId: wrapper.jobId, replayed }); } catch { throw unavailable(); }
+}
+
+function quoteCredential(keyring: ShippingCredentialKeyring, storeId: string, operationId: string): string {
+  const selected = keyring.keys.find(({ keyId }) => keyId === keyring.activeKeyId);
+  if (!selected) throw unavailable();
+  return createHmac("sha256", selected.key).update(`celebix.shipping.quote.v1\0${storeId}\0${operationId}`, "utf8").digest("base64url");
 }
 
 export class PostgresShippingAdminRepository implements ShippingAdminRepository {
@@ -305,5 +364,113 @@ export class PostgresShippingAdminRepository implements ShippingAdminRepository 
     return this.mutation(selected, operationId, operationFingerprint, "revoked",
       "SELECT outcome,result_payload FROM saas.shipping_connection_revoke($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
       [...authorityValues(selected), operationId, operationFingerprint, setup.profileId, setup.version]);
+  }
+
+  private async recoverFulfillment(selected: Authority, operationId: string, operationFingerprint: string): Promise<unknown> {
+    return this.transaction(true, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_fulfillment_recover_operation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",
+        [...authorityValues(selected), operationId, operationFingerprint],
+      ));
+      if (result.outcome !== "operation_replayed") throw new ShippingAdminRepositoryError("commit_unknown");
+      return result.result;
+    });
+  }
+
+  async beginQuote(input: BeginShippingQuoteInput): Promise<BeginShippingQuoteResult> {
+    const parsed = exact(input, ["tenantContext", "now", "orderId", "expectedOrderVersion", "packages", "operationId"]);
+    const selected = authority(parsed.tenantContext, parsed.now), orderId = uuid(parsed.orderId), operationId = uuid(parsed.operationId);
+    const expectedOrderVersion = version(parsed.expectedOrderVersion, 1), selectedPackages = packages(parsed.packages);
+    const credential = quoteCredential(this.options.keyring, selected.storeId, operationId);
+    const credentialDigest = createHash("sha256").update(credential, "utf8").digest("hex");
+    const operationFingerprint = fingerprint("begin_quote", selected.storeId, { orderId, expectedOrderVersion, packages: selectedPackages });
+    const quoteId = uuid(this.options.generateId()), jobId = uuid(this.options.generateId());
+    try {
+      return await this.transaction(false, async (client) => {
+        const result = row(await client.query(
+          "SELECT outcome,result_payload FROM saas.shipping_quote_begin($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::bigint,$10::jsonb,$11::uuid,$12::text,$13::uuid,$14::uuid,$15::text)",
+          [...authorityValues(selected), orderId, expectedOrderVersion, JSON.stringify(selectedPackages), operationId, operationFingerprint, quoteId, jobId, credentialDigest],
+        ));
+        const known = this.known(result.outcome); if (known) throw known;
+        if (result.outcome !== "queued" && result.outcome !== "operation_replayed") throw unavailable();
+        return parseQuoteBegin(result.result, credential, result.outcome === "operation_replayed");
+      });
+    } catch (error) {
+      if (!(error instanceof ShippingAdminRepositoryError) || error.code !== "commit_unknown") throw error;
+      try { const pending = this.options.audit({ type: "shipping_commit_unknown" }); if (pending) void pending.catch(() => undefined); } catch {}
+      return parseQuoteBegin(await this.recoverFulfillment(selected, operationId, operationFingerprint), credential, true);
+    }
+  }
+
+  async currentQuote(input: CurrentShippingQuoteInput): Promise<ShippingQuoteSession | null> {
+    const parsed = exact(input, ["tenantContext", "now", "credential"]), selected = authority(parsed.tenantContext, parsed.now);
+    if (typeof parsed.credential !== "string" || !QUOTE_CREDENTIAL.test(parsed.credential)) invalid();
+    const credential = parsed.credential;
+    const credentialDigest = createHash("sha256").update(credential, "utf8").digest("hex");
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_quote_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text)",
+        [...authorityValues(selected), credentialDigest],
+      ));
+      if (result.outcome === "not_found" && result.result === null) return null;
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "found") throw unavailable();
+      const projection = object(result.result);
+      if (projection.status === "queued" || projection.status === "failed" || !Array.isArray(projection.options) || projection.options.length === 0) throw new ShippingAdminRepositoryError("quote_not_ready");
+      return parseQuote(projection, credential);
+    });
+  }
+
+  async beginShipment(input: BeginShippingShipmentInput): Promise<BeginShippingShipmentResult> {
+    const parsed = exact(input, ["tenantContext", "now", "orderId", "expectedOrderVersion", "quoteCredential", "optionId", "operationId"]);
+    const selected = authority(parsed.tenantContext, parsed.now), orderId = uuid(parsed.orderId), optionId = uuid(parsed.optionId), operationId = uuid(parsed.operationId);
+    const expectedOrderVersion = version(parsed.expectedOrderVersion, 1);
+    if (typeof parsed.quoteCredential !== "string" || !QUOTE_CREDENTIAL.test(parsed.quoteCredential)) invalid();
+    const credentialDigest = createHash("sha256").update(parsed.quoteCredential, "utf8").digest("hex");
+    const operationFingerprint = fingerprint("begin_shipment", selected.storeId, { orderId, expectedOrderVersion, credentialDigest, optionId });
+    const shipmentId = uuid(this.options.generateId()), jobId = uuid(this.options.generateId()), eventId = uuid(this.options.generateId());
+    try {
+      return await this.transaction(false, async (client) => {
+        const result = row(await client.query(
+          "SELECT outcome,result_payload FROM saas.shipping_shipment_begin($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::bigint,$10::text,$11::uuid,$12::uuid,$13::text,$14::uuid,$15::uuid,$16::uuid)",
+          [...authorityValues(selected), orderId, expectedOrderVersion, credentialDigest, optionId, operationId, operationFingerprint, shipmentId, jobId, eventId],
+        ));
+        const known = this.known(result.outcome); if (known) throw known;
+        if (result.outcome !== "queued" && result.outcome !== "operation_replayed") throw unavailable();
+        return parseShipmentBegin(result.result, result.outcome === "operation_replayed");
+      });
+    } catch (error) {
+      if (!(error instanceof ShippingAdminRepositoryError) || error.code !== "commit_unknown") throw error;
+      try { const pending = this.options.audit({ type: "shipping_commit_unknown" }); if (pending) void pending.catch(() => undefined); } catch {}
+      return parseShipmentBegin(await this.recoverFulfillment(selected, operationId, operationFingerprint), true);
+    }
+  }
+
+  async currentShipment(input: CurrentShippingShipmentInput): Promise<Shipment | null> {
+    const parsed = exact(input, ["tenantContext", "now", "shipmentId"]), selected = authority(parsed.tenantContext, parsed.now), shipmentId = uuid(parsed.shipmentId);
+    return this.transaction(true, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+        [...authorityValues(selected), shipmentId],
+      ));
+      if (result.outcome === "not_found" && result.result === null) return null;
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "found") throw unavailable();
+      try { return parseShipment(result.result); } catch { throw unavailable(); }
+    });
+  }
+
+  async currentShipmentForOrder(input: CurrentShippingShipmentForOrderInput): Promise<Shipment | null> {
+    const parsed = exact(input, ["tenantContext", "now", "orderId"]), selected = authority(parsed.tenantContext, parsed.now), orderId = uuid(parsed.orderId);
+    return this.transaction(true, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_for_order($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+        [...authorityValues(selected), orderId],
+      ));
+      if (result.outcome === "not_found" && result.result === null) return null;
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "found") throw unavailable();
+      try { return parseShipment(result.result); } catch { throw unavailable(); }
+    });
   }
 }

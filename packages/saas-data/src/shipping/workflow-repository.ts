@@ -6,13 +6,23 @@ import {
   type ShippingWorkflowErrorCode,
 } from "./errors.ts";
 import type {
+  ClaimShippingFulfillmentInput,
   ClaimShippingValidationInput,
+  CompleteShippingQuoteInput,
+  CompleteShippingShipmentInput,
   CompleteShippingValidationInput,
+  FailShippingFulfillmentInput,
   FailShippingValidationInput,
+  MarkShippingShipmentUnknownInput,
+  OpenedShippingFulfillment,
+  OpenShippingFulfillmentInput,
   OpenedShippingCredential,
   OpenShippingCredentialInput,
   PostgresShippingWorkflowRepositoryOptions,
   ShippingCredentialAuthority,
+  ShippingFulfillmentClaim,
+  ShippingFulfillmentOrder,
+  ShippingFulfillmentQuoteOption,
   ShippingValidationClaim,
   ShippingValidationResource,
   ShippingWorkflowRepository,
@@ -90,7 +100,7 @@ function envelope(value: unknown): SealedShippingCredential {
   });
 }
 
-function credentialAuthority(value: unknown, expected: ShippingValidationClaim): ShippingCredentialAuthority {
+function credentialAuthority(value: unknown, expected: Readonly<{ credentialVersion: number }>): ShippingCredentialAuthority {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
   const parsed = value as Record<string, unknown>;
   if (Object.keys(parsed).sort().join(",") !== "credentialDigest,credentialEnvelope,credentialKeyId,credentialVersion,providerCode") throw unavailable();
@@ -100,6 +110,67 @@ function credentialAuthority(value: unknown, expected: ShippingValidationClaim):
     providerCode: "basit_kargo", credentialEnvelope: selectedEnvelope,
     credentialDigest: typeof parsed.credentialDigest === "string" && DIGEST.test(parsed.credentialDigest) ? parsed.credentialDigest : (() => { throw unavailable(); })(),
     credentialKeyId: selectedEnvelope.keyId, credentialVersion: expected.credentialVersion,
+  });
+}
+
+function nullableText(value: unknown, maximum: number): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string" || value.length < 1 || value.length > maximum || value !== value.trim() || /[\u0000-\u001f\u007f]/u.test(value)) throw unavailable();
+  return value;
+}
+
+function packages(value: unknown) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 20) throw unavailable();
+  return Object.freeze(value.map((entry) => {
+    const parsed = exact(entry, ["heightCm", "widthCm", "depthCm", "weightKg"]);
+    for (const key of ["heightCm", "widthCm", "depthCm", "weightKg"] as const) {
+      if (typeof parsed[key] !== "number" || !Number.isFinite(parsed[key]) || (parsed[key] as number) <= 0 || (parsed[key] as number) > 10_000) throw unavailable();
+    }
+    return Object.freeze({ heightCm: parsed.heightCm as number, widthCm: parsed.widthCm as number, depthCm: parsed.depthCm as number, weightKg: parsed.weightKg as number });
+  }));
+}
+
+function fulfillmentClaim(value: unknown, expected: Readonly<{ jobId: string; workerId: string; leaseId: string }>): ShippingFulfillmentClaim {
+  const parsed = exact(value, ["jobId", "jobKind", "storeId", "profileId", "quoteId", "shipmentId", "credentialVersion", "leaseId", "fenceToken", "version"]);
+  const jobKind = parsed.jobKind === "quote" || parsed.jobKind === "create_shipment" ? parsed.jobKind : invalid();
+  const shipmentId = parsed.shipmentId === null ? null : uuid(parsed.shipmentId);
+  if ((jobKind === "quote") !== (shipmentId === null)) throw unavailable();
+  const result = Object.freeze({
+    jobId: uuid(parsed.jobId), jobKind, storeId: uuid(parsed.storeId), profileId: uuid(parsed.profileId),
+    quoteId: uuid(parsed.quoteId), shipmentId, credentialVersion: integer(parsed.credentialVersion, 1),
+    leaseId: uuid(parsed.leaseId), workerId: expected.workerId, fenceToken: integer(parsed.fenceToken, 1), version: integer(parsed.version, 1),
+  });
+  if (result.jobId !== expected.jobId || result.leaseId !== expected.leaseId) throw unavailable();
+  return result;
+}
+
+function fulfillmentOrder(value: unknown): ShippingFulfillmentOrder {
+  const parsed = exact(value, ["orderId", "orderNumber", "customerName", "customerEmail", "customerPhone", "shippingAddress", "codAmountCents", "handlerCode", "items"]);
+  if (typeof parsed.shippingAddress !== "object" || parsed.shippingAddress === null || Array.isArray(parsed.shippingAddress) || JSON.stringify(parsed.shippingAddress).length > 8_192) throw unavailable();
+  if (!Array.isArray(parsed.items) || parsed.items.length < 1 || parsed.items.length > 100) throw unavailable();
+  const items = Object.freeze(parsed.items.map((entry) => {
+    const item = exact(entry, ["orderItemId", "productName", "sku", "quantity"]);
+    return Object.freeze({
+      orderItemId: uuid(item.orderItemId), productName: nullableText(item.productName, 200) ?? invalid(),
+      sku: nullableText(item.sku, 100), quantity: integer(item.quantity, 1, 9_999),
+    });
+  }));
+  return Object.freeze({
+    orderId: uuid(parsed.orderId), orderNumber: nullableText(parsed.orderNumber, 100) ?? invalid(),
+    customerName: nullableText(parsed.customerName, 200) ?? invalid(), customerEmail: nullableText(parsed.customerEmail, 320),
+    customerPhone: nullableText(parsed.customerPhone, 50), shippingAddress: Object.freeze({ ...(parsed.shippingAddress as Record<string, unknown>) }),
+    codAmountCents: integer(parsed.codAmountCents, 0), handlerCode: nullableText(parsed.handlerCode, 64) ?? invalid(), items,
+  });
+}
+
+function fulfillmentOption(value: unknown): ShippingFulfillmentQuoteOption {
+  const parsed = exact(value, ["id", "handlerResourceId", "handlerCode", "handlerName", "desiKg", "priceCents", "codFeeCents", "digest"]);
+  if (typeof parsed.desiKg !== "number" || !Number.isFinite(parsed.desiKg) || parsed.desiKg < 0 || parsed.desiKg > 10_000) invalid();
+  return Object.freeze({
+    id: uuid(parsed.id), handlerResourceId: uuid(parsed.handlerResourceId),
+    handlerCode: nullableText(parsed.handlerCode, 64) ?? invalid(), handlerName: nullableText(parsed.handlerName, 160) ?? invalid(),
+    desiKg: parsed.desiKg, priceCents: integer(parsed.priceCents, 0),
+    codFeeCents: parsed.codFeeCents === null ? null : integer(parsed.codFeeCents, 0), digest: digest(parsed.digest),
   });
 }
 
@@ -235,6 +306,127 @@ export class PostgresShippingWorkflowRepository implements ShippingWorkflowRepos
       const known = this.known(result.outcome); if (known) throw known;
       if (result.outcome !== "failed" && result.outcome !== "requeued") throw unavailable();
       return result.outcome;
+    });
+  }
+
+  async claimFulfillment(input: ClaimShippingFulfillmentInput): Promise<ShippingFulfillmentClaim | null> {
+    const parsed = exact(input, ["jobId", "workerId", "now", "leaseSeconds", "leaseId"]);
+    const expected = { jobId: uuid(parsed.jobId), workerId: worker(parsed.workerId), leaseId: uuid(parsed.leaseId) };
+    const now = date(parsed.now), leaseSeconds = integer(parsed.leaseSeconds, 5, 900);
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_fulfillment_claim_job($1::uuid,$2::text,$3::timestamptz,$4::integer,$5::uuid)",
+        [expected.jobId, expected.workerId, now.toISOString(), leaseSeconds, expected.leaseId],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome === "empty" && result.result === null) return null;
+      if (result.outcome !== "claimed") throw unavailable();
+      return fulfillmentClaim(result.result, expected);
+    });
+  }
+
+  async openFulfillment(input: OpenShippingFulfillmentInput): Promise<OpenedShippingFulfillment> {
+    const parsed = exact(input, ["claim", "now"]), selected = parsed.claim as ShippingFulfillmentClaim, now = date(parsed.now);
+    if (!selected || typeof selected !== "object") invalid();
+    return this.transaction(true, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_fulfillment_open($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz)",
+        [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString()],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "opened") throw unavailable();
+      const opened = exact(result.result, [
+        "jobKind", "providerCode", "credentialEnvelope", "credentialDigest", "credentialKeyId", "credentialVersion",
+        "storeId", "profileId", "quoteId", "shipmentId", "packages", "brandProviderResourceId", "addressProviderResourceId", "handlers", "order",
+      ]);
+      if (opened.jobKind !== selected.jobKind || uuid(opened.storeId) !== selected.storeId || uuid(opened.profileId) !== selected.profileId || uuid(opened.quoteId) !== selected.quoteId || (opened.shipmentId === null ? null : uuid(opened.shipmentId)) !== selected.shipmentId) throw unavailable();
+      const credential = credentialAuthority({
+        providerCode: opened.providerCode, credentialEnvelope: opened.credentialEnvelope, credentialDigest: opened.credentialDigest,
+        credentialKeyId: opened.credentialKeyId, credentialVersion: opened.credentialVersion,
+      }, selected);
+      const tokenBytes = openShippingCredential({
+        envelope: credential.credentialEnvelope, storeId: selected.storeId, profileId: selected.profileId,
+        providerCode: "basit_kargo", credentialVersion: selected.credentialVersion, keyring: this.options.keyring,
+      });
+      try {
+        const brand = opened.brandProviderResourceId === null ? null : nullableText(opened.brandProviderResourceId, 200);
+        const address = opened.addressProviderResourceId === null ? null : nullableText(opened.addressProviderResourceId, 200);
+        if (!Array.isArray(opened.handlers) || opened.handlers.length < 1 || opened.handlers.length > 300) throw unavailable();
+        const handlers = Object.freeze(opened.handlers.map((entry) => {
+          const handler = exact(entry, ["id", "handlerCode"]);
+          return Object.freeze({ id: uuid(handler.id), handlerCode: nullableText(handler.handlerCode, 64) ?? invalid() });
+        }));
+        if (new Set(handlers.map(({ handlerCode }) => handlerCode)).size !== handlers.length) throw unavailable();
+        const order = opened.order === null ? null : fulfillmentOrder(opened.order);
+        if ((selected.jobKind === "quote") !== (order === null)) throw unavailable();
+        return Object.freeze({ claim: selected, providerCode: "basit_kargo" as const, tokenBytes, packages: packages(opened.packages), brandProviderResourceId: brand, addressProviderResourceId: address, handlers, order });
+      } catch (error) { tokenBytes.fill(0); throw error; }
+    });
+  }
+
+  async completeQuote(input: CompleteShippingQuoteInput): Promise<"completed"> {
+    const parsed = exact(input, ["claim", "now", "options"]), selected = parsed.claim as ShippingFulfillmentClaim, now = date(parsed.now);
+    if (!selected || selected.jobKind !== "quote" || !Array.isArray(parsed.options) || parsed.options.length < 1 || parsed.options.length > 100) invalid();
+    const options = Object.freeze(parsed.options.map(fulfillmentOption));
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_quote_complete($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz,$6::jsonb)",
+        [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString(), JSON.stringify(options)],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "completed") throw unavailable();
+      return "completed" as const;
+    });
+  }
+
+  async failFulfillment(input: FailShippingFulfillmentInput): Promise<"failed" | "requeued"> {
+    const parsed = exact(input, ["claim", "now", "failureKind", "safeCode", "retryAfterSeconds"]), selected = parsed.claim as ShippingFulfillmentClaim, now = date(parsed.now);
+    if (!selected || !["rejected", "throttled", "temporary_failure"].includes(parsed.failureKind as string) || typeof parsed.safeCode !== "string" || !CODE.test(parsed.safeCode)) invalid();
+    const retry = parsed.retryAfterSeconds === null ? null : integer(parsed.retryAfterSeconds, 1, 900);
+    if ((parsed.failureKind === "throttled" || parsed.failureKind === "temporary_failure") !== (retry !== null)) invalid();
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_fulfillment_fail($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz,$6::text,$7::text,$8::integer)",
+        [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString(), parsed.failureKind, parsed.safeCode, retry],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "failed" && result.outcome !== "requeued") throw unavailable();
+      return result.outcome;
+    });
+  }
+
+  async completeShipment(input: CompleteShippingShipmentInput): Promise<"completed"> {
+    const parsed = exact(input, ["claim", "now", "eventId", "providerShipmentId", "barcode", "trackingNumber", "trackingUrl", "carrier", "priceCents"]), selected = parsed.claim as ShippingFulfillmentClaim, now = date(parsed.now);
+    if (!selected || selected.jobKind !== "create_shipment") invalid();
+    const providerShipmentId = nullableText(parsed.providerShipmentId, 200) ?? invalid();
+    const barcode = nullableText(parsed.barcode, 200) ?? invalid();
+    const trackingNumber = nullableText(parsed.trackingNumber, 200);
+    const trackingUrl = nullableText(parsed.trackingUrl, 2_000);
+    const carrier = nullableText(parsed.carrier, 160);
+    if ((trackingNumber === null) !== (carrier === null) || (trackingUrl !== null && trackingNumber === null)) invalid();
+    const priceCents = parsed.priceCents === null ? null : integer(parsed.priceCents, 0);
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_complete($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz,$6::uuid,$7::text,$8::text,$9::text,$10::text,$11::text,$12::bigint)",
+        [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString(), uuid(parsed.eventId), providerShipmentId, barcode, trackingNumber, trackingUrl, carrier, priceCents],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "completed") throw unavailable();
+      return "completed" as const;
+    });
+  }
+
+  async markShipmentUnknown(input: MarkShippingShipmentUnknownInput): Promise<"marked_unknown"> {
+    const parsed = exact(input, ["claim", "now", "eventId", "safeCode"]), selected = parsed.claim as ShippingFulfillmentClaim, now = date(parsed.now);
+    if (!selected || selected.jobKind !== "create_shipment" || typeof parsed.safeCode !== "string" || !CODE.test(parsed.safeCode)) invalid();
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_mark_unknown($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz,$6::uuid,$7::text)",
+        [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString(), uuid(parsed.eventId), parsed.safeCode],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "marked_unknown") throw unavailable();
+      return "marked_unknown" as const;
     });
   }
 }

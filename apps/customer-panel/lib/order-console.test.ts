@@ -212,6 +212,9 @@ async function compileOrderModule(
     if (specifier === "next/link") return Link;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
+    if (specifier === "@/components/shipping/OrderShipmentConsole") return {
+      OrderShipmentConsole: () => createElement("div", { "data-testid": "order-shipment-console" }),
+    };
     if (specifier === "@/lib/order-ui/client") return {
       OrderApiError: CompiledOrderApiError,
       orderApi: Object.freeze(overrides.orderApi ?? {}),

@@ -1,7 +1,11 @@
 import {
   parseShippingConnection,
+  parseShipment,
+  parseShippingQuoteSession,
   parseShippingResource,
+  type Shipment,
   type ShippingConnection,
+  type ShippingQuoteSession,
   type ShippingResource,
 } from "@celebix/saas-contracts";
 import {
@@ -18,6 +22,8 @@ import {
   type ShippingHttpFailure,
 } from "./request-authority.ts";
 import {
+  parseBeginQuoteBody,
+  parseBeginShipmentBody,
   parseRevokeConnectionBody,
   parseSaveConnectionBody,
   parseSelectResourcesBody,
@@ -25,10 +31,15 @@ import {
 } from "./request-input.ts";
 
 const BASE = "/api/settings/shipping/connection";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const STATUS: Readonly<Record<ShippingAdminErrorCode, number>> = Object.freeze({
   invalid_input: 400, membership_denied: 403, store_inactive: 403, feature_not_enabled: 403,
   durable_authority_invalid: 409, version_conflict: 409, operation_mismatch: 409,
-  not_found: 404, resource_invalid: 409, already_revoked: 409, commit_unknown: 503, unavailable: 503,
+  not_found: 404, resource_invalid: 409, already_revoked: 409,
+  order_not_found: 404, order_version_mismatch: 409, order_not_fulfillable: 409,
+  currency_unsupported: 409, provider_not_ready: 409, quote_not_found: 404,
+  quote_expired: 409, quote_not_ready: 409, option_invalid: 409, shipment_exists: 409,
+  operation_not_found: 404, commit_unknown: 503, unavailable: 503,
 });
 
 type Workspace = Readonly<{ connection: ShippingConnection | null; resources: readonly ShippingResource[] }>;
@@ -57,6 +68,14 @@ function safeWorkspace(value: Readonly<{ connection: unknown; resources: unknown
     if (new Set(resources.map(({ id }) => id)).size !== resources.length) throw new Error("duplicate");
     return Object.freeze({ connection, resources });
   } catch { throw new ShippingAdminRepositoryError("unavailable"); }
+}
+
+function safeQuote(value: unknown): ShippingQuoteSession {
+  try { return parseShippingQuoteSession(value); } catch { throw new ShippingAdminRepositoryError("unavailable"); }
+}
+
+function safeShipment(value: unknown): Shipment {
+  try { return parseShipment(value); } catch { throw new ShippingAdminRepositoryError("unavailable"); }
 }
 
 async function current(authority: ShippingHttpAuthority): Promise<Workspace> {
@@ -118,6 +137,80 @@ export function createShippingHttpHandlers(dependencies: ShippingHttpDependencie
           tenantContext: authority.tenantContext, now: authority.now, providerCode: "basit_kargo", operationId: parsed.operationId,
         });
         return json(safeWorkspace({ connection, resources: [] }));
+      } catch (error) { return mappedFailure(error); }
+    },
+
+    async quote(request: Request, orderId: string): Promise<Response> {
+      if (!UUID.test(orderId)) return json({ code: "invalid_input" }, 400);
+      const pathname = `/api/orders/${orderId}/shipping/quotes`;
+      const authority = await authorizeShippingRequest(dependencies, request, "POST", pathname);
+      if (isShippingHttpFailure(authority)) return failure(authority);
+      const parsed = parseBeginQuoteBody(await readShippingJsonBody(request));
+      if (parsed === null) return json({ code: "invalid_input" }, 400);
+      try {
+        const pending = await authority.runtime.admin.beginQuote({
+          tenantContext: authority.tenantContext, now: authority.now, orderId, ...parsed,
+        });
+        await dependencies.fulfillJob({
+          jobId: pending.jobId, workerId: `panel.${authority.requestId}`,
+          runtime: authority.runtime, now: authority.now,
+        });
+        const quote = await authority.runtime.admin.currentQuote({
+          tenantContext: authority.tenantContext, now: authority.now, credential: pending.credential,
+        });
+        if (quote === null) throw new ShippingAdminRepositoryError("unavailable");
+        return json({ quote: safeQuote(quote) });
+      } catch (error) { return mappedFailure(error); }
+    },
+
+    async shipment(request: Request, orderId: string): Promise<Response> {
+      if (!UUID.test(orderId)) return json({ code: "invalid_input" }, 400);
+      const pathname = `/api/orders/${orderId}/shipping/shipments`;
+      const authority = await authorizeShippingRequest(dependencies, request, "POST", pathname);
+      if (isShippingHttpFailure(authority)) return failure(authority);
+      const parsed = parseBeginShipmentBody(await readShippingJsonBody(request));
+      if (parsed === null) return json({ code: "invalid_input" }, 400);
+      try {
+        const pending = await authority.runtime.admin.beginShipment({
+          tenantContext: authority.tenantContext, now: authority.now, orderId, ...parsed,
+        });
+        await dependencies.fulfillJob({
+          jobId: pending.jobId, workerId: `panel.${authority.requestId}`,
+          runtime: authority.runtime, now: authority.now,
+        });
+        const shipment = await authority.runtime.admin.currentShipment({
+          tenantContext: authority.tenantContext, now: authority.now, shipmentId: pending.shipment.id,
+        });
+        if (shipment === null) throw new ShippingAdminRepositoryError("unavailable");
+        const safe = safeShipment(shipment);
+        return json({ shipment: safe }, safe.status === "ready" ? 201 : 202);
+      } catch (error) { return mappedFailure(error); }
+    },
+
+    async shipmentForOrder(request: Request, orderId: string): Promise<Response> {
+      if (!UUID.test(orderId)) return json({ code: "invalid_input" }, 400);
+      const pathname = `/api/orders/${orderId}/shipping/shipments`;
+      const authority = await authorizeShippingRequest(dependencies, request, "GET", pathname);
+      if (isShippingHttpFailure(authority)) return failure(authority);
+      try {
+        const shipment = await authority.runtime.admin.currentShipmentForOrder({
+          tenantContext: authority.tenantContext, now: authority.now, orderId,
+        });
+        return json({ shipment: shipment === null ? null : safeShipment(shipment) });
+      } catch (error) { return mappedFailure(error); }
+    },
+
+    async shipmentDetail(request: Request, orderId: string, shipmentId: string): Promise<Response> {
+      if (!UUID.test(orderId) || !UUID.test(shipmentId)) return json({ code: "invalid_input" }, 400);
+      const pathname = `/api/orders/${orderId}/shipping/shipments/${shipmentId}`;
+      const authority = await authorizeShippingRequest(dependencies, request, "GET", pathname);
+      if (isShippingHttpFailure(authority)) return failure(authority);
+      try {
+        const shipment = await authority.runtime.admin.currentShipment({
+          tenantContext: authority.tenantContext, now: authority.now, shipmentId,
+        });
+        if (shipment === null) return json({ code: "not_found" }, 404);
+        return json({ shipment: safeShipment(shipment) });
       } catch (error) { return mappedFailure(error); }
     },
   });

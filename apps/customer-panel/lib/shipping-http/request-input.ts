@@ -2,6 +2,7 @@ import { types as utilTypes } from "node:util";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const TOKEN = /^[\x21-\x7e]{16,4096}$/u;
+const QUOTE_CREDENTIAL = /^[A-Za-z0-9_-]{32,512}$/u;
 const MAXIMUM_BODY_BYTES = 16_384;
 
 function exact(value: unknown, keys: readonly string[]): Record<string, unknown> | null {
@@ -75,4 +76,51 @@ export function parseRevokeConnectionBody(value: unknown): Readonly<{ operationI
   const parsed = exact(value, ["operationId"]);
   const operationId = parsed ? operation(parsed.operationId) : null;
   return parsed && operationId ? Object.freeze({ operationId }) : null;
+}
+
+function positiveDecimal(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0.001 && value <= 10_000 ? value : null;
+}
+
+export function parseBeginQuoteBody(value: unknown): Readonly<{
+  operationId: string;
+  expectedOrderVersion: number;
+  packages: readonly Readonly<{ heightCm: number; widthCm: number; depthCm: number; weightKg: number }>[];
+}> | null {
+  const parsed = exact(value, ["operationId", "expectedOrderVersion", "packages"]);
+  const operationId = parsed ? operation(parsed.operationId) : null;
+  if (!parsed || operationId === null || !Number.isSafeInteger(parsed.expectedOrderVersion) || Number(parsed.expectedOrderVersion) < 1 || !Array.isArray(parsed.packages) || parsed.packages.length < 1 || parsed.packages.length > 20) return null;
+  const packages = [] as Array<Readonly<{ heightCm: number; widthCm: number; depthCm: number; weightKg: number }>>;
+  for (const value of parsed.packages) {
+    const item = exact(value, ["heightCm", "widthCm", "depthCm", "weightKg"]);
+    const heightCm = item ? positiveDecimal(item.heightCm) : null;
+    const widthCm = item ? positiveDecimal(item.widthCm) : null;
+    const depthCm = item ? positiveDecimal(item.depthCm) : null;
+    const weightKg = item ? positiveDecimal(item.weightKg) : null;
+    if (!item || heightCm === null || widthCm === null || depthCm === null || weightKg === null) return null;
+    packages.push(Object.freeze({ heightCm, widthCm, depthCm, weightKg }));
+  }
+  return Object.freeze({ operationId, expectedOrderVersion: Number(parsed.expectedOrderVersion), packages: Object.freeze(packages) });
+}
+
+export function parseBeginShipmentBody(value: unknown): Readonly<{
+  operationId: string;
+  expectedOrderVersion: number;
+  quoteCredential: string;
+  optionId: string;
+}> | null {
+  const parsed = exact(value, ["operationId", "expectedOrderVersion", "quoteCredential", "optionId"]);
+  const operationId = parsed ? operation(parsed.operationId) : null;
+  const optionId = parsed ? operation(parsed.optionId) : null;
+  if (
+    !parsed || operationId === null || optionId === null ||
+    !Number.isSafeInteger(parsed.expectedOrderVersion) || Number(parsed.expectedOrderVersion) < 1 ||
+    typeof parsed.quoteCredential !== "string" || !QUOTE_CREDENTIAL.test(parsed.quoteCredential)
+  ) return null;
+  return Object.freeze({
+    operationId,
+    expectedOrderVersion: Number(parsed.expectedOrderVersion),
+    quoteCredential: parsed.quoteCredential,
+    optionId,
+  });
 }
