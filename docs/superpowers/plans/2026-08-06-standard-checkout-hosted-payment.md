@@ -540,7 +540,7 @@ Omit unchanged maturity files from `git add`.
 **Files:**
 - Verify only; no new production file is expected.
 
-- [ ] **Step 1: Inspect the exact diff and migration symmetry**
+- [x] **Step 1: Inspect the exact diff and migration symmetry**
 
 ```bash
 git status --short
@@ -551,7 +551,7 @@ git diff -- apps/donor
 
 The donor diff must be empty, `.superpowers/` must remain untracked and untouched, and each migration must have up/down/assertions/manifest coverage.
 
-- [ ] **Step 2: Run provider and build gates**
+- [x] **Step 2: Run provider and build gates**
 
 ```bash
 npm run check:iyzico-sandbox-build
@@ -560,7 +560,7 @@ npm run build --workspace @celebix/customer-panel
 node tests/saas-phase3/run-current-suite.mjs
 ```
 
-- [ ] **Step 3: Scan for secret and authority leaks**
+- [x] **Step 3: Scan for secret and authority leaks**
 
 ```bash
 rg -n --hidden --glob '!node_modules/**' --glob '!.git/**' '(merchant_key|merchant_salt|api[_-]?secret|private[_-]?key|identity_number)' apps/storefront-shared packages/saas-data
@@ -569,10 +569,10 @@ rg -n '(searchParams|query).*?(paid|captured|success)|destination.*https?://' ap
 
 Review every match; constants and server-only type names are acceptable, browser-delivered values and logs are not.
 
-- [ ] **Step 4: Verify feature-gated readiness**
+- [x] **Step 4: Verify feature-gated readiness**
 
 With no compiled migration/provider authority, quote must omit hosted card. With an active provider plus exact compiled authority in a disposable staging database, quote must expose exactly one hosted card. Official provider sandbox execution is performed only when valid sandbox credentials and documented test data are available; otherwise report that boundary without claiming live readiness.
 
-- [ ] **Step 5: Apply completion skills and hand off**
+- [x] **Step 5: Apply completion skills and hand off**
 
 Read and follow `superpowers:verification-before-completion`, then `superpowers:finishing-a-development-branch`. Present verified commands, remaining external sandbox boundary, commits, and branch state. Do not push or deploy unless the user separately authorizes those external mutations.
