@@ -128,7 +128,7 @@ git commit -m "feat(checkout): add hosted card public contract"
 - Produces: `storefront_hosted_checkout_sessions`, immutable operations, `storefront_available_stock`, and hosted method public projection.
 - Consumed by: Tasks 3–9.
 
-- [ ] **Step 1: Write failing artifact and disposable database tests**
+- [x] **Step 1: Write failing artifact and disposable database tests**
 
 Require all `090` artifacts and prove these are initially absent:
 
@@ -139,7 +139,7 @@ SELECT to_regprocedure('saas.storefront_available_stock(uuid,uuid,timestamp with
 
 Add a scenario where physical stock is eight, another active session holds two, available stock is six, and exact owner exclusion returns eight.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 node --experimental-transform-types --test apps/owner/scripts/sql/saas/storefront-hosted-checkout-migration.test.ts
@@ -148,7 +148,7 @@ node tests/saas-phase3/storefront-hosted-checkout/postgres-harness.mjs
 
 Expected: FAIL because `090` artifacts and functions do not exist.
 
-- [ ] **Step 3: Add exact tables and ownership constraints**
+- [x] **Step 3: Add exact tables and ownership constraints**
 
 The session stores one-of cart/intent ownership, immutable method/profile/provider execution facts, canonical money/items/delivery, generated order/customer/address/event/receipt IDs, credential digests, sealed presentation authority, finite state/version/timestamps. Generalize reservations exactly:
 
@@ -167,11 +167,11 @@ ALTER TABLE saas.checkout_inventory_reservations
 
 Keep legacy `attempt_id` versus generic `payment_attempt_id` one-owner constraint and add a partial unique index on standard session plus variant.
 
-- [ ] **Step 4: Implement canonical available-stock use**
+- [x] **Step 4: Implement canonical available-stock use**
 
 `storefront_available_stock` subtracts only unexpired `held` reservations across legacy quick order, hosted quick order, and standard sessions. Replace the current definitions of cart mutation, buy-now, cart/intent projection, quote readiness, and offline complete so every storefront path uses this helper. Only the exact current standard session may exclude its own hold.
 
-- [ ] **Step 5: Add hosted payment quote projection**
+- [x] **Step 5: Add hosted payment quote projection**
 
 Return at most one method with exact public shape:
 
@@ -181,11 +181,11 @@ Return at most one method with exact public shape:
 
 Iyzico uses `presentation:"redirect"` and `requiredCustomerFields:["identity_number"]`. Require active method/profile, matching environment/credential/execution evidence, and the existing single-active-provider preflight. Keep active offline methods.
 
-- [ ] **Step 6: Finish assertions, rollback, SHA manifest, and GREEN proof**
+- [x] **Step 6: Finish assertions, rollback, SHA manifest, and GREEN proof**
 
 The down migration blocks on nonterminal standard sessions, restores prior reservation constraints/functions, and drops only `090` authority. Run both focused tests until exact PASS and cleanup.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/owner/scripts/sql/saas/202608060090_* apps/owner/scripts/sql/saas/phase4j-* apps/owner/scripts/sql/saas/storefront-hosted-checkout-migration.test.ts tests/saas-phase3/storefront-hosted-checkout/postgres-harness.mjs
