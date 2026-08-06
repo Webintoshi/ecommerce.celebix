@@ -11,6 +11,18 @@ const files = Object.freeze({
   manifest: "phase4j-storefront-hosted-checkout-foundation-manifest.json",
 });
 
+const startFiles = Object.freeze({
+  up: "202608060091_storefront_hosted_checkout_start.up.sql",
+  down: "202608060091_storefront_hosted_checkout_start.down.sql",
+  assertions: "202608060091_storefront_hosted_checkout_start_assertions.sql",
+  manifest: "phase4k-storefront-hosted-checkout-start-manifest.json",
+});
+
+function startSource(name: keyof typeof startFiles): string {
+  const selected = new URL(startFiles[name], root);
+  return existsSync(selected) ? readFileSync(selected, "utf8") : "";
+}
+
 function source(name: keyof typeof files): string {
   const selected = new URL(files[name], root);
   return existsSync(selected) ? readFileSync(selected, "utf8") : "";
@@ -108,5 +120,49 @@ test("090 rollback is drain-guarded and every artifact is digest pinned", () => 
     assert.match(sql, /^BEGIN;\nSET LOCAL ROLE celebix_saas_owner;/u);
     assert.match(sql, /COMMIT;\s*$/u);
     assert.doesNotMatch(sql, /postgres(?:ql)?:\/\//iu);
+  }
+});
+
+test("091 exposes only the bounded hosted-checkout start lifecycle", () => {
+  for (const name of Object.values(startFiles)) assert.equal(existsSync(new URL(name, root)), true, `${name} missing`);
+  const up = startSource("up");
+  for (const name of [
+    "public_storefront_hosted_checkout_authority",
+    "public_storefront_hosted_checkout_begin",
+    "public_storefront_hosted_checkout_presentation_save",
+    "public_storefront_hosted_checkout_presentation",
+    "public_storefront_hosted_checkout_status",
+  ]) assert.match(up, new RegExp(`CREATE FUNCTION saas[.]${name}`, "u"), name);
+  assert.match(up, /payment_attempt_begin/u);
+  assert.match(up, /storefront_available_stock/u);
+  assert.match(up, /merchant_provider_execution_authority_matches/u);
+  assert.match(up, /merchant_provider_sealed_envelope_valid/u);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION[\s\S]+TO celebix_saas_host_resolver/u);
+  assert.doesNotMatch(up, /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE)/iu);
+  const publicStatus = up.match(/CREATE FUNCTION saas[.]public_storefront_hosted_checkout_status[\s\S]+?(?=\nREVOKE|\nCREATE|\nCOMMIT;)/u)?.[0] ?? "";
+  assert.doesNotMatch(publicStatus, /sealed_credentials|profileId|delivery_snapshot|item_snapshot|customer_credential_digest/iu);
+});
+
+test("091 rollback is session-drain guarded and every start artifact is digest pinned", () => {
+  const down = startSource("down");
+  const assertions = startSource("assertions");
+  assert.match(down, /STOREFRONT_HOSTED_CHECKOUT_START_DOWN_BLOCKED/u);
+  assert.match(assertions, /STOREFRONT_HOSTED_CHECKOUT_START_CONTRACT_INVALID/u);
+  const manifest = JSON.parse(startSource("manifest")) as {
+    phase: string;
+    postgresqlMajor: number;
+    externalConnections: number;
+    productionMutations: number;
+    artifacts: Array<{ file: string; direction: string; sha256: string }>;
+  };
+  assert.equal(manifest.phase, "phase4k-storefront-hosted-checkout-start");
+  assert.equal(manifest.postgresqlMajor, 16);
+  assert.equal(manifest.externalConnections, 0);
+  assert.equal(manifest.productionMutations, 0);
+  assert.deepEqual(manifest.artifacts.map(({ file, direction }) => [file, direction]), [
+    [startFiles.up, "up"], [startFiles.down, "down"], [startFiles.assertions, "verify"],
+  ]);
+  for (const artifact of manifest.artifacts) {
+    assert.equal(createHash("sha256").update(readFileSync(new URL(artifact.file, root))).digest("hex"), artifact.sha256, artifact.file);
   }
 });

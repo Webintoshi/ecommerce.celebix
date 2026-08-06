@@ -10,6 +10,9 @@ const DB = "storefront_hosted_checkout";
 const UP = "202608060090_storefront_hosted_checkout_foundation.up.sql";
 const DOWN = "202608060090_storefront_hosted_checkout_foundation.down.sql";
 const ASSERTIONS = "202608060090_storefront_hosted_checkout_foundation_assertions.sql";
+const START_UP = "202608060091_storefront_hosted_checkout_start.up.sql";
+const START_DOWN = "202608060091_storefront_hosted_checkout_start.down.sql";
+const START_ASSERTIONS = "202608060091_storefront_hosted_checkout_start_assertions.sql";
 const STORE = "10000000-0000-4000-8000-000000000190";
 const HOST = "hosted-foundation.saas-staging.celebix.site";
 const PRODUCT = "20000000-0000-4000-8000-000000000190";
@@ -20,7 +23,10 @@ const SESSION = "60000000-0000-4000-8000-000000000190";
 const METHOD = "70000000-0000-4000-8000-000000000190";
 const PROFILE = "80000000-0000-4000-8000-000000000190";
 const NOW = "2026-08-06T12:00:00.000Z";
-const TOTAL = 10;
+const START_SESSION = "90000000-0000-4000-8000-000000000191";
+const START_ATTEMPT = "91000000-0000-4000-8000-000000000191";
+const START_OPERATION_2 = "92000000-0000-4000-8000-000000000191";
+const TOTAL = 21;
 let completed = 0;
 
 function executable(name) {
@@ -65,7 +71,7 @@ function psql(box, source, allowFailure = false) {
   return command(box.tools.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", DB], source, allowFailure);
 }
 
-function apply(box, file) { return psql(box, readFileSync(path.join(SQL, file), "utf8")); }
+function apply(box, file, allowFailure = false) { return psql(box, readFileSync(path.join(SQL, file), "utf8"), allowFailure); }
 
 function migrations() {
   const accepted = /(?:[.]up|[.]seed|[.]freeze|_grants|_assertions|catalog_assertions)[.]sql$/;
@@ -145,7 +151,7 @@ function scenario(name, callback) { callback(); completed += 1; console.log(`PAS
 
 let box;
 try {
-  for (const file of [UP, DOWN, ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, `${file} missing`);
+  for (const file of [UP, DOWN, ASSERTIONS, START_UP, START_DOWN, START_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, `${file} missing`);
   box = start();
   command(box.tools.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"], `CREATE DATABASE ${DB};`);
   for (const file of migrations()) apply(box, file);
@@ -202,6 +208,73 @@ try {
     assert.equal(psql(box, "SELECT to_regclass('saas.storefront_hosted_checkout_sessions') IS NULL;").stdout.trim(), "t");
     assert.equal(psql(box, "SELECT to_regclass('saas.storefront_carts') IS NOT NULL;").stdout.trim(), "t");
     apply(box, UP); apply(box, ASSERTIONS);
+  });
+  scenario("start authority is absent before migration 091", () => {
+    assert.equal(psql(box, "SELECT to_regprocedure('saas.public_storefront_hosted_checkout_authority(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid)') IS NULL;").stdout.trim(), "t");
+  });
+  apply(box, START_UP); apply(box, START_ASSERTIONS);
+  scenario("091 installs only host-resolver start RPC authority", () => {
+    assert.equal(psql(box, "SELECT has_function_privilege('celebix_saas_host_resolver','saas.public_storefront_hosted_checkout_status(text,timestamp with time zone,jsonb)','EXECUTE') AND NOT has_function_privilege('celebix_saas_app','saas.public_storefront_hosted_checkout_status(text,timestamp with time zone,jsonb)','EXECUTE');").stdout.trim(), "t");
+  });
+  const credentials = JSON.stringify([{ keyId: "cart-key-190", digest: "a".repeat(64) }]).replaceAll("'", "''");
+  const delivery = JSON.stringify({ contact: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.test", phone: "+905551112233" }, shippingAddress: { line1: "Test 1", city: "İstanbul", country: "TR" } }).replaceAll("'", "''");
+  let authority;
+  scenario("authority binds the exact cart, delivery, method, provider and execution evidence", () => {
+    const row = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM saas.public_storefront_hosted_checkout_authority('${HOST}','${NOW}','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}');COMMIT;`).stdout.trim();
+    const parsed = JSON.parse(row); authority = parsed.result;
+    assert.equal(parsed.outcome, "found");
+    assert.equal(authority.sourceId, CART); assert.equal(authority.paymentMethodId, METHOD);
+    assert.equal(authority.providerCode, "paytr_iframe"); assert.equal(authority.totalMinor, 70000);
+    assert.match(authority.authorityDigest, /^[a-f0-9]{64}$/);
+    assert.equal("sealedCredentials" in authority, false);
+  });
+  scenario("cross-store credentials and cart version drift are denied", () => {
+    const cross = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_authority('other.saas-staging.celebix.site','${NOW}','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}');COMMIT;`).stdout.trim();
+    const drift = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_authority('${HOST}','${NOW}','cart','${credentials}'::jsonb,2,'${delivery}'::jsonb,'${METHOD}');COMMIT;`).stdout.trim();
+    assert.equal(cross, "authority_unavailable"); assert.equal(drift, "authority_unavailable");
+  });
+  scenario("authority mismatch creates no session or hold", () => {
+    const mismatch = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_begin('${HOST}','${NOW}','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}','${"0".repeat(64)}','${START_ATTEMPT}','${"1".repeat(64)}','${START_SESSION}','${"2".repeat(64)}','93000000-0000-4000-8000-000000000191','94000000-0000-4000-8000-000000000191','95000000-0000-4000-8000-000000000191','96000000-0000-4000-8000-000000000191','97000000-0000-4000-8000-000000000191','98000000-0000-4000-8000-000000000191','pay-session-key','${"3".repeat(64)}','receipt-key-191','${"4".repeat(64)}','customer-key-191','${"5".repeat(64)}');COMMIT;`).stdout.trim();
+    assert.equal(mismatch, "durable_authority_invalid");
+    assert.equal(psql(box, `SELECT count(*) FROM saas.storefront_hosted_checkout_sessions WHERE id='${START_SESSION}';`).stdout.trim(), "0");
+  });
+  scenario("provider begin rejection rolls back the hosted session and reservations", () => {
+    psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+      INSERT INTO saas.payment_attempts(id,store_id,payment_method_id,profile_id,provider_code,environment,credential_version,order_reference,amount_minor,currency,status,safe_code,version,created_at,updated_at)
+      VALUES('8a000000-0000-4000-8000-000000000191','${STORE}','${METHOD}','${PROFILE}','paytr_iframe','test',1,'conflict:191',1,'TRY','created','created',1,'${NOW}','${NOW}');
+      INSERT INTO saas.payment_callback_bindings(callback_binding_digest,attempt_id,store_id,payment_method_id,profile_id,provider_code,environment,credential_version,created_at)
+      VALUES('${"e".repeat(64)}','8a000000-0000-4000-8000-000000000191','${STORE}','${METHOD}','${PROFILE}','paytr_iframe','test',1,'${NOW}');COMMIT;`);
+    const rejected = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_begin('${HOST}','${NOW}','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}','${authority.authorityDigest}','8b000000-0000-4000-8000-000000000191','${"f".repeat(64)}','8c000000-0000-4000-8000-000000000191','${"e".repeat(64)}','8d000000-0000-4000-8000-000000000191','8e000000-0000-4000-8000-000000000191','8f000000-0000-4000-8000-000000000191','81000000-0000-4000-8000-000000000191','82000000-0000-4000-8000-000000000191','83000000-0000-4000-8000-000000000191','pay-session-reject','${"1".repeat(64)}','receipt-reject','${"2".repeat(64)}','customer-reject','${"3".repeat(64)}');COMMIT;`).stdout.trim();
+    assert.equal(rejected, "callback_binding_conflict");
+    assert.equal(psql(box, "SELECT (SELECT count(*)::text FROM saas.storefront_hosted_checkout_sessions WHERE id='8c000000-0000-4000-8000-000000000191')||(SELECT count(*)::text FROM saas.checkout_inventory_reservations WHERE storefront_hosted_session_id='8c000000-0000-4000-8000-000000000191');").stdout.trim(), "00");
+  });
+  scenario("begin atomically creates one session, a payment attempt and held stock", () => {
+    const begin = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM saas.public_storefront_hosted_checkout_begin('${HOST}','${NOW}','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}','${authority.authorityDigest}','${START_ATTEMPT}','${"1".repeat(64)}','${START_SESSION}','${"2".repeat(64)}','93000000-0000-4000-8000-000000000191','94000000-0000-4000-8000-000000000191','95000000-0000-4000-8000-000000000191','96000000-0000-4000-8000-000000000191','97000000-0000-4000-8000-000000000191','98000000-0000-4000-8000-000000000191','pay-session-key','${"3".repeat(64)}','receipt-key-191','${"4".repeat(64)}','customer-key-191','${"5".repeat(64)}');COMMIT;`).stdout.trim();
+    const parsed = JSON.parse(begin); assert.equal(parsed.outcome, "created"); assert.equal(parsed.result.sessionId, START_SESSION);
+    assert.equal(psql(box, `SELECT (SELECT count(*) FROM saas.payment_attempts WHERE id='${START_ATTEMPT}')||':'||(SELECT count(*) FROM saas.checkout_inventory_reservations WHERE storefront_hosted_session_id='${START_SESSION}')||':'||saas.storefront_available_stock('${STORE}','${VARIANT}','${NOW}',NULL);`).stdout.trim(), "1:1:1");
+  });
+  scenario("start is replay-safe and one active source cannot open a second attempt", () => {
+    const replay = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_begin('${HOST}','${NOW}','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}','${authority.authorityDigest}','${START_ATTEMPT}','${"1".repeat(64)}','${START_SESSION}','${"2".repeat(64)}','93000000-0000-4000-8000-000000000191','94000000-0000-4000-8000-000000000191','95000000-0000-4000-8000-000000000191','96000000-0000-4000-8000-000000000191','97000000-0000-4000-8000-000000000191','98000000-0000-4000-8000-000000000191','pay-session-key','${"3".repeat(64)}','receipt-key-191','${"4".repeat(64)}','customer-key-191','${"5".repeat(64)}');COMMIT;`).stdout.trim();
+    const second = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_begin('${HOST}','${NOW}','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}','${authority.authorityDigest}','${START_OPERATION_2}','${"6".repeat(64)}','99000000-0000-4000-8000-000000000191','${"7".repeat(64)}','9a000000-0000-4000-8000-000000000191','9b000000-0000-4000-8000-000000000191','9c000000-0000-4000-8000-000000000191','9d000000-0000-4000-8000-000000000191','9e000000-0000-4000-8000-000000000191','9f000000-0000-4000-8000-000000000191','pay-session-key-2','${"8".repeat(64)}','receipt-key-192','${"9".repeat(64)}','customer-key-192','${"a".repeat(64)}');COMMIT;`).stdout.trim();
+    assert.equal(replay, "operation_replayed"); assert.equal(second, "attempt_in_progress");
+  });
+  const sessionCredentials = JSON.stringify([{ keyId: "pay-session-key", digest: "3".repeat(64) }]).replaceAll("'", "''");
+  scenario("presentation requires an exact sealed envelope and stays credential-bound", () => {
+    const invalid = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_presentation_save('${HOST}','${NOW}','${sessionCredentials}'::jsonb,'a0000000-0000-4000-8000-000000000191','${"b".repeat(64)}',1,'presentation-key','${"c".repeat(64)}','{}'::jsonb,'2026-08-06T12:05:00Z');COMMIT;`).stdout.trim();
+    const envelope = JSON.stringify({ algorithm: "A256GCM", ciphertext: "AA", iv: "A".repeat(16), keyId: "presentation-key", tag: "A".repeat(22), version: 1 }).replaceAll("'", "''");
+    const saved = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_presentation_save('${HOST}','${NOW}','${sessionCredentials}'::jsonb,'a0000000-0000-4000-8000-000000000191','${"b".repeat(64)}',1,'presentation-key','${"c".repeat(64)}','${envelope}'::jsonb,'2026-08-06T12:05:00Z');COMMIT;`).stdout.trim();
+    const read = JSON.parse(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT result_payload FROM saas.public_storefront_hosted_checkout_presentation('${HOST}','${NOW}','${sessionCredentials}'::jsonb);COMMIT;`).stdout.trim());
+    assert.equal(invalid, "invalid_input"); assert.equal(saved, "updated"); assert.equal(read.presentationDigest, "c".repeat(64));
+  });
+  scenario("status is hostname and unexpired payment-session credential bound", () => {
+    const found = JSON.parse(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT result_payload FROM saas.public_storefront_hosted_checkout_status('${HOST}','${NOW}','${sessionCredentials}'::jsonb);COMMIT;`).stdout.trim());
+    const wrong = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_status('${HOST}','${NOW}','[{"keyId":"pay-session-key","digest":"${"d".repeat(64)}"}]'::jsonb);COMMIT;`).stdout.trim();
+    const expired = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_status('${HOST}','2026-08-06T12:16:00Z','${sessionCredentials}'::jsonb);COMMIT;`).stdout.trim();
+    assert.equal(found.status, "provider_ready"); assert.equal(wrong, "not_found"); assert.equal(expired, "session_expired");
+    for (const forbidden of ["profileId", "delivery", "items", "sealedCredentials"]) assert.equal(forbidden in found, false);
+  });
+  scenario("091 rollback refuses to remove live hosted sessions", () => {
+    assert.notEqual(apply(box, START_DOWN, true).status, 0);
   });
   assert.equal(completed, TOTAL);
   console.log(`${TOTAL}/${TOTAL} PASS`);

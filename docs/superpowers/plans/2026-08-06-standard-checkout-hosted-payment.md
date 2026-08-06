@@ -202,23 +202,23 @@ git commit -m "feat(checkout): add hosted checkout foundation"
 **Interfaces:**
 - Produces: authority, begin, presentation-save/read, and status RPCs for the typed repository.
 
-- [ ] **Step 1: Add RED lifecycle scenarios**
+- [x] **Step 1: Add RED lifecycle scenarios**
 
 Cover cross-store denial, expired credential, cart version drift, authority-digest mismatch, replay, one active session, stock hold, provider rejection release, sealed-presentation exactness, and status lookup by hostname plus payment-session digest.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run the migration test and PostgreSQL harness; expected failure is missing `091` RPCs.
 
-- [ ] **Step 3: Implement authority and begin**
+- [x] **Step 3: Implement authority and begin**
 
 `public_storefront_hosted_checkout_authority` recomputes method/profile/execution facts, delivery/items/totals, and returns only server facts required by `HostedPaymentRuntime.initialize`. `public_storefront_hosted_checkout_begin` re-locks and recomputes authority, calls existing `payment_attempt_begin`, creates one session, and inserts held reservations atomically.
 
-- [ ] **Step 4: Implement presentation and status**
+- [x] **Step 4: Implement presentation and status**
 
 Presentation save accepts only a digest-bound sealed envelope and only `active|processing -> provider_ready`. Presentation/status lookups require exact hostname and payment-session credential digest and never return profile IDs, sealed merchant credentials, raw identity, or tenant authority.
 
-- [ ] **Step 5: Run GREEN and commit**
+- [x] **Step 5: Run GREEN and commit**
 
 ```bash
 node --experimental-transform-types --test apps/owner/scripts/sql/saas/storefront-hosted-checkout-migration.test.ts
