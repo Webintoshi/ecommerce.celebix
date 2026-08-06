@@ -110,9 +110,15 @@ test("transport bounds response types sizes redirects and Retry-After", async ()
 
 test("transport permits reviewed JSON writes and SVG label reads only", async () => {
   const seen: RequestInit[] = [];
+  let postedBody = "";
+  let retainedBody: ArrayBuffer | undefined;
   const transport = createShippingProviderTransport({
     fetch: async (_input, init) => {
       seen.push(init ?? {});
+      if (seen.length === 1 && init?.body instanceof ArrayBuffer) {
+        retainedBody = init.body;
+        postedBody = new TextDecoder().decode(init.body);
+      }
       return seen.length === 1
         ? new Response("{}", { status: 200, headers: { "content-type": "application/json; charset=utf-8" } })
         : new Response("<svg xmlns=\"http://www.w3.org/2000/svg\"/>", { status: 200, headers: { "content-type": "image/svg+xml" } });
@@ -141,5 +147,7 @@ test("transport permits reviewed JSON writes and SVG label reads only", async ()
     authorization: `Bearer ${TOKEN}`,
     "content-type": "application/json",
   });
+  assert.equal(postedBody, "[]");
+  assert.deepEqual(retainedBody === undefined ? [] : [...new Uint8Array(retainedBody)], [0, 0]);
   assert.equal(label.kind === "response" ? label.contentType : null, "image/svg+xml");
 });

@@ -105,6 +105,7 @@ export function createShippingProviderTransport(
       } finally {
         tokenBytes.fill(0);
         parsed.body?.fill(0);
+        if (requestBody !== undefined) new Uint8Array(requestBody).fill(0);
       }
       if (!(response instanceof Response)) return frozenFailure("invalid_response");
       if (response.status >= 300 && response.status <= 399) return frozenFailure("redirect");
