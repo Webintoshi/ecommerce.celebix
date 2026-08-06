@@ -29,6 +29,10 @@ test("R2 storage accepts only exact tenant media namespaces", () => {
     const objectKey = `stores/${STORE}/design/${MEDIA}.${extension}`;
     assert.equal(storage.publicUrl(objectKey), `https://media.saas-staging.celebix.site/${objectKey}`);
   }
+  for (const kind of ["logo", "hero", "category", "social", "favicon"]) {
+    const objectKey = `stores/${STORE}/storefront/${kind}/${MEDIA}.jpg`;
+    assert.equal(storage.publicUrl(objectKey), `https://media.saas-staging.celebix.site/${objectKey}`);
+  }
   for (const objectKey of [
     `stores/${STORE}/design/nested/${MEDIA}.png`,
     `stores/${STORE}/themes/${MEDIA}.png`,
