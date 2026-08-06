@@ -18,8 +18,20 @@ const startFiles = Object.freeze({
   manifest: "phase4k-storefront-hosted-checkout-start-manifest.json",
 });
 
+const settlementFiles = Object.freeze({
+  up: "202608060092_storefront_hosted_checkout_settlement.up.sql",
+  down: "202608060092_storefront_hosted_checkout_settlement.down.sql",
+  assertions: "202608060092_storefront_hosted_checkout_settlement_assertions.sql",
+  manifest: "phase4l-storefront-hosted-checkout-settlement-manifest.json",
+});
+
 function startSource(name: keyof typeof startFiles): string {
   const selected = new URL(startFiles[name], root);
+  return existsSync(selected) ? readFileSync(selected, "utf8") : "";
+}
+
+function settlementSource(name: keyof typeof settlementFiles): string {
+  const selected = new URL(settlementFiles[name], root);
   return existsSync(selected) ? readFileSync(selected, "utf8") : "";
 }
 
@@ -161,6 +173,57 @@ test("091 rollback is session-drain guarded and every start artifact is digest p
   assert.equal(manifest.productionMutations, 0);
   assert.deepEqual(manifest.artifacts.map(({ file, direction }) => [file, direction]), [
     [startFiles.up, "up"], [startFiles.down, "down"], [startFiles.assertions, "verify"],
+  ]);
+  for (const artifact of manifest.artifacts) {
+    assert.equal(createHash("sha256").update(readFileSync(new URL(artifact.file, root))).digest("hex"), artifact.sha256, artifact.file);
+  }
+});
+
+test("092 atomically settles standard hosted checkout from the payment attempt", () => {
+  for (const name of Object.values(settlementFiles)) assert.equal(existsSync(new URL(name, root)), true, `${name} missing`);
+  const up = settlementSource("up");
+  assert.match(up, /CREATE FUNCTION saas[.]storefront_hosted_checkout_terminal_transition/u);
+  assert.match(up, /CREATE TRIGGER payment_attempt_standard_checkout_terminal/u);
+  assert.match(up, /AFTER UPDATE OF status ON saas[.]payment_attempts/u);
+  assert.match(up, /INSERT INTO saas[.]orders/u);
+  assert.match(up, /INSERT INTO saas[.]order_items/u);
+  assert.match(up, /INSERT INTO saas[.]order_events/u);
+  assert.match(up, /INSERT INTO saas[.]storefront_order_receipts/u);
+  assert.match(up, /INSERT INTO saas[.]storefront_customer_credentials/u);
+  assert.match(up, /status='consumed'/u);
+  assert.match(up, /stock_quantity=variant[.]stock_quantity-reservation[.]quantity/u);
+  assert.match(up, /stock_conflict/u);
+  assert.match(up, /NEW[.]status IN[(]'provider_outcome_unknown','reconciliation_required'[)]/u);
+});
+
+test("092 exposes only bounded workflow expiry and reconciliation candidates", () => {
+  const up = settlementSource("up");
+  assert.match(up, /CREATE FUNCTION saas[.]storefront_hosted_checkout_expire_created/u);
+  assert.match(up, /FOR UPDATE OF attempt SKIP LOCKED/u);
+  assert.match(up, /CREATE FUNCTION saas[.]storefront_hosted_checkout_reconciliation_candidates/u);
+  assert.match(up, /LIMIT CASE WHEN p_limit BETWEEN 1 AND 25/u);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION[\s\S]+TO celebix_saas_workflow/u);
+  assert.doesNotMatch(up, /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE)/iu);
+});
+
+test("092 rollback is drain guarded and every settlement artifact is digest pinned", () => {
+  const down = settlementSource("down");
+  const assertions = settlementSource("assertions");
+  assert.match(down, /STOREFRONT_HOSTED_CHECKOUT_SETTLEMENT_DOWN_BLOCKED/u);
+  assert.match(assertions, /STOREFRONT_HOSTED_CHECKOUT_SETTLEMENT_CONTRACT_INVALID/u);
+  const manifest = JSON.parse(settlementSource("manifest")) as {
+    phase: string;
+    postgresqlMajor: number;
+    externalConnections: number;
+    productionMutations: number;
+    artifacts: Array<{ file: string; direction: string; sha256: string }>;
+  };
+  assert.equal(manifest.phase, "phase4l-storefront-hosted-checkout-settlement");
+  assert.equal(manifest.postgresqlMajor, 16);
+  assert.equal(manifest.externalConnections, 0);
+  assert.equal(manifest.productionMutations, 0);
+  assert.deepEqual(manifest.artifacts.map(({ file, direction }) => [file, direction]), [
+    [settlementFiles.up, "up"], [settlementFiles.down, "down"], [settlementFiles.assertions, "verify"],
   ]);
   for (const artifact of manifest.artifacts) {
     assert.equal(createHash("sha256").update(readFileSync(new URL(artifact.file, root))).digest("hex"), artifact.sha256, artifact.file);

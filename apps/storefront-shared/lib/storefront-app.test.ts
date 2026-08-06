@@ -613,6 +613,8 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   assert.match(publicRuntime, /row[.]migration_071 !== true/);
   assert.match(publicRuntime, /AS migration_073/);
   assert.match(publicRuntime, /row[.]migration_073 !== true/);
+  assert.match(publicRuntime, /storefront_hosted_checkout_settlement_preflight/);
+  assert.match(publicRuntime, /hostedMigration[.]rows\[0\][?][.]migration_092 === true/);
   assert.match(publicRuntime, /content,/);
   assert.doesNotMatch(publicRuntime, /ProductMediaRepository|INSERT|UPDATE|DELETE/);
 });

@@ -8,8 +8,9 @@
     "build": "next build",
     "start": "next start --port 3450",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types --test lib/*.test.ts lib/account/*.test.ts lib/cart/*.test.ts lib/checkout/*.test.ts lib/payment-adapters/*.test.ts lib/cart-capture/*.test.ts lib/analytics/*.test.ts components/*.test.ts components/account/*.test.ts scripts/healthcheck.test.mjs",
+    "test": "NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types --test lib/*.test.ts lib/account/*.test.ts lib/cart/*.test.ts lib/checkout/*.test.ts lib/payment-adapters/*.test.ts lib/cart-capture/*.test.ts lib/analytics/*.test.ts components/*.test.ts components/account/*.test.ts scripts/healthcheck.test.mjs scripts/reconcile-standard-checkouts.test.mjs",
     "reconcile:quick-orders": "NODE_OPTIONS='--conditions=react-server' node scripts/reconcile-quick-orders.mjs",
+    "reconcile:standard-checkouts": "NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types scripts/reconcile-standard-checkouts.mjs",
     "deliver:analytics": "NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types scripts/deliver-analytics-events.mjs"
   },
   "dependencies": {

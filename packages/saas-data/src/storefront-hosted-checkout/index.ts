@@ -20,3 +20,9 @@ export type {
   StorefrontHostedCheckoutAuditEvent,
   StorefrontHostedCheckoutRepository,
 } from "./types.ts";
+export { PostgresStorefrontHostedCheckoutWorkerRepository } from "./worker-repository.ts";
+export type {
+  PostgresStorefrontHostedCheckoutWorkerRepositoryOptions,
+  StorefrontHostedCheckoutReconciliationCandidate,
+  StorefrontHostedCheckoutWorkerRepository,
+} from "./worker-repository.ts";

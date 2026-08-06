@@ -407,27 +407,27 @@ git commit -m "feat(checkout): start hosted provider payments"
 **Interfaces:**
 - Produces trigger `payment_attempt_standard_checkout_terminal`, terminal finalizer, leased expiry/reconciliation RPCs, and `reconcile:standard-checkouts`.
 
-- [ ] **Step 1: Add RED settlement and concurrency scenarios**
+- [x] **Step 1: Add RED settlement and concurrency scenarios**
 
 Prove captured creates one `payment_status='completed'` order, consumes one hold, decrements stock once, converts source, activates receipt/customer authority, and emits one event. Prove callback replay, failure release, unknown no order, expiry lease, offline checkout cannot consume held stock, and late capture becomes `stock_conflict`.
 
-- [ ] **Step 2: Observe RED**
+- [x] **Step 2: Observe RED**
 
 Run migration test, database harness, and repository worker tests; expected failures are missing `092` functions and trigger.
 
-- [ ] **Step 3: Implement trigger-driven terminal finalizer**
+- [x] **Step 3: Implement trigger-driven terminal finalizer**
 
 `AFTER UPDATE OF status ON payment_attempts` locates a standard session by store and attempt. Captured locks session/source/variants/holds, creates canonical customer/address/order/items/event/receipt, consumes holds and stock, and marks captured. Failed/cancelled releases holds and retains the source cart. Terminal repeats are immutable no-ops.
 
-- [ ] **Step 4: Implement leased expiry and reconciliation**
+- [x] **Step 4: Implement leased expiry and reconciliation**
 
 Workflow claims with `FOR UPDATE SKIP LOCKED`, checks current attempt authority before releasing, and never treats timeout as failure. A verified late capture that cannot consume stock records `stock_conflict`; it does not fabricate fulfillment or automatic refund.
 
-- [ ] **Step 5: Implement bounded worker**
+- [x] **Step 5: Implement bounded worker**
 
 Use workflow DB authority, batch 25, lease 60 seconds, finite safe logs, and non-zero preflight failure. Test repository interaction plus one disposable database lifecycle.
 
-- [ ] **Step 6: Run GREEN and commit**
+- [x] **Step 6: Run GREEN and commit**
 
 ```bash
 node --experimental-transform-types --test apps/owner/scripts/sql/saas/storefront-hosted-checkout-migration.test.ts
