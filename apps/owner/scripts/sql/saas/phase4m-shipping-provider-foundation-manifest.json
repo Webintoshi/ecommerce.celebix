@@ -1,0 +1,23 @@
+{
+  "phase": "phase4m-shipping-provider-foundation",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608060093_shipping_provider_foundation.up.sql",
+      "direction": "up",
+      "sha256": "d72e7a63c7511a8f90ef9c715a8ee806de7aa3bea9271b6fabad93cfea7f0753"
+    },
+    {
+      "file": "202608060093_shipping_provider_foundation.down.sql",
+      "direction": "down",
+      "sha256": "e25c5865fcecc8053e93b47a245e02d215c7d068bc16d6b553ab1a6f46d93037"
+    },
+    {
+      "file": "202608060093_shipping_provider_foundation_assertions.sql",
+      "direction": "verify",
+      "sha256": "4d52e556e2c348284c43e2a652533167ffba4e4a0ad1149e822a7c03e404913b"
+    }
+  ]
+}
