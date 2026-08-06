@@ -231,6 +231,61 @@ try {
   assert.equal(completedShipment.result.status, "ready");
   assert.equal(completedShipment.result.trackingNumber, "tracking-1");
 
+  const refreshJob = "97000000-0000-4000-8000-000000000001";
+  const refreshArgs = `'${ORDER}','${SHIPMENT}',2,'refresh','69000000-0000-4000-8000-000000000001','${"4".repeat(64)}','${refreshJob}'`;
+  assert.equal(app(box, "shipping_shipment_action_begin", refreshArgs).outcome, "queued");
+  assert.equal(app(box, "shipping_shipment_action_begin", refreshArgs).outcome, "operation_replayed");
+  const refreshLease = "6a000000-0000-4000-8000-000000000001";
+  const refreshClaim = workflow(box, "shipping_shipment_action_claim", `'${refreshJob}','action-worker','${NOW}',60,'${refreshLease}'`);
+  assert.equal(refreshClaim.outcome, "claimed");
+  const openedRefresh = workflow(box, "shipping_shipment_action_open", `'${refreshJob}','action-worker','${refreshLease}',${refreshClaim.result.fenceToken},'${NOW}'`);
+  assert.equal(openedRefresh.result.providerReference, "provider-1");
+  const refreshed = workflow(box, "shipping_shipment_action_complete",
+    `'${refreshJob}','action-worker','${refreshLease}',${refreshClaim.result.fenceToken},'${NOW}','6b000000-0000-4000-8000-000000000001','provider-1','barcode-1','tracking-2','Test Kargo','shipped',12900,NULL,NULL`);
+  assert.equal(refreshed.outcome, "completed");
+  assert.equal(refreshed.result.status, "shipped");
+  assert.equal(refreshed.result.trackingNumber, "tracking-2");
+
+  const labelJob = "97000000-0000-4000-8000-000000000002";
+  const labelArgs = `'${ORDER}','${SHIPMENT}',3,'label','69000000-0000-4000-8000-000000000002','${"5".repeat(64)}','${labelJob}'`;
+  assert.equal(app(box, "shipping_shipment_action_begin", labelArgs).outcome, "queued");
+  const labelLease = "6a000000-0000-4000-8000-000000000002";
+  const labelClaim = workflow(box, "shipping_shipment_action_claim", `'${labelJob}','label-worker','${NOW}',60,'${labelLease}'`);
+  const labelSvg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+  const labelBase64 = Buffer.from(labelSvg).toString("base64");
+  const labelSha = (await import("node:crypto")).createHash("sha256").update(labelSvg).digest("hex");
+  const completedLabel = workflow(box, "shipping_shipment_action_complete",
+    `'${labelJob}','label-worker','${labelLease}',${labelClaim.result.fenceToken},'${NOW}','6b000000-0000-4000-8000-000000000002',NULL,NULL,NULL,NULL,NULL,NULL,'${labelBase64}','${labelSha}'`);
+  assert.equal(completedLabel.outcome, "completed");
+  assert.equal(completedLabel.result.label.available, true);
+  const readLabel = app(box, "shipping_shipment_label_current", `'${ORDER}','${SHIPMENT}'`);
+  assert.equal(Buffer.from(readLabel.result.bytesBase64, "base64").toString(), labelSvg);
+
+  psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.shipping_shipments SET status='delivered',version=version+1,updated_at='${NOW}' WHERE id='${SHIPMENT}'; COMMIT;`);
+  const returnJob = "97000000-0000-4000-8000-000000000003";
+  const returnArgs = `'${ORDER}','${SHIPMENT}',5,'return','69000000-0000-4000-8000-000000000003','${"6".repeat(64)}','${returnJob}'`;
+  assert.equal(app(box, "shipping_shipment_action_begin", returnArgs).outcome, "queued");
+  const returnLease = "6a000000-0000-4000-8000-000000000003";
+  const returnClaim = workflow(box, "shipping_shipment_action_claim", `'${returnJob}','return-worker','${NOW}',60,'${returnLease}'`);
+  const completedReturn = workflow(box, "shipping_shipment_action_complete",
+    `'${returnJob}','return-worker','${returnLease}',${returnClaim.result.fenceToken},'${NOW}','6b000000-0000-4000-8000-000000000003','return-1','return-barcode',NULL,NULL,'ready',NULL,NULL,NULL`);
+  assert.equal(completedReturn.outcome, "completed");
+  assert.equal(completedReturn.result.status, "returning");
+  assert.equal(completedReturn.result.barcode, "barcode-1");
+
+  const returnRefreshJob = "97000000-0000-4000-8000-000000000004";
+  const returnRefreshArgs = `'${ORDER}','${SHIPMENT}',6,'refresh','69000000-0000-4000-8000-000000000004','${"7".repeat(64)}','${returnRefreshJob}'`;
+  assert.equal(app(box, "shipping_shipment_action_begin", returnRefreshArgs).outcome, "queued");
+  const returnRefreshLease = "6a000000-0000-4000-8000-000000000004";
+  const returnRefreshClaim = workflow(box, "shipping_shipment_action_claim", `'${returnRefreshJob}','return-refresh','${NOW}',60,'${returnRefreshLease}'`);
+  const openedReturnRefresh = workflow(box, "shipping_shipment_action_open", `'${returnRefreshJob}','return-refresh','${returnRefreshLease}',${returnRefreshClaim.result.fenceToken},'${NOW}'`);
+  assert.equal(openedReturnRefresh.result.providerReference, "return-1");
+  const returned = workflow(box, "shipping_shipment_action_complete",
+    `'${returnRefreshJob}','return-refresh','${returnRefreshLease}',${returnRefreshClaim.result.fenceToken},'${NOW}','6b000000-0000-4000-8000-000000000004','return-1','return-barcode','return-track','Test Kargo','delivered',NULL,NULL,NULL`);
+  assert.equal(returned.outcome, "completed");
+  assert.equal(returned.result.status, "returned");
+  assert.equal(returned.result.barcode, "barcode-1");
+
   assert.equal(psql(box, "SELECT pg_catalog.has_table_privilege('celebix_saas_app','saas.shipping_shipments','SELECT,INSERT,UPDATE,DELETE');").stdout.trim(), "f");
   assert.equal(psql(box, "SELECT saas.shipping_fulfillment_runtime_preflight();").stdout.trim(), "t");
   const blockedDown = psql(box, readFileSync(path.join(SQL, "202608060094_shipping_fulfillment_runtime.down.sql"), "utf8"), true);
@@ -240,6 +295,11 @@ try {
   psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
 ALTER TABLE saas.shipping_fulfillment_operations DISABLE TRIGGER USER;
 ALTER TABLE saas.shipping_shipment_events DISABLE TRIGGER USER;
+ALTER TABLE saas.shipping_shipment_action_operations DISABLE TRIGGER USER;
+DELETE FROM saas.shipping_shipment_action_operations;
+DELETE FROM saas.shipping_shipment_action_jobs;
+DELETE FROM saas.shipping_shipment_labels;
+DELETE FROM saas.shipping_shipment_returns;
 DELETE FROM saas.shipping_fulfillment_operations;
 DELETE FROM saas.shipping_shipment_events;
 DELETE FROM saas.shipping_fulfillment_jobs;

@@ -124,3 +124,10 @@ export function parseBeginShipmentBody(value: unknown): Readonly<{
     optionId,
   });
 }
+
+export function parseShipmentActionBody(value: unknown): Readonly<{ operationId: string; expectedShipmentVersion: number }> | null {
+  const parsed = exact(value, ["operationId", "expectedShipmentVersion"]);
+  const operationId = parsed ? operation(parsed.operationId) : null;
+  if (!parsed || operationId === null || !Number.isSafeInteger(parsed.expectedShipmentVersion) || Number(parsed.expectedShipmentVersion) < 1) return null;
+  return Object.freeze({ operationId, expectedShipmentVersion: Number(parsed.expectedShipmentVersion) });
+}

@@ -27,8 +27,10 @@ import {
   parseRevokeConnectionBody,
   parseSaveConnectionBody,
   parseSelectResourcesBody,
+  parseShipmentActionBody,
   readShippingJsonBody,
 } from "./request-input.ts";
+import type { ShippingShipmentActionKind } from "@celebix/saas-data";
 
 const BASE = "/api/settings/shipping/connection";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -49,6 +51,16 @@ function json(value: unknown, status = 200, extra?: HeadersInit): Response {
   headers.set("cache-control", "no-store");
   headers.set("x-content-type-options", "nosniff");
   return Response.json(value, { status, headers });
+}
+
+function labelResponse(value: Readonly<{ bytes: Uint8Array; sha256: string; version: number }>): Response {
+  const body = new Uint8Array(value.bytes.byteLength);
+  body.set(value.bytes);
+  return new Response(body.buffer, { status: 200, headers: {
+    "cache-control": "private, no-store", "content-type": "image/svg+xml", "content-disposition": "inline; filename=celebix-kargo-etiketi.svg",
+    "content-security-policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'", "x-content-type-options": "nosniff",
+    etag: `\"sha256-${value.sha256}\"`, "x-celebix-label-version": String(value.version),
+  } });
 }
 
 function failure(value: ShippingHttpFailure): Response {
@@ -209,6 +221,58 @@ export function createShippingHttpHandlers(dependencies: ShippingHttpDependencie
         const shipment = await authority.runtime.admin.currentShipment({
           tenantContext: authority.tenantContext, now: authority.now, shipmentId,
         });
+        if (shipment === null) return json({ code: "not_found" }, 404);
+        return json({ shipment: safeShipment(shipment) });
+      } catch (error) { return mappedFailure(error); }
+    },
+
+    async shipmentAction(request: Request, orderId: string, shipmentId: string, actionKind: Exclude<ShippingShipmentActionKind, "label">): Promise<Response> {
+      if (!UUID.test(orderId) || !UUID.test(shipmentId)) return json({ code: "invalid_input" }, 400);
+      const pathname = `/api/orders/${orderId}/shipping/shipments/${shipmentId}/${actionKind}`;
+      const authority = await authorizeShippingRequest(dependencies, request, "POST", pathname);
+      if (isShippingHttpFailure(authority)) return failure(authority);
+      const parsed = parseShipmentActionBody(await readShippingJsonBody(request));
+      if (parsed === null) return json({ code: "invalid_input" }, 400);
+      try {
+        const pending = await authority.runtime.admin.beginShipmentAction({
+          tenantContext: authority.tenantContext, now: authority.now, orderId, shipmentId, actionKind, ...parsed,
+        });
+        const outcome = await dependencies.shipmentActionJob({
+          jobId: pending.jobId, workerId: `panel.${authority.requestId}`, runtime: authority.runtime, now: authority.now,
+        });
+        if (outcome === "failed" || outcome === "empty") return json({ code: "unavailable" }, 503);
+        const shipment = await authority.runtime.admin.currentShipment({
+          tenantContext: authority.tenantContext, now: authority.now, shipmentId,
+        });
+        if (shipment === null) return json({ code: "not_found" }, 404);
+        return json({ shipment: safeShipment(shipment) }, outcome === "marked_unknown" ? 202 : 200);
+      } catch (error) { return mappedFailure(error); }
+    },
+
+    async shipmentLabel(request: Request, orderId: string, shipmentId: string): Promise<Response> {
+      if (!UUID.test(orderId) || !UUID.test(shipmentId)) return json({ code: "invalid_input" }, 400);
+      const pathname = `/api/orders/${orderId}/shipping/shipments/${shipmentId}/label`;
+      if (request.method === "GET") {
+        const authority = await authorizeShippingRequest(dependencies, request, "GET", pathname);
+        if (isShippingHttpFailure(authority)) return failure(authority);
+        try {
+          const label = await authority.runtime.admin.currentShipmentLabel({ tenantContext: authority.tenantContext, now: authority.now, orderId, shipmentId });
+          return label === null ? json({ code: "not_found" }, 404) : labelResponse(label);
+        } catch (error) { return mappedFailure(error); }
+      }
+      const authority = await authorizeShippingRequest(dependencies, request, "POST", pathname);
+      if (isShippingHttpFailure(authority)) return failure(authority);
+      const parsed = parseShipmentActionBody(await readShippingJsonBody(request));
+      if (parsed === null) return json({ code: "invalid_input" }, 400);
+      try {
+        const pending = await authority.runtime.admin.beginShipmentAction({
+          tenantContext: authority.tenantContext, now: authority.now, orderId, shipmentId, actionKind: "label", ...parsed,
+        });
+        const outcome = await dependencies.shipmentActionJob({
+          jobId: pending.jobId, workerId: `panel.${authority.requestId}`, runtime: authority.runtime, now: authority.now,
+        });
+        if (outcome !== "completed") return json({ code: "unavailable" }, 503);
+        const shipment = await authority.runtime.admin.currentShipment({ tenantContext: authority.tenantContext, now: authority.now, shipmentId });
         if (shipment === null) return json({ code: "not_found" }, 404);
         return json({ shipment: safeShipment(shipment) });
       } catch (error) { return mappedFailure(error); }

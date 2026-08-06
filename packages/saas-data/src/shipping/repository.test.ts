@@ -144,3 +144,23 @@ test("shipment begin sends only quote digest and parses the safe shipment projec
   assert.doesNotMatch(JSON.stringify(client.calls), new RegExp(quoteCredential, "u"));
   assert.equal((await repository.currentShipmentForOrder({ tenantContext: tenant(), now: NOW, orderId: ORDER }))?.id, SHIPMENT);
 });
+
+test("shipment actions are version-bound and labels are digest verified", async () => {
+  const labelBytes = new TextEncoder().encode("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>");
+  const labelSha = await import("node:crypto").then(({ createHash }) => createHash("sha256").update(labelBytes).digest("hex"));
+  const client = new Client((text) => text.includes("shipping_shipment_action_begin")
+    ? [{ outcome: "queued", result_payload: { jobId: SHIPMENT_JOB } }]
+    : text.includes("shipping_shipment_label_current") ? [{ outcome: "found", result_payload: {
+      contentType: "image/svg+xml", bytesBase64: Buffer.from(labelBytes).toString("base64"), sha256: labelSha, version: 1,
+    } }] : []);
+  const repository = new PostgresShippingAdminRepository({
+    pool: { async connect() { return client; } }, role: "celebix_saas_app", keyring: keyring(), generateId() { return SHIPMENT_JOB; }, audit() {},
+    timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
+  });
+  const begun = await repository.beginShipmentAction({ tenantContext: tenant(), now: NOW, orderId: ORDER, shipmentId: SHIPMENT, expectedShipmentVersion: 2, actionKind: "refresh", operationId: OPERATION });
+  assert.equal(begun.jobId, SHIPMENT_JOB);
+  const label = await repository.currentShipmentLabel({ tenantContext: tenant(), now: NOW, orderId: ORDER, shipmentId: SHIPMENT });
+  assert.equal(new TextDecoder().decode(label?.bytes), new TextDecoder().decode(labelBytes));
+  const call = client.calls.find(({ text }) => text.includes("shipping_shipment_action_begin"));
+  assert.equal(call?.values.includes("BK-REF"), false);
+});

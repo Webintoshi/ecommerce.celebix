@@ -9,7 +9,7 @@ import {
 } from "@/lib/shipping-ui/client";
 import styles from "./order-shipment.module.css";
 
-type BusyState = "" | "quote" | "shipment";
+type BusyState = "" | "quote" | "shipment" | "refresh" | "label" | "cancel" | "return";
 
 function money(cents: number) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(cents / 100);
@@ -36,6 +36,14 @@ function safeMessage(error: unknown): string {
 
 function shipmentStatus(status: Shipment["status"]): string {
   if (status === "ready") return "Hazır";
+  if (status === "shipped") return "Kargoda";
+  if (status === "out_for_delivery") return "Dağıtımda";
+  if (status === "delivered") return "Teslim edildi";
+  if (status === "delayed") return "Gecikme var";
+  if (status === "returning") return "İade sürecinde";
+  if (status === "returned") return "İade edildi";
+  if (status === "lost") return "Kayıp";
+  if (status === "cancelled") return "İptal edildi";
   if (status === "provider_outcome_unknown") return "Sonuç doğrulanıyor";
   if (status === "attention_required") return "İnceleme gerekiyor";
   return "İşleniyor";
@@ -100,6 +108,22 @@ export function OrderShipmentConsole({ orderId, orderVersion }: Readonly<{ order
     }
   }
 
+  async function shipmentAction(action: "refresh" | "label" | "cancel" | "return") {
+    if (!shipment || inFlight.current !== "") return;
+    if (action === "cancel" && !window.confirm("Bu gönderiyi iptal etmek istiyor musunuz?")) return;
+    if (action === "return" && !window.confirm("Bu sipariş için iade gönderisi oluşturulsun mu?")) return;
+    const signal = begin(action);
+    if (signal === null) return;
+    try {
+      const next = await shippingFulfillmentApi.shipmentAction(orderId, shipment.id, shipment.version, action, signal);
+      if (!signal.aborted) setShipment(next);
+    } catch (error) {
+      if (!signal.aborted) setMessage(safeMessage(error));
+    } finally {
+      if (!signal.aborted && controller.current?.signal === signal) { inFlight.current = ""; setBusy(""); }
+    }
+  }
+
   return (
     <div className={styles.console}>
       <div className={styles.provider}><strong>Basit Kargo</strong><span>Kontrollü gönderi</span></div>
@@ -130,12 +154,20 @@ export function OrderShipmentConsole({ orderId, orderVersion }: Readonly<{ order
       ) : null}
 
       {shipment ? (
-        <dl className={styles.result}>
-          <div><dt>Durum</dt><dd>{shipmentStatus(shipment.status)}</dd></div>
-          {shipment.carrier ? <div><dt>Kargo firması</dt><dd>{shipment.carrier}</dd></div> : null}
-          {shipment.trackingNumber ? <div><dt>Takip numarası</dt><dd>{shipment.trackingNumber}</dd></div> : null}
-          {shipment.barcode ? <div><dt>Barkod</dt><dd>{shipment.barcode}</dd></div> : null}
-        </dl>
+        <>
+          <dl className={styles.result}>
+            <div><dt>Durum</dt><dd>{shipmentStatus(shipment.status)}</dd></div>
+            {shipment.carrier ? <div><dt>Kargo firması</dt><dd>{shipment.carrier}</dd></div> : null}
+            {shipment.trackingNumber ? <div><dt>Takip numarası</dt><dd>{shipment.trackingNumber}</dd></div> : null}
+            {shipment.barcode ? <div><dt>Barkod</dt><dd>{shipment.barcode}</dd></div> : null}
+          </dl>
+          <div className={styles.actions}>
+            {!(["cancelled", "returned", "lost"] as Shipment["status"][]).includes(shipment.status) ? <button type="button" onClick={() => { void shipmentAction("refresh"); }} disabled={busy !== ""}>{busy === "refresh" ? "Güncelleniyor…" : "Durumu güncelle"}</button> : null}
+            {shipment.label.available ? <a href={shippingFulfillmentApi.shipmentLabelUrl(orderId, shipment.id)} target="_blank" rel="noreferrer">Etiketi aç</a> : shipment.status !== "cancelled" ? <button type="button" onClick={() => { void shipmentAction("label"); }} disabled={busy !== ""}>{busy === "label" ? "Hazırlanıyor…" : "Etiket hazırla"}</button> : null}
+            {shipment.status === "ready" ? <button className={styles.danger} type="button" onClick={() => { void shipmentAction("cancel"); }} disabled={busy !== ""}>{busy === "cancel" ? "İptal ediliyor…" : "Gönderiyi iptal et"}</button> : null}
+            {shipment.status === "delivered" ? <button type="button" onClick={() => { void shipmentAction("return"); }} disabled={busy !== ""}>{busy === "return" ? "Başlatılıyor…" : "İade başlat"}</button> : null}
+          </div>
+        </>
       ) : null}
       <p className={styles.message} aria-live="polite">{message}</p>
     </div>

@@ -24,11 +24,14 @@ import {
 import type {
   BeginShippingQuoteInput,
   BeginShippingQuoteResult,
+  BeginShippingShipmentActionInput,
+  BeginShippingShipmentActionResult,
   BeginShippingShipmentInput,
   BeginShippingShipmentResult,
   CurrentShippingQuoteInput,
   CurrentShippingShipmentForOrderInput,
   CurrentShippingShipmentInput,
+  CurrentShippingShipmentLabelInput,
   PostgresShippingAdminRepositoryOptions,
   RevokeShippingConnectionInput,
   SaveShippingConnectionInput,
@@ -37,6 +40,8 @@ import type {
   ShippingAdminRepository,
   ShippingAuthorityInput,
   ShippingConnectionSetup,
+  ShippingShipmentActionKind,
+  ShippingShipmentLabel,
 } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -197,6 +202,35 @@ function parseShipmentBegin(value: unknown, replayed: boolean): BeginShippingShi
   const wrapper = object(value);
   if (Object.keys(wrapper).sort().join(",") !== "jobId,shipment" || typeof wrapper.jobId !== "string" || !UUID.test(wrapper.jobId)) throw unavailable();
   try { return Object.freeze({ shipment: parseShipment(wrapper.shipment), jobId: wrapper.jobId, replayed }); } catch { throw unavailable(); }
+}
+
+function actionKind(value: unknown): ShippingShipmentActionKind {
+  if (value !== "refresh" && value !== "label" && value !== "cancel" && value !== "return") invalid();
+  return value;
+}
+
+function parseShipmentActionBegin(value: unknown, replayed: boolean): BeginShippingShipmentActionResult {
+  const selected = object(value);
+  if (Object.keys(selected).sort().join(",") !== "jobId" || typeof selected.jobId !== "string" || !UUID.test(selected.jobId)) throw unavailable();
+  return Object.freeze({ jobId: selected.jobId, replayed });
+}
+
+function parseShipmentLabel(value: unknown): ShippingShipmentLabel {
+  const selected = object(value);
+  if (
+    Object.keys(selected).sort().join(",") !== "bytesBase64,contentType,sha256,version" ||
+    selected.contentType !== "image/svg+xml" || typeof selected.bytesBase64 !== "string" ||
+    typeof selected.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(selected.sha256) ||
+    !Number.isSafeInteger(selected.version) || (selected.version as number) < 1
+  ) throw unavailable();
+  let bytes: Uint8Array;
+  try {
+    const decoded = Buffer.from(selected.bytesBase64, "base64");
+    if (decoded.byteLength < 1 || decoded.byteLength > 1_048_576 || decoded.toString("base64") !== selected.bytesBase64) throw unavailable();
+    bytes = new Uint8Array(decoded);
+  } catch { throw unavailable(); }
+  if (createHash("sha256").update(bytes).digest("hex") !== selected.sha256) { bytes.fill(0); throw unavailable(); }
+  return Object.freeze({ contentType: "image/svg+xml", bytes, sha256: selected.sha256, version: selected.version as number });
 }
 
 function quoteCredential(keyring: ShippingCredentialKeyring, storeId: string, operationId: string): string {
@@ -471,6 +505,51 @@ export class PostgresShippingAdminRepository implements ShippingAdminRepository 
       const known = this.known(result.outcome); if (known) throw known;
       if (result.outcome !== "found") throw unavailable();
       try { return parseShipment(result.result); } catch { throw unavailable(); }
+    });
+  }
+
+  async beginShipmentAction(input: BeginShippingShipmentActionInput): Promise<BeginShippingShipmentActionResult> {
+    const parsed = exact(input, ["tenantContext", "now", "orderId", "shipmentId", "expectedShipmentVersion", "actionKind", "operationId"]);
+    const selected = authority(parsed.tenantContext, parsed.now), orderId = uuid(parsed.orderId), shipmentId = uuid(parsed.shipmentId);
+    const expectedShipmentVersion = version(parsed.expectedShipmentVersion, 1), selectedKind = actionKind(parsed.actionKind), operationId = uuid(parsed.operationId);
+    const operationFingerprint = fingerprint("shipment_action", selected.storeId, { orderId, shipmentId, expectedShipmentVersion, actionKind: selectedKind });
+    const jobId = uuid(this.options.generateId());
+    const execute = async () => this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_action_begin($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::bigint,$11::text,$12::uuid,$13::text,$14::uuid)",
+        [...authorityValues(selected), orderId, shipmentId, expectedShipmentVersion, selectedKind, operationId, operationFingerprint, jobId],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "queued" && result.outcome !== "operation_replayed") throw unavailable();
+      return parseShipmentActionBegin(result.result, result.outcome === "operation_replayed");
+    });
+    try { return await execute(); }
+    catch (error) {
+      if (!(error instanceof ShippingAdminRepositoryError) || error.code !== "commit_unknown") throw error;
+      try { const pending = this.options.audit({ type: "shipping_commit_unknown" }); if (pending) void pending.catch(() => undefined); } catch {}
+      return this.transaction(true, async (client) => {
+        const result = row(await client.query(
+          "SELECT outcome,result_payload FROM saas.shipping_shipment_action_recover($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",
+          [...authorityValues(selected), operationId, operationFingerprint],
+        ));
+        if (result.outcome !== "operation_replayed") throw new ShippingAdminRepositoryError("commit_unknown");
+        return parseShipmentActionBegin(result.result, true);
+      });
+    }
+  }
+
+  async currentShipmentLabel(input: CurrentShippingShipmentLabelInput): Promise<ShippingShipmentLabel | null> {
+    const parsed = exact(input, ["tenantContext", "now", "orderId", "shipmentId"]);
+    const selected = authority(parsed.tenantContext, parsed.now), orderId = uuid(parsed.orderId), shipmentId = uuid(parsed.shipmentId);
+    return this.transaction(true, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_label_current($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid)",
+        [...authorityValues(selected), orderId, shipmentId],
+      ));
+      if (result.outcome === "not_found" && result.result === null) return null;
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "found") throw unavailable();
+      return parseShipmentLabel(result.result);
     });
   }
 }

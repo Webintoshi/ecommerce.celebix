@@ -25,7 +25,15 @@ class Client {
   readonly calls: Array<{ text: string; values: unknown[] }> = [];
   async query(text: string, values: unknown[] = []) {
     this.calls.push({ text, values });
-    const rows = text.includes("shipping_fulfillment_claim_job") ? [{ outcome: "claimed", result_payload: {
+    const rows = text.includes("shipping_shipment_action_claim") ? [{ outcome: "claimed", result_payload: {
+      jobId: JOB, actionKind: "refresh", storeId: STORE, profileId: PROFILE, shipmentId: SHIPMENT,
+      credentialVersion: 1, leaseId: LEASE, fenceToken: 1, version: 2,
+    } }] : text.includes("shipping_shipment_action_open") ? [{ outcome: "opened", result_payload: {
+      actionKind: "refresh", providerCode: "basit_kargo", credentialEnvelope: envelope,
+      credentialDigest: "a".repeat(64), credentialKeyId: "shipping.current", credentialVersion: 1,
+      storeId: STORE, profileId: PROFILE, shipmentId: SHIPMENT, providerReference: "BK-REF", barcode: "BK-BAR",
+    } }] : text.includes("shipping_shipment_action_complete") ? [{ outcome: "completed", result_payload: {} }]
+    : text.includes("shipping_fulfillment_claim_job") ? [{ outcome: "claimed", result_payload: {
       jobId: JOB, jobKind: "create_shipment", storeId: STORE, profileId: PROFILE, quoteId: QUOTE,
       shipmentId: SHIPMENT, credentialVersion: 1, leaseId: LEASE, fenceToken: 1, version: 2,
     } }] : text.includes("shipping_fulfillment_open") ? [{ outcome: "opened", result_payload: {
@@ -74,5 +82,20 @@ test("an exact fulfillment lease opens provider inputs without exposing the seal
   assert.equal(new TextDecoder().decode(opened.tokenBytes), "bk_live_secret_123456789");
   assert.equal(opened.order?.handlerCode, "ARAS");
   assert.equal(Object.hasOwn(opened, "credentialEnvelope"), false);
+  opened.tokenBytes.fill(0);
+});
+
+test("an exact shipment action lease opens only provider identity required by the worker", async () => {
+  const client = new Client();
+  const repository = new PostgresShippingWorkflowRepository({
+    pool: { async connect() { return client; } }, role: "celebix_saas_workflow", keyring,
+    timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
+  });
+  const claim = await repository.claimShipmentAction({ jobId: JOB, workerId: "worker-1", now: NOW, leaseSeconds: 30, leaseId: LEASE });
+  assert.ok(claim);
+  const opened = await repository.openShipmentAction({ claim, now: NOW });
+  assert.equal(opened.providerReference, "BK-REF");
+  assert.equal(new TextDecoder().decode(opened.tokenBytes), "bk_live_secret_123456789");
+  await repository.completeShipmentAction({ claim, now: NOW, eventId: LEASE, providerShipmentId: "BK-REF", barcode: "BK-BAR", trackingNumber: "TRK-1", carrier: "Aras", status: "shipped", priceCents: 1000, labelBytes: null, labelSha256: null });
   opened.tokenBytes.fill(0);
 });

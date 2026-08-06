@@ -69,12 +69,16 @@ test("fulfillment client sends only package facts and selected quote authority",
   await api.quote(ORDER, 3, quote.packages);
   await api.createShipment(ORDER, 3, QUOTE_CREDENTIAL, OPTION);
   await api.currentShipmentForOrder(ORDER);
+  await api.shipmentAction(ORDER, SHIPMENT, 2, "refresh");
   assert.deepEqual(await requests[0]!.json(), { operationId: OPERATION, expectedOrderVersion: 3, packages: quote.packages });
   const shipmentBody = await requests[1]!.json();
   assert.deepEqual(shipmentBody, { operationId: OPERATION, expectedOrderVersion: 3, quoteCredential: QUOTE_CREDENTIAL, optionId: OPTION });
   assert.equal(JSON.stringify(shipmentBody).includes("handlerCode"), false);
   assert.equal(requests[2]?.method, "GET");
   assert.equal(requests[2]?.url.endsWith(`/api/orders/${ORDER}/shipping/shipments`), true);
+  assert.deepEqual(await requests[3]!.json(), { operationId: OPERATION, expectedShipmentVersion: 2 });
+  assert.equal(requests[3]?.url.endsWith(`/api/orders/${ORDER}/shipping/shipments/${SHIPMENT}/refresh`), true);
+  assert.equal(api.shipmentLabelUrl(ORDER, SHIPMENT), `/api/orders/${ORDER}/shipping/shipments/${SHIPMENT}/label`);
 });
 
 test("fulfillment client rejects forged paths and private response fields", async () => {

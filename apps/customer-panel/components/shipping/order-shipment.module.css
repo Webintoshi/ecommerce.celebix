@@ -22,6 +22,11 @@
 .result dt { color: #667085; font-size: .66rem; font-weight: 700; }
 .result dd { overflow-wrap: anywhere; margin: 0; color: #171717; font-size: .78rem; font-weight: 750; }
 .message { min-height: 1rem; margin: 0; color: #b42318; font-size: .72rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .45rem; }
+.actions button, .actions a { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; border: 1px solid #d7dde5; border-radius: 7px; padding: .55rem .75rem; background: #fff; color: #344054; font: inherit; font-size: .7rem; font-weight: 750; text-decoration: none; cursor: pointer; }
+.actions button:hover, .actions a:hover { border-color: #ff8a4c; color: #b54708; }
+.actions button:disabled { cursor: not-allowed; opacity: .45; }
+.actions .danger { border-color: #fecdca; color: #b42318; }
 @media (max-width: 760px) {
   .packageForm fieldset { grid-template-columns: 1fr 1fr; }
   .packageForm button { grid-column: 1 / -1; width: 100%; }

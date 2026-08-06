@@ -7,17 +7,17 @@
     {
       "file": "202608060094_shipping_fulfillment_runtime.up.sql",
       "direction": "up",
-      "sha256": "38eb0160e75065b7b1aaf7c85ccd849ff0932de8b4575bdaf3513c5bc7675912"
+      "sha256": "7d5f4938ac25e7cf521726892c22b4dab84a8a5064df128674a1310e60aad7f5"
     },
     {
       "file": "202608060094_shipping_fulfillment_runtime.down.sql",
       "direction": "down",
-      "sha256": "b753bcdc5ecfbd4a62e204f0f45e142ba61ab9588ff5e6ee3d1ff568cd82686a"
+      "sha256": "d743fb4e4e3c9945977b73f7186a08320d3cf85442588fcca25d007158c49489"
     },
     {
       "file": "202608060094_shipping_fulfillment_runtime_assertions.sql",
       "direction": "verify",
-      "sha256": "48977376a87d61fa6f63635bd57cfead753dd07f36dac280abd49cb9aafae452"
+      "sha256": "9b5014564bc443ed447b892d0626567189afd8ef0745756143a65e7c87b3a4f2"
     }
   ]
 }

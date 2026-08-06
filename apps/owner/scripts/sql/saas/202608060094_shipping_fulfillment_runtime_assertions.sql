@@ -6,11 +6,12 @@ SET LOCAL statement_timeout='120s';
 DO $function$
 BEGIN
   IF saas.shipping_fulfillment_runtime_preflight() IS DISTINCT FROM true
-    OR (SELECT pg_catalog.count(*)<>7 FROM pg_catalog.pg_class relation
+    OR (SELECT pg_catalog.count(*)<>11 FROM pg_catalog.pg_class relation
       JOIN pg_catalog.pg_namespace namespace ON namespace.oid=relation.relnamespace
       WHERE namespace.nspname='saas'
         AND relation.relname IN('shipping_quote_sessions','shipping_quote_options','shipping_shipments',
-          'shipping_shipment_items','shipping_fulfillment_jobs','shipping_shipment_events','shipping_fulfillment_operations')
+          'shipping_shipment_items','shipping_fulfillment_jobs','shipping_shipment_events','shipping_fulfillment_operations',
+          'shipping_shipment_action_jobs','shipping_shipment_action_operations','shipping_shipment_labels','shipping_shipment_returns')
         AND relation.relrowsecurity AND relation.relforcerowsecurity)
     OR pg_catalog.has_table_privilege('celebix_saas_app','saas.shipping_shipments','SELECT,INSERT,UPDATE,DELETE')
     OR pg_catalog.has_table_privilege('celebix_saas_workflow','saas.shipping_fulfillment_jobs','SELECT,INSERT,UPDATE,DELETE')
@@ -30,6 +31,11 @@ BEGIN
       'EXECUTE'
     )
     OR NOT pg_catalog.has_function_privilege(
+      'celebix_saas_app',
+      'saas.shipping_shipment_action_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,uuid,text,uuid)',
+      'EXECUTE'
+    )
+    OR NOT pg_catalog.has_function_privilege(
       'celebix_saas_workflow',
       'saas.shipping_fulfillment_claim(text,timestamp with time zone,integer,uuid)',
       'EXECUTE'
@@ -37,6 +43,11 @@ BEGIN
     OR NOT pg_catalog.has_function_privilege(
       'celebix_saas_workflow',
       'saas.shipping_fulfillment_claim_job(uuid,text,timestamp with time zone,integer,uuid)',
+      'EXECUTE'
+    )
+    OR NOT pg_catalog.has_function_privilege(
+      'celebix_saas_workflow',
+      'saas.shipping_shipment_action_claim(uuid,text,timestamp with time zone,integer,uuid)',
       'EXECUTE'
     )
     OR pg_catalog.has_function_privilege(

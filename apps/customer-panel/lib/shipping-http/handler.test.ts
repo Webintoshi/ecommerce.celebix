@@ -69,7 +69,7 @@ function request(path: string, method = "GET", value?: unknown, origin = ORIGIN,
 function fixture(role: "store_owner" | "analyst" = "store_owner") {
   const calls = {
     saved: [] as unknown[], selected: [] as unknown[], revoked: [] as unknown[], validated: [] as unknown[],
-    quoted: [] as unknown[], shipped: [] as unknown[], fulfilled: [] as unknown[],
+    quoted: [] as unknown[], shipped: [] as unknown[], fulfilled: [] as unknown[], actions: [] as unknown[], actionJobs: [] as unknown[],
   };
   let setup: Readonly<{ connection: ShippingConnection; resources: readonly ShippingResource[] }> | null = null;
   const admin = {
@@ -83,6 +83,8 @@ function fixture(role: "store_owner" | "analyst" = "store_owner") {
     async beginShipment(input: unknown) { calls.shipped.push(input); return { shipment: { ...READY, status: "creating" }, jobId: JOB, replayed: false }; },
     async currentShipment() { return READY; },
     async currentShipmentForOrder() { return READY; },
+    async beginShipmentAction(input: unknown) { calls.actions.push(input); return { jobId: JOB, replayed: false }; },
+    async currentShipmentLabel() { return { contentType: "image/svg+xml", bytes: new TextEncoder().encode("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"), sha256: "a".repeat(64), version: 1 }; },
   };
   const runtime = {
     access: {
@@ -97,6 +99,7 @@ function fixture(role: "store_owner" | "analyst" = "store_owner") {
       async resolveRuntime() { return runtime; }, now: () => new Date(NOW), requestId: () => REQUEST,
       async validateJob(input) { calls.validated.push(input); return "completed"; },
       async fulfillJob(input) { calls.fulfilled.push(input); return "completed"; },
+      async shipmentActionJob(input) { calls.actionJobs.push(input); return "completed"; },
     }),
   };
 }
@@ -141,9 +144,27 @@ test("fulfillment endpoints reject forged identifiers and private provider input
     await selected.handlers.quote(request(`/api/orders/${ORDER}/shipping/quotes`, "POST", { operationId: OPERATION, expectedOrderVersion: 3, packages: [], storeId: BRAND }), ORDER),
     await selected.handlers.shipment(request(`/api/orders/${ORDER}/shipping/shipments`, "POST", { operationId: OPERATION, expectedOrderVersion: 3, quoteCredential: QUOTE_CREDENTIAL, optionId: OPTION, handlerCode: "FORGED" }), ORDER),
     await selected.handlers.shipmentDetail(request(`/api/orders/${ORDER}/shipping/shipments/not-a-uuid`), ORDER, "not-a-uuid"),
+    await selected.handlers.shipmentAction(request(`/api/orders/${ORDER}/shipping/shipments/${SHIPMENT}/cancel`, "POST", { operationId: OPERATION, expectedShipmentVersion: 2, barcode: "FORGED" }), ORDER, SHIPMENT, "cancel"),
   ];
   for (const response of invalid) assert.equal(response.status, 400);
-  assert.equal(selected.calls.quoted.length + selected.calls.shipped.length, 0);
+  assert.equal(selected.calls.quoted.length + selected.calls.shipped.length + selected.calls.actions.length, 0);
+});
+
+test("shipment actions accept only operation identity and expected durable version", async () => {
+  const selected = fixture();
+  for (const action of ["refresh", "cancel", "return"] as const) {
+    const response = await selected.handlers.shipmentAction(request(`/api/orders/${ORDER}/shipping/shipments/${SHIPMENT}/${action}`, "POST", {
+      operationId: OPERATION, expectedShipmentVersion: 2,
+    }), ORDER, SHIPMENT, action);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { shipment: READY });
+  }
+  const label = await selected.handlers.shipmentLabel(request(`/api/orders/${ORDER}/shipping/shipments/${SHIPMENT}/label`), ORDER, SHIPMENT);
+  assert.equal(label.status, 200);
+  assert.equal(label.headers.get("content-type"), "image/svg+xml");
+  assert.equal(label.headers.get("content-security-policy")?.startsWith("sandbox"), true);
+  assert.equal(selected.calls.actions.length, 3);
+  assert.equal(JSON.stringify(selected.calls.actions).includes("providerReference"), false);
 });
 
 test("connection save accepts only token and operation identity then runs exact validation job", async () => {

@@ -29,6 +29,18 @@ export type BeginShippingShipmentInput = Readonly<{
 export type BeginShippingShipmentResult = Readonly<{ shipment: Shipment; jobId: string; replayed: boolean }>;
 export type CurrentShippingShipmentInput = Readonly<{ tenantContext: TenantContext; now: Date; shipmentId: string }>;
 export type CurrentShippingShipmentForOrderInput = Readonly<{ tenantContext: TenantContext; now: Date; orderId: string }>;
+export type ShippingShipmentActionKind = "refresh" | "label" | "cancel" | "return";
+export type BeginShippingShipmentActionInput = Readonly<{
+  tenantContext: TenantContext; now: Date; orderId: string; shipmentId: string;
+  expectedShipmentVersion: number; actionKind: ShippingShipmentActionKind; operationId: string;
+}>;
+export type BeginShippingShipmentActionResult = Readonly<{ jobId: string; replayed: boolean }>;
+export type CurrentShippingShipmentLabelInput = Readonly<{
+  tenantContext: TenantContext; now: Date; orderId: string; shipmentId: string;
+}>;
+export type ShippingShipmentLabel = Readonly<{
+  contentType: "image/svg+xml"; bytes: Uint8Array; sha256: string; version: number;
+}>;
 
 export interface ShippingAdminRepository {
   current(input: ShippingAuthorityInput): Promise<ShippingConnection | null>;
@@ -41,6 +53,8 @@ export interface ShippingAdminRepository {
   beginShipment(input: BeginShippingShipmentInput): Promise<BeginShippingShipmentResult>;
   currentShipment(input: CurrentShippingShipmentInput): Promise<Shipment | null>;
   currentShipmentForOrder(input: CurrentShippingShipmentForOrderInput): Promise<Shipment | null>;
+  beginShipmentAction(input: BeginShippingShipmentActionInput): Promise<BeginShippingShipmentActionResult>;
+  currentShipmentLabel(input: CurrentShippingShipmentLabelInput): Promise<ShippingShipmentLabel | null>;
 }
 
 export interface PostgresShippingAdminRepositoryOptions {
@@ -84,6 +98,11 @@ export interface ShippingWorkflowRepository {
   failFulfillment(input: FailShippingFulfillmentInput): Promise<"failed" | "requeued">;
   completeShipment(input: CompleteShippingShipmentInput): Promise<"completed">;
   markShipmentUnknown(input: MarkShippingShipmentUnknownInput): Promise<"marked_unknown">;
+  claimShipmentAction(input: ClaimShippingShipmentActionInput): Promise<ShippingShipmentActionClaim | null>;
+  openShipmentAction(input: OpenShippingShipmentActionInput): Promise<OpenedShippingShipmentAction>;
+  completeShipmentAction(input: CompleteShippingShipmentActionInput): Promise<"completed">;
+  failShipmentAction(input: FailShippingShipmentActionInput): Promise<"failed">;
+  markShipmentActionUnknown(input: MarkShippingShipmentActionUnknownInput): Promise<"marked_unknown">;
 }
 
 export interface PostgresShippingWorkflowRepositoryOptions {
@@ -136,4 +155,32 @@ export type CompleteShippingShipmentInput = Readonly<{
 }>;
 export type MarkShippingShipmentUnknownInput = Readonly<{
   claim: ShippingFulfillmentClaim; now: Date; eventId: string; safeCode: string;
+}>;
+
+export type ShippingShipmentActionClaim = Readonly<{
+  jobId: string; actionKind: ShippingShipmentActionKind; storeId: string; profileId: string;
+  shipmentId: string; credentialVersion: number; leaseId: string; workerId: string;
+  fenceToken: number; version: number;
+}>;
+export type ClaimShippingShipmentActionInput = Readonly<{
+  jobId: string; workerId: string; now: Date; leaseSeconds: number; leaseId: string;
+}>;
+export type OpenShippingShipmentActionInput = Readonly<{ claim: ShippingShipmentActionClaim; now: Date }>;
+export type OpenedShippingShipmentAction = Readonly<{
+  claim: ShippingShipmentActionClaim; providerCode: "basit_kargo"; tokenBytes: Uint8Array;
+  providerReference: string; barcode: string | null;
+}>;
+export type CompleteShippingShipmentActionInput = Readonly<{
+  claim: ShippingShipmentActionClaim; now: Date; eventId: string;
+  providerShipmentId: string | null; barcode: string | null; trackingNumber: string | null;
+  carrier: string | null; status: Shipment["status"] | null; priceCents: number | null;
+  labelBytes: Uint8Array | null; labelSha256: string | null;
+}>;
+export type FailShippingShipmentActionInput = Readonly<{
+  claim: ShippingShipmentActionClaim; now: Date;
+  failureKind: "credential_invalid" | "rejected" | "throttled" | "temporary_failure";
+  safeCode: string;
+}>;
+export type MarkShippingShipmentActionUnknownInput = Readonly<{
+  claim: ShippingShipmentActionClaim; now: Date; eventId: string; safeCode: string;
 }>;

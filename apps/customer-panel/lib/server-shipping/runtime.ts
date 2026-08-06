@@ -17,8 +17,8 @@ export type ServerShippingRuntime = Readonly<{
 }>;
 
 const RUNTIMES = new WeakMap<ServerPanelAccessRuntime, ServerShippingRuntime>();
-const ADMIN_METHODS = Object.freeze(["current", "setup", "saveConnection", "selectResources", "revokeConnection", "beginQuote", "currentQuote", "beginShipment", "currentShipment", "currentShipmentForOrder"] as const);
-const WORKFLOW_METHODS = Object.freeze(["claimValidation", "openClaimedCredential", "completeValidation", "failValidation", "claimFulfillment", "openFulfillment", "completeQuote", "failFulfillment", "completeShipment", "markShipmentUnknown"] as const);
+const ADMIN_METHODS = Object.freeze(["current", "setup", "saveConnection", "selectResources", "revokeConnection", "beginQuote", "currentQuote", "beginShipment", "currentShipment", "currentShipmentForOrder", "beginShipmentAction", "currentShipmentLabel"] as const);
+const WORKFLOW_METHODS = Object.freeze(["claimValidation", "openClaimedCredential", "completeValidation", "failValidation", "claimFulfillment", "openFulfillment", "completeQuote", "failFulfillment", "completeShipment", "markShipmentUnknown", "claimShipmentAction", "openShipmentAction", "completeShipmentAction", "failShipmentAction", "markShipmentActionUnknown"] as const);
 const ADAPTER_METHODS = Object.freeze([
   "parseCredential", "verifyCredential", "listBrands", "listSenderAddresses", "listHandlers",
   "quotePackages", "createShipment", "getShipment", "cancelShipment", "createReturnShipment", "downloadLabel",

@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { resolveDefaultServerPanelAccessRuntime } from "../server-panel-access/default.ts";
 import { resolveServerShippingRuntime } from "../server-shipping/runtime.ts";
 import { runShippingFulfillmentJob } from "../server-shipping/fulfillment-worker.ts";
+import { runShippingShipmentActionJob } from "../server-shipping/shipment-action-worker.ts";
 import { runShippingValidationJob } from "../server-shipping/validation-worker.ts";
 import { createShippingHttpHandlers } from "./handler.ts";
 
@@ -26,6 +27,9 @@ const handlers = createShippingHttpHandlers({
     workerId,
     runtime: selectedRuntime,
     now,
+  }),
+  shipmentActionJob: ({ jobId, workerId, runtime: selectedRuntime, now }) => runShippingShipmentActionJob({
+    jobId, workerId, runtime: selectedRuntime, now,
   }),
 });
 
@@ -54,4 +58,14 @@ export async function handleShippingShipmentForOrder(request: Request, context: 
 export async function handleShippingShipmentDetail(request: Request, context: ShipmentRouteContext) {
   const { orderId, shipmentId } = await context.params;
   return handlers.shipmentDetail(request, orderId, shipmentId);
+}
+
+export async function handleShippingShipmentAction(request: Request, context: ShipmentRouteContext, action: "refresh" | "cancel" | "return") {
+  const { orderId, shipmentId } = await context.params;
+  return handlers.shipmentAction(request, orderId, shipmentId, action);
+}
+
+export async function handleShippingShipmentLabel(request: Request, context: ShipmentRouteContext) {
+  const { orderId, shipmentId } = await context.params;
+  return handlers.shipmentLabel(request, orderId, shipmentId);
 }

@@ -217,6 +217,76 @@ CREATE TABLE saas.shipping_fulfillment_operations (
   CONSTRAINT shipping_fulfillment_operations_order_fk FOREIGN KEY(store_id,order_id) REFERENCES saas.orders(store_id,id) ON DELETE RESTRICT
 );
 
+CREATE TABLE saas.shipping_shipment_action_jobs (
+  id uuid PRIMARY KEY,
+  store_id uuid NOT NULL,
+  profile_id uuid NOT NULL,
+  shipment_id uuid NOT NULL,
+  credential_version bigint NOT NULL CHECK(credential_version>0),
+  action_kind text NOT NULL CHECK(action_kind IN('refresh','label','cancel','return')),
+  status text NOT NULL CHECK(status IN('queued','leased','succeeded','failed','provider_outcome_unknown')),
+  lease_id uuid,
+  lease_owner text,
+  lease_expires_at timestamptz,
+  fence_token bigint NOT NULL DEFAULT 0 CHECK(fence_token>=0),
+  safe_code text CHECK(safe_code IS NULL OR safe_code~'^[a-z][a-z0-9_]{1,63}$'),
+  version bigint NOT NULL DEFAULT 1 CHECK(version>0),
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL CHECK(updated_at>=created_at),
+  CONSTRAINT shipping_shipment_action_jobs_store_id_key UNIQUE(store_id,id),
+  CONSTRAINT shipping_shipment_action_jobs_profile_fk FOREIGN KEY(store_id,profile_id) REFERENCES saas.shipping_provider_profiles(store_id,id) ON DELETE RESTRICT,
+  CONSTRAINT shipping_shipment_action_jobs_shipment_fk FOREIGN KEY(store_id,shipment_id) REFERENCES saas.shipping_shipments(store_id,id) ON DELETE RESTRICT,
+  CONSTRAINT shipping_shipment_action_jobs_lease_check CHECK(
+    (status='leased' AND lease_id IS NOT NULL AND lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL
+      AND pg_catalog.octet_length(lease_owner) BETWEEN 1 AND 128 AND lease_owner=pg_catalog.btrim(lease_owner) AND lease_owner!~'[[:cntrl:]]')
+    OR (status<>'leased' AND lease_id IS NULL AND lease_owner IS NULL AND lease_expires_at IS NULL)
+  )
+);
+CREATE UNIQUE INDEX shipping_shipment_action_jobs_one_open ON saas.shipping_shipment_action_jobs(store_id,shipment_id,action_kind) WHERE status IN('queued','leased');
+
+CREATE TABLE saas.shipping_shipment_action_operations (
+  operation_id uuid PRIMARY KEY,
+  store_id uuid NOT NULL,
+  order_id uuid NOT NULL,
+  shipment_id uuid NOT NULL,
+  action_kind text NOT NULL CHECK(action_kind IN('refresh','label','cancel','return')),
+  payload_fingerprint char(64) NOT NULL CHECK(payload_fingerprint~'^[a-f0-9]{64}$'),
+  result_payload jsonb NOT NULL CHECK(pg_catalog.jsonb_typeof(result_payload)='object' AND pg_catalog.pg_column_size(result_payload)<=4096),
+  committed_at timestamptz NOT NULL,
+  CONSTRAINT shipping_shipment_action_operations_store_operation_key UNIQUE(store_id,operation_id),
+  CONSTRAINT shipping_shipment_action_operations_order_fk FOREIGN KEY(store_id,order_id) REFERENCES saas.orders(store_id,id) ON DELETE RESTRICT,
+  CONSTRAINT shipping_shipment_action_operations_shipment_fk FOREIGN KEY(store_id,shipment_id) REFERENCES saas.shipping_shipments(store_id,id) ON DELETE RESTRICT
+);
+
+CREATE TABLE saas.shipping_shipment_labels (
+  store_id uuid NOT NULL,
+  shipment_id uuid NOT NULL,
+  content_type text NOT NULL CHECK(content_type='image/svg+xml'),
+  content_bytes bytea NOT NULL CHECK(pg_catalog.octet_length(content_bytes) BETWEEN 1 AND 1048576),
+  content_sha256 char(64) NOT NULL CHECK(content_sha256~'^[a-f0-9]{64}$'),
+  version bigint NOT NULL CHECK(version>0),
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL CHECK(updated_at>=created_at),
+  PRIMARY KEY(store_id,shipment_id),
+  CONSTRAINT shipping_shipment_labels_shipment_fk FOREIGN KEY(store_id,shipment_id) REFERENCES saas.shipping_shipments(store_id,id) ON DELETE CASCADE
+);
+
+CREATE TABLE saas.shipping_shipment_returns (
+  store_id uuid NOT NULL,
+  shipment_id uuid NOT NULL,
+  provider_shipment_id text NOT NULL CHECK(pg_catalog.octet_length(provider_shipment_id) BETWEEN 1 AND 200 AND provider_shipment_id=pg_catalog.btrim(provider_shipment_id) AND provider_shipment_id!~'[[:cntrl:]]'),
+  barcode text CHECK(barcode IS NULL OR (pg_catalog.octet_length(barcode) BETWEEN 1 AND 200 AND barcode=pg_catalog.btrim(barcode) AND barcode!~'[[:cntrl:]]')),
+  tracking_number text,
+  carrier text,
+  status text NOT NULL CHECK(status IN('ready','shipped','out_for_delivery','delivered','delayed','returning','returned','lost','cancelled','attention_required')),
+  version bigint NOT NULL CHECK(version>0),
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL CHECK(updated_at>=created_at),
+  PRIMARY KEY(store_id,shipment_id),
+  CONSTRAINT shipping_shipment_returns_shipment_fk FOREIGN KEY(store_id,shipment_id) REFERENCES saas.shipping_shipments(store_id,id) ON DELETE RESTRICT,
+  CONSTRAINT shipping_shipment_returns_tracking_check CHECK((tracking_number IS NULL)=(carrier IS NULL))
+);
+
 CREATE FUNCTION saas.shipping_fulfillment_guard_immutable()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas
 AS $function$
@@ -224,6 +294,7 @@ BEGIN RAISE EXCEPTION 'SHIPPING_FULFILLMENT_IMMUTABLE'; END
 $function$;
 CREATE TRIGGER shipping_shipment_events_immutable BEFORE UPDATE OR DELETE ON saas.shipping_shipment_events FOR EACH ROW EXECUTE FUNCTION saas.shipping_fulfillment_guard_immutable();
 CREATE TRIGGER shipping_fulfillment_operations_immutable BEFORE UPDATE OR DELETE ON saas.shipping_fulfillment_operations FOR EACH ROW EXECUTE FUNCTION saas.shipping_fulfillment_guard_immutable();
+CREATE TRIGGER shipping_shipment_action_operations_immutable BEFORE UPDATE OR DELETE ON saas.shipping_shipment_action_operations FOR EACH ROW EXECUTE FUNCTION saas.shipping_fulfillment_guard_immutable();
 
 ALTER TABLE saas.shipping_quote_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.shipping_quote_sessions FORCE ROW LEVEL SECURITY;
@@ -239,9 +310,18 @@ ALTER TABLE saas.shipping_shipment_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.shipping_shipment_events FORCE ROW LEVEL SECURITY;
 ALTER TABLE saas.shipping_fulfillment_operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.shipping_fulfillment_operations FORCE ROW LEVEL SECURITY;
+ALTER TABLE saas.shipping_shipment_action_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.shipping_shipment_action_jobs FORCE ROW LEVEL SECURITY;
+ALTER TABLE saas.shipping_shipment_action_operations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.shipping_shipment_action_operations FORCE ROW LEVEL SECURITY;
+ALTER TABLE saas.shipping_shipment_labels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.shipping_shipment_labels FORCE ROW LEVEL SECURITY;
+ALTER TABLE saas.shipping_shipment_returns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.shipping_shipment_returns FORCE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE saas.shipping_quote_sessions,saas.shipping_quote_options,saas.shipping_shipments,
-  saas.shipping_shipment_items,saas.shipping_fulfillment_jobs,saas.shipping_shipment_events,saas.shipping_fulfillment_operations
+  saas.shipping_shipment_items,saas.shipping_fulfillment_jobs,saas.shipping_shipment_events,saas.shipping_fulfillment_operations,
+  saas.shipping_shipment_action_jobs,saas.shipping_shipment_action_operations,saas.shipping_shipment_labels,saas.shipping_shipment_returns
 FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,
   celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 
@@ -268,7 +348,8 @@ AS $function$
     'carrier',shipment.carrier,'barcode',shipment.barcode,'trackingNumber',shipment.tracking_number,
     'trackingUrl',shipment.tracking_url,'priceCents',shipment.price_cents,'codAmountCents',shipment.cod_amount_cents,
     'currency',shipment.currency,'version',shipment.version,'createdAt',saas.shipping_timestamp(shipment.created_at),
-    'updatedAt',saas.shipping_timestamp(shipment.updated_at),'label',pg_catalog.jsonb_build_object('available',false),
+    'updatedAt',saas.shipping_timestamp(shipment.updated_at),'label',COALESCE((SELECT pg_catalog.jsonb_build_object('available',true,'version',label.version)
+      FROM saas.shipping_shipment_labels label WHERE label.store_id=shipment.store_id AND label.shipment_id=shipment.id),pg_catalog.jsonb_build_object('available',false)),
     'items',COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
       'orderItemId',item.order_item_id,'productName',order_item.product_name,'quantity',item.quantity
     ) ORDER BY order_item.position,item.id) FROM saas.shipping_shipment_items item
@@ -276,8 +357,9 @@ AS $function$
       WHERE item.store_id=shipment.store_id AND item.shipment_id=shipment.id),'[]'::jsonb),
     'events',COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
       'id',event.id,'status',event.status,'occurredAt',saas.shipping_timestamp(event.occurred_at)
-    ) ORDER BY event.occurred_at,event.id) FROM saas.shipping_shipment_events event
-      WHERE event.store_id=shipment.store_id AND event.shipment_id=shipment.id),'[]'::jsonb)
+    ) ORDER BY event.occurred_at,event.id) FROM (SELECT selected.* FROM saas.shipping_shipment_events selected
+      WHERE selected.store_id=shipment.store_id AND selected.shipment_id=shipment.id
+      ORDER BY selected.occurred_at DESC,selected.id DESC LIMIT 200) event),'[]'::jsonb)
   )) FROM saas.shipping_shipments shipment
   JOIN saas.shipping_provider_profiles profile ON profile.store_id=shipment.store_id AND profile.id=shipment.profile_id
   WHERE shipment.store_id=p_store_id AND shipment.id=p_shipment_id
@@ -697,12 +779,247 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.shipping_shipment_action_begin(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,
+  p_order_id uuid,p_shipment_id uuid,p_expected_shipment_version bigint,p_action_kind text,p_operation_id uuid,p_payload_fingerprint text,p_job_id uuid
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text; shipment saas.shipping_shipments%ROWTYPE; profile saas.shipping_provider_profiles%ROWTYPE;
+  operation saas.shipping_shipment_action_operations%ROWTYPE; payload jsonb;
+BEGIN
+  authority_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'integrations','shipping.manage');
+  IF authority_error IS NULL THEN authority_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'orders','orders.fulfill'); END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  IF p_order_id IS NULL OR p_shipment_id IS NULL OR p_expected_shipment_version<1 OR p_action_kind NOT IN('refresh','label','cancel','return')
+    OR p_operation_id IS NULL OR p_payload_fingerprint!~'^[a-f0-9]{64}$' OR p_job_id IS NULL
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO operation FROM saas.shipping_shipment_action_operations value WHERE value.operation_id=p_operation_id;
+  IF FOUND THEN
+    IF operation.store_id<>p_store_id OR operation.order_id<>p_order_id OR operation.shipment_id<>p_shipment_id
+      OR operation.action_kind<>p_action_kind OR operation.payload_fingerprint<>p_payload_fingerprint
+    THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',operation.result_payload; END IF;
+    RETURN;
+  END IF;
+  SELECT value.* INTO shipment FROM saas.shipping_shipments value WHERE value.store_id=p_store_id AND value.id=p_shipment_id FOR UPDATE;
+  IF NOT FOUND OR shipment.order_id<>p_order_id THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  IF shipment.version<>p_expected_shipment_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO profile FROM saas.shipping_provider_profiles value WHERE value.store_id=p_store_id AND value.id=shipment.profile_id FOR SHARE;
+  IF NOT FOUND OR profile.status<>'active' OR profile.credential_version<>shipment.credential_version THEN RETURN QUERY SELECT 'provider_not_ready',NULL::jsonb; RETURN; END IF;
+  IF shipment.provider_shipment_id IS NULL OR (p_action_kind IN('cancel','return') AND shipment.barcode IS NULL)
+    OR (p_action_kind='refresh' AND shipment.status NOT IN('ready','shipped','out_for_delivery','delivered','delayed','returning','attention_required'))
+    OR (p_action_kind='label' AND shipment.status IN('creating','provider_outcome_unknown','attention_required','cancelled'))
+    OR (p_action_kind='cancel' AND shipment.status<>'ready')
+    OR (p_action_kind='return' AND shipment.status<>'delivered')
+    OR (p_action_kind='return' AND EXISTS(SELECT 1 FROM saas.shipping_shipment_returns value WHERE value.store_id=p_store_id AND value.shipment_id=p_shipment_id))
+  THEN RETURN QUERY SELECT 'order_not_fulfillable',NULL::jsonb; RETURN; END IF;
+  IF EXISTS(SELECT 1 FROM saas.shipping_shipment_action_jobs value WHERE value.store_id=p_store_id AND value.shipment_id=p_shipment_id AND value.action_kind=p_action_kind AND value.status IN('queued','leased'))
+  THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
+  INSERT INTO saas.shipping_shipment_action_jobs(id,store_id,profile_id,shipment_id,credential_version,action_kind,status,fence_token,version,created_at,updated_at)
+    VALUES(p_job_id,p_store_id,profile.id,shipment.id,profile.credential_version,p_action_kind,'queued',0,1,p_now,p_now);
+  payload:=pg_catalog.jsonb_build_object('jobId',p_job_id);
+  INSERT INTO saas.shipping_shipment_action_operations(operation_id,store_id,order_id,shipment_id,action_kind,payload_fingerprint,result_payload,committed_at)
+    VALUES(p_operation_id,p_store_id,p_order_id,p_shipment_id,p_action_kind,p_payload_fingerprint,payload,p_now);
+  RETURN QUERY SELECT 'queued',payload;
+END
+$function$;
+
+CREATE FUNCTION saas.shipping_shipment_action_recover(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,
+  p_operation_id uuid,p_payload_fingerprint text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text; operation saas.shipping_shipment_action_operations%ROWTYPE;
+BEGIN
+  authority_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'integrations','shipping.manage');
+  IF authority_error IS NULL THEN authority_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'orders','orders.fulfill'); END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO operation FROM saas.shipping_shipment_action_operations value WHERE value.operation_id=p_operation_id AND value.store_id=p_store_id;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'operation_not_found',NULL::jsonb; RETURN; END IF;
+  IF operation.payload_fingerprint<>p_payload_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'operation_replayed',operation.result_payload;
+END
+$function$;
+
+CREATE FUNCTION saas.shipping_shipment_label_current(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,
+  p_order_id uuid,p_shipment_id uuid
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text; label saas.shipping_shipment_labels%ROWTYPE;
+BEGIN
+  authority_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'integrations','shipping.read');
+  IF authority_error IS NULL THEN authority_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'orders','orders.read'); END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  IF NOT EXISTS(SELECT 1 FROM saas.shipping_shipments value WHERE value.store_id=p_store_id AND value.id=p_shipment_id AND value.order_id=p_order_id)
+  THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO label FROM saas.shipping_shipment_labels value WHERE value.store_id=p_store_id AND value.shipment_id=p_shipment_id;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'found',pg_catalog.jsonb_build_object('contentType',label.content_type,'bytesBase64',pg_catalog.encode(label.content_bytes,'base64'),'sha256',label.content_sha256,'version',label.version);
+END
+$function$;
+
+CREATE FUNCTION saas.shipping_shipment_action_claim(p_job_id uuid,p_worker_id text,p_now timestamptz,p_lease_seconds integer,p_lease_id uuid)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE job saas.shipping_shipment_action_jobs%ROWTYPE;
+BEGIN
+  IF p_worker_id IS NULL OR pg_catalog.octet_length(p_worker_id) NOT BETWEEN 1 AND 128 OR p_worker_id<>pg_catalog.btrim(p_worker_id) OR p_worker_id~'[[:cntrl:]]'
+    OR p_now IS NULL OR p_lease_seconds NOT BETWEEN 5 AND 900 OR p_lease_id IS NULL
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO job FROM saas.shipping_shipment_action_jobs value
+  JOIN saas.shipping_provider_profiles profile ON profile.store_id=value.store_id AND profile.id=value.profile_id
+  WHERE value.id=p_job_id AND value.status='queued' AND profile.status='active' AND profile.credential_version=value.credential_version
+  FOR UPDATE OF value SKIP LOCKED;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'empty',NULL::jsonb; RETURN; END IF;
+  UPDATE saas.shipping_shipment_action_jobs SET status='leased',lease_id=p_lease_id,lease_owner=p_worker_id,
+    lease_expires_at=p_now+pg_catalog.make_interval(secs=>p_lease_seconds),fence_token=fence_token+1,version=version+1,updated_at=p_now
+    WHERE id=job.id RETURNING * INTO job;
+  RETURN QUERY SELECT 'claimed',pg_catalog.jsonb_build_object('jobId',job.id,'actionKind',job.action_kind,'storeId',job.store_id,
+    'profileId',job.profile_id,'shipmentId',job.shipment_id,'credentialVersion',job.credential_version,'leaseId',job.lease_id,'fenceToken',job.fence_token,'version',job.version);
+END
+$function$;
+
+CREATE FUNCTION saas.shipping_shipment_action_open(p_job_id uuid,p_worker_id text,p_lease_id uuid,p_fence_token bigint,p_now timestamptz)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE job saas.shipping_shipment_action_jobs%ROWTYPE; profile saas.shipping_provider_profiles%ROWTYPE; shipment saas.shipping_shipments%ROWTYPE;
+  return_shipment saas.shipping_shipment_returns%ROWTYPE;
+BEGIN
+  SELECT value.* INTO job FROM saas.shipping_shipment_action_jobs value WHERE value.id=p_job_id;
+  IF NOT FOUND OR job.status<>'leased' OR job.lease_owner<>p_worker_id OR job.lease_id<>p_lease_id OR job.fence_token<>p_fence_token OR job.lease_expires_at<=p_now
+  THEN RETURN QUERY SELECT 'lease_invalid',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO profile FROM saas.shipping_provider_profiles value WHERE value.store_id=job.store_id AND value.id=job.profile_id;
+  SELECT value.* INTO shipment FROM saas.shipping_shipments value WHERE value.store_id=job.store_id AND value.id=job.shipment_id;
+  SELECT value.* INTO return_shipment FROM saas.shipping_shipment_returns value WHERE value.store_id=job.store_id AND value.shipment_id=job.shipment_id;
+  IF profile.id IS NULL OR profile.status<>'active' OR profile.credential_version<>job.credential_version THEN RETURN QUERY SELECT 'credential_stale',NULL::jsonb; RETURN; END IF;
+  IF shipment.id IS NULL OR shipment.profile_id<>profile.id OR shipment.provider_shipment_id IS NULL THEN RETURN QUERY SELECT 'shipment_stale',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'opened',pg_catalog.jsonb_build_object('actionKind',job.action_kind,'providerCode',profile.provider_code,
+    'credentialEnvelope',profile.credential_envelope,'credentialDigest',profile.credential_digest,'credentialKeyId',profile.credential_key_id,
+    'credentialVersion',profile.credential_version,'storeId',job.store_id,'profileId',profile.id,'shipmentId',shipment.id,
+    'providerReference',CASE WHEN job.action_kind IN('refresh','label') AND return_shipment.shipment_id IS NOT NULL THEN return_shipment.provider_shipment_id ELSE shipment.provider_shipment_id END,
+    'barcode',CASE WHEN job.action_kind IN('refresh','label') AND return_shipment.shipment_id IS NOT NULL THEN return_shipment.barcode ELSE shipment.barcode END);
+END
+$function$;
+
+CREATE FUNCTION saas.shipping_shipment_action_complete(
+  p_job_id uuid,p_worker_id text,p_lease_id uuid,p_fence_token bigint,p_now timestamptz,p_event_id uuid,
+  p_provider_shipment_id text,p_barcode text,p_tracking_number text,p_carrier text,p_status text,p_price_cents bigint,p_label_base64 text,p_label_sha256 text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE job saas.shipping_shipment_action_jobs%ROWTYPE; shipment saas.shipping_shipments%ROWTYPE; return_shipment saas.shipping_shipment_returns%ROWTYPE;
+  label_bytes bytea; next_status text;
+BEGIN
+  SELECT value.* INTO job FROM saas.shipping_shipment_action_jobs value WHERE value.id=p_job_id FOR UPDATE;
+  IF NOT FOUND OR job.status<>'leased' OR job.lease_owner<>p_worker_id OR job.lease_id<>p_lease_id OR job.fence_token<>p_fence_token OR job.lease_expires_at<=p_now
+  THEN RETURN QUERY SELECT 'lease_invalid',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO shipment FROM saas.shipping_shipments value WHERE value.store_id=job.store_id AND value.id=job.shipment_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'shipment_stale',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO return_shipment FROM saas.shipping_shipment_returns value WHERE value.store_id=job.store_id AND value.shipment_id=job.shipment_id FOR UPDATE;
+  IF p_event_id IS NULL OR ((p_tracking_number IS NULL)<>(p_carrier IS NULL)) OR p_price_cents<0
+    OR (p_provider_shipment_id IS NOT NULL AND (pg_catalog.octet_length(p_provider_shipment_id) NOT BETWEEN 1 AND 200 OR p_provider_shipment_id<>pg_catalog.btrim(p_provider_shipment_id) OR p_provider_shipment_id~'[[:cntrl:]]'))
+    OR (p_barcode IS NOT NULL AND (pg_catalog.octet_length(p_barcode) NOT BETWEEN 1 AND 200 OR p_barcode<>pg_catalog.btrim(p_barcode) OR p_barcode~'[[:cntrl:]]'))
+    OR (p_tracking_number IS NOT NULL AND (pg_catalog.octet_length(p_tracking_number) NOT BETWEEN 1 AND 200 OR p_tracking_number<>pg_catalog.btrim(p_tracking_number) OR p_tracking_number~'[[:cntrl:]]'))
+    OR (p_carrier IS NOT NULL AND (pg_catalog.octet_length(p_carrier) NOT BETWEEN 1 AND 160 OR p_carrier<>pg_catalog.btrim(p_carrier) OR p_carrier~'[[:cntrl:]]'))
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  IF job.action_kind='label' THEN
+    IF p_status IS NOT NULL OR p_provider_shipment_id IS NOT NULL OR p_barcode IS NOT NULL OR p_tracking_number IS NOT NULL OR p_carrier IS NOT NULL OR p_price_cents IS NOT NULL
+      OR p_label_base64 IS NULL OR p_label_sha256!~'^[a-f0-9]{64}$'
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+    BEGIN label_bytes:=pg_catalog.decode(p_label_base64,'base64'); EXCEPTION WHEN OTHERS THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END;
+    IF pg_catalog.octet_length(label_bytes) NOT BETWEEN 1 AND 1048576 OR pg_catalog.encode(label_bytes,'base64')<>p_label_base64
+      OR pg_catalog.encode(pg_catalog.sha256(label_bytes),'hex')<>p_label_sha256
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+    INSERT INTO saas.shipping_shipment_labels(store_id,shipment_id,content_type,content_bytes,content_sha256,version,created_at,updated_at)
+      VALUES(job.store_id,job.shipment_id,'image/svg+xml',label_bytes,p_label_sha256,1,p_now,p_now)
+      ON CONFLICT(store_id,shipment_id) DO UPDATE SET content_bytes=EXCLUDED.content_bytes,content_sha256=EXCLUDED.content_sha256,
+        version=saas.shipping_shipment_labels.version+1,updated_at=p_now;
+    UPDATE saas.shipping_shipments SET version=version+1,updated_at=p_now WHERE store_id=job.store_id AND id=job.shipment_id;
+  ELSE
+    IF p_label_base64 IS NOT NULL OR p_label_sha256 IS NOT NULL OR p_status NOT IN('ready','shipped','out_for_delivery','delivered','delayed','returning','returned','lost','cancelled','attention_required')
+      OR p_provider_shipment_id IS NULL
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+    IF job.action_kind='cancel' AND p_provider_shipment_id<>shipment.provider_shipment_id THEN RETURN QUERY SELECT 'shipment_stale',NULL::jsonb; RETURN; END IF;
+    IF job.action_kind='refresh' AND p_provider_shipment_id<>(CASE WHEN return_shipment.shipment_id IS NULL THEN shipment.provider_shipment_id ELSE return_shipment.provider_shipment_id END)
+    THEN RETURN QUERY SELECT 'shipment_stale',NULL::jsonb; RETURN; END IF;
+    IF job.action_kind='cancel' AND p_status<>'cancelled' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+    IF job.action_kind='return' THEN
+      INSERT INTO saas.shipping_shipment_returns(store_id,shipment_id,provider_shipment_id,barcode,tracking_number,carrier,status,version,created_at,updated_at)
+        VALUES(job.store_id,job.shipment_id,p_provider_shipment_id,p_barcode,p_tracking_number,p_carrier,p_status,1,p_now,p_now);
+      next_status:='returning';
+    ELSIF job.action_kind='refresh' AND return_shipment.shipment_id IS NOT NULL THEN
+      UPDATE saas.shipping_shipment_returns SET status=p_status,barcode=COALESCE(p_barcode,barcode),tracking_number=COALESCE(p_tracking_number,tracking_number),
+        carrier=COALESCE(p_carrier,carrier),version=version+1,updated_at=p_now WHERE store_id=job.store_id AND shipment_id=job.shipment_id;
+      next_status:=CASE WHEN p_status IN('delivered','returned') THEN 'returned' WHEN p_status='lost' THEN 'lost' WHEN p_status='cancelled' THEN 'delivered' ELSE 'returning' END;
+    ELSE next_status:=p_status; END IF;
+    UPDATE saas.shipping_shipments SET status=next_status,
+      barcode=CASE WHEN job.action_kind<>'return' AND return_shipment.shipment_id IS NULL THEN COALESCE(p_barcode,barcode) ELSE barcode END,
+      tracking_number=CASE WHEN job.action_kind<>'return' AND return_shipment.shipment_id IS NULL THEN COALESCE(p_tracking_number,tracking_number) ELSE tracking_number END,
+      carrier=CASE WHEN job.action_kind<>'return' AND return_shipment.shipment_id IS NULL THEN COALESCE(p_carrier,carrier) ELSE carrier END,
+      price_cents=CASE WHEN job.action_kind<>'return' AND return_shipment.shipment_id IS NULL THEN COALESCE(p_price_cents,price_cents) ELSE price_cents END,
+      version=version+1,updated_at=p_now
+      WHERE store_id=job.store_id AND id=job.shipment_id;
+    INSERT INTO saas.shipping_shipment_events(id,store_id,shipment_id,status,occurred_at,created_at)
+      VALUES(p_event_id,job.store_id,job.shipment_id,next_status,p_now,p_now);
+  END IF;
+  UPDATE saas.shipping_shipment_action_jobs SET status='succeeded',lease_id=NULL,lease_owner=NULL,lease_expires_at=NULL,safe_code=NULL,version=version+1,updated_at=p_now WHERE id=job.id;
+  RETURN QUERY SELECT 'completed',saas.shipping_shipment_projection(job.store_id,job.shipment_id);
+END
+$function$;
+
+CREATE FUNCTION saas.shipping_shipment_action_fail(
+  p_job_id uuid,p_worker_id text,p_lease_id uuid,p_fence_token bigint,p_now timestamptz,p_failure_kind text,p_safe_code text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE job saas.shipping_shipment_action_jobs%ROWTYPE;
+BEGIN
+  IF p_failure_kind NOT IN('credential_invalid','rejected','throttled','temporary_failure') OR p_safe_code!~'^[a-z][a-z0-9_]{1,63}$'
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO job FROM saas.shipping_shipment_action_jobs value WHERE value.id=p_job_id FOR UPDATE;
+  IF NOT FOUND OR job.status<>'leased' OR job.lease_owner<>p_worker_id OR job.lease_id<>p_lease_id OR job.fence_token<>p_fence_token OR job.lease_expires_at<=p_now
+  THEN RETURN QUERY SELECT 'lease_invalid',NULL::jsonb; RETURN; END IF;
+  UPDATE saas.shipping_shipment_action_jobs SET status='failed',lease_id=NULL,lease_owner=NULL,lease_expires_at=NULL,safe_code=p_safe_code,version=version+1,updated_at=p_now WHERE id=job.id;
+  RETURN QUERY SELECT 'failed',pg_catalog.jsonb_build_object('jobId',job.id,'safeCode',p_safe_code);
+END
+$function$;
+
+CREATE FUNCTION saas.shipping_shipment_action_mark_unknown(
+  p_job_id uuid,p_worker_id text,p_lease_id uuid,p_fence_token bigint,p_now timestamptz,p_event_id uuid,p_safe_code text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE job saas.shipping_shipment_action_jobs%ROWTYPE;
+BEGIN
+  IF p_event_id IS NULL OR p_safe_code!~'^[a-z][a-z0-9_]{1,63}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  SELECT value.* INTO job FROM saas.shipping_shipment_action_jobs value WHERE value.id=p_job_id FOR UPDATE;
+  IF NOT FOUND OR job.action_kind NOT IN('cancel','return') OR job.status<>'leased' OR job.lease_owner<>p_worker_id OR job.lease_id<>p_lease_id OR job.fence_token<>p_fence_token OR job.lease_expires_at<=p_now
+  THEN RETURN QUERY SELECT 'lease_invalid',NULL::jsonb; RETURN; END IF;
+  UPDATE saas.shipping_shipment_action_jobs SET status='provider_outcome_unknown',lease_id=NULL,lease_owner=NULL,lease_expires_at=NULL,safe_code=p_safe_code,version=version+1,updated_at=p_now WHERE id=job.id;
+  UPDATE saas.shipping_shipments SET status='attention_required',version=version+1,updated_at=p_now WHERE store_id=job.store_id AND id=job.shipment_id;
+  INSERT INTO saas.shipping_shipment_events(id,store_id,shipment_id,status,safe_code,occurred_at,created_at)
+    VALUES(p_event_id,job.store_id,job.shipment_id,'attention_required',p_safe_code,p_now,p_now);
+  RETURN QUERY SELECT 'marked_unknown',saas.shipping_shipment_projection(job.store_id,job.shipment_id);
+END
+$function$;
+
 CREATE FUNCTION saas.shipping_fulfillment_runtime_preflight()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
 AS $function$
   SELECT saas.shipping_provider_preflight()
-    AND (SELECT pg_catalog.count(*)=7 FROM pg_catalog.pg_class relation JOIN pg_catalog.pg_namespace namespace ON namespace.oid=relation.relnamespace
-      WHERE namespace.nspname='saas' AND relation.relname IN('shipping_quote_sessions','shipping_quote_options','shipping_shipments','shipping_shipment_items','shipping_fulfillment_jobs','shipping_shipment_events','shipping_fulfillment_operations')
+    AND (SELECT pg_catalog.count(*)=11 FROM pg_catalog.pg_class relation JOIN pg_catalog.pg_namespace namespace ON namespace.oid=relation.relnamespace
+      WHERE namespace.nspname='saas' AND relation.relname IN('shipping_quote_sessions','shipping_quote_options','shipping_shipments','shipping_shipment_items','shipping_fulfillment_jobs','shipping_shipment_events','shipping_fulfillment_operations','shipping_shipment_action_jobs','shipping_shipment_action_operations','shipping_shipment_labels','shipping_shipment_returns')
         AND relation.relrowsecurity AND relation.relforcerowsecurity)
     AND NOT pg_catalog.has_table_privilege('celebix_saas_app','saas.shipping_shipments','SELECT,INSERT,UPDATE,DELETE')
     AND NOT pg_catalog.has_table_privilege('celebix_saas_workflow','saas.shipping_fulfillment_jobs','SELECT,INSERT,UPDATE,DELETE')
@@ -724,6 +1041,14 @@ REVOKE ALL ON FUNCTION
   saas.shipping_fulfillment_fail(uuid,text,uuid,bigint,timestamptz,text,text,integer),
   saas.shipping_shipment_complete(uuid,text,uuid,bigint,timestamptz,uuid,text,text,text,text,text,bigint),
   saas.shipping_shipment_mark_unknown(uuid,text,uuid,bigint,timestamptz,uuid,text),
+  saas.shipping_shipment_action_begin(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,bigint,text,uuid,text,uuid),
+  saas.shipping_shipment_action_recover(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),
+  saas.shipping_shipment_label_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid),
+  saas.shipping_shipment_action_claim(uuid,text,timestamptz,integer,uuid),
+  saas.shipping_shipment_action_open(uuid,text,uuid,bigint,timestamptz),
+  saas.shipping_shipment_action_complete(uuid,text,uuid,bigint,timestamptz,uuid,text,text,text,text,text,bigint,text,text),
+  saas.shipping_shipment_action_fail(uuid,text,uuid,bigint,timestamptz,text,text),
+  saas.shipping_shipment_action_mark_unknown(uuid,text,uuid,bigint,timestamptz,uuid,text),
   saas.shipping_fulfillment_runtime_preflight()
 FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 
@@ -734,6 +1059,9 @@ GRANT EXECUTE ON FUNCTION
   saas.shipping_shipment_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),
   saas.shipping_shipment_for_order(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),
   saas.shipping_fulfillment_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),
+  saas.shipping_shipment_action_begin(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,bigint,text,uuid,text,uuid),
+  saas.shipping_shipment_action_recover(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),
+  saas.shipping_shipment_label_current(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid),
   saas.shipping_fulfillment_runtime_preflight()
 TO celebix_saas_app;
 
@@ -745,6 +1073,11 @@ GRANT EXECUTE ON FUNCTION
   saas.shipping_fulfillment_fail(uuid,text,uuid,bigint,timestamptz,text,text,integer),
   saas.shipping_shipment_complete(uuid,text,uuid,bigint,timestamptz,uuid,text,text,text,text,text,bigint),
   saas.shipping_shipment_mark_unknown(uuid,text,uuid,bigint,timestamptz,uuid,text),
+  saas.shipping_shipment_action_claim(uuid,text,timestamptz,integer,uuid),
+  saas.shipping_shipment_action_open(uuid,text,uuid,bigint,timestamptz),
+  saas.shipping_shipment_action_complete(uuid,text,uuid,bigint,timestamptz,uuid,text,text,text,text,text,bigint,text,text),
+  saas.shipping_shipment_action_fail(uuid,text,uuid,bigint,timestamptz,text,text),
+  saas.shipping_shipment_action_mark_unknown(uuid,text,uuid,bigint,timestamptz,uuid,text),
   saas.shipping_fulfillment_runtime_preflight()
 TO celebix_saas_workflow;
 

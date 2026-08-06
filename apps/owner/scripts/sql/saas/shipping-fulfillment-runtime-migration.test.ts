@@ -21,6 +21,7 @@ test("094 creates forced-RLS quote shipment job event and operation authority", 
   for (const table of [
     "shipping_quote_sessions", "shipping_quote_options", "shipping_shipments", "shipping_shipment_items",
     "shipping_fulfillment_jobs", "shipping_shipment_events", "shipping_fulfillment_operations",
+    "shipping_shipment_action_jobs", "shipping_shipment_action_operations", "shipping_shipment_labels", "shipping_shipment_returns",
   ]) {
     assert.match(up, new RegExp(`CREATE TABLE saas[.]${table}`, "u"), table);
     assert.match(up, new RegExp(`ALTER TABLE saas[.]${table} FORCE ROW LEVEL SECURITY`, "u"), table);
@@ -36,6 +37,7 @@ test("094 exposes exact app quote and shipment commands", () => {
   for (const name of [
     "shipping_quote_begin", "shipping_quote_current", "shipping_shipment_begin",
     "shipping_shipment_current", "shipping_shipment_for_order", "shipping_fulfillment_recover_operation",
+    "shipping_shipment_action_begin", "shipping_shipment_action_recover", "shipping_shipment_label_current",
   ]) assert.match(up, new RegExp(`CREATE FUNCTION saas[.]${name}[(]`, "u"), name);
   assert.match(up, /'orders[.]fulfill'/u);
   assert.match(up, /FOR UPDATE/u);
@@ -54,6 +56,8 @@ test("094 gives workflow only fenced provider job authority", () => {
   for (const name of [
     "shipping_fulfillment_claim", "shipping_fulfillment_claim_job", "shipping_fulfillment_open", "shipping_quote_complete",
     "shipping_fulfillment_fail", "shipping_shipment_complete", "shipping_shipment_mark_unknown",
+    "shipping_shipment_action_claim", "shipping_shipment_action_open", "shipping_shipment_action_complete",
+    "shipping_shipment_action_fail", "shipping_shipment_action_mark_unknown",
   ]) assert.match(up, new RegExp(`CREATE FUNCTION saas[.]${name}[(]`, "u"), name);
   assert.match(up, /FOR UPDATE OF candidate SKIP LOCKED LIMIT 1/u);
   for (const token of ["lease_id", "fence_token", "credential_version"]) assert.match(up, new RegExp(token, "u"));

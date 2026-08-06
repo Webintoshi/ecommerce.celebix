@@ -7,15 +7,21 @@ import {
 } from "./errors.ts";
 import type {
   ClaimShippingFulfillmentInput,
+  ClaimShippingShipmentActionInput,
   ClaimShippingValidationInput,
   CompleteShippingQuoteInput,
   CompleteShippingShipmentInput,
+  CompleteShippingShipmentActionInput,
   CompleteShippingValidationInput,
   FailShippingFulfillmentInput,
+  FailShippingShipmentActionInput,
   FailShippingValidationInput,
   MarkShippingShipmentUnknownInput,
+  MarkShippingShipmentActionUnknownInput,
   OpenedShippingFulfillment,
+  OpenedShippingShipmentAction,
   OpenShippingFulfillmentInput,
+  OpenShippingShipmentActionInput,
   OpenedShippingCredential,
   OpenShippingCredentialInput,
   PostgresShippingWorkflowRepositoryOptions,
@@ -23,6 +29,7 @@ import type {
   ShippingFulfillmentClaim,
   ShippingFulfillmentOrder,
   ShippingFulfillmentQuoteOption,
+  ShippingShipmentActionClaim,
   ShippingValidationClaim,
   ShippingValidationResource,
   ShippingWorkflowRepository,
@@ -139,6 +146,18 @@ function fulfillmentClaim(value: unknown, expected: Readonly<{ jobId: string; wo
     jobId: uuid(parsed.jobId), jobKind, storeId: uuid(parsed.storeId), profileId: uuid(parsed.profileId),
     quoteId: uuid(parsed.quoteId), shipmentId, credentialVersion: integer(parsed.credentialVersion, 1),
     leaseId: uuid(parsed.leaseId), workerId: expected.workerId, fenceToken: integer(parsed.fenceToken, 1), version: integer(parsed.version, 1),
+  });
+  if (result.jobId !== expected.jobId || result.leaseId !== expected.leaseId) throw unavailable();
+  return result;
+}
+
+function shipmentActionClaim(value: unknown, expected: Readonly<{ jobId: string; workerId: string; leaseId: string }>): ShippingShipmentActionClaim {
+  const parsed = exact(value, ["jobId", "actionKind", "storeId", "profileId", "shipmentId", "credentialVersion", "leaseId", "fenceToken", "version"]);
+  if (parsed.actionKind !== "refresh" && parsed.actionKind !== "label" && parsed.actionKind !== "cancel" && parsed.actionKind !== "return") invalid();
+  const result = Object.freeze({
+    jobId: uuid(parsed.jobId), actionKind: parsed.actionKind, storeId: uuid(parsed.storeId), profileId: uuid(parsed.profileId),
+    shipmentId: uuid(parsed.shipmentId), credentialVersion: integer(parsed.credentialVersion, 1), leaseId: uuid(parsed.leaseId),
+    workerId: expected.workerId, fenceToken: integer(parsed.fenceToken, 1), version: integer(parsed.version, 1),
   });
   if (result.jobId !== expected.jobId || result.leaseId !== expected.leaseId) throw unavailable();
   return result;
@@ -422,6 +441,113 @@ export class PostgresShippingWorkflowRepository implements ShippingWorkflowRepos
     return this.transaction(false, async (client) => {
       const result = row(await client.query(
         "SELECT outcome,result_payload FROM saas.shipping_shipment_mark_unknown($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz,$6::uuid,$7::text)",
+        [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString(), uuid(parsed.eventId), parsed.safeCode],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "marked_unknown") throw unavailable();
+      return "marked_unknown" as const;
+    });
+  }
+
+  async claimShipmentAction(input: ClaimShippingShipmentActionInput): Promise<ShippingShipmentActionClaim | null> {
+    const parsed = exact(input, ["jobId", "workerId", "now", "leaseSeconds", "leaseId"]);
+    const expected = { jobId: uuid(parsed.jobId), workerId: worker(parsed.workerId), leaseId: uuid(parsed.leaseId) };
+    const now = date(parsed.now), leaseSeconds = integer(parsed.leaseSeconds, 5, 900);
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_action_claim($1::uuid,$2::text,$3::timestamptz,$4::integer,$5::uuid)",
+        [expected.jobId, expected.workerId, now.toISOString(), leaseSeconds, expected.leaseId],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome === "empty" && result.result === null) return null;
+      if (result.outcome !== "claimed") throw unavailable();
+      return shipmentActionClaim(result.result, expected);
+    });
+  }
+
+  async openShipmentAction(input: OpenShippingShipmentActionInput): Promise<OpenedShippingShipmentAction> {
+    const parsed = exact(input, ["claim", "now"]), selected = parsed.claim as ShippingShipmentActionClaim, now = date(parsed.now);
+    if (!selected || typeof selected !== "object") invalid();
+    return this.transaction(true, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_action_open($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz)",
+        [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString()],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "opened") throw unavailable();
+      const opened = exact(result.result, [
+        "actionKind", "providerCode", "credentialEnvelope", "credentialDigest", "credentialKeyId", "credentialVersion",
+        "storeId", "profileId", "shipmentId", "providerReference", "barcode",
+      ]);
+      if (
+        opened.actionKind !== selected.actionKind || uuid(opened.storeId) !== selected.storeId || uuid(opened.profileId) !== selected.profileId ||
+        uuid(opened.shipmentId) !== selected.shipmentId
+      ) throw unavailable();
+      const credential = credentialAuthority({
+        providerCode: opened.providerCode, credentialEnvelope: opened.credentialEnvelope, credentialDigest: opened.credentialDigest,
+        credentialKeyId: opened.credentialKeyId, credentialVersion: opened.credentialVersion,
+      }, selected);
+      const tokenBytes = openShippingCredential({
+        envelope: credential.credentialEnvelope, storeId: selected.storeId, profileId: selected.profileId,
+        providerCode: "basit_kargo", credentialVersion: selected.credentialVersion, keyring: this.options.keyring,
+      });
+      try {
+        return Object.freeze({
+          claim: selected, providerCode: "basit_kargo" as const, tokenBytes,
+          providerReference: nullableText(opened.providerReference, 200) ?? invalid(), barcode: nullableText(opened.barcode, 200),
+        });
+      } catch (error) { tokenBytes.fill(0); throw error; }
+    });
+  }
+
+  async completeShipmentAction(input: CompleteShippingShipmentActionInput): Promise<"completed"> {
+    const parsed = exact(input, [
+      "claim", "now", "eventId", "providerShipmentId", "barcode", "trackingNumber", "carrier", "status", "priceCents", "labelBytes", "labelSha256",
+    ]), selected = parsed.claim as ShippingShipmentActionClaim, now = date(parsed.now);
+    if (!selected) invalid();
+    const providerShipmentId = nullableText(parsed.providerShipmentId, 200), barcode = nullableText(parsed.barcode, 200);
+    const trackingNumber = nullableText(parsed.trackingNumber, 200), carrier = nullableText(parsed.carrier, 160);
+    if ((trackingNumber === null) !== (carrier === null)) invalid();
+    const statuses = new Set(["ready", "shipped", "out_for_delivery", "delivered", "delayed", "returning", "returned", "lost", "cancelled", "attention_required"]);
+    const status = parsed.status === null ? null : typeof parsed.status === "string" && statuses.has(parsed.status) ? parsed.status : invalid();
+    const priceCents = parsed.priceCents === null ? null : integer(parsed.priceCents, 0);
+    const labelBytes = parsed.labelBytes === null ? null : parsed.labelBytes instanceof Uint8Array ? new Uint8Array(parsed.labelBytes) : invalid();
+    const labelSha256 = parsed.labelSha256 === null ? null : digest(parsed.labelSha256);
+    if ((labelBytes === null) !== (labelSha256 === null) || (labelBytes !== null && (labelBytes.byteLength < 1 || labelBytes.byteLength > 1_048_576))) invalid();
+    if (selected.actionKind === "label" ? labelBytes === null || status !== null : labelBytes !== null || status === null) invalid();
+    try {
+      return await this.transaction(false, async (client) => {
+        const result = row(await client.query(
+          "SELECT outcome,result_payload FROM saas.shipping_shipment_action_complete($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz,$6::uuid,$7::text,$8::text,$9::text,$10::text,$11::text,$12::bigint,$13::text,$14::text)",
+          [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString(), uuid(parsed.eventId), providerShipmentId, barcode, trackingNumber, carrier, status, priceCents, labelBytes === null ? null : Buffer.from(labelBytes).toString("base64"), labelSha256],
+        ));
+        const known = this.known(result.outcome); if (known) throw known;
+        if (result.outcome !== "completed") throw unavailable();
+        return "completed" as const;
+      });
+    } finally { labelBytes?.fill(0); }
+  }
+
+  async failShipmentAction(input: FailShippingShipmentActionInput): Promise<"failed"> {
+    const parsed = exact(input, ["claim", "now", "failureKind", "safeCode"]), selected = parsed.claim as ShippingShipmentActionClaim, now = date(parsed.now);
+    if (!selected || !["credential_invalid", "rejected", "throttled", "temporary_failure"].includes(parsed.failureKind as string) || typeof parsed.safeCode !== "string" || !CODE.test(parsed.safeCode)) invalid();
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_action_fail($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz,$6::text,$7::text)",
+        [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString(), parsed.failureKind, parsed.safeCode],
+      ));
+      const known = this.known(result.outcome); if (known) throw known;
+      if (result.outcome !== "failed") throw unavailable();
+      return "failed" as const;
+    });
+  }
+
+  async markShipmentActionUnknown(input: MarkShippingShipmentActionUnknownInput): Promise<"marked_unknown"> {
+    const parsed = exact(input, ["claim", "now", "eventId", "safeCode"]), selected = parsed.claim as ShippingShipmentActionClaim, now = date(parsed.now);
+    if (!selected || (selected.actionKind !== "cancel" && selected.actionKind !== "return") || typeof parsed.safeCode !== "string" || !CODE.test(parsed.safeCode)) invalid();
+    return this.transaction(false, async (client) => {
+      const result = row(await client.query(
+        "SELECT outcome,result_payload FROM saas.shipping_shipment_action_mark_unknown($1::uuid,$2::text,$3::uuid,$4::bigint,$5::timestamptz,$6::uuid,$7::text)",
         [uuid(selected.jobId), worker(selected.workerId), uuid(selected.leaseId), integer(selected.fenceToken, 1), now.toISOString(), uuid(parsed.eventId), parsed.safeCode],
       ));
       const known = this.known(result.outcome); if (known) throw known;

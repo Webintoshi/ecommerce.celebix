@@ -198,7 +198,11 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.shipping_shipment_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,uuid,uuid,text,uuid,uuid,uuid)') IS NOT NULL
         AND to_regprocedure('saas.shipping_shipment_for_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.shipping_fulfillment_claim_job(uuid,text,timestamp with time zone,integer,uuid)') IS NOT NULL
-        AND to_regprocedure('saas.shipping_fulfillment_open(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL AS shipping_repository,
+        AND to_regprocedure('saas.shipping_fulfillment_open(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_action_begin(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,uuid,text,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_action_claim(uuid,text,timestamp with time zone,integer,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_action_open(uuid,text,uuid,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.shipping_shipment_label_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid)') IS NOT NULL AS shipping_repository,
       to_regclass('saas.toshi_provider_configs') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_connection_identity(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL

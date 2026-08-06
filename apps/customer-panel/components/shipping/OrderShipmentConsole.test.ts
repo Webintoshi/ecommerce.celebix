@@ -8,9 +8,10 @@ const ORDER_DETAIL = new URL("../orders/OrderDetailConsole.tsx", import.meta.url
 
 test("order detail exposes controlled Basit Kargo quote and shipment creation", async () => {
   const [component, orderDetail] = await Promise.all([readFile(COMPONENT, "utf8"), readFile(ORDER_DETAIL, "utf8")]);
-  for (const token of ["Kargo teklifi al", "Gönderiyi oluştur", "Paket ölçüleri", "Takip numarası"]) assert.match(component, new RegExp(token, "u"));
+  for (const token of ["Kargo teklifi al", "Gönderiyi oluştur", "Paket ölçüleri", "Takip numarası", "Durumu güncelle", "Etiket hazırla", "Gönderiyi iptal et", "İade başlat"]) assert.match(component, new RegExp(token, "u"));
   assert.match(component, /shippingFulfillmentApi\.quote/u);
   assert.match(component, /shippingFulfillmentApi\.createShipment/u);
+  assert.match(component, /shippingFulfillmentApi\.shipmentAction/u);
   assert.match(orderDetail, /OrderShipmentConsole/u);
 });
 

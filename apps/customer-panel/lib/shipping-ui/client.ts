@@ -196,6 +196,15 @@ export function createShippingFulfillmentApi(fetcher: typeof fetch = fetch, uuid
         return selected === null ? null : parseShipment(selected);
       } catch { throw new ShippingFulfillmentApiError(); }
     },
+    async shipmentAction(orderId: string, shipmentId: string, expectedShipmentVersion: number, action: "refresh" | "label" | "cancel" | "return", signal?: AbortSignal): Promise<Shipment> {
+      if (!UUID.test(shipmentId) || !Number.isSafeInteger(expectedShipmentVersion) || expectedShipmentVersion < 1 || !["refresh", "label", "cancel", "return"].includes(action)) throw new ShippingFulfillmentApiError("invalid_input", 400);
+      const value = await mutation(path(orderId, `shipments/${shipmentId}/${action}`), { expectedShipmentVersion }, signal);
+      try { return parseShipment(record(value, ["shipment"]).shipment); } catch { throw new ShippingFulfillmentApiError(); }
+    },
+    shipmentLabelUrl(orderId: string, shipmentId: string): string {
+      if (!UUID.test(shipmentId)) throw new ShippingFulfillmentApiError("invalid_input", 400);
+      return path(orderId, `shipments/${shipmentId}/label`);
+    },
   });
 }
 

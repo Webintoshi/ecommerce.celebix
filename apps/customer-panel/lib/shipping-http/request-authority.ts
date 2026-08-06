@@ -22,6 +22,12 @@ export type ShippingHttpDependencies = Readonly<{
     runtime: ServerShippingRuntime;
     now: Date;
   }>): Promise<"empty" | "completed" | "failed" | "requeued" | "marked_unknown">;
+  shipmentActionJob(input: Readonly<{
+    jobId: string;
+    workerId: string;
+    runtime: ServerShippingRuntime;
+    now: Date;
+  }>): Promise<"empty" | "completed" | "failed" | "marked_unknown">;
 }>;
 
 export type ShippingHttpAuthority = Readonly<{
