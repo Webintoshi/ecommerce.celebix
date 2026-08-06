@@ -190,6 +190,9 @@ test("092 atomically settles standard hosted checkout from the payment attempt",
   assert.match(up, /INSERT INTO saas[.]order_events/u);
   assert.match(up, /INSERT INTO saas[.]storefront_order_receipts/u);
   assert.match(up, /INSERT INTO saas[.]storefront_customer_credentials/u);
+  assert.match(up, /INSERT INTO saas[.]storefront_checkout_operations/u);
+  assert.match(up, /'paymentStatus','completed'/u);
+  assert.match(up, /'paymentMethod',pg_catalog[.]jsonb_build_object[\s\S]*'kind','hosted_card'/u);
   assert.match(up, /status='consumed'/u);
   assert.match(up, /stock_quantity=variant[.]stock_quantity-reservation[.]quantity/u);
   assert.match(up, /stock_conflict/u);

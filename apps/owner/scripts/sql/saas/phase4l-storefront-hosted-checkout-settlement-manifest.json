@@ -7,7 +7,7 @@
     {
       "file": "202608060092_storefront_hosted_checkout_settlement.up.sql",
       "direction": "up",
-      "sha256": "577a6ee4035eab1e41f237511f515e6bc2c07c838a9a99122b8ee065aa2c76de"
+      "sha256": "432027bb27f753b81097a5c0d0e6b828747af10a373212d62becd615f6b871ee"
     },
     {
       "file": "202608060092_storefront_hosted_checkout_settlement.down.sql",
@@ -17,7 +17,7 @@
     {
       "file": "202608060092_storefront_hosted_checkout_settlement_assertions.sql",
       "direction": "verify",
-      "sha256": "7249a09f1a48ebe76d4008b887f33ce4968265006f1acb11e46cc23da21fdd5f"
+      "sha256": "21bd6b8b32405a2ad29ae3c629fdb8bde54b11f0a8911457c672394612d980a9"
     }
   ]
 }

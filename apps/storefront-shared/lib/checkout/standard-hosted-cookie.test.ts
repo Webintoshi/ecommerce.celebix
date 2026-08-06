@@ -50,9 +50,9 @@ test("hosted checkout cookie is host-only, short-lived, path-bounded and deletab
   const keyring = parseStorefrontCommerceCredentialKeyring(source("current_01"));
   const created = createStandardHostedCheckoutCredential(keyring, OPERATION);
   const serialized = serializeStandardHostedCheckoutCookie(created.value);
-  assert.equal(serialized, `__Host-celebix_hosted_checkout=${created.value}; Path=/checkout/payment; Max-Age=900; HttpOnly; Secure; SameSite=Lax`);
+  assert.equal(serialized, `__Host-celebix_hosted_checkout=${created.value}; Path=/; Max-Age=900; HttpOnly; Secure; SameSite=Lax`);
   assert.doesNotMatch(serialized, /Domain=/iu);
-  assert.equal(serializeStandardHostedCheckoutDeletionCookie(), "__Host-celebix_hosted_checkout=; Path=/checkout/payment; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
+  assert.equal(serializeStandardHostedCheckoutDeletionCookie(), "__Host-celebix_hosted_checkout=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
 });
 
 test("hosted checkout cookie reader rejects duplicates and every other credential purpose", () => {

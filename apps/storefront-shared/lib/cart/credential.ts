@@ -13,7 +13,7 @@ const COOKIE: Readonly<Record<StorefrontCredentialPurpose, Readonly<{ name: stri
   intent: Object.freeze({ name: "__Host-celebix_checkout_intent", maxAge: 900, path: "/" }),
   customer: Object.freeze({ name: "__Host-celebix_customer", maxAge: 2_592_000, path: "/" }),
   receipt: Object.freeze({ name: "__Host-celebix_receipt", maxAge: 900, path: "/" }),
-  hosted_checkout: Object.freeze({ name: "__Host-celebix_hosted_checkout", maxAge: 900, path: "/checkout/payment" }),
+  hosted_checkout: Object.freeze({ name: "__Host-celebix_hosted_checkout", maxAge: 900, path: "/" }),
 });
 
 export type StorefrontCommerceCredentialKeyring = Readonly<{

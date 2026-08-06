@@ -8,6 +8,7 @@ import * as cartClientModule from "./client.ts";
 const PRODUCT = "10000000-0000-4000-8000-000000000001";
 const VARIANT = "20000000-0000-4000-8000-000000000001";
 const OPERATION = "30000000-0000-4000-8000-000000000001";
+const PAYMENT_METHOD = "40000000-0000-4000-8000-000000000001";
 
 test("add-to-cart opens the drawer before the network result and then installs the canonical cart", async () => {
   const candidate = (cartClientModule as unknown as Record<string, unknown>).addCartLineAndOpenDrawer;
@@ -52,6 +53,58 @@ test("buy now uses a distinct endpoint and accepts only a fixed checkout destina
   const client = createStorefrontCartClient(async (input) => { calls.push(String(input)); return new Response(JSON.stringify({ destination: "/checkout?intent=buy-now" }), { status: 200, headers: { "content-type": "application/json" } }); }, () => OPERATION);
   assert.deepEqual(await client.buyNow({ productId: PRODUCT, variantId: VARIANT, quantity: 1 }), { destination: "/checkout?intent=buy-now" });
   assert.deepEqual(calls, ["/api/cart/buy-now"]);
+});
+
+test("hosted checkout start sends the exact same-origin command and accepts only its fixed handoff", async () => {
+  const calls: Array<{ input: string; init?: RequestInit }> = [];
+  const client = createStorefrontCartClient(async (input, init) => {
+    calls.push({ input: String(input), init });
+    return new Response(JSON.stringify({ destination: "/checkout/payment" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }, () => OPERATION);
+  const result = await client.startHosted({
+    cartVersion: 3,
+    intentKind: "cart",
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard",
+    paymentMethodId: PAYMENT_METHOD,
+  });
+
+  assert.deepEqual(result, { destination: "/checkout/payment" });
+  assert.equal(calls[0]?.input, "/api/checkout/payment/start");
+  assert.equal(calls[0]?.init?.credentials, "same-origin");
+  assert.equal(calls[0]?.init?.cache, "no-store");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    operationId: OPERATION,
+    cartVersion: 3,
+    intentKind: "cart",
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard",
+    paymentMethodId: PAYMENT_METHOD,
+  });
+});
+
+test("hosted checkout start rejects external destinations and non-exact responses", async () => {
+  for (const response of [
+    new Response(JSON.stringify({ destination: "https://provider.example/pay" }), { status: 200, headers: { "content-type": "application/json" } }),
+    new Response(JSON.stringify({ destination: "/checkout/payment", token: "private" }), { status: 200, headers: { "content-type": "application/json" } }),
+    new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } }),
+    new Response("/checkout/payment", { status: 200, headers: { "content-type": "text/plain" } }),
+  ]) {
+    const client = createStorefrontCartClient(async () => response.clone(), () => OPERATION);
+    await assert.rejects(client.startHosted({
+      cartVersion: 3,
+      intentKind: "cart",
+      contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+      shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+      shippingMethod: "standard",
+      paymentMethodId: PAYMENT_METHOD,
+    }), (error: unknown) => error instanceof StorefrontCartClientError && error.code === "invalid_response");
+  }
 });
 
 test("public cart errors preserve only finite checkout blocker codes", async () => {

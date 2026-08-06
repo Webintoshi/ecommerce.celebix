@@ -85,15 +85,12 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
     const delivery = validation.value;
     setPending(true); setStatus(selectedMethod.kind === "hosted_card" ? "Güvenli ödeme ekranı hazırlanıyor." : "Siparişiniz güvenle oluşturuluyor.");
     try {
-      operation.current ??= crypto.randomUUID();
       if (selectedMethod.kind === "hosted_card") {
-        const response = await fetch("/api/checkout/payment/start", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify({ operationId: operation.current, cartVersion: quote.cart.version, intentKind, contact: delivery.contact, shippingAddress: delivery.shippingAddress, shippingMethod: "standard", paymentMethodId: selectedMethod.id, ...(identityRequired ? { identityNumber } : {}), ...(delivery.note ? { note: delivery.note } : {}) }) });
-        const payload: unknown = await response.json();
-        if (!response.ok || typeof payload !== "object" || payload === null || Array.isArray(payload)
-          || Object.keys(payload).length !== 1 || (payload as { destination?: unknown }).destination !== "/checkout/payment") throw new Error("checkout_failed");
-        window.location.assign("/checkout/payment");
+        const result = await storefrontCartClient.startHosted({ cartVersion: quote.cart.version, intentKind, contact: delivery.contact, shippingAddress: delivery.shippingAddress, shippingMethod: "standard", paymentMethodId: selectedMethod.id, ...(identityRequired ? { identityNumber } : {}), ...(delivery.note ? { note: delivery.note } : {}) });
+        window.location.assign(result.destination);
         return;
       }
+      operation.current ??= crypto.randomUUID();
       const response = await fetch("/api/checkout/complete", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify({ operationId: operation.current, cartVersion: quote.cart.version, intentKind, contact: delivery.contact, shippingAddress: delivery.shippingAddress, shippingMethod: "standard", paymentKind: selectedMethod.kind, ...(delivery.note ? { note: delivery.note } : {}) }) });
       const destination = new URL(response.url, window.location.href);
       if (!response.ok || !response.redirected || destination.origin !== window.location.origin || destination.pathname !== "/checkout/success" || destination.search || destination.hash) throw new Error("checkout_failed");

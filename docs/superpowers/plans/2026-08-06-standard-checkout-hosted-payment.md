@@ -454,11 +454,11 @@ git commit -m "feat(checkout): settle hosted payments atomically"
 - `startHosted(input: HostedCheckoutStartRequest): Promise<{destination:"/checkout/payment"}>`
 - The result page reads server-owned hosted-session status through the purpose-bound cookie; query parameters never decide success.
 
-- [ ] **Step 1: Add RED client and source-boundary tests**
+- [x] **Step 1: Add RED client and source-boundary tests**
 
 Prove the client exact-validates the single same-origin destination and rejects provider URLs, extra keys, missing keys, and non-JSON responses. Prove the checkout form does not contain provider secrets, provider action URLs, or query-string success authority.
 
-- [ ] **Step 2: Observe RED**
+- [x] **Step 2: Observe RED**
 
 ```bash
 NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types --test apps/storefront-shared/lib/cart/client.test.ts apps/storefront-shared/lib/storefront/checkout-readiness.test.ts apps/storefront-shared/tests/storefront-app.test.ts
@@ -466,19 +466,19 @@ NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types --t
 
 Expected failure: `startHosted`, the hosted-card readiness branch, and the result page do not exist.
 
-- [ ] **Step 3: Add provider-neutral card selection**
+- [x] **Step 3: Add provider-neutral card selection**
 
 Render one `hosted_card` option from the public quote. Show the provider label and only the exact customer fields declared by `requiredCustomerFields`; iyzico may request `identity_number`, while PayTR must not. Keep bank transfer and cash-on-delivery submission on `/api/checkout/complete` without changing their payload or completion behavior.
 
-- [ ] **Step 4: Add same-origin handoff and authoritative result**
+- [x] **Step 4: Add same-origin handoff and authoritative result**
 
 Call `/api/checkout/payment/start`, require exactly `{destination:"/checkout/payment"}`, then navigate on-origin. The result page obtains `captured`, `processing`, `failed`, `cancelled`, `expired`, or `stock_conflict` from the session repository. Captured shows the canonical receipt; processing offers a bounded refresh; terminal failures return to the retained cart. Provider query parameters are display-inert.
 
-- [ ] **Step 5: Keep the surface quiet and responsive**
+- [x] **Step 5: Keep the surface quiet and responsive**
 
 Use the existing store theme tokens, one concise status sentence, no duplicated title, and no provider-specific brand markup in the generic checkout component. Preserve keyboard focus, labels, disabled/loading state, and mobile stacking.
 
-- [ ] **Step 6: Run GREEN, full storefront gates, and commit**
+- [x] **Step 6: Run GREEN, full storefront gates, and commit**
 
 ```bash
 NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types --test apps/storefront-shared/lib/cart/client.test.ts apps/storefront-shared/lib/storefront/checkout-readiness.test.ts apps/storefront-shared/tests/storefront-app.test.ts

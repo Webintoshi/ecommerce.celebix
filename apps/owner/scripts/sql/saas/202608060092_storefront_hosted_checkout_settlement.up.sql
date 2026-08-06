@@ -22,6 +22,8 @@ DECLARE
   selected_customer saas.customers%ROWTYPE;
   selected_address saas.customer_addresses%ROWTYPE;
   line jsonb;
+  receipt_payload jsonb;
+  operation_result jsonb;
   position integer:=0;
   order_number text;
   held_count bigint;
@@ -250,6 +252,49 @@ BEGIN
     selected_session.receipt_id,selected_session.store_id,selected_session.order_id,
     selected_session.customer_credential_id,selected_session.receipt_key_id,
     selected_session.receipt_credential_digest,selected_session.receipt_expires_at,NEW.updated_at
+  );
+  receipt_payload:=pg_catalog.jsonb_build_object(
+    'orderReference',order_number,'currency',selected_session.currency,
+    'subtotalCents',selected_session.subtotal_minor,
+    'shippingCents',selected_session.shipping_minor,
+    'totalCents',selected_session.total_minor,
+    'paymentStatus','completed',
+    'paymentMethod',pg_catalog.jsonb_build_object(
+      'kind','hosted_card','id',selected_session.payment_method_id,
+      'label',(SELECT method.label FROM saas.payment_methods method
+        WHERE method.store_id=selected_session.store_id AND method.id=selected_session.payment_method_id),
+      'instructions','Güvenli sağlayıcı ekranında tamamlandı.',
+      'providerCode',selected_session.provider_code,
+      'presentation',CASE selected_session.provider_code WHEN 'paytr_iframe' THEN 'iframe' ELSE 'redirect' END,
+      'requiredCustomerFields',CASE selected_session.provider_code WHEN 'iyzico_iframe'
+        THEN pg_catalog.jsonb_build_array('identity_number') ELSE '[]'::jsonb END
+    ),
+    'delivery',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+      'recipientName',selected_customer.first_name||' '||selected_customer.last_name,
+      'addressLine1',selected_session.delivery_snapshot->'shippingAddress'->>'line1',
+      'addressLine2',selected_session.delivery_snapshot->'shippingAddress'->>'line2',
+      'city',selected_session.delivery_snapshot->'shippingAddress'->>'city',
+      'district',selected_session.delivery_snapshot->'shippingAddress'->>'district',
+      'postalCode',selected_session.delivery_snapshot->'shippingAddress'->>'postalCode',
+      'country','TR'
+    )),
+    'items',selected_session.item_snapshot,
+    'createdAt',saas.storefront_commerce_timestamp(NEW.updated_at)
+  );
+  operation_result:=pg_catalog.jsonb_build_object(
+    'receipt',receipt_payload,
+    'credentialPersistence',pg_catalog.jsonb_build_object(
+      'receipt',true,'customer',true,
+      'receiptKeyId',selected_session.receipt_key_id,
+      'customerKeyId',selected_session.customer_key_id
+    )
+  );
+  INSERT INTO saas.storefront_checkout_operations(
+    operation_id,store_id,cart_id,intent_id,order_id,payload_fingerprint,result_payload,committed_at
+  ) VALUES(
+    selected_session.payment_attempt_id,selected_session.store_id,selected_session.cart_id,
+    selected_session.intent_id,selected_session.order_id,selected_session.commerce_authority_digest,
+    operation_result,NEW.updated_at
   );
 
   UPDATE saas.checkout_inventory_reservations SET status='consumed',consumed_at=NEW.updated_at,

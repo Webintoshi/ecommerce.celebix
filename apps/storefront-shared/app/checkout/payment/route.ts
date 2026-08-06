@@ -49,9 +49,9 @@ export async function GET(request: Request): Promise<Response> {
   } catch {
     try {
       const status = await runtime.status(input);
-      if (status.status === "captured") return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: "/checkout/success" } });
+      if (status.status === "captured") return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: "/checkout/payment/result" } });
       if (status.status === "failed" || status.status === "cancelled" || status.status === "expired" || status.status === "stock_conflict") {
-        return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: "/checkout?payment=failed" } });
+        return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: "/checkout/payment/result" } });
       }
       return page('<p class="status">Ödeme sağlayıcısı hazırlanıyor…</p><meta http-equiv="refresh" content="2">', 202);
     } catch { return text(404, "Not found"); }

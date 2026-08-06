@@ -31,6 +31,7 @@ export function createStorefrontCartClient(fetcher: Fetcher = fetch, uuid: () =>
     async remove(input) { return mutation("/api/cart/remove", { operationId: uuid(), ...input }); },
     async buyNow(input) { const root = exact(await call("/api/cart/buy-now", { operationId: uuid(), ...input }), ["destination"]); if (!root || root.destination !== "/checkout?intent=buy-now") throw new StorefrontCartClientError("invalid_response"); return Object.freeze({ destination: "/checkout?intent=buy-now" as const }); },
     async quote(intentKind) { const root = exact(await call("/api/checkout/quote", { intentKind }), ["quote"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return quote(root.quote); },
+    async startHosted(input) { const root = exact(await call("/api/checkout/payment/start", { operationId: uuid(), ...input }), ["destination"]); if (!root || root.destination !== "/checkout/payment") throw new StorefrontCartClientError("invalid_response"); return Object.freeze({ destination: "/checkout/payment" as const }); },
   });
 }
 

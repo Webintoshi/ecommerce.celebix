@@ -304,6 +304,10 @@ try {
     const outcome = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_workflow;SELECT outcome FROM saas.payment_attempt_apply_hosted_callback('paytr_iframe','${"2".repeat(64)}','aa000000-0000-4000-8000-000000000191','${"6".repeat(64)}','${"7".repeat(64)}',2,1,'captured','provider-191','payment_captured',70000,'TRY','2026-08-06T12:02:00Z');COMMIT;`).stdout.trim();
     assert.equal(outcome, "captured");
     assert.equal(psql(box, `SELECT (SELECT count(*) FROM saas.orders WHERE id='93000000-0000-4000-8000-000000000191')||':'||(SELECT payment_status FROM saas.orders WHERE id='93000000-0000-4000-8000-000000000191')||':'||(SELECT status FROM saas.checkout_inventory_reservations WHERE storefront_hosted_session_id='${START_SESSION}')||':'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}')||':'||(SELECT status FROM saas.storefront_carts WHERE id='${CART}')||':'||(SELECT count(*) FROM saas.order_events WHERE order_id='93000000-0000-4000-8000-000000000191')||':'||(SELECT count(*) FROM saas.storefront_order_receipts WHERE order_id='93000000-0000-4000-8000-000000000191');`).stdout.trim(), "1:completed:consumed:1:converted:1:1");
+    const receipt = JSON.parse(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT result_payload FROM saas.public_receipt_get('${HOST}','2026-08-06T12:03:00Z','[{"keyId":"receipt-key-191","digest":"${"4".repeat(64)}"}]'::jsonb,'[{"keyId":"customer-key-191","digest":"${"5".repeat(64)}"}]'::jsonb);COMMIT;`).stdout.trim());
+    assert.equal(receipt.paymentStatus, "completed");
+    assert.equal(receipt.paymentMethod.kind, "hosted_card");
+    assert.equal(receipt.orderReference, "SF-93000000000040008000000000000191");
   });
   scenario("captured callback replay cannot duplicate order, event, receipt or stock decrement", () => {
     const outcome = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_workflow;SELECT outcome FROM saas.payment_attempt_apply_hosted_callback('paytr_iframe','${"2".repeat(64)}','aa000000-0000-4000-8000-000000000191','${"6".repeat(64)}','${"7".repeat(64)}',2,1,'captured','provider-191','payment_captured',70000,'TRY','2026-08-06T12:02:00Z');COMMIT;`).stdout.trim();
