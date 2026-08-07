@@ -28,7 +28,7 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
   const promotionActive = isStorefrontPromotionActive(design.promotion, now);
   const [activeSlide, setActiveSlide] = useState(0);
   const [paused, setPaused] = useState(false);
-  const slides = design.hero.slides;
+  const slides = design.hero.slides.filter((slide) => slide.desktopImage !== null);
   useEffect(() => { if (activeSlide >= slides.length) setActiveSlide(0); }, [activeSlide, slides.length]);
   useEffect(() => {
     if (paused || slides.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
@@ -53,10 +53,19 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
       {showHomeSurfaces && design.hero.enabled && slides.length ? (
         <section className="celebix-store-hero-slider" aria-roledescription="carousel" aria-label="Mağaza bannerları" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}>
           <div className="celebix-store-hero-track">
-            {slides.map((slide, index) => <article key={`${index}-${slide.headline}`} className="celebix-store-hero" data-active={index === activeSlide ? "true" : "false"} data-has-image={slide.desktopImage ? "true" : "false"} aria-hidden={index !== activeSlide}>
-              <div className="celebix-store-hero-copy"><small>{storeName}</small><h1>{slide.headline}</h1>{slide.body ? <p>{slide.body}</p> : null}{slide.destination ? <a href={slide.destination.path} tabIndex={index === activeSlide ? undefined : -1}>Keşfet</a> : null}</div>
-              {slide.desktopImage ? <picture><source media="(max-width: 720px)" srcSet={slide.mobileImage?.url ?? slide.desktopImage.url} /><img src={slide.desktopImage.url} alt={slide.desktopImage.altText} /></picture> : null}
-            </article>)}
+            {slides.map((slide, index) => {
+              const desktopImage = slide.desktopImage;
+              if (!desktopImage) return null;
+              const mobileImage = slide.mobileImage ?? desktopImage;
+              const banner = <picture>
+                <source media="(max-width: 720px)" srcSet={mobileImage.url} />
+                <img src={desktopImage.url} alt={desktopImage.altText} fetchPriority={index === 0 ? "high" : "auto"} />
+              </picture>;
+              return <article key={`${index}-${slide.headline}`} className="celebix-store-hero" data-active={index === activeSlide ? "true" : "false"} aria-label={slide.headline} aria-hidden={index !== activeSlide}>
+                <h1 className="celebix-store-hero-title-sr">{slide.headline}</h1>
+                {slide.destination ? <a className="celebix-store-hero-media" href={slide.destination.path} tabIndex={index === activeSlide ? undefined : -1} aria-label={`${slide.headline} bannerını aç`}>{banner}</a> : banner}
+              </article>;
+            })}
           </div>
           {slides.length > 1 ? <><button type="button" className="celebix-store-hero-arrow celebix-store-hero-prev" aria-label="Önceki banner" onClick={() => selectSlide(activeSlide - 1)}>‹</button><button type="button" className="celebix-store-hero-arrow celebix-store-hero-next" aria-label="Sonraki banner" onClick={() => selectSlide(activeSlide + 1)}>›</button><div className="celebix-store-hero-dots" role="group" aria-label="Banner seçimi">{slides.map((slide, index) => <button type="button" key={`${index}-${slide.headline}`} aria-label={`${index + 1}. banner`} aria-current={index === activeSlide ? "true" : undefined} onClick={() => selectSlide(index)} />)}</div></> : null}
         </section>
