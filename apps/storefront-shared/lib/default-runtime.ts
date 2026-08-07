@@ -144,6 +144,26 @@ async function currentExecutionAuthorityMatches(
   }
 }
 
+async function queryAsWorkflowRole(
+  pool: InstanceType<typeof Pool>,
+  text: string,
+  values: readonly unknown[] = [],
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL ROLE celebix_saas_workflow");
+    const result = await client.query({ text, values: [...values] });
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function initialize(): Promise<PublicStorefrontRuntime | null> {
   if (process.env.CELEBIX_DEPLOYMENT_TIER !== "staging" || process.env.CELEBIX_STOREFRONT_DATA_MODE !== "approved_staging") return null;
   const snapshot = Object.fromEntries(STOREFRONT_DATA_ENVIRONMENT_FIELDS.map((name) => [name, process.env[name]]));
@@ -167,7 +187,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     const content = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
     const commerce = new PostgresStorefrontCommerceRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined });
     const commerceKeyring = parseStorefrontCommerceCredentialKeyring(process.env);
-    const hostedMigration = await pool.query(`SELECT
+    const hostedMigration = await queryAsWorkflowRole(pool, `SELECT
       to_regclass('saas.storefront_hosted_checkout_sessions') IS NOT NULL
         AND to_regclass('saas.checkout_inventory_reservations') IS NOT NULL
         AND to_regprocedure('saas.storefront_available_stock(uuid,uuid,timestamp with time zone,uuid)') IS NOT NULL AS migration_090,
@@ -335,8 +355,7 @@ async function initializeHostedPaymentInfrastructure(
       application_name: "celebix-shared-storefront-hosted-payment-staging",
     });
     pool.on("error", () => undefined);
-    const preflight = await pool.query({
-      text: `SELECT
+    const preflight = await queryAsWorkflowRole(pool, `SELECT
         current_setting('server_version_num')::integer AS version_num,
         current_database() AS database_name,
         role.rolsuper AS is_superuser,
@@ -357,9 +376,7 @@ async function initializeHostedPaymentInfrastructure(
           AND saas.storefront_hosted_checkout_settlement_preflight()
           AS migration_092
       FROM pg_catalog.pg_roles AS role
-      WHERE role.rolname=current_user`,
-      values: [],
-    });
+      WHERE role.rolname=current_user`);
     const row = preflight.rows[0] as Record<string, unknown> | undefined;
     if (
       preflight.rowCount !== 1

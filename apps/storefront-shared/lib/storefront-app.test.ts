@@ -615,6 +615,11 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   assert.match(publicRuntime, /row[.]migration_073 !== true/);
   assert.match(publicRuntime, /storefront_hosted_checkout_settlement_preflight/);
   assert.match(publicRuntime, /hostedMigration[.]rows\[0\][?][.]migration_092 === true/);
+  assert.match(publicRuntime, /async function queryAsWorkflowRole/);
+  assert.match(publicRuntime, /SET LOCAL ROLE celebix_saas_workflow/);
+  assert.match(publicRuntime, /const hostedMigration = await queryAsWorkflowRole\(pool,/);
+  assert.match(publicRuntime, /const preflight = await queryAsWorkflowRole\(pool,/);
+  assert.doesNotMatch(publicRuntime, /const hostedMigration = await pool[.]query/);
   assert.match(publicRuntime, /content,/);
   assert.doesNotMatch(publicRuntime, /ProductMediaRepository|INSERT|UPDATE|DELETE/);
 });
