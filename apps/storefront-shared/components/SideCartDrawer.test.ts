@@ -79,7 +79,17 @@ test("side-cart stays responsive with 48px targets and reduced motion", () => {
   assert.match(css, /[.]side-cart-dialog/u);
   assert.match(css, /[.]side-cart-backdrop/u);
   assert.match(css, /min-height:\s*48px/u);
-  assert.match(css, /[.]side-cart-line-copy > a \{[^}]*min-height:\s*48px/u);
+  assert.match(css, /[.]campaign-side-cart \{[^}]*width:\s*min\(456px, 100%\)/u);
+  assert.match(css, /[.]side-cart-line-copy > a \{[^}]*-webkit-line-clamp:\s*2/u);
+  assert.match(css, /[.]side-cart-line-utility \{[^}]*display:\s*flex/u);
+  assert.match(css, /[.]side-cart-actions \{[^}]*grid-template-columns:\s*1fr/u);
+  assert.match(css, /[.]side-cart-view-link \{[^}]*min-height:\s*48px/u);
+  assert.match(css, /[.]side-cart-footer \{[^}]*env\(safe-area-inset-bottom\)/u);
+  assert.match(css, /[.]side-cart-header button \{[^}]*min-height:\s*48px/u);
+  assert.match(css, /[.]side-cart-quantity button \{[^}]*min-height:\s*48px/u);
+  assert.match(css, /[.]side-cart-header button:focus-visible/u);
+  assert.match(css, /[.]side-cart-view-link:focus-visible/u);
+  assert.match(css, /@media \(max-width:\s*480px\)[\s\S]+[.]side-cart-line \{[^}]*grid-template-columns:\s*80px minmax\(0, 1fr\)/u);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
   assert.match(css, /transition-duration:\s*[.]01ms/u);
 });
