@@ -46,10 +46,26 @@ test("side-cart is modal keyboard-safe and restores the opening control", () => 
 
 test("side-cart renders canonical lines and uses only replay-safe mutations", () => {
   for (const proof of ["line.media", "line.title", "line.variantTitle", "line.unitPriceCents", "line.lineTotalCents", "cart.subtotalCents", "cart.shippingCents", "cart.totalCents", "setQuantity", "remove", "expectedVersion", "Sepeti görüntüle", "Ödemeye geç"]) assert.match(`${drawer}\n${mutation}`, new RegExp(proof, "u"));
+  assert.match(drawer, /side-cart-line-price/u);
+  assert.match(drawer, /side-cart-line-total/u);
   assert.doesNotMatch(`${drawer}\n${mutation}`, /fetch\(|localStorage|sessionStorage|document.cookie/u);
   assert.match(drawer, /Ödeme durumunu görüntüle/u);
   assert.match(drawer, /side-cart-notice is-configuration/u);
   assert.match(css, /[.]side-cart-notice[.]is-configuration/u);
+});
+
+test("luxury-minimal side-cart uses compact hierarchy and one dominant checkout action", () => {
+  assert.match(drawer, /<h2 id="side-cart-title">Sepetim<\/h2>/u);
+  assert.match(drawer, /side-cart-header-count/u);
+  assert.match(drawer, /\{cart[.]itemCount\} ürün/u);
+  assert.match(drawer, /side-cart-line-utility/u);
+  assert.match(drawer, /side-cart-line-price/u);
+  assert.match(drawer, /side-cart-view-link/u);
+  assert.match(drawer, /line[.]quantity > 1/u);
+  assert.match(drawer, /line[.]variantTitle !== "Varsayılan"/u);
+  assert.match(drawer, /className="store-button campaign-side-cart-checkout"/u);
+  assert.doesNotMatch(drawer, /<span>SEPETİNİZ<\/span>|<h2 id="side-cart-title">Sepet özeti<\/h2>/u);
+  assert.doesNotMatch(drawer, /store-button store-button-secondary" href="\/cart/u);
 });
 
 test("side-cart quantity selector follows published design and preserves read-only quantity", () => {
