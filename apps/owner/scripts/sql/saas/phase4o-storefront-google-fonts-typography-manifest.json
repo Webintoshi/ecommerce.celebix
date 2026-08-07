@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase4o-storefront-google-fonts-typography",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608070096_storefront_google_fonts_typography.up.sql",
+      "direction": "up",
+      "sha256": "d903e6a8fd269951c66a1d52a9b61e5531c76fc5e128b1412cad23ed3bfc14c4"
+    },
+    {
+      "file": "202608070096_storefront_google_fonts_typography.down.sql",
+      "direction": "down",
+      "sha256": "c36449ac97a9fc07d94e7851e9c617455ff010d226942c05d32fda76ea0c51cb"
+    },
+    {
+      "file": "202608070096_storefront_google_fonts_typography_assertions.sql",
+      "direction": "verify",
+      "sha256": "f515e3df8772ace81eb6065db2e3660ea7174c2d0c0635fac6a37ae635139938"
+    }
+  ]
+}
