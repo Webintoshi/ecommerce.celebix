@@ -6,8 +6,9 @@ import { createDefaultStarterThemeComposition } from "@celebix/saas-contracts";
 import { applyDesignEdit, beginDesignSave, completeDesignSave, createDesignEditorState } from "./workspace-model.ts";
 
 const NOW = "2026-08-03T09:00:00.000Z";
-const DESIGN = { schemaVersion: 3, brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: { kind: "none" }, enabled: true }] }, promotion: { headline: "Yeni sezon", body: "", destination: { kind: "none" }, startsAt: null, endsAt: null, enabled: false }, announcement: { items: ["Ücretsiz kargo"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true }, composition: createDefaultStarterThemeComposition() } as const;
-const PUBLIC = { schemaVersion: 2, publicationVersion: 1, publishedAt: NOW, brand: DESIGN.brand, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: null }] }, promotion: { ...DESIGN.promotion, destination: null }, announcement: DESIGN.announcement } as const;
+const TYPOGRAPHY = { headingFont: { family: "Manrope", category: "sans-serif", availableWeights: ["400", "500", "600", "700", "800"], source: "google" }, bodyFont: { family: "Manrope", category: "sans-serif", availableWeights: ["400", "500", "600", "700", "800"], source: "google" }, headingWeight: "700", bodyWeight: "400", headingSizePx: 40, bodySizePx: 16 } as const;
+const DESIGN = { schemaVersion: 3, brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, typography: TYPOGRAPHY, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: { kind: "none" }, enabled: true }] }, promotion: { headline: "Yeni sezon", body: "", destination: { kind: "none" }, startsAt: null, endsAt: null, enabled: false }, announcement: { items: ["Ücretsiz kargo"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true }, composition: createDefaultStarterThemeComposition() } as const;
+const PUBLIC = { schemaVersion: 2, publicationVersion: 1, publishedAt: NOW, brand: DESIGN.brand, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: null }] }, promotion: { ...DESIGN.promotion, destination: null }, announcement: DESIGN.announcement, typography: TYPOGRAPHY } as const;
 const WORKSPACE = { schemaVersion: 3, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW, publishedAt: NOW, draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] } as const;
 
 test("editor state never reports a newer local edit as saved by an older request", () => {
@@ -42,6 +43,8 @@ test("workspace source exposes child-friendly sections, truthful save states and
   assert.doesNotMatch(inspector, /showUpload={false}/);
   assert.match(inspector, /Varsayılana dön/);
   assert.match(inspector, /Bağlantı yok/);
+  assert.match(inspector, /TypographyEditor/);
+  assert.match(inspector, /design[.]typography/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /\.workspace\s*\{[^}]*grid-template-columns:\s*320px minmax\(0, 1fr\)/s);
   assert.match(css, /\.sectionRail\s*\{[^}]*flex-direction:\s*row/s);

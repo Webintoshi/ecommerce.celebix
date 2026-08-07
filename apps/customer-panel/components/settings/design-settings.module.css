@@ -30,10 +30,20 @@
 .colorField input { width: 48px; height: 48px; border: 1px solid #d8dee8; border-radius: 10px; background: #fff; padding: 4px; }
 .colorField output { display: flex; min-height: 48px; align-items: center; border-bottom: 1px solid #e8edf4; color: #344054; font-family: ui-monospace, monospace; font-size: 12px; }
 .colorField button, .schedule button { grid-column: 1 / -1; min-height: 48px; border: 0; background: transparent; padding: 0; color: #667085; cursor: pointer; font-size: 12px; text-align: left; }
-.fontSample { display: block; overflow: hidden; padding: 20px 0; font-size: 28px; letter-spacing: -.04em; text-overflow: ellipsis; white-space: nowrap; }
-.fontSample[data-font="playfair"] { font-family: Georgia, serif; }
-.fontSample[data-font="montserrat"] { font-family: Montserrat, sans-serif; }
-.fontSample[data-font="manrope"] { font-family: Manrope, sans-serif; }
+.typographyEditor { display: grid; gap: 18px; }
+.typographyIntro { display: grid; gap: 5px; }
+.typographyIntro strong { color: #1d2939; font-size: 15px; }
+.typographyIntro p { margin: 0; color: #667085; font-size: 12px; line-height: 1.55; }
+.catalogNotice { border-left: 3px solid #ff8a3d; margin: 0; background: #fff8f3; padding: 10px 12px; color: #9a3e04; font-size: 12px; line-height: 1.5; }
+.typographyRole { display: grid; gap: 14px; border-top: 1px solid #e8edf4; padding-top: 18px; }
+.typographyRole > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.typographyRole > header strong { color: #1d2939; font-size: 13px; }
+.typographyRole > header span { color: #98a2b3; font-size: 11px; }
+.typographyControls { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(92px, .75fr); gap: 10px; }
+.pixelField { position: relative; }
+.pixelField input { padding-right: 38px !important; }
+.pixelField span { position: absolute; top: 50%; right: 12px; color: #98a2b3; font-size: 12px; transform: translateY(-50%); }
+.typographySample { min-height: 86px; overflow: hidden; margin: 0; border-left: 2px solid #ff5a00; padding: 14px 0 14px 16px; color: #171717; line-height: 1.18; overflow-wrap: anywhere; }
 .toggle { display: grid; min-height: 48px; grid-template-columns: 48px 1fr; align-items: center; gap: 10px; cursor: pointer; }
 .toggle input { position: absolute; opacity: 0; }
 .toggle span { position: relative; width: 46px; height: 26px; border-radius: 999px; background: #cbd2dc; }

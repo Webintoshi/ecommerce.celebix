@@ -19,10 +19,19 @@ const OPERATION = "60000000-0000-4000-8000-000000000001";
 const MEDIA = "70000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-08-03T09:00:00.000Z");
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x61).toString("base64url")}`;
+const TYPOGRAPHY = Object.freeze({
+  headingFont: Object.freeze({ family: "Manrope", category: "sans-serif", availableWeights: Object.freeze(["400", "500", "600", "700", "800"] as const), source: "google" as const }),
+  bodyFont: Object.freeze({ family: "Manrope", category: "sans-serif", availableWeights: Object.freeze(["400", "500", "600", "700", "800"] as const), source: "google" as const }),
+  headingWeight: "700" as const,
+  bodyWeight: "400" as const,
+  headingSizePx: 40,
+  bodySizePx: 16,
+});
 
 const DESIGN: StorefrontDesignDocument = Object.freeze({
   schemaVersion: 3,
   brand: Object.freeze({ logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }),
+  typography: TYPOGRAPHY,
   hero: Object.freeze({ enabled: true, slides: Object.freeze([Object.freeze({ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: Object.freeze({ kind: "none" }), enabled: true })]) }),
   promotion: Object.freeze({ headline: "Yeni sezon", body: "", destination: Object.freeze({ kind: "none" }), startsAt: null, endsAt: null, enabled: false }),
   announcement: Object.freeze({ items: Object.freeze(["Ücretsiz kargo"]), icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true }),
@@ -37,6 +46,7 @@ const PUBLIC = Object.freeze({
   hero: Object.freeze({ enabled: true, slides: Object.freeze([Object.freeze({ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: null, mobileImage: null, destination: null })]) }),
   promotion: Object.freeze({ headline: "Yeni sezon", body: "", destination: null, startsAt: null, endsAt: null, enabled: false }),
   announcement: DESIGN.announcement,
+  typography: TYPOGRAPHY,
 });
 
 function tenant(role: TenantContext["membership"]["role"] = "store_owner"): TenantContext {
