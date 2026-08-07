@@ -18,6 +18,14 @@ const PLAN = "66666666-6666-4666-8666-666666666666";
 const MEDIA = "77777777-7777-4777-8777-777777777777";
 const OPERATION = "88888888-8888-4888-8888-888888888888";
 const NOW = new Date("2026-08-03T12:00:00.000Z");
+const TYPOGRAPHY = {
+  headingFont: { family: "Inter", category: "sans-serif" as const, availableWeights: ["400", "500", "600", "700", "800"] as const, source: "google" as const },
+  bodyFont: { family: "Inter", category: "sans-serif" as const, availableWeights: ["400", "500", "600", "700", "800"] as const, source: "google" as const },
+  headingWeight: "700" as const,
+  bodyWeight: "400" as const,
+  headingSizePx: 40,
+  bodySizePx: 16,
+};
 
 const DESIGN = {
   schemaVersion: 3 as const,
@@ -25,6 +33,7 @@ const DESIGN = {
   hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "", desktopImage: null, mobileImage: null, destination: { kind: "none" as const }, enabled: true }] },
   promotion: { headline: "Ücretsiz kargo", body: "", destination: { kind: "none" as const }, startsAt: null, endsAt: null, enabled: false },
   announcement: { items: ["Güzide Kuyumcu"], icon: "none" as const, speed: "normal" as const, direction: "left" as const, animation: "continuous" as const, enabled: false },
+  typography: TYPOGRAPHY,
   composition: createDefaultStarterThemeComposition(),
 };
 
@@ -36,6 +45,7 @@ const PUBLIC = {
   hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "", desktopImage: null, mobileImage: null, destination: null }] },
   promotion: { ...DESIGN.promotion, destination: null },
   announcement: DESIGN.announcement,
+  typography: TYPOGRAPHY,
 };
 
 const WORKSPACE = {
