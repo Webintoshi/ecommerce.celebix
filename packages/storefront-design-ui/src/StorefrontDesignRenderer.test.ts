@@ -11,12 +11,13 @@ import {
 } from "@celebix/saas-contracts";
 
 import { createPreviewStorefrontDesign, isStorefrontPromotionActive } from "./model.ts";
+import { createStorefrontTypographyResources } from "./typography.ts";
 
 const MEDIA = "70000000-0000-4000-8000-000000000001";
 const MOBILE_MEDIA = "70000000-0000-4000-8000-000000000002";
 const DESTINATION = "80000000-0000-4000-8000-000000000001";
 const NOW = "2026-08-03T09:00:00.000Z";
-const DESIGN: StorefrontDesignDocument = { schemaVersion: 3, brand: { logo: { kind: "media", mediaId: MEDIA }, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: { kind: "media", mediaId: MEDIA }, mobileImage: null, destination: { kind: "product", resourceId: DESTINATION }, enabled: true }] }, promotion: { headline: "Yaz fırsatı", body: "Seçili ürünlerde", destination: { kind: "none" }, startsAt: "2026-08-01T00:00:00.000Z", endsAt: "2026-08-10T00:00:00.000Z", enabled: true }, announcement: { items: ["Ücretsiz kargo", "Güvenli ödeme"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true }, composition: createDefaultStarterThemeComposition() };
+const DESIGN: StorefrontDesignDocument = { schemaVersion: 3, brand: { logo: { kind: "media", mediaId: MEDIA }, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: { kind: "media", mediaId: MEDIA }, mobileImage: null, destination: { kind: "product", resourceId: DESTINATION }, enabled: true }] }, promotion: { headline: "Yaz fırsatı", body: "Seçili ürünlerde", destination: { kind: "none" }, startsAt: "2026-08-01T00:00:00.000Z", endsAt: "2026-08-10T00:00:00.000Z", enabled: true }, announcement: { items: ["Ücretsiz kargo", "Güvenli ödeme"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true }, typography: { headingFont: { family: "Playfair Display", category: "serif", availableWeights: ["400", "700"], source: "google" }, bodyFont: { family: "Inter", category: "sans-serif", availableWeights: ["400", "500", "700"], source: "google" }, headingWeight: "700", bodyWeight: "400", headingSizePx: 48, bodySizePx: 17 }, composition: createDefaultStarterThemeComposition() };
 
 async function loadStorefrontDesignRenderer() {
   const sourceUrl = new URL("./StorefrontDesignRenderer.tsx", import.meta.url);
@@ -30,7 +31,8 @@ async function loadStorefrontDesignRenderer() {
   }).outputText
     .replace('from "react"', `from "${import.meta.resolve("react")}"`)
     .replace('from "react/jsx-runtime"', `from "${import.meta.resolve("react/jsx-runtime")}"`)
-    .replace('from "./model.ts"', `from "${new URL("./model.ts", import.meta.url).href}"`);
+    .replace('from "./model.ts"', `from "${new URL("./model.ts", import.meta.url).href}"`)
+    .replace('from "./typography.ts"', `from "${new URL("./typography.ts", import.meta.url).href}"`);
   const loaded = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
   return loaded.StorefrontDesignRenderer as typeof import("./StorefrontDesignRenderer.tsx").StorefrontDesignRenderer;
 }
@@ -41,6 +43,30 @@ test("preview resolves only tenant media and destination options into the public
   assert.equal(selected.hero.slides[0]?.destination?.path, "/products/altin-kolye");
   assert.equal(JSON.stringify(selected).includes(MEDIA), false);
   assert.equal(JSON.stringify(selected).includes(DESTINATION), false);
+  assert.deepEqual(selected.typography, DESIGN.typography);
+});
+
+test("typography resources combine only selected Google families and exact weights", () => {
+  const resources = createStorefrontTypographyResources(DESIGN.typography);
+  assert.equal(resources.stylesheetUrl, "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400&display=swap");
+  assert.equal(resources.style["--store-heading-font"], '"Playfair Display", Georgia, "Times New Roman", serif');
+  assert.equal(resources.style["--store-body-font"], '"Inter", ui-sans-serif, system-ui, sans-serif');
+  assert.equal(resources.style["--store-heading-weight"], "700");
+  assert.equal(resources.style["--store-body-weight"], "400");
+  assert.equal(resources.style["--store-heading-size"], "48px");
+  assert.equal(resources.style["--store-body-size"], "17px");
+});
+
+test("typography resources deduplicate one family and fail closed for hostile runtime data", () => {
+  const sameFamily = createStorefrontTypographyResources({
+    ...DESIGN.typography,
+    headingFont: DESIGN.typography.bodyFont,
+    headingWeight: "700",
+  });
+  assert.equal(sameFamily.stylesheetUrl, "https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");
+  assert.throws(() => createStorefrontTypographyResources({ ...DESIGN.typography, headingFont: { ...DESIGN.typography.headingFont, family: "Inter;src:url(evil)" } } as typeof DESIGN.typography), /storefront_typography_invalid/);
+  assert.throws(() => createStorefrontTypographyResources({ ...DESIGN.typography, headingSizePx: 100 } as typeof DESIGN.typography), /storefront_typography_invalid/);
+  assert.throws(() => createStorefrontTypographyResources({ ...DESIGN.typography, bodyWeight: "900" } as unknown as typeof DESIGN.typography), /storefront_typography_invalid/);
 });
 
 test("preview fails closed when a draft references deleted media or destination", () => {
@@ -92,6 +118,11 @@ test("image banners render as responsive media without a visible text panel", as
   assert.doesNotMatch(markup, /celebix-store-hero-copy/);
   assert.doesNotMatch(markup, /Zamansız tasarımlar/);
   assert.doesNotMatch(markup, />Keşfet</);
+  assert.match(markup, /rel="preconnect" href="https:\/\/fonts[.]googleapis[.]com"/);
+  assert.match(markup, /rel="preconnect" href="https:\/\/fonts[.]gstatic[.]com" crossorigin="anonymous"/);
+  assert.match(markup, /rel="stylesheet" href="https:\/\/fonts[.]googleapis[.]com\/css2\?family=Playfair\+Display:wght@700&amp;family=Inter:wght@400&amp;display=swap"/);
+  assert.match(markup, /--store-heading-font:&quot;Playfair Display&quot;, Georgia, &quot;Times New Roman&quot;, serif/);
+  assert.match(markup, /--store-body-size:17px/);
 });
 
 test("renderer source owns exact brand tokens and no unsafe HTML path", async () => {

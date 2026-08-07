@@ -5,6 +5,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { PublicStorefrontDesign } from "@celebix/saas-contracts";
 
 import { isStorefrontPromotionActive } from "./model.ts";
+import { createStorefrontTypographyResources } from "./typography.ts";
 
 type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
@@ -19,11 +20,13 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
   showHeader?: boolean;
   showHomeSurfaces?: boolean;
 }>) {
+  const typography = createStorefrontTypographyResources(design.typography);
   const style: DesignStyle = {
     "--store-primary": design.brand.primaryColor,
     "--store-accent": design.brand.accentColor,
     "--store-background": design.brand.backgroundColor,
     "--store-text": design.brand.textColor,
+    ...typography.style,
   };
   const promotionActive = isStorefrontPromotionActive(design.promotion, now);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -37,7 +40,11 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
   }, [paused, slides.length]);
   const selectSlide = (index: number) => setActiveSlide((index + slides.length) % slides.length);
   return (
-    <div className="celebix-store-design" data-font={design.brand.fontFamily} data-compact={compact ? "true" : "false"} style={style}>
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link rel="stylesheet" href={typography.stylesheetUrl} />
+      <div className="celebix-store-design" data-font={design.brand.fontFamily} data-compact={compact ? "true" : "false"} style={style}>
       {design.announcement.enabled ? (
         <div className="celebix-store-announcement" data-speed={design.announcement.speed} data-direction={design.announcement.direction} data-animation={design.announcement.animation} aria-label="Mağaza duyuruları">
           <div>{design.announcement.items.map((item, index) => <span key={`${index}-${item}`}>{ICONS[design.announcement.icon] ? <i aria-hidden="true">{ICONS[design.announcement.icon]}</i> : null}{item}</span>)}</div>
@@ -72,6 +79,7 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
       ) : null}
       {showHomeSurfaces && promotionActive ? <aside className="celebix-store-promotion"><div><strong>{design.promotion.headline}</strong>{design.promotion.body ? <span>{design.promotion.body}</span> : null}</div>{design.promotion.destination ? <a href={design.promotion.destination.path}>İncele</a> : null}</aside> : null}
       {children ? <div className="celebix-store-content">{children}</div> : null}
-    </div>
+      </div>
+    </>
   );
 }

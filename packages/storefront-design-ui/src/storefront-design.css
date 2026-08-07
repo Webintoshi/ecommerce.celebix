@@ -3,15 +3,28 @@
   --store-accent: #171717;
   --store-background: #FFFFFF;
   --store-text: #171717;
+  --store-heading-font: Georgia, "Times New Roman", serif;
+  --store-body-font: Inter, ui-sans-serif, system-ui, sans-serif;
+  --store-heading-weight: 700;
+  --store-body-weight: 400;
+  --store-heading-size: 40px;
+  --store-body-size: 16px;
   overflow: hidden;
   min-width: 0;
   background: var(--store-background);
   color: var(--store-text);
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--store-body-font);
+  font-size: var(--store-body-size);
+  font-weight: var(--store-body-weight);
 }
 .celebix-store-design[data-font="manrope"] { font-family: Manrope, Inter, ui-sans-serif, system-ui, sans-serif; }
 .celebix-store-design[data-font="montserrat"] { font-family: Montserrat, Inter, ui-sans-serif, system-ui, sans-serif; }
 .celebix-store-design[data-font="playfair"] { font-family: "Playfair Display", Georgia, serif; }
+.celebix-store-design :where(h1, h2, h3, h4, h5, h6, legend, .celebix-store-brand strong, .celebix-store-promotion strong) {
+  font-family: var(--store-heading-font);
+  font-size: var(--store-heading-size);
+  font-weight: var(--store-heading-weight);
+}
 .celebix-store-announcement { overflow: hidden; background: var(--store-accent); color: var(--store-background); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
 .celebix-store-announcement > div { display: flex; width: max-content; min-width: 100%; min-height: 34px; align-items: center; justify-content: space-around; gap: 48px; padding-inline: 24px; }
 .celebix-store-announcement span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }

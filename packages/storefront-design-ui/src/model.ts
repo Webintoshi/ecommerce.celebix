@@ -70,6 +70,7 @@ export function createPreviewStorefrontDesign(value: PreviewInput): PublicStoref
         enabled: input.draft.promotion.enabled,
       },
       announcement: input.draft.announcement,
+      typography: input.draft.typography,
     });
   } catch { return invalid(); }
 }

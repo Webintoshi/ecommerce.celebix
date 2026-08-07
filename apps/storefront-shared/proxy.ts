@@ -103,7 +103,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     let analytics:Readonly<{scriptOrigin:string;collectorOrigin:string}>|null=null;
     if(dependencies.resolveAnalytics){try{analytics=await dependencies.resolveAnalytics({hostname:authority.hostname,now:dependencies.now()})}catch{analytics=null}}
     const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"",connectDestination=analytics?`'self' ${analytics.collectorOrigin}`:"'self'";
-    const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;
+    const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;
     let iframeAuthorized = false;
     if (exactTarget && pathname === "/odeme/hizli/odeme") {
       try {
@@ -114,7 +114,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const accountVerificationForm = pathname === "/account/verify";
     const quickOrderForm = exactTarget && pathname === "/odeme/hizli";
     const csp = accountVerificationForm || quickOrderForm
-      ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
+      ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
       : iframeAuthorized
         ? PAYTR_IFRAME_CSP
         : defaultCsp;

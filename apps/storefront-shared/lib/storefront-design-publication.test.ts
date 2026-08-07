@@ -33,6 +33,10 @@ test("published design augments the complete storefront without removing commerc
   assert.match(frame, /<Header[^>]+design=\{design\}/);
   assert.match(frame, /<Footer/);
   assert.match(frame, /publicationVersion > 1/);
+  assert.match(frame, /createStorefrontTypographyResources\(design[.]typography\)/);
+  assert.match(frame, /rel="stylesheet" href=\{typography[.]stylesheetUrl\}/);
+  assert.match(frame, /https:\/\/fonts[.]googleapis[.]com/);
+  assert.match(frame, /https:\/\/fonts[.]gstatic[.]com/);
   assert.match(home, /StorefrontDesignRenderer/);
   assert.match(home, /showHeader=\{false\}/);
   assert.match(home, /publicationVersion > 1/);
@@ -49,4 +53,8 @@ test("published design augments the complete storefront without removing commerc
   assert.match(globals, /data-published-design="true"[^}]+--ink:\s*var\(--store-text\)/s);
   assert.match(globals, /data-published-design="true"[^}]+--accent:\s*var\(--store-accent\)/s);
   assert.match(globals, /data-published-design="true"[^}]+--paper:\s*var\(--store-background\)/s);
+  assert.match(globals, /font-family:\s*var\(--store-body-font/);
+  assert.match(globals, /font-size:\s*var\(--store-body-size/);
+  assert.match(globals, /font-family:\s*var\(--store-heading-font/);
+  assert.match(globals, /font-size:\s*var\(--store-heading-size/);
 });

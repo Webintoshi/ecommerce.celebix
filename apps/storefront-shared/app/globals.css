@@ -505,6 +505,20 @@ img { display: block; max-width: 100%; }
 .starter-storefront[data-published-design="true"] { --ink: var(--store-text); --muted: color-mix(in srgb, var(--store-text) 68%, var(--store-background)); --paper: var(--store-background); --white: var(--store-background); --line: color-mix(in srgb, var(--store-text) 16%, var(--store-background)); --dark: var(--store-primary); --accent: var(--store-accent); --accent-ink: var(--store-background); --media-surface: color-mix(in srgb, var(--store-text) 6%, var(--store-background)); }
 .starter-storefront.heading-sans .wordmark, .starter-storefront.heading-sans h1, .starter-storefront.heading-sans h2, .starter-storefront.heading-sans h3, .starter-storefront.heading-sans .footer-grid strong { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 .starter-storefront.heading-serif .wordmark, .starter-storefront.heading-serif h1, .starter-storefront.heading-serif h2, .starter-storefront.heading-serif h3, .starter-storefront.heading-serif .footer-grid strong { font-family: Georgia, "Times New Roman", serif; }
+.starter-storefront {
+  font-family: var(--store-body-font, Inter, ui-sans-serif, system-ui, sans-serif);
+  font-size: var(--store-body-size, 16px);
+  font-weight: var(--store-body-weight, 400);
+}
+.starter-storefront :where(p, a, button, input, select, textarea, label, span, li, dt, dd, small) {
+  font-family: var(--store-body-font, Inter, ui-sans-serif, system-ui, sans-serif);
+  font-weight: var(--store-body-weight, 400);
+}
+.starter-storefront :where(h1, h2, h3, h4, h5, h6, legend, .wordmark, .footer-grid strong, .retail-footer-brand strong) {
+  font-family: var(--store-heading-font, Georgia, "Times New Roman", serif);
+  font-size: var(--store-heading-size, 40px);
+  font-weight: var(--store-heading-weight, 700);
+}
 .loading-page, .error-page { display: grid; min-height: 100vh; place-items: center; align-content: center; gap: 14px; padding: 32px; background: var(--paper); text-align: center; }
 .loading-mark { width: 24px; height: 24px; border: 2px solid #ccc9c1; border-top-color: var(--ink); border-radius: 50%; animation: spin .8s linear infinite; }
 .error-page > span { font-size: 10px; font-weight: 800; letter-spacing: .25em; }
