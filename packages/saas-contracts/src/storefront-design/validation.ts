@@ -3,7 +3,9 @@ import {
   STOREFRONT_DESIGN_ANNOUNCEMENT_DIRECTIONS,
   STOREFRONT_DESIGN_ANNOUNCEMENT_ICONS,
   STOREFRONT_DESIGN_ANNOUNCEMENT_SPEEDS,
+  STOREFRONT_DESIGN_FONT_CATEGORIES,
   STOREFRONT_DESIGN_FONT_FAMILIES,
+  STOREFRONT_DESIGN_FONT_WEIGHTS,
 } from "./types.ts";
 import { createDefaultStarterThemeComposition } from "./defaults.ts";
 import { parseStarterThemeCompositionConfig } from "../storefront/validation.ts";
@@ -17,8 +19,10 @@ import type {
   StorefrontDesignDestinationOption,
   StorefrontDesignDocument,
   StorefrontDesignHeroSlide,
+  StorefrontDesignFontOption,
   StorefrontDesignMediaOption,
   StorefrontDesignPublishIssue,
+  StorefrontDesignTypography,
   StorefrontDesignWorkspace,
 } from "./types.ts";
 
@@ -28,6 +32,7 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 const PATH = /^\/(?:[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)?$/;
 const TIMEZONE = /^[A-Za-z_]+(?:\/[A-Za-z0-9_+.-]+)+$/;
 const MEDIA_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"] as const);
+const FONT_FAMILY = /^[A-Za-z0-9][A-Za-z0-9 .&()+-]{0,119}$/;
 
 function invalid(): never {
   throw new TypeError("storefront_design_contract_invalid");
@@ -92,6 +97,11 @@ function uuid(value: unknown): string {
 
 function positiveInteger(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1) invalid();
+  return value as number;
+}
+
+function boundedInteger(value: unknown, minimum: number, maximum: number): number {
+  if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) invalid();
   return value as number;
 }
 
@@ -182,11 +192,61 @@ function parseAnnouncement(value: unknown): StorefrontDesignAnnouncement {
   });
 }
 
+function legacyFontOption(value: unknown): StorefrontDesignFontOption {
+  const family = oneOf(value, STOREFRONT_DESIGN_FONT_FAMILIES);
+  const resolved = family === "manrope"
+    ? { family: "Manrope", category: "sans-serif" as const }
+    : family === "montserrat"
+      ? { family: "Montserrat", category: "sans-serif" as const }
+      : family === "playfair"
+        ? { family: "Playfair Display", category: "serif" as const }
+        : { family: "Inter", category: "sans-serif" as const };
+  return Object.freeze({ ...resolved, availableWeights: Object.freeze([...STOREFRONT_DESIGN_FONT_WEIGHTS]), source: "google" as const });
+}
+
+function parseFontOption(value: unknown): StorefrontDesignFontOption {
+  const parsed = exact(value, ["family", "category", "availableWeights", "source"]);
+  const family = text(parsed.family, 1, 120);
+  if (!FONT_FAMILY.test(family)) invalid();
+  const availableWeights = Object.freeze(array(parsed.availableWeights, 1, STOREFRONT_DESIGN_FONT_WEIGHTS.length)
+    .map((weight) => oneOf(weight, STOREFRONT_DESIGN_FONT_WEIGHTS)));
+  if (new Set(availableWeights).size !== availableWeights.length) invalid();
+  if (availableWeights.some((weight, index) => index > 0 && STOREFRONT_DESIGN_FONT_WEIGHTS.indexOf(weight) <= STOREFRONT_DESIGN_FONT_WEIGHTS.indexOf(availableWeights[index - 1]!))) invalid();
+  if (parsed.source !== "google") invalid();
+  return Object.freeze({
+    family,
+    category: oneOf(parsed.category, STOREFRONT_DESIGN_FONT_CATEGORIES),
+    availableWeights,
+    source: "google",
+  });
+}
+
+function parseTypography(value: unknown, legacyFontFamily: unknown): StorefrontDesignTypography {
+  if (value === undefined) {
+    const font = legacyFontOption(legacyFontFamily);
+    return Object.freeze({ headingFont: font, bodyFont: font, headingWeight: "700", bodyWeight: "400", headingSizePx: 40, bodySizePx: 16 });
+  }
+  const parsed = exact(value, ["headingFont", "bodyFont", "headingWeight", "bodyWeight", "headingSizePx", "bodySizePx"]);
+  const headingFont = parseFontOption(parsed.headingFont);
+  const bodyFont = parseFontOption(parsed.bodyFont);
+  const headingWeight = oneOf(parsed.headingWeight, STOREFRONT_DESIGN_FONT_WEIGHTS);
+  const bodyWeight = oneOf(parsed.bodyWeight, STOREFRONT_DESIGN_FONT_WEIGHTS);
+  if (!headingFont.availableWeights.includes(headingWeight) || !bodyFont.availableWeights.includes(bodyWeight)) invalid();
+  return Object.freeze({
+    headingFont,
+    bodyFont,
+    headingWeight,
+    bodyWeight,
+    headingSizePx: boundedInteger(parsed.headingSizePx, 24, 72),
+    bodySizePx: boundedInteger(parsed.bodySizePx, 14, 20),
+  });
+}
+
 export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignDocument {
   const root = record(value);
-  const parsed = exact(root, root.schemaVersion === 3
-    ? ["schemaVersion", "brand", "hero", "promotion", "announcement", "composition"]
-    : ["schemaVersion", "brand", "hero", "promotion", "announcement"]);
+  const parsed = root.schemaVersion === 3
+    ? exact(root, ["schemaVersion", "brand", "hero", "promotion", "announcement", "composition"], ["typography"])
+    : exact(root, ["schemaVersion", "brand", "hero", "promotion", "announcement"]);
   if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) invalid();
 
   const brand = exact(parsed.brand, ["logo", "favicon", "primaryColor", "accentColor", "backgroundColor", "textColor", "fontFamily"]);
@@ -244,6 +304,7 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
       enabled: boolean(promotion.enabled),
     }),
     announcement: parseAnnouncement(parsed.announcement),
+    typography: parseTypography(parsed.typography, brand.fontFamily),
     composition: parsed.schemaVersion === 3
       ? parseStarterThemeCompositionConfig(parsed.composition) as StorefrontDesignDocument["composition"]
       : createDefaultStarterThemeComposition(),
@@ -276,7 +337,7 @@ function parsePublicDestination(value: unknown): PublicDesignDestination {
 }
 
 export function parsePublicStorefrontDesign(value: unknown): PublicStorefrontDesign {
-  const parsed = exact(value, ["schemaVersion", "publicationVersion", "publishedAt", "brand", "hero", "promotion", "announcement"]);
+  const parsed = exact(value, ["schemaVersion", "publicationVersion", "publishedAt", "brand", "hero", "promotion", "announcement"], ["typography"]);
   if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) invalid();
   const brand = exact(parsed.brand, ["logo", "favicon", "primaryColor", "accentColor", "backgroundColor", "textColor", "fontFamily"]);
   const promotion = exact(parsed.promotion, ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]);
@@ -333,6 +394,7 @@ export function parsePublicStorefrontDesign(value: unknown): PublicStorefrontDes
       enabled: boolean(promotion.enabled),
     }),
     announcement: parseAnnouncement(parsed.announcement),
+    typography: parseTypography(parsed.typography, brand.fontFamily),
   });
 }
 

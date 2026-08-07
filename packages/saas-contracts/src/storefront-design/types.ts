@@ -1,4 +1,6 @@
 export const STOREFRONT_DESIGN_FONT_FAMILIES = Object.freeze(["inter", "manrope", "playfair", "montserrat"] as const);
+export const STOREFRONT_DESIGN_FONT_CATEGORIES = Object.freeze(["sans-serif", "serif", "display", "handwriting", "monospace"] as const);
+export const STOREFRONT_DESIGN_FONT_WEIGHTS = Object.freeze(["400", "500", "600", "700", "800"] as const);
 export const STOREFRONT_DESIGN_DESTINATION_KINDS = Object.freeze(["none", "product", "collection", "page"] as const);
 export const STOREFRONT_DESIGN_ANNOUNCEMENT_ICONS = Object.freeze(["none", "sparkle", "truck", "shield"] as const);
 export const STOREFRONT_DESIGN_ANNOUNCEMENT_SPEEDS = Object.freeze(["slow", "normal", "fast"] as const);
@@ -6,6 +8,8 @@ export const STOREFRONT_DESIGN_ANNOUNCEMENT_DIRECTIONS = Object.freeze(["left", 
 export const STOREFRONT_DESIGN_ANNOUNCEMENT_ANIMATIONS = Object.freeze(["continuous", "step"] as const);
 
 export type StorefrontDesignFontFamily = (typeof STOREFRONT_DESIGN_FONT_FAMILIES)[number];
+export type StorefrontDesignFontCategory = (typeof STOREFRONT_DESIGN_FONT_CATEGORIES)[number];
+export type StorefrontDesignFontWeight = (typeof STOREFRONT_DESIGN_FONT_WEIGHTS)[number];
 export type StorefrontDesignDestinationKind = (typeof STOREFRONT_DESIGN_DESTINATION_KINDS)[number];
 export type StorefrontDesignAnnouncementIcon = (typeof STOREFRONT_DESIGN_ANNOUNCEMENT_ICONS)[number];
 export type StorefrontDesignAnnouncementSpeed = (typeof STOREFRONT_DESIGN_ANNOUNCEMENT_SPEEDS)[number];
@@ -18,6 +22,22 @@ export type DesignDestination = Readonly<
 >;
 
 export type DesignMediaReference = Readonly<{ kind: "media"; mediaId: string }> | null;
+
+export type StorefrontDesignFontOption = Readonly<{
+  family: string;
+  category: StorefrontDesignFontCategory;
+  availableWeights: readonly StorefrontDesignFontWeight[];
+  source: "google";
+}>;
+
+export type StorefrontDesignTypography = Readonly<{
+  headingFont: StorefrontDesignFontOption;
+  bodyFont: StorefrontDesignFontOption;
+  headingWeight: StorefrontDesignFontWeight;
+  bodyWeight: StorefrontDesignFontWeight;
+  headingSizePx: number;
+  bodySizePx: number;
+}>;
 
 export type StorefrontDesignBrand = Readonly<{
   logo: DesignMediaReference;
@@ -67,6 +87,7 @@ export type StorefrontDesignDocument = Readonly<{
   hero: StorefrontDesignHero;
   promotion: StorefrontDesignPromotion;
   announcement: StorefrontDesignAnnouncement;
+  typography: StorefrontDesignTypography;
   composition: StarterThemeCompositionConfigV2;
 }>;
 
@@ -107,6 +128,7 @@ export type PublicStorefrontDesign = Readonly<{
     enabled: boolean;
   }>;
   announcement: StorefrontDesignAnnouncement;
+  typography: StorefrontDesignTypography;
 }>;
 
 export type StorefrontDesignMediaOption = Readonly<{

@@ -43,6 +43,15 @@ const SLIDE = {
   enabled: true,
 } as const;
 
+const TYPOGRAPHY = {
+  headingFont: { family: "Playfair Display", category: "serif", availableWeights: ["500", "600", "700"], source: "google" },
+  bodyFont: { family: "Inter", category: "sans-serif", availableWeights: ["400", "500", "600", "700", "800"], source: "google" },
+  headingWeight: "700",
+  bodyWeight: "400",
+  headingSizePx: 48,
+  bodySizePx: 16,
+} as const;
+
 const DESIGN = {
   schemaVersion: 3,
   brand: {
@@ -71,10 +80,11 @@ const DESIGN = {
     animation: "continuous",
     enabled: true,
   },
+  typography: TYPOGRAPHY,
   composition: COMPOSITION,
 } as const;
 
-const { composition: _LEGACY_COMPOSITION, ...DESIGN_WITHOUT_COMPOSITION } = DESIGN;
+const { composition: _LEGACY_COMPOSITION, typography: _LEGACY_TYPOGRAPHY, ...DESIGN_WITHOUT_COMPOSITION } = DESIGN;
 const LEGACY_DESIGN = {
   ...DESIGN_WITHOUT_COMPOSITION,
   schemaVersion: 1,
@@ -124,10 +134,12 @@ const PUBLIC_DESIGN = {
     enabled: true,
   },
   announcement: DESIGN.announcement,
+  typography: TYPOGRAPHY,
 } as const;
 
+const { typography: _LEGACY_PUBLIC_TYPOGRAPHY, ...PUBLIC_DESIGN_WITHOUT_TYPOGRAPHY } = PUBLIC_DESIGN;
 const LEGACY_PUBLIC_DESIGN = {
-  ...PUBLIC_DESIGN,
+  ...PUBLIC_DESIGN_WITHOUT_TYPOGRAPHY,
   schemaVersion: 1,
   hero: {
     headline: PUBLIC_SLIDE.headline,
@@ -165,6 +177,30 @@ test("storefront design composition rejects malformed or unknown composition fie
   assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, composition: { ...COMPOSITION, sections: [] } }));
 });
 
+test("storefront typography normalizes legacy fonts and rejects unsafe or unsupported authority", () => {
+  const parsed = parseStorefrontDesignDocument(DESIGN);
+  assert.deepEqual(parsed.typography, TYPOGRAPHY);
+  assert.equal(Object.isFrozen(parsed.typography), true);
+  assert.equal(Object.isFrozen(parsed.typography.headingFont.availableWeights), true);
+
+  assert.deepEqual(parseStorefrontDesignDocument(LEGACY_DESIGN).typography, {
+    headingFont: { family: "Inter", category: "sans-serif", availableWeights: ["400", "500", "600", "700", "800"], source: "google" },
+    bodyFont: { family: "Inter", category: "sans-serif", availableWeights: ["400", "500", "600", "700", "800"], source: "google" },
+    headingWeight: "700",
+    bodyWeight: "400",
+    headingSizePx: 40,
+    bodySizePx: 16,
+  });
+
+  const invalid = (typography: unknown) => assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, typography }));
+  invalid({ ...TYPOGRAPHY, tenantId: PRODUCT_ID });
+  invalid({ ...TYPOGRAPHY, headingFont: { ...TYPOGRAPHY.headingFont, family: "Inter; color:red" } });
+  invalid({ ...TYPOGRAPHY, headingFont: { ...TYPOGRAPHY.headingFont, availableWeights: ["500", "500"] } });
+  invalid({ ...TYPOGRAPHY, headingWeight: "400" });
+  invalid({ ...TYPOGRAPHY, headingSizePx: 73 });
+  invalid({ ...TYPOGRAPHY, bodySizePx: 13 });
+});
+
 test("design contract rejects unknown fields, unsafe values, invalid schedules, hostile shapes, and slider bounds", () => {
   assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, tenantId: PRODUCT_ID }));
   assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, brand: { ...DESIGN.brand, primaryColor: "orange" } }));
@@ -195,7 +231,14 @@ test("publication validation reports the first exact banner issue", () => {
 
 test("public contract resolves private identifiers and normalizes a legacy publication", () => {
   assert.deepEqual(parsePublicStorefrontDesign(PUBLIC_DESIGN), PUBLIC_DESIGN);
-  assert.deepEqual(parsePublicStorefrontDesign(LEGACY_PUBLIC_DESIGN), PUBLIC_DESIGN);
+  assert.deepEqual(parsePublicStorefrontDesign(LEGACY_PUBLIC_DESIGN).typography, {
+    headingFont: { family: "Inter", category: "sans-serif", availableWeights: ["400", "500", "600", "700", "800"], source: "google" },
+    bodyFont: { family: "Inter", category: "sans-serif", availableWeights: ["400", "500", "600", "700", "800"], source: "google" },
+    headingWeight: "700",
+    bodyWeight: "400",
+    headingSizePx: 40,
+    bodySizePx: 16,
+  });
   assert.throws(() => parsePublicStorefrontDesign({ ...PUBLIC_DESIGN, draftVersion: 2 }));
   assert.throws(() => parsePublicStorefrontDesign({ ...PUBLIC_DESIGN, hero: { ...PUBLIC_DESIGN.hero, slides: [{ ...PUBLIC_SLIDE, mediaId: MEDIA_ID }] } }));
   assert.throws(() => parsePublicStorefrontDesign({ ...PUBLIC_DESIGN, hero: { ...PUBLIC_DESIGN.hero, slides: [{ ...PUBLIC_SLIDE, destination: { path: "https://evil.example/" } }] } }));
