@@ -22,10 +22,15 @@ test("composer delegates draft autosave and publishing to its parent workspace",
 });
 test("section order works without drag and has accessible labels", async () => { const value = await source("StarterThemeComposer.tsx"); assert.match(value, /moveStarterSection/); assert.match(value, /yukarı taşı/); assert.match(value, /aşağı taşı/); });
 test("composer provides bounded visual product detail and cart controls", async () => { const value = await source("StarterThemeComposer.tsx"); for (const token of ["Renk paleti", "Başlık stili", "Ürün detayı", "Sepet deneyimi"]) assert.match(value, new RegExp(token)); });
-test("composer controls side-cart quantity visibility from the unified composition", async () => {
+test("composer controls product and side-cart quantity visibility once from the product panel", async () => {
   const value = await source("StarterThemeComposer.tsx");
-  assert.match(value, /Miktar seçiciyi göster/);
+  assert.match(value, /Ürün ve yan sepette miktar değiştirmeyi göster/);
   assert.match(value, /state[.]cart[.]showQuantitySelector/);
+  const productPanel = value.indexOf('activePanel === "product"');
+  const quantityControl = value.indexOf("Ürün ve yan sepette miktar değiştirmeyi göster");
+  const cartPanel = value.indexOf('activePanel === "cart"');
+  assert.ok(productPanel < quantityControl && quantityControl < cartPanel);
+  assert.equal(value.match(/Ürün ve yan sepette miktar değiştirmeyi göster/g)?.length, 1);
 });
 test("composer exposes accessible bounded editors for every hero slide and split panel", async () => {
   const value = await source("StarterThemeComposer.tsx");
@@ -77,11 +82,11 @@ test("composition preview truthfully renders configurable corners announcement d
   assert.doesNotMatch(value, /showShippingProgress\s*\?\s*<[^>]*(progress|shipping)/i);
   assert.match(value, /canonical ücretsiz kargo eşiği/);
 });
-test("composition preview renders a selector or truthful quantity fallback", async () => {
+test("composition preview removes the quantity surface when its authority is disabled", async () => {
   const value = await source("StarterThemePreview.tsx");
   assert.match(value, /showQuantitySelector/);
   assert.match(value, /previewQuantity/);
-  assert.match(value, /1 adet/);
+  assert.doesNotMatch(value, /<span>1 adet<\/span>/);
 });
 test("legacy theme route stays server-authorized and redirects into the unified design workspace", async () => {
   const value = await source("../../app/settings/theme/page.tsx");

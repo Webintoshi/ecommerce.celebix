@@ -158,11 +158,7 @@ export function StarterThemePreview(props: PreviewProps) {
               <span>Sepet</span>
               <strong>{composition.cart.showCheckoutReadiness ? "Ödemeye hazır" : "Sepetiniz"}</strong>
               {composition.cart.trustMessage ? <p>{composition.cart.trustMessage}</p> : null}
-              <div className={styles.previewQuantity} aria-label="Miktar seçici önizlemesi">
-                {composition.schemaVersion === 2 && composition.cart.showQuantitySelector
-                  ? <><button aria-label="Azalt" type="button">−</button><span>1</span><button aria-label="Artır" type="button">+</button></>
-                  : <span>1 adet</span>}
-              </div>
+              {composition.schemaVersion === 2 && composition.cart.showQuantitySelector ? <div className={styles.previewQuantity} aria-label="Miktar seçici önizlemesi"><button aria-label="Azalt" type="button">−</button><span>1</span><button aria-label="Artır" type="button">+</button></div> : null}
               <button type="button">Ödemeye geç</button>
               <small>{composition.productDetail.mobileStickyPurchase ? "Mobil satın alma sabit" : "Mobil satın alma sayfa akışında"}</small>
               {composition.cart.showShippingProgress ? <small>Kargo ilerlemesi gösterilmiyor: canonical ücretsiz kargo eşiği sağlanmadı.</small> : null}

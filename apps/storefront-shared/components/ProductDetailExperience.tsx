@@ -9,7 +9,7 @@ import { ProductInformationDisclosures, ProductSizeGuide } from "./ProductInform
 import { ProductPurchasePanel } from "./ProductPurchasePanel";
 import styles from "./product-detail-experience.module.css";
 
-export function ProductDetailExperience({ product, relatedProducts, publishedPolicies, options, cardStyle, imageRatio }: Readonly<{ product: PublicProduct; relatedProducts: readonly PublicProduct[]; publishedPolicies: readonly PublicPolicyPage[]; options: StarterProductDetailConfigV2; cardStyle: PublicStarterThemePresentationV2["theme"]["productCardStyle"]; imageRatio: PublicStarterThemePresentationV2["theme"]["productImageRatio"] }>) {
+export function ProductDetailExperience({ product, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector }: Readonly<{ product: PublicProduct; relatedProducts: readonly PublicProduct[]; publishedPolicies: readonly PublicPolicyPage[]; options: StarterProductDetailConfigV2; cardStyle: PublicStarterThemePresentationV2["theme"]["productCardStyle"]; imageRatio: PublicStarterThemePresentationV2["theme"]["productImageRatio"]; showQuantitySelector: boolean }>) {
   const productCategoryPath = product.categoryPath ?? [];
   const primaryVariant = product.variants.find(({ available }) => available) ?? product.variants[0];
   return <>
@@ -25,7 +25,7 @@ export function ProductDetailExperience({ product, relatedProducts, publishedPol
         <div className={styles.price}>{product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{formatTry(product.compareAtCents)}</del> : null}<strong>{formatTry(product.priceCents)}</strong></div>
         {product.merchandising?.highlights.length ? <ul className={styles.highlights}>{product.merchandising.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul> : null}
         {options.showSizeGuide && product.merchandising?.sizeGuide ? <ProductSizeGuide heading={product.merchandising.sizeGuide.heading} body={product.merchandising.sizeGuide.body} /> : null}
-        <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} available={product.available} />
+        <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} available={product.available} showQuantitySelector={showQuantitySelector} />
         <ProductInformationDisclosures informationSections={options.informationSections} merchandising={product.merchandising} description={product.description} publishedPolicies={publishedPolicies} />
       </div>
     </section>

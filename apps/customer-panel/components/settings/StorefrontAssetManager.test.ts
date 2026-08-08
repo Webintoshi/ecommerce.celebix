@@ -17,3 +17,26 @@ test("storefront asset manager exposes loading error empty upload selection bind
   const value = await source();
   for (const token of ["Yükleniyor", "Henüz vitrin görseli yok", "role=\"alert\"", "Yükle", "Arşivle", "Hero olarak kullan", "Logo olarak kullan", "Sosyal görsel olarak kullan", "Kategori görseli", "focus()"]) assert.match(value, new RegExp(token));
 });
+
+test("storefront asset manager explains upload as three visual child-friendly steps", async () => {
+  const value = await source();
+  for (const token of [
+    "Nerede kullanacaksınız?",
+    "Görsel şekli",
+    "Görseli seçin",
+    "Görselde ne var?",
+    "aria-pressed",
+    "selectedFile",
+    "previewUrl",
+    "storefrontAssetRatioMatches",
+    "Bu görsel seçtiğiniz şekle uymuyor",
+    "storefrontAssetRatioLabel",
+  ]) assert.match(value, new RegExp(token.replace(/[?]/g, "\\?")));
+  assert.doesNotMatch(value, /<select name="kind"/);
+});
+
+test("storefront asset manager preserves the exact three-field upload authority", async () => {
+  const value = await source();
+  for (const name of ["file", "kind", "altText"]) assert.match(value, new RegExp(`name="${name}"`));
+  assert.doesNotMatch(value, /name="ratio"/);
+});

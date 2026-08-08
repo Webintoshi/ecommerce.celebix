@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = await readFile(new URL("./ProductPurchasePanel.tsx", import.meta.url), "utf8");
+const experienceSource = await readFile(new URL("./ProductDetailExperience.tsx", import.meta.url), "utf8");
+const pageSource = await readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8");
 
 test("purchase panel requires an available variant and exposes both real purchase actions", () => {
   assert.match(source, /type="radio"/u);
@@ -39,4 +41,19 @@ test("one default variant does not create a redundant selection step", () => {
   assert.match(source, /showVariantChoices/u);
   assert.match(source, /product[.]variants[.]length > 1/u);
   assert.match(source, /showVariantChoices \? <fieldset/u);
+});
+
+test("published quantity visibility reaches the purchase panel without browser authority", () => {
+  assert.match(pageSource, /presentation[.]cart[.]showQuantitySelector/u);
+  assert.match(pageSource, /showQuantitySelector=/u);
+  assert.match(experienceSource, /showQuantitySelector:[ ]*boolean/u);
+  assert.match(experienceSource, /showQuantitySelector=[{]showQuantitySelector[}]/u);
+  assert.doesNotMatch(pageSource, /localStorage|sessionStorage|searchParams/u);
+});
+
+test("purchase panel hides the stepper and retains a one-item default when disabled", () => {
+  assert.match(source, /showQuantitySelector[ ]*=[ ]*true/u);
+  assert.match(source, /showQuantitySelector[ ]*[?][ ]*<div className="purchase-quantity"/u);
+  assert.match(source, /is-quantity-hidden/u);
+  assert.match(source, /useState\(1\)/u);
 });

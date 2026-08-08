@@ -196,6 +196,7 @@ img { display: block; max-width: 100%; }
 .purchase-variants b, .purchase-variants strong { font-size: 13px; }
 .purchase-variants small { color: var(--muted); font-size: 10px; }
 .purchase-action-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; gap: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+.purchase-action-row.is-quantity-hidden { grid-template-columns: minmax(0, 1fr); }
 .purchase-quantity { display: grid; overflow: hidden; grid-template-columns: 48px 42px 48px; min-height: 48px; border: 1px solid var(--line); background: var(--white); color: var(--ink); }
 .purchase-quantity button, .purchase-quantity output { display: grid; min-width: 0; min-height: 48px; place-items: center; border: 0; background: transparent; color: inherit; font: inherit; }
 .purchase-quantity button { cursor: pointer; font-size: 18px; }

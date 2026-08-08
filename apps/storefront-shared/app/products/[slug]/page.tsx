@@ -159,6 +159,7 @@ export default async function ProductPage({
         options={options}
         cardStyle={presentation.theme.productCardStyle}
         imageRatio={presentation.theme.productImageRatio}
+        showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 ? presentation.cart.showQuantitySelector : true}
       />
     </StorefrontFrame>
   );
