@@ -32,6 +32,21 @@ Aşağıdaki içerikler başlık font ailesi ve ağırlığını kullanır:
 - footer marka ve newsletter başlıkları;
 - Markdown ürün açıklamasındaki `h1–h6` öğeleri.
 
+Ürün ve kategori başlıkları yalnız HTML etiketine güvenilmeden, kullanıldıkları bütün ticaret yüzeylerinde açıkça sınıflandırılır:
+
+| İçerik | Başlık ölçeği | Kapsanan yüzeyler |
+| --- | --- | --- |
+| Ürün detay adı | page | tekil ürün sayfası ve erişilebilir sayfa başlığı |
+| Ürün kartı adı | card | ana sayfa ürün sıraları, ürün listesi, kategori listesi, arama, favoriler ve ilgili ürünler |
+| Hızlı görünüm ürün adı | section | ürün quick-view dialog'u |
+| Sepet ürün adı | compact | side cart, sepet sayfası ve checkout sipariş özeti |
+| Sipariş ürün adı | compact | müşteri hesap sipariş listesi ve sipariş detayı |
+| Kategori sayfa adı | page | kategori landing sayfası |
+| Kategori bölüm başlığı | section | kategori vitrini ve kategori koleksiyonu bölümleri |
+| Kategori kartı adı | card | ana sayfa kategori kutuları ve kategori görsel placeholder'ları |
+
+Kategori adı menü bağlantısı veya breadcrumb içinde kullanıldığında içerik başlığı değil navigasyon/metaveri sayılır ve normal metin rolünü korur. Böylece aynı kategori adı bulunduğu yüzeyin semantik görevine göre doğru tipografi rolünü alır.
+
 `headingSizePx` bütün başlıkları aynı piksel boyutuna zorlamaz. Bunun yerine merkezi ölçeğin temeli olur:
 
 | Rol | Temel çarpan | Kullanım |
@@ -95,10 +110,13 @@ Test-first uygulama aşağıdaki davranışları kanıtlar:
 3. Seçilen normal metin ailesi/ağırlığı gövde, kontrol ve metadata rollerine uygulanır.
 4. Markdown başlıkları heading; paragraf ve listeleri body rolündedir.
 5. Ürün adı, sepet, checkout, hesap, footer ve kampanya yüzeyleri doğru roldedir.
-6. Logo görseli ve ikonlar tipografi değişiminden etkilenmez.
-7. Starter storefront çalışma zamanı içinde merkezi otoriteyi ezen sabit font ailesi kalmaz.
-8. Customer-panel taslak önizlemesi ile public storefront aynı rol ve ölçek çıktısını üretir.
-9. Mevcut storefront, customer-panel typecheck/build ve commerce regresyonları geçer.
+6. Ürün kartı adı; ana sayfa, ürün listesi, kategori listesi, arama, favoriler ve ilgili ürünlerde aynı `card` sözleşmesini kullanır.
+7. Kategori sayfası, kategori bölümü, kategori kartı, menü ve breadcrumb aynı adı kendi semantik görevine göre doğru role bağlar.
+8. Side cart, sepet, checkout ve sipariş özetindeki ürün adları `compact` başlık ölçeğini kullanır.
+9. Logo görseli ve ikonlar tipografi değişiminden etkilenmez.
+10. Starter storefront çalışma zamanı içinde merkezi otoriteyi ezen sabit font ailesi kalmaz.
+11. Customer-panel taslak önizlemesi ile public storefront aynı rol ve ölçek çıktısını üretir.
+12. Mevcut storefront, customer-panel typecheck/build ve commerce regresyonları geçer.
 
 ## Kapsam dışı
 
@@ -112,7 +130,7 @@ Test-first uygulama aşağıdaki davranışları kanıtlar:
 
 - Admin panelindeki iki tipografi ayarı storefront'taki bütün ilgili yüzeyleri yönetir.
 - Başlık ve gövde fontları birbirine karışmaz.
+- Ürün ve kategori başlıkları liste, detay, arama, favori, sepet, checkout ve hesap yüzeylerinde açık bir role sahiptir.
 - Boyut değişiklikleri okunabilir ve tutarlı bir hiyerarşi üretir.
 - Sabit font sızıntısı testlerle engellenir.
 - Önizleme ile yayımlanan storefront görsel olarak aynı tipografi kararını gösterir.
-
