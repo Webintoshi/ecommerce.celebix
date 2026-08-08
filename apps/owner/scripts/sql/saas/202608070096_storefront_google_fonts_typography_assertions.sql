@@ -53,7 +53,7 @@ BEGIN
   FOREACH hostile IN ARRAY ARRAY[
     pg_catalog.jsonb_set(valid_typography,ARRAY['headingFont','family'],'"Manrope;src:url(evil)"'::jsonb,false),
     pg_catalog.jsonb_set(valid_typography,ARRAY['headingFont','availableWeights'],'["400","400"]'::jsonb,false),
-    pg_catalog.jsonb_set(valid_typography,ARRAY['headingWeight'],'"800"'::jsonb,false),
+    pg_catalog.jsonb_set(valid_typography,ARRAY['headingWeight'],'"900"'::jsonb,false),
     pg_catalog.jsonb_set(valid_typography,ARRAY['headingSizePx'],'73'::jsonb,false),
     valid_typography||pg_catalog.jsonb_build_object('unknown',true)
   ] LOOP
