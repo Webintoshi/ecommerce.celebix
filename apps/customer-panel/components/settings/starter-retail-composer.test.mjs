@@ -24,3 +24,26 @@ test("footer editor uses typed destinations and reviewed social networks",async(
   for(const network of ["instagram","facebook","youtube","pinterest","tiktok","x"]){assert.match(source,new RegExp(network));}
   assert.doesNotMatch(source,/dangerouslySetInnerHTML|eval\(|new Function/);
 });
+
+test("value propositions use visual icon choices and preserve merchant-authored copy",async()=>{
+  const source=await read("apps/customer-panel/components/settings/StarterRetailSectionEditors.tsx");
+  const css=await read("apps/customer-panel/components/settings/starter-theme-composer.module.css");
+  for(const icon of ["Sparkles","Leaf","Heart","ShieldCheck","Truck","RotateCcw"]){assert.match(source,new RegExp(icon));}
+  for(const label of ["Özen","Malzeme","Memnuniyet","Güven","Teslimat","İade"]){assert.match(source,new RegExp(label));}
+  assert.match(source,/role="group"/);
+  assert.match(source,/aria-label="Simge seçimi"/);
+  assert.match(source,/aria-pressed=/);
+  assert.doesNotMatch(source,/<label>Simge<select/);
+  assert.match(source,/updateStarterValueProposition/);
+  assert.match(source,/isStarterValuePropositionDraftPublishable/);
+  assert.match(source,/useState/);
+  assert.match(source,/setDraftSection/);
+  assert.match(source,/value=\{item\.heading\}/);
+  assert.match(source,/value=\{item\.body\}/);
+  assert.match(source,/Yalnızca mağazanızın gerçekten sunduğu avantajları yazın/);
+  assert.match(source,/>Değer ekle</);
+  assert.doesNotMatch(source,/Doğrulanabilir mağaza vaadinizi açıklayın/);
+  assert.match(css,/\.valueIconGrid/);
+  assert.match(css,/\.valueIconChoiceSelected/);
+  assert.match(css,/min-height:\s*44px/);
+});

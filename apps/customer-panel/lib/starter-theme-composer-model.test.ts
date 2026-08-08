@@ -5,15 +5,19 @@ import type { StarterThemeCompositionConfig, StarterThemeSectionConfigV2 } from 
 import {
   addStarterCampaignPanel,
   addStarterHeroSlide,
+  addStarterValueProposition,
   buildStarterThemeComposition,
   createStarterThemeEditorState,
+  isStarterValuePropositionDraftPublishable,
   moveStarterSection,
   removeStarterCampaignPanel,
   removeStarterHeroSlide,
+  removeStarterValueProposition,
   starterThemeCategoryPlaceholderLabels,
   updateStarterCampaignPanel,
   updateStarterHeroSlide,
   updateStarterNavigationRoots,
+  updateStarterValueProposition,
   upgradeStarterThemeComposition,
 } from "./starter-theme-composer-model.ts";
 
@@ -118,6 +122,49 @@ test("split campaign add and remove controls enforce one to two entries", () => 
   const one = removeStarterCampaignPanel(two, 0);
   assert.equal(one.panels.length, 1);
   assert.equal(removeStarterCampaignPanel(one, 0), one);
+});
+
+test("value proposition editing preserves exact merchant copy and immutable item boundaries", () => {
+  const original = Object.freeze({
+    kind: "value_propositions" as const,
+    enabled: true,
+    items: Object.freeze([
+      Object.freeze({ icon: "shield" as const, heading: "Eski başlık", body: "Eski açıklama" }),
+      Object.freeze({ icon: "return" as const, heading: "Kolay iade", body: "Koşulları inceleyin." }),
+    ]),
+  });
+
+  const updated = updateStarterValueProposition(original, 0, {
+    heading: "Aynı gün kargo",
+    body: "Saat 14.00'e kadar verilen siparişlerde.",
+  });
+
+  assert.equal(updated.items[0]?.heading, "Aynı gün kargo");
+  assert.equal(updated.items[0]?.body, "Saat 14.00'e kadar verilen siparişlerde.");
+  assert.equal(original.items[0]?.heading, "Eski başlık");
+  assert.equal(Object.isFrozen(updated), true);
+  assert.equal(Object.isFrozen(updated.items), true);
+  assert.equal(Object.isFrozen(updated.items[0]), true);
+
+  assert.equal(removeStarterValueProposition(original, 0), original);
+  const three = addStarterValueProposition(original);
+  const four = addStarterValueProposition(three);
+  assert.equal(three.items.length, 3);
+  assert.deepEqual(three.items[2], { icon: "sparkles", heading: "", body: "" });
+  assert.equal(four.items.length, 4);
+  assert.equal(addStarterValueProposition(four), four);
+  const backToThree = removeStarterValueProposition(four, 1);
+  assert.equal(backToThree.items.length, 3);
+  assert.equal(backToThree.items.some(({ heading }) => heading === "Kolay iade"), false);
+  assert.equal(isStarterValuePropositionDraftPublishable(three), false);
+  const completed = updateStarterValueProposition(three, 2, { heading: "Özel paketleme", body: "Hediye paketi seçeneğinizi belirtin." });
+  assert.equal(isStarterValuePropositionDraftPublishable(completed), true);
+  assert.equal(isStarterValuePropositionDraftPublishable(updateStarterValueProposition(completed, 0, { heading: "   " })), false);
+  const cleared = updateStarterValueProposition(original, 0, { heading: "" });
+  assert.equal(isStarterValuePropositionDraftPublishable(cleared), false);
+  const rewritten = updateStarterValueProposition(cleared, 0, { heading: "Kendi mesajımız" });
+  assert.equal(rewritten.items[0]?.heading, "Kendi mesajımız");
+  assert.equal(isStarterValuePropositionDraftPublishable(rewritten), true);
 });
 
 test("editing navigation roots preserves featured references until explicit removal", () => {

@@ -320,6 +320,92 @@
 
 .entryCard legend { padding: 0 7px; font-size: .86rem; font-weight: 800; }
 
+.valueCard {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  background: #fff;
+}
+
+.valuePreview {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #edf0f4;
+  padding-bottom: 14px;
+}
+
+.valuePreview > span {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  color: #d94f00;
+  background: #fff2e8;
+}
+
+.valuePreview > span svg { width: 22px; height: 22px; }
+.valuePreview > div { display: grid; min-width: 0; gap: 4px; }
+.valuePreview strong { overflow-wrap: anywhere; color: #1d2433; font-size: .91rem; }
+.valuePreview small { overflow-wrap: anywhere; color: #667085; font-size: .76rem; line-height: 1.45; }
+
+.valueDelete {
+  display: grid;
+  width: 44px;
+  min-height: 44px;
+  place-items: center;
+  border: 1px solid #f0c9c5;
+  border-radius: 9px;
+  color: #b42318;
+  background: #fff;
+}
+
+.valueDelete svg { width: 18px; height: 18px; }
+.valueDelete:disabled { opacity: .35; }
+
+.valueIconGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.valueIconChoice {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d8dde5;
+  border-radius: 9px;
+  padding: 7px 10px;
+  color: #475467;
+  background: #fff;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 750;
+}
+
+.valueIconChoice svg { width: 18px; height: 18px; flex: none; }
+.valueIconChoice:hover { border-color: #98a2b3; color: #1d2433; }
+
+.valueIconChoiceSelected {
+  border-color: #ff6500;
+  color: #b54708;
+  background: #fff7ed;
+  box-shadow: 0 0 0 1px #ff6500;
+}
+
+.valueFields {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 12px;
+}
+
+.valueFields label { display: grid; gap: 7px; }
+.valueFields textarea { min-height: 76px; }
+
 .entryToolbar {
   display: flex;
   align-items: center;
@@ -415,6 +501,14 @@
   .addBar { align-items: stretch; flex-direction: column; }
   .actions { bottom: 72px; }
   .actions button { flex: 1; }
+  .valueIconGrid,
+  .valueFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .valueFields label { grid-column: 1 / -1; }
+}
+
+@media (max-width: 420px) {
+  .valueIconGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .valuePreview { grid-template-columns: 44px minmax(0, 1fr) 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

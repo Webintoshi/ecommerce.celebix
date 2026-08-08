@@ -10,6 +10,8 @@ import {
 export type StarterThemeEditorState = Omit<StarterThemeCompositionConfigV2, "schemaVersion">;
 type HeroSection = Extract<StarterThemeSectionConfigV2, { kind: "hero" }>;
 type SplitCampaignSection = Extract<StarterThemeSectionConfigV2, { kind: "split_campaign" }>;
+type ValueSection = Extract<StarterThemeSectionConfigV2, { kind: "value_propositions" }>;
+const VALUE_CONTROL = /[\u0000-\u001f\u007f]/;
 
 export function buildStarterThemeComposition(input: StarterThemeEditorState): StarterThemeCompositionConfigV2 {
   return parseStarterThemeCompositionConfig({
@@ -115,6 +117,52 @@ export function addStarterCampaignPanel(section: SplitCampaignSection, panel: St
 export function removeStarterCampaignPanel(section: SplitCampaignSection, index: number): SplitCampaignSection {
   if (section.panels.length <= 1 || index < 0 || index >= section.panels.length) return section;
   return Object.freeze({ ...section, panels: Object.freeze(section.panels.filter((_, position) => position !== index)) });
+}
+
+export function updateStarterValueProposition(
+  section: ValueSection,
+  index: number,
+  patch: Partial<ValueSection["items"][number]>,
+): ValueSection {
+  if (index < 0 || index >= section.items.length) return section;
+  return Object.freeze({
+    ...section,
+    items: Object.freeze(section.items.map((item, position) => position === index
+      ? Object.freeze({ ...item, ...patch })
+      : item)),
+  });
+}
+
+export function addStarterValueProposition(section: ValueSection): ValueSection {
+  if (section.items.length >= 4) return section;
+  return Object.freeze({
+    ...section,
+    items: Object.freeze([
+      ...section.items,
+      Object.freeze({ icon: "sparkles" as const, heading: "", body: "" }),
+    ]),
+  });
+}
+
+export function removeStarterValueProposition(section: ValueSection, index: number): ValueSection {
+  if (section.items.length <= 2 || index < 0 || index >= section.items.length) return section;
+  return Object.freeze({
+    ...section,
+    items: Object.freeze(section.items.filter((_, position) => position !== index)),
+  });
+}
+
+export function isStarterValuePropositionDraftPublishable(section: ValueSection): boolean {
+  return section.items.length >= 2
+    && section.items.length <= 4
+    && section.items.every(({ heading, body }) => heading.length >= 1
+      && heading.length <= 120
+      && heading === heading.trim()
+      && !VALUE_CONTROL.test(heading)
+      && body.length >= 1
+      && body.length <= 300
+      && body === body.trim()
+      && !VALUE_CONTROL.test(body));
 }
 
 export function updateStarterNavigationRoots(

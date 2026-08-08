@@ -1,17 +1,84 @@
 "use client";
 
 import type { StarterThemeSectionConfigV2, StarterValueIcon } from "@celebix/saas-contracts";
+import { Heart, Leaf, RotateCcw, ShieldCheck, Sparkles, Trash2, Truck } from "lucide-react";
+import { useEffect, useState } from "react";
 
+import {
+  addStarterValueProposition,
+  isStarterValuePropositionDraftPublishable,
+  removeStarterValueProposition,
+  updateStarterValueProposition,
+} from "@/lib/starter-theme-composer-model";
 import styles from "./starter-theme-composer.module.css";
 
 type ValueSection = Extract<StarterThemeSectionConfigV2, { kind: "value_propositions" }>;
 type TestimonialSection = Extract<StarterThemeSectionConfigV2, { kind: "testimonials" }>;
 
-const ICONS: readonly Readonly<{ value: StarterValueIcon; label: string }>[] = Object.freeze([
-  { value: "sparkles", label: "Özen" }, { value: "cotton", label: "Malzeme" },
-  { value: "heart", label: "Memnuniyet" }, { value: "shield", label: "Güven" },
-  { value: "truck", label: "Teslimat" }, { value: "return", label: "İade" },
+const ICONS: readonly Readonly<{ value: StarterValueIcon; label: string; Icon: typeof Sparkles }>[] = Object.freeze([
+  { value: "sparkles", label: "Özen", Icon: Sparkles },
+  { value: "cotton", label: "Malzeme", Icon: Leaf },
+  { value: "heart", label: "Memnuniyet", Icon: Heart },
+  { value: "shield", label: "Güven", Icon: ShieldCheck },
+  { value: "truck", label: "Teslimat", Icon: Truck },
+  { value: "return", label: "İade", Icon: RotateCcw },
 ]);
+
+function ValuePropositionEditor({ disabled, section, update }: Readonly<{
+  disabled: boolean;
+  section: ValueSection;
+  update: (section: ValueSection) => void;
+}>) {
+  const [draftSection, setDraftSection] = useState(section);
+
+  useEffect(() => { setDraftSection(section); }, [section]);
+
+  function updateDraft(next: ValueSection) {
+    setDraftSection(next);
+    if (isStarterValuePropositionDraftPublishable(next)) update(next);
+  }
+
+  return <div className={styles.entryList}>
+    <p className={styles.fieldHelp}>Yalnızca mağazanızın gerçekten sunduğu avantajları yazın.</p>
+    {draftSection.items.map((item, index) => {
+      const selected = ICONS.find(({ value }) => value === item.icon) ?? ICONS[0]!;
+      const SelectedIcon = selected.Icon;
+      return <fieldset className={`${styles.entryCard} ${styles.valueCard}`} key={index}>
+        <legend>Değer {index + 1}</legend>
+        <div className={styles.valuePreview} aria-label={`${index + 1}. değer önizlemesi`}>
+          <span aria-hidden="true"><SelectedIcon /></span>
+          <div>
+            <strong>{item.heading || "Başlığınızı yazın"}</strong>
+            <small>{item.body || "Müşterilerinize sunduğunuz avantajı kısaca açıklayın."}</small>
+          </div>
+          <button
+            className={styles.valueDelete}
+            type="button"
+            aria-label={`${index + 1}. değeri kaldır`}
+            onClick={() => updateDraft(removeStarterValueProposition(draftSection, index))}
+            disabled={disabled || draftSection.items.length <= 2}
+          ><Trash2 aria-hidden="true" /></button>
+        </div>
+        <div className={styles.valueIconGrid} role="group" aria-label="Simge seçimi">
+          {ICONS.map(({ value, label, Icon }) => <button
+            className={`${styles.valueIconChoice} ${item.icon === value ? styles.valueIconChoiceSelected : ""}`}
+            type="button"
+            key={value}
+            aria-label={`${label} simgesini seç`}
+            aria-pressed={item.icon === value}
+            onClick={() => updateDraft(updateStarterValueProposition(draftSection, index, { icon: value }))}
+            disabled={disabled}
+          ><Icon aria-hidden="true" /><span>{label}</span></button>)}
+        </div>
+        <div className={styles.valueFields}>
+          <label>Başlık<input maxLength={120} value={item.heading} onChange={(event) => updateDraft(updateStarterValueProposition(draftSection, index, { heading: event.currentTarget.value }))} disabled={disabled} placeholder="Örn. Aynı gün kargo" /></label>
+          <label>Açıklama<textarea maxLength={300} value={item.body} onChange={(event) => updateDraft(updateStarterValueProposition(draftSection, index, { body: event.currentTarget.value }))} disabled={disabled} placeholder="Avantajınızı kısa ve anlaşılır biçimde yazın." /></label>
+        </div>
+      </fieldset>;
+    })}
+    <button className={styles.entryAdd} type="button" onClick={() => updateDraft(addStarterValueProposition(draftSection))} disabled={disabled || draftSection.items.length >= 4}>Değer ekle</button>
+  </div>;
+}
 
 export function StarterRetailSectionEditor({ disabled, section, update }: Readonly<{
   disabled: boolean;
@@ -26,21 +93,5 @@ export function StarterRetailSectionEditor({ disabled, section, update }: Readon
     <p className={`${styles.fieldHelp} ${styles.wide}`}>Müşteri yorumları elle yazılamaz; yalnız kalıcı katalogda onaylanan gerçek yorumlar gösterilir.</p>
   </div>;
 
-  const valueSection = section;
-  function patchItem(index: number, patch: Partial<ValueSection["items"][number]>) {
-    update({ ...valueSection, items: Object.freeze(valueSection.items.map((item, position) => position === index ? Object.freeze({ ...item, ...patch }) : item)) });
-  }
-  return <div className={styles.entryList}>
-    <p className={styles.fieldHelp}>Değer önerileri doğrulanabilir mağaza vaadi olmalıdır; sahte puan, sayaç veya müşteri sözü eklenemez.</p>
-    {valueSection.items.map((item, index) => <fieldset className={styles.entryCard} key={index}>
-      <legend>Değer önerisi {index + 1}</legend>
-      <div className={styles.fieldGrid}>
-        <label>Simge<select value={item.icon} onChange={(event) => patchItem(index, { icon: event.currentTarget.value as StarterValueIcon })} disabled={disabled}>{ICONS.map((icon) => <option key={icon.value} value={icon.value}>{icon.label}</option>)}</select></label>
-        <label>Başlık<input maxLength={120} value={item.heading} onChange={(event) => patchItem(index, { heading: event.currentTarget.value })} disabled={disabled} /></label>
-        <label className={styles.wide}>Açıklama<textarea maxLength={300} value={item.body} onChange={(event) => patchItem(index, { body: event.currentTarget.value })} disabled={disabled} /></label>
-      </div>
-      <button className={styles.entryAdd} type="button" onClick={() => update({ ...valueSection, items: Object.freeze(valueSection.items.filter((_, position) => position !== index)) })} disabled={disabled || valueSection.items.length <= 2}>Öneriyi kaldır</button>
-    </fieldset>)}
-    <button className={styles.entryAdd} type="button" onClick={() => update({ ...valueSection, items: Object.freeze([...valueSection.items, Object.freeze({ icon: "sparkles", heading: `Yeni değer ${valueSection.items.length + 1}`, body: "Doğrulanabilir mağaza vaadinizi açıklayın." })]) })} disabled={disabled || valueSection.items.length >= 4}>Değer önerisi ekle</button>
-  </div>;
+  return <ValuePropositionEditor disabled={disabled} section={section} update={update} />;
 }
