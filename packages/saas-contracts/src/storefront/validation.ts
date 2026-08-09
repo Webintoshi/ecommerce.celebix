@@ -19,6 +19,7 @@ const CORNER_STYLES = Object.freeze(["square", "soft"] as const);
 const HEADER_STYLES = Object.freeze(["overlay", "solid"] as const);
 const HEADER_WIDTHS = Object.freeze(["contained", "wide"] as const);
 const HEADER_LAYOUTS = Object.freeze(["menu_logo_actions", "logo_menu_actions", "stacked"] as const);
+const CATEGORY_SHOWCASE_LAYOUTS = Object.freeze(["duo", "grid"] as const);
 const SECTION_SPACINGS = Object.freeze(["compact", "balanced", "airy"] as const);
 const GALLERY_STYLES = Object.freeze(["grid", "rail"] as const);
 const PRODUCT_ROW_SOURCES = Object.freeze(["latest", "sale", "category"] as const);
@@ -291,6 +292,16 @@ function parseConfigSection(value: unknown): StarterThemeSectionConfig {
 
 function parseConfigSectionV2(value: unknown): StarterThemeSectionConfigV2 {
   const candidate = record(value);
+  if (candidate.kind === "category_grid") {
+    const parsed = exact(candidate, ["kind", "enabled", "heading", "categoryIds", "layout"]);
+    return Object.freeze({
+      kind: "category_grid",
+      enabled: boolean(parsed.enabled),
+      heading: string(parsed.heading, 1, 160),
+      categoryIds: uuidArray(parsed.categoryIds, 1, 8),
+      layout: oneOf(parsed.layout, CATEGORY_SHOWCASE_LAYOUTS),
+    });
+  }
   if (candidate.kind === "value_propositions") {
     const parsed = exact(candidate, ["kind", "enabled", "items"]);
     const items = Object.freeze(arrayValues(parsed.items, 2, 4).map((entry) => {
@@ -308,7 +319,9 @@ function parseConfigSectionV2(value: unknown): StarterThemeSectionConfigV2 {
     if (![3, 6, 9].includes(limit) || ![4, 5].includes(minimumRating) || parsed.source !== "approved_product_reviews") invalid();
     return Object.freeze({ kind: "testimonials", enabled: boolean(parsed.enabled), heading: string(parsed.heading, 1, 160), source: "approved_product_reviews", limit: limit as 3 | 6 | 9, minimumRating: minimumRating as 4 | 5 });
   }
-  return parseConfigSection(candidate);
+  const legacy = parseConfigSection(candidate);
+  if (legacy.kind === "category_grid") invalid();
+  return legacy;
 }
 
 function parseProductDetailV2(value: unknown): StarterProductDetailConfigV2 {
@@ -386,7 +399,10 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
   const hasFeaturedCategory = Object.hasOwn(navigationValue, "featuredCategoryId");
   const hasFeaturedAsset = Object.hasOwn(navigationValue, "featuredAssetId");
   if (hasFeaturedCategory !== hasFeaturedAsset) invalid();
-  const sections = Object.freeze(arrayValues(parsed.sections, 1, 12).map(retail ? parseConfigSectionV2 : parseConfigSection));
+  const sectionValues = arrayValues(parsed.sections, 1, 12);
+  const sections = retail
+    ? Object.freeze(sectionValues.map(parseConfigSectionV2))
+    : Object.freeze(sectionValues.map(parseConfigSection));
   const singletonKinds = new Set<string>();
   for (const section of sections) {
     if (section.kind === "product_row") continue;
@@ -478,13 +494,18 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
     return Object.freeze({ kind, slides });
   }
   if (kind === "category_grid") {
-    const parsed = exact(candidate, ["kind", "heading", "items"]);
+    const parsed = exact(candidate, ["kind", "heading", "items"], ["layout"]);
     const items = Object.freeze(arrayValues(parsed.items, 1, 8).map((item) => {
       const selected = exact(item, ["name", "slug", "image"]);
       return Object.freeze({ name: string(selected.name, 1, 160), slug: string(selected.slug, 1, 100, SLUG), image: parseStorefrontAsset(selected.image) });
     }));
     if (new Set(items.map((item) => item.slug)).size !== items.length) invalid();
-    return Object.freeze({ kind, heading: string(parsed.heading, 1, 160), items });
+    return Object.freeze({
+      kind,
+      heading: string(parsed.heading, 1, 160),
+      layout: Object.hasOwn(parsed, "layout") ? oneOf(parsed.layout, CATEGORY_SHOWCASE_LAYOUTS) : "grid",
+      items,
+    });
   }
   if (kind === "product_row") {
     const parsed = exact(candidate, ["kind", "key", "heading", "source", "limit"], ["categorySlug"]);

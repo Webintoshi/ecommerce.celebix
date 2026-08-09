@@ -29,6 +29,7 @@ function compositionV2() {
     announcement: { enabled: true, items: ["Güvenli alışveriş"], destination: "/products" },
     navigation: { rootCategoryIds: [CATEGORY] },
     sections: [
+      { kind: "category_grid", enabled: true, heading: "Kategoriler", categoryIds: [CATEGORY], layout: "grid" },
       { kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 },
       { kind: "value_propositions", enabled: true, items: [
         { icon: "shield", heading: "Güvenli alışveriş", body: "Korunan ödeme akışı." },
@@ -76,6 +77,7 @@ function presentationV3() {
     schemaVersion: 3,
     visual: visualV2,
     sections: [
+      { kind: "category_grid", heading: "Kategoriler", layout: "grid", items: [{ name: "Takılar", slug: "takilar", image: IMAGE }] },
       { kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: 8 },
       { kind: "value_propositions", items: [
         { icon: "shield", heading: "Güvenli alışveriş", body: "Korunan ödeme akışı." },
@@ -134,6 +136,23 @@ test("composition v2 requires one exact boolean quantity-selector authority", ()
   assert.equal((disabled.cart as { showQuantitySelector: boolean }).showQuantitySelector, false);
 });
 
+test("composition v2 requires one exact finite category showcase layout", () => {
+  const value = compositionV2();
+  const category = value.sections[0] as Record<string, unknown>;
+  for (const layout of ["duo", "grid"] as const) {
+    const parsed = retailValidation.parseStarterThemeCompositionConfig({
+      ...value,
+      sections: [{ ...category, layout }, ...value.sections.slice(1)],
+    });
+    const selected = (parsed.sections as Array<Record<string, unknown>>)[0];
+    assert.equal(selected?.layout, layout);
+    assert.equal(Object.isFrozen(selected), true);
+  }
+  const { layout: _layout, ...withoutLayout } = category;
+  assert.throws(() => retailValidation.parseStarterThemeCompositionConfig({ ...value, sections: [withoutLayout, ...value.sections.slice(1)] }), /storefront_contract_invalid/);
+  assert.throws(() => retailValidation.parseStarterThemeCompositionConfig({ ...value, sections: [{ ...category, layout: "masonry" }, ...value.sections.slice(1)] }), /storefront_contract_invalid/);
+});
+
 test("composition v2 rejects fake testimonial copy unsafe social authority and duplicate information panels", () => {
   const value = compositionV2();
   assert.throws(() => retailValidation.parseStarterThemeCompositionConfig({ ...value, sections: [{ ...(value.sections[2] as object), quotes: ["sahte"] }] }), /storefront_contract_invalid/);
@@ -148,6 +167,27 @@ test("presentation v3 is exact deeply frozen and excludes private references", (
   assert.equal(Object.isFrozen((parsed.footer as { groups: unknown }).groups), true);
   assert.doesNotMatch(JSON.stringify(parsed), /categoryId|pageId|tenantId|storeId|assetId/);
   assert.throws(() => retailValidation.parsePublicStarterThemePresentation({ ...presentationV3(), privateAuthority: true }), /storefront_contract_invalid/);
+});
+
+test("public category showcase preserves exact layouts and normalizes legacy absence to grid", () => {
+  const value = presentationV3();
+  const category = value.sections[0] as Record<string, unknown>;
+  const duo = retailValidation.parsePublicStarterThemePresentation({
+    ...value,
+    sections: [{ ...category, layout: "duo" }, ...value.sections.slice(1)],
+  });
+  assert.equal((duo.sections as Array<Record<string, unknown>>)[0]?.layout, "duo");
+
+  const { layout: _layout, ...legacyCategory } = category;
+  const legacy = retailValidation.parsePublicStarterThemePresentation({
+    ...value,
+    sections: [legacyCategory, ...value.sections.slice(1)],
+  });
+  assert.equal((legacy.sections as Array<Record<string, unknown>>)[0]?.layout, "grid");
+  assert.throws(() => retailValidation.parsePublicStarterThemePresentation({
+    ...value,
+    sections: [{ ...category, layout: "masonry" }, ...value.sections.slice(1)],
+  }), /storefront_contract_invalid/);
 });
 
 test("presentation v2 adapts to v3 without invented retail content", () => {
