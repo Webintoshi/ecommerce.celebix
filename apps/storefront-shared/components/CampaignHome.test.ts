@@ -17,9 +17,11 @@ test("category showcase renders only the persisted duo or grid layout with respo
   assert.match(source, /data-layout=\{section[.]layout\}/);
   assert.match(css, /[.]categoryGridDuo\s*\{[^}]*grid-template-columns:\s*repeat\(2,/u);
   assert.match(css, /[.]categoryGridGrid\s*\{[^}]*grid-template-columns:\s*repeat\(4,/u);
-  assert.match(css, /[.]categoryGridDuo img\s*\{[^}]*aspect-ratio:\s*3\s*\/\s*2/u);
-  assert.match(css, /[.]categoryGridGrid img\s*\{[^}]*aspect-ratio:\s*1/u);
+  assert.match(css, /[.]categoryGridDuo\s*>\s*a\s*\{[^}]*aspect-ratio:\s*3\s*\/\s*2/u);
+  assert.match(css, /[.]categoryGridGrid\s*>\s*a\s*\{[^}]*aspect-ratio:\s*1/u);
+  assert.match(css, /[.]categoryGrid img\s*\{[^}]*height:\s*100%/u);
   assert.match(css, /@media\(max-width:700px\)[\s\S]*[.]categoryGridDuo\s*\{[^}]*grid-template-columns:\s*1fr/u);
+  assert.match(css, /@media\(max-width:700px\)[\s\S]*[.]categoryGridDuo\s*>\s*a\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/u);
   assert.match(css, /@media\(max-width:339px\)[\s\S]*[.]categoryGridGrid\s*\{[^}]*grid-template-columns:\s*1fr/u);
 });
 test("campaign home mounts jewelry category placeholders from public navigation authority", async () => {

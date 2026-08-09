@@ -123,7 +123,7 @@ export function StarterThemePreview(props: PreviewProps) {
             : null}
 
           {categoryPlaceholders.length ? <section className={`${styles.previewCategoryPlaceholders} ${categoryLayout === "duo" ? styles.categoryLayoutDuo : styles.categoryLayoutGrid}`} aria-label="Kategori görsel alanları">
-            {categoryPlaceholders.slice(0, 3).map((label, index) => <article key={label}>
+            {categoryPlaceholders.slice(0, 4).map((label, index) => <article key={label}>
               <div aria-hidden="true"><span>{String(index + 1).padStart(2, "0")}</span></div>
               <strong>{label}</strong>
             </article>)}

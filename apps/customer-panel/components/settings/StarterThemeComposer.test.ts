@@ -56,6 +56,7 @@ test("category showcase offers two plain-language visual layouts and previews th
   assert.match(preview, /"layout" in categorySection/);
   assert.match(preview, /categoryLayoutDuo/);
   assert.match(preview, /categoryLayoutGrid/);
+  assert.match(preview, /categoryPlaceholders[.]slice\(0, 4\)/);
 });
 test("preview CSS module defines every static class consumed by the rendered component", async () => {
   const value = await source("StarterThemePreview.tsx");

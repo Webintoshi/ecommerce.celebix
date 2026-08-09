@@ -74,9 +74,9 @@
 .placeholderGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .categoryGridDuo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .categoryGrid > a { position: relative; min-width: 0; overflow: hidden; color: #fff; background: #eee; text-decoration: none; }
-.categoryGrid img { display: block; width: 100%; object-fit: cover; transition: transform .35s ease; }
-.categoryGridGrid img { aspect-ratio: 1; }
-.categoryGridDuo img { aspect-ratio: 3 / 2; }
+.categoryGrid img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
+.categoryGridGrid > a { aspect-ratio: 1; }
+.categoryGridDuo > a { aspect-ratio: 3 / 2; }
 .categoryGrid > a:hover img { transform: scale(1.025); }
 .categoryGrid > a > span { position: absolute; inset: auto 0 0; display: grid; gap: 5px; padding: 64px 20px 21px; background: linear-gradient(transparent, rgb(0 0 0 / 66%)); }
 .categoryGrid strong { font-size: 1.15rem; font-weight: 600; }
@@ -162,7 +162,7 @@
   .sectionHeading { align-items: flex-start; flex-direction: column; margin-bottom: 22px; }
   .categoryGrid, .placeholderGrid { gap: 9px; }
   .categoryGridDuo { grid-template-columns: 1fr; }
-  .categoryGridDuo img { aspect-ratio: 4 / 3; }
+  .categoryGridDuo > a { aspect-ratio: 4 / 3; }
   .categoryGrid > a > span { padding: 42px 13px 13px; }
   .placeholderArtwork { min-height: 0; }
   .productRow :global(.product-grid) { gap: 10px; margin-right: -14px; }
