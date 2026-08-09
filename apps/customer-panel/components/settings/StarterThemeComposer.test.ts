@@ -61,11 +61,14 @@ test("theme composer stays subordinate to the shared page topbar", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.doesNotMatch(value, /<h1|KAMPANYA STARTER|Yayın yetkisi etkin/);
 });
-test("composer keeps one editor state while the submenu exposes one settings group", async () => {
+test("composer keeps one editor state while its parent owns the only settings navigation", async () => {
   const value = await source("StarterThemeComposer.tsx");
-  assert.match(value, /StarterThemeSubnavigation/);
-  assert.match(value, /useState<ThemePanelKey>\(DEFAULT_THEME_PANEL\)/);
-  assert.match(value, /role="tabpanel"/);
+  assert.match(value, /activePanel:\s*ThemePanelKey/);
+  assert.match(value, /showPreview[?]:\s*boolean/);
+  assert.doesNotMatch(value, /StarterThemeSubnavigation/);
+  assert.doesNotMatch(value, /useState<ThemePanelKey>/);
+  assert.match(value, /role="region"/);
+  assert.match(value, /showPreview\s*!==\s*false/);
   for (const key of ["visual", "navigation", "home", "product", "cart", "footer"]) {
     assert.match(value, new RegExp(`activePanel === "${key}"`));
   }

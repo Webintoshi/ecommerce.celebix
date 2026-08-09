@@ -15,7 +15,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StarterThemePreview } from "@/components/settings/StarterThemePreview";
 import { StarterFooterEditor } from "@/components/settings/StarterFooterEditor";
 import { StarterRetailSectionEditor } from "@/components/settings/StarterRetailSectionEditors";
-import { StarterThemeSubnavigation } from "@/components/settings/StarterThemeSubnavigation";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { catalogApi } from "@/lib/catalog-ui/client";
 import { merchantAdminApi } from "@/lib/merchant-admin-ui/client";
@@ -31,10 +30,7 @@ import {
   updateStarterNavigationRoots,
   type StarterThemeEditorState,
 } from "@/lib/starter-theme-composer-model";
-import {
-  DEFAULT_THEME_PANEL,
-  type ThemePanelKey,
-} from "./starter-theme-subnavigation-model";
+import { type ThemePanelKey } from "./starter-theme-subnavigation-model";
 import styles from "./starter-theme-composer.module.css";
 
 type SectionKind = StarterThemeSectionConfigV2["kind"];
@@ -47,6 +43,15 @@ const SECTION_LABELS: Readonly<Record<SectionKind, string>> = Object.freeze({
   brand_story: "Marka hikâyesi",
   value_propositions: "Değer önerileri",
   testimonials: "Müşteri yorumları",
+});
+
+const PANEL_LABELS: Readonly<Record<ThemePanelKey, string>> = Object.freeze({
+  visual: "Genel görünüm",
+  navigation: "Menü ve duyuru",
+  home: "Ana sayfa bölümleri",
+  product: "Ürün sayfası",
+  cart: "Sepet",
+  footer: "Footer",
 });
 
 function editorState(config: StarterThemeCompositionConfigV2): StarterThemeEditorState {
@@ -138,11 +143,15 @@ function SplitCampaignPanelsEditor({
 }
 
 export function StarterThemeComposer({
+  activePanel,
   canManage,
+  showPreview = true,
   value,
   onChange,
 }: Readonly<{
+  activePanel: ThemePanelKey;
   canManage: boolean;
+  showPreview?: boolean;
   value: StarterThemeCompositionConfigV2;
   onChange: (value: StarterThemeCompositionConfigV2) => void;
 }>) {
@@ -153,7 +162,6 @@ export function StarterThemeComposer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [newSection, setNewSection] = useState<SectionKind>("product_row");
-  const [activePanel, setActivePanel] = useState<ThemePanelKey>(DEFAULT_THEME_PANEL);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -201,15 +209,14 @@ export function StarterThemeComposer({
   return <main className={styles.shell}>
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {!canManage ? <p className={styles.readOnly} role="status">Yalnız görüntüleme</p> : null}
-    {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={styles.workspace} onSubmit={(event) => event.preventDefault()}>
-      <StarterThemeSubnavigation activePanel={activePanel} onSelect={setActivePanel} />
+    {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={`${styles.workspace} ${showPreview ? "" : styles.editorOnly}`} onSubmit={(event) => event.preventDefault()}>
       <div className={styles.editor}>
         <p className={styles.notice}>Bu alanlar aynı tasarım taslağına otomatik kaydedilir. Vitrine çıkarmak için üstteki tek Yayınla düğmesini kullanın.</p>
         <section
           className={styles.themePanel}
-          role="tabpanel"
+          role="region"
           id={`starter-theme-panel-${activePanel}`}
-          aria-labelledby={`starter-theme-tab-${activePanel}`}
+          aria-label={PANEL_LABELS[activePanel]}
           tabIndex={0}
         >
         {activePanel === "visual" ? <fieldset className={styles.panel} disabled={disabled}>
@@ -263,7 +270,7 @@ export function StarterThemeComposer({
         {activePanel === "footer" ? <StarterFooterEditor categories={categories} disabled={disabled} pages={pages} update={(footer) => patch({ footer })} value={state.footer} /> : null}
         </section>
       </div>
-      <aside className={styles.preview}>{preview ? <StarterThemePreview composition={preview} productTitles={productTitles} storefrontHostname={null} /> : <p role="alert">Önizleme için zorunlu alanları tamamlayın.</p>}</aside>
+      {showPreview !== false ? <aside className={styles.preview}>{preview ? <StarterThemePreview composition={preview} productTitles={productTitles} storefrontHostname={null} /> : <p role="alert">Önizleme için zorunlu alanları tamamlayın.</p>}</aside> : null}
     </form>}
   </main>;
 }

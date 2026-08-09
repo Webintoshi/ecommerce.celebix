@@ -33,6 +33,11 @@
   margin: auto;
 }
 
+.editorOnly {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: none;
+}
+
 .themeSubnav {
   grid-column: 1 / -1;
   min-width: 0;
