@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase4q-empty-homepage-sections",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608090098_empty_homepage_sections.up.sql",
+      "direction": "up",
+      "sha256": "e1369bc5a572863770c0800dc1ae9741cd71b3e833e63e11aa852b70882d6c9c"
+    },
+    {
+      "file": "202608090098_empty_homepage_sections.down.sql",
+      "direction": "down",
+      "sha256": "52095b029036f84d3ca11750af370f5b7c7120d6b58308e52b7fca4362ad52d3"
+    },
+    {
+      "file": "202608090098_empty_homepage_sections_assertions.sql",
+      "direction": "verify",
+      "sha256": "8db4a58b6e385b75a5043c12fbe82beff89ecabc7aaae0fae78cc539f8434554"
+    }
+  ]
+}
