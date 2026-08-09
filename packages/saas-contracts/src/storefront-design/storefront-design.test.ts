@@ -172,9 +172,11 @@ test("storefront design composition accepts version three and normalizes one leg
   assert.deepEqual(legacy.hero.slides[0], { ...SLIDE, enabled: true });
 });
 
-test("storefront design composition rejects malformed or unknown composition fields", () => {
+test("storefront design accepts an intentionally empty homepage and rejects unknown composition fields", () => {
+  const empty = parseStorefrontDesignDocument({ ...DESIGN, composition: { ...COMPOSITION, sections: [] } });
+  assert.deepEqual(empty.composition.sections, []);
+  assert.equal(Object.isFrozen(empty.composition.sections), true);
   assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, composition: { ...COMPOSITION, storeId: PRODUCT_ID } }));
-  assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, composition: { ...COMPOSITION, sections: [] } }));
 });
 
 test("storefront typography normalizes legacy fonts and rejects unsafe or unsupported authority", () => {

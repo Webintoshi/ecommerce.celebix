@@ -127,6 +127,16 @@ test("composition v2 accepts retail sections footer and exact product informatio
   assert.equal(Object.isFrozen((parsed.footer as { groups: unknown }).groups), true);
 });
 
+test("retail composition and public presentation accept an intentionally empty homepage", () => {
+  const composition = retailValidation.parseStarterThemeCompositionConfig({ ...compositionV2(), sections: [] });
+  const presentation = retailValidation.parsePublicStarterThemePresentation({ ...presentationV3(), sections: [] });
+
+  assert.deepEqual(composition.sections, []);
+  assert.deepEqual(presentation.sections, []);
+  assert.equal(Object.isFrozen(composition.sections), true);
+  assert.equal(Object.isFrozen(presentation.sections), true);
+});
+
 test("composition v2 requires one exact boolean quantity-selector authority", () => {
   const value = compositionV2();
   const { showQuantitySelector: _missing, ...withoutQuantitySelector } = value.cart;

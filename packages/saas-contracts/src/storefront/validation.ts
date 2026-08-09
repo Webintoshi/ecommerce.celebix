@@ -399,7 +399,7 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
   const hasFeaturedCategory = Object.hasOwn(navigationValue, "featuredCategoryId");
   const hasFeaturedAsset = Object.hasOwn(navigationValue, "featuredAssetId");
   if (hasFeaturedCategory !== hasFeaturedAsset) invalid();
-  const sectionValues = arrayValues(parsed.sections, 1, 12);
+  const sectionValues = arrayValues(parsed.sections, 0, 12);
   const sections = retail
     ? Object.freeze(sectionValues.map(parseConfigSectionV2))
     : Object.freeze(sectionValues.map(parseConfigSection));
@@ -571,7 +571,7 @@ function parsePresentationV1(value: unknown): PublicStarterThemePresentationV1 {
 function parsePresentationV2(value: unknown): PublicStarterThemePresentationV2 {
   const parsed = exact(value, ["schemaVersion", "displayName", "theme", "hero", "visual", "navigation", "sections", "productDetail", "cart", "seo"], ["supportEmail", "logo", "promotion", "marquee", "categoryShowcase", "announcement"]);
   if (parsed.schemaVersion !== 2) invalid();
-  const sections = Object.freeze(arrayValues(parsed.sections, 1, 12).map((section) => parsePublicHomeSection(section, false) as PublicStarterHomeSectionV2));
+  const sections = Object.freeze(arrayValues(parsed.sections, 0, 12).map((section) => parsePublicHomeSection(section, false) as PublicStarterHomeSectionV2));
   const singletonKinds = new Set<string>();
   const keys = new Set<string>();
   for (const section of sections) {
@@ -606,7 +606,7 @@ function parsePresentationV2(value: unknown): PublicStarterThemePresentationV2 {
 function parsePresentationV3(value: unknown): PublicStarterThemePresentationV3 {
   const parsed = exact(value, ["schemaVersion", "displayName", "theme", "hero", "visual", "navigation", "sections", "productDetail", "cart", "footer", "seo"], ["supportEmail", "logo", "promotion", "marquee", "categoryShowcase", "announcement"]);
   if (parsed.schemaVersion !== 3) invalid();
-  const sections = Object.freeze(arrayValues(parsed.sections, 1, 12).map((section) => parsePublicHomeSection(section, true)));
+  const sections = Object.freeze(arrayValues(parsed.sections, 0, 12).map((section) => parsePublicHomeSection(section, true)));
   const singletonKinds = new Set<string>(), keys = new Set<string>();
   for (const section of sections) {
     if (section.kind === "product_row") { if (keys.has(section.key)) invalid(); keys.add(section.key); continue; }

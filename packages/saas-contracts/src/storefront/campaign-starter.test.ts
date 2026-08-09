@@ -89,6 +89,16 @@ test("campaign composition parses exact bounded input and freezes nested values"
   assert.equal(Object.isFrozen((parsed.sections as readonly unknown[])[0]), true);
 });
 
+test("campaign composition and public projection accept an intentionally empty homepage", () => {
+  const composition = campaignValidation.parseStarterThemeCompositionConfig({ ...validComposition(), sections: [] });
+  const presentation = campaignValidation.parsePublicStarterThemePresentation({ ...validPublicPresentation(), sections: [] });
+
+  assert.deepEqual(composition.sections, []);
+  assert.deepEqual(presentation.sections, []);
+  assert.equal(Object.isFrozen(composition.sections), true);
+  assert.equal(Object.isFrozen(presentation.sections), true);
+});
+
 test("campaign composition rejects unknown and incomplete root fields", () => {
   assert.throws(() => campaignValidation.parseStarterThemeCompositionConfig({ ...validComposition(), tenantId: STORE }), /storefront_contract_invalid/);
   const { cart: _cart, ...missing } = validComposition();
