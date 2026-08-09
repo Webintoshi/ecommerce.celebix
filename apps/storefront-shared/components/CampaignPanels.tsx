@@ -9,7 +9,8 @@ type StorySection = Extract<PublicStarterHomeSection, { kind: "brand_story" }>;
 
 export function CampaignCategories({ section }: Readonly<{ section: CategorySection }>) {
   if (!section.items.length) return null;
-  return <section className={styles.categories} aria-labelledby="campaign-category-title"><div className={styles.sectionHeading}><div><span>KOLEKSİYONLAR</span><h2 id="campaign-category-title">{section.heading}</h2></div></div><div className={styles.categoryGrid}>{section.items.map((item) => <Link href={`/categories/${item.slug}`} key={item.slug}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.image.url} alt={item.image.altText || item.name} width={item.image.width} height={item.image.height} /><span><strong>{item.name}</strong><small>Keşfet →</small></span></Link>)}</div></section>;
+  const layoutClass = section.layout === "duo" ? styles.categoryGridDuo : styles.categoryGridGrid;
+  return <section className={styles.categories} aria-labelledby="campaign-category-title"><div className={styles.sectionHeading}><div><span>KOLEKSİYONLAR</span><h2 id="campaign-category-title">{section.heading}</h2></div></div><div className={`${styles.categoryGrid} ${layoutClass}`} data-layout={section.layout}>{section.items.map((item) => <Link href={`/categories/${item.slug}`} key={item.slug}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.image.url} alt={item.image.altText || item.name} width={item.image.width} height={item.image.height} /><span><strong>{item.name}</strong><small>Keşfet →</small></span></Link>)}</div></section>;
 }
 
 export function CampaignPanels({ section }: Readonly<{ section: SplitSection }>) {

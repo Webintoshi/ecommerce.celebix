@@ -5,10 +5,23 @@ import test from "node:test";
 const read = (name: string) => readFile(new URL(name, import.meta.url), "utf8");
 
 test("home exhaustively renders the finite public retail section union", async () => { const source = await read("CampaignHome.tsx"); for (const kind of ["hero", "category_grid", "product_row", "split_campaign", "brand_story", "value_propositions", "testimonials"]) assert.match(source, new RegExp(`case [\"']${kind}[\"']`)); assert.match(source, /CampaignValuePropositions/); assert.match(source, /CampaignTestimonials/); assert.match(source, /assertNever/); });
-test("empty optional sections do not create blank storefront bands", async () => { const module = await import("./campaign-home-sections.ts"); const presentation = { schemaVersion: 3, sections: [{ kind: "hero", slides: [{ heading: "Hero", destination: "/products" }] }, { kind: "category_grid", heading: "Kategoriler", items: [] }, { kind: "product_row", key: "empty", heading: "Boş", source: "latest", limit: 4 }, { kind: "split_campaign", panels: [] }, { kind: "value_propositions", items: [] }, { kind: "testimonials", heading: "Yorumlar", items: [] }] }; assert.deepEqual(module.visibleCampaignSectionKinds({ presentation, productRows: [{ key: "empty", items: [] }] } as never), ["hero"]); });
+test("empty optional sections do not create blank storefront bands", async () => { const module = await import("./campaign-home-sections.ts"); const presentation = { schemaVersion: 3, sections: [{ kind: "hero", slides: [{ heading: "Hero", destination: "/products" }] }, { kind: "category_grid", heading: "Kategoriler", layout: "grid", items: [] }, { kind: "product_row", key: "empty", heading: "Boş", source: "latest", limit: 4 }, { kind: "split_campaign", panels: [] }, { kind: "value_propositions", items: [] }, { kind: "testimonials", heading: "Yorumlar", items: [] }] }; assert.deepEqual(module.visibleCampaignSectionKinds({ presentation, productRows: [{ key: "empty", items: [] }] } as never), ["hero"]); });
 test("hero uses stable desktop mobile media and canonical hotspot", async () => { const source = await read("CampaignHero.tsx"); for (const token of ["<picture", "mobileImage", "desktopImage", "width=", "height=", "hotspot.productSlug", "hotspot.priceCents"]) assert.match(source, new RegExp(token)); });
 test("hero rotation is explicit scroll snap without autoplay", async () => { const [client, css] = await Promise.all([read("CampaignHeroClient.tsx"), read("campaign-home.module.css")]); assert.match(client, /scrollBy/); assert.match(client, /Önceki slayt/); assert.match(client, /Sonraki slayt/); assert.doesNotMatch(client, /setInterval|autoplay/); assert.match(css, /scroll-snap-type/); });
 test("category and campaign panels use only safe public relative destinations", async () => { const source = await read("CampaignPanels.tsx"); assert.match(source, /`\/categories\/\$\{item[.]slug\}`/); assert.match(source, /panel[.]destination/); assert.doesNotMatch(source, /assetId|categoryId|storeId|tenantId/); });
+test("category showcase renders only the persisted duo or grid layout with responsive image ratios", async () => {
+  const [source, css] = await Promise.all([read("CampaignPanels.tsx"), read("campaign-home.module.css")]);
+  assert.match(source, /section[.]layout === "duo"/);
+  assert.match(source, /categoryGridDuo/);
+  assert.match(source, /categoryGridGrid/);
+  assert.match(source, /data-layout=\{section[.]layout\}/);
+  assert.match(css, /[.]categoryGridDuo\s*\{[^}]*grid-template-columns:\s*repeat\(2,/u);
+  assert.match(css, /[.]categoryGridGrid\s*\{[^}]*grid-template-columns:\s*repeat\(4,/u);
+  assert.match(css, /[.]categoryGridDuo img\s*\{[^}]*aspect-ratio:\s*3\s*\/\s*2/u);
+  assert.match(css, /[.]categoryGridGrid img\s*\{[^}]*aspect-ratio:\s*1/u);
+  assert.match(css, /@media\(max-width:700px\)[\s\S]*[.]categoryGridDuo\s*\{[^}]*grid-template-columns:\s*1fr/u);
+  assert.match(css, /@media\(max-width:339px\)[\s\S]*[.]categoryGridGrid\s*\{[^}]*grid-template-columns:\s*1fr/u);
+});
 test("campaign home mounts jewelry category placeholders from public navigation authority", async () => {
   const source = await read("CampaignHome.tsx");
   assert.match(source, /deriveJewelryCategoryPlaceholders\(presentation[.]navigation, sections\)/);

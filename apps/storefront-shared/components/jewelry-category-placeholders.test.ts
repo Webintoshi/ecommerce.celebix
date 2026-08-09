@@ -39,6 +39,7 @@ test("resolved category imagery is never duplicated as a placeholder", () => {
     Object.freeze({
       kind: "category_grid" as const,
       heading: "Koleksiyonlar",
+      layout: "grid" as const,
       items: Object.freeze([
         Object.freeze({ name: "Kolyeler", slug: "kolyeler", image }),
         Object.freeze({ name: "Yüzükler", slug: "yuzukler", image }),
