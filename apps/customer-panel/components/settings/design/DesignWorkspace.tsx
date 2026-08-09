@@ -5,22 +5,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getStorefrontDesignPublishIssue, type StorefrontDesignDocument, type StorefrontDesignMediaOption, type StorefrontDesignWorkspace } from "@celebix/saas-contracts";
 
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
-import { CategoryShowcaseEditor } from "@/components/settings/CategoryShowcaseEditor";
-import { StarterThemeComposer } from "@/components/settings/StarterThemeComposer";
-import { StorefrontAssetManager } from "@/components/settings/StorefrontAssetManager";
 import { StorefrontDesignApiError, storefrontDesignApi } from "@/lib/storefront-design-ui/client";
-import { DesignInspector, type DesignSection } from "./DesignInspector";
 import { DesignPreview } from "./DesignPreview";
+import { DesignStepEditor } from "./DesignStepEditor";
+import {
+  defaultStepForDesignArea,
+  designWorkspaceAreas,
+  designWorkspaceSteps,
+  type DesignWorkspaceLocation,
+} from "./workspace-navigation-model";
 import { applyDesignEdit, beginDesignSave, completeDesignSave, createDesignEditorState, type DesignSaveToken } from "./workspace-model";
 import styles from "../design-settings.module.css";
 
-type WorkspaceSection = DesignSection | "theme" | "assets";
-const SECTIONS = Object.freeze([["theme", "Tema düzeni"], ["assets", "Vitrin görselleri"], ["brand", "Marka"], ["colors", "Renkler"], ["typography", "Yazı"], ["hero", "Ana sayfa"], ["promotion", "Promosyon"], ["announcement", "Duyuru"]] as const);
 const STATUS_LABEL = Object.freeze({ saved: "Taslak kaydedildi", dirty: "Yayınlanmamış değişiklik", saving: "Kaydediliyor", publishing: "Yayınlanıyor", error: "Kaydedilemedi", conflict: "Başka bir oturumda değişti" } as const);
 
-export function DesignWorkspace({ workspace, canManage, initialSection = "brand" }: Readonly<{ workspace: StorefrontDesignWorkspace; canManage: boolean; initialSection?: WorkspaceSection }>) {
+export function DesignWorkspace({ workspace, canManage, initialLocation = Object.freeze({ area: "site", step: "brand" }) }: Readonly<{ workspace: StorefrontDesignWorkspace; canManage: boolean; initialLocation?: DesignWorkspaceLocation }>) {
   const [editor, setEditor] = useState(() => createDesignEditorState(workspace));
-  const [section, setSection] = useState<WorkspaceSection>(initialSection);
+  const [location, setLocation] = useState<DesignWorkspaceLocation>(initialLocation);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [media, setMedia] = useState(workspace.media);
   const editorRef = useRef(editor);
@@ -87,5 +88,15 @@ export function DesignWorkspace({ workspace, canManage, initialSection = "brand"
 
   const topbarActions = useMemo(() => <div className={styles.topbarActions}><div className={styles.previewSwitch} role="group" aria-label="Önizleme boyutu"><button type="button" className={previewMode === "desktop" ? styles.active : ""} onClick={() => setPreviewMode("desktop")}><Monitor size={17} />Masaüstü</button><button type="button" className={previewMode === "mobile" ? styles.active : ""} onClick={() => setPreviewMode("mobile")}><Smartphone size={17} />Mobil</button></div><button type="button" className={styles.publishButton} title={publishIssueLabel ?? undefined} disabled={!canManage || publishIssue !== null || ["saving", "publishing", "conflict"].includes(editor.status)} onClick={() => void publish()}>Yayınla</button></div>, [canManage, editor.status, previewMode, publish, publishIssue, publishIssueLabel]);
 
-  return <section className={styles.workspace} data-panel-layout="open-canvas"><PanelTopbarBridge title="Tasarım" subtitle={publishIssueLabel ?? STATUS_LABEL[editor.status]} actions={topbarActions} /><nav className={styles.sectionRail} aria-label="Tasarım bölümleri">{SECTIONS.map(([key, label]) => <button type="button" key={key} className={section === key ? styles.active : ""} aria-current={section === key ? "page" : undefined} onClick={() => setSection(key)}>{label}</button>)}</nav>{section === "theme" ? <div className={styles.themeCanvas}><StarterThemeComposer activePanel="visual" canManage={canManage} value={editor.design.composition} onChange={(value) => change({ ...editor.design, composition: value })} /></div> : section === "assets" ? <div className={styles.themeCanvas}><StorefrontAssetManager canManage={canManage} /><CategoryShowcaseEditor canManage={canManage} /></div> : <><div className={styles.inspector}><DesignInspector section={section} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} onChange={change} onUpload={upload} /></div><main className={styles.preview}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} /></main></>}</section>;
+  const areas = designWorkspaceAreas(location.area);
+  const steps = designWorkspaceSteps(location.area, location.step);
+  const selectedStep = steps.find(({ selected }) => selected) ?? steps[0]!;
+
+  return <section className={styles.workspace} data-panel-layout="open-canvas">
+    <PanelTopbarBridge title="Tasarım" subtitle={publishIssueLabel ?? STATUS_LABEL[editor.status]} actions={topbarActions} />
+    <nav className={styles.areaSwitch} aria-label="Tasarım alanı">{areas.map((area) => <button type="button" key={area.key} className={area.selected ? styles.active : ""} aria-pressed={area.selected} onClick={() => setLocation({ area: area.key, step: defaultStepForDesignArea(area.key) })}><strong>{area.label}</strong><span>{area.hint}</span></button>)}</nav>
+    <aside className={styles.stepRail}><p>{location.area === "site" ? "Tüm site ayarları" : "Ana sayfa ayarları"}</p><nav aria-label="Tasarım adımları">{steps.map((step, index) => <button type="button" key={step.key} className={step.selected ? styles.active : ""} aria-current={step.selected ? "step" : undefined} onClick={() => setLocation({ area: location.area, step: step.key })}><span>{index + 1}</span><span><strong>{step.label}</strong><small>{step.hint}</small></span></button>)}</nav></aside>
+    <div className={styles.inspector}><header className={styles.stepIntro}><span>{location.area === "site" ? "Tüm site" : "Ana sayfa"}</span><h2>{selectedStep.label}</h2><p>{selectedStep.hint}</p></header><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} onChange={change} onUpload={upload} /></div>
+    <main className={styles.preview}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} /></main>
+  </section>;
 }

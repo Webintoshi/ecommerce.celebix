@@ -206,7 +206,7 @@ export function StarterThemeComposer({
     patch({ sections: Object.freeze([...state.sections, section]) }); setError("");
   }
 
-  return <main className={styles.shell}>
+  return <section className={`${styles.shell} ${showPreview ? "" : styles.embeddedShell}`}>
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {!canManage ? <p className={styles.readOnly} role="status">Yalnız görüntüleme</p> : null}
     {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={`${styles.workspace} ${showPreview ? "" : styles.editorOnly}`} onSubmit={(event) => event.preventDefault()}>
@@ -272,5 +272,5 @@ export function StarterThemeComposer({
       </div>
       {showPreview !== false ? <aside className={styles.preview}>{preview ? <StarterThemePreview composition={preview} productTitles={productTitles} storefrontHostname={null} /> : <p role="alert">Önizleme için zorunlu alanları tamamlayın.</p>}</aside> : null}
     </form>}
-  </main>;
+  </section>;
 }

@@ -5,6 +5,11 @@
   background: #fff;
 }
 
+.embeddedShell {
+  min-height: 0;
+  padding: 0;
+}
+
 .error,
 .success,
 .readOnly,

@@ -22,14 +22,20 @@ test("editor state never reports a newer local edit as saved by an older request
   assert.equal(completed.design.hero.slides[0]?.headline, "Daha yeni");
 });
 
-test("workspace source exposes child-friendly sections, truthful save states and one shared preview", async () => {
-  const [workspace, inspector, preview, css] = await Promise.all([
+test("workspace source exposes two child-friendly areas, truthful save states and one shared preview", async () => {
+  const [workspace, stepEditor, inspector, preview, css] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./DesignStepEditor.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignInspector.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignPreview.tsx", import.meta.url), "utf8"),
     readFile(new URL("../design-settings.module.css", import.meta.url), "utf8"),
   ]);
-  for (const label of ["Marka", "Renkler", "Yazı", "Ana sayfa", "Promosyon", "Duyuru", "Vitrin görselleri"]) assert.match(workspace, new RegExp(`"${label}"`));
+  assert.match(workspace, /designWorkspaceAreas/);
+  assert.match(workspace, /designWorkspaceSteps/);
+  assert.match(workspace, /aria-label="Tasarım alanı"/);
+  assert.match(workspace, /aria-label="Tasarım adımları"/);
+  assert.match(stepEditor, /Gelişmiş görünüm/);
+  assert.match(stepEditor, /Gelişmiş duyuru ayarları/);
   for (const state of ["Kaydediliyor", "Taslak kaydedildi", "Yayınlanmamış değişiklik", "Kaydedilemedi"]) assert.match(workspace, new RegExp(state));
   assert.match(workspace, /PanelTopbarBridge/);
   assert.match(workspace, /Masaüstü/);
@@ -46,30 +52,35 @@ test("workspace source exposes child-friendly sections, truthful save states and
   assert.match(inspector, /TypographyEditor/);
   assert.match(inspector, /design[.]typography/);
   assert.match(css, /min-height:\s*48px/);
-  assert.match(css, /\.workspace\s*\{[^}]*grid-template-columns:\s*320px minmax\(0, 1fr\)/s);
-  assert.match(css, /\.sectionRail\s*\{[^}]*flex-direction:\s*row/s);
-  assert.doesNotMatch(css, /\.sectionRail\s*\{[^}]*border-right:/s);
-  assert.doesNotMatch(`${workspace}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
+  assert.match(css, /\.workspace\s*\{[^}]*grid-template-columns:\s*220px 360px minmax\(0, 1fr\)/s);
+  assert.match(css, /\.areaSwitch/);
+  assert.match(css, /\.stepRail/);
+  assert.doesNotMatch(`${workspace}\n${stepEditor}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
 });
 
 test("storefront asset and category-showcase authorities are reachable from the design workspace", async () => {
-  const workspace = await readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8");
-  assert.match(workspace, /import \{ CategoryShowcaseEditor \}/);
-  assert.match(workspace, /import \{ StorefrontAssetManager \}/);
-  assert.match(workspace, /<StorefrontAssetManager canManage=\{canManage\} \/>/);
-  assert.match(workspace, /<CategoryShowcaseEditor canManage=\{canManage\} \/>/);
-  assert.match(workspace, /section === "assets"/);
-  assert.doesNotMatch(workspace, /x-store-id|localStorage|sessionStorage/);
+  const editor = await readFile(new URL("./DesignStepEditor.tsx", import.meta.url), "utf8");
+  assert.match(editor, /import \{ CategoryShowcaseEditor \}/);
+  assert.match(editor, /import \{ StorefrontAssetManager \}/);
+  assert.match(editor, /allowedKinds=\{HOMEPAGE_ASSET_KINDS\}/);
+  assert.match(editor, /<CategoryShowcaseEditor canManage=\{canManage\} \/>/);
+  assert.match(editor, /step === "assets"/);
+  assert.doesNotMatch(editor, /x-store-id|localStorage|sessionStorage/);
 });
 
-test("theme section edits the same draft and keeps the one workspace publish action", async () => {
-  const [workspace, composer] = await Promise.all([
+test("controlled theme steps edit the same draft and keep the one workspace publish action", async () => {
+  const [workspace, stepEditor, composer] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./DesignStepEditor.tsx", import.meta.url), "utf8"),
     readFile(new URL("../StarterThemeComposer.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(workspace, /<StarterThemeComposer\s+canManage=\{canManage\}\s+value=\{editor[.]design[.]composition\}/);
-  assert.match(workspace, /composition:\s*value/);
-  assert.doesNotMatch(workspace, /section\s*===\s*"theme"\s*\?\s*null/);
+  assert.match(stepEditor, /<StarterThemeComposer/);
+  assert.match(stepEditor, /showPreview=\{false\}/);
+  assert.match(stepEditor, /composition:\s*value/);
+  assert.match(stepEditor, /composer\("product"\)/);
+  assert.match(stepEditor, /composer\("cart"\)/);
+  assert.match(stepEditor, /composer\("footer"\)/);
+  assert.doesNotMatch(workspace, /StarterThemeSubnavigation/);
   assert.equal((workspace.match(/>Yayınla<\/button>/g) ?? []).length, 1);
   const visualPanel = composer.slice(composer.indexOf('activePanel === "visual"'), composer.indexOf('activePanel === "navigation"'));
   const navigationPanel = composer.slice(composer.indexOf('activePanel === "navigation"'), composer.indexOf('activePanel === "home"'));
@@ -87,6 +98,7 @@ test("design page loads durable workspace server-side and legacy appearance page
   assert.match(page, /resolveDefaultServerStorefrontDesignRuntime/);
   assert.match(page, /repository[.]getWorkspace/);
   assert.match(page, /<DesignWorkspace/);
+  assert.match(page, /resolveDesignWorkspaceLocation/);
   assert.doesNotMatch(page, /storeId=|tenantContext=|localStorage|sessionStorage/);
   for (const [name, section] of [["hero-banner", "hero"], ["promotion-banner", "promotion"], ["marquee", "announcement"]] as const) {
     const legacy = await readFile(new URL(`../../../app/settings/${name}/page.tsx`, import.meta.url), "utf8");
