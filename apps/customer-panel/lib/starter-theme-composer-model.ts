@@ -44,7 +44,9 @@ export function upgradeStarterThemeComposition(input: StarterThemeComposition): 
     visual: Object.freeze({ ...input.visual, headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" }),
     announcement: input.announcement,
     navigation: input.navigation,
-    sections: input.sections,
+    sections: Object.freeze(input.sections.map((section) => section.kind === "category_grid"
+      ? Object.freeze({ ...section, layout: "grid" as const })
+      : section)),
     productDetail: Object.freeze({
       ...input.productDetail,
       showBreadcrumbs: true,

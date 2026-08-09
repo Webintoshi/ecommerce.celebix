@@ -191,6 +191,66 @@
   gap: 4px 14px;
 }
 
+.categoryLayoutPicker {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.categoryLayoutPicker legend {
+  padding: 0;
+  font-size: .82rem;
+  font-weight: 780;
+}
+
+.categoryLayoutPicker > p {
+  margin: 0;
+  color: #667085;
+  font-size: .76rem;
+}
+
+.categoryLayoutChoices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.categoryLayoutCard {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  border: 1px solid #d9dee7;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+
+.categoryLayoutCard:hover { border-color: #adb7c6; }
+.categoryLayoutCard[data-selected="true"] { border-color: #ff6500; background: #fff9f4; box-shadow: 0 0 0 3px rgb(255 101 0 / 12%); }
+.categoryLayoutCard input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.categoryLayoutCard:has(input:focus-visible) { outline: 3px solid rgb(255 101 0 / 22%); outline-offset: 2px; }
+.categoryLayoutCard strong { font-size: .8rem; }
+.categoryLayoutCard small { color: #667085; font-size: .7rem; line-height: 1.4; }
+
+.categoryLayoutDiagram {
+  display: grid;
+  min-height: 62px;
+  gap: 5px;
+  border: 1px solid #e1e5eb;
+  border-radius: 8px;
+  padding: 7px;
+  background: #f8f9fb;
+}
+
+.categoryLayoutDiagram i { border-radius: 4px; background: linear-gradient(145deg, #d5dae3, #f1f3f6); }
+.categoryLayoutDiagramDuo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.categoryLayoutDiagramGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, 1fr); }
+
 .label { margin: 4px 0 0; font-size: .81rem; font-weight: 740; }
 
 .sectionHeading {
@@ -503,6 +563,7 @@
   .fieldGrid,
   .twoColumns,
   .choiceGrid,
+  .categoryLayoutChoices,
   .footerLink { grid-template-columns: 1fr; }
   .footerLink > button { justify-self: end; }
   .sectionToolbar { align-items: flex-start; }

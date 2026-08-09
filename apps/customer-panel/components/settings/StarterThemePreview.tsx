@@ -13,6 +13,7 @@ import { starterThemeCategoryPlaceholderLabels } from "@/lib/starter-theme-compo
 import styles from "./starter-theme-preview.module.css";
 
 type PreviewMode = "desktop" | "mobile";
+type CategorySection = Extract<StarterThemeComposition["sections"][number], { kind: "category_grid" }>;
 
 type PreviewProps =
   | Readonly<{
@@ -76,9 +77,11 @@ export function StarterThemePreview(props: PreviewProps) {
     const composition = props.composition;
     const hero = composition.sections.find((section) => section.kind === "hero");
     const productRow = composition.sections.find((section) => section.kind === "product_row");
+    const categorySection = composition.sections.find((section): section is CategorySection => section.kind === "category_grid" && section.enabled);
     const values = composition.sections.find((section) => section.kind === "value_propositions");
     const testimonials = composition.sections.find((section) => section.kind === "testimonials");
     const categoryPlaceholders = starterThemeCategoryPlaceholderLabels(composition);
+    const categoryLayout = categorySection && "layout" in categorySection ? categorySection.layout : "grid";
     const announcementContent = <span className={styles.previewMarqueeTrack}>{composition.announcement.items.join(" · ")}</span>;
 
     return <section className={styles.previewSection} aria-labelledby="starter-composition-preview-title">
@@ -119,7 +122,7 @@ export function StarterThemePreview(props: PreviewProps) {
             ? <ProductCards heading={productRow.heading} productTitles={props.productTitles} />
             : null}
 
-          {categoryPlaceholders.length ? <section className={styles.previewCategoryPlaceholders} aria-label="Kategori görsel alanları">
+          {categoryPlaceholders.length ? <section className={`${styles.previewCategoryPlaceholders} ${categoryLayout === "duo" ? styles.categoryLayoutDuo : styles.categoryLayoutGrid}`} aria-label="Kategori görsel alanları">
             {categoryPlaceholders.slice(0, 3).map((label, index) => <article key={label}>
               <div aria-hidden="true"><span>{String(index + 1).padStart(2, "0")}</span></div>
               <strong>{label}</strong>

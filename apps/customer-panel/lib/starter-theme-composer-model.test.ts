@@ -35,7 +35,7 @@ function state() {
     navigation: { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: ASSET },
     sections: [
       { kind: "hero" as const, enabled: true, slides: [{ heading: "Yeni sezon", desktopAssetId: ASSET, destination: "/products", productId: PRODUCT }] },
-      { kind: "category_grid" as const, enabled: true, heading: "Kategoriler", categoryIds: [CATEGORY] },
+      { kind: "category_grid" as const, enabled: true, heading: "Kategoriler", layout: "grid" as const, categoryIds: [CATEGORY] },
       { kind: "product_row" as const, enabled: true, heading: "Yeni ürünler", source: "latest" as const, limit: 8 as const },
       { kind: "split_campaign" as const, enabled: true, panels: [{ heading: "Koleksiyon", assetId: ASSET, destination: "/products" }] },
       { kind: "brand_story" as const, enabled: true, heading: "Hikâyemiz", body: "Özenle seçilmiş ürünler.", assetId: ASSET, destination: "/pages/hakkimizda" },
@@ -62,6 +62,20 @@ test("quantity-selector visibility is preserved by composer normalization", () =
   });
   assert.equal(enabled.cart.showQuantitySelector, true);
   assert.equal(disabled.cart.showQuantitySelector, false);
+});
+test("category showcase layout is preserved as one finite merchant choice", () => {
+  const current = state();
+  const categoryIndex = current.sections.findIndex(({ kind }) => kind === "category_grid");
+  assert.notEqual(categoryIndex, -1);
+
+  for (const layout of ["duo", "grid"] as const) {
+    const sections = current.sections.map((section, index) => index === categoryIndex
+      ? { ...section, layout }
+      : section);
+    const composition = buildStarterThemeComposition({ ...current, sections });
+    const categorySection = composition.sections.find((section) => section.kind === "category_grid");
+    assert.equal(categorySection?.layout, layout);
+  }
 });
 test("move reorders sections immutably", () => { const sections = state().sections; const moved = moveStarterSection(sections, 1, -1); assert.notEqual(moved, sections); assert.equal(moved[0]?.kind, "category_grid"); assert.equal(Object.isFrozen(moved), true); });
 test("move keeps the first section stable at the upper boundary", () => { const sections = Object.freeze(state().sections); assert.equal(moveStarterSection(sections, 0, -1), sections); });
@@ -243,4 +257,6 @@ test("v1 editor state upgrades to v2 without inventing testimonials or social pr
   assert.equal(upgraded.sections.some(({ kind }) => kind === "testimonials"), false);
   assert.deepEqual(upgraded.footer.social, []);
   assert.equal(upgraded.footer.newsletter.enabled, false);
+  const upgradedCategory = upgraded.sections.find((section): section is Extract<StarterThemeSectionConfigV2, { kind: "category_grid" }> => section.kind === "category_grid");
+  assert.equal(upgradedCategory?.layout, "grid");
 });
