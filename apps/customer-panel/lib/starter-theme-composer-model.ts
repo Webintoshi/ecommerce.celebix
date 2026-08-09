@@ -71,6 +71,14 @@ export function moveStarterSection(
   return Object.freeze(next);
 }
 
+export function removeStarterSection(
+  sections: readonly StarterThemeSectionConfigV2[],
+  index: number,
+): readonly StarterThemeSectionConfigV2[] {
+  if (index < 0 || index >= sections.length) return sections;
+  return Object.freeze(sections.filter((_, position) => position !== index));
+}
+
 export function updateStarterHeroSlide(
   section: HeroSection,
   index: number,

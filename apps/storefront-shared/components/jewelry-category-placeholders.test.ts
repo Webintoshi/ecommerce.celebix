@@ -23,8 +23,15 @@ const image = Object.freeze({
   height: 1500,
 });
 
-test("unresolved navigation categories receive stable bounded placeholder labels", () => {
-  const placeholders = deriveJewelryCategoryPlaceholders(navigation, Object.freeze([]));
+test("unresolved navigation categories receive stable bounded placeholder labels beside configured content", () => {
+  const sections = Object.freeze([Object.freeze({
+    kind: "product_row" as const,
+    key: "latest-4",
+    heading: "Yeni ürünler",
+    source: "latest" as const,
+    limit: 4,
+  })]) satisfies readonly PublicStarterHomeSection[];
+  const placeholders = deriveJewelryCategoryPlaceholders(navigation, sections);
 
   assert.deepEqual(placeholders, [
     { name: "Kolyeler", slug: "kolyeler", label: "PLACEHOLDER 1", destination: "/categories/kolyeler" },
@@ -32,6 +39,13 @@ test("unresolved navigation categories receive stable bounded placeholder labels
     { name: "Yüzükler", slug: "yuzukler", label: "PLACEHOLDER 3", destination: "/categories/yuzukler" },
     { name: "Küpeler", slug: "kupeler", label: "PLACEHOLDER 4", destination: "/categories/kupeler" },
   ]);
+});
+
+test("an intentionally empty homepage never receives implicit category content", () => {
+  const placeholders = deriveJewelryCategoryPlaceholders(navigation, Object.freeze([]));
+
+  assert.deepEqual(placeholders, []);
+  assert.equal(Object.isFrozen(placeholders), true);
 });
 
 test("resolved category imagery is never duplicated as a placeholder", () => {
@@ -56,7 +70,14 @@ test("resolved category imagery is never duplicated as a placeholder", () => {
 
 test("placeholder projection is deeply immutable and does not mutate public authority", () => {
   const before = JSON.stringify(navigation);
-  const placeholders = deriveJewelryCategoryPlaceholders(navigation, Object.freeze([]), 2);
+  const sections = Object.freeze([Object.freeze({
+    kind: "product_row" as const,
+    key: "latest-4",
+    heading: "Yeni ürünler",
+    source: "latest" as const,
+    limit: 4,
+  })]) satisfies readonly PublicStarterHomeSection[];
+  const placeholders = deriveJewelryCategoryPlaceholders(navigation, sections, 2);
 
   assert.equal(Object.isFrozen(placeholders), true);
   assert.equal(Object.isFrozen(placeholders[0]), true);
@@ -65,7 +86,14 @@ test("placeholder projection is deeply immutable and does not mutate public auth
 });
 
 test("placeholder tiles expose only canonical category destinations and editable labels", () => {
-  const items = deriveJewelryCategoryPlaceholders(navigation, Object.freeze([]), 2);
+  const sections = Object.freeze([Object.freeze({
+    kind: "product_row" as const,
+    key: "latest-4",
+    heading: "Yeni ürünler",
+    source: "latest" as const,
+    limit: 4,
+  })]) satisfies readonly PublicStarterHomeSection[];
+  const items = deriveJewelryCategoryPlaceholders(navigation, sections, 2);
 
   assert.deepEqual(items.map(({ destination, label }) => ({ destination, label })), [
     { destination: "/categories/kolyeler", label: "PLACEHOLDER 1" },

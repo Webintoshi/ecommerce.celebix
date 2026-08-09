@@ -263,6 +263,15 @@
 .sectionHeading h2 { margin: 0; font-size: 1rem; }
 .sectionHeading p { display: none; }
 
+.emptyState {
+  margin: 0 0 18px;
+  border: 1px dashed #cfd5df;
+  border-radius: 12px;
+  padding: 18px;
+  color: #5d6675;
+  background: #fafbfc;
+}
+
 .sectionList ol {
   display: grid;
   gap: 0;

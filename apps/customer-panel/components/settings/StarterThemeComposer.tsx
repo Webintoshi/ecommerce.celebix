@@ -25,6 +25,7 @@ import {
   moveStarterSection,
   removeStarterCampaignPanel,
   removeStarterHeroSlide,
+  removeStarterSection,
   updateStarterCampaignPanel,
   updateStarterHeroSlide,
   updateStarterNavigationRoots,
@@ -249,11 +250,12 @@ export function StarterThemeComposer({
         </fieldset> : null}
         {activePanel === "home" ? <section className={styles.sectionList} aria-labelledby="starter-sections-title">
           <div className={styles.sectionHeading}><div><h2 id="starter-sections-title">Ana sayfa bölümleri</h2><p>Sıralama için sürükleme gerekmez; yukarı ve aşağı kontrolleri klavyeyle çalışır.</p></div></div>
+          {state.sections.length === 0 ? <p className={styles.emptyState}>Ana sayfanız şu anda boş. Aşağıdan istediğiniz ilk bölümü ekleyin.</p> : null}
           <ol>{state.sections.map((section, index) => <li className={styles.sectionCard} key={`${section.kind}-${index}`}>
             <div className={styles.sectionToolbar}><div><span>{index + 1}</span><strong>{SECTION_LABELS[section.kind]}</strong></div><div>
               <button type="button" aria-label={`${SECTION_LABELS[section.kind]} bölümünü yukarı taşı`} onClick={() => patch({ sections: moveStarterSection(state.sections, index, -1) })} disabled={disabled || index === 0}><ArrowUp aria-hidden="true" /></button>
               <button type="button" aria-label={`${SECTION_LABELS[section.kind]} bölümünü aşağı taşı`} onClick={() => patch({ sections: moveStarterSection(state.sections, index, 1) })} disabled={disabled || index === state.sections.length - 1}><ArrowDown aria-hidden="true" /></button>
-              <button type="button" aria-label={`${SECTION_LABELS[section.kind]} bölümünü kaldır`} onClick={() => patch({ sections: Object.freeze(state.sections.filter((_, position) => position !== index)) })} disabled={disabled || state.sections.length === 1}><Trash2 aria-hidden="true" /></button>
+              <button type="button" aria-label={`${SECTION_LABELS[section.kind]} bölümünü kaldır`} onClick={() => patch({ sections: removeStarterSection(state.sections, index) })} disabled={disabled}><Trash2 aria-hidden="true" /></button>
             </div></div>
             <label className={styles.check}><input type="checkbox" checked={section.enabled} onChange={(event) => updateSection(index, { ...section, enabled: event.currentTarget.checked })} disabled={disabled} /> Bölümü göster</label>
             {section.kind === "hero" ? <HeroSlidesEditor assets={assets} disabled={disabled} products={products} section={section} sectionIndex={index} update={(updated) => updateSection(index, updated)} /> : null}

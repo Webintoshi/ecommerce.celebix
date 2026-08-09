@@ -20,7 +20,7 @@ test("composer delegates draft autosave and publishing to its parent workspace",
   assert.doesNotMatch(value, /Taslak kaydet|>Yayınla<\/button>|expectedVersion:\s*current[.]version/);
   assert.match(value, /onChange\(buildStarterThemeComposition/);
 });
-test("section order works without drag and has accessible labels", async () => { const value = await source("StarterThemeComposer.tsx"); assert.match(value, /moveStarterSection/); assert.match(value, /yukarı taşı/); assert.match(value, /aşağı taşı/); });
+test("section order and removal work without drag and retain accessible labels", async () => { const value = await source("StarterThemeComposer.tsx"); assert.match(value, /moveStarterSection/); assert.match(value, /removeStarterSection/); assert.match(value, /yukarı taşı/); assert.match(value, /aşağı taşı/); assert.match(value, /bölümünü kaldır/); assert.doesNotMatch(value, /sections[.]length\s*===\s*1/); assert.match(value, /Ana sayfanız şu anda boş/); });
 test("composer provides bounded visual product detail and cart controls", async () => { const value = await source("StarterThemeComposer.tsx"); for (const token of ["Renk paleti", "Başlık stili", "Ürün detayı", "Sepet deneyimi"]) assert.match(value, new RegExp(token)); });
 test("composer controls product and side-cart quantity visibility once from the product panel", async () => {
   const value = await source("StarterThemeComposer.tsx");

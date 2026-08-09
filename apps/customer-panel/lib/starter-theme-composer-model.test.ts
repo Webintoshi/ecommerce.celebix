@@ -10,6 +10,7 @@ import {
   createStarterThemeEditorState,
   isStarterValuePropositionDraftPublishable,
   moveStarterSection,
+  removeStarterSection,
   removeStarterCampaignPanel,
   removeStarterHeroSlide,
   removeStarterValueProposition,
@@ -81,6 +82,19 @@ test("move reorders sections immutably", () => { const sections = state().sectio
 test("move keeps the first section stable at the upper boundary", () => { const sections = Object.freeze(state().sections); assert.equal(moveStarterSection(sections, 0, -1), sections); });
 test("move keeps the last section stable at the lower boundary", () => { const sections = Object.freeze(state().sections); assert.equal(moveStarterSection(sections, sections.length - 1, 1), sections); });
 test("move never mutates the caller-owned section array", () => { const sections = state().sections; const before = sections.map(({ kind }) => kind); moveStarterSection(sections, 2, -1); assert.deepEqual(sections.map(({ kind }) => kind), before); });
+test("remove permits the final homepage section and returns one immutable empty composition", () => {
+  const sections = Object.freeze([state().sections[0]!]);
+  const removed = removeStarterSection(sections, 0);
+
+  assert.deepEqual(removed, []);
+  assert.equal(Object.isFrozen(removed), true);
+  assert.equal(sections.length, 1);
+});
+test("remove preserves the exact section reference for an invalid position", () => {
+  const sections = Object.freeze(state().sections);
+  assert.equal(removeStarterSection(sections, -1), sections);
+  assert.equal(removeStarterSection(sections, sections.length), sections);
+});
 
 test("editing one hero field preserves every untouched bounded slide", () => {
   const section = {

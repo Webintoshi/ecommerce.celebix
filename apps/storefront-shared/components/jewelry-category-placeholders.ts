@@ -12,6 +12,7 @@ export function deriveJewelryCategoryPlaceholders(
   sections: readonly PublicStarterHomeSection[],
   requestedLimit = 4,
 ): readonly JewelryCategoryPlaceholder[] {
+  if (sections.length === 0) return Object.freeze([]);
   const resolvedSlugs = new Set(
     sections.flatMap((section) => section.kind === "category_grid" ? section.items.map(({ slug }) => slug) : []),
   );
