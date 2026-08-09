@@ -40,3 +40,14 @@ test("storefront asset manager preserves the exact three-field upload authority"
   for (const name of ["file", "kind", "altText"]) assert.match(value, new RegExp(`name="${name}"`));
   assert.doesNotMatch(value, /name="ratio"/);
 });
+
+test("storefront asset manager can present only the kinds owned by the selected workspace", async () => {
+  const value = await source();
+  assert.match(value, /allowedKinds[?]:\s*readonly StorefrontAssetKind\[\]/);
+  assert.match(value, /visibleKindChoices\s*=\s*ASSET_KIND_CHOICES[.]filter/);
+  assert.match(value, /visibleAssets\s*=\s*assets[.]filter/);
+  assert.match(value, /allowedKinds[.]includes\(choice[.]value\)/);
+  assert.match(value, /allowedKinds[.]includes\(asset[.]kind\)/);
+  assert.match(value, /visibleKindChoices[.]map/);
+  assert.match(value, /visibleAssets[.]map/);
+});

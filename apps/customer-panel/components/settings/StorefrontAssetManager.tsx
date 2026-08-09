@@ -26,16 +26,27 @@ const ASSET_KIND_CHOICES: readonly AssetKindChoice[] = Object.freeze([
   Object.freeze({ value: "social", label: "Sosyal paylaşım", hint: "Linkiniz paylaşılınca görünür", icon: Share2 }),
   Object.freeze({ value: "favicon", label: "Site simgesi", hint: "Tarayıcı sekmesindeki küçük simge", icon: AppWindow }),
 ]);
+const ALL_ASSET_KINDS = Object.freeze(ASSET_KIND_CHOICES.map(({ value }) => value));
 
 function id(): string { return crypto.randomUUID(); }
 function errorMessage(): string { return "Vitrin görselleri şu anda güncellenemiyor."; }
 function selectRecord(records: readonly MerchantAdminRecord[]): MerchantAdminRecord | null { return records.find((record) => record.status === "active") ?? records.find((record) => record.status === "draft") ?? null; }
 
-export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: boolean }>) {
+export function StorefrontAssetManager({
+  allowedKinds = ALL_ASSET_KINDS,
+  canManage,
+  description = "Nerede kullanacağınızı ve görselin şeklini seçin; uygun değilse yüklemeden önce size söyleyelim.",
+  title = "Vitrin görselleri",
+}: Readonly<{
+  allowedKinds?: readonly StorefrontAssetKind[];
+  canManage: boolean;
+  description?: string;
+  title?: string;
+}>) {
   const [assets, setAssets] = useState<readonly StorefrontAsset[]>([]);
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
-  const [kind, setKind] = useState<StorefrontAssetKind>("hero");
+  const [kind, setKind] = useState<StorefrontAssetKind>(allowedKinds[0] ?? "hero");
   const [ratio, setRatio] = useState<StorefrontAssetRatio>("16:9");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -44,6 +55,8 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
   const uploadRef = useRef<HTMLButtonElement | null>(null);
   const pendingUploadOperation = useRef<string | null>(null);
   const fileSelection = useRef(0);
+  const visibleKindChoices = ASSET_KIND_CHOICES.filter((choice) => allowedKinds.includes(choice.value));
+  const visibleAssets = assets.filter((asset) => allowedKinds.includes(asset.kind));
   const ratioOptions = storefrontAssetRatioOptions(kind);
   const fileMatchesRatio = dimensions ? storefrontAssetRatioMatches(dimensions.width, dimensions.height, ratio) : false;
 
@@ -59,6 +72,9 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!allowedKinds.includes(kind)) chooseKind(allowedKinds[0] ?? "hero");
+  }, [allowedKinds, kind]);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
   useEffect(() => () => { fileSelection.current += 1; }, []);
 
@@ -130,7 +146,7 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
   }
 
   return <section className={styles.manager} aria-labelledby="storefront-assets-title">
-    <div className={styles.heading}><div><p className={styles.eyebrow}>Mağazanızın görselleri</p><h2 id="storefront-assets-title">Vitrin görselleri</h2><p>Nerede kullanacağınızı ve görselin şeklini seçin; uygun değilse yüklemeden önce size söyleyelim.</p></div></div>
+    <div className={styles.heading}><div><p className={styles.eyebrow}>Mağazanızın görselleri</p><h2 id="storefront-assets-title">{title}</h2><p>{description}</p></div></div>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     {message ? <p role="status" className={styles.success}>{message}</p> : null}
     {canManage ? <form className={styles.upload} onChange={() => { if (!busy) pendingUploadOperation.current = null; }} onSubmit={upload}>
@@ -138,7 +154,7 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
       <fieldset className={styles.step} disabled={busy}>
         <legend><span>1</span><strong>Nerede kullanacaksınız?</strong></legend>
         <div className={styles.kindGrid}>
-          {ASSET_KIND_CHOICES.map((choice) => {
+          {visibleKindChoices.map((choice) => {
             const Icon = choice.icon;
             return <button key={choice.value} className={styles.choice} type="button" aria-pressed={kind === choice.value} onClick={() => chooseKind(choice.value)}>
               <Icon aria-hidden="true" /><span><strong>{choice.label}</strong><small>{choice.hint}</small></span>
@@ -172,8 +188,8 @@ export function StorefrontAssetManager({ canManage }: Readonly<{ canManage: bool
         <button ref={uploadRef} className={styles.uploadButton} type="submit" disabled={busy || !selectedFile || !dimensions || !fileMatchesRatio}>{busy ? <LoaderCircle aria-hidden="true" /> : <ImagePlus aria-hidden="true" />} Yükle</button>
       </fieldset>
     </form> : null}
-    {loading ? <p className={styles.state}>Yükleniyor…</p> : assets.length === 0 ? <p className={styles.state}>Henüz vitrin görseli yok.</p> : <ul className={styles.grid}>
-      {assets.map((asset) => <li key={asset.id} className={styles.card}>
+    {loading ? <p className={styles.state}>Yükleniyor…</p> : visibleAssets.length === 0 ? <p className={styles.state}>Henüz vitrin görseli yok.</p> : <ul className={styles.grid}>
+      {visibleAssets.map((asset) => <li key={asset.id} className={styles.card}>
         <div className={styles.assetImageFrame}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={asset.publicUrl} alt={asset.altText} width={asset.width} height={asset.height} style={{ aspectRatio: `${asset.width} / ${asset.height}` }} /></div>
         <div className={styles.assetMeta}><div><strong>{({ logo: "Logo", hero: "Ana sayfa bannerı", category: "Kategori görseli", social: "Sosyal paylaşım", favicon: "Site simgesi" } as Record<StorefrontAssetKind, string>)[asset.kind]}</strong><span className={styles.ratioBadge}>{storefrontAssetRatioLabel(asset.width, asset.height)}</span></div><small>{asset.width}×{asset.height} · {Math.ceil(asset.byteSize / 1024)} KB</small></div>
         {canManage ? <div className={styles.actions}>
