@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase4p-responsive-category-showcase-layout",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608090097_responsive_category_showcase_layout.up.sql",
+      "direction": "up",
+      "sha256": "729c74b1c683b9f8b8aed21aa5aa66763283c2a38c7c8038188b96c151217dd7"
+    },
+    {
+      "file": "202608090097_responsive_category_showcase_layout.down.sql",
+      "direction": "down",
+      "sha256": "54d5477ee98a763be343d76cff8eae1c51487905e2e45e88e565e4b72eed1892"
+    },
+    {
+      "file": "202608090097_responsive_category_showcase_layout_assertions.sql",
+      "direction": "verify",
+      "sha256": "084e9de9173737613c38eb5e5bfd16e88405502b556f8749e0c8081f082d3443"
+    }
+  ]
+}
