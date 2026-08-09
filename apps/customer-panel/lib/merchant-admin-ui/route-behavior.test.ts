@@ -1151,6 +1151,7 @@ test("design settings mounts the canonical unified workspace", async () => {
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === "next/navigation") return { redirect(value: string) { throw new Error(`unexpected_design_redirect:${value}`); } };
     if (specifier === "@/components/settings/design/DesignWorkspace") return { DesignWorkspace };
+    if (specifier === "@/components/settings/design/workspace-navigation-model") return { resolveDesignWorkspaceLocation: (section?: string) => section === "theme" ? { area: "site", step: "style" } : { area: "site", step: "brand" } };
     if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant("store_owner") }) };
     if (specifier === "@/lib/server-storefront-design/default") return { resolveDefaultServerStorefrontDesignRuntime: async () => ({ repository: { getWorkspace: async () => workspace } }) };
     throw new Error(`unexpected_unified_design_import:${specifier}`);
@@ -1160,5 +1161,5 @@ test("design settings mounts the canonical unified workspace", async () => {
   const mounted = findElement(tree, (element) => element.type === DesignWorkspace);
   assert.equal(mounted.props.workspace, workspace);
   assert.equal(mounted.props.canManage, true);
-  assert.equal(mounted.props.initialSection, "theme");
+  assert.deepEqual(mounted.props.initialLocation, { area: "site", step: "style" });
 });

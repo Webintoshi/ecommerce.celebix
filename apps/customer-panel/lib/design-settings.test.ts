@@ -5,9 +5,10 @@ import test from "node:test";
 const source = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("design settings is one server-authorized durable workspace", async () => {
-  const [page, workspace, inspector, preview, css] = await Promise.all([
+  const [page, workspace, stepEditor, inspector, preview, css] = await Promise.all([
     source("app/settings/design/page.tsx"),
     source("components/settings/design/DesignWorkspace.tsx"),
+    source("components/settings/design/DesignStepEditor.tsx"),
     source("components/settings/design/DesignInspector.tsx"),
     source("components/settings/design/DesignPreview.tsx"),
     source("components/settings/design-settings.module.css"),
@@ -16,14 +17,15 @@ test("design settings is one server-authorized durable workspace", async () => {
   assert.match(page, /configuration[.]read/);
   assert.match(page, /repository[.]getWorkspace/);
   assert.match(workspace, /styles[.]workspace/);
-  assert.match(workspace, /StarterThemeComposer/);
-  assert.match(workspace, /\["theme", "Tema düzeni"\]/);
-  assert.match(page, /"theme"/);
+  assert.match(workspace, /designWorkspaceAreas/);
+  assert.match(workspace, /designWorkspaceSteps/);
+  assert.match(stepEditor, /StarterThemeComposer/);
+  assert.match(page, /resolveDesignWorkspaceLocation/);
   assert.match(inspector, /Görsel yükle/);
   assert.match(preview, /StorefrontDesignRenderer/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /:focus/);
-  assert.doesNotMatch(`${page}\n${workspace}\n${inspector}`, /localStorage|sessionStorage|storeId=|tenantContext=|provider|credential/i);
+  assert.doesNotMatch(`${page}\n${workspace}\n${stepEditor}\n${inspector}`, /localStorage|sessionStorage|storeId=|tenantContext=|provider|credential/i);
 });
 
 test("legacy starter theme editors converge on the unified design workspace", async () => {

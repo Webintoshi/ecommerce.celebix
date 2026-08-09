@@ -325,9 +325,11 @@ test("typed setting pages remain server-authorized and do not send TenantContext
   }
   const themePage = await source("app/settings/theme/page.tsx");
   const designWorkspace = await source("components/settings/design/DesignWorkspace.tsx");
+  const designStepEditor = await source("components/settings/design/DesignStepEditor.tsx");
   assert.match(themePage, /requireServerPanelAccess\(\)/);
   assert.match(themePage, /redirect\("\/settings\/design\?section=theme"\)/);
-  assert.match(designWorkspace, /StarterThemeComposer/);
+  assert.match(designWorkspace, /DesignStepEditor/);
+  assert.match(designStepEditor, /StarterThemeComposer/);
   assert.match(designWorkspace, /canManage/);
   assert.doesNotMatch(themePage, /tenantContext=|storeId=|membershipId=|secret|password|token/i);
 });
