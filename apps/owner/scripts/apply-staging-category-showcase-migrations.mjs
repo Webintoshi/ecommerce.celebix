@@ -30,6 +30,21 @@ const MIGRATIONS = Object.freeze([
       pg_catalog.to_regprocedure('saas.campaign_starter_composition_valid_without_empty_homepage(jsonb)') IS NOT NULL AS has_objects,
       pg_catalog.to_regprocedure('saas.campaign_starter_composition_valid_without_empty_homepage(jsonb)') IS NOT NULL
         AND pg_catalog.to_regprocedure('saas.campaign_starter_composition_valid(jsonb)') IS NOT NULL AS ready`,
+    verification: `SELECT
+      EXISTS(
+        SELECT 1 FROM saas.merchant_admin_records record
+        WHERE record.record_kind='starter_theme_composition'
+          AND NOT saas.campaign_starter_composition_valid(record.config)
+      ) AS record_invalid,
+      EXISTS(
+        SELECT 1 FROM saas.campaign_starter_publications publication
+        WHERE NOT saas.campaign_starter_composition_valid(publication.config)
+      ) AS publication_invalid,
+      EXISTS(
+        SELECT 1 FROM saas.storefront_designs design
+        WHERE NOT saas.storefront_design_document_valid(design.store_id,design.draft_config,true)
+           OR NOT saas.storefront_design_document_valid(design.store_id,design.published_config,true)
+      ) AS design_invalid`,
   }),
   Object.freeze({
     code: "single_authority",
@@ -108,6 +123,19 @@ export async function runCategoryShowcaseMigrations({ client, databaseName, read
       }
       if (state?.ready !== true) {
         await runMigrationQuery(client, readSql(migration.up), migration.code, "apply");
+      }
+      if (migration.verification) {
+        const verification = await runMigrationQuery(client, migration.verification, migration.code, "verification");
+        const durable = verification.rowCount === 1 ? verification.rows[0] : null;
+        if (durable?.record_invalid === true) {
+          throw new Error(`category_showcase_staging_${migration.code}_record_data_invalid`);
+        }
+        if (durable?.publication_invalid === true) {
+          throw new Error(`category_showcase_staging_${migration.code}_publication_data_invalid`);
+        }
+        if (durable?.design_invalid === true) {
+          throw new Error(`category_showcase_staging_${migration.code}_design_data_invalid`);
+        }
       }
       await runMigrationQuery(client, readSql(migration.assertions), migration.code, "assertions");
       write(`category_showcase_migration_${migration.code}=${state?.ready === true ? "already_applied" : "applied"}`);
