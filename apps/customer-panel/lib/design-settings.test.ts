@@ -21,13 +21,17 @@ test("design settings is one server-authorized visual storefront workspace", asy
   assert.match(workspace, /styles[.]workspace/);
   assert.match(workspace, /DESIGN_CANVAS_SURFACES/);
   assert.match(workspace, /data-panel-layout="visual-storefront-canvas"/);
-  assert.match(workspace, /DesignSettingsDrawer/);
+  assert.match(workspace, /DesignSettingsModal/);
   assert.match(stepEditor, /StarterThemeComposer/);
   assert.match(page, /resolveDesignWorkspaceLocation/);
   assert.match(inspector, /Görsel yükle/);
   assert.match(preview, /VisualStorefrontCanvas/);
   assert.match(canvas, /StorefrontDesignRenderer/);
   assert.match(drawer, /role="dialog"/);
+  assert.match(drawer, /aria-modal="true"/);
+  assert.match(drawer, /Değişiklikler otomatik kaydedilir/);
+  assert.match(drawer, /styles[.]settingsModal/);
+  assert.doesNotMatch(drawer, /styles[.]settingsDrawer|styles[.]drawerBackdrop/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /:focus/);
   assert.doesNotMatch(`${page}\n${workspace}\n${stepEditor}\n${inspector}\n${preview}\n${canvas}\n${drawer}`, /iframe|localStorage|sessionStorage|storeId=|x-store-id|tenantContext=|dangerouslySetInnerHTML|provider|credential/i);

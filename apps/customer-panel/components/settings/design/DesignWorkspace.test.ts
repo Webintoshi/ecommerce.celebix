@@ -22,7 +22,7 @@ test("editor state never reports a newer local edit as saved by an older request
   assert.equal(completed.design.hero.slides[0]?.headline, "Daha yeni");
 });
 
-test("workspace exposes one visual canvas, truthful save states and one shared settings drawer", async () => {
+test("workspace exposes one visual canvas, truthful save states and one shared settings modal", async () => {
   const [workspace, stepEditor, inspector, preview, css] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignStepEditor.tsx", import.meta.url), "utf8"),
@@ -31,7 +31,7 @@ test("workspace exposes one visual canvas, truthful save states and one shared s
     readFile(new URL("../design-settings.module.css", import.meta.url), "utf8"),
   ]);
   assert.match(workspace, /DESIGN_CANVAS_SURFACES/);
-  assert.match(workspace, /DesignSettingsDrawer/);
+  assert.match(workspace, /DesignSettingsModal/);
   assert.match(workspace, /className=\{styles[.]canvasStage\}/);
   assert.doesNotMatch(workspace, /aria-label="Tasarım alanı"|aria-label="Tasarım adımları"/);
   assert.match(stepEditor, /Gelişmiş görünüm/);
@@ -54,7 +54,7 @@ test("workspace exposes one visual canvas, truthful save states and one shared s
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /\.workspace\s*\{[^}]*background:\s*#eef1f5/s);
   assert.match(css, /\.canvasStage/);
-  assert.match(css, /\.settingsDrawer/);
+  assert.match(css, /\.settingsModal/);
   assert.doesNotMatch(`${workspace}\n${stepEditor}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
 });
 
@@ -83,19 +83,25 @@ test("design preview delegates to one selectable storefront canvas without brows
   assert.doesNotMatch(canvas, /iframe|localStorage|sessionStorage|x-store-id|tenantContext/);
 });
 
-test("canvas selection opens an accessible right settings drawer and removes permanent form rails", async () => {
+test("canvas selection opens an accessible centered settings modal and removes permanent form rails", async () => {
   const [workspace, drawer] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignSettingsDrawer.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(workspace, /selectedSurface/);
-  assert.match(workspace, /<DesignSettingsDrawer/);
+  assert.match(workspace, /<DesignSettingsModal/);
   assert.match(workspace, /<DesignPreview[^>]*onSelectSurface=/s);
   assert.doesNotMatch(workspace, /className=\{styles[.]stepRail\}|className=\{styles[.]inspector\}|aria-label="Tasarım alanı"/);
   assert.match(drawer, /role="dialog"/);
+  assert.match(drawer, /aria-modal="true"/);
   assert.match(drawer, /event[.]key === "Escape"/);
   assert.match(drawer, /focus\(\)/);
   assert.match(drawer, /Ayarları kapat/);
+  assert.match(drawer, /Değişiklikler otomatik kaydedilir/);
+  assert.match(drawer, />Bitti<\/button>/);
+  assert.match(drawer, /styles[.]settingsModal/);
+  assert.match(drawer, /styles[.]modalBackdrop/);
+  assert.doesNotMatch(drawer, /styles[.]settingsDrawer|styles[.]drawerBackdrop/);
 });
 
 test("visual canvas keeps the final responsive, accessibility and browser-authority contract", async () => {
@@ -110,6 +116,8 @@ test("visual canvas keeps the final responsive, accessibility and browser-author
   assert.match(workspace, /data-panel-layout="visual-storefront-canvas"/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /@media \(max-width:\s*1024px\)/);
+  assert.match(css, /[.]settingsModal\s*\{[^}]*left:\s*50%[^}]*width:\s*min\(760px,[^}]*transform:\s*translate\(-50%,\s*-50%\)/s);
+  assert.match(css, /@media \(max-width:\s*640px\)[^{]*\{[^}]*[.]settingsModal\s*\{[^}]*inset:\s*0[^}]*height:\s*100dvh[^}]*transform:\s*none/s);
   assert.match(css, /@media \(max-width:\s*390px\)/);
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
   assert.match(css, /[.]01ms/);

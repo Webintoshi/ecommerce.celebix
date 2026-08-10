@@ -1,12 +1,12 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 
 import type { DesignCanvasSurfaceItem } from "./design-surface-model";
 import styles from "../design-settings.module.css";
 
-interface DesignSettingsDrawerProps {
+interface DesignSettingsModalProps {
   readonly open: boolean;
   readonly surface: DesignCanvasSurfaceItem;
   readonly children: ReactNode;
@@ -14,19 +14,10 @@ interface DesignSettingsDrawerProps {
   readonly returnFocusRef: RefObject<HTMLButtonElement | null>;
 }
 
-export function DesignSettingsDrawer({ open, surface, children, onClose, returnFocusRef }: Readonly<DesignSettingsDrawerProps>) {
+export function DesignSettingsModal({ open, surface, children, onClose, returnFocusRef }: Readonly<DesignSettingsModalProps>) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const drawerRef = useRef<HTMLElement>(null);
+  const modalRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(false);
-  const [modal, setModal] = useState(false);
-
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 1024px)");
-    const update = () => setModal(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -36,6 +27,13 @@ export function DesignSettingsDrawer({ open, surface, children, onClose, returnF
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -50,8 +48,8 @@ export function DesignSettingsDrawer({ open, surface, children, onClose, returnF
   }, [open, returnFocusRef]);
 
   const keepModalFocus = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (!modal || event.key !== "Tab") return;
-    const controls = drawerRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href]');
+    if (event.key !== "Tab") return;
+    const controls = modalRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href]');
     if (!controls?.length) return;
     const first = controls[0]!, last = controls[controls.length - 1]!;
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -60,13 +58,17 @@ export function DesignSettingsDrawer({ open, surface, children, onClose, returnF
 
   if (!open) return null;
   return <>
-    <button type="button" className={styles.drawerBackdrop} aria-label="Ayarları kapat" onClick={onClose} />
-    <aside ref={drawerRef} className={styles.settingsDrawer} role="dialog" aria-modal={modal ? "true" : undefined} aria-labelledby="design-drawer-title" aria-describedby="design-drawer-description" onKeyDown={keepModalFocus}>
-      <header className={styles.drawerHeader}>
-        <div><span>DÜZENLENİYOR</span><h2 id="design-drawer-title">{surface.label}</h2><p id="design-drawer-description">{surface.hint}</p></div>
+    <button type="button" className={styles.modalBackdrop} aria-label="Ayarları kapat" onClick={onClose} />
+    <aside ref={modalRef} className={styles.settingsModal} role="dialog" aria-modal="true" aria-labelledby="design-modal-title" aria-describedby="design-modal-description" onKeyDown={keepModalFocus}>
+      <header className={styles.modalHeader}>
+        <div><span>DÜZENLENİYOR</span><h2 id="design-modal-title">{surface.label}</h2><p id="design-modal-description">{surface.hint}</p></div>
         <button ref={closeButtonRef} type="button" aria-label="Ayarları kapat" onClick={onClose}><X size={20} /></button>
       </header>
-      <div className={styles.drawerBody}>{children}</div>
+      <div className={styles.modalBody}>{children}</div>
+      <footer className={styles.modalFooter}>
+        <p>Değişiklikler otomatik kaydedilir.</p>
+        <button type="button" onClick={onClose}>Bitti</button>
+      </footer>
     </aside>
   </>;
 }

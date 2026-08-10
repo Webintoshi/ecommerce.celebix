@@ -7,7 +7,7 @@ import { getStorefrontDesignPublishIssue, type StorefrontDesignDocument, type St
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
 import { StorefrontDesignApiError, storefrontDesignApi } from "@/lib/storefront-design-ui/client";
 import { DesignPreview } from "./DesignPreview";
-import { DesignSettingsDrawer } from "./DesignSettingsDrawer";
+import { DesignSettingsModal } from "./DesignSettingsDrawer";
 import { DesignStepEditor } from "./DesignStepEditor";
 import {
   type DesignWorkspaceLocation,
@@ -27,7 +27,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
   const [editor, setEditor] = useState(() => createDesignEditorState(workspace));
   const [location, setLocation] = useState<DesignWorkspaceLocation>(initialLocation);
   const [selectedSurface, setSelectedSurface] = useState<DesignCanvasSurface>(() => designCanvasSurfaceForLocation(initialLocation).key);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [media, setMedia] = useState(workspace.media);
   const editorRef = useRef(editor);
@@ -97,9 +97,9 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
     returnFocusRef.current = trigger ?? null;
     setSelectedSurface(surface);
     setLocation(designCanvasSurface(surface).location);
-    setDrawerOpen(true);
+    setModalOpen(true);
   }, []);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const closeModal = useCallback(() => setModalOpen(false), []);
   const selected = useMemo(() => designCanvasSurface(selectedSurface), [selectedSurface]);
 
   const topbarActions = useMemo(() => <div className={styles.topbarActions}>
@@ -110,7 +110,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
 
   return <section className={styles.workspace} data-panel-layout="visual-storefront-canvas">
     <PanelTopbarBridge title="Tasarım" subtitle={publishIssueLabel ?? STATUS_LABEL[editor.status]} actions={topbarActions} />
-    <main className={styles.canvasStage}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} selectedSurface={drawerOpen ? selectedSurface : undefined} onSelectSurface={selectSurface} /></main>
-    <DesignSettingsDrawer open={drawerOpen} surface={selected} onClose={closeDrawer} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} onChange={change} onUpload={upload} /></DesignSettingsDrawer>
+    <main className={styles.canvasStage}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} selectedSurface={modalOpen ? selectedSurface : undefined} onSelectSurface={selectSurface} /></main>
+    <DesignSettingsModal open={modalOpen} surface={selected} onClose={closeModal} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} onChange={change} onUpload={upload} /></DesignSettingsModal>
   </section>;
 }
