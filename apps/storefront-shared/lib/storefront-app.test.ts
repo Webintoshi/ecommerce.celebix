@@ -406,9 +406,10 @@ test("dark theme and every marquee preference drive bounded CSS without sacrific
   assert.doesNotMatch(home, /presentation[.]marquee[.]items[.]join\(" · "\)<\/aside>/);
 });
 
-test("category showcase becomes one column on narrow mobile screens", async () => {
+test("category showcase keeps grid compact and stacks the duo layout on narrow mobile screens", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(css, /@media \(max-width: 640px\)[\s\S]+[.]category-showcase-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]+[.]category-showcase-grid\[data-layout="grid"\]\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]+[.]category-showcase-grid\[data-layout="duo"\]\s*\{[^}]*grid-template-columns:\s*1fr/);
 });
 
 test("storefront metadata is presentation-owned and defaults to noindex", async () => {

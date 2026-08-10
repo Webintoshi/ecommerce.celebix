@@ -14,6 +14,8 @@ import { merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import styles from "./category-showcase-editor.module.css";
 
 type EditorRow = Readonly<CategoryShowcaseRow & { rowKey: string }>;
+type ShowcaseConfig = ReturnType<typeof buildCategoryShowcaseConfig>;
+type PendingSave = Readonly<{ config: ShowcaseConfig; fingerprint: string }>;
 const emptyRow = (rowKey: string): EditorRow => Object.freeze({ rowKey, categoryId: "", assetId: "" });
 
 function selectRecord(records: readonly MerchantAdminRecord[]) {
@@ -42,9 +44,14 @@ function existingState(record: MerchantAdminRecord | null) {
 
 export function CategoryShowcaseEditor({ canManage }: Readonly<{ canManage: boolean }>) {
   const rowSerial = useRef(1);
+  const mountedRef = useRef(true);
+  const currentRef = useRef<MerchantAdminRecord | null>(null);
+  const pendingRef = useRef<PendingSave | null>(null);
+  const lastSavedFingerprintRef = useRef("");
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [categories, setCategories] = useState<readonly CatalogCategory[]>([]);
   const [assets, setAssets] = useState<readonly StorefrontAsset[]>([]);
-  const [current, setCurrent] = useState<MerchantAdminRecord | null>(null);
   const [heading, setHeading] = useState("Kategorileri keşfedin");
   const [enabled, setEnabled] = useState(true);
   const [layout, setLayout] = useState<CategoryShowcaseLayout>("grid");
@@ -67,13 +74,73 @@ export function CategoryShowcaseEditor({ canManage }: Readonly<{ canManage: bool
       const activeCategories = Object.freeze(loadedCategories.filter((category) => category.status === "active"));
       const record = selectRecord(records);
       const state = existingState(record);
-      setCategories(activeCategories); setAssets(categoryAssets); setCurrent(record);
+      const config = buildCategoryShowcaseConfig({ heading: state.heading, enabled: state.enabled, layout: state.layout, rows: state.rows });
+      currentRef.current = record;
+      lastSavedFingerprintRef.current = JSON.stringify(config);
+      pendingRef.current = null;
+      setCategories(activeCategories); setAssets(categoryAssets);
       setHeading(state.heading); setEnabled(state.enabled); setLayout(state.layout); setRows(state.rows);
     } catch { setError("Kategori vitrini şu anda yüklenemiyor."); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const flush = useCallback((updateUi = true) => {
+    const pending = pendingRef.current;
+    if (!pending || pending.fingerprint === lastSavedFingerprintRef.current) return saveChainRef.current;
+    pendingRef.current = null;
+    if (updateUi && mountedRef.current) { setBusy(true); setError(""); setMessage(""); }
+    const job = saveChainRef.current.catch(() => undefined).then(async () => {
+      const authority = currentRef.current;
+      const result = await merchantAdminApi.save("category_showcase", {
+        ...(authority ? { recordId: authority.id, expectedVersion: authority.version } : {}),
+        name: authority?.name ?? "Ana sayfa kategori vitrini",
+        config: pending.config,
+        status: authority?.status === "draft" ? "draft" : "active",
+      });
+      const next = Object.freeze({
+        id: result.id,
+        kind: "category_showcase" as const,
+        name: authority?.name ?? "Ana sayfa kategori vitrini",
+        config: pending.config,
+        status: result.status,
+        version: result.version,
+        createdAt: authority?.createdAt ?? result.updatedAt,
+        updatedAt: result.updatedAt,
+      });
+      currentRef.current = next;
+      lastSavedFingerprintRef.current = pending.fingerprint;
+      if (mountedRef.current) setMessage("Kategori vitrini otomatik kaydedildi.");
+    }).catch(() => {
+      if (mountedRef.current) setError("Kategori vitrini otomatik kaydedilemedi. Lütfen yeniden deneyin.");
+    }).finally(() => {
+      if (mountedRef.current) setBusy(false);
+    });
+    saveChainRef.current = job;
+    return job;
+  }, []);
+
+  useEffect(() => {
+    if (loading || !canManage || busy) return undefined;
+    let config: ShowcaseConfig;
+    try { config = buildCategoryShowcaseConfig({ heading, enabled, layout, rows }); }
+    catch { pendingRef.current = null; return undefined; }
+    const fingerprint = JSON.stringify(config);
+    if (fingerprint === lastSavedFingerprintRef.current) return undefined;
+    pendingRef.current = Object.freeze({ config, fingerprint });
+    timerRef.current = setTimeout(() => { timerRef.current = null; void flush(); }, 500);
+    return () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } };
+  }, [busy, canManage, enabled, flush, heading, layout, loading, rows]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      void flush(false);
+    };
+  }, [flush]);
 
   function updateRow(index: number, patch: Partial<CategoryShowcaseRow>) {
     setRows((value) => Object.freeze(value.map((row, rowIndex) => rowIndex === index ? Object.freeze({ ...row, ...patch }) : row)));
@@ -90,18 +157,11 @@ export function CategoryShowcaseEditor({ canManage }: Readonly<{ canManage: bool
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!canManage || busy) return;
-    setBusy(true); setError(""); setMessage("");
     try {
       const config = buildCategoryShowcaseConfig({ heading, enabled, layout, rows });
-      await merchantAdminApi.save("category_showcase", {
-        ...(current ? { recordId: current.id, expectedVersion: current.version } : {}),
-        name: current?.name ?? "Ana sayfa kategori vitrini",
-        config,
-        status: current?.status === "draft" ? "draft" : "active",
-      });
-      await load(); setMessage("Kategori vitrini kaydedildi.");
+      pendingRef.current = Object.freeze({ config, fingerprint: JSON.stringify(config) });
+      await flush();
     } catch { setError("Kategori ve görselleri eksiksiz, benzersiz seçin."); }
-    finally { setBusy(false); }
   }
 
   return <section className={styles.editor} aria-labelledby="category-showcase-title">
