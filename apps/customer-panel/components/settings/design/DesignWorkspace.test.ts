@@ -41,7 +41,7 @@ test("workspace source exposes two child-friendly areas, truthful save states an
   assert.match(workspace, /Masaüstü/);
   assert.match(workspace, /Mobil/);
   assert.match(workspace, /Yayınla/);
-  assert.match(preview, /StorefrontDesignRenderer/);
+  assert.match(preview, /VisualStorefrontCanvas/);
   assert.match(inspector, /Yeni görsel yükle/);
   assert.match(inspector, /Banner ekle/);
   assert.match(inspector, /Masaüstü görseli/);
@@ -68,6 +68,19 @@ test("storefront asset and category-showcase authorities are reachable from the 
   assert.match(editor, /<CategoryShowcaseEditor canManage=\{canManage\} \/>\s*\{composer\("home"\)\}/);
   assert.match(editor, /step === "assets"/);
   assert.doesNotMatch(editor, /x-store-id|localStorage|sessionStorage/);
+});
+
+test("design preview delegates to one selectable storefront canvas without browser authority", async () => {
+  const [preview, canvas] = await Promise.all([
+    readFile(new URL("./DesignPreview.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./VisualStorefrontCanvas.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(preview, /<VisualStorefrontCanvas/);
+  assert.match(canvas, /StorefrontDesignRenderer/);
+  for (const surface of ["categories", "products", "product", "footer", "assets"]) {
+    assert.match(canvas, new RegExp(`data-design-surface=["']${surface}["']`));
+  }
+  assert.doesNotMatch(canvas, /iframe|localStorage|sessionStorage|x-store-id|tenantContext/);
 });
 
 test("controlled theme steps edit the same draft and keep the one workspace publish action", async () => {

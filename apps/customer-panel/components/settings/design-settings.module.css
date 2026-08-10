@@ -81,6 +81,50 @@
 .previewViewport { width: min(100%, 1180px); min-height: 620px; overflow: hidden; border: 1px solid #dfe4ec; border-radius: 12px; margin-inline: auto; background: #fff; box-shadow: 0 18px 48px rgb(17 24 39 / 9%); transition: width .2s ease; }
 .previewViewport[data-mode="mobile"] { width: min(100%, 390px); }
 .previewUnavailable { display: grid; min-height: 420px; place-items: center; color: #b42318; font-size: 13px; }
+.canvasSurface { position: relative; min-width: 0; background: #fff; }
+.canvasSurfaceButton { position: absolute; z-index: 20; inset: 0; width: 100%; min-width: 48px; min-height: 48px; border: 2px solid transparent; border-radius: 4px; background: transparent; color: transparent; cursor: pointer; }
+.canvasSurfaceButton span { position: absolute; top: 12px; right: 12px; border-radius: 999px; background: #171717; padding: 7px 10px; color: #fff; font-size: 11px; font-weight: 800; opacity: 0; transform: translateY(-3px); transition: opacity .16s ease, transform .16s ease; }
+.canvasSurface:hover > .canvasSurfaceButton, .canvasSurfaceButton:focus-visible, .canvasSurfaceButton[aria-pressed="true"] { border-color: #ff5a00; box-shadow: inset 0 0 0 2px #fff; }
+.canvasSurface:hover > .canvasSurfaceButton span, .canvasSurfaceButton:focus-visible span, .canvasSurfaceButton[aria-pressed="true"] span { opacity: 1; transform: translateY(0); }
+.canvasSurfaceButton:focus-visible { outline: 3px solid rgb(255 90 0 / 28%); outline-offset: 3px; }
+.canvasEmptyHero { display: grid; min-height: 260px; place-content: center; gap: 8px; padding: 40px; text-align: center; }
+.canvasEmptyHero small, .canvasCategoryPreview header small, .canvasProductPreview header small, .canvasProductSummary > small, .canvasAssetsPreview small { font-size: 10px; font-weight: 850; letter-spacing: .18em; }
+.canvasEmptyHero strong { font-size: clamp(26px, 4vw, 46px); }
+.canvasEmptyHero p, .canvasAssetsPreview p { margin: 0; color: #777; font-size: 13px; }
+.canvasCategoryPreview, .canvasProductPreview { display: grid; gap: 22px; padding: clamp(30px, 5vw, 68px) clamp(18px, 4vw, 58px); }
+.canvasCategoryPreview header, .canvasProductPreview header { display: grid; gap: 6px; }
+.canvasCategoryPreview h2, .canvasProductPreview h2, .canvasProductSummary h2 { margin: 0; font-family: var(--store-heading-font), serif; font-size: clamp(26px, 3.2vw, 44px); letter-spacing: -.035em; }
+.canvasCategoryGrid, .canvasProductGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(10px, 1.6vw, 22px); }
+.canvasCategoryGrid article, .canvasProductGrid article { display: grid; min-width: 0; gap: 10px; }
+.canvasCategoryGrid article > div { display: grid; aspect-ratio: 4 / 5; overflow: hidden; place-items: center; background: linear-gradient(145deg, #eeeae4, #faf8f5); }
+.canvasCategoryGrid article > div i, .canvasProductGrid article > div i { width: 32%; aspect-ratio: 1; border: 1px solid #d5cec5; border-radius: 50%; background: rgb(255 255 255 / 60%); }
+.canvasCategoryGrid strong, .canvasProductGrid strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.canvasProductPreview { border-top: 1px solid #ece8e2; }
+.canvasProductPreview header { grid-template-columns: 1fr auto; align-items: end; }
+.canvasProductPreview header small, .canvasProductPreview header h2 { grid-column: 1; }
+.canvasProductPreview header > span { grid-column: 2; grid-row: 1 / 3; align-self: end; font-size: 12px; text-decoration: underline; text-underline-offset: 5px; }
+.canvasProductGrid article > div { display: grid; aspect-ratio: 4 / 5; place-items: center; background: linear-gradient(145deg, #f1f1ef, #e2dfdb); }
+.canvasProductGrid article > div i { border-radius: 0; }
+.canvasProductGrid article small { color: #777; font-size: 11px; }
+.canvasProductDetailPreview { display: grid; min-height: 430px; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: clamp(24px, 4vw, 64px); border-top: 1px solid #ece8e2; padding: clamp(28px, 5vw, 72px); }
+.canvasProductGallery { display: grid; min-height: 320px; grid-template-columns: 1fr 1fr; gap: 8px; }
+.canvasProductGallery i { min-height: 150px; background: linear-gradient(135deg, #eeeae5, #faf9f7); }
+.canvasProductGallery i:first-child { grid-row: span 2; }
+.canvasProductSummary { display: grid; align-content: center; gap: 16px; }
+.canvasProductSummary p { margin: 0; color: #777; font-size: 13px; line-height: 1.6; }
+.canvasProductSummary > div { display: grid; grid-template-columns: 48px 48px 48px minmax(120px, 1fr); gap: 0; }
+.canvasProductSummary > div > span, .canvasProductSummary > div > b, .canvasProductSummary button { display: grid; min-height: 48px; place-items: center; border: 1px solid #171717; background: #fff; font-size: 13px; }
+.canvasProductSummary button { background: #171717; color: #fff; font-weight: 800; text-transform: uppercase; }
+.canvasAssetsPreview { display: flex; min-height: 150px; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid #ece8e2; padding: clamp(28px, 4vw, 52px); }
+.canvasAssetsPreview > div { display: grid; gap: 6px; }
+.canvasAssetsPreview strong { font-size: 22px; }
+.canvasAssetsPreview > span { display: grid; width: 54px; height: 54px; place-items: center; border: 1px solid #171717; border-radius: 50%; font-size: 25px; }
+.canvasFooterPreview { display: grid; min-height: 220px; grid-template-columns: 1fr 1fr; gap: 30px; background: #17191d; padding: clamp(34px, 5vw, 68px); color: #fff; }
+.canvasFooterPreview > div { display: grid; align-content: start; gap: 12px; }
+.canvasFooterPreview > div:first-child strong { font-size: 24px; }
+.canvasFooterPreview > div > small, .canvasFooterPreview > small { color: #b9bec8; }
+.canvasFooterPreview > div:nth-child(2) { grid-template-columns: repeat(3, minmax(0, 1fr)); font-size: 12px; }
+.canvasFooterPreview > small { grid-column: 1 / -1; align-self: end; border-top: 1px solid #33373d; padding-top: 18px; }
 .topbarActions, .previewSwitch { display: flex; align-items: center; gap: 6px; }
 .previewSwitch { border: 1px solid #dde4ed; border-radius: 10px; padding: 3px; }
 .previewSwitch button, .publishButton { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700; }
@@ -90,5 +134,5 @@
 .publishButton:disabled { cursor: not-allowed; opacity: .5; }
 @media (max-width: 1280px) { .workspace { grid-template-columns: 190px 320px minmax(0, 1fr); } .preview { padding: 18px; } }
 @media (max-width: 1024px) { .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); } .areaSwitch { top: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 14px; } .stepRail { overflow-x: auto; overflow-y: visible; border-right: 0; border-bottom: 1px solid #e8edf4; padding: 10px 14px; scrollbar-width: thin; } .stepRail > p { display: none; } .stepRail nav { display: flex; width: max-content; gap: 6px; } .stepRail button { width: auto; min-width: 148px; } .inspector { overflow: visible; border-right: 0; border-bottom: 1px solid #e8edf4; } .preview { min-height: 560px; } }
-@media (max-width: 640px) { .areaSwitch button { min-height: 52px; padding-inline: 10px; } .areaSwitch button span { display: none; } .stepRail button { min-width: 132px; } .stepRail button small { display: none; } .topbarActions { width: 100%; justify-content: space-between; } .previewSwitch button { width: 48px; padding: 0; font-size: 0; } .inspector { padding: 20px 16px; } .preview { padding: 12px; } .previewViewport { min-height: 520px; border-radius: 10px; } }
-@media (prefers-reduced-motion: reduce) { .previewViewport, .toggle span::after { transition-duration: .01ms !important; } }
+@media (max-width: 640px) { .areaSwitch button { min-height: 52px; padding-inline: 10px; } .areaSwitch button span { display: none; } .stepRail button { min-width: 132px; } .stepRail button small { display: none; } .topbarActions { width: 100%; justify-content: space-between; } .previewSwitch button { width: 48px; padding: 0; font-size: 0; } .inspector { padding: 20px 16px; } .preview { padding: 12px; } .previewViewport { min-height: 520px; border-radius: 10px; } .canvasCategoryGrid, .canvasProductGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .canvasProductDetailPreview { grid-template-columns: 1fr; } .canvasProductSummary > div { grid-template-columns: 44px 44px 44px minmax(100px, 1fr); } .canvasFooterPreview { grid-template-columns: 1fr; } .canvasFooterPreview > div:nth-child(2) { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .previewViewport, .toggle span::after, .canvasSurfaceButton span { transition-duration: .01ms !important; } }
