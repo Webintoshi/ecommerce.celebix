@@ -16,3 +16,19 @@ test("category showcase editor exposes bounded ordered accessible controls", asy
   assert.match(value, /key=\{row[.]rowKey\}/);
   assert.doesNotMatch(value, /key=\{`\$\{index\}-\$\{row[.]categoryId\}-\$\{row[.]assetId\}`\}/);
 });
+
+test("category showcase editor owns heading visibility layout and ordered mappings", async () => {
+  const value = await source();
+  for (const token of [
+    'useState<CategoryShowcaseLayout>("grid")',
+    'value="duo"',
+    'value="grid"',
+    "İki büyük görsel",
+    "Düzenli ızgara",
+    "layout, rows",
+  ]) assert.match(value, new RegExp(token.replace(/[().]/g, "\\$&")));
+  assert.match(value, /layoutValue\s*!==\s*undefined\s*&&\s*layoutValue\s*!==\s*"duo"\s*&&\s*layoutValue\s*!==\s*"grid"/);
+  assert.match(value, /layoutValue\s*[?][?]\s*"grid"/);
+  assert.match(value, /layout:\s*"grid"/);
+  assert.equal((value.match(/merchantAdminApi[.]save\("category_showcase"/g) ?? []).length, 1);
+});

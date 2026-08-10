@@ -8,6 +8,19 @@
 .settings input, .row select { min-height: 48px; width: 100%; border: 1px solid #d8dee8; border-radius: .75rem; padding: 0 .8rem; color: #182132; background: #fff; font: inherit; }
 .toggle { min-height: 48px; grid-template-columns: auto 1fr !important; align-items: center; }
 .toggle input { width: 1.2rem; min-height: auto; height: 1.2rem; accent-color: #e85f00; }
+.layoutPicker { display: grid; gap: .7rem; margin: 0; border: 0; padding: 0; }
+.layoutPicker legend { color: #263244; font-size: .9rem; font-weight: 800; }
+.layoutPicker > p { margin: 0; color: #667085; font-size: .8rem; }
+.layoutChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.layoutCard { position: relative; display: grid; gap: .45rem; min-height: 142px; border: 1px solid #d8dee8; border-radius: 1rem; padding: .8rem; color: #394150; background: #fff; cursor: pointer; }
+.layoutCard[data-selected="true"] { border-color: #ff6a00; box-shadow: 0 0 0 3px rgb(255 106 0 / 15%); background: #fff9f5; }
+.layoutCard input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.layoutCard strong { font-size: .88rem; }
+.layoutCard small { color: #667085; line-height: 1.35; }
+.layoutDiagram { display: grid; height: 58px; gap: .35rem; }
+.layoutDiagram i { display: block; border: 1px solid #f2b58e; border-radius: .45rem; background: #ffe8d8; }
+.layoutDiagramDuo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.layoutDiagramGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .rows { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
 .row { display: grid; grid-template-columns: 2rem minmax(0, 1fr) minmax(0, 1fr) auto; gap: .7rem; align-items: end; border: 1px solid #e4e8ef; border-radius: 1rem; padding: .8rem; background: #fafbfc; }
 .index { display: grid; place-items: center; min-height: 48px; color: #c75100; font-weight: 850; }
@@ -22,5 +35,5 @@
 .error { color: #8d1d1d; background: #fff0f0; }
 .success { color: #175c31; background: #ecf8f0; }
 .settings input:focus-visible, .row select:focus-visible, .actions button:focus-visible, .footer button:focus-visible { outline: 3px solid rgb(255 106 0 / 35%); outline-offset: 2px; }
-@media (max-width: 800px) { .settings, .row { grid-template-columns: 1fr; } .index { display: none; } .actions { justify-content: flex-end; } }
+@media (max-width: 800px) { .settings, .row, .layoutChoices { grid-template-columns: 1fr; } .index { display: none; } .actions { justify-content: flex-end; } }
 @media (prefers-reduced-motion: reduce) { .actions button, .footer button { transition-duration: .01ms; } }

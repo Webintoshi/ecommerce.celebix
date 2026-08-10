@@ -88,7 +88,7 @@ export function DesignStepEditor({
   if (step === "assets") return <StorefrontAssetManager allowedKinds={HOMEPAGE_ASSET_KINDS} canManage={canManage} title="Ana sayfa görselleri" description="Banner ve kategori kartlarında kullanacağınız görselleri yükleyin." />;
 
   return <div className={styles.editorStack}>
+    <CategoryShowcaseEditor canManage={canManage} />
     {composer("home")}
-    <details className={styles.advancedDisclosure}><summary>Kategori kartlarını eşleştir</summary><CategoryShowcaseEditor canManage={canManage} /></details>
   </div>;
 }

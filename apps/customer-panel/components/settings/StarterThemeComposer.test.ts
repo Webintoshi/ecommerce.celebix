@@ -48,15 +48,17 @@ test("composer preserves featured navigation authority and disables unavailable 
   assert.match(value, /checked=\{false\}/);
 });
 test("preview consumes parsed composition, real catalog titles, category image slots, and responsive modes", async () => { const value = await source("StarterThemePreview.tsx"); assert.match(value, /desktop/); assert.match(value, /mobile/); assert.match(value, /presentation/); assert.match(value, /productTitles/); assert.match(value, /starterThemeCategoryPlaceholderLabels/); assert.match(value, /previewCategoryPlaceholders/); });
-test("category showcase offers two plain-language visual layouts and previews the persisted choice", async () => {
+test("generic composer keeps only a non-editable category showcase placement marker", async () => {
   const composer = await source("StarterThemeComposer.tsx");
-  const preview = await source("StarterThemePreview.tsx");
-  for (const token of ["İki büyük görsel", "Düzenli ızgara", 'value="duo"', 'value="grid"', "categoryLayoutCard"]) assert.match(composer, new RegExp(token));
-  assert.match(composer, /layout:\s*"grid"/);
-  assert.match(preview, /"layout" in categorySection/);
-  assert.match(preview, /categoryLayoutDuo/);
-  assert.match(preview, /categoryLayoutGrid/);
-  assert.match(preview, /categoryPlaceholders[.]slice\(0, 4\)/);
+  assert.match(composer, /Kategori vitrini konumu/);
+  assert.match(composer, /Kategori içeriği aşağıdaki tek kategori vitrini alanından yönetilir/);
+  const categoryBranch = composer.slice(
+    composer.indexOf('section.kind === "category_grid"'),
+    composer.indexOf('section.kind === "product_row"'),
+  );
+  assert.doesNotMatch(categoryBranch, /section[.]heading|section[.]layout|section[.]categoryIds|Gösterilecek kategoriler|Bölümü göster/);
+  assert.doesNotMatch(composer, /categoryLayoutPicker|categoryLayoutChoices|categoryLayoutCard/);
+  assert.doesNotMatch(composer, /Object[.]entries\(SECTION_LABELS\)/);
 });
 test("preview CSS module defines every static class consumed by the rendered component", async () => {
   const value = await source("StarterThemePreview.tsx");

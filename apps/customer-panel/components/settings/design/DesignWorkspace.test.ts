@@ -64,6 +64,8 @@ test("storefront asset and category-showcase authorities are reachable from the 
   assert.match(editor, /import \{ StorefrontAssetManager \}/);
   assert.match(editor, /allowedKinds=\{HOMEPAGE_ASSET_KINDS\}/);
   assert.match(editor, /<CategoryShowcaseEditor canManage=\{canManage\} \/>/);
+  assert.doesNotMatch(editor, /<summary>Kategori kartlarını eşleştir<\/summary>/);
+  assert.match(editor, /<CategoryShowcaseEditor canManage=\{canManage\} \/>\s*\{composer\("home"\)\}/);
   assert.match(editor, /step === "assets"/);
   assert.doesNotMatch(editor, /x-store-id|localStorage|sessionStorage/);
 });
