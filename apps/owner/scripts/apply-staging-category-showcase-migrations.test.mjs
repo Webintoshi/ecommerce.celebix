@@ -159,3 +159,25 @@ test("category showcase staging migration classifies invalid empty-homepage dura
     /category_showcase_staging_empty_homepage_record_data_invalid/,
   );
 });
+
+test("category showcase staging migration identifies records safely repairable from unified design authority", async () => {
+  const client = {
+    async connect() {},
+    async end() {},
+    async query(sql) {
+      if (String(sql).includes("AS owner_member")) return { rowCount: 1, rows: [{ database_matches: true, postgres_matches: true, tier_matches: true, writable_primary: true, writable_transaction: true, owner_member: true }] };
+      if (String(sql).includes("AS record_invalid")) return { rowCount: 1, rows: [{ record_invalid: true, record_repairable: true, publication_invalid: false, design_invalid: false }] };
+      return { rowCount: 1, rows: [{ has_objects: true, ready: true }] };
+    },
+  };
+
+  await assert.rejects(
+    runCategoryShowcaseMigrations({
+      client,
+      databaseName: approved.CELEBIX_SAAS_DATABASE_NAME,
+      readSql: (name) => `-- ${name}`,
+      write: () => undefined,
+    }),
+    /category_showcase_staging_empty_homepage_record_repairable_from_design/,
+  );
+});

@@ -30,12 +30,25 @@ const MIGRATIONS = Object.freeze([
       pg_catalog.to_regprocedure('saas.campaign_starter_composition_valid_without_empty_homepage(jsonb)') IS NOT NULL AS has_objects,
       pg_catalog.to_regprocedure('saas.campaign_starter_composition_valid_without_empty_homepage(jsonb)') IS NOT NULL
         AND pg_catalog.to_regprocedure('saas.campaign_starter_composition_valid(jsonb)') IS NOT NULL AS ready`,
-    verification: `SELECT
-      EXISTS(
-        SELECT 1 FROM saas.merchant_admin_records record
-        WHERE record.record_kind='starter_theme_composition'
-          AND NOT saas.campaign_starter_composition_valid(record.config)
-      ) AS record_invalid,
+    verification: `WITH invalid_records AS (
+      SELECT record.store_id
+      FROM saas.merchant_admin_records record
+      WHERE record.record_kind='starter_theme_composition'
+        AND NOT saas.campaign_starter_composition_valid(record.config)
+    ), record_authority AS (
+      SELECT invalid.store_id,
+        EXISTS(
+          SELECT 1 FROM saas.storefront_designs design
+          WHERE design.store_id=invalid.store_id
+            AND pg_catalog.jsonb_typeof(design.draft_config->'composition')='object'
+            AND saas.campaign_starter_composition_valid(design.draft_config->'composition')
+        ) AS repairable
+      FROM invalid_records invalid
+    )
+    SELECT
+      EXISTS(SELECT 1 FROM invalid_records) AS record_invalid,
+      EXISTS(SELECT 1 FROM invalid_records)
+        AND NOT EXISTS(SELECT 1 FROM record_authority WHERE NOT repairable) AS record_repairable,
       EXISTS(
         SELECT 1 FROM saas.campaign_starter_publications publication
         WHERE NOT saas.campaign_starter_composition_valid(publication.config)
@@ -128,6 +141,9 @@ export async function runCategoryShowcaseMigrations({ client, databaseName, read
         const verification = await runMigrationQuery(client, migration.verification, migration.code, "verification");
         const durable = verification.rowCount === 1 ? verification.rows[0] : null;
         if (durable?.record_invalid === true) {
+          if (durable.record_repairable === true) {
+            throw new Error(`category_showcase_staging_${migration.code}_record_repairable_from_design`);
+          }
           throw new Error(`category_showcase_staging_${migration.code}_record_data_invalid`);
         }
         if (durable?.publication_invalid === true) {
