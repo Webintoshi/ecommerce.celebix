@@ -112,3 +112,28 @@ test("category showcase staging migration fails closed on partial schema", async
   );
   assert.equal(calls.at(-1), "end");
 });
+
+test("category showcase staging migration exposes only a bounded migration-owned failure code", async () => {
+  const client = {
+    async connect() {},
+    async end() {},
+    async query(sql) {
+      if (String(sql).includes("AS owner_member")) return { rowCount: 1, rows: [{ database_matches: true, postgres_matches: true, tier_matches: true, writable_primary: true, writable_transaction: true, owner_member: true }] };
+      if (String(sql).startsWith("SELECT")) return { rowCount: 1, rows: [{ has_objects: false, ready: false }] };
+      if (String(sql).includes("202608090098_empty_homepage_sections.up.sql")) {
+        throw new Error("EMPTY_HOMEPAGE_SECTIONS_PRECONDITION_FAILED");
+      }
+      return { rowCount: null, rows: [] };
+    },
+  };
+
+  await assert.rejects(
+    runCategoryShowcaseMigrations({
+      client,
+      databaseName: approved.CELEBIX_SAAS_DATABASE_NAME,
+      readSql: (name) => `-- ${name}`,
+      write: () => undefined,
+    }),
+    /category_showcase_staging_empty_homepage_empty_homepage_sections_precondition_failed/,
+  );
+});

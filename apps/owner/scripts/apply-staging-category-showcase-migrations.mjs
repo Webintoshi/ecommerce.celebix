@@ -69,6 +69,17 @@ export function resolveCategoryShowcaseMigrationConfiguration(source = process.e
   return Object.freeze({ databaseUrl, databaseName });
 }
 
+async function runMigrationQuery(client, sql, migrationCode, phase) {
+  try {
+    return await client.query(sql);
+  } catch (error) {
+    const ownedCode = error instanceof Error && /^[A-Z][A-Z0-9_]{2,120}$/u.test(error.message)
+      ? error.message.toLowerCase()
+      : `${phase}_failed`;
+    throw new Error(`category_showcase_staging_${migrationCode}_${ownedCode}`);
+  }
+}
+
 export async function runCategoryShowcaseMigrations({ client, databaseName, readSql, write }) {
   await client.connect();
   try {
@@ -90,13 +101,15 @@ export async function runCategoryShowcaseMigrations({ client, databaseName, read
     ) throw new Error("category_showcase_staging_authority_invalid");
 
     for (const migration of MIGRATIONS) {
-      const probe = await client.query(migration.probe);
+      const probe = await runMigrationQuery(client, migration.probe, migration.code, "probe");
       const state = probe.rowCount === 1 ? probe.rows[0] : null;
       if (state?.has_objects === true && state.ready !== true) {
         throw new Error(`category_showcase_staging_${migration.code}_partial`);
       }
-      if (state?.ready !== true) await client.query(readSql(migration.up));
-      await client.query(readSql(migration.assertions));
+      if (state?.ready !== true) {
+        await runMigrationQuery(client, readSql(migration.up), migration.code, "apply");
+      }
+      await runMigrationQuery(client, readSql(migration.assertions), migration.code, "assertions");
       write(`category_showcase_migration_${migration.code}=${state?.ready === true ? "already_applied" : "applied"}`);
     }
   } finally {
