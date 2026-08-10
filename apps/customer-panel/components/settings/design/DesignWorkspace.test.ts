@@ -98,6 +98,25 @@ test("canvas selection opens an accessible right settings drawer and removes per
   assert.match(drawer, /Ayarları kapat/);
 });
 
+test("visual canvas keeps the final responsive, accessibility and browser-authority contract", async () => {
+  const sources = await Promise.all([
+    "DesignWorkspace.tsx",
+    "DesignPreview.tsx",
+    "VisualStorefrontCanvas.tsx",
+    "DesignSettingsDrawer.tsx",
+  ].map((name) => readFile(new URL(`./${name}`, import.meta.url), "utf8")));
+  const workspace = sources[0]!;
+  const css = await readFile(new URL("../design-settings.module.css", import.meta.url), "utf8");
+  assert.match(workspace, /data-panel-layout="visual-storefront-canvas"/);
+  assert.match(css, /min-height:\s*48px/);
+  assert.match(css, /@media \(max-width:\s*1024px\)/);
+  assert.match(css, /@media \(max-width:\s*390px\)/);
+  assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
+  assert.match(css, /[.]01ms/);
+  assert.doesNotMatch(sources.join("\n"), /iframe|localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
+  assert.equal((workspace.match(/>Yayınla<\/button>/g) ?? []).length, 1);
+});
+
 test("controlled theme steps edit the same draft and keep the one workspace publish action", async () => {
   const [workspace, stepEditor, composer] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),

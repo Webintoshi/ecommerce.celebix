@@ -108,7 +108,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
     <button type="button" className={styles.publishButton} title={publishIssueLabel ?? undefined} disabled={!canManage || publishIssue !== null || ["saving", "publishing", "conflict"].includes(editor.status)} onClick={() => void publish()}>Yayınla</button>
   </div>, [canManage, editor.status, previewMode, publish, publishIssue, publishIssueLabel, selectSurface, selectedSurface]);
 
-  return <section className={styles.workspace} data-panel-layout="open-canvas">
+  return <section className={styles.workspace} data-panel-layout="visual-storefront-canvas">
     <PanelTopbarBridge title="Tasarım" subtitle={publishIssueLabel ?? STATUS_LABEL[editor.status]} actions={topbarActions} />
     <main className={styles.canvasStage}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} selectedSurface={drawerOpen ? selectedSurface : undefined} onSelectSurface={selectSurface} /></main>
     <DesignSettingsDrawer open={drawerOpen} surface={selected} onClose={closeDrawer} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} onChange={change} onUpload={upload} /></DesignSettingsDrawer>
