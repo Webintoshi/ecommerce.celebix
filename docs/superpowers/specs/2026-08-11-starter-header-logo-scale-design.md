@@ -21,4 +21,3 @@ Starter temadaki mağaza logosunu masaüstü ve mobil header düzenlerinde ölç
 - Header CSS davranış testi önce eski ölçülerde kırmızıya düşer, yeni ölçülerle yeşile döner.
 - Storefront-shared testleri, typecheck ve build çalıştırılır.
 - Güzide staging storefront masaüstü ve mobil görünümünde logo oranı ve header taşması kontrol edilir.
-

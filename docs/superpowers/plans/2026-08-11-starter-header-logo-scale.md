@@ -71,4 +71,3 @@ Expected: all commands exit `0`.
 git add apps/storefront-shared/components/CampaignHeader.test.ts apps/storefront-shared/components/campaign-header.module.css docs/superpowers/specs/2026-08-11-starter-header-logo-scale-design.md docs/superpowers/plans/2026-08-11-starter-header-logo-scale.md
 git commit -m "fix(storefront): enlarge starter header logos"
 ```
-
