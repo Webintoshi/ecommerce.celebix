@@ -41,6 +41,8 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
   const [drawerPresent, setDrawerPresent] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const desktopFocusRef = useRef<HTMLElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const topbarRef = useRef<HTMLElement>(null);
   const pendingFocusTarget = useRef<"desktop" | "menu" | null>(null);
   const pathname = usePathname() ?? "";
   const routePresentation = getPanelRoutePresentation(pathname);
@@ -94,6 +96,31 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
   }, [drawerOpen]);
 
   useEffect(() => {
+    const workspace = workspaceRef.current;
+    const topbar = topbarRef.current;
+    if (
+      typeof HTMLElement === "undefined"
+      || !(workspace instanceof HTMLElement)
+      || !(topbar instanceof HTMLElement)
+    ) return;
+
+    const syncTopbarHeight = () => {
+      const height = Math.ceil(topbar.getBoundingClientRect().height);
+      if (height > 0) workspace.style.setProperty("--panel-topbar-height", `${height}px`);
+    };
+    syncTopbarHeight();
+    const observer = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(syncTopbarHeight);
+    observer?.observe(topbar);
+    window.addEventListener("resize", syncTopbarHeight);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", syncTopbarHeight);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!drawerPresent) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -130,8 +157,8 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
           onClose={closeDrawer}
           onRestoreFocus={restoreDrawerFocus}
         />
-        <div className={styles.workspace}>
-          <header className={styles.desktopTopbar}>
+        <div ref={workspaceRef} className={styles.workspace}>
+          <header ref={topbarRef} className={styles.desktopTopbar}>
             <div className={styles.desktopTopbarHeading}>
               <span className={styles.desktopTopbarEyebrow}>ORTAK ADMİN</span>
               <strong className={styles.desktopTopbarTitle}>{activeChrome?.title ?? routePresentation.title}</strong>

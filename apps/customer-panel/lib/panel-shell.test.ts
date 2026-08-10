@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { Window } from "happy-dom";
 import * as ReactModule from "react";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -679,6 +680,26 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.match(styles, /[.]desktopTopbarSubtitle\s*\{[\s\S]*?text-overflow:\s*ellipsis;/);
   assert.match(styles, /[.]desktopTopbarUtilities\s*\{[\s\S]*?display:\s*flex;/);
   assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
+});
+
+test("admin management header stays fixed without covering workspace content", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  const window = new Window();
+  window.happyDOM.setViewport({ width: 1440, height: 900 });
+  window.document.head.innerHTML = `<style>${css}</style>`;
+  window.document.body.innerHTML = '<div class="workspace"><header class="desktopTopbar">Yönetim</header><main style="height:2000px">İçerik</main></div>';
+  const workspace = window.document.querySelector(".workspace");
+  const header = window.document.querySelector(".desktopTopbar");
+  assert.ok(workspace);
+  assert.ok(header);
+
+  const workspaceStyle = window.getComputedStyle(workspace);
+  const computed = window.getComputedStyle(header);
+  assert.equal(workspaceStyle.getPropertyValue("--panel-topbar-height"), "5.5rem");
+  assert.equal(workspaceStyle.paddingTop, "88px");
+  assert.equal(computed.position, "fixed");
+  assert.equal(computed.top, "0px");
+  assert.equal(computed.right, "0px");
 });
 
 test("topbar launches the real Toshi identity without a remote or generated avatar", async () => {

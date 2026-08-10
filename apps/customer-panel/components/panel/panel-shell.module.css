@@ -70,14 +70,18 @@
 }
 
 .workspace {
+  --panel-topbar-height: 5.5rem;
   min-width: 0;
   min-height: 100dvh;
   margin-left: 15.3125rem;
+  padding-top: var(--panel-topbar-height);
 }
 
 .desktopTopbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  left: 15.3125rem;
   z-index: 20;
   display: grid;
   grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) auto;
@@ -755,8 +759,13 @@
   }
 
   .workspace {
+    --panel-topbar-height: 4rem;
     margin-left: 0;
     padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px) + var(--panel-keyboard-inset, 0px));
+  }
+
+  .desktopTopbar {
+    left: 0;
   }
 
   .content {
