@@ -15,14 +15,14 @@ export type StorefrontRendererSurface = "announcement" | "brand" | "navigation" 
 
 export interface StorefrontDesignEditorBridge {
   readonly selectedSurface?: StorefrontRendererSurface;
-  readonly onSelectSurface: (surface: StorefrontRendererSurface) => void;
+  readonly onSelectSurface: (surface: StorefrontRendererSurface, trigger?: HTMLButtonElement) => void;
 }
 
 function editorSurface(editor: StorefrontDesignEditorBridge | undefined, surface: StorefrontRendererSurface, label: string, content: ReactNode) {
   if (!editor) return content;
   return <div className="celebix-store-edit-shell" data-edit-shell={surface}>
     {content}
-    <button type="button" className="celebix-store-edit-control" data-design-surface={surface} aria-label={`${label} alanını düzenle`} aria-pressed={editor.selectedSurface === surface} onClick={() => editor.onSelectSurface(surface)}><span>{label}</span></button>
+    <button type="button" className="celebix-store-edit-control" data-design-surface={surface} aria-label={`${label} alanını düzenle`} aria-pressed={editor.selectedSurface === surface} onClick={(event) => editor.onSelectSurface(surface, event.currentTarget)}><span>{label}</span></button>
   </div>;
 }
 

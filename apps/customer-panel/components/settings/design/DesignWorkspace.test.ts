@@ -22,7 +22,7 @@ test("editor state never reports a newer local edit as saved by an older request
   assert.equal(completed.design.hero.slides[0]?.headline, "Daha yeni");
 });
 
-test("workspace source exposes two child-friendly areas, truthful save states and one shared preview", async () => {
+test("workspace exposes one visual canvas, truthful save states and one shared settings drawer", async () => {
   const [workspace, stepEditor, inspector, preview, css] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignStepEditor.tsx", import.meta.url), "utf8"),
@@ -30,10 +30,10 @@ test("workspace source exposes two child-friendly areas, truthful save states an
     readFile(new URL("./DesignPreview.tsx", import.meta.url), "utf8"),
     readFile(new URL("../design-settings.module.css", import.meta.url), "utf8"),
   ]);
-  assert.match(workspace, /designWorkspaceAreas/);
-  assert.match(workspace, /designWorkspaceSteps/);
-  assert.match(workspace, /aria-label="Tasarım alanı"/);
-  assert.match(workspace, /aria-label="Tasarım adımları"/);
+  assert.match(workspace, /DESIGN_CANVAS_SURFACES/);
+  assert.match(workspace, /DesignSettingsDrawer/);
+  assert.match(workspace, /className=\{styles[.]canvasStage\}/);
+  assert.doesNotMatch(workspace, /aria-label="Tasarım alanı"|aria-label="Tasarım adımları"/);
   assert.match(stepEditor, /Gelişmiş görünüm/);
   assert.match(stepEditor, /Gelişmiş duyuru ayarları/);
   for (const state of ["Kaydediliyor", "Taslak kaydedildi", "Yayınlanmamış değişiklik", "Kaydedilemedi"]) assert.match(workspace, new RegExp(state));
@@ -52,9 +52,9 @@ test("workspace source exposes two child-friendly areas, truthful save states an
   assert.match(inspector, /TypographyEditor/);
   assert.match(inspector, /design[.]typography/);
   assert.match(css, /min-height:\s*48px/);
-  assert.match(css, /\.workspace\s*\{[^}]*grid-template-columns:\s*220px 360px minmax\(0, 1fr\)/s);
-  assert.match(css, /\.areaSwitch/);
-  assert.match(css, /\.stepRail/);
+  assert.match(css, /\.workspace\s*\{[^}]*background:\s*#eef1f5/s);
+  assert.match(css, /\.canvasStage/);
+  assert.match(css, /\.settingsDrawer/);
   assert.doesNotMatch(`${workspace}\n${stepEditor}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
 });
 
@@ -81,6 +81,21 @@ test("design preview delegates to one selectable storefront canvas without brows
     assert.match(canvas, new RegExp(`data-design-surface=["']${surface}["']`));
   }
   assert.doesNotMatch(canvas, /iframe|localStorage|sessionStorage|x-store-id|tenantContext/);
+});
+
+test("canvas selection opens an accessible right settings drawer and removes permanent form rails", async () => {
+  const [workspace, drawer] = await Promise.all([
+    readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./DesignSettingsDrawer.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(workspace, /selectedSurface/);
+  assert.match(workspace, /<DesignSettingsDrawer/);
+  assert.match(workspace, /<DesignPreview[^>]*onSelectSurface=/s);
+  assert.doesNotMatch(workspace, /className=\{styles[.]stepRail\}|className=\{styles[.]inspector\}|aria-label="Tasarım alanı"/);
+  assert.match(drawer, /role="dialog"/);
+  assert.match(drawer, /event[.]key === "Escape"/);
+  assert.match(drawer, /focus\(\)/);
+  assert.match(drawer, /Ayarları kapat/);
 });
 
 test("controlled theme steps edit the same draft and keep the one workspace publish action", async () => {

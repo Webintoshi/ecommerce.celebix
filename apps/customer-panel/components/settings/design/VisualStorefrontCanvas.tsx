@@ -72,7 +72,7 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
       compact
       editor={{
         selectedSurface: rendererSurface(props.selectedSurface),
-        onSelectSurface: (surface) => props.onSelectSurface(surface),
+        onSelectSurface: (surface, trigger) => props.onSelectSurface(surface, trigger),
       }}
     >
       {!preview.hero.enabled || preview.hero.slides.length === 0 ? <section className={`${styles.canvasSurface} ${styles.canvasEmptyHero}`}>
