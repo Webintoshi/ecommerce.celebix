@@ -21,3 +21,8 @@ test("merchant header selection reaches three exact desktop layouts without chan
   assert.match(css, /@media\(max-width:1024px\)/);
   assert.doesNotMatch(source, /searchParams|cookies\(|headers\(|localStorage|sessionStorage/);
 });
+test("campaign logo uses the approved larger responsive scale without stretching", async () => {
+  const css = await read("campaign-header.module.css");
+  assert.match(css, /[.]wordmark img\{[^}]*width:auto;[^}]*max-width:240px;[^}]*height:56px;[^}]*object-fit:contain/);
+  assert.match(css, /@media\(max-width:1024px\)\{[\s\S]*[.]wordmark img\{height:42px\}/);
+});
