@@ -63,15 +63,14 @@
 .heroControls { position: absolute; right: clamp(20px, 3vw, 54px); bottom: 26px; z-index: 3; display: flex; gap: 8px; }
 .heroControls button { display: grid; min-width: 48px; min-height: 48px; place-items: center; border: 1px solid rgb(255 255 255 / 58%); border-radius: 50%; color: #fff; background: rgb(0 0 0 / 24%); }
 
-.categories, .placeholderCategories, .productRow { width: min(100% - 48px, var(--campaign-width)); margin: auto; }
+.categories, .productRow { width: min(100% - 48px, var(--campaign-width)); margin: auto; }
 .sectionHeading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .sectionHeading span { color: var(--jewelry-gold); }
 .sectionHeading h2 { margin: 8px 0 0; color: var(--jewelry-ink); font-size: clamp(2rem, 3.2vw, 3.7rem); font-weight: 450; line-height: 1; letter-spacing: -.035em; }
 .sectionHeading > a { display: flex; min-height: 48px; align-items: center; border-bottom: 1px solid currentColor; color: var(--jewelry-ink); font-size: .72rem; font-weight: 750; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
 
-.categoryGrid, .placeholderGrid { display: grid; gap: 16px; }
+.categoryGrid { display: grid; gap: 16px; }
 .categoryGridGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.placeholderGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .categoryGridDuo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .categoryGrid > a { position: relative; min-width: 0; overflow: hidden; color: #fff; background: #eee; text-decoration: none; }
 .categoryGrid img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
@@ -81,11 +80,6 @@
 .categoryGrid > a > span { position: absolute; inset: auto 0 0; display: grid; gap: 5px; padding: 64px 20px 21px; background: linear-gradient(transparent, rgb(0 0 0 / 66%)); }
 .categoryGrid strong { font-size: 1.15rem; font-weight: 600; }
 .categoryGrid small { font-size: .68rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
-
-.placeholderGrid > a { display: grid; min-width: 0; gap: 13px; color: var(--jewelry-ink); text-decoration: none; }
-.placeholderArtwork { display: grid; aspect-ratio: 4 / 5; place-content: center; gap: 9px; border: 1px solid #ddd8d0; background: repeating-linear-gradient(135deg, #f8f6f2 0 15px, #f0ede7 15px 16px); text-align: center; }
-.placeholderArtwork strong { color: #7a6b57; font-size: clamp(.75rem, 1.1vw, 1rem); letter-spacing: .16em; }
-.placeholderName { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.05rem, 1.5vw, 1.35rem); }
 
 .productRow { overflow: hidden; }
 .productRow :global(.product-grid) { display: flex; gap: 18px; overflow-x: auto; padding-bottom: 12px; scroll-snap-type: x mandatory; scrollbar-color: #b8b0a5 transparent; scrollbar-width: thin; }
@@ -134,7 +128,7 @@
 .testimonials aside p { margin: 5px 0 0; }
 .testimonials aside strong { font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; }
 
-.heroSlide, .categoryGrid > a, .placeholderArtwork, .panels > a, .story { border-radius: var(--campaign-corner, 0); }
+.heroSlide, .categoryGrid > a, .panels > a, .story { border-radius: var(--campaign-corner, 0); }
 
 @media(max-width:1050px) {
   .productRow :global(.product-card) { flex-basis: calc((100% - 36px) / 3); }
@@ -146,7 +140,6 @@
 @media(max-width:900px) {
   .heroSlide, .heroCopy { min-height: 680px; }
   .categoryGridGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .placeholderGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .panels > a { min-height: 500px; }
 }
 
@@ -158,13 +151,12 @@
   .heroShade { background: linear-gradient(0deg, rgb(0 0 0 / 74%), rgb(0 0 0 / 4%) 76%); }
   .hotspot { right: 16px; bottom: 18px; }
   .heroControls { right: 16px; bottom: 82px; }
-  .categories, .placeholderCategories, .productRow, .panels, .values { width: calc(100% - 28px); }
+  .categories, .productRow, .panels, .values { width: calc(100% - 28px); }
   .sectionHeading { align-items: flex-start; flex-direction: column; margin-bottom: 22px; }
-  .categoryGrid, .placeholderGrid { gap: 9px; }
+  .categoryGrid { gap: 9px; }
   .categoryGridDuo { grid-template-columns: 1fr; }
   .categoryGridDuo > a { aspect-ratio: 4 / 3; }
   .categoryGrid > a > span { padding: 42px 13px 13px; }
-  .placeholderArtwork { min-height: 0; }
   .productRow :global(.product-grid) { gap: 10px; margin-right: -14px; }
   .productRow :global(.product-card) { flex-basis: min(72vw, 300px); }
   .panels { grid-template-columns: 1fr; }

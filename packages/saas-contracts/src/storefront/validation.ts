@@ -181,7 +181,7 @@ function parseSeo(value: unknown): PublicStarterThemePresentation["seo"] {
 }
 
 function parseCategoryShowcase(value: unknown): NonNullable<PublicStarterThemePresentation["categoryShowcase"]> {
-  const parsed = exact(value, ["heading", "items"]);
+  const parsed = exact(value, ["heading", "items"], ["layout"]);
   if (!Array.isArray(parsed.items) || Object.getPrototypeOf(parsed.items) !== Array.prototype || parsed.items.length < 1 || parsed.items.length > 8) invalid();
   const descriptors = Object.getOwnPropertyDescriptors(parsed.items) as unknown as Record<PropertyKey, PropertyDescriptor | undefined>;
   if (Reflect.ownKeys(parsed.items).length !== parsed.items.length + 1 || descriptors.length?.value !== parsed.items.length) invalid();
@@ -196,7 +196,8 @@ function parseCategoryShowcase(value: unknown): NonNullable<PublicStarterThemePr
     ids.add(id); slugs.add(selectedSlug);
     items.push(Object.freeze({ id, name: string(item.name, 1, 160), slug: selectedSlug, image: parseStorefrontAsset(item.image) }));
   }
-  return Object.freeze({ heading: string(parsed.heading, 1, 160), items: Object.freeze(items) });
+  const layout = Object.hasOwn(parsed, "layout") ? oneOf(parsed.layout, CATEGORY_SHOWCASE_LAYOUTS) : "grid";
+  return Object.freeze({ heading: string(parsed.heading, 1, 160), layout, items: Object.freeze(items) });
 }
 
 function parseVisual(value: unknown): StarterThemeVisual {

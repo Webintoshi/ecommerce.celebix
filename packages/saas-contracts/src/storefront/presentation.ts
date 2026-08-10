@@ -72,7 +72,7 @@ function adaptStarterPresentationV1ToV2(value: unknown): PublicStarterThemePrese
     kind: "hero",
     slides: Object.freeze([Object.freeze({ heading: legacy.hero.headline, body: legacy.hero.body, ...(legacy.hero.image ? { desktopImage: legacy.hero.image } : {}), destination: legacy.hero.destination })]),
   }));
-  if (legacy.categoryShowcase) sections.push(Object.freeze({ kind: "category_grid", heading: legacy.categoryShowcase.heading, layout: "grid", items: Object.freeze(legacy.categoryShowcase.items.map((item) => Object.freeze({ name: item.name, slug: item.slug, image: item.image }))) }));
+  if (legacy.categoryShowcase) sections.push(Object.freeze({ kind: "category_grid", heading: legacy.categoryShowcase.heading, layout: legacy.categoryShowcase.layout, items: Object.freeze(legacy.categoryShowcase.items.map((item) => Object.freeze({ name: item.name, slug: item.slug, image: item.image }))) }));
   sections.push(Object.freeze({ kind: "product_row", key: "latest-0", heading: "Yeni ürünler", source: "latest", limit: legacy.theme.homeProductLimit }));
   if (legacy.theme.showBrandStory) sections.push(Object.freeze({ kind: "brand_story", eyebrow: "Mağaza deneyimi", heading: "Özenle seçildi", body: `${legacy.displayName}, ürünlerini güvenli Celebix altyapısı üzerinden sunar.` }));
   return Object.freeze({

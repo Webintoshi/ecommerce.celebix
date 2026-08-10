@@ -20,7 +20,7 @@ const PRESENTATION = Object.freeze({
   hero: Object.freeze({ enabled: true, headline: "Pilot Store", body: "Özenle seçilmiş ürünleri keşfedin.", destination: "/products", image: Object.freeze({ url: "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000001/storefront/hero/50000000-0000-4000-8000-000000000001.webp", mediaType: "image/webp" as const, altText: "Pilot ürün vitrini", width: 1600, height: 900 }) }),
   promotion: Object.freeze({ headline: "Yeni koleksiyon", body: "Aktif ürünleri keşfedin.", destination: "/products" }),
   marquee: Object.freeze({ items: Object.freeze(["Güvenli ödeme", "Özenli seçim"]), icon: "shield" as const, speed: "normal" as const, direction: "left" as const, animation: "continuous" as const }),
-  categoryShowcase: Object.freeze({ heading: "Kategorileri keşfet", items: Object.freeze([Object.freeze({ id: CATEGORY_ID, name: "Bileklikler", slug: "bileklikler", image: CATEGORY_IMAGE })]) }),
+  categoryShowcase: Object.freeze({ heading: "Kategorileri keşfet", layout: "duo" as const, items: Object.freeze([Object.freeze({ id: CATEGORY_ID, name: "Bileklikler", slug: "bileklikler", image: CATEGORY_IMAGE })]) }),
   seo: Object.freeze({ title: "Pilot Store", description: "Pilot mağaza ürünleri", allowIndex: false }),
 });
 
@@ -33,6 +33,7 @@ test("public storefront contract accepts only the exact schema-v2 presentation p
   assert.equal(Object.isFrozen(parsed.presentation.theme), true);
   assert.equal(Object.isFrozen(parsed.presentation.marquee?.items), true);
   assert.equal(Object.isFrozen(parsed.presentation.categoryShowcase?.items), true);
+  assert.equal(parsed.presentation.categoryShowcase?.layout, "duo");
   assert.equal(Object.isFrozen(parsed.presentation.categoryShowcase?.items[0]?.image), true);
   assert.deepEqual(parsed, STOREFRONT);
   assert.throws(() => parsePublicStorefront({ ...parsed, membershipId: MEDIA_ID }));
@@ -60,6 +61,9 @@ test("public storefront contract keeps the requested alias but canonicalizes to 
 
 test("category showcase remains exact bounded canonical and duplicate-free", () => {
   const item = PRESENTATION.categoryShowcase!.items[0]!;
+  const { layout: _layout, ...legacyShowcase } = PRESENTATION.categoryShowcase!;
+  assert.equal(parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: legacyShowcase }).categoryShowcase?.layout, "grid");
+  assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: { ...PRESENTATION.categoryShowcase, layout: "carousel" } }));
   assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: { heading: "Kategoriler", items: [] } }));
   assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: { heading: "Kategoriler", items: Array.from({ length: 9 }, (_, index) => ({ ...item, id: `60000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}` })) } }));
   assert.throws(() => parsePublicStarterThemePresentation({ ...PRESENTATION, categoryShowcase: { heading: "Kategoriler", items: [item, item] } }));

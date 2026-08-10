@@ -192,6 +192,7 @@ export type PublicStarterThemePresentationV1 = Readonly<{
   }>;
   categoryShowcase?: Readonly<{
     heading: string;
+    layout: CategoryShowcaseLayout;
     items: readonly Readonly<{
       id: string;
       name: string;

@@ -29,19 +29,47 @@ test("category showcase renders only the persisted duo or grid layout with respo
   assert.match(css, /@media\(max-width:700px\)[\s\S]*[.]categoryGridDuo\s*>\s*a\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/u);
   assert.match(css, /@media\(max-width:339px\)[\s\S]*[.]categoryGridGrid\s*\{[^}]*grid-template-columns:\s*1fr/u);
 });
-test("campaign home mounts jewelry category placeholders from public navigation authority", async () => {
+test("campaign home mounts the durable category showcase once without navigation fallback", async () => {
   const source = await read("CampaignHome.tsx");
-  assert.match(source, /deriveJewelryCategoryPlaceholders\(presentation[.]navigation, sections\)/);
-  assert.match(source, /<JewelryCategoryPlaceholders items=\{categoryPlaceholders\}/);
+  assert.match(source, /composeCampaignHomeSections\(presentation/);
+  assert.doesNotMatch(source, /presentation[.]navigation|deriveJewelryCategoryPlaceholders|JewelryCategoryPlaceholders|PLACEHOLDER/);
   assert.doesNotMatch(source, /tenantId|storeId|categoryId|assetId/);
+});
+test("durable category showcase replaces stale composition content and preserves exact order", async () => {
+  const module = await import("./campaign-home-sections.ts");
+  const image = Object.freeze({ url: "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000001/storefront/category/70000000-0000-4000-8000-000000000001.webp", mediaType: "image/webp", altText: "Kategori", width: 896, height: 1195 });
+  const presentation = {
+    schemaVersion: 3,
+    categoryShowcase: { heading: "Tek kaynak", layout: "duo", items: [
+      { id: "60000000-0000-4000-8000-000000000002", name: "Yüzükler", slug: "yuzukler", image },
+      { id: "60000000-0000-4000-8000-000000000001", name: "Kolyeler", slug: "kolyeler", image },
+    ] },
+    sections: [
+      { kind: "product_row", key: "latest", heading: "Ürünler", source: "latest", limit: 4 },
+      { kind: "category_grid", heading: "Eski içerik", layout: "grid", items: [{ name: "Menüden gelen", slug: "menu", image }] },
+      { kind: "value_propositions", items: [] },
+    ],
+  };
+  const sections = module.composeCampaignHomeSections(presentation as never, false);
+  const categories = sections.filter(({ kind }) => kind === "category_grid");
+  assert.equal(categories.length, 1);
+  assert.deepEqual(categories[0], { kind: "category_grid", heading: "Tek kaynak", layout: "duo", items: [
+    { name: "Yüzükler", slug: "yuzukler", image },
+    { name: "Kolyeler", slug: "kolyeler", image },
+  ] });
+  assert.equal(Object.isFrozen(categories[0]), true);
 });
 test("product rows bind exact projection keys to canonical product cards", async () => { const source = await read("CampaignProductRow.tsx"); assert.match(source, /section[.]key/); assert.match(source, /ProductGrid/); assert.match(source, /products/); assert.doesNotMatch(source, /Math[.]random|fake|mock/); });
 test("home page resolves campaign projection only through server page context", async () => { const [page, context, campaignResolution] = await Promise.all([read("../app/page.tsx"), read("../lib/page-context.ts"), read("../lib/campaign-page-resolution.ts")]); assert.match(page, /context[.]campaign/); assert.match(context, /resolveCampaignPageProjection/); assert.match(campaignResolution, /resolveCampaignHome/); assert.doesNotMatch(`${page}\n${context}\n${campaignResolution}`, /localStorage|sessionStorage|x-store-id|tenantId/); });
 test("published design banner augments campaign sections without a duplicate hero", async () => {
-  const source = await read("CampaignHome.tsx");
+  const [source, sections] = await Promise.all([
+    read("CampaignHome.tsx"),
+    read("campaign-home-sections.ts"),
+  ]);
   assert.match(source, /designHeroActive\s*=\s*design[.]publicationVersion > 1/);
-  assert.match(source, /designHeroActive\s*\?\s*presentation[.]sections[.]filter/);
-  assert.match(source, /section[.]kind !== "hero"/);
+  assert.match(source, /composeCampaignHomeSections\(presentation, designHeroActive\)/);
+  assert.match(sections, /designHeroActive\s*\?\s*presentation[.]sections[.]filter/);
+  assert.match(sections, /section[.]kind !== "hero"/);
   assert.match(source, /<StorefrontDesignRenderer/);
   assert.match(source, /showHeader=\{false\}/);
   assert.match(source, /sections[.]map/);

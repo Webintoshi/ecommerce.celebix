@@ -8,7 +8,6 @@ import type {
 } from "@celebix/saas-contracts";
 import { StorefrontDesignRenderer } from "@celebix/storefront-design-ui";
 import Link from "next/link";
-import { Fragment } from "react";
 
 import { StorefrontFrame } from "./StorefrontFrame";
 import { CampaignHero } from "./CampaignHero";
@@ -20,9 +19,8 @@ import {
 import { CampaignProductRow } from "./CampaignProductRow";
 import { CampaignTestimonials } from "./CampaignTestimonials";
 import { CampaignValuePropositions } from "./CampaignValuePropositions";
-import { JewelryCategoryPlaceholders } from "./JewelryCategoryPlaceholders";
+import { composeCampaignHomeSections } from "./campaign-home-sections";
 import { campaignAnnouncement } from "./campaign-ui-model";
-import { deriveJewelryCategoryPlaceholders } from "./jewelry-category-placeholders";
 import styles from "./campaign-home.module.css";
 
 function assertNever(value: never): never {
@@ -96,32 +94,17 @@ export function CampaignHome({
     && design.hero.enabled
     && design.hero.slides.length > 0;
   const announcement = campaignAnnouncement(presentation);
-  const sections = designHeroActive
-    ? presentation.sections.filter((section) => section.kind !== "hero")
-    : presentation.sections;
-  const categoryPlaceholders = deriveJewelryCategoryPlaceholders(presentation.navigation, sections);
-  const supportingStart = sections.findIndex(
-    ({ kind }) => kind === "value_propositions" || kind === "testimonials",
-  );
-  const placeholderIndex =
-    supportingStart === -1 ? sections.length : supportingStart;
+  const sections = composeCampaignHomeSections(presentation, designHeroActive);
   const campaignSections = (
     <div className={styles.home}>
       {sections.map((section, index) => (
-        <Fragment key={`${section.kind}-${index}`}>
-          {index === placeholderIndex ? (
-            <JewelryCategoryPlaceholders items={categoryPlaceholders} />
-          ) : null}
-          <Section
-            section={section}
-            presentation={presentation}
-            productRows={projection.productRows}
-          />
-        </Fragment>
+        <Section
+          key={`${section.kind}-${index}`}
+          section={section}
+          presentation={presentation}
+          productRows={projection.productRows}
+        />
       ))}
-      {placeholderIndex === sections.length ? (
-        <JewelryCategoryPlaceholders items={categoryPlaceholders} />
-      ) : null}
     </div>
   );
   return (

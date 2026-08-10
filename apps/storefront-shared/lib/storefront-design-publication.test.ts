@@ -28,6 +28,8 @@ test("published design augments the complete storefront without removing commerc
   const products = await source("../app/products/page.tsx");
   const product = await source("../app/products/[slug]/page.tsx");
   const globals = await source("../app/globals.css");
+  const campaignHome = await source("../components/CampaignHome.tsx");
+  const campaignSections = await source("../components/campaign-home-sections.ts");
 
   assert.match(frame, /design:\s*PublicStorefrontDesign/);
   assert.match(frame, /<Header[^>]+design=\{design\}/);
@@ -44,9 +46,10 @@ test("published design augments the complete storefront without removing commerc
   assert.match(home, /<CampaignHome/);
   assert.match(home, /if \(context[.]campaign\)/);
   assert.doesNotMatch(home, /context[.]campaign && design[.]publicationVersion === 1/);
-  assert.match(await source("../components/CampaignHome.tsx"), /designHeroActive/);
-  assert.match(await source("../components/CampaignHome.tsx"), /section[.]kind !== "hero"/);
-  assert.match(await source("../components/CampaignHome.tsx"), /<StorefrontDesignRenderer/);
+  assert.match(campaignHome, /designHeroActive/);
+  assert.match(campaignHome, /composeCampaignHomeSections\(presentation, designHeroActive\)/);
+  assert.match(campaignSections, /section[.]kind !== "hero"/);
+  assert.match(campaignHome, /<StorefrontDesignRenderer/);
   assert.match(products, /design=\{design\}/);
   assert.match(product, /design=\{selected\.design\}/);
   assert.match(globals, /@celebix\/storefront-design-ui\/styles\.css/);
