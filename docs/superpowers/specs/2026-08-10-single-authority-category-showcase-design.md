@@ -1,6 +1,6 @@
 # Tek Yetkili Kategori Vitrini Tasarımı
 
-**Tarih:** 2026-08-10  
+**Tarih:** 2026-08-10
 **Durum:** Kullanıcı tarafından yazılı olarak onaylandı
 
 ## Amaç

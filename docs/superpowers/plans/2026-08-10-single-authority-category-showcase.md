@@ -160,7 +160,7 @@ categoryShowcase?: Readonly<{
   heading: string;
   layout: "duo" | "grid";
   items: readonly CategoryShowcaseItem[];
-}>; 
+}>;
 ```
 
 `parseCategoryShowcase` must normalize an absent legacy layout to `grid`, while rejecting any present value other than `duo|grid`. In `CampaignHome`, build exactly one category section from `presentation.categoryShowcase`; mount it at the existing category slot when present, otherwise immediately before supporting value/review sections. Delete the navigation fallback implementation and its unused CSS.
