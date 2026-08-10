@@ -125,6 +125,33 @@ test("image banners render as responsive media without a visible text panel", as
   assert.match(markup, /--store-body-size:17px/);
 });
 
+test("editor mode exposes exact storefront surfaces while default markup remains unchanged", async () => {
+  const StorefrontDesignRenderer = await loadStorefrontDesignRenderer();
+  const publicDesign = createPreviewStorefrontDesign({
+    draft: DESIGN,
+    publishedVersion: 3,
+    publishedAt: NOW,
+    media: [{ id: MEDIA, url: "https://media.example/guzide.png", altText: "Güzide", mediaType: "image/png", width: 1200, height: 800 }],
+    destinations: [{ kind: "product", resourceId: DESTINATION, label: "Altın Kolye", path: "/products/altin-kolye" }],
+  });
+  const baseProps = { design: publicDesign, storeName: "Güzide Kuyumcu", now: new Date(NOW) } as const;
+
+  const defaultMarkup = renderToStaticMarkup(createElement(StorefrontDesignRenderer, baseProps));
+  const editorMarkup = renderToStaticMarkup(createElement(StorefrontDesignRenderer, {
+    ...baseProps,
+    editor: { selectedSurface: "hero", onSelectSurface: () => undefined },
+  }));
+
+  assert.doesNotMatch(defaultMarkup, /data-design-surface|celebix-store-edit-control|Düzenle/);
+  for (const surface of ["announcement", "brand", "navigation", "hero", "promotion", "cart"]) {
+    assert.match(editorMarkup, new RegExp(`data-design-surface="${surface}"`));
+  }
+  assert.match(editorMarkup, /data-design-surface="hero"[^>]*aria-pressed="true"/);
+  assert.match(editorMarkup, /aria-label="Logo ve marka alanını düzenle"/);
+  assert.match(editorMarkup, /aria-label="Header ve menü alanını düzenle"/);
+  assert.match(editorMarkup, /aria-label="Yan sepet alanını düzenle"/);
+});
+
 test("renderer source owns exact brand tokens and no unsafe HTML path", async () => {
   const source = await readFile(new URL("./StorefrontDesignRenderer.tsx", import.meta.url), "utf8");
   for (const token of ["--store-primary", "--store-accent", "--store-background", "--store-text"]) assert.match(source, new RegExp(token));

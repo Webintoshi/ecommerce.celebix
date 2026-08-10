@@ -63,6 +63,16 @@
 .celebix-store-promotion > a { display: inline-flex; min-height: 48px; align-items: center; border: 1px solid #fff; background: #fff; padding: 0 22px; color: var(--store-primary); font-size: 12px; font-weight: 750; text-decoration: none; }
 .celebix-store-content { background: var(--store-background); color: var(--store-text); }
 .celebix-store-design[data-compact="true"] .celebix-store-header { min-height: 58px; padding-inline: 20px; }
+.celebix-store-edit-shell { position: relative; min-width: 0; }
+.celebix-store-header > .celebix-store-edit-shell { display: inline-flex; align-items: center; }
+.celebix-store-header > .celebix-store-edit-shell[data-edit-shell="navigation"] { justify-self: center; }
+.celebix-store-header > .celebix-store-edit-shell[data-edit-shell="cart"] { justify-self: end; }
+.celebix-store-edit-control { position: absolute; z-index: 10; inset: 0; min-width: 48px; min-height: 48px; border: 2px solid transparent; border-radius: 4px; background: transparent; color: transparent; cursor: pointer; }
+.celebix-store-edit-control span { position: absolute; top: 8px; left: 8px; border-radius: 999px; background: #171717; padding: 6px 9px; color: #fff; font: 700 11px/1 Inter, ui-sans-serif, system-ui, sans-serif; opacity: 0; transform: translateY(-3px); transition: opacity .16s ease, transform .16s ease; }
+.celebix-store-edit-shell:hover > .celebix-store-edit-control, .celebix-store-edit-control:focus-visible, .celebix-store-edit-control[aria-pressed="true"] { border-color: #ff5a00; box-shadow: inset 0 0 0 2px #fff; }
+.celebix-store-edit-shell:hover > .celebix-store-edit-control span, .celebix-store-edit-control:focus-visible span, .celebix-store-edit-control[aria-pressed="true"] span { opacity: 1; transform: translateY(0); }
+.celebix-store-edit-control:focus-visible { outline: 3px solid rgb(255 90 0 / 28%); outline-offset: 3px; }
+.celebix-store-edit-shell .celebix-store-hero-arrow, .celebix-store-edit-shell .celebix-store-hero-dots { z-index: 11; }
 @keyframes celebix-store-marquee { to { transform: translateX(-10%); } }
 @media (max-width: 720px) {
   .celebix-store-header { min-height: 64px; grid-template-columns: 1fr auto; padding-inline: 16px; }
@@ -70,4 +80,4 @@
   .celebix-store-hero-arrow { width: 38px; height: 38px; }
   .celebix-store-promotion { align-items: flex-start; flex-direction: column; }
 }
-@media (prefers-reduced-motion: reduce) { .celebix-store-announcement > div { animation: none !important; } .celebix-store-hero { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .celebix-store-announcement > div { animation: none !important; } .celebix-store-hero { transition: none !important; } .celebix-store-edit-control span { transition-duration: .01ms !important; } }

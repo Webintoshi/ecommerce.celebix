@@ -11,7 +11,22 @@ type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
 const ICONS = Object.freeze({ none: "", sparkle: "✦", truck: "▰", shield: "◇" } as const);
 
-export function StorefrontDesignRenderer({ design, storeName, now, children, compact = false, showHeader = true, showHomeSurfaces = true }: Readonly<{
+export type StorefrontRendererSurface = "announcement" | "brand" | "navigation" | "hero" | "promotion" | "cart";
+
+export interface StorefrontDesignEditorBridge {
+  readonly selectedSurface?: StorefrontRendererSurface;
+  readonly onSelectSurface: (surface: StorefrontRendererSurface) => void;
+}
+
+function editorSurface(editor: StorefrontDesignEditorBridge | undefined, surface: StorefrontRendererSurface, label: string, content: ReactNode) {
+  if (!editor) return content;
+  return <div className="celebix-store-edit-shell" data-edit-shell={surface}>
+    {content}
+    <button type="button" className="celebix-store-edit-control" data-design-surface={surface} aria-label={`${label} alanını düzenle`} aria-pressed={editor.selectedSurface === surface} onClick={() => editor.onSelectSurface(surface)}><span>{label}</span></button>
+  </div>;
+}
+
+export function StorefrontDesignRenderer({ design, storeName, now, children, compact = false, showHeader = true, showHomeSurfaces = true, editor }: Readonly<{
   design: PublicStorefrontDesign;
   storeName: string;
   now: Date;
@@ -19,6 +34,7 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
   compact?: boolean;
   showHeader?: boolean;
   showHomeSurfaces?: boolean;
+  editor?: StorefrontDesignEditorBridge;
 }>) {
   const typography = createStorefrontTypographyResources(design.typography);
   const style: DesignStyle = {
@@ -45,20 +61,20 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link rel="stylesheet" href={typography.stylesheetUrl} />
       <div className="celebix-store-design" data-font={design.brand.fontFamily} data-compact={compact ? "true" : "false"} style={style}>
-      {design.announcement.enabled ? (
+      {design.announcement.enabled ? editorSurface(editor, "announcement", "Duyuru şeridi", (
         <div className="celebix-store-announcement" data-speed={design.announcement.speed} data-direction={design.announcement.direction} data-animation={design.announcement.animation} aria-label="Mağaza duyuruları">
           <div>{design.announcement.items.map((item, index) => <span key={`${index}-${item}`}>{ICONS[design.announcement.icon] ? <i aria-hidden="true">{ICONS[design.announcement.icon]}</i> : null}{item}</span>)}</div>
         </div>
-      ) : null}
+      )) : null}
       {showHeader ? <header className="celebix-store-header">
-        <a className="celebix-store-brand" href="/" aria-label={`${storeName} ana sayfa`}>
+        {editorSurface(editor, "brand", "Logo ve marka", <a className="celebix-store-brand" href="/" aria-label={`${storeName} ana sayfa`}>
           {design.brand.logo ? <img src={design.brand.logo.url} alt={design.brand.logo.altText || storeName} /> : <strong>{storeName}</strong>}
-        </a>
-        <nav aria-label="Ana menü"><a href="/">Ana Sayfa</a><a href="/products">Ürünler</a></nav>
-        <span className="celebix-store-bag">Çanta <b>0</b></span>
+        </a>)}
+        {editorSurface(editor, "navigation", "Header ve menü", <nav aria-label="Ana menü"><a href="/">Ana Sayfa</a><a href="/products">Ürünler</a></nav>)}
+        {editorSurface(editor, "cart", "Yan sepet", <span className="celebix-store-bag">Çanta <b>0</b></span>)}
       </header> : null}
       {showHomeSurfaces && design.hero.enabled && slides.length ? (
-        <section className="celebix-store-hero-slider" aria-roledescription="carousel" aria-label="Mağaza bannerları" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}>
+        editorSurface(editor, "hero", "Ana banner", <section className="celebix-store-hero-slider" aria-roledescription="carousel" aria-label="Mağaza bannerları" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}>
           <div className="celebix-store-hero-track">
             {slides.map((slide, index) => {
               const desktopImage = slide.desktopImage;
@@ -75,9 +91,9 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
             })}
           </div>
           {slides.length > 1 ? <><button type="button" className="celebix-store-hero-arrow celebix-store-hero-prev" aria-label="Önceki banner" onClick={() => selectSlide(activeSlide - 1)}>‹</button><button type="button" className="celebix-store-hero-arrow celebix-store-hero-next" aria-label="Sonraki banner" onClick={() => selectSlide(activeSlide + 1)}>›</button><div className="celebix-store-hero-dots" role="group" aria-label="Banner seçimi">{slides.map((slide, index) => <button type="button" key={`${index}-${slide.headline}`} aria-label={`${index + 1}. banner`} aria-current={index === activeSlide ? "true" : undefined} onClick={() => selectSlide(index)} />)}</div></> : null}
-        </section>
+        </section>)
       ) : null}
-      {showHomeSurfaces && promotionActive ? <aside className="celebix-store-promotion"><div><strong>{design.promotion.headline}</strong>{design.promotion.body ? <span>{design.promotion.body}</span> : null}</div>{design.promotion.destination ? <a href={design.promotion.destination.path}>İncele</a> : null}</aside> : null}
+      {showHomeSurfaces && promotionActive ? editorSurface(editor, "promotion", "Promosyon", <aside className="celebix-store-promotion"><div><strong>{design.promotion.headline}</strong>{design.promotion.body ? <span>{design.promotion.body}</span> : null}</div>{design.promotion.destination ? <a href={design.promotion.destination.path}>İncele</a> : null}</aside>) : null}
       {children ? <div className="celebix-store-content">{children}</div> : null}
       </div>
     </>
