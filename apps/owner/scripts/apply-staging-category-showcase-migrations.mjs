@@ -9,6 +9,76 @@ const { Client } = pg;
 const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const SQL_DIRECTORY = path.join(SCRIPT_DIRECTORY, "sql", "saas");
 
+const STALE_STARTER_COMPOSITION_REPAIR = `-- STALE_STARTER_COMPOSITION_REPAIR
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='120s';
+
+DO $stale_starter_composition_repair$
+BEGIN
+  PERFORM record.id
+  FROM saas.merchant_admin_records record
+  WHERE record.record_kind='starter_theme_composition'
+    AND NOT saas.campaign_starter_composition_valid(record.config)
+  FOR UPDATE OF record;
+
+  IF EXISTS(
+    SELECT 1
+    FROM saas.merchant_admin_records record
+    WHERE record.record_kind='starter_theme_composition'
+      AND NOT saas.campaign_starter_composition_valid(record.config)
+      AND (
+        record.status='archived'
+        OR NOT EXISTS(
+          SELECT 1
+          FROM saas.storefront_designs design
+          WHERE design.store_id=record.store_id
+            AND pg_catalog.jsonb_typeof(design.draft_config->'composition')='object'
+            AND saas.campaign_starter_composition_valid(design.draft_config->'composition')
+        )
+      )
+  ) THEN
+    RAISE EXCEPTION 'STALE_STARTER_COMPOSITION_REPAIR_UNSAFE';
+  END IF;
+
+  PERFORM design.store_id
+  FROM saas.storefront_designs design
+  WHERE EXISTS(
+    SELECT 1
+    FROM saas.merchant_admin_records record
+    WHERE record.store_id=design.store_id
+      AND record.record_kind='starter_theme_composition'
+      AND record.status<>'archived'
+      AND NOT saas.campaign_starter_composition_valid(record.config)
+  )
+  FOR UPDATE OF design;
+
+  UPDATE saas.merchant_admin_records record
+  SET config=design.draft_config->'composition',
+      version=record.version+1,
+      updated_at=GREATEST(record.updated_at,pg_catalog.clock_timestamp())
+  FROM saas.storefront_designs design
+  WHERE record.store_id=design.store_id
+    AND record.record_kind='starter_theme_composition'
+    AND record.status<>'archived'
+    AND NOT saas.campaign_starter_composition_valid(record.config)
+    AND pg_catalog.jsonb_typeof(design.draft_config->'composition')='object'
+    AND saas.campaign_starter_composition_valid(design.draft_config->'composition');
+
+  IF EXISTS(
+    SELECT 1
+    FROM saas.merchant_admin_records record
+    WHERE record.record_kind='starter_theme_composition'
+      AND NOT saas.campaign_starter_composition_valid(record.config)
+  ) THEN
+    RAISE EXCEPTION 'STALE_STARTER_COMPOSITION_REPAIR_INCOMPLETE';
+  END IF;
+END
+$stale_starter_composition_repair$;
+
+COMMIT;`;
+
 const MIGRATIONS = Object.freeze([
   Object.freeze({
     code: "responsive_layout",
@@ -138,13 +208,20 @@ export async function runCategoryShowcaseMigrations({ client, databaseName, read
         await runMigrationQuery(client, readSql(migration.up), migration.code, "apply");
       }
       if (migration.verification) {
-        const verification = await runMigrationQuery(client, migration.verification, migration.code, "verification");
-        const durable = verification.rowCount === 1 ? verification.rows[0] : null;
+        let verification = await runMigrationQuery(client, migration.verification, migration.code, "verification");
+        let durable = verification.rowCount === 1 ? verification.rows[0] : null;
         if (durable?.record_invalid === true) {
           if (durable.record_repairable === true) {
-            throw new Error(`category_showcase_staging_${migration.code}_record_repairable_from_design`);
+            await runMigrationQuery(client, STALE_STARTER_COMPOSITION_REPAIR, migration.code, "repair");
+            write(`category_showcase_repair_${migration.code}=reconciled_from_design`);
+            verification = await runMigrationQuery(client, migration.verification, migration.code, "verification");
+            durable = verification.rowCount === 1 ? verification.rows[0] : null;
+            if (durable?.record_invalid === true) {
+              throw new Error(`category_showcase_staging_${migration.code}_record_repair_failed`);
+            }
+          } else {
+            throw new Error(`category_showcase_staging_${migration.code}_record_data_invalid`);
           }
-          throw new Error(`category_showcase_staging_${migration.code}_record_data_invalid`);
         }
         if (durable?.publication_invalid === true) {
           throw new Error(`category_showcase_staging_${migration.code}_publication_data_invalid`);

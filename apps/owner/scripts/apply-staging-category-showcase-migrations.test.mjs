@@ -160,7 +160,45 @@ test("category showcase staging migration classifies invalid empty-homepage dura
   );
 });
 
-test("category showcase staging migration identifies records safely repairable from unified design authority", async () => {
+test("category showcase staging migration repairs stale non-archived records from unified design authority once", async () => {
+  let verificationCount = 0;
+  const calls = [];
+  const client = {
+    async connect() {},
+    async end() {},
+    async query(sql) {
+      calls.push(String(sql));
+      if (String(sql).includes("AS owner_member")) return { rowCount: 1, rows: [{ database_matches: true, postgres_matches: true, tier_matches: true, writable_primary: true, writable_transaction: true, owner_member: true }] };
+      if (String(sql).includes("AS record_invalid")) {
+        verificationCount += 1;
+        return verificationCount === 1
+          ? { rowCount: 1, rows: [{ record_invalid: true, record_repairable: true, publication_invalid: false, design_invalid: false }] }
+          : { rowCount: 1, rows: [{ record_invalid: false, record_repairable: false, publication_invalid: false, design_invalid: false }] };
+      }
+      return { rowCount: 1, rows: [{ has_objects: true, ready: true }] };
+    },
+  };
+  const lines = [];
+
+  await runCategoryShowcaseMigrations({
+    client,
+    databaseName: approved.CELEBIX_SAAS_DATABASE_NAME,
+    readSql: (name) => `-- ${name}`,
+    write: (line) => lines.push(line),
+  });
+
+  const repair = calls.filter((sql) => sql.includes("STALE_STARTER_COMPOSITION_REPAIR"));
+  assert.equal(repair.length, 1);
+  assert.match(repair[0], /FOR UPDATE OF record/);
+  assert.match(repair[0], /record[.]status='archived'/);
+  assert.match(repair[0], /design[.]draft_config->'composition'/);
+  assert.match(repair[0], /version=record[.]version\+1/);
+  assert.match(repair[0], /updated_at=GREATEST\(record[.]updated_at,pg_catalog[.]clock_timestamp\(\)\)/);
+  assert.equal(verificationCount, 2);
+  assert.equal(lines.includes("category_showcase_repair_empty_homepage=reconciled_from_design"), true);
+});
+
+test("category showcase staging migration fails closed when reconciliation does not clear invalid records", async () => {
   const client = {
     async connect() {},
     async end() {},
@@ -172,12 +210,7 @@ test("category showcase staging migration identifies records safely repairable f
   };
 
   await assert.rejects(
-    runCategoryShowcaseMigrations({
-      client,
-      databaseName: approved.CELEBIX_SAAS_DATABASE_NAME,
-      readSql: (name) => `-- ${name}`,
-      write: () => undefined,
-    }),
-    /category_showcase_staging_empty_homepage_record_repairable_from_design/,
+    runCategoryShowcaseMigrations({ client, databaseName: approved.CELEBIX_SAAS_DATABASE_NAME, readSql: (name) => `-- ${name}`, write: () => undefined }),
+    /category_showcase_staging_empty_homepage_record_repair_failed/,
   );
 });
