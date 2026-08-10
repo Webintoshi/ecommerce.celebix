@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase4r-single-authority-category-showcase",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608100099_single_authority_category_showcase.up.sql",
+      "direction": "up",
+      "sha256": "f2cd3c25491bc79e0e544eb330b3de39742ab1c14c16e6cfdcdda450456a4c7e"
+    },
+    {
+      "file": "202608100099_single_authority_category_showcase.down.sql",
+      "direction": "down",
+      "sha256": "01b654a7ab379cfb9155cd9dcfdd2fa8398cca1f9a4e7bb666214b04e02fb6ff"
+    },
+    {
+      "file": "202608100099_single_authority_category_showcase_assertions.sql",
+      "direction": "verify",
+      "sha256": "6d4aa2c58a27eae74f394828d5b3ce44a43d09ef9302bd613af1564c6699802b"
+    }
+  ]
+}
