@@ -344,7 +344,10 @@ test("public content shell owns exact fixed policies search favorites and siblin
   for (const path of ["/search", "/favorites", "/account", "/cart"]) assert.match(utilities, new RegExp(`href: ['\"]${path.replace("/", "\\/")}`));
   assert.match(favoriteButton, /favoritesStorageKey/);
   assert.match(favoriteButton, /aria-pressed/);
-  assert.match(footer, /FIXED_STOREFRONT_POLICIES[.]map/);
+  assert.match(footer, /runtime[.]content[.]listPolicies/);
+  assert.match(footer, /mergePublishedPolicyFooterGroups/);
+  assert.match(footer, /Object[.]freeze\(\[\]\)/);
+  assert.doesNotMatch(footer, /FIXED_STOREFRONT_POLICIES[.]map/);
   assert.match(card, /<article/);
   assert.match(card, /<FavoriteButton/);
   assert.match(card, /<ProductCardCartButton/);
