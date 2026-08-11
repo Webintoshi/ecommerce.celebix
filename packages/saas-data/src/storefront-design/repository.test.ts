@@ -28,7 +28,7 @@ const TYPOGRAPHY = {
 };
 
 const DESIGN = {
-  schemaVersion: 3 as const,
+  schemaVersion: 4 as const,
   brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "inter" as const },
   hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "", desktopImage: null, mobileImage: null, destination: { kind: "none" as const }, enabled: true }] },
   promotion: { headline: "Ücretsiz kargo", body: "", destination: { kind: "none" as const }, startsAt: null, endsAt: null, enabled: false },
