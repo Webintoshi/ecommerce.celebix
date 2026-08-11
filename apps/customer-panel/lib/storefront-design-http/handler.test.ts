@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { createDefaultStarterThemeComposition, type StorefrontDesignDocument, type TenantContext } from "@celebix/saas-contracts";
+import { createDefaultStarterThemeComposition, parseStorefrontDesignDocument, type StorefrontDesignDocument, type TenantContext } from "@celebix/saas-contracts";
 import { StorefrontDesignRepositoryError, type StorefrontDesignRepository } from "@celebix/saas-data";
 
-import { createStorefrontDesignHttpHandlers } from "./handler.ts";
+import { createStorefrontDesignHttpHandlers, validateStorefrontDesignWorkspaceReferences } from "./handler.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
 const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
@@ -17,6 +17,9 @@ const PLAN = "40000000-0000-4000-8000-000000000001";
 const REQUEST = "50000000-0000-4000-8000-000000000001";
 const OPERATION = "60000000-0000-4000-8000-000000000001";
 const MEDIA = "70000000-0000-4000-8000-000000000001";
+const PRODUCT = "71000000-0000-4000-8000-000000000001";
+const CATEGORY = "72000000-0000-4000-8000-000000000001";
+const PAGE = "73000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-08-03T09:00:00.000Z");
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x61).toString("base64url")}`;
 const TYPOGRAPHY = Object.freeze({
@@ -61,8 +64,12 @@ function tenant(role: TenantContext["membership"]["role"] = "store_owner"): Tena
   };
 }
 
-function workspace() {
-  return { schemaVersion: 3 as const, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW.toISOString(), publishedAt: NOW.toISOString(), draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] };
+function workspace(input: Readonly<{
+  draft?: StorefrontDesignDocument;
+  media?: readonly any[];
+  destinations?: readonly any[];
+}> = {}) {
+  return { schemaVersion: 3 as const, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW.toISOString(), publishedAt: NOW.toISOString(), draft: input.draft ?? DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: input.media ?? [], destinations: input.destinations ?? [] };
 }
 
 function repository(overrides: Partial<StorefrontDesignRepository> = {}): StorefrontDesignRepository {
@@ -142,8 +149,84 @@ test("draft save parses the exact document and binds the idempotency key and exp
   const saved = selected.calls.find((call) => call.method === "save")?.input;
   assert.equal(saved.operationId, OPERATION);
   assert.equal(saved.expectedDraftVersion, 1);
-  assert.deepEqual(saved.design, DESIGN);
+  assert.deepEqual(saved.design, parseStorefrontDesignDocument(DESIGN));
   assert.equal(saved.tenantContext.store.id, STORE);
+});
+
+test("draft save rejects missing or cross-store-shaped references before any write", async () => {
+  const foreignMedia = "70000000-0000-4000-8000-000000000099";
+  const design = {
+    ...DESIGN,
+    brand: { ...DESIGN.brand, logo: { kind: "media" as const, mediaId: foreignMedia } },
+  };
+  const selected = fixture();
+  const result = await selected.handlers.saveDraft(request(
+    "/api/storefront-design/draft",
+    "PATCH",
+    { expectedDraftVersion: 1, design },
+    { "idempotency-key": OPERATION },
+  ));
+  assert.equal(result.status, 400);
+  assert.deepEqual(await result.json(), { code: "invalid_input" });
+  assert.equal(selected.calls.filter(({ method }) => method === "save").length, 0);
+});
+
+test("workspace reference validation accepts exact authenticated options and an intentionally empty homepage", () => {
+  const design: StorefrontDesignDocument = {
+    ...DESIGN,
+    brand: { ...DESIGN.brand, logo: { kind: "media", mediaId: MEDIA } },
+    hero: {
+      enabled: true,
+      slides: [{ ...DESIGN.hero.slides[0], destination: { kind: "product", resourceId: PRODUCT } }],
+    },
+    composition: {
+      ...createDefaultStarterThemeComposition(),
+      navigation: { rootCategoryIds: [CATEGORY] },
+      sections: [],
+      footer: {
+        ...createDefaultStarterThemeComposition().footer,
+        groups: [
+          { heading: "Mağaza", links: [{ kind: "category", categoryId: CATEGORY }] },
+          { heading: "Bilgi", links: [{ kind: "page", pageId: PAGE }] },
+        ],
+      },
+    },
+  };
+  const authority = workspace({
+    draft: design,
+    media: [{ id: MEDIA, url: "https://media.example/design.webp", altText: "Logo", mediaType: "image/webp", width: 400, height: 200 }],
+    destinations: [
+      { kind: "product", resourceId: PRODUCT, label: "Ürün", path: "/products/urun" },
+      { kind: "collection", resourceId: CATEGORY, label: "Kategori", path: "/collections/kategori" },
+      { kind: "page", resourceId: PAGE, label: "Sayfa", path: "/pages/sayfa" },
+    ],
+  });
+  assert.equal(validateStorefrontDesignWorkspaceReferences(design, authority), true);
+  assert.deepEqual(design.composition.sections, []);
+});
+
+test("publication revalidates its durable draft and never persists a derived quality score", async () => {
+  const invalidDraft: StorefrontDesignDocument = {
+    ...DESIGN,
+    composition: {
+      ...createDefaultStarterThemeComposition(),
+      navigation: { rootCategoryIds: [CATEGORY] },
+    },
+  };
+  const calls: string[] = [];
+  const selected = fixture({ repository: repository({
+    async getWorkspace() { calls.push("get"); return workspace({ draft: invalidDraft }); },
+    async publish() { calls.push("publish"); throw new Error("write_must_not_run"); },
+  }) });
+  const result = await selected.handlers.publish(request(
+    "/api/storefront-design/publish",
+    "POST",
+    { expectedDraftVersion: 1, expectedPublishedVersion: 1 },
+    { "idempotency-key": OPERATION },
+  ));
+  assert.equal(result.status, 400);
+  assert.deepEqual(calls, ["get"]);
+  assert.equal(JSON.stringify(invalidDraft).includes("qualityScore"), false);
 });
 
 test("tenant admin same-origin design mutations persist without trusting another tenant origin", async () => {

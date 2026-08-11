@@ -6,6 +6,8 @@ import {
   isMerchantActionAllowed,
   parseStorefrontDesignDocument,
   parseStorefrontDesignWorkspace,
+  type StorefrontDesignDocument,
+  type StorefrontDesignWorkspace,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import {
@@ -24,6 +26,20 @@ import { validateStorefrontDesignRequest } from "./request-authority.ts";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_JSON_BYTES = 32_768;
 const MAX_MEDIA_REQUEST_BYTES = 5_300_000;
+const SYSTEM_DESTINATIONS = new Set([
+  "/",
+  "/products",
+  "/favorites",
+  "/account",
+  "/pages/odeme-teslimat",
+  "/policies/privacy-security",
+  "/policies/distance-sales",
+  "/policies/kvkk",
+  "/policies/payment-delivery",
+  "/policies/cookies",
+  "/policies/returns-exchanges",
+  "/policies/membership",
+]);
 
 const REPOSITORY_STATUS: Readonly<Record<StorefrontDesignRepositoryErrorCode, number>> = Object.freeze({
   invalid_input: 400,
@@ -160,6 +176,56 @@ function exactPendingObject(value: ProductMediaStorageObject, input: Readonly<{ 
   return value.kind === "found" && value.publication === "pending" && value.byteSize === input.byteSize && value.mediaType === input.mediaType && value.payloadSha256 === input.payloadSha256;
 }
 
+/**
+ * Validates only references projected by the authenticated store workspace.
+ * Store identity never enters this boundary from the browser. Asset references
+ * owned by the composition tables remain atomically enforced by PostgreSQL.
+ */
+export function validateStorefrontDesignWorkspaceReferences(
+  design: StorefrontDesignDocument,
+  workspace: StorefrontDesignWorkspace,
+): boolean {
+  const mediaIds = new Set(workspace.media.map(({ id }) => id));
+  const destinations = new Set(workspace.destinations.map(({ kind, resourceId }) => `${kind}:${resourceId}`));
+  const destinationPaths = new Set(workspace.destinations.map(({ path }) => path));
+  const media = (reference: StorefrontDesignDocument["brand"]["logo"]): boolean => reference === null || mediaIds.has(reference.mediaId);
+  const destination = (reference: StorefrontDesignDocument["hero"]["slides"][number]["destination"]): boolean =>
+    reference.kind === "none" || destinations.has(`${reference.kind}:${reference.resourceId}`);
+  const path = (value: string | undefined): boolean => value === undefined || SYSTEM_DESTINATIONS.has(value) || destinationPaths.has(value);
+  const resource = (kind: "product" | "collection" | "page", id: string | undefined): boolean =>
+    id === undefined || destinations.has(`${kind}:${id}`);
+
+  if (!media(design.brand.logo) || !media(design.brand.favicon) || !destination(design.promotion.destination)) return false;
+  for (const slide of design.hero.slides) {
+    if (!media(slide.desktopImage) || !media(slide.mobileImage) || !destination(slide.destination)) return false;
+  }
+
+  const composition = design.composition;
+  if (!path(composition.announcement.destination)) return false;
+  if (composition.navigation.rootCategoryIds.some((id) => !resource("collection", id))) return false;
+  if (!resource("collection", composition.navigation.featuredCategoryId)) return false;
+  for (const section of composition.sections) {
+    if (section.kind === "hero") {
+      if (section.slides.some((slide) => !path(slide.destination) || !resource("product", slide.productId))) return false;
+    } else if (section.kind === "category_grid") {
+      if (section.categoryIds.some((id) => !resource("collection", id))) return false;
+    } else if (section.kind === "product_row") {
+      if (section.source === "category" && !resource("collection", section.categoryId)) return false;
+    } else if (section.kind === "split_campaign") {
+      if (section.panels.some((panel) => !path(panel.destination))) return false;
+    } else if (section.kind === "brand_story" && !path(section.destination)) return false;
+  }
+  if (composition.schemaVersion >= 2) {
+    for (const group of composition.footer.groups) {
+      for (const link of group.links) {
+        if (link.kind === "category" && !resource("collection", link.categoryId)) return false;
+        if (link.kind === "page" && !resource("page", link.pageId)) return false;
+      }
+    }
+  }
+  return true;
+}
+
 export function createStorefrontDesignHttpHandlers(deps: Dependencies) {
   return Object.freeze({
     async workspace(request: Request): Promise<Response> {
@@ -181,6 +247,8 @@ export function createStorefrontDesignHttpHandlers(deps: Dependencies) {
       let design;
       try { design = parseStorefrontDesignDocument(parsed.design); } catch { return response("invalid_input", 400); }
       try {
+        const workspace = parseStorefrontDesignWorkspace(await authorized.runtime.repository.getWorkspace({ tenantContext: authorized.tenantContext, now: authorized.now }));
+        if (!validateStorefrontDesignWorkspaceReferences(design, workspace)) return response("invalid_input", 400);
         const result = await authorized.runtime.repository.saveDraft({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, expectedDraftVersion, design });
         return response("saved", 200, { result });
       } catch (error) { return repositoryFailure(error); }
@@ -195,6 +263,8 @@ export function createStorefrontDesignHttpHandlers(deps: Dependencies) {
       const expectedPublishedVersion = parsed ? version(parsed.expectedPublishedVersion) : null;
       if (!parsed || !operation || expectedDraftVersion === null || expectedPublishedVersion === null) return response("invalid_input", 400);
       try {
+        const workspace = parseStorefrontDesignWorkspace(await authorized.runtime.repository.getWorkspace({ tenantContext: authorized.tenantContext, now: authorized.now }));
+        if (!validateStorefrontDesignWorkspaceReferences(workspace.draft, workspace)) return response("invalid_input", 400);
         const result = await authorized.runtime.repository.publish({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, expectedDraftVersion, expectedPublishedVersion });
         return response("published", 200, { result });
       } catch (error) { return repositoryFailure(error); }
