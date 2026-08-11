@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, Globe2, PackageCheck, Store } from "lucide-react";
 import {
@@ -69,6 +70,20 @@ const PAYMENT_STATUS_LABELS: Readonly<Record<OrderPaymentStatus, string>> = Obje
   failed: "Başarısız",
   refunded: "İade edildi",
 });
+
+function orderStatusTone(status: OrderStatus): "neutral" | "success" | "warning" | "danger" {
+  if (status === "delivered" || status === "shipped") return "success";
+  if (status === "cancelled" || status === "refunded") return "danger";
+  if (status === "pending" || status === "preparing") return "warning";
+  return "neutral";
+}
+
+function paymentStatusTone(status: OrderPaymentStatus): "neutral" | "success" | "warning" | "danger" {
+  if (status === "completed") return "success";
+  if (status === "failed" || status === "refunded") return "danger";
+  if (status === "pending" || status === "processing") return "warning";
+  return "neutral";
+}
 
 type LoadState = "loading" | "loaded" | "error";
 type OptionalLoadState = LoadState | "unsupported";
@@ -210,6 +225,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
     ({ key }) => key === "storefront",
   );
   const hasStorefront = storefront?.status === "Doğrulandı";
+  const storefrontLabel = storefront?.value?.trim() ? storefront.value : "Mağaza adresi";
   const period = props.period ?? analytics?.period ?? "month";
   const freshness = analyticsState === "loaded" && analytics
     ? "Canlı"
@@ -231,6 +247,11 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
   const customers = props.dashboard.customers.state === "ready"
     ? props.dashboard.customers.value
     : undefined;
+  const hasSalesRevenue = Boolean(
+    analytics &&
+      (analytics.revenueCents > 0 ||
+        analytics.series.some((point) => point.revenueCents > 0)),
+  );
   const outOfStockVariants = catalog?.metrics.find(
     ({ key }) => key === "out-of-stock",
   )?.value ?? 0;
@@ -362,18 +383,32 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
       </nav>
 
       <section className={styles.readinessBanner} aria-label="Mağaza durumu">
-        <span className={styles.readinessIcon} aria-hidden="true">
+        <span className={styles.readinessIcon} data-state={hasStorefront ? "ready" : "pending"} aria-hidden="true">
           <Store />
         </span>
-        <div>
+        <div className={styles.readinessCopy}>
           <h2>{hasStorefront ? "Mağaza adresiniz doğrulandı" : "Mağaza kurulumunu tamamlayın"}</h2>
           <p>
             {hasStorefront
-              ? `${storefront?.value} adresi etkin mağazanıza bağlı.`
+              ? `${storefrontLabel} adresi etkin mağazanıza bağlı.`
               : "Satışa başlamadan önce mağaza adresi ve kurulum durumunu gözden geçirin."}
           </p>
         </div>
-        <PanelActionButton href={hasStorefront ? "/analytics" : "/setup"} primary>
+        <dl className={styles.readinessMeta} aria-label="Mağaza yayın özeti">
+          <div>
+            <dt>Durum</dt>
+            <dd>{hasStorefront ? "Doğrulandı" : "Bekliyor"}</dd>
+          </div>
+          <div>
+            <dt>Alan adı</dt>
+            <dd>{hasStorefront ? storefrontLabel : "Bağlı değil"}</dd>
+          </div>
+          <div>
+            <dt>Veri</dt>
+            <dd>{analytics ? formatGeneratedAt(analytics.generatedAt) : freshness}</dd>
+          </div>
+        </dl>
+        <PanelActionButton href={hasStorefront ? "/analytics" : "/setup"}>
           {hasStorefront ? "Analitiği görüntüle" : "Kurulumu tamamla"}
         </PanelActionButton>
       </section>
@@ -391,98 +426,173 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
           </div>
         </div>
 
-        <div className={styles.salesChart} role="img" aria-label="Canlı satış grafiği">
-          {analyticsState === "loading" ? (
-            <div className={styles.chartLoading} role="status">
-              Satış özeti yükleniyor…
-            </div>
-          ) : null}
-          {analyticsState === "error" || analyticsState === "unsupported" ? (
-            <div className={styles.chartError} role="alert">
+        <div className={styles.performanceBody}>
+          <article className={styles.salesBlock}>
+            <header className={styles.sectionHeader}>
               <div>
-                <strong>Satış özeti yüklenemedi</strong>
-                <span>Satış verileri şu anda kullanılamıyor.</span>
+                <h2>Satış performansı</h2>
+                <p>{PERIOD_LABELS[period]} dönemindeki ödenmiş sipariş geliri</p>
               </div>
-              <SummaryRetryButton
-                onRetry={props.onRefreshAnalytics ?? props.onRefresh}
-              />
+              <span>{analytics ? formatMoney(analytics.revenueCents, analytics.currency) : emptyValue}</span>
+            </header>
+            <div className={styles.salesChart} role="img" aria-label="Canlı satış grafiği">
+              {analyticsState === "loading" ? (
+                <div className={styles.chartLoading} role="status">
+                  Satış özeti yükleniyor…
+                </div>
+              ) : null}
+              {analyticsState === "error" || analyticsState === "unsupported" ? (
+                <div className={styles.chartError} role="alert">
+                  <div>
+                    <strong>Satış özeti yüklenemedi</strong>
+                    <span>Satış verileri şu anda kullanılamıyor.</span>
+                  </div>
+                  <SummaryRetryButton
+                    onRetry={props.onRefreshAnalytics ?? props.onRefresh}
+                  />
+                </div>
+              ) : null}
+              {analyticsState === "loaded" && analytics ? (
+                hasSalesRevenue && analytics.series.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <LineChart data={analytics.series} accessibilityLayer margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+                      <CartesianGrid stroke="#E8EDF3" vertical={false} />
+                      <XAxis
+                        dataKey="startsAt"
+                        tickFormatter={formatSeriesLabel}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tickFormatter={(value) =>
+                          formatMoney(Number(value), analytics.currency)
+                        }
+                        axisLine={false}
+                        tickLine={false}
+                        width={76}
+                      />
+                      <Tooltip
+                        labelFormatter={(value) =>
+                          typeof value === "string" ? formatSeriesLabel(value) : ""
+                        }
+                        formatter={(value) => [
+                          formatMoney(Number(value), analytics.currency),
+                          "Satış",
+                        ]}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="revenueCents"
+                        stroke="#FE6100"
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className={styles.emptyChart}>
+                    <strong>Bu dönemde satış hareketi yok</strong>
+                    <span>Ödenmiş sipariş oluştuğunda kısa performans grafiği burada görünür.</span>
+                  </div>
+                )
+              ) : null}
             </div>
-          ) : null}
-          {analyticsState === "loaded" && analytics ? (
-            analytics.series.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={analytics.series} accessibilityLayer margin={{ left: 8, right: 12 }}>
-                  <CartesianGrid stroke="#E8EDF3" vertical={false} />
-                  <XAxis
-                    dataKey="startsAt"
-                    tickFormatter={formatSeriesLabel}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tickFormatter={(value) =>
-                      formatMoney(Number(value), analytics.currency)
-                    }
-                    axisLine={false}
-                    tickLine={false}
-                    width={82}
-                  />
-                  <Tooltip
-                    labelFormatter={(value) =>
-                      typeof value === "string" ? formatSeriesLabel(value) : ""
-                    }
-                    formatter={(value) => [
-                      formatMoney(Number(value), analytics.currency),
-                      "Satış",
-                    ]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="revenueCents"
-                    stroke="#FE6100"
-                    strokeWidth={3}
-                    dot={false}
-                    activeDot={{ r: 5 }}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className={styles.emptyChart}>
-                <strong>Bu dönemde satış hareketi yok</strong>
-                <span>Ödenmiş sipariş oluştuğunda grafik burada görünür.</span>
-              </div>
-            )
-          ) : null}
-        </div>
-
-        {pendingOrders > 0 ? (
-          <div className={styles.pendingAction}>
-            <PackageCheck aria-hidden="true" />
-            <PanelActionButton href="/orders">
-              {pendingOrders.toLocaleString("tr-TR")} sipariş işlem bekliyor · Siparişleri aç
-            </PanelActionButton>
-          </div>
-        ) : null}
-
-        <div className={styles.channelSummary} aria-label="Satış kanalları">
-          <article>
-            <span className={styles.channelIcon} aria-hidden="true">
-              <Globe2 />
-            </span>
-            <div>
-              <strong>{hasStorefront ? storefront?.value : "Storefront bağlı değil"}</strong>
-              <small>{hasStorefront ? "Doğrulanmış mağaza adresi" : "Kurulum bekliyor"}</small>
-            </div>
-            <span className={hasStorefront ? styles.channelReady : styles.channelPending}>
-              {hasStorefront ? "Etkin" : "Bekliyor"}
-            </span>
           </article>
-          <PanelActionButton href="/analytics">Analitiği görüntüle</PanelActionButton>
+
+          <aside className={styles.attentionPanel} aria-labelledby="attention-title">
+            <header className={styles.sectionHeader}>
+              <div>
+                <h2 id="attention-title">Operasyon dikkati</h2>
+                <p>Öncelikli aksiyon sinyalleri</p>
+              </div>
+            </header>
+            {tasks.length > 0 ? (
+              <ul className={styles.attentionList}>
+                {tasks.map((task) => (
+                  <li key={task.key}>
+                    <div>
+                      <strong>{task.label}</strong>
+                      <small>{task.detail}</small>
+                    </div>
+                    <PanelActionButton href={task.href}>Aç</PanelActionButton>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.attentionEmpty}>Şu an kritik operasyon aksiyonu görünmüyor.</p>
+            )}
+          </aside>
         </div>
       </section>
 
-      <div className={styles.insightGrid}>
+      {props.recentOrdersState ? (
+        <section className={styles.recentOrders} aria-labelledby="recent-orders-title">
+          <header>
+            <div>
+              <h2 id="recent-orders-title">Son siparişler</h2>
+              <p>En yeni işlemleri hızlıca kontrol edin.</p>
+            </div>
+            <PanelActionButton href="/orders">Tüm siparişler</PanelActionButton>
+          </header>
+          {props.recentOrdersState === "loading" ? (
+            <p className={styles.recentOrdersState} role="status">Son siparişler yükleniyor…</p>
+          ) : null}
+          {props.recentOrdersState === "error" ? (
+            <div className={styles.recentOrdersError} role="alert">
+              <span>Son siparişler şu anda kullanılamıyor.</span>
+              <SummaryRetryButton onRetry={props.onRefreshRecentOrders ?? props.onRefresh} />
+            </div>
+          ) : null}
+          {props.recentOrdersState === "loaded" ? (
+            (props.recentOrders?.length ?? 0) > 0 ? (
+              <div className={styles.recentOrdersViewport}>
+                <table className={styles.recentOrdersTable}>
+                  <caption className={styles.visuallyHidden}>En yeni siparişler</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Sipariş</th>
+                      <th scope="col">Müşteri</th>
+                      <th scope="col">Durum</th>
+                      <th scope="col">Ödeme</th>
+                      <th scope="col">Tutar</th>
+                      <th scope="col">Tarih</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {props.recentOrders?.map((order) => (
+                      <tr key={order.id}>
+                        <td>
+                          <Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link>
+                          <small>{order.itemCount.toLocaleString("tr-TR")} ürün</small>
+                        </td>
+                        <td>{order.customerName}</td>
+                        <td>
+                          <span className={styles.statusPill} data-tone={orderStatusTone(order.status)}>
+                            {ORDER_STATUS_LABELS[order.status]}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={styles.statusPill} data-tone={paymentStatusTone(order.paymentStatus)}>
+                            {PAYMENT_STATUS_LABELS[order.paymentStatus]}
+                          </span>
+                        </td>
+                        <td>{formatMoney(order.totalCents, order.currency)}</td>
+                        <td><time dateTime={order.createdAt}>{formatOrderDate(order.createdAt)}</time></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className={styles.recentOrdersState}>Henüz sipariş bulunmuyor.</p>
+            )
+          ) : null}
+        </section>
+      ) : null}
+
+      <div className={styles.secondaryGrid}>
         <section className={styles.bestSellers} aria-labelledby="best-sellers-title">
           <header>
             <h2 id="best-sellers-title">En çok satanlar</h2>
@@ -544,86 +654,6 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
               <dd>{analytics ? analytics.growth.totalCustomers.toLocaleString("tr-TR") : emptyValue}</dd>
             </div>
           </dl>
-        </section>
-      </div>
-
-      {props.recentOrdersState ? (
-        <section className={styles.recentOrders} aria-labelledby="recent-orders-title">
-          <header>
-            <div>
-              <h2 id="recent-orders-title">Son siparişler</h2>
-            </div>
-            <PanelActionButton href="/orders">Tüm siparişler</PanelActionButton>
-          </header>
-          {props.recentOrdersState === "loading" ? (
-            <p className={styles.recentOrdersState} role="status">Son siparişler yükleniyor…</p>
-          ) : null}
-          {props.recentOrdersState === "error" ? (
-            <div className={styles.recentOrdersError} role="alert">
-              <span>Son siparişler şu anda kullanılamıyor.</span>
-              <SummaryRetryButton onRetry={props.onRefreshRecentOrders ?? props.onRefresh} />
-            </div>
-          ) : null}
-          {props.recentOrdersState === "loaded" ? (
-            (props.recentOrders?.length ?? 0) > 0 ? (
-              <div className={styles.recentOrdersViewport}>
-                <table className={styles.recentOrdersTable}>
-                  <caption className={styles.visuallyHidden}>En yeni siparişler</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Sipariş</th>
-                      <th scope="col">Müşteri</th>
-                      <th scope="col">Durum</th>
-                      <th scope="col">Ödeme</th>
-                      <th scope="col">Tutar</th>
-                      <th scope="col">Tarih</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {props.recentOrders?.map((order) => (
-                      <tr key={order.id}>
-                        <td>
-                          <PanelActionButton href={`/orders/${order.id}`}>{order.orderNumber}</PanelActionButton>
-                          <small>{order.itemCount.toLocaleString("tr-TR")} ürün</small>
-                        </td>
-                        <td>{order.customerName}</td>
-                        <td><span className={styles.orderStatus}>{ORDER_STATUS_LABELS[order.status]}</span></td>
-                        <td>{PAYMENT_STATUS_LABELS[order.paymentStatus]}</td>
-                        <td>{formatMoney(order.totalCents, order.currency)}</td>
-                        <td><time dateTime={order.createdAt}>{formatOrderDate(order.createdAt)}</time></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className={styles.recentOrdersState}>Henüz sipariş bulunmuyor.</p>
-            )
-          ) : null}
-        </section>
-      ) : null}
-
-      <div className={styles.operationsGrid}>
-        <section className={styles.operationsPanel} aria-labelledby="todo-title">
-          <header>
-            <h2 id="todo-title">Yapılacaklar</h2>
-            <PanelActionButton href="/orders">Siparişleri görüntüle</PanelActionButton>
-          </header>
-          {tasks.length > 0 ? (
-            <ul className={styles.taskList}>
-              {tasks.map((task) => (
-                <li key={task.key}>
-                  <div>
-                    <strong>{task.label}</strong>
-                    <small>{task.detail}</small>
-                  </div>
-                  <PanelActionButton href={task.href}>Aç</PanelActionButton>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className={styles.operationsEmpty}>Bugün kritik aksiyon yok.</p>
-          )}
         </section>
 
         <section className={styles.operationsPanel} aria-labelledby="customer-view-title">
