@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, Globe2, PackageCheck, Store } from "lucide-react";
+import { ArrowRight, BadgeCheck, CalendarDays, Globe2, PackageCheck, Store } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -224,8 +224,10 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
   const storefront = props.dashboard.chromeCards.find(
     ({ key }) => key === "storefront",
   );
+  const plan = props.dashboard.chromeCards.find(({ key }) => key === "plan");
   const hasStorefront = storefront?.status === "Doğrulandı";
   const storefrontLabel = storefront?.value?.trim() ? storefront.value : "Mağaza adresi";
+  const planLabel = plan?.value?.trim();
   const period = props.period ?? analytics?.period ?? "month";
   const freshness = analyticsState === "loaded" && analytics
     ? "Canlı"
@@ -384,32 +386,39 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
 
       <section className={styles.readinessBanner} aria-label="Mağaza durumu">
         <span className={styles.readinessIcon} data-state={hasStorefront ? "ready" : "pending"} aria-hidden="true">
-          <Store />
+          {hasStorefront ? <BadgeCheck /> : <Store />}
         </span>
         <div className={styles.readinessCopy}>
-          <h2>{hasStorefront ? "Mağaza adresiniz doğrulandı" : "Mağaza kurulumunu tamamlayın"}</h2>
-          <p>
-            {hasStorefront
-              ? `${storefrontLabel} adresi etkin mağazanıza bağlı.`
-              : "Satışa başlamadan önce mağaza adresi ve kurulum durumunu gözden geçirin."}
+          <div className={styles.readinessTitleRow}>
+            <h2>{hasStorefront ? "Mağazanız doğrulandı" : "Mağaza kurulumunu tamamlayın"}</h2>
+            <span className={styles.readinessStatus} data-state={hasStorefront ? "ready" : "pending"}>
+              {hasStorefront ? "Canlı" : "Kurulum gerekli"}
+            </span>
+          </div>
+          <p className={styles.readinessAddress}>
+            <Globe2 aria-hidden="true" />
+            <span>{hasStorefront ? storefrontLabel : "Henüz bağlı değil"}</span>
           </p>
         </div>
         <dl className={styles.readinessMeta} aria-label="Mağaza yayın özeti">
           <div>
-            <dt>Durum</dt>
-            <dd>{hasStorefront ? "Doğrulandı" : "Bekliyor"}</dd>
+            <dt>Son güncelleme</dt>
+            <dd>
+              {analytics ? (
+                <time dateTime={analytics.generatedAt}>{formatGeneratedAt(analytics.generatedAt)}</time>
+              ) : freshness}
+            </dd>
           </div>
-          <div>
-            <dt>Alan adı</dt>
-            <dd>{hasStorefront ? storefrontLabel : "Bağlı değil"}</dd>
-          </div>
-          <div>
-            <dt>Veri</dt>
-            <dd>{analytics ? formatGeneratedAt(analytics.generatedAt) : freshness}</dd>
-          </div>
+          {planLabel ? (
+            <div>
+              <dt>Plan</dt>
+              <dd>{planLabel}</dd>
+            </div>
+          ) : null}
         </dl>
-        <PanelActionButton href={hasStorefront ? "/analytics" : "/setup"}>
-          {hasStorefront ? "Analitiği görüntüle" : "Kurulumu tamamla"}
+        <PanelActionButton href={hasStorefront ? "/analytics" : "/setup"} primary>
+          <span>{hasStorefront ? "Analitiği görüntüle" : "Kurulumu tamamla"}</span>
+          <ArrowRight aria-hidden="true" />
         </PanelActionButton>
       </section>
 
