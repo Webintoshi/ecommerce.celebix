@@ -111,6 +111,6 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
   return <section className={styles.workspace} data-panel-layout="visual-storefront-canvas">
     <PanelTopbarBridge title="Tasarım" subtitle={publishIssueLabel ?? STATUS_LABEL[editor.status]} actions={topbarActions} />
     <main className={styles.canvasStage}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} selectedSurface={modalOpen ? selectedSurface : undefined} onSelectSurface={selectSurface} /></main>
-    <DesignSettingsModal open={modalOpen} surface={selected} onClose={closeModal} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} onChange={change} onUpload={upload} /></DesignSettingsModal>
+    <DesignSettingsModal open={modalOpen} surface={selected} onClose={closeModal} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} previewMode={previewMode} onChange={change} onUpload={upload} /></DesignSettingsModal>
   </section>;
 }

@@ -68,15 +68,13 @@ test("workspace exposes one visual canvas, truthful save states and one shared s
   assert.doesNotMatch(`${workspace}\n${stepEditor}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
 });
 
-test("storefront asset and category-showcase authorities are reachable from the design workspace", async () => {
+test("homepage editing has one composition authority in the design workspace", async () => {
   const editor = await readFile(new URL("./DesignStepEditor.tsx", import.meta.url), "utf8");
-  assert.match(editor, /import \{ CategoryShowcaseEditor \}/);
   assert.match(editor, /import \{ StorefrontAssetManager \}/);
-  assert.match(editor, /allowedKinds=\{HOMEPAGE_ASSET_KINDS\}/);
-  assert.match(editor, /<CategoryShowcaseEditor canManage=\{canManage\} \/>/);
-  assert.doesNotMatch(editor, /<summary>Kategori kartlarını eşleştir<\/summary>/);
-  assert.match(editor, /<CategoryShowcaseEditor canManage=\{canManage\} \/>\s*\{composer\("home"\)\}/);
-  assert.match(editor, /step === "assets"/);
+  assert.match(editor, /step === "homepage"/);
+  assert.doesNotMatch(editor, /CategoryShowcaseEditor/);
+  assert.doesNotMatch(editor, /composer\("home"\)/);
+  assert.match(editor, /HomepageBuilder/);
   assert.doesNotMatch(editor, /x-store-id|localStorage|sessionStorage/);
 });
 
@@ -87,7 +85,7 @@ test("design preview delegates to one selectable storefront canvas without brows
   ]);
   assert.match(preview, /<VisualStorefrontCanvas/);
   assert.match(canvas, /StorefrontDesignRenderer/);
-  for (const surface of ["categories", "products", "product", "footer", "assets"]) {
+  for (const surface of ["homepage", "product", "footer"]) {
     assert.match(canvas, new RegExp(`data-design-surface=["']${surface}["']`));
   }
   assert.doesNotMatch(canvas, /iframe|localStorage|sessionStorage|x-store-id|tenantContext/);
@@ -147,6 +145,7 @@ test("controlled theme steps edit the same draft and keep the one workspace publ
   assert.match(stepEditor, /composer\("product"\)/);
   assert.match(stepEditor, /composer\("cart"\)/);
   assert.match(stepEditor, /composer\("footer"\)/);
+  assert.doesNotMatch(stepEditor, /composer\("home"\)/);
   assert.doesNotMatch(workspace, /StarterThemeSubnavigation/);
   assert.equal((workspace.match(/>Yayınla<\/button>/g) ?? []).length, 1);
   const visualPanel = composer.slice(composer.indexOf('activePanel === "visual"'), composer.indexOf('activePanel === "navigation"'));

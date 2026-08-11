@@ -27,10 +27,14 @@ interface VisualStorefrontCanvasProps {
   readonly onSelectSurface: (surface: DesignCanvasSurface, trigger?: HTMLButtonElement) => void;
 }
 
-const RENDERER_SURFACES = new Set<DesignCanvasSurface>(["announcement", "brand", "navigation", "hero", "promotion", "cart"]);
+const RENDERER_SURFACES = new Set<DesignCanvasSurface>(["announcement", "brand", "navigation", "cart"]);
 
 function rendererSurface(surface: DesignCanvasSurface | undefined): StorefrontRendererSurface | undefined {
   return surface && RENDERER_SURFACES.has(surface) ? surface as StorefrontRendererSurface : undefined;
+}
+
+function editorSurface(surface: StorefrontRendererSurface): DesignCanvasSurface {
+  return surface === "hero" || surface === "promotion" ? "homepage" : surface as DesignCanvasSurface;
 }
 
 function SurfaceButton({ surface, label, selected, onSelect }: Readonly<{
@@ -72,39 +76,34 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
       compact
       editor={{
         selectedSurface: rendererSurface(props.selectedSurface),
-        onSelectSurface: (surface, trigger) => props.onSelectSurface(surface, trigger),
+        onSelectSurface: (surface, trigger) => props.onSelectSurface(editorSurface(surface), trigger),
       }}
     >
       {!preview.hero.enabled || preview.hero.slides.length === 0 ? <section className={`${styles.canvasSurface} ${styles.canvasEmptyHero}`}>
         <small>ANA SAYFA</small><strong>Banner alanı kapalı</strong><p>Bir banner eklemek veya alanı açmak için seçin.</p>
-        <SurfaceButton surface="hero" label="Ana banner" selected={props.selectedSurface === "hero"} onSelect={props.onSelectSurface} />
+        <SurfaceButton surface="homepage" label="Ana sayfayı düzenle" selected={props.selectedSurface === "homepage"} onSelect={props.onSelectSurface} />
       </section> : null}
 
-      <section className={`${styles.canvasSurface} ${styles.canvasCategoryPreview}`} data-design-surface="categories" aria-label="Kategori vitrini önizlemesi">
-        <header><small>KOLEKSİYONLAR</small><h2>{categorySection?.kind === "category_grid" ? categorySection.heading : "Kategorileri keşfedin"}</h2></header>
-        <div className={styles.canvasCategoryGrid} data-count={categoryCount}>
-          {Array.from({ length: categoryCount }, (_, index) => <article key={index}><div aria-hidden="true"><i /></div><strong>Kategori {index + 1}</strong></article>)}
+      <section className={`${styles.canvasSurface}`} data-design-surface="homepage" aria-label="Ana sayfa bölümleri önizlemesi">
+        <div className={styles.canvasCategoryPreview}>
+          <header><small>KOLEKSİYONLAR</small><h2>{categorySection?.kind === "category_grid" ? categorySection.heading : "Kategorileri keşfedin"}</h2></header>
+          <div className={styles.canvasCategoryGrid} data-count={categoryCount}>
+            {Array.from({ length: categoryCount }, (_, index) => <article key={index}><div aria-hidden="true"><i /></div><strong>Kategori {index + 1}</strong></article>)}
+          </div>
         </div>
-        <SurfaceButton surface="categories" label="Kategori vitrini" selected={props.selectedSurface === "categories"} onSelect={props.onSelectSurface} />
-      </section>
-
-      <section className={`${styles.canvasSurface} ${styles.canvasProductPreview}`} data-design-surface="products" aria-label="Ürün bölümü önizlemesi">
-        <header><small>MAĞAZA</small><h2>{productSection?.kind === "product_row" ? productSection.heading : "Öne çıkan ürünler"}</h2><span>Tümünü gör</span></header>
-        <div className={styles.canvasProductGrid}>
-          {Array.from({ length: productCount }, (_, index) => <article key={index}><div aria-hidden="true"><i /></div><strong>Ürün {index + 1}</strong><small>Ürün bilgisi</small></article>)}
+        <div className={styles.canvasProductPreview}>
+          <header><small>MAĞAZA</small><h2>{productSection?.kind === "product_row" ? productSection.heading : "Öne çıkan ürünler"}</h2><span>Tümünü gör</span></header>
+          <div className={styles.canvasProductGrid}>
+            {Array.from({ length: productCount }, (_, index) => <article key={index}><div aria-hidden="true"><i /></div><strong>Ürün {index + 1}</strong><small>Ürün bilgisi</small></article>)}
+          </div>
         </div>
-        <SurfaceButton surface="products" label="Ürün bölümü" selected={props.selectedSurface === "products"} onSelect={props.onSelectSurface} />
+        <SurfaceButton surface="homepage" label="Ana sayfayı düzenle" selected={props.selectedSurface === "homepage"} onSelect={props.onSelectSurface} />
       </section>
 
       <section className={`${styles.canvasSurface} ${styles.canvasProductDetailPreview}`} data-design-surface="product" aria-label="Ürün sayfası önizlemesi">
         <div className={styles.canvasProductGallery} aria-hidden="true"><i /><i /><i /></div>
         <div className={styles.canvasProductSummary}><small>ÜRÜN SAYFASI</small><h2>Ürün adı</h2><p>Ürün bilgileri, seçenekleri ve satın alma alanı burada görünür.</p><div><span>−</span><b>1</b><span>+</span><button type="button" tabIndex={-1}>Sepete ekle</button></div></div>
         <SurfaceButton surface="product" label="Ürün sayfası" selected={props.selectedSurface === "product"} onSelect={props.onSelectSurface} />
-      </section>
-
-      <section className={`${styles.canvasSurface} ${styles.canvasAssetsPreview}`} data-design-surface="assets" aria-label="Görsel arşivi önizlemesi">
-        <div><small>VİTRİN GÖRSELLERİ</small><strong>{props.media.length} görsel hazır</strong><p>Logo, banner ve kategori görsellerini tek yerden yönetin.</p></div><span aria-hidden="true">＋</span>
-        <SurfaceButton surface="assets" label="Görsel arşivi" selected={props.selectedSurface === "assets"} onSelect={props.onSelectSurface} />
       </section>
 
       <footer className={`${styles.canvasSurface} ${styles.canvasFooterPreview}`} data-design-surface="footer" aria-label="Footer önizlemesi">

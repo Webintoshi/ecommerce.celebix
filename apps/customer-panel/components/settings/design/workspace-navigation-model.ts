@@ -7,10 +7,7 @@ export type DesignWorkspaceStep =
   | "product"
   | "cart"
   | "footer"
-  | "hero"
-  | "assets"
-  | "sections"
-  | "promotion";
+  | "homepage";
 
 export interface DesignWorkspaceLocation {
   readonly area: DesignWorkspaceArea;
@@ -46,10 +43,7 @@ const STEPS = Object.freeze({
     Object.freeze({ key: "footer", label: "Footer", hint: "Alt menü ve iletişim alanları" }),
   ]),
   home: Object.freeze([
-    Object.freeze({ key: "hero", label: "Bannerlar", hint: "Ana sayfa bannerları" }),
-    Object.freeze({ key: "assets", label: "Görseller", hint: "Banner ve kategori görselleri" }),
-    Object.freeze({ key: "sections", label: "Bölümler", hint: "Ana sayfa içerik sırası" }),
-    Object.freeze({ key: "promotion", label: "Promosyon", hint: "Zamanlı kampanya alanı" }),
+    Object.freeze({ key: "homepage", label: "Ana sayfayı düzenle", hint: "Banner, bölümler ve kalite puanı" }),
   ]),
 } as const);
 
@@ -63,11 +57,11 @@ const LEGACY_LOCATION = Object.freeze<Record<string, DesignWorkspaceLocation>>({
   product: Object.freeze({ area: "site", step: "product" }),
   cart: Object.freeze({ area: "site", step: "cart" }),
   footer: Object.freeze({ area: "site", step: "footer" }),
-  hero: Object.freeze({ area: "home", step: "hero" }),
-  assets: Object.freeze({ area: "home", step: "assets" }),
-  home: Object.freeze({ area: "home", step: "sections" }),
-  sections: Object.freeze({ area: "home", step: "sections" }),
-  promotion: Object.freeze({ area: "home", step: "promotion" }),
+  hero: Object.freeze({ area: "home", step: "homepage" }),
+  assets: Object.freeze({ area: "home", step: "homepage" }),
+  home: Object.freeze({ area: "home", step: "homepage" }),
+  sections: Object.freeze({ area: "home", step: "homepage" }),
+  promotion: Object.freeze({ area: "home", step: "homepage" }),
 });
 
 const DEFAULT_LOCATION = Object.freeze<DesignWorkspaceLocation>({ area: "site", step: "brand" });

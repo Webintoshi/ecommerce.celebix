@@ -6,10 +6,10 @@ import type {
   StorefrontDesignMediaOption,
 } from "@celebix/saas-contracts";
 
-import { CategoryShowcaseEditor } from "@/components/settings/CategoryShowcaseEditor";
 import { StarterThemeComposer } from "@/components/settings/StarterThemeComposer";
 import { StorefrontAssetManager } from "@/components/settings/StorefrontAssetManager";
 import { DesignInspector } from "./DesignInspector";
+import { HomepageBuilder } from "./HomepageBuilder";
 import type { DesignWorkspaceStep } from "./workspace-navigation-model";
 import styles from "../design-settings.module.css";
 
@@ -24,6 +24,7 @@ interface DesignStepEditorProps {
   readonly media: readonly StorefrontDesignMediaOption[];
   readonly destinations: readonly StorefrontDesignDestinationOption[];
   readonly canManage: boolean;
+  readonly previewMode: "desktop" | "mobile";
   readonly onChange: (design: StorefrontDesignDocument) => void;
   readonly onUpload: (file: File, altText: string) => Promise<StorefrontDesignMediaOption>;
 }
@@ -36,6 +37,7 @@ export function DesignStepEditor({
   media,
   destinations,
   canManage,
+  previewMode,
   onChange,
   onUpload,
 }: Readonly<DesignStepEditorProps>) {
@@ -50,7 +52,7 @@ export function DesignStepEditor({
     onChange={onChange}
     onUpload={onUpload}
   />;
-  const composer = (activePanel: "visual" | "navigation" | "home" | "product" | "cart" | "footer") => <StarterThemeComposer
+  const composer = (activePanel: "visual" | "navigation" | "product" | "cart" | "footer") => <StarterThemeComposer
     activePanel={activePanel}
     canManage={canManage}
     showPreview={false}
@@ -83,12 +85,11 @@ export function DesignStepEditor({
   if (step === "product") return composer("product");
   if (step === "cart") return composer("cart");
   if (step === "footer") return composer("footer");
-  if (step === "hero") return inspector("hero");
-  if (step === "promotion") return inspector("promotion");
-  if (step === "assets") return <StorefrontAssetManager allowedKinds={HOMEPAGE_ASSET_KINDS} canManage={canManage} title="Ana sayfa görselleri" description="Banner ve kategori kartlarında kullanacağınız görselleri yükleyin." />;
-
-  return <div className={styles.editorStack}>
-    <CategoryShowcaseEditor canManage={canManage} />
-    {composer("home")}
+  if (step === "homepage") return <div className={styles.editorStack}>
+    <section className={styles.editorGroup} aria-labelledby="homepage-banner-heading"><header><h3 id="homepage-banner-heading">Sabit ana banner</h3><p>Banner her zaman ilk sıradadır. Görsel, metin ve bağlantısını buradan yönetin.</p></header>{inspector("hero")}</section>
+    <HomepageBuilder design={design} media={media} destinations={destinations} canManage={canManage} previewMode={previewMode} onChange={onChange} />
+    <details className={styles.advancedDisclosure}><summary>Kampanya zamanlaması</summary>{inspector("promotion")}</details>
+    <details className={styles.advancedDisclosure}><summary>Ana sayfa görsel arşivi</summary><StorefrontAssetManager allowedKinds={HOMEPAGE_ASSET_KINDS} canManage={canManage} title="Ana sayfa görselleri" description="Banner ve kategori kartlarında kullanacağınız görselleri yükleyin." /></details>
   </div>;
+  return null;
 }

@@ -23,11 +23,8 @@ test("each design area exposes one ordered set of steps", () => {
     { key: "cart", label: "Sepet", selected: false },
     { key: "footer", label: "Footer", selected: false },
   ]);
-  assert.deepEqual(designWorkspaceSteps("home", "hero").map(({ key, label }) => ({ key, label })), [
-    { key: "hero", label: "Bannerlar" },
-    { key: "assets", label: "Görseller" },
-    { key: "sections", label: "Bölümler" },
-    { key: "promotion", label: "Promosyon" },
+  assert.deepEqual(designWorkspaceSteps("home", "homepage").map(({ key, label }) => ({ key, label })), [
+    { key: "homepage", label: "Ana sayfayı düzenle" },
   ]);
 });
 
@@ -41,11 +38,11 @@ test("legacy section links resolve without creating a third workspace", () => {
     product: { area: "site", step: "product" },
     cart: { area: "site", step: "cart" },
     footer: { area: "site", step: "footer" },
-    hero: { area: "home", step: "hero" },
-    assets: { area: "home", step: "assets" },
-    home: { area: "home", step: "sections" },
-    sections: { area: "home", step: "sections" },
-    promotion: { area: "home", step: "promotion" },
+    hero: { area: "home", step: "homepage" },
+    assets: { area: "home", step: "homepage" },
+    home: { area: "home", step: "homepage" },
+    sections: { area: "home", step: "homepage" },
+    promotion: { area: "home", step: "homepage" },
   } as const;
   for (const [section, expected] of Object.entries(cases)) assert.deepEqual(resolveDesignWorkspaceLocation(section), expected);
   assert.deepEqual(resolveDesignWorkspaceLocation(), { area: "site", step: "brand" });
