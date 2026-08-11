@@ -45,8 +45,11 @@ export function CampaignHeader({
               <div className={styles.megaTrigger} key={item.slug}>
                 <Link href={`/categories/${item.slug}`}>{item.name}</Link>
                 {item.children.length || item.featured ? (
-                  <div className={styles.mega}>
-                    <div>
+                  <div
+                    className={styles.mega}
+                    data-featured={item.featured ? "true" : "false"}
+                  >
+                    <div className={styles.megaLinks}>
                       <strong>{item.name}</strong>
                       {item.children.map((child) => (
                         <Link
