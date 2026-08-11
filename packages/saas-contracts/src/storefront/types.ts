@@ -62,6 +62,10 @@ export type StarterThemeSectionConfigV2 =
   | Readonly<{ kind: "value_propositions"; enabled: boolean; items: readonly Readonly<{ icon: StarterValueIcon; heading: string; body: string }>[] }>
   | Readonly<{ kind: "testimonials"; enabled: boolean; heading: string; source: "approved_product_reviews"; limit: 3 | 6 | 9; minimumRating: 4 | 5 }>;
 
+export type HomepageSectionId = `home_${string}`;
+type WithHomepageSectionId<T> = T extends object ? Readonly<T & { sectionId: HomepageSectionId }> : never;
+export type StarterThemeSectionConfigV3 = WithHomepageSectionId<StarterThemeSectionConfigV2>;
+
 export type StarterFixedPolicyKey = "privacy_security" | "distance_sales" | "kvkk" | "payment_delivery" | "cookie_usage" | "returns_exchange" | "membership";
 export type StarterFooterLinkConfig =
   | Readonly<{ kind: "fixed_policy"; policyKey: StarterFixedPolicyKey }>
@@ -120,7 +124,18 @@ export type StarterThemeCompositionConfigV2 = Readonly<{
   footer: StarterFooterConfig;
 }>;
 
-export type StarterThemeComposition = StarterThemeCompositionConfig | StarterThemeCompositionConfigV2;
+export type StarterThemeCompositionConfigV3 = Readonly<{
+  schemaVersion: 3;
+  visual: StarterThemeVisualV2;
+  announcement: StarterThemeCompositionConfig["announcement"];
+  navigation: StarterThemeCompositionConfig["navigation"];
+  sections: readonly StarterThemeSectionConfigV3[];
+  productDetail: StarterProductDetailConfigV2;
+  cart: StarterCartConfigV2;
+  footer: StarterFooterConfig;
+}>;
+
+export type StarterThemeComposition = StarterThemeCompositionConfig | StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3;
 
 export type PublicStarterNavigationItem = Readonly<{
   name: string;

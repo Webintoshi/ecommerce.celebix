@@ -1,12 +1,12 @@
-import type { StarterThemeCompositionConfigV2 } from "../storefront/types.ts";
+import type { StarterThemeCompositionConfigV3 } from "../storefront/types.ts";
 
-export function createDefaultStarterThemeComposition(): StarterThemeCompositionConfigV2 {
+export function createDefaultStarterThemeComposition(): StarterThemeCompositionConfigV3 {
   return Object.freeze({
-    schemaVersion: 2,
+    schemaVersion: 3,
     visual: Object.freeze({ colorScheme: "neutral", headingStyle: "serif", cornerStyle: "square", headerStyle: "overlay", productCardStyle: "editorial", productImageRatio: "portrait", headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" }),
     announcement: Object.freeze({ enabled: true, items: Object.freeze(["Güvenli alışveriş"]), destination: "/pages/odeme-teslimat" }),
     navigation: Object.freeze({ rootCategoryIds: Object.freeze([]) }),
-    sections: Object.freeze([Object.freeze({ kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 })]),
+    sections: Object.freeze([Object.freeze({ sectionId: "home_product_row_1", kind: "product_row", enabled: true, heading: "Yeni ürünler", source: "latest", limit: 8 })]),
     productDetail: Object.freeze({ galleryStyle: "grid", showSku: true, showBrand: true, showBreadcrumbs: true, showRelatedProducts: true, showApprovedReviews: true, mobileStickyPurchase: true, showSizeGuide: true, informationSections: Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const) }),
     cart: Object.freeze({ showCheckoutReadiness: true, showShippingProgress: false, showQuantitySelector: true, trustMessage: "Güvenli ödeme" }),
     footer: Object.freeze({

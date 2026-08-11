@@ -490,6 +490,7 @@ test("keeps the public runtime export surface frozen", () => {
     "isPlanFeatureEnabled",
     "isPlanFeatureKey",
     "isPlanLimitKey",
+    "normalizeStarterThemeCompositionV3",
     "normalizeTurkishIbanInput",
     "parseAbandonedCartDetail",
     "parseAbandonedCartListItem",

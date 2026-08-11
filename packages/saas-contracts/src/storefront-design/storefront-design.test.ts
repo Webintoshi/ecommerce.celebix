@@ -34,6 +34,15 @@ const COMPOSITION = {
   },
 } as const;
 
+const VERSIONED_COMPOSITION = {
+  ...COMPOSITION,
+  schemaVersion: 3,
+  sections: COMPOSITION.sections.map((section, index) => ({
+    ...section,
+    sectionId: `home_${section.kind}_${index + 1}`,
+  })),
+} as const;
+
 const SLIDE = {
   headline: "Zarafetin ışıltısı",
   body: "Her anınıza değer katan zamansız tasarımlar.",
@@ -164,12 +173,46 @@ const WORKSPACE = {
 } as const;
 
 test("storefront design composition accepts version three and normalizes one legacy hero without losing visibility", () => {
-  assert.deepEqual(parseStorefrontDesignDocument(DESIGN), DESIGN);
+  assert.deepEqual(parseStorefrontDesignDocument(DESIGN), { ...DESIGN, schemaVersion: 4, composition: VERSIONED_COMPOSITION });
   assert.equal(Object.isFrozen(parseStorefrontDesignDocument(DESIGN).hero.slides), true);
   const legacy = parseStorefrontDesignDocument(LEGACY_DESIGN);
-  assert.equal(legacy.schemaVersion, 3);
+  assert.equal(legacy.schemaVersion, 4);
   assert.equal(legacy.hero.enabled, false);
   assert.deepEqual(legacy.hero.slides[0], { ...SLIDE, enabled: true });
+});
+
+test("homepage composition assigns immutable stable section identity and rejects ambiguous identity", () => {
+  const canonical = parseStorefrontDesignDocument({
+    ...DESIGN,
+    schemaVersion: 4,
+    composition: VERSIONED_COMPOSITION,
+  });
+  assert.equal(canonical.schemaVersion, 4);
+  assert.deepEqual(canonical.composition, VERSIONED_COMPOSITION);
+  assert.equal(Object.isFrozen(canonical.composition.sections), true);
+  assert.equal(Object.isFrozen(canonical.composition.sections[0]), true);
+
+  const legacy = parseStorefrontDesignDocument(DESIGN);
+  assert.equal(legacy.schemaVersion, 4);
+  assert.equal(legacy.composition.schemaVersion, 3);
+  assert.equal(legacy.composition.sections[0]?.sectionId, "home_product_row_1");
+
+  const duplicate = {
+    ...VERSIONED_COMPOSITION,
+    sections: [
+      VERSIONED_COMPOSITION.sections[0],
+      { ...VERSIONED_COMPOSITION.sections[0], heading: "İkinci sıra" },
+    ],
+  };
+  assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, schemaVersion: 4, composition: duplicate }));
+  assert.throws(() => parseStorefrontDesignDocument({
+    ...DESIGN,
+    schemaVersion: 4,
+    composition: {
+      ...VERSIONED_COMPOSITION,
+      sections: [{ ...VERSIONED_COMPOSITION.sections[0], sectionId: "invalid id" }],
+    },
+  }));
 });
 
 test("storefront design accepts an intentionally empty homepage and rejects unknown composition fields", () => {
@@ -250,7 +293,10 @@ test("public contract resolves private identifiers and normalizes a legacy publi
 });
 
 test("authenticated workspace keeps exact tenant choices and versioned state", () => {
-  assert.deepEqual(parseStorefrontDesignWorkspace(WORKSPACE), WORKSPACE);
+  assert.deepEqual(parseStorefrontDesignWorkspace(WORKSPACE), {
+    ...WORKSPACE,
+    draft: { ...DESIGN, schemaVersion: 4, composition: VERSIONED_COMPOSITION },
+  });
   assert.throws(() => parseStorefrontDesignWorkspace({ ...WORKSPACE, storeId: PRODUCT_ID }));
   assert.throws(() => parseStorefrontDesignWorkspace({ ...WORKSPACE, destinations: [{ ...WORKSPACE.destinations[0], kind: "none" }] }));
 });

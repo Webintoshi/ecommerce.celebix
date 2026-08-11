@@ -8,7 +8,7 @@ import {
   STOREFRONT_DESIGN_FONT_WEIGHTS,
 } from "./types.ts";
 import { createDefaultStarterThemeComposition } from "./defaults.ts";
-import { parseStarterThemeCompositionConfig } from "../storefront/validation.ts";
+import { normalizeStarterThemeCompositionV3, parseStarterThemeCompositionConfig } from "../storefront/validation.ts";
 import type {
   DesignDestination,
   DesignMediaReference,
@@ -244,10 +244,10 @@ function parseTypography(value: unknown, legacyFontFamily: unknown): StorefrontD
 
 export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignDocument {
   const root = record(value);
-  const parsed = root.schemaVersion === 3
+  const parsed = root.schemaVersion === 3 || root.schemaVersion === 4
     ? exact(root, ["schemaVersion", "brand", "hero", "promotion", "announcement", "composition"], ["typography"])
     : exact(root, ["schemaVersion", "brand", "hero", "promotion", "announcement"]);
-  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) invalid();
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3 && parsed.schemaVersion !== 4) invalid();
 
   const brand = exact(parsed.brand, ["logo", "favicon", "primaryColor", "accentColor", "backgroundColor", "textColor", "fontFamily"]);
   const promotion = exact(parsed.promotion, ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]);
@@ -284,7 +284,7 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
   }
 
   return Object.freeze({
-    schemaVersion: 3,
+    schemaVersion: 4,
     brand: Object.freeze({
       logo: parseMediaReference(brand.logo),
       favicon: parseMediaReference(brand.favicon),
@@ -305,8 +305,8 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
     }),
     announcement: parseAnnouncement(parsed.announcement),
     typography: parseTypography(parsed.typography, brand.fontFamily),
-    composition: parsed.schemaVersion === 3
-      ? parseStarterThemeCompositionConfig(parsed.composition) as StorefrontDesignDocument["composition"]
+    composition: parsed.schemaVersion === 3 || parsed.schemaVersion === 4
+      ? normalizeStarterThemeCompositionV3(parseStarterThemeCompositionConfig(parsed.composition))
       : createDefaultStarterThemeComposition(),
   });
 }

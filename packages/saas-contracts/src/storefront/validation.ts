@@ -1,9 +1,10 @@
-import type { PublicImageMediaType, PublicProduct, PublicProductMedia, PublicProductMerchandising, PublicProductVariant, PublicStarterFooter, PublicStarterHomeSection, PublicStarterHomeSectionV2, PublicStarterNavigation, PublicStarterNavigationItem, PublicStarterReview, PublicStarterThemePresentation, PublicStarterThemePresentationV1, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStorefront, PublicStorefrontAsset, StarterCampaignPanelConfig, StarterFooterConfig, StarterHeroSlideConfig, StarterProductDetailConfigV2, StarterThemeComposition, StarterThemeCompositionConfig, StarterThemeCompositionConfigV2, StarterThemeSectionConfig, StarterThemeSectionConfigV2, StarterThemeVisual, StarterThemeVisualV2 } from "./types.ts";
+import type { HomepageSectionId, PublicImageMediaType, PublicProduct, PublicProductMedia, PublicProductMerchandising, PublicProductVariant, PublicStarterFooter, PublicStarterHomeSection, PublicStarterHomeSectionV2, PublicStarterNavigation, PublicStarterNavigationItem, PublicStarterReview, PublicStarterThemePresentation, PublicStarterThemePresentationV1, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStorefront, PublicStorefrontAsset, StarterCampaignPanelConfig, StarterFooterConfig, StarterHeroSlideConfig, StarterProductDetailConfigV2, StarterThemeComposition, StarterThemeCompositionConfig, StarterThemeCompositionConfigV2, StarterThemeCompositionConfigV3, StarterThemeSectionConfig, StarterThemeSectionConfigV2, StarterThemeSectionConfigV3, StarterThemeVisual, StarterThemeVisualV2 } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const SKU = /^[A-Z0-9](?:[A-Z0-9._-]{0,63})$/;
+const HOMEPAGE_SECTION_ID = /^home_[a-z0-9][a-z0-9_-]{2,74}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const DESCRIPTION_CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f]/;
 const MEDIA_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"] as const);
@@ -325,6 +326,55 @@ function parseConfigSectionV2(value: unknown): StarterThemeSectionConfigV2 {
   return legacy;
 }
 
+function homepageSectionId(value: unknown): HomepageSectionId {
+  if (typeof value !== "string" || value.length < 8 || value.length > 80 || !HOMEPAGE_SECTION_ID.test(value)) invalid();
+  return value as HomepageSectionId;
+}
+
+function parseConfigSectionV3(value: unknown): StarterThemeSectionConfigV3 {
+  const candidate = record(value);
+  const sectionId = homepageSectionId(candidate.sectionId);
+  const legacyCandidate = Object.fromEntries(Object.entries(candidate).filter(([key]) => key !== "sectionId"));
+  const section = parseConfigSectionV2(legacyCandidate);
+  return Object.freeze({ ...section, sectionId }) as StarterThemeSectionConfigV3;
+}
+
+function versionHomepageSections(sections: readonly StarterThemeSectionConfigV2[]): readonly StarterThemeSectionConfigV3[] {
+  const occurrences = new Map<string, number>();
+  return Object.freeze(sections.map((section) => {
+    const occurrence = (occurrences.get(section.kind) ?? 0) + 1;
+    occurrences.set(section.kind, occurrence);
+    return Object.freeze({ ...section, sectionId: `home_${section.kind}_${occurrence}` }) as StarterThemeSectionConfigV3;
+  }));
+}
+
+export function normalizeStarterThemeCompositionV3(value: StarterThemeComposition): StarterThemeCompositionConfigV3 {
+  const parsed = parseStarterThemeCompositionConfig(value);
+  if (parsed.schemaVersion === 3) return parsed;
+  if (parsed.schemaVersion === 1) {
+    const upgraded = parseStarterThemeCompositionConfig({
+      ...parsed,
+      schemaVersion: 2,
+      visual: { ...parsed.visual, headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" },
+      sections: parsed.sections.map((section) => section.kind === "category_grid" ? { ...section, layout: "grid" } : section),
+      productDetail: { ...parsed.productDetail, showBreadcrumbs: true, showApprovedReviews: true, showSizeGuide: true, informationSections: ["description", "materials_and_care", "certifications", "shipping_and_returns"] },
+      cart: { ...parsed.cart, showQuantitySelector: true },
+      footer: {
+        tone: "dark",
+        groups: [
+          { heading: "Mağaza", links: [{ kind: "system", destination: "/products" }] },
+          { heading: "Hesap", links: [{ kind: "system", destination: "/account" }] },
+        ],
+        newsletter: { enabled: false, heading: "Bizden haber alın", body: "Yeni ürün ve mağaza duyurularını e-postanızda alın.", consentLabel: "Aydınlatma metnini okudum ve iletişime izin veriyorum." },
+        social: [],
+      },
+    });
+    if (upgraded.schemaVersion !== 2) invalid();
+    return Object.freeze({ ...upgraded, schemaVersion: 3, sections: versionHomepageSections(upgraded.sections) });
+  }
+  return Object.freeze({ ...parsed, schemaVersion: 3, sections: versionHomepageSections(parsed.sections) });
+}
+
 function parseProductDetailV2(value: unknown): StarterProductDetailConfigV2 {
   const parsed = exact(value, ["galleryStyle", "showSku", "showBrand", "showBreadcrumbs", "showRelatedProducts", "showApprovedReviews", "mobileStickyPurchase", "showSizeGuide", "informationSections"]);
   const informationSections = Object.freeze(arrayValues(parsed.informationSections, 1, 4).map((entry) => oneOf(entry, INFORMATION_SECTIONS)));
@@ -389,9 +439,10 @@ function parseFooterConfig(value: unknown): StarterFooterConfig {
 
 export function parseStarterThemeCompositionConfig(value: unknown): StarterThemeComposition {
   const root = record(value);
-  const retail = root.schemaVersion === 2;
+  const retail = root.schemaVersion === 2 || root.schemaVersion === 3;
+  const versioned = root.schemaVersion === 3;
   const parsed = exact(root, retail ? ["schemaVersion", "visual", "announcement", "navigation", "sections", "productDetail", "cart", "footer"] : ["schemaVersion", "visual", "announcement", "navigation", "sections", "productDetail", "cart"]);
-  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) invalid();
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) invalid();
   const announcementValue = exact(parsed.announcement, ["enabled", "items"], ["destination"]);
   const announcementItems = Object.freeze(arrayValues(announcementValue.items, 0, 12).map((item) => string(item, 1, 160)));
   const announcementEnabled = boolean(announcementValue.enabled);
@@ -401,12 +452,25 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
   const hasFeaturedAsset = Object.hasOwn(navigationValue, "featuredAssetId");
   if (hasFeaturedCategory !== hasFeaturedAsset) invalid();
   const sectionValues = arrayValues(parsed.sections, 0, 12);
-  const sections = retail
-    ? Object.freeze(sectionValues.map(parseConfigSectionV2))
+  const sections = versioned
+    ? Object.freeze(sectionValues.map(parseConfigSectionV3))
+    : retail
+      ? Object.freeze(sectionValues.map(parseConfigSectionV2))
     : Object.freeze(sectionValues.map(parseConfigSection));
   const singletonKinds = new Set<string>();
+  const sectionIds = new Set<string>();
+  let productRows = 0;
   for (const section of sections) {
-    if (section.kind === "product_row") continue;
+    if ("sectionId" in section) {
+      if (typeof section.sectionId !== "string") invalid();
+      if (sectionIds.has(section.sectionId)) invalid();
+      sectionIds.add(section.sectionId);
+    }
+    if (section.kind === "product_row") {
+      productRows += 1;
+      if (productRows > 4) invalid();
+      continue;
+    }
     if (singletonKinds.has(section.kind)) invalid();
     singletonKinds.add(section.kind);
   }
@@ -419,6 +483,7 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
     sections,
     cart: Object.freeze({ showCheckoutReadiness: boolean(cartValue.showCheckoutReadiness), showShippingProgress: boolean(cartValue.showShippingProgress), ...(retail ? { showQuantitySelector: boolean(cartValue.showQuantitySelector) } : {}), ...(Object.hasOwn(cartValue, "trustMessage") ? { trustMessage: string(cartValue.trustMessage, 1, 160) } : {}) }),
   };
+  if (versioned) return Object.freeze({ schemaVersion: 3, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV3);
   if (retail) return Object.freeze({ schemaVersion: 2, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV2);
   const productDetailValue = exact(parsed.productDetail, ["galleryStyle", "showSku", "showBrand", "showRelatedProducts", "mobileStickyPurchase"]);
   return Object.freeze({ schemaVersion: 1, visual: parseVisual(parsed.visual), ...common, productDetail: Object.freeze({ galleryStyle: oneOf(productDetailValue.galleryStyle, GALLERY_STYLES), showSku: boolean(productDetailValue.showSku), showBrand: boolean(productDetailValue.showBrand), showRelatedProducts: boolean(productDetailValue.showRelatedProducts), mobileStickyPurchase: boolean(productDetailValue.mobileStickyPurchase) }) } as StarterThemeCompositionConfig);
