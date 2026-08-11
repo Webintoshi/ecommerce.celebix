@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase4s-modular-homepage-builder",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608110100_modular_homepage_builder.up.sql",
+      "direction": "up",
+      "sha256": "958183a6c895505dabdbd73001b80ef0a02f56de6c22a6e3edd859bb13990e3d"
+    },
+    {
+      "file": "202608110100_modular_homepage_builder.down.sql",
+      "direction": "down",
+      "sha256": "4ef1554815f6f30cc8af9a98df209090771c209e24af83b03890d09341726c38"
+    },
+    {
+      "file": "202608110100_modular_homepage_builder_assertions.sql",
+      "direction": "verify",
+      "sha256": "01927fb4baec8be4d4da4b7ad0955df1f4bd4bafe7acdcae7acd5764778e6d1d"
+    }
+  ]
+}
