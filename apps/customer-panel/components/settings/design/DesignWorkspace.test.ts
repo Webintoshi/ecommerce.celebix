@@ -22,6 +22,16 @@ test("editor state never reports a newer local edit as saved by an older request
   assert.equal(completed.design.hero.slides[0]?.headline, "Daha yeni");
 });
 
+test("derived homepage quality never becomes browser write authority", async () => {
+  const [workspace, client] = await Promise.all([
+    readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../lib/storefront-design-ui/client.ts", import.meta.url), "utf8"),
+  ]);
+  assert.doesNotMatch(`${workspace}\n${client}`, /qualityScore\s*:/);
+  assert.match(client, /expectedDraftVersion/);
+  assert.match(client, /design/);
+});
+
 test("workspace exposes one visual canvas, truthful save states and one shared settings modal", async () => {
   const [workspace, stepEditor, inspector, preview, css] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
