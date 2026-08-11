@@ -49,4 +49,3 @@ Sabit yedi mağaza politikasını Celebix yönetim panelinin görsel diliyle dah
 - Footer helper için published-only, fixed-order, deduplication, draft hiding, existing group preservation ve unavailable fallback test edilir.
 - Customer-panel ve storefront workspace test, typecheck ve build komutları çalıştırılır.
 - `git diff --check` ve değişen dosya taraması yapılır.
-
