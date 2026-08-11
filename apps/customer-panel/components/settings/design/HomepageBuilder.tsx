@@ -11,7 +11,7 @@ import {
   RotateCcw,
   Trash2,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   normalizeStarterThemeCompositionV3,
   type HomepageSectionId,
@@ -141,9 +141,19 @@ export function HomepageBuilder({ design, media, destinations, canManage, previe
   const [selectedId, setSelectedId] = useState<HomepageSectionId | null>(null);
   const [undo, setUndo] = useState<HomepageUndo | null>(null);
   const draggedId = useRef<HomepageSectionId | null>(null);
+  const inspectorRef = useRef<HTMLElement | null>(null);
+  const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const selected = composition.sections.find(({ sectionId }) => sectionId === selectedId);
   const changeComposition = (next: StarterThemeCompositionConfigV3) => onChange({ ...design, composition: next });
   const update = (section: StarterThemeSectionConfigV3) => changeComposition(updateHomepageSection(composition, section.sectionId, section));
+  const closeInspector = () => {
+    setSelectedId(null);
+    globalThis.setTimeout(() => returnFocusRef.current?.focus(), 0);
+  };
+
+  useEffect(() => {
+    if (selectedId !== null) inspectorRef.current?.focus();
+  }, [selectedId]);
 
   return <div className={styles.homepageBuilder} data-preview-mode={previewMode}>
     <section className={styles.homepageQuality} aria-label="Ana sayfa kalite puanı">
@@ -157,6 +167,9 @@ export function HomepageBuilder({ design, media, destinations, canManage, previe
       <span className={design.hero.enabled ? styles.homepageReady : styles.homepageMuted}>{design.hero.enabled ? "Açık" : "Kapalı"}</span>
     </section>
 
+    <ol className={styles.homepageMobileSteps} aria-label="Mobil ana sayfa düzenleme adımları"><li>Bölüm ekle</li><li>Sırala</li><li>Düzenle</li></ol>
+    <p className={styles.homepageLive} aria-live="polite">Ana sayfada {composition.sections.length} düzenlenebilir bölüm var. Kalite puanı {quality.score}.</p>
+
     <section className={styles.homepageCanvas} aria-labelledby="homepage-sections-heading">
       <header><div><span>ANA SAYFA</span><h3 id="homepage-sections-heading">Bölümlerinizi sıralayın</h3><p>Kartları sürükleyin veya okları kullanın. Değişiklikler otomatik kaydedilir.</p></div><b>{composition.sections.length} / 12 bölüm</b></header>
       {composition.sections.length === 0 ? <div className={styles.homepageEmpty}><strong>Ana sayfanız şu anda boş</strong><p>Aşağıdan bir bölüm ekleyin. Boş ana sayfa güvenli şekilde açılmaya devam eder.</p></div> : <ol className={styles.homepageSectionList}>
@@ -168,7 +181,7 @@ export function HomepageBuilder({ design, media, destinations, canManage, previe
           onDrop={() => { if (draggedId.current && draggedId.current !== section.sectionId) changeComposition(moveHomepageSection(composition, draggedId.current, index)); draggedId.current = null; }}
           className={!section.enabled ? styles.homepageSectionDisabled : undefined}
         >
-          <button type="button" className={styles.homepageSectionMain} disabled={!canManage} onClick={() => setSelectedId(section.sectionId)} aria-label={`${SECTION_LABEL[section.kind as BodySectionKind]} bölümünü düzenle`}>
+          <button type="button" className={styles.homepageSectionMain} disabled={!canManage} onClick={(event) => { returnFocusRef.current = event.currentTarget; setSelectedId(section.sectionId); }} aria-label={`${SECTION_LABEL[section.kind as BodySectionKind]} bölümünü düzenle`}>
             <GripVertical size={18} aria-hidden="true" /><span>{index + 2}</span><div><b>{SECTION_LABEL[section.kind as BodySectionKind]}</b><small>{sectionSummary(section)}</small></div>
           </button>
           <div className={styles.homepageSectionActions}>
@@ -192,10 +205,13 @@ export function HomepageBuilder({ design, media, destinations, canManage, previe
       })}</div>
     </section>
 
-    {selected ? <section className={styles.homepageSectionInspector} role="dialog" aria-modal="true" aria-labelledby="homepage-section-editor-heading">
-      <header><div><span>BÖLÜMÜ DÜZENLE</span><h3 id="homepage-section-editor-heading">{SECTION_LABEL[selected.kind as BodySectionKind]}</h3></div><button type="button" onClick={() => setSelectedId(null)} aria-label="Bölüm düzenleyiciyi kapat">×</button></header>
-      <HomepageSectionFields section={selected} media={media} destinations={destinations} disabled={!canManage} onUpdate={update} />
-      <footer><button type="button" onClick={() => setSelectedId(null)}>Bitti</button></footer>
-    </section> : null}
+    {selected ? <>
+      <button type="button" className={styles.homepageInspectorBackdrop} onClick={closeInspector} aria-label="Bölüm düzenleyiciyi kapat" />
+      <section ref={inspectorRef} tabIndex={-1} className={styles.homepageSectionInspector} role="dialog" aria-modal="true" aria-labelledby="homepage-section-editor-heading" onKeyDown={(event) => { if (event.key === "Escape") closeInspector(); }}>
+        <header><div><span>BÖLÜMÜ DÜZENLE</span><h3 id="homepage-section-editor-heading">{SECTION_LABEL[selected.kind as BodySectionKind]}</h3></div><button type="button" onClick={closeInspector} aria-label="Bölüm düzenleyiciyi kapat">×</button></header>
+        <HomepageSectionFields section={selected} media={media} destinations={destinations} disabled={!canManage} onUpdate={update} />
+        <footer><button type="button" onClick={closeInspector}>Bitti</button></footer>
+      </section>
+    </> : null}
   </div>;
 }
