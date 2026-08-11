@@ -1,8 +1,8 @@
 # Modular Homepage Builder and Quality Score Design
 
-**Status:** Kullanıcı tarafından yazılı olarak onaylandı  
-**Date:** 2026-08-11  
-**Target:** `apps/customer-panel` design workspace and the shared starter storefront  
+**Status:** Kullanıcı tarafından yazılı olarak onaylandı
+**Date:** 2026-08-11
+**Target:** `apps/customer-panel` design workspace and the shared starter storefront
 
 ## Goal
 

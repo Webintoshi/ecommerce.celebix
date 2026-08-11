@@ -106,4 +106,3 @@ test("result is deeply frozen and scoring never mutates caller-owned inputs", ()
   assert.equal(Object.isFrozen(result.categories[0]), true);
   assert.equal(Object.isFrozen(result.recommendations), true);
 });
-
