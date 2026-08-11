@@ -7,7 +7,7 @@ const source = (path: string) => readFile(new URL(path, import.meta.url), "utf8"
 test("composer source contains no raw store or tenant authority", async () => { const value = await source("StarterThemeComposer.tsx"); assert.doesNotMatch(value, /storeId|tenantId|x-forwarded|localStorage|sessionStorage/); assert.match(value, /credentials:\s*"same-origin"/); });
 test("composer is controlled by the unified storefront design document", async () => {
   const value = await source("StarterThemeComposer.tsx");
-  assert.match(value, /value:\s*StarterThemeCompositionConfigV2/);
+  assert.match(value, /value:\s*StarterThemeComposition/);
   assert.match(value, /onChange:\s*\(value:\s*StarterThemeCompositionConfigV2\)\s*=>\s*void/);
   assert.doesNotMatch(value, /merchantAdminApi[.]records\("starter_theme_composition"\)/);
   assert.doesNotMatch(value, /merchantAdminApi[.]save\("starter_theme_composition"/);

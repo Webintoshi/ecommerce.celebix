@@ -5,6 +5,7 @@ import {
   type CatalogCategory,
   type MerchantAdminRecord,
   type Product,
+  type StarterThemeComposition,
   type StarterThemeCompositionConfigV2,
   type StarterThemeSectionConfigV2,
   type StorefrontAsset,
@@ -29,6 +30,7 @@ import {
   updateStarterCampaignPanel,
   updateStarterHeroSlide,
   updateStarterNavigationRoots,
+  upgradeStarterThemeComposition,
   type StarterThemeEditorState,
 } from "@/lib/starter-theme-composer-model";
 import { type ThemePanelKey } from "./starter-theme-subnavigation-model";
@@ -162,7 +164,7 @@ export function StarterThemeComposer({
   activePanel: ThemePanelKey;
   canManage: boolean;
   showPreview?: boolean;
-  value: StarterThemeCompositionConfigV2;
+  value: StarterThemeComposition;
   onChange: (value: StarterThemeCompositionConfigV2) => void;
 }>) {
   const [categories, setCategories] = useState<readonly CatalogCategory[]>([]);
@@ -195,7 +197,7 @@ export function StarterThemeComposer({
 
   useEffect(() => { void load(); }, [load]);
 
-  const state = useMemo(() => editorState(value), [value]);
+  const state = useMemo(() => editorState(upgradeStarterThemeComposition(value)), [value]);
   const preview = useMemo(() => { try { return buildStarterThemeComposition(state); } catch { return null; } }, [state]);
   const productTitles = useMemo(() => Object.freeze(products.slice(0, 3).map(({ title }) => title)), [products]);
   const disabled = !canManage;

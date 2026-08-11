@@ -40,6 +40,12 @@ function defaultFooter(): StarterThemeEditorState["footer"] {
 
 export function upgradeStarterThemeComposition(input: StarterThemeComposition): StarterThemeCompositionConfigV2 {
   if (input.schemaVersion === 2) return input;
+  if (input.schemaVersion === 3) {
+    return buildStarterThemeComposition({
+      ...input,
+      sections: Object.freeze(input.sections.map(({ sectionId: _sectionId, ...section }) => Object.freeze(section) as StarterThemeSectionConfigV2)),
+    });
+  }
   return buildStarterThemeComposition({
     visual: Object.freeze({ ...input.visual, headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" }),
     announcement: input.announcement,

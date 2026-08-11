@@ -267,7 +267,7 @@ function parseConfigSection(value: unknown): StarterThemeSectionConfig {
   }
   if (kind === "category_grid") {
     const parsed = exact(candidate, ["kind", "enabled", "heading", "categoryIds"]);
-    return Object.freeze({ kind, enabled: boolean(parsed.enabled), heading: string(parsed.heading, 1, 160), categoryIds: uuidArray(parsed.categoryIds, 1, 8) });
+    return Object.freeze({ kind, enabled: boolean(parsed.enabled), heading: string(parsed.heading, 1, 160), categoryIds: uuidArray(parsed.categoryIds, 0, 8) });
   }
   if (kind === "product_row") {
     const parsed = exact(candidate, ["kind", "enabled", "heading", "source", "limit"], ["categoryId"]);
@@ -278,7 +278,7 @@ function parseConfigSection(value: unknown): StarterThemeSectionConfig {
   }
   if (kind === "split_campaign") {
     const parsed = exact(candidate, ["kind", "enabled", "panels"]);
-    return Object.freeze({ kind, enabled: boolean(parsed.enabled), panels: Object.freeze(arrayValues(parsed.panels, 1, 2).map(parseCampaignPanelConfig)) });
+    return Object.freeze({ kind, enabled: boolean(parsed.enabled), panels: Object.freeze(arrayValues(parsed.panels, 0, 2).map(parseCampaignPanelConfig)) });
   }
   const parsed = exact(candidate, ["kind", "enabled", "heading", "body"], ["eyebrow", "assetId", "destination"]);
   return Object.freeze({
@@ -300,7 +300,7 @@ function parseConfigSectionV2(value: unknown): StarterThemeSectionConfigV2 {
       kind: "category_grid",
       enabled: boolean(parsed.enabled),
       heading: string(parsed.heading, 1, 160),
-      categoryIds: uuidArray(parsed.categoryIds, 1, 8),
+      categoryIds: uuidArray(parsed.categoryIds, 0, 8),
       layout: oneOf(parsed.layout, CATEGORY_SHOWCASE_LAYOUTS),
     });
   }
