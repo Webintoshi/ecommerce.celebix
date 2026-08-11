@@ -161,10 +161,12 @@ export type PublicStarterReview = Readonly<{
   merchantReply?: string;
 }>;
 
-export type PublicStarterHomeSection =
+type PublicStarterHomeSectionContent =
   | PublicStarterHomeSectionV2
   | Readonly<{ kind: "value_propositions"; items: readonly Readonly<{ icon: StarterValueIcon; heading: string; body: string }>[] }>
   | Readonly<{ kind: "testimonials"; heading: string; items: readonly PublicStarterReview[] }>;
+
+export type PublicStarterHomeSection = PublicStarterHomeSectionContent & Readonly<{ sectionId?: HomepageSectionId }>;
 
 export type PublicStarterFooter = Readonly<{
   tone: "light" | "dark";

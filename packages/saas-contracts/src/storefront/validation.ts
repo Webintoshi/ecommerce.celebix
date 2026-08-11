@@ -530,7 +530,13 @@ function parsePublicReview(value: unknown): PublicStarterReview {
 }
 
 function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHomeSection {
-  const candidate = record(value);
+  const rawCandidate = record(value);
+  const sectionId = Object.hasOwn(rawCandidate, "sectionId") ? homepageSectionId(rawCandidate.sectionId) : undefined;
+  const candidate = record(Object.fromEntries(Object.entries(rawCandidate).filter(([key]) => key !== "sectionId")));
+  const resolved = <T extends object>(section: T): Readonly<T & { sectionId?: HomepageSectionId }> => Object.freeze({
+    ...section,
+    ...(sectionId ? { sectionId } : {}),
+  });
   if (retail && candidate.kind === "value_propositions") {
     const parsed = exact(candidate, ["kind", "items"]);
     const items = Object.freeze(arrayValues(parsed.items, 2, 4).map((entry) => {
@@ -538,11 +544,11 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
       return Object.freeze({ icon: oneOf(item.icon, VALUE_ICONS), heading: string(item.heading, 1, 120), body: string(item.body, 1, 300) });
     }));
     if (new Set(items.map(({ heading }) => heading)).size !== items.length) invalid();
-    return Object.freeze({ kind: "value_propositions", items });
+    return resolved({ kind: "value_propositions" as const, items });
   }
   if (retail && candidate.kind === "testimonials") {
     const parsed = exact(candidate, ["kind", "heading", "items"]);
-    return Object.freeze({ kind: "testimonials", heading: string(parsed.heading, 1, 160), items: Object.freeze(arrayValues(parsed.items, 1, 9).map(parsePublicReview)) });
+    return resolved({ kind: "testimonials" as const, heading: string(parsed.heading, 1, 160), items: Object.freeze(arrayValues(parsed.items, 1, 9).map(parsePublicReview)) });
   }
   const kind = oneOf(candidate.kind, Object.freeze(["hero", "category_grid", "product_row", "split_campaign", "brand_story"] as const));
   if (kind === "hero") {
@@ -557,7 +563,7 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
       }
       return Object.freeze({ ...(Object.hasOwn(selected, "eyebrow") ? { eyebrow: string(selected.eyebrow, 1, 80) } : {}), heading: string(selected.heading, 1, 160), ...(Object.hasOwn(selected, "body") ? { body: string(selected.body, 1, 500) } : {}), ...(Object.hasOwn(selected, "desktopImage") ? { desktopImage: parseStorefrontAsset(selected.desktopImage) } : {}), ...(Object.hasOwn(selected, "mobileImage") ? { mobileImage: parseStorefrontAsset(selected.mobileImage) } : {}), destination: destination(selected.destination), ...(hotspot ? { hotspot } : {}) });
     }));
-    return Object.freeze({ kind, slides });
+    return resolved({ kind, slides });
   }
   if (kind === "category_grid") {
     const parsed = exact(candidate, ["kind", "heading", "items"], ["layout"]);
@@ -566,7 +572,7 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
       return Object.freeze({ name: string(selected.name, 1, 160), slug: string(selected.slug, 1, 100, SLUG), image: parseStorefrontAsset(selected.image) });
     }));
     if (new Set(items.map((item) => item.slug)).size !== items.length) invalid();
-    return Object.freeze({
+    return resolved({
       kind,
       heading: string(parsed.heading, 1, 160),
       layout: Object.hasOwn(parsed, "layout") ? oneOf(parsed.layout, CATEGORY_SHOWCASE_LAYOUTS) : "grid",
@@ -578,7 +584,7 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
     const source = oneOf(parsed.source, PRODUCT_ROW_SOURCES);
     const limit = integer(parsed.limit, 4, 12);
     if (![4, 8, 12].includes(limit) || (source === "category") !== Object.hasOwn(parsed, "categorySlug")) invalid();
-    return Object.freeze({ kind, key: string(parsed.key, 1, 64, SLUG), heading: string(parsed.heading, 1, 160), source, ...(source === "category" ? { categorySlug: string(parsed.categorySlug, 1, 100, SLUG) } : {}), limit: limit as 4 | 8 | 12 });
+    return resolved({ kind, key: string(parsed.key, 1, 64, SLUG), heading: string(parsed.heading, 1, 160), source, ...(source === "category" ? { categorySlug: string(parsed.categorySlug, 1, 100, SLUG) } : {}), limit: limit as 4 | 8 | 12 });
   }
   if (kind === "split_campaign") {
     const parsed = exact(candidate, ["kind", "panels"]);
@@ -586,10 +592,10 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
       const selected = exact(panel, ["heading", "image", "destination"], ["eyebrow", "body"]);
       return Object.freeze({ ...(Object.hasOwn(selected, "eyebrow") ? { eyebrow: string(selected.eyebrow, 1, 80) } : {}), heading: string(selected.heading, 1, 160), ...(Object.hasOwn(selected, "body") ? { body: string(selected.body, 1, 500) } : {}), image: parseStorefrontAsset(selected.image), destination: destination(selected.destination) });
     }));
-    return Object.freeze({ kind, panels });
+    return resolved({ kind, panels });
   }
   const parsed = exact(candidate, ["kind", "heading", "body"], ["eyebrow", "image", "destination"]);
-  return Object.freeze({ kind: "brand_story", ...(Object.hasOwn(parsed, "eyebrow") ? { eyebrow: string(parsed.eyebrow, 1, 80) } : {}), heading: string(parsed.heading, 1, 160), body: string(parsed.body, 1, 1000), ...(Object.hasOwn(parsed, "image") ? { image: parseStorefrontAsset(parsed.image) } : {}), ...(Object.hasOwn(parsed, "destination") ? { destination: destination(parsed.destination) } : {}) });
+  return resolved({ kind: "brand_story" as const, ...(Object.hasOwn(parsed, "eyebrow") ? { eyebrow: string(parsed.eyebrow, 1, 80) } : {}), heading: string(parsed.heading, 1, 160), body: string(parsed.body, 1, 1000), ...(Object.hasOwn(parsed, "image") ? { image: parseStorefrontAsset(parsed.image) } : {}), ...(Object.hasOwn(parsed, "destination") ? { destination: destination(parsed.destination) } : {}) });
 }
 
 function parsePublicFooter(value: unknown): PublicStarterFooter {

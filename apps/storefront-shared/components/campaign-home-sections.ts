@@ -7,7 +7,10 @@ import type {
 
 type CampaignPresentation = PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
 
-function categoryShowcaseSection(presentation: CampaignPresentation): Extract<PublicStarterHomeSection, { kind: "category_grid" }> | null {
+function categoryShowcaseSection(
+  presentation: CampaignPresentation,
+  sectionId?: PublicStarterHomeSection["sectionId"],
+): Extract<PublicStarterHomeSection, { kind: "category_grid" }> | null {
   const showcase = presentation.categoryShowcase;
   if (!showcase) return null;
   return Object.freeze({
@@ -15,6 +18,7 @@ function categoryShowcaseSection(presentation: CampaignPresentation): Extract<Pu
     heading: showcase.heading,
     layout: showcase.layout,
     items: Object.freeze(showcase.items.map(({ name, slug, image }) => Object.freeze({ name, slug, image }))),
+    ...(sectionId ? { sectionId } : {}),
   });
 }
 
@@ -25,26 +29,26 @@ export function composeCampaignHomeSections(
   const source = designHeroActive
     ? presentation.sections.filter((section) => section.kind !== "hero")
     : presentation.sections;
-  const category = categoryShowcaseSection(presentation);
   const resolved: PublicStarterHomeSection[] = [];
-  let categoryMounted = false;
 
   for (const section of source) {
     if (section.kind === "category_grid") {
-      if (category && !categoryMounted) {
+      const category = categoryShowcaseSection(
+        presentation,
+        "sectionId" in section ? section.sectionId : undefined,
+      );
+      if (category) {
         resolved.push(category);
-        categoryMounted = true;
       }
       continue;
     }
-    if (category && !categoryMounted && (section.kind === "value_propositions" || section.kind === "testimonials")) {
-      resolved.push(category);
-      categoryMounted = true;
-    }
     resolved.push(section);
   }
-  if (category && !categoryMounted) resolved.push(category);
   return Object.freeze(resolved);
+}
+
+export function campaignHomeSectionKey(section: PublicStarterHomeSection, index: number): string {
+  return section.sectionId ?? (section.kind === "product_row" ? `home_${section.key}` : `home_${section.kind}_${index + 1}`);
 }
 
 export function visibleCampaignSectionKinds(projection: CampaignHomeProjection) {

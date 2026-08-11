@@ -137,6 +137,16 @@ test("retail composition and public presentation accept an intentionally empty h
   assert.equal(Object.isFrozen(presentation.sections), true);
 });
 
+test("public homepage sections retain only canonical stable section IDs", () => {
+  const value = presentationV3();
+  const sections = value.sections.map((section, index) => ({ ...section, sectionId: `home_public_${index + 1}` }));
+  const parsed = retailValidation.parsePublicStarterThemePresentation({ ...value, sections });
+  const parsedSections = parsed.sections as readonly Readonly<{ sectionId?: string }>[];
+  assert.deepEqual(parsedSections.map((section) => section.sectionId), sections.map((section) => section.sectionId));
+  assert.equal(Object.isFrozen(parsedSections[0]), true);
+  assert.throws(() => retailValidation.parsePublicStarterThemePresentation({ ...value, sections: [{ ...sections[0], sectionId: "foreign" }] }), /storefront_contract_invalid/);
+});
+
 test("composition v2 requires one exact boolean quantity-selector authority", () => {
   const value = compositionV2();
   const { showQuantitySelector: _missing, ...withoutQuantitySelector } = value.cart;

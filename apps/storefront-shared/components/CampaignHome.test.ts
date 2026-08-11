@@ -10,6 +10,9 @@ test("an intentionally empty homepage exposes no visible campaign sections", asy
   const module = await import("./campaign-home-sections.ts");
   const presentation = { schemaVersion: 3, sections: [] };
   assert.deepEqual(module.visibleCampaignSectionKinds({ presentation, productRows: [] } as never), []);
+  const source = await read("CampaignHome.tsx");
+  assert.match(source, /aria-label="Mağaza ana sayfası"/);
+  assert.match(source, /data-empty-home/);
 });
 test("hero uses stable desktop mobile media and canonical hotspot", async () => { const source = await read("CampaignHero.tsx"); for (const token of ["<picture", "mobileImage", "desktopImage", "width=", "height=", "hotspot.productSlug", "hotspot.priceCents"]) assert.match(source, new RegExp(token)); });
 test("hero rotation is explicit scroll snap without autoplay", async () => { const [client, css] = await Promise.all([read("CampaignHeroClient.tsx"), read("campaign-home.module.css")]); assert.match(client, /scrollBy/); assert.match(client, /Önceki slayt/); assert.match(client, /Sonraki slayt/); assert.doesNotMatch(client, /setInterval|autoplay/); assert.match(css, /scroll-snap-type/); });
@@ -58,6 +61,21 @@ test("durable category showcase replaces stale composition content and preserves
     { name: "Kolyeler", slug: "kolyeler", image },
   ] });
   assert.equal(Object.isFrozen(categories[0]), true);
+});
+test("durable showcase never invents a category section outside the merchant order", async () => {
+  const module = await import("./campaign-home-sections.ts");
+  const presentation = {
+    schemaVersion: 3,
+    categoryShowcase: { heading: "Kategori", layout: "grid", items: [{ name: "Kolyeler", slug: "kolyeler", image: { url: "https://media.saas-staging.celebix.site/category.webp", mediaType: "image/webp", altText: "Kategori", width: 800, height: 800 } }] },
+    sections: [
+      { kind: "product_row", sectionId: "home_product_row_one", key: "latest-one", heading: "Bir", source: "latest", limit: 4 },
+      { kind: "product_row", sectionId: "home_product_row_two", key: "latest-two", heading: "İki", source: "latest", limit: 4 },
+    ],
+  };
+  const sections = module.composeCampaignHomeSections(presentation as never, false);
+  assert.deepEqual(sections.map(({ sectionId }) => sectionId), ["home_product_row_one", "home_product_row_two"]);
+  assert.deepEqual(sections.map((section, index) => module.campaignHomeSectionKey(section, index)), ["home_product_row_one", "home_product_row_two"]);
+  assert.equal(sections.some(({ kind }) => kind === "category_grid"), false);
 });
 test("product rows bind exact projection keys to canonical product cards", async () => { const source = await read("CampaignProductRow.tsx"); assert.match(source, /section[.]key/); assert.match(source, /ProductGrid/); assert.match(source, /products/); assert.doesNotMatch(source, /Math[.]random|fake|mock/); });
 test("home page resolves campaign projection only through server page context", async () => { const [page, context, campaignResolution] = await Promise.all([read("../app/page.tsx"), read("../lib/page-context.ts"), read("../lib/campaign-page-resolution.ts")]); assert.match(page, /context[.]campaign/); assert.match(context, /resolveCampaignPageProjection/); assert.match(campaignResolution, /resolveCampaignHome/); assert.doesNotMatch(`${page}\n${context}\n${campaignResolution}`, /localStorage|sessionStorage|x-store-id|tenantId/); });

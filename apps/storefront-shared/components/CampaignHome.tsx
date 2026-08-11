@@ -19,7 +19,7 @@ import {
 import { CampaignProductRow } from "./CampaignProductRow";
 import { CampaignTestimonials } from "./CampaignTestimonials";
 import { CampaignValuePropositions } from "./CampaignValuePropositions";
-import { composeCampaignHomeSections } from "./campaign-home-sections";
+import { campaignHomeSectionKey, composeCampaignHomeSections } from "./campaign-home-sections";
 import { campaignAnnouncement } from "./campaign-ui-model";
 import styles from "./campaign-home.module.css";
 
@@ -48,15 +48,14 @@ function Section({
         <CampaignCategories section={section} />
       ) : null;
     case "product_row":
-      return (
+      const products = productRows.find((row) => row.key === section.key)?.items ?? [];
+      return products.length ? (
         <CampaignProductRow
           section={section}
-          products={
-            productRows.find((row) => row.key === section.key)?.items ?? []
-          }
+          products={products}
           presentation={presentation}
         />
-      );
+      ) : null;
     case "split_campaign":
       return section.panels.length ? (
         <CampaignPanels section={section} />
@@ -96,10 +95,10 @@ export function CampaignHome({
   const announcement = campaignAnnouncement(presentation);
   const sections = composeCampaignHomeSections(presentation, designHeroActive);
   const campaignSections = (
-    <div className={styles.home}>
+    <div className={styles.home} aria-label="Mağaza ana sayfası" data-empty-home={sections.length === 0 ? "true" : undefined}>
       {sections.map((section, index) => (
         <Section
-          key={`${section.kind}-${index}`}
+          key={campaignHomeSectionKey(section, index)}
           section={section}
           presentation={presentation}
           productRows={projection.productRows}
