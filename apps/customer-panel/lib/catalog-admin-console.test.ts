@@ -83,6 +83,21 @@ test("catalog resource lists use canonical create, edit, and extra-preview route
   assert.doesNotMatch(value, /searchParams|localStorage|sessionStorage|x-store-id|x-tenant-id/);
 });
 
+test("brand administration shows durable logos and human-readable linked product names", async () => {
+  const [consoleSource, editorSource] = await Promise.all([
+    source("components/catalog-admin/CatalogResourceConsole.tsx"),
+    source("components/catalog-admin/CatalogResourceEditor.tsx"),
+  ]);
+  for (const value of [consoleSource, editorSource]) {
+    assert.match(value, /loadBrandProductDirectory/);
+    assert.doesNotMatch(value, /Mevcut bağlı ürün\s*·\s*<code>\{productId\}<\/code>/);
+  }
+  assert.match(consoleSource, /brandLogoAssetId/);
+  assert.match(consoleSource, /Bağlı ürünler/);
+  assert.match(editorSource, /CatalogBrandLogoPicker/);
+  assert.match(editorSource, /representativeSku/);
+});
+
 test("catalog import component binds file selection and explicit confirmation to the behavioral controller", async () => {
   const value = await source("components/catalog-admin/CatalogImportPreparationConsole.tsx");
   assert.match(value, /createCatalogImportPreparationController/);

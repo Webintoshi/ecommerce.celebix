@@ -4,9 +4,35 @@
 .form input,.form textarea,.form select { width: 100%; min-height: 48px; border: 1px solid #d8dee8; border-radius: 8px; background: #fff; padding: .75rem .9rem; color: #1f2937; font: inherit; }
 .form textarea { min-height: 96px; resize: vertical; }
 .wide { grid-column: 1 / -1; }
-.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; max-height: 14rem; overflow: auto; border: 1px solid #e1e6ef; border-radius: 8px; padding: .75rem; }
-.check { display: flex !important; min-height: 48px; align-items: center; gap: .6rem; border-radius: 6px; padding: .45rem; }
+.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; max-height: 32rem; overflow: auto; border: 1px solid #e1e6ef; border-radius: 14px; background: #fbfcfd; padding: 1rem; }
+.checks legend { padding: 0 .55rem; color: #202734; font-size: .9rem; font-weight: 850; }
+.checks legend span { margin-left: .45rem; border-radius: 999px; background: #fff1e8; padding: .22rem .5rem; color: #a94300; font-size: .68rem; }
+.productSearch { grid-column: 1 / -1; }
+.productSearch input { background: #fff; }
+.check { display: flex !important; min-height: 64px; align-items: center; gap: .75rem; border: 1px solid #e7ebf1; border-radius: 10px; background: #fff; padding: .7rem .8rem; cursor: pointer; }
+.check:hover { border-color: #ffc49b; background: #fffaf6; }
 .check input { width: 1.15rem; min-height: 1.15rem; }
+.check span { display: grid; min-width: 0; gap: .18rem; }
+.check strong { overflow: hidden; color: #202734; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.check small { overflow: hidden; color: #7b8494; font-size: .68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.brandEditorIntro { border-bottom: 1px solid #edf0f4; padding-bottom: 1.25rem; }
+.brandLogoPanel { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 1.25rem; border: 1px solid #e1e6ef; border-radius: 16px; background: linear-gradient(145deg, #fff 0%, #fffaf6 100%); padding: 1.25rem; }
+.brandLogoPreview { display: grid; aspect-ratio: 1; place-items: center; overflow: hidden; border: 1px solid #f2dfd2; border-radius: 16px; background: #fff; color: #c64e00; font-size: 3rem; font-weight: 850; }
+.brandLogoPreview img { width: 100%; height: 100%; object-fit: contain; padding: .75rem; }
+.brandLogoControls { display: grid; min-width: 0; align-content: start; gap: .85rem; }
+.brandLogoControls h2,.brandLogoControls p { margin: 0; }
+.brandLogoControls h2 { color: #202734; font-size: 1.05rem; }
+.brandLogoControls p { color: #667085; font-size: .76rem; line-height: 1.5; }
+.brandLogoChoices { display: flex; gap: .55rem; overflow-x: auto; padding: .15rem; }
+.brandLogoChoices button { display: grid; width: 64px; height: 64px; flex: 0 0 64px; place-items: center; overflow: hidden; border: 1px solid #dfe4ec; border-radius: 10px; background: #fff; cursor: pointer; }
+.brandLogoChoices button[aria-pressed="true"] { border-color: #ff6a00; box-shadow: 0 0 0 3px rgb(255 106 0 / 18%); }
+.brandLogoChoices img { width: 100%; height: 100%; object-fit: contain; padding: .35rem; }
+.brandLogoUpload { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
+.brandLogoUpload > label { position: relative; display: inline-flex; min-height: 48px; align-items: center; gap: .45rem; overflow: hidden; border: 1px dashed #ff9f5a; border-radius: 9px; background: #fff7f1; padding: 0 .9rem; color: #9b4200; cursor: pointer; }
+.brandLogoUpload > label input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.brandLogoUpload > button { display: inline-flex; min-height: 48px; align-items: center; gap: .4rem; border: 1px solid #d8dee8; border-radius: 9px; background: #fff; padding: 0 .85rem; color: #344054; cursor: pointer; font: inherit; font-size: .76rem; font-weight: 750; }
+.brandLogoUpload svg,.brandLogoUpload > label svg { width: 18px; height: 18px; }
+.brandLogoUpload .brandLogoRemove { border-color: #fecaca; color: #9f282d; }
 .actions { display: flex; flex-wrap: wrap; gap: .65rem; }
 .button,.primary,.danger { display: inline-flex; min-width: 48px; min-height: 48px; align-items: center; justify-content: center; border: 1px solid #ffd7bf; border-radius: 8px; background: #fff; padding: 0 1rem; color: #a94300; cursor: pointer; font: inherit; font-size: .82rem; font-weight: 750; }
 .primary { background: #ff6a00; color: #20150d; }
@@ -18,6 +44,29 @@
 .item h2 { font-size: .95rem; }
 .item p,.item small { color: #6b7280; font-size: .76rem; }
 .status { border-radius: 999px; background: #eef2f6; padding: .3rem .55rem; font-size: .7rem; font-weight: 750; }
+.brandSearch { display: flex; min-height: 52px; align-items: center; gap: .7rem; margin: 0 0 1rem; border: 1px solid #dfe4ec; border-radius: 12px; background: #fff; padding: 0 .9rem; box-shadow: 0 4px 16px rgb(17 24 39 / 4%); }
+.brandSearch:focus-within { border-color: #ff9a55; box-shadow: 0 0 0 3px rgb(255 106 0 / 12%); }
+.brandSearch svg { width: 20px; height: 20px; flex: 0 0 20px; color: #8a94a3; }
+.brandSearch input { width: 100%; min-height: 48px; border: 0; outline: 0; background: transparent; color: #202734; font: inherit; }
+.brandList { display: grid; gap: .8rem; }
+.brandCard { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 1rem; border: 1px solid #e1e6ef; border-radius: 14px; background: #fff; padding: 1rem; box-shadow: 0 5px 18px rgb(17 24 39 / 4%); }
+.brandCardLogo { display: grid; width: 96px; aspect-ratio: 1; place-items: center; overflow: hidden; border: 1px solid #edf0f4; border-radius: 14px; background: #fafbfc; color: #c64e00; font-size: 2rem; font-weight: 850; }
+.brandCardLogo img { width: 100%; height: 100%; object-fit: contain; padding: .55rem; }
+.brandCardLogo svg { width: 28px; height: 28px; color: #9aa3b2; }
+.brandCardBody { display: grid; min-width: 0; align-content: start; gap: .7rem; }
+.brandCardTitle { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.brandCardTitle h2,.brandCardTitle p,.brandCardTitle span,.brandDescription,.brandProducts p { margin: 0; }
+.brandCardTitle h2 { color: #202734; font-size: 1rem; overflow-wrap: anywhere; }
+.brandCardTitle p { margin-top: .15rem; color: #8992a1; font-size: .72rem; }
+.brandCardTitle > span { flex: 0 0 auto; border-radius: 999px; background: #f2f4f7; padding: .3rem .6rem; color: #566173; font-size: .68rem; font-weight: 750; }
+.brandDescription { display: -webkit-box; overflow: hidden; color: #667085; font-size: .75rem; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.brandProducts { display: grid; gap: .42rem; }
+.brandProducts > strong { color: #394150; font-size: .72rem; }
+.brandProducts ul { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.brandProducts li { display: inline-flex; min-width: 0; align-items: center; gap: .4rem; border: 1px solid #edf0f4; border-radius: 999px; background: #fbfcfd; padding: .35rem .55rem; color: #394150; font-size: .7rem; }
+.brandProducts li span { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brandProducts li small,.brandProducts > small,.brandProducts p { color: #8a94a3; font-size: .65rem; }
+.brandCardActions { display: flex; align-items: center; gap: .55rem; }
 .error,.notice { margin: 1rem; border-radius: 8px; padding: .85rem; }
 .error { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
 .notice { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; }
@@ -102,7 +151,8 @@
 .historyHeading { border-bottom: 1px solid #e8edf4; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; margin: -1px; clip: rect(0,0,0,0); white-space: nowrap; }
 .providerCard:focus-within,.sourceTabs button:focus-visible,.sourceForm input:focus-visible,.primary:focus-visible,.secondaryButton:focus-visible { outline: 3px solid rgb(255 106 0 / 30%); outline-offset: 2px; }
-@media (max-width: 700px) { .form,.checks { grid-template-columns: 1fr; } .wide { grid-column: auto; } .item { align-items: stretch; flex-direction: column; } .actions,.actions > * { width: 100%; } .previewHero { align-items: stretch; flex-direction: column; } .previewPrice { width: 100%; } .previewOptionGrid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .brandCard { grid-template-columns: 80px minmax(0, 1fr); } .brandCardLogo { width: 80px; } .brandCardActions { grid-column: 1 / -1; justify-content: flex-end; border-top: 1px solid #edf0f4; padding-top: .8rem; } }
+@media (max-width: 700px) { .form,.checks { grid-template-columns: 1fr; } .wide { grid-column: auto; } .item { align-items: stretch; flex-direction: column; } .actions,.actions > * { width: 100%; } .previewHero { align-items: stretch; flex-direction: column; } .previewPrice { width: 100%; } .previewOptionGrid { grid-template-columns: 1fr; } .brandLogoPanel { grid-template-columns: 1fr; } .brandLogoPreview { width: min(10rem, 100%); } .brandCard { grid-template-columns: 64px minmax(0,1fr); padding: .8rem; } .brandCardLogo { width: 64px; border-radius: 11px; } .brandCardTitle { align-items: flex-start; flex-direction: column; gap: .45rem; } .brandCardActions { display: grid; grid-template-columns: auto 1fr 1fr; } .brandCardActions .button,.brandCardActions .danger { width: 100%; } .brandProducts li span { max-width: 11rem; } }
 @media (max-width: 1024px) { .providerGrid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (max-width: 700px) { .steps { grid-template-columns: repeat(2,minmax(0,1fr)); } .steps li:nth-child(2) { border-right: 0; } .steps li { min-height: 54px; border-bottom: 1px solid #e8edf4; font-size: .7rem; } .steps li:nth-child(3),.steps li:nth-child(4) { border-bottom: 0; } .providerGrid { grid-template-columns: repeat(2,minmax(0,1fr)); padding: .85rem; } .providerCard { min-height: 96px; padding: .8rem; } .sectionHeading,.historyHeading,.importActions { align-items: stretch; flex-direction: column; } .sectionHeading .secondaryButton,.historyHeading .secondaryButton,.importActions .primary { width: 100%; } .sourceTabs { display: grid; grid-template-columns: 1fr 1fr; padding-inline: .8rem; } .sourceTabs button { justify-content: center; padding: 0 .35rem; } .sourceForm { grid-template-columns: 1fr; padding: .9rem; } .previewMetrics { grid-template-columns: repeat(2,minmax(0,1fr)); padding: .9rem; } .migrationProgress { grid-template-columns: 1fr auto; } .migrationProgress progress { grid-column: 1/-1; grid-row: 2; } }
 @media (max-width: 360px) { .providerGrid { grid-template-columns: 1fr; } }

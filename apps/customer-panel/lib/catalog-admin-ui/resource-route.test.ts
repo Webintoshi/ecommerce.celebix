@@ -98,7 +98,9 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
       PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       PanelPageHeader: ({ title, description }: { title: string; description: string }) => createElement("header", null, createElement("h1", null, title), createElement("p", null, description)),
     };
+    if (specifier === "@/components/catalog-admin/CatalogBrandLogoPicker") return { CatalogBrandLogoPicker: () => createElement("div", { "data-brand-logo-picker": true }) };
     if (specifier === "@/lib/catalog-admin-ui/client") return { CatalogAdminApiError: CompiledCatalogAdminApiError, catalogAdminApi: Object.freeze({ resource: overrides.resource, saveResource: overrides.save }) };
+    if (specifier === "@/lib/catalog-admin-ui/brand-product-directory") return { brandLogoAssetId: (config: Readonly<Record<string, unknown>>) => typeof config.logoAssetId === "string" ? config.logoAssetId : undefined, loadBrandProductDirectory: async () => [] };
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({ listProducts: overrides.products ?? (async () => ({ items: [] })) }) };
     if (specifier === "@/lib/catalog-admin-ui/resource-route") return route;
     if (specifier === "./catalog-admin-console.module.css") return styles;
@@ -106,7 +108,7 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
     throw new Error(`unexpected_catalog_resource_editor_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
-  return compiled.exports.CatalogResourceEditor as (props: { kind: "collection"; resourceId: string; canManage: boolean }) => ReactNode;
+  return compiled.exports.CatalogResourceEditor as (props: { kind: "collection" | "brand"; resourceId: string; canManage: boolean }) => ReactNode;
 }
 
 test("binds catalog route segments to fixed resource kinds", async () => {
@@ -214,6 +216,33 @@ test("catalog editor preserves an existing product relation outside the first pa
   assert.deepEqual(saves, [{ resourceId: "resource-a", expectedVersion: 7, name: "A", slug: "a", config: { featured: false }, productIds: [unseen] }]);
 });
 
+test("brand editor binds an uploaded tenant logo to the saved brand configuration", async () => {
+  const hookRuntime = createHookRuntime();
+  const oldLogo = "74000000-0000-4000-8000-000000000001";
+  const nextLogo = "74000000-0000-4000-8000-000000000002";
+  const Editor = await compileCatalogResourceEditor({
+    react: hookRuntime.runtime,
+    resource: async () => ({ id: "brand-a", kind: "brand", version: 2, name: "Güzide", slug: "guzide", config: { logoAssetId: oldLogo }, productIds: [] }),
+    save: async () => ({}),
+    push() {},
+  });
+  const Console = () => Editor({ kind: "brand", resourceId: "brand-a", canManage: true });
+  let view = await hookRuntime.flush(Console);
+  let logoPicker: React.ReactElement<Record<string, unknown>> | undefined;
+  visitElements(view, (element) => {
+    if (element.props.brandName === "Güzide" && typeof element.props.onChange === "function") logoPicker = element;
+  });
+  assert.ok(logoPicker);
+  assert.equal(logoPicker.props.value, oldLogo);
+  (logoPicker.props.onChange as (value: string) => void)(nextLogo);
+  view = await hookRuntime.flush(Console);
+  let hiddenLogo = "";
+  visitElements(view, (element) => {
+    if (element.type === "input" && element.props.name === "logoAssetId") hiddenLogo = String(element.props.value);
+  });
+  assert.equal(hiddenLogo, nextLogo);
+});
+
 test("every catalog kind has fixed create and edit pages, with a preview only for extras", async () => {
   for (const segment of ["collections", "brands", "attributes", "extras", "definitions"]) {
     await access(new URL(`app/products/${segment}/new/page.tsx`, root));
@@ -231,7 +260,7 @@ test("editor only writes an exact resource selected from the fixed-kind API resu
   assert.match(editor, /catalogAdminApi\.resource\(kind, resourceId\)/);
   assert.match(editor, /productIds:\s*selectedProductIds/);
   assert.match(editor, /Daha fazla ürün yükle/);
-  assert.match(editor, /Yüklenen ürünlerde ara/);
+  assert.match(editor, /Ürün adı veya SKU ile ara/);
   assert.match(editor, /resourceId: resource\.id, expectedVersion: resource\.version/);
   assert.doesNotMatch(editor, /searchParams|localStorage|sessionStorage|x-store-id|x-tenant-id|supabase|\/api\/admin/);
 });

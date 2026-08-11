@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation";
 import type { CatalogAdminJson, CatalogAdminResource, CatalogAdminResourceKind, Product } from "@celebix/saas-contracts";
 
+import { CatalogBrandLogoPicker } from "@/components/catalog-admin/CatalogBrandLogoPicker";
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/client";
+import { brandLogoAssetId, loadBrandProductDirectory, type BrandProductDirectoryEntry } from "@/lib/catalog-admin-ui/brand-product-directory";
 import { catalogApi } from "@/lib/catalog-ui/client";
 import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
 import styles from "./catalog-admin-console.module.css";
@@ -32,8 +34,13 @@ function config(kind: CatalogAdminResourceKind, data: FormData): Readonly<Record
   if (kind === "collection") return Object.freeze({ featured: data.get("featured") === "on" });
   if (kind === "brand") {
     const website = value(data, "website");
+    const logoAssetId = value(data, "logoAssetId");
     const result: Record<string, CatalogAdminJson> = {};
     if (website) result.website = website;
+    if (logoAssetId) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(logoAssetId)) throw new TypeError("catalog_resource_form_invalid");
+      result.logoAssetId = logoAssetId;
+    }
     return Object.freeze(result);
   }
   if (kind === "attribute") return Object.freeze({ values: values(data, "values") });
@@ -64,9 +71,13 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
   const route = getCatalogResourceRouteDefinitionForKind(kind);
   const [resource, setResource] = useState<CatalogAdminResource>();
   const [products, setProducts] = useState<readonly Product[]>([]);
+  const [brandProducts, setBrandProducts] = useState<readonly BrandProductDirectoryEntry[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<readonly string[]>([]);
+  const [selectedLogoAssetId, setSelectedLogoAssetId] = useState<string>();
+  const [brandName, setBrandName] = useState("");
   const [productCursor, setProductCursor] = useState<string>();
   const [productSearch, setProductSearch] = useState("");
+  const [visibleProductLimit, setVisibleProductLimit] = useState(100);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -80,20 +91,28 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     setError("");
     setResource(undefined);
     setProducts([]);
+    setBrandProducts([]);
     setSelectedProductIds([]);
+    setSelectedLogoAssetId(undefined);
+    setBrandName("");
     setProductCursor(undefined);
     setProductSearch("");
+    setVisibleProductLimit(100);
     setLoadingProducts(false);
     setBusy(false);
     try {
-      const [selected, catalog] = await Promise.all([
+      const [selected, catalog, directory] = await Promise.all([
         resourceId === undefined ? Promise.resolve(undefined) : catalogAdminApi.resource(kind, resourceId),
-        hasProductRelations(kind) ? catalogApi.listProducts() : Promise.resolve({ items: [] as readonly Product[], nextCursor: undefined }),
+        hasProductRelations(kind) && kind !== "brand" ? catalogApi.listProducts() : Promise.resolve({ items: [] as readonly Product[], nextCursor: undefined }),
+        kind === "brand" ? loadBrandProductDirectory(catalogApi) : Promise.resolve([] as readonly BrandProductDirectoryEntry[]),
       ]);
       if (requestSequence.current !== sequence) return;
       if (selected) setResource(selected);
       setProducts(catalog.items);
+      setBrandProducts(directory);
       setSelectedProductIds(selected?.productIds ?? []);
+      setSelectedLogoAssetId(selected ? brandLogoAssetId(selected.config) : undefined);
+      setBrandName(selected?.name ?? "");
       setProductCursor(catalog.nextCursor);
     } catch (caught) {
       if (requestSequence.current === sequence) setError(safeError(caught));
@@ -161,10 +180,13 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
 
   const title = resourceId === undefined ? `Yeni ${route.title}` : `${route.title} düzenle`;
   const normalizedSearch = productSearch.trim().toLocaleLowerCase("tr-TR");
-  const visibleProducts = normalizedSearch
-    ? products.filter((product) => product.title.toLocaleLowerCase("tr-TR").includes(normalizedSearch) || product.id.includes(normalizedSearch))
-    : products;
-  const loadedProductIds = new Set(products.map(({ id }) => id));
+  const productOptions: readonly BrandProductDirectoryEntry[] = kind === "brand" ? brandProducts : products.map((product) => Object.freeze({ id: product.id, title: product.title, variantCount: 0, status: product.status === "draft" ? "draft" as const : "active" as const }));
+  const selectedProductIdSet = new Set(selectedProductIds);
+  const filteredProducts = [...(normalizedSearch
+    ? productOptions.filter((product) => product.title.toLocaleLowerCase("tr-TR").includes(normalizedSearch) || product.representativeSku?.toLocaleLowerCase("tr-TR").includes(normalizedSearch))
+    : productOptions)].sort((left, right) => Number(selectedProductIdSet.has(right.id)) - Number(selectedProductIdSet.has(left.id)) || left.title.localeCompare(right.title, "tr-TR"));
+  const visibleProducts = filteredProducts.slice(0, visibleProductLimit);
+  const loadedProductIds = new Set(productOptions.map(({ id }) => id));
   const unseenSelectedProductIds = selectedProductIds.filter((id) => !loadedProductIds.has(id));
   if (!canManage) return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p></PanelPageShell>;
 
@@ -172,7 +194,8 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     {loading ? <p className={styles.state} role="status">Kayıt yükleniyor…</p> : null}
     {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
     {!loading && !error ? <form className={styles.form} onSubmit={submit}>
-      <label>Ad<input name="name" required maxLength={120} defaultValue={resource?.name ?? ""} /></label>
+      {kind === "brand" ? <div className={`${styles.wide} ${styles.brandEditorIntro}`}><CatalogBrandLogoPicker value={selectedLogoAssetId} brandName={brandName} canManage={canManage} onChange={setSelectedLogoAssetId} /><input type="hidden" name="logoAssetId" value={selectedLogoAssetId ?? ""} /></div> : null}
+      <label>Ad<input name="name" required maxLength={120} {...(kind === "brand" ? { value: brandName, onChange: (event) => setBrandName(event.currentTarget.value) } : { defaultValue: resource?.name ?? "" })} /></label>
       <label>URL anahtarı<input name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={resource?.slug ?? ""} /></label>
       <label className={styles.wide}>Açıklama<textarea name="description" maxLength={2000} defaultValue={resource?.description ?? ""} /></label>
       {kind === "collection" ? <label><span>Vitrinde öne çıkar</span><input name="featured" type="checkbox" defaultChecked={resource?.config.featured === true} /></label> : null}
@@ -181,17 +204,18 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       {kind === "extra" ? <><label>Seçenekler (virgülle ayırın)<input name="options" required maxLength={1000} defaultValue={configValue(resource, "options")} /></label><label>Fiyat farkı (kuruş)<input name="priceAdjustmentCents" type="number" min={0} step={1} defaultValue={configValue(resource, "priceAdjustmentCents") || "0"} /></label></> : null}
       {kind === "definition" ? <><label>Tanım anahtarı<input name="definitionKey" required maxLength={64} defaultValue={configValue(resource, "key")} /></label><label>Tanım değeri<input name="definitionValue" required maxLength={1000} defaultValue={configValue(resource, "value")} /></label></> : null}
       {hasProductRelations(kind) ? <fieldset className={`${styles.wide} ${styles.checks}`}>
-        <legend>Bağlı ürünler</legend>
-        <label className={styles.wide}>Yüklenen ürünlerde ara<input type="search" value={productSearch} onChange={(event) => setProductSearch(event.currentTarget.value)} /></label>
+        <legend>Bağlı ürünler <span>{selectedProductIds.length} seçili</span></legend>
+        <label className={styles.productSearch}>Ürün adı veya SKU ile ara<input type="search" value={productSearch} placeholder="Örn. Altın kolye veya KLY-1293" onChange={(event) => { setProductSearch(event.currentTarget.value); setVisibleProductLimit(100); }} /></label>
         {unseenSelectedProductIds.map((productId) => <label className={styles.check} key={productId}>
           <input name="productId" type="checkbox" value={productId} checked onChange={(event) => toggleProduct(productId, event.currentTarget.checked)} />
-          <span>Mevcut bağlı ürün · <code>{productId}</code></span>
+          <span><strong>Ürün bilgisi artık katalogda okunamıyor</strong><small>Bağı koruyabilir veya kaldırabilirsiniz.</small></span>
         </label>)}
         {visibleProducts.map((product) => <label className={styles.check} key={product.id}>
           <input name="productId" type="checkbox" value={product.id} checked={selectedProductIds.includes(product.id)} onChange={(event) => toggleProduct(product.id, event.currentTarget.checked)} />
-          <span>{product.title}</span>
+          <span><strong>{product.title}</strong><small>{product.representativeSku ? `SKU: ${product.representativeSku}` : product.status === "draft" ? "Taslak ürün" : "SKU bilgisi yok"}{product.variantCount > 1 ? ` · ${product.variantCount} varyant` : ""}</small></span>
         </label>)}
-        {productCursor ? <button className={styles.button} type="button" disabled={loadingProducts} onClick={() => { void loadMoreProducts(); }}>{loadingProducts ? "Ürünler yükleniyor…" : "Daha fazla ürün yükle"}</button> : null}
+        {kind === "brand" && visibleProducts.length < filteredProducts.length ? <button className={styles.button} type="button" onClick={() => setVisibleProductLimit((current) => current + 100)}>Daha fazla ürün göster</button> : null}
+        {kind !== "brand" && productCursor ? <button className={styles.button} type="button" disabled={loadingProducts} onClick={() => { void loadMoreProducts(); }}>{loadingProducts ? "Ürünler yükleniyor…" : "Daha fazla ürün yükle"}</button> : null}
       </fieldset> : null}
       <div className={`${styles.wide} ${styles.actions}`}><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div>
     </form> : null}
