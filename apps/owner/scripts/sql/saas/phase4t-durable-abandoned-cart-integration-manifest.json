@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase4t-durable-abandoned-cart-integration",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608120101_durable_abandoned_cart_integration.up.sql",
+      "direction": "up",
+      "sha256": "a83ee82ee403811cc738e7f736f080d2c8c84b7b50590a353f4909a0331c164f"
+    },
+    {
+      "file": "202608120101_durable_abandoned_cart_integration.down.sql",
+      "direction": "down",
+      "sha256": "8c090a59f8130c47c78c08b2dfab44f07ee3813e4255db822bcf44c4ab3931c2"
+    },
+    {
+      "file": "202608120101_durable_abandoned_cart_integration_assertions.sql",
+      "direction": "verify",
+      "sha256": "96776db0f8acbdee4a8aa0a7989578f8fc1e79d172631c6bcd1b8459e16a1726"
+    }
+  ]
+}
