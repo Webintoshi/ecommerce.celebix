@@ -400,7 +400,7 @@ button:disabled.primaryButton,
 }
 
 .dataSurface .desktopTable table {
-  min-width: 1060px;
+  min-width: 1100px;
   table-layout: fixed;
 }
 
@@ -440,54 +440,67 @@ button:disabled.primaryButton,
 
 .dateColumn,
 .dateCell {
-  width: 9.5rem;
+  width: 8.25rem;
 }
 
 .customerColumn,
 .customerCell {
-  width: 13rem;
+  width: 11.5rem;
 }
 
 .statusColumn,
 .statusCell {
-  width: 8.5rem;
+  width: 7.5rem;
 }
 
 .paymentColumn,
 .paymentCell {
-  width: 9.5rem;
+  width: 8.75rem;
 }
 
 .itemsColumn,
 .itemsCell {
-  width: 4.25rem;
+  width: 3.5rem;
   text-align: center !important;
 }
 
 .sourceColumn,
 .sourceCell {
-  width: 8.75rem;
+  width: 8.25rem;
 }
 
 .totalColumn,
 .totalCell {
-  width: 8.75rem;
+  width: 7.75rem;
   text-align: right !important;
 }
 
 .actionColumn,
 .actionCell {
-  width: 5.5rem;
+  width: 4.75rem;
   text-align: right !important;
 }
 
+.orderCell {
+  overflow: hidden;
+}
+
+.dateCell {
+  white-space: nowrap;
+}
+
 .dataSurface .orderLink {
+  width: 100%;
+  max-width: 100%;
   min-width: 48px;
   min-height: 48px;
+  overflow: hidden;
   color: #182235;
   font-size: .78rem;
   font-weight: 780;
+  text-overflow: ellipsis;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .dataSurface .orderLink:hover {
