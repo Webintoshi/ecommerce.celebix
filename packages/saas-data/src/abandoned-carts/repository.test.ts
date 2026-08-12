@@ -121,7 +121,7 @@ function functionCall(client: FakeClient, name: string) {
   return call;
 }
 
-test("summary uses exact seven-part durable authority in a read-only transaction", async () => {
+test("summary uses exact seven-part durable authority in a reconciliation-capable transaction", async () => {
   const client = new FakeClient((text) => text.includes("saas.abandoned_carts_summary")
     ? [{ outcome: "summarized", result_payload: { abandoned: 2, recovered: 1, lostValueCents: 12_000, recoveredValueCents: 8_000, currency: "TRY", asOf: NOW.toISOString() } }]
     : []);
@@ -131,7 +131,7 @@ test("summary uses exact seven-part durable authority in a read-only transaction
   const call = functionCall(client, "abandoned_carts_summary");
   assert.deepEqual(call.values, [STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW]);
   assert.notEqual(call.values[6], NOW);
-  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(client.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
   assert.deepEqual(client.releases, [undefined]);
 });
@@ -145,6 +145,7 @@ test("list and get parse only exact bounded safe projections", async () => {
   assert.equal(Object.isFrozen(listed.items), true);
   const listCall = functionCall(listClient, "abandoned_carts_list");
   assert.deepEqual(listCall.values.slice(7, 11), ["abandoned", null, "highest", 25]);
+  assert.equal(listClient.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
 
   const getClient = new FakeClient((text) => text.includes("saas.abandoned_carts_get")
     ? [{ outcome: "found", result_payload: detail() }]
@@ -152,6 +153,7 @@ test("list and get parse only exact bounded safe projections", async () => {
   const found = await repository(new FakePool([getClient])).get({ tenantContext: tenantContext(), now: NOW, cartId: CART_ID });
   assert.equal(found.id, CART_ID);
   assert.equal(Object.isFrozen(found.items[0]), true);
+  assert.equal(getClient.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
 });
 
 test("invalid context and browser-like authority fields fail before pool checkout", async () => {

@@ -119,12 +119,12 @@ export class PostgresAbandonedCartRepository implements AbandonedCartRepository 
     return ERROR_CODES.has(outcome) && outcome !== "operation_replayed" ? new AbandonedCartRepositoryError(outcome as AbandonedCartErrorCode) : undefined;
   }
 
-  private async read<T>(spec: QuerySpec, expectedOutcome: string, parser: (value: unknown) => T): Promise<T> {
+  private async read<T>(spec: QuerySpec, expectedOutcome: string, parser: (value: unknown) => T, reconcilesDurableCarts = false): Promise<T> {
     const client = await this.acquire();
     let began = false;
     let terminal = false;
     try {
-      await client.query("BEGIN READ ONLY"); began = true; await this.configure(client);
+      await client.query(reconcilesDurableCarts ? "BEGIN ISOLATION LEVEL READ COMMITTED" : "BEGIN READ ONLY"); began = true; await this.configure(client);
       const result = single(await client.query(spec.text, spec.values));
       const expected = this.expectedError(result.outcome); if (expected) throw expected;
       if (result.outcome !== expectedOutcome) throw unavailable();
@@ -179,7 +179,7 @@ export class PostgresAbandonedCartRepository implements AbandonedCartRepository 
       $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz
     )`, values: authorityValues(authority) }, "summarized", (value) => {
       try { return parseAbandonedCartSummary(value); } catch { throw unavailable(); }
-    });
+    }, true);
   }
 
   async list(input: ListAbandonedCartsInput): Promise<ListAbandonedCartsResult> {
@@ -206,7 +206,7 @@ export class PostgresAbandonedCartRepository implements AbandonedCartRepository 
       if (items.length !== pageSize || items.length === 0) throw unavailable();
       let databaseCursor; try { databaseCursor = parseDatabaseAbandonedCartCursor(envelope.nextCursor, items.at(-1)!); } catch { throw unavailable(); }
       return Object.freeze({ items, nextCursor: encodeAbandonedCartCursor(authority.storeId, status, search, sort, databaseCursor) });
-    });
+    }, true);
   }
 
   async get(input: GetAbandonedCartInput) {
@@ -217,7 +217,7 @@ export class PostgresAbandonedCartRepository implements AbandonedCartRepository 
       $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
     )`, values: [...authorityValues(authority), cartId] }, "found", (value) => {
       try { const result = parseAbandonedCartDetail(value); if (result.id !== cartId) throw unavailable(); return result; } catch (error) { if (error instanceof AbandonedCartRepositoryError) throw error; throw unavailable(); }
-    });
+    }, true);
   }
 
   private mutation(input: MutateAbandonedCartInput, kind: "mark_recovered" | "archive", functionName: "abandoned_carts_mark_recovered" | "abandoned_carts_archive", expectedStatus: "recovered" | "archived") {
