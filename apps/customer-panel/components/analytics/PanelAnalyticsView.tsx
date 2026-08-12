@@ -17,10 +17,6 @@ import {
   type AnalyticsRange,
 } from "@celebix/saas-contracts";
 
-import {
-  PanelPageHeader,
-  PanelPageShell,
-} from "@/components/panel/PanelPageShell";
 import { createAnalyticsBrowserApi } from "@/lib/analytics-ui/client";
 import {
   errorAnalyticsPresentation,
@@ -95,27 +91,29 @@ export function PanelAnalyticsView({
 
   const selectedResult = model.metrics[selectedMetric];
   return (
-    <PanelPageShell>
-      <PanelPageHeader
-        title="Analizler"
-        description="Umami tarafından doğrulanan mağaza trafiği ve anonim kullanım özeti."
-      />
-      <div
-        className={styles.rangeBar}
-        role="group"
-        aria-label="Analiz tarih aralığı"
-      >
-        {ANALYTICS_RANGES.map((range) => (
-          <button
-            key={range}
-            type="button"
-            aria-pressed={selectedRange === range}
-            onClick={() => setSelectedRange(range)}
-          >
-            {RANGE_LABELS[range]}
-          </button>
-        ))}
-      </div>
+    <section className={styles.workspace} aria-labelledby="traffic-analytics-title">
+      <header className={styles.workspaceHeader}>
+        <div>
+          <h2 id="traffic-analytics-title">Mağaza trafiği</h2>
+          <p>Umami tarafından doğrulanan anonim trafik özeti</p>
+        </div>
+        <div
+          className={styles.rangeBar}
+          role="group"
+          aria-label="Analiz tarih aralığı"
+        >
+          {ANALYTICS_RANGES.map((range) => (
+            <button
+              key={range}
+              type="button"
+              aria-pressed={selectedRange === range}
+              onClick={() => setSelectedRange(range)}
+            >
+              {RANGE_LABELS[range]}
+            </button>
+          ))}
+        </div>
+      </header>
 
       <div aria-live="polite" className={styles.liveRegion}>
         {model.state === "loading" ? (
@@ -124,9 +122,12 @@ export function PanelAnalyticsView({
           </div>
         ) : null}
         {model.state === "disabled" ? (
-          <div className={styles.state}>
-            <h2>Analytics bağlı değil</h2>
-            <p>Mağaza için etkin bir Umami bağlantısı bulunmuyor.</p>
+          <div className={styles.integrationStatus}>
+            <span className={styles.statusIcon} aria-hidden="true" />
+            <div>
+              <h3>Analytics bağlı değil</h3>
+              <p>Mağaza için etkin bir Umami bağlantısı bulunmuyor.</p>
+            </div>
           </div>
         ) : null}
         {model.state === "empty" ? (
@@ -194,10 +195,11 @@ export function PanelAnalyticsView({
                   <LineChart
                     data={model.summary.pageviewsSeries}
                     accessibilityLayer
+                    margin={{ left: 4, right: 16, top: 8, bottom: 0 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="at" />
-                    <YAxis allowDecimals={false} />
+                    <CartesianGrid stroke="#E8ECF2" vertical={false} />
+                    <XAxis dataKey="at" axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
                     <Tooltip
                       formatter={(value) => [
                         String(value),
@@ -207,9 +209,11 @@ export function PanelAnalyticsView({
                     <Line
                       type="monotone"
                       dataKey="value"
-                      stroke="#FF6A00"
-                      strokeWidth={3}
+                      stroke="#FE6100"
+                      strokeWidth={2.5}
                       dot={false}
+                      activeDot={{ r: 4 }}
+                      isAnimationActive={false}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -219,24 +223,26 @@ export function PanelAnalyticsView({
               className={styles.breakdown}
               aria-labelledby="analytics-breakdown-title"
             >
-              <h2 id="analytics-breakdown-title">Dağılımlar</h2>
-              <div
-                className={styles.metricTabs}
-                role="tablist"
-                aria-label="Analytics metrik türü"
-              >
-                {ANALYTICS_METRIC_TYPES.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    role="tab"
-                    aria-selected={selectedMetric === type}
-                    onClick={() => setSelectedMetric(type)}
-                  >
-                    {METRIC_LABELS[type]}
-                  </button>
-                ))}
-              </div>
+              <header className={styles.breakdownHeader}>
+                <h2 id="analytics-breakdown-title">Dağılımlar</h2>
+                <div
+                  className={styles.metricTabs}
+                  role="tablist"
+                  aria-label="Analytics metrik türü"
+                >
+                  {ANALYTICS_METRIC_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedMetric === type}
+                      onClick={() => setSelectedMetric(type)}
+                    >
+                      {METRIC_LABELS[type]}
+                    </button>
+                  ))}
+                </div>
+              </header>
               {selectedResult ? (
                 <div className={styles.tableViewport}>
                   <table>
@@ -266,6 +272,6 @@ export function PanelAnalyticsView({
           </>
         ) : null}
       </div>
-    </PanelPageShell>
+    </section>
   );
 }

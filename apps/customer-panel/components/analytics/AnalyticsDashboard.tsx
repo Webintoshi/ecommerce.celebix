@@ -21,7 +21,6 @@ import {
   PanelMetricCard,
   PanelPageHeader,
   PanelPageShell,
-  PanelPanel,
 } from "@/components/panel/PanelPageShell";
 import { AnalyticsApiError, analyticsApi } from "@/lib/analytics-ui/client";
 
@@ -156,28 +155,35 @@ export function AnalyticsDashboard() {
     }
   }, [period]);
 
+  const hasRevenueSeries = dashboard?.series.some(
+    (point) => point.revenueCents > 0,
+  ) ?? false;
+
   return (
     <PanelPageShell>
       <div className={styles.root}>
       <PanelPageHeader
-        title="Analitik"
+        title="Analizler"
         description="Yalnız kalıcı sipariş, müşteri ve katalog kayıtlarından türetilen ticari özet."
       />
 
-      <div className={styles.toolbar} aria-label="Analitik dönem seçimi">
-        <div className={styles.periods} role="group" aria-label="Dönem">
-          {ANALYTICS_PERIODS.map((value) => (
-            <button
-              type="button"
-              key={value}
-              className={value === period ? styles.periodActive : styles.period}
-              aria-pressed={value === period}
-              disabled={state === "loading" && value === period}
-              onClick={() => selectPeriod(value)}
-            >
-              {PERIOD_LABELS[value]}
-            </button>
-          ))}
+      <div className={styles.toolbar} aria-label="Ticari analiz araçları">
+        <div className={styles.toolbarGroup}>
+          <span>Dönem</span>
+          <div className={styles.periods} role="group" aria-label="Dönem">
+            {ANALYTICS_PERIODS.map((value) => (
+              <button
+                type="button"
+                key={value}
+                className={value === period ? styles.periodActive : styles.period}
+                aria-pressed={value === period}
+                disabled={state === "loading" && value === period}
+                onClick={() => selectPeriod(value)}
+              >
+                {PERIOD_LABELS[value]}
+              </button>
+            ))}
+          </div>
         </div>
         <div className={styles.exports} aria-label="Analitik dışa aktar">
           <button type="button" disabled={exporting !== null || state !== "ready"} onClick={() => void exportDashboard("csv")}>
@@ -214,42 +220,70 @@ export function AnalyticsDashboard() {
             <PanelMetricCard label="Düşük stok" value={dashboard.catalog.lowStockVariants.toLocaleString("tr-TR")} detail={`${dashboard.catalog.activeProducts.toLocaleString("tr-TR")} aktif ürün`} />
           </section>
 
-          {dashboard.series.length === 0 ? (
-            <PanelEmptyState title="Bu dönem için ticari hareket yok" description="Kalıcı sipariş kaydı oluştuğunda zaman serisi burada görünür." />
-          ) : (
-            <PanelPanel title="Gelir zaman serisi">
+          <section className={styles.chartPanel} aria-labelledby="revenue-series-title">
+            <header className={styles.panelHeader}>
+              <div>
+                <h2 id="revenue-series-title">Gelir zaman serisi</h2>
+                <p>Seçili dönemde ödenmiş sipariş geliri</p>
+              </div>
+              <strong>{formatMoney(dashboard.revenueCents, dashboard.currency)}</strong>
+            </header>
+            {hasRevenueSeries ? (
               <div className={styles.chartViewport}>
                 <div className={styles.chart} role="img" aria-label="Gelir zaman serisi; seçili dönemde kalıcı sipariş gelirini gösterir">
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={dashboard.series} accessibilityLayer margin={{ left: 12, right: 16 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="startsAt" tickFormatter={formatSeriesLabel} />
+                    <LineChart data={dashboard.series} accessibilityLayer margin={{ left: 4, right: 16, top: 8, bottom: 0 }}>
+                      <CartesianGrid stroke="#E8ECF2" vertical={false} />
+                      <XAxis dataKey="startsAt" tickFormatter={formatSeriesLabel} axisLine={false} tickLine={false} />
                       <YAxis
                         tickFormatter={(value) => formatMoney(Number(value), dashboard.currency)}
-                        width={96}
+                        axisLine={false}
+                        tickLine={false}
+                        width={88}
                         tickMargin={8}
                       />
                       <Tooltip labelFormatter={(value) => typeof value === "string" ? formatSeriesLabel(value) : ""} formatter={(value) => [formatMoney(Number(value), dashboard.currency), "Gelir"]} />
-                      <Line type="monotone" dataKey="revenueCents" stroke="#FF6A00" strokeWidth={3} dot={false} />
+                      <Line type="monotone" dataKey="revenueCents" stroke="#FE6100" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
-            </PanelPanel>
-          )}
+            ) : (
+              <div className={styles.chartEmpty} role="status">
+                <strong>Bu dönemde ödenmiş satış hareketi bulunmuyor.</strong>
+                <span>Ödenmiş sipariş oluştuğunda gelir zaman serisi burada görünür.</span>
+              </div>
+            )}
+          </section>
 
-          <PanelPanel title="En çok gelir getiren ürünler">
+          <section className={styles.productsPanel} aria-labelledby="top-products-title">
+            <header className={styles.panelHeader}>
+              <div>
+                <h2 id="top-products-title">En çok gelir getiren ürünler</h2>
+                <p>Seçili dönemde ürün bazlı kalıcı gelir</p>
+              </div>
+            </header>
             {dashboard.topProducts.length ? (
-              <ol className={styles.products}>
-                {dashboard.topProducts.map((product) => (
+              <div className={styles.productTable}>
+                <div className={styles.productTableHeader} aria-hidden="true">
+                  <span>Sıra</span>
+                  <span>Ürün</span>
+                  <span>Adet</span>
+                  <span>Gelir</span>
+                </div>
+                <ol className={styles.products}>
+                {dashboard.topProducts.map((product, index) => (
                   <li key={product.productId}>
-                    <span>{product.title}</span>
-                    <span>{product.quantity.toLocaleString("tr-TR")} adet · {formatMoney(product.revenueCents, dashboard.currency)}</span>
+                    <span className={styles.productRank}>{index + 1}</span>
+                    <strong>{product.title}</strong>
+                    <span className={styles.productQuantity}>{product.quantity.toLocaleString("tr-TR")} adet</span>
+                    <span className={styles.productRevenue}>{formatMoney(product.revenueCents, dashboard.currency)}</span>
                   </li>
                 ))}
-              </ol>
+                </ol>
+              </div>
             ) : <p className={styles.empty}>Bu dönem için kalıcı ürün geliri yok.</p>}
-          </PanelPanel>
+          </section>
         </>
       ) : null}
       </div>
