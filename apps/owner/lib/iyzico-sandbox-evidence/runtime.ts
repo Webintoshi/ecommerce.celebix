@@ -14,6 +14,7 @@ import {
   IyzicoSandboxEvidenceRepositoryError,
   type RecordIyzicoSandboxEvidenceEventInput,
 } from "@celebix/saas-data";
+import { defaultProviderPaymentMethodConfig } from "@celebix/saas-contracts";
 
 import {
   isTrustedOperatorError,
@@ -690,6 +691,7 @@ async function initializeCase(
     const selectedInitialization = initialization(await selectedAdapter.initialize(Object.freeze({
       ...selectedFixture,
       environment: "test" as const,
+      preferences: defaultProviderPaymentMethodConfig("iyzico_iframe", "test"),
       credential,
       attemptId,
       signal: new AbortController().signal,
