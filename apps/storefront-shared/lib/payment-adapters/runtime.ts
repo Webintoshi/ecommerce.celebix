@@ -10,6 +10,11 @@ import type {
   VerifiedProviderCallback,
 } from "@celebix/payment-adapters";
 import {
+  parseProviderPaymentMethodConfig,
+  type ExecutableHostedPaymentProvider,
+  type ProviderPaymentMethodConfig,
+} from "@celebix/saas-contracts";
+import {
   openMerchantProviderCredential,
   PaymentAttemptRepositoryError,
   type BeginPaymentAttemptResult,
@@ -494,6 +499,7 @@ function openCredential(
 
 type SelectedHostedPaymentAdapter = Readonly<{
   adapter: HostedPaymentAdapter<object>;
+  methodConfig: ProviderPaymentMethodConfig;
   compiledAuthority: Readonly<{
     providerCode: string;
     environment: "test" | "live";
@@ -509,6 +515,10 @@ function adapterFor(
 ): SelectedHostedPaymentAdapter | null {
   try {
     const providerCode = authority.providerCode;
+    const methodConfig = parseProviderPaymentMethodConfig(
+      providerCode as ExecutableHostedPaymentProvider,
+      authority.methodConfig,
+    );
     const adapter = dependencies.adapters.adapter(providerCode);
     const compiled = dependencies.selectCompiledAuthority(providerCode);
     const descriptors = compiled !== null
@@ -530,6 +540,7 @@ function adapterFor(
       })
       && descriptors.providerCode?.value === providerCode
       && descriptors.environment?.value === authority.environment
+      && methodConfig.environment === authority.environment
       && descriptors.adapterVersion?.value === adapter.packet.adapterVersion
       && descriptors.adapterVersion.value === authority.executionAdapterVersion
       && typeof descriptors.evidenceDigest?.value === "string"
@@ -537,6 +548,7 @@ function adapterFor(
       && descriptors.evidenceDigest.value === authority.executionEvidenceDigest)) return null;
     return Object.freeze({
       adapter,
+      methodConfig,
       compiledAuthority: Object.freeze({
         providerCode,
         environment: descriptors.environment.value as "test" | "live",
@@ -589,6 +601,7 @@ function exactBrowserUrl(
   environment: "test" | "live",
   value: unknown,
   token?: unknown,
+  language: "tr" | "en" = "tr",
 ): string | null {
   if (typeof value !== "string" || value.length < 1 || value.length > 2_048) return null;
   try {
@@ -617,7 +630,7 @@ function exactBrowserUrl(
         ? value
         : null;
     }
-    const exactQuery = `?${rule.tokenParameter}=${token}&${rule.languageParameter}=${rule.language}`;
+    const exactQuery = `?${rule.tokenParameter}=${token}&${rule.languageParameter}=${language}`;
     if (value !== `${rule.origin}${exactQuery}` && value !== `${rule.origin}/${exactQuery}`) {
       return null;
     }
@@ -626,7 +639,7 @@ function exactBrowserUrl(
       && parsed.search === exactQuery
       && parsed.searchParams.size === 2
       && parsed.searchParams.get(rule.tokenParameter) === token
-      && parsed.searchParams.get(rule.languageParameter) === rule.language
+      && parsed.searchParams.get(rule.languageParameter) === language
       ? value
       : null;
   } catch {
@@ -638,6 +651,7 @@ function parseInitialization(
   adapter: HostedPaymentAdapter<object>,
   environment: "test" | "live",
   value: HostedPaymentInitialization,
+  language: "tr" | "en",
 ): Readonly<{
   status: "awaiting_customer" | "submitted" | "failed";
   providerReference: string | null;
@@ -650,7 +664,7 @@ function parseInitialization(
     && exactKeys(value, ["kind", "url", "providerReference"])
     && validProviderReference(value.providerReference)
   ) {
-    const url = exactBrowserUrl(adapter, environment, value.url);
+    const url = exactBrowserUrl(adapter, environment, value.url, undefined, language);
     return url === null ? null : Object.freeze({
       status: "awaiting_customer",
       providerReference: value.providerReference,
@@ -663,7 +677,7 @@ function parseInitialization(
     && exactKeys(value, ["kind", "url", "token", "providerReference"])
     && validProviderReference(value.providerReference)
   ) {
-    const url = exactBrowserUrl(adapter, environment, value.url, value.token);
+    const url = exactBrowserUrl(adapter, environment, value.url, value.token, language);
     if (
       url === null
       || typeof value.token !== "string"
@@ -923,6 +937,7 @@ async function initialize(
       try {
         result = await withinProviderDeadline(providerTimeoutMs, (signal) => adapter.initialize(Object.freeze({
           environment: begun.environment,
+          preferences: selectedAdapter.methodConfig,
           credential: opened.credential,
           attemptId: begun.attemptId,
           orderReference: input.orderReference,
@@ -982,7 +997,12 @@ async function initialize(
         } catch { /* processing remains the only safe projection */ }
         return PRESENTATION_PROCESSING;
       }
-      const parsed = parseInitialization(adapter, begun.environment, result);
+      const parsed = parseInitialization(
+        adapter,
+        begun.environment,
+        result,
+        selectedAdapter.methodConfig.locale,
+      );
       if (parsed === null) {
         const unknown = phase(
           "initialize-invalid-result",

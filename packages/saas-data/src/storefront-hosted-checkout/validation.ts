@@ -8,6 +8,7 @@ import {
   paymentAttemptEnvironment,
   paymentAttemptExecutionEvidenceDigest,
   paymentAttemptInteger,
+  paymentAttemptMethodConfig,
   paymentAttemptOrderReference,
   paymentAttemptProviderCode,
   paymentAttemptPublicConfig,
@@ -156,7 +157,7 @@ export function parseHostedBegin(value: unknown, outcome: string, expected: Read
   const parsed = hostedExact(value, [
     "attemptId", "storeId", "paymentMethodId", "profileId", "providerCode", "environment",
     "executionAdapterVersion", "executionEvidenceDigest", "credentialVersion", "amountMinor", "currency",
-    "publicConfig", "sealedCredentials", "sessionId", "sessionStatus", "sessionVersion",
+    "methodConfig", "publicConfig", "sealedCredentials", "sessionId", "sessionStatus", "sessionVersion",
     "paymentSessionExpiresAt", "receiptExpiresAt", "customerExpiresAt",
     "paymentSessionKeyId", "receiptKeyId", "customerKeyId",
   ]);
@@ -165,23 +166,26 @@ export function parseHostedBegin(value: unknown, outcome: string, expected: Read
     || paymentAttemptUuid(parsed.sessionId) !== expected.sessionId) invalid();
   paymentAttemptTimestamp(parsed.paymentSessionExpiresAt); paymentAttemptTimestamp(parsed.receiptExpiresAt); paymentAttemptTimestamp(parsed.customerExpiresAt);
   const environment = paymentAttemptEnvironment(parsed.environment);
+  const providerCode = provider(parsed.providerCode);
+  const methodConfig = paymentAttemptMethodConfig(providerCode, plain(parsed.methodConfig));
   const publicConfig = paymentAttemptPublicConfig(plain(parsed.publicConfig));
   const result = Object.freeze({
     outcome: outcome === "created" ? "created" as const : "replayed" as const,
     attemptId: paymentAttemptUuid(parsed.attemptId), storeId: paymentAttemptUuid(parsed.storeId),
     paymentMethodId: paymentAttemptUuid(parsed.paymentMethodId), profileId: paymentAttemptUuid(parsed.profileId),
-    providerCode: provider(parsed.providerCode), environment,
+    providerCode, environment,
     executionAdapterVersion: paymentAttemptInteger(parsed.executionAdapterVersion),
     executionEvidenceDigest: paymentAttemptExecutionEvidenceDigest(parsed.executionEvidenceDigest),
     credentialVersion: paymentAttemptInteger(parsed.credentialVersion), amountMinor: paymentAttemptInteger(parsed.amountMinor),
-    currency: paymentAttemptCurrency(parsed.currency), publicConfig,
+    currency: paymentAttemptCurrency(parsed.currency), methodConfig, publicConfig,
     sealedCredentials: paymentAttemptSealedCredentials(plain(parsed.sealedCredentials)),
     paymentSessionKeyId: text(parsed.paymentSessionKeyId, 1, 128, KEY_ID),
     receiptKeyId: text(parsed.receiptKeyId, 1, 128, KEY_ID),
     customerKeyId: text(parsed.customerKeyId, 1, 128, KEY_ID),
   });
   if (result.attemptId !== expected.operationId || result.paymentMethodId !== expected.paymentMethodId
-    || result.currency !== "TRY" || publicConfig.environment !== environment) invalid();
+    || result.currency !== "TRY" || publicConfig.environment !== environment
+    || methodConfig.environment !== environment) invalid();
   return result;
 }
 

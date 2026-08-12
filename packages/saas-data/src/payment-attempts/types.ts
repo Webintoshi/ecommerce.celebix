@@ -1,4 +1,7 @@
-import type { MerchantAdminJson } from "@celebix/saas-contracts";
+import type {
+  MerchantAdminJson,
+  ProviderPaymentMethodConfig,
+} from "@celebix/saas-contracts";
 
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 import type { SealedMerchantProviderCredential } from "../provider-execution/credential-crypto.ts";
@@ -51,6 +54,7 @@ export type BeginPaymentAttemptResult = PaymentAttemptExecutionAuthority & Reado
   credentialVersion: number;
   amountMinor: number;
   currency: string;
+  methodConfig: ProviderPaymentMethodConfig;
   publicConfig: Readonly<Record<string, MerchantAdminJson>>;
   sealedCredentials: SealedMerchantProviderCredential;
 }>;
@@ -78,6 +82,7 @@ export type PaymentAttemptAuthority = PaymentAttemptExecutionAuthority & Readonl
   status: PaymentAttemptStatus;
   version: number;
   providerReference: string | null;
+  methodConfig: ProviderPaymentMethodConfig;
   publicConfig: Readonly<Record<string, MerchantAdminJson>>;
   sealedCredentials: SealedMerchantProviderCredential;
 }>;

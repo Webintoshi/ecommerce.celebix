@@ -1,0 +1,23 @@
+{
+  "phase": "phase4u-payment-method-preference-snapshot",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608120104_payment_method_preference_snapshot.up.sql",
+      "direction": "up",
+      "sha256": "98869662a7dfc3f889948db2602ac01b01586bea61c4863bc63e1ac6d8a82175"
+    },
+    {
+      "file": "202608120104_payment_method_preference_snapshot.down.sql",
+      "direction": "down",
+      "sha256": "c15ebefe09fa0d36b2669841dd8374d592a6eb83590512fd1c1a8bcce635d78d"
+    },
+    {
+      "file": "202608120104_payment_method_preference_snapshot_assertions.sql",
+      "direction": "verify",
+      "sha256": "4ac1133bddc2ccee1b0191745b20f43b9b1387a1a1ff5ddee9af52b1dafa6ff7"
+    }
+  ]
+}

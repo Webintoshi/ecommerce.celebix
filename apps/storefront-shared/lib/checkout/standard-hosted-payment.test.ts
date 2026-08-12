@@ -107,6 +107,13 @@ function fixture(selectedPresentation: HostedPaymentPresentation, outcome: "crea
     outcome, attemptId: ATTEMPT, storeId: STORE, paymentMethodId: METHOD, profileId: PROFILE,
     providerCode: "iyzico_iframe", environment: "test", credentialVersion: 1,
     executionAdapterVersion: 1, executionEvidenceDigest: EVIDENCE, amountMinor: 10_000, currency: "TRY",
+    methodConfig: Object.freeze({
+      environment: "test" as const,
+      locale: "tr" as const,
+      threeDSecure: "provider_managed" as const,
+      installmentMode: "all" as const,
+      maxInstallment: 0 as const,
+    }),
     publicConfig: Object.freeze({}),
     paymentSessionKeyId: outcome === "replayed" ? "previous_01" : "current_01",
     receiptKeyId: outcome === "replayed" ? "previous_01" : "current_01",
