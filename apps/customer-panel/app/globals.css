@@ -620,13 +620,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   text-transform: uppercase;
 }
 .product-operations-page .catalog-table th:nth-child(1) { width: 52px; }
-.product-operations-page .catalog-table th:nth-child(2) { width: 36%; }
+.product-operations-page .catalog-table th:nth-child(2) { width: 35%; }
 .product-operations-page .catalog-table th:nth-child(3) { width: 10%; }
 .product-operations-page .catalog-table th:nth-child(4) { width: 11%; }
 .product-operations-page .catalog-table th:nth-child(5) { width: 8%; }
 .product-operations-page .catalog-table th:nth-child(6) { width: 10%; }
 .product-operations-page .catalog-table th:nth-child(7) { width: 8%; }
-.product-operations-page .catalog-table th:nth-child(8) { width: 126px; }
+.product-operations-page .catalog-table th:nth-child(8) { width: 146px; }
 .product-operations-page .catalog-table td {
   height: 70px;
   border-top-color: #e9edf2;
@@ -710,6 +710,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-operations-page .icon-button {
   width: 38px;
   height: 38px;
+  flex: 0 0 38px;
   border-color: transparent;
   border-radius: 6px;
   background: transparent;
