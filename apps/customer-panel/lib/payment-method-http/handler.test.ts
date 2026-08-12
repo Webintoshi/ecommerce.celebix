@@ -19,6 +19,16 @@ const REQUEST = "71000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-27T12:00:00.000Z");
 const CREDENTIAL = "v1.panel.current.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
+function providerConfig(environment: "test" | "live" = "test") {
+  return Object.freeze({
+    environment,
+    locale: "tr" as const,
+    threeDSecure: "provider_managed" as const,
+    installmentMode: "all" as const,
+    maxInstallment: 0 as const,
+  });
+}
+
 function tenant(role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): TenantContext {
   return {
     schemaVersion: 1,
@@ -318,14 +328,25 @@ test("provider method mutation requires exact catalog registry packet evidence v
   });
   const input = {
     methodId: METHOD, expectedVersion: 0, kind: "provider", profileId: PROFILE,
-    providerCode: "paytr_iframe", label: "PayTR", config: { environment: "test" },
+    providerCode: "paytr_iframe", label: "PayTR", config: Object.freeze({
+      ...providerConfig(),
+      locale: "en" as const,
+      installmentMode: "limited" as const,
+      maxInstallment: 6 as const,
+    }),
   };
   const accepted = fixture({ catalog, providerExecution });
   assert.equal((await accepted.handlers.methods(request("POST", "/api/payment-methods", input))).status, 200);
   assert.equal(accepted.calls.filter((entry) => entry.kind === "save").length, 1);
-  const providerConfig = (accepted.calls.find((entry) => entry.kind === "save")!.input as Record<string, unknown>).config;
-  assert.deepEqual(providerConfig, { environment: "test" });
-  assert.equal(Object.isFrozen(providerConfig), true);
+  const savedProviderConfig = (accepted.calls.find((entry) => entry.kind === "save")!.input as Record<string, unknown>).config;
+  assert.deepEqual(savedProviderConfig, {
+    environment: "test",
+    locale: "en",
+    threeDSecure: "provider_managed",
+    installmentMode: "limited",
+    maxInstallment: 6,
+  });
+  assert.equal(Object.isFrozen(savedProviderConfig), true);
 
   const mismatches = [
     null,
@@ -342,13 +363,29 @@ test("provider method mutation requires exact catalog registry packet evidence v
   }
   const wrongEnvironment = fixture({ catalog, providerExecution });
   assert.equal((await wrongEnvironment.handlers.methods(request("POST", "/api/payment-methods", {
-    ...input, config: { environment: "live" },
+    ...input, config: providerConfig("live"),
   }))).status, 503);
   assert.equal(wrongEnvironment.calls.length, 0);
 
+  for (const invalidConfig of [
+    { environment: "test" },
+    { ...providerConfig(), unsupported: true },
+    { ...providerConfig(), installmentMode: "limited", maxInstallment: 0 },
+    { ...providerConfig(), threeDSecure: "disabled" },
+  ]) {
+    const invalid = fixture({ catalog, providerExecution });
+    const response = await invalid.handlers.methods(request("POST", "/api/payment-methods", {
+      ...input,
+      config: invalidConfig,
+    }));
+    assert.equal(response.status, 400);
+    assert.equal(await code(response), "invalid_input");
+    assert.equal(invalid.calls.length, 0);
+  }
+
   const providerMethod = Object.freeze({
     ...paymentMethod(), kind: "provider" as const, profileId: PROFILE,
-    providerCode: "paytr_iframe", label: "PayTR", config: { environment: "test" },
+    providerCode: "paytr_iframe", label: "PayTR", config: providerConfig(),
   });
   const acceptedState = fixture({ catalog, providerExecution, method: providerMethod });
   assert.equal((await acceptedState.handlers.state(request("POST", `/api/payment-methods/${METHOD}/state`, {

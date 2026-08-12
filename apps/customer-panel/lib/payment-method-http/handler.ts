@@ -3,13 +3,14 @@ import {
   PAYMENT_METHOD_STATES,
   isMerchantActionAllowed,
   parseBuiltInPaymentMethodConfig,
-  parseMerchantAdminConfig,
   parseMerchantPaymentMethod,
   parsePaymentMethodMutationResult,
   parsePaymentMethodReorderResult,
+  parseProviderPaymentMethodConfig,
   parsePaymentProviderCatalog,
-  type MerchantAdminJson,
+  type ExecutableHostedPaymentProvider,
   type PaymentMethodKind,
+  type ProviderPaymentMethodConfig,
   type PaymentProviderCatalogEntry,
   type PaymentMethodState,
   type TenantContext,
@@ -256,18 +257,25 @@ function methodItems(value: unknown) {
   return Object.freeze({ items: Object.freeze(selected.map(parseMerchantPaymentMethod)) });
 }
 
-function safeConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>> | null {
+function providerConfig(
+  providerCode: string,
+  value: unknown,
+): ProviderPaymentMethodConfig | null {
   try {
-    const selected = parseMerchantAdminConfig(value);
-    return ENCODER.encode(JSON.stringify(selected)).byteLength <= 8_192 ? selected : null;
+    return parseProviderPaymentMethodConfig(
+      providerCode as ExecutableHostedPaymentProvider,
+      value,
+    );
   } catch { return null; }
 }
 
 function providerExecutionReady(
   runtime: ServerPaymentMethodsRuntime,
   entry: PaymentProviderCatalogEntry,
-  config: Readonly<Record<string, MerchantAdminJson>>,
+  config: unknown,
 ): boolean {
+  const preferences = providerConfig(entry.providerCode, config);
+  if (preferences === null) return false;
   const authority = entry.executionAuthority;
   const expectedEnvironment = entry.readiness === "sandbox_ready" ? "test"
     : entry.readiness === "production_ready" ? "live" : null;
@@ -275,7 +283,7 @@ function providerExecutionReady(
     authority === null || expectedEnvironment === null ||
     authority.environment !== expectedEnvironment ||
     !/^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest) ||
-    Object.keys(config).length !== 1 || config.environment !== authority.environment ||
+    preferences.environment !== authority.environment ||
     runtime.providerExecution === null
   ) return false;
   const descriptor = runtime.providerExecution.registry.get(entry.providerCode, "payment_processing");
@@ -315,7 +323,7 @@ function saveInput(value: unknown, runtime: ServerPaymentMethodsRuntime) {
     const catalogEntry = runtime.catalog.find((entry) => entry.providerCode === providerCode);
     if (catalogEntry === undefined) return null;
     if (catalogEntry.executionAuthority === null || (catalogEntry.readiness !== "production_ready" && catalogEntry.readiness !== "sandbox_ready")) return "unavailable" as const;
-    const config = safeConfig(parsed.config);
+    const config = providerConfig(providerCode, parsed.config);
     if (config === null) return null;
     if (!providerExecutionReady(runtime, catalogEntry, config)) return "unavailable" as const;
     return Object.freeze({ methodId, expectedVersion, kind, profileId, providerCode, label, config });

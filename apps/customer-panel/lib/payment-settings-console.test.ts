@@ -137,7 +137,13 @@ function iyzicoMethod(
     state,
     emergencyReason: state === "emergency_disabled" ? "Risk kontrolü" : null,
     position: 0,
-    config: Object.freeze({ environment }),
+    config: Object.freeze({
+      environment,
+      locale: "tr",
+      threeDSecure: "provider_managed",
+      installmentMode: "all",
+      maxInstallment: 0,
+    }),
     version,
     createdAt: NOW,
     updatedAt: NOW,
@@ -1502,7 +1508,13 @@ test("provider activation creates one deterministic tenant method and activates 
     profileId: IYZICO_PROFILE_ID,
     providerCode: "iyzico_iframe",
     label: "iyzico · Checkout Form",
-    config: Object.freeze({ environment: "test" }),
+    config: Object.freeze({
+      environment: "test",
+      locale: "tr",
+      threeDSecure: "provider_managed",
+      installmentMode: "all",
+      maxInstallment: 0,
+    }),
   })]);
   assert.deepEqual(states, [Object.freeze({
     methodId: IYZICO_PROFILE_ID,
