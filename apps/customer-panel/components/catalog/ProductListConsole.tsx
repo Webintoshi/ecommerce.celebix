@@ -63,6 +63,12 @@ function money(cents: number | undefined, currency: string) {
   }).format(cents / 100);
 }
 
+function productStockClass(variant: ProductVariant | undefined) {
+  if (!variant?.stockTracking) return "product-stock";
+  if (variant.stockQuantity === 0) return "product-stock-out";
+  return variant.stockQuantity <= 10 ? "product-stock-low" : "product-stock";
+}
+
 export function resolveProductActionPlacement(viewportWidth: number): "inline" | "topbar" {
   return viewportWidth <= 1024 ? "inline" : "topbar";
 }
@@ -464,7 +470,7 @@ export function ProductListConsole() {
 
   function productCommands() {
     return (
-    <div className="hemenaku-product-commandbar" aria-label="Ürün sayfası işlemleri">
+    <div className="hemenaku-product-commandbar product-operations-commandbar" aria-label="Ürün sayfası işlemleri">
       <label className="command-select"><GripVertical aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => setSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Sırala</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option></select></label>
       <Link className="command-button" href="/products/bulk-upload"><FileUp aria-hidden="true" />İçe Aktar</Link>
       <button className="command-button" type="button" disabled={visibleRows.length === 0 || busy || loading || loadingMore} onClick={exportVisibleRows}><Download aria-hidden="true" />Dışa Aktar</button>
@@ -486,12 +492,12 @@ export function ProductListConsole() {
   const topbarActions = productCommands();
 
   return (
-    <section className="catalog-page donor-product-page" aria-labelledby="products-title" data-presentation="hemenaku-product-list">
+    <section className="catalog-page donor-product-page product-operations-page" aria-labelledby="products-title" data-presentation="hemenaku-product-list" data-workspace="product-operations">
       <PanelTopbarBridge title="Ürünler" actions={topbarActions} />
       <h1 id="products-title" className="sr-only">Ürünler</h1>
       <div className="product-mobile-commandbar">{productCommands()}</div>
 
-      <div className="hemenaku-product-filters">
+      <div className="hemenaku-product-filters product-operations-toolbar">
         <dl className="product-stat-grid" aria-label="Ürün özeti">
           {summaryMetrics.map((metric) => (
             <div key={metric.key} aria-label={metric.accessibleValue}>
@@ -501,8 +507,8 @@ export function ProductListConsole() {
           ))}
         </dl>
         <label className="product-search"><Search aria-hidden="true" /><span className="sr-only">Tabloda arama yapın</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tabloda arama yapın" aria-label="Ürün tablosunda ara" /></label>
-        <button className={`command-button ${filterOpen ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
-        <button ref={refreshListButtonRef} className="command-button command-icon-button" type="button" disabled={busy || loading || loadingMore} onClick={() => void load()} aria-label="Ürün listesini yenile"><RefreshCw aria-hidden="true" /></button>
+        <button className={`command-button ${filterOpen || filter !== "all" ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} aria-pressed={filter !== "all"} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
+        <button ref={refreshListButtonRef} className="command-button command-icon-button" type="button" disabled={busy || loading || loadingMore} onClick={() => void load()} aria-label="Ürün listesini yenile" title="Ürün listesini yenile"><RefreshCw aria-hidden="true" /></button>
       </div>
 
       {filterOpen ? (
@@ -516,7 +522,7 @@ export function ProductListConsole() {
           <label className="select-all-control"><input type="checkbox" disabled={busy} checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? Object.freeze(visibleIds) : Object.freeze([]))} aria-label="Görüntülenen tüm ürünleri seç" /><span>Tümünü seç</span></label>
           <select value={bulkAction} disabled={busy} onChange={(event) => setBulkAction(event.target.value as BulkAction)} aria-label="Toplu İşlemler"><option value="">Toplu İşlemler</option><option value="active">Aktif yap</option><option value="draft">Taslağa al</option><option value="archive">Arşivle</option></select>
           <button type="button" disabled={selected.length === 0 || bulkAction === "" || busy || loading || loadingMore} onClick={applyBulkAction}>Uygula</button>
-          <span>{selected.length} ürün seçildi</span>
+          <span className="product-selected-count">{selected.length} ürün seçildi</span>
         </div>
         <div className="product-list-status">
           <span className="product-range">{visibleRows.length === 0 ? 0 : 1} - {visibleRows.length} / {rows.length} yüklendi · {summary?.totalProducts ?? "—"} mağazada</span>
@@ -538,15 +544,15 @@ export function ProductListConsole() {
             <thead><tr><th>Seç</th><th>Ürün</th><th>SKU</th><th>Fiyat</th><th>Stok</th><th>Durum</th><th>Yayında</th><th>İşlemler</th></tr></thead>
             <tbody>
               {visibleRows.map(({ product, variant, featuredImage }) => (
-                <tr key={product.id}>
+                <tr key={product.id} className={selected.includes(product.id) ? "is-selected" : undefined}>
                   <td data-label="Seç"><label className="catalog-checkbox-hit"><input type="checkbox" disabled={busy} checked={selected.includes(product.id)} onChange={(event) => setSelected((current) => event.target.checked ? Object.freeze([...current, product.id]) : Object.freeze(current.filter((id) => id !== product.id)))} aria-label={`${product.title} ürününü seç`} /></label></td>
                   <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><ProductThumbnail product={product} featuredImage={featuredImage} /><span><strong>{product.title}</strong></span></Link></td>
                   <td data-label="SKU"><span className="mono-value">{variant?.sku ?? "—"}</span></td>
                   <td data-label="Fiyat">{variant?.compareAtCents ? <del>{money(variant.compareAtCents, product.currency)}</del> : null}<span className="product-price">{money(variant?.priceCents, product.currency)}</span></td>
-                  <td data-label="Stok"><span className={variant?.stockTracking && variant.stockQuantity <= 10 ? "product-stock-low" : "product-stock"}>{variant === undefined ? "—" : variant.stockTracking ? `${variant.stockQuantity} adet` : "Takipsiz"}</span></td>
+                  <td data-label="Stok"><span className={productStockClass(variant)}>{variant === undefined ? "—" : variant.stockTracking ? `${variant.stockQuantity} adet` : "Takipsiz"}</span></td>
                   <td data-label="Durum"><span className={`product-status-text status-${product.status}`}>{STATUS_LABELS[product.status]}</span>{product.status === "draft" ? <small>Henüz yayına hazır değil</small> : null}</td>
                   <td data-label="Yayında"><button className={`publish-switch ${product.status === "active" ? "is-active" : ""}`} type="button" role="switch" aria-checked={product.status === "active"} disabled={busy} onClick={() => void setProductStatus(product, product.status === "active" ? "draft" : "active")} aria-label={`${product.title} yayın durumunu değiştir`}><span /></button></td>
-                  <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`}><Eye /></Link><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`}><Pencil /></Link><button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`}><Trash2 /></button></td>
+                  <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`} title="Görüntüle"><Eye /></Link><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`} title="Düzenle"><Pencil /></Link><button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`} title="Arşivle"><Trash2 /></button></td>
                 </tr>
               ))}
             </tbody>
