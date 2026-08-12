@@ -269,6 +269,389 @@ button:disabled.primaryButton,
 .detailLink { width: 100%; }
 .loadMore { margin: 1rem auto; }
 
+.listSurface {
+  display: grid;
+  gap: .75rem;
+}
+
+.filterPanel,
+.dataSurface {
+  min-width: 0;
+  border: 1px solid #E3E8EF;
+  border-radius: 8px;
+  background: #FFFFFF;
+  box-shadow: 0 1px 2px rgb(17 24 39 / 4%);
+}
+
+.filterPanel {
+  overflow: visible;
+}
+
+.filterPanel .toolbar {
+  grid-template-columns: minmax(20rem, 1fr) minmax(9.5rem, .3fr) minmax(11rem, .36fr);
+  gap: .5rem;
+  border-bottom: 1px solid #E8ECF1;
+  padding: .5rem;
+}
+
+.filterPanel .filterToolbar {
+  grid-template-columns: repeat(3, minmax(9rem, 1fr)) auto auto;
+  gap: .5rem;
+  border-bottom: 0;
+  padding: .5rem;
+}
+
+.filterPanel .filterToolbar > label {
+  gap: .25rem;
+}
+
+.filterPanel .filterToolbar label > span {
+  color: #697386;
+  font-size: .6875rem;
+  font-weight: 700;
+}
+
+.filterPanel .toolbar input,
+.filterPanel .toolbar select,
+.filterPanel .filterToolbar select {
+  min-height: 38px;
+  border-color: #DCE2EA;
+  border-radius: 6px;
+  padding: 0 .7rem;
+  color: #253044;
+  font-size: .78rem;
+}
+
+.filterPanel .toolbar input:hover,
+.filterPanel .toolbar select:hover,
+.filterPanel .filterToolbar select:hover {
+  border-color: #C7CFDA;
+}
+
+.filterPanel .toolbar input:focus,
+.filterPanel .toolbar select:focus,
+.filterPanel .filterToolbar select:focus {
+  border-color: #FE6100;
+  box-shadow: 0 0 0 3px rgb(254 97 0 / 10%);
+  outline: 0;
+}
+
+.filterPanel .searchField input {
+  border-radius: 6px 0 0 6px;
+}
+
+.filterPanel .searchField button {
+  min-height: 38px;
+  border-color: #FE6100;
+  border-radius: 0 6px 6px 0;
+  background: #FE6100;
+  padding: 0 .85rem;
+  color: #FFFFFF;
+  font-size: .76rem;
+}
+
+.filterPanel .searchField button:hover {
+  border-color: #E95800;
+  background: #E95800;
+}
+
+.filterPanel .columnPicker summary,
+.filterPanel .exportButton {
+  min-height: 38px;
+  border-color: #DCE2EA;
+  border-radius: 6px;
+  background: #FFFFFF;
+  padding: 0 .75rem;
+  color: #4A5568;
+  font-size: .74rem;
+  font-weight: 700;
+}
+
+.filterPanel .columnPicker[open] summary,
+.filterPanel .columnPicker summary:hover,
+.filterPanel .exportButton:hover:not(:disabled) {
+  border-color: #FFBE94;
+  background: #FFF8F3;
+  color: #B54708;
+}
+
+.filterPanel .columnPicker > div {
+  top: calc(100% + .35rem);
+  min-width: 13rem;
+  border-color: #DCE2EA;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgb(17 24 39 / 12%);
+}
+
+.dataSurface {
+  overflow: hidden;
+}
+
+.dataSurface .loading {
+  min-height: 16rem;
+}
+
+.dataSurface .errorState {
+  min-height: 8rem;
+}
+
+.dataSurface .desktopTable {
+  background: #FFFFFF;
+}
+
+.dataSurface .desktopTable table {
+  min-width: 1060px;
+  table-layout: fixed;
+}
+
+.dataSurface .desktopTable th {
+  height: 40px;
+  border-bottom: 1px solid #E3E8EF;
+  background: #F7F9FB;
+  padding: 0 .7rem;
+  color: #697386;
+  font-size: .675rem;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.dataSurface .desktopTable td {
+  height: 60px;
+  border-top: 0;
+  border-bottom: 1px solid #EDF0F4;
+  padding: .45rem .7rem;
+  color: #394457;
+  font-size: .76rem;
+  vertical-align: middle;
+}
+
+.dataSurface .desktopTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dataSurface .desktopTable tbody tr:hover {
+  background: #FFFBF8;
+}
+
+.orderColumn,
+.orderCell {
+  width: 8.5rem;
+}
+
+.dateColumn,
+.dateCell {
+  width: 9.5rem;
+}
+
+.customerColumn,
+.customerCell {
+  width: 13rem;
+}
+
+.statusColumn,
+.statusCell {
+  width: 8.5rem;
+}
+
+.paymentColumn,
+.paymentCell {
+  width: 9.5rem;
+}
+
+.itemsColumn,
+.itemsCell {
+  width: 4.25rem;
+  text-align: center !important;
+}
+
+.sourceColumn,
+.sourceCell {
+  width: 8.75rem;
+}
+
+.totalColumn,
+.totalCell {
+  width: 8.75rem;
+  text-align: right !important;
+}
+
+.actionColumn,
+.actionCell {
+  width: 5.5rem;
+  text-align: right !important;
+}
+
+.dataSurface .orderLink {
+  min-width: 48px;
+  min-height: 48px;
+  color: #182235;
+  font-size: .78rem;
+  font-weight: 780;
+  text-decoration: none;
+}
+
+.dataSurface .orderLink:hover {
+  color: #C44B00;
+}
+
+.dataSurface .orderCell small,
+.dataSurface .customerCell small {
+  margin-top: 0;
+  color: #7A8494;
+  font-size: .68rem;
+}
+
+.dataSurface .customerCell strong {
+  overflow: hidden;
+  color: #293548;
+  font-size: .76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusCell > span,
+.paymentBadge,
+.channelBadge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0 .5rem;
+  font-size: .66rem;
+  font-weight: 720;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.paymentBadge {
+  border-color: #E0E5EC;
+  background: #F6F8FA;
+  color: #536074;
+}
+
+.paymentBadge[data-state="completed"] {
+  border-color: #BFE5CE;
+  background: #EDF8F1;
+  color: #247143;
+}
+
+.paymentBadge[data-state="pending"],
+.paymentBadge[data-state="processing"] {
+  border-color: #F1D6BC;
+  background: #FFF7EF;
+  color: #96511D;
+}
+
+.paymentBadge[data-state="failed"] {
+  border-color: #F0C5C8;
+  background: #FDF1F2;
+  color: #A33A42;
+}
+
+.paymentBadge[data-state="refunded"] {
+  border-color: #D5D9E0;
+  background: #F4F5F7;
+  color: #5E6673;
+}
+
+.channelBadge {
+  border-color: #E0E5EC;
+  background: #F7F8FA;
+  color: #586476;
+}
+
+.dataSurface .totalCell strong {
+  color: #182235;
+  font-size: .79rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dataSurface .rowDetailLink {
+  min-width: 48px;
+  min-height: 32px;
+  border-color: #DCE2EA;
+  border-radius: 6px;
+  background: #FFFFFF;
+  padding: 0 .6rem;
+  color: #4A5568;
+  font-size: .7rem;
+}
+
+.dataSurface .rowDetailLink:hover {
+  border-color: #FFBE94;
+  background: #FFF8F3;
+  color: #B54708;
+}
+
+.dataSurface .mobileCards {
+  background: #FFFFFF;
+}
+
+.dataSurface .orderCard {
+  gap: .8rem;
+  padding: .9rem;
+}
+
+.cardOrderIdentity {
+  display: grid;
+  min-width: 0;
+  gap: .05rem;
+}
+
+.cardOrderIdentity > a {
+  color: #182235;
+  font-size: .84rem;
+  font-weight: 780;
+}
+
+.cardOrderIdentity > small {
+  color: #7A8494;
+  font-size: .68rem;
+}
+
+.dataSurface .cardFacts {
+  gap: .65rem;
+}
+
+.dataSurface .cardFacts dt {
+  color: #7A8494;
+  font-size: .65rem;
+  letter-spacing: 0;
+}
+
+.dataSurface .cardFacts dd {
+  margin-top: .18rem;
+  font-size: .78rem;
+}
+
+.dataSurface .totalFact dd {
+  color: #182235;
+  font-size: .84rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 780;
+}
+
+.dataSurface .detailLink {
+  min-height: 38px;
+  border-color: #DCE2EA;
+  border-radius: 6px;
+  color: #4A5568;
+}
+
+.dataSurface .detailLink:hover {
+  border-color: #FFBE94;
+  background: #FFF8F3;
+  color: #B54708;
+}
+
+.dataSurface .loadMore {
+  min-height: 38px;
+  border-color: #DCE2EA;
+  border-radius: 6px;
+  color: #4A5568;
+}
+
 .orderTopbar {
   position: sticky;
   z-index: 8;
@@ -504,12 +887,38 @@ button:disabled.primaryButton,
 }
 .primaryAction {
   align-items: center;
-  background: #ff5c00;
-  border-radius: 12px;
+  background: #FE6100;
+  border-radius: 6px;
   color: #fff;
   display: inline-flex;
+  font-size: .78rem;
   font-weight: 750;
-  min-height: 44px;
-  padding: 0 18px;
+  min-height: 38px;
+  padding: 0 .85rem;
   text-decoration: none;
+}
+
+.primaryAction:hover {
+  background: #E95800;
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .filterPanel .toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filterPanel .searchField {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .filterPanel .toolbar,
+  .filterPanel .filterToolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .dataSurface .cardFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

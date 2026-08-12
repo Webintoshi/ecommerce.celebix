@@ -198,18 +198,21 @@ function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleCol
   return (
     <article className={styles.orderCard}>
       <div className={styles.cardHeading}>
-        <Link href={`/orders/${order.id}`}>{order.orderNumber}</Link>
+        <div className={styles.cardOrderIdentity}>
+          <Link href={`/orders/${order.id}`}>{order.orderNumber}</Link>
+          <small>{fulfillmentLabel(order.status)}</small>
+        </div>
         {visibleColumns.status ? <PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge> : null}
       </div>
       <dl className={styles.cardFacts}>
         {visibleColumns.customer ? <div><dt>Müşteri</dt><dd>{order.customerName}<small>{order.customerEmail}</small></dd></div> : null}
-        {visibleColumns.payment ? <div><dt>Ödeme</dt><dd>{PAYMENT_LABELS[order.paymentStatus]}</dd></div> : null}
-        {visibleColumns.total ? <div><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div> : null}
+        {visibleColumns.payment ? <div><dt>Ödeme</dt><dd><span className={styles.paymentBadge} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></dd></div> : null}
+        {visibleColumns.total ? <div className={styles.totalFact}><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div> : null}
         {visibleColumns.date ? <div><dt>Tarih</dt><dd>{date(order.createdAt)}</dd></div> : null}
         {visibleColumns.items ? <div><dt>Ürün</dt><dd>{order.itemCount.toLocaleString("tr-TR")}</dd></div> : null}
         {visibleColumns.source ? <div><dt>Kanal</dt><dd>{SOURCE_LABELS[order.source]}</dd></div> : null}
       </dl>
-      <Link className={styles.detailLink} href={`/orders/${order.id}`}>Sipariş ayrıntısını aç</Link>
+      <Link className={styles.detailLink} href={`/orders/${order.id}`} aria-label="Sipariş detayını aç">Detayı görüntüle</Link>
     </article>
   );
 }
@@ -230,18 +233,18 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
     <>
       <div className={styles.desktopTable}>
         <table aria-label="Sipariş listesi">
-          <thead><tr><th>Sipariş</th>{props.visibleColumns.date ? <th>Tarih</th> : null}{props.visibleColumns.customer ? <th>Müşteri</th> : null}{props.visibleColumns.status ? <th>Durum</th> : null}{props.visibleColumns.payment ? <th>Ödeme</th> : null}{props.visibleColumns.items ? <th>Ürün</th> : null}{props.visibleColumns.source ? <th>Kanal</th> : null}{props.visibleColumns.total ? <th>Toplam</th> : null}<th>İşlem</th></tr></thead>
+          <thead><tr><th className={styles.orderColumn}>Sipariş</th>{props.visibleColumns.date ? <th className={styles.dateColumn}>Tarih</th> : null}{props.visibleColumns.customer ? <th className={styles.customerColumn}>Müşteri</th> : null}{props.visibleColumns.status ? <th className={styles.statusColumn}>Durum</th> : null}{props.visibleColumns.payment ? <th className={styles.paymentColumn}>Ödeme</th> : null}{props.visibleColumns.items ? <th className={styles.itemsColumn}>Ürün</th> : null}{props.visibleColumns.source ? <th className={styles.sourceColumn}>Kanal</th> : null}{props.visibleColumns.total ? <th className={styles.totalColumn}>Toplam</th> : null}<th className={styles.actionColumn}>İşlem</th></tr></thead>
           <tbody>{props.items.map((order) => (
             <tr key={order.id}>
-              <td><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link></td>
-              {props.visibleColumns.date ? <td>{date(order.createdAt)}</td> : null}
-              {props.visibleColumns.customer ? <td><strong>{order.customerName}</strong><small>{order.customerEmail}</small></td> : null}
-              {props.visibleColumns.status ? <td><PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge></td> : null}
-              {props.visibleColumns.payment ? <td>{PAYMENT_LABELS[order.paymentStatus]}</td> : null}
-              {props.visibleColumns.items ? <td>{order.itemCount.toLocaleString("tr-TR")}</td> : null}
-              {props.visibleColumns.source ? <td>{SOURCE_LABELS[order.source]}</td> : null}
-              {props.visibleColumns.total ? <td><strong>{money(order.totalCents, order.currency)}</strong></td> : null}
-              <td><Link className={styles.rowDetailLink} href={`/orders/${order.id}`}>Sipariş detayını aç</Link></td>
+              <td className={styles.orderCell}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link><small>{fulfillmentLabel(order.status)}</small></td>
+              {props.visibleColumns.date ? <td className={styles.dateCell}>{date(order.createdAt)}</td> : null}
+              {props.visibleColumns.customer ? <td className={styles.customerCell}><strong>{order.customerName}</strong><small>{order.customerEmail}</small></td> : null}
+              {props.visibleColumns.status ? <td className={styles.statusCell}><PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge></td> : null}
+              {props.visibleColumns.payment ? <td className={styles.paymentCell}><span className={styles.paymentBadge} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></td> : null}
+              {props.visibleColumns.items ? <td className={styles.itemsCell}>{order.itemCount.toLocaleString("tr-TR")}</td> : null}
+              {props.visibleColumns.source ? <td className={styles.sourceCell}><span className={styles.channelBadge}>{SOURCE_LABELS[order.source]}</span></td> : null}
+              {props.visibleColumns.total ? <td className={styles.totalCell}><strong>{money(order.totalCents, order.currency)}</strong></td> : null}
+              <td className={styles.actionCell}><Link className={styles.rowDetailLink} href={`/orders/${order.id}`} aria-label="Sipariş detayını aç">Detay</Link></td>
             </tr>
           ))}</tbody>
         </table>
@@ -258,23 +261,27 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
         actions={<Link className={styles.primaryAction} href="/orders/drafts/new">Manuel sipariş oluştur</Link>}
       />
       <section className={styles.listSurface} aria-label="Sipariş çalışma alanı" data-panel-surface="open">
-        <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}>
-          <label className={styles.searchField}><span className="sr-only">Sipariş ara</span><input value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş ara" maxLength={200} /><button type="submit">Ara</button></label>
-          <label><span className="sr-only">Sipariş durumu</span><select value={props.status} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option></select></label>
-        </form>
-        <div className={styles.filterToolbar} aria-label="Yüklenen sipariş filtreleri">
-          <label><span>Tarih aralığı</span><select value={props.dateRange} onChange={(event) => props.onDateRangeChange(event.target.value as OrderDateRange)}><option value="all">Tüm tarihler</option><option value="today">Bugün</option><option value="last7">Son 7 gün</option><option value="last30">Son 30 gün</option></select></label>
-          <label><span>Ödeme durumu</span><select value={props.payment} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus | "all")}><option value="all">Tüm ödemeler</option>{Object.entries(PAYMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label><span>Teslimat durumu</span><select value={props.fulfillment} onChange={(event) => props.onFulfillmentChange(event.target.value as OrderFulfillment)}>{Object.entries(FULFILLMENT_FILTER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <details className={styles.columnPicker}>
-            <summary>Sütunlar</summary>
-            <div>{(Object.entries(COLUMN_LABELS) as [OrderColumnKey, string][]).map(([column, label]) => <label key={column}><input type="checkbox" checked={props.visibleColumns[column]} onChange={(event) => props.onColumnVisibilityChange(column, event.target.checked)} aria-label={`${label} sütununu göster`} />{label}</label>)}</div>
-          </details>
-          <button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={props.onExport}>CSV Dışa Aktar</button>
+        <div className={styles.filterPanel}>
+          <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}>
+            <label className={styles.searchField}><span className="sr-only">Sipariş ara</span><input value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş ara" maxLength={200} /><button type="submit">Ara</button></label>
+            <label><span className="sr-only">Sipariş durumu</span><select value={props.status} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option></select></label>
+          </form>
+          <div className={styles.filterToolbar} aria-label="Yüklenen sipariş filtreleri">
+            <label><span>Tarih aralığı</span><select value={props.dateRange} onChange={(event) => props.onDateRangeChange(event.target.value as OrderDateRange)}><option value="all">Tüm tarihler</option><option value="today">Bugün</option><option value="last7">Son 7 gün</option><option value="last30">Son 30 gün</option></select></label>
+            <label><span>Ödeme durumu</span><select value={props.payment} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus | "all")}><option value="all">Tüm ödemeler</option>{Object.entries(PAYMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label><span>Teslimat durumu</span><select value={props.fulfillment} onChange={(event) => props.onFulfillmentChange(event.target.value as OrderFulfillment)}>{Object.entries(FULFILLMENT_FILTER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <details className={styles.columnPicker}>
+              <summary>Sütunlar</summary>
+              <div>{(Object.entries(COLUMN_LABELS) as [OrderColumnKey, string][]).map(([column, label]) => <label key={column}><input type="checkbox" checked={props.visibleColumns[column]} onChange={(event) => props.onColumnVisibilityChange(column, event.target.checked)} aria-label={`${label} sütununu göster`} />{label}</label>)}</div>
+            </details>
+            <button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={props.onExport}>CSV Dışa Aktar</button>
+          </div>
         </div>
-        {content}
-        {props.state === "loaded" && props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : "Daha fazla sipariş yükle"}</button> : null}
+        <div className={styles.dataSurface}>
+          {content}
+          {props.state === "loaded" && props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : "Daha fazla sipariş yükle"}</button> : null}
+        </div>
       </section>
     </PanelPageShell>
   );
