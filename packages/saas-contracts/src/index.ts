@@ -404,13 +404,16 @@ export type {
 } from "./orders/index.ts";
 export {
   BUILT_IN_PAYMENT_METHODS,
+  EXECUTABLE_HOSTED_PAYMENT_PROVIDERS,
   PAYMENT_METHOD_KINDS,
   PAYMENT_METHOD_STATES,
   PAYMENT_PROVIDER_INTERACTION_MODES,
   PAYMENT_PROVIDER_READINESS,
   isBuiltInPaymentMethodKind,
+  defaultProviderPaymentMethodConfig,
   normalizeTurkishIbanInput,
   parseBuiltInPaymentMethodConfig,
+  parseProviderPaymentMethodConfig,
   parseMerchantPaymentMethod,
   parsePaymentMethodMutationResult,
   parsePaymentMethodReorderResult,
@@ -518,6 +521,7 @@ export type {
 } from "./storefront-identity/index.ts";
 export type {
   BuiltInPaymentMethodKind,
+  ExecutableHostedPaymentProvider,
   MerchantPaymentMethod,
   PaymentMethodKind,
   PaymentMethodMutationResult,
@@ -530,6 +534,10 @@ export type {
   PaymentProviderInteractionMode,
   PaymentProviderReadiness,
   PaymentProviderSupport,
+  ProviderInstallmentMode,
+  ProviderMaxInstallment,
+  ProviderPaymentMethodConfig,
+  ProviderPaymentMethodLocale,
 } from "./payment-providers/index.ts";
 export {
   STOREFRONT_DESIGN_ANNOUNCEMENT_ANIMATIONS,
