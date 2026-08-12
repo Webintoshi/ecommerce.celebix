@@ -87,8 +87,7 @@
 .panelIcon,
 .summaryHeader > span,
 .selectedCustomerIcon,
-.customerResultIcon,
-.lineIcon {
+.customerResultIcon {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
@@ -304,7 +303,9 @@
 
 .searchProduct {
   display: grid;
-  gap: 8px;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
   border-bottom: 1px solid #EDF0F4;
   padding: 10px;
 }
@@ -313,18 +314,57 @@
   border-bottom: 0;
 }
 
-.searchProductTitle {
+.searchProductImage,
+.lineImage {
+  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 7px;
-  padding: 0 2px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid #E3E7ED;
+  border-radius: 7px;
+  background: #F5F7F9;
+  color: #8A94A6;
 }
 
-.searchProductTitle svg {
-  width: 15px;
-  height: 15px;
-  color: #8A94A6;
+.searchProductImage {
+  width: 58px;
+  height: 58px;
+}
+
+.lineImage {
+  width: 38px;
+  height: 38px;
+}
+
+.searchProductImage > svg,
+.lineImage > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.searchProductImage img,
+.lineImage img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #FFFFFF;
+  object-fit: cover;
+}
+
+.searchProductContent {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.searchProductTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  padding: 0 2px;
 }
 
 .searchProductTitle strong {
@@ -442,6 +482,41 @@
   color: #667085;
   font-size: 12px;
   text-align: center;
+}
+
+.searchState {
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-content: start;
+  gap: 11px;
+  min-height: 78px;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.searchState > svg {
+  width: 18px;
+  height: 18px;
+  animation: search-spin .9s linear infinite;
+  color: var(--accent, #FE6100);
+}
+
+.searchState > span {
+  display: grid;
+  gap: 2px;
+}
+
+.searchState strong {
+  color: #344054;
+  font-size: 12px;
+}
+
+.searchState small {
+  color: #7A8495;
+  font-size: 11px;
+}
+
+@keyframes search-spin {
+  to { transform: rotate(360deg); }
 }
 
 .selectedLines {
@@ -563,19 +638,6 @@
   color: #667085;
   font-size: 10px;
   font-style: normal;
-}
-
-.lineIcon {
-  width: 34px;
-  height: 34px;
-  border: 1px solid #E6EAF0;
-  background: #F8FAFB;
-  color: #697386;
-}
-
-.lineIcon svg {
-  width: 16px;
-  height: 16px;
 }
 
 .quantityControl {

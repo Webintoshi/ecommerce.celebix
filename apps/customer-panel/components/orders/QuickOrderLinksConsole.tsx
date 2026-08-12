@@ -35,12 +35,17 @@ import type {
 } from "@celebix/saas-contracts";
 
 import { PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import {
+  catalogApi,
+  type CatalogVariantChoiceResult,
+  type ProductDetailResult,
+  type ProductFeaturedImage,
+} from "@/lib/catalog-ui/client";
+import { productMediaApi } from "@/lib/catalog-ui/media-client";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
 import {
   QuickLinkUiApiError,
   quickLinkUi,
-  type CatalogSearchProduct,
-  type CatalogSearchVariant,
   type QuickLinkPaymentMethod,
 } from "@/lib/quick-link-ui/client";
 import styles from "./quick-order-links.module.css";
@@ -71,6 +76,22 @@ type SelectedLine = Readonly<{
   availableQuantity?: number;
   quantity: number;
   itemType?: "PHYSICAL" | "VIRTUAL";
+  featuredImage?: ProductFeaturedImage;
+}>;
+
+type CatalogSearchVariant = Readonly<{
+  variantId: string;
+  title: string;
+  sku?: string;
+  priceCents: number;
+  availableQuantity?: number;
+}>;
+
+type CatalogSearchProduct = Readonly<{
+  productId: string;
+  title: string;
+  variants: readonly CatalogSearchVariant[];
+  featuredImage?: ProductFeaturedImage;
 }>;
 
 const EMPTY_ADDRESS: AddressForm = {
@@ -201,28 +222,31 @@ function SearchResults({ products, onAdd, onKeyDown, buttonRefs }: {
       <div className={styles.resultSummary}><span>Katalog sonuçları</span><strong>{variantCount} seçenek</strong></div>
       <ul aria-label="Katalog arama sonuçları">
       {products.map((product) => (
-        <li key={product.variants[0]?.variantId ?? product.title} className={styles.searchProduct}>
-          <div className={styles.searchProductTitle}><Package aria-hidden="true" /><strong>{product.title}</strong><span>{product.variants.length} varyant</span></div>
-          <div className={styles.variantResults}>{product.variants.map((variant) => {
-            buttonIndex += 1;
-            const index = buttonIndex;
-            return (
-              <button
-                key={variant.variantId}
-                ref={(element) => { buttonRefs.current[index] = element; }}
-                type="button"
-                onClick={() => onAdd(product, variant)}
-                onKeyDown={(event) => onKeyDown(event, index)}
-              >
-                <span><strong>{variant.title}</strong><small>{variant.sku ?? "SKU yok"}</small></span>
-                <span className={styles.variantMeta}>
-                  {variant.availableQuantity === undefined ? null : <small>{variant.availableQuantity.toLocaleString("tr-TR")} stok</small>}
-                  <b>{money(variant.priceCents)}</b>
-                  <span className={styles.addVariantIcon}><Plus aria-hidden="true" /></span>
-                </span>
-              </button>
-            );
-          })}</div>
+        <li key={product.productId} className={styles.searchProduct}>
+          <ProductThumbnail title={product.title} featuredImage={product.featuredImage} className={styles.searchProductImage} />
+          <div className={styles.searchProductContent}>
+            <div className={styles.searchProductTitle}><strong>{product.title}</strong><span>{product.variants.length} varyant</span></div>
+            <div className={styles.variantResults}>{product.variants.map((variant) => {
+              buttonIndex += 1;
+              const index = buttonIndex;
+              return (
+                <button
+                  key={variant.variantId}
+                  ref={(element) => { buttonRefs.current[index] = element; }}
+                  type="button"
+                  onClick={() => onAdd(product, variant)}
+                  onKeyDown={(event) => onKeyDown(event, index)}
+                >
+                  <span><strong>{variant.title}</strong><small>{variant.sku ?? "SKU yok"}</small></span>
+                  <span className={styles.variantMeta}>
+                    {variant.availableQuantity === undefined ? null : <small>{variant.availableQuantity.toLocaleString("tr-TR")} stok</small>}
+                    <b>{money(variant.priceCents)}</b>
+                    <span className={styles.addVariantIcon}><Plus aria-hidden="true" /></span>
+                  </span>
+                </button>
+              );
+            })}</div>
+          </div>
         </li>
       ))}
       </ul>
@@ -243,6 +267,55 @@ function customerAddress(customer: CustomerDetail): AddressForm | null {
     postalCode: address.postalCode ?? "",
     country: address.country,
   };
+}
+
+function includesCatalogQuery(values: readonly (string | undefined)[], query: string) {
+  return values.some((value) => value?.toLocaleLowerCase("tr-TR").includes(query));
+}
+
+function matchingCatalogGroups(choices: readonly CatalogVariantChoiceResult[], query: string) {
+  const products = new Map<string, { title: string; variants: CatalogVariantChoiceResult[] }>();
+  for (const choice of choices) {
+    const current = products.get(choice.productId);
+    if (current) current.variants.push(choice);
+    else products.set(choice.productId, { title: choice.productTitle, variants: [choice] });
+  }
+  const matches: Array<Readonly<{ productId: string; title: string; variantIds?: ReadonlySet<string> }>> = [];
+  for (const [productId, product] of products) {
+    const productMatches = includesCatalogQuery([product.title], query);
+    const matchingVariants = product.variants.filter((variant) => (
+      includesCatalogQuery([variant.variantTitle, variant.sku], query)
+    ));
+    if (!productMatches && matchingVariants.length === 0) continue;
+    matches.push(Object.freeze({
+      productId,
+      title: product.title,
+      ...(productMatches ? {} : { variantIds: new Set(matchingVariants.map((variant) => variant.variantId)) }),
+    }));
+    if (matches.length === 12) break;
+  }
+  return Object.freeze(matches);
+}
+
+function ProductThumbnail({ title, featuredImage, className }: {
+  title: string;
+  featuredImage?: ProductFeaturedImage;
+  className: string;
+}) {
+  return (
+    <span className={className}>
+      <Package aria-hidden="true" />
+      {featuredImage ? (
+        <img
+          src={featuredImage.publicUrl}
+          alt={featuredImage.altText || `${title} ürün görseli`}
+          loading="lazy"
+          decoding="async"
+          onError={(event) => { event.currentTarget.hidden = true; }}
+        />
+      ) : null}
+    </span>
+  );
 }
 
 function LinkActions({ link, busy, onCopy, onOpen, onDuplicate, onCancel }: {
@@ -266,6 +339,8 @@ function LinkActions({ link, busy, onCopy, onOpen, onDuplicate, onCancel }: {
 
 export function QuickOrderLinksConsole() {
   const [query, setQuery] = useState("");
+  const [catalogIndexState, setCatalogIndexState] = useState<"loading" | "ready" | "error">("loading");
+  const [catalogChoices, setCatalogChoices] = useState<readonly CatalogVariantChoiceResult[]>([]);
   const [searchState, setSearchState] = useState<SearchState>("idle");
   const [searchResults, setSearchResults] = useState<readonly CatalogSearchProduct[]>([]);
   const [searchError, setSearchError] = useState("");
@@ -310,7 +385,9 @@ export function QuickOrderLinksConsole() {
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const searchSequence = useRef(0);
   const customerSearchSequence = useRef(0);
-  const activeSearchAbort = useRef<AbortController | undefined>(undefined);
+  const productDetailCache = useRef(new Map<string, Promise<ProductDetailResult>>());
+  const productImageCache = useRef(new Map<string, ProductFeaturedImage | null>());
+  const productImageRequests = useRef(new Map<string, Promise<ProductFeaturedImage | null>>());
   const listSequence = useRef(0);
   const createRetry = useRef<Readonly<{ fingerprint: string; operationId: string }> | undefined>(undefined);
   const renderedSearchSequence = searchSequence.current;
@@ -325,6 +402,57 @@ export function QuickOrderLinksConsole() {
   const totalCents = subtotalCents + shippingCents - discountCents;
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === selectedPaymentMethodId);
   const hostedPickerAvailable = typeof quickLinkUi.listPaymentMethods === "function";
+
+  const loadProductDetail = useCallback((productId: string) => {
+    const cached = productDetailCache.current.get(productId);
+    if (cached) return cached;
+    const request = catalogApi.getProduct(productId).catch((error) => {
+      productDetailCache.current.delete(productId);
+      throw error;
+    });
+    productDetailCache.current.set(productId, request);
+    return request;
+  }, []);
+
+  const loadProductImage = useCallback((productId: string) => {
+    if (productImageCache.current.has(productId)) {
+      return Promise.resolve(productImageCache.current.get(productId) ?? null);
+    }
+    const pending = productImageRequests.current.get(productId);
+    if (pending) return pending;
+    const request = productMediaApi.list(productId).then((media) => {
+      const featured = [...media]
+        .filter((item) => item.status === "active")
+        .sort((left, right) => left.sortOrder - right.sortOrder)[0];
+      const image = featured
+        ? Object.freeze({ publicUrl: featured.publicUrl, altText: featured.altText })
+        : null;
+      productImageCache.current.set(productId, image);
+      productImageRequests.current.delete(productId);
+      return image;
+    }, () => {
+      productImageCache.current.set(productId, null);
+      productImageRequests.current.delete(productId);
+      return null;
+    });
+    productImageRequests.current.set(productId, request);
+    return request;
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setCatalogIndexState("loading");
+    void catalogApi.listVariantChoices(controller.signal).then((choices) => {
+      if (controller.signal.aborted) return;
+      setCatalogChoices(choices);
+      setCatalogIndexState("ready");
+    }, () => {
+      if (controller.signal.aborted) return;
+      setCatalogChoices([]);
+      setCatalogIndexState("error");
+    });
+    return () => { controller.abort(); };
+  }, []);
 
   useEffect(() => {
     if (!hostedPickerAvailable) return;
@@ -386,30 +514,82 @@ export function QuickOrderLinksConsole() {
       setSearchError("");
       return;
     }
-    const controller = new AbortController();
-    activeSearchAbort.current = controller;
     setSearchResults([]);
     setSearchState("loading");
     setSearchError("");
+    if (catalogIndexState === "loading") return;
+    if (catalogIndexState === "error") {
+      setSearchError("Ürün kataloğu hazırlanamadı. Sayfayı yenileyip tekrar deneyin.");
+      setSearchState("error");
+      return;
+    }
     const timeout = window.setTimeout(async () => {
       try {
-        const result = await quickLinkUi.searchProducts(normalized, { signal: controller.signal });
+        const normalizedQuery = normalized.toLocaleLowerCase("tr-TR");
+        const groups = matchingCatalogGroups(catalogChoices, normalizedQuery);
+        const details = await Promise.all(groups.map(async (group) => ({
+          group,
+          detail: await loadProductDetail(group.productId),
+        })));
         if (sequence !== searchSequence.current) return;
+        const result = Object.freeze(details.flatMap(({ group, detail }) => {
+          const variants = detail.variants.flatMap((variant) => {
+            if (
+              variant.status !== "active" ||
+              (variant.stockTracking && variant.stockQuantity < 1) ||
+              (group.variantIds && !group.variantIds.has(variant.id))
+            ) return [];
+            return [Object.freeze({
+              variantId: variant.id,
+              title: variant.title,
+              ...(variant.sku === undefined ? {} : { sku: variant.sku }),
+              priceCents: variant.priceCents,
+              ...(variant.stockTracking ? { availableQuantity: variant.stockQuantity } : {}),
+            })];
+          });
+          if (detail.product.status !== "active" || variants.length === 0) return [];
+          const cachedImage = productImageCache.current.get(group.productId);
+          return [Object.freeze({
+            productId: group.productId,
+            title: detail.product.title,
+            variants: Object.freeze(variants),
+            ...(cachedImage ? { featuredImage: cachedImage } : {}),
+          })];
+        }));
         setSearchResults(result);
         setSearchState("loaded");
+        void Promise.all(result.map(async (product) => ({
+          productId: product.productId,
+          image: await loadProductImage(product.productId),
+        }))).then((images) => {
+          if (sequence !== searchSequence.current) return;
+          const byProductId = new Map(images.map((item) => [item.productId, item.image]));
+          setSearchResults((current) => Object.freeze(current.map((product) => {
+            const image = byProductId.get(product.productId);
+            return image ? Object.freeze({ ...product, featuredImage: image }) : product;
+          })));
+          const byVariantId = new Map<string, ProductFeaturedImage>();
+          for (const product of result) {
+            const image = byProductId.get(product.productId);
+            if (!image) continue;
+            for (const variant of product.variants) byVariantId.set(variant.variantId, image);
+          }
+          setSelectedLines((current) => Object.freeze(current.map((line) => {
+            const image = byVariantId.get(line.variantId);
+            return image && line.featuredImage === undefined
+              ? Object.freeze({ ...line, featuredImage: image })
+              : line;
+          })));
+        });
       } catch (error) {
-        if (sequence !== searchSequence.current || controller.signal.aborted) return;
+        if (sequence !== searchSequence.current) return;
         setSearchResults([]);
         setSearchError(errorMessage(error, "Ürün araması tamamlanamadı."));
         setSearchState("error");
       }
-    }, 300);
-    return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
-      if (activeSearchAbort.current === controller) activeSearchAbort.current = undefined;
-    };
-  }, [query, renderedSearchSequence]);
+    }, 140);
+    return () => { window.clearTimeout(timeout); };
+  }, [catalogChoices, catalogIndexState, loadProductDetail, loadProductImage, query, renderedSearchSequence]);
 
   useEffect(() => {
     const normalized = customerQuery.trim();
@@ -442,8 +622,6 @@ export function QuickOrderLinksConsole() {
 
   function changeSearchQuery(value: string) {
     searchSequence.current += 1;
-    activeSearchAbort.current?.abort();
-    activeSearchAbort.current = undefined;
     resultButtonRefs.current = [];
     setSearchResults([]);
     setSearchError("");
@@ -537,6 +715,7 @@ export function QuickOrderLinksConsole() {
         unitPriceCents: variant.priceCents,
         ...(variant.availableQuantity === undefined ? {} : { availableQuantity: variant.availableQuantity }),
         quantity: 1,
+        ...(product.featuredImage === undefined ? {} : { featuredImage: product.featuredImage }),
       }), ...current]);
     });
     setFeedback(`${product.title} siparişe eklendi.`);
@@ -799,7 +978,10 @@ export function QuickOrderLinksConsole() {
   }
 
   const searchContent = query.trim() === "" ? null : searchState === "loading" ? (
-    <div className={styles.searchState} role="status" aria-live="polite">Ürünler aranıyor…</div>
+    <div className={styles.searchState} role="status" aria-live="polite">
+      <RefreshCw aria-hidden="true" />
+      <span><strong>{catalogIndexState === "loading" ? "Katalog hazırlanıyor" : "Ürünler getiriliyor"}</strong><small>Fiyat, stok ve görseller eşleştiriliyor.</small></span>
+    </div>
   ) : searchState === "error" ? (
     <div className={styles.inlineError} role="alert">{searchError}</div>
   ) : searchState === "loaded" && searchResults.length === 0 ? (
@@ -888,7 +1070,7 @@ export function QuickOrderLinksConsole() {
                     <div className={styles.linesEmpty}><span><Package aria-hidden="true" /></span><strong>Henüz ürün eklenmedi</strong><p>Yukarıdaki arama alanından ürün veya varyant seçin.</p></div>
                   ) : selectedLines.map((line) => (
                     <article key={line.variantId} className={styles.selectedLine}>
-                      <div className={styles.lineIdentity}><span className={styles.lineIcon}><Package aria-hidden="true" /></span><span><strong>{line.productName}</strong><small>{line.variantName}{line.sku ? ` · ${line.sku}` : ""}</small>{line.availableQuantity === undefined ? null : <em>{line.availableQuantity.toLocaleString("tr-TR")} stok</em>}</span></div>
+                      <div className={styles.lineIdentity}><ProductThumbnail title={line.productName} featuredImage={line.featuredImage} className={styles.lineImage} /><span><strong>{line.productName}</strong><small>{line.variantName}{line.sku ? ` · ${line.sku}` : ""}</small>{line.availableQuantity === undefined ? null : <em>{line.availableQuantity.toLocaleString("tr-TR")} stok</em>}</span></div>
                       <div className={styles.quantityGroup}>
                         <span>Adet</span>
                         <div className={styles.quantityControl}>
