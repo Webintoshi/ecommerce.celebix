@@ -1,6 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import {
+  Archive,
+  ArrowLeft,
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Package2,
+  Printer,
+  ReceiptText,
+  Settings2,
+  StickyNote,
+  Store,
+  Truck,
+  UserRound,
+} from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   type OrderAddress,
@@ -110,6 +127,13 @@ function date(value: string) {
   return new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date(value));
 }
 
+function statusTone(status: OrderStatus): "neutral" | "success" | "warning" | "danger" {
+  if (status === "delivered") return "success";
+  if (status === "cancelled" || status === "refunded") return "danger";
+  if (status === "pending" || status === "confirmed" || status === "preparing") return "warning";
+  return "neutral";
+}
+
 function field(data: FormData, name: string): string {
   const value = data.get(name);
   return typeof value === "string" ? value.trim() : "";
@@ -203,15 +227,15 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
     <PanelPageShell>
       <header className={styles.orderTopbar}>
         <div className={styles.orderIdentity}>
-          <Link className={styles.backLink} href="/orders" aria-label="Sipariş listesine dön">←</Link>
-          <div><p>Siparişler / {order.orderNumber}</p><h1>#{order.orderNumber}</h1><span>{date(order.createdAt)} · sürüm {order.version}</span></div>
+          <Link className={styles.backLink} href="/orders" aria-label="Sipariş listesine dön" title="Sipariş listesine dön"><ArrowLeft aria-hidden="true" size={18} /></Link>
+          <div className={styles.orderContext}><p>Siparişler / {order.orderNumber}</p><h1>#{order.orderNumber}</h1><span>{date(order.createdAt)} · sürüm {order.version}</span></div>
         </div>
         <div className={styles.orderTopbarActions}>
           <nav className={styles.neighborNavigation} aria-label="Siparişler arasında gezinme">
-            {props.neighbors?.previous ? <Link href={`/orders/${encodeURIComponent(props.neighbors.previous.id)}`} title={`Önceki sipariş: ${props.neighbors.previous.orderNumber}`}>← <span>Önceki</span></Link> : <span aria-disabled="true">← <span>Önceki</span></span>}
-            {props.neighbors?.next ? <Link href={`/orders/${encodeURIComponent(props.neighbors.next.id)}`} title={`Sonraki sipariş: ${props.neighbors.next.orderNumber}`}><span>Sonraki</span> →</Link> : <span aria-disabled="true"><span>Sonraki</span> →</span>}
+            {props.neighbors?.previous ? <Link href={`/orders/${encodeURIComponent(props.neighbors.previous.id)}`} title={`Önceki sipariş: ${props.neighbors.previous.orderNumber}`}><ChevronLeft aria-hidden="true" size={16} /><span>Önceki</span></Link> : <span aria-disabled="true"><ChevronLeft aria-hidden="true" size={16} /><span>Önceki</span></span>}
+            {props.neighbors?.next ? <Link href={`/orders/${encodeURIComponent(props.neighbors.next.id)}`} title={`Sonraki sipariş: ${props.neighbors.next.orderNumber}`}><span>Sonraki</span><ChevronRight aria-hidden="true" size={16} /></Link> : <span aria-disabled="true"><span>Sonraki</span><ChevronRight aria-hidden="true" size={16} /></span>}
           </nav>
-          <Link className={styles.printLink} href={`/orders/${encodeURIComponent(order.id)}/print`}>Yazdır</Link>
+          <Link className={styles.printLink} href={`/orders/${encodeURIComponent(order.id)}/print`}><Printer aria-hidden="true" size={15} /><span>Yazdır</span></Link>
         </div>
       </header>
       {props.error ? <div className={styles.inlineError} role="alert">{props.error}</div> : null}
@@ -221,7 +245,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         <main className={styles.workspaceMain}>
       <div className={styles.orderInfoGrid}>
         <section className={styles.orderInfoCard} aria-labelledby="order-information-title">
-          <div className={styles.sectionHeading}><div><h2 id="order-information-title">Sipariş bilgileri</h2><p>Kaynak ve kayıt bilgileri</p></div></div>
+          <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><ReceiptText aria-hidden="true" size={16} /></span><div><h2 id="order-information-title">Sipariş bilgileri</h2><p>Kaynak ve kayıt bilgileri</p></div></div></div>
           <dl>
             <div><dt>Kanal</dt><dd>{SOURCE_LABELS[order.source]}</dd></div>
             <div><dt>Oluşturulma</dt><dd>{date(order.createdAt)}</dd></div>
@@ -230,7 +254,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
           </dl>
         </section>
         <section className={styles.orderInfoCard} aria-labelledby="customer-contact-title">
-          <div className={styles.sectionHeading}><div><h2 id="customer-contact-title">Müşteri iletişimi</h2><p>Siparişe ait iletişim bilgileri</p></div></div>
+          <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><UserRound aria-hidden="true" size={16} /></span><div><h2 id="customer-contact-title">Müşteri iletişimi</h2><p>Siparişe ait iletişim bilgileri</p></div></div></div>
           <dl>
             <div><dt>Müşteri</dt><dd>{order.customerName}</dd></div>
             <div><dt>E-posta</dt><dd><a href={`mailto:${order.customerEmail}`}>{order.customerEmail}</a></dd></div>
@@ -240,18 +264,20 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
       </div>
 
       <section className={styles.itemsPanel} aria-labelledby="order-items-title">
-        <div className={styles.sectionHeading}><div><h2 id="order-items-title">Sipariş ürünleri</h2><p>{order.itemCount} kalem</p></div></div>
-        <div className={styles.itemList}>{order.items.map((item) => <article key={item.id}><div><strong>{item.productName}</strong><span>{item.variantName ?? "Standart"}{item.sku ? ` · ${item.sku}` : ""}</span></div><span>{item.quantity} × {money(item.unitPriceCents, order.currency)}</span><b>{money(item.lineTotalCents, order.currency)}</b></article>)}</div>
-        <dl className={styles.totals}><div><dt>Ara toplam</dt><dd>{money(order.subtotalCents, order.currency)}</dd></div><div><dt>Kargo</dt><dd>{money(order.shippingCents, order.currency)}</dd></div><div><dt>İndirim</dt><dd>− {money(order.discountCents, order.currency)}</dd></div><div><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div></dl>
+        <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><Package2 aria-hidden="true" size={16} /></span><div><h2 id="order-items-title">Sipariş ürünleri</h2><p>{order.itemCount} kalem</p></div></div></div>
+        <div className={styles.itemList}>{order.items.map((item) => <article key={item.id}><div className={styles.itemIdentity}><strong>{item.productName}</strong><span>{item.variantName ?? "Standart"}{item.sku ? ` · ${item.sku}` : ""}</span></div><span className={styles.itemQuantity}>{item.quantity} × {money(item.unitPriceCents, order.currency)}</span><b className={styles.itemLineTotal}>{money(item.lineTotalCents, order.currency)}</b></article>)}</div>
+        <dl className={styles.totals}><div><dt>Ara toplam</dt><dd>{money(order.subtotalCents, order.currency)}</dd></div><div><dt>Kargo</dt><dd>{money(order.shippingCents, order.currency)}</dd></div><div><dt>İndirim</dt><dd>− {money(order.discountCents, order.currency)}</dd></div><div className={styles.grandTotal}><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div></dl>
       </section>
 
       <div className={styles.detailColumns}>
         <section className={styles.detailPanel} aria-labelledby="shipping-title">
-          <div className={styles.sectionHeading}><div><h2 id="shipping-title">Kargo bilgileri</h2><p>Adres ve takip kaydı</p></div></div>
-          <address>{order.shippingAddress.recipientName}<br />{order.shippingAddress.line1}{order.shippingAddress.line2 ? <><br />{order.shippingAddress.line2}</> : null}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")} · {order.shippingAddress.country}</address>
-          {order.tracking ? <p className={styles.tracking}><strong>{order.tracking.carrier}</strong><span>{order.tracking.trackingNumber}</span></p> : <p className={styles.muted}>Takip kaydı eklenmemiş.</p>}
+          <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><Truck aria-hidden="true" size={16} /></span><div><h2 id="shipping-title">Kargo bilgileri</h2><p>Adres ve takip kaydı</p></div></div></div>
+          <div className={styles.shippingOverview}>
+            <div className={styles.shippingBlock}><span>Alıcı ve teslimat adresi</span><address>{order.shippingAddress.recipientName}<br />{order.shippingAddress.line1}{order.shippingAddress.line2 ? <><br />{order.shippingAddress.line2}</> : null}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")} · {order.shippingAddress.country}</address></div>
+            <div className={styles.shippingBlock}><span>Takip bilgisi</span>{order.tracking ? <p className={styles.tracking}><strong>{order.tracking.carrier}</strong><span>{order.tracking.trackingNumber}</span></p> : <p className={styles.muted}>Takip kaydı eklenmemiş.</p>}</div>
+          </div>
           {props.capabilities.shipping ? <OrderShipmentConsole key={`${order.id}:${order.version}`} orderId={order.id} orderVersion={order.version} /> : null}
-          {props.capabilities.shipping ? <details><summary>Manuel kargo bilgisi</summary><form className={styles.compactForm} onSubmit={props.onShippingSubmit}>
+          {props.capabilities.shipping ? <details className={styles.manualShipping}><summary><span>Manuel kargo bilgisi</span><ChevronDown aria-hidden="true" size={16} /></summary><form className={styles.compactForm} onSubmit={props.onShippingSubmit}>
             <label><span>Alıcı</span><input name="recipientName" required maxLength={200} defaultValue={order.shippingAddress.recipientName} /></label>
             <label className={styles.wide}><span>Adres</span><input name="line1" required maxLength={300} defaultValue={order.shippingAddress.line1} /></label>
             <label className={styles.wide}><span>Adres devamı</span><input name="line2" maxLength={300} defaultValue={order.shippingAddress.line2 ?? ""} /></label>
@@ -268,15 +294,15 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         </section>
 
         <section className={styles.detailPanel} aria-labelledby="notes-title">
-          <div className={styles.sectionHeading}><div><h2 id="notes-title">Dahili notlar</h2><p>Yalnızca mağaza ekibi görür</p></div></div>
+          <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><StickyNote aria-hidden="true" size={16} /></span><div><h2 id="notes-title">Dahili notlar</h2><p>Yalnızca mağaza ekibi görür</p></div></div></div>
           {props.capabilities.note ? <form className={styles.noteForm} onSubmit={props.onNoteSubmit}><label><span className="sr-only">Yeni dahili not</span><textarea name="body" required maxLength={2000} placeholder="Sipariş hakkında not ekleyin" /></label><button className={styles.primaryButton} type="submit" disabled={props.busy !== ""}>{props.busy === "note" ? "Ekleniyor…" : "Not ekle"}</button></form> : null}
-          <div className={styles.noteList}>{order.notes.length === 0 ? <p className={styles.muted}>Dahili not bulunmuyor.</p> : order.notes.map((note) => <article key={note.id}><p>{note.body}</p><small>{date(note.createdAt)}</small>{props.capabilities.note ? <button type="button" onClick={() => props.onNoteArchive(note.id)} disabled={props.busy !== ""}>Notu arşivle</button> : null}</article>)}</div>
+          <div className={styles.noteList}>{order.notes.length === 0 ? <p className={styles.muted}>Dahili not bulunmuyor.</p> : order.notes.map((note) => <article key={note.id}><p>{note.body}</p><div className={styles.noteMeta}><small>{date(note.createdAt)}</small>{props.capabilities.note ? <button type="button" onClick={() => props.onNoteArchive(note.id)} disabled={props.busy !== ""}><Archive aria-hidden="true" size={14} /><span>Notu arşivle</span></button> : null}</div></article>)}</div>
         </section>
       </div>
 
       {notifications.length > 0 ? (
         <section className={styles.notifications} aria-labelledby="order-notifications-title">
-          <div className={styles.sectionHeading}><div><h2 id="order-notifications-title">Bildirimler</h2></div></div>
+          <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><Bell aria-hidden="true" size={16} /></span><div><h2 id="order-notifications-title">Bildirimler</h2></div></div></div>
           <div className={styles.notificationList}>
             {notifications.map((notification) => (
               <article key={notification.id}>
@@ -296,21 +322,22 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         </section>
       ) : null}
 
-      <section className={styles.timeline} aria-labelledby="timeline-title"><div className={styles.sectionHeading}><div><h2 id="timeline-title">Sipariş geçmişi</h2><p>Değiştirilemez operasyon kayıtları</p></div></div>{order.events.length === 0 ? <p className={styles.muted}>Sipariş olayı bulunmuyor.</p> : <ol>{order.events.map((event) => <li key={event.id}><span aria-hidden="true" /><div><strong>{event.message}</strong><small>{date(event.createdAt)} · {event.type}</small></div></li>)}</ol>}</section>
+      <section className={styles.timeline} aria-labelledby="timeline-title"><div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><Clock3 aria-hidden="true" size={16} /></span><div><h2 id="timeline-title">Sipariş geçmişi</h2><p>Değiştirilemez operasyon kayıtları</p></div></div></div>{order.events.length === 0 ? <p className={styles.muted}>Sipariş olayı bulunmuyor.</p> : <ol>{order.events.map((event) => <li key={event.id}><span aria-hidden="true" /><div><strong>{event.message}</strong><small>{date(event.createdAt)} · {event.type}</small></div></li>)}</ol>}</section>
         </main>
 
         <aside className={styles.workspaceRail} aria-label="Sipariş özeti ve işlemleri">
           <section className={styles.detailHero} aria-label="Sipariş özeti">
-            <div><span>Sipariş durumu</span><PanelStatusBadge>{STATUS_LABELS[order.status]}</PanelStatusBadge></div>
-            <div><span>Ödeme durumu</span><strong>{PAYMENT_LABELS[order.paymentStatus]}</strong></div>
-            <div><span>Kanal</span><strong>{SOURCE_LABELS[order.source]}</strong></div>
-            <div><span>Müşteri</span><strong>{order.customerName}</strong><small>{order.customerEmail}</small></div>
+            <div className={styles.summaryHeading}><ReceiptText aria-hidden="true" size={17} /><h2>Sipariş özeti</h2></div>
+            <div className={styles.summaryRow}><span>Sipariş durumu</span><PanelStatusBadge tone={statusTone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge></div>
+            <div className={styles.summaryRow}><span>Ödeme durumu</span><strong className={styles.paymentStatus} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</strong></div>
+            <div className={styles.summaryRow}><span>Kanal</span><strong className={styles.channelStatus}><Store aria-hidden="true" size={13} />{SOURCE_LABELS[order.source]}</strong></div>
+            <div className={styles.summaryCustomer}><span>Müşteri</span><strong>{order.customerName}</strong><small>{order.customerEmail}</small></div>
             <div className={styles.summaryTotal}><span>Sipariş toplamı</span><strong>{money(order.totalCents, order.currency)}</strong></div>
           </section>
 
           {(statusOptions.length > 0 || paymentOptions.length > 0) ? (
             <section className={styles.operationBar} aria-label="Sipariş operasyonları">
-              <div><h2>İşlemler</h2><p>Yalnızca izin verilen geçişler gösterilir.</p></div>
+              <div className={styles.operationHeading}><Settings2 aria-hidden="true" size={17} /><div><h2>İşlemler</h2><p>Yalnızca izin verilen geçişler gösterilir.</p></div></div>
               {statusOptions.length > 0 ? <label><span>Sipariş durumu</span><select aria-label="Sipariş durumunu güncelle" value={order.status} disabled={props.busy !== ""} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus)}>{statusOptions.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label> : null}
               {paymentOptions.length > 0 ? <label><span>Ödeme durumu</span><select aria-label="Ödeme durumunu güncelle" value={order.paymentStatus} disabled={props.busy !== ""} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus)}>{paymentOptions.map((status) => <option key={status} value={status}>{PAYMENT_LABELS[status]}</option>)}</select></label> : null}
             </section>
