@@ -1,21 +1,41 @@
 "use client";
 
 import {
+  Check,
+  Clock3,
   Copy,
+  CreditCard,
   ExternalLink,
   Link2,
+  Mail,
+  MapPin,
+  Minus,
   Package,
+  Percent,
+  Phone,
   Plus,
   RefreshCw,
   Search,
+  ShoppingBag,
+  Tag,
   Trash2,
+  Truck,
+  UserRound,
+  X,
   XCircle,
 } from "lucide-react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { QuickOrderAddress, QuickOrderLinkListItem, QuickOrderLinkStatus } from "@celebix/saas-contracts";
+import type {
+  CustomerDetail,
+  CustomerListItem,
+  QuickOrderAddress,
+  QuickOrderLinkListItem,
+  QuickOrderLinkStatus,
+} from "@celebix/saas-contracts";
 
 import { PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
 import {
   QuickLinkUiApiError,
   quickLinkUi,
@@ -27,6 +47,7 @@ import styles from "./quick-order-links.module.css";
 
 type ListState = "loading" | "loaded" | "error";
 type SearchState = "idle" | "loading" | "loaded" | "error";
+type CustomerSearchState = "idle" | "loading" | "loaded" | "selecting" | "error";
 type ProviderState = "unknown" | "activating" | "ready" | "not-ready" | "error";
 type FormFieldErrors = Partial<Record<"items" | "paymentMethod" | "identity" | "shipping" | "discount", string>>;
 
@@ -115,6 +136,10 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof QuickLinkUiApiError ? error.message : fallback;
 }
 
+function customerErrorMessage(error: unknown) {
+  return error instanceof CustomerApiError ? error.message : "Müşteri araması tamamlanamadı.";
+}
+
 function tone(status: QuickOrderLinkStatus): "neutral" | "success" | "warning" | "danger" {
   if (status === "paid") return "success";
   if (status === "cancelled") return "danger";
@@ -122,11 +147,21 @@ function tone(status: QuickOrderLinkStatus): "neutral" | "success" | "warning" |
   return "neutral";
 }
 
-function Panel({ title, children, actions, id }: { title: string; children: ReactNode; actions?: ReactNode; id?: string }) {
+function Panel({ title, description, icon, children, actions, id }: {
+  title: string;
+  description?: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  actions?: ReactNode;
+  id?: string;
+}) {
   return (
     <section className={styles.panel} aria-labelledby={id}>
       <div className={styles.panelHeader}>
-        <h2 id={id}>{title}</h2>
+        <div className={styles.panelHeading}>
+          {icon ? <span className={styles.panelIcon}>{icon}</span> : null}
+          <div><h2 id={id}>{title}</h2>{description ? <p>{description}</p> : null}</div>
+        </div>
         {actions}
       </div>
       {children}
@@ -160,8 +195,11 @@ function SearchResults({ products, onAdd, onKeyDown, buttonRefs }: {
   buttonRefs: React.MutableRefObject<Array<HTMLButtonElement | null>>;
 }) {
   let buttonIndex = -1;
+  const variantCount = products.reduce((total, product) => total + product.variants.length, 0);
   return (
-    <ul className={styles.searchResults} id="quick-order-product-results" aria-label="Katalog arama sonuçları">
+    <div className={styles.searchResults} id="quick-order-product-results">
+      <div className={styles.resultSummary}><span>Katalog sonuçları</span><strong>{variantCount} seçenek</strong></div>
+      <ul aria-label="Katalog arama sonuçları">
       {products.map((product) => (
         <li key={product.variants[0]?.variantId ?? product.title} className={styles.searchProduct}>
           <div className={styles.searchProductTitle}><Package aria-hidden="true" /><strong>{product.title}</strong><span>{product.variants.length} varyant</span></div>
@@ -177,14 +215,34 @@ function SearchResults({ products, onAdd, onKeyDown, buttonRefs }: {
                 onKeyDown={(event) => onKeyDown(event, index)}
               >
                 <span><strong>{variant.title}</strong><small>{variant.sku ?? "SKU yok"}</small></span>
-                <span><b>{money(variant.priceCents)}</b><Plus aria-hidden="true" /></span>
+                <span className={styles.variantMeta}>
+                  {variant.availableQuantity === undefined ? null : <small>{variant.availableQuantity.toLocaleString("tr-TR")} stok</small>}
+                  <b>{money(variant.priceCents)}</b>
+                  <span className={styles.addVariantIcon}><Plus aria-hidden="true" /></span>
+                </span>
               </button>
             );
           })}</div>
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   );
+}
+
+function customerAddress(customer: CustomerDetail): AddressForm | null {
+  const address = customer.addresses.find((item) => item.isDefault) ?? customer.addresses[0];
+  if (!address) return null;
+  return {
+    recipientName: address.recipientName || customer.displayName,
+    phone: customer.phone ?? "",
+    line1: address.line1,
+    line2: address.line2 ?? "",
+    district: address.district ?? "",
+    city: address.city,
+    postalCode: address.postalCode ?? "",
+    country: address.country,
+  };
 }
 
 function LinkActions({ link, busy, onCopy, onOpen, onDuplicate, onCancel }: {
@@ -213,6 +271,11 @@ export function QuickOrderLinksConsole() {
   const [searchError, setSearchError] = useState("");
   const [selectedLines, setSelectedLines] = useState<readonly SelectedLine[]>([]);
   const [expiryHours, setExpiryHours] = useState<4 | 12 | 24 | 48 | 72>(24);
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [customerSearchState, setCustomerSearchState] = useState<CustomerSearchState>("idle");
+  const [customerResults, setCustomerResults] = useState<readonly CustomerListItem[]>([]);
+  const [customerSearchError, setCustomerSearchError] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetail | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -242,12 +305,16 @@ export function QuickOrderLinksConsole() {
   const [busyLinkId, setBusyLinkId] = useState<string>();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const customerSearchInputRef = useRef<HTMLInputElement>(null);
+  const customerResultButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const searchSequence = useRef(0);
+  const customerSearchSequence = useRef(0);
   const activeSearchAbort = useRef<AbortController | undefined>(undefined);
   const listSequence = useRef(0);
   const createRetry = useRef<Readonly<{ fingerprint: string; operationId: string }> | undefined>(undefined);
   const renderedSearchSequence = searchSequence.current;
+  const renderedCustomerSearchSequence = customerSearchSequence.current;
 
   const shippingCents = cents(shippingInput) ?? 0;
   const discountCents = cents(discountInput) ?? 0;
@@ -344,6 +411,35 @@ export function QuickOrderLinksConsole() {
     };
   }, [query, renderedSearchSequence]);
 
+  useEffect(() => {
+    const normalized = customerQuery.trim();
+    const sequence = renderedCustomerSearchSequence;
+    customerResultButtonRefs.current = [];
+    if (normalized.length < 2) {
+      setCustomerSearchState("idle");
+      setCustomerResults([]);
+      setCustomerSearchError("");
+      return;
+    }
+    setCustomerSearchState("loading");
+    setCustomerResults([]);
+    setCustomerSearchError("");
+    const timeout = window.setTimeout(async () => {
+      try {
+        const result = await customerApi.list({ pageSize: 8, search: normalized });
+        if (sequence !== customerSearchSequence.current) return;
+        setCustomerResults(result.items);
+        setCustomerSearchState("loaded");
+      } catch (error) {
+        if (sequence !== customerSearchSequence.current) return;
+        setCustomerResults([]);
+        setCustomerSearchError(customerErrorMessage(error));
+        setCustomerSearchState("error");
+      }
+    }, 300);
+    return () => { window.clearTimeout(timeout); };
+  }, [customerQuery, renderedCustomerSearchSequence]);
+
   function changeSearchQuery(value: string) {
     searchSequence.current += 1;
     activeSearchAbort.current?.abort();
@@ -353,6 +449,61 @@ export function QuickOrderLinksConsole() {
     setSearchError("");
     setSearchState(value.trim() === "" ? "idle" : "loading");
     setQuery(value);
+  }
+
+  function changeCustomerQuery(value: string) {
+    customerSearchSequence.current += 1;
+    customerResultButtonRefs.current = [];
+    setCustomerResults([]);
+    setCustomerSearchError("");
+    setCustomerSearchState(value.trim().length < 2 ? "idle" : "loading");
+    setCustomerQuery(value);
+  }
+
+  async function selectCustomer(customer: CustomerListItem) {
+    const sequence = ++customerSearchSequence.current;
+    setCustomerSearchState("selecting");
+    setCustomerSearchError("");
+    try {
+      const detail = await customerApi.get(customer.id);
+      if (sequence !== customerSearchSequence.current) return;
+      const address = customerAddress(detail);
+      setSelectedCustomer(detail);
+      setCustomerName(detail.displayName);
+      setCustomerEmail(detail.email ?? "");
+      setCustomerPhone(detail.phone ?? "");
+      setShippingAddress(address ?? {
+        ...EMPTY_ADDRESS,
+        recipientName: detail.displayName,
+        phone: detail.phone ?? "",
+      });
+      setBillingAddress(EMPTY_ADDRESS);
+      setBillingSameAsShipping(true);
+      setCustomerQuery("");
+      setCustomerResults([]);
+      setCustomerSearchState("idle");
+      setFeedback(`${detail.displayName} müşteri bilgileri forma aktarıldı.`);
+    } catch (error) {
+      if (sequence !== customerSearchSequence.current) return;
+      setCustomerSearchError(customerErrorMessage(error));
+      setCustomerSearchState("error");
+    }
+  }
+
+  function clearSelectedCustomer() {
+    customerSearchSequence.current += 1;
+    setSelectedCustomer(null);
+    setCustomerQuery("");
+    setCustomerResults([]);
+    setCustomerSearchState("idle");
+    setCustomerSearchError("");
+    setCustomerName("");
+    setCustomerEmail("");
+    setCustomerPhone("");
+    setShippingAddress(EMPTY_ADDRESS);
+    setBillingAddress(EMPTY_ADDRESS);
+    setBillingSameAsShipping(true);
+    customerSearchInputRef.current?.focus();
   }
 
   function updateAddress(setter: typeof setShippingAddress, key: keyof AddressForm, value: string) {
@@ -400,6 +551,14 @@ export function QuickOrderLinksConsole() {
     })));
   }
 
+  function stepQuantity(variantId: string, delta: number) {
+    setSelectedLines((current) => Object.freeze(current.map((line) => {
+      if (line.variantId !== variantId) return line;
+      const maximum = line.availableQuantity ?? 9_999;
+      return Object.freeze({ ...line, quantity: Math.max(1, Math.min(maximum, line.quantity + delta)) });
+    })));
+  }
+
   function updateItemType(variantId: string, rawValue: string) {
     const itemType = rawValue === "PHYSICAL" || rawValue === "VIRTUAL" ? rawValue : undefined;
     setSelectedLines((current) => Object.freeze(current.map((line) => line.variantId === variantId
@@ -438,8 +597,36 @@ export function QuickOrderLinksConsole() {
     }
   }
 
+  function handleCustomerSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      changeCustomerQuery("");
+      customerSearchInputRef.current?.focus();
+    } else if (event.key === "ArrowDown" && customerResultButtonRefs.current[0]) {
+      event.preventDefault();
+      customerResultButtonRefs.current[0].focus();
+    }
+  }
+
+  function handleCustomerResultKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      customerSearchInputRef.current?.focus();
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const offset = event.key === "ArrowDown" ? 1 : -1;
+      const target = customerResultButtonRefs.current[index + offset];
+      (target ?? customerSearchInputRef.current)?.focus();
+    }
+  }
+
   function resetBuilder() {
     changeSearchQuery("");
+    customerSearchSequence.current += 1;
+    setCustomerQuery("");
+    setCustomerSearchState("idle");
+    setCustomerResults([]);
+    setCustomerSearchError("");
+    setSelectedCustomer(null);
     createRetry.current = undefined;
     setSelectedLines([]);
     setExpiryHours(24);
@@ -621,18 +808,57 @@ export function QuickOrderLinksConsole() {
     <SearchResults products={searchResults} onAdd={addVariant} onKeyDown={handleResultKeyDown} buttonRefs={resultButtonRefs} />
   ) : null;
 
+  const customerSearchContent = customerQuery.trim().length < 2 ? null : customerSearchState === "loading" || customerSearchState === "selecting" ? (
+    <div className={styles.customerSearchState} role="status" aria-live="polite">
+      {customerSearchState === "selecting" ? "Müşteri bilgileri getiriliyor…" : "Müşteriler aranıyor…"}
+    </div>
+  ) : customerSearchState === "error" ? (
+    <div className={styles.inlineError} role="alert">{customerSearchError}</div>
+  ) : customerSearchState === "loaded" && customerResults.length === 0 ? (
+    <div className={styles.customerSearchState}>Eşleşen müşteri bulunamadı.</div>
+  ) : customerResults.length > 0 ? (
+    <div className={styles.customerResults} id="quick-order-customer-results">
+      <div className={styles.resultSummary}><span>Kayıtlı müşteriler</span><strong>{customerResults.length} sonuç</strong></div>
+      <ul aria-label="Müşteri arama sonuçları">
+        {customerResults.map((customer, index) => (
+          <li key={customer.id}>
+            <button
+              ref={(element) => { customerResultButtonRefs.current[index] = element; }}
+              type="button"
+              onClick={() => { void selectCustomer(customer); }}
+              onKeyDown={(event) => handleCustomerResultKeyDown(event, index)}
+            >
+              <span className={styles.customerResultIcon}><UserRound aria-hidden="true" /></span>
+              <span className={styles.customerResultIdentity}>
+                <strong>{customer.displayName}</strong>
+                <small>{customer.email ?? customer.phone ?? "İletişim bilgisi yok"}</small>
+              </span>
+              <span className={styles.customerResultMeta}>{customer.orderCount.toLocaleString("tr-TR")} sipariş</span>
+              <Plus aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : null;
+
   return (
     <PanelPageShell>
-      <PanelPageHeader title="Hızlı Sipariş Linkleri" description="Gerçek katalog ürünlerinden güvenli ve süreli bir ödeme bağlantısı hazırlayın." />
-      <form className={styles.console} data-presentation="hemenaku-quick-order" onSubmit={createLink}>
+      <PanelPageHeader title="Hızlı Sipariş Linkleri" description="Katalogdan ürün ve müşteri seçerek güvenli, süreli bir ödeme bağlantısı hazırlayın." />
+      <form className={styles.console} data-presentation="quick-order-workspace" onSubmit={createLink}>
         {feedback ? <p className={styles.feedback} role="status" aria-live="polite">{feedback}</p> : null}
         {formError ? <p className={styles.formError} role="alert">{formError}</p> : null}
 
         <div className={styles.builderGrid}>
           <div className={styles.mainColumn}>
-            <Panel title="Sipariş Detayı" id="quick-order-detail-title">
+            <Panel
+              title="Ürünler"
+              description="Linke eklenecek gerçek katalog varyantlarını seçin."
+              icon={<ShoppingBag aria-hidden="true" />}
+              id="quick-order-detail-title"
+            >
               <div className={styles.panelBody}>
-                <div className={styles.searchRow}>
+                <div className={styles.productPicker}>
                   <label className={styles.searchField}>
                     <span className="sr-only">Ürün ara</span>
                     <Search aria-hidden="true" />
@@ -641,23 +867,38 @@ export function QuickOrderLinksConsole() {
                       value={query}
                       onChange={(event) => changeSearchQuery(event.target.value)}
                       onKeyDown={handleSearchKeyDown}
-                      placeholder="Ürün ara…"
+                      placeholder="Ürün adı, varyant veya SKU ile ara"
                       maxLength={100}
                       autoComplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={searchContent !== null}
+                      aria-controls="quick-order-product-results"
                     />
                   </label>
-                  <label className={styles.field}><span>Link geçerliliği</span><select value={expiryHours} onChange={(event) => setExpiryHours(Number(event.target.value) as typeof expiryHours)}>{EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label} · TRY</option>)}</select></label>
+                  {query ? <button type="button" className={styles.clearSearch} onClick={() => changeSearchQuery("")} aria-label="Ürün aramasını temizle"><X aria-hidden="true" /></button> : null}
+                  {searchContent ? <div className={styles.pickerPopover}>{searchContent}</div> : null}
                 </div>
-                {searchContent}
                 <section className={styles.selectedLines} aria-label="Seçilen sipariş kalemleri" aria-describedby={fieldErrors.items ? "quick-order-items-error" : undefined}>
+                  <div className={styles.linesHeader}>
+                    <div><strong>Seçilen ürünler</strong><span>Varyant, adet ve fiyat özeti</span></div>
+                    <span className={styles.itemCount}>{selectedLines.length} kalem</span>
+                  </div>
                   {selectedLines.length === 0 ? (
-                    <div className={styles.linesEmpty}><Package aria-hidden="true" /><strong>Siparişleriniz burada gösterilecek</strong><p>Hızlı ödeme linkine eklenecek kalemleri gerçek katalogdan seçin.</p></div>
+                    <div className={styles.linesEmpty}><span><Package aria-hidden="true" /></span><strong>Henüz ürün eklenmedi</strong><p>Yukarıdaki arama alanından ürün veya varyant seçin.</p></div>
                   ) : selectedLines.map((line) => (
                     <article key={line.variantId} className={styles.selectedLine}>
-                      <div className={styles.lineIdentity}><Package aria-hidden="true" /><span><strong>{line.productName}</strong><small>{line.variantName}{line.sku ? ` · ${line.sku}` : ""}</small></span></div>
-                      <label><span>Adet</span><input type="number" min={1} max={line.availableQuantity ?? 9_999} value={line.quantity} onChange={(event) => updateQuantity(line.variantId, event.target.value)} /></label>
+                      <div className={styles.lineIdentity}><span className={styles.lineIcon}><Package aria-hidden="true" /></span><span><strong>{line.productName}</strong><small>{line.variantName}{line.sku ? ` · ${line.sku}` : ""}</small>{line.availableQuantity === undefined ? null : <em>{line.availableQuantity.toLocaleString("tr-TR")} stok</em>}</span></div>
+                      <div className={styles.quantityGroup}>
+                        <span>Adet</span>
+                        <div className={styles.quantityControl}>
+                          <button type="button" onClick={() => stepQuantity(line.variantId, -1)} disabled={line.quantity <= 1} aria-label={`${line.productName} adedini azalt`}><Minus aria-hidden="true" /></button>
+                          <input aria-label={`${line.productName} adedi`} type="number" min={1} max={line.availableQuantity ?? 9_999} value={line.quantity} onChange={(event) => updateQuantity(line.variantId, event.target.value)} />
+                          <button type="button" onClick={() => stepQuantity(line.variantId, 1)} disabled={line.quantity >= (line.availableQuantity ?? 9_999)} aria-label={`${line.productName} adedini artır`}><Plus aria-hidden="true" /></button>
+                        </div>
+                      </div>
                       {selectedPaymentMethod?.requiresItemType ? <label><span>Ürün tipi</span><select aria-label={`${line.productName} ürün tipi`} value={line.itemType ?? ""} onChange={(event) => updateItemType(line.variantId, event.target.value)} required><option value="">Seçin</option><option value="PHYSICAL">Fiziksel</option><option value="VIRTUAL">Dijital</option></select></label> : null}
-                      <div className={styles.linePrice}><span>Birim fiyat</span><strong>{money(line.unitPriceCents)}</strong><small>{money(line.unitPriceCents * line.quantity)}</small></div>
+                      <div className={styles.linePrice}><span>{money(line.unitPriceCents)} / adet</span><strong>{money(line.unitPriceCents * line.quantity)}</strong></div>
                       <button type="button" className={styles.removeLine} onClick={() => removeLine(line.variantId)} aria-label={`${line.productName} satırını kaldır`}><Trash2 aria-hidden="true" /></button>
                     </article>
                   ))}
@@ -666,9 +907,51 @@ export function QuickOrderLinksConsole() {
               </div>
             </Panel>
 
-            <Panel title="Müşteri" id="quick-order-customer-title">
+            <Panel
+              title="Müşteri"
+              description="Kayıtlı müşteriyi seçin veya bilgileri manuel girin."
+              icon={<UserRound aria-hidden="true" />}
+              id="quick-order-customer-title"
+            >
               <div className={styles.panelBody}>
-                <p className={styles.helpText}>Alıcı bilgilerini elle girin.</p>
+                <div className={styles.customerPicker}>
+                  <label className={styles.searchField}>
+                    <span className="sr-only">Kayıtlı müşteri ara</span>
+                    <Search aria-hidden="true" />
+                    <input
+                      ref={customerSearchInputRef}
+                      value={customerQuery}
+                      onChange={(event) => changeCustomerQuery(event.target.value)}
+                      onKeyDown={handleCustomerSearchKeyDown}
+                      placeholder="Ad, e-posta veya telefon ile müşteri ara"
+                      maxLength={120}
+                      autoComplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={customerSearchContent !== null}
+                      aria-controls="quick-order-customer-results"
+                    />
+                  </label>
+                  {customerQuery ? <button type="button" className={styles.clearSearch} onClick={() => changeCustomerQuery("")} aria-label="Müşteri aramasını temizle"><X aria-hidden="true" /></button> : null}
+                  {customerQuery.trim().length === 1 ? <p className={styles.searchHint}>Aramak için en az 2 karakter girin.</p> : null}
+                  {customerSearchContent ? <div className={styles.pickerPopover}>{customerSearchContent}</div> : null}
+                </div>
+
+                {selectedCustomer ? (
+                  <div className={styles.selectedCustomer}>
+                    <span className={styles.selectedCustomerIcon}><Check aria-hidden="true" /></span>
+                    <div>
+                      <strong>{selectedCustomer.displayName}</strong>
+                      <span>
+                        {selectedCustomer.email ? <small><Mail aria-hidden="true" />{selectedCustomer.email}</small> : null}
+                        {selectedCustomer.phone ? <small><Phone aria-hidden="true" />{selectedCustomer.phone}</small> : null}
+                      </span>
+                    </div>
+                    <button type="button" onClick={clearSelectedCustomer} aria-label="Seçili müşteriyi kaldır"><X aria-hidden="true" /></button>
+                  </div>
+                ) : null}
+
+                <div className={styles.formDivider}><span>İletişim bilgileri</span></div>
                 <div className={styles.customerGrid}>
                   <label><span>Ad soyad</span><input value={customerName} onChange={(event) => setCustomerName(event.target.value)} autoComplete="name" maxLength={200} required /></label>
                   <label><span>E-posta</span><input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} autoComplete="email" maxLength={320} required /></label>
@@ -677,7 +960,12 @@ export function QuickOrderLinksConsole() {
               </div>
             </Panel>
 
-            <Panel title="Teslimat Bilgileri" id="quick-order-shipping-title">
+            <Panel
+              title="Teslimat"
+              description="Gönderim ve fatura adresini düzenleyin."
+              icon={<MapPin aria-hidden="true" />}
+              id="quick-order-shipping-title"
+            >
               <div className={styles.panelBody}>
                 <AddressFields prefix="shipping" value={shippingAddress} onChange={(key, value) => updateAddress(setShippingAddress, key, value)} />
                 <label className={styles.checkboxRow}><input type="checkbox" checked={billingSameAsShipping} onChange={(event) => setBillingSameAsShipping(event.target.checked)} /><span>Fatura adresi teslimat adresi ile aynı</span></label>
@@ -687,31 +975,35 @@ export function QuickOrderLinksConsole() {
           </div>
 
           <aside className={styles.summaryColumn}>
-            <Panel title="Sipariş Özeti" id="quick-order-summary-title">
-              <div className={styles.summaryBody}>
+            <section className={styles.summaryWorkspace} aria-labelledby="quick-order-summary-title">
+              <div className={styles.summaryHeader}>
+                <span><ShoppingBag aria-hidden="true" /></span>
+                <div><h2 id="quick-order-summary-title">Sipariş Özeti</h2><p>{selectedLines.length} kalem · {selectedLines.reduce((total, line) => total + line.quantity, 0)} ürün</p></div>
+              </div>
+
+              <div className={styles.summarySection}>
+                <label className={styles.expiryField}>
+                  <span><Clock3 aria-hidden="true" />Link geçerliliği</span>
+                  <select value={expiryHours} onChange={(event) => setExpiryHours(Number(event.target.value) as typeof expiryHours)}>{EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+                </label>
+              </div>
+
+              <div className={styles.summarySection}>
                 <dl className={styles.totals}>
-                  <div><dt>Ara Toplam</dt><dd>{money(subtotalCents)}</dd></div>
+                  <div><dt>Ara toplam</dt><dd>{money(subtotalCents)}</dd></div>
                   <div><dt>Kargo</dt><dd>{money(shippingCents)}</dd></div>
                   <div><dt>İndirim</dt><dd>− {money(discountCents)}</dd></div>
-                  <div><dt>Toplam</dt><dd>{money(totalCents)}</dd></div>
+                  <div className={styles.grandTotal}><dt>Toplam</dt><dd>{money(totalCents)}</dd></div>
                 </dl>
-                <label className={styles.field}><span>Kargo (TRY)</span><input inputMode="decimal" value={shippingInput} onChange={(event) => { setShippingInput(event.target.value); setFieldErrors((current) => { const { shipping: _shipping, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.shipping ? true : undefined} aria-describedby={fieldErrors.shipping ? "quick-order-shipping-error" : undefined} />{fieldErrors.shipping ? <small id="quick-order-shipping-error" className={styles.fieldError} role="alert">{fieldErrors.shipping}</small> : null}</label>
-                <label className={styles.field}><span>İndirim (TRY)</span><input inputMode="decimal" value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setFieldErrors((current) => { const { discount: _discount, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.discount ? true : undefined} aria-describedby={fieldErrors.discount ? "quick-order-discount-error" : undefined} />{fieldErrors.discount ? <small id="quick-order-discount-error" className={styles.fieldError} role="alert">{fieldErrors.discount}</small> : null}</label>
-                <button className={styles.primaryButton} type="submit" disabled={submitting}>{submitting ? "Oluşturuluyor…" : "Ödeme linki oluştur"}</button>
-                <button className={styles.secondaryButton} type="button" onClick={resetBuilder}>Temizle</button>
+                <div className={styles.amountGrid}>
+                  <label className={styles.field}><span><Truck aria-hidden="true" />Kargo (TRY)</span><input inputMode="decimal" value={shippingInput} onChange={(event) => { setShippingInput(event.target.value); setFieldErrors((current) => { const { shipping: _shipping, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.shipping ? true : undefined} aria-describedby={fieldErrors.shipping ? "quick-order-shipping-error" : undefined} />{fieldErrors.shipping ? <small id="quick-order-shipping-error" className={styles.fieldError} role="alert">{fieldErrors.shipping}</small> : null}</label>
+                  <label className={styles.field}><span><Percent aria-hidden="true" />İndirim (TRY)</span><input inputMode="decimal" value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setFieldErrors((current) => { const { discount: _discount, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.discount ? true : undefined} aria-describedby={fieldErrors.discount ? "quick-order-discount-error" : undefined} />{fieldErrors.discount ? <small id="quick-order-discount-error" className={styles.fieldError} role="alert">{fieldErrors.discount}</small> : null}</label>
+                </div>
               </div>
-            </Panel>
 
-            <Panel title="Müşteri Notu" id="quick-order-note-title">
-              <div className={styles.panelBody}><label className={styles.field}><span>Müşterinin ödeme ekranında göreceği not</span><textarea value={customerNote} onChange={(event) => setCustomerNote(event.target.value)} rows={5} maxLength={2_000} /></label></div>
-            </Panel>
-
-            <Panel title="Dahili Etiket" id="quick-order-label-title">
-              <div className={styles.panelBody}><label className={styles.field}><span>Yalnızca mağaza ekibi görür</span><input value={internalLabel} onChange={(event) => setInternalLabel(event.target.value)} maxLength={200} /></label></div>
-            </Panel>
-
-            <Panel title="Ödeme Yöntemi" id="quick-order-provider-title">
-              <div className={styles.providerBody}>
+              <div className={styles.summarySection}>
+                <div className={styles.summarySectionTitle}><CreditCard aria-hidden="true" /><div><h3>Ödeme</h3><p>Bağlantıda kullanılacak yöntemi seçin.</p></div></div>
+                <div className={styles.providerBody}>
                 {hostedPickerAvailable ? <>
                   <label className={styles.field}><span>Aktif ödeme yöntemi</span><select aria-label="Ödeme yöntemi" value={selectedPaymentMethodId} onChange={(event) => { setSelectedPaymentMethodId(event.target.value); setIdentityNumber(""); setSelectedLines((current) => Object.freeze(current.map((line) => Object.freeze({ ...line, itemType: undefined })))); setFieldErrors((current) => { const { paymentMethod: _method, identity: _identity, ...remaining } = current; return remaining; }); }} required><option value="">Ödeme yöntemi seçin</option>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}</select>{fieldErrors.paymentMethod ? <small className={styles.fieldError} role="alert">{fieldErrors.paymentMethod}</small> : null}</label>
                   {paymentMethodsError ? <p className={styles.inlineError} role="alert">{paymentMethodsError}</p> : null}
@@ -724,14 +1016,27 @@ export function QuickOrderLinksConsole() {
                   </p>
                   {providerState !== "ready" ? <button className={styles.secondaryButton} type="button" disabled={providerState === "activating"} onClick={() => { void activateProvider(); }}>{providerState === "activating" ? "Hazırlanıyor…" : "PayTR’yi doğrula ve hazırla"}</button> : null}
                 </>}
+                </div>
               </div>
-            </Panel>
+
+              <div className={styles.summarySection}>
+                <label className={styles.field}><span><Mail aria-hidden="true" />Müşteri notu</span><textarea value={customerNote} onChange={(event) => setCustomerNote(event.target.value)} rows={3} maxLength={2_000} placeholder="Ödeme ekranında gösterilecek not" /></label>
+                <label className={styles.field}><span><Tag aria-hidden="true" />Dahili etiket</span><input value={internalLabel} onChange={(event) => setInternalLabel(event.target.value)} maxLength={200} placeholder="Yalnız mağaza ekibi görür" /></label>
+              </div>
+
+              <div className={styles.summaryActions}>
+                <button className={styles.primaryButton} type="submit" disabled={submitting}><Link2 aria-hidden="true" />{submitting ? "Oluşturuluyor…" : "Ödeme linki oluştur"}</button>
+                <button className={styles.secondaryButton} type="button" onClick={resetBuilder}><Trash2 aria-hidden="true" />Formu temizle</button>
+              </div>
+            </section>
           </aside>
         </div>
       </form>
 
       <Panel
         title="Oluşturulan Linkler"
+        description="Aktif ve geçmiş ödeme bağlantılarını tek yerden yönetin."
+        icon={<Link2 aria-hidden="true" />}
         id="quick-order-links-title"
         actions={<button className={styles.refreshButton} type="button" onClick={() => { void loadLinks(); }}><RefreshCw aria-hidden="true" />Yenile</button>}
       >
