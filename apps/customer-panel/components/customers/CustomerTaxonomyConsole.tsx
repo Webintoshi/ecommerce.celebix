@@ -1,13 +1,12 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { CustomerSegment, CustomerTag } from "@celebix/saas-contracts";
-import {
-  PanelEmptyState,
-  PanelPageHeader,
-  PanelPageShell,
-} from "@/components/panel/PanelPageShell";
+import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
 import styles from "./customer-console.module.css";
+
+const DEFAULT_TAG_COLOR = "#7c3aed";
+
 export function CustomerTaxonomyConsole({
   kind,
   canManage,
@@ -22,7 +21,9 @@ export function CustomerTaxonomyConsole({
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [nameError, setNameError] = useState("");
+    [nameError, setNameError] = useState(""),
+    [tagName, setTagName] = useState(""),
+    [tagColor, setTagColor] = useState(DEFAULT_TAG_COLOR);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -49,8 +50,8 @@ export function CustomerTaxonomyConsole({
       name = String(f.get("name") ?? "").trim(),
       secondary = String(f.get("secondary") ?? "").trim();
     setError("");
-    if (kind === "segments" && !name) {
-      setNameError("Segment adı gerekli.");
+    if (!name) {
+      setNameError(kind === "tags" ? "Etiket adı gerekli." : "Segment adı gerekli.");
       return;
     }
     setNameError("");
@@ -63,6 +64,10 @@ export function CustomerTaxonomyConsole({
             ...(secondary ? { description: secondary } : {}),
           });
       form.reset();
+      if (kind === "tags") {
+        setTagName("");
+        setTagColor(DEFAULT_TAG_COLOR);
+      }
       await load();
     } catch (x) {
       setError(
@@ -82,7 +87,7 @@ export function CustomerTaxonomyConsole({
             : "Manuel müşteri grupları oluşturun ve üye sayılarını izleyin."
         }
       />
-      <section className={kind === "segments" ? styles.segmentWorkspace : styles.taxonomy}>
+      <section className={kind === "segments" ? styles.segmentWorkspace : styles.tagWorkspace}>
         {canManage ? (
           kind === "segments" ? (
             <section className={styles.segmentCreatePanel} aria-labelledby="segment-create-title">
@@ -115,21 +120,68 @@ export function CustomerTaxonomyConsole({
               </form>
             </section>
           ) : (
-            <form className={styles.taxonomyForm} onSubmit={submit}>
-              <input name="name" aria-label="Etiket adı" placeholder="Etiket adı" required maxLength={64} />
-              <input name="secondary" aria-label="Etiket rengi" type="color" defaultValue="#7c3aed" maxLength={7} />
-              <button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Oluştur"}</button>
-            </form>
+            <section className={styles.tagCreatePanel} aria-labelledby="tag-create-title">
+              <header className={styles.tagCreateHeader}>
+                <div><h2 id="tag-create-title">Yeni etiket</h2><p>Müşteri kayıtlarında tekrar kullanabileceğiniz görünür bir etiket oluşturun.</p></div>
+              </header>
+              <form className={styles.tagCreateForm} onSubmit={submit} noValidate>
+                <label className={styles.tagField}>
+                  <span>Etiket adı</span>
+                  <input
+                    name="name"
+                    value={tagName}
+                    placeholder="Örn. VIP"
+                    aria-invalid={nameError ? "true" : undefined}
+                    aria-describedby={nameError ? "tag-name-error" : undefined}
+                    onChange={(event) => { setTagName(event.currentTarget.value); if (nameError) setNameError(""); }}
+                    maxLength={64}
+                  />
+                  <small id="tag-name-error" className={nameError ? styles.tagFieldError : styles.tagFieldHint} aria-live="polite">
+                    {nameError || "Kısa ve kolay taranabilir bir etiket adı kullanın."}
+                  </small>
+                </label>
+                <label className={styles.tagColorField}>
+                  <span>Renk</span>
+                  <span className={styles.tagColorControl}>
+                    <i style={{ backgroundColor: tagColor }} aria-hidden="true" />
+                    <code>{tagColor.toUpperCase()}</code>
+                    <b>Değiştir</b>
+                    <input
+                      name="secondary"
+                      type="color"
+                      value={tagColor}
+                      aria-label="Etiket rengini seç"
+                      onChange={(event) => setTagColor(event.currentTarget.value)}
+                    />
+                  </span>
+                  <small className={styles.tagFieldHint}>Etiketi listelerde ayırt eden renk.</small>
+                </label>
+                <div className={styles.tagPreviewField}>
+                  <span>Önizleme</span>
+                  <span
+                    className={styles.tagPreviewChip}
+                    style={{ backgroundColor: `${tagColor}14`, borderColor: `${tagColor}3d` }}
+                  >
+                    <i style={{ backgroundColor: tagColor }} aria-hidden="true" />
+                    {tagName.trim() || "Etiket önizleme"}
+                  </span>
+                  <small>Yalnız frontend önizlemesidir.</small>
+                </div>
+                <button className={styles.tagCreateButton} disabled={busy}>
+                  {busy ? "Oluşturuluyor…" : "Etiket oluştur"}
+                </button>
+              </form>
+            </section>
           )
         ) : null}
         {error ? (
-          <p className={kind === "segments" ? styles.segmentApiError : styles.error} role="alert">
+          <p className={kind === "segments" ? styles.segmentApiError : styles.tagApiError} role="alert">
             {error}
           </p>
         ) : null}
         {loading ? (
-          <div className={kind === "segments" ? styles.segmentLoading : styles.state} role="status">
-            {kind === "segments" ? "Segmentler yükleniyor…" : `${title} yükleniyor…`}
+          <div className={kind === "segments" ? styles.segmentLoading : styles.tagLoading} role="status">
+            {kind === "segments" ? "Segmentler yükleniyor…" : "Etiketler yükleniyor…"}
           </div>
         ) : items.length === 0 ? (
           kind === "segments" ? (
@@ -141,7 +193,13 @@ export function CustomerTaxonomyConsole({
               </div>
             </section>
           ) : (
-            <PanelEmptyState title="Henüz etiketler yok" description="İlk gerçek kayıt oluşturulduğunda burada görünecek." />
+            <section className={styles.tagListPanel} aria-labelledby="tags-list-title">
+              <header className={styles.tagListTitle}><div><h2 id="tags-list-title">Etiketler</h2><p>Müşteri sınıflandırmalarınız burada listelenir.</p></div><span>0 kayıt</span></header>
+              <div className={styles.tagEmpty}>
+                <strong>Henüz etiketler yok</strong>
+                <p>Müşterilerinizi daha hızlı sınıflandırmak için ilk etiketinizi oluşturun.</p>
+              </div>
+            </section>
           )
         ) : (
           kind === "segments" ? (
@@ -159,17 +217,23 @@ export function CustomerTaxonomyConsole({
               </div>
             </section>
           ) : (
-            <div className={styles.taxonomyList}>
-              {items.map((i) => (
-                <article className={styles.taxonomyItem} key={i.id}>
-                  <div>
-                    {"color" in i ? <span className={styles.color} style={{ display: "inline-block", marginRight: 8, background: i.color }} /> : null}
-                    <strong>{i.name}</strong>
-                  </div>
-                  <span>{i.customerCount} müşteri</span>
-                </article>
-              ))}
-            </div>
+            <section className={styles.tagListPanel} aria-labelledby="tags-list-title">
+              <header className={styles.tagListTitle}><div><h2 id="tags-list-title">Etiketler</h2><p>Etiket renklerini ve müşteri kullanımını izleyin.</p></div><span>{items.length.toLocaleString("tr-TR")} kayıt</span></header>
+              <div className={styles.tagListHeader} aria-hidden="true"><span>Etiket</span><span>Renk</span><span>Kullanım</span></div>
+              <div className={styles.tagRows}>
+                {items.map((item) => (
+                  <article className={styles.tagRow} key={item.id}>
+                    {"color" in item ? (
+                      <span className={styles.tagListChip} style={{ backgroundColor: `${item.color}14`, borderColor: `${item.color}3d` }}>
+                        <i style={{ backgroundColor: item.color }} aria-hidden="true" />{item.name}
+                      </span>
+                    ) : null}
+                    <span className={styles.tagColorValue}>{"color" in item ? <><i style={{ backgroundColor: item.color }} aria-hidden="true" /><code>{item.color.toUpperCase()}</code></> : null}</span>
+                    <strong className={styles.tagCustomerCount}>{item.customerCount.toLocaleString("tr-TR")} müşteri</strong>
+                  </article>
+                ))}
+              </div>
+            </section>
           )
         )}
       </section>
