@@ -80,6 +80,396 @@
 .loadMore { min-height: 44px; border: 1px solid #dce1e8; border-radius: 10px; background: #fff; padding: 0 1rem; color: #343d4a; font-weight: 750; cursor: pointer; }
 .loadMore { display: block; margin: 1rem auto; }
 
+.primaryAction {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: .38rem;
+  border: 1px solid #FE6100;
+  border-radius: 6px;
+  background: #FE6100;
+  padding: 0 .8rem;
+  color: #FFFFFF;
+  font-size: .76rem;
+  font-weight: 740;
+  text-decoration: none;
+}
+
+.primaryAction:hover {
+  border-color: #E95800;
+  background: #E95800;
+}
+
+.tableSurface,
+.stateSurface,
+.emptyState {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #E3E8EF;
+  border-radius: 8px;
+  background: #FFFFFF;
+  box-shadow: 0 1px 2px rgb(17 24 39 / 4%);
+}
+
+.tableContext {
+  display: flex;
+  min-height: 50px;
+  align-items: center;
+  gap: .6rem;
+  border-bottom: 1px solid #E8ECF1;
+  padding: .55rem .75rem;
+}
+
+.tableContext > div {
+  display: grid;
+  min-width: 0;
+  gap: .05rem;
+}
+
+.tableContext strong {
+  color: #253044;
+  font-size: .78rem;
+}
+
+.tableContext small {
+  color: #7A8494;
+  font-size: .66rem;
+}
+
+.contextIcon,
+.emptyIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #FFE0CC;
+  border-radius: 7px;
+  background: #FFF7F2;
+  color: #C44B00;
+}
+
+.contextIcon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+}
+
+.tableSurface .desktopTable {
+  max-width: 100%;
+  overflow-x: auto;
+  background: #FFFFFF;
+}
+
+.tableSurface .desktopTable table {
+  width: 100%;
+  min-width: 1100px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.tableSurface .desktopTable th {
+  height: 40px;
+  border-bottom: 1px solid #E3E8EF;
+  background: #F7F9FB;
+  padding: 0 .7rem;
+  color: #697386;
+  font-size: .675rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.tableSurface .desktopTable td {
+  height: 60px;
+  border-bottom: 1px solid #EDF0F4;
+  padding: .45rem .7rem;
+  color: #394457;
+  font-size: .75rem;
+  vertical-align: middle;
+}
+
+.tableSurface .desktopTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tableSurface .desktopTable tbody tr:hover {
+  background: #FFFBF8;
+}
+
+.draftColumn,
+.draftCell {
+  width: 11rem;
+}
+
+.customerColumn,
+.customerCell {
+  width: 12rem;
+}
+
+.statusColumn,
+.statusCell {
+  width: 9.5rem;
+}
+
+.linesColumn,
+.linesCell {
+  width: 4rem;
+  text-align: center !important;
+}
+
+.inventoryColumn,
+.inventoryCell {
+  width: 10.5rem;
+}
+
+.totalColumn,
+.totalCell {
+  width: 8.5rem;
+  text-align: right !important;
+}
+
+.updatedColumn,
+.updatedCell {
+  width: 9rem;
+}
+
+.actionColumn,
+.actionCell {
+  width: 4.75rem;
+  text-align: right !important;
+}
+
+.draftCell,
+.customerCell {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.draftNumber {
+  display: inline-block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  color: #253044;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .72rem;
+  font-weight: 760;
+  line-height: 1.35;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draftNumber:hover {
+  color: #B54708;
+}
+
+.customerCell strong,
+.customerCell small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customerCell strong {
+  color: #253044;
+  font-size: .75rem;
+}
+
+.tableSurface .customerCell small {
+  margin-top: .12rem;
+  color: #7A8494;
+  font-size: .66rem;
+}
+
+.statusCell > span {
+  min-height: 24px;
+  padding: 0 .5rem;
+  font-size: .65rem;
+}
+
+.lineCount {
+  display: inline-flex;
+  min-width: 24px;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #E0E5EC;
+  border-radius: 999px;
+  background: #F6F8FA;
+  padding: 0 .35rem;
+  color: #536074;
+  font-size: .66rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+}
+
+.inventoryPolicy {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid #E0E5EC;
+  border-radius: 999px;
+  background: #F7F8FA;
+  padding: 0 .5rem;
+  color: #586476;
+  font-size: .65rem;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.totalCell strong,
+.totalFact dd {
+  color: #172033;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.updatedCell {
+  color: #697386 !important;
+  font-size: .7rem !important;
+  white-space: nowrap;
+}
+
+.listSurface .recordLink {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: .18rem;
+  border: 1px solid #DCE2EA;
+  border-radius: 6px;
+  background: #FFFFFF;
+  padding: 0 .55rem;
+  color: #4A5568;
+  font-size: .68rem;
+  font-weight: 720;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.listSurface .recordLink:hover {
+  border-color: #FFBE94;
+  background: #FFF8F3;
+  color: #B54708;
+}
+
+.listSurface .mobileCards {
+  background: #FFFFFF;
+}
+
+.listSurface .draftCard {
+  display: grid;
+  gap: .75rem;
+  border-bottom-color: #E8ECF1;
+  padding: .9rem;
+}
+
+.listSurface .cardHeading {
+  min-width: 0;
+  gap: .75rem;
+}
+
+.listSurface .cardHeading .draftNumber {
+  width: auto;
+  flex: 1;
+}
+
+.listSurface .cardFacts {
+  gap: .65rem;
+  margin: 0;
+}
+
+.listSurface .cardFacts dt {
+  color: #7A8494;
+  font-size: .64rem;
+  font-weight: 700;
+}
+
+.listSurface .cardFacts dd {
+  margin-top: .18rem;
+  color: #394457;
+  font-size: .76rem;
+}
+
+.listSurface .cardFacts small {
+  margin-top: .12rem;
+  color: #7A8494;
+  font-size: .65rem;
+}
+
+.listSurface .draftCard > .recordLink {
+  width: 100%;
+  min-height: 36px;
+}
+
+.listSurface .state {
+  padding: 2rem 1rem;
+  font-size: .76rem;
+}
+
+.listSurface .error {
+  margin: 0;
+  border-color: #F0C5C8;
+  border-radius: 8px;
+  background: #FDF1F2;
+  padding: .85rem 1rem;
+  color: #A33A42;
+}
+
+.listSurface .error button,
+.tableSurface .loadMore {
+  min-height: 36px;
+  border-color: #DCE2EA;
+  border-radius: 6px;
+  padding: 0 .7rem;
+  color: #4A5568;
+  font-size: .7rem;
+}
+
+.tableSurface .loadMore {
+  margin: .75rem auto;
+}
+
+.emptyState {
+  display: grid;
+  min-height: 210px;
+  place-items: center;
+  align-content: center;
+  gap: .5rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 38px;
+  height: 38px;
+}
+
+.emptyState h2,
+.emptyState p {
+  margin: 0;
+}
+
+.emptyState h2 {
+  color: #253044;
+  font-size: .9rem;
+}
+
+.emptyState p {
+  max-width: 28rem;
+  color: #7A8494;
+  font-size: .73rem;
+  line-height: 1.5;
+}
+
+.emptyState .primaryAction {
+  margin-top: .25rem;
+}
+
 .editorWorkspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); align-items: start; gap: 1.25rem; }
 .editorForm { display: grid; gap: 1rem; min-width: 0; }
 .formSection { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
@@ -185,7 +575,6 @@
   .sectionHeading > div:first-child { align-items: flex-start; }
   .fieldGrid,
   .addressFields,
-  .cardFacts,
   .summaryFacts { grid-template-columns: 1fr; }
   .fullField { grid-column: auto; }
   .lineRow { grid-template-columns: 1fr; align-items: stretch; }
