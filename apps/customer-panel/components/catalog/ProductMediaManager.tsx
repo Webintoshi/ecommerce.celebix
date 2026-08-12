@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import type { ProductMedia } from "../../../../packages/saas-contracts/src/media/index.ts";
+import { Archive, ArrowDown, ArrowUp, Image as ImageIcon, ImagePlus } from "lucide-react";
 
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
 
@@ -160,20 +161,23 @@ export function ProductMediaManager({ productId }: { productId: string }) {
   }
 
   return (
-    <section className="product-media-section" aria-labelledby="product-media-title">
-      <div className="section-heading-row">
-        <div><span className="eyebrow">ÜRÜN GÖRSELLERİ</span><h2 id="product-media-title">Fotoğraflar</h2><p>PNG, JPEG veya WebP · en fazla 5 MB · ilk görsel birincildir.</p></div>
+    <section className="product-media-section product-detail-section product-detail-media" aria-labelledby="product-media-title">
+      <div className="section-heading-row product-detail-section-header">
+        <div><span className="eyebrow">ÜRÜN GÖRSELLERİ</span><h2 id="product-media-title">Medya</h2><p>İlk sıradaki görsel mağazada birincil görsel olarak kullanılır.</p></div>
+        <span className="product-media-count">{loading ? "Yükleniyor" : `${media.length} görsel`}</span>
       </div>
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Görsel işlemi tamamlanamadı</strong><p>{error}</p></div></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
 
-      <form ref={mediaUploadCardRef} className="media-upload-card" onSubmit={upload} tabIndex={-1}>
+      <form ref={mediaUploadCardRef} className="media-upload-card product-media-uploader" onSubmit={upload} tabIndex={-1}>
         <label className="media-picker">
+          <ImagePlus aria-hidden="true" />
           <span>{selectedFile ? "Başka görsel seç" : "Görsel seç"}</span>
+          <small>PNG, JPEG veya WebP · en fazla 5 MB</small>
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={selectFile} disabled={busy !== ""} />
         </label>
         <div className="media-upload-preview">
-          {previewUrl ? <img src={previewUrl} alt="Yüklenecek görsel önizlemesi" /> : <span aria-hidden="true">◇</span>}
+          {previewUrl ? <img src={previewUrl} alt="Yüklenecek görsel önizlemesi" /> : <span aria-hidden="true"><ImageIcon /></span>}
           <label className="field"><span>Alt metin</span><input name="altText" maxLength={500} placeholder="Görseli erişilebilir biçimde açıklayın" disabled={busy !== ""} /></label>
         </div>
         {busy === "upload" ? <div className="upload-progress"><span>Yükleme ilerlemesi</span><progress role="progressbar" max="100" value={uploadProgress}>{uploadProgress}%</progress><b>{uploadProgress}%</b></div> : null}
@@ -185,16 +189,16 @@ export function ProductMediaManager({ productId }: { productId: string }) {
       ) : (
         <div className="product-media-grid">
           {media.map((item, index) => (
-            <article className="product-media-card" key={item.id}>
+            <article className="product-media-card product-media-item" key={item.id}>
               <div className="media-thumbnail"><img src={item.publicUrl} alt={item.altText} />{index === 0 ? <span>Birincil görsel</span> : null}</div>
               <form onSubmit={(event) => void updateAlt(event, item)} key={item.version}>
                 <label className="field"><span>Alt metin</span><input name="altText" maxLength={500} defaultValue={item.altText} disabled={busy !== ""} /></label>
                 <button className="button button-secondary" type="submit" disabled={busy !== ""}>{busy === `alt-${item.id}` ? "Kaydediliyor…" : "Alt metni kaydet"}</button>
               </form>
               <div className="media-order-controls" aria-label="Görsel sırası">
-                <button type="button" className="button button-secondary" onClick={() => void move(index, -1)} disabled={busy !== "" || index === 0}>↑ Yukarı taşı</button>
-                <button type="button" className="button button-secondary" onClick={() => void move(index, 1)} disabled={busy !== "" || index === media.length - 1}>↓ Aşağı taşı</button>
-                <button type="button" className="text-danger-button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveTarget(item); }} disabled={busy !== ""}>Arşivle</button>
+                <button type="button" className="button button-secondary" onClick={() => void move(index, -1)} disabled={busy !== "" || index === 0}><ArrowUp aria-hidden="true" /> Yukarı taşı</button>
+                <button type="button" className="button button-secondary" onClick={() => void move(index, 1)} disabled={busy !== "" || index === media.length - 1}><ArrowDown aria-hidden="true" /> Aşağı taşı</button>
+                <button type="button" className="text-danger-button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveTarget(item); }} disabled={busy !== ""}><Archive aria-hidden="true" /> Arşivle</button>
               </div>
             </article>
           ))}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { CatalogOnboardingOptions, CatalogProductEditorProjection, Product, ProductVariant } from "@celebix/saas-contracts";
+import { Archive, ArrowLeft, Pencil, Plus, SlidersHorizontal } from "lucide-react";
 
 import {
   CatalogApiError,
@@ -236,30 +237,52 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   if (detail === undefined) return <section className="catalog-page"><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
 
   const { product, variants } = detail;
+  const priceValues = variants.map((variant) => variant.priceCents);
+  const compareAtValues = variants.flatMap((variant) => variant.compareAtCents === undefined ? [] : [variant.compareAtCents]);
+  const trackedVariants = variants.filter((variant) => variant.stockTracking);
+  const salePrice = priceValues.length === 0 ? "—" : formatTurkishMoney(Math.min(...priceValues), product.currency);
+  const compareAtPrice = compareAtValues.length === 0 ? "—" : formatTurkishMoney(Math.min(...compareAtValues), product.currency);
+  const stockValue = variants.length === 0
+    ? "—"
+    : trackedVariants.length === 0
+      ? "Takip dışı"
+      : `${trackedVariants.reduce((total, variant) => total + variant.stockQuantity, 0)} adet`;
+  const primarySku = variants.find((variant) => variant.sku)?.sku;
+  const updatedAt = new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(product.updatedAt));
   return (
-    <section data-presentation="hemenaku-product-detail" className="catalog-page" aria-labelledby="product-title">
-      <Link className="back-link" href="/products">← Ürünlere dön</Link>
-      <div className="detail-heading-row hemenaku-detail-hero">
-        <div className="catalog-heading">
-          <span className="eyebrow">ÜRÜN BİLGİLERİ</span>
-          <div className="heading-meta"><span className={`status-pill status-${product.status}`}>{product.status === "active" ? "Aktif" : "Taslak"}</span><span className="version-badge">v{product.version}</span></div>
+    <section data-presentation="hemenaku-product-detail" className="catalog-page product-detail-workspace" aria-labelledby="product-title">
+      <header className="detail-heading-row hemenaku-detail-hero product-detail-header">
+        <div className="catalog-heading product-detail-heading">
+          <Link className="back-link product-detail-back" href="/products"><ArrowLeft aria-hidden="true" /> Ürünlere dön</Link>
+          <div className="heading-meta product-detail-heading-meta"><span className={`status-pill status-${product.status}`}>{product.status === "active" ? "Aktif" : "Taslak"}</span><span className="version-badge">v{product.version}</span></div>
           <h1 id="product-title">{product.title}</h1>
-          <p>{product.currency}</p>
+          <p>{primarySku ? `SKU ${primarySku}` : "SKU eklenmemiş"}<span aria-hidden="true"> · </span>{product.currency}</p>
         </div>
-        <div className="heading-actions">
-          <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={onboarding === undefined}>Satış ayarları</button>
-          <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}>Ürünü düzenle</button>
-          <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}>Arşivle</button>
+        <div className="heading-actions product-detail-actions">
+          <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}><Pencil aria-hidden="true" /> Ürünü düzenle</button>
+          <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={onboarding === undefined}><SlidersHorizontal aria-hidden="true" /> Satış ayarları</button>
+          <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button>
         </div>
-      </div>
+      </header>
+
+      <dl className="product-detail-facts" aria-label="Ürün hızlı özeti">
+        <div><dt>Satış fiyatı</dt><dd>{salePrice}</dd></div>
+        <div><dt>Karşılaştırma</dt><dd>{compareAtPrice}</dd></div>
+        <div><dt>Takipli stok</dt><dd>{stockValue}</dd></div>
+        <div><dt>Varyant</dt><dd>{variants.length}</dd></div>
+        <div className="product-detail-fact-updated"><dt>Son güncelleme</dt><dd><time dateTime={product.updatedAt}>{updatedAt}</time></dd></div>
+        <div><dt>Durum</dt><dd><span className={`status-pill status-${product.status}`}>{product.status === "active" ? "Aktif" : "Taslak"}</span></dd></div>
+      </dl>
 
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
 
-      <section aria-labelledby="product-fields-title">
-        <h2 id="product-fields-title" className="sr-only">Ürün bilgileri</h2>
+      <section className="product-detail-section product-detail-description" aria-labelledby="product-fields-title">
+        <div className="product-detail-section-header">
+          <div><span className="eyebrow">ÜRÜN BİLGİLERİ</span><h2 id="product-fields-title">{editingProduct ? "Ürün bilgilerini düzenle" : "Açıklama"}</h2></div>
+        </div>
         {editingProduct ? (
-          <form className="catalog-form inset-form" onSubmit={updateProduct} key={product.version}>
+          <form className="catalog-form inset-form product-detail-edit-form" onSubmit={updateProduct} key={product.version}>
           <fieldset disabled={busy !== ""}>
             <legend><span>01</span><span><strong>Ürün Bilgileri</strong><small>Güncel sürüm: v{product.version}</small></span></legend>
             <div className="form-grid">
@@ -272,10 +295,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
           <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => setEditingProduct(false)}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === "product" ? "Kaydediliyor…" : "Değişiklikleri kaydet"}</button></div>
           </form>
         ) : (
-          <div className="product-summary-grid">
-            <article><span>Açıklama</span><ProductDescriptionPreview source={product.description} emptyMessage="Bu ürün için açıklama eklenmemiş." /></article>
-            <article><span>Son güncelleme</span><strong>{new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date(product.updatedAt))}</strong></article>
-          </div>
+          <div className="product-detail-description-content"><ProductDescriptionPreview source={product.description} emptyMessage="Bu ürün için açıklama eklenmemiş." /></div>
         )}
       </section>
 
@@ -292,10 +312,10 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
 
       <ProductMediaManager productId={productId} />
 
-      <section className="variant-list" aria-labelledby="variants-title">
-      <div className="section-heading-row">
+      <section className="variant-list product-detail-section product-detail-variants" aria-labelledby="variants-title">
+      <div className="section-heading-row product-detail-section-header">
         <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 ref={variantsHeadingRef} tabIndex={-1} id="variants-title">Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
-        <button className="button button-primary" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}>＋ Yeni varyant</button>
+        <button className="button button-primary product-detail-primary-action" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}><Plus aria-hidden="true" /> Yeni varyant</button>
       </div>
 
       {creatingVariant ? (
@@ -305,9 +325,9 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
         </form>
       ) : null}
 
-      <div className="variant-list">
+      <div className="variant-list product-detail-variant-rows">
         {variants.length === 0 ? <div className="empty-variants"><strong>Aktif varyant yok</strong><p>Ürünü satışa hazırlamak için bir varyant ekleyin.</p></div> : variants.map((variant) => (
-          <article className="variant-card" key={variant.id}>
+          <article className="variant-card product-detail-variant-row" key={variant.id}>
             <div className="variant-card-heading">
               <div><span className="variant-mark" aria-hidden="true">V</span><span><strong>{variant.title}</strong><small>{variant.sku ? `SKU ${variant.sku}` : "SKU eklenmemiş"}{variant.barcode ? ` · ${variant.barcode}` : ""}</small></span></div>
               <span className="version-badge">v{variant.version}</span>
