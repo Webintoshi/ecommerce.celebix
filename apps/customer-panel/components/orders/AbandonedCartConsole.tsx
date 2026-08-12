@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { AbandonedCartDetail, AbandonedCartListItem, AbandonedCartSort, AbandonedCartStatus, AbandonedCartSummary } from "@celebix/saas-contracts";
-import { Archive, CheckCircle2, Clock3, Mail, Package2, Phone, RefreshCcw, Search, ShoppingCart, UserRound, Wallet } from "lucide-react";
+import { Archive, ArrowDownUp, ArrowRight, CheckCircle2, Clock3, Filter, Mail, Package2, Phone, RefreshCcw, Search, ShoppingCart, UserRound, Wallet } from "lucide-react";
 
-import { PanelEmptyState, PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { AbandonedCartApiError, abandonedCartApi } from "@/lib/abandoned-cart-ui/client";
 import styles from "./abandoned-cart-console.module.css";
 
@@ -16,23 +16,114 @@ function money(cents: number, currency: string) { return new Intl.NumberFormat("
 function date(value: string) { return new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
 function tone(status: AbandonedCartStatus): "neutral" | "success" | "warning" | "danger" { return status === "recovered" ? "success" : status === "abandoned" ? "danger" : status === "active" ? "warning" : "neutral"; }
 function customer(cart: AbandonedCartListItem) { return cart.customerName ?? cart.customerEmail ?? cart.customerPhone ?? "Anonim sepet"; }
+function customerDetail(cart: AbandonedCartListItem) {
+  if (cart.customerName) return cart.customerEmail ?? cart.customerPhone ?? "İletişim bilgisi yok";
+  if (cart.customerEmail) return cart.customerPhone ?? "E-posta ile tanımlı";
+  if (cart.customerPhone) return "Telefon ile tanımlı";
+  return "İletişim bilgisi yok";
+}
 function message(error: unknown) { return error instanceof AbandonedCartApiError ? error.message : "Sepetler yüklenemedi. Lütfen yeniden deneyin."; }
 
-function Metric({ label, value, detail, icon: Icon }: { label: string; value: string; detail: string; icon: typeof ShoppingCart }) {
-  return <article className={styles.metric}><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div><i aria-hidden="true"><Icon /></i></article>;
+function Metric({ label, value, detail, icon: Icon, emphasis = "neutral" }: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: typeof ShoppingCart;
+  emphasis?: "neutral" | "lost" | "recovered";
+}) {
+  return (
+    <article className={`${styles.metric} ${styles[`metric-${emphasis}`]}`}>
+      <div className={styles.metricLabel}><Icon aria-hidden="true" /><span>{label}</span></div>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
 }
 
 function CartCard({ cart }: { cart: AbandonedCartListItem }) {
-  return <article className={styles.cartCard}><div className={styles.cardHeading}><strong>{customer(cart)}</strong><PanelStatusBadge tone={tone(cart.status)}>{STATUS[cart.status]}</PanelStatusBadge></div><dl><div><dt>Toplam</dt><dd>{money(cart.totalCents, cart.currency)}</dd></div><div><dt>Ürün</dt><dd>{cart.itemCount}</dd></div><div><dt>Son etkinlik</dt><dd>{date(cart.lastActivityAt)}</dd></div></dl><Link className={styles.detailLink} href={`/orders/abandoned-carts/${cart.id}`}>Sepet ayrıntısını aç</Link></article>;
+  return (
+    <article className={styles.cartCard}>
+      <div className={styles.cardHeading}>
+        <div><strong>{customer(cart)}</strong><small>{customerDetail(cart)}</small></div>
+        <PanelStatusBadge tone={tone(cart.status)}>{STATUS[cart.status]}</PanelStatusBadge>
+      </div>
+      <dl>
+        <div><dt>Toplam</dt><dd className={styles.cardTotal}>{money(cart.totalCents, cart.currency)}</dd></div>
+        <div><dt>Ürün</dt><dd>{cart.itemCount.toLocaleString("tr-TR")} ürün</dd></div>
+        <div><dt>Son etkinlik</dt><dd><time dateTime={cart.lastActivityAt}>{date(cart.lastActivityAt)}</time></dd></div>
+      </dl>
+      <Link className={styles.detailLink} href={`/orders/abandoned-carts/${cart.id}`}>İncele<ArrowRight aria-hidden="true" /></Link>
+    </article>
+  );
 }
 
 export function AbandonedCartListPresentation(props: Readonly<{ state: State; items: readonly AbandonedCartListItem[]; summary?: AbandonedCartSummary; error: string; search: string; status: AbandonedCartStatus | "all"; sort: AbandonedCartSort; nextCursor?: string; loadingMore: boolean; onRetry(): void; onSearch(value: string): void; onSubmit(): void; onStatus(value: AbandonedCartStatus | "all"): void; onSort(value: AbandonedCartSort): void; onLoadMore(): void }>) {
-  return <PanelPageShell><PanelPageHeader title="Terk Edilen Sepetler" description="Yarım kalan alışverişleri gerçek mağaza ve ürün verileriyle takip edin." />
-    {props.summary ? <section className={styles.metrics} aria-label="Sepet özeti"><Metric label="Terk edilen" value={props.summary.abandoned.toLocaleString("tr-TR")} detail="Takip bekleyen sepet" icon={ShoppingCart} /><Metric label="Kurtarılan" value={props.summary.recovered.toLocaleString("tr-TR")} detail="Kalıcı kurtarma kaydı" icon={CheckCircle2} /><Metric label="Kayıp değer" value={money(props.summary.lostValueCents, props.summary.currency)} detail="Terk edilmiş sepet toplamı" icon={Wallet} /><Metric label="Kurtarılan değer" value={money(props.summary.recoveredValueCents, props.summary.currency)} detail={`Son hesaplama ${date(props.summary.asOf)}`} icon={RefreshCcw} /></section> : null}
-    <section className={styles.surface} aria-label="Terk edilen sepet çalışma alanı" data-panel-surface="open">
-      <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSubmit(); }}><label className={styles.search}><span className="sr-only">Sepet ara</span><Search aria-hidden="true" /><input value={props.search} onChange={(event) => props.onSearch(event.target.value)} placeholder="Müşteri adı, e-posta veya telefon" maxLength={200} /><button type="submit">Ara</button></label><label><span className="sr-only">Sepet durumu</span><select value={props.status} onChange={(event) => props.onStatus(event.target.value as AbandonedCartStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSort(event.target.value as AbandonedCartSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option></select></label></form>
-      {props.state === "loading" ? <div className={styles.loading} role="status">Sepetler yükleniyor…</div> : props.state === "error" ? <div className={styles.error} role="alert"><div><h2>Sepetler yüklenemedi</h2><p>{props.error}</p></div><button type="button" onClick={props.onRetry}>Tekrar dene</button></div> : props.items.length === 0 ? <PanelEmptyState title="Henüz terk edilmiş sepet yok" description="Gerçek bir alışveriş yarım kaldığında burada görünecek." /> : <><div className={styles.desktopTable}><table aria-label="Terk edilen sepet listesi"><thead><tr><th>Müşteri</th><th>Durum</th><th>Son etkinlik</th><th>Ürün</th><th>Toplam</th><th /></tr></thead><tbody>{props.items.map((cart) => <tr key={cart.id}><td><strong>{customer(cart)}</strong><small>{cart.customerEmail ?? cart.customerPhone ?? "İletişim bilgisi yok"}</small></td><td><PanelStatusBadge tone={tone(cart.status)}>{STATUS[cart.status]}</PanelStatusBadge></td><td>{date(cart.lastActivityAt)}</td><td>{cart.itemCount.toLocaleString("tr-TR")}</td><td><strong>{money(cart.totalCents, cart.currency)}</strong></td><td><Link className={styles.rowAction} href={`/orders/abandoned-carts/${cart.id}`}>İncele</Link></td></tr>)}</tbody></table></div><div className={styles.mobileCards}>{props.items.map((cart) => <CartCard key={cart.id} cart={cart} />)}</div>{props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : "Daha fazla sepet yükle"}</button> : null}</>}
-    </section></PanelPageShell>;
+  const hasFilters = props.search.trim() !== "" || props.status !== "all";
+  return (
+    <PanelPageShell>
+      <PanelPageHeader title="Terk Edilen Sepetler" description="Kayıp geliri görün, sepetleri önceliklendirin ve kurtarma sürecini yönetin." />
+
+      {props.summary ? (
+        <section className={styles.metrics} aria-label="Sepet özeti">
+          <Metric label="Terk edilen" value={props.summary.abandoned.toLocaleString("tr-TR")} detail="Takip bekleyen sepet" icon={ShoppingCart} />
+          <Metric label="Kurtarılan" value={props.summary.recovered.toLocaleString("tr-TR")} detail="Kalıcı kurtarma kaydı" icon={CheckCircle2} emphasis="recovered" />
+          <Metric label="Kayıp değer" value={money(props.summary.lostValueCents, props.summary.currency)} detail="Terk edilmiş sepet toplamı" icon={Wallet} emphasis="lost" />
+          <Metric label="Kurtarılan değer" value={money(props.summary.recoveredValueCents, props.summary.currency)} detail={`Son hesaplama ${date(props.summary.asOf)}`} icon={RefreshCcw} emphasis="recovered" />
+        </section>
+      ) : null}
+
+      <section className={styles.surface} aria-label="Terk edilen sepet çalışma alanı">
+        <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSubmit(); }}>
+          <label className={styles.search}>
+            <span className="sr-only">Sepet ara</span>
+            <Search aria-hidden="true" />
+            <input value={props.search} onChange={(event) => props.onSearch(event.target.value)} placeholder="Müşteri adı, e-posta veya telefon" maxLength={200} />
+            <button type="submit">Ara</button>
+          </label>
+          <label className={styles.selectControl}>
+            <span className="sr-only">Sepet durumu</span><Filter aria-hidden="true" />
+            <select value={props.status} onChange={(event) => props.onStatus(event.target.value as AbandonedCartStatus | "all")}>
+              <option value="all">Tüm durumlar</option>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label className={styles.selectControl}>
+            <span className="sr-only">Sıralama</span><ArrowDownUp aria-hidden="true" />
+            <select value={props.sort} onChange={(event) => props.onSort(event.target.value as AbandonedCartSort)}>
+              <option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option>
+            </select>
+          </label>
+        </form>
+
+        {props.state === "loading" ? (
+          <div className={styles.loading} role="status"><RefreshCcw aria-hidden="true" /><div><strong>Sepetler yükleniyor</strong><span>Gelir kurtarma kayıtları hazırlanıyor.</span></div></div>
+        ) : props.state === "error" ? (
+          <div className={styles.error} role="alert"><div><h2>Sepetler yüklenemedi</h2><p>{props.error}</p></div><button type="button" onClick={props.onRetry}>Tekrar dene</button></div>
+        ) : props.items.length === 0 ? (
+          <div className={styles.listEmpty}><span><ShoppingCart aria-hidden="true" /></span><strong>{hasFilters ? "Filtrelerle eşleşen sepet bulunamadı." : "Takip bekleyen terk edilmiş sepet bulunmuyor."}</strong><p>{hasFilters ? "Arama veya durum filtresini değiştirerek yeniden deneyin." : "Yeni bir alışveriş yarım kaldığında kayıt burada görünecek."}</p></div>
+        ) : (
+          <>
+            <div className={styles.desktopTable}>
+              <table aria-label="Terk edilen sepet listesi">
+                <thead><tr><th>Müşteri</th><th>Durum</th><th>Son etkinlik</th><th>Ürün</th><th className={styles.numericHeading}>Toplam</th><th className={styles.actionHeading}>İşlem</th></tr></thead>
+                <tbody>{props.items.map((cart) => (
+                  <tr key={cart.id}>
+                    <td className={styles.customerCell}><strong>{customer(cart)}</strong><small>{customerDetail(cart)}</small></td>
+                    <td><PanelStatusBadge tone={tone(cart.status)}>{STATUS[cart.status]}</PanelStatusBadge></td>
+                    <td className={styles.activityCell}><time dateTime={cart.lastActivityAt}>{date(cart.lastActivityAt)}</time></td>
+                    <td><span className={styles.productCount}><Package2 aria-hidden="true" />{cart.itemCount.toLocaleString("tr-TR")} ürün</span></td>
+                    <td className={styles.totalCell}><strong>{money(cart.totalCents, cart.currency)}</strong></td>
+                    <td className={styles.actionCell}><Link className={styles.rowAction} href={`/orders/abandoned-carts/${cart.id}`}>İncele<ArrowRight aria-hidden="true" /></Link></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <div className={styles.mobileCards}>{props.items.map((cart) => <CartCard key={cart.id} cart={cart} />)}</div>
+            {props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : "Daha fazla sepet yükle"}</button> : null}
+          </>
+        )}
+      </section>
+    </PanelPageShell>
+  );
 }
 
 export function AbandonedCartConsole() {
