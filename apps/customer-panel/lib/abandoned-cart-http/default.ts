@@ -2,11 +2,10 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { resolveDefaultServerPanelAccessRuntime } from "../server-panel-access/default.ts";
-import { resolveServerAbandonedCartRuntime } from "../server-abandoned-carts/runtime.ts";
+import { resolveDefaultServerAbandonedCartRuntime } from "../server-abandoned-carts/default.ts";
 import { createAbandonedCartHttpHandlers } from "./handler.ts";
 
-async function runtime() { return resolveServerAbandonedCartRuntime(await resolveDefaultServerPanelAccessRuntime()); }
+async function runtime() { return resolveDefaultServerAbandonedCartRuntime(); }
 const handlers = createAbandonedCartHttpHandlers({ resolveRuntime: runtime, now: () => new Date(), requestId: randomUUID });
 type Context = Readonly<{ params: Promise<Readonly<{ cartId: string }>> }>;
 
