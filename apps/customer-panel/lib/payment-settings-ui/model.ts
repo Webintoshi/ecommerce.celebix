@@ -10,6 +10,11 @@ import type {
   PaymentProviderReadiness,
 } from "@celebix/saas-contracts";
 
+import {
+  buildProviderCheckoutPreferenceSummary,
+  buildProviderCheckoutPreferenceView,
+} from "./provider-preferences.ts";
+
 export type PaymentSettingsTone = "success" | "warning" | "danger" | "neutral";
 export type BuiltInPaymentMethodCatalogCard = Readonly<{
   kind: BuiltInPaymentMethodKind;
@@ -350,14 +355,18 @@ function catalogCard(
       );
   const activeProfile = connectionProfile?.status === "active";
   const activeMethod = executable && methods.some((candidate) => {
-    const configKeys = Object.keys(candidate.config);
-    return candidate.kind === "provider"
-      && candidate.providerCode === entry.providerCode
-      && candidate.profileId === connectionProfile?.id
-      && candidate.state === "active"
-      && configKeys.length === 1
-      && configKeys[0] === "environment"
-      && candidate.config.environment === connectionProfile?.publicConfig.environment;
+    if (
+      candidate.kind !== "provider"
+      || candidate.providerCode !== entry.providerCode
+      || candidate.profileId !== connectionProfile?.id
+      || candidate.state !== "active"
+    ) return false;
+    try {
+      return buildProviderCheckoutPreferenceView(candidate).environment
+        === connectionProfile?.publicConfig.environment;
+    } catch {
+      return false;
+    }
   });
   const profileEnvironment = connectionProfile?.publicConfig.environment;
   const connectionEnvironment = profileEnvironment === "test" || profileEnvironment === "live"
@@ -469,6 +478,14 @@ export function buildPaymentSettingsViewModel(
       const environment = configuredEnvironment === "test" || configuredEnvironment === "live"
         ? configuredEnvironment
         : null;
+      let checkoutPreferenceLabel: string | null = null;
+      if (item.kind === "provider") {
+        try {
+          checkoutPreferenceLabel = buildProviderCheckoutPreferenceSummary(item).label;
+        } catch {
+          checkoutPreferenceLabel = null;
+        }
+      }
       return Object.freeze({
         id: item.id,
         kind: item.kind,
@@ -480,6 +497,7 @@ export function buildPaymentSettingsViewModel(
         modeLabel: provider?.modeLabel ?? "Çevrimdışı",
         environment,
         environmentLabel: environment === "live" ? "Canlı" : environment === "test" ? "Test" : "Yerleşik",
+        checkoutPreferenceLabel,
         state: item.state,
         stateLabel: state.label,
         stateTone: state.tone,
