@@ -8,6 +8,9 @@ const files = {
   up: "202608120101_durable_abandoned_cart_integration.up.sql",
   down: "202608120101_durable_abandoned_cart_integration.down.sql",
   assertions: "202608120101_durable_abandoned_cart_integration_assertions.sql",
+  backfillUp: "202608120102_durable_abandoned_cart_rollout_backfill.up.sql",
+  backfillDown: "202608120102_durable_abandoned_cart_rollout_backfill.down.sql",
+  backfillAssertions: "202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql",
   manifest: "phase4t-durable-abandoned-cart-integration-manifest.json",
 } as const;
 
@@ -35,6 +38,20 @@ test("101 preserves tenant and checkout authority boundaries", () => {
   assert.match(up, /recovered_order_id=selected_order_id/);
   assert.match(up, /REVOKE ALL ON FUNCTION saas[.]reconcile_durable_abandoned_carts/);
   assert.doesNotMatch(up, /GRANT (?:SELECT|INSERT|UPDATE|DELETE).*abandoned_carts.*celebix_saas_(?:app|host_resolver)/i);
+});
+
+test("102 backfills only eligible pre-existing durable carts through server authority", () => {
+  const up = source("backfillUp");
+  const down = source("backfillDown");
+  const assertions = source("backfillAssertions");
+  assert.match(up, /status='active'/);
+  assert.match(up, /EXISTS\(\s*SELECT 1 FROM saas[.]storefront_cart_items/);
+  assert.match(up, /EXISTS\(\s*SELECT 1 FROM saas[.]storefront_cart_credentials/);
+  assert.match(up, /NOT EXISTS\(\s*SELECT 1 FROM saas[.]abandoned_carts/);
+  assert.match(up, /saas[.]sync_durable_abandoned_cart/);
+  assert.doesNotMatch(up, /credential_digest\s*(?:=|INTO)|public_cart_digest\s*(?:=|INTO)/i);
+  assert.match(down, /allow_durable_abandoned_cart_rollout_backfill_down/);
+  assert.match(assertions, /DURABLE_ABANDONED_CART_ROLLOUT_BACKFILL_INCOMPLETE/);
 });
 
 test("101 rollback is guarded and catalog assertions are explicit", () => {
@@ -89,6 +106,7 @@ test("101 artifacts are checksum pinned", () => {
   });
   assert.deepEqual(manifest.artifacts.map(({ file, direction }) => [file, direction]), [
     [files.up, "up"], [files.down, "down"], [files.assertions, "verify"],
+    [files.backfillUp, "up"], [files.backfillDown, "down"], [files.backfillAssertions, "verify"],
   ]);
   for (const artifact of manifest.artifacts) {
     const bytes = readFileSync(new URL(artifact.file, root));

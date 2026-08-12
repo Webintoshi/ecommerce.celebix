@@ -19,6 +19,21 @@
       "file": "202608120101_durable_abandoned_cart_integration_assertions.sql",
       "direction": "verify",
       "sha256": "96776db0f8acbdee4a8aa0a7989578f8fc1e79d172631c6bcd1b8459e16a1726"
+    },
+    {
+      "file": "202608120102_durable_abandoned_cart_rollout_backfill.up.sql",
+      "direction": "up",
+      "sha256": "d7d6186e50d80599c9d93852ef279702e0e81ac7927e3ffc811a8883a2843ab0"
+    },
+    {
+      "file": "202608120102_durable_abandoned_cart_rollout_backfill.down.sql",
+      "direction": "down",
+      "sha256": "30b8807b729e264bd9b0c91585d25a0d767a17d734ee305f8746c251cc67fa8a"
+    },
+    {
+      "file": "202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql",
+      "direction": "verify",
+      "sha256": "a3dc3d71da5a49efa80229e61a4ce1dc528778236cadcb837fc8bb486ae38a66"
     }
   ]
 }
