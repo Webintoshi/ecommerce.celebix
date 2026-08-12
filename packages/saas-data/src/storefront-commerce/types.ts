@@ -39,6 +39,7 @@ export interface StorefrontCommerceRepository {
     hostname: string;
     now: Date;
     candidates: readonly StorefrontCredentialCandidate[];
+    customerCandidates: readonly StorefrontCredentialCandidate[];
     cart?: StorefrontGeneratedCredential;
     operationId: string;
     action: "add" | "quantity" | "remove";

@@ -8,4 +8,9 @@
 @media (min-width: 1025px){.mobileCards{display:none}}
 @media (max-width: 640px){.metrics,.detailHero{grid-template-columns:1fr}.metric,.detailHero>div{border-right:0;border-bottom:1px solid #e1e6ef}.metric:last-child,.detailHero>div:last-child{border-bottom:0}.surface>header,.panel>header,.error{align-items:stretch;flex-direction:column}.cartCard dl{grid-template-columns:1fr}.items article{grid-template-columns:48px minmax(0,1fr)}.items article>span,.items article>b{grid-column:2}.actions{width:100%}.actions button{width:100%}}
 @media (prefers-reduced-motion: reduce){.surface *,.panel *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
+.customerIdentity,.customerLink,.productIdentity{display:grid;min-width:0;gap:.24rem}
+.customerLink{color:inherit;text-decoration:none}
+.customerLink:hover strong{text-decoration:underline;text-underline-offset:3px}
+.accountBadge{width:max-content;border:1px solid #bbf7d0;border-radius:999px;background:#eaf8ef;padding:.15rem .45rem;color:#166534;font-size:.62rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.productIdentity strong,.productIdentity small{max-width:17rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .surface{min-width:0;overflow:visible;border:0;border-radius:0;background:transparent;box-shadow:none}

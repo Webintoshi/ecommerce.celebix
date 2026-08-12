@@ -7,11 +7,11 @@ const ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OPERATION = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const NOW = "2026-07-22T16:00:00.000Z";
 
-function item() { return { id: ID, status: "abandoned", currency: "TRY", subtotalCents: 10000, discountCents: 0, totalCents: 10000, itemCount: 1, checkoutStartedAt: NOW, lastActivityAt: NOW, abandonedAt: NOW, version: 3, createdAt: NOW, updatedAt: NOW }; }
+function item() { return { id: ID, status: "abandoned", currency: "TRY", subtotalCents: 10000, discountCents: 0, totalCents: 10000, itemCount: 1, firstProductName: "Keten Gömlek", checkoutStartedAt: NOW, lastActivityAt: NOW, abandonedAt: NOW, version: 3, createdAt: NOW, updatedAt: NOW }; }
 
 test("client performs exact same-origin summary list and detail reads", async () => {
   const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
-  const client = createAbandonedCartApiClient({ randomUUID: () => OPERATION, fetch: async (input, init) => { calls.push([input, init]); const path = String(input); const body = path.endsWith("/summary") ? { abandoned: 1, recovered: 0, lostValueCents: 10000, recoveredValueCents: 0, currency: "TRY", asOf: NOW } : path.includes(`/${ID}`) ? { ...item(), items: [] , itemCount: 0 } : { items: [item()] }; return Response.json(body); } });
+  const client = createAbandonedCartApiClient({ randomUUID: () => OPERATION, fetch: async (input, init) => { calls.push([input, init]); const path = String(input); const listItem = item(); const { firstProductName: _firstProductName, ...emptyItem } = listItem; const body = path.endsWith("/summary") ? { abandoned: 1, recovered: 0, lostValueCents: 10000, recoveredValueCents: 0, currency: "TRY", asOf: NOW } : path.includes(`/${ID}`) ? { ...emptyItem, items: [] , itemCount: 0 } : { items: [listItem] }; return Response.json(body); } });
   assert.equal((await client.getSummary()).abandoned, 1);
   assert.equal((await client.list({ status: "abandoned", sort: "highest", search: "Ada" })).items.length, 1);
   assert.equal((await client.get(ID)).id, ID);

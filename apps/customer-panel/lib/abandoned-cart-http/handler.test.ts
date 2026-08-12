@@ -20,7 +20,7 @@ function tenantContext(): TenantContext {
 }
 
 function cart(status: "abandoned" | "recovered" = "abandoned") {
-  return { id: ID, status, customerName: "Ada", customerEmail: "ada@example.test", currency: "TRY", subtotalCents: 10000, discountCents: 0, totalCents: 10000, itemCount: 1, checkoutStartedAt: NOW.toISOString(), lastActivityAt: NOW.toISOString(), ...(status === "abandoned" ? { abandonedAt: NOW.toISOString() } : { abandonedAt: NOW.toISOString(), recoveredAt: NOW.toISOString() }), version: 3, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() } as const;
+  return { id: ID, status, customerId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", customerName: "Ada", customerEmail: "ada@example.test", currency: "TRY", subtotalCents: 10000, discountCents: 0, totalCents: 10000, itemCount: 1, firstProductName: "Ürün", checkoutStartedAt: NOW.toISOString(), lastActivityAt: NOW.toISOString(), ...(status === "abandoned" ? { abandonedAt: NOW.toISOString() } : { abandonedAt: NOW.toISOString(), recoveredAt: NOW.toISOString() }), version: 3, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() } as const;
 }
 
 function repository(overrides: Partial<AbandonedCartRepository> = {}): AbandonedCartRepository {

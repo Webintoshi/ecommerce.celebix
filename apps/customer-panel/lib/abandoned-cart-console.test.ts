@@ -13,7 +13,7 @@ test("abandoned-cart list and detail pages stay behind durable server access", a
 
 test("console exposes truthful loaded empty error detail and durable mutations", async () => {
   const source = await readFile(new URL("../components/orders/AbandonedCartConsole.tsx", import.meta.url), "utf8");
-  for (const evidence of ["Terk Edilen Sepetler", "Henüz terk edilmiş sepet yok", "Sepetler yüklenemedi", "Sepet ayrıntısı", "Kurtarıldı olarak işaretle", "Arşivle", "abandonedCartApi.markRecovered", "abandonedCartApi.archive"]) assert.match(source, new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  for (const evidence of ["Terk Edilen Sepetler", "Henüz terk edilmiş sepet yok", "Sepetler yüklenemedi", "Sepet ayrıntısı", "Kurtarıldı olarak işaretle", "Arşivle", "abandonedCartApi.markRecovered", "abandonedCartApi.archive", "firstProductName", "customerId", "/customers/"]) assert.match(source, new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.doesNotMatch(source, /fake|mock|Supabase|\/api\/admin|storeId|tenantId/i);
 });
 

@@ -13,6 +13,9 @@ const ASSERTIONS = "202608120101_durable_abandoned_cart_integration_assertions.s
 const BACKFILL_UP = "202608120102_durable_abandoned_cart_rollout_backfill.up.sql";
 const BACKFILL_DOWN = "202608120102_durable_abandoned_cart_rollout_backfill.down.sql";
 const BACKFILL_ASSERTIONS = "202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql";
+const IDENTITY_UP = "202608120103_abandoned_cart_product_customer_identity.up.sql";
+const IDENTITY_DOWN = "202608120103_abandoned_cart_product_customer_identity.down.sql";
+const IDENTITY_ASSERTIONS = "202608120103_abandoned_cart_product_customer_identity_assertions.sql";
 const DB = `durable_abandoned_${randomBytes(5).toString("hex")}`;
 const RESTORE_DB = `${DB}_restore`;
 const STORE = "10000000-0000-4000-8000-000000000101";
@@ -29,13 +32,17 @@ const CART_FOUR = "60000000-0000-4000-8000-000000000104";
 const CART_FIVE = "60000000-0000-4000-8000-000000000105";
 const CART_DELETE = "60000000-0000-4000-8000-000000000106";
 const CART_PREEXISTING = "60000000-0000-4000-8000-000000000107";
+const CART_IDENTITY = "60000000-0000-4000-8000-000000000108";
+const CART_FORGED = "60000000-0000-4000-8000-000000000109";
+const CUSTOMER_IDENTITY = "87000000-0000-4000-8000-000000000108";
+const CUSTOMER_CONFLICT = "87000000-0000-4000-8000-000000000109";
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const HOST = "durable-cart.example.test";
 const OTHER_HOST = "other-durable-cart.example.test";
 const NOW = "2026-08-12T10:00:00.000Z";
 const DIGEST = "a".repeat(64);
 const DIGEST_TWO = "b".repeat(64);
-const TOTAL = 30;
+const TOTAL = 37;
 let completed = 0;
 
 function bin(name) {
@@ -110,6 +117,23 @@ function candidates(digest = DIGEST, keyId = "cart-key-01") { return JSON.string
 function mutate(box, { cart = CART, digest = DIGEST, keyId = "cart-key-01", operation = "70000000-0000-4000-8000-000000000101", fingerprint = "c".repeat(64), action = "add", expected = 0, quantity = 2, now = NOW } = {}) {
   const creating = expected === 0;
   return publicCall(box, `saas.public_cart_mutate('${HOST}','${now}','${creating ? "[]" : candidates(digest,keyId)}'::jsonb,'${cart}',${creating ? `'${keyId}'` : "NULL"},${creating ? `'${digest}'` : "NULL"},${creating ? "'2026-09-12T10:00:00Z'" : "NULL"},'${operation}','${fingerprint}','${action}',${expected},'${PRODUCT}','${VARIANT}',${action === "remove" ? "NULL" : quantity})`);
+}
+function mutateWithCustomer(box, {
+  cart = CART_IDENTITY,
+  digest = "6".repeat(64),
+  keyId = "identity-cart",
+  operation = "70000000-0000-4000-8000-000000000120",
+  fingerprint = "d".repeat(64),
+  action = "add",
+  expected = 0,
+  quantity = 2,
+  now = "2026-08-12T13:00:00Z",
+  customerKeyId = "customer-live",
+  customerDigest = "7".repeat(64),
+} = {}) {
+  const creating = expected === 0;
+  const customerCredentials = JSON.stringify([{ keyId: customerKeyId, digest: customerDigest }]).replaceAll("'", "''");
+  return publicCall(box, `saas.public_cart_mutate('${HOST}','${now}','${creating ? "[]" : candidates(digest,keyId)}'::jsonb,'${cart}',${creating ? `'${keyId}'` : "NULL"},${creating ? `'${digest}'` : "NULL"},${creating ? "'2026-09-12T13:00:00Z'" : "NULL"},'${operation}','${fingerprint}','${action}',${expected},'${PRODUCT}','${VARIANT}',${action === "remove" ? "NULL" : quantity},'${customerCredentials}'::jsonb)`);
 }
 const DELIVERY = JSON.stringify({
   contact: { firstName: "Durable", lastName: "Customer", email: "durable@example.test", phone: "+905551112233" },
@@ -207,7 +231,7 @@ function seedPreexistingCart(box) {
 }
 
 async function main() {
-  for (const file of [UP, DOWN, ASSERTIONS, BACKFILL_UP, BACKFILL_DOWN, BACKFILL_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, file);
+  for (const file of [UP, DOWN, ASSERTIONS, BACKFILL_UP, BACKFILL_DOWN, BACKFILL_ASSERTIONS, IDENTITY_UP, IDENTITY_DOWN, IDENTITY_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, file);
   let box;
   try {
     box = start();
@@ -354,6 +378,62 @@ async function main() {
     });
     scenario("unguarded rollback is rejected", () => assert.notEqual(psql(box,readFileSync(path.join(SQL,DOWN),"utf8"),DB,true).status,0));
     scenario("guarded rollback and reapply restore exact authority", () => { apply(box,DOWN,DB,"SET celebix.allow_durable_abandoned_cart_integration_down='on';\n"); apply(box,UP); apply(box,ASSERTIONS); assert.equal(psql(box,"SELECT count(*) FROM pg_catalog.pg_trigger WHERE tgname='durable_abandoned_cart_sync';").stdout.trim(),"1"); });
+    scenario("migration 103 applies verified identity and product projection authority", () => {
+      apply(box,IDENTITY_UP); apply(box,IDENTITY_ASSERTIONS);
+      assert.equal(psql(box,"SELECT count(*) FROM pg_catalog.pg_attribute WHERE attrelid='saas.abandoned_carts'::regclass AND attname='customer_id' AND NOT attisdropped;").stdout.trim(),"1");
+    });
+    psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+      INSERT INTO saas.customers(id,store_id,status,first_name,last_name,email,phone,version,created_at,updated_at) VALUES
+        ('${CUSTOMER_IDENTITY}','${STORE}','active','Güvenli','Müşteri','guvenli@example.test','+905551110001',1,'2026-08-12','2026-08-12'),
+        ('${CUSTOMER_CONFLICT}','${STORE}','active','Başka','Müşteri','baska@example.test','+905551110002',1,'2026-08-12','2026-08-12'),
+        ('87000000-0000-4000-8000-000000000110','${OTHER_STORE}','active','Diğer','Mağaza','diger@example.test','+905551110003',1,'2026-08-12','2026-08-12');
+      INSERT INTO saas.storefront_customer_credentials(id,store_id,customer_id,key_id,credential_digest,expires_at,created_at,last_seen_at) VALUES
+        ('8b000000-0000-4000-8000-000000000108','${STORE}','${CUSTOMER_IDENTITY}','customer-live',repeat('7',64),'2026-09-12','2026-08-12','2026-08-12'),
+        ('8b000000-0000-4000-8000-000000000109','${STORE}','${CUSTOMER_CONFLICT}','customer-conflict',repeat('8',64),'2026-09-12','2026-08-12','2026-08-12'),
+        ('8b000000-0000-4000-8000-000000000110','${STORE}','${CUSTOMER_IDENTITY}','customer-expired',repeat('9',64),'2026-08-12 12:00+00','2026-08-01','2026-08-01'),
+        ('8b000000-0000-4000-8000-000000000111','${OTHER_STORE}','87000000-0000-4000-8000-000000000110','customer-other',repeat('a',64),'2026-09-12','2026-08-12','2026-08-12');
+      COMMIT;`);
+    const identityCreated = mutateWithCustomer(box);
+    scenario("verified customer mutation projects exact product and registered customer", () => {
+      assert.equal(identityCreated.outcome,"committed");
+      const projected=list(box,"2026-08-12T13:01:00Z").result.items.find((item) => item.customerId===CUSTOMER_IDENTITY);
+      assert.equal(projected.firstProductName,"Altın Yüzük");
+      assert.equal(projected.customerName,"Güvenli Müşteri");
+      assert.equal(projected.customerEmail,"guvenli@example.test");
+      assert.equal(projected.customerPhone,"+905551110001");
+    });
+    scenario("merchant search finds the cart by exact persisted product name", () => {
+      const searched=envelope(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM saas.abandoned_carts_list(${authority("2026-08-12T13:01:00Z")},NULL,'Altın Yüzük','newest',100,NULL,NULL,NULL);COMMIT;`));
+      assert.equal(searched.outcome,"listed");
+      assert.equal(searched.result.items.some((item) => item.firstProductName==="Altın Yüzük"),true);
+    });
+    const forgedCreated=mutateWithCustomer(box,{cart:CART_FORGED,digest:"f".repeat(64),keyId:"forged-cart",operation:"70000000-0000-4000-8000-000000000121",fingerprint:"e".repeat(64),customerKeyId:"customer-live",customerDigest:"0".repeat(64)});
+    scenario("forged, expired, and cross-store customer credentials never establish identity", () => {
+      assert.equal(forgedCreated.outcome,"committed");
+      assert.equal(psql(box,`SELECT customer_id IS NULL FROM saas.abandoned_carts WHERE store_id='${STORE}' AND source_cart_id='${CART_FORGED}';`).stdout.trim(),"t");
+      const lookup=(keyId,digest) => psql(box,`BEGIN;SET LOCAL ROLE celebix_saas_owner;SELECT saas.storefront_verified_customer_from_candidates('${STORE}','2026-08-12T13:02:00Z','[{"keyId":"${keyId}","digest":"${digest}"}]'::jsonb) IS NULL;COMMIT;`).stdout.trim().split("\n").at(-1);
+      assert.equal(lookup("customer-expired","9".repeat(64)),"t");
+      assert.equal(lookup("customer-other","a".repeat(64)),"t");
+    });
+    const beforeConflict=JSON.parse(psql(box,`SELECT pg_catalog.json_build_object('version',cart.version,'quantity',item.quantity,'customerId',abandoned.customer_id)::text FROM saas.storefront_carts cart JOIN saas.storefront_cart_items item ON item.store_id=cart.store_id AND item.cart_id=cart.id JOIN saas.abandoned_carts abandoned ON abandoned.store_id=cart.store_id AND abandoned.source_cart_id=cart.id WHERE cart.store_id='${STORE}' AND cart.id='${CART_IDENTITY}';`).stdout.trim());
+    const conflict=mutateWithCustomer(box,{operation:"70000000-0000-4000-8000-000000000122",fingerprint:"f".repeat(64),action:"quantity",expected:1,quantity:7,customerKeyId:"customer-conflict",customerDigest:"8".repeat(64)});
+    scenario("conflicting verified customer is rejected before any cart mutation", () => {
+      assert.equal(conflict.outcome,"invalid_input");
+      const afterConflict=JSON.parse(psql(box,`SELECT pg_catalog.json_build_object('version',cart.version,'quantity',item.quantity,'customerId',abandoned.customer_id)::text FROM saas.storefront_carts cart JOIN saas.storefront_cart_items item ON item.store_id=cart.store_id AND item.cart_id=cart.id JOIN saas.abandoned_carts abandoned ON abandoned.store_id=cart.store_id AND abandoned.source_cart_id=cart.id WHERE cart.store_id='${STORE}' AND cart.id='${CART_IDENTITY}';`).stdout.trim());
+      assert.deepEqual(afterConflict,beforeConflict);
+    });
+    scenario("identity projection and runtime grants expose no credential material", () => {
+      const projection=JSON.stringify(list(box,"2026-08-12T13:03:00Z").result);
+      assert.equal(projection.includes("customer-live"),false);
+      assert.equal(projection.includes("7".repeat(64)),false);
+      assert.equal(psql(box,`SELECT pg_catalog.has_function_privilege('celebix_saas_host_resolver','saas.storefront_verified_customer_from_candidates(uuid,timestamp with time zone,jsonb)','EXECUTE') OR pg_catalog.has_function_privilege('celebix_saas_host_resolver','saas.public_cart_mutate_without_customer_identity_v103(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)','EXECUTE');`).stdout.trim(),"f");
+    });
+    scenario("migration 103 rollback remains guarded and reapply restores authority", () => {
+      assert.notEqual(psql(box,readFileSync(path.join(SQL,IDENTITY_DOWN),"utf8"),DB,true).status,0);
+      apply(box,IDENTITY_DOWN,DB,"SET celebix.allow_abandoned_cart_product_customer_identity_down='on';\n");
+      assert.equal(psql(box,"SELECT count(*) FROM pg_catalog.pg_attribute WHERE attrelid='saas.abandoned_carts'::regclass AND attname='customer_id' AND NOT attisdropped;").stdout.trim(),"0");
+      apply(box,IDENTITY_UP); apply(box,IDENTITY_ASSERTIONS);
+    });
     scenario("disposable database has no leaked sessions", () => assert.equal(psql(box,"SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname=current_database() AND pid<>pg_catalog.pg_backend_pid();").stdout.trim(),"0"));
     assert.equal(completed,TOTAL); process.stdout.write(`${TOTAL}/${TOTAL} PASS\n`);
   } finally { stop(box); }
