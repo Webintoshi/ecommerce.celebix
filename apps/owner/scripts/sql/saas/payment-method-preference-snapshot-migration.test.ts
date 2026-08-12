@@ -28,6 +28,7 @@ test("104 validates exact executable-provider preferences and upgrades legacy ro
   assert.match(up, /single_payment/u);
   assert.match(up, /UPDATE saas[.]payment_methods/u);
   assert.match(up, /payment_methods_provider_preference_check/u);
+  assert.doesNotMatch(up, /pg_catalog[.]greatest/iu);
 });
 
 test("104 snapshots persisted payment-method preferences under one row lock", () => {

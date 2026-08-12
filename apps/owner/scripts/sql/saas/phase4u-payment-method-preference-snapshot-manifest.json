@@ -7,7 +7,7 @@
     {
       "file": "202608120104_payment_method_preference_snapshot.up.sql",
       "direction": "up",
-      "sha256": "98869662a7dfc3f889948db2602ac01b01586bea61c4863bc63e1ac6d8a82175"
+      "sha256": "620288dd86e2a10942fe55485eb4ae65d78378f01062fff943060e6a9c58b5fc"
     },
     {
       "file": "202608120104_payment_method_preference_snapshot.down.sql",

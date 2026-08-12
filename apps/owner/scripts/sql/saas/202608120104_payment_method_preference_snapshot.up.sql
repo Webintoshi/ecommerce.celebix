@@ -54,7 +54,7 @@ SET config=pg_catalog.jsonb_build_object(
     'maxInstallment',0
   ),
   version=method.version+1,
-  updated_at=pg_catalog.greatest(method.updated_at,pg_catalog.transaction_timestamp())
+  updated_at=GREATEST(method.updated_at,pg_catalog.transaction_timestamp())
 WHERE method.kind='provider'
   AND method.provider_code IN('paytr_iframe','iyzico_iframe')
   AND pg_catalog.jsonb_typeof(method.config)='object'
