@@ -10,6 +10,9 @@ const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const UP = "202608120101_durable_abandoned_cart_integration.up.sql";
 const DOWN = "202608120101_durable_abandoned_cart_integration.down.sql";
 const ASSERTIONS = "202608120101_durable_abandoned_cart_integration_assertions.sql";
+const BACKFILL_UP = "202608120102_durable_abandoned_cart_rollout_backfill.up.sql";
+const BACKFILL_DOWN = "202608120102_durable_abandoned_cart_rollout_backfill.down.sql";
+const BACKFILL_ASSERTIONS = "202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql";
 const DB = `durable_abandoned_${randomBytes(5).toString("hex")}`;
 const RESTORE_DB = `${DB}_restore`;
 const STORE = "10000000-0000-4000-8000-000000000101";
@@ -25,13 +28,14 @@ const CART_THREE = "60000000-0000-4000-8000-000000000103";
 const CART_FOUR = "60000000-0000-4000-8000-000000000104";
 const CART_FIVE = "60000000-0000-4000-8000-000000000105";
 const CART_DELETE = "60000000-0000-4000-8000-000000000106";
+const CART_PREEXISTING = "60000000-0000-4000-8000-000000000107";
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const HOST = "durable-cart.example.test";
 const OTHER_HOST = "other-durable-cart.example.test";
 const NOW = "2026-08-12T10:00:00.000Z";
 const DIGEST = "a".repeat(64);
 const DIGEST_TWO = "b".repeat(64);
-const TOTAL = 28;
+const TOTAL = 30;
 let completed = 0;
 
 function bin(name) {
@@ -191,8 +195,19 @@ function seed(box) {
     COMMIT;`);
 }
 
+function seedPreexistingCart(box) {
+  psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+    INSERT INTO saas.storefront_carts(id,store_id,status,version,expires_at,created_at,updated_at)
+      VALUES('${CART_PREEXISTING}','${STORE}','active',1,'2026-09-12','2026-08-12 09:00+00','2026-08-12 09:01+00');
+    INSERT INTO saas.storefront_cart_credentials(cart_id,store_id,key_id,credential_digest,expires_at)
+      VALUES('${CART_PREEXISTING}','${STORE}','preexisting-key',repeat('e',64),'2026-09-12');
+    INSERT INTO saas.storefront_cart_items(cart_id,store_id,product_id,variant_id,quantity,unit_price_cents,position,created_at,updated_at)
+      VALUES('${CART_PREEXISTING}','${STORE}','${PRODUCT}','${VARIANT}',2,12500,0,'2026-08-12 09:00+00','2026-08-12 09:01+00');
+    COMMIT;`);
+}
+
 async function main() {
-  for (const file of [UP, DOWN, ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, file);
+  for (const file of [UP, DOWN, ASSERTIONS, BACKFILL_UP, BACKFILL_DOWN, BACKFILL_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, file);
   let box;
   try {
     box = start();
@@ -200,10 +215,19 @@ async function main() {
     for (const file of baseMigrations()) apply(box, file);
     seed(box);
     for (const file of currentMigrations()) apply(box, file);
+    seedPreexistingCart(box);
     apply(box, UP);
+    apply(box, BACKFILL_UP);
     apply(box, ASSERTIONS);
+    apply(box, BACKFILL_ASSERTIONS);
 
     scenario("PostgreSQL 16 applies migration 101", () => assert.match(psql(box, "SHOW server_version;").stdout, /^16[.]/));
+    scenario("migration 102 backfills a pre-existing active cart exactly once", () => {
+      const projected = row(box,CART_PREEXISTING);
+      assert.equal(projected.status,"active");
+      assert.equal(projected.subtotal_cents,25000);
+      assert.equal(psql(box,`SELECT count(*) FROM saas.abandoned_carts WHERE store_id='${STORE}' AND source_cart_id='${CART_PREEXISTING}';`).stdout.trim(),"1");
+    });
     const created = mutate(box);
     scenario("first durable add commits normally", () => assert.equal(created.outcome, "committed"));
     scenario("first durable add creates immediate active merchant projection", () => {
@@ -322,6 +346,11 @@ async function main() {
       const archive=path.join(box.root,"durable.dump"); command(box.tools.pg_dump,["-h",box.socket,"-p",String(box.port),"-U","postgres","-d",DB,"-Fc","-f",archive]);
       command(box.tools.createdb,["-h",box.socket,"-p",String(box.port),"-U","postgres",RESTORE_DB]); command(box.tools.pg_restore,["-h",box.socket,"-p",String(box.port),"-U","postgres","-d",RESTORE_DB,archive]);
       assert.equal(row(box,CART_TWO,RESTORE_DB).status,"recovered");
+    });
+    scenario("rollout backfill rollback is guarded and preserves projected history", () => {
+      assert.notEqual(psql(box,readFileSync(path.join(SQL,BACKFILL_DOWN),"utf8"),DB,true).status,0);
+      apply(box,BACKFILL_DOWN,DB,"SET celebix.allow_durable_abandoned_cart_rollout_backfill_down='on';\n");
+      assert.equal(row(box,CART_PREEXISTING).source_cart_id,CART_PREEXISTING);
     });
     scenario("unguarded rollback is rejected", () => assert.notEqual(psql(box,readFileSync(path.join(SQL,DOWN),"utf8"),DB,true).status,0));
     scenario("guarded rollback and reapply restore exact authority", () => { apply(box,DOWN,DB,"SET celebix.allow_durable_abandoned_cart_integration_down='on';\n"); apply(box,UP); apply(box,ASSERTIONS); assert.equal(psql(box,"SELECT count(*) FROM pg_catalog.pg_trigger WHERE tgname='durable_abandoned_cart_sync';").stdout.trim(),"1"); });

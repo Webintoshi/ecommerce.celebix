@@ -50,15 +50,21 @@ test("projection uses authoritative catalog data and checkout order binding", as
 });
 
 test("migration remains additive, reversible, and manifest-bound", async () => {
-  const [up, down, assertions, manifestSource] = await Promise.all([
+  const [up, down, assertions, backfillUp, backfillDown, backfillAssertions, manifestSource] = await Promise.all([
     read("202608120101_durable_abandoned_cart_integration.up.sql"),
     read("202608120101_durable_abandoned_cart_integration.down.sql"),
     read("202608120101_durable_abandoned_cart_integration_assertions.sql"),
+    read("202608120102_durable_abandoned_cart_rollout_backfill.up.sql"),
+    read("202608120102_durable_abandoned_cart_rollout_backfill.down.sql"),
+    read("202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql"),
     read("phase4t-durable-abandoned-cart-integration-manifest.json"),
   ]);
   assert.match(up, /^--/);
   assert.match(down, /allow_durable_abandoned_cart_integration_down/);
   assert.match(assertions, /DURABLE_ABANDONED_CART_INTEGRATION_/);
+  assert.match(backfillUp, /sync_durable_abandoned_cart/);
+  assert.match(backfillDown, /allow_durable_abandoned_cart_rollout_backfill_down/);
+  assert.match(backfillAssertions, /DURABLE_ABANDONED_CART_ROLLOUT_BACKFILL_INCOMPLETE/);
   const manifest = JSON.parse(manifestSource);
   assert.equal(manifest.phase, "phase4t-durable-abandoned-cart-integration");
   assert.equal(manifest.postgresqlMajor, 16);
@@ -68,6 +74,9 @@ test("migration remains additive, reversible, and manifest-bound", async () => {
     "202608120101_durable_abandoned_cart_integration.up.sql",
     "202608120101_durable_abandoned_cart_integration.down.sql",
     "202608120101_durable_abandoned_cart_integration_assertions.sql",
+    "202608120102_durable_abandoned_cart_rollout_backfill.up.sql",
+    "202608120102_durable_abandoned_cart_rollout_backfill.down.sql",
+    "202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql",
   ]);
   for (const entry of manifest.artifacts) assert.match(entry.sha256, /^[a-f0-9]{64}$/);
 });
