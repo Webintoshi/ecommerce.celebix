@@ -7,7 +7,18 @@ import type {
   CustomerSummary,
 } from "@celebix/saas-contracts";
 import {
-  PanelEmptyState,
+  Archive,
+  ArrowRight,
+  Download,
+  MailCheck,
+  RefreshCcw,
+  Search,
+  SlidersHorizontal,
+  UserPlus,
+  UsersRound,
+  WalletCards,
+} from "lucide-react";
+import {
   PanelPageHeader,
   PanelPageShell,
   PanelStatusBadge,
@@ -102,101 +113,105 @@ export function CustomerListConsole({ canManage }: { canManage: boolean }) {
         title="Müşteriler"
         description="Müşteri kayıtlarını, izinleri, etiketleri ve segmentleri tek yerden yönetin."
         actions={canManage ? (
-          <Link className={styles.primary} href="/customers/new">
-            Yeni Müşteri
+          <Link className={styles.customerPrimaryAction} href="/customers/new">
+            <UserPlus aria-hidden="true" />Yeni Müşteri
           </Link>
         ) : undefined}
       />
       {summary ? (
-        <section className={styles.metrics} aria-label="Müşteri özeti">
-          <div className={styles.metric}>
-            <span>Aktif müşteri</span>
-            <strong>{summary.active}</strong>
-          </div>
-          <div className={styles.metric}>
-            <span>Arşiv</span>
-            <strong>{summary.archived}</strong>
-          </div>
-          <div className={styles.metric}>
-            <span>E-posta izinli</span>
-            <strong>{summary.consentedEmail}</strong>
-          </div>
-          <div className={styles.metric}>
-            <span>Toplam harcama</span>
+        <section className={styles.customerMetrics} aria-label="Müşteri özeti">
+          <article className={styles.customerMetric}>
+            <div className={styles.customerMetricLabel}><UsersRound aria-hidden="true" /><span>Aktif müşteri</span></div>
+            <strong>{summary.active.toLocaleString("tr-TR")}</strong>
+            <small>Güncel müşteri kaydı</small>
+          </article>
+          <article className={styles.customerMetric}>
+            <div className={styles.customerMetricLabel}><Archive aria-hidden="true" /><span>Arşiv</span></div>
+            <strong>{summary.archived.toLocaleString("tr-TR")}</strong>
+            <small>Arşivlenmiş kayıt</small>
+          </article>
+          <article className={styles.customerMetric}>
+            <div className={styles.customerMetricLabel}><MailCheck aria-hidden="true" /><span>E-posta izinli</span></div>
+            <strong>{summary.consentedEmail.toLocaleString("tr-TR")}</strong>
+            <small>Pazarlama izni olan</small>
+          </article>
+          <article className={`${styles.customerMetric} ${styles.customerMetricValue}`}>
+            <div className={styles.customerMetricLabel}><WalletCards aria-hidden="true" /><span>Toplam harcama</span></div>
             <strong>{money(summary.totalSpentCents, summary.currency)}</strong>
-          </div>
+            <small>Tüm müşteri harcaması</small>
+          </article>
         </section>
       ) : null}
-      <section className={styles.surface} aria-label="Müşteri çalışma alanı" data-panel-surface="open">
+      <section className={styles.customerSurface} aria-label="Müşteri çalışma alanı">
         <form
-          className={styles.toolbar}
+          className={styles.customerToolbar}
+          role="search"
           onSubmit={(e) => {
             e.preventDefault();
             setSearch(searchInput.trim());
           }}
         >
-          <input
-            aria-label="Müşteri ara"
-            placeholder="Ad, e-posta veya telefon ara"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            maxLength={200}
-          />
-          <select
-            aria-label="Müşteri durumu"
-            value={status}
-            onChange={(e) =>
-              setStatus(e.target.value as CustomerStatus | "all")
-            }
-          >
-            <option value="all">Tüm müşteriler</option>
-            <option value="active">Aktif</option>
-            <option value="archived">Arşiv</option>
-          </select>
-          <button className={styles.button} type="submit">
-            Ara
-          </button>
+          <label className={styles.customerSearch}>
+            <span className="sr-only">Müşteri ara</span>
+            <Search aria-hidden="true" />
+            <input
+              placeholder="Ad, e-posta veya telefon ara"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              maxLength={200}
+            />
+            <button type="submit">Ara</button>
+          </label>
+          <label className={styles.customerFilter}>
+            <span className="sr-only">Müşteri durumu</span>
+            <SlidersHorizontal aria-hidden="true" />
+            <select
+              value={status}
+              onChange={(e) =>
+                setStatus(e.target.value as CustomerStatus | "all")
+              }
+            >
+              <option value="all">Tüm müşteriler</option>
+              <option value="active">Aktif</option>
+              <option value="archived">Arşiv</option>
+            </select>
+          </label>
           <button
-            className={styles.button}
+            className={styles.customerExport}
             type="button"
             onClick={() => void exportCsv()}
           >
-            CSV Dışa Aktar
+            <Download aria-hidden="true" />CSV Dışa Aktar
           </button>
         </form>
         {state === "loading" ? (
-          <div className={styles.state} role="status">
-            Müşteriler yükleniyor…
+          <div className={styles.customerLoading} role="status">
+            <RefreshCcw aria-hidden="true" />
+            <div><strong>Müşteriler yükleniyor</strong><span>Müşteri kayıtları hazırlanıyor.</span></div>
           </div>
         ) : state === "error" ? (
-          <div className={styles.state} role="alert">
-            <div>
-              <p className={styles.error}>{error}</p>
-              <button
-                className={styles.button}
-                type="button"
-                onClick={() => void load(false)}
-              >
-                Tekrar dene
-              </button>
-            </div>
+          <div className={styles.customerError} role="alert">
+            <div><strong>Müşteriler yüklenemedi</strong><p>{error}</p></div>
+            <button type="button" onClick={() => void load(false)}>Tekrar dene</button>
           </div>
         ) : items.length === 0 ? (
-          <PanelEmptyState
-            title="Henüz müşteri yok"
-            description="İlk gerçek müşteri kaydı oluşturulduğunda burada görünecek."
-          />
+          <div className={styles.customerEmpty}>
+            <span><UsersRound aria-hidden="true" /></span>
+            <strong>{search || status !== "all" ? "Filtrelerle eşleşen müşteri bulunamadı." : "Henüz müşteri kaydı bulunmuyor."}</strong>
+            <p>{search || status !== "all" ? "Arama veya müşteri filtresini değiştirerek yeniden deneyin." : "İlk müşteri kaydı oluşturulduğunda burada görünecek."}</p>
+            {canManage && !search && status === "all" ? <Link className={styles.customerEmptyAction} href="/customers/new"><UserPlus aria-hidden="true" />Yeni Müşteri</Link> : null}
+          </div>
         ) : (
           <>
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
+            <div className={styles.customerTableWrap}>
+              <table className={styles.customerTable} aria-label="Müşteri listesi">
                 <thead>
                   <tr>
                     <th>Müşteri</th>
                     <th>İletişim</th>
                     <th>Etiketler</th>
-                    <th>Sipariş</th>
-                    <th>Toplam</th>
+                    <th className={styles.customerNumericHeading}>Sipariş</th>
+                    <th className={styles.customerNumericHeading}>Toplam</th>
                     <th>Durum</th>
                     <th>Güncelleme</th>
                   </tr>
@@ -204,77 +219,74 @@ export function CustomerListConsole({ canManage }: { canManage: boolean }) {
                 <tbody>
                   {items.map((c) => (
                     <tr key={c.id}>
-                      <td>
+                      <td className={styles.customerNameCell}>
                         <Link
-                          className={styles.nameLink}
+                          className={styles.customerNameLink}
                           href={`/customers/${c.id}`}
                         >
                           {c.displayName}
                         </Link>
                       </td>
-                      <td>
-                        {c.email ?? "—"}
-                        <small>{c.phone ?? ""}</small>
+                      <td className={styles.customerContactCell}>
+                        <span>{c.email ?? "E-posta yok"}</span>
+                        <small>{c.phone ?? "Telefon yok"}</small>
                       </td>
-                      <td>
-                        <div className={styles.tags}>
-                          {c.tags.map((t) => (
-                            <span className={styles.tag} key={t.id}>
-                              {t.name}
-                            </span>
-                          ))}
-                        </div>
+                      <td className={styles.customerTagsCell}>
+                        {c.tags.length > 0 ? <div className={styles.customerTags} title={c.tags.map((tag) => tag.name).join(", ")}>
+                          {c.tags.slice(0, 2).map((tag) => <span key={tag.id}>{tag.name}</span>)}
+                          {c.tags.length > 2 ? <span>+{c.tags.length - 2}</span> : null}
+                        </div> : <span className={styles.customerEmptyValue}>—</span>}
                       </td>
-                      <td>{c.orderCount}</td>
-                      <td>{money(c.totalSpentCents, c.currency)}</td>
-                      <td>
+                      <td className={styles.customerOrderCell}>{c.orderCount.toLocaleString("tr-TR")}</td>
+                      <td className={`${styles.customerTotalCell} ${c.totalSpentCents === 0 ? styles.customerZeroTotal : ""}`}><strong>{money(c.totalSpentCents, c.currency)}</strong></td>
+                      <td className={styles.customerStatusCell}>
                         <PanelStatusBadge
                           tone={c.status === "active" ? "success" : "neutral"}
                         >
                           {c.status === "active" ? "Aktif" : "Arşiv"}
                         </PanelStatusBadge>
                       </td>
-                      <td>{date(c.updatedAt)}</td>
+                      <td className={styles.customerDateCell}><time dateTime={c.updatedAt}>{date(c.updatedAt)}</time></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className={styles.cards}>
+            <div className={styles.customerCards}>
               {items.map((c) => (
-                <article className={styles.card} key={c.id}>
-                  <div className={styles.cardTop}>
+                <article className={styles.customerCard} key={c.id}>
+                  <div className={styles.customerCardTop}>
+                    <div>
                     <Link
-                      className={styles.nameLink}
+                      className={styles.customerNameLink}
                       href={`/customers/${c.id}`}
                     >
                       {c.displayName}
                     </Link>
+                      <small>{c.email ?? c.phone ?? "İletişim bilgisi yok"}</small>
+                    </div>
                     <PanelStatusBadge
                       tone={c.status === "active" ? "success" : "neutral"}
                     >
                       {c.status === "active" ? "Aktif" : "Arşiv"}
                     </PanelStatusBadge>
                   </div>
-                  <dl className={styles.facts}>
-                    <div className={styles.fact}>
-                      <dt>İletişim</dt>
-                      <dd>{c.email ?? c.phone ?? "—"}</dd>
-                    </div>
+                  <dl className={styles.customerCardFacts}>
                     <div className={styles.fact}>
                       <dt>Toplam</dt>
-                      <dd>{money(c.totalSpentCents, c.currency)}</dd>
+                      <dd className={c.totalSpentCents === 0 ? styles.customerZeroTotal : styles.customerCardTotal}>{money(c.totalSpentCents, c.currency)}</dd>
                     </div>
+                    <div className={styles.fact}><dt>Sipariş</dt><dd>{c.orderCount.toLocaleString("tr-TR")}</dd></div>
+                    <div className={styles.fact}><dt>Güncelleme</dt><dd><time dateTime={c.updatedAt}>{date(c.updatedAt)}</time></dd></div>
                   </dl>
-                  <Link className={styles.button} href={`/customers/${c.id}`}>
-                    Müşteri ayrıntısı
-                  </Link>
+                  {c.tags.length > 0 ? <div className={styles.customerTags}>{c.tags.slice(0, 2).map((tag) => <span key={tag.id}>{tag.name}</span>)}{c.tags.length > 2 ? <span>+{c.tags.length - 2}</span> : null}</div> : null}
+                  <Link className={styles.customerDetailAction} href={`/customers/${c.id}`}>İncele<ArrowRight aria-hidden="true" /></Link>
                 </article>
               ))}
             </div>
             {cursor ? (
               <button
-                className={`${styles.button} ${styles.load}`}
+                className={styles.customerLoadMore}
                 type="button"
                 onClick={() => void load(true)}
               >
