@@ -166,6 +166,37 @@ GRANT EXECUTE ON FUNCTION saas.public_cart_mutate(
   text,timestamptz,jsonb,uuid,text,text,timestamptz,uuid,text,text,bigint,uuid,uuid,integer,jsonb
 ) TO celebix_saas_host_resolver;
 
+-- Keep the previous storefront runtime deployable during a rolling release. The
+-- compatibility signature cannot assert customer identity: it delegates with an
+-- empty, server-owned candidate set and therefore persists an anonymous cart.
+CREATE FUNCTION saas.public_cart_mutate(
+  p_hostname text,p_now timestamptz,p_credentials jsonb,
+  p_cart_id uuid,p_cart_key_id text,p_cart_digest text,p_cart_expires_at timestamptz,
+  p_operation_id uuid,p_fingerprint text,p_action text,p_expected_version bigint,
+  p_product_id uuid,p_variant_id uuid,p_quantity integer
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE sql
+VOLATILE
+SET search_path=pg_catalog,saas
+AS $function$
+  SELECT result.outcome,result.result_payload
+  FROM saas.public_cart_mutate(
+    p_hostname,p_now,p_credentials,p_cart_id,p_cart_key_id,p_cart_digest,p_cart_expires_at,
+    p_operation_id,p_fingerprint,p_action,p_expected_version,p_product_id,p_variant_id,p_quantity,
+    '[]'::jsonb
+  ) result
+$function$;
+
+REVOKE ALL ON FUNCTION saas.public_cart_mutate(
+  text,timestamptz,jsonb,uuid,text,text,timestamptz,uuid,text,text,bigint,uuid,uuid,integer
+) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,
+  celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,
+  celebix_saas_migrator;
+GRANT EXECUTE ON FUNCTION saas.public_cart_mutate(
+  text,timestamptz,jsonb,uuid,text,text,timestamptz,uuid,text,text,bigint,uuid,uuid,integer
+) TO celebix_saas_host_resolver;
+
 CREATE OR REPLACE FUNCTION saas.abandoned_carts_projection(p_store_id uuid,p_cart_id uuid)
 RETURNS jsonb
 LANGUAGE sql

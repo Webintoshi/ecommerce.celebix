@@ -38,17 +38,17 @@
     {
       "file": "202608120103_abandoned_cart_product_customer_identity.up.sql",
       "direction": "up",
-      "sha256": "2850b80818c640482380bc8759ec833ed6f7b5da314587cf15e02f848e2f9029"
+      "sha256": "bc1bc8de19f146f6fbe167272187e51be45e9600028628586c265bb9eebf611f"
     },
     {
       "file": "202608120103_abandoned_cart_product_customer_identity.down.sql",
       "direction": "down",
-      "sha256": "b7ee1db45abb0c283b6484c2616e18748b1741e954939fc7fa7f4dcc23161f29"
+      "sha256": "ccec83bbee6872b5ace75fe7aa236ef0cb1fd379ee5eeb41d974373ca4ca4a98"
     },
     {
       "file": "202608120103_abandoned_cart_product_customer_identity_assertions.sql",
       "direction": "verify",
-      "sha256": "1e230ad37e3ca53ae89317606bec41f2a5f048681be236d708a504f4a8347dbf"
+      "sha256": "eb87d4b6b0c0cd2af32ad7b0de715530687a7b27c20c596890ade83e413a38fe"
     }
   ]
 }

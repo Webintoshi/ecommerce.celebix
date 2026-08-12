@@ -5,6 +5,7 @@ DECLARE
   projection_definition text;
   list_definition text;
   mutation_definition text;
+  compatibility_definition text;
 BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_attribute attribute
@@ -19,6 +20,7 @@ BEGIN
   ) THEN RAISE EXCEPTION 'ABANDONED_CART_PRODUCT_CUSTOMER_IDENTITY_BINDING_INVALID'; END IF;
 
   IF pg_catalog.to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)') IS NULL
+    OR pg_catalog.to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)') IS NULL
     OR pg_catalog.to_regprocedure('saas.public_cart_mutate_without_customer_identity_v103(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)') IS NULL
     OR pg_catalog.to_regprocedure('saas.storefront_verified_customer_from_candidates(uuid,timestamp with time zone,jsonb)') IS NULL
   THEN RAISE EXCEPTION 'ABANDONED_CART_PRODUCT_CUSTOMER_IDENTITY_FUNCTION_MISSING'; END IF;
@@ -26,6 +28,11 @@ BEGIN
   IF NOT pg_catalog.has_function_privilege(
       'celebix_saas_host_resolver',
       'saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)',
+      'EXECUTE'
+    )
+    OR NOT pg_catalog.has_function_privilege(
+      'celebix_saas_host_resolver',
+      'saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)',
       'EXECUTE'
     )
     OR pg_catalog.has_function_privilege(
@@ -49,6 +56,9 @@ BEGIN
   mutation_definition:=pg_catalog.pg_get_functiondef(
     'saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)'::pg_catalog.regprocedure
   );
+  compatibility_definition:=pg_catalog.pg_get_functiondef(
+    'saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)'::pg_catalog.regprocedure
+  );
 
   IF pg_catalog.strpos(projection_definition,'''customerId''')=0
     OR pg_catalog.strpos(projection_definition,'''firstProductName''')=0
@@ -58,6 +68,8 @@ BEGIN
     OR pg_catalog.strpos(mutation_definition,'customer.status=''active''')=0
     OR pg_catalog.strpos(mutation_definition,'sync_durable_abandoned_cart')=0
     OR pg_catalog.strpos(mutation_definition,'p_customer_credentials')=0
+    OR pg_catalog.strpos(compatibility_definition,'''[]''::jsonb')=0
+    OR pg_catalog.strpos(compatibility_definition,'public_cart_mutate')=0
   THEN RAISE EXCEPTION 'ABANDONED_CART_PRODUCT_CUSTOMER_IDENTITY_BODY_INVALID'; END IF;
 
   IF projection_definition~*'(credential_digest|key_id|p_customer_credentials)'

@@ -12,6 +12,9 @@ BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
 DROP FUNCTION saas.public_cart_mutate(
+  text,timestamptz,jsonb,uuid,text,text,timestamptz,uuid,text,text,bigint,uuid,uuid,integer
+);
+DROP FUNCTION saas.public_cart_mutate(
   text,timestamptz,jsonb,uuid,text,text,timestamptz,uuid,text,text,bigint,uuid,uuid,integer,jsonb
 );
 ALTER FUNCTION saas.public_cart_mutate_without_customer_identity_v103(

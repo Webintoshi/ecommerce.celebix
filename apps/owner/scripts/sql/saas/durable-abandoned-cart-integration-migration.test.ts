@@ -98,6 +98,9 @@ test("103 projects the first persisted product and binds only a verified custome
   assert.match(up, /customer[.]status='active'/);
   assert.match(up, /item[.]product_name ILIKE/);
   assert.match(up, /public_cart_mutate_without_customer_identity_v103/);
+  assert.match(up, /compatibility signature cannot assert customer identity/);
+  assert.match(up, /p_quantity,[\s\S]*'\[\]'::jsonb/);
+  assert.match(assertions, /compatibility_definition/);
   assert.doesNotMatch(up, /customer[.]email=p_|customer[.]phone=p_|ILIKE.*customer.*email/i);
   assert.match(down, /allow_abandoned_cart_product_customer_identity_down/);
   assert.match(assertions, /ABANDONED_CART_PRODUCT_CUSTOMER_IDENTITY_BINDING_INVALID/);
