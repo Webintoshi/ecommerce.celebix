@@ -8,7 +8,8 @@ import { IyzicoSandboxEvidenceRepositoryError } from "@celebix/saas-data";
 import type { ServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
 import { createIyzicoActivationHttpHandlers } from "./handler.ts";
 
-const PANEL = "https://panel.staging.example";
+const PANEL = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 const PROFILE = "40000000-0000-4000-8000-000000000061";
 const METHOD = "50000000-0000-4000-8000-000000000061";
 const OPERATION = "60000000-0000-4000-8000-000000000061";
@@ -278,6 +279,17 @@ test("begin derives the active TEST profile and generated Build A authority serv
   assert.equal(input.candidateEvidenceDigest, build().candidateExecutionDigest);
   assert.equal((input.tenantContext as TenantContext).store.id, tenant().store.id);
   assert.equal(input.now instanceof Date, true);
+});
+
+test("canonical tenant admin origin can begin sandbox activation", async () => {
+  const probe = fixture();
+  const response = await probe.handlers.begin(request("POST", BEGIN_PATH, {}, {
+    origin: TENANT_ADMIN,
+    host: new URL(TENANT_ADMIN).host,
+  }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(probe.calls.map(({ kind }) => kind), ["profiles", "beginCurrent"]);
 });
 
 test("activate derives its fingerprint from the browser operation method and version then strips attestation", async () => {

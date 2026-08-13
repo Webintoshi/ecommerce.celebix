@@ -11,7 +11,8 @@ import { PAYMENT_PROVIDER_CATALOG } from "../payment-providers/catalog.ts";
 import type { ServerPaymentMethodsRuntime } from "../server-payment-methods/runtime.ts";
 import { createPaymentMethodHttpHandlers } from "./handler.ts";
 
-const PANEL = "https://panel.staging.example";
+const PANEL = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 const METHOD = "40000000-0000-4000-8000-000000000005";
 const PROFILE = "40000000-0000-4000-8000-000000000006";
 const OPERATION = "70000000-0000-4000-8000-000000000001";
@@ -210,6 +211,30 @@ test("valid built-in save reaches the repository with exact frozen config", asyn
   ]);
   assert.deepEqual(repositoryInput.config, config);
   assert.equal(Object.isFrozen(repositoryInput.config), true);
+});
+
+test("canonical tenant admin origin can save a built-in payment method", async () => {
+  const probe = fixture();
+  const response = await probe.handlers.methods(request("POST", "/api/payment-methods", {
+    methodId: METHOD,
+    expectedVersion: 0,
+    kind: "bank_transfer",
+    profileId: null,
+    providerCode: null,
+    label: "Banka havalesi",
+    config: {
+      accountHolder: "Celebix Mağazacılık A.Ş.",
+      bankName: "Örnek Bankası",
+      iban: "TR330006100519786457841326",
+      instructions: "Sipariş numaranızı açıklamaya yazın.",
+    },
+  }, {
+    origin: TENANT_ADMIN,
+    host: new URL(TENANT_ADMIN).host,
+  }));
+
+  assert.equal(response.status, 200);
+  assert.equal(probe.calls[0]?.kind, "save");
 });
 
 test("invalid built-in IBAN is rejected before repository save", async () => {

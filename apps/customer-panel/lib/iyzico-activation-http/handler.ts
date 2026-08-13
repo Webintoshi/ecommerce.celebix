@@ -14,6 +14,7 @@ import {
 
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
+import { approvedPanelMutationOrigin } from "../server-panel-access/mutation-origin.ts";
 import type { ServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
 
 const CURRENT_PATH = "/api/payment-providers/iyzico/sandbox-activation/current";
@@ -157,7 +158,7 @@ async function authorize(
   try { runtime = await deps.resolveRuntime(); } catch { return failure("unavailable", 503); }
   if (runtime === null) return failure("unavailable", 503);
   if (request.method !== method) return failure("method_not_allowed", 405, { allow: method });
-  if (method === "POST" && request.headers.get("origin") !== runtime.access.panelOrigin) {
+  if (method === "POST" && !approvedPanelMutationOrigin(request, runtime.access.panelOrigin)) {
     return failure("origin_denied", 403);
   }
   if (!exactUrl(request, pathname) || privateHeaders(request)) return failure("invalid_input", 400);

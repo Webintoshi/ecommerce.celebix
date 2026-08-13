@@ -14,7 +14,8 @@ import type { ServerProviderExecutionRuntime } from "../server-provider-executio
 import { createProviderExecutionHttpHandlers } from "./handler.ts";
 import { PAYMENT_PROVIDER_CATALOG } from "../payment-providers/catalog.ts";
 
-const PANEL = "https://panel.staging.example";
+const PANEL = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 const PROFILE = "40000000-0000-4000-8000-000000000005";
 const OPERATION = "70000000-0000-4000-8000-000000000001";
 const REQUEST = "71000000-0000-4000-8000-000000000001";
@@ -225,10 +226,11 @@ function iyzicoFixture(existingEnvironment: "test" | "live" = "test") {
   };
 }
 
-function request(method: string, path: string, body?: unknown, origin = PANEL) {
+function request(method: string, path: string, body?: unknown, origin = PANEL, host?: string) {
   const headers: Record<string, string> = { cookie: `__Host-celebix_panel=${CREDENTIAL}` };
   if (method === "POST") {
     headers.origin = origin;
+    if (host !== undefined) headers.host = host;
     headers["content-type"] = "application/json";
     headers["idempotency-key"] = OPERATION;
   }
@@ -256,6 +258,20 @@ test("profile save seals one registry-validated credential and never returns it"
   assert.equal(typeof (saved.sealedCredentials as { ciphertext: unknown }).ciphertext, "string");
   assert.equal(JSON.stringify(saved).includes("never-return"), false);
   assert.equal(probe.parsedCredential()?.every((byte) => byte === 0), true);
+});
+
+test("canonical tenant admin origin can save a provider profile", async () => {
+  const probe = fixture();
+  const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+    providerCode: "fixture_provider",
+    capability: "marketplace_sync",
+    publicConfig: { account_reference: "merchant-42" },
+    credential: { api_secret: "never-return" },
+    expectedVersion: 0,
+  }, TENANT_ADMIN, new URL(TENANT_ADMIN).host));
+
+  assert.equal(response.status, 200);
+  assert.equal(probe.repositoryCalls.length, 1);
 });
 
 test("payment profile persistence requires one exact catalog descriptor and adapter evidence tuple", async () => {
