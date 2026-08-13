@@ -107,7 +107,7 @@ export function AbandonedCartListPresentation(props: Readonly<{ state: State; it
         ) : props.state === "error" ? (
           <div className={styles.error} role="alert"><div><h2>Sepetler yüklenemedi</h2><p>{props.error}</p></div><button type="button" onClick={props.onRetry}>Tekrar dene</button></div>
         ) : props.items.length === 0 ? (
-          <div className={styles.listEmpty}><span><ShoppingCart aria-hidden="true" /></span><strong>{hasFilters ? "Filtrelerle eşleşen sepet bulunamadı." : "Takip bekleyen terk edilmiş sepet bulunmuyor."}</strong><p>{hasFilters ? "Arama veya durum filtresini değiştirerek yeniden deneyin." : "Yeni bir alışveriş yarım kaldığında kayıt burada görünecek."}</p></div>
+          <div className={styles.listEmpty}><span><ShoppingCart aria-hidden="true" /></span><strong>{hasFilters ? "Filtrelerle eşleşen sepet bulunamadı." : "Henüz terk edilmiş sepet yok"}</strong><p>{hasFilters ? "Arama veya durum filtresini değiştirerek yeniden deneyin." : "Yeni bir alışveriş yarım kaldığında kayıt burada görünecek."}</p></div>
         ) : (
           <>
             <div className={styles.desktopTable}>

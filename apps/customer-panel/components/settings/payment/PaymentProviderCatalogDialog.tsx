@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Banknote, CreditCard, Search, Truck, X } from "lucide-react";
+import { Banknote, ChevronRight, CreditCard, Search, Truck, X } from "lucide-react";
 import { useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
 
 import type {
@@ -83,21 +83,25 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
 
         {!props.canManage ? <p className={styles.readOnlyNotice}>Salt okunur erişim: sağlayıcıları inceleyebilirsiniz ancak bağlantı kuramazsınız.</p> : null}
 
-        <section className={styles.catalogBody} aria-labelledby="built-in-payment-methods-title">
-          <h3 id="built-in-payment-methods-title">Yerleşik yöntemler</h3>
-          <div className={styles.providerGrid}>
+        <section className={styles.catalogBuiltInBody} aria-labelledby="built-in-payment-methods-title">
+          <div className={styles.catalogSectionHeading}>
+            <h3 id="built-in-payment-methods-title">Yerleşik yöntemler</h3>
+            <span>Doğrudan kullanıma hazır</span>
+          </div>
+          <div className={styles.builtInGrid}>
             {props.builtInCards.map((card) => {
               const Icon = card.kind === "bank_transfer" ? Banknote : Truck;
-              return <article className={styles.providerCard} key={card.kind}>
-                <div className={styles.providerLogo}><Icon aria-hidden="true" /></div>
-                <div className={styles.providerCardHeading}>
-                  <div><h3>{card.label}</h3><p>{card.description}</p></div>
+              return <article className={styles.builtInCard} key={card.kind}>
+                <div className={styles.builtInIcon}><Icon aria-hidden="true" /></div>
+                <div className={styles.builtInCopy}>
+                  <div><h3>{card.label}</h3>
                   <span className={styles[card.active === true ? "tone-success" : "tone-neutral"]}>
                     {card.active === true
                       ? "Etkin"
                       : card.configured === true ? "Devre dışı"
                       : card.configured === false ? "Henüz yapılandırılmadı" : "Durum bilinmiyor"}
-                  </span>
+                  </span></div>
+                  <p>{card.description}</p>
                 </div>
                 <button
                   type="button"
@@ -105,7 +109,7 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
                   disabled={!props.canManage || !props.mutationAvailable || !card.available || props.busy}
                   onClick={() => props.onBuiltInSelect(card.kind)}
                 >
-                  {card.actionLabel}
+                  {card.actionLabel}<ChevronRight aria-hidden="true" />
                 </button>
               </article>;
             })}
@@ -132,23 +136,31 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
           </select>
         </div>
 
-        <div className={styles.catalogCount}>{props.cards.length} / {props.totalCount} entegrasyon gösteriliyor</div>
-        <div className={styles.catalogBody}>
-          {props.phase === "loading" ? <p className={styles.dialogState} role="status">Ödeme altyapıları yükleniyor…</p> : null}
-          {props.phase === "error" ? <p className={styles.errorNotice} role="alert">Ödeme altyapısı kataloğu şu anda yüklenemiyor.</p> : null}
-          {props.phase === "ready" && props.cards.length === 0 ? <p className={styles.dialogState}>Eşleşen sağlayıcı bulunamadı.</p> : null}
-          {props.phase === "ready" ? <div className={styles.providerGrid}>
-            {props.cards.map((card) => {
-              const requiresMethodAuthority = card.actionLabel === "Etkinleştir";
-              return <article className={styles.providerCard} key={card.providerCode}>
-                <div className={styles.providerLogo}><Image src={card.logoPath} alt={`${card.label} logosu`} width={144} height={56} /></div>
-                <div className={styles.providerCardHeading}><div><h3>{card.label}</h3><p>{card.modeLabel}</p></div><span className={styles[`tone-${card.readinessTone}`]}>{card.readinessLabel}</span></div>
-                <div className={styles.providerMeta}><span>{card.categoryLabel}</span><span>{card.interactionLabel}</span><span>{card.environmentLabel}</span><span>{card.lifecycleLabel}</span></div>
-                <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.configurable || !props.canManage || !props.providerConfigurationAvailable || (requiresMethodAuthority && !props.mutationAvailable) || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}</button>
-              </article>;
-            })}
-          </div> : null}
-        </div>
+        <section className={styles.catalogResults} aria-labelledby="payment-provider-results-title">
+          <div className={styles.catalogResultsHeader}>
+            <h3 id="payment-provider-results-title">Ödeme sağlayıcıları</h3>
+            <span className={styles.catalogCount}>{props.cards.length} / {props.totalCount} entegrasyon</span>
+          </div>
+          <div className={styles.catalogResultsBody}>
+            {props.phase === "loading" ? <p className={styles.dialogState} role="status">Ödeme altyapıları yükleniyor…</p> : null}
+            {props.phase === "error" ? <p className={styles.errorNotice} role="alert">Ödeme altyapısı kataloğu şu anda yüklenemiyor.</p> : null}
+            {props.phase === "ready" && props.cards.length === 0 ? <p className={styles.dialogState}>Eşleşen sağlayıcı bulunamadı.</p> : null}
+            {props.phase === "ready" ? <div className={styles.providerCatalogGrid}>
+              {props.cards.map((card) => {
+                const requiresMethodAuthority = card.actionLabel === "Etkinleştir";
+                return <article className={styles.providerCard} key={card.providerCode}>
+                  <div className={styles.providerCardTop}>
+                    <div className={styles.providerLogo}><Image src={card.logoPath} alt={`${card.label} logosu`} width={104} height={36} /></div>
+                    <span className={styles[`tone-${card.readinessTone}`]}>{card.readinessLabel}</span>
+                  </div>
+                  <div className={styles.providerCardHeading}><div><h3>{card.label}</h3><p>{card.modeLabel}</p></div></div>
+                  <div className={styles.providerMeta}><span>{card.categoryLabel}</span><span>{card.interactionLabel}</span><span>{card.environmentLabel}</span><span>{card.lifecycleLabel}</span></div>
+                  <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.configurable || !props.canManage || !props.providerConfigurationAvailable || (requiresMethodAuthority && !props.mutationAvailable) || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}{card.configurable ? <ChevronRight aria-hidden="true" /> : null}</button>
+                </article>;
+              })}
+            </div> : null}
+          </div>
+        </section>
       </div>
     </div>
   );

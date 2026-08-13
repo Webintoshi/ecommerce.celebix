@@ -860,6 +860,12 @@
   }
 }
 
+@media (min-width: 1025px) {
+  .mobileCards {
+    display: none;
+  }
+}
+
 @media (max-width: 640px) {
   .metrics,
   .detailHero,

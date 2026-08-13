@@ -917,9 +917,15 @@ test("mounted payment catalog keeps two built-in methods before provider filters
   const tree = dialog.render();
   const nodes = dialog.nodes();
   const builtInHeading = nodes.find((node) => node.type === "h3" && drawerText(node) === "Yerleşik yöntemler");
+  const builtInSurface = nodes.find((node) => node.props.className === "catalogBuiltInBody");
+  const builtInCards = nodes.filter((node) => node.type === "article" && node.props.className === "builtInCard");
   const filters = nodes.find((node) => node.props.className === "catalogFilters");
+  const providerResults = nodes.find((node) => node.props.className === "catalogResults");
   assert.ok(builtInHeading);
+  assert.ok(builtInSurface);
+  assert.equal(builtInCards.length, 2);
   assert.ok(filters);
+  assert.ok(providerResults);
   assert.ok(nodes.indexOf(builtInHeading) < nodes.indexOf(filters));
   assert.match(tree.map(drawerText).join(""), /58 entegrasyon|58 \/ 58 entegrasyon/);
   assert.match(tree.map(drawerText).join(""), /Yapılandırıldı/);
