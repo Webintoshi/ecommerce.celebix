@@ -928,11 +928,11 @@ test("mounted payment catalog keeps two built-in methods before provider filters
   assert.ok(providerResults);
   assert.ok(nodes.indexOf(builtInHeading) < nodes.indexOf(filters));
   assert.match(tree.map(drawerText).join(""), /58 entegrasyon|58 \/ 58 entegrasyon/);
-  assert.match(tree.map(drawerText).join(""), /Yapılandırıldı/);
+  assert.match(tree.map(drawerText).join(""), /Etkin/);
 
   const builtInButtons = nodes.filter((node) =>
     node.type === "button"
-    && (drawerText(node) === "Yapılandırıldı" || drawerText(node) === "Ekle"));
+    && (drawerText(node) === "Yönet" || drawerText(node) === "Ekle"));
   assert.equal(builtInButtons.length, 2);
   assert.equal(builtInButtons.every((button) => button.props.disabled !== true), true);
   for (const button of builtInButtons) (button.props.onClick as () => void)();
@@ -1214,8 +1214,8 @@ test("mounted console disables both order launchers and guards reopening during 
   console.render();
   await console.settle();
   let orderButtons = console.nodes().filter((node) =>
-    node.type === "button" && drawerText(node) === "Önizleme ve Sıralama");
-  assert.equal(orderButtons.length, 2);
+    node.type === "button" && drawerText(node) === "Sırala");
+  assert.equal(orderButtons.length, 1);
   assert.equal(orderButtons.every((button) => button.props.disabled !== true), true);
   (orderButtons[0]!.props.onClick as () => void)();
   console.render();
@@ -1237,8 +1237,8 @@ test("mounted console disables both order launchers and guards reopening during 
   (dialog.props.onClose as () => void)();
   console.render();
   orderButtons = console.nodes().filter((node) =>
-    node.type === "button" && drawerText(node) === "Önizleme ve Sıralama");
-  assert.equal(orderButtons.length, 2);
+    node.type === "button" && drawerText(node) === "Sırala");
+  assert.equal(orderButtons.length, 1);
   assert.equal(orderButtons.every((button) => button.props.disabled === true), true);
   for (const button of orderButtons) (button.props.onClick as () => void)();
   console.render();
@@ -1513,8 +1513,8 @@ test("payment console contains the ikas-like Celebix payment structure without f
   ]);
   const combined = [consoleSource, catalogSource, drawerSource, orderSource].join("\n");
   for (const copy of [
-    "Ödeme Ayarları", "Ödeme kullanılabilirliği", "Önizleme ve Sıralama",
-    "Ödeme Yöntemi Ekle", "Ödeme Yöntemleri", "Acil Durum", "Durum",
+    "Ödeme Ayarları", "Checkout ödeme özeti", "Checkout sırası",
+    "Ödeme Yöntemi Ekle", "Ödeme yöntemleri", "Sağlayıcılar", "Acil kapat",
   ]) assert.match(combined, new RegExp(copy));
   assert.match(consoleSource, /PanelTopbarBridge/);
   assert.doesNotMatch(combined, /MerchantModuleConsole|ikas|Hızlı Öde|floating-order|right-action/i);

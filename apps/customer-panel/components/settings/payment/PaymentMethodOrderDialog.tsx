@@ -114,7 +114,7 @@ export function PaymentMethodOrderDialog(props: Readonly<{
       <div ref={dialogRef} className={styles.orderDialog} role="dialog" aria-modal="true" aria-labelledby="payment-order-title" aria-describedby="payment-order-description" onKeyDown={onKeyDown}>
         <header className={styles.dialogHeader}>
           <div className={styles.dialogTitleIcon}><GripVertical aria-hidden="true" /></div>
-          <div><h2 id="payment-order-title">Önizleme ve Sıralama</h2><p id="payment-order-description">Checkout ekranındaki etkin ödeme yöntemlerinin sırasını düzenleyin.</p></div>
+          <div><h2 id="payment-order-title">Checkout sırası</h2><p id="payment-order-description">Etkin ödeme yöntemlerinin müşteriye görüneceği sırayı düzenleyin ve önizleyin.</p></div>
           <button ref={closeRef} className={styles.iconButton} type="button" disabled={busy} onClick={() => close()} aria-label="Sıralama penceresini kapat"><X /></button>
         </header>
         {!props.canManage ? <p className={styles.readOnlyNotice}>Salt okunur erişim: mevcut checkout sırasını inceleyebilirsiniz.</p> : null}

@@ -49,6 +49,15 @@ type BuiltInFormField = "label" | "bankName" | "accountHolder" | "iban" | "instr
 type BuiltInFormError = Readonly<{ field: BuiltInFormField; message: string }>;
 type BuiltInFormValues = Readonly<Record<BuiltInFormField, string>>;
 
+function formatIbanForInput(value: string): string {
+  return value
+    .replace(/\s+/g, "")
+    .toUpperCase()
+    .slice(0, 26)
+    .replace(/(.{4})/g, "$1 ")
+    .trim();
+}
+
 function initialFormValues(
   kind: BuiltInPaymentMethodKind,
   method: MerchantPaymentMethod | null,
@@ -57,7 +66,7 @@ function initialFormValues(
     label: method?.label ?? (kind === "bank_transfer" ? "Banka havalesi" : "Kapıda ödeme"),
     bankName: initialConfigValue(method, "bankName"),
     accountHolder: initialConfigValue(method, "accountHolder"),
-    iban: initialConfigValue(method, "iban"),
+    iban: formatIbanForInput(initialConfigValue(method, "iban")),
     instructions: initialConfigValue(method, "instructions"),
   });
 }
@@ -306,20 +315,30 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
         {props.submitError ? <p className={styles.errorNotice} role="alert">{props.submitError}</p> : null}
 
         <form className={styles.builtInForm} onSubmit={(event) => void submit(event)}>
-          <label>
-            Ödeme ekranı etiketi
-            <input
-              ref={labelRef}
-              name="label"
-              required
-              maxLength={120}
-              value={formValues.label}
-              onChange={(event) => updateField("label", event.currentTarget.value)}
-              disabled={disabled}
-              {...errorAttributes("label")}
-            />
-          </label>
-          {isBankTransfer ? <>
+          <section className={styles.formSection} aria-labelledby="built-in-checkout-label-title">
+            <div className={styles.formSectionHeading}>
+              <h3 id="built-in-checkout-label-title">Checkout görünümü</h3>
+              <p>Müşterinin ödeme seçenekleri arasında göreceği adı belirleyin.</p>
+            </div>
+            <label>
+              Ödeme ekranı etiketi
+              <input
+                ref={labelRef}
+                name="label"
+                required
+                maxLength={120}
+                value={formValues.label}
+                onChange={(event) => updateField("label", event.currentTarget.value)}
+                disabled={disabled}
+                {...errorAttributes("label")}
+              />
+            </label>
+          </section>
+          {isBankTransfer ? <section className={styles.formSection} aria-labelledby="built-in-bank-details-title">
+            <div className={styles.formSectionHeading}>
+              <h3 id="built-in-bank-details-title">Banka bilgileri</h3>
+              <p>Havale yapacak müşteriye gösterilecek hesap bilgilerini girin.</p>
+            </div>
             <label>
               Banka adı
               <input
@@ -350,6 +369,7 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
               Türkiye IBAN numarası
               <input
                 ref={ibanRef}
+                className={styles.ibanInput}
                 name="iban"
                 required
                 inputMode="text"
@@ -357,24 +377,31 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
                 autoComplete="off"
                 maxLength={40}
                 value={formValues.iban}
-                onChange={(event) => updateField("iban", event.currentTarget.value)}
+                onChange={(event) => updateField("iban", formatIbanForInput(event.currentTarget.value))}
                 disabled={disabled}
                 {...errorAttributes("iban")}
               />
             </label>
-          </> : null}
-          <label>
-            Müşteri talimatı
-            <textarea
-              ref={instructionsRef}
-              name="instructions"
-              maxLength={500}
-              value={formValues.instructions}
-              onChange={(event) => updateField("instructions", event.currentTarget.value)}
-              disabled={disabled}
-              {...errorAttributes("instructions")}
-            />
-          </label>
+          </section> : null}
+          <section className={styles.formSection} aria-labelledby="built-in-instructions-title">
+            <div className={styles.formSectionHeading}>
+              <h3 id="built-in-instructions-title">Müşteri talimatı</h3>
+              <p>Müşteri ödeme adımında veya sipariş sonrasında bu bilgiyi görür.</p>
+            </div>
+            <label>
+              Talimat metni
+              <textarea
+                ref={instructionsRef}
+                name="instructions"
+                maxLength={500}
+                rows={4}
+                value={formValues.instructions}
+                onChange={(event) => updateField("instructions", event.currentTarget.value)}
+                disabled={disabled}
+                {...errorAttributes("instructions")}
+              />
+            </label>
+          </section>
           <footer className={styles.drawerActions}>
             <button
               type="button"
