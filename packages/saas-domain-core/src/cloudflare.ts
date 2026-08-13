@@ -18,7 +18,7 @@ const SNAPSHOT_KEYS = Object.freeze(new Set([
 const SSL_KEYS = Object.freeze(new Set([
   "id", "status", "method", "type", "validation_records", "settings", "wildcard", "bundle_method",
   "certificate_authority", "custom_certificate", "custom_csr_id", "custom_key", "dcv_delegation_records",
-  "expires_on", "hosts", "issuer", "serial_number", "signature", "uploaded_on", "validation_errors",
+  "expires_on", "hosts", "issuer", "serial_number", "signature", "uploaded_on", "validation_errors", "certificates",
 ]));
 const RECORD_KEYS = Object.freeze(new Set([
   "status", "txt_name", "txt_value", "http_url", "http_body", "cname", "cname_target", "emails",

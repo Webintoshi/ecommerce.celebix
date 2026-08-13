@@ -30,7 +30,7 @@ const SNAPSHOT = Object.freeze({
     name: "_cf-custom-hostname.www.example.com",
     value: "safe-token",
   }),
-  ssl: Object.freeze({ status: "pending_validation", validation_records: [] }),
+  ssl: Object.freeze({ status: "pending_validation", validation_records: [], certificates: [] }),
 });
 
 test("creates one exact custom hostname with TLS 1.2 and bearer authority", async () => {
