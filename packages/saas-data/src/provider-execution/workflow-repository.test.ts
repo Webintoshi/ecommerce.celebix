@@ -244,6 +244,39 @@ test("profile verification result marks the exact validation identity without ev
   ), false);
 });
 
+test("PayTR verification uses the atomic merchant activation boundary without client authority", async () => {
+  const client = new Client((text) => text.includes("paytr_merchant_self_service_mark_verification")
+    ? [{ outcome: "validated", result_payload: verificationProfile() }]
+    : []);
+  const result = await repository(new Pool([client])).markProfileVerification({
+    profileId: PROFILE,
+    providerCode: "paytr_iframe",
+    capability: "payment_processing",
+    validationIdentity: { environment: "live", adapterVersion: 1 },
+    credentialVersion: 2,
+    profileVersion: 3,
+    leaseId: LEASE,
+    leaseOwner: "worker.fixture",
+    now: NOW,
+    outcome: "validated",
+    outcomeCode: "validated",
+  });
+
+  assert.equal(result.status, "active");
+  const activation = call(client, "paytr_merchant_self_service_mark_verification");
+  assert.deepEqual(activation.values.slice(0, 5), [
+    PROFILE, "paytr_iframe", "payment_processing", "live", 1,
+  ]);
+  assert.equal(activation.values.length, 12);
+  assert.equal(activation.values.some(
+    (value) => typeof value === "string" && value.startsWith("sha256:"),
+  ), false);
+  assert.equal(client.calls.some(
+    ({ text }) => text.includes("merchant_provider_profile_mark_verification")
+      && !text.includes("paytr_merchant_self_service_mark_verification"),
+  ), false);
+});
+
 test("profile verification unavailability releases the lease while preserving pending validation", async () => {
   const client = new Client((text) => text.includes("merchant_provider_profile_mark_verification")
     ? [{ outcome: "unavailable", result_payload: verificationProfile("pending_validation") }]

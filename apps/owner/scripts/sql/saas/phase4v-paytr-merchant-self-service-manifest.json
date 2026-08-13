@@ -1,0 +1,23 @@
+{
+  "phase": "phase4v-paytr-merchant-self-service",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608130105_paytr_merchant_self_service.up.sql",
+      "direction": "up",
+      "sha256": "467aeacce4d64dd15a93ab27e52ac145936c0012770fab210aa07202585d9bbc"
+    },
+    {
+      "file": "202608130105_paytr_merchant_self_service.down.sql",
+      "direction": "down",
+      "sha256": "0255def24ef972fa7ea780e1644bec404bd567a4add6cdce5fd3ff33fdf94fb9"
+    },
+    {
+      "file": "202608130105_paytr_merchant_self_service_assertions.sql",
+      "direction": "verify",
+      "sha256": "eb10ff66550428cfca98f693bf6b2313a5663deaaa424f57d9214d04e0e32dce"
+    }
+  ]
+}
