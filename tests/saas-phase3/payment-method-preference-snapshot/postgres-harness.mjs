@@ -16,6 +16,7 @@ const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const DB = "payment_method_preference_snapshot";
 const ROLLBACK_DB = "payment_method_preference_snapshot_rollback";
+const ACTIVATION_DB = "payment_method_preference_snapshot_activation";
 const UP = "202608120104_payment_method_preference_snapshot.up.sql";
 const DOWN = "202608120104_payment_method_preference_snapshot.down.sql";
 const ASSERTIONS = "202608120104_payment_method_preference_snapshot_assertions.sql";
@@ -24,6 +25,15 @@ const PROFILE = "40000000-0000-4000-8000-000000000104";
 const METHOD = "50000000-0000-4000-8000-000000000104";
 const FIRST_ATTEMPT = "60000000-0000-4000-8000-000000000104";
 const SECOND_ATTEMPT = "60000000-0000-4000-8000-000000000105";
+const ACTIVATION_STORE = "10000000-0000-4000-8000-000000000061";
+const ACTIVATION_PRINCIPAL = "20000000-0000-4000-8000-000000000061";
+const ACTIVATION_MEMBERSHIP = "30000000-0000-4000-8000-000000000061";
+const ACTIVATION_PLAN = "00000000-0000-4000-8000-000000000001";
+const ACTIVATION_PROFILE = "40000000-0000-4000-8000-000000000061";
+const ACTIVATION_RUN = "60000000-0000-4000-8000-000000000061";
+const ACTIVATION_LEASE = "61000000-0000-4000-8000-000000000061";
+const ACTIVATION_ATTESTATION = "62000000-0000-4000-8000-000000000061";
+const ACTIVATION_WORKER = "payment-preference-activation-worker";
 const NOW = "2026-08-12T12:00:00.000Z";
 const FIRST_CONFIG = Object.freeze({
   environment: "test",
@@ -39,13 +49,17 @@ const SECOND_CONFIG = Object.freeze({
   maxInstallment: 6,
   threeDSecure: "provider_managed",
 });
-const TOTAL = 11;
+const TOTAL = 13;
 let completed = 0;
 
 const priorManifest = JSON.parse(
   readFileSync(path.join(SQL, "phase3u-built-in-payment-methods-manifest.json"), "utf8"),
 );
 const PRIOR = priorManifest.migrationChain.map(({ file }) => file);
+const ACTIVATION_FIXTURE = readFileSync(
+  path.join(ROOT, "tests/saas-phase3/iyzico-iframe-tenant-activation-runtime/fixture.sql"),
+  "utf8",
+);
 
 function executable(name) {
   const directories = [
@@ -135,7 +149,7 @@ function scenario(name, run) {
   console.log(`PASS ${completed}/${TOTAL} ${name}`);
 }
 
-function seedLegacyProvider(box) {
+function seedLegacyProvider(box, database = DB) {
   const sealedCredentials = JSON.stringify({
     algorithm: "A256GCM",
     ciphertext: "AA",
@@ -175,7 +189,59 @@ function seedLegacyProvider(box) {
       '${METHOD}','${STORE}','provider','${PROFILE}','paytr_iframe','PayTR','active',0,
       '{"environment":"test"}',1,'${NOW}','${NOW}'
     );
-    COMMIT;`);
+    COMMIT;`, database);
+}
+
+function activationAuthority(now = "2026-07-28T14:05:00.000Z") {
+  return `'${ACTIVATION_STORE}'::uuid,'${ACTIVATION_PRINCIPAL}'::uuid,` +
+    `'${ACTIVATION_MEMBERSHIP}'::uuid,'${ACTIVATION_PLAN}'::uuid,` +
+    `'free_starter',1,'${now}'::timestamptz`;
+}
+
+function asRole(box, role, statement, database = ACTIVATION_DB) {
+  return psql(box, `SET ROLE ${role}; ${statement};`, database);
+}
+
+function resultRow(output) {
+  const [outcome, payload] = output.trim().split("|", 2);
+  return { outcome, payload: payload ? JSON.parse(payload) : null };
+}
+
+function createActivationAttestation(box) {
+  const claimed = resultRow(asRole(box, "celebix_saas_workflow", `
+    SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_claim_next(
+      '${ACTIVATION_WORKER}','${ACTIVATION_LEASE}'::uuid,
+      '2026-07-28T14:06:00.000Z'::timestamptz,'2026-07-28T14:11:00.000Z'::timestamptz
+    );
+  `).stdout);
+  assert.equal(claimed.outcome, "claimed");
+  assert.equal(claimed.payload.runId, ACTIVATION_RUN);
+
+  const events = [
+    ["63000000-0000-4000-8000-000000000011", "success", "success_captured", "64000000-0000-4000-8000-000000000011", "1", "captured"],
+    ["63000000-0000-4000-8000-000000000012", "decline", "declined", "64000000-0000-4000-8000-000000000012", "2", "declined"],
+    ["63000000-0000-4000-8000-000000000013", "controlled_timeout_recovery", "timeout_unknown", "64000000-0000-4000-8000-000000000013", "3", "unknown"],
+    ["63000000-0000-4000-8000-000000000014", "controlled_timeout_recovery", "timeout_recovered", "64000000-0000-4000-8000-000000000013", "4", "recovered"],
+    ["63000000-0000-4000-8000-000000000015", "callback_replay", "callback_original", "64000000-0000-4000-8000-000000000011", "5", "accepted"],
+    ["63000000-0000-4000-8000-000000000016", "callback_replay", "callback_replay", "64000000-0000-4000-8000-000000000011", "5", "replayed"],
+  ];
+  for (const [event, caseKind, eventKind, attempt, observation, code] of events) {
+    const outcome = asRole(box, "celebix_saas_workflow", `
+      SELECT outcome FROM saas.iyzico_iframe_tenant_evidence_record_event(
+        '${ACTIVATION_RUN}'::uuid,'${ACTIVATION_LEASE}'::uuid,'${ACTIVATION_WORKER}',
+        '${event}'::uuid,'${caseKind}','${eventKind}','${attempt}'::uuid,
+        '${observation.repeat(64)}','${code}','2026-07-28T14:07:00.000Z'::timestamptz
+      );
+    `).stdout.trim();
+    assert.equal(outcome, "recorded");
+  }
+  assert.equal(asRole(box, "celebix_saas_workflow", `
+    SELECT outcome FROM saas.iyzico_iframe_tenant_evidence_finalize(
+      '${ACTIVATION_RUN}'::uuid,'${ACTIVATION_LEASE}'::uuid,'${ACTIVATION_WORKER}',
+      '${ACTIVATION_ATTESTATION}'::uuid,'${"2".repeat(64)}',
+      '2026-07-28T14:08:00.000Z'::timestamptz
+    );
+  `).stdout.trim(), "attested");
 }
 
 function insertAttempt(box, attemptId, createdAt, suppliedConfig = null) {
@@ -207,6 +273,7 @@ try {
   psql(box, `CREATE DATABASE ${DB};`, "postgres");
   for (const file of PRIOR) apply(box, file);
   psql(box, `CREATE DATABASE ${ROLLBACK_DB} WITH TEMPLATE ${DB};`, "postgres");
+  psql(box, `CREATE DATABASE ${ACTIVATION_DB} WITH TEMPLATE ${DB};`, "postgres");
 
   scenario("PostgreSQL 16 base schema is available", () => {
     assert.match(psql(box, "SHOW server_version;").stdout.trim(), /^16[.]/);
@@ -271,6 +338,46 @@ try {
     assert.match(result.stderr, /payment_methods_provider_preference_check/);
   });
 
+  psql(box, ACTIVATION_FIXTURE, ACTIVATION_DB);
+  apply(box, UP, ACTIVATION_DB);
+  scenario("104-upgraded Iyzico begin authority creates the strict method config", () => {
+    const created = resultRow(asRole(box, "celebix_saas_app", `
+      SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_begin_current(
+        ${activationAuthority()},'${ACTIVATION_RUN}'::uuid,'${"1".repeat(64)}',
+        '${ACTIVATION_PROFILE}'::uuid,1,1,'sha256:${"a".repeat(64)}',7
+      );
+    `).stdout);
+    assert.equal(created.outcome, "created");
+    const config = JSON.parse(psql(box, `
+      SELECT config::text FROM saas.payment_methods WHERE id='${ACTIVATION_PROFILE}';
+    `, ACTIVATION_DB).stdout.trim());
+    assert.deepEqual(config, FIRST_CONFIG);
+  });
+
+  scenario("104-upgraded Iyzico current and activate authorities preserve the strict config", () => {
+    createActivationAttestation(box);
+    const current = resultRow(asRole(box, "celebix_saas_app", `
+      SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_current(
+        ${activationAuthority("2026-07-28T14:09:00.000Z")},'${ACTIVATION_PROFILE}'::uuid
+      );
+    `).stdout);
+    assert.equal(current.outcome, "current");
+    assert.equal(current.payload.activationCurrent, true);
+    const activated = resultRow(asRole(box, "celebix_saas_app", `
+      SELECT outcome,result_payload FROM saas.iyzico_iframe_tenant_evidence_activate_current(
+        ${activationAuthority("2026-07-28T14:09:00.000Z")},
+        '65000000-0000-4000-8000-000000000061'::uuid,'${"9".repeat(64)}',
+        '${ACTIVATION_PROFILE}'::uuid,1
+      );
+    `).stdout);
+    assert.equal(activated.outcome, "state_changed");
+    const config = JSON.parse(psql(box, `
+      SELECT config::text FROM saas.payment_methods WHERE id='${ACTIVATION_PROFILE}';
+    `, ACTIVATION_DB).stdout.trim());
+    assert.deepEqual(config, FIRST_CONFIG);
+  });
+
+  seedLegacyProvider(box, ROLLBACK_DB);
   apply(box, UP, ROLLBACK_DB);
   apply(box, ASSERTIONS, ROLLBACK_DB);
   scenario("rollback requires its explicit local guard", () => {
@@ -284,6 +391,10 @@ try {
     psql(box, down, ROLLBACK_DB);
     assert.equal(psql(box, "SELECT to_regprocedure('saas.provider_payment_method_config_valid(text,jsonb)') IS NULL;", ROLLBACK_DB).stdout.trim(), "t");
     assert.equal(psql(box, "SELECT to_regclass('saas.payment_attempts') IS NOT NULL;", ROLLBACK_DB).stdout.trim(), "t");
+    assert.deepEqual(JSON.parse(psql(box, `SELECT config::text FROM saas.payment_methods WHERE id='${METHOD}';`, ROLLBACK_DB).stdout.trim()), {
+      environment: "test",
+    });
+    assert.equal(psql(box, "SELECT saas.iyzico_iframe_tenant_activation_runtime_preflight();", ROLLBACK_DB).stdout.trim(), "t");
   });
 
   scenario("104 reapplies cleanly after guarded rollback", () => {

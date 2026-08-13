@@ -50,6 +50,20 @@ test("strict parsing returns a copied frozen provider preference object", () => 
   assert.equal(selected.locale, "en");
 });
 
+test("provider-specific locale authority rejects unsupported PayTR English", () => {
+  assertInvalid(() => parseProviderPaymentMethodConfig("paytr_iframe", {
+    ...valid(),
+    locale: "en",
+  }));
+  assert.deepEqual(parseProviderPaymentMethodConfig("iyzico_iframe", {
+    ...valid(),
+    locale: "en",
+  }), {
+    ...valid(),
+    locale: "en",
+  });
+});
+
 test("supported installment modes require canonical matching max installment values", () => {
   for (const providerCode of ["paytr_iframe", "iyzico_iframe"] as const) {
     assert.deepEqual(parseProviderPaymentMethodConfig(providerCode, valid()), valid());

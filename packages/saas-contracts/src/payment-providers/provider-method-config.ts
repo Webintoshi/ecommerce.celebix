@@ -90,6 +90,7 @@ export function parseProviderPaymentMethodConfig(
   if (
     (environment !== "test" && environment !== "live")
     || !PROVIDER_PAYMENT_METHOD_LOCALES.includes(locale as ProviderPaymentMethodLocale)
+    || (providerCode === "paytr_iframe" && locale !== "tr")
     || selected.threeDSecure !== "provider_managed"
     || !PROVIDER_INSTALLMENT_MODES.includes(installmentMode as ProviderInstallmentMode)
     || !PROVIDER_MAX_INSTALLMENTS.includes(maxInstallment as ProviderMaxInstallment)
@@ -118,4 +119,3 @@ export function defaultProviderPaymentMethodConfig(
     maxInstallment: 0,
   });
 }
-

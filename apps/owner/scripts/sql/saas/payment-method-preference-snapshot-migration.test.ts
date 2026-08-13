@@ -31,6 +31,32 @@ test("104 validates exact executable-provider preferences and upgrades legacy ro
   assert.doesNotMatch(up, /pg_catalog[.]greatest/iu);
 });
 
+test("104 keeps attested Iyzico activation compatible with the strict preference shape", () => {
+  const up = source("up");
+  const down = source("down");
+  const assertions = source("assertions");
+  for (const routine of [
+    "iyzico_iframe_tenant_evidence_begin_current",
+    "iyzico_iframe_tenant_evidence_current",
+    "iyzico_iframe_tenant_evidence_activate_current",
+    "iyzico_iframe_tenant_activation_runtime_preflight",
+  ]) {
+    assert.match(up, new RegExp(routine, "u"));
+    assert.match(down, new RegExp(routine, "u"));
+  }
+  assert.match(up, /PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_DRIFT/u);
+  assert.match(up, /provider_payment_method_config_valid/u);
+  assert.match(assertions, /PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_INVALID/u);
+});
+
+test("104 rollback restores the exact legacy environment-only config authority", () => {
+  const down = source("down");
+  assert.match(down, /UPDATE saas[.]payment_methods AS method/u);
+  assert.match(down, /jsonb_build_object\('environment',method[.]config->>'environment'\)/u);
+  assert.match(down, /payment_methods_provider_preference_check[\s\S]+UPDATE saas[.]payment_methods/u);
+  assert.match(down, /PAYMENT_METHOD_PREFERENCE_LEGACY_CONFIG_RESTORE_INVALID/u);
+});
+
 test("104 snapshots persisted payment-method preferences under one row lock", () => {
   const up = source("up");
   assert.match(up, /ADD COLUMN method_config_snapshot jsonb/u);

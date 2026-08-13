@@ -1,6 +1,7 @@
 -- Catalog authority proofs for Phase 4U payment-method preference snapshots.
 DO $assertions$
 DECLARE begin_definition text; authority_definition text;
+  activation_definition text;
 BEGIN
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_attribute attribute
@@ -24,7 +25,31 @@ BEGIN
     OR saas.provider_payment_method_config_valid(
       'paytr_iframe','{"environment":"test"}'::jsonb
     ) IS NOT FALSE
+    OR saas.provider_payment_method_config_valid(
+      'paytr_iframe','{"environment":"test","locale":"en","threeDSecure":"provider_managed","installmentMode":"all","maxInstallment":0}'::jsonb
+    ) IS NOT FALSE
   THEN RAISE EXCEPTION 'PAYMENT_METHOD_PREFERENCE_SNAPSHOT_VALIDATOR_INVALID'; END IF;
+
+  IF pg_catalog.to_regprocedure('saas.iyzico_iframe_tenant_activation_runtime_preflight()') IS NULL
+    OR saas.iyzico_iframe_tenant_activation_runtime_preflight() IS DISTINCT FROM true
+  THEN RAISE EXCEPTION 'PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_INVALID'; END IF;
+  FOREACH activation_definition IN ARRAY ARRAY[
+    pg_catalog.pg_get_functiondef(
+      'saas.iyzico_iframe_tenant_evidence_begin_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,bigint,text,integer)'::pg_catalog.regprocedure
+    ),
+    pg_catalog.pg_get_functiondef(
+      'saas.iyzico_iframe_tenant_evidence_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)'::pg_catalog.regprocedure
+    ),
+    pg_catalog.pg_get_functiondef(
+      'saas.iyzico_iframe_tenant_evidence_activate_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)'::pg_catalog.regprocedure
+    )
+  ] LOOP
+    IF pg_catalog.strpos(activation_definition,'"locale":"tr"')=0
+      OR pg_catalog.strpos(activation_definition,'"threeDSecure":"provider_managed"')=0
+      OR pg_catalog.strpos(activation_definition,'"installmentMode":"all"')=0
+      OR pg_catalog.strpos(activation_definition,'"maxInstallment":0')=0
+    THEN RAISE EXCEPTION 'PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_INVALID'; END IF;
+  END LOOP;
 
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_trigger trigger_info

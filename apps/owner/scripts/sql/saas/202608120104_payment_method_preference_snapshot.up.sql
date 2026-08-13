@@ -28,6 +28,7 @@ AS $function$
     AND p_config->>'environment' IN('test','live')
     AND pg_catalog.jsonb_typeof(p_config->'locale')='string'
     AND p_config->>'locale' IN('tr','en')
+    AND (p_provider_code<>'paytr_iframe' OR p_config->>'locale'='tr')
     AND pg_catalog.jsonb_typeof(p_config->'threeDSecure')='string'
     AND p_config->>'threeDSecure'='provider_managed'
     AND pg_catalog.jsonb_typeof(p_config->'installmentMode')='string'
@@ -81,6 +82,63 @@ ALTER TABLE saas.payment_methods
   ) NOT VALID;
 ALTER TABLE saas.payment_methods
   VALIDATE CONSTRAINT payment_methods_provider_preference_check;
+
+-- Migration 061 seals exact Iyzico activation functions by body hash and used the
+-- legacy one-field method config. Upgrade those already-installed functions from
+-- the verified donor body rather than weakening either the config constraint or
+-- the attestation preflight.
+DO $activation_compatibility$
+DECLARE
+  routine_signature text;
+  legacy_hash text;
+  routine_oid oid;
+  routine_definition text;
+  upgraded_definition text;
+  upgraded_hash text;
+  preflight_definition text;
+  legacy_config constant text:='''{"environment":"test"}''::jsonb';
+  upgraded_config constant text:='''{"environment":"test","locale":"tr","threeDSecure":"provider_managed","installmentMode":"all","maxInstallment":0}''::jsonb';
+BEGIN
+  IF pg_catalog.to_regprocedure('saas.iyzico_iframe_tenant_activation_runtime_preflight()') IS NULL
+    OR saas.iyzico_iframe_tenant_activation_runtime_preflight() IS DISTINCT FROM true
+  THEN RAISE EXCEPTION 'PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_DRIFT'; END IF;
+
+  SELECT pg_catalog.pg_get_functiondef(
+    'saas.iyzico_iframe_tenant_activation_runtime_preflight()'::pg_catalog.regprocedure
+  ) INTO preflight_definition;
+
+  FOR routine_signature,legacy_hash IN SELECT * FROM (VALUES
+    ('iyzico_iframe_tenant_evidence_begin_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,bigint,text,integer)',
+      'fa0657fcc802d3e61658858d533cdf99'),
+    ('iyzico_iframe_tenant_evidence_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+      '1fb9069c782aadd6cc85c9084a58bf7f'),
+    ('iyzico_iframe_tenant_evidence_activate_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)',
+      '3e11a935ca294cfe281acfff0f04a448')
+  ) AS expected(signature,body_hash) LOOP
+    routine_oid:=pg_catalog.to_regprocedure('saas.'||routine_signature);
+    IF routine_oid IS NULL OR NOT EXISTS(
+      SELECT 1 FROM pg_catalog.pg_proc AS procedure
+      WHERE procedure.oid=routine_oid AND pg_catalog.md5(procedure.prosrc)=legacy_hash
+    ) THEN RAISE EXCEPTION 'PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_DRIFT'; END IF;
+
+    SELECT pg_catalog.pg_get_functiondef(routine_oid) INTO routine_definition;
+    upgraded_definition:=pg_catalog.replace(routine_definition,legacy_config,upgraded_config);
+    IF upgraded_definition=routine_definition
+    THEN RAISE EXCEPTION 'PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_DRIFT'; END IF;
+    EXECUTE upgraded_definition;
+
+    SELECT pg_catalog.md5(procedure.prosrc) INTO upgraded_hash
+    FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=routine_oid;
+    IF pg_catalog.strpos(preflight_definition,legacy_hash)=0
+    THEN RAISE EXCEPTION 'PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_DRIFT'; END IF;
+    preflight_definition:=pg_catalog.replace(preflight_definition,legacy_hash,upgraded_hash);
+  END LOOP;
+
+  EXECUTE preflight_definition;
+  IF saas.iyzico_iframe_tenant_activation_runtime_preflight() IS DISTINCT FROM true
+  THEN RAISE EXCEPTION 'PAYMENT_METHOD_PREFERENCE_ACTIVATION_RUNTIME_DRIFT'; END IF;
+END
+$activation_compatibility$;
 
 ALTER TABLE saas.payment_attempts
   ADD COLUMN method_config_snapshot jsonb;
