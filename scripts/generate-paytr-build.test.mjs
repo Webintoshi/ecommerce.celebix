@@ -75,7 +75,12 @@ async function imported(path, key) {
 
 test("PayTR build generator writes both candidates and no authority by default", async (t) => {
   const selected = await fixture(t);
-  const result = await runGenerator(selected.root, { SOURCE_COMMIT });
+  const result = await runGenerator(selected.root, {
+    SOURCE_COMMIT,
+    CELEBIX_PAYTR_IFRAME_PANEL_MODE: "disabled",
+    CELEBIX_PAYTR_STAGING_TEST_MODE: "1",
+    CELEBIX_PAYTR_STAGING_MERCHANT_ID: "runtime-only-fixture",
+  });
   const generated = await imported(selected.generated, "closed");
 
   assert.deepEqual(result, {
@@ -129,7 +134,7 @@ test("PayTR build generator rejects partial wrong and unknown authority without 
       CELEBIX_PAYTR_LIVE_APPROVAL_MODE: "approved_live",
       CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST: DIGESTS.test,
     },
-    { SOURCE_COMMIT, CELEBIX_PAYTR_UNEXPECTED_AUTHORITY: "private-extra" },
+    { SOURCE_COMMIT, CELEBIX_PAYTR_TEST_APPROVAL_UNEXPECTED: "private-extra" },
   ];
   for (const [index, environment] of cases.entries()) {
     const selected = await fixture(t);

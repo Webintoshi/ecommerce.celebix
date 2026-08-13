@@ -12,7 +12,6 @@ import {
 
 const GENERATED_PATH = "packages/payment-adapters/src/providers/paytr/build-metadata.generated.ts";
 const GIT_SHA = /^[a-f0-9]{40}$/;
-const APPROVAL_PREFIX = "CELEBIX_PAYTR_";
 const APPROVAL_KEYS = Object.freeze({
   test: Object.freeze({
     mode: "CELEBIX_PAYTR_TEST_APPROVAL_MODE",
@@ -25,6 +24,12 @@ const APPROVAL_KEYS = Object.freeze({
     expectedMode: "approved_live",
   }),
 });
+const APPROVAL_KEY_PREFIXES = Object.freeze([
+  "CELEBIX_PAYTR_TEST_APPROVAL_",
+  "CELEBIX_PAYTR_TEST_APPROVED_",
+  "CELEBIX_PAYTR_LIVE_APPROVAL_",
+  "CELEBIX_PAYTR_LIVE_APPROVED_",
+]);
 const ALLOWED_ENVIRONMENT_KEYS = new Set([
   "SOURCE_COMMIT",
   APPROVAL_KEYS.test.mode,
@@ -70,7 +75,10 @@ function selectedEnvironment(value) {
     const selected = Object.create(null);
     for (const key of Reflect.ownKeys(value)) {
       if (typeof key !== "string") invalid();
-      if (key !== "SOURCE_COMMIT" && !key.startsWith(APPROVAL_PREFIX)) continue;
+      if (
+        key !== "SOURCE_COMMIT"
+        && !APPROVAL_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))
+      ) continue;
       if (!ALLOWED_ENVIRONMENT_KEYS.has(key)) invalid();
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
       if (!descriptor || !descriptor.enumerable || !("value" in descriptor) ||
@@ -91,7 +99,10 @@ function runtimeEnvironment(value) {
     const selected = {};
     for (const key of Reflect.ownKeys(value)) {
       if (typeof key !== "string") continue;
-      if (key !== "SOURCE_COMMIT" && !key.startsWith(APPROVAL_PREFIX)) continue;
+      if (
+        key !== "SOURCE_COMMIT"
+        && !APPROVAL_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))
+      ) continue;
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
       if (!descriptor || !("value" in descriptor) || typeof descriptor.value !== "string") invalid();
       selected[key] = descriptor.value;
