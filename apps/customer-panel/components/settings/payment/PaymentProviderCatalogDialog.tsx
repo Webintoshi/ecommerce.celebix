@@ -108,7 +108,7 @@ function ProviderCatalogSurface(props: ProviderCatalogProps & Readonly<{
               </div>
               <div className={styles.providerMeta}>
                 <span>{card.categoryLabel}</span>
-                <span>{card.environmentLabel}</span>
+                {card.configurable ? <span>{card.environmentLabel}</span> : null}
               </div>
               <button
                 type="button"

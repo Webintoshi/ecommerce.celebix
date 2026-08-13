@@ -939,6 +939,40 @@ test("mounted payment catalog keeps two built-in methods before provider filters
   assert.deepEqual(selected, ["cash_on_delivery", "bank_transfer"]);
 });
 
+test("planned provider cards do not advertise a live environment while unavailable", async () => {
+  const planned = buildPaymentSettingsViewModel(
+    PAYMENT_PROVIDER_CATALOG,
+    [],
+    [],
+    [],
+    "",
+    Object.freeze({ category: "all", interactionMode: "all", readiness: "all", environment: "all" }),
+  ).catalog.cards.find(({ readiness }) => readiness === "planned")!;
+  const dialog = await compilePaymentCatalogDialog({
+    cards: Object.freeze([planned]),
+    builtInCards: Object.freeze([]),
+    totalCount: 1,
+    query: "",
+    filters: Object.freeze({ category: "all", interactionMode: "all", readiness: "all", environment: "all" }),
+    phase: "ready",
+    canManage: true,
+    mutationAvailable: true,
+    providerConfigurationAvailable: true,
+    busy: false,
+    openerRef: { current: null },
+    onQuery() {},
+    onFilters() {},
+    onConnect() {},
+    onBuiltInSelect() {},
+    onClose() {},
+  });
+  dialog.render();
+  const card = dialog.nodes().find((node) => node.type === "article" && node.props.className === "providerCard");
+  assert.ok(card);
+  assert.match(drawerText(card), /Hazırlanıyor/);
+  assert.doesNotMatch(drawerText(card), /Canlı/);
+});
+
 test("mounted payment console opens built-in create and edit drawers and reloads before success", async () => {
   const cash = method("40000000-0000-4000-8000-000000000015", 0);
   const provider = iyzicoMethod("active");
