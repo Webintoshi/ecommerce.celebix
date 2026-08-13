@@ -220,7 +220,7 @@ export function createCloudflareCustomHostnameProvider(
     },
     async find(rawHostname: string) {
       const hostname = exactHostname(rawHostname, "invalid_input");
-      const result = await request(`?hostname=${encodeURIComponent(hostname)}&page=1&per_page=2`, { method: "GET" });
+      const result = await request(`?hostname=${encodeURIComponent(hostname)}&page=1&per_page=5`, { method: "GET" });
       if (!Array.isArray(result) || result.length > 2) throw failure("malformed_response");
       const matches = result.map(snapshot).filter((item) => item.hostname === hostname);
       if (matches.length > 1) throw failure("malformed_response");

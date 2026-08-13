@@ -67,6 +67,10 @@ test("gets finds and removes only bounded custom hostname authority", async () =
   assert.equal((await provider.find("www.example.com"))?.providerHostnameId, "cf-host-1");
   assert.deepEqual(await provider.remove("cf-host-1"), { deleted: true });
   assert.deepEqual(methods.map((entry) => entry.split(":", 1)[0]), ["GET", "GET", "DELETE"]);
+  assert.equal(
+    methods[1],
+    "GET:https://api.cloudflare.com/client/v4/zones/zone_123/custom_hostnames?hostname=www.example.com&page=1&per_page=5",
+  );
 });
 
 test("classifies rate limits duplicates not-found and transient failures without provider detail", async () => {
