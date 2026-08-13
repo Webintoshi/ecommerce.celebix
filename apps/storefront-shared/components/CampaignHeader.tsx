@@ -6,6 +6,7 @@ import type {
 
 import { CampaignHeaderClient } from "./CampaignHeaderClient";
 import styles from "./campaign-header.module.css";
+import { categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
 
 export function CampaignHeader({
   storefront,
@@ -31,6 +32,7 @@ export function CampaignHeader({
     >
       <CampaignHeaderClient
         displayName={presentation.displayName}
+        locale={storefront.locale}
         logo={
           design.publicationVersion > 1
             ? (design.brand.logo ?? presentation.logo)
@@ -40,10 +42,10 @@ export function CampaignHeader({
         desktopNavigation={
           <nav className={styles.desktopNav} aria-label="Ana menü">
             <Link href="/">Ana Sayfa</Link>
-            <Link href="/products">Ürünler</Link>
+            <Link href={productIndexPath(storefront.locale)}>Ürünler</Link>
             {presentation.navigation.items.map((item) => (
               <div className={styles.megaTrigger} key={item.slug}>
-                <Link href={`/categories/${item.slug}`}>{item.name}</Link>
+                <Link href={categoryPath(storefront.locale, item.slug)}>{item.name}</Link>
                 {item.children.length || item.featured ? (
                   <div
                     className={styles.mega}
@@ -53,7 +55,7 @@ export function CampaignHeader({
                       <strong>{item.name}</strong>
                       {item.children.map((child) => (
                         <Link
-                          href={`/categories/${child.slug}`}
+                          href={categoryPath(storefront.locale, child.slug)}
                           key={child.slug}
                         >
                           {child.name}
@@ -63,7 +65,7 @@ export function CampaignHeader({
                     {item.featured ? (
                       <Link
                         className={styles.featured}
-                        href={`/categories/${item.featured.slug}`}
+                        href={categoryPath(storefront.locale, item.featured.slug)}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img

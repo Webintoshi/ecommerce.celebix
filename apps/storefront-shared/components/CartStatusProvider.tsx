@@ -19,7 +19,7 @@ export type CartStatus = Readonly<{
 
 const Context = createContext<CartStatus | null>(null);
 
-export function CartStatusProvider({ children, presentation }: Readonly<{ children: React.ReactNode; presentation?: PublicStarterThemePresentationV2["cart"] }>) {
+export function CartStatusProvider({ children, presentation, locale }: Readonly<{ children: React.ReactNode; presentation?: PublicStarterThemePresentationV2["cart"]; locale: string }>) {
   const [cart, setCart] = useState<PublicCart | null>(null);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
@@ -65,7 +65,7 @@ export function CartStatusProvider({ children, presentation }: Readonly<{ childr
     setLoading(false);
   }, []);
   const value = useMemo<CartStatus>(() => Object.freeze({ cart, loading, unavailable, drawerOpen, refresh, replaceCart, openDrawer, closeDrawer }), [cart, loading, unavailable, drawerOpen, refresh, replaceCart, openDrawer, closeDrawer]);
-  return <Context.Provider value={value}>{children}<SideCartDrawer presentation={presentation} /><span className="sr-only" aria-live="polite">{loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
+  return <Context.Provider value={value}>{children}<SideCartDrawer presentation={presentation} locale={locale} /><span className="sr-only" aria-live="polite">{loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
 }
 
 export function useCartStatus(): CartStatus {

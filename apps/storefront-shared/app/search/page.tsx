@@ -87,6 +87,7 @@ export default async function SearchPage({
         </p>
         <ProductGrid
           products={products}
+          locale={storefront.locale}
           cardStyle={storefront.presentation.theme.productCardStyle}
           imageRatio={storefront.presentation.theme.productImageRatio}
           emptyMessage={message}

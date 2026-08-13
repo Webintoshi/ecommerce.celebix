@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
 import type {
   PublicPolicyPage,
@@ -13,6 +13,11 @@ import { PRODUCT_VIEW_EVENT } from "@/lib/analytics/events.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { buildPublicPolicyPage } from "@/lib/policy-page.ts";
+import {
+  productPath,
+  storefrontRouteVariant,
+  type StorefrontRouteVariant,
+} from "@/lib/storefront-routes.ts";
 
 const LEGACY_PRODUCT_DETAIL: StarterProductDetailConfigV2 = Object.freeze({
   galleryStyle: "grid",
@@ -79,7 +84,7 @@ export async function generateMetadata({
     },
     alternates: {
       canonical: new URL(
-        `/products/${selected.product.slug}`,
+        productPath(selected.storefront.locale, selected.product.slug),
         selected.storefront.canonicalUrl,
       ).toString(),
     },
@@ -92,13 +97,18 @@ export async function generateMetadata({
     },
   };
 }
-export default async function ProductPage({
+export async function renderProductPage({
   params,
+  routeVariant,
 }: {
   params: Promise<{ slug: string }>;
+  routeVariant: StorefrontRouteVariant;
 }) {
   const selected = await product((await params).slug);
   const { storefront, product: item } = selected;
+  if (storefrontRouteVariant(storefront.locale) !== routeVariant) {
+    permanentRedirect(productPath(storefront.locale, item.slug));
+  }
   const presentation =
     selected.campaign?.presentation ?? storefront.presentation;
   const options: StarterProductDetailConfigV2 =
@@ -154,6 +164,7 @@ export default async function ProductPage({
         trigger="mount"
       />
       <ProductDetailExperience product={item}
+        locale={storefront.locale}
         relatedProducts={relatedProducts}
         publishedPolicies={publishedPolicies}
         options={options}
@@ -163,4 +174,8 @@ export default async function ProductPage({
       />
     </StorefrontFrame>
   );
+}
+
+export default function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  return renderProductPage({ params, routeVariant: "legacy" });
 }

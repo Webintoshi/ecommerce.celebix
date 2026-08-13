@@ -17,6 +17,7 @@ export default async function FavoritesPage() {
       <section className="store-section store-container">
         <h1 className="sr-only">Favoriler</h1>
         <FavoritesPageClient
+          locale={storefront.locale}
           cardStyle={storefront.presentation.theme.productCardStyle}
           imageRatio={storefront.presentation.theme.productImageRatio}
         />

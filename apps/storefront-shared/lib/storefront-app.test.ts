@@ -305,8 +305,8 @@ test("starter storefront consumes the public presentation and exposes no inert c
   assert.match(category, /PublicStorefrontRepositoryError/);
   assert.match(category, /error[.]code === "not_found" \|\| error[.]code === "invalid_input"/);
   assert.match(category, /notFound\(\)/);
-  assert.match(category, /new URL\(`\/categories\/\$\{selected[.]category[.]slug\}`/);
-  assert.match(categoryShowcase, /href=\{`\/categories\/\$\{item[.]slug\}`\}/);
+  assert.match(category, /new URL\(categoryPath\(selected[.]storefront[.]locale, selected[.]category[.]slug\)/);
+  assert.match(categoryShowcase, /href=\{categoryPath\(locale, item[.]slug\)\}/);
   assert.match(categoryShowcase, /showcase[.]heading/);
   assert.match(categoryShowcase, /item[.]image[.]url/);
   assert.match(categoryShowcase, /alt=\{item[.]name\}/);
@@ -421,6 +421,13 @@ test("storefront metadata is presentation-owned and defaults to noindex", async 
   assert.match(home, /robots/);
   assert.match(home, /presentation[.]seo[.]title/);
   assert.match(home, /presentation[.]seo[.]description/);
+});
+
+test("document language follows the resolved storefront locale", async () => {
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  assert.match(layout, /page[.]context[.]storefront[.]locale/u);
+  assert.match(layout, /<html lang=\{locale\}>/u);
+  assert.doesNotMatch(layout, /<html lang="tr">/u);
 });
 
 async function sourceFiles(directory: string): Promise<string[]> {

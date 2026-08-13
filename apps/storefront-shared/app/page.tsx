@@ -9,6 +9,11 @@ import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { CampaignHome } from "@/components/CampaignHome";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
+import {
+  localizePublicStorefrontDesign,
+  localizeStorefrontPath,
+  productIndexPath,
+} from "@/lib/storefront-routes.ts";
 
 export async function generateMetadata(): Promise<Metadata> {
   const selected = await resolveStorefrontPage();
@@ -73,7 +78,7 @@ export default async function HomePage() {
     return (
       <StorefrontFrame storefront={storefront} design={design}>
         <StorefrontDesignRenderer
-          design={design}
+          design={localizePublicStorefrontDesign(design, storefront.locale)}
           storeName={presentation.displayName}
           now={new Date()}
           showHeader={false}
@@ -84,10 +89,11 @@ export default async function HomePage() {
                 <span>SEÇİLİ KOLEKSİYON</span>
                 <h2>Yeni Ürünler</h2>
               </div>
-              <Link href="/products">Tümünü gör →</Link>
+              <Link href={productIndexPath(storefront.locale)}>Tümünü gör →</Link>
             </div>
             <ProductGrid
               products={products.items}
+              locale={storefront.locale}
               cardStyle={presentation.theme.productCardStyle}
               imageRatio={presentation.theme.productImageRatio}
             />
@@ -113,7 +119,7 @@ export default async function HomePage() {
       {presentation.promotion ? (
         <Link
           className="store-promotion"
-          href={presentation.promotion.destination}
+          href={localizeStorefrontPath(presentation.promotion.destination, storefront.locale)}
         >
           {presentation.promotion.headline}
           {presentation.promotion.body ? (
@@ -136,14 +142,14 @@ export default async function HomePage() {
             <span>YENİ SEÇKİ</span>
             <h1>{presentation.hero.headline}</h1>
             <p>{presentation.hero.body}</p>
-            <Link className="store-button" href={presentation.hero.destination}>
+            <Link className="store-button" href={localizeStorefrontPath(presentation.hero.destination, storefront.locale)}>
               Koleksiyonu keşfet
             </Link>
           </div>
         </section>
       ) : null}
       {presentation.categoryShowcase ? (
-        <CategoryShowcase showcase={presentation.categoryShowcase} />
+        <CategoryShowcase showcase={presentation.categoryShowcase} locale={storefront.locale} />
       ) : null}
       <section className="store-section store-container">
         <div className="section-heading">
@@ -151,10 +157,11 @@ export default async function HomePage() {
             <span>SEÇİLİ KOLEKSİYON</span>
             <h2>Yeni Ürünler</h2>
           </div>
-          <Link href="/products">Tümünü gör →</Link>
+          <Link href={productIndexPath(storefront.locale)}>Tümünü gör →</Link>
         </div>
         <ProductGrid
           products={products.items}
+          locale={storefront.locale}
           cardStyle={presentation.theme.productCardStyle}
           imageRatio={presentation.theme.productImageRatio}
         />

@@ -15,6 +15,7 @@ import {
 } from "react";
 
 import { StoreUtilities } from "./StoreUtilities";
+import { categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
 import styles from "./campaign-header.module.css";
 
 const focusable =
@@ -25,11 +26,13 @@ export function isActivePath(pathname: string, href: string) {
 
 export function CampaignHeaderClient({
   displayName,
+  locale,
   logo,
   navigation,
   desktopNavigation,
 }: Readonly<{
   displayName: string;
+  locale: string;
   logo?: Readonly<{
     url: string;
     altText: string;
@@ -168,9 +171,9 @@ export function CampaignHeaderClient({
               </Link>
               <Link
                 aria-current={
-                  isActivePath(pathname, "/products") ? "page" : undefined
+                  isActivePath(pathname, productIndexPath(locale)) ? "page" : undefined
                 }
-                href="/products"
+                href={productIndexPath(locale)}
                 onClick={close}
               >
                 Ürünler
@@ -180,11 +183,11 @@ export function CampaignHeaderClient({
                   <summary>{item.name}</summary>
                   <Link
                     aria-current={
-                      isActivePath(pathname, `/categories/${item.slug}`)
+                      isActivePath(pathname, categoryPath(locale, item.slug))
                         ? "page"
                         : undefined
                     }
-                    href={`/categories/${item.slug}`}
+                    href={categoryPath(locale, item.slug)}
                     onClick={close}
                   >
                     Tümünü gör
@@ -192,11 +195,11 @@ export function CampaignHeaderClient({
                   {item.children.map((child) => (
                     <Link
                       aria-current={
-                        isActivePath(pathname, `/categories/${child.slug}`)
+                        isActivePath(pathname, categoryPath(locale, child.slug))
                           ? "page"
                           : undefined
                       }
-                      href={`/categories/${child.slug}`}
+                      href={categoryPath(locale, child.slug)}
                       key={child.slug}
                       onClick={close}
                     >

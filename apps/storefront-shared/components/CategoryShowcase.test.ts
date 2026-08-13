@@ -32,10 +32,11 @@ async function compileCategoryShowcase() {
   const output = ts.transpileModule(source, { compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const runtime = { Fragment: Symbol("Fragment"), jsx: renderNode, jsxs: renderNode };
   const Link = (props: Record<string, unknown>) => renderNode("a", props);
-  const compiledModule: { exports: { CategoryShowcase?: (props: { showcase: Showcase }) => RenderNode } } = { exports: {} };
+  const compiledModule: { exports: { CategoryShowcase?: (props: { showcase: Showcase; locale: string }) => RenderNode } } = { exports: {} };
   Function("require", "module", "exports", output)((specifier: string) => {
     if (specifier === "react/jsx-runtime") return runtime;
     if (specifier === "next/link") return Link;
+    if (specifier === "@/lib/storefront-routes.ts") return { categoryPath: (locale: string, slug: string) => locale.startsWith("tr") ? `/kategori/${slug}` : `/categories/${slug}` };
     throw new Error(`unexpected_category_showcase_import:${specifier}`);
   }, compiledModule, compiledModule.exports);
   assert.ok(compiledModule.exports.CategoryShowcase);
@@ -44,7 +45,7 @@ async function compileCategoryShowcase() {
 
 test("the starter category showcase exposes its persisted responsive layout to the rendered grid", async () => {
   const CategoryShowcase = await compileCategoryShowcase();
-  const tree = CategoryShowcase({ showcase: {
+  const tree = CategoryShowcase({ locale: "tr", showcase: {
     heading: "Kategorileri keşfedin",
     layout: "duo",
     items: [{ id: "81000000-0000-4000-8000-000000000001", name: "Bileklikler", slug: "bileklikler", image: { url: "https://media.example/bileklikler.webp", altText: "Bileklikler", width: 896, height: 1195 } }],
@@ -52,5 +53,5 @@ test("the starter category showcase exposes its persisted responsive layout to t
   const grid = findNode(tree, (node) => node.props.className === "category-showcase-grid");
   const link = findNode(tree, (node) => node.type === "a");
   assert.equal(grid?.props["data-layout"], "duo");
-  assert.equal(link?.props.href, "/categories/bileklikler");
+  assert.equal(link?.props.href, "/kategori/bileklikler");
 });

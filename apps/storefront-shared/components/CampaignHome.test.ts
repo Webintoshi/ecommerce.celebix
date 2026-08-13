@@ -16,7 +16,7 @@ test("an intentionally empty homepage exposes no visible campaign sections", asy
 });
 test("hero uses stable desktop mobile media and canonical hotspot", async () => { const source = await read("CampaignHero.tsx"); for (const token of ["<picture", "mobileImage", "desktopImage", "width=", "height=", "hotspot.productSlug", "hotspot.priceCents"]) assert.match(source, new RegExp(token)); });
 test("hero rotation is explicit scroll snap without autoplay", async () => { const [client, css] = await Promise.all([read("CampaignHeroClient.tsx"), read("campaign-home.module.css")]); assert.match(client, /scrollBy/); assert.match(client, /Önceki slayt/); assert.match(client, /Sonraki slayt/); assert.doesNotMatch(client, /setInterval|autoplay/); assert.match(css, /scroll-snap-type/); });
-test("category and campaign panels use only safe public relative destinations", async () => { const source = await read("CampaignPanels.tsx"); assert.match(source, /`\/categories\/\$\{item[.]slug\}`/); assert.match(source, /panel[.]destination/); assert.doesNotMatch(source, /assetId|categoryId|storeId|tenantId/); });
+test("category and campaign panels use only locale-aware safe public destinations", async () => { const source = await read("CampaignPanels.tsx"); assert.match(source, /categoryPath\(locale, item[.]slug\)/); assert.match(source, /localizeStorefrontPath\(panel[.]destination, locale\)/); assert.doesNotMatch(source, /assetId|categoryId|storeId|tenantId/); });
 test("category showcase renders only the persisted duo or grid layout with responsive image ratios", async () => {
   const [source, css] = await Promise.all([read("CampaignPanels.tsx"), read("campaign-home.module.css")]);
   assert.match(source, /section[.]layout === "duo"/);
@@ -96,7 +96,7 @@ test("published design banner augments campaign sections without a duplicate her
 test("campaign announcement keeps its exact safe destination and visual controls reach the storefront", async () => {
   const [home, frame, model, css, campaignCss] = await Promise.all([read("CampaignHome.tsx"), read("StorefrontFrame.tsx"), read("campaign-ui-model.ts"), read("../app/globals.css"), read("campaign-home.module.css")]);
   assert.match(home, /announcement[.]destination/);
-  assert.match(home, /href=\{announcement[.]destination\}/);
+  assert.match(home, /href=\{localizeStorefrontPath\(announcement[.]destination, storefront[.]locale\)\}/);
   assert.match(home, /campaignAnnouncement\(presentation\)/);
   assert.match(frame, /campaignFrameSettings\(storefront[.]presentation\)/);
   assert.match(frame, /presentation=\{campaign[.]cart\}/);

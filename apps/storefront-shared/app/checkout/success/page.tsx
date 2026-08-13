@@ -6,6 +6,7 @@ import { CheckoutSummary } from "@/components/CheckoutSummary";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
+import { productIndexPath } from "@/lib/storefront-routes.ts";
 
 export const metadata: Metadata = {
   title: "Sipariş alındı",
@@ -93,7 +94,7 @@ export default async function CheckoutSuccessPage() {
             <span>◇</span>
             <h2>Makbuz kullanılamıyor</h2>
             <p>Yeni siparişinizi sepetten güvenle oluşturabilirsiniz.</p>
-            <Link className="store-button" href="/products">
+            <Link className="store-button" href={productIndexPath(storefront.locale)}>
               Ürünleri keşfet
             </Link>
           </div>

@@ -16,7 +16,7 @@ export default async function CartPage() {
     <StorefrontFrame storefront={storefront} design={design}>
       <section className="store-section store-container">
         <h1 className="sr-only">Sepet</h1>
-        <CartPageClient />
+        <CartPageClient locale={storefront.locale} />
       </section>
     </StorefrontFrame>
   );

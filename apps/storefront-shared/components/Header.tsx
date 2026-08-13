@@ -5,6 +5,7 @@ import type {
 } from "@celebix/saas-contracts";
 import { StoreUtilities } from "./StoreUtilities";
 import { CampaignHeader } from "./CampaignHeader";
+import { productIndexPath } from "@/lib/storefront-routes.ts";
 
 export function Header({
   storefront,
@@ -50,7 +51,7 @@ export function Header({
         </Link>
         <nav className="desktop-nav" aria-label="Ana menü">
           <Link href="/">Ana Sayfa</Link>
-          <Link href="/products">Ürünler</Link>
+          <Link href={productIndexPath(storefront.locale)}>Ürünler</Link>
         </nav>
         <div className="header-actions">
           <StoreUtilities />
@@ -58,7 +59,7 @@ export function Header({
             <summary aria-label="Menüyü aç">Menü</summary>
             <nav aria-label="Mobil menü">
               <Link href="/">Ana Sayfa</Link>
-              <Link href="/products">Ürünler</Link>
+              <Link href={productIndexPath(storefront.locale)}>Ürünler</Link>
             </nav>
           </details>
         </div>

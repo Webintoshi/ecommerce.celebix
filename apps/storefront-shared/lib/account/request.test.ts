@@ -38,6 +38,6 @@ test("account request rejects cross-site private ambiguous and oversized request
 });
 
 test("account return paths are normalized and restricted to shopper flows", () => {
-  for (const value of ["/account", "/account/orders/CX-100", "/checkout", "/cart", "/products/altin-yuzuk", "/favorites"]) assert.equal(safeAccountReturnTo(value), value);
+  for (const value of ["/account", "/account/orders/CX-100", "/checkout", "/cart", "/products/altin-yuzuk", "/urun/altin-yuzuk", "/urunler", "/categories/yuzukler", "/kategori/yuzukler", "/favorites"]) assert.equal(safeAccountReturnTo(value), value);
   for (const value of [undefined, "", "//evil.example", "https://evil.example/account", "/admin", "/api/account", "/products/../admin", "/account#x", "/checkout?total=1", "/account\\evil"]) assert.equal(safeAccountReturnTo(value), "/account");
 });

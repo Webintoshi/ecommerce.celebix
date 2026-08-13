@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import { mergePublishedPolicyFooterGroups } from "@/lib/footer-policies.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
+import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 
 import { RetailFooter } from "./RetailFooter";
 
@@ -58,7 +59,7 @@ export async function Footer({ storefront }: { storefront: PublicStorefront }) {
           <nav aria-label={group.heading} key={group.heading}>
             <span>{group.heading}</span>
             {group.links.map((link) => (
-              <Link href={link.destination} key={`${link.destination}-${link.label}`}>
+              <Link href={localizeStorefrontPath(link.destination, storefront.locale)} key={`${link.destination}-${link.label}`}>
                 {link.label}
               </Link>
             ))}

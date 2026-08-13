@@ -13,7 +13,7 @@ import { ProductGrid } from "./ProductGrid";
 
 type State = Readonly<{ kind: "loading" }> | Readonly<{ kind: "error" }> | Readonly<{ kind: "loaded"; products: readonly PublicProduct[] }>;
 
-export function FavoritesPageClient({ cardStyle, imageRatio }: Readonly<{ cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"]; imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"] }>) {
+export function FavoritesPageClient({ locale, cardStyle, imageRatio }: Readonly<{ locale: string; cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"]; imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"] }>) {
   const [state, setState] = useState<State>(Object.freeze({ kind: "loading" }));
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -47,5 +47,5 @@ export function FavoritesPageClient({ cardStyle, imageRatio }: Readonly<{ cardSt
 
   if (state.kind === "loading") return <p className="store-status" role="status">Favoriler yükleniyor…</p>;
   if (state.kind === "error") return <div className="store-empty" role="alert"><span>◇</span><h2>Favoriler yüklenemedi</h2><p>Lütfen yeniden deneyin.</p><button className="store-button" type="button" onClick={() => void load()}>Yeniden dene</button></div>;
-  return <ProductGrid products={state.products} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage="Henüz favori ürününüz yok." />;
+  return <ProductGrid products={state.products} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage="Henüz favori ürününüz yok." />;
 }

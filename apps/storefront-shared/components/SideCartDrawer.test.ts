@@ -13,7 +13,7 @@ const [drawer, provider, utilities, card, detail, mutation, css] = await Promise
 ]);
 
 test("one provider owns a canonical side-cart and both add surfaces auto-open it", () => {
-  assert.match(provider, /<SideCartDrawer\s+presentation=\{presentation\}\s*\/>/u);
+  assert.match(provider, /<SideCartDrawer\s+presentation=\{presentation\}\s+locale=\{locale\}\s*\/>/u);
   for (const proof of ["drawerOpen", "openDrawer", "closeDrawer"]) assert.match(`${provider}\n${card}\n${detail}`, new RegExp(proof, "u"));
   assert.doesNotMatch(`${provider}\n${drawer}`, /tenantId|storeId|priceCents\s*:/u);
 });

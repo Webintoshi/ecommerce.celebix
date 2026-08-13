@@ -1,6 +1,6 @@
 const MAXIMUM_BODY_BYTES = 8_192;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
-const SAFE_PATH = /^\/(?:account(?:\/[A-Za-z0-9_-]+)*|checkout|cart|products(?:\/[A-Za-z0-9_-]+)?|favorites)$/;
+const SAFE_PATH = /^\/(?:account(?:\/[A-Za-z0-9_-]+)*|checkout|cart|products(?:\/[A-Za-z0-9_-]+)?|urun\/[A-Za-z0-9_-]+|urunler|categories\/[A-Za-z0-9_-]+|kategori\/[A-Za-z0-9_-]+|favorites)$/;
 
 function invalid(): never { throw new TypeError("storefront_account_request_invalid"); }
 

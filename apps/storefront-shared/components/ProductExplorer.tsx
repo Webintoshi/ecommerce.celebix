@@ -14,10 +14,12 @@ const FILTERS = Object.freeze([
 
 export function ProductExplorer({
   products,
+  locale,
   cardStyle,
   imageRatio,
 }: Readonly<{
   products: readonly PublicProduct[];
+  locale: string;
   cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"];
   imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"];
 }>) {
@@ -36,6 +38,6 @@ export function ProductExplorer({
       </select></label>
     </div>
     <p className="explorer-count" aria-live="polite">{visible.length} ürün gösteriliyor</p>
-    <ProductGrid products={visible} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage={products.length ? "Aramanızla eşleşen ürün bulunamadı." : undefined} />
+    <ProductGrid products={visible} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage={products.length ? "Aramanızla eşleşen ürün bulunamadı." : undefined} />
   </div>;
 }

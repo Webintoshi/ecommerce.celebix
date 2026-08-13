@@ -6,13 +6,14 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { PublicCartLine, PublicStarterThemePresentationV2 } from "@celebix/saas-contracts";
 import { storefrontCartClient } from "@/lib/cart/client.ts";
 import { formatTry } from "@/lib/format.ts";
+import { productIndexPath, productPath } from "@/lib/storefront-routes.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { sideCartPresentation } from "./campaign-ui-model";
 import { mutateSideCartLine } from "./side-cart-mutation";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-export function SideCartDrawer({ presentation }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"] }>) {
+export function SideCartDrawer({ presentation, locale }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"]; locale: string }>) {
   const { cart, loading, unavailable, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);
@@ -52,12 +53,12 @@ export function SideCartDrawer({ presentation }: Readonly<{ presentation?: Publi
   return <div className="side-cart-backdrop" data-state="open" data-campaign-cart="true" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
     <section className="side-cart-dialog campaign-side-cart" role="dialog" aria-modal="true" aria-labelledby="side-cart-title" onKeyDown={trapKeyboard}>
       <header className="side-cart-header"><div><h2 id="side-cart-title">Sepetim</h2>{cart ? <span className="side-cart-header-count">{cart.itemCount} ürün</span> : null}</div><button ref={closeRef} type="button" aria-label="Sepeti kapat" onClick={closeDrawer}>×</button></header>
-      {!cart && unavailable ? <div className="side-cart-empty is-unavailable" role="status"><span aria-hidden="true">!</span><h3>Sepet şu anda kullanılamıyor</h3><p>Güncel sepet doğrulanamadı. Lütfen yeniden deneyin.</p><button className="store-button" type="button" disabled={loading} onClick={() => void refresh()}>{loading ? "Yükleniyor…" : "Tekrar dene"}</button></div> : !cart ? <div className="side-cart-empty" aria-busy="true" role="status"><span aria-hidden="true">◇</span><h3>Sepet yükleniyor</h3><p>Güncel ürünleriniz hazırlanıyor.</p></div> : cart.items.length === 0 ? <div className="side-cart-empty"><span aria-hidden="true">◇</span><h3>Sepetiniz boş</h3><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href="/products" onClick={closeDrawer}>Ürünleri keşfet</Link></div> : <>
+      {!cart && unavailable ? <div className="side-cart-empty is-unavailable" role="status"><span aria-hidden="true">!</span><h3>Sepet şu anda kullanılamıyor</h3><p>Güncel sepet doğrulanamadı. Lütfen yeniden deneyin.</p><button className="store-button" type="button" disabled={loading} onClick={() => void refresh()}>{loading ? "Yükleniyor…" : "Tekrar dene"}</button></div> : !cart ? <div className="side-cart-empty" aria-busy="true" role="status"><span aria-hidden="true">◇</span><h3>Sepet yükleniyor</h3><p>Güncel ürünleriniz hazırlanıyor.</p></div> : cart.items.length === 0 ? <div className="side-cart-empty"><span aria-hidden="true">◇</span><h3>Sepetiniz boş</h3><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href={productIndexPath(locale)} onClick={closeDrawer}>Ürünleri keşfet</Link></div> : <>
         <div className="side-cart-lines" aria-label="Sepetteki ürünler">{cart.items.map((line) => {
           const pending = pendingVariant === line.variantId;
           return <article className="side-cart-line campaign-side-cart-item" key={line.variantId}>
-            <Link className="side-cart-media" href={`/products/${line.slug}`} onClick={closeDrawer}>{line.media ? /* eslint-disable-next-line @next/next/no-img-element */<img src={line.media.url} alt={line.media.altText || line.title} loading="lazy" width={line.media.width ?? 96} height={line.media.height ?? 96} /> : <span aria-hidden="true">◇</span>}</Link>
-            <div className="side-cart-line-copy"><Link href={`/products/${line.slug}`} onClick={closeDrawer}>{line.title}</Link>{line.variantTitle && line.variantTitle !== "Varsayılan" ? <span>{line.variantTitle}</span> : null}<strong className="side-cart-line-price">{formatTry(line.unitPriceCents)}</strong>{line.available ? null : <em>Stok veya fiyat bilgisi değişti</em>}
+            <Link className="side-cart-media" href={productPath(locale, line.slug)} onClick={closeDrawer}>{line.media ? /* eslint-disable-next-line @next/next/no-img-element */<img src={line.media.url} alt={line.media.altText || line.title} loading="lazy" width={line.media.width ?? 96} height={line.media.height ?? 96} /> : <span aria-hidden="true">◇</span>}</Link>
+            <div className="side-cart-line-copy"><Link href={productPath(locale, line.slug)} onClick={closeDrawer}>{line.title}</Link>{line.variantTitle && line.variantTitle !== "Varsayılan" ? <span>{line.variantTitle}</span> : null}<strong className="side-cart-line-price">{formatTry(line.unitPriceCents)}</strong>{line.available ? null : <em>Stok veya fiyat bilgisi değişti</em>}
               <div className="side-cart-line-utility">{campaignPresentation.showQuantitySelector
                   ? <div className="side-cart-quantity" aria-label={`${line.title} adet`}><button type="button" aria-label={`${line.title} adet azalt`} disabled={pending || line.quantity <= 1} onClick={() => void mutate(line, line.quantity - 1)}>−</button><span>{line.quantity}</span><button type="button" aria-label={`${line.title} adet artır`} disabled={pending || line.quantity >= 99} onClick={() => void mutate(line, line.quantity + 1)}>+</button></div>
                   : <span className="side-cart-quantity-copy">{line.quantity} adet</span>}

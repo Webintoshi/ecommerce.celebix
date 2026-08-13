@@ -42,7 +42,7 @@ export function StorefrontFrame({
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link rel="stylesheet" href={typography.stylesheetUrl} />
-      <CartStatusProvider presentation={campaign.cart}>
+      <CartStatusProvider presentation={campaign.cart} locale={storefront.locale}>
         <FavoriteStatusProvider>
           <div
             className={`starter-storefront ${campaign.campaignClass} ${campaign.cornerClass} ${hasAnnouncement ? "has-announcement" : ""} ${tokens.schemeClass} ${tokens.headingClass} ${tokens.cardClass} ${tokens.imageClass}`}
