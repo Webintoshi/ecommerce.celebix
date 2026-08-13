@@ -51,6 +51,13 @@ function initializeInput(
 ): HostedPaymentInitializeInput<typeof credential> {
   return Object.freeze({
     environment: "test",
+    preferences: Object.freeze({
+      environment: "test" as const,
+      locale: "tr" as const,
+      threeDSecure: "provider_managed" as const,
+      installmentMode: "all" as const,
+      maxInstallment: 0 as const,
+    }),
     credential,
     attemptId: "11111111-1111-4111-8111-111111111111",
     orderReference: "merchant-order-123",
@@ -157,6 +164,49 @@ test("initializes once with the exact documented body and provider-owned present
   assert.equal(observedBody, EXPECTED_INITIALIZE_BODY);
   assert.equal(observed?.body.every((byte) => byte === 0), true);
   assert.equal(returnedBody.every((byte) => byte === 0), true);
+});
+
+test("maps immutable installment preferences to exact PayTR request fields", async () => {
+  const cases = [
+    [{ installmentMode: "all", maxInstallment: 0 }, ["0", "0"]],
+    [{ installmentMode: "single_payment", maxInstallment: 0 }, ["1", "0"]],
+    [{ installmentMode: "limited", maxInstallment: 6 }, ["0", "6"]],
+  ] as const;
+  for (const [preference, expected] of cases) {
+    let observed = new URLSearchParams();
+    const adapter = createPaytrIframeAdapter(transport((request) => {
+      observed = new URLSearchParams(new TextDecoder().decode(request.body));
+      return response(`{"status":"success","token":"${TOKEN}"}`);
+    }));
+    assert.equal((await adapter.initialize(initializeInput({
+      preferences: Object.freeze({
+        ...initializeInput().preferences,
+        ...preference,
+      }),
+    }))).kind, "iframe");
+    assert.deepEqual(
+      [observed.get("no_installment"), observed.get("max_installment")],
+      expected,
+    );
+  }
+});
+
+test("rejects malformed or environment-mismatched PayTR preferences before transport", async () => {
+  let calls = 0;
+  const adapter = createPaytrIframeAdapter(transport(() => {
+    calls += 1;
+    return response(`{"status":"success","token":"${TOKEN}"}`);
+  }));
+  for (const preferences of [
+    { ...initializeInput().preferences, environment: "live" },
+    { ...initializeInput().preferences, installmentMode: "limited", maxInstallment: 0 },
+    { ...initializeInput().preferences, extra: true },
+  ]) {
+    assert.deepEqual(await adapter.initialize(initializeInput({
+      preferences: preferences as never,
+    })), { kind: "rejected", code: "invalid_request" });
+  }
+  assert.equal(calls, 0);
 });
 
 test("contains rejection, timeout, malformed response, and thrown transport without retry", async () => {

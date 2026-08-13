@@ -76,6 +76,19 @@ test("first add persists only a digest and exposes raw credential only as a prov
   assert.match(result.setCookie ?? "", /^__Host-celebix_cart=c1[.]current_01[.]/u);
   assert.equal(JSON.stringify(observed).includes("c1.current_01"), false);
   assert.equal(observed?.cart?.digest.length, 64);
+  assert.deepEqual(observed?.customerCandidates, []);
+});
+
+test("cart mutation forwards only verified customer cookie digest candidates", async () => {
+  let observed: Parameters<StorefrontCommerceRepository["mutateCart"]>[0] | undefined;
+  const selected = runtime(fake({ mutateCart: async (input) => { observed = input; return { credentialCreated: true, cart: CART }; } }));
+  const customer = createStorefrontCredential("customer", keyring, (size) => new Uint8Array(size).fill(5));
+  const cookie = `__Host-celebix_customer=${customer.value}`;
+  await selected.mutateCart(HOST, cookie, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
+  assert.equal(observed?.customerCandidates.length, 1);
+  assert.equal(observed?.customerCandidates[0]?.keyId, "current_01");
+  assert.match(observed?.customerCandidates[0]?.digest ?? "", /^[a-f0-9]{64}$/u);
+  assert.equal(JSON.stringify(observed).includes(customer.value), false);
 });
 
 test("repository failure never emits a cart or checkout credential", async () => {

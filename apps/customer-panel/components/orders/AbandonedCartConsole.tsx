@@ -22,6 +22,14 @@ function customerDetail(cart: AbandonedCartListItem) {
   if (cart.customerPhone) return "Telefon ile tanımlı";
   return "İletişim bilgisi yok";
 }
+function product(cart: AbandonedCartListItem) { return cart.firstProductName ?? "Ürün bilgisi yok"; }
+function CustomerIdentity({ cart }: { cart: AbandonedCartListItem }) {
+  const content = <><strong>{customer(cart)}</strong>{cart.customerId ? <span className={styles.accountBadge}>Kayıtlı müşteri</span> : null}<small>{customerDetail(cart)}</small></>;
+  return cart.customerId ? <Link className={styles.customerLink} href={`/customers/${cart.customerId}`}>{content}</Link> : <div className={styles.customerIdentity}>{content}</div>;
+}
+function ProductIdentity({ cart }: { cart: AbandonedCartListItem }) {
+  return <div className={styles.productIdentity}><strong>{product(cart)}</strong><small>{cart.itemCount > 1 ? `+ ${cart.itemCount - 1} ürün` : `${cart.itemCount} ürün`}</small></div>;
+}
 function message(error: unknown) { return error instanceof AbandonedCartApiError ? error.message : "Sepetler yüklenemedi. Lütfen yeniden deneyin."; }
 
 function Metric({ label, value, detail, icon: Icon, emphasis = "neutral" }: {
@@ -44,12 +52,12 @@ function CartCard({ cart }: { cart: AbandonedCartListItem }) {
   return (
     <article className={styles.cartCard}>
       <div className={styles.cardHeading}>
-        <div><strong>{customer(cart)}</strong><small>{customerDetail(cart)}</small></div>
+        <CustomerIdentity cart={cart} />
         <PanelStatusBadge tone={tone(cart.status)}>{STATUS[cart.status]}</PanelStatusBadge>
       </div>
       <dl>
         <div><dt>Toplam</dt><dd className={styles.cardTotal}>{money(cart.totalCents, cart.currency)}</dd></div>
-        <div><dt>Ürün</dt><dd>{cart.itemCount.toLocaleString("tr-TR")} ürün</dd></div>
+        <div><dt>Ürün</dt><dd><ProductIdentity cart={cart} /></dd></div>
         <div><dt>Son etkinlik</dt><dd><time dateTime={cart.lastActivityAt}>{date(cart.lastActivityAt)}</time></dd></div>
       </dl>
       <Link className={styles.detailLink} href={`/orders/abandoned-carts/${cart.id}`}>İncele<ArrowRight aria-hidden="true" /></Link>
@@ -77,7 +85,7 @@ export function AbandonedCartListPresentation(props: Readonly<{ state: State; it
           <label className={styles.search}>
             <span className="sr-only">Sepet ara</span>
             <Search aria-hidden="true" />
-            <input value={props.search} onChange={(event) => props.onSearch(event.target.value)} placeholder="Müşteri adı, e-posta veya telefon" maxLength={200} />
+            <input value={props.search} onChange={(event) => props.onSearch(event.target.value)} placeholder="Müşteri, e-posta, telefon veya ürün" maxLength={200} />
             <button type="submit">Ara</button>
           </label>
           <label className={styles.selectControl}>
@@ -107,10 +115,10 @@ export function AbandonedCartListPresentation(props: Readonly<{ state: State; it
                 <thead><tr><th>Müşteri</th><th>Durum</th><th>Son etkinlik</th><th>Ürün</th><th className={styles.numericHeading}>Toplam</th><th className={styles.actionHeading}>İşlem</th></tr></thead>
                 <tbody>{props.items.map((cart) => (
                   <tr key={cart.id}>
-                    <td className={styles.customerCell}><strong>{customer(cart)}</strong><small>{customerDetail(cart)}</small></td>
+                    <td className={styles.customerCell}><CustomerIdentity cart={cart} /></td>
                     <td><PanelStatusBadge tone={tone(cart.status)}>{STATUS[cart.status]}</PanelStatusBadge></td>
                     <td className={styles.activityCell}><time dateTime={cart.lastActivityAt}>{date(cart.lastActivityAt)}</time></td>
-                    <td><span className={styles.productCount}><Package2 aria-hidden="true" />{cart.itemCount.toLocaleString("tr-TR")} ürün</span></td>
+                    <td><ProductIdentity cart={cart} /></td>
                     <td className={styles.totalCell}><strong>{money(cart.totalCents, cart.currency)}</strong></td>
                     <td className={styles.actionCell}><Link className={styles.rowAction} href={`/orders/abandoned-carts/${cart.id}`}>İncele<ArrowRight aria-hidden="true" /></Link></td>
                   </tr>

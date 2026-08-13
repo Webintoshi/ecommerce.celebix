@@ -4,6 +4,11 @@ import type {
   PaymentMethodMutationResult,
   PaymentProviderEnvironment,
 } from "@celebix/saas-contracts";
+import {
+  defaultProviderPaymentMethodConfig,
+  parseProviderPaymentMethodConfig,
+  type ExecutableHostedPaymentProvider,
+} from "@celebix/saas-contracts";
 
 import type {
   PaymentMethodOrderCommand,
@@ -89,10 +94,14 @@ function exactEnvironmentMethods(
   environment: PaymentProviderEnvironment,
 ): readonly MerchantPaymentMethod[] {
   return Object.freeze(providerBindings(methods, providerCode, profileId).filter((method) => {
-    const keys = Object.keys(method.config);
-    return keys.length === 1
-      && keys[0] === "environment"
-      && method.config.environment === environment;
+    try {
+      return parseProviderPaymentMethodConfig(
+        providerCode as ExecutableHostedPaymentProvider,
+        method.config,
+      ).environment === environment;
+    } catch {
+      return false;
+    }
   }));
 }
 
@@ -185,6 +194,15 @@ export async function activateProviderPaymentMethod(input: Readonly<{
   if (providerBindings(input.methods, input.card.providerCode, input.profile.id).length > 0) {
     return activationResult("awaiting_authority", null, false);
   }
+  let config;
+  try {
+    config = defaultProviderPaymentMethodConfig(
+      input.card.providerCode as ExecutableHostedPaymentProvider,
+      environment,
+    );
+  } catch {
+    return activationResult("awaiting_authority", null, false);
+  }
 
   let saved: PaymentMethodMutationResult;
   try {
@@ -195,7 +213,7 @@ export async function activateProviderPaymentMethod(input: Readonly<{
       profileId: input.profile.id,
       providerCode: input.card.providerCode,
       label: input.card.executableDescriptor!.label,
-      config: Object.freeze({ environment }),
+      config,
     }));
   } catch (error) {
     if (!recoverableActivationError(error)) throw error;
@@ -236,7 +254,7 @@ export async function activateProviderPaymentMethod(input: Readonly<{
       state: saved.state,
       emergencyReason: null,
       position: saved.position,
-      config: Object.freeze({ environment }),
+      config,
       version: saved.version,
       createdAt: saved.updatedAt,
       updatedAt: saved.updatedAt,

@@ -51,11 +51,12 @@ test("cart resolve uses one read-only hostname/digest workflow and releases afte
 
 test("new cart mutation sends only generated digest metadata and canonical product authority", async () => {
   const client = new Client(responder("committed", { credentialCreated: true, cart: CART }));
-  const result = await repository(new Pool([client])).mutateCart({ hostname: HOST, now: NOW, candidates: [], cart: { id: "60000000-0000-4000-8000-000000000081", keyId: "current_01", digest: DIGEST, expiresAt: new Date("2026-08-30T12:00:00.000Z") }, operationId: OPERATION, action: "add", expectedVersion: 0, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
+  const result = await repository(new Pool([client])).mutateCart({ hostname: HOST, now: NOW, candidates: [], customerCandidates: CANDIDATES, cart: { id: "60000000-0000-4000-8000-000000000081", keyId: "current_01", digest: DIGEST, expiresAt: new Date("2026-08-30T12:00:00.000Z") }, operationId: OPERATION, action: "add", expectedVersion: 0, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
   assert.deepEqual(result, { credentialCreated: true, cart: CART });
   const selected = client.calls.find(({ text }) => text.includes("saas.public_cart_mutate"));
   assert.equal(selected?.values.includes(PRODUCT), true);
   assert.equal(selected?.values.includes(VARIANT), true);
+  assert.equal(selected?.values.at(-1), JSON.stringify(CANDIDATES));
   assert.equal(JSON.stringify(selected?.values).includes("credential"), false);
 });
 

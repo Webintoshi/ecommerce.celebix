@@ -150,9 +150,10 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
 
   async mutateCart(input: Parameters<StorefrontCommerceRepository["mutateCart"]>[0]) {
     try {
-      const parsed = exactCommerceInput(input, ["hostname", "now", "candidates", "operationId", "action", "expectedVersion", "productId", "variantId"], ["cart", "quantity"]);
+      const parsed = exactCommerceInput(input, ["hostname", "now", "candidates", "customerCandidates", "operationId", "action", "expectedVersion", "productId", "variantId"], ["cart", "quantity"]);
       const now = commerceDate(parsed.now);
       const candidates = commerceCandidates(parsed.candidates, true);
+      const customerCandidates = commerceCandidates(parsed.customerCandidates, true);
       const cart = Object.hasOwn(parsed, "cart") ? commerceGeneratedCredential(parsed.cart, now, 31) : undefined;
       if ((candidates.length === 0) !== Boolean(cart) || (candidates.length === 0 && (parsed.action !== "add" || parsed.expectedVersion !== 0))) throw failure("invalid_input");
       if (parsed.action !== "add" && parsed.action !== "quantity" && parsed.action !== "remove") throw failure("invalid_input");
@@ -162,10 +163,10 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
       const expectedVersion = commerceVersion(parsed.expectedVersion);
       const productId = commerceUuid(parsed.productId);
       const variantId = commerceUuid(parsed.variantId);
-      const operationFingerprint = fingerprint(["storefront-cart/v1", operationId, parsed.action, expectedVersion, productId, variantId, quantity ?? null]);
+      const operationFingerprint = fingerprint(["storefront-cart/v2", customerCandidates, operationId, parsed.action, expectedVersion, productId, variantId, quantity ?? null]);
       return await this.write(
-        "SELECT outcome,result_payload FROM saas.public_cart_mutate($1::text,$2::timestamptz,$3::jsonb,$4::uuid,$5::text,$6::text,$7::timestamptz,$8::uuid,$9::text,$10::text,$11::bigint,$12::uuid,$13::uuid,$14::integer)",
-        [commerceHostname(parsed.hostname), now, JSON.stringify(candidates), cart?.id ?? commerceUuid("00000000-0000-4000-8000-000000000000"), cart?.keyId ?? null, cart?.digest ?? null, cart?.expiresAt ?? null, operationId, operationFingerprint, parsed.action, expectedVersion, productId, variantId, quantity ?? null],
+        "SELECT outcome,result_payload FROM saas.public_cart_mutate($1::text,$2::timestamptz,$3::jsonb,$4::uuid,$5::text,$6::text,$7::timestamptz,$8::uuid,$9::text,$10::text,$11::bigint,$12::uuid,$13::uuid,$14::integer,$15::jsonb)",
+        [commerceHostname(parsed.hostname), now, JSON.stringify(candidates), cart?.id ?? commerceUuid("00000000-0000-4000-8000-000000000000"), cart?.keyId ?? null, cart?.digest ?? null, cart?.expiresAt ?? null, operationId, operationFingerprint, parsed.action, expectedVersion, productId, variantId, quantity ?? null, JSON.stringify(customerCandidates)],
         ["committed", "operation_replayed"],
         (value) => {
           const selected = exactResult(value, ["credentialCreated", "cart"]);

@@ -101,6 +101,13 @@ function initializeInput(
 ): HostedPaymentInitializeInput<typeof credential> {
   return Object.freeze({
     environment: "test",
+    preferences: Object.freeze({
+      environment: "test" as const,
+      locale: "tr" as const,
+      threeDSecure: "provider_managed" as const,
+      installmentMode: "all" as const,
+      maxInstallment: 0 as const,
+    }),
     credential,
     attemptId: ATTEMPT_ID,
     orderReference: ORDER_REFERENCE,
@@ -239,6 +246,61 @@ test("initializes an exact signed iyzico Checkout Form request and preserves bas
   assert.ok(dispatchedBody);
   assert.equal(dispatchedBody.every((byte) => byte === 0), true);
   assert.equal(providerResponse.kind === "response" && providerResponse.body.every((byte) => byte === 0), true);
+});
+
+test("maps locale and installment preferences to the exact iyzico payload and presentation URL", async () => {
+  const observed: Array<Record<string, unknown>> = [];
+  const responses = [
+    signedInitialize({ paymentPageUrl: `https://sandbox-cpp.iyzipay.com?token=${TOKEN}&lang=en` }),
+    signedInitialize(),
+  ];
+  const adapter = createIyzicoCheckoutFormAdapter(transport((request) => {
+    observed.push(JSON.parse(new TextDecoder().decode(request.body)) as Record<string, unknown>);
+    return response(responses.shift());
+  }), Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+
+  assert.deepEqual(await adapter.initialize(initializeInput({
+    preferences: Object.freeze({
+      environment: "test",
+      locale: "en",
+      threeDSecure: "provider_managed",
+      installmentMode: "limited",
+      maxInstallment: 6,
+    }),
+  })), {
+    kind: "iframe",
+    url: `https://sandbox-cpp.iyzipay.com?token=${TOKEN}&lang=en`,
+    token: TOKEN,
+    providerReference: TOKEN,
+  });
+  assert.equal(observed[0]?.locale, "en");
+  assert.deepEqual(observed[0]?.enabledInstallments, [1, 2, 3, 6]);
+
+  assert.equal((await adapter.initialize(initializeInput({
+    preferences: Object.freeze({
+      ...initializeInput().preferences,
+      installmentMode: "single_payment",
+    }),
+  }))).kind, "iframe");
+  assert.deepEqual(observed[1]?.enabledInstallments, [1]);
+});
+
+test("rejects malformed or environment-mismatched iyzico preferences before transport", async () => {
+  let calls = 0;
+  const adapter = createIyzicoCheckoutFormAdapter(transport(() => {
+    calls += 1;
+    return response(signedInitialize());
+  }), Object.freeze({ randomKey: Object.freeze(() => RANDOM_KEY) }));
+  for (const preferences of [
+    { ...initializeInput().preferences, environment: "live" },
+    { ...initializeInput().preferences, installmentMode: "limited", maxInstallment: 0 },
+    { ...initializeInput().preferences, unknown: true },
+  ]) {
+    assert.deepEqual(await adapter.initialize(initializeInput({
+      preferences: preferences as never,
+    })), { kind: "rejected", code: "invalid_request" });
+  }
+  assert.equal(calls, 0);
 });
 
 test("requires merchant-supplied buyer identity, address core, item type, and exact totals before transport", async () => {

@@ -427,6 +427,44 @@
   line-height: 1.35;
 }
 
+.customerIdentity,
+.customerLink,
+.productIdentity {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.customerLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.customerLink:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.accountBadge {
+  width: max-content;
+  border: 1px solid #BBF7D0;
+  border-radius: 999px;
+  background: #EAF8EF;
+  padding: 2px 6px;
+  color: #166534;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.productIdentity strong,
+.productIdentity small {
+  max-width: 17rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .activityCell time {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;

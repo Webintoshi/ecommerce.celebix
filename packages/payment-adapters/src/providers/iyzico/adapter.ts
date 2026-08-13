@@ -2,6 +2,11 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { types as nodeTypes } from "node:util";
 
+import {
+  parseProviderPaymentMethodConfig,
+  type ProviderPaymentMethodConfig,
+} from "@celebix/saas-contracts";
+
 import type {
   HostedPaymentAdapter,
   HostedPaymentCallbackInput,
@@ -65,6 +70,7 @@ const INITIALIZE_KEYS = Object.freeze([
   "environment",
   "failureUrl",
   "orderReference",
+  "preferences",
   "signal",
   "successUrl",
 ]);
@@ -621,11 +627,12 @@ function exactPresentationUrl(
   environment: "test" | "live",
   raw: unknown,
   expectedToken: string,
+  language: "tr" | "en",
 ): string | null {
   if (typeof raw !== "string" || raw.length > 2_048) return null;
   const rule = IYZICO_IFRAME_PACKET.presentation[environment];
   if (rule.kind !== "provider_query_token_url") return null;
-  const exactQuery = `?${rule.tokenParameter}=${expectedToken}&${rule.languageParameter}=${rule.language}`;
+  const exactQuery = `?${rule.tokenParameter}=${expectedToken}&${rule.languageParameter}=${language}`;
   if (raw !== `${rule.origin}${exactQuery}` && raw !== `${rule.origin}/${exactQuery}`) return null;
   let parsed: URL;
   try {
@@ -643,7 +650,7 @@ function exactPresentationUrl(
     parsed.search !== exactQuery ||
     parsed.searchParams.size !== 2 ||
     parsed.searchParams.get(rule.tokenParameter) !== expectedToken ||
-    parsed.searchParams.get(rule.languageParameter) !== rule.language
+    parsed.searchParams.get(rule.languageParameter) !== language
   ) return null;
   return raw;
 }
@@ -653,6 +660,7 @@ function parseInitializeSuccess(
   environment: "test" | "live",
   attemptId: string,
   credential: Readonly<IyzicoCredential>,
+  preferences: ProviderPaymentMethodConfig,
 ): HostedPaymentInitialization {
   let providerReference: string | null = null;
   try {
@@ -671,7 +679,12 @@ function parseInitializeSuccess(
         providedSignature: selected.signature as string,
       })
     ) invalid();
-    const url = exactPresentationUrl(environment, selected.paymentPageUrl, providerReference);
+    const url = exactPresentationUrl(
+      environment,
+      selected.paymentPageUrl,
+      providerReference,
+      preferences.locale,
+    );
     if (url === null) {
       return Object.freeze({
         kind: "unknown" as const,
@@ -682,7 +695,7 @@ function parseInitializeSuccess(
     if (selected.checkoutFormContent !== undefined) {
       boundedString(selected.checkoutFormContent, 1, 262_144);
     }
-    if (selected.locale !== undefined && selected.locale !== "tr") invalid();
+    if (selected.locale !== undefined && selected.locale !== preferences.locale) invalid();
     if (selected.systemTime !== undefined && !Number.isSafeInteger(selected.systemTime)) invalid();
     if (selected.tokenExpireTime !== undefined && !Number.isSafeInteger(selected.tokenExpireTime)) invalid();
     return Object.freeze({
@@ -803,9 +816,10 @@ function initializePayload(
   selectedBuyer: ReturnType<typeof buyer>,
   selectedBasket: ReturnType<typeof basket>,
   amount: string,
+  preferences: ProviderPaymentMethodConfig,
 ): Readonly<Record<string, unknown>> {
   const payload: Record<string, unknown> = {
-    locale: "tr",
+    locale: preferences.locale,
     conversationId: selected.attemptId,
     price: amount,
     paidPrice: amount,
@@ -838,6 +852,13 @@ function initializePayload(
     itemType: item.itemType,
     price: item.price,
   })));
+  if (preferences.installmentMode === "single_payment") {
+    payload.enabledInstallments = Object.freeze([1]);
+  } else if (preferences.installmentMode === "limited") {
+    payload.enabledInstallments = Object.freeze(
+      [1, 2, 3, 6, 9, 12].filter((installment) => installment <= preferences.maxInstallment),
+    );
+  }
   return Object.freeze(payload);
 }
 
@@ -1088,6 +1109,8 @@ export function createIyzicoCheckoutFormAdapter(
         return Object.freeze({ kind: "rejected" as const, code: "environment_not_ready" });
       }
       if (selected.environment !== "test") invalid();
+      const preferences = parseProviderPaymentMethodConfig("iyzico_iframe", selected.preferences);
+      if (preferences.environment !== selected.environment) invalid();
       selectedCredential = parseIyzicoCredential(selected.credential);
       if (typeof selected.attemptId !== "string" || !UUID.test(selected.attemptId)) invalid();
       const orderReference = reference(selected.orderReference);
@@ -1110,6 +1133,7 @@ export function createIyzicoCheckoutFormAdapter(
           selectedBuyer,
           selectedBasket,
           majorAmount(amountMinor),
+          preferences,
         ),
         selectedDependencies.randomKey,
         abortSignal,
@@ -1149,7 +1173,13 @@ export function createIyzicoCheckoutFormAdapter(
       if (raw !== null && providerFailure(raw)) {
         return Object.freeze({ kind: "rejected" as const, code: "provider_rejected" });
       }
-      return parseInitializeSuccess(raw, "test", selected.attemptId, selectedCredential);
+      return parseInitializeSuccess(
+        raw,
+        "test",
+        selected.attemptId as string,
+        selectedCredential,
+        preferences,
+      );
     } catch {
       return Object.freeze({ kind: "rejected" as const, code: "invalid_request" });
     } finally {

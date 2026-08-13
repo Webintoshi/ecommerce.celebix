@@ -43,6 +43,7 @@ const beginPayload = () => ({
   attemptId: OPERATION, storeId: STORE, paymentMethodId: METHOD, profileId: PROFILE,
   providerCode: "paytr_iframe", environment: "test", executionAdapterVersion: 1,
   executionEvidenceDigest: EVIDENCE, credentialVersion: 4, amountMinor: 10_000, currency: "TRY",
+  methodConfig: { environment: "test", locale: "tr", threeDSecure: "provider_managed", installmentMode: "all", maxInstallment: 0 },
   publicConfig: { environment: "test" }, sealedCredentials: envelope(), sessionId: SESSION,
   sessionStatus: "active", sessionVersion: 1,
   paymentSessionKeyId: "current_01", receiptKeyId: "current_01", customerKeyId: "current_01",

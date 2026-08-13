@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import { types as nodeTypes } from "node:util";
 
+import { parseProviderPaymentMethodConfig } from "@celebix/saas-contracts";
+
 import type {
   HostedPaymentAdapter,
   HostedPaymentCallbackInput,
@@ -92,6 +94,7 @@ const HOSTED_INITIALIZATION_KEYS = Object.freeze([
   "environment",
   "failureUrl",
   "orderReference",
+  "preferences",
   "signal",
   "successUrl",
 ]);
@@ -845,6 +848,8 @@ export function createPaytrIframeAdapter(
         return Object.freeze({ kind: "rejected" as const, code: "environment_not_ready" });
       }
       if (selected.environment !== "test") invalid();
+      const preferences = parseProviderPaymentMethodConfig("paytr_iframe", selected.preferences);
+      if (preferences.environment !== selected.environment) invalid();
       selectedCredential = parsePaytrIframeCredential(selected.credential);
       if (typeof selected.attemptId !== "string" || !UUID.test(selected.attemptId)) invalid();
       if (
@@ -888,8 +893,10 @@ export function createPaytrIframeAdapter(
         userPhone,
         successUrl,
         failureUrl,
-        noInstallment: 0,
-        maxInstallment: 0,
+        noInstallment: preferences.installmentMode === "single_payment" ? 1 : 0,
+        maxInstallment: preferences.installmentMode === "limited"
+          ? preferences.maxInstallment
+          : 0,
         signal: selected.signal,
       });
       if (result.status === "success") {

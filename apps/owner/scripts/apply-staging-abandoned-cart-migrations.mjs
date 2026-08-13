@@ -104,6 +104,31 @@ const MIGRATIONS = Object.freeze([
         AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${ABANDONED_CART_LIST}'),'EXECUTE')
         AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${ABANDONED_CART_GET}'),'EXECUTE') AS ready`,
   }),
+  Object.freeze({
+    code: "product_customer_identity",
+    up: "202608120103_abandoned_cart_product_customer_identity.up.sql",
+    assertions: "202608120103_abandoned_cart_product_customer_identity_assertions.sql",
+    probe: `SELECT
+      EXISTS(
+        SELECT 1 FROM pg_catalog.pg_attribute attribute
+        WHERE attribute.attrelid='saas.abandoned_carts'::pg_catalog.regclass
+          AND attribute.attname='customer_id' AND NOT attribute.attisdropped
+      )
+        OR pg_catalog.to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)') IS NOT NULL
+        OR pg_catalog.to_regprocedure('saas.storefront_verified_customer_from_candidates(uuid,timestamp with time zone,jsonb)') IS NOT NULL AS has_objects,
+      EXISTS(
+        SELECT 1 FROM pg_catalog.pg_attribute attribute
+        WHERE attribute.attrelid='saas.abandoned_carts'::pg_catalog.regclass
+          AND attribute.attname='customer_id' AND NOT attribute.attisdropped
+      )
+        AND pg_catalog.to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)') IS NOT NULL
+        AND pg_catalog.to_regprocedure('saas.storefront_verified_customer_from_candidates(uuid,timestamp with time zone,jsonb)') IS NOT NULL
+        AND pg_catalog.has_function_privilege(
+          'celebix_saas_host_resolver',
+          pg_catalog.to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)'),
+          'EXECUTE'
+        ) AS ready`,
+  }),
 ]);
 
 const BACKFILL = Object.freeze({

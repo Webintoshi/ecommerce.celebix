@@ -34,7 +34,7 @@ const PROFILE_ID = "33333333-3333-4333-8333-333333333333";
 const ATTEMPT_ID = "44444444-4444-4444-8444-444444444444";
 const LEASE_ID = "55555555-5555-4555-8555-555555555555";
 const DIGEST = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
-const PROVIDER = "fixture_provider";
+const PROVIDER = "paytr_iframe";
 const ENDPOINT = "https://payments.example.test/hosted";
 const NOW = new Date("2026-07-27T12:00:00.000Z");
 const COMPILED_AUTHORITY = Object.freeze({
@@ -120,6 +120,13 @@ function beginResult(
     credentialVersion: 3,
     amountMinor: 12_345,
     currency: "TRY",
+    methodConfig: Object.freeze({
+      environment: "test" as const,
+      locale: "tr" as const,
+      threeDSecure: "provider_managed" as const,
+      installmentMode: "limited" as const,
+      maxInstallment: 6 as const,
+    }),
     publicConfig: Object.freeze({ environment: "test", merchantId: "merchant_fixture" }),
     sealedCredentials: SEALED,
     ...overrides,
@@ -143,6 +150,13 @@ function authority(overrides: Partial<PaymentAttemptAuthority> = {}): PaymentAtt
     status: "submitted",
     version: 2,
     providerReference: null,
+    methodConfig: Object.freeze({
+      environment: "test" as const,
+      locale: "tr" as const,
+      threeDSecure: "provider_managed" as const,
+      installmentMode: "limited" as const,
+      maxInstallment: 6 as const,
+    }),
     publicConfig: Object.freeze({ environment: "test", merchantId: "merchant_fixture" }),
     sealedCredentials: SEALED,
     ...overrides,
@@ -639,6 +653,14 @@ test("initializes through durable method/profile authority and projects only ifr
   assert.equal(selected.calls.initializedAdapter[0]?.failureUrl,
     `https://${HOSTNAME}/odeme/hizli/sonuc?durum=basarisiz`);
   assert.equal(selected.calls.initializedAdapter[0]?.environment, "test");
+  assert.deepEqual(selected.calls.initializedAdapter[0]?.preferences, {
+    environment: "test",
+    locale: "tr",
+    threeDSecure: "provider_managed",
+    installmentMode: "limited",
+    maxInstallment: 6,
+  });
+  assert.equal(Object.isFrozen(selected.calls.initializedAdapter[0]?.preferences), true);
   assert.equal(selected.calls.initialized.length, 1);
   assert.equal(selected.calls.unknown.length, 0);
   assert.equal(selected.opened?.every((byte) => byte === 0), true);
@@ -851,6 +873,21 @@ test("fails closed before provider execution for untrusted host, missing adapter
   assert.deepEqual(await mismatch.runtime.initialize(initializeInput()), { kind: "rejected" });
   assert.equal(mismatch.calls.initializedAdapter.length, 0);
   assert.equal(mismatch.calls.initialized[0]?.safeCode, "environment_mismatch");
+});
+
+test("rejects malformed or mismatched snapshotted preferences before credential or provider access", async () => {
+  const candidates = [
+    { ...beginResult().methodConfig, environment: "live" },
+    { ...beginResult().methodConfig, installmentMode: "limited", maxInstallment: 0 },
+    { ...beginResult().methodConfig, unknown: true },
+  ];
+  for (const methodConfig of candidates) {
+    const selected = fixture({ begin: beginResult({ methodConfig: methodConfig as never }) });
+    assert.deepEqual(await selected.runtime.initialize(initializeInput()), { kind: "rejected" });
+    assert.equal(selected.calls.opens.length, 0);
+    assert.equal(selected.calls.initializedAdapter.length, 0);
+    assert.equal(selected.calls.initialized[0]?.safeCode, "execution_authority_mismatch");
+  }
 });
 
 test("rejects sparse basket authority before creating a durable attempt", async () => {

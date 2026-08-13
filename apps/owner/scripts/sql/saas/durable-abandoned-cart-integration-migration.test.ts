@@ -11,6 +11,9 @@ const files = {
   backfillUp: "202608120102_durable_abandoned_cart_rollout_backfill.up.sql",
   backfillDown: "202608120102_durable_abandoned_cart_rollout_backfill.down.sql",
   backfillAssertions: "202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql",
+  identityUp: "202608120103_abandoned_cart_product_customer_identity.up.sql",
+  identityDown: "202608120103_abandoned_cart_product_customer_identity.down.sql",
+  identityAssertions: "202608120103_abandoned_cart_product_customer_identity_assertions.sql",
   manifest: "phase4t-durable-abandoned-cart-integration-manifest.json",
 } as const;
 
@@ -84,6 +87,26 @@ test("101 rollback is guarded and catalog assertions are explicit", () => {
   assert.match(assertions, /DURABLE_ABANDONED_CART_INTEGRATION_PRIVILEGE_INVALID/);
 });
 
+test("103 projects the first persisted product and binds only a verified customer credential", () => {
+  const up = source("identityUp");
+  const down = source("identityDown");
+  const assertions = source("identityAssertions");
+  assert.match(up, /firstProductName/);
+  assert.match(up, /ORDER BY item[.]position,item[.]id/);
+  assert.match(up, /storefront_verified_customer_from_candidates/);
+  assert.match(up, /storefront_customer_credentials/);
+  assert.match(up, /customer[.]status='active'/);
+  assert.match(up, /item[.]product_name ILIKE/);
+  assert.match(up, /public_cart_mutate_without_customer_identity_v103/);
+  assert.match(up, /compatibility signature cannot assert customer identity/);
+  assert.match(up, /p_quantity,[\s\S]*'\[\]'::jsonb/);
+  assert.match(assertions, /compatibility_definition/);
+  assert.doesNotMatch(up, /customer[.]email=p_|customer[.]phone=p_|ILIKE.*customer.*email/i);
+  assert.match(down, /allow_abandoned_cart_product_customer_identity_down/);
+  assert.match(assertions, /ABANDONED_CART_PRODUCT_CUSTOMER_IDENTITY_BINDING_INVALID/);
+  assert.match(assertions, /ABANDONED_CART_PRODUCT_CUSTOMER_IDENTITY_PROJECTION_LEAK/);
+});
+
 test("101 artifacts are checksum pinned", () => {
   for (const name of Object.values(files)) assert.equal(existsSync(new URL(name, root)), true, `${name} missing`);
   const manifest = JSON.parse(source("manifest")) as {
@@ -107,6 +130,7 @@ test("101 artifacts are checksum pinned", () => {
   assert.deepEqual(manifest.artifacts.map(({ file, direction }) => [file, direction]), [
     [files.up, "up"], [files.down, "down"], [files.assertions, "verify"],
     [files.backfillUp, "up"], [files.backfillDown, "down"], [files.backfillAssertions, "verify"],
+    [files.identityUp, "up"], [files.identityDown, "down"], [files.identityAssertions, "verify"],
   ]);
   for (const artifact of manifest.artifacts) {
     const bytes = readFileSync(new URL(artifact.file, root));

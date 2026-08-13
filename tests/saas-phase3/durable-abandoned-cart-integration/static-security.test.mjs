@@ -50,13 +50,16 @@ test("projection uses authoritative catalog data and checkout order binding", as
 });
 
 test("migration remains additive, reversible, and manifest-bound", async () => {
-  const [up, down, assertions, backfillUp, backfillDown, backfillAssertions, manifestSource] = await Promise.all([
+  const [up, down, assertions, backfillUp, backfillDown, backfillAssertions, identityUp, identityDown, identityAssertions, manifestSource] = await Promise.all([
     read("202608120101_durable_abandoned_cart_integration.up.sql"),
     read("202608120101_durable_abandoned_cart_integration.down.sql"),
     read("202608120101_durable_abandoned_cart_integration_assertions.sql"),
     read("202608120102_durable_abandoned_cart_rollout_backfill.up.sql"),
     read("202608120102_durable_abandoned_cart_rollout_backfill.down.sql"),
     read("202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql"),
+    read("202608120103_abandoned_cart_product_customer_identity.up.sql"),
+    read("202608120103_abandoned_cart_product_customer_identity.down.sql"),
+    read("202608120103_abandoned_cart_product_customer_identity_assertions.sql"),
     read("phase4t-durable-abandoned-cart-integration-manifest.json"),
   ]);
   assert.match(up, /^--/);
@@ -65,6 +68,10 @@ test("migration remains additive, reversible, and manifest-bound", async () => {
   assert.match(backfillUp, /sync_durable_abandoned_cart/);
   assert.match(backfillDown, /allow_durable_abandoned_cart_rollout_backfill_down/);
   assert.match(backfillAssertions, /DURABLE_ABANDONED_CART_ROLLOUT_BACKFILL_INCOMPLETE/);
+  assert.match(identityUp, /storefront_verified_customer_from_candidates/);
+  assert.match(identityUp, /firstProductName/);
+  assert.match(identityDown, /allow_abandoned_cart_product_customer_identity_down/);
+  assert.match(identityAssertions, /ABANDONED_CART_PRODUCT_CUSTOMER_IDENTITY_PROJECTION_LEAK/);
   const manifest = JSON.parse(manifestSource);
   assert.equal(manifest.phase, "phase4t-durable-abandoned-cart-integration");
   assert.equal(manifest.postgresqlMajor, 16);
@@ -77,6 +84,9 @@ test("migration remains additive, reversible, and manifest-bound", async () => {
     "202608120102_durable_abandoned_cart_rollout_backfill.up.sql",
     "202608120102_durable_abandoned_cart_rollout_backfill.down.sql",
     "202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql",
+    "202608120103_abandoned_cart_product_customer_identity.up.sql",
+    "202608120103_abandoned_cart_product_customer_identity.down.sql",
+    "202608120103_abandoned_cart_product_customer_identity_assertions.sql",
   ]);
   for (const entry of manifest.artifacts) assert.match(entry.sha256, /^[a-f0-9]{64}$/);
 });

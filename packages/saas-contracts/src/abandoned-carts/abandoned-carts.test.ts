@@ -13,12 +13,14 @@ import {
 
 const CART_ID = "71000000-0000-4000-8000-000000000001";
 const ITEM_ID = "72000000-0000-4000-8000-000000000001";
+const CUSTOMER_ID = "74000000-0000-4000-8000-000000000001";
 const NOW = "2026-07-22T12:00:00.000Z";
 const LATER = "2026-07-22T12:30:00.000Z";
 
 const listItem = Object.freeze({
   id: CART_ID,
   status: "abandoned",
+  customerId: CUSTOMER_ID,
   customerName: "Ada Lovelace",
   customerEmail: "ada@example.com",
   customerPhone: "+905551112233",
@@ -27,6 +29,7 @@ const listItem = Object.freeze({
   discountCents: 500,
   totalCents: 12_000,
   itemCount: 1,
+  firstProductName: "Keten Gömlek",
   checkoutStartedAt: NOW,
   lastActivityAt: NOW,
   abandonedAt: NOW,
@@ -81,8 +84,9 @@ test("parses and deeply freezes safe list detail summary and mutation projection
 });
 
 test("accepts anonymous carts without fabricated customer identity", () => {
-  const { customerName: _name, customerEmail: _email, customerPhone: _phone, ...anonymous } = listItem;
+  const { customerId: _id, customerName: _name, customerEmail: _email, customerPhone: _phone, ...anonymous } = listItem;
   const parsed = parseAbandonedCartListItem(anonymous);
+  assert.equal(Object.hasOwn(parsed, "customerId"), false);
   assert.equal(Object.hasOwn(parsed, "customerName"), false);
   assert.equal(Object.hasOwn(parsed, "customerEmail"), false);
   assert.equal(Object.hasOwn(parsed, "customerPhone"), false);
@@ -94,6 +98,7 @@ test("rejects private authority extras malformed values and inconsistent lifecyc
     { ...listItem, totalCents: 1 },
     { ...listItem, currency: "try" },
     { ...listItem, customerEmail: " ada@example.com" },
+    { ...listItem, customerId: "not-a-customer" },
     { ...listItem, updatedAt: "not-a-time" },
     { ...listItem, status: "active" },
     { ...listItem, status: "recovered" },

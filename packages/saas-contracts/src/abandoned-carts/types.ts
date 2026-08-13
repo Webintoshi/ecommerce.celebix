@@ -14,6 +14,7 @@ export type AbandonedCartSort = (typeof ABANDONED_CART_SORTS)[number];
 export interface AbandonedCartListItem {
   readonly id: string;
   readonly status: AbandonedCartStatus;
+  readonly customerId?: string;
   readonly customerName?: string;
   readonly customerEmail?: string;
   readonly customerPhone?: string;
@@ -22,6 +23,7 @@ export interface AbandonedCartListItem {
   readonly discountCents: number;
   readonly totalCents: number;
   readonly itemCount: number;
+  readonly firstProductName?: string;
   readonly checkoutStartedAt: string;
   readonly lastActivityAt: string;
   readonly abandonedAt?: string;

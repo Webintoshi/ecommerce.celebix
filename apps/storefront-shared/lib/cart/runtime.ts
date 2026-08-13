@@ -156,6 +156,7 @@ export function createStorefrontCommerceRuntime(dependencies: Dependencies): Sto
       if (command.kind !== "add" && !line) throw new StorefrontCommerceRuntimeError("invalid_input");
       const result = await dependencies.repository.mutateCart({
         hostname, now, candidates: selectedCandidates,
+        customerCandidates: optionalCandidates("customer", cookieHeader, dependencies.keyring),
         ...(cartCredential ? { cart: cartCredential.persisted } : {}),
         operationId: command.operationId,
         action: command.kind === "set_quantity" ? "quantity" : command.kind,

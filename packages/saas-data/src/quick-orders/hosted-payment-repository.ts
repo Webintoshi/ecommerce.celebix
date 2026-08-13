@@ -10,6 +10,7 @@ import {
   paymentAttemptEnvironment,
   paymentAttemptExecutionEvidenceDigest,
   paymentAttemptInteger,
+  paymentAttemptMethodConfig,
   paymentAttemptOrderReference,
   paymentAttemptProviderCode,
   paymentAttemptPublicConfig,
@@ -245,24 +246,27 @@ function parseBegin(value: unknown, outcome: string, expected: Readonly<{
   const parsed = exact(value, [
     "attemptId", "storeId", "paymentMethodId", "profileId", "providerCode", "environment",
     "executionAdapterVersion", "executionEvidenceDigest", "credentialVersion", "amountMinor", "currency",
-    "publicConfig", "sealedCredentials",
+    "methodConfig", "publicConfig", "sealedCredentials",
   ]);
   const environment = paymentAttemptEnvironment(parsed.environment);
+  const providerCode = paymentAttemptProviderCode(parsed.providerCode);
+  const methodConfig = paymentAttemptMethodConfig(providerCode, parsed.methodConfig);
   const publicConfig = paymentAttemptPublicConfig(parsed.publicConfig);
   const result = Object.freeze({
     outcome: outcome === "operation_replayed" ? "replayed" as const : "created" as const,
     attemptId: paymentAttemptUuid(parsed.attemptId), storeId: paymentAttemptUuid(parsed.storeId),
     paymentMethodId: paymentAttemptUuid(parsed.paymentMethodId), profileId: paymentAttemptUuid(parsed.profileId),
-    providerCode: paymentAttemptProviderCode(parsed.providerCode), environment,
+    providerCode, environment,
     executionAdapterVersion: paymentAttemptInteger(parsed.executionAdapterVersion),
     executionEvidenceDigest: paymentAttemptExecutionEvidenceDigest(parsed.executionEvidenceDigest),
     credentialVersion: paymentAttemptInteger(parsed.credentialVersion), amountMinor: paymentAttemptInteger(parsed.amountMinor),
-    currency: paymentAttemptCurrency(parsed.currency), publicConfig,
+    currency: paymentAttemptCurrency(parsed.currency), methodConfig, publicConfig,
     sealedCredentials: paymentAttemptSealedCredentials(parsed.sealedCredentials),
   });
   if (result.attemptId !== expected.attemptId || result.storeId !== expected.storeId
     || result.paymentMethodId !== expected.paymentMethodId || result.amountMinor !== expected.amountMinor
-    || result.currency !== expected.currency || publicConfig.environment !== environment) unavailable();
+    || result.currency !== expected.currency || publicConfig.environment !== environment
+    || methodConfig.environment !== environment) unavailable();
   return result;
 }
 

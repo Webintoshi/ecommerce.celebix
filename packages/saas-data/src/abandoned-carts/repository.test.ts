@@ -11,6 +11,7 @@ const MEMBERSHIP_ID = "55555555-5555-4555-8555-555555555555";
 const PLAN_ID = "66666666-6666-4666-8666-666666666666";
 const CART_ID = "71000000-0000-4000-8000-000000000001";
 const ITEM_ID = "72000000-0000-4000-8000-000000000001";
+const CUSTOMER_ID = "74000000-0000-4000-8000-000000000001";
 const OPERATION_ID = "73000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-22T14:00:00.000Z");
 
@@ -41,6 +42,7 @@ function listItem(overrides: Record<string, unknown> = {}) {
   return {
     id: CART_ID,
     status: "abandoned",
+    customerId: CUSTOMER_ID,
     customerName: "Ada Lovelace",
     customerEmail: "ada@example.com",
     currency: "TRY",
@@ -48,6 +50,7 @@ function listItem(overrides: Record<string, unknown> = {}) {
     discountCents: 500,
     totalCents: 12_000,
     itemCount: 1,
+    firstProductName: "Keten Gömlek",
     checkoutStartedAt: "2026-07-22T12:00:00.000Z",
     lastActivityAt: "2026-07-22T12:30:00.000Z",
     abandonedAt: "2026-07-22T12:30:00.000Z",

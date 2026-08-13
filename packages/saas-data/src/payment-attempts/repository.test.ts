@@ -36,13 +36,17 @@ function beginPayload() {
     storeId: STORE,
     paymentMethodId: METHOD,
     profileId: PROFILE,
-    providerCode: "fixture_provider",
+    providerCode: "paytr_iframe",
     environment: "test",
     executionAdapterVersion: 1,
     executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
     credentialVersion: 2,
     amountMinor: 12_345,
     currency: "USD",
+    methodConfig: {
+      environment: "test", locale: "tr", threeDSecure: "provider_managed",
+      installmentMode: "limited", maxInstallment: 6,
+    },
     publicConfig: { environment: "test", accountReference: "merchant-42" },
     sealedCredentials: sealedCredentials(),
   };
@@ -65,7 +69,7 @@ function authorityPayload() {
     storeId: STORE,
     paymentMethodId: METHOD,
     profileId: PROFILE,
-    providerCode: "fixture_provider",
+    providerCode: "paytr_iframe",
     environment: "test",
     executionAdapterVersion: 1,
     executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
@@ -76,6 +80,10 @@ function authorityPayload() {
     status: "submitted",
     version: 3,
     providerReference: "provider-safe-42",
+    methodConfig: {
+      environment: "test", locale: "tr", threeDSecure: "provider_managed",
+      installmentMode: "limited", maxInstallment: 6,
+    },
     publicConfig: { environment: "test", accountReference: "merchant-42" },
     sealedCredentials: sealedCredentials(),
   };
@@ -206,8 +214,10 @@ test("begin uses exact workflow transaction and returns copied frozen credential
   assert.equal(result.executionEvidenceDigest, EXECUTION_EVIDENCE_DIGEST);
   assert.equal(Object.isFrozen(result), true);
   assert.equal(Object.isFrozen(result.publicConfig), true);
+  assert.equal(Object.isFrozen(result.methodConfig), true);
   assert.equal(Object.isFrozen(result.sealedCredentials), true);
   assert.notEqual(result.publicConfig, payload.publicConfig);
+  assert.notEqual(result.methodConfig, payload.methodConfig);
   assert.notEqual(result.sealedCredentials, payload.sealedCredentials);
   assert.deepEqual(result.sealedCredentials, payload.sealedCredentials);
   assert.equal("callbackBindingDigest" in result, false);
@@ -360,7 +370,7 @@ test("getCallbackAuthority is a read-only opaque binding lookup with frozen auth
   const payload = authorityPayload();
   const client = success("payment_callback_authority", "found", payload);
   const result = await repository(new Pool([client])).getCallbackAuthority({
-    providerCode: "fixture_provider",
+    providerCode: "paytr_iframe",
     callbackBindingDigest: CALLBACK_DIGEST,
     now: NOW,
   });
@@ -368,7 +378,7 @@ test("getCallbackAuthority is a read-only opaque binding lookup with frozen auth
   assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
   assert.deepEqual(selected(client, "payment_callback_authority"), {
     text: "SELECT outcome,result_payload FROM saas.payment_callback_authority($1::text,$2::text,$3::timestamptz)",
-    values: ["fixture_provider", CALLBACK_DIGEST, NOW],
+    values: ["paytr_iframe", CALLBACK_DIGEST, NOW],
   });
   assert.deepEqual(result, payload);
   assert.notEqual(result.publicConfig, payload.publicConfig);

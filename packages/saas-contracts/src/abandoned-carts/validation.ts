@@ -118,7 +118,7 @@ export function parseAbandonedCartListItem(value: unknown): Readonly<AbandonedCa
   const parsed = exact(value, [
     "id", "status", "currency", "subtotalCents", "discountCents", "totalCents", "itemCount",
     "checkoutStartedAt", "lastActivityAt", "version", "createdAt", "updatedAt",
-  ], ["customerName", "customerEmail", "customerPhone", "abandonedAt", "recoveredAt", "archivedAt"]);
+  ], ["customerId", "customerName", "customerEmail", "customerPhone", "firstProductName", "abandonedAt", "recoveredAt", "archivedAt"]);
   const cartStatus = status(parsed.status);
   const subtotalCents = safeInteger(parsed.subtotalCents, 0);
   const discountCents = safeInteger(parsed.discountCents, 0);
@@ -131,6 +131,10 @@ export function parseAbandonedCartListItem(value: unknown): Readonly<AbandonedCa
   const abandonedAt = optionalTimestamp(parsed, "abandonedAt");
   const recoveredAt = optionalTimestamp(parsed, "recoveredAt");
   const archivedAt = optionalTimestamp(parsed, "archivedAt");
+  const itemCount = safeInteger(parsed.itemCount, 0, 100);
+  const firstProductName = optionalString(parsed, "firstProductName", 1, 200);
+  if ((itemCount === 0) !== (firstProductName === undefined)) invalid();
+  if (Object.hasOwn(parsed, "customerId") && !Object.hasOwn(parsed, "customerName") && !Object.hasOwn(parsed, "customerEmail") && !Object.hasOwn(parsed, "customerPhone")) invalid();
   if (
     comparable(lastActivityAt) < comparable(checkoutStartedAt) || comparable(createdAt) < comparable(checkoutStartedAt) ||
     comparable(updatedAt) < comparable(createdAt)
@@ -139,6 +143,7 @@ export function parseAbandonedCartListItem(value: unknown): Readonly<AbandonedCa
   return freeze({
     id: uuid(parsed.id),
     status: cartStatus,
+    ...(Object.hasOwn(parsed, "customerId") ? { customerId: uuid(parsed.customerId) } : {}),
     ...(Object.hasOwn(parsed, "customerName") ? { customerName: optionalString(parsed, "customerName", 1, 200)! } : {}),
     ...(Object.hasOwn(parsed, "customerEmail") ? { customerEmail: optionalString(parsed, "customerEmail", 3, 320)! } : {}),
     ...(Object.hasOwn(parsed, "customerPhone") ? { customerPhone: optionalString(parsed, "customerPhone", 3, 32)! } : {}),
@@ -146,7 +151,8 @@ export function parseAbandonedCartListItem(value: unknown): Readonly<AbandonedCa
     subtotalCents,
     discountCents,
     totalCents,
-    itemCount: safeInteger(parsed.itemCount, 0, 100),
+    itemCount,
+    ...(firstProductName !== undefined ? { firstProductName } : {}),
     checkoutStartedAt,
     lastActivityAt,
     ...(abandonedAt !== undefined ? { abandonedAt } : {}),
