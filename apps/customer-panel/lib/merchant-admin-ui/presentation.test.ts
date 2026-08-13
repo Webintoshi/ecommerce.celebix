@@ -226,3 +226,15 @@ test("provider workflows distinguish configuration readiness from external execu
   });
   assert.equal(buildProviderWorkflowState(getMerchantModuleDefinition("discount"), { ...base, kind: "discount", status: "active", config: {} }), null);
 });
+
+test("general settings require storefront identity fields", () => {
+  const general = getMerchantModuleDefinition("general_setting");
+  assert.deepEqual(
+    general.fields.map(({ key, required }) => [key, required]),
+    [
+      ["storeDisplayName", true],
+      ["supportEmail", true],
+      ["timezone", true],
+    ],
+  );
+});

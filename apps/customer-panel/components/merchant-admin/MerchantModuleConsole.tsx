@@ -603,18 +603,18 @@ export function MerchantModuleConsole({
                     <label className={field.type === "textarea" || field.type === "string-list" ? styles.wide : undefined} key={field.key}>
                       {field.label}
                       {field.type === "textarea" || field.type === "string-list" ? (
-                        <textarea disabled={!canManage || busy} name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
+                        <textarea disabled={!canManage || busy} name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
                       ) : field.type === "boolean" ? (
                         <span className={styles.switchField}><input disabled={!canManage || busy} name={field.key} type="checkbox" defaultChecked={singletonRecord?.config[field.key] === true} /><span>Etkin</span></span>
                       ) : field.type === "enum" ? (
-                        <select disabled={!canManage || busy} name={field.key} defaultValue={inputValue(singletonRecord, field.key)}>
+                        <select disabled={!canManage || busy} name={field.key} required={field.required} defaultValue={inputValue(singletonRecord, field.key)}>
                           <option value="">Seçin</option>
                           {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}
                         </select>
                       ) : field.type === "datetime" ? (
-                        <input disabled={!canManage || busy} name={field.key} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(singletonRecord, field.key)} />
+                        <input disabled={!canManage || busy} name={field.key} required={field.required} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(singletonRecord, field.key)} />
                       ) : (
-                        <input disabled={!canManage || busy} name={field.key} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
+                        <input disabled={!canManage || busy} name={field.key} required={field.required} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
                       )}
                     </label>
                   ))}

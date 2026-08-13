@@ -34,6 +34,7 @@ export interface MerchantModuleFieldDefinition {
   readonly maxItems?: number;
   readonly optionLabels?: Readonly<Record<string, string>>;
   readonly placeholder?: string;
+  readonly required?: boolean;
   readonly type: MerchantModuleFieldType;
 }
 
@@ -65,8 +66,9 @@ function field(
   allowedValues?: readonly string[],
   optionLabels?: Readonly<Record<string, string>>,
   maxItems?: number,
+  required?: boolean,
 ): MerchantModuleFieldDefinition {
-  return Object.freeze({ key, label, type, ...(placeholder ? { placeholder } : {}), ...(allowedValues ? { allowedValues: Object.freeze([...allowedValues]) } : {}), ...(optionLabels ? { optionLabels: Object.freeze({ ...optionLabels }) } : {}), ...(maxItems === undefined ? {} : { maxItems }) });
+  return Object.freeze({ key, label, type, ...(placeholder ? { placeholder } : {}), ...(allowedValues ? { allowedValues: Object.freeze([...allowedValues]) } : {}), ...(optionLabels ? { optionLabels: Object.freeze({ ...optionLabels }) } : {}), ...(maxItems === undefined ? {} : { maxItems }), ...(required ? { required: true } : {}) });
 }
 
 function definition(
@@ -99,7 +101,7 @@ export const MERCHANT_MODULE_DEFINITIONS = Object.freeze([
   definition({ kind: "page", family: "content", route: "/content/pages", title: "Sayfalar", singular: "sayfa", description: "Mağazanın kalıcı içerik sayfalarını yönetin.", fields: [field("slug", "URL anahtarı"), field("locale", "Dil"), field("body", "İçerik", "textarea"), field("published", "Yayında", "boolean")] }),
   definition({ kind: "policy", family: "content", route: "/content/policies", title: "Politikalar", singular: "politika", description: "Mesafeli satış, gizlilik ve iade politikası sürümlerini yönetin.", fields: [field("policyType", "Politika türü"), field("locale", "Dil"), field("body", "Politika metni", "textarea"), field("effectiveAt", "Yürürlük zamanı")] }),
   definition({ kind: "marketplace_connection", family: "marketplaces", route: "/marketplaces", title: "Pazar Yerleri", singular: "pazar yeri bağlantısı", description: "Pazar yeri hesap eşlemesi ve senkronizasyon tercihlerini yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "synchronization", actionLabel: "Senkronizasyon hazırlığı", requiredFields: ["provider", "merchantReference", "syncEnabled"] }, fields: [field("provider", "Pazar yeri"), field("merchantReference", "Mağaza referansı"), field("syncEnabled", "Senkronizasyon isteği", "boolean")] }),
-  definition({ kind: "general_setting", cardinality: "singleton", family: "settings", route: "/settings/general", title: "Genel Ayarlar", singular: "genel ayar profili", description: "Mağaza görünen adı, destek adresi ve saat dilimini yönetin.", fields: [field("storeDisplayName", "Mağaza adı"), field("supportEmail", "Destek e-postası", "email"), field("timezone", "Saat dilimi", "text", "Europe/Istanbul")] }),
+  definition({ kind: "general_setting", cardinality: "singleton", family: "settings", route: "/settings/general", title: "Genel Ayarlar", singular: "genel ayar profili", description: "Mağaza görünen adı, destek adresi ve saat dilimini yönetin.", fields: [field("storeDisplayName", "Mağaza adı", "text", undefined, undefined, undefined, undefined, true), field("supportEmail", "Destek e-postası", "email", undefined, undefined, undefined, undefined, true), field("timezone", "Saat dilimi", "text", "Europe/Istanbul", undefined, undefined, undefined, true)] }),
   definition({ kind: "language_setting", cardinality: "singleton", family: "settings", route: "/settings/language", title: "Dil Ayarları", singular: "dil profili", description: "Varsayılan ve etkin mağaza dillerini yönetin.", fields: [field("defaultLocale", "Varsayılan dil"), field("enabledLocales", "Etkin diller", "textarea", "Her satıra bir dil")] }),
   definition({ kind: "payment_setting", family: "settings", route: "/settings/payment", title: "Ödeme Ayarları", singular: "ödeme profili", description: "Müşteriye sunulan ödeme yöntemlerinin görünümünü yönetin.", notice: "Geçmiş ödeme ayarları özel ödeme sayfasında güvenli ve salt okunur uyumluluk verisi olarak gösterilir.", fields: [field("enabledMethods", "Etkin yöntemler", "textarea"), field("cashOnDelivery", "Kapıda ödeme", "boolean")] }),
   definition({ kind: "shipping_setting", cardinality: "singleton", family: "settings", route: "/settings/shipping", title: "Kargo Ayarları", singular: "kargo profili", description: "Teslimat bölgeleri ve ücretsiz kargo eşiğini yönetin.", fields: [field("regions", "Teslimat bölgeleri", "textarea"), field("freeShippingThresholdCents", "Ücretsiz kargo eşiği (kuruş)", "number"), field("estimatedDays", "Tahmini gün", "number")] }),
