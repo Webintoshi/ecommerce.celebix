@@ -21,8 +21,9 @@ import {
   createIyzicoValidationAdapter,
 } from "./iyzico-validation-adapter.ts";
 import {
+  createPaytrExecutionValidationAdapter,
   createPaytrValidationAdapter,
-  type PaytrValidationAdapterOptions,
+  type PaytrExecutionValidationAdapterOptions,
 } from "./paytr-validation-adapter.ts";
 
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
@@ -211,10 +212,10 @@ export function createMerchantProviderVerificationAdapterRegistry(
 }
 
 export function createProductionMerchantProviderRegistry(
-  options: PaytrValidationAdapterOptions,
+  options: PaytrExecutionValidationAdapterOptions,
 ): MerchantProviderAdapterRegistry {
   return createMerchantProviderAdapterRegistry(Object.freeze([
-    createPaytrValidationAdapter(options),
+    createPaytrExecutionValidationAdapter(options),
   ]));
 }
 
@@ -262,13 +263,16 @@ export function createProductionMerchantProviderRegistries(
     })));
   }
   const paytrAuthority = authorities.paytr_iframe as MerchantProviderExecutionAuthorityMap["paytr_iframe"];
-  if ((paytrAuthority === null) !== (selected.paytrValidation === null)) invalid();
-  if (paytrAuthority !== null && selected.paytrValidation !== null) {
-    if (paytrAuthority.environment !== "test" || paytrAuthority.adapterVersion !== 1) invalid();
-    const paytrValidation = frozenRecord(selected.paytrValidation, ["userIp", "successUrl", "failureUrl"]);
-    execution.push(createPaytrValidationAdapter(Object.freeze({
+  const paytrRequired = paytrAuthority !== null || paytrIdentities.length > 0;
+  if (paytrRequired !== (selected.paytrValidation !== null)) invalid();
+  const paytrValidation = paytrRequired
+    ? frozenRecord(selected.paytrValidation, ["userIp", "successUrl", "failureUrl"])
+    : null;
+  if (paytrAuthority !== null && paytrValidation !== null) {
+    if (paytrAuthority.adapterVersion !== 1) invalid();
+    execution.push(createPaytrExecutionValidationAdapter(Object.freeze({
       executionAuthority: Object.freeze({
-        environment: "test" as const,
+        environment: paytrAuthority.environment,
         adapterVersion: 1 as const,
         evidenceDigest: paytrAuthority.evidenceDigest,
       }),
@@ -280,7 +284,6 @@ export function createProductionMerchantProviderRegistries(
       validationFailureUrl: paytrValidation.failureUrl as string,
     })));
   }
-  if (paytrIdentities.length !== 0) invalid();
   for (const validationIdentity of iyzicoIdentities) {
     if (!Object.isFrozen(validationIdentity)) invalid();
     const parsedIdentity = validationIdentity as Readonly<MerchantProviderValidationIdentity>;
@@ -294,6 +297,23 @@ export function createProductionMerchantProviderRegistries(
       validationReference: selected.validationReference as () => string,
       validationRandomKey: selected.validationRandomKey as () => string,
       validationTimeoutMs: selected.validationTimeoutMs as number,
+    })));
+  }
+  for (const validationIdentity of paytrIdentities) {
+    if (!Object.isFrozen(validationIdentity) || paytrValidation === null) invalid();
+    const parsedIdentity = validationIdentity as Readonly<MerchantProviderValidationIdentity>;
+    if (parsedIdentity.adapterVersion !== 1) invalid();
+    verification.push(createPaytrValidationAdapter(Object.freeze({
+      validationIdentity: parsedIdentity as Readonly<{
+        environment: "test" | "live";
+        adapterVersion: 1;
+      }>,
+      transport: selected.transport as ProviderTransport,
+      validationReference: selected.validationReference as () => string,
+      validationTimeoutMs: selected.validationTimeoutMs as number,
+      validationUserIp: paytrValidation.userIp as string,
+      validationSuccessUrl: paytrValidation.successUrl as string,
+      validationFailureUrl: paytrValidation.failureUrl as string,
     })));
   }
   return Object.freeze({
