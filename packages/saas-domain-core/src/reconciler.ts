@@ -78,9 +78,10 @@ export function createStoreDomainReconciler(input: Readonly<{
         }
         const snapshot = await provider.get(claim.providerHostnameId);
         if (snapshot.hostname !== claim.hostname) throw new CloudflareCustomHostnameError("malformed_response");
-        const dns = await dnsStatus(resolveCname, claim.hostname, cnameTarget);
-        const origin = snapshot.hostnameStatus === "active" && snapshot.sslStatus === "active" && dns === "ready"
+        const resolvedDns = await dnsStatus(resolveCname, claim.hostname, cnameTarget);
+        const origin = snapshot.hostnameStatus === "active" && snapshot.sslStatus === "active" && resolvedDns !== "mismatch"
           ? await originStatus(fetchImpl, claim) : "pending";
+        const dns = resolvedDns === "pending" && origin === "ready" ? "ready" : resolvedDns;
         const ready = snapshot.hostnameStatus === "active" && snapshot.sslStatus === "active" && dns === "ready" && origin === "ready";
         await workflow.complete({
           domainId: claim.domainId, leaseId: claim.leaseId, workerId, now,

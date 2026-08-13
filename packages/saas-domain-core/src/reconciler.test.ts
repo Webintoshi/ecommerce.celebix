@@ -36,6 +36,42 @@ test("marks one hostname ready only when provider DNS and exact-host health all 
   });
 });
 
+test("accepts a flattened or proxied hostname when exact-host health proves the route", async () => {
+  let completed: unknown;
+  const reconciler = createStoreDomainReconciler({
+    workflow: workflow({ async complete(input) { completed = input; } }),
+    provider: { async create() { throw new Error("unused"); }, async find() { return null; }, async remove() { return { deleted: true }; }, async get() { return { providerHostnameId: "cf-host-1", hostname: "www.example.com", hostnameStatus: "active", sslStatus: "active", ownershipValidation: null, certificateValidation: [] }; } },
+    resolveCname: async () => [],
+    fetch: async () => new Response(JSON.stringify({ schemaVersion: 1, status: "ok", storeId: CLAIM.storeId, hostname: CLAIM.hostname }), { status: 200, headers: { "content-type": "application/json" } }),
+    workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
+  });
+  assert.equal(await reconciler.runOnce(), "updated");
+  assert.deepEqual(completed, {
+    domainId: CLAIM.domainId, leaseId: CLAIM.leaseId, workerId: "domain-worker-1", now: NOW,
+    hostnameStatus: "active", sslStatus: "active", dnsStatus: "ready", originStatus: "ready",
+    safeProviderErrorCode: null, nextCheckAt: new Date("2026-08-05T13:00:00.000Z"),
+  });
+});
+
+test("does not probe origin when a visible CNAME points at the wrong target", async () => {
+  let completed: unknown;
+  let fetchCalls = 0;
+  const reconciler = createStoreDomainReconciler({
+    workflow: workflow({ async complete(input) { completed = input; } }),
+    provider: { async create() { throw new Error("unused"); }, async find() { return null; }, async remove() { return { deleted: true }; }, async get() { return { providerHostnameId: "cf-host-1", hostname: "www.example.com", hostnameStatus: "active", sslStatus: "active", ownershipValidation: null, certificateValidation: [] }; } },
+    resolveCname: async () => ["wrong.example.net"],
+    fetch: async () => { fetchCalls += 1; return new Response(); },
+    workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
+  });
+  assert.equal(await reconciler.runOnce(), "updated");
+  assert.equal(fetchCalls, 0);
+  assert.deepEqual(completed, {
+    domainId: CLAIM.domainId, leaseId: CLAIM.leaseId, workerId: "domain-worker-1", now: NOW,
+    hostnameStatus: "active", sslStatus: "active", dnsStatus: "mismatch", originStatus: "pending",
+    safeProviderErrorCode: null, nextCheckAt: new Date("2026-08-05T12:00:30.000Z"),
+  });
+});
+
 test("schedules the fixed bounded retry for transient provider failure", async () => {
   let failed: unknown;
   const reconciler = createStoreDomainReconciler({
