@@ -330,7 +330,7 @@ test("provider method mutation requires exact catalog registry packet evidence v
     methodId: METHOD, expectedVersion: 0, kind: "provider", profileId: PROFILE,
     providerCode: "paytr_iframe", label: "PayTR", config: Object.freeze({
       ...providerConfig(),
-      locale: "en" as const,
+      locale: "tr" as const,
       installmentMode: "limited" as const,
       maxInstallment: 6 as const,
     }),
@@ -341,7 +341,7 @@ test("provider method mutation requires exact catalog registry packet evidence v
   const savedProviderConfig = (accepted.calls.find((entry) => entry.kind === "save")!.input as Record<string, unknown>).config;
   assert.deepEqual(savedProviderConfig, {
     environment: "test",
-    locale: "en",
+    locale: "tr",
     threeDSecure: "provider_managed",
     installmentMode: "limited",
     maxInstallment: 6,

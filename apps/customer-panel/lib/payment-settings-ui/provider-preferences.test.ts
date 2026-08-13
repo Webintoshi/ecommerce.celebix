@@ -54,7 +54,7 @@ test("provider checkout preference view exposes only executable persisted author
 test("provider checkout preference command preserves immutable method authority", () => {
   const selected = method();
   const command = buildProviderCheckoutPreferenceCommand(selected, {
-    locale: "en",
+    locale: "tr",
     installmentMode: "limited",
     maxInstallment: 6,
   });
@@ -67,7 +67,7 @@ test("provider checkout preference command preserves immutable method authority"
     label: selected.label,
     config: {
       environment: "test",
-      locale: "en",
+      locale: "tr",
       threeDSecure: "provider_managed",
       installmentMode: "limited",
       maxInstallment: 6,
@@ -81,7 +81,7 @@ test("provider checkout preference summary is honest about provider-owned langua
   assert.deepEqual(buildProviderCheckoutPreferenceSummary(method({
     config: Object.freeze({
       environment: "live",
-      locale: "en",
+      locale: "tr",
       threeDSecure: "provider_managed",
       installmentMode: "limited",
       maxInstallment: 9,
