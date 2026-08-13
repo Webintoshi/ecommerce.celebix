@@ -31,6 +31,20 @@ const IYZICO_AUTHORITY = Object.freeze({
   adapterVersion: 1,
   evidenceDigest: IYZICO_CANDIDATE.candidateExecutionDigest,
 } as const);
+const PAYTR_TEST_AUTHORITY = Object.freeze({
+  environment: "test" as const,
+  adapterVersion: 1,
+  evidenceDigest: `sha256:${"a".repeat(64)}`,
+});
+const PAYTR_LIVE_AUTHORITY = Object.freeze({
+  environment: "live" as const,
+  adapterVersion: 1,
+  evidenceDigest: `sha256:${"b".repeat(64)}`,
+});
+const PAYTR_AUTHORITIES = Object.freeze({
+  test: PAYTR_TEST_AUTHORITY,
+  live: PAYTR_LIVE_AUTHORITY,
+});
 
 test("default storefront registry contains only the immutable PayTR and iyzico packets with their own adapters", () => {
   const transport = Object.freeze({
@@ -59,7 +73,13 @@ test("storefront PayTR activation mode is exact and disabled by default", () => 
     }),
     "approved_test_sandbox",
   );
-  for (const value of ["enabled", "approved_test_validation", " approved_test_sandbox", "approved_test_sandbox "]) {
+  assert.equal(resolveStorefrontHostedPaymentActivationMode({
+    CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_live",
+  }), "approved_live");
+  assert.equal(resolveStorefrontHostedPaymentActivationMode({
+    CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_test_and_live",
+  }), "approved_test_and_live");
+  for (const value of ["enabled", "approved_test_validation", " approved_test_sandbox", "approved_test_sandbox ", "approved_live "]) {
     assert.equal(
       resolveStorefrontHostedPaymentActivationMode({
         CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: value,
@@ -117,21 +137,37 @@ test("Iyzico compiled authority exists only for an exact self-consistent candida
   assert.equal(resolve({ ...IYZICO_AUTHORITY, unexpected: true }, IYZICO_CANDIDATE), null);
 });
 
-test("default compiled authority map stays null in source control and promotes only the exact future Iyzico binding", () => {
+test("default compiled authority map keeps PayTR test and live bindings distinct", () => {
   const candidate = storefrontPaymentDefaults as typeof storefrontPaymentDefaults & {
     createDefaultStorefrontHostedPaymentCompiledAuthorities?: (
       approved?: unknown,
       generated?: unknown,
+      paytr?: unknown,
     ) => Readonly<{
-      paytr_iframe: null;
+      paytr_iframe: Readonly<{
+        test: Readonly<typeof PAYTR_TEST_AUTHORITY> | null;
+        live: Readonly<typeof PAYTR_LIVE_AUTHORITY> | null;
+      }>;
       iyzico_iframe: Readonly<typeof IYZICO_AUTHORITY> | null;
     }>;
   };
   assert.equal(typeof candidate.createDefaultStorefrontHostedPaymentCompiledAuthorities, "function");
   const createAuthorities = candidate.createDefaultStorefrontHostedPaymentCompiledAuthorities!;
-  assert.deepEqual(createAuthorities(), { paytr_iframe: null, iyzico_iframe: null });
+  assert.deepEqual(createAuthorities(), {
+    paytr_iframe: { test: null, live: null },
+    iyzico_iframe: null,
+  });
   const selected = createAuthorities(IYZICO_AUTHORITY, IYZICO_CANDIDATE);
-  assert.deepEqual(selected, { paytr_iframe: null, iyzico_iframe: IYZICO_AUTHORITY });
+  assert.deepEqual(selected, {
+    paytr_iframe: { test: null, live: null },
+    iyzico_iframe: IYZICO_AUTHORITY,
+  });
+  const paytr = createAuthorities(undefined, undefined, PAYTR_AUTHORITIES);
+  assert.deepEqual(paytr, { paytr_iframe: PAYTR_AUTHORITIES, iyzico_iframe: null });
+  assert.notStrictEqual(paytr.paytr_iframe, PAYTR_AUTHORITIES);
+  assert.equal(Object.isFrozen(paytr.paytr_iframe), true);
+  assert.equal(Object.isFrozen(paytr.paytr_iframe.test), true);
+  assert.equal(Object.isFrozen(paytr.paytr_iframe.live), true);
   assert.equal(Object.isFrozen(selected), true);
   assert.equal(Object.isFrozen(selected.iyzico_iframe), true);
 });
@@ -151,7 +187,7 @@ test("storefront runtime requires the matching provider flag for a compiled Iyzi
     randomBytes: Object.freeze((size: number) => new Uint8Array(size)),
   });
   const compiledAuthorities = Object.freeze({
-    paytr_iframe: null,
+    paytr_iframe: Object.freeze({ test: null, live: null }),
     iyzico_iframe: IYZICO_AUTHORITY,
   });
   assert.equal(createDefaultHostedPaymentRuntime({
@@ -180,7 +216,7 @@ test("storefront composition stays inert with verification readiness or null pro
   assert.equal(createDefaultHostedPaymentRuntime({
     source: { CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_test_sandbox" },
     compiledAuthorities: Object.freeze({
-      paytr_iframe: null,
+      paytr_iframe: Object.freeze({ test: null, live: null }),
       iyzico_iframe: null,
     }),
     dependencies,
@@ -193,16 +229,13 @@ test("storefront composition rejects non-exact authority maps before dependency 
   const dependencies = new Proxy({}, {
     get() { dependencyReads += 1; throw new Error("dependencies_must_not_be_read"); },
   });
-  const authority = Object.freeze({
-    environment: "test" as const,
-    adapterVersion: 1,
-    evidenceDigest: `sha256:${"a".repeat(64)}`,
-  });
   const candidates = [
-    Object.freeze({ paytr_iframe: authority }),
-    Object.freeze({ paytr_iframe: authority, iyzico_iframe: null, iyzico: authority }),
-    Object.freeze({ paytr_iframe: authority, iyzico_iframe: Object.freeze({ ...authority, adapterVersion: 2 }) }),
-    Object.defineProperty({ paytr_iframe: authority }, "iyzico_iframe", {
+    Object.freeze({ paytr_iframe: PAYTR_AUTHORITIES }),
+    Object.freeze({ paytr_iframe: PAYTR_TEST_AUTHORITY, iyzico_iframe: null }),
+    Object.freeze({ paytr_iframe: { ...PAYTR_AUTHORITIES, unexpected: null }, iyzico_iframe: null }),
+    Object.freeze({ paytr_iframe: { test: PAYTR_LIVE_AUTHORITY, live: PAYTR_TEST_AUTHORITY }, iyzico_iframe: null }),
+    Object.freeze({ paytr_iframe: PAYTR_AUTHORITIES, iyzico_iframe: Object.freeze({ ...PAYTR_TEST_AUTHORITY, adapterVersion: 2 }) }),
+    Object.defineProperty({ paytr_iframe: PAYTR_AUTHORITIES }, "iyzico_iframe", {
       enumerable: true,
       get() { throw new Error("authority_getter_must_not_run"); },
     }),
@@ -217,19 +250,25 @@ test("storefront composition rejects non-exact authority maps before dependency 
   assert.equal(dependencyReads, 0);
 });
 
-test("compiled authority selector clones and freezes provider-keyed evidence before later mutation", () => {
-  const authority = {
+test("compiled authority selector clones and freezes exact PayTR environment evidence before later mutation", () => {
+  const testAuthority = {
     environment: "test" as const,
     adapterVersion: 1,
     evidenceDigest: `sha256:${"a".repeat(64)}`,
   };
+  const liveAuthority = {
+    environment: "live" as const,
+    adapterVersion: 1,
+    evidenceDigest: `sha256:${"c".repeat(64)}`,
+  };
   const selector = createStorefrontHostedPaymentCompiledAuthoritySelector({
-    paytr_iframe: authority,
+    paytr_iframe: { test: testAuthority, live: liveAuthority },
     iyzico_iframe: null,
   });
   assert.ok(selector);
-  authority.evidenceDigest = `sha256:${"b".repeat(64)}`;
-  const selected = selector("paytr_iframe");
+  testAuthority.evidenceDigest = `sha256:${"b".repeat(64)}`;
+  liveAuthority.evidenceDigest = `sha256:${"d".repeat(64)}`;
+  const selected = selector("paytr_iframe", "test");
   assert.deepEqual(selected, {
     providerCode: "paytr_iframe",
     environment: "test",
@@ -237,8 +276,61 @@ test("compiled authority selector clones and freezes provider-keyed evidence bef
     evidenceDigest: `sha256:${"a".repeat(64)}`,
   });
   assert.equal(Object.isFrozen(selected), true);
-  assert.equal(selector("iyzico_iframe"), null);
-  assert.equal(selector("paytr"), null);
+  assert.deepEqual(selector("paytr_iframe", "live"), {
+    providerCode: "paytr_iframe",
+    environment: "live",
+    adapterVersion: 1,
+    evidenceDigest: `sha256:${"c".repeat(64)}`,
+  });
+  assert.equal(selector("iyzico_iframe", "test"), null);
+  assert.equal(selector("paytr", "test"), null);
+  assert.equal((selector as (providerCode: string, environment: string) => unknown)("paytr_iframe", "preview"), null);
+});
+
+test("storefront PayTR runtime activates only environments allowed by the exact gate", () => {
+  const dependencies = Object.freeze({
+    attempts: Object.freeze({}),
+    keyring: Object.freeze({}),
+    transport: Object.freeze({ request: Object.freeze(async () => { throw new Error("unexpected"); }) }),
+    selectAuthority: Object.freeze(() => Object.freeze({ kind: "untrusted" })),
+    matchesCompiledAuthority: Object.freeze(async () => false),
+    now: Object.freeze(() => new Date("2026-08-13T00:00:00.000Z")),
+    randomBytes: Object.freeze((size: number) => new Uint8Array(size)),
+  });
+  const compiledAuthorities = Object.freeze({ paytr_iframe: PAYTR_AUTHORITIES, iyzico_iframe: null });
+  const testOnly = Object.freeze({
+    paytr_iframe: Object.freeze({ test: PAYTR_TEST_AUTHORITY, live: null }),
+    iyzico_iframe: null,
+  });
+  const liveOnly = Object.freeze({
+    paytr_iframe: Object.freeze({ test: null, live: PAYTR_LIVE_AUTHORITY }),
+    iyzico_iframe: null,
+  });
+  assert.equal(createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_live" },
+    compiledAuthorities: testOnly,
+    dependencies,
+  } as never), null);
+  assert.equal(createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_test_sandbox" },
+    compiledAuthorities: liveOnly,
+    dependencies,
+  } as never), null);
+  assert.ok(createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_test_sandbox" },
+    compiledAuthorities,
+    dependencies,
+  } as never));
+  assert.ok(createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_live" },
+    compiledAuthorities: liveOnly,
+    dependencies,
+  } as never));
+  assert.ok(createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_test_and_live" },
+    compiledAuthorities,
+    dependencies,
+  } as never));
 });
 
 test("default storefront call site stages the real repository keyring and transport behind the dormant gate", async () => {

@@ -390,17 +390,21 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
       if (selectedConfiguration.callbackUrl !== externalCallbackUrl) return callbackResponse(400, "INVALID");
       const authenticated = authenticatePaytrCallback({ configuration: selectedConfiguration, form: callback.form,
         expectedPaymentAmount: selectedAuthority.expectedPaymentAmount });
-      if (authenticated === null || authenticated.merchantOid !== selectedAuthority.merchantOid) return callbackResponse(400, "INVALID");
+      if (
+        authenticated === null
+        || authenticated.merchantOid !== selectedAuthority.merchantOid
+        || authenticated.testMode !== 1
+      ) return callbackResponse(400, "INVALID");
       const operation = phaseAuthority("callback", selectedAuthority.attemptId, callback.callbackDigest);
       const facts = digestParts("callback-facts", callback.callbackDigest, authenticated.status,
         String(authenticated.totalAmount), authenticated.paymentType,
         authenticated.status === "success" ? String(authenticated.paymentAmount) : authenticated.failedReasonCode,
         authenticated.status === "failed" ? authenticated.failedReasonMessageDigest : "TRY");
       const result = await runtime.paymentRepository.settleCallback(authenticated.status === "success"
-        ? { ...authenticated, merchantOid: selectedAuthority.merchantOid, callbackDigest: callback.callbackDigest,
+        ? { ...authenticated, testMode: 1 as const, merchantOid: selectedAuthority.merchantOid, callbackDigest: callback.callbackDigest,
             operationId: operation.operationId, fingerprint: facts,
             ...paymentSettlementIdentity(selectedAuthority.attemptId, selectedAuthority.itemCount), now: new Date(now) }
-        : { ...authenticated, merchantOid: selectedAuthority.merchantOid, callbackDigest: callback.callbackDigest,
+        : { ...authenticated, testMode: 1 as const, merchantOid: selectedAuthority.merchantOid, callbackDigest: callback.callbackDigest,
             operationId: operation.operationId, fingerprint: facts, now: new Date(now) });
       if (result.outcome === "commit_unknown") return callbackResponse(503, "RETRY");
       return result.outcome === "settled" || result.outcome === "replayed" || result.outcome === "failed"

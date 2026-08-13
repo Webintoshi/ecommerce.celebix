@@ -157,6 +157,7 @@ export type HostedPaymentRuntimeDependencies = Readonly<{
   selectAuthority: (headers: Headers) => TrustedHostAuthority;
   selectCompiledAuthority: (
     providerCode: string,
+    environment: "test" | "live",
   ) => Readonly<{
     providerCode: string;
     environment: "test" | "live";
@@ -520,7 +521,7 @@ function adapterFor(
       authority.methodConfig,
     );
     const adapter = dependencies.adapters.adapter(providerCode);
-    const compiled = dependencies.selectCompiledAuthority(providerCode);
+    const compiled = dependencies.selectCompiledAuthority(providerCode, authority.environment);
     const descriptors = compiled !== null
       && typeof compiled === "object"
       && !Array.isArray(compiled)

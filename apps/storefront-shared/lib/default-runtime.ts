@@ -107,18 +107,30 @@ function executableCompiledAuthorities(
     paytr_iframe: PAYTR_IFRAME_PACKET,
     iyzico_iframe: IYZICO_IFRAME_PACKET,
   });
-  return Object.freeze((Object.keys(packets) as readonly (keyof typeof packets)[])
-    .flatMap((providerCode) => {
-      const authority = authorities[providerCode];
-      return authority !== null
-        && resolveStorefrontHostedPaymentActivationMode(source, providerCode) === "approved_test_sandbox"
-        && authority.environment === "test"
-        && authority.adapterVersion === packets[providerCode].adapterVersion
-        && /^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)
-        && (providerCode === "iyzico_iframe" || packets[providerCode].readiness.test === "sandbox_ready")
-        ? [Object.freeze({ providerCode, authority })]
-        : [];
-    }));
+  const executable: ExecutableCompiledAuthority[] = [];
+  const paytrMode = resolveStorefrontHostedPaymentActivationMode(source, "paytr_iframe");
+  for (const environment of ["test", "live"] as const) {
+    const authority = authorities.paytr_iframe[environment];
+    const enabled = paytrMode === "approved_test_and_live"
+      || (paytrMode === "approved_test_sandbox" && environment === "test")
+      || (paytrMode === "approved_live" && environment === "live");
+    if (
+      authority !== null
+      && enabled
+      && authority.environment === environment
+      && authority.adapterVersion === packets.paytr_iframe.adapterVersion
+      && /^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)
+    ) executable.push(Object.freeze({ providerCode: "paytr_iframe", authority }));
+  }
+  const iyzico = authorities.iyzico_iframe;
+  if (
+    iyzico !== null
+    && resolveStorefrontHostedPaymentActivationMode(source, "iyzico_iframe") === "approved_test_sandbox"
+    && iyzico.environment === "test"
+    && iyzico.adapterVersion === packets.iyzico_iframe.adapterVersion
+    && /^sha256:[a-f0-9]{64}$/.test(iyzico.evidenceDigest)
+  ) executable.push(Object.freeze({ providerCode: "iyzico_iframe", authority: iyzico }));
+  return Object.freeze(executable);
 }
 
 async function currentExecutionAuthorityMatches(

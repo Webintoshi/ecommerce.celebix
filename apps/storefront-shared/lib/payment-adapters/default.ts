@@ -6,11 +6,13 @@ import {
   IYZICO_APPROVED_EXECUTION_AUTHORITY,
   IYZICO_IFRAME_PACKET,
   IYZICO_GENERATED_BUILD_METADATA,
+  PAYTR_APPROVED_EXECUTION_AUTHORITIES,
   PAYTR_IFRAME_PACKET,
   createIyzicoCheckoutFormAdapter,
   createPaymentAdapterRegistry,
   createPaytrIframeAdapter,
   type IyzicoCandidateBuildMetadata,
+  type PaytrExecutionAuthorityMap,
   type PaymentAdapterRegistry,
   type ProviderTransport,
 } from "@celebix/payment-adapters";
@@ -31,14 +33,17 @@ type HostedProviderCode = "paytr_iframe" | "iyzico_iframe";
 
 export type StorefrontHostedPaymentActivationMode =
   | "disabled"
-  | "approved_test_sandbox";
+  | "approved_test_sandbox"
+  | "approved_live"
+  | "approved_test_and_live";
 
 export type StorefrontHostedPaymentCompiledAuthorities = Readonly<{
-  paytr_iframe: Readonly<PaymentProviderExecutionAuthority> | null;
+  paytr_iframe: PaytrExecutionAuthorityMap;
   iyzico_iframe: Readonly<PaymentProviderExecutionAuthority> | null;
 }>;
 export type StorefrontHostedPaymentCompiledAuthoritySelector = (
   providerCode: string,
+  environment: "test" | "live",
 ) => Readonly<{
   providerCode: "paytr_iframe" | "iyzico_iframe";
   environment: "test" | "live";
@@ -63,9 +68,12 @@ export function resolveStorefrontHostedPaymentActivationMode(
   const value = providerCode === "paytr_iframe"
     ? source.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE
     : source.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE;
-  return value === "approved_test_sandbox"
-    ? "approved_test_sandbox"
-    : "disabled";
+  if (value === "approved_test_sandbox") return value;
+  if (
+    providerCode === "paytr_iframe"
+    && (value === "approved_live" || value === "approved_test_and_live")
+  ) return value;
+  return "disabled";
 }
 
 const IYZICO_BUILD_METADATA_KEYS = Object.freeze([
@@ -137,7 +145,7 @@ export function resolveIyzicoCompiledExecutionAuthority(
     const candidate = approved as Readonly<PaymentProviderExecutionAuthority> | null;
     if (
       metadata === null
-      || !exactCompiledAuthority("iyzico_iframe", candidate)
+      || !exactCompiledAuthority("iyzico_iframe", "test", candidate)
       || candidate.evidenceDigest !== metadata.candidateExecutionDigest
     ) return null;
     return Object.freeze({
@@ -153,9 +161,11 @@ export function resolveIyzicoCompiledExecutionAuthority(
 export function createDefaultStorefrontHostedPaymentCompiledAuthorities(
   iyzicoApproval: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
   iyzicoBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
+  paytrApprovals: unknown = PAYTR_APPROVED_EXECUTION_AUTHORITIES,
 ): StorefrontHostedPaymentCompiledAuthorities {
+  const paytr = paytrAuthoritySnapshot(paytrApprovals) ?? Object.freeze({ test: null, live: null });
   return Object.freeze({
-    paytr_iframe: null,
+    paytr_iframe: paytr,
     iyzico_iframe: resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild),
   });
 }
@@ -173,7 +183,8 @@ export function createDefaultHostedPaymentAdapterRegistry(
 
 function exactCompiledAuthority(
   providerCode: "paytr_iframe" | "iyzico_iframe",
-  value: Readonly<PaymentProviderExecutionAuthority> | null,
+  environment: "test" | "live",
+  value: unknown,
 ): value is Readonly<PaymentProviderExecutionAuthority> {
   const packet = providerCode === "paytr_iframe" ? PAYTR_IFRAME_PACKET : IYZICO_IFRAME_PACKET;
   const descriptors = value !== null
@@ -187,10 +198,48 @@ function exactCompiledAuthority(
   return descriptors !== null
     && Reflect.ownKeys(descriptors).length === keys.length
     && keys.every((key) => descriptors[key]?.enumerable === true && "value" in descriptors[key]!)
-    && descriptors.environment?.value === "test"
+    && descriptors.environment?.value === environment
     && descriptors.adapterVersion?.value === packet.adapterVersion
     && typeof descriptors.evidenceDigest?.value === "string"
     && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value);
+}
+
+function paytrAuthoritySnapshot(value: unknown): PaytrExecutionAuthorityMap | null {
+  try {
+    if (
+      typeof value !== "object"
+      || value === null
+      || Array.isArray(value)
+      || nodeTypes.isProxy(value)
+      || Object.getPrototypeOf(value) !== Object.prototype
+    ) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = ["test", "live"] as const;
+    if (
+      Reflect.ownKeys(descriptors).length !== keys.length
+      || !keys.every((key) => descriptors[key]?.enumerable === true && "value" in descriptors[key]!)
+    ) return null;
+    const test = descriptors.test!.value;
+    const live = descriptors.live!.value;
+    if (
+      (test !== null && !exactCompiledAuthority("paytr_iframe", "test", test))
+      || (live !== null && !exactCompiledAuthority("paytr_iframe", "live", live))
+    ) return null;
+    return Object.freeze({
+      test: test === null ? null : Object.freeze({
+        environment: test.environment,
+        adapterVersion: test.adapterVersion,
+        evidenceDigest: test.evidenceDigest,
+      }),
+      live: live === null ? null : Object.freeze({
+        environment: live.environment,
+        adapterVersion: live.adapterVersion,
+        evidenceDigest: live.evidenceDigest,
+      }),
+    });
+  } catch {
+    return null;
+  }
 }
 
 function compiledAuthoritySnapshot(
@@ -210,18 +259,14 @@ function compiledAuthoritySnapshot(
       Reflect.ownKeys(descriptors).length !== keys.length
       || !keys.every((key) => descriptors[key]?.enumerable === true && "value" in descriptors[key]!)
     ) return null;
-    const paytr = descriptors.paytr_iframe!.value as Readonly<PaymentProviderExecutionAuthority> | null;
+    const paytr = paytrAuthoritySnapshot(descriptors.paytr_iframe!.value);
     const iyzico = descriptors.iyzico_iframe!.value as Readonly<PaymentProviderExecutionAuthority> | null;
     if (
-      (paytr !== null && !exactCompiledAuthority("paytr_iframe", paytr))
-      || (iyzico !== null && !exactCompiledAuthority("iyzico_iframe", iyzico))
+      paytr === null
+      || (iyzico !== null && !exactCompiledAuthority("iyzico_iframe", "test", iyzico))
     ) return null;
     return Object.freeze({
-      paytr_iframe: paytr === null ? null : Object.freeze({
-        environment: paytr.environment,
-        adapterVersion: paytr.adapterVersion,
-        evidenceDigest: paytr.evidenceDigest,
-      }),
+      paytr_iframe: paytr,
       iyzico_iframe: iyzico === null ? null : Object.freeze({
         environment: iyzico.environment,
         adapterVersion: iyzico.adapterVersion,
@@ -235,13 +280,10 @@ function compiledAuthoritySnapshot(
 
 function executableInCurrentPacket(
   providerCode: "paytr_iframe" | "iyzico_iframe",
+  environment: "test" | "live",
   authority: Readonly<PaymentProviderExecutionAuthority> | null,
 ): boolean {
-  if (authority === null) return false;
-  const packet = providerCode === "paytr_iframe" ? PAYTR_IFRAME_PACKET : IYZICO_IFRAME_PACKET;
-  return authority.environment === "test"
-    && authority.adapterVersion === packet.adapterVersion
-    && (providerCode === "iyzico_iframe" || packet.readiness.test === "sandbox_ready");
+  return authority !== null && exactCompiledAuthority(providerCode, environment, authority);
 }
 
 export function createStorefrontHostedPaymentCompiledAuthoritySelector(
@@ -249,11 +291,25 @@ export function createStorefrontHostedPaymentCompiledAuthoritySelector(
 ): StorefrontHostedPaymentCompiledAuthoritySelector | null {
   const authorities = compiledAuthoritySnapshot(value);
   if (authorities === null) return null;
-  return Object.freeze((providerCode: string) => {
-    if (providerCode !== "paytr_iframe" && providerCode !== "iyzico_iframe") return null;
-    const authority = authorities[providerCode];
+  return Object.freeze((providerCode: string, environment: "test" | "live") => {
+    if (
+      (providerCode !== "paytr_iframe" && providerCode !== "iyzico_iframe")
+      || (environment !== "test" && environment !== "live")
+    ) return null;
+    const authority = providerCode === "paytr_iframe"
+      ? authorities.paytr_iframe[environment]
+      : environment === "test" ? authorities.iyzico_iframe : null;
     return authority === null ? null : Object.freeze({ providerCode, ...authority });
   });
+}
+
+function paytrEnvironmentEnabled(
+  mode: StorefrontHostedPaymentActivationMode,
+  environment: "test" | "live",
+): boolean {
+  return mode === "approved_test_and_live"
+    || (mode === "approved_test_sandbox" && environment === "test")
+    || (mode === "approved_live" && environment === "live");
 }
 
 export function createDefaultHostedPaymentRuntime(input: Readonly<{
@@ -263,11 +319,12 @@ export function createDefaultHostedPaymentRuntime(input: Readonly<{
 }>): HostedPaymentRuntime | null {
   const authorities = compiledAuthoritySnapshot(input.compiledAuthorities);
   if (authorities === null) return null;
+  const paytrMode = resolveStorefrontHostedPaymentActivationMode(input.source, "paytr_iframe");
   const activeAuthorities = Object.freeze({
-    paytr_iframe:
-      resolveStorefrontHostedPaymentActivationMode(input.source, "paytr_iframe") === "approved_test_sandbox"
-        ? authorities.paytr_iframe
-        : null,
+    paytr_iframe: Object.freeze({
+      test: paytrEnvironmentEnabled(paytrMode, "test") ? authorities.paytr_iframe.test : null,
+      live: paytrEnvironmentEnabled(paytrMode, "live") ? authorities.paytr_iframe.live : null,
+    }),
     iyzico_iframe:
       resolveStorefrontHostedPaymentActivationMode(input.source, "iyzico_iframe") === "approved_test_sandbox"
         ? authorities.iyzico_iframe
@@ -276,8 +333,9 @@ export function createDefaultHostedPaymentRuntime(input: Readonly<{
   const selectCompiledAuthority = createStorefrontHostedPaymentCompiledAuthoritySelector(activeAuthorities);
   if (
     selectCompiledAuthority === null
-    || (!executableInCurrentPacket("paytr_iframe", activeAuthorities.paytr_iframe)
-      && !executableInCurrentPacket("iyzico_iframe", activeAuthorities.iyzico_iframe))
+    || (!executableInCurrentPacket("paytr_iframe", "test", activeAuthorities.paytr_iframe.test)
+      && !executableInCurrentPacket("paytr_iframe", "live", activeAuthorities.paytr_iframe.live)
+      && !executableInCurrentPacket("iyzico_iframe", "test", activeAuthorities.iyzico_iframe))
   ) return null;
   const dependencies = input.dependencies;
   const adapters = createDefaultHostedPaymentAdapterRegistry(dependencies.transport);
@@ -286,10 +344,10 @@ export function createDefaultHostedPaymentRuntime(input: Readonly<{
     adapters,
     keyring: dependencies.keyring,
     selectAuthority: dependencies.selectAuthority,
-    selectCompiledAuthority: (providerCode) => {
-      const authority = selectCompiledAuthority(providerCode);
+    selectCompiledAuthority: (providerCode, environment) => {
+      const authority = selectCompiledAuthority(providerCode, environment);
       return authority !== null
-        && executableInCurrentPacket(authority.providerCode, authority)
+        && executableInCurrentPacket(authority.providerCode, environment, authority)
         ? authority
         : null;
     },

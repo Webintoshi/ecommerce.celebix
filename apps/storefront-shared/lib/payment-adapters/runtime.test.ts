@@ -202,6 +202,7 @@ type Calls = {
   queries: Parameters<HostedPaymentAdapter<object>["query"]>[0][];
   opens: unknown[];
   authorityChecks: Parameters<HostedPaymentRuntimeDependencies["matchesCompiledAuthority"]>[0][];
+  compiledAuthoritySelections: Readonly<{ providerCode: string; environment: "test" | "live" }>[];
 };
 
 function deferred<T>(): Readonly<{
@@ -255,7 +256,7 @@ function fixture(options: Readonly<{
     begin: [], initialized: [], unknown: [], callbackAuthority: [], reconciliationAuthority: [], settled: [],
     hostedCallbacks: [],
     claims: [], finalized: [], initializedAdapter: [], callbacks: [], queries: [], opens: [],
-    authorityChecks: [],
+    authorityChecks: [], compiledAuthoritySelections: [],
   };
   let opened: Uint8Array | undefined;
   const attempts: PaymentAttemptRepository = {
@@ -408,11 +409,14 @@ function fixture(options: Readonly<{
       : Object.freeze({ kind: "trusted", hostname: HOSTNAME }),
     now: options.now ?? (() => new Date(NOW)),
     randomBytes: (size) => new Uint8Array(size).fill(7),
-    selectCompiledAuthority: (providerCode) => providerCode === PROVIDER
-      ? options.compiledAuthority === undefined
-        ? COMPILED_AUTHORITY
-        : options.compiledAuthority
-      : null,
+    selectCompiledAuthority: (providerCode, environment) => {
+      calls.compiledAuthoritySelections.push(Object.freeze({ providerCode, environment }));
+      return providerCode === PROVIDER
+        ? options.compiledAuthority === undefined
+          ? COMPILED_AUTHORITY
+          : options.compiledAuthority
+        : null;
+    },
     async matchesCompiledAuthority(input) {
       calls.authorityChecks.push(input);
       if (options.authorityMatches instanceof Error) throw options.authorityMatches;
@@ -646,6 +650,9 @@ test("initializes through durable method/profile authority and projects only ifr
     createHash("sha256").update(Buffer.alloc(32, 7)).digest("hex"));
   assert.equal(JSON.stringify(selected.calls.begin[0]).includes(Buffer.alloc(32, 7).toString("base64url")), false);
   assert.equal(selected.calls.initializedAdapter.length, 1);
+  assert.deepEqual(selected.calls.compiledAuthoritySelections, [
+    { providerCode: PROVIDER, environment: "test" },
+  ]);
   assert.equal(selected.calls.initializedAdapter[0]?.callbackUrl,
     `https://${HOSTNAME}/api/payments/${PROVIDER}/callback/${Buffer.alloc(32, 7).toString("base64url")}`);
   assert.equal(selected.calls.initializedAdapter[0]?.successUrl,
@@ -677,6 +684,41 @@ test("initializes through durable method/profile authority and projects only ifr
     credentialVersion: 3,
     keyring: KEYRING,
   });
+});
+
+test("initializes a live PayTR method only through the matching live compiled authority", async () => {
+  const liveAuthority = Object.freeze({
+    ...COMPILED_AUTHORITY,
+    environment: "live" as const,
+    evidenceDigest: `sha256:${"b".repeat(64)}`,
+  });
+  const selected = fixture({
+    compiledAuthority: liveAuthority,
+    begin: beginResult({
+      environment: "live",
+      executionEvidenceDigest: liveAuthority.evidenceDigest,
+      methodConfig: Object.freeze({
+        environment: "live" as const,
+        locale: "tr" as const,
+        threeDSecure: "provider_managed" as const,
+        installmentMode: "limited" as const,
+        maxInstallment: 6 as const,
+      }),
+      publicConfig: Object.freeze({ environment: "live", merchantId: "merchant_fixture" }),
+    }),
+  });
+
+  assert.deepEqual(await selected.runtime.initialize(initializeInput()), {
+    kind: "iframe",
+    url: ENDPOINT,
+    token: "browser_token_fixture",
+  });
+  assert.deepEqual(selected.calls.compiledAuthoritySelections, [
+    { providerCode: PROVIDER, environment: "live" },
+  ]);
+  assert.equal(selected.calls.initializedAdapter[0]?.environment, "live");
+  assert.equal(selected.calls.initializedAdapter[0]?.preferences.environment, "live");
+  assert.equal(selected.calls.opens.length, 1);
 });
 
 test("initialize rejects null malformed superseded and mismatched compiled provider authority before credential open", async () => {

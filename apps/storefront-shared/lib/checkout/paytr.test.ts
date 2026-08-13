@@ -417,8 +417,9 @@ test("callback rejects invalid HMAC, underpayment, external host mismatch, and b
   });
   const badHash = callbackRequest("success", { hash: Buffer.alloc(32, 0x31).toString("base64") });
   const underpaid = callbackRequest("success", { total_amount: "3599" });
+  const wrongMode = callbackRequest("success", { test_mode: "0" });
   const browser = callbackRequest(); browser.headers.set("origin", `https://${HOSTNAME}`);
-  for (const selected of [badHash, underpaid, browser]) {
+  for (const selected of [badHash, underpaid, wrongMode, browser]) {
     const response = await handler(selected);
     assert.equal(response.status, 400);
     assert.notEqual(await response.text(), "OK");
