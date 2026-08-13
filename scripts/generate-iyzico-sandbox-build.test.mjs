@@ -212,9 +212,9 @@ test("Coolify application builds generate the commit-bound Iyzico metadata befor
       storefrontShared: packageJson.scripts["build:coolify:storefront-shared"],
     },
     {
-      customerPanel: "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/customer-panel",
-      owner: "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/owner",
-      storefrontShared: "npm run generate:iyzico-sandbox-build && npm run build --workspace @celebix/storefront-shared",
+      customerPanel: "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run build --workspace @celebix/customer-panel",
+      owner: "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run build --workspace @celebix/owner",
+      storefrontShared: "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run build --workspace @celebix/storefront-shared",
     },
   );
 });
