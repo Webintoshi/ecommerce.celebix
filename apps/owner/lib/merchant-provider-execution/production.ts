@@ -14,6 +14,10 @@ import type { MerchantProviderWorkerOptions } from "./types.ts";
 import { createMerchantProviderWorker } from "./worker.ts";
 
 const { Pool } = pg;
+const PAYTR_TOKEN_URL = "https://www.paytr.com/odeme/api/get-token";
+const PAYTR_FORM_CONTENT_TYPE = "application/x-www-form-urlencoded";
+const PAYTR_RESPONSE_CONTENT_TYPE = "text/html; charset=UTF-8";
+const JSON_RESPONSE_CONTENT_TYPE = "application/json; charset=utf-8";
 const TIMEOUTS = Object.freeze({
   poolCheckoutMs: 2_000,
   statementMs: 5_000,
@@ -63,6 +67,27 @@ export function createMerchantProviderRepositoryAudit(
   return (event) => audit(event.type);
 }
 
+export function createPaytrValidationCompatibleFetch(
+  fetch: MerchantProviderProductionDependencies["fetch"],
+): MerchantProviderProductionDependencies["fetch"] {
+  return async (request) => {
+    const response = await fetch(request);
+    if (
+      request.url !== PAYTR_TOKEN_URL || request.method !== "POST" ||
+      request.headers.get("content-type") !== PAYTR_FORM_CONTENT_TYPE ||
+      response.status !== 200 || response.redirected || response.type === "opaqueredirect" ||
+      response.headers.get("content-type") !== PAYTR_RESPONSE_CONTENT_TYPE
+    ) return response;
+    const headers = new Headers(response.headers);
+    headers.set("content-type", JSON_RESPONSE_CONTENT_TYPE);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  };
+}
+
 async function preflight(pool: PostgresPoolLike, databaseName: string): Promise<void> {
   const client = await pool.connect();
   try {
@@ -102,7 +127,7 @@ export async function initializeMerchantProviderProductionRuntime(
   try {
     await preflight(pool, config.database.name);
     const transport = createBoundedProviderTransport({
-      fetch: dependencies.fetch,
+      fetch: createPaytrValidationCompatibleFetch(dependencies.fetch),
       timeoutMs: 5_000,
       maximumResponseBytes: 16_384,
     });

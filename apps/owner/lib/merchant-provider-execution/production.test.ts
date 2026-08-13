@@ -6,6 +6,7 @@ import { sealMerchantProviderCredential } from "@celebix/saas-data";
 import { parseMerchantProviderProductionConfig } from "./production-config.ts";
 import {
   createMerchantProviderRepositoryAudit,
+  createPaytrValidationCompatibleFetch,
   initializeMerchantProviderProductionRuntime,
 } from "./production.ts";
 
@@ -65,6 +66,29 @@ test("production audit bridge forwards only repository commit-unknown kinds", as
     "merchant_provider_finalize_commit_unknown",
     "merchant_provider_verification_commit_unknown",
   ]);
+});
+
+test("PayTR media compatibility stays bound to the exact token request", async () => {
+  const canonicalResponse = new Response('{"status":"success"}', {
+    headers: { "content-type": "text/html; charset=UTF-8" },
+  });
+  const compatible = createPaytrValidationCompatibleFetch(async () => canonicalResponse);
+  const normalized = await compatible(new Request("https://www.paytr.com/odeme/api/get-token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: "merchant_id=123456",
+  }));
+  assert.equal(normalized.headers.get("content-type"), "application/json; charset=utf-8");
+
+  const unrelatedResponse = new Response('{"status":"success"}', {
+    headers: { "content-type": "text/html; charset=UTF-8" },
+  });
+  const unrelated = createPaytrValidationCompatibleFetch(async () => unrelatedResponse);
+  assert.equal(await unrelated(new Request("https://sandbox-api.iyzipay.com/payment/bin/check", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  })), unrelatedResponse);
 });
 
 test("real production composition preflights 056 and validates Iyzico through verification RPCs only", async () => {
@@ -258,7 +282,7 @@ test("real production composition opens and validates a merchant PayTR live prof
         token: "28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa",
       }), {
         status: 200,
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "text/html; charset=UTF-8" },
       });
     },
     uuid: () => uuids.shift() ?? REFERENCE,
