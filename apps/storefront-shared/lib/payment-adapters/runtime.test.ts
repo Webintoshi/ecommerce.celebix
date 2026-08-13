@@ -1381,7 +1381,7 @@ test("callback deadline aborts verification, persists unknown, and ignores a lat
   assert.equal(selected.calls.hostedCallbacks.length, 1);
 });
 
-test("rejects wrong provider, unknown binding, signature failure, amount/currency mismatch, and replay mismatch", async () => {
+test("rejects wrong provider, unknown binding, signature failure, amount/currency/reference mismatch, and replay mismatch", async () => {
   const wrongProvider = fixture({ callbackAuthority: authority({ providerCode: "other_provider" }) });
   assert.deepEqual(await wrongProvider.runtime.callback({
     request: callbackRequest(),
@@ -1425,6 +1425,24 @@ test("rejects wrong provider, unknown binding, signature failure, amount/currenc
     }), { kind: "rejected" });
     assert.equal(mismatch.calls.hostedCallbacks.length, 0);
   }
+
+  const referenceMismatch = fixture({
+    callbackAuthority: authority({ providerReference: "expected_provider_reference" }),
+    callback: Object.freeze({
+      eventKey: "provider_event_1",
+      status: "succeeded" as const,
+      providerReference: "different_provider_reference",
+      paidAmountMinor: 12_345,
+      currency: "TRY",
+      safeCode: "payment_captured",
+    }),
+  });
+  assert.deepEqual(await referenceMismatch.runtime.callback({
+    request: callbackRequest(),
+    providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url"),
+  }), { kind: "rejected" });
+  assert.equal(referenceMismatch.calls.hostedCallbacks.length, 0);
 
   const replayMismatch = fixture({ settlement: hostedMutation({
     attemptId: "77777777-7777-4777-8777-777777777777",

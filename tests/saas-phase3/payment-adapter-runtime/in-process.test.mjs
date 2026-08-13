@@ -111,7 +111,7 @@ if (!CHILD) {
     }
   })();
   const EXPECTED_INITIALIZE_BODY = "merchant_id=123456&user_ip=8.8.8.8&merchant_oid=4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0&email=ada%40example.com&payment_amount=10000&paytr_token=MlwYy6rJ%2FsZOITp%2FeIHzwkPLZoJCwSQW4twPHmxK0gQ%3D&user_basket=W1siw5ZybmVrIMO8csO8biIsIjEwMC4wMCIsMV1d&debug_on=0&no_installment=0&max_installment=0&user_name=Ada+Lovelace&user_address=%C3%96rnek+1+%C4%B0stanbul&user_phone=%2B905551112233&merchant_ok_url=https%3A%2F%2Fpilot.saas-staging.celebix.site%2Fodeme%2Fhizli%2Fsonuc%3Fdurum%3Dbasarili&merchant_fail_url=https%3A%2F%2Fpilot.saas-staging.celebix.site%2Fodeme%2Fhizli%2Fsonuc%3Fdurum%3Dbasarisiz&timeout_limit=30&currency=TL&test_mode=1";
-  const SIGNED_CALLBACK = `merchant_oid=${CALLBACK_DIGEST}&status=success&total_amount=10000&hash=Dea8%2B%2BoKQcs6TlVm%2Fy5iF1RQas2QZIkZ1quzDlUnvzM%3D&payment_type=card&test_mode=1`;
+  const SIGNED_CALLBACK = `merchant_oid=${CALLBACK_DIGEST}&status=success&total_amount=10000&hash=Dea8%2B%2BoKQcs6TlVm%2Fy5iF1RQas2QZIkZ1quzDlUnvzM%3D&payment_type=card&test_mode=1&payment_amount=10000&currency=TL`;
 
   function input(storeId = STORE_A) {
     return {

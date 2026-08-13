@@ -11,6 +11,7 @@ import {
   PAYTR_IFRAME_PACKET,
   authenticatePaytrIframeCallback,
   createPaytrIframeAdapter,
+  createPaytrIframeCallbackHash,
   validatePaytrIframeCredentialWithTransport,
 } from "./adapter.ts";
 
@@ -243,7 +244,22 @@ test("verifies callback HMAC and projects only durable order/provider facts", as
   const adapter = createPaytrIframeAdapter(transport(async () => {
     throw new Error("callback must not use transport");
   }));
-  const form = `merchant_oid=${MERCHANT_OID}&status=success&total_amount=10000&hash=Dea8%2B%2BoKQcs6TlVm%2Fy5iF1RQas2QZIkZ1quzDlUnvzM%3D&payment_type=card&test_mode=1`;
+  const callbackHash = createPaytrIframeCallbackHash({
+    credential,
+    merchantOid: MERCHANT_OID,
+    status: "success",
+    totalAmount: "10000",
+  });
+  const form = new URLSearchParams({
+    merchant_oid: MERCHANT_OID,
+    status: "success",
+    total_amount: "10000",
+    hash: callbackHash,
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "10000",
+    currency: "TL",
+  }).toString();
 
   assert.deepEqual(await adapter.verifyCallback({
     environment: "test",
@@ -273,10 +289,43 @@ test("verifies callback HMAC and projects only durable order/provider facts", as
     hash: "HLrGVd4NVupZSmNM97W4Yt/QgrzWHxMDQeXEfNbKFMo=",
     payment_type: "card",
     test_mode: "1",
+    payment_amount: "10000",
+    currency: "TL",
+  }).toString();
+  const wrongPaymentAmount = new URLSearchParams({
+    merchant_oid: MERCHANT_OID,
+    status: "success",
+    total_amount: "10000",
+    hash: callbackHash,
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "9999",
+    currency: "TL",
+  }).toString();
+  const wrongCurrency = new URLSearchParams({
+    merchant_oid: MERCHANT_OID,
+    status: "success",
+    total_amount: "10000",
+    hash: callbackHash,
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "10000",
+    currency: "USD",
+  }).toString();
+  const missingPaymentContext = new URLSearchParams({
+    merchant_oid: MERCHANT_OID,
+    status: "success",
+    total_amount: "10000",
+    hash: callbackHash,
+    payment_type: "card",
+    test_mode: "1",
   }).toString();
   for (const invalid of [
     signedUnderpayment,
-    form.replace("Dea8%2B%2B", "Aea8%2B%2B"),
+    wrongPaymentAmount,
+    wrongCurrency,
+    missingPaymentContext,
+    form.replace(encodeURIComponent(callbackHash), encodeURIComponent(`A${callbackHash.slice(1)}`)),
     `${form}&merchant_oid=${MERCHANT_OID}`,
   ]) {
     await assert.rejects(

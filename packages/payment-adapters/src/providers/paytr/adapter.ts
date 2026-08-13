@@ -80,6 +80,7 @@ const CALLBACK_KEYS = Object.freeze([
   "expectedPaymentAmount",
   "form",
 ]);
+const CALLBACK_OPTIONAL_KEYS = Object.freeze(["requirePaymentContext"]);
 const HOSTED_INITIALIZATION_KEYS = Object.freeze([
   "amountMinor",
   "attemptId",
@@ -490,9 +491,14 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
   credential: PaytrIframeCredential;
   form: string;
   expectedPaymentAmount: number;
+  requirePaymentContext?: true;
 }>): PaytrIframeCallback | null {
   try {
-    const selected = exactRecord(input, CALLBACK_KEYS);
+    const selected = exactRecord(input, CALLBACK_KEYS, CALLBACK_OPTIONAL_KEYS);
+    if (
+      selected.requirePaymentContext !== undefined &&
+      selected.requirePaymentContext !== true
+    ) return null;
     const expectedPaymentAmount = parsePaytrPositiveInteger(selected.expectedPaymentAmount);
     if (
       typeof selected.form !== "string" ||
@@ -515,8 +521,14 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       "payment_type",
       "test_mode",
     ];
+    const hasPaymentAmount = params.has("payment_amount");
+    const hasCurrency = params.has("currency");
+    if (hasPaymentAmount !== hasCurrency) return null;
+    const hasPaymentContext = hasPaymentAmount && hasCurrency;
     const fields = status === "success"
-      ? successFields
+      ? hasPaymentContext
+        ? [...successFields, "payment_amount", "currency"]
+        : successFields
       : [...successFields, "failed_reason_code", "failed_reason_msg"];
     if (
       entries.length !== fields.length ||
@@ -547,6 +559,14 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       })
     ) return null;
     if (status === "success") {
+      if (selected.requirePaymentContext === true && !hasPaymentContext) return null;
+      if (hasPaymentContext) {
+        const rawPaymentAmount = params.get("payment_amount");
+        if (
+          rawPaymentAmount !== String(expectedPaymentAmount) ||
+          params.get("currency") !== "TL"
+        ) return null;
+      }
       if (totalAmount < expectedPaymentAmount) return null;
       return Object.freeze({
         status,
@@ -915,6 +935,7 @@ export function createPaytrIframeAdapter(
         credential: input.credential,
         form,
         expectedPaymentAmount: input.expected.amountMinor,
+        requirePaymentContext: true,
       });
       if (callback === null || !DIGEST.test(callback.merchantOid)) {
         invalid("paytr_callback_invalid");
