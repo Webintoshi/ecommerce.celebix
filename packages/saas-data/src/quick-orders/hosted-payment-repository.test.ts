@@ -67,6 +67,7 @@ const beginPayload = () => ({
   amountMinor: 12_500,
   currency: "TRY",
   publicConfig: { environment: "test" },
+  methodConfig: { environment: "test", locale: "tr", threeDSecure: "provider_managed", installmentMode: "all", maxInstallment: 0 },
   sealedCredentials: { ...envelope(), keyId: "provider.current" },
 });
 

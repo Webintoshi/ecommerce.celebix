@@ -36,6 +36,7 @@ import {
   paymentAttemptExecutionEvidenceDigest,
   paymentAttemptInteger,
   paymentAttemptLeaseWindow,
+  paymentAttemptMethodConfig,
   paymentAttemptOrderReference,
   paymentAttemptProviderCode,
   paymentAttemptProviderReference,
@@ -187,18 +188,21 @@ function parseAuthority(value: unknown): PaymentAttemptAuthority {
       "status",
       "version",
       "providerReference",
+      "methodConfig",
       "publicConfig",
       "sealedCredentials",
     ]);
     const environment = paymentAttemptEnvironment(parsed.environment);
+    const providerCode = paymentAttemptProviderCode(parsed.providerCode);
+    const methodConfig = paymentAttemptMethodConfig(providerCode, parsed.methodConfig);
     const publicConfig = paymentAttemptPublicConfig(parsed.publicConfig);
-    if (publicConfig.environment !== environment) unavailable();
+    if (publicConfig.environment !== environment || methodConfig.environment !== environment) unavailable();
     return Object.freeze({
       attemptId: paymentAttemptUuid(parsed.attemptId),
       storeId: paymentAttemptUuid(parsed.storeId),
       paymentMethodId: paymentAttemptUuid(parsed.paymentMethodId),
       profileId: paymentAttemptUuid(parsed.profileId),
-      providerCode: paymentAttemptProviderCode(parsed.providerCode),
+      providerCode,
       environment,
       executionAdapterVersion: paymentAttemptInteger(parsed.executionAdapterVersion),
       executionEvidenceDigest: paymentAttemptExecutionEvidenceDigest(parsed.executionEvidenceDigest),
@@ -209,6 +213,7 @@ function parseAuthority(value: unknown): PaymentAttemptAuthority {
       status: paymentAttemptStatus(parsed.status),
       version: paymentAttemptInteger(parsed.version),
       providerReference: paymentAttemptProviderReference(parsed.providerReference),
+      methodConfig,
       publicConfig,
       sealedCredentials: paymentAttemptSealedCredentials(parsed.sealedCredentials),
     });
@@ -239,10 +244,13 @@ function parseBegin(
       "credentialVersion",
       "amountMinor",
       "currency",
+      "methodConfig",
       "publicConfig",
       "sealedCredentials",
     ]);
     const environment = paymentAttemptEnvironment(parsed.environment);
+    const providerCode = paymentAttemptProviderCode(parsed.providerCode);
+    const methodConfig = paymentAttemptMethodConfig(providerCode, parsed.methodConfig);
     const publicConfig = paymentAttemptPublicConfig(parsed.publicConfig);
     const result = Object.freeze({
       outcome: outcome === "operation_replayed" ? "replayed" as const : "created" as const,
@@ -250,13 +258,14 @@ function parseBegin(
       storeId: paymentAttemptUuid(parsed.storeId),
       paymentMethodId: paymentAttemptUuid(parsed.paymentMethodId),
       profileId: paymentAttemptUuid(parsed.profileId),
-      providerCode: paymentAttemptProviderCode(parsed.providerCode),
+      providerCode,
       environment,
       executionAdapterVersion: paymentAttemptInteger(parsed.executionAdapterVersion),
       executionEvidenceDigest: paymentAttemptExecutionEvidenceDigest(parsed.executionEvidenceDigest),
       credentialVersion: paymentAttemptInteger(parsed.credentialVersion),
       amountMinor: paymentAttemptInteger(parsed.amountMinor),
       currency: paymentAttemptCurrency(parsed.currency),
+      methodConfig,
       publicConfig,
       sealedCredentials: paymentAttemptSealedCredentials(parsed.sealedCredentials),
     });
@@ -267,6 +276,7 @@ function parseBegin(
       || result.amountMinor !== expected.amountMinor
       || result.currency !== expected.currency
       || publicConfig.environment !== environment
+      || methodConfig.environment !== environment
     ) unavailable();
     return result;
   });
@@ -439,6 +449,7 @@ function parseClaim(
       "status",
       "version",
       "providerReference",
+      "methodConfig",
       "publicConfig",
       "sealedCredentials",
       "leaseId",
@@ -461,6 +472,7 @@ function parseClaim(
       status: parsed.status,
       version: parsed.version,
       providerReference: parsed.providerReference,
+      methodConfig: parsed.methodConfig,
       publicConfig: parsed.publicConfig,
       sealedCredentials: parsed.sealedCredentials,
     }));

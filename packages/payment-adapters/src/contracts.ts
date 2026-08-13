@@ -1,4 +1,7 @@
-import type { PaymentProviderReadiness } from "@celebix/saas-contracts";
+import type {
+  PaymentProviderReadiness,
+  ProviderPaymentMethodConfig,
+} from "@celebix/saas-contracts";
 
 export type PaymentAdapterField = Readonly<{
   key: string;
@@ -102,6 +105,7 @@ export type VerifiedProviderCallback = Readonly<{
 
 export type HostedPaymentInitializeInput<TCredential extends object> = Readonly<{
   environment: "test" | "live";
+  preferences: ProviderPaymentMethodConfig;
   credential: TCredential;
   attemptId: string;
   orderReference: string;

@@ -137,7 +137,13 @@ function iyzicoMethod(
     state,
     emergencyReason: state === "emergency_disabled" ? "Risk kontrolü" : null,
     position: 0,
-    config: Object.freeze({ environment }),
+    config: Object.freeze({
+      environment,
+      locale: "tr",
+      threeDSecure: "provider_managed",
+      installmentMode: "all",
+      maxInstallment: 0,
+    }),
     version,
     createdAt: NOW,
     updatedAt: NOW,
@@ -655,6 +661,7 @@ async function compilePaymentConsole(input: Readonly<{
   const paymentClient = await import("./payment-method-ui/client.ts");
   const state = await import("./payment-settings-ui/console-state.ts");
   const model = await import("./payment-settings-ui/model.ts");
+  const providerPreferences = await import("./payment-settings-ui/provider-preferences.ts");
   const builtInController = await import("./built-in-payment-methods/controller.ts");
   const Image = (props: Record<string, unknown>) => createElement("img", props);
   const Icon = (props: Record<string, unknown>) => createElement("svg", props);
@@ -761,6 +768,9 @@ async function compilePaymentConsole(input: Readonly<{
     }
     if (specifier === "@/lib/payment-settings-ui/console-state") return state;
     if (specifier === "@/lib/payment-settings-ui/model") return model;
+    if (specifier === "@/lib/payment-settings-ui/provider-preferences") {
+      return providerPreferences;
+    }
     if (specifier === "@/lib/provider-execution-ui/client") {
       return {
         providerExecutionApi: Object.freeze({
@@ -791,6 +801,9 @@ async function compilePaymentConsole(input: Readonly<{
     }
     if (specifier === "./PaymentProviderConnectionDrawer") {
       return { PaymentProviderConnectionDrawer: Host("connection-drawer") };
+    }
+    if (specifier === "./ProviderCheckoutSettingsDrawer") {
+      return { ProviderCheckoutSettingsDrawer: Host("checkout-settings-drawer") };
     }
     if (specifier === "./payment-settings.module.css") return styles;
     throw new Error(`unexpected_payment_console_import:${specifier}`);
@@ -1010,6 +1023,115 @@ test("mounted payment console opens built-in create and edit drawers and reloads
   assert.match(console.render().map(drawerText).join(""), /Yerleşik ödeme yöntemi güncellendi/);
   assert.equal(console.nodes().some((node) => node.type === "built-in-drawer"), false);
   assert.equal(reloadedEdit.target.focusCount, 1, "successful edit must restore its initiating control");
+});
+
+test("mounted payment console saves provider checkout preferences and renders canonical summary", async () => {
+  const provider = iyzicoMethod("active");
+  const reloadedProvider = Object.freeze({
+    ...provider,
+    version: provider.version + 1,
+    config: Object.freeze({
+      environment: "test" as const,
+      locale: "en" as const,
+      threeDSecure: "provider_managed" as const,
+      installmentMode: "limited" as const,
+      maxInstallment: 6 as const,
+    }),
+  });
+  const console = await compilePaymentConsole({
+    methods: Object.freeze([provider]),
+    reloadedMethods: Object.freeze([reloadedProvider]),
+    deferReload: false,
+  });
+
+  console.render();
+  await console.settle();
+  let row = console.nodes().find((node) =>
+    node.type === "tr" && drawerText(node).includes(provider.label));
+  assert.ok(row);
+  assert.match(drawerText(row), /Türkçe · Tüm uygun taksitler · 3D sağlayıcıda/);
+  const open = drawerNodes(row.children).find((node) =>
+    node.type === "button" && drawerText(node) === "Checkout ayarları");
+  assert.ok(open);
+  (open.props.onClick as (event: unknown) => void)({ currentTarget: open.target });
+  console.render();
+  const drawer = console.nodes().find((node) => node.type === "checkout-settings-drawer");
+  assert.ok(drawer);
+  assert.equal(drawer.props.method, provider);
+
+  await (drawer.props.onSubmit as (value: unknown) => Promise<void>)(Object.freeze({
+    locale: "en",
+    installmentMode: "limited",
+    maxInstallment: 6,
+  }));
+  console.render();
+  assert.deepEqual(console.events, ["list:initial", "save", "list:reload"]);
+  assert.deepEqual(console.mutations, [Object.freeze({
+    operation: "save",
+    command: Object.freeze({
+      methodId: provider.id,
+      expectedVersion: provider.version,
+      kind: "provider",
+      profileId: provider.profileId,
+      providerCode: provider.providerCode,
+      label: provider.label,
+      config: Object.freeze({
+        environment: "test",
+        locale: "en",
+        threeDSecure: "provider_managed",
+        installmentMode: "limited",
+        maxInstallment: 6,
+      }),
+    }),
+  })]);
+  assert.equal(console.nodes().some((node) => node.type === "checkout-settings-drawer"), false);
+  assert.match(console.render().map(drawerText).join(""), /Checkout ayarları yeni ödeme işlemleri için kaydedildi/);
+  row = console.nodes().find((node) =>
+    node.type === "tr" && drawerText(node).includes(provider.label));
+  assert.ok(row);
+  assert.match(drawerText(row), /English · En fazla 6 taksit · 3D sağlayıcıda/);
+});
+
+test("mounted payment console keeps provider drawer open on version conflict and refreshes authority", async () => {
+  const provider = iyzicoMethod("active");
+  const reloadedProvider = Object.freeze({
+    ...provider,
+    version: provider.version + 1,
+    config: Object.freeze({
+      environment: "test" as const,
+      locale: "tr" as const,
+      threeDSecure: "provider_managed" as const,
+      installmentMode: "single_payment" as const,
+      maxInstallment: 0 as const,
+    }),
+  });
+  const console = await compilePaymentConsole({
+    methods: Object.freeze([provider]),
+    reloadedMethods: Object.freeze([reloadedProvider]),
+    deferReload: false,
+    saveError: "conflict",
+  });
+  console.render();
+  await console.settle();
+  const open = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Checkout ayarları");
+  assert.ok(open);
+  (open.props.onClick as (event: unknown) => void)({ currentTarget: open.target });
+  console.render();
+  let drawer = console.nodes().find((node) => node.type === "checkout-settings-drawer");
+  assert.ok(drawer);
+  await (drawer.props.onSubmit as (value: unknown) => Promise<void>)(Object.freeze({
+    locale: "en",
+    installmentMode: "limited",
+    maxInstallment: 9,
+  }));
+  console.render();
+  drawer = console.nodes().find((node) => node.type === "checkout-settings-drawer");
+  assert.ok(drawer);
+  assert.equal(drawer.props.method, reloadedProvider);
+  assert.match(String(drawer.props.submitError), /Ayarlar değiştirilmedi/);
+  assert.deepEqual(console.events, ["list:initial", "save", "list:reload"]);
+  assert.equal(console.mutations.length, 1, "a version conflict must never cause a blind retry");
 });
 
 test("mounted console separates provider failure from unknown payment-method authority", async () => {
@@ -1502,7 +1624,13 @@ test("provider activation creates one deterministic tenant method and activates 
     profileId: IYZICO_PROFILE_ID,
     providerCode: "iyzico_iframe",
     label: "iyzico · Checkout Form",
-    config: Object.freeze({ environment: "test" }),
+    config: Object.freeze({
+      environment: "test",
+      locale: "tr",
+      threeDSecure: "provider_managed",
+      installmentMode: "all",
+      maxInstallment: 0,
+    }),
   })]);
   assert.deepEqual(states, [Object.freeze({
     methodId: IYZICO_PROFILE_ID,
@@ -2083,10 +2211,11 @@ test("built-in drawer contains Tab focus and handles backdrop, busy close suppre
 });
 
 test("payment dialogs provide focus safety, masked connection state and dormant secrets", async () => {
-  const [consoleSource, catalogSource, drawerSource, orderSource, css] = await Promise.all([
+  const [consoleSource, catalogSource, drawerSource, checkoutSource, orderSource, css] = await Promise.all([
     source("components/settings/payment/PaymentSettingsConsole.tsx"),
     source("components/settings/payment/PaymentProviderCatalogDialog.tsx"),
     source("components/settings/payment/PaymentProviderConnectionDrawer.tsx"),
+    source("components/settings/payment/ProviderCheckoutSettingsDrawer.tsx"),
     source("components/settings/payment/PaymentMethodOrderDialog.tsx"),
     source("components/settings/payment/payment-settings.module.css"),
   ]);
@@ -2114,6 +2243,16 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(drawerSource, /busy \|\| !props\.canManage \|\| !canSubmit/);
   assert.doesNotMatch(drawerSource, /window[.]location[.]origin/);
   assert.doesNotMatch(drawerSource, /defaultValue=\{[^}]*credential|merchantKey\s*:|merchantSalt\s*:/);
+  assert.match(checkoutSource, /role="dialog"/);
+  assert.match(checkoutSource, /aria-modal="true"/);
+  assert.match(checkoutSource, /event\.key === "Escape"/);
+  assert.match(checkoutSource, /props\.openerRef\.current\?\.focus/);
+  assert.match(checkoutSource, /Tüm uygun taksitler/);
+  assert.match(checkoutSource, /Yalnız tek çekim/);
+  assert.match(checkoutSource, /Üst sınır belirle/);
+  assert.match(checkoutSource, /kart numarası, CVV veya ham sağlayıcı anahtarı saklamaz/);
+  assert.match(checkoutSource, /editingDisabled/);
+  assert.doesNotMatch(checkoutSource, /type="text"[^>]*name="card|cvv|apiKey|secretKey/);
   assert.match(consoleSource, /readiness === "verification"/);
   assert.match(consoleSource, /selectedCard\?\.configurableDescriptor/);
   assert.match(consoleSource, /emergencyReason/);

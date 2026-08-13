@@ -1,6 +1,11 @@
 import { types as nodeTypes } from "node:util";
 
 import {
+  parseProviderPaymentMethodConfig,
+  type ExecutableHostedPaymentProvider,
+  type ProviderPaymentMethodConfig,
+} from "@celebix/saas-contracts";
+import {
   providerPublicConfig,
   providerSealedCredential,
 } from "../provider-execution/canonical.ts";
@@ -247,6 +252,16 @@ export function paymentAttemptPublicConfig(value: unknown) {
     assertSafeJsonTree(value);
     return providerPublicConfig(value);
   });
+}
+
+export function paymentAttemptMethodConfig(
+  providerCode: string,
+  value: unknown,
+): ProviderPaymentMethodConfig {
+  return contained(() => parseProviderPaymentMethodConfig(
+    providerCode as ExecutableHostedPaymentProvider,
+    value,
+  ));
 }
 
 export function paymentAttemptSealedCredentials(

@@ -48,6 +48,11 @@ import {
   type PaymentProviderCatalogCard,
   type PaymentSettingsFilters,
 } from "@/lib/payment-settings-ui/model";
+import {
+  buildProviderCheckoutPreferenceCommand,
+  buildProviderCheckoutPreferenceView,
+  type ProviderCheckoutPreferenceSelection,
+} from "@/lib/payment-settings-ui/provider-preferences";
 import { providerExecutionApi } from "@/lib/provider-execution-ui/client";
 import {
   IyzicoActivationApiError,
@@ -61,6 +66,7 @@ import {
 import { PaymentMethodOrderDialog } from "./PaymentMethodOrderDialog";
 import { PaymentProviderCatalogDialog } from "./PaymentProviderCatalogDialog";
 import { PaymentProviderConnectionDrawer } from "./PaymentProviderConnectionDrawer";
+import { ProviderCheckoutSettingsDrawer } from "./ProviderCheckoutSettingsDrawer";
 import styles from "./payment-settings.module.css";
 
 type Sources = PaymentSettingsSources<
@@ -121,11 +127,14 @@ export function PaymentSettingsConsole(props: Readonly<{
   const [orderOpen, setOrderOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<PaymentProviderCatalogCard | null>(null);
   const [selectedBuiltIn, setSelectedBuiltIn] = useState<BuiltInSelection | null>(null);
+  const [selectedCheckoutMethod, setSelectedCheckoutMethod] = useState<MerchantPaymentMethod | null>(null);
   const [busyBuiltInKind, setBusyBuiltInKind] = useState<BuiltInPaymentMethodKind | null>(null);
   const [builtInSubmitError, setBuiltInSubmitError] = useState<string | null>(null);
+  const [checkoutSubmitError, setCheckoutSubmitError] = useState<string | null>(null);
   const [methodsMutationAvailable, setMethodsMutationAvailable] = useState(false);
   const [methodsLoadError, setMethodsLoadError] = useState(false);
   const [busyMethodId, setBusyMethodId] = useState<string | null>(null);
+  const [busyCheckoutMethodId, setBusyCheckoutMethodId] = useState<string | null>(null);
   const [busyProviderCode, setBusyProviderCode] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<MessageTone>("error");
@@ -134,6 +143,7 @@ export function PaymentSettingsConsole(props: Readonly<{
   const loadVersion = useRef(0);
   const lastReadyMethods = useRef<readonly MerchantPaymentMethod[] | null>(null);
   const builtInOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const checkoutOpenerRef = useRef<HTMLButtonElement | null>(null);
   const initialSurfaceHandled = useRef(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const orderButtonRef = useRef<HTMLButtonElement>(null);
@@ -236,6 +246,55 @@ export function PaymentSettingsConsole(props: Readonly<{
     setSelectedBuiltIn(null);
     setBuiltInSubmitError(null);
     restoreBuiltInFocus();
+  }
+
+  function providerCheckoutAvailable(method: MerchantPaymentMethod): boolean {
+    try { buildProviderCheckoutPreferenceView(method); return true; } catch { return false; }
+  }
+
+  function openProviderCheckout(method: MerchantPaymentMethod, opener: HTMLButtonElement) {
+    if (!props.canManage || !methodsMutationAvailable || busyCheckoutMethodId !== null || !providerCheckoutAvailable(method)) return;
+    checkoutOpenerRef.current = opener;
+    setCheckoutSubmitError(null);
+    setMessage("");
+    setSelectedCheckoutMethod(method);
+  }
+
+  function closeProviderCheckout() {
+    if (busyCheckoutMethodId !== null) return;
+    setSelectedCheckoutMethod(null);
+    setCheckoutSubmitError(null);
+  }
+
+  async function saveProviderCheckout(selection: ProviderCheckoutPreferenceSelection) {
+    const selected = selectedCheckoutMethod;
+    if (!props.canManage || !methodsMutationAvailable || selected === null || busyCheckoutMethodId !== null) return;
+    setBusyCheckoutMethodId(selected.id);
+    setCheckoutSubmitError(null);
+    setMessage("");
+    try {
+      const command = buildProviderCheckoutPreferenceCommand(selected, selection);
+      await paymentMethodApi.save(command);
+      const reloaded = await load();
+      const methods = canonicalMethods(reloaded);
+      const canonical = methods?.find(({ id }) => id === selected.id) ?? null;
+      if (canonical === null || !providerCheckoutAvailable(canonical)) {
+        setCheckoutSubmitError("Güncel checkout ayarları doğrulanamadı. Pencereyi kapatmadan yeniden deneyin.");
+        return;
+      }
+      setSelectedCheckoutMethod(null);
+      setMessageTone("success");
+      setMessage("Checkout ayarları yeni ödeme işlemleri için kaydedildi.");
+    } catch (error) {
+      setCheckoutSubmitError(`${safeMessage(error)} Ayarlar değiştirilmedi.`);
+      if (error instanceof PaymentMethodApiError && error.code === "version_conflict") {
+        const reloaded = await load();
+        const canonical = canonicalMethods(reloaded)?.find(({ id }) => id === selected.id);
+        if (canonical && providerCheckoutAvailable(canonical)) setSelectedCheckoutMethod(canonical);
+      }
+    } finally {
+      setBusyCheckoutMethodId(null);
+    }
   }
 
   async function updateState(method: MerchantPaymentMethod, state: PaymentMethodState) {
@@ -462,7 +521,7 @@ export function PaymentSettingsConsole(props: Readonly<{
     }
   }
 
-  const methodMutationBusy = busyMethodId !== null || busyBuiltInKind !== null || busyProviderCode !== null;
+  const methodMutationBusy = busyMethodId !== null || busyBuiltInKind !== null || busyProviderCode !== null || busyCheckoutMethodId !== null;
 
   function openOrder() {
     if (!props.canManage || !methodsMutationAvailable || methodMutationBusy) return;
@@ -520,14 +579,15 @@ export function PaymentSettingsConsole(props: Readonly<{
                 const method = sources.methods.value.find(({ id }) => id === row.id)!;
                 const busy = busyMethodId === row.id;
                 const builtInKind = row.kind === "provider" ? null : row.kind;
+                const checkoutAvailable = providerCheckoutAvailable(method);
                 const BuiltInIcon = row.kind === "bank_transfer"
                   ? Banknote
                   : row.kind === "cash_on_delivery" ? Truck : CreditCard;
                 return <tr key={row.id} ref={(element) => { if (element) methodRefs.current.set(row.id, element); else methodRefs.current.delete(row.id); }} tabIndex={highlightedMethodId === row.id ? 0 : -1} data-highlighted={highlightedMethodId === row.id ? "true" : undefined}>
-                  <td><div className={styles.methodIdentity}>{row.logoPath ? <span className={styles.methodLogo}><Image src={row.logoPath} alt="" width={41} height={30} /></span> : <span className={styles.methodLogo}><BuiltInIcon aria-hidden="true" /></span>}<span><strong>{row.label}</strong><small>{row.providerLabel} · {row.modeLabel} · {row.environmentLabel}</small></span></div></td>
+                  <td><div className={styles.methodIdentity}>{row.logoPath ? <span className={styles.methodLogo}><Image src={row.logoPath} alt="" width={41} height={30} /></span> : <span className={styles.methodLogo}><BuiltInIcon aria-hidden="true" /></span>}<span><strong>{row.label}</strong><small>{row.providerLabel} · {row.modeLabel} · {row.environmentLabel}</small>{row.checkoutPreferenceLabel ? <small className={styles.checkoutPreferenceSummary}>{row.checkoutPreferenceLabel}</small> : null}</span></div></td>
                   <td><button type="button" className={row.state === "emergency_disabled" ? styles.emergencyActive : styles.emergencyButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "emergency_disabled" ? "active" : "emergency_disabled")}><ShieldAlert />{row.state === "emergency_disabled" ? "Acil kapatmayı kaldır" : "Acil kapat"}</button></td>
                   <td><span className={styles[`tone-${row.stateTone}`]}>{row.stateLabel}</span><small className={styles.profileState}>{row.profileStatusLabel}</small></td>
-                  <td><div className={styles.commandBar}>{builtInKind && row.builtInEditable ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || busyBuiltInKind !== null} onClick={(event) => openBuiltIn(builtInKind, event.currentTarget)}>Düzenle</button> : null}<button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "active" ? "disabled" : "active")}>{busy ? "Güncelleniyor…" : row.state === "active" ? "Devre dışı bırak" : "Etkinleştir"}</button></div></td>
+                  <td><div className={styles.commandBar}>{checkoutAvailable ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || busyCheckoutMethodId !== null} onClick={(event) => openProviderCheckout(method, event.currentTarget)}>Checkout ayarları</button> : null}{builtInKind && row.builtInEditable ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || busyBuiltInKind !== null} onClick={(event) => openBuiltIn(builtInKind, event.currentTarget)}>Düzenle</button> : null}<button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "active" ? "disabled" : "active")}>{busy ? "Güncelleniyor…" : row.state === "active" ? "Devre dışı bırak" : "Etkinleştir"}</button></div></td>
                 </tr>;
               })}</tbody>
             </table>
@@ -536,7 +596,8 @@ export function PaymentSettingsConsole(props: Readonly<{
             const method = sources.methods.value.find(({ id }) => id === row.id)!;
             const busy = busyMethodId === row.id;
             const builtInKind = row.kind === "provider" ? null : row.kind;
-            return <article key={row.id} data-highlighted={highlightedMethodId === row.id ? "true" : undefined}><header><strong>{row.label}</strong><span className={styles[`tone-${row.stateTone}`]}>{row.stateLabel}</span></header><p>{row.providerLabel} · {row.modeLabel}</p><small>{row.environmentLabel} · {row.profileStatusLabel}</small><div><button type="button" className={styles.emergencyButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "emergency_disabled" ? "active" : "emergency_disabled")}><ShieldAlert />Acil Durum</button>{builtInKind && row.builtInEditable ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || busyBuiltInKind !== null} onClick={(event) => openBuiltIn(builtInKind, event.currentTarget)}>Düzenle</button> : null}<button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "active" ? "disabled" : "active")}>{row.state === "active" ? "Devre dışı" : "Etkinleştir"}</button></div></article>;
+            const checkoutAvailable = providerCheckoutAvailable(method);
+            return <article key={row.id} data-highlighted={highlightedMethodId === row.id ? "true" : undefined}><header><strong>{row.label}</strong><span className={styles[`tone-${row.stateTone}`]}>{row.stateLabel}</span></header><p>{row.providerLabel} · {row.modeLabel}</p><small>{row.environmentLabel} · {row.profileStatusLabel}</small>{row.checkoutPreferenceLabel ? <small className={styles.checkoutPreferenceSummary}>{row.checkoutPreferenceLabel}</small> : null}<div>{checkoutAvailable ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || busyCheckoutMethodId !== null} onClick={(event) => openProviderCheckout(method, event.currentTarget)}>Checkout ayarları</button> : null}<button type="button" className={styles.emergencyButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "emergency_disabled" ? "active" : "emergency_disabled")}><ShieldAlert />Acil Durum</button>{builtInKind && row.builtInEditable ? <button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || busyBuiltInKind !== null} onClick={(event) => openBuiltIn(builtInKind, event.currentTarget)}>Düzenle</button> : null}<button type="button" className={styles.secondaryButton} disabled={!props.canManage || !methodsMutationAvailable || busy || (builtInKind !== null && !row.builtInEditable)} onClick={() => void updateState(method, row.state === "active" ? "disabled" : "active")}>{row.state === "active" ? "Devre dışı" : "Etkinleştir"}</button></div></article>;
           })}</div>
         </> : null}
       </section>
@@ -544,6 +605,7 @@ export function PaymentSettingsConsole(props: Readonly<{
       {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} builtInCards={view.builtInCards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} providerConfigurationAvailable={providerConfigurationAvailable} busy={selectedCard !== null || busyProviderCode !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { void connectProvider(card); }} onBuiltInSelect={(kind) => openBuiltIn(kind)} /> : null}
       {selectedCard?.configurableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.configurableDescriptor} environments={selectedCard.environments} initialEnvironment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profiles={selectedProfiles} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={async () => { await load(); }} /> : null}
       {selectedBuiltIn ? <BuiltInPaymentMethodDrawer kind={selectedBuiltIn.kind} method={selectedBuiltIn.method} canManage={props.canManage} busy={busyBuiltInKind !== null} mutationAvailable={methodsMutationAvailable} submitError={builtInSubmitError} onSubmit={saveBuiltIn} onClose={closeBuiltIn} /> : null}
+      {selectedCheckoutMethod ? <ProviderCheckoutSettingsDrawer method={selectedCheckoutMethod} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} busy={busyCheckoutMethodId !== null} submitError={checkoutSubmitError} openerRef={checkoutOpenerRef} onSubmit={saveProviderCheckout} onClose={closeProviderCheckout} /> : null}
       {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} mutationBusy={methodMutationBusy} openerRef={orderButtonRef} onReload={async () => { await load(); }} onClose={() => setOrderOpen(false)} /> : null}
     </section>
   );
