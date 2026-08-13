@@ -25,6 +25,8 @@ function config() {
     CELEBIX_MERCHANT_PROVIDER_CREDENTIAL_ACTIVE_KEY_ID: "provider.current",
     CELEBIX_MERCHANT_PROVIDER_CREDENTIAL_KEYS: `provider.current:${KEY}`,
     CELEBIX_MERCHANT_PROVIDER_WORKER_ID: "owner.payments.1",
+    CELEBIX_PAYTR_VALIDATION_EGRESS_IP: "8.8.8.8",
+    CELEBIX_PAYTR_VALIDATION_ORIGIN: "https://payments.celebix.co",
   });
 }
 
@@ -173,6 +175,111 @@ test("real production composition preflights 056 and validates Iyzico through ve
   assert.equal(closed, 1);
 });
 
+test("real production composition opens and validates a merchant PayTR live profile only inside the worker", async () => {
+  const selected = config();
+  const plaintext = new TextEncoder().encode(JSON.stringify({
+    merchantKey: "merchant-key",
+    merchantSalt: "merchant-salt",
+  }));
+  const sealedCredentials = sealMerchantProviderCredential({
+    plaintext,
+    profileId: PROFILE,
+    storeId: STORE,
+    providerCode: "paytr_iframe",
+    capability: "payment_processing",
+    credentialVersion: 1,
+    keyring: selected.keyring,
+  });
+  plaintext.fill(0);
+  const expires = new Date(NOW.getTime() + 60_000).toISOString();
+  const preflight = new Client((text) => text.includes("payment_provider_keyed_lifecycle_preflight")
+    ? [preflightRow()]
+    : []);
+  const emptyIyzicoTest = new Client((text) => text.includes("merchant_provider_profile_claim_verification")
+    ? [{ outcome: "empty", result_payload: null }]
+    : []);
+  const emptyIyzicoLive = new Client((text) => text.includes("merchant_provider_profile_claim_verification")
+    ? [{ outcome: "empty", result_payload: null }]
+    : []);
+  const emptyPaytrTest = new Client((text) => text.includes("merchant_provider_profile_claim_verification")
+    ? [{ outcome: "empty", result_payload: null }]
+    : []);
+  const claimLive = new Client((text) => text.includes("merchant_provider_profile_claim_verification") ? [{
+    outcome: "claimed",
+    result_payload: {
+      profileId: PROFILE,
+      storeId: STORE,
+      providerCode: "paytr_iframe",
+      capability: "payment_processing",
+      publicConfig: { environment: "live", merchantId: "123456" },
+      validationIdentity: { environment: "live", adapterVersion: 1 },
+      sealedCredentials,
+      credentialVersion: 1,
+      profileVersion: 2,
+      leaseId: LEASE,
+      leaseOwner: "owner.payments.1",
+      leaseExpiresAt: expires,
+    },
+  }] : []);
+  const mark = new Client((text) => text.includes("merchant_provider_profile_mark_verification") ? [{
+    outcome: "validated",
+    result_payload: {
+      id: PROFILE,
+      providerCode: "paytr_iframe",
+      capability: "payment_processing",
+      publicConfig: { environment: "live", merchantId: "123456" },
+      maskedAccountReference: "paytr…3456",
+      status: "active",
+      credentialVersion: 1,
+      version: 3,
+      lastValidatedAt: NOW.toISOString(),
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
+    },
+  }] : []);
+  const clients = [preflight, emptyIyzicoTest, emptyIyzicoLive, emptyPaytrTest, claimLive, mark];
+  const uuids = [LEASE, LEASE, LEASE, LEASE, REFERENCE];
+  let providerCalls = 0;
+  let providerBody = "";
+  const runtime = await initializeMerchantProviderProductionRuntime(selected, Object.freeze({
+    createPool: () => ({
+      async connect() {
+        const client = clients.shift();
+        if (!client) throw new Error("unexpected_checkout");
+        return client;
+      },
+      async end() {},
+    }),
+    async fetch(request: Request) {
+      providerCalls += 1;
+      providerBody = await request.text();
+      return new Response(JSON.stringify({
+        status: "success",
+        token: "28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa",
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    },
+    uuid: () => uuids.shift() ?? REFERENCE,
+    now: () => new Date(NOW),
+    audit() {},
+  }));
+
+  assert.deepEqual(await runtime.runOnce(), { kind: "profile_validated" });
+  assert.equal(providerCalls, 1);
+  assert.equal(new URLSearchParams(providerBody).get("test_mode"), "0");
+  assert.deepEqual(emptyPaytrTest.calls.find(({ text }) => text.includes("claim_verification"))?.values.slice(1, 5), [
+    "paytr_iframe", "payment_processing", "test", 1,
+  ]);
+  assert.deepEqual(claimLive.calls.find(({ text }) => text.includes("claim_verification"))?.values.slice(1, 5), [
+    "paytr_iframe", "payment_processing", "live", 1,
+  ]);
+  assert.equal(mark.calls.find(({ text }) => text.includes("mark_verification"))?.values[10], "validated");
+  assert.equal(clients.length, 0);
+  await runtime.close();
+});
+
 test("056 preflight failure closes the pool before any claim decryption or provider network call", async () => {
   let closed = 0;
   let calls = 0;
@@ -196,7 +303,7 @@ test("production validation-only worker never falls through to either execution 
   const preflight = new Client((text) => text.includes("payment_provider_keyed_lifecycle_preflight")
     ? [preflightRow()]
     : []);
-  const emptyClaims = [0, 1, 2, 3].map(() => new Client((text) =>
+  const emptyClaims = [0, 1, 2, 3, 4, 5, 6, 7].map(() => new Client((text) =>
     text.includes("merchant_provider_profile_claim_verification")
       ? [{ outcome: "empty", result_payload: null }]
       : []));
@@ -219,7 +326,7 @@ test("production validation-only worker never falls through to either execution 
 
   assert.deepEqual(await runtime.runOnce(), { kind: "empty" });
   assert.deepEqual(await runtime.runOnce(), { kind: "empty" });
-  assert.equal(checkouts, 5);
+  assert.equal(checkouts, 9);
   assert.equal(providerCalls, 0);
   assert.equal(clients.length, 0);
   for (const claim of emptyClaims) {

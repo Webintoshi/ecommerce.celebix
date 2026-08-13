@@ -5,25 +5,47 @@ import {
   type ProviderTransport,
 } from "@celebix/payment-adapters";
 
-import type { MerchantProviderAdapter } from "./types.ts";
+import type {
+  MerchantProviderAdapter,
+  MerchantProviderVerificationAdapter,
+} from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const OPTION_KEYS = Object.freeze([
+const EXECUTION_OPTION_KEYS = Object.freeze([
   "executionAuthority",
+  "transport", "validationFailureUrl", "validationReference", "validationSuccessUrl",
+  "validationTimeoutMs", "validationUserIp",
+]);
+const VERIFICATION_OPTION_KEYS = Object.freeze([
+  "validationIdentity",
   "transport", "validationFailureUrl", "validationReference", "validationSuccessUrl",
   "validationTimeoutMs", "validationUserIp",
 ]);
 const PUBLIC_KEYS = Object.freeze(["environment", "merchantId"]);
 const CREDENTIAL_KEYS = Object.freeze(["merchantKey", "merchantSalt"]);
 
-export type PaytrValidationAdapterOptions = Readonly<{
-  executionAuthority: Readonly<{ environment: "test"; adapterVersion: 1; evidenceDigest: string }>;
+type PaytrValidationDependencies = Readonly<{
   transport: ProviderTransport;
   validationReference(): string;
   validationTimeoutMs: number;
   validationUserIp: string;
   validationSuccessUrl: string;
   validationFailureUrl: string;
+}>;
+
+export type PaytrExecutionValidationAdapterOptions = PaytrValidationDependencies & Readonly<{
+  executionAuthority: Readonly<{
+    environment: "test" | "live";
+    adapterVersion: 1;
+    evidenceDigest: string;
+  }>;
+}>;
+
+export type PaytrValidationAdapterOptions = PaytrValidationDependencies & Readonly<{
+  validationIdentity: Readonly<{
+    environment: "test" | "live";
+    adapterVersion: 1;
+  }>;
 }>;
 
 function invalid(): never {
@@ -65,13 +87,10 @@ function credentialBytes(value: unknown): { merchantKey: string; merchantSalt: s
   }
 }
 
-export function createPaytrValidationAdapter(options: PaytrValidationAdapterOptions): MerchantProviderAdapter {
-  const parsed = exact(options, OPTION_KEYS);
-  const executionAuthority = exact(parsed.executionAuthority, ["environment", "adapterVersion", "evidenceDigest"]);
-  if (
-    executionAuthority.environment !== "test" || executionAuthority.adapterVersion !== 1 ||
-    typeof executionAuthority.evidenceDigest !== "string" || !/^sha256:[a-f0-9]{64}$/.test(executionAuthority.evidenceDigest)
-  ) invalid();
+function createCredentialValidator(
+  parsed: Record<string, unknown>,
+  environment: "test" | "live",
+): MerchantProviderVerificationAdapter["validateCredential"] {
   const transport = parsed.transport as ProviderTransport;
   if (!transport || typeof transport !== "object" || typeof transport.request !== "function" || typeof parsed.validationReference !== "function" || !Number.isSafeInteger(parsed.validationTimeoutMs) || (parsed.validationTimeoutMs as number) < 100 || (parsed.validationTimeoutMs as number) > 5_000) invalid();
   const validationReference = parsed.validationReference as () => string;
@@ -79,6 +98,43 @@ export function createPaytrValidationAdapter(options: PaytrValidationAdapterOpti
   const validationUserIp = text(parsed.validationUserIp, 39);
   const validationSuccessUrl = text(parsed.validationSuccessUrl, 400);
   const validationFailureUrl = text(parsed.validationFailureUrl, 400);
+  return async (input) => {
+    try {
+      const selected = exact(input, ["credential", "publicConfig"]);
+      const publicConfig = exact(selected.publicConfig, PUBLIC_KEYS);
+      if (publicConfig.environment !== environment) invalid();
+      const merchantId = text(publicConfig.merchantId, 128);
+      const privateValues = credentialBytes(selected.credential);
+      const reference = validationReference();
+      if (!UUID.test(reference)) invalid();
+      return await validatePaytrIframeCredentialWithTransport(transport, Object.freeze({
+        environment,
+        credential: { merchantId, ...privateValues },
+        validationReference: reference,
+        userIp: validationUserIp,
+        successUrl: validationSuccessUrl,
+        failureUrl: validationFailureUrl,
+        signal: AbortSignal.timeout(validationTimeoutMs),
+      }));
+    } catch {
+      return Object.freeze({ kind: "rejected" as const, outcomeCode: "invalid_validation_request" });
+    }
+  };
+}
+
+export function createPaytrExecutionValidationAdapter(
+  options: PaytrExecutionValidationAdapterOptions,
+): MerchantProviderAdapter {
+  const parsed = exact(options, EXECUTION_OPTION_KEYS);
+  const executionAuthority = exact(parsed.executionAuthority, ["environment", "adapterVersion", "evidenceDigest"]);
+  if (
+    (executionAuthority.environment !== "test" && executionAuthority.environment !== "live") ||
+    executionAuthority.adapterVersion !== 1 ||
+    typeof executionAuthority.evidenceDigest !== "string" ||
+    !/^sha256:[a-f0-9]{64}$/.test(executionAuthority.evidenceDigest)
+  ) invalid();
+  const environment = executionAuthority.environment;
+  const validateCredential = createCredentialValidator(parsed, environment);
   const inert = Object.freeze(async () => Object.freeze({
     kind: "permanently_failed" as const,
     outcomeCode: "payment_capability_not_queued",
@@ -87,32 +143,29 @@ export function createPaytrValidationAdapter(options: PaytrValidationAdapterOpti
     providerCode: "paytr_iframe",
     capability: "payment_processing" as const,
     executionAuthority: Object.freeze({
-      environment: "test" as const, adapterVersion: 1 as const,
+      environment, adapterVersion: 1 as const,
       evidenceDigest: executionAuthority.evidenceDigest,
     }),
-    async validateCredential(input: Parameters<MerchantProviderAdapter["validateCredential"]>[0]) {
-      try {
-        const selected = exact(input, ["credential", "publicConfig"]);
-        const publicConfig = exact(selected.publicConfig, PUBLIC_KEYS);
-        if (publicConfig.environment !== "test") invalid();
-        const merchantId = text(publicConfig.merchantId, 128);
-        const privateValues = credentialBytes(selected.credential);
-        const reference = validationReference();
-        if (!UUID.test(reference)) invalid();
-        return await validatePaytrIframeCredentialWithTransport(transport, Object.freeze({
-          environment: "test",
-          credential: { merchantId, ...privateValues },
-          validationReference: reference,
-          userIp: validationUserIp,
-          successUrl: validationSuccessUrl,
-          failureUrl: validationFailureUrl,
-          signal: AbortSignal.timeout(validationTimeoutMs),
-        }));
-      } catch {
-        return Object.freeze({ kind: "rejected" as const, outcomeCode: "invalid_validation_request" });
-      }
-    },
+    validateCredential,
     execute: inert,
     reconcile: inert,
+  });
+}
+
+export function createPaytrValidationAdapter(
+  options: PaytrValidationAdapterOptions,
+): MerchantProviderVerificationAdapter {
+  const parsed = exact(options, VERIFICATION_OPTION_KEYS);
+  const validationIdentity = exact(parsed.validationIdentity, ["environment", "adapterVersion"]);
+  if (
+    (validationIdentity.environment !== "test" && validationIdentity.environment !== "live") ||
+    validationIdentity.adapterVersion !== 1
+  ) invalid();
+  const environment = validationIdentity.environment;
+  return Object.freeze({
+    providerCode: "paytr_iframe",
+    capability: "payment_processing" as const,
+    validationIdentity: Object.freeze({ environment, adapterVersion: 1 as const }),
+    validateCredential: createCredentialValidator(parsed, environment),
   });
 }

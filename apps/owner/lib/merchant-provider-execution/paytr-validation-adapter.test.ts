@@ -3,7 +3,10 @@ import test from "node:test";
 
 import type { ProviderTransportRequest } from "@celebix/payment-adapters";
 
-import { createProductionMerchantProviderRegistry } from "./registry.ts";
+import {
+  createProductionMerchantProviderRegistries,
+  createProductionMerchantProviderRegistry,
+} from "./registry.ts";
 
 const REFERENCE = "11111111-1111-4111-8111-111111111111";
 const TOKEN = "28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa";
@@ -53,7 +56,60 @@ test("production registry validates one exact PayTR TEST credential without a ca
   assert.equal(observed.length, 1);
 });
 
-test("production PayTR validator rejects provider rejection ambiguity live mode and malformed sealed plaintext", async () => {
+test("PayTR verification registry validates exact test and live identities without execution authority", async () => {
+  const observed: ProviderTransportRequest[] = [];
+  const selected = createProductionMerchantProviderRegistries(Object.freeze({
+    executionAuthorities: Object.freeze({ iyzico_iframe: null, paytr_iframe: null }),
+    verificationIdentities: Object.freeze({
+      iyzico_iframe: Object.freeze([]),
+      paytr_iframe: Object.freeze([
+        Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
+        Object.freeze({ environment: "live" as const, adapterVersion: 1 }),
+      ]),
+    }),
+    transport: Object.freeze({
+      async request(request: ProviderTransportRequest) {
+        observed.push(Object.freeze({ ...request, body: request.body.slice() }));
+        return Object.freeze({
+          kind: "response" as const,
+          status: 200,
+          contentType: "application/json" as const,
+          body: new TextEncoder().encode(`{"status":"success","token":"${TOKEN}"}`),
+        });
+      },
+    }),
+    paytrValidation: Object.freeze({
+      userIp: "8.8.8.8",
+      successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili",
+      failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
+    }),
+    validationReference: () => REFERENCE,
+    validationRandomKey: () => "1234567890abcdef",
+    validationTimeoutMs: 5_000,
+  }));
+
+  assert.equal(selected.execution.size, 0);
+  assert.equal(selected.verification.size, 2);
+  for (const environment of ["test", "live"] as const) {
+    const adapter = selected.verification.get("paytr_iframe", "payment_processing", {
+      environment,
+      adapterVersion: 1,
+    });
+    assert.ok(adapter);
+    assert.deepEqual(await adapter.validateCredential(Object.freeze({
+      credential: new TextEncoder().encode(JSON.stringify({
+        merchantKey: "merchant-key",
+        merchantSalt: "merchant-salt",
+      })),
+      publicConfig: Object.freeze({ environment, merchantId: "123456" }),
+    })), { kind: "validated" });
+  }
+  assert.deepEqual(observed.map((request) => request.environment), ["test", "live"]);
+  assert.deepEqual(observed.map((request) =>
+    new URLSearchParams(new TextDecoder().decode(request.body)).get("test_mode")), ["1", "0"]);
+});
+
+test("production PayTR validator rejects provider rejection ambiguity and malformed sealed plaintext", async () => {
   for (const [providerBody, expectedCode] of [
     ['{"status":"failed","reason":"private"}', "provider_rejected"],
     [null, "validation_unavailable"],
@@ -70,7 +126,6 @@ test("production PayTR validator rejects provider rejection ambiguity live mode 
 
   for (const input of [
     { credential: new TextEncoder().encode("{}"), publicConfig: Object.freeze({ environment: "test", merchantId: "123456" }) },
-    { credential: new TextEncoder().encode(JSON.stringify({ merchantKey: "key", merchantSalt: "salt" })), publicConfig: Object.freeze({ environment: "live", merchantId: "123456" }) },
     { credential: new TextEncoder().encode(JSON.stringify({ merchantKey: "key", merchantSalt: "salt", token: "x" })), publicConfig: Object.freeze({ environment: "test", merchantId: "123456" }) },
   ]) {
     const observed: ProviderTransportRequest[] = [];

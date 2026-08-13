@@ -22,6 +22,13 @@ const IYZICO_IDENTITIES = Object.freeze({
   ]),
   paytr_iframe: Object.freeze([]),
 });
+const ALL_IDENTITIES = Object.freeze({
+  iyzico_iframe: IYZICO_IDENTITIES.iyzico_iframe,
+  paytr_iframe: Object.freeze([
+    Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
+    Object.freeze({ environment: "live" as const, adapterVersion: 1 }),
+  ]),
+});
 
 function environment(overrides: Record<string, string | undefined> = {}) {
   return {
@@ -38,22 +45,28 @@ function environment(overrides: Record<string, string | undefined> = {}) {
   };
 }
 
-test("compiled provider-keyed identities enable Iyzico verification while both execution authorities stay null", () => {
+test("compiled provider-keyed identities enable Iyzico and PayTR verification while execution authorities stay closed", () => {
   assert.equal(resolveMerchantProviderProductionMode(environment()), "approved_test_validation");
   const config = parseMerchantProviderProductionConfig(environment());
 
   assert.deepEqual(config.executionAuthorities, NO_AUTHORITIES);
-  assert.deepEqual(config.verificationIdentities, IYZICO_IDENTITIES);
-  assert.equal(config.paytrValidation, null);
+  assert.deepEqual(config.verificationIdentities, ALL_IDENTITIES);
+  assert.deepEqual(config.paytrValidation, {
+    userIp: "8.8.8.8",
+    successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili",
+    failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
+  });
   assert.equal(Object.isFrozen(config.executionAuthorities), true);
   assert.equal(Object.isFrozen(config.verificationIdentities), true);
   assert.equal(Object.isFrozen(config.verificationIdentities.iyzico_iframe), true);
 });
 
-test("default production authority is compiled only from the generated Iyzico build binding", () => {
+test("default production authority is compiled only from generated provider build bindings", () => {
   const source = readFileSync(new URL("./production-config.ts", import.meta.url), "utf8");
-  assert.match(source, /import \{ IYZICO_APPROVED_EXECUTION_AUTHORITY \} from "@celebix\/payment-adapters"/);
+  assert.match(source, /IYZICO_APPROVED_EXECUTION_AUTHORITY,[\s\S]*PAYTR_APPROVED_EXECUTION_AUTHORITIES,[\s\S]*from "@celebix\/payment-adapters"/);
   assert.match(source, /iyzico_iframe: IYZICO_APPROVED_EXECUTION_AUTHORITY/);
+  assert.match(source, /PAYTR_APPROVED_EXECUTION_AUTHORITIES/);
+  assert.match(source, /paytr_iframe: PAYTR_APPROVED_EXECUTION_AUTHORITIES\.test \?\? PAYTR_APPROVED_EXECUTION_AUTHORITIES\.live/);
   assert.doesNotMatch(source, /CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST/);
   assert.doesNotMatch(source, /CELEBIX_IYZICO_APPROVAL_MODE/);
 });
@@ -168,7 +181,7 @@ test("is disabled without compiled lanes and fails closed for missing base confi
   ]) assert.throws(() => parseMerchantProviderProductionConfig(environment(overrides)), /config_invalid/);
 });
 
-test("PayTR network settings remain bounded only when a compiled PayTR authority exists", () => {
+test("PayTR network settings remain bounded when a compiled PayTR authority or identity exists", () => {
   const parser = createMerchantProviderProductionConfigParser(Object.freeze({
     iyzico_iframe: null,
     paytr_iframe: Object.freeze({
