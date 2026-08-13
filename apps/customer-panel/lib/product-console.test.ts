@@ -796,17 +796,19 @@ test("detail and media surfaces retain versioned target commands", async () => {
   assert.doesNotMatch(`${detail}\n${media}`, /storeId|tenantId|document\.cookie|\/api\/admin|supabase/i);
 });
 
-test("create and edit use one safe Markdown description field", async () => {
+test("create and edit use one sanitized WYSIWYG description field", async () => {
   const field = await source("components/catalog/ProductDescriptionField.tsx").catch(() => "");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
 
   assert.match(field, /normalizeProductDescriptionRichText/);
   assert.doesNotMatch(field, /dangerouslySetInnerHTML/);
+  assert.match(field, /@tiptap\/react/);
+  assert.match(field, /EditorContent/);
+  assert.match(field, /normalizePastedProductDescriptionHtml/);
   assert.match(field, /name="description"/);
-  assert.match(field, /maxLength=\{10_000\}/);
-  assert.match(field, /Markdown desteklenir/);
-  assert.match(field, /Markdown önizleme/);
+  assert.match(field, /MAX_DESCRIPTION_LENGTH = 10_000/);
+  assert.doesNotMatch(field, /Markdown desteklenir|Markdown önizleme|<textarea/);
   assert.match(detail, /ProductDescriptionField/);
   assert.match(detail, /ProductDescriptionPreview/);
   assert.match(advanced, /ProductDescriptionField/);
