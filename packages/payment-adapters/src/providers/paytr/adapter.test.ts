@@ -607,7 +607,7 @@ test("validates credentials only through one PayTR TEST get-token request withou
   assert.equal(calls, 1);
   const form = new URLSearchParams(body);
   assert.equal(form.get("test_mode"), "1");
-  assert.equal(form.get("payment_amount"), "1");
+  assert.equal(form.get("payment_amount"), "100");
   assert.equal(form.get("merchant_oid"), "CV11111111111141118111111111111111");
   assert.equal(form.get("email"), "payments@celebix.co");
   assert.equal(form.get("user_ip"), "8.8.8.8");

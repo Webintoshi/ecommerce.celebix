@@ -46,7 +46,7 @@ test("production registry validates one exact PayTR TEST credential without a ca
   assert.equal(observed[0]?.url, "https://www.paytr.com/odeme/api/get-token");
   const form = new URLSearchParams(new TextDecoder().decode(observed[0]?.body));
   assert.equal(form.get("test_mode"), "1");
-  assert.equal(form.get("payment_amount"), "1");
+  assert.equal(form.get("payment_amount"), "100");
   assert.equal(form.get("user_ip"), "8.8.8.8");
   assert.equal(form.get("merchant_ok_url"), "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili");
   assert.equal(form.has("cc_owner"), false);

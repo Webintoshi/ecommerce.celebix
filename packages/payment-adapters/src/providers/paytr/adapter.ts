@@ -475,11 +475,11 @@ export async function validatePaytrIframeCredentialWithTransport(
       userIp,
       merchantOid: validationReference,
       email: "payments@celebix.co",
-      paymentAmount: 1,
+      paymentAmount: 100,
       userBasket: encodePaytrBasket(Object.freeze([Object.freeze({
         name: "Celebix credential validation",
         quantity: 1,
-        unitAmountMinor: 1,
+        unitAmountMinor: 100,
       })])),
       userName: "Celebix Validation",
       userAddress: "Credential validation only",
