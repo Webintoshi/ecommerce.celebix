@@ -92,6 +92,7 @@
 .catalogFilters input:focus-visible,
 .catalogFilters select:focus-visible,
 .connectionForm input:focus-visible,
+.connectionForm button:focus-visible,
 .checkoutSettingsForm select:focus-visible,
 .segmentedControl label:focus-within,
 .optionCards label:focus-within,
@@ -577,6 +578,143 @@
 .connectionSummary span { color: #667085; font-size: 0.72rem; }
 .drawerActions { justify-content: flex-end; border-top: 1px solid #edf0f4; padding-top: 1rem; }
 
+.paytrStatusCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid #e1e6ed;
+  border-radius: 0.75rem;
+  background: #fafbfc;
+  padding: 0.8rem;
+}
+
+.paytrStatusIcon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 1px solid #ffd2b4;
+  border-radius: 0.65rem;
+  background: #fff3eb;
+  color: #d65300;
+}
+
+.paytrStatusIcon svg { width: 1.15rem; height: 1.15rem; }
+.paytrStatusCard > span:nth-child(2) { display: grid; min-width: 0; gap: 0.2rem; }
+.paytrStatusCard strong { font-size: 0.8rem; }
+.paytrStatusCard small { overflow-wrap: anywhere; color: #667085; font-size: 0.68rem; line-height: 1.45; }
+
+.paytrModeControl {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #e1e6ed;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.8rem;
+}
+
+.paytrModeControl > span { display: grid; gap: 0.2rem; }
+.paytrModeControl strong { font-size: 0.8rem; }
+.paytrModeControl small { color: #667085; font-size: 0.68rem; font-weight: 500; line-height: 1.4; }
+.paytrModeControl input {
+  position: relative;
+  width: 2.65rem;
+  min-width: 2.65rem;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  appearance: none;
+  border: 1px solid #cfd6df;
+  border-radius: 999px;
+  background: #dfe4eb;
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.paytrModeControl input::after {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1.08rem;
+  height: 1.08rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 24%);
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.paytrModeControl input:checked { border-color: #fe6100; background: #fe6100; }
+.paytrModeControl input:checked::after { transform: translateX(1.14rem); }
+.paytrModeControl input:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.secretField { position: relative; display: block; }
+.secretField input { padding-right: 3rem; }
+.fieldIconButton {
+  position: absolute;
+  top: 50%;
+  right: 0.4rem;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+}
+
+.fieldIconButton:hover:not(:disabled) { background: #f3f5f8; color: #344054; }
+.fieldIconButton:disabled { cursor: not-allowed; opacity: 0.5; }
+.fieldIconButton svg { width: 1rem; height: 1rem; }
+
+.callbackCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  border: 1px solid #e1e6ed;
+  border-radius: 0.75rem;
+  background: #fafbfc;
+  padding: 0.8rem;
+}
+
+.callbackCard > span { display: grid; gap: 0.2rem; }
+.callbackCard strong { font-size: 0.76rem; }
+.callbackCard small { color: #667085; font-size: 0.66rem; font-weight: 500; line-height: 1.4; }
+.callbackCard code {
+  min-width: 0;
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+  border: 1px solid #e1e6ed;
+  border-radius: 0.55rem;
+  background: #fff;
+  padding: 0.7rem;
+  color: #344054;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.callbackCard .secondaryButton { min-height: 2.4rem; grid-column: 2; grid-row: 1; align-self: center; }
+.paytrPanelLink {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.4rem;
+  color: #a64100;
+  font-size: 0.73rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.paytrPanelLink:hover { color: #e95b00; text-decoration: underline; }
+.paytrPanelLink svg { width: 0.9rem; height: 0.9rem; }
+
 .checkoutSettingsForm {
   display: grid;
   gap: 1rem;
@@ -786,6 +924,10 @@
   .connectionDrawer,
   .builtInDrawer,
   .checkoutSettingsDrawer { border-radius: 0; }
+  .paytrStatusCard { grid-template-columns: auto minmax(0, 1fr); }
+  .paytrStatusCard > :last-child { grid-column: 2; justify-self: start; }
+  .callbackCard { grid-template-columns: 1fr; }
+  .callbackCard .secondaryButton { width: 100%; grid-column: 1; grid-row: auto; }
 }
 
 @media (max-width: 420px) {

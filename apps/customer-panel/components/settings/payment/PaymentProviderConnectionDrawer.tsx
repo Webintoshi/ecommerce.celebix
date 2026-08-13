@@ -2,11 +2,12 @@
 
 import type {
   MerchantAdminJson,
+  MerchantPaymentMethod,
   MerchantProviderDescriptor,
   MerchantProviderProfile,
   PaymentProviderEnvironment,
 } from "@celebix/saas-contracts";
-import { CheckCircle2, PlugZap, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, PlugZap, ShieldCheck, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import {
@@ -19,6 +20,17 @@ import {
 } from "@/lib/payment-settings-ui/model";
 
 import styles from "./payment-settings.module.css";
+import { PaytrConnectionForm } from "./PaytrConnectionForm";
+
+const PAYTR_POLL_DELAYS_MS = Object.freeze([0, 800, 1_600, 2_400, 4_000] as const);
+type PaytrRefreshResult = Readonly<{
+  profile: MerchantProviderProfile;
+  methodActive: boolean;
+}>;
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
 
 export function PaymentProviderConnectionDrawer(props: Readonly<{
   descriptor: MerchantProviderDescriptor;
@@ -26,21 +38,29 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
   initialEnvironment: PaymentProviderEnvironment;
   storefrontHostname: string | null;
   profiles: readonly MerchantProviderProfile[];
+  methods: readonly MerchantPaymentMethod[];
   canManage: boolean;
   onClose(): void;
-  onSaved(): Promise<void>;
+  onSaved(profileId: string, environment: PaymentProviderEnvironment): Promise<PaytrRefreshResult | null>;
 }>) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const mountedRef = useRef(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"success" | "warning" | "error">("warning");
+  const [providerUnavailable, setProviderUnavailable] = useState(false);
   const [selectedEnvironment, setSelectedEnvironment] = useState(props.initialEnvironment);
 
   useEffect(() => {
+    mountedRef.current = true;
     closeRef.current?.focus();
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
+    return () => {
+      mountedRef.current = false;
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
 
   const selectedProfile = selectPaymentProviderConnectionProfile(
@@ -53,8 +73,12 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
     environment: selectedEnvironment,
     ...(selectedProfile ? { profile: selectedProfile } : {}),
     storefrontHostname: props.storefrontHostname,
+    methods: props.methods,
+    providerUnavailable,
   });
-  const canSubmit = connection !== null && (selectedProfile === null || connection.canRotate);
+  const canSubmit = connection !== null
+    && selectedProfile?.status !== "pending_validation"
+    && (selectedProfile === null || connection.canRotate);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape" && !busy) {
@@ -89,8 +113,9 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
     ));
     setBusy(true);
     setMessage("");
+    setProviderUnavailable(false);
     try {
-      await providerExecutionApi.save({
+      const saved = await providerExecutionApi.save({
         providerCode: props.descriptor.providerCode,
         capability: "payment_processing",
         publicConfig,
@@ -98,16 +123,55 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
         expectedVersion: selectedProfile?.version ?? 0,
         ...(selectedProfile ? { profileId: selectedProfile.id } : {}),
       });
+      if (!mountedRef.current) return;
       form.reset();
-      setMessage("Doğrulama bekliyor");
-      await props.onSaved();
+      if (props.descriptor.providerCode !== "paytr_iframe") {
+        setMessageTone("success");
+        setMessage("Doğrulama bekliyor");
+        await props.onSaved(saved.id, selectedEnvironment);
+        return;
+      }
+
+      setMessageTone("warning");
+      setMessage("PayTR bağlantısı kontrol ediliyor.");
+      let latest: PaytrRefreshResult | null = null;
+      for (const delay of PAYTR_POLL_DELAYS_MS) {
+        if (delay > 0) await wait(delay);
+        if (!mountedRef.current) return;
+        latest = await props.onSaved(saved.id, selectedEnvironment);
+        if (latest === null || latest.profile.status !== "pending_validation") break;
+      }
+      if (!mountedRef.current) return;
+      if (latest?.profile.status === "active" && latest.methodActive) {
+        setMessageTone("success");
+        setMessage(latest.profile.publicConfig.environment === "test"
+          ? "PayTR test modu etkinleştirildi."
+          : "PayTR canlı ödeme etkinleştirildi.");
+      } else if (latest?.profile.status === "rotation_required") {
+        setMessageTone("error");
+        setMessage("PayTR bilgileri doğrulanamadı. Bilgileri kontrol edip yeniden kaydedin.");
+      } else if (latest === null || latest.profile.status === "active") {
+        setProviderUnavailable(true);
+        setMessageTone("warning");
+        setMessage("PayTR ayarları doğrulandı ancak ödeme yöntemi henüz etkinleşmedi. Sistem daha sonra yeniden kontrol edecek.");
+      } else {
+        setMessageTone("warning");
+        setMessage("Kontrol devam ediyor. Bu pencereyi kapatabilirsiniz.");
+      }
     } catch (error) {
+      if (!mountedRef.current) return;
+      if (error instanceof ProviderExecutionApiError && error.code === "unavailable") {
+        setProviderUnavailable(true);
+      }
+      setMessageTone("error");
       setMessage(error instanceof ProviderExecutionApiError
         ? error.message
         : "Sağlayıcı bağlantısı kaydedilemedi.");
     } finally {
-      form.reset();
-      setBusy(false);
+      if (mountedRef.current) {
+        form.reset();
+        setBusy(false);
+      }
     }
   }
 
@@ -125,18 +189,27 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
         onKeyDown={onKeyDown}
       >
         <header className={styles.dialogHeader}>
-          <div className={styles.dialogTitleIcon}><PlugZap aria-hidden="true" /></div>
+          <div className={styles.dialogTitleIcon}>{props.descriptor.providerCode === "paytr_iframe" ? <ShieldCheck aria-hidden="true" /> : <PlugZap aria-hidden="true" />}</div>
           <div>
-            <h2 id="payment-connection-title">{props.descriptor.label} bağlantısı</h2>
-            <p id="payment-connection-description">Yalnız sağlayıcının doğrulanmış alanlarını doldurun.</p>
+            <h2 id="payment-connection-title">{props.descriptor.providerCode === "paytr_iframe" ? "PayTR iFrame kurulumu" : `${props.descriptor.label} bağlantısı`}</h2>
+            <p id="payment-connection-description">{props.descriptor.providerCode === "paytr_iframe" ? "PayTR mağaza bilgilerinizi girin; doğrulama ve etkinleştirme Celebix tarafından tamamlanır." : "Yalnız sağlayıcının doğrulanmış alanlarını doldurun."}</p>
           </div>
           <button ref={closeRef} className={styles.iconButton} type="button" onClick={props.onClose} disabled={busy} aria-label="Bağlantı penceresini kapat"><X /></button>
         </header>
 
         {!props.canManage ? <p className={styles.readOnlyNotice}>Salt okunur erişim: bağlantı bilgileri değiştirilemez.</p> : null}
-        {message ? <p className={message === "Doğrulama bekliyor" ? styles.successNotice : styles.errorNotice} role="status">{message === "Doğrulama bekliyor" ? <CheckCircle2 aria-hidden="true" /> : null}{message}</p> : null}
+        {message ? <p className={messageTone === "success" ? styles.successNotice : messageTone === "warning" ? styles.providerWarning : styles.errorNotice} role={messageTone === "error" ? "alert" : "status"}>{messageTone === "success" ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}{message}</p> : null}
 
         <form key={selectedEnvironment} className={styles.connectionForm} autoComplete="off" onSubmit={(event) => void save(event)}>
+          {connection?.kind === "paytr" ? <PaytrConnectionForm
+            connection={connection}
+            disabled={busy || !props.canManage || !canSubmit}
+            onEnvironmentChange={(environment) => {
+              setMessage("");
+              setProviderUnavailable(false);
+              setSelectedEnvironment(environment);
+            }}
+          /> : <>
           <div className={styles.connectionSummary}>
             <strong>Bağlantı bilgileri</strong>
             <span>Gönderilen gizli değerler tekrar gösterilmez.</span>
@@ -163,12 +236,13 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
             <strong>Mağaza alan adı bekleniyor</strong>
             <span>Bildirim adresi, doğrulanmış mağaza alan adı bağlandığında oluşturulur.</span>
           </div>}
-          {(connection?.publicFields ?? props.descriptor.publicFields.map((field) => ({ ...field, initialValue: "" }))).map((field) => (
+          {(connection?.kind === "generic" ? connection.publicFields : props.descriptor.publicFields.map((field) => ({ ...field, initialValue: "" }))).map((field) => (
             <label key={field.key}>{field.label}<input name={field.key} required defaultValue={field.initialValue} maxLength={1_000} disabled={busy || !props.canManage || !canSubmit} /></label>
           ))}
-          {(connection?.credentialFields ?? props.descriptor.credentialFields).map((field) => (
+          {(connection?.kind === "generic" ? connection.credentialFields : props.descriptor.credentialFields).map((field) => (
             <label key={field.key}>{field.label}<input name={field.key} required type="password" autoComplete="off" maxLength={16_384} disabled={busy || !props.canManage || !canSubmit} /></label>
           ))}
+          </>}
           <footer className={styles.drawerActions}>
             <button type="button" className={styles.secondaryButton} onClick={props.onClose} disabled={busy}>Vazgeç</button>
             <button type="submit" className={styles.primaryButton} disabled={busy || !props.canManage || !canSubmit}>{busy ? "Kaydediliyor…" : connection?.submitLabel ?? "Bağlantıyı kaydet"}</button>

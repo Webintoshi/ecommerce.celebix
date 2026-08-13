@@ -85,7 +85,7 @@ const BUILT_IN_METHOD_CARDS = Object.freeze([
   }),
 ]);
 
-export type PaymentProviderConnectionView = Readonly<{
+type PaymentProviderConnectionBase = Readonly<{
   providerCode: string;
   label: string;
   environment: PaymentProviderEnvironment;
@@ -97,6 +97,17 @@ export type PaymentProviderConnectionView = Readonly<{
   credentialVersionLabel: string | null;
   lastValidatedAt: string | null;
   canRotate: boolean;
+}>;
+
+export type PaytrPaymentProviderConnectionView = PaymentProviderConnectionBase & Readonly<{
+  kind: "paytr";
+  submitLabel: "Ayarları Kaydet";
+  merchantIdInitialValue: string;
+  anotherActiveProviderLabel: string | null;
+}>;
+
+export type GenericPaymentProviderConnectionView = PaymentProviderConnectionBase & Readonly<{
+  kind: "generic";
   submitLabel: "Bağlantıyı kaydet" | "Bilgileri yenile";
   publicFields: readonly Readonly<{ key: string; label: string; initialValue: string }>[];
   credentialFields: readonly Readonly<{
@@ -106,6 +117,10 @@ export type PaymentProviderConnectionView = Readonly<{
     initialValue: "";
   }>[];
 }>;
+
+export type PaymentProviderConnectionView =
+  | PaytrPaymentProviderConnectionView
+  | GenericPaymentProviderConnectionView;
 
 function connectionInvalid(): never {
   throw new TypeError("payment_provider_connection_invalid");
@@ -126,6 +141,8 @@ export function buildPaymentProviderConnectionViewModel(input: Readonly<{
   environment: PaymentProviderEnvironment;
   profile?: MerchantProviderProfile;
   storefrontHostname: string;
+  methods?: readonly MerchantPaymentMethod[];
+  providerUnavailable?: boolean;
 }>): PaymentProviderConnectionView {
   const descriptor = cloneDescriptor(input.descriptor);
   if (descriptor.capability !== "payment_processing") connectionInvalid();
@@ -138,7 +155,7 @@ export function buildPaymentProviderConnectionViewModel(input: Readonly<{
     selectedProfile.capability !== descriptor.capability ||
     selectedProfile.publicConfig.environment !== environment
   )) connectionInvalid();
-  const profileStatus = selectedProfile?.status === "active"
+  const genericProfileStatus = selectedProfile?.status === "active"
     && descriptor.adapterVersion !== undefined
     && descriptor.environments !== undefined
     ? descriptor.executionAuthority === null
@@ -151,18 +168,73 @@ export function buildPaymentProviderConnectionViewModel(input: Readonly<{
   const canRotate = selectedProfile !== undefined && [
     "pending_validation", "active", "disabled", "rotation_required",
   ].includes(selectedProfile.status);
-  return Object.freeze({
+  const common = {
     providerCode: descriptor.providerCode,
     label: descriptor.label,
     environment,
     environmentLabel: environment === "test" ? "Test ortamı" : "Canlı ortam",
     callbackUrl: `https://${storefrontHostname}/api/payments/${descriptor.providerCode}/callback/{işleme-özel-bağlantı}`,
-    statusLabel: profileStatus.label,
-    statusTone: profileStatus.tone,
     maskedAccountReference: selectedProfile?.maskedAccountReference ?? null,
     credentialVersionLabel: selectedProfile ? `Sürüm ${selectedProfile.credentialVersion}` : null,
     lastValidatedAt: selectedProfile?.lastValidatedAt ?? null,
     canRotate,
+  } as const;
+  if (descriptor.providerCode === "paytr_iframe") {
+    const methods = input.methods ?? [];
+    const activePaytrMethod = selectedProfile !== undefined && methods.some((method) => {
+      if (
+        method.kind !== "provider"
+        || method.providerCode !== "paytr_iframe"
+        || method.profileId !== selectedProfile.id
+        || method.state !== "active"
+      ) return false;
+      try {
+        return buildProviderCheckoutPreferenceView(method).environment === environment;
+      } catch {
+        return false;
+      }
+    });
+    const status = input.providerUnavailable
+      ? Object.freeze({ label: "PayTR'a şu anda ulaşılamıyor", tone: "warning" as const })
+      : selectedProfile?.status === "pending_validation"
+        ? Object.freeze({ label: "Kontrol ediliyor", tone: "warning" as const })
+        : selectedProfile?.status === "rotation_required"
+          ? Object.freeze({ label: "PayTR bilgileri doğrulanamadı", tone: "danger" as const })
+          : selectedProfile?.status === "disabled"
+            ? Object.freeze({ label: "Devre dışı", tone: "neutral" as const })
+            : selectedProfile?.status === "revoked"
+              ? Object.freeze({ label: "Bilgiler yenilenmeli", tone: "warning" as const })
+              : selectedProfile?.status === "active" && (input.methods === undefined || activePaytrMethod)
+                ? Object.freeze({
+                    label: environment === "test" ? "Aktif - Test modu" : "Aktif - Canlı",
+                    tone: "success" as const,
+                  })
+                : selectedProfile?.status === "active"
+                  ? Object.freeze({ label: "PayTR'a şu anda ulaşılamıyor", tone: "warning" as const })
+                  : Object.freeze({ label: "Kurulmadı", tone: "neutral" as const });
+    const anotherActiveProvider = methods.find((method) =>
+      method.kind === "provider"
+      && method.providerCode !== "paytr_iframe"
+      && method.state === "active");
+    return Object.freeze({
+      ...common,
+      kind: "paytr" as const,
+      callbackUrl: `https://${storefrontHostname}/api/payments/paytr/callback`,
+      statusLabel: status.label,
+      statusTone: status.tone,
+      submitLabel: "Ayarları Kaydet" as const,
+      merchantIdInitialValue: typeof selectedProfile?.publicConfig.merchantId === "string"
+        ? selectedProfile.publicConfig.merchantId
+        : "",
+      anotherActiveProviderLabel: anotherActiveProvider?.label ?? null,
+    });
+  }
+  return Object.freeze({
+    ...common,
+    kind: "generic" as const,
+    statusLabel: genericProfileStatus.label,
+    statusTone: genericProfileStatus.tone,
+    callbackUrl: `https://${storefrontHostname}/api/payments/${descriptor.providerCode}/callback/{işleme-özel-bağlantı}`,
     submitLabel: canRotate ? "Bilgileri yenile" : "Bağlantıyı kaydet",
     publicFields: Object.freeze(descriptor.publicFields.map((field) => Object.freeze({
       key: field.key,
@@ -200,8 +272,23 @@ export type PaymentProviderCatalogCard = Readonly<{
   configurable: boolean;
   executable: boolean;
   connectable: boolean;
-  actionLabel: "Bilgileri gir" | "Bağla" | "Etkinleştir" | "Hazırlanıyor";
+  actionLabel:
+    | "Kur"
+    | "Kontrol ediliyor"
+    | "Yapılandırıldı"
+    | "Bilgileri düzelt"
+    | "Yeniden etkinleştir"
+    | "Bilgileri gir"
+    | "Bağla"
+    | "Etkinleştir"
+    | "Hazırlanıyor";
   lifecycleLabel:
+    | "Kurulmadı"
+    | "Kontrol ediliyor"
+    | "Aktif - Test modu"
+    | "Aktif - Canlı"
+    | "PayTR bilgileri doğrulanamadı"
+    | "PayTR'a şu anda ulaşılamıyor"
     | "Henüz bağlanmadı"
     | "Hazırlanıyor"
     | "Bakımda"
@@ -354,7 +441,8 @@ function catalogCard(
         configurableDescriptor.environments,
       );
   const activeProfile = connectionProfile?.status === "active";
-  const activeMethod = executable && methods.some((candidate) => {
+  const paytr = entry.providerCode === "paytr_iframe";
+  const activeMethod = (paytr || executable) && methods.some((candidate) => {
     if (
       candidate.kind !== "provider"
       || candidate.providerCode !== entry.providerCode
@@ -374,7 +462,27 @@ function catalogCard(
     : entry.readiness === "production_ready"
       ? "live"
       : configurableDescriptor?.environments?.[0] ?? null;
-  const lifecycleLabel = !configurable
+  const paytrLifecycleLabel = connectionProfile?.status === "pending_validation"
+    ? "Kontrol ediliyor" as const
+    : connectionProfile?.status === "rotation_required"
+      ? "PayTR bilgileri doğrulanamadı" as const
+      : connectionProfile?.status === "disabled"
+        ? "Devre dışı" as const
+        : connectionProfile?.status === "active" && activeMethod
+          ? connectionEnvironment === "live" ? "Aktif - Canlı" as const : "Aktif - Test modu" as const
+          : connectionProfile?.status === "active"
+            ? "PayTR'a şu anda ulaşılamıyor" as const
+            : "Kurulmadı" as const;
+  const paytrTone: PaymentSettingsTone = paytrLifecycleLabel === "Aktif - Test modu"
+    || paytrLifecycleLabel === "Aktif - Canlı"
+    ? "success"
+    : paytrLifecycleLabel === "PayTR bilgileri doğrulanamadı"
+      ? "danger"
+      : paytrLifecycleLabel === "Kontrol ediliyor"
+        || paytrLifecycleLabel === "PayTR'a şu anda ulaşılamıyor"
+        ? "warning"
+        : "neutral";
+  const lifecycleLabel = paytr && configurable ? paytrLifecycleLabel : !configurable
     ? entry.readiness === "maintenance" ? "Bakımda" as const : "Hazırlanıyor" as const
     : activeMethod ? "Aktif" as const
     : executable && activeProfile ? "Bağlı — aktivasyon bekliyor" as const
@@ -396,14 +504,20 @@ function catalogCard(
     interactionMode: entry.interactionMode,
     interactionLabel: INTERACTION_LABELS[entry.interactionMode],
     readiness: entry.readiness,
-    readinessLabel: READINESS_LABELS[entry.readiness],
-    readinessTone: READINESS_TONES[entry.readiness],
+    readinessLabel: paytr && configurable ? paytrLifecycleLabel : READINESS_LABELS[entry.readiness],
+    readinessTone: paytr && configurable ? paytrTone : READINESS_TONES[entry.readiness],
     environments: Object.freeze([...entry.environments]),
     environmentLabel: environmentLabel(entry.environments),
     configurable,
     executable,
-    connectable: configurable,
-    actionLabel: executable && activeProfile && !activeMethod
+    connectable: configurable && !(paytr && connectionProfile?.status === "pending_validation"),
+    actionLabel: paytr && configurable
+      ? connectionProfile?.status === "pending_validation" ? "Kontrol ediliyor"
+        : connectionProfile?.status === "active" ? "Yapılandırıldı"
+        : connectionProfile?.status === "rotation_required" ? "Bilgileri düzelt"
+        : connectionProfile?.status === "disabled" ? "Yeniden etkinleştir"
+        : "Kur"
+      : executable && activeProfile && !activeMethod
       ? "Etkinleştir"
       : executable ? "Bağla" : configurable ? "Bilgileri gir" : "Hazırlanıyor",
     lifecycleLabel,

@@ -155,7 +155,7 @@ export function PaymentProviderCatalogDialog(props: Readonly<{
                   </div>
                   <div className={styles.providerCardHeading}><div><h3>{card.label}</h3><p>{card.modeLabel}</p></div></div>
                   <div className={styles.providerMeta}><span>{card.categoryLabel}</span><span>{card.interactionLabel}</span><span>{card.environmentLabel}</span><span>{card.lifecycleLabel}</span></div>
-                  <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.configurable || !props.canManage || !props.providerConfigurationAvailable || (requiresMethodAuthority && !props.mutationAvailable) || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}{card.configurable ? <ChevronRight aria-hidden="true" /> : null}</button>
+                  <button type="button" className={card.configurable ? styles.primaryButton : styles.plannedButton} disabled={!card.connectable || !props.canManage || !props.providerConfigurationAvailable || (requiresMethodAuthority && !props.mutationAvailable) || props.busy} onClick={() => props.onConnect(card)}>{card.actionLabel}{card.connectable ? <ChevronRight aria-hidden="true" /> : null}</button>
                 </article>;
               })}
             </div> : null}

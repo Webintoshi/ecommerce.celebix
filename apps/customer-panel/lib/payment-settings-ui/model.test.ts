@@ -384,7 +384,7 @@ test("only ready catalog entries with an exact payment descriptor become connect
   }
 });
 
-test("default PayTR cards stay truthful until matching sandbox evidence exists", () => {
+test("default PayTR setup is configurable without exposing execution authority", () => {
   const hosted = createDefaultHostedPaymentAdapterRegistry(Object.freeze({
     request: Object.freeze(async () => { throw new Error("unexpected transport"); }),
   }));
@@ -404,23 +404,62 @@ test("default PayTR cards stay truthful until matching sandbox evidence exists",
     credentialFields: descriptor.credentialFields,
     adapterVersion: descriptor.adapterVersion,
     environments: descriptor.environments,
-    executionAuthority: { environment: "test" as const, adapterVersion: 1, evidenceDigest: evidence.evidenceDigest },
+    executionAuthority: null,
   }];
 
   const view = buildPaymentSettingsViewModel(
     PAYMENT_PROVIDER_CATALOG, definitions, [], [], "", noFilters,
   );
   assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr_iframe")?.readiness, "verification");
-  assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr_iframe")?.actionLabel, "Hazırlanıyor");
+  assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr_iframe")?.actionLabel, "Kur");
   assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr")?.actionLabel, "Hazırlanıyor");
-  assert.equal(view.catalog.cards.filter((card) => card.connectable).length, 0);
+  assert.equal(view.catalog.cards.filter((card) => card.connectable).length, 1);
 
   const promoted = promoteTestReadiness(PAYMENT_PROVIDER_CATALOG, "paytr_iframe", evidence);
   const sandboxReady = buildPaymentSettingsViewModel(promoted, definitions, [], [], "", noFilters);
   const card = sandboxReady.catalog.cards.find((candidate) => candidate.providerCode === "paytr_iframe");
-  assert.equal(card?.actionLabel, "Bağla");
-  assert.equal(card?.connectionEnvironment, "test");
-  assert.equal(sandboxReady.catalog.cards.filter((candidate) => candidate.connectable).length, 1);
+  assert.equal(card?.actionLabel, "Hazırlanıyor");
+  assert.equal(card?.connectionEnvironment, null);
+  assert.equal(sandboxReady.catalog.cards.filter((candidate) => candidate.connectable).length, 0);
+});
+
+test("PayTR catalog actions follow the durable profile and method lifecycle", () => {
+  const hosted = createDefaultHostedPaymentAdapterRegistry(Object.freeze({
+    request: Object.freeze(async () => { throw new Error("unexpected transport"); }),
+  }));
+  const entry = createDefaultCustomerPanelPaymentProviderRegistry(hosted)
+    .get("paytr_iframe", "payment_processing");
+  assert.ok(entry);
+  const descriptor: MerchantProviderDescriptor = {
+    providerCode: entry.providerCode,
+    capability: entry.capability,
+    label: entry.label,
+    publicFields: entry.publicFields,
+    credentialFields: entry.credentialFields,
+    adapterVersion: entry.adapterVersion,
+    environments: entry.environments,
+    executionAuthority: null,
+  };
+  const card = (
+    status?: MerchantProviderProfile["status"],
+    activeMethod = false,
+  ) => buildPaymentSettingsViewModel(
+    PAYMENT_PROVIDER_CATALOG,
+    [descriptor],
+    status ? [profile(status)] : [],
+    activeMethod ? [method("40000000-0000-4000-8000-000000000075", "active", 0)] : [],
+    "paytr",
+    noFilters,
+  ).catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")!;
+
+  assert.equal(card().actionLabel, "Kur");
+  assert.equal(card("pending_validation").actionLabel, "Kontrol ediliyor");
+  assert.equal(card("pending_validation").connectable, false);
+  assert.equal(card("active").actionLabel, "Yapılandırıldı");
+  assert.equal(card("active").lifecycleLabel, "PayTR'a şu anda ulaşılamıyor");
+  assert.equal(card("active", true).lifecycleLabel, "Aktif - Test modu");
+  assert.equal(card("rotation_required").actionLabel, "Bilgileri düzelt");
+  assert.equal(card("disabled").actionLabel, "Yeniden etkinleştir");
 });
 
 test("Iyzico is configurable without execution authority and exposes the exact lifecycle states", () => {
@@ -574,8 +613,8 @@ test("an executable provider stays activation-pending until its tenant method is
   };
   const activeProfile = profile("active");
   const ready = buildPaymentSettingsViewModel(catalog, [descriptor], [activeProfile], [], "paytr", noFilters);
-  assert.equal(ready.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Bağlı — aktivasyon bekliyor");
-  assert.equal(ready.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.actionLabel, "Etkinleştir");
+  assert.equal(ready.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "PayTR'a şu anda ulaşılamıyor");
+  assert.equal(ready.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.actionLabel, "Yapılandırıldı");
   const active = buildPaymentSettingsViewModel(
     catalog,
     [descriptor],
@@ -584,7 +623,7 @@ test("an executable provider stays activation-pending until its tenant method is
     "paytr",
     noFilters,
   );
-  assert.equal(active.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Aktif");
+  assert.equal(active.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Aktif - Test modu");
   const nonCanonical = buildPaymentSettingsViewModel(
     catalog,
     [descriptor],
@@ -596,7 +635,7 @@ test("an executable provider stays activation-pending until its tenant method is
     "paytr",
     noFilters,
   );
-  assert.equal(nonCanonical.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "Bağlı — aktivasyon bekliyor");
+  assert.equal(nonCanonical.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")?.lifecycleLabel, "PayTR'a şu anda ulaşılamıyor");
 });
 
 test("Iyzico test and live profiles coexist and build independent connection views", () => {
@@ -675,7 +714,7 @@ test("every payment settings model object and array is frozen", () => {
   visit(view);
 });
 
-test("connection view shows exact test fields callback status and rotation without secret values", () => {
+test("PayTR setup view exposes the simple fixed callback contract without internal or secret field names", () => {
   const descriptor: MerchantProviderDescriptor = {
     providerCode: "paytr_iframe",
     capability: "payment_processing",
@@ -699,20 +738,68 @@ test("connection view shows exact test fields callback status and rotation witho
     profile: active,
     storefrontHostname: "shop.example.test",
   });
+  assert.equal(view.kind, "paytr");
   assert.equal(view.environmentLabel, "Test ortamı");
-  assert.equal(view.callbackUrl, "https://shop.example.test/api/payments/paytr_iframe/callback/{işleme-özel-bağlantı}");
-  assert.equal(view.statusLabel, "Bağlı");
+  assert.equal(view.callbackUrl, "https://shop.example.test/api/payments/paytr/callback");
+  assert.equal(view.statusLabel, "Aktif - Test modu");
   assert.equal(view.maskedAccountReference, "paytr…1234");
   assert.equal(view.credentialVersionLabel, "Sürüm 3");
-  assert.equal(view.submitLabel, "Bilgileri yenile");
-  assert.deepEqual(view.publicFields, [
-    { key: "merchantId", label: "Mağaza numarası", initialValue: "merchant-1234" },
-  ]);
-  assert.deepEqual(view.credentialFields, [
-    { key: "merchantKey", label: "Mağaza parolası", secret: true, initialValue: "" },
-    { key: "merchantSalt", label: "Mağaza gizli anahtarı", secret: true, initialValue: "" },
-  ]);
-  assert.doesNotMatch(JSON.stringify(view), /key-never-return|salt-never-return/);
+  assert.equal(view.submitLabel, "Ayarları Kaydet");
+  assert.equal(view.merchantIdInitialValue, "merchant-1234");
+  assert.equal(view.anotherActiveProviderLabel, null);
+  assert.doesNotMatch(JSON.stringify(view), /evidence|authority|merchantKey|merchantSalt|key-never-return|salt-never-return/i);
+});
+
+test("PayTR setup models pending active live rejected unavailable and provider-switch warning truthfully", () => {
+  const descriptor: MerchantProviderDescriptor = {
+    providerCode: "paytr_iframe",
+    capability: "payment_processing",
+    label: "PayTR iFrame",
+    publicFields: [{ key: "merchantId", label: "Mağaza numarası" }],
+    credentialFields: [
+      { key: "merchantKey", label: "Mağaza parolası", secret: true },
+      { key: "merchantSalt", label: "Mağaza gizli anahtarı", secret: true },
+    ],
+  };
+  const build = (
+    status: MerchantProviderProfile["status"] | undefined,
+    environment: "test" | "live" = "test",
+    providerUnavailable = false,
+  ) => buildPaymentProviderConnectionViewModel({
+    descriptor,
+    environment,
+    ...(status ? { profile: {
+      ...profile(status),
+      publicConfig: { environment, merchantId: "merchant-1234" },
+    } } : {}),
+    storefrontHostname: "shop.example.test",
+    providerUnavailable,
+    methods: [
+      Object.freeze({
+        ...method("40000000-0000-4000-8000-000000000071", "active", 0),
+        providerCode: "iyzico_iframe",
+        profileId: "40000000-0000-4000-8000-000000000072",
+        label: "iyzico",
+      }),
+      ...(status === "active" ? [Object.freeze({
+        ...method("40000000-0000-4000-8000-000000000073", "active", 1),
+        config: Object.freeze({
+          ...method("40000000-0000-4000-8000-000000000074", "active", 1).config,
+          environment,
+        }),
+      })] : []),
+    ],
+  });
+
+  const unconfigured = build(undefined);
+  assert.equal(unconfigured.kind, "paytr");
+  assert.equal(unconfigured.statusLabel, "Kurulmadı");
+  assert.equal(build("pending_validation").statusLabel, "Kontrol ediliyor");
+  assert.equal(build("active").statusLabel, "Aktif - Test modu");
+  assert.equal(build("active", "live").statusLabel, "Aktif - Canlı");
+  assert.equal(build("rotation_required").statusLabel, "PayTR bilgileri doğrulanamadı");
+  assert.equal(build("pending_validation", "test", true).statusLabel, "PayTR'a şu anda ulaşılamıyor");
+  assert.equal(unconfigured.anotherActiveProviderLabel, "iyzico");
 });
 
 test("connection view permits disabled reactivation but keeps revoked profiles terminal", () => {
@@ -730,9 +817,9 @@ test("connection view permits disabled reactivation but keeps revoked profiles t
       profile: { ...profile(status), publicConfig: { environment: "test", merchantId: "merchant-1234" } },
       storefrontHostname: "shop.example.test",
     });
-    assert.equal(view.statusLabel, status === "disabled" ? "Devre dışı" : "Bağlantı iptal edildi");
+    assert.equal(view.statusLabel, status === "disabled" ? "Devre dışı" : "Bilgiler yenilenmeli");
     assert.equal(view.canRotate, canRotate);
-    assert.equal(view.submitLabel, canRotate ? "Bilgileri yenile" : "Bağlantıyı kaydet");
+    assert.equal(view.submitLabel, "Ayarları Kaydet");
   }
   assert.throws(() => buildPaymentProviderConnectionViewModel({
     descriptor,
@@ -756,7 +843,7 @@ test("pending and rejected validation states never claim an active connection", 
     profile: { ...profile("pending_validation"), publicConfig: { environment: "test", merchantId: "merchant-1234" } },
     storefrontHostname: "shop.example.test",
   });
-  assert.equal(pending.statusLabel, "Doğrulama bekliyor");
+  assert.equal(pending.statusLabel, "Kontrol ediliyor");
   assert.notEqual(pending.statusLabel, "Bağlı");
   const rejected = buildPaymentProviderConnectionViewModel({
     descriptor,
@@ -764,8 +851,8 @@ test("pending and rejected validation states never claim an active connection", 
     profile: { ...profile("rotation_required"), publicConfig: { environment: "test", merchantId: "merchant-1234" } },
     storefrontHostname: "shop.example.test",
   });
-  assert.equal(rejected.statusLabel, "Anahtar yenileme gerekli");
-  assert.equal(rejected.submitLabel, "Bilgileri yenile");
+  assert.equal(rejected.statusLabel, "PayTR bilgileri doğrulanamadı");
+  assert.equal(rejected.submitLabel, "Ayarları Kaydet");
 });
 
 test("connection callback accepts only one canonical durable storefront hostname", () => {

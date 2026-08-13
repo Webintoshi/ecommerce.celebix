@@ -2217,10 +2217,11 @@ test("built-in drawer contains Tab focus and handles backdrop, busy close suppre
 });
 
 test("payment dialogs provide focus safety, masked connection state and dormant secrets", async () => {
-  const [consoleSource, catalogSource, drawerSource, checkoutSource, orderSource, css] = await Promise.all([
+  const [consoleSource, catalogSource, drawerSource, paytrSource, checkoutSource, orderSource, css] = await Promise.all([
     source("components/settings/payment/PaymentSettingsConsole.tsx"),
     source("components/settings/payment/PaymentProviderCatalogDialog.tsx"),
     source("components/settings/payment/PaymentProviderConnectionDrawer.tsx"),
+    source("components/settings/payment/PaytrConnectionForm.tsx"),
     source("components/settings/payment/ProviderCheckoutSettingsDrawer.tsx"),
     source("components/settings/payment/PaymentMethodOrderDialog.tsx"),
     source("components/settings/payment/payment-settings.module.css"),
@@ -2231,7 +2232,7 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(catalogSource, /openerRef\.current\?\.focus/);
   assert.match(catalogSource, /event\.key [!=]== "Tab"/);
   assert.match(catalogSource, /event\.key === "Escape"/);
-  assert.match(catalogSource, /disabled=\{!card\.configurable/);
+  assert.match(catalogSource, /disabled=\{!card\.connectable/);
   assert.match(catalogSource, /card\.lifecycleLabel/);
   assert.match(drawerSource, /credentialFields/);
   assert.match(drawerSource, /aria-label="Sağlayıcı ortamı"/);
@@ -2245,8 +2246,18 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(drawerSource, /maskedAccountReference/);
   assert.match(drawerSource, /callbackUrl/);
   assert.match(drawerSource, /storefrontHostname/);
-  assert.match(drawerSource, /const canSubmit = connection !== null && \(selectedProfile === null \|\| connection\.canRotate\)/);
+  assert.match(drawerSource, /selectedProfile\?\.status !== "pending_validation"/);
   assert.match(drawerSource, /busy \|\| !props\.canManage \|\| !canSubmit/);
+  assert.match(drawerSource, /PAYTR_POLL_DELAYS_MS/);
+  assert.match(drawerSource, /mountedRef\.current/);
+  assert.match(paytrSource, /Test Modu/);
+  assert.match(paytrSource, /name="merchantId"/);
+  assert.match(paytrSource, /name=\{props\.name\}/);
+  assert.match(paytrSource, /Bildirim URL’si/);
+  assert.match(paytrSource, /navigator\.clipboard\.writeText/);
+  assert.match(paytrSource, /PayTR Satıcı Panelini Aç/);
+  assert.match(paytrSource, /type=\{visible \? "text" : "password"\}/);
+  assert.doesNotMatch(paytrSource, /defaultValue=.*(?:merchantKey|merchantSalt)/);
   assert.doesNotMatch(drawerSource, /window[.]location[.]origin/);
   assert.doesNotMatch(drawerSource, /defaultValue=\{[^}]*credential|merchantKey\s*:|merchantSalt\s*:/);
   assert.match(checkoutSource, /role="dialog"/);

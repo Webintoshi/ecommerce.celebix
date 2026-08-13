@@ -603,7 +603,26 @@ export function PaymentSettingsConsole(props: Readonly<{
       </section>
 
       {catalogOpen ? <PaymentProviderCatalogDialog cards={view.catalog.cards} builtInCards={view.builtInCards} totalCount={view.catalog.totalCount} query={query} filters={filters} phase={sources.catalog.phase} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} providerConfigurationAvailable={providerConfigurationAvailable} busy={selectedCard !== null || busyProviderCode !== null} openerRef={addButtonRef} onQuery={setQuery} onFilters={(value) => setFilters(Object.freeze(value))} onClose={() => setCatalogOpen(false)} onConnect={(card) => { void connectProvider(card); }} onBuiltInSelect={(kind) => openBuiltIn(kind)} /> : null}
-      {selectedCard?.configurableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.configurableDescriptor} environments={selectedCard.environments} initialEnvironment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profiles={selectedProfiles} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={async () => { await load(); }} /> : null}
+      {selectedCard?.configurableDescriptor && selectedCard.connectionEnvironment ? <PaymentProviderConnectionDrawer descriptor={selectedCard.configurableDescriptor} environments={selectedCard.environments} initialEnvironment={selectedCard.connectionEnvironment} storefrontHostname={props.storefrontHostname} profiles={selectedProfiles} methods={sources.methods.phase === "ready" ? sources.methods.value : []} canManage={props.canManage} onClose={() => setSelectedCard(null)} onSaved={async (profileId, environment) => {
+        const outcome = await load();
+        if (!outcome.applied || outcome.sources.profiles.phase !== "ready" || outcome.sources.methods.phase !== "ready") return null;
+        const profile = outcome.sources.profiles.value.find((candidate) =>
+          candidate.id === profileId
+          && candidate.providerCode === selectedCard.providerCode
+          && candidate.publicConfig.environment === environment) ?? null;
+        if (profile === null) return null;
+        const methodActive = outcome.sources.methods.value.some((method) => {
+          if (
+            method.kind !== "provider"
+            || method.providerCode !== selectedCard.providerCode
+            || method.profileId !== profileId
+            || method.state !== "active"
+          ) return false;
+          try { return buildProviderCheckoutPreferenceView(method).environment === environment; }
+          catch { return false; }
+        });
+        return Object.freeze({ profile, methodActive });
+      }} /> : null}
       {selectedBuiltIn ? <BuiltInPaymentMethodDrawer kind={selectedBuiltIn.kind} method={selectedBuiltIn.method} canManage={props.canManage} busy={busyBuiltInKind !== null} mutationAvailable={methodsMutationAvailable} submitError={builtInSubmitError} onSubmit={saveBuiltIn} onClose={closeBuiltIn} /> : null}
       {selectedCheckoutMethod ? <ProviderCheckoutSettingsDrawer method={selectedCheckoutMethod} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} busy={busyCheckoutMethodId !== null} submitError={checkoutSubmitError} openerRef={checkoutOpenerRef} onSubmit={saveProviderCheckout} onClose={closeProviderCheckout} /> : null}
       {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} mutationBusy={methodMutationBusy} openerRef={orderButtonRef} onReload={async () => { await load(); }} onClose={() => setOrderOpen(false)} /> : null}

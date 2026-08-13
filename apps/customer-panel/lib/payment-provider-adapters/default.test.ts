@@ -47,7 +47,7 @@ test("default hosted composition exposes exact PayTR and configurable Iyzico des
   const entry = registry.get("paytr_iframe", "payment_processing");
   assert.ok(entry);
   assert.equal(entry.adapterVersion, 1);
-  assert.deepEqual(entry.environments, ["test"]);
+  assert.deepEqual(entry.environments, ["test", "live"]);
   assert.equal(entry.executionAuthority, null);
   assert.deepEqual(entry.publicFields, [
     { key: "merchantId", label: "Mağaza numarası" },
@@ -56,7 +56,7 @@ test("default hosted composition exposes exact PayTR and configurable Iyzico des
     { key: "merchantKey", label: "Mağaza parolası", secret: true },
     { key: "merchantSalt", label: "Mağaza gizli anahtarı", secret: true },
   ]);
-  assert.equal(entry.profileSaveMode, "execution_authority");
+  assert.equal(entry.profileSaveMode, "verification");
   const iyzico = registry.get("iyzico_iframe", "payment_processing");
   assert.ok(iyzico);
   assert.equal(iyzico.label, "iyzico · Checkout Form");
@@ -105,34 +105,35 @@ test("Iyzico admin entry keeps environment public and seals exact credentials wi
   );
 });
 
-test("PayTR admin entry accepts only test public config and seals only secret fields", () => {
+test("PayTR admin entry accepts exact test and live public config and seals only secret fields", () => {
   const registry = createDefaultCustomerPanelPaymentProviderRegistry(
     createDefaultHostedPaymentAdapterRegistry(transport()),
   );
   const entry = registry.get("paytr_iframe", "payment_processing");
   assert.ok(entry);
-  const publicConfig = entry.parsePublicConfig({ environment: "test", merchantId: "merchant-1234" });
-  assert.deepEqual(publicConfig, { environment: "test", merchantId: "merchant-1234" });
-  assert.equal(entry.maskAccountReference(publicConfig), "paytr…1234");
+  for (const environment of ["test", "live"] as const) {
+    const publicConfig = entry.parsePublicConfig({ environment, merchantId: "merchant-1234" });
+    assert.deepEqual(publicConfig, { environment, merchantId: "merchant-1234" });
+    assert.equal(entry.maskAccountReference(publicConfig), "paytr…1234");
 
-  const credential = entry.parseCredential({
-    merchantKey: "key-never-return",
-    merchantSalt: "salt-never-return",
-  }, publicConfig);
-  const text = new TextDecoder().decode(credential);
-  assert.deepEqual(JSON.parse(text), {
-    merchantKey: "key-never-return",
-    merchantSalt: "salt-never-return",
-  });
-  assert.doesNotMatch(text, /merchant-1234/);
-  credential.fill(0);
+    const credential = entry.parseCredential({
+      merchantKey: "key-never-return",
+      merchantSalt: "salt-never-return",
+    }, publicConfig);
+    const text = new TextDecoder().decode(credential);
+    assert.deepEqual(JSON.parse(text), {
+      merchantKey: "key-never-return",
+      merchantSalt: "salt-never-return",
+    });
+    assert.doesNotMatch(text, /merchant-1234/);
+    credential.fill(0);
+  }
 
   assert.throws(
-    () => entry.parsePublicConfig({ environment: "live", merchantId: "merchant-1234" }),
-    /customer_panel_payment_adapter_invalid/,
-  );
-  assert.throws(
-    () => entry.parseCredential({ merchantKey: "key-never-return" }, publicConfig),
+    () => entry.parseCredential(
+      { merchantKey: "key-never-return" },
+      { environment: "test", merchantId: "merchant-1234" },
+    ),
     /customer_panel_payment_adapter_invalid/,
   );
 });

@@ -176,7 +176,6 @@ function wipeCredential(value: unknown): void {
 
 function paytrEntry(
   adapter: HostedPaymentAdapter<object>,
-  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null,
 ): MerchantProviderRegistryEntry {
   if (
     adapter.packet !== PAYTR_IFRAME_PACKET ||
@@ -191,14 +190,17 @@ function paytrEntry(
   function parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>> {
     try {
       const selected = exactRecord(value, PUBLIC_KEYS);
-      if (selected.environment !== "test") invalid();
+      if (selected.environment !== "test" && selected.environment !== "live") invalid();
       const credential = adapter.parseCredential({
         merchantId: selected.merchantId,
         merchantKey: "validation-placeholder",
         merchantSalt: "validation-placeholder",
       });
       wipeCredential(credential);
-      return Object.freeze({ environment: "test", merchantId: selected.merchantId as string });
+      return Object.freeze({
+        environment: selected.environment,
+        merchantId: selected.merchantId as string,
+      });
     } catch {
       return invalid();
     }
@@ -259,9 +261,9 @@ function paytrEntry(
     publicFields,
     credentialFields,
     adapterVersion: adapter.packet.adapterVersion,
-    environments: Object.freeze(["test"] as const),
-    executionAuthority,
-    profileSaveMode: "execution_authority" as const,
+    environments: Object.freeze(["test", "live"] as const),
+    executionAuthority: null,
+    profileSaveMode: "verification" as const,
     parsePublicConfig,
     parseCredential,
     maskAccountReference,
@@ -377,13 +379,10 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
       executionAuthority.adapterVersion !== adapter.packet.adapterVersion ||
       !/^sha256:[a-f0-9]{64}$/.test(executionAuthority.evidenceDigest)
     )) invalid();
-    const activeAuthority = activationMode === "approved_test_sandbox"
-      && PAYTR_IFRAME_PACKET.readiness.test === "sandbox_ready"
-      ? executionAuthority
-      : null;
+    if (activationMode !== "disabled" && activationMode !== "approved_test_sandbox") invalid();
     const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
     return createCustomerPanelProviderRegistry([
-      paytrEntry(adapter, activeAuthority),
+      paytrEntry(adapter),
       iyzicoEntry(iyzico, iyzicoAuthority),
     ]);
   } catch {
