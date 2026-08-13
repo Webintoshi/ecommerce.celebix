@@ -221,7 +221,7 @@ test("real production composition opens and validates a merchant PayTR live prof
       leaseExpiresAt: expires,
     },
   }] : []);
-  const mark = new Client((text) => text.includes("merchant_provider_profile_mark_verification") ? [{
+  const mark = new Client((text) => text.includes("paytr_merchant_self_service_mark_verification") ? [{
     outcome: "validated",
     result_payload: {
       id: PROFILE,
@@ -275,6 +275,7 @@ test("real production composition opens and validates a merchant PayTR live prof
   assert.deepEqual(claimLive.calls.find(({ text }) => text.includes("claim_verification"))?.values.slice(1, 5), [
     "paytr_iframe", "payment_processing", "live", 1,
   ]);
+  assert.equal(mark.calls.some(({ text }) => text.includes("paytr_merchant_self_service_mark_verification")), true);
   assert.equal(mark.calls.find(({ text }) => text.includes("mark_verification"))?.values[10], "validated");
   assert.equal(clients.length, 0);
   await runtime.close();

@@ -561,8 +561,11 @@ export class PostgresMerchantProviderWorkflowRepository implements
     ) invalid();
     const outcomeCode = code(parsed.outcomeCode);
     if ((parsed.outcome === "unavailable") !== (outcomeCode === "validation_unavailable")) invalid();
+    const verificationFunction = selectedProviderCode === "paytr_iframe"
+      ? "paytr_merchant_self_service_mark_verification"
+      : "merchant_provider_profile_mark_verification";
     return this.verificationTransaction({
-      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_mark_verification($1::uuid,$2::text,$3::text,$4::text,$5::integer,$6::text,$7::timestamptz,$8::uuid,$9::bigint,$10::bigint,$11::text,$12::text)",
+      text: `SELECT outcome,result_payload FROM saas.${verificationFunction}($1::uuid,$2::text,$3::text,$4::text,$5::integer,$6::text,$7::timestamptz,$8::uuid,$9::bigint,$10::bigint,$11::text,$12::text)`,
       values: [
         profileId, selectedProviderCode, selectedCapability,
         selectedValidationIdentity.environment, selectedValidationIdentity.adapterVersion,
