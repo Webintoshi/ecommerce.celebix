@@ -175,7 +175,7 @@ test("real production composition preflights 056 and validates Iyzico through ve
   assert.equal(closed, 1);
 });
 
-test("real production composition opens and validates a merchant PayTR live profile only inside the worker", async () => {
+test("real production composition opens and validates a merchant PayTR test profile only inside the worker", async () => {
   const selected = config();
   const plaintext = new TextEncoder().encode(JSON.stringify({
     merchantKey: "merchant-key",
@@ -201,18 +201,15 @@ test("real production composition opens and validates a merchant PayTR live prof
   const emptyIyzicoLive = new Client((text) => text.includes("merchant_provider_profile_claim_verification")
     ? [{ outcome: "empty", result_payload: null }]
     : []);
-  const emptyPaytrTest = new Client((text) => text.includes("merchant_provider_profile_claim_verification")
-    ? [{ outcome: "empty", result_payload: null }]
-    : []);
-  const claimLive = new Client((text) => text.includes("merchant_provider_profile_claim_verification") ? [{
+  const claimTest = new Client((text) => text.includes("merchant_provider_profile_claim_verification") ? [{
     outcome: "claimed",
     result_payload: {
       profileId: PROFILE,
       storeId: STORE,
       providerCode: "paytr_iframe",
       capability: "payment_processing",
-      publicConfig: { environment: "live", merchantId: "123456" },
-      validationIdentity: { environment: "live", adapterVersion: 1 },
+      publicConfig: { environment: "test", merchantId: "123456" },
+      validationIdentity: { environment: "test", adapterVersion: 1 },
       sealedCredentials,
       credentialVersion: 1,
       profileVersion: 2,
@@ -221,13 +218,13 @@ test("real production composition opens and validates a merchant PayTR live prof
       leaseExpiresAt: expires,
     },
   }] : []);
-  const mark = new Client((text) => text.includes("merchant_provider_profile_mark_verification") ? [{
+  const mark = new Client((text) => text.includes("paytr_merchant_self_service_mark_verification") ? [{
     outcome: "validated",
     result_payload: {
       id: PROFILE,
       providerCode: "paytr_iframe",
       capability: "payment_processing",
-      publicConfig: { environment: "live", merchantId: "123456" },
+      publicConfig: { environment: "test", merchantId: "123456" },
       maskedAccountReference: "paytr…3456",
       status: "active",
       credentialVersion: 1,
@@ -237,8 +234,8 @@ test("real production composition opens and validates a merchant PayTR live prof
       updatedAt: NOW.toISOString(),
     },
   }] : []);
-  const clients = [preflight, emptyIyzicoTest, emptyIyzicoLive, emptyPaytrTest, claimLive, mark];
-  const uuids = [LEASE, LEASE, LEASE, LEASE, REFERENCE];
+  const clients = [preflight, emptyIyzicoTest, emptyIyzicoLive, claimTest, mark];
+  const uuids = [LEASE, LEASE, LEASE, REFERENCE];
   let providerCalls = 0;
   let providerBody = "";
   const runtime = await initializeMerchantProviderProductionRuntime(selected, Object.freeze({
@@ -268,14 +265,11 @@ test("real production composition opens and validates a merchant PayTR live prof
 
   assert.deepEqual(await runtime.runOnce(), { kind: "profile_validated" });
   assert.equal(providerCalls, 1);
-  assert.equal(new URLSearchParams(providerBody).get("test_mode"), "0");
-  assert.deepEqual(emptyPaytrTest.calls.find(({ text }) => text.includes("claim_verification"))?.values.slice(1, 5), [
+  assert.equal(new URLSearchParams(providerBody).get("test_mode"), "1");
+  assert.deepEqual(claimTest.calls.find(({ text }) => text.includes("claim_verification"))?.values.slice(1, 5), [
     "paytr_iframe", "payment_processing", "test", 1,
   ]);
-  assert.deepEqual(claimLive.calls.find(({ text }) => text.includes("claim_verification"))?.values.slice(1, 5), [
-    "paytr_iframe", "payment_processing", "live", 1,
-  ]);
-  assert.equal(mark.calls.find(({ text }) => text.includes("mark_verification"))?.values[10], "validated");
+  assert.equal(mark.calls.find(({ text }) => text.includes("paytr_merchant_self_service_mark_verification"))?.values[10], "validated");
   assert.equal(clients.length, 0);
   await runtime.close();
 });
@@ -303,7 +297,7 @@ test("production validation-only worker never falls through to either execution 
   const preflight = new Client((text) => text.includes("payment_provider_keyed_lifecycle_preflight")
     ? [preflightRow()]
     : []);
-  const emptyClaims = [0, 1, 2, 3, 4, 5, 6, 7].map(() => new Client((text) =>
+  const emptyClaims = [0, 1, 2, 3, 4, 5].map(() => new Client((text) =>
     text.includes("merchant_provider_profile_claim_verification")
       ? [{ outcome: "empty", result_payload: null }]
       : []));
@@ -326,7 +320,7 @@ test("production validation-only worker never falls through to either execution 
 
   assert.deepEqual(await runtime.runOnce(), { kind: "empty" });
   assert.deepEqual(await runtime.runOnce(), { kind: "empty" });
-  assert.equal(checkouts, 9);
+  assert.equal(checkouts, 7);
   assert.equal(providerCalls, 0);
   assert.equal(clients.length, 0);
   for (const claim of emptyClaims) {

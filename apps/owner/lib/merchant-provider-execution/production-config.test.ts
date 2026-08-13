@@ -26,7 +26,6 @@ const ALL_IDENTITIES = Object.freeze({
   iyzico_iframe: IYZICO_IDENTITIES.iyzico_iframe,
   paytr_iframe: Object.freeze([
     Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
-    Object.freeze({ environment: "live" as const, adapterVersion: 1 }),
   ]),
 });
 
@@ -61,12 +60,12 @@ test("compiled provider-keyed identities enable Iyzico and PayTR verification wh
   assert.equal(Object.isFrozen(config.verificationIdentities.iyzico_iframe), true);
 });
 
-test("default production authority is compiled only from generated provider build bindings", () => {
+test("default production authority keeps PayTR execution closed while test verification is compiled", () => {
   const source = readFileSync(new URL("./production-config.ts", import.meta.url), "utf8");
-  assert.match(source, /IYZICO_APPROVED_EXECUTION_AUTHORITY,[\s\S]*PAYTR_APPROVED_EXECUTION_AUTHORITIES,[\s\S]*from "@celebix\/payment-adapters"/);
+  assert.match(source, /import \{ IYZICO_APPROVED_EXECUTION_AUTHORITY \} from "@celebix\/payment-adapters"/);
   assert.match(source, /iyzico_iframe: IYZICO_APPROVED_EXECUTION_AUTHORITY/);
-  assert.match(source, /PAYTR_APPROVED_EXECUTION_AUTHORITIES/);
-  assert.match(source, /paytr_iframe: PAYTR_APPROVED_EXECUTION_AUTHORITIES\.test \?\? PAYTR_APPROVED_EXECUTION_AUTHORITIES\.live/);
+  assert.match(source, /paytr_iframe: null/);
+  assert.doesNotMatch(source, /PAYTR_APPROVED_EXECUTION_AUTHORITIES/);
   assert.doesNotMatch(source, /CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST/);
   assert.doesNotMatch(source, /CELEBIX_IYZICO_APPROVAL_MODE/);
 });

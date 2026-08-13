@@ -56,7 +56,7 @@ test("production registry validates one exact PayTR TEST credential without a ca
   assert.equal(observed.length, 1);
 });
 
-test("PayTR verification registry validates exact test and live identities without execution authority", async () => {
+test("PayTR verification registry validates the exact test identity without execution authority", async () => {
   const observed: ProviderTransportRequest[] = [];
   const selected = createProductionMerchantProviderRegistries(Object.freeze({
     executionAuthorities: Object.freeze({ iyzico_iframe: null, paytr_iframe: null }),
@@ -64,7 +64,6 @@ test("PayTR verification registry validates exact test and live identities witho
       iyzico_iframe: Object.freeze([]),
       paytr_iframe: Object.freeze([
         Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
-        Object.freeze({ environment: "live" as const, adapterVersion: 1 }),
       ]),
     }),
     transport: Object.freeze({
@@ -89,24 +88,26 @@ test("PayTR verification registry validates exact test and live identities witho
   }));
 
   assert.equal(selected.execution.size, 0);
-  assert.equal(selected.verification.size, 2);
-  for (const environment of ["test", "live"] as const) {
-    const adapter = selected.verification.get("paytr_iframe", "payment_processing", {
-      environment,
-      adapterVersion: 1,
-    });
-    assert.ok(adapter);
-    assert.deepEqual(await adapter.validateCredential(Object.freeze({
-      credential: new TextEncoder().encode(JSON.stringify({
-        merchantKey: "merchant-key",
-        merchantSalt: "merchant-salt",
-      })),
-      publicConfig: Object.freeze({ environment, merchantId: "123456" }),
-    })), { kind: "validated" });
-  }
-  assert.deepEqual(observed.map((request) => request.environment), ["test", "live"]);
+  assert.equal(selected.verification.size, 1);
+  const adapter = selected.verification.get("paytr_iframe", "payment_processing", {
+    environment: "test",
+    adapterVersion: 1,
+  });
+  assert.ok(adapter);
+  assert.deepEqual(await adapter.validateCredential(Object.freeze({
+    credential: new TextEncoder().encode(JSON.stringify({
+      merchantKey: "merchant-key",
+      merchantSalt: "merchant-salt",
+    })),
+    publicConfig: Object.freeze({ environment: "test", merchantId: "123456" }),
+  })), { kind: "validated" });
+  assert.equal(selected.verification.get("paytr_iframe", "payment_processing", {
+    environment: "live",
+    adapterVersion: 1,
+  }), null);
+  assert.deepEqual(observed.map((request) => request.environment), ["test"]);
   assert.deepEqual(observed.map((request) =>
-    new URLSearchParams(new TextDecoder().decode(request.body)).get("test_mode")), ["1", "0"]);
+    new URLSearchParams(new TextDecoder().decode(request.body)).get("test_mode")), ["1"]);
 });
 
 test("production PayTR validator rejects provider rejection ambiguity and malformed sealed plaintext", async () => {

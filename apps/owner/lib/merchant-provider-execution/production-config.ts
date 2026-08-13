@@ -1,10 +1,7 @@
 import { isIP } from "node:net";
 import { types as nodeTypes } from "node:util";
 
-import {
-  IYZICO_APPROVED_EXECUTION_AUTHORITY,
-  PAYTR_APPROVED_EXECUTION_AUTHORITIES,
-} from "@celebix/payment-adapters";
+import { IYZICO_APPROVED_EXECUTION_AUTHORITY } from "@celebix/payment-adapters";
 import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
 import {
   parseMerchantProviderCredentialKeyring,
@@ -249,7 +246,7 @@ export function createMerchantProviderProductionConfigParser(
 function compiledExecutionAuthorities(): MerchantProviderExecutionAuthorityMap {
   return Object.freeze({
     iyzico_iframe: IYZICO_APPROVED_EXECUTION_AUTHORITY,
-    paytr_iframe: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test ?? PAYTR_APPROVED_EXECUTION_AUTHORITIES.live,
+    paytr_iframe: null,
   });
 }
 
@@ -261,7 +258,6 @@ function compiledVerificationIdentities(): MerchantProviderVerificationIdentityM
     ]),
     paytr_iframe: Object.freeze([
       Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
-      Object.freeze({ environment: "live" as const, adapterVersion: 1 }),
     ]),
   });
 }
