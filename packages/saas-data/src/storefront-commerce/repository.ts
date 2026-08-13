@@ -67,6 +67,14 @@ function fingerprint(value: unknown): string {
 function exactResult(value: unknown, required: readonly string[]): Readonly<Record<string, unknown>> {
   try { return exactCommerceInput(value, required); } catch { throw failure(); }
 }
+// The deployed quote function strips nested JSON nulls, including the required ready-cart blocker.
+function parseCheckoutQuoteProjection(value: unknown) {
+  try { return parsePublicCheckoutQuote(value); } catch {}
+  const selected = exactCommerceInput(value, ["cart", "paymentMethods"], ["estimatedDays"]);
+  const cart = exactCommerceInput(selected.cart, ["version", "currency", "itemCount", "subtotalCents", "shippingCents", "totalCents", "checkoutReady", "items"]);
+  if (cart.checkoutReady !== true) throw failure();
+  return parsePublicCheckoutQuote({ ...selected, cart: { ...cart, checkoutBlocker: null } });
+}
 
 export class PostgresStorefrontCommerceRepository implements StorefrontCommerceRepository {
   private readonly options: PostgresStorefrontCommerceRepositoryOptions;
@@ -198,7 +206,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
       return await this.write(
         "SELECT outcome,result_payload FROM saas.public_checkout_quote($1::text,$2::timestamptz,$3::text,$4::jsonb)",
         [commerceHostname(parsed.hostname), commerceDate(parsed.now), parsed.intentKind, JSON.stringify(commerceCandidates(parsed.candidates))],
-        ["quoted"], parsePublicCheckoutQuote,
+        ["quoted"], parseCheckoutQuoteProjection,
       );
     } catch (error) { if (error instanceof StorefrontCommerceRepositoryError) throw error; throw failure("invalid_input"); }
   }

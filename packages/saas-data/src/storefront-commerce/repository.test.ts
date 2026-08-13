@@ -15,6 +15,7 @@ const OPERATION = "70000000-0000-4000-8000-000000000081";
 const DIGEST = "a".repeat(64);
 const CANDIDATES = Object.freeze([Object.freeze({ keyId: "current_01", digest: DIGEST })]);
 const CART = Object.freeze({ version: 1, currency: "TRY", itemCount: 1, subtotalCents: 1127100, shippingCents: 9900, totalCents: 1137000, checkoutReady: true, checkoutBlocker: null, items: Object.freeze([Object.freeze({ productId: PRODUCT, variantId: VARIANT, slug: "altin-yuzuk", title: "Altın Yüzük", variantTitle: "14 Ayar", quantity: 1, unitPriceCents: 1127100, lineTotalCents: 1127100, available: true })]) });
+const BANK_TRANSFER = Object.freeze({ kind: "bank_transfer", label: "Banka havalesi", instructions: "Açıklama", bankName: "Celebix Bank", accountHolder: "Güzide", iban: "TR330006100519786457841326" });
 const RECEIPT = Object.freeze({ orderReference: "SF-72000000000040008000000000000081", currency: "TRY", subtotalCents: 1127100, shippingCents: 9900, totalCents: 1137000, paymentStatus: "pending", paymentMethod: Object.freeze({ kind: "bank_transfer", label: "Banka havalesi", instructions: "Açıklama", bankName: "Celebix Bank", accountHolder: "Güzide", iban: "TR330006100519786457841326" }), delivery: Object.freeze({ recipientName: "Güzide Elif", addressLine1: "Cadde 1", city: "İstanbul", country: "TR" }), items: CART.items, createdAt: NOW.toISOString() });
 const PERSISTED_CREATED = Object.freeze({ receipt: true as const, customer: true, receiptKeyId: "current_01", customerKeyId: "current_01" });
 const PERSISTED_REUSED = Object.freeze({ receipt: true as const, customer: false, receiptKeyId: "current_01", customerKeyId: "current_01" });
@@ -58,6 +59,24 @@ test("new cart mutation sends only generated digest metadata and canonical produ
   assert.equal(selected?.values.includes(VARIANT), true);
   assert.equal(selected?.values.at(-1), JSON.stringify(CANDIDATES));
   assert.equal(JSON.stringify(selected?.values).includes("credential"), false);
+});
+
+test("checkout quote restores the canonical null blocker removed by jsonb_strip_nulls", async () => {
+  const { checkoutBlocker: _removed, ...databaseCart } = CART;
+  const client = new Client(responder("quoted", { cart: databaseCart, paymentMethods: [BANK_TRANSFER] }));
+  const result = await repository(new Pool([client])).quote({ hostname: HOST, now: NOW, intentKind: "cart", candidates: CANDIDATES });
+  assert.deepEqual(result, { cart: CART, paymentMethods: [BANK_TRANSFER] });
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
+});
+
+test("checkout quote compatibility never admits extra cart authority", async () => {
+  const { checkoutBlocker: _removed, ...databaseCart } = CART;
+  const client = new Client(responder("quoted", { cart: { ...databaseCart, storeId: PRODUCT }, paymentMethods: [BANK_TRANSFER] }));
+  await assert.rejects(
+    repository(new Pool([client])).quote({ hostname: HOST, now: NOW, intentKind: "cart", candidates: CANDIDATES }),
+    (error: unknown) => error instanceof StorefrontCommerceRepositoryError && error.code === "unavailable",
+  );
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
 });
 
 test("checkout unknown commit destroys the client and performs exactly one read-only recovery", async () => {
