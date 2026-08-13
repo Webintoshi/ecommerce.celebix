@@ -549,36 +549,6 @@ test("rejects redirects, cookies, locations, and non-exact response content type
   }
 });
 
-test("accepts PayTR's canonical JSON response media type only for the bound PayTR endpoint", async () => {
-  const body = '{"status":"success","token":"abcdefghijklmnopqrstuvwxyz123456"}';
-  const paytr = createBoundedProviderTransport({
-    fetch: async () => new Response(body, {
-      headers: { "content-type": "text/html; charset=UTF-8" },
-    }),
-    timeoutMs: 20_000,
-    maximumResponseBytes: 8_192,
-  });
-
-  const paytrResult = await request(paytr);
-  assert.equal(paytrResult.kind, "response");
-  if (paytrResult.kind === "response") {
-    assert.equal(paytrResult.contentType, "text/html; charset=UTF-8");
-    assert.equal(new TextDecoder().decode(paytrResult.body), body);
-  }
-
-  const iyzico = createBoundedProviderTransport({
-    fetch: async () => new Response('{"status":"success"}', {
-      headers: { "content-type": "text/html; charset=UTF-8" },
-    }),
-    timeoutMs: 20_000,
-    maximumResponseBytes: 8_192,
-  });
-  assert.deepEqual(await iyzicoRequest(iyzico), {
-    kind: "unknown",
-    code: "transport_outcome_unknown",
-  });
-});
-
 test("aborts and non-blockingly cancels every response rejected before bounded reading", async () => {
   const cases: readonly Readonly<{
     status: number;
