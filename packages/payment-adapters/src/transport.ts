@@ -15,6 +15,8 @@ const REQUEST_HEADER_KEYS = Object.freeze([
 ]);
 const IYZICO_PROVIDER_CODE = "iyzico_iframe";
 const IYZICO_CONTENT_TYPE = "application/json";
+const PAYTR_PROVIDER_CODE = "paytr_iframe";
+const PAYTR_RESPONSE_CONTENT_TYPE = "text/html; charset=UTF-8";
 const RESPONSE_CONTENT_TYPES = Object.freeze([
   "application/json",
   "application/json; charset=utf-8",
@@ -555,7 +557,13 @@ export function createBoundedProviderTransport(options: {
           response.headers.has("set-cookie2")
         ) invalid();
         const contentType = response.headers.get("content-type");
-        if (contentType === null || !RESPONSE_CONTENT_TYPES.includes(contentType)) invalid();
+        if (
+          contentType === null ||
+          (!RESPONSE_CONTENT_TYPES.includes(contentType) && !(
+            packet.providerCode === PAYTR_PROVIDER_CODE &&
+            contentType === PAYTR_RESPONSE_CONTENT_TYPE
+          ))
+        ) invalid();
         responseBody = await boundedBytes(response, maximumResponseBytes, aborted);
         validateJson(responseBody);
         const resultBody = new Uint8Array(responseBody);
