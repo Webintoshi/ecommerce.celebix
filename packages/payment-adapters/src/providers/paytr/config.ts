@@ -236,7 +236,7 @@ export function createPaytrIframeToken(input: Readonly<{
   noInstallment: 0 | 1;
   maxInstallment: number;
   currency: "TL";
-  testMode: 1;
+  testMode: 0 | 1;
 }>): string {
   let selectedCredential: PaytrIframeCredential | undefined;
   try {
@@ -249,10 +249,13 @@ export function createPaytrIframeToken(input: Readonly<{
     const basket = parsePaytrBasket(selected.userBasket);
     if (selected.noInstallment !== 0 && selected.noInstallment !== 1) invalid();
     const maximum = parsePaytrInstallment(selected.maxInstallment);
-    if (selected.currency !== "TL" || selected.testMode !== 1) invalid();
+    if (
+      selected.currency !== "TL" ||
+      (selected.testMode !== 0 && selected.testMode !== 1)
+    ) invalid();
     return hmac(
       selectedCredential,
-      `${selectedCredential.merchantId}${ip}${oid}${email}${String(amount)}${basket}${String(selected.noInstallment)}${String(maximum)}TL1${selectedCredential.merchantSalt}`,
+      `${selectedCredential.merchantId}${ip}${oid}${email}${String(amount)}${basket}${String(selected.noInstallment)}${String(maximum)}TL${String(selected.testMode)}${selectedCredential.merchantSalt}`,
     );
   } finally {
     if (selectedCredential !== undefined) wipePaytrCredential(selectedCredential);

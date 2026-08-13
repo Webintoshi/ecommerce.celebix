@@ -461,7 +461,6 @@ test("rejects every locally invalid query before transport", async () => {
   aborted.abort();
 
   for (const input of [
-    queryInput({ environment: "live" }),
     queryInput({ currency: "USD" }),
     queryInput({ providerReference: null }),
     queryInput({ providerReference: "A".repeat(64) }),
@@ -499,17 +498,91 @@ test("keeps dispatched query transport ambiguity durable and reference-bound", a
   }
 });
 
-test("does not execute verification-only live inputs", async () => {
+test("PayTR live hosted initialize and callback require test_mode zero", async () => {
   let calls = 0;
-  const adapter = createPaytrIframeAdapter(transport(() => {
+  let requestEnvironment = "";
+  let body = "";
+  const adapter = createPaytrIframeAdapter(transport((request) => {
     calls += 1;
+    requestEnvironment = request.environment;
+    body = new TextDecoder().decode(request.body);
     return response(`{"status":"success","token":"${TOKEN}"}`);
   }));
-  assert.deepEqual(await adapter.initialize(initializeInput({ environment: "live" })), {
-    kind: "rejected",
-    code: "environment_not_ready",
+  const liveInput = initializeInput({
+    environment: "live",
+    preferences: Object.freeze({
+      ...initializeInput().preferences,
+      environment: "live" as const,
+    }),
   });
-  assert.equal(calls, 0);
+
+  assert.equal((await adapter.initialize(liveInput)).kind, "iframe");
+  assert.equal(calls, 1);
+  assert.equal(requestEnvironment, "live");
+  assert.equal(new URLSearchParams(body).get("test_mode"), "0");
+
+  const callbackHash = createPaytrIframeCallbackHash({
+    credential,
+    merchantOid: MERCHANT_OID,
+    status: "success",
+    totalAmount: "10000",
+  });
+  const liveForm = new URLSearchParams({
+    merchant_oid: MERCHANT_OID,
+    status: "success",
+    total_amount: "10000",
+    hash: callbackHash,
+    payment_type: "card",
+    test_mode: "0",
+    payment_amount: "10000",
+    currency: "TL",
+  }).toString();
+  const callbackInput = {
+    environment: "live" as const,
+    credential,
+    method: "POST" as const,
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    expected: {
+      attemptId: "11111111-1111-4111-8111-111111111111",
+      orderReference: "merchant-order-123",
+      amountMinor: 10_000,
+      currency: "TRY" as const,
+    },
+  };
+  assert.equal((await adapter.verifyCallback({
+    ...callbackInput,
+    body: new TextEncoder().encode(liveForm),
+  })).status, "succeeded");
+  await assert.rejects(
+    adapter.verifyCallback({
+      ...callbackInput,
+      body: new TextEncoder().encode(liveForm.replace("test_mode=0", "test_mode=1")),
+    }),
+    /paytr_callback_invalid/,
+  );
+});
+
+test("PayTR live query accepts only provider test_mode zero", async () => {
+  let observedEnvironment = "";
+  const live = createPaytrIframeAdapter(transport((request) => {
+    observedEnvironment = request.environment;
+    return response('{"status":"success","payment_amount":"100.00","payment_total":"100.00","payment_date":"2026-07-27","currency":"TRY","test_mode":"0"}');
+  }));
+
+  assert.deepEqual(await live.query(queryInput({ environment: "live" })), {
+    kind: "succeeded",
+    providerReference: MERCHANT_OID,
+    paidAmountMinor: 10_000,
+    currency: "TRY",
+  });
+  assert.equal(observedEnvironment, "live");
+
+  const mismatch = createPaytrIframeAdapter(transport(() =>
+    response('{"status":"success","payment_amount":"100.00","payment_total":"100.00","payment_date":"2026-07-27","currency":"TRY","test_mode":"1"}')));
+  assert.deepEqual(await mismatch.query(queryInput({ environment: "live" })), {
+    kind: "unknown",
+    providerReference: MERCHANT_OID,
+  });
 });
 
 test("validates credentials only through one PayTR TEST get-token request without exposing or presenting the iframe token", async () => {
@@ -543,7 +616,7 @@ test("validates credentials only through one PayTR TEST get-token request withou
   assert.doesNotMatch(JSON.stringify(result), new RegExp(TOKEN));
 });
 
-test("credential validation is exact test-only and never retries rejection or ambiguity", async () => {
+test("credential validation never retries rejection or ambiguity", async () => {
   for (const [providerResult, expected] of [
     [response('{"status":"failed","reason":"private"}'), { kind: "rejected", outcomeCode: "provider_rejected" }],
     [Object.freeze({ kind: "unknown" as const, code: "transport_outcome_unknown" as const }), { kind: "rejected", outcomeCode: "validation_unavailable" }],
@@ -565,19 +638,6 @@ test("credential validation is exact test-only and never retries rejection or am
     assert.equal(calls, 1);
   }
   let calls = 0;
-  assert.deepEqual(await validatePaytrIframeCredentialWithTransport(transport(() => {
-    calls += 1;
-    return response(`{"status":"success","token":"${TOKEN}"}`);
-  }), Object.freeze({
-    environment: "live" as const,
-    credential,
-    validationReference: "11111111-1111-4111-8111-111111111111",
-    userIp: "8.8.8.8",
-    successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili",
-    failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
-    signal: new AbortController().signal,
-  })), { kind: "rejected", outcomeCode: "invalid_validation_request" });
-  assert.equal(calls, 0);
 
   for (const invalidConfig of [
     {},
@@ -604,4 +664,29 @@ test("credential validation is exact test-only and never retries rejection or am
     }) as never), { kind: "rejected", outcomeCode: "invalid_validation_request" });
   }
   assert.equal(calls, 0);
+});
+
+test("PayTR live credential validation signs test_mode zero without opening an iframe", async () => {
+  let calls = 0;
+  let body = "";
+  const result = await validatePaytrIframeCredentialWithTransport(transport((request) => {
+    calls += 1;
+    body = new TextDecoder().decode(request.body);
+    assert.equal(request.environment, "live");
+    assert.equal(request.url, "https://www.paytr.com/odeme/api/get-token");
+    return response(`{"status":"success","token":"${TOKEN}"}`);
+  }), Object.freeze({
+    environment: "live" as const,
+    credential,
+    validationReference: "11111111-1111-4111-8111-111111111111",
+    userIp: "8.8.8.8",
+    successUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarili",
+    failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
+    signal: new AbortController().signal,
+  }));
+
+  assert.deepEqual(result, { kind: "validated" });
+  assert.equal(calls, 1);
+  assert.equal(new URLSearchParams(body).get("test_mode"), "0");
+  assert.doesNotMatch(JSON.stringify(result), new RegExp(TOKEN));
 });

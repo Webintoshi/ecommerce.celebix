@@ -82,7 +82,7 @@ const CALLBACK_KEYS = Object.freeze([
   "expectedPaymentAmount",
   "form",
 ]);
-const CALLBACK_OPTIONAL_KEYS = Object.freeze(["requirePaymentContext"]);
+const CALLBACK_OPTIONAL_KEYS = Object.freeze(["environment", "requirePaymentContext"]);
 const HOSTED_INITIALIZATION_KEYS = Object.freeze([
   "amountMinor",
   "attemptId",
@@ -179,7 +179,7 @@ export type PaytrIframeCallback =
       paymentAmount: number;
       paymentType: "card" | "eft";
       currency: "TRY";
-      testMode: 1;
+      testMode: 0 | 1;
     }>
   | Readonly<{
       status: "failed";
@@ -188,7 +188,7 @@ export type PaytrIframeCallback =
       paymentType: "card" | "eft";
       failedReasonCode: string;
       failedReasonMessageDigest: string;
-      testMode: 1;
+      testMode: 0 | 1;
     }>;
 
 export type PaytrIframeStatusResult =
@@ -197,7 +197,7 @@ export type PaytrIframeStatusResult =
       paymentAmount: number;
       totalAmount: number;
       currency: "TRY";
-      testMode: 1;
+      testMode: 0 | 1;
     }>
   | Readonly<{ status: "unknown" }>;
 
@@ -210,6 +210,16 @@ export type PaytrIframeCredentialValidationResult =
 
 function invalid(message = "paytr_invalid"): never {
   throw new TypeError(message);
+}
+
+function parsePaytrEnvironment(value: unknown): "test" | "live" {
+  if (value === "test" || value === "live") return value;
+  return invalid();
+}
+
+function paytrTestMode(environment: "test" | "live"): 0 | 1 {
+  if (environment === "test") return 1;
+  return 0;
 }
 
 function wipe(value: unknown): void {
@@ -351,7 +361,8 @@ export async function initializePaytrIframeWithTransport(
   let responseBody: Uint8Array | undefined;
   try {
     const selected = exactRecord(input, INITIALIZATION_KEYS);
-    if (selected.environment !== "test") invalid();
+    const environment = parsePaytrEnvironment(selected.environment);
+    const testMode = paytrTestMode(environment);
     credential = parsePaytrIframeCredential(selected.credential);
     const userIp = parsePaytrUserIp(selected.userIp);
     const merchantOid = parsePaytrMerchantOid(selected.merchantOid);
@@ -382,7 +393,7 @@ export async function initializePaytrIframeWithTransport(
       noInstallment: selected.noInstallment,
       maxInstallment,
       currency: "TL",
-      testMode: 1,
+      testMode,
     }));
     params.append("user_basket", userBasket);
     params.append("debug_on", "0");
@@ -395,11 +406,11 @@ export async function initializePaytrIframeWithTransport(
     params.append("merchant_fail_url", failureUrl);
     params.append("timeout_limit", "30");
     params.append("currency", "TL");
-    params.append("test_mode", "1");
+    params.append("test_mode", String(testMode));
     requestBody = new TextEncoder().encode(params.toString());
     const result = await transportRequest(transport)({
       packet: PAYTR_IFRAME_PACKET,
-      environment: "test",
+      environment,
       url: GET_TOKEN_URL,
       method: "POST",
       headers: CONTENT_TYPE,
@@ -447,19 +458,19 @@ export async function validatePaytrIframeCredentialWithTransport(
   try {
     const selected = exactRecord(input, VALIDATION_KEYS);
     if (
-      selected.environment !== "test" ||
       typeof selected.validationReference !== "string" ||
       !UUID.test(selected.validationReference) ||
       !(selected.signal instanceof AbortSignal) || selected.signal.aborted
     ) invalid();
+    const environment = parsePaytrEnvironment(selected.environment);
     selectedCredential = parsePaytrIframeCredential(selected.credential);
     const userIp = publicValidationIp(selected.userIp);
     const returnUrls = validationReturnUrls(selected.successUrl, selected.failureUrl);
     const validationReference = `CV${selected.validationReference.replaceAll("-", "")}`;
-    // PayTR's official TEST contract proves the merchant credentials at get-token;
+    // PayTR proves the selected merchant environment at get-token;
     // no iframe is rendered and no card, callback, capture, or charge is performed.
     const providerResult = await initializePaytrIframeWithTransport(transport, Object.freeze({
-      environment: "test",
+      environment,
       credential: selectedCredential,
       userIp,
       merchantOid: validationReference,
@@ -492,6 +503,7 @@ export async function validatePaytrIframeCredentialWithTransport(
 
 export function authenticatePaytrIframeCallback(input: Readonly<{
   credential: PaytrIframeCredential;
+  environment?: "test" | "live";
   form: string;
   expectedPaymentAmount: number;
   requirePaymentContext?: true;
@@ -503,6 +515,7 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       selected.requirePaymentContext !== true
     ) return null;
     const expectedPaymentAmount = parsePaytrPositiveInteger(selected.expectedPaymentAmount);
+    const testMode = paytrTestMode(parsePaytrEnvironment(selected.environment ?? "test"));
     if (
       typeof selected.form !== "string" ||
       selected.form.length < 1 ||
@@ -547,7 +560,7 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       rawTotalAmount === null ||
       providedHash === null ||
       (paymentType !== "card" && paymentType !== "eft") ||
-      params.get("test_mode") !== "1" ||
+      params.get("test_mode") !== String(testMode) ||
       !/^[1-9][0-9]{0,15}$/.test(rawTotalAmount)
     ) return null;
     const totalAmount = Number(rawTotalAmount);
@@ -578,7 +591,7 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
         paymentAmount: expectedPaymentAmount,
         paymentType,
         currency: "TRY" as const,
-        testMode: 1 as const,
+        testMode,
       });
     }
     const failedReasonCode = params.get("failed_reason_code");
@@ -591,7 +604,7 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       merchantOid: parsePaytrMerchantOid(merchantOid),
       totalAmount,
       paymentType,
-      testMode: 1 as const,
+      testMode,
       failedReasonCode,
       failedReasonMessageDigest: createHash("sha256")
         .update(failedReasonMessage, "utf8")
@@ -692,7 +705,8 @@ export async function queryPaytrIframeWithTransport(
   let responseBody: Uint8Array | undefined;
   try {
     const selected = exactRecord(input, QUERY_KEYS);
-    if (selected.environment !== "test") invalid();
+    const environment = parsePaytrEnvironment(selected.environment);
+    const testMode = paytrTestMode(environment);
     credential = parsePaytrIframeCredential(selected.credential);
     const merchantOid = parsePaytrMerchantOid(selected.merchantOid);
     if (!(selected.signal instanceof AbortSignal)) invalid();
@@ -703,7 +717,7 @@ export async function queryPaytrIframeWithTransport(
     requestBody = new TextEncoder().encode(params.toString());
     const result = await transportRequest(transport)({
       packet: PAYTR_IFRAME_PACKET,
-      environment: "test",
+      environment,
       url: STATUS_URL,
       method: "POST",
       headers: CONTENT_TYPE,
@@ -749,7 +763,7 @@ export async function queryPaytrIframeWithTransport(
     if (
       parsed.status !== "success" ||
       (parsed.currency !== "TL" && parsed.currency !== "TRY") ||
-      parsed.test_mode !== "1"
+      parsed.test_mode !== String(testMode)
     ) invalid();
     parseDateTime(parsed.payment_date);
     optionalStatusMetadata(parsed);
@@ -761,7 +775,7 @@ export async function queryPaytrIframeWithTransport(
       paymentAmount,
       totalAmount,
       currency: "TRY" as const,
-      testMode: 1 as const,
+      testMode,
     });
   } catch {
     return unknownStatus();
@@ -844,10 +858,7 @@ export function createPaytrIframeAdapter(
     let selectedCredential: PaytrIframeCredential | undefined;
     try {
       const selected = exactRecord(input, HOSTED_INITIALIZATION_KEYS);
-      if (selected.environment === "live") {
-        return Object.freeze({ kind: "rejected" as const, code: "environment_not_ready" });
-      }
-      if (selected.environment !== "test") invalid();
+      const environment = parsePaytrEnvironment(selected.environment);
       const preferences = parseProviderPaymentMethodConfig("paytr_iframe", selected.preferences);
       if (preferences.environment !== selected.environment) invalid();
       selectedCredential = parsePaytrIframeCredential(selected.credential);
@@ -881,7 +892,7 @@ export function createPaytrIframeAdapter(
         !validBasketTotal(basket, amountMinor)
       ) invalid();
       const result = await initializePaytrIframeWithTransport(transport, {
-        environment: "test",
+        environment,
         credential: selectedCredential,
         userIp,
         merchantOid,
@@ -926,7 +937,7 @@ export function createPaytrIframeAdapter(
   ) => {
     try {
       if (
-        input.environment !== "test" ||
+        (input.environment !== "test" && input.environment !== "live") ||
         input.method !== "POST" ||
         input.headers["content-type"] !== "application/x-www-form-urlencoded" ||
         input.expected.currency !== "TRY"
@@ -940,6 +951,7 @@ export function createPaytrIframeAdapter(
       }
       const callback = authenticatePaytrIframeCallback({
         credential: input.credential,
+        environment: input.environment,
         form,
         expectedPaymentAmount: input.expected.amountMinor,
         requirePaymentContext: true,
@@ -965,7 +977,8 @@ export function createPaytrIframeAdapter(
     let credential: PaytrIframeCredential | undefined;
     try {
       const selected = exactRecord(input, HOSTED_QUERY_KEYS);
-      if (selected.environment !== "test" || selected.currency !== "TRY") invalid();
+      const environment = parsePaytrEnvironment(selected.environment);
+      if (selected.currency !== "TRY") invalid();
       credential = parsePaytrIframeCredential(selected.credential);
       if (typeof selected.attemptId !== "string" || !UUID.test(selected.attemptId)) invalid();
       if (
@@ -977,7 +990,7 @@ export function createPaytrIframeAdapter(
       const amountMinor = parsePaytrPositiveInteger(selected.amountMinor);
       if (!(selected.signal instanceof AbortSignal) || selected.signal.aborted) invalid();
       const result = await queryPaytrIframeWithTransport(transport, {
-        environment: "test",
+        environment,
         credential,
         merchantOid: providerReference,
         signal: selected.signal,
