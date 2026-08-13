@@ -44,14 +44,15 @@ const SETTINGS_GROUPS: readonly Readonly<{
   ]) }),
 ]);
 
-export function MerchantFamilyOverview({ family, canManage }: Readonly<{
+export function MerchantFamilyOverview({ family, canManage, embedded = false }: Readonly<{
   family: MerchantModuleFamily;
   canManage: boolean;
+  embedded?: boolean;
 }>) {
   if (family === "settings") {
     return (
-      <PanelPageShell>
-        <PanelPageHeader title="Ayarlar" />
+      <PanelPageShell embedded={embedded}>
+        <PanelPageHeader title="Ayarlar" embedded={embedded} />
         <nav className={styles.settingsGroups} aria-label="Ayar bölümleri">
           {SETTINGS_GROUPS.map((group) => (
             <section className={styles.settingsGroup} key={group.title} aria-labelledby={`settings-${group.title}`}>
@@ -76,8 +77,8 @@ export function MerchantFamilyOverview({ family, canManage }: Readonly<{
   const presentation = FAMILY_PRESENTATION[family];
 
   return (
-    <PanelPageShell>
-      <PanelPageHeader title={presentation.title} description={presentation.description} />
+    <PanelPageShell embedded={embedded}>
+      <PanelPageHeader title={presentation.title} description={presentation.description} embedded={embedded} />
       <nav className={styles.grid} aria-label={`${presentation.title} bölümleri`}>
         {definitions.map((definition) => (
           <Link className={styles.card} key={definition.route} href={definition.route}>

@@ -912,6 +912,10 @@
   justify-content: flex-end;
 }
 
+.embeddedPageActions {
+  display: flex;
+}
+
 .panel {
   min-width: 0;
   overflow: visible;
@@ -1133,7 +1137,7 @@
 }
 
 @media (min-width: 1025px) {
-  .pageActions {
+  .pageActions:not(.embeddedPageActions) {
     display: none;
   }
 }

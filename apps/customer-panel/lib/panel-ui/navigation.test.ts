@@ -25,7 +25,7 @@ test("content and settings parents use truthful family hubs", () => {
   assert.equal(getPanelRoutePresentation("/settings").title, "Ayarlar");
 });
 
-test("contains every and only currently working merchant destination", () => {
+test("contains the approved workspace-level sidebar destinations", () => {
   const hrefs = PANEL_NAVIGATION.flatMap((item) => [
     item.href,
     ...(item.children ?? []).map((child) => child.href),
@@ -40,11 +40,7 @@ test("contains every and only currently working merchant destination", () => {
       "/orders/quick-links",
       "/orders/abandoned-carts",
       "/customers",
-      "/customers/segments",
-      "/customers/tags",
-      "/customers/new",
       "/products",
-      "/products/new",
       "/products/categories",
       "/products/collections",
       "/products/brands",
@@ -59,19 +55,11 @@ test("contains every and only currently working merchant destination", () => {
       "/products/transfers",
       "/products/price-lists",
       "/products/auto-import",
-      "/products/shopify-converter",
       "/products/bulk-upload",
       "/discounts",
-      "/discounts/new",
       "/discounts/lucky-wheel",
       "/marketing",
-      "/marketing/email",
-      "/marketing/phone",
-      "/marketing/whatsapp",
       "/content",
-      "/content/blog",
-      "/content/pages",
-      "/content/policies",
       "/marketplaces",
       "/settings",
       "/settings/general",
@@ -105,17 +93,14 @@ test("contains every and only currently working merchant destination", () => {
   );
 });
 
-test("navigation exposes donor-approved create shortcuts but never edit, detail, preview, or print routes", () => {
+test("navigation keeps create routes and workspace subroutes out of the sidebar", () => {
   const hrefs = PANEL_NAVIGATION.flatMap((item) => [
     item.href,
     ...(item.children ?? []).map((child) => child.href),
   ]);
   for (const href of [
     "/analytics",
-    "/customers/new",
-    "/products/new",
     "/products/categories",
-    "/discounts/new",
     "/products/tags",
     "/products/barcode-labels",
     "/products/purchasing",
@@ -123,12 +108,23 @@ test("navigation exposes donor-approved create shortcuts but never edit, detail,
     "/products/transfers",
     "/products/price-lists",
     "/settings/design",
-    "/marketing/email",
     "/marketplaces",
     "/accounting/invoicing-integration",
     "/seo/products",
   ] as const) assert.equal(hrefs.includes(href), true, href);
   for (const forbidden of [
+    "/customers/new",
+    "/products/new",
+    "/discounts/new",
+    "/customers/segments",
+    "/customers/tags",
+    "/marketing/email",
+    "/marketing/phone",
+    "/marketing/whatsapp",
+    "/content/blog",
+    "/content/pages",
+    "/content/policies",
+    "/products/shopify-converter",
     "/products/price-lists/new",
     "/products/extras/resource/edit",
     "/products/extras/resource/preview",
@@ -222,7 +218,31 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Kategoriler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Kategoriler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "İçe Aktarma", "Toplu Yükle"]);
+});
+
+test("sidebar presents approved families as workspaces", () => {
+  for (const key of ["customers", "marketing", "content"] as const) {
+    assert.equal(findNavigationItem(key)?.children, undefined, key);
+  }
+  assert.equal(
+    findNavigationItem("catalog")?.children?.find(({ key }) => key === "imports")?.href,
+    "/products/auto-import",
+  );
+  assert.equal(findNavigationItem("discounts")?.children?.some(({ href }) => href === "/discounts/new"), false);
+});
+
+test("workspace parents stay active on route-backed tabs and deep links", () => {
+  for (const [pathname, label] of [
+    ["/customers/segments", "Müşteriler"],
+    ["/customers/customer-123/edit", "Müşteriler"],
+    ["/marketing/email", "Pazarlama"],
+    ["/marketing/whatsapp/campaign-123/edit", "Pazarlama"],
+    ["/content/policies", "İçerik"],
+    ["/content/blog/post-123/edit", "İçerik"],
+  ] as const) {
+    assert.equal(activeLabels(pathname).includes(label), true, pathname);
+  }
 });
 
 test("category navigation is exact and near matches stay inactive", () => {

@@ -144,16 +144,8 @@ const ORDER_CHILDREN = Object.freeze([
   item("abandoned-carts", "Terk Edilen Sepetler", "/orders/abandoned-carts", "abandoned-carts"),
 ]);
 
-const CUSTOMER_CHILDREN = Object.freeze([
-  item("all-customers", "Tüm Müşteriler", "/customers", "customers"),
-  item("customer-segments", "Segmentler", "/customers/segments", "segments"),
-  item("customer-tags", "Etiketler", "/customers/tags", "tags"),
-  item("new-customer", "Yeni müşteri", "/customers/new", "customers"),
-]);
-
 const CATALOG_CHILDREN = Object.freeze([
   item("products", "Tüm ürünler", "/products", "products"),
-  item("new-product", "Yeni ürün", "/products/new", "products"),
   item("categories", "Kategoriler", "/products/categories", "collections"),
   item("collections", "Koleksiyonlar", "/products/collections", "collections"),
   item("brands", "Markalar", "/products/brands", "brands"),
@@ -167,28 +159,13 @@ const CATALOG_CHILDREN = Object.freeze([
   item("inventory-counts", "Stok Sayımları", "/products/inventory-counts", "inventory"),
   item("transfers", "Stok Konumları ve Transferler", "/products/transfers", "inventory"),
   item("price-lists", "Fiyat Listeleri", "/products/price-lists", "price-lists"),
-  item("auto-import", "Otomatik Yükle", "/products/auto-import", "bulk-upload"),
-  item("shopify-converter", "Shopify Dönüştürücü", "/products/shopify-converter", "bulk-upload"),
+  item("imports", "İçe Aktarma", "/products/auto-import", "bulk-upload"),
   item("bulk-upload", "Toplu Yükle", "/products/bulk-upload", "bulk-upload"),
 ]);
 
 const DISCOUNT_CHILDREN = Object.freeze([
   item("all-discounts", "Tüm İndirimler", "/discounts", "discounts"),
-  item("new-discount", "Yeni indirim", "/discounts/new", "discounts"),
   item("lucky-wheel", "Şans Çarkı", "/discounts/lucky-wheel", "lucky-wheel"),
-]);
-
-const MARKETING_CHILDREN = Object.freeze([
-  item("marketing-summary", "Pazarlama Özeti", "/marketing", "marketing"),
-  item("email-marketing", "E-posta", "/marketing/email", "email"),
-  item("phone-marketing", "Telefon", "/marketing/phone", "phone"),
-  item("whatsapp-marketing", "WhatsApp", "/marketing/whatsapp", "whatsapp"),
-]);
-
-const CONTENT_CHILDREN = Object.freeze([
-  item("blog", "Blog", "/content/blog", "blog"),
-  item("pages", "Sayfalar", "/content/pages", "pages"),
-  item("policies", "Politikalar", "/content/policies", "policies"),
 ]);
 
 const SETTINGS_CHILDREN = Object.freeze([
@@ -226,11 +203,11 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
   item("summary", "Özet", "/", "home"),
   item("analytics", "Analizler", "/analytics", "analytics"),
   item("orders", "Siparişler", "/orders", "orders", ORDER_CHILDREN),
-  item("customers", "Müşteriler", "/customers", "customers", CUSTOMER_CHILDREN),
+  item("customers", "Müşteriler", "/customers", "customers"),
   item("catalog", "Ürünler", "/products", "products", CATALOG_CHILDREN),
   item("discounts", "İndirimler", "/discounts", "discounts", DISCOUNT_CHILDREN),
-  item("marketing", "Pazarlama", "/marketing", "marketing", MARKETING_CHILDREN),
-  item("content", "İçerik", "/content", "content", CONTENT_CHILDREN),
+  item("marketing", "Pazarlama", "/marketing", "marketing"),
+  item("content", "İçerik", "/content", "content"),
   item("marketplaces", "Pazar Yerleri", "/marketplaces", "marketplaces"),
   item("settings", "Ayarlar", "/settings", "settings", SETTINGS_CHILDREN),
   item("accounting", "Muhasebe", "/accounting", "accounting", ACCOUNTING_CHILDREN),
@@ -422,6 +399,9 @@ const FAMILY_HREFS = new Set<PanelNavigationHref>(
 );
 
 const DETAIL_DEPTHS = new Map<PanelNavigationHref, number>([
+  ["/customers", 2],
+  ["/marketing", 3],
+  ["/content", 3],
   ["/orders/drafts", 1],
   ["/orders/abandoned-carts", 1],
   ["/products/collections", 2],

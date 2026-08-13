@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { PanelTopbarBridge } from "./PanelTopbarChrome";
 import styles from "./panel-shell.module.css";
 
-export function PanelPageShell({ children }: { children: ReactNode }) {
+export function PanelPageShell({ children, embedded = false }: { children: ReactNode; embedded?: boolean }) {
+  if (embedded) return <>{children}</>;
   return <section className={styles.pageShell} data-panel-layout="open-canvas">{children}</section>;
 }
 
@@ -12,7 +13,11 @@ export function PanelPageHeader(props: {
   title: string;
   description?: string;
   actions?: ReactNode;
+  embedded?: boolean;
 }) {
+  if (props.embedded) {
+    return props.actions ? <div className={`${styles.pageActions} ${styles.embeddedPageActions}`}>{props.actions}</div> : null;
+  }
   return (
     <>
       <PanelTopbarBridge

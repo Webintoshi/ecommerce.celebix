@@ -43,9 +43,11 @@ const FOCUSABLE = [
 export function PolicyConsole({
   canManage,
   initialPolicyKey,
+  embedded = false,
 }: {
   canManage: boolean;
   initialPolicyKey?: StorefrontPolicyKey;
+  embedded?: boolean;
 }) {
   const [items, setItems] = useState<readonly StorePolicyAdminPage[]>([]);
   const [selected, setSelected] = useState<StorePolicyAdminPage | null>(null);
@@ -157,10 +159,11 @@ export function PolicyConsole({
   const draftCount = items.filter((page) => page.status === "draft").length;
 
   return (
-    <PanelPageShell>
+    <PanelPageShell embedded={embedded}>
       <PanelPageHeader
         title="Politikalar"
         description="Yasal metinlerinizi yazın, önizleyin ve hazır olduğunda mağazanızın footer'ında yayınlayın."
+        embedded={embedded}
         actions={(
           <button className={styles.refresh} type="button" onClick={() => void load()} disabled={loading}>
             <RefreshCcw aria-hidden="true" /> Yenile

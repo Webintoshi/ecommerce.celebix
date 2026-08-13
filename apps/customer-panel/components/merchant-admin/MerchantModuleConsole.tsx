@@ -231,10 +231,12 @@ export function MerchantModuleConsole({
   kind,
   canManage,
   createFirst = false,
+  embedded = false,
 }: {
   kind: MerchantAdminRecordKind;
   canManage: boolean;
   createFirst?: boolean;
+  embedded?: boolean;
 }) {
   const definition = getMerchantModuleDefinition(kind);
   const singleton = definition.cardinality === "singleton";
@@ -519,10 +521,11 @@ export function MerchantModuleConsole({
   const createRoute = createRouteFor(definition.kind);
 
   return (
-    <PanelPageShell>
+    <PanelPageShell embedded={embedded}>
       <PanelPageHeader
         title={definition.title}
         description={definition.description}
+        embedded={embedded}
         actions={(
           <div className={styles.headerActions}>
             <button type="button" className={styles.button} disabled={loading} onClick={() => void load()}>

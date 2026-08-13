@@ -10,9 +10,11 @@ const DEFAULT_TAG_COLOR = "#7c3aed";
 export function CustomerTaxonomyConsole({
   kind,
   canManage,
+  embedded = false,
 }: {
   kind: "tags" | "segments";
   canManage: boolean;
+  embedded?: boolean;
 }) {
   const title = kind === "tags" ? "Etiketler" : "Müşteri Segmentleri",
     [items, setItems] = useState<readonly (CustomerTag | CustomerSegment)[]>(
@@ -78,9 +80,10 @@ export function CustomerTaxonomyConsole({
     }
   }
   return (
-    <PanelPageShell>
+    <PanelPageShell embedded={embedded}>
       <PanelPageHeader
         title={title}
+        embedded={embedded}
         description={
           kind === "tags"
             ? "Müşterileri görünür ve yeniden kullanılabilir etiketlerle sınıflandırın."

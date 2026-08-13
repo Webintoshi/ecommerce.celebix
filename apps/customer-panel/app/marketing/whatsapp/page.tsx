@@ -1,1 +1,15 @@
-import{isMerchantActionAllowed}from"@celebix/saas-contracts";import{MerchantModuleConsole}from"@/components/merchant-admin/MerchantModuleConsole";import{requireServerPanelAccess}from"@/lib/server-access";export default async function MarketingWhatsappPageTsx(){const{tenantContext}=await requireServerPanelAccess();return<MerchantModuleConsole kind="whatsapp_campaign" canManage={isMerchantActionAllowed(tenantContext.membership.role,"marketing.manage")}/>}
+import { isMerchantActionAllowed } from "@celebix/saas-contracts";
+
+import { MerchantModuleConsole } from "@/components/merchant-admin/MerchantModuleConsole";
+import { PanelWorkspaceShell } from "@/components/panel/PanelWorkspaceShell";
+import { MARKETING_WORKSPACE_TABS } from "@/lib/panel-ui/workspace-navigation";
+import { requireServerPanelAccess } from "@/lib/server-access";
+
+export default async function MarketingWhatsappPage() {
+  const { tenantContext } = await requireServerPanelAccess();
+  return (
+    <PanelWorkspaceShell title="Pazarlama" description="İzinli kitlelere ait kampanya taslaklarını kanala göre yönetin." tabs={MARKETING_WORKSPACE_TABS}>
+      <MerchantModuleConsole kind="whatsapp_campaign" canManage={isMerchantActionAllowed(tenantContext.membership.role, "marketing.manage")} embedded />
+    </PanelWorkspaceShell>
+  );
+}

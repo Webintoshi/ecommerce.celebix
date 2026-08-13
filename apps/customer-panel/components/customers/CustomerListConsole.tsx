@@ -39,7 +39,7 @@ function date(v: string) {
 function message(e: unknown) {
   return e instanceof CustomerApiError ? e.message : "Müşteriler yüklenemedi.";
 }
-export function CustomerListConsole({ canManage }: { canManage: boolean }) {
+export function CustomerListConsole({ canManage, embedded = false }: { canManage: boolean; embedded?: boolean }) {
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading"),
     [items, setItems] = useState<readonly CustomerListItem[]>([]),
     [summary, setSummary] = useState<CustomerSummary | null>(null),
@@ -108,11 +108,12 @@ export function CustomerListConsole({ canManage }: { canManage: boolean }) {
     }
   }
   return (
-    <PanelPageShell>
+    <PanelPageShell embedded={embedded}>
       <PanelPageHeader
         title="Müşteriler"
         description="Müşteri kayıtlarını, izinleri, etiketleri ve segmentleri tek yerden yönetin."
-        actions={canManage ? (
+        embedded={embedded}
+        actions={!embedded && canManage ? (
           <Link className={styles.customerPrimaryAction} href="/customers/new">
             <UserPlus aria-hidden="true" />Yeni Müşteri
           </Link>

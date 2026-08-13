@@ -17,13 +17,14 @@ type Props = Readonly<{
   title: string;
   description: string;
   canImport: boolean;
+  embedded?: boolean;
 }>;
 
 function price(cents: number) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(cents / 100);
 }
 
-export function CatalogImportPreparationConsole({ format, title, description, canImport }: Props) {
+export function CatalogImportPreparationConsole({ format, title, description, canImport, embedded = false }: Props) {
   const bindingKey = `${format}:${canImport}`;
   const [binding, setBinding] = useState<Readonly<{ key: string; snapshot: CatalogImportPreparationSnapshot }>>({
     key: bindingKey,
@@ -84,8 +85,8 @@ export function CatalogImportPreparationConsole({ format, title, description, ca
     : "Başlık sırası: title,slug,priceCents,sku,stockQuantity";
 
   return (
-    <PanelPageShell>
-      <PanelPageHeader title={title} description={description} />
+    <PanelPageShell embedded={embedded}>
+      <PanelPageHeader title={title} description={description} embedded={embedded} />
       <section className={styles.surface}>
         {!canImport ? <p className={styles.warning} role="status" aria-live="polite">Bu işlem için katalog içe aktarma yetkiniz yok.</p> : (
           <form ref={formRef} className={styles.upload} onSubmit={prepare}>
