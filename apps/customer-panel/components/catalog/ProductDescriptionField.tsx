@@ -16,6 +16,7 @@ type ProductDescriptionFieldProps = Readonly<{
   readOnly?: boolean;
   rows?: number;
   className?: string;
+  previewCollapsed?: boolean;
 }>;
 
 function renderRichTextNode(node: ProductDescriptionRichTextNode, key: string): ReactNode {
@@ -61,6 +62,7 @@ export function ProductDescriptionField({
   readOnly = false,
   rows = 5,
   className = "",
+  previewCollapsed = false,
 }: ProductDescriptionFieldProps) {
   const id = useId();
   const [source, setSource] = useState(defaultValue);
@@ -80,7 +82,7 @@ export function ProductDescriptionField({
         readOnly={readOnly}
         onChange={(event) => setSource(event.target.value)}
       />
-      <ProductDescriptionPreview source={source} />
+      {previewCollapsed ? <details className="product-description-preview-disclosure"><summary>Markdown önizleme</summary><ProductDescriptionPreview source={source} /></details> : <ProductDescriptionPreview source={source} />}
     </div>
   );
 }
