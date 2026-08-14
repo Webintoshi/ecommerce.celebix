@@ -82,6 +82,31 @@ async function runGenerator(root, environment, ...arguments_) {
   }
 }
 
+async function commitFixtureRepository(root) {
+  await execFileAsync("git", ["init"], { cwd: root, encoding: "utf8" });
+  await execFileAsync("git", ["config", "user.email", "codex@example.invalid"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  await execFileAsync("git", ["config", "user.name", "Codex Test"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  await execFileAsync("git", ["add", "package.json", "packages"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  await execFileAsync("git", ["commit", "-m", "fixture"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  const result = await execFileAsync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  return result.stdout.trim();
+}
+
 async function imported(path, cacheKey) {
   return import(`${pathToFileURL(path).href}?case=${cacheKey}`);
 }
@@ -141,6 +166,20 @@ test("Build B emits a test-only authority only for exact mode and candidate dige
   assert.equal(Object.isFrozen(generated.IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY), true);
   assert.deepEqual(binding.IYZICO_APPROVED_EXECUTION_AUTHORITY, authority);
   assert.equal(Object.isFrozen(binding.IYZICO_APPROVED_EXECUTION_AUTHORITY), true);
+});
+
+test("Coolify builds can derive SOURCE_COMMIT from the checked-out Git HEAD", async (t) => {
+  const selected = await fixture(t);
+  const gitSha = await commitFixtureRepository(selected.root);
+
+  const result = await runGenerator(selected.root, {});
+  const generated = await imported(selected.generated, "git-head-fallback");
+
+  assert.equal(result.code, 0);
+  assert.equal(result.stderr, "");
+  assert.equal(generated.IYZICO_GENERATED_BUILD_METADATA.gitSha, gitSha);
+  assert.equal(result.stdout, `${generated.IYZICO_GENERATED_BUILD_METADATA.candidateExecutionDigest}\n`);
+  assert.equal(generated.IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY, null);
 });
 
 test("partial wrong live extra and missing build authority fail closed without replacing output", async (t) => {

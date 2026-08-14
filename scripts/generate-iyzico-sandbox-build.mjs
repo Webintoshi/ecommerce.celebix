@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
 import { lstat, open, readFile, rename, unlink } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
-import { types as nodeTypes } from "node:util";
+import { types as nodeTypes, promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
@@ -16,6 +17,7 @@ const APPROVAL_MODE = "approved_test_sandbox";
 const APPROVAL_MODE_KEY = "CELEBIX_IYZICO_APPROVAL_MODE";
 const APPROVAL_DIGEST_KEY = "CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST";
 const APPROVAL_PREFIX = "CELEBIX_IYZICO_";
+const execFileAsync = promisify(execFile);
 
 function invalid() {
   throw new TypeError("iyzico_sandbox_build_invalid");
@@ -74,7 +76,7 @@ function selectedEnvironment(value) {
       ) invalid();
       selected[key] = descriptor.value;
     }
-    if (typeof selected.SOURCE_COMMIT !== "string" || !GIT_SHA.test(selected.SOURCE_COMMIT)) {
+    if (selected.SOURCE_COMMIT !== undefined && !GIT_SHA.test(selected.SOURCE_COMMIT)) {
       invalid();
     }
     return Object.freeze(selected);
@@ -96,6 +98,32 @@ function runtimeEnvironment(value) {
       selected[key] = descriptor.value;
     }
     return Object.freeze(selected);
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "iyzico_sandbox_build_invalid") throw error;
+    return invalid();
+  }
+}
+
+async function resolveSourceCommit(repositoryRoot, environment) {
+  const explicit = environment.SOURCE_COMMIT;
+  if (explicit !== undefined) {
+    if (typeof explicit !== "string" || !GIT_SHA.test(explicit)) invalid();
+    return explicit;
+  }
+  try {
+    const result = await execFileAsync(
+      "git",
+      ["-C", repositoryRoot, "rev-parse", "--show-toplevel", "HEAD"],
+      {
+        encoding: "utf8",
+        timeout: 5000,
+        maxBuffer: 64 * 1024,
+      },
+    );
+    const [topLevel, gitSha, ...extra] = result.stdout.trim().split(/\r?\n/u);
+    if (extra.length !== 0 || resolve(topLevel) !== repositoryRoot) invalid();
+    if (!GIT_SHA.test(gitSha)) invalid();
+    return gitSha;
   } catch (error) {
     if (error instanceof TypeError && error.message === "iyzico_sandbox_build_invalid") throw error;
     return invalid();
@@ -161,6 +189,7 @@ export async function generateIyzicoSandboxBuild(value) {
     || parsed.check !== true && parsed.check !== false
   ) invalid();
   const environment = selectedEnvironment(parsed.environment);
+  const gitSha = await resolveSourceCommit(parsed.repositoryRoot, environment);
   const packageRoot = join(parsed.repositoryRoot, "packages/payment-adapters");
   const sources = [];
   try {
@@ -176,7 +205,7 @@ export async function generateIyzicoSandboxBuild(value) {
   }
   const sourceManifest = createIyzicoAdapterSourceManifest(Object.freeze(sources));
   const candidate = createIyzicoCandidateBuildMetadata(Object.freeze({
-    gitSha: environment.SOURCE_COMMIT,
+    gitSha,
     sourceManifest,
   }));
   const output = render(candidate, approval(environment, candidate.candidateExecutionDigest));
