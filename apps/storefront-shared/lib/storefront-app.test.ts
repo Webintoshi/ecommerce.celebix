@@ -813,17 +813,23 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
     selectAuthority: (headers: Headers) => Readonly<{ kind: "trusted"; hostname: string }>;
     resolveMediaOrigin: () => string;
     authorizePaytrIframe: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
+    authorizeStandardHostedIframe?: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
     now: () => Date;
   }>) => (request: import("next/server.js").NextRequest) => Promise<import("next/server.js").NextResponse>;
   const proxyModule = await import("../proxy.ts") as unknown as { createStorefrontProxy?: Factory };
   assert.equal(typeof proxyModule.createStorefrontProxy, "function");
   const calls: Array<Readonly<{ hostname: string; cookieHeader: string | null }>> = [];
+  const standardCalls: Array<Readonly<{ hostname: string; cookieHeader: string | null }>> = [];
   const handler = proxyModule.createStorefrontProxy!({
     selectAuthority: () => ({ kind: "trusted", hostname: "pilot.saas-staging.celebix.site" }),
     resolveMediaOrigin: () => "https://media.saas-staging.celebix.site",
     authorizePaytrIframe: async ({ hostname, cookieHeader }) => {
       calls.push({ hostname, cookieHeader });
       return cookieHeader === "__Host-celebix_quick=ready";
+    },
+    authorizeStandardHostedIframe: async ({ hostname, cookieHeader }) => {
+      standardCalls.push({ hostname, cookieHeader });
+      return cookieHeader === "__Host-celebix_hosted_checkout=ready";
     },
     now: () => new Date("2026-07-21T12:00:00.000Z"),
   });
@@ -834,6 +840,9 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
   const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
   const ready = await handler(request("/odeme/hizli/odeme", "__Host-celebix_quick=ready"));
   assert.equal(ready.headers.get("content-security-policy"), exactCsp);
+  const standardCsp = "default-src 'none'; frame-src https://www.paytr.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
+  const standardReady = await handler(request("/checkout/payment", "__Host-celebix_hosted_checkout=ready"));
+  assert.equal(standardReady.headers.get("content-security-policy"), standardCsp);
   for (const denied of [
     request("/odeme/hizli/odeme"),
     request("/odeme/hizli/odeme", "__Host-celebix_quick=wrong"),
@@ -849,6 +858,20 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=ready" },
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=wrong" },
+  ]);
+  for (const denied of [
+    request("/checkout/payment"),
+    request("/checkout/payment", "__Host-celebix_hosted_checkout=wrong"),
+    request("/checkout/payment?x=1", "__Host-celebix_hosted_checkout=ready"),
+    request("/checkout/payment/", "__Host-celebix_hosted_checkout=ready"),
+  ]) {
+    const response = await handler(denied);
+    assert.doesNotMatch(response.headers.get("content-security-policy") ?? "", /frame-src https:\/\/www[.]paytr[.]com/);
+  }
+  assert.deepEqual(standardCalls, [
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_hosted_checkout=ready" },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_hosted_checkout=wrong" },
   ]);
 });
 

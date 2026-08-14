@@ -10,6 +10,7 @@ import { createCanonicalStorefrontLocation } from "./lib/custom-domain-canonical
 
 const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
 const PAYTR_IFRAME_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
+const STANDARD_PAYTR_IFRAME_CSP = "default-src 'none'; frame-src https://www.paytr.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
 const SECURITY_HEADERS = Object.freeze({ "cache-control": "private, no-store", "referrer-policy": "strict-origin-when-cross-origin", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "permissions-policy": "camera=(), microphone=(), geolocation=()", "strict-transport-security": "max-age=31536000; includeSubDomains" });
 
 function unavailable(): NextResponse {
@@ -21,6 +22,7 @@ type StorefrontProxyDependencies = Readonly<{
   selectAuthority: (headers: Headers) => ProxyAuthority;
   resolveMediaOrigin: () => string;
   authorizePaytrIframe: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
+  authorizeStandardHostedIframe?: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
   now: () => Date;
   resolveCanonicalHostname?: (input: Readonly<{hostname:string;now:Date}>) => Promise<string|null>;
   resolveAnalytics?: (input: Readonly<{hostname:string;now:Date}>) => Promise<Readonly<{scriptOrigin:string;collectorOrigin:string}>|null>;
@@ -38,6 +40,16 @@ async function defaultIframeAuthorization(input: Readonly<{ hostname: string; co
   } catch { return false; }
 }
 
+async function defaultStandardHostedIframeAuthorization(input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>): Promise<boolean> {
+  try {
+    const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
+    const runtime = (await resolveDefaultPublicStorefrontRuntime())?.hostedCheckout ?? null;
+    if (runtime === null) return false;
+    const presentation = await runtime.presentation({ hostname: input.hostname, cookieHeader: input.cookieHeader });
+    return presentation.kind === "iframe" && new URL(presentation.url).origin === "https://www.paytr.com";
+  } catch { return false; }
+}
+
 function defaultMediaOrigin(): string {
   const snapshot = Object.fromEntries(STOREFRONT_DATA_ENVIRONMENT_FIELDS.map((name) => [name, process.env[name]]));
   return parseStorefrontDataConfig(snapshot).mediaOrigin;
@@ -47,6 +59,7 @@ const DEFAULT_DEPENDENCIES: StorefrontProxyDependencies = Object.freeze({
   selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers),
   resolveMediaOrigin: defaultMediaOrigin,
   authorizePaytrIframe: defaultIframeAuthorization,
+  authorizeStandardHostedIframe: defaultStandardHostedIframeAuthorization,
   now: () => new Date(),
   async resolveCanonicalHostname(input) {
     const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
@@ -111,9 +124,18 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
           cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
       } catch { iframeAuthorized = false; }
     }
+    let standardIframeAuthorized = false;
+    if (exactTarget && pathname === "/checkout/payment" && dependencies.authorizeStandardHostedIframe) {
+      try {
+        standardIframeAuthorized = await dependencies.authorizeStandardHostedIframe({ hostname: authority.hostname,
+          cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
+      } catch { standardIframeAuthorized = false; }
+    }
     const accountVerificationForm = pathname === "/account/verify";
     const quickOrderForm = exactTarget && pathname === "/odeme/hizli";
-    const csp = accountVerificationForm || quickOrderForm
+    const csp = standardIframeAuthorized
+      ? STANDARD_PAYTR_IFRAME_CSP
+      : accountVerificationForm || quickOrderForm
       ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
       : iframeAuthorized
         ? PAYTR_IFRAME_CSP
