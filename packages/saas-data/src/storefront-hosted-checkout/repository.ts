@@ -62,10 +62,16 @@ function release(client: PostgresClientLike, destroy = false): void { try { clie
 async function rollback(client: PostgresClientLike): Promise<void> { try { await client.query("ROLLBACK"); release(client); } catch { release(client, true); } }
 function selected(value: unknown): Selected {
   try {
-    const result = hostedExact(value, ["rows", "rowCount", "command", "oid", "fields"]);
-    if (result.rowCount !== 1 || !Array.isArray(result.rows) || nodeTypes.isProxy(result.rows)
-      || Object.getPrototypeOf(result.rows) !== Array.prototype || result.rows.length !== 1) unavailable();
-    const descriptors = Object.getOwnPropertyDescriptors(result.rows) as unknown as Record<PropertyKey, PropertyDescriptor>;
+    if (typeof value !== "object" || value === null || Array.isArray(value) || nodeTypes.isProxy(value)) unavailable();
+    const resultDescriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
+    const rowsDescriptor = resultDescriptors.rows;
+    const rowCountDescriptor = resultDescriptors.rowCount;
+    if (!rowsDescriptor?.enumerable || !("value" in rowsDescriptor)
+      || !rowCountDescriptor?.enumerable || !("value" in rowCountDescriptor)) unavailable();
+    const rows = rowsDescriptor.value;
+    if (rowCountDescriptor.value !== 1 || !Array.isArray(rows) || nodeTypes.isProxy(rows)
+      || Object.getPrototypeOf(rows) !== Array.prototype || rows.length !== 1) unavailable();
+    const descriptors = Object.getOwnPropertyDescriptors(rows) as unknown as Record<PropertyKey, PropertyDescriptor>;
     if (Reflect.ownKeys(descriptors).length !== 2 || !descriptors["0"]?.enumerable || !("value" in descriptors["0"])) unavailable();
     const row = hostedExact(descriptors["0"].value, ["outcome", "result_payload"]);
     if (typeof row.outcome !== "string" || !/^[a-z][a-z0-9_]{0,63}$/u.test(row.outcome)) unavailable();

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { QueryResult } from "pg";
 
 import type { PostgresPoolLike } from "../postgres/pool.ts";
 import {
@@ -57,8 +58,18 @@ class Client {
   readonly calls: Array<{ text: string; values: unknown[] }> = [];
   readonly releases: unknown[] = [];
   private readonly responder: Responder;
-  constructor(responder: Responder) { this.responder = responder; }
-  async query(text: string, values: unknown[] = []) { this.calls.push({ text, values }); const rows = await this.responder(text, values); return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] }; }
+  private readonly realPgResult: boolean;
+  constructor(responder: Responder, realPgResult = false) { this.responder = responder; this.realPgResult = realPgResult; }
+  async query(text: string, values: unknown[] = []): Promise<QueryResult<Row>> {
+    this.calls.push({ text, values });
+    const rows = await this.responder(text, values);
+    const result: QueryResult<Row> = { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
+    if (this.realPgResult) Object.assign(result, {
+      RowCtor: null, _parsers: [], _prebuiltEmptyResultObject: null,
+      _types: {}, rowAsArray: false,
+    });
+    return result;
+  }
   release(value?: unknown) { this.releases.push(value); }
 }
 class Pool implements PostgresPoolLike {
@@ -96,6 +107,16 @@ test("authority sends the exact public start signature and returns a deeply froz
   assert.equal(result.providerCode, "paytr_iframe");
   assert.equal(Object.isFrozen(result), true); assert.equal(Object.isFrozen(result.items), true); assert.equal(Object.isFrozen(result.items[0]), true);
   assert.equal(client.calls[0]?.text, "BEGIN READ ONLY"); assert.equal(client.calls.at(-1)?.text, "COMMIT");
+});
+
+test("authority accepts the real pg Result envelope while keeping the row contract exact", async () => {
+  const client = new Client(
+    (text) => text.includes("public_storefront_hosted_checkout_authority") ? row("found", authority()) : [],
+    true,
+  );
+  const result = await repository(new Pool([client])).authority(authorityInput());
+  assert.equal(result.providerCode, "paytr_iframe");
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });
 
 test("authority rejects private or secret DB fields instead of forwarding them", async () => {
