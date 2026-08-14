@@ -329,9 +329,10 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
           keyring: dependencies.presentationKeyring,
         });
       } catch { audit(dependencies, "presentation_seal_failed"); return unavailable(); }
+      const persistenceNow = now(dependencies);
       try {
         await dependencies.repository.savePresentation({
-          hostname: input.hostname, now: selectedNow,
+          hostname: input.hostname, now: persistenceNow,
           candidates: Object.freeze([{ keyId: persistedPaymentSession.keyId, digest: persistedPaymentSession.digest }]),
           operationId: derivedUuid("presentation-operation", input.hostname, input.request.operationId),
           fingerprint: digest("presentation", sessionId, presentationDigest), expectedVersion: 1,

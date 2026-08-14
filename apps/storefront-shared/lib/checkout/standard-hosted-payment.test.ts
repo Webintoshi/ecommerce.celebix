@@ -106,6 +106,8 @@ function fixture(
   options: Readonly<{
     savePresentationError?: Error;
     audit?: (event: Readonly<{ stage: string; code?: string }>) => void;
+    runtimeNow?: () => Date;
+    attemptNow?: Date;
   }> = {},
 ) {
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
@@ -146,14 +148,14 @@ function fixture(
     repository,
     commerceKeyring,
     presentationKeyring,
-    now: () => new Date(NOW),
+    now: options.runtimeNow ?? (() => new Date(NOW)),
     randomUuid: (() => { let index = 0; return () => `${String(++index).padStart(8, "0")}-0000-4000-8000-000000000001`; })(),
     resolveExecution: async () => Object.freeze({
       attempts: baseAttempts(),
       createRuntime: (attempts) => Object.freeze({
         initialize: async (input) => {
           const selected = await attempts.begin({
-            authority: { storeId: input.storeId, now: new Date(NOW) }, operationId: input.operationId,
+            authority: { storeId: input.storeId, now: new Date(options.attemptNow ?? NOW) }, operationId: input.operationId,
             fingerprint: "c".repeat(64), paymentMethodId: input.paymentMethodId,
             orderReference: input.orderReference, amountMinor: input.amountMinor, currency: input.currency,
             callbackBindingDigest: "d".repeat(64),
@@ -226,4 +228,20 @@ test("presentation persistence failure emits only a safe diagnostic stage", asyn
   );
   await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }));
   assert.deepEqual(events, [{ stage: "presentation_persistence_failed", code: "invalid_input" }]);
+});
+
+test("presentation persistence refreshes monotonic time without extending the original hold", async () => {
+  const persistenceNow = new Date(NOW.getTime() + 2_000);
+  const times = [new Date(NOW), persistenceNow];
+  const selected = fixture(
+    { kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    {
+      attemptNow: new Date(NOW.getTime() + 1_000),
+      runtimeNow: () => new Date(times.shift() ?? persistenceNow),
+    },
+  );
+  await selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request });
+  assert.equal(selected.getSaved()?.now.toISOString(), persistenceNow.toISOString());
+  assert.equal(selected.getSaved()?.presentationExpiresAt.toISOString(), new Date(NOW.getTime() + 15 * 60_000).toISOString());
 });
