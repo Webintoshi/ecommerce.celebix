@@ -540,17 +540,18 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       "total_amount",
       "hash",
       "payment_type",
-      "test_mode",
     ];
     const hasPaymentAmount = params.has("payment_amount");
     const hasCurrency = params.has("currency");
     if (hasPaymentAmount !== hasCurrency) return null;
     const hasPaymentContext = hasPaymentAmount && hasCurrency;
-    const fields = status === "success"
+    const baseFields = status === "success"
       ? hasPaymentContext
         ? [...successFields, "payment_amount", "currency"]
         : successFields
       : [...successFields, "failed_reason_code", "failed_reason_msg"];
+    const callbackTestMode = params.get("test_mode");
+    const fields = callbackTestMode === null ? baseFields : [...baseFields, "test_mode"];
     if (
       entries.length !== fields.length ||
       fields.some((field) => !params.has(field)) ||
@@ -565,7 +566,7 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       rawTotalAmount === null ||
       providedHash === null ||
       (paymentType !== "card" && paymentType !== "eft") ||
-      params.get("test_mode") !== String(testMode) ||
+      (callbackTestMode !== null && callbackTestMode !== String(testMode)) ||
       !/^[1-9][0-9]{0,15}$/.test(rawTotalAmount)
     ) return null;
     const totalAmount = Number(rawTotalAmount);

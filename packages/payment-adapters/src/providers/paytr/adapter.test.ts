@@ -355,6 +355,19 @@ test("verifies callback HMAC and projects only durable order/provider facts", as
     currency: "TRY",
     safeCode: "success",
   });
+  assert.equal((await adapter.verifyCallback({
+    environment: "test",
+    credential,
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new TextEncoder().encode(form.replace("&test_mode=1", "")),
+    expected: {
+      attemptId: "11111111-1111-4111-8111-111111111111",
+      orderReference: "merchant-order-123",
+      amountMinor: 10_000,
+      currency: "TRY",
+    },
+  })).status, "succeeded");
 
   const signedUnderpayment = new URLSearchParams({
     merchant_oid: MERCHANT_OID,
@@ -579,6 +592,10 @@ test("PayTR live hosted initialize and callback require test_mode zero", async (
   assert.equal((await adapter.verifyCallback({
     ...callbackInput,
     body: new TextEncoder().encode(liveForm),
+  })).status, "succeeded");
+  assert.equal((await adapter.verifyCallback({
+    ...callbackInput,
+    body: new TextEncoder().encode(liveForm.replace("&test_mode=0", "")),
   })).status, "succeeded");
   await assert.rejects(
     adapter.verifyCallback({

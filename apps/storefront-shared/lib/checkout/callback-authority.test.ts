@@ -122,6 +122,16 @@ test("callback authority strips one bounded PayTR merchant id before adapter ver
   adapterForm.delete("installment_count");
   adapterForm.delete("merchant_id");
   assert.equal(result?.form, adapterForm.toString());
+  const withoutTestMode = providerForm.replace("&test_mode=1", "");
+  const withoutTestModeResult = await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(callbackUrl, { body: withoutTestMode }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+  });
+  const withoutTestModeAdapterForm = new URLSearchParams(withoutTestMode);
+  withoutTestModeAdapterForm.delete("installment_count");
+  withoutTestModeAdapterForm.delete("merchant_id");
+  assert.equal(withoutTestModeResult?.form, withoutTestModeAdapterForm.toString());
   for (const value of ["", "012345", "12345", "12345678901234567", "+123456", "ABC123"]) {
     assert.equal(await callbackAuthority.readExactPaytrCallbackRequest!({
       request: request(callbackUrl, { body: providerForm.replace("merchant_id=123456", `merchant_id=${encodeURIComponent(value)}`) }),

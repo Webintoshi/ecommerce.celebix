@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 const CALLBACK_PATH = "/api/payments/paytr/callback";
 const MAX_CALLBACK_BYTES = 2_048;
 const MERCHANT_OID = /^(?:[a-f0-9]{32}|[a-f0-9]{64})$/;
-const SUCCESS_FIELDS = Object.freeze(["merchant_oid", "status", "total_amount", "hash", "payment_type", "test_mode"]);
+const SUCCESS_FIELDS = Object.freeze(["merchant_oid", "status", "total_amount", "hash", "payment_type"]);
 const SUCCESS_CONTEXT_FIELDS = Object.freeze([...SUCCESS_FIELDS, "payment_amount", "currency"]);
 const INSTALLMENT_COUNT = /^(?:[0-9]|1[0-2])$/;
 const MERCHANT_ID = /^[1-9][0-9]{5,15}$/;
@@ -74,11 +74,14 @@ function exactForm(
   }
   const merchantId = params.get("merchant_id");
   if (merchantId !== null && !MERCHANT_ID.test(merchantId)) return reject("form_fields_merchant");
+  const testMode = params.get("test_mode");
+  if (testMode !== null && testMode !== "0" && testMode !== "1") return reject("form_fields_test_mode");
   const baseExpected = status === "success"
     ? hasPaymentAmount ? SUCCESS_CONTEXT_FIELDS : SUCCESS_FIELDS
     : status === "failed" ? FAILED_FIELDS : [];
   const installmentExpected = installmentCount === null ? baseExpected : [...baseExpected, "installment_count"];
-  const expected = merchantId === null ? installmentExpected : [...installmentExpected, "merchant_id"];
+  const merchantExpected = merchantId === null ? installmentExpected : [...installmentExpected, "merchant_id"];
+  const expected = testMode === null ? merchantExpected : [...merchantExpected, "test_mode"];
   if (entries.length !== expected.length || entries.some(([name]) => !expected.includes(name)) ||
       expected.some((name) => !params.has(name))) {
     if (status === "success" && (names.has("failed_reason_code") || names.has("failed_reason_msg"))) {
@@ -88,7 +91,6 @@ function exactForm(
     if (names.has("id")) return reject("form_fields_provider_id");
     if (names.has("non_3d")) return reject("form_fields_non_3d");
     if (names.has("card_type")) return reject("form_fields_card_type");
-    if (!names.has("test_mode")) return reject("form_fields_test_mode");
     if (!names.has("payment_type")) return reject("form_fields_payment_type");
     if (entries.length > expected.length) return reject("form_fields_unknown_extra");
     if (entries.length < expected.length) return reject("form_fields_unknown_missing");
