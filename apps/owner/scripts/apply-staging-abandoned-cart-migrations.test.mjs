@@ -81,6 +81,8 @@ test("abandoned-cart staging migration installs only wholly absent layers and ve
       "-- 202608120101_durable_abandoned_cart_integration_assertions.sql",
       "-- 202608120103_abandoned_cart_product_customer_identity.up.sql",
       "-- 202608120103_abandoned_cart_product_customer_identity_assertions.sql",
+      "-- 202608140105_storefront_checkout_returning_customer_identity.up.sql",
+      "-- 202608140105_storefront_checkout_returning_customer_identity_assertions.sql",
       "-- 202608120102_durable_abandoned_cart_rollout_backfill.up.sql",
       "-- 202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql",
     ],
@@ -91,6 +93,7 @@ test("abandoned-cart staging migration installs only wholly absent layers and ve
     "abandoned_cart_migration_capture=applied",
     "abandoned_cart_migration_durable_projection=applied",
     "abandoned_cart_migration_product_customer_identity=applied",
+    "abandoned_cart_migration_checkout_returning_customer_identity=applied",
     "abandoned_cart_migration_backfill=applied",
   ]);
   assert.equal(calls.at(-1), "end");
@@ -123,6 +126,7 @@ test("abandoned-cart staging migration is idempotent while retaining assertion a
     "-- 202607220032_abandoned_cart_capture_assertions.sql",
     "-- 202608120101_durable_abandoned_cart_integration_assertions.sql",
     "-- 202608120103_abandoned_cart_product_customer_identity_assertions.sql",
+    "-- 202608140105_storefront_checkout_returning_customer_identity_assertions.sql",
     "-- 202608120102_durable_abandoned_cart_rollout_backfill.up.sql",
     "-- 202608120102_durable_abandoned_cart_rollout_backfill_assertions.sql",
   ]);

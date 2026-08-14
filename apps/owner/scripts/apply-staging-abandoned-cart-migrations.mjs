@@ -9,6 +9,8 @@ const SQL_DIRECTORY = path.join(SCRIPT_DIRECTORY, "sql", "saas");
 const ABANDONED_CART_SUMMARY = "saas.abandoned_carts_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)";
 const ABANDONED_CART_LIST = "saas.abandoned_carts_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)";
 const ABANDONED_CART_GET = "saas.abandoned_carts_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)";
+const CHECKOUT_COMPLETE = "saas.public_checkout_complete(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)";
+const CHECKOUT_RETURNING_CUSTOMER_IDENTITY = "saas.storefront_checkout_reconcile_customer_identity_v105(uuid,timestamp with time zone,jsonb,jsonb)";
 
 const MIGRATIONS = Object.freeze([
   Object.freeze({
@@ -128,6 +130,39 @@ const MIGRATIONS = Object.freeze([
           pg_catalog.to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)'),
           'EXECUTE'
         ) AS ready`,
+  }),
+  Object.freeze({
+    code: "checkout_returning_customer_identity",
+    up: "202608140105_storefront_checkout_returning_customer_identity.up.sql",
+    assertions: "202608140105_storefront_checkout_returning_customer_identity_assertions.sql",
+    probe: `WITH checkout_wrapper AS (
+      SELECT CASE
+        WHEN pg_catalog.to_regprocedure('${CHECKOUT_COMPLETE}') IS NULL THEN ''
+        ELSE pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure('${CHECKOUT_COMPLETE}'))
+      END AS definition
+    )
+    SELECT
+      pg_catalog.to_regprocedure('${CHECKOUT_RETURNING_CUSTOMER_IDENTITY}') IS NOT NULL
+        OR pg_catalog.strpos(definition,'storefront_checkout_reconcile_customer_identity_v105')>0 AS has_objects,
+      pg_catalog.to_regprocedure('${CHECKOUT_RETURNING_CUSTOMER_IDENTITY}') IS NOT NULL
+        AND pg_catalog.strpos(definition,'storefront_checkout_reconcile_customer_identity_v105')>0
+        AND pg_catalog.strpos(definition,'public_checkout_complete_without_available_stock_v090')>0
+        AND pg_catalog.has_function_privilege(
+          'celebix_saas_host_resolver',
+          pg_catalog.to_regprocedure('${CHECKOUT_COMPLETE}'),
+          'EXECUTE'
+        )
+        AND NOT pg_catalog.has_function_privilege(
+          'celebix_saas_app',
+          pg_catalog.to_regprocedure('${CHECKOUT_RETURNING_CUSTOMER_IDENTITY}'),
+          'EXECUTE'
+        )
+        AND NOT pg_catalog.has_function_privilege(
+          'celebix_saas_host_resolver',
+          pg_catalog.to_regprocedure('${CHECKOUT_RETURNING_CUSTOMER_IDENTITY}'),
+          'EXECUTE'
+        ) AS ready
+    FROM checkout_wrapper`,
   }),
 ]);
 
