@@ -39,6 +39,7 @@ export type { PaytrIframeCredential } from "./config.ts";
 
 const GET_TOKEN_URL = "https://www.paytr.com/odeme/api/get-token";
 const STATUS_URL = "https://www.paytr.com/odeme/durum-sorgu";
+const LEGACY_GET_TOKEN_CONTENT_TYPE = "text/html; charset=UTF-8";
 const PAYTR_PRESENTATION = PAYTR_IFRAME_PACKET.presentation.test;
 const BINDING = /^[A-Za-z0-9_-]{43}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -307,13 +308,17 @@ function transportRequest(transport: ProviderTransport): ProviderTransport["requ
   return descriptor.value as ProviderTransport["request"];
 }
 
-function responseJson(result: ProviderTransportResult): unknown {
+function responseJson(
+  result: ProviderTransportResult,
+  operation: "get_token" | "status",
+): unknown {
   if (
     result.kind !== "response" ||
     result.status !== 200 ||
     (
       result.contentType !== "application/json" &&
-      result.contentType !== "application/json; charset=utf-8"
+      result.contentType !== "application/json; charset=utf-8" &&
+      !(operation === "get_token" && result.contentType === LEGACY_GET_TOKEN_CONTENT_TYPE)
     ) ||
     !(result.body instanceof Uint8Array) ||
     nodeTypes.isProxy(result.body)
@@ -419,7 +424,7 @@ export async function initializePaytrIframeWithTransport(
     });
     if (result.kind === "unknown") return unknownInitialization();
     responseBody = result.body;
-    const parsed = exactRecord(responseJson(result), ["status"], ["token", "reason"]);
+    const parsed = exactRecord(responseJson(result, "get_token"), ["status"], ["token", "reason"]);
     if (parsed.status === "success") {
       if (
         Object.keys(parsed).length !== 2 ||
@@ -726,7 +731,7 @@ export async function queryPaytrIframeWithTransport(
     });
     if (result.kind === "unknown") return unknownStatus();
     responseBody = result.body;
-    const raw = responseJson(result);
+    const raw = responseJson(result, "status");
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) invalid();
     const candidate = raw as Record<string, unknown>;
     if (candidate.status === "error") {

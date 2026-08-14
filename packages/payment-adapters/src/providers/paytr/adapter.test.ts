@@ -35,6 +35,15 @@ function response(body: string, status = 200): ProviderTransportResult {
   });
 }
 
+function legacyTokenResponse(body: string): ProviderTransportResult {
+  return Object.freeze({
+    kind: "response" as const,
+    status: 200,
+    contentType: "text/html; charset=UTF-8",
+    body: new TextEncoder().encode(body),
+  });
+}
+
 function transport(
   implementation: (request: ProviderTransportRequest) =>
     ProviderTransportResult | Promise<ProviderTransportResult>,
@@ -164,6 +173,21 @@ test("initializes once with the exact documented body and provider-owned present
   assert.equal(observedBody, EXPECTED_INITIALIZE_BODY);
   assert.equal(observed?.body.every((byte) => byte === 0), true);
   assert.equal(returnedBody.every((byte) => byte === 0), true);
+});
+
+test("accepts PayTR legacy JSON content type only for get-token initialization", async () => {
+  const initialization = createPaytrIframeAdapter(transport(() =>
+    legacyTokenResponse(`{"status":"success","token":"${TOKEN}"}`)));
+
+  assert.equal((await initialization.initialize(initializeInput())).kind, "iframe");
+
+  const statusQuery = createPaytrIframeAdapter(transport(() =>
+    legacyTokenResponse('{"status":"success","payment_amount":"100.00","payment_total":"100.00","payment_date":"2026-07-27","currency":"TRY","test_mode":"1"}')));
+
+  assert.deepEqual(await statusQuery.query(queryInput()), {
+    kind: "unknown",
+    providerReference: MERCHANT_OID,
+  });
 });
 
 test("maps immutable installment preferences to exact PayTR request fields", async () => {
