@@ -16,6 +16,9 @@ const START_ASSERTIONS = "202608060091_storefront_hosted_checkout_start_assertio
 const SETTLEMENT_UP = "202608060092_storefront_hosted_checkout_settlement.up.sql";
 const SETTLEMENT_DOWN = "202608060092_storefront_hosted_checkout_settlement.down.sql";
 const SETTLEMENT_ASSERTIONS = "202608060092_storefront_hosted_checkout_settlement_assertions.sql";
+const CART_READ_ONLY_AUTHORITY_UP = "202608140106_storefront_cart_read_only_authority.up.sql";
+const CART_READ_ONLY_AUTHORITY_DOWN = "202608140106_storefront_cart_read_only_authority.down.sql";
+const CART_READ_ONLY_AUTHORITY_ASSERTIONS = "202608140106_storefront_cart_read_only_authority_assertions.sql";
 const STORE = "10000000-0000-4000-8000-000000000190";
 const HOST = "hosted-foundation.saas-staging.celebix.site";
 const PRODUCT = "20000000-0000-4000-8000-000000000190";
@@ -29,7 +32,7 @@ const NOW = "2026-08-06T12:00:00.000Z";
 const START_SESSION = "90000000-0000-4000-8000-000000000191";
 const START_ATTEMPT = "91000000-0000-4000-8000-000000000191";
 const START_OPERATION_2 = "92000000-0000-4000-8000-000000000191";
-const TOTAL = 29;
+const TOTAL = 30;
 let completed = 0;
 
 function executable(name) {
@@ -167,7 +170,7 @@ function scenario(name, callback) { callback(); completed += 1; console.log(`PAS
 
 let box;
 try {
-  for (const file of [UP, DOWN, ASSERTIONS, START_UP, START_DOWN, START_ASSERTIONS, SETTLEMENT_UP, SETTLEMENT_DOWN, SETTLEMENT_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, `${file} missing`);
+  for (const file of [UP, DOWN, ASSERTIONS, START_UP, START_DOWN, START_ASSERTIONS, SETTLEMENT_UP, SETTLEMENT_DOWN, SETTLEMENT_ASSERTIONS, CART_READ_ONLY_AUTHORITY_UP, CART_READ_ONLY_AUTHORITY_DOWN, CART_READ_ONLY_AUTHORITY_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, `${file} missing`);
   box = start();
   command(box.tools.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"], `CREATE DATABASE ${DB};`);
   for (const file of migrations()) apply(box, file);
@@ -184,6 +187,12 @@ try {
     assert.equal(psql(box, "SELECT to_regclass('saas.storefront_hosted_checkout_sessions') IS NOT NULL;").stdout.trim(), "t");
   });
   seedProvider(box);
+  apply(box, CART_READ_ONLY_AUTHORITY_UP); apply(box, CART_READ_ONLY_AUTHORITY_ASSERTIONS);
+  scenario("cart resolution remains available in the repository read-only transaction", () => {
+    const credentials = JSON.stringify([{ keyId: "cart-key-190", digest: "a".repeat(64) }]).replaceAll("'", "''");
+    const outcome = psql(box, `BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_cart_resolve('${HOST}','${NOW}','${credentials}'::jsonb);COMMIT;`).stdout.trim();
+    assert.equal(outcome, "found");
+  });
   scenario("quote projection exposes one execution-authorized hosted card", () => {
     const methods = JSON.parse(psql(box, `SELECT saas.storefront_payment_methods_projection('${STORE}');`).stdout.trim());
     assert.deepEqual(methods.map(({ kind }) => kind), ["bank_transfer", "hosted_card"]);
@@ -224,6 +233,7 @@ try {
     assert.equal(psql(box, "SELECT to_regclass('saas.storefront_hosted_checkout_sessions') IS NULL;").stdout.trim(), "t");
     assert.equal(psql(box, "SELECT to_regclass('saas.storefront_carts') IS NOT NULL;").stdout.trim(), "t");
     apply(box, UP); apply(box, ASSERTIONS);
+    apply(box, CART_READ_ONLY_AUTHORITY_UP); apply(box, CART_READ_ONLY_AUTHORITY_ASSERTIONS);
   });
   scenario("start authority is absent before migration 091", () => {
     assert.equal(psql(box, "SELECT to_regprocedure('saas.public_storefront_hosted_checkout_authority(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid)') IS NULL;").stdout.trim(), "t");
