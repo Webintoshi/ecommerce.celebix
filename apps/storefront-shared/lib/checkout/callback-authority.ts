@@ -120,7 +120,9 @@ export async function readExactPaytrCallbackRequest(input: Readonly<{
       if (!Buffer.from(form, "utf8").equals(bytes)) return reject("body");
       const merchantOid = exactForm(form, reject);
       if (merchantOid === null) return null;
-      return Object.freeze({ merchantOid, form,
+      const adapterForm = new URLSearchParams(form);
+      adapterForm.delete("installment_count");
+      return Object.freeze({ merchantOid, form: adapterForm.toString(),
         callbackDigest: createHash("sha256").update(bytes).digest("hex") });
     } finally { bytes.fill(0); }
   } catch { return reject("body"); }

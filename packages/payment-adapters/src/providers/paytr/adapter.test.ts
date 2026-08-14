@@ -356,28 +356,6 @@ test("verifies callback HMAC and projects only durable order/provider facts", as
     safeCode: "success",
   });
 
-  const installmentForm = `${form}&installment_count=0`;
-  assert.deepEqual(await adapter.verifyCallback({
-    environment: "test",
-    credential,
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new TextEncoder().encode(installmentForm),
-    expected: {
-      attemptId: "11111111-1111-4111-8111-111111111111",
-      orderReference: "merchant-order-123",
-      amountMinor: 10_000,
-      currency: "TRY",
-    },
-  }), {
-    eventKey: "merchant-order-123:success",
-    status: "succeeded",
-    providerReference: MERCHANT_OID,
-    paidAmountMinor: 10_000,
-    currency: "TRY",
-    safeCode: "success",
-  });
-
   const signedUnderpayment = new URLSearchParams({
     merchant_oid: MERCHANT_OID,
     status: "success",
@@ -421,6 +399,7 @@ test("verifies callback HMAC and projects only durable order/provider facts", as
     wrongPaymentAmount,
     wrongCurrency,
     missingPaymentContext,
+    `${form}&installment_count=0`,
     `${form}&installment_count=1`,
     `${form}&installment_count=13`,
     form.replace(encodeURIComponent(callbackHash), encodeURIComponent(`A${callbackHash.slice(1)}`)),

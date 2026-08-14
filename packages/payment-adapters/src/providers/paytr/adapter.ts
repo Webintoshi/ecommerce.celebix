@@ -546,17 +546,11 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
     const hasCurrency = params.has("currency");
     if (hasPaymentAmount !== hasCurrency) return null;
     const hasPaymentContext = hasPaymentAmount && hasCurrency;
-    const installmentCount = params.get("installment_count");
-    if (
-      installmentCount !== null &&
-      (status !== "success" || !/^(?:0|[2-9]|1[0-2])$/.test(installmentCount))
-    ) return null;
-    const baseFields = status === "success"
+    const fields = status === "success"
       ? hasPaymentContext
         ? [...successFields, "payment_amount", "currency"]
         : successFields
       : [...successFields, "failed_reason_code", "failed_reason_msg"];
-    const fields = installmentCount === null ? baseFields : [...baseFields, "installment_count"];
     if (
       entries.length !== fields.length ||
       fields.some((field) => !params.has(field)) ||
