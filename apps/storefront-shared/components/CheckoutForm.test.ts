@@ -80,3 +80,10 @@ test("checkout owns a white single-screen shell and canonical media summary", ()
   assert.equal(css.includes("background: var(--white)"), true);
   for (const proof of ["checkout-page", "checkout-section", "checkout-summary-line", "min-height: 48px"]) assert.match(css, new RegExp(proof, "u"));
 });
+
+test("checkout keeps its server summary snapshot stable until its client boundary hydrates", () => {
+  assert.match(form, /useHydrated/u);
+  assert.match(form, /const visibleCart = hydrated \? cart : null/u);
+  assert.match(form, /const visibleCartLoading = !hydrated \|\| cartLoading/u);
+  assert.match(form, /resolveCheckoutSummaryState\(intentKind, quote, visibleCart,/u);
+});

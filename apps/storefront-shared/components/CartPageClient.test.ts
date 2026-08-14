@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [cart, provider, header, readiness] = await Promise.all([
+const [cart, provider, header, readiness, utilities] = await Promise.all([
   readFile(new URL("./CartPageClient.tsx", import.meta.url), "utf8"),
   readFile(new URL("./CartStatusProvider.tsx", import.meta.url), "utf8"),
   readFile(new URL("./Header.tsx", import.meta.url), "utf8"),
   readFile(new URL("./checkout-readiness.ts", import.meta.url), "utf8"),
+  readFile(new URL("./StoreUtilities.tsx", import.meta.url), "utf8"),
 ]);
 
 test("cart renders persisted lines totals quantity removal and checkout readiness", () => {
@@ -35,4 +36,13 @@ test("one provider owns canonical count and Header mounts all fixed utilities", 
   assert.match(provider, /itemCount/u);
   assert.match(provider, /aria-live/u);
   assert.match(header, /StoreUtilities/u);
+});
+
+test("async cart counts preserve the server loading snapshot until each consumer hydrates", () => {
+  for (const source of [provider, utilities, cart]) assert.match(source, /useHydrated/u);
+  assert.match(provider, /!hydrated \|\| loading/u);
+  assert.match(utilities, /hydrated \? cart\?\.itemCount \?\? 0 : 0/u);
+  assert.match(utilities, /hydrated \? favoriteCount : 0/u);
+  assert.match(cart, /const visibleCart = hydrated \? cart : null/u);
+  assert.match(cart, /const visibleLoading = !hydrated \|\| loading/u);
 });

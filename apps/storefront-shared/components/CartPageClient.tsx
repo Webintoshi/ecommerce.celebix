@@ -9,6 +9,7 @@ import { formatTry } from "@/lib/format.ts";
 import { productIndexPath, productPath } from "@/lib/storefront-routes.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { checkoutBlockerMessage } from "./checkout-readiness";
+import { useHydrated } from "./use-hydrated";
 
 function CartLineControls({ line, version, disabled, onPending }: Readonly<{ line: PublicCartLine; version: number; disabled: boolean; onPending(value: boolean): void }>) {
   const { replaceCart, refresh } = useCartStatus();
@@ -20,13 +21,16 @@ function CartLineControls({ line, version, disabled, onPending }: Readonly<{ lin
 }
 
 export function CartPageClient({ locale }: Readonly<{ locale: string }>) {
+  const hydrated = useHydrated();
   const { cart, loading, refresh } = useCartStatus();
   const [pending, setPending] = useState(false);
-  if (loading && !cart) return <div className="store-empty" role="status"><span>◇</span><h2>Sepet yükleniyor</h2><p>Güncel ürünleriniz hazırlanıyor.</p></div>;
-  if (!cart) return <div className="store-empty"><span>!</span><h2>Sepet yüklenemedi</h2><p>Lütfen bağlantınızı kontrol edip yeniden deneyin.</p><button className="store-button" type="button" onClick={() => void refresh()}>Tekrar dene</button></div>;
-  if (cart.items.length === 0) return <div className="store-empty"><span>◇</span><h2>Sepetiniz boş</h2><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href={productIndexPath(locale)}>Ürünleri keşfet</Link></div>;
-  const stockBlocker = cart.checkoutBlocker === "stock_unavailable";
-  const configurationBlocker = cart.checkoutBlocker === "shipping_unavailable" || cart.checkoutBlocker === "payment_unavailable";
-  const blockerMessage = checkoutBlockerMessage(cart.checkoutBlocker);
-  return <div className="cart-layout"><section className="cart-lines" aria-label="Sepet ürünleri">{cart.items.map((line) => <article className="cart-line" key={line.variantId}>{line.media ? <img src={line.media.url} alt={line.media.altText || line.title} width={line.media.width ?? 120} height={line.media.height ?? 120} /> : <div className="cart-line-placeholder" aria-hidden="true">◇</div>}<div className="cart-line-copy"><Link href={productPath(locale, line.slug)}>{line.title}</Link><span>{line.variantTitle}</span><strong>{formatTry(line.unitPriceCents)}</strong>{!line.available ? <em>Şu anda kullanılamıyor</em> : null}</div><CartLineControls line={line} version={cart.version} disabled={pending} onPending={setPending} /><strong className="cart-line-total">{formatTry(line.lineTotalCents)}</strong></article>)}</section><aside className="cart-summary"><span>SİPARİŞ ÖZETİ</span><h2>Sepet toplamı</h2><dl><div><dt>Ara toplam</dt><dd>{formatTry(cart.subtotalCents)}</dd></div><div><dt>Kargo</dt><dd>{cart.shippingCents === 0 ? "Ücretsiz" : formatTry(cart.shippingCents)}</dd></div><div><dt>Toplam</dt><dd>{formatTry(cart.totalCents)}</dd></div></dl>{blockerMessage ? <span className={`cart-unavailable${configurationBlocker ? " is-configuration" : ""}`} role="status">{blockerMessage}</span> : null}{!stockBlocker && (cart.checkoutReady || configurationBlocker) ? <Link className="store-button" href="/checkout">{cart.checkoutReady ? "Ödemeye geç" : "Ödeme durumunu görüntüle"}</Link> : null}<Link className="cart-continue" href={productIndexPath(locale)}>Alışverişe devam et</Link></aside></div>;
+  const visibleCart = hydrated ? cart : null;
+  const visibleLoading = !hydrated || loading;
+  if (visibleLoading && !visibleCart) return <div className="store-empty" role="status"><span>◇</span><h2>Sepet yükleniyor</h2><p>Güncel ürünleriniz hazırlanıyor.</p></div>;
+  if (!visibleCart) return <div className="store-empty"><span>!</span><h2>Sepet yüklenemedi</h2><p>Lütfen bağlantınızı kontrol edip yeniden deneyin.</p><button className="store-button" type="button" onClick={() => void refresh()}>Tekrar dene</button></div>;
+  if (visibleCart.items.length === 0) return <div className="store-empty"><span>◇</span><h2>Sepetiniz boş</h2><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href={productIndexPath(locale)}>Ürünleri keşfet</Link></div>;
+  const stockBlocker = visibleCart.checkoutBlocker === "stock_unavailable";
+  const configurationBlocker = visibleCart.checkoutBlocker === "shipping_unavailable" || visibleCart.checkoutBlocker === "payment_unavailable";
+  const blockerMessage = checkoutBlockerMessage(visibleCart.checkoutBlocker);
+  return <div className="cart-layout"><section className="cart-lines" aria-label="Sepet ürünleri">{visibleCart.items.map((line) => <article className="cart-line" key={line.variantId}>{line.media ? <img src={line.media.url} alt={line.media.altText || line.title} width={line.media.width ?? 120} height={line.media.height ?? 120} /> : <div className="cart-line-placeholder" aria-hidden="true">◇</div>}<div className="cart-line-copy"><Link href={productPath(locale, line.slug)}>{line.title}</Link><span>{line.variantTitle}</span><strong>{formatTry(line.unitPriceCents)}</strong>{!line.available ? <em>Şu anda kullanılamıyor</em> : null}</div><CartLineControls line={line} version={visibleCart.version} disabled={pending} onPending={setPending} /><strong className="cart-line-total">{formatTry(line.lineTotalCents)}</strong></article>)}</section><aside className="cart-summary"><span>SİPARİŞ ÖZETİ</span><h2>Sepet toplamı</h2><dl><div><dt>Ara toplam</dt><dd>{formatTry(visibleCart.subtotalCents)}</dd></div><div><dt>Kargo</dt><dd>{visibleCart.shippingCents === 0 ? "Ücretsiz" : formatTry(visibleCart.shippingCents)}</dd></div><div><dt>Toplam</dt><dd>{formatTry(visibleCart.totalCents)}</dd></div></dl>{blockerMessage ? <span className={`cart-unavailable${configurationBlocker ? " is-configuration" : ""}`} role="status">{blockerMessage}</span> : null}{!stockBlocker && (visibleCart.checkoutReady || configurationBlocker) ? <Link className="store-button" href="/checkout">{visibleCart.checkoutReady ? "Ödemeye geç" : "Ödeme durumunu görüntüle"}</Link> : null}<Link className="cart-continue" href={productIndexPath(locale)}>Alışverişe devam et</Link></aside></div>;
 }

@@ -10,10 +10,12 @@ import { formatTry } from "@/lib/format.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { CheckoutSummary } from "./CheckoutSummary";
 import { checkoutBlockerMessage, checkoutFailureMessage, resolveCheckoutSummaryState } from "./checkout-readiness";
+import { useHydrated } from "./use-hydrated";
 
 const EMPTY: CheckoutFormDraft = Object.freeze({ name: "", email: "", phone: "", addressLine1: "", addressLine2: "", city: "", district: "", postalCode: "", note: "" });
 
 export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind: CheckoutIntentKind; initialDraft?: Partial<CheckoutFormDraft> }>) {
+  const hydrated = useHydrated();
   const { cart, loading: cartLoading } = useCartStatus();
   const [quote, setQuote] = useState<PublicCheckoutQuote | null>(null);
   const [quoteSettled, setQuoteSettled] = useState(false);
@@ -26,7 +28,9 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
   const formRef = useRef<HTMLFormElement>(null);
   const operation = useRef<string | null>(null);
   const validation = useMemo(() => validateCheckoutFormDraft(draft), [draft]);
-  const summaryState = resolveCheckoutSummaryState(intentKind, quote, cart, quoteSettled && (intentKind === "buy_now" || !cartLoading));
+  const visibleCart = hydrated ? cart : null;
+  const visibleCartLoading = !hydrated || cartLoading;
+  const summaryState = resolveCheckoutSummaryState(intentKind, quote, visibleCart, quoteSettled && (intentKind === "buy_now" || !visibleCartLoading));
 
   useEffect(() => {
     let active = true;
