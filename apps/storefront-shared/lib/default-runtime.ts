@@ -312,7 +312,10 @@ export function writeSafePaytrCallbackDiagnostic(event:
       stage: "callback_request_rejected";
       outcome: "method" | "content_type" | "headers" | "authority"
         | "target" | "length" | "body" | "form_encoding" | "form_status"
-        | "form_context" | "form_fields" | "form_oid";
+        | "form_context" | "form_fields_duplicate" | "form_fields_failure_on_success"
+        | "form_fields_installment" | "form_fields_merchant" | "form_fields_test_mode"
+        | "form_fields_payment_type" | "form_fields_unknown_extra"
+        | "form_fields_unknown_missing" | "form_fields_unknown_replace" | "form_oid";
     }>
 ): void {
   console.warn("paytr_callback_diagnostic", event.stage, event.outcome);
