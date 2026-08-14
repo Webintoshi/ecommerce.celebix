@@ -86,7 +86,12 @@ test("callback authority accepts one bounded PayTR installment count on success"
   const adapterForm = new URLSearchParams(installmentForm);
   adapterForm.delete("installment_count");
   assert.equal(result?.form, adapterForm.toString());
-  for (const value of ["", "00", "1", "13", "+2", "2.0"]) {
+  assert.equal((await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(callbackUrl, { body: installmentForm.replace("installment_count=0", "installment_count=1") }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+  }))?.merchantOid, "abcdef0123456789abcdef0123456789");
+  for (const value of ["", "00", "13", "+2", "2.0"]) {
     assert.equal(await callbackAuthority.readExactPaytrCallbackRequest!({
       request: request(callbackUrl, { body: installmentForm.replace("installment_count=0", `installment_count=${encodeURIComponent(value)}`) }),
       trustedHostname: hostname,
