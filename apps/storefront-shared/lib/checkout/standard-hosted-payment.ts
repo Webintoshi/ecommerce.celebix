@@ -191,6 +191,7 @@ function scopedAttempts(input: Readonly<{
   generated: Readonly<{ orderId: string; customerId: string; addressId: string; eventId: string; receiptId: string; customerCredentialId: string }>;
   delivery: ReturnType<typeof delivery>;
   recordPersistence(value: Readonly<{ paymentSessionKeyId: string; receiptKeyId: string; customerKeyId: string }>): void;
+  recordPersistenceFailure(code: StorefrontHostedCheckoutErrorCode): void;
 }>): PaymentAttemptRepository {
   const scoped: PaymentAttemptRepository = {
     begin: async (payment) => {
@@ -202,24 +203,30 @@ function scopedAttempts(input: Readonly<{
         || payment.currency !== input.authority.currency
         || !DIGEST.test(payment.fingerprint)
         || !DIGEST.test(payment.callbackBindingDigest)) return unavailable();
-      const begun = await input.repository.begin({
-        hostname: input.hostname,
-        now: new Date(payment.authority.now),
-        intentKind: input.request.intentKind,
-        candidates: input.sourceCandidates,
-        cartVersion: input.request.cartVersion,
-        delivery: input.delivery,
-        paymentMethodId: input.request.paymentMethodId,
-        expectedAuthorityDigest: input.authority.authorityDigest,
-        operationId: input.request.operationId,
-        fingerprint: payment.fingerprint,
-        sessionId: input.sessionId,
-        callbackBindingDigest: payment.callbackBindingDigest,
-        ...input.generated,
-        paymentSession: Object.freeze({ keyId: input.paymentSession.keyId, digest: input.paymentSession.digest }),
-        receipt: Object.freeze({ keyId: input.receipt.keyId, digest: input.receipt.digest }),
-        customer: Object.freeze({ keyId: input.customer.keyId, digest: input.customer.digest }),
-      });
+      let begun;
+      try {
+        begun = await input.repository.begin({
+          hostname: input.hostname,
+          now: new Date(payment.authority.now),
+          intentKind: input.request.intentKind,
+          candidates: input.sourceCandidates,
+          cartVersion: input.request.cartVersion,
+          delivery: input.delivery,
+          paymentMethodId: input.request.paymentMethodId,
+          expectedAuthorityDigest: input.authority.authorityDigest,
+          operationId: input.request.operationId,
+          fingerprint: payment.fingerprint,
+          sessionId: input.sessionId,
+          callbackBindingDigest: payment.callbackBindingDigest,
+          ...input.generated,
+          paymentSession: Object.freeze({ keyId: input.paymentSession.keyId, digest: input.paymentSession.digest }),
+          receipt: Object.freeze({ keyId: input.receipt.keyId, digest: input.receipt.digest }),
+          customer: Object.freeze({ keyId: input.customer.keyId, digest: input.customer.digest }),
+        });
+      } catch (error) {
+        if (error instanceof StorefrontHostedCheckoutRepositoryError) input.recordPersistenceFailure(error.code);
+        throw error;
+      }
       input.recordPersistence(Object.freeze({
         paymentSessionKeyId: begun.paymentSessionKeyId,
         receiptKeyId: begun.receiptKeyId,
@@ -270,6 +277,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       const receipt = createStorefrontOperationCredential("receipt", input.request.operationId, dependencies.commerceKeyring);
       const customer = createStorefrontOperationCredential("customer", input.request.operationId, dependencies.commerceKeyring);
       let persistedKeys: Readonly<{ paymentSessionKeyId: string; receiptKeyId: string; customerKeyId: string }> | undefined;
+      let persistenceFailureCode: StorefrontHostedCheckoutErrorCode | undefined;
       const scoped = scopedAttempts({
         base: execution.attempts, repository: dependencies.repository, hostname: input.hostname,
         sourceCandidates: candidates, request: input.request, authority,
@@ -280,6 +288,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
           receiptId: generatedUuid(dependencies), customerCredentialId: generatedUuid(dependencies),
         }),
         recordPersistence: (value) => { persistedKeys = value; },
+        recordPersistenceFailure: (code) => { persistenceFailureCode = code; },
       });
       const hosted = execution.createRuntime(scoped);
       if (hosted === null) return unavailable();
@@ -297,7 +306,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         }),
         basket: authority.basket,
       });
-      if (persistedKeys === undefined) { audit(dependencies, "credential_persistence_missing"); return unavailable(); }
+      if (persistedKeys === undefined) { audit(dependencies, "credential_persistence_missing", persistenceFailureCode); return unavailable(); }
       if (providerPresentation.kind === "rejected") { audit(dependencies, "provider_rejected"); return unavailable(); }
       let persistedPaymentSession: ReturnType<typeof createStorefrontOperationCredential>;
       let browserCookies: readonly string[];

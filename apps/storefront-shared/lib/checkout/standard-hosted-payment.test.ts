@@ -104,6 +104,7 @@ function fixture(
   selectedPresentation: HostedPaymentPresentation,
   outcome: "created" | "replayed" = "created",
   options: Readonly<{
+    beginError?: StorefrontHostedCheckoutRepositoryError;
     savePresentationError?: Error;
     audit?: (event: Readonly<{ stage: string; code?: string }>) => void;
     runtimeNow?: () => Date;
@@ -132,7 +133,11 @@ function fixture(
   });
   const repository: StorefrontHostedCheckoutRepository = {
     authority: async () => authority,
-    begin: async (input) => { beginInput = input; return begun; },
+    begin: async (input) => {
+      if (options.beginError) throw options.beginError;
+      beginInput = input;
+      return begun;
+    },
     savePresentation: async (input) => {
       if (options.savePresentationError) throw options.savePresentationError;
       savedInput = input; stored = input;
@@ -154,13 +159,17 @@ function fixture(
       attempts: baseAttempts(),
       createRuntime: (attempts) => Object.freeze({
         initialize: async (input) => {
-          const selected = await attempts.begin({
-            authority: { storeId: input.storeId, now: new Date(options.attemptNow ?? NOW) }, operationId: input.operationId,
-            fingerprint: "c".repeat(64), paymentMethodId: input.paymentMethodId,
-            orderReference: input.orderReference, amountMinor: input.amountMinor, currency: input.currency,
-            callbackBindingDigest: "d".repeat(64),
-          });
-          return selected.outcome === "replayed" ? Object.freeze({ kind: "processing" as const }) : selectedPresentation;
+          try {
+            const selected = await attempts.begin({
+              authority: { storeId: input.storeId, now: new Date(options.attemptNow ?? NOW) }, operationId: input.operationId,
+              fingerprint: "c".repeat(64), paymentMethodId: input.paymentMethodId,
+              orderReference: input.orderReference, amountMinor: input.amountMinor, currency: input.currency,
+              callbackBindingDigest: "d".repeat(64),
+            });
+            return selected.outcome === "replayed" ? Object.freeze({ kind: "processing" as const }) : selectedPresentation;
+          } catch {
+            return Object.freeze({ kind: "rejected" as const });
+          }
         },
         callback: async () => ({ kind: "rejected" as const }),
         callbackByDigest: async () => ({ kind: "not_found" as const }),
@@ -217,6 +226,20 @@ test("provider rejection fails closed and emits no browser credential", async ()
   const selected = fixture({ kind: "rejected" });
   await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }), /unavailable/u);
   assert.equal(selected.getSaved(), undefined);
+});
+
+test("hosted begin rejection emits its safe repository code", async () => {
+  const events: Readonly<{ stage: string; code?: string }>[] = [];
+  const selected = fixture(
+    { kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    {
+      beginError: new StorefrontHostedCheckoutRepositoryError("durable_authority_invalid"),
+      audit: (event) => events.push(event),
+    },
+  );
+  await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }), /unavailable/u);
+  assert.deepEqual(events, [{ stage: "credential_persistence_missing", code: "durable_authority_invalid" }]);
 });
 
 test("presentation persistence failure emits only a safe diagnostic stage", async () => {
