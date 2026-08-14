@@ -1,0 +1,23 @@
+{
+  "phase": "phase4v-storefront-checkout-returning-customer-identity",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608140105_storefront_checkout_returning_customer_identity.up.sql",
+      "direction": "up",
+      "sha256": "384aefe1972c68818d25cc13655e12357b4d446746d6892c11a465c355986bae"
+    },
+    {
+      "file": "202608140105_storefront_checkout_returning_customer_identity.down.sql",
+      "direction": "down",
+      "sha256": "d89fe50cc42eb9898a984942fac46eb9425fb260aedf928ffb6cabd50fc73a0a"
+    },
+    {
+      "file": "202608140105_storefront_checkout_returning_customer_identity_assertions.sql",
+      "direction": "verify",
+      "sha256": "a68c967e251a1ea7c3a9dc8aeee34fbe59ae2decd3e36bcbdca3a1344e4db462"
+    }
+  ]
+}
