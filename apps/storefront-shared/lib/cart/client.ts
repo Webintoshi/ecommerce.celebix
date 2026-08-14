@@ -1,7 +1,7 @@
 "use client";
 
 import { parsePublicCart, parsePublicCheckoutQuote, type PublicCart, type PublicCheckoutQuote } from "@celebix/saas-contracts";
-import type { StorefrontCartClient } from "./types.ts";
+import type { StorefrontCartCaptureCustomer, StorefrontCartClient } from "./types.ts";
 
 const MAXIMUM = 524_288;
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -14,6 +14,32 @@ function exact(value: unknown, required: readonly string[]): Record<string, unkn
 function cart(value: unknown): PublicCart { try { return parsePublicCart(value); } catch { throw new StorefrontCartClientError("invalid_response"); } }
 function quote(value: unknown): PublicCheckoutQuote { try { return parsePublicCheckoutQuote(value); } catch { throw new StorefrontCartClientError("invalid_response"); } }
 function publicFailure(value: unknown): PublicCartClientFailure | null { const row = exact(value, ["code"]); return row && typeof row.code === "string" && PUBLIC_FAILURES.has(row.code as PublicCartClientFailure) ? row.code as PublicCartClientFailure : null; }
+function cartCaptureCustomer(customer?: StorefrontCartCaptureCustomer): Readonly<{ name?: string; email?: string; phone?: string }> {
+  const next: { name?: string; email?: string; phone?: string } = {};
+  if (typeof customer?.name === "string" && customer.name.length > 0) next.name = customer.name;
+  if (typeof customer?.email === "string" && customer.email.length > 0) next.email = customer.email;
+  if (typeof customer?.phone === "string" && customer.phone.length > 0) next.phone = customer.phone;
+  return Object.freeze(next);
+}
+function cartCaptureBody(value: PublicCart, customer?: StorefrontCartCaptureCustomer): Readonly<{ customer: Readonly<{ name?: string; email?: string; phone?: string }>; items: readonly Readonly<{ productId: string; variantId: string; quantity: number }>[] }> | null {
+  const items = value.items.map((item) => Object.freeze({ productId: item.productId, variantId: item.variantId, quantity: item.quantity }));
+  return items.length === 0 ? null : Object.freeze({ customer: cartCaptureCustomer(customer), items: Object.freeze(items) });
+}
+async function captureCartSnapshot(fetcher: Fetcher, value: PublicCart, customer?: StorefrontCartCaptureCustomer): Promise<void> {
+  const body = cartCaptureBody(value, customer);
+  if (body === null) return;
+  try {
+    await fetcher("/api/cart/capture", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return;
+  }
+}
 async function payload(response: Response): Promise<unknown> {
   if (response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json" || response.body === null) throw new StorefrontCartClientError("invalid_response");
   const declared = response.headers.get("content-length"); if (declared !== null && (!/^(?:0|[1-9]\d*)$/.test(declared) || Number(declared) > MAXIMUM)) throw new StorefrontCartClientError("invalid_response");
@@ -23,12 +49,13 @@ async function payload(response: Response): Promise<unknown> {
 
 export function createStorefrontCartClient(fetcher: Fetcher = fetch, uuid: () => string = crypto.randomUUID.bind(crypto)): StorefrontCartClient {
   async function call(path: string, body?: unknown, method = "POST") { try { const response = await fetcher(path, { method, credentials: "same-origin", cache: "no-store", ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) }); const value = await payload(response); if (!response.ok) throw new StorefrontCartClientError(publicFailure(value) ?? "request_failed"); return value; } catch (error) { if (error instanceof StorefrontCartClientError) throw error; throw new StorefrontCartClientError("request_failed"); } }
-  const mutation = async (path: string, body: Record<string, unknown>) => { const root = exact(await call(path, body), ["cart"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return cart(root.cart); };
+  const mutation = async (path: string, body: Record<string, unknown>) => { const root = exact(await call(path, body), ["cart"]); if (!root) throw new StorefrontCartClientError("invalid_response"); const nextCart = cart(root.cart); await captureCartSnapshot(fetcher, nextCart); return nextCart; };
   return Object.freeze({
     async resolve() { const root = exact(await call("/api/cart", undefined, "GET"), ["cart"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return cart(root.cart); },
     async add(input) { return mutation("/api/cart/add", { operationId: uuid(), ...input }); },
     async setQuantity(input) { return mutation("/api/cart/quantity", { operationId: uuid(), ...input }); },
     async remove(input) { return mutation("/api/cart/remove", { operationId: uuid(), ...input }); },
+    async capture(input) { await captureCartSnapshot(fetcher, input.cart, input.customer); },
     async buyNow(input) { const root = exact(await call("/api/cart/buy-now", { operationId: uuid(), ...input }), ["destination"]); if (!root || root.destination !== "/checkout?intent=buy-now") throw new StorefrontCartClientError("invalid_response"); return Object.freeze({ destination: "/checkout?intent=buy-now" as const }); },
     async quote(intentKind) { const root = exact(await call("/api/checkout/quote", { intentKind }), ["quote"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return quote(root.quote); },
     async startHosted(input) { const root = exact(await call("/api/checkout/payment/start", { operationId: uuid(), ...input }), ["destination"]); if (!root || root.destination !== "/checkout/payment") throw new StorefrontCartClientError("invalid_response"); return Object.freeze({ destination: "/checkout/payment" as const }); },

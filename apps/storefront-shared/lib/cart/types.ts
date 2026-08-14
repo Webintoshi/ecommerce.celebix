@@ -30,12 +30,14 @@ export type HostedCheckoutStartRequest = Readonly<{
 }>;
 
 export type HostedCheckoutStartClientInput = Omit<HostedCheckoutStartRequest, "kind" | "operationId">;
+export type StorefrontCartCaptureCustomer = Readonly<{ name?: string; email?: string; phone?: string }>;
 
 export type StorefrontCartClient = Readonly<{
   resolve(): Promise<PublicCart>;
   add(input: Readonly<{ productId: string; variantId: string; quantity: number; expectedVersion?: number }>): Promise<PublicCart>;
   setQuantity(input: Readonly<{ variantId: string; quantity: number; expectedVersion: number }>): Promise<PublicCart>;
   remove(input: Readonly<{ variantId: string; expectedVersion: number }>): Promise<PublicCart>;
+  capture(input: Readonly<{ cart: PublicCart; customer?: StorefrontCartCaptureCustomer }>): Promise<void>;
   buyNow(input: Readonly<{ productId: string; variantId: string; quantity: number }>): Promise<Readonly<{ destination: "/checkout?intent=buy-now" }>>;
   quote(intentKind: CheckoutIntentKind): Promise<PublicCheckoutQuote>;
   startHosted(input: HostedCheckoutStartClientInput): Promise<Readonly<{ destination: "/checkout/payment" }>>;

@@ -31,6 +31,7 @@ test("checkout renders delivery and server-projected payment on one screen", () 
 
 test("checkout submission contains only the exact server-owned contract and fixed success path", () => {
   for (const proof of ["operationId", "cartVersion", "intentKind", "contact", "shippingAddress", "shippingMethod", "paymentKind", "note"]) assert.match(form, new RegExp(proof, "u"));
+  assert.match(form, /storefrontCartClient[.]capture/u);
   assert.match(form, /\/api\/checkout\/complete/u);
   assert.match(form, /\/checkout\/success/u);
   assert.doesNotMatch(form, /priceCents\s*:|shippingCents\s*:|iban\s*:|storeId|tenantId|customerId|orderId|credential(?:Id|Value|Cookie)/u);

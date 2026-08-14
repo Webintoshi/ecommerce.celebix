@@ -85,6 +85,7 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
     const delivery = validation.value;
     setPending(true); setStatus(selectedMethod.kind === "hosted_card" ? "Güvenli ödeme ekranı hazırlanıyor." : "Siparişiniz güvenle oluşturuluyor.");
     try {
+      await storefrontCartClient.capture({ cart: quote.cart, customer: delivery.contact });
       if (selectedMethod.kind === "hosted_card") {
         const result = await storefrontCartClient.startHosted({ cartVersion: quote.cart.version, intentKind, contact: delivery.contact, shippingAddress: delivery.shippingAddress, shippingMethod: "standard", paymentMethodId: selectedMethod.id, ...(identityRequired ? { identityNumber } : {}), ...(delivery.note ? { note: delivery.note } : {}) });
         window.location.assign(result.destination);

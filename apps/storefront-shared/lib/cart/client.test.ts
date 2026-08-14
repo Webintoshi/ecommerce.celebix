@@ -10,6 +10,137 @@ const VARIANT = "20000000-0000-4000-8000-000000000001";
 const OPERATION = "30000000-0000-4000-8000-000000000001";
 const PAYMENT_METHOD = "40000000-0000-4000-8000-000000000001";
 
+test("cart mutations capture the canonical cart snapshot without private fields", async () => {
+  const calls: Array<{ input: string; init?: RequestInit }> = [];
+  const canonicalCart = {
+    version: 4,
+    currency: "TRY",
+    itemCount: 3,
+    subtotalCents: 22_500,
+    shippingCents: 0,
+    totalCents: 22_500,
+    checkoutReady: true,
+    checkoutBlocker: null,
+    items: [
+      {
+        productId: PRODUCT,
+        variantId: VARIANT,
+        slug: "14-ayar-altin-yuzuk",
+        title: "14 Ayar Altın Yüzük",
+        variantTitle: "Standart",
+        quantity: 3,
+        unitPriceCents: 7_500,
+        lineTotalCents: 22_500,
+        available: true,
+      },
+    ],
+  } satisfies PublicCart;
+  const client = createStorefrontCartClient(async (input, init) => {
+    calls.push({ input: String(input), init });
+    if (String(input) === "/api/cart/capture") {
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ cart: canonicalCart }), { status: 200, headers: { "content-type": "application/json" } });
+  }, () => OPERATION);
+
+  await client.add({ productId: PRODUCT, variantId: VARIANT, quantity: 3 });
+
+  assert.equal(calls[0]?.input, "/api/cart/add");
+  assert.equal(calls[1]?.input, "/api/cart/capture");
+  assert.equal(calls[1]?.init?.method, "POST");
+  assert.equal(calls[1]?.init?.credentials, "same-origin");
+  assert.equal(calls[1]?.init?.cache, "no-store");
+  assert.deepEqual(JSON.parse(String(calls[1]?.init?.body)), {
+    customer: {},
+    items: [{ productId: PRODUCT, variantId: VARIANT, quantity: 3 }],
+  });
+  assert.doesNotMatch(String(calls[1]?.init?.body), /price|credential|tenantId|storeId|title|slug|media|lineTotal/u);
+});
+
+test("cart capture failures do not block the canonical cart update", async () => {
+  const canonicalCart = {
+    version: 4,
+    currency: "TRY",
+    itemCount: 1,
+    subtotalCents: 7_500,
+    shippingCents: 0,
+    totalCents: 7_500,
+    checkoutReady: true,
+    checkoutBlocker: null,
+    items: [
+      {
+        productId: PRODUCT,
+        variantId: VARIANT,
+        slug: "14-ayar-altin-yuzuk",
+        title: "14 Ayar Altın Yüzük",
+        variantTitle: "Standart",
+        quantity: 1,
+        unitPriceCents: 7_500,
+        lineTotalCents: 7_500,
+        available: true,
+      },
+    ],
+  } satisfies PublicCart;
+  const client = createStorefrontCartClient(async (input) => {
+    if (String(input) === "/api/cart/capture") throw new TypeError("network down");
+    return new Response(JSON.stringify({ cart: canonicalCart }), { status: 200, headers: { "content-type": "application/json" } });
+  }, () => OPERATION);
+
+  assert.deepEqual(await client.add({ productId: PRODUCT, variantId: VARIANT, quantity: 1 }), canonicalCart);
+});
+
+test("cart client refreshes abandoned cart capture with checkout customer identity", async () => {
+  const calls: Array<{ input: string; init?: RequestInit }> = [];
+  const canonicalCart = {
+    version: 7,
+    currency: "TRY",
+    itemCount: 2,
+    subtotalCents: 22_742,
+    shippingCents: 0,
+    totalCents: 22_742,
+    checkoutReady: true,
+    checkoutBlocker: null,
+    items: [
+      {
+        productId: PRODUCT,
+        variantId: VARIANT,
+        slug: "14-ayar-altin-dugum-yuzuk-1021",
+        title: "14 Ayar Altın Taşlı Düğüm Yüzük 1021",
+        variantTitle: "Standart",
+        quantity: 2,
+        unitPriceCents: 11_371,
+        lineTotalCents: 22_742,
+        available: true,
+      },
+    ],
+  } satisfies PublicCart;
+  const client = createStorefrontCartClient(async (input, init) => {
+    calls.push({ input: String(input), init });
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+  }, () => OPERATION);
+
+  await client.capture({
+    cart: canonicalCart,
+    customer: {
+      name: "Güzide Elif",
+      email: "info@guzidekuyumcu.com.tr",
+      phone: "+905551112233",
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.input, "/api/cart/capture");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    customer: {
+      name: "Güzide Elif",
+      email: "info@guzidekuyumcu.com.tr",
+      phone: "+905551112233",
+    },
+    items: [{ productId: PRODUCT, variantId: VARIANT, quantity: 2 }],
+  });
+  assert.doesNotMatch(String(calls[0]?.init?.body), /price|credential|tenantId|storeId|title|slug|media|lineTotal/u);
+});
+
 test("add-to-cart opens the drawer before the network result and then installs the canonical cart", async () => {
   const candidate = (cartClientModule as unknown as Record<string, unknown>).addCartLineAndOpenDrawer;
   assert.equal(typeof candidate, "function");
