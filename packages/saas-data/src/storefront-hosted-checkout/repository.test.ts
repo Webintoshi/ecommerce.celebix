@@ -157,6 +157,33 @@ test("presentation save/read preserves only the digest-bound sealed presentation
   assert.equal(state.presentationDigest, "3".repeat(64)); assert.equal(Object.isFrozen(state.sealedPresentation), true);
 });
 
+test("presentation save accepts the shared sealed-envelope key id contract", async () => {
+  const presentationKey = "Quick.Order-Key_V1";
+  const sealed = { ...envelope(), keyId: presentationKey };
+  const client = new Client((text) => text.includes("presentation_save")
+    ? row("updated", { sessionId: SESSION, status: "provider_ready", version: 2, providerCode: "paytr_iframe", presentationExpiresAt: "2026-08-06T12:05:00.000Z" })
+    : []);
+
+  await repository(new Pool([client])).savePresentation({
+    hostname: HOST, now: NOW, candidates: [{ keyId: "payment-key", digest: "e".repeat(64) }],
+    operationId: "87000000-0000-4000-8000-000000000192", fingerprint: "2".repeat(64), expectedVersion: 1,
+    presentationKeyId: presentationKey, presentationDigest: "3".repeat(64), sealedPresentation: sealed,
+    presentationExpiresAt: new Date("2026-08-06T12:05:00.000Z"),
+  });
+
+  const call = client.calls.find(({ text }) => text.includes("presentation_save"));
+  assert.equal(call?.values[6], presentationKey);
+});
+
+test("begin keeps issued commerce credential key ids on the narrow contract", async () => {
+  const client = new Client(() => []);
+  await assert.rejects(repository(new Pool([client])).begin({
+    ...beginInput(),
+    paymentSession: { keyId: "Quick.Order-Key_V1", digest: "e".repeat(64) },
+  }), (error: unknown) => error instanceof StorefrontHostedCheckoutRepositoryError && error.code === "invalid_input");
+  assert.equal(client.calls.length, 0);
+});
+
 test("status returns only the finite public lifecycle", async () => {
   const client = new Client((text) => text.includes("checkout_status") ? row("found", { sessionId: SESSION, status: "processing", safeCode: "provider_processing", version: 3, paymentSessionExpiresAt: "2026-08-06T12:15:00.000Z" }) : []);
   const status = await repository(new Pool([client])).status({ hostname: HOST, now: NOW, candidates: [{ keyId: "payment-key", digest: "e".repeat(64) }] });

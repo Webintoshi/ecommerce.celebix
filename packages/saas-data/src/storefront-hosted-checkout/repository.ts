@@ -86,6 +86,10 @@ function keyId(value: unknown): string {
   if (typeof value !== "string" || !/^[a-z0-9][a-z0-9_-]{0,31}$/u.test(value)) invalid();
   return value;
 }
+function sealedEnvelopeKeyId(value: unknown): string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9._-]{1,128}$/u.test(value)) invalid();
+  return value;
+}
 function issued(value: unknown) {
   const parsed = hostedExact(value, ["keyId", "digest"]);
   return Object.freeze({ keyId: keyId(parsed.keyId), digest: hostedInput.digest(parsed.digest) });
@@ -223,7 +227,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
       const values = [
         hostedInput.hostname(parsed.hostname), now, JSON.stringify(hostedInput.candidates(parsed.candidates)),
         hostedInput.uuid(parsed.operationId), hostedInput.digest(parsed.fingerprint), hostedInput.version(parsed.expectedVersion),
-        keyId(presentationKeyId), hostedInput.digest(parsed.presentationDigest), JSON.stringify(sealedPresentation), expiresAt,
+        sealedEnvelopeKeyId(presentationKeyId), hostedInput.digest(parsed.presentationDigest), JSON.stringify(sealedPresentation), expiresAt,
       ];
       const client = await this.acquire(); let began = false; let terminal = false;
       try {
