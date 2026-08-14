@@ -100,6 +100,37 @@ test("callback authority accepts one bounded PayTR installment count on success"
   }
 });
 
+test("callback authority strips one bounded PayTR merchant id before adapter verification", async () => {
+  const providerForm = new URLSearchParams({
+    merchant_oid: "abcdef0123456789abcdef0123456789",
+    status: "success",
+    total_amount: "3600",
+    hash: "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "3600",
+    currency: "TL",
+    installment_count: "1",
+    merchant_id: "123456",
+  }).toString();
+  const result = await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(callbackUrl, { body: providerForm }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+  });
+  const adapterForm = new URLSearchParams(providerForm);
+  adapterForm.delete("installment_count");
+  adapterForm.delete("merchant_id");
+  assert.equal(result?.form, adapterForm.toString());
+  for (const value of ["", "012345", "12345", "12345678901234567", "+123456", "ABC123"]) {
+    assert.equal(await callbackAuthority.readExactPaytrCallbackRequest!({
+      request: request(callbackUrl, { body: providerForm.replace("merchant_id=123456", `merchant_id=${encodeURIComponent(value)}`) }),
+      trustedHostname: hostname,
+      configuredCallbackUrl: callbackUrl,
+    }), null);
+  }
+});
+
 test("callback authority denies host, scheme, path, type, duplicate, unknown, and size near matches", async () => {
   const read = callbackAuthority.readExactPaytrCallbackRequest!;
   const cases = [
