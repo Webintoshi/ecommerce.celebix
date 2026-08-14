@@ -11,7 +11,8 @@ export type PaytrCallbackRequestRejectionStage =
   | "method" | "content_type" | "headers" | "authority"
   | "target" | "length" | "body" | "form_encoding" | "form_status"
   | "form_context" | "form_fields_duplicate" | "form_fields_failure_on_success"
-  | "form_fields_installment" | "form_fields_merchant" | "form_fields_test_mode"
+  | "form_fields_installment_status" | "form_fields_installment_value"
+  | "form_fields_merchant" | "form_fields_test_mode"
   | "form_fields_payment_type" | "form_fields_unknown_extra"
   | "form_fields_unknown_missing" | "form_fields_unknown_replace" | "form_oid";
 
@@ -65,8 +66,9 @@ function exactForm(
   const hasCurrency = params.has("currency");
   if (hasPaymentAmount !== hasCurrency) return reject("form_context");
   const installmentCount = params.get("installment_count");
-  if (installmentCount !== null && (status !== "success" || !INSTALLMENT_COUNT.test(installmentCount))) {
-    return reject("form_fields_installment");
+  if (installmentCount !== null && status !== "success") return reject("form_fields_installment_status");
+  if (installmentCount !== null && !INSTALLMENT_COUNT.test(installmentCount)) {
+    return reject("form_fields_installment_value");
   }
   const baseExpected = status === "success"
     ? hasPaymentAmount ? SUCCESS_CONTEXT_FIELDS : SUCCESS_FIELDS
@@ -77,7 +79,6 @@ function exactForm(
     if (status === "success" && (names.has("failed_reason_code") || names.has("failed_reason_msg"))) {
       return reject("form_fields_failure_on_success");
     }
-    if (names.has("installment_count")) return reject("form_fields_installment");
     if (names.has("merchant_id")) return reject("form_fields_merchant");
     if (!names.has("test_mode")) return reject("form_fields_test_mode");
     if (!names.has("payment_type")) return reject("form_fields_payment_type");
