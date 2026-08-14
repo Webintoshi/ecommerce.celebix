@@ -343,6 +343,8 @@ test("default storefront call site stages the real repository keyring and transp
   assert.match(source, /compiledHostedPaymentAuthorities/);
   assert.match(source, /CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE/);
   assert.match(source, /payment_provider_keyed_lifecycle_preflight/);
+  assert.match(source, /queryAsWorkflowRole\(pool,\s*`SELECT saas[.]storefront_hosted_payment_execution_authority_matches\(/u);
+  assert.doesNotMatch(source, /pool[.]query\(\{[\s\S]*merchant_provider_execution_authority_matches/u);
   assert.match(
     source,
     /finally\s*\{[\s\S]*!runtimeOwnsKeyring[\s\S]*key[.]fill\(0\)/,

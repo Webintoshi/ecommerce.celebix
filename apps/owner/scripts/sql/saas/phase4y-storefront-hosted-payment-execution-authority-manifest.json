@@ -1,0 +1,23 @@
+{
+  "phase": "phase4y-storefront-hosted-payment-execution-authority",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608140108_storefront_hosted_payment_execution_authority.up.sql",
+      "direction": "up",
+      "sha256": "0a8be77f4cd710756f7ac7d0da579f86965ba57ec79203a88cedd42a68af92af"
+    },
+    {
+      "file": "202608140108_storefront_hosted_payment_execution_authority.down.sql",
+      "direction": "down",
+      "sha256": "fcdd1ccccb6a740fa9355cd10deca4b1dd1ab87ad58c6899e041188fd8dc594d"
+    },
+    {
+      "file": "202608140108_storefront_hosted_payment_execution_authority_assertions.sql",
+      "direction": "verify",
+      "sha256": "d484a28e5e881ec992b14020b722d81a0b09fecae3b8fb227a8d48edd45f79ce"
+    }
+  ]
+}

@@ -138,18 +138,15 @@ async function currentExecutionAuthorityMatches(
   authority: Parameters<HostedPaymentRuntimeDependencies["matchesCompiledAuthority"]>[0],
 ): Promise<boolean> {
   try {
-    const exact = await pool.query({
-      text: `SELECT saas.merchant_provider_execution_authority_matches(
+    const exact = await queryAsWorkflowRole(pool, `SELECT saas.storefront_hosted_payment_execution_authority_matches(
         $1::text,$2::text,$3::text,$4::integer,$5::text
-      ) AS exact_authority`,
-      values: [
-        authority.providerCode,
-        authority.capability,
-        authority.environment,
-        authority.adapterVersion,
-        authority.evidenceDigest,
-      ],
-    });
+      ) AS exact_authority`, [
+      authority.providerCode,
+      authority.capability,
+      authority.environment,
+      authority.adapterVersion,
+      authority.evidenceDigest,
+    ]);
     return exact.rowCount === 1 && exact.rows[0]?.exact_authority === true;
   } catch {
     return false;
@@ -378,6 +375,7 @@ async function initializeHostedPaymentInfrastructure(
           AS migration_052,
         to_regclass('saas.merchant_provider_execution_authorities') IS NOT NULL
           AND to_regprocedure('saas.merchant_provider_execution_authority_matches(text,text,text,integer,text)') IS NOT NULL
+          AND to_regprocedure('saas.storefront_hosted_payment_execution_authority_matches(text,text,text,integer,text)') IS NOT NULL
           AND to_regprocedure('saas.payment_provider_keyed_lifecycle_preflight()') IS NOT NULL
           AND saas.payment_provider_keyed_lifecycle_preflight()
           AS migration_056,
