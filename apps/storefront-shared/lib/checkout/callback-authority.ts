@@ -5,6 +5,7 @@ const MAX_CALLBACK_BYTES = 2_048;
 const MERCHANT_OID = /^(?:[a-f0-9]{32}|[a-f0-9]{64})$/;
 const SUCCESS_FIELDS = Object.freeze(["merchant_oid", "status", "total_amount", "hash", "payment_type", "test_mode"]);
 const SUCCESS_CONTEXT_FIELDS = Object.freeze([...SUCCESS_FIELDS, "payment_amount", "currency"]);
+const INSTALLMENT_COUNT = /^(?:0|[2-9]|1[0-2])$/;
 const FAILED_FIELDS = Object.freeze([...SUCCESS_FIELDS, "failed_reason_code", "failed_reason_msg"]);
 export type PaytrCallbackRequestRejectionStage =
   | "method" | "content_type" | "headers" | "authority"
@@ -63,9 +64,14 @@ function exactForm(
   const hasPaymentAmount = params.has("payment_amount");
   const hasCurrency = params.has("currency");
   if (hasPaymentAmount !== hasCurrency) return reject("form_context");
-  const expected = status === "success"
+  const installmentCount = params.get("installment_count");
+  if (installmentCount !== null && (status !== "success" || !INSTALLMENT_COUNT.test(installmentCount))) {
+    return reject("form_fields_installment");
+  }
+  const baseExpected = status === "success"
     ? hasPaymentAmount ? SUCCESS_CONTEXT_FIELDS : SUCCESS_FIELDS
     : status === "failed" ? FAILED_FIELDS : [];
+  const expected = installmentCount === null ? baseExpected : [...baseExpected, "installment_count"];
   if (entries.length !== expected.length || entries.some(([name]) => !expected.includes(name)) ||
       expected.some((name) => !params.has(name))) {
     if (status === "success" && (names.has("failed_reason_code") || names.has("failed_reason_msg"))) {

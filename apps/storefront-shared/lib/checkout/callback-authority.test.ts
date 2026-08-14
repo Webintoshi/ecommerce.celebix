@@ -65,6 +65,33 @@ test("callback authority accepts the documented successful payment context", asy
   assert.match(result?.callbackDigest ?? "", /^[a-f0-9]{64}$/);
 });
 
+test("callback authority accepts one bounded PayTR installment count on success", async () => {
+  const installmentForm = new URLSearchParams({
+    merchant_oid: "abcdef0123456789abcdef0123456789",
+    status: "success",
+    total_amount: "3600",
+    hash: "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "3600",
+    currency: "TL",
+    installment_count: "0",
+  }).toString();
+  const result = await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(callbackUrl, { body: installmentForm }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+  });
+  assert.equal(result?.merchantOid, "abcdef0123456789abcdef0123456789");
+  for (const value of ["", "00", "1", "13", "+2", "2.0"]) {
+    assert.equal(await callbackAuthority.readExactPaytrCallbackRequest!({
+      request: request(callbackUrl, { body: installmentForm.replace("installment_count=0", `installment_count=${encodeURIComponent(value)}`) }),
+      trustedHostname: hostname,
+      configuredCallbackUrl: callbackUrl,
+    }), null);
+  }
+});
+
 test("callback authority denies host, scheme, path, type, duplicate, unknown, and size near matches", async () => {
   const read = callbackAuthority.readExactPaytrCallbackRequest!;
   const cases = [
