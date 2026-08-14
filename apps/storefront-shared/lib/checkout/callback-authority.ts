@@ -13,7 +13,8 @@ export type PaytrCallbackRequestRejectionStage =
   | "target" | "length" | "body" | "form_encoding" | "form_status"
   | "form_context" | "form_fields_duplicate" | "form_fields_failure_on_success"
   | "form_fields_installment_status" | "form_fields_installment_value"
-  | "form_fields_merchant" | "form_fields_test_mode"
+  | "form_fields_merchant" | "form_fields_callback_id" | "form_fields_provider_id"
+  | "form_fields_non_3d" | "form_fields_card_type" | "form_fields_test_mode"
   | "form_fields_payment_type" | "form_fields_unknown_extra"
   | "form_fields_unknown_missing" | "form_fields_unknown_replace" | "form_oid";
 
@@ -83,7 +84,10 @@ function exactForm(
     if (status === "success" && (names.has("failed_reason_code") || names.has("failed_reason_msg"))) {
       return reject("form_fields_failure_on_success");
     }
-    if (names.has("merchant_id")) return reject("form_fields_merchant");
+    if (names.has("callback_id")) return reject("form_fields_callback_id");
+    if (names.has("id")) return reject("form_fields_provider_id");
+    if (names.has("non_3d")) return reject("form_fields_non_3d");
+    if (names.has("card_type")) return reject("form_fields_card_type");
     if (!names.has("test_mode")) return reject("form_fields_test_mode");
     if (!names.has("payment_type")) return reject("form_fields_payment_type");
     if (entries.length > expected.length) return reject("form_fields_unknown_extra");
