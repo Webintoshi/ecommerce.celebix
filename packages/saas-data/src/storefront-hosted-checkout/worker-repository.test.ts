@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { QueryResult } from "pg";
 
 import type { PostgresPoolLike } from "../postgres/pool.ts";
 import { PostgresStorefrontHostedCheckoutWorkerRepository } from "./worker-repository.ts";
@@ -11,8 +12,21 @@ class Client {
   readonly calls: Array<{ text: string; values: unknown[] }> = [];
   readonly releases: unknown[] = [];
   private readonly responder: (text: string, values: unknown[]) => Row[];
-  constructor(responder: (text: string, values: unknown[]) => Row[]) { this.responder = responder; }
-  async query(text: string, values: unknown[] = []) { this.calls.push({ text, values }); const rows = this.responder(text, values); return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] }; }
+  private readonly realPgResult: boolean;
+  constructor(responder: (text: string, values: unknown[]) => Row[], realPgResult = false) {
+    this.responder = responder;
+    this.realPgResult = realPgResult;
+  }
+  async query(text: string, values: unknown[] = []): Promise<QueryResult<Row>> {
+    this.calls.push({ text, values });
+    const rows = this.responder(text, values);
+    const result: QueryResult<Row> = { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
+    if (this.realPgResult) Object.assign(result, {
+      RowCtor: null, _parsers: [], _prebuiltEmptyResultObject: null,
+      _types: {}, rowAsArray: false,
+    });
+    return result;
+  }
   release(value?: unknown) { this.releases.push(value); }
 }
 class Pool implements PostgresPoolLike {
@@ -48,6 +62,18 @@ test("worker expires a bounded pre-provider batch transactionally", async () => 
   const repository = new PostgresStorefrontHostedCheckoutWorkerRepository(options(new Pool([client])));
   assert.equal(await repository.expireCreated({ now: NOW, limit: 25 }), 3);
   assert.equal(client.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
+});
+
+test("worker accepts the real pg Result envelope while keeping the row contract exact", async () => {
+  const client = new Client((text) => text.includes("storefront_hosted_checkout_reconciliation_candidates") ? [{
+    outcome: "found",
+    result_payload: { candidates: [{ attemptId: ATTEMPT, attemptVersion: 4, attemptStatus: "provider_outcome_unknown", credentialVersion: 2, providerReference: null }] },
+  }] : [], true);
+  const repository = new PostgresStorefrontHostedCheckoutWorkerRepository(options(new Pool([client])));
+  const candidates = await repository.reconciliationCandidates({ now: NOW, limit: 25 });
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.attemptId, ATTEMPT);
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });
 
