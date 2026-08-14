@@ -70,6 +70,7 @@ const PACKET = parsePaymentAdapterPacket(packetFixture());
 const ENDPOINT = "https://www.paytr.com/odeme/api/get-token";
 const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded";
 const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+const PAYTR_LEGACY_JSON_CONTENT_TYPE = "text/html; charset=UTF-8";
 const IYZICO_JSON_CONTENT_TYPE = "application/json";
 const IYZICO_RANDOM_KEY = "abcdefghijklmnop";
 const IYZICO_AUTHORIZATION = "IYZWSv2 YXBpS2V5OnNhbmRib3gtYXBpLWtleSZyYW5kb21LZXk6YWJjZGVmZ2hpamtsbW5vcCZzaWduYXR1cmU6MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZg==";
@@ -322,6 +323,63 @@ test("sends one contained POST to the exact packet/environment endpoint", async 
     assert.equal(new TextDecoder().decode(response.body), '{"status":"success"}');
   }
   assert.deepEqual([...body], Array(body.length).fill(0));
+});
+
+test("accepts PayTR get-token JSON with its legacy response content type", async () => {
+  const transport = createBoundedProviderTransport({
+    fetch: async () => new Response('{"status":"success"}', {
+      status: 200,
+      headers: { "content-type": PAYTR_LEGACY_JSON_CONTENT_TYPE },
+    }),
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+
+  const response = await request(transport);
+
+  assert.equal(response.kind, "response");
+  if (response.kind === "response") {
+    assert.equal(response.contentType, PAYTR_LEGACY_JSON_CONTENT_TYPE);
+    assert.equal(new TextDecoder().decode(response.body), '{"status":"success"}');
+  }
+});
+
+test("keeps PayTR legacy content-type compatibility endpoint- and provider-scoped", async () => {
+  const transport = createBoundedProviderTransport({
+    fetch: async () => new Response('{"status":"success"}', {
+      status: 200,
+      headers: { "content-type": PAYTR_LEGACY_JSON_CONTENT_TYPE },
+    }),
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+
+  assert.deepEqual(await request(transport, {
+    url: "https://www.paytr.com/odeme/durum-sorgu",
+  }), {
+    kind: "unknown",
+    code: "transport_outcome_unknown",
+  });
+  assert.deepEqual(await iyzicoRequest(transport), {
+    kind: "unknown",
+    code: "transport_outcome_unknown",
+  });
+});
+
+test("rejects malformed PayTR get-token JSON despite its legacy response content type", async () => {
+  const transport = createBoundedProviderTransport({
+    fetch: async () => new Response('{"status":', {
+      status: 200,
+      headers: { "content-type": PAYTR_LEGACY_JSON_CONTENT_TYPE },
+    }),
+    timeoutMs: 20_000,
+    maximumResponseBytes: 8_192,
+  });
+
+  assert.deepEqual(await request(transport), {
+    kind: "unknown",
+    code: "transport_outcome_unknown",
+  });
 });
 
 test("rejects every non-byte-equal origin, path, query, and environment endpoint before fetch", async () => {

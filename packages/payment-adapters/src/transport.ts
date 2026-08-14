@@ -15,6 +15,9 @@ const REQUEST_HEADER_KEYS = Object.freeze([
 ]);
 const IYZICO_PROVIDER_CODE = "iyzico_iframe";
 const IYZICO_CONTENT_TYPE = "application/json";
+const PAYTR_PROVIDER_CODE = "paytr_iframe";
+const PAYTR_TOKEN_ENDPOINT = "https://www.paytr.com/odeme/api/get-token";
+const PAYTR_LEGACY_JSON_CONTENT_TYPE = "text/html; charset=UTF-8";
 const RESPONSE_CONTENT_TYPES = Object.freeze([
   "application/json",
   "application/json; charset=utf-8",
@@ -472,6 +475,18 @@ function validateJson(bytes: Uint8Array): void {
   if (duplicateJsonKeys(text)) invalid();
 }
 
+function acceptedResponseContentType(
+  contentType: string,
+  providerCode: string,
+  endpoint: string,
+): boolean {
+  return RESPONSE_CONTENT_TYPES.includes(contentType) || (
+    providerCode === PAYTR_PROVIDER_CODE &&
+    endpoint === PAYTR_TOKEN_ENDPOINT &&
+    contentType === PAYTR_LEGACY_JSON_CONTENT_TYPE
+  );
+}
+
 export function createBoundedProviderTransport(options: {
   fetch(request: Request): Promise<Response>;
   timeoutMs: number;
@@ -555,7 +570,10 @@ export function createBoundedProviderTransport(options: {
           response.headers.has("set-cookie2")
         ) invalid();
         const contentType = response.headers.get("content-type");
-        if (contentType === null || !RESPONSE_CONTENT_TYPES.includes(contentType)) invalid();
+        if (
+          contentType === null ||
+          !acceptedResponseContentType(contentType, packet.providerCode, endpoint)
+        ) invalid();
         responseBody = await boundedBytes(response, maximumResponseBytes, aborted);
         validateJson(responseBody);
         const resultBody = new Uint8Array(responseBody);
