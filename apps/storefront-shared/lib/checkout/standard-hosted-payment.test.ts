@@ -99,7 +99,14 @@ function baseAttempts(): PaymentAttemptRepository {
   };
 }
 
-function fixture(selectedPresentation: HostedPaymentPresentation, outcome: "created" | "replayed" = "created") {
+function fixture(
+  selectedPresentation: HostedPaymentPresentation,
+  outcome: "created" | "replayed" = "created",
+  options: Readonly<{
+    savePresentationError?: Error;
+    audit?: (event: Readonly<{ stage: string }>) => void;
+  }> = {},
+) {
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
   let savedInput: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   let stored: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
@@ -124,6 +131,7 @@ function fixture(selectedPresentation: HostedPaymentPresentation, outcome: "crea
     authority: async () => authority,
     begin: async (input) => { beginInput = input; return begun; },
     savePresentation: async (input) => {
+      if (options.savePresentationError) throw options.savePresentationError;
       savedInput = input; stored = input;
       return Object.freeze({ sessionId: input.candidates[0]?.digest.slice(0, 8).padEnd(8, "0") + "-0000-4000-8000-000000000001", status: "provider_ready", version: 2, providerCode: "iyzico_iframe", presentationExpiresAt: input.presentationExpiresAt.toISOString() });
     },
@@ -133,7 +141,7 @@ function fixture(selectedPresentation: HostedPaymentPresentation, outcome: "crea
     },
     status: async () => Object.freeze({ sessionId: beginInput?.sessionId ?? ATTEMPT, status: "processing", safeCode: "provider_pending", version: 2, paymentSessionExpiresAt: new Date(NOW.getTime() + 900_000).toISOString() }),
   };
-  const runtime = createStandardHostedCheckoutRuntime({
+  const dependencies: Parameters<typeof createStandardHostedCheckoutRuntime>[0] = {
     repository,
     commerceKeyring,
     presentationKeyring,
@@ -156,7 +164,9 @@ function fixture(selectedPresentation: HostedPaymentPresentation, outcome: "crea
         reconcile: async () => ({ kind: "rejected" as const }),
       }),
     }),
-  });
+    ...(options.audit ? { audit: options.audit } : {}),
+  };
+  const runtime = createStandardHostedCheckoutRuntime(dependencies);
   return { runtime, getBegin: () => beginInput, getSaved: () => savedInput };
 }
 
@@ -204,4 +214,15 @@ test("provider rejection fails closed and emits no browser credential", async ()
   const selected = fixture({ kind: "rejected" });
   await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }), /unavailable/u);
   assert.equal(selected.getSaved(), undefined);
+});
+
+test("presentation persistence failure emits only a safe diagnostic stage", async () => {
+  const events: string[] = [];
+  const selected = fixture(
+    { kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    { savePresentationError: new Error("private database detail"), audit: (event) => events.push(event.stage) },
+  );
+  await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }));
+  assert.deepEqual(events, ["presentation_persistence_failed"]);
 });

@@ -70,10 +70,15 @@ type Dependencies = Readonly<{
   resolveExecution(): Promise<StandardHostedCheckoutExecution | null>;
   now(): Date;
   randomUuid(): string;
+  audit?(event: Readonly<{ stage: "provider_rejected" | "credential_persistence_missing" | "browser_credential_reconstruction_failed" | "presentation_invalid" | "presentation_seal_failed" | "presentation_persistence_failed" }>): void;
 }>;
 
 function unavailable(): never { throw new StandardHostedCheckoutRuntimeError("unavailable"); }
 function invalid(): never { throw new StandardHostedCheckoutRuntimeError("invalid_input"); }
+
+function audit(dependencies: Dependencies, stage: Parameters<NonNullable<Dependencies["audit"]>>[0]["stage"]): void {
+  try { dependencies.audit?.(Object.freeze({ stage })); } catch { /* diagnostics cannot affect checkout */ }
+}
 
 function now(dependencies: Dependencies): Date {
   const value = dependencies.now();
@@ -286,39 +291,48 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         }),
         basket: authority.basket,
       });
-      if (persistedKeys === undefined) return unavailable();
-      const persistedPaymentSession = createStorefrontOperationCredential("hosted_checkout", input.request.operationId, dependencies.commerceKeyring, persistedKeys.paymentSessionKeyId);
-      const persistedReceipt = createStorefrontOperationCredential("receipt", input.request.operationId, dependencies.commerceKeyring, persistedKeys.receiptKeyId);
-      const persistedCustomer = createStorefrontOperationCredential("customer", input.request.operationId, dependencies.commerceKeyring, persistedKeys.customerKeyId);
-      if (providerPresentation.kind === "rejected") return unavailable();
-      const browserCookies = Object.freeze([
-        serializeStandardHostedCheckoutCookie(persistedPaymentSession.value),
-        serializeStorefrontCredentialCookie("receipt", persistedReceipt.value),
-        serializeStorefrontCredentialCookie("customer", persistedCustomer.value),
-      ]);
+      if (persistedKeys === undefined) { audit(dependencies, "credential_persistence_missing"); return unavailable(); }
+      if (providerPresentation.kind === "rejected") { audit(dependencies, "provider_rejected"); return unavailable(); }
+      let persistedPaymentSession: ReturnType<typeof createStorefrontOperationCredential>;
+      let browserCookies: readonly string[];
+      try {
+        persistedPaymentSession = createStorefrontOperationCredential("hosted_checkout", input.request.operationId, dependencies.commerceKeyring, persistedKeys.paymentSessionKeyId);
+        const persistedReceipt = createStorefrontOperationCredential("receipt", input.request.operationId, dependencies.commerceKeyring, persistedKeys.receiptKeyId);
+        const persistedCustomer = createStorefrontOperationCredential("customer", input.request.operationId, dependencies.commerceKeyring, persistedKeys.customerKeyId);
+        browserCookies = Object.freeze([
+          serializeStandardHostedCheckoutCookie(persistedPaymentSession.value),
+          serializeStorefrontCredentialCookie("receipt", persistedReceipt.value),
+          serializeStorefrontCredentialCookie("customer", persistedCustomer.value),
+        ]);
+      } catch { audit(dependencies, "browser_credential_reconstruction_failed"); return unavailable(); }
       if (providerPresentation.kind === "processing") {
         return Object.freeze({ destination: "/checkout/payment" as const, state: "processing" as const, setCookies: browserCookies });
       }
       const presentation = exactPresentation(authority.providerCode, authority.environment, providerPresentation);
-      if (presentation === null) return unavailable();
+      if (presentation === null) { audit(dependencies, "presentation_invalid"); return unavailable(); }
       const serialized = JSON.stringify(Object.freeze({
         version: 1, sessionId, providerCode: authority.providerCode,
         environment: authority.environment, presentation,
       }));
       const presentationDigest = createHash("sha256").update(serialized, "utf8").digest("hex");
-      const sealedPresentation = sealQuickLinkSecret({
-        plaintext: serialized, purpose: "hosted-presentation",
-        storeId: sessionId, objectId: sessionId, digest: presentationDigest,
-        keyring: dependencies.presentationKeyring,
-      });
-      await dependencies.repository.savePresentation({
-        hostname: input.hostname, now: selectedNow,
-        candidates: Object.freeze([{ keyId: persistedPaymentSession.keyId, digest: persistedPaymentSession.digest }]),
-        operationId: derivedUuid("presentation-operation", input.hostname, input.request.operationId),
-        fingerprint: digest("presentation", sessionId, presentationDigest), expectedVersion: 1,
-        presentationKeyId: sealedPresentation.keyId, presentationDigest,
-        sealedPresentation, presentationExpiresAt: new Date(selectedNow.getTime() + PRESENTATION_LIFETIME_MS),
-      });
+      let sealedPresentation: ReturnType<typeof sealQuickLinkSecret>;
+      try {
+        sealedPresentation = sealQuickLinkSecret({
+          plaintext: serialized, purpose: "hosted-presentation",
+          storeId: sessionId, objectId: sessionId, digest: presentationDigest,
+          keyring: dependencies.presentationKeyring,
+        });
+      } catch { audit(dependencies, "presentation_seal_failed"); return unavailable(); }
+      try {
+        await dependencies.repository.savePresentation({
+          hostname: input.hostname, now: selectedNow,
+          candidates: Object.freeze([{ keyId: persistedPaymentSession.keyId, digest: persistedPaymentSession.digest }]),
+          operationId: derivedUuid("presentation-operation", input.hostname, input.request.operationId),
+          fingerprint: digest("presentation", sessionId, presentationDigest), expectedVersion: 1,
+          presentationKeyId: sealedPresentation.keyId, presentationDigest,
+          sealedPresentation, presentationExpiresAt: new Date(selectedNow.getTime() + PRESENTATION_LIFETIME_MS),
+        });
+      } catch { audit(dependencies, "presentation_persistence_failed"); return unavailable(); }
       return Object.freeze({ destination: "/checkout/payment" as const, state: "ready" as const, setCookies: browserCookies });
     },
     async presentation(input) {
