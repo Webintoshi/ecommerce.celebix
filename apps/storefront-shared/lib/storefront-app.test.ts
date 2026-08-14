@@ -726,6 +726,27 @@ test("storefront CSP permits only the exact Google stylesheet and font origins",
   assert.doesNotMatch(csp, /font-src[^;]*(?:\shttps:(?:\s|;)|\s\*)/u);
 });
 
+test("storefront responses forbid intermediary HTML transforms", async () => {
+  type Factory = (dependencies: Readonly<{
+    selectAuthority: () => Readonly<{ kind: "trusted"; hostname: string }>;
+    resolveMediaOrigin: () => string;
+    authorizePaytrIframe: () => Promise<boolean>;
+    now: () => Date;
+  }>) => (request: import("next/server.js").NextRequest) => Promise<import("next/server.js").NextResponse>;
+  const { createStorefrontProxy } = await import("../proxy.ts") as unknown as { createStorefrontProxy: Factory };
+  const { NextRequest } = await import("next/server.js");
+  const handler = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "pilot.saas-staging.celebix.site" }),
+    resolveMediaOrigin: () => "https://media.celebix.net",
+    authorizePaytrIframe: async () => false,
+    now: () => new Date("2026-08-14T12:00:00.000Z"),
+  });
+
+  const response = await handler(new NextRequest("https://internal.example/products"));
+
+  assert.match(response.headers.get("cache-control") ?? "", /(?:^|,\s*)no-transform(?:,|$)/u);
+});
+
 test("proxy grants exact-origin form authority only to the account verification page", async () => {
   type Factory = (dependencies: Readonly<{
     selectAuthority: (headers: Headers) => Readonly<{ kind: "trusted"; hostname: string }>;
