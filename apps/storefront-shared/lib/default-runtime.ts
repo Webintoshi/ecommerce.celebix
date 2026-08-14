@@ -217,7 +217,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
           presentationKeyring: presentationInfrastructure.keyring,
           now: () => new Date(),
           randomUuid: randomUUID,
-          audit: ({ stage }) => console.warn("standard_hosted_checkout_failure", stage),
+          audit: ({ stage, code }) => console.warn("standard_hosted_checkout_failure", stage, code ?? ""),
           resolveExecution: async () => {
             const execution = await resolveDefaultHostedPaymentInfrastructure();
             return execution === null ? null : Object.freeze({ attempts: execution.attempts, createRuntime: execution.createRuntime });

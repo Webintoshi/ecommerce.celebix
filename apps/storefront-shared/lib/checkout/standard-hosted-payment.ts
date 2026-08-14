@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import {
   openQuickLinkSecret,
   sealQuickLinkSecret,
+  StorefrontHostedCheckoutRepositoryError,
   type PaymentAttemptRepository,
   type QuickLinkKeyring,
   type StorefrontHostedCheckoutRepository,
@@ -30,6 +31,7 @@ const DIGEST = /^[a-f0-9]{64}$/;
 const TOKEN = /^[A-Za-z0-9_-]+$/;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const PRESENTATION_LIFETIME_MS = 15 * 60_000;
+type StorefrontHostedCheckoutErrorCode = StorefrontHostedCheckoutRepositoryError["code"];
 
 export class StandardHostedCheckoutRuntimeError extends Error {
   readonly code: "invalid_input" | "unavailable";
@@ -70,14 +72,18 @@ type Dependencies = Readonly<{
   resolveExecution(): Promise<StandardHostedCheckoutExecution | null>;
   now(): Date;
   randomUuid(): string;
-  audit?(event: Readonly<{ stage: "provider_rejected" | "credential_persistence_missing" | "browser_credential_reconstruction_failed" | "presentation_invalid" | "presentation_seal_failed" | "presentation_persistence_failed" }>): void;
+  audit?(event: Readonly<{ stage: "provider_rejected" | "credential_persistence_missing" | "browser_credential_reconstruction_failed" | "presentation_invalid" | "presentation_seal_failed" | "presentation_persistence_failed"; code?: StorefrontHostedCheckoutErrorCode }>): void;
 }>;
 
 function unavailable(): never { throw new StandardHostedCheckoutRuntimeError("unavailable"); }
 function invalid(): never { throw new StandardHostedCheckoutRuntimeError("invalid_input"); }
 
-function audit(dependencies: Dependencies, stage: Parameters<NonNullable<Dependencies["audit"]>>[0]["stage"]): void {
-  try { dependencies.audit?.(Object.freeze({ stage })); } catch { /* diagnostics cannot affect checkout */ }
+function audit(
+  dependencies: Dependencies,
+  stage: Parameters<NonNullable<Dependencies["audit"]>>[0]["stage"],
+  code?: StorefrontHostedCheckoutErrorCode,
+): void {
+  try { dependencies.audit?.(Object.freeze({ stage, ...(code ? { code } : {}) })); } catch { /* diagnostics cannot affect checkout */ }
 }
 
 function now(dependencies: Dependencies): Date {
@@ -332,7 +338,10 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
           presentationKeyId: sealedPresentation.keyId, presentationDigest,
           sealedPresentation, presentationExpiresAt: new Date(selectedNow.getTime() + PRESENTATION_LIFETIME_MS),
         });
-      } catch { audit(dependencies, "presentation_persistence_failed"); return unavailable(); }
+      } catch (error) {
+        audit(dependencies, "presentation_persistence_failed", error instanceof StorefrontHostedCheckoutRepositoryError ? error.code : "unavailable");
+        return unavailable();
+      }
       return Object.freeze({ destination: "/checkout/payment" as const, state: "ready" as const, setCookies: browserCookies });
     },
     async presentation(input) {

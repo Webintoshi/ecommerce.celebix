@@ -6,6 +6,7 @@ import type {
   PaymentAttemptRepository,
   StorefrontHostedCheckoutRepository,
 } from "@celebix/saas-data";
+import { StorefrontHostedCheckoutRepositoryError } from "@celebix/saas-data";
 
 import { createStorefrontCredential, parseStorefrontCommerceCredentialKeyring } from "../cart/credential.ts";
 import type { HostedCheckoutStartRequest } from "../cart/types.ts";
@@ -104,7 +105,7 @@ function fixture(
   outcome: "created" | "replayed" = "created",
   options: Readonly<{
     savePresentationError?: Error;
-    audit?: (event: Readonly<{ stage: string }>) => void;
+    audit?: (event: Readonly<{ stage: string; code?: string }>) => void;
   }> = {},
 ) {
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
@@ -217,12 +218,12 @@ test("provider rejection fails closed and emits no browser credential", async ()
 });
 
 test("presentation persistence failure emits only a safe diagnostic stage", async () => {
-  const events: string[] = [];
+  const events: Readonly<{ stage: string; code?: string }>[] = [];
   const selected = fixture(
     { kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
     "created",
-    { savePresentationError: new Error("private database detail"), audit: (event) => events.push(event.stage) },
+    { savePresentationError: new StorefrontHostedCheckoutRepositoryError("invalid_input"), audit: (event) => events.push(event) },
   );
   await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }));
-  assert.deepEqual(events, ["presentation_persistence_failed"]);
+  assert.deepEqual(events, [{ stage: "presentation_persistence_failed", code: "invalid_input" }]);
 });
