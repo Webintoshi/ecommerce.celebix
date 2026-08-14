@@ -4,6 +4,7 @@ const CALLBACK_PATH = "/api/payments/paytr/callback";
 const MAX_CALLBACK_BYTES = 2_048;
 const MERCHANT_OID = /^(?:[a-f0-9]{32}|[a-f0-9]{64})$/;
 const SUCCESS_FIELDS = Object.freeze(["merchant_oid", "status", "total_amount", "hash", "payment_type", "test_mode"]);
+const SUCCESS_CONTEXT_FIELDS = Object.freeze([...SUCCESS_FIELDS, "payment_amount", "currency"]);
 const FAILED_FIELDS = Object.freeze([...SUCCESS_FIELDS, "failed_reason_code", "failed_reason_msg"]);
 
 async function boundedBody(stream: ReadableStream<Uint8Array> | null): Promise<Uint8Array> {
@@ -46,7 +47,12 @@ function exactForm(body: string): string | null {
   const entries = [...params.entries()];
   if (entries.length < SUCCESS_FIELDS.length || new URLSearchParams(entries).toString() !== body) return null;
   const status = params.get("status");
-  const expected = status === "success" ? SUCCESS_FIELDS : status === "failed" ? FAILED_FIELDS : [];
+  const hasPaymentAmount = params.has("payment_amount");
+  const hasCurrency = params.has("currency");
+  if (hasPaymentAmount !== hasCurrency) return null;
+  const expected = status === "success"
+    ? hasPaymentAmount ? SUCCESS_CONTEXT_FIELDS : SUCCESS_FIELDS
+    : status === "failed" ? FAILED_FIELDS : [];
   if (entries.length !== expected.length || new Set(entries.map(([name]) => name)).size !== entries.length ||
       entries.some(([name]) => !expected.includes(name)) || expected.some((name) => !params.has(name))) return null;
   const oid = params.get("merchant_oid");

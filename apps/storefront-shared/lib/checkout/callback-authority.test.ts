@@ -44,6 +44,27 @@ test("callback authority accepts one exact signed-host request without browser O
   });
 });
 
+test("callback authority accepts the documented successful payment context", async () => {
+  const paymentContextForm = new URLSearchParams({
+    merchant_oid: "abcdef0123456789abcdef0123456789",
+    status: "success",
+    total_amount: "3600",
+    hash: "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "3600",
+    currency: "TL",
+  }).toString();
+  const result = await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(callbackUrl, { body: paymentContextForm }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+  });
+  assert.equal(result?.merchantOid, "abcdef0123456789abcdef0123456789");
+  assert.equal(result?.form, paymentContextForm);
+  assert.match(result?.callbackDigest ?? "", /^[a-f0-9]{64}$/);
+});
+
 test("callback authority denies host, scheme, path, type, duplicate, unknown, and size near matches", async () => {
   const read = callbackAuthority.readExactPaytrCallbackRequest!;
   const cases = [
@@ -55,6 +76,8 @@ test("callback authority denies host, scheme, path, type, duplicate, unknown, an
     { request: request(callbackUrl, { headers: { origin: `https://${hostname}` } }) },
     { request: request(callbackUrl, { body: `${form}&merchant_oid=duplicate` }) },
     { request: request(callbackUrl, { body: `${form}&unknown=x` }) },
+    { request: request(callbackUrl, { body: `${form}&payment_amount=3600` }) },
+    { request: request(callbackUrl, { body: `${form}&currency=TL` }) },
     { request: request(callbackUrl, { body: "x".repeat(2_049) }) },
   ];
   for (const selected of cases) {
