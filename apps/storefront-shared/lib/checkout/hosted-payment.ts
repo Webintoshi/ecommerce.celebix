@@ -12,7 +12,7 @@ import {
 
 import type { HostedPaymentRuntime, HostedPaymentPresentation } from "../payment-adapters/runtime.ts";
 import { digestRedemptionCredential, parseRedemptionCookie } from "./redemption-cookie.ts";
-import { parseTrustedClientIp } from "./trusted-client-ip.ts";
+import { selectTrustedClientIp } from "./trusted-client-ip.ts";
 
 type HostAuthority = Readonly<{ kind: "trusted"; hostname: string }> | Readonly<{ kind: string }>;
 export type QuickOrderHostedPaymentExecution = Readonly<{
@@ -160,7 +160,7 @@ export function createQuickOrderHostedPaymentBridgeRoute(dependencies: Dependenc
       || request.headers.get("origin") !== `https://${selectedHost.hostname}`
       || request.headers.get("content-type") !== "application/x-www-form-urlencoded") return text(400, "Invalid checkout request");
     const cookie = parseRedemptionCookie(request.headers.get("cookie"));
-    const clientIp = parseTrustedClientIp(request.headers.get("x-forwarded-for"));
+    const clientIp = selectTrustedClientIp(request.headers);
     if (cookie.kind !== "valid" || clientIp === null) return text(404, "Not found");
     const now = (dependencies.now ?? (() => new Date()))();
     if (!validNow(now)) return text(503, "Checkout unavailable");

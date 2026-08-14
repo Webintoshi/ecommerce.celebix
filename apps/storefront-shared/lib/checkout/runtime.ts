@@ -22,7 +22,7 @@ import {
 import { authenticatePaytrCallback, createPaytrIframePresentationUrl, queryPaytrStatus,
   requestPaytrIframeToken, type PaytrIframeTokenResult } from "./paytr.ts";
 import { digestRedemptionCredential, parseRedemptionCookie } from "./redemption-cookie.ts";
-import { parseTrustedClientIp } from "./trusted-client-ip.ts";
+import { selectTrustedClientIp } from "./trusted-client-ip.ts";
 
 export type CheckoutRuntime = Readonly<{
   storefrontRepository: PublicStorefrontRepository;
@@ -254,7 +254,7 @@ export function createQuickOrderCheckoutRoute(dependencies: PaymentRouteDependen
     if (trustedRequestTarget(request, authority.hostname, "/api/quick-order/checkout", "POST") === null ||
         request.headers.get("origin") !== `https://${authority.hostname}` ||
         request.headers.get("content-type") !== "application/x-www-form-urlencoded") return routeText(400, "Invalid checkout request");
-    const ip = parseTrustedClientIp(request.headers.get("x-forwarded-for"));
+    const ip = selectTrustedClientIp(request.headers);
     const cookie = parseRedemptionCookie(request.headers.get("cookie"));
     if (ip === null || cookie.kind !== "valid") return routeText(404, "Not found");
     const operation = await operationId(request);

@@ -68,3 +68,10 @@ export function parseTrustedClientIp(value: unknown): string | null {
   if (version === 6) return privateIpv6(value) ? null : value.toLowerCase();
   return null;
 }
+
+export function selectTrustedClientIp(headers: Readonly<{ get(name: string): string | null }>): string | null {
+  const cloudflareClientIp = headers.get("cf-connecting-ip");
+  return parseTrustedClientIp(
+    cloudflareClientIp === null ? headers.get("x-forwarded-for") : cloudflareClientIp,
+  );
+}

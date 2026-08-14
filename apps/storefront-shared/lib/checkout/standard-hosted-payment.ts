@@ -19,7 +19,7 @@ import {
 } from "../cart/credential.ts";
 import type { HostedCheckoutStartRequest } from "../cart/types.ts";
 import type { HostedPaymentPresentation, HostedPaymentRuntime } from "../payment-adapters/runtime.ts";
-import { parseTrustedClientIp } from "./trusted-client-ip.ts";
+import { selectTrustedClientIp } from "./trusted-client-ip.ts";
 import {
   readStandardHostedCheckoutCookie,
   serializeStandardHostedCheckoutCookie,
@@ -268,7 +268,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       const identityRequired = authority.requiredCustomerFields.length === 1
         && authority.requiredCustomerFields[0] === "identity_number";
       if (identityRequired !== (input.request.identityNumber !== undefined)) return invalid();
-      const clientIp = parseTrustedClientIp(input.headers.get("x-forwarded-for"));
+      const clientIp = selectTrustedClientIp(input.headers);
       if (clientIp === null) return invalid();
       const execution = await dependencies.resolveExecution();
       if (execution === null) return unavailable();

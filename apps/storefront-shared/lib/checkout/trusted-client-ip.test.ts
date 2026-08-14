@@ -1,11 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseTrustedClientIp } from "./trusted-client-ip.ts";
+import { parseTrustedClientIp, selectTrustedClientIp } from "./trusted-client-ip.ts";
 
 test("accepts canonical public IPv4 and IPv6 selected by the authenticated proxy", () => {
   assert.equal(parseTrustedClientIp("8.8.8.8"), "8.8.8.8");
   assert.equal(parseTrustedClientIp("2606:4700:4700::1111"), "2606:4700:4700::1111");
+});
+
+test("selects Cloudflare client authority instead of the internal proxy chain", () => {
+  const headers = new Headers({
+    "cf-connecting-ip": "8.8.8.8",
+    "x-forwarded-for": "8.8.8.8, 10.0.1.33",
+  });
+  assert.equal(selectTrustedClientIp(headers), "8.8.8.8");
+});
+
+test("fails closed when Cloudflare client authority is malformed", () => {
+  const headers = new Headers({
+    "cf-connecting-ip": "8.8.8.8, 1.1.1.1",
+    "x-forwarded-for": "8.8.8.8",
+  });
+  assert.equal(selectTrustedClientIp(headers), null);
+});
+
+test("falls back to one exact forwarded address without Cloudflare authority", () => {
+  assert.equal(selectTrustedClientIp(new Headers({ "x-forwarded-for": "1.1.1.1" })), "1.1.1.1");
 });
 
 test("rejects comma lists and whitespace modifications rather than choosing an attacker value", () => {
