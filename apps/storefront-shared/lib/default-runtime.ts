@@ -214,12 +214,22 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
           },
         })
       : null;
-    const activeHostedProviders = new Set(executableCompiledAuthorities(compiledHostedPaymentAuthorities(), Object.freeze({
+    const activeHostedAuthorities = new Map(executableCompiledAuthorities(compiledHostedPaymentAuthorities(), Object.freeze({
       CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
       CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
-    })).map(({ providerCode }) => providerCode));
+    })).map(({ providerCode, authority }) => [providerCode, authority]));
     const cart = createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
-      hostedPaymentAvailable: async (method) => hostedCheckout !== null && activeHostedProviders.has(method.providerCode) });
+      hostedPaymentAvailable: async (method) => {
+        if (hostedCheckout === null) return false;
+        const authority = activeHostedAuthorities.get(method.providerCode);
+        return authority !== undefined && await currentExecutionAuthorityMatches(pool, Object.freeze({
+          providerCode: method.providerCode,
+          capability: "payment_processing" as const,
+          environment: authority.environment,
+          adapterVersion: authority.adapterVersion,
+          evidenceDigest: authority.evidenceDigest,
+        }));
+      } });
     const quickOrderRepository = new PostgresPublicQuickOrderRepository({
       pool,
       role: "celebix_saas_workflow",

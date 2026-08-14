@@ -250,10 +250,14 @@ test("default storefront call site stages the real repository keyring and transp
   assert.match(source, /resolveStorefrontHostedPaymentActivationMode/);
   assert.match(source, /compiledHostedPaymentAuthorities/);
   assert.match(source, /CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE/);
+  assert.match(source, /hostedPaymentAvailable:[\s\S]*currentExecutionAuthorityMatches\(pool/);
+  assert.match(source, /providerCode: method[.]providerCode/);
+  assert.match(source, /capability: "payment_processing" as const/);
   assert.match(source, /payment_provider_keyed_lifecycle_preflight/);
   assert.match(
     source,
     /finally\s*\{[\s\S]*!runtimeOwnsKeyring[\s\S]*key[.]fill\(0\)/,
   );
+  assert.doesNotMatch(source, /activeHostedProviders/);
   assert.doesNotMatch(source, /CELEBIX_PAYTR_EXECUTION_EVIDENCE_DIGEST/);
 });

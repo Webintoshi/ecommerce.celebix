@@ -10,7 +10,7 @@ import type {
 import { createStorefrontCredential, parseStorefrontCommerceCredentialKeyring } from "../cart/credential.ts";
 import type { HostedCheckoutStartRequest } from "../cart/types.ts";
 import type { HostedPaymentPresentation } from "../payment-adapters/runtime.ts";
-import { createStandardHostedCheckoutRuntime } from "./standard-hosted-payment.ts";
+import { createStandardHostedCheckoutRuntime, StandardHostedCheckoutRuntimeError } from "./standard-hosted-payment.ts";
 
 const HOST = "shop.example.test";
 const STORE = "10000000-0000-4000-8000-000000000001";
@@ -99,7 +99,11 @@ function baseAttempts(): PaymentAttemptRepository {
   };
 }
 
-function fixture(selectedPresentation: HostedPaymentPresentation, outcome: "created" | "replayed" = "created") {
+function fixture(
+  selectedPresentation: HostedPaymentPresentation,
+  outcome: "created" | "replayed" = "created",
+  execution: "ready" | "missing" = "ready",
+) {
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
   let savedInput: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   let stored: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
@@ -139,7 +143,7 @@ function fixture(selectedPresentation: HostedPaymentPresentation, outcome: "crea
     presentationKeyring,
     now: () => new Date(NOW),
     randomUuid: (() => { let index = 0; return () => `${String(++index).padStart(8, "0")}-0000-4000-8000-000000000001`; })(),
-    resolveExecution: async () => Object.freeze({
+    resolveExecution: async () => execution === "missing" ? null : Object.freeze({
       attempts: baseAttempts(),
       createRuntime: (attempts) => Object.freeze({
         initialize: async (input) => {
@@ -202,6 +206,19 @@ test("provider processing and replay return the fixed destination without persis
 
 test("provider rejection fails closed and emits no browser credential", async () => {
   const selected = fixture({ kind: "rejected" });
-  await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }), /unavailable/u);
+  await assert.rejects(
+    selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }),
+    (error: unknown) => error instanceof StandardHostedCheckoutRuntimeError && error.code === "payment_unavailable",
+  );
+  assert.equal(selected.getSaved(), undefined);
+});
+
+test("missing executable hosted payment authority fails as payment unavailable before provider begin", async () => {
+  const selected = fixture({ kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" }, "created", "missing");
+  await assert.rejects(
+    selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }),
+    (error: unknown) => error instanceof StandardHostedCheckoutRuntimeError && error.code === "payment_unavailable",
+  );
+  assert.equal(selected.getBegin(), undefined);
   assert.equal(selected.getSaved(), undefined);
 });

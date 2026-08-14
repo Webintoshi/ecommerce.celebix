@@ -32,8 +32,8 @@ const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9
 const PRESENTATION_LIFETIME_MS = 15 * 60_000;
 
 export class StandardHostedCheckoutRuntimeError extends Error {
-  readonly code: "invalid_input" | "unavailable";
-  constructor(code: "invalid_input" | "unavailable") {
+  readonly code: "invalid_input" | "payment_unavailable" | "unavailable";
+  constructor(code: "invalid_input" | "payment_unavailable" | "unavailable") {
     super(code);
     this.name = "StandardHostedCheckoutRuntimeError";
     this.code = code;
@@ -73,6 +73,7 @@ type Dependencies = Readonly<{
 }>;
 
 function unavailable(): never { throw new StandardHostedCheckoutRuntimeError("unavailable"); }
+function paymentUnavailable(): never { throw new StandardHostedCheckoutRuntimeError("payment_unavailable"); }
 function invalid(): never { throw new StandardHostedCheckoutRuntimeError("invalid_input"); }
 
 function now(dependencies: Dependencies): Date {
@@ -253,7 +254,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       const clientIp = parseTrustedClientIp(input.headers.get("x-forwarded-for"));
       if (clientIp === null) return invalid();
       const execution = await dependencies.resolveExecution();
-      if (execution === null) return unavailable();
+      if (execution === null) return paymentUnavailable();
       const sessionId = derivedUuid("session", input.hostname, input.request.operationId);
       const paymentSession = createStorefrontOperationCredential("hosted_checkout", input.request.operationId, dependencies.commerceKeyring);
       const receipt = createStorefrontOperationCredential("receipt", input.request.operationId, dependencies.commerceKeyring);
@@ -271,7 +272,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         recordPersistence: (value) => { persistedKeys = value; },
       });
       const hosted = execution.createRuntime(scoped);
-      if (hosted === null) return unavailable();
+      if (hosted === null) return paymentUnavailable();
       const providerPresentation = await hosted.initialize({
         headers: new Headers(input.headers), storeId: authority.storeId,
         operationId: input.request.operationId, paymentMethodId: authority.paymentMethodId,
@@ -290,7 +291,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       const persistedPaymentSession = createStorefrontOperationCredential("hosted_checkout", input.request.operationId, dependencies.commerceKeyring, persistedKeys.paymentSessionKeyId);
       const persistedReceipt = createStorefrontOperationCredential("receipt", input.request.operationId, dependencies.commerceKeyring, persistedKeys.receiptKeyId);
       const persistedCustomer = createStorefrontOperationCredential("customer", input.request.operationId, dependencies.commerceKeyring, persistedKeys.customerKeyId);
-      if (providerPresentation.kind === "rejected") return unavailable();
+      if (providerPresentation.kind === "rejected") return paymentUnavailable();
       const browserCookies = Object.freeze([
         serializeStandardHostedCheckoutCookie(persistedPaymentSession.value),
         serializeStorefrontCredentialCookie("receipt", persistedReceipt.value),
@@ -300,7 +301,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         return Object.freeze({ destination: "/checkout/payment" as const, state: "processing" as const, setCookies: browserCookies });
       }
       const presentation = exactPresentation(authority.providerCode, authority.environment, providerPresentation);
-      if (presentation === null) return unavailable();
+      if (presentation === null) return paymentUnavailable();
       const serialized = JSON.stringify(Object.freeze({
         version: 1, sessionId, providerCode: authority.providerCode,
         environment: authority.environment, presentation,

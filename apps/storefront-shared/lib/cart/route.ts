@@ -1,7 +1,7 @@
 import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
-import type { StandardHostedCheckoutRuntime } from "../checkout/standard-hosted-payment.ts";
+import { StandardHostedCheckoutRuntimeError, type StandardHostedCheckoutRuntime } from "../checkout/standard-hosted-payment.ts";
 import { readCartMutationRequest, readCheckoutRequest } from "./request.ts";
 import { StorefrontCommerceRuntimeError, type StorefrontCommerceRuntime } from "./runtime.ts";
 
@@ -27,7 +27,13 @@ function authority(dependencies: Readonly<{ selectAuthority(headers: Headers): T
   } catch { return null; }
 }
 function failure(error: unknown): Response {
-  const code = error instanceof StorefrontCommerceRepositoryError ? error.code : error instanceof StorefrontCommerceRuntimeError ? error.code : "unavailable";
+  const code = error instanceof StorefrontCommerceRepositoryError
+    ? error.code
+    : error instanceof StorefrontCommerceRuntimeError
+      ? error.code
+      : error instanceof StandardHostedCheckoutRuntimeError
+        ? error.code
+        : "unavailable";
   if (code === "invalid_input") return json({ code }, 400);
   if (code === "not_found") return json({ code }, 404);
   if (["cart_expired", "version_conflict", "cart_empty", "price_changed", "stock_unavailable", "shipping_unavailable", "payment_unavailable", "operation_mismatch"].includes(code)) return json({ code }, 409);
