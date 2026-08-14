@@ -118,5 +118,5 @@ test("callback authority reports only a finite rejection stage", async () => {
     configuredCallbackUrl: callbackUrl,
     audit: (stage: string) => events.push(stage),
   }), null);
-  assert.deepEqual(events, ["content_type", "form"]);
+  assert.deepEqual(events, ["content_type", "form_fields"]);
 });

@@ -311,7 +311,8 @@ export function writeSafePaytrCallbackDiagnostic(event:
   | Readonly<{
       stage: "callback_request_rejected";
       outcome: "method" | "content_type" | "headers" | "authority"
-        | "target" | "length" | "body" | "form";
+        | "target" | "length" | "body" | "form_encoding" | "form_status"
+        | "form_context" | "form_fields" | "form_oid";
     }>
 ): void {
   console.warn("paytr_callback_diagnostic", event.stage, event.outcome);

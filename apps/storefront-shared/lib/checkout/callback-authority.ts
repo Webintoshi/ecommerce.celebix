@@ -8,7 +8,8 @@ const SUCCESS_CONTEXT_FIELDS = Object.freeze([...SUCCESS_FIELDS, "payment_amount
 const FAILED_FIELDS = Object.freeze([...SUCCESS_FIELDS, "failed_reason_code", "failed_reason_msg"]);
 export type PaytrCallbackRequestRejectionStage =
   | "method" | "content_type" | "headers" | "authority"
-  | "target" | "length" | "body" | "form";
+  | "target" | "length" | "body" | "form_encoding" | "form_status"
+  | "form_context" | "form_fields" | "form_oid";
 
 async function boundedBody(stream: ReadableStream<Uint8Array> | null): Promise<Uint8Array> {
   if (stream === null) throw new TypeError("callback_invalid");
@@ -45,21 +46,27 @@ function canonicalCallbackUrl(value: string, hostname: string): boolean {
   } catch { return false; }
 }
 
-function exactForm(body: string): string | null {
+function exactForm(
+  body: string,
+  reject: (stage: PaytrCallbackRequestRejectionStage) => null,
+): string | null {
   const params = new URLSearchParams(body);
   const entries = [...params.entries()];
-  if (entries.length < SUCCESS_FIELDS.length || new URLSearchParams(entries).toString() !== body) return null;
+  if (entries.length < SUCCESS_FIELDS.length) return reject("form_fields");
+  if (new URLSearchParams(entries).toString() !== body) return reject("form_encoding");
+  if (new Set(entries.map(([name]) => name)).size !== entries.length) return reject("form_fields");
   const status = params.get("status");
+  if (status !== "success" && status !== "failed") return reject("form_status");
   const hasPaymentAmount = params.has("payment_amount");
   const hasCurrency = params.has("currency");
-  if (hasPaymentAmount !== hasCurrency) return null;
+  if (hasPaymentAmount !== hasCurrency) return reject("form_context");
   const expected = status === "success"
     ? hasPaymentAmount ? SUCCESS_CONTEXT_FIELDS : SUCCESS_FIELDS
     : status === "failed" ? FAILED_FIELDS : [];
-  if (entries.length !== expected.length || new Set(entries.map(([name]) => name)).size !== entries.length ||
-      entries.some(([name]) => !expected.includes(name)) || expected.some((name) => !params.has(name))) return null;
+  if (entries.length !== expected.length || entries.some(([name]) => !expected.includes(name)) ||
+      expected.some((name) => !params.has(name))) return reject("form_fields");
   const oid = params.get("merchant_oid");
-  return oid !== null && MERCHANT_OID.test(oid) ? oid : null;
+  return oid !== null && MERCHANT_OID.test(oid) ? oid : reject("form_oid");
 }
 
 export async function readExactPaytrCallbackRequest(input: Readonly<{
@@ -91,8 +98,8 @@ export async function readExactPaytrCallbackRequest(input: Readonly<{
     try {
       const form = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
       if (!Buffer.from(form, "utf8").equals(bytes)) return reject("body");
-      const merchantOid = exactForm(form);
-      if (merchantOid === null) return reject("form");
+      const merchantOid = exactForm(form, reject);
+      if (merchantOid === null) return null;
       return Object.freeze({ merchantOid, form,
         callbackDigest: createHash("sha256").update(bytes).digest("hex") });
     } finally { bytes.fill(0); }
