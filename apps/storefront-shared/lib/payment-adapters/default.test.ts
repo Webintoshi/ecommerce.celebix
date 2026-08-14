@@ -333,6 +333,112 @@ test("storefront PayTR runtime activates only environments allowed by the exact 
   } as never));
 });
 
+test("default PayTR runtime carries the selected compiled authority into initialize", async () => {
+  const attemptId = "10000000-0000-4000-8000-000000000001";
+  const storeId = "20000000-0000-4000-8000-000000000001";
+  const methodId = "30000000-0000-4000-8000-000000000001";
+  let authorityChecks = 0;
+  let initializedCode = "";
+  const unavailable = async () => { throw new Error("unexpected_repository_call"); };
+  const attempts = Object.freeze({
+    begin: async () => Object.freeze({
+      outcome: "created" as const,
+      attemptId,
+      storeId,
+      paymentMethodId: methodId,
+      profileId: "40000000-0000-4000-8000-000000000001",
+      providerCode: "paytr_iframe",
+      environment: "test" as const,
+      executionAdapterVersion: 1,
+      executionEvidenceDigest: PAYTR_TEST_AUTHORITY.evidenceDigest,
+      credentialVersion: 1,
+      amountMinor: 10_000,
+      currency: "TRY",
+      methodConfig: Object.freeze({
+        environment: "test" as const,
+        locale: "tr" as const,
+        threeDSecure: "provider_managed" as const,
+        installmentMode: "all" as const,
+        maxInstallment: 0 as const,
+      }),
+      publicConfig: Object.freeze({ environment: "test", merchantId: "merchant_fixture" }),
+      sealedCredentials: Object.freeze({
+        algorithm: "A256GCM" as const,
+        ciphertext: "AQ",
+        iv: "AAAAAAAAAAAAAAAA",
+        keyId: "provider.current",
+        tag: "AAAAAAAAAAAAAAAAAAAAAA",
+        version: 1 as const,
+      }),
+    }),
+    markInitialized: async (input: Readonly<{ safeCode: string; status: string; providerReference: string | null }>) => {
+      initializedCode = input.safeCode;
+      return Object.freeze({
+        attemptId,
+        status: input.status,
+        version: 2,
+        providerReference: input.providerReference,
+        safeCode: input.safeCode,
+        replayed: false,
+      });
+    },
+    markUnknown: unavailable,
+    getCallbackAuthority: unavailable,
+    getReconciliationAuthority: unavailable,
+    settleCallback: unavailable,
+    applyHostedCallback: unavailable,
+    claimReconciliation: unavailable,
+    finalizeReconciliation: unavailable,
+  });
+  const runtime = createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: "approved_test_sandbox" },
+    compiledAuthorities: Object.freeze({
+      paytr_iframe: Object.freeze({ test: PAYTR_TEST_AUTHORITY, live: null }),
+      iyzico_iframe: null,
+    }),
+    dependencies: Object.freeze({
+      attempts,
+      keyring: Object.freeze({
+        activeKeyId: "provider.current",
+        keys: Object.freeze([Object.freeze({
+          keyId: "provider.current",
+          key: new Uint8Array(32).fill(17),
+        })]),
+      }),
+      transport: Object.freeze({ request: unavailable }),
+      selectAuthority: () => Object.freeze({ kind: "trusted", hostname: "shop.example.test" }),
+      matchesCompiledAuthority: async () => { authorityChecks += 1; return true; },
+      now: () => new Date("2026-08-14T00:00:00.000Z"),
+      randomBytes: (size: number) => new Uint8Array(size).fill(7),
+    }),
+  } as never);
+  assert.ok(runtime);
+  await runtime.initialize(Object.freeze({
+    headers: new Headers(),
+    storeId,
+    operationId: attemptId,
+    paymentMethodId: methodId,
+    orderReference: "sf:test:1",
+    amountMinor: 10_000,
+    currency: "TRY",
+    customer: Object.freeze({
+      name: "Celebix Test",
+      email: "smoke@example.test",
+      phone: "+905551112233",
+      ipAddress: "8.8.8.8",
+      address: "Test address",
+    }),
+    basket: Object.freeze([Object.freeze({
+      reference: "sku-1",
+      name: "Test product",
+      quantity: 1,
+      unitAmountMinor: 10_000,
+    })]),
+  }));
+  assert.equal(authorityChecks, 1);
+  assert.notEqual(initializedCode, "execution_authority_mismatch");
+});
+
 test("default storefront call site stages the real repository keyring and transport behind the dormant gate", async () => {
   const source = await readFile(new URL("../default-runtime.ts", import.meta.url), "utf8");
   assert.match(source, /PostgresPaymentAttemptRepository/);

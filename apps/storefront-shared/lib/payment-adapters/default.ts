@@ -347,7 +347,12 @@ export function createDefaultHostedPaymentRuntime(input: Readonly<{
     selectCompiledAuthority: (providerCode, environment) => {
       const authority = selectCompiledAuthority(providerCode, environment);
       return authority !== null
-        && executableInCurrentPacket(authority.providerCode, environment, authority)
+        && authority.providerCode === providerCode
+        && executableInCurrentPacket(authority.providerCode, environment, Object.freeze({
+          environment: authority.environment,
+          adapterVersion: authority.adapterVersion,
+          evidenceDigest: authority.evidenceDigest,
+        }))
         ? authority
         : null;
     },
