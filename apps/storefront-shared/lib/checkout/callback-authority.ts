@@ -6,6 +6,9 @@ const MERCHANT_OID = /^(?:[a-f0-9]{32}|[a-f0-9]{64})$/;
 const SUCCESS_FIELDS = Object.freeze(["merchant_oid", "status", "total_amount", "hash", "payment_type", "test_mode"]);
 const SUCCESS_CONTEXT_FIELDS = Object.freeze([...SUCCESS_FIELDS, "payment_amount", "currency"]);
 const FAILED_FIELDS = Object.freeze([...SUCCESS_FIELDS, "failed_reason_code", "failed_reason_msg"]);
+export type PaytrCallbackRequestRejectionStage =
+  | "method" | "content_type" | "headers" | "authority"
+  | "target" | "length" | "body" | "form";
 
 async function boundedBody(stream: ReadableStream<Uint8Array> | null): Promise<Uint8Array> {
   if (stream === null) throw new TypeError("callback_invalid");
@@ -63,27 +66,35 @@ export async function readExactPaytrCallbackRequest(input: Readonly<{
   request: Request;
   trustedHostname: string;
   configuredCallbackUrl: string;
+  audit?: (stage: PaytrCallbackRequestRejectionStage) => void;
 }>): Promise<Readonly<{ merchantOid: string; form: string; callbackDigest: string }> | null> {
+  const reject = (stage: PaytrCallbackRequestRejectionStage): null => {
+    try { input.audit?.(stage); } catch { /* diagnostics cannot affect rejection */ }
+    return null;
+  };
   try {
     const { request, trustedHostname, configuredCallbackUrl } = input;
-    if (request.method !== "POST" || request.headers.get("content-type") !== "application/x-www-form-urlencoded" ||
-        request.headers.has("authorization") || request.headers.has("transfer-encoding") ||
-        request.headers.has("origin") || request.headers.has("cookie") ||
-        !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(trustedHostname) ||
-        !canonicalCallbackUrl(configuredCallbackUrl, trustedHostname)) return null;
+    if (request.method !== "POST") return reject("method");
+    if (request.headers.get("content-type") !== "application/x-www-form-urlencoded") return reject("content_type");
+    if (request.headers.has("authorization") || request.headers.has("transfer-encoding") ||
+        request.headers.has("origin") || request.headers.has("cookie")) return reject("headers");
+    if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(trustedHostname) ||
+        !canonicalCallbackUrl(configuredCallbackUrl, trustedHostname)) return reject("authority");
     const url = new URL(request.url);
     if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password ||
-        url.pathname !== CALLBACK_PATH || url.search || url.hash) return null;
+        url.pathname !== CALLBACK_PATH || url.search || url.hash) return reject("target");
     const contentLength = request.headers.get("content-length");
-    if (contentLength !== null && (!/^[1-9][0-9]{0,3}$/.test(contentLength) || Number(contentLength) > MAX_CALLBACK_BYTES)) return null;
-    const bytes = await boundedBody(request.body);
+    if (contentLength !== null && (!/^[1-9][0-9]{0,3}$/.test(contentLength) || Number(contentLength) > MAX_CALLBACK_BYTES)) return reject("length");
+    let bytes: Uint8Array;
+    try { bytes = await boundedBody(request.body); }
+    catch { return reject("body"); }
     try {
       const form = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-      if (!Buffer.from(form, "utf8").equals(bytes)) return null;
+      if (!Buffer.from(form, "utf8").equals(bytes)) return reject("body");
       const merchantOid = exactForm(form);
-      if (merchantOid === null) return null;
+      if (merchantOid === null) return reject("form");
       return Object.freeze({ merchantOid, form,
         callbackDigest: createHash("sha256").update(bytes).digest("hex") });
     } finally { bytes.fill(0); }
-  } catch { return null; }
+  } catch { return reject("body"); }
 }

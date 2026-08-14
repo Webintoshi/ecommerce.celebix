@@ -15,7 +15,10 @@ import {
 import pg from "pg";
 
 import { parseCheckoutRuntimeConfig } from "./config.ts";
-import { readExactPaytrCallbackRequest } from "./callback-authority.ts";
+import {
+  readExactPaytrCallbackRequest,
+  type PaytrCallbackRequestRejectionStage,
+} from "./callback-authority.ts";
 import { authenticatePaytrCallback, createPaytrIframePresentationUrl, queryPaytrStatus,
   requestPaytrIframeToken, type PaytrIframeTokenResult } from "./paytr.ts";
 import { digestRedemptionCredential, parseRedemptionCookie } from "./redemption-cookie.ts";
@@ -373,10 +376,16 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
   resolveRuntime: () => Promise<Readonly<{ paymentRepository: CallbackRepository; keyring: QuickLinkKeyring }> | null>;
   resolveHostedRuntime?: () => Promise<HostedDigestCallbackRuntime | null>;
   now?: () => Date;
-  audit?: (event: Readonly<{
-    stage: "hosted_callback_outcome";
-    outcome: "accepted" | "retry" | "rejected" | "not_found";
-  }>) => void;
+  audit?: (event:
+    | Readonly<{
+        stage: "hosted_callback_outcome";
+        outcome: "accepted" | "retry" | "rejected" | "not_found";
+      }>
+    | Readonly<{
+        stage: "callback_request_rejected";
+        outcome: PaytrCallbackRequestRejectionStage;
+      }>
+  ) => void;
 }>) {
   const callbackResponse = (status: number, text: "OK" | "INVALID" | "RETRY") => routeText(status, text);
   const legacy = async (
@@ -431,6 +440,10 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
       request: inspection,
       trustedHostname: authority.hostname,
       configuredCallbackUrl: externalCallbackUrl,
+      audit: (stage) => dependencies.audit?.(Object.freeze({
+        stage: "callback_request_rejected",
+        outcome: stage,
+      })),
     });
     if (callback === null) return callbackResponse(400, "INVALID");
     if (!CALLBACK_BINDING_DIGEST.test(callback.merchantOid)) {

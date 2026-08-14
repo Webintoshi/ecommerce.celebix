@@ -303,10 +303,17 @@ export type DefaultStandardCheckoutReconciliationRuntime = Readonly<{
   close: () => Promise<void>;
 }>;
 
-export function writeSafePaytrCallbackDiagnostic(event: Readonly<{
-  stage: "hosted_callback_outcome";
-  outcome: "accepted" | "retry" | "rejected" | "not_found";
-}>): void {
+export function writeSafePaytrCallbackDiagnostic(event:
+  | Readonly<{
+      stage: "hosted_callback_outcome";
+      outcome: "accepted" | "retry" | "rejected" | "not_found";
+    }>
+  | Readonly<{
+      stage: "callback_request_rejected";
+      outcome: "method" | "content_type" | "headers" | "authority"
+        | "target" | "length" | "body" | "form";
+    }>
+): void {
   console.warn("paytr_callback_diagnostic", event.stage, event.outcome);
 }
 

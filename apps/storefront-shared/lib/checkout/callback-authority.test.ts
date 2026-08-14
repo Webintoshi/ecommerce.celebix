@@ -102,3 +102,21 @@ test("callback reader cancels the first streamed chunk that exceeds its fixed by
   }), null);
   assert.equal(cancelled, true);
 });
+
+test("callback authority reports only a finite rejection stage", async () => {
+  const events: string[] = [];
+  const read = callbackAuthority.readExactPaytrCallbackRequest!;
+  assert.equal(await read({
+    request: request(callbackUrl, { headers: { "content-type": "application/json" } }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+    audit: (stage: string) => events.push(stage),
+  }), null);
+  assert.equal(await read({
+    request: request(callbackUrl, { body: `${form}&unknown=x` }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+    audit: (stage: string) => events.push(stage),
+  }), null);
+  assert.deepEqual(events, ["content_type", "form"]);
+});
