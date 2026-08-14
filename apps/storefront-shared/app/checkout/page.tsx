@@ -34,7 +34,7 @@ export default async function CheckoutPage({
   } : undefined;
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      <main className="checkout-page">
+      <div className="checkout-page">
         <header className="checkout-page-header store-container">
           <span>GÜVENLİ ÖDEME</span>
           <h1>Siparişinizi tamamlayın</h1>
@@ -43,7 +43,7 @@ export default async function CheckoutPage({
         <section className="checkout-page-body store-container">
           <CheckoutForm intentKind={intent((await searchParams).intent)} initialDraft={initialDraft} />
         </section>
-      </main>
+      </div>
     </StorefrontFrame>
   );
 }

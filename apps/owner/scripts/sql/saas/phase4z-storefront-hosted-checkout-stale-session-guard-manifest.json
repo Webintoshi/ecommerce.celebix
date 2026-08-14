@@ -1,0 +1,23 @@
+{
+  "phase": "phase4z-storefront-hosted-checkout-stale-session-guard",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608140109_storefront_hosted_checkout_stale_session_guard.up.sql",
+      "direction": "up",
+      "sha256": "ce30ebb5380e5605fb377906e6cffa196f20bf1b67cdcd284e0406aaf094ea7a"
+    },
+    {
+      "file": "202608140109_storefront_hosted_checkout_stale_session_guard.down.sql",
+      "direction": "down",
+      "sha256": "05137c046c2206cd2dfd523e469c7051a65f10be0a48ad805fccea2081007eeb"
+    },
+    {
+      "file": "202608140109_storefront_hosted_checkout_stale_session_guard_assertions.sql",
+      "direction": "verify",
+      "sha256": "2fbe5425c9850608913d5504a5785e7e72791df6820391e3bc28a474ffb550a3"
+    }
+  ]
+}

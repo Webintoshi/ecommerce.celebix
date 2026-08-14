@@ -1,0 +1,23 @@
+{
+  "phase": "phase5a-storefront-hosted-checkout-cart-drift-settlement",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608140110_storefront_hosted_checkout_cart_drift_settlement.up.sql",
+      "direction": "up",
+      "sha256": "d8df43002a852a1f6722f0f10a3515741e0684c1f94fff1e7efb5c16272bdf78"
+    },
+    {
+      "file": "202608140110_storefront_hosted_checkout_cart_drift_settlement.down.sql",
+      "direction": "down",
+      "sha256": "b2edfab357b268a79c15673f12d11f1683184c6535b35e600361075569fe0d7d"
+    },
+    {
+      "file": "202608140110_storefront_hosted_checkout_cart_drift_settlement_assertions.sql",
+      "direction": "verify",
+      "sha256": "0d453a80bba22722fe8a61abf6c50efe8f2b79e6d98e79da732cbd5a5d208523"
+    }
+  ]
+}

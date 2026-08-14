@@ -73,6 +73,8 @@ test("authenticated customers receive a server-authorized checkout prefill while
 
 test("checkout owns a white single-screen shell and canonical media summary", () => {
   assert.match(checkout, /className="checkout-page"/u);
+  assert.doesNotMatch(checkout, /<main className="checkout-page"/u);
+  assert.doesNotMatch(hostedResult, /<main className="checkout-result-page/u);
   assert.match(summary, /item[.]media[.]url/u);
   assert.match(summary, /item[.]media[.]altText/u);
   assert.equal(css.includes("background: var(--white)"), true);

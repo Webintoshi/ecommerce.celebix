@@ -19,6 +19,12 @@ const SETTLEMENT_ASSERTIONS = "202608060092_storefront_hosted_checkout_settlemen
 const CART_READ_ONLY_AUTHORITY_UP = "202608140106_storefront_cart_read_only_authority.up.sql";
 const CART_READ_ONLY_AUTHORITY_DOWN = "202608140106_storefront_cart_read_only_authority.down.sql";
 const CART_READ_ONLY_AUTHORITY_ASSERTIONS = "202608140106_storefront_cart_read_only_authority_assertions.sql";
+const STALE_SESSION_GUARD_UP = "202608140109_storefront_hosted_checkout_stale_session_guard.up.sql";
+const STALE_SESSION_GUARD_DOWN = "202608140109_storefront_hosted_checkout_stale_session_guard.down.sql";
+const STALE_SESSION_GUARD_ASSERTIONS = "202608140109_storefront_hosted_checkout_stale_session_guard_assertions.sql";
+const CART_DRIFT_SETTLEMENT_UP = "202608140110_storefront_hosted_checkout_cart_drift_settlement.up.sql";
+const CART_DRIFT_SETTLEMENT_DOWN = "202608140110_storefront_hosted_checkout_cart_drift_settlement.down.sql";
+const CART_DRIFT_SETTLEMENT_ASSERTIONS = "202608140110_storefront_hosted_checkout_cart_drift_settlement_assertions.sql";
 const STORE = "10000000-0000-4000-8000-000000000190";
 const HOST = "hosted-foundation.saas-staging.celebix.site";
 const PRODUCT = "20000000-0000-4000-8000-000000000190";
@@ -32,7 +38,7 @@ const NOW = "2026-08-06T12:00:00.000Z";
 const START_SESSION = "90000000-0000-4000-8000-000000000191";
 const START_ATTEMPT = "91000000-0000-4000-8000-000000000191";
 const START_OPERATION_2 = "92000000-0000-4000-8000-000000000191";
-const TOTAL = 30;
+const TOTAL = 32;
 let completed = 0;
 
 function executable(name) {
@@ -159,7 +165,7 @@ function seedStandardSession(box, input) {
   const delivery = JSON.stringify({ contact: { firstName: "Grace", lastName: "Hopper", email: `${input.key}@example.test`, phone: input.phone }, shippingAddress: { line1: "Test 2", city: "İstanbul", country: "TR" } }).replaceAll("'", "''");
   const items = JSON.stringify([{ productId: PRODUCT, variantId: VARIANT, title: "Sekiz Stok", variantTitle: "Standart", sku: "STOCK-8", quantity: input.quantity, unitPriceCents: 10000, lineTotalCents: 10000 * input.quantity }]).replaceAll("'", "''");
   psql(box, `BEGIN;SET LOCAL session_replication_role=replica;SET LOCAL ROLE celebix_saas_owner;
-    INSERT INTO saas.storefront_carts(id,store_id,status,version,expires_at,created_at,updated_at) VALUES('${input.cart}','${STORE}','active',1,'2026-09-01','${createdAt}','${createdAt}');
+    INSERT INTO saas.storefront_carts(id,store_id,status,version,expires_at,created_at,updated_at) VALUES('${input.cart}','${STORE}','active',${input.cartVersion ?? 1},'2026-09-01','${createdAt}','${createdAt}');
     INSERT INTO saas.payment_attempts(id,store_id,payment_method_id,profile_id,provider_code,environment,credential_version,order_reference,amount_minor,currency,status,safe_code,version,created_at,updated_at) VALUES('${input.attempt}','${STORE}','${METHOD}','${PROFILE}','paytr_iframe','test',1,'sf:${input.session}',${10000 * input.quantity},'TRY','${input.attemptStatus}','seeded',1,'${createdAt}','${createdAt}');
     INSERT INTO saas.storefront_hosted_checkout_sessions(id,store_id,cart_id,payment_attempt_id,payment_method_id,profile_id,provider_code,environment,credential_version,execution_adapter_version,execution_evidence_digest,order_reference,order_id,customer_id,address_id,event_id,receipt_id,customer_credential_id,source_version,commerce_authority_digest,currency,subtotal_minor,shipping_minor,discount_minor,total_minor,delivery_snapshot,item_snapshot,status,safe_code,hold_expires_at,version,payment_session_key_id,payment_session_credential_digest,payment_session_expires_at,receipt_key_id,receipt_credential_digest,receipt_expires_at,customer_key_id,customer_credential_digest,customer_expires_at,created_at,updated_at)
     VALUES('${input.session}','${STORE}','${input.cart}','${input.attempt}','${METHOD}','${PROFILE}','paytr_iframe','test',1,1,'sha256:${"b".repeat(64)}','sf:${input.session}','${input.order}','${input.customer}','${input.address}','${input.event}','${input.receipt}','${input.customerCredential}',1,'${"c".repeat(64)}','TRY',${10000 * input.quantity},0,0,${10000 * input.quantity},'${delivery}'::jsonb,'${items}'::jsonb,'${input.sessionStatus}','seeded','${holdExpiresAt}',1,'pay-${input.key}','${"d".repeat(64)}','${holdExpiresAt}','receipt-${input.key}','${"e".repeat(64)}','2026-08-07T11:40:00Z','customer-${input.key}','${"f".repeat(64)}','2026-09-05T11:40:00Z','${createdAt}','${createdAt}');
@@ -170,7 +176,7 @@ function scenario(name, callback) { callback(); completed += 1; console.log(`PAS
 
 let box;
 try {
-  for (const file of [UP, DOWN, ASSERTIONS, START_UP, START_DOWN, START_ASSERTIONS, SETTLEMENT_UP, SETTLEMENT_DOWN, SETTLEMENT_ASSERTIONS, CART_READ_ONLY_AUTHORITY_UP, CART_READ_ONLY_AUTHORITY_DOWN, CART_READ_ONLY_AUTHORITY_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, `${file} missing`);
+  for (const file of [UP, DOWN, ASSERTIONS, START_UP, START_DOWN, START_ASSERTIONS, SETTLEMENT_UP, SETTLEMENT_DOWN, SETTLEMENT_ASSERTIONS, CART_READ_ONLY_AUTHORITY_UP, CART_READ_ONLY_AUTHORITY_DOWN, CART_READ_ONLY_AUTHORITY_ASSERTIONS, STALE_SESSION_GUARD_UP, STALE_SESSION_GUARD_DOWN, STALE_SESSION_GUARD_ASSERTIONS, CART_DRIFT_SETTLEMENT_UP, CART_DRIFT_SETTLEMENT_DOWN, CART_DRIFT_SETTLEMENT_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, `${file} missing`);
   box = start();
   command(box.tools.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"], `CREATE DATABASE ${DB};`);
   for (const file of migrations()) apply(box, file);
@@ -284,6 +290,11 @@ try {
     const second = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_begin('${HOST}','${NOW}','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}','${authority.authorityDigest}','${START_OPERATION_2}','${"6".repeat(64)}','99000000-0000-4000-8000-000000000191','${"7".repeat(64)}','9a000000-0000-4000-8000-000000000191','9b000000-0000-4000-8000-000000000191','9c000000-0000-4000-8000-000000000191','9d000000-0000-4000-8000-000000000191','9e000000-0000-4000-8000-000000000191','9f000000-0000-4000-8000-000000000191','pay-session-key-2','${"8".repeat(64)}','receipt-key-192','${"9".repeat(64)}','customer-key-192','${"a".repeat(64)}');COMMIT;`).stdout.trim();
     assert.equal(replay, "operation_replayed"); assert.equal(second, "attempt_in_progress");
   });
+  apply(box, STALE_SESSION_GUARD_UP); apply(box, STALE_SESSION_GUARD_ASSERTIONS);
+  scenario("expired holds in an active-family session still block a duplicate begin", () => {
+    const guarded = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_begin('${HOST}','2026-08-06T12:16:00Z','cart','${credentials}'::jsonb,1,'${delivery}'::jsonb,'${METHOD}','${authority.authorityDigest}','${START_OPERATION_2}','${"6".repeat(64)}','99000000-0000-4000-8000-000000000191','${"7".repeat(64)}','9a000000-0000-4000-8000-000000000191','9b000000-0000-4000-8000-000000000191','9c000000-0000-4000-8000-000000000191','9d000000-0000-4000-8000-000000000191','9e000000-0000-4000-8000-000000000191','9f000000-0000-4000-8000-000000000191','pay-session-key-2','${"8".repeat(64)}','receipt-key-192','${"9".repeat(64)}','customer-key-192','${"a".repeat(64)}');ROLLBACK;`).stdout.trim();
+    assert.equal(guarded, "attempt_in_progress");
+  });
   const sessionCredentials = JSON.stringify([{ keyId: "pay-session-key", digest: "3".repeat(64) }]).replaceAll("'", "''");
   scenario("presentation requires an exact sealed envelope and stays credential-bound", () => {
     const invalid = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT outcome FROM saas.public_storefront_hosted_checkout_presentation_save('${HOST}','${NOW}','${sessionCredentials}'::jsonb,'a0000000-0000-4000-8000-000000000191','${"b".repeat(64)}',1,'presentation-key','${"c".repeat(64)}','{}'::jsonb,'2026-08-06T12:05:00Z');COMMIT;`).stdout.trim();
@@ -306,6 +317,7 @@ try {
     assert.equal(psql(box, "SELECT to_regprocedure('saas.storefront_hosted_checkout_terminal_transition()') IS NULL;").stdout.trim(), "t");
   });
   apply(box, SETTLEMENT_UP); apply(box, SETTLEMENT_ASSERTIONS);
+  apply(box, CART_DRIFT_SETTLEMENT_UP); apply(box, CART_DRIFT_SETTLEMENT_ASSERTIONS);
   scenario("092 installs the private trigger and workflow-only maintenance RPCs", () => {
     assert.equal(psql(box, "SELECT saas.storefront_hosted_checkout_settlement_preflight() AND has_function_privilege('celebix_saas_workflow','saas.storefront_hosted_checkout_expire_created(timestamp with time zone,integer)','EXECUTE') AND NOT has_function_privilege('celebix_saas_host_resolver','saas.storefront_hosted_checkout_expire_created(timestamp with time zone,integer)','EXECUTE');").stdout.trim(), "t");
   });
@@ -318,11 +330,18 @@ try {
     assert.equal(receipt.paymentStatus, "completed");
     assert.equal(receipt.paymentMethod.kind, "hosted_card");
     assert.equal(receipt.orderReference, "SF-93000000000040008000000000000191");
+    const orderAddress = JSON.parse(psql(box, "SELECT shipping_address FROM saas.orders WHERE id='93000000-0000-4000-8000-000000000191';").stdout.trim());
+    assert.equal(orderAddress.recipientName, "Ada Lovelace");
   });
   scenario("captured callback replay cannot duplicate order, event, receipt or stock decrement", () => {
     const outcome = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_workflow;SELECT outcome FROM saas.payment_attempt_apply_hosted_callback('paytr_iframe','${"2".repeat(64)}','aa000000-0000-4000-8000-000000000191','${"6".repeat(64)}','${"7".repeat(64)}',2,1,'captured','provider-191','payment_captured',70000,'TRY','2026-08-06T12:02:00Z');COMMIT;`).stdout.trim();
     assert.equal(outcome, "operation_replayed");
     assert.equal(psql(box, `SELECT (SELECT count(*) FROM saas.orders WHERE id='93000000-0000-4000-8000-000000000191')||':'||(SELECT count(*) FROM saas.order_events WHERE order_id='93000000-0000-4000-8000-000000000191')||':'||(SELECT count(*) FROM saas.storefront_order_receipts WHERE order_id='93000000-0000-4000-8000-000000000191')||':'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}');`).stdout.trim(), "1:1:1:1");
+  });
+  scenario("captured snapshot settles while a newer active cart remains available", () => {
+    seedStandardSession(box, { key: "drift", phone: "+905551112238", quantity: 1, cartVersion: 2, attemptStatus: "awaiting_customer", sessionStatus: "provider_ready", cart: "e1000000-0000-4000-8000-000000000192", attempt: "e2000000-0000-4000-8000-000000000192", session: "e3000000-0000-4000-8000-000000000192", order: "e4000000-0000-4000-8000-000000000192", customer: "e5000000-0000-4000-8000-000000000192", address: "e6000000-0000-4000-8000-000000000192", event: "e7000000-0000-4000-8000-000000000192", receipt: "e8000000-0000-4000-8000-000000000192", customerCredential: "e9000000-0000-4000-8000-000000000192", reservation: "ea000000-0000-4000-8000-000000000192" });
+    psql(box, "BEGIN;SET LOCAL ROLE celebix_saas_owner;UPDATE saas.payment_attempts SET status='submitted',safe_code='submitted',version=version+1,updated_at='2026-08-06T12:03:00Z' WHERE id='e2000000-0000-4000-8000-000000000192';UPDATE saas.payment_attempts SET status='captured',safe_code='payment_captured',version=version+1,updated_at='2026-08-06T12:04:00Z' WHERE id='e2000000-0000-4000-8000-000000000192';COMMIT;");
+    assert.equal(psql(box, "SELECT (SELECT status FROM saas.storefront_hosted_checkout_sessions WHERE id='e3000000-0000-4000-8000-000000000192')||':'||(SELECT status FROM saas.checkout_inventory_reservations WHERE storefront_hosted_session_id='e3000000-0000-4000-8000-000000000192')||':'||(SELECT status FROM saas.storefront_carts WHERE id='e1000000-0000-4000-8000-000000000192')||':'||(SELECT count(*) FROM saas.orders WHERE id='e4000000-0000-4000-8000-000000000192');").stdout.trim(), "captured:consumed:active:1");
   });
   scenario("failed payment releases the exact hold and retains the source cart", () => {
     seedStandardSession(box, { key: "fail", phone: "+905551112234", quantity: 1, attemptStatus: "created", sessionStatus: "active", cart: "a1000000-0000-4000-8000-000000000192", attempt: "a2000000-0000-4000-8000-000000000192", session: "a3000000-0000-4000-8000-000000000192", order: "a4000000-0000-4000-8000-000000000192", customer: "a5000000-0000-4000-8000-000000000192", address: "a6000000-0000-4000-8000-000000000192", event: "a7000000-0000-4000-8000-000000000192", receipt: "a8000000-0000-4000-8000-000000000192", customerCredential: "a9000000-0000-4000-8000-000000000192", reservation: "aa000000-0000-4000-8000-000000000192" });

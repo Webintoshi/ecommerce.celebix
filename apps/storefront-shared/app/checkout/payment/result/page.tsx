@@ -36,7 +36,7 @@ export default async function HostedCheckoutResultPage() {
     || hostedStatus?.status === "captured";
 
   return <StorefrontFrame storefront={storefront} design={design}>
-    <main className="checkout-result-page store-container">
+    <div className="checkout-result-page store-container">
       {receipt ? <div className="checkout-result-layout">
         <article className="checkout-result-state checkout-result-success">
           <span className="checkout-result-mark" aria-hidden="true">✓</span>
@@ -61,6 +61,6 @@ export default async function HostedCheckoutResultPage() {
         <p>Sepetinizden güvenle devam edebilirsiniz.</p>
         <Link className="store-button" href="/cart">Sepete dön</Link>
       </article>}
-    </main>
+    </div>
   </StorefrontFrame>;
 }
