@@ -303,6 +303,13 @@ export type DefaultStandardCheckoutReconciliationRuntime = Readonly<{
   close: () => Promise<void>;
 }>;
 
+export function writeSafePaytrCallbackDiagnostic(event: Readonly<{
+  stage: "hosted_callback_outcome";
+  outcome: "accepted" | "retry" | "rejected" | "not_found";
+}>): void {
+  console.warn("paytr_callback_diagnostic", event.stage, event.outcome);
+}
+
 export async function resolveDefaultStandardCheckoutReconciliationRuntime(): Promise<DefaultStandardCheckoutReconciliationRuntime | null> {
   const infrastructure = await resolveDefaultHostedPaymentInfrastructure();
   if (infrastructure === null) return null;

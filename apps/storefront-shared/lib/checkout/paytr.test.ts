@@ -461,8 +461,10 @@ test("fixed callback route handles generic digest outcomes without legacy downgr
   ] as const) {
     let genericCalls = 0;
     let legacyAuthorityCalls = 0;
+    const auditEvents: unknown[] = [];
     const handler = runtimeModule.createPaytrCallbackRoute!({
       selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+      audit: (event) => auditEvents.push(event),
       resolveHostedRuntime: async () => ({
         async callbackByDigest(input: Record<string, unknown>) {
           genericCalls += 1;
@@ -487,6 +489,7 @@ test("fixed callback route handles generic digest outcomes without legacy downgr
     assert.equal(await response.text(), body, kind);
     assert.equal(genericCalls, 1, kind);
     assert.equal(legacyAuthorityCalls, 0, kind);
+    assert.deepEqual(auditEvents, [{ stage: "hosted_callback_outcome", outcome: kind }], kind);
   }
 });
 

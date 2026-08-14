@@ -373,6 +373,10 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
   resolveRuntime: () => Promise<Readonly<{ paymentRepository: CallbackRepository; keyring: QuickLinkKeyring }> | null>;
   resolveHostedRuntime?: () => Promise<HostedDigestCallbackRuntime | null>;
   now?: () => Date;
+  audit?: (event: Readonly<{
+    stage: "hosted_callback_outcome";
+    outcome: "accepted" | "retry" | "rejected" | "not_found";
+  }>) => void;
 }>) {
   const callbackResponse = (status: number, text: "OK" | "INVALID" | "RETRY") => routeText(status, text);
   const legacy = async (
@@ -448,6 +452,14 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
         providerCode: "paytr_iframe",
         callbackBindingDigest: callback.merchantOid,
       });
+      if (new URLSearchParams(callback.form).get("status") === "success") {
+        try {
+          dependencies.audit?.(Object.freeze({
+            stage: "hosted_callback_outcome",
+            outcome: result.kind,
+          }));
+        } catch { /* callback diagnostics cannot affect acknowledgement */ }
+      }
       if (result.kind === "accepted") return callbackResponse(200, "OK");
       if (result.kind === "retry") return callbackResponse(503, "RETRY");
       if (result.kind === "not_found") return await legacy(callback, externalCallbackUrl);
