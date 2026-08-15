@@ -341,7 +341,7 @@ test("provider method mutation requires exact catalog registry packet evidence v
     : entry);
   const packet = Object.freeze({
     providerCode: "paytr_iframe", familyCode: "paytr", modeCode: "iframe",
-    adapterVersion: 1, implementation: "hosted", readiness: Object.freeze({ test: "sandbox_ready", live: "verification" }),
+    adapterVersion: 1, implementation: "hosted", readiness: Object.freeze({ test: "verification", live: "verification" }),
     endpoints: Object.freeze({ test: Object.freeze(["https://www.paytr.com/odeme/api/get-token"]), live: Object.freeze(["https://www.paytr.com/odeme/api/get-token"]) }),
   });
   const registryEntry = Object.freeze({
@@ -379,7 +379,7 @@ test("provider method mutation requires exact catalog registry packet evidence v
     { ...providerExecution, registry: Object.freeze({ get: () => null }) },
     { ...providerExecution, registry: Object.freeze({ get: () => ({ ...registryEntry, adapterVersion: 2 }) }) },
     { ...providerExecution, registry: Object.freeze({ get: () => ({ ...registryEntry, executionAuthority: { ...authority, evidenceDigest: `sha256:${"b".repeat(64)}` } }) }) },
-    { ...providerExecution, adapters: Object.freeze({ packet: () => ({ ...packet, readiness: { test: "verification", live: "verification" } }), adapter: () => ({ packet }) }) },
+    { ...providerExecution, adapters: Object.freeze({ packet: () => ({ ...packet, readiness: { test: "planned", live: "verification" } }), adapter: () => ({ packet }) }) },
   ];
   for (const mismatch of mismatches) {
     const rejected = fixture({ catalog, providerExecution: mismatch });

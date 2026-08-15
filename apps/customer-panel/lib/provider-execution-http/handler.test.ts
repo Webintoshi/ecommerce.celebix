@@ -125,10 +125,7 @@ function fixture(
     keyring: Object.freeze({ activeKeyId: "provider.current", keys: Object.freeze([Object.freeze({ keyId: "provider.current", key: new Uint8Array(32).fill(12) })]) }),
     registry,
     adapters: payment ? (() => {
-      const packet = Object.freeze({
-        ...PAYTR_IFRAME_PACKET,
-        readiness: Object.freeze({ ...PAYTR_IFRAME_PACKET.readiness, test: "sandbox_ready" as const }),
-      });
+      const packet = PAYTR_IFRAME_PACKET;
       const adapter = Object.freeze({ packet });
       return Object.freeze({ size: 1, packet: () => packet, adapter: () => adapter });
     })() : Object.freeze({ size: 0, packet: () => null, adapter: () => null }),

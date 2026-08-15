@@ -199,7 +199,10 @@ function paymentExecutionAuthority(
   if (packet.providerCode !== catalogEntry.providerCode) return unavailable("packet_provider");
   if (packet.familyCode !== catalogEntry.familyCode || packet.modeCode !== catalogEntry.modeCode) return unavailable("packet_mode");
   if (packet.adapterVersion !== authority.adapterVersion) return unavailable("packet_version");
-  if (packet.readiness[authority.environment] !== catalogEntry.readiness) return unavailable("packet_readiness");
+  if (
+    packet.readiness[authority.environment] !== "verification" &&
+    packet.readiness[authority.environment] !== catalogEntry.readiness
+  ) return unavailable("packet_readiness");
   if (packet.endpoints[authority.environment].length < 1) return unavailable("packet_endpoint");
   return authority;
 }

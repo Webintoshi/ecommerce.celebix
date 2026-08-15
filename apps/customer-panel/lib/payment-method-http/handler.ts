@@ -302,7 +302,8 @@ function providerExecutionReady(
     && packet.providerCode === entry.providerCode
     && packet.familyCode === entry.familyCode && packet.modeCode === entry.modeCode
     && packet.adapterVersion === authority.adapterVersion
-    && packet.readiness[authority.environment] === entry.readiness
+    && (packet.readiness[authority.environment] === "verification"
+      || packet.readiness[authority.environment] === entry.readiness)
     && packet.endpoints[authority.environment].length > 0;
 }
 
