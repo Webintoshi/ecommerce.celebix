@@ -171,31 +171,37 @@ function paymentExecutionAuthority(
   runtime: ServerProviderExecutionRuntime,
   entry: ReturnType<ServerProviderExecutionRuntime["registry"]["get"]>,
   catalog: readonly PaymentProviderCatalogEntry[],
+  diagnostic: (stage: string) => void,
 ) {
+  function unavailable(stage: string) {
+    try { diagnostic(stage); } catch { /* diagnostics must not affect the response */ }
+    return null;
+  }
   if (
     entry === null || entry.capability !== "payment_processing" ||
     entry.profileSaveMode !== "execution_authority"
-  ) return null;
+  ) return unavailable("registry_entry");
   const catalogEntry = catalog.find((candidate) => candidate.providerCode === entry.providerCode);
   const authority = catalogEntry?.executionAuthority ?? null;
-  const expectedReadiness = authority?.environment === "test" ? "sandbox_ready" : "production_ready";
+  if (catalogEntry === undefined) return unavailable("catalog_entry");
+  if (authority === null) return unavailable("catalog_authority");
+  const expectedReadiness = authority.environment === "test" ? "sandbox_ready" : "production_ready";
   const packet = runtime.adapters.packet(entry.providerCode);
   const adapter = runtime.adapters.adapter(entry.providerCode);
-  return catalogEntry !== undefined && authority !== null
-    && catalogEntry.readiness === expectedReadiness
-    && catalogEntry.environments.includes(authority.environment)
-    && entry.adapterVersion === authority.adapterVersion
-    && entry.environments?.length === 1 && entry.environments[0] === authority.environment
-    && entry.executionAuthority?.environment === authority.environment
-    && entry.executionAuthority.adapterVersion === authority.adapterVersion
-    && entry.executionAuthority.evidenceDigest === authority.evidenceDigest
-    && packet !== null && adapter !== null && adapter.packet === packet
-    && packet.providerCode === catalogEntry.providerCode
-    && packet.familyCode === catalogEntry.familyCode && packet.modeCode === catalogEntry.modeCode
-    && packet.adapterVersion === authority.adapterVersion
-    && packet.readiness[authority.environment] === catalogEntry.readiness
-    && packet.endpoints[authority.environment].length > 0
-    ? authority : null;
+  if (catalogEntry.readiness !== expectedReadiness) return unavailable("catalog_readiness");
+  if (!catalogEntry.environments.includes(authority.environment)) return unavailable("catalog_environment");
+  if (entry.adapterVersion !== authority.adapterVersion) return unavailable("registry_adapter_version");
+  if (entry.environments?.length !== 1 || entry.environments[0] !== authority.environment) return unavailable("registry_environment");
+  if (entry.executionAuthority?.environment !== authority.environment) return unavailable("registry_authority_environment");
+  if (entry.executionAuthority.adapterVersion !== authority.adapterVersion) return unavailable("registry_authority_version");
+  if (entry.executionAuthority.evidenceDigest !== authority.evidenceDigest) return unavailable("registry_authority_digest");
+  if (packet === null || adapter === null || adapter.packet !== packet) return unavailable("adapter_binding");
+  if (packet.providerCode !== catalogEntry.providerCode) return unavailable("packet_provider");
+  if (packet.familyCode !== catalogEntry.familyCode || packet.modeCode !== catalogEntry.modeCode) return unavailable("packet_mode");
+  if (packet.adapterVersion !== authority.adapterVersion) return unavailable("packet_version");
+  if (packet.readiness[authority.environment] !== catalogEntry.readiness) return unavailable("packet_readiness");
+  if (packet.endpoints[authority.environment].length < 1) return unavailable("packet_endpoint");
+  return authority;
 }
 
 function paymentEnvironment(value: unknown): "test" | "live" | null {
@@ -292,14 +298,16 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
               environment,
             );
           } else {
-            executionAuthority = paymentExecutionAuthority(authorized.runtime, entry, deps.paymentCatalog());
+            executionAuthority = paymentExecutionAuthority(
+              authorized.runtime,
+              entry,
+              deps.paymentCatalog(),
+              (stage) => deps.diagnostic(`payment_execution_authority.${stage}`),
+            );
           }
         }
         catch { return failure("unavailable", 503); }
-        if (executionAuthority === null && validationIdentity === null) {
-          try { deps.diagnostic("payment_execution_authority"); } catch { /* diagnostics must not affect the response */ }
-          return failure("unavailable", 503);
-        }
+        if (executionAuthority === null && validationIdentity === null) return failure("unavailable", 503);
       }
       const existingProfileId = parsed.profileId === undefined ? null : id(parsed.profileId);
       if ((expectedVersion === 0) !== (existingProfileId === null) || (parsed.profileId !== undefined && existingProfileId === null)) return failure("invalid_input", 400);

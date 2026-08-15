@@ -327,7 +327,7 @@ test("payment profile save reports the unavailable stage without credential data
   }));
 
   assert.equal(response.status, 503);
-  assert.deepEqual(stages, ["payment_execution_authority"]);
+  assert.deepEqual(stages, ["payment_execution_authority.catalog_authority"]);
   assert.equal(JSON.stringify(stages).includes("must-not-log"), false);
 });
 
