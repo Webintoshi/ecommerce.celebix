@@ -95,6 +95,11 @@ const CALLBACK_BINDING_DIGEST = /^[a-f0-9]{64}$/;
 const PROVIDER_TOKEN = /^[A-Za-z0-9_-]{32,256}$/;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ROUTE_HEADERS = Object.freeze({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex, nofollow" });
+const STOREFRONT_PROXY_HEADER = "x-celebix-storefront-proxy";
+const FORWARDED_HOST_HEADER = "x-forwarded-host";
+const FORWARDED_PROTO_HEADER = "x-forwarded-proto";
+const STOREFRONT_PROXY_AUTHORITY = /^p1\.[A-Za-z0-9_-]{43}$/;
+const AUTHORITY_HEADER_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 
 function routeText(status: number, text: string): Response {
   return new Response(text, { status, headers: { ...ROUTE_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
@@ -102,6 +107,14 @@ function routeText(status: number, text: string): Response {
 
 function validHostname(value: unknown): value is string {
   return typeof value === "string" && value.length <= 253 && value === value.toLowerCase() && value === value.trim() && HOSTNAME.test(value);
+}
+
+function validStorefrontProxyAuthority(value: unknown): value is string {
+  return typeof value === "string"
+    && value === value.trim()
+    && !value.includes(",")
+    && !AUTHORITY_HEADER_CONTROL.test(value)
+    && STOREFRONT_PROXY_AUTHORITY.test(value);
 }
 
 function validNow(value: unknown): value is Date {
@@ -371,10 +384,22 @@ type HostedDigestCallbackRuntime = Readonly<{
   }>>;
 }>;
 
-function paytrHostedCallbackHeaders(form: string): Headers {
+function paytrHostedCallbackHeaders(
+  form: string,
+  authority?: Readonly<{ proxyAuthority: string | null; hostname: string }>,
+): Headers {
   const headers = new Headers();
   headers.set("content-type", "application/x-www-form-urlencoded");
   headers.set("content-length", String(Buffer.byteLength(form, "utf8")));
+  if (
+    authority !== undefined
+    && validHostname(authority.hostname)
+    && validStorefrontProxyAuthority(authority.proxyAuthority)
+  ) {
+    headers.set(STOREFRONT_PROXY_HEADER, authority.proxyAuthority);
+    headers.set(FORWARDED_HOST_HEADER, authority.hostname);
+    headers.set(FORWARDED_PROTO_HEADER, "https");
+  }
   return headers;
 }
 
@@ -464,7 +489,10 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
       if (runtime === null) return callbackResponse(400, "INVALID");
       const genericRequest = new Request(externalCallbackUrl, {
         method: "POST",
-        headers: paytrHostedCallbackHeaders(callback.form),
+        headers: paytrHostedCallbackHeaders(callback.form, {
+          proxyAuthority: request.headers.get(STOREFRONT_PROXY_HEADER),
+          hostname: authority.hostname,
+        }),
         body: callback.form,
       });
       const result = await runtime.callbackByDigest({

@@ -300,6 +300,7 @@ const PROVIDER_ID = "33333333-3333-4333-8333-333333333333";
 const OPERATION_ID = "44444444-4444-4444-8444-444444444444";
 const CREDENTIAL = `q1.${Buffer.alloc(32, 0x31).toString("base64url")}`;
 const HOSTNAME = "pilot.saas-staging.celebix.site";
+const PROXY_AUTHORITY = `p1.${Buffer.alloc(32, 0x41).toString("base64url")}`;
 const keyring = Object.freeze({ activeKeyId: "quick.current", keys: Object.freeze([
   Object.freeze({ keyId: "quick.current", key: new Uint8Array(32).fill(7) }),
 ]) });
@@ -556,12 +557,14 @@ test("fixed callback route normalizes PayTR form_oid before hosted digest dispat
   assert.equal(genericCalls, 1);
 });
 
-test("fixed callback route strips proxy headers before hosted digest dispatch", async () => {
+test("fixed callback route keeps trusted hosted authority while stripping browser and proxy noise", async () => {
   const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
   let genericCalls = 0;
   let forwardedFor: string | null = null;
   let forwardedHost: string | null = null;
-  let proxyHeader: string | null = null;
+  let forwardedProto: string | null = null;
+  let storefrontProxy: string | null = null;
+  let proxyNoise: string | null = null;
   let headerNames: string[] = [];
   const handler = runtimeModule.createPaytrCallbackRoute!({
     selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
@@ -571,7 +574,9 @@ test("fixed callback route strips proxy headers before hosted digest dispatch", 
         assert.ok(input.request instanceof Request);
         forwardedFor = input.request.headers.get("x-forwarded-for");
         forwardedHost = input.request.headers.get("x-forwarded-host");
-        proxyHeader = input.request.headers.get("x-proxy-0");
+        forwardedProto = input.request.headers.get("x-forwarded-proto");
+        storefrontProxy = input.request.headers.get("x-celebix-storefront-proxy");
+        proxyNoise = input.request.headers.get("x-proxy-0");
         headerNames = [...input.request.headers.keys()].sort();
         return { kind: "accepted" as const };
       },
@@ -587,6 +592,9 @@ test("fixed callback route strips proxy headers before hosted digest dispatch", 
   const request = digestCallbackRequest(digest, "success", "form_oid");
   request.headers.set("x-forwarded-for", "203.0.113.10");
   request.headers.set("x-forwarded-host", "internal-storefront:3000");
+  request.headers.set("x-forwarded-proto", "http");
+  request.headers.set("x-celebix-storefront-proxy", PROXY_AUTHORITY);
+  request.headers.set("host", "internal-storefront:3000");
   for (let index = 0; index < 40; index += 1) {
     request.headers.set(`x-proxy-${index}`, `value-${index}`);
   }
@@ -595,9 +603,17 @@ test("fixed callback route strips proxy headers before hosted digest dispatch", 
   assert.equal(await response.text(), "OK");
   assert.equal(genericCalls, 1);
   assert.equal(forwardedFor, null);
-  assert.equal(forwardedHost, null);
-  assert.equal(proxyHeader, null);
-  assert.deepEqual(headerNames, ["content-length", "content-type"]);
+  assert.equal(forwardedHost, HOSTNAME);
+  assert.equal(forwardedProto, "https");
+  assert.equal(storefrontProxy, PROXY_AUTHORITY);
+  assert.equal(proxyNoise, null);
+  assert.deepEqual(headerNames, [
+    "content-length",
+    "content-type",
+    "x-celebix-storefront-proxy",
+    "x-forwarded-host",
+    "x-forwarded-proto",
+  ]);
 });
 
 test("fixed callback route falls back only after generic digest authority is genuinely absent", async () => {
