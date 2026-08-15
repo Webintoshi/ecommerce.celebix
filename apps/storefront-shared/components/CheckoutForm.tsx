@@ -99,7 +99,10 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
       const destination = new URL(response.url, window.location.href);
       if (!response.ok || !response.redirected || destination.origin !== window.location.origin || destination.pathname !== "/checkout/success" || destination.search || destination.hash) throw new Error("checkout_failed");
       window.location.assign("/checkout/success");
-    } catch { setStatus("Sipariş tamamlanamadı. Lütfen bilgilerinizi kontrol edip yeniden deneyin."); setPending(false); }
+    } catch (error: unknown) {
+      setStatus(error instanceof StorefrontCartClientError ? checkoutFailureMessage(error.code) : "Sipariş tamamlanamadı. Lütfen bilgilerinizi kontrol edip yeniden deneyin.");
+      setPending(false);
+    }
   };
 
   return <form ref={formRef} className="checkout-form checkout-layout checkout-single-screen" onSubmit={(event) => void submit(event)} noValidate>
