@@ -21,6 +21,7 @@ const handlers = createProviderExecutionHttpHandlers({
     ? listDefaultCustomerPanelPaymentProviderCodes()
     : Object.freeze([]),
   paymentCatalog: () => PAYMENT_PROVIDER_CATALOG,
+  diagnostic: (stage) => console.warn(`[provider-execution] ${stage}`),
 });
 
 type ProfileContext = Readonly<{ params: Promise<Readonly<{ profileId: string }>> }>;

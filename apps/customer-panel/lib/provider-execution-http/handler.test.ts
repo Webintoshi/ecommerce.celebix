@@ -57,6 +57,7 @@ function fixture(
   role: "store_owner" | "analyst" = "store_owner",
   empty = false,
   paymentAuthority: Readonly<PaymentProviderExecutionAuthority> | null | undefined = undefined,
+  diagnostic?: (stage: string) => void,
 ) {
   const payment = paymentAuthority !== undefined;
   const repositoryCalls: unknown[] = [];
@@ -143,6 +144,7 @@ function fixture(
       readiness: paymentAuthority === null ? "verification" as const : "sandbox_ready" as const,
       executionAuthority: paymentAuthority,
     })]) : Object.freeze([]),
+    diagnostic: diagnostic ?? (() => undefined),
   });
   return { handlers, repositoryCalls, parsedCredential: () => parsedCredential };
 }
@@ -234,6 +236,7 @@ function iyzicoFixture(existingEnvironment: "test" | "live" = "test") {
     paymentCatalog: () => Object.freeze([
       PAYMENT_PROVIDER_CATALOG.find((candidate) => candidate.providerCode === "iyzico_iframe")!,
     ]),
+    diagnostic: () => undefined,
   });
   return {
     handlers,
@@ -312,6 +315,20 @@ test("payment profile persistence requires one exact catalog descriptor and adap
   assert.equal(response.status, 200);
   assert.deepEqual((probe.repositoryCalls[0] as { input: { executionAuthority: unknown } }).input.executionAuthority, authority);
   assert.doesNotMatch(await response.text(), /server-sealed|server-sealed-salt|credentialDigest|ciphertext/);
+});
+
+test("payment profile save reports the unavailable stage without credential data", async () => {
+  const stages: string[] = [];
+  const probe = fixture("store_owner", false, null, (stage) => stages.push(stage));
+  const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+    providerCode: "paytr_iframe", capability: "payment_processing",
+    publicConfig: { environment: "test", merchantId: "123456" },
+    credential: { merchantKey: "must-not-log", merchantSalt: "must-not-log-salt" }, expectedVersion: 0,
+  }));
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(stages, ["payment_execution_authority"]);
+  assert.equal(JSON.stringify(stages).includes("must-not-log"), false);
 });
 
 test("Iyzico saves verification identity without execution authority or sandbox evidence", async () => {

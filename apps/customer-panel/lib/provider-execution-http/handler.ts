@@ -41,6 +41,7 @@ type Deps = Readonly<{
   profileId(): string;
   providerCodes(capability: MerchantProviderCapability): readonly string[];
   paymentCatalog(): readonly PaymentProviderCatalogEntry[];
+  diagnostic(stage: string): void;
 }>;
 type Authorized = Readonly<{ runtime: ServerProviderExecutionRuntime; tenantContext: TenantContext; now: Date }>;
 
@@ -295,7 +296,10 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
           }
         }
         catch { return failure("unavailable", 503); }
-        if (executionAuthority === null && validationIdentity === null) return failure("unavailable", 503);
+        if (executionAuthority === null && validationIdentity === null) {
+          try { deps.diagnostic("payment_execution_authority"); } catch { /* diagnostics must not affect the response */ }
+          return failure("unavailable", 503);
+        }
       }
       const existingProfileId = parsed.profileId === undefined ? null : id(parsed.profileId);
       if ((expectedVersion === 0) !== (existingProfileId === null) || (parsed.profileId !== undefined && existingProfileId === null)) return failure("invalid_input", 400);
