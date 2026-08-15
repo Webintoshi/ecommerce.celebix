@@ -622,7 +622,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     );
     const paymentProviderRegistry = createDefaultCustomerPanelPaymentProviderRegistry(
       hostedPaymentAdapters,
-      null,
+      undefined,
       resolveCustomerPanelPaymentActivationMode(process.env),
     );
     const analyticsRepository = new PostgresAnalyticsRepository({

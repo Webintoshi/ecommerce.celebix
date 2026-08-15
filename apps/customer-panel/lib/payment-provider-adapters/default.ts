@@ -5,6 +5,7 @@ import {
   IYZICO_APPROVED_EXECUTION_AUTHORITY,
   IYZICO_IFRAME_PACKET,
   IYZICO_GENERATED_BUILD_METADATA,
+  PAYTR_APPROVED_EXECUTION_AUTHORITIES,
   PAYTR_IFRAME_PACKET,
   createIyzicoCheckoutFormAdapter,
   createPaymentAdapterRegistry,
@@ -113,7 +114,7 @@ export function resolveIyzicoCompiledExecutionAuthority(
     const metadata = exactIyzicoBuildMetadata(generated);
     if (
       metadata === null
-      || !exactExecutionAuthority(approved)
+      || !exactExecutionAuthority(approved, IYZICO_IFRAME_PACKET.adapterVersion)
       || approved.evidenceDigest !== metadata.candidateExecutionDigest
     ) return null;
     return Object.freeze({
@@ -126,7 +127,25 @@ export function resolveIyzicoCompiledExecutionAuthority(
   }
 }
 
-function exactExecutionAuthority(value: unknown): value is Readonly<PaymentProviderExecutionAuthority> {
+export function resolvePaytrCompiledExecutionAuthority(
+  approved: unknown = PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
+): Readonly<PaymentProviderExecutionAuthority> | null {
+  try {
+    if (!exactExecutionAuthority(approved, PAYTR_IFRAME_PACKET.adapterVersion)) return null;
+    return Object.freeze({
+      environment: approved.environment,
+      adapterVersion: approved.adapterVersion,
+      evidenceDigest: approved.evidenceDigest,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function exactExecutionAuthority(
+  value: unknown,
+  adapterVersion: number,
+): value is Readonly<PaymentProviderExecutionAuthority> {
   try {
     if (
       typeof value !== "object" || value === null || Array.isArray(value)
@@ -137,7 +156,7 @@ function exactExecutionAuthority(value: unknown): value is Readonly<PaymentProvi
     return Reflect.ownKeys(descriptors).length === keys.length
       && keys.every((key) => descriptors[key]?.enumerable === true && "value" in descriptors[key]!)
       && descriptors.environment?.value === "test"
-      && descriptors.adapterVersion?.value === IYZICO_IFRAME_PACKET.adapterVersion
+      && descriptors.adapterVersion?.value === adapterVersion
       && typeof descriptors.evidenceDigest?.value === "string"
       && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value);
   } catch {
@@ -176,6 +195,7 @@ function wipeCredential(value: unknown): void {
 
 function paytrEntry(
   adapter: HostedPaymentAdapter<object>,
+  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null,
 ): MerchantProviderRegistryEntry {
   if (
     adapter.packet !== PAYTR_IFRAME_PACKET ||
@@ -190,7 +210,10 @@ function paytrEntry(
   function parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>> {
     try {
       const selected = exactRecord(value, PUBLIC_KEYS);
-      if (selected.environment !== "test" && selected.environment !== "live") invalid();
+      if (
+        selected.environment !== "test" &&
+        (executionAuthority !== null || selected.environment !== "live")
+      ) invalid();
       const credential = adapter.parseCredential({
         merchantId: selected.merchantId,
         merchantKey: "validation-placeholder",
@@ -261,9 +284,13 @@ function paytrEntry(
     publicFields,
     credentialFields,
     adapterVersion: adapter.packet.adapterVersion,
-    environments: Object.freeze(["test", "live"] as const),
-    executionAuthority: null,
-    profileSaveMode: "verification" as const,
+    environments: executionAuthority === null
+      ? Object.freeze(["test", "live"] as const)
+      : Object.freeze(["test"] as const),
+    executionAuthority,
+    profileSaveMode: executionAuthority === null
+      ? "verification" as const
+      : "execution_authority" as const,
     parsePublicConfig,
     parseCredential,
     maskAccountReference,
@@ -361,7 +388,7 @@ export function createDefaultHostedPaymentAdapterRegistry(
 
 export function createDefaultCustomerPanelPaymentProviderRegistry(
   hosted: PaymentAdapterRegistry,
-  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null = null,
+  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null = PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
   activationMode: CustomerPanelPaymentActivationMode = "disabled",
   iyzicoApproval: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
   iyzicoBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
@@ -380,9 +407,12 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
       !/^sha256:[a-f0-9]{64}$/.test(executionAuthority.evidenceDigest)
     )) invalid();
     if (activationMode !== "disabled" && activationMode !== "approved_test_sandbox") invalid();
+    const paytrAuthority = activationMode === "approved_test_sandbox"
+      ? resolvePaytrCompiledExecutionAuthority(executionAuthority)
+      : null;
     const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
     return createCustomerPanelProviderRegistry([
-      paytrEntry(adapter),
+      paytrEntry(adapter, paytrAuthority),
       iyzicoEntry(iyzico, iyzicoAuthority),
     ]);
   } catch {

@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   IYZICO_IFRAME_PACKET,
+  PAYTR_APPROVED_EXECUTION_AUTHORITIES,
   PAYTR_IFRAME_PACKET,
 } from "@celebix/payment-adapters";
 
@@ -153,13 +154,21 @@ test("default compiled authority map keeps PayTR test and live bindings distinct
   };
   assert.equal(typeof candidate.createDefaultStorefrontHostedPaymentCompiledAuthorities, "function");
   const createAuthorities = candidate.createDefaultStorefrontHostedPaymentCompiledAuthorities!;
+  assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.test, "PayTR test execution authority must be generated");
+  assert.equal(PAYTR_APPROVED_EXECUTION_AUTHORITIES.live, null);
   assert.deepEqual(createAuthorities(), {
-    paytr_iframe: { test: null, live: null },
+    paytr_iframe: {
+      test: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
+      live: null,
+    },
     iyzico_iframe: null,
   });
   const selected = createAuthorities(IYZICO_AUTHORITY, IYZICO_CANDIDATE);
   assert.deepEqual(selected, {
-    paytr_iframe: { test: null, live: null },
+    paytr_iframe: {
+      test: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
+      live: null,
+    },
     iyzico_iframe: IYZICO_AUTHORITY,
   });
   const paytr = createAuthorities(undefined, undefined, PAYTR_AUTHORITIES);

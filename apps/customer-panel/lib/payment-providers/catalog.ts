@@ -5,7 +5,10 @@ import {
 
 import { RAW_PAYMENT_PROVIDER_CATALOG } from "./catalog-data.ts";
 import logoManifest from "./logo-manifest.json" with { type: "json" };
-import { resolveIyzicoCompiledExecutionAuthority } from "../payment-provider-adapters/default.ts";
+import {
+  resolveIyzicoCompiledExecutionAuthority,
+  resolvePaytrCompiledExecutionAuthority,
+} from "../payment-provider-adapters/default.ts";
 
 export type PaymentProviderLogoBinding = Readonly<{
   familyCode: string;
@@ -50,16 +53,28 @@ export function createPaymentProviderCatalog(
   iyzicoBuild?: unknown,
 ): readonly PaymentProviderCatalogEntry[] {
   const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
-  const selected = iyzicoAuthority === null
+  const paytrAuthority = resolvePaytrCompiledExecutionAuthority();
+  const selected = iyzicoAuthority === null && paytrAuthority === null
     ? RAW_PAYMENT_PROVIDER_CATALOG
-    : RAW_PAYMENT_PROVIDER_CATALOG.map((entry) => entry.providerCode === "iyzico_iframe"
-      ? Object.freeze({
+    : RAW_PAYMENT_PROVIDER_CATALOG.map((entry) => {
+      if (entry.providerCode === "paytr_iframe" && paytrAuthority !== null) {
+        return Object.freeze({
+          ...entry,
+          readiness: "sandbox_ready" as const,
+          environments: Object.freeze(["test"] as const),
+          executionAuthority: paytrAuthority,
+        });
+      }
+      if (entry.providerCode === "iyzico_iframe" && iyzicoAuthority !== null) {
+        return Object.freeze({
           ...entry,
           readiness: "sandbox_ready" as const,
           environments: Object.freeze(["test"] as const),
           executionAuthority: iyzicoAuthority,
-        })
-      : entry);
+        });
+      }
+      return entry;
+    });
   const catalog = parsePaymentProviderCatalog(selected);
   validatePaymentProviderLogoBindings(catalog, logoManifest);
   return catalog;

@@ -384,18 +384,13 @@ test("only ready catalog entries with an exact payment descriptor become connect
   }
 });
 
-test("default PayTR setup is configurable without exposing execution authority", () => {
+test("approved PayTR setup is configurable without exposing execution authority", () => {
   const hosted = createDefaultHostedPaymentAdapterRegistry(Object.freeze({
     request: Object.freeze(async () => { throw new Error("unexpected transport"); }),
   }));
-  const registry = createDefaultCustomerPanelPaymentProviderRegistry(hosted);
+  const registry = createDefaultCustomerPanelPaymentProviderRegistry(hosted, undefined, "approved_test_sandbox");
   const descriptor = registry.get("paytr_iframe", "payment_processing");
   assert.ok(descriptor);
-  const evidence = {
-    state: "sandbox_ready" as const,
-    adapterVersion: 1 as const,
-    evidenceDigest: "sha256:test-only-fixture" as const,
-  };
   const definitions = [{
     providerCode: descriptor.providerCode,
     capability: descriptor.capability,
@@ -404,30 +399,48 @@ test("default PayTR setup is configurable without exposing execution authority",
     credentialFields: descriptor.credentialFields,
     adapterVersion: descriptor.adapterVersion,
     environments: descriptor.environments,
-    executionAuthority: null,
+    executionAuthority: descriptor.executionAuthority,
   }];
 
   const view = buildPaymentSettingsViewModel(
     PAYMENT_PROVIDER_CATALOG, definitions, [], [], "", noFilters,
   );
-  assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr_iframe")?.readiness, "verification");
+  assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr_iframe")?.readiness, "sandbox_ready");
   assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr_iframe")?.actionLabel, "Kur");
   assert.equal(view.catalog.cards.find((card) => card.providerCode === "paytr")?.actionLabel, "Hazırlanıyor");
   assert.equal(view.catalog.cards.filter((card) => card.connectable).length, 1);
 
-  const promoted = promoteTestReadiness(PAYMENT_PROVIDER_CATALOG, "paytr_iframe", evidence);
-  const sandboxReady = buildPaymentSettingsViewModel(promoted, definitions, [], [], "", noFilters);
-  const card = sandboxReady.catalog.cards.find((candidate) => candidate.providerCode === "paytr_iframe");
-  assert.equal(card?.actionLabel, "Hazırlanıyor");
-  assert.equal(card?.connectionEnvironment, null);
-  assert.equal(sandboxReady.catalog.cards.filter((candidate) => candidate.connectable).length, 0);
+  const disabledRegistry = createDefaultCustomerPanelPaymentProviderRegistry(hosted, undefined, "disabled");
+  const disabledDescriptor = disabledRegistry.get("paytr_iframe", "payment_processing");
+  assert.ok(disabledDescriptor);
+  const disabled = buildPaymentSettingsViewModel(
+    PAYMENT_PROVIDER_CATALOG,
+    [{
+      providerCode: disabledDescriptor.providerCode,
+      capability: disabledDescriptor.capability,
+      label: disabledDescriptor.label,
+      publicFields: disabledDescriptor.publicFields,
+      credentialFields: disabledDescriptor.credentialFields,
+      adapterVersion: disabledDescriptor.adapterVersion,
+      environments: disabledDescriptor.environments,
+      executionAuthority: disabledDescriptor.executionAuthority,
+    }],
+    [],
+    [],
+    "",
+    noFilters,
+  );
+  const disabledCard = disabled.catalog.cards.find((candidate) => candidate.providerCode === "paytr_iframe");
+  assert.equal(disabledCard?.actionLabel, "Hazırlanıyor");
+  assert.equal(disabledCard?.connectionEnvironment, null);
+  assert.equal(disabled.catalog.cards.filter((candidate) => candidate.connectable).length, 0);
 });
 
 test("PayTR catalog actions follow the durable profile and method lifecycle", () => {
   const hosted = createDefaultHostedPaymentAdapterRegistry(Object.freeze({
     request: Object.freeze(async () => { throw new Error("unexpected transport"); }),
   }));
-  const entry = createDefaultCustomerPanelPaymentProviderRegistry(hosted)
+  const entry = createDefaultCustomerPanelPaymentProviderRegistry(hosted, undefined, "approved_test_sandbox")
     .get("paytr_iframe", "payment_processing");
   assert.ok(entry);
   const descriptor: MerchantProviderDescriptor = {
@@ -438,7 +451,7 @@ test("PayTR catalog actions follow the durable profile and method lifecycle", ()
     credentialFields: entry.credentialFields,
     adapterVersion: entry.adapterVersion,
     environments: entry.environments,
-    executionAuthority: null,
+    executionAuthority: entry.executionAuthority,
   };
   const card = (
     status?: MerchantProviderProfile["status"],

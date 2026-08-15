@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ProviderTransport } from "@celebix/payment-adapters";
+import {
+  PAYTR_APPROVED_EXECUTION_AUTHORITIES,
+  type ProviderTransport,
+} from "@celebix/payment-adapters";
 
 import {
   createDefaultCustomerPanelPaymentProviderRegistry,
@@ -153,7 +156,7 @@ test("default assembly never discovers providers or credentials from environment
   }
 });
 
-test("panel activation mode cannot make verification or null authority connectable", () => {
+test("panel activation mode promotes only the exact PayTR test source authority", () => {
   assert.equal(resolveCustomerPanelPaymentActivationMode({}), "disabled");
   assert.equal(
     resolveCustomerPanelPaymentActivationMode({
@@ -171,12 +174,39 @@ test("panel activation mode cannot make verification or null authority connectab
   }
 
   const hosted = createDefaultHostedPaymentAdapterRegistry(transport());
-  const registry = createDefaultCustomerPanelPaymentProviderRegistry(
+  const disabled = createDefaultCustomerPanelPaymentProviderRegistry(
+    hosted,
+    undefined,
+    "disabled",
+  );
+  assert.equal(disabled.get("paytr_iframe", "payment_processing")?.executionAuthority, null);
+  assert.equal(disabled.get("paytr_iframe", "payment_processing")?.profileSaveMode, "verification");
+
+  const explicitNull = createDefaultCustomerPanelPaymentProviderRegistry(
     hosted,
     null,
     "approved_test_sandbox",
   );
-  assert.equal(registry.get("paytr_iframe", "payment_processing")?.executionAuthority, null);
+  assert.equal(explicitNull.get("paytr_iframe", "payment_processing")?.executionAuthority, null);
+
+  assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.test, "PayTR test execution authority must be generated");
+  assert.equal(PAYTR_APPROVED_EXECUTION_AUTHORITIES.live, null);
+  const registry = createDefaultCustomerPanelPaymentProviderRegistry(
+    hosted,
+    undefined,
+    "approved_test_sandbox",
+  );
+  const paytr = registry.get("paytr_iframe", "payment_processing");
+  assert.ok(paytr);
+  assert.deepEqual(paytr.executionAuthority, PAYTR_APPROVED_EXECUTION_AUTHORITIES.test);
+  assert.notStrictEqual(paytr.executionAuthority, PAYTR_APPROVED_EXECUTION_AUTHORITIES.test);
+  assert.equal(Object.isFrozen(paytr.executionAuthority), true);
+  assert.equal(paytr.profileSaveMode, "execution_authority");
+  assert.deepEqual(paytr.environments, ["test"]);
+  assert.throws(
+    () => paytr.parsePublicConfig({ environment: "live", merchantId: "merchant-1234" }),
+    /customer_panel_payment_adapter_invalid/,
+  );
   assert.equal(registry.get("iyzico_iframe", "payment_processing")?.executionAuthority, null);
 });
 

@@ -73,7 +73,12 @@ function fixture(
     capability: payment ? "payment_processing" as const : "marketplace_sync" as const,
     label: payment ? "PayTR iFrame" : "Fixture Provider",
     publicFields: Object.freeze([Object.freeze({ key: payment ? "merchantId" : "account_reference", label: "Hesap" })]),
-    credentialFields: Object.freeze([Object.freeze({ key: payment ? "merchantKey" : "api_secret", label: "API Secret", secret: true as const })]),
+    credentialFields: payment
+      ? Object.freeze([
+          Object.freeze({ key: "merchantKey", label: "Mağaza parolası", secret: true as const }),
+          Object.freeze({ key: "merchantSalt", label: "Mağaza gizli anahtarı", secret: true as const }),
+        ])
+      : Object.freeze([Object.freeze({ key: "api_secret", label: "API Secret", secret: true as const })]),
     parsePublicConfig(value: unknown) {
       const selected = value as Record<string, unknown>;
       if (payment) {
@@ -85,9 +90,21 @@ function fixture(
     },
     parseCredential(value: unknown) {
       const selected = value as Record<string, unknown>;
-      const key = payment ? "merchantKey" : "api_secret";
-      if (!selected || Object.keys(selected).join(",") !== key || typeof selected[key] !== "string") throw new TypeError();
-      parsedCredential = new TextEncoder().encode(JSON.stringify({ [key]: selected[key] }));
+      if (payment) {
+        if (
+          !selected ||
+          Object.keys(selected).sort().join(",") !== "merchantKey,merchantSalt" ||
+          typeof selected.merchantKey !== "string" ||
+          typeof selected.merchantSalt !== "string"
+        ) throw new TypeError();
+        parsedCredential = new TextEncoder().encode(JSON.stringify({
+          merchantKey: selected.merchantKey,
+          merchantSalt: selected.merchantSalt,
+        }));
+        return parsedCredential;
+      }
+      if (!selected || Object.keys(selected).join(",") !== "api_secret" || typeof selected.api_secret !== "string") throw new TypeError();
+      parsedCredential = new TextEncoder().encode(JSON.stringify({ api_secret: selected.api_secret }));
       return parsedCredential;
     },
     maskAccountReference() { return "••••nt-42"; },
@@ -281,7 +298,7 @@ test("payment profile persistence requires one exact catalog descriptor and adap
     const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
       providerCode: "paytr_iframe", capability: "payment_processing",
       publicConfig: { environment: "test", merchantId: "123456" },
-      credential: { merchantKey: "never-parse" }, expectedVersion: 0,
+      credential: { merchantKey: "never-parse", merchantSalt: "never-parse" }, expectedVersion: 0,
     }));
     assert.equal(response.status, selectedAuthority === null ? 503 : 200);
     assert.equal(probe.repositoryCalls.length, selectedAuthority === null ? 0 : 1);
@@ -290,10 +307,11 @@ test("payment profile persistence requires one exact catalog descriptor and adap
   const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
     providerCode: "paytr_iframe", capability: "payment_processing",
     publicConfig: { environment: "test", merchantId: "123456" },
-    credential: { merchantKey: "server-sealed" }, expectedVersion: 0,
+    credential: { merchantKey: "server-sealed", merchantSalt: "server-sealed-salt" }, expectedVersion: 0,
   }));
   assert.equal(response.status, 200);
   assert.deepEqual((probe.repositoryCalls[0] as { input: { executionAuthority: unknown } }).input.executionAuthority, authority);
+  assert.doesNotMatch(await response.text(), /server-sealed|server-sealed-salt|credentialDigest|ciphertext/);
 });
 
 test("Iyzico saves verification identity without execution authority or sandbox evidence", async () => {

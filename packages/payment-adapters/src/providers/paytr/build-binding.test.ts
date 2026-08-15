@@ -96,7 +96,7 @@ test("PayTR generated metadata verification rejects environment source and diges
   }
 });
 
-test("PayTR source-control build authority is closed for test and live", async () => {
+test("PayTR source-control build authority approves test and keeps live closed", async () => {
   const [generated, binding, api] = await Promise.all([
     import("./build-metadata.generated.ts").catch(() => null),
     import("./build-binding.ts"),
@@ -104,9 +104,22 @@ test("PayTR source-control build authority is closed for test and live", async (
   ]);
 
   assert.ok(generated);
-  assert.deepEqual(generated.PAYTR_GENERATED_BUILD_METADATA, { test: null, live: null });
-  assert.deepEqual(generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES, { test: null, live: null });
-  assert.deepEqual(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES, { test: null, live: null });
-  assert.deepEqual(api.PAYTR_APPROVED_EXECUTION_AUTHORITIES, { test: null, live: null });
+  assert.ok(generated.PAYTR_GENERATED_BUILD_METADATA.test);
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live, null);
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.environment, "test");
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.providerCode, "paytr_iframe");
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.capability, "payment_processing");
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.adapterVersion, 1);
+  assert.deepEqual(generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES, {
+    test: {
+      environment: "test",
+      adapterVersion: 1,
+      evidenceDigest: generated.PAYTR_GENERATED_BUILD_METADATA.test.candidateExecutionDigest,
+    },
+    live: null,
+  });
+  assert.deepEqual(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES, generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
+  assert.deepEqual(api.PAYTR_APPROVED_EXECUTION_AUTHORITIES, generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
   assert.equal(Object.isFrozen(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES), true);
+  assert.equal(Object.isFrozen(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES.test), true);
 });
