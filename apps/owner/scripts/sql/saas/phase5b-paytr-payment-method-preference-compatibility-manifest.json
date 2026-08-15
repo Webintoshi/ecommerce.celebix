@@ -1,0 +1,23 @@
+{
+  "phase": "phase5b-paytr-payment-method-preference-compatibility",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608150111_paytr_payment_method_preference_compatibility.up.sql",
+      "direction": "up",
+      "sha256": "dd6feea608b07fad61005d0ec5a510090340d4d4d8898403b9bd9b40d7ad7001"
+    },
+    {
+      "file": "202608150111_paytr_payment_method_preference_compatibility.down.sql",
+      "direction": "down",
+      "sha256": "5da9d005b363363f22f3691dda056b382d3a9c2d5fa6bad76c41185555c1e9ba"
+    },
+    {
+      "file": "202608150111_paytr_payment_method_preference_compatibility_assertions.sql",
+      "direction": "verify",
+      "sha256": "b06d8eb1c454a03682306d396b38c15111c5c16364448cd4ebfb394d48261114"
+    }
+  ]
+}
