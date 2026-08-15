@@ -53,6 +53,22 @@ test("unknown, spoofed, or mismatched hosts use the generic safe model", async (
   }
 });
 
+test("valid staging admin hosts keep a central login destination when branding is temporarily unavailable", async () => {
+  const model = await resolveTenantAdminLoginModel({
+    hostHeader: HOSTNAME,
+    clock: () => new Date("2026-07-30T10:00:00.000Z"),
+    async resolveRuntime() { return null; },
+  });
+  assert.deepEqual(model, {
+    kind: "generic",
+    displayName: "Celebix",
+    logoUrl: null,
+    accentColor: "#ff6500",
+    canonicalAdminOrigin: null,
+    loginHref: `${PANEL}/auth/login?destination=${HOSTNAME}`,
+  });
+});
+
 test("staging login model refuses a production canonical admin destination", async () => {
   const model = await resolveTenantAdminLoginModel({
     hostHeader: HOSTNAME,
