@@ -371,6 +371,13 @@ type HostedDigestCallbackRuntime = Readonly<{
   }>>;
 }>;
 
+function paytrHostedCallbackHeaders(form: string): Headers {
+  const headers = new Headers();
+  headers.set("content-type", "application/x-www-form-urlencoded");
+  headers.set("content-length", String(Buffer.byteLength(form, "utf8")));
+  return headers;
+}
+
 export function createPaytrCallbackRoute(dependencies: Readonly<{
   selectAuthority: (headers: Headers) => HostAuthority;
   resolveRuntime: () => Promise<Readonly<{ paymentRepository: CallbackRepository; keyring: QuickLinkKeyring }> | null>;
@@ -455,11 +462,9 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
     try {
       const runtime = await dependencies.resolveHostedRuntime();
       if (runtime === null) return callbackResponse(400, "INVALID");
-      const genericHeaders = new Headers(request.headers);
-      genericHeaders.set("content-length", String(Buffer.byteLength(callback.form, "utf8")));
       const genericRequest = new Request(externalCallbackUrl, {
         method: "POST",
-        headers: genericHeaders,
+        headers: paytrHostedCallbackHeaders(callback.form),
         body: callback.form,
       });
       const result = await runtime.callbackByDigest({

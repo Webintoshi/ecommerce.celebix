@@ -556,6 +556,50 @@ test("fixed callback route normalizes PayTR form_oid before hosted digest dispat
   assert.equal(genericCalls, 1);
 });
 
+test("fixed callback route strips proxy headers before hosted digest dispatch", async () => {
+  const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  let genericCalls = 0;
+  let forwardedFor: string | null = null;
+  let forwardedHost: string | null = null;
+  let proxyHeader: string | null = null;
+  let headerNames: string[] = [];
+  const handler = runtimeModule.createPaytrCallbackRoute!({
+    selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+    resolveHostedRuntime: async () => ({
+      async callbackByDigest(input: Record<string, unknown>) {
+        genericCalls += 1;
+        assert.ok(input.request instanceof Request);
+        forwardedFor = input.request.headers.get("x-forwarded-for");
+        forwardedHost = input.request.headers.get("x-forwarded-host");
+        proxyHeader = input.request.headers.get("x-proxy-0");
+        headerNames = [...input.request.headers.keys()].sort();
+        return { kind: "accepted" as const };
+      },
+    }),
+    resolveRuntime: async () => ({
+      keyring,
+      paymentRepository: {
+        async getCallbackAuthority() { throw new Error("legacy downgrade forbidden"); },
+        async settleCallback() { throw new Error("legacy downgrade forbidden"); },
+      },
+    }),
+  });
+  const request = digestCallbackRequest(digest, "success", "form_oid");
+  request.headers.set("x-forwarded-for", "203.0.113.10");
+  request.headers.set("x-forwarded-host", "internal-storefront:3000");
+  for (let index = 0; index < 40; index += 1) {
+    request.headers.set(`x-proxy-${index}`, `value-${index}`);
+  }
+  const response = await handler(request);
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "OK");
+  assert.equal(genericCalls, 1);
+  assert.equal(forwardedFor, null);
+  assert.equal(forwardedHost, null);
+  assert.equal(proxyHeader, null);
+  assert.deepEqual(headerNames, ["content-length", "content-type"]);
+});
+
 test("fixed callback route falls back only after generic digest authority is genuinely absent", async () => {
   const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
   let genericCalls = 0;
