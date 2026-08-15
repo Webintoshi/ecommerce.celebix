@@ -72,7 +72,7 @@ type Dependencies = Readonly<{
   resolveExecution(): Promise<StandardHostedCheckoutExecution | null>;
   now(): Date;
   randomUuid(): string;
-  audit?(event: Readonly<{ stage: "provider_rejected" | "credential_persistence_missing" | "browser_credential_reconstruction_failed" | "presentation_invalid" | "presentation_seal_failed" | "presentation_persistence_failed"; code?: StorefrontHostedCheckoutErrorCode }>): void;
+  audit?(event: Readonly<{ stage: "authority_failure" | "identity_authority_mismatch" | "client_ip_authority_invalid" | "execution_unavailable" | "provider_runtime_unavailable" | "provider_initialization_failed" | "provider_rejected" | "credential_persistence_missing" | "browser_credential_reconstruction_failed" | "presentation_invalid" | "presentation_seal_failed" | "presentation_persistence_failed"; code?: StorefrontHostedCheckoutErrorCode }>): void;
 }>;
 
 function unavailable(): never { throw new StandardHostedCheckoutRuntimeError("unavailable"); }
@@ -260,18 +260,26 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       const selectedNow = now(dependencies);
       const candidates = sourceCandidates(input.request, input.cookieHeader, dependencies.commerceKeyring);
       const selectedDelivery = delivery(input.request);
-      const authority = await dependencies.repository.authority({
-        hostname: input.hostname, now: selectedNow, intentKind: input.request.intentKind,
-        candidates, cartVersion: input.request.cartVersion, delivery: selectedDelivery,
-        paymentMethodId: input.request.paymentMethodId,
-      });
+      let authority;
+      try {
+        authority = await dependencies.repository.authority({
+          hostname: input.hostname, now: selectedNow, intentKind: input.request.intentKind,
+          candidates, cartVersion: input.request.cartVersion, delivery: selectedDelivery,
+          paymentMethodId: input.request.paymentMethodId,
+        });
+      } catch (error) {
+        audit(dependencies, "authority_failure", error instanceof StorefrontHostedCheckoutRepositoryError ? error.code : undefined);
+        throw error;
+      }
       const identityRequired = authority.requiredCustomerFields.length === 1
         && authority.requiredCustomerFields[0] === "identity_number";
-      if (identityRequired !== (input.request.identityNumber !== undefined)) return invalid();
+      if (identityRequired !== (input.request.identityNumber !== undefined)) { audit(dependencies, "identity_authority_mismatch"); return invalid(); }
       const clientIp = selectTrustedClientIp(input.headers);
-      if (clientIp === null) return invalid();
-      const execution = await dependencies.resolveExecution();
-      if (execution === null) return unavailable();
+      if (clientIp === null) { audit(dependencies, "client_ip_authority_invalid"); return invalid(); }
+      let execution;
+      try { execution = await dependencies.resolveExecution(); }
+      catch { audit(dependencies, "execution_unavailable"); return unavailable(); }
+      if (execution === null) { audit(dependencies, "execution_unavailable"); return unavailable(); }
       const sessionId = derivedUuid("session", input.hostname, input.request.operationId);
       const paymentSession = createStorefrontOperationCredential("hosted_checkout", input.request.operationId, dependencies.commerceKeyring);
       const receipt = createStorefrontOperationCredential("receipt", input.request.operationId, dependencies.commerceKeyring);
@@ -291,21 +299,27 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         recordPersistenceFailure: (code) => { persistenceFailureCode = code; },
       });
       const hosted = execution.createRuntime(scoped);
-      if (hosted === null) return unavailable();
-      const providerPresentation = await hosted.initialize({
-        headers: new Headers(input.headers), storeId: authority.storeId,
-        operationId: input.request.operationId, paymentMethodId: authority.paymentMethodId,
-        orderReference: authority.orderReference, amountMinor: authority.totalMinor,
-        currency: authority.currency,
-        customer: Object.freeze({
-          name: authority.customerName, email: authority.customerEmail, phone: authority.customerPhone,
-          ipAddress: clientIp, address: authority.customerAddress,
-          ...(input.request.identityNumber ? { identityNumber: input.request.identityNumber } : {}),
-          city: authority.city, country: authority.country,
-          ...(authority.postalCode ? { postalCode: authority.postalCode } : {}),
-        }),
-        basket: authority.basket,
-      });
+      if (hosted === null) { audit(dependencies, "provider_runtime_unavailable"); return unavailable(); }
+      let providerPresentation;
+      try {
+        providerPresentation = await hosted.initialize({
+          headers: new Headers(input.headers), storeId: authority.storeId,
+          operationId: input.request.operationId, paymentMethodId: authority.paymentMethodId,
+          orderReference: authority.orderReference, amountMinor: authority.totalMinor,
+          currency: authority.currency,
+          customer: Object.freeze({
+            name: authority.customerName, email: authority.customerEmail, phone: authority.customerPhone,
+            ipAddress: clientIp, address: authority.customerAddress,
+            ...(input.request.identityNumber ? { identityNumber: input.request.identityNumber } : {}),
+            city: authority.city, country: authority.country,
+            ...(authority.postalCode ? { postalCode: authority.postalCode } : {}),
+          }),
+          basket: authority.basket,
+        });
+      } catch (error) {
+        audit(dependencies, "provider_initialization_failed", error instanceof StorefrontHostedCheckoutRepositoryError ? error.code : undefined);
+        throw error;
+      }
       if (persistedKeys === undefined) { audit(dependencies, "credential_persistence_missing", persistenceFailureCode); return unavailable(); }
       if (providerPresentation.kind === "rejected") { audit(dependencies, "provider_rejected"); return unavailable(); }
       let persistedPaymentSession: ReturnType<typeof createStorefrontOperationCredential>;

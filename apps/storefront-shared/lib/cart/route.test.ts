@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
+import { StandardHostedCheckoutRuntimeError } from "../checkout/standard-hosted-payment.ts";
 import { createCartActionRoute, createCartGetRoute, createCheckoutCompleteRoute, createHostedCheckoutStartRoute } from "./route.ts";
 
 const HOST = "shop.example.test";
@@ -91,4 +92,25 @@ test("hosted checkout start fails closed without leaking cookies or redirect aut
   assert.deepEqual(await response.json(), { code: "invalid_input" });
   assert.equal(response.headers.has("set-cookie"), false);
   assert.equal(response.headers.has("location"), false);
+});
+
+test("hosted checkout start maps standard runtime input failures and emits only a safe diagnostic", async () => {
+  const events: Readonly<{ stage: string; code?: string }>[] = [];
+  const handler = createHostedCheckoutStartRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({
+      start: async () => { throw new StandardHostedCheckoutRuntimeError("invalid_input"); },
+    }),
+    audit: (event) => events.push(event),
+  });
+  const body = { operationId: OPERATION, cartVersion: 1, intentKind: "cart", contact: { name: "Güzide Elif", email: "guzide@example.test", phone: "+905551112233" }, shippingAddress: { addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy", postalCode: "34710" }, shippingMethod: "standard", paymentMethodId: "40000000-0000-4000-8000-000000000001", identityNumber: "10000000146" };
+  const response = await handler(new Request("http://internal:3400/api/checkout/payment/start", {
+    method: "POST",
+    headers: { origin: `https://${HOST}`, "content-type": "application/json", "x-forwarded-for": "8.8.8.8" },
+    body: JSON.stringify(body),
+  }));
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { code: "invalid_input" });
+  assert.deepEqual(events, [{ stage: "runtime_failure", code: "invalid_input" }]);
 });

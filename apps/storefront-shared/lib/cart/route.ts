@@ -1,7 +1,7 @@
-import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
+import { StorefrontCommerceRepositoryError, StorefrontHostedCheckoutRepositoryError } from "@celebix/saas-data";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
-import type { StandardHostedCheckoutRuntime } from "../checkout/standard-hosted-payment.ts";
+import { StandardHostedCheckoutRuntimeError, type StandardHostedCheckoutRuntime } from "../checkout/standard-hosted-payment.ts";
 import { readCartMutationRequest, readCheckoutRequest } from "./request.ts";
 import { StorefrontCommerceRuntimeError, type StorefrontCommerceRuntime } from "./runtime.ts";
 
@@ -12,6 +12,10 @@ type Dependencies = Readonly<{
 type HostedDependencies = Readonly<{
   selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
   resolveRuntime(): Promise<Pick<StandardHostedCheckoutRuntime, "start"> | null>;
+  audit?(event: Readonly<{
+    stage: "authority_unavailable" | "request_invalid" | "runtime_unavailable" | "runtime_failure" | "destination_invalid";
+    code?: string;
+  }>): void;
 }>;
 
 function json(body: unknown, status: number, headers?: HeadersInit): Response {
@@ -26,8 +30,15 @@ function authority(dependencies: Readonly<{ selectAuthority(headers: Headers): T
     return selected.kind === "trusted" ? Object.freeze({ hostname: selected.hostname, origin: `https://${selected.hostname}` }) : null;
   } catch { return null; }
 }
+function safeErrorCode(error: unknown): string | undefined {
+  if (error instanceof StorefrontCommerceRepositoryError
+    || error instanceof StorefrontHostedCheckoutRepositoryError
+    || error instanceof StorefrontCommerceRuntimeError
+    || error instanceof StandardHostedCheckoutRuntimeError) return error.code;
+  return undefined;
+}
 function failure(error: unknown): Response {
-  const code = error instanceof StorefrontCommerceRepositoryError ? error.code : error instanceof StorefrontCommerceRuntimeError ? error.code : "unavailable";
+  const code = safeErrorCode(error) ?? "unavailable";
   if (code === "invalid_input") return json({ code }, 400);
   if (code === "not_found") return json({ code }, 404);
   if (["cart_expired", "version_conflict", "cart_empty", "price_changed", "stock_unavailable", "shipping_unavailable", "payment_unavailable", "operation_mismatch"].includes(code)) return json({ code }, 409);
@@ -35,6 +46,13 @@ function failure(error: unknown): Response {
 }
 async function runtime<T>(dependencies: Readonly<{ resolveRuntime(): Promise<T | null> }>): Promise<T | null> {
   try { return await dependencies.resolveRuntime(); } catch { return null; }
+}
+function hostedAudit(
+  dependencies: HostedDependencies,
+  stage: Parameters<NonNullable<HostedDependencies["audit"]>>[0]["stage"],
+  code?: string,
+): void {
+  try { dependencies.audit?.(Object.freeze({ stage, ...(code ? { code } : {}) })); } catch { /* diagnostics cannot affect checkout */ }
 }
 
 export function createCartGetRoute(dependencies: Dependencies) {
@@ -91,13 +109,13 @@ export function createCheckoutCompleteRoute(dependencies: Dependencies) {
 export function createHostedCheckoutStartRoute(dependencies: HostedDependencies) {
   return async function POST(request: Request): Promise<Response> {
     const selected = authority(dependencies, request);
-    if (!selected) return json({ code: "unavailable" }, 503);
+    if (!selected) { hostedAudit(dependencies, "authority_unavailable"); return json({ code: "unavailable" }, 503); }
     let input;
     try { input = await readCheckoutRequest(request, selected.origin); }
-    catch { return json({ code: "invalid_input" }, 400); }
-    if (input.kind !== "hosted_start") return json({ code: "invalid_input" }, 400);
+    catch { hostedAudit(dependencies, "request_invalid"); return json({ code: "invalid_input" }, 400); }
+    if (input.kind !== "hosted_start") { hostedAudit(dependencies, "request_invalid"); return json({ code: "invalid_input" }, 400); }
     const selectedRuntime = await runtime(dependencies);
-    if (!selectedRuntime) return json({ code: "unavailable" }, 503);
+    if (!selectedRuntime) { hostedAudit(dependencies, "runtime_unavailable"); return json({ code: "unavailable" }, 503); }
     try {
       const result = await selectedRuntime.start({
         hostname: selected.hostname,
@@ -105,10 +123,10 @@ export function createHostedCheckoutStartRoute(dependencies: HostedDependencies)
         headers: new Headers(request.headers),
         request: input,
       });
-      if (result.destination !== "/checkout/payment") return json({ code: "unavailable" }, 503);
+      if (result.destination !== "/checkout/payment") { hostedAudit(dependencies, "destination_invalid"); return json({ code: "unavailable" }, 503); }
       const headers = new Headers();
       for (const cookie of result.setCookies) headers.append("set-cookie", cookie);
       return json({ destination: "/checkout/payment" }, 200, headers);
-    } catch (error) { return failure(error); }
+    } catch (error) { hostedAudit(dependencies, "runtime_failure", safeErrorCode(error)); return failure(error); }
   };
 }

@@ -5,4 +5,5 @@ import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authori
 export const POST = createHostedCheckoutStartRoute({
   selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers),
   resolveRuntime: async () => (await resolveDefaultPublicStorefrontRuntime())?.hostedCheckout ?? null,
+  audit: ({ stage, code }) => console.warn("standard_hosted_checkout_route_failure", stage, code ?? ""),
 });

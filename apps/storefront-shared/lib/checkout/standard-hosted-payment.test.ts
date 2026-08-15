@@ -104,6 +104,7 @@ function fixture(
   selectedPresentation: HostedPaymentPresentation,
   outcome: "created" | "replayed" = "created",
   options: Readonly<{
+    authorityError?: StorefrontHostedCheckoutRepositoryError;
     beginError?: StorefrontHostedCheckoutRepositoryError;
     savePresentationError?: Error;
     audit?: (event: Readonly<{ stage: string; code?: string }>) => void;
@@ -132,7 +133,10 @@ function fixture(
     sealedCredentials: Object.freeze({ algorithm: "A256GCM", ciphertext: "YQ", iv: Buffer.alloc(12).toString("base64url"), keyId: "provider_01", tag: Buffer.alloc(16).toString("base64url"), version: 1 }),
   });
   const repository: StorefrontHostedCheckoutRepository = {
-    authority: async () => authority,
+    authority: async () => {
+      if (options.authorityError) throw options.authorityError;
+      return authority;
+    },
     begin: async (input) => {
       if (options.beginError) throw options.beginError;
       beginInput = input;
@@ -240,6 +244,38 @@ test("hosted begin rejection emits its safe repository code", async () => {
   );
   await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }), /unavailable/u);
   assert.deepEqual(events, [{ stage: "credential_persistence_missing", code: "durable_authority_invalid" }]);
+});
+
+test("hosted authority rejection emits its safe repository code", async () => {
+  const events: Readonly<{ stage: string; code?: string }>[] = [];
+  const selected = fixture(
+    { kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    {
+      authorityError: new StorefrontHostedCheckoutRepositoryError("authority_unavailable"),
+      audit: (event) => events.push(event),
+    },
+  );
+
+  await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }), /authority_unavailable/u);
+  assert.deepEqual(events, [{ stage: "authority_failure", code: "authority_unavailable" }]);
+});
+
+test("hosted start emits a safe diagnostic when no trusted public client IP exists", async () => {
+  const events: Readonly<{ stage: string; code?: string }>[] = [];
+  const selected = fixture(
+    { kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    { audit: (event) => events.push(event) },
+  );
+
+  await assert.rejects(selected.runtime.start({
+    hostname: HOST,
+    cookieHeader: cookie,
+    headers: new Headers({ host: HOST, "x-forwarded-for": "172.18.0.4" }),
+    request,
+  }), /invalid_input/u);
+  assert.deepEqual(events, [{ stage: "client_ip_authority_invalid" }]);
 });
 
 test("presentation persistence failure emits only a safe diagnostic stage", async () => {
