@@ -459,10 +459,11 @@ test("callback rejects invalid HMAC, underpayment, external host mismatch, and b
 function digestCallbackRequest(
   digest: string,
   status: "success" | "failed" = "success",
+  oidField: "merchant_oid" | "form_oid" = "merchant_oid",
 ): Request {
   const totalAmount = "3600";
   const selected = {
-    merchant_oid: digest,
+    [oidField]: digest,
     status,
     total_amount: totalAmount,
     hash: createHmac("sha256", configuration.merchantKey)
@@ -474,10 +475,11 @@ function digestCallbackRequest(
       ? { failed_reason_code: "12", failed_reason_msg: "sensitive provider message" }
       : {}),
   };
+  const body = new URLSearchParams(selected).toString();
   return new Request(configuration.callbackUrl, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(selected).toString(),
+    headers: { "content-type": "application/x-www-form-urlencoded", "content-length": String(Buffer.byteLength(body, "utf8")) },
+    body,
   });
 }
 
@@ -520,6 +522,38 @@ test("fixed callback route handles generic digest outcomes without legacy downgr
     assert.equal(legacyAuthorityCalls, 0, kind);
     assert.deepEqual(auditEvents, [{ stage: "hosted_callback_outcome", outcome: kind }], kind);
   }
+});
+
+test("fixed callback route normalizes PayTR form_oid before hosted digest dispatch", async () => {
+  const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  let genericCalls = 0;
+  const handler = runtimeModule.createPaytrCallbackRoute!({
+    selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+    resolveHostedRuntime: async () => ({
+      async callbackByDigest(input: Record<string, unknown>) {
+        genericCalls += 1;
+        assert.equal(input.providerCode, "paytr_iframe");
+        assert.equal(input.callbackBindingDigest, digest);
+        assert.ok(input.request instanceof Request);
+        const normalized = await input.request.clone().text();
+        assert.match(normalized, /^merchant_oid=/);
+        assert.doesNotMatch(normalized, /form_oid/);
+        assert.equal(input.request.headers.get("content-length"), String(Buffer.byteLength(normalized, "utf8")));
+        return { kind: "accepted" as const };
+      },
+    }),
+    resolveRuntime: async () => ({
+      keyring,
+      paymentRepository: {
+        async getCallbackAuthority() { throw new Error("legacy downgrade forbidden"); },
+        async settleCallback() { throw new Error("legacy downgrade forbidden"); },
+      },
+    }),
+  });
+  const response = await handler(digestCallbackRequest(digest, "success", "form_oid"));
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "OK");
+  assert.equal(genericCalls, 1);
 });
 
 test("fixed callback route falls back only after generic digest authority is genuinely absent", async () => {

@@ -65,6 +65,66 @@ test("callback authority accepts the documented successful payment context", asy
   assert.match(result?.callbackDigest ?? "", /^[a-f0-9]{64}$/);
 });
 
+test("callback authority accepts PayTR adapter merchant oid vocabulary", async () => {
+  const providerReference = "CV11111111111141118111111111111111";
+  const providerReferenceForm = new URLSearchParams({
+    merchant_oid: providerReference,
+    status: "success",
+    total_amount: "100",
+    hash: "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "100",
+    currency: "TL",
+  }).toString();
+  const result = await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(callbackUrl, { body: providerReferenceForm }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+  });
+  assert.equal(result?.merchantOid, providerReference);
+  assert.equal(result?.form, providerReferenceForm);
+});
+
+test("callback authority normalizes PayTR form_oid before adapter verification", async () => {
+  const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  const providerForm = new URLSearchParams({
+    form_oid: digest,
+    status: "success",
+    total_amount: "3600",
+    hash: "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "3600",
+    currency: "TL",
+    installment_count: "1",
+    merchant_id: "123456",
+  }).toString();
+  const result = await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(callbackUrl, { body: providerForm }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+  });
+  const adapterForm = new URLSearchParams({
+    merchant_oid: digest,
+    status: "success",
+    total_amount: "3600",
+    hash: "SrJicdvlvDikrVx+LFBeFuunzwB3upOVN2hMKAQxa6k=",
+    payment_type: "card",
+    test_mode: "1",
+    payment_amount: "3600",
+    currency: "TL",
+  }).toString();
+  assert.equal(result?.merchantOid, digest);
+  assert.equal(result?.form, adapterForm);
+  assert.match(result?.callbackDigest ?? "", /^[a-f0-9]{64}$/);
+  assert.equal(await callbackAuthority.readExactPaytrCallbackRequest!({
+    request: request(callbackUrl, { body: `${providerForm}&merchant_oid=${digest}` }),
+    trustedHostname: hostname,
+    configuredCallbackUrl: callbackUrl,
+  }), null);
+});
+
 test("callback authority accepts one bounded PayTR installment count on success", async () => {
   const installmentForm = new URLSearchParams({
     merchant_oid: "abcdef0123456789abcdef0123456789",

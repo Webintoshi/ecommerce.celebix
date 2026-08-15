@@ -455,9 +455,11 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
     try {
       const runtime = await dependencies.resolveHostedRuntime();
       if (runtime === null) return callbackResponse(400, "INVALID");
+      const genericHeaders = new Headers(request.headers);
+      genericHeaders.set("content-length", String(Buffer.byteLength(callback.form, "utf8")));
       const genericRequest = new Request(externalCallbackUrl, {
         method: "POST",
-        headers: new Headers(request.headers),
+        headers: genericHeaders,
         body: callback.form,
       });
       const result = await runtime.callbackByDigest({

@@ -2,12 +2,12 @@ import { createHash } from "node:crypto";
 
 const CALLBACK_PATH = "/api/payments/paytr/callback";
 const MAX_CALLBACK_BYTES = 2_048;
-const MERCHANT_OID = /^(?:[a-f0-9]{32}|[a-f0-9]{64})$/;
-const SUCCESS_FIELDS = Object.freeze(["merchant_oid", "status", "total_amount", "hash", "payment_type"]);
-const SUCCESS_CONTEXT_FIELDS = Object.freeze([...SUCCESS_FIELDS, "payment_amount", "currency"]);
+const MERCHANT_OID = /^[A-Za-z0-9]{1,64}$/;
+const MERCHANT_OID_FIELD = "merchant_oid";
+const FORM_OID_FIELD = "form_oid";
+const SUCCESS_FIELDS_WITHOUT_OID = Object.freeze(["status", "total_amount", "hash", "payment_type"]);
 const INSTALLMENT_COUNT = /^(?:[0-9]|1[0-2])$/;
 const MERCHANT_ID = /^[1-9][0-9]{5,15}$/;
-const FAILED_FIELDS = Object.freeze([...SUCCESS_FIELDS, "failed_reason_code", "failed_reason_msg"]);
 export type PaytrCallbackRequestRejectionStage =
   | "method" | "content_type" | "headers" | "authority"
   | "target" | "length" | "body" | "form_encoding" | "form_status"
@@ -63,12 +63,16 @@ function exactFormContentType(value: string | null): boolean {
 function exactForm(
   body: string,
   reject: (stage: PaytrCallbackRequestRejectionStage) => null,
-): string | null {
+): Readonly<{ merchantOid: string; oidField: typeof MERCHANT_OID_FIELD | typeof FORM_OID_FIELD }> | null {
   const params = new URLSearchParams(body);
   const entries = [...params.entries()];
   if (new URLSearchParams(entries).toString() !== body) return reject("form_encoding");
   const names = new Set(entries.map(([name]) => name));
   if (names.size !== entries.length) return reject("form_fields_duplicate");
+  const hasMerchantOid = params.has(MERCHANT_OID_FIELD);
+  const hasFormOid = params.has(FORM_OID_FIELD);
+  if (hasMerchantOid === hasFormOid) return reject("form_oid");
+  const oidField = hasMerchantOid ? MERCHANT_OID_FIELD : FORM_OID_FIELD;
   const status = params.get("status");
   if (status !== "success" && status !== "failed") return reject("form_status");
   const hasPaymentAmount = params.has("payment_amount");
@@ -83,9 +87,12 @@ function exactForm(
   if (merchantId !== null && !MERCHANT_ID.test(merchantId)) return reject("form_fields_merchant");
   const testMode = params.get("test_mode");
   if (testMode !== null && testMode !== "0" && testMode !== "1") return reject("form_fields_test_mode");
+  const baseSuccess = hasPaymentAmount
+    ? [oidField, ...SUCCESS_FIELDS_WITHOUT_OID, "payment_amount", "currency"]
+    : [oidField, ...SUCCESS_FIELDS_WITHOUT_OID];
   const baseExpected = status === "success"
-    ? hasPaymentAmount ? SUCCESS_CONTEXT_FIELDS : SUCCESS_FIELDS
-    : status === "failed" ? FAILED_FIELDS : [];
+    ? baseSuccess
+    : status === "failed" ? [oidField, ...SUCCESS_FIELDS_WITHOUT_OID, "failed_reason_code", "failed_reason_msg"] : [];
   const installmentExpected = installmentCount === null ? baseExpected : [...baseExpected, "installment_count"];
   const merchantExpected = merchantId === null ? installmentExpected : [...installmentExpected, "merchant_id"];
   const expected = testMode === null ? merchantExpected : [...merchantExpected, "test_mode"];
@@ -103,8 +110,8 @@ function exactForm(
     if (entries.length < expected.length) return reject("form_fields_unknown_missing");
     return reject("form_fields_unknown_replace");
   }
-  const oid = params.get("merchant_oid");
-  return oid !== null && MERCHANT_OID.test(oid) ? oid : reject("form_oid");
+  const oid = params.get(oidField);
+  return oid !== null && MERCHANT_OID.test(oid) ? Object.freeze({ merchantOid: oid, oidField }) : reject("form_oid");
 }
 
 export async function readExactPaytrCallbackRequest(input: Readonly<{
@@ -136,12 +143,14 @@ export async function readExactPaytrCallbackRequest(input: Readonly<{
     try {
       const form = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
       if (!Buffer.from(form, "utf8").equals(bytes)) return reject("body");
-      const merchantOid = exactForm(form, reject);
-      if (merchantOid === null) return null;
-      const adapterForm = new URLSearchParams(form);
-      adapterForm.delete("installment_count");
-      adapterForm.delete("merchant_id");
-      return Object.freeze({ merchantOid, form: adapterForm.toString(),
+      const exact = exactForm(form, reject);
+      if (exact === null) return null;
+      const adapterForm = new URLSearchParams();
+      for (const [name, value] of new URLSearchParams(form).entries()) {
+        if (name === "installment_count" || name === "merchant_id") continue;
+        adapterForm.append(name === FORM_OID_FIELD ? MERCHANT_OID_FIELD : name, value);
+      }
+      return Object.freeze({ merchantOid: exact.merchantOid, form: adapterForm.toString(),
         callbackDigest: createHash("sha256").update(bytes).digest("hex") });
     } finally { bytes.fill(0); }
   } catch { return reject("body"); }
