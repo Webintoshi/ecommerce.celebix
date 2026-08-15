@@ -181,6 +181,16 @@ test("accepts PayTR legacy JSON content type only for get-token initialization",
 
   assert.equal((await initialization.initialize(initializeInput())).kind, "iframe");
 
+  const lowercaseCharset = createPaytrIframeAdapter(transport(() =>
+    Object.freeze({
+      kind: "response" as const,
+      status: 200,
+      contentType: "text/html; charset=utf-8",
+      body: new TextEncoder().encode(`{"status":"success","token":"${TOKEN}"}`),
+    })));
+
+  assert.equal((await lowercaseCharset.initialize(initializeInput())).kind, "iframe");
+
   const statusQuery = createPaytrIframeAdapter(transport(() =>
     legacyTokenResponse('{"status":"success","payment_amount":"100.00","payment_total":"100.00","payment_date":"2026-07-27","currency":"TRY","test_mode":"1"}')));
 

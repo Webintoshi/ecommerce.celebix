@@ -483,8 +483,22 @@ function acceptedResponseContentType(
   return RESPONSE_CONTENT_TYPES.includes(contentType) || (
     providerCode === PAYTR_PROVIDER_CODE &&
     endpoint === PAYTR_TOKEN_ENDPOINT &&
-    contentType === PAYTR_LEGACY_JSON_CONTENT_TYPE
+    isPaytrLegacyJsonContentType(contentType)
   );
+}
+
+function isPaytrLegacyJsonContentType(contentType: string): boolean {
+  if (contentType.includes(",")) return false;
+  const parts = contentType.split(";");
+  if (parts.length !== 2) return false;
+  const mediaType = parts[0]?.trim().toLowerCase();
+  const parameter = parts[1]?.trim();
+  if (mediaType !== "text/html" || parameter === undefined) return false;
+  const equals = parameter.indexOf("=");
+  if (equals <= 0 || parameter.indexOf("=", equals + 1) !== -1) return false;
+  const key = parameter.slice(0, equals).trim().toLowerCase();
+  const value = parameter.slice(equals + 1).trim().toLowerCase();
+  return key === "charset" && value === "utf-8";
 }
 
 export function createBoundedProviderTransport(options: {

@@ -318,7 +318,7 @@ function responseJson(
     (
       result.contentType !== "application/json" &&
       result.contentType !== "application/json; charset=utf-8" &&
-      !(operation === "get_token" && result.contentType === LEGACY_GET_TOKEN_CONTENT_TYPE)
+      !(operation === "get_token" && isLegacyGetTokenContentType(result.contentType))
     ) ||
     !(result.body instanceof Uint8Array) ||
     nodeTypes.isProxy(result.body)
@@ -331,6 +331,20 @@ function responseJson(
   } finally {
     encoded.fill(0);
   }
+}
+
+function isLegacyGetTokenContentType(contentType: string): boolean {
+  if (contentType.includes(",")) return false;
+  const parts = contentType.split(";");
+  if (parts.length !== 2) return false;
+  const mediaType = parts[0]?.trim().toLowerCase();
+  const parameter = parts[1]?.trim();
+  if (mediaType !== "text/html" || parameter === undefined) return false;
+  const equals = parameter.indexOf("=");
+  if (equals <= 0 || parameter.indexOf("=", equals + 1) !== -1) return false;
+  const key = parameter.slice(0, equals).trim().toLowerCase();
+  const value = parameter.slice(equals + 1).trim().toLowerCase();
+  return key === "charset" && value === "utf-8";
 }
 
 function unknownInitialization(): PaytrIframeInitializationResult {

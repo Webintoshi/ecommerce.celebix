@@ -326,21 +326,46 @@ test("sends one contained POST to the exact packet/environment endpoint", async 
 });
 
 test("accepts PayTR get-token JSON with its legacy response content type", async () => {
-  const transport = createBoundedProviderTransport({
-    fetch: async () => new Response('{"status":"success"}', {
-      status: 200,
-      headers: { "content-type": PAYTR_LEGACY_JSON_CONTENT_TYPE },
-    }),
-    timeoutMs: 20_000,
-    maximumResponseBytes: 8_192,
-  });
+  for (const contentType of [PAYTR_LEGACY_JSON_CONTENT_TYPE, "text/html; charset=utf-8"]) {
+    const transport = createBoundedProviderTransport({
+      fetch: async () => new Response('{"status":"success"}', {
+        status: 200,
+        headers: { "content-type": contentType },
+      }),
+      timeoutMs: 20_000,
+      maximumResponseBytes: 8_192,
+    });
 
-  const response = await request(transport);
+    const response = await request(transport);
 
-  assert.equal(response.kind, "response");
-  if (response.kind === "response") {
-    assert.equal(response.contentType, PAYTR_LEGACY_JSON_CONTENT_TYPE);
-    assert.equal(new TextDecoder().decode(response.body), '{"status":"success"}');
+    assert.equal(response.kind, "response");
+    if (response.kind === "response") {
+      assert.equal(response.contentType, contentType);
+      assert.equal(new TextDecoder().decode(response.body), '{"status":"success"}');
+    }
+  }
+});
+
+test("rejects malformed PayTR legacy content-type parameters", async () => {
+  for (const contentType of [
+    "text/html",
+    "text/html; charset=iso-8859-9",
+    "text/html; charset=utf-8; boundary=x",
+    "text/html, application/json",
+  ]) {
+    const transport = createBoundedProviderTransport({
+      fetch: async () => new Response('{"status":"success"}', {
+        status: 200,
+        headers: { "content-type": contentType },
+      }),
+      timeoutMs: 20_000,
+      maximumResponseBytes: 8_192,
+    });
+
+    assert.deepEqual(await request(transport), {
+      kind: "unknown",
+      code: "transport_outcome_unknown",
+    }, contentType);
   }
 });
 
