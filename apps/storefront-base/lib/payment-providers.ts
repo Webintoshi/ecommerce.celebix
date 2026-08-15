@@ -1,4 +1,5 @@
 import {
+  createPaytrCheckoutPresentation,
   createPaymentProviderCatalog,
   DEFAULT_RUNTIME_IMPLEMENTED_GATEWAYS,
   getDefaultIyzicoBaseUrl,
@@ -28,6 +29,7 @@ export const getPaymentGatewayRuntimeStatus = catalog.getPaymentGatewayRuntimeSt
 
 export {
   DEFAULT_RUNTIME_IMPLEMENTED_GATEWAYS,
+  createPaytrCheckoutPresentation,
   getDefaultIyzicoBaseUrl,
   IYZICO_PRODUCTION_BASE_URL,
   IYZICO_SANDBOX_BASE_URL,

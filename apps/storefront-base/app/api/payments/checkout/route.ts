@@ -14,18 +14,56 @@ function getBaseUrl(request: NextRequest) {
     return new URL(request.url).origin;
 }
 
+function normalizeIpCandidate(value: string | null) {
+    const trimmed = value?.trim();
+    if (!trimmed || trimmed.includes(",")) {
+        return null;
+    }
+
+    return trimmed.startsWith("::ffff:") ? trimmed.slice("::ffff:".length) : trimmed;
+}
+
+function isPrivateIpv4(ip: string) {
+    const parts = ip.split(".").map((part) => Number(part));
+    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+        return false;
+    }
+
+    const [first, second] = parts;
+
+    return (
+        first === 0 ||
+        first === 10 ||
+        first === 127 ||
+        (first === 169 && second === 254) ||
+        (first === 172 && second >= 16 && second <= 31) ||
+        (first === 192 && second === 168)
+    );
+}
+
+function isPublicCheckoutIp(ip: string) {
+    const normalized = ip.trim().toLowerCase();
+    if (!normalized || normalized === "localhost" || normalized === "::1") {
+        return false;
+    }
+
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(normalized)) {
+        return !isPrivateIpv4(normalized);
+    }
+
+    return normalized.includes(":") && !normalized.startsWith("fc") && !normalized.startsWith("fd") && !normalized.startsWith("fe80");
+}
+
 function getRequestIp(request: NextRequest) {
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    if (forwardedFor) {
-        return forwardedFor.split(",")[0]?.trim() || "127.0.0.1";
-    }
+    const candidates = [
+        request.headers.get("cf-connecting-ip"),
+        request.headers.get("x-real-ip"),
+        ...((request.headers.get("x-forwarded-for") ?? "").split(",")),
+    ]
+        .map(normalizeIpCandidate)
+        .filter((candidate): candidate is string => Boolean(candidate));
 
-    const realIp = request.headers.get("x-real-ip");
-    if (realIp) {
-        return realIp;
-    }
-
-    return "127.0.0.1";
+    return candidates.find(isPublicCheckoutIp) ?? candidates[0] ?? "127.0.0.1";
 }
 
 export async function POST(request: NextRequest) {

@@ -197,10 +197,43 @@ export interface PaymentWebhookEvent {
 }
 
 export interface PaymentInitResult {
-  action: "redirect" | "success" | "pending";
+  action: "redirect" | "iframe" | "success" | "pending";
   redirectUrl?: string;
+  iframeUrl?: string;
   message?: string;
   paymentAttemptId: string;
+}
+
+export function createPaytrSecurePaymentUrl(token: string) {
+  const trimmedToken = token.trim();
+
+  if (!trimmedToken) {
+    throw new Error("PAYTR token bos olamaz.");
+  }
+
+  return `https://www.paytr.com/odeme/guvenli/${encodeURIComponent(trimmedToken)}`;
+}
+
+export function createPaytrCheckoutPresentation(input: {
+  gateway: Extract<PaymentGateway, "paytr" | "paytr_iframe">;
+  token: string;
+  paymentAttemptId: string;
+}): PaymentInitResult {
+  const paymentUrl = createPaytrSecurePaymentUrl(input.token);
+
+  if (input.gateway === "paytr_iframe") {
+    return {
+      action: "iframe",
+      iframeUrl: paymentUrl,
+      paymentAttemptId: input.paymentAttemptId,
+    };
+  }
+
+  return {
+    action: "redirect",
+    redirectUrl: paymentUrl,
+    paymentAttemptId: input.paymentAttemptId,
+  };
 }
 
 export interface PaymentProviderCatalogOptions {

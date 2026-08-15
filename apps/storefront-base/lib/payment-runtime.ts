@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import Craftgate from "@craftgate/craftgate";
 import Stripe from "stripe";
 import {
+    createPaytrCheckoutPresentation,
     getPaymentGatewayRuntimeStatus,
     IYZICO_FAMILY_GATEWAYS,
     isGatewayInFamily,
@@ -185,6 +186,39 @@ function buildPaytrBasket(items: CheckoutItemInput[]) {
     ]);
 
     return Buffer.from(JSON.stringify(basket)).toString("base64");
+}
+
+function isPrivateOrLocalPaytrCustomerIp(value: string) {
+    const ip = value.trim().toLowerCase();
+    if (!ip || ip.includes(",") || ip === "localhost" || ip === "::1") {
+        return true;
+    }
+
+    const normalizedIp = ip.startsWith("::ffff:") ? ip.slice("::ffff:".length) : ip;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(normalizedIp)) {
+        const parts = normalizedIp.split(".").map((part) => Number(part));
+        if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+            return true;
+        }
+
+        const [first, second] = parts;
+        return (
+            first === 0 ||
+            first === 10 ||
+            first === 127 ||
+            (first === 169 && second === 254) ||
+            (first === 172 && second >= 16 && second <= 31) ||
+            (first === 192 && second === 168)
+        );
+    }
+
+    return normalizedIp.startsWith("fc") || normalizedIp.startsWith("fd") || normalizedIp.startsWith("fe80");
+}
+
+function assertPaytrCustomerIp(customerIp: string) {
+    if (isPrivateOrLocalPaytrCustomerIp(customerIp)) {
+        throw new Error("PAYTR icin musteri dis IP adresi alinamadi.");
+    }
 }
 
 function createIyzipayClient(gateway: PaymentGatewayConfig) {
@@ -471,6 +505,8 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
         throw new Error("PAYTR merchant bilgileri eksik.");
     }
 
+    assertPaytrCustomerIp(context.customerIp);
+
     const paymentAttempt = await createPaymentAttempt({
         orderId: context.quickOrderLink ? null : context.order.id,
         quickOrderLinkId: context.quickOrderLink?.id ?? null,
@@ -505,6 +541,8 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
 
     const formData = new URLSearchParams({
         merchant_id: merchantId,
+        merchant_key: merchantKey,
+        merchant_salt: merchantSalt,
         user_ip: context.customerIp,
         merchant_oid: merchantOid,
         email: context.customerEmail,
@@ -539,7 +577,14 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
         const token = typeof result.token === "string" ? result.token : null;
         const status = typeof result.status === "string" ? result.status : "failed";
         const reason = typeof result.reason === "string" ? result.reason : null;
-        const redirectUrl = token ? `https://www.paytr.com/odeme/guvenli/${token}` : null;
+        const presentation = token
+            ? createPaytrCheckoutPresentation({
+                gateway: context.gateway.gateway as "paytr" | "paytr_iframe",
+                token,
+                paymentAttemptId: paymentAttempt.id,
+            })
+            : null;
+        const redirectUrl = presentation?.redirectUrl ?? presentation?.iframeUrl ?? null;
 
         await updatePaymentAttempt(paymentAttempt.id, {
             status: status === "success" ? "pending_action" : "failed",
@@ -551,15 +596,11 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
             completedAt: status === "success" ? null : new Date().toISOString(),
         });
 
-        if (status !== "success" || !token || !redirectUrl) {
+        if (status !== "success" || !token || !redirectUrl || !presentation) {
             throw new Error(reason || "PAYTR token uretilemedi.");
         }
 
-        return {
-            action: "redirect",
-            redirectUrl,
-            paymentAttemptId: paymentAttempt.id,
-        };
+        return presentation;
     } catch (error) {
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
