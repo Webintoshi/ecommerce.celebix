@@ -242,6 +242,17 @@ test("reads the same bounded callback authority from the fixed PayTR path and ex
   assert.equal(new TextDecoder().decode(selected.body), "event_id=evt_1&status=success");
   selected.body.fill(0);
 
+  const charset = await readExactHostedPaymentCallbackByDigest({
+    request: request(fixed, { headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8" } }),
+    providerCode: "paytr_iframe",
+    callbackBindingDigest: DIGEST,
+    trustedHostname: HOSTNAME,
+  });
+  assert.ok(charset);
+  assert.equal(charset.headers["content-type"], "application/x-www-form-urlencoded");
+  assert.equal(new TextDecoder().decode(charset.body), "event_id=evt_1&status=success");
+  charset.body.fill(0);
+
   for (const [target, digest] of [
     [CALLBACK_URL, DIGEST],
     [`${fixed}/`, DIGEST],

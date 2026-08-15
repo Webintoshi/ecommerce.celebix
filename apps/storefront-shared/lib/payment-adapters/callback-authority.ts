@@ -17,6 +17,11 @@ const CONTENT_TYPES = Object.freeze([
   "application/json",
   "application/json; charset=utf-8",
 ]);
+const FORM_CONTENT_TYPES = Object.freeze([
+  "application/x-www-form-urlencoded",
+  "application/x-www-form-urlencoded; charset=utf-8",
+  "application/x-www-form-urlencoded; charset=UTF-8",
+]);
 const FORBIDDEN_HEADERS = Object.freeze([
   "authorization",
   "cookie",
@@ -264,7 +269,12 @@ function exactHeaders(
     if (PROVIDER_CALLBACK_HEADERS.includes(name)) output[name] = value;
   }
   const contentType = output["content-type"];
-  if (contentType === undefined || !CONTENT_TYPES.includes(contentType)) return null;
+  if (contentType === undefined) return null;
+  if (FORM_CONTENT_TYPES.includes(contentType)) {
+    output["content-type"] = "application/x-www-form-urlencoded";
+  } else if (!CONTENT_TYPES.includes(contentType)) {
+    return null;
+  }
   const declared = output["content-length"];
   if (
     declared !== undefined

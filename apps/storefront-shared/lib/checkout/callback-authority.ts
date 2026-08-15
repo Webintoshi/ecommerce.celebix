@@ -53,6 +53,13 @@ function canonicalCallbackUrl(value: string, hostname: string): boolean {
   } catch { return false; }
 }
 
+function exactFormContentType(value: string | null): boolean {
+  if (value === "application/x-www-form-urlencoded") return true;
+  if (value === "application/x-www-form-urlencoded; charset=utf-8") return true;
+  if (value === "application/x-www-form-urlencoded; charset=UTF-8") return true;
+  return false;
+}
+
 function exactForm(
   body: string,
   reject: (stage: PaytrCallbackRequestRejectionStage) => null,
@@ -113,7 +120,7 @@ export async function readExactPaytrCallbackRequest(input: Readonly<{
   try {
     const { request, trustedHostname, configuredCallbackUrl } = input;
     if (request.method !== "POST") return reject("method");
-    if (request.headers.get("content-type") !== "application/x-www-form-urlencoded") return reject("content_type");
+    if (!exactFormContentType(request.headers.get("content-type"))) return reject("content_type");
     if (request.headers.has("authorization") || request.headers.has("transfer-encoding") ||
         request.headers.has("origin") || request.headers.has("cookie")) return reject("headers");
     if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(trustedHostname) ||

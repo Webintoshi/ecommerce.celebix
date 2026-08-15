@@ -374,6 +374,35 @@ test("callback verifies sealed merchant authority before exact plain OK settleme
   assert.deepEqual(calls.settle[1]?.orderItemIds, calls.settle[0]?.orderItemIds);
 });
 
+test("callback accepts PayTR form content-type charset while preserving exact settlement", async () => {
+  const settlements: Array<Record<string, unknown>> = [];
+  const handler = runtimeModule.createPaytrCallbackRoute!({
+    selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+    resolveRuntime: async () => ({
+      keyring,
+      paymentRepository: {
+        async getCallbackAuthority() {
+          return { storeId: STORE_ID, attemptId: ATTEMPT_ID, merchantOid, providerConfigId: PROVIDER_ID,
+            status: "provider_ready" as const, itemCount: 3, expectedPaymentAmount: 3_600, currency: "TRY" as const,
+            configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration };
+        },
+        async settleCallback(input: Record<string, unknown>) {
+          settlements.push(input);
+          return { outcome: "settled" as const, orderNumber: "QO-safe" };
+        },
+      },
+    }),
+    now: () => new Date("2026-07-21T12:00:00.000Z"),
+  });
+  const request = callbackRequest();
+  request.headers.set("content-type", "application/x-www-form-urlencoded; charset=UTF-8");
+  const response = await handler(request);
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "OK");
+  assert.equal(settlements.length, 1);
+  assert.equal(settlements[0]?.merchantOid, merchantOid);
+});
+
 test("callback maps only unresolved commit to retry and accepts replay or signed failure as exact OK", async () => {
   for (const [outcome, expectedStatus, expectedBody, callbackStatus] of [
     ["replayed", 200, "OK", "success"],
