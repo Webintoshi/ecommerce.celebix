@@ -57,6 +57,12 @@ test("checkout maps finite quote failures without inventing a payment option", (
   assert.doesNotMatch(form, /paymentMethods\s*=|bank_transfer[^\n]+push|cash_on_delivery[^\n]+push/u);
 });
 
+test("hosted checkout start maps safe backend failures to customer-facing checkout guidance", () => {
+  assert.match(form, /catch \(error: unknown\)/u);
+  assert.match(form, /error instanceof StorefrontCartClientError \? checkoutFailureMessage\(error[.]code\)/u);
+  assert.doesNotMatch(form, /catch\s*\{\s*setStatus\("Sipariş tamamlanamadı/u);
+});
+
 test("checkout summary receipt and account render truthful public projections only", () => {
   for (const proof of ["Ara toplam", "Kargo", "Toplam"]) assert.match(summary, new RegExp(proof, "u"));
   assert.match(checkout, /intent=buy-now|buy_now/u);
