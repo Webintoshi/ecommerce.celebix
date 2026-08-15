@@ -110,14 +110,17 @@ function fixture(
     audit?: (event: Readonly<{ stage: string; code?: string }>) => void;
     runtimeNow?: () => Date;
     attemptNow?: Date;
+    providerCode?: "iyzico_iframe" | "paytr_iframe";
   }> = {},
 ) {
+  const providerCode = options.providerCode ?? "iyzico_iframe";
+  const selectedAuthority = Object.freeze({ ...authority, providerCode });
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
   let savedInput: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   let stored: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   const begun: HostedCheckoutBeginResult = Object.freeze({
     outcome, attemptId: ATTEMPT, storeId: STORE, paymentMethodId: METHOD, profileId: PROFILE,
-    providerCode: "iyzico_iframe", environment: "test", credentialVersion: 1,
+    providerCode, environment: "test", credentialVersion: 1,
     executionAdapterVersion: 1, executionEvidenceDigest: EVIDENCE, amountMinor: 10_000, currency: "TRY",
     methodConfig: Object.freeze({
       environment: "test" as const,
@@ -135,7 +138,7 @@ function fixture(
   const repository: StorefrontHostedCheckoutRepository = {
     authority: async () => {
       if (options.authorityError) throw options.authorityError;
-      return authority;
+      return selectedAuthority;
     },
     begin: async (input) => {
       if (options.beginError) throw options.beginError;
@@ -145,7 +148,7 @@ function fixture(
     savePresentation: async (input) => {
       if (options.savePresentationError) throw options.savePresentationError;
       savedInput = input; stored = input;
-      return Object.freeze({ sessionId: input.candidates[0]?.digest.slice(0, 8).padEnd(8, "0") + "-0000-4000-8000-000000000001", status: "provider_ready", version: 2, providerCode: "iyzico_iframe", presentationExpiresAt: input.presentationExpiresAt.toISOString() });
+      return Object.freeze({ sessionId: input.candidates[0]?.digest.slice(0, 8).padEnd(8, "0") + "-0000-4000-8000-000000000001", status: "provider_ready", version: 2, providerCode, presentationExpiresAt: input.presentationExpiresAt.toISOString() });
     },
     presentation: async () => {
       if (!stored) throw new Error("not_ready");
@@ -224,6 +227,22 @@ test("provider processing and replay return the fixed destination without persis
     assert.equal(selected.getSaved(), undefined);
     if (outcome === "replayed") assert.match(result.setCookies.join(";"), /h1[.]previous_01/u);
   }
+});
+
+test("PayTR provider processing fails closed before issuing browser credentials", async () => {
+  const events: Readonly<{ stage: string; code?: string }>[] = [];
+  const selected = fixture({ kind: "processing" }, "created", {
+    providerCode: "paytr_iframe",
+    audit: (event) => events.push(event),
+  });
+
+  await assert.rejects(
+    selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }),
+    /unavailable/u,
+  );
+
+  assert.equal(selected.getSaved(), undefined);
+  assert.deepEqual(events, [{ stage: "provider_initialization_unknown" }]);
 });
 
 test("provider rejection fails closed and emits no browser credential", async () => {

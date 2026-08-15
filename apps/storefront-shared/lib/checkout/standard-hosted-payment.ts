@@ -72,7 +72,7 @@ type Dependencies = Readonly<{
   resolveExecution(): Promise<StandardHostedCheckoutExecution | null>;
   now(): Date;
   randomUuid(): string;
-  audit?(event: Readonly<{ stage: "authority_failure" | "identity_authority_mismatch" | "client_ip_authority_invalid" | "execution_unavailable" | "provider_runtime_unavailable" | "provider_initialization_failed" | "provider_rejected" | "credential_persistence_missing" | "browser_credential_reconstruction_failed" | "presentation_invalid" | "presentation_seal_failed" | "presentation_persistence_failed"; code?: StorefrontHostedCheckoutErrorCode }>): void;
+  audit?(event: Readonly<{ stage: "authority_failure" | "identity_authority_mismatch" | "client_ip_authority_invalid" | "execution_unavailable" | "provider_runtime_unavailable" | "provider_initialization_failed" | "provider_rejected" | "provider_initialization_unknown" | "credential_persistence_missing" | "browser_credential_reconstruction_failed" | "presentation_invalid" | "presentation_seal_failed" | "presentation_persistence_failed"; code?: StorefrontHostedCheckoutErrorCode }>): void;
 }>;
 
 function unavailable(): never { throw new StandardHostedCheckoutRuntimeError("unavailable"); }
@@ -322,6 +322,10 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       }
       if (persistedKeys === undefined) { audit(dependencies, "credential_persistence_missing", persistenceFailureCode); return unavailable(); }
       if (providerPresentation.kind === "rejected") { audit(dependencies, "provider_rejected"); return unavailable(); }
+      if (providerPresentation.kind === "processing" && authority.providerCode === "paytr_iframe") {
+        audit(dependencies, "provider_initialization_unknown");
+        return unavailable();
+      }
       let persistedPaymentSession: ReturnType<typeof createStorefrontOperationCredential>;
       let browserCookies: readonly string[];
       try {
