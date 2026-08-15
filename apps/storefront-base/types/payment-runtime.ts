@@ -52,8 +52,9 @@ export interface PaymentWebhookEvent {
 }
 
 export interface PaymentInitResult {
-    action: "redirect" | "success" | "pending";
+    action: "redirect" | "iframe" | "success" | "pending";
     redirectUrl?: string;
+    iframeUrl?: string;
     message?: string;
     paymentAttemptId: string;
 }

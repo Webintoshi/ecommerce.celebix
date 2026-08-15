@@ -177,6 +177,39 @@ function buildPaytrBasket(items: CheckoutItemInput[]) {
     return Buffer.from(JSON.stringify(basket)).toString("base64");
 }
 
+function isPrivateOrLocalPaytrCustomerIp(value: string) {
+    const ip = value.trim().toLowerCase();
+    if (!ip || ip.includes(",") || ip === "localhost" || ip === "::1") {
+        return true;
+    }
+
+    const normalizedIp = ip.startsWith("::ffff:") ? ip.slice("::ffff:".length) : ip;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(normalizedIp)) {
+        const parts = normalizedIp.split(".").map((part) => Number(part));
+        if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+            return true;
+        }
+
+        const [first, second] = parts;
+        return (
+            first === 0 ||
+            first === 10 ||
+            first === 127 ||
+            (first === 169 && second === 254) ||
+            (first === 172 && second >= 16 && second <= 31) ||
+            (first === 192 && second === 168)
+        );
+    }
+
+    return normalizedIp.startsWith("fc") || normalizedIp.startsWith("fd") || normalizedIp.startsWith("fe80");
+}
+
+function assertPaytrCustomerIp(customerIp: string) {
+    if (isPrivateOrLocalPaytrCustomerIp(customerIp)) {
+        throw new Error("PAYTR icin musteri dis IP adresi alinamadi.");
+    }
+}
+
 function createIyzipayClient(gateway: PaymentGatewayConfig) {
     const apiKey = gateway.credentials.apiKey?.trim();
     const secretKey = gateway.credentials.secretKey?.trim();
@@ -454,6 +487,8 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
         throw new Error("PAYTR merchant bilgileri eksik.");
     }
 
+    assertPaytrCustomerIp(context.customerIp);
+
     const paymentAttempt = await createPaymentAttempt({
         orderId: context.order.id,
         gatewayId: context.gateway.id,
@@ -489,6 +524,8 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
 
     const formData = new URLSearchParams({
         merchant_id: merchantId,
+        merchant_key: merchantKey,
+        merchant_salt: merchantSalt,
         user_ip: context.customerIp,
         merchant_oid: merchantOid,
         email: context.customerEmail,
@@ -540,8 +577,8 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
         }
 
         return {
-            action: "redirect",
-            redirectUrl,
+            action: "iframe",
+            iframeUrl: `https://www.paytr.com/odeme/guvenli/${encodeURIComponent(token)}`,
             paymentAttemptId: paymentAttempt.id,
         };
     } catch (error) {

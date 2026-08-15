@@ -106,6 +106,7 @@ export default function CheckoutPage() {
 
   // Step State (1: Delivery, 2: Payment)
   const [currentStep, setCurrentStep] = useState(1);
+  const [paytrIframeUrl, setPaytrIframeUrl] = useState<string | null>(null);
   const discountAmount = appliedCoupon?.discountAmount || 0;
   const selectedShippingRate =
     shippingRates.find((rate) => rate.id === selectedShippingMethod) ?? shippingRates[0] ?? null;
@@ -385,6 +386,14 @@ export default function CheckoutPage() {
 
       if (!result.success) {
         toast.error(result.error);
+        return;
+      }
+
+      if (result.payment?.action === "iframe" && result.payment?.iframeUrl) {
+        setPaytrIframeUrl(result.payment.iframeUrl);
+        setCurrentStep(2);
+        toast.success("PayTR güvenli ödeme ekranı hazır.");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
 
@@ -779,6 +788,28 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
+                  {paytrIframeUrl ? (
+                    <div className="space-y-5">
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-medium text-blue-700">
+                        Kart bilgileriniz PayTR güvenli ödeme ekranında alınır; ödeme tamamlandığında sipariş durumunuz otomatik güncellenir.
+                      </div>
+                      <iframe
+                        title="PayTR güvenli ödeme"
+                        src={paytrIframeUrl}
+                        className="h-[760px] w-full rounded-2xl border border-gray-200 bg-white shadow-sm"
+                        allow="payment *; fullscreen"
+                      />
+                      <a
+                        href={paytrIframeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex text-sm font-bold text-primary underline underline-offset-4"
+                      >
+                        Ödeme ekranını yeni sekmede aç
+                      </a>
+                    </div>
+                  ) : (
+                    <>
                   {/* VISUAL CREDIT CARD WRAPPER */}
                   <div className="mb-8">
                     {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && (
@@ -888,6 +919,8 @@ export default function CheckoutPage() {
                       {formatPrice(finalTotal)} Öde
                     </button>
                   </div>
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
