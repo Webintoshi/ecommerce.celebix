@@ -8,6 +8,7 @@ import { createCatalogOnboardingHttpHandlers } from "./handler.ts";
 import type { ServerCatalogOnboardingRuntime } from "../server-catalog-onboarding/runtime.ts";
 
 const PANEL = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 const STORE = "33333333-3333-4333-8333-333333333333";
 const PRINCIPAL = "44444444-4444-4444-8444-444444444444";
 const MEMBERSHIP = "55555555-5555-4555-8555-555555555555";
@@ -68,7 +69,7 @@ function request(path: string, method = "GET", body?: unknown, headers: HeadersI
   const selected = new Headers(headers);
   selected.set("cookie", `__Host-celebix_panel=${CREDENTIAL}`);
   if (method !== "GET") {
-    selected.set("origin", PANEL);
+    if (!selected.has("origin")) selected.set("origin", PANEL);
     selected.set("content-type", "application/json");
     selected.set("idempotency-key", OPERATION);
   }
@@ -80,6 +81,25 @@ test("quick create forwards only session TenantContext and parsed intent", async
   const response = await handlers(repository({ async createProduct(input) { calls.push(input); return result(); } })).createProduct(
     request("/api/catalog/onboarding/products", "POST", { kind: "quick", title: "Kupa", priceCents: 12990, publish: false }),
   );
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), result());
+  assert.deepEqual(calls, [{ tenantContext: tenant(), now: NOW, operationId: OPERATION, intent: { kind: "quick", title: "Kupa", priceCents: 12990, publish: false } }]);
+});
+
+test("canonical tenant admin origin can create a product without browser tenant headers", async () => {
+  const calls: unknown[] = [];
+  const response = await handlers(repository({ async createProduct(input) { calls.push(input); return result(); } })).createProduct(
+    request(
+      "/api/catalog/onboarding/products",
+      "POST",
+      { kind: "quick", title: "Kupa", priceCents: 12990, publish: false },
+      {
+        origin: TENANT_ADMIN,
+        host: new URL(TENANT_ADMIN).host,
+      },
+    ),
+  );
+
   assert.equal(response.status, 201);
   assert.deepEqual(await response.json(), result());
   assert.deepEqual(calls, [{ tenantContext: tenant(), now: NOW, operationId: OPERATION, intent: { kind: "quick", title: "Kupa", priceCents: 12990, publish: false } }]);
