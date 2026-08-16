@@ -9,7 +9,7 @@ import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAd
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import styles from "@/components/catalog-onboarding/product-onboarding.module.css";
 
-export function ProductCreateForm({ initialMode = "advanced" }: Readonly<{ initialMode?: "quick" | "advanced" }>) {
+export function ProductCreateForm({ initialMode = "quick" }: Readonly<{ initialMode?: "quick" | "advanced" }>) {
   const [options, setOptions] = useState<CatalogOnboardingOptions | null>(null);
   const [error, setError] = useState("");
   const [mode, setMode] = useState(initialMode);

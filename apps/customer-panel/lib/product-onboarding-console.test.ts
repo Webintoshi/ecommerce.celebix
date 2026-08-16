@@ -23,6 +23,12 @@ test("quick create exposes only two required merchant fields", async () => {
   }
 });
 
+test("new product page defaults to quick creation and keeps advanced mode explicit", async () => {
+  const page = await source("app/products/new/page.tsx");
+  assert.match(page, /mode === "advanced" \? "advanced" : "quick"/);
+  assert.doesNotMatch(page, /mode === "quick" \? "quick" : "advanced"/);
+});
+
 test("launcher opens the quick dialog instead of navigating away", async () => {
   const list = await source("components/catalog/ProductListConsole.tsx");
   const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
