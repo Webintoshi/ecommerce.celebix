@@ -57,6 +57,11 @@ test("order address staging migration applies once and always runs assertions", 
     write: (line) => lines.push(line),
   });
 
+  const probeSql = calls.find((entry) => typeof entry === "object" && String(entry.sql).includes("AS checkout_ready"))?.sql;
+  assert.match(String(probeSql), /saas[.]orders_detail_projection\(uuid,uuid\)/u);
+  assert.match(String(probeSql), /order_row[.]source='storefront'/u);
+  assert.doesNotMatch(String(probeSql), /order_source/u);
+
   assert.deepEqual(
     calls.filter((entry) => typeof entry === "object" && String(entry.sql).startsWith("-- ")).map((entry) => entry.sql),
     [

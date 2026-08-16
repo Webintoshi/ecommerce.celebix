@@ -73,7 +73,7 @@ export async function runOrderAddressMigration({ client, databaseName, readSql, 
           'saas.public_checkout_complete_without_available_stock_v090(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)'
         )) AS checkout_definition,
         pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure(
-          'saas.orders_detail_projection(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)'
+          'saas.orders_detail_projection(uuid,uuid)'
         )) AS detail_definition
     )
     SELECT
@@ -82,7 +82,7 @@ export async function runOrderAddressMigration({ client, databaseName, readSql, 
       NOT EXISTS(
         SELECT 1
         FROM saas.orders order_row
-        WHERE order_row.order_source='storefront'
+        WHERE order_row.source='storefront'
           AND order_row.shipping_address IS NOT NULL
           AND pg_catalog.jsonb_typeof(order_row.shipping_address)='object'
           AND NULLIF(pg_catalog.btrim(order_row.shipping_address->>'recipientName'), '') IS NULL
