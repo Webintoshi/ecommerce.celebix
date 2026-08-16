@@ -884,6 +884,10 @@ button:disabled.primaryButton,
 
 .detailHero {
   display: grid;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .summaryHeading,

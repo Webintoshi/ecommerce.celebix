@@ -197,6 +197,7 @@ async function compilePage(kind: TaxonomyKind, Console: (props: { kind: Taxonomy
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === "@/components/customers/CustomerTaxonomyConsole") return { CustomerTaxonomyConsole: Console };
+    if (specifier === "@/components/customers/CustomerWorkspace") return { CustomerWorkspace: ({ children }: { children?: ReactNode }) => createElement("section", null, children) };
     if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant(role) }) };
     throw new Error(`unexpected_taxonomy_page_import:${kind}:${specifier}`);
   };

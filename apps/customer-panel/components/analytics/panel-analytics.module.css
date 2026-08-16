@@ -70,6 +70,11 @@
   white-space: nowrap;
 }
 
+.metricTabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .rangeBar button[aria-pressed="true"],
 .metricTabs button[aria-selected="true"] {
   border-color: #FFD8C0;
@@ -182,7 +187,12 @@
   padding: 1rem;
 }
 
-.chart { border-bottom: 1px solid #EDF0F4; }
+.chart {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .chartViewport { min-width: 0; overflow: hidden; margin-top: .75rem; color: #667085; font-size: .7rem; }
 
 .breakdownHeader { align-items: flex-start; }

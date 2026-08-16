@@ -324,6 +324,7 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return React;
+    if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Wrapper });
     if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
     if (specifier === "recharts") return new Proxy({}, { get: () => Chart });

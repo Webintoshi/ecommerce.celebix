@@ -40,7 +40,11 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/orders/quick-links",
       "/orders/abandoned-carts",
       "/customers",
+      "/customers/new",
+      "/customers/segments",
+      "/customers/tags",
       "/products",
+      "/products/new",
       "/products/categories",
       "/products/collections",
       "/products/brands",
@@ -57,9 +61,16 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/products/auto-import",
       "/products/bulk-upload",
       "/discounts",
+      "/discounts/new",
       "/discounts/lucky-wheel",
       "/marketing",
+      "/marketing/email",
+      "/marketing/phone",
+      "/marketing/whatsapp",
       "/content",
+      "/content/blog",
+      "/content/pages",
+      "/content/policies",
       "/marketplaces",
       "/settings",
       "/settings/general",
@@ -93,7 +104,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
   );
 });
 
-test("navigation keeps create routes and workspace subroutes out of the sidebar", () => {
+test("navigation exposes approved workspace shortcuts and keeps unsafe detail routes out of the sidebar", () => {
   const hrefs = PANEL_NAVIGATION.flatMap((item) => [
     item.href,
     ...(item.children ?? []).map((child) => child.href),
@@ -113,17 +124,6 @@ test("navigation keeps create routes and workspace subroutes out of the sidebar"
     "/seo/products",
   ] as const) assert.equal(hrefs.includes(href), true, href);
   for (const forbidden of [
-    "/customers/new",
-    "/products/new",
-    "/discounts/new",
-    "/customers/segments",
-    "/customers/tags",
-    "/marketing/email",
-    "/marketing/phone",
-    "/marketing/whatsapp",
-    "/content/blog",
-    "/content/pages",
-    "/content/policies",
     "/products/shopify-converter",
     "/products/price-lists/new",
     "/products/extras/resource/edit",
@@ -218,18 +218,33 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Kategoriler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "İçe Aktarma", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Kategoriler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "İçe Aktarma", "Toplu Yükle"]);
 });
 
 test("sidebar presents approved families as workspaces", () => {
-  for (const key of ["customers", "marketing", "content"] as const) {
-    assert.equal(findNavigationItem(key)?.children, undefined, key);
-  }
+  assert.deepEqual(findNavigationItem("customers")?.children?.map(({ href }) => href), [
+    "/customers",
+    "/customers/new",
+    "/customers/segments",
+    "/customers/tags",
+  ]);
+  assert.deepEqual(findNavigationItem("marketing")?.children?.map(({ href }) => href), [
+    "/marketing",
+    "/marketing/email",
+    "/marketing/phone",
+    "/marketing/whatsapp",
+  ]);
+  assert.deepEqual(findNavigationItem("content")?.children?.map(({ href }) => href), [
+    "/content",
+    "/content/blog",
+    "/content/pages",
+    "/content/policies",
+  ]);
   assert.equal(
     findNavigationItem("catalog")?.children?.find(({ key }) => key === "imports")?.href,
     "/products/auto-import",
   );
-  assert.equal(findNavigationItem("discounts")?.children?.some(({ href }) => href === "/discounts/new"), false);
+  assert.equal(findNavigationItem("discounts")?.children?.some(({ href }) => href === "/discounts/new"), true);
 });
 
 test("workspace parents stay active on route-backed tabs and deep links", () => {
