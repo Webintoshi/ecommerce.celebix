@@ -762,8 +762,15 @@ export async function POST(request: NextRequest) {
 
         // Validation: Zorunlu alanlar
         const validationErrors: string[] = [];
-        const normalizedDescription = normalizeStoredProductDescription(productData.description);
-        const normalizedShortDescription = toNullableString(productData.short_description);
+        const normalizedProductName = toNullableString(productData.name);
+        const normalizedShortDescription =
+            toNullableString(productData.short_description) ||
+            normalizedProductName;
+        const normalizedDescription = hasVisibleProductDescription(productData.description)
+            ? normalizeStoredProductDescription(productData.description)
+            : normalizedShortDescription
+                ? `<p>${normalizedShortDescription}</p>`
+                : normalizeStoredProductDescription(productData.description);
         if (!productData.name || productData.name.trim() === '') {
             validationErrors.push("Ürün adı gereklidir");
         }
@@ -775,9 +782,6 @@ export async function POST(request: NextRequest) {
         }
         if (!normalizedShortDescription) {
             validationErrors.push("Kısa açıklama gereklidir");
-        }
-        if (!productData.category) {
-            validationErrors.push("Kategori seçilmelidir");
         }
         
         if (validationErrors.length > 0) {
