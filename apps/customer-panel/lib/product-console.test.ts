@@ -850,6 +850,7 @@ test("production archive focus restorer prefers a live trigger and safely falls 
 test("quick creation remains bound to the durable onboarding and media workflow", async () => {
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
   assert.match(create, /data-presentation="hemenaku-product-create"/);
   assert.match(dialog, /buildQuickCreateIntent/);
   assert.match(dialog, /await api\.createProduct/);
@@ -857,8 +858,13 @@ test("quick creation remains bound to the durable onboarding and media workflow"
   assert.match(dialog, /mediaClient\.upload\(productId, input\)/);
   assert.match(dialog, /api\.publishAfterMedia/);
   assert.match(dialog, /api\.getProductEditor/);
+  assert.match(dialog, /outcome\.kind === "draft_media_failed"[\s\S]*onCreated\(outcome\.result\)[\s\S]*onCreated\(outcome\.result\)/);
+  assert.match(advanced, /function initialChannelIds/);
+  assert.match(advanced, /channel\.kind === "storefront"/);
+  assert.match(advanced, /useState<readonly string\[\]>\(\(\) => initialChannelIds\(options, editor\)\)/);
+  assert.match(advanced, /outcome\.kind === "draft_media_failed"[\s\S]*onCreated\?\.\(outcome\.result\)/);
   assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
-  assert.doesNotMatch(`${create}\n${dialog}`, /nutrition|\/api\/admin|supabase/i);
+  assert.doesNotMatch(`${create}\n${dialog}\n${advanced}`, /nutrition|\/api\/admin|supabase/i);
 });
 
 test("create, archive, variant and conflict flows keep rendered versions and navigate safely", async () => {

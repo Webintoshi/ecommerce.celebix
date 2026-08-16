@@ -63,6 +63,12 @@ function initialVariants(editor?: CatalogProductEditorProjection): readonly Vari
   })));
 }
 
+function initialChannelIds(options: CatalogOnboardingOptions, editor?: CatalogProductEditorProjection): readonly string[] {
+  if (editor) return editor.channelIds;
+  const storefrontChannels = options.channels.filter((channel) => channel.kind === "storefront").map((channel) => channel.id);
+  return Object.freeze(storefrontChannels.length ? storefrontChannels : options.channels.map((channel) => channel.id));
+}
+
 function variantIntent(variant: VariantDraft, productType: "physical" | "digital"): CatalogOnboardingVariantIntent | null {
   const priceCents = parseTurkishMoneyToCents(variant.price);
   const stockQuantity = positiveInteger(variant.stockQuantity, 0);
@@ -100,7 +106,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
   const [categoryIds, setCategoryIds] = useState<readonly string[]>(editor?.categoryIds ?? []);
   const [collectionIds, setCollectionIds] = useState<readonly string[]>(editor?.resourceIds.collections ?? []);
   const [tagIds, setTagIds] = useState<readonly string[]>(editor?.resourceIds.tags ?? []);
-  const [selectedChannelIds, setSelectedChannelIds] = useState<readonly string[]>(editor?.channelIds ?? []);
+  const [selectedChannelIds, setSelectedChannelIds] = useState<readonly string[]>(() => initialChannelIds(options, editor));
   const [showValidation, setShowValidation] = useState(false);
   const [createdProductId, setCreatedProductId] = useState<string>();
   const [progress, setProgress] = useState(0);
@@ -208,8 +214,8 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
       });
       if (outcome.kind === "published" || outcome.kind === "draft") onCreated?.(outcome.result);
       else if (outcome.kind === "published_recovered") onCreated?.(Object.freeze({ ...outcome.projection, variants: Object.freeze(outcome.projection.variants.map(({ variant }) => variant)), replayed: false }));
-      else if (outcome.kind === "draft_media_failed") setError("Ürün oluşturuldu, bazı görseller yüklenemedi. Taslak korundu; medya yöneticisinden kalanları tamamlayın.");
-      else setError("Ürün oluşturuldu ancak yayın sonucu doğrulanamadı. İkinci yazma yapılmadı; ürün sayfasından güvenle kontrol edin.");
+      else if (outcome.kind === "draft_media_failed") onCreated?.(outcome.result);
+      else onCreated?.(outcome.result);
     } catch (failure) {
       if (failure instanceof CatalogOnboardingApiError && failure.code === "version_conflict") {
         setConflict(true);
