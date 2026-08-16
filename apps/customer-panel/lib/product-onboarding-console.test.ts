@@ -89,7 +89,7 @@ test("category manager uses durable client CRUD without browser store authority"
 test("category manager presents hierarchy without exposing technical slugs", async () => {
   const manager = await source("components/catalog-onboarding/CategoryManager.tsx");
 
-  assert.match(manager, /Seviye \{depth\} · Görünüm sırası \{category[.]position\}/);
+  assert.match(manager, /normalizedQuery \? label : `Seviye \$\{depth\} · Görünüm sırası \$\{category[.]position\}`/);
   assert.doesNotMatch(manager, /\/\{category[.]slug\}/);
 });
 

@@ -1137,8 +1137,12 @@
 }
 
 @media (min-width: 1025px) {
-  .pageActions:not(.embeddedPageActions) {
+  .pageActions {
     display: none;
+  }
+
+  .embeddedPageActions {
+    display: flex;
   }
 }
 

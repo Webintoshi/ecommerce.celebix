@@ -225,6 +225,7 @@ async function compileComponent(
     if (specifier === "react") return react;
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
     if (specifier === "next/navigation") return { useRouter: () => ({ push }) };
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => (props: Record<string, unknown>) => createElement("svg", props) });
     if (specifier === "@/components/panel/PanelPageShell") return panelComponents();
     if (specifier === "@/lib/customer-ui/client") return { CustomerApiError, customerApi: api };
     if (specifier.endsWith(".module.css")) return styles;
@@ -250,6 +251,7 @@ async function compilePage(
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === componentModule) return { [componentExport]: Component };
+    if (specifier === "@/components/customers/CustomerWorkspace") return { CustomerWorkspace: ({ children }: { children?: ReactNode }) => createElement("section", null, children) };
     if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant(role) }) };
     throw new Error(`unexpected_customer_route_page_import:${route}:${specifier}`);
   };

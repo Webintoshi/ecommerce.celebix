@@ -44,16 +44,16 @@ export function CustomerFormConsole() {
       country = String(f.get("country") ?? "TR")
         .trim()
         .toUpperCase();
-    const emailInput = form.elements.namedItem("email") as HTMLInputElement,
-      countryInput = form.elements.namedItem("country") as HTMLInputElement,
+    const emailInput = form.elements?.namedItem?.("email") as HTMLInputElement | null,
+      countryInput = form.elements?.namedItem?.("country") as HTMLInputElement | null,
       nextErrors: Partial<Record<CustomerFormField, string>> = {};
 
     if (!firstName) nextErrors.firstName = "Ad alanı gerekli.";
     if (!lastName) nextErrors.lastName = "Soyad alanı gerekli.";
-    if (email && emailInput.validity.typeMismatch) {
+    if (email && emailInput?.validity.typeMismatch) {
       nextErrors.email = "Geçerli bir e-posta adresi girin.";
     }
-    if (country && countryInput.validity.patternMismatch) {
+    if (country && countryInput?.validity.patternMismatch) {
       nextErrors.country = "İki harfli ülke kodu kullanın.";
     }
     if (Object.keys(nextErrors).length > 0) {

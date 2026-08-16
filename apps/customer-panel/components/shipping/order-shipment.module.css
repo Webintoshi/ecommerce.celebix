@@ -65,7 +65,8 @@
 
 .packageForm label:focus-within {
   border-color: #FE6100;
-  box-shadow: 0 0 0 3px rgb(254 97 0 / 10%);
+  outline: 3px solid rgb(254 97 0 / 10%);
+  outline-offset: 1px;
 }
 
 .packageForm label > span {

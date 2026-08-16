@@ -177,6 +177,11 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
               <option value="archived">Arşiv</option>
             </select>
           </label>
+          {canManage ? (
+            <Link className={styles.customerPrimaryAction} href="/customers/new">
+              <UserPlus aria-hidden="true" />Yeni Müşteri
+            </Link>
+          ) : null}
           <button
             className={styles.customerExport}
             type="button"
@@ -198,7 +203,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
         ) : items.length === 0 ? (
           <div className={styles.customerEmpty}>
             <span><UsersRound aria-hidden="true" /></span>
-            <strong>{search || status !== "all" ? "Filtrelerle eşleşen müşteri bulunamadı." : "Henüz müşteri kaydı bulunmuyor."}</strong>
+            <strong>{search || status !== "all" ? "Filtrelerle eşleşen müşteri bulunamadı." : "Henüz müşteri yok."}</strong>
             <p>{search || status !== "all" ? "Arama veya müşteri filtresini değiştirerek yeniden deneyin." : "İlk müşteri kaydı oluşturulduğunda burada görünecek."}</p>
             {canManage && !search && status === "all" ? <Link className={styles.customerEmptyAction} href="/customers/new"><UserPlus aria-hidden="true" />Yeni Müşteri</Link> : null}
           </div>

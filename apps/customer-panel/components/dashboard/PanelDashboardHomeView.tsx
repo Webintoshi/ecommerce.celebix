@@ -227,7 +227,8 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
   const plan = props.dashboard.chromeCards.find(({ key }) => key === "plan");
   const hasStorefront = storefront?.status === "Doğrulandı";
   const storefrontLabel = storefront?.value?.trim() ? storefront.value : "Mağaza adresi";
-  const planLabel = plan?.value?.trim();
+  const planVersion = plan?.value?.match(/(?:^|\s)·\s*v([0-9]+)\s*$/)?.[1];
+  const planLabel = plan ? `Plan aktif${planVersion ? ` · v${planVersion}` : ""}` : undefined;
   const period = props.period ?? analytics?.period ?? "month";
   const freshness = analyticsState === "loaded" && analytics
     ? "Canlı"
@@ -266,24 +267,28 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
       label: `${pendingOrders.toLocaleString("tr-TR")} sipariş işlem bekliyor`,
       detail: "Sipariş akışını gözden geçirin",
       href: "/orders",
+      actionLabel: "Siparişleri görüntüle",
     }] : []),
     ...(outOfStockVariants > 0 ? [{
       key: "stock",
       label: `${outOfStockVariants.toLocaleString("tr-TR")} stok uyarısı`,
       detail: "Satışa açık varyantları tamamlayın",
       href: "/products",
+      actionLabel: "Ürünleri görüntüle",
     }] : []),
     ...((catalog?.productsWithoutMedia ?? 0) > 0 ? [{
       key: "media",
       label: `${catalog?.productsWithoutMedia.toLocaleString("tr-TR")} üründe medya eksik`,
       detail: "Ürün görsellerini tamamlayın",
       href: "/products",
+      actionLabel: "Ürünleri görüntüle",
     }] : []),
     ...((carts?.abandoned ?? 0) > 0 ? [{
       key: "carts",
       label: `${carts?.abandoned.toLocaleString("tr-TR")} terk edilen sepet`,
       detail: `${formatMoney(carts?.lostValueCents ?? 0, carts?.currency ?? "TRY")} bekleyen değer`,
       href: "/orders/abandoned-carts",
+      actionLabel: "Sepetleri görüntüle",
     }] : []),
   ] as const;
   const emptyValue = "—";
@@ -513,7 +518,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
           <aside className={styles.attentionPanel} aria-labelledby="attention-title">
             <header className={styles.sectionHeader}>
               <div>
-                <h2 id="attention-title">Operasyon dikkati</h2>
+                <h2 id="attention-title">Yapılacaklar</h2>
                 <p>Öncelikli aksiyon sinyalleri</p>
               </div>
             </header>
@@ -525,7 +530,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
                       <strong>{task.label}</strong>
                       <small>{task.detail}</small>
                     </div>
-                    <PanelActionButton href={task.href}>Aç</PanelActionButton>
+                    <PanelActionButton href={task.href}>{task.actionLabel}</PanelActionButton>
                   </li>
                 ))}
               </ul>
@@ -543,7 +548,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
               <h2 id="recent-orders-title">Son siparişler</h2>
               <p>En yeni işlemleri hızlıca kontrol edin.</p>
             </div>
-            <PanelActionButton href="/orders">Tüm siparişler</PanelActionButton>
+            <PanelActionButton href="/orders">Siparişleri görüntüle</PanelActionButton>
           </header>
           {props.recentOrdersState === "loading" ? (
             <p className={styles.recentOrdersState} role="status">Son siparişler yükleniyor…</p>
@@ -601,7 +606,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
         </section>
       ) : null}
 
-      <div className={styles.secondaryGrid}>
+      <div className={`${styles.secondaryGrid} ${styles.insightGrid}`}>
         <section className={styles.bestSellers} aria-labelledby="best-sellers-title">
           <header>
             <h2 id="best-sellers-title">En çok satanlar</h2>
@@ -665,8 +670,13 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
           </dl>
         </section>
 
-        <section className={styles.operationsPanel} aria-labelledby="customer-view-title">
-          <header><h2 id="customer-view-title">Müşteri görünümü</h2></header>
+        <section className={styles.operationsPanel} aria-labelledby="sales-channel-title">
+          <header><h2 id="sales-channel-title">Satış kanalları</h2></header>
+          <div className={styles.channelSummary}>
+            <strong>{hasStorefront ? "Storefront kanalı hazır" : "Storefront kanalı bekliyor"}</strong>
+            <span>{hasStorefront ? storefrontLabel : "Mağaza adresi bağlandığında satış kanalı burada görünür."}</span>
+          </div>
+          <header className={styles.customerPanelHeader}><h2 id="customer-view-title">Müşteri görünümü</h2></header>
           <dl className={styles.customerFacts}>
             <div><dt>Aktif müşteri</dt><dd>{customers ? customers.active.toLocaleString("tr-TR") : emptyValue}</dd></div>
             <div><dt>E-posta izni</dt><dd>{customers ? customers.consentedEmail.toLocaleString("tr-TR") : emptyValue}</dd></div>

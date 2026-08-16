@@ -1,8 +1,8 @@
 .root {
   display: grid;
   width: 100%;
+  gap: 1.5rem;
   min-width: 0;
-  gap: 1rem;
 }
 
 .toolbar {

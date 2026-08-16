@@ -356,7 +356,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
     if (specifier === "lucide-react") {
       return { BadgeCheck: Icon, BadgeDollarSign: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, ChevronDown: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Palette: Icon, Percent: Icon, Phone: Icon, PieChart: Icon, Puzzle: Icon, ReceiptText: Icon, ScanBarcode: Icon, ScrollText: Icon, Search: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, Users: Icon, Warehouse: Icon };
     }
-    if (specifier === "next/link") return Link;
+    if (specifier === "next/link") return { __esModule: true, default: Link };
     if (specifier === "next/navigation") return { usePathname: () => pathname };
     if (specifier === "@/lib/panel-ui/navigation") {
       return {
@@ -409,7 +409,7 @@ async function createInteractivePanelNavigation(pathname: string) {
       if (specifier === "lucide-react") {
         return new Proxy({ __esModule: true }, { get: (_target, property) => property === "__esModule" ? true : Icon });
       }
-      if (specifier === "next/link") return Link;
+      if (specifier === "next/link") return { __esModule: true, default: Link };
       if (specifier === "next/navigation") return { usePathname: () => pathname };
       if (specifier === "@/lib/panel-ui/navigation") {
         return {
@@ -458,6 +458,8 @@ async function renderPanelDashboard(
   } = { exports: {} };
   const PanelActionButton = ({ children, href }: { children?: ReactNode; href: string }) =>
     createElement("a", { href }, children);
+  const Link = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) =>
+    createElement("a", props, children);
   const PanelMetricCard = ({ detail, label, value }: {
     detail?: string;
     label: string;
@@ -493,9 +495,10 @@ async function renderPanelDashboard(
   });
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "next/link") return Link;
     if (specifier === "lucide-react") {
       const Icon = (props: Record<string, unknown>) => createElement("svg", props);
-      return { CalendarDays: Icon, Globe2: Icon, PackageCheck: Icon, Store: Icon };
+      return { ArrowRight: Icon, BadgeCheck: Icon, CalendarDays: Icon, Globe2: Icon, PackageCheck: Icon, Store: Icon };
     }
     if (specifier === "@celebix/saas-contracts") {
       return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
@@ -1945,6 +1948,7 @@ test("dashboard home loads five newest orders through the existing same-origin o
   const harness = createPanelInteractionHarness(EmptyRoot, {}, { activeElement: null });
   const Wrapper: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("div", { ...props, children });
   const PanelActionButton: HookTestComponent = ({ children, href }) => harness.jsxRuntime.jsx("a", { href, children });
+  const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
   const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
   const styles = new Proxy({}, {
     get: (_target, property) => property === "__esModule"
@@ -1969,7 +1973,8 @@ test("dashboard home loads five newest orders through the existing same-origin o
     (specifier) => {
       if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
       if (specifier === "react") return harness.react;
-      if (specifier === "lucide-react") return { CalendarDays: Icon, Globe2: Icon, PackageCheck: Icon, Store: Icon };
+      if (specifier === "next/link") return Link;
+      if (specifier === "lucide-react") return { ArrowRight: Icon, BadgeCheck: Icon, CalendarDays: Icon, Globe2: Icon, PackageCheck: Icon, Store: Icon };
       if (specifier === "recharts") return new Proxy({}, { get: () => Wrapper });
       if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
       if (specifier === "@/components/panel/PanelPageShell") return { PanelActionButton, PanelPageShell: Wrapper };

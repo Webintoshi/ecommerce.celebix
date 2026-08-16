@@ -22,8 +22,8 @@
 .periodFilter,
 .retryButton {
   display: inline-flex;
-  min-width: 40px;
-  min-height: 38px;
+  min-width: 48px;
+  min-height: 48px;
   align-items: center;
   gap: .5rem;
   border: 1px solid #DEE4EC;
@@ -46,7 +46,7 @@
 .periodFilter { padding-right: .2rem; }
 
 .periodFilter select {
-  min-height: 36px;
+  min-height: 46px;
   border: 0;
   outline: 0;
   background: transparent;
@@ -348,8 +348,8 @@
 
 .kpiRail {
   display: grid;
-  min-width: 760px;
-  grid-template-columns: repeat(5, minmax(136px, 1fr));
+  min-width: 900px;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
   border-bottom: 1px solid #E4E9F0;
 }
 
@@ -560,6 +560,7 @@
 .recentOrdersTable td { color: #344054; font-size: .78rem; }
 .recentOrdersTable tbody tr:last-child td { border-bottom: 0; }
 .recentOrdersTable td:first-child { display: grid; min-width: 0; gap: .12rem; }
+.recentOrdersTable td:first-child a { display: inline-flex; min-height: 48px; align-items: center; }
 .recentOrdersTable td:first-child small { color: #8A94A6; font-size: .68rem; }
 .recentOrdersTable td:nth-child(2) { max-width: 220px; overflow-wrap: anywhere; }
 .recentOrdersTable td:nth-child(5) { color: #111827; font-weight: 850; white-space: nowrap; }
@@ -735,6 +736,29 @@
   flex-direction: column;
 }
 
+.customerPanelHeader {
+  border-top: 1px solid #E4E9F0;
+}
+
+.channelSummary {
+  display: grid;
+  gap: .3rem;
+  border-bottom: 1px solid #EEF2F6;
+  padding: .85rem 1rem;
+}
+
+.channelSummary strong {
+  color: #253044;
+  font-size: .8125rem;
+  overflow-wrap: anywhere;
+}
+
+.channelSummary span {
+  color: #667085;
+  font-size: .72rem;
+  overflow-wrap: anywhere;
+}
+
 .customerFacts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -781,6 +805,10 @@
 @media (max-width: 1024px) {
   .dashboardMobileActions { display: flex; }
   .dashboardMobileActions > a { flex: 1; }
+
+  .insightGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -814,6 +842,12 @@
   .bestSellers > header,
   .growthPanel > header,
   .operationsPanel > header { align-items: flex-start; }
+}
+
+@media (max-width: 640px) {
+  .insightGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {

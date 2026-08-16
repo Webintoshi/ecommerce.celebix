@@ -184,6 +184,13 @@ function mountedText(node: MountedNode | string): string {
   return typeof node === "string" ? node : node.children.map(mountedText).join("");
 }
 
+function isProductSearchInput(node: MountedNode): boolean {
+  return node.type === "input" && (
+    node.props.placeholder === "Ürün adı, varyant veya SKU ile ara" ||
+    node.props.placeholder === "Ürün ara…"
+  );
+}
+
 async function createMountedQuickOrderConsole(
   api: Record<string, unknown>,
   clipboardWrite: (value: string) => Promise<void> = async () => {},
@@ -209,6 +216,13 @@ async function createMountedQuickOrderConsole(
   class CompiledQuickLinkUiApiError extends Error {
     constructor(readonly code: string) { super(code); }
   }
+  class CompiledCustomerApiError extends Error {
+    constructor(readonly code: string) { super(code); }
+  }
+  const customerApi = Object.freeze({
+    async list() { return Object.freeze({ items: Object.freeze([]), nextCursor: undefined }); },
+    async get() { throw new CompiledCustomerApiError("customer_not_found"); },
+  });
   const timers = new Map<number, () => unknown>();
   let timerId = 0;
   const opened: Array<{ opener: unknown; closed: boolean; location: { replaced: string; replace(value: string): void }; close(): void }> = [];
@@ -233,6 +247,7 @@ async function createMountedQuickOrderConsole(
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier === "@/lib/quick-link-ui/client") return { QuickLinkUiApiError: CompiledQuickLinkUiApiError, quickLinkUi: Object.freeze(api) };
+    if (specifier === "@/lib/customer-ui/client") return { CustomerApiError: CompiledCustomerApiError, customerApi };
     if (specifier === "@celebix/saas-contracts") return {};
     if (specifier === "./quick-order-links.module.css") return styles;
     throw new Error(`unexpected_quick_order_console_import:${specifier}`);
@@ -273,7 +288,7 @@ async function fillMountedQuickOrderForm(
 ) {
   let tree = await console.render();
   let nodes = mountedNodes(tree);
-  const search = nodes.find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  const search = nodes.find(isProductSearchInput)!;
   (search.props.onChange as (event: unknown) => void)({ target: { value: "atlas" } });
   await console.render();
   await console.runTimers();
@@ -631,7 +646,7 @@ test("mounted search clears stale rows, aborts obsolete work, and keeps semantic
   });
   let tree = await console.render();
   let nodes = mountedNodes(tree);
-  let search = nodes.find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  let search = nodes.find(isProductSearchInput)!;
 
   (search.props.onChange as (event: unknown) => void)({ target: { value: "atlas" } });
   tree = await console.render();
@@ -641,7 +656,7 @@ test("mounted search clears stale rows, aborts obsolete work, and keeps semantic
   assert.match(tree.map(mountedText).join(""), /Atlas Kupa/);
 
   nodes = mountedNodes(tree);
-  search = nodes.find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  search = nodes.find(isProductSearchInput)!;
   (search.props.onChange as (event: unknown) => void)({ target: { value: "eski" } });
   tree = await console.render();
   assert.doesNotMatch(tree.map(mountedText).join(""), /Atlas Kupa/, "prior-query rows hide during debounce");
@@ -649,7 +664,7 @@ test("mounted search clears stale rows, aborts obsolete work, and keeps semantic
   await new Promise<void>((resolve) => setImmediate(resolve));
 
   nodes = mountedNodes(await console.render());
-  search = nodes.find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  search = nodes.find(isProductSearchInput)!;
   (search.props.onChange as (event: unknown) => void)({ target: { value: "yeni" } });
   tree = await console.render();
   assert.equal(oldSignal?.aborted, true, "the obsolete catalog search is actively aborted");
@@ -665,8 +680,10 @@ test("mounted search clears stale rows, aborts obsolete work, and keeps semantic
   assert.equal(nodes.some((node) => node.props.role === "listbox" || node.props.role === "option"), false);
   assert.equal(nodes.some((node) => node.type === "ul" && node.props["aria-label"] === "Katalog arama sonuçları"), true);
   assert.equal(nodes.some((node) => node.type === "li" && /Yeni Ürün/.test(mountedText(node))), true);
-  search = nodes.find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
-  assert.equal("aria-expanded" in search.props, false);
+  search = nodes.find(isProductSearchInput)!;
+  assert.equal(search.props.role, "combobox");
+  assert.equal(search.props["aria-expanded"], true);
+  assert.equal(search.props["aria-controls"], "quick-order-product-results");
   const resultButton = nodes.find((node) => node.type === "button" && /Standart/.test(mountedText(node)))!;
   let prevented = false;
   (search.props.onKeyDown as (event: unknown) => void)({ key: "ArrowDown", preventDefault() { prevented = true; } });
@@ -692,7 +709,7 @@ test("query change invalidates in-flight search before deferred effect cleanup",
   let tree = await console.render();
   await console.runEffects();
   tree = await console.render();
-  let search = mountedNodes(tree).find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  let search = mountedNodes(tree).find(isProductSearchInput)!;
   (search.props.onChange as (event: unknown) => void)({ target: { value: "eski" } });
   await console.render();
   await console.runEffects();
@@ -701,7 +718,7 @@ test("query change invalidates in-flight search before deferred effect cleanup",
   assert.ok(oldSignal);
 
   tree = await console.render();
-  search = mountedNodes(tree).find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  search = mountedNodes(tree).find(isProductSearchInput)!;
   (search.props.onChange as (event: unknown) => void)({ target: { value: "yeni" } });
   const abortedAtEventBoundary = oldSignal?.aborted;
   resolveOld?.(Object.freeze([Object.freeze({
@@ -839,7 +856,7 @@ test("explicit Temizle abandons ambiguous create identity before rebuilding the 
   let form = mountedNodes(tree).find((node) => node.type === "form")!;
   await (form.props.onSubmit as (event: unknown) => Promise<void>)({ preventDefault() {} });
   tree = await console.render();
-  const clear = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Temizle")!;
+  const clear = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Formu temizle")!;
   (clear.props.onClick as () => void)();
   await console.render();
 
@@ -886,7 +903,7 @@ test("mounted builder caps distinct catalog lines at one hundred with an item-lo
     async searchProducts() { return Object.freeze([Object.freeze({ title: "Atlas Kupa", variants })]); },
   });
   let tree = await console.render();
-  let search = mountedNodes(tree).find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  let search = mountedNodes(tree).find(isProductSearchInput)!;
   (search.props.onChange as (event: unknown) => void)({ target: { value: "atlas" } });
   await console.render();
   await console.runTimers();
@@ -979,10 +996,10 @@ test("mounted list renders loading, empty, error, desktop, and mobile states", a
   tree = await loadingConsole.render();
   const emptyText = tree.map(mountedText).join("");
   assert.match(emptyText, /Henüz hızlı sipariş linki oluşturulmadı/);
-  for (const label of ["Sipariş Detayı", "Teslimat Bilgileri", "Sipariş Özeti", "Müşteri Notu", "Dahili Etiket", "Ödeme Yöntemi", "Oluşturulan Linkler"]) {
+  for (const label of ["Ürünler", "Seçilen ürünler", "Müşteri", "İletişim bilgileri", "Teslimat", "Sipariş Özeti", "Ödeme", "Müşteri notu", "Dahili etiket", "Oluşturulan Linkler"]) {
     assert.match(emptyText, new RegExp(label));
   }
-  assert.doesNotMatch(emptyText, /Müşteri ara/);
+  assert.match(emptyText, /Kayıtlı müşteri ara/);
 
   const errorConsole = await createMountedQuickOrderConsole({ async listLinks() { throw new Error("offline"); } });
   tree = await errorConsole.render();

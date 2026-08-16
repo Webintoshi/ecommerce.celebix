@@ -322,9 +322,11 @@ async function compilePage(
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === "@/components/merchant-admin/MerchantModuleConsole") return { MerchantModuleConsole: Console };
+    if (specifier === "@/components/panel/PanelWorkspaceShell") return { PanelWorkspaceShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children) };
     if (specifier === "@/components/toshi-settings/ArtificialIntelligenceSettings") {
       return { ArtificialIntelligenceSettings: (props: Record<string, unknown>) => createElement("section", { ...props, "data-toshi-settings": true }) };
     }
+    if (specifier === "@/lib/panel-ui/workspace-navigation") return { CONTENT_WORKSPACE_TABS: [], MARKETING_WORKSPACE_TABS: [] };
     if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant(role) }) };
     throw new Error(`unexpected_merchant_page_import:${route}:${specifier}`);
   };
@@ -346,9 +348,11 @@ async function compileBoundPage(
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === componentModule) return { [componentExport]: Component };
+    if (specifier === "@/components/panel/PanelWorkspaceShell") return { PanelWorkspaceShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children) };
     if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant(role) }) };
     if (specifier === "@/lib/server-panel-access/default") return { resolveDefaultServerPanelAccessRuntime: async () => designAccess };
     if (specifier === "@/lib/server-merchant-admin/runtime") return { resolveServerMerchantAdminRuntime: () => ({ access: designAccess, merchantAdmin: { getEffectiveStarterPresentation: async () => contracts.buildDefaultStarterPresentation({ name: "store" }) } }) };
+    if (specifier === "@/lib/panel-ui/workspace-navigation") return { CONTENT_WORKSPACE_TABS: [], MARKETING_WORKSPACE_TABS: [] };
     throw new Error(`unexpected_bound_page_import:${route}:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
