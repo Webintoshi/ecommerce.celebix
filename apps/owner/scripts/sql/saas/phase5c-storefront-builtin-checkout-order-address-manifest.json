@@ -1,0 +1,23 @@
+{
+  "phase": "phase5c-storefront-builtin-checkout-order-address",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608160112_storefront_builtin_checkout_order_address.up.sql",
+      "direction": "up",
+      "sha256": "e0325223a65c539ec64f45d5ffe8f5f05b70cb86c14d213af8ebe57a5819ff29"
+    },
+    {
+      "file": "202608160112_storefront_builtin_checkout_order_address.down.sql",
+      "direction": "down",
+      "sha256": "3419285dbcf26bcf7688e90ca023db3814ce1fb1e1ba6bc3c8e008b09ee3b74d"
+    },
+    {
+      "file": "202608160112_storefront_builtin_checkout_order_address_assertions.sql",
+      "direction": "verify",
+      "sha256": "8414286310928ddffa111172ed84032be8b9f6af3a404bc9c85420087dcff57b"
+    }
+  ]
+}

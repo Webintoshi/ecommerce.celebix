@@ -25,6 +25,9 @@ const STALE_SESSION_GUARD_ASSERTIONS = "202608140109_storefront_hosted_checkout_
 const CART_DRIFT_SETTLEMENT_UP = "202608140110_storefront_hosted_checkout_cart_drift_settlement.up.sql";
 const CART_DRIFT_SETTLEMENT_DOWN = "202608140110_storefront_hosted_checkout_cart_drift_settlement.down.sql";
 const CART_DRIFT_SETTLEMENT_ASSERTIONS = "202608140110_storefront_hosted_checkout_cart_drift_settlement_assertions.sql";
+const BUILTIN_ORDER_ADDRESS_UP = "202608160112_storefront_builtin_checkout_order_address.up.sql";
+const BUILTIN_ORDER_ADDRESS_DOWN = "202608160112_storefront_builtin_checkout_order_address.down.sql";
+const BUILTIN_ORDER_ADDRESS_ASSERTIONS = "202608160112_storefront_builtin_checkout_order_address_assertions.sql";
 const STORE = "10000000-0000-4000-8000-000000000190";
 const HOST = "hosted-foundation.saas-staging.celebix.site";
 const PRODUCT = "20000000-0000-4000-8000-000000000190";
@@ -38,7 +41,7 @@ const NOW = "2026-08-06T12:00:00.000Z";
 const START_SESSION = "90000000-0000-4000-8000-000000000191";
 const START_ATTEMPT = "91000000-0000-4000-8000-000000000191";
 const START_OPERATION_2 = "92000000-0000-4000-8000-000000000191";
-const TOTAL = 32;
+const TOTAL = 33;
 let completed = 0;
 
 function executable(name) {
@@ -176,7 +179,7 @@ function scenario(name, callback) { callback(); completed += 1; console.log(`PAS
 
 let box;
 try {
-  for (const file of [UP, DOWN, ASSERTIONS, START_UP, START_DOWN, START_ASSERTIONS, SETTLEMENT_UP, SETTLEMENT_DOWN, SETTLEMENT_ASSERTIONS, CART_READ_ONLY_AUTHORITY_UP, CART_READ_ONLY_AUTHORITY_DOWN, CART_READ_ONLY_AUTHORITY_ASSERTIONS, STALE_SESSION_GUARD_UP, STALE_SESSION_GUARD_DOWN, STALE_SESSION_GUARD_ASSERTIONS, CART_DRIFT_SETTLEMENT_UP, CART_DRIFT_SETTLEMENT_DOWN, CART_DRIFT_SETTLEMENT_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, `${file} missing`);
+  for (const file of [UP, DOWN, ASSERTIONS, START_UP, START_DOWN, START_ASSERTIONS, SETTLEMENT_UP, SETTLEMENT_DOWN, SETTLEMENT_ASSERTIONS, CART_READ_ONLY_AUTHORITY_UP, CART_READ_ONLY_AUTHORITY_DOWN, CART_READ_ONLY_AUTHORITY_ASSERTIONS, STALE_SESSION_GUARD_UP, STALE_SESSION_GUARD_DOWN, STALE_SESSION_GUARD_ASSERTIONS, CART_DRIFT_SETTLEMENT_UP, CART_DRIFT_SETTLEMENT_DOWN, CART_DRIFT_SETTLEMENT_ASSERTIONS, BUILTIN_ORDER_ADDRESS_UP, BUILTIN_ORDER_ADDRESS_DOWN, BUILTIN_ORDER_ADDRESS_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, `${file} missing`);
   box = start();
   command(box.tools.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"], `CREATE DATABASE ${DB};`);
   for (const file of migrations()) apply(box, file);
@@ -188,6 +191,7 @@ try {
     assert.equal(psql(box, "SELECT to_regclass('saas.storefront_hosted_checkout_sessions') IS NULL AND to_regprocedure('saas.storefront_available_stock(uuid,uuid,timestamp with time zone,uuid)') IS NULL;").stdout.trim(), "t");
   });
   apply(box, UP); apply(box, ASSERTIONS);
+  apply(box, BUILTIN_ORDER_ADDRESS_UP); apply(box, BUILTIN_ORDER_ADDRESS_ASSERTIONS);
   scenario("PostgreSQL 16 installs the private foundation", () => {
     assert.match(psql(box, "SHOW server_version;").stdout, /^16[.]/);
     assert.equal(psql(box, "SELECT to_regclass('saas.storefront_hosted_checkout_sessions') IS NOT NULL;").stdout.trim(), "t");
@@ -203,6 +207,74 @@ try {
     const methods = JSON.parse(psql(box, `SELECT saas.storefront_payment_methods_projection('${STORE}');`).stdout.trim());
     assert.deepEqual(methods.map(({ kind }) => kind), ["bank_transfer", "hosted_card"]);
     assert.deepEqual(methods[1], { kind: "hosted_card", id: METHOD, label: "Kredi veya banka kartı", instructions: "Güvenli sağlayıcı ekranında tamamlanır.", providerCode: "paytr_iframe", presentation: "iframe", requiredCustomerFields: [] });
+  });
+  scenario("built-in checkout persists the admin order-address recipient contract", () => {
+    const product = "a1000000-0000-4000-8000-000000000190";
+    const variant = "a2000000-0000-4000-8000-000000000190";
+    const cart = "a3000000-0000-4000-8000-000000000190";
+    const order = "a4000000-0000-4000-8000-000000000190";
+    const credentials = JSON.stringify([{ keyId: "cart-key-built-in-190", digest: "0".repeat(64) }]).replaceAll("'", "''");
+    const delivery = JSON.stringify({
+      contact: { firstName: "Ada", lastName: "Lovelace", email: "ada-built-in@example.test", phone: "+905551119000" },
+      shippingAddress: { line1: "Test 1", city: "İstanbul", country: "TR" },
+    }).replaceAll("'", "''");
+
+    psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+      INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at)
+        VALUES('${product}','${STORE}','built-in-recipient-contract','Built-in Recipient Contract','active','TRY',1,'${NOW}','${NOW}');
+      SELECT pg_catalog.set_config('saas.inventory.source_marker','catalog_adjustment',true);
+      SELECT pg_catalog.set_config('saas.inventory.source_id','a5000000-0000-4000-8000-000000000190',true);
+      SELECT pg_catalog.set_config('saas.inventory.source_time','${NOW}',true);
+      INSERT INTO saas.product_variants(id,product_id,store_id,title,sku,price_cents,stock_tracking,stock_quantity,status,attributes,version,created_at,updated_at)
+        VALUES('${variant}','${product}','${STORE}','Standart','BUILTIN-190',10000,true,2,'active','{}',1,'${NOW}','${NOW}');
+      SELECT pg_catalog.set_config('saas.inventory.source_marker','',true);
+      SELECT pg_catalog.set_config('saas.inventory.source_id','',true);
+      SELECT pg_catalog.set_config('saas.inventory.source_time','',true);
+      INSERT INTO saas.storefront_carts(id,store_id,status,version,expires_at,created_at,updated_at)
+        VALUES('${cart}','${STORE}','active',1,'2026-09-01','${NOW}','${NOW}');
+      INSERT INTO saas.storefront_cart_credentials(cart_id,store_id,key_id,credential_digest,expires_at)
+        VALUES('${cart}','${STORE}','cart-key-built-in-190','${"0".repeat(64)}','2026-09-01');
+      INSERT INTO saas.storefront_cart_items(cart_id,store_id,product_id,variant_id,quantity,unit_price_cents,position,created_at,updated_at)
+        VALUES('${cart}','${STORE}','${product}','${variant}',1,10000,0,'${NOW}','${NOW}');
+      COMMIT;`);
+
+    const result = JSON.parse(psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;
+      SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+      FROM saas.public_checkout_complete(
+        '${HOST}','${NOW}','cart','${credentials}'::jsonb,'[]'::jsonb,
+        'a6000000-0000-4000-8000-000000000190','${"6".repeat(64)}',1,
+        '${delivery}'::jsonb,'bank_transfer',
+        '${order}','a7000000-0000-4000-8000-000000000190','a8000000-0000-4000-8000-000000000190',
+        'a9000000-0000-4000-8000-000000000190','aa000000-0000-4000-8000-000000000190',
+        'receipt-key-built-in-190','${"7".repeat(64)}','2026-08-07T12:00:00Z',
+        'ab000000-0000-4000-8000-000000000190','customer-key-built-in-190','${"8".repeat(64)}','2026-09-05T12:00:00Z'
+      );COMMIT;`).stdout.trim());
+    assert.equal(result.outcome, "committed");
+    assert.deepEqual(JSON.parse(psql(box, `SELECT shipping_address FROM saas.orders WHERE id='${order}';`).stdout.trim()), {
+      recipientName: "Ada Lovelace",
+      line1: "Test 1",
+      city: "İstanbul",
+      country: "TR",
+    });
+    assert.equal(
+      JSON.parse(psql(box, `SELECT saas.orders_detail_projection('${STORE}','${order}');`).stdout.trim()).shippingAddress.recipientName,
+      "Ada Lovelace",
+    );
+    psql(box, `BEGIN;SET LOCAL session_replication_role=replica;SET LOCAL ROLE celebix_saas_owner;
+      DELETE FROM saas.storefront_checkout_operations WHERE order_id='${order}';
+      DELETE FROM saas.storefront_order_receipts WHERE order_id='${order}';
+      DELETE FROM saas.order_events WHERE order_id='${order}';
+      DELETE FROM saas.order_items WHERE order_id='${order}';
+      DELETE FROM saas.orders WHERE id='${order}';
+      DELETE FROM saas.storefront_customer_credentials WHERE customer_id='a7000000-0000-4000-8000-000000000190';
+      DELETE FROM saas.customer_addresses WHERE customer_id='a7000000-0000-4000-8000-000000000190';
+      DELETE FROM saas.customers WHERE id='a7000000-0000-4000-8000-000000000190';
+      DELETE FROM saas.storefront_cart_items WHERE cart_id='${cart}';
+      DELETE FROM saas.storefront_cart_credentials WHERE cart_id='${cart}';
+      DELETE FROM saas.storefront_carts WHERE id='${cart}';
+      DELETE FROM saas.product_variants WHERE id='${variant}';
+      DELETE FROM saas.products WHERE id='${product}';
+      COMMIT;`);
   });
   seedHold(box);
   scenario("available stock subtracts another active standard checkout hold", () => {
