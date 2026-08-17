@@ -9,17 +9,23 @@ const BASE_HEADERS = Object.freeze({
   "X-Robots-Tag": "noindex, nofollow",
 });
 
+const PAYMENT_FRAME_HEADERS = Object.freeze({
+  ...BASE_HEADERS,
+  "Referrer-Policy": "origin",
+});
+
 function text(status: number, value: string): Response {
   return new Response(value, { status, headers: { ...BASE_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
 }
 
 function page(body: string, status = 200, frameOrigin?: string): Response {
   const csp = frameOrigin
-    ? `default-src 'none'; frame-src ${frameOrigin}; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`
-    : "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+    ? `default-src 'none'; frame-src ${frameOrigin}; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'`
+    : "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'";
+  const headers = frameOrigin ? PAYMENT_FRAME_HEADERS : BASE_HEADERS;
   return new Response(`<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Güvenli ödeme</title><style>html,body{height:100%;margin:0;background:#fff;font-family:system-ui,sans-serif}main{height:100%;display:grid;place-items:center}iframe{width:100%;height:100%;border:0}.status{color:#202124;font-size:15px}</style><main>${body}</main>`, {
     status,
-    headers: { ...BASE_HEADERS, "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp },
+    headers: { ...headers, "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp },
   });
 }
 
@@ -44,7 +50,7 @@ export async function GET(request: Request): Promise<Response> {
     }
     if (presentation.kind === "iframe") {
       const origin = new URL(presentation.url).origin;
-      return page(`<iframe title="Güvenli ödeme" src="${escaped(presentation.url)}" allow="payment" referrerpolicy="no-referrer"></iframe>`, 200, origin);
+      return page(`<iframe title="Güvenli ödeme" src="${escaped(presentation.url)}" allow="payment" referrerpolicy="origin"></iframe>`, 200, origin);
     }
   } catch {
     try {

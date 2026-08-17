@@ -685,6 +685,16 @@ test("iframe and return routes are token-free browser surfaces and return is not
   assert.doesNotMatch(resultPage, /settle|markProvider|payment_amount|merchant_oid|token/i);
 });
 
+test("standard checkout payment route permits PayTR origin referrer only inside the provider iframe", async () => {
+  const route = await readFile(new URL("../app/checkout/payment/route.ts", import.meta.url), "utf8");
+
+  assert.match(route, /PAYMENT_FRAME_HEADERS/);
+  assert.match(route, /"Referrer-Policy": "origin"/);
+  assert.match(route, /referrerpolicy="origin"/);
+  assert.match(route, /object-src 'none'/);
+  assert.doesNotMatch(route, /referrerpolicy="no-referrer"/);
+});
+
 test("proxy owns exact checkout form and PayTR iframe CSP while every near-match stays denied", async () => {
   const proxy = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
   assert.match(proxy, /form-action https:\/\/\$\{authority[.]hostname\}/);
