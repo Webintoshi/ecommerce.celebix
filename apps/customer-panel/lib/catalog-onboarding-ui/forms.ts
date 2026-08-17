@@ -66,6 +66,7 @@ export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogForm
   const priceCents = parseTurkishMoneyToCents(input.price);
   if (priceCents === null) return invalid("Geçerli bir satış fiyatı girin.");
   if (input.publish !== true && input.publish !== false) return invalid("Yayın tercihi geçersiz.");
+  if (input.publish === true && (input.categoryId === undefined || input.categoryId === "")) return invalid("Satışa açmadan önce kategori seçin.");
 
   let quantity: number | undefined;
   if (input.stockQuantity !== undefined && input.stockQuantity !== "") {

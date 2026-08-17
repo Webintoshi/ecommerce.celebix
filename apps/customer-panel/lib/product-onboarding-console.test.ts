@@ -21,6 +21,7 @@ test("quick create exposes only two required merchant fields", async () => {
   for (const label of ["Taslak kaydet", "Kaydet ve satışa aç", "Gelişmiş ürün eklemeye geç"]) {
     assert.match(dialog, new RegExp(label));
   }
+  assert.match(dialog, /Kategori \(satışa açmak için zorunlu\)/);
 });
 
 test("new product page defaults to quick creation and keeps advanced mode explicit", async () => {

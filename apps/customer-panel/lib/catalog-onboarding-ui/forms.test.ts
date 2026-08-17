@@ -5,14 +5,22 @@ import { buildAdvancedCreateIntent, buildQuickCreateIntent, parseTurkishMoneyToC
 
 const CATEGORY = "11111111-1111-4111-8111-111111111111";
 
-test("quick form needs only name and Turkish sale price", () => {
-  assert.deepEqual(buildQuickCreateIntent({ title: "Kupa", price: "129,90", publish: true }), {
+test("quick form keeps drafts lightweight and requires category before publishing", () => {
+  assert.deepEqual(buildQuickCreateIntent({ title: "Kupa", price: "129,90", publish: false }), {
     ok: true,
-    value: { kind: "quick", title: "Kupa", priceCents: 12990, publish: true },
+    value: { kind: "quick", title: "Kupa", priceCents: 12990, publish: false },
+  });
+  assert.deepEqual(buildQuickCreateIntent({ title: "Kupa", price: "129,90", publish: true }), {
+    ok: false,
+    error: "Satışa açmadan önce kategori seçin.",
   });
   assert.deepEqual(buildQuickCreateIntent({ title: " Kupa ", price: "1.299,90", publish: false, stockQuantity: "4", categoryId: CATEGORY }), {
     ok: true,
     value: { kind: "quick", title: "Kupa", priceCents: 129990, publish: false, stockQuantity: 4, categoryId: CATEGORY },
+  });
+  assert.deepEqual(buildQuickCreateIntent({ title: " Kupa ", price: "1.299,90", publish: true, stockQuantity: "4", categoryId: CATEGORY }), {
+    ok: true,
+    value: { kind: "quick", title: "Kupa", priceCents: 129990, publish: true, stockQuantity: 4, categoryId: CATEGORY },
   });
 });
 
