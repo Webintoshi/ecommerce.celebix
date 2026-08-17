@@ -145,6 +145,8 @@ const OPTIONAL_PRODUCT_COLUMNS = new Set([
     "subcategory",
     "is_active",
     "is_new",
+    "is_featured",
+    "is_bestseller",
     "vegan",
     "gluten_free",
     "sugar_free",
