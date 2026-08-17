@@ -155,11 +155,11 @@ test("default compiled authority map keeps PayTR test and live bindings distinct
   assert.equal(typeof candidate.createDefaultStorefrontHostedPaymentCompiledAuthorities, "function");
   const createAuthorities = candidate.createDefaultStorefrontHostedPaymentCompiledAuthorities!;
   assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.test, "PayTR test execution authority must be generated");
-  assert.equal(PAYTR_APPROVED_EXECUTION_AUTHORITIES.live, null);
+  assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.live, "PayTR live execution authority must be generated");
   assert.deepEqual(createAuthorities(), {
     paytr_iframe: {
       test: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
-      live: null,
+      live: PAYTR_APPROVED_EXECUTION_AUTHORITIES.live,
     },
     iyzico_iframe: null,
   });
@@ -167,7 +167,7 @@ test("default compiled authority map keeps PayTR test and live bindings distinct
   assert.deepEqual(selected, {
     paytr_iframe: {
       test: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
-      live: null,
+      live: PAYTR_APPROVED_EXECUTION_AUTHORITIES.live,
     },
     iyzico_iframe: IYZICO_AUTHORITY,
   });
