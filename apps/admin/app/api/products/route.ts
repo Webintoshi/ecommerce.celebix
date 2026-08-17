@@ -2,15 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { deriveCategoryHierarchyFromProduct, ensureProductCategoryHierarchy } from "@/lib/category-records";
 import { deleteProduct } from "@/lib/db/products";
 import { mirrorImportedProductMediaToR2 } from "@/lib/product-media-import";
+import {
+    normalizeProductCanonicalUrl,
+    normalizeProductSEOKeywords,
+    normalizeProductSEORobots,
+    normalizeProductSEOText,
+} from "@/lib/product-seo";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { resolveAdminDatabaseMode } from "@/lib/db/admin-database-mode";
+import { normalizeVisibleText, normalizeVisibleTextFields, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import {
     diffProductTags,
     syncProductTagSuggestions,
     validateAndNormalizeProductTags,
 } from "@/lib/product-tags";
-import { getProductListingOrderPositions } from "@/lib/db/settings";
+import {
+    getProductListingOrderPositions,
+} from "@/lib/db/settings";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribute-sync";
 import { buildGeneratedSku } from "@/lib/sku";
@@ -29,7 +39,7 @@ function toNullableString(value: unknown): string | null {
         return null;
     }
 
-    const normalized = value.trim();
+    const normalized = normalizeVisibleText(value, { collapseWhitespace: true });
     return normalized ? normalized : null;
 }
 
@@ -41,6 +51,79 @@ function toJsonObject(value: unknown): Record<string, unknown> {
 
 function toJsonArray(value: unknown): unknown[] {
     return Array.isArray(value) ? value : [];
+}
+
+const PRODUCT_VISIBLE_TEXT_KEYS = [
+    "name",
+    "short_description",
+    "brand",
+    "country_of_origin",
+    "ingredients",
+    "storage_conditions",
+    "seo_title",
+    "seo_description",
+    "seo_focus_keyword",
+    "og_image",
+];
+
+function normalizeProductInputFields<T extends Record<string, unknown>>(record: T): T {
+    const normalized = normalizeVisibleTextFields(record, {
+        keys: PRODUCT_VISIBLE_TEXT_KEYS,
+        collapseWhitespace: true,
+    }) as Record<string, unknown>;
+
+    if (typeof normalized.description === "string") {
+        normalized.description = normalizeVisibleText(normalized.description, { trim: false });
+    }
+
+    return normalized as T;
+}
+
+function normalizeVariantAttributeInput(value: unknown): unknown {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    return normalizeVisibleTextFields(record, {
+        keys: ["name", "label", "value"],
+        collapseWhitespace: true,
+    });
+}
+
+function normalizeVariantInputRecords<T>(variants: T[] | undefined): T[] | undefined {
+    if (!Array.isArray(variants)) {
+        return variants;
+    }
+
+    return variants.map((variant) => {
+        if (!variant || typeof variant !== "object" || Array.isArray(variant)) {
+            return variant;
+        }
+
+        const record = normalizeVisibleTextFields(variant as Record<string, unknown>, {
+            keys: ["name", "group_name", "unit", "warehouse_location"],
+            collapseWhitespace: true,
+        });
+
+        if (Array.isArray(record.attributes)) {
+            record.attributes = record.attributes.map(normalizeVariantAttributeInput);
+        }
+
+        return record as T;
+    });
+}
+
+function readCategoryPathInput(value: Record<string, unknown>): unknown {
+    if ("categoryPath" in value) {
+        return value.categoryPath;
+    }
+
+    if ("category_path" in value) {
+        return value.category_path;
+    }
+
+    return undefined;
 }
 
 function logTagSuggestionSyncError(error: unknown, context: string) {
@@ -57,11 +140,13 @@ function logVariantAttributeSyncError(error: unknown, context: string) {
 
 const OPTIONAL_PRODUCT_COLUMNS = new Set([
     "images_v2",
+    "faq",
+    "geo_data",
     "subcategory",
     "is_active",
-    "is_new",
     "is_featured",
     "is_bestseller",
+    "is_new",
     "vegan",
     "gluten_free",
     "sugar_free",
@@ -118,6 +203,21 @@ const OPTIONAL_PRODUCT_VARIANT_COLUMNS = new Set([
     "shopify_metadata",
 ]);
 
+const LIGHT_POSTGRES_PRODUCT_JSON_COLUMNS = [
+    "images_v2",
+    "dimensions",
+    "faq",
+    "geo_data",
+    "vitamins",
+    "shopify_metadata",
+    "shopify_metafields",
+] as const;
+
+const LIGHT_POSTGRES_VARIANT_JSON_COLUMNS = [
+    "attributes",
+    "shopify_metadata",
+] as const;
+
 const ALLOWED_TAX_RATES = new Set([0, 1, 8, 10, 20]);
 
 function normalizeTaxRate(value: unknown): number {
@@ -133,6 +233,81 @@ function normalizeTaxRate(value: unknown): number {
     }
 
     return 0;
+}
+
+function isLightPostgresAdminRuntime() {
+    return resolveAdminDatabaseMode() === "light_postgres";
+}
+
+function serializeLightPostgresJsonValue(value: unknown): unknown {
+    if (value === undefined || value === null || typeof value === "string") {
+        return value;
+    }
+
+    if (Array.isArray(value) || typeof value === "object") {
+        return JSON.stringify(value);
+    }
+
+    return value;
+}
+
+function prepareLightPostgresMutationPayload<T extends Record<string, unknown>>(
+    payload: T,
+    jsonColumns: readonly string[],
+): T {
+    if (!isLightPostgresAdminRuntime()) {
+        return payload;
+    }
+
+    const nextPayload: Record<string, unknown> = { ...payload };
+    for (const column of jsonColumns) {
+        if (column in nextPayload) {
+            nextPayload[column] = serializeLightPostgresJsonValue(nextPayload[column]);
+        }
+    }
+
+    return nextPayload as T;
+}
+
+function prepareProductMutationPayload<T extends Record<string, unknown>>(payload: T): T {
+    return prepareLightPostgresMutationPayload(payload, LIGHT_POSTGRES_PRODUCT_JSON_COLUMNS);
+}
+
+function prepareVariantMutationPayload<T extends Record<string, unknown>>(payload: T): T {
+    return prepareLightPostgresMutationPayload(payload, LIGHT_POSTGRES_VARIANT_JSON_COLUMNS);
+}
+
+async function deleteProductVariantsById(supabase: any, variantIds: string[]) {
+    for (const variantId of variantIds) {
+        const { error } = await supabase
+            .from("product_variants")
+            .delete()
+            .eq("id", variantId);
+
+        if (error) {
+            throw error;
+        }
+    }
+}
+
+function getErrorMessage(error: unknown): string | undefined {
+    return error instanceof Error
+        ? error.message
+        : error && typeof error === "object" && "message" in error
+            ? String((error as { message?: unknown }).message ?? "")
+            : undefined;
+}
+
+function getErrorDetails(error: unknown): string | undefined {
+    return error && typeof error === "object" && "details" in error
+        ? String((error as { details?: unknown }).details ?? "")
+        : undefined;
+}
+
+function getErrorCode(error: unknown): string | undefined {
+    return error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code ?? "")
+        : undefined;
 }
 
 function getMissingTableColumn(error: unknown, tableName: string): string | null {
@@ -161,6 +336,123 @@ function stripUnsupportedTableColumn<T extends Record<string, unknown>>(
     const nextPayload = { ...payload };
     delete nextPayload[missingColumn];
     return nextPayload;
+}
+
+function isDuplicateVariantSkuError(error: unknown): boolean {
+    if (getErrorCode(error) !== "23505") {
+        return false;
+    }
+
+    const combinedErrorText = [
+        getErrorMessage(error),
+        getErrorDetails(error),
+        error && typeof error === "object" && "hint" in error
+            ? String((error as { hint?: unknown }).hint ?? "")
+            : "",
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+    return combinedErrorText.includes("sku");
+}
+
+function regenerateVariantInsertSkus<T extends Record<string, unknown>>(
+    variantsPayload: T[],
+    attempt: number,
+): T[] {
+    return variantsPayload.map((variant, index) => ({
+        ...variant,
+        sku: buildGeneratedSku({
+            context: [
+                variant.product_id,
+                variant.name,
+                Date.now(),
+                attempt,
+                index,
+            ]
+                .filter((value) => value !== undefined && value !== null)
+                .join("-"),
+            index,
+        }),
+    }));
+}
+
+async function insertProductVariantsWithRetry<T extends Record<string, unknown>>(
+    supabase: any,
+    initialVariantsPayload: T[],
+) {
+    let variantsPayload = initialVariantsPayload;
+    let skuRetryCount = 0;
+
+    while (true) {
+        const { error: variantsError } = await supabase
+            .from("product_variants")
+            .insert(variantsPayload);
+
+        if (!variantsError) {
+            return;
+        }
+
+        console.error("Variants insert error:", variantsError);
+
+        const nextPayload = variantsPayload
+            .map((variant) =>
+                stripUnsupportedTableColumn(
+                    variant as Record<string, unknown>,
+                    variantsError,
+                    "product_variants",
+                    OPTIONAL_PRODUCT_VARIANT_COLUMNS
+                )
+            );
+
+        if (!nextPayload.some((variant) => variant === null)) {
+            variantsPayload = nextPayload as T[];
+            continue;
+        }
+
+        if (isDuplicateVariantSkuError(variantsError) && skuRetryCount < 3) {
+            skuRetryCount += 1;
+            variantsPayload = regenerateVariantInsertSkus(variantsPayload, skuRetryCount);
+            continue;
+        }
+
+        throw variantsError;
+    }
+}
+
+async function rollbackCreatedProduct(supabase: any, productId: string) {
+    try {
+        const { data: variants, error: variantsReadError } = await supabase
+            .from("product_variants")
+            .select("id")
+            .eq("product_id", productId);
+
+        if (variantsReadError) {
+            throw variantsReadError;
+        }
+
+        const variantIds = Array.isArray(variants)
+            ? variants
+                .map((variant: { id?: unknown }) => (typeof variant.id === "string" ? variant.id : null))
+                .filter((variantId): variantId is string => Boolean(variantId))
+            : [];
+
+        if (variantIds.length > 0) {
+            await deleteProductVariantsById(supabase, variantIds);
+        }
+
+        const { error: productDeleteError } = await supabase
+            .from("products")
+            .delete()
+            .eq("id", productId);
+
+        if (productDeleteError) {
+            throw productDeleteError;
+        }
+    } catch (rollbackError) {
+        console.error("Product create rollback failed:", rollbackError);
+    }
 }
 
 function normalizeAssetUrl(value: unknown): string | null {
@@ -196,6 +488,7 @@ function normalizeImagesV2(value: unknown): unknown[] {
         return {
             ...record,
             url: normalizeAssetUrl(record.url) || record.url,
+            alt: normalizeVisibleText(record.alt, { collapseWhitespace: true }),
         };
     });
 }
@@ -210,7 +503,10 @@ function normalizeVariantAttributes(value: unknown): unknown[] {
             return item;
         }
 
-        const record = item as Record<string, unknown>;
+        const record = normalizeVisibleTextFields(item as Record<string, unknown>, {
+            keys: ["name", "label", "value"],
+            collapseWhitespace: true,
+        });
         return {
             ...record,
             image_url: normalizeAssetUrl(record.image_url),
@@ -241,7 +537,9 @@ function normalizeVariantRecord(value: unknown, rules: ProductDiscountRule[] = [
 }
 
 function normalizeStoredProductDescription(value: unknown): string | null {
-    const normalized = normalizeProductDescriptionHtml(typeof value === "string" ? value : "");
+    const normalized = normalizeProductDescriptionHtml(
+        repairMojibakeIfNeeded(typeof value === "string" ? value : ""),
+    );
     return normalized || null;
 }
 
@@ -571,8 +869,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { variants, discount_rules, ...productData } = body;
-        let preparedVariants: any[] = Array.isArray(variants) ? variants : [];
+        const { variants, discount_rules, ...rawProductData } = body;
+        const productData = normalizeProductInputFields(rawProductData);
+        let preparedVariants: any[] = normalizeVariantInputRecords(Array.isArray(variants) ? variants : []) || [];
 
         console.log('POST /api/products - productData.images:', productData.images);
         console.log('POST /api/products - body images count:', body.images?.length);
@@ -582,8 +881,15 @@ export async function POST(request: NextRequest) {
 
         // Validation: Zorunlu alanlar
         const validationErrors: string[] = [];
-        const normalizedDescription = normalizeStoredProductDescription(productData.description);
-        const normalizedShortDescription = toNullableString(productData.short_description);
+        const normalizedProductName = toNullableString(productData.name);
+        const normalizedShortDescription =
+            toNullableString(productData.short_description) ||
+            normalizedProductName;
+        const normalizedDescription = hasVisibleProductDescription(productData.description)
+            ? normalizeStoredProductDescription(productData.description)
+            : normalizedShortDescription
+                ? `<p>${normalizedShortDescription}</p>`
+                : normalizeStoredProductDescription(productData.description);
         if (!productData.name || productData.name.trim() === '') {
             validationErrors.push("Ürün adı gereklidir");
         }
@@ -595,9 +901,6 @@ export async function POST(request: NextRequest) {
         }
         if (!normalizedShortDescription) {
             validationErrors.push("Kısa açıklama gereklidir");
-        }
-        if (!productData.category) {
-            validationErrors.push("Kategori seçilmelidir");
         }
         
         if (validationErrors.length > 0) {
@@ -630,7 +933,7 @@ export async function POST(request: NextRequest) {
         if (normalizedImagesV2.length > 0) {
             normalizedImagesV2 = normalizedImagesV2.map((img: Record<string, unknown>, idx: number) => ({
                 url: img.url,
-                alt: img.alt || "",
+                alt: normalizeVisibleText(img.alt, { collapseWhitespace: true }),
                 is_primary: img.isPrimary !== undefined ? img.isPrimary : (idx === 0),
                 sort_order: img.sortOrder !== undefined ? img.sortOrder : idx,
             }));
@@ -651,10 +954,11 @@ export async function POST(request: NextRequest) {
 
         normalizedImages = mirroredMedia.imageUrls ?? normalizedImages;
         normalizedImagesV2 = mirroredMedia.imagesV2 ?? normalizedImagesV2;
-        preparedVariants = mirroredMedia.variants ?? preparedVariants;
+        preparedVariants = normalizeVariantInputRecords(mirroredMedia.variants ?? preparedVariants) || [];
 
         const primaryCategoryImage =
             normalizedImages.find((image: unknown): image is string => typeof image === "string" && Boolean(image.trim())) || null;
+        const categoryPathInput = readCategoryPathInput(productData);
         const resolvedSubcategory = inferLegacySubcategorySlug({
             category: productData.category,
             subcategory: productData.subcategory,
@@ -666,6 +970,7 @@ export async function POST(request: NextRequest) {
         const normalizedShopifyMetadata = withCelebixCategoryHierarchyMetadata(productData.shopify_metadata, {
             category: productData.category,
             subcategory: resolvedSubcategory,
+            categoryPath: categoryPathInput,
             name: productData.name,
             slug: productData.slug,
             tags: normalizedTags,
@@ -685,6 +990,33 @@ export async function POST(request: NextRequest) {
             }
         );
 
+        const normalizedSeoTitle = normalizeProductSEOText(productData.seo_title);
+        const normalizedSeoDescription = normalizeProductSEOText(productData.seo_description);
+        const normalizedSeoKeywords = normalizeProductSEOKeywords(productData.seo_keywords);
+        const normalizedSeoFocusKeyword = normalizeProductSEOText(productData.seo_focus_keyword);
+        const normalizedCanonicalUrl = normalizeProductCanonicalUrl(productData.canonical_url);
+        const canonicalInputProvided =
+            productData.canonical_url !== undefined &&
+            productData.canonical_url !== null &&
+            String(productData.canonical_url).trim().length > 0;
+        const normalizedOgImage = normalizeProductSEOText(
+            normalizeAssetUrl(productData.og_image) ??
+                (typeof productData.og_image === "string"
+                    ? productData.og_image
+                    : normalizedImages[0]),
+        );
+        const normalizedSeoRobots = normalizeProductSEORobots(
+            productData.seo_robots,
+            productData.is_active !== false,
+        );
+
+        if (canonicalInputProvided && !normalizedCanonicalUrl) {
+            return NextResponse.json(
+                { success: false, error: "Canonical URL gecersiz" },
+                { status: 400 }
+            );
+        }
+
         // 3. Ana ürünü oluştur
         const normalizedStatus =
             typeof productData.status === "string" && productData.status.trim()
@@ -698,7 +1030,7 @@ export async function POST(request: NextRequest) {
                 ? new Date().toISOString()
                 : null);
 
-        let productInsertPayload: Record<string, unknown> = {
+        let productInsertPayload: Record<string, unknown> = prepareProductMutationPayload({
                 name: productData.name,
                 slug: productData.slug,
                 description: normalizedDescription,
@@ -729,13 +1061,13 @@ export async function POST(request: NextRequest) {
                 dimensions: productData.dimensions || {},
                 related_products: productData.related_products || [],
                 complementary_products: productData.complementary_products || [],
-                seo_title: productData.seo_title || null,
-                seo_description: productData.seo_description || null,
-                seo_keywords: productData.seo_keywords || [],
-                seo_focus_keyword: productData.seo_focus_keyword || null,
-                og_image: productData.og_image || null,
-                canonical_url: productData.canonical_url || null,
-                seo_robots: productData.seo_robots || 'index,follow',
+                seo_title: normalizedSeoTitle,
+                seo_description: normalizedSeoDescription,
+                seo_keywords: normalizedSeoKeywords,
+                seo_focus_keyword: normalizedSeoFocusKeyword,
+                og_image: normalizedOgImage,
+                canonical_url: normalizedCanonicalUrl,
+                seo_robots: normalizedSeoRobots,
                 track_stock: productData.track_stock !== false,
                 low_stock_threshold: productData.low_stock_threshold || 10,
                 nutrition_basis: productData.nutrition_basis || 'per_100g',
@@ -756,7 +1088,7 @@ export async function POST(request: NextRequest) {
                 sodium: productData.sodium || 0,
                 shopify_metadata: normalizedShopifyMetadata,
                 shopify_metafields: toJsonObject(productData.shopify_metafields),
-        }
+        });
         let product: ({ id: string } & Record<string, unknown>) | null = null;
 
         while (true) {
@@ -791,124 +1123,104 @@ export async function POST(request: NextRequest) {
         }
 
         console.log("Product created with ID:", product.id);
-        
-        // 4. Varyantları ekle (benzersiz SKU oluştur)
-        if (preparedVariants.length > 0) {
-            console.log("Processing variants, count:", preparedVariants.length);
-            console.log("Variants data:", JSON.stringify(preparedVariants, null, 2));
-            
-            const variantsToInsert = preparedVariants.map((v: Record<string, unknown>, idx: number) => ({
-                product_id: product.id,
-                name: v.name,
-                weight: String(v.weight || 0),
-                price: v.price || 0,
-                original_price: v.original_price || null,
-                cost: v.cost || null,
-                stock: v.stock || 0,
-                sku: v.sku || buildGeneratedSku({ context: `${product.id}-${String(v.name || idx)}`, index: idx }),
-                barcode: v.barcode || null,
-                group_name: v.group_name || null,
-                unit: v.unit || 'adet',
-                max_purchase_quantity: v.max_purchase_quantity || null,
-                warehouse_location: v.warehouse_location || null,
-                images: v.images || [],
-                attributes: toJsonArray(v.attributes),
-                shopify_metadata: toJsonObject(v.shopify_metadata),
-            }));
-
-            console.log("Inserting variants:", JSON.stringify(variantsToInsert, null, 2));
-
-            let variantsPayload = variantsToInsert;
-
-            while (true) {
-                const { error: variantsError } = await supabase
-                    .from("product_variants")
-                    .insert(variantsPayload);
-
-                if (!variantsError) {
-                    break;
-                }
-
-                console.error("Variants insert error:", variantsError);
-
-                const nextPayload = variantsPayload
-                    .map((variant) =>
-                        stripUnsupportedTableColumn(
-                            variant as Record<string, unknown>,
-                            variantsError,
-                            "product_variants",
-                            OPTIONAL_PRODUCT_VARIANT_COLUMNS
-                        )
-                    );
-
-                if (nextPayload.some((variant) => variant === null)) {
-                    throw variantsError;
-                }
-
-                variantsPayload = nextPayload as typeof variantsToInsert;
-            }
-            console.log("Variants inserted successfully");
-
-            try {
-                await syncVariantAttributeRegistryFromVariants(supabase, preparedVariants);
-            } catch (error) {
-                logVariantAttributeSyncError(error, "create");
-            }
-        } else {
-            console.log("No variants to insert");
-        }
-
-        // 5. İndirim kurallarını product_discount_rules tablosuna kaydet
-        if (discount_rules && Array.isArray(discount_rules) && discount_rules.length > 0) {
-            console.log("Processing discount rules, count:", discount_rules.length);
-            
-            const discountRulesToInsert = discount_rules.map((rule: Record<string, unknown>) => ({
-                product_id: product.id,
-                name: rule.name,
-                type: rule.type,
-                config: rule.config || {},
-                is_active: rule.isActive !== false,
-                priority: 0,
-            }));
-
-            const { error: discountError } = await supabase
-                .from("product_discount_rules")
-                .insert(discountRulesToInsert);
-
-            if (discountError) {
-                console.error("Discount rules insert error:", discountError);
-            } else {
-                console.log("Discount rules inserted successfully");
-            }
-        }
-
-        // 6. Tam ürünü döndür
-        const { data: fullProduct } = await supabase
-            .from("products")
-            .select("*, variants:product_variants(*)")
-            .eq("id", product.id)
-            .single();
-
-        if (normalizedTags.length > 0) {
-            try {
-                await syncProductTagSuggestions(supabase, { added: normalizedTags });
-            } catch (error) {
-                logTagSuggestionSyncError(error, "create");
-            }
-        }
 
         try {
-            await enqueueProductListingSync(product.id);
-        } catch (error) {
-            logMarketplaceQueueError(error, "create");
-        }
+            // 4. Varyantları ekle (benzersiz SKU oluştur)
+            if (preparedVariants.length > 0) {
+                console.log("Processing variants, count:", preparedVariants.length);
+                console.log("Variants data:", JSON.stringify(preparedVariants, null, 2));
 
-        return NextResponse.json({ success: true, product: normalizeProductsPayload(fullProduct) });
+                const variantsToInsert = preparedVariants.map((v: Record<string, unknown>, idx: number) => prepareVariantMutationPayload({
+                    product_id: product.id,
+                    name: v.name,
+                    weight: String(v.weight || 0),
+                    price: v.price || 0,
+                    original_price: v.original_price || null,
+                    cost: v.cost || null,
+                    stock: v.stock || 0,
+                    sku: v.sku || buildGeneratedSku({ context: `${product.id}-${String(v.name || idx)}`, index: idx }),
+                    barcode: v.barcode || null,
+                    group_name: v.group_name || null,
+                    unit: v.unit || 'adet',
+                    max_purchase_quantity: v.max_purchase_quantity || null,
+                    warehouse_location: v.warehouse_location || null,
+                    images: v.images || [],
+                    attributes: toJsonArray(v.attributes),
+                    shopify_metadata: toJsonObject(v.shopify_metadata),
+                }));
+
+                console.log("Inserting variants:", JSON.stringify(variantsToInsert, null, 2));
+                await insertProductVariantsWithRetry(supabase, variantsToInsert);
+                console.log("Variants inserted successfully");
+
+                try {
+                    await syncVariantAttributeRegistryFromVariants(supabase, preparedVariants);
+                } catch (error) {
+                    logVariantAttributeSyncError(error, "create");
+                }
+            } else {
+                console.log("No variants to insert");
+            }
+
+            // 5. İndirim kurallarını product_discount_rules tablosuna kaydet
+            if (discount_rules && Array.isArray(discount_rules) && discount_rules.length > 0) {
+                console.log("Processing discount rules, count:", discount_rules.length);
+
+                const discountRulesToInsert = discount_rules.map((rule: Record<string, unknown>) => ({
+                    product_id: product.id,
+                    name: rule.name,
+                    type: rule.type,
+                    config: rule.config || {},
+                    is_active: rule.isActive !== false,
+                    priority: 0,
+                }));
+
+                const { error: discountError } = await supabase
+                    .from("product_discount_rules")
+                    .insert(discountRulesToInsert);
+
+                if (discountError) {
+                    console.error("Discount rules insert error:", discountError);
+                } else {
+                    console.log("Discount rules inserted successfully");
+                }
+            }
+
+            // 6. Tam ürünü döndür
+            const { data: fullProduct, error: fullProductError } = await supabase
+                .from("products")
+                .select("*, variants:product_variants(*)")
+                .eq("id", product.id)
+                .single();
+
+            if (fullProductError || !fullProduct) {
+                throw fullProductError || new Error("Created product could not be loaded");
+            }
+
+            if (normalizedTags.length > 0) {
+                try {
+                    await syncProductTagSuggestions(supabase as any, { added: normalizedTags });
+                } catch (error) {
+                    logTagSuggestionSyncError(error, "create");
+                }
+            }
+
+            try {
+                await enqueueProductListingSync(product.id);
+            } catch (error) {
+                logMarketplaceQueueError(error, "create");
+            }
+
+            return NextResponse.json({ success: true, product: normalizeProductsPayload(fullProduct) });
+        } catch (postCreateError) {
+            await rollbackCreatedProduct(supabase, product.id);
+            throw postCreateError;
+        }
     } catch (error: unknown) {
         console.error("Error creating product:", error);
-        console.error("Error details:", error?.details, error?.message, error?.code);
+        console.error("Error details:", getErrorDetails(error), getErrorMessage(error), getErrorCode(error));
         return NextResponse.json(
-            { success: false, error: error?.message || error?.details || "Failed to create product", code: error?.code },
+            { success: false, error: getErrorMessage(error) || getErrorDetails(error) || "Failed to create product", code: getErrorCode(error) },
             { status: 500 }
         );
     }
@@ -918,8 +1230,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { id, variants, discount_rules, deleted_images, ...updates } = body;
-        let preparedVariants: any[] | undefined = Array.isArray(variants) ? variants : undefined;
+        const { id, variants, discount_rules, deleted_images, ...rawUpdates } = body;
+        const updates = normalizeProductInputFields(rawUpdates);
+        let preparedVariants: any[] | undefined = normalizeVariantInputRecords(
+            Array.isArray(variants) ? variants : undefined,
+        );
         let normalizedUpdatedTags: string[] | undefined;
         const normalizedDescription =
             updates.description !== undefined
@@ -967,7 +1282,7 @@ export async function PUT(request: NextRequest) {
         // 2. Mevcut ürünü al (görselleri filtrelemek için)
         const { data: existingProduct } = await supabase
             .from("products")
-            .select("images,tags,slug,name,category,subcategory,shopify_metadata,shopify_metafields")
+            .select("images,tags,slug,name,category,subcategory,is_featured,is_active,shopify_metadata,shopify_metafields")
             .eq("id", id)
             .single();
 
@@ -990,7 +1305,7 @@ export async function PUT(request: NextRequest) {
             if (normalizedImagesV2.length > 0) {
                 normalizedImagesV2 = normalizedImagesV2.map((img: Record<string, unknown>, idx: number) => ({
                     url: img.url,
-                    alt: img.alt || "",
+                    alt: normalizeVisibleText(img.alt, { collapseWhitespace: true }),
                     is_primary: img.isPrimary !== undefined ? img.isPrimary : (idx === 0),
                     sort_order: img.sortOrder !== undefined ? img.sortOrder : idx,
                 }));
@@ -1031,7 +1346,7 @@ export async function PUT(request: NextRequest) {
                 normalizedImagesV2 = mirroredMedia.imagesV2;
             }
             if (mirroredMedia.variants !== undefined) {
-                preparedVariants = mirroredMedia.variants;
+                preparedVariants = normalizeVariantInputRecords(mirroredMedia.variants);
             }
         }
 
@@ -1043,11 +1358,17 @@ export async function PUT(request: NextRequest) {
         const effectiveName = updates.name !== undefined ? updates.name : existingProduct?.name;
         const effectiveSlug = updates.slug !== undefined ? updates.slug : existingProduct?.slug;
         const effectiveTags = normalizedUpdatedTags !== undefined ? normalizedUpdatedTags : existingProduct?.tags;
+        const effectiveIsActive =
+            updates.is_active !== undefined
+                ? Boolean(updates.is_active)
+                : existingProduct?.is_active !== false;
+        const categoryPathInput = readCategoryPathInput(updates);
         const mergedShopifyMetadata = withCelebixCategoryHierarchyMetadata(
             updates.shopify_metadata !== undefined ? updates.shopify_metadata : existingProduct?.shopify_metadata,
             {
                 category: effectiveCategory,
                 subcategory: updates.subcategory !== undefined ? updates.subcategory : existingProduct?.subcategory,
+                categoryPath: categoryPathInput,
                 name: effectiveName,
                 slug: effectiveSlug,
                 tags: effectiveTags,
@@ -1077,6 +1398,49 @@ export async function PUT(request: NextRequest) {
                 subcategoryImageUrl: primaryCategoryImage,
             }
         );
+
+        const normalizedSeoTitle =
+            updates.seo_title !== undefined
+                ? normalizeProductSEOText(updates.seo_title)
+                : undefined;
+        const normalizedSeoDescription =
+            updates.seo_description !== undefined
+                ? normalizeProductSEOText(updates.seo_description)
+                : undefined;
+        const normalizedSeoKeywords =
+            updates.seo_keywords !== undefined
+                ? normalizeProductSEOKeywords(updates.seo_keywords)
+                : undefined;
+        const normalizedSeoFocusKeyword =
+            updates.seo_focus_keyword !== undefined
+                ? normalizeProductSEOText(updates.seo_focus_keyword)
+                : undefined;
+        const normalizedCanonicalUrl =
+            updates.canonical_url !== undefined
+                ? normalizeProductCanonicalUrl(updates.canonical_url)
+                : undefined;
+        const canonicalInputProvided =
+            updates.canonical_url !== undefined &&
+            updates.canonical_url !== null &&
+            String(updates.canonical_url).trim().length > 0;
+        const normalizedSeoRobots =
+            updates.seo_robots !== undefined
+                ? normalizeProductSEORobots(updates.seo_robots, effectiveIsActive)
+                : undefined;
+        const normalizedOgImage =
+            updates.og_image !== undefined
+                ? normalizeProductSEOText(
+                    normalizeAssetUrl(updates.og_image) ??
+                        (typeof updates.og_image === "string" ? updates.og_image : null),
+                )
+                : undefined;
+
+        if (canonicalInputProvided && !normalizedCanonicalUrl) {
+            return NextResponse.json(
+                { success: false, error: "Canonical URL gecersiz" },
+                { status: 400 }
+            );
+        }
 
         const updateData: Record<string, unknown> = {};
         
@@ -1116,17 +1480,18 @@ export async function PUT(request: NextRequest) {
         if (updates.complementary_products !== undefined) updateData.complementary_products = updates.complementary_products;
         
         // SEO alanları
-        if (updates.seo_title !== undefined) updateData.seo_title = updates.seo_title;
-        if (updates.seo_description !== undefined) updateData.seo_description = updates.seo_description;
-        if (updates.seo_keywords !== undefined) updateData.seo_keywords = updates.seo_keywords;
-        if (updates.seo_focus_keyword !== undefined) updateData.seo_focus_keyword = updates.seo_focus_keyword;
-        if (updates.og_image !== undefined) updateData.og_image = updates.og_image;
-        if (updates.canonical_url !== undefined) updateData.canonical_url = updates.canonical_url;
-        if (updates.seo_robots !== undefined) updateData.seo_robots = updates.seo_robots;
+        if (updates.seo_title !== undefined) updateData.seo_title = normalizedSeoTitle;
+        if (updates.seo_description !== undefined) updateData.seo_description = normalizedSeoDescription;
+        if (updates.seo_keywords !== undefined) updateData.seo_keywords = normalizedSeoKeywords;
+        if (updates.seo_focus_keyword !== undefined) updateData.seo_focus_keyword = normalizedSeoFocusKeyword;
+        if (updates.og_image !== undefined) updateData.og_image = normalizedOgImage;
+        if (updates.canonical_url !== undefined) updateData.canonical_url = normalizedCanonicalUrl;
+        if (updates.seo_robots !== undefined) updateData.seo_robots = normalizedSeoRobots;
         if (updates.faq !== undefined) updateData.faq = updates.faq;
         if (updates.geo_data !== undefined) updateData.geo_data = updates.geo_data;
         if (
             updates.shopify_metadata !== undefined ||
+            categoryPathInput !== undefined ||
             updates.category !== undefined ||
             updates.subcategory !== undefined ||
             updates.name !== undefined ||
@@ -1161,7 +1526,7 @@ export async function PUT(request: NextRequest) {
 
         // Ana ürünü güncelle
         if (Object.keys(updateData).length > 0) {
-            let productUpdatePayload = updateData;
+            let productUpdatePayload = prepareProductMutationPayload(updateData);
 
             while (true) {
                 const { error: productError } = await supabase
@@ -1256,12 +1621,9 @@ export async function PUT(request: NextRequest) {
             console.log("Variants to delete:", variantsToDelete);
 
             if (variantsToDelete.length > 0) {
-                const { error: deleteError } = await supabase
-                    .from("product_variants")
-                    .delete()
-                    .in("id", variantsToDelete);
-
-                if (deleteError) {
+                try {
+                    await deleteProductVariantsById(supabase, variantsToDelete);
+                } catch (deleteError: any) {
                     console.error("Variants delete error:", deleteError);
                     throw new Error(`Variants delete failed: ${deleteError.message}`);
                 }
@@ -1272,7 +1634,7 @@ export async function PUT(request: NextRequest) {
             const existingVariantsToUpdate = preparedVariants.filter((v: Record<string, unknown>) => v.id && !String(v.id).startsWith("variant-") && !orderedVariantIds.has(String(v.id)));
 
             for (const v of existingVariantsToUpdate) {
-                let variantUpdatePayload: Record<string, unknown> = {
+                let variantUpdatePayload: Record<string, unknown> = prepareVariantMutationPayload({
                     name: v.name,
                     weight: String(v.weight || 0),
                     price: v.price || 0,
@@ -1288,7 +1650,7 @@ export async function PUT(request: NextRequest) {
                     images: v.images || [],
                     attributes: toJsonArray(v.attributes),
                     shopify_metadata: toJsonObject(v.shopify_metadata),
-                };
+                });
 
                 while (true) {
                     const { error: updateError } = await supabase
@@ -1317,7 +1679,7 @@ export async function PUT(request: NextRequest) {
             }
 
             if (newVariants.length > 0) {
-                const variantsToInsert = newVariants.map((v: Record<string, unknown>, idx: number) => ({
+                const variantsToInsert = newVariants.map((v: Record<string, unknown>, idx: number) => prepareVariantMutationPayload({
                     product_id: id,
                     name: v.name,
                     weight: String(v.weight || 0),
@@ -1337,36 +1699,7 @@ export async function PUT(request: NextRequest) {
                 }));
 
                 console.log("Inserting variants:", variantsToInsert);
-
-                let newVariantsPayload = variantsToInsert;
-
-                while (true) {
-                    const { error: variantsError } = await supabase
-                        .from("product_variants")
-                        .insert(newVariantsPayload);
-
-                    if (!variantsError) {
-                        break;
-                    }
-
-                    console.error("Variants insert error:", variantsError);
-
-                    const nextPayload = newVariantsPayload
-                        .map((variant) =>
-                            stripUnsupportedTableColumn(
-                                variant as Record<string, unknown>,
-                                variantsError,
-                                "product_variants",
-                                OPTIONAL_PRODUCT_VARIANT_COLUMNS
-                            )
-                        );
-
-                    if (nextPayload.some((variant) => variant === null)) {
-                        throw new Error(`Variants insert failed: ${variantsError.message}`);
-                    }
-
-                    newVariantsPayload = nextPayload as typeof variantsToInsert;
-                }
+                await insertProductVariantsWithRetry(supabase, variantsToInsert);
             }
 
             try {
@@ -1428,7 +1761,7 @@ export async function PUT(request: NextRequest) {
             try {
                 const previousTags = validateAndNormalizeProductTags(existingProduct?.tags || [], { mode: "lenient" });
                 const tagDiff = diffProductTags(previousTags, normalizedUpdatedTags);
-                await syncProductTagSuggestions(supabase, tagDiff);
+                await syncProductTagSuggestions(supabase as any, tagDiff);
             } catch (error) {
                 logTagSuggestionSyncError(error, "update");
             }
@@ -1476,7 +1809,7 @@ export async function DELETE(request: NextRequest) {
         try {
             const removedTags = validateAndNormalizeProductTags(existingProduct?.tags || [], { mode: "lenient" });
             if (removedTags.length > 0) {
-                await syncProductTagSuggestions(supabase, { removed: removedTags });
+                await syncProductTagSuggestions(supabase as any, { removed: removedTags });
             }
         } catch (error) {
             logTagSuggestionSyncError(error, "delete");

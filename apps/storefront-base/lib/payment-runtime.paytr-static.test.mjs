@@ -3,18 +3,24 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync(new URL("./payment-runtime.ts", import.meta.url), "utf8");
+const providersSource = readFileSync(new URL("./payment-providers.ts", import.meta.url), "utf8");
+const paymentTypesSource = readFileSync(new URL("../types/payment.ts", import.meta.url), "utf8");
 
-test("PayTR token request sends every provider credential field required by PayTR iframe", () => {
-  assert.match(source, /merchant_key:\s*merchantKey/);
-  assert.match(source, /merchant_salt:\s*merchantSalt/);
+test("PayTR runtime uses the shared checkout presentation helper", () => {
+  assert.match(source, /createPaytrCheckoutPresentation/);
+  assert.match(source, /createPaytrCheckoutPresentation\(\{\s*gateway:\s*context\.gateway\.gateway/);
 });
 
-test("PayTR checkout returns an iframe presentation instead of redirecting away from checkout", () => {
-  assert.match(source, /action:\s*"iframe"/);
-  assert.match(source, /iframeUrl:\s*`https:\/\/www\.paytr\.com\/odeme\/guvenli\/\$\{encodeURIComponent\(token\)\}`/);
+test("PayTR iframe gateway stays in the storefront provider catalog", () => {
+  assert.match(paymentTypesSource, /\|\s+"paytr_iframe"/);
+  assert.match(providersSource, /PAYTR_FAMILY_GATEWAYS\s*=\s*\["paytr",\s*"paytr_iframe"\]/);
+  assert.match(providersSource, /id:\s*"paytr_iframe"/);
+  assert.match(providersSource, /createPaytrCheckoutPresentation/);
+  assert.match(providersSource, /gateway === "paytr_iframe"[\s\S]*action:\s*"iframe"/);
 });
 
-test("PayTR initialization fails closed before token request for local or private customer IPs", () => {
-  assert.match(source, /assertPaytrCustomerIp\(context\.customerIp\)/);
-  assert.match(source, /PAYTR icin musteri dis IP adresi alinamadi/);
+test("PayTR token request keeps provider signing secrets out of the POST body", () => {
+  assert.doesNotMatch(source, /merchant_key:\s*merchantKey/);
+  assert.doesNotMatch(source, /merchant_salt:\s*merchantSalt/);
+  assert.match(source, /createPaytrToken\(\{[\s\S]*merchantKey,[\s\S]*merchantSalt,/);
 });

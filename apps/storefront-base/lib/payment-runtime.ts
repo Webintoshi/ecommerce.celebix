@@ -4,7 +4,13 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import Craftgate from "@craftgate/craftgate";
 import Stripe from "stripe";
-import { getPaymentGatewayRuntimeStatus, resolveIyzicoBaseUrl } from "@/lib/payment-providers";
+import {
+    createPaytrCheckoutPresentation,
+    getPaymentGatewayRuntimeStatus,
+    isGatewayInFamily,
+    PAYTR_FAMILY_GATEWAYS,
+    resolveIyzicoBaseUrl,
+} from "@/lib/payment-providers";
 import { createPaymentAttempt, getPaymentAttemptByToken, updatePaymentAttempt } from "@/lib/db/payment-attempts";
 import { PaymentGatewayConfig } from "@/types/payment";
 import { PaymentAttempt, PaymentInitResult } from "@/types/payment-runtime";
@@ -230,7 +236,7 @@ function createStripeClient(gateway: PaymentGatewayConfig) {
     }
 
     return new Stripe(secretKey, {
-        apiVersion: "2025-02-24.acacia",
+        apiVersion: "2026-02-25.clover",
     });
 }
 
@@ -348,7 +354,7 @@ export async function initializePayment(context: CheckoutContext): Promise<Payme
         return initializeIyzicoPayment(context);
     }
 
-    if (context.gateway.gateway === "paytr") {
+    if (isGatewayInFamily(context.gateway.gateway, PAYTR_FAMILY_GATEWAYS)) {
         return initializePaytrPayment(context);
     }
 
@@ -524,8 +530,6 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
 
     const formData = new URLSearchParams({
         merchant_id: merchantId,
-        merchant_key: merchantKey,
-        merchant_salt: merchantSalt,
         user_ip: context.customerIp,
         merchant_oid: merchantOid,
         email: context.customerEmail,
@@ -560,7 +564,14 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
         const token = typeof result.token === "string" ? result.token : null;
         const status = typeof result.status === "string" ? result.status : "failed";
         const reason = typeof result.reason === "string" ? result.reason : null;
-        const redirectUrl = token ? `https://www.paytr.com/odeme/guvenli/${token}` : null;
+        const presentation = token
+            ? createPaytrCheckoutPresentation({
+                gateway: context.gateway.gateway as "paytr" | "paytr_iframe",
+                token,
+                paymentAttemptId: paymentAttempt.id,
+            })
+            : null;
+        const redirectUrl = presentation?.redirectUrl ?? presentation?.iframeUrl ?? null;
 
         await updatePaymentAttempt(paymentAttempt.id, {
             status: status === "success" ? "pending_action" : "failed",
@@ -572,15 +583,11 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
             completedAt: status === "success" ? null : new Date().toISOString(),
         });
 
-        if (status !== "success" || !token || !redirectUrl) {
+        if (status !== "success" || !token || !redirectUrl || !presentation) {
             throw new Error(reason || "PAYTR token uretilemedi.");
         }
 
-        return {
-            action: "iframe",
-            iframeUrl: `https://www.paytr.com/odeme/guvenli/${encodeURIComponent(token)}`,
-            paymentAttemptId: paymentAttempt.id,
-        };
+        return presentation;
     } catch (error) {
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
