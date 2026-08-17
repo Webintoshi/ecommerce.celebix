@@ -3,6 +3,7 @@ import type { CheckoutContact, CheckoutShippingAddress } from "./cart/types.ts";
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PHONE = /^\+90[1-9][0-9]{9}$/u;
+const PHONE_INPUT = /^[+0-9 ().-]+$/u;
 const POSTAL = /^[A-Za-z0-9 -]{2,16}$/u;
 const FIELDS = Object.freeze(["name", "email", "phone", "addressLine1", "addressLine2", "city", "district", "postalCode", "note"] as const);
 
@@ -26,6 +27,22 @@ function checkoutName(value: unknown): string | null {
   return firstName.length <= 100 && lastName.length <= 100 ? normalized : null;
 }
 
+function checkoutPhone(value: unknown): string | null {
+  if (typeof value !== "string" || CONTROL.test(value)) return null;
+  const trimmed = value.trim();
+  if (trimmed.length < 10 || trimmed.length > 24 || !PHONE_INPUT.test(trimmed)) return null;
+  const compact = trimmed.replace(/[ ().-]/gu, "");
+  const local = compact.startsWith("+90")
+    ? compact.slice(3)
+    : compact.startsWith("90")
+      ? compact.slice(2)
+      : compact.startsWith("0")
+        ? compact.slice(1)
+        : compact;
+  const canonical = `+90${local}`;
+  return PHONE.test(canonical) ? canonical : null;
+}
+
 export function validateCheckoutFormDraft(input: unknown): CheckoutFormValidation {
   if (typeof input !== "object" || input === null || Array.isArray(input) || Object.getPrototypeOf(input) !== Object.prototype || Object.keys(input).length !== FIELDS.length || FIELDS.some((field) => !Object.hasOwn(input, field))) {
     return Object.freeze({ ok: false, errors: Object.freeze({ form: "Teslimat bilgileri geçersiz." }) });
@@ -33,10 +50,11 @@ export function validateCheckoutFormDraft(input: unknown): CheckoutFormValidatio
   const source = input as Record<string, unknown>;
   const normalized = Object.fromEntries(FIELDS.map((field) => [field, typeof source[field] === "string" ? source[field].trim() : source[field]])) as Record<(typeof FIELDS)[number], unknown>;
   normalized.name = checkoutName(source.name) ?? source.name;
+  normalized.phone = checkoutPhone(source.phone) ?? source.phone;
   const errors: Partial<Record<CheckoutFormField, string>> = Object.create(null) as Partial<Record<CheckoutFormField, string>>;
   const checks = Object.freeze([
     ["email", 3, 320, EMAIL, "E-posta adresinizi kontrol edin."],
-    ["phone", 13, 13, PHONE, "Telefon numaranızı +905551112233 biçiminde yazın."],
+    ["phone", 13, 13, PHONE, "Telefon numaranızı 0555 111 22 33 veya +905551112233 biçiminde yazın."],
     ["addressLine1", 3, 300, undefined, "Adresinizi kontrol edin."],
     ["city", 2, 100, undefined, "Şehir bilgisini kontrol edin."],
     ["district", 2, 100, undefined, "İlçe bilgisini kontrol edin."],

@@ -190,7 +190,13 @@ test("panel activation mode promotes only the exact PayTR test source authority"
   assert.equal(explicitNull.get("paytr_iframe", "payment_processing")?.executionAuthority, null);
 
   assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.test, "PayTR test execution authority must be generated");
-  assert.equal(PAYTR_APPROVED_EXECUTION_AUTHORITIES.live, null);
+  assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.live, "PayTR live execution authority may be generated for storefront settlement");
+  assert.equal(PAYTR_APPROVED_EXECUTION_AUTHORITIES.test.environment, "test");
+  assert.equal(PAYTR_APPROVED_EXECUTION_AUTHORITIES.live.environment, "live");
+  assert.notEqual(
+    PAYTR_APPROVED_EXECUTION_AUTHORITIES.test.evidenceDigest,
+    PAYTR_APPROVED_EXECUTION_AUTHORITIES.live.evidenceDigest,
+  );
   const registry = createDefaultCustomerPanelPaymentProviderRegistry(
     hosted,
     undefined,

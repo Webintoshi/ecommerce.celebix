@@ -96,7 +96,7 @@ test("PayTR generated metadata verification rejects environment source and diges
   }
 });
 
-test("PayTR source-control build authority approves test and keeps live closed", async () => {
+test("PayTR source-control build authority approves distinct test and live bindings", async () => {
   const [generated, binding, api] = await Promise.all([
     import("./build-metadata.generated.ts").catch(() => null),
     import("./build-binding.ts"),
@@ -105,21 +105,34 @@ test("PayTR source-control build authority approves test and keeps live closed",
 
   assert.ok(generated);
   assert.ok(generated.PAYTR_GENERATED_BUILD_METADATA.test);
-  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live, null);
+  assert.ok(generated.PAYTR_GENERATED_BUILD_METADATA.live);
   assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.environment, "test");
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live.environment, "live");
   assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.providerCode, "paytr_iframe");
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live.providerCode, "paytr_iframe");
   assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.capability, "payment_processing");
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live.capability, "payment_processing");
   assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.adapterVersion, 1);
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live.adapterVersion, 1);
+  assert.notEqual(
+    generated.PAYTR_GENERATED_BUILD_METADATA.test.candidateExecutionDigest,
+    generated.PAYTR_GENERATED_BUILD_METADATA.live.candidateExecutionDigest,
+  );
   assert.deepEqual(generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES, {
     test: {
       environment: "test",
       adapterVersion: 1,
       evidenceDigest: generated.PAYTR_GENERATED_BUILD_METADATA.test.candidateExecutionDigest,
     },
-    live: null,
+    live: {
+      environment: "live",
+      adapterVersion: 1,
+      evidenceDigest: generated.PAYTR_GENERATED_BUILD_METADATA.live.candidateExecutionDigest,
+    },
   });
   assert.deepEqual(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES, generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
   assert.deepEqual(api.PAYTR_APPROVED_EXECUTION_AUTHORITIES, generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
   assert.equal(Object.isFrozen(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES), true);
   assert.equal(Object.isFrozen(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES.test), true);
+  assert.equal(Object.isFrozen(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES.live), true);
 });
