@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
@@ -34,6 +35,12 @@ import {
   EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+declare global {
+  interface Window {
+    iFrameResize?: (options: Record<string, unknown>, target: string) => void;
+  }
+}
 
 type AppliedCoupon = {
   code: string;
@@ -793,10 +800,18 @@ export default function CheckoutPage() {
                       <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-medium text-blue-700">
                         Kart bilgileriniz PayTR güvenli ödeme ekranında alınır; ödeme tamamlandığında sipariş durumunuz otomatik güncellenir.
                       </div>
+                      <Script
+                        src="https://www.paytr.com/js/iframeResizer.min.js"
+                        strategy="afterInteractive"
+                        onLoad={() => window.iFrameResize?.({}, "#paytriframe")}
+                      />
                       <iframe
+                        id="paytriframe"
+                        name="paytriframe"
                         title="PayTR güvenli ödeme"
                         src={paytrIframeUrl}
-                        className="h-[760px] w-full rounded-2xl border border-gray-200 bg-white shadow-sm"
+                        scrolling="no"
+                        className="min-h-[760px] w-full rounded-2xl border border-gray-200 bg-white shadow-sm"
                         allow="payment *; fullscreen"
                       />
                       <a
