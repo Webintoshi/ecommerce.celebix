@@ -142,6 +142,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
         : defaultCsp;
     response.headers.set("content-security-policy", csp);
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(name, value);
+    if (standardIframeAuthorized) response.headers.set("x-frame-options", "SAMEORIGIN");
     return response;
   };
 }

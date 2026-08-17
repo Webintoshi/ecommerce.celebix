@@ -864,6 +864,7 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
   const standardCsp = "default-src 'none'; frame-src https://www.paytr.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
   const standardReady = await handler(request("/checkout/payment", "__Host-celebix_hosted_checkout=ready"));
   assert.equal(standardReady.headers.get("content-security-policy"), standardCsp);
+  assert.equal(standardReady.headers.get("x-frame-options"), "SAMEORIGIN");
   for (const denied of [
     request("/odeme/hizli/odeme"),
     request("/odeme/hizli/odeme", "__Host-celebix_quick=wrong"),
