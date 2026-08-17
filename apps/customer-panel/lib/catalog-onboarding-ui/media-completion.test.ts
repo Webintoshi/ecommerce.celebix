@@ -38,6 +38,22 @@ test("publish waits for every image in order and uses the exact draft version", 
   assert.equal(outcome.result, published);
 });
 
+test("image-free quick publish uses an exact zero-media proof", async () => {
+  const calls: unknown[] = [];
+  const published = result("active", 0);
+  const outcome = await completeProductMedia({
+    result: result(), files: [], publish: true,
+    async upload() { throw new Error("unused"); },
+    async complete(productId, input) { calls.push(["publish", productId, input]); return published; },
+    async recover() { throw new Error("unused"); },
+  });
+  assert.deepEqual(calls, [
+    ["publish", PRODUCT, { expectedProductVersion: 1, expectedMediaCount: 0 }],
+  ]);
+  assert.equal(outcome.kind, "published");
+  assert.equal(outcome.result, published);
+});
+
 test("upload failure leaves the durable draft and never publishes or retries", async () => {
   let uploads = 0, publishes = 0, recoveries = 0;
   const draft = result();

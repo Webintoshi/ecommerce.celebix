@@ -903,6 +903,9 @@ test("standard checkout payment route permits only the exact PayTR frame and kee
   assert.match(route, /frame-src \$\{frameOrigin\}/);
   assert.match(route, /new URL\(presentation[.]url\)[.]origin/);
   assert.match(route, /allow="payment"/);
+  assert.match(route, /PAYMENT_FRAME_HEADERS[\s\S]*"Referrer-Policy": "origin"/);
+  assert.match(route, /referrerpolicy="origin"/);
+  assert.doesNotMatch(route, /referrerpolicy="no-referrer"/);
   assert.doesNotMatch(route, /frame-src\s+(?:\*|https:(?:\s|$)|'self'(?:\s|$)|[^;\n]*unsafe-inline)/i);
 });
 

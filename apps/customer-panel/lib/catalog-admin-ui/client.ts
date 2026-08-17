@@ -4,7 +4,16 @@ import type { CatalogImportFormat, CatalogImportProvider } from "../catalog-impo
 const CODES = ["invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "resource_not_found", "review_not_found", "slug_conflict", "product_limit_reached", "import_conflict", "invalid_transition", "version_conflict", "operation_mismatch", "durable_authority_invalid", "unavailable"] as const;
 type Code = (typeof CODES)[number];
 const MESSAGES: Record<Code, string> = { invalid_input: "Gönderilen katalog bilgileri geçersiz.", unauthenticated: "Oturumunuz sona erdi.", membership_denied: "Bu katalog işlemi için yetkiniz yok.", store_inactive: "Mağaza katalog işlemlerine kapalı.", feature_not_enabled: "Katalog yönetimi planınızda etkin değil.", resource_not_found: "Katalog kaydı bulunamadı.", review_not_found: "Ürün yorumu bulunamadı.", slug_conflict: "Bu URL anahtarı başka bir kayıtta kullanılıyor.", product_limit_reached: "Planınızdaki ürün sınırına ulaştınız.", import_conflict: "Yükleme satırlarından biri mevcut katalogla çakışıyor.", invalid_transition: "Bu işlem artık uygulanamaz.", version_conflict: "Kayıt sizden önce güncellendi.", operation_mismatch: "İşlem güvenle tekrar edilemedi.", durable_authority_invalid: "Katalog yetkisi yeniden doğrulanamadı.", unavailable: "Katalog yönetimi şu anda kullanılamıyor." };
-export class CatalogAdminApiError extends Error { constructor(readonly code: Code, readonly status: number) { super(MESSAGES[code]); this.name = "CatalogAdminApiError"; } }
+export class CatalogAdminApiError extends Error {
+  readonly code: Code;
+  readonly status: number;
+  constructor(code: Code, status: number) {
+    super(MESSAGES[code]);
+    this.name = "CatalogAdminApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
 type Fetch = typeof fetch;
 function record(value: unknown) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null; }
 async function json(response: Response) { if (response.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new CatalogAdminApiError("unavailable", response.status || 503); try { return await response.json(); } catch (caught) { if (caught instanceof DOMException && caught.name === "AbortError") throw caught; throw new CatalogAdminApiError("unavailable", 503); } }

@@ -4,7 +4,10 @@ import path from "node:path";
 import test from "node:test";
 
 import { parsePaymentProviderCatalogEntry } from "@celebix/saas-contracts";
-import { PAYMENT_ADAPTER_PACKET_INVENTORY } from "../../../../packages/payment-adapters/src/index.ts";
+import {
+  PAYMENT_ADAPTER_PACKET_INVENTORY,
+  PAYTR_APPROVED_EXECUTION_AUTHORITIES,
+} from "../../../../packages/payment-adapters/src/index.ts";
 
 type CatalogModule = typeof import("./catalog.ts");
 
@@ -188,11 +191,8 @@ test("catalog codes stay aligned with inventory records and Iyzico is configurab
   assert.ok(paytr);
   assert.equal(paytr.readiness, "sandbox_ready");
   assert.deepEqual(paytr.environments, ["test"]);
-  assert.deepEqual(paytr.executionAuthority, {
-    environment: "test",
-    adapterVersion: 1,
-    evidenceDigest: "sha256:5fed63cfbcd95ffc4c152ce0281bf364f8ec2e74ac095638c7580c5047a2bddb",
-  });
+  assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.test, "PayTR test execution authority must be generated");
+  assert.deepEqual(paytr.executionAuthority, PAYTR_APPROVED_EXECUTION_AUTHORITIES.test);
 });
 
 test("catalog exposes Iyzico as sandbox-ready only for the exact future compiled binding", () => {
@@ -214,11 +214,8 @@ test("catalog exposes Iyzico as sandbox-ready only for the exact future compiled
   assert.ok(currentPaytr);
   assert.equal(currentPaytr.readiness, "sandbox_ready");
   assert.deepEqual(currentPaytr.environments, ["test"]);
-  assert.deepEqual(currentPaytr.executionAuthority, {
-    environment: "test",
-    adapterVersion: 1,
-    evidenceDigest: "sha256:5fed63cfbcd95ffc4c152ce0281bf364f8ec2e74ac095638c7580c5047a2bddb",
-  });
+  assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.test, "PayTR test execution authority must be generated");
+  assert.deepEqual(currentPaytr.executionAuthority, PAYTR_APPROVED_EXECUTION_AUTHORITIES.test);
 
   const future = createCatalog(IYZICO_AUTHORITY, IYZICO_CANDIDATE);
   const futureIyzico = future.find((entry) => entry.providerCode === "iyzico_iframe");
