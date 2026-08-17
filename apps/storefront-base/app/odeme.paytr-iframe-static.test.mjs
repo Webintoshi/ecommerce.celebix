@@ -17,3 +17,8 @@ test("checkout page uses the official PayTR iframe contract", () => {
   assert.match(source, /https:\/\/www\.paytr\.com\/js\/iframeResizer\.min\.js/);
   assert.match(source, /window\.iFrameResize\?\.\(\{\}, "#paytriframe"\)/);
 });
+
+test("checkout page sends only the storefront origin as PayTR iframe referrer", () => {
+  assert.match(source, /referrerPolicy="origin"/);
+  assert.doesNotMatch(source, /referrerPolicy="no-referrer"/);
+});

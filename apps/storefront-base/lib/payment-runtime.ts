@@ -541,8 +541,6 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
 
     const formData = new URLSearchParams({
         merchant_id: merchantId,
-        merchant_key: merchantKey,
-        merchant_salt: merchantSalt,
         user_ip: context.customerIp,
         merchant_oid: merchantOid,
         email: context.customerEmail,

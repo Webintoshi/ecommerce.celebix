@@ -9,7 +9,8 @@ test("PayTR runtime uses the shared checkout presentation helper", () => {
   assert.match(source, /createPaytrCheckoutPresentation\(\{\s*gateway:\s*context\.gateway\.gateway/);
 });
 
-test("PayTR token request sends provider credential fields expected by PayTR examples", () => {
-  assert.match(source, /merchant_key:\s*merchantKey/);
-  assert.match(source, /merchant_salt:\s*merchantSalt/);
+test("PayTR token request keeps provider signing secrets out of the POST body", () => {
+  assert.doesNotMatch(source, /merchant_key:\s*merchantKey/);
+  assert.doesNotMatch(source, /merchant_salt:\s*merchantSalt/);
+  assert.match(source, /createPaytrToken\(\{[\s\S]*merchantKey,[\s\S]*merchantSalt,/);
 });

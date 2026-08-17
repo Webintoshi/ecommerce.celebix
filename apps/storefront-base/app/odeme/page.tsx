@@ -826,6 +826,7 @@ export default function CheckoutPage() {
 	                        scrolling="no"
 	                        className="min-h-[760px] w-full rounded-2xl border border-gray-200 bg-white shadow-sm"
 	                        allow="payment *; fullscreen"
+	                        referrerPolicy="origin"
 	                      />
                       <a
                         href={paytrIframeUrl}
