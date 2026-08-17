@@ -59,7 +59,10 @@ function usesHttps(request: Pick<NextRequest, "headers" | "nextUrl">): boolean {
 
 function buildContentSecurityPolicy(surface: SecuritySurface): string {
   const formAction = surface === "storefront" ? "form-action 'self' https:;" : "form-action 'self';";
-  return ["base-uri 'self';", "frame-ancestors 'none';", "object-src 'none';", formAction]
+  const framePolicy = surface === "storefront"
+    ? "frame-src 'self' https://www.paytr.com; child-src 'self' https://www.paytr.com;"
+    : "";
+  return ["base-uri 'self';", "frame-ancestors 'none';", "object-src 'none';", framePolicy, formAction]
     .join(" ")
     .trim();
 }

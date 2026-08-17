@@ -7,7 +7,16 @@ import type {
   TaxRate,
 } from "@/types/product";
 
+export type AdminProductMode = "simple" | "variant";
+
+export interface AdminVariantOptionDraft {
+  id: string;
+  name: string;
+  values: string[];
+}
+
 export interface AdminProductWizardState {
+  productMode?: AdminProductMode;
   name: string;
   slug: string;
   description: string;
@@ -18,6 +27,7 @@ export interface AdminProductWizardState {
   brand: string;
   countryOfOrigin: string;
   images: ProductImage[];
+  variantOptions: AdminVariantOptionDraft[];
   variants: ProductVariant[];
   taxRate: TaxRate;
   discountRules: DiscountRule[];

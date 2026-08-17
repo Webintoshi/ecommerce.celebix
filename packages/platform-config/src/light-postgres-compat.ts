@@ -200,6 +200,11 @@ type CustomerRow = Record<string, unknown> & {
   id: string;
 };
 
+type AbandonedCartRow = Record<string, unknown> & {
+  id: string;
+  items?: unknown;
+};
+
 type LightPostgresCompatError = Error & {
   code?: string;
   details?: string | null;
@@ -289,6 +294,11 @@ const PRODUCT_VARIANT_COLUMNS = `
 `;
 
 const UNSUPPORTED_PRODUCT_TABLE_ERROR = "light_postgres compatibility does not provision this table by default.";
+const INVENTORY_TABLES = new Set([
+  "inventory_locations",
+  "stock_movements",
+  "inventory_balances",
+]);
 
 declare global {
   // eslint-disable-next-line no-var
@@ -310,18 +320,78 @@ function createCompatError(
   return error;
 }
 
+function normalizeCompatDbError(error: unknown): LightPostgresCompatError {
+  if (!(error instanceof Error)) {
+    return createCompatError("light_postgres query basarisiz oldu.");
+  }
+
+  const record = error as LightPostgresCompatError & {
+    detail?: unknown;
+    details?: unknown;
+    hint?: unknown;
+  };
+  const nextError = createCompatError(
+    error.message || "light_postgres query basarisiz oldu.",
+    typeof record.code === "string" ? record.code : undefined,
+  );
+  const details = typeof record.details === "string"
+    ? record.details
+    : typeof record.detail === "string"
+      ? record.detail
+      : null;
+  const hint = typeof record.hint === "string" ? record.hint : null;
+
+  nextError.details = details;
+  nextError.hint = hint;
+  return nextError;
+}
+
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 }
 
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
+function parseStringArrayLiteral(value: string): string[] {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
     return [];
   }
 
-  return value.filter((entry): entry is string => typeof entry === "string");
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry) => String(entry));
+      }
+    } catch {
+      // Fall through to the permissive parsers below.
+    }
+  }
+
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    return trimmed
+      .slice(1, -1)
+      .split(",")
+      .map((entry) => entry.trim().replace(/^"|"$/g, ""))
+      .filter(Boolean);
+  }
+
+  return trimmed
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function asStringArray(value: unknown): string[] {
+  const entries = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? parseStringArrayLiteral(value)
+      : [];
+
+  return entries.map((entry) => String(entry).trim()).filter(Boolean);
 }
 
 function resolveCompatTableName(tableName: string): string {
@@ -458,7 +528,7 @@ function aliasCustomerRow(
   addresses: CustomerAddressRow[],
   orders: OrderRow[],
 ): Record<string, unknown> {
-  const nextRow: Record<string, unknown> = { ...row };
+  const nextRow: Record<string, unknown> = { ...row, tags: asStringArray(row.tags) };
 
   if (shouldAttachCustomerAddresses(selectSpec)) {
     nextRow.addresses = addresses;
@@ -469,6 +539,54 @@ function aliasCustomerRow(
   }
 
   return nextRow;
+}
+
+function normalizeJsonArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function aliasAbandonedCartRow(row: AbandonedCartRow): Record<string, unknown> {
+  return {
+    ...row,
+    id: String(row.id),
+    items: normalizeJsonArray(row.items),
+    total: Number(row.total || 0),
+    item_count: typeof row.item_count === "number" ? row.item_count : Number(row.item_count || 0),
+    is_anonymous: row.is_anonymous !== false,
+    recovered: row.recovered === true,
+    status: typeof row.status === "string" && row.status ? row.status : row.recovered ? "recovered" : "active",
+  };
+}
+
+function aliasScalarRow(row: Record<string, unknown>): Record<string, unknown> {
+  const nextRow: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(row)) {
+    nextRow[key] = value instanceof Date ? value.toISOString() : value;
+  }
+
+  return nextRow;
+}
+
+async function getScalarTableRows(
+  pool: PoolLike,
+  tableName: string,
+): Promise<Record<string, unknown>[]> {
+  const result = await pool.query(`select * from public.${tableName}`);
+  return result.rows.map(aliasScalarRow);
 }
 
 function compareValues(left: unknown, right: unknown): number {
@@ -963,6 +1081,12 @@ async function getCustomerRows(pool: PoolLike, selectSpec: string | null): Promi
   );
 }
 
+async function getAbandonedCartRows(pool: PoolLike): Promise<AbandonedCartRow[]> {
+  const result = await pool.query("select * from public.abandoned_carts");
+
+  return result.rows.map((row) => aliasAbandonedCartRow({ ...row, id: String(row.id) }) as AbandonedCartRow);
+}
+
 function buildUpdateAssignments(
   payload: Record<string, unknown>,
   startingIndex = 1,
@@ -1193,6 +1317,14 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       return getCustomerAddressRows(pool);
     }
 
+    if (tableName === "abandoned_carts") {
+      return getAbandonedCartRows(pool);
+    }
+
+    if (INVENTORY_TABLES.has(tableName)) {
+      return getScalarTableRows(pool, tableName);
+    }
+
     if (
       tableName === "favorites" ||
       tableName === "product_views" ||
@@ -1275,7 +1407,7 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    if (!["products", "product_variants", "categories", "pages", "customer_addresses", "customers"].includes(tableName)) {
+    if (!["products", "product_variants", "categories", "pages", "customer_addresses", "customers", "abandoned_carts"].includes(tableName) && !INVENTORY_TABLES.has(tableName)) {
       return {
         data: null,
         error: createCompatError(`Insert desteklenmiyor: ${tableName}`, "42P01"),
@@ -1284,16 +1416,27 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
 
     const inserted: Record<string, unknown>[] = [];
 
-    for (const entry of this.payload) {
-      const record = { ...entry };
-      const columns = Object.keys(record);
-      const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
-      const values = columns.map((column) => record[column]);
-      const result = await pool.query(
-        `insert into public.${tableName} (${columns.map((column) => `"${column}"`).join(", ")}) values (${placeholders}) returning *`,
-        values,
-      );
-      inserted.push(...result.rows);
+    try {
+      for (const entry of this.payload) {
+        const record = { ...entry };
+        const columns = Object.keys(record);
+        const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
+        const values = columns.map((column) => record[column]);
+        const result = await pool.query(
+          `insert into public.${tableName} (${columns.map((column) => `"${column}"`).join(", ")}) values (${placeholders}) returning *`,
+          values,
+        );
+        inserted.push(
+          ...(tableName === "abandoned_carts"
+            ? result.rows.map((row) => aliasAbandonedCartRow({ ...row, id: String(row.id) } as AbandonedCartRow))
+            : result.rows),
+        );
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: normalizeCompatDbError(error),
+      };
     }
 
     return this.shapeSelectResult(inserted);
@@ -1310,7 +1453,7 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    if (!["products", "product_variants", "categories", "pages", "settings", "customer_addresses", "customers", "orders"].includes(tableName)) {
+    if (!["products", "product_variants", "categories", "pages", "settings", "customer_addresses", "customers", "orders", "abandoned_carts"].includes(tableName)) {
       return {
         data: null,
         error: createCompatError(`Update desteklenmiyor: ${tableName}`, "42P01"),
@@ -1323,6 +1466,34 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
         data: null,
         error: createCompatError("Bos update payload", "PGRST204"),
       };
+    }
+
+    if (tableName === "abandoned_carts") {
+      const rowsOrError = await this.readRows();
+      if (rowsOrError instanceof Error) {
+        return { data: null, error: rowsOrError };
+      }
+
+      const matchedRows = this.applyFilters(rowsOrError);
+      const assignment = buildUpdateAssignments(payload);
+      const updated: Record<string, unknown>[] = [];
+
+      for (const row of matchedRows) {
+        const id = typeof row.id === "string" ? row.id : null;
+        if (!id) {
+          continue;
+        }
+
+        const result = await pool.query(
+          `update public.abandoned_carts set ${assignment.sql} where id = $${
+            assignment.values.length + 1
+          } returning *`,
+          [...assignment.values, id],
+        );
+        updated.push(...result.rows.map((entry) => aliasAbandonedCartRow({ ...entry, id: String(entry.id) } as AbandonedCartRow)));
+      }
+
+      return this.shapeSelectResult(updated);
     }
 
     if (tableName === "settings") {
@@ -1362,15 +1533,22 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    const assignment = buildUpdateAssignments(payload);
-    const result = await pool.query(
-      `update public.${tableName} set ${assignment.sql} where "${identifierFilter.column}" = $${
-        assignment.values.length + 1
-      } returning *`,
-      [...assignment.values, identifierFilter.value],
-    );
+    try {
+      const assignment = buildUpdateAssignments(payload);
+      const result = await pool.query(
+        `update public.${tableName} set ${assignment.sql} where "${identifierFilter.column}" = $${
+          assignment.values.length + 1
+        } returning *`,
+        [...assignment.values, identifierFilter.value],
+      );
 
-    return this.shapeSelectResult(result.rows);
+      return this.shapeSelectResult(result.rows);
+    } catch (error) {
+      return {
+        data: null,
+        error: normalizeCompatDbError(error),
+      };
+    }
   }
 
   private async deleteRows(): Promise<QueryExecutionResult<unknown>> {
@@ -1392,7 +1570,7 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    if (!["products", "product_variants", "categories", "pages", "settings", "customer_addresses", "customers"].includes(tableName)) {
+    if (!["products", "product_variants", "categories", "pages", "settings", "customer_addresses", "customers", "abandoned_carts"].includes(tableName)) {
       return {
         data: null,
         error: createCompatError(`Delete desteklenmiyor: ${tableName}`, "42P01"),

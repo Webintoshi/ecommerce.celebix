@@ -103,6 +103,8 @@ export interface ProductVariant {
   barcode?: string;
   groupName?: string; // "Gramaj", "Renk"
   images?: string[];
+  attributes?: Array<{ image_url?: string | null }>;
+  isEnabled?: boolean; // Client-side matrix toggle; disabled rows are omitted from save payload.
   unit?: "adet" | "kg" | "g" | "lt" | "ml" | "paket" | "kutu";
   maxPurchaseQuantity?: number;
   warehouseLocation?: string;
@@ -155,6 +157,7 @@ export interface Product {
   glutenFree: boolean;
   sugarFree: boolean;
   highProtein: boolean;
+  organic?: boolean;
   rating: number;
   reviewCount: number;
   featured?: boolean;

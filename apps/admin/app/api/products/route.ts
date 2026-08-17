@@ -144,6 +144,8 @@ const OPTIONAL_PRODUCT_COLUMNS = new Set([
     "geo_data",
     "subcategory",
     "is_active",
+    "is_featured",
+    "is_bestseller",
     "is_new",
     "vegan",
     "gluten_free",

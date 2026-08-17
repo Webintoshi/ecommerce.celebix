@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -34,6 +35,12 @@ import {
   EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+declare global {
+  interface Window {
+    iFrameResize?: (options: Record<string, unknown>, selector: string) => void;
+  }
+}
 
 type AppliedCoupon = {
   code: string;
@@ -798,20 +805,28 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  {paytrIframeUrl ? (
-                    <div className="space-y-5">
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm text-emerald-800">
-                        <p className="font-bold">PayTR güvenli ödeme ekranı açıldı.</p>
-                        <p className="mt-1 text-emerald-700">
-                          Kart bilgileri yalnız PayTR güvenli alanında girilir; ödeme sonucunuz otomatik olarak siparişe işlenecektir.
-                        </p>
-                      </div>
-                      <iframe
-                        title="PayTR güvenli ödeme"
-                        src={paytrIframeUrl}
-                        className="h-[760px] w-full rounded-2xl border border-gray-200 bg-white shadow-sm"
-                        allow="payment *; fullscreen"
-                      />
+	                  {paytrIframeUrl ? (
+	                    <div className="space-y-5">
+	                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm text-emerald-800">
+	                        <p className="font-bold">PayTR güvenli ödeme ekranı açıldı.</p>
+	                        <p className="mt-1 text-emerald-700">
+	                          Kart bilgileri yalnız PayTR güvenli alanında girilir; ödeme sonucunuz otomatik olarak siparişe işlenecektir.
+	                        </p>
+	                      </div>
+	                      <Script
+	                        src="https://www.paytr.com/js/iframeResizer.min.js"
+	                        strategy="afterInteractive"
+	                        onLoad={() => window.iFrameResize?.({}, "#paytriframe")}
+	                      />
+	                      <iframe
+	                        id="paytriframe"
+	                        title="PayTR güvenli ödeme"
+	                        src={paytrIframeUrl}
+	                        name="paytriframe"
+	                        scrolling="no"
+	                        className="min-h-[760px] w-full rounded-2xl border border-gray-200 bg-white shadow-sm"
+	                        allow="payment *; fullscreen"
+	                      />
                       <a
                         href={paytrIframeUrl}
                         target="_blank"
