@@ -23,7 +23,7 @@ function text(status: number, value: string): Response {
 function page(body: string, status = 200, frameOrigin?: string): Response {
   const csp = frameOrigin
     ? `default-src 'none'; frame-src ${frameOrigin}; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'`
-    : "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
+    : FALLBACK_CSP;
   return new Response(`<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Güvenli ödeme</title><style>html,body{height:100%;margin:0;background:#fff;font-family:system-ui,sans-serif}main{height:100%;display:grid;place-items:center}iframe{width:100%;height:100%;border:0}.status{color:#202124;font-size:15px}</style><main>${body}</main>`, {
     status,
     headers: { ...(frameOrigin ? PAYMENT_FRAME_HEADERS : BASE_HEADERS), "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp },
