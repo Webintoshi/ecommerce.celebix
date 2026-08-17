@@ -9,6 +9,7 @@ import {
     PaymentGatewayRuntimeStatus,
     PaymentProviderDefinition,
 } from "@/types/payment";
+import { PaymentInitResult } from "@/types/payment-runtime";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const DEFAULT_BANK_ACCOUNT: PaymentBankAccountConfig = {
@@ -28,6 +29,9 @@ const DEFAULT_COD_SETTINGS: CashOnDeliveryConfig = {
 
 export const IYZICO_SANDBOX_BASE_URL = "https://sandbox-api.iyzipay.com";
 export const IYZICO_PRODUCTION_BASE_URL = "https://api.iyzipay.com";
+
+export const PAYTR_FAMILY_GATEWAYS = ["paytr", "paytr_iframe"] as const satisfies readonly PaymentGateway[];
+export const IYZICO_FAMILY_GATEWAYS = ["iyzico"] as const satisfies readonly PaymentGateway[];
 
 export function getDefaultIyzicoBaseUrl(environment: PaymentEnvironment) {
     return environment === "production" ? IYZICO_PRODUCTION_BASE_URL : IYZICO_SANDBOX_BASE_URL;
@@ -71,6 +75,27 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         docsUrl: "https://www.paytr.com/entegrasyon",
         accentClassName: "from-red-600 to-rose-500",
         supportedMethods: ["credit_card", "debit_card", "installments", "link_payment"],
+        supportedCardTypes: ["Visa", "MasterCard", "Troy"],
+        defaultCurrency: "TRY",
+        credentialFields: [
+            { key: "merchantId", label: "Merchant ID", description: "PAYTR magaza numarasi.", placeholder: "123456", required: true },
+            { key: "merchantKey", label: "Merchant Key", description: "PAYTR API key degeri.", placeholder: "merchant_key", required: true, secret: true, type: "password" },
+            { key: "merchantSalt", label: "Merchant Salt", description: "Hash imzalari icin kullanilan salt.", placeholder: "merchant_salt", required: true, secret: true, type: "password" },
+        ],
+        configurationFields: [
+            { key: "callbackUrl", label: "Callback URL", description: "Odeme sonucu donus adresi.", type: "url", placeholder: `${STOREFRONT_RUNTIME.siteUrl}/api/payments/paytr/callback` },
+        ],
+    },
+    {
+        id: "paytr_iframe",
+        name: "PAYTR IFrame",
+        shortName: "PAYTR IFrame",
+        description: "PAYTR guvenli odeme ekranini checkout icinde iframe olarak acar.",
+        category: "card_gateway",
+        homepageUrl: "https://www.paytr.com",
+        docsUrl: "https://www.paytr.com/entegrasyon",
+        accentClassName: "from-red-600 to-rose-500",
+        supportedMethods: ["credit_card", "debit_card", "installments", "iframe_payment"],
         supportedCardTypes: ["Visa", "MasterCard", "Troy"],
         defaultCurrency: "TRY",
         credentialFields: [
@@ -210,6 +235,7 @@ export function getPaymentProviderDefinition(gateway: PaymentGateway): PaymentPr
 function getProviderIcon(gateway: PaymentGateway): string {
     const icons: Record<PaymentGateway, string> = {
         paytr: "credit-card",
+        paytr_iframe: "credit-card",
         iyzico: "building",
         paynet: "credit-card",
         craftgate: "layers",
@@ -353,6 +379,7 @@ export function sanitizePublicPaymentGateway(gateway: PaymentGatewayConfig) {
 
 const RUNTIME_READY_GATEWAYS = new Set<PaymentGateway>([
     "paytr",
+    "paytr_iframe",
     "iyzico",
     "stripe",
     "paynet",
@@ -363,6 +390,45 @@ const RUNTIME_READY_GATEWAYS = new Set<PaymentGateway>([
 
 export function isRuntimeReadyPaymentGateway(gateway: PaymentGateway) {
     return RUNTIME_READY_GATEWAYS.has(gateway);
+}
+
+export function isGatewayInFamily<T extends readonly PaymentGateway[]>(
+    gateway: PaymentGateway,
+    family: T,
+): gateway is T[number] {
+    return (family as readonly PaymentGateway[]).includes(gateway);
+}
+
+export function createPaytrSecurePaymentUrl(token: string) {
+    const trimmedToken = token.trim();
+
+    if (!trimmedToken) {
+        throw new Error("PAYTR token bos olamaz.");
+    }
+
+    return `https://www.paytr.com/odeme/guvenli/${encodeURIComponent(trimmedToken)}`;
+}
+
+export function createPaytrCheckoutPresentation(input: {
+    gateway: "paytr" | "paytr_iframe";
+    token: string;
+    paymentAttemptId: string;
+}): PaymentInitResult {
+    const paymentUrl = createPaytrSecurePaymentUrl(input.token);
+
+    if (input.gateway === "paytr_iframe") {
+        return {
+            action: "iframe",
+            iframeUrl: paymentUrl,
+            paymentAttemptId: input.paymentAttemptId,
+        };
+    }
+
+    return {
+        action: "redirect",
+        redirectUrl: paymentUrl,
+        paymentAttemptId: input.paymentAttemptId,
+    };
 }
 
 export function getPaymentGatewayRuntimeStatus(gateway: PaymentGatewayConfig): PaymentGatewayRuntimeStatus {

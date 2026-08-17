@@ -144,6 +144,8 @@ const OPTIONAL_PRODUCT_COLUMNS = new Set([
     "geo_data",
     "subcategory",
     "is_active",
+    "is_featured",
+    "is_bestseller",
     "is_new",
     "is_featured",
     "is_bestseller",
@@ -336,6 +338,123 @@ function stripUnsupportedTableColumn<T extends Record<string, unknown>>(
     const nextPayload = { ...payload };
     delete nextPayload[missingColumn];
     return nextPayload;
+}
+
+function isDuplicateVariantSkuError(error: unknown): boolean {
+    if (getErrorCode(error) !== "23505") {
+        return false;
+    }
+
+    const combinedErrorText = [
+        getErrorMessage(error),
+        getErrorDetails(error),
+        error && typeof error === "object" && "hint" in error
+            ? String((error as { hint?: unknown }).hint ?? "")
+            : "",
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+    return combinedErrorText.includes("sku");
+}
+
+function regenerateVariantInsertSkus<T extends Record<string, unknown>>(
+    variantsPayload: T[],
+    attempt: number,
+): T[] {
+    return variantsPayload.map((variant, index) => ({
+        ...variant,
+        sku: buildGeneratedSku({
+            context: [
+                variant.product_id,
+                variant.name,
+                Date.now(),
+                attempt,
+                index,
+            ]
+                .filter((value) => value !== undefined && value !== null)
+                .join("-"),
+            index,
+        }),
+    }));
+}
+
+async function insertProductVariantsWithRetry<T extends Record<string, unknown>>(
+    supabase: any,
+    initialVariantsPayload: T[],
+) {
+    let variantsPayload = initialVariantsPayload;
+    let skuRetryCount = 0;
+
+    while (true) {
+        const { error: variantsError } = await supabase
+            .from("product_variants")
+            .insert(variantsPayload);
+
+        if (!variantsError) {
+            return;
+        }
+
+        console.error("Variants insert error:", variantsError);
+
+        const nextPayload = variantsPayload
+            .map((variant) =>
+                stripUnsupportedTableColumn(
+                    variant as Record<string, unknown>,
+                    variantsError,
+                    "product_variants",
+                    OPTIONAL_PRODUCT_VARIANT_COLUMNS
+                )
+            );
+
+        if (!nextPayload.some((variant) => variant === null)) {
+            variantsPayload = nextPayload as T[];
+            continue;
+        }
+
+        if (isDuplicateVariantSkuError(variantsError) && skuRetryCount < 3) {
+            skuRetryCount += 1;
+            variantsPayload = regenerateVariantInsertSkus(variantsPayload, skuRetryCount);
+            continue;
+        }
+
+        throw variantsError;
+    }
+}
+
+async function rollbackCreatedProduct(supabase: any, productId: string) {
+    try {
+        const { data: variants, error: variantsReadError } = await supabase
+            .from("product_variants")
+            .select("id")
+            .eq("product_id", productId);
+
+        if (variantsReadError) {
+            throw variantsReadError;
+        }
+
+        const variantIds = Array.isArray(variants)
+            ? variants
+                .map((variant: { id?: unknown }) => (typeof variant.id === "string" ? variant.id : null))
+                .filter((variantId): variantId is string => Boolean(variantId))
+            : [];
+
+        if (variantIds.length > 0) {
+            await deleteProductVariantsById(supabase, variantIds);
+        }
+
+        const { error: productDeleteError } = await supabase
+            .from("products")
+            .delete()
+            .eq("id", productId);
+
+        if (productDeleteError) {
+            throw productDeleteError;
+        }
+    } catch (rollbackError) {
+        console.error("Product create rollback failed:", rollbackError);
+    }
 }
 
 function normalizeAssetUrl(value: unknown): string | null {
@@ -1006,119 +1125,99 @@ export async function POST(request: NextRequest) {
         }
 
         console.log("Product created with ID:", product.id);
-        
-        // 4. Varyantları ekle (benzersiz SKU oluştur)
-        if (preparedVariants.length > 0) {
-            console.log("Processing variants, count:", preparedVariants.length);
-            console.log("Variants data:", JSON.stringify(preparedVariants, null, 2));
-            
-            const variantsToInsert = preparedVariants.map((v: Record<string, unknown>, idx: number) => prepareVariantMutationPayload({
-                product_id: product.id,
-                name: v.name,
-                weight: String(v.weight || 0),
-                price: v.price || 0,
-                original_price: v.original_price || null,
-                cost: v.cost || null,
-                stock: v.stock || 0,
-                sku: v.sku || buildGeneratedSku({ context: `${product.id}-${String(v.name || idx)}`, index: idx }),
-                barcode: v.barcode || null,
-                group_name: v.group_name || null,
-                unit: v.unit || 'adet',
-                max_purchase_quantity: v.max_purchase_quantity || null,
-                warehouse_location: v.warehouse_location || null,
-                images: v.images || [],
-                attributes: toJsonArray(v.attributes),
-                shopify_metadata: toJsonObject(v.shopify_metadata),
-            }));
-
-            console.log("Inserting variants:", JSON.stringify(variantsToInsert, null, 2));
-
-            let variantsPayload = variantsToInsert;
-
-            while (true) {
-                const { error: variantsError } = await supabase
-                    .from("product_variants")
-                    .insert(variantsPayload);
-
-                if (!variantsError) {
-                    break;
-                }
-
-                console.error("Variants insert error:", variantsError);
-
-                const nextPayload = variantsPayload
-                    .map((variant) =>
-                        stripUnsupportedTableColumn(
-                            variant as Record<string, unknown>,
-                            variantsError,
-                            "product_variants",
-                            OPTIONAL_PRODUCT_VARIANT_COLUMNS
-                        )
-                    );
-
-                if (nextPayload.some((variant) => variant === null)) {
-                    throw variantsError;
-                }
-
-                variantsPayload = nextPayload as typeof variantsToInsert;
-            }
-            console.log("Variants inserted successfully");
-
-            try {
-                await syncVariantAttributeRegistryFromVariants(supabase, preparedVariants);
-            } catch (error) {
-                logVariantAttributeSyncError(error, "create");
-            }
-        } else {
-            console.log("No variants to insert");
-        }
-
-        // 5. İndirim kurallarını product_discount_rules tablosuna kaydet
-        if (discount_rules && Array.isArray(discount_rules) && discount_rules.length > 0) {
-            console.log("Processing discount rules, count:", discount_rules.length);
-            
-            const discountRulesToInsert = discount_rules.map((rule: Record<string, unknown>) => ({
-                product_id: product.id,
-                name: rule.name,
-                type: rule.type,
-                config: rule.config || {},
-                is_active: rule.isActive !== false,
-                priority: 0,
-            }));
-
-            const { error: discountError } = await supabase
-                .from("product_discount_rules")
-                .insert(discountRulesToInsert);
-
-            if (discountError) {
-                console.error("Discount rules insert error:", discountError);
-            } else {
-                console.log("Discount rules inserted successfully");
-            }
-        }
-
-        // 6. Tam ürünü döndür
-        const { data: fullProduct } = await supabase
-            .from("products")
-            .select("*, variants:product_variants(*)")
-            .eq("id", product.id)
-            .single();
-
-        if (normalizedTags.length > 0) {
-            try {
-                await syncProductTagSuggestions(supabase as any, { added: normalizedTags });
-            } catch (error) {
-                logTagSuggestionSyncError(error, "create");
-            }
-        }
 
         try {
-            await enqueueProductListingSync(product.id);
-        } catch (error) {
-            logMarketplaceQueueError(error, "create");
-        }
+            // 4. Varyantları ekle (benzersiz SKU oluştur)
+            if (preparedVariants.length > 0) {
+                console.log("Processing variants, count:", preparedVariants.length);
+                console.log("Variants data:", JSON.stringify(preparedVariants, null, 2));
 
-        return NextResponse.json({ success: true, product: normalizeProductsPayload(fullProduct) });
+                const variantsToInsert = preparedVariants.map((v: Record<string, unknown>, idx: number) => prepareVariantMutationPayload({
+                    product_id: product.id,
+                    name: v.name,
+                    weight: String(v.weight || 0),
+                    price: v.price || 0,
+                    original_price: v.original_price || null,
+                    cost: v.cost || null,
+                    stock: v.stock || 0,
+                    sku: v.sku || buildGeneratedSku({ context: `${product.id}-${String(v.name || idx)}`, index: idx }),
+                    barcode: v.barcode || null,
+                    group_name: v.group_name || null,
+                    unit: v.unit || 'adet',
+                    max_purchase_quantity: v.max_purchase_quantity || null,
+                    warehouse_location: v.warehouse_location || null,
+                    images: v.images || [],
+                    attributes: toJsonArray(v.attributes),
+                    shopify_metadata: toJsonObject(v.shopify_metadata),
+                }));
+
+                console.log("Inserting variants:", JSON.stringify(variantsToInsert, null, 2));
+                await insertProductVariantsWithRetry(supabase, variantsToInsert);
+                console.log("Variants inserted successfully");
+
+                try {
+                    await syncVariantAttributeRegistryFromVariants(supabase, preparedVariants);
+                } catch (error) {
+                    logVariantAttributeSyncError(error, "create");
+                }
+            } else {
+                console.log("No variants to insert");
+            }
+
+            // 5. İndirim kurallarını product_discount_rules tablosuna kaydet
+            if (discount_rules && Array.isArray(discount_rules) && discount_rules.length > 0) {
+                console.log("Processing discount rules, count:", discount_rules.length);
+
+                const discountRulesToInsert = discount_rules.map((rule: Record<string, unknown>) => ({
+                    product_id: product.id,
+                    name: rule.name,
+                    type: rule.type,
+                    config: rule.config || {},
+                    is_active: rule.isActive !== false,
+                    priority: 0,
+                }));
+
+                const { error: discountError } = await supabase
+                    .from("product_discount_rules")
+                    .insert(discountRulesToInsert);
+
+                if (discountError) {
+                    console.error("Discount rules insert error:", discountError);
+                } else {
+                    console.log("Discount rules inserted successfully");
+                }
+            }
+
+            // 6. Tam ürünü döndür
+            const { data: fullProduct, error: fullProductError } = await supabase
+                .from("products")
+                .select("*, variants:product_variants(*)")
+                .eq("id", product.id)
+                .single();
+
+            if (fullProductError || !fullProduct) {
+                throw fullProductError || new Error("Created product could not be loaded");
+            }
+
+            if (normalizedTags.length > 0) {
+                try {
+                    await syncProductTagSuggestions(supabase as any, { added: normalizedTags });
+                } catch (error) {
+                    logTagSuggestionSyncError(error, "create");
+                }
+            }
+
+            try {
+                await enqueueProductListingSync(product.id);
+            } catch (error) {
+                logMarketplaceQueueError(error, "create");
+            }
+
+            return NextResponse.json({ success: true, product: normalizeProductsPayload(fullProduct) });
+        } catch (postCreateError) {
+            await rollbackCreatedProduct(supabase, product.id);
+            throw postCreateError;
+        }
     } catch (error: unknown) {
         console.error("Error creating product:", error);
         console.error("Error details:", getErrorDetails(error), getErrorMessage(error), getErrorCode(error));
@@ -1602,36 +1701,7 @@ export async function PUT(request: NextRequest) {
                 }));
 
                 console.log("Inserting variants:", variantsToInsert);
-
-                let newVariantsPayload = variantsToInsert;
-
-                while (true) {
-                    const { error: variantsError } = await supabase
-                        .from("product_variants")
-                        .insert(newVariantsPayload);
-
-                    if (!variantsError) {
-                        break;
-                    }
-
-                    console.error("Variants insert error:", variantsError);
-
-                    const nextPayload = newVariantsPayload
-                        .map((variant) =>
-                            stripUnsupportedTableColumn(
-                                variant as Record<string, unknown>,
-                                variantsError,
-                                "product_variants",
-                                OPTIONAL_PRODUCT_VARIANT_COLUMNS
-                            )
-                        );
-
-                    if (nextPayload.some((variant) => variant === null)) {
-                        throw new Error(`Variants insert failed: ${variantsError.message}`);
-                    }
-
-                    newVariantsPayload = nextPayload as typeof variantsToInsert;
-                }
+                await insertProductVariantsWithRetry(supabase, variantsToInsert);
             }
 
             try {

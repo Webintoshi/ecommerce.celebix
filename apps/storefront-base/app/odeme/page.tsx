@@ -38,7 +38,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 declare global {
   interface Window {
-    iFrameResize?: (options: Record<string, unknown>, target: string) => void;
+    iFrameResize?: (options: Record<string, unknown>, selector: string) => void;
   }
 }
 
@@ -48,6 +48,13 @@ type AppliedCoupon = {
   value: number;
   discountAmount: number;
 };
+
+const CART_ID_STORAGE_KEY = "celebix_storefront_cart_id";
+
+function getStoredCartId() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(CART_ID_STORAGE_KEY);
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -86,23 +93,26 @@ export default function CheckoutPage() {
   const updateAbandonedCartWithCustomerInfo = async (email: string, firstName: string, lastName: string, phone: string) => {
     if (typeof window === "undefined") return;
     
-    const sessionId = localStorage.getItem("celebix_storefront_session_id");
-    if (!sessionId) return;
+	    const sessionId = localStorage.getItem("celebix_storefront_session_id");
+	    if (!sessionId) return;
+	    const cartId = getStoredCartId();
 
-    try {
-      await fetch('/api/abandoned-carts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          email,
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          is_anonymous: false,
-          status: 'active'
-        })
-      });
+	    try {
+	      await fetch('/api/abandoned-carts', {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({
+	          cart_id: cartId,
+	          session_id: sessionId,
+	          email,
+	          first_name: firstName,
+	          last_name: lastName,
+	          phone,
+	          is_anonymous: false,
+	          status: 'active',
+	          checkout_started_at: new Date().toISOString()
+	        })
+	      });
     } catch (error) {
       console.error("Failed to update cart with customer info:", error);
     }
@@ -797,8 +807,11 @@ export default function CheckoutPage() {
 
                   {paytrIframeUrl ? (
                     <div className="space-y-5">
-                      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-medium text-blue-700">
-                        Kart bilgileriniz PayTR güvenli ödeme ekranında alınır; ödeme tamamlandığında sipariş durumunuz otomatik güncellenir.
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm text-emerald-800">
+                        <p className="font-bold">PayTR güvenli ödeme ekranı açıldı.</p>
+                        <p className="mt-1 text-emerald-700">
+                          Kart bilgileri yalnız PayTR güvenli alanında girilir; ödeme sonucunuz otomatik olarak siparişe işlenecektir.
+                        </p>
                       </div>
                       <Script
                         src="https://www.paytr.com/js/iframeResizer.min.js"
@@ -807,12 +820,13 @@ export default function CheckoutPage() {
                       />
                       <iframe
                         id="paytriframe"
-                        name="paytriframe"
                         title="PayTR güvenli ödeme"
                         src={paytrIframeUrl}
+                        name="paytriframe"
                         scrolling="no"
                         className="min-h-[760px] w-full rounded-2xl border border-gray-200 bg-white shadow-sm"
                         allow="payment *; fullscreen"
+                        referrerPolicy="origin"
                       />
                       <a
                         href={paytrIframeUrl}
@@ -820,14 +834,14 @@ export default function CheckoutPage() {
                         rel="noreferrer"
                         className="inline-flex text-sm font-bold text-primary underline underline-offset-4"
                       >
-                        Ödeme ekranını yeni sekmede aç
+                        PayTR ödeme ekranını yeni sekmede aç
                       </a>
                     </div>
                   ) : (
                     <>
-                  {/* VISUAL CREDIT CARD WRAPPER */}
-                  <div className="mb-8">
-                    {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && (
+                      {/* VISUAL CREDIT CARD WRAPPER */}
+                      <div className="mb-8">
+                        {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && (
                       <div className="w-full max-w-md mx-auto aspect-[1.586] rounded-2xl p-6 md:p-8 text-white relative overflow-hidden shadow-2xl shadow-indigo-500/20 mb-8 transform transition-transform hover:scale-[1.02] duration-500">
                         {/* Gradient Background */}
                         <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] via-[#8b5cf6] to-[#ec4899]" />
@@ -858,8 +872,8 @@ export default function CheckoutPage() {
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
+                        )}
+                      </div>
 
                   {/* Payment Method Selection */}
                   <div className="grid grid-cols-1 gap-4 mb-8">

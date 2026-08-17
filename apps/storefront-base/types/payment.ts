@@ -1,5 +1,6 @@
 export type PaymentGateway =
     | "paytr"
+    | "paytr_iframe"
     | "iyzico"
     | "paynet"
     | "craftgate"
