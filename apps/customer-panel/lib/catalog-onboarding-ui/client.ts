@@ -23,6 +23,7 @@ const API_CODES = Object.freeze([
   "durable_authority_invalid", "product_limit_reached", "product_not_found", "catalog_conflict",
   "category_not_found", "category_in_use",
   "version_conflict", "invalid_transition", "media_incomplete", "operation_mismatch", "operation_not_found",
+  "origin_denied", "method_not_allowed",
   "unavailable",
 ] as const);
 export type CatalogOnboardingApiErrorCode = (typeof API_CODES)[number];
@@ -44,6 +45,8 @@ const MESSAGES: Readonly<Record<CatalogOnboardingApiErrorCode, string>> = Object
   media_incomplete: "Ürün görselleri henüz tamamlanmadı.",
   operation_mismatch: "İşlem güvenli biçimde tekrar edilemedi. Yeni bir deneme başlatın.",
   operation_not_found: "İşlem sonucu doğrulanamadı. Ürünü yenileyerek kontrol edin.",
+  origin_denied: "Bu panel adresinden ürün işlemi doğrulanamadı. Sayfayı yenileyip tekrar deneyin.",
+  method_not_allowed: "Bu ürün işlemi desteklenmiyor.",
   unavailable: "Ürün hizmeti şu anda kullanılamıyor. Lütfen yeniden deneyin.",
 });
 

@@ -59,6 +59,17 @@ test("one failed mutation is never retried with a second write", async () => {
   assert.equal(writes, 1);
 });
 
+test("client preserves request authority failures instead of showing generic service unavailable", async () => {
+  const client = createCatalogOnboardingClient({
+    randomUUID: () => OPERATION,
+    async fetch() { return Response.json({ code: "origin_denied" }, { status: 403 }); },
+  });
+  await assert.rejects(
+    () => client.createProduct(quick),
+    (error: unknown) => error instanceof CatalogOnboardingApiError && error.code === "origin_denied" && error.status === 403,
+  );
+});
+
 test("detail editor loads the complete no-store merchandising projection", async () => {
   const projection = {
     product: result().product,

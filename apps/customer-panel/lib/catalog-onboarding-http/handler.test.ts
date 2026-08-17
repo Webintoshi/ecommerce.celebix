@@ -8,6 +8,8 @@ import { createCatalogOnboardingHttpHandlers } from "./handler.ts";
 import type { ServerCatalogOnboardingRuntime } from "../server-catalog-onboarding/runtime.ts";
 
 const PANEL = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://magaza.admin.saas-staging.celebix.site";
+const TENANT_ADMIN_HOST = "magaza.admin.saas-staging.celebix.site";
 const STORE = "33333333-3333-4333-8333-333333333333";
 const PRINCIPAL = "44444444-4444-4444-8444-444444444444";
 const MEMBERSHIP = "55555555-5555-4555-8555-555555555555";
@@ -15,6 +17,7 @@ const PLAN = "66666666-6666-4666-8666-666666666666";
 const OPERATION = "70000000-0000-4000-8000-000000000001";
 const PRODUCT = "71000000-0000-4000-8000-000000000001";
 const VARIANT = "72000000-0000-4000-8000-000000000001";
+const CATEGORY = "74000000-0000-4000-8000-000000000001";
 const REQUEST_ID = "73000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64url")}`;
@@ -68,7 +71,7 @@ function request(path: string, method = "GET", body?: unknown, headers: HeadersI
   const selected = new Headers(headers);
   selected.set("cookie", `__Host-celebix_panel=${CREDENTIAL}`);
   if (method !== "GET") {
-    selected.set("origin", PANEL);
+    if (!selected.has("origin")) selected.set("origin", PANEL);
     selected.set("content-type", "application/json");
     selected.set("idempotency-key", OPERATION);
   }
@@ -83,6 +86,28 @@ test("quick create forwards only session TenantContext and parsed intent", async
   assert.equal(response.status, 201);
   assert.deepEqual(await response.json(), result());
   assert.deepEqual(calls, [{ tenantContext: tenant(), now: NOW, operationId: OPERATION, intent: { kind: "quick", title: "Kupa", priceCents: 12990, publish: false } }]);
+});
+
+test("tenant admin same-origin quick create forwards the selected category and reaches the repository", async () => {
+  const calls: unknown[] = [];
+  const response = await handlers(repository({ async createProduct(input) { calls.push(input); return { ...result(), categoryIds: [CATEGORY] }; } })).createProduct(
+    request("/api/catalog/onboarding/products", "POST", {
+      kind: "quick",
+      title: "Kupa",
+      priceCents: 12990,
+      publish: true,
+      stockQuantity: 1,
+      categoryId: CATEGORY,
+    }, { origin: TENANT_ADMIN_ORIGIN, host: TENANT_ADMIN_HOST }),
+  );
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), { ...result(), categoryIds: [CATEGORY] });
+  assert.deepEqual(calls, [{
+    tenantContext: tenant(),
+    now: NOW,
+    operationId: OPERATION,
+    intent: { kind: "quick", title: "Kupa", priceCents: 12990, publish: true, stockQuantity: 1, categoryId: CATEGORY },
+  }]);
 });
 
 test("options use authenticated durable authority in a no-store response", async () => {
@@ -100,6 +125,13 @@ test("private authority, wrong Origin, query and malformed content fail before r
   const cases = [
     request("/api/catalog/onboarding/products", "POST", body, { "x-store-id": STORE }),
     request("/api/catalog/onboarding/products", "POST", body, { origin: "https://wrong.example" }),
+    request("/api/catalog/onboarding/products", "POST", body, {
+      origin: "https://other-store.admin.saas-staging.celebix.site",
+      host: TENANT_ADMIN_HOST,
+      forwarded: `host=${TENANT_ADMIN_HOST};proto=https`,
+      "x-forwarded-host": TENANT_ADMIN_HOST,
+      "x-forwarded-proto": "https",
+    }),
     request("/api/catalog/onboarding/products?storeId=x", "POST", body),
     request("/api/catalog/onboarding/products", "POST", { ...body, storeId: STORE }),
   ];

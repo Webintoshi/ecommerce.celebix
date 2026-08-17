@@ -162,10 +162,13 @@ export function ProductQuickCreateDialog({
       return;
     }
     if (outcome.kind === "draft_media_failed") {
-      onCreated(outcome.result);
+      setCreatedProductId(outcome.result.product.id);
+      setRecovery(Object.freeze({ created: outcome.result, files, publish }));
+      setError("Ürün oluşturuldu, bazı görseller yüklenemedi. Taslak güvenli şekilde saklandı. İkinci yazma yapılmadı; isterseniz görselleri yeniden yükleyebilir veya ürüne gidebilirsiniz.");
       return;
     }
-    onCreated(outcome.result);
+    setCreatedProductId(outcome.result.product.id);
+    setError("Ürün taslağı oluşturuldu ancak satışa açıldığı doğrulanamadı. İkinci yazma yapılmadı; ürünü açıp durumu kontrol edin.");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
