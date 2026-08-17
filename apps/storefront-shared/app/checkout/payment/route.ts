@@ -3,14 +3,17 @@ import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authori
 
 const BASE_HEADERS = Object.freeze({
   "Cache-Control": "no-store",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Referrer-Policy": "no-referrer",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "SAMEORIGIN",
   "X-Robots-Tag": "noindex, nofollow",
 });
+const FALLBACK_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
 
 function text(status: number, value: string): Response {
-  return new Response(value, { status, headers: { ...BASE_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(value, { status, headers: { ...BASE_HEADERS, "Content-Security-Policy": FALLBACK_CSP, "Content-Type": "text/plain; charset=utf-8" } });
 }
 
 function page(body: string, status = 200, frameOrigin?: string): Response {

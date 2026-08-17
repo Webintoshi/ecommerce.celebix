@@ -106,6 +106,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
         }
       } catch { return unavailable(); }
     }
+    if (exactTarget && pathname === "/checkout/payment") return NextResponse.next();
     let mediaOrigin: string;
     try {
       mediaOrigin = dependencies.resolveMediaOrigin();

@@ -829,7 +829,7 @@ test("generic hosted callback route remains provider-neutral while the PayTR com
   assert.doesNotMatch(paytr, /iyzico/i);
 });
 
-test("proxy grants PayTR frame authority only after cookie-bound provider-ready preflight", async () => {
+test("proxy grants legacy PayTR frame authority while standard checkout payment owns its route CSP", async () => {
   type Factory = (dependencies: Readonly<{
     selectAuthority: (headers: Headers) => Readonly<{ kind: "trusted"; hostname: string }>;
     resolveMediaOrigin: () => string;
@@ -861,9 +861,8 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
   const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
   const ready = await handler(request("/odeme/hizli/odeme", "__Host-celebix_quick=ready"));
   assert.equal(ready.headers.get("content-security-policy"), exactCsp);
-  const standardCsp = "default-src 'none'; frame-src https://www.paytr.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
   const standardReady = await handler(request("/checkout/payment", "__Host-celebix_hosted_checkout=ready"));
-  assert.equal(standardReady.headers.get("content-security-policy"), standardCsp);
+  assert.equal(standardReady.headers.get("content-security-policy"), null);
   for (const denied of [
     request("/odeme/hizli/odeme"),
     request("/odeme/hizli/odeme", "__Host-celebix_quick=wrong"),
@@ -880,26 +879,37 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=wrong" },
   ]);
-  for (const denied of [
+  for (const routeOwned of [
     request("/checkout/payment"),
     request("/checkout/payment", "__Host-celebix_hosted_checkout=wrong"),
+  ]) {
+    const response = await handler(routeOwned);
+    assert.equal(response.headers.get("content-security-policy"), null);
+  }
+  for (const denied of [
     request("/checkout/payment?x=1", "__Host-celebix_hosted_checkout=ready"),
     request("/checkout/payment/", "__Host-celebix_hosted_checkout=ready"),
   ]) {
     const response = await handler(denied);
     assert.doesNotMatch(response.headers.get("content-security-policy") ?? "", /frame-src https:\/\/www[.]paytr[.]com/);
   }
-  assert.deepEqual(standardCalls, [
-    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_hosted_checkout=ready" },
-    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
-    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_hosted_checkout=wrong" },
-  ]);
+  assert.deepEqual(standardCalls, []);
+});
+
+test("standard checkout payment route permits only the exact PayTR frame and keeps fallback CSP closed", async () => {
+  const route = await readFile(new URL("../app/checkout/payment/route.ts", import.meta.url), "utf8");
+  assert.match(route, /Content-Security-Policy/);
+  assert.match(route, /const FALLBACK_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'"/);
+  assert.match(route, /frame-src \$\{frameOrigin\}/);
+  assert.match(route, /new URL\(presentation[.]url\)[.]origin/);
+  assert.match(route, /allow="payment"/);
+  assert.doesNotMatch(route, /frame-src\s+(?:\*|https:(?:\s|$)|'self'(?:\s|$)|[^;\n]*unsafe-inline)/i);
 });
 
 test("checkout sources contain no raw secret, provider log, off-origin redirect, or browser token serialization", async () => {
   const appRoot = path.resolve(import.meta.dirname, "..");
   const checkoutFiles = (await sourceFiles(appRoot)).filter((file) =>
-    !file.includes(`${path.sep}.next${path.sep}`) && /(?:lib\/checkout|scripts\/reconcile-quick-orders|app\/odeme\/hizli|app\/api\/(?:quick-order\/checkout|payments\/paytr\/callback)|proxy[.]ts)/.test(file),
+    !file.includes(`${path.sep}.next${path.sep}`) && /(?:lib\/checkout|scripts\/reconcile-quick-orders|app\/(?:odeme\/hizli|checkout\/payment)|app\/api\/(?:quick-order\/checkout|payments\/paytr\/callback)|proxy[.]ts)/.test(file),
   );
   for (const file of checkoutFiles) {
     const source = await readFile(file, "utf8");
