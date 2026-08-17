@@ -106,6 +106,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
         }
       } catch { return unavailable(); }
     }
+    if (exactTarget && pathname === "/checkout/payment") return NextResponse.next();
     let mediaOrigin: string;
     try {
       mediaOrigin = dependencies.resolveMediaOrigin();
@@ -142,7 +143,6 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
         : defaultCsp;
     response.headers.set("content-security-policy", csp);
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(name, value);
-    if (standardIframeAuthorized) response.headers.set("x-frame-options", "SAMEORIGIN");
     return response;
   };
 }
