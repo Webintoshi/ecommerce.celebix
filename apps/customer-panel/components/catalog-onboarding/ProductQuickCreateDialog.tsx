@@ -75,6 +75,7 @@ export function ProductQuickCreateDialog({
   const [progress, setProgress] = useState(0);
   const [recovery, setRecovery] = useState<Recovery>();
   const [createdProductId, setCreatedProductId] = useState<string>();
+  const [categoryId, setCategoryId] = useState("");
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -246,7 +247,28 @@ export function ProductQuickCreateDialog({
           <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Örn. Seramik kahve kupası" autoComplete="off" /></label>
           <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input name="price" required inputMode="decimal" placeholder="0,00" /><span>₺</span></div></label>
           <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" defaultValue="0" /></label>
-          <label className={styles.wide}><span>Kategori (satışa açmak için zorunlu)</span><select name="categoryId" defaultValue=""><option value="">Kategori seçin</option>{categoryRows.map(({ category, label }) => <option key={category.id} value={category.id}>{label}</option>)}</select></label>
+          <label className={styles.wide}>
+            <span>Kategori (satışa açmak için zorunlu)</span>
+            <select name="categoryId" required value={categoryId} onChange={(event) => setCategoryId(event.currentTarget.value)} disabled={!categoryRows.length}>
+              <option value="">Kategori seçin</option>{categoryRows.map(({ category, label }) => <option key={category.id} value={category.id}>{label}</option>)}
+            </select>
+            <small className={styles.fieldHint}>Kategori seçmeden satışa açılmaz; ürün vitrinde doğru koleksiyona bağlanır.</small>
+          </label>
+          {categoryRows.length ? (
+            <div className={`${styles.categoryChips} ${styles.wide}`} role="group" aria-label="Hızlı kategori seçimi">
+              {categoryRows.slice(0, 8).map(({ category, label }) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  className={`${styles.categoryChip} ${categoryId === category.id ? styles.categoryChipActive : ""}`}
+                  aria-pressed={categoryId === category.id}
+                  onClick={() => setCategoryId(category.id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <label className={`${styles.media} ${styles.wide}`}><ImagePlus aria-hidden="true" /><span>{images.length ? `${images.length} görsel seçildi` : "İsteğe bağlı görseller seç"}<small>PNG, JPEG veya WebP · en fazla 16 dosya · dosya başına 5 MB</small></span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={selectImage} /></label>
           {images.length ? <div className={`${styles.previewList} ${styles.wide}`}>{images.map((image, index) => <div className={styles.preview} key={`${image.file.name}-${index}`}><img src={image.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} /><label><span>{index + 1}. görsel alt metni</span><input maxLength={500} value={image.altText} onChange={(event) => changeAltText(index, event.target.value)} placeholder="Ürün görselini kısaca anlatın" /></label></div>)}</div> : null}
           {submitting && images.length ? <div className={`${styles.progress} ${styles.wide}`} role="status"><span>Görseller yükleniyor</span><progress max="100" value={progress}>{progress}%</progress><b>{progress}%</b></div> : null}

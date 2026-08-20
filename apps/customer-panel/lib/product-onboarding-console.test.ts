@@ -24,6 +24,21 @@ test("quick create exposes only two required merchant fields", async () => {
   assert.match(dialog, /Kategori \(satışa açmak için zorunlu\)/);
 });
 
+test("quick create makes category selection obvious before publishing", async () => {
+  const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const css = await source("components/catalog-onboarding/product-onboarding.module.css");
+
+  assert.match(dialog, /name="categoryId"[^>]*required/);
+  assert.match(dialog, /fieldHint/);
+  assert.match(dialog, /Kategori seçmeden satışa açılmaz/);
+  assert.match(dialog, /role="group"[^>]*aria-label="Hızlı kategori seçimi"/);
+  assert.match(dialog, /setCategoryId\(category[.]id\)/);
+  assert.match(dialog, /categoryChipActive/);
+  assert.match(css, /\.categoryChips/);
+  assert.match(css, /\.categoryChip/);
+  assert.match(css, /\.fieldHint/);
+});
+
 test("new product page defaults to quick creation and keeps advanced mode explicit", async () => {
   const page = await source("app/products/new/page.tsx");
   assert.match(page, /mode === "advanced" \? "advanced" : "quick"/);

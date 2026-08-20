@@ -622,6 +622,13 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   assert.match(publicRuntime, /celebix_saas_host_resolver/);
   assert.match(publicRuntime, /AS migration_071/);
   assert.match(publicRuntime, /row[.]migration_071 !== true/);
+  assert.match(publicRuntime, /AS migration_103/);
+  assert.match(publicRuntime, /row[.]migration_103 !== true/);
+  assert.match(publicRuntime, /public_cart_mutate\(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb\)/);
+  assert.match(publicRuntime, /public_cart_mutate_without_customer_identity_v103/);
+  assert.match(publicRuntime, /abandoned_carts_projection/);
+  assert.match(publicRuntime, /firstProductName/);
+  assert.match(publicRuntime, /customerId/);
   assert.match(publicRuntime, /AS migration_073/);
   assert.match(publicRuntime, /row[.]migration_073 !== true/);
   assert.match(publicRuntime, /storefront_hosted_checkout_settlement_preflight/);

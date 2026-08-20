@@ -235,7 +235,26 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.abandoned_carts_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.abandoned_carts_mark_recovered(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.abandoned_carts_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
-        AND to_regprocedure('saas.abandoned_carts_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS abandoned_cart_repository,
+        AND to_regprocedure('saas.abandoned_carts_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.public_cart_mutate_without_customer_identity_v103(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)') IS NOT NULL
+        AND to_regprocedure('saas.abandoned_carts_projection(uuid,uuid)') IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM pg_catalog.pg_attribute AS attribute
+          WHERE attribute.attrelid = to_regclass('saas.abandoned_carts')
+            AND attribute.attname = 'customer_id'
+            AND NOT attribute.attisdropped
+        )
+        AND pg_catalog.strpos(COALESCE((
+          SELECT procedure.prosrc
+          FROM pg_catalog.pg_proc AS procedure
+          WHERE procedure.oid = to_regprocedure('saas.abandoned_carts_projection(uuid,uuid)')
+        ), ''), '''firstProductName''') > 0
+        AND pg_catalog.strpos(COALESCE((
+          SELECT procedure.prosrc
+          FROM pg_catalog.pg_proc AS procedure
+          WHERE procedure.oid = to_regprocedure('saas.abandoned_carts_projection(uuid,uuid)')
+        ), ''), '''customerId''') > 0 AS abandoned_cart_repository,
       to_regprocedure('saas.customers_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.customers_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.customers_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL

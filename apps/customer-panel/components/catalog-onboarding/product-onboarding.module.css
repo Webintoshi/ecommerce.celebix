@@ -17,6 +17,11 @@
 .wide { grid-column: 1 / -1; }
 .form input, .form select { width: 100%; min-height: 48px; border: 1px solid #d8dee8; border-radius: 14px; background: #fff; padding: 0 14px; color: #182230; font: inherit; outline: 0; }
 .form input:focus, .form select:focus { border-color: #ff6a00; box-shadow: 0 0 0 4px rgb(255 106 0 / 12%); }
+.fieldHint { color: #7a8699; font-size: 11px; font-weight: 560; line-height: 1.45; }
+.categoryChips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -6px; }
+.categoryChip { min-height: 40px; border: 1px solid #d8dee8; border-radius: 999px; background: #fff; padding: 0 13px; color: #475467; font-size: 12px; font-weight: 760; cursor: pointer; }
+.categoryChip:hover { border-color: #ffb07a; background: #fff8f2; color: #bf4f00; }
+.categoryChipActive { border-color: #ff6a00; background: #fff1e8; color: #c75200; box-shadow: 0 0 0 3px rgb(255 106 0 / 10%); }
 .money { position: relative; }
 .money input { padding-right: 44px; }
 .money > span { position: absolute; top: 50%; right: 15px; translate: 0 -50%; color: #667085; }

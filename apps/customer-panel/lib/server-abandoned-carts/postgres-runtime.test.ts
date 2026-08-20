@@ -27,6 +27,11 @@ test("abandoned-cart preflight requires only session and abandoned-cart authorit
             "saas.abandoned_carts_mark_recovered",
             "saas.abandoned_carts_archive",
             "saas.abandoned_carts_recover_operation",
+            "saas.public_cart_mutate_without_customer_identity_v103",
+            "saas.abandoned_carts_projection",
+            "customer_id",
+            "firstProductName",
+            "customerId",
           ]) assert.match(sql, new RegExp(required.replaceAll(".", "\\.")));
           assert.match(sql, /has_function_privilege\(\s*'celebix_saas_identity'/);
           assert.match(sql, /has_function_privilege\(\s*'celebix_saas_app'/);
