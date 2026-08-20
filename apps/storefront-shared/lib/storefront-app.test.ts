@@ -617,6 +617,12 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   assert.match(publicRuntime, /row[.]migration_071 !== true/);
   assert.match(publicRuntime, /AS migration_073/);
   assert.match(publicRuntime, /row[.]migration_073 !== true/);
+  assert.match(publicRuntime, /AS migration_103/);
+  assert.match(publicRuntime, /row[.]migration_103 !== true/);
+  assert.match(publicRuntime, /public_cart_mutate_without_customer_identity_v103/);
+  assert.match(publicRuntime, /abandoned_carts_projection\(uuid,uuid\)/);
+  assert.match(publicRuntime, /'firstProductName'/);
+  assert.match(publicRuntime, /'customerId'/);
   assert.match(publicRuntime, /storefront_hosted_checkout_settlement_preflight/);
   assert.match(publicRuntime, /hostedMigration[.]rows\[0\][?][.]migration_092 === true/);
   assert.match(publicRuntime, /async function queryAsWorkflowRole/);
@@ -827,11 +833,17 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
   const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
   const ready = await handler(request("/odeme/hizli/odeme", "__Host-celebix_quick=ready"));
   assert.equal(ready.headers.get("content-security-policy"), exactCsp);
+  const checkoutReady = await handler(request("/checkout/payment", "__Host-celebix_quick=ready"));
+  assert.equal(checkoutReady.headers.get("content-security-policy"), exactCsp);
   for (const denied of [
     request("/odeme/hizli/odeme"),
     request("/odeme/hizli/odeme", "__Host-celebix_quick=wrong"),
     request("/odeme/hizli/odeme?x=1", "__Host-celebix_quick=ready"),
     request("/odeme/hizli/odeme/", "__Host-celebix_quick=ready"),
+    request("/checkout/payment"),
+    request("/checkout/payment", "__Host-celebix_quick=wrong"),
+    request("/checkout/payment?x=1", "__Host-celebix_quick=ready"),
+    request("/checkout/payment/", "__Host-celebix_quick=ready"),
   ]) {
     const response = await handler(denied);
     const csp = response.headers.get("content-security-policy");
@@ -840,6 +852,9 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
   }
   assert.deepEqual(calls, [
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=ready" },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=ready" },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=wrong" },
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=wrong" },
   ]);

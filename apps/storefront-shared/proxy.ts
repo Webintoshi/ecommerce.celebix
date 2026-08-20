@@ -105,7 +105,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"",connectDestination=analytics?`'self' ${analytics.collectorOrigin}`:"'self'";
     const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;
     let iframeAuthorized = false;
-    if (exactTarget && pathname === "/odeme/hizli/odeme") {
+    if (exactTarget && (pathname === "/odeme/hizli/odeme" || pathname === "/checkout/payment")) {
       try {
         iframeAuthorized = await dependencies.authorizePaytrIframe({ hostname: authority.hostname,
           cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;

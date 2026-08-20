@@ -42,8 +42,16 @@ test("disabled, malformed, and duplicate registrations fail closed", () => {
 
 test("approved staging composition shares one pool and preflights the complete abandoned-cart repository", () => {
   const source = readFileSync(new URL("../server-panel-access/postgres-runtime.ts", import.meta.url), "utf8");
+  const isolatedSource = readFileSync(new URL("./postgres-runtime.ts", import.meta.url), "utf8");
   assert.equal((source.match(/new Pool\(/g) ?? []).length, 1);
   assert.match(source, /new PostgresAbandonedCartRepository\([\s\S]*?pool,/);
   assert.match(source, /registerServerAbandonedCartRepository\(access, abandonedCartRepository\)/);
-  for (const name of ["abandoned_carts_summary", "abandoned_carts_list", "abandoned_carts_get", "abandoned_carts_mark_recovered", "abandoned_carts_archive", "abandoned_carts_recover_operation"]) assert.match(source, new RegExp(name));
+  for (const checkedSource of [source, isolatedSource]) {
+    for (const name of ["abandoned_carts_summary", "abandoned_carts_list", "abandoned_carts_get", "abandoned_carts_mark_recovered", "abandoned_carts_archive", "abandoned_carts_recover_operation"]) assert.match(checkedSource, new RegExp(name));
+    assert.match(checkedSource, /public_cart_mutate_without_customer_identity_v103/);
+    assert.match(checkedSource, /abandoned_carts_projection\(uuid,uuid\)/);
+    assert.match(checkedSource, /'firstProductName'/);
+    assert.match(checkedSource, /'customerId'/);
+    assert.match(checkedSource, /customer_id/);
+  }
 });
