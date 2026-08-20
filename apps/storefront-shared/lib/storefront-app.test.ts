@@ -639,6 +639,14 @@ test("application configuration defines baseline security headers", async () => 
   for (const header of ["Content-Security-Policy", "X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options"]) {
     assert.match(config, new RegExp(header));
   }
+  const checkoutPaymentHeaderStart = config.indexOf('source: "/checkout/payment"');
+  const baselineHeaderStart = config.indexOf('source: "/((?!checkout/payment$).*)"');
+  assert.ok(checkoutPaymentHeaderStart >= 0);
+  assert.ok(baselineHeaderStart > checkoutPaymentHeaderStart);
+  const checkoutPaymentHeader = config.slice(checkoutPaymentHeaderStart, baselineHeaderStart);
+  assert.match(config, /source: "\/checkout\/payment"[\s\S]*headers: \[\.\.\.BASE_SECURITY_HEADERS\]/);
+  assert.match(config, /source: "\/\(\(\?!checkout\/payment\$\)\.\*\)"/);
+  assert.doesNotMatch(checkoutPaymentHeader, /Content-Security-Policy/);
   const claimRoute = await readFile(new URL("../app/odeme/hizli/[token]/route.ts", import.meta.url), "utf8");
   const quotePage = await readFile(new URL("../app/odeme/hizli/page.tsx", import.meta.url), "utf8");
   const statusRoute = await readFile(new URL("../app/api/quick-order/status/route.ts", import.meta.url), "utf8");
