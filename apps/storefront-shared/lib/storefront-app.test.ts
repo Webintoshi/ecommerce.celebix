@@ -865,3 +865,13 @@ test("the token-free iframe route remains a server-only PayTR boundary", async (
   assert.match(proxy, /frame-src https:\/\/www[.]paytr[.]com/);
   assert.doesNotMatch(proxy, /frame-src\s+(?:\*|https:(?:\s|$)|'self'(?:\s|$)|[^;\n]*unsafe-inline)/i);
 });
+
+test("standard checkout payment route permits PayTR origin referrer only inside the provider iframe", async () => {
+  const route = await readFile(new URL("../app/checkout/payment/route.ts", import.meta.url), "utf8");
+
+  assert.match(route, /PAYMENT_FRAME_HEADERS/);
+  assert.match(route, /"Referrer-Policy": "origin"/);
+  assert.match(route, /referrerpolicy="origin"/);
+  assert.match(route, /object-src 'none'/);
+  assert.doesNotMatch(route, /referrerpolicy="no-referrer"/);
+});
