@@ -19,7 +19,11 @@ import {
 import { CampaignProductRow } from "./CampaignProductRow";
 import { CampaignTestimonials } from "./CampaignTestimonials";
 import { CampaignValuePropositions } from "./CampaignValuePropositions";
-import { campaignHomeSectionKey, composeCampaignHomeSections } from "./campaign-home-sections";
+import {
+  campaignHomeSectionKey,
+  composeCampaignHomeSections,
+  homepageAvailableProducts,
+} from "./campaign-home-sections";
 import { campaignAnnouncement } from "./campaign-ui-model";
 import { localizePublicStorefrontDesign, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import styles from "./campaign-home.module.css";
@@ -51,7 +55,7 @@ function Section({
         <CampaignCategories section={section} locale={locale} />
       ) : null;
     case "product_row":
-      const products = productRows.find((row) => row.key === section.key)?.items ?? [];
+      const products = homepageAvailableProducts(productRows.find((row) => row.key === section.key)?.items);
       return products.length ? (
         <CampaignProductRow
           section={section}

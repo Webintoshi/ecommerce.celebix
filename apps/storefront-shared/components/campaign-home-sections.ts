@@ -6,6 +6,7 @@ import type {
 } from "@celebix/saas-contracts";
 
 type CampaignPresentation = PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
+type ProductRowItems = CampaignHomeProjection["productRows"][number]["items"];
 
 function categoryShowcaseSection(
   presentation: CampaignPresentation,
@@ -51,13 +52,17 @@ export function campaignHomeSectionKey(section: PublicStarterHomeSection, index:
   return section.sectionId ?? (section.kind === "product_row" ? `home_${section.key}` : `home_${section.kind}_${index + 1}`);
 }
 
+export function homepageAvailableProducts(products?: ProductRowItems): ProductRowItems {
+  return Object.freeze((products ?? []).filter((product) => product.available));
+}
+
 export function visibleCampaignSectionKinds(projection: CampaignHomeProjection) {
   if (projection.presentation.schemaVersion !== 2 && projection.presentation.schemaVersion !== 3) return Object.freeze([]);
   const rows = new Map(projection.productRows.map((row) => [row.key, row.items]));
   return Object.freeze(projection.presentation.sections.flatMap((section) => {
     if (section.kind === "hero") return section.slides.length ? [section.kind] : [];
     if (section.kind === "category_grid") return section.items.length ? [section.kind] : [];
-    if (section.kind === "product_row") return rows.get(section.key)?.length ? [section.kind] : [];
+    if (section.kind === "product_row") return homepageAvailableProducts(rows.get(section.key)).length ? [section.kind] : [];
     if (section.kind === "split_campaign") return section.panels.length ? [section.kind] : [];
     if (section.kind === "value_propositions") return section.items.length ? [section.kind] : [];
     if (section.kind === "testimonials") return section.items.length ? [section.kind] : [];

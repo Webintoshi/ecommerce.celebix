@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase5d-homepage-available-product-rows",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608210113_homepage_available_product_rows.up.sql",
+      "direction": "up",
+      "sha256": "3bf9443edc28c6960a5bc6ee19d613667ec94b6f1f9f038f187814e7454deeb9"
+    },
+    {
+      "file": "202608210113_homepage_available_product_rows.down.sql",
+      "direction": "down",
+      "sha256": "0f2fd2e8baa93cd5dd982cfaa5c0d5bff6575fa5cd22f0608f116b37c35eff17"
+    },
+    {
+      "file": "202608210113_homepage_available_product_rows_assertions.sql",
+      "direction": "verify",
+      "sha256": "628e0ff641489bc8726c1b6fa6520d7fde7f0ea7b13ef681da144d37fb435791"
+    }
+  ]
+}
