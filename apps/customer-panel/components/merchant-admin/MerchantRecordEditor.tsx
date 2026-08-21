@@ -79,6 +79,7 @@ function parseFormConfig(
     }
     const raw = String(data.get(field.key) ?? "").trim();
     if (!raw) {
+      if (field.required) throw new TypeError("invalid_required_field");
       if (field.type === "string-list") throw new TypeError(`invalid_string_list_${listLimit(field)}`);
       continue;
     }
@@ -105,6 +106,8 @@ function parseFormConfig(
     } else if (field.type === "enum") {
       if (!field.allowedValues?.includes(raw)) throw new TypeError("invalid_enum_value");
       config[field.key] = raw;
+    } else if (field.type === "email") {
+      config[field.key] = raw.toLowerCase();
     } else {
       config[field.key] = raw;
     }
@@ -118,7 +121,7 @@ function safeError(caught: unknown) {
     const list = /^invalid_string_list_(\d{1,3})$/.exec(caught.message);
     if (list) return `Liste 1 ile ${Number(list[1])} arasında satır içermelidir.`;
     if (caught.message === "invalid_enum_list") return "Yalnız izin verilen seçeneklerden geçerli sayıda seçim yapın.";
-    if (["merchant_record_form_invalid", "invalid_datetime", "invalid_enum_value", "invalid_list_definition"].includes(caught.message)) return "Gönderilen kayıt bilgileri geçersiz.";
+    if (["merchant_record_form_invalid", "invalid_datetime", "invalid_enum_value", "invalid_list_definition", "invalid_required_field"].includes(caught.message)) return "Gönderilen kayıt bilgileri geçersiz.";
   }
   return "Kayıt tamamlanamadı.";
 }
@@ -228,13 +231,13 @@ export function MerchantRecordEditor({
           {field.key === "policyType" && record ? (
             <input name={field.key} readOnly aria-readonly="true" value={inputValue(record, field.key)} />
           ) : field.type === "textarea" || field.type === "string-list" ? (
-            <textarea name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
+            <textarea name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
           ) : field.type === "boolean" ? (
             <span className={styles.switchField}><input name={field.key} type="checkbox" defaultChecked={record?.config[field.key] === true} /><span>Etkin</span></span>
           ) : field.type === "enum" || field.type === "number" && field.allowedValues ? (
-            <select name={field.key} defaultValue={inputValue(record, field.key)}>{field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}</select>
+            <select name={field.key} required={field.required} defaultValue={inputValue(record, field.key)}><option value="">Seçin</option>{field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}</select>
           ) : (
-            <input name={field.key} type={field.type === "email" || field.type === "url" ? field.type : field.type === "number" ? "number" : field.type === "datetime" ? "datetime-local" : "text"} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
+            <input name={field.key} required={field.required} type={field.type === "email" || field.type === "url" ? field.type : field.type === "number" ? "number" : field.type === "datetime" ? "datetime-local" : "text"} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
           )}
         </label>
       ))}
