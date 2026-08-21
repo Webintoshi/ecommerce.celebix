@@ -1,16 +1,8 @@
 import "server-only";
 
-import process from "node:process";
-
-import { initializeApprovedStagingServerAbandonedCartRuntime } from "./postgres-runtime.ts";
-import { createServerAbandonedCartRuntimeResolver } from "./resolver.ts";
-
-const resolver = createServerAbandonedCartRuntimeResolver({
-  source: process.env,
-  initialize: initializeApprovedStagingServerAbandonedCartRuntime,
-  diagnostic(code) { console.error(code); },
-});
+import { resolveDefaultServerPanelAccessRuntime } from "../server-panel-access/default.ts";
+import { resolveServerAbandonedCartRuntime } from "./runtime.ts";
 
 export async function resolveDefaultServerAbandonedCartRuntime() {
-  return resolver.resolve();
+  return resolveServerAbandonedCartRuntime(await resolveDefaultServerPanelAccessRuntime());
 }
