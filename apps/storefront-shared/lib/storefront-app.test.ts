@@ -864,6 +864,20 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
   const standardCsp = "default-src 'none'; frame-src https://www.paytr.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
   const standardReady = await handler(request("/checkout/payment", "__Host-celebix_hosted_checkout=ready"));
   assert.equal(standardReady.headers.get("content-security-policy"), standardCsp);
+  const hostedReturnBridge = await handler(request("/odeme/hizli/sonuc?durum=basarili", "__Host-celebix_hosted_checkout=ready"));
+  const hostedReturnBridgeCsp = hostedReturnBridge.headers.get("content-security-policy") ?? "";
+  assert.match(hostedReturnBridgeCsp, /^default-src 'none'; script-src 'nonce-[^']+'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'self' https:\/\/www[.]paytr[.]com; form-action 'none'; object-src 'none'$/);
+  assert.equal(hostedReturnBridge.headers.get("x-frame-options"), null);
+  for (const deniedBridge of [
+    request("/odeme/hizli/sonuc?durum=basarili"),
+    request("/odeme/hizli/sonuc?durum=basarili", "__Host-celebix_hosted_checkout=wrong"),
+    request("/odeme/hizli/sonuc?durum=basarili&x=1", "__Host-celebix_hosted_checkout=ready"),
+    request("/odeme/hizli/sonuc/", "__Host-celebix_hosted_checkout=ready"),
+  ]) {
+    const response = await handler(deniedBridge);
+    assert.equal(response.headers.get("x-frame-options"), "DENY");
+    assert.doesNotMatch(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'self' https:\/\/www[.]paytr[.]com/);
+  }
   for (const denied of [
     request("/odeme/hizli/odeme"),
     request("/odeme/hizli/odeme", "__Host-celebix_quick=wrong"),
@@ -891,9 +905,20 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
   }
   assert.deepEqual(standardCalls, [
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_hosted_checkout=ready" },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_hosted_checkout=ready" },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_hosted_checkout=wrong" },
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
     { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_hosted_checkout=wrong" },
   ]);
+});
+
+test("standard hosted PayTR return page top-navigates out of the provider iframe without confirming an order", async () => {
+  const source = await readFile(new URL("../app/odeme/hizli/sonuc/page.tsx", import.meta.url), "utf8");
+  assert.match(source, /HOSTED_RESULT_TARGET = "\/checkout\/payment\/result"/);
+  assert.match(source, /window[.]top[.]location[.]replace/);
+  assert.match(source, /target="_top"/);
+  assert.doesNotMatch(source, /Ödemeniz alındı|Siparişiniz başarıyla oluşturuldu/);
 });
 
 test("checkout sources contain no raw secret, provider log, off-origin redirect, or browser token serialization", async () => {

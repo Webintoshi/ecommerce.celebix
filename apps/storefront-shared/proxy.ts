@@ -12,6 +12,22 @@ const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none
 const PAYTR_IFRAME_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
 const STANDARD_PAYTR_IFRAME_CSP = "default-src 'none'; frame-src https://www.paytr.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
 const SECURITY_HEADERS = Object.freeze({ "cache-control": "private, no-store, no-transform", "referrer-policy": "strict-origin-when-cross-origin", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "permissions-policy": "camera=(), microphone=(), geolocation=()", "strict-transport-security": "max-age=31536000; includeSubDomains" });
+const PAYTR_HOSTED_RETURN_SEARCHES = new Set(["?durum=basarili", "?durum=basarisiz", "?durum=isleniyor"]);
+
+function isPaytrHostedReturnBridge(pathname: string, search: string, hash: string): boolean {
+  return pathname === "/odeme/hizli/sonuc" && hash === "" && PAYTR_HOSTED_RETURN_SEARCHES.has(search);
+}
+
+function applySecurityHeaders(response: NextResponse, options: Readonly<{ omitFrameOptions?: boolean }> = {}): void {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    if (options.omitFrameOptions === true && name === "x-frame-options") continue;
+    response.headers.set(name, value);
+  }
+}
+
+function paytrHostedReturnBridgeCsp(nonce: string): string {
+  return `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'self' https://www.paytr.com; form-action 'none'; object-src 'none'`;
+}
 
 function unavailable(): NextResponse {
   return new NextResponse("Storefront unavailable", { status: 503, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, "content-type": "text/plain; charset=utf-8" } });
@@ -131,9 +147,18 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
           cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
       } catch { standardIframeAuthorized = false; }
     }
+    let paytrHostedReturnBridgeAuthorized = false;
+    if (isPaytrHostedReturnBridge(pathname, request.nextUrl.search, request.nextUrl.hash) && dependencies.authorizeStandardHostedIframe) {
+      try {
+        paytrHostedReturnBridgeAuthorized = await dependencies.authorizeStandardHostedIframe({ hostname: authority.hostname,
+          cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
+      } catch { paytrHostedReturnBridgeAuthorized = false; }
+    }
     const accountVerificationForm = pathname === "/account/verify";
     const quickOrderForm = exactTarget && pathname === "/odeme/hizli";
-    const csp = standardIframeAuthorized
+    const csp = paytrHostedReturnBridgeAuthorized
+      ? paytrHostedReturnBridgeCsp(nonce)
+      : standardIframeAuthorized
       ? STANDARD_PAYTR_IFRAME_CSP
       : accountVerificationForm || quickOrderForm
       ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
@@ -141,7 +166,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
         ? PAYTR_IFRAME_CSP
         : defaultCsp;
     response.headers.set("content-security-policy", csp);
-    for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(name, value);
+    applySecurityHeaders(response, { omitFrameOptions: paytrHostedReturnBridgeAuthorized });
     return response;
   };
 }
