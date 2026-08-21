@@ -40,6 +40,12 @@ test("defines every durable merchant module with a unique route and field contra
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
   assert.equal(getMerchantModuleDefinition("lucky_wheel").route, "/discounts/lucky-wheel");
   assert.equal(getMerchantModuleDefinition("administrator_invite").route, "/settings/administrators");
+  assert.equal(getMerchantModuleDefinition("administrator_invite").notice?.includes("parola"), true);
+  assert.deepEqual(getMerchantModuleDefinition("administrator_invite").fields.map(({ key, label, type, allowedValues, required }) => ({ key, label, type, allowedValues, required })), [
+    { key: "email", label: "Yönetici e-postası", type: "email", allowedValues: undefined, required: true },
+    { key: "role", label: "Yetki rolü", type: "enum", allowedValues: ["admin", "editor", "analyst"], required: true },
+    { key: "expiresAt", label: "Davet bitiş zamanı", type: "datetime", allowedValues: undefined, required: true },
+  ]);
   assert.equal(getMerchantModuleDefinition("indexing_request").route, "/seo/fast-indexing");
   assert.equal(getMerchantModuleDefinition("notification_setting").route, "/settings/notifications");
   assert.equal(getMerchantModuleDefinition("notification_setting").cardinality, "singleton");

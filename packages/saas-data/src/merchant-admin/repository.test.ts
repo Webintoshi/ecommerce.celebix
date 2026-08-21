@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { TenantContext } from "@celebix/saas-contracts";
-import { MerchantAdminRepositoryError, PostgresMerchantAdminRepository, type MerchantAdminRepository } from "./index.ts";
+import { MerchantAdminRepositoryError, PostgresMerchantAdminRepository, merchantAdminConfig, type MerchantAdminRepository } from "./index.ts";
 
 const STORE="33333333-3333-4333-8333-333333333333", PRINCIPAL="44444444-4444-4444-8444-444444444444", MEMBERSHIP="55555555-5555-4555-8555-555555555555", PLAN="66666666-6666-4666-8666-666666666666", RECORD="71000000-0000-4000-8000-000000000001", OP="72000000-0000-4000-8000-000000000001", NOW=new Date("2026-07-22T19:00:00.000Z");
 function tenant(): TenantContext { return { schemaVersion:1, requestId:"private", principal:{id:PRINCIPAL,issuer:"https://id.test/oidc",subject:"private"}, store:{id:STORE,slug:"store",status:"active"}, membership:{id:MEMBERSHIP,role:"store_owner",status:"active"}, entitlements:{schemaVersion:1,planId:PLAN,planCode:"growth",version:2,status:"active",features:["catalog"],limits:{products:100,staff:5,storageBytes:1024},validFrom:"2026-01-01T00:00:00.000Z"}, locale:"tr-TR" } as TenantContext }
@@ -58,6 +58,24 @@ test("saves and archives with exact versioned authority",async()=>{
 test("rejects secret-bearing config before SQL",async()=>{
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"marketplace_connection",name:"Pazar",config:{apiSecret:"never"},status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"discount",name:"Yaz",config:{unexpectedField:"never"},status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+});
+
+test("administrator invites require canonical email fixed role and expiration before SQL",async()=>{
+ const valid={email:"manager@example.test",role:"admin",expiresAt:"2026-08-22T19:00:00.000Z"};
+ assert.deepEqual(merchantAdminConfig("administrator_invite",valid),valid);
+ for(const config of [
+  {},
+  {email:"manager@example.test",role:"admin"},
+  {email:"Manager@Example.test",role:"admin",expiresAt:"2026-08-22T19:00:00.000Z"},
+  {email:" manager@example.test ",role:"admin",expiresAt:"2026-08-22T19:00:00.000Z"},
+  {email:"bad",role:"admin",expiresAt:"2026-08-22T19:00:00.000Z"},
+  {email:"manager@example.test",role:"owner",expiresAt:"2026-08-22T19:00:00.000Z"},
+  {email:"manager@example.test",role:"store_owner",expiresAt:"2026-08-22T19:00:00.000Z"},
+  {email:"manager@example.test",role:"admin",expiresAt:"2026-08-22T19:00"},
+  {email:"manager@example.test",role:"admin",expiresAt:"2026-08-22T19:00:00.000Z",password:"secret"},
+ ]) assert.throws(()=>merchantAdminConfig("administrator_invite",config),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"administrator_invite",name:"Ekip daveti",config:{email:"bad",role:"admin",expiresAt:"2026-08-22T19:00:00.000Z"},status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"administrator_invite",name:"Ekip daveti",config:{email:"manager@example.test",role:"admin",expiresAt:NOW.toISOString()},status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
 test("typed settings accept only finite public configuration before SQL",async()=>{

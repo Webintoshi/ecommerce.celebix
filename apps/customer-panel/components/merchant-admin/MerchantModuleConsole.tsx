@@ -120,6 +120,7 @@ function parseFormConfig(
     }
     const raw = String(data.get(field.key) ?? "").trim();
     if (!raw) {
+      if (field.required) throw new TypeError("invalid_required_field");
       if (field.type === "string-list") throw new TypeError(`invalid_string_list_${listLimit(field)}`);
       continue;
     }
@@ -146,6 +147,8 @@ function parseFormConfig(
     } else if (field.type === "enum") {
       if (!field.allowedValues?.includes(raw)) throw new TypeError("invalid_enum_value");
       entries[field.key] = raw;
+    } else if (field.type === "email") {
+      entries[field.key] = raw.toLowerCase();
     } else {
       entries[field.key] = raw;
     }
@@ -161,6 +164,7 @@ function formErrorMessage(error: unknown): string {
       return `Liste 1 ile ${limit} arasında satır içermelidir.`;
     }
     if (error.message === "invalid_enum_list") return "Yalnız geçerli özelliklerden 1 ile 3 tanesini bir kez seçin.";
+    if (["invalid_datetime", "invalid_enum_value", "invalid_number", "invalid_required_field", "invalid_list_definition"].includes(error.message)) return "Gönderilen kayıt bilgileri geçersiz.";
   }
   return error instanceof MerchantAdminApiError ? error.message : "Kayıt tamamlanamadı.";
 }
@@ -756,18 +760,18 @@ export function MerchantModuleConsole({
                 <label className={field.type === "textarea" || field.type === "string-list" ? styles.wide : undefined} key={field.key}>
                   {field.label}
                   {field.type === "textarea" || field.type === "string-list" ? (
-                    <textarea name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
+                    <textarea name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   ) : field.type === "boolean" ? (
                     <span className={styles.switchField}><input name={field.key} type="checkbox" defaultChecked={editing?.config[field.key] === true} /><span>Etkin</span></span>
                   ) : field.type === "enum" || field.type === "number" && field.allowedValues ? (
-                    <select name={field.key} defaultValue={inputValue(editing, field.key)}>
+                    <select name={field.key} required={field.required} defaultValue={inputValue(editing, field.key)}>
                       <option value="">Seçin</option>
                       {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}
                     </select>
                   ) : field.type === "datetime" ? (
-                    <input name={field.key} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(editing, field.key)} />
+                    <input name={field.key} required={field.required} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(editing, field.key)} />
                   ) : (
-                    <input name={field.key} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
+                    <input name={field.key} required={field.required} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   )}
                 </label>
               ))}
