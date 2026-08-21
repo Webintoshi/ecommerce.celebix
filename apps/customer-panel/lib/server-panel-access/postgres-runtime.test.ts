@@ -5,6 +5,14 @@ import pg from "pg";
 
 import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
 
+function assertAppRoleFunctionPrivilege(sql: string, signature: string): void {
+  const escaped = signature.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  assert.match(
+    sql,
+    new RegExp(`has_function_privilege\\(\\s*'celebix_saas_app',\\s*'${escaped}',\\s*'EXECUTE'\\s*\\)`),
+  );
+}
+
 test("approved staging preflight targets the exact migration 056 onboarding relations", async () => {
   let checkedOut = 0;
   let released = 0;
@@ -41,6 +49,18 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
           assert.match(sql, /to_regclass\('saas\.cross_host_panel_handoffs'\) IS NOT NULL/);
           assert.match(sql, /to_regprocedure\('saas\.resolve_public_admin_brand\(text,timestamp with time zone\)'\) IS NOT NULL/);
           assert.match(sql, /to_regprocedure\('saas\.revoke_principal_panel_sessions\(text,text,text,timestamp with time zone\)'\) IS NOT NULL/);
+          for (const signature of [
+            "saas.catalog_get_onboarding_options(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)",
+            "saas.catalog_onboard_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)",
+            "saas.catalog_get_product_editor(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)",
+            "saas.catalog_update_merchandising(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)",
+            "saas.catalog_publish_after_media(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,integer)",
+            "saas.catalog_recover_onboarding_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)",
+            "saas.catalog_list_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)",
+            "saas.catalog_create_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,jsonb)",
+            "saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)",
+            "saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+          ]) assertAppRoleFunctionPrivilege(sql, signature);
 
           return {
             rowCount: 1,
