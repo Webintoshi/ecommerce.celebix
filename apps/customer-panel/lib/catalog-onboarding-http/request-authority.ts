@@ -1,5 +1,5 @@
 import "server-only";
-import { approvedPanelMutationOrigin } from "../panel-origin-authority.ts";
+import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const PATH = new RegExp(`^(?:/api/catalog/onboarding/(?:options|products|categories(?:/${UUID}(?:/archive)?)?)|/api/catalog/products/${UUID}/(?:merchandising|publish-after-media))$`);
@@ -39,7 +39,7 @@ export function createCatalogOnboardingRequestAuthorityValidator(options: Readon
       const exact = expectation(expected);
       if (!(request instanceof Request)) return "request_invalid";
       if (request.method !== exact.method) return "method_not_allowed";
-      if (exact.method !== "GET" && !approvedPanelMutationOrigin(request, origin)) return "origin_denied";
+      if (exact.method !== "GET" && !hasApprovedPanelMutationOriginShape(request, origin)) return "origin_denied";
       let url: URL;
       try { url = new URL(request.url); } catch { return "request_invalid"; }
       if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password || url.pathname !== exact.pathname || url.search || url.hash) return "request_invalid";

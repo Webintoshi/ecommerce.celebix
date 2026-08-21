@@ -88,13 +88,15 @@ class Client {
   readonly calls: Array<{ text: string; values: unknown[] }> = [];
   readonly releases: unknown[] = [];
   private readonly responder: Responder;
+  private released = false;
   constructor(responder: Responder = () => []) { this.responder = responder; }
   async query(text: string, values: unknown[] = []) {
+    if (this.released) throw new Error("released_client_reused");
     this.calls.push({ text, values });
     const rows = await this.responder(text, values);
     return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
   }
-  release(value?: unknown) { this.releases.push(value); }
+  release(value?: unknown) { this.released = true; this.releases.push(value); }
 }
 
 class Pool {
@@ -203,6 +205,7 @@ test("operation outcomes are mapped to fixed repository errors", async () => {
     }),
     (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "product_limit_reached",
   );
+  assert.deepEqual(writer.releases, [undefined]);
 });
 
 test("category reads and mutations use exact authority and one SQL boundary", async () => {

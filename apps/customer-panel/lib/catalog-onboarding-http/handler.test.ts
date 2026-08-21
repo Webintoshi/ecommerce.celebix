@@ -110,6 +110,27 @@ test("tenant admin same-origin quick create forwards the selected category and r
   }]);
 });
 
+test("tenant admin quick create survives an internal reverse-proxy host without weakening path authority", async () => {
+  const calls: unknown[] = [];
+  const response = await handlers(repository({ async createProduct(input) { calls.push(input); return { ...result(), categoryIds: [CATEGORY] }; } })).createProduct(
+    request("/api/catalog/onboarding/products", "POST", {
+      kind: "quick",
+      title: "Kupa",
+      priceCents: 12990,
+      publish: true,
+      stockQuantity: 1,
+      categoryId: CATEGORY,
+    }, { origin: TENANT_ADMIN_ORIGIN, host: "customer-panel:3400" }),
+  );
+  assert.equal(response.status, 201);
+  assert.deepEqual(calls, [{
+    tenantContext: tenant(),
+    now: NOW,
+    operationId: OPERATION,
+    intent: { kind: "quick", title: "Kupa", priceCents: 12990, publish: true, stockQuantity: 1, categoryId: CATEGORY },
+  }]);
+});
+
 test("options use authenticated durable authority in a no-store response", async () => {
   const calls: unknown[] = [];
   const options = { categories: [], resources: [], locations: [], channels: [] };
