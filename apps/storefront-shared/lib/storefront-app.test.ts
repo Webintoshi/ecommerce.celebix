@@ -415,6 +415,40 @@ test("category showcase keeps grid compact and stacks the duo layout on narrow m
   assert.match(css, /@media \(max-width: 640px\)[\s\S]+[.]category-showcase-grid\[data-layout="duo"\]\s*\{[^}]*grid-template-columns:\s*1fr/);
 });
 
+test("public SQL product projections rank available products before applying storefront limits", async () => {
+  const [catalog, category, search, campaign] = await Promise.all([
+    readFile(path.resolve(import.meta.dirname, "../../owner/scripts/sql/saas/202607220045_price_lists.up.sql"), "utf8"),
+    readFile(path.resolve(import.meta.dirname, "../../owner/scripts/sql/saas/202607300070_storefront_category_showcase.up.sql"), "utf8"),
+    readFile(path.resolve(import.meta.dirname, "../../owner/scripts/sql/saas/202607310071_storefront_policy_search.up.sql"), "utf8"),
+    readFile(path.resolve(import.meta.dirname, "../../owner/scripts/sql/saas/202608010074_campaign_starter_composition.up.sql"), "utf8"),
+  ]);
+
+  assert.match(
+    catalog,
+    /public_list_products[\s\S]+ORDER BY \(projected[.]payload->>'available'\)::boolean DESC,projected[.]created_at DESC,projected[.]id DESC\s+LIMIT p_limit/u,
+  );
+  assert.match(
+    category,
+    /public_list_products_by_category[\s\S]+ORDER BY \(projected[.]payload->>'available'\)::boolean DESC,projected[.]created_at DESC,projected[.]id DESC\s+LIMIT p_limit/u,
+  );
+  assert.match(
+    search,
+    /public_search_products[\s\S]+ORDER BY \(candidates[.]payload->>'available'\)::boolean DESC,candidates[.]created_at DESC,candidates[.]id DESC\s+LIMIT p_limit[+]1/u,
+  );
+  assert.match(
+    search,
+    /public_search_products[\s\S]+[(][(]payload->>'available'[)]::boolean,created_at,id[)]<[(]cursor_available,cursor_time,cursor_id[)]/u,
+  );
+  assert.match(
+    search,
+    /public_search_products[\s\S]+last_available::text[|][|]'[|]'[|][|]saas[.]store_policy_timestamp[(]last_time[)][|][|]'[|]'[|][|]last_id::text/u,
+  );
+  assert.match(
+    campaign,
+    /public_storefront_related_products[\s\S]+ORDER BY \(projected[.]projection->>'available'\)::boolean DESC,projected[.]created_at DESC,projected[.]id DESC\s+LIMIT p_limit/u,
+  );
+});
+
 test("storefront metadata is presentation-owned and defaults to noindex", async () => {
   const home = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(home, /presentation[.]seo[.]allowIndex/);

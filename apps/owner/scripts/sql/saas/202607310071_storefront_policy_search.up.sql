@@ -343,20 +343,21 @@ $function$;
 CREATE FUNCTION saas.public_search_products(p_hostname text,p_now timestamptz,p_query text,p_limit integer,p_cursor text)
 RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $function$
-DECLARE selected_store uuid; cursor_time timestamptz; cursor_id uuid; items jsonb; next_cursor text; last_time timestamptz; last_id uuid; available_count integer;
+DECLARE selected_store uuid; cursor_available boolean; cursor_time timestamptz; cursor_id uuid; items jsonb; next_cursor text; last_available boolean; last_time timestamptz; last_id uuid; available_count integer;
 BEGIN
   IF p_now IS NULL OR NOT saas.store_policy_hostname_valid(p_hostname) OR p_query IS NULL OR p_query<>pg_catalog.btrim(p_query)
      OR pg_catalog.octet_length(p_query)>100 OR pg_catalog.regexp_replace(p_query,E'[\n\r\t]','','g')~'[[:cntrl:]]'
      OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 48
-     OR (p_cursor IS NOT NULL AND p_cursor!~'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
+     OR (p_cursor IS NOT NULL AND p_cursor!~'^(true|false)\|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
   THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
   IF p_cursor IS NOT NULL THEN
     BEGIN
-      cursor_time:=pg_catalog.split_part(p_cursor,'|',1)::timestamptz;
-      cursor_id:=pg_catalog.split_part(p_cursor,'|',2)::uuid;
+      cursor_available:=pg_catalog.split_part(p_cursor,'|',1)::boolean;
+      cursor_time:=pg_catalog.split_part(p_cursor,'|',2)::timestamptz;
+      cursor_id:=pg_catalog.split_part(p_cursor,'|',3)::uuid;
     EXCEPTION WHEN OTHERS THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
     END;
-    IF saas.store_policy_timestamp(cursor_time)<>pg_catalog.split_part(p_cursor,'|',1) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+    IF saas.store_policy_timestamp(cursor_time)<>pg_catalog.split_part(p_cursor,'|',2) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
   END IF;
   selected_store:=saas.store_policy_public_store(p_hostname,p_now);
   IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
@@ -364,7 +365,6 @@ BEGIN
     SELECT product.id,product.created_at,saas.public_effective_product_projection(selected_store,product.id,p_now) payload
     FROM saas.products product
     WHERE product.store_id=selected_store AND product.status='active'
-      AND (p_cursor IS NULL OR (product.created_at,product.id)<(cursor_time,cursor_id))
       AND (p_query='' OR pg_catalog.strpos(pg_catalog.lower(product.title),pg_catalog.lower(p_query))>0
         OR pg_catalog.strpos(pg_catalog.lower(product.slug),pg_catalog.lower(p_query))>0
         OR pg_catalog.strpos(pg_catalog.lower(COALESCE(product.description,'')),pg_catalog.lower(p_query))>0
@@ -373,16 +373,18 @@ BEGIN
         OR EXISTS(SELECT 1 FROM saas.catalog_admin_resource_products assignment JOIN saas.catalog_admin_resources resource ON resource.store_id=assignment.store_id AND resource.id=assignment.resource_id WHERE assignment.store_id=selected_store AND assignment.product_id=product.id AND resource.status='active' AND resource.resource_kind IN('brand','tag') AND (pg_catalog.strpos(pg_catalog.lower(resource.name),pg_catalog.lower(p_query))>0 OR pg_catalog.strpos(pg_catalog.lower(resource.slug),pg_catalog.lower(p_query))>0)))
   ), eligible AS MATERIALIZED (
     SELECT * FROM candidates WHERE payload IS NOT NULL
-    ORDER BY created_at DESC,id DESC LIMIT p_limit+1
+      AND (p_cursor IS NULL OR ((payload->>'available')::boolean,created_at,id)<(cursor_available,cursor_time,cursor_id))
+    ORDER BY (candidates.payload->>'available')::boolean DESC,candidates.created_at DESC,candidates.id DESC LIMIT p_limit+1
   ), page AS (
-    SELECT * FROM eligible ORDER BY created_at DESC,id DESC LIMIT p_limit
+    SELECT * FROM eligible ORDER BY (eligible.payload->>'available')::boolean DESC,eligible.created_at DESC,eligible.id DESC LIMIT p_limit
   )
-  SELECT COALESCE((SELECT pg_catalog.jsonb_agg(page.payload ORDER BY page.created_at DESC,page.id DESC) FROM page),'[]'::jsonb),
+  SELECT COALESCE((SELECT pg_catalog.jsonb_agg(page.payload ORDER BY (page.payload->>'available')::boolean DESC,page.created_at DESC,page.id DESC) FROM page),'[]'::jsonb),
     (SELECT pg_catalog.count(*)::integer FROM eligible),
-    (SELECT page.created_at FROM page ORDER BY page.created_at DESC,page.id DESC OFFSET p_limit-1 LIMIT 1),
-    (SELECT page.id FROM page ORDER BY page.created_at DESC,page.id DESC OFFSET p_limit-1 LIMIT 1)
-  INTO items,available_count,last_time,last_id;
-  IF available_count>p_limit THEN next_cursor:=saas.store_policy_timestamp(last_time)||'|'||last_id::text; END IF;
+    (SELECT (page.payload->>'available')::boolean FROM page ORDER BY (page.payload->>'available')::boolean DESC,page.created_at DESC,page.id DESC OFFSET p_limit-1 LIMIT 1),
+    (SELECT page.created_at FROM page ORDER BY (page.payload->>'available')::boolean DESC,page.created_at DESC,page.id DESC OFFSET p_limit-1 LIMIT 1),
+    (SELECT page.id FROM page ORDER BY (page.payload->>'available')::boolean DESC,page.created_at DESC,page.id DESC OFFSET p_limit-1 LIMIT 1)
+  INTO items,available_count,last_available,last_time,last_id;
+  IF available_count>p_limit THEN next_cursor:=last_available::text||'|'||saas.store_policy_timestamp(last_time)||'|'||last_id::text; END IF;
   RETURN QUERY SELECT 'found',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('items',items,'nextCursor',next_cursor));
 END
 $function$;

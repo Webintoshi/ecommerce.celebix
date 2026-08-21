@@ -1,5 +1,7 @@
 import type { PublicProduct } from "@celebix/saas-contracts";
 
+import { availableProductsFirst } from "./public-product-ordering.ts";
+
 export type ProductExplorerFilter = "all" | "available" | "discounted";
 export type ProductExplorerOrder = "featured" | "title-asc" | "price-asc" | "price-desc";
 
@@ -28,5 +30,5 @@ export function selectProducts(
   if (selection.order === "title-asc") selected.sort((left, right) => left.title.localeCompare(right.title, "tr-TR") || left.id.localeCompare(right.id));
   if (selection.order === "price-asc") selected.sort((left, right) => left.priceCents - right.priceCents || left.id.localeCompare(right.id));
   if (selection.order === "price-desc") selected.sort((left, right) => right.priceCents - left.priceCents || left.id.localeCompare(right.id));
-  return Object.freeze(selected);
+  return availableProductsFirst(selected);
 }

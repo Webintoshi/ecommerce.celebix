@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const CURSOR =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  /^(true|false)\|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 function query(value: string | string[] | undefined): string | null {
   if (value === undefined || value === "") return "";

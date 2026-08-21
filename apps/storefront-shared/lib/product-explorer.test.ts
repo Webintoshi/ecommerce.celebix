@@ -42,6 +42,20 @@ test("explorer exposes only truthful discounted products and deterministic title
   assert.deepEqual(selectProducts(items, { query: "", filter: "all", order: "title-asc" }).map(({ id }) => id), ["discounted", "plain", "not-discounted"]);
 });
 
+test("explorer always moves sold-out products behind matching available products", () => {
+  const items = [
+    product("sold-cheap", "Tükenmiş Ucuz Bileklik", 1_000, false),
+    product("active-mid", "Stokta Orta Bileklik", 5_000, true),
+    product("sold-expensive", "Tükenmiş Pahalı Bileklik", 9_000, false),
+    product("active-low", "Stokta Ucuz Bileklik", 2_000, true),
+  ];
+
+  assert.deepEqual(
+    selectProducts(items, { query: "bileklik", filter: "all", order: "price-asc" }).map(({ id }) => id),
+    ["active-low", "active-mid", "sold-cheap", "sold-expensive"],
+  );
+});
+
 test("explorer rejects no view mode and returns a new frozen selection", () => {
   const items = [product("one", "Tek", 1_000)];
   const selected = selectProducts(items, { query: "bulunmuyor", filter: "all", order: "price-desc" });

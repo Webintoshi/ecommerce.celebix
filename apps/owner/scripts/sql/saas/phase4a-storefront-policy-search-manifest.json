@@ -4,11 +4,11 @@
   "artifacts": [
     {
       "file": "202607310071_storefront_policy_search.up.sql",
-      "sha256": "6d75df403990def71f34e2be5a28a3f707bdc65ae0733afc5481fc2d380efffa"
+      "sha256": "e29e02f3231b58d8cd2802108e95d2562a72dea465ed82d17f7ed37d7bcbc98c"
     },
     {
       "file": "202607310071_storefront_policy_search_assertions.sql",
-      "sha256": "190cc873805c5e646b56ce3dd0fa86c206ee7c588bd16b56dfd617a4d0127e67"
+      "sha256": "57b3bdf4c0d2ebd8566f1651c3d9101560dfe3215b6fef35b943a73d56b1bfc0"
     }
   ],
   "rollbackArtifacts": [

@@ -3,7 +3,7 @@
   "phase": "4d-campaign-starter-composition",
   "postgresqlMajor": 16,
   "artifacts": [
-    { "file": "202608010074_campaign_starter_composition.up.sql", "sha256": "2332e4b294730d5cb601367f07bb4a97b5c4b8f9c29a368f61a346498b97053e" },
+    { "file": "202608010074_campaign_starter_composition.up.sql", "sha256": "fcccbc5850ca4acda534b170f393d16fbfb90b5d28e02f8d031d8c8950b9e3f0" },
     { "file": "202608010074_campaign_starter_composition_assertions.sql", "sha256": "70996b5a3facf458b27591b42bb29d4da21049c29e35385614a244adaa97c760" }
   ],
   "rollbackArtifacts": [

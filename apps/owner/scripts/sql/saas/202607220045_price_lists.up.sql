@@ -1012,64 +1012,67 @@ BEGIN
   END IF;
   RETURN QUERY
   SELECT 'found'::text,COALESCE(pg_catalog.jsonb_agg(
-    item.payload ORDER BY item.created_at DESC,item.id DESC
+    item.payload ORDER BY item.available DESC,item.created_at DESC,item.id DESC
   ),'[]'::jsonb)
   FROM (
-    SELECT product.id,product.created_at,(
-      WITH resolved_variants AS (
-        SELECT variant.*,resolved.price_cents AS effective_price
-        FROM saas.product_variants variant
-        CROSS JOIN LATERAL saas.resolve_effective_variant_price(
-          p_store_id,variant.id,'storefront',p_now,NULL
-        ) resolved
-        WHERE variant.store_id=p_store_id
-          AND variant.product_id=product.id
-          AND variant.status='active'
-          AND resolved.outcome='found'
-      ), selected_price AS (
-        SELECT * FROM resolved_variants
-        ORDER BY effective_price,created_at,id LIMIT 1
-      ), variants AS (
-        SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_strip_nulls(
-          pg_catalog.jsonb_build_object(
-            'id',variant.id,'title',variant.title,'sku',variant.sku,
-            'priceCents',variant.effective_price,
-            'compareAtCents',variant.compare_at_cents,
-            'stockTracking',variant.stock_tracking,
-            'stockQuantity',variant.stock_quantity,
-            'available',(NOT variant.stock_tracking OR variant.stock_quantity>0),
-            'attributes',variant.attributes
-          )
-        ) ORDER BY variant.created_at,variant.id) payload
-        FROM resolved_variants variant
-      ), media AS (
-        SELECT COALESCE(pg_catalog.jsonb_agg(
-          saas.public_media_projection(media.id)
-          ORDER BY media.sort_order,media.id
-        ),'[]'::jsonb) payload
-        FROM saas.product_media media
-        WHERE media.store_id=p_store_id
-          AND media.product_id=product.id AND media.status='active'
-      )
-      SELECT pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
-        'id',product.id,'slug',product.slug,'title',product.title,
-        'description',product.description,'currency',product.currency,
-        'status','active','priceCents',selected_price.effective_price,
-        'compareAtCents',selected_price.compare_at_cents,
-        'available',EXISTS(
-          SELECT 1 FROM resolved_variants available
-          WHERE NOT available.stock_tracking OR available.stock_quantity>0
-        ),
-        'variants',variants.payload,'media',media.payload
-      ))
-      FROM selected_price CROSS JOIN variants CROSS JOIN media
-    ) payload
-    FROM saas.products product
-    WHERE product.store_id=p_store_id AND product.status='active'
-    ORDER BY product.created_at DESC,product.id DESC
+    SELECT projected.id,projected.created_at,(projected.payload->>'available')::boolean AS available,projected.payload
+    FROM (
+      SELECT product.id,product.created_at,(
+        WITH resolved_variants AS (
+          SELECT variant.*,resolved.price_cents AS effective_price
+          FROM saas.product_variants variant
+          CROSS JOIN LATERAL saas.resolve_effective_variant_price(
+            p_store_id,variant.id,'storefront',p_now,NULL
+          ) resolved
+          WHERE variant.store_id=p_store_id
+            AND variant.product_id=product.id
+            AND variant.status='active'
+            AND resolved.outcome='found'
+        ), selected_price AS (
+          SELECT * FROM resolved_variants
+          ORDER BY effective_price,created_at,id LIMIT 1
+        ), variants AS (
+          SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_strip_nulls(
+            pg_catalog.jsonb_build_object(
+              'id',variant.id,'title',variant.title,'sku',variant.sku,
+              'priceCents',variant.effective_price,
+              'compareAtCents',variant.compare_at_cents,
+              'stockTracking',variant.stock_tracking,
+              'stockQuantity',variant.stock_quantity,
+              'available',(NOT variant.stock_tracking OR variant.stock_quantity>0),
+              'attributes',variant.attributes
+            )
+          ) ORDER BY variant.created_at,variant.id) payload
+          FROM resolved_variants variant
+        ), media AS (
+          SELECT COALESCE(pg_catalog.jsonb_agg(
+            saas.public_media_projection(media.id)
+            ORDER BY media.sort_order,media.id
+          ),'[]'::jsonb) payload
+          FROM saas.product_media media
+          WHERE media.store_id=p_store_id
+            AND media.product_id=product.id AND media.status='active'
+        )
+        SELECT pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+          'id',product.id,'slug',product.slug,'title',product.title,
+          'description',product.description,'currency',product.currency,
+          'status','active','priceCents',selected_price.effective_price,
+          'compareAtCents',selected_price.compare_at_cents,
+          'available',EXISTS(
+            SELECT 1 FROM resolved_variants available
+            WHERE NOT available.stock_tracking OR available.stock_quantity>0
+          ),
+          'variants',variants.payload,'media',media.payload
+        ))
+        FROM selected_price CROSS JOIN variants CROSS JOIN media
+      ) payload
+      FROM saas.products product
+      WHERE product.store_id=p_store_id AND product.status='active'
+    ) projected
+    WHERE projected.payload IS NOT NULL
+    ORDER BY (projected.payload->>'available')::boolean DESC,projected.created_at DESC,projected.id DESC
     LIMIT p_limit
-  ) item
-  WHERE item.payload IS NOT NULL;
+  ) item;
 END
 $function$;
 

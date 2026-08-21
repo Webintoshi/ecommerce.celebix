@@ -225,11 +225,16 @@ BEGIN
  IF NOT saas.public_storefront_authorized(p_store_id,p_hostname,p_now) THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
  SELECT category.* INTO selected_category FROM saas.catalog_categories category WHERE category.store_id=p_store_id AND category.slug=p_slug AND category.status='active';
  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
- SELECT COALESCE(pg_catalog.jsonb_agg(selected.payload ORDER BY selected.created_at DESC,selected.id DESC),'[]'::jsonb) INTO items FROM (
-   SELECT product.id,product.created_at,saas.public_category_product_projection(p_store_id,product.id,p_now) payload
-   FROM saas.catalog_product_categories relation JOIN saas.products product ON product.store_id=relation.store_id AND product.id=relation.product_id AND product.status='active'
-   WHERE relation.store_id=p_store_id AND relation.category_id=selected_category.id ORDER BY product.created_at DESC,product.id DESC LIMIT p_limit
- ) selected WHERE selected.payload IS NOT NULL;
+ SELECT COALESCE(pg_catalog.jsonb_agg(selected.payload ORDER BY selected.available DESC,selected.created_at DESC,selected.id DESC),'[]'::jsonb) INTO items FROM (
+   SELECT projected.id,projected.created_at,(projected.payload->>'available')::boolean AS available,projected.payload
+   FROM (
+     SELECT product.id,product.created_at,saas.public_category_product_projection(p_store_id,product.id,p_now) payload
+     FROM saas.catalog_product_categories relation JOIN saas.products product ON product.store_id=relation.store_id AND product.id=relation.product_id AND product.status='active'
+     WHERE relation.store_id=p_store_id AND relation.category_id=selected_category.id
+   ) projected
+   WHERE projected.payload IS NOT NULL
+   ORDER BY (projected.payload->>'available')::boolean DESC,projected.created_at DESC,projected.id DESC LIMIT p_limit
+ ) selected;
  RETURN QUERY SELECT 'found',pg_catalog.jsonb_build_object('category',pg_catalog.jsonb_build_object('id',selected_category.id,'name',selected_category.name,'slug',selected_category.slug),'items',items);
 END
 $f$;

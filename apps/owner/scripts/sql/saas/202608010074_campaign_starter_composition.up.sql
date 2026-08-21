@@ -343,13 +343,17 @@ BEGIN
  IF NOT saas.public_storefront_authorized(p_store_id,p_hostname,p_now) THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
  SELECT product.id INTO selected_product FROM saas.products product WHERE product.store_id=p_store_id AND product.slug=p_slug AND product.status='active'; IF selected_product IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
  SELECT relation.category_id INTO selected_category FROM saas.catalog_product_categories relation JOIN saas.catalog_categories category ON category.store_id=relation.store_id AND category.id=relation.category_id AND category.status='active' WHERE relation.store_id=p_store_id AND relation.product_id=selected_product ORDER BY relation.position,category.depth DESC,category.id LIMIT 1;
- SELECT COALESCE(pg_catalog.jsonb_agg(candidate.projection ORDER BY candidate.created_at DESC,candidate.id DESC),'[]'::jsonb) INTO items FROM (
-   SELECT product.id,product.created_at,saas.public_campaign_product_projection(p_store_id,product.id,p_now) projection
-   FROM saas.products product
-   WHERE product.store_id=p_store_id AND product.status='active' AND product.id<>selected_product
-     AND (selected_category IS NULL OR EXISTS(SELECT 1 FROM saas.catalog_product_categories relation WHERE relation.store_id=p_store_id AND relation.product_id=product.id AND relation.category_id=selected_category))
-   ORDER BY product.created_at DESC,product.id DESC LIMIT p_limit
- ) candidate WHERE candidate.projection IS NOT NULL;
+ SELECT COALESCE(pg_catalog.jsonb_agg(candidate.projection ORDER BY candidate.available DESC,candidate.created_at DESC,candidate.id DESC),'[]'::jsonb) INTO items FROM (
+   SELECT projected.id,projected.created_at,(projected.projection->>'available')::boolean AS available,projected.projection
+   FROM (
+     SELECT product.id,product.created_at,saas.public_campaign_product_projection(p_store_id,product.id,p_now) projection
+     FROM saas.products product
+     WHERE product.store_id=p_store_id AND product.status='active' AND product.id<>selected_product
+       AND (selected_category IS NULL OR EXISTS(SELECT 1 FROM saas.catalog_product_categories relation WHERE relation.store_id=p_store_id AND relation.product_id=product.id AND relation.category_id=selected_category))
+   ) projected
+   WHERE projected.projection IS NOT NULL
+   ORDER BY (projected.projection->>'available')::boolean DESC,projected.created_at DESC,projected.id DESC LIMIT p_limit
+ ) candidate;
  RETURN QUERY SELECT 'found',items;
 END
 $f$;

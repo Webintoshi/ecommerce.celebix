@@ -44,6 +44,9 @@ BEGIN
     OR pg_catalog.strpos(search_body,'catalog_admin_resource_products')=0
     OR pg_catalog.strpos(search_body,'resource.resource_kind IN(''brand'',''tag'')')=0
     OR pg_catalog.strpos(search_body,'SELECT * FROM candidates WHERE payload IS NOT NULL')=0
+    OR pg_catalog.strpos(search_body,'((payload->>''available'')::boolean,created_at,id)<(cursor_available,cursor_time,cursor_id)')=0
+    OR pg_catalog.strpos(search_body,'ORDER BY (candidates.payload->>''available'')::boolean DESC,candidates.created_at DESC,candidates.id DESC LIMIT p_limit+1')=0
+    OR pg_catalog.strpos(search_body,'last_available::text||''|''||saas.store_policy_timestamp(last_time)||''|''||last_id::text')=0
   THEN RAISE EXCEPTION 'STOREFRONT_POLICY_SEARCH_AUTHORITY_BODY_INVALID'; END IF;
 END
 $assertions$;

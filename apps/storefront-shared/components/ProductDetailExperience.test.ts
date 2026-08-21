@@ -1,8 +1,69 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import ts from "typescript";
+
+import type { PublicProduct } from "@celebix/saas-contracts";
+import { availableProductsFirst } from "../lib/public-product-ordering.ts";
 
 const read = (name: string) => readFile(new URL(name, import.meta.url), "utf8");
+
+type RenderNode = Readonly<{ type: unknown; props: Readonly<Record<string, unknown>> }>;
+
+function renderNode(type: unknown, props: Record<string, unknown>): RenderNode {
+  return typeof type === "function" ? (type as (value: Record<string, unknown>) => RenderNode)(props) : Object.freeze({ type, props: Object.freeze(props) });
+}
+
+function collectNodes(value: unknown, predicate: (node: RenderNode) => boolean): RenderNode[] {
+  if (!value || typeof value !== "object" || !("type" in value) || !("props" in value)) return [];
+  const node = value as RenderNode;
+  const matches = predicate(node) ? [node] : [];
+  const children = node.props.children;
+  const nested = (Array.isArray(children) ? children.flat(Infinity) : [children]).flatMap((child) => collectNodes(child, predicate));
+  return [...matches, ...nested];
+}
+
+const styles = new Proxy(Object.freeze({}), { get: (_target, property) => String(property) });
+
+async function compileProductDetailExperience() {
+  const source = await read("ProductDetailExperience.tsx");
+  const output = ts.transpileModule(source, { compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const runtime = { Fragment: Symbol("Fragment"), jsx: renderNode, jsxs: renderNode };
+  const Link = (props: Record<string, unknown>) => renderNode("a", props);
+  const ProductCard = (props: Record<string, unknown>) => renderNode("ProductCard", props);
+  const component = (name: string) => (props: Record<string, unknown>) => renderNode(name, props);
+  const compiledModule: { exports: { ProductDetailExperience?: (props: Record<string, unknown>) => RenderNode } } = { exports: {} };
+  Function("require", "module", "exports", output)((specifier: string) => {
+    if (specifier === "react/jsx-runtime") return runtime;
+    if (specifier === "next/link") return Link;
+    if (specifier === "@/lib/format.ts") return { formatTry: (value: number) => `₺${value}` };
+    if (specifier === "@/lib/public-product-ordering.ts") return { availableProductsFirst };
+    if (specifier === "@/lib/storefront-routes.ts") return { categoryPath: (_locale: string, slug: string) => `/kategori/${slug}` };
+    if (specifier === "./ProductCard") return { ProductCard };
+    if (specifier === "./ProductApprovedReviews") return { ProductApprovedReviews: component("ProductApprovedReviews") };
+    if (specifier === "./ProductGallery") return { ProductGallery: component("ProductGallery") };
+    if (specifier === "./ProductInformationDisclosures") return { ProductInformationDisclosures: component("ProductInformationDisclosures"), ProductSizeGuide: component("ProductSizeGuide") };
+    if (specifier === "./ProductPurchasePanel") return { ProductPurchasePanel: component("ProductPurchasePanel") };
+    if (specifier === "./product-detail-experience.module.css") return styles;
+    throw new Error(`unexpected_product_detail_import:${specifier}`);
+  }, compiledModule, compiledModule.exports);
+  assert.ok(compiledModule.exports.ProductDetailExperience);
+  return compiledModule.exports.ProductDetailExperience;
+}
+
+function product(id: string, title: string, priceCents: number, available = true): PublicProduct {
+  return Object.freeze({
+    id,
+    slug: `urun-${id}`,
+    title,
+    currency: "TRY",
+    status: "active",
+    priceCents,
+    available,
+    variants: Object.freeze([{ id: `${id}-variant`, title: "Varsayılan", priceCents, available, stockTracking: true, stockQuantity: available ? 1 : 0, attributes: Object.freeze({}) }]),
+    media: Object.freeze([]),
+  });
+}
 
 test("related products derive store and category from persisted authority", async () => {
   const repository = await read("../../../packages/saas-data/src/storefront/repository.ts");
@@ -23,6 +84,40 @@ test("detail experience composes canonical brand category merchandising policy a
   for (const token of ["product.categoryPath", "product.brand", "product.merchandising", "product.reviews", "ProductGallery", "ProductPurchasePanel", "ProductInformationDisclosures", "ProductApprovedReviews", "relatedProducts"]) assert.match(source, new RegExp(token.replace(".", "\\.")));
   assert.doesNotMatch(source, /Organic cotton|premium linen|ready to ship|Rachel F[.]|Leslie M[.]/u);
   assert.doesNotMatch(source, /storeId|tenantId|localStorage|sessionStorage/);
+});
+
+test("related product recommendations render sold-out products after available products", async () => {
+  const ProductDetailExperience = await compileProductDetailExperience();
+  const tree = ProductDetailExperience({
+    product: product("primary", "Ana ürün", 10_000),
+    locale: "tr",
+    relatedProducts: Object.freeze([
+      product("sold-cheap", "Tükenmiş ucuz öneri", 1_000, false),
+      product("active-mid", "Stokta orta öneri", 5_000, true),
+      product("sold-expensive", "Tükenmiş pahalı öneri", 9_000, false),
+      product("active-low", "Stokta ucuz öneri", 2_000, true),
+    ]),
+    publishedPolicies: Object.freeze([]),
+    options: Object.freeze({
+      galleryStyle: "grid",
+      informationSections: Object.freeze([]),
+      mobileStickyPurchase: false,
+      showApprovedReviews: false,
+      showBrand: false,
+      showBreadcrumbs: false,
+      showRelatedProducts: true,
+      showSizeGuide: false,
+      showSku: false,
+    }),
+    cardStyle: "editorial",
+    imageRatio: "portrait",
+    showQuantitySelector: true,
+  });
+
+  assert.deepEqual(
+    collectNodes(tree, (node) => node.type === "ProductCard").map((node) => (node.props.product as PublicProduct).id),
+    ["active-mid", "active-low", "sold-cheap", "sold-expensive"],
+  );
 });
 
 test("product detail resolves schema-v3 controls and published policy authority", async () => {
