@@ -109,7 +109,7 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
     <div className="checkout-form-main">
       <section className="checkout-section checkout-contact" aria-labelledby="checkout-contact-title">
         <header><span>1</span><h2 id="checkout-contact-title">İletişim</h2></header>
-        <fieldset disabled={pending}><div className="checkout-fields"><label>E-posta<input {...field("email")} name="email" autoComplete="email" inputMode="email" maxLength={320} required type="email" />{error("email")}</label><label>Telefon<input {...field("phone")} name="phone" autoComplete="tel" inputMode="tel" maxLength={13} placeholder="+905551112233" required type="tel" />{error("phone")}</label></div></fieldset>
+        <fieldset disabled={pending}><div className="checkout-fields"><label>E-posta<input {...field("email")} name="email" autoComplete="email" inputMode="email" maxLength={320} required type="email" />{error("email")}</label><label>Telefon<input {...field("phone")} name="phone" autoComplete="tel" inputMode="tel" maxLength={24} placeholder="0555 111 22 33" required type="tel" />{error("phone")}</label></div></fieldset>
       </section>
       <section className="checkout-section checkout-delivery" aria-labelledby="checkout-delivery-title">
         <header><span>2</span><h2 id="checkout-delivery-title">Teslimat adresi</h2></header>

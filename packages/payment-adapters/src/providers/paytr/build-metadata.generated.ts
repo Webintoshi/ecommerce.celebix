@@ -53,5 +53,9 @@ export const PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES: PaytrExecutionAutho
   "adapterVersion": 1,
   "evidenceDigest": "sha256:31cb07156978753ba74459c9bbef58811d22b4eb0272f5704f5b6f2698aca61c"
 }),
-  live: null,
+  live: Object.freeze({
+  "environment": "live",
+  "adapterVersion": 1,
+  "evidenceDigest": "sha256:131f1c598933cc43cb25b482e4162eda753ee3388b20328d0bb9b9ea6f2d5ef8"
+}),
 });

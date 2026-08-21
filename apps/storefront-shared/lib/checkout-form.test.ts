@@ -53,8 +53,13 @@ test("optional address line and note are omitted instead of serialized as empty 
   }
 });
 
-test("checkout accepts only canonical Turkish E.164 phone numbers", () => {
-  for (const phone of ["+90 555 111 22 33", "05551112233", "+441234567890", "+900551112233", "+90555111223"]) {
+test("checkout accepts common Turkish phone formats and stores canonical E.164", () => {
+  for (const phone of ["+905551112233", "+90 555 111 22 33", "05551112233", "0 555 111 22 33", "5551112233"]) {
+    const result = validateCheckoutFormDraft({ ...VALID, phone });
+    assert.equal(result.ok, true, phone);
+    if (result.ok) assert.equal(result.value.contact.phone, "+905551112233", phone);
+  }
+  for (const phone of ["+441234567890", "+900551112233", "+90555111223", "0555-111-22-aa", "0555\u00001112233"]) {
     assert.equal(validateCheckoutFormDraft({ ...VALID, phone }).ok, false, phone);
   }
 });
