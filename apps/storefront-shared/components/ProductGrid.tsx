@@ -1,5 +1,6 @@
 import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saas-contracts";
 
+import { availableProductsFirst } from "@/lib/public-product-ordering.ts";
 import { ProductCard } from "./ProductCard";
 
 export function ProductGrid({ products, locale, cardStyle, imageRatio, emptyMessage }: Readonly<{
@@ -9,9 +10,10 @@ export function ProductGrid({ products, locale, cardStyle, imageRatio, emptyMess
   imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"];
   emptyMessage?: string;
 }>) {
-  return products.length ? (
+  const orderedProducts = availableProductsFirst(products);
+  return orderedProducts.length ? (
     <div className="product-grid">
-      {products.map((product) => (
+      {orderedProducts.map((product) => (
         <ProductCard key={product.id} product={product} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} />
       ))}
     </div>
