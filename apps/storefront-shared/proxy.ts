@@ -12,6 +12,22 @@ const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none
 const PAYTR_IFRAME_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
 const STANDARD_PAYTR_IFRAME_CSP = "default-src 'none'; frame-src https://www.paytr.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
 const SECURITY_HEADERS = Object.freeze({ "cache-control": "private, no-store, no-transform", "referrer-policy": "strict-origin-when-cross-origin", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "permissions-policy": "camera=(), microphone=(), geolocation=()", "strict-transport-security": "max-age=31536000; includeSubDomains" });
+const PAYTR_HOSTED_RETURN_SEARCHES = new Set(["?durum=basarili", "?durum=basarisiz", "?durum=isleniyor"]);
+
+function isPaytrHostedReturnBridge(pathname: string, search: string, hash: string): boolean {
+  return pathname === "/odeme/hizli/sonuc" && hash === "" && PAYTR_HOSTED_RETURN_SEARCHES.has(search);
+}
+
+function applySecurityHeaders(response: NextResponse, options: Readonly<{ omitFrameOptions?: boolean }> = {}): void {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    if (options.omitFrameOptions === true && name === "x-frame-options") continue;
+    response.headers.set(name, value);
+  }
+}
+
+function paytrHostedReturnBridgeCsp(nonce: string): string {
+  return `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'self' https://www.paytr.com; form-action 'none'; object-src 'none'`;
+}
 
 function unavailable(): NextResponse {
   return new NextResponse("Storefront unavailable", { status: 503, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, "content-type": "text/plain; charset=utf-8" } });
@@ -30,12 +46,22 @@ type StorefrontProxyDependencies = Readonly<{
 
 async function defaultIframeAuthorization(input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>): Promise<boolean> {
   const cookie = parseRedemptionCookie(input.cookieHeader);
-  if (cookie.kind !== "valid" || !(input.now instanceof Date) || !Number.isFinite(input.now.getTime())) return false;
-  const runtime = await resolveDefaultCheckoutPaymentRuntime();
-  if (runtime === null) return false;
+  if (!(input.now instanceof Date) || !Number.isFinite(input.now.getTime())) return false;
+  if (cookie.kind === "valid") {
+    const runtime = await resolveDefaultCheckoutPaymentRuntime();
+    if (runtime !== null) {
+      try {
+        await runtime.paymentRepository.getPaymentPresentation({ hostname: input.hostname,
+          redemptionDigest: digestRedemptionCredential(cookie.credential), now: new Date(input.now) });
+        return true;
+      } catch {}
+    }
+  }
   try {
-    await runtime.paymentRepository.getPaymentPresentation({ hostname: input.hostname,
-      redemptionDigest: digestRedemptionCredential(cookie.credential), now: new Date(input.now) });
+    const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
+    const runtime = await resolveDefaultPublicStorefrontRuntime();
+    if (runtime?.hostedCheckout === null || runtime?.hostedCheckout === undefined) return false;
+    await runtime.hostedCheckout.presentation({ hostname: input.hostname, cookieHeader: input.cookieHeader });
     return true;
   } catch { return false; }
 }
@@ -118,8 +144,9 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     if(dependencies.resolveAnalytics){try{analytics=await dependencies.resolveAnalytics({hostname:authority.hostname,now:dependencies.now()})}catch{analytics=null}}
     const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"",connectDestination=analytics?`'self' ${analytics.collectorOrigin}`:"'self'";
     const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;
+    const paytrHostedReturnBridge = isPaytrHostedReturnBridge(pathname, request.nextUrl.search, request.nextUrl.hash);
     let iframeAuthorized = false;
-    if (exactTarget && pathname === "/odeme/hizli/odeme") {
+    if ((exactTarget && pathname === "/odeme/hizli/odeme") || paytrHostedReturnBridge) {
       try {
         iframeAuthorized = await dependencies.authorizePaytrIframe({ hostname: authority.hostname,
           cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
@@ -134,7 +161,10 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     }
     const accountVerificationForm = pathname === "/account/verify";
     const quickOrderForm = exactTarget && pathname === "/odeme/hizli";
-    const csp = standardIframeAuthorized
+    const hostedReturnBridgeAuthorized = paytrHostedReturnBridge && iframeAuthorized;
+    const csp = hostedReturnBridgeAuthorized
+      ? paytrHostedReturnBridgeCsp(nonce)
+      : standardIframeAuthorized
       ? STANDARD_PAYTR_IFRAME_CSP
       : accountVerificationForm || quickOrderForm
       ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
@@ -142,7 +172,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
         ? PAYTR_IFRAME_CSP
         : defaultCsp;
     response.headers.set("content-security-policy", csp);
-    for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(name, value);
+    applySecurityHeaders(response, { omitFrameOptions: hostedReturnBridgeAuthorized });
     return response;
   };
 }
