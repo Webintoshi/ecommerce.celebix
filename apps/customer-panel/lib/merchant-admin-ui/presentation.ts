@@ -1,9 +1,16 @@
+import {
+  MERCHANT_ACTIONS,
+  isMerchantActionAllowed,
+} from "@celebix/saas-contracts";
+
 import type {
+  MerchantAction,
   MerchantAdminJson,
   MerchantAdminProviderAction,
   MerchantAdminRecord,
   MerchantAdminRecordKind,
   MerchantAdminRecordStatus,
+  StoreMembershipRole,
 } from "@celebix/saas-contracts";
 
 export type MerchantModuleFieldType =
@@ -57,6 +64,92 @@ export interface MerchantModuleDefinition {
 }
 
 export type MerchantModuleStatusFilter = MerchantAdminRecordStatus | "all";
+
+export type AdministratorInvitableRole = Exclude<StoreMembershipRole, "store_owner">;
+
+export interface AdministratorRoleDefinition {
+  readonly allowedActions: readonly MerchantAction[];
+  readonly blockedActions: readonly MerchantAction[];
+  readonly highlights: readonly string[];
+  readonly label: string;
+  readonly limits: readonly string[];
+  readonly role: AdministratorInvitableRole;
+  readonly summary: string;
+}
+
+const ADMINISTRATOR_INVITABLE_ROLES = Object.freeze([
+  "admin",
+  "editor",
+  "analyst",
+] as const satisfies readonly AdministratorInvitableRole[]);
+
+const ADMINISTRATOR_ROLE_COPY = Object.freeze({
+  admin: Object.freeze({
+    label: "Yönetici",
+    summary: "Tam yetkili mağaza yöneticisi; operasyon, katalog, ödeme, tasarım ve entegrasyon ayarlarını yönetir.",
+    highlights: Object.freeze([
+      "Sipariş, müşteri ve katalog işlemlerini yönetir.",
+      "Ödeme, kargo, tema ve entegrasyon ayarlarını düzenler.",
+      "İçe aktarma, stok ve fiyat yönetimi yapar.",
+    ]),
+    limits: Object.freeze([
+      "Mağaza sahibi rolü devredilemez veya davet edilemez.",
+      "Başka mağaza, tenant veya üretim verisine erişim vermez.",
+    ]),
+  }),
+  editor: Object.freeze({
+    label: "Editör",
+    summary: "Operasyon editörü; ürün, stok, müşteri, içerik ve sipariş hazırlama işlerini yapar.",
+    highlights: Object.freeze([
+      "Ürün, stok, satın alma ve içerik kayıtlarını düzenler.",
+      "Müşteri kayıtlarını yönetir ve sipariş notu/hazırlığı yapar.",
+      "Kargo operasyonlarını takip edip yönetir.",
+    ]),
+    limits: Object.freeze([
+      "Ödeme alma, ödeme ayarı ve sağlayıcı entegrasyonu yapamaz.",
+      "Tema, genel ayar, arşivleme ve kritik mağaza yapılandırmasını değiştiremez.",
+    ]),
+  }),
+  analyst: Object.freeze({
+    label: "Analist",
+    summary: "Okuma ve raporlama rolü; mağaza verilerini inceler, kayıt oluşturmaz veya değiştirmez.",
+    highlights: Object.freeze([
+      "Analitik, sipariş, müşteri, katalog ve stok verilerini görüntüler.",
+      "Kampanya, içerik, fiyat ve entegrasyon durumlarını okur.",
+      "Destek ve raporlama için güvenli salt-okunur erişim sağlar.",
+    ]),
+    limits: Object.freeze([
+      "Kayıt oluşturma, düzenleme, arşivleme veya ödeme işlemi yapamaz.",
+      "Ürün, müşteri, sipariş, tema, ödeme ve entegrasyon ayarlarını değiştiremez.",
+    ]),
+  }),
+} satisfies Readonly<Record<AdministratorInvitableRole, Readonly<Pick<AdministratorRoleDefinition, "label" | "summary" | "highlights" | "limits">>>>);
+
+function roleActions(
+  role: AdministratorInvitableRole,
+  expected: boolean,
+): readonly MerchantAction[] {
+  return Object.freeze(MERCHANT_ACTIONS.filter((action) => isMerchantActionAllowed(role, action) === expected));
+}
+
+export const ADMINISTRATOR_ROLE_DEFINITIONS = Object.freeze(
+  ADMINISTRATOR_INVITABLE_ROLES.map((role): AdministratorRoleDefinition => {
+    const copy = ADMINISTRATOR_ROLE_COPY[role];
+    return Object.freeze({
+      role,
+      label: copy.label,
+      summary: copy.summary,
+      highlights: copy.highlights,
+      limits: copy.limits,
+      allowedActions: roleActions(role, true),
+      blockedActions: roleActions(role, false),
+    });
+  }),
+);
+
+export function getAdministratorRoleDefinitions(): readonly AdministratorRoleDefinition[] {
+  return ADMINISTRATOR_ROLE_DEFINITIONS;
+}
 
 function field(
   key: string,

@@ -2,10 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  MERCHANT_ACTIONS,
+  isMerchantActionAllowed,
+  type MerchantAction,
+  type StoreMembershipRole,
+} from "@celebix/saas-contracts";
+
+import {
   MERCHANT_MODULE_DEFINITIONS,
   buildMerchantModuleSummary,
   buildProviderWorkflowState,
   formatMerchantAdminConfig,
+  getAdministratorRoleDefinitions,
   getMerchantModuleDefinition,
   isSingletonMerchantModule,
   selectSingletonEditorRecord,
@@ -66,6 +74,46 @@ test("defines every durable merchant module with a unique route and field contra
     assert.equal(definition.fields.length > 0, true);
     assert.equal(new Set(definition.fields.map(({ key }) => key)).size, definition.fields.length);
   }
+});
+
+test("administrator role guide mirrors the frozen merchant action policy without exposing store ownership", () => {
+  const roles = getAdministratorRoleDefinitions();
+  assert.deepEqual(roles.map(({ role }) => role), ["admin", "editor", "analyst"]);
+  assert.equal(JSON.stringify(roles).includes("store_owner"), false);
+
+  for (const definition of roles) {
+    assert.equal(Object.isFrozen(definition), true);
+    assert.equal(Object.isFrozen(definition.allowedActions), true);
+    assert.equal(Object.isFrozen(definition.blockedActions), true);
+    assert.equal(Object.isFrozen(definition.highlights), true);
+    assert.equal(Object.isFrozen(definition.limits), true);
+    assert.deepEqual(
+      definition.allowedActions,
+      MERCHANT_ACTIONS.filter((action) => isMerchantActionAllowed(definition.role as StoreMembershipRole, action)),
+    );
+    assert.deepEqual(
+      definition.blockedActions,
+      MERCHANT_ACTIONS.filter((action) => !isMerchantActionAllowed(definition.role as StoreMembershipRole, action)),
+    );
+  }
+
+  const admin = roles.find(({ role }) => role === "admin");
+  assert.equal(admin?.blockedActions.length, 0);
+  assert.match(admin?.summary ?? "", /tam yetkili/i);
+  assert.match(admin?.limits.join(" "), /mağaza sahibi/i);
+
+  const editor = roles.find(({ role }) => role === "editor");
+  assert.equal(editor?.allowedActions.includes("catalog_admin.manage" satisfies MerchantAction), true);
+  assert.equal(editor?.allowedActions.includes("orders.fulfill" satisfies MerchantAction), true);
+  assert.equal(editor?.blockedActions.includes("orders.payment" satisfies MerchantAction), true);
+  assert.equal(editor?.blockedActions.includes("configuration.manage" satisfies MerchantAction), true);
+  assert.match(editor?.limits.join(" "), /ödeme/i);
+
+  const analyst = roles.find(({ role }) => role === "analyst");
+  assert.equal(analyst?.allowedActions.includes("analytics.read" satisfies MerchantAction), true);
+  assert.equal(analyst?.blockedActions.includes("catalog_admin.manage" satisfies MerchantAction), true);
+  assert.equal(analyst?.blockedActions.includes("customers.manage" satisfies MerchantAction), true);
+  assert.match(analyst?.summary ?? "", /okuma/i);
 });
 
 test("theme settings expose only bounded visual choices and a numeric home product limit", () => {

@@ -51,6 +51,7 @@ import {
   buildMerchantModuleSummary,
   buildProviderWorkflowState,
   formatMerchantAdminConfig,
+  getAdministratorRoleDefinitions,
   getMerchantModuleDefinition,
   isSingletonMerchantModule,
   selectSingletonEditorRecord,
@@ -199,6 +200,41 @@ function ConfigSummary({ record }: { record: MerchantAdminRecord }) {
       ))}
     </dl>
   ) : <span className={styles.muted}>Ek yapılandırma yok</span>;
+}
+
+function AdministratorRoleGuide() {
+  const roles = getAdministratorRoleDefinitions();
+  return (
+    <section className={styles.roleGuide} data-administrator-role-guide="" aria-labelledby="administrator-role-guide-title">
+      <div className={styles.roleGuideIntro}>
+        <span>Ekip yetkileri</span>
+        <h2 id="administrator-role-guide-title">Yönetici rolleri ve görev sınırları</h2>
+        <p>Her davet yalnız bu mağazaya bağlıdır. Mağaza sahibi rolü davet edilemez; sahiplik değişimi ayrı güvenlik akışıdır.</p>
+      </div>
+      <div className={styles.roleCards}>
+        {roles.map((role) => (
+          <article key={role.role} className={styles.roleCard}>
+            <header>
+              <span>{role.label}</span>
+              <strong>{role.role}</strong>
+            </header>
+            <p>{role.summary}</p>
+            <div className={styles.roleTaskColumns}>
+              <div>
+                <h3>Yapabilir</h3>
+                <ul>{role.highlights.map((item) => <li key={item}>{item}</li>)}</ul>
+              </div>
+              <div>
+                <h3>Sınırlar</h3>
+                <ul>{role.limits.map((item) => <li key={item}>{item}</li>)}</ul>
+              </div>
+            </div>
+            <small>{role.allowedActions.length.toLocaleString("tr-TR")} izin · {role.blockedActions.length.toLocaleString("tr-TR")} kapalı işlem</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function providerJobStatus(job: MerchantAdminProviderJob) {
@@ -568,6 +604,8 @@ export function MerchantModuleConsole({
           </div>
         </aside>
       ) : definition.notice ? <p className={styles.notice}>{definition.notice}</p> : null}
+
+      {kind === "administrator_invite" ? <AdministratorRoleGuide /> : null}
 
       {providerCapability ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
 
