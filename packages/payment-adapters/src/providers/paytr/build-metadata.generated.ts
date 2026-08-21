@@ -30,9 +30,9 @@ export const PAYTR_GENERATED_BUILD_METADATA: PaytrGeneratedBuildMetadataMap = Ob
   "capability": "payment_processing",
   "environment": "test",
   "adapterVersion": 1,
-  "gitSha": "850cf82d441a02d079c41f7969d9e10ea7da2f49",
-  "sourceDigest": "sha256:07b8bd8d8324dfee9effd013f2b4278296807d4d9368f4510d8727c610c93fc6",
-  "candidateExecutionDigest": "sha256:95282d83f2323514937be5255873c9ebe418cac608972911163a4e45c2686eb1"
+  "gitSha": "03f81a1eb1e2546e155a4cce7a822ca3dcf19234",
+  "sourceDigest": "sha256:62b40646294b75d99c3c53e1da7ffd3738398c7846afe277f3b6bfd4e41e2940",
+  "candidateExecutionDigest": "sha256:31cb07156978753ba74459c9bbef58811d22b4eb0272f5704f5b6f2698aca61c"
 }),
   live: Object.freeze({
   "buildMetadataSchemaVersion": 1,
@@ -41,9 +41,9 @@ export const PAYTR_GENERATED_BUILD_METADATA: PaytrGeneratedBuildMetadataMap = Ob
   "capability": "payment_processing",
   "environment": "live",
   "adapterVersion": 1,
-  "gitSha": "850cf82d441a02d079c41f7969d9e10ea7da2f49",
-  "sourceDigest": "sha256:07b8bd8d8324dfee9effd013f2b4278296807d4d9368f4510d8727c610c93fc6",
-  "candidateExecutionDigest": "sha256:86c278a14f64b548ddf0807f3b35d5a0188901bcaf31f03885181715973b1e4b"
+  "gitSha": "03f81a1eb1e2546e155a4cce7a822ca3dcf19234",
+  "sourceDigest": "sha256:62b40646294b75d99c3c53e1da7ffd3738398c7846afe277f3b6bfd4e41e2940",
+  "candidateExecutionDigest": "sha256:131f1c598933cc43cb25b482e4162eda753ee3388b20328d0bb9b9ea6f2d5ef8"
 }),
 });
 
@@ -51,11 +51,7 @@ export const PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES: PaytrExecutionAutho
   test: Object.freeze({
   "environment": "test",
   "adapterVersion": 1,
-  "evidenceDigest": "sha256:95282d83f2323514937be5255873c9ebe418cac608972911163a4e45c2686eb1"
+  "evidenceDigest": "sha256:31cb07156978753ba74459c9bbef58811d22b4eb0272f5704f5b6f2698aca61c"
 }),
-  live: Object.freeze({
-  "environment": "live",
-  "adapterVersion": 1,
-  "evidenceDigest": "sha256:86c278a14f64b548ddf0807f3b35d5a0188901bcaf31f03885181715973b1e4b"
-}),
+  live: null,
 });

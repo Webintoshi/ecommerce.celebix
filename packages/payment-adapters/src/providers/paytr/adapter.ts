@@ -595,7 +595,6 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       })
     ) return null;
     if (status === "success") {
-      if (selected.requirePaymentContext === true && !hasPaymentContext) return null;
       if (hasPaymentContext) {
         const rawPaymentAmount = params.get("payment_amount");
         if (

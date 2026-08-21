@@ -417,11 +417,30 @@ test("verifies callback HMAC and projects only durable order/provider facts", as
     payment_type: "card",
     test_mode: "1",
   }).toString();
+  assert.deepEqual(await adapter.verifyCallback({
+    environment: "test",
+    credential,
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new TextEncoder().encode(missingPaymentContext),
+    expected: {
+      attemptId: "11111111-1111-4111-8111-111111111111",
+      orderReference: "merchant-order-123",
+      amountMinor: 10_000,
+      currency: "TRY",
+    },
+  }), {
+    eventKey: "merchant-order-123:success",
+    status: "succeeded",
+    providerReference: MERCHANT_OID,
+    paidAmountMinor: 10_000,
+    currency: "TRY",
+    safeCode: "success",
+  });
   for (const invalid of [
     signedUnderpayment,
     wrongPaymentAmount,
     wrongCurrency,
-    missingPaymentContext,
     `${form}&installment_count=0`,
     `${form}&installment_count=1`,
     `${form}&installment_count=13`,

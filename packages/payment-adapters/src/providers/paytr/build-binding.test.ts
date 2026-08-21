@@ -105,8 +105,9 @@ test("PayTR source-control build authority approves test and keeps live closed",
 
   assert.ok(generated);
   assert.ok(generated.PAYTR_GENERATED_BUILD_METADATA.test);
-  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live, null);
+  assert.ok(generated.PAYTR_GENERATED_BUILD_METADATA.live);
   assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.environment, "test");
+  assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live.environment, "live");
   assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.providerCode, "paytr_iframe");
   assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.capability, "payment_processing");
   assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.adapterVersion, 1);
@@ -119,6 +120,7 @@ test("PayTR source-control build authority approves test and keeps live closed",
     live: null,
   });
   assert.deepEqual(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES, generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
+  assert.equal(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES.live, null);
   assert.deepEqual(api.PAYTR_APPROVED_EXECUTION_AUTHORITIES, generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
   assert.equal(Object.isFrozen(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES), true);
   assert.equal(Object.isFrozen(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES.test), true);
