@@ -11,6 +11,10 @@ import {
 } from "@celebix/saas-data";
 
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import {
+  approvedPanelMutationOriginForStore,
+  hasApprovedPanelMutationOriginShape,
+} from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerStorePolicyRuntime } from "../server-store-policy/runtime.ts";
 
@@ -137,7 +141,7 @@ async function authorize(
   try { runtime = await dependencies.resolveRuntime(); } catch { return failure("unavailable", 503); }
   if (runtime === null) return failure("unavailable", 503);
   if (request.method !== method) return failure("method_not_allowed", 405, { allow: method });
-  if (method === "PATCH" && request.headers.get("origin") !== runtime.access.panelOrigin) return failure("origin_denied", 403);
+  if (method === "PATCH" && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) return failure("origin_denied", 403);
   if (!exactUrl(request, pathname) || privateHeaders(request)) return failure("invalid_input", 400);
   const cookie = readOrderPanelSessionCookie(request);
   if (cookie.kind !== "present") return failure("unauthenticated", 401);
@@ -153,6 +157,10 @@ async function authorize(
   if (access.kind !== "authenticated") return failure("unavailable", 503);
   if (access.tenantContext.store.status !== "active") return failure("store_inactive", 403);
   if (access.tenantContext.membership.status !== "active") return failure("membership_denied", 403);
+  if (
+    method === "PATCH"
+    && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)
+  ) return failure("origin_denied", 403);
   const action = method === "GET" ? "content.read" : "content.manage";
   if (!isMerchantActionAllowed(access.tenantContext.membership.role, action)) return failure("membership_denied", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });

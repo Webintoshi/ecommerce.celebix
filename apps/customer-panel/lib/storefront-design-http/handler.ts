@@ -21,6 +21,7 @@ import type { ProductMediaStorageObject } from "../server-media/r2-storage.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import { readPersistentPanelSessionCookie } from "../server-panel-session-controls/request-input.ts";
 import type { ServerStorefrontDesignRuntime } from "../server-storefront-design/runtime.ts";
+import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import { validateStorefrontDesignRequest } from "./request-authority.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -158,6 +159,10 @@ async function authorize(deps: Dependencies, request: Request, method: "GET" | "
   if (access.kind !== "authenticated") return response("unavailable", 503);
   if (access.tenantContext.store.status !== "active") return response("store_inactive", 403);
   if (access.tenantContext.membership.status !== "active") return response("membership_denied", 403);
+  if (
+    method !== "GET"
+    && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)
+  ) return response("origin_denied", 403);
   const action = method === "GET" ? "configuration.read" : "configuration.manage";
   if (!isMerchantActionAllowed(access.tenantContext.membership.role, action)) return response("membership_denied", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });

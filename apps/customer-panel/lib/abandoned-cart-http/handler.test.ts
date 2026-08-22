@@ -8,6 +8,8 @@ import type { ServerAbandonedCartRuntime } from "../server-abandoned-carts/runti
 import { createAbandonedCartHttpHandlers } from "./handler.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://merchant.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN_ORIGIN = "https://other-merchant.admin.saas-staging.celebix.site";
 const BASE = "/api/orders/abandoned-carts";
 const ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OPERATION = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -68,6 +70,18 @@ test("recovered and archive mutations require exact Origin and idempotency autho
   assert.equal((await api.archive(request(`${BASE}/${ID}/archive`, { method: "POST" }), ID)).status, 200);
   assert.deepEqual(calls[0], { tenantContext: tenantContext(), now: NOW, cartId: ID, operationId: OPERATION, expectedVersion: 3 });
   assert.equal((await api.archive(request(`${BASE}/${ID}/archive`, { method: "POST", origin: null }), ID)).status, 403);
+});
+
+test("abandoned cart mutations survive tenant admin proxy delivery and stay store-bound", async () => {
+  const calls: unknown[] = [];
+  const api = handlers(repository({
+    async archive(input) { calls.push(input); return { id: ID, status: "archived", version: 4, updatedAt: NOW.toISOString(), replayed: false }; },
+  }));
+  const forwarded = { host: "customer-panel:3400", forwarded: "host=attacker.example;proto=https", "x-forwarded-host": "attacker.example", "x-forwarded-proto": "https" };
+  assert.equal((await api.archive(request(`${BASE}/${ID}/archive`, { method: "POST", origin: TENANT_ADMIN_ORIGIN, headers: forwarded }), ID)).status, 200);
+  assert.equal((await api.archive(request(`${BASE}/${ID}/archive`, { method: "POST", origin: OTHER_TENANT_ADMIN_ORIGIN, headers: { ...forwarded, "x-forwarded-host": "merchant.admin.saas-staging.celebix.site" } }), ID)).status, 403);
+  assert.equal(calls.length, 1);
+  assert.deepEqual((calls[0] as Record<string, unknown>).tenantContext, tenantContext());
 });
 
 test("session, path, private authority, repository errors and disabled runtime fail closed", async () => {

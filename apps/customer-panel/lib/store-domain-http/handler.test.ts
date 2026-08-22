@@ -6,7 +6,9 @@ import { StoreDomainServiceError, type StoreDomainService } from "@celebix/saas-
 
 import { createStoreDomainHttpHandlers } from "./handler.ts";
 
-const ORIGIN = "https://panel.test";
+const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN_ORIGIN = "https://other-store.admin.saas-staging.celebix.site";
 const NOW = new Date("2026-08-05T12:00:00.000Z");
 const REQUEST = "78000000-0000-4000-8000-000000000088";
 const OPERATION = "79000000-0000-4000-8000-000000000088";
@@ -15,7 +17,7 @@ const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 1).toString("base64url")
 const DOMAIN_VIEW: StoreDomainView = Object.freeze({ schemaVersion: 1, id: DOMAIN, hostname: "www.example.com", hostnameType: "custom_domain", status: "pending", primary: false, uiStatus: "dns_pending", dnsInstructions: Object.freeze([{ type: "CNAME" as const, name: "www.example.com", value: "shops.celebix.site" }]), verifiedAt: null, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() });
 
 function tenant(role: "store_owner" | "analyst" = "store_owner"): TenantContext {
-  return { schemaVersion: 1, requestId: REQUEST, principal: { id: "10000000-0000-4000-8000-000000000088", issuer: "https://id.test", subject: "private" }, store: { id: "20000000-0000-4000-8000-000000000088", slug: "store", status: "active" }, membership: { id: "30000000-0000-4000-8000-000000000088", role, status: "active" }, entitlements: { schemaVersion: 1, planId: "40000000-0000-4000-8000-000000000088", planCode: "pilot", version: 1, status: "active", features: ["custom_domains"], limits: { products: 100, staff: 5, storageBytes: 100, customDomains: 1 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" };
+  return { schemaVersion: 1, requestId: REQUEST, principal: { id: "10000000-0000-4000-8000-000000000088", issuer: "https://id.test", subject: "private" }, store: { id: "20000000-0000-4000-8000-000000000088", slug: "guzide-kuyumcu-4", status: "active" }, membership: { id: "30000000-0000-4000-8000-000000000088", role, status: "active" }, entitlements: { schemaVersion: 1, planId: "40000000-0000-4000-8000-000000000088", planCode: "pilot", version: 1, status: "active", features: ["custom_domains"], limits: { products: 100, staff: 5, storageBytes: 100, customDomains: 1 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" };
 }
 function service(overrides: Partial<StoreDomainService> = {}): StoreDomainService {
   return { async list() { return [DOMAIN_VIEW]; }, async create() { return DOMAIN_VIEW; }, async requestRecheck() { return DOMAIN_VIEW; }, async makePrimary() { return DOMAIN_VIEW; }, async disable() { return DOMAIN_VIEW; }, ...overrides };
@@ -50,6 +52,20 @@ test("versioned recheck primary and removal use exact domain and version", async
   assert.equal((await selected.primary(request(`/api/store-domains/${DOMAIN}/primary`, "POST", { expectedVersion: 1 }), DOMAIN)).status, 200);
   assert.equal((await selected.item(request(`/api/store-domains/${DOMAIN}`, "DELETE", { expectedVersion: 1 }), DOMAIN)).status, 200);
   assert.deepEqual(calls.map((entry) => (entry as unknown[])[0]), ["recheck", "primary", "disable"]);
+});
+
+test("tenant admin domain mutations survive internal proxy delivery and stay store-bound", async () => {
+  const calls: unknown[] = [];
+  const selected = handlers(service({ async create(input) { calls.push(input); return DOMAIN_VIEW; } }));
+
+  const accepted = await selected.collection(request("/api/store-domains", "POST", { hostname: "www.example.com" }, TENANT_ADMIN_ORIGIN));
+  assert.equal(accepted.status, 202);
+  assert.equal(calls.length, 1);
+
+  const rejected = await selected.collection(request("/api/store-domains", "POST", { hostname: "www.example.com" }, OTHER_TENANT_ADMIN_ORIGIN));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: "origin_denied" });
+  assert.equal(calls.length, 1);
 });
 
 test("origin session permissions shape and private authority fail closed", async () => {

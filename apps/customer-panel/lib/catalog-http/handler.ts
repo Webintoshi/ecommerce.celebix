@@ -8,6 +8,7 @@ import {
 } from "@celebix/saas-data";
 
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
+import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import { readPersistentPanelSessionCookie } from "../server-panel-session-controls/request-input.ts";
 import type { ServerCatalogRuntime } from "../server-catalog/runtime.ts";
 import {
@@ -143,6 +144,10 @@ async function authorize(
     });
   } catch { return error("unavailable", 503); }
   if (access.kind !== "authenticated") return accessFailure(access);
+  if (
+    expectation.method !== "GET"
+    && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)
+  ) return error("origin_denied", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 

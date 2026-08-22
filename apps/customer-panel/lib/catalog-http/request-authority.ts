@@ -1,5 +1,7 @@
 import "server-only";
 
+import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
+
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 export const CATALOG_SUMMARY_PATH = "/api/catalog/summary";
 export const CATALOG_VARIANT_CHOICES_PATH = "/api/catalog/variant-choices";
@@ -63,7 +65,7 @@ export function createCatalogRequestAuthorityValidator(options: {
       const exact = expectation(expected);
       if (!(request instanceof Request)) return "request_invalid";
       if (request.method !== exact.method) return "method_not_allowed";
-      if (exact.method !== "GET" && request.headers.get("origin") !== panelOrigin) return "origin_denied";
+      if (exact.method !== "GET" && !hasApprovedPanelMutationOriginShape(request, panelOrigin)) return "origin_denied";
       let url: URL;
       try { url = new URL(request.url); } catch { return "request_invalid"; }
       if (

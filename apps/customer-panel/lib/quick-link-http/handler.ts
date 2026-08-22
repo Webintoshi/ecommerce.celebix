@@ -26,6 +26,7 @@ import {
 
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerQuickLinksRuntime } from "../server-quick-links/runtime.ts";
+import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import {
   createQuickLinkRequestAuthorityValidator,
   type QuickLinkRequestExpectation,
@@ -168,6 +169,10 @@ async function authorize(
     if (access.kind === "unauthorized") return error("membership_denied", 403);
     if (access.kind !== "authenticated") return error("unavailable", 503);
     const tenantContext = (access as AuthenticatedAccess).tenantContext;
+    if (
+      expectation.method === "POST" &&
+      !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, tenantContext.store.slug)
+    ) return error("origin_denied", 403);
     if (!isMerchantActionAllowed(tenantContext.membership.role, action)) return error("action_denied", 403);
     return Object.freeze({ runtime, tenantContext, now: new Date(now) });
   } catch { return error("unavailable", 503); }

@@ -2,6 +2,10 @@ import { isMerchantActionAllowed, type TenantContext } from "@celebix/saas-contr
 import { STORE_DOMAIN_SERVICE_ERROR_CODES, StoreDomainServiceError } from "@celebix/saas-domain-core";
 
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import {
+  approvedPanelMutationOriginForStore,
+  hasApprovedPanelMutationOriginShape,
+} from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerStoreDomainRuntime } from "../server-store-domains/runtime.ts";
 
@@ -48,7 +52,7 @@ async function authorize(dependencies: Dependencies, request: Request, method: "
   let runtime: ServerStoreDomainRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return failure("provider_unavailable", 503); }
   if (!runtime) return failure("provider_unavailable", 503);
   if (request.method !== method) return failure("method_not_allowed", 405, { allow: method });
-  if (method !== "GET" && request.headers.get("origin") !== runtime.access.panelOrigin) return failure("origin_denied", 403);
+  if (method !== "GET" && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) return failure("origin_denied", 403);
   if (!exactUrl(request, pathname) || privateHeaders(request)) return failure("invalid_input", 400);
   const cookie = readOrderPanelSessionCookie(request); if (cookie.kind !== "present") return failure("unauthenticated", 401);
   let now: Date; let requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return failure("provider_unavailable", 503); }
@@ -56,6 +60,10 @@ async function authorize(dependencies: Dependencies, request: Request, method: "
   let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) }); } catch { return failure("provider_unavailable", 503); }
   if (access.kind === "unauthenticated") return failure("unauthenticated", 401); if (access.kind === "unauthorized") return failure("forbidden", 403); if (access.kind !== "authenticated") return failure("provider_unavailable", 503);
   if (access.tenantContext.store.status !== "active" || access.tenantContext.membership.status !== "active") return failure("forbidden", 403);
+  if (
+    method !== "GET"
+    && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)
+  ) return failure("origin_denied", 403);
   const action = method === "GET" ? "configuration.read" : "configuration.manage";
   if (!isMerchantActionAllowed(access.tenantContext.membership.role, action)) return failure("forbidden", 403);
   if (!access.tenantContext.entitlements.features.includes("custom_domains")) return failure("feature_not_enabled", 403);

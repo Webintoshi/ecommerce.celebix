@@ -4,6 +4,7 @@ import { AbandonedCartRepositoryError, type AbandonedCartErrorCode } from "@cele
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerAbandonedCartRuntime } from "../server-abandoned-carts/runtime.ts";
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import { createAbandonedCartRequestAuthorityValidator, type AbandonedCartRequestExpectation } from "./request-authority.ts";
 import { readAbandonedCartListInput, readAbandonedCartMutationInput, readAbandonedCartPathId } from "./request-input.ts";
 
@@ -38,6 +39,7 @@ async function authorize(dependencies: Dependencies, request: Request, expectati
     if (access.kind === "unauthenticated") return error("unauthenticated", 401);
     if (access.kind === "unauthorized") return error("membership_denied", 403);
     if (access.kind !== "authenticated") return error("unavailable", 503);
+    if (expectation.method === "POST" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)) return error("origin_denied", 403);
     return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
   } catch { return error("unavailable", 503); }
 }

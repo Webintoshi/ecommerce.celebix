@@ -13,6 +13,8 @@ import {
 import { createQuickLinkHttpHandlers } from "./handler.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://pilot.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN_ORIGIN = "https://other-store.admin.saas-staging.celebix.site";
 const BASE = "/api/orders/quick-links";
 const LINK_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NEW_LINK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -320,6 +322,27 @@ test("disabled runtime returns controlled 503 without session repository mutatio
   assert.deepEqual(await response.json(), { code: "unavailable" });
   assert.equal(response.headers.has("set-cookie"), false);
   assert.deepEqual(calls, { session: 0, list: 0, get: 0, create: 0, cancel: 0, duplicate: 0, readiness: 0, reveal: 0, configure: 0, revoke: 0, methods: 0, ids: 0, tokens: 0 });
+});
+
+test("tenant admin quick-link mutations survive internal proxy delivery and stay store-bound", async () => {
+  const selected = fixture();
+
+  const accepted = await selected.handlers.create(request(BASE, {
+    method: "POST",
+    origin: TENANT_ADMIN_ORIGIN,
+    body: createBody,
+  }));
+  assert.equal(accepted.status, 201);
+  assert.equal(selected.calls.create, 1);
+
+  const rejected = await selected.handlers.create(request(BASE, {
+    method: "POST",
+    origin: OTHER_TENANT_ADMIN_ORIGIN,
+    body: createBody,
+  }));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: "origin_denied" });
+  assert.equal(selected.calls.create, 1);
 });
 
 test("all routes authenticate the panel cookie before any repository call", async () => {

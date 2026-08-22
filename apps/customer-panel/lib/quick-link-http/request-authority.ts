@@ -1,3 +1,5 @@
+import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
+
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const QUICK_LINK_PATH = new RegExp(
   `^(?:/api/orders/quick-links|/api/orders/quick-links/payment-methods|/api/orders/quick-links/${UUID}|/api/orders/quick-links/${UUID}/(?:cancel|duplicate|url)|/api/orders/quick-links/provider/(?:activate|revoke))$`,
@@ -68,7 +70,7 @@ export function createQuickLinkRequestAuthorityValidator(options: {
         const selected = expectation(expected);
         if (!(request instanceof Request)) return "request_invalid";
         if (request.method !== selected.method) return "method_not_allowed";
-        if (selected.method === "POST" && request.headers.get("origin") !== configuredOrigin) return "origin_denied";
+        if (selected.method === "POST" && !hasApprovedPanelMutationOriginShape(request, configuredOrigin)) return "origin_denied";
         if (request.headers.get("transfer-encoding") !== null) return "request_invalid";
         if (selected.method === "GET" && getHasBody(request)) return "request_invalid";
         const url = new URL(request.url);

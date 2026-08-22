@@ -5,7 +5,9 @@ import type { Shipment, ShippingConnection, ShippingQuoteSession, ShippingResour
 import type { ServerShippingRuntime } from "../server-shipping/runtime.ts";
 import { createShippingHttpHandlers } from "./handler.ts";
 
+const PANEL = "https://panel.saas-staging.celebix.site";
 const ORIGIN = "https://guzide.admin.saas-staging.celebix.site";
+const OTHER_ORIGIN = "https://other-store.admin.saas-staging.celebix.site";
 const REQUEST = "72000000-0000-4000-8000-000000000002";
 const OPERATION = "72000000-0000-4000-8000-000000000003";
 const JOB = "72000000-0000-4000-8000-000000000004";
@@ -88,7 +90,7 @@ function fixture(role: "store_owner" | "analyst" = "store_owner") {
   };
   const runtime = {
     access: {
-      readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN,
+      readiness: { mode: "approved_staging" }, panelOrigin: PANEL,
       async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant(role) }; },
     },
     admin,
@@ -208,4 +210,23 @@ test("wrong origin analyst mutation private headers and malformed token fail bef
   ];
   for (const response of responses) assert.notEqual(response.status, 200);
   assert.equal(wrongOrigin.calls.saved.length + analyst.calls.saved.length + privateHeader.calls.saved.length + malformed.calls.saved.length, 0);
+});
+
+test("tenant admin shipping mutations survive internal proxy delivery and stay store-bound", async () => {
+  const selected = fixture();
+  const accepted = await selected.handlers.connection(request("/api/settings/shipping/connection", "POST", {
+    token: "bk_live_secret_123456789",
+    operationId: OPERATION,
+  }, ORIGIN));
+
+  assert.equal(accepted.status, 202);
+  assert.equal(selected.calls.saved.length, 1);
+
+  const rejected = await selected.handlers.connection(request("/api/settings/shipping/connection", "POST", {
+    token: "bk_live_secret_123456789",
+    operationId: OPERATION,
+  }, OTHER_ORIGIN));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: "origin_denied" });
+  assert.equal(selected.calls.saved.length, 1);
 });

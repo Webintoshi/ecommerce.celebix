@@ -16,6 +16,8 @@ import { PAYMENT_PROVIDER_CATALOG } from "../payment-providers/catalog.ts";
 
 const PANEL = "https://panel.saas-staging.celebix.site";
 const TENANT_ADMIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN = "https://other-store.admin.saas-staging.celebix.site";
+const INTERNAL_PROXY_HOST = "customer-panel:3400";
 const PROFILE = "40000000-0000-4000-8000-000000000005";
 const OPERATION = "70000000-0000-4000-8000-000000000001";
 const REQUEST = "71000000-0000-4000-8000-000000000001";
@@ -27,7 +29,7 @@ function tenant(role: "store_owner" | "analyst" = "store_owner"): TenantContext 
     schemaVersion: 1,
     requestId: "private",
     principal: { id: "10000000-0000-4000-8000-000000000001", issuer: "https://id.test/oidc", subject: "private" },
-    store: { id: "20000000-0000-4000-8000-000000000001", slug: "store", status: "active" },
+    store: { id: "20000000-0000-4000-8000-000000000001", slug: "guzide-kuyumcu-4", status: "active" },
     membership: { id: "30000000-0000-4000-8000-000000000001", role, status: "active" },
     entitlements: { schemaVersion: 1, planId: "50000000-0000-4000-8000-000000000001", planCode: "growth", version: 2, status: "active", features: ["integrations"], limits: { products: 100, staff: 5, storageBytes: 100 }, validFrom: "2026-01-01T00:00:00.000Z" },
     locale: "tr-TR",
@@ -277,7 +279,7 @@ test("profile save seals one registry-validated credential and never returns it"
   assert.equal(probe.parsedCredential()?.every((byte) => byte === 0), true);
 });
 
-test("canonical tenant admin origin can save a provider profile", async () => {
+test("tenant admin provider mutations survive internal proxy delivery and stay store-bound", async () => {
   const probe = fixture();
   const response = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
     providerCode: "fixture_provider",
@@ -285,9 +287,20 @@ test("canonical tenant admin origin can save a provider profile", async () => {
     publicConfig: { account_reference: "merchant-42" },
     credential: { api_secret: "never-return" },
     expectedVersion: 0,
-  }, TENANT_ADMIN, new URL(TENANT_ADMIN).host));
+  }, TENANT_ADMIN, INTERNAL_PROXY_HOST));
 
   assert.equal(response.status, 200);
+  assert.equal(probe.repositoryCalls.length, 1);
+
+  const rejected = await probe.handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+    providerCode: "fixture_provider",
+    capability: "marketplace_sync",
+    publicConfig: { account_reference: "merchant-42" },
+    credential: { api_secret: "never-return" },
+    expectedVersion: 0,
+  }, OTHER_TENANT_ADMIN, INTERNAL_PROXY_HOST));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: "origin_denied" });
   assert.equal(probe.repositoryCalls.length, 1);
 });
 

@@ -1,3 +1,5 @@
+import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
+
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const PATH = new RegExp(`^(?:/api/orders/abandoned-carts|/api/orders/abandoned-carts/summary|/api/orders/abandoned-carts/${UUID}|/api/orders/abandoned-carts/${UUID}/(?:recovered|archive))$`);
 
@@ -27,7 +29,7 @@ export function createAbandonedCartRequestAuthorityValidator(options: Readonly<{
         const exact = expectation(expected);
         if (!(request instanceof Request)) return "request_invalid";
         if (request.method !== exact.method) return "method_not_allowed";
-        if (exact.method === "POST" && request.headers.get("origin") !== origin) return "origin_denied";
+        if (exact.method === "POST" && !hasApprovedPanelMutationOriginShape(request, origin)) return "origin_denied";
         const url = new URL(request.url);
         if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== exact.pathname || url.hash || (exact.query === "forbidden" && url.search)) return "request_invalid";
         return "approved";

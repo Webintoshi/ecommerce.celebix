@@ -7,6 +7,7 @@ const authority = await import("./request-authority.ts").catch(
 );
 
 const PANEL_ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://atlas-store.admin.saas-staging.celebix.site";
 const PRODUCTS = "/api/catalog/products";
 const SUMMARY = "/api/catalog/summary";
 const PRODUCT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -39,6 +40,20 @@ test("mutation authority accepts internal HTTP or HTTPS delivery only with exact
       query: "forbidden",
     }), "approved");
   }
+});
+
+test("mutation authority accepts tenant admin Origin shape without trusting the proxy Host", () => {
+  const validator = authority.createCatalogRequestAuthorityValidator?.({ panelOrigin: PANEL_ORIGIN });
+  assert.equal(validator?.validate(request({
+    url: `http://customer-panel:3400${PRODUCTS}`,
+    origin: TENANT_ADMIN_ORIGIN,
+    headers: {
+      host: "customer-panel:3400",
+      forwarded: "host=wrong.example;proto=https",
+      "x-forwarded-host": "wrong.example",
+      "x-forwarded-proto": "https",
+    },
+  }), { method: "POST", pathname: PRODUCTS, query: "forbidden" }), "approved");
 });
 
 test("mutation authority denies missing wrong malformed and forwarded Origin authority", () => {

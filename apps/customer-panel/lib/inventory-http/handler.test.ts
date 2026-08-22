@@ -10,6 +10,8 @@ import { prepareInventoryRouteRequest } from "./request-authority.ts";
 import type { ServerInventoryRuntime } from "../server-inventory/runtime.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN_ORIGIN = "https://other-store.admin.saas-staging.celebix.site";
 const STORE = "10000000-0000-4000-8000-000000000001";
 const PRINCIPAL = "10000000-0000-4000-8000-000000000002";
 const MEMBERSHIP = "10000000-0000-4000-8000-000000000003";
@@ -33,7 +35,7 @@ function tenant(): TenantContext {
   return {
     schemaVersion: 1, requestId: REQUEST_ID,
     principal: { id: PRINCIPAL, issuer: "https://identity.test/oidc", subject: "private" },
-    store: { id: STORE, slug: "store", status: "active" },
+    store: { id: STORE, slug: "guzide-kuyumcu-4", status: "active" },
     membership: { id: MEMBERSHIP, role: "store_owner", status: "active" },
     entitlements: {
       schemaVersion: 1, planId: PLAN, planCode: "growth", version: 2, status: "active",
@@ -181,6 +183,33 @@ test("mutation responses carry the exact server-selected entity kind", async () 
     assert.equal(response.status, 200);
     assert.equal((await response.json()).kind, kind);
   }
+});
+
+test("tenant admin inventory mutations survive internal proxy delivery and stay store-bound", async () => {
+  let calls = 0;
+  const handle = handler(repository({
+    async saveLocation() {
+      calls += 1;
+      return { ...mutation(DESTINATION, "active"), status: "active" as const };
+    },
+  }));
+
+  const accepted = await handle(request("/api/inventory/locations", {
+    method: "POST",
+    origin: TENANT_ADMIN_ORIGIN,
+    body: { operationId: OPERATION, name: "Secondary warehouse" },
+  }));
+  assert.equal(accepted.status, 200);
+  assert.equal(calls, 1);
+
+  const rejected = await handle(request("/api/inventory/locations", {
+    method: "POST",
+    origin: OTHER_TENANT_ADMIN_ORIGIN,
+    body: { operationId: OPERATION, name: "Secondary warehouse" },
+  }));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: "forbidden" });
+  assert.equal(calls, 1);
 });
 
 test("wrong, child, encoded, prefix, method, and query paths are rejected before repository access", async () => {

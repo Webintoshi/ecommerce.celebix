@@ -1,3 +1,89 @@
-import type{ServerAnalyticsRuntime}from"../server-analytics/runtime.ts";import{readOrderPanelSessionCookie}from"../order-http/request-input.ts";
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;export async function authorizeAnalyticsRequest(runtime:ServerAnalyticsRuntime,request:Request,requestId:string,now:Date,mutation:boolean){if(mutation&&request.headers.get("origin")!==runtime.access.panelOrigin)return{kind:"response"as const,response:Response.json({code:"origin_denied"},{status:403})};for(const[name]of request.headers)if(name==="authorization"||name.startsWith("x-celebix")||["x-store-id","x-tenant-id","x-principal-id","x-membership-id","x-plan-id","x-database-url"].includes(name))return{kind:"response"as const,response:Response.json({code:"invalid_input"},{status:400})};const cookie=readOrderPanelSessionCookie(request);if(cookie.kind!=="present")return{kind:"response"as const,response:Response.json({code:"unauthenticated"},{status:401})};if(!UUID.test(requestId)||!(now instanceof Date)||!Number.isFinite(now.getTime()))return{kind:"response"as const,response:Response.json({code:"unavailable"},{status:503})};try{const access=await runtime.access.resolveCredential({credential:cookie.credential,requestId,now:new Date(now)});if(access.kind==="authenticated")return{kind:"authorized"as const,tenantContext:access.tenantContext};return{kind:"response"as const,response:Response.json({code:access.kind},{status:access.kind==="unauthenticated"?401:access.kind==="unauthorized"?403:503})}}catch{return{kind:"response"as const,response:Response.json({code:"unavailable"},{status:503})}}
+import type { ServerAnalyticsRuntime } from "../server-analytics/runtime.ts";
+import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import {
+  approvedPanelMutationOriginForStore,
+  hasApprovedPanelMutationOriginShape,
+} from "../panel-origin-authority.ts";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+export async function authorizeAnalyticsRequest(
+  runtime: ServerAnalyticsRuntime,
+  request: Request,
+  requestId: string,
+  now: Date,
+  mutation: boolean,
+) {
+  if (mutation && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) {
+    return {
+      kind: "response" as const,
+      response: Response.json({ code: "origin_denied" }, { status: 403 }),
+    };
+  }
+
+  for (const [name] of request.headers) {
+    if (
+      name === "authorization" ||
+      name.startsWith("x-celebix") ||
+      ["x-store-id", "x-tenant-id", "x-principal-id", "x-membership-id", "x-plan-id", "x-database-url"].includes(name)
+    ) {
+      return {
+        kind: "response" as const,
+        response: Response.json({ code: "invalid_input" }, { status: 400 }),
+      };
+    }
+  }
+
+  const cookie = readOrderPanelSessionCookie(request);
+  if (cookie.kind !== "present") {
+    return {
+      kind: "response" as const,
+      response: Response.json({ code: "unauthenticated" }, { status: 401 }),
+    };
+  }
+
+  if (!UUID.test(requestId) || !(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    return {
+      kind: "response" as const,
+      response: Response.json({ code: "unavailable" }, { status: 503 }),
+    };
+  }
+
+  try {
+    const access = await runtime.access.resolveCredential({
+      credential: cookie.credential,
+      requestId,
+      now: new Date(now),
+    });
+
+    if (access.kind === "authenticated") {
+      if (
+        mutation &&
+        !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)
+      ) {
+        return {
+          kind: "response" as const,
+          response: Response.json({ code: "origin_denied" }, { status: 403 }),
+        };
+      }
+
+      return {
+        kind: "authorized" as const,
+        tenantContext: access.tenantContext,
+      };
+    }
+
+    return {
+      kind: "response" as const,
+      response: Response.json(
+        { code: access.kind },
+        { status: access.kind === "unauthenticated" ? 401 : access.kind === "unauthorized" ? 403 : 503 },
+      ),
+    };
+  } catch {
+    return {
+      kind: "response" as const,
+      response: Response.json({ code: "unavailable" }, { status: 503 }),
+    };
+  }
 }

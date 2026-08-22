@@ -7,6 +7,8 @@ import { createPricingHttpHandler } from "./handler.ts";
 import type { ServerPricingRuntime } from "../server-pricing/runtime.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN_ORIGIN = "https://other-store.admin.saas-staging.celebix.site";
 const ID = "20000000-0000-4000-8000-000000000001";
 const VARIANT = "30000000-0000-4000-8000-000000000001";
 const TAG = "40000000-0000-4000-8000-000000000001";
@@ -17,7 +19,7 @@ const COOKIE = `__Host-celebix_panel=${CREDENTIAL}`;
 const NOW = new Date("2026-07-23T12:00:00.000Z");
 const list = (status: "draft" | "active" | "archived" = "draft", version = 1): PriceList => ({ id: ID, name: "VIP fiyatı", status, items: [{ variantId: VARIANT, priceCents: 1200 }], rules: [{ channel: "quick_order", customerTagId: TAG, priority: 10 }], version, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), ...(status === "active" ? { activatedAt: NOW.toISOString() } : {}), ...(status === "archived" ? { archivedAt: NOW.toISOString() } : {}) });
 const preview = (): PricingPreviewResult => ({ entries: [{ variantId: VARIANT, channel: "storefront", basePriceCents: 1500, effectivePriceCents: 1200, sourceKind: "price_list", priceListId: ID }], asOf: "2026-07-23T12:00:00.000000Z" });
-function tenant(): TenantContext { return { schemaVersion: 1, requestId: REQUEST, principal: { id: REQUEST, issuer: "https://id.test", subject: "private" }, store: { id: REQUEST, slug: "store", status: "active" }, membership: { id: REQUEST, role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: REQUEST, planCode: "growth", version: 2, status: "active", features: ["catalog"], limits: { products: 100, staff: 5, storageBytes: 1_000_000 }, validFrom: NOW.toISOString() }, locale: "tr-TR" }; }
+function tenant(): TenantContext { return { schemaVersion: 1, requestId: REQUEST, principal: { id: REQUEST, issuer: "https://id.test", subject: "private" }, store: { id: REQUEST, slug: "guzide-kuyumcu-4", status: "active" }, membership: { id: REQUEST, role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: REQUEST, planCode: "growth", version: 2, status: "active", features: ["catalog"], limits: { products: 100, staff: 5, storageBytes: 1_000_000 }, validFrom: NOW.toISOString() }, locale: "tr-TR" }; }
 function repo(overrides: Partial<PricingRepository> = {}): PricingRepository { const reject = async () => { throw new Error("unexpected"); }; return { list: reject, get: reject, save: reject, activate: reject, archive: reject, preview: reject, ...overrides } as PricingRepository; }
 function handler(pricing: PricingRepository) { const runtime = { pricing, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", tenantContext: tenant(), session: {} } as never; }, async rotateCredential() { return { kind: "unavailable" } as const; }, async revokeCredential() { return { kind: "unavailable" } as const; } } } satisfies ServerPricingRuntime; return createPricingHttpHandler({ async resolveRuntime() { return runtime; }, now: () => new Date(NOW), requestId: () => REQUEST }); }
 function request(path: string, options: { method?: string; body?: unknown; origin?: string | null; cookie?: string | null; headers?: HeadersInit } = {}) { const method = options.method ?? "GET"; const headers = new Headers(options.headers); if (options.cookie !== null) headers.set("cookie", options.cookie ?? COOKIE); if (method === "POST") { headers.set("content-type", "application/json"); if (options.origin !== null) headers.set("origin", options.origin ?? ORIGIN); } return new Request(`http://internal:3400${path}`, { method, headers, body: method === "POST" ? JSON.stringify(options.body ?? {}) : undefined }); }
@@ -57,6 +59,28 @@ test("pricing preview POST carries only exact finite browser input into server a
   for (const key of ["operationId", "storeId", "tenantId", "customerId", "email", "customerTagId", "basePriceCents", "effectivePriceCents"]) {
     assert.equal(key in input, false);
   }
+});
+
+test("tenant admin pricing mutations survive internal proxy delivery and stay store-bound", async () => {
+  const calls: unknown[] = [];
+  const handle = handler(repo({ async save(input) { calls.push(input); return list(); } }));
+
+  const accepted = await handle(request("/api/pricing/price-lists", {
+    method: "POST",
+    origin: TENANT_ADMIN_ORIGIN,
+    body: { operationId: OP, name: "VIP fiyatı", items: list().items, rules: list().rules },
+  }));
+  assert.equal(accepted.status, 200);
+  assert.equal(calls.length, 1);
+
+  const rejected = await handle(request("/api/pricing/price-lists", {
+    method: "POST",
+    origin: OTHER_TENANT_ADMIN_ORIGIN,
+    body: { operationId: OP, name: "VIP fiyatı", items: list().items, rules: list().rules },
+  }));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: "forbidden" });
+  assert.equal(calls.length, 1);
 });
 
 test("pricing preview rejects malformed authority-bearing bodies before repository", async () => {

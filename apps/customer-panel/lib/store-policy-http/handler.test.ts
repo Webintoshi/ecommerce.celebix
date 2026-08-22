@@ -6,7 +6,9 @@ import { StorefrontContentRepositoryError, type StorePolicyAdminRepository } fro
 
 import { createStorePolicyHttpHandlers } from "./handler.ts";
 
-const ORIGIN = "https://panel.test";
+const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN_ORIGIN = "https://other-store.admin.saas-staging.celebix.site";
 const NOW = new Date("2026-07-31T12:00:00.000Z");
 const REQUEST = "78000000-0000-4000-8000-000000000071";
 const OPERATION = "79000000-0000-4000-8000-000000000071";
@@ -17,7 +19,7 @@ function tenant(role: "store_owner" | "analyst" = "store_owner"): TenantContext 
     schemaVersion: 1,
     requestId: REQUEST,
     principal: { id: "10000000-0000-4000-8000-000000000071", issuer: "https://id.test/oidc", subject: "private" },
-    store: { id: "20000000-0000-4000-8000-000000000071", slug: "store", status: "active" },
+    store: { id: "20000000-0000-4000-8000-000000000071", slug: "guzide-kuyumcu-4", status: "active" },
     membership: { id: "30000000-0000-4000-8000-000000000071", role, status: "active" },
     entitlements: { schemaVersion: 1, planId: "40000000-0000-4000-8000-000000000071", planCode: "growth", version: 2, status: "active", features: ["catalog"], limits: { products: 100, staff: 5, storageBytes: 100 }, validFrom: "2026-01-01T00:00:00.000Z" },
     locale: "tr-TR",
@@ -86,6 +88,32 @@ test("policy PATCH accepts only body status version and operation without browse
 
   const privateAuthority = await selected.item(request("/api/storefront-policies/kvkk", "PATCH", { operationId: OPERATION, expectedVersion: 1, body: "## KVKK", status: "published", storeId: "x" }), "kvkk");
   assert.equal(privateAuthority.status, 400);
+  assert.equal(calls.length, 1);
+});
+
+test("tenant admin policy mutations survive internal proxy delivery and stay store-bound", async () => {
+  const calls: unknown[] = [];
+  const selected = handlers(repository({ async save(input) { calls.push(input); return PAGE; } }));
+
+  const accepted = await selected.item(request("/api/storefront-policies/kvkk", "PATCH", {
+    operationId: OPERATION,
+    expectedVersion: 1,
+    body: "## KVKK",
+    status: "published",
+  }, TENANT_ADMIN_ORIGIN), "kvkk");
+
+  assert.equal(accepted.status, 200);
+  assert.equal(calls.length, 1);
+
+  const rejected = await selected.item(request("/api/storefront-policies/kvkk", "PATCH", {
+    operationId: OPERATION,
+    expectedVersion: 1,
+    body: "## KVKK",
+    status: "published",
+  }, OTHER_TENANT_ADMIN_ORIGIN), "kvkk");
+
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: "origin_denied" });
   assert.equal(calls.length, 1);
 });
 

@@ -1,3 +1,5 @@
+import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
+
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const PRIVATE_EXACT = new Set([
   "authorization", "host", "forwarded", "x-forwarded-host", "x-forwarded-proto",
@@ -126,12 +128,5 @@ export function classifyInventoryRequest(request: unknown): InventoryRouteDecisi
 }
 
 export function inventoryOriginApproved(request: Request, panelOrigin: string): boolean {
-  try {
-    const origin = new URL(panelOrigin);
-    return (
-      origin.protocol === "https:" && !origin.username && !origin.password && !origin.port &&
-      origin.pathname === "/" && !origin.search && !origin.hash && origin.origin === panelOrigin &&
-      request.headers.get("origin") === panelOrigin
-    );
-  } catch { return false; }
+  return hasApprovedPanelMutationOriginShape(request, panelOrigin);
 }

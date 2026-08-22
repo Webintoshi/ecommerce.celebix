@@ -11,6 +11,7 @@ import {
 import { inventoryRepositoryErrorCode } from "@celebix/saas-data";
 
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerInventoryRuntime } from "../server-inventory/runtime.ts";
 import { classifyInventoryRequest, inventoryOriginApproved, type InventoryRoute } from "./request-authority.ts";
@@ -83,6 +84,7 @@ async function authorize(dependencies: Dependencies, request: Request, route: In
   if (access.kind === "unauthenticated") return error("unauthenticated", 401);
   if (access.kind === "unauthorized") return error("forbidden", 403);
   if (access.kind !== "authenticated") return error("unavailable", 503);
+  if (route.method === "POST" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)) return error("forbidden", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 

@@ -15,6 +15,7 @@ import {
   type OrderMutationResult,
 } from "@celebix/saas-data";
 
+import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerOrdersRuntime } from "../server-orders/runtime.ts";
 import {
@@ -161,6 +162,10 @@ async function authorize(
     if (kind === "unauthorized") return error("membership_denied", 403);
     if (kind !== "authenticated") return error("unavailable", 503);
     const tenantContext = (access as AuthenticatedAccess).tenantContext;
+    if (
+      expectation.method !== "GET" &&
+      !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, tenantContext.store.slug)
+    ) return error("origin_denied", 403);
     return Object.freeze({ runtime, tenantContext, now: new Date(now) });
   } catch { return error("unavailable", 503); }
 }

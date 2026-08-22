@@ -8,7 +8,8 @@ import { ToshiProviderAdapterError } from "../toshi-provider-adapters/types.ts";
 import type { ServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
 import { createToshiProviderHttpHandlers } from "./handler.ts";
 
-const ORIGIN = "https://guzide.admin.saas-staging.celebix.site";
+const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://guzide.admin.saas-staging.celebix.site";
 const OPERATION = "72000000-0000-4000-8000-000000000001";
 const REQUEST = "72000000-0000-4000-8000-000000000002";
 const CONFIG = "72000000-0000-4000-8000-000000000003";
@@ -153,6 +154,37 @@ test("model default and revoke mutations use exact provider version authority", 
   assert.equal(selected.calls.select.length, 1);
   assert.equal(selected.calls.defaults.length, 1);
   assert.equal(selected.calls.revoke.length, 1);
+});
+
+test("tenant admin Toshi mutations survive internal proxy delivery and stay store-bound", async () => {
+  const selected = fixture();
+  const response = await selected.handlers.selectModel(
+    request(
+      "/api/settings/artificial-intelligence/providers/openai/model",
+      "PATCH",
+      { selectedModel: "gpt-5", expectedVersion: 1 },
+      TENANT_ADMIN_ORIGIN,
+      { host: "customer-panel:3400" },
+    ),
+    { params: Promise.resolve({ provider: "openai" }) },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(selected.calls.select.length, 1);
+
+  const other = fixture();
+  const denied = await other.handlers.selectModel(
+    request(
+      "/api/settings/artificial-intelligence/providers/openai/model",
+      "PATCH",
+      { selectedModel: "gpt-5", expectedVersion: 1 },
+      "https://other-store.admin.saas-staging.celebix.site",
+      { host: "guzide.admin.saas-staging.celebix.site" },
+    ),
+    { params: Promise.resolve({ provider: "openai" }) },
+  );
+  assert.equal(denied.status, 403);
+  assert.deepEqual(await denied.json(), { code: "origin_denied" });
+  assert.equal(other.calls.select.length, 0);
 });
 
 test("wrong origin analyst mutation private headers and route drift fail before provider work", async () => {

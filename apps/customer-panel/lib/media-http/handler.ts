@@ -3,6 +3,7 @@ import { ProductMediaRepositoryError } from "@celebix/saas-data";
 import { readPersistentPanelSessionCookie } from "../server-panel-session-controls/request-input.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerMediaRuntime } from "../server-media/runtime.ts";
+import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import { validateProductImage } from "../server-media/image-validation.ts";
 import { createProductMediaUploadService } from "../server-media/upload-service.ts";
 import { createProductMediaRequestAuthorityValidator } from "./request-authority.ts";
@@ -25,6 +26,7 @@ async function authorize(dependencies: Dependencies, request: Request, method: "
   let now: Date, requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return response("unavailable", 503); } if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !UUID.test(requestId)) return response("unavailable", 503);
   let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) }); } catch { return response("unavailable", 503); }
   if (access.kind === "unauthenticated") return response("unauthenticated", 401); if (access.kind === "unauthorized") return response("membership_denied", 403); if (access.kind !== "authenticated") return response("unavailable", 503);
+  if (method !== "GET" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)) return response("origin_denied", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 function isResponse(value: unknown): value is Response { return value instanceof Response; }

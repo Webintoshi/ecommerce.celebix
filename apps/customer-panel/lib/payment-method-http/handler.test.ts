@@ -13,6 +13,8 @@ import { createPaymentMethodHttpHandlers } from "./handler.ts";
 
 const PANEL = "https://panel.saas-staging.celebix.site";
 const TENANT_ADMIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN = "https://other-store.admin.saas-staging.celebix.site";
+const INTERNAL_PROXY_HOST = "customer-panel:3400";
 const METHOD = "40000000-0000-4000-8000-000000000005";
 const PROFILE = "40000000-0000-4000-8000-000000000006";
 const OPERATION = "70000000-0000-4000-8000-000000000001";
@@ -35,7 +37,7 @@ function tenant(role: "store_owner" | "admin" | "editor" | "analyst" = "store_ow
     schemaVersion: 1,
     requestId: "private",
     principal: { id: "10000000-0000-4000-8000-000000000001", issuer: "https://id.test/oidc", subject: "private" },
-    store: { id: "20000000-0000-4000-8000-000000000001", slug: "store", status: "active" },
+    store: { id: "20000000-0000-4000-8000-000000000001", slug: "guzide-kuyumcu-4", status: "active" },
     membership: { id: "30000000-0000-4000-8000-000000000001", role, status: "active" },
     entitlements: {
       schemaVersion: 1,
@@ -214,7 +216,7 @@ test("valid built-in save reaches the repository with exact frozen config", asyn
   assert.equal(Object.isFrozen(repositoryInput.config), true);
 });
 
-test("canonical tenant admin origin can save a built-in payment method", async () => {
+test("tenant admin payment mutations survive internal proxy delivery and stay store-bound", async () => {
   const probe = fixture();
   const response = await probe.handlers.methods(request("POST", "/api/payment-methods", {
     methodId: METHOD,
@@ -231,11 +233,32 @@ test("canonical tenant admin origin can save a built-in payment method", async (
     },
   }, {
     origin: TENANT_ADMIN,
-    host: new URL(TENANT_ADMIN).host,
+    host: INTERNAL_PROXY_HOST,
   }));
 
   assert.equal(response.status, 200);
   assert.equal(probe.calls[0]?.kind, "save");
+
+  const rejected = await probe.handlers.methods(request("POST", "/api/payment-methods", {
+    methodId: METHOD,
+    expectedVersion: 0,
+    kind: "bank_transfer",
+    profileId: null,
+    providerCode: null,
+    label: "Banka havalesi",
+    config: {
+      accountHolder: "Celebix Mağazacılık A.Ş.",
+      bankName: "Örnek Bankası",
+      iban: "TR330006100519786457841326",
+      instructions: "Sipariş numaranızı açıklamaya yazın.",
+    },
+  }, {
+    origin: OTHER_TENANT_ADMIN,
+    host: INTERNAL_PROXY_HOST,
+  }));
+  assert.equal(rejected.status, 403);
+  assert.equal(await code(rejected), "origin_denied");
+  assert.equal(probe.calls.filter(({ kind }) => kind === "save").length, 1);
 });
 
 test("invalid built-in IBAN is rejected before repository save", async () => {

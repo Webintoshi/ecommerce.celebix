@@ -10,6 +10,8 @@ import { createIyzicoActivationHttpHandlers } from "./handler.ts";
 
 const PANEL = "https://panel.saas-staging.celebix.site";
 const TENANT_ADMIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN = "https://other-store.admin.saas-staging.celebix.site";
+const INTERNAL_PROXY_HOST = "customer-panel:3400";
 const PROFILE = "40000000-0000-4000-8000-000000000061";
 const METHOD = "50000000-0000-4000-8000-000000000061";
 const OPERATION = "60000000-0000-4000-8000-000000000061";
@@ -25,7 +27,7 @@ function tenant(role: "store_owner" | "analyst" = "store_owner"): TenantContext 
     schemaVersion: 1,
     requestId: "private-request",
     principal: { id: "10000000-0000-4000-8000-000000000001", issuer: "https://id.test", subject: "private" },
-    store: { id: "20000000-0000-4000-8000-000000000001", slug: "store", status: "active" },
+    store: { id: "20000000-0000-4000-8000-000000000001", slug: "guzide-kuyumcu-4", status: "active" },
     membership: { id: "30000000-0000-4000-8000-000000000001", role, status: "active" },
     entitlements: {
       schemaVersion: 1,
@@ -281,14 +283,22 @@ test("begin derives the active TEST profile and generated Build A authority serv
   assert.equal(input.now instanceof Date, true);
 });
 
-test("canonical tenant admin origin can begin sandbox activation", async () => {
+test("tenant admin sandbox activation survives internal proxy delivery and stays store-bound", async () => {
   const probe = fixture();
   const response = await probe.handlers.begin(request("POST", BEGIN_PATH, {}, {
     origin: TENANT_ADMIN,
-    host: new URL(TENANT_ADMIN).host,
+    host: INTERNAL_PROXY_HOST,
   }));
 
   assert.equal(response.status, 200);
+  assert.deepEqual(probe.calls.map(({ kind }) => kind), ["profiles", "beginCurrent"]);
+
+  const rejected = await probe.handlers.begin(request("POST", BEGIN_PATH, {}, {
+    origin: OTHER_TENANT_ADMIN,
+    host: INTERNAL_PROXY_HOST,
+  }));
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await json(rejected), { code: "origin_denied" });
   assert.deepEqual(probe.calls.map(({ kind }) => kind), ["profiles", "beginCurrent"]);
 });
 

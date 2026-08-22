@@ -19,8 +19,8 @@ import {
 } from "@celebix/saas-data";
 
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import { approvedPanelMutationOriginForStore, hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
-import { approvedPanelMutationOrigin } from "../server-panel-access/mutation-origin.ts";
 import type { ServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 
 const BASE = "/api/merchant-providers";
@@ -130,7 +130,7 @@ async function authorize(deps: Deps, request: Request, method: "GET" | "POST", p
   try { runtime = await deps.resolveRuntime(); } catch { return failure("unavailable", 503); }
   if (runtime === null) return failure("unavailable", 503);
   if (request.method !== method) return failure("method_not_allowed", 405, { allow: method });
-  if (method === "POST" && !approvedPanelMutationOrigin(request, runtime.access.panelOrigin)) return failure("origin_denied", 403);
+  if (method === "POST" && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) return failure("origin_denied", 403);
   const selectedQuery = requestUrl(request, pathname, query);
   if (selectedQuery === null || privateHeaders(request)) return failure("invalid_input", 400);
   const cookie = readOrderPanelSessionCookie(request);
@@ -144,6 +144,10 @@ async function authorize(deps: Deps, request: Request, method: "GET" | "POST", p
   if (access.kind === "unauthenticated") return failure("unauthenticated", 401);
   if (access.kind === "unauthorized") return failure("membership_denied", 403);
   if (access.kind !== "authenticated") return failure("unavailable", 503);
+  if (
+    method === "POST"
+    && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)
+  ) return failure("origin_denied", 403);
   if (method === "POST" && !isMerchantActionAllowed(access.tenantContext.membership.role, "integrations.manage")) return failure("membership_denied", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now), capability: selectedQuery === true ? null : selectedQuery });
 }

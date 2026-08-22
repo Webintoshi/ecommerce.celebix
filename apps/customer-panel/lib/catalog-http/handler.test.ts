@@ -10,6 +10,8 @@ type ServerCatalogRuntime = import("../server-catalog/runtime.ts").ServerCatalog
 const handlersModule = await import("./handler.ts").catch(() => ({} as Partial<HandlerModule>));
 
 const PANEL_ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://atlas-store.admin.saas-staging.celebix.site";
+const OTHER_TENANT_ADMIN_ORIGIN = "https://other-store.admin.saas-staging.celebix.site";
 const PRODUCTS = "/api/catalog/products";
 const SUMMARY_PATH = "/api/catalog/summary";
 const VARIANT_CHOICES_PATH = "/api/catalog/variant-choices";
@@ -210,6 +212,43 @@ test("authenticated create uses exact TenantContext and idempotency operation wi
     product: CREATE_BODY.product,
     initialVariant: CREATE_BODY.initialVariant,
   }]);
+});
+
+test("tenant admin product mutations survive internal reverse-proxy Host and remain bound to the authenticated store", async () => {
+  const calls: unknown[] = [];
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async createProduct(input) {
+      calls.push(input);
+      return Object.freeze({ product: product(), initialVariant: variant(), replayed: false });
+    },
+  })));
+  const accepted = await handlers?.createProduct(request(PRODUCTS, {
+    method: "POST",
+    body: CREATE_BODY,
+    origin: TENANT_ADMIN_ORIGIN,
+    headers: {
+      host: "customer-panel:3400",
+      forwarded: "host=wrong.example;proto=https",
+      "x-forwarded-host": "wrong.example",
+      "x-forwarded-proto": "https",
+    },
+  }));
+  assert.equal(accepted?.status, 201);
+
+  const denied = await handlers?.createProduct(request(PRODUCTS, {
+    method: "POST",
+    body: CREATE_BODY,
+    origin: OTHER_TENANT_ADMIN_ORIGIN,
+    headers: {
+      host: "customer-panel:3400",
+      "x-forwarded-host": "atlas-store.admin.saas-staging.celebix.site",
+      "x-forwarded-proto": "https",
+    },
+  }));
+  assert.equal(denied?.status, 403);
+  assert.deepEqual(await denied?.json(), { code: "origin_denied" });
+  assert.equal(calls.length, 1);
+  assert.equal((calls[0] as { tenantContext: TenantContext }).tenantContext.store.slug, "atlas-store");
 });
 
 test("authenticated list and detail remain store-scoped and detail excludes archived variants by default", async () => {

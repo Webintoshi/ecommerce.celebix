@@ -1,6 +1,10 @@
 import { isMerchantActionAllowed, type TenantContext } from "@celebix/saas-contracts";
 
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import {
+  approvedPanelMutationOriginForStore,
+  hasApprovedPanelMutationOriginShape,
+} from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerShippingRuntime } from "../server-shipping/runtime.ts";
 
@@ -79,7 +83,7 @@ export async function authorizeShippingRequest(
   if (runtime === null) return fail("unavailable", 503);
   if (request.method !== method) return fail("method_not_allowed", 405, method);
   if (!exactUrl(request, pathname) || hasPrivateHeaders(request)) return fail("invalid_input", 400);
-  if (method !== "GET" && request.headers.get("origin") !== runtime.access.panelOrigin) return fail("origin_denied", 403);
+  if (method !== "GET" && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) return fail("origin_denied", 403);
   const cookie = readOrderPanelSessionCookie(request);
   if (cookie.kind !== "present") return fail("unauthenticated", 401);
   let now: Date;
@@ -95,6 +99,14 @@ export async function authorizeShippingRequest(
   if (access.kind !== "authenticated") return fail("unavailable", 503);
   if (access.tenantContext.store.status !== "active") return fail("store_inactive", 403);
   if (access.tenantContext.membership.status !== "active") return fail("membership_denied", 403);
+  if (
+    method !== "GET"
+    && !approvedPanelMutationOriginForStore(
+      request,
+      runtime.access.panelOrigin,
+      access.tenantContext.store.slug,
+    )
+  ) return fail("origin_denied", 403);
   const action = method === "GET" ? "shipping.read" : "shipping.manage";
   if (!isMerchantActionAllowed(access.tenantContext.membership.role, action)) return fail("membership_denied", 403);
   if (!access.tenantContext.entitlements.features.includes("integrations")) return fail("feature_not_enabled", 403);

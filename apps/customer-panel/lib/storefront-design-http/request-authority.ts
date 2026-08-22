@@ -1,19 +1,11 @@
-import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 
 const METHODS = Object.freeze(["GET", "PATCH", "POST"] as const);
 
 export type StorefrontDesignRequestDecision = "approved" | "method_not_allowed" | "origin_denied" | "invalid_input";
 
 export function approvedStorefrontMutationOrigin(request: Request, panelOrigin: string): boolean {
-  const requestOrigin = request.headers.get("origin");
-  if (requestOrigin === panelOrigin) return true;
-  const requestHostname = request.headers.get("host");
-  if (requestOrigin === null || requestHostname === null) return false;
-  try {
-    return parseCanonicalAdminOriginFromPanelOrigin(requestOrigin, panelOrigin).hostname === requestHostname;
-  } catch {
-    return false;
-  }
+  return hasApprovedPanelMutationOriginShape(request, panelOrigin);
 }
 
 export function validateStorefrontDesignRequest(

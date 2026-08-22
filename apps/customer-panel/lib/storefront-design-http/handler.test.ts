@@ -10,6 +10,7 @@ import { createStorefrontDesignHttpHandlers, validateStorefrontDesignWorkspaceRe
 const ORIGIN = "https://panel.saas-staging.celebix.site";
 const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
 const TENANT_ADMIN_HOST = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const INTERNAL_PROXY_HOST = "customer-panel:3400";
 const STORE = "10000000-0000-4000-8000-000000000001";
 const PRINCIPAL = "20000000-0000-4000-8000-000000000001";
 const MEMBERSHIP = "30000000-0000-4000-8000-000000000001";
@@ -235,7 +236,7 @@ test("tenant admin same-origin design mutations persist without trusting another
     "/api/storefront-design/draft",
     "PATCH",
     { expectedDraftVersion: 1, design: DESIGN },
-    { "idempotency-key": OPERATION, origin: TENANT_ADMIN_ORIGIN, host: TENANT_ADMIN_HOST },
+    { "idempotency-key": OPERATION, origin: TENANT_ADMIN_ORIGIN, host: INTERNAL_PROXY_HOST },
   ));
   assert.equal(accepted.status, 200);
   assert.equal(selected.calls.filter((call) => call.method === "save").length, 1);

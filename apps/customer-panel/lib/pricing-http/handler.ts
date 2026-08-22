@@ -1,6 +1,10 @@
 import { parsePriceList, parsePriceListItem, parsePriceListRule, parsePricingPreviewRequest, parsePricingPreviewResult, type TenantContext } from "@celebix/saas-contracts";
 import { pricingRepositoryErrorCode, type PricingRepository } from "@celebix/saas-data";
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import {
+  approvedPanelMutationOriginForStore,
+  hasApprovedPanelMutationOriginShape,
+} from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerPricingRuntime } from "../server-pricing/runtime.ts";
 
@@ -59,10 +63,11 @@ function parsedPreview(value: unknown) {
 async function authorize(dependencies: Dependencies, request: Request, route: Route): Promise<Response | Readonly<{ runtime: ServerPricingRuntime; tenantContext: TenantContext; now: Date }>> {
   const cookie = readOrderPanelSessionCookie(request); if (cookie.kind !== "present") return error("unauthenticated", 401);
   let runtime: ServerPricingRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return error("unavailable", 503); } if (!runtime) return error("unavailable", 503);
-  if (route.method === "POST" && request.headers.get("origin") !== runtime.access.panelOrigin) return error("forbidden", 403);
+  if (route.method === "POST" && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) return error("forbidden", 403);
   let now: Date, requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return error("unavailable", 503); } if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !UUID.test(requestId)) return error("unavailable", 503);
   let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) }); } catch { return error("unavailable", 503); }
   if (access.kind === "unauthenticated") return error("unauthenticated", 401); if (access.kind === "unauthorized") return error("forbidden", 403); if (access.kind !== "authenticated") return error("unavailable", 503);
+  if (route.method === "POST" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)) return error("forbidden", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 export function createPricingHttpHandler(dependencies: Dependencies) {

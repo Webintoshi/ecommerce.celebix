@@ -4,12 +4,14 @@ import test from "node:test";
 import { createAbandonedCartRequestAuthorityValidator } from "./request-authority.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
+const TENANT_ADMIN_ORIGIN = "https://merchant.admin.saas-staging.celebix.site";
 const ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 test("approves only exact proxy-safe abandoned-cart paths and configured mutation Origin", () => {
   const validator = createAbandonedCartRequestAuthorityValidator({ panelOrigin: ORIGIN });
   assert.equal(validator.validate(new Request("http://internal:3400/api/orders/abandoned-carts?status=abandoned"), { method: "GET", pathname: "/api/orders/abandoned-carts", query: "allowed" }), "approved");
   assert.equal(validator.validate(new Request(`https://internal/api/orders/abandoned-carts/${ID}/archive`, { method: "POST", headers: { origin: ORIGIN } }), { method: "POST", pathname: `/api/orders/abandoned-carts/${ID}/archive`, query: "forbidden" }), "approved");
+  assert.equal(validator.validate(new Request(`http://customer-panel:3400/api/orders/abandoned-carts/${ID}/archive`, { method: "POST", headers: { origin: TENANT_ADMIN_ORIGIN, host: "customer-panel:3400", forwarded: "host=attacker.example;proto=https", "x-forwarded-host": "attacker.example" } }), { method: "POST", pathname: `/api/orders/abandoned-carts/${ID}/archive`, query: "forbidden" }), "approved");
   for (const request of [
     new Request(`http://internal/api/orders/abandoned-carts/${ID}/archive`, { method: "POST" }),
     new Request(`http://internal/api/orders/abandoned-carts/${ID}/archive?storeId=evil`, { method: "POST", headers: { origin: ORIGIN } }),
