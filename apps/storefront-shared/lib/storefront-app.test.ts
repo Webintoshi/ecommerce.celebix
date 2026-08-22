@@ -449,12 +449,12 @@ test("public SQL product projections rank available products before applying sto
   );
 });
 
-test("public homepage projection removes sold-out products from merchant-managed product rows", async () => {
-  const homepage = await readFile(path.resolve(import.meta.dirname, "../../owner/scripts/sql/saas/202608210113_homepage_available_product_rows.up.sql"), "utf8");
+test("public homepage projection keeps sold-out products after available product rows", async () => {
+  const homepage = await readFile(path.resolve(import.meta.dirname, "../../owner/scripts/sql/saas/202608220114_homepage_sold_out_product_order.up.sql"), "utf8");
   assert.match(homepage, /public_starter_retail_home/u);
-  assert.match(homepage, /pg_catalog[.]jsonb_array_elements\(items\) WITH ORDINALITY AS filtered\(value,ordinality\)/u);
-  assert.match(homepage, /WHERE COALESCE\(\(filtered[.]value->>'available'\)::boolean,false\)/u);
-  assert.match(homepage, /pg_catalog[.]jsonb_agg\(filtered[.]value ORDER BY filtered[.]ordinality\)/u);
+  assert.match(homepage, /pg_catalog[.]jsonb_array_elements\(items\) WITH ORDINALITY AS ordered\(value,ordinality\)/u);
+  assert.match(homepage, /pg_catalog[.]jsonb_agg\(ordered[.]value ORDER BY COALESCE\(\(ordered[.]value->>'available'\)::boolean,false\) DESC,ordered[.]ordinality\)/u);
+  assert.doesNotMatch(homepage, /WHERE COALESCE\(\(ordered[.]value->>'available'\)::boolean,false\)/u);
 });
 
 test("storefront metadata is presentation-owned and defaults to noindex", async () => {

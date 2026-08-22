@@ -4,6 +4,7 @@ import type {
   PublicStarterThemePresentationV2,
   PublicStarterThemePresentationV3,
 } from "@celebix/saas-contracts";
+import { availableProductsFirst } from "../lib/public-product-ordering.ts";
 
 type CampaignPresentation = PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
 type ProductRowItems = CampaignHomeProjection["productRows"][number]["items"];
@@ -53,7 +54,7 @@ export function campaignHomeSectionKey(section: PublicStarterHomeSection, index:
 }
 
 export function homepageAvailableProducts(products?: ProductRowItems): ProductRowItems {
-  return Object.freeze((products ?? []).filter((product) => product.available));
+  return availableProductsFirst(products ?? []) as ProductRowItems;
 }
 
 export function visibleCampaignSectionKinds(projection: CampaignHomeProjection) {

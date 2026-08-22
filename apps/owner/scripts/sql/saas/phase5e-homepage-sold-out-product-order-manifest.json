@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase5e-homepage-sold-out-product-order",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608220114_homepage_sold_out_product_order.up.sql",
+      "direction": "up",
+      "sha256": "0128dbce284e91ed87717e6a5d63eea8fa49d92f781b7c66a992124d4fa848f6"
+    },
+    {
+      "file": "202608220114_homepage_sold_out_product_order.down.sql",
+      "direction": "down",
+      "sha256": "3bf9443edc28c6960a5bc6ee19d613667ec94b6f1f9f038f187814e7454deeb9"
+    },
+    {
+      "file": "202608220114_homepage_sold_out_product_order_assertions.sql",
+      "direction": "verify",
+      "sha256": "401f36cfbc3288379f188e634eebe7c6fe4a8730c09a160805a46fa9efbf9f9e"
+    }
+  ]
+}
