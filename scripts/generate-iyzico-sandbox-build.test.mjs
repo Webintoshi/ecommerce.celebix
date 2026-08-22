@@ -143,6 +143,53 @@ test("Build B emits a test-only authority only for exact mode and candidate dige
   assert.equal(Object.isFrozen(binding.IYZICO_APPROVED_EXECUTION_AUTHORITY), true);
 });
 
+test("Coolify BuildKit secrets can supply missing Iyzico build authority without leaking values", async (t) => {
+  const selected = await fixture(t);
+  const secretDirectory = join(selected.root, "run-secrets");
+  await mkdir(secretDirectory, { recursive: true });
+  await writeFile(join(secretDirectory, "SOURCE_COMMIT"), `${SOURCE_COMMIT}\n`, "utf8");
+  await writeFile(join(secretDirectory, "CELEBIX_IYZICO_APPROVAL_MODE"), "approved_test_sandbox\n", "utf8");
+  await writeFile(
+    join(secretDirectory, "CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST"),
+    `${CANDIDATE_DIGEST}\n`,
+    "utf8",
+  );
+
+  const result = await runGenerator(selected.root, { CELEBIX_BUILD_SECRETS_DIR: secretDirectory });
+  assert.deepEqual(result, { code: 0, stdout: `${CANDIDATE_DIGEST}\n`, stderr: "" });
+  const generated = await imported(selected.generated, "buildkit-secret-generated");
+
+  assert.deepEqual(generated.IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY, {
+    environment: "test",
+    adapterVersion: 1,
+    evidenceDigest: CANDIDATE_DIGEST,
+  });
+});
+
+test("Iyzico env authority is not rescued by matching BuildKit secrets", async (t) => {
+  const selected = await fixture(t);
+  const secretDirectory = join(selected.root, "run-secrets");
+  await mkdir(secretDirectory, { recursive: true });
+  await writeFile(join(secretDirectory, "SOURCE_COMMIT"), `${SOURCE_COMMIT}\n`, "utf8");
+  await writeFile(join(secretDirectory, "CELEBIX_IYZICO_APPROVAL_MODE"), "approved_test_sandbox\n", "utf8");
+  await writeFile(
+    join(secretDirectory, "CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST"),
+    `${CANDIDATE_DIGEST}\n`,
+    "utf8",
+  );
+
+  const result = await runGenerator(selected.root, {
+    CELEBIX_BUILD_SECRETS_DIR: secretDirectory,
+    SOURCE_COMMIT,
+    CELEBIX_IYZICO_APPROVAL_MODE: "approved_live",
+  });
+
+  assert.equal(result.code, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /^iyzico_sandbox_build_invalid\n$/);
+  assert.equal(result.stderr.includes(CANDIDATE_DIGEST), false);
+});
+
 test("partial wrong live extra and missing build authority fail closed without replacing output", async (t) => {
   const cases = [
     Object.freeze({}),

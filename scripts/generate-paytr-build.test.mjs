@@ -118,6 +118,62 @@ test("PayTR build generator emits exact independent test and live authorities", 
     generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
 });
 
+test("Coolify BuildKit secrets can supply missing PayTR build authorities without leaking values", async (t) => {
+  const selected = await fixture(t);
+  const secretDirectory = join(selected.root, "run-secrets");
+  await mkdir(secretDirectory, { recursive: true });
+  await writeFile(join(secretDirectory, "SOURCE_COMMIT"), `${SOURCE_COMMIT}\n`, "utf8");
+  await writeFile(join(secretDirectory, "CELEBIX_PAYTR_TEST_APPROVAL_MODE"), "approved_test_sandbox\n", "utf8");
+  await writeFile(
+    join(secretDirectory, "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST"),
+    `${DIGESTS.test}\n`,
+    "utf8",
+  );
+  await writeFile(join(secretDirectory, "CELEBIX_PAYTR_LIVE_APPROVAL_MODE"), "approved_live\n", "utf8");
+  await writeFile(
+    join(secretDirectory, "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST"),
+    `${DIGESTS.live}\n`,
+    "utf8",
+  );
+
+  const result = await runGenerator(selected.root, { CELEBIX_BUILD_SECRETS_DIR: secretDirectory });
+  assert.deepEqual(result, {
+    code: 0,
+    stdout: `${DIGESTS.test} ${DIGESTS.live}\n`,
+    stderr: "",
+  });
+  const generated = await imported(selected.generated, "buildkit-secret-generated");
+
+  assert.deepEqual(generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES, {
+    test: { environment: "test", adapterVersion: 1, evidenceDigest: DIGESTS.test },
+    live: { environment: "live", adapterVersion: 1, evidenceDigest: DIGESTS.live },
+  });
+});
+
+test("PayTR env authority is not rescued by matching BuildKit secrets", async (t) => {
+  const selected = await fixture(t);
+  const secretDirectory = join(selected.root, "run-secrets");
+  await mkdir(secretDirectory, { recursive: true });
+  await writeFile(join(secretDirectory, "SOURCE_COMMIT"), `${SOURCE_COMMIT}\n`, "utf8");
+  await writeFile(join(secretDirectory, "CELEBIX_PAYTR_TEST_APPROVAL_MODE"), "approved_test_sandbox\n", "utf8");
+  await writeFile(
+    join(secretDirectory, "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST"),
+    `${DIGESTS.test}\n`,
+    "utf8",
+  );
+
+  const result = await runGenerator(selected.root, {
+    CELEBIX_BUILD_SECRETS_DIR: secretDirectory,
+    SOURCE_COMMIT,
+    CELEBIX_PAYTR_TEST_APPROVAL_MODE: "approved_live",
+  });
+
+  assert.equal(result.code, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /^paytr_build_invalid\n$/);
+  assert.equal(result.stderr.includes(DIGESTS.test), false);
+});
+
 test("PayTR build generator rejects partial wrong and unknown authority without replacing output", async (t) => {
   const cases = [
     {},

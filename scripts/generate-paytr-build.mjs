@@ -30,6 +30,8 @@ const APPROVAL_KEY_PREFIXES = Object.freeze([
   "CELEBIX_PAYTR_LIVE_APPROVAL_",
   "CELEBIX_PAYTR_LIVE_APPROVED_",
 ]);
+const BUILD_SECRETS_DIRECTORY_KEY = "CELEBIX_BUILD_SECRETS_DIR";
+const DEFAULT_BUILD_SECRETS_DIRECTORY = "/run/secrets";
 const ALLOWED_ENVIRONMENT_KEYS = new Set([
   "SOURCE_COMMIT",
   APPROVAL_KEYS.test.mode,
@@ -37,6 +39,7 @@ const ALLOWED_ENVIRONMENT_KEYS = new Set([
   APPROVAL_KEYS.live.mode,
   APPROVAL_KEYS.live.digest,
 ]);
+const BUILD_SECRET_KEYS = Object.freeze([...ALLOWED_ENVIRONMENT_KEYS]);
 
 function invalid() {
   throw new TypeError("paytr_build_invalid");
@@ -112,6 +115,34 @@ function runtimeEnvironment(value) {
     if (error instanceof TypeError && error.message === "paytr_build_invalid") throw error;
     return invalid();
   }
+}
+
+function buildSecretDirectory(value) {
+  if (value === undefined) return DEFAULT_BUILD_SECRETS_DIRECTORY;
+  if (typeof value !== "string" || !isAbsolute(value) || resolve(value) !== value) invalid();
+  return value;
+}
+
+function normalizeBuildSecret(value) {
+  if (value.endsWith("\r\n")) return value.slice(0, -2);
+  if (value.endsWith("\n")) return value.slice(0, -1);
+  return value;
+}
+
+async function environmentWithBuildSecrets(environment, directory) {
+  const selected = { ...environment };
+  for (const key of BUILD_SECRET_KEYS) {
+    if (selected[key] !== undefined) continue;
+    try {
+      selected[key] = normalizeBuildSecret(await readFile(join(directory, key), "utf8"));
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+        continue;
+      }
+      invalid();
+    }
+  }
+  return Object.freeze(selected);
 }
 
 function approval(environment, selectedEnvironment, candidateDigest) {
@@ -236,9 +267,10 @@ function parseArguments(arguments_) {
 
 async function main() {
   try {
+    const directory = buildSecretDirectory(process.env[BUILD_SECRETS_DIRECTORY_KEY]);
     const candidates = await generatePaytrBuild(Object.freeze({
       repositoryRoot: process.cwd(),
-      environment: runtimeEnvironment(process.env),
+      environment: await environmentWithBuildSecrets(runtimeEnvironment(process.env), directory),
       check: parseArguments(process.argv.slice(2)),
     }));
     process.stdout.write(`${candidates.test.candidateExecutionDigest} ${candidates.live.candidateExecutionDigest}\n`);
