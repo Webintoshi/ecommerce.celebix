@@ -974,7 +974,6 @@ export function createPaytrIframeAdapter(
         environment: input.environment,
         form,
         expectedPaymentAmount: input.expected.amountMinor,
-        requirePaymentContext: true,
       });
       if (callback === null || !DIGEST.test(callback.merchantOid)) {
         invalid("paytr_callback_invalid");
