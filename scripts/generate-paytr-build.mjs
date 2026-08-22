@@ -41,8 +41,15 @@ const ALLOWED_ENVIRONMENT_KEYS = new Set([
 ]);
 const BUILD_SECRET_KEYS = Object.freeze([...ALLOWED_ENVIRONMENT_KEYS]);
 
-function invalid() {
-  throw new TypeError("paytr_build_invalid");
+class PaytrBuildInvalidError extends TypeError {
+  constructor(reason = "unknown") {
+    super("paytr_build_invalid");
+    this.reason = reason;
+  }
+}
+
+function invalid(reason) {
+  throw new PaytrBuildInvalidError(reason);
 }
 
 function exactRecord(value, keys) {
@@ -82,13 +89,14 @@ function selectedEnvironment(value) {
         key !== "SOURCE_COMMIT"
         && !APPROVAL_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))
       ) continue;
-      if (!ALLOWED_ENVIRONMENT_KEYS.has(key)) invalid();
+      if (!ALLOWED_ENVIRONMENT_KEYS.has(key)) invalid("unexpected_approval_key");
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
       if (!descriptor || !descriptor.enumerable || !("value" in descriptor) ||
-        typeof descriptor.value !== "string") invalid();
+        typeof descriptor.value !== "string") invalid("environment_value_invalid");
       selected[key] = descriptor.value;
     }
-    if (typeof selected.SOURCE_COMMIT !== "string" || !GIT_SHA.test(selected.SOURCE_COMMIT)) invalid();
+    if (typeof selected.SOURCE_COMMIT !== "string") invalid("missing_source_commit");
+    if (!GIT_SHA.test(selected.SOURCE_COMMIT)) invalid("source_commit_invalid");
     return Object.freeze(selected);
   } catch (error) {
     if (error instanceof TypeError && error.message === "paytr_build_invalid") throw error;
@@ -119,7 +127,9 @@ function runtimeEnvironment(value) {
 
 function buildSecretDirectory(value) {
   if (value === undefined) return DEFAULT_BUILD_SECRETS_DIRECTORY;
-  if (typeof value !== "string" || !isAbsolute(value) || resolve(value) !== value) invalid();
+  if (typeof value !== "string" || !isAbsolute(value) || resolve(value) !== value) {
+    invalid("build_secrets_directory_invalid");
+  }
   return value;
 }
 
@@ -139,7 +149,7 @@ async function environmentWithBuildSecrets(environment, directory) {
       if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
         continue;
       }
-      invalid();
+      invalid("build_secret_unreadable");
     }
   }
   return Object.freeze(selected);
@@ -150,7 +160,9 @@ function approval(environment, selectedEnvironment, candidateDigest) {
   const mode = environment[keys.mode];
   const evidenceDigest = environment[keys.digest];
   if (mode === undefined && evidenceDigest === undefined) return null;
-  if (mode !== keys.expectedMode || evidenceDigest !== candidateDigest) invalid();
+  if (mode !== keys.expectedMode) invalid(`${selectedEnvironment}_mode_invalid`);
+  if (evidenceDigest === undefined) invalid(`${selectedEnvironment}_digest_missing`);
+  if (evidenceDigest !== candidateDigest) invalid(`${selectedEnvironment}_digest_mismatch`);
   return Object.freeze({ environment: selectedEnvironment, adapterVersion: 1, evidenceDigest });
 }
 
@@ -274,8 +286,9 @@ async function main() {
       check: parseArguments(process.argv.slice(2)),
     }));
     process.stdout.write(`${candidates.test.candidateExecutionDigest} ${candidates.live.candidateExecutionDigest}\n`);
-  } catch {
-    process.stderr.write("paytr_build_invalid\n");
+  } catch (error) {
+    const reason = error instanceof PaytrBuildInvalidError ? error.reason : "unknown";
+    process.stderr.write(`paytr_build_invalid:${reason}\n`);
     process.exitCode = 1;
   }
 }

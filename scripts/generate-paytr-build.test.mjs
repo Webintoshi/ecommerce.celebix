@@ -170,8 +170,40 @@ test("PayTR env authority is not rescued by matching BuildKit secrets", async (t
 
   assert.equal(result.code, 1);
   assert.equal(result.stdout, "");
-  assert.match(result.stderr, /^paytr_build_invalid\n$/);
+  assert.match(result.stderr, /^paytr_build_invalid:test_mode_invalid\n$/);
   assert.equal(result.stderr.includes(DIGESTS.test), false);
+});
+
+test("PayTR build failures report only safe reason codes without leaking values", async (t) => {
+  const selected = await fixture(t);
+  const cases = [
+    [{}, "missing_source_commit"],
+    [{ SOURCE_COMMIT: "A".repeat(40) }, "source_commit_invalid"],
+    [
+      {
+        SOURCE_COMMIT,
+        CELEBIX_PAYTR_TEST_APPROVAL_MODE: "approved_test_sandbox",
+        CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST: "private-wrong-digest",
+      },
+      "test_digest_mismatch",
+    ],
+    [
+      {
+        SOURCE_COMMIT,
+        CELEBIX_PAYTR_TEST_APPROVAL_UNEXPECTED: "private-extra",
+      },
+      "unexpected_approval_key",
+    ],
+  ];
+
+  for (const [environment, reason] of cases) {
+    const result = await runGenerator(selected.root, environment);
+    assert.equal(result.code, 1, reason);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, new RegExp(`^paytr_build_invalid:${reason}\\n$`));
+    assert.equal(result.stderr.includes("private-wrong-digest"), false);
+    assert.equal(result.stderr.includes("private-extra"), false);
+  }
 });
 
 test("PayTR build generator rejects partial wrong and unknown authority without replacing output", async (t) => {
@@ -198,7 +230,7 @@ test("PayTR build generator rejects partial wrong and unknown authority without 
     await writeFile(selected.generated, sentinel, "utf8");
     const result = await runGenerator(selected.root, environment);
     assert.equal(result.code, 1, String(index));
-    assert.match(result.stderr, /^paytr_build_invalid\n$/);
+    assert.match(result.stderr, /^paytr_build_invalid:[a-z0-9_]+\n$/);
     assert.equal(result.stderr.includes("private-extra"), false);
     assert.equal(result.stderr.includes("must-not-leak"), false);
     assert.equal(await readFile(selected.generated, "utf8"), sentinel);
