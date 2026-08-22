@@ -24,7 +24,7 @@ const MIGRATIONS = Object.freeze([
         AND pg_catalog.to_regclass('saas.abandoned_cart_operations') IS NOT NULL
         AND EXISTS(
           SELECT 1 FROM pg_catalog.pg_class relation
-          WHERE relation.oid='saas.abandoned_carts'::pg_catalog.regclass
+          WHERE relation.oid=pg_catalog.to_regclass('saas.abandoned_carts')
             AND relation.relrowsecurity AND relation.relforcerowsecurity
         ) AS ready`,
   }),
