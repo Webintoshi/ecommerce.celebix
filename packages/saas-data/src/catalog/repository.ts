@@ -375,7 +375,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const variantId = catalogUuid(this.options.generateId("variant"));
     const fingerprint = catalogFingerprint("create_product", authority.storeId, { product, initialVariant });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_create_product_authorized(
+      text: `SELECT outcome, result_payload FROM saas.catalog_create_product(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::uuid,$13::text,$14::text,$15::text,$16::text,$17::text,
         $18::text,$19::text,$20::text,$21::bigint,$22::bigint,$23::bigint,$24::boolean,$25::bigint,$26::jsonb
@@ -528,7 +528,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const product = productFields(exact.product);
     const fingerprint = catalogFingerprint("update_product", authority.storeId, { productId, expectedVersion, product });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_update_product_authorized(
+      text: `SELECT outcome, result_payload FROM saas.catalog_update_product(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::bigint,$13::text,$14::text,$15::text,$16::text,$17::text
       )`,
@@ -545,7 +545,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const expectedVersion = positiveVersion(exact.expectedVersion);
     const fingerprint = catalogFingerprint("archive_product", authority.storeId, { productId, expectedVersion });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_archive_product_authorized(
+      text: `SELECT outcome, result_payload FROM saas.catalog_archive_product(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::bigint
       )`,
@@ -580,7 +580,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const variantId = catalogUuid(this.options.generateId("variant"));
     const fingerprint = catalogFingerprint("create_variant", authority.storeId, { productId, variant });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_create_variant_authorized(
+      text: `SELECT outcome, result_payload FROM saas.catalog_create_variant(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::uuid,$13::text,$14::text,$15::text,$16::bigint,$17::bigint,
         $18::bigint,$19::boolean,$20::bigint,$21::jsonb
@@ -600,7 +600,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const variant = variantFields(exact.variant);
     const fingerprint = catalogFingerprint("update_variant", authority.storeId, { productId, variantId, expectedVersion, variant });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_update_variant_authorized(
+      text: `SELECT outcome, result_payload FROM saas.catalog_update_variant(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint,$14::text,$15::text,$16::text,$17::bigint,
         $18::bigint,$19::bigint,$20::boolean,$21::bigint,$22::jsonb
@@ -619,7 +619,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const expectedVersion = positiveVersion(exact.expectedVersion);
     const fingerprint = catalogFingerprint("archive_variant", authority.storeId, { productId, variantId, expectedVersion });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_archive_variant_authorized(
+      text: `SELECT outcome, result_payload FROM saas.catalog_archive_variant(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint
       )`,

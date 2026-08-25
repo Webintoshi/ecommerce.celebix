@@ -7,6 +7,16 @@ ALTER TABLE saas.product_variants
     status='archived' OR archived_by_product=false
   );
 
+UPDATE saas.product_variants AS variant
+SET archived_by_product=true
+FROM saas.products AS product
+WHERE product.id=variant.product_id
+  AND product.store_id=variant.store_id
+  AND product.status='archived'
+  AND variant.status='archived'
+  AND product.archived_at IS NOT NULL
+  AND variant.archived_at=product.archived_at;
+
 ALTER TABLE saas.catalog_operations
   DROP CONSTRAINT catalog_operations_kind_check,
   DROP CONSTRAINT catalog_operations_result_shape_check,
@@ -125,17 +135,39 @@ BEGIN
 END
 $function$;
 
-CREATE OR REPLACE FUNCTION saas.catalog_archive_product(
+ALTER FUNCTION saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)
+  RENAME TO catalog_create_product_implementation_v1;
+ALTER FUNCTION saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text)
+  RENAME TO catalog_update_product_implementation_v1;
+ALTER FUNCTION saas.catalog_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint)
+  RENAME TO catalog_archive_product_implementation_v1;
+ALTER FUNCTION saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)
+  RENAME TO catalog_create_variant_implementation_v1;
+ALTER FUNCTION saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)
+  RENAME TO catalog_update_variant_implementation_v1;
+ALTER FUNCTION saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint)
+  RENAME TO catalog_archive_variant_implementation_v1;
+
+REVOKE ALL ON FUNCTION saas.catalog_create_product_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_update_product_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_archive_product_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_create_variant_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_update_variant_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_archive_variant_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC,celebix_saas_app;
+
+CREATE FUNCTION saas.catalog_archive_product(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,
   p_products_limit bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_expected_version bigint
 )
 RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
 AS $function$
-DECLARE authority_error text; existing saas.catalog_operations%ROWTYPE; current_product saas.products%ROWTYPE; projection jsonb;
+DECLARE authority_error text; action_error text; existing saas.catalog_operations%ROWTYPE; current_product saas.products%ROWTYPE; projection jsonb;
 BEGIN
   authority_error:=saas.catalog_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now);
   IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  action_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.archive');
+  IF action_error IS NOT NULL THEN RETURN QUERY SELECT action_error,NULL::jsonb; RETURN; END IF;
   IF p_operation_id IS NULL OR p_product_id IS NULL OR p_expected_version IS NULL OR p_expected_version<1 OR p_fingerprint!~'^[a-f0-9]{64}$' THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
@@ -209,7 +241,7 @@ BEGIN
 END
 $function$;
 
-CREATE FUNCTION saas.catalog_create_product_authorized(
+CREATE FUNCTION saas.catalog_create_product(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
   p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_variant_id uuid,p_slug text,p_title text,p_description text,p_status text,p_currency text,
   p_variant_title text,p_sku text,p_barcode text,p_price_cents bigint,p_compare_at_cents bigint,p_cost_cents bigint,p_stock_tracking boolean,p_stock_quantity bigint,p_attributes jsonb
@@ -219,10 +251,10 @@ DECLARE action_error text;
 BEGIN
   action_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.manage');
   IF action_error IS NOT NULL THEN RETURN QUERY SELECT action_error,NULL::jsonb; RETURN; END IF;
-  RETURN QUERY SELECT * FROM saas.catalog_create_product(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_variant_id,p_slug,p_title,p_description,p_status,p_currency,p_variant_title,p_sku,p_barcode,p_price_cents,p_compare_at_cents,p_cost_cents,p_stock_tracking,p_stock_quantity,p_attributes);
+  RETURN QUERY SELECT * FROM saas.catalog_create_product_implementation_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_variant_id,p_slug,p_title,p_description,p_status,p_currency,p_variant_title,p_sku,p_barcode,p_price_cents,p_compare_at_cents,p_cost_cents,p_stock_tracking,p_stock_quantity,p_attributes);
 END $function$;
 
-CREATE FUNCTION saas.catalog_update_product_authorized(
+CREATE FUNCTION saas.catalog_update_product(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
   p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_expected_version bigint,p_slug text,p_title text,p_description text,p_status text,p_currency text
 )
@@ -231,22 +263,10 @@ DECLARE action_error text;
 BEGIN
   action_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.manage');
   IF action_error IS NOT NULL THEN RETURN QUERY SELECT action_error,NULL::jsonb; RETURN; END IF;
-  RETURN QUERY SELECT * FROM saas.catalog_update_product(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_expected_version,p_slug,p_title,p_description,p_status,p_currency);
+  RETURN QUERY SELECT * FROM saas.catalog_update_product_implementation_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_expected_version,p_slug,p_title,p_description,p_status,p_currency);
 END $function$;
 
-CREATE FUNCTION saas.catalog_archive_product_authorized(
-  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
-  p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_expected_version bigint
-)
-RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $function$
-DECLARE action_error text;
-BEGIN
-  action_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.archive');
-  IF action_error IS NOT NULL THEN RETURN QUERY SELECT action_error,NULL::jsonb; RETURN; END IF;
-  RETURN QUERY SELECT * FROM saas.catalog_archive_product(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_expected_version);
-END $function$;
-
-CREATE FUNCTION saas.catalog_create_variant_authorized(
+CREATE FUNCTION saas.catalog_create_variant(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
   p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_variant_id uuid,p_title text,p_sku text,p_barcode text,p_price_cents bigint,p_compare_at_cents bigint,p_cost_cents bigint,p_stock_tracking boolean,p_stock_quantity bigint,p_attributes jsonb
 )
@@ -255,10 +275,10 @@ DECLARE action_error text;
 BEGIN
   action_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.manage');
   IF action_error IS NOT NULL THEN RETURN QUERY SELECT action_error,NULL::jsonb; RETURN; END IF;
-  RETURN QUERY SELECT * FROM saas.catalog_create_variant(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_variant_id,p_title,p_sku,p_barcode,p_price_cents,p_compare_at_cents,p_cost_cents,p_stock_tracking,p_stock_quantity,p_attributes);
+  RETURN QUERY SELECT * FROM saas.catalog_create_variant_implementation_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_variant_id,p_title,p_sku,p_barcode,p_price_cents,p_compare_at_cents,p_cost_cents,p_stock_tracking,p_stock_quantity,p_attributes);
 END $function$;
 
-CREATE FUNCTION saas.catalog_update_variant_authorized(
+CREATE FUNCTION saas.catalog_update_variant(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
   p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_variant_id uuid,p_expected_version bigint,p_title text,p_sku text,p_barcode text,p_price_cents bigint,p_compare_at_cents bigint,p_cost_cents bigint,p_stock_tracking boolean,p_stock_quantity bigint,p_attributes jsonb
 )
@@ -267,10 +287,10 @@ DECLARE action_error text;
 BEGIN
   action_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.manage');
   IF action_error IS NOT NULL THEN RETURN QUERY SELECT action_error,NULL::jsonb; RETURN; END IF;
-  RETURN QUERY SELECT * FROM saas.catalog_update_variant(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_variant_id,p_expected_version,p_title,p_sku,p_barcode,p_price_cents,p_compare_at_cents,p_cost_cents,p_stock_tracking,p_stock_quantity,p_attributes);
+  RETURN QUERY SELECT * FROM saas.catalog_update_variant_implementation_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_variant_id,p_expected_version,p_title,p_sku,p_barcode,p_price_cents,p_compare_at_cents,p_cost_cents,p_stock_tracking,p_stock_quantity,p_attributes);
 END $function$;
 
-CREATE FUNCTION saas.catalog_archive_variant_authorized(
+CREATE FUNCTION saas.catalog_archive_variant(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
   p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_variant_id uuid,p_expected_version bigint
 )
@@ -279,30 +299,23 @@ DECLARE action_error text;
 BEGIN
   action_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog','catalog_admin.archive');
   IF action_error IS NOT NULL THEN RETURN QUERY SELECT action_error,NULL::jsonb; RETURN; END IF;
-  RETURN QUERY SELECT * FROM saas.catalog_archive_variant(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_variant_id,p_expected_version);
+  RETURN QUERY SELECT * FROM saas.catalog_archive_variant_implementation_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_operation_id,p_fingerprint,p_product_id,p_variant_id,p_expected_version);
 END $function$;
 
-REVOKE EXECUTE ON FUNCTION saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
-REVOKE EXECUTE ON FUNCTION saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text) FROM PUBLIC,celebix_saas_app;
-REVOKE EXECUTE ON FUNCTION saas.catalog_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC,celebix_saas_app;
-REVOKE EXECUTE ON FUNCTION saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
-REVOKE EXECUTE ON FUNCTION saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
-REVOKE EXECUTE ON FUNCTION saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC,celebix_saas_app;
-
-REVOKE ALL ON FUNCTION saas.catalog_create_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.catalog_update_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.catalog_archive_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.catalog_create_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.catalog_update_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.catalog_archive_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION saas.catalog_create_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) TO celebix_saas_app;
-GRANT EXECUTE ON FUNCTION saas.catalog_update_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text) TO celebix_saas_app;
-GRANT EXECUTE ON FUNCTION saas.catalog_archive_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) TO celebix_saas_app;
-GRANT EXECUTE ON FUNCTION saas.catalog_create_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) TO celebix_saas_app;
-GRANT EXECUTE ON FUNCTION saas.catalog_update_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) TO celebix_saas_app;
-GRANT EXECUTE ON FUNCTION saas.catalog_archive_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) TO celebix_saas_app;
 
 COMMIT;

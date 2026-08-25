@@ -404,7 +404,10 @@ test("owner and admin archive while editor cannot, using the secured SQL boundar
       expectedVersion: 1,
     });
     assert.equal(result.product.status, "archived");
-    assert.equal(client.calls.some((call) => call.text.includes("saas.catalog_archive_product_authorized")), true);
+    const mutation = client.calls.find((call) => call.text.includes("saas.catalog_archive_product"));
+    assert.ok(mutation);
+    assert.match(mutation.text, /saas[.]catalog_archive_product\(/u);
+    assert.doesNotMatch(mutation.text, /_authorized/u);
   }
 });
 

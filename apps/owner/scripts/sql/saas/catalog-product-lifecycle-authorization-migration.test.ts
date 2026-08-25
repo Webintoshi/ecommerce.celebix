@@ -27,24 +27,47 @@ test("114 adds variant archive provenance and an idempotent draft restore", () =
   assert.doesNotMatch(up, /DELETE\s+FROM/u);
 });
 
-test("114 applies merchant actions inside every app-callable product mutation", () => {
+test("114 preserves the six base application SQL signatures as action-aware app boundaries", () => {
   const up = source("up");
   for (const name of [
-    "catalog_create_product_authorized",
-    "catalog_update_product_authorized",
-    "catalog_archive_product_authorized",
-    "catalog_create_variant_authorized",
-    "catalog_update_variant_authorized",
-    "catalog_archive_variant_authorized",
+    "catalog_create_product",
+    "catalog_update_product",
+    "catalog_archive_product",
+    "catalog_create_variant",
+    "catalog_update_variant",
+    "catalog_archive_variant",
     "catalog_restore_product",
   ]) {
-    assert.match(up, new RegExp(`CREATE FUNCTION saas[.]${name}`), name);
+    assert.match(up, new RegExp(`CREATE(?: OR REPLACE)? FUNCTION saas[.]${name}\\(`), name);
     assert.match(up, new RegExp(`GRANT EXECUTE ON FUNCTION saas[.]${name}`), `${name} grant`);
+  }
+  for (const name of [
+    "catalog_create_product_implementation_v1",
+    "catalog_update_product_implementation_v1",
+    "catalog_archive_product_implementation_v1",
+    "catalog_create_variant_implementation_v1",
+    "catalog_update_variant_implementation_v1",
+    "catalog_archive_variant_implementation_v1",
+  ]) {
+    assert.match(up, new RegExp(`ALTER FUNCTION saas[.][\\s\\S]*RENAME TO ${name}`), `${name} rename`);
+    assert.match(up, new RegExp(`REVOKE ALL ON FUNCTION saas[.]${name}`), `${name} private`);
+    assert.doesNotMatch(up, new RegExp(`GRANT EXECUTE ON FUNCTION saas[.]${name}[^\\n]*TO celebix_saas_app`), `${name} app grant`);
   }
   assert.match(up, /merchant_action_authority_error\([\s\S]*'catalog'[\s\S]*'catalog_admin[.]manage'/u);
   assert.match(up, /merchant_action_authority_error\([\s\S]*'catalog'[\s\S]*'catalog_admin[.]archive'/u);
-  assert.match(up, /REVOKE EXECUTE ON FUNCTION saas[.]catalog_create_product\(/u);
-  assert.match(up, /REVOKE EXECUTE ON FUNCTION saas[.]catalog_archive_variant\(/u);
+  assert.doesNotMatch(up, /catalog_(?:create|update|archive)_(?:product|variant)_authorized/u);
+});
+
+test("114 deterministically backfills only same-tenant product-driven legacy archives", () => {
+  const up = source("up");
+  assert.match(up, /UPDATE saas[.]product_variants AS variant[\s\S]*FROM saas[.]products AS product/u);
+  assert.match(up, /product[.]id=variant[.]product_id/u);
+  assert.match(up, /product[.]store_id=variant[.]store_id/u);
+  assert.match(up, /product[.]status='archived'/u);
+  assert.match(up, /variant[.]status='archived'/u);
+  assert.match(up, /product[.]archived_at IS NOT NULL/u);
+  assert.match(up, /variant[.]archived_at=product[.]archived_at/u);
+  assert.match(source("assertions"), /CATALOG_PRODUCT_LEGACY_PROVENANCE_INVALID/u);
 });
 
 test("114 archive marks only active variants and preserves unrelated durable data", () => {

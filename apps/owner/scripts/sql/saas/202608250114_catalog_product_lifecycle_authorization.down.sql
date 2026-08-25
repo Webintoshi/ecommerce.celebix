@@ -67,21 +67,34 @@ $function$;
 DROP FUNCTION saas.media_read_authority_error(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz);
 DROP FUNCTION saas.media_product_operation_authority_error(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,text);
 
-REVOKE ALL ON FUNCTION saas.catalog_create_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
-REVOKE ALL ON FUNCTION saas.catalog_update_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text) FROM PUBLIC,celebix_saas_app;
-REVOKE ALL ON FUNCTION saas.catalog_archive_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.catalog_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC,celebix_saas_app;
-REVOKE ALL ON FUNCTION saas.catalog_create_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
-REVOKE ALL ON FUNCTION saas.catalog_update_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
-REVOKE ALL ON FUNCTION saas.catalog_archive_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint) FROM PUBLIC,celebix_saas_app;
 
-DROP FUNCTION saas.catalog_create_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb);
-DROP FUNCTION saas.catalog_update_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text);
-DROP FUNCTION saas.catalog_archive_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint);
+DROP FUNCTION saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb);
+DROP FUNCTION saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text);
+DROP FUNCTION saas.catalog_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint);
 DROP FUNCTION saas.catalog_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint);
-DROP FUNCTION saas.catalog_create_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb);
-DROP FUNCTION saas.catalog_update_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb);
-DROP FUNCTION saas.catalog_archive_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint);
+DROP FUNCTION saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb);
+DROP FUNCTION saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb);
+DROP FUNCTION saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint);
+
+ALTER FUNCTION saas.catalog_create_product_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)
+  RENAME TO catalog_create_product;
+ALTER FUNCTION saas.catalog_update_product_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text)
+  RENAME TO catalog_update_product;
+ALTER FUNCTION saas.catalog_archive_product_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint)
+  RENAME TO catalog_archive_product;
+ALTER FUNCTION saas.catalog_create_variant_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)
+  RENAME TO catalog_create_variant;
+ALTER FUNCTION saas.catalog_update_variant_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)
+  RENAME TO catalog_update_variant;
+ALTER FUNCTION saas.catalog_archive_variant_implementation_v1(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint)
+  RENAME TO catalog_archive_variant;
 
 CREATE OR REPLACE FUNCTION saas.catalog_get_product_details(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,
@@ -103,38 +116,6 @@ BEGIN
     WHERE variant.product_id=p_product_id AND variant.store_id=p_store_id
       AND (p_include_archived_variants OR variant.status='active');
   RETURN QUERY SELECT 'found'::text,pg_catalog.jsonb_build_object('product',product_projection,'variants',variant_projections);
-END
-$function$;
-
-CREATE OR REPLACE FUNCTION saas.catalog_archive_product(
-  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,
-  p_products_limit bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_product_id uuid,p_expected_version bigint
-)
-RETURNS TABLE(outcome text,result_payload jsonb)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
-AS $function$
-DECLARE authority_error text; existing saas.catalog_operations%ROWTYPE; current_product saas.products%ROWTYPE; projection jsonb;
-BEGIN
-  authority_error:=saas.catalog_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now);
-  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
-  IF p_operation_id IS NULL OR p_product_id IS NULL OR p_expected_version IS NULL OR p_expected_version<1 OR p_fingerprint!~'^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.operation:'||p_operation_id::text,0));
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.store:'||p_store_id::text,0));
-  SELECT operation.* INTO existing FROM saas.catalog_operations AS operation WHERE operation.operation_id=p_operation_id;
-  IF FOUND THEN
-    IF existing.store_id=p_store_id AND existing.operation_kind='archive_product' AND existing.payload_fingerprint=p_fingerprint THEN RETURN QUERY SELECT 'operation_replayed'::text,existing.result_payload;
-    ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF; RETURN;
-  END IF;
-  SELECT product.* INTO current_product FROM saas.products AS product WHERE product.id=p_product_id AND product.store_id=p_store_id FOR UPDATE;
-  IF NOT FOUND OR current_product.status='archived' THEN RETURN QUERY SELECT 'product_not_found'::text,NULL::jsonb; RETURN; END IF;
-  IF current_product.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict'::text,NULL::jsonb; RETURN; END IF;
-  PERFORM 1 FROM saas.product_variants AS variant WHERE variant.store_id=p_store_id AND variant.product_id=p_product_id ORDER BY variant.id FOR UPDATE;
-  UPDATE saas.product_variants SET status='archived',archived_at=p_now,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND product_id=p_product_id AND status='active';
-  UPDATE saas.products SET status='archived',archived_at=p_now,version=version+1,updated_at=p_now WHERE id=p_product_id AND store_id=p_store_id;
-  projection:=pg_catalog.jsonb_build_object('product',saas.catalog_product_projection(p_product_id));
-  INSERT INTO saas.catalog_operations(operation_id,store_id,operation_kind,payload_fingerprint,result_product_id,result_variant_id,result_payload,committed_at)
-    VALUES(p_operation_id,p_store_id,'archive_product',p_fingerprint,p_product_id,NULL,projection,p_now);
-  RETURN QUERY SELECT 'archived'::text,projection;
 END
 $function$;
 
