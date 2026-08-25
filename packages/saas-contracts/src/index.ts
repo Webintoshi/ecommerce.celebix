@@ -120,10 +120,13 @@ export type {
   VariantStatus,
 } from "./catalog/index.ts";
 export {
+  CATALOG_PRODUCT_OPERATIONS,
   MERCHANT_ACTIONS,
+  catalogProductAction,
+  isCatalogProductOperationAllowed,
   isMerchantActionAllowed,
 } from "./authorization/actions.ts";
-export type { MerchantAction } from "./authorization/actions.ts";
+export type { CatalogProductOperation, MerchantAction } from "./authorization/actions.ts";
 export {
   INVENTORY_COUNT_STATUSES,
   INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS,

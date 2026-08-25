@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { CatalogOnboardingOptions, CatalogProductEditorProjection, Product, ProductVariant } from "@celebix/saas-contracts";
-import { Archive, ArrowLeft, Pencil, Plus, SlidersHorizontal } from "lucide-react";
+import { Archive, ArrowLeft, Pencil, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 import {
   CatalogApiError,
@@ -54,7 +54,11 @@ function VariantFields({ variant }: { variant?: ProductVariant }) {
   );
 }
 
-export function ProductDetailConsole({ productId }: { productId: string }) {
+export function ProductDetailConsole({
+  productId,
+  canManage = false,
+  canArchive = false,
+}: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean }>) {
   const [detail, setDetail] = useState<ProductDetailResult>();
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
   const [loading, setLoading] = useState(true);
@@ -76,24 +80,29 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   const load = useCallback(async (conflict = false) => {
     setError("");
     try {
-      const [current, options, editor] = await Promise.all([
-        catalogApi.getProduct(productId),
-        catalogOnboardingClient.getOptions(),
-        catalogOnboardingClient.getProductEditor(productId),
-      ]);
+      const current = await catalogApi.getProduct(productId);
       setDetail(current);
-      setOnboarding(Object.freeze({ options, editor }));
+      if (current.product.status !== "archived" && canManage) {
+        const [options, editor] = await Promise.all([
+          catalogOnboardingClient.getOptions(),
+          catalogOnboardingClient.getProductEditor(productId),
+        ]);
+        setOnboarding(Object.freeze({ options, editor }));
+      } else {
+        setOnboarding(undefined);
+      }
       if (conflict) setNotice("Başka bir güncelleme algılandı. En güncel veriler yeniden yüklendi; değişiklikleriniz gönderilmedi.");
     } catch (failure) {
       setError(safeMessage(failure));
     } finally {
       setLoading(false);
     }
-  }, [productId]);
+  }, [canManage, productId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const reloadMerchandising = useCallback(async (close = false) => {
+    if (!canManage) return;
     setError("");
     try {
       const [options, editor] = await Promise.all([
@@ -106,7 +115,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
         setNotice("Satış ayarları güncellendi.");
       }
     } catch (failure) { setError(safeMessage(failure)); }
-  }, [productId]);
+  }, [canManage, productId]);
 
   const archiveDialogOpen = archiveVariant !== undefined || archiveProduct;
 
@@ -170,7 +179,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
 
   async function updateProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (detail === undefined) return;
+    if (detail === undefined || !canManage || detail.product.status === "archived") return;
     const data = new FormData(event.currentTarget);
     const parsed = buildProductUpdatePayload({
       title: value(data, "title"), slug: detail.product.slug, description: value(data, "description"),
@@ -187,6 +196,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
 
   async function createVariant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManage || detail?.product.status === "archived") return;
     const parsed = buildVariantPayload(variantValues(new FormData(event.currentTarget)));
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("new-variant", async () => {
@@ -199,6 +209,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
 
   async function updateVariant(event: FormEvent<HTMLFormElement>, variant: ProductVariant) {
     event.preventDefault();
+    if (!canManage || detail?.product.status === "archived") return;
     const parsed = buildVariantPayload(variantValues(new FormData(event.currentTarget)), variant.version);
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation(`variant-${variant.id}`, async () => {
@@ -213,7 +224,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   }
 
   async function confirmVariantArchive() {
-    if (archiveVariant === undefined) return;
+    if (archiveVariant === undefined || !canArchive || detail?.product.status === "archived") return;
     await mutation(`archive-${archiveVariant.id}`, async () => {
       await catalogApi.archiveVariant(productId, archiveVariant.id, archiveVariant.version);
       setDetail((current) => current && Object.freeze({
@@ -226,10 +237,19 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   }
 
   async function confirmProductArchive() {
-    if (detail === undefined) return;
+    if (detail === undefined || !canArchive || detail.product.status === "archived") return;
     await mutation("archive-product", async () => {
       await catalogApi.archiveProduct(productId, detail.product.version);
       location.assign("/products");
+    });
+  }
+
+  async function restoreProduct() {
+    if (detail === undefined || !canArchive || detail.product.status !== "archived") return;
+    await mutation("restore-product", async () => {
+      await catalogApi.restoreProduct(productId, detail.product.version);
+      await load();
+      setNotice("Ürün taslak olarak geri yüklendi. Yayınlamak için manuel olarak aktifleştirin.");
     });
   }
 
@@ -237,6 +257,8 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   if (detail === undefined) return <section className="catalog-page"><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
 
   const { product, variants } = detail;
+  const archived = product.status === "archived";
+  const statusLabel = product.status === "active" ? "Aktif" : archived ? "Arşivlenmiş" : "Taslak";
   const priceValues = variants.map((variant) => variant.priceCents);
   const compareAtValues = variants.flatMap((variant) => variant.compareAtCents === undefined ? [] : [variant.compareAtCents]);
   const trackedVariants = variants.filter((variant) => variant.stockTracking);
@@ -254,16 +276,19 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
       <header className="detail-heading-row hemenaku-detail-hero product-detail-header">
         <div className="catalog-heading product-detail-heading">
           <Link className="back-link product-detail-back" href="/products"><ArrowLeft aria-hidden="true" /> Ürünlere dön</Link>
-          <div className="heading-meta product-detail-heading-meta"><span className={`status-pill status-${product.status}`}>{product.status === "active" ? "Aktif" : "Taslak"}</span><span className="version-badge">v{product.version}</span></div>
+          <div className="heading-meta product-detail-heading-meta"><span className={`status-pill status-${product.status}`}>{statusLabel}</span><span className="version-badge">v{product.version}</span></div>
           <h1 id="product-title">{product.title}</h1>
           <p>{primarySku ? `SKU ${primarySku}` : "SKU eklenmemiş"}<span aria-hidden="true"> · </span>{product.currency}</p>
         </div>
         <div className="heading-actions product-detail-actions">
-          <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}><Pencil aria-hidden="true" /> Ürünü düzenle</button>
-          <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={onboarding === undefined}><SlidersHorizontal aria-hidden="true" /> Satış ayarları</button>
-          <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button>
+          {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
+          {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}
+          {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={onboarding === undefined}><SlidersHorizontal aria-hidden="true" /> Satış ayarları</button> : null}
+          {!archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
         </div>
       </header>
+
+      {archived ? <div className="feedback feedback-warning product-archive-banner" role="status"><div><strong>Ürün arşivlenmiş</strong><p>Bu ürün mağazada ve yayın akışında görünmez. Sipariş geçmişi, medya ve analiz verileri korunur.</p></div></div> : null}
 
       <dl className="product-detail-facts" aria-label="Ürün hızlı özeti">
         <div><dt>Satış fiyatı</dt><dd>{salePrice}</dd></div>
@@ -271,7 +296,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
         <div><dt>Takipli stok</dt><dd>{stockValue}</dd></div>
         <div><dt>Varyant</dt><dd>{variants.length}</dd></div>
         <div className="product-detail-fact-updated"><dt>Son güncelleme</dt><dd><time dateTime={product.updatedAt}>{updatedAt}</time></dd></div>
-        <div><dt>Durum</dt><dd><span className={`status-pill status-${product.status}`}>{product.status === "active" ? "Aktif" : "Taslak"}</span></dd></div>
+        <div><dt>Durum</dt><dd><span className={`status-pill status-${product.status}`}>{statusLabel}</span></dd></div>
       </dl>
 
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div></div> : null}
@@ -281,7 +306,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
         <div className="product-detail-section-header">
           <div><span className="eyebrow">ÜRÜN BİLGİLERİ</span><h2 id="product-fields-title">{editingProduct ? "Ürün bilgilerini düzenle" : "Açıklama"}</h2></div>
         </div>
-        {editingProduct ? (
+        {editingProduct && canManage && !archived ? (
           <form className="catalog-form inset-form product-detail-edit-form" onSubmit={updateProduct} key={product.version}>
           <fieldset disabled={busy !== ""}>
             <legend><span>01</span><span><strong>Ürün Bilgileri</strong><small>Güncel sürüm: v{product.version}</small></span></legend>
@@ -299,7 +324,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
         )}
       </section>
 
-      {editingMerchandising && onboarding ? <section aria-label="Ürün satış ayarları">
+      {editingMerchandising && onboarding && canManage && !archived ? <section aria-label="Ürün satış ayarları">
         <ProductAdvancedEditor
           key={onboarding.editor.profile.version}
           options={onboarding.options}
@@ -310,15 +335,15 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
         />
       </section> : null}
 
-      <ProductMediaManager productId={productId} />
+      <ProductMediaManager productId={productId} canManage={canManage && !archived} />
 
       <section className="variant-list product-detail-section product-detail-variants" aria-labelledby="variants-title">
       <div className="section-heading-row product-detail-section-header">
         <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 ref={variantsHeadingRef} tabIndex={-1} id="variants-title">Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
-        <button className="button button-primary product-detail-primary-action" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}><Plus aria-hidden="true" /> Yeni varyant</button>
+        {canManage && !archived ? <button className="button button-primary product-detail-primary-action" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}><Plus aria-hidden="true" /> Yeni varyant</button> : null}
       </div>
 
-      {creatingVariant ? (
+      {creatingVariant && canManage && !archived ? (
         <form className="catalog-form inset-form" onSubmit={createVariant}>
           <fieldset disabled={busy !== ""}><legend><span>＋</span><span><strong>Yeni varyant</strong><small>Ürüne yeni bir satış seçeneği ekleyin</small></span></legend><VariantFields /></fieldset>
           <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => setCreatingVariant(false)}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === "new-variant" ? "Oluşturuluyor…" : "Varyantı oluştur"}</button></div>
@@ -332,7 +357,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
               <div><span className="variant-mark" aria-hidden="true">V</span><span><strong>{variant.title}</strong><small>{variant.sku ? `SKU ${variant.sku}` : "SKU eklenmemiş"}{variant.barcode ? ` · ${variant.barcode}` : ""}</small></span></div>
               <span className="version-badge">v{variant.version}</span>
             </div>
-            {editingVariant === variant.id ? (
+            {editingVariant === variant.id && canManage && !archived ? (
               <form onSubmit={(event) => void updateVariant(event, variant)} key={variant.version}>
                 <fieldset disabled={busy !== ""}><VariantFields variant={variant} /></fieldset>
                 <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => setEditingVariant(undefined)}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === `variant-${variant.id}` ? "Kaydediliyor…" : "Varyantı kaydet"}</button></div>
@@ -344,7 +369,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
                   <span><small>Karşılaştırma</small><strong>{variant.compareAtCents === undefined ? "—" : formatTurkishMoney(variant.compareAtCents, product.currency)}</strong></span>
                   <span><small>Stok</small><strong>{variant.stockTracking ? `${variant.stockQuantity} adet` : "Takip dışı"}</strong></span>
                 </div>
-                <div className="variant-actions"><button className="button button-secondary" type="button" onClick={() => setEditingVariant(variant.id)}>Düzenle</button><button className="text-danger-button" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button></div>
+                <div className="variant-actions">{canManage && !archived ? <button className="button button-secondary" type="button" onClick={() => setEditingVariant(variant.id)}>Düzenle</button> : null}{canArchive && !archived ? <button className="text-danger-button" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button> : null}</div>
               </>
             )}
           </article>
@@ -352,10 +377,10 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
       </div>
       </section>
 
-      {archiveDialogOpen ? (
+      {archiveDialogOpen && canArchive && !archived ? (
         <div className="archive-dialog-layer">
           <div ref={archiveDialogRef} className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby={archiveVariant ? "archive-variant-title" : "archive-product-title"} aria-describedby={archiveVariant ? "archive-variant-description" : "archive-product-description"} tabIndex={-1} onKeyDown={handleArchiveDialogKeyDown}>
-            {archiveVariant ? <div><strong id="archive-variant-title">Varyantı arşivlemeyi onayla</strong><p id="archive-variant-description"><b>{archiveVariant.title}</b> aktif varyantlardan kaldırılacak.</p></div> : <div><strong id="archive-product-title">Ürünü arşivlemeyi onayla</strong><p id="archive-product-description"><b>{product.title}</b> varsayılan listeden kaldırılacak. Bu işlem v{product.version} üzerinden yapılacak.</p></div>}
+            {archiveVariant ? <div><strong id="archive-variant-title">Varyantı arşivlemeyi onayla</strong><p id="archive-variant-description"><b>{archiveVariant.title}</b> aktif varyantlardan kaldırılacak.</p></div> : <div><strong id="archive-product-title">Ürünü arşivlemeyi onayla</strong><p id="archive-product-description"><b>{product.title}</b><br />Bu ürün mağazada görünmez olacaktır.<br /><br />Sipariş geçmişi korunacaktır.<br /><br />Bu işlem daha sonra geri alınabilir.</p></div>}
             <div className="confirmation-actions"><button ref={archiveCancelButtonRef} className="button button-secondary" type="button" onClick={closeArchiveDialog} disabled={busy !== ""}>Vazgeç</button>{archiveVariant ? <button className="button button-danger" type="button" onClick={() => void confirmVariantArchive()} disabled={busy !== ""}>{busy === `archive-${archiveVariant.id}` ? "Arşivleniyor…" : "Varyantı arşivle"}</button> : <button className="button button-danger" type="button" onClick={() => void confirmProductArchive()} disabled={busy !== ""}>{busy === "archive-product" ? "Arşivleniyor…" : "Ürünü arşivle"}</button>}</div>
           </div>
         </div>

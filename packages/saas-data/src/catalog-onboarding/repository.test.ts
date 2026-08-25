@@ -15,13 +15,13 @@ const VARIANT = "72000000-0000-4000-8000-000000000001";
 const CATEGORY = "74000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 
-function tenant(): TenantContext {
+function tenant(role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): TenantContext {
   return {
     schemaVersion: 1,
     requestId: "private",
     principal: { id: PRINCIPAL, issuer: "https://identity.example.test/oidc", subject: "private" },
     store: { id: STORE, slug: "magaza", status: "active" },
-    membership: { id: MEMBERSHIP, role: "store_owner", status: "active" },
+    membership: { id: MEMBERSHIP, role, status: "active" },
     entitlements: {
       schemaVersion: 1,
       planId: PLAN,
@@ -192,6 +192,25 @@ test("unknown keys and browser store authority fail before SQL", async () => {
     } as never),
     (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "invalid_input",
   );
+});
+
+test("onboarding repository applies the shared product operation policy before SQL", async () => {
+  await assert.rejects(
+    () => repository(new Pool([])).createProduct({
+      tenantContext: tenant("analyst"), now: NOW, operationId: OPERATION,
+      intent: { kind: "quick", title: "Kupa", priceCents: 100, publish: false },
+    }),
+    (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "membership_denied",
+  );
+
+  const editorWriter = new Client((text) => text.includes("catalog_onboard_product")
+    ? [{ outcome: "created", result_payload: onboardingResult() }]
+    : []);
+  await repository(new Pool([editorWriter])).createProduct({
+    tenantContext: tenant("editor"), now: NOW, operationId: OPERATION,
+    intent: { kind: "quick", title: "Kupa", priceCents: 100, publish: false },
+  });
+  assert.equal(editorWriter.calls.some(({ text }) => text.includes("catalog_onboard_product")), true);
 });
 
 test("operation outcomes are mapped to fixed repository errors", async () => {

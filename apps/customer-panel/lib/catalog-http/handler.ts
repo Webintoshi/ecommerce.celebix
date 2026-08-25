@@ -1,6 +1,10 @@
 import "server-only";
 
-import type { TenantContext } from "@celebix/saas-contracts";
+import {
+  isCatalogProductOperationAllowed,
+  type CatalogProductOperation,
+  type TenantContext,
+} from "@celebix/saas-contracts";
 import {
   CatalogRepositoryError,
   type CatalogErrorCode,
@@ -113,6 +117,7 @@ async function authorize(
   dependencies: Dependencies,
   request: Request,
   expectation: CatalogRequestExpectation,
+  operation: CatalogProductOperation,
 ): Promise<Response | AuthorizedRequest> {
   let runtime: ServerCatalogRuntime | null;
   try { runtime = await dependencies.resolveRuntime(); }
@@ -148,6 +153,9 @@ async function authorize(
     expectation.method !== "GET"
     && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)
   ) return error("origin_denied", 403);
+  if (!isCatalogProductOperationAllowed(access.tenantContext.membership.role, operation)) {
+    return error("membership_denied", 403);
+  }
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 
@@ -174,7 +182,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
     async getDashboardSummary(request: Request): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: CATALOG_SUMMARY_PATH, query: "forbidden",
-      });
+      }, "read");
       if (isResponse(authorized)) return authorized;
       return execute(
         () => authorized.runtime.catalog.getDashboardSummary({
@@ -188,7 +196,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
     async listProducts(request: Request): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: PRODUCTS_PATH, query: "allowed",
-      });
+      }, "read");
       if (isResponse(authorized)) return authorized;
       const input = readCatalogListInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -205,7 +213,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
     async listVariantChoices(request: Request): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: CATALOG_VARIANT_CHOICES_PATH, query: "forbidden",
-      });
+      }, "read");
       if (isResponse(authorized)) return authorized;
       return execute(
         () => authorized.runtime.catalog.listVariantChoices({
@@ -219,7 +227,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
     async createProduct(request: Request): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
         method: "POST", pathname: PRODUCTS_PATH, query: "forbidden",
-      });
+      }, "create");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogMutationInput(request, "create_product");
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -239,13 +247,14 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       if (isResponse(productId)) return productId;
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: `${PRODUCTS_PATH}/${productId}`, query: "forbidden",
-      });
+      }, "read");
       if (isResponse(authorized)) return authorized;
       return execute(
         () => authorized.runtime.catalog.getProductDetails({
           tenantContext: authorized.tenantContext,
           now: authorized.now,
           productId,
+          includeArchivedVariants: true,
         }),
         (result) => json(result, 200),
       );
@@ -256,7 +265,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       if (isResponse(productId)) return productId;
       const authorized = await authorize(dependencies, request, {
         method: "PATCH", pathname: `${PRODUCTS_PATH}/${productId}`, query: "forbidden",
-      });
+      }, "update");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogMutationInput(request, "update_product");
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -277,7 +286,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       if (isResponse(productId)) return productId;
       const authorized = await authorize(dependencies, request, {
         method: "POST", pathname: `${PRODUCTS_PATH}/${productId}/archive`, query: "forbidden",
-      });
+      }, "archive");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogMutationInput(request, "archive_product");
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -293,12 +302,33 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       );
     },
 
+    async restoreProduct(request: Request, rawProductId: unknown): Promise<Response> {
+      const productId = exactId(rawProductId);
+      if (isResponse(productId)) return productId;
+      const authorized = await authorize(dependencies, request, {
+        method: "POST", pathname: `${PRODUCTS_PATH}/${productId}/restore`, query: "forbidden",
+      }, "restore");
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogMutationInput(request, "restore_product");
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(
+        () => authorized.runtime.catalog.restoreProduct({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          operationId: input.operationId,
+          productId,
+          ...input.value,
+        }),
+        (result) => json(result, 200),
+      );
+    },
+
     async createVariant(request: Request, rawProductId: unknown): Promise<Response> {
       const productId = exactId(rawProductId);
       if (isResponse(productId)) return productId;
       const authorized = await authorize(dependencies, request, {
         method: "POST", pathname: `${PRODUCTS_PATH}/${productId}/variants`, query: "forbidden",
-      });
+      }, "create_variant");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogMutationInput(request, "create_variant");
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -321,7 +351,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       if (isResponse(variantId)) return variantId;
       const authorized = await authorize(dependencies, request, {
         method: "PATCH", pathname: `${PRODUCTS_PATH}/${productId}/variants/${variantId}`, query: "forbidden",
-      });
+      }, "update_variant");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogMutationInput(request, "update_variant");
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -345,7 +375,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       if (isResponse(variantId)) return variantId;
       const authorized = await authorize(dependencies, request, {
         method: "POST", pathname: `${PRODUCTS_PATH}/${productId}/variants/${variantId}/archive`, query: "forbidden",
-      });
+      }, "archive_variant");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogMutationInput(request, "archive_variant");
       if (input.kind !== "valid") return error("invalid_input", 400);

@@ -48,6 +48,14 @@ export async function handleDefaultCatalogArchiveProduct(
   return handlers.archiveProduct(request, productId);
 }
 
+export async function handleDefaultCatalogRestoreProduct(
+  request: Request,
+  context: ProductRouteContext,
+) {
+  const { productId } = await context.params;
+  return handlers.restoreProduct(request, productId);
+}
+
 export async function handleDefaultCatalogCreateVariant(
   request: Request,
   context: ProductRouteContext,

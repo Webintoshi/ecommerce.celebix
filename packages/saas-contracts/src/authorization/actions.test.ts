@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MERCHANT_ACTIONS, isMerchantActionAllowed } from "./actions.ts";
+import {
+  CATALOG_PRODUCT_OPERATIONS,
+  MERCHANT_ACTIONS,
+  catalogProductAction,
+  isCatalogProductOperationAllowed,
+  isMerchantActionAllowed,
+} from "./actions.ts";
 
 const cases = [
   ["store_owner", "orders.read", true],
@@ -126,4 +132,54 @@ test("analytics is readable by every merchant role and never mutable", () => {
     assert.equal(isMerchantActionAllowed(role, "analytics.read" as never), true);
   }
   assert.equal(MERCHANT_ACTIONS.some((action) => action.startsWith("analytics.") && action !== "analytics.read"), false);
+});
+
+test("maps every product operation to one immutable merchant action", () => {
+  assert.deepEqual(CATALOG_PRODUCT_OPERATIONS, [
+    "read",
+    "create",
+    "update",
+    "archive",
+    "restore",
+    "create_variant",
+    "update_variant",
+    "archive_variant",
+    "manage_merchandising",
+    "publish",
+    "manage_media",
+  ]);
+  assert.equal(Object.isFrozen(CATALOG_PRODUCT_OPERATIONS), true);
+  assert.equal(catalogProductAction("read"), "catalog_admin.read");
+  for (const operation of [
+    "create",
+    "update",
+    "create_variant",
+    "update_variant",
+    "manage_merchandising",
+    "publish",
+    "manage_media",
+  ] as const) {
+    assert.equal(catalogProductAction(operation), "catalog_admin.manage");
+  }
+  for (const operation of ["archive", "restore", "archive_variant"] as const) {
+    assert.equal(catalogProductAction(operation), "catalog_admin.archive");
+  }
+});
+
+test("enforces the exact product lifecycle role matrix", () => {
+  for (const role of ["store_owner", "admin"] as const) {
+    for (const operation of CATALOG_PRODUCT_OPERATIONS) {
+      assert.equal(isCatalogProductOperationAllowed(role, operation), true, `${role}:${operation}`);
+    }
+  }
+  assert.equal(isCatalogProductOperationAllowed("editor", "read"), true);
+  assert.equal(isCatalogProductOperationAllowed("editor", "update"), true);
+  assert.equal(isCatalogProductOperationAllowed("editor", "publish"), true);
+  assert.equal(isCatalogProductOperationAllowed("editor", "archive"), false);
+  assert.equal(isCatalogProductOperationAllowed("editor", "restore"), false);
+  assert.equal(isCatalogProductOperationAllowed("editor", "archive_variant"), false);
+  assert.equal(isCatalogProductOperationAllowed("analyst", "read"), true);
+  for (const operation of CATALOG_PRODUCT_OPERATIONS.filter((value) => value !== "read")) {
+    assert.equal(isCatalogProductOperationAllowed("analyst", operation), false, `analyst:${operation}`);
+  }
 });

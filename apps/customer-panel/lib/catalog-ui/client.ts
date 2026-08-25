@@ -240,9 +240,9 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       }));
     },
 
-    async listProducts(input: Readonly<{ status?: Exclude<ProductStatus, "archived">; cursor?: string }> = {}, signal?: AbortSignal): Promise<ProductListResult> {
+    async listProducts(input: Readonly<{ status?: ProductStatus; cursor?: string }> = {}, signal?: AbortSignal): Promise<ProductListResult> {
       if (input.cursor !== undefined && !CURSOR.test(input.cursor)) throw new TypeError("catalog_client_invalid");
-      if (input.status !== undefined && input.status !== "draft" && input.status !== "active") {
+      if (input.status !== undefined && input.status !== "draft" && input.status !== "active" && input.status !== "archived") {
         throw new TypeError("catalog_client_invalid");
       }
       const query = new URLSearchParams({ limit: "20" });
@@ -314,6 +314,12 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
 
     async archiveProduct(id: string, expectedVersion: number): Promise<ProductMutationResult> {
       const body = record(await mutation(`/api/catalog/products/${productId(id)}/archive`, "POST", { expectedVersion: version(expectedVersion) }));
+      if (body === null) throw new CatalogApiError("unavailable", 503);
+      return Object.freeze({ product: parseProduct(body.product), replayed: replayed(body.replayed) });
+    },
+
+    async restoreProduct(id: string, expectedVersion: number): Promise<ProductMutationResult> {
+      const body = record(await mutation(`/api/catalog/products/${productId(id)}/restore`, "POST", { expectedVersion: version(expectedVersion) }));
       if (body === null) throw new CatalogApiError("unavailable", 503);
       return Object.freeze({ product: parseProduct(body.product), replayed: replayed(body.replayed) });
     },

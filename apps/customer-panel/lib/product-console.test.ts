@@ -146,7 +146,7 @@ function mountedText(node: MountedNode | string): string {
   return typeof node === "string" ? node : node.children.map(mountedText).join("");
 }
 
-function productFixture(id: string, status: "draft" | "active", version: number, title = `Ürün ${id}`) {
+function productFixture(id: string, status: "draft" | "active" | "archived", version: number, title = `Ürün ${id}`) {
   return Object.freeze({
     id,
     title,
@@ -170,7 +170,10 @@ const catalogSummary = Object.freeze({
   activeMedia: 0,
 });
 
-async function createMountedProductConsole(api: Record<string, unknown>) {
+async function createMountedProductConsole(
+  api: Record<string, unknown>,
+  props: Readonly<{ canManage?: boolean; canArchive?: boolean; canImport?: boolean }> = { canManage: true, canArchive: true, canImport: true },
+) {
   const output = ts.transpileModule(await source("components/catalog/ProductListConsole.tsx"), {
     compilerOptions: {
       esModuleInterop: true,
@@ -203,10 +206,10 @@ async function createMountedProductConsole(api: Record<string, unknown>) {
     throw new Error(`unexpected_product_console_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
-  const Console = compiled.exports.ProductListConsole as () => ReactNode;
+  const Console = compiled.exports.ProductListConsole as (value: typeof props) => ReactNode;
   assert.equal(typeof Console, "function");
   return {
-    async render() { return mount(await hooks.flush(Console)); },
+    async render() { return mount(await hooks.flush(() => Console(props))); },
   };
 }
 
@@ -275,6 +278,74 @@ test("product UI includes safe states and responsive catalog behavior without fa
   assert.match(detail, /En güncel veriler yeniden yüklendi/);
   assert.match(styles, /@media[^]*max-width:\s*640px/);
   assert.doesNotMatch(`${list}\n${detail}`, /placeholder analytics|fake product|image upload/i);
+});
+
+test("product lifecycle UI exposes archived filter, exact warning, restore, and shared capability props", async () => {
+  const listPage = await source("app/products/page.tsx");
+  const detailPage = await source("app/products/[productId]/page.tsx");
+  const newPage = await source("app/products/new/page.tsx");
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  for (const page of [listPage, detailPage, newPage]) {
+    assert.match(page, /requireServerPanelAccess/);
+    assert.match(page, /isCatalogProductOperationAllowed/);
+  }
+  assert.match(list, /"archived"/);
+  assert.match(list, /Arşivlenmiş/);
+  assert.match(list, /catalogApi[.]restoreProduct/);
+  assert.match(list, /canManage/);
+  assert.match(list, /canArchive/);
+  assert.match(list, /canImport/);
+  for (const warning of [
+    "Bu ürün mağazada görünmez olacaktır.",
+    "Sipariş geçmişi korunacaktır.",
+    "Bu işlem daha sonra geri alınabilir.",
+  ]) assert.match(`${list}\n${detail}`, new RegExp(warning.replace(/[.]/g, "[.]")));
+  assert.match(detail, /Ürün arşivlenmiş/);
+  assert.match(detail, /catalogApi[.]restoreProduct/);
+  assert.match(detail, /product[.]status === "archived"/);
+  assert.match(detail, /ProductMediaManager productId={productId} canManage=/);
+});
+
+test("mounted lifecycle UI hides mutations by capability and restores an archived row", async () => {
+  const draft = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1, "Salt okunur ürün");
+  const analyst = await createMountedProductConsole({
+    async listProducts() { return { items: [draft] }; },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { return { product: draft, variants: [] }; },
+  }, { canManage: false, canArchive: false });
+  const analystTree = await analyst.render();
+  const analystText = analystTree.map(mountedText).join(" ");
+  assert.doesNotMatch(analystText, /Ürün Ekle|İçe Aktar|Arşivle/);
+  assert.equal(mountedNodes(analystTree).some((node) => node.props.role === "switch"), false);
+
+  const editor = await createMountedProductConsole({
+    async listProducts() { return { items: [draft] }; },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { return { product: draft, variants: [] }; },
+  }, { canManage: true, canArchive: false, canImport: false });
+  const editorText = (await editor.render()).map(mountedText).join(" ");
+  assert.match(editorText, /Ürün Ekle/);
+  assert.doesNotMatch(editorText, /İçe Aktar|Arşivle/);
+
+  const archived = productFixture("22222222-2222-4222-8222-222222222222", "archived", 4, "Arşiv ürünü");
+  const restores: Array<[string, number]> = [];
+  const owner = await createMountedProductConsole({
+    async listProducts() { return { items: [archived] }; },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { return { product: archived, variants: [] }; },
+    async restoreProduct(id: string, version: number) {
+      restores.push([id, version]);
+      return { product: { ...archived, status: "draft", version: 5 }, replayed: false };
+    },
+  }, { canManage: true, canArchive: true });
+  let ownerTree = await owner.render();
+  const restore = mountedNodes(ownerTree).find((node) => node.type === "button" && mountedText(node) === "Geri Yükle");
+  assert.ok(restore);
+  assert.equal(mountedNodes(ownerTree).some((node) => node.props.role === "switch"), false);
+  (restore.props.onClick as () => void)();
+  ownerTree = await owner.render();
+  assert.deepEqual(restores, [[archived.id, 4]]);
 });
 
 test("product detail composes durable merchandising without overwriting conflicts", async () => {

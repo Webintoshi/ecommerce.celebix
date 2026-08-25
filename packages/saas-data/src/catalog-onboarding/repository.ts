@@ -1,4 +1,6 @@
 import {
+  isCatalogProductOperationAllowed,
+  isMerchantActionAllowed,
   parseCatalogOnboardingOptions,
   parseCatalogOnboardingResult,
   parseCatalogProductEditorProjection,
@@ -48,6 +50,24 @@ const ERROR_CODES = new Set<string>(CATALOG_ONBOARDING_ERROR_CODES);
 
 function unavailable(): CatalogOnboardingRepositoryError {
   return new CatalogOnboardingRepositoryError("unavailable");
+}
+
+function authorizeProduct(
+  authority: ValidatedCatalogAuthority,
+  operation: Parameters<typeof isCatalogProductOperationAllowed>[1],
+): void {
+  if (!isCatalogProductOperationAllowed(authority.role, operation)) {
+    throw new CatalogOnboardingRepositoryError("membership_denied");
+  }
+}
+
+function authorizeCategory(
+  authority: ValidatedCatalogAuthority,
+  action: "catalog_admin.read" | "catalog_admin.manage" | "catalog_admin.archive",
+): void {
+  if (!isMerchantActionAllowed(authority.role, action)) {
+    throw new CatalogOnboardingRepositoryError("membership_denied");
+  }
 }
 
 function timeout(value: number): string {
@@ -251,6 +271,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
 
   async getOptions(input: CatalogOnboardingAuthorityInput): Promise<CatalogOnboardingOptions> {
     const { authority } = this.authority(input, ["tenantContext", "now"]);
+    authorizeProduct(authority, "read");
     return this.read({
       text: "SELECT outcome,result_payload FROM saas.catalog_get_onboarding_options($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz)",
       values: authorityValues(authority),
@@ -261,6 +282,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
 
   async createProduct(input: CreateCatalogOnboardingProductInput): Promise<CatalogOnboardingResult> {
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "intent"]);
+    authorizeProduct(authority, "create");
     const operationId = catalogOnboardingUuid(parsed.operationId);
     const intent = catalogOnboardingIntent(parsed.intent);
     const productId = catalogOnboardingUuid(this.options.uuid());
@@ -276,6 +298,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
 
   async getProductEditor(input: GetCatalogProductEditorInput): Promise<CatalogProductEditorProjection> {
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "productId"]);
+    authorizeProduct(authority, "read");
     const productId = catalogOnboardingUuid(parsed.productId);
     return this.read({
       text: "SELECT outcome,result_payload FROM saas.catalog_get_product_editor($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)",
@@ -290,6 +313,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
       "tenantContext", "now", "operationId", "productId", "expectedProfileVersion",
       "profile", "categoryIds", "resourceIds", "channelIds",
     ]);
+    authorizeProduct(authority, "manage_merchandising");
     const operationId = catalogOnboardingUuid(parsed.operationId);
     const productId = catalogOnboardingUuid(parsed.productId);
     const expectedProfileVersion = catalogOnboardingPositiveInteger(parsed.expectedProfileVersion);
@@ -312,6 +336,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     const { parsed, authority } = this.authority(input, [
       "tenantContext", "now", "operationId", "productId", "expectedProductVersion", "expectedMediaCount",
     ]);
+    authorizeProduct(authority, "publish");
     const operationId = catalogOnboardingUuid(parsed.operationId);
     const productId = catalogOnboardingUuid(parsed.productId);
     const expectedProductVersion = catalogOnboardingPositiveInteger(parsed.expectedProductVersion);
@@ -327,6 +352,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
 
   async listCategories(input: CatalogOnboardingAuthorityInput): Promise<readonly CatalogCategory[]> {
     const { authority } = this.authority(input, ["tenantContext", "now"]);
+    authorizeCategory(authority, "catalog_admin.read");
     return this.read({
       text: "SELECT outcome,result_payload FROM saas.catalog_list_categories($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz)",
       values: authorityValues(authority),
@@ -337,6 +363,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
 
   async createCategory(input: CreateCatalogCategoryInput): Promise<CatalogCategoryMutationResult> {
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "fields"]);
+    authorizeCategory(authority, "catalog_admin.manage");
     const operationId = catalogOnboardingUuid(parsed.operationId);
     const fields = catalogCategoryFields(parsed.fields);
     const categoryId = catalogOnboardingUuid(this.options.uuid());
@@ -349,6 +376,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
 
   async updateCategory(input: UpdateCatalogCategoryInput): Promise<CatalogCategoryMutationResult> {
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "categoryId", "expectedVersion", "fields"]);
+    authorizeCategory(authority, "catalog_admin.manage");
     const operationId = catalogOnboardingUuid(parsed.operationId);
     const categoryId = catalogOnboardingUuid(parsed.categoryId);
     const expectedVersion = catalogOnboardingPositiveInteger(parsed.expectedVersion);
@@ -362,6 +390,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
 
   async archiveCategory(input: ArchiveCatalogCategoryInput): Promise<CatalogCategoryMutationResult> {
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "categoryId", "expectedVersion"]);
+    authorizeCategory(authority, "catalog_admin.archive");
     const operationId = catalogOnboardingUuid(parsed.operationId);
     const categoryId = catalogOnboardingUuid(parsed.categoryId);
     const expectedVersion = catalogOnboardingPositiveInteger(parsed.expectedVersion);

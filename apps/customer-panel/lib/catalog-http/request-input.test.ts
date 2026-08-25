@@ -57,6 +57,7 @@ test("all mutation body shapes are exact and preserve no browser authority field
   const cases = [
     ["update_product", { expectedVersion: 1, product: CREATE.product }],
     ["archive_product", { expectedVersion: 1 }],
+    ["restore_product", { expectedVersion: 2 }],
     ["create_variant", { variant: CREATE.initialVariant }],
     ["update_variant", { expectedVersion: 1, variant: CREATE.initialVariant }],
     ["archive_variant", { expectedVersion: 1 }],

@@ -42,6 +42,15 @@ test("mutation authority accepts internal HTTP or HTTPS delivery only with exact
   }
 });
 
+test("restore authority accepts only POST on the exact product restore path", () => {
+  const validator = authority.createCatalogRequestAuthorityValidator?.({ panelOrigin: PANEL_ORIGIN });
+  const pathname = `${PRODUCTS}/${PRODUCT_ID}/restore`;
+  const expected = { method: "POST", pathname, query: "forbidden" } as const;
+  assert.equal(validator?.validate(request({ url: `http://internal${pathname}` }), expected), "approved");
+  assert.equal(validator?.validate(request({ url: `http://internal${pathname}`, method: "PATCH" }), expected), "method_not_allowed");
+  assert.equal(validator?.validate(request({ url: `http://internal${pathname}?publish=true` }), expected), "request_invalid");
+});
+
 test("mutation authority accepts tenant admin Origin shape without trusting the proxy Host", () => {
   const validator = authority.createCatalogRequestAuthorityValidator?.({ panelOrigin: PANEL_ORIGIN });
   assert.equal(validator?.validate(request({

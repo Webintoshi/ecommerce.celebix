@@ -22,7 +22,10 @@ export function restoreArchiveFocus(trigger: HTMLElement | null, fallback: HTMLE
   return "none";
 }
 
-export function ProductMediaManager({ productId }: { productId: string }) {
+export function ProductMediaManager({
+  productId,
+  canManage = false,
+}: Readonly<{ productId: string; canManage?: boolean }>) {
   const [media, setMedia] = useState<readonly ProductMedia[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -89,6 +92,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
   }
 
   function selectFile(event: ChangeEvent<HTMLInputElement>) {
+    if (!canManage) return;
     const file = event.currentTarget.files?.[0];
     setError("");
     setUploadProgress(0);
@@ -107,6 +111,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManage) return;
     if (selectedFile === undefined) { setError("Yüklenecek görseli seçin."); return; }
     const form = new FormData(event.currentTarget), altText = form.get("altText");
     if (typeof altText !== "string" || altText.trim() !== altText || altText.length > 500) { setError("Alt metin en fazla 500 karakter olmalı ve başında veya sonunda boşluk bulunmamalı."); return; }
@@ -122,6 +127,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
 
   async function updateAlt(event: FormEvent<HTMLFormElement>, item: ProductMedia) {
     event.preventDefault();
+    if (!canManage) return;
     const altText = new FormData(event.currentTarget).get("altText");
     if (typeof altText !== "string") return;
     setBusy(`alt-${item.id}`); setError(""); setNotice("");
@@ -134,6 +140,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
   }
 
   async function move(index: number, direction: -1 | 1) {
+    if (!canManage) return;
     const next = index + direction;
     if (next < 0 || next >= media.length) return;
     const ids = media.map((item) => item.id); [ids[index], ids[next]] = [ids[next]!, ids[index]!];
@@ -144,7 +151,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
   }
 
   async function archive() {
-    if (archiveTarget === undefined) return;
+    if (archiveTarget === undefined || !canManage) return;
     setBusy(`archive-${archiveTarget.id}`); setError(""); setNotice("");
     try {
       await productMediaApi.archive(productId, archiveTarget.id, archiveTarget.version);
@@ -169,7 +176,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Görsel işlemi tamamlanamadı</strong><p>{error}</p></div></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
 
-      <form ref={mediaUploadCardRef} className="media-upload-card product-media-uploader" onSubmit={upload} tabIndex={-1}>
+      {canManage ? <form ref={mediaUploadCardRef} className="media-upload-card product-media-uploader" onSubmit={upload} tabIndex={-1}>
         <label className="media-picker">
           <ImagePlus aria-hidden="true" />
           <span>{selectedFile ? "Başka görsel seç" : "Görsel seç"}</span>
@@ -182,7 +189,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
         </div>
         {busy === "upload" ? <div className="upload-progress"><span>Yükleme ilerlemesi</span><progress role="progressbar" max="100" value={uploadProgress}>{uploadProgress}%</progress><b>{uploadProgress}%</b></div> : null}
         <div className="form-actions"><button className="button button-primary" type="submit" disabled={busy !== "" || selectedFile === undefined}>{busy === "upload" ? "Yükleniyor…" : "Görseli yükle"}</button></div>
-      </form>
+      </form> : null}
 
       {loading ? <div className="catalog-loading" role="status"><span className="spinner" aria-hidden="true" /> Görseller yükleniyor…</div> : media.length === 0 ? (
         <div className="empty-variants"><strong>Henüz ürün görseli yok</strong><p>İlk görsel mağazada ürünün birincil görseli olacaktır.</p></div>
@@ -191,21 +198,21 @@ export function ProductMediaManager({ productId }: { productId: string }) {
           {media.map((item, index) => (
             <article className="product-media-card product-media-item" key={item.id}>
               <div className="media-thumbnail"><img src={item.publicUrl} alt={item.altText} />{index === 0 ? <span>Birincil görsel</span> : null}</div>
-              <form onSubmit={(event) => void updateAlt(event, item)} key={item.version}>
+              {canManage ? <form onSubmit={(event) => void updateAlt(event, item)} key={item.version}>
                 <label className="field"><span>Alt metin</span><input name="altText" maxLength={500} defaultValue={item.altText} disabled={busy !== ""} /></label>
                 <button className="button button-secondary" type="submit" disabled={busy !== ""}>{busy === `alt-${item.id}` ? "Kaydediliyor…" : "Alt metni kaydet"}</button>
-              </form>
-              <div className="media-order-controls" aria-label="Görsel sırası">
+              </form> : <p>{item.altText || "Alt metin eklenmemiş"}</p>}
+              {canManage ? <div className="media-order-controls" aria-label="Görsel sırası">
                 <button type="button" className="button button-secondary" onClick={() => void move(index, -1)} disabled={busy !== "" || index === 0}><ArrowUp aria-hidden="true" /> Yukarı taşı</button>
                 <button type="button" className="button button-secondary" onClick={() => void move(index, 1)} disabled={busy !== "" || index === media.length - 1}><ArrowDown aria-hidden="true" /> Aşağı taşı</button>
                 <button type="button" className="text-danger-button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveTarget(item); }} disabled={busy !== ""}><Archive aria-hidden="true" /> Arşivle</button>
-              </div>
+              </div> : null}
             </article>
           ))}
         </div>
       )}
 
-      {archiveTarget ? (
+      {archiveTarget && canManage ? (
         <div className="archive-dialog-layer">
           <div ref={archiveDialogRef} className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-media-title" aria-describedby="archive-media-description" tabIndex={-1} onKeyDown={handleArchiveDialogKeyDown}>
             <div><strong id="archive-media-title">Görseli arşivlemeyi onayla</strong><p id="archive-media-description">Görsel ürün galerisinden ve mağazadan kaldırılacak.</p></div>

@@ -161,12 +161,20 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.catalog_get_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL AS catalog_reader,
       to_regprocedure('saas.catalog_list_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)') IS NOT NULL AS catalog_lister,
       to_regprocedure('saas.catalog_list_variant_choices(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)') IS NOT NULL AS catalog_variant_choice_lister,
-      to_regprocedure('saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL AS catalog_creator,
-      to_regprocedure('saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,text,text,text)') IS NOT NULL AS catalog_updater,
-      to_regprocedure('saas.catalog_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL AS catalog_archiver,
-      to_regprocedure('saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL AS variant_creator,
-      to_regprocedure('saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL AS variant_updater,
-      to_regprocedure('saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)') IS NOT NULL AS variant_archiver,
+      to_regprocedure('saas.catalog_create_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_create_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)','EXECUTE') AS catalog_creator,
+      to_regprocedure('saas.catalog_update_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,text,text,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_update_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,text,text,text)','EXECUTE') AS catalog_updater,
+      to_regprocedure('saas.catalog_archive_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_archive_product_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)','EXECUTE') AS catalog_archiver,
+      to_regprocedure('saas.catalog_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)','EXECUTE') AS catalog_restorer,
+      to_regprocedure('saas.catalog_create_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_create_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)','EXECUTE') AS variant_creator,
+      to_regprocedure('saas.catalog_update_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_update_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)','EXECUTE') AS variant_updater,
+      to_regprocedure('saas.catalog_archive_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_archive_variant_authorized(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)','EXECUTE') AS variant_archiver,
       to_regprocedure('saas.catalog_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_recovery,
       to_regprocedure('saas.catalog_get_product_details(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL AS catalog_details,
       to_regclass('saas.catalog_product_profiles') IS NOT NULL
@@ -407,7 +415,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.sessions !== true || row.tenant_admin_auth !== true || row.session_resolver !== true || row.session_rotator !== true ||
       row.session_revoker !== true || row.session_recovery !== true || row.catalog_reader !== true ||
       row.catalog_lister !== true || row.catalog_variant_choice_lister !== true || row.catalog_creator !== true || row.catalog_updater !== true ||
-      row.catalog_archiver !== true || row.variant_creator !== true || row.variant_updater !== true ||
+      row.catalog_archiver !== true || row.catalog_restorer !== true || row.variant_creator !== true || row.variant_updater !== true ||
       row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true ||
       row.catalog_onboarding_repository !== true ||
       row.catalog_category_repository !== true ||
