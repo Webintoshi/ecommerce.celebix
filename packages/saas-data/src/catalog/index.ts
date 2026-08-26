@@ -21,6 +21,7 @@ export type {
   PostgresCatalogRepositoryOptions,
   ProductDetailsResult,
   ProductMutationResult,
+  RestoreProductInput,
   UpdateProductInput,
   UpdateVariantInput,
   VariantMutationResult,

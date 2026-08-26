@@ -11,6 +11,21 @@ const now = new Date("2026-07-18T10:00:00.000Z");
 const media = { id: MEDIA_ID, storeId: STORE_ID, productId: PRODUCT_ID, objectKey: `stores/${STORE_ID}/products/${PRODUCT_ID}/${MEDIA_ID}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE_ID}/products/${PRODUCT_ID}/${MEDIA_ID}.webp`, mediaType: "image/webp", altText: "Pilot", width: 1200, height: 1200, byteSize: 2048, sortOrder: 0, status: "archived", createdAt: now.toISOString(), updatedAt: now.toISOString(), archivedAt: now.toISOString(), version: 2 } as const;
 const tenantContext = { schemaVersion: 1, requestId: OPERATION_ID, principal: { id: "60000000-0000-4000-8000-000000000001", issuer: "https://identity.example.test/oidc", subject: "pilot" }, store: { id: STORE_ID, slug: "pilot-store", status: "active" }, membership: { id: "70000000-0000-4000-8000-000000000001", role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: "00000000-0000-4000-8000-000000000001", planCode: "free_starter", version: 1, status: "active", features: ["catalog", "media"], limits: { products: 100, staff: 1, storageBytes: 1_000_000_000 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" } as const;
 
+test("analyst media mutations are denied before pool acquisition while reads reach PostgreSQL", async () => {
+  let connects = 0;
+  const pool = { async connect() { connects += 1; throw new Error("sentinel"); } } as unknown as PostgresPoolLike;
+  const repository = new PostgresProductMediaRepository({ pool, role: "celebix_saas_app", mediaOrigin: "https://media.saas-staging.celebix.site", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 }, audit() {} });
+  const analystContext = { ...tenantContext, membership: { ...tenantContext.membership, role: "analyst" } } as any;
+  await assert.rejects(repository.reserveProductMedia({
+    tenantContext: analystContext, now, operationId: OPERATION_ID, mediaId: MEDIA_ID,
+    productId: PRODUCT_ID, mediaType: "image/webp", altText: "Pilot", width: 1200,
+    height: 1200, byteSize: 2048, payloadSha256: "a".repeat(64),
+  }), (error: unknown) => error instanceof Error && error.message === "membership_denied");
+  assert.equal(connects, 0);
+  await assert.rejects(repository.listProductMedia({ tenantContext: analystContext, now, productId: PRODUCT_ID }));
+  assert.equal(connects, 1);
+});
+
 test("media reservation derives exact object authority and returns a frozen safe projection", async () => {
   const reservation = {
     operationId: OPERATION_ID,

@@ -65,6 +65,31 @@ test("list pagination accepts only a server cursor and preserves same-origin cre
   await assert.rejects(() => client.listProducts({ cursor: "unsafe%cursor" }), /catalog_client_invalid/);
 });
 
+test("archived filter and restore use the exact lifecycle endpoints", async () => {
+  const calls: Array<[string, RequestInit]> = [];
+  const archived = { ...PRODUCT, status: "archived", version: 4 };
+  const restored = { ...PRODUCT, status: "draft", version: 5 };
+  const client = createCatalogApiClient({
+    fetch: async (input, init) => {
+      calls.push([String(input), init ?? {}]);
+      return String(input).includes("?limit=20")
+        ? jsonResponse({ items: [archived] })
+        : jsonResponse({ product: restored, replayed: false });
+    },
+    randomUUID: () => OPERATION_ID,
+  });
+  const list = await client.listProducts({ status: "archived" });
+  assert.equal(list.items[0]?.status, "archived");
+  const result = await client.restoreProduct(PRODUCT_ID, 4);
+  assert.equal(result.product.status, "draft");
+  assert.deepEqual(calls.map(([path]) => path), [
+    "/api/catalog/products?limit=20&status=archived",
+    `/api/catalog/products/${PRODUCT_ID}/restore`,
+  ]);
+  assert.deepEqual(JSON.parse(String(calls[1]?.[1].body)), { expectedVersion: 4 });
+  assert.equal(calls[1]?.[1].method, "POST");
+});
+
 test("list products accepts only a bounded canonical featured-image projection", async () => {
   const featuredImage = Object.freeze({
     publicUrl: "https://media.celebix.site/stores/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.webp",
@@ -197,11 +222,12 @@ test("every mutation uses an exact UUID idempotency key and JSON without store a
   await client.createProduct({ product: productFields, initialVariant: variantFields });
   await client.updateProduct(PRODUCT_ID, { expectedVersion: 3, product: productFields });
   await client.archiveProduct(PRODUCT_ID, 3);
+  await client.restoreProduct(PRODUCT_ID, 3);
   await client.createVariant(PRODUCT_ID, { variant: variantFields });
   await client.updateVariant(PRODUCT_ID, VARIANT_ID, { expectedVersion: 4, variant: variantFields });
   await client.archiveVariant(PRODUCT_ID, VARIANT_ID, 4);
 
-  assert.equal(calls.length, 6);
+  assert.equal(calls.length, 7);
   for (const [, init] of calls) {
     const headers = new Headers(init.headers);
     assert.equal(init.credentials, "same-origin");
@@ -210,7 +236,7 @@ test("every mutation uses an exact UUID idempotency key and JSON without store a
     assert.equal(JSON.stringify(init.body).includes("storeId"), false);
   }
   assert.deepEqual(JSON.parse(String(calls[1]?.[1].body)), { expectedVersion: 3, product: productFields });
-  assert.deepEqual(JSON.parse(String(calls[5]?.[1].body)), { expectedVersion: 4 });
+  assert.deepEqual(JSON.parse(String(calls[6]?.[1].body)), { expectedVersion: 4 });
 });
 
 test("non-canonical generated operation IDs fail before fetch", async () => {

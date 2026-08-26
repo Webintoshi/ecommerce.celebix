@@ -28,13 +28,13 @@ const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64ur
 const INVALID_COOKIE = "__Host-celebix_panel" + "=v1.bad";
 const NOW = new Date("2026-07-17T08:00:00.000Z");
 
-function tenantContext(): TenantContext {
+function tenantContext(role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): TenantContext {
   return Object.freeze({
     schemaVersion: 1,
     requestId: REQUEST_ID,
     principal: Object.freeze({ id: PRINCIPAL_ID, issuer: "https://identity.example/oidc", subject: "subject-1" }),
     store: Object.freeze({ id: STORE_ID, slug: "atlas-store", status: "active" }),
-    membership: Object.freeze({ id: MEMBERSHIP_ID, role: "store_owner", status: "active" }),
+    membership: Object.freeze({ id: MEMBERSHIP_ID, role, status: "active" }),
     entitlements: Object.freeze({
       schemaVersion: 1,
       planId: PLAN_ID,
@@ -133,6 +133,7 @@ function repository(overrides: Partial<CatalogRepository> = {}): CatalogReposito
     listVariantChoices: unavailable,
     updateProduct: unavailable,
     archiveProduct: unavailable,
+    restoreProduct: unavailable,
     createVariant: unavailable,
     updateVariant: unavailable,
     archiveVariant: unavailable,
@@ -142,13 +143,14 @@ function repository(overrides: Partial<CatalogRepository> = {}): CatalogReposito
 
 function access(
   kind: "authenticated" | "unauthenticated" | "unauthorized" | "unavailable" = "authenticated",
+  role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner",
 ): ServerCatalogRuntime["access"] {
   return Object.freeze({
     readiness: Object.freeze({ mode: "approved_staging" as const }),
     panelOrigin: PANEL_ORIGIN,
     async resolveCredential() {
       return kind === "authenticated"
-        ? Object.freeze({ kind, session: Object.freeze({}), tenantContext: tenantContext() }) as never
+        ? Object.freeze({ kind, session: Object.freeze({}), tenantContext: tenantContext(role) }) as never
         : Object.freeze({ kind });
     },
     async rotateCredential() { return Object.freeze({ kind: "unavailable" as const }); },
@@ -251,7 +253,7 @@ test("tenant admin product mutations survive internal reverse-proxy Host and rem
   assert.equal((calls[0] as { tenantContext: TenantContext }).tenantContext.store.slug, "atlas-store");
 });
 
-test("authenticated list and detail remain store-scoped and detail excludes archived variants by default", async () => {
+test("authenticated list and detail remain store-scoped and detail includes archived lifecycle state", async () => {
   const calls: unknown[] = [];
   const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
     async listProducts(input) { calls.push(input); return Object.freeze({ items: Object.freeze([product()]) }); },
@@ -265,7 +267,7 @@ test("authenticated list and detail remain store-scoped and detail excludes arch
   assert.deepEqual(await detail?.json(), { product: product(), variants: [variant()] });
   assert.deepEqual(calls, [
     { tenantContext: tenantContext(), now: NOW, pageSize: 10, status: "draft" },
-    { tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID },
+    { tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID, includeArchivedVariants: true },
   ]);
 });
 
@@ -330,6 +332,7 @@ test("all update and archive handlers pass path IDs versions and operation IDs e
   const catalog = repository({
     async updateProduct(input) { calls.push(["updateProduct", input]); return { product: product({ version: 2 }), replayed: false }; },
     async archiveProduct(input) { calls.push(["archiveProduct", input]); return { product: product({ status: "archived", version: 2 }), replayed: false }; },
+    async restoreProduct(input) { calls.push(["restoreProduct", input]); return { product: product({ status: "draft", version: 3 }), replayed: false }; },
     async createVariant(input) { calls.push(["createVariant", input]); return { variant: variant({ id: SECOND_VARIANT_ID }), replayed: false }; },
     async updateVariant(input) { calls.push(["updateVariant", input]); return { variant: variant({ version: 2 }), replayed: false }; },
     async archiveVariant(input) { calls.push(["archiveVariant", input]); return { variant: variant({ status: "archived", version: 2 }), replayed: false }; },
@@ -340,16 +343,82 @@ test("all update and archive handlers pass path IDs versions and operation IDs e
   const responses = [
     await handlers?.updateProduct(request(`${PRODUCTS}/${PRODUCT_ID}`, { method: "PATCH", body: { expectedVersion: 1, product: productFields } }), PRODUCT_ID),
     await handlers?.archiveProduct(request(`${PRODUCTS}/${PRODUCT_ID}/archive`, { method: "POST", body: { expectedVersion: 1 } }), PRODUCT_ID),
+    await handlers?.restoreProduct(request(`${PRODUCTS}/${PRODUCT_ID}/restore`, { method: "POST", body: { expectedVersion: 2 } }), PRODUCT_ID),
     await handlers?.createVariant(request(`${PRODUCTS}/${PRODUCT_ID}/variants`, { method: "POST", body: { variant: variantFields } }), PRODUCT_ID),
     await handlers?.updateVariant(request(`${PRODUCTS}/${PRODUCT_ID}/variants/${VARIANT_ID}`, { method: "PATCH", body: { expectedVersion: 1, variant: variantFields } }), PRODUCT_ID, VARIANT_ID),
     await handlers?.archiveVariant(request(`${PRODUCTS}/${PRODUCT_ID}/variants/${VARIANT_ID}/archive`, { method: "POST", body: { expectedVersion: 1 } }), PRODUCT_ID, VARIANT_ID),
   ];
-  assert.deepEqual(responses.map((response) => response?.status), [200, 200, 201, 200, 200]);
-  assert.deepEqual(calls.map(([name]) => name), ["updateProduct", "archiveProduct", "createVariant", "updateVariant", "archiveVariant"]);
+  assert.deepEqual(responses.map((response) => response?.status), [200, 200, 200, 201, 200, 200]);
+  assert.deepEqual(calls.map(([name]) => name), ["updateProduct", "archiveProduct", "restoreProduct", "createVariant", "updateVariant", "archiveVariant"]);
   for (const [, value] of calls) {
     assert.equal((value as { tenantContext: TenantContext }).tenantContext.store.id, STORE_ID);
     assert.equal((value as { operationId: string }).operationId, OPERATION_ID);
   }
+});
+
+test("HTTP authorization enforces owner admin editor analyst product lifecycle roles", async () => {
+  for (const role of ["store_owner", "admin"] as const) {
+    let writes = 0;
+    const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+      async archiveProduct() {
+        writes += 1;
+        return { product: product({ status: "archived", version: 2 }), replayed: false };
+      },
+    }), access("authenticated", role)));
+    const response = await handlers?.archiveProduct(
+      request(`${PRODUCTS}/${PRODUCT_ID}/archive`, { method: "POST", body: { expectedVersion: 1 } }), PRODUCT_ID,
+    );
+    assert.equal(response?.status, 200, role);
+    assert.equal(writes, 1, role);
+  }
+
+  for (const role of ["editor", "analyst"] as const) {
+    let writes = 0;
+    const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+      async archiveProduct() { writes += 1; throw new Error("must not run"); },
+    }), access("authenticated", role)));
+    const response = await handlers?.archiveProduct(
+      request(`${PRODUCTS}/${PRODUCT_ID}/archive`, { method: "POST", body: { expectedVersion: 1 } }), PRODUCT_ID,
+    );
+    assert.equal(response?.status, 403, role);
+    assert.deepEqual(await response?.json(), { code: "membership_denied" });
+    assert.equal(writes, 0, role);
+  }
+
+  let analystWrites = 0;
+  const analystHandlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async updateProduct() { analystWrites += 1; throw new Error("must not run"); },
+  }), access("authenticated", "analyst")));
+  const analystUpdate = await analystHandlers?.updateProduct(
+    request(`${PRODUCTS}/${PRODUCT_ID}`, { method: "PATCH", body: { expectedVersion: 1, product: CREATE_BODY.product } }), PRODUCT_ID,
+  );
+  assert.equal(analystUpdate?.status, 403);
+  assert.equal(analystWrites, 0);
+});
+
+test("restore is POST-only, idempotent, and maps cross-tenant products to 404", async () => {
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async restoreProduct() { return { product: product({ status: "draft", version: 3 }), replayed: true }; },
+  })));
+  const restored = await handlers?.restoreProduct(
+    request(`${PRODUCTS}/${PRODUCT_ID}/restore`, { method: "POST", body: { expectedVersion: 2 } }), PRODUCT_ID,
+  );
+  assert.equal(restored?.status, 200);
+  assert.deepEqual(await restored?.json(), { product: product({ status: "draft", version: 3 }), replayed: true });
+
+  const wrongMethod = await handlers?.restoreProduct(
+    request(`${PRODUCTS}/${PRODUCT_ID}/restore`, { method: "PATCH", body: { expectedVersion: 2 } }), PRODUCT_ID,
+  );
+  assert.equal(wrongMethod?.status, 405);
+
+  const crossTenant = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async restoreProduct() { throw new CatalogRepositoryError("product_not_found"); },
+  })));
+  const missing = await crossTenant?.restoreProduct(
+    request(`${PRODUCTS}/${PRODUCT_ID}/restore`, { method: "POST", body: { expectedVersion: 2 } }), PRODUCT_ID,
+  );
+  assert.equal(missing?.status, 404);
+  assert.deepEqual(await missing?.json(), { code: "product_not_found" });
 });
 
 test("finite repository errors map to safe statuses and never expose driver details", async () => {

@@ -2,6 +2,7 @@ import {
   parseProduct,
   parseProductVariant,
   type ProductStatus,
+  type StoreMembershipRole,
   type TenantContext,
 } from "@celebix/saas-contracts";
 
@@ -58,6 +59,7 @@ export interface ValidatedCatalogAuthority {
   readonly planVersion: number;
   readonly productsLimit: number;
   readonly now: Date;
+  readonly role: StoreMembershipRole;
 }
 
 export function catalogAuthority(context: TenantContext, currentTime: Date): ValidatedCatalogAuthority {
@@ -83,6 +85,7 @@ export function catalogAuthority(context: TenantContext, currentTime: Date): Val
     const planCode = context.entitlements.planCode;
     const planVersion = context.entitlements.version;
     const productsLimit = context.entitlements.limits?.products;
+    const role = context.membership.role;
     if (
       context.schemaVersion !== 1 ||
       context.entitlements.schemaVersion !== 1 ||
@@ -94,6 +97,7 @@ export function catalogAuthority(context: TenantContext, currentTime: Date): Val
       planVersion < 1 ||
       !Number.isSafeInteger(productsLimit) ||
       productsLimit < 0 ||
+      !(["store_owner", "admin", "editor", "analyst"] as const).includes(role as StoreMembershipRole) ||
       typeof context.entitlements.validFrom !== "string"
     ) fail("durable_authority_invalid");
     const validFrom = new Date(context.entitlements.validFrom);
@@ -110,7 +114,7 @@ export function catalogAuthority(context: TenantContext, currentTime: Date): Val
         now >= validUntil
       ))
     ) fail("durable_authority_invalid");
-    return Object.freeze({ storeId, principalId, membershipId, planId, planCode, planVersion, productsLimit, now });
+    return Object.freeze({ storeId, principalId, membershipId, planId, planCode, planVersion, productsLimit, now, role });
   } catch (error) {
     if (error instanceof CatalogRepositoryError && error.code !== "invalid_input") throw error;
     fail("durable_authority_invalid");

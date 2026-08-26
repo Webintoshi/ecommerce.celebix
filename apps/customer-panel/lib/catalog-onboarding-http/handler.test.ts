@@ -22,12 +22,12 @@ const REQUEST_ID = "73000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64url")}`;
 
-function tenant(): TenantContext {
+function tenant(role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): TenantContext {
   return {
     schemaVersion: 1, requestId: REQUEST_ID,
     principal: { id: PRINCIPAL, issuer: "https://identity.example.test/oidc", subject: "private" },
     store: { id: STORE, slug: "magaza", status: "active" },
-    membership: { id: MEMBERSHIP, role: "store_owner", status: "active" },
+    membership: { id: MEMBERSHIP, role, status: "active" },
     entitlements: { schemaVersion: 1, planId: PLAN, planCode: "growth", version: 2, status: "active", features: ["catalog"], limits: { products: 100, staff: 5, storageBytes: 1024 }, validFrom: "2026-01-01T00:00:00.000Z" },
     locale: "tr-TR",
   } as TenantContext;
@@ -47,11 +47,11 @@ function repository(overrides: Partial<CatalogOnboardingRepository> = {}): Catal
   return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, ...overrides } as CatalogOnboardingRepository;
 }
 
-function runtime(onboarding: CatalogOnboardingRepository): ServerCatalogOnboardingRuntime {
+function runtime(onboarding: CatalogOnboardingRepository, role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): ServerCatalogOnboardingRuntime {
   return {
     access: {
       readiness: { mode: "approved_staging" }, panelOrigin: PANEL,
-      async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant() } as never; },
+      async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant(role) } as never; },
       async rotateCredential() { return { kind: "unavailable" as const }; },
       async revokeCredential() { return { kind: "unavailable" as const }; },
     },
@@ -59,9 +59,9 @@ function runtime(onboarding: CatalogOnboardingRepository): ServerCatalogOnboardi
   } as ServerCatalogOnboardingRuntime;
 }
 
-function handlers(onboarding: CatalogOnboardingRepository) {
+function handlers(onboarding: CatalogOnboardingRepository, role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner") {
   return createCatalogOnboardingHttpHandlers({
-    async resolveRuntime() { return runtime(onboarding); },
+    async resolveRuntime() { return runtime(onboarding, role); },
     now() { return new Date(NOW); },
     requestId() { return REQUEST_ID; },
   });
@@ -157,6 +157,25 @@ test("private authority, wrong Origin, query and malformed content fail before r
     request("/api/catalog/onboarding/products", "POST", { ...body, storeId: STORE }),
   ];
   for (const candidate of cases) assert.ok((await api.createProduct(candidate)).status >= 400);
+});
+
+test("analyst onboarding mutations are forbidden before repository access while editor can create", async () => {
+  const body = { kind: "quick", title: "Kupa", priceCents: 12990, publish: false };
+  let analystWrites = 0;
+  const analyst = handlers(repository({
+    async createProduct() { analystWrites += 1; throw new Error("must not run"); },
+  }), "analyst");
+  const denied = await analyst.createProduct(request("/api/catalog/onboarding/products", "POST", body));
+  assert.equal(denied.status, 403);
+  assert.deepEqual(await denied.json(), { code: "membership_denied" });
+  assert.equal(analystWrites, 0);
+
+  let editorWrites = 0;
+  const editor = handlers(repository({
+    async createProduct() { editorWrites += 1; return result(); },
+  }), "editor");
+  assert.equal((await editor.createProduct(request("/api/catalog/onboarding/products", "POST", body))).status, 201);
+  assert.equal(editorWrites, 1);
 });
 
 test("editor update and publish bind exact path authority", async () => {

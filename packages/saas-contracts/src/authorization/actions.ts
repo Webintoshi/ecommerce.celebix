@@ -44,6 +44,37 @@ export const MERCHANT_ACTIONS = Object.freeze([
 
 export type MerchantAction = (typeof MERCHANT_ACTIONS)[number];
 
+export const CATALOG_PRODUCT_OPERATIONS = Object.freeze([
+  "read",
+  "create",
+  "update",
+  "archive",
+  "restore",
+  "create_variant",
+  "update_variant",
+  "archive_variant",
+  "manage_merchandising",
+  "publish",
+  "manage_media",
+] as const);
+
+export type CatalogProductOperation = (typeof CATALOG_PRODUCT_OPERATIONS)[number];
+
+const CATALOG_PRODUCT_ACTIONS: Readonly<Record<CatalogProductOperation, MerchantAction>> =
+  Object.freeze({
+    read: "catalog_admin.read",
+    create: "catalog_admin.manage",
+    update: "catalog_admin.manage",
+    archive: "catalog_admin.archive",
+    restore: "catalog_admin.archive",
+    create_variant: "catalog_admin.manage",
+    update_variant: "catalog_admin.manage",
+    archive_variant: "catalog_admin.archive",
+    manage_merchandising: "catalog_admin.manage",
+    publish: "catalog_admin.manage",
+    manage_media: "catalog_admin.manage",
+  });
+
 const ROLE_ACTIONS: Readonly<
   Record<StoreMembershipRole, ReadonlySet<MerchantAction>>
 > = Object.freeze({
@@ -98,4 +129,15 @@ export function isMerchantActionAllowed(
   action: MerchantAction,
 ): boolean {
   return ROLE_ACTIONS[role]?.has(action) === true;
+}
+
+export function catalogProductAction(operation: CatalogProductOperation): MerchantAction {
+  return CATALOG_PRODUCT_ACTIONS[operation];
+}
+
+export function isCatalogProductOperationAllowed(
+  role: StoreMembershipRole,
+  operation: CatalogProductOperation,
+): boolean {
+  return isMerchantActionAllowed(role, catalogProductAction(operation));
 }

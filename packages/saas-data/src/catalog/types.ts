@@ -78,6 +78,12 @@ export interface ArchiveProductInput extends CatalogAuthorityInput {
   readonly expectedVersion: number;
 }
 
+export interface RestoreProductInput extends CatalogAuthorityInput {
+  readonly operationId: string;
+  readonly productId: string;
+  readonly expectedVersion: number;
+}
+
 export interface CreateVariantInput extends CatalogAuthorityInput {
   readonly operationId: string;
   readonly productId: string;
@@ -149,6 +155,7 @@ export interface CatalogRepository {
   listVariantChoices(input: ListCatalogVariantChoicesInput): Promise<readonly CatalogVariantChoice[]>;
   updateProduct(input: UpdateProductInput): Promise<ProductMutationResult>;
   archiveProduct(input: ArchiveProductInput): Promise<ProductMutationResult>;
+  restoreProduct(input: RestoreProductInput): Promise<ProductMutationResult>;
   createVariant(input: CreateVariantInput): Promise<VariantMutationResult>;
   updateVariant(input: UpdateVariantInput): Promise<VariantMutationResult>;
   archiveVariant(input: ArchiveVariantInput): Promise<VariantMutationResult>;

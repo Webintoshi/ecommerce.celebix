@@ -1,4 +1,12 @@
-import { parseProduct, parseProductVariant, type Product, type ProductStatus, type ProductVariant } from "@celebix/saas-contracts";
+import {
+  isCatalogProductOperationAllowed,
+  parseProduct,
+  parseProductVariant,
+  type CatalogProductOperation,
+  type Product,
+  type ProductStatus,
+  type ProductVariant,
+} from "@celebix/saas-contracts";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { catalogFingerprint } from "./canonical.ts";
@@ -23,6 +31,7 @@ import type {
   PostgresCatalogRepositoryOptions,
   ProductDetailsResult,
   ProductMutationResult,
+  RestoreProductInput,
   UpdateProductInput,
   UpdateVariantInput,
   VariantMutationResult,
@@ -44,6 +53,15 @@ type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 const ERROR_CODES = new Set<string>(CATALOG_ERROR_CODES);
 
 function unavailable(): CatalogRepositoryError { return new CatalogRepositoryError("unavailable"); }
+
+function authorizeOperation(
+  authority: ValidatedCatalogAuthority,
+  operation: CatalogProductOperation,
+): void {
+  if (!isCatalogProductOperationAllowed(authority.role, operation)) {
+    throw new CatalogRepositoryError("membership_denied");
+  }
+}
 
 function timeout(value: number): string {
   if (!Number.isSafeInteger(value) || value < 1 || value > 60_000) throw unavailable();
@@ -349,6 +367,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async createProduct(input: CreateProductInput): Promise<CreateProductResult> {
     const exact = exactInput(input, ["tenantContext", "now", "operationId", "product", "initialVariant"]);
     const authority = catalogAuthority(exact.tenantContext as CreateProductInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "create");
     const operationId = catalogUuid(exact.operationId);
     const product = productFields(exact.product);
     const initialVariant = variantFields(exact.initialVariant);
@@ -377,6 +396,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
       exact.tenantContext as GetCatalogDashboardSummaryInput["tenantContext"],
       exact.now as Date,
     );
+    authorizeOperation(authority, "read");
     const result = await this.read(authority, {
       text: `SELECT outcome, result_payload FROM saas.catalog_get_dashboard_summary(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz
@@ -390,6 +410,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async getProduct(input: GetProductInput): Promise<Product> {
     const exact = exactInput(input, ["tenantContext", "now", "productId"]);
     const authority = catalogAuthority(exact.tenantContext as GetProductInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "read");
     const productId = catalogUuid(exact.productId);
     const result = await this.read(authority, {
       text: `SELECT outcome, result_payload FROM saas.catalog_get_product(
@@ -404,6 +425,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async getProductDetails(input: GetProductDetailsInput): Promise<ProductDetailsResult> {
     const exact = exactInput(input, ["tenantContext", "now", "productId"], ["includeArchivedVariants"]);
     const authority = catalogAuthority(exact.tenantContext as GetProductDetailsInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "read");
     const productId = catalogUuid(exact.productId);
     const includeArchivedVariants = exact.includeArchivedVariants ?? false;
     if (typeof includeArchivedVariants !== "boolean") throw new CatalogRepositoryError("invalid_input");
@@ -420,7 +442,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const product = parseProduct(envelope.product);
     const variants = Object.freeze(envelope.variants.map((value) => parseProductVariant(value)));
     if (
-      product.id !== productId || product.storeId !== authority.storeId || product.status === "archived" ||
+      product.id !== productId || product.storeId !== authority.storeId ||
       variants.some((variant) => (
         variant.productId !== product.id || variant.storeId !== authority.storeId ||
         (!includeArchivedVariants && variant.status !== "active")
@@ -442,6 +464,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
       exact.tenantContext as ListCatalogVariantChoicesInput["tenantContext"],
       exact.now as Date,
     );
+    authorizeOperation(authority, "read");
     const result = await this.read(authority, {
       text: `SELECT outcome, result_payload FROM saas.catalog_list_variant_choices(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz
@@ -459,6 +482,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async listProducts(input: ListProductsInput): Promise<ListProductsResult> {
     const exact = exactInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status"]);
     const authority = catalogAuthority(exact.tenantContext as ListProductsInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "read");
     const boundedPageSize = pageSize(exact.pageSize);
     const filter = statusFilter(exact.status);
     const cursor = decodeCursor(exact.cursor as string | undefined, authority.storeId, filter);
@@ -497,6 +521,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async updateProduct(input: UpdateProductInput): Promise<ProductMutationResult> {
     const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "expectedVersion", "product"]);
     const authority = catalogAuthority(exact.tenantContext as UpdateProductInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "update");
     const operationId = catalogUuid(exact.operationId);
     const productId = catalogUuid(exact.productId);
     const expectedVersion = positiveVersion(exact.expectedVersion);
@@ -514,6 +539,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async archiveProduct(input: ArchiveProductInput): Promise<ProductMutationResult> {
     const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "expectedVersion"]);
     const authority = catalogAuthority(exact.tenantContext as ArchiveProductInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "archive");
     const operationId = catalogUuid(exact.operationId);
     const productId = catalogUuid(exact.productId);
     const expectedVersion = positiveVersion(exact.expectedVersion);
@@ -527,9 +553,27 @@ export class PostgresCatalogRepository implements CatalogRepository {
     }, ["archived"], productResult);
   }
 
+  async restoreProduct(input: RestoreProductInput): Promise<ProductMutationResult> {
+    const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "expectedVersion"]);
+    const authority = catalogAuthority(exact.tenantContext as RestoreProductInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "restore");
+    const operationId = catalogUuid(exact.operationId);
+    const productId = catalogUuid(exact.productId);
+    const expectedVersion = positiveVersion(exact.expectedVersion);
+    const fingerprint = catalogFingerprint("restore_product", authority.storeId, { productId, expectedVersion });
+    return this.mutate(authority, operationId, fingerprint, {
+      text: `SELECT outcome, result_payload FROM saas.catalog_restore_product(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
+        $9::uuid,$10::text,$11::uuid,$12::bigint
+      )`,
+      values: [...authorityValues(authority), operationId, fingerprint, productId, expectedVersion],
+    }, ["restored"], productResult);
+  }
+
   async createVariant(input: CreateVariantInput): Promise<VariantMutationResult> {
     const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "variant"]);
     const authority = catalogAuthority(exact.tenantContext as CreateVariantInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "create_variant");
     const operationId = catalogUuid(exact.operationId);
     const productId = catalogUuid(exact.productId);
     const variant = variantFields(exact.variant);
@@ -548,6 +592,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async updateVariant(input: UpdateVariantInput): Promise<VariantMutationResult> {
     const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "variantId", "expectedVersion", "variant"]);
     const authority = catalogAuthority(exact.tenantContext as UpdateVariantInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "update_variant");
     const operationId = catalogUuid(exact.operationId);
     const productId = catalogUuid(exact.productId);
     const variantId = catalogUuid(exact.variantId);
@@ -567,6 +612,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async archiveVariant(input: ArchiveVariantInput): Promise<VariantMutationResult> {
     const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "variantId", "expectedVersion"]);
     const authority = catalogAuthority(exact.tenantContext as ArchiveVariantInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "archive_variant");
     const operationId = catalogUuid(exact.operationId);
     const productId = catalogUuid(exact.productId);
     const variantId = catalogUuid(exact.variantId);

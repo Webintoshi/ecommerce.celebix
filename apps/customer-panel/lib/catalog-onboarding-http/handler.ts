@@ -1,6 +1,11 @@
 import "server-only";
 
-import type { TenantContext } from "@celebix/saas-contracts";
+import {
+  catalogProductAction,
+  isMerchantActionAllowed,
+  type MerchantAction,
+  type TenantContext,
+} from "@celebix/saas-contracts";
 import {
   CatalogOnboardingRepositoryError,
   type CatalogOnboardingErrorCode,
@@ -119,6 +124,7 @@ async function authorize(
   dependencies: Dependencies,
   request: Request,
   expectation: CatalogOnboardingRequestExpectation,
+  action: MerchantAction,
 ): Promise<Response | AuthorizedRequest> {
   let runtime: ServerCatalogOnboardingRuntime | null;
   try { runtime = await dependencies.resolveRuntime(); }
@@ -151,6 +157,9 @@ async function authorize(
     expectation.method !== "GET"
     && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)
   ) return error("origin_denied", 403);
+  if (!isMerchantActionAllowed(access.tenantContext.membership.role, action)) {
+    return error("membership_denied", 403);
+  }
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 
@@ -178,13 +187,13 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
 
   return Object.freeze({
     async getOptions(request: Request): Promise<Response> {
-      const authorized = await authorize(dependencies, request, { method: "GET", pathname: CATALOG_ONBOARDING_OPTIONS_PATH });
+      const authorized = await authorize(dependencies, request, { method: "GET", pathname: CATALOG_ONBOARDING_OPTIONS_PATH }, catalogProductAction("read"));
       if (isResponse(authorized)) return authorized;
       return execute(() => authorized.runtime.onboarding.getOptions({ tenantContext: authorized.tenantContext, now: authorized.now }));
     },
 
     async createProduct(request: Request): Promise<Response> {
-      const authorized = await authorize(dependencies, request, { method: "POST", pathname: CATALOG_ONBOARDING_PRODUCTS_PATH });
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: CATALOG_ONBOARDING_PRODUCTS_PATH }, catalogProductAction("create"));
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogOnboardingCreateInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -200,7 +209,7 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
       const selectedProductId = productId(rawProductId);
       if (isResponse(selectedProductId)) return selectedProductId;
       const pathname = `/api/catalog/products/${selectedProductId}/merchandising`;
-      const authorized = await authorize(dependencies, request, { method: "GET", pathname });
+      const authorized = await authorize(dependencies, request, { method: "GET", pathname }, catalogProductAction("read"));
       if (isResponse(authorized)) return authorized;
       return execute(() => authorized.runtime.onboarding.getProductEditor({
         tenantContext: authorized.tenantContext,
@@ -213,7 +222,7 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
       const selectedProductId = productId(rawProductId);
       if (isResponse(selectedProductId)) return selectedProductId;
       const pathname = `/api/catalog/products/${selectedProductId}/merchandising`;
-      const authorized = await authorize(dependencies, request, { method: "PATCH", pathname });
+      const authorized = await authorize(dependencies, request, { method: "PATCH", pathname }, catalogProductAction("manage_merchandising"));
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogMerchandisingUpdateInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -234,7 +243,7 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
       const selectedProductId = productId(rawProductId);
       if (isResponse(selectedProductId)) return selectedProductId;
       const pathname = `/api/catalog/products/${selectedProductId}/publish-after-media`;
-      const authorized = await authorize(dependencies, request, { method: "POST", pathname });
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname }, catalogProductAction("publish"));
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogPublishAfterMediaInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -249,13 +258,13 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
     },
 
     async listCategories(request: Request): Promise<Response> {
-      const authorized = await authorize(dependencies, request, { method: "GET", pathname: CATALOG_ONBOARDING_CATEGORIES_PATH });
+      const authorized = await authorize(dependencies, request, { method: "GET", pathname: CATALOG_ONBOARDING_CATEGORIES_PATH }, "catalog_admin.read");
       if (isResponse(authorized)) return authorized;
       return execute(() => authorized.runtime.onboarding.listCategories({ tenantContext: authorized.tenantContext, now: authorized.now }));
     },
 
     async createCategory(request: Request): Promise<Response> {
-      const authorized = await authorize(dependencies, request, { method: "POST", pathname: CATALOG_ONBOARDING_CATEGORIES_PATH });
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: CATALOG_ONBOARDING_CATEGORIES_PATH }, "catalog_admin.manage");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogCategoryCreateInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -265,7 +274,7 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
     async updateCategory(request: Request, rawCategoryId: unknown): Promise<Response> {
       const categoryId = productId(rawCategoryId);
       if (isResponse(categoryId)) return categoryId;
-      const authorized = await authorize(dependencies, request, { method: "PATCH", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}` });
+      const authorized = await authorize(dependencies, request, { method: "PATCH", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}` }, "catalog_admin.manage");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogCategoryUpdateInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -275,7 +284,7 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
     async archiveCategory(request: Request, rawCategoryId: unknown): Promise<Response> {
       const categoryId = productId(rawCategoryId);
       if (isResponse(categoryId)) return categoryId;
-      const authorized = await authorize(dependencies, request, { method: "POST", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}/archive` });
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}/archive` }, "catalog_admin.archive");
       if (isResponse(authorized)) return authorized;
       const input = await readCatalogCategoryArchiveInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);

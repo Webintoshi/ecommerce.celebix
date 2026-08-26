@@ -333,6 +333,106 @@ test("getProductDetails derives store authority and returns ordered active varia
   assert.equal(read.values[9], false);
 });
 
+test("getProductDetails accepts an archived product projection for panel lifecycle reads", async () => {
+  const archived = { ...product(), status: "archived" };
+  const client = new FakeClient((text) => text.includes("saas.catalog_get_product_details")
+    ? [{ outcome: "found", result_payload: { product: archived, variants: [] } }]
+    : []);
+  const result = await repository(new FakePool(client)).getProductDetails({
+    tenantContext: tenantContext(),
+    now: NOW,
+    productId: PRODUCT_ID,
+    includeArchivedVariants: true,
+  });
+  assert.equal(result.product.status, "archived");
+  assert.deepEqual(result.variants, []);
+});
+
+test("repository enforces product operation roles before checking out a SQL client", async () => {
+  const forbidden = [
+    {
+      role: "editor",
+      invoke: (catalog: PostgresCatalogRepository) => catalog.archiveProduct({
+        tenantContext: tenantContext({ membership: { id: MEMBERSHIP_ID, role: "editor", status: "active" } }),
+        now: NOW,
+        operationId: OPERATION_ID,
+        productId: PRODUCT_ID,
+        expectedVersion: 1,
+      }),
+    },
+    {
+      role: "analyst",
+      invoke: (catalog: PostgresCatalogRepository) => catalog.updateProduct({
+        tenantContext: tenantContext({ membership: { id: MEMBERSHIP_ID, role: "analyst", status: "active" } }),
+        now: NOW,
+        operationId: OPERATION_ID,
+        productId: PRODUCT_ID,
+        expectedVersion: 1,
+        product: createInput().product,
+      }),
+    },
+    {
+      role: "analyst",
+      invoke: (catalog: PostgresCatalogRepository) => catalog.createProduct({
+        ...createInput(),
+        tenantContext: tenantContext({ membership: { id: MEMBERSHIP_ID, role: "analyst", status: "active" } }),
+      }),
+    },
+  ] as const;
+  for (const entry of forbidden) {
+    const pool = new FakePool();
+    await assert.rejects(
+      entry.invoke(repository(pool)),
+      (error: unknown) => error instanceof CatalogRepositoryError && error.code === "membership_denied",
+      entry.role,
+    );
+    assert.equal(pool.connects, 0);
+  }
+});
+
+test("owner and admin archive while editor cannot, using the secured SQL boundary", async () => {
+  for (const role of ["store_owner", "admin"] as const) {
+    const archived = { ...product(), status: "archived", version: 2 };
+    const client = new FakeClient((text) => text.includes("saas.catalog_archive_product")
+      ? [{ outcome: "archived", result_payload: { product: archived } }]
+      : []);
+    const result = await repository(new FakePool(client)).archiveProduct({
+      tenantContext: tenantContext({ membership: { id: MEMBERSHIP_ID, role, status: "active" } }),
+      now: NOW,
+      operationId: OPERATION_ID,
+      productId: PRODUCT_ID,
+      expectedVersion: 1,
+    });
+    assert.equal(result.product.status, "archived");
+    const mutation = client.calls.find((call) => call.text.includes("saas.catalog_archive_product"));
+    assert.ok(mutation);
+    assert.match(mutation.text, /saas[.]catalog_archive_product\(/u);
+    assert.doesNotMatch(mutation.text, /_authorized/u);
+  }
+});
+
+test("restoreProduct returns draft and preserves idempotent replay semantics", async () => {
+  const restored = { ...product(), status: "draft", version: 3 };
+  for (const [outcome, replayed] of [["restored", false], ["operation_replayed", true]] as const) {
+    const client = new FakeClient((text) => text.includes("saas.catalog_restore_product")
+      ? [{ outcome, result_payload: { product: restored } }]
+      : []);
+    const result = await repository(new FakePool(client)).restoreProduct({
+      tenantContext: tenantContext(),
+      now: NOW,
+      operationId: OPERATION_ID,
+      productId: PRODUCT_ID,
+      expectedVersion: 2,
+    });
+    assert.equal(result.product.status, "draft");
+    assert.equal(result.replayed, replayed);
+    const mutation = client.calls.find((call) => call.text.includes("saas.catalog_restore_product"));
+    assert.ok(mutation);
+    assert.equal(mutation.values[10], PRODUCT_ID);
+    assert.equal(mutation.values[11], 2);
+  }
+});
+
 test("finite SQL outcomes and unexpected driver failures expose only stable safe errors", async () => {
   const denied = new FakeClient((text) => text.includes("saas.catalog_get_product")
     ? [{ outcome: "product_not_found", result_payload: null }]
