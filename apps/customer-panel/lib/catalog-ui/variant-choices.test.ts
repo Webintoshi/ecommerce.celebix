@@ -26,8 +26,8 @@ test("catalog variant choices follow every cursor and include active variants be
     async listProducts(input) {
       cursors.push(input.cursor);
       return input.cursor === undefined
-        ? { items: products.slice(0, 20), nextCursor: "page_two" }
-        : { items: products.slice(20) };
+        ? { items: products.slice(0, 20), catalogTotal: 21, nextCursor: "page_two" }
+        : { items: products.slice(20), catalogTotal: 21 };
     },
     async getProduct(productId) {
       activeDetails += 1;
@@ -75,7 +75,7 @@ test("catalog variant choices use the bounded server projection for stores large
 test("catalog variant choices reject cursor loops bounds duplicates and hostile partial projections", async () => {
   const signal = new AbortController().signal;
   const valid = {
-    async listProducts() { return { items: [product(1)] }; },
+    async listProducts() { return { items: [product(1)], catalogTotal: 1 }; },
     async getProduct() { return { product: product(1), variants: [variant(1)] }; },
   };
   let loopCalls = 0;
@@ -84,11 +84,11 @@ test("catalog variant choices reject cursor loops bounds duplicates and hostile 
       ...valid,
       async listProducts() {
         loopCalls += 1;
-        return { items: [product(loopCalls)], nextCursor: "same" };
+        return { items: [product(loopCalls)], catalogTotal: 2, nextCursor: "same" };
       },
     }],
-    [{ ...valid, async listProducts() { return { items: [product(1), product(2)] }; } }, { maximumProducts: 1 }],
-    [{ ...valid, async listProducts() { return { items: [product(1), product(1)] }; } }],
+    [{ ...valid, async listProducts() { return { items: [product(1), product(2)], catalogTotal: 2 }; } }, { maximumProducts: 1 }],
+    [{ ...valid, async listProducts() { return { items: [product(1), product(1)], catalogTotal: 2 }; } }],
     [{ ...valid, async getProduct() { return { product: product(2), variants: [variant(2)] }; } }],
     [{ ...valid, async getProduct() { return { product: product(1), variants: [variant(1), variant(1)] }; } }],
     [{ ...valid, async getProduct() { return new Proxy({}, { get() { throw new Error("hostile"); } }); } }],
@@ -104,7 +104,7 @@ test("catalog variant choices reject cursor loops bounds duplicates and hostile 
 test("catalog variant choices bound every returned detail variant before active filtering", async () => {
   await assert.rejects(
     () => loadCatalogVariantChoices({
-      async listProducts() { return { items: [product(1), product(2)] }; },
+      async listProducts() { return { items: [product(1), product(2)], catalogTotal: 2 }; },
       async getProduct(productId) {
         const number = Number(productId.slice(0, 8));
         return {

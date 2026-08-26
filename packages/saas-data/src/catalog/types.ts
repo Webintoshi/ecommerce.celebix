@@ -1,4 +1,6 @@
 import type {
+  CatalogProductSort,
+  CatalogProductStockFilter,
   CatalogProductListVariantSummary,
   Product,
   ProductStatus,
@@ -56,6 +58,12 @@ export interface ListProductsInput extends CatalogAuthorityInput {
   readonly pageSize: number;
   readonly cursor?: string;
   readonly status?: ProductStatus;
+  readonly search?: string;
+  readonly stock?: CatalogProductStockFilter;
+  readonly categoryId?: string;
+  readonly brandId?: string;
+  readonly collectionId?: string;
+  readonly sort?: CatalogProductSort;
 }
 
 export interface ListCatalogVariantChoicesInput extends CatalogAuthorityInput {}
@@ -129,6 +137,7 @@ export type CatalogProductFeaturedImage = Readonly<{
 
 export interface ListProductsResult {
   readonly items: readonly Product[];
+  readonly catalogTotal: number;
   readonly featuredImages?: Readonly<Record<string, CatalogProductFeaturedImage>>;
   readonly variantSummaries?: Readonly<Record<string, CatalogProductListVariantSummary>>;
   readonly nextCursor?: string;

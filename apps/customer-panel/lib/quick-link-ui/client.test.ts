@@ -334,7 +334,7 @@ test("quick-link client uses exact same-origin routes, idempotency, and allowed 
       return response(bodies.shift(), String(input).endsWith("/cancel") ? 200 : 200);
     },
     randomUUID: () => OPERATION_ID,
-    catalog: { async listProducts() { return Object.freeze({ items: Object.freeze([]) }); }, async getProduct() { throw new Error("not used"); } },
+    catalog: { async listProducts() { return Object.freeze({ items: Object.freeze([]), catalogTotal: 0 }); }, async getProduct() { throw new Error("not used"); } },
   });
 
   const listed = await client.listLinks({ pageSize: 20, status: "active" });
@@ -477,7 +477,7 @@ test("catalog search uses real active products and exposes only selectable varia
     fetch: async () => response({}),
     randomUUID: () => OPERATION_ID,
     catalog: {
-      async listProducts(input) { listCalls.push(input); return Object.freeze({ items: Object.freeze([product]) }); },
+      async listProducts(input) { listCalls.push(input); return Object.freeze({ items: Object.freeze([product]), catalogTotal: 1 }); },
       async getProduct(id) { detailCalls.push(id); return Object.freeze({ product, variants }); },
     },
   });
@@ -517,9 +517,9 @@ test("catalog search traverses bounded pages, caps detail concurrency, and stops
     version: 1,
   }) satisfies Product;
   const pages = [
-    Object.freeze({ items: Object.freeze(Array.from({ length: 6 }, (_, index) => product(index + 1))), nextCursor: "page_two" }),
-    Object.freeze({ items: Object.freeze(Array.from({ length: 10 }, (_, index) => product(index + 7))), nextCursor: "page_three" }),
-    Object.freeze({ items: Object.freeze(Array.from({ length: 10 }, (_, index) => product(index + 17))) }),
+    Object.freeze({ items: Object.freeze(Array.from({ length: 6 }, (_, index) => product(index + 1))), catalogTotal: 26, nextCursor: "page_two" }),
+    Object.freeze({ items: Object.freeze(Array.from({ length: 10 }, (_, index) => product(index + 7))), catalogTotal: 26, nextCursor: "page_three" }),
+    Object.freeze({ items: Object.freeze(Array.from({ length: 10 }, (_, index) => product(index + 17))), catalogTotal: 26 }),
   ];
   const listCalls: unknown[] = [];
   let activeDetails = 0;
@@ -533,7 +533,7 @@ test("catalog search traverses bounded pages, caps detail concurrency, and stops
     catalog: {
       async listProducts(input) {
         listCalls.push(input);
-        return pages[listCalls.length - 1] ?? Object.freeze({ items: Object.freeze([]) });
+        return pages[listCalls.length - 1] ?? Object.freeze({ items: Object.freeze([]), catalogTotal: 26 });
       },
       async getProduct(id) {
         activeDetails += 1;

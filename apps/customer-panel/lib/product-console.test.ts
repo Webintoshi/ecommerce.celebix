@@ -36,7 +36,8 @@ async function productionProductListModule() {
     if (specifier === "lucide-react") return new Proxy({}, { get: () => () => null });
     if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
     if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
-    if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: {} };
+    if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: { async getOptions() { return { categories: [], resources: [], locations: [], channels: [] }; } } };
+    if (specifier === "@/lib/catalog-ui/product-list-query") return { productListUrlQuery: () => "" };
     if (specifier === "@/lib/catalog-ui/client") {
       class CatalogApiError extends Error {
         code = "unavailable";
@@ -173,6 +174,7 @@ const catalogSummary = Object.freeze({
 async function createMountedProductConsole(
   api: Record<string, unknown>,
   props: Readonly<{ canManage?: boolean; canArchive?: boolean; canImport?: boolean }> = { canManage: true, canArchive: true, canImport: true },
+  onboarding: Record<string, unknown> = { async getOptions() { return { categories: [], resources: [], locations: [], channels: [] }; } },
 ) {
   const output = ts.transpileModule(await source("components/catalog/ProductListConsole.tsx"), {
     compilerOptions: {
@@ -194,12 +196,13 @@ async function createMountedProductConsole(
     if (specifier === "react") return hooks.runtime;
     if (specifier === "next/link") return Link;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
-    if (specifier === "@celebix/saas-contracts") return {};
+    if (specifier === "@celebix/saas-contracts") return { catalogProductListQueryDigest: (value: unknown) => JSON.stringify(value) };
     if (specifier === "@/components/panel/PanelTopbarChrome") {
       return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => createElement("aside", { "data-topbar": true }, actions) };
     }
     if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
-    if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: {} };
+    if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: onboarding };
+    if (specifier === "@/lib/catalog-ui/product-list-query") return { productListUrlQuery: () => "" };
     if (specifier === "@/lib/catalog-ui/client") {
       return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
     }
@@ -430,6 +433,9 @@ test("product list follows the approved dense donor toolbar and table contract",
   assert.match(list, /catalogApi[.]updateProduct/);
   assert.match(list, /URL[.]createObjectURL/);
   assert.match(list, /aria-label="Ürün tablosunda ara"/);
+  assert.match(list, /<input value={search} disabled={busy}/);
+  assert.match(list, /catalogProductListQueryDigest/);
+  assert.match(list, /Kategori, marka ve koleksiyon seçenekleri yüklenemedi/);
   assert.match(list, /aria-label="Görüntülenen tüm ürünleri seç"/);
   assert.match(styles, /[.]hemenaku-product-commandbar\s*\{/);
   assert.match(styles, /[.]hemenaku-product-filters\s*\{/);
@@ -916,7 +922,122 @@ test("mounted list suppresses an old filter response and canonical reload uses t
   const apply = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Uygula")!;
   (apply.props.onClick as () => void)();
   await mounted.render();
-  assert.deepEqual(listInputs.at(-1), { status: "draft" });
+  assert.deepEqual(listInputs.at(-1), { status: "draft", sort: "updated-desc" });
+});
+
+test("debounced global search clears selection immediately and stale search responses cannot overwrite the latest query", async () => {
+  const initial = productFixture("11111111-1111-4111-8111-111111111111", "active", 1, "Başlangıç");
+  const stale = productFixture("22222222-2222-4222-8222-222222222222", "active", 2, "Eski Arama");
+  const current = productFixture("33333333-3333-4333-8333-333333333333", "active", 3, "Yeni Arama");
+  const oldResult = deferred<{ items: readonly unknown[]; catalogTotal: number }>();
+  const newResult = deferred<{ items: readonly unknown[]; catalogTotal: number }>();
+  const listInputs: Array<Record<string, unknown>> = [];
+  const mounted = await createMountedProductConsole({
+    listProducts(input: Record<string, unknown>) {
+      listInputs.push({ ...input });
+      if (input.search === "old") return oldResult.promise;
+      if (input.search === "new") return newResult.promise;
+      return Promise.resolve({ items: [initial], catalogTotal: 3 });
+    },
+    async getDashboardSummary() { return { ...catalogSummary, totalProducts: 3, activeProducts: 2, draftProducts: 1 }; },
+    async updateProduct() { throw new Error("not used"); },
+    async archiveProduct() { throw new Error("not used"); },
+  });
+  let tree = await mounted.render();
+  let nodes = mountedNodes(tree);
+  const checkbox = nodes.find((node) => node.type === "input" && String(node.props["aria-label"]).includes("ürününü seç"))!;
+  (checkbox.props.onChange as (event: unknown) => void)({ target: { checked: true } });
+  tree = await mounted.render();
+  assert.match(tree.map(mountedText).join(" "), /1 ürün seçildi/);
+
+  let search = mountedNodes(tree).find((node) => node.type === "input" && node.props["aria-label"] === "Ürün tablosunda ara")!;
+  (search.props.onChange as (event: unknown) => void)({ target: { value: "old" } });
+  tree = await mounted.render();
+  assert.match(tree.map(mountedText).join(" "), /0 ürün seçildi/);
+  await new Promise((resolve) => setTimeout(resolve, 320));
+  await mounted.render();
+
+  search = mountedNodes(await mounted.render()).find((node) => node.type === "input" && node.props["aria-label"] === "Ürün tablosunda ara")!;
+  (search.props.onChange as (event: unknown) => void)({ target: { value: "new" } });
+  await mounted.render();
+  await new Promise((resolve) => setTimeout(resolve, 320));
+  await mounted.render();
+  newResult.resolve({ items: [current], catalogTotal: 3 });
+  tree = await mounted.render();
+  assert.match(tree.map(mountedText).join(" "), /Yeni Arama/);
+  oldResult.resolve({ items: [stale], catalogTotal: 3 });
+  tree = await mounted.render();
+  assert.doesNotMatch(tree.map(mountedText).join(" "), /Eski Arama/);
+  assert.deepEqual(listInputs.filter((input) => input.search !== undefined).map((input) => input.search), ["old", "new"]);
+});
+
+test("a failed new global query never exposes old rows as interactive results for the new URL state", async () => {
+  const initial = productFixture("11111111-1111-4111-8111-111111111111", "active", 1, "Eski Sorgu Satırı");
+  const mounted = await createMountedProductConsole({
+    async listProducts(input: Record<string, unknown>) {
+      if (input.search === "missing") throw new Error("global query unavailable");
+      return { items: [initial], catalogTotal: 1 };
+    },
+    async getDashboardSummary() { return catalogSummary; },
+  }, { canManage: true });
+  let tree = await mounted.render();
+  assert.match(tree.map(mountedText).join(" "), /Eski Sorgu Satırı/);
+
+  const search = mountedNodes(tree).find((node) => node.type === "input" && node.props["aria-label"] === "Ürün tablosunda ara")!;
+  (search.props.onChange as (event: unknown) => void)({ target: { value: "missing" } });
+  await mounted.render();
+  await new Promise((resolve) => setTimeout(resolve, 320));
+  tree = await mounted.render();
+
+  const text = tree.map(mountedText).join(" ");
+  assert.match(text, /Ürünler yüklenemedi/);
+  assert.match(text, /Bu sorgunun ürünleri yüklenemedi/);
+  assert.doesNotMatch(text, /Eski Sorgu Satırı/);
+  assert.equal(mountedNodes(tree).some((node) => String(node.props["aria-label"]).includes("Eski Sorgu Satırı")), false);
+});
+
+test("mount and quick-create share one options request without poisoning ready filter options", async () => {
+  const product = productFixture("11111111-1111-4111-8111-111111111111", "active", 1);
+  const options = deferred<{ categories: readonly unknown[]; resources: readonly unknown[]; locations: readonly unknown[]; channels: readonly unknown[] }>();
+  let optionCalls = 0;
+  const mounted = await createMountedProductConsole({
+    async listProducts() { return { items: [product], catalogTotal: 1 }; },
+    async getDashboardSummary() { return catalogSummary; },
+  }, { canManage: true }, {
+    getOptions() { optionCalls += 1; return options.promise; },
+  });
+  let tree = await mounted.render();
+  const add = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Ürün Ekle")!;
+  (add.props.onClick as () => void)();
+  await mounted.render();
+  assert.equal(optionCalls, 1);
+
+  options.resolve({ categories: [], resources: [], locations: [], channels: [] });
+  tree = await mounted.render();
+  const filter = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Filtre")!;
+  (filter.props.onClick as () => void)();
+  tree = await mounted.render();
+  const category = mountedNodes(tree).find((node) => node.type === "select" && node.props["aria-label"] === "Kategori filtresi")!;
+  assert.equal(category.props.disabled, false);
+  assert.doesNotMatch(tree.map(mountedText).join(" "), /Seçenekler yüklenemedi/);
+});
+
+test("mounted empty catalog and global no-result states remain distinct", async () => {
+  const empty = await createMountedProductConsole({
+    async listProducts() { return { items: [], catalogTotal: 0 }; },
+    async getDashboardSummary() { return { ...catalogSummary, totalProducts: 0, activeProducts: 0, draftProducts: 0, activeVariants: 0, productsWithoutMedia: 0 }; },
+  }, { canManage: true });
+  const emptyText = (await empty.render()).map(mountedText).join(" ");
+  assert.match(emptyText, /Henüz ürün yok/);
+  assert.doesNotMatch(emptyText, /Aramanızla eşleşen/);
+
+  const noResult = await createMountedProductConsole({
+    async listProducts() { return { items: [], catalogTotal: 2 }; },
+    async getDashboardSummary() { return catalogSummary; },
+  });
+  const noResultText = (await noResult.render()).map(mountedText).join(" ");
+  assert.match(noResultText, /Aramanızla eşleşen ürün bulunamadı/);
+  assert.doesNotMatch(noResultText, /İlk ürünü oluştur/);
 });
 
 test("mounted canonical reload failure preserves partial counts and never claims reconciliation", async () => {

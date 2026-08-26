@@ -16,6 +16,12 @@ const requiredHarnesses = Object.freeze([
     completion: /^PASS 10\/10 catalog product list projection PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
+    file: "tests/saas-phase3/catalog-product-global-query/postgres-harness.mjs",
+    total: 8,
+    line: /^PASS \d+ .+$/gm,
+    completion: /^PASS 8\/8 catalog product global query PostgreSQL 16 rehearsal complete$/m,
+  }),
+  Object.freeze({
     file: "tests/saas-phase3/inventory-locations/postgres-harness.mjs",
     total: 44,
     line: /^inventory location scenario \d+\/44: .+$/gm,

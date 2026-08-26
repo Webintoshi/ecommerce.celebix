@@ -270,7 +270,8 @@ test("a failed read-only recovery never rolls back or reuses either unknown-outc
 test("store-bound cursors fail closed in another TenantContext", async () => {
   const firstPageClient = new FakeClient((text) => text.includes("saas.catalog_list_products")
     ? [{ outcome: "listed", result_payload: {
-      items: [product()], hasMore: true, featuredImages: {}, variantSummaries: {},
+      items: [product()], hasMore: true, catalogTotal: 1, featuredImages: {}, variantSummaries: {},
+      cursorAnchor: { timestamp: NOW.toISOString(), title: null, id: PRODUCT_ID },
     } }]
     : []);
   const firstPage = await repository(new FakePool(firstPageClient)).listProducts({
@@ -286,6 +287,103 @@ test("store-bound cursors fail closed in another TenantContext", async () => {
   assert.equal(pool.connects, 0);
 });
 
+test("global list cursors bind search filters and sort before pool checkout", async () => {
+  const firstPageClient = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+    ? [{ outcome: "listed", result_payload: {
+      items: [product()],
+      hasMore: true,
+      catalogTotal: 1_631,
+      featuredImages: {},
+      variantSummaries: {},
+      cursorAnchor: { timestamp: null, title: "atlas mug", id: PRODUCT_ID },
+    } }]
+    : []);
+  const firstPage = await repository(new FakePool(firstPageClient)).listProducts({
+    tenantContext: tenantContext(),
+    now: NOW,
+    pageSize: 20,
+    search: "  Last SKU  ",
+    status: "active",
+    stock: "in-stock",
+    categoryId: PRODUCT_ID,
+    brandId: VARIANT_ID,
+    collectionId: SECOND_PRODUCT_ID,
+    sort: "title-asc",
+  });
+  assert.equal(firstPage.catalogTotal, 1_631);
+  assert.equal(typeof firstPage.nextCursor, "string");
+
+  const base = {
+    tenantContext: tenantContext(),
+    now: NOW,
+    pageSize: 20,
+    cursor: firstPage.nextCursor,
+    search: "last sku",
+    status: "active" as const,
+    stock: "in-stock" as const,
+    categoryId: PRODUCT_ID,
+    brandId: VARIANT_ID,
+    collectionId: SECOND_PRODUCT_ID,
+    sort: "title-asc" as const,
+  };
+  const equivalentClient = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+    ? [{ outcome: "listed", result_payload: {
+      items: [], hasMore: false, catalogTotal: 1_631, featuredImages: {}, variantSummaries: {}, cursorAnchor: null,
+    } }]
+    : []);
+  const equivalentPool = new FakePool(equivalentClient);
+  await repository(equivalentPool).listProducts(base);
+  assert.equal(equivalentPool.connects, 1);
+  assert.equal(equivalentClient.calls.find((call) => call.text.includes("catalog_list_products_v3"))?.values[8], "last sku");
+  const mismatches = [
+    { ...base, search: "Other" },
+    { ...base, status: "draft" as const },
+    { ...base, stock: "out-of-stock" as const },
+    { ...base, categoryId: SECOND_PRODUCT_ID },
+    { ...base, brandId: SECOND_VARIANT_ID },
+    { ...base, collectionId: PRODUCT_ID },
+    { ...base, sort: "title-desc" as const },
+  ];
+  for (const input of mismatches) {
+    const pool = new FakePool();
+    await assert.rejects(
+      repository(pool).listProducts(input),
+      (error: unknown) => error instanceof CatalogRepositoryError && error.code === "invalid_input",
+    );
+    assert.equal(pool.connects, 0);
+  }
+});
+
+test("every valid maximum-length query produces a cursor accepted by the shared 2048-byte boundary", async () => {
+  const longSearch = "ᾀ".repeat(200);
+  const longTitle = "界".repeat(200);
+  const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+    ? [{ outcome: "listed", result_payload: {
+      items: [product({ title: longTitle })],
+      hasMore: true,
+      catalogTotal: 1_631,
+      featuredImages: {},
+      variantSummaries: {},
+      cursorAnchor: { timestamp: null, title: longTitle, id: PRODUCT_ID },
+    } }]
+    : []);
+  const result = await repository(new FakePool(client)).listProducts({
+    tenantContext: tenantContext(),
+    now: NOW,
+    pageSize: 20,
+    search: longSearch,
+    status: "active",
+    stock: "in-stock",
+    categoryId: PRODUCT_ID,
+    brandId: VARIANT_ID,
+    collectionId: SECOND_PRODUCT_ID,
+    sort: "title-asc",
+  });
+
+  assert.equal(typeof result.nextCursor, "string");
+  assert.ok(result.nextCursor!.length <= 2_048);
+});
+
 test("listProducts returns only the first active media public projection for each listed product", async () => {
   const featuredImage = Object.freeze({
     publicUrl: "https://media.celebix.site/stores/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.webp",
@@ -295,8 +393,10 @@ test("listProducts returns only the first active media public projection for eac
     ? [{ outcome: "listed", result_payload: {
       items: [product()],
       hasMore: false,
+      catalogTotal: 1,
       featuredImages: { [PRODUCT_ID]: featuredImage },
       variantSummaries: {},
+      cursorAnchor: null,
     } }]
     : []);
 
@@ -309,18 +409,20 @@ test("listProducts returns only the first active media public projection for eac
   assert.equal(Object.isFrozen(result.featuredImages?.[PRODUCT_ID]), true);
 });
 
-test("listProducts uses one v2 SQL read and returns a frozen safe variant summary with featured media", async () => {
+test("listProducts uses one v3 SQL read and returns a frozen safe variant summary with featured media", async () => {
   const featuredImage = Object.freeze({
     publicUrl: "https://media.celebix.site/stores/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.webp",
     altText: "Ürün kapağı",
   });
   const rawSummary = listVariantSummary();
-  const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v2")
+  const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
     ? [{ outcome: "listed", result_payload: {
       items: [product()],
       hasMore: false,
+      catalogTotal: 1,
       featuredImages: { [PRODUCT_ID]: featuredImage },
       variantSummaries: { [PRODUCT_ID]: rawSummary },
+      cursorAnchor: null,
     } }]
     : []);
 
@@ -343,12 +445,33 @@ test("listProducts uses one v2 SQL read and returns a frozen safe variant summar
   assert.deepEqual(result.featuredImages, { [PRODUCT_ID]: featuredImage });
   const listCalls = client.calls.filter((call) => call.text.includes("catalog_list_products"));
   assert.equal(listCalls.length, 1);
-  assert.match(listCalls[0]!.text, /catalog_list_products_v2/);
-  assert.deepEqual(listCalls[0]!.values.slice(8), ["draft", 20, null, null]);
+  assert.match(listCalls[0]!.text, /catalog_list_products_v3/);
+  assert.deepEqual(listCalls[0]!.values.slice(8), [
+    null, "draft", null, null, null, null, "updated-desc", 20, null, null, null,
+  ]);
   assert.equal(client.calls.some((call) => call.text.includes("catalog_get_product_details")), false);
 });
 
-test("listProducts v2 fails closed on unknown, cross-tenant, duplicate, and unsafe summaries", async () => {
+test("listProducts requires the v3 catalog total to be a safe non-negative integer", async () => {
+  for (const catalogTotal of [undefined, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+      ? [{ outcome: "listed", result_payload: {
+        items: [],
+        hasMore: false,
+        ...(catalogTotal === undefined ? {} : { catalogTotal }),
+        featuredImages: {},
+        variantSummaries: {},
+        cursorAnchor: null,
+      } }]
+      : []);
+    await assert.rejects(
+      repository(new FakePool(client)).listProducts({ tenantContext: tenantContext(), now: NOW, pageSize: 20 }),
+      (error: unknown) => error instanceof CatalogRepositoryError && error.code === "unavailable",
+    );
+  }
+});
+
+test("listProducts v3 fails closed on unknown, cross-tenant, duplicate, and unsafe summaries", async () => {
   const secondProduct = product({
     id: SECOND_PRODUCT_ID,
     slug: "atlas-second",
@@ -371,12 +494,14 @@ test("listProducts v2 fails closed on unknown, cross-tenant, duplicate, and unsa
   ];
 
   for (const variantSummaries of hostileMaps) {
-    const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v2")
+    const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
       ? [{ outcome: "listed", result_payload: {
         items: [product(), secondProduct],
         hasMore: false,
+        catalogTotal: 2,
         featuredImages: {},
         variantSummaries,
+        cursorAnchor: null,
       } }]
       : []);
     await assert.rejects(
@@ -385,10 +510,11 @@ test("listProducts v2 fails closed on unknown, cross-tenant, duplicate, and unsa
     );
   }
 
-  const valid = new FakeClient((text) => text.includes("saas.catalog_list_products_v2")
+  const valid = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
     ? [{ outcome: "listed", result_payload: {
       items: [product(), secondProduct],
       hasMore: false,
+      catalogTotal: 2,
       featuredImages: {},
       variantSummaries: {
         [PRODUCT_ID]: listVariantSummary(),
@@ -399,6 +525,7 @@ test("listProducts v2 fails closed on unknown, cross-tenant, duplicate, and unsa
           compareAtCents: undefined,
         }),
       },
+      cursorAnchor: null,
     } }]
     : []);
   const parsed = await repository(new FakePool(valid)).listProducts({ tenantContext: tenantContext(), now: NOW, pageSize: 20 });

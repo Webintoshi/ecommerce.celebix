@@ -66,8 +66,13 @@ export * from "./shipping/index.ts";
 export { SAAS_ERROR_CODES } from "./errors.ts";
 export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";
 export {
+  CATALOG_PRODUCT_SORTS,
+  CATALOG_PRODUCT_STOCK_FILTERS,
   PRODUCT_STATUSES,
   VARIANT_STATUSES,
+  catalogProductListQueryBinding,
+  catalogProductListQueryDigest,
+  parseCatalogProductListQuery,
   parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
@@ -113,7 +118,11 @@ export type {
   CatalogQuickCreateIntent,
 } from "./catalog-onboarding/index.ts";
 export type {
+  CatalogProductListQuery,
+  CatalogProductListQueryBinding,
   CatalogProductListVariantSummary,
+  CatalogProductSort,
+  CatalogProductStockFilter,
   Product,
   ProductId,
   ProductStatus,

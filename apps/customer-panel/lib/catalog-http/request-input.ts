@@ -1,9 +1,10 @@
 import "server-only";
 
 import {
+  parseCatalogProductListQuery,
   parseProduct,
   parseProductVariant,
-  type ProductStatus,
+  type CatalogProductListQuery,
 } from "@celebix/saas-contracts";
 import type {
   CatalogProductFields,
@@ -209,8 +210,7 @@ export async function readCatalogMutationInput<K extends CatalogMutationKind>(
 export type CatalogListInput = Readonly<{
   pageSize: number;
   cursor?: string;
-  status?: ProductStatus;
-}>;
+}> & Omit<CatalogProductListQuery, "sort"> & Readonly<{ sort?: CatalogProductListQuery["sort"] }>;
 
 export function readCatalogListInput(request: Request): Invalid | Readonly<{ kind: "valid"; value: CatalogListInput }> {
   let url: URL;
@@ -218,29 +218,57 @@ export function readCatalogListInput(request: Request): Invalid | Readonly<{ kin
   const raw = url.search.startsWith("?") ? url.search.slice(1) : url.search;
   if (
     new TextEncoder().encode(raw).byteLength > QUERY_MAXIMUM_BYTES ||
-    raw.includes("%") || raw.includes("+") ||
     (raw !== "" && (raw.startsWith("&") || raw.endsWith("&") || raw.includes("&&")))
   ) return INVALID;
-  const entries = [...url.searchParams.entries()];
+  const entries: [string, string][] = [];
+  const seen = new Set<string>();
+  for (const part of raw === "" ? [] : raw.split("&")) {
+    const separator = part.indexOf("=");
+    const rawKey = separator === -1 ? part : part.slice(0, separator);
+    const rawValue = separator === -1 ? "" : part.slice(separator + 1);
+    if (rawKey === "" || rawKey.includes("%") || rawKey.includes("+")) return INVALID;
+    let key: string;
+    let value: string;
+    try {
+      key = decodeURIComponent(rawKey);
+      value = decodeURIComponent(rawValue.replaceAll("+", " "));
+    } catch { return INVALID; }
+    if (seen.has(key)) return INVALID;
+    seen.add(key);
+    entries.push([key, value]);
+  }
   if (
-    entries.some(([key]) => key !== "limit" && key !== "cursor" && key !== "status") ||
-    new Set(entries.map(([key]) => key)).size !== entries.length
+    entries.some(([key]) => !["limit", "cursor", "q", "status", "stock", "category", "brand", "collection", "sort"].includes(key))
   ) return INVALID;
-  const limit = url.searchParams.get("limit");
+  const parameters = new Map(entries);
+  const limit = parameters.get("limit") ?? null;
   const pageSize = limit === null ? 20 : /^(?:[1-9]|[1-9]\d|100)$/.test(limit) ? Number(limit) : null;
-  const cursor = url.searchParams.get("cursor");
-  const status = url.searchParams.get("status");
-  if (
-    pageSize === null ||
-    (cursor !== null && !CURSOR.test(cursor)) ||
-    (status !== null && status !== "draft" && status !== "active" && status !== "archived")
-  ) return INVALID;
+  const cursor = parameters.get("cursor") ?? null;
+  if (pageSize === null || (cursor !== null && !CURSOR.test(cursor))) return INVALID;
+  let query: CatalogProductListQuery;
+  try {
+    query = parseCatalogProductListQuery({
+      ...(parameters.has("q") ? { search: parameters.get("q") } : {}),
+      ...(parameters.has("status") ? { status: parameters.get("status") } : {}),
+      ...(parameters.has("stock") ? { stock: parameters.get("stock") } : {}),
+      ...(parameters.has("category") ? { categoryId: parameters.get("category") } : {}),
+      ...(parameters.has("brand") ? { brandId: parameters.get("brand") } : {}),
+      ...(parameters.has("collection") ? { collectionId: parameters.get("collection") } : {}),
+      ...(parameters.has("sort") ? { sort: parameters.get("sort") } : {}),
+    });
+  } catch { return INVALID; }
   return Object.freeze({
     kind: "valid" as const,
     value: Object.freeze({
       pageSize,
       ...(cursor === null ? {} : { cursor }),
-      ...(status === null ? {} : { status }),
+      ...(query.search === undefined ? {} : { search: query.search }),
+      ...(query.status === undefined ? {} : { status: query.status }),
+      ...(query.stock === undefined ? {} : { stock: query.stock }),
+      ...(query.categoryId === undefined ? {} : { categoryId: query.categoryId }),
+      ...(query.brandId === undefined ? {} : { brandId: query.brandId }),
+      ...(query.collectionId === undefined ? {} : { collectionId: query.collectionId }),
+      ...(parameters.has("sort") ? { sort: query.sort } : {}),
     }),
   });
 }
