@@ -53,8 +53,12 @@ const migrations = [
   "202607160020_pilot_storefront_media_domains_assertions.sql",
   "202607200021_catalog_dashboard_summary.up.sql",
   "202607200021_catalog_dashboard_summary_assertions.sql",
+  "202607220035_catalog_administration.up.sql",
+  "202607220035_catalog_administration_assertions.sql",
   "202607290065_catalog_featured_image_listing.up.sql",
   "202607290065_catalog_featured_image_listing_assertions.sql",
+  "202608250114_catalog_product_lifecycle_authorization.up.sql",
+  "202608250114_catalog_product_lifecycle_authorization_assertions.sql",
 ];
 let completed = 0;
 
@@ -221,8 +225,16 @@ async function main() {
     const v1Definition = psql(box, `SELECT pg_catalog.pg_get_functiondef('${V1_SIGNATURE}'::regprocedure);`);
     const v1Acl = psql(box, `SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid='${V1_SIGNATURE}'::regprocedure;`);
 
-    await scenario("PostgreSQL 16 starts with v1 available and v2 absent", () => {
+    await scenario("PostgreSQL 16 starts with target schema through 114, v1 available and v2 absent", () => {
       assert.match(psql(box, "SHOW server_version;"), /^16[.]/);
+      assert.equal(psql(box, `SELECT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_attribute
+        WHERE attrelid='saas.product_variants'::pg_catalog.regclass
+          AND attname='archived_by_product' AND NOT attisdropped
+      );`), "t");
+      assert.equal(psql(box, `SELECT to_regprocedure(
+        'saas.catalog_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)'
+      ) IS NOT NULL;`), "t");
       assert.equal(psql(box, `SELECT to_regprocedure('${V1_SIGNATURE}') IS NOT NULL;`), "t");
       assert.equal(psql(box, `SELECT to_regprocedure('${V2_SIGNATURE}') IS NULL;`), "t");
       assert.deepEqual(Object.keys(list(box, 1).payload).sort(), ["featuredImages", "hasMore", "items"]);
@@ -231,14 +243,14 @@ async function main() {
     apply(box, UP);
     apply(box, ASSERTIONS);
 
-    await scenario("migration-first preserves the exact v1 definition and ACL", () => {
+    await scenario("migration 115 after 114 preserves the exact v1 definition and ACL", () => {
       assert.equal(psql(box, `SELECT pg_catalog.pg_get_functiondef('${V1_SIGNATURE}'::regprocedure);`), v1Definition);
       assert.equal(psql(box, `SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid='${V1_SIGNATURE}'::regprocedure;`), v1Acl);
       assert.deepEqual(Object.keys(list(box, 1).payload).sort(), ["featuredImages", "hasMore", "items"]);
     });
 
     const active = list(box, 2);
-    await scenario("v2 returns items, featured images, and variant summaries in one envelope", () => {
+    await scenario("new application with 114 to 115 schema returns the v2 list envelope", () => {
       assert.equal(active.outcome, "listed");
       assert.deepEqual(Object.keys(active.payload).sort(), ["featuredImages", "hasMore", "items", "variantSummaries"]);
       assert.equal(active.payload.featuredImages[productId(1)].altText, "Active priority cover");
@@ -293,7 +305,7 @@ async function main() {
       assert.equal(Object.keys(second.payload.variantSummaries).every((id) => second.payload.items.some((item) => item.id === id)), true);
     });
 
-    await scenario("code-only rollback remains valid before the v2 down migration", () => {
+    await scenario("code-only rollback remains valid on the 114 to 115 schema", () => {
       assert.equal(list(box, 1).outcome, "listed");
       apply(box, DOWN);
       assert.equal(psql(box, `SELECT to_regprocedure('${V2_SIGNATURE}') IS NULL;`), "t");
