@@ -55,6 +55,6 @@ test("cumulative suite requires the standard hosted checkout lifecycle", () => {
   const runner = read("tests/saas-phase3/run-current-suite.mjs");
   assert.match(runner, /storefront-hosted-checkout[/]postgres-harness[.]mjs/u);
   assert.match(runner, /storefront-hosted-payment-security[.]test[.]mjs/u);
-  assert.match(runner, /total: 29/u);
-  assert.match(runner, /29\\\/29 PASS/u);
+  assert.match(runner, /total: 33/u);
+  assert.match(runner, /33\\\/33 PASS/u);
 });

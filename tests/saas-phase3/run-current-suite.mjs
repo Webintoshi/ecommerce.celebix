@@ -125,15 +125,15 @@ const requiredHarnesses = Object.freeze([
   }),
   Object.freeze({
     file: "tests/saas-phase3/durable-abandoned-cart-integration/postgres-harness.mjs",
-    total: 28,
-    line: /^PASS \d+\/28 .+$/gm,
-    completion: /^28\/28 PASS$/m,
+    total: 37,
+    line: /^PASS \d+\/37 .+$/gm,
+    completion: /^37\/37 PASS$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/storefront-hosted-checkout/postgres-harness.mjs",
-    total: 29,
-    line: /^PASS \d+\/29 .+$/gm,
-    completion: /^29\/29 PASS$/m,
+    total: 33,
+    line: /^PASS \d+\/33 .+$/gm,
+    completion: /^33\/33 PASS$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/storefront-customer-identity/postgres-harness.mjs",
