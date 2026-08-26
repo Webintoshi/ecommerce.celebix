@@ -121,6 +121,56 @@ test("list products accepts only a bounded canonical featured-image projection",
   }
 });
 
+test("list products parses exact variant summaries without fetching product details", async () => {
+  const summary = Object.freeze({
+    variantId: VARIANT_ID,
+    sku: "ATLAS-KUPA-1",
+    priceCents: 12_550,
+    compareAtCents: 15_000,
+    stockTracking: true,
+    stockQuantity: 12,
+  });
+  const client = createCatalogApiClient({
+    fetch: async () => jsonResponse({
+      items: [PRODUCT],
+      variantSummaries: { [PRODUCT_ID]: summary },
+    }),
+  });
+
+  const result = await client.listProducts();
+
+  assert.deepEqual(result.variantSummaries, { [PRODUCT_ID]: summary });
+  assert.equal(Object.isFrozen(result.variantSummaries), true);
+  assert.equal(Object.isFrozen(result.variantSummaries?.[PRODUCT_ID]), true);
+});
+
+test("list products rejects unknown, duplicate, and unsafe variant summaries", async () => {
+  const summary = {
+    variantId: VARIANT_ID,
+    sku: "ATLAS-KUPA-1",
+    priceCents: 12_550,
+    stockTracking: true,
+    stockQuantity: 12,
+  };
+  const secondProduct = { ...PRODUCT, id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", slug: "atlas-ikinci" };
+  for (const variantSummaries of [
+    { "99999999-9999-4999-8999-999999999999": summary },
+    { [PRODUCT_ID]: { ...summary, privateCostCents: 1 } },
+    { [PRODUCT_ID]: { ...summary, priceCents: Number.MAX_SAFE_INTEGER + 1 } },
+    { [PRODUCT_ID]: { ...summary, stockQuantity: -1 } },
+    { [PRODUCT_ID]: { ...summary, sku: "invalid sku" } },
+    {
+      [PRODUCT_ID]: summary,
+      [secondProduct.id]: summary,
+    },
+  ]) {
+    const hostile = createCatalogApiClient({
+      fetch: async () => jsonResponse({ items: [PRODUCT, secondProduct], variantSummaries }),
+    });
+    await assert.rejects(() => hostile.listProducts(), /unavailable|catalog/i);
+  }
+});
+
 test("variant choice client performs one bounded same-origin read and rejects duplicate or private fields", async () => {
   const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
   const choice = Object.freeze({

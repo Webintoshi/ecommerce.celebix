@@ -18,6 +18,7 @@ export type {
   ListProductsResult,
   ListCatalogVariantChoicesInput,
   CatalogProductFeaturedImage,
+  CatalogProductListVariantSummary,
   PostgresCatalogRepositoryOptions,
   ProductDetailsResult,
   ProductMutationResult,

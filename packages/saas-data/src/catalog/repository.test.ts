@@ -10,7 +10,9 @@ const PRINCIPAL_ID = "44444444-4444-4444-8444-444444444444";
 const MEMBERSHIP_ID = "55555555-5555-4555-8555-555555555555";
 const PLAN_ID = "66666666-6666-4666-8666-666666666666";
 const PRODUCT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const SECOND_PRODUCT_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const VARIANT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const SECOND_VARIANT_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
 const NOW = new Date("2026-07-16T08:00:00.000Z");
 
@@ -37,7 +39,7 @@ function tenantContext(overrides: Record<string, unknown> = {}): TenantContext {
   } as TenantContext;
 }
 
-function product() {
+function product(overrides: Record<string, unknown> = {}) {
   return {
     id: PRODUCT_ID,
     storeId: STORE_ID,
@@ -49,7 +51,25 @@ function product() {
     createdAt: NOW.toISOString(),
     updatedAt: NOW.toISOString(),
     version: 1,
+    ...overrides,
   };
+}
+
+function listVariantSummary(overrides: Record<string, unknown> = {}) {
+  const summary: Record<string, unknown> = {
+    productId: PRODUCT_ID,
+    storeId: STORE_ID,
+    variantId: VARIANT_ID,
+    sku: "ATLAS-MUG-1",
+    priceCents: 12_500,
+    compareAtCents: 15_000,
+    stockTracking: true,
+    stockQuantity: 10,
+    ...overrides,
+  };
+  if (overrides.sku === undefined && Object.hasOwn(overrides, "sku")) delete summary.sku;
+  if (overrides.compareAtCents === undefined && Object.hasOwn(overrides, "compareAtCents")) delete summary.compareAtCents;
+  return summary;
 }
 
 function variant() {
@@ -249,7 +269,9 @@ test("a failed read-only recovery never rolls back or reuses either unknown-outc
 
 test("store-bound cursors fail closed in another TenantContext", async () => {
   const firstPageClient = new FakeClient((text) => text.includes("saas.catalog_list_products")
-    ? [{ outcome: "listed", result_payload: { items: [product()], hasMore: true } }]
+    ? [{ outcome: "listed", result_payload: {
+      items: [product()], hasMore: true, featuredImages: {}, variantSummaries: {},
+    } }]
     : []);
   const firstPage = await repository(new FakePool(firstPageClient)).listProducts({
     tenantContext: tenantContext(), now: NOW, pageSize: 1,
@@ -274,6 +296,7 @@ test("listProducts returns only the first active media public projection for eac
       items: [product()],
       hasMore: false,
       featuredImages: { [PRODUCT_ID]: featuredImage },
+      variantSummaries: {},
     } }]
     : []);
 
@@ -284,6 +307,102 @@ test("listProducts returns only the first active media public projection for eac
   assert.deepEqual(result.featuredImages, { [PRODUCT_ID]: featuredImage });
   assert.equal(Object.isFrozen(result.featuredImages), true);
   assert.equal(Object.isFrozen(result.featuredImages?.[PRODUCT_ID]), true);
+});
+
+test("listProducts uses one v2 SQL read and returns a frozen safe variant summary with featured media", async () => {
+  const featuredImage = Object.freeze({
+    publicUrl: "https://media.celebix.site/stores/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.webp",
+    altText: "Ürün kapağı",
+  });
+  const rawSummary = listVariantSummary();
+  const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v2")
+    ? [{ outcome: "listed", result_payload: {
+      items: [product()],
+      hasMore: false,
+      featuredImages: { [PRODUCT_ID]: featuredImage },
+      variantSummaries: { [PRODUCT_ID]: rawSummary },
+    } }]
+    : []);
+
+  const result = await repository(new FakePool(client)).listProducts({
+    tenantContext: tenantContext(), now: NOW, pageSize: 20, status: "draft",
+  });
+
+  assert.deepEqual(result.variantSummaries, {
+    [PRODUCT_ID]: {
+      variantId: VARIANT_ID,
+      sku: "ATLAS-MUG-1",
+      priceCents: 12_500,
+      compareAtCents: 15_000,
+      stockTracking: true,
+      stockQuantity: 10,
+    },
+  });
+  assert.equal(Object.isFrozen(result.variantSummaries), true);
+  assert.equal(Object.isFrozen(result.variantSummaries?.[PRODUCT_ID]), true);
+  assert.deepEqual(result.featuredImages, { [PRODUCT_ID]: featuredImage });
+  const listCalls = client.calls.filter((call) => call.text.includes("catalog_list_products"));
+  assert.equal(listCalls.length, 1);
+  assert.match(listCalls[0]!.text, /catalog_list_products_v2/);
+  assert.deepEqual(listCalls[0]!.values.slice(8), ["draft", 20, null, null]);
+  assert.equal(client.calls.some((call) => call.text.includes("catalog_get_product_details")), false);
+});
+
+test("listProducts v2 fails closed on unknown, cross-tenant, duplicate, and unsafe summaries", async () => {
+  const secondProduct = product({
+    id: SECOND_PRODUCT_ID,
+    slug: "atlas-second",
+    title: "Atlas Second",
+    createdAt: "2026-07-16T07:00:00.000Z",
+    updatedAt: "2026-07-16T07:00:00.000Z",
+  });
+  const hostileMaps = [
+    { "99999999-9999-4999-8999-999999999999": listVariantSummary() },
+    { [PRODUCT_ID]: listVariantSummary({ productId: SECOND_PRODUCT_ID }) },
+    { [PRODUCT_ID]: listVariantSummary({ storeId: "99999999-9999-4999-8999-999999999999" }) },
+    {
+      [PRODUCT_ID]: listVariantSummary(),
+      [SECOND_PRODUCT_ID]: listVariantSummary({ productId: SECOND_PRODUCT_ID }),
+    },
+    { [PRODUCT_ID]: listVariantSummary({ variantId: "not-a-uuid" }) },
+    { [PRODUCT_ID]: listVariantSummary({ sku: "invalid sku" }) },
+    { [PRODUCT_ID]: listVariantSummary({ priceCents: Number.MAX_SAFE_INTEGER + 1 }) },
+    { [PRODUCT_ID]: listVariantSummary({ stockQuantity: -1 }) },
+  ];
+
+  for (const variantSummaries of hostileMaps) {
+    const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v2")
+      ? [{ outcome: "listed", result_payload: {
+        items: [product(), secondProduct],
+        hasMore: false,
+        featuredImages: {},
+        variantSummaries,
+      } }]
+      : []);
+    await assert.rejects(
+      repository(new FakePool(client)).listProducts({ tenantContext: tenantContext(), now: NOW, pageSize: 20 }),
+      (error: unknown) => error instanceof CatalogRepositoryError && error.code === "unavailable",
+    );
+  }
+
+  const valid = new FakeClient((text) => text.includes("saas.catalog_list_products_v2")
+    ? [{ outcome: "listed", result_payload: {
+      items: [product(), secondProduct],
+      hasMore: false,
+      featuredImages: {},
+      variantSummaries: {
+        [PRODUCT_ID]: listVariantSummary(),
+        [SECOND_PRODUCT_ID]: listVariantSummary({
+          productId: SECOND_PRODUCT_ID,
+          variantId: SECOND_VARIANT_ID,
+          sku: undefined,
+          compareAtCents: undefined,
+        }),
+      },
+    } }]
+    : []);
+  const parsed = await repository(new FakePool(valid)).listProducts({ tenantContext: tenantContext(), now: NOW, pageSize: 20 });
+  assert.equal(parsed.variantSummaries?.[SECOND_PRODUCT_ID]?.variantId, SECOND_VARIANT_ID);
 });
 
 test("listVariantChoices returns one bounded tenant-scoped projection without crawling product details", async () => {

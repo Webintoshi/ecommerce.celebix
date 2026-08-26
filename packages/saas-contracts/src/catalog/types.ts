@@ -37,3 +37,12 @@ export interface ProductVariant {
   readonly updatedAt: string;
   readonly version: number;
 }
+
+export type CatalogProductListVariantSummary = Readonly<{
+  readonly variantId: ProductVariantId;
+  readonly sku?: string;
+  readonly priceCents: number;
+  readonly compareAtCents?: number;
+  readonly stockTracking: boolean;
+  readonly stockQuantity: number;
+}>;

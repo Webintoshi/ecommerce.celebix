@@ -1,6 +1,8 @@
 import {
+  parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
+  type CatalogProductListVariantSummary,
   type Product,
   type ProductStatus,
   type ProductVariant,
@@ -50,6 +52,7 @@ export type ProductFeaturedImage = Readonly<{ publicUrl: string; altText: string
 export type ProductListResult = Readonly<{
   items: readonly Product[];
   featuredImages?: Readonly<Record<string, ProductFeaturedImage>>;
+  variantSummaries?: Readonly<Record<string, CatalogProductListVariantSummary>>;
   nextCursor?: string;
 }>;
 export type ProductDetailResult = Readonly<{ product: Product; variants: readonly ProductVariant[] }>;
@@ -184,6 +187,31 @@ function productFeaturedImages(value: unknown, productIds: ReadonlySet<string>):
   return Object.freeze(Object.fromEntries(entries.map(([productId, image]) => [productId, productFeaturedImage(image)])));
 }
 
+function productVariantSummaries(
+  value: unknown,
+  productIds: ReadonlySet<string>,
+): Readonly<Record<string, CatalogProductListVariantSummary>> {
+  const parsed = record(value);
+  if (parsed === null) throw new CatalogApiError("unavailable", 503);
+  const entries = Object.entries(parsed);
+  if (entries.length > productIds.size || entries.some(([productId]) => !productIds.has(productId))) {
+    throw new CatalogApiError("unavailable", 503);
+  }
+  let summaries: readonly (readonly [string, CatalogProductListVariantSummary])[];
+  try {
+    summaries = entries.map(([productId, summary]) => Object.freeze([
+      productId,
+      parseCatalogProductListVariantSummary(summary),
+    ] as const));
+  } catch {
+    throw new CatalogApiError("unavailable", 503);
+  }
+  if (new Set(summaries.map(([, summary]) => summary.variantId)).size !== summaries.length) {
+    throw new CatalogApiError("unavailable", 503);
+  }
+  return Object.freeze(Object.fromEntries(summaries));
+}
+
 function parseCatalogDashboardSummary(value: unknown): CatalogDashboardSummary {
   const parsed = record(value);
   if (parsed === null || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(SUMMARY_KEYS)) {
@@ -255,16 +283,23 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
         ...(signal ? { signal } : {}),
       }));
       if (body === null || !Array.isArray(body.items)) throw new CatalogApiError("unavailable", 503);
+      const allowedKeys = new Set(["items", "featuredImages", "variantSummaries", "nextCursor"]);
+      if (Object.keys(body).some((key) => !allowedKeys.has(key))) throw new CatalogApiError("unavailable", 503);
       const items = Object.freeze(body.items.map(parseProduct));
+      const productIds = new Set(items.map((item) => item.id));
       const featuredImages = body.featuredImages === undefined
         ? undefined
-        : productFeaturedImages(body.featuredImages, new Set(items.map((item) => item.id)));
+        : productFeaturedImages(body.featuredImages, productIds);
+      const variantSummaries = body.variantSummaries === undefined
+        ? undefined
+        : productVariantSummaries(body.variantSummaries, productIds);
       if (body.nextCursor !== undefined && (typeof body.nextCursor !== "string" || !CURSOR.test(body.nextCursor))) {
         throw new CatalogApiError("unavailable", 503);
       }
       return Object.freeze({
         items,
         ...(featuredImages === undefined ? {} : { featuredImages }),
+        ...(variantSummaries === undefined ? {} : { variantSummaries }),
         ...(body.nextCursor === undefined ? {} : { nextCursor: body.nextCursor }),
       });
     },

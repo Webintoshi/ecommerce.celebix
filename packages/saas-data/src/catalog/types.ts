@@ -1,4 +1,5 @@
 import type {
+  CatalogProductListVariantSummary,
   Product,
   ProductStatus,
   ProductVariant,
@@ -6,6 +7,8 @@ import type {
 } from "@celebix/saas-contracts";
 
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
+
+export type { CatalogProductListVariantSummary } from "@celebix/saas-contracts";
 
 export interface CatalogProductFields {
   readonly slug: string;
@@ -127,6 +130,7 @@ export type CatalogProductFeaturedImage = Readonly<{
 export interface ListProductsResult {
   readonly items: readonly Product[];
   readonly featuredImages?: Readonly<Record<string, CatalogProductFeaturedImage>>;
+  readonly variantSummaries?: Readonly<Record<string, CatalogProductListVariantSummary>>;
   readonly nextCursor?: string;
 }
 

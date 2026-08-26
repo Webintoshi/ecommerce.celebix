@@ -49,6 +49,15 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
           assert.match(sql, /to_regclass\('saas\.cross_host_panel_handoffs'\) IS NOT NULL/);
           assert.match(sql, /to_regprocedure\('saas\.resolve_public_admin_brand\(text,timestamp with time zone\)'\) IS NOT NULL/);
           assert.match(sql, /to_regprocedure\('saas\.revoke_principal_panel_sessions\(text,text,text,timestamp with time zone\)'\) IS NOT NULL/);
+          const productListV1 = "saas.catalog_list_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)";
+          assert.match(sql, /to_regprocedure\('saas\.catalog_list_products\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid\)'\) IS NOT NULL/);
+          assertAppRoleFunctionPrivilege(sql, productListV1);
+          const productListV2 = "saas.catalog_list_products_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)";
+          assert.match(
+            sql,
+            /to_regprocedure\('saas\.catalog_list_products_v2\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid\)'\) IS NOT NULL/,
+          );
+          assertAppRoleFunctionPrivilege(sql, productListV2);
           for (const signature of [
             "saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)",
             "saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,text,text,text)",
