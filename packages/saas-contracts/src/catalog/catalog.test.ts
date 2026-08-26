@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   PRODUCT_STATUSES,
   VARIANT_STATUSES,
+  parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
 } from "./index.ts";
@@ -124,5 +125,54 @@ test("product descriptions preserve safe Markdown line breaks and reject other c
       () => parseProduct(product({ description: `Güvenli metin${control}değil` })),
       /catalog_contract_invalid/,
     );
+  }
+});
+
+test("parses and freezes the exact product-list variant summary projection", () => {
+  const summary = {
+    variantId: VARIANT_ID,
+    sku: "ATLAS-MUG-1",
+    priceCents: 12_500,
+    compareAtCents: 15_000,
+    stockTracking: true,
+    stockQuantity: 10,
+  };
+
+  const parsed = parseCatalogProductListVariantSummary(summary);
+
+  assert.deepEqual(parsed, summary);
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.deepEqual(parseCatalogProductListVariantSummary({
+    variantId: VARIANT_ID,
+    priceCents: 0,
+    stockTracking: false,
+    stockQuantity: 0,
+  }), {
+    variantId: VARIANT_ID,
+    priceCents: 0,
+    stockTracking: false,
+    stockQuantity: 0,
+  });
+});
+
+test("product-list variant summary rejects extra keys and unsafe list values", () => {
+  const valid = {
+    variantId: VARIANT_ID,
+    sku: "ATLAS-MUG-1",
+    priceCents: 12_500,
+    compareAtCents: 15_000,
+    stockTracking: true,
+    stockQuantity: 10,
+  };
+  for (const value of [
+    { ...valid, productId: PRODUCT_ID },
+    { ...valid, variantId: "not-a-uuid" },
+    { ...valid, sku: "atlas-mug-1" },
+    { ...valid, priceCents: Number.MAX_SAFE_INTEGER + 1 },
+    { ...valid, compareAtCents: 12_499 },
+    { ...valid, stockQuantity: -1 },
+    { ...valid, stockTracking: "true" },
+  ]) {
+    assert.throws(() => parseCatalogProductListVariantSummary(value), /catalog_contract_invalid/);
   }
 });

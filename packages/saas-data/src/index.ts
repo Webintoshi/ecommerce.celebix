@@ -27,6 +27,7 @@ export type {
   CatalogVariantChoice,
   CatalogErrorCode,
   CatalogProductFields,
+  CatalogProductListVariantSummary,
   CatalogRepository,
   CatalogVariantFields,
   CreateProductInput,

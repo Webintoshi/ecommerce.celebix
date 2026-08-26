@@ -23,7 +23,11 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import type { CatalogOnboardingOptions, Product, ProductVariant } from "@celebix/saas-contracts";
+import type {
+  CatalogOnboardingOptions,
+  CatalogProductListVariantSummary,
+  Product,
+} from "@celebix/saas-contracts";
 
 import { ProductQuickCreateDialog } from "@/components/catalog-onboarding/ProductQuickCreateDialog";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
@@ -38,7 +42,11 @@ import {
 type Filter = "all" | "draft" | "active" | "archived";
 type Sort = "updated-desc" | "title-asc" | "title-desc";
 type BulkAction = "" | "active" | "draft" | "archive";
-type ProductRow = Readonly<{ product: Product; variant?: ProductVariant; featuredImage?: ProductFeaturedImage }>;
+type ProductRow = Readonly<{
+  product: Product;
+  variant?: CatalogProductListVariantSummary;
+  featuredImage?: ProductFeaturedImage;
+}>;
 type BulkCatalogApi = Pick<typeof catalogApi, "archiveProduct" | "updateProduct">;
 type LoadOptions = Readonly<{ cursor?: string; mutationToken?: number }>;
 type LoadResult = "applied" | "blocked" | "failed" | "stale";
@@ -64,7 +72,7 @@ function money(cents: number | undefined, currency: string) {
   }).format(cents / 100);
 }
 
-function productStockClass(variant: ProductVariant | undefined) {
+function productStockClass(variant: CatalogProductListVariantSummary | undefined) {
   if (!variant?.stockTracking) return "product-stock";
   if (variant.stockQuantity === 0) return "product-stock-out";
   return variant.stockQuantity <= 10 ? "product-stock-low" : "product-stock";
@@ -180,26 +188,16 @@ export async function executeBulkProductAction(
   return Object.freeze({ completed, failed });
 }
 
-async function hydrateRows(
+function projectRows(
   products: readonly Product[],
   featuredImages: Readonly<Record<string, ProductFeaturedImage>> = Object.freeze({}),
-): Promise<readonly ProductRow[]> {
-  const details = await Promise.all(products.map(async (product) => {
-    try {
-      const detail = await catalogApi.getProduct(product.id);
-      return Object.freeze({
-        product,
-        variant: detail.variants.find((variant) => variant.status === "active") ?? detail.variants[0],
-        ...(featuredImages[product.id] === undefined ? {} : { featuredImage: featuredImages[product.id] }),
-      });
-    } catch {
-      return Object.freeze({
-        product,
-        ...(featuredImages[product.id] === undefined ? {} : { featuredImage: featuredImages[product.id] }),
-      });
-    }
-  }));
-  return Object.freeze(details);
+  variantSummaries: Readonly<Record<string, CatalogProductListVariantSummary>> = Object.freeze({}),
+): readonly ProductRow[] {
+  return Object.freeze(products.map((product) => Object.freeze({
+    product,
+    ...(variantSummaries[product.id] === undefined ? {} : { variant: variantSummaries[product.id] }),
+    ...(featuredImages[product.id] === undefined ? {} : { featuredImage: featuredImages[product.id] }),
+  })));
 }
 
 function ProductThumbnail({ product, featuredImage }: Readonly<{ product: Product; featuredImage?: ProductFeaturedImage }>) {
@@ -287,9 +285,9 @@ export function ProductListConsole({
       }
       if (listOutcome.status === "rejected") throw listOutcome.reason;
       const result = listOutcome.value;
-      const hydrated = await hydrateRows(result.items, result.featuredImages);
+      const projected = projectRows(result.items, result.featuredImages, result.variantSummaries);
       if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
-      setRows((current) => cursor === undefined ? hydrated : Object.freeze([...current, ...hydrated]));
+      setRows((current) => cursor === undefined ? projected : Object.freeze([...current, ...projected]));
       setNextCursor(result.nextCursor);
       if (cursor === undefined) setSelected(Object.freeze([]));
       if (cursor === undefined) setRowsStale(false);

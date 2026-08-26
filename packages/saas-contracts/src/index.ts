@@ -68,6 +68,7 @@ export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";
 export {
   PRODUCT_STATUSES,
   VARIANT_STATUSES,
+  parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
 } from "./catalog/index.ts";
@@ -112,6 +113,7 @@ export type {
   CatalogQuickCreateIntent,
 } from "./catalog-onboarding/index.ts";
 export type {
+  CatalogProductListVariantSummary,
   Product,
   ProductId,
   ProductStatus,

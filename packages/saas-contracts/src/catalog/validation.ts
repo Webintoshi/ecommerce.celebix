@@ -2,6 +2,7 @@ import {
   PRODUCT_STATUSES,
   VARIANT_STATUSES,
   type Product,
+  type CatalogProductListVariantSummary,
   type ProductStatus,
   type ProductVariant,
   type VariantStatus,
@@ -163,4 +164,29 @@ export function parseProductVariant(value: unknown): ProductVariant {
   } satisfies ProductVariant;
   if (variant.updatedAt < variant.createdAt) invalid();
   return Object.freeze(variant);
+}
+
+export function parseCatalogProductListVariantSummary(value: unknown): CatalogProductListVariantSummary {
+  const parsed = exact(
+    value,
+    ["variantId", "priceCents", "stockTracking", "stockQuantity"],
+    ["sku", "compareAtCents"],
+  );
+  const priceCents = safeInteger(parsed.priceCents, 0);
+  const compareAtCents = Object.hasOwn(parsed, "compareAtCents")
+    ? safeInteger(parsed.compareAtCents, 0)
+    : undefined;
+  if (compareAtCents !== undefined && compareAtCents < priceCents) invalid();
+  return Object.freeze({
+    variantId: uuid(parsed.variantId),
+    ...(Object.hasOwn(parsed, "sku") ? { sku: optionalString(parsed, "sku", 1, 64, SKU)! } : {}),
+    priceCents,
+    ...(compareAtCents === undefined ? {} : { compareAtCents }),
+    stockTracking: parsed.stockTracking === true
+      ? true
+      : parsed.stockTracking === false
+        ? false
+        : invalid(),
+    stockQuantity: safeInteger(parsed.stockQuantity, 0),
+  });
 }

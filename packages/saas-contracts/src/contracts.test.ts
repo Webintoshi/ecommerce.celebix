@@ -520,6 +520,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseCatalogOnboardingOptions",
     "parseCatalogOnboardingResult",
     "parseCatalogProductEditorProjection",
+    "parseCatalogProductListVariantSummary",
     "parseCustomerDetail",
     "parseCustomerListItem",
     "parseCustomerMutationResult",

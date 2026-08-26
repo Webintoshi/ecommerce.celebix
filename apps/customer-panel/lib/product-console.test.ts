@@ -425,7 +425,8 @@ test("product list follows the approved dense donor toolbar and table contract",
 
   assert.match(list, /PanelTopbarBridge/);
   assert.match(list, /catalogApi[.]getDashboardSummary/);
-  assert.match(list, /catalogApi[.]getProduct/);
+  assert.match(list, /result[.]variantSummaries/);
+  assert.doesNotMatch(list, /catalogApi[.]getProduct/);
   assert.match(list, /catalogApi[.]updateProduct/);
   assert.match(list, /URL[.]createObjectURL/);
   assert.match(list, /aria-label="Ürün tablosunda ara"/);
@@ -646,6 +647,127 @@ test("mounted product rows keep technical slugs out of merchant presentation", a
   const renderedText = (await mounted.render()).map(mountedText).join(" ");
   assert.match(renderedText, /Gizli teknik slug/);
   assert.doesNotMatch(renderedText, /gizli-teknik-slug/);
+});
+
+test("product list request budget stays at zero detail calls for 1, 20, and 100 rows", async () => {
+  for (const size of [1, 20, 100]) {
+    const products = Array.from({ length: size }, (_, index) => productFixture(
+      `10000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      "active",
+      1,
+      `Bütçe ürünü ${index + 1}`,
+    ));
+    const variantSummaries = Object.fromEntries(products.map((product, index) => [product.id, {
+      variantId: `20000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      sku: `BUDGET-${index + 1}`,
+      priceCents: 10_000 + index,
+      stockTracking: true,
+      stockQuantity: index,
+    }]));
+    let listCalls = 0;
+    let summaryCalls = 0;
+    let detailCalls = 0;
+    const mounted = await createMountedProductConsole({
+      async listProducts() { listCalls += 1; return { items: products, variantSummaries }; },
+      async getDashboardSummary() { summaryCalls += 1; return catalogSummary; },
+      async getProduct() { detailCalls += 1; throw new Error("detail fan-out forbidden"); },
+    }, { canManage: false, canArchive: false, canImport: false });
+
+    const tree = await mounted.render();
+
+    assert.equal(listCalls, 1, `size=${size}`);
+    assert.equal(summaryCalls, 1, `size=${size}`);
+    assert.equal(detailCalls, 0, `size=${size}`);
+    assert.match(tree.map(mountedText).join(" "), /BUDGET-1/);
+  }
+});
+
+test("product rows render the list summary and use dashes without a detail fallback", async () => {
+  const withSummary = productFixture(
+    "10000000-0000-4000-8000-000000000201",
+    "active",
+    1,
+    "Özetli ürün",
+  );
+  const withoutSummary = productFixture(
+    "10000000-0000-4000-8000-000000000202",
+    "draft",
+    1,
+    "Varyantsız ürün",
+  );
+  let detailCalls = 0;
+  const mounted = await createMountedProductConsole({
+    async listProducts() {
+      return {
+        items: [withSummary, withoutSummary],
+        variantSummaries: {
+          [withSummary.id]: {
+            variantId: "20000000-0000-4000-8000-000000000201",
+            sku: "LIST-SUMMARY-201",
+            priceCents: 12_000,
+            compareAtCents: 15_000,
+            stockTracking: true,
+            stockQuantity: 7,
+          },
+        },
+      };
+    },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { detailCalls += 1; throw new Error("detail fallback forbidden"); },
+  }, { canManage: false, canArchive: false, canImport: false });
+
+  const nodes = mountedNodes(await mounted.render());
+  const summaryRow = nodes.find((node) => node.type === "tr" && mountedText(node).includes(withSummary.title));
+  const variantlessRow = nodes.find((node) => node.type === "tr" && mountedText(node).includes(withoutSummary.title));
+
+  assert.ok(summaryRow);
+  assert.match(mountedText(summaryRow), /LIST-SUMMARY-201/);
+  assert.match(mountedText(summaryRow), /7 adet/);
+  assert.ok(variantlessRow);
+  assert.match(mountedText(variantlessRow), /—/);
+  assert.equal(detailCalls, 0);
+});
+
+test("load more adds one list call and never creates detail or summary fan-out", async () => {
+  const pages = [0, 1].map((page) => Array.from({ length: 20 }, (_, index) => productFixture(
+    `30000000-0000-4000-8000-${String(page * 20 + index + 1).padStart(12, "0")}`,
+    "draft",
+    1,
+    `Sayfa ${page + 1} ürün ${index + 1}`,
+  )));
+  const summaries = (products: readonly ReturnType<typeof productFixture>[]) => Object.fromEntries(products.map((product, index) => [product.id, {
+    variantId: `40000000-0000-4000-8000-${product.id.slice(-12)}`,
+    sku: `PAGE-${product.id.slice(-4)}`,
+    priceCents: 20_000 + index,
+    stockTracking: false,
+    stockQuantity: 0,
+  }]));
+  let listCalls = 0;
+  let summaryCalls = 0;
+  let detailCalls = 0;
+  const mounted = await createMountedProductConsole({
+    async listProducts() {
+      const page = listCalls++;
+      return {
+        items: pages[page]!,
+        variantSummaries: summaries(pages[page]!),
+        ...(page === 0 ? { nextCursor: "cursor_2" } : {}),
+      };
+    },
+    async getDashboardSummary() { summaryCalls += 1; return catalogSummary; },
+    async getProduct() { detailCalls += 1; throw new Error("detail fan-out forbidden"); },
+  }, { canManage: false, canArchive: false, canImport: false });
+
+  let tree = await mounted.render();
+  const loadMore = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Daha fazla yükle");
+  assert.ok(loadMore);
+  (loadMore.props.onClick as () => void)();
+  tree = await mounted.render();
+
+  assert.equal(listCalls, 2);
+  assert.equal(summaryCalls, 1);
+  assert.equal(detailCalls, 0);
+  assert.match(tree.map(mountedText).join(" "), /Sayfa 2 ürün 20/);
 });
 
 test("product detail hides the technical slug while preserving it in versioned edits", async () => {

@@ -1,8 +1,10 @@
 import {
   isCatalogProductOperationAllowed,
+  parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
   type CatalogProductOperation,
+  type CatalogProductListVariantSummary,
   type Product,
   type ProductStatus,
   type ProductVariant,
@@ -145,6 +147,56 @@ function featuredImageMap(value: unknown, productIds: ReadonlySet<string>): Read
   const entries = Object.entries(parsed);
   if (entries.length > productIds.size || entries.some(([productId]) => !productIds.has(productId))) throw unavailable();
   return Object.freeze(Object.fromEntries(entries.map(([productId, image]) => [productId, featuredImage(image)])));
+}
+
+function listVariantSummary(
+  value: unknown,
+  expectedProductId: string,
+  expectedStoreId: string,
+): CatalogProductListVariantSummary {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
+  const candidate = value as Record<string, unknown>;
+  const parsed = payload(value, [
+    "productId",
+    "storeId",
+    "variantId",
+    "priceCents",
+    "stockTracking",
+    "stockQuantity",
+    ...(Object.hasOwn(candidate, "sku") ? ["sku"] : []),
+    ...(Object.hasOwn(candidate, "compareAtCents") ? ["compareAtCents"] : []),
+  ]);
+  if (parsed.productId !== expectedProductId || parsed.storeId !== expectedStoreId) throw unavailable();
+  try {
+    return parseCatalogProductListVariantSummary({
+      variantId: parsed.variantId,
+      ...(Object.hasOwn(parsed, "sku") ? { sku: parsed.sku } : {}),
+      priceCents: parsed.priceCents,
+      ...(Object.hasOwn(parsed, "compareAtCents") ? { compareAtCents: parsed.compareAtCents } : {}),
+      stockTracking: parsed.stockTracking,
+      stockQuantity: parsed.stockQuantity,
+    });
+  } catch {
+    throw unavailable();
+  }
+}
+
+function listVariantSummaryMap(
+  value: unknown,
+  productIds: ReadonlySet<string>,
+  storeId: string,
+): Readonly<Record<string, CatalogProductListVariantSummary>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) throw unavailable();
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > productIds.size || entries.some(([productId]) => !productIds.has(productId))) throw unavailable();
+  const parsed = entries.map(([productId, summary]) => [
+    productId,
+    listVariantSummary(summary, productId, storeId),
+  ] as const);
+  if (new Set(parsed.map(([, summary]) => summary.variantId)).size !== parsed.length) throw unavailable();
+  return Object.freeze(Object.fromEntries(parsed));
 }
 
 function dashboardSummary(value: unknown): CatalogDashboardSummary {
@@ -487,7 +539,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const filter = statusFilter(exact.status);
     const cursor = decodeCursor(exact.cursor as string | undefined, authority.storeId, filter);
     const result = await this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_list_products(
+      text: `SELECT outcome, result_payload FROM saas.catalog_list_products_v2(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::text,$10::integer,$11::timestamptz,$12::uuid
       )`,
@@ -498,13 +550,18 @@ export class PostgresCatalogRepository implements CatalogRepository {
     if (typeof resultPayload !== "object" || resultPayload === null || Array.isArray(resultPayload)) throw unavailable();
     const envelope = resultPayload as Record<string, unknown>;
     const envelopeKeys = Object.keys(envelope).sort().join(",");
-    if (envelopeKeys !== "hasMore,items" && envelopeKeys !== "featuredImages,hasMore,items") throw unavailable();
+    if (envelopeKeys !== "featuredImages,hasMore,items,variantSummaries") throw unavailable();
     if (!Array.isArray(envelope.items) || typeof envelope.hasMore !== "boolean" || envelope.items.length > boundedPageSize) throw unavailable();
     const items = Object.freeze(envelope.items.map((item) => parseProduct(item)));
     if (items.some((item) => item.storeId !== authority.storeId)) throw unavailable();
     const featuredImages = envelope.featuredImages === undefined
       ? undefined
       : featuredImageMap(envelope.featuredImages, new Set(items.map((item) => item.id)));
+    const variantSummaries = listVariantSummaryMap(
+      envelope.variantSummaries,
+      new Set(items.map((item) => item.id)),
+      authority.storeId,
+    );
     for (let index = 1; index < items.length; index += 1) {
       const previous = items[index - 1]!;
       const current = items[index]!;
@@ -514,6 +571,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     return Object.freeze({
       items,
       ...(featuredImages === undefined ? {} : { featuredImages }),
+      ...(Object.keys(variantSummaries).length === 0 ? {} : { variantSummaries }),
       ...(envelope.hasMore ? { nextCursor: encodeCursor(authority.storeId, filter, items.at(-1)!) } : {}),
     });
   }
