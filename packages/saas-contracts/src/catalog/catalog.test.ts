@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CATALOG_PRODUCT_SORTS,
+  CATALOG_PRODUCT_STOCK_FILTERS,
   PRODUCT_STATUSES,
   VARIANT_STATUSES,
+  catalogProductListQueryBinding,
+  catalogProductListQueryDigest,
+  parseCatalogProductListQuery,
   parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
@@ -57,6 +62,88 @@ test("exports the exact immutable catalog status registries", () => {
   assert.deepEqual(VARIANT_STATUSES, ["active", "archived"]);
   assert.equal(Object.isFrozen(PRODUCT_STATUSES), true);
   assert.equal(Object.isFrozen(VARIANT_STATUSES), true);
+});
+
+test("normalizes and freezes the exact global product-list query contract", () => {
+  assert.deepEqual(CATALOG_PRODUCT_STOCK_FILTERS, ["in-stock", "out-of-stock", "untracked"]);
+  assert.deepEqual(CATALOG_PRODUCT_SORTS, ["updated-desc", "title-asc", "title-desc", "created-desc", "created-asc"]);
+  assert.equal(Object.isFrozen(CATALOG_PRODUCT_STOCK_FILTERS), true);
+  assert.equal(Object.isFrozen(CATALOG_PRODUCT_SORTS), true);
+
+  const parsed = parseCatalogProductListQuery({
+    search: "  SoN SKU  ",
+    status: "archived",
+    stock: "out-of-stock",
+    categoryId: PRODUCT_ID,
+    brandId: VARIANT_ID,
+    collectionId: STORE_ID,
+    sort: "title-asc",
+  });
+  assert.deepEqual(parsed, {
+    search: "SoN SKU",
+    status: "archived",
+    stock: "out-of-stock",
+    categoryId: PRODUCT_ID,
+    brandId: VARIANT_ID,
+    collectionId: STORE_ID,
+    sort: "title-asc",
+  });
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.deepEqual(parseCatalogProductListQuery({ search: "   " }), { sort: "updated-desc" });
+  assert.deepEqual(parseCatalogProductListQuery({}), { sort: "updated-desc" });
+});
+
+test("global product-list query rejects unknown dimensions and unsafe values", () => {
+  for (const value of [
+    { unexpected: true },
+    { search: "x".repeat(201) },
+    { search: "unsafe\u0000query" },
+    { status: "deleted" },
+    { stock: "hidden" },
+    { categoryId: "foreign" },
+    { brandId: PRODUCT_ID.toUpperCase() },
+    { collectionId: null },
+    { sort: "price-asc" },
+  ]) {
+    assert.throws(() => parseCatalogProductListQuery(value), /catalog_contract_invalid/);
+  }
+});
+
+test("global product-list query exposes a reusable versioned canonical cursor binding", () => {
+  const first = catalogProductListQueryBinding({ search: "  SoN SKU  ", status: "active", sort: "title-asc" });
+  const equivalent = catalogProductListQueryBinding({ search: "son sku", status: "active", sort: "title-asc" });
+  assert.deepEqual(first, {
+    version: 1,
+    search: "son sku",
+    status: "active",
+    stock: null,
+    categoryId: null,
+    brandId: null,
+    collectionId: null,
+    sort: "title-asc",
+  });
+  assert.equal(Object.isFrozen(first), true);
+  assert.deepEqual(equivalent, first);
+  const firstDigest = catalogProductListQueryDigest({ search: "  SoN SKU  ", status: "active", sort: "title-asc" });
+  assert.equal(firstDigest, catalogProductListQueryDigest({ search: "son sku", status: "active", sort: "title-asc" }));
+  assert.equal(
+    catalogProductListQueryDigest({ search: "İSTANBUL ÖZEL" }),
+    catalogProductListQueryDigest({ search: "istanbul özel" }),
+  );
+  assert.equal(
+    catalogProductListQueryDigest({ search: "I\u0307STANBUL ÖZEL" }),
+    catalogProductListQueryDigest({ search: "İSTANBUL ÖZEL" }),
+  );
+  assert.equal(
+    catalogProductListQueryDigest({ search: "IŞIK" }),
+    catalogProductListQueryDigest({ search: "ışık" }),
+  );
+  assert.equal(
+    catalogProductListQueryDigest({ search: "ÉLAN" }),
+    catalogProductListQueryDigest({ search: "élan" }),
+  );
+  assert.notEqual(firstDigest, catalogProductListQueryDigest({ search: "other", status: "active", sort: "title-asc" }));
+  assert.match(firstDigest, /^catalog-product-list-query:v1:/u);
 });
 
 test("parses and deeply freezes exact product and variant projections", () => {

@@ -18,16 +18,19 @@ import {
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
 } from "react";
 import type {
   CatalogOnboardingOptions,
+  CatalogProductListQuery,
+  CatalogProductSort,
+  CatalogProductStockFilter,
   CatalogProductListVariantSummary,
   Product,
 } from "@celebix/saas-contracts";
+import { catalogProductListQueryDigest } from "@celebix/saas-contracts";
 
 import { ProductQuickCreateDialog } from "@/components/catalog-onboarding/ProductQuickCreateDialog";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
@@ -38,9 +41,11 @@ import {
   type CatalogDashboardSummary,
   type ProductFeaturedImage,
 } from "@/lib/catalog-ui/client";
+import { productListUrlQuery } from "@/lib/catalog-ui/product-list-query";
 
 type Filter = "all" | "draft" | "active" | "archived";
-type Sort = "updated-desc" | "title-asc" | "title-desc";
+type StockFilter = "all" | CatalogProductStockFilter;
+type Sort = CatalogProductSort;
 type BulkAction = "" | "active" | "draft" | "archive";
 type ProductRow = Readonly<{
   product: Product;
@@ -136,6 +141,9 @@ export function createProductOperationCoordinator() {
       generation += 1;
       return generation;
     },
+    invalidateReads(): void {
+      if (activeMutation === null) generation += 1;
+    },
     beginMutation(): number | null {
       if (activeMutation !== null) return null;
       generation += 1;
@@ -222,17 +230,25 @@ export function ProductListConsole({
   canManage = false,
   canArchive = false,
   canImport = false,
-}: Readonly<{ canManage?: boolean; canArchive?: boolean; canImport?: boolean }>) {
-  const [filter, setFilter] = useState<Filter>("all");
-  const [sort, setSort] = useState<Sort>("updated-desc");
-  const [search, setSearch] = useState("");
+  initialQuery = Object.freeze({ sort: "updated-desc" }),
+}: Readonly<{ canManage?: boolean; canArchive?: boolean; canImport?: boolean; initialQuery?: CatalogProductListQuery }>) {
+  const [filter, setFilter] = useState<Filter>(initialQuery.status ?? "all");
+  const [stockFilter, setStockFilter] = useState<StockFilter>(initialQuery.stock ?? "all");
+  const [categoryId, setCategoryId] = useState(initialQuery.categoryId ?? "");
+  const [brandId, setBrandId] = useState(initialQuery.brandId ?? "");
+  const [collectionId, setCollectionId] = useState(initialQuery.collectionId ?? "");
+  const [sort, setSort] = useState<Sort>(initialQuery.sort);
+  const [search, setSearch] = useState(initialQuery.search ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQuery.search ?? "");
   const [filterOpen, setFilterOpen] = useState(false);
   const [rows, setRows] = useState<readonly ProductRow[]>([]);
+  const [appliedQueryDigest, setAppliedQueryDigest] = useState<string>();
   const [summary, setSummary] = useState<CatalogDashboardSummary>();
   const [summaryState, setSummaryState] = useState<SummaryState>("loading");
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [bulkAction, setBulkAction] = useState<BulkAction>("");
   const [nextCursor, setNextCursor] = useState<string>();
+  const [catalogTotal, setCatalogTotal] = useState<number>();
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -245,14 +261,36 @@ export function ProductListConsole({
   const [bulkArchiveConfirmation, setBulkArchiveConfirmation] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickOptions, setQuickOptions] = useState<CatalogOnboardingOptions | null>(null);
-  const filterRef = useRef(filter);
-  filterRef.current = filter;
+  const [quickOptionsState, setQuickOptionsState] = useState<"loading" | "ready" | "unavailable">("loading");
+  const quickOptionsRequestRef = useRef<Promise<CatalogOnboardingOptions> | null>(null);
   const operationCoordinator = useRef(createProductOperationCoordinator());
+  const queryRef = useRef<CatalogProductListQuery>(initialQuery);
+  queryRef.current = Object.freeze({
+    ...(debouncedSearch.trim() === "" ? {} : { search: debouncedSearch.trim() }),
+    ...(filter === "all" ? {} : { status: filter }),
+    ...(stockFilter === "all" ? {} : { stock: stockFilter }),
+    ...(categoryId === "" ? {} : { categoryId }),
+    ...(brandId === "" ? {} : { brandId }),
+    ...(collectionId === "" ? {} : { collectionId }),
+    sort,
+  });
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
   const refreshListButtonRef = useRef<HTMLButtonElement>(null);
   const wasArchiveDialogOpen = useRef(false);
+
+  const requestQuickOptions = useCallback(() => {
+    const pending = quickOptionsRequestRef.current;
+    if (pending !== null) return pending;
+    const request = catalogOnboardingClient.getOptions();
+    quickOptionsRequestRef.current = request;
+    const release = () => {
+      if (quickOptionsRequestRef.current === request) quickOptionsRequestRef.current = null;
+    };
+    void request.then(release, release);
+    return request;
+  }, []);
 
   const load = useCallback(async (options: LoadOptions = {}): Promise<LoadResult> => {
     if (options.cursor !== undefined && rowsStaleRef.current) return "blocked";
@@ -265,8 +303,10 @@ export function ProductListConsole({
     if (cursor === undefined) setSummaryState("loading");
     if (options.mutationToken === undefined) setError("");
     try {
+      const query = queryRef.current;
+      const queryDigest = catalogProductListQueryDigest(query);
       const input = Object.freeze({
-        ...(filterRef.current === "all" ? {} : { status: filterRef.current }),
+        ...query,
         ...(cursor === undefined ? {} : { cursor }),
       });
       const [listOutcome, summaryOutcome] = await Promise.allSettled([
@@ -288,7 +328,9 @@ export function ProductListConsole({
       const projected = projectRows(result.items, result.featuredImages, result.variantSummaries);
       if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
       setRows((current) => cursor === undefined ? projected : Object.freeze([...current, ...projected]));
+      if (cursor === undefined) setAppliedQueryDigest(queryDigest);
       setNextCursor(result.nextCursor);
+      if (cursor === undefined) setCatalogTotal(result.catalogTotal);
       if (cursor === undefined) setSelected(Object.freeze([]));
       if (cursor === undefined) setRowsStale(false);
       return "applied";
@@ -304,7 +346,36 @@ export function ProductListConsole({
     }
   }, []);
 
-  useEffect(() => { void load(); }, [filter, load]);
+  useEffect(() => {
+    const normalized = search.trim();
+    if (normalized === debouncedSearch) return;
+    operationCoordinator.current.invalidateReads();
+    setSelected(Object.freeze([]));
+    setNextCursor(undefined);
+    const timer = globalThis.setTimeout(() => setDebouncedSearch(normalized), 300);
+    return () => globalThis.clearTimeout(timer);
+  }, [debouncedSearch, search]);
+
+  useEffect(() => { void load(); }, [brandId, categoryId, collectionId, debouncedSearch, filter, load, sort, stockFilter]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = productListUrlQuery(queryRef.current);
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${query === "" ? "" : `?${query}`}${window.location.hash}`);
+  }, [brandId, categoryId, collectionId, debouncedSearch, filter, sort, stockFilter]);
+
+  useEffect(() => {
+    let current = true;
+    void requestQuickOptions().then((options) => {
+      if (current) {
+        setQuickOptions(options);
+        setQuickOptionsState("ready");
+      }
+    }).catch(() => {
+      if (current) setQuickOptionsState("unavailable");
+    });
+    return () => { current = false; };
+  }, [requestQuickOptions]);
 
   useEffect(() => {
     if (archiveCandidate !== undefined) {
@@ -318,23 +389,61 @@ export function ProductListConsole({
     else refreshListButtonRef.current?.focus();
   }, [archiveCandidate]);
 
-  const visibleRows = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("tr-TR");
-    const matched = query === "" ? rows : rows.filter(({ product, variant }) => (
-      product.title.toLocaleLowerCase("tr-TR").includes(query)
-      || product.slug.toLocaleLowerCase("tr-TR").includes(query)
-      || variant?.sku?.toLocaleLowerCase("tr-TR").includes(query)
-    ));
-    return [...matched].sort((left, right) => {
-      if (sort === "title-asc") return left.product.title.localeCompare(right.product.title, "tr-TR");
-      if (sort === "title-desc") return right.product.title.localeCompare(left.product.title, "tr-TR");
-      return right.product.updatedAt.localeCompare(left.product.updatedAt);
-    });
-  }, [rows, search, sort]);
+  const currentQueryDigest = catalogProductListQueryDigest(queryRef.current);
+  const visibleRows = appliedQueryDigest === currentQueryDigest ? rows : Object.freeze([] as ProductRow[]);
 
   const visibleIds = visibleRows.filter(({ product }) => product.status !== "archived").map(({ product }) => product.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
   const summaryMetrics = productSummaryMetrics(summaryState, summary);
+  const catalogIsEmpty = (catalogTotal ?? summary?.totalProducts) === 0;
+  const queryUnavailable = !loading && error !== "" && appliedQueryDigest !== currentQueryDigest;
+
+  function invalidateGlobalQuery(clearSelection = true) {
+    operationCoordinator.current.invalidateReads();
+    setNextCursor(undefined);
+    if (clearSelection) setSelected(Object.freeze([]));
+  }
+
+  function updateSearch(value: string) {
+    if (value.trim() !== debouncedSearch) invalidateGlobalQuery();
+    setSearch(value);
+  }
+
+  function updateStatus(value: Filter) {
+    if (value === filter) return;
+    invalidateGlobalQuery();
+    setFilter(value);
+  }
+
+  function updateStock(value: StockFilter) {
+    if (value === stockFilter) return;
+    invalidateGlobalQuery();
+    setStockFilter(value);
+  }
+
+  function updateCategory(value: string) {
+    if (value === categoryId) return;
+    invalidateGlobalQuery();
+    setCategoryId(value);
+  }
+
+  function updateBrand(value: string) {
+    if (value === brandId) return;
+    invalidateGlobalQuery();
+    setBrandId(value);
+  }
+
+  function updateCollection(value: string) {
+    if (value === collectionId) return;
+    invalidateGlobalQuery();
+    setCollectionId(value);
+  }
+
+  function updateSort(value: Sort) {
+    if (value === sort) return;
+    invalidateGlobalQuery(false);
+    setSort(value);
+  }
 
   function closeArchiveDialog() {
     if (!busy) setArchiveCandidate(undefined);
@@ -505,7 +614,7 @@ export function ProductListConsole({
   function productCommands() {
     return (
     <div className="hemenaku-product-commandbar product-operations-commandbar" aria-label="Ürün sayfası işlemleri">
-      <label className="command-select"><GripVertical aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => setSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Sırala</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option></select></label>
+      <label className="command-select"><GripVertical aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => updateSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Son güncellenen</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option><option value="created-desc">En yeni</option><option value="created-asc">En eski</option></select></label>
       {canImport ? <Link className="command-button" href="/products/bulk-upload"><FileUp aria-hidden="true" />İçe Aktar</Link> : null}
       <button className="command-button" type="button" disabled={visibleRows.length === 0 || busy || loading || loadingMore} onClick={exportVisibleRows}><Download aria-hidden="true" />Dışa Aktar</button>
       {canManage ? <button className="command-button command-button-primary" type="button" disabled={busy} onClick={() => void openQuickCreate()}><Plus aria-hidden="true" />Ürün Ekle</button> : null}
@@ -516,9 +625,17 @@ export function ProductListConsole({
   async function openQuickCreate() {
     if (!canManage) return;
     setQuickCreateOpen(true);
-    if (quickOptions !== null) return;
-    try { setQuickOptions(await catalogOnboardingClient.getOptions()); }
+    if (quickOptions !== null) {
+      setQuickOptionsState("ready");
+      return;
+    }
+    setQuickOptionsState("loading");
+    try {
+      setQuickOptions(await requestQuickOptions());
+      setQuickOptionsState("ready");
+    }
     catch (failure) {
+      setQuickOptionsState("unavailable");
       setQuickCreateOpen(false);
       setError(failure instanceof Error ? failure.message : "Ürün seçenekleri yüklenemedi.");
     }
@@ -541,14 +658,21 @@ export function ProductListConsole({
             </div>
           ))}
         </dl>
-        <label className="product-search"><Search aria-hidden="true" /><span className="sr-only">Tabloda arama yapın</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tabloda arama yapın" aria-label="Ürün tablosunda ara" /></label>
-        <button className={`command-button ${filterOpen || filter !== "all" ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} aria-pressed={filter !== "all"} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
+        <label className="product-search"><Search aria-hidden="true" /><span className="sr-only">Tabloda arama yapın; tüm katalogda ürün, slug, SKU veya barkod arayın</span><input value={search} disabled={busy} onChange={(event) => updateSearch(event.target.value)} placeholder="Ürün, slug, SKU veya barkod ara" aria-label="Ürün tablosunda ara" /></label>
+        <button className={`command-button ${filterOpen || filter !== "all" || stockFilter !== "all" || categoryId !== "" || brandId !== "" || collectionId !== "" ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} aria-pressed={filter !== "all" || stockFilter !== "all" || categoryId !== "" || brandId !== "" || collectionId !== ""} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
         <button ref={refreshListButtonRef} className="command-button command-icon-button" type="button" disabled={busy || loading || loadingMore} onClick={() => void load()} aria-label="Ürün listesini yenile" title="Ürün listesini yenile"><RefreshCw aria-hidden="true" /></button>
       </div>
 
       {filterOpen ? (
         <div className="product-filter-panel" aria-label="Ürün durumu filtresi">
-          {(["all", "active", "draft", "archived"] as const).map((status) => <button key={status} type="button" disabled={busy || loading || loadingMore} className={filter === status ? "is-active" : ""} onClick={() => setFilter(status)}>{status === "all" ? "Tümü" : STATUS_LABELS[status]}</button>)}
+          <div role="group" aria-label="Ürün durumu">
+            {(["all", "active", "draft", "archived"] as const).map((status) => <button key={status} type="button" disabled={busy || loading || loadingMore} className={filter === status ? "is-active" : ""} onClick={() => updateStatus(status)}>{status === "all" ? "Tümü" : STATUS_LABELS[status]}</button>)}
+          </div>
+          <label><span>Stok</span><select aria-label="Stok filtresi" value={stockFilter} disabled={busy || loading || loadingMore} onChange={(event) => updateStock(event.target.value as StockFilter)}><option value="all">Tüm stok durumları</option><option value="in-stock">Stokta</option><option value="out-of-stock">Stoksuz</option><option value="untracked">Stok takibi kapalı</option></select></label>
+          <label><span>Kategori</span><select aria-label="Kategori filtresi" value={categoryId} disabled={busy || loading || loadingMore || quickOptionsState !== "ready"} onChange={(event) => updateCategory(event.target.value)}><option value="">{quickOptionsState === "unavailable" ? "Seçenekler yüklenemedi" : "Tüm kategoriler"}</option>{quickOptions?.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+          <label><span>Marka</span><select aria-label="Marka filtresi" value={brandId} disabled={busy || loading || loadingMore || quickOptionsState !== "ready"} onChange={(event) => updateBrand(event.target.value)}><option value="">{quickOptionsState === "unavailable" ? "Seçenekler yüklenemedi" : "Tüm markalar"}</option>{quickOptions?.resources.filter((resource) => resource.kind === "brand").map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></label>
+          <label><span>Koleksiyon</span><select aria-label="Koleksiyon filtresi" value={collectionId} disabled={busy || loading || loadingMore || quickOptionsState !== "ready"} onChange={(event) => updateCollection(event.target.value)}><option value="">{quickOptionsState === "unavailable" ? "Seçenekler yüklenemedi" : "Tüm koleksiyonlar"}</option>{quickOptions?.resources.filter((resource) => resource.kind === "collection").map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></label>
+          {quickOptionsState === "unavailable" ? <p role="status">Kategori, marka ve koleksiyon seçenekleri yüklenemedi.</p> : null}
         </div>
       ) : null}
 
@@ -571,8 +695,14 @@ export function ProductListConsole({
 
       {loading ? (
         <div className="catalog-loading" role="status" aria-live="polite"><span className="spinner" aria-hidden="true" /> Ürünler güvenli mağaza bağlamından yükleniyor…</div>
+      ) : queryUnavailable ? (
+        <div className="empty-state"><span className="empty-state-mark" aria-hidden="true"><Search /></span><h2>Bu sorgunun ürünleri yüklenemedi</h2><p>Önceki sorgunun satırları güvenlik için gizlendi. Yeniden deneyin.</p></div>
       ) : visibleRows.length === 0 ? (
-        <div className="empty-state"><span className="empty-state-mark" aria-hidden="true"><Package /></span><h2>Henüz ürün yok</h2><p>Filtrelerle eşleşen gerçek bir ürün bulunamadı.</p>{canManage ? <Link className="button button-primary" href="/products/new">İlk ürünü oluştur</Link> : null}</div>
+        catalogIsEmpty ? (
+          <div className="empty-state"><span className="empty-state-mark" aria-hidden="true"><Package /></span><h2>Henüz ürün yok</h2><p>Kataloğunuzdaki ilk ürünü oluşturarak başlayın.</p>{canManage ? <Link className="button button-primary" href="/products/new">İlk ürünü oluştur</Link> : null}</div>
+        ) : (
+          <div className="empty-state"><span className="empty-state-mark" aria-hidden="true"><Search /></span><h2>Aramanızla eşleşen ürün bulunamadı</h2><p>Arama terimini veya global filtreleri değiştirip yeniden deneyin.</p></div>
+        )
       ) : (
         <div className="catalog-table-shell" data-stale={rowsStale ? "true" : undefined} aria-describedby={rowsStale ? "product-stale-warning" : undefined}>
           <table className="catalog-table">

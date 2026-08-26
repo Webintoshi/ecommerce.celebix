@@ -44,8 +44,8 @@ import {
   exactInput,
   pageSize,
   positiveVersion,
+  productListQuery,
   productFields,
-  statusFilter,
   variantFields,
   type ValidatedCatalogAuthority,
 } from "./validation.ts";
@@ -532,26 +532,54 @@ export class PostgresCatalogRepository implements CatalogRepository {
   }
 
   async listProducts(input: ListProductsInput): Promise<ListProductsResult> {
-    const exact = exactInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status"]);
+    const exact = exactInput(input, ["tenantContext", "now", "pageSize"], [
+      "cursor", "search", "status", "stock", "categoryId", "brandId", "collectionId", "sort",
+    ]);
     const authority = catalogAuthority(exact.tenantContext as ListProductsInput["tenantContext"], exact.now as Date);
     authorizeOperation(authority, "read");
     const boundedPageSize = pageSize(exact.pageSize);
-    const filter = statusFilter(exact.status);
-    const cursor = decodeCursor(exact.cursor as string | undefined, authority.storeId, filter);
+    const query = productListQuery({
+      ...(Object.hasOwn(exact, "search") ? { search: exact.search } : {}),
+      ...(Object.hasOwn(exact, "status") ? { status: exact.status } : {}),
+      ...(Object.hasOwn(exact, "stock") ? { stock: exact.stock } : {}),
+      ...(Object.hasOwn(exact, "categoryId") ? { categoryId: exact.categoryId } : {}),
+      ...(Object.hasOwn(exact, "brandId") ? { brandId: exact.brandId } : {}),
+      ...(Object.hasOwn(exact, "collectionId") ? { collectionId: exact.collectionId } : {}),
+      ...(Object.hasOwn(exact, "sort") ? { sort: exact.sort } : {}),
+    });
+    const cursor = decodeCursor(exact.cursor as string | undefined, authority.storeId, query);
     const result = await this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_list_products_v2(
+      text: `SELECT outcome, result_payload FROM saas.catalog_list_products_v3(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
-        $9::text,$10::integer,$11::timestamptz,$12::uuid
+        $9::text,$10::text,$11::text,$12::uuid,$13::uuid,$14::uuid,$15::text,$16::integer,
+        $17::timestamptz,$18::text,$19::uuid
       )`,
-      values: [...authorityValues(authority), filter ?? null, boundedPageSize, cursor?.createdAt ?? null, cursor?.id ?? null],
+      values: [
+        ...authorityValues(authority),
+        query.search ?? null,
+        query.status ?? null,
+        query.stock ?? null,
+        query.categoryId ?? null,
+        query.brandId ?? null,
+        query.collectionId ?? null,
+        query.sort,
+        boundedPageSize,
+        cursor?.timestamp ?? null,
+        cursor?.title ?? null,
+        cursor?.id ?? null,
+      ],
     });
     if (result.outcome !== "listed") throw unavailable();
     const resultPayload = result.resultPayload;
     if (typeof resultPayload !== "object" || resultPayload === null || Array.isArray(resultPayload)) throw unavailable();
     const envelope = resultPayload as Record<string, unknown>;
     const envelopeKeys = Object.keys(envelope).sort().join(",");
-    if (envelopeKeys !== "featuredImages,hasMore,items,variantSummaries") throw unavailable();
-    if (!Array.isArray(envelope.items) || typeof envelope.hasMore !== "boolean" || envelope.items.length > boundedPageSize) throw unavailable();
+    if (envelopeKeys !== "catalogTotal,cursorAnchor,featuredImages,hasMore,items,variantSummaries") throw unavailable();
+    if (
+      !Array.isArray(envelope.items) || typeof envelope.hasMore !== "boolean" ||
+      envelope.items.length > boundedPageSize || !Number.isSafeInteger(envelope.catalogTotal) ||
+      (envelope.catalogTotal as number) < envelope.items.length
+    ) throw unavailable();
     const items = Object.freeze(envelope.items.map((item) => parseProduct(item)));
     if (items.some((item) => item.storeId !== authority.storeId)) throw unavailable();
     const featuredImages = envelope.featuredImages === undefined
@@ -562,17 +590,27 @@ export class PostgresCatalogRepository implements CatalogRepository {
       new Set(items.map((item) => item.id)),
       authority.storeId,
     );
-    for (let index = 1; index < items.length; index += 1) {
-      const previous = items[index - 1]!;
-      const current = items[index]!;
-      if (previous.createdAt < current.createdAt || (previous.createdAt === current.createdAt && previous.id <= current.id)) throw unavailable();
-    }
     if (envelope.hasMore && items.length === 0) throw unavailable();
+    if (!envelope.hasMore && envelope.cursorAnchor !== null) throw unavailable();
+    let nextCursor: string | undefined;
+    if (envelope.hasMore) {
+      if (typeof envelope.cursorAnchor !== "object" || envelope.cursorAnchor === null || Array.isArray(envelope.cursorAnchor)) throw unavailable();
+      const anchor = envelope.cursorAnchor as Record<string, unknown>;
+      if (Object.keys(anchor).sort().join(",") !== "id,timestamp,title" || anchor.id !== items.at(-1)?.id) throw unavailable();
+      try {
+        nextCursor = encodeCursor(authority.storeId, query, {
+          timestamp: anchor.timestamp as string | null,
+          title: anchor.title as string | null,
+          id: anchor.id as string,
+        });
+      } catch { throw unavailable(); }
+    }
     return Object.freeze({
       items,
+      catalogTotal: envelope.catalogTotal as number,
       ...(featuredImages === undefined ? {} : { featuredImages }),
       ...(Object.keys(variantSummaries).length === 0 ? {} : { variantSummaries }),
-      ...(envelope.hasMore ? { nextCursor: encodeCursor(authority.storeId, filter, items.at(-1)!) } : {}),
+      ...(nextCursor === undefined ? {} : { nextCursor }),
     });
   }
 

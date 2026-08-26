@@ -58,6 +58,9 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
             /to_regprocedure\('saas\.catalog_list_products_v2\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid\)'\) IS NOT NULL/,
           );
           assertAppRoleFunctionPrivilege(sql, productListV2);
+          const productListV3 = "saas.catalog_list_products_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)";
+          assert.match(sql, /to_regprocedure\('saas[.]catalog_list_products_v3\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid\)'\) IS NOT NULL/);
+          assertAppRoleFunctionPrivilege(sql, productListV3);
           for (const signature of [
             "saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)",
             "saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,text,text,text)",

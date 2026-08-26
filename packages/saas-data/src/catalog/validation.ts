@@ -1,7 +1,9 @@
 import {
+  parseCatalogProductListQuery,
   parseProduct,
   parseProductVariant,
   type ProductStatus,
+  type CatalogProductListQuery,
   type StoreMembershipRole,
   type TenantContext,
 } from "@celebix/saas-contracts";
@@ -185,6 +187,11 @@ export function statusFilter(value: unknown): ProductStatus | undefined {
   if (value === undefined) return undefined;
   if (value !== "draft" && value !== "active" && value !== "archived") fail();
   return value;
+}
+
+export function productListQuery(value: unknown): CatalogProductListQuery {
+  try { return parseCatalogProductListQuery(value); }
+  catch { fail(); }
 }
 
 export function exactInput(value: unknown, required: readonly string[], optional: readonly string[] = []): Record<string, unknown> {

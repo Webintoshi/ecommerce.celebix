@@ -133,13 +133,20 @@ test("list query accepts bounded canonical options and rejects duplicate unknown
   for (const [query, expected] of [
     ["", { kind: "valid", value: { pageSize: 20 } }],
     ["?limit=100&status=archived&cursor=eyJ2IjoxfQ", { kind: "valid", value: { pageSize: 100, status: "archived", cursor: "eyJ2IjoxfQ" } }],
+    [
+      `?limit=40&q=${encodeURIComponent("  Son SKU  ")}&status=active&stock=in-stock&category=${PRODUCT_ID}&brand=${OPERATION_ID}&collection=${PRODUCT_ID}&sort=title-asc`,
+      { kind: "valid", value: { pageSize: 40, search: "Son SKU", status: "active", stock: "in-stock", categoryId: PRODUCT_ID, brandId: OPERATION_ID, collectionId: PRODUCT_ID, sort: "title-asc" } },
+    ],
+    ["?q=+++", { kind: "valid", value: { pageSize: 20 } }],
   ] as const) {
     assert.deepEqual(input.readCatalogListInput?.(new Request(`http://internal/api/catalog/products${query}`)), expected);
   }
   for (const query of [
     "?limit=0", "?limit=101", "?limit=01", "?limit=1&limit=2", "?status=deleted",
     "?status=active&status=draft", "?cursor=bad%ZZ", "?cursor=a+b", "?storeId=x", "?unknown=x",
-    "?%6cimit=20", "?status=%61ctive", "?limit=20&", "?&limit=20", "?limit=20&&status=active",
+    "?%6cimit=20", "?%71=atlas", "?limit=20&", "?&limit=20", "?limit=20&&status=active",
+    "?q=x&q=y", "?q=unsafe%00query", "?stock=hidden", "?category=foreign", "?brand=foreign",
+    "?collection=foreign", "?sort=price-asc",
   ]) {
     assert.deepEqual(input.readCatalogListInput?.(new Request(`http://internal/api/catalog/products${query}`)), { kind: "invalid" });
   }

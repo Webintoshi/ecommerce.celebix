@@ -256,17 +256,17 @@ test("tenant admin product mutations survive internal reverse-proxy Host and rem
 test("authenticated list and detail remain store-scoped and detail includes archived lifecycle state", async () => {
   const calls: unknown[] = [];
   const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
-    async listProducts(input) { calls.push(input); return Object.freeze({ items: Object.freeze([product()]) }); },
+    async listProducts(input) { calls.push(input); return Object.freeze({ items: Object.freeze([product()]), catalogTotal: 1 }); },
     async getProductDetails(input) { calls.push(input); return Object.freeze({ product: product(), variants: Object.freeze([variant()]) }); },
   })));
-  const list = await handlers?.listProducts(request(`${PRODUCTS}?limit=10&status=draft`));
+  const list = await handlers?.listProducts(request(`${PRODUCTS}?limit=10&q=Atlas+Mug&status=draft&stock=out-of-stock&category=${PRODUCT_ID}&brand=${VARIANT_ID}&collection=${PRODUCT_ID}&sort=title-desc`));
   assert.equal(list?.status, 200);
-  assert.deepEqual(await list?.json(), { items: [product()] });
+  assert.deepEqual(await list?.json(), { items: [product()], catalogTotal: 1 });
   const detail = await handlers?.getProduct(request(`${PRODUCTS}/${PRODUCT_ID}`), PRODUCT_ID);
   assert.equal(detail?.status, 200);
   assert.deepEqual(await detail?.json(), { product: product(), variants: [variant()] });
   assert.deepEqual(calls, [
-    { tenantContext: tenantContext(), now: NOW, pageSize: 10, status: "draft" },
+    { tenantContext: tenantContext(), now: NOW, pageSize: 10, search: "Atlas Mug", status: "draft", stock: "out-of-stock", categoryId: PRODUCT_ID, brandId: VARIANT_ID, collectionId: PRODUCT_ID, sort: "title-desc" },
     { tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID, includeArchivedVariants: true },
   ]);
 });

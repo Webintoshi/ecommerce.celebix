@@ -1,10 +1,11 @@
 import {
+  parseCatalogProductListQuery,
   parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
   type CatalogProductListVariantSummary,
+  type CatalogProductListQuery,
   type Product,
-  type ProductStatus,
   type ProductVariant,
 } from "@celebix/saas-contracts";
 
@@ -51,9 +52,14 @@ type RandomUUID = () => string;
 export type ProductFeaturedImage = Readonly<{ publicUrl: string; altText: string }>;
 export type ProductListResult = Readonly<{
   items: readonly Product[];
+  catalogTotal: number;
   featuredImages?: Readonly<Record<string, ProductFeaturedImage>>;
   variantSummaries?: Readonly<Record<string, CatalogProductListVariantSummary>>;
   nextCursor?: string;
+}>;
+export type ProductListInput = Omit<CatalogProductListQuery, "sort"> & Readonly<{
+  sort?: CatalogProductListQuery["sort"];
+  cursor?: string;
 }>;
 export type ProductDetailResult = Readonly<{ product: Product; variants: readonly ProductVariant[] }>;
 export type CatalogVariantChoiceResult = Readonly<{
@@ -268,13 +274,28 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       }));
     },
 
-    async listProducts(input: Readonly<{ status?: ProductStatus; cursor?: string }> = {}, signal?: AbortSignal): Promise<ProductListResult> {
+    async listProducts(input: ProductListInput = {}, signal?: AbortSignal): Promise<ProductListResult> {
       if (input.cursor !== undefined && !CURSOR.test(input.cursor)) throw new TypeError("catalog_client_invalid");
-      if (input.status !== undefined && input.status !== "draft" && input.status !== "active" && input.status !== "archived") {
-        throw new TypeError("catalog_client_invalid");
-      }
+      let parsedQuery: CatalogProductListQuery;
+      try {
+        parsedQuery = parseCatalogProductListQuery({
+          ...(Object.hasOwn(input, "search") ? { search: input.search } : {}),
+          ...(Object.hasOwn(input, "status") ? { status: input.status } : {}),
+          ...(Object.hasOwn(input, "stock") ? { stock: input.stock } : {}),
+          ...(Object.hasOwn(input, "categoryId") ? { categoryId: input.categoryId } : {}),
+          ...(Object.hasOwn(input, "brandId") ? { brandId: input.brandId } : {}),
+          ...(Object.hasOwn(input, "collectionId") ? { collectionId: input.collectionId } : {}),
+          ...(Object.hasOwn(input, "sort") ? { sort: input.sort } : {}),
+        });
+      } catch { throw new TypeError("catalog_client_invalid"); }
       const query = new URLSearchParams({ limit: "20" });
-      if (input.status !== undefined) query.set("status", input.status);
+      if (parsedQuery.search !== undefined) query.set("q", parsedQuery.search);
+      if (parsedQuery.status !== undefined) query.set("status", parsedQuery.status);
+      if (parsedQuery.stock !== undefined) query.set("stock", parsedQuery.stock);
+      if (parsedQuery.categoryId !== undefined) query.set("category", parsedQuery.categoryId);
+      if (parsedQuery.brandId !== undefined) query.set("brand", parsedQuery.brandId);
+      if (parsedQuery.collectionId !== undefined) query.set("collection", parsedQuery.collectionId);
+      if (input.sort !== undefined) query.set("sort", parsedQuery.sort);
       if (input.cursor !== undefined) query.set("cursor", input.cursor);
       const body = record(await request(`/api/catalog/products?${query}`, {
         method: "GET",
@@ -283,8 +304,9 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
         ...(signal ? { signal } : {}),
       }));
       if (body === null || !Array.isArray(body.items)) throw new CatalogApiError("unavailable", 503);
-      const allowedKeys = new Set(["items", "featuredImages", "variantSummaries", "nextCursor"]);
+      const allowedKeys = new Set(["items", "catalogTotal", "featuredImages", "variantSummaries", "nextCursor"]);
       if (Object.keys(body).some((key) => !allowedKeys.has(key))) throw new CatalogApiError("unavailable", 503);
+      const catalogTotal = count(body.catalogTotal);
       const items = Object.freeze(body.items.map(parseProduct));
       const productIds = new Set(items.map((item) => item.id));
       const featuredImages = body.featuredImages === undefined
@@ -298,6 +320,7 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       }
       return Object.freeze({
         items,
+        catalogTotal,
         ...(featuredImages === undefined ? {} : { featuredImages }),
         ...(variantSummaries === undefined ? {} : { variantSummaries }),
         ...(body.nextCursor === undefined ? {} : { nextCursor: body.nextCursor }),

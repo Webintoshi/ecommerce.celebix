@@ -54,7 +54,7 @@ test("list pagination accepts only a server cursor and preserves same-origin cre
   const client = createCatalogApiClient({
     fetch: async (input, init) => {
       calls.push([input, init]);
-      return jsonResponse({ items: [PRODUCT], nextCursor: "safe_cursor-1" });
+      return jsonResponse({ items: [PRODUCT], catalogTotal: 1, nextCursor: "safe_cursor-1" });
     },
     randomUUID: () => OPERATION_ID,
   });
@@ -65,6 +65,41 @@ test("list pagination accepts only a server cursor and preserves same-origin cre
   await assert.rejects(() => client.listProducts({ cursor: "unsafe%cursor" }), /catalog_client_invalid/);
 });
 
+test("global product query serializes every canonical server dimension and parses catalog total", async () => {
+  const calls: string[] = [];
+  const client = createCatalogApiClient({
+    fetch: async (input) => {
+      calls.push(String(input));
+      return jsonResponse({ items: [PRODUCT], catalogTotal: 1_631 });
+    },
+  });
+  const result = await client.listProducts({
+    search: "  Son SKU  ",
+    status: "active",
+    stock: "in-stock",
+    categoryId: PRODUCT_ID,
+    brandId: VARIANT_ID,
+    collectionId: PRODUCT_ID,
+    sort: "title-asc",
+  });
+  assert.equal(result.catalogTotal, 1_631);
+  assert.deepEqual(calls, [`/api/catalog/products?limit=20&q=Son+SKU&status=active&stock=in-stock&category=${PRODUCT_ID}&brand=${VARIANT_ID}&collection=${PRODUCT_ID}&sort=title-asc`]);
+  await assert.rejects(() => client.listProducts({ search: "unsafe\u0000query" }), /catalog_client_invalid/);
+  await assert.rejects(() => client.listProducts({ sort: "price-asc" as "title-asc" }), /catalog_client_invalid/);
+});
+
+test("v3 product lists require a safe non-negative integer catalog total", async () => {
+  for (const catalogTotal of [undefined, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const hostile = createCatalogApiClient({
+      fetch: async () => jsonResponse({
+        items: [PRODUCT],
+        ...(catalogTotal === undefined ? {} : { catalogTotal }),
+      }),
+    });
+    await assert.rejects(() => hostile.listProducts(), /unavailable|catalog/i);
+  }
+});
+
 test("archived filter and restore use the exact lifecycle endpoints", async () => {
   const calls: Array<[string, RequestInit]> = [];
   const archived = { ...PRODUCT, status: "archived", version: 4 };
@@ -73,7 +108,7 @@ test("archived filter and restore use the exact lifecycle endpoints", async () =
     fetch: async (input, init) => {
       calls.push([String(input), init ?? {}]);
       return String(input).includes("?limit=20")
-        ? jsonResponse({ items: [archived] })
+        ? jsonResponse({ items: [archived], catalogTotal: 1 })
         : jsonResponse({ product: restored, replayed: false });
     },
     randomUUID: () => OPERATION_ID,
@@ -98,6 +133,7 @@ test("list products accepts only a bounded canonical featured-image projection",
   const client = createCatalogApiClient({
     fetch: async () => jsonResponse({
       items: [PRODUCT],
+      catalogTotal: 1,
       featuredImages: { [PRODUCT_ID]: featuredImage },
     }),
   });
@@ -115,7 +151,7 @@ test("list products accepts only a bounded canonical featured-image projection",
     { "99999999-9999-4999-8999-999999999999": featuredImage },
   ]) {
     const hostile = createCatalogApiClient({
-      fetch: async () => jsonResponse({ items: [PRODUCT], featuredImages }),
+      fetch: async () => jsonResponse({ items: [PRODUCT], catalogTotal: 1, featuredImages }),
     });
     await assert.rejects(() => hostile.listProducts(), /unavailable|catalog/i);
   }
@@ -133,6 +169,7 @@ test("list products parses exact variant summaries without fetching product deta
   const client = createCatalogApiClient({
     fetch: async () => jsonResponse({
       items: [PRODUCT],
+      catalogTotal: 1,
       variantSummaries: { [PRODUCT_ID]: summary },
     }),
   });
@@ -165,7 +202,7 @@ test("list products rejects unknown, duplicate, and unsafe variant summaries", a
     },
   ]) {
     const hostile = createCatalogApiClient({
-      fetch: async () => jsonResponse({ items: [PRODUCT, secondProduct], variantSummaries }),
+      fetch: async () => jsonResponse({ items: [PRODUCT, secondProduct], catalogTotal: 2, variantSummaries }),
     });
     await assert.rejects(() => hostile.listProducts(), /unavailable|catalog/i);
   }
@@ -201,7 +238,7 @@ test("catalog list and detail reads forward the exact AbortSignal and preserve n
     fetch: async (_input, init) => {
       calls.push(init ?? {});
       return calls.length === 1
-        ? jsonResponse({ items: [PRODUCT] })
+        ? jsonResponse({ items: [PRODUCT], catalogTotal: 1 })
         : jsonResponse({ product: PRODUCT, variants: [VARIANT] });
     },
   });
