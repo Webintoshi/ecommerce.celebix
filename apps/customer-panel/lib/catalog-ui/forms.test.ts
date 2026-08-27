@@ -4,7 +4,8 @@ import test from "node:test";
 import {
   buildCreateProductPayload,
   buildProductUpdatePayload,
-  buildVariantPayload,
+  buildVariantCreatePayload,
+  buildVariantUpdatePayload,
 } from "./forms.ts";
 
 const VALID = Object.freeze({
@@ -22,6 +23,28 @@ const VALID = Object.freeze({
   stockTracking: true,
   stockQuantity: "12",
 });
+
+const VALID_VARIANT = Object.freeze({
+  title: VALID.variantTitle,
+  sku: VALID.sku,
+  barcode: VALID.barcode,
+  price: VALID.price,
+  compareAt: VALID.compareAt,
+  cost: VALID.cost,
+  stockTracking: VALID.stockTracking,
+  stockQuantity: VALID.stockQuantity,
+});
+
+function buildExistingVariantUpdate(
+  overrides: Readonly<Record<string, unknown>>,
+  existingAttributes: Readonly<Record<string, string>>,
+) {
+  return buildVariantUpdatePayload(
+    { ...VALID_VARIANT, ...overrides },
+    4,
+    existingAttributes,
+  );
+}
 
 test("create payload matches the exact catalog contract and never contains store authority", () => {
   const result = buildCreateProductPayload(VALID);
@@ -107,7 +130,7 @@ test("update payloads use the exact currently rendered version", () => {
     },
   });
 
-  const variant = buildVariantPayload({
+  const variant = buildVariantUpdatePayload({
     title: VALID.variantTitle,
     sku: VALID.sku,
     barcode: VALID.barcode,
@@ -116,7 +139,60 @@ test("update payloads use the exact currently rendered version", () => {
     cost: VALID.cost,
     stockTracking: VALID.stockTracking,
     stockQuantity: VALID.stockQuantity,
-  }, 4);
+  }, 4, {});
   assert.equal(variant.ok, true);
   if (variant.ok) assert.equal(variant.value.expectedVersion, 4);
+});
+
+test("basic price edit preserves every existing variant attribute and key order", () => {
+  const existingAttributes = { Renk: "Altın", Boyut: "18" };
+  const result = buildExistingVariantUpdate({ price: "130,00" }, existingAttributes);
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.variant.priceCents, 13_000);
+  assert.deepEqual(result.value.variant.attributes, existingAttributes);
+  assert.deepEqual(Object.keys(result.value.variant.attributes), ["Renk", "Boyut"]);
+});
+
+test("basic SKU and stock edit preserves existing variant attributes", () => {
+  const existingAttributes = { Renk: "Altın", Boyut: "18" };
+  const result = buildExistingVariantUpdate({ sku: "ATLAS-KUPA-2", stockQuantity: "7" }, existingAttributes);
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.variant.sku, "ATLAS-KUPA-2");
+  assert.equal(result.value.variant.stockQuantity, 7);
+  assert.deepEqual(result.value.variant.attributes, existingAttributes);
+});
+
+test("basic edit preserves an existing empty attribute map", () => {
+  const result = buildExistingVariantUpdate({ price: "130,00" }, {});
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.value.variant.attributes, {});
+});
+
+test("variant creation still emits a valid empty frozen attribute map", () => {
+  const result = buildVariantCreatePayload(VALID_VARIANT);
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.value.variant.attributes, {});
+  assert.equal(Object.isFrozen(result.value.variant.attributes), true);
+});
+
+test("variant update does not mutate attribute input and freezes its result", () => {
+  const existingAttributes = { Renk: "Altın", Boyut: "18" };
+  const snapshot = { ...existingAttributes };
+  const result = buildExistingVariantUpdate({ price: "130,00" }, existingAttributes);
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(existingAttributes, snapshot);
+  assert.notEqual(result.value.variant.attributes, existingAttributes);
+  assert.equal(Object.isFrozen(result.value), true);
+  assert.equal(Object.isFrozen(result.value.variant), true);
+  assert.equal(Object.isFrozen(result.value.variant.attributes), true);
 });

@@ -10,7 +10,11 @@ import {
   catalogApi,
   type ProductDetailResult,
 } from "@/lib/catalog-ui/client";
-import { buildProductUpdatePayload, buildVariantPayload } from "@/lib/catalog-ui/forms";
+import {
+  buildProductUpdatePayload,
+  buildVariantCreatePayload,
+  buildVariantUpdatePayload,
+} from "@/lib/catalog-ui/forms";
 import { formatTurkishMoney, formatTurkishMoneyInput } from "@/lib/catalog-ui/money";
 import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAdvancedEditor";
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
@@ -197,7 +201,7 @@ export function ProductDetailConsole({
   async function createVariant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canManage || detail?.product.status === "archived") return;
-    const parsed = buildVariantPayload(variantValues(new FormData(event.currentTarget)));
+    const parsed = buildVariantCreatePayload(variantValues(new FormData(event.currentTarget)));
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("new-variant", async () => {
       const result = await catalogApi.createVariant(productId, parsed.value);
@@ -210,7 +214,11 @@ export function ProductDetailConsole({
   async function updateVariant(event: FormEvent<HTMLFormElement>, variant: ProductVariant) {
     event.preventDefault();
     if (!canManage || detail?.product.status === "archived") return;
-    const parsed = buildVariantPayload(variantValues(new FormData(event.currentTarget)), variant.version);
+    const parsed = buildVariantUpdatePayload(
+      variantValues(new FormData(event.currentTarget)),
+      variant.version,
+      variant.attributes,
+    );
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation(`variant-${variant.id}`, async () => {
       const result = await catalogApi.updateVariant(productId, variant.id, parsed.value);

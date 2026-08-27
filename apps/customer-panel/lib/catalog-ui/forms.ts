@@ -89,9 +89,24 @@ function productFields(value: unknown, allowed = PRODUCT_KEYS): CatalogFormResul
   });
 }
 
-function variantFields(value: unknown, allowed = VARIANT_KEYS): CatalogFormResult<CatalogVariantFields> {
+function variantAttributes(value: unknown): Readonly<Record<string, string>> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return null;
+  const entries = Object.entries(value);
+  if (!entries.every(([, entry]) => typeof entry === "string")) return null;
+  return Object.freeze(Object.fromEntries(entries));
+}
+
+function variantFields(
+  value: unknown,
+  attributes: Readonly<Record<string, string>>,
+  allowed = VARIANT_KEYS,
+): CatalogFormResult<CatalogVariantFields> {
   const parsed = record(value, allowed);
   if (parsed === null) return invalid("Formda beklenmeyen bir alan var.");
+  const preservedAttributes = variantAttributes(attributes);
+  if (preservedAttributes === null) return invalid("Varyant nitelikleri geçersiz.");
   const title = text(parsed.title, 1, 200);
   const sku = optionalText(parsed.sku, 64, SKU);
   const barcode = optionalText(parsed.barcode, 128);
@@ -131,7 +146,7 @@ function variantFields(value: unknown, allowed = VARIANT_KEYS): CatalogFormResul
       ...(costCents === undefined ? {} : { costCents }),
       stockTracking: parsed.stockTracking,
       stockQuantity,
-      attributes: Object.freeze({}),
+      attributes: preservedAttributes,
     }),
   });
 }
@@ -163,7 +178,7 @@ export function buildCreateProductPayload(value: unknown): CatalogFormResult<Rea
     cost: parsed.cost,
     stockTracking: parsed.stockTracking,
     stockQuantity: parsed.stockQuantity,
-  });
+  }, Object.freeze({}));
   if (!initialVariant.ok) return initialVariant;
   return Object.freeze({
     ok: true,
@@ -183,27 +198,45 @@ export function buildProductUpdatePayload(
     : product;
 }
 
+export function buildVariantCreatePayload(
+  value: unknown,
+): CatalogFormResult<Readonly<{ variant: CatalogVariantFields }>> {
+  const variant = variantFields(value, Object.freeze({}));
+  return variant.ok
+    ? Object.freeze({ ok: true, value: Object.freeze({ variant: variant.value }) })
+    : variant;
+}
+
+export function buildVariantUpdatePayload(
+  value: unknown,
+  expectedVersion: unknown,
+  existingAttributes: Readonly<Record<string, string>>,
+): CatalogFormResult<Readonly<{ expectedVersion: number; variant: CatalogVariantFields }>> {
+  const parsedVersion = version(expectedVersion);
+  if (parsedVersion === null) return invalid("Varyant sürümü geçersiz.");
+  const variant = variantFields(value, existingAttributes);
+  return variant.ok
+    ? Object.freeze({
+      ok: true,
+      value: Object.freeze({ expectedVersion: parsedVersion, variant: variant.value }),
+    })
+    : variant;
+}
+
 export function buildVariantPayload(
   value: unknown,
 ): CatalogFormResult<Readonly<{ variant: CatalogVariantFields }>>;
 export function buildVariantPayload(
   value: unknown,
   expectedVersion: number,
+  existingAttributes: Readonly<Record<string, string>>,
 ): CatalogFormResult<Readonly<{ expectedVersion: number; variant: CatalogVariantFields }>>;
 export function buildVariantPayload(
   value: unknown,
   expectedVersion?: unknown,
+  existingAttributes?: Readonly<Record<string, string>>,
 ): CatalogFormResult<Readonly<{ expectedVersion?: number; variant: CatalogVariantFields }>> {
-  const variant = variantFields(value);
-  if (!variant.ok) return variant;
-  if (expectedVersion === undefined) {
-    return Object.freeze({ ok: true, value: Object.freeze({ variant: variant.value }) });
-  }
-  const parsedVersion = version(expectedVersion);
-  return parsedVersion === null
-    ? invalid("Varyant sürümü geçersiz.")
-    : Object.freeze({
-      ok: true,
-      value: Object.freeze({ expectedVersion: parsedVersion, variant: variant.value }),
-    });
+  if (expectedVersion === undefined) return buildVariantCreatePayload(value);
+  if (existingAttributes === undefined) return invalid("Varyant nitelikleri geçersiz.");
+  return buildVariantUpdatePayload(value, expectedVersion, existingAttributes);
 }
