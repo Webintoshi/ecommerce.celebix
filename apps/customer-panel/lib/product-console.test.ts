@@ -1093,6 +1093,10 @@ test("detail and media surfaces retain versioned target commands", async () => {
   assert.match(detail, /data-presentation="hemenaku-product-detail"/);
   assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
   assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
+  assert.match(
+    detail,
+    /buildVariantUpdatePayload\(\s*variantValues\(new FormData\(event\.currentTarget\)\),\s*variant\.version,\s*variant\.attributes,?\s*\)/,
+  );
   assert.match(detail, /archiveVariant\(productId, archiveVariant\.id, archiveVariant\.version\)/);
   assert.match(detail, /failure\.code === "version_conflict"/);
   assert.match(media, /productMediaApi\.reorder/);
