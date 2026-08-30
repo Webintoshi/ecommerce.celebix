@@ -88,6 +88,27 @@ test("global product query serializes every canonical server dimension and parse
   await assert.rejects(() => client.listProducts({ sort: "price-asc" as "title-asc" }), /catalog_client_invalid/);
 });
 
+test("list page size and bulk mutation use one exact request", async () => {
+  const calls: Array<[string, RequestInit]> = [];
+  const client = createCatalogApiClient({
+    randomUUID: () => OPERATION_ID,
+    fetch: async (input, init) => {
+      calls.push([String(input), init ?? {}]);
+      return String(input).includes("/bulk")
+        ? jsonResponse({ products: [{ ...PRODUCT, status: "active", version: 4 }], replayed: false })
+        : jsonResponse({ items: [], catalogTotal: 0 });
+    },
+  });
+  await client.listProducts({ pageSize: 50 });
+  const result = await client.bulkMutateProducts({ action: "active", targets: [{ productId: PRODUCT_ID, expectedVersion: 3 }] });
+  assert.equal(calls[0]?.[0], "/api/catalog/products?limit=50");
+  assert.equal(calls[1]?.[0], "/api/catalog/products/bulk");
+  assert.equal(calls[1]?.[1].method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[1]?.[1].body)), { action: "active", targets: [{ productId: PRODUCT_ID, expectedVersion: 3 }] });
+  assert.equal(result.products[0]?.version, 4);
+  await assert.rejects(() => client.listProducts({ pageSize: 40 as 20 }), /catalog_contract_invalid|catalog_client_invalid/);
+});
+
 test("v3 product lists require a safe non-negative integer catalog total", async () => {
   for (const catalogTotal of [undefined, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
     const hostile = createCatalogApiClient({

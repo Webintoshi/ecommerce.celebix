@@ -1,10 +1,14 @@
 import {
   parseCatalogProductListQuery,
+  parseCatalogBulkProductIntent,
+  parseCatalogProductPageSize,
   parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
   type CatalogProductListVariantSummary,
   type CatalogProductListQuery,
+  type CatalogBulkProductIntent,
+  type CatalogProductPageSize,
   type Product,
   type ProductVariant,
 } from "@celebix/saas-contracts";
@@ -60,6 +64,7 @@ export type ProductListResult = Readonly<{
 export type ProductListInput = Omit<CatalogProductListQuery, "sort"> & Readonly<{
   sort?: CatalogProductListQuery["sort"];
   cursor?: string;
+  pageSize?: CatalogProductPageSize;
 }>;
 export type ProductDetailResult = Readonly<{ product: Product; variants: readonly ProductVariant[] }>;
 export type CatalogVariantChoiceResult = Readonly<{
@@ -288,7 +293,7 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
           ...(Object.hasOwn(input, "sort") ? { sort: input.sort } : {}),
         });
       } catch { throw new TypeError("catalog_client_invalid"); }
-      const query = new URLSearchParams({ limit: "20" });
+      const query = new URLSearchParams({ limit: String(parseCatalogProductPageSize(input.pageSize ?? 20)) });
       if (parsedQuery.search !== undefined) query.set("q", parsedQuery.search);
       if (parsedQuery.status !== undefined) query.set("status", parsedQuery.status);
       if (parsedQuery.stock !== undefined) query.set("stock", parsedQuery.stock);
@@ -380,6 +385,21 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       const body = record(await mutation(`/api/catalog/products/${productId(id)}/restore`, "POST", { expectedVersion: version(expectedVersion) }));
       if (body === null) throw new CatalogApiError("unavailable", 503);
       return Object.freeze({ product: parseProduct(body.product), replayed: replayed(body.replayed) });
+    },
+
+    async bulkMutateProducts(input: CatalogBulkProductIntent): Promise<Readonly<{ products: readonly Product[]; replayed: boolean }>> {
+      let intent: CatalogBulkProductIntent;
+      try { intent = parseCatalogBulkProductIntent(input); }
+      catch { throw new TypeError("catalog_client_invalid"); }
+      const body = record(await mutation("/api/catalog/products/bulk", "POST", intent));
+      if (body === null || Object.keys(body).sort().join(",") !== "products,replayed" || !Array.isArray(body.products)) {
+        throw new CatalogApiError("unavailable", 503);
+      }
+      const products = Object.freeze(body.products.map(parseProduct));
+      if (products.length !== intent.targets.length || new Set(products.map(({ id }) => id)).size !== products.length) {
+        throw new CatalogApiError("unavailable", 503);
+      }
+      return Object.freeze({ products, replayed: replayed(body.replayed) });
     },
 
     async createVariant(id: string, input: Readonly<{ variant: CatalogVariantFields }>): Promise<VariantMutationResult> {

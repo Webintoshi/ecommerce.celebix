@@ -56,6 +56,8 @@ export const CATALOG_PRODUCT_OPERATIONS = Object.freeze([
   "manage_merchandising",
   "publish",
   "manage_media",
+  "bulk_publish",
+  "bulk_archive",
 ] as const);
 
 export type CatalogProductOperation = (typeof CATALOG_PRODUCT_OPERATIONS)[number];
@@ -73,6 +75,8 @@ const CATALOG_PRODUCT_ACTIONS: Readonly<Record<CatalogProductOperation, Merchant
     manage_merchandising: "catalog_admin.manage",
     publish: "catalog_admin.manage",
     manage_media: "catalog_admin.manage",
+    bulk_publish: "catalog_admin.manage",
+    bulk_archive: "catalog_admin.archive",
   });
 
 const ROLE_ACTIONS: Readonly<

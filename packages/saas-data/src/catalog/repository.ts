@@ -1,6 +1,7 @@
 import {
   isCatalogProductOperationAllowed,
   parseCatalogProductListVariantSummary,
+  parseCatalogBulkProductIntent,
   parseProduct,
   parseProductVariant,
   type CatalogProductOperation,
@@ -17,6 +18,8 @@ import { CATALOG_ERROR_CODES, CatalogRepositoryError, type CatalogErrorCode } fr
 import type {
   ArchiveProductInput,
   ArchiveVariantInput,
+  BulkMutateProductsInput,
+  BulkMutateProductsResult,
   CatalogDashboardSummary,
   CatalogProductFeaturedImage,
   CatalogVariantChoice,
@@ -231,6 +234,14 @@ function dashboardSummary(value: unknown): CatalogDashboardSummary {
 function productResult(value: unknown, replayed: boolean): ProductMutationResult {
   const parsed = payload(value, ["product"]);
   return Object.freeze({ product: parseProduct(parsed.product), replayed });
+}
+
+function bulkProductResult(value: unknown, replayed: boolean): BulkMutateProductsResult {
+  const parsed = payload(value, ["products"]);
+  if (!Array.isArray(parsed.products) || parsed.products.length < 1 || parsed.products.length > 100) throw unavailable();
+  const products = Object.freeze(parsed.products.map(parseProduct));
+  if (new Set(products.map(({ id }) => id)).size !== products.length) throw unavailable();
+  return Object.freeze({ products, replayed });
 }
 
 function createProductResult(value: unknown, replayed: boolean): CreateProductResult {
@@ -664,6 +675,23 @@ export class PostgresCatalogRepository implements CatalogRepository {
       )`,
       values: [...authorityValues(authority), operationId, fingerprint, productId, expectedVersion],
     }, ["restored"], productResult);
+  }
+
+  async bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult> {
+    const exact = exactInput(input, ["tenantContext", "now", "operationId", "action", "targets"]);
+    const authority = catalogAuthority(exact.tenantContext as BulkMutateProductsInput["tenantContext"], exact.now as Date);
+    const intent = parseCatalogBulkProductIntent({ action: exact.action, targets: exact.targets });
+    authorizeOperation(authority, intent.action === "archive" ? "bulk_archive" : "bulk_publish");
+    const operationId = catalogUuid(exact.operationId);
+    const targets = Object.freeze([...intent.targets].sort((left, right) => left.productId.localeCompare(right.productId)));
+    const fingerprint = catalogFingerprint("bulk_mutate_products", authority.storeId, { action: intent.action, targets });
+    return this.mutate(authority, operationId, fingerprint, {
+      text: `SELECT outcome, result_payload FROM saas.catalog_bulk_mutate_products(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
+        $9::uuid,$10::text,$11::text,$12::jsonb
+      )`,
+      values: [...authorityValues(authority), operationId, fingerprint, intent.action, JSON.stringify(targets)],
+    }, ["committed"], bulkProductResult);
   }
 
   async createVariant(input: CreateVariantInput): Promise<VariantMutationResult> {

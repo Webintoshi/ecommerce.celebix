@@ -137,6 +137,7 @@ function repository(overrides: Partial<CatalogRepository> = {}): CatalogReposito
     createVariant: unavailable,
     updateVariant: unavailable,
     archiveVariant: unavailable,
+    bulkMutateProducts: unavailable,
     ...overrides,
   }) as CatalogRepository;
 }
@@ -259,14 +260,14 @@ test("authenticated list and detail remain store-scoped and detail includes arch
     async listProducts(input) { calls.push(input); return Object.freeze({ items: Object.freeze([product()]), catalogTotal: 1 }); },
     async getProductDetails(input) { calls.push(input); return Object.freeze({ product: product(), variants: Object.freeze([variant()]) }); },
   })));
-  const list = await handlers?.listProducts(request(`${PRODUCTS}?limit=10&q=Atlas+Mug&status=draft&stock=out-of-stock&category=${PRODUCT_ID}&brand=${VARIANT_ID}&collection=${PRODUCT_ID}&sort=title-desc`));
+  const list = await handlers?.listProducts(request(`${PRODUCTS}?limit=20&q=Atlas+Mug&status=draft&stock=out-of-stock&category=${PRODUCT_ID}&brand=${VARIANT_ID}&collection=${PRODUCT_ID}&sort=title-desc`));
   assert.equal(list?.status, 200);
   assert.deepEqual(await list?.json(), { items: [product()], catalogTotal: 1 });
   const detail = await handlers?.getProduct(request(`${PRODUCTS}/${PRODUCT_ID}`), PRODUCT_ID);
   assert.equal(detail?.status, 200);
   assert.deepEqual(await detail?.json(), { product: product(), variants: [variant()] });
   assert.deepEqual(calls, [
-    { tenantContext: tenantContext(), now: NOW, pageSize: 10, search: "Atlas Mug", status: "draft", stock: "out-of-stock", categoryId: PRODUCT_ID, brandId: VARIANT_ID, collectionId: PRODUCT_ID, sort: "title-desc" },
+    { tenantContext: tenantContext(), now: NOW, pageSize: 20, search: "Atlas Mug", status: "draft", stock: "out-of-stock", categoryId: PRODUCT_ID, brandId: VARIANT_ID, collectionId: PRODUCT_ID, sort: "title-desc" },
     { tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID, includeArchivedVariants: true },
   ]);
 });
@@ -394,6 +395,31 @@ test("HTTP authorization enforces owner admin editor analyst product lifecycle r
   );
   assert.equal(analystUpdate?.status, 403);
   assert.equal(analystWrites, 0);
+});
+
+test("bulk products uses one repository command and denies editor archive before repository access", async () => {
+  const calls: unknown[] = [];
+  const body = { action: "active", targets: [{ productId: PRODUCT_ID, expectedVersion: 1 }] } as const;
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async bulkMutateProducts(input) {
+      calls.push(input);
+      return { products: [product({ status: "active", version: 2 })], replayed: false };
+    },
+  })));
+  const response = await handlers?.bulkProducts(request(`${PRODUCTS}/bulk`, { method: "POST", body }));
+  assert.equal(response?.status, 200);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0], { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, ...body });
+
+  let touched = false;
+  const editorHandlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async bulkMutateProducts() { touched = true; throw new Error("must not run"); },
+  }), access("authenticated", "editor")));
+  const denied = await editorHandlers?.bulkProducts(request(`${PRODUCTS}/bulk`, {
+    method: "POST", body: { ...body, action: "archive" },
+  }));
+  assert.equal(denied?.status, 403);
+  assert.equal(touched, false);
 });
 
 test("restore is POST-only, idempotent, and maps cross-tenant products to 404", async () => {

@@ -73,6 +73,8 @@ export {
   catalogProductListQueryBinding,
   catalogProductListQueryDigest,
   parseCatalogProductListQuery,
+  parseCatalogBulkProductIntent,
+  parseCatalogProductPageSize,
   parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
@@ -119,6 +121,10 @@ export type {
 } from "./catalog-onboarding/index.ts";
 export type {
   CatalogProductListQuery,
+  CatalogBulkProductAction,
+  CatalogBulkProductIntent,
+  CatalogBulkProductTarget,
+  CatalogProductPageSize,
   CatalogProductListQueryBinding,
   CatalogProductListVariantSummary,
   CatalogProductSort,

@@ -14,6 +14,8 @@ import {
   parseProductVariant,
 } from "./index.ts";
 
+import { parseCatalogBulkProductIntent, parseCatalogProductPageSize } from "./index.ts";
+
 const PRODUCT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const VARIANT_ID = "22222222-2222-4222-8222-222222222222";
 const STORE_ID = "33333333-3333-4333-8333-333333333333";
@@ -144,6 +146,39 @@ test("global product-list query exposes a reusable versioned canonical cursor bi
   );
   assert.notEqual(firstDigest, catalogProductListQueryDigest({ search: "other", status: "active", sort: "title-asc" }));
   assert.match(firstDigest, /^catalog-product-list-query:v1:/u);
+});
+
+test("product list page size is one of the three merchant choices", () => {
+  assert.equal(parseCatalogProductPageSize(20), 20);
+  assert.equal(parseCatalogProductPageSize(50), 50);
+  assert.equal(parseCatalogProductPageSize(100), 100);
+  for (const value of [0, 1, 19, 21, 49, 99, 101, "20", null]) {
+    assert.throws(() => parseCatalogProductPageSize(value), /catalog_contract_invalid/);
+  }
+});
+
+test("bulk product intent accepts one bounded unique versioned target set without browser authority", () => {
+  const parsed = parseCatalogBulkProductIntent({
+    action: "active",
+    targets: [
+      { productId: "11111111-1111-4111-8111-111111111111", expectedVersion: 3 },
+      { productId: "22222222-2222-4222-8222-222222222222", expectedVersion: 7 },
+    ],
+  });
+  assert.equal(parsed.action, "active");
+  assert.equal(parsed.targets.length, 2);
+  assert.equal(Object.isFrozen(parsed.targets), true);
+
+  for (const value of [
+    { action: "active", targets: [] },
+    { action: "delete", targets: [{ productId: "11111111-1111-4111-8111-111111111111", expectedVersion: 1 }] },
+    { action: "draft", targets: [{ productId: "11111111-1111-4111-8111-111111111111", expectedVersion: 0 }] },
+    { action: "archive", targets: [
+      { productId: "11111111-1111-4111-8111-111111111111", expectedVersion: 1 },
+      { productId: "11111111-1111-4111-8111-111111111111", expectedVersion: 2 },
+    ] },
+    { action: "draft", targets: [{ productId: "11111111-1111-4111-8111-111111111111", expectedVersion: 1 }], storeId: "forged" },
+  ]) assert.throws(() => parseCatalogBulkProductIntent(value), /catalog_contract_invalid/);
 });
 
 test("parses and deeply freezes exact product and variant projections", () => {

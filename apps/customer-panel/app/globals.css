@@ -203,6 +203,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .inline-confirmation p { margin: 0; color: #755950; font-size: 11px; }
 .confirmation-actions { display: flex; flex: 0 0 auto; gap: 8px; }
 .archive-dialog-layer { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(28 25 23 / 42%); }
+.product-create-overlay { position: fixed; z-index: 21; inset: 0; overflow: auto; padding: 24px; background: rgb(28 25 23 / 42%); }
+.product-create-overlay-surface { width: min(1180px, 100%); margin: 0 auto; padding: 24px; border-radius: 14px; background: var(--surface, #fff); box-shadow: 0 24px 80px rgb(15 23 42 / 24%); }
 .archive-dialog { display: flex; width: min(100%, 680px); align-items: center; justify-content: space-between; gap: 20px; border: 1px solid #d8b7ae; border-radius: 13px; background: #fffaf7; padding: 15px 18px; box-shadow: 0 16px 50px rgb(43 25 17 / 14%); }
 .archive-dialog > div:first-child { display: grid; gap: 3px; }
 .archive-dialog strong { font-size: 12px; }

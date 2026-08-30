@@ -28,6 +28,7 @@ const METHODS = Object.freeze([
   "createVariant",
   "updateVariant",
   "archiveVariant",
+  "bulkMutateProducts",
 ] as const);
 
 function invalid(): never {
@@ -49,6 +50,7 @@ function facade(repository: CatalogRepository): CatalogRepository {
     createVariant: (input) => repository.createVariant(input),
     updateVariant: (input) => repository.updateVariant(input),
     archiveVariant: (input) => repository.archiveVariant(input),
+    bulkMutateProducts: (input) => repository.bulkMutateProducts(input),
   };
   return Object.freeze(projected);
 }

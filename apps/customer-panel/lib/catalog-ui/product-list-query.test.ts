@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  parseProductListUrlState,
+  productListUrlStateQuery,
   parseProductListUrlQuery,
   productListUrlQuery,
 } from "./product-list-query.ts";
@@ -29,4 +31,15 @@ test("product list URL state defaults safely and omits empty/default values", ()
   assert.deepEqual(parseProductListUrlQuery(new URLSearchParams("q=+++&sort=price-asc")), { sort: "updated-desc" });
   assert.equal(productListUrlQuery({ sort: "updated-desc" }), "");
   assert.equal(productListUrlQuery({ search: "  Atlas  ", sort: "updated-desc" }), "q=Atlas");
+});
+
+test("pagination URL state round-trips page size and an opaque current cursor", () => {
+  const serialized = productListUrlStateQuery({ query: { status: "draft", sort: "updated-desc" }, pageSize: 50, cursor: "safe_cursor-1" });
+  assert.equal(serialized, "status=draft&page=50&cursor=safe_cursor-1");
+  assert.deepEqual(parseProductListUrlState(new URLSearchParams(serialized)), {
+    query: { status: "draft", sort: "updated-desc" }, pageSize: 50, cursor: "safe_cursor-1",
+  });
+  assert.deepEqual(parseProductListUrlState(new URLSearchParams("page=40&cursor=unsafe%25cursor")), {
+    query: { sort: "updated-desc" }, pageSize: 20,
+  });
 });

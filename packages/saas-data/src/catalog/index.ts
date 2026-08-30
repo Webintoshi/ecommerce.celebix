@@ -4,6 +4,8 @@ export { PostgresCatalogRepository } from "./repository.ts";
 export type {
   ArchiveProductInput,
   ArchiveVariantInput,
+  BulkMutateProductsInput,
+  BulkMutateProductsResult,
   CatalogAuditEvent,
   CatalogVariantChoice,
   CatalogProductFields,

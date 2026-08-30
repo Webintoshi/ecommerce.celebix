@@ -179,6 +179,28 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
   ) throw new Error("catalog_http_handler_invalid");
 
   return Object.freeze({
+    async bulkProducts(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, {
+        method: "POST", pathname: `${PRODUCTS_PATH}/bulk`, query: "forbidden",
+      }, "bulk_publish");
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogMutationInput(request, "bulk_product");
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      if (
+        input.value.action === "archive"
+        && !isCatalogProductOperationAllowed(authorized.tenantContext.membership.role, "bulk_archive")
+      ) return error("membership_denied", 403);
+      return execute(
+        () => authorized.runtime.catalog.bulkMutateProducts({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          operationId: input.operationId,
+          ...input.value,
+        }),
+        (result) => json(result, 200),
+      );
+    },
+
     async getDashboardSummary(request: Request): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: CATALOG_SUMMARY_PATH, query: "forbidden",

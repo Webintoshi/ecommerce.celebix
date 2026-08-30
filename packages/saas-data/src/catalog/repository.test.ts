@@ -191,6 +191,42 @@ test("createProduct derives store authority from TenantContext and creates an in
   assert.deepEqual(client.releases, [undefined]);
 });
 
+test("bulkMutateProducts sends one deterministic target set through one transaction", async () => {
+  const second = product({ id: SECOND_PRODUCT_ID, title: "Atlas Ring", slug: "atlas-ring", status: "active", version: 5 });
+  const client = new FakeClient((text) => text.includes("saas.catalog_bulk_mutate_products")
+    ? [{ outcome: "committed", result_payload: { products: [product({ status: "active", version: 2 }), second] } }]
+    : []);
+  const result = await repository(new FakePool(client)).bulkMutateProducts({
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, action: "active",
+    targets: [
+      { productId: SECOND_PRODUCT_ID, expectedVersion: 4 },
+      { productId: PRODUCT_ID, expectedVersion: 1 },
+    ],
+  });
+  assert.equal(result.products.length, 2);
+  assert.equal(result.replayed, false);
+  const call = client.calls.find(({ text }) => text.includes("saas.catalog_bulk_mutate_products"));
+  assert.ok(call);
+  assert.equal(call.values[10], "active");
+  assert.equal(call.values[11], JSON.stringify([
+    { productId: PRODUCT_ID, expectedVersion: 1 },
+    { productId: SECOND_PRODUCT_ID, expectedVersion: 4 },
+  ]));
+  assert.equal(client.calls.filter(({ text }) => text.startsWith("BEGIN ISOLATION")).length, 1);
+});
+
+test("bulkMutateProducts denies editor archive and analyst writes before pool checkout", async () => {
+  for (const [role, action] of [["editor", "archive"], ["analyst", "draft"]] as const) {
+    const pool = new FakePool();
+    await assert.rejects(() => repository(pool).bulkMutateProducts({
+      tenantContext: tenantContext({ membership: { id: MEMBERSHIP_ID, role, status: "active" } }),
+      now: NOW, operationId: OPERATION_ID, action,
+      targets: [{ productId: PRODUCT_ID, expectedVersion: 1 }],
+    }), (error: unknown) => error instanceof CatalogRepositoryError && error.code === "membership_denied");
+    assert.equal(pool.connects, 0);
+  }
+});
+
 test("contract design rejects browser-supplied store authority before pool checkout", async () => {
   const pool = new FakePool();
   await assert.rejects(

@@ -2,6 +2,8 @@ import type {
   CatalogProductSort,
   CatalogProductStockFilter,
   CatalogProductListVariantSummary,
+  CatalogBulkProductAction,
+  CatalogBulkProductTarget,
   Product,
   ProductStatus,
   ProductVariant,
@@ -95,6 +97,17 @@ export interface RestoreProductInput extends CatalogAuthorityInput {
   readonly expectedVersion: number;
 }
 
+export interface BulkMutateProductsInput extends CatalogAuthorityInput {
+  readonly operationId: string;
+  readonly action: CatalogBulkProductAction;
+  readonly targets: readonly CatalogBulkProductTarget[];
+}
+
+export interface BulkMutateProductsResult {
+  readonly products: readonly Product[];
+  readonly replayed: boolean;
+}
+
 export interface CreateVariantInput extends CatalogAuthorityInput {
   readonly operationId: string;
   readonly productId: string;
@@ -169,6 +182,7 @@ export interface CatalogRepository {
   updateProduct(input: UpdateProductInput): Promise<ProductMutationResult>;
   archiveProduct(input: ArchiveProductInput): Promise<ProductMutationResult>;
   restoreProduct(input: RestoreProductInput): Promise<ProductMutationResult>;
+  bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult>;
   createVariant(input: CreateVariantInput): Promise<VariantMutationResult>;
   updateVariant(input: UpdateVariantInput): Promise<VariantMutationResult>;
   archiveVariant(input: ArchiveVariantInput): Promise<VariantMutationResult>;

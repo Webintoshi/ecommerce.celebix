@@ -9,6 +9,18 @@ export type CatalogProductStockFilter = (typeof CATALOG_PRODUCT_STOCK_FILTERS)[n
 export type CatalogProductSort = (typeof CATALOG_PRODUCT_SORTS)[number];
 export type ProductId = string;
 export type ProductVariantId = string;
+export type CatalogProductPageSize = 20 | 50 | 100;
+export type CatalogBulkProductAction = "active" | "draft" | "archive";
+
+export type CatalogBulkProductTarget = Readonly<{
+  productId: ProductId;
+  expectedVersion: number;
+}>;
+
+export type CatalogBulkProductIntent = Readonly<{
+  action: CatalogBulkProductAction;
+  targets: readonly CatalogBulkProductTarget[];
+}>;
 
 export interface Product {
   readonly id: ProductId;

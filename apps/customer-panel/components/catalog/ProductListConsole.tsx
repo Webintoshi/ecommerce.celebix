@@ -28,11 +28,13 @@ import type {
   CatalogProductSort,
   CatalogProductStockFilter,
   CatalogProductListVariantSummary,
+  CatalogProductPageSize,
   Product,
 } from "@celebix/saas-contracts";
 import { catalogProductListQueryDigest } from "@celebix/saas-contracts";
 
 import { ProductQuickCreateDialog } from "@/components/catalog-onboarding/ProductQuickCreateDialog";
+import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAdvancedEditor";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import {
@@ -41,7 +43,13 @@ import {
   type CatalogDashboardSummary,
   type ProductFeaturedImage,
 } from "@/lib/catalog-ui/client";
-import { productListUrlQuery } from "@/lib/catalog-ui/product-list-query";
+import { parseProductListUrlState, productListUrlStateQuery } from "@/lib/catalog-ui/product-list-query";
+import {
+  commitProductDraft,
+  createEmptyProductDraftSession,
+  productDraftIsDirty,
+  type ProductDraftSession,
+} from "@/lib/catalog-ui/product-draft-session";
 
 type Filter = "all" | "draft" | "active" | "archived";
 type StockFilter = "all" | CatalogProductStockFilter;
@@ -52,7 +60,7 @@ type ProductRow = Readonly<{
   variant?: CatalogProductListVariantSummary;
   featuredImage?: ProductFeaturedImage;
 }>;
-type BulkCatalogApi = Pick<typeof catalogApi, "archiveProduct" | "updateProduct">;
+type BulkCatalogApi = Pick<typeof catalogApi, "bulkMutateProducts">;
 type LoadOptions = Readonly<{ cursor?: string; mutationToken?: number }>;
 type LoadResult = "applied" | "blocked" | "failed" | "stale";
 type SummaryState = "loading" | "ready" | "unavailable";
@@ -179,21 +187,15 @@ export async function executeBulkProductAction(
   action: Exclude<BulkAction, "">,
   api: BulkCatalogApi,
 ): Promise<Readonly<{ completed: number; failed: number }>> {
-  let completed = 0;
-  let failed = 0;
-  for (const { product } of targets) {
-    try {
-      if (action === "archive") await api.archiveProduct(product.id, product.version);
-      else await api.updateProduct(product.id, {
-        expectedVersion: product.version,
-        product: productFields(product, action),
-      });
-      completed += 1;
-    } catch {
-      failed += 1;
-    }
+  try {
+    await api.bulkMutateProducts({
+      action,
+      targets: Object.freeze(targets.map(({ product }) => Object.freeze({ productId: product.id, expectedVersion: product.version }))),
+    });
+    return Object.freeze({ completed: targets.length, failed: 0 });
+  } catch {
+    return Object.freeze({ completed: 0, failed: targets.length });
   }
-  return Object.freeze({ completed, failed });
 }
 
 function projectRows(
@@ -231,7 +233,9 @@ export function ProductListConsole({
   canArchive = false,
   canImport = false,
   initialQuery = Object.freeze({ sort: "updated-desc" }),
-}: Readonly<{ canManage?: boolean; canArchive?: boolean; canImport?: boolean; initialQuery?: CatalogProductListQuery }>) {
+  initialPageSize = 20,
+  initialCursor,
+}: Readonly<{ canManage?: boolean; canArchive?: boolean; canImport?: boolean; initialQuery?: CatalogProductListQuery; initialPageSize?: CatalogProductPageSize; initialCursor?: string }>) {
   const [filter, setFilter] = useState<Filter>(initialQuery.status ?? "all");
   const [stockFilter, setStockFilter] = useState<StockFilter>(initialQuery.stock ?? "all");
   const [categoryId, setCategoryId] = useState(initialQuery.categoryId ?? "");
@@ -248,6 +252,11 @@ export function ProductListConsole({
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [bulkAction, setBulkAction] = useState<BulkAction>("");
   const [nextCursor, setNextCursor] = useState<string>();
+  const [currentCursor, setCurrentCursor] = useState<string | undefined>(initialCursor);
+  const [cursorHistory, setCursorHistory] = useState<readonly (string | undefined)[]>([]);
+  const [pageSize, setPageSize] = useState<CatalogProductPageSize>(initialPageSize);
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
   const [catalogTotal, setCatalogTotal] = useState<number>();
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -260,6 +269,10 @@ export function ProductListConsole({
   const [archiveCandidate, setArchiveCandidate] = useState<Product>();
   const [bulkArchiveConfirmation, setBulkArchiveConfirmation] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [advancedCreateOpen, setAdvancedCreateOpen] = useState(false);
+  const [draftSession, setDraftSession] = useState<ProductDraftSession>(() => createEmptyProductDraftSession());
+  const draftSessionRef = useRef(draftSession);
+  draftSessionRef.current = draftSession;
   const [quickOptions, setQuickOptions] = useState<CatalogOnboardingOptions | null>(null);
   const [quickOptionsState, setQuickOptionsState] = useState<"loading" | "ready" | "unavailable">("loading");
   const quickOptionsRequestRef = useRef<Promise<CatalogOnboardingOptions> | null>(null);
@@ -307,6 +320,7 @@ export function ProductListConsole({
       const queryDigest = catalogProductListQueryDigest(query);
       const input = Object.freeze({
         ...query,
+        pageSize: pageSizeRef.current,
         ...(cursor === undefined ? {} : { cursor }),
       });
       const [listOutcome, summaryOutcome] = await Promise.allSettled([
@@ -327,12 +341,12 @@ export function ProductListConsole({
       const result = listOutcome.value;
       const projected = projectRows(result.items, result.featuredImages, result.variantSummaries);
       if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
-      setRows((current) => cursor === undefined ? projected : Object.freeze([...current, ...projected]));
-      if (cursor === undefined) setAppliedQueryDigest(queryDigest);
+      setRows(projected);
+      setAppliedQueryDigest(queryDigest);
       setNextCursor(result.nextCursor);
-      if (cursor === undefined) setCatalogTotal(result.catalogTotal);
-      if (cursor === undefined) setSelected(Object.freeze([]));
-      if (cursor === undefined) setRowsStale(false);
+      setCatalogTotal(result.catalogTotal);
+      setSelected(Object.freeze([]));
+      setRowsStale(false);
       return "applied";
     } catch (failure) {
       if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
@@ -356,13 +370,34 @@ export function ProductListConsole({
     return () => globalThis.clearTimeout(timer);
   }, [debouncedSearch, search]);
 
-  useEffect(() => { void load(); }, [brandId, categoryId, collectionId, debouncedSearch, filter, load, sort, stockFilter]);
+  useEffect(() => { void load({ ...(currentCursor === undefined ? {} : { cursor: currentCursor }) }); }, [brandId, categoryId, collectionId, currentCursor, debouncedSearch, filter, load, pageSize, sort, stockFilter]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const query = productListUrlQuery(queryRef.current);
+    const query = productListUrlStateQuery({ query: queryRef.current, pageSize, ...(currentCursor === undefined ? {} : { cursor: currentCursor }) });
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${query === "" ? "" : `?${query}`}${window.location.hash}`);
-  }, [brandId, categoryId, collectionId, debouncedSearch, filter, sort, stockFilter]);
+  }, [brandId, categoryId, collectionId, currentCursor, debouncedSearch, filter, pageSize, sort, stockFilter]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const restore = () => {
+      const state = parseProductListUrlState(new URLSearchParams(window.location.search));
+      setSearch(state.query.search ?? "");
+      setDebouncedSearch(state.query.search ?? "");
+      setFilter(state.query.status ?? "all");
+      setStockFilter(state.query.stock ?? "all");
+      setCategoryId(state.query.categoryId ?? "");
+      setBrandId(state.query.brandId ?? "");
+      setCollectionId(state.query.collectionId ?? "");
+      setSort(state.query.sort);
+      setPageSize(state.pageSize);
+      setCurrentCursor(state.cursor);
+      setCursorHistory(Object.freeze([]));
+      setSelected(Object.freeze([]));
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
 
   useEffect(() => {
     let current = true;
@@ -376,6 +411,17 @@ export function ProductListConsole({
     });
     return () => { current = false; };
   }, [requestQuickOptions]);
+
+  useEffect(() => {
+    if ((!quickCreateOpen && !advancedCreateOpen) || typeof window === "undefined") return;
+    const protect = (event: BeforeUnloadEvent) => {
+      if (!productDraftIsDirty(draftSessionRef.current)) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
+  }, [advancedCreateOpen, quickCreateOpen]);
 
   useEffect(() => {
     if (archiveCandidate !== undefined) {
@@ -401,6 +447,8 @@ export function ProductListConsole({
   function invalidateGlobalQuery(clearSelection = true) {
     operationCoordinator.current.invalidateReads();
     setNextCursor(undefined);
+    setCurrentCursor(undefined);
+    setCursorHistory(Object.freeze([]));
     if (clearSelection) setSelected(Object.freeze([]));
   }
 
@@ -443,6 +491,34 @@ export function ProductListConsole({
     if (value === sort) return;
     invalidateGlobalQuery(false);
     setSort(value);
+  }
+
+  function goNextPage() {
+    if (nextCursor === undefined) return;
+    if (typeof window !== "undefined") {
+      const query = productListUrlStateQuery({ query: queryRef.current, pageSize, cursor: nextCursor });
+      window.history.pushState(window.history.state, "", `${window.location.pathname}?${query}${window.location.hash}`);
+    }
+    setCursorHistory((current) => Object.freeze([...current, currentCursor]));
+    setCurrentCursor(nextCursor);
+  }
+
+  function goPreviousPage() {
+    const previous = cursorHistory.at(-1);
+    if (cursorHistory.length === 0) return;
+    if (typeof window !== "undefined") {
+      const query = productListUrlStateQuery({ query: queryRef.current, pageSize, ...(previous === undefined ? {} : { cursor: previous }) });
+      window.history.pushState(window.history.state, "", `${window.location.pathname}${query === "" ? "" : `?${query}`}${window.location.hash}`);
+    }
+    setCursorHistory((current) => Object.freeze(current.slice(0, -1)));
+    setCurrentCursor(previous);
+  }
+
+  function updatePageSize(value: CatalogProductPageSize) {
+    setPageSize(value);
+    setCurrentCursor(undefined);
+    setCursorHistory(Object.freeze([]));
+    setSelected(Object.freeze([]));
   }
 
   function closeArchiveDialog() {
@@ -491,7 +567,7 @@ export function ProductListConsole({
       setError(safeMessage(failure));
       setArchiveCandidate(undefined);
     } finally {
-      const reconciliation = await load({ mutationToken });
+      const reconciliation = await load({ mutationToken, ...(currentCursor === undefined ? {} : { cursor: currentCursor }) });
       if (mutationCompleted && reconciliation !== "applied") setRowsStale(true);
       operationCoordinator.current.endMutation(mutationToken);
       setBusy(false);
@@ -515,7 +591,7 @@ export function ProductListConsole({
     } catch (failure) {
       setError(safeMessage(failure));
     } finally {
-      const reconciliation = await load({ mutationToken });
+      const reconciliation = await load({ mutationToken, ...(currentCursor === undefined ? {} : { cursor: currentCursor }) });
       if (mutationCompleted && reconciliation !== "applied") setRowsStale(true);
       operationCoordinator.current.endMutation(mutationToken);
       setBusy(false);
@@ -542,7 +618,7 @@ export function ProductListConsole({
     } catch (failure) {
       setError(safeMessage(failure));
     } finally {
-      const reconciliation = await load({ mutationToken });
+      const reconciliation = await load({ mutationToken, ...(currentCursor === undefined ? {} : { cursor: currentCursor }) });
       if (mutationCompleted && reconciliation !== "applied") setRowsStale(true);
       operationCoordinator.current.endMutation(mutationToken);
       setBusy(false);
@@ -564,7 +640,7 @@ export function ProductListConsole({
       const outcome = await executeBulkProductAction(targets, bulkAction, catalogApi);
       setSelected(Object.freeze([]));
       setBulkArchiveConfirmation(false);
-      const reconciliation = await load({ mutationToken });
+      const reconciliation = await load({ mutationToken, ...(currentCursor === undefined ? {} : { cursor: currentCursor }) });
       const reconciliationState = reconciliation === "applied" ? "succeeded" : "failed";
       setBulkOutcome(Object.freeze({ ...outcome, reconciliation: reconciliationState }));
       if (reconciliationState === "failed" && outcome.completed > 0) setRowsStale(true);
@@ -624,6 +700,8 @@ export function ProductListConsole({
 
   async function openQuickCreate() {
     if (!canManage) return;
+    setDraftSession(createEmptyProductDraftSession());
+    setAdvancedCreateOpen(false);
     setQuickCreateOpen(true);
     if (quickOptions !== null) {
       setQuickOptionsState("ready");
@@ -639,6 +717,25 @@ export function ProductListConsole({
       setQuickCreateOpen(false);
       setError(failure instanceof Error ? failure.message : "Ürün seçenekleri yüklenemedi.");
     }
+  }
+
+  function closeCreateWorkflow() {
+    if (
+      productDraftIsDirty(draftSessionRef.current)
+      && !window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Taslaktan çıkmak istiyor musunuz?")
+    ) return;
+    setQuickCreateOpen(false);
+    setAdvancedCreateOpen(false);
+    setDraftSession(createEmptyProductDraftSession());
+  }
+
+  function completeCreateWorkflow() {
+    const committed = commitProductDraft(draftSessionRef.current);
+    draftSessionRef.current = committed;
+    setDraftSession(committed);
+    setQuickCreateOpen(false);
+    setAdvancedCreateOpen(false);
+    void load();
   }
 
   const topbarActions = productCommands();
@@ -684,8 +781,8 @@ export function ProductListConsole({
           <span className="product-selected-count">{selected.length} ürün seçildi</span>
         </div>
         <div className="product-list-status">
-          <span className="product-range">{visibleRows.length === 0 ? 0 : 1} - {visibleRows.length} / {rows.length} yüklendi · {summary?.totalProducts ?? "—"} mağazada</span>
-          <label className="row-count-control"><span>Satır sayısı</span><select aria-label="Satır sayısı" value="20" disabled><option>20</option></select></label>
+          <span className="product-range">{visibleRows.length === 0 ? 0 : 1} - {visibleRows.length} / {catalogTotal ?? "—"} sonuç</span>
+          <label className="row-count-control"><span>Satır sayısı</span><select aria-label="Satır sayısı" value={pageSize} disabled={busy || loading || loadingMore} onChange={(event) => updatePageSize(Number(event.currentTarget.value) as CatalogProductPageSize)}><option value="20">20</option><option value="50">50</option><option value="100">100</option></select></label>
         </div>
       </div> : null}
 
@@ -725,7 +822,7 @@ export function ProductListConsole({
         </div>
       )}
 
-      {nextCursor ? <button className="button button-secondary load-more" type="button" onClick={() => void load({ cursor: nextCursor })} disabled={loadingMore || loading || busy || rowsStale}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
+      <nav className="product-pagination" aria-label="Ürün sayfaları"><button className="button button-secondary" type="button" onClick={goPreviousPage} disabled={cursorHistory.length === 0 || loadingMore || loading || busy || rowsStale}>Önceki</button><button className="button button-secondary" type="button" onClick={goNextPage} disabled={nextCursor === undefined || loadingMore || loading || busy || rowsStale}>{loadingMore ? "Yükleniyor…" : "Sonraki"}</button></nav>
 
       {archiveCandidate && canArchive ? (
         <div className="archive-dialog-layer">
@@ -748,10 +845,19 @@ export function ProductListConsole({
       {canManage ? <ProductQuickCreateDialog
         open={quickCreateOpen}
         options={quickOptions}
-        onClose={() => setQuickCreateOpen(false)}
-        onCreated={() => { setQuickCreateOpen(false); void load(); }}
-        onAdvanced={() => { setQuickCreateOpen(false); location.assign("/products/new?mode=advanced"); }}
+        draftSession={draftSession}
+        onDraftSessionChange={setDraftSession}
+        onClose={closeCreateWorkflow}
+        onCreated={completeCreateWorkflow}
+        onAdvanced={() => { setQuickCreateOpen(false); setAdvancedCreateOpen(true); }}
       /> : null}
+      {canManage && advancedCreateOpen && quickOptions ? <div className="product-create-overlay" role="dialog" aria-modal="true" aria-label="Gelişmiş ürün oluşturma"><div className="product-create-overlay-surface"><ProductAdvancedEditor
+        options={quickOptions}
+        draftSession={draftSession}
+        onDraftSessionChange={setDraftSession}
+        onCancel={closeCreateWorkflow}
+        onCreated={completeCreateWorkflow}
+      /></div></div> : null}
     </section>
   );
 }

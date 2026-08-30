@@ -6,7 +6,7 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 export const CATALOG_SUMMARY_PATH = "/api/catalog/summary";
 export const CATALOG_VARIANT_CHOICES_PATH = "/api/catalog/variant-choices";
 const CATALOG_PATH = new RegExp(
-  `^(?:/api/catalog/(?:summary|variant-choices)|/api/catalog/products(?:/${UUID}(?:/(?:archive|restore)|/variants(?:/${UUID}(?:/archive)?)?)?)?)$`,
+  `^(?:/api/catalog/(?:summary|variant-choices)|/api/catalog/products(?:/bulk|/${UUID}(?:/(?:archive|restore)|/variants(?:/${UUID}(?:/archive)?)?)?)?)$`,
 );
 
 export type CatalogRequestAuthorityDecision =
