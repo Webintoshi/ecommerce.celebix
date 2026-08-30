@@ -9,6 +9,7 @@ export type {
   CatalogAuditEvent,
   CatalogVariantChoice,
   CatalogProductFields,
+  CatalogProductPreviewProjection,
   CatalogRepository,
   CatalogVariantFields,
   CreateProductInput,

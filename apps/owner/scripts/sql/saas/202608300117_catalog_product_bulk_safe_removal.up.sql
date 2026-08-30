@@ -163,6 +163,29 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.catalog_get_product_preview(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,p_product_id uuid
+)
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE authority_error text; hostname text; projection jsonb;
+BEGIN
+ authority_error:=saas.catalog_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now);
+ IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+ IF NOT EXISTS(SELECT 1 FROM saas.products AS product WHERE product.store_id=p_store_id AND product.id=p_product_id) THEN RETURN QUERY SELECT 'product_not_found'::text,NULL::jsonb; RETURN; END IF;
+ SELECT domain.hostname INTO hostname FROM saas.store_domains AS domain WHERE domain.store_id=p_store_id AND domain.status='active' AND domain.is_primary ORDER BY domain.id LIMIT 1;
+ IF hostname IS NULL THEN RETURN QUERY SELECT 'unavailable'::text,NULL::jsonb; RETURN; END IF;
+ SELECT pg_catalog.jsonb_build_object(
+   'canonicalStorefrontUrl','https://'||hostname||'/products/'||product.slug,
+   'product',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('id',product.id,'slug',product.slug,'title',product.title,'description',product.description,'status',product.status,'currency',product.currency,'version',product.version)),
+   'variants',COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('title',variant.title,'priceCents',variant.price_cents,'compareAtCents',variant.compare_at_cents,'stockTracking',variant.stock_tracking,'stockQuantity',variant.stock_quantity,'attributes',variant.attributes)) ORDER BY variant.created_at,variant.id) FROM saas.product_variants AS variant WHERE variant.store_id=p_store_id AND variant.product_id=p_product_id AND variant.status='active'),'[]'::jsonb),
+   'media',COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('publicUrl',media.public_url,'altText',media.alt_text,'width',media.width,'height',media.height)) ORDER BY media.sort_order,media.id) FROM saas.product_media AS media WHERE media.store_id=p_store_id AND media.product_id=p_product_id AND media.status='active'),'[]'::jsonb),
+   'merchandising',COALESCE((SELECT pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('seoTitle',profile.seo_title,'seoDescription',profile.seo_description)) FROM saas.catalog_product_profiles AS profile WHERE profile.store_id=p_store_id AND profile.product_id=p_product_id),'{}'::jsonb)
+ ) INTO projection FROM saas.products AS product WHERE product.store_id=p_store_id AND product.id=p_product_id;
+ RETURN QUERY SELECT 'found'::text,projection;
+END
+$function$;
+
 CREATE OR REPLACE FUNCTION saas.guard_catalog_operation_mutation()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas
 AS $function$
@@ -248,10 +271,13 @@ REVOKE ALL ON FUNCTION saas.catalog_bulk_mutate_products(uuid,uuid,uuid,uuid,tex
 GRANT EXECUTE ON FUNCTION saas.catalog_bulk_mutate_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,text,jsonb) TO celebix_saas_app;
 ALTER FUNCTION saas.catalog_bulk_mutate_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,text,jsonb) OWNER TO celebix_saas_owner;
 REVOKE ALL ON FUNCTION saas.catalog_product_removal_eligibility(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.catalog_get_product_preview(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.catalog_remove_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION saas.catalog_product_removal_eligibility(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.catalog_get_product_preview(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.catalog_remove_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) TO celebix_saas_app;
 ALTER FUNCTION saas.catalog_product_removal_eligibility(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.catalog_get_product_preview(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.catalog_remove_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) OWNER TO celebix_saas_owner;
 
 COMMIT;

@@ -22,6 +22,7 @@ import type {
   BulkMutateProductsResult,
   CatalogDashboardSummary,
   CatalogProductFeaturedImage,
+  CatalogProductPreviewProjection,
   CatalogVariantChoice,
   CatalogRepository,
   CreateProductInput,
@@ -258,6 +259,17 @@ function removeProductResult(value: unknown, replayed: boolean): RemoveProductRe
   const parsed = payload(value, ["productId", "removed"]);
   if (typeof parsed.productId !== "string" || !UUID.test(parsed.productId) || parsed.removed !== true) throw unavailable();
   return Object.freeze({ productId: parsed.productId, removed: true, replayed });
+}
+function previewText(value: unknown, maximum: number): string { if (typeof value !== "string" || value.length<1 || value.length>maximum || value!==value.trim() || CONTROL.test(value)) throw unavailable(); return value; }
+function productPreview(value: unknown, productId: string): CatalogProductPreviewProjection {
+  const root=payload(value,["canonicalStorefrontUrl","media","merchandising","product","variants"]), product=payload(root.product,["currency","id","slug","status","title","version",...(typeof (root.product as any)?.description==="string"?["description"]:[])]);
+  if(product.id!==productId||typeof root.canonicalStorefrontUrl!=="string"||!Array.isArray(root.variants)||!Array.isArray(root.media)||typeof root.merchandising!=="object"||root.merchandising===null)throw unavailable();
+  let url:URL;try{url=new URL(root.canonicalStorefrontUrl);}catch{throw unavailable();}if(url.protocol!=="https:"||url.username||url.password||url.search||url.hash||url.toString()!==root.canonicalStorefrontUrl)throw unavailable();
+  const status=product.status;if(status!=="active"&&status!=="draft"&&status!=="archived")throw unavailable();
+  const variants=Object.freeze(root.variants.map((entry)=>{const candidate=entry as any;const parsed=payload(entry,["attributes","priceCents","stockQuantity","stockTracking","title",...(candidate?.compareAtCents===undefined?[]:["compareAtCents"])]);if(!Number.isSafeInteger(parsed.priceCents)||(parsed.priceCents as number)<0||!Number.isSafeInteger(parsed.stockQuantity)||(parsed.stockQuantity as number)<0||typeof parsed.stockTracking!=="boolean"||typeof parsed.attributes!=="object"||parsed.attributes===null||Array.isArray(parsed.attributes))throw unavailable();return Object.freeze({title:previewText(parsed.title,200),priceCents:parsed.priceCents as number,...(parsed.compareAtCents===undefined?{}:{compareAtCents:count(parsed.compareAtCents)}),stockTracking:parsed.stockTracking,stockQuantity:parsed.stockQuantity as number,attributes:Object.freeze({...parsed.attributes as Record<string,string>})});}));
+  const media=Object.freeze(root.media.map((entry)=>{const candidate=entry as any;const parsed=payload(entry,["altText","publicUrl",...(candidate?.width===undefined?[]:["width"]),...(candidate?.height===undefined?[]:["height"])]);if(typeof parsed.publicUrl!=="string"||typeof parsed.altText!=="string")throw unavailable();return Object.freeze({publicUrl:parsed.publicUrl,altText:parsed.altText,...(parsed.width===undefined?{}:{width:count(parsed.width)}),...(parsed.height===undefined?{}:{height:count(parsed.height)})});}));
+  const merchandising=payload(root.merchandising,[...(typeof (root.merchandising as any)?.seoTitle==="string"?["seoTitle"]:[]),...(typeof (root.merchandising as any)?.seoDescription==="string"?["seoDescription"]:[])]);
+  return Object.freeze({canonicalStorefrontUrl:root.canonicalStorefrontUrl,product:Object.freeze({id:productId,slug:previewText(product.slug,100),title:previewText(product.title,200),...(product.description===undefined?{}:{description:previewText(product.description,10000)}),status,currency:previewText(product.currency,3),version:count(product.version)}),variants,media,merchandising:Object.freeze({...merchandising as {seoTitle?:string;seoDescription?:string}})});
 }
 
 function createProductResult(value: unknown, replayed: boolean): CreateProductResult {
@@ -499,6 +511,11 @@ export class PostgresCatalogRepository implements CatalogRepository {
     });
     if (result.outcome !== "found") throw unavailable();
     return parseProduct(payload(result.resultPayload, ["product"]).product);
+  }
+
+  async getProductPreview(input: GetProductInput): Promise<CatalogProductPreviewProjection> {
+    const exact=exactInput(input,["tenantContext","now","productId"]);const authority=catalogAuthority(exact.tenantContext as GetProductInput["tenantContext"],exact.now as Date);authorizeOperation(authority,"read");const productId=catalogUuid(exact.productId);
+    const result=await this.read(authority,{text:`SELECT outcome,result_payload FROM saas.catalog_get_product_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)`,values:[...authorityValues(authority),productId]});const expected=this.expectedError(result.outcome);if(expected)throw expected;if(result.outcome!=="found")throw unavailable();return productPreview(result.resultPayload,productId);
   }
 
   async getProductDetails(input: GetProductDetailsInput): Promise<ProductDetailsResult> {

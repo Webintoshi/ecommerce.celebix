@@ -1,0 +1,3 @@
+import assert from "node:assert/strict";import test from "node:test";import {parseProductPreviewConfig} from "./config.ts";
+test("preview config accepts an exact rotatable base64url keyring",()=>{const value=parseProductPreviewConfig({CELEBIX_PRODUCT_PREVIEW_ACTIVE_KEY_ID:"v2",CELEBIX_PRODUCT_PREVIEW_KEYS:`v1:${Buffer.alloc(32,1).toString("base64url")},v2:${Buffer.alloc(32,2).toString("base64url")}`});assert.equal(value.activeKeyId,"v2");assert.equal(value.keys.size,2);});
+test("preview config fails closed on missing duplicated and short keys",()=>{assert.throws(()=>parseProductPreviewConfig({}));assert.throws(()=>parseProductPreviewConfig({CELEBIX_PRODUCT_PREVIEW_ACTIVE_KEY_ID:"v1",CELEBIX_PRODUCT_PREVIEW_KEYS:`v1:${Buffer.alloc(31).toString("base64url")}`}));});

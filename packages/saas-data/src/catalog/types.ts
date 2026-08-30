@@ -102,6 +102,13 @@ export type ProductRemovalEligibilityReason = "product_not_archived" | "media_no
 export type ProductRemovalEligibility = Readonly<{ productId: string; expectedVersion: number; eligible: boolean; reasons: readonly ProductRemovalEligibilityReason[] }>;
 export interface RemoveProductInput extends CatalogAuthorityInput { readonly operationId: string; readonly productId: string; readonly expectedVersion: number; }
 export type RemoveProductResult = Readonly<{ productId: string; removed: true; replayed: boolean }>;
+export type CatalogProductPreviewProjection = Readonly<{
+  canonicalStorefrontUrl: string;
+  product: Readonly<{ id: string; slug: string; title: string; description?: string; status: ProductStatus; currency: string; version: number }>;
+  variants: readonly Readonly<{ title: string; priceCents: number; compareAtCents?: number; stockTracking: boolean; stockQuantity: number; attributes: Readonly<Record<string,string>> }>[];
+  media: readonly Readonly<{ publicUrl: string; altText: string; width?: number; height?: number }>[];
+  merchandising: Readonly<{ seoTitle?: string; seoDescription?: string }>;
+}>;
 
 export interface BulkMutateProductsInput extends CatalogAuthorityInput {
   readonly operationId: string;
@@ -189,6 +196,7 @@ export interface CatalogRepository {
   archiveProduct(input: ArchiveProductInput): Promise<ProductMutationResult>;
   restoreProduct(input: RestoreProductInput): Promise<ProductMutationResult>;
   getProductRemovalEligibility(input: GetProductRemovalEligibilityInput): Promise<ProductRemovalEligibility>;
+  getProductPreview(input: GetProductInput): Promise<CatalogProductPreviewProjection>;
   removeProduct(input: RemoveProductInput): Promise<RemoveProductResult>;
   bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult>;
   createVariant(input: CreateVariantInput): Promise<VariantMutationResult>;

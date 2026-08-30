@@ -1,0 +1,2 @@
+import {defaultProductPreviewHandlers} from "../../../../../../lib/product-preview/default.ts";type Context={params:Promise<{productId:string}>};
+export async function POST(request:Request,context:Context){return defaultProductPreviewHandlers.issue(request,(await context.params).productId);}export async function GET(request:Request,context:Context){return defaultProductPreviewHandlers.redeem(request,(await context.params).productId);}

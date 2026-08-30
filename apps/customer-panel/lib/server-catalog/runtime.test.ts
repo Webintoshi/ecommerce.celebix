@@ -28,6 +28,7 @@ function catalog(): CatalogRepository {
     createProduct: reject,
     getDashboardSummary: reject,
     getProduct: reject,
+    getProductPreview: reject,
     getProductDetails: reject,
     listProducts: reject,
     listVariantChoices: reject,

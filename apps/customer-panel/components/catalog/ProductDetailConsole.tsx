@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { CatalogOnboardingOptions, CatalogProductEditorProjection, Product, ProductVariant } from "@celebix/saas-contracts";
-import { Archive, ArrowLeft, Pencil, Plus, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Archive, ArrowLeft, Eye, Pencil, Plus, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
 
 import {
   CatalogApiError,
@@ -282,6 +282,14 @@ export function ProductDetailConsole({
     await mutation("remove-product", async () => { await catalogApi.removeProduct(productId, removal.expectedVersion); location.assign("/products"); });
   }
 
+  async function openStorefrontPreview() {
+    const target=window.open("about:blank","_blank");if(target)target.opener=null;
+    setBusy("preview");setError("");
+    try{const response=await fetch(`/api/catalog/products/${productId}/preview`,{method:"POST",credentials:"same-origin"}),body=await response.json();if(!response.ok||typeof body.url!=="string")throw new Error();if(target)target.location.href=body.url;else window.location.assign(body.url);}
+    catch{target?.close();setError("Mağaza önizlemesi oluşturulamadı. Ürünü ve mağaza alan adını kontrol edip yeniden deneyin.");}
+    finally{setBusy("");}
+  }
+
   if (loading) return <div className="catalog-loading page-loading" role="status"><span className="spinner" aria-hidden="true" /> Ürün ayrıntıları yükleniyor…</div>;
   if (detail === undefined) return <section className="catalog-page"><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
 
@@ -310,6 +318,7 @@ export function ProductDetailConsole({
           <p>{primarySku ? `SKU ${primarySku}` : "SKU eklenmemiş"}<span aria-hidden="true"> · </span>{product.currency}</p>
         </div>
         <div className="heading-actions product-detail-actions">
+          {!archived ? <button className="button button-secondary" type="button" onClick={() => void openStorefrontPreview()} disabled={busy!==""}><Eye aria-hidden="true"/> {busy==="preview"?"Önizleme hazırlanıyor…":"Mağazada önizle"}</button>:null}
           {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
           {archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={() => void inspectRemoval()} disabled={busy !== ""}><Trash2 aria-hidden="true" /> Kalıcı kaldırmayı değerlendir</button> : null}
           {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}
