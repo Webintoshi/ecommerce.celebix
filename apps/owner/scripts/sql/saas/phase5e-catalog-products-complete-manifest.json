@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase5e-catalog-products-complete",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202608300117_catalog_product_bulk_safe_removal.up.sql",
+      "direction": "up",
+      "sha256": "5a87da0b206ec3ef5da8f6cc1a5a95982ff66262a2b8e3db0f15ab43185cd175"
+    },
+    {
+      "file": "202608300117_catalog_product_bulk_safe_removal.down.sql",
+      "direction": "down",
+      "sha256": "ac1b7c37abf6edf72d43862790b1268566ef93a086352cc3a74bb243069125f2"
+    },
+    {
+      "file": "202608300117_catalog_product_bulk_safe_removal_assertions.sql",
+      "direction": "verify",
+      "sha256": "66428ce42931f04b1b4949707d9b6f05164cc65aa4be42133be036bc69ea99b6"
+    },
+    {
+      "file": "202608300118_catalog_media_retention_restore.up.sql",
+      "direction": "up",
+      "sha256": "01714edad1e6edff7706afdacc5770958b9948137a5d71f1d0ba672dc761ab7c"
+    },
+    {
+      "file": "202608300118_catalog_media_retention_restore.down.sql",
+      "direction": "down",
+      "sha256": "0a6f0b4a75746c8f9d56e97fcb0d1dc842edc519de9ca564e1c593efd30a2db3"
+    },
+    {
+      "file": "202608300118_catalog_media_retention_restore_assertions.sql",
+      "direction": "verify",
+      "sha256": "4cb710f22ad1ba09f6e70220da4569d3d216e51478e968dd7f755ab55e9116c8"
+    }
+  ]
+}
