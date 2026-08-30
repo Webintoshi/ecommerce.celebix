@@ -27,6 +27,7 @@ export type CatalogMutationKind =
   | "update_product"
   | "archive_product"
   | "restore_product"
+  | "remove_product"
   | "create_variant"
   | "update_variant"
   | "archive_variant"
@@ -37,6 +38,7 @@ export type CatalogMutationBodies = Readonly<{
   update_product: Readonly<{ expectedVersion: number; product: CatalogProductFields }>;
   archive_product: Readonly<{ expectedVersion: number }>;
   restore_product: Readonly<{ expectedVersion: number }>;
+  remove_product: Readonly<{ expectedVersion: number }>;
   create_variant: Readonly<{ variant: CatalogVariantFields }>;
   update_variant: Readonly<{ expectedVersion: number; variant: CatalogVariantFields }>;
   archive_variant: Readonly<{ expectedVersion: number }>;
@@ -143,7 +145,7 @@ function mutationBody<K extends CatalogMutationKind>(value: unknown, kind: K): C
       ? Object.freeze({ expectedVersion, product }) as CatalogMutationBodies[K]
       : null;
   }
-  if (kind === "archive_product" || kind === "restore_product" || kind === "archive_variant") {
+  if (kind === "archive_product" || kind === "restore_product" || kind === "remove_product" || kind === "archive_variant") {
     const parsed = exact(value, ["expectedVersion"]);
     const expectedVersion = version(parsed?.expectedVersion);
     return parsed && expectedVersion !== null

@@ -147,6 +147,10 @@ test("maps every product operation to one immutable merchant action", () => {
     "manage_merchandising",
     "publish",
     "manage_media",
+    "archive_media",
+    "restore_media",
+    "cleanup_media",
+    "remove",
     "bulk_publish",
     "bulk_archive",
   ]);
@@ -159,12 +163,12 @@ test("maps every product operation to one immutable merchant action", () => {
     "update_variant",
     "manage_merchandising",
     "publish",
-    "manage_media",
-    "bulk_publish",
+      "manage_media",
+      "bulk_publish",
   ] as const) {
     assert.equal(catalogProductAction(operation), "catalog_admin.manage");
   }
-  for (const operation of ["archive", "restore", "archive_variant", "bulk_archive"] as const) {
+  for (const operation of ["archive", "restore", "archive_variant", "archive_media", "restore_media", "cleanup_media", "remove", "bulk_archive"] as const) {
     assert.equal(catalogProductAction(operation), "catalog_admin.archive");
   }
 });
@@ -183,6 +187,10 @@ test("enforces the exact product lifecycle role matrix", () => {
   assert.equal(isCatalogProductOperationAllowed("editor", "archive"), false);
   assert.equal(isCatalogProductOperationAllowed("editor", "restore"), false);
   assert.equal(isCatalogProductOperationAllowed("editor", "archive_variant"), false);
+  assert.equal(isCatalogProductOperationAllowed("editor", "archive_media"), false);
+  assert.equal(isCatalogProductOperationAllowed("editor", "restore_media"), false);
+  assert.equal(isCatalogProductOperationAllowed("editor", "cleanup_media"), false);
+  assert.equal(isCatalogProductOperationAllowed("editor", "remove"), false);
   assert.equal(isCatalogProductOperationAllowed("analyst", "read"), true);
   for (const operation of CATALOG_PRODUCT_OPERATIONS.filter((value) => value !== "read")) {
     assert.equal(isCatalogProductOperationAllowed("analyst", operation), false, `analyst:${operation}`);

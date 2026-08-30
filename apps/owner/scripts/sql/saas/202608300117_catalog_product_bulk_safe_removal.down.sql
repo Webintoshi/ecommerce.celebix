@@ -9,6 +9,8 @@ BEGIN
 END
 $guard$;
 
+DROP FUNCTION saas.catalog_remove_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint);
+DROP FUNCTION saas.catalog_product_removal_eligibility(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid);
 DROP FUNCTION saas.catalog_bulk_mutate_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,text,jsonb);
 
 ALTER TABLE saas.catalog_operations

@@ -10,6 +10,7 @@ export const CATALOG_ERROR_CODES = Object.freeze([
   "slug_conflict",
   "sku_conflict",
   "version_conflict",
+  "removal_not_eligible",
   "operation_replayed",
   "operation_mismatch",
   "durable_authority_invalid",

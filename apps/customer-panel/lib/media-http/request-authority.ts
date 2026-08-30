@@ -1,7 +1,7 @@
 import "server-only";
 import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
-const MEDIA_PATH = new RegExp(`^/api/catalog/products/${UUID}/media(?:/reorder|/${UUID}(?:/archive)?)?$`);
+const MEDIA_PATH = new RegExp(`^/api/catalog/products/${UUID}/media(?:/reorder|/${UUID}(?:/(?:archive|restore|cleanup))?)?$`);
 export type ProductMediaRequestDecision = "approved" | "method_not_allowed" | "origin_denied" | "request_invalid";
 export function createProductMediaRequestAuthorityValidator(panelOrigin: string) {
   let origin: URL; try { origin = new URL(panelOrigin); } catch { throw new Error("product_media_request_authority_invalid"); }

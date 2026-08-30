@@ -97,6 +97,12 @@ export interface RestoreProductInput extends CatalogAuthorityInput {
   readonly expectedVersion: number;
 }
 
+export interface GetProductRemovalEligibilityInput extends CatalogAuthorityInput { readonly productId: string; }
+export type ProductRemovalEligibilityReason = "product_not_archived" | "media_not_cleaned" | "business_dependency";
+export type ProductRemovalEligibility = Readonly<{ productId: string; expectedVersion: number; eligible: boolean; reasons: readonly ProductRemovalEligibilityReason[] }>;
+export interface RemoveProductInput extends CatalogAuthorityInput { readonly operationId: string; readonly productId: string; readonly expectedVersion: number; }
+export type RemoveProductResult = Readonly<{ productId: string; removed: true; replayed: boolean }>;
+
 export interface BulkMutateProductsInput extends CatalogAuthorityInput {
   readonly operationId: string;
   readonly action: CatalogBulkProductAction;
@@ -182,6 +188,8 @@ export interface CatalogRepository {
   updateProduct(input: UpdateProductInput): Promise<ProductMutationResult>;
   archiveProduct(input: ArchiveProductInput): Promise<ProductMutationResult>;
   restoreProduct(input: RestoreProductInput): Promise<ProductMutationResult>;
+  getProductRemovalEligibility(input: GetProductRemovalEligibilityInput): Promise<ProductRemovalEligibility>;
+  removeProduct(input: RemoveProductInput): Promise<RemoveProductResult>;
   bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult>;
   createVariant(input: CreateVariantInput): Promise<VariantMutationResult>;
   updateVariant(input: UpdateVariantInput): Promise<VariantMutationResult>;

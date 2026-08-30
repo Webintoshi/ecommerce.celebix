@@ -29,6 +29,7 @@ import type {
   CreateVariantInput,
   GetProductDetailsInput,
   GetProductInput,
+  GetProductRemovalEligibilityInput,
   GetCatalogDashboardSummaryInput,
   ListProductsInput,
   ListProductsResult,
@@ -36,6 +37,9 @@ import type {
   PostgresCatalogRepositoryOptions,
   ProductDetailsResult,
   ProductMutationResult,
+  ProductRemovalEligibility,
+  RemoveProductInput,
+  RemoveProductResult,
   RestoreProductInput,
   UpdateProductInput,
   UpdateVariantInput,
@@ -242,6 +246,18 @@ function bulkProductResult(value: unknown, replayed: boolean): BulkMutateProduct
   const products = Object.freeze(parsed.products.map(parseProduct));
   if (new Set(products.map(({ id }) => id)).size !== products.length) throw unavailable();
   return Object.freeze({ products, replayed });
+}
+
+const REMOVAL_REASONS = new Set(["product_not_archived", "media_not_cleaned", "business_dependency"]);
+function removalEligibility(value: unknown): ProductRemovalEligibility {
+  const parsed = payload(value, ["eligible", "expectedVersion", "productId", "reasons"]);
+  if (typeof parsed.productId !== "string" || !UUID.test(parsed.productId) || typeof parsed.eligible !== "boolean" || !Number.isSafeInteger(parsed.expectedVersion) || (parsed.expectedVersion as number) < 1 || !Array.isArray(parsed.reasons) || parsed.reasons.some((reason) => typeof reason !== "string" || !REMOVAL_REASONS.has(reason)) || parsed.eligible !== (parsed.reasons.length === 0)) throw unavailable();
+  return Object.freeze({ productId: parsed.productId, expectedVersion: parsed.expectedVersion as number, eligible: parsed.eligible, reasons: Object.freeze(parsed.reasons as ProductRemovalEligibility["reasons"]) });
+}
+function removeProductResult(value: unknown, replayed: boolean): RemoveProductResult {
+  const parsed = payload(value, ["productId", "removed"]);
+  if (typeof parsed.productId !== "string" || !UUID.test(parsed.productId) || parsed.removed !== true) throw unavailable();
+  return Object.freeze({ productId: parsed.productId, removed: true, replayed });
 }
 
 function createProductResult(value: unknown, replayed: boolean): CreateProductResult {
@@ -675,6 +691,24 @@ export class PostgresCatalogRepository implements CatalogRepository {
       )`,
       values: [...authorityValues(authority), operationId, fingerprint, productId, expectedVersion],
     }, ["restored"], productResult);
+  }
+
+  async getProductRemovalEligibility(input: GetProductRemovalEligibilityInput): Promise<ProductRemovalEligibility> {
+    const exact = exactInput(input, ["tenantContext", "now", "productId"]);
+    const authority = catalogAuthority(exact.tenantContext as GetProductRemovalEligibilityInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "remove");
+    const productId = catalogUuid(exact.productId);
+    const result = await this.read(authority, { text: `SELECT outcome,result_payload FROM saas.catalog_product_removal_eligibility($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)`, values: [...authorityValues(authority), productId] });
+    const expected = this.expectedError(result.outcome); if (expected) throw expected; if (result.outcome !== "found") throw unavailable();
+    return removalEligibility(result.resultPayload);
+  }
+
+  async removeProduct(input: RemoveProductInput): Promise<RemoveProductResult> {
+    const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "expectedVersion"]);
+    const authority = catalogAuthority(exact.tenantContext as RemoveProductInput["tenantContext"], exact.now as Date); authorizeOperation(authority, "remove");
+    const operationId = catalogUuid(exact.operationId), productId = catalogUuid(exact.productId), expectedVersion = positiveVersion(exact.expectedVersion);
+    const fingerprint = catalogFingerprint("remove_product", authority.storeId, { productId, expectedVersion });
+    return this.mutate(authority, operationId, fingerprint, { text: `SELECT outcome,result_payload FROM saas.catalog_remove_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint)`, values: [...authorityValues(authority), operationId, fingerprint, productId, expectedVersion] }, ["removed"], removeProductResult);
   }
 
   async bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult> {

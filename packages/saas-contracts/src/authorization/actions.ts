@@ -56,6 +56,10 @@ export const CATALOG_PRODUCT_OPERATIONS = Object.freeze([
   "manage_merchandising",
   "publish",
   "manage_media",
+  "archive_media",
+  "restore_media",
+  "cleanup_media",
+  "remove",
   "bulk_publish",
   "bulk_archive",
 ] as const);
@@ -75,6 +79,10 @@ const CATALOG_PRODUCT_ACTIONS: Readonly<Record<CatalogProductOperation, Merchant
     manage_merchandising: "catalog_admin.manage",
     publish: "catalog_admin.manage",
     manage_media: "catalog_admin.manage",
+    archive_media: "catalog_admin.archive",
+    restore_media: "catalog_admin.archive",
+    cleanup_media: "catalog_admin.archive",
+    remove: "catalog_admin.archive",
     bulk_publish: "catalog_admin.manage",
     bulk_archive: "catalog_admin.archive",
   });

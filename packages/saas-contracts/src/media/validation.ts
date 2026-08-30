@@ -1,4 +1,4 @@
-import { PRODUCT_MEDIA_STATUSES, PRODUCT_MEDIA_WRITE_STATES, type ProductMedia, type ProductMediaReservation, type ProductMediaStatus, type ProductMediaWriteState } from "./types.ts";
+import { PRODUCT_MEDIA_CLEANUP_STATES, PRODUCT_MEDIA_STATUSES, PRODUCT_MEDIA_WRITE_STATES, type ProductMedia, type ProductMediaLifecycle, type ProductMediaReservation, type ProductMediaStatus, type ProductMediaWriteState } from "./types.ts";
 import type { PublicImageMediaType } from "../storefront/types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -66,6 +66,39 @@ export function parseProductMediaReservation(value: unknown, expectedStoreId: st
     byteSize: integer(parsed.byteSize, 1, 5_242_880),
     payloadSha256,
     state,
+    version: integer(parsed.version, 1),
+  });
+}
+
+export function parseProductMediaLifecycle(value: unknown): ProductMediaLifecycle {
+  const parsed = record(value);
+  const required = ["id", "productId", "mediaType", "altText", "byteSize", "sortOrder", "status", "cleanupState", "createdAt", "updatedAt", "version"];
+  const allowed = new Set([...required, "variantId", "publicUrl", "width", "height", "archivedAt", "retentionExpiresAt"]);
+  if (required.some((key) => !Object.hasOwn(parsed, key)) || Object.keys(parsed).some((key) => !allowed.has(key))) invalid();
+  const status = string(parsed.status, 6, 8);
+  const cleanupState = string(parsed.cleanupState, 6, 14);
+  if (!["active", "archived"].includes(status) || !PRODUCT_MEDIA_CLEANUP_STATES.includes(cleanupState as ProductMediaLifecycle["cleanupState"])) invalid();
+  const createdAt = timestamp(parsed.createdAt), updatedAt = timestamp(parsed.updatedAt);
+  const archivedAt = Object.hasOwn(parsed, "archivedAt") ? timestamp(parsed.archivedAt) : undefined;
+  const retentionExpiresAt = Object.hasOwn(parsed, "retentionExpiresAt") ? timestamp(parsed.retentionExpiresAt) : undefined;
+  if (updatedAt < createdAt) invalid();
+  if (status === "active" ? cleanupState !== "active" || archivedAt !== undefined || retentionExpiresAt !== undefined : cleanupState === "active" || archivedAt === undefined || retentionExpiresAt === undefined || retentionExpiresAt < archivedAt) invalid();
+  const publicUrl = Object.hasOwn(parsed, "publicUrl") ? string(parsed.publicUrl, 1, 2048) : undefined;
+  if ((cleanupState === "object_deleted") === (publicUrl !== undefined)) invalid();
+  if (publicUrl !== undefined) { let url: URL; try { url = new URL(publicUrl); } catch { return invalid(); } if (url.protocol !== "https:" || url.username || url.password || url.hash || url.toString() !== publicUrl) invalid(); }
+  const mediaType = string(parsed.mediaType, 9, 10) as PublicImageMediaType;
+  if (!MEDIA_TYPES.includes(mediaType)) invalid();
+  const width = Object.hasOwn(parsed, "width") ? integer(parsed.width, 1, 8192) : undefined;
+  const height = Object.hasOwn(parsed, "height") ? integer(parsed.height, 1, 8192) : undefined;
+  if ((width === undefined) !== (height === undefined)) invalid();
+  return Object.freeze({
+    id: uuid(parsed.id), productId: uuid(parsed.productId),
+    ...(Object.hasOwn(parsed, "variantId") ? { variantId: uuid(parsed.variantId) } : {}),
+    ...(publicUrl === undefined ? {} : { publicUrl }), mediaType, altText: string(parsed.altText, 0, 500),
+    ...(width === undefined ? {} : { width, height }), byteSize: integer(parsed.byteSize, 1, 5_242_880),
+    sortOrder: integer(parsed.sortOrder, 0, 15), status: status as ProductMediaLifecycle["status"],
+    cleanupState: cleanupState as ProductMediaLifecycle["cleanupState"], createdAt, updatedAt,
+    ...(archivedAt === undefined ? {} : { archivedAt }), ...(retentionExpiresAt === undefined ? {} : { retentionExpiresAt }),
     version: integer(parsed.version, 1),
   });
 }

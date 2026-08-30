@@ -34,6 +34,8 @@ function catalog(): CatalogRepository {
     updateProduct: reject,
     archiveProduct: reject,
     restoreProduct: reject,
+    getProductRemovalEligibility: reject,
+    removeProduct: reject,
     createVariant: reject,
     updateVariant: reject,
     archiveVariant: reject,

@@ -21,6 +21,7 @@ const API_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "product_limit_reached",
   "product_not_found", "variant_not_found", "slug_conflict", "sku_conflict",
   "version_conflict", "operation_mismatch", "unavailable",
+  "removal_not_eligible",
 ] as const);
 export type CatalogApiErrorCode = (typeof API_CODES)[number];
 
@@ -35,6 +36,7 @@ const TURKISH_MESSAGES: Readonly<Record<CatalogApiErrorCode, string>> = Object.f
   sku_conflict: "Bu SKU mağazada başka bir varyantta kullanılıyor.",
   version_conflict: "Bu kayıt sizden önce başka bir işlem tarafından güncellendi.",
   operation_mismatch: "İşlem güvenli biçimde tekrar edilemedi. Yeni bir deneme başlatın.",
+  removal_not_eligible: "Ürün kalıcı kaldırma koşullarını karşılamıyor. Engelleri temizleyip yeniden deneyin.",
   unavailable: "Ürün hizmeti şu anda kullanılamıyor. Lütfen yeniden deneyin.",
 });
 
@@ -76,6 +78,7 @@ export type CatalogVariantChoiceResult = Readonly<{
 }>;
 export type CreateProductResult = Readonly<{ product: Product; initialVariant: ProductVariant; replayed: boolean }>;
 export type ProductMutationResult = Readonly<{ product: Product; replayed: boolean }>;
+export type ProductRemovalEligibility = Readonly<{ productId: string; expectedVersion: number; eligible: boolean; reasons: readonly ("product_not_archived" | "media_not_cleaned" | "business_dependency")[] }>;
 export type VariantMutationResult = Readonly<{ variant: ProductVariant; replayed: boolean }>;
 export type CatalogDashboardSummary = Readonly<{
   totalProducts: number;
@@ -385,6 +388,18 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       const body = record(await mutation(`/api/catalog/products/${productId(id)}/restore`, "POST", { expectedVersion: version(expectedVersion) }));
       if (body === null) throw new CatalogApiError("unavailable", 503);
       return Object.freeze({ product: parseProduct(body.product), replayed: replayed(body.replayed) });
+    },
+
+    async getProductRemovalEligibility(id: string): Promise<ProductRemovalEligibility> {
+      const body = record(await request(`/api/catalog/products/${productId(id)}/removal-eligibility`, { method: "GET", credentials: "same-origin", cache: "no-store" }));
+      if (body === null || body.productId !== id || typeof body.eligible !== "boolean" || !Number.isSafeInteger(body.expectedVersion) || !Array.isArray(body.reasons) || body.reasons.some((reason) => !["product_not_archived", "media_not_cleaned", "business_dependency"].includes(String(reason))) || body.eligible !== (body.reasons.length === 0)) throw new CatalogApiError("unavailable", 503);
+      return Object.freeze({ productId: id, eligible: body.eligible, expectedVersion: body.expectedVersion as number, reasons: Object.freeze(body.reasons as ProductRemovalEligibility["reasons"]) });
+    },
+
+    async removeProduct(id: string, expectedVersion: number): Promise<Readonly<{ productId: string; removed: true; replayed: boolean }>> {
+      const body = record(await mutation(`/api/catalog/products/${productId(id)}/remove`, "POST", { expectedVersion: version(expectedVersion) }));
+      if (body === null || body.productId !== id || body.removed !== true) throw new CatalogApiError("unavailable", 503);
+      return Object.freeze({ productId: id, removed: true, replayed: replayed(body.replayed) });
     },
 
     async bulkMutateProducts(input: CatalogBulkProductIntent): Promise<Readonly<{ products: readonly Product[]; replayed: boolean }>> {

@@ -57,6 +57,9 @@ export async function handleDefaultCatalogRestoreProduct(
   return handlers.restoreProduct(request, productId);
 }
 
+export async function handleDefaultCatalogRemovalEligibility(request: Request, context: ProductRouteContext) { const { productId } = await context.params; return handlers.removalEligibility(request, productId); }
+export async function handleDefaultCatalogRemoveProduct(request: Request, context: ProductRouteContext) { const { productId } = await context.params; return handlers.removeProduct(request, productId); }
+
 export async function handleDefaultCatalogCreateVariant(
   request: Request,
   context: ProductRouteContext,

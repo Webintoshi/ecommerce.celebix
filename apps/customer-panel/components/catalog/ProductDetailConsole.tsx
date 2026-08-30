@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { CatalogOnboardingOptions, CatalogProductEditorProjection, Product, ProductVariant } from "@celebix/saas-contracts";
-import { Archive, ArrowLeft, Pencil, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Archive, ArrowLeft, Pencil, Plus, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
 
 import {
   CatalogApiError,
   catalogApi,
   type ProductDetailResult,
+  type ProductRemovalEligibility,
 } from "@/lib/catalog-ui/client";
 import {
   buildProductUpdatePayload,
@@ -78,6 +79,8 @@ export function ProductDetailConsole({
   const [editingVariant, setEditingVariant] = useState<string>();
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
   const [archiveProduct, setArchiveProduct] = useState(false);
+  const [removal, setRemoval] = useState<ProductRemovalEligibility>();
+  const [removalConfirmation, setRemovalConfirmation] = useState("");
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
@@ -269,6 +272,16 @@ export function ProductDetailConsole({
     });
   }
 
+  async function inspectRemoval() {
+    if (!canArchive || detail?.product.status !== "archived") return;
+    await mutation("removal-eligibility", async () => { setRemoval(await catalogApi.getProductRemovalEligibility(productId)); });
+  }
+
+  async function permanentlyRemoveProduct() {
+    if (!canArchive || detail?.product.status !== "archived" || !removal?.eligible || removalConfirmation !== detail.product.title) return;
+    await mutation("remove-product", async () => { await catalogApi.removeProduct(productId, removal.expectedVersion); location.assign("/products"); });
+  }
+
   if (loading) return <div className="catalog-loading page-loading" role="status"><span className="spinner" aria-hidden="true" /> Ürün ayrıntıları yükleniyor…</div>;
   if (detail === undefined) return <section className="catalog-page"><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
 
@@ -298,6 +311,7 @@ export function ProductDetailConsole({
         </div>
         <div className="heading-actions product-detail-actions">
           {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
+          {archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={() => void inspectRemoval()} disabled={busy !== ""}><Trash2 aria-hidden="true" /> Kalıcı kaldırmayı değerlendir</button> : null}
           {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}
           {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={merchandisingState !== "ready"}><SlidersHorizontal aria-hidden="true" /> {merchandisingState === "loading" ? "Satış ayarları yükleniyor…" : "Satış ayarları"}</button> : null}
           {!archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
@@ -305,6 +319,7 @@ export function ProductDetailConsole({
       </header>
 
       {archived ? <div className="feedback feedback-warning product-archive-banner" role="status"><div><strong>Ürün arşivlenmiş</strong><p>Bu ürün mağazada ve yayın akışında görünmez. Sipariş geçmişi, medya ve analiz verileri korunur.</p></div></div> : null}
+      {removal ? <div className={`feedback ${removal.eligible ? "feedback-warning" : "feedback-error"}`} role="status"><div><strong>{removal.eligible ? "Kalıcı kaldırma için uygun" : "Kalıcı kaldırma engellendi"}</strong>{removal.eligible ? <><p>Bu işlem geri alınamaz. Onaylamak için ürün adını tam yazın.</p><label className="field"><span>{product.title}</span><input value={removalConfirmation} onChange={(event) => setRemovalConfirmation(event.target.value)} /></label><button className="button button-danger" type="button" onClick={() => void permanentlyRemoveProduct()} disabled={busy !== "" || removalConfirmation !== product.title}>{busy === "remove-product" ? "Kaldırılıyor…" : "Ürünü kalıcı kaldır"}</button></> : <p>{removal.reasons.map((reason) => reason === "product_not_archived" ? "Ürün önce arşivlenmeli." : reason === "media_not_cleaned" ? "Arşivlenmiş medya saklama/temizlik sürecini tamamlamalı." : "Sipariş, stok, sepet, yorum veya başka bir iş kaydı ürüne bağlı.").join(" ")} Arşivde tutmak güvenli alternatiftir.</p>}</div></div> : null}
 
       <dl className="product-detail-facts" aria-label="Ürün hızlı özeti">
         <div><dt>Satış fiyatı</dt><dd>{salePrice}</dd></div>
@@ -352,7 +367,7 @@ export function ProductDetailConsole({
         />
       </section> : null}
 
-      <ProductMediaManager productId={productId} canManage={canManage && !archived} />
+      <ProductMediaManager productId={productId} canManage={canManage && !archived} canArchive={canArchive} />
 
       <section className="variant-list product-detail-section product-detail-variants" aria-labelledby="variants-title">
       <div className="section-heading-row product-detail-section-header">

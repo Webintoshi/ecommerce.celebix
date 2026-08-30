@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseProductMedia, parseProductMediaReservation } from "./validation.ts";
+import { parseProductMedia, parseProductMediaLifecycle, parseProductMediaReservation } from "./validation.ts";
 
 const STORE_ID = "10000000-0000-4000-8000-000000000001";
 const PRODUCT_ID = "20000000-0000-4000-8000-000000000001";
@@ -13,6 +13,34 @@ test("merchant media contract requires tenant-namespaced immutable object author
   assert.throws(() => parseProductMedia({ ...parsed, objectKey: `products/${PRODUCT_ID}/${MEDIA_ID}.png` }));
   assert.throws(() => parseProductMedia({ ...parsed, mediaType: "image/svg+xml" }));
   assert.throws(() => parseProductMedia({ ...parsed, publicUrl: "http://media.example.test/file.png" }));
+});
+
+test("merchant media lifecycle projection exposes retention truth without storage authority", () => {
+  const archived = parseProductMediaLifecycle({
+    id: MEDIA_ID,
+    productId: PRODUCT_ID,
+    publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE_ID}/products/${PRODUCT_ID}/${MEDIA_ID}.png`,
+    mediaType: "image/png",
+    altText: "Archived product",
+    width: 800,
+    height: 600,
+    byteSize: 1024,
+    sortOrder: 0,
+    status: "archived",
+    cleanupState: "retained",
+    createdAt: "2026-07-18T10:00:00.000Z",
+    updatedAt: "2026-08-30T10:00:00.000Z",
+    archivedAt: "2026-08-30T10:00:00.000Z",
+    retentionExpiresAt: "2026-09-29T10:00:00.000Z",
+    version: 3,
+  });
+  assert.equal(Object.isFrozen(archived), true);
+  assert.equal(archived.cleanupState, "retained");
+  assert.equal("objectKey" in archived, false);
+  assert.equal("storeId" in archived, false);
+  assert.throws(() => parseProductMediaLifecycle({ ...archived, objectKey: `stores/${STORE_ID}/products/${PRODUCT_ID}/${MEDIA_ID}.png` }));
+  assert.throws(() => parseProductMediaLifecycle({ ...archived, cleanupState: "object_deleted", publicUrl: archived.publicUrl }));
+  assert.throws(() => parseProductMediaLifecycle({ ...archived, status: "active" }));
 });
 
 test("media reservation contract is exact, immutable, and tenant namespaced", () => {

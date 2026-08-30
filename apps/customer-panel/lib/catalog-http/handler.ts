@@ -55,6 +55,7 @@ const ERROR_STATUS: Readonly<Record<CatalogErrorCode, number>> = Object.freeze({
   slug_conflict: 409,
   sku_conflict: 409,
   version_conflict: 409,
+  removal_not_eligible: 409,
   operation_replayed: 409,
   operation_mismatch: 409,
   durable_authority_invalid: 409,
@@ -343,6 +344,19 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
         }),
         (result) => json(result, 200),
       );
+    },
+
+    async removalEligibility(request: Request, rawProductId: unknown): Promise<Response> {
+      const productId = exactId(rawProductId); if (isResponse(productId)) return productId;
+      const authorized = await authorize(dependencies, request, { method: "GET", pathname: `${PRODUCTS_PATH}/${productId}/removal-eligibility`, query: "forbidden" }, "remove"); if (isResponse(authorized)) return authorized;
+      return execute(() => authorized.runtime.catalog.getProductRemovalEligibility({ tenantContext: authorized.tenantContext, now: authorized.now, productId }), (result) => json(result, 200));
+    },
+
+    async removeProduct(request: Request, rawProductId: unknown): Promise<Response> {
+      const productId = exactId(rawProductId); if (isResponse(productId)) return productId;
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: `${PRODUCTS_PATH}/${productId}/remove`, query: "forbidden" }, "remove"); if (isResponse(authorized)) return authorized;
+      const input = await readCatalogMutationInput(request, "remove_product"); if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(() => authorized.runtime.catalog.removeProduct({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: input.operationId, productId, ...input.value }), (result) => json(result, 200));
     },
 
     async createVariant(request: Request, rawProductId: unknown): Promise<Response> {

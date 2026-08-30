@@ -1,0 +1,15 @@
+DO $assertions$
+DECLARE definition text;
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='saas.product_media'::regclass AND attname='retention_expires_at' AND NOT attisdropped) THEN RAISE EXCEPTION 'media retention column missing'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='saas.product_media'::regclass AND attname='cleanup_state' AND NOT attisdropped) THEN RAISE EXCEPTION 'media cleanup state missing'; END IF;
+  IF pg_catalog.to_regprocedure('saas.media_list_product_lifecycle(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,boolean)') IS NULL OR pg_catalog.to_regprocedure('saas.media_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint)') IS NULL OR pg_catalog.to_regprocedure('saas.media_claim_archived_cleanup(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint)') IS NULL OR pg_catalog.to_regprocedure('saas.media_record_archived_object_deleted(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,uuid,uuid,text)') IS NULL THEN RAISE EXCEPTION 'media lifecycle functions missing'; END IF;
+  SELECT pg_catalog.pg_get_functiondef('saas.media_claim_archived_cleanup(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint)'::regprocedure) INTO definition;
+  IF definition NOT LIKE '%SECURITY DEFINER%' OR definition NOT LIKE '%SET search_path TO ''pg_catalog'', ''saas''%' OR definition NOT LIKE '%retention_expires_at%' OR definition NOT LIKE '%p_now%' THEN RAISE EXCEPTION 'cleanup boundary drift'; END IF;
+  SELECT pg_catalog.pg_get_functiondef('saas.media_get_product_restore_candidate(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,uuid,bigint)'::regprocedure) INTO definition;
+  IF definition NOT LIKE '%retention_expires_at%' OR definition NOT LIKE '%p_now%' THEN RAISE EXCEPTION 'restore retention boundary drift'; END IF;
+  IF EXISTS(SELECT 1 FROM pg_catalog.pg_proc AS procedure CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) AS privilege WHERE procedure.oid='saas.media_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint)'::regprocedure AND privilege.grantee=0 AND privilege.privilege_type='EXECUTE') OR NOT pg_catalog.has_function_privilege('celebix_saas_app','saas.media_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,uuid,bigint)','EXECUTE') THEN RAISE EXCEPTION 'media restore ACL drift'; END IF;
+  IF NOT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_catalog.pg_class WHERE oid='saas.product_media_cleanup_operations'::regclass) THEN RAISE EXCEPTION 'cleanup RLS drift'; END IF;
+  IF pg_catalog.has_table_privilege('celebix_saas_app','saas.product_media_cleanup_operations','INSERT') OR pg_catalog.has_table_privilege('celebix_saas_app','saas.product_media_cleanup_operations','UPDATE') OR pg_catalog.has_table_privilege('celebix_saas_app','saas.product_media_cleanup_operations','DELETE') THEN RAISE EXCEPTION 'cleanup app DML'; END IF;
+END
+$assertions$;
