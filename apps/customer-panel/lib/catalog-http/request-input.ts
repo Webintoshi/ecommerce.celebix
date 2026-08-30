@@ -2,9 +2,11 @@ import "server-only";
 
 import {
   parseCatalogProductListQuery,
+  parseCatalogBulkProductIntent,
   parseProduct,
   parseProductVariant,
   type CatalogProductListQuery,
+  type CatalogBulkProductIntent,
 } from "@celebix/saas-contracts";
 import type {
   CatalogProductFields,
@@ -25,18 +27,22 @@ export type CatalogMutationKind =
   | "update_product"
   | "archive_product"
   | "restore_product"
+  | "remove_product"
   | "create_variant"
   | "update_variant"
-  | "archive_variant";
+  | "archive_variant"
+  | "bulk_product";
 
 export type CatalogMutationBodies = Readonly<{
   create_product: Readonly<{ product: CatalogProductFields; initialVariant: CatalogVariantFields }>;
   update_product: Readonly<{ expectedVersion: number; product: CatalogProductFields }>;
   archive_product: Readonly<{ expectedVersion: number }>;
   restore_product: Readonly<{ expectedVersion: number }>;
+  remove_product: Readonly<{ expectedVersion: number }>;
   create_variant: Readonly<{ variant: CatalogVariantFields }>;
   update_variant: Readonly<{ expectedVersion: number; variant: CatalogVariantFields }>;
   archive_variant: Readonly<{ expectedVersion: number }>;
+  bulk_product: CatalogBulkProductIntent;
 }>;
 
 type Invalid = Readonly<{ kind: "invalid" }>;
@@ -119,6 +125,10 @@ function version(value: unknown): number | null {
 }
 
 function mutationBody<K extends CatalogMutationKind>(value: unknown, kind: K): CatalogMutationBodies[K] | null {
+  if (kind === "bulk_product") {
+    try { return parseCatalogBulkProductIntent(value) as CatalogMutationBodies[K]; }
+    catch { return null; }
+  }
   if (kind === "create_product") {
     const parsed = exact(value, ["product", "initialVariant"]);
     const product = productFields(parsed?.product);
@@ -135,7 +145,7 @@ function mutationBody<K extends CatalogMutationKind>(value: unknown, kind: K): C
       ? Object.freeze({ expectedVersion, product }) as CatalogMutationBodies[K]
       : null;
   }
-  if (kind === "archive_product" || kind === "restore_product" || kind === "archive_variant") {
+  if (kind === "archive_product" || kind === "restore_product" || kind === "remove_product" || kind === "archive_variant") {
     const parsed = exact(value, ["expectedVersion"]);
     const expectedVersion = version(parsed?.expectedVersion);
     return parsed && expectedVersion !== null
@@ -242,7 +252,7 @@ export function readCatalogListInput(request: Request): Invalid | Readonly<{ kin
   ) return INVALID;
   const parameters = new Map(entries);
   const limit = parameters.get("limit") ?? null;
-  const pageSize = limit === null ? 20 : /^(?:[1-9]|[1-9]\d|100)$/.test(limit) ? Number(limit) : null;
+  const pageSize = limit === null ? 20 : /^(?:20|50|100)$/.test(limit) ? Number(limit) : null;
   const cursor = parameters.get("cursor") ?? null;
   if (pageSize === null || (cursor !== null && !CURSOR.test(cursor))) return INVALID;
   let query: CatalogProductListQuery;

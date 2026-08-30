@@ -1,4 +1,4 @@
-import { parseProductMedia, type ProductMedia } from "../../../../packages/saas-contracts/src/media/index.ts";
+import { parseProductMediaLifecycle, type ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -6,7 +6,7 @@ const MAX_BYTES = 5_242_880;
 const API_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled",
   "product_not_found", "variant_not_found", "media_not_found", "media_limit_reached", "version_conflict",
-  "operation_mismatch", "origin_denied", "unavailable",
+  "operation_mismatch", "retention_active", "origin_denied", "unavailable",
 ] as const);
 export type ProductMediaApiErrorCode = (typeof API_CODES)[number];
 
@@ -22,6 +22,7 @@ const MESSAGES: Readonly<Record<ProductMediaApiErrorCode, string>> = Object.free
   media_limit_reached: "Bu ürün için görsel sınırına ulaştınız.",
   version_conflict: "Görsel sizden önce güncellendi. Liste yeniden yüklenecek.",
   operation_mismatch: "İşlem güvenli biçimde tekrar edilemedi. Yeni bir deneme başlatın.",
+  retention_active: "Görsel saklama süresi devam ediyor; kalıcı temizlik henüz yapılamaz.",
   origin_denied: "İstek güvenli panel kaynağından gelmedi.",
   unavailable: "Görsel hizmeti şu anda kullanılamıyor. Lütfen yeniden deneyin.",
 });
@@ -93,16 +94,16 @@ export function createProductMediaApiClient(options?: Readonly<{ fetch?: Fetch; 
   async function jsonMutation(path: string, method: "POST" | "PATCH", payload: unknown): Promise<Record<string, unknown>> {
     return result(await fetchImpl(path, { method, credentials: "same-origin", headers: { "content-type": "application/json", "idempotency-key": operation(randomUUID) }, body: JSON.stringify(payload) }));
   }
-  function mutationMedia(value: Record<string, unknown>): Readonly<{ media: ProductMedia; replayed: boolean }> {
+  function mutationMedia(value: Record<string, unknown>): Readonly<{ media: ProductMediaLifecycle; replayed: boolean }> {
     if (typeof value.replayed !== "boolean") throw new ProductMediaApiError("unavailable", 503);
-    return Object.freeze({ media: parseProductMedia(value.media), replayed: value.replayed });
+    return Object.freeze({ media: parseProductMediaLifecycle(value.media), replayed: value.replayed });
   }
   return Object.freeze({
-    async list(productId: string): Promise<readonly ProductMedia[]> {
+    async list(productId: string): Promise<readonly ProductMediaLifecycle[]> {
       const selected = id(productId);
       const response = await result(await fetchImpl(`/api/catalog/products/${selected}/media`, { method: "GET", credentials: "same-origin", cache: "no-store" }));
       if (!Array.isArray(response.media)) throw new ProductMediaApiError("unavailable", 503);
-      return Object.freeze(response.media.map(parseProductMedia));
+      return Object.freeze(response.media.map(parseProductMediaLifecycle));
     },
     async upload(productId: string, input: Readonly<{ file: File; altText: string; variantId?: string; onProgress(value: number): void }>) {
       const selected = id(productId);
@@ -116,14 +117,20 @@ export function createProductMediaApiClient(options?: Readonly<{ fetch?: Fetch; 
       if (input.altText.trim() !== input.altText || input.altText.length > 500) throw new ProductMediaApiError("invalid_input", 400);
       return mutationMedia(await jsonMutation(`/api/catalog/products/${id(productId)}/media/${id(mediaId)}`, "PATCH", { expectedVersion: version(input.expectedVersion), altText: input.altText }));
     },
-    async reorder(productId: string, orderedMediaIds: readonly string[]): Promise<readonly ProductMedia[]> {
+    async reorder(productId: string, orderedMediaIds: readonly string[]): Promise<readonly ProductMediaLifecycle[]> {
       if (!Array.isArray(orderedMediaIds) || orderedMediaIds.length > 16 || orderedMediaIds.some((value) => !UUID.test(value)) || new Set(orderedMediaIds).size !== orderedMediaIds.length) throw new ProductMediaApiError("invalid_input", 400);
       const response = await jsonMutation(`/api/catalog/products/${id(productId)}/media/reorder`, "POST", { orderedMediaIds });
       if (!Array.isArray(response.media)) throw new ProductMediaApiError("unavailable", 503);
-      return Object.freeze(response.media.map(parseProductMedia));
+      return Object.freeze(response.media.map(parseProductMediaLifecycle));
     },
     async archive(productId: string, mediaId: string, expectedVersion: number) {
       return mutationMedia(await jsonMutation(`/api/catalog/products/${id(productId)}/media/${id(mediaId)}/archive`, "POST", { expectedVersion: version(expectedVersion) }));
+    },
+    async restore(productId: string, mediaId: string, expectedVersion: number) {
+      return mutationMedia(await jsonMutation(`/api/catalog/products/${id(productId)}/media/${id(mediaId)}/restore`, "POST", { expectedVersion: version(expectedVersion) }));
+    },
+    async cleanup(productId: string, mediaId: string, expectedVersion: number) {
+      return mutationMedia(await jsonMutation(`/api/catalog/products/${id(productId)}/media/${id(mediaId)}/cleanup`, "POST", { expectedVersion: version(expectedVersion) }));
     },
   });
 }

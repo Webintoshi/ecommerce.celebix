@@ -175,3 +175,41 @@ test("archived R2 deletion proof is bound to the exact durable media object and 
   assert.deepEqual(selected.values?.slice(-4), [OPERATION_ID, MEDIA_ID, PRODUCT_ID, media.objectKey]);
   await assert.rejects(repository.markArchivedProductMediaObjectDeleted({ tenantContext, now, operationId: OPERATION_ID, productId: PRODUCT_ID, mediaId: MEDIA_ID, objectKey: `stores/${STORE_ID}/products/${PRODUCT_ID}/30000000-0000-4000-8000-000000000099.webp` }));
 });
+
+test("media lifecycle reads hide object authority and restore/cleanup bind exact versions", async () => {
+  const lifecycle = {
+    id: MEDIA_ID, productId: PRODUCT_ID, publicUrl: media.publicUrl, mediaType: "image/webp", altText: "Pilot",
+    width: 1200, height: 1200, byteSize: 2048, sortOrder: 0, status: "archived", cleanupState: "eligible",
+    createdAt: now.toISOString(), updatedAt: now.toISOString(), archivedAt: now.toISOString(), retentionExpiresAt: now.toISOString(), version: 3,
+  } as const;
+  const candidate = { mediaId: MEDIA_ID, productId: PRODUCT_ID, objectKey: media.objectKey, mediaType: "image/webp", byteSize: 2048, expectedVersion: 3 } as const;
+  const queries: Array<{ text: string; values?: unknown[] }> = [];
+  const client = { async query(text: string, values?: unknown[]) {
+    queries.push({ text, values });
+    if (text.includes("media_list_product_lifecycle")) return { rows: [{ outcome: "found", result_payload: [lifecycle] }], rowCount: 1 };
+    if (text.includes("media_get_product_restore_candidate") || text.includes("media_claim_archived_cleanup")) return { rows: [{ outcome: text.includes("claim") ? "claimed" : "found", result_payload: { candidate } }], rowCount: 1 };
+    if (text.includes("media_restore_product")) return { rows: [{ outcome: "committed", result_payload: { media: { id: MEDIA_ID, productId: PRODUCT_ID, publicUrl: media.publicUrl, mediaType: "image/webp", altText: "Pilot", width: 1200, height: 1200, byteSize: 2048, sortOrder: 0, status: "active", cleanupState: "active", createdAt: now.toISOString(), updatedAt: now.toISOString(), version: 4 } } }], rowCount: 1 };
+    return { rows: [], rowCount: 0 };
+  }, release() {} };
+  const pool = { async connect() { return client; } } as unknown as PostgresPoolLike;
+  const repository = new PostgresProductMediaRepository({ pool, role: "celebix_saas_app", mediaOrigin: "https://media.saas-staging.celebix.site", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 }, audit() {} });
+  const listed = await repository.listProductMediaLifecycle({ tenantContext, now, productId: PRODUCT_ID, includeArchived: true });
+  assert.equal("objectKey" in listed[0]!, false);
+  assert.equal((await repository.getProductMediaRestoreCandidate({ tenantContext, now, productId: PRODUCT_ID, mediaId: MEDIA_ID, expectedVersion: 3 })).objectKey, media.objectKey);
+  assert.equal((await repository.claimArchivedProductMediaCleanup({ tenantContext, now, operationId: OPERATION_ID, productId: PRODUCT_ID, mediaId: MEDIA_ID, expectedVersion: 3 })).expectedVersion, 3);
+  const restored = await repository.restoreProductMedia({ tenantContext, now, operationId: OPERATION_ID, productId: PRODUCT_ID, mediaId: MEDIA_ID, expectedVersion: 3 });
+  assert.equal(restored.media.status, "active");
+  assert.ok(queries.some(({ text, values }) => text.includes("media_restore_product") && values?.slice(-3).join(",") === `${PRODUCT_ID},${MEDIA_ID},3`));
+});
+
+test("editor cannot archive restore cleanup or permanently remove media before pool acquisition", async () => {
+  let connects = 0;
+  const pool = { async connect() { connects += 1; throw new Error("sentinel"); } } as unknown as PostgresPoolLike;
+  const repository = new PostgresProductMediaRepository({ pool, role: "celebix_saas_app", mediaOrigin: "https://media.saas-staging.celebix.site", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 }, audit() {} });
+  const editor = { ...tenantContext, membership: { ...tenantContext.membership, role: "editor" } } as any;
+  const versioned = { tenantContext: editor, now, operationId: OPERATION_ID, productId: PRODUCT_ID, mediaId: MEDIA_ID, expectedVersion: 3 };
+  await assert.rejects(repository.reserveArchiveMedia(versioned), /membership_denied/);
+  await assert.rejects(repository.restoreProductMedia(versioned), /membership_denied/);
+  await assert.rejects(repository.claimArchivedProductMediaCleanup(versioned), /membership_denied/);
+  assert.equal(connects, 0);
+});

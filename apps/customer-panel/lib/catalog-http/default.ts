@@ -20,6 +20,7 @@ type VariantRouteContext = Readonly<{
 }>;
 
 export const handleDefaultCatalogListProducts = handlers.listProducts;
+export const handleDefaultCatalogBulkProducts = handlers.bulkProducts;
 export const handleDefaultCatalogListVariantChoices = handlers.listVariantChoices;
 export const handleDefaultCatalogCreateProduct = handlers.createProduct;
 export const handleDefaultCatalogGetDashboardSummary = handlers.getDashboardSummary;
@@ -55,6 +56,9 @@ export async function handleDefaultCatalogRestoreProduct(
   const { productId } = await context.params;
   return handlers.restoreProduct(request, productId);
 }
+
+export async function handleDefaultCatalogRemovalEligibility(request: Request, context: ProductRouteContext) { const { productId } = await context.params; return handlers.removalEligibility(request, productId); }
+export async function handleDefaultCatalogRemoveProduct(request: Request, context: ProductRouteContext) { const { productId } = await context.params; return handlers.removeProduct(request, productId); }
 
 export async function handleDefaultCatalogCreateVariant(
   request: Request,

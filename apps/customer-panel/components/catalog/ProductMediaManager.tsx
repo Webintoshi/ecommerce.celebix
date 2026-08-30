@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
-import type { ProductMedia } from "../../../../packages/saas-contracts/src/media/index.ts";
-import { Archive, ArrowDown, ArrowUp, Image as ImageIcon, ImagePlus } from "lucide-react";
+import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
+import { Archive, ArrowDown, ArrowUp, Image as ImageIcon, ImagePlus, RotateCcw, Trash2 } from "lucide-react";
 
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
 
@@ -25,8 +25,10 @@ export function restoreArchiveFocus(trigger: HTMLElement | null, fallback: HTMLE
 export function ProductMediaManager({
   productId,
   canManage = false,
-}: Readonly<{ productId: string; canManage?: boolean }>) {
-  const [media, setMedia] = useState<readonly ProductMedia[]>([]);
+  canArchive = false,
+}: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean }>) {
+  const [media, setMedia] = useState<readonly ProductMediaLifecycle[]>([]);
+  const [tab, setTab] = useState<"active" | "archived">("active");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -34,7 +36,7 @@ export function ProductMediaManager({
   const [selectedFile, setSelectedFile] = useState<File>();
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [archiveTarget, setArchiveTarget] = useState<ProductMedia>();
+  const [archiveTarget, setArchiveTarget] = useState<ProductMediaLifecycle>();
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
@@ -125,7 +127,7 @@ export function ProductMediaManager({
     finally { setBusy(""); }
   }
 
-  async function updateAlt(event: FormEvent<HTMLFormElement>, item: ProductMedia) {
+  async function updateAlt(event: FormEvent<HTMLFormElement>, item: ProductMediaLifecycle) {
     event.preventDefault();
     if (!canManage) return;
     const altText = new FormData(event.currentTarget).get("altText");
@@ -143,7 +145,7 @@ export function ProductMediaManager({
     if (!canManage) return;
     const next = index + direction;
     if (next < 0 || next >= media.length) return;
-    const ids = media.map((item) => item.id); [ids[index], ids[next]] = [ids[next]!, ids[index]!];
+    const ids = visibleMedia.map((item) => item.id); [ids[index], ids[next]] = [ids[next]!, ids[index]!];
     setBusy("reorder"); setError(""); setNotice("");
     try { setMedia(await productMediaApi.reorder(productId, ids)); setNotice("Görsel sırası güncellendi."); }
     catch (failure) { setError(safeMessage(failure)); if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") await load(); }
@@ -151,11 +153,11 @@ export function ProductMediaManager({
   }
 
   async function archive() {
-    if (archiveTarget === undefined || !canManage) return;
+    if (archiveTarget === undefined || !canArchive) return;
     setBusy(`archive-${archiveTarget.id}`); setError(""); setNotice("");
     try {
-      await productMediaApi.archive(productId, archiveTarget.id, archiveTarget.version);
-      setMedia((current) => Object.freeze(current.filter((item) => item.id !== archiveTarget.id)));
+      const result = await productMediaApi.archive(productId, archiveTarget.id, archiveTarget.version);
+      setMedia((current) => Object.freeze(current.map((item) => item.id === archiveTarget.id ? result.media : item)));
       setArchiveTarget(undefined); setNotice("Görsel arşivlendi ve mağazadan kaldırıldı.");
     } catch (failure) {
       setError(safeMessage(failure));
@@ -167,16 +169,42 @@ export function ProductMediaManager({
     finally { setBusy(""); }
   }
 
+  async function restore(item: ProductMediaLifecycle) {
+    if (!canArchive || item.status !== "archived") return;
+    setBusy(`restore-${item.id}`); setError(""); setNotice("");
+    try {
+      const result = await productMediaApi.restore(productId, item.id, item.version);
+      setMedia((current) => Object.freeze(current.map((candidate) => candidate.id === item.id ? result.media : candidate)));
+      setNotice("Görsel geri yüklendi ve mağazada yeniden yayınlandı.");
+    } catch (failure) { setError(safeMessage(failure)); if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") await load(); }
+    finally { setBusy(""); }
+  }
+
+  async function cleanup(item: ProductMediaLifecycle) {
+    if (!canArchive || item.cleanupState !== "eligible") return;
+    setBusy(`cleanup-${item.id}`); setError(""); setNotice("");
+    try {
+      const result = await productMediaApi.cleanup(productId, item.id, item.version);
+      setMedia((current) => Object.freeze(current.map((candidate) => candidate.id === item.id ? result.media : candidate)));
+      setNotice("Saklama süresi dolan görsel güvenli biçimde kalıcı olarak temizlendi.");
+    } catch (failure) { setError(safeMessage(failure)); await load(); }
+    finally { setBusy(""); }
+  }
+
+  const visibleMedia = media.filter((item) => item.status === tab);
+
   return (
     <section className="product-media-section product-detail-section product-detail-media" aria-labelledby="product-media-title">
       <div className="section-heading-row product-detail-section-header">
         <div><span className="eyebrow">ÜRÜN GÖRSELLERİ</span><h2 id="product-media-title">Medya</h2><p>İlk sıradaki görsel mağazada birincil görsel olarak kullanılır.</p></div>
-        <span className="product-media-count">{loading ? "Yükleniyor" : `${media.length} görsel`}</span>
+        <span className="product-media-count">{loading ? "Yükleniyor" : `${visibleMedia.length} görsel`}</span>
       </div>
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Görsel işlemi tamamlanamadı</strong><p>{error}</p></div></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
 
-      {canManage ? <form ref={mediaUploadCardRef} className="media-upload-card product-media-uploader" onSubmit={upload} tabIndex={-1}>
+      {canArchive ? <div className="catalog-tabs" role="tablist" aria-label="Medya yaşam döngüsü"><button type="button" role="tab" aria-selected={tab === "active"} onClick={() => setTab("active")}>Aktif</button><button type="button" role="tab" aria-selected={tab === "archived"} onClick={() => setTab("archived")}>Arşivlenenler</button></div> : null}
+
+      {canManage && tab === "active" ? <form ref={mediaUploadCardRef} className="media-upload-card product-media-uploader" onSubmit={upload} tabIndex={-1}>
         <label className="media-picker">
           <ImagePlus aria-hidden="true" />
           <span>{selectedFile ? "Başka görsel seç" : "Görsel seç"}</span>
@@ -191,28 +219,30 @@ export function ProductMediaManager({
         <div className="form-actions"><button className="button button-primary" type="submit" disabled={busy !== "" || selectedFile === undefined}>{busy === "upload" ? "Yükleniyor…" : "Görseli yükle"}</button></div>
       </form> : null}
 
-      {loading ? <div className="catalog-loading" role="status"><span className="spinner" aria-hidden="true" /> Görseller yükleniyor…</div> : media.length === 0 ? (
-        <div className="empty-variants"><strong>Henüz ürün görseli yok</strong><p>İlk görsel mağazada ürünün birincil görseli olacaktır.</p></div>
+      {loading ? <div className="catalog-loading" role="status"><span className="spinner" aria-hidden="true" /> Görseller yükleniyor…</div> : visibleMedia.length === 0 ? (
+        <div className="empty-variants"><strong>{tab === "active" ? "Henüz ürün görseli yok" : "Arşivlenmiş görsel yok"}</strong><p>{tab === "active" ? "İlk görsel mağazada ürünün birincil görseli olacaktır." : "Arşivlenen görseller 30 günlük saklama süresi içinde geri yüklenebilir."}</p></div>
       ) : (
         <div className="product-media-grid">
-          {media.map((item, index) => (
+          {visibleMedia.map((item, index) => (
             <article className="product-media-card product-media-item" key={item.id}>
-              <div className="media-thumbnail"><img src={item.publicUrl} alt={item.altText} />{index === 0 ? <span>Birincil görsel</span> : null}</div>
-              {canManage ? <form onSubmit={(event) => void updateAlt(event, item)} key={item.version}>
+              <div className="media-thumbnail">{item.publicUrl ? <img src={item.publicUrl} alt={item.altText} /> : <span aria-label="Görsel kalıcı olarak temizlendi"><ImageIcon /></span>}{tab === "active" && index === 0 ? <span>Birincil görsel</span> : null}</div>
+              {tab === "archived" ? <p>{item.cleanupState === "retained" ? `${item.retentionExpiresAt ? new Date(item.retentionExpiresAt).toLocaleString("tr-TR") : "Belirtilen tarihe"} kadar saklanır.` : item.cleanupState === "eligible" ? "Saklama süresi doldu; kalıcı temizliğe hazır." : item.cleanupState === "cleanup_pending" ? "Kalıcı temizlik doğrulanıyor." : "Nesne kalıcı olarak temizlendi."}</p> : null}
+              {canManage && tab === "active" ? <form onSubmit={(event) => void updateAlt(event, item)} key={item.version}>
                 <label className="field"><span>Alt metin</span><input name="altText" maxLength={500} defaultValue={item.altText} disabled={busy !== ""} /></label>
                 <button className="button button-secondary" type="submit" disabled={busy !== ""}>{busy === `alt-${item.id}` ? "Kaydediliyor…" : "Alt metni kaydet"}</button>
               </form> : <p>{item.altText || "Alt metin eklenmemiş"}</p>}
-              {canManage ? <div className="media-order-controls" aria-label="Görsel sırası">
+              {canManage && tab === "active" ? <div className="media-order-controls" aria-label="Görsel sırası">
                 <button type="button" className="button button-secondary" onClick={() => void move(index, -1)} disabled={busy !== "" || index === 0}><ArrowUp aria-hidden="true" /> Yukarı taşı</button>
-                <button type="button" className="button button-secondary" onClick={() => void move(index, 1)} disabled={busy !== "" || index === media.length - 1}><ArrowDown aria-hidden="true" /> Aşağı taşı</button>
-                <button type="button" className="text-danger-button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveTarget(item); }} disabled={busy !== ""}><Archive aria-hidden="true" /> Arşivle</button>
+                <button type="button" className="button button-secondary" onClick={() => void move(index, 1)} disabled={busy !== "" || index === visibleMedia.length - 1}><ArrowDown aria-hidden="true" /> Aşağı taşı</button>
+                {canArchive ? <button type="button" className="text-danger-button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveTarget(item); }} disabled={busy !== ""}><Archive aria-hidden="true" /> Arşivle</button> : null}
               </div> : null}
+              {canArchive && tab === "archived" ? <div className="media-order-controls" aria-label="Arşivlenmiş görsel işlemleri">{item.cleanupState === "retained" ? <button type="button" className="button button-secondary" onClick={() => void restore(item)} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === `restore-${item.id}` ? "Geri yükleniyor…" : "Geri yükle"}</button> : null}{item.cleanupState === "eligible" ? <button type="button" className="text-danger-button" onClick={() => void cleanup(item)} disabled={busy !== ""}><Trash2 aria-hidden="true" /> {busy === `cleanup-${item.id}` ? "Temizleniyor…" : "Kalıcı temizle"}</button> : null}</div> : null}
             </article>
           ))}
         </div>
       )}
 
-      {archiveTarget && canManage ? (
+      {archiveTarget && canArchive ? (
         <div className="archive-dialog-layer">
           <div ref={archiveDialogRef} className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-media-title" aria-describedby="archive-media-description" tabIndex={-1} onKeyDown={handleArchiveDialogKeyDown}>
             <div><strong id="archive-media-title">Görseli arşivlemeyi onayla</strong><p id="archive-media-description">Görsel ürün galerisinden ve mağazadan kaldırılacak.</p></div>

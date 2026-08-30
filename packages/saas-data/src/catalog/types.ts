@@ -2,6 +2,8 @@ import type {
   CatalogProductSort,
   CatalogProductStockFilter,
   CatalogProductListVariantSummary,
+  CatalogBulkProductAction,
+  CatalogBulkProductTarget,
   Product,
   ProductStatus,
   ProductVariant,
@@ -95,6 +97,30 @@ export interface RestoreProductInput extends CatalogAuthorityInput {
   readonly expectedVersion: number;
 }
 
+export interface GetProductRemovalEligibilityInput extends CatalogAuthorityInput { readonly productId: string; }
+export type ProductRemovalEligibilityReason = "product_not_archived" | "media_not_cleaned" | "business_dependency";
+export type ProductRemovalEligibility = Readonly<{ productId: string; expectedVersion: number; eligible: boolean; reasons: readonly ProductRemovalEligibilityReason[] }>;
+export interface RemoveProductInput extends CatalogAuthorityInput { readonly operationId: string; readonly productId: string; readonly expectedVersion: number; }
+export type RemoveProductResult = Readonly<{ productId: string; removed: true; replayed: boolean }>;
+export type CatalogProductPreviewProjection = Readonly<{
+  canonicalStorefrontUrl: string;
+  product: Readonly<{ id: string; slug: string; title: string; description?: string; status: ProductStatus; currency: string; version: number }>;
+  variants: readonly Readonly<{ title: string; priceCents: number; compareAtCents?: number; stockTracking: boolean; stockQuantity: number; attributes: Readonly<Record<string,string>> }>[];
+  media: readonly Readonly<{ publicUrl: string; altText: string; width?: number; height?: number }>[];
+  merchandising: Readonly<{ seoTitle?: string; seoDescription?: string }>;
+}>;
+
+export interface BulkMutateProductsInput extends CatalogAuthorityInput {
+  readonly operationId: string;
+  readonly action: CatalogBulkProductAction;
+  readonly targets: readonly CatalogBulkProductTarget[];
+}
+
+export interface BulkMutateProductsResult {
+  readonly products: readonly Product[];
+  readonly replayed: boolean;
+}
+
 export interface CreateVariantInput extends CatalogAuthorityInput {
   readonly operationId: string;
   readonly productId: string;
@@ -169,6 +195,10 @@ export interface CatalogRepository {
   updateProduct(input: UpdateProductInput): Promise<ProductMutationResult>;
   archiveProduct(input: ArchiveProductInput): Promise<ProductMutationResult>;
   restoreProduct(input: RestoreProductInput): Promise<ProductMutationResult>;
+  getProductRemovalEligibility(input: GetProductRemovalEligibilityInput): Promise<ProductRemovalEligibility>;
+  getProductPreview(input: GetProductInput): Promise<CatalogProductPreviewProjection>;
+  removeProduct(input: RemoveProductInput): Promise<RemoveProductResult>;
+  bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult>;
   createVariant(input: CreateVariantInput): Promise<VariantMutationResult>;
   updateVariant(input: UpdateVariantInput): Promise<VariantMutationResult>;
   archiveVariant(input: ArchiveVariantInput): Promise<VariantMutationResult>;

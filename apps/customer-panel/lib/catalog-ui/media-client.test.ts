@@ -7,11 +7,10 @@ const PRODUCT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const MEDIA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const OPERATION = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const ITEM = Object.freeze({
-  id: MEDIA, storeId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", productId: PRODUCT,
-  objectKey: `stores/dddddddd-dddd-4ddd-8ddd-dddddddddddd/products/${PRODUCT}/${MEDIA}.png`,
+  id: MEDIA, productId: PRODUCT,
   publicUrl: `https://media.saas-staging.celebix.site/stores/dddddddd-dddd-4ddd-8ddd-dddddddddddd/products/${PRODUCT}/${MEDIA}.png`,
   mediaType: "image/png", altText: "Ön görünüm", width: 1200, height: 800, byteSize: 33,
-  sortOrder: 0, status: "active", createdAt: "2026-07-18T10:00:00.000Z",
+  sortOrder: 0, status: "active", cleanupState: "active", createdAt: "2026-07-18T10:00:00.000Z",
   updatedAt: "2026-07-18T10:00:00.000Z", version: 1,
 });
 

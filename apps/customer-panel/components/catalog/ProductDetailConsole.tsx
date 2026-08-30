@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { CatalogOnboardingOptions, CatalogProductEditorProjection, Product, ProductVariant } from "@celebix/saas-contracts";
-import { Archive, ArrowLeft, Pencil, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Archive, ArrowLeft, Eye, Pencil, Plus, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
 
 import {
   CatalogApiError,
   catalogApi,
   type ProductDetailResult,
+  type ProductRemovalEligibility,
 } from "@/lib/catalog-ui/client";
 import {
   buildProductUpdatePayload,
@@ -65,61 +66,63 @@ export function ProductDetailConsole({
 }: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean }>) {
   const [detail, setDetail] = useState<ProductDetailResult>();
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
+  const [merchandisingState, setMerchandisingState] = useState<"idle" | "loading" | "ready" | "error">(canManage ? "loading" : "idle");
+  const [merchandisingError, setMerchandisingError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [conflict, setConflict] = useState(false);
   const [editingProduct, setEditingProduct] = useState(false);
   const [editingMerchandising, setEditingMerchandising] = useState(false);
   const [creatingVariant, setCreatingVariant] = useState(false);
   const [editingVariant, setEditingVariant] = useState<string>();
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
   const [archiveProduct, setArchiveProduct] = useState(false);
+  const [removal, setRemoval] = useState<ProductRemovalEligibility>();
+  const [removalConfirmation, setRemovalConfirmation] = useState("");
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
   const variantsHeadingRef = useRef<HTMLHeadingElement>(null);
   const wasArchiveDialogOpen = useRef(false);
 
-  const load = useCallback(async (conflict = false) => {
+  const load = useCallback(async () => {
     setError("");
     try {
       const current = await catalogApi.getProduct(productId);
       setDetail(current);
-      if (current.product.status !== "archived" && canManage) {
-        const [options, editor] = await Promise.all([
-          catalogOnboardingClient.getOptions(),
-          catalogOnboardingClient.getProductEditor(productId),
-        ]);
-        setOnboarding(Object.freeze({ options, editor }));
-      } else {
-        setOnboarding(undefined);
-      }
-      if (conflict) setNotice("Başka bir güncelleme algılandı. En güncel veriler yeniden yüklendi; değişiklikleriniz gönderilmedi.");
     } catch (failure) {
       setError(safeMessage(failure));
     } finally {
       setLoading(false);
     }
-  }, [canManage, productId]);
+  }, [productId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const reloadMerchandising = useCallback(async (close = false) => {
     if (!canManage) return;
-    setError("");
+    setMerchandisingState("loading");
+    setMerchandisingError("");
     try {
       const [options, editor] = await Promise.all([
         catalogOnboardingClient.getOptions(),
         catalogOnboardingClient.getProductEditor(productId),
       ]);
       setOnboarding(Object.freeze({ options, editor }));
+      setMerchandisingState("ready");
       if (close) {
         setEditingMerchandising(false);
         setNotice("Satış ayarları güncellendi.");
       }
-    } catch (failure) { setError(safeMessage(failure)); }
+    } catch (failure) {
+      setMerchandisingState("error");
+      setMerchandisingError(safeMessage(failure));
+    }
   }, [canManage, productId]);
+
+  useEffect(() => { if (canManage) void reloadMerchandising(); }, [canManage, reloadMerchandising]);
 
   const archiveDialogOpen = archiveVariant !== undefined || archiveProduct;
 
@@ -172,13 +175,21 @@ export function ProductDetailConsole({
     try { await action(); }
     catch (failure) {
       if (failure instanceof CatalogApiError && failure.code === "version_conflict") {
-        await load(true);
-        setEditingProduct(false);
-        setEditingVariant(undefined);
-        setArchiveVariant(undefined);
-        setArchiveProduct(false);
+        setConflict(true);
+        setError("Bu ürün sunucuda değişti. Yerel alanlarınız korunuyor; sunucu sürümünü yalnız siz seçerseniz yükleyeceğiz.");
       } else setError(safeMessage(failure));
     } finally { setBusy(""); }
+  }
+
+  async function loadServerSnapshot() {
+    await load();
+    setConflict(false);
+    setError("");
+    setEditingProduct(false);
+    setEditingVariant(undefined);
+    setArchiveVariant(undefined);
+    setArchiveProduct(false);
+    setNotice("Sunucudaki güncel sürüm yüklendi.");
   }
 
   async function updateProduct(event: FormEvent<HTMLFormElement>) {
@@ -261,6 +272,24 @@ export function ProductDetailConsole({
     });
   }
 
+  async function inspectRemoval() {
+    if (!canArchive || detail?.product.status !== "archived") return;
+    await mutation("removal-eligibility", async () => { setRemoval(await catalogApi.getProductRemovalEligibility(productId)); });
+  }
+
+  async function permanentlyRemoveProduct() {
+    if (!canArchive || detail?.product.status !== "archived" || !removal?.eligible || removalConfirmation !== detail.product.title) return;
+    await mutation("remove-product", async () => { await catalogApi.removeProduct(productId, removal.expectedVersion); location.assign("/products"); });
+  }
+
+  async function openStorefrontPreview() {
+    const target=window.open("about:blank","_blank");if(target)target.opener=null;
+    setBusy("preview");setError("");
+    try{const response=await fetch(`/api/catalog/products/${productId}/preview`,{method:"POST",credentials:"same-origin"}),body=await response.json();if(!response.ok||typeof body.url!=="string")throw new Error();if(target)target.location.href=body.url;else window.location.assign(body.url);}
+    catch{target?.close();setError("Mağaza önizlemesi oluşturulamadı. Ürünü ve mağaza alan adını kontrol edip yeniden deneyin.");}
+    finally{setBusy("");}
+  }
+
   if (loading) return <div className="catalog-loading page-loading" role="status"><span className="spinner" aria-hidden="true" /> Ürün ayrıntıları yükleniyor…</div>;
   if (detail === undefined) return <section className="catalog-page"><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
 
@@ -289,14 +318,17 @@ export function ProductDetailConsole({
           <p>{primarySku ? `SKU ${primarySku}` : "SKU eklenmemiş"}<span aria-hidden="true"> · </span>{product.currency}</p>
         </div>
         <div className="heading-actions product-detail-actions">
+          {!archived ? <button className="button button-secondary" type="button" onClick={() => void openStorefrontPreview()} disabled={busy!==""}><Eye aria-hidden="true"/> {busy==="preview"?"Önizleme hazırlanıyor…":"Mağazada önizle"}</button>:null}
           {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
+          {archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={() => void inspectRemoval()} disabled={busy !== ""}><Trash2 aria-hidden="true" /> Kalıcı kaldırmayı değerlendir</button> : null}
           {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}
-          {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={onboarding === undefined}><SlidersHorizontal aria-hidden="true" /> Satış ayarları</button> : null}
+          {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={merchandisingState !== "ready"}><SlidersHorizontal aria-hidden="true" /> {merchandisingState === "loading" ? "Satış ayarları yükleniyor…" : "Satış ayarları"}</button> : null}
           {!archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
         </div>
       </header>
 
       {archived ? <div className="feedback feedback-warning product-archive-banner" role="status"><div><strong>Ürün arşivlenmiş</strong><p>Bu ürün mağazada ve yayın akışında görünmez. Sipariş geçmişi, medya ve analiz verileri korunur.</p></div></div> : null}
+      {removal ? <div className={`feedback ${removal.eligible ? "feedback-warning" : "feedback-error"}`} role="status"><div><strong>{removal.eligible ? "Kalıcı kaldırma için uygun" : "Kalıcı kaldırma engellendi"}</strong>{removal.eligible ? <><p>Bu işlem geri alınamaz. Onaylamak için ürün adını tam yazın.</p><label className="field"><span>{product.title}</span><input value={removalConfirmation} onChange={(event) => setRemovalConfirmation(event.target.value)} /></label><button className="button button-danger" type="button" onClick={() => void permanentlyRemoveProduct()} disabled={busy !== "" || removalConfirmation !== product.title}>{busy === "remove-product" ? "Kaldırılıyor…" : "Ürünü kalıcı kaldır"}</button></> : <p>{removal.reasons.map((reason) => reason === "product_not_archived" ? "Ürün önce arşivlenmeli." : reason === "media_not_cleaned" ? "Arşivlenmiş medya saklama/temizlik sürecini tamamlamalı." : "Sipariş, stok, sepet, yorum veya başka bir iş kaydı ürüne bağlı.").join(" ")} Arşivde tutmak güvenli alternatiftir.</p>}</div></div> : null}
 
       <dl className="product-detail-facts" aria-label="Ürün hızlı özeti">
         <div><dt>Satış fiyatı</dt><dd>{salePrice}</dd></div>
@@ -307,7 +339,8 @@ export function ProductDetailConsole({
         <div><dt>Durum</dt><dd><span className={`status-pill status-${product.status}`}>{statusLabel}</span></dd></div>
       </dl>
 
-      {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div></div> : null}
+      {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div>{conflict ? <button className="button button-secondary" type="button" onClick={() => void loadServerSnapshot()}>Sunucudaki sürümü yükle</button> : null}</div> : null}
+      {merchandisingState === "error" ? <div className="feedback feedback-error" role="alert"><div><strong>Satış ayarları yüklenemedi</strong><p>{merchandisingError}</p></div><button className="button button-secondary" type="button" onClick={() => void reloadMerchandising()}>Tekrar dene</button></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
 
       <section className="product-detail-section product-detail-description" aria-labelledby="product-fields-title">
@@ -343,7 +376,7 @@ export function ProductDetailConsole({
         />
       </section> : null}
 
-      <ProductMediaManager productId={productId} canManage={canManage && !archived} />
+      <ProductMediaManager productId={productId} canManage={canManage && !archived} canArchive={canArchive} />
 
       <section className="variant-list product-detail-section product-detail-variants" aria-labelledby="variants-title">
       <div className="section-heading-row product-detail-section-header">

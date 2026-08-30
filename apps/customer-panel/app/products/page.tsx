@@ -1,7 +1,7 @@
 import { isCatalogProductOperationAllowed, isMerchantActionAllowed } from "@celebix/saas-contracts";
 
 import { ProductListConsole } from "@/components/catalog/ProductListConsole";
-import { parseProductListUrlQuery } from "@/lib/catalog-ui/product-list-query";
+import { parseProductListUrlState } from "@/lib/catalog-ui/product-list-query";
 import { requireServerPanelAccess } from "@/lib/server-access";
 
 export default async function ProductsPage({
@@ -14,9 +14,12 @@ export default async function ProductsPage({
   for (const [key, value] of Object.entries(supplied ?? {})) {
     if (typeof value === "string") parameters.set(key, value);
   }
+  const initial = parseProductListUrlState(parameters);
   return (
     <ProductListConsole
-      initialQuery={parseProductListUrlQuery(parameters)}
+      initialQuery={initial.query}
+      initialPageSize={initial.pageSize}
+      initialCursor={initial.cursor}
       canManage={isCatalogProductOperationAllowed(role, "update")}
       canArchive={isCatalogProductOperationAllowed(role, "archive")}
       canImport={isMerchantActionAllowed(role, "catalog_admin.import")}

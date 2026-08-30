@@ -1,0 +1,2 @@
+import "server-only";import {randomUUID} from "node:crypto";import {resolveDefaultServerCatalogRuntime} from "../server-catalog/default.ts";import {productPreviewCodecFromEnvironment} from "./config.ts";import {createProductPreviewHandlers} from "./server.ts";
+export const defaultProductPreviewHandlers=createProductPreviewHandlers({resolveRuntime:resolveDefaultServerCatalogRuntime,codec:()=>productPreviewCodecFromEnvironment(),now:()=>new Date(),requestId:randomUUID});

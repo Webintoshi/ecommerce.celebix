@@ -19,15 +19,19 @@ const METHODS = Object.freeze([
   "createProduct",
   "getDashboardSummary",
   "getProduct",
+  "getProductPreview",
   "getProductDetails",
   "listProducts",
   "listVariantChoices",
   "updateProduct",
   "archiveProduct",
   "restoreProduct",
+  "getProductRemovalEligibility",
+  "removeProduct",
   "createVariant",
   "updateVariant",
   "archiveVariant",
+  "bulkMutateProducts",
 ] as const);
 
 function invalid(): never {
@@ -40,15 +44,19 @@ function facade(repository: CatalogRepository): CatalogRepository {
     createProduct: (input) => repository.createProduct(input),
     getDashboardSummary: (input) => repository.getDashboardSummary(input),
     getProduct: (input) => repository.getProduct(input),
+    getProductPreview: (input) => repository.getProductPreview(input),
     getProductDetails: (input) => repository.getProductDetails(input),
     listProducts: (input) => repository.listProducts(input),
     listVariantChoices: (input) => repository.listVariantChoices(input),
     updateProduct: (input) => repository.updateProduct(input),
     archiveProduct: (input) => repository.archiveProduct(input),
     restoreProduct: (input) => repository.restoreProduct(input),
+    getProductRemovalEligibility: (input) => repository.getProductRemovalEligibility(input),
+    removeProduct: (input) => repository.removeProduct(input),
     createVariant: (input) => repository.createVariant(input),
     updateVariant: (input) => repository.updateVariant(input),
     archiveVariant: (input) => repository.archiveVariant(input),
+    bulkMutateProducts: (input) => repository.bulkMutateProducts(input),
   };
   return Object.freeze(projected);
 }

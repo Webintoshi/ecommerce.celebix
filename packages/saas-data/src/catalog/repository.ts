@@ -1,6 +1,7 @@
 import {
   isCatalogProductOperationAllowed,
   parseCatalogProductListVariantSummary,
+  parseCatalogBulkProductIntent,
   parseProduct,
   parseProductVariant,
   type CatalogProductOperation,
@@ -17,8 +18,11 @@ import { CATALOG_ERROR_CODES, CatalogRepositoryError, type CatalogErrorCode } fr
 import type {
   ArchiveProductInput,
   ArchiveVariantInput,
+  BulkMutateProductsInput,
+  BulkMutateProductsResult,
   CatalogDashboardSummary,
   CatalogProductFeaturedImage,
+  CatalogProductPreviewProjection,
   CatalogVariantChoice,
   CatalogRepository,
   CreateProductInput,
@@ -26,6 +30,7 @@ import type {
   CreateVariantInput,
   GetProductDetailsInput,
   GetProductInput,
+  GetProductRemovalEligibilityInput,
   GetCatalogDashboardSummaryInput,
   ListProductsInput,
   ListProductsResult,
@@ -33,6 +38,9 @@ import type {
   PostgresCatalogRepositoryOptions,
   ProductDetailsResult,
   ProductMutationResult,
+  ProductRemovalEligibility,
+  RemoveProductInput,
+  RemoveProductResult,
   RestoreProductInput,
   UpdateProductInput,
   UpdateVariantInput,
@@ -231,6 +239,37 @@ function dashboardSummary(value: unknown): CatalogDashboardSummary {
 function productResult(value: unknown, replayed: boolean): ProductMutationResult {
   const parsed = payload(value, ["product"]);
   return Object.freeze({ product: parseProduct(parsed.product), replayed });
+}
+
+function bulkProductResult(value: unknown, replayed: boolean): BulkMutateProductsResult {
+  const parsed = payload(value, ["products"]);
+  if (!Array.isArray(parsed.products) || parsed.products.length < 1 || parsed.products.length > 100) throw unavailable();
+  const products = Object.freeze(parsed.products.map(parseProduct));
+  if (new Set(products.map(({ id }) => id)).size !== products.length) throw unavailable();
+  return Object.freeze({ products, replayed });
+}
+
+const REMOVAL_REASONS = new Set(["product_not_archived", "media_not_cleaned", "business_dependency"]);
+function removalEligibility(value: unknown): ProductRemovalEligibility {
+  const parsed = payload(value, ["eligible", "expectedVersion", "productId", "reasons"]);
+  if (typeof parsed.productId !== "string" || !UUID.test(parsed.productId) || typeof parsed.eligible !== "boolean" || !Number.isSafeInteger(parsed.expectedVersion) || (parsed.expectedVersion as number) < 1 || !Array.isArray(parsed.reasons) || parsed.reasons.some((reason) => typeof reason !== "string" || !REMOVAL_REASONS.has(reason)) || parsed.eligible !== (parsed.reasons.length === 0)) throw unavailable();
+  return Object.freeze({ productId: parsed.productId, expectedVersion: parsed.expectedVersion as number, eligible: parsed.eligible, reasons: Object.freeze(parsed.reasons as ProductRemovalEligibility["reasons"]) });
+}
+function removeProductResult(value: unknown, replayed: boolean): RemoveProductResult {
+  const parsed = payload(value, ["productId", "removed"]);
+  if (typeof parsed.productId !== "string" || !UUID.test(parsed.productId) || parsed.removed !== true) throw unavailable();
+  return Object.freeze({ productId: parsed.productId, removed: true, replayed });
+}
+function previewText(value: unknown, maximum: number): string { if (typeof value !== "string" || value.length<1 || value.length>maximum || value!==value.trim() || CONTROL.test(value)) throw unavailable(); return value; }
+function productPreview(value: unknown, productId: string): CatalogProductPreviewProjection {
+  const root=payload(value,["canonicalStorefrontUrl","media","merchandising","product","variants"]), product=payload(root.product,["currency","id","slug","status","title","version",...(typeof (root.product as any)?.description==="string"?["description"]:[])]);
+  if(product.id!==productId||typeof root.canonicalStorefrontUrl!=="string"||!Array.isArray(root.variants)||!Array.isArray(root.media)||typeof root.merchandising!=="object"||root.merchandising===null)throw unavailable();
+  let url:URL;try{url=new URL(root.canonicalStorefrontUrl);}catch{throw unavailable();}if(url.protocol!=="https:"||url.username||url.password||url.search||url.hash||url.toString()!==root.canonicalStorefrontUrl)throw unavailable();
+  const status=product.status;if(status!=="active"&&status!=="draft"&&status!=="archived")throw unavailable();
+  const variants=Object.freeze(root.variants.map((entry)=>{const candidate=entry as any;const parsed=payload(entry,["attributes","priceCents","stockQuantity","stockTracking","title",...(candidate?.compareAtCents===undefined?[]:["compareAtCents"])]);if(!Number.isSafeInteger(parsed.priceCents)||(parsed.priceCents as number)<0||!Number.isSafeInteger(parsed.stockQuantity)||(parsed.stockQuantity as number)<0||typeof parsed.stockTracking!=="boolean"||typeof parsed.attributes!=="object"||parsed.attributes===null||Array.isArray(parsed.attributes))throw unavailable();return Object.freeze({title:previewText(parsed.title,200),priceCents:parsed.priceCents as number,...(parsed.compareAtCents===undefined?{}:{compareAtCents:count(parsed.compareAtCents)}),stockTracking:parsed.stockTracking,stockQuantity:parsed.stockQuantity as number,attributes:Object.freeze({...parsed.attributes as Record<string,string>})});}));
+  const media=Object.freeze(root.media.map((entry)=>{const candidate=entry as any;const parsed=payload(entry,["altText","publicUrl",...(candidate?.width===undefined?[]:["width"]),...(candidate?.height===undefined?[]:["height"])]);if(typeof parsed.publicUrl!=="string"||typeof parsed.altText!=="string")throw unavailable();return Object.freeze({publicUrl:parsed.publicUrl,altText:parsed.altText,...(parsed.width===undefined?{}:{width:count(parsed.width)}),...(parsed.height===undefined?{}:{height:count(parsed.height)})});}));
+  const merchandising=payload(root.merchandising,[...(typeof (root.merchandising as any)?.seoTitle==="string"?["seoTitle"]:[]),...(typeof (root.merchandising as any)?.seoDescription==="string"?["seoDescription"]:[])]);
+  return Object.freeze({canonicalStorefrontUrl:root.canonicalStorefrontUrl,product:Object.freeze({id:productId,slug:previewText(product.slug,100),title:previewText(product.title,200),...(product.description===undefined?{}:{description:previewText(product.description,10000)}),status,currency:previewText(product.currency,3),version:count(product.version)}),variants,media,merchandising:Object.freeze({...merchandising as {seoTitle?:string;seoDescription?:string}})});
 }
 
 function createProductResult(value: unknown, replayed: boolean): CreateProductResult {
@@ -474,6 +513,11 @@ export class PostgresCatalogRepository implements CatalogRepository {
     return parseProduct(payload(result.resultPayload, ["product"]).product);
   }
 
+  async getProductPreview(input: GetProductInput): Promise<CatalogProductPreviewProjection> {
+    const exact=exactInput(input,["tenantContext","now","productId"]);const authority=catalogAuthority(exact.tenantContext as GetProductInput["tenantContext"],exact.now as Date);authorizeOperation(authority,"read");const productId=catalogUuid(exact.productId);
+    const result=await this.read(authority,{text:`SELECT outcome,result_payload FROM saas.catalog_get_product_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)`,values:[...authorityValues(authority),productId]});const expected=this.expectedError(result.outcome);if(expected)throw expected;if(result.outcome!=="found")throw unavailable();return productPreview(result.resultPayload,productId);
+  }
+
   async getProductDetails(input: GetProductDetailsInput): Promise<ProductDetailsResult> {
     const exact = exactInput(input, ["tenantContext", "now", "productId"], ["includeArchivedVariants"]);
     const authority = catalogAuthority(exact.tenantContext as GetProductDetailsInput["tenantContext"], exact.now as Date);
@@ -664,6 +708,41 @@ export class PostgresCatalogRepository implements CatalogRepository {
       )`,
       values: [...authorityValues(authority), operationId, fingerprint, productId, expectedVersion],
     }, ["restored"], productResult);
+  }
+
+  async getProductRemovalEligibility(input: GetProductRemovalEligibilityInput): Promise<ProductRemovalEligibility> {
+    const exact = exactInput(input, ["tenantContext", "now", "productId"]);
+    const authority = catalogAuthority(exact.tenantContext as GetProductRemovalEligibilityInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "remove");
+    const productId = catalogUuid(exact.productId);
+    const result = await this.read(authority, { text: `SELECT outcome,result_payload FROM saas.catalog_product_removal_eligibility($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)`, values: [...authorityValues(authority), productId] });
+    const expected = this.expectedError(result.outcome); if (expected) throw expected; if (result.outcome !== "found") throw unavailable();
+    return removalEligibility(result.resultPayload);
+  }
+
+  async removeProduct(input: RemoveProductInput): Promise<RemoveProductResult> {
+    const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "expectedVersion"]);
+    const authority = catalogAuthority(exact.tenantContext as RemoveProductInput["tenantContext"], exact.now as Date); authorizeOperation(authority, "remove");
+    const operationId = catalogUuid(exact.operationId), productId = catalogUuid(exact.productId), expectedVersion = positiveVersion(exact.expectedVersion);
+    const fingerprint = catalogFingerprint("remove_product", authority.storeId, { productId, expectedVersion });
+    return this.mutate(authority, operationId, fingerprint, { text: `SELECT outcome,result_payload FROM saas.catalog_remove_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint)`, values: [...authorityValues(authority), operationId, fingerprint, productId, expectedVersion] }, ["removed"], removeProductResult);
+  }
+
+  async bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult> {
+    const exact = exactInput(input, ["tenantContext", "now", "operationId", "action", "targets"]);
+    const authority = catalogAuthority(exact.tenantContext as BulkMutateProductsInput["tenantContext"], exact.now as Date);
+    const intent = parseCatalogBulkProductIntent({ action: exact.action, targets: exact.targets });
+    authorizeOperation(authority, intent.action === "archive" ? "bulk_archive" : "bulk_publish");
+    const operationId = catalogUuid(exact.operationId);
+    const targets = Object.freeze([...intent.targets].sort((left, right) => left.productId.localeCompare(right.productId)));
+    const fingerprint = catalogFingerprint("bulk_mutate_products", authority.storeId, { action: intent.action, targets });
+    return this.mutate(authority, operationId, fingerprint, {
+      text: `SELECT outcome, result_payload FROM saas.catalog_bulk_mutate_products(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
+        $9::uuid,$10::text,$11::text,$12::jsonb
+      )`,
+      values: [...authorityValues(authority), operationId, fingerprint, intent.action, JSON.stringify(targets)],
+    }, ["committed"], bulkProductResult);
   }
 
   async createVariant(input: CreateVariantInput): Promise<VariantMutationResult> {

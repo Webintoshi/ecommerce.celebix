@@ -44,3 +44,26 @@ export type ProductMedia = Readonly<{
   archivedAt?: string;
   version: number;
 }>;
+
+export const PRODUCT_MEDIA_CLEANUP_STATES = Object.freeze(["active", "retained", "eligible", "cleanup_pending", "object_deleted"] as const);
+export type ProductMediaCleanupState = (typeof PRODUCT_MEDIA_CLEANUP_STATES)[number];
+
+export type ProductMediaLifecycle = Readonly<{
+  id: string;
+  productId: string;
+  variantId?: string;
+  publicUrl?: string;
+  mediaType: PublicImageMediaType;
+  altText: string;
+  width?: number;
+  height?: number;
+  byteSize: number;
+  sortOrder: number;
+  status: "active" | "archived";
+  cleanupState: ProductMediaCleanupState;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+  retentionExpiresAt?: string;
+  version: number;
+}>;

@@ -9,6 +9,8 @@ import {
   type CatalogProductStockFilter,
   type Product,
   type CatalogProductListVariantSummary,
+  type CatalogBulkProductIntent,
+  type CatalogProductPageSize,
   type ProductStatus,
   type ProductVariant,
   type VariantStatus,
@@ -243,6 +245,26 @@ export function parseCatalogProductListQuery(value: unknown): CatalogProductList
     ...(Object.hasOwn(parsed, "collectionId") ? { collectionId: uuid(parsed.collectionId) } : {}),
     sort,
   });
+}
+
+export function parseCatalogProductPageSize(value: unknown): CatalogProductPageSize {
+  if (value !== 20 && value !== 50 && value !== 100) invalid();
+  return value;
+}
+
+export function parseCatalogBulkProductIntent(value: unknown): CatalogBulkProductIntent {
+  const parsed = exact(value, ["action", "targets"]);
+  if (parsed.action !== "active" && parsed.action !== "draft" && parsed.action !== "archive") invalid();
+  if (!Array.isArray(parsed.targets) || parsed.targets.length < 1 || parsed.targets.length > 100) invalid();
+  const targets = Object.freeze(parsed.targets.map((candidate) => {
+    const target = exact(candidate, ["productId", "expectedVersion"]);
+    return Object.freeze({
+      productId: uuid(target.productId),
+      expectedVersion: safeInteger(target.expectedVersion, 1),
+    });
+  }));
+  if (new Set(targets.map(({ productId }) => productId)).size !== targets.length) invalid();
+  return Object.freeze({ action: parsed.action, targets });
 }
 
 export function catalogProductListQueryBinding(value: unknown): CatalogProductListQueryBinding {

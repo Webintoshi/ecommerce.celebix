@@ -21,6 +21,10 @@ import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/categ
 import { buildQuickCreateIntent } from "@/lib/catalog-onboarding-ui/forms";
 import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
+import {
+  mergeQuickProductDraft,
+  type ProductDraftSession,
+} from "@/lib/catalog-ui/product-draft-session";
 
 import styles from "./product-onboarding.module.css";
 
@@ -36,6 +40,8 @@ export type ProductQuickCreateDialogProps = Readonly<{
   mode?: "dialog" | "page";
   api?: OnboardingApi;
   mediaClient?: MediaApi;
+  draftSession?: ProductDraftSession;
+  onDraftSessionChange?(session: ProductDraftSession): void;
 }>;
 
 type Recovery = Readonly<{
@@ -68,14 +74,19 @@ export function ProductQuickCreateDialog({
   mode = "dialog",
   api = catalogOnboardingClient,
   mediaClient = productMediaApi,
+  draftSession,
+  onDraftSessionChange,
 }: ProductQuickCreateDialogProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [images, setImages] = useState<readonly SelectedImage[]>([]);
+  const [images, setImages] = useState<readonly SelectedImage[]>(draftSession?.current.media ?? []);
   const [progress, setProgress] = useState(0);
   const [recovery, setRecovery] = useState<Recovery>();
   const [createdProductId, setCreatedProductId] = useState<string>();
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState(draftSession?.current.categoryIds[0] ?? "");
+  const [title, setTitle] = useState(draftSession?.current.title ?? "");
+  const [price, setPrice] = useState(draftSession?.current.variants[0]?.price ?? "");
+  const [stockQuantity, setStockQuantity] = useState(draftSession?.current.variants[0]?.stockQuantity ?? "0");
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -98,7 +109,16 @@ export function ProductQuickCreateDialog({
     return () => window.removeEventListener("beforeunload", protect);
   }, [submitting]);
 
-  useEffect(() => () => { for (const preview of previewUrlsRef.current) URL.revokeObjectURL(preview); }, []);
+  useEffect(() => () => {
+    if (onDraftSessionChange === undefined) for (const preview of previewUrlsRef.current) URL.revokeObjectURL(preview);
+  }, [onDraftSessionChange]);
+
+  useEffect(() => {
+    if (draftSession === undefined || onDraftSessionChange === undefined) return;
+    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, stockQuantity, categoryId, media: images }));
+  // The parent replaces draftSession after each projection; local fields are the source for this handoff.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, price, stockQuantity, categoryId, images, onDraftSessionChange]);
 
   function requestClose() {
     if (submittingRef.current && !window.confirm("Ürün kaydı sürüyor. Yine de kapatmak istiyor musunuz?")) return;
@@ -135,7 +155,7 @@ export function ProductQuickCreateDialog({
       setError("En fazla 16 adet PNG, JPEG veya WebP görsel seçin; her dosya en fazla 5 MB olabilir.");
       return;
     }
-    for (const preview of previewUrlsRef.current) URL.revokeObjectURL(preview);
+    if (onDraftSessionChange === undefined) for (const preview of previewUrlsRef.current) URL.revokeObjectURL(preview);
     const next = Object.freeze(files.map((file) => Object.freeze({ file, altText: "", preview: URL.createObjectURL(file) })));
     previewUrlsRef.current = Object.freeze(next.map(({ preview }) => preview));
     setImages(next);
@@ -244,9 +264,9 @@ export function ProductQuickCreateDialog({
         {error ? <div className={styles.error} role="alert"><strong>{recovery ? "Taslak güvende" : "Formu kontrol edin"}</strong><span>{error}</span></div> : null}
         {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
         <fieldset disabled={submitting || options === null}>
-          <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Örn. Seramik kahve kupası" autoComplete="off" /></label>
-          <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input name="price" required inputMode="decimal" placeholder="0,00" /><span>₺</span></div></label>
-          <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" defaultValue="0" /></label>
+          <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Örn. Seramik kahve kupası" autoComplete="off" value={title} onChange={(event) => setTitle(event.currentTarget.value)} /></label>
+          <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input name="price" required inputMode="decimal" placeholder="0,00" value={price} onChange={(event) => setPrice(event.currentTarget.value)} /><span>₺</span></div></label>
+          <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
           <label className={styles.wide}>
             <span>Kategori (satışa açmak için zorunlu)</span>
             <select name="categoryId" required value={categoryId} onChange={(event) => setCategoryId(event.currentTarget.value)} disabled={!categoryRows.length}>

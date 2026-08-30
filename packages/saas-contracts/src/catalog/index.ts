@@ -6,6 +6,10 @@ export {
 } from "./types.ts";
 export type {
   CatalogProductListQuery,
+  CatalogBulkProductAction,
+  CatalogBulkProductIntent,
+  CatalogBulkProductTarget,
+  CatalogProductPageSize,
   CatalogProductListQueryBinding,
   CatalogProductSort,
   CatalogProductStockFilter,
@@ -21,6 +25,8 @@ export {
   catalogProductListQueryBinding,
   catalogProductListQueryDigest,
   parseCatalogProductListQuery,
+  parseCatalogBulkProductIntent,
+  parseCatalogProductPageSize,
   parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,

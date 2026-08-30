@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { getPlanLimit, isCatalogProductOperationAllowed, type CatalogProductOperation, type StoreMembershipRole, type TenantContext } from "@celebix/saas-contracts";
-import { parseProductMedia, parseProductMediaReservation, type ProductMedia, type ProductMediaReservation } from "../../../saas-contracts/src/media/index.ts";
+import { parseProductMedia, parseProductMediaLifecycle, parseProductMediaReservation, type ProductMedia, type ProductMediaLifecycle, type ProductMediaReservation } from "../../../saas-contracts/src/media/index.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { MEDIA_ERROR_CODES, ProductMediaRepositoryError, type MediaErrorCode } from "./errors.ts";
-import type { ArchiveProductMediaInput, MediaMutationResult, PostgresProductMediaRepositoryOptions, ProductMediaLifecycleInput, ProductMediaRepository, ReserveProductMediaInput } from "./types.ts";
+import type { ArchiveProductMediaInput, MediaMutationResult, PostgresProductMediaRepositoryOptions, ProductMediaLifecycleInput, ProductMediaLifecycleMutationResult, ProductMediaRepository, ProductMediaStorageCandidate, ReserveProductMediaInput } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -35,6 +35,18 @@ function authorize(value: Authority, operation: CatalogProductOperation): void {
 function values(value: Authority): unknown[] { return [value.storeId, value.principalId, value.membershipId, value.planId, value.planCode, value.planVersion, value.storageBytes, value.now]; }
 function result(rows: unknown[]): { outcome: string; resultPayload: unknown } { if (rows.length !== 1 || typeof rows[0] !== "object" || rows[0] === null || Array.isArray(rows[0])) throw failure("unavailable"); const row = rows[0] as Record<string, unknown>; if (Object.keys(row).sort().join(",") !== "outcome,result_payload" || typeof row.outcome !== "string") throw failure("unavailable"); return { outcome: row.outcome, resultPayload: row.result_payload }; }
 function mediaPayload(value: unknown): ProductMedia { if (typeof value !== "object" || value === null || Array.isArray(value) || Object.keys(value).join(",") !== "media") throw failure("unavailable"); try { return parseProductMedia((value as { media: unknown }).media); } catch { throw failure("unavailable"); } }
+function lifecyclePayload(value: unknown): ProductMediaLifecycle { if (typeof value !== "object" || value === null || Array.isArray(value) || Object.keys(value).join(",") !== "media") throw failure("unavailable"); try { return parseProductMediaLifecycle((value as { media: unknown }).media); } catch { throw failure("unavailable"); } }
+function storageCandidate(value: unknown, storeId: string): ProductMediaStorageCandidate {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw failure("unavailable");
+  const root = value as Record<string, unknown>;
+  if (Object.keys(root).join(",") !== "candidate" || typeof root.candidate !== "object" || root.candidate === null || Array.isArray(root.candidate)) throw failure("unavailable");
+  const candidate = root.candidate as Record<string, unknown>;
+  if (Object.keys(candidate).sort().join(",") !== "byteSize,expectedVersion,mediaId,mediaType,objectKey,productId") throw failure("unavailable");
+  const mediaId = uuid(candidate.mediaId), productId = uuid(candidate.productId), objectKey = string(candidate.objectKey, 1, 512);
+  const mediaType = string(candidate.mediaType, 9, 10);
+  if (!["image/jpeg", "image/png", "image/webp"].includes(mediaType) || !new RegExp(`^stores/${storeId}/products/${productId}/${mediaId}\\.(?:jpg|png|webp)$`).test(objectKey)) throw failure("unavailable");
+  return Object.freeze({ mediaId, productId, objectKey, mediaType: mediaType as ProductMediaStorageCandidate["mediaType"], byteSize: integer(candidate.byteSize, 1, 5_242_880), expectedVersion: integer(candidate.expectedVersion, 1) });
+}
 function fingerprint(kind: string, input: unknown): string { return createHash("sha256").update(JSON.stringify({ kind, input })).digest("hex"); }
 
 export class PostgresProductMediaRepository implements ProductMediaRepository {
@@ -124,12 +136,13 @@ export class PostgresProductMediaRepository implements ProductMediaRepository {
   requireProductMediaCleanup(input: ProductMediaLifecycleInput): Promise<ProductMediaReservation> { return this.lifecycle(input, "media_require_product_cleanup", false); }
   markProductMediaDeleted(input: ProductMediaLifecycleInput): Promise<ProductMediaReservation> { return this.lifecycle(input, "media_mark_product_deleted", false); }
   async listProductMedia(input: Parameters<ProductMediaRepository["listProductMedia"]>[0]): Promise<readonly ProductMedia[]> { const parsed = exact(input, ["tenantContext", "now", "productId"], ["includeArchived"]); const auth = authority(parsed.tenantContext, parsed.now); authorize(auth, "read"); if (parsed.includeArchived !== undefined && typeof parsed.includeArchived !== "boolean") throw failure("invalid_input"); const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_list_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::boolean)", [...values(auth), uuid(parsed.productId), parsed.includeArchived ?? false], true); if (selected.outcome !== "found") this.expected(selected.outcome); if (!Array.isArray(selected.resultPayload)) throw failure("unavailable"); try { return Object.freeze(selected.resultPayload.map(parseProductMedia)); } catch { throw failure("unavailable"); } }
+  async listProductMediaLifecycle(input: Parameters<ProductMediaRepository["listProductMediaLifecycle"]>[0]): Promise<readonly ProductMediaLifecycle[]> { const parsed = exact(input, ["tenantContext", "now", "productId"], ["includeArchived"]); const auth = authority(parsed.tenantContext, parsed.now); authorize(auth, "read"); if (parsed.includeArchived !== undefined && typeof parsed.includeArchived !== "boolean") throw failure("invalid_input"); const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_list_product_lifecycle($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::boolean)", [...values(auth), uuid(parsed.productId), parsed.includeArchived ?? false], true); if (selected.outcome !== "found") this.expected(selected.outcome); if (!Array.isArray(selected.resultPayload)) throw failure("unavailable"); try { return Object.freeze(selected.resultPayload.map(parseProductMediaLifecycle)); } catch { throw failure("unavailable"); } }
   async updateAltText(input: Parameters<ProductMediaRepository["updateAltText"]>[0]): Promise<MediaMutationResult> { const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion", "altText"]); const auth = authority(parsed.tenantContext, parsed.now); authorize(auth, "manage_media"); const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1), altText: string(parsed.altText, 0, 500) }; return this.mutationOutcome(await this.execute("SELECT outcome,result_payload FROM saas.media_update_alt($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint,$14::text)", [...values(auth), uuid(parsed.operationId), fingerprint("update_alt", payload), payload.productId, payload.mediaId, payload.expectedVersion, payload.altText], false)); }
   async reorderMedia(input: Parameters<ProductMediaRepository["reorderMedia"]>[0]): Promise<readonly ProductMedia[]> { const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "orderedMediaIds"]); const auth = authority(parsed.tenantContext, parsed.now); authorize(auth, "manage_media"); if (!Array.isArray(parsed.orderedMediaIds) || parsed.orderedMediaIds.length < 1 || parsed.orderedMediaIds.length > 16) throw failure("invalid_input"); const ordered = Object.freeze(parsed.orderedMediaIds.map(uuid)); if (new Set(ordered).size !== ordered.length) throw failure("invalid_input"); const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_reorder_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[])", [...values(auth), uuid(parsed.operationId), fingerprint("reorder_media", { productId: parsed.productId, ordered }), uuid(parsed.productId), ordered], false); if (selected.outcome !== "committed" && selected.outcome !== "operation_replayed") this.expected(selected.outcome); if (!Array.isArray(selected.resultPayload)) throw failure("unavailable"); try { return Object.freeze(selected.resultPayload.map(parseProductMedia)); } catch { throw failure("unavailable"); } }
   private async archiveLifecycle(input: ArchiveProductMediaInput, functionName: "media_reserve_product_archive" | "media_finalize_product_archive" | "media_recover_product_archive", readOnly: boolean): Promise<MediaMutationResult> {
     const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion"]);
     const auth = authority(parsed.tenantContext, parsed.now);
-    authorize(auth, "manage_media");
+    authorize(auth, "archive_media");
     const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1) };
     const selected = await this.execute(
       `SELECT outcome,result_payload FROM saas.${functionName}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint)`,
@@ -141,10 +154,34 @@ export class PostgresProductMediaRepository implements ProductMediaRepository {
   reserveArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult> { return this.archiveLifecycle(input, "media_reserve_product_archive", false); }
   finalizeArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult> { return this.archiveLifecycle(input, "media_finalize_product_archive", false); }
   recoverArchiveMedia(input: ArchiveProductMediaInput): Promise<MediaMutationResult> { return this.archiveLifecycle(input, "media_recover_product_archive", true); }
+  async getProductMediaRestoreCandidate(input: Parameters<ProductMediaRepository["getProductMediaRestoreCandidate"]>[0]): Promise<ProductMediaStorageCandidate> {
+    const parsed = exact(input, ["tenantContext", "now", "productId", "mediaId", "expectedVersion"]); const auth = authority(parsed.tenantContext, parsed.now); authorize(auth, "restore_media");
+    const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_get_product_restore_candidate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::uuid,$11::bigint)", [...values(auth), uuid(parsed.productId), uuid(parsed.mediaId), integer(parsed.expectedVersion, 1)], true);
+    if (selected.outcome !== "found") this.expected(selected.outcome); return storageCandidate(selected.resultPayload, auth.storeId);
+  }
+  async restoreProductMedia(input: Parameters<ProductMediaRepository["restoreProductMedia"]>[0]): Promise<ProductMediaLifecycleMutationResult> {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion"]); const auth = authority(parsed.tenantContext, parsed.now); authorize(auth, "restore_media");
+    const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1) };
+    const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_restore_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint)", [...values(auth), uuid(parsed.operationId), fingerprint("restore_media", payload), payload.productId, payload.mediaId, payload.expectedVersion], false);
+    if (selected.outcome !== "committed" && selected.outcome !== "operation_replayed") this.expected(selected.outcome); return Object.freeze({ media: lifecyclePayload(selected.resultPayload), replayed: selected.outcome === "operation_replayed" });
+  }
+  async claimArchivedProductMediaCleanup(input: Parameters<ProductMediaRepository["claimArchivedProductMediaCleanup"]>[0]): Promise<ProductMediaStorageCandidate> {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "expectedVersion"]); const auth = authority(parsed.tenantContext, parsed.now); authorize(auth, "cleanup_media");
+    const payload = { productId: uuid(parsed.productId), mediaId: uuid(parsed.mediaId), expectedVersion: integer(parsed.expectedVersion, 1) };
+    const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_claim_archived_cleanup($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint)", [...values(auth), uuid(parsed.operationId), fingerprint("cleanup_media", payload), payload.productId, payload.mediaId, payload.expectedVersion], false);
+    if (selected.outcome !== "claimed" && selected.outcome !== "operation_replayed") this.expected(selected.outcome); return storageCandidate(selected.resultPayload, auth.storeId);
+  }
+  async recordArchivedProductMediaObjectDeleted(input: Parameters<ProductMediaRepository["recordArchivedProductMediaObjectDeleted"]>[0]): Promise<ProductMediaLifecycleMutationResult> {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "objectKey"]); const auth = authority(parsed.tenantContext, parsed.now); authorize(auth, "cleanup_media");
+    const operationId = uuid(parsed.operationId), productId = uuid(parsed.productId), mediaId = uuid(parsed.mediaId), objectKey = string(parsed.objectKey, 1, 512);
+    if (!new RegExp(`^stores/${auth.storeId}/products/${productId}/${mediaId}\\.(?:jpg|png|webp)$`).test(objectKey)) throw failure("invalid_input");
+    const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_record_archived_object_deleted($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::uuid,$11::uuid,$12::text)", [...values(auth), operationId, productId, mediaId, objectKey], false);
+    if (selected.outcome !== "deleted" && selected.outcome !== "operation_replayed") this.expected(selected.outcome); return Object.freeze({ media: lifecyclePayload(selected.resultPayload), replayed: selected.outcome === "operation_replayed" });
+  }
   async markArchivedProductMediaObjectDeleted(input: Parameters<ProductMediaRepository["markArchivedProductMediaObjectDeleted"]>[0]): Promise<MediaMutationResult> {
     const parsed = exact(input, ["tenantContext", "now", "operationId", "productId", "mediaId", "objectKey"]);
     const auth = authority(parsed.tenantContext, parsed.now);
-    authorize(auth, "manage_media");
+    authorize(auth, "cleanup_media");
     const operationId = uuid(parsed.operationId), productId = uuid(parsed.productId), mediaId = uuid(parsed.mediaId);
     const objectKey = string(parsed.objectKey, 1, 512);
     if (!new RegExp(`^stores/${auth.storeId}/products/${productId}/${mediaId}\\.(?:jpg|png|webp)$`).test(objectKey)) throw failure("invalid_input");

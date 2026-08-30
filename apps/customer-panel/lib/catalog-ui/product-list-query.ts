@@ -1,7 +1,17 @@
 import {
   parseCatalogProductListQuery,
+  parseCatalogProductPageSize,
   type CatalogProductListQuery,
+  type CatalogProductPageSize,
 } from "@celebix/saas-contracts";
+
+const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
+
+export type ProductListUrlState = Readonly<{
+  query: CatalogProductListQuery;
+  pageSize: CatalogProductPageSize;
+  cursor?: string;
+}>;
 
 type SearchParameters = Pick<URLSearchParams, "get" | "has">;
 
@@ -31,5 +41,28 @@ export function productListUrlQuery(value: unknown): string {
   if (query.brandId !== undefined) parameters.set("brand", query.brandId);
   if (query.collectionId !== undefined) parameters.set("collection", query.collectionId);
   if (query.sort !== "updated-desc") parameters.set("sort", query.sort);
+  return parameters.toString();
+}
+
+export function parseProductListUrlState(parameters: SearchParameters): ProductListUrlState {
+  const query = parseProductListUrlQuery(parameters);
+  let pageSize: CatalogProductPageSize = 20;
+  try { pageSize = parseCatalogProductPageSize(Number(parameters.get("page") ?? 20)); }
+  catch { /* Invalid paging dimensions reset without weakening the catalog query. */ }
+  const cursor = parameters.get("cursor");
+  return Object.freeze({
+    query,
+    pageSize,
+    ...(cursor !== null && CURSOR.test(cursor) ? { cursor } : {}),
+  });
+}
+
+export function productListUrlStateQuery(value: ProductListUrlState): string {
+  const parameters = new URLSearchParams(productListUrlQuery(value.query));
+  if (value.pageSize !== 20) parameters.set("page", String(parseCatalogProductPageSize(value.pageSize)));
+  if (value.cursor !== undefined) {
+    if (!CURSOR.test(value.cursor)) throw new TypeError("catalog_product_list_url_invalid");
+    parameters.set("cursor", value.cursor);
+  }
   return parameters.toString();
 }

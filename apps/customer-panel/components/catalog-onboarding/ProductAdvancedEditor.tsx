@@ -19,6 +19,10 @@ import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/categ
 import { buildAdvancedCreateIntent, parseTurkishMoneyToCents } from "@/lib/catalog-onboarding-ui/forms";
 import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
 import { productMediaApi } from "@/lib/catalog-ui/media-client";
+import {
+  updateProductDraft,
+  type ProductDraftSession,
+} from "@/lib/catalog-ui/product-draft-session";
 import { ProductDescriptionField } from "@/components/catalog/ProductDescriptionField";
 import { ProductClassificationPicker } from "./ProductClassificationPicker";
 import { ProductEditorSection } from "./ProductEditorSection";
@@ -36,6 +40,8 @@ type ProductAdvancedEditorProps = Readonly<{
   onCreated?(result: CatalogOnboardingResult): void;
   onUpdated?(result: CatalogOnboardingResult): void;
   onConflictReload?(): void;
+  draftSession?: ProductDraftSession;
+  onDraftSessionChange?(session: ProductDraftSession): void;
 }>;
 
 type EditorMediaSelection = ProductMediaSelection & Readonly<{ preview: string }>;
@@ -93,20 +99,20 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
   });
 }
 
-export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardingClient, mediaClient = productMediaApi, editor, onCreated, onUpdated, onConflictReload }: ProductAdvancedEditorProps) {
+export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardingClient, mediaClient = productMediaApi, editor, onCreated, onUpdated, onConflictReload, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
   const editing = editor !== undefined;
-  const [kind, setKind] = useState<"simple" | "variant">((editor?.variants.length ?? 1) > 1 ? "variant" : "simple");
-  const [productType, setProductType] = useState<"physical" | "digital">(editor?.profile.productType ?? "physical");
-  const [variants, setVariants] = useState<readonly VariantDraft[]>(() => initialVariants(editor));
-  const [titleValue, setTitleValue] = useState(editor?.product.title ?? "");
+  const [kind, setKind] = useState<"simple" | "variant">(draftSession?.current.kind ?? ((editor?.variants.length ?? 1) > 1 ? "variant" : "simple"));
+  const [productType, setProductType] = useState<"physical" | "digital">(draftSession?.current.productType ?? editor?.profile.productType ?? "physical");
+  const [variants, setVariants] = useState<readonly VariantDraft[]>(() => draftSession?.current.variants ?? initialVariants(editor));
+  const [titleValue, setTitleValue] = useState(draftSession?.current.title ?? editor?.product.title ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
-  const [media, setMedia] = useState<readonly EditorMediaSelection[]>([]);
-  const [categoryIds, setCategoryIds] = useState<readonly string[]>(editor?.categoryIds ?? []);
-  const [collectionIds, setCollectionIds] = useState<readonly string[]>(editor?.resourceIds.collections ?? []);
-  const [tagIds, setTagIds] = useState<readonly string[]>(editor?.resourceIds.tags ?? []);
-  const [selectedChannelIds, setSelectedChannelIds] = useState<readonly string[]>(() => initialChannelIds(options, editor));
+  const [media, setMedia] = useState<readonly EditorMediaSelection[]>(draftSession?.current.media ?? []);
+  const [categoryIds, setCategoryIds] = useState<readonly string[]>(draftSession?.current.categoryIds ?? editor?.categoryIds ?? []);
+  const [collectionIds, setCollectionIds] = useState<readonly string[]>(draftSession?.current.collectionIds ?? editor?.resourceIds.collections ?? []);
+  const [tagIds, setTagIds] = useState<readonly string[]>(draftSession?.current.tagIds ?? editor?.resourceIds.tags ?? []);
+  const [selectedChannelIds, setSelectedChannelIds] = useState<readonly string[]>(() => draftSession?.current.channelIds ?? initialChannelIds(options, editor));
   const [showValidation, setShowValidation] = useState(false);
   const [createdProductId, setCreatedProductId] = useState<string>();
   const [progress, setProgress] = useState(0);
@@ -128,7 +134,26 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     return Object.freeze({ variantCount: variants.length, validPrices, validVariants, firstPrice, missing: Object.freeze(missing) });
   }, [kind, productType, titleValue, variants]);
 
-  useEffect(() => () => { for (const preview of mediaPreviewUrlsRef.current) URL.revokeObjectURL(preview); }, []);
+  useEffect(() => () => {
+    if (onDraftSessionChange === undefined) for (const preview of mediaPreviewUrlsRef.current) URL.revokeObjectURL(preview);
+  }, [onDraftSessionChange]);
+
+  useEffect(() => {
+    if (draftSession === undefined || onDraftSessionChange === undefined || editing) return;
+    onDraftSessionChange(updateProductDraft(draftSession, {
+      kind,
+      productType,
+      title: titleValue,
+      variants,
+      categoryIds,
+      collectionIds,
+      tagIds,
+      channelIds: selectedChannelIds,
+      media,
+    }));
+  // Parent session updates are projections of these local fields.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, productType, titleValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, media, editing, onDraftSessionChange]);
 
   function switchKind(next: "simple" | "variant") {
     if (editing) return;
@@ -144,7 +169,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
       return;
     }
     setError("");
-    for (const preview of mediaPreviewUrlsRef.current) URL.revokeObjectURL(preview);
+    if (onDraftSessionChange === undefined) for (const preview of mediaPreviewUrlsRef.current) URL.revokeObjectURL(preview);
     const next = Object.freeze(files.map((file) => Object.freeze({ file, altText: "", preview: URL.createObjectURL(file) })));
     mediaPreviewUrlsRef.current = Object.freeze(next.map(({ preview }) => preview));
     setMedia(next);

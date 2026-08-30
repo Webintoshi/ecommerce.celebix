@@ -36,8 +36,17 @@ async function productionProductListModule() {
     if (specifier === "lucide-react") return new Proxy({}, { get: () => () => null });
     if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
     if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
+    if (specifier === "@/components/catalog-onboarding/ProductAdvancedEditor") return { ProductAdvancedEditor: () => null };
     if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: { async getOptions() { return { categories: [], resources: [], locations: [], channels: [] }; } } };
-    if (specifier === "@/lib/catalog-ui/product-list-query") return { productListUrlQuery: () => "" };
+    if (specifier === "@/lib/catalog-ui/product-list-query") return {
+      parseProductListUrlState: () => ({ query: { sort: "updated-desc" }, pageSize: 20 }),
+      productListUrlStateQuery: () => "",
+    };
+    if (specifier === "@/lib/catalog-ui/product-draft-session") return {
+      commitProductDraft: (session: unknown) => session,
+      createEmptyProductDraftSession: () => ({ initial: {}, current: {} }),
+      productDraftIsDirty: () => false,
+    };
     if (specifier === "@/lib/catalog-ui/client") {
       class CatalogApiError extends Error {
         code = "unavailable";
@@ -201,8 +210,17 @@ async function createMountedProductConsole(
       return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => createElement("aside", { "data-topbar": true }, actions) };
     }
     if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
+    if (specifier === "@/components/catalog-onboarding/ProductAdvancedEditor") return { ProductAdvancedEditor: () => null };
     if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: onboarding };
-    if (specifier === "@/lib/catalog-ui/product-list-query") return { productListUrlQuery: () => "" };
+    if (specifier === "@/lib/catalog-ui/product-list-query") return {
+      parseProductListUrlState: () => ({ query: { sort: "updated-desc" }, pageSize: 20 }),
+      productListUrlStateQuery: () => "",
+    };
+    if (specifier === "@/lib/catalog-ui/product-draft-session") return {
+      commitProductDraft: (session: unknown) => session,
+      createEmptyProductDraftSession: () => ({ initial: {}, current: {} }),
+      productDraftIsDirty: () => false,
+    };
     if (specifier === "@/lib/catalog-ui/client") {
       return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
     }
@@ -275,10 +293,17 @@ test("product UI includes safe states and responsive catalog behavior without fa
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const styles = await source("app/globals.css");
   assert.match(list, /Henüz ürün yok/);
-  assert.match(list, /Daha fazla yükle/);
+  assert.match(list, /Önceki/);
+  assert.match(list, /Sonraki/);
+  assert.match(list, /<option value="20">20<\/option>/);
+  assert.match(list, /<option value="50">50<\/option>/);
+  assert.match(list, /<option value="100">100<\/option>/);
+  assert.match(list, /history[.]pushState/);
+  assert.match(list, /addEventListener\("popstate"/);
+  assert.match(list, /setCursorHistory\(Object[.]freeze\(\[\]\)\)/);
   assert.match(list, /Arşivlemeyi onayla/);
   assert.match(detail, /version_conflict/);
-  assert.match(detail, /En güncel veriler yeniden yüklendi/);
+  assert.match(detail, /Yerel alanlarınız korunuyor/);
   assert.match(styles, /@media[^]*max-width:\s*640px/);
   assert.doesNotMatch(`${list}\n${detail}`, /placeholder analytics|fake product|image upload/i);
 });
@@ -491,39 +516,35 @@ test("product operation coordinator suppresses stale reads and mutually excludes
   assert.equal(typeof coordinator.beginRead(), "number");
 });
 
-test("bulk executor sends exact persisted versions and reports partial completion without stopping", async () => {
+test("bulk executor sends one atomic request with exact persisted versions and never reports partial completion", async () => {
   const production = await productionProductListModule() as {
     executeBulkProductAction: (
       targets: readonly { product: { id: string; version: number; status: string } }[],
       action: "active" | "draft" | "archive",
-      api: {
-        archiveProduct: (id: string, version: number) => Promise<unknown>;
-        updateProduct: (id: string, input: { expectedVersion: number }) => Promise<unknown>;
-      },
+      api: { bulkMutateProducts: (intent: unknown) => Promise<unknown> },
     ) => Promise<{ completed: number; failed: number }>;
   };
   const targets = [
     { product: { id: "one", version: 7, status: "draft" } },
     { product: { id: "two", version: 11, status: "draft" } },
   ];
-  const updates: unknown[] = [];
+  const requests: unknown[] = [];
   const updateResult = await production.executeBulkProductAction(targets, "active", {
-    archiveProduct: async () => undefined,
-    updateProduct: async (id, input) => { updates.push([id, input.expectedVersion]); },
+    bulkMutateProducts: async (intent) => { requests.push(intent); },
   });
-  assert.deepEqual(updates, [["one", 7], ["two", 11]]);
+  assert.deepEqual(requests, [{
+    action: "active",
+    targets: [
+      { productId: "one", expectedVersion: 7 },
+      { productId: "two", expectedVersion: 11 },
+    ],
+  }]);
   assert.deepEqual(updateResult, { completed: 2, failed: 0 });
 
-  const archives: unknown[] = [];
-  const archiveResult = await production.executeBulkProductAction(targets, "archive", {
-    archiveProduct: async (id, version) => {
-      archives.push([id, version]);
-      if (id === "one") throw new Error("expected failure");
-    },
-    updateProduct: async () => undefined,
+  const failedResult = await production.executeBulkProductAction(targets, "archive", {
+    bulkMutateProducts: async () => { throw new Error("atomic rejection"); },
   });
-  assert.deepEqual(archives, [["one", 7], ["two", 11]]);
-  assert.deepEqual(archiveResult, { completed: 1, failed: 1 });
+  assert.deepEqual(failedResult, { completed: 0, failed: 2 });
 });
 
 test("bulk archive is count-aware and requires confirmation before the destructive executor", async () => {
@@ -734,7 +755,7 @@ test("product rows render the list summary and use dashes without a detail fallb
   assert.equal(detailCalls, 0);
 });
 
-test("load more adds one list call and never creates detail or summary fan-out", async () => {
+test("next page replaces the current page with one list call and no detail or summary fan-out", async () => {
   const pages = [0, 1].map((page) => Array.from({ length: 20 }, (_, index) => productFixture(
     `30000000-0000-4000-8000-${String(page * 20 + index + 1).padStart(12, "0")}`,
     "draft",
@@ -765,15 +786,16 @@ test("load more adds one list call and never creates detail or summary fan-out",
   }, { canManage: false, canArchive: false, canImport: false });
 
   let tree = await mounted.render();
-  const loadMore = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Daha fazla yükle");
-  assert.ok(loadMore);
-  (loadMore.props.onClick as () => void)();
+  const next = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Sonraki");
+  assert.ok(next);
+  (next.props.onClick as () => void)();
   tree = await mounted.render();
 
   assert.equal(listCalls, 2);
   assert.equal(summaryCalls, 1);
   assert.equal(detailCalls, 0);
   assert.match(tree.map(mountedText).join(" "), /Sayfa 2 ürün 20/);
+  assert.doesNotMatch(tree.map(mountedText).join(" "), /Sayfa 1 ürün 20/);
 });
 
 test("product detail hides the technical slug while preserving it in versioned edits", async () => {
@@ -800,7 +822,7 @@ test("mounted store-wide metrics stay semantic and never duplicate loaded-row co
   assert.equal(nodes.filter((node) => node.type === "dd").length, 4);
   assert.match(text, /Toplam—Aktif—Taslak—Stoksuz—/);
   assert.doesNotMatch(text, /görüntüleniyor|Mağaza toplamı yükleniyor/);
-  assert.match(text, /0 - 0 \/ 0 yüklendi · — mağazada/);
+  assert.match(text, /0 - 0 \/ — sonuç/);
   summaryResult.reject(new Error("summary unavailable"));
   tree = await mounted.render();
   text = tree.map(mountedText).join(" ");
@@ -808,8 +830,8 @@ test("mounted store-wide metrics stay semantic and never duplicate loaded-row co
   assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
   assert.ok(nodes.filter((node) => node.type === "dd").every((node) => mountedText(node) === "—"));
   assert.match(text, /Ürün 11111111/);
-  assert.match(text, /1 - 1 \/ 1 yüklendi · — mağazada/);
-  assert.doesNotMatch(text, /görüntüleniyor|yüklendi yüklendi|1 mağazada taslak|0 mağazada aktif/);
+  assert.match(text, /1 - 1 \/ — sonuç/);
+  assert.doesNotMatch(text, /görüntüleniyor|yüklendi|1 mağazada taslak|0 mağazada aktif/);
 });
 
 test("product create heading and dense controls use the compact balanced contract", async () => {
@@ -829,13 +851,12 @@ test("product create heading and dense controls use the compact balanced contrac
 
 test("mounted bulk archive opens count-aware confirmation before the first versioned mutation", async () => {
   const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 7);
-  const archives: Array<[string, number]> = [];
+  const requests: unknown[] = [];
   const mounted = await createMountedProductConsole({
     async listProducts() { return { items: [product] }; },
     async getDashboardSummary() { return catalogSummary; },
     async getProduct() { return { product, variants: [] }; },
-    async updateProduct() { throw new Error("not used"); },
-    async archiveProduct(id: string, version: number) { archives.push([id, version]); return { product }; },
+    async bulkMutateProducts(intent: unknown) { requests.push(intent); return { products: [product] }; },
   });
   let tree = await mounted.render();
   let nodes = mountedNodes(tree);
@@ -853,14 +874,14 @@ test("mounted bulk archive opens count-aware confirmation before the first versi
   assert.ok(apply);
   (apply.props.onClick as () => void)();
   tree = await mounted.render();
-  assert.equal(archives.length, 0, "opening confirmation must not archive");
+  assert.equal(requests.length, 0, "opening confirmation must not mutate");
   assert.match(tree.map(mountedText).join(" "), /1 ürün arşivlenecek/);
   nodes = mountedNodes(tree);
   const confirm = nodes.find((node) => node.type === "button" && mountedText(node) === "1 ürünü arşivle");
   assert.ok(confirm);
   (confirm.props.onClick as () => void)();
   await mounted.render();
-  assert.deepEqual(archives, [[product.id, 7]]);
+  assert.deepEqual(requests, [{ action: "archive", targets: [{ productId: product.id, expectedVersion: 7 }] }]);
 });
 
 test("mounted list suppresses an old filter response and canonical reload uses the latest filter", async () => {
@@ -887,7 +908,7 @@ test("mounted list suppresses an old filter response and canonical reload uses t
     async updateProduct(_id: string, input: { product: { status: "draft" | "active" } }) {
       return { product: { ...currentDraft, status: input.product.status, version: 4 } };
     },
-    async archiveProduct() { throw new Error("not used"); },
+    async bulkMutateProducts() { return { products: [currentDraft] }; },
   });
   let tree = await mounted.render();
   let nodes = mountedNodes(tree);
@@ -922,7 +943,7 @@ test("mounted list suppresses an old filter response and canonical reload uses t
   const apply = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Uygula")!;
   (apply.props.onClick as () => void)();
   await mounted.render();
-  assert.deepEqual(listInputs.at(-1), { status: "draft", sort: "updated-desc" });
+  assert.deepEqual(listInputs.at(-1), { status: "draft", sort: "updated-desc", pageSize: 20 });
 });
 
 test("debounced global search clears selection immediately and stale search responses cannot overwrite the latest query", async () => {
@@ -1040,7 +1061,7 @@ test("mounted empty catalog and global no-result states remain distinct", async 
   assert.doesNotMatch(noResultText, /İlk ürünü oluştur/);
 });
 
-test("mounted canonical reload failure preserves partial counts and never claims reconciliation", async () => {
+test("mounted canonical reload failure preserves atomic counts and never claims reconciliation", async () => {
   const first = productFixture("11111111-1111-4111-8111-111111111111", "draft", 5, "Başarısız ürün");
   const second = productFixture("22222222-2222-4222-8222-222222222222", "draft", 8, "Tamamlanan ürün");
   let reads = 0;
@@ -1053,11 +1074,7 @@ test("mounted canonical reload failure preserves partial counts and never claims
     },
     async getDashboardSummary() { return catalogSummary; },
     async getProduct(id: string) { return { product: id === first.id ? first : second, variants: [] }; },
-    async updateProduct(id: string) {
-      if (id === first.id) throw new Error("definitive first failure");
-      return { product: { ...second, status: "active", version: 9 } };
-    },
-    async archiveProduct() { throw new Error("not used"); },
+    async bulkMutateProducts() { return { products: [{ ...first, status: "active" }, { ...second, status: "active" }] }; },
   });
   let tree = await mounted.render();
   let nodes = mountedNodes(tree);
@@ -1072,15 +1089,15 @@ test("mounted canonical reload failure preserves partial counts and never claims
   (apply.props.onClick as () => void)();
   tree = await mounted.render();
   const text = tree.map(mountedText).join(" ");
-  assert.match(text, /1 tamamlandı, 1 başarısız/);
+  assert.match(text, /2 tamamlandı, 0 başarısız/);
   assert.match(text, /uzlaştırma başarısız/i);
   assert.match(text, /yeniden dene/i);
   assert.doesNotMatch(text, /kalıcı mağaza durumuyla uzlaştırıldı/i);
   assert.ok(mountedNodes(tree).some((node) => node.type === "button" && /yeniden dene/i.test(mountedText(node))));
-  const loadMore = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Daha fazla yükle");
-  assert.ok(loadMore);
-  assert.equal(loadMore.props.disabled, true, "stale first page must lock cursor pagination");
-  (loadMore.props.onClick as () => void)();
+  const next = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Sonraki");
+  assert.ok(next);
+  assert.equal(next.props.disabled, true, "stale first page must lock cursor pagination");
+  (next.props.onClick as () => void)();
   tree = await mounted.render();
   assert.equal(reads, 2, "stale cursor must not start another list request");
   assert.match(tree.map(mountedText).join(" "), /Ürün satırları doğrulanamadı/);
@@ -1181,9 +1198,9 @@ test("quick creation remains bound to the durable onboarding and media workflow"
   assert.match(dialog, /Ürüne git/);
   assert.match(advanced, /function initialChannelIds/);
   assert.match(advanced, /channel\.kind === "storefront"/);
-  assert.match(advanced, /useState<readonly string\[\]>\(\(\) => initialChannelIds\(options, editor\)\)/);
+  assert.match(advanced, /draftSession\?\.current\.channelIds \?\? initialChannelIds\(options, editor\)/);
   assert.match(advanced, /outcome\.kind === "draft_media_failed"[\s\S]*onCreated\?\.\(outcome\.result\)/);
-  assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
+  assert.match(create, /finish\(`\/products\/\$\{result\.product\.id\}`\)/);
   assert.doesNotMatch(`${create}\n${dialog}\n${advanced}`, /nutrition|\/api\/admin|supabase/i);
 });
 
@@ -1191,7 +1208,7 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const list = await source("components/catalog/ProductListConsole.tsx");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
-  assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
+  assert.match(create, /finish\(`\/products\/\$\{result\.product\.id\}`\)/);
   assert.match(list, /archiveProduct\(archiveCandidate\.id, archiveCandidate\.version\)/);
   assert.match(list, /filter\(\(item\) => item\.product\.id !== archiveCandidate\.id\)/);
   assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
@@ -1199,7 +1216,35 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
   assert.match(detail, /archiveVariant\(productId, archiveVariant\.id, archiveVariant\.version\)/);
   assert.match(detail, /failure\.code === "version_conflict"/);
-  assert.match(detail, /await load\(true\)/);
+  assert.doesNotMatch(detail, /await load\(true\)/);
+  assert.match(detail, /Yerel alanlarınız korunuyor/);
+  assert.match(detail, /Sunucudaki sürümü yükle/);
+});
+
+test("product drafts survive quick-to-advanced handoff and navigation is guarded", async () => {
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  const quick = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  assert.match(create, /createEmptyProductDraftSession/);
+  assert.match(create, /productDraftIsDirty/);
+  assert.match(create, /bindBeforeUnload\(window\)/);
+  assert.match(quick, /mergeQuickProductDraft/);
+  assert.match(advanced, /updateProductDraft/);
+  assert.match(advanced, /draftSession\?\.current\.media/);
+  assert.match(list, /draftSession={draftSession}/);
+  assert.match(list, /onAdvanced=\{\(\) => \{ setQuickCreateOpen\(false\); setAdvancedCreateOpen\(true\); \}\}/);
+  assert.doesNotMatch(list, /location[.]assign\("\/products\/new\?mode=advanced"\)/);
+  assert.doesNotMatch(`${create}\n${list}\n${quick}\n${advanced}`, /localStorage|sessionStorage/);
+});
+
+test("product detail and merchandising loading have independent recovery states", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  assert.match(detail, /merchandisingState/);
+  assert.match(detail, /setMerchandisingState\("error"\)/);
+  assert.match(detail, /Satış ayarları yüklenemedi/);
+  assert.match(detail, /onClick=\{\(\) => void reloadMerchandising\(\)\}>Tekrar dene/);
+  assert.match(detail, /const current = await catalogApi\.getProduct\(productId\);\s*setDetail\(current\);\s*\} catch/);
 });
 
 test("store selection is omitted when no authorized server projection exists", async () => {
