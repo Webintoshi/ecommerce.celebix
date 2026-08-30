@@ -65,10 +65,13 @@ export function ProductDetailConsole({
 }: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean }>) {
   const [detail, setDetail] = useState<ProductDetailResult>();
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
+  const [merchandisingState, setMerchandisingState] = useState<"idle" | "loading" | "ready" | "error">(canManage ? "loading" : "idle");
+  const [merchandisingError, setMerchandisingError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [conflict, setConflict] = useState(false);
   const [editingProduct, setEditingProduct] = useState(false);
   const [editingMerchandising, setEditingMerchandising] = useState(false);
   const [creatingVariant, setCreatingVariant] = useState(false);
@@ -81,45 +84,42 @@ export function ProductDetailConsole({
   const variantsHeadingRef = useRef<HTMLHeadingElement>(null);
   const wasArchiveDialogOpen = useRef(false);
 
-  const load = useCallback(async (conflict = false) => {
+  const load = useCallback(async () => {
     setError("");
     try {
       const current = await catalogApi.getProduct(productId);
       setDetail(current);
-      if (current.product.status !== "archived" && canManage) {
-        const [options, editor] = await Promise.all([
-          catalogOnboardingClient.getOptions(),
-          catalogOnboardingClient.getProductEditor(productId),
-        ]);
-        setOnboarding(Object.freeze({ options, editor }));
-      } else {
-        setOnboarding(undefined);
-      }
-      if (conflict) setNotice("Başka bir güncelleme algılandı. En güncel veriler yeniden yüklendi; değişiklikleriniz gönderilmedi.");
     } catch (failure) {
       setError(safeMessage(failure));
     } finally {
       setLoading(false);
     }
-  }, [canManage, productId]);
+  }, [productId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const reloadMerchandising = useCallback(async (close = false) => {
     if (!canManage) return;
-    setError("");
+    setMerchandisingState("loading");
+    setMerchandisingError("");
     try {
       const [options, editor] = await Promise.all([
         catalogOnboardingClient.getOptions(),
         catalogOnboardingClient.getProductEditor(productId),
       ]);
       setOnboarding(Object.freeze({ options, editor }));
+      setMerchandisingState("ready");
       if (close) {
         setEditingMerchandising(false);
         setNotice("Satış ayarları güncellendi.");
       }
-    } catch (failure) { setError(safeMessage(failure)); }
+    } catch (failure) {
+      setMerchandisingState("error");
+      setMerchandisingError(safeMessage(failure));
+    }
   }, [canManage, productId]);
+
+  useEffect(() => { if (canManage) void reloadMerchandising(); }, [canManage, reloadMerchandising]);
 
   const archiveDialogOpen = archiveVariant !== undefined || archiveProduct;
 
@@ -172,13 +172,21 @@ export function ProductDetailConsole({
     try { await action(); }
     catch (failure) {
       if (failure instanceof CatalogApiError && failure.code === "version_conflict") {
-        await load(true);
-        setEditingProduct(false);
-        setEditingVariant(undefined);
-        setArchiveVariant(undefined);
-        setArchiveProduct(false);
+        setConflict(true);
+        setError("Bu ürün sunucuda değişti. Yerel alanlarınız korunuyor; sunucu sürümünü yalnız siz seçerseniz yükleyeceğiz.");
       } else setError(safeMessage(failure));
     } finally { setBusy(""); }
+  }
+
+  async function loadServerSnapshot() {
+    await load();
+    setConflict(false);
+    setError("");
+    setEditingProduct(false);
+    setEditingVariant(undefined);
+    setArchiveVariant(undefined);
+    setArchiveProduct(false);
+    setNotice("Sunucudaki güncel sürüm yüklendi.");
   }
 
   async function updateProduct(event: FormEvent<HTMLFormElement>) {
@@ -291,7 +299,7 @@ export function ProductDetailConsole({
         <div className="heading-actions product-detail-actions">
           {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
           {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}
-          {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={onboarding === undefined}><SlidersHorizontal aria-hidden="true" /> Satış ayarları</button> : null}
+          {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => setEditingMerchandising((current) => !current)} disabled={merchandisingState !== "ready"}><SlidersHorizontal aria-hidden="true" /> {merchandisingState === "loading" ? "Satış ayarları yükleniyor…" : "Satış ayarları"}</button> : null}
           {!archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
         </div>
       </header>
@@ -307,7 +315,8 @@ export function ProductDetailConsole({
         <div><dt>Durum</dt><dd><span className={`status-pill status-${product.status}`}>{statusLabel}</span></dd></div>
       </dl>
 
-      {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div></div> : null}
+      {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div>{conflict ? <button className="button button-secondary" type="button" onClick={() => void loadServerSnapshot()}>Sunucudaki sürümü yükle</button> : null}</div> : null}
+      {merchandisingState === "error" ? <div className="feedback feedback-error" role="alert"><div><strong>Satış ayarları yüklenemedi</strong><p>{merchandisingError}</p></div><button className="button button-secondary" type="button" onClick={() => void reloadMerchandising()}>Tekrar dene</button></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
 
       <section className="product-detail-section product-detail-description" aria-labelledby="product-fields-title">

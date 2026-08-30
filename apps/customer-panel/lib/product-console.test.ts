@@ -278,7 +278,7 @@ test("product UI includes safe states and responsive catalog behavior without fa
   assert.match(list, /Daha fazla yükle/);
   assert.match(list, /Arşivlemeyi onayla/);
   assert.match(detail, /version_conflict/);
-  assert.match(detail, /En güncel veriler yeniden yüklendi/);
+  assert.match(detail, /Yerel alanlarınız korunuyor/);
   assert.match(styles, /@media[^]*max-width:\s*640px/);
   assert.doesNotMatch(`${list}\n${detail}`, /placeholder analytics|fake product|image upload/i);
 });
@@ -1181,9 +1181,9 @@ test("quick creation remains bound to the durable onboarding and media workflow"
   assert.match(dialog, /Ürüne git/);
   assert.match(advanced, /function initialChannelIds/);
   assert.match(advanced, /channel\.kind === "storefront"/);
-  assert.match(advanced, /useState<readonly string\[\]>\(\(\) => initialChannelIds\(options, editor\)\)/);
+  assert.match(advanced, /draftSession\?\.current\.channelIds \?\? initialChannelIds\(options, editor\)/);
   assert.match(advanced, /outcome\.kind === "draft_media_failed"[\s\S]*onCreated\?\.\(outcome\.result\)/);
-  assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
+  assert.match(create, /finish\(`\/products\/\$\{result\.product\.id\}`\)/);
   assert.doesNotMatch(`${create}\n${dialog}\n${advanced}`, /nutrition|\/api\/admin|supabase/i);
 });
 
@@ -1191,7 +1191,7 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const list = await source("components/catalog/ProductListConsole.tsx");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
-  assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
+  assert.match(create, /finish\(`\/products\/\$\{result\.product\.id\}`\)/);
   assert.match(list, /archiveProduct\(archiveCandidate\.id, archiveCandidate\.version\)/);
   assert.match(list, /filter\(\(item\) => item\.product\.id !== archiveCandidate\.id\)/);
   assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
@@ -1199,7 +1199,31 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
   assert.match(detail, /archiveVariant\(productId, archiveVariant\.id, archiveVariant\.version\)/);
   assert.match(detail, /failure\.code === "version_conflict"/);
-  assert.match(detail, /await load\(true\)/);
+  assert.doesNotMatch(detail, /await load\(true\)/);
+  assert.match(detail, /Yerel alanlarınız korunuyor/);
+  assert.match(detail, /Sunucudaki sürümü yükle/);
+});
+
+test("product drafts survive quick-to-advanced handoff and navigation is guarded", async () => {
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  const quick = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  assert.match(create, /createEmptyProductDraftSession/);
+  assert.match(create, /productDraftIsDirty/);
+  assert.match(create, /bindBeforeUnload\(window\)/);
+  assert.match(quick, /mergeQuickProductDraft/);
+  assert.match(advanced, /updateProductDraft/);
+  assert.match(advanced, /draftSession\?\.current\.media/);
+  assert.doesNotMatch(`${create}\n${quick}\n${advanced}`, /localStorage|sessionStorage/);
+});
+
+test("product detail and merchandising loading have independent recovery states", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  assert.match(detail, /merchandisingState/);
+  assert.match(detail, /setMerchandisingState\("error"\)/);
+  assert.match(detail, /Satış ayarları yüklenemedi/);
+  assert.match(detail, /onClick=\{\(\) => void reloadMerchandising\(\)\}>Tekrar dene/);
+  assert.match(detail, /const current = await catalogApi\.getProduct\(productId\);\s*setDetail\(current\);\s*\} catch/);
 });
 
 test("store selection is omitted when no authorized server projection exists", async () => {
