@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createDirtyNavigationGuard } from "./dirty-navigation.ts";
+import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "./dirty-navigation.ts";
 
 test("clean navigation never asks for confirmation and dirty navigation follows the merchant decision", () => {
   let dirty = false;
@@ -49,4 +49,20 @@ test("beforeunload is prevented only while the current draft is dirty and cleanu
   assert.equal(event.returnValue, "");
   cleanup();
   assert.equal(listener, undefined);
+});
+
+test("independent editors cannot clear another mounted editor's dirty state", () => {
+  const registry = createDirtyEditorRegistry(["product", "variant-create", "variant-edit", "sales"] as const);
+  registry.mark("product");
+  registry.mark("variant-edit");
+  assert.equal(registry.anyDirty(), true);
+  assert.deepEqual(registry.dirtyEditors(), ["product", "variant-edit"]);
+
+  registry.clear("product");
+  assert.equal(registry.isDirty("product"), false);
+  assert.equal(registry.isDirty("variant-edit"), true);
+  assert.equal(registry.anyDirty(), true);
+
+  registry.clearAll();
+  assert.equal(registry.anyDirty(), false);
 });

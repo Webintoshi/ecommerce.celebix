@@ -1268,15 +1268,43 @@ test("functional launch exposes read-only sales settings and disables permanent 
 test("basic variant and sales editors guard dirty browser and close navigation", async () => {
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  const description = await source("components/catalog/ProductDescriptionField.tsx");
 
   assert.match(detail, /createDirtyNavigationGuard/);
+  assert.match(detail, /createDirtyEditorRegistry/);
   assert.match(detail, /bindBeforeUnload\(window\)/);
-  assert.match(detail, /onChange=\{markDetailDirty\}/);
+  assert.match(detail, /markDetailDirty\("product"\)/);
+  assert.match(detail, /markDetailDirty\("variant-create"\)/);
+  assert.match(detail, /markDetailDirty\("variant-edit"\)/);
+  assert.match(detail, /href="\/products" onClick=\{\(event\) => \{ if \(!canDiscardDetailChanges\(\)\) event\.preventDefault\(\); \}\}/);
+  assert.match(detail, /onValueChange=\{\(\) => markDetailDirty\("product"\)\}/);
+  assert.match(description, /onValueChange\?\.\(nextSource\)/);
   assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
   assert.match(advanced, /createDirtyNavigationGuard/);
   assert.match(advanced, /bindBeforeUnload\(window\)/);
   assert.match(advanced, /onChange=\{markEditingDirty\}/);
+  assert.match(advanced, /if \(reloaded === false\) return/);
+  assert.match(advanced, /onDirtyChange\?\.\(true\)/);
   assert.match(advanced, /Kaydedilmemiş satış ayarı değişiklikleriniz var/);
+});
+
+test("advanced create projects every persisted field into the shared dirty draft", async () => {
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  for (const field of [
+    "description",
+    "brandId",
+    "supplierName",
+    "minimumOrderQuantity",
+    "maximumOrderQuantity",
+    "googleProductCategoryId",
+    "seoTitle",
+    "seoDescription",
+    "resourceAttributeIds",
+    "resourceExtraIds",
+    "resourceDefinitionIds",
+  ]) assert.match(advanced, new RegExp(`${field}:`));
+  assert.match(advanced, /createTouchedRef\.current/);
+  assert.match(advanced, /onValueChange=\{\(next\) => \{ setDescriptionValue\(next\); markEditingDirty\(\); \}\}/);
 });
 
 test("store selection is omitted when no authorized server projection exists", async () => {
