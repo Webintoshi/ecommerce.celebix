@@ -21,6 +21,10 @@ const META: Record<CatalogAdminResourceKind, Readonly<{ title: string; descripti
   tag: { title: "Etiketler", singular: "etiket", description: "Ürünleri tekrar kullanılabilir katalog etiketleriyle gruplandırın." },
 });
 
+function activeResources(resources: readonly CatalogAdminResource[]) {
+  return Object.freeze(resources.filter((resource) => resource.status === "active"));
+}
+
 export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdminResourceKind; canManage: boolean }) {
   const route = getCatalogResourceRouteDefinitionForKind(kind);
   const meta = META[kind];
@@ -45,11 +49,11 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
         if (!assetResponse.ok) throw new Error();
         const assetBody = await assetResponse.json() as { assets?: unknown };
         if (!Array.isArray(assetBody.assets) || assetBody.assets.length > 64) throw new Error();
-        setItems(resources);
+        setItems(activeResources(resources));
         setBrandProducts(directory);
         setBrandLogos(Object.freeze(assetBody.assets.map(parseStorefrontAsset).filter((asset) => asset.kind === "logo" && asset.status === "active")));
       } else {
-        setItems(await catalogAdminApi.resources(kind));
+        setItems(activeResources(await catalogAdminApi.resources(kind)));
         setBrandProducts([]);
         setBrandLogos([]);
       }
