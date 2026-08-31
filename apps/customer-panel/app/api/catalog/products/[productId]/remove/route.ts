@@ -1,2 +1,6 @@
-import { handleDefaultCatalogRemoveProduct } from "../../../../../../lib/catalog-http/default.ts";
-export const POST = handleDefaultCatalogRemoveProduct;
+export async function POST() {
+  return Response.json(
+    { code: "not_found" },
+    { status: 404, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } },
+  );
+}

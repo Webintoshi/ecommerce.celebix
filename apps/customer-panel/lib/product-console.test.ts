@@ -1247,6 +1247,38 @@ test("product detail and merchandising loading have independent recovery states"
   assert.match(detail, /const current = await catalogApi\.getProduct\(productId\);\s*setDetail\(current\);\s*\} catch/);
 });
 
+test("functional launch exposes read-only sales settings and disables permanent product removal", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const removeRoute = await source("app/api/catalog/products/[productId]/remove/route.ts");
+
+  for (const state of [
+    "Yükleniyor…",
+    "Satış ayarları",
+    "Yüklenemedi — Tekrar dene",
+    "Bu hesap yalnızca görüntüleme yetkisine sahiptir",
+  ]) assert.match(detail, new RegExp(state));
+  assert.match(detail, /readOnlySalesSettings/);
+  assert.match(detail, /catalogOnboardingClient[.]getOptions\(\)/);
+  assert.match(detail, /catalogOnboardingClient[.]getProductEditor\(productId\)/);
+  assert.doesNotMatch(detail, /ProductRemovalEligibility|inspectRemoval|permanentlyRemoveProduct|Kalıcı kaldır/);
+  assert.doesNotMatch(removeRoute, /handleDefaultCatalogRemoveProduct/);
+  assert.match(removeRoute, /status:\s*404/);
+});
+
+test("basic variant and sales editors guard dirty browser and close navigation", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+
+  assert.match(detail, /createDirtyNavigationGuard/);
+  assert.match(detail, /bindBeforeUnload\(window\)/);
+  assert.match(detail, /onChange=\{markDetailDirty\}/);
+  assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
+  assert.match(advanced, /createDirtyNavigationGuard/);
+  assert.match(advanced, /bindBeforeUnload\(window\)/);
+  assert.match(advanced, /onChange=\{markEditingDirty\}/);
+  assert.match(advanced, /Kaydedilmemiş satış ayarı değişiklikleriniz var/);
+});
+
 test("store selection is omitted when no authorized server projection exists", async () => {
   const shell = await source("components/panel/PanelShell.tsx");
   const navigation = await source("components/panel/PanelNavigation.tsx");
