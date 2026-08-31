@@ -75,7 +75,7 @@ const MIGRATIONS = Object.freeze([
   }),
 ]);
 
-export function resolveProductGoLiveMigrationConfiguration(source = process.env) {
+export function resolveProductGoLiveMigrationConfiguration(source = process.env, now = new Date()) {
   const activationId = source.CELEBIX_STAGING_ACTIVATION_ID?.trim() ?? "";
   if (
     source.CELEBIX_DEPLOYMENT_TIER !== "staging"
@@ -87,6 +87,19 @@ export function resolveProductGoLiveMigrationConfiguration(source = process.env)
   const databaseUrl = source.CELEBIX_TOSHI_MIGRATION_DATABASE_URL?.trim();
   const databaseName = source.CELEBIX_SAAS_DATABASE_NAME?.trim();
   if (!databaseUrl || !databaseName) throw new Error("product_go_live_staging_database_missing");
+
+  const backupId = source.CELEBIX_STAGING_BACKUP_ID?.trim() ?? "";
+  const backupDigest = source.CELEBIX_STAGING_BACKUP_SHA256?.trim() ?? "";
+  const backupVerifiedAt = new Date(source.CELEBIX_STAGING_BACKUP_VERIFIED_AT?.trim() ?? "");
+  const backupAge = now.getTime() - backupVerifiedAt.getTime();
+  if (
+    source.CELEBIX_STAGING_BACKUP_RESTORE_STATUS !== "restore_verified"
+    || !/^staging_backup_[a-z0-9_-]{3,100}$/u.test(backupId)
+    || !/^[a-f0-9]{64}$/u.test(backupDigest)
+    || !Number.isFinite(backupAge)
+    || backupAge < -300_000
+    || backupAge > 7 * 24 * 60 * 60 * 1_000
+  ) throw new Error("product_go_live_staging_backup_unverified");
 
   let parsed;
   try { parsed = new URL(databaseUrl); } catch { throw new Error("product_go_live_staging_database_invalid"); }
@@ -103,15 +116,13 @@ export function resolveProductGoLiveMigrationConfiguration(source = process.env)
 async function runMigrationQuery(client, sql, migrationCode, phase) {
   try {
     return await client.query(sql);
-  } catch (error) {
-    const ownedCode = error instanceof Error && /^[A-Z][A-Z0-9_ ]{2,120}$/u.test(error.message)
-      ? error.message.toLowerCase().replaceAll(" ", "_")
-      : `${phase}_failed`;
-    throw new Error(`product_go_live_staging_${migrationCode}_${ownedCode}`);
+  } catch {
+    throw new Error(`product_go_live_staging_${migrationCode}_${phase}_failed`);
   }
 }
 
 export async function runProductGoLiveMigrations({ client, databaseName, readSql, write }) {
+  let lockAcquired = false;
   await client.connect();
   try {
     const preflight = await client.query(`SELECT
@@ -131,19 +142,47 @@ export async function runProductGoLiveMigrations({ client, databaseName, readSql
       || authority.owner_member !== true
     ) throw new Error("product_go_live_staging_authority_invalid");
 
+    const lock = await client.query("SELECT pg_catalog.pg_try_advisory_lock(pg_catalog.hashtext('celebix:staging:product-go-live:114-118')) AS acquired");
+    lockAcquired = lock.rowCount === 1 && lock.rows[0]?.acquired === true;
+    if (!lockAcquired) throw new Error("product_go_live_staging_migration_locked");
+
+    const states = [];
     for (const migration of MIGRATIONS) {
       const probe = await runMigrationQuery(client, migration.probe, migration.code, "probe");
       const state = probe.rowCount === 1 ? probe.rows[0] : null;
       if (state?.has_objects === true && state.ready !== true) {
         throw new Error(`product_go_live_staging_${migration.code}_partial`);
       }
+      states.push(Object.freeze({ migration, ready: state?.ready === true }));
+    }
+
+    let missingSeen = false;
+    for (const state of states) {
+      if (!state.ready) missingSeen = true;
+      else if (missingSeen) throw new Error(`product_go_live_staging_${state.migration.code}_out_of_order`);
+    }
+
+    for (const state of states) {
+      if (!state.ready) continue;
+      await runMigrationQuery(client, readSql(state.migration.assertions), state.migration.code, "assertions");
+    }
+
+    for (const state of states) {
+      const { migration } = state;
+      if (state.ready) {
+        write(`product_go_live_migration_${migration.code}=already_applied`);
+        continue;
+      }
       if (state?.ready !== true) {
         await runMigrationQuery(client, readSql(migration.up), migration.code, "apply");
       }
       await runMigrationQuery(client, readSql(migration.assertions), migration.code, "assertions");
-      write(`product_go_live_migration_${migration.code}=${state?.ready === true ? "already_applied" : "applied"}`);
+      write(`product_go_live_migration_${migration.code}=applied`);
     }
   } finally {
+    if (lockAcquired) {
+      try { await client.query("SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtext('celebix:staging:product-go-live:114-118'))"); } catch { /* Session close releases the lock. */ }
+    }
     await client.end();
   }
 }

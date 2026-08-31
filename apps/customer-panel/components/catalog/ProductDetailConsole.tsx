@@ -91,8 +91,10 @@ export function ProductDetailConsole({
     try {
       const current = await catalogApi.getProduct(productId);
       setDetail(current);
+      return true;
     } catch (failure) {
       setError(safeMessage(failure));
+      return false;
     } finally {
       setLoading(false);
     }
@@ -131,6 +133,21 @@ export function ProductDetailConsole({
       confirm: () => window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Bu düzenleyiciyi kapatmak istiyor musunuz?"),
     });
     return guard.bindBeforeUnload(window);
+  }, []);
+
+  useEffect(() => {
+    const interceptApplicationNavigation = (event: MouseEvent) => {
+      if (!dirtyEditorsRef.current.anyDirty() || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (anchor === null || anchor.matches(".product-detail-back") || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin || (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.hash === window.location.hash)) return;
+      if (canDiscardDetailChanges()) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    document.addEventListener("click", interceptApplicationNavigation, true);
+    return () => document.removeEventListener("click", interceptApplicationNavigation, true);
   }, []);
 
   function markDetailDirty(editor: "product" | "variant-create" | "variant-edit") {
@@ -222,7 +239,8 @@ export function ProductDetailConsole({
   }
 
   async function loadServerSnapshot() {
-    await load();
+    const replaced = await load();
+    if (!replaced) return;
     dirtyEditorsRef.current.clearAll();
     setConflict(false);
     setError("");

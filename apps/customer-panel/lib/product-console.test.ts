@@ -1244,7 +1244,7 @@ test("product detail and merchandising loading have independent recovery states"
   assert.match(detail, /setMerchandisingState\("error"\)/);
   assert.match(detail, /Satış ayarları yüklenemedi/);
   assert.match(detail, /onClick=\{\(\) => void reloadMerchandising\(\)\}>Tekrar dene/);
-  assert.match(detail, /const current = await catalogApi\.getProduct\(productId\);\s*setDetail\(current\);\s*\} catch/);
+  assert.match(detail, /const current = await catalogApi\.getProduct\(productId\);\s*setDetail\(current\);\s*return true;\s*\} catch/);
 });
 
 test("functional launch exposes read-only sales settings and disables permanent product removal", async () => {
@@ -1279,6 +1279,9 @@ test("basic variant and sales editors guard dirty browser and close navigation",
   assert.match(detail, /href="\/products" onClick=\{\(event\) => \{ if \(!canDiscardDetailChanges\(\)\) event\.preventDefault\(\); \}\}/);
   assert.match(detail, /onValueChange=\{\(\) => markDetailDirty\("product"\)\}/);
   assert.match(description, /onValueChange\?\.\(nextSource\)/);
+  assert.match(detail, /document\.addEventListener\("click", interceptApplicationNavigation, true\)/);
+  assert.match(detail, /event\.stopImmediatePropagation\(\)/);
+  assert.match(detail, /const replaced = await load\(\);\s*if \(!replaced\) return;\s*dirtyEditorsRef\.current\.clearAll\(\)/);
   assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
   assert.match(advanced, /createDirtyNavigationGuard/);
   assert.match(advanced, /bindBeforeUnload\(window\)/);
@@ -1305,6 +1308,8 @@ test("advanced create projects every persisted field into the shared dirty draft
   ]) assert.match(advanced, new RegExp(`${field}:`));
   assert.match(advanced, /createTouchedRef\.current/);
   assert.match(advanced, /onValueChange=\{\(next\) => \{ setDescriptionValue\(next\); markEditingDirty\(\); \}\}/);
+  assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setVariants\(next\); \}\}/);
+  assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setCategoryIds\(next\); \}\}/);
 });
 
 test("store selection is omitted when no authorized server projection exists", async () => {

@@ -328,7 +328,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
         <ProductEditorSection id="product-commerce" title={kind === "simple" ? "Fiyat ve stok" : "Varyantlar"} description={kind === "simple" ? "Ürünün satış fiyatı ve stok durumu" : `${variants.length} satış varyantı`} open>
           {showValidation && summary.validVariants < variants.length ? <p className={styles.inlineValidation}>Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
           {kind === "variant" ? <p className={styles.helper}>Her satır ayrı fiyat, stok ve SKU bilgisi taşır.</p> : null}
-          <ProductVariantBuilder variants={variants} onChange={setVariants} allowMultiple={kind === "variant"} showShipping={productType === "physical"} />
+          <ProductVariantBuilder variants={variants} onChange={(next) => { markEditingDirty(); setVariants(next); }} allowMultiple={kind === "variant"} showShipping={productType === "physical"} />
         </ProductEditorSection>
         <ProductEditorSection id="product-media" title="Medya" description={media.length ? `${media.length} görsel seçildi` : "Görselleri ekleyin ve alt metinlerini tamamlayın"}>
           <div className={styles.advancedMedia}>
@@ -339,10 +339,10 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
         </ProductEditorSection>
         <ProductEditorSection id="product-organization" title="Organizasyon" description="Kategori, marka, koleksiyon ve etiketler">
           <div className={styles.organizationGrid}>
-            <ProductClassificationPicker label="Kategoriler" name="categoryIds" options={categoryChoices} selected={categoryIds} onChange={setCategoryIds} searchLabel="Kategori ara" />
+            <ProductClassificationPicker label="Kategoriler" name="categoryIds" options={categoryChoices} selected={categoryIds} onChange={(next) => { markEditingDirty(); setCategoryIds(next); }} searchLabel="Kategori ara" />
             <label><span>Marka</span><select name="resource-brand" defaultValue={draftSession?.current.brandId ?? ""}><option value="">Marka seçilmedi</option>{activeResources("brand").map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></label>
-            <ProductClassificationPicker label="Koleksiyonlar" name="resource-collection" options={collectionChoices} selected={collectionIds} onChange={setCollectionIds} searchLabel="Koleksiyon ara" />
-            <ProductClassificationPicker label="Etiketler" name="resource-tag" options={tagChoices} selected={tagIds} onChange={setTagIds} searchLabel="Etiket ara" />
+            <ProductClassificationPicker label="Koleksiyonlar" name="resource-collection" options={collectionChoices} selected={collectionIds} onChange={(next) => { markEditingDirty(); setCollectionIds(next); }} searchLabel="Koleksiyon ara" />
+            <ProductClassificationPicker label="Etiketler" name="resource-tag" options={tagChoices} selected={tagIds} onChange={(next) => { markEditingDirty(); setTagIds(next); }} searchLabel="Etiket ara" />
             <label><span>Tedarikçi</span><input name="supplierName" maxLength={200} defaultValue={draftSession?.current.supplierName ?? ""} /></label>
           </div>
         </ProductEditorSection>
