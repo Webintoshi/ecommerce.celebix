@@ -23,7 +23,7 @@ const MIGRATIONS = Object.freeze([
         OR pg_catalog.to_regprocedure('${RESTORE_PRODUCT}') IS NOT NULL AS has_objects,
       EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid=pg_catalog.to_regclass('saas.product_variants') AND attname='archived_by_product' AND NOT attisdropped)
         AND pg_catalog.to_regprocedure('${RESTORE_PRODUCT}') IS NOT NULL
-        AND pg_catalog.has_function_privilege('celebix_saas_app','${RESTORE_PRODUCT}','EXECUTE') AS ready`,
+        AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${RESTORE_PRODUCT}'),'EXECUTE') AS ready`,
   }),
   Object.freeze({
     code: "115",
@@ -32,7 +32,7 @@ const MIGRATIONS = Object.freeze([
     probe: `SELECT
       pg_catalog.to_regprocedure('${LIST_V2}') IS NOT NULL AS has_objects,
       pg_catalog.to_regprocedure('${LIST_V2}') IS NOT NULL
-        AND pg_catalog.has_function_privilege('celebix_saas_app','${LIST_V2}','EXECUTE') AS ready`,
+        AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${LIST_V2}'),'EXECUTE') AS ready`,
   }),
   Object.freeze({
     code: "116",
@@ -45,7 +45,7 @@ const MIGRATIONS = Object.freeze([
       pg_catalog.to_regprocedure('${LIST_V3}') IS NOT NULL
         AND pg_catalog.to_regprocedure('saas.catalog_product_search_key(text)') IS NOT NULL
         AND pg_catalog.to_regprocedure('saas.catalog_product_title_sort_key(text)') IS NOT NULL
-        AND pg_catalog.has_function_privilege('celebix_saas_app','${LIST_V3}','EXECUTE') AS ready`,
+        AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${LIST_V3}'),'EXECUTE') AS ready`,
   }),
   Object.freeze({
     code: "117",
@@ -58,7 +58,7 @@ const MIGRATIONS = Object.freeze([
       pg_catalog.to_regprocedure('${BULK_MUTATE}') IS NOT NULL
         AND pg_catalog.to_regprocedure('saas.catalog_product_removal_eligibility(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND pg_catalog.to_regprocedure('${REMOVE_PRODUCT}') IS NOT NULL
-        AND pg_catalog.has_function_privilege('celebix_saas_app','${BULK_MUTATE}','EXECUTE') AS ready`,
+        AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${BULK_MUTATE}'),'EXECUTE') AS ready`,
   }),
   Object.freeze({
     code: "118",
@@ -71,7 +71,7 @@ const MIGRATIONS = Object.freeze([
       pg_catalog.to_regclass('saas.product_media_cleanup_operations') IS NOT NULL
         AND pg_catalog.to_regprocedure('${MEDIA_RESTORE}') IS NOT NULL
         AND pg_catalog.to_regprocedure('saas.media_list_product_lifecycle(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL
-        AND pg_catalog.has_function_privilege('celebix_saas_app','${MEDIA_RESTORE}','EXECUTE') AS ready`,
+        AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${MEDIA_RESTORE}'),'EXECUTE') AS ready`,
   }),
 ]);
 

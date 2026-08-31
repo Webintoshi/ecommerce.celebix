@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const subject = await import(new URL("./apply-staging-product-go-live-migrations.mjs", import.meta.url).href).catch(() => ({}));
+const target = new URL("./apply-staging-product-go-live-migrations.mjs", import.meta.url);
+const subject = await import(target.href).catch(() => ({}));
 
 const approved = Object.freeze({
   CELEBIX_DEPLOYMENT_TIER: "staging",
@@ -24,6 +26,12 @@ const approvedAuthority = () => ({
 test("product go-live migration exposes an explicit staging-only boundary", () => {
   assert.equal(typeof subject.resolveProductGoLiveMigrationConfiguration, "function");
   assert.equal(typeof subject.runProductGoLiveMigrations, "function");
+});
+
+test("product go-live probes resolve optional procedures before checking privileges", async () => {
+  const source = await readFile(target, "utf8");
+  assert.match(source, /has_function_privilege\('celebix_saas_app',pg_catalog\.to_regprocedure\('/);
+  assert.doesNotMatch(source, /has_function_privilege\('celebix_saas_app','saas\./);
 });
 
 test("product go-live migration rejects non-staging and mismatched databases", () => {
