@@ -87,6 +87,12 @@ test("application navigation guard blocks same-origin links when a dirty draft i
   listener?.(event);
   assert.equal(prevented, 1);
   assert.equal(stopped, 1);
+
+  event.target.closest = () => ({ href: "#product-commerce", target: "", hasAttribute: () => false });
+  listener?.(event);
+  assert.equal(prevented, 1);
+  assert.equal(stopped, 1);
+
   dirty = false;
   listener?.(event);
   assert.equal(prevented, 1);

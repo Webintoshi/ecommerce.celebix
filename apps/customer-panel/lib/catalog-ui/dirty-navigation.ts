@@ -41,7 +41,11 @@ export function createDirtyNavigationGuard(options: DirtyNavigationGuardOptions)
         if (anchor === null || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
         const current = new URL(currentUrl());
         const destination = new URL(anchor.href, current);
-        if (destination.origin !== current.origin || destination.href === current.href || options.confirm()) return;
+        if (
+          destination.origin !== current.origin
+          || (destination.pathname === current.pathname && destination.search === current.search)
+          || options.confirm()
+        ) return;
         event.preventDefault();
         event.stopImmediatePropagation();
       };
