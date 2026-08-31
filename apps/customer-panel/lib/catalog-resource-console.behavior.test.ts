@@ -10,7 +10,7 @@ import ts from "typescript";
 const root = new URL("../", import.meta.url);
 const RESOURCE_ID = "e356f25b-b8a3-43a7-bd70-58efc978e2aa";
 
-async function compileCatalogResourceConsole(calls: string[]) {
+async function compileCatalogResourceConsole(calls: string[], resourceStatus: "active" | "archived" = "active") {
   const source = await readFile(new URL("components/catalog-admin/CatalogResourceConsole.tsx", root), "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: {
@@ -27,7 +27,7 @@ async function compileCatalogResourceConsole(calls: string[]) {
     slug: "atlas-qa-collection",
     description: "QA collection",
     config: Object.freeze({}),
-    status: "active" as const,
+    status: resourceStatus,
     productIds: Object.freeze([]),
     productCount: 0,
     version: 3,
@@ -122,6 +122,25 @@ test("catalog resource archive stays an isolated button action inside a surround
     await act(async () => { archive.click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
     assert.deepEqual(archiveCalls, [`collection:${RESOURCE_ID}:3`]);
     assert.equal(formSubmissions, 0, "archive must not inherit submit behavior from an ancestor form");
+  } finally {
+    await act(async () => { reactRoot.unmount(); });
+    restoreGlobals();
+    await window.happyDOM.close();
+  }
+});
+
+test("archived catalog resources are removed from the active management list", async () => {
+  const window = new Window({ url: "https://panel.example.test/products/collections" });
+  const restoreGlobals = installDomGlobals(window);
+  const container = window.document.createElement("div");
+  window.document.body.append(container);
+  const reactRoot = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  try {
+    const Console = await compileCatalogResourceConsole([], "archived");
+    await act(async () => { reactRoot.render(createElement(Console, { kind: "collection", canManage: true })); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.equal(container.textContent?.includes("ATLAS-QA-COLLECTION"), false);
+    assert.equal([...container.querySelectorAll("button")].some((button) => button.textContent === "Arşivle"), false);
   } finally {
     await act(async () => { reactRoot.unmount(); });
     restoreGlobals();
