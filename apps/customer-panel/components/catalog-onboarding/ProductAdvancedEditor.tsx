@@ -214,10 +214,12 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
   }
 
   function switchKind(next: "simple" | "variant") {
-    if (editing) return;
+    if (editing || next === kind) return;
+    if (!window.confirm("Ürün yapısını değiştirmek fazla varyantları kaldırabilir. Devam etmek istiyor musunuz?")) return;
     markEditingDirty();
     setKind(next);
-    setVariants(next === "simple" ? [emptyVariant()] : variants.length > 1 ? variants : [emptyVariant("Varyant 1"), emptyVariant("Varyant 2")]);
+    const firstVariant = variants[0] ?? emptyVariant(next === "simple" ? "Standart" : "Varyant 1");
+    setVariants(next === "simple" ? [firstVariant] : variants.length > 1 ? variants : [firstVariant, emptyVariant("Varyant 2")]);
   }
 
   function selectMedia(event: ChangeEvent<HTMLInputElement>) {

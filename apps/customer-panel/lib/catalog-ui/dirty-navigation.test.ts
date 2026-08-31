@@ -66,3 +66,30 @@ test("independent editors cannot clear another mounted editor's dirty state", ()
   registry.clearAll();
   assert.equal(registry.anyDirty(), false);
 });
+
+test("application navigation guard blocks same-origin links when a dirty draft is retained", () => {
+  let listener: ((event: any) => void) | undefined;
+  let dirty = true;
+  const target = {
+    addEventListener(type: string, next: typeof listener, capture: boolean) { assert.equal(type, "click"); assert.equal(capture, true); listener = next; },
+    removeEventListener(type: string, next: typeof listener, capture: boolean) { assert.equal(type, "click"); assert.equal(capture, true); if (listener === next) listener = undefined; },
+  };
+  const guard = createDirtyNavigationGuard({ isDirty: () => dirty, confirm: () => false });
+  const cleanup = guard.bindApplicationNavigation(target as unknown as Document, () => "https://panel.example/products/1");
+  let prevented = 0;
+  let stopped = 0;
+  const event = {
+    defaultPrevented: false, button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false,
+    target: { closest: () => ({ href: "/orders", target: "", hasAttribute: () => false }) },
+    preventDefault: () => { prevented += 1; },
+    stopImmediatePropagation: () => { stopped += 1; },
+  };
+  listener?.(event);
+  assert.equal(prevented, 1);
+  assert.equal(stopped, 1);
+  dirty = false;
+  listener?.(event);
+  assert.equal(prevented, 1);
+  cleanup();
+  assert.equal(listener, undefined);
+});

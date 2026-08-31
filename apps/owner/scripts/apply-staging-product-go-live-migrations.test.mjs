@@ -16,6 +16,8 @@ const approved = Object.freeze({
   CELEBIX_STAGING_BACKUP_SHA256: "1ccd474eed88f8ed202fc202b3ee190fd655a7b1dc3a5313ccbf408ef7b13251",
   CELEBIX_STAGING_BACKUP_VERIFIED_AT: new Date(Date.now() - 60_000).toISOString(),
   CELEBIX_STAGING_BACKUP_RESTORE_STATUS: "restore_verified",
+  CELEBIX_STAGING_BACKUP_DATABASE_NAME: "celebix_saas_staging_auth0101",
+  CELEBIX_STAGING_BACKUP_ACTIVATION_ID: "staging_auth0101",
 });
 
 const approvedAuthority = () => ({
@@ -50,6 +52,8 @@ test("product go-live migration rejects non-staging and mismatched databases", (
     { ...approved, CELEBIX_STAGING_BACKUP_RESTORE_STATUS: "unverified" },
     { ...approved, CELEBIX_STAGING_BACKUP_SHA256: "not-a-digest" },
     { ...approved, CELEBIX_STAGING_BACKUP_VERIFIED_AT: "2020-01-01T00:00:00.000Z" },
+    { ...approved, CELEBIX_STAGING_BACKUP_DATABASE_NAME: "other_staging" },
+    { ...approved, CELEBIX_STAGING_BACKUP_ACTIVATION_ID: "staging_other" },
   ]) assert.throws(() => resolve(source), /product_go_live_staging_/);
   assert.deepEqual(resolve(approved), {
     databaseName: approved.CELEBIX_SAAS_DATABASE_NAME,

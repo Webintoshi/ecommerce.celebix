@@ -136,18 +136,11 @@ export function ProductDetailConsole({
   }, []);
 
   useEffect(() => {
-    const interceptApplicationNavigation = (event: MouseEvent) => {
-      if (!dirtyEditorsRef.current.anyDirty() || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
-      if (anchor === null || anchor.matches(".product-detail-back") || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
-      const destination = new URL(anchor.href, window.location.href);
-      if (destination.origin !== window.location.origin || (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.hash === window.location.hash)) return;
-      if (canDiscardDetailChanges()) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    };
-    document.addEventListener("click", interceptApplicationNavigation, true);
-    return () => document.removeEventListener("click", interceptApplicationNavigation, true);
+    const guard = createDirtyNavigationGuard({
+      isDirty: () => dirtyEditorsRef.current.anyDirty(),
+      confirm: () => window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Sayfadan ayrılmak istiyor musunuz?"),
+    });
+    return guard.bindApplicationNavigation(document, () => window.location.href);
   }, []);
 
   function markDetailDirty(editor: "product" | "variant-create" | "variant-edit") {
@@ -319,6 +312,8 @@ export function ProductDetailConsole({
 
   async function confirmProductArchive() {
     if (detail === undefined || !canArchive || detail.product.status === "archived") return;
+    if (!canDiscardDetailChanges()) return;
+    closeDetailEditors();
     await mutation("archive-product", async () => {
       await catalogApi.archiveProduct(productId, detail.product.version);
       location.assign("/products");
@@ -385,7 +380,7 @@ export function ProductDetailConsole({
     <section data-presentation="hemenaku-product-detail" className="catalog-page product-detail-workspace" aria-labelledby="product-title">
       <header className="detail-heading-row hemenaku-detail-hero product-detail-header">
         <div className="catalog-heading product-detail-heading">
-          <Link className="back-link product-detail-back" href="/products" onClick={(event) => { if (!canDiscardDetailChanges()) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> Ürünlere dön</Link>
+          <Link className="back-link product-detail-back" href="/products"><ArrowLeft aria-hidden="true" /> Ürünlere dön</Link>
           <div className="heading-meta product-detail-heading-meta"><span className={`status-pill status-${product.status}`}>{statusLabel}</span><span className="version-badge">v{product.version}</span></div>
           <h1 id="product-title">{product.title}</h1>
           <p>{primarySku ? `SKU ${primarySku}` : "SKU eklenmemiş"}<span aria-hidden="true"> · </span>{product.currency}</p>
@@ -395,7 +390,7 @@ export function ProductDetailConsole({
           {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
           {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => { if (editingProduct) { if (canDiscardDetailChanges("product")) setEditingProduct(false); } else openExclusiveEditor("product"); }}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}
           {!archived ? <button className="button button-secondary" type="button" onClick={() => { if (merchandisingState === "error") void reloadMerchandising(); else if (merchandisingState === "ready") { if (canManage) openExclusiveEditor("sales"); else setEditingMerchandising(true); } }} disabled={merchandisingState === "loading"}><SlidersHorizontal aria-hidden="true" /> {merchandisingState === "loading" ? "Yükleniyor…" : "Satış ayarları"}</button> : null}
-          {!archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
+          {!archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={(event) => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
         </div>
       </header>
 
@@ -480,7 +475,7 @@ export function ProductDetailConsole({
                   <span><small>Karşılaştırma</small><strong>{variant.compareAtCents === undefined ? "—" : formatTurkishMoney(variant.compareAtCents, product.currency)}</strong></span>
                   <span><small>Stok</small><strong>{variant.stockTracking ? `${variant.stockQuantity} adet` : "Takip dışı"}</strong></span>
                 </div>
-                <div className="variant-actions">{canManage && !archived ? <button className="button button-secondary" type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)}>Düzenle</button> : null}{canArchive && !archived ? <button className="text-danger-button" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button> : null}</div>
+                <div className="variant-actions">{canManage && !archived ? <button className="button button-secondary" type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)}>Düzenle</button> : null}{canArchive && !archived ? <button className="text-danger-button" type="button" onClick={(event) => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button> : null}</div>
               </>
             )}
           </article>

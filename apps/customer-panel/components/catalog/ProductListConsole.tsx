@@ -44,6 +44,7 @@ import {
   type ProductFeaturedImage,
 } from "@/lib/catalog-ui/client";
 import { parseProductListUrlState, productListUrlStateQuery } from "@/lib/catalog-ui/product-list-query";
+import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import {
   commitProductDraft,
   createEmptyProductDraftSession,
@@ -414,13 +415,13 @@ export function ProductListConsole({
 
   useEffect(() => {
     if ((!quickCreateOpen && !advancedCreateOpen) || typeof window === "undefined") return;
-    const protect = (event: BeforeUnloadEvent) => {
-      if (!productDraftIsDirty(draftSessionRef.current)) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", protect);
-    return () => window.removeEventListener("beforeunload", protect);
+    const guard = createDirtyNavigationGuard({
+      isDirty: () => productDraftIsDirty(draftSessionRef.current),
+      confirm: () => window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Sayfadan ayrılmak istiyor musunuz?"),
+    });
+    const cleanupBeforeUnload = guard.bindBeforeUnload(window);
+    const cleanupApplicationNavigation = guard.bindApplicationNavigation(document, () => window.location.href);
+    return () => { cleanupBeforeUnload(); cleanupApplicationNavigation(); };
   }, [advancedCreateOpen, quickCreateOpen]);
 
   useEffect(() => {

@@ -94,6 +94,8 @@ export function resolveProductGoLiveMigrationConfiguration(source = process.env,
   const backupAge = now.getTime() - backupVerifiedAt.getTime();
   if (
     source.CELEBIX_STAGING_BACKUP_RESTORE_STATUS !== "restore_verified"
+    || source.CELEBIX_STAGING_BACKUP_DATABASE_NAME !== databaseName
+    || source.CELEBIX_STAGING_BACKUP_ACTIVATION_ID !== activationId
     || !/^staging_backup_[a-z0-9_-]{3,100}$/u.test(backupId)
     || !/^[a-f0-9]{64}$/u.test(backupDigest)
     || !Number.isFinite(backupAge)

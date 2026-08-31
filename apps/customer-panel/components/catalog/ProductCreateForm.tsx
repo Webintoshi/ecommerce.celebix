@@ -37,7 +37,9 @@ export function ProductCreateForm({ initialMode = "quick" }: Readonly<{ initialM
       isDirty: () => productDraftIsDirty(sessionRef.current),
       confirm: () => window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Sayfadan ayrılmak istiyor musunuz?"),
     });
-    return guard.bindBeforeUnload(window);
+    const cleanupBeforeUnload = guard.bindBeforeUnload(window);
+    const cleanupApplicationNavigation = guard.bindApplicationNavigation(document, () => window.location.href);
+    return () => { cleanupBeforeUnload(); cleanupApplicationNavigation(); };
   }, []);
 
   function leave(path = "/products") {

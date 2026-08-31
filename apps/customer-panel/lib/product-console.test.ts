@@ -47,6 +47,9 @@ async function productionProductListModule() {
       createEmptyProductDraftSession: () => ({ initial: {}, current: {} }),
       productDraftIsDirty: () => false,
     };
+    if (specifier === "@/lib/catalog-ui/dirty-navigation") return {
+      createDirtyNavigationGuard: () => ({ bindBeforeUnload: () => () => undefined, bindApplicationNavigation: () => () => undefined }),
+    };
     if (specifier === "@/lib/catalog-ui/client") {
       class CatalogApiError extends Error {
         code = "unavailable";
@@ -220,6 +223,9 @@ async function createMountedProductConsole(
       commitProductDraft: (session: unknown) => session,
       createEmptyProductDraftSession: () => ({ initial: {}, current: {} }),
       productDraftIsDirty: () => false,
+    };
+    if (specifier === "@/lib/catalog-ui/dirty-navigation") return {
+      createDirtyNavigationGuard: () => ({ bindBeforeUnload: () => () => undefined, bindApplicationNavigation: () => () => undefined }),
     };
     if (specifier === "@/lib/catalog-ui/client") {
       return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
@@ -1269,6 +1275,8 @@ test("basic variant and sales editors guard dirty browser and close navigation",
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
   const description = await source("components/catalog/ProductDescriptionField.tsx");
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  const list = await source("components/catalog/ProductListConsole.tsx");
 
   assert.match(detail, /createDirtyNavigationGuard/);
   assert.match(detail, /createDirtyEditorRegistry/);
@@ -1276,12 +1284,12 @@ test("basic variant and sales editors guard dirty browser and close navigation",
   assert.match(detail, /markDetailDirty\("product"\)/);
   assert.match(detail, /markDetailDirty\("variant-create"\)/);
   assert.match(detail, /markDetailDirty\("variant-edit"\)/);
-  assert.match(detail, /href="\/products" onClick=\{\(event\) => \{ if \(!canDiscardDetailChanges\(\)\) event\.preventDefault\(\); \}\}/);
+  assert.match(detail, /href="\/products"/);
   assert.match(detail, /onValueChange=\{\(\) => markDetailDirty\("product"\)\}/);
   assert.match(description, /onValueChange\?\.\(nextSource\)/);
-  assert.match(detail, /document\.addEventListener\("click", interceptApplicationNavigation, true\)/);
-  assert.match(detail, /event\.stopImmediatePropagation\(\)/);
+  for (const surface of [detail, create, list]) assert.match(surface, /bindApplicationNavigation\(document, \(\) => window\.location\.href\)/);
   assert.match(detail, /const replaced = await load\(\);\s*if \(!replaced\) return;\s*dirtyEditorsRef\.current\.clearAll\(\)/);
+  assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*closeDetailEditors\(\);\s*await mutation\("archive-product"/);
   assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
   assert.match(advanced, /createDirtyNavigationGuard/);
   assert.match(advanced, /bindBeforeUnload\(window\)/);
@@ -1310,6 +1318,9 @@ test("advanced create projects every persisted field into the shared dirty draft
   assert.match(advanced, /onValueChange=\{\(next\) => \{ setDescriptionValue\(next\); markEditingDirty\(\); \}\}/);
   assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setVariants\(next\); \}\}/);
   assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setCategoryIds\(next\); \}\}/);
+  assert.match(advanced, /if \(editing \|\| next === kind\) return/);
+  assert.match(advanced, /Ürün yapısını değiştirmek fazla varyantları kaldırabilir/);
+  assert.match(advanced, /const firstVariant = variants\[0\]/);
 });
 
 test("store selection is omitted when no authorized server projection exists", async () => {

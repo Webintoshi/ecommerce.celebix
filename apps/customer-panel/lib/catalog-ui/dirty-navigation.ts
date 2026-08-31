@@ -13,6 +13,12 @@ type DirtyNavigationGuardOptions = Readonly<{
   confirm(): boolean;
 }>;
 
+type ApplicationAnchor = Readonly<{
+  href: string;
+  target?: string;
+  hasAttribute(name: string): boolean;
+}>;
+
 export function createDirtyNavigationGuard(options: DirtyNavigationGuardOptions) {
   return Object.freeze({
     canLeave(): boolean {
@@ -26,6 +32,21 @@ export function createDirtyNavigationGuard(options: DirtyNavigationGuardOptions)
       };
       target.addEventListener("beforeunload", listener);
       return () => target.removeEventListener("beforeunload", listener);
+    },
+    bindApplicationNavigation(target: Document, currentUrl: () => string): () => void {
+      const listener = (event: MouseEvent) => {
+        if (!options.isDirty() || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const eventTarget = event.target as { closest?(selector: string): ApplicationAnchor | null } | null;
+        const anchor = eventTarget?.closest?.("a[href]") ?? null;
+        if (anchor === null || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
+        const current = new URL(currentUrl());
+        const destination = new URL(anchor.href, current);
+        if (destination.origin !== current.origin || destination.href === current.href || options.confirm()) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      };
+      target.addEventListener("click", listener, true);
+      return () => target.removeEventListener("click", listener, true);
     },
   });
 }
