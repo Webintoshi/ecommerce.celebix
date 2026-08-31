@@ -47,6 +47,9 @@ async function productionProductListModule() {
       createEmptyProductDraftSession: () => ({ initial: {}, current: {} }),
       productDraftIsDirty: () => false,
     };
+    if (specifier === "@/lib/catalog-ui/dirty-navigation") return {
+      createDirtyNavigationGuard: () => ({ bindBeforeUnload: () => () => undefined, bindApplicationNavigation: () => () => undefined }),
+    };
     if (specifier === "@/lib/catalog-ui/client") {
       class CatalogApiError extends Error {
         code = "unavailable";
@@ -220,6 +223,9 @@ async function createMountedProductConsole(
       commitProductDraft: (session: unknown) => session,
       createEmptyProductDraftSession: () => ({ initial: {}, current: {} }),
       productDraftIsDirty: () => false,
+    };
+    if (specifier === "@/lib/catalog-ui/dirty-navigation") return {
+      createDirtyNavigationGuard: () => ({ bindBeforeUnload: () => () => undefined, bindApplicationNavigation: () => () => undefined }),
     };
     if (specifier === "@/lib/catalog-ui/client") {
       return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
@@ -1244,7 +1250,77 @@ test("product detail and merchandising loading have independent recovery states"
   assert.match(detail, /setMerchandisingState\("error"\)/);
   assert.match(detail, /Satış ayarları yüklenemedi/);
   assert.match(detail, /onClick=\{\(\) => void reloadMerchandising\(\)\}>Tekrar dene/);
-  assert.match(detail, /const current = await catalogApi\.getProduct\(productId\);\s*setDetail\(current\);\s*\} catch/);
+  assert.match(detail, /const current = await catalogApi\.getProduct\(productId\);\s*setDetail\(current\);\s*return true;\s*\} catch/);
+});
+
+test("functional launch exposes read-only sales settings and disables permanent product removal", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const removeRoute = await source("app/api/catalog/products/[productId]/remove/route.ts");
+
+  for (const state of [
+    "Yükleniyor…",
+    "Satış ayarları",
+    "Yüklenemedi — Tekrar dene",
+    "Bu hesap yalnızca görüntüleme yetkisine sahiptir",
+  ]) assert.match(detail, new RegExp(state));
+  assert.match(detail, /readOnlySalesSettings/);
+  assert.match(detail, /catalogOnboardingClient[.]getOptions\(\)/);
+  assert.match(detail, /catalogOnboardingClient[.]getProductEditor\(productId\)/);
+  assert.doesNotMatch(detail, /ProductRemovalEligibility|inspectRemoval|permanentlyRemoveProduct|Kalıcı kaldır/);
+  assert.doesNotMatch(removeRoute, /handleDefaultCatalogRemoveProduct/);
+  assert.match(removeRoute, /status:\s*404/);
+});
+
+test("basic variant and sales editors guard dirty browser and close navigation", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  const description = await source("components/catalog/ProductDescriptionField.tsx");
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  const list = await source("components/catalog/ProductListConsole.tsx");
+
+  assert.match(detail, /createDirtyNavigationGuard/);
+  assert.match(detail, /createDirtyEditorRegistry/);
+  assert.match(detail, /bindBeforeUnload\(window\)/);
+  assert.match(detail, /markDetailDirty\("product"\)/);
+  assert.match(detail, /markDetailDirty\("variant-create"\)/);
+  assert.match(detail, /markDetailDirty\("variant-edit"\)/);
+  assert.match(detail, /href="\/products"/);
+  assert.match(detail, /onValueChange=\{\(\) => markDetailDirty\("product"\)\}/);
+  assert.match(description, /onValueChange\?\.\(nextSource\)/);
+  for (const surface of [detail, create, list]) assert.match(surface, /bindApplicationNavigation\(document, \(\) => window\.location\.href\)/);
+  assert.match(detail, /const replaced = await load\(\);\s*if \(!replaced\) return;\s*dirtyEditorsRef\.current\.clearAll\(\)/);
+  assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*closeDetailEditors\(\);\s*await mutation\("archive-product"/);
+  assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
+  assert.match(advanced, /createDirtyNavigationGuard/);
+  assert.match(advanced, /bindBeforeUnload\(window\)/);
+  assert.match(advanced, /onChange=\{markEditingDirty\}/);
+  assert.match(advanced, /if \(reloaded === false\) return/);
+  assert.match(advanced, /onDirtyChange\?\.\(true\)/);
+  assert.match(advanced, /Kaydedilmemiş satış ayarı değişiklikleriniz var/);
+});
+
+test("advanced create projects every persisted field into the shared dirty draft", async () => {
+  const advanced = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  for (const field of [
+    "description",
+    "brandId",
+    "supplierName",
+    "minimumOrderQuantity",
+    "maximumOrderQuantity",
+    "googleProductCategoryId",
+    "seoTitle",
+    "seoDescription",
+    "resourceAttributeIds",
+    "resourceExtraIds",
+    "resourceDefinitionIds",
+  ]) assert.match(advanced, new RegExp(`${field}:`));
+  assert.match(advanced, /createTouchedRef\.current/);
+  assert.match(advanced, /onValueChange=\{\(next\) => \{ setDescriptionValue\(next\); markEditingDirty\(\); \}\}/);
+  assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setVariants\(next\); \}\}/);
+  assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setCategoryIds\(next\); \}\}/);
+  assert.match(advanced, /if \(editing \|\| next === kind\) return/);
+  assert.match(advanced, /Ürün yapısını değiştirmek fazla varyantları kaldırabilir/);
+  assert.match(advanced, /const firstVariant = variants\[0\]/);
 });
 
 test("store selection is omitted when no authorized server projection exists", async () => {

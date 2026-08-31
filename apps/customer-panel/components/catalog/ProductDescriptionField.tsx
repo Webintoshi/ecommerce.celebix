@@ -50,6 +50,7 @@ type ProductDescriptionFieldProps = Readonly<{
   rows?: number;
   className?: string;
   previewCollapsed?: boolean;
+  onValueChange?(value: string): void;
 }>;
 
 type ToolbarButtonProps = Readonly<{
@@ -142,6 +143,7 @@ export function ProductDescriptionField({
   defaultValue = "",
   readOnly = false,
   className = "",
+  onValueChange,
 }: ProductDescriptionFieldProps) {
   const initialValue = useMemo(() => normalizeStoredProductDescription(defaultValue), [defaultValue]);
   const [source, setSource] = useState(initialValue);
@@ -180,7 +182,9 @@ export function ProductDescriptionField({
       },
     },
     onUpdate: ({ editor: nextEditor }) => {
-      setSource(normalizeStoredProductDescription(nextEditor.getHTML()));
+      const nextSource = normalizeStoredProductDescription(nextEditor.getHTML());
+      setSource(nextSource);
+      onValueChange?.(nextSource);
     },
   });
 

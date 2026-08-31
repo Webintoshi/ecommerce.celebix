@@ -37,7 +37,9 @@ export function ProductCreateForm({ initialMode = "quick" }: Readonly<{ initialM
       isDirty: () => productDraftIsDirty(sessionRef.current),
       confirm: () => window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Sayfadan ayrılmak istiyor musunuz?"),
     });
-    return guard.bindBeforeUnload(window);
+    const cleanupBeforeUnload = guard.bindBeforeUnload(window);
+    const cleanupApplicationNavigation = guard.bindApplicationNavigation(document, () => window.location.href);
+    return () => { cleanupBeforeUnload(); cleanupApplicationNavigation(); };
   }, []);
 
   function leave(path = "/products") {
@@ -56,7 +58,7 @@ export function ProductCreateForm({ initialMode = "quick" }: Readonly<{ initialM
 
   return (
     <section data-presentation="hemenaku-product-create" className={`catalog-page ${styles.createPage}`} aria-labelledby="create-title">
-      <Link className={`back-link ${styles.createBackLink}`} href="/products" onClick={(event) => { event.preventDefault(); leave(); }}>← Ürünlere dön</Link>
+      <Link className={`back-link ${styles.createBackLink}`} href="/products">← Ürünlere dön</Link>
       <header className={`catalog-heading product-create-heading ${styles.createHeading}`}>
         <h1 id="create-title">Yeni ürün oluştur</h1>
         <p>Temel bilgileri girin; diğer ayrıntıları ihtiyacınız olduğunda tamamlayın.</p>
