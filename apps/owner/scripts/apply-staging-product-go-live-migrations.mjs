@@ -73,6 +73,39 @@ const MIGRATIONS = Object.freeze([
         AND pg_catalog.to_regprocedure('saas.media_list_product_lifecycle(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL
         AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${MEDIA_RESTORE}'),'EXECUTE') AS ready`,
   }),
+  Object.freeze({
+    code: "119",
+    up: "202609010119_catalog_media_reorder_lifecycle_guard.up.sql",
+    assertions: "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql",
+    probe: `WITH guard_contract AS (
+      SELECT pg_catalog.md5(procedure.prosrc) AS body_md5,
+        pg_catalog.pg_get_userbyid(procedure.proowner)='celebix_saas_owner' AS owner_exact,
+        procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[] AS search_path_exact,
+        NOT EXISTS(
+          SELECT 1 FROM pg_catalog.pg_proc AS procedure
+          CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) AS privilege
+          WHERE procedure.oid=pg_catalog.to_regprocedure('saas.guard_product_media_authority()')
+            AND privilege.grantee<>procedure.proowner AND privilege.privilege_type='EXECUTE'
+        ) AS acl_exact,
+        EXISTS(
+          SELECT 1 FROM pg_catalog.pg_trigger AS trigger
+          WHERE trigger.tgrelid='saas.product_media'::regclass
+            AND trigger.tgname='product_media_authority_guard'
+            AND trigger.tgfoid=procedure.oid
+            AND trigger.tgenabled='O' AND NOT trigger.tgisinternal AND trigger.tgtype=23
+        ) AS trigger_exact
+      FROM pg_catalog.pg_proc AS procedure
+      WHERE procedure.oid=pg_catalog.to_regprocedure('saas.guard_product_media_authority()')
+    )
+    SELECT COALESCE((
+        SELECT NOT(body_md5 IN('5106df0c84adcb2ab02832730f02cf02','ee70e2fd0b96f2debb5b8f5413f34c5a') AND owner_exact AND search_path_exact AND acl_exact AND trigger_exact)
+        FROM guard_contract
+      ),true) AS has_objects,
+      COALESCE((
+        SELECT body_md5='ce8e5e6417db75453e0436eb372f3755' AND owner_exact AND search_path_exact AND acl_exact AND trigger_exact
+        FROM guard_contract
+      ),false) AS ready`,
+  }),
 ]);
 
 export function resolveProductGoLiveMigrationConfiguration(source = process.env, now = new Date()) {

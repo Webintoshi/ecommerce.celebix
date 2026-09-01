@@ -5,6 +5,7 @@ import { accessSync, constants, mkdtempSync, mkdirSync, readFileSync, rmSync } f
 import path from "node:path";
 import process from "node:process";
 
+import { runProductGoLiveMigrations } from "../../../apps/owner/scripts/apply-staging-product-go-live-migrations.mjs";
 import { REQUIRED_NATIVE_TOOLS, assertSafeEnvironment } from "../../saas-phase2/postgres/disposable-harness.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -22,6 +23,7 @@ const PRODUCT_C = "50000000-0000-4000-8000-000000000123";
 const PRODUCT_FOREIGN = "50000000-0000-4000-8000-000000000124";
 const MEDIA_RESTORE = "70000000-0000-4000-8000-000000000121";
 const MEDIA_CLEANUP = "70000000-0000-4000-8000-000000000122";
+const MEDIA_REORDER = "70000000-0000-4000-8000-000000000123";
 const FINGERPRINT = "a".repeat(64);
 const actors = Object.freeze({
   owner: ["20000000-0000-4000-8000-000000000121", "30000000-0000-4000-8000-000000000121"],
@@ -48,12 +50,6 @@ const before117 = [
   "202608260115_catalog_product_list_projection_assertions.sql",
   "202608260116_catalog_product_global_query.up.sql",
   "202608260116_catalog_product_global_query_assertions.sql",
-];
-const additions = [
-  "202608300117_catalog_product_bulk_safe_removal.up.sql",
-  "202608300117_catalog_product_bulk_safe_removal_assertions.sql",
-  "202608300118_catalog_media_retention_restore.up.sql",
-  "202608300118_catalog_media_retention_restore_assertions.sql",
 ];
 let completed = 0;
 
@@ -101,6 +97,9 @@ function stop(box) {
 
 function psql(box, source, database = DATABASE) {
   return command(box.executables.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], { input: source }).stdout.trim();
+}
+function psqlFailure(box, source, database = DATABASE) {
+  return command(box.executables.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], { input: source, allowFailure: true });
 }
 function apply(box, file) { psql(box, readFileSync(path.join(SQL, file), "utf8")); }
 function authority(actor = "owner", store = STORE, now = NOW, limit = 100) {
@@ -152,7 +151,8 @@ function seed(box) {
     ALTER TABLE saas.product_variants ENABLE TRIGGER product_variants_inventory_reconcile;
     INSERT INTO saas.product_media(id,store_id,product_id,object_key,public_url,media_type,alt_text,width,height,byte_size,sort_order,status,cleanup_state,retention_expires_at,archived_at,created_at,updated_at,version) VALUES
       ('${MEDIA_RESTORE}','${STORE}','${PRODUCT_A}','stores/${STORE}/products/${PRODUCT_A}/${MEDIA_RESTORE}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT_A}/${MEDIA_RESTORE}.webp','image/webp','Restore',100,100,1000,0,'archived','retained','2026-09-29','2026-08-30','2026-01-01','2026-08-30',1),
-      ('${MEDIA_CLEANUP}','${STORE}','${PRODUCT_A}','stores/${STORE}/products/${PRODUCT_A}/${MEDIA_CLEANUP}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT_A}/${MEDIA_CLEANUP}.webp','image/webp','Cleanup',100,100,1000,1,'archived','retained','2026-09-29','2026-08-30','2026-01-01','2026-08-30',1);
+      ('${MEDIA_CLEANUP}','${STORE}','${PRODUCT_A}','stores/${STORE}/products/${PRODUCT_A}/${MEDIA_CLEANUP}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT_A}/${MEDIA_CLEANUP}.webp','image/webp','Cleanup',100,100,1000,1,'archived','retained','2026-09-29','2026-08-30','2026-01-01','2026-08-30',1),
+      ('${MEDIA_REORDER}','${STORE}','${PRODUCT_A}','stores/${STORE}/products/${PRODUCT_A}/${MEDIA_REORDER}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT_A}/${MEDIA_REORDER}.webp','image/webp','Reorder',100,100,1000,1,'active','active',NULL,NULL,'2026-01-01','2026-08-30',1);
     COMMIT;`);
 }
 
@@ -175,12 +175,40 @@ async function main() {
       assert.equal(psql(box, `SELECT to_regprocedure('${V1}') IS NOT NULL AND to_regprocedure('${V2}') IS NOT NULL AND to_regprocedure('${V3}') IS NOT NULL;`), "t");
     });
 
-    for (const migration of additions) apply(box, migration);
+    psql(box, `ALTER DATABASE ${DATABASE} SET celebix.deployment_tier='isolated_staging';`);
+    const { default: pg } = await import("pg");
+    const migrationLines = [];
+    await runProductGoLiveMigrations({
+      client: new pg.Client({ host: box.socket, port: box.port, user: "postgres", database: DATABASE }),
+      databaseName: DATABASE,
+      readSql: (name) => readFileSync(path.join(SQL, name), "utf8"),
+      write: (line) => migrationLines.push(line),
+    });
     seed(box);
 
-    await scenario("migrations 117 and 118 apply with their assertions", () => {
+    await scenario("staging runner applies canonical 117 through 119 with every assertion", () => {
+      assert.deepEqual(migrationLines, [
+        "product_go_live_migration_114=already_applied",
+        "product_go_live_migration_115=already_applied",
+        "product_go_live_migration_116=already_applied",
+        "product_go_live_migration_117=applied",
+        "product_go_live_migration_118=applied",
+        "product_go_live_migration_119=applied",
+      ]);
       assert.equal(psql(box, "SELECT to_regprocedure('saas.catalog_bulk_mutate_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,text,jsonb)') IS NOT NULL;"), "t");
       assert.equal(psql(box, "SELECT to_regprocedure('saas.media_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)') IS NOT NULL;"), "t");
+    });
+
+    await scenario("migration 119 assertions reject weakened body and disabled trigger drift", () => {
+      const assertions = readFileSync(path.join(SQL, "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql"), "utf8");
+      const weakened = psqlFailure(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
+        CREATE OR REPLACE FUNCTION saas.guard_product_media_authority() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $drift$
+        BEGIN IF OLD.status='pending' AND NEW.status='active' AND NEW.cleanup_state='active' AND NEW.archived_at IS NULL AND NEW.retention_expires_at IS NULL AND NEW.object_deleted_at IS NULL THEN RETURN NEW; END IF; RETURN NEW; END
+        $drift$;
+        ${assertions}`);
+      assert.notEqual(weakened.status, 0);
+      const disabled = psqlFailure(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner; ALTER TABLE saas.product_media DISABLE TRIGGER product_media_authority_guard; ${assertions}`);
+      assert.notEqual(disabled.status, 0);
     });
 
     await scenario("old application functions and exact definitions survive the new schema", () => {
@@ -233,6 +261,20 @@ async function main() {
       assert.equal(restored.payload.media.status, "active");
     });
 
+    await scenario("media reorder survives the retention lifecycle guard", () => {
+      const analyst = result(box, `saas.media_reorder_product(${authority("analyst", STORE, NOW, 1000000000)},'81000000-0000-4000-8000-000000000121','${FINGERPRINT}','${PRODUCT_A}',ARRAY['${MEDIA_RESTORE}'::uuid,'${MEDIA_REORDER}'::uuid])`);
+      assert.equal(analyst.outcome, "membership_denied");
+      const foreign = result(box, `saas.media_reorder_product(${authority("foreign", STORE_B, NOW, 1000000000)},'81000000-0000-4000-8000-000000000122','${FINGERPRINT}','${PRODUCT_A}',ARRAY['${MEDIA_RESTORE}'::uuid,'${MEDIA_REORDER}'::uuid])`);
+      assert.equal(foreign.outcome, "product_not_found");
+      assert.notEqual(psqlFailure(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; UPDATE saas.product_media SET sort_order=9 WHERE id='${MEDIA_REORDER}';`).status, 0);
+      const reordered = result(box, `saas.media_reorder_product(${authority("owner", STORE, NOW, 1000000000)},'81000000-0000-4000-8000-000000000123','${FINGERPRINT}','${PRODUCT_A}',ARRAY['${MEDIA_REORDER}'::uuid,'${MEDIA_RESTORE}'::uuid])`);
+      assert.equal(reordered.outcome, "committed");
+      assert.deepEqual(reordered.payload.map(({ id, sortOrder }) => ({ id, sortOrder })), [
+        { id: MEDIA_REORDER, sortOrder: 0 },
+        { id: MEDIA_RESTORE, sortOrder: 1 },
+      ]);
+    });
+
     await scenario("retention blocks early cleanup and deletion proof finalizes an expired object", () => {
       const early = result(box, `saas.media_claim_archived_cleanup(${authority("owner", STORE, NOW, 1000000000)},'82000000-0000-4000-8000-000000000121','${FINGERPRINT}','${PRODUCT_A}','${MEDIA_CLEANUP}',1)`);
       assert.equal(early.outcome, "retention_active");
@@ -259,7 +301,7 @@ async function main() {
       assert.equal(psql(box, `SELECT count(*) FROM saas.products WHERE id='${PRODUCT_C}';`), "0");
     });
 
-    process.stdout.write("PASS 12/12 catalog products complete PostgreSQL 16 rehearsal complete\n");
+    process.stdout.write("PASS 14/14 catalog products complete PostgreSQL 16 rehearsal complete\n");
   } finally {
     stop(box);
   }
