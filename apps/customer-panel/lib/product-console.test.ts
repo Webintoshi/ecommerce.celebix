@@ -1137,6 +1137,14 @@ test("detail and media surfaces retain versioned target commands", async () => {
   assert.doesNotMatch(`${detail}\n${media}`, /storeId|tenantId|document\.cookie|\/api\/admin|supabase/i);
 });
 
+test("media upload resets the captured form after the asynchronous request", async () => {
+  const media = await source("components/catalog/ProductMediaManager.tsx");
+  assert.match(media, /const formElement = event\.currentTarget;/);
+  assert.match(media, /new FormData\(formElement\)/);
+  assert.match(media, /formElement\.reset\(\)/);
+  assert.doesNotMatch(media, /await productMediaApi\.upload[\s\S]*event\.currentTarget\.reset\(\)/);
+});
+
 test("create and edit use one sanitized WYSIWYG description field", async () => {
   const field = await source("components/catalog/ProductDescriptionField.tsx").catch(() => "");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
