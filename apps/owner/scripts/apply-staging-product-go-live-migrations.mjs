@@ -77,15 +77,29 @@ const MIGRATIONS = Object.freeze([
     code: "119",
     up: "202609010119_catalog_media_reorder_lifecycle_guard.up.sql",
     assertions: "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql",
-    probe: `SELECT
-      pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure('saas.guard_product_media_authority()')),'[[:space:]]+','','g'),'OLD.status=''pending''ANDNEW.status=''active''ANDNEW.cleanup_state=''active''ANDNEW.archived_atISNULLANDNEW.retention_expires_atISNULLANDNEW.object_deleted_atISNULL')>0 AS has_objects,
-      pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure('saas.guard_product_media_authority()')),'[[:space:]]+','','g'),'OLD.status=''pending''ANDNEW.status=''active''ANDNEW.cleanup_state=''active''ANDNEW.archived_atISNULLANDNEW.retention_expires_atISNULLANDNEW.object_deleted_atISNULL')>0
-        AND NOT EXISTS(
+    probe: `WITH guard_contract AS (
+      SELECT pg_catalog.md5(procedure.prosrc) AS body_md5,
+        pg_catalog.pg_get_userbyid(procedure.proowner)='celebix_saas_owner' AS owner_exact,
+        procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[] AS search_path_exact,
+        NOT EXISTS(
           SELECT 1 FROM pg_catalog.pg_proc AS procedure
           CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) AS privilege
           WHERE procedure.oid=pg_catalog.to_regprocedure('saas.guard_product_media_authority()')
-            AND privilege.grantee=0 AND privilege.privilege_type='EXECUTE'
-        ) AS ready`,
+            AND privilege.grantee<>procedure.proowner AND privilege.privilege_type='EXECUTE'
+        ) AS acl_exact,
+        EXISTS(
+          SELECT 1 FROM pg_catalog.pg_trigger AS trigger
+          WHERE trigger.tgrelid='saas.product_media'::regclass
+            AND trigger.tgname='product_media_authority_guard'
+            AND trigger.tgfoid=procedure.oid
+            AND trigger.tgenabled='O' AND NOT trigger.tgisinternal AND trigger.tgtype=23
+        ) AS trigger_exact
+      FROM pg_catalog.pg_proc AS procedure
+      WHERE procedure.oid=pg_catalog.to_regprocedure('saas.guard_product_media_authority()')
+    )
+    SELECT NOT(body_md5='ee70e2fd0b96f2debb5b8f5413f34c5a' AND owner_exact AND search_path_exact AND acl_exact AND trigger_exact) AS has_objects,
+      body_md5='ce8e5e6417db75453e0436eb372f3755' AND owner_exact AND search_path_exact AND acl_exact AND trigger_exact AS ready
+    FROM guard_contract`,
   }),
 ]);
 
@@ -158,7 +172,7 @@ export async function runProductGoLiveMigrations({ client, databaseName, readSql
       || authority.owner_member !== true
     ) throw new Error("product_go_live_staging_authority_invalid");
 
-    const lock = await client.query("SELECT pg_catalog.pg_try_advisory_lock(pg_catalog.hashtext('celebix:staging:product-go-live:114-119')) AS acquired");
+    const lock = await client.query("SELECT pg_catalog.pg_try_advisory_lock(pg_catalog.hashtext('celebix:staging:product-go-live:114-118')) AS acquired");
     lockAcquired = lock.rowCount === 1 && lock.rows[0]?.acquired === true;
     if (!lockAcquired) throw new Error("product_go_live_staging_migration_locked");
 
@@ -197,7 +211,7 @@ export async function runProductGoLiveMigrations({ client, databaseName, readSql
     }
   } finally {
     if (lockAcquired) {
-      try { await client.query("SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtext('celebix:staging:product-go-live:114-119'))"); } catch { /* Session close releases the lock. */ }
+      try { await client.query("SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtext('celebix:staging:product-go-live:114-118'))"); } catch { /* Session close releases the lock. */ }
     }
     await client.end();
   }

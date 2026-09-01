@@ -40,6 +40,16 @@ test("product go-live probes resolve optional procedures before checking privile
   assert.doesNotMatch(source, /has_function_privilege\('celebix_saas_app','saas\./);
 });
 
+test("product go-live keeps the rollout lock stable and pins the complete media guard", async () => {
+  const source = await readFile(target, "utf8");
+  assert.equal(source.match(/celebix:staging:product-go-live:114-118/g)?.length, 2);
+  assert.doesNotMatch(source, /product-go-live:114-119/);
+  assert.match(source, /body_md5='ee70e2fd0b96f2debb5b8f5413f34c5a'/);
+  assert.match(source, /body_md5='ce8e5e6417db75453e0436eb372f3755'/);
+  assert.match(source, /owner_exact AND search_path_exact AND acl_exact AND trigger_exact/);
+  assert.match(source, /trigger[.]tgtype=23/);
+});
+
 test("product go-live migration rejects non-staging and mismatched databases", () => {
   const resolve = subject.resolveProductGoLiveMigrationConfiguration;
   assert.equal(typeof resolve, "function");
@@ -152,6 +162,29 @@ test("product go-live migration fails closed before SQL mutation on partial sche
     write: () => undefined,
   }), /product_go_live_staging_114_partial/);
   assert.equal(ended, true);
+});
+
+test("product go-live migration rejects a drifted 119 guard before reading SQL", async () => {
+  let sqlRead = false;
+  const client = {
+    async connect() {},
+    async end() {},
+    async query(sql) {
+      const statement = String(sql);
+      if (statement.includes("AS owner_member")) return { rowCount: 1, rows: [approvedAuthority()] };
+      if (statement.includes("AS acquired")) return { rowCount: 1, rows: [{ acquired: true }] };
+      if (statement.includes("WITH guard_contract")) return { rowCount: 1, rows: [{ has_objects: true, ready: false }] };
+      if (statement.includes("AS has_objects")) return { rowCount: 1, rows: [{ has_objects: true, ready: true }] };
+      return { rowCount: 1, rows: [] };
+    },
+  };
+  await assert.rejects(subject.runProductGoLiveMigrations({
+    client,
+    databaseName: approved.CELEBIX_SAAS_DATABASE_NAME,
+    readSql: () => { sqlRead = true; return ""; },
+    write: () => undefined,
+  }), /product_go_live_staging_119_partial/);
+  assert.equal(sqlRead, false);
 });
 
 test("product go-live migration rejects invalid database authority", async () => {

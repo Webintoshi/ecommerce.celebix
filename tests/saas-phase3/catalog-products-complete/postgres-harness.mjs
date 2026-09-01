@@ -105,6 +105,9 @@ function stop(box) {
 function psql(box, source, database = DATABASE) {
   return command(box.executables.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], { input: source }).stdout.trim();
 }
+function psqlFailure(box, source, database = DATABASE) {
+  return command(box.executables.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], { input: source, allowFailure: true });
+}
 function apply(box, file) { psql(box, readFileSync(path.join(SQL, file), "utf8")); }
 function authority(actor = "owner", store = STORE, now = NOW, limit = 100) {
   const [principal, membership] = actors[actor];
@@ -187,6 +190,18 @@ async function main() {
       assert.equal(psql(box, "SELECT to_regprocedure('saas.media_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)') IS NOT NULL;"), "t");
     });
 
+    await scenario("migration 119 assertions reject weakened body and disabled trigger drift", () => {
+      const assertions = readFileSync(path.join(SQL, "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql"), "utf8");
+      const weakened = psqlFailure(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
+        CREATE OR REPLACE FUNCTION saas.guard_product_media_authority() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $drift$
+        BEGIN IF OLD.status='pending' AND NEW.status='active' AND NEW.cleanup_state='active' AND NEW.archived_at IS NULL AND NEW.retention_expires_at IS NULL AND NEW.object_deleted_at IS NULL THEN RETURN NEW; END IF; RETURN NEW; END
+        $drift$;
+        ${assertions}`);
+      assert.notEqual(weakened.status, 0);
+      const disabled = psqlFailure(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner; ALTER TABLE saas.product_media DISABLE TRIGGER product_media_authority_guard; ${assertions}`);
+      assert.notEqual(disabled.status, 0);
+    });
+
     await scenario("old application functions and exact definitions survive the new schema", () => {
       for (const [signature, definition] of Object.entries(oldDefinitions)) assert.equal(psql(box, `SELECT pg_catalog.pg_get_functiondef('${signature}'::regprocedure);`), definition);
       const old = result(box, `saas.catalog_list_products_v2(${authority()},NULL::text,20::integer,NULL::timestamptz,NULL::uuid)`);
@@ -238,6 +253,11 @@ async function main() {
     });
 
     await scenario("media reorder survives the retention lifecycle guard", () => {
+      const analyst = result(box, `saas.media_reorder_product(${authority("analyst", STORE, NOW, 1000000000)},'81000000-0000-4000-8000-000000000121','${FINGERPRINT}','${PRODUCT_A}',ARRAY['${MEDIA_RESTORE}'::uuid,'${MEDIA_REORDER}'::uuid])`);
+      assert.equal(analyst.outcome, "membership_denied");
+      const foreign = result(box, `saas.media_reorder_product(${authority("foreign", STORE_B, NOW, 1000000000)},'81000000-0000-4000-8000-000000000122','${FINGERPRINT}','${PRODUCT_A}',ARRAY['${MEDIA_RESTORE}'::uuid,'${MEDIA_REORDER}'::uuid])`);
+      assert.equal(foreign.outcome, "product_not_found");
+      assert.notEqual(psqlFailure(box, `BEGIN; SET LOCAL ROLE celebix_saas_app; UPDATE saas.product_media SET sort_order=9 WHERE id='${MEDIA_REORDER}';`).status, 0);
       const reordered = result(box, `saas.media_reorder_product(${authority("owner", STORE, NOW, 1000000000)},'81000000-0000-4000-8000-000000000123','${FINGERPRINT}','${PRODUCT_A}',ARRAY['${MEDIA_REORDER}'::uuid,'${MEDIA_RESTORE}'::uuid])`);
       assert.equal(reordered.outcome, "committed");
       assert.deepEqual(reordered.payload.map(({ id, sortOrder }) => ({ id, sortOrder })), [
@@ -272,7 +292,7 @@ async function main() {
       assert.equal(psql(box, `SELECT count(*) FROM saas.products WHERE id='${PRODUCT_C}';`), "0");
     });
 
-    process.stdout.write("PASS 13/13 catalog products complete PostgreSQL 16 rehearsal complete\n");
+    process.stdout.write("PASS 14/14 catalog products complete PostgreSQL 16 rehearsal complete\n");
   } finally {
     stop(box);
   }
