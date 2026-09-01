@@ -8,7 +8,7 @@ import {
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
 import styles from "./customer-console.module.css";
 
-type CustomerFormField = "firstName" | "lastName" | "email" | "country";
+type CustomerFormField = "firstName" | "lastName" | "email" | "line1" | "city" | "country";
 
 export function CustomerFormConsole() {
   const router = useRouter(),
@@ -44,8 +44,8 @@ export function CustomerFormConsole() {
       country = String(f.get("country") ?? "TR")
         .trim()
         .toUpperCase();
+    const hasAddressInput = Boolean(line1 || city || postalCode || (country && country !== "TR"));
     const emailInput = form.elements?.namedItem?.("email") as HTMLInputElement | null,
-      countryInput = form.elements?.namedItem?.("country") as HTMLInputElement | null,
       nextErrors: Partial<Record<CustomerFormField, string>> = {};
 
     if (!firstName) nextErrors.firstName = "Ad alanı gerekli.";
@@ -53,7 +53,9 @@ export function CustomerFormConsole() {
     if (email && emailInput?.validity.typeMismatch) {
       nextErrors.email = "Geçerli bir e-posta adresi girin.";
     }
-    if (country && countryInput?.validity.patternMismatch) {
+    if (hasAddressInput && !line1) nextErrors.line1 = "Adres alanı gerekli.";
+    if (hasAddressInput && !city) nextErrors.city = "Şehir alanı gerekli.";
+    if (hasAddressInput && !/^[A-Z]{2}$/u.test(country)) {
       nextErrors.country = "İki harfli ülke kodu kullanın.";
     }
     if (Object.keys(nextErrors).length > 0) {
@@ -208,12 +210,39 @@ export function CustomerFormConsole() {
           <div className={styles.createCustomerAddressGrid}>
             <label className={`${styles.createCustomerField} ${styles.createCustomerAddressLine}`}>
               <span>Adres <small>Opsiyonel</small></span>
-              <input name="line1" autoComplete="street-address" maxLength={300} />
-              <small className={styles.createCustomerFieldHint}>Sokak, cadde, bina ve daire bilgisi.</small>
+              <input
+                name="line1"
+                autoComplete="street-address"
+                maxLength={300}
+                aria-invalid={fieldErrors.line1 ? "true" : undefined}
+                aria-describedby="create-customer-line1-help"
+                onChange={() => clearFieldError("line1")}
+              />
+              <small
+                id="create-customer-line1-help"
+                className={fieldErrors.line1 ? styles.createCustomerFieldError : styles.createCustomerFieldHint}
+                aria-live="polite"
+              >
+                {fieldErrors.line1 || "Sokak, cadde, bina ve daire bilgisi."}
+              </small>
             </label>
             <label className={`${styles.createCustomerField} ${styles.createCustomerCity}`}>
               <span>Şehir</span>
-              <input name="city" autoComplete="address-level2" maxLength={100} />
+              <input
+                name="city"
+                autoComplete="address-level2"
+                maxLength={100}
+                aria-invalid={fieldErrors.city ? "true" : undefined}
+                aria-describedby="create-customer-city-help"
+                onChange={() => clearFieldError("city")}
+              />
+              <small
+                id="create-customer-city-help"
+                className={fieldErrors.city ? styles.createCustomerFieldError : styles.createCustomerFieldHint}
+                aria-live="polite"
+              >
+                {fieldErrors.city || "Adres girildiğinde şehir zorunludur."}
+              </small>
             </label>
             <label className={`${styles.createCustomerField} ${styles.createCustomerPostalCode}`}>
               <span>Posta kodu</span>
@@ -225,7 +254,7 @@ export function CustomerFormConsole() {
                 name="country"
                 autoComplete="country"
                 defaultValue="TR"
-                pattern="[A-Z]{2}"
+                pattern="[A-Za-z]{2}"
                 maxLength={2}
                 aria-invalid={fieldErrors.country ? "true" : undefined}
                 aria-describedby="create-customer-country-help"
