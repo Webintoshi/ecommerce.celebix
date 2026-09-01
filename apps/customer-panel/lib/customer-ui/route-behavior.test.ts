@@ -477,6 +477,74 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     assert.match(textOf(analystNewTree), /yetkiniz yok/u, "analyst-new-page-visible-denial");
     assert.equal(paths.length, 0, "analyst-new-page-makes-no-customer-api-call");
 
+    const submitNewCustomer = async (
+      name: string,
+      values: Readonly<Record<string, string>>,
+    ) => {
+      failure = "none";
+      replayed = false;
+      role = "store_owner";
+      stored = customer();
+      paths.length = 0;
+      repositoryCalls.length = 0;
+      saveInputs.splice(0);
+      pushes.length = 0;
+      const hooks = createHookRuntime();
+      const FormConsole = await compileComponent("../../components/customers/CustomerFormConsole.tsx", "CustomerFormConsole", hooks.runtime, api, (path) => pushes.push(path));
+      const NewPage = await compilePage("/customers/new", "@/components/customers/CustomerFormConsole", "CustomerFormConsole", FormConsole, role);
+      const pageTree = await NewPage();
+      const pageElement = findElement(pageTree, (element) => element.type === FormConsole);
+      const render = () => FormConsole(pageElement.props);
+      let view = await hooks.flush(render);
+      const form = findElement(view, (element) => element.type === "form");
+      await (form.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>> } }) => Promise<void>)({
+        preventDefault() {},
+        currentTarget: { values: { firstName: name, lastName: "Address", country: "TR", ...values } },
+      });
+      view = await hooks.flush(render);
+      return view;
+    };
+
+    for (const [name, values] of [
+      ["default-country", {}],
+      ["cleared-country", { country: "" }],
+    ] as const) {
+      const addresslessView = await submitNewCustomer(`Addressless-${name}`, values);
+      assert.equal(saveInputs.length, 1, `${name}:addressless-create-repository`);
+      assert.deepEqual(saveInputs.at(0)?.addresses, [], `${name}:keeps-address-optional`);
+      assert.doesNotMatch(textOf(addresslessView), /alanı gerekli/u, `${name}:no-address-error`);
+    }
+
+    const completeAddressView = await submitNewCustomer("Complete", {
+      line1: "Kod Sokak 1",
+      city: "İstanbul",
+      postalCode: "34000",
+    });
+    assert.equal(saveInputs.length, 1, "complete-address:create-repository");
+    assert.equal(saveInputs.at(0)?.addresses[0]?.line1, "Kod Sokak 1", "complete-address:line1");
+    assert.equal(saveInputs.at(0)?.addresses[0]?.city, "İstanbul", "complete-address:city");
+    assert.doesNotMatch(textOf(completeAddressView), /alanı gerekli/u, "complete-address:no-address-error");
+    const countryInput = findElement(completeAddressView, (element) => element.type === "input" && element.props.name === "country");
+    assert.equal(countryInput.props.pattern, "[A-Za-z]{2}", "complete-address:lowercase-country-remains-valid-before-normalization");
+
+    const partialAddressCases: ReadonlyArray<{
+      name: string;
+      values: Readonly<Record<string, string>>;
+      error: RegExp;
+    }> = [
+      { name: "line1-only", values: { line1: "Kod Sokak 1" }, error: /Şehir alanı gerekli/u },
+      { name: "city-only", values: { city: "İstanbul" }, error: /Adres alanı gerekli/u },
+      { name: "postal-only", values: { postalCode: "34000" }, error: /Adres alanı gerekli.*Şehir alanı gerekli/us },
+      { name: "country-changed-only", values: { country: "DE" }, error: /Adres alanı gerekli.*Şehir alanı gerekli/us },
+    ];
+    for (const partial of partialAddressCases) {
+      const partialView = await submitNewCustomer(`Partial-${partial.name}`, partial.values);
+      assert.equal(paths.includes("/api/customers"), false, `${partial.name}:no-create-handler`);
+      assert.equal(saveInputs.length, 0, `${partial.name}:no-create-repository`);
+      assert.deepEqual(pushes, [], `${partial.name}:no-redirect`);
+      assert.match(textOf(partialView), partial.error, `${partial.name}:visible-inline-error`);
+    }
+
     for (const mode of ["success", "customer_conflict", "unavailable", "replayed"] as const) {
       failure = mode === "success" || mode === "replayed" ? "none" : mode;
       replayed = mode === "replayed";
