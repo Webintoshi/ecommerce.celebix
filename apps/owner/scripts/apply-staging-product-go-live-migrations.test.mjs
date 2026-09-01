@@ -44,8 +44,10 @@ test("product go-live keeps the rollout lock stable and pins the complete media 
   const source = await readFile(target, "utf8");
   assert.equal(source.match(/celebix:staging:product-go-live:114-118/g)?.length, 2);
   assert.doesNotMatch(source, /product-go-live:114-119/);
-  assert.match(source, /body_md5='ee70e2fd0b96f2debb5b8f5413f34c5a'/);
+  assert.match(source, /body_md5 IN\('5106df0c84adcb2ab02832730f02cf02','ee70e2fd0b96f2debb5b8f5413f34c5a'\)/);
   assert.match(source, /body_md5='ce8e5e6417db75453e0436eb372f3755'/);
+  assert.match(source, /\),true\) AS has_objects/);
+  assert.match(source, /\),false\) AS ready/);
   assert.match(source, /owner_exact AND search_path_exact AND acl_exact AND trigger_exact/);
   assert.match(source, /trigger[.]tgtype=23/);
 });

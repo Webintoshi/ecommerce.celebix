@@ -5,6 +5,7 @@ import { accessSync, constants, mkdtempSync, mkdirSync, readFileSync, rmSync } f
 import path from "node:path";
 import process from "node:process";
 
+import { runProductGoLiveMigrations } from "../../../apps/owner/scripts/apply-staging-product-go-live-migrations.mjs";
 import { REQUIRED_NATIVE_TOOLS, assertSafeEnvironment } from "../../saas-phase2/postgres/disposable-harness.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -49,14 +50,6 @@ const before117 = [
   "202608260115_catalog_product_list_projection_assertions.sql",
   "202608260116_catalog_product_global_query.up.sql",
   "202608260116_catalog_product_global_query_assertions.sql",
-];
-const additions = [
-  "202608300117_catalog_product_bulk_safe_removal.up.sql",
-  "202608300117_catalog_product_bulk_safe_removal_assertions.sql",
-  "202608300118_catalog_media_retention_restore.up.sql",
-  "202608300118_catalog_media_retention_restore_assertions.sql",
-  "202609010119_catalog_media_reorder_lifecycle_guard.up.sql",
-  "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql",
 ];
 let completed = 0;
 
@@ -182,10 +175,26 @@ async function main() {
       assert.equal(psql(box, `SELECT to_regprocedure('${V1}') IS NOT NULL AND to_regprocedure('${V2}') IS NOT NULL AND to_regprocedure('${V3}') IS NOT NULL;`), "t");
     });
 
-    for (const migration of additions) apply(box, migration);
+    psql(box, `ALTER DATABASE ${DATABASE} SET celebix.deployment_tier='isolated_staging';`);
+    const { default: pg } = await import("pg");
+    const migrationLines = [];
+    await runProductGoLiveMigrations({
+      client: new pg.Client({ host: box.socket, port: box.port, user: "postgres", database: DATABASE }),
+      databaseName: DATABASE,
+      readSql: (name) => readFileSync(path.join(SQL, name), "utf8"),
+      write: (line) => migrationLines.push(line),
+    });
     seed(box);
 
-    await scenario("migrations 117 through 119 apply with their assertions", () => {
+    await scenario("staging runner applies canonical 117 through 119 with every assertion", () => {
+      assert.deepEqual(migrationLines, [
+        "product_go_live_migration_114=already_applied",
+        "product_go_live_migration_115=already_applied",
+        "product_go_live_migration_116=already_applied",
+        "product_go_live_migration_117=applied",
+        "product_go_live_migration_118=applied",
+        "product_go_live_migration_119=applied",
+      ]);
       assert.equal(psql(box, "SELECT to_regprocedure('saas.catalog_bulk_mutate_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,text,jsonb)') IS NOT NULL;"), "t");
       assert.equal(psql(box, "SELECT to_regprocedure('saas.media_restore_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)') IS NOT NULL;"), "t");
     });

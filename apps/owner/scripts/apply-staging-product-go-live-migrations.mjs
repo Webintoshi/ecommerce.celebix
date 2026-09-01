@@ -97,9 +97,14 @@ const MIGRATIONS = Object.freeze([
       FROM pg_catalog.pg_proc AS procedure
       WHERE procedure.oid=pg_catalog.to_regprocedure('saas.guard_product_media_authority()')
     )
-    SELECT NOT(body_md5='ee70e2fd0b96f2debb5b8f5413f34c5a' AND owner_exact AND search_path_exact AND acl_exact AND trigger_exact) AS has_objects,
-      body_md5='ce8e5e6417db75453e0436eb372f3755' AND owner_exact AND search_path_exact AND acl_exact AND trigger_exact AS ready
-    FROM guard_contract`,
+    SELECT COALESCE((
+        SELECT NOT(body_md5 IN('5106df0c84adcb2ab02832730f02cf02','ee70e2fd0b96f2debb5b8f5413f34c5a') AND owner_exact AND search_path_exact AND acl_exact AND trigger_exact)
+        FROM guard_contract
+      ),true) AS has_objects,
+      COALESCE((
+        SELECT body_md5='ce8e5e6417db75453e0436eb372f3755' AND owner_exact AND search_path_exact AND acl_exact AND trigger_exact
+        FROM guard_contract
+      ),false) AS ready`,
   }),
 ]);
 
