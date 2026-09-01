@@ -14,7 +14,7 @@ test("catalog products complete manifest pins the additive migration artifacts",
   assert.equal(manifest.postgresqlMajor, 16);
   assert.equal(manifest.externalConnections, 0);
   assert.equal(manifest.productionMutations, 0);
-  assert.equal(manifest.artifacts.length, 6);
+  assert.equal(manifest.artifacts.length, 9);
   for (const artifact of manifest.artifacts) {
     assert.equal(createHash("sha256").update(readFileSync(path.join(sql, artifact.file))).digest("hex"), artifact.sha256, artifact.file);
   }

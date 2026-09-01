@@ -73,6 +73,20 @@ const MIGRATIONS = Object.freeze([
         AND pg_catalog.to_regprocedure('saas.media_list_product_lifecycle(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL
         AND pg_catalog.has_function_privilege('celebix_saas_app',pg_catalog.to_regprocedure('${MEDIA_RESTORE}'),'EXECUTE') AS ready`,
   }),
+  Object.freeze({
+    code: "119",
+    up: "202609010119_catalog_media_reorder_lifecycle_guard.up.sql",
+    assertions: "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql",
+    probe: `SELECT
+      pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure('saas.guard_product_media_authority()')),'[[:space:]]+','','g'),'OLD.status=''pending''ANDNEW.status=''active''ANDNEW.cleanup_state=''active''ANDNEW.archived_atISNULLANDNEW.retention_expires_atISNULLANDNEW.object_deleted_atISNULL')>0 AS has_objects,
+      pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure('saas.guard_product_media_authority()')),'[[:space:]]+','','g'),'OLD.status=''pending''ANDNEW.status=''active''ANDNEW.cleanup_state=''active''ANDNEW.archived_atISNULLANDNEW.retention_expires_atISNULLANDNEW.object_deleted_atISNULL')>0
+        AND NOT EXISTS(
+          SELECT 1 FROM pg_catalog.pg_proc AS procedure
+          CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(procedure.proacl,pg_catalog.acldefault('f',procedure.proowner))) AS privilege
+          WHERE procedure.oid=pg_catalog.to_regprocedure('saas.guard_product_media_authority()')
+            AND privilege.grantee=0 AND privilege.privilege_type='EXECUTE'
+        ) AS ready`,
+  }),
 ]);
 
 export function resolveProductGoLiveMigrationConfiguration(source = process.env, now = new Date()) {
@@ -144,7 +158,7 @@ export async function runProductGoLiveMigrations({ client, databaseName, readSql
       || authority.owner_member !== true
     ) throw new Error("product_go_live_staging_authority_invalid");
 
-    const lock = await client.query("SELECT pg_catalog.pg_try_advisory_lock(pg_catalog.hashtext('celebix:staging:product-go-live:114-118')) AS acquired");
+    const lock = await client.query("SELECT pg_catalog.pg_try_advisory_lock(pg_catalog.hashtext('celebix:staging:product-go-live:114-119')) AS acquired");
     lockAcquired = lock.rowCount === 1 && lock.rows[0]?.acquired === true;
     if (!lockAcquired) throw new Error("product_go_live_staging_migration_locked");
 
@@ -183,7 +197,7 @@ export async function runProductGoLiveMigrations({ client, databaseName, readSql
     }
   } finally {
     if (lockAcquired) {
-      try { await client.query("SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtext('celebix:staging:product-go-live:114-118'))"); } catch { /* Session close releases the lock. */ }
+      try { await client.query("SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtext('celebix:staging:product-go-live:114-119'))"); } catch { /* Session close releases the lock. */ }
     }
     await client.end();
   }

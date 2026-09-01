@@ -61,7 +61,7 @@ test("product go-live migration rejects non-staging and mismatched databases", (
   });
 });
 
-test("product go-live migration applies and verifies 114 through 118 in exact order", async () => {
+test("product go-live migration applies and verifies 114 through 119 in exact order", async () => {
   const sqlFiles = [];
   const lines = [];
   const client = {
@@ -92,6 +92,8 @@ test("product go-live migration applies and verifies 114 through 118 in exact or
     "202608300117_catalog_product_bulk_safe_removal_assertions.sql",
     "202608300118_catalog_media_retention_restore.up.sql",
     "202608300118_catalog_media_retention_restore_assertions.sql",
+    "202609010119_catalog_media_reorder_lifecycle_guard.up.sql",
+    "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql",
   ]);
   assert.deepEqual(lines, [
     "product_go_live_migration_114=applied",
@@ -99,6 +101,7 @@ test("product go-live migration applies and verifies 114 through 118 in exact or
     "product_go_live_migration_116=applied",
     "product_go_live_migration_117=applied",
     "product_go_live_migration_118=applied",
+    "product_go_live_migration_119=applied",
   ]);
 });
 
@@ -127,6 +130,7 @@ test("product go-live migration is idempotent and still runs every assertion", a
     "202608260116_catalog_product_global_query_assertions.sql",
     "202608300117_catalog_product_bulk_safe_removal_assertions.sql",
     "202608300118_catalog_media_retention_restore_assertions.sql",
+    "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql",
   ]);
 });
 

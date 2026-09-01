@@ -34,6 +34,21 @@
       "file": "202608300118_catalog_media_retention_restore_assertions.sql",
       "direction": "verify",
       "sha256": "4cb710f22ad1ba09f6e70220da4569d3d216e51478e968dd7f755ab55e9116c8"
+    },
+    {
+      "file": "202609010119_catalog_media_reorder_lifecycle_guard.up.sql",
+      "direction": "up",
+      "sha256": "7ee82d5c01bffe0e1eee932411ac372b1ae241fb8227bc31b68a3bc7162fd0fc"
+    },
+    {
+      "file": "202609010119_catalog_media_reorder_lifecycle_guard.down.sql",
+      "direction": "down",
+      "sha256": "e43130d0e804d9e71fc605e401833a647c31991d213761d4581b703104187c1e"
+    },
+    {
+      "file": "202609010119_catalog_media_reorder_lifecycle_guard_assertions.sql",
+      "direction": "verify",
+      "sha256": "74e3ba9b0da4bebeba591e6d1f48372c0c92f6e8b698edfb22ce73e4dd0fc536"
     }
   ]
 }
