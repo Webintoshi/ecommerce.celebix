@@ -115,13 +115,14 @@ export function ProductMediaManager({
     event.preventDefault();
     if (!canManage) return;
     if (selectedFile === undefined) { setError("Yüklenecek görseli seçin."); return; }
-    const form = new FormData(event.currentTarget), altText = form.get("altText");
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement), altText = form.get("altText");
     if (typeof altText !== "string" || altText.trim() !== altText || altText.length > 500) { setError("Alt metin en fazla 500 karakter olmalı ve başında veya sonunda boşluk bulunmamalı."); return; }
     setBusy("upload"); setError(""); setNotice(""); setUploadProgress(0);
     try {
       const result = await productMediaApi.upload(productId, { file: selectedFile, altText, onProgress: setUploadProgress });
       setMedia((current) => Object.freeze([...current, result.media].sort((left, right) => left.sortOrder - right.sortOrder)));
-      setSelectedFile(undefined); setPreviewUrl(""); event.currentTarget.reset();
+      setSelectedFile(undefined); setPreviewUrl(""); formElement.reset();
       setNotice("Görsel yüklendi. İlk sıradaki görsel mağazada birincil görsel olarak kullanılır.");
     } catch (failure) { setError(safeMessage(failure)); }
     finally { setBusy(""); }
