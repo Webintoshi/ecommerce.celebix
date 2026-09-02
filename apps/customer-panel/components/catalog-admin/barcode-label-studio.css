@@ -1,0 +1,664 @@
+.barcode-studio {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  color: #18212f;
+}
+.barcode-studio-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.barcode-studio-header h1 {
+  margin: 5px 0 6px;
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+  letter-spacing: -0.035em;
+}
+.barcode-studio-header p {
+  margin: 0;
+  color: #667085;
+}
+.barcode-header-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #e3e8ef;
+  border-radius: 999px;
+  padding: 9px 13px;
+  background: #fff;
+  font-weight: 650;
+}
+.barcode-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid #e3e8ef;
+  border-radius: 14px;
+  background: #f7f9fc;
+}
+.barcode-steps button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px;
+  background: transparent;
+  color: #667085;
+  font-weight: 700;
+}
+.barcode-steps button span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e8edf4;
+}
+.barcode-steps button.active {
+  background: #fff;
+  color: #172b4d;
+  box-shadow: 0 2px 8px #1d293912;
+}
+.barcode-steps button.active span {
+  background: #163c6b;
+  color: #fff;
+}
+.barcode-notice,
+.hidden-selection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 11px 14px;
+  color: #1e3a5f;
+}
+.barcode-notice button {
+  border: 0;
+  background: none;
+}
+.barcode-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 18px;
+  align-items: start;
+}
+.barcode-main {
+  min-width: 0;
+}
+.barcode-step-panel {
+  display: none;
+}
+.barcode-step-panel.visible {
+  display: block;
+}
+.barcode-toolbar {
+  display: grid;
+  grid-template-columns: minmax(270px, 1.8fr) repeat(6, minmax(120px, 0.7fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.barcode-toolbar input,
+.barcode-toolbar select,
+.editor-card input,
+.editor-card select,
+.quantity-modes input,
+.barcode-pagination select {
+  height: 40px;
+  border: 1px solid #d7dee8;
+  border-radius: 9px;
+  background: #fff;
+  padding: 0 10px;
+  color: #283544;
+  min-width: 0;
+}
+.barcode-search {
+  position: relative;
+}
+.barcode-search svg {
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  color: #8491a3;
+}
+.barcode-search input {
+  width: 100%;
+  padding-left: 38px;
+}
+.hidden-selection {
+  margin-bottom: 12px;
+  background: #fff8e6;
+  border-color: #f3d39a;
+}
+.hidden-selection div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.hidden-selection button,
+.barcode-pagination button,
+.quantity-modes button {
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #fff;
+  padding: 7px 10px;
+  font-weight: 650;
+}
+.barcode-table-shell {
+  min-height: 360px;
+  border: 1px solid #e3e8ef;
+  border-radius: 14px;
+  background: #fff;
+  overflow: auto;
+}
+.barcode-table-shell table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 1060px;
+}
+.barcode-table-shell th,
+.barcode-table-shell td {
+  padding: 11px 10px;
+  border-bottom: 1px solid #eef1f5;
+  text-align: left;
+  font-size: 0.85rem;
+  vertical-align: middle;
+}
+.barcode-table-shell th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  color: #526071;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+.barcode-table-shell tr.selected td {
+  background: #f4f8ff;
+}
+.barcode-table-shell td strong,
+.barcode-table-shell td small {
+  display: block;
+}
+.barcode-table-shell td small {
+  margin-top: 3px;
+  color: #738096;
+}
+.barcode-table-shell code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+}
+.missing-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #fff2e8;
+  color: #9a4513;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.invalid-barcode-badge {
+  display: block;
+  margin-top: 4px;
+  color: #a23b2a;
+  font-weight: 700;
+}
+.quantity-input {
+  width: 72px;
+  height: 34px;
+  border: 1px solid #ced7e3;
+  border-radius: 8px;
+  padding: 0 7px;
+}
+.icon-action {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #fff;
+  color: #163c6b;
+}
+.barcode-skeleton,
+.barcode-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 360px;
+  color: #667085;
+  text-align: center;
+}
+.barcode-empty h2,
+.barcode-empty p {
+  margin: 0;
+}
+.barcode-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 2px;
+  color: #667085;
+  font-size: 0.85rem;
+}
+.barcode-pagination > div {
+  display: flex;
+  gap: 8px;
+}
+.barcode-pagination button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 14px;
+}
+.editor-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  border: 1px solid #e3e8ef;
+  border-radius: 14px;
+  padding: 17px;
+  background: #fff;
+}
+.editor-card:last-child {
+  grid-column: 1/-1;
+}
+.editor-card h2,
+.output-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1rem;
+}
+.editor-card label {
+  display: grid;
+  gap: 6px;
+  color: #526071;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+.dimension-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.inline-check {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
+}
+.field-list {
+  display: grid;
+  gap: 6px;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(0, 2fr);
+  align-items: center;
+  border: 1px solid #edf0f4;
+  border-radius: 9px;
+  padding: 8px 10px;
+}
+.field-row > div {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.field-row select {
+  width: 78px;
+}
+.field-row > div > input[type="number"] {
+  width: 58px;
+}
+.field-row .auto-shrink {
+  display: flex;
+  font-size: 0.72rem;
+}
+.field-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.field-row button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: #f1f4f8;
+}
+.saved-list,
+.job-list {
+  display: grid;
+  gap: 6px;
+}
+.saved-list button,
+.job-list button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid #e3e8ef;
+  background: #fff;
+  border-radius: 9px;
+  padding: 10px;
+}
+.saved-list small,
+.job-list small {
+  color: #667085;
+}
+.saved-template-row {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #e3e8ef;
+  border-radius: 10px;
+  padding: 7px;
+}
+.saved-template-row > button {
+  border: 0 !important;
+}
+.saved-template-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.saved-template-row > div button {
+  padding: 5px 7px !important;
+  font-size: 0.72rem;
+}
+.output-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.output-panel > div {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  border: 1px solid #e3e8ef;
+  border-radius: 14px;
+  padding: 17px;
+  background: #fff;
+}
+.quantity-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.quantity-modes label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+}
+.quantity-modes input {
+  width: 80px;
+}
+.output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.zpl-disclosure {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  color: #475467;
+  font-size: 0.78rem;
+}
+.zpl-disclosure span {
+  color: #9f1239;
+}
+.blocking-errors {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #9f1239;
+  border-radius: 10px;
+  padding: 10px;
+}
+.internal-report {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 10px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.78rem;
+}
+.barcode-summary {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 14px;
+  border: 1px solid #dfe5ed;
+  border-radius: 16px;
+  padding: 16px;
+  background: linear-gradient(180deg, #fff, #fafcff);
+  box-shadow: 0 12px 32px #17325012;
+}
+.summary-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #657185;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.summary-heading button {
+  display: none;
+}
+.barcode-summary dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.barcode-summary dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.barcode-summary dt {
+  color: #6b7789;
+}
+.barcode-summary dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+}
+.preview-stage {
+  display: grid;
+  place-items: center;
+  min-height: 190px;
+  border-radius: 12px;
+  background: #eef2f6;
+  padding: 18px;
+  overflow: hidden;
+}
+.barcode-live-label {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  width: min(100%, 250px);
+  background: #fff;
+  border: 1px solid #d8dee8;
+  box-sizing: border-box;
+  box-shadow: 0 5px 18px #1f29371c;
+  overflow: hidden;
+}
+.barcode-live-symbol svg {
+  display: block;
+  width: 100%;
+  max-height: 80px;
+}
+.preview-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  text-align: center;
+  color: #778397;
+  font-size: 0.82rem;
+}
+.summary-next {
+  width: 100%;
+  justify-content: center;
+}
+.clear-selection {
+  border: 0;
+  background: none;
+  color: #526071;
+  text-decoration: underline;
+}
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.button:disabled,
+.barcode-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (max-width: 1200px) {
+  .barcode-toolbar {
+    grid-template-columns: minmax(250px, 2fr) repeat(3, 1fr);
+  }
+  .barcode-workspace {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+}
+@media (max-width: 800px) {
+  .barcode-studio-header {
+    align-items: flex-start;
+  }
+  .barcode-header-meta {
+    display: none;
+  }
+  .barcode-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .barcode-steps button {
+    min-width: 0;
+    padding-inline: 6px;
+    font-size: 0.72rem;
+  }
+  .barcode-workspace {
+    display: flex;
+    flex-direction: column;
+  }
+  .barcode-main,
+  .barcode-summary {
+    width: 100%;
+  }
+  .barcode-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+  .barcode-search {
+    grid-column: 1/-1;
+  }
+  .barcode-summary {
+    position: static;
+    order: -1;
+    padding: 12px;
+  }
+  .summary-heading button {
+    display: grid;
+    border: 0;
+    background: none;
+  }
+  .barcode-summary dl,
+  .barcode-summary .preview-stage,
+  .barcode-summary .clear-selection {
+    display: none;
+  }
+  .barcode-summary.open dl,
+  .barcode-summary.open .preview-stage,
+  .barcode-summary.open .clear-selection {
+    display: grid;
+  }
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+  .field-row > div {
+    justify-content: flex-start;
+  }
+  .editor-grid,
+  .output-panel {
+    grid-template-columns: 1fr;
+  }
+  .editor-card:last-child {
+    grid-column: auto;
+  }
+  .barcode-pagination {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 480px) {
+  .barcode-studio {
+    gap: 12px;
+  }
+  .barcode-studio-header h1 {
+    font-size: 1.5rem;
+  }
+  .barcode-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .barcode-search {
+    grid-column: auto;
+  }
+  .dimension-grid {
+    grid-template-columns: 1fr;
+  }
+  .barcode-toolbar input,
+  .barcode-toolbar select,
+  .editor-card input,
+  .editor-card select,
+  .quantity-input,
+  .quick-label,
+  .field-row button,
+  .output-actions button,
+  .summary-next,
+  .clear-selection {
+    min-height: 44px;
+  }
+  .field-row button,
+  .quick-label {
+    min-width: 44px;
+  }
+  .barcode-pagination > span {
+    order: 3;
+    width: 100%;
+  }
+  .output-actions .button {
+    width: 100%;
+  }
+  .hidden-selection {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .barcode-table-shell {
+    max-width: calc(100vw - 32px);
+  }
+}
