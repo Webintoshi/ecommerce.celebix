@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeStorefrontHostname, type StorefrontHostnamePolicy } from "./hostname.ts";
+import { deriveManagedAdminHostname, normalizeStorefrontHostname, type StorefrontHostnamePolicy } from "./hostname.ts";
 
 const POLICY: StorefrontHostnamePolicy = Object.freeze({
   reservedSuffixes: Object.freeze(["celebix.site", "saas-staging.celebix.site"]),
@@ -26,14 +26,38 @@ test("projects an apex hostname without inventing a DNS label", () => {
   });
 });
 
+test("accepts an exact root https URL without weakening hostname authority", () => {
+  assert.deepEqual(normalizeStorefrontHostname("https://WWW.Example.com", POLICY), {
+    hostname: "www.example.com",
+    registrableDomain: "example.com",
+    recordName: "www",
+    apex: false,
+  });
+});
+
+for (const [raw, expected] of [
+  ["example.com", "admin.example.com"],
+  ["www.example.com", "admin.example.com"],
+  ["shop.example.co.uk", "admin.example.co.uk"],
+  ["WWW.Örnek.com.", "admin.xn--rnek-4qa.com"],
+] as const) {
+  test(`derives one managed admin companion from the registrable domain: ${raw}`, () => {
+    assert.equal(deriveManagedAdminHostname(raw, POLICY), expected);
+  });
+}
+
 for (const raw of [
-  "https://shop.example.com",
+  "https://shop.example.com/path",
+  "https://shop.example.com?query=1",
+  "https://user@shop.example.com",
+  "https://shop.example.com:443",
   "*.example.com",
   "127.0.0.1",
   "localhost",
   "shop.celebix.site",
   "example.invalid",
   " shop.example.com",
+  "admin.example.com",
 ] as const) {
   test(`rejects unsafe storefront hostname input: ${raw}`, () => {
     assert.throws(

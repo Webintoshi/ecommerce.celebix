@@ -27,7 +27,7 @@ test("lists and creates custom domains with exact browser requests", async () =>
   const mock = fetcher([{ items: [DOMAIN] }, { domain: DOMAIN }]);
   const api = createStoreDomainApiClient(mock.fetch as typeof fetch, () => OPERATION_ID);
   assert.deepEqual(await api.list(), [DOMAIN]);
-  assert.deepEqual(await api.create("shop.example.com"), DOMAIN);
+  assert.deepEqual(await api.create("https://shop.example.com"), DOMAIN);
   assert.equal(mock.calls[0]?.path, "/api/store-domains");
   assert.equal(mock.calls[0]?.init?.credentials, "same-origin");
   assert.equal(mock.calls[1]?.init?.method, "POST");

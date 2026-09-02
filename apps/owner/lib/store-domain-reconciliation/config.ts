@@ -12,6 +12,7 @@ export type StoreDomainWorkerConfig = Readonly<{
   database: Readonly<{ url: string; name: string }>;
   cloudflare: CloudflareForSaaSConfig;
   hostnamePolicy: StorefrontHostnamePolicy;
+  adminHostnamePolicy: StorefrontHostnamePolicy;
   workerId: string;
 }>;
 
@@ -64,13 +65,17 @@ export function parseStoreDomainWorkerConfig(source: Environment): StoreDomainWo
   const reservedSuffixes = required(source, "CELEBIX_CUSTOM_DOMAIN_RESERVED_SUFFIXES", 1024).split(",").map(hostname);
   if (reservedSuffixes.length < 1 || reservedSuffixes.length > 16 || new Set(reservedSuffixes).size !== reservedSuffixes.length) invalid();
   const cnameTarget = hostname(required(source, "CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET", 253));
-  if (!reservedSuffixes.some((suffix) => cnameTarget === suffix || cnameTarget.endsWith(`.${suffix}`))) invalid();
+  const adminCnameTarget = hostname(required(source, "CELEBIX_CUSTOM_ADMIN_DOMAIN_CNAME_TARGET", 253));
+  if (adminCnameTarget === cnameTarget
+      || !reservedSuffixes.some((suffix) => cnameTarget === suffix || cnameTarget.endsWith(`.${suffix}`))
+      || !reservedSuffixes.some((suffix) => adminCnameTarget === suffix || adminCnameTarget.endsWith(`.${suffix}`))) invalid();
   const workerId = required(source, "CELEBIX_STORE_DOMAIN_WORKER_ID", 128);
   if (!WORKER.test(workerId)) invalid();
   return Object.freeze({
     database: database(source),
     cloudflare: Object.freeze({ zoneId, apiToken, apiBaseUrl, minimumTlsVersion: "1.2", timeoutMs: 5_000 }),
     hostnamePolicy: Object.freeze({ reservedSuffixes: Object.freeze(reservedSuffixes), cnameTarget }),
+    adminHostnamePolicy: Object.freeze({ reservedSuffixes: Object.freeze(reservedSuffixes), cnameTarget: adminCnameTarget }),
     workerId,
   });
 }

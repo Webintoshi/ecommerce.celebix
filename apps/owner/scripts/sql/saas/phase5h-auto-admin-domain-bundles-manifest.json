@@ -1,0 +1,11 @@
+{
+  "phase": "phase5h-auto-admin-domain-bundles",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    { "file": "202609020121_auto_admin_domain_bundles.up.sql", "direction": "up", "sha256": "96d80420f886f88cf9377a78087f7d436c025d99838cb65f157edf9dee2c58fa" },
+    { "file": "202609020121_auto_admin_domain_bundles.down.sql", "direction": "down", "sha256": "d2beb1bd4c47593ab38a04146a57b34057c19363514feada6190e64eacf24865" },
+    { "file": "202609020121_auto_admin_domain_bundles_assertions.sql", "direction": "verify", "sha256": "dbf4c753489c6db928d033b4bfc07e01a084827b741f3e1ea41cd2ce5ee05a4f" }
+  ]
+}

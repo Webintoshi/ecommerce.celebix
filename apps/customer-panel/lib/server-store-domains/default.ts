@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import process from "node:process";
 
 import { createCloudflareCustomHostnameProvider, createStoreDomainService } from "@celebix/saas-domain-core";
-import { PostgresStoreDomainRepository } from "@celebix/saas-data";
+import { PostgresAdminDomainLifecycleRepository, PostgresStoreDomainRepository } from "@celebix/saas-data";
 import pg from "pg";
 
 import {
@@ -51,9 +51,12 @@ async function initialize(): Promise<ServerStoreDomainRuntime | null> {
   const apiBaseUrl = process.env.CLOUDFLARE_SAAS_API_BASE_URL ?? "https://api.cloudflare.com/client/v4";
   if (apiBaseUrl !== "https://api.cloudflare.com/client/v4") throw new Error("server_store_domain_config_invalid");
   const cnameTarget = exactHostname(required("CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET", 253));
+  const adminCnameTarget = exactHostname(required("CELEBIX_CUSTOM_ADMIN_DOMAIN_CNAME_TARGET", 253));
   const reservedSuffixes = Object.freeze(required("CELEBIX_CUSTOM_DOMAIN_RESERVED_SUFFIXES", 1_024).split(",").map(exactHostname));
   if (reservedSuffixes.length < 1 || reservedSuffixes.length > 16 || new Set(reservedSuffixes).size !== reservedSuffixes.length
-      || !reservedSuffixes.some((suffix) => cnameTarget === suffix || cnameTarget.endsWith(`.${suffix}`))) {
+      || adminCnameTarget === cnameTarget
+      || !reservedSuffixes.some((suffix) => cnameTarget === suffix || cnameTarget.endsWith(`.${suffix}`))
+      || !reservedSuffixes.some((suffix) => adminCnameTarget === suffix || adminCnameTarget.endsWith(`.${suffix}`))) {
     throw new Error("server_store_domain_config_invalid");
   }
   const pool = new Pool({
@@ -74,11 +77,12 @@ async function initialize(): Promise<ServerStoreDomainRuntime | null> {
       role.rolsuper AS is_superuser,
       pg_has_role(current_user,'celebix_saas_app','MEMBER') AS app_member,
       to_regprocedure('saas.merchant_store_domain_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
-        AND to_regprocedure('saas.merchant_store_domain_prepare_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,text)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_store_domain_bundle_prepare_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,text,text,uuid,text,text)') IS NOT NULL
         AND to_regprocedure('saas.merchant_store_domain_bind_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,jsonb,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_admin_domain_bind_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,jsonb,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.merchant_store_domain_request_recheck(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL
-        AND to_regprocedure('saas.merchant_store_domain_make_primary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL
-        AND to_regprocedure('saas.merchant_store_domain_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL AS domain_lifecycle
+        AND to_regprocedure('saas.merchant_store_domain_bundle_make_primary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_store_domain_bundle_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL AS domain_lifecycle
       FROM pg_roles AS role WHERE role.rolname=current_user`);
     const row = result.rows[0];
     if (result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16
@@ -86,11 +90,16 @@ async function initialize(): Promise<ServerStoreDomainRuntime | null> {
       throw new Error("server_store_domain_database_preflight_failed");
     }
     const repository = new PostgresStoreDomainRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS });
+    const adminRepository = new PostgresAdminDomainLifecycleRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS });
     const provider = createCloudflareCustomHostnameProvider({ zoneId, apiToken, apiBaseUrl, minimumTlsVersion: "1.2", timeoutMs: 5_000 });
+    const adminProvider = createCloudflareCustomHostnameProvider({ zoneId, apiToken, apiBaseUrl, minimumTlsVersion: "1.2", timeoutMs: 5_000 });
     registerServerStoreDomainService(access, createStoreDomainService({
       repository,
       provider,
       hostnamePolicy: Object.freeze({ cnameTarget, reservedSuffixes }),
+      adminRepository,
+      adminProvider,
+      adminHostnamePolicy: Object.freeze({ cnameTarget: adminCnameTarget, reservedSuffixes }),
       generateId: randomUUID,
     }));
     return resolveServerStoreDomainRuntime(access);

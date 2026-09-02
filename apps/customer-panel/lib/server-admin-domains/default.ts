@@ -50,7 +50,7 @@ async function initialize(): Promise<ServerAdminDomainRuntime | null> {
   if (apiToken.length < 8 || /\s/u.test(apiToken) || !SAFE_ID.test(zoneId)) throw new Error("server_admin_domain_config_invalid");
   const apiBaseUrl = process.env.CLOUDFLARE_SAAS_API_BASE_URL ?? "https://api.cloudflare.com/client/v4";
   if (apiBaseUrl !== "https://api.cloudflare.com/client/v4") throw new Error("server_admin_domain_config_invalid");
-  const cnameTarget = exactHostname(required("CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET", 253));
+  const cnameTarget = exactHostname(required("CELEBIX_CUSTOM_ADMIN_DOMAIN_CNAME_TARGET", 253));
   const reservedSuffixes = Object.freeze(required("CELEBIX_CUSTOM_DOMAIN_RESERVED_SUFFIXES", 1_024).split(",").map(exactHostname));
   if (reservedSuffixes.length < 1 || reservedSuffixes.length > 16 || new Set(reservedSuffixes).size !== reservedSuffixes.length
       || !reservedSuffixes.some((suffix) => cnameTarget === suffix || cnameTarget.endsWith(`.${suffix}`))) {

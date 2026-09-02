@@ -10,6 +10,7 @@ function environment(overrides: Record<string, string | undefined> = {}) {
     CLOUDFLARE_SAAS_ZONE_ID: "zone_123",
     CLOUDFLARE_SAAS_API_BASE_URL: "https://api.cloudflare.com/client/v4",
     CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET: "shops.celebix.site",
+    CELEBIX_CUSTOM_ADMIN_DOMAIN_CNAME_TARGET: "customers.celebix.site",
     CELEBIX_CUSTOM_DOMAIN_RESERVED_SUFFIXES: "celebix.site,saas-staging.celebix.site",
     CELEBIX_STORE_DOMAIN_WORKER_ID: "owner.domains.1",
     CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@postgres:5432/celebix_saas_production?sslmode=verify-full",
@@ -25,6 +26,7 @@ test("parses one server-only Cloudflare worker configuration", () => {
     minimumTlsVersion: "1.2", timeoutMs: 5_000,
   });
   assert.deepEqual(config.hostnamePolicy, { reservedSuffixes: ["celebix.site", "saas-staging.celebix.site"], cnameTarget: "shops.celebix.site" });
+  assert.deepEqual(config.adminHostnamePolicy, { reservedSuffixes: ["celebix.site", "saas-staging.celebix.site"], cnameTarget: "customers.celebix.site" });
   assert.deepEqual(config.database, { url: "postgresql://worker:secret@postgres:5432/celebix_saas_production?sslmode=verify-full", name: "celebix_saas_production" });
   assert.equal(Object.isFrozen(config), true);
 });
@@ -36,6 +38,8 @@ test("disabled mode requires no secrets and enabled mode rejects public or ambig
     { CLOUDFLARE_SAAS_API_TOKEN: undefined },
     { CLOUDFLARE_SAAS_API_BASE_URL: "http://api.cloudflare.com/client/v4" },
     { CELEBIX_CUSTOM_DOMAIN_CNAME_TARGET: "shops.other.test" },
+    { CELEBIX_CUSTOM_ADMIN_DOMAIN_CNAME_TARGET: "customers.other.test" },
+    { CELEBIX_CUSTOM_ADMIN_DOMAIN_CNAME_TARGET: "shops.celebix.site" },
     { CELEBIX_CUSTOM_DOMAIN_RESERVED_SUFFIXES: "celebix.site,celebix.site" },
     { CELEBIX_STORE_DOMAIN_WORKER_ID: "worker with spaces" },
     { CELEBIX_SAAS_DATABASE_URL: "postgresql://worker:secret@db.example.com:5432/celebix_saas_production" },

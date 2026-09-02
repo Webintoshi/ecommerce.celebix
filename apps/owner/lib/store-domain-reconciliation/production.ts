@@ -71,7 +71,7 @@ export async function initializeStoreDomainProductionRuntime(
     const adminWorkflow = new PostgresAdminDomainWorkflowRepository({ pool, role: "celebix_saas_workflow", timeouts: TIMEOUTS });
     const provider = createCloudflareCustomHostnameProvider(config.cloudflare, dependencies.fetch);
     const reconciler = createStoreDomainReconciler({ workflow, provider, resolveCname: dependencies.resolveCname, fetch: dependencies.fetch, workerId: config.workerId, cnameTarget: config.hostnamePolicy.cnameTarget, now: dependencies.now });
-    const adminReconciler = createStoreDomainReconciler({ workflow: adminWorkflow, provider, resolveCname: dependencies.resolveCname, fetch: dependencies.fetch, workerId: `${config.workerId}.admin`, cnameTarget: config.hostnamePolicy.cnameTarget, now: dependencies.now });
+    const adminReconciler = createStoreDomainReconciler({ workflow: adminWorkflow, provider, resolveCname: dependencies.resolveCname, fetch: dependencies.fetch, workerId: `${config.workerId}.admin`, cnameTarget: config.adminHostnamePolicy.cnameTarget, now: dependencies.now });
     return Object.freeze({
       async runOnce() {
         const [storeResult, adminResult] = await Promise.all([reconciler.runOnce(), adminReconciler.runOnce()]);

@@ -1,4 +1,4 @@
-import type { StoreDomainDnsInstruction, StoreDomainView, TenantContext } from "@celebix/saas-contracts";
+import type { AdminDomainView, StoreDomainDnsInstruction, StoreDomainView, TenantContext } from "@celebix/saas-contracts";
 
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 
@@ -24,6 +24,17 @@ export interface StoreDomainRepository {
     provider: StoreDomainProvider;
     cnameTarget: string;
   }>): Promise<Readonly<{ domain: StoreDomainView; replayed: boolean }>>;
+  prepareBundle(input: StoreDomainMerchantInput & Readonly<{
+    operationId: string;
+    fingerprint: string;
+    domainId: string;
+    hostname: string;
+    provider: StoreDomainProvider;
+    cnameTarget: string;
+    adminDomainId: string;
+    adminHostname: string;
+    adminCnameTarget: string;
+  }>): Promise<Readonly<{ storefront: StoreDomainView; admin: AdminDomainView; replayed: boolean }>>;
   bindProvider(input: StoreDomainVersionedInput & Readonly<{
     providerHostnameId: string;
     ownershipValidation: readonly StoreDomainDnsInstruction[];

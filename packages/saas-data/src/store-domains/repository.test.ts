@@ -15,6 +15,7 @@ const PRINCIPAL = "44444444-4444-4444-8444-444444444444";
 const MEMBERSHIP = "55555555-5555-4555-8555-555555555555";
 const PLAN = "66666666-6666-4666-8666-666666666666";
 const DOMAIN = "77777777-7777-4777-8777-777777777777";
+const ADMIN_DOMAIN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OPERATION = "88888888-8888-4888-8888-888888888888";
 const LEASE = "99999999-9999-4999-8999-999999999999";
 const NOW = new Date("2026-08-05T12:00:00.000Z");
@@ -82,6 +83,12 @@ const domain = Object.freeze({
   createdAt: NOW.toISOString(),
   updatedAt: NOW.toISOString(),
 });
+const adminDomain = Object.freeze({
+  schemaVersion: 1, id: ADMIN_DOMAIN, hostname: "admin.example.com", kind: "custom_alias", status: "pending_verification",
+  primary: false, fallback: false, hostnameStatus: "pending", sslStatus: "pending", dnsStatus: "pending", originStatus: "pending",
+  uiStatus: "dns_pending", dnsInstructions: [{ type: "CNAME", name: "admin.example.com", value: "customers.celebix.site" }],
+  verifiedAt: null, lastCheckedAt: null, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+});
 
 function merchant(pool: Pool) {
   return new PostgresStoreDomainRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS });
@@ -148,6 +155,23 @@ test("marks a durable prepare replay so provider creation is never repeated", as
     hostname: "www.example.com", provider: "cloudflare_for_saas", cnameTarget: "shops.celebix.site",
   });
   assert.deepEqual(result, { domain, replayed: true });
+});
+
+test("prepares both bundle intents in one database authority call", async () => {
+  const client = new Client((text) => text.includes("merchant_store_domain_bundle_prepare_create")
+    ? [{ outcome: "prepared", result_payload: { storefront: domain, admin: adminDomain } }]
+    : []);
+  const result = await merchant(new Pool([client])).prepareBundle!({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION, fingerprint: "b".repeat(64),
+    domainId: DOMAIN, hostname: "www.example.com", provider: "cloudflare_for_saas", cnameTarget: "shops.celebix.site",
+    adminDomainId: ADMIN_DOMAIN, adminHostname: "admin.example.com", adminCnameTarget: "customers.celebix.site",
+  });
+  assert.deepEqual(result, { storefront: domain, admin: adminDomain, replayed: false });
+  assert.deepEqual(call(client, "merchant_store_domain_bundle_prepare_create").values, [
+    STORE, PRINCIPAL, MEMBERSHIP, PLAN, "pilot", 1, NOW, OPERATION, "b".repeat(64), DOMAIN,
+    "www.example.com", "cloudflare_for_saas", "shops.celebix.site", ADMIN_DOMAIN,
+    "admin.example.com", "customers.celebix.site",
+  ]);
 });
 
 test("claims bounded reconciliation work with the workflow role", async () => {

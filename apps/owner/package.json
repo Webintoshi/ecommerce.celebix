@@ -8,6 +8,7 @@
     "start": "node ./scripts/start-production.cjs",
     "test": "node ./scripts/run-tests.mjs",
     "evidence:paytr-sandbox": "node --experimental-transform-types ./scripts/paytr-iframe-sandbox-evidence.ts",
+    "domains:backfill-admin": "node --experimental-transform-types ./scripts/backfill-admin-domain-companions.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

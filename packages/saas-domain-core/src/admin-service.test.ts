@@ -57,3 +57,24 @@ test("does not repeat provider mutation for a durable admin operation replay", a
   assert.equal((await service.create({ tenantContext: TENANT, now: NOW, operationId: OPERATION, hostname: "admin.example.com" })).id, DOMAIN);
   assert.equal(creates, 0);
 });
+
+test("retries only an unbound managed admin companion after a partial provider failure", async () => {
+  let bound: unknown;
+  const service = createAdminDomainService({
+    repository: persistence({
+      async requestRecheck() { return VIEW; },
+      async bindProvider(input) { bound = input; return Object.freeze({ ...VIEW, version: 2 }); },
+    }),
+    provider: {
+      async create(hostname) { return { providerHostnameId: "cf-admin-retry", hostname, hostnameStatus: "pending", sslStatus: "pending", ownershipValidation: { type: "txt", name: "_cf-custom-hostname.admin.example.com", value: "retry-token" }, certificateValidation: [] }; },
+      async find() { return null; }, async get() { throw new Error("unused"); }, async remove() { return { deleted: true }; },
+    },
+    hostnamePolicy: { reservedSuffixes: ["celebix.site"], cnameTarget: "customers.celebix.site" }, generateId: () => DOMAIN,
+  });
+
+  assert.equal((await service.requestRecheck({ tenantContext: TENANT, now: NOW, domainId: DOMAIN, expectedVersion: 1 })).version, 2);
+  assert.deepEqual(bound, {
+    tenantContext: TENANT, now: NOW, domainId: DOMAIN, expectedVersion: 1, providerHostnameId: "cf-admin-retry",
+    ownershipValidation: [{ type: "TXT", name: "_cf-custom-hostname.admin.example.com", value: "retry-token" }], certificateValidation: [],
+  });
+});

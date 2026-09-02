@@ -27,6 +27,34 @@ function exactHostname(value: unknown): string {
   return ascii;
 }
 
+function storefrontHostname(value: unknown): string {
+  if (typeof value !== "string" || value.length < 3 || value.length > 2_048 || value !== value.trim()) invalid();
+  if (!value.toLowerCase().startsWith("https://")) return exactHostname(value);
+  const authority = value.slice("https://".length).split(/[/?#]/u, 1)[0] ?? "";
+  if (authority.includes(":")) invalid();
+  let parsed: URL;
+  try { parsed = new URL(value); } catch { invalid(); }
+  if (
+    parsed.protocol !== "https:"
+    || parsed.username !== ""
+    || parsed.password !== ""
+    || parsed.port !== ""
+    || parsed.pathname !== "/"
+    || parsed.search !== ""
+    || parsed.hash !== ""
+  ) invalid();
+  return exactHostname(parsed.hostname);
+}
+
+export function normalizeManagedAdminHostname(raw: string, selectedPolicy: StorefrontHostnamePolicy): string {
+  const hostname = exactHostname(raw);
+  const validatedPolicy = policy(selectedPolicy);
+  if (!hostname.startsWith("admin.") || validatedPolicy.reservedSuffixes.some((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`))) invalid();
+  const parsed = parse(hostname, { allowPrivateDomains: false });
+  if (!parsed.isIcann || parsed.isIp || parsed.domain === null || parsed.publicSuffix === null || hostname !== `admin.${parsed.domain}`) invalid();
+  return hostname;
+}
+
 function policy(value: unknown): StorefrontHostnamePolicy {
   if (!value || typeof value !== "object" || Array.isArray(value)) invalid();
   const descriptors = Object.getOwnPropertyDescriptors(value);
@@ -47,8 +75,9 @@ export function normalizeStorefrontHostname(
   raw: string,
   selectedPolicy: StorefrontHostnamePolicy,
 ): NormalizedStorefrontHostname {
-  const hostname = exactHostname(raw);
+  const hostname = storefrontHostname(raw);
   const validatedPolicy = policy(selectedPolicy);
+  if (hostname.startsWith("admin.")) invalid();
   if (validatedPolicy.reservedSuffixes.some((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`))) invalid();
   const parsed = parse(hostname, { allowPrivateDomains: false });
   if (!parsed.isIcann || parsed.isIp || parsed.domain === null || parsed.publicSuffix === null) invalid();
@@ -57,6 +86,11 @@ export function normalizeStorefrontHostname(
   const recordName = apex ? "@" : hostname.slice(0, -(registrableDomain.length + 1));
   if (!recordName || recordName.length > 189) invalid();
   return Object.freeze({ hostname, registrableDomain, recordName, apex });
+}
+
+export function deriveManagedAdminHostname(raw: string, selectedPolicy: StorefrontHostnamePolicy): string {
+  const normalized = normalizeStorefrontHostname(raw, selectedPolicy);
+  return `admin.${normalized.registrableDomain}`;
 }
 
 export type { NormalizedStorefrontHostname, StorefrontHostnamePolicy } from "./types.ts";

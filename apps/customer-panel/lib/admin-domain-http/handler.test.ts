@@ -36,26 +36,28 @@ function request(path: string, method = "GET", body?: unknown, origin = CUSTOM, 
   return new Request(`http://customer-panel:3400${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
 }
 
-test("lists and creates admin hostnames through exact session and Host authority", async () => {
+test("lists admin hostnames but denies merchant arbitrary admin creation", async () => {
   const calls: unknown[] = [];
   const selected = handlers(service({ async list(input) { calls.push(input); return [VIEW]; }, async create(input) { calls.push(input); return VIEW; } }));
   assert.equal((await selected.collection(request("/api/admin-domains"))).status, 200);
-  assert.equal((await selected.collection(request("/api/admin-domains", "POST", { hostname: "admin.guzidekuyumcu.com.tr" }))).status, 202);
-  assert.equal((calls[1] as { operationId: string }).operationId, OPERATION);
+  const denied = await selected.collection(request("/api/admin-domains", "POST", { hostname: "admin.guzidekuyumcu.com.tr" }));
+  assert.equal(denied.status, 405);
+  assert.equal(denied.headers.get("allow"), "GET");
+  assert.equal(calls.length, 1);
   assert.equal(JSON.stringify(calls).includes(CREDENTIAL), false);
 });
 
-test("custom admin mutations reject foreign Origin or mismatched direct Host", async () => {
+test("custom admin collection mutation remains unavailable for every merchant origin", async () => {
   const selected = handlers(service());
-  assert.equal((await selected.collection(request("/api/admin-domains", "POST", { hostname: "admin.guzidekuyumcu.com.tr" }, "https://attacker.test"))).status, 403);
-  assert.equal((await selected.collection(request("/api/admin-domains", "POST", { hostname: "admin.guzidekuyumcu.com.tr" }, CUSTOM, "other.example.test"))).status, 403);
+  assert.equal((await selected.collection(request("/api/admin-domains", "POST", { hostname: "admin.guzidekuyumcu.com.tr" }, "https://attacker.test"))).status, 405);
+  assert.equal((await selected.collection(request("/api/admin-domains", "POST", { hostname: "admin.guzidekuyumcu.com.tr" }, CUSTOM, "other.example.test"))).status, 405);
 });
 
-test("versioned admin recheck primary and disable keep exact domain authority", async () => {
+test("only admin recheck remains mutable while primary and disable are bundle-controlled", async () => {
   const calls: unknown[] = [];
   const selected = handlers(service({ async requestRecheck(input) { calls.push(input); return VIEW; }, async makePrimary(input) { calls.push(input); return VIEW; }, async disable(input) { calls.push(input); return VIEW; } }));
   assert.equal((await selected.recheck(request(`/api/admin-domains/${DOMAIN}/recheck`, "POST", { expectedVersion: 1 }), DOMAIN)).status, 200);
-  assert.equal((await selected.primary(request(`/api/admin-domains/${DOMAIN}/primary`, "POST", { expectedVersion: 1 }), DOMAIN)).status, 200);
-  assert.equal((await selected.item(request(`/api/admin-domains/${DOMAIN}`, "DELETE", { expectedVersion: 1 }), DOMAIN)).status, 200);
-  assert.equal(calls.length, 3);
+  assert.equal((await selected.primary(request(`/api/admin-domains/${DOMAIN}/primary`, "POST", { expectedVersion: 1 }), DOMAIN)).status, 405);
+  assert.equal((await selected.item(request(`/api/admin-domains/${DOMAIN}`, "DELETE", { expectedVersion: 1 }), DOMAIN)).status, 405);
+  assert.equal(calls.length, 1);
 });

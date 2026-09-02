@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 import type { StoreDomainDnsInstruction, StoreDomainView, TenantContext } from "@celebix/saas-contracts";
 
 import { CloudflareCustomHostnameError } from "./cloudflare.ts";
-import { normalizeStorefrontHostname } from "./hostname.ts";
+import { deriveManagedAdminHostname, normalizeStorefrontHostname } from "./hostname.ts";
 import type {
   CustomHostnameProvider,
+  AdminDomainPersistence,
   ProviderHostnameSnapshot,
   ProviderValidationInstruction,
   StoreDomainPersistence,
@@ -49,8 +50,8 @@ function dnsInstruction(value: ProviderValidationInstruction | null): StoreDomai
   return [Object.freeze({ type: value.type === "txt" ? "TXT" : "CNAME", name: value.name, value: value.value })];
 }
 
-function fingerprint(hostname: string): string {
-  return createHash("sha256").update(JSON.stringify({ hostname, provider: "cloudflare_for_saas" })).digest("hex");
+function fingerprint(hostname: string, adminHostname?: string): string {
+  return createHash("sha256").update(JSON.stringify({ hostname, provider: "cloudflare_for_saas", ...(adminHostname ? { adminHostname } : {}) })).digest("hex");
 }
 
 async function recoverProvider(
@@ -94,10 +95,15 @@ export function createStoreDomainService(input: Readonly<{
   repository: StoreDomainPersistence;
   provider: CustomHostnameProvider;
   hostnamePolicy: StorefrontHostnamePolicy;
+  adminRepository?: AdminDomainPersistence;
+  adminProvider?: CustomHostnameProvider;
+  adminHostnamePolicy?: StorefrontHostnamePolicy;
   generateId: () => string;
 }>): StoreDomainService {
   if (!input || typeof input.generateId !== "function") throw failure("invalid_input");
   const { repository, provider, hostnamePolicy, generateId } = input;
+  const bundleEnabled = input.adminRepository !== undefined || input.adminProvider !== undefined || input.adminHostnamePolicy !== undefined;
+  if (bundleEnabled && (!input.adminRepository || !input.adminProvider || !input.adminHostnamePolicy || typeof repository.prepareBundle !== "function")) throw failure("invalid_input");
 
   async function versioned(method: "requestRecheck" | "makePrimary" | "disable", selected: StoreDomainVersionedServiceInput) {
     try { return await repository[method](selected); } catch (caught) { return persistenceError(caught); }
@@ -114,6 +120,57 @@ export function createStoreDomainService(input: Readonly<{
       catch { throw failure("invalid_input"); }
       const domainId = generateId();
       if (!UUID.test(domainId)) throw failure("provider_unavailable");
+      if (bundleEnabled) {
+        const adminHostname = deriveManagedAdminHostname(normalized.hostname, hostnamePolicy);
+        const adminDomainId = generateId();
+        if (!UUID.test(adminDomainId)) throw failure("provider_unavailable");
+        let prepared;
+        try {
+          prepared = await repository.prepareBundle!({
+            tenantContext: selected.tenantContext, now: selected.now, operationId: selected.operationId,
+            fingerprint: fingerprint(normalized.hostname, adminHostname), domainId, hostname: normalized.hostname,
+            provider: "cloudflare_for_saas", cnameTarget: hostnamePolicy.cnameTarget,
+            adminDomainId, adminHostname, adminCnameTarget: input.adminHostnamePolicy!.cnameTarget,
+          });
+        } catch (caught) { return persistenceError(caught); }
+        let storefront = prepared.storefront;
+        let admin = prepared.admin;
+        if (prepared.replayed) {
+          try {
+            storefront = (await repository.list({ tenantContext: selected.tenantContext, now: selected.now })).find((domain) => domain.id === storefront.id) ?? storefront;
+            admin = (await input.adminRepository!.list({ tenantContext: selected.tenantContext, now: selected.now })).find((domain) => domain.id === admin.id) ?? admin;
+          } catch (caught) { return persistenceError(caught); }
+        }
+        if (!prepared.replayed || storefront.version === prepared.storefront.version) {
+          const snapshot = await recoverProvider(provider, normalized.hostname, !prepared.replayed);
+          if (snapshot.hostname !== normalized.hostname) throw failure("provider_unavailable");
+          try {
+            storefront = await repository.bindProvider({
+              tenantContext: selected.tenantContext, now: selected.now, domainId: storefront.id,
+              expectedVersion: storefront.version, providerHostnameId: snapshot.providerHostnameId,
+              ownershipValidation: dnsInstruction(snapshot.ownershipValidation),
+              certificateValidation: dnsInstruction(snapshot.certificateValidation.find((item) => item.type !== "http") ?? null),
+            });
+          } catch (caught) { return persistenceError(caught); }
+        }
+        if (!prepared.replayed || admin.version === prepared.admin.version) {
+          try {
+            const snapshot = await recoverProvider(input.adminProvider!, adminHostname, !prepared.replayed);
+            if (snapshot.hostname !== adminHostname) throw failure("provider_unavailable");
+            await input.adminRepository!.bindProvider({
+              tenantContext: selected.tenantContext, now: selected.now, domainId: admin.id,
+              expectedVersion: admin.version, providerHostnameId: snapshot.providerHostnameId,
+              ownershipValidation: dnsInstruction(snapshot.ownershipValidation),
+              certificateValidation: dnsInstruction(snapshot.certificateValidation.find((item) => item.type !== "http") ?? null),
+            });
+          } catch (caught) {
+            if (!(caught instanceof StoreDomainServiceError) || caught.code !== "provider_unavailable") {
+              try { persistenceError(caught); } catch { /* storefront intent remains usable */ }
+            }
+          }
+        }
+        return storefront;
+      }
       let prepared;
       try {
         prepared = await repository.prepareCreate({

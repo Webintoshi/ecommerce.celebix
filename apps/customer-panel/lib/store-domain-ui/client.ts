@@ -1,4 +1,5 @@
 import type { StoreDomainDnsInstruction, StoreDomainUiStatus, StoreDomainView } from "@celebix/saas-contracts";
+import { previewDomainBundle } from "../domain-bundle-ui/preview.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
@@ -122,9 +123,9 @@ export function createStoreDomainApiClient(fetcher: typeof fetch = fetch, uuid: 
       return Object.freeze(value.items.map(parseDomain));
     },
     create(value: string) {
-      const hostname = typeof value === "string" ? value.trim().toLowerCase() : "";
-      if (!HOSTNAME.test(hostname) || hostname.length > 253) throw new StoreDomainApiError("invalid_input", 400);
-      return mutation("/api/store-domains", "POST", { hostname });
+      const preview = typeof value === "string" ? previewDomainBundle(value.trim()) : null;
+      if (!preview) throw new StoreDomainApiError("invalid_input", 400);
+      return mutation("/api/store-domains", "POST", { hostname: preview.storefront });
     },
     recheck(id: string, expectedVersion: number) { return mutation(`/api/store-domains/${domainId(id)}/recheck`, "POST", { expectedVersion: version(expectedVersion) }); },
     makePrimary(id: string, expectedVersion: number) { return mutation(`/api/store-domains/${domainId(id)}/primary`, "POST", { expectedVersion: version(expectedVersion) }); },

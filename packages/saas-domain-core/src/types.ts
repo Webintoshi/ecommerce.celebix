@@ -59,6 +59,15 @@ export type StoreDomainPersistence = Readonly<{
     tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date; operationId: string; fingerprint: string;
     domainId: string; hostname: string; provider: "cloudflare_for_saas"; cnameTarget: string;
   }>): Promise<Readonly<{ domain: import("@celebix/saas-contracts").StoreDomainView; replayed: boolean }>>;
+  prepareBundle?(input: Readonly<{
+    tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date; operationId: string; fingerprint: string;
+    domainId: string; hostname: string; provider: "cloudflare_for_saas"; cnameTarget: string;
+    adminDomainId: string; adminHostname: string; adminCnameTarget: string;
+  }>): Promise<Readonly<{
+    storefront: import("@celebix/saas-contracts").StoreDomainView;
+    admin: import("@celebix/saas-contracts").AdminDomainView;
+    replayed: boolean;
+  }>>;
   bindProvider(input: Readonly<{
     tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date; domainId: string; expectedVersion: number;
     providerHostnameId: string; ownershipValidation: readonly import("@celebix/saas-contracts").StoreDomainDnsInstruction[];

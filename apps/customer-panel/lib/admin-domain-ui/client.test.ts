@@ -21,34 +21,27 @@ function fetcher(responses: unknown[]) {
   } });
 }
 
-test("lists and creates exact admin-prefixed domains", async () => {
-  const mock = fetcher([{ items: [DOMAIN] }, { domain: DOMAIN }]);
+test("lists admin domains without exposing a merchant create operation", async () => {
+  const mock = fetcher([{ items: [DOMAIN] }]);
   const api = createAdminDomainApiClient(mock.fetch as typeof fetch, () => OPERATION_ID);
   assert.deepEqual(await api.list(), [DOMAIN]);
-  assert.deepEqual(await api.create(" ADMIN.EXAMPLE.COM "), DOMAIN);
   assert.equal(mock.calls[0]?.path, "/api/admin-domains");
   assert.equal(mock.calls[0]?.init?.credentials, "same-origin");
-  assert.equal(mock.calls[1]?.init?.method, "POST");
-  assert.equal(new Headers(mock.calls[1]?.init?.headers).get("idempotency-key"), OPERATION_ID);
-  assert.equal(mock.calls[1]?.init?.body, JSON.stringify({ hostname: "admin.example.com" }));
+  assert.equal("create" in api, false);
 });
 
-test("recheck primary and remove preserve durable version", async () => {
-  const mock = fetcher([{ domain: DOMAIN }, { domain: DOMAIN }, { domain: { ...DOMAIN, status: "disabled", uiStatus: "disabled", version: 2 } }]);
+test("only managed companion recheck preserves durable version", async () => {
+  const mock = fetcher([{ domain: DOMAIN }]);
   const api = createAdminDomainApiClient(mock.fetch as typeof fetch, () => OPERATION_ID);
   await api.recheck(DOMAIN_ID, 1);
-  await api.makePrimary(DOMAIN_ID, 1);
-  await api.remove(DOMAIN_ID, 1);
   assert.deepEqual(mock.calls.map(({ path, init }) => [path, init?.method, init?.body]), [
     [`/api/admin-domains/${DOMAIN_ID}/recheck`, "POST", JSON.stringify({ expectedVersion: 1 })],
-    [`/api/admin-domains/${DOMAIN_ID}/primary`, "POST", JSON.stringify({ expectedVersion: 1 })],
-    [`/api/admin-domains/${DOMAIN_ID}`, "DELETE", JSON.stringify({ expectedVersion: 1 })],
   ]);
+  assert.equal("makePrimary" in api, false);
+  assert.equal("remove" in api, false);
 });
 
-test("invalid hostnames and malformed finite-state projections fail closed", async () => {
-  const api = createAdminDomainApiClient(fetcher([]).fetch as typeof fetch, () => OPERATION_ID);
-  assert.throws(() => api.create("panel.example.com"), (error: unknown) => error instanceof StoreDomainApiError && error.code === "invalid_input");
+test("malformed finite-state projections fail closed", async () => {
   const malformed = createAdminDomainApiClient(fetcher([{ items: [{ ...DOMAIN, sslStatus: "issued" }] }]).fetch as typeof fetch);
   await assert.rejects(() => malformed.list(), (error: unknown) => error instanceof StoreDomainApiError && error.code === "unavailable");
 });

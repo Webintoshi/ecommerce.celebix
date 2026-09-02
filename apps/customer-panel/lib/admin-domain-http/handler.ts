@@ -87,11 +87,7 @@ export function createAdminDomainHttpHandlers(dependencies: Dependencies) {
         const authority = await authorize(dependencies, request, "GET", "/api/admin-domains"); if (isResponse(authority)) return authority;
         try { return json({ items: await authority.runtime.domains.list({ tenantContext: authority.tenantContext, now: authority.now }) }); } catch (caught) { return serviceFailure(caught); }
       }
-      const authority = await authorize(dependencies, request, "POST", "/api/admin-domains"); if (isResponse(authority)) return authority;
-      const operation = operationId(request); const parsed = exact(await body(request), ["hostname"]);
-      if (!operation || !parsed || typeof parsed.hostname !== "string") return failure("invalid_input", 400);
-      try { return json({ domain: await authority.runtime.domains.create({ tenantContext: authority.tenantContext, now: authority.now, operationId: operation, hostname: parsed.hostname }) }, 202); }
-      catch (caught) { return serviceFailure(caught); }
+      return failure("method_not_allowed", 405, { allow: "GET" });
     },
     recheck(request: Request, domainId: string) {
       if (!UUID.test(domainId)) return Promise.resolve(failure("invalid_input", 400));
@@ -99,11 +95,11 @@ export function createAdminDomainHttpHandlers(dependencies: Dependencies) {
     },
     primary(request: Request, domainId: string) {
       if (!UUID.test(domainId)) return Promise.resolve(failure("invalid_input", 400));
-      return mutation(dependencies, request, "POST", `/api/admin-domains/${domainId}/primary`, (authority, expectedVersion) => authority.runtime.domains.makePrimary({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));
+      return Promise.resolve(failure("method_not_allowed", 405, { allow: "GET" }));
     },
     item(request: Request, domainId: string) {
       if (!UUID.test(domainId)) return Promise.resolve(failure("invalid_input", 400));
-      return mutation(dependencies, request, "DELETE", `/api/admin-domains/${domainId}`, (authority, expectedVersion) => authority.runtime.domains.disable({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));
+      return Promise.resolve(failure("method_not_allowed", 405, { allow: "GET" }));
     },
   });
 }

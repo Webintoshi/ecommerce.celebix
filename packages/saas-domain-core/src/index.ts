@@ -1,4 +1,4 @@
-export { normalizeStorefrontHostname } from "./hostname.ts";
+export { deriveManagedAdminHostname, normalizeManagedAdminHostname, normalizeStorefrontHostname } from "./hostname.ts";
 export { CloudflareCustomHostnameError, createCloudflareCustomHostnameProvider } from "./cloudflare.ts";
 export { StoreDomainServiceError, createStoreDomainService } from "./service.ts";
 export type { StoreDomainService } from "./service.ts";
