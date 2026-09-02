@@ -107,12 +107,8 @@ export function createStoreDomainReconciler(input: Readonly<{
         }
         const dnsProbe = await dnsStatus(resolveCname, claim.hostname, cnameTarget);
         if (dnsProbe === "unavailable") {
-          try {
-            await workflow.fail({
-              domainId: claim.domainId, leaseId: claim.leaseId, workerId, now,
-              errorCode: "dns_lookup_unavailable", retryAt: nextCheck(now, claim.attemptCount), terminal: false,
-            });
-          } catch { return "failed"; }
+          // A transient resolver failure is not domain-readiness evidence. Leaving the
+          // bounded lease to expire retries safely without erasing a verified state.
           return "retry_scheduled";
         }
         const providerReady = snapshot.hostnameStatus === "active" && snapshot.sslStatus === "active";

@@ -106,33 +106,35 @@ test("does not use HTTPS alone to bypass subdomain CNAME provider or TLS readine
   }
 });
 
-test("maps a terminal provider snapshot to action-required persistence metadata", async () => {
-  let completed: Parameters<StoreDomainWorkflowPersistence["complete"]>[0] | undefined;
+test("maps terminal hostname and SSL provider snapshots to action-required persistence metadata", async () => {
   const dnsUnavailable = Object.assign(new Error("queryCname EAI_AGAIN www.example.com"), { code: "EAI_AGAIN" });
-  const reconciler = createStoreDomainReconciler({
-    workflow: workflow({ async complete(input) { completed = input; } }),
-    provider: { ...activeProvider(), async get() { return { providerHostnameId: "cf-host-1", hostname: CLAIM.hostname, hostnameStatus: "failed" as const, sslStatus: "failed" as const, ownershipValidation: null, certificateValidation: [] }; } },
-    resolveCname: async () => { throw dnsUnavailable; }, fetch: async () => health(CLAIM), workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
-  });
-  assert.equal(await reconciler.runOnce(), "updated");
-  assert.equal(completed?.safeProviderErrorCode, "provider_hostname_failed");
+  for (const snapshot of [
+    { hostnameStatus: "failed" as const, sslStatus: "active" as const, code: "provider_hostname_failed" },
+    { hostnameStatus: "active" as const, sslStatus: "failed" as const, code: "provider_ssl_failed" },
+  ]) {
+    let completed: Parameters<StoreDomainWorkflowPersistence["complete"]>[0] | undefined;
+    const reconciler = createStoreDomainReconciler({
+      workflow: workflow({ async complete(input) { completed = input; } }),
+      provider: { ...activeProvider(), async get() { return { providerHostnameId: "cf-host-1", hostname: CLAIM.hostname, hostnameStatus: snapshot.hostnameStatus, sslStatus: snapshot.sslStatus, ownershipValidation: null, certificateValidation: [] }; } },
+      resolveCname: async () => { throw dnsUnavailable; }, fetch: async () => health(CLAIM), workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
+    });
+    assert.equal(await reconciler.runOnce(), "updated");
+    assert.equal(completed?.safeProviderErrorCode, snapshot.code);
+  }
 });
 
-test("releases the lease without overwriting verified readiness after a transient DNS lookup failure", async () => {
+test("preserves verified readiness and lets the existing lease expire after a transient DNS lookup failure", async () => {
   let completed = 0;
-  let failed: Parameters<StoreDomainWorkflowPersistence["fail"]>[0] | undefined;
+  let failed = 0;
   const unavailable = Object.assign(new Error("queryCname EAI_AGAIN www.example.com"), { code: "EAI_AGAIN" });
   const reconciler = createStoreDomainReconciler({
-    workflow: workflow({ async complete() { completed += 1; }, async fail(input) { failed = input; } }),
+    workflow: workflow({ async complete() { completed += 1; }, async fail() { failed += 1; } }),
     provider: activeProvider(), resolveCname: async () => { throw unavailable; }, fetch: async () => health(CLAIM),
     workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
   });
   assert.equal(await reconciler.runOnce(), "retry_scheduled");
   assert.equal(completed, 0);
-  assert.deepEqual(failed, {
-    domainId: CLAIM.domainId, leaseId: CLAIM.leaseId, workerId: "domain-worker-1", now: NOW,
-    errorCode: "dns_lookup_unavailable", retryAt: new Date("2026-08-05T12:00:30.000Z"), terminal: false,
-  });
+  assert.equal(failed, 0);
 });
 
 test("schedules the fixed bounded retry for transient provider failure", async () => {
