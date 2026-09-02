@@ -1,5 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+
 import {
   PANEL_BROWSER_BINDING_INTERNAL_PATH,
   PANEL_BROWSER_BOOTSTRAP_REQUEST_SIGNATURE_DOMAIN,
@@ -322,11 +324,13 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
     },
 
     async start(input: { browserBindingCredential: string; destinationHostname: string }): Promise<PanelReturningLoginInternalResult> {
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(input?.destinationHostname)) invalid();
+      let destinationHostname: string;
+      try { destinationHostname = parseExactAdminHttpsOrigin(`https://${input?.destinationHostname}`).hostname; } catch { return invalid(); }
+      if (destinationHostname !== input.destinationHostname) invalid();
       const body = JSON.stringify({
         schemaVersion: 3,
         browserBindingCredential: canonicalPanelBrowserBindingCredential(input?.browserBindingCredential),
-        destinationHostname: input.destinationHostname,
+        destinationHostname,
       });
       const response = await exchange(body);
       const result = parseLoginResult(response.raw, response.status, panelCallbackAuthority, clock);

@@ -18,6 +18,7 @@ const PB = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 const PROVIDER = "https://identity.example.test/authorize?state=state_0123456789abcdefghijklmnop&redirect_uri=https%3A%2F%2Fpanel.celebix.site%2Fauth%2Fcallback&response_type=code&response_mode=query";
 const EXPIRES = new Date(NOW.getTime() + 600_000).toISOString();
 const DESTINATION = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const CUSTOM_DESTINATION = "admin.guzidekuyumcu.com.tr";
 
 function withUrl(response: Response, url = ENDPOINT, redirected = false) {
   Object.defineProperty(response, "url", { configurable: true, value: url });
@@ -149,5 +150,27 @@ test("starts returning login with a destination-bound schema v3 request and auth
     schemaVersion: 3,
     browserBindingCredential: PB,
     destinationHostname: DESTINATION,
+  }));
+});
+
+test("starts returning login for a canonical custom admin hostname", async () => {
+  let captured: Request | undefined;
+  const result = await transport(async (request) => {
+    captured = request;
+    return signedResponse(request, {
+      body: JSON.stringify({
+        schemaVersion: 2,
+        kind: "panel_login_ready",
+        providerAuthorizationUrl: PROVIDER,
+        browserBindingExpiresAt: EXPIRES,
+      }),
+    });
+  }).start({ browserBindingCredential: PB, destinationHostname: CUSTOM_DESTINATION });
+  assert.equal(result.kind, "panel_login_ready");
+  assert.ok(captured);
+  assert.equal(await captured.clone().text(), JSON.stringify({
+    schemaVersion: 3,
+    browserBindingCredential: PB,
+    destinationHostname: CUSTOM_DESTINATION,
   }));
 });
