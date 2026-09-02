@@ -1,5 +1,7 @@
 import "server-only";
 
+import { normalizeAdminRequestHostname } from "@celebix/saas-data";
+
 import {
   resolveDurableServerPanelAccess,
   type ServerPanelAccessResult,
@@ -17,6 +19,13 @@ import {
 type ServerPanelRuntimeAuthority = ServerPanelSessionAuthority &
   PanelSessionRotationAuthority & PanelSessionRevocationAuthority;
 
+type AdminHostnameAuthority = Readonly<{
+  resolvePublicBrand(input: Readonly<{ hostname: string; now: Date }>): Promise<Readonly<
+    | { kind: "resolved"; brand: Readonly<{ storeSlug: string }> }
+    | { kind: "admin_host_unknown" | "durable_authority_invalid" | "unavailable" }
+  >>;
+}>;
+
 export type ServerPanelAccessRuntime = Readonly<{
   readiness: Readonly<{ mode: "disabled" | "approved_staging" | "unavailable" }>;
   panelOrigin: string | null;
@@ -24,6 +33,7 @@ export type ServerPanelAccessRuntime = Readonly<{
     credential: string | null;
     requestId: string;
     now: Date;
+    hostname?: string | null;
   }>): Promise<ServerPanelAccessResult>;
   rotateCredential(input: Readonly<{
     currentCredential: string;
@@ -64,6 +74,7 @@ export function createUnavailableServerPanelAccessRuntime(): ServerPanelAccessRu
 export function createApprovedStagingServerPanelAccessRuntime(
   authority: ServerPanelRuntimeAuthority,
   panelOrigin: string,
+  adminHostnames?: AdminHostnameAuthority,
 ): ServerPanelAccessRuntime {
   if (
     !authority || typeof authority.resolveSession !== "function" ||
@@ -77,7 +88,17 @@ export function createApprovedStagingServerPanelAccessRuntime(
     readiness: Object.freeze({ mode: "approved_staging" as const }),
     panelOrigin,
     async resolveCredential(input) {
-      return resolveDurableServerPanelAccess({ ...input, authority });
+      const access = await resolveDurableServerPanelAccess({ ...input, authority });
+      if (access.kind !== "authenticated" || adminHostnames === undefined) return access;
+      let hostname: string;
+      try { hostname = normalizeAdminRequestHostname(input.hostname); } catch { return Object.freeze({ kind: "unauthorized" as const }); }
+      if (hostname === new URL(panelOrigin).hostname) return Object.freeze({ kind: "unauthorized" as const });
+      try {
+        const resolved = await adminHostnames.resolvePublicBrand({ hostname, now: new Date(input.now) });
+        return resolved.kind === "resolved" && resolved.brand.storeSlug === access.tenantContext.store.slug
+          ? access
+          : Object.freeze({ kind: resolved.kind === "unavailable" ? "unavailable" as const : "unauthorized" as const });
+      } catch { return Object.freeze({ kind: "unavailable" as const }); }
     },
     async rotateCredential(input) {
       return rotatePersistentPanelSessionCredential({ ...input, authority });

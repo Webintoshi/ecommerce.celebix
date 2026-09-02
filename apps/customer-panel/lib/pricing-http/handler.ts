@@ -65,7 +65,7 @@ async function authorize(dependencies: Dependencies, request: Request, route: Ro
   let runtime: ServerPricingRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return error("unavailable", 503); } if (!runtime) return error("unavailable", 503);
   if (route.method === "POST" && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) return error("forbidden", 403);
   let now: Date, requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return error("unavailable", 503); } if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !UUID.test(requestId)) return error("unavailable", 503);
-  let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) }); } catch { return error("unavailable", 503); }
+  let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) }); } catch { return error("unavailable", 503); }
   if (access.kind === "unauthenticated") return error("unauthenticated", 401); if (access.kind === "unauthorized") return error("forbidden", 403); if (access.kind !== "authenticated") return error("unavailable", 503);
   if (route.method === "POST" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)) return error("forbidden", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });

@@ -1,4 +1,4 @@
-import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+import { normalizeAdminRequestHostname, parseCanonicalAdminOriginFromPanelOrigin, parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 export function approvedPanelMutationOrigin(request: Request, panelOrigin: string): boolean {
   const requestOrigin = request.headers.get("origin");
@@ -10,6 +10,7 @@ export function approvedPanelMutationOrigin(request: Request, panelOrigin: strin
   try {
     return parseCanonicalAdminOriginFromPanelOrigin(requestOrigin, panelOrigin).hostname === requestHostname;
   } catch {
-    return false;
+    try { return parseExactAdminHttpsOrigin(requestOrigin).hostname === normalizeAdminRequestHostname(requestHostname); }
+    catch { return false; }
   }
 }

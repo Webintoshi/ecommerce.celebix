@@ -92,7 +92,7 @@ export async function authorizeShippingRequest(
   if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !UUID.test(requestId)) return fail("unavailable", 503);
   let access: ServerPanelAccessResult;
   try {
-    access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now.getTime()) });
+    access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now.getTime()) });
   } catch { return fail("unavailable", 503); }
   if (access.kind === "unauthenticated") return fail("unauthenticated", 401);
   if (access.kind === "unauthorized") return fail("membership_denied", 403);

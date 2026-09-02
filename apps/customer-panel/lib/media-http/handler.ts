@@ -27,7 +27,7 @@ async function authorize(dependencies: Dependencies, request: Request, method: "
   if (decision === "method_not_allowed") return response("method_not_allowed", 405); if (decision === "origin_denied") return response("origin_denied", 403); if (decision !== "approved" || privateHeaders(request)) return response("invalid_input", 400);
   const cookie = readPersistentPanelSessionCookie(request); if (cookie.kind !== "present") return response("unauthenticated", 401);
   let now: Date, requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return response("unavailable", 503); } if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !UUID.test(requestId)) return response("unavailable", 503);
-  let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) }); } catch { return response("unavailable", 503); }
+  let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) }); } catch { return response("unavailable", 503); }
   if (access.kind === "unauthenticated") return response("unauthenticated", 401); if (access.kind === "unauthorized") return response("membership_denied", 403); if (access.kind !== "authenticated") return response("unavailable", 503);
   if (method !== "GET" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)) return response("origin_denied", 403);
   if (!isCatalogProductOperationAllowed(access.tenantContext.membership.role, operation)) return response("membership_denied", 403);

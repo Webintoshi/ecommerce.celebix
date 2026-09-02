@@ -2,7 +2,10 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
-import { PostgresAbandonedCartRepository } from "@celebix/saas-data";
+import {
+  PostgresAbandonedCartRepository,
+  PostgresAdminDomainRepository,
+} from "@celebix/saas-data";
 import pg from "pg";
 
 import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
@@ -30,7 +33,11 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AS is_superuser,
       pg_has_role(current_user, 'celebix_saas_identity', 'MEMBER') AS identity_member,
       pg_has_role(current_user, 'celebix_saas_app', 'MEMBER') AS app_member,
+      pg_has_role(current_user, 'celebix_saas_host_resolver', 'MEMBER') AS host_resolver_member,
       to_regclass('saas.panel_sessions') IS NOT NULL AS sessions,
+      to_regclass('saas.admin_domains') IS NOT NULL
+        AND to_regprocedure('saas.resolve_public_admin_brand(text,timestamp with time zone)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_host_resolver', 'saas.resolve_public_admin_brand(text,timestamptz)', 'EXECUTE') AS admin_host_resolver,
       to_regprocedure('saas.resolve_panel_session(text,text,timestamptz)') IS NOT NULL
         AND has_function_privilege('celebix_saas_identity', 'saas.resolve_panel_session(text,text,timestamptz)', 'EXECUTE') AS session_resolver,
       to_regprocedure('saas.rotate_panel_session(text,text,uuid,uuid,text,text,uuid,timestamptz)') IS NOT NULL
@@ -75,7 +82,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       result.rowCount !== 1 || !row ||
       Math.floor(Number(row.version_num) / 10_000) !== 16 ||
       row.database_name !== databaseName || row.is_superuser !== false ||
-      row.identity_member !== true || row.app_member !== true || row.sessions !== true || row.session_resolver !== true ||
+      row.identity_member !== true || row.app_member !== true || row.host_resolver_member !== true ||
+      row.sessions !== true || row.admin_host_resolver !== true || row.session_resolver !== true ||
       row.session_rotator !== true || row.principal_session_revoker !== true ||
       row.session_recovery !== true || row.abandoned_cart_repository !== true
     ) {
@@ -137,7 +145,17 @@ export async function initializeApprovedStagingServerAbandonedCartRuntime(
         audit: () => undefined,
       },
     );
-    const access = createApprovedStagingServerPanelAccessRuntime(sessionRepository, config.authority.panelOrigin);
+    const adminDomainRepository = new PostgresAdminDomainRepository({
+      pool,
+      clock: () => new Date(),
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
+    const access = createApprovedStagingServerPanelAccessRuntime(
+      sessionRepository,
+      config.authority.panelOrigin,
+      adminDomainRepository,
+    );
     const abandonedCarts = new PostgresAbandonedCartRepository({
       pool,
       role: "celebix_saas_app",

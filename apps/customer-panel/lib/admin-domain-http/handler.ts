@@ -7,12 +7,12 @@ import {
   hasApprovedPanelMutationOriginShape,
 } from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
-import type { ServerStoreDomainRuntime } from "../server-store-domains/runtime.ts";
+import type { ServerAdminDomainRuntime } from "../server-admin-domains/runtime.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const STATUS = Object.freeze({ invalid_input: 400, feature_not_enabled: 403, limit_reached: 409, hostname_already_claimed: 409, stale_version: 409, not_found: 404, operation_mismatch: 409, provider_unavailable: 503 });
-type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerStoreDomainRuntime | null>; now(): Date; requestId(): string }>;
-type Authorized = Readonly<{ runtime: ServerStoreDomainRuntime; tenantContext: TenantContext; now: Date }>;
+type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerAdminDomainRuntime | null>; now(): Date; requestId(): string }>;
+type Authorized = Readonly<{ runtime: ServerAdminDomainRuntime; tenantContext: TenantContext; now: Date }>;
 
 function json(value: unknown, status = 200, extra?: HeadersInit): Response {
   const headers = new Headers(extra); headers.set("cache-control", "no-store"); headers.set("x-content-type-options", "nosniff");
@@ -49,7 +49,7 @@ function operationId(request: Request): string | null { const value = request.he
 function version(value: unknown): number | null { const parsed = exact(value, ["expectedVersion"]); return parsed && Number.isSafeInteger(parsed.expectedVersion) && (parsed.expectedVersion as number) >= 1 ? parsed.expectedVersion as number : null; }
 
 async function authorize(dependencies: Dependencies, request: Request, method: "GET" | "POST" | "DELETE", pathname: string): Promise<Response | Authorized> {
-  let runtime: ServerStoreDomainRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return failure("provider_unavailable", 503); }
+  let runtime: ServerAdminDomainRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return failure("provider_unavailable", 503); }
   if (!runtime) return failure("provider_unavailable", 503);
   if (request.method !== method) return failure("method_not_allowed", 405, { allow: method });
   if (method !== "GET" && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) return failure("origin_denied", 403);
@@ -80,14 +80,14 @@ async function mutation(dependencies: Dependencies, request: Request, method: "P
   try { return json({ domain: await run(authority, parsedVersion) }); } catch (caught) { return serviceFailure(caught); }
 }
 
-export function createStoreDomainHttpHandlers(dependencies: Dependencies) {
+export function createAdminDomainHttpHandlers(dependencies: Dependencies) {
   return Object.freeze({
     async collection(request: Request): Promise<Response> {
       if (request.method === "GET") {
-        const authority = await authorize(dependencies, request, "GET", "/api/store-domains"); if (isResponse(authority)) return authority;
+        const authority = await authorize(dependencies, request, "GET", "/api/admin-domains"); if (isResponse(authority)) return authority;
         try { return json({ items: await authority.runtime.domains.list({ tenantContext: authority.tenantContext, now: authority.now }) }); } catch (caught) { return serviceFailure(caught); }
       }
-      const authority = await authorize(dependencies, request, "POST", "/api/store-domains"); if (isResponse(authority)) return authority;
+      const authority = await authorize(dependencies, request, "POST", "/api/admin-domains"); if (isResponse(authority)) return authority;
       const operation = operationId(request); const parsed = exact(await body(request), ["hostname"]);
       if (!operation || !parsed || typeof parsed.hostname !== "string") return failure("invalid_input", 400);
       try { return json({ domain: await authority.runtime.domains.create({ tenantContext: authority.tenantContext, now: authority.now, operationId: operation, hostname: parsed.hostname }) }, 202); }
@@ -95,15 +95,15 @@ export function createStoreDomainHttpHandlers(dependencies: Dependencies) {
     },
     recheck(request: Request, domainId: string) {
       if (!UUID.test(domainId)) return Promise.resolve(failure("invalid_input", 400));
-      return mutation(dependencies, request, "POST", `/api/store-domains/${domainId}/recheck`, (authority, expectedVersion) => authority.runtime.domains.requestRecheck({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));
+      return mutation(dependencies, request, "POST", `/api/admin-domains/${domainId}/recheck`, (authority, expectedVersion) => authority.runtime.domains.requestRecheck({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));
     },
     primary(request: Request, domainId: string) {
       if (!UUID.test(domainId)) return Promise.resolve(failure("invalid_input", 400));
-      return mutation(dependencies, request, "POST", `/api/store-domains/${domainId}/primary`, (authority, expectedVersion) => authority.runtime.domains.makePrimary({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));
+      return mutation(dependencies, request, "POST", `/api/admin-domains/${domainId}/primary`, (authority, expectedVersion) => authority.runtime.domains.makePrimary({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));
     },
     item(request: Request, domainId: string) {
       if (!UUID.test(domainId)) return Promise.resolve(failure("invalid_input", 400));
-      return mutation(dependencies, request, "DELETE", `/api/store-domains/${domainId}`, (authority, expectedVersion) => authority.runtime.domains.disable({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));
+      return mutation(dependencies, request, "DELETE", `/api/admin-domains/${domainId}`, (authority, expectedVersion) => authority.runtime.domains.disable({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));
     },
   });
 }

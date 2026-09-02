@@ -14,7 +14,7 @@ async function authority(deps:Dependencies,request:Request,productId:unknown,mut
   let runtime:ServerCatalogRuntime|null;try{runtime=await deps.resolveRuntime();}catch{return json({code:"unavailable"},503);}if(!runtime)return json({code:"unavailable"},503);
   const cookie=readPersistentPanelSessionCookie(request);if(cookie.kind!=="present")return json({code:"unauthenticated"},401);
   const now=deps.now(),requestId=deps.requestId();if(!(now instanceof Date)||!Number.isFinite(now.getTime())||!UUID.test(requestId))return json({code:"unavailable"},503);
-  let access;try{access=await runtime.access.resolveCredential({credential:cookie.credential,requestId,now:new Date(now)});}catch{return json({code:"unavailable"},503);}if(access.kind==="unauthenticated")return json({code:"unauthenticated"},401);if(access.kind!=="authenticated")return json({code:access.kind==="unauthorized"?"membership_denied":"unavailable"},access.kind==="unauthorized"?403:503);
+  let access;try{access=await runtime.access.resolveCredential({hostname:request.headers.get("host"),credential:cookie.credential,requestId,now:new Date(now)});}catch{return json({code:"unavailable"},503);}if(access.kind==="unauthenticated")return json({code:"unauthenticated"},401);if(access.kind!=="authenticated")return json({code:access.kind==="unauthorized"?"membership_denied":"unavailable"},access.kind==="unauthorized"?403:503);
   if(!isCatalogProductOperationAllowed(access.tenantContext.membership.role,"read"))return json({code:"membership_denied"},403);
   if(mutation&&!approvedPanelMutationOriginForStore(request,runtime.access.panelOrigin,access.tenantContext.store.slug))return json({code:"origin_denied"},403);
   return {runtime,tenantContext:access.tenantContext,now,productId};
