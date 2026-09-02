@@ -58,4 +58,3 @@ Rollout is migration-first after a verified backup, followed by fallback-host sm
 ## Rollback
 
 Remove custom primary status while retaining the platform fallback, stop traffic, remove exact Logto URIs and the Customer Panel FQDN, safely remove the Cloudflare/DNS hostname, and roll code back. The storefront apex and `www` records are never touched.
-

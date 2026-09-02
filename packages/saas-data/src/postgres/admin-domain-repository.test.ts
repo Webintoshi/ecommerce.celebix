@@ -56,6 +56,14 @@ test("resolves only the exact frozen public admin brand through host-resolver au
   assert.deepEqual(call?.values, ["guzide-kuyumcu-4.admin.saas-staging.celebix.site", NOW]);
 });
 
+test("accepts a database-resolved custom primary admin origin without platform-suffix authority", async () => {
+  const custom = Object.freeze({ ...BRAND, canonicalAdminOrigin: "https://admin.guzidekuyumcu.com.tr" });
+  const h = harness({ rows: [{ outcome: "resolved", authority: custom }], rowCount: 1 });
+  assert.deepEqual(await h.repository.resolvePublicBrand({ hostname: "admin.guzidekuyumcu.com.tr", now: NOW }), {
+    kind: "resolved", brand: custom,
+  });
+});
+
 test("maps unknown hosts without exposing database shape", async () => {
   const h = harness({ rows: [{ outcome: "admin_host_unknown", authority: null }], rowCount: 1 });
   assert.deepEqual(await h.repository.resolvePublicBrand({ hostname: "unknown.admin.celebix.site", now: NOW }), {
@@ -83,7 +91,7 @@ test("fails closed on extra rows, extra authority keys, invalid canonical origin
     { rows: [], rowCount: 0 },
     { rows: [{ outcome: "resolved", authority: BRAND }, { outcome: "resolved", authority: BRAND }], rowCount: 2 },
     { rows: [{ outcome: "resolved", authority: { ...BRAND, storeId: "secret" } }], rowCount: 1 },
-    { rows: [{ outcome: "resolved", authority: { ...BRAND, canonicalAdminOrigin: "https://evil.example.test" } }], rowCount: 1 },
+    { rows: [{ outcome: "resolved", authority: { ...BRAND, canonicalAdminOrigin: "http://evil.example.test" } }], rowCount: 1 },
   ]) {
     const h = harness(result);
     assert.deepEqual(await h.repository.resolvePublicBrand({ hostname: "guzide.admin.celebix.site", now: NOW }), { kind: "unavailable" });

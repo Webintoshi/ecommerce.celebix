@@ -16,8 +16,8 @@ class Client {
   async query(text: string) {
     this.calls.push(text);
     const rows: Record<string, unknown>[] = text.includes("server_version_num")
-      ? [{ version_num: 160002, database_name: "celebix_saas_production", current_role: "celebix_saas_workflow", session_is_superuser: false, workflow_member: true, domain_lifecycle: true }]
-      : text.includes("store_domain_work_claim") ? [{ outcome: "claimed", result_payload: { items: [] } }] : [];
+      ? [{ version_num: 160002, database_name: "celebix_saas_production", current_role: "celebix_saas_workflow", session_is_superuser: false, workflow_member: true, domain_lifecycle: true, admin_domain_lifecycle: true }]
+      : text.includes("store_domain_work_claim") || text.includes("admin_domain_work_claim") ? [{ outcome: "claimed", result_payload: { items: [] } }] : [];
     return { rowCount: rows.length, rows, command: "", oid: 0, fields: [] };
   }
   release() {}
@@ -33,6 +33,7 @@ test("production runtime preflights PostgreSQL 16 and performs one bounded empty
   assert.equal(await runtime.runOnce(), "empty");
   assert.equal(client.calls.some((text) => text === "SET LOCAL ROLE celebix_saas_workflow"), true);
   assert.equal(client.calls.some((text) => text.includes("store_domain_work_claim")), true);
+  assert.equal(client.calls.some((text) => text.includes("admin_domain_work_claim")), true);
   await runtime.close();
   assert.equal(ended, 1);
 });

@@ -5,7 +5,7 @@ import pg from "pg";
 
 import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
 
-test("abandoned-cart preflight requires only session and abandoned-cart authority", async () => {
+test("abandoned-cart preflight requires session, admin-host, and abandoned-cart authority", async () => {
   let released = 0;
   let ended = 0;
 
@@ -17,6 +17,8 @@ test("abandoned-cart preflight requires only session and abandoned-cart authorit
         async query(sql: string) {
           for (const required of [
             "saas.panel_sessions",
+            "saas.admin_domains",
+            "resolve_public_admin_brand",
             "resolve_panel_session",
             "rotate_panel_session",
             "revoke_principal_panel_sessions",
@@ -35,6 +37,7 @@ test("abandoned-cart preflight requires only session and abandoned-cart authorit
           ]) assert.match(sql, new RegExp(required.replaceAll(".", "\\.")));
           assert.match(sql, /has_function_privilege\(\s*'celebix_saas_identity'/);
           assert.match(sql, /has_function_privilege\(\s*'celebix_saas_app'/);
+          assert.match(sql, /has_function_privilege\(\s*'celebix_saas_host_resolver'/);
 
           for (const unrelated of [
             "shipping_provider_profiles",

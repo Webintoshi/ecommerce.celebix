@@ -181,13 +181,13 @@ test("panel origin and fixed redirects derive from the single callback authority
   assert.match(source, /new URL\(PANEL_OIDC_CALLBACK_URL\)\.origin/);
 });
 
-test("health output is minimal and contains no configuration or secrets", async () => {
+test("health output fails closed without an exact database-resolved admin Host", async () => {
   const route = await load("../app/api/health/route.ts");
   if (typeof route.GET !== "function") return;
-  const response = await route.GET();
+  const response = await route.GET(new Request("http://customer-panel:3400/api/health", { headers: { host: "unknown.example" } }));
   const body = await response.json();
-  assert.equal(response.status, 200);
-  assert.deepEqual(body, { status: "ok", service: "customer-panel" });
+  assert.equal(response.status, 503);
+  assert.deepEqual(body, { status: "unavailable" });
   for (const prohibited of ["token", "secret", "database", "issuer", "clientId", "environment"]) {
     assert.equal(JSON.stringify(body).toLowerCase().includes(prohibited.toLowerCase()), false);
   }

@@ -60,4 +60,3 @@ Run the real repository scripts for tests, typechecks, Customer Panel/Owner buil
 Push normally, create `feat(customer-panel): add tenant custom admin domains` against `codex/design-tabs-save-fix-live`, verify scope/SHA, and merge with a merge commit. Preserve the source branch.
 
 Take and restore-verify a staging database backup. Apply migration 120 first, smoke the fallback host, deploy the exact merge SHA, configure only `admin.guzidekuyumcu.com.tr` in Cloudflare/Coolify and exact Logto callback/logout URIs, wait for active DNS/TLS, then run custom-host and fallback browser QA. Clean all test data and record rollback evidence.
-
