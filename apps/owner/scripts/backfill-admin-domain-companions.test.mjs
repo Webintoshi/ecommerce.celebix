@@ -15,6 +15,14 @@ test("dry-run classifies create adopt replay and cross-tenant conflict without m
   assert.deepEqual(buildBackfillPlan(storefronts,admins,policy).map(({action,expectedAdminHostname})=>[action,expectedAdminHostname]),[["adopt","admin.example.com"],["replay","admin.example.co.uk"],["conflict","admin.ornek.com"],["create","admin.other.net"]]);
 });
 
+test("dry-run ignores legacy custom-domain rows under reserved platform suffixes",()=>{
+  const plan=buildBackfillPlan([
+    {storeId:"platform-store",id:"platform-front",hostname:"pilot.saas-staging.celebix.site"},
+    {storeId:"merchant-store",id:"merchant-front",hostname:"example.com"},
+  ],[],policy);
+  assert.deepEqual(plan.map(({storefrontHostname,expectedAdminHostname})=>[storefrontHostname,expectedAdminHostname]),[["example.com","admin.example.com"]]);
+});
+
 test("dry-run config never requires or projects provider credentials",()=>{
   const config=resolveBackfillConfiguration({CELEBIX_DEPLOYMENT_TIER:"staging",CELEBIX_STAGING_MIGRATION_MODE:"approved_staging",CELEBIX_TOSHI_MIGRATION_DATABASE_URL:"postgresql://owner:secret@db.test/saas",CELEBIX_CUSTOM_ADMIN_DOMAIN_CNAME_TARGET:"customers.saas-staging.celebix.site",CELEBIX_CUSTOM_DOMAIN_RESERVED_SUFFIXES:"celebix.site"},[]);
   assert.equal(config.apply,false);assert.equal("apiToken" in config,false);
