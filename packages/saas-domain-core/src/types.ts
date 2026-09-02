@@ -107,6 +107,9 @@ export type StoreDomainWorkflowPersistence = Readonly<{
     dnsStatus: "pending" | "ready" | "mismatch"; originStatus: "pending" | "ready" | "failed";
     safeProviderErrorCode: string | null; nextCheckAt: Date;
   }>): Promise<void>;
+  defer(input: Readonly<{
+    domainId: string; leaseId: string; workerId: string; now: Date; retryAt: Date;
+  }>): Promise<void>;
   fail(input: Readonly<{
     domainId: string; leaseId: string; workerId: string; now: Date; errorCode: string; retryAt: Date; terminal: boolean;
   }>): Promise<void>;

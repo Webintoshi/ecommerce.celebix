@@ -85,6 +85,14 @@ export class PostgresAdminDomainWorkflowRepository implements StoreDomainWorkflo
     );
     if (result.outcome !== "completed") mapped(result.outcome);
   }
+  async defer(input: Parameters<StoreDomainWorkflowRepository["defer"]>[0]): Promise<void> {
+    const parsed = exact(input, ["domainId", "leaseId", "workerId", "now", "retryAt"]);
+    const result = await this.#execute(
+      "SELECT outcome,result_payload FROM saas.admin_domain_work_defer($1::uuid,$2::uuid,$3::text,$4::timestamptz,$5::timestamptz)",
+      [uuid(parsed.domainId), uuid(parsed.leaseId), safeId(parsed.workerId), date(parsed.now), date(parsed.retryAt)],
+    );
+    if (result.outcome !== "retry_scheduled") mapped(result.outcome);
+  }
   async fail(input: Parameters<StoreDomainWorkflowRepository["fail"]>[0]): Promise<void> {
     const parsed = exact(input, ["domainId", "leaseId", "workerId", "now", "errorCode", "retryAt", "terminal"]);
     if (typeof parsed.terminal !== "boolean") fail("invalid_input");

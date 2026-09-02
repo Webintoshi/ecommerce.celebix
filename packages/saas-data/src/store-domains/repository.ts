@@ -228,6 +228,16 @@ export class PostgresStoreDomainWorkflowRepository extends PostgresStoreDomainBa
     if (result.outcome !== "completed") throw failure(mappedOutcome(result.outcome));
   }
 
+  async defer(input: Parameters<StoreDomainWorkflowRepository["defer"]>[0]): Promise<void> {
+    const parsed = exact(input, ["domainId", "leaseId", "workerId", "now", "retryAt"]);
+    const result = await this.execute(
+      "SELECT outcome,result_payload FROM saas.store_domain_work_defer($1::uuid,$2::uuid,$3::text,$4::timestamptz,$5::timestamptz)",
+      [uuid(parsed.domainId), uuid(parsed.leaseId), safeId(parsed.workerId), date(parsed.now), date(parsed.retryAt)],
+      false,
+    );
+    if (result.outcome !== "retry_scheduled") throw failure(mappedOutcome(result.outcome));
+  }
+
   async fail(input: Parameters<StoreDomainWorkflowRepository["fail"]>[0]): Promise<void> {
     const parsed = exact(input, ["domainId", "leaseId", "workerId", "now", "errorCode", "retryAt", "terminal"]);
     if (typeof parsed.terminal !== "boolean") throw failure("invalid_input");

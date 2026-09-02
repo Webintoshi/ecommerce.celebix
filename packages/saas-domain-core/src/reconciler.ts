@@ -1,5 +1,6 @@
 import { CloudflareCustomHostnameError } from "./cloudflare.ts";
 import type { CustomHostnameProvider, StoreDomainWorkflowClaim, StoreDomainWorkflowPersistence } from "./types.ts";
+import { parse } from "tldts";
 
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 type ResolveCname = (hostname: string) => Promise<readonly string[]>;
@@ -16,13 +17,28 @@ function safeProviderCode(caught: CloudflareCustomHostnameError): string {
   return `provider_${caught.code}`;
 }
 
-async function dnsStatus(resolveCname: ResolveCname, hostname: string, target: string): Promise<"pending" | "ready" | "mismatch"> {
+type DnsProbe = "pending" | "ready" | "mismatch" | "unavailable";
+
+function dnsErrorCode(caught: unknown): string | null {
+  if (!caught || typeof caught !== "object" || Array.isArray(caught)) return null;
+  const code = (caught as Record<string, unknown>).code;
+  return typeof code === "string" ? code : null;
+}
+
+function isApex(hostname: string): boolean {
+  const parsed = parse(hostname, { allowPrivateDomains: false });
+  return parsed.isIcann === true && !parsed.isIp && parsed.domain === hostname;
+}
+
+async function dnsStatus(resolveCname: ResolveCname, hostname: string, target: string): Promise<DnsProbe> {
   try {
     const records = await resolveCname(hostname);
     if (!Array.isArray(records) || records.length === 0) return "pending";
     const normalized = records.map((entry) => entry.toLowerCase().replace(/\.$/u, ""));
     return normalized.includes(target) ? "ready" : "mismatch";
-  } catch { return "pending"; }
+  } catch (caught) {
+    return ["ENODATA", "ENOTFOUND"].includes(dnsErrorCode(caught) ?? "") ? "pending" : "unavailable";
+  }
 }
 
 async function originStatus(fetchImpl: FetchLike, claim: StoreDomainWorkflowClaim): Promise<"ready" | "failed"> {
@@ -78,14 +94,37 @@ export function createStoreDomainReconciler(input: Readonly<{
         }
         const snapshot = await provider.get(claim.providerHostnameId);
         if (snapshot.hostname !== claim.hostname) throw new CloudflareCustomHostnameError("malformed_response");
-        const dns = await dnsStatus(resolveCname, claim.hostname, cnameTarget);
-        const origin = snapshot.hostnameStatus === "active" && snapshot.sslStatus === "active" && dns === "ready"
+        const providerError = snapshot.hostnameStatus === "failed" ? "provider_hostname_failed"
+          : snapshot.sslStatus === "failed" ? "provider_ssl_failed" : null;
+        if (providerError !== null) {
+          await workflow.complete({
+            domainId: claim.domainId, leaseId: claim.leaseId, workerId, now,
+            hostnameStatus: snapshot.hostnameStatus, sslStatus: snapshot.sslStatus,
+            dnsStatus: "pending", originStatus: "pending", safeProviderErrorCode: providerError,
+            nextCheckAt: nextCheck(now, claim.attemptCount),
+          });
+          return "updated";
+        }
+        const dnsProbe = await dnsStatus(resolveCname, claim.hostname, cnameTarget);
+        if (dnsProbe === "unavailable") {
+          try {
+            await workflow.defer({
+              domainId: claim.domainId, leaseId: claim.leaseId, workerId, now,
+              retryAt: nextCheck(now, claim.attemptCount),
+            });
+          } catch { return "failed"; }
+          return "retry_scheduled";
+        }
+        const providerReady = snapshot.hostnameStatus === "active" && snapshot.sslStatus === "active";
+        const flattenedApexCandidate = dnsProbe === "pending" && isApex(claim.hostname);
+        const origin = providerReady && (dnsProbe === "ready" || flattenedApexCandidate)
           ? await originStatus(fetchImpl, claim) : "pending";
-        const ready = snapshot.hostnameStatus === "active" && snapshot.sslStatus === "active" && dns === "ready" && origin === "ready";
+        const dns = flattenedApexCandidate && origin === "ready" ? "ready" : dnsProbe;
+        const ready = providerReady && dns === "ready" && origin === "ready";
         await workflow.complete({
           domainId: claim.domainId, leaseId: claim.leaseId, workerId, now,
           hostnameStatus: snapshot.hostnameStatus, sslStatus: snapshot.sslStatus, dnsStatus: dns, originStatus: origin,
-          safeProviderErrorCode: null, nextCheckAt: nextCheck(now, claim.attemptCount, ready),
+          safeProviderErrorCode: providerError, nextCheckAt: nextCheck(now, claim.attemptCount, ready),
         });
         return "updated";
       } catch (caught) {

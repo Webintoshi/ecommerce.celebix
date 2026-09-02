@@ -16,7 +16,23 @@ const CLAIM = Object.freeze({
 });
 
 function workflow(overrides: Partial<StoreDomainWorkflowPersistence> = {}): StoreDomainWorkflowPersistence {
-  return { async claim() { return [CLAIM]; }, async complete() {}, async fail() {}, ...overrides };
+  return { async claim() { return [CLAIM]; }, async complete() {}, async defer() {}, async fail() {}, ...overrides };
+}
+
+function activeProvider(hostname: string = CLAIM.hostname) {
+  return {
+    async create() { throw new Error("unused"); },
+    async find() { return null; },
+    async remove() { return { deleted: true as const }; },
+    async get() { return { providerHostnameId: "cf-host-1", hostname, hostnameStatus: "active" as const, sslStatus: "active" as const, ownershipValidation: null, certificateValidation: [] }; },
+  };
+}
+
+function health(claim: Readonly<{ storeId: string; hostname: string }>, overrides: Partial<{ storeId: string; hostname: string }> = {}) {
+  return new Response(JSON.stringify({ schemaVersion: 1, status: "ok", storeId: overrides.storeId ?? claim.storeId, hostname: overrides.hostname ?? claim.hostname }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 test("marks one hostname ready only when provider DNS and exact-host health all agree", async () => {
@@ -33,6 +49,96 @@ test("marks one hostname ready only when provider DNS and exact-host health all 
     domainId: CLAIM.domainId, leaseId: CLAIM.leaseId, workerId: "domain-worker-1", now: NOW,
     hostnameStatus: "active", sslStatus: "active", dnsStatus: "ready", originStatus: "ready",
     safeProviderErrorCode: null, nextCheckAt: new Date("2026-08-05T13:00:00.000Z"),
+  });
+});
+
+test("marks an apex hostname ready when Cloudflare flattening hides the CNAME but provider TLS and exact tenant health agree", async () => {
+  const apex = Object.freeze({ ...CLAIM, hostname: "example.com" });
+  let completed: Parameters<StoreDomainWorkflowPersistence["complete"]>[0] | undefined;
+  const noCname = Object.assign(new Error("queryCname ENODATA example.com"), { code: "ENODATA" });
+  const reconciler = createStoreDomainReconciler({
+    workflow: workflow({ async claim() { return [apex]; }, async complete(input) { completed = input; } }),
+    provider: activeProvider(apex.hostname), resolveCname: async () => { throw noCname; }, fetch: async () => health(apex),
+    workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
+  });
+  assert.equal(await reconciler.runOnce(), "updated");
+  assert.equal(completed?.dnsStatus, "ready");
+  assert.equal(completed?.originStatus, "ready");
+  assert.equal(completed?.safeProviderErrorCode, null);
+});
+
+test("keeps a flattened apex fail-closed when health resolves the wrong tenant or fallback hostname", async () => {
+  const apex = Object.freeze({ ...CLAIM, hostname: "example.com" });
+  const noCname = Object.assign(new Error("queryCname ENODATA example.com"), { code: "ENODATA" });
+  for (const response of [health(apex, { storeId: "44444444-4444-4444-8444-444444444444" }), health(apex, { hostname: "fallback.celebix.site" })]) {
+    let completed: Parameters<StoreDomainWorkflowPersistence["complete"]>[0] | undefined;
+    const reconciler = createStoreDomainReconciler({
+      workflow: workflow({ async claim() { return [apex]; }, async complete(input) { completed = input; } }),
+      provider: activeProvider(apex.hostname), resolveCname: async () => { throw noCname; }, fetch: async () => response,
+      workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
+    });
+    assert.equal(await reconciler.runOnce(), "updated");
+    assert.equal(completed?.dnsStatus, "pending");
+    assert.equal(completed?.originStatus, "failed");
+  }
+});
+
+test("does not use HTTPS alone to bypass subdomain CNAME provider or TLS readiness", async () => {
+  const noCname = Object.assign(new Error("queryCname ENODATA www.example.com"), { code: "ENODATA" });
+  const snapshots = [
+    { hostnameStatus: "active" as const, sslStatus: "active" as const, expectedDns: "pending", expectedOrigin: "pending" },
+    { hostnameStatus: "pending" as const, sslStatus: "active" as const, expectedDns: "ready", expectedOrigin: "pending" },
+    { hostnameStatus: "active" as const, sslStatus: "pending" as const, expectedDns: "ready", expectedOrigin: "pending" },
+  ];
+  for (const snapshot of snapshots) {
+    let fetchCalls = 0;
+    let completed: Parameters<StoreDomainWorkflowPersistence["complete"]>[0] | undefined;
+    const reconciler = createStoreDomainReconciler({
+      workflow: workflow({ async complete(input) { completed = input; } }),
+      provider: { ...activeProvider(), async get() { return { providerHostnameId: "cf-host-1", hostname: CLAIM.hostname, hostnameStatus: snapshot.hostnameStatus, sslStatus: snapshot.sslStatus, ownershipValidation: null, certificateValidation: [] }; } },
+      resolveCname: snapshot.expectedDns === "ready" ? async () => ["shops.celebix.site"] : async () => { throw noCname; },
+      fetch: async () => { fetchCalls += 1; return health(CLAIM); }, workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
+    });
+    assert.equal(await reconciler.runOnce(), "updated");
+    assert.equal(completed?.dnsStatus, snapshot.expectedDns);
+    assert.equal(completed?.originStatus, snapshot.expectedOrigin);
+    assert.equal(fetchCalls, 0);
+  }
+});
+
+test("maps terminal hostname and SSL provider snapshots to action-required persistence metadata", async () => {
+  const dnsUnavailable = Object.assign(new Error("queryCname EAI_AGAIN www.example.com"), { code: "EAI_AGAIN" });
+  for (const snapshot of [
+    { hostnameStatus: "failed" as const, sslStatus: "active" as const, code: "provider_hostname_failed" },
+    { hostnameStatus: "active" as const, sslStatus: "failed" as const, code: "provider_ssl_failed" },
+  ]) {
+    let completed: Parameters<StoreDomainWorkflowPersistence["complete"]>[0] | undefined;
+    const reconciler = createStoreDomainReconciler({
+      workflow: workflow({ async complete(input) { completed = input; } }),
+      provider: { ...activeProvider(), async get() { return { providerHostnameId: "cf-host-1", hostname: CLAIM.hostname, hostnameStatus: snapshot.hostnameStatus, sslStatus: snapshot.sslStatus, ownershipValidation: null, certificateValidation: [] }; } },
+      resolveCname: async () => { throw dnsUnavailable; }, fetch: async () => health(CLAIM), workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
+    });
+    assert.equal(await reconciler.runOnce(), "updated");
+    assert.equal(completed?.safeProviderErrorCode, snapshot.code);
+  }
+});
+
+test("preserves verified readiness and defers with bounded backoff after a transient DNS lookup failure", async () => {
+  let completed = 0;
+  let failed = 0;
+  let deferred: Parameters<StoreDomainWorkflowPersistence["defer"]>[0] | undefined;
+  const unavailable = Object.assign(new Error("queryCname EAI_AGAIN www.example.com"), { code: "EAI_AGAIN" });
+  const reconciler = createStoreDomainReconciler({
+    workflow: workflow({ async complete() { completed += 1; }, async defer(input) { deferred = input; }, async fail() { failed += 1; } }),
+    provider: activeProvider(), resolveCname: async () => { throw unavailable; }, fetch: async () => health(CLAIM),
+    workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
+  });
+  assert.equal(await reconciler.runOnce(), "retry_scheduled");
+  assert.equal(completed, 0);
+  assert.equal(failed, 0);
+  assert.deepEqual(deferred, {
+    domainId: CLAIM.domainId, leaseId: CLAIM.leaseId, workerId: "domain-worker-1", now: NOW,
+    retryAt: new Date("2026-08-05T12:00:30.000Z"),
   });
 });
 
