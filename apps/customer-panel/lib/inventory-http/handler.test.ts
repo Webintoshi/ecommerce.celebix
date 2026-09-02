@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { TenantContext } from "@celebix/saas-contracts";
+import type { StoreMembershipRole, TenantContext } from "@celebix/saas-contracts";
 import type { InventoryRepository } from "@celebix/saas-data";
 import { inventoryFailure } from "../../../../packages/saas-data/src/inventory/errors.ts";
 
@@ -11,6 +11,7 @@ import type { ServerInventoryRuntime } from "../server-inventory/runtime.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
 const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const PRIMARY_ADMIN_ORIGIN = "https://admin.guzidekuyumcu.com.tr";
 const OTHER_TENANT_ADMIN_ORIGIN = "https://other-store.admin.saas-staging.celebix.site";
 const STORE = "10000000-0000-4000-8000-000000000001";
 const PRINCIPAL = "10000000-0000-4000-8000-000000000002";
@@ -31,12 +32,12 @@ const NOW = new Date("2026-07-23T11:00:00.000Z");
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64url")}`;
 const COOKIE = `__Host-celebix_panel=${CREDENTIAL}`;
 
-function tenant(): TenantContext {
+function tenant(role: StoreMembershipRole = "store_owner"): TenantContext {
   return {
     schemaVersion: 1, requestId: REQUEST_ID,
     principal: { id: PRINCIPAL, issuer: "https://identity.test/oidc", subject: "private" },
     store: { id: STORE, slug: "guzide-kuyumcu-4", status: "active" },
-    membership: { id: MEMBERSHIP, role: "store_owner", status: "active" },
+    membership: { id: MEMBERSHIP, role, status: "active" },
     entitlements: {
       schemaVersion: 1, planId: PLAN, planCode: "growth", version: 2, status: "active",
       features: ["catalog"], limits: { products: 100, staff: 5, storageBytes: 1_024 },
@@ -65,14 +66,18 @@ function repository(overrides: Partial<InventoryRepository> = {}): InventoryRepo
   } as InventoryRepository;
 }
 
-function runtime(inventory: InventoryRepository, accessKind: "authenticated" | "unauthenticated" | "unauthorized" | "unavailable" = "authenticated"): ServerInventoryRuntime {
+function runtime(
+  inventory: InventoryRepository,
+  accessKind: "authenticated" | "unauthenticated" | "unauthorized" | "unavailable" = "authenticated",
+  role: StoreMembershipRole = "store_owner",
+): ServerInventoryRuntime {
   return {
     inventory,
     access: {
       readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN,
       async resolveCredential() {
         return accessKind === "authenticated"
-          ? { kind: "authenticated", session: {}, tenantContext: tenant() } as never
+          ? { kind: "authenticated", session: {}, tenantContext: tenant(role) } as never
           : { kind: accessKind };
       },
       async rotateCredential() { return { kind: "unavailable" }; },
@@ -81,9 +86,13 @@ function runtime(inventory: InventoryRepository, accessKind: "authenticated" | "
   } as ServerInventoryRuntime;
 }
 
-function handler(inventory: InventoryRepository, accessKind?: "authenticated" | "unauthenticated" | "unauthorized" | "unavailable") {
+function handler(
+  inventory: InventoryRepository,
+  accessKind?: "authenticated" | "unauthenticated" | "unauthorized" | "unavailable",
+  role: StoreMembershipRole = "store_owner",
+) {
   return createInventoryHttpHandler({
-    async resolveRuntime() { return runtime(inventory, accessKind); },
+    async resolveRuntime() { return runtime(inventory, accessKind, role); },
     now: () => new Date(NOW),
     requestId: () => REQUEST_ID,
   });
@@ -212,6 +221,90 @@ test("tenant admin inventory mutations survive internal proxy delivery and stay 
   assert.equal(calls, 1);
 });
 
+test("route adapter preserves the trusted custom admin Host for credential authority", async () => {
+  const observed: Array<string | null | undefined> = [];
+  const inventory = repository({ async listCounts() { return []; } });
+  const handle = createInventoryHttpHandler({
+    async resolveRuntime() {
+      const selected = runtime(inventory);
+      return {
+        ...selected,
+        access: {
+          ...selected.access,
+          async resolveCredential(input) {
+            observed.push(input.hostname);
+            return input.hostname === "admin.guzidekuyumcu.com.tr"
+              ? { kind: "authenticated", session: {}, tenantContext: tenant() } as never
+              : { kind: "unauthorized" as const };
+          },
+        },
+      } as ServerInventoryRuntime;
+    },
+    now: () => new Date(NOW),
+    requestId: () => REQUEST_ID,
+  });
+  const prepared = prepareInventoryRouteRequest(request("/api/inventory/counts", {
+    headers: {
+      host: "admin.guzidekuyumcu.com.tr",
+      "x-forwarded-host": "internal:3400",
+      "x-forwarded-proto": "http",
+    },
+  }));
+
+  assert.equal(prepared.headers.get("host"), "admin.guzidekuyumcu.com.tr");
+  assert.equal((await handle(prepared)).status, 200);
+  assert.deepEqual(observed, ["admin.guzidekuyumcu.com.tr"]);
+});
+
+test("count HTTP authority matches the store-owner admin editor and analyst role matrix", async () => {
+  const calls: Array<readonly [StoreMembershipRole, string]> = [];
+  const routes = [
+    ["/api/inventory/counts", {
+      operationId: OPERATION,
+      locationId: LOCATION,
+      lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 12 }],
+    }],
+    [`/api/inventory/counts/${COUNT}/start`, { operationId: OPERATION, expectedVersion: 1 }],
+    [`/api/inventory/counts/${COUNT}/commit`, { operationId: OPERATION, expectedVersion: 1 }],
+    [`/api/inventory/counts/${COUNT}/cancel`, { operationId: OPERATION, expectedVersion: 1 }],
+  ] as const;
+  for (const role of ["store_owner", "admin", "editor", "analyst"] as const) {
+    const selected = handler(repository({
+      async listCounts() { return []; },
+      async saveCount() { calls.push([role, "save"]); return mutation(COUNT); },
+      async startCount() { calls.push([role, "start"]); return mutation(COUNT, "counting"); },
+      async commitCount() { calls.push([role, "commit"]); return mutation(COUNT, "committed"); },
+      async cancelCount() { calls.push([role, "cancel"]); return mutation(COUNT, "cancelled"); },
+    }), undefined, role);
+    assert.equal((await selected(request("/api/inventory/counts"))).status, 200, `${role} read`);
+    for (const [path, body] of routes) {
+      const response = await selected(request(path, { method: "POST", body }));
+      assert.equal(response.status, role === "analyst" ? 403 : 200, `${role} ${path}`);
+    }
+  }
+  assert.deepEqual(calls, ["store_owner", "admin", "editor"].flatMap((role) =>
+    ["save", "start", "commit", "cancel"].map((action) => [role, action])));
+});
+
+test("primary custom and fallback admin origins are accepted while foreign origins stay denied", async () => {
+  let calls = 0;
+  const selected = handler(repository({
+    async saveCount() { calls += 1; return mutation(COUNT); },
+  }));
+  const body = { operationId: OPERATION, locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 12 }] };
+  for (const origin of [PRIMARY_ADMIN_ORIGIN, TENANT_ADMIN_ORIGIN]) {
+    const prepared = prepareInventoryRouteRequest(request("/api/inventory/counts", {
+      method: "POST", origin, body, headers: { host: new URL(origin).hostname },
+    }));
+    assert.equal((await selected(prepared)).status, 200, origin);
+  }
+  const foreign = prepareInventoryRouteRequest(request("/api/inventory/counts", {
+    method: "POST", origin: OTHER_TENANT_ADMIN_ORIGIN, body, headers: { host: "other-store.admin.saas-staging.celebix.site" },
+  }));
+  assert.equal((await selected(foreign)).status, 403);
+  assert.equal(calls, 2);
+});
+
 test("wrong, child, encoded, prefix, method, and query paths are rejected before repository access", async () => {
   let calls = 0;
   const inventory = repository({ async listLocations() { calls += 1; return []; } });
@@ -298,10 +391,10 @@ test("mutations require exact Origin and every route requires one valid cookie",
   assert.equal((await handle(request("/api/inventory/locations", { cookie: "other=value" }))).status, 401);
 });
 
-test("authorization, Celebix, Host, and forwarded authority headers are rejected", async () => {
+test("authorization, Celebix, and forwarded authority headers are rejected", async () => {
   const handle = handler(repository());
   for (const name of [
-    "authorization", "x-celebix-store", "x-store-id", "host", "forwarded",
+    "authorization", "x-celebix-store", "x-store-id", "forwarded",
     "x-forwarded-host", "x-forwarded-proto", "x-forwarded-uri", "x-forwarded-prefix", "x-forwarded-ssl",
   ]) {
     assert.equal((await handle(request("/api/inventory/locations", { headers: { [name]: name === "authorization" ? "Bearer private" : "private" } }))).status, 400, name);
@@ -314,7 +407,7 @@ test("route adapter preserves unrecognized forwarding headers for core rejection
     headers: { host: "internal:3400", "x-forwarded-uri": "/api/inventory/locations" },
   });
   const prepared = prepareInventoryRouteRequest(transport);
-  assert.equal(prepared.headers.has("host"), false);
+  assert.equal(prepared.headers.get("host"), "internal:3400");
   assert.equal(prepared.headers.get("x-forwarded-uri"), "/api/inventory/locations");
   assert.equal((await handle(prepared)).status, 400);
 
@@ -337,7 +430,7 @@ test("route adapter removes framework and reverse-proxy transport headers before
     },
   }));
 
-  assert.equal(prepared.headers.has("host"), false);
+  assert.equal(prepared.headers.get("host"), "internal:3400");
   assert.equal(prepared.headers.has("x-forwarded-for"), false);
   assert.equal(prepared.headers.has("x-forwarded-host"), false);
   assert.equal(prepared.headers.has("x-forwarded-port"), false);
