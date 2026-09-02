@@ -28,7 +28,8 @@ export function resolveBackfillConfiguration(source=process.env,argv=process.arg
 
 export function buildBackfillPlan(storefronts,admins,policy){
   const adminByHostname=new Map(admins.map((row)=>[row.hostname,row]));
-  return Object.freeze(storefronts.map((storefront)=>{
+  const externalStorefronts=storefronts.filter(({hostname:storefrontHostname})=>!policy.reservedSuffixes.some((suffix)=>storefrontHostname===suffix||storefrontHostname.endsWith(`.${suffix}`)));
+  return Object.freeze(externalStorefronts.map((storefront)=>{
     const expectedAdminHostname=deriveManagedAdminHostname(storefront.hostname,policy),admin=adminByHostname.get(expectedAdminHostname)??null;
     const action=admin===null?"create":admin.storeId!==storefront.storeId?"conflict":admin.sourceStorefrontDomainId===storefront.id&&admin.management==="system"?"replay":admin.sourceStorefrontDomainId===null?"adopt":"conflict";
     return Object.freeze({storeId:storefront.storeId,storefrontDomainId:storefront.id,storefrontHostname:storefront.hostname,expectedAdminHostname,existingAdminDomainId:admin?.id??null,existingAdminVersion:admin?.version??null,providerHostnameId:admin?.providerHostnameId??null,providerStatus:admin===null?null:{hostnameStatus:admin.hostnameStatus,sslStatus:admin.sslStatus,dnsStatus:admin.dnsStatus,originStatus:admin.originStatus},conflict:action==="conflict",action});
