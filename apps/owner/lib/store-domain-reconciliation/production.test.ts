@@ -8,6 +8,7 @@ const CONFIG: StoreDomainWorkerConfig = Object.freeze({
   database: Object.freeze({ url: "postgresql://worker:secret@postgres:5432/celebix_saas_production", name: "celebix_saas_production" }),
   cloudflare: Object.freeze({ zoneId: "zone_123", apiToken: "cloudflare-secret-token", apiBaseUrl: "https://api.cloudflare.com/client/v4", minimumTlsVersion: "1.2", timeoutMs: 5_000 }),
   hostnamePolicy: Object.freeze({ reservedSuffixes: Object.freeze(["celebix.site"]), cnameTarget: "shops.celebix.site" }),
+  adminHostnamePolicy: Object.freeze({ reservedSuffixes: Object.freeze(["celebix.site"]), cnameTarget: "customers.celebix.site" }),
   workerId: "owner.domains.1",
 });
 

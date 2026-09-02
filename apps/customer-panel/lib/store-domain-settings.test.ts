@@ -16,12 +16,17 @@ test("settings domain route is tenant-authorized and uses the live domain client
   assert.match(page, /requireServerPanelAccess/u);
   assert.match(page, /configuration\.manage/u);
   assert.match(component, /storeDomainApi\.list/u);
+  assert.match(component, /adminDomainApi\.list/u);
   assert.match(component, /storeDomainApi\.create/u);
   assert.match(component, /storeDomainApi\.recheck/u);
   assert.match(component, /storeDomainApi\.makePrimary/u);
   assert.match(component, /storeDomainApi\.remove/u);
   assert.match(component, /navigator\.clipboard\.writeText/u);
-  assert.match(component, /PanelTopbarBridge title="Alan Adı"/u);
+  assert.match(component, /PanelTopbarBridge title="Alan Adları"/u);
+  assert.match(component, /Otomatik oluşturuldu/u);
+  assert.match(component, /Teknik kurtarma adresleri/u);
+  assert.doesNotMatch(page, /AdminDomainSettings/u);
+  assert.doesNotMatch(component, /adminDomainApi\.create/u);
   assert.match(css, /@media \(max-width: 720px\)/u);
   assert.doesNotMatch(css, /box-shadow/u);
   assert.match(navigation, /"\/settings\/domains"/u);
