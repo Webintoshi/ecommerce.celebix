@@ -131,12 +131,12 @@ fit blocks preview finalization and every output route.
 Every request resolves session, membership, tenant, plan, and store on the
 server. Browser store IDs and private authority headers are rejected.
 
-| Capability | store_owner | admin | editor | analyst |
-| --- | --- | --- | --- | --- |
-| List and preview | allow | allow | allow | allow |
-| Create print job / PDF / ZPL / browser print | allow | allow | allow through `catalog_admin.manage` | deny |
-| Custom template mutation | allow | allow | allow through `catalog_admin.manage` | deny |
-| Internal barcode creation | allow | allow | allow through `catalog_admin.manage` | deny |
+| Capability                                   | store_owner | admin | editor                               | analyst |
+| -------------------------------------------- | ----------- | ----- | ------------------------------------ | ------- |
+| List and preview                             | allow       | allow | allow                                | allow   |
+| Create print job / PDF / ZPL / browser print | allow       | allow | allow through `catalog_admin.manage` | deny    |
+| Custom template mutation                     | allow       | allow | allow through `catalog_admin.manage` | deny    |
+| Internal barcode creation                    | allow       | allow | allow through `catalog_admin.manage` | deny    |
 
 Mutations require exact same-origin and `Idempotency-Key`. Cross-tenant
 variant, template, or job identifiers return 404; disallowed roles return 403.

@@ -26,6 +26,7 @@
 ### Task 1: Freeze the public contract and barcode/document core
 
 **Files:**
+
 - Create: `packages/saas-contracts/src/barcode-labels/types.ts`
 - Create: `packages/saas-contracts/src/barcode-labels/validation.ts`
 - Create: `packages/saas-contracts/src/barcode-labels/barcode-labels.test.ts`
@@ -39,6 +40,7 @@
 - Modify: `package-lock.json`
 
 **Interfaces:**
+
 - Produces `BarcodeLabelListQuery`, `BarcodeLabelVariantRow`, `BarcodeLabelTemplate`, `BarcodePrintJob`, `BarcodePrintJobItem`, `LabelTemplateConfig`, `LabelDocument`, parsers, and canonical query binding/digest.
 - Produces immutable system templates and `buildLabelDocument(...)`, `validateEan13(...)`, and SVG barcode rendering inputs consumed by every output adapter.
 
@@ -52,6 +54,7 @@
 ### Task 2: Add migration 123 and the store-bound PostgreSQL repository
 
 **Files:**
+
 - Create: `apps/owner/scripts/sql/saas/202609020123_barcode_label_studio.up.sql`
 - Create: `apps/owner/scripts/sql/saas/202609020123_barcode_label_studio.down.sql`
 - Create: `apps/owner/scripts/sql/saas/202609020123_barcode_label_studio_assertions.sql`
@@ -67,6 +70,7 @@
 - Modify: `packages/saas-data/src/index.ts`
 
 **Interfaces:**
+
 - Produces `PostgresBarcodeLabelRepository` with `listVariants`, `listTemplates`, `saveTemplate`, `archiveTemplate`, `createInternalBarcodes`, `listPrintJobs`, `createPrintJob`, and `getPrintJob`.
 - Produces SQL functions with matching finite projections and stable outcome codes.
 
@@ -79,6 +83,7 @@
 ### Task 3: Mount secure Customer Panel runtime, HTTP routes, and client
 
 **Files:**
+
 - Create: `apps/customer-panel/lib/server-barcode-labels/runtime.ts`
 - Create: `apps/customer-panel/lib/server-barcode-labels/default.ts`
 - Create: `apps/customer-panel/lib/server-barcode-labels/runtime.test.ts`
@@ -93,6 +98,7 @@
 - Create/modify: `apps/customer-panel/app/api/catalog/barcode-labels/**/route.ts`
 
 **Interfaces:**
+
 - Produces the exact list, internal barcode, template, print-job, PDF, and ZPL API surface.
 - HTTP handlers accept only fixed paths/methods/query keys, reject private authority, resolve persistent panel session, enforce exact same-origin for mutations, and map stable errors.
 
@@ -106,6 +112,7 @@
 ### Task 4: Add common renderers and independently decode barcodes
 
 **Files:**
+
 - Create: `apps/customer-panel/lib/barcode-labels/svg.ts`
 - Create: `apps/customer-panel/lib/barcode-labels/pdf.server.ts`
 - Create: `apps/customer-panel/lib/barcode-labels/zpl.ts`
@@ -116,6 +123,7 @@
 - Create: `apps/customer-panel/app/products/barcode-labels/print/PrintDocument.tsx`
 
 **Interfaces:**
+
 - Consumes only validated `LabelDocument`.
 - Produces SVG preview fragments, isolated print markup, PDF bytes with real mm pages, and ZPL bytes for 203/300 DPI.
 
@@ -128,6 +136,7 @@
 ### Task 5: Build the three-step Barcode Studio and product entry points
 
 **Files:**
+
 - Replace: `apps/customer-panel/components/catalog-admin/BarcodeLabelConsole.tsx`
 - Replace: `apps/customer-panel/app/products/barcode-labels/page.tsx`
 - Create: `apps/customer-panel/components/barcode-labels/BarcodeStudio.tsx`
@@ -145,6 +154,7 @@
 - Modify: `apps/customer-panel/app/globals.css`
 
 **Interfaces:**
+
 - Consumes the barcode-label API client and system/custom template registry.
 - Produces URL-stable server query state, variant-only cross-page selection, quantity modes, live document preview, safe output actions, template/history controls, and product preselection entry points.
 
@@ -159,11 +169,13 @@
 ### Task 6: PostgreSQL 16 rehearsal and full technical verification
 
 **Files:**
+
 - Create: `tests/saas-phase3/barcode-label-studio/postgres-harness.mjs`
 - Create: `tests/saas-phase3/barcode-label-studio/static-security.test.mjs`
 - Modify: `tests/saas-phase3/run-current-suite.mjs`
 
 **Interfaces:**
+
 - Produces disposable PostgreSQL 16 evidence for migration 123 and runner registration with an exact scenario total/completion line.
 
 - [ ] Write the PostgreSQL harness scenarios before migration implementation is considered complete: migrations through 122, 123 up/assertions, old app + new schema, new app + new schema, code-only rollback, global search beyond row 1600, stable pages/no duplicates, cursor tenant/query binding, role matrix, cross-tenant 404-equivalent outcomes, replay, existing-barcode preservation, internal uniqueness, templates, jobs, and guarded down.
@@ -177,9 +189,11 @@
 ### Task 7: Independent review, PR, merge, and staging-only rollout
 
 **Files:**
+
 - Review all branch changes and generated evidence; do not add unrelated scope.
 
 **Interfaces:**
+
 - Produces a merge commit on `codex/design-tabs-save-fix-live`, exact staging running SHA, browser evidence, and cleaned QA fixtures.
 
 - [ ] Dispatch an independent reviewer to inspect barcode validity, request model, selection/quantity behavior, generic templates, output dimensions/DPI, common document model, tenant/role policy, no fake GTIN, no overwrite, genuine-product immutability, and `apps/admin/**` scope.
