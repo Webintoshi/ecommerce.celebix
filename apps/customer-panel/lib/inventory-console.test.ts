@@ -360,9 +360,15 @@ test("shared form boundary owns empty-store count create start and commit withou
   const created = count({ status: "draft", version: 1, lines: Object.freeze([
     Object.freeze({ id: LINE, variantId: VARIANT, expectedQuantity: 0, countedQuantity: 0 }),
   ]), });
-  const counting = count({ ...created, status: "counting", version: 2 });
-  const committed = count({ ...counting, status: "committed", version: 3 });
+  const counting = count({ ...created, status: "counting", version: 2, lines: Object.freeze([
+    Object.freeze({ id: LINE, variantId: VARIANT, expectedQuantity: 10 }),
+  ]) });
+  const counted = count({ ...counting, version: 3, lines: Object.freeze([
+    Object.freeze({ id: LINE, variantId: VARIANT, expectedQuantity: 10, countedQuantity: 12 }),
+  ]) });
+  const committed = count({ ...counted, status: "committed", version: 4 });
   const savePending = deferred<InventoryMutationResult>();
+  const countSavePending = deferred<InventoryMutationResult>();
   const startPending = deferred<InventoryMutationResult>();
   const commitPending = deferred<InventoryMutationResult>();
   const saves: unknown[] = [], starts: unknown[] = [], commits: unknown[] = [];
@@ -370,10 +376,10 @@ test("shared form boundary owns empty-store count create start and commit withou
   const subject = (module.createInventoryCountConsoleController as Function)({
     canManage: true,
     api: {
-      saveCount(value: unknown, signal: AbortSignal) { saves.push({ value, signal }); return savePending.promise; },
+      saveCount(value: unknown, signal: AbortSignal) { saves.push({ value, signal }); return saves.length === 1 ? savePending.promise : countSavePending.promise; },
       startCount(id: string, version: number, signal: AbortSignal) { starts.push({ id, version, signal }); return startPending.promise; },
       commitCount(id: string, version: number, signal: AbortSignal) { commits.push({ id, version, signal }); return commitPending.promise; },
-      async getCount() { reads += 1; return reads === 1 ? created : reads === 2 ? counting : committed; },
+      async getCount() { reads += 1; return reads === 1 ? created : reads === 2 ? counting : reads === 3 ? counted : committed; },
     },
   });
   let generated = 0;
@@ -404,11 +410,27 @@ test("shared form boundary owns empty-store count create start and commit withou
   assert.deepEqual({ id: (starts[0] as { id: string }).id, version: (starts[0] as { version: number }).version }, { id: COUNT, version: 1 });
   assert.equal(subject.getSnapshot().record, counting);
 
+  let countSaveWork: Promise<void> | undefined;
+  const countSave = submitInventoryOperationForm({
+    mode: "count", record: counting, supplierName: "", locationId: LOCATION, sourceLocationId: "", destinationLocationId: "",
+    lines: [{ lineId: LINE, variantId: VARIANT, quantity: "12", unitCostCents: "0" }],
+  }, { locationIds: new Set([LOCATION]), variantIds: new Set([VARIANT]) }, (value) => {
+    countSaveWork = subject.save(value);
+  });
+  assert.equal(countSave.ok, true);
+  assert.deepEqual((saves[1] as { value: unknown }).value, {
+    countId: COUNT, expectedVersion: 2, locationId: LOCATION,
+    lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 12 }],
+  });
+  countSavePending.resolve(mutation(COUNT, "counting", 3));
+  await countSaveWork;
+  assert.equal(subject.getSnapshot().record, counted);
+
   const firstCommit = subject.commit(), duplicateCommit = subject.commit();
   assert.equal(commits.length, 1);
-  commitPending.resolve(mutation(COUNT, "committed", 3));
+  commitPending.resolve(mutation(COUNT, "committed", 4));
   await Promise.all([firstCommit, duplicateCommit]);
-  assert.deepEqual({ id: (commits[0] as { id: string }).id, version: (commits[0] as { version: number }).version }, { id: COUNT, version: 2 });
+  assert.deepEqual({ id: (commits[0] as { id: string }).id, version: (commits[0] as { version: number }).version }, { id: COUNT, version: 3 });
   assert.equal(subject.getSnapshot().record, committed);
 });
 
@@ -754,6 +776,23 @@ test("analyst detail presentations show records and no mutation controls", async
   assert.match(html, /Kalemler/);
   assert.match(html, /Sürüm 4/);
   assert.doesNotMatch(html, /Sayımı tamamla|Sayımı başlat|İptal et/);
+});
+
+test("count completion stays disabled until every counted quantity is durably saved", async () => {
+  const Presentation = await compilePresentation("components/inventory/InventoryCountConsole.tsx", "InventoryCountPresentation");
+  const missing = count({
+    lines: Object.freeze([Object.freeze({ id: LINE, variantId: VARIANT, expectedQuantity: 10 })]),
+  });
+  const incomplete = renderToStaticMarkup(createElement(Presentation, {
+    state: { phase: "loaded", record: missing, pending: false, locked: false, message: "" },
+    canManage: true, onStart() {}, onCommit() {}, onCancel() {},
+  }));
+  const complete = renderToStaticMarkup(createElement(Presentation, {
+    state: { phase: "loaded", record: count(), pending: false, locked: false, message: "" },
+    canManage: true, onStart() {}, onCommit() {}, onCancel() {},
+  }));
+  assert.match(incomplete, /<button[^>]+disabled=""[^>]*>Sayımı tamamla<\/button>/);
+  assert.match(complete, /<button(?![^>]+disabled="")[^>]*>Sayımı tamamla<\/button>/);
 });
 
 test("location presentation is truthful about default and non-archivable reasons with 48px actions", async () => {

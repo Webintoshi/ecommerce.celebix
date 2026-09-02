@@ -72,6 +72,15 @@ test("draft details mount exact editable forms while terminal records remain rea
   }
 });
 
+test("a counting stock count keeps the counted-quantity form open without inventing zero", async () => {
+  const [countConsole, form] = await Promise.all([
+    source("components/inventory/InventoryCountConsole.tsx"),
+    source("components/inventory/InventoryOperationForm.tsx"),
+  ]);
+  assert.match(countConsole, /item\?\.status === "draft" \|\| item\?\.status === "counting"/);
+  assert.match(form, /String\(line\.countedQuantity \?\? ""\)/);
+});
+
 test("inventory operation form source contains no forbidden authority or external endpoint", async () => {
   const component = await source("components/inventory/InventoryOperationForm.tsx");
   assert.doesNotMatch(component, /localStorage|sessionStorage|document[.]cookie|window[.]location[.]host|x-forwarded|supabase|logto|\/api\/admin|https?:\/\//i);
