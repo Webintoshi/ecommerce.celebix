@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { parseCanonicalAdminHostname } from "@celebix/saas-data";
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 const MAXIMUM_LIFETIME_MS = 5 * 60_000;
 const MAXIMUM_CLOCK_SKEW_MS = 30_000;
@@ -18,11 +18,7 @@ function canonicalOrigin(value: unknown): string {
     url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/" ||
     url.search || url.hash || url.origin !== value
   ) invalid();
-  try { parseCanonicalAdminHostname(url.hostname, "production"); }
-  catch {
-    try { parseCanonicalAdminHostname(url.hostname, "staging"); }
-    catch { return invalid(); }
-  }
+  try { parseExactAdminHttpsOrigin(value); } catch { return invalid(); }
   return value;
 }
 

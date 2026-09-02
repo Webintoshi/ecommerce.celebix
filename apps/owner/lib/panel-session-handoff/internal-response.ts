@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+
 import {
   PANEL_SESSION_COMPLETION_RESPONSE_MAXIMUM_BYTES,
   PANEL_SESSION_COMPLETION_SCHEMA_VERSION,
@@ -116,11 +118,8 @@ function canonicalAdminOrigin(value: unknown): string {
   if (typeof value !== "string" || value.length > 2_048 || value !== value.trim()) invalid();
   let url: URL;
   try { url = new URL(value); } catch { return invalid(); }
-  if (
-    url.protocol !== "https:" || url.username || url.password || url.port ||
-    url.pathname !== "/" || url.search || url.hash || url.origin !== value ||
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(url.hostname)
-  ) invalid();
+  if (url.pathname !== "/" || url.origin !== value) invalid();
+  try { parseExactAdminHttpsOrigin(value); } catch { return invalid(); }
   return value;
 }
 

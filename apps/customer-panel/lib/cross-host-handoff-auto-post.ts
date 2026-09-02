@@ -1,4 +1,4 @@
-import { parseCanonicalAdminHostname } from "@celebix/saas-data";
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
@@ -15,11 +15,7 @@ function canonicalOrigin(value: unknown): string {
     url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/" ||
     url.search || url.hash || url.origin !== value
   ) invalid();
-  try { parseCanonicalAdminHostname(url.hostname, "production"); }
-  catch {
-    try { parseCanonicalAdminHostname(url.hostname, "staging"); }
-    catch { return invalid(); }
-  }
+  try { parseExactAdminHttpsOrigin(value); } catch { return invalid(); }
   return value;
 }
 

@@ -1,4 +1,4 @@
-import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+import { normalizeAdminRequestHostname, parseCanonicalAdminOriginFromPanelOrigin, parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 export type TenantAdminLoginModel = Readonly<{
   kind: "tenant" | "generic";
@@ -24,12 +24,7 @@ const PANEL_ORIGINS = Object.freeze([
 ] as const);
 
 function hostname(value: unknown): string | null {
-  if (
-    typeof value !== "string" || value.length < 3 || value.length > 253 || value !== value.trim() ||
-    value !== value.toLowerCase() || value.includes(":") ||
-    !/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value)
-  ) return null;
-  return value;
+  try { return normalizeAdminRequestHostname(value); } catch { return null; }
 }
 
 function centralLoginHrefForAdminHostname(value: string): string | null {
@@ -68,21 +63,23 @@ export async function resolveTenantAdminLoginModel(options: Readonly<{
     if (typeof panelOrigin !== "string") return genericForHostname(requestedHostname);
     const result = await runtime.adminDomains.resolvePublicBrand({ hostname: requestedHostname, now });
     if (result?.kind !== "resolved" || typeof result.brand?.canonicalAdminOrigin !== "string") return genericForHostname(requestedHostname);
-    let canonicalAdmin: ReturnType<typeof parseCanonicalAdminOriginFromPanelOrigin>;
+    let canonicalAdmin: ReturnType<typeof parseExactAdminHttpsOrigin>;
     try {
-      canonicalAdmin = parseCanonicalAdminOriginFromPanelOrigin(
-        result.brand.canonicalAdminOrigin,
-        panelOrigin,
-      );
+      canonicalAdmin = parseExactAdminHttpsOrigin(result.brand.canonicalAdminOrigin);
     } catch {
       return GENERIC;
     }
-    if (result.brand.storeSlug !== canonicalAdmin.storeSlug) return GENERIC;
+    if (canonicalAdmin.hostname.endsWith(".admin.celebix.site")) {
+      try {
+        const platformAdmin = parseCanonicalAdminOriginFromPanelOrigin(canonicalAdmin.origin, panelOrigin);
+        if (platformAdmin.storeSlug !== result.brand.storeSlug) return GENERIC;
+      } catch { return GENERIC; }
+    }
     const accentColor = result.brand.accentColor ?? "#ff6500";
     if (!/^#[0-9a-fA-F]{6}$/.test(accentColor)) return GENERIC;
     const loginUrl = new URL("/auth/login", panelOrigin);
     if (loginUrl.origin !== panelOrigin || loginUrl.pathname !== "/auth/login") return GENERIC;
-    loginUrl.searchParams.set("destination", canonicalAdmin.hostname);
+    loginUrl.searchParams.set("destination", requestedHostname);
     return Object.freeze({
       kind: "tenant" as const,
       displayName: String(result.brand.displayName),

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+import { parseCanonicalAdminOriginFromPanelOrigin, parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 import { createPanelLogoutStateCodec } from "./panel-logout-state.ts";
 import { serializePersistentPanelSessionDeletionCookie } from "./panel-session-completion/cookie.ts";
@@ -122,14 +122,10 @@ export function createTenantPanelLogoutHandler(dependencies: Dependencies) {
       now = dependencies.now();
       if (!validNow(now)) throw new Error("unavailable");
       const brand = await runtime.adminDomains.resolvePublicBrand({ hostname: authority.hostname, now });
-      const canonical = brand.kind === "resolved"
-        ? parseCanonicalAdminOriginFromPanelOrigin(
-            brand.brand?.canonicalAdminOrigin,
-            runtime.access.panelOrigin,
-          )
-        : null;
-      if (!canonical) throw new Error("unavailable");
-      destinationOrigin = canonical.origin;
+      if (brand.kind !== "resolved") throw new Error("unavailable");
+      const canonical = parseExactAdminHttpsOrigin(brand.brand?.canonicalAdminOrigin);
+      if (!canonical.hostname.startsWith("admin.")) parseCanonicalAdminOriginFromPanelOrigin(canonical.origin, runtime.access.panelOrigin);
+      destinationOrigin = authority.origin;
     } catch { return json("panel_session_retry_required", 503); }
 
     const cookie = readPersistentPanelSessionCookie(request);
@@ -173,12 +169,11 @@ export function createTenantPanelLogoutCallbackHandler(dependencies: Readonly<{
       now = dependencies.now();
       if (!runtime || !authority || !validNow(now) || authority.origin !== runtime.access.panelOrigin || authority.url.pathname !== "/auth/logout/callback" || authority.url.hash || authority.url.searchParams.size !== 1 || authority.url.searchParams.getAll("state").length !== 1) throw new Error("invalid");
       const verified = createPanelLogoutStateCodec(runtime.logout.stateKey).verify({ state: authority.url.searchParams.get("state") ?? "", now });
-      const destination = parseCanonicalAdminOriginFromPanelOrigin(
-        verified.destinationOrigin,
-        runtime.access.panelOrigin,
-      );
+      const destination = parseExactAdminHttpsOrigin(verified.destinationOrigin);
       const brand = await runtime.adminDomains.resolvePublicBrand({ hostname: destination.hostname, now });
-      if (brand.kind !== "resolved" || brand.brand?.canonicalAdminOrigin !== destination.origin) throw new Error("invalid");
+      if (brand.kind !== "resolved") throw new Error("invalid");
+      const canonical = parseExactAdminHttpsOrigin(brand.brand?.canonicalAdminOrigin);
+      if (!canonical.hostname.startsWith("admin.")) parseCanonicalAdminOriginFromPanelOrigin(canonical.origin, runtime.access.panelOrigin);
       return new Response(null, { status: 303, headers: {
         location: `${destination.origin}/login`,
         ...deletionHeader(),

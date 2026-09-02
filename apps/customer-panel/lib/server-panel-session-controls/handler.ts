@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+import { parseCanonicalAdminOriginFromPanelOrigin, parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 import { createCrossHostHandoffAutoPostResponse } from "../cross-host-handoff-auto-post.ts";
 import type { ServerAdminHostAuthRuntime } from "../server-admin-host-auth/runtime.ts";
@@ -194,16 +194,16 @@ export function createPanelStoreSwitchHandoffHandler(dependencies: StoreSwitchDe
       if (options.kind !== "resolved") return switchFailure(options.kind);
       const selected = options.stores.find((store) => store.storeId === destinationStoreId);
       if (!selected) return json("membership_denied", 403);
-      let destination: ReturnType<typeof parseCanonicalAdminOriginFromPanelOrigin>;
+      let destination: ReturnType<typeof parseExactAdminHttpsOrigin>;
       try {
-        destination = parseCanonicalAdminOriginFromPanelOrigin(
-          selected.canonicalAdminOrigin,
-          runtime.access.panelOrigin,
-        );
+        destination = parseExactAdminHttpsOrigin(selected.canonicalAdminOrigin);
+        if (!destination.hostname.startsWith("admin.")) {
+          const platform = parseCanonicalAdminOriginFromPanelOrigin(destination.origin, runtime.access.panelOrigin);
+          if (platform.storeSlug !== selected.storeSlug) throw new Error("invalid");
+        }
       } catch {
         return json("durable_authority_invalid", 409);
       }
-      if (destination.storeSlug !== selected.storeSlug) return json("durable_authority_invalid", 409);
       destinationHostname = destination.hostname;
     } catch { return unavailable(); }
     let operationId: string;

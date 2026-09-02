@@ -1,4 +1,13 @@
-import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+import { normalizeAdminRequestHostname, parseCanonicalAdminOriginFromPanelOrigin, parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+
+function exactDirectCustomAdminOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host");
+  if (origin === null || host === null) return false;
+  try {
+    return parseExactAdminHttpsOrigin(origin).hostname === normalizeAdminRequestHostname(host);
+  } catch { return false; }
+}
 
 export function hasApprovedPanelMutationOriginShape(request: Request, panelOrigin: string): boolean {
   const requestOrigin = request.headers.get("origin");
@@ -7,9 +16,7 @@ export function hasApprovedPanelMutationOriginShape(request: Request, panelOrigi
   try {
     parseCanonicalAdminOriginFromPanelOrigin(requestOrigin, panelOrigin);
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return exactDirectCustomAdminOrigin(request); }
 }
 
 export function approvedPanelMutationOriginForStore(
@@ -22,9 +29,7 @@ export function approvedPanelMutationOriginForStore(
   if (requestOrigin === null) return false;
   try {
     return parseCanonicalAdminOriginFromPanelOrigin(requestOrigin, panelOrigin).storeSlug === storeSlug;
-  } catch {
-    return false;
-  }
+  } catch { return exactDirectCustomAdminOrigin(request); }
 }
 
 export function approvedPanelMutationOrigin(request: Request, panelOrigin: string): boolean {
@@ -34,7 +39,5 @@ export function approvedPanelMutationOrigin(request: Request, panelOrigin: strin
   if (requestOrigin === null || requestHostname === null) return false;
   try {
     return parseCanonicalAdminOriginFromPanelOrigin(requestOrigin, panelOrigin).hostname === requestHostname;
-  } catch {
-    return false;
-  }
+  } catch { return exactDirectCustomAdminOrigin(request); }
 }
