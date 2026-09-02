@@ -2,7 +2,7 @@ import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.t
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const PRIVATE_EXACT = new Set([
-  "authorization", "host", "forwarded", "x-forwarded-host", "x-forwarded-proto",
+  "authorization", "forwarded", "x-forwarded-host", "x-forwarded-proto",
   "x-forwarded-port", "x-forwarded-for", "x-store-id", "x-tenant-id", "x-principal-id",
   "x-membership-id", "x-plan-id", "x-database-role", "x-database-url",
 ]);
@@ -42,7 +42,6 @@ function privateAuthority(request: Request): boolean {
 
 export function prepareInventoryRouteRequest(request: Request): Request {
   const headers = new Headers(request.headers);
-  headers.delete("host");
   headers.delete("x-forwarded-for");
   headers.delete("x-forwarded-host");
   headers.delete("x-forwarded-port");

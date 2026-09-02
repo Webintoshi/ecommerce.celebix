@@ -1,4 +1,5 @@
 import {
+  isMerchantActionAllowed,
   parseInventoryBalance,
   parseInventoryCount,
   parseInventoryLocation,
@@ -6,6 +7,7 @@ import {
   parseInventoryMutationResult,
   parseInventoryTransfer,
   parsePurchaseOrder,
+  type MerchantAction,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import { inventoryRepositoryErrorCode } from "@celebix/saas-data";
@@ -21,6 +23,36 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerInventoryRuntime | null>; now(): Date; requestId(): string }>;
 type Authorized = Readonly<{ runtime: ServerInventoryRuntime; tenantContext: TenantContext; now: Date }>;
 type OperationValue = Readonly<{ operationId: string; expectedVersion: number }>;
+
+function requiredAction(route: InventoryRoute): MerchantAction {
+  switch (route.kind) {
+    case "purchase_list":
+    case "purchase_get":
+      return "purchasing.read";
+    case "purchase_save":
+    case "purchase_transition":
+    case "purchase_receive":
+      return "purchasing.manage";
+    case "locations":
+    case "balances":
+    case "count_list":
+    case "count_get":
+    case "transfer_list":
+    case "transfer_get":
+      return "inventory.read";
+    case "location_save":
+    case "location_archive":
+    case "count_save":
+    case "count_start":
+    case "count_commit":
+    case "count_cancel":
+    case "transfer_save":
+    case "transfer_dispatch":
+    case "transfer_receive":
+    case "transfer_cancel":
+      return "inventory.manage";
+  }
+}
 
 function response(value: unknown, status = 200, extra?: HeadersInit): Response {
   const headers = new Headers(extra);
@@ -85,6 +117,7 @@ async function authorize(dependencies: Dependencies, request: Request, route: In
   if (access.kind === "unauthorized") return error("forbidden", 403);
   if (access.kind !== "authenticated") return error("unavailable", 503);
   if (route.method === "POST" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)) return error("forbidden", 403);
+  if (!isMerchantActionAllowed(access.tenantContext.membership.role, requiredAction(route))) return error("forbidden", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 
