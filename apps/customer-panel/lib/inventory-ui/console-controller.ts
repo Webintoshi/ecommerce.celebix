@@ -375,7 +375,7 @@ export function createInventoryCountConsoleController(options: Readonly<{
     save(value: SaveInventoryCountIntent) {
       const record = controller.getSnapshot().record;
       if (
-        (record && (record.status !== "draft" || value.countId !== record.id || value.expectedVersion !== record.version)) ||
+        (record && (!["draft", "counting"].includes(record.status) || value.countId !== record.id || value.expectedVersion !== record.version)) ||
         (!record && (value.countId !== undefined || value.expectedVersion !== undefined))
       ) return Promise.resolve();
       return controller.mutate((_record, signal) => options.api.saveCount(value, signal));

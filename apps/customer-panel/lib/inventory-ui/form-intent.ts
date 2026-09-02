@@ -83,7 +83,9 @@ export function buildInventoryOperationIntent(
       }));
     }
     if (draft.mode === "count") {
-      if (draft.record && (!count(draft.record) || draft.record.status !== "draft")) return fail("Yalnız taslak stok sayımı düzenlenebilir.");
+      if (draft.record && (!count(draft.record) || !["draft", "counting"].includes(draft.record.status))) {
+        return fail("Yalnız taslak veya devam eden stok sayımı düzenlenebilir.");
+      }
       if (!choices.locationIds.has(draft.locationId) || draft.lines.some((line) => !integer(line.quantity, 0))) {
         return fail("Etkin konum ve sıfır veya daha büyük sayım miktarı girin.");
       }
