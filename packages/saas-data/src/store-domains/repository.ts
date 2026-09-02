@@ -12,6 +12,7 @@ import type {
 } from "./types.ts";
 import {
   authorityValues,
+  adminDomainView,
   date,
   domainView,
   exact,
@@ -150,6 +151,23 @@ export class PostgresStoreDomainRepository extends PostgresStoreDomainBase imple
     });
   }
 
+  async prepareBundle(input: Parameters<StoreDomainRepository["prepareBundle"]>[0]) {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "fingerprint", "domainId", "hostname", "provider", "cnameTarget", "adminDomainId", "adminHostname", "adminCnameTarget"]);
+    if (parsed.provider !== "cloudflare_for_saas") throw failure("invalid_input");
+    const result = await this.execute(
+      "SELECT outcome,result_payload FROM saas.merchant_store_domain_bundle_prepare_create($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::text,$12::text,$13::text,$14::uuid,$15::text,$16::text)",
+      [...this.authority(parsed as never), uuid(parsed.operationId), fingerprint(parsed.fingerprint), uuid(parsed.domainId), hostname(parsed.hostname), parsed.provider, hostname(parsed.cnameTarget), uuid(parsed.adminDomainId), hostname(parsed.adminHostname), hostname(parsed.adminCnameTarget)],
+      false,
+    );
+    if (result.outcome !== "prepared" && result.outcome !== "operation_replayed") throw failure(mappedOutcome(result.outcome));
+    const payload = exact(result.payload, ["storefront", "admin"], "unavailable");
+    return Object.freeze({
+      storefront: domainView(payload.storefront),
+      admin: adminDomainView(payload.admin),
+      replayed: result.outcome === "operation_replayed",
+    });
+  }
+
   async bindProvider(input: Parameters<StoreDomainRepository["bindProvider"]>[0]) {
     const parsed = exact(input, ["tenantContext", "now", "domainId", "expectedVersion", "providerHostnameId", "ownershipValidation", "certificateValidation"]);
     if (!Array.isArray(parsed.ownershipValidation) || !Array.isArray(parsed.certificateValidation)) throw failure("invalid_input");
@@ -164,7 +182,7 @@ export class PostgresStoreDomainRepository extends PostgresStoreDomainBase imple
   private async versioned(name: "request_recheck" | "make_primary" | "disable", input: Parameters<StoreDomainRepository["requestRecheck"]>[0]) {
     const parsed = exact(input, ["tenantContext", "now", "domainId", "expectedVersion"]);
     const result = await this.execute(
-      `SELECT outcome,result_payload FROM saas.merchant_store_domain_${name}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::bigint)`,
+      `SELECT outcome,result_payload FROM saas.merchant_store_domain_${name === "request_recheck" ? name : `bundle_${name}`}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::bigint)`,
       [...this.authority(parsed as never), uuid(parsed.domainId), version(parsed.expectedVersion)],
       false,
     );
