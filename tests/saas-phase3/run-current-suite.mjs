@@ -10,6 +10,12 @@ const matrix = JSON.parse(readFileSync(path.join(PHASE3, "current-test-matrix.js
 const historical = new Set(matrix.historicalSnapshots.map(({ file }) => file));
 const requiredHarnesses = Object.freeze([
   Object.freeze({
+    file: "tests/saas-phase3/barcode-label-studio/postgres-harness.mjs",
+    total: 21,
+    line: /^PASS \d+\/21 (?!barcode label studio PostgreSQL 16 rehearsal complete$).+$/gm,
+    completion: /^PASS 21\/21 barcode label studio PostgreSQL 16 rehearsal complete$/m,
+  }),
+  Object.freeze({
     file: "tests/saas-phase3/catalog-products-complete/postgres-harness.mjs",
     total: 14,
     line: /^PASS \d+ .+$/gm,

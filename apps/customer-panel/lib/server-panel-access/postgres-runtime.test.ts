@@ -62,6 +62,19 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
           assert.match(sql, /to_regprocedure\('saas[.]catalog_list_products_v3\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid\)'\) IS NOT NULL/);
           assertAppRoleFunctionPrivilege(sql, productListV3);
           for (const signature of [
+            "saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)",
+            "saas.barcode_label_template_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+            "saas.barcode_label_template_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,jsonb,boolean)",
+            "saas.barcode_label_template_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint)",
+            "saas.barcode_label_generate_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb)",
+            "saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+            "saas.barcode_print_job_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)",
+            "saas.barcode_print_job_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+          ]) {
+            assert.match(sql, new RegExp(`to_regprocedure\\('${signature.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\'\\) IS NOT NULL`));
+            assertAppRoleFunctionPrivilege(sql, signature);
+          }
+          for (const signature of [
             "saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)",
             "saas.catalog_update_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,text,text,text)",
             "saas.catalog_archive_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
