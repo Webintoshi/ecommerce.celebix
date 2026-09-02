@@ -42,9 +42,11 @@ async function preflight(pool: PostgresPoolLike, databaseName: string): Promise<
       pg_has_role(session_user, 'celebix_saas_workflow', 'MEMBER') AS workflow_member,
       to_regprocedure('saas.store_domain_work_claim(text,timestamp with time zone,timestamp with time zone,integer,uuid)') IS NOT NULL
         AND to_regprocedure('saas.store_domain_work_complete(uuid,uuid,text,timestamp with time zone,text,text,text,text,text,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.store_domain_work_defer(uuid,uuid,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.store_domain_work_fail(uuid,uuid,text,timestamp with time zone,text,timestamp with time zone,boolean)') IS NOT NULL AS domain_lifecycle
       ,to_regprocedure('saas.admin_domain_work_claim(text,timestamp with time zone,timestamp with time zone,integer,uuid)') IS NOT NULL
         AND to_regprocedure('saas.admin_domain_work_complete(uuid,uuid,text,timestamp with time zone,text,text,text,text,text,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.admin_domain_work_defer(uuid,uuid,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.admin_domain_work_fail(uuid,uuid,text,timestamp with time zone,text,timestamp with time zone,boolean)') IS NOT NULL AS admin_domain_lifecycle
     FROM pg_catalog.pg_roles AS role WHERE role.rolname=session_user`);
     const row = result.rows[0] as Record<string, unknown> | undefined;

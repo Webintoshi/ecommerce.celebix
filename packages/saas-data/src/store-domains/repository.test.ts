@@ -199,6 +199,15 @@ test("claims bounded reconciliation work with the workflow role", async () => {
   assert.deepEqual(call(client, "store_domain_work_claim").values.slice(0, 4), ["domain-worker-1", NOW, new Date(NOW.getTime() + 30_000), 5]);
 });
 
+test("defers transient reconciliation without sending readiness fields", async () => {
+  const retryAt = new Date(NOW.getTime() + 30_000);
+  const client = new Client((text) => text.includes("store_domain_work_defer")
+    ? [{ outcome: "retry_scheduled", result_payload: domain }]
+    : []);
+  await workflow(new Pool([client])).defer({ domainId: DOMAIN, leaseId: LEASE, workerId: "domain-worker-1", now: NOW, retryAt });
+  assert.deepEqual(call(client, "store_domain_work_defer").values, [DOMAIN, LEASE, "domain-worker-1", NOW, retryAt]);
+});
+
 test("rejects malformed durable projections and database unavailability", async () => {
   const malformed = new Client((text) => text.includes("merchant_store_domain_list")
     ? [{ outcome: "listed", result_payload: { items: [{ ...domain, providerHostnameId: "private" }] } }]

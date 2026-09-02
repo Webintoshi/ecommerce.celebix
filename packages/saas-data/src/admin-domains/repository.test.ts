@@ -33,6 +33,25 @@ test("claims leased admin-domain reconciliation through workflow-only authority"
   assert.deepEqual(selected?.values.slice(0, 4), ["admin-worker-1", NOW, new Date(NOW.getTime() + 30_000), 1]);
 });
 
+test("defers transient admin-domain reconciliation through the state-preserving RPC", async () => {
+  const calls: Array<Readonly<{ text: string; values: readonly unknown[] }>> = [];
+  const retryAt = new Date(NOW.getTime() + 30_000);
+  const repository = new PostgresAdminDomainWorkflowRepository({
+    role: "celebix_saas_workflow", timeouts: TIMEOUTS,
+    pool: { async connect() { return {
+      async query(text: string, values: readonly unknown[] = []) {
+        calls.push({ text, values });
+        return text.includes("admin_domain_work_defer")
+          ? { rows: [{ outcome: "retry_scheduled", result_payload: {} }], rowCount: 1, command: "SELECT", oid: 0, fields: [] }
+          : { rows: [], rowCount: 0, command: text.split(" ", 1)[0] ?? "", oid: 0, fields: [] };
+      },
+      release() {},
+    }; } },
+  });
+  await repository.defer({ domainId: DOMAIN, leaseId: LEASE, workerId: "admin-worker-1", now: NOW, retryAt });
+  assert.deepEqual(calls.find(({ text }) => text.includes("admin_domain_work_defer"))?.values, [DOMAIN, LEASE, "admin-worker-1", NOW, retryAt]);
+});
+
 test("resolves exact custom admin origin health through host-resolver authority", async () => {
   const calls: Array<Readonly<{ text: string; values: readonly unknown[] }>> = [];
   const repository = new PostgresAdminDomainOriginHealthRepository({

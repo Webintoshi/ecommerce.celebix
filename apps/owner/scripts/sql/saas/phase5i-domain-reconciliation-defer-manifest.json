@@ -1,0 +1,11 @@
+{
+  "phase": "phase5i-domain-reconciliation-defer",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    { "file": "202609020122_domain_reconciliation_defer.up.sql", "direction": "up", "sha256": "624b8cd2b19c62a0d41f008d93a5d10129b2583a2f72039b40d6ba7671a4b1df" },
+    { "file": "202609020122_domain_reconciliation_defer.down.sql", "direction": "down", "sha256": "9cc175174ec48b0849b9675b31f377cc5145e49123ed5af4ab1881c6ab3af953" },
+    { "file": "202609020122_domain_reconciliation_defer_assertions.sql", "direction": "verify", "sha256": "88e2783b056c521f440eb3f3f8dec1ff55ec44ce5ca254a1f4d02de89c68ff09" }
+  ]
+}

@@ -71,6 +71,13 @@ export interface StoreDomainWorkflowRepository {
     safeProviderErrorCode: string | null;
     nextCheckAt: Date;
   }>): Promise<void>;
+  defer(input: Readonly<{
+    domainId: string;
+    leaseId: string;
+    workerId: string;
+    now: Date;
+    retryAt: Date;
+  }>): Promise<void>;
   fail(input: Readonly<{
     domainId: string;
     leaseId: string;

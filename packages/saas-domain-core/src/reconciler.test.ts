@@ -16,7 +16,7 @@ const CLAIM = Object.freeze({
 });
 
 function workflow(overrides: Partial<StoreDomainWorkflowPersistence> = {}): StoreDomainWorkflowPersistence {
-  return { async claim() { return [CLAIM]; }, async complete() {}, async fail() {}, ...overrides };
+  return { async claim() { return [CLAIM]; }, async complete() {}, async defer() {}, async fail() {}, ...overrides };
 }
 
 function activeProvider(hostname: string = CLAIM.hostname) {
@@ -123,18 +123,23 @@ test("maps terminal hostname and SSL provider snapshots to action-required persi
   }
 });
 
-test("preserves verified readiness and lets the existing lease expire after a transient DNS lookup failure", async () => {
+test("preserves verified readiness and defers with bounded backoff after a transient DNS lookup failure", async () => {
   let completed = 0;
   let failed = 0;
+  let deferred: Parameters<StoreDomainWorkflowPersistence["defer"]>[0] | undefined;
   const unavailable = Object.assign(new Error("queryCname EAI_AGAIN www.example.com"), { code: "EAI_AGAIN" });
   const reconciler = createStoreDomainReconciler({
-    workflow: workflow({ async complete() { completed += 1; }, async fail() { failed += 1; } }),
+    workflow: workflow({ async complete() { completed += 1; }, async defer(input) { deferred = input; }, async fail() { failed += 1; } }),
     provider: activeProvider(), resolveCname: async () => { throw unavailable; }, fetch: async () => health(CLAIM),
     workerId: "domain-worker-1", cnameTarget: "shops.celebix.site", now: () => NOW,
   });
   assert.equal(await reconciler.runOnce(), "retry_scheduled");
   assert.equal(completed, 0);
   assert.equal(failed, 0);
+  assert.deepEqual(deferred, {
+    domainId: CLAIM.domainId, leaseId: CLAIM.leaseId, workerId: "domain-worker-1", now: NOW,
+    retryAt: new Date("2026-08-05T12:00:30.000Z"),
+  });
 });
 
 test("schedules the fixed bounded retry for transient provider failure", async () => {
