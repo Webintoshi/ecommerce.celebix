@@ -5,6 +5,7 @@ import process from "node:process";
 
 import {
   PostgresAbandonedCartRepository,
+  PostgresBarcodeLabelRepository,
   PostgresAdminDomainRepository,
   PostgresCatalogRepository,
   PostgresCatalogOnboardingRepository,
@@ -44,6 +45,7 @@ import { createPostgresCrossHostSessionHandoffRepository } from "../cross-host-s
 import { createPostgresPanelStoreOptionRepository } from "../panel-store-options/postgres-repository.ts";
 import { registerServerAdminHostAuthRuntime } from "../server-admin-host-auth/runtime.ts";
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
+import { registerServerBarcodeLabelRepository } from "../server-barcode-labels/runtime.ts";
 import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
@@ -406,6 +408,27 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.pricing_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])') IS NOT NULL AS pricing_repository
        ,to_regprocedure('saas.resolve_effective_variant_price(uuid,uuid,text,timestamp with time zone,text)') IS NOT NULL AS pricing_resolver
+      ,to_regclass('saas.barcode_label_templates') IS NOT NULL
+        AND to_regclass('saas.barcode_print_jobs') IS NOT NULL
+        AND to_regclass('saas.barcode_print_job_items') IS NOT NULL
+        AND to_regclass('saas.barcode_label_operations') IS NOT NULL
+        AND to_regclass('saas.barcode_label_sequences') IS NOT NULL
+        AND to_regprocedure('saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_label_template_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_label_template_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,jsonb,boolean)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_label_template_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_label_generate_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_print_job_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_print_job_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_label_template_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_label_template_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,jsonb,boolean)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_label_template_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_label_generate_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','EXECUTE') AS barcode_label_repository
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -442,7 +465,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.analytics_repository !== true ||
       row.inventory_relations !== true || row.inventory_default_location_lifecycle !== true ||
       row.inventory_repository !== true ||
-      row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true
+      row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true ||
+      row.barcode_label_repository !== true
     ) {
       const failedContracts = Object.entries(row)
         .filter(([field, value]) => !["version_num", "database_name", "is_superuser"].includes(field) && value !== true)
@@ -560,6 +584,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       role: "celebix_saas_app",
       timeouts: TIMEOUTS,
       generateId: () => randomUUID(),
+      audit: () => undefined,
+    });
+    const barcodeLabelRepository = new PostgresBarcodeLabelRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
       audit: () => undefined,
     });
     const catalogOnboardingRepository = new PostgresCatalogOnboardingRepository({
@@ -712,6 +743,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       },
     });
     registerServerCatalogRepository(access, catalogRepository);
+    registerServerBarcodeLabelRepository(access, barcodeLabelRepository);
     registerServerCatalogOnboardingRepository(access, catalogOnboardingRepository);
     registerServerOrderRepository(access, orderRepository);
     registerServerAbandonedCartRepository(access, abandonedCartRepository);

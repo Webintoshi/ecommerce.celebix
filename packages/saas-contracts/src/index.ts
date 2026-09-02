@@ -63,6 +63,7 @@ export type {
 
 export * from "./storefront-assets/index.ts";
 export * from "./shipping/index.ts";
+export * from "./barcode-labels/index.ts";
 
 export { SAAS_ERROR_CODES } from "./errors.ts";
 export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";
@@ -144,7 +145,10 @@ export {
   isCatalogProductOperationAllowed,
   isMerchantActionAllowed,
 } from "./authorization/actions.ts";
-export type { CatalogProductOperation, MerchantAction } from "./authorization/actions.ts";
+export type {
+  CatalogProductOperation,
+  MerchantAction,
+} from "./authorization/actions.ts";
 export {
   INVENTORY_COUNT_STATUSES,
   INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS,

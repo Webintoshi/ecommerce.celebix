@@ -1,0 +1,23 @@
+{
+  "phase": "phase5j-barcode-label-studio",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202609020123_barcode_label_studio.up.sql",
+      "direction": "up",
+      "sha256": "7555abb917dc900de86eb84593dfefc2e6e1b36ec6cfd3f264b230be73970913"
+    },
+    {
+      "file": "202609020123_barcode_label_studio.down.sql",
+      "direction": "down",
+      "sha256": "873e747eeb6952d8f0f10c49b5b7ff6b3f8b6af89650e87036c30d947d45ded4"
+    },
+    {
+      "file": "202609020123_barcode_label_studio_assertions.sql",
+      "direction": "verify",
+      "sha256": "9e2f9a390620c4decc077a412ab3fffd76440c1b2c3de15c2c0012c266ad895f"
+    }
+  ]
+}
