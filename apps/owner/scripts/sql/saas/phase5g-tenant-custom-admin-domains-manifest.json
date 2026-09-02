@@ -1,0 +1,23 @@
+{
+  "phase": "phase5g-tenant-custom-admin-domains",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    {
+      "file": "202609020120_tenant_custom_admin_domains.up.sql",
+      "direction": "up",
+      "sha256": "01ce4f440a9b4cb1e5817db69d0d77e1bd1e24920cd42ed3d6362f51850a1942"
+    },
+    {
+      "file": "202609020120_tenant_custom_admin_domains.down.sql",
+      "direction": "down",
+      "sha256": "92009d698cc1aa67d2b68e698ccccaf9dd5f890b7ebe36813efd9a51502e9ee8"
+    },
+    {
+      "file": "202609020120_tenant_custom_admin_domains_assertions.sql",
+      "direction": "verify",
+      "sha256": "088205e86dc3d17312ad52c85eda40eea11594d7c8bff7437d929129b7137a0d"
+    }
+  ]
+}

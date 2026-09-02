@@ -117,6 +117,27 @@ export type AdminDomainKind = (typeof ADMIN_DOMAIN_KINDS)[number];
 export const ADMIN_DOMAIN_STATUSES = ["pending_verification", "active", "disabled"] as const;
 export type AdminDomainStatus = (typeof ADMIN_DOMAIN_STATUSES)[number];
 
+export type AdminDomainView = Readonly<{
+  schemaVersion: 1;
+  id: DomainId;
+  hostname: string;
+  kind: AdminDomainKind;
+  status: AdminDomainStatus;
+  primary: boolean;
+  fallback: boolean;
+  hostnameStatus: "pending" | "active" | "failed" | "deleted";
+  sslStatus: "pending" | "active" | "failed" | "deleted";
+  dnsStatus: "pending" | "ready" | "mismatch";
+  originStatus: "pending" | "ready" | "failed";
+  uiStatus: StoreDomainUiStatus;
+  dnsInstructions: readonly StoreDomainDnsInstruction[];
+  verifiedAt: string | null;
+  lastCheckedAt: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
 /** Public, non-authorizing presentation resolved from an exact active admin hostname. */
 export type PublicAdminBrand = Readonly<{
   storeSlug: string;

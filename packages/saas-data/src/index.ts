@@ -11,6 +11,8 @@ export {
   createCanonicalAdminOriginFromPanelOrigin,
   createPanelStoreUrl,
   normalizeExactHttpsOrigin,
+  normalizeAdminRequestHostname,
+  parseExactAdminHttpsOrigin,
   parseCanonicalAdminOriginFromPanelOrigin,
   parseCanonicalAdminHostname,
 } from "./panel-origin.ts";
@@ -54,6 +56,7 @@ export * from "./storefront-hosted-checkout/index.ts";
 export * from "./storefront-identity/index.ts";
 export * from "./storefront-assets/index.ts";
 export * from "./store-domains/index.ts";
+export * from "./admin-domains/index.ts";
 export * from "./media/index.ts";
 export * from "./orders/index.ts";
 export * from "./order-emails/index.ts";

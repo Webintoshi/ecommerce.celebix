@@ -133,3 +133,28 @@ export function parseCanonicalAdminHostname(
   if (`${slug}${suffix}` !== hostname) invalidOrigin();
   return slug;
 }
+
+export function normalizeAdminRequestHostname(value: unknown): string {
+  if (typeof value !== "string" || value.length < 3 || value.length > 259 || value !== value.trim() || value !== value.toLowerCase()) invalidOrigin();
+  const match = /^(?<hostname>(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?::(?<port>[0-9]{1,5}))?$/u.exec(value);
+  if (!match?.groups?.hostname || match.groups.hostname.length > 253) invalidOrigin();
+  if (match.groups.port !== undefined) {
+    const port = Number(match.groups.port);
+    if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) invalidOrigin();
+  }
+  return match.groups.hostname;
+}
+
+export function parseExactAdminHttpsOrigin(value: unknown): Readonly<{ origin: string; hostname: string }> {
+  const origin = normalizeExactHttpsOrigin(value);
+  const parsed = new URL(origin);
+  if (parsed.port !== "" || normalizeAdminRequestHostname(parsed.hostname) !== parsed.hostname) invalidOrigin();
+  if (!parsed.hostname.startsWith("admin.")) {
+    try { parseCanonicalAdminHostname(parsed.hostname, "production"); }
+    catch {
+      try { parseCanonicalAdminHostname(parsed.hostname, "staging"); }
+      catch { invalidOrigin(); }
+    }
+  }
+  return Object.freeze({ origin, hostname: parsed.hostname });
+}
