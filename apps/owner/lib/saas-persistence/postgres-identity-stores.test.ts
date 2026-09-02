@@ -391,7 +391,7 @@ test("persisted returning-login transaction keeps the binding encrypted and supp
     state: `plogin_${Buffer.alloc(32, 9).toString("base64url")}`,
     returnTo: "/login",
     panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) },
-    panelLoginDestinationHostname: "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+    panelLoginDestinationHostname: "admin.guzidekuyumcu.com.tr",
   } satisfies OidcAuthorizationTransaction;
   await new PostgresOidcTransactionStore(options).save(transaction);
   const inserted = writer.calls.find((call) => call.text.startsWith("INSERT INTO saas.oidc_transactions"));

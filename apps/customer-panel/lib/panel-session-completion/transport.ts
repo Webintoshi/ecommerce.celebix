@@ -1,5 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+
 import {
   PANEL_OIDC_CALLBACK_URL,
   PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION,
@@ -118,15 +120,8 @@ function canonicalUuid(value: unknown): string {
 }
 
 function canonicalAdminOrigin(value: unknown): string {
-  if (typeof value !== "string" || value.length > 2_048 || value !== value.trim()) invalid();
-  let url: URL;
-  try { url = new URL(value); } catch { return invalid(); }
-  if (
-    url.protocol !== "https:" || url.username || url.password || url.port ||
-    url.pathname !== "/" || url.search || url.hash || url.origin !== value ||
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(url.hostname)
-  ) invalid();
-  return value;
+  try { return parseExactAdminHttpsOrigin(value).origin; }
+  catch { return invalid(); }
 }
 
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): void {

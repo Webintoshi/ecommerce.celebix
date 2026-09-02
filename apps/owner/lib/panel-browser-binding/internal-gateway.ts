@@ -1,5 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+
 import {
   PANEL_BROWSER_BINDING_INTERNAL_PATH,
   PANEL_BROWSER_BOOTSTRAP_REQUEST_SIGNATURE_DOMAIN,
@@ -168,11 +170,14 @@ function parseEnvelope(bytes: Uint8Array, callbackAuthority: string): {
   const body = parsed as Record<string, unknown>;
   const keys = Object.keys(body);
   if (keys.join(",") === "schemaVersion,browserBindingCredential,destinationHostname" && body.schemaVersion === 3) {
-    if (typeof body.destinationHostname !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(body.destinationHostname)) invalid();
+    if (typeof body.destinationHostname !== "string") invalid();
+    let destinationHostname: string;
+    try { destinationHostname = parseExactAdminHttpsOrigin(`https://${body.destinationHostname}`).hostname; } catch { return invalid(); }
+    if (destinationHostname !== body.destinationHostname) invalid();
     const envelope = {
       schemaVersion: 3 as const,
       browserBindingCredential: canonicalBindingCredential(body.browserBindingCredential),
-      destinationHostname: body.destinationHostname,
+      destinationHostname,
     };
     if (JSON.stringify(envelope) !== raw) invalid();
     return Object.freeze(envelope);

@@ -1,5 +1,7 @@
 import { createHmac } from "node:crypto";
 
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
@@ -167,8 +169,8 @@ export function createPostgresReturningPanelSessionIssuer(options: {
       let destinationHostname: string;
       try {
         identity = exactIdentity(identityInput);
-        destinationHostname = destinationHostnameInput;
-        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(destinationHostname)) invalid();
+        destinationHostname = parseExactAdminHttpsOrigin(`https://${destinationHostnameInput}`).hostname;
+        if (destinationHostname !== destinationHostnameInput) invalid();
         ({ credential, digest } = candidate());
         ids = [uuid(options.randomUuid()), uuid(options.randomUuid()), uuid(options.randomUuid())];
         now = options.clock();
