@@ -1,4 +1,5 @@
 import { PANEL_OIDC_CALLBACK_URL } from "../../../packages/platform-config/src/saas.ts";
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 const OIDC_TRANSACTION_LIFETIME_MS = 10 * 60_000;
 const APPROVED_RETURN_PATHS = new Set(["/kayit", "/login"]);
@@ -139,10 +140,14 @@ function exactPanelLoginBinding(value: unknown): Readonly<{ keyId: string; diges
 }
 
 function exactPanelLoginDestinationHostname(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(value)) {
+  try {
+    if (typeof value !== "string") throw new Error("invalid");
+    const hostname = parseExactAdminHttpsOrigin(`https://${value}`).hostname;
+    if (hostname !== value) throw new Error("invalid");
+    return hostname;
+  } catch {
     throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login destination is invalid.");
   }
-  return value;
 }
 
 async function createS256Challenge(verifier: string) {

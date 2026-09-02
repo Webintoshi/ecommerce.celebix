@@ -19,7 +19,7 @@ const UUIDS = {
   principalId: "10000000-0000-4000-8000-000000000003",
   activeStoreId: "10000000-0000-4000-8000-000000000004",
 };
-const DESTINATION_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const DESTINATION_ORIGIN = "https://admin.guzidekuyumcu.com.tr";
 const TRANSFER_OPERATION_ID = "20000000-0000-4000-8000-000000000001";
 
 function session(overrides: Record<string, unknown> = {}) {

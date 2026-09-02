@@ -12,7 +12,7 @@ import { createPanelReturningLoginService } from "./service.ts";
 const NOW = new Date("2026-07-30T12:00:00.000Z");
 const PB = `pb1.${Buffer.alloc(32, 4).toString("base64url")}`;
 const PROOF = Object.freeze({ keyId: "browser-active", digest: "a".repeat(64) });
-const HOSTNAME = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const HOSTNAME = "admin.guzidekuyumcu.com.tr";
 const STORE_ID = "30000000-0000-4000-8000-000000000001";
 
 class Store {

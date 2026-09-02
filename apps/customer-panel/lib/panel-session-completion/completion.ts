@@ -1,4 +1,5 @@
 import { PANEL_HOME_URL } from "../../../../packages/platform-config/src/saas.ts";
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 import {
   validateBrowserBoundPanelCompletionRequest,
   validateCustomerPanelCallbackAuthority,
@@ -100,15 +101,8 @@ function canonicalUuid(value: unknown): string {
 }
 
 function canonicalAdminOrigin(value: unknown): string {
-  if (typeof value !== "string" || value !== value.trim() || value.length > 2_048) invalid();
-  let url: URL;
-  try { url = new URL(value); } catch { return invalid(); }
-  if (
-    url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/" ||
-    url.search || url.hash || url.origin !== value ||
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(url.hostname)
-  ) invalid();
-  return value;
+  try { return parseExactAdminHttpsOrigin(value).origin; }
+  catch { return invalid(); }
 }
 
 function successfulRedemption(value: unknown, trustedNow: Date): { credential: string; activeStoreId: string; issuedAt: string; expiresAt: string } {

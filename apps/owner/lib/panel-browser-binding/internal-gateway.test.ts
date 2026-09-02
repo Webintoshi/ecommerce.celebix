@@ -20,7 +20,7 @@ const SECRET = Buffer.alloc(32, 0x44);
 const BS = `bs1.bootstrap.${Buffer.alloc(32, 0x11).toString("base64url")}`;
 const PB = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 const PROVIDER = "https://identity.example.test/authorize?state=state_0123456789abcdefghijklmnop&redirect_uri=https%3A%2F%2Fpanel.celebix.site%2Fauth%2Fcallback&response_type=code&response_mode=query";
-const DESTINATION = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const DESTINATION = "admin.guzidekuyumcu.com.tr";
 
 function signedRequest(overrides: {
   body?: string;

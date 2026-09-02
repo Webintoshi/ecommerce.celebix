@@ -1,3 +1,5 @@
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+
 import type { PanelBrowserCredentialDigest } from "../panel-browser-binding/credential-codec.ts";
 import {
   beginOidcAuthorization,
@@ -76,14 +78,15 @@ export function createPanelReturningLoginService(options: {
     async start(browserBindingCredential: string, destinationHostname: string): Promise<PanelReturningLoginStart> {
       try {
         const binding = options.browserBindingCodec.digestBrowserBindingCredential(browserBindingCredential);
-        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(destinationHostname)) throw new Error("invalid");
+        const normalizedDestinationHostname = parseExactAdminHttpsOrigin(`https://${destinationHostname}`).hostname;
+        if (normalizedDestinationHostname !== destinationHostname) throw new Error("invalid");
         const started = await beginOidcAuthorization({
           provider: options.provider,
           transactionStore: options.transactionStore,
           redirectUri: options.callbackAuthority,
           returnTo: "/login",
           panelLoginBinding: binding,
-          panelLoginDestinationHostname: destinationHostname,
+          panelLoginDestinationHostname: normalizedDestinationHostname,
           expectedIssuer: options.expectedIssuer,
           expectedAudience: options.expectedAudience,
           expectedAuthorizationOrigin: options.expectedAuthorizationOrigin,

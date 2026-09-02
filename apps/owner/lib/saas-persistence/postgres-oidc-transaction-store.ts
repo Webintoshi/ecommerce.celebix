@@ -1,4 +1,5 @@
 import { PANEL_OIDC_CALLBACK_URL } from "../../../../packages/platform-config/src/saas.ts";
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 import {
   OidcFlowError,
   type OidcAuthorizationTransaction,
@@ -62,7 +63,11 @@ function payload(value: unknown, expectedCallbackAuthority: string, schemaVersio
     }
     panelLoginBinding = Object.freeze({ keyId, digest });
     panelLoginDestinationHostname = requiredString(row.panelLoginDestinationHostname, 253);
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(panelLoginDestinationHostname)) {
+    try {
+      if (parseExactAdminHttpsOrigin(`https://${panelLoginDestinationHostname}`).hostname !== panelLoginDestinationHostname) {
+        throw new Error("invalid");
+      }
+    } catch {
       throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
     }
   }

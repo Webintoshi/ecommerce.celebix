@@ -6,7 +6,7 @@ import { createPostgresReturningPanelSessionIssuer } from "./postgres-session-is
 
 const NOW = new Date("2026-07-30T12:00:00.000Z");
 const SECRET = Buffer.alloc(32, 11);
-const HOSTNAME = "guzide-kuyumcu-4.admin.saas-staging.celebix.site";
+const HOSTNAME = "admin.guzidekuyumcu.com.tr";
 const IDS = [
   "10000000-0000-4000-8000-000000000001",
   "10000000-0000-4000-8000-000000000002",

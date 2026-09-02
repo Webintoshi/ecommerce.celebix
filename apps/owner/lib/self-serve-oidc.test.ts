@@ -256,7 +256,7 @@ test("returning panel login is explicitly browser-bound and cannot be completed 
     redirectUri: REDIRECT_URI,
     returnTo: "/login",
     panelLoginBinding: binding,
-    panelLoginDestinationHostname: "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+    panelLoginDestinationHostname: "admin.guzidekuyumcu.com.tr",
     expectedIssuer: EXPECTED_ISSUER,
     expectedAudience: EXPECTED_AUDIENCE,
     expectedAuthorizationOrigin: "https://identity.example.test",
