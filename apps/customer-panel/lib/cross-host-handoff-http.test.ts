@@ -100,6 +100,16 @@ test("accepts reverse-proxy internal transport while pinning the validated Host 
   assert.equal(current.redeemCalls, 1);
 });
 
+test("redeems the same destination-bound handoff on an active custom admin hostname", async () => {
+  const hostname = "admin.guzidekuyumcu.com.tr";
+  const origin = `https://${hostname}`;
+  const current = fixture({ brandOrigin: origin });
+  const response = await current.handler(request({ host: hostname, url: `${origin}/auth/handoff` }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), `${origin}/`);
+  assert.equal(current.redeemCalls, 1);
+});
+
 test("accepts a privacy client that omits Origin while retaining destination-bound handoff authority", async () => {
   const current = fixture();
   const response = await current.handler(request({ origin: null }));

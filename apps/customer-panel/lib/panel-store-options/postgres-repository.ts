@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCanonicalAdminHostname } from "@celebix/saas-data";
+import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 import { assertPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import {
@@ -81,11 +81,7 @@ function adminOrigin(value: unknown): string {
     url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/" ||
     url.search || url.hash || url.origin !== candidate
   ) throw new Error("invalid");
-  try { parseCanonicalAdminHostname(url.hostname, "production"); }
-  catch {
-    try { parseCanonicalAdminHostname(url.hostname, "staging"); }
-    catch { throw new Error("invalid"); }
-  }
+  try { parseExactAdminHttpsOrigin(candidate); } catch { throw new Error("invalid"); }
   return candidate;
 }
 

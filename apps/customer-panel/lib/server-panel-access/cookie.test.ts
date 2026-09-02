@@ -19,6 +19,7 @@ test("server session reads only the exact persistent panel cookie and forwards i
     },
     requestId: "request-cookie",
     now: NOW,
+    hostname: "admin.example.test",
     async resolve(input) {
       resolutions.push(input);
       return Object.freeze({ kind: "unauthenticated" as const });
@@ -26,7 +27,7 @@ test("server session reads only the exact persistent panel cookie and forwards i
   });
   assert.deepEqual(result, { kind: "unauthenticated" });
   assert.deepEqual(cookieReads, ["__Host-celebix_panel"]);
-  assert.deepEqual(resolutions, [{ credential: CREDENTIAL, requestId: "request-cookie", now: NOW }]);
+  assert.deepEqual(resolutions, [{ credential: CREDENTIAL, requestId: "request-cookie", now: NOW, hostname: "admin.example.test" }]);
 });
 
 test("missing, Owner, alternate, and local cookies do not initialize or reach durable authority", async () => {

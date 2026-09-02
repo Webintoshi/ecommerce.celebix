@@ -1,4 +1,4 @@
-import { STORE_DOMAIN_UI_STATUSES, type StoreDomainDnsInstruction, type StoreDomainView, type TenantContext } from "@celebix/saas-contracts";
+import { STORE_DOMAIN_UI_STATUSES, type AdminDomainView, type StoreDomainDnsInstruction, type StoreDomainView, type TenantContext } from "@celebix/saas-contracts";
 
 import { StoreDomainRepositoryError } from "./errors.ts";
 import type { StoreDomainOriginHealth, StoreDomainWorkflowClaim } from "./types.ts";
@@ -106,6 +106,37 @@ export function domainView(value: unknown): StoreDomainView {
     version: parsed.version as number,
     createdAt,
     updatedAt,
+  });
+}
+
+export function adminDomainView(value: unknown): AdminDomainView {
+  const parsed = exact(value, [
+    "schemaVersion", "id", "hostname", "kind", "status", "primary", "fallback", "hostnameStatus",
+    "sslStatus", "dnsStatus", "originStatus", "uiStatus", "dnsInstructions", "verifiedAt", "lastCheckedAt",
+    "version", "createdAt", "updatedAt",
+  ], "unavailable");
+  if (parsed.schemaVersion !== 1 || !["platform_subdomain", "custom_alias"].includes(String(parsed.kind))
+    || !["pending_verification", "active", "disabled"].includes(String(parsed.status))
+    || typeof parsed.primary !== "boolean" || typeof parsed.fallback !== "boolean"
+    || !["pending", "active", "failed", "deleted"].includes(String(parsed.hostnameStatus))
+    || !["pending", "active", "failed", "deleted"].includes(String(parsed.sslStatus))
+    || !["pending", "ready", "mismatch"].includes(String(parsed.dnsStatus))
+    || !["pending", "ready", "failed"].includes(String(parsed.originStatus))
+    || !STORE_DOMAIN_UI_STATUSES.includes(parsed.uiStatus as never) || !Array.isArray(parsed.dnsInstructions)
+    || parsed.dnsInstructions.length > 4 || !Number.isSafeInteger(parsed.version) || (parsed.version as number) < 1) fail("unavailable");
+  const createdAt = timestamp(parsed.createdAt), updatedAt = timestamp(parsed.updatedAt);
+  const verifiedAt = parsed.verifiedAt === null ? null : timestamp(parsed.verifiedAt);
+  const lastCheckedAt = parsed.lastCheckedAt === null ? null : timestamp(parsed.lastCheckedAt);
+  if (updatedAt < createdAt || (parsed.status === "active" && verifiedAt === null) || (parsed.primary && parsed.status !== "active")
+    || (parsed.fallback !== (parsed.kind === "platform_subdomain"))) fail("unavailable");
+  return Object.freeze({
+    schemaVersion: 1, id: uuid(parsed.id, "unavailable"), hostname: hostname(parsed.hostname, "unavailable"),
+    kind: parsed.kind as AdminDomainView["kind"], status: parsed.status as AdminDomainView["status"],
+    primary: parsed.primary, fallback: parsed.fallback,
+    hostnameStatus: parsed.hostnameStatus as AdminDomainView["hostnameStatus"], sslStatus: parsed.sslStatus as AdminDomainView["sslStatus"],
+    dnsStatus: parsed.dnsStatus as AdminDomainView["dnsStatus"], originStatus: parsed.originStatus as AdminDomainView["originStatus"],
+    uiStatus: parsed.uiStatus as AdminDomainView["uiStatus"], dnsInstructions: Object.freeze(parsed.dnsInstructions.map(instruction)),
+    verifiedAt, lastCheckedAt, version: parsed.version as number, createdAt, updatedAt,
   });
 }
 

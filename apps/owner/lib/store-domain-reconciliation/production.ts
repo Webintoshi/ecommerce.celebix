@@ -1,7 +1,7 @@
 import { resolveCname } from "node:dns/promises";
 
 import { createCloudflareCustomHostnameProvider, createStoreDomainReconciler, type StoreDomainReconcilerResult } from "@celebix/saas-domain-core";
-import { PostgresStoreDomainWorkflowRepository, type PostgresPoolLike } from "@celebix/saas-data";
+import { PostgresAdminDomainWorkflowRepository, PostgresStoreDomainWorkflowRepository, type PostgresPoolLike } from "@celebix/saas-data";
 import pg from "pg";
 
 import type { StoreDomainWorkerConfig } from "./config.ts";
@@ -43,10 +43,14 @@ async function preflight(pool: PostgresPoolLike, databaseName: string): Promise<
       to_regprocedure('saas.store_domain_work_claim(text,timestamp with time zone,timestamp with time zone,integer,uuid)') IS NOT NULL
         AND to_regprocedure('saas.store_domain_work_complete(uuid,uuid,text,timestamp with time zone,text,text,text,text,text,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.store_domain_work_fail(uuid,uuid,text,timestamp with time zone,text,timestamp with time zone,boolean)') IS NOT NULL AS domain_lifecycle
+      ,to_regprocedure('saas.admin_domain_work_claim(text,timestamp with time zone,timestamp with time zone,integer,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.admin_domain_work_complete(uuid,uuid,text,timestamp with time zone,text,text,text,text,text,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.admin_domain_work_fail(uuid,uuid,text,timestamp with time zone,text,timestamp with time zone,boolean)') IS NOT NULL AS admin_domain_lifecycle
     FROM pg_catalog.pg_roles AS role WHERE role.rolname=session_user`);
     const row = result.rows[0] as Record<string, unknown> | undefined;
     if (result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== databaseName
-        || row.current_role !== "celebix_saas_workflow" || row.session_is_superuser !== false || row.workflow_member !== true || row.domain_lifecycle !== true) {
+        || row.current_role !== "celebix_saas_workflow" || row.session_is_superuser !== false || row.workflow_member !== true
+        || row.domain_lifecycle !== true || row.admin_domain_lifecycle !== true) {
       throw new Error("store_domain_production_preflight_failed");
     }
     await client.query("COMMIT");
@@ -64,9 +68,20 @@ export async function initializeStoreDomainProductionRuntime(
   try {
     await preflight(pool, config.database.name);
     const workflow = new PostgresStoreDomainWorkflowRepository({ pool, role: "celebix_saas_workflow", timeouts: TIMEOUTS });
+    const adminWorkflow = new PostgresAdminDomainWorkflowRepository({ pool, role: "celebix_saas_workflow", timeouts: TIMEOUTS });
     const provider = createCloudflareCustomHostnameProvider(config.cloudflare, dependencies.fetch);
     const reconciler = createStoreDomainReconciler({ workflow, provider, resolveCname: dependencies.resolveCname, fetch: dependencies.fetch, workerId: config.workerId, cnameTarget: config.hostnamePolicy.cnameTarget, now: dependencies.now });
-    return Object.freeze({ runOnce: reconciler.runOnce, close: () => pool.end() });
+    const adminReconciler = createStoreDomainReconciler({ workflow: adminWorkflow, provider, resolveCname: dependencies.resolveCname, fetch: dependencies.fetch, workerId: `${config.workerId}.admin`, cnameTarget: config.hostnamePolicy.cnameTarget, now: dependencies.now });
+    return Object.freeze({
+      async runOnce() {
+        const [storeResult, adminResult] = await Promise.all([reconciler.runOnce(), adminReconciler.runOnce()]);
+        if (storeResult === "updated" || adminResult === "updated") return "updated";
+        if (storeResult === "retry_scheduled" || adminResult === "retry_scheduled") return "retry_scheduled";
+        if (storeResult === "failed" || adminResult === "failed") return "failed";
+        return "empty";
+      },
+      close: () => pool.end(),
+    });
   } catch (caught) {
     await pool.end().catch(() => undefined);
     throw caught;

@@ -62,3 +62,11 @@ test("rejects expanded or cross-bound store projections", async () => {
     assert.deepEqual(await repository(authority).result.listForCredential({ credential: CURRENT, now: NOW }), { kind: "durable_authority_invalid" });
   }
 });
+
+test("accepts a database-derived primary custom admin origin", async () => {
+  const custom = "https://admin.guzidekuyumcu.com.tr";
+  const h = repository({ activeStoreId: ACTIVE, stores: [{ storeId: ACTIVE, storeSlug: "guzide", displayName: "Güzide", canonicalAdminOrigin: custom }] });
+  const result = await h.result.listForCredential({ credential: CURRENT, now: NOW });
+  assert.equal(result.kind, "resolved");
+  if (result.kind === "resolved") assert.equal(result.stores[0]?.canonicalAdminOrigin, custom);
+});

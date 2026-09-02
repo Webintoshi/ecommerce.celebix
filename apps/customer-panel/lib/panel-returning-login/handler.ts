@@ -1,4 +1,4 @@
-import { parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
+import { normalizeAdminRequestHostname } from "@celebix/saas-data";
 
 import type { createPanelBrowserBindingCredentialGenerator } from "../panel-browser-binding/credential-codec.ts";
 import { serializePanelBrowserBindingCookie } from "../panel-browser-binding/cookie.ts";
@@ -49,9 +49,9 @@ function requestDecision(request: Request, panelOrigin: string): { kind: "approv
   ) return { kind: "denied" };
   const values = url.searchParams.getAll("destination");
   const destinationHostname = values[0];
-  if (values.length !== 1 || !destinationHostname || !/^[a-z0-9]+(?:-[a-z0-9]+)*\.admin(?:\.saas-staging)?\.celebix\.site$/.test(destinationHostname)) return { kind: "denied" };
+  if (values.length !== 1 || !destinationHostname) return { kind: "denied" };
   try {
-    parseCanonicalAdminOriginFromPanelOrigin(`https://${destinationHostname}`, panelOrigin);
+    if (normalizeAdminRequestHostname(destinationHostname) !== destinationHostname) throw new Error("invalid");
   } catch {
     return { kind: "denied" };
   }

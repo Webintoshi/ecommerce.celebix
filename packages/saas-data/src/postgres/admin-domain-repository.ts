@@ -1,6 +1,6 @@
 import type { PublicAdminBrand } from "@celebix/saas-contracts";
 
-import { createCanonicalAdminOrigin } from "../panel-origin.ts";
+import { normalizeExactHttpsOrigin } from "../panel-origin.ts";
 
 const HOSTNAME = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -96,10 +96,9 @@ function brand(value: unknown): PublicAdminBrand {
   const storeSlug = nonblank(record.storeSlug, 63);
   if (storeSlug.length < 3 || !SLUG.test(storeSlug)) throw new Error("invalid");
   const canonicalAdminOrigin = nonblank(record.canonicalAdminOrigin, 2048);
-  if (
-    canonicalAdminOrigin !== createCanonicalAdminOrigin(storeSlug, "production")
-    && canonicalAdminOrigin !== createCanonicalAdminOrigin(storeSlug, "staging")
-  ) throw new Error("invalid");
+  if (normalizeExactHttpsOrigin(canonicalAdminOrigin) !== canonicalAdminOrigin) throw new Error("invalid");
+  const canonicalHostname = new URL(canonicalAdminOrigin).hostname;
+  if (canonicalHostname.length > 253 || canonicalHostname !== canonicalHostname.toLowerCase() || !HOSTNAME.test(canonicalHostname)) throw new Error("invalid");
   const accentColor = record.accentColor === null
     ? null
     : nonblank(record.accentColor, 7);

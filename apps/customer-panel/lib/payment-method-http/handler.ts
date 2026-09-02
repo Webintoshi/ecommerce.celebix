@@ -226,6 +226,7 @@ async function authorize(
   let access: ServerPanelAccessResult;
   try {
     access = await runtime.access.resolveCredential({
+      hostname: request.headers.get("host"),
       credential: cookie.credential,
       requestId,
       now: new Date(now),

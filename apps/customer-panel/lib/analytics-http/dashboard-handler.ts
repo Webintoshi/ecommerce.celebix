@@ -34,7 +34,7 @@ async function authorize(dependencies: Dependencies, request: Request, allowForm
   let runtime: ServerAnalyticsRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return error("unavailable", 503); } if (!runtime) return error("unavailable", 503);
   let now: Date, requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return error("unavailable", 503); }
   if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(requestId)) return error("unavailable", 503);
-  let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) }); } catch { return error("unavailable", 503); }
+  let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) }); } catch { return error("unavailable", 503); }
   if (access.kind === "unauthenticated") return error("unauthenticated", 401);
   if (access.kind === "unauthorized") return error("membership_denied", 403);
   if (access.kind !== "authenticated") return error("unavailable", 503);

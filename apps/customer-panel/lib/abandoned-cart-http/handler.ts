@@ -34,7 +34,7 @@ async function authorize(dependencies: Dependencies, request: Request, expectati
   const cookie = readOrderPanelSessionCookie(request); if (cookie.kind !== "present") return error("unauthenticated", 401);
   let now: Date; let requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return error("unavailable", 503); }
   if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !REQUEST_ID.test(requestId)) return error("unavailable", 503);
-  let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) }); } catch { return error("unavailable", 503); }
+  let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) }); } catch { return error("unavailable", 503); }
   try {
     if (access.kind === "unauthenticated") return error("unauthenticated", 401);
     if (access.kind === "unauthorized") return error("membership_denied", 403);

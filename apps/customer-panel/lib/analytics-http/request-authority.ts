@@ -51,6 +51,7 @@ export async function authorizeAnalyticsRequest(
 
   try {
     const access = await runtime.access.resolveCredential({
+      hostname: request.headers.get("host"),
       credential: cookie.credential,
       requestId,
       now: new Date(now),

@@ -35,8 +35,27 @@ test("resolves the exact public store brand and central login authority server-s
   assert.equal(Object.isFrozen(model), true);
 });
 
+test("starts central login for an exact resolved custom admin hostname", async () => {
+  const hostname = "admin.guzidekuyumcu.com.tr";
+  const origin = `https://${hostname}`;
+  const model = await resolveTenantAdminLoginModel({
+    hostHeader: `${hostname}:443`,
+    clock: () => new Date("2026-09-02T10:00:00.000Z"),
+    async resolveRuntime() { return {
+      access: { panelOrigin: PANEL },
+      adminDomains: { async resolvePublicBrand() { return { kind: "resolved", brand: {
+        storeSlug: "guzide-kuyumcu-4", displayName: "Güzide Kuyumcu", logoUrl: null,
+        accentColor: null, canonicalAdminOrigin: origin,
+      } }; } },
+    }; },
+  });
+  assert.equal(model.kind, "tenant");
+  assert.equal(model.canonicalAdminOrigin, origin);
+  assert.equal(model.loginHref, `${PANEL}/auth/login?destination=${hostname}`);
+});
+
 test("unknown, spoofed, or mismatched hosts use the generic safe model", async () => {
-  for (const hostHeader of ["evil.example", `${HOSTNAME}:443`, HOSTNAME.toUpperCase()]) {
+  for (const hostHeader of ["evil.example", `${HOSTNAME}:not-a-port`, HOSTNAME.toUpperCase()]) {
     const model = await resolveTenantAdminLoginModel({
       hostHeader,
       clock: () => new Date("2026-07-30T10:00:00.000Z"),

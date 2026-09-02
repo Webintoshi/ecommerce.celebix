@@ -699,6 +699,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     const access = createApprovedStagingServerPanelAccessRuntime(
       sessionRepository,
       config.authority.panelOrigin,
+      adminDomainRepository,
     );
     registerServerAdminHostAuthRuntime(access, {
       adminDomains: adminDomainRepository,

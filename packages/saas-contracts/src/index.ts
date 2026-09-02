@@ -28,6 +28,7 @@ export {
 export type {
   AdminDomainKind,
   AdminDomainStatus,
+  AdminDomainView,
   CreateStarterTenantInput,
   CreateStarterTenantResult,
   DomainId,

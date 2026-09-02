@@ -79,7 +79,7 @@ async function authorize(dependencies: Dependencies, request: Request, route: In
   if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !UUID.test(requestId)) return error("unavailable", 503);
   let access: ServerPanelAccessResult;
   try {
-    access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) });
+    access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) });
   } catch { return error("unavailable", 503); }
   if (access.kind === "unauthenticated") return error("unauthenticated", 401);
   if (access.kind === "unauthorized") return error("forbidden", 403);

@@ -4,7 +4,7 @@ import {
   createPanelSessionCredentialCodec,
 } from "../panel-session-persistence/credential-codec.ts";
 import type { PersistedPanelSession } from "../panel-session-persistence/postgres-panel-session-repository.ts";
-import { parseCanonicalAdminHostname } from "@celebix/saas-data";
+import { normalizeAdminRequestHostname, parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAXIMUM_TIMEOUT_MS = 60_000;
@@ -107,9 +107,12 @@ function uuid(value: unknown): string {
 }
 
 function canonicalHostname(value: unknown): string {
-  if (typeof value !== "string") throw new Error("invalid");
-  try { parseCanonicalAdminHostname(value, "production"); return value; } catch { /* staging below */ }
-  try { parseCanonicalAdminHostname(value, "staging"); return value; } catch { throw new Error("invalid"); }
+  try {
+    const hostname = normalizeAdminRequestHostname(value);
+    if (value !== hostname) throw new Error("invalid");
+    parseExactAdminHttpsOrigin(`https://${hostname}`);
+    return hostname;
+  } catch { throw new Error("invalid"); }
 }
 
 function canonicalNow(value: unknown, clock: () => Date): Date {

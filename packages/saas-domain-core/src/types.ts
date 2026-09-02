@@ -76,6 +76,15 @@ export type StoreDomainVersionedServiceInput = Readonly<{
   expectedVersion: number;
 }>;
 
+export type AdminDomainPersistence = Readonly<{
+  list(input: Readonly<{ tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date }>): Promise<readonly import("@celebix/saas-contracts").AdminDomainView[]>;
+  prepareCreate(input: Readonly<{ tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date; operationId: string; fingerprint: string; domainId: string; hostname: string; provider: "cloudflare_for_saas"; cnameTarget: string }>): Promise<Readonly<{ domain: import("@celebix/saas-contracts").AdminDomainView; replayed: boolean }>>;
+  bindProvider(input: Readonly<{ tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date; domainId: string; expectedVersion: number; providerHostnameId: string; ownershipValidation: readonly import("@celebix/saas-contracts").StoreDomainDnsInstruction[]; certificateValidation: readonly import("@celebix/saas-contracts").StoreDomainDnsInstruction[] }>): Promise<import("@celebix/saas-contracts").AdminDomainView>;
+  requestRecheck(input: StoreDomainVersionedServiceInput): Promise<import("@celebix/saas-contracts").AdminDomainView>;
+  makePrimary(input: StoreDomainVersionedServiceInput): Promise<import("@celebix/saas-contracts").AdminDomainView>;
+  disable(input: StoreDomainVersionedServiceInput): Promise<import("@celebix/saas-contracts").AdminDomainView>;
+}>;
+
 export type StoreDomainWorkflowClaim = Readonly<{
   domainId: string; storeId: string; hostname: string; providerHostnameId: string; attemptCount: number;
   leaseId: string; leaseOwner: string; leaseExpiresAt: string; requestedRemoval: boolean;

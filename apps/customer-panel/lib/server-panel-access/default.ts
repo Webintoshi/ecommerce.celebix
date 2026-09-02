@@ -21,6 +21,7 @@ export async function resolveDefaultServerPanelAccess(input: Readonly<{
   credential: string | null;
   requestId: string;
   now: Date;
+  hostname?: string | null;
 }>) {
   const runtime = await resolver.resolve();
   return runtime.resolveCredential(input);

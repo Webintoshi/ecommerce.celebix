@@ -150,7 +150,7 @@ async function authorize(
 
   let access: ServerPanelAccessResult;
   try {
-    access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) });
+    access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) });
   } catch { return error("unavailable", 503); }
   if (access.kind !== "authenticated") return accessFailure(access);
   if (

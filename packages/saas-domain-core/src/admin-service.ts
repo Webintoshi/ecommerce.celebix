@@ -1,0 +1,24 @@
+import { createHash } from "node:crypto";
+import type { AdminDomainView, StoreDomainDnsInstruction, TenantContext } from "@celebix/saas-contracts";
+import { CloudflareCustomHostnameError } from "./cloudflare.ts";
+import { normalizeStorefrontHostname } from "./hostname.ts";
+import { StoreDomainServiceError } from "./service.ts";
+import type { AdminDomainPersistence, CustomHostnameProvider, ProviderValidationInstruction, StoreDomainVersionedServiceInput, StorefrontHostnamePolicy } from "./types.ts";
+
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+function failure(code: ConstructorParameters<typeof StoreDomainServiceError>[0]): StoreDomainServiceError{return new StoreDomainServiceError(code);}
+function mapped(caught:unknown):never{const code=caught&&typeof caught==="object"&&"code" in caught?(caught as {code?:unknown}).code:null;if(typeof code==="string"&&["invalid_input","feature_not_enabled","limit_reached","hostname_already_claimed","stale_version","not_found","operation_mismatch"].includes(code))throw failure(code as never);throw failure("provider_unavailable");}
+function instructions(value:ProviderValidationInstruction|null):StoreDomainDnsInstruction[]{return value===null||value.type==="http"?[]:[Object.freeze({type:value.type==="txt"?"TXT":"CNAME",name:value.name,value:value.value})];}
+function digest(hostname:string):string{return createHash("sha256").update(JSON.stringify({hostname,provider:"cloudflare_for_saas",purpose:"admin"})).digest("hex");}
+
+export type AdminDomainService=Readonly<{list(input:Readonly<{tenantContext:TenantContext;now:Date}>):Promise<readonly AdminDomainView[]>;create(input:Readonly<{tenantContext:TenantContext;now:Date;operationId:string;hostname:string}>):Promise<AdminDomainView>;requestRecheck(input:StoreDomainVersionedServiceInput):Promise<AdminDomainView>;makePrimary(input:StoreDomainVersionedServiceInput):Promise<AdminDomainView>;disable(input:StoreDomainVersionedServiceInput):Promise<AdminDomainView>}>;
+
+export function createAdminDomainService(input:Readonly<{repository:AdminDomainPersistence;provider:CustomHostnameProvider;hostnamePolicy:StorefrontHostnamePolicy;generateId:()=>string}>):AdminDomainService{
+  if(!input||typeof input.generateId!=="function")throw failure("invalid_input");const{repository,provider,hostnamePolicy,generateId}=input;
+  async function versioned(method:"requestRecheck"|"makePrimary"|"disable",selected:StoreDomainVersionedServiceInput){try{return await repository[method](selected);}catch(caught){return mapped(caught);}}
+  return Object.freeze({
+    async list(selected){try{return await repository.list(selected);}catch(caught){return mapped(caught);}},
+    async create(selected){if(!selected||!UUID.test(selected.operationId))throw failure("invalid_input");let normalized;try{normalized=normalizeStorefrontHostname(selected.hostname,hostnamePolicy);if(!normalized.hostname.startsWith("admin."))throw new Error("invalid");}catch{throw failure("invalid_input");}const domainId=generateId();if(!UUID.test(domainId))throw failure("provider_unavailable");let prepared;try{prepared=await repository.prepareCreate({tenantContext:selected.tenantContext,now:selected.now,operationId:selected.operationId,fingerprint:digest(normalized.hostname),domainId,hostname:normalized.hostname,provider:"cloudflare_for_saas",cnameTarget:hostnamePolicy.cnameTarget});}catch(caught){return mapped(caught);}if(prepared.replayed){const current=await repository.list({tenantContext:selected.tenantContext,now:selected.now});const durable=current.find((domain)=>domain.id===prepared.domain.id);if(durable&&durable.version>prepared.domain.version)return durable;}let snapshot;try{snapshot=await provider.create(normalized.hostname);}catch(caught){if(!(caught instanceof CloudflareCustomHostnameError)||!["duplicate","unavailable","rate_limited"].includes(caught.code))throw failure(caught instanceof CloudflareCustomHostnameError&&caught.code==="invalid_input"?"invalid_input":"provider_unavailable");try{snapshot=await provider.find(normalized.hostname);}catch{throw failure("provider_unavailable");}if(snapshot===null)throw failure("provider_unavailable");}if(snapshot.hostname!==normalized.hostname)throw failure("provider_unavailable");try{return await repository.bindProvider({tenantContext:selected.tenantContext,now:selected.now,domainId:prepared.domain.id,expectedVersion:prepared.domain.version,providerHostnameId:snapshot.providerHostnameId,ownershipValidation:instructions(snapshot.ownershipValidation),certificateValidation:instructions(snapshot.certificateValidation.find((item)=>item.type!=="http")??null)});}catch(caught){return mapped(caught);}},
+    requestRecheck:(selected)=>versioned("requestRecheck",selected),makePrimary:(selected)=>versioned("makePrimary",selected),disable:(selected)=>versioned("disable",selected),
+  });
+}

@@ -100,7 +100,7 @@ test("staging logout refuses a production canonical admin destination", async ()
   assert.equal(response.headers.has("location"), false);
 });
 
-test("logout survives reverse-proxy transport and returns to the canonical tenant login", async () => {
+test("logout survives reverse-proxy transport and returns to the exact active custom admin host", async () => {
   if (typeof logout.createTenantPanelLogoutHandler !== "function" || typeof logout.createTenantPanelLogoutCallbackHandler !== "function") return;
   const value = runtime();
   const start = logout.createTenantPanelLogoutHandler({
@@ -129,10 +129,10 @@ test("logout survives reverse-proxy transport and returns to the canonical tenan
     headers: { host: CENTRAL_HOST },
   }));
   assert.equal(response.status, 303);
-  assert.equal(response.headers.get("location"), `${CANONICAL}/login`);
+  assert.equal(response.headers.get("location"), `${SOURCE}/login`);
 });
 
-test("logout callback validates state on the fixed central host and returns to the verified canonical login", async () => {
+test("logout callback validates state on the fixed central host and returns to the verified requested login", async () => {
   if (typeof logout.createTenantPanelLogoutHandler !== "function" || typeof logout.createTenantPanelLogoutCallbackHandler !== "function") return;
   const start = logout.createTenantPanelLogoutHandler({
     async resolveRuntime() { return runtime(); },
@@ -154,7 +154,7 @@ test("logout callback validates state on the fixed central host and returns to t
     headers: { host: CENTRAL_HOST },
   }));
   assert.equal(response.status, 303);
-  assert.equal(response.headers.get("location"), `${CANONICAL}/login`);
+  assert.equal(response.headers.get("location"), `${SOURCE}/login`);
   assert.equal(response.headers.get("set-cookie"), DELETION);
 
   const tampered = await callback(new Request(`${CENTRAL}/auth/logout/callback?state=${encodeURIComponent(`${state}x`)}`, {

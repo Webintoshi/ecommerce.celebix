@@ -150,7 +150,7 @@ async function authorize(
   try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return failure("unavailable", 503); }
   if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !UUID.test(requestId)) return failure("unavailable", 503);
   let access: ServerPanelAccessResult;
-  try { access = await runtime.access.resolveCredential({ credential: cookie.credential, requestId, now: new Date(now) }); }
+  try { access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) }); }
   catch { return failure("unavailable", 503); }
   if (access.kind === "unauthenticated") return failure("unauthenticated", 401);
   if (access.kind === "unauthorized") return failure("membership_denied", 403);
