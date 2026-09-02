@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { CatalogOnboardingOptions, CatalogProductEditorProjection, Product, ProductVariant } from "@celebix/saas-contracts";
-import { Archive, ArrowLeft, Eye, Pencil, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Archive, ArrowLeft, Eye, Pencil, Plus, RotateCcw, SlidersHorizontal, Tag } from "lucide-react";
 
 import {
   CatalogApiError,
@@ -386,6 +386,7 @@ export function ProductDetailConsole({
           <p>{primarySku ? `SKU ${primarySku}` : "SKU eklenmemiş"}<span aria-hidden="true"> · </span>{product.currency}</p>
         </div>
         <div className="heading-actions product-detail-actions">
+          {!archived ? <Link className="button button-secondary" href={`/products/barcode-labels?productId=${product.id}`}><Tag aria-hidden="true" /> Barkod etiketi yazdır</Link> : null}
           {!archived ? <button className="button button-secondary" type="button" onClick={() => void openStorefrontPreview()} disabled={busy!==""}><Eye aria-hidden="true"/> {busy==="preview"?"Önizleme hazırlanıyor…":"Mağazada önizle"}</button>:null}
           {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
           {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => { if (editingProduct) { if (canDiscardDetailChanges("product")) setEditingProduct(false); } else openExclusiveEditor("product"); }}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}

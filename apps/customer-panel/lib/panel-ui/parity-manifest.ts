@@ -68,7 +68,7 @@ const EVIDENCE = Object.freeze({
   catalogPreview: "apps/customer-panel/lib/catalog-admin-ui/resource-route.test.ts#extra preview renders untrusted option text and minor-unit prices without unsafe HTML",
   catalogReviews: "apps/customer-panel/lib/catalog-admin-ui/client.test.ts#client executes review list moderation with reply and durable import reads",
   catalogImport: "apps/customer-panel/lib/catalog-admin-import-preparation.test.ts#prepares persisted rows before an explicit versioned commit and refreshes the original preview ID",
-  catalogLabels: "apps/customer-panel/lib/catalog-admin-console.test.ts#tag and barcode consoles are fixed read-only catalog surfaces",
+  catalogLabels: "apps/customer-panel/lib/catalog-admin-console.test.ts#tag and barcode consoles use fixed tenant-safe catalog surfaces",
   pricing: "apps/customer-panel/lib/pricing-ui/client.test.ts#pricing client exposes only five finite same-origin operations with one generated operation ID per mutation",
   purchasing: "apps/customer-panel/lib/inventory-console.test.ts#empty-store form submission creates canonical purchase and can continue its real lifecycle",
   counting: "apps/customer-panel/lib/inventory-console.test.ts#shared form boundary owns empty-store count create start and commit without duplicate mutations",

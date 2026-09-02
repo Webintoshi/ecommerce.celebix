@@ -3,32 +3,45 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 async function source(path: string) { return readFile(new URL(path, root), "utf8"); }
-test("tag and barcode consoles are fixed read-only catalog surfaces", async () => {
-  const [resource, labels, tagPage, barcodePage] = await Promise.all([
+test("tag and barcode consoles use fixed tenant-safe catalog surfaces", async () => {
+  const [resource, studio, handler, printRoute, tagPage, barcodePage] = await Promise.all([
     source("components/catalog-admin/CatalogResourceConsole.tsx"),
-    source("components/catalog-admin/BarcodeLabelConsole.tsx"),
+    source("components/catalog-admin/BarcodeLabelStudio.tsx"),
+    source("lib/barcode-label-http/handler.ts"),
+    source("app/products/barcode-labels/print/route.ts"),
     source("app/products/tags/page.tsx"),
     source("app/products/barcode-labels/page.tsx"),
   ]);
   assert.match(resource, /tag:\s*\{\s*title:\s*"Etiketler"/);
-  assert.match(labels, /parseBarcodeLabelRows/);
-  assert.match(labels, /parseBarcodeLabelRows\(products\)/);
-  assert.match(labels, /type="search"/);
-  assert.match(labels, /window[.]print[(][)]/);
-  assert.match(labels, /body \* \{\s*visibility: hidden/);
-  assert.match(labels, /[.]barcode-print-sheet,\s*[.]barcode-print-sheet \* \{\s*visibility: visible/);
-  assert.match(labels, /aria-label=/);
-  assert.doesNotMatch(labels, /randomUUID|Math[.]random|JsBarcode|fetch[(]|catalogApi[.](?:create|update|archive)/);
+  for (const marker of ["Ürünleri seç", "Etiketi düzenle", "Önizle ve yazdır", "Dahili barkod oluştur", "ZPL 203", "ZPL 300"]) assert.match(studio, new RegExp(marker));
+  assert.match(studio, /\/api\/catalog\/barcode-labels/);
+  assert.match(studio, /type="search"/);
+  assert.match(studio, /pushState/);
+  assert.match(studio, /replaceState/);
+  assert.match(studio, /addEventListener\("popstate", restore\)/);
+  assert.match(studio, /query[.]set\("cursor", cursor\)/);
+  assert.match(studio, /displayedRows = showSelectedOnly \? selectedRows : rows/);
+  assert.match(studio, /validateBarcodeValue\(config[.]barcodeFormat, selectedValue\)/);
+  assert.match(studio, /EAN-13 checksum hatalı/);
+  assert.match(studio, /disabled=\{!canManage \|\| busy === `history-/);
+  assert.match(studio, /defaultTemplateApplied[.]current/);
+  assert.match(studio, /template[.]status === "active" && template[.]isDefault/);
+  assert.match(studio, /setShowSelectedOnly\(true\)/);
+  assert.doesNotMatch(studio, /window[.]print|body \* \{\s*visibility: hidden|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  assert.match(handler, /approvedPanelMutationOriginForStore/);
+  assert.match(handler, /isMerchantActionAllowed/);
+  assert.match(handler, /"catalog_admin[.]manage"/);
+  assert.match(handler, /idempotency-key/);
+  assert.match(handler, /buildLabelDocument/);
+  assert.match(printRoute, /barcodeLabelHttpHandlers[.]print/);
   assert.match(tagPage, /requireServerPanelAccess[(][)]/);
   assert.match(tagPage, /kind="tag"/);
   assert.match(tagPage, /CATALOG_PAGE_ACTIONS[.]tags/);
   assert.match(barcodePage, /requireServerPanelAccess[(][)]/);
   assert.match(barcodePage, /CATALOG_PAGE_ACTIONS[.]barcodeLabels/);
   assert.match(barcodePage, /tenantContext/);
-  assert.match(barcodePage, /projectBarcodeLabelProducts/);
-  assert.match(barcodePage, /<BarcodeLabelConsole products=\{Object[.]freeze\(products\)\}/);
-  assert.doesNotMatch(barcodePage, /ProductDetailsResult/);
-  assert.doesNotMatch(labels, /storeId|description|priceCents|costCents|stockQuantity|attributes|createdAt|updatedAt|version/);
+  assert.match(barcodePage, /<BarcodeLabelStudio/);
+  assert.doesNotMatch(barcodePage, /ProductDetailsResult|getProductDetails|projectBarcodeLabelProducts/);
   for (const page of [tagPage, barcodePage]) assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
 });
 test("every catalog administration route is backed by a real console and action authority", async () => { for (const [path, marker] of [["app/products/collections/page.tsx", "collection"], ["app/products/brands/page.tsx", "brand"], ["app/products/attributes/page.tsx", "attribute"], ["app/products/extras/page.tsx", "extra"], ["app/products/definitions/page.tsx", "definition"], ["app/products/reviews/page.tsx", "catalog_admin.moderate"], ["app/products/auto-import/page.tsx", "catalog_admin.import"], ["app/products/shopify-converter/page.tsx", "catalog_admin.import"], ["app/products/bulk-upload/page.tsx", "catalog_admin.import"]] as const) { const value = await source(path); assert.match(value, new RegExp(marker.replace(".", "\\."))); assert.match(value, /requireServerPanelAccess/); } });

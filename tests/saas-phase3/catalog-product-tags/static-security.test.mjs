@@ -22,26 +22,22 @@ test("migration 042 alone extends the finite catalog resource authority", () => 
   assert.doesNotMatch(combined, /apps\/admin|provider|credential|production/i);
 });
 
-test("barcode UI is read-only and projects only persisted variant barcodes", () => {
-  const component = read(
-    "apps/customer-panel/components/catalog-admin/BarcodeLabelConsole.tsx",
-  );
-  const page = read(
-    "apps/customer-panel/app/products/barcode-labels/page.tsx",
-  );
-  const projection = read(
-    "apps/customer-panel/lib/catalog-admin-ui/barcode-label-projection.ts",
-  );
-  assert.match(projection, /ownValue\(variant, "barcode"\)/);
-  assert.match(projection, /parseBarcodeLabelRows\(\[candidate\]\)/);
-  assert.match(page, /projectBarcodeLabelProducts/);
-  assert.doesNotMatch(page, /ProductDetailsResult/);
-  assert.match(component, /parseBarcodeLabelRows/);
-  assert.match(component, /window[.]print/);
-  assert.doesNotMatch(
-    `${component}\n${page}\n${projection}`,
-    /randomUUID|Math[.]random|generatedBarcode|fetch[(]|POST|PATCH|DELETE|JsBarcode/,
-  );
+test("barcode studio uses server projection and isolated output authority", () => {
+  const component = read("apps/customer-panel/components/catalog-admin/BarcodeLabelStudio.tsx");
+  const page = read("apps/customer-panel/app/products/barcode-labels/page.tsx");
+  const handler = read("apps/customer-panel/lib/barcode-label-http/handler.ts");
+  const migration = read("apps/owner/scripts/sql/saas/202609020123_barcode_label_studio.up.sql");
+  assert.match(component, /\/api\/catalog\/barcode-labels/);
+  assert.match(component, /buildLabelDocument/);
+  assert.match(page, /CATALOG_PAGE_ACTIONS[.]barcodeLabels/);
+  assert.doesNotMatch(page, /ProductDetailsResult|getProductDetails|projectBarcodeLabelProducts/);
+  assert.match(handler, /approvedPanelMutationOriginForStore/);
+  assert.match(handler, /isMerchantActionAllowed/);
+  assert.match(handler, /catalog_admin[.]manage/);
+  assert.match(migration, /CREATE FUNCTION saas[.]barcode_label_list/);
+  assert.match(migration, /CREATE FUNCTION saas[.]barcode_label_generate_internal/);
+  assert.doesNotMatch(component, /body \* \{\s*visibility: hidden|window[.]print/);
+  assert.doesNotMatch(`${component}\n${page}`, /x-store-id|x-tenant-id|localStorage|sessionStorage/);
 });
 
 test("cumulative manifest has thirty current checksums", () => {
