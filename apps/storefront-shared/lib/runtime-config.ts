@@ -33,6 +33,12 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 function invalid(): never { throw new Error("storefront_data_config_invalid"); }
 function required(source: Environment, name: string, maximum = 4_096): string { const value = source[name]; if (typeof value !== "string" || !value || value !== value.trim() || value.length > maximum || CONTROL.test(value)) invalid(); return value; }
 
+export function isStorefrontCheckoutReadinessMigrationCompatible(
+  value: Readonly<{ direct: unknown; wrapped: unknown }>,
+): boolean {
+  return value.direct === true || value.wrapped === true;
+}
+
 export function parseStorefrontDataConfig(source: Environment): StorefrontDataConfig {
   if (!source || typeof source !== "object" || Array.isArray(source) || source.CELEBIX_DEPLOYMENT_TIER !== "staging" || source.CELEBIX_STOREFRONT_DATA_MODE !== "approved_staging" || source.CELEBIX_R2_MEDIA_ENVIRONMENT !== "staging") invalid();
   const name = required(source, "CELEBIX_SAAS_DATABASE_NAME", 63);

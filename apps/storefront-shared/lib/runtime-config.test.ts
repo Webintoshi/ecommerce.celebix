@@ -1,9 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseStorefrontDataConfig, parseStorefrontIdentityConfig } from "./runtime-config.ts";
+import {
+  isStorefrontCheckoutReadinessMigrationCompatible,
+  parseStorefrontDataConfig,
+  parseStorefrontIdentityConfig,
+} from "./runtime-config.ts";
 
 const valid = Object.freeze({ CELEBIX_DEPLOYMENT_TIER: "staging", CELEBIX_STOREFRONT_DATA_MODE: "approved_staging", CELEBIX_SAAS_DATABASE_NAME: "celebix_saas_staging", CELEBIX_SAAS_DATABASE_URL: "postgresql://runtime:secret@postgres.internal:5432/celebix_saas_staging?sslmode=require", CELEBIX_R2_MEDIA_ENVIRONMENT: "staging", CELEBIX_R2_PUBLIC_ORIGIN: "https://media.saas-staging.celebix.site" });
+
+test("migration 124 wrapper preserves migration 073 checkout readiness", () => {
+  assert.equal(isStorefrontCheckoutReadinessMigrationCompatible({ direct: true, wrapped: false }), true);
+  assert.equal(isStorefrontCheckoutReadinessMigrationCompatible({ direct: false, wrapped: true }), true);
+  assert.equal(isStorefrontCheckoutReadinessMigrationCompatible({ direct: false, wrapped: false }), false);
+  assert.equal(isStorefrontCheckoutReadinessMigrationCompatible({ direct: "true", wrapped: 1 }), false);
+});
 
 test("storefront data runtime accepts only a complete isolated staging profile", () => {
   const parsed = parseStorefrontDataConfig(valid);
