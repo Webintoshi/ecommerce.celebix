@@ -1,8 +1,10 @@
+import { readCurrentCommerceTouch } from "./attribution.ts";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const HOST = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 type Browser = Readonly<{
-  location: Readonly<{ protocol: string; hostname: string; pathname: string }>;
+  location: Readonly<{ protocol: string; hostname: string; pathname: string; href?: string }>;
   document: Readonly<{ title: string; referrer: string }>;
   umami?: Readonly<{ track(payload: Readonly<Record<string, unknown>>): void }>;
 }>;
@@ -41,6 +43,9 @@ export function trackPageview(tracker: SafeUmamiTracker, selectedBrowser?: Brows
       const selected = new URL(browser.document.referrer);
       if (selected.protocol === "https:" && !selected.username && !selected.password && !selected.port) referrer = selected.origin;
     }
-    tracker.track(Object.freeze({ website: tracker.websiteId, hostname: tracker.hostname, url: browser.location.pathname, title, referrer }));
+    const touch = readCurrentCommerceTouch({ location: new URL(browser.location.href??`https://${browser.location.hostname}${browser.location.pathname}`), document: browser.document });
+    const query = new URLSearchParams({ utm_source: touch.source, utm_medium: touch.medium });
+    if (touch.campaign) query.set("utm_campaign", touch.campaign);
+    tracker.track(Object.freeze({ website: tracker.websiteId, hostname: tracker.hostname, url: `${browser.location.pathname}?${query}`, title, referrer }));
   } catch {}
 }

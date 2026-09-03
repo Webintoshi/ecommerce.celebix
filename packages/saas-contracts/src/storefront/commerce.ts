@@ -37,6 +37,7 @@ export type PublicProductSearch = Readonly<{
 
 export type PublicCartLine = Readonly<{
   productId: string;
+  categoryId?: string;
   variantId: string;
   slug: string;
   title: string;
@@ -202,7 +203,7 @@ function cartLines(value: unknown, minimum: number, maximum: number): readonly P
   const output: PublicCartLine[] = [];
   const variants = new Set<string>();
   for (const row of rows) {
-    const parsed = exact(row, ["productId", "variantId", "slug", "title", "variantTitle", "quantity", "unitPriceCents", "lineTotalCents", "available"], ["media"]);
+    const parsed = exact(row, ["productId", "variantId", "slug", "title", "variantTitle", "quantity", "unitPriceCents", "lineTotalCents", "available"], ["categoryId", "media"]);
     const productId = text(parsed.productId, 36, 36, UUID);
     const variantId = text(parsed.variantId, 36, 36, UUID);
     if (variants.has(variantId)) invalid();
@@ -215,6 +216,7 @@ function cartLines(value: unknown, minimum: number, maximum: number): readonly P
     if (media && media.productId !== productId) invalid();
     output.push(Object.freeze({
       productId,
+      ...(Object.hasOwn(parsed, "categoryId") ? { categoryId: text(parsed.categoryId, 36, 36, UUID) } : {}),
       variantId,
       slug: text(parsed.slug, 3, 100, SLUG),
       title: text(parsed.title, 1, 200),

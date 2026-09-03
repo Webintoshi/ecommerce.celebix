@@ -226,6 +226,7 @@ export {
   parseAnalyticsDashboard,
   parseAnalyticsMetricResult,
   parseAnalyticsSummary,
+  parseAnalyticsSafeDimension,
   parseBrowserCommerceEvent,
   parseServerCommerceEvent,
   sanitizeAnalyticsSearchTerm,

@@ -4,16 +4,22 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 const PHASE3 = path.join(ROOT, "tests/saas-phase3");
-const matrix = JSON.parse(readFileSync(path.join(PHASE3, "current-test-matrix.json"), "utf8"));
+const matrix = JSON.parse(
+  readFileSync(path.join(PHASE3, "current-test-matrix.json"), "utf8"),
+);
 const historical = new Set(matrix.historicalSnapshots.map(({ file }) => file));
 const requiredHarnesses = Object.freeze([
   Object.freeze({
     file: "tests/saas-phase3/commerce-analytics-cart-recovery/postgres-harness.mjs",
-    total: 19,
-    line: /^PASS \d+\/19 (?!commerce analytics cart recovery PostgreSQL 16 rehearsal complete$).+$/gm,
-    completion: /^PASS 19\/19 commerce analytics cart recovery PostgreSQL 16 rehearsal complete$/m,
+    total: 33,
+    line: /^PASS \d+\/33 (?!commerce analytics cart recovery PostgreSQL 16 rehearsal complete$).+$/gm,
+    completion:
+      /^PASS 33\/33 commerce analytics cart recovery PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/redis-cache-foundation/redis-harness.mjs",
@@ -26,37 +32,43 @@ const requiredHarnesses = Object.freeze([
     file: "tests/saas-phase3/barcode-label-studio/postgres-harness.mjs",
     total: 21,
     line: /^PASS \d+\/21 (?!barcode label studio PostgreSQL 16 rehearsal complete$).+$/gm,
-    completion: /^PASS 21\/21 barcode label studio PostgreSQL 16 rehearsal complete$/m,
+    completion:
+      /^PASS 21\/21 barcode label studio PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/catalog-products-complete/postgres-harness.mjs",
     total: 14,
     line: /^PASS \d+ .+$/gm,
-    completion: /^PASS 14\/14 catalog products complete PostgreSQL 16 rehearsal complete$/m,
+    completion:
+      /^PASS 14\/14 catalog products complete PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/catalog-product-list-projection/postgres-harness.mjs",
     total: 10,
     line: /^PASS \d+ .+$/gm,
-    completion: /^PASS 10\/10 catalog product list projection PostgreSQL 16 rehearsal complete$/m,
+    completion:
+      /^PASS 10\/10 catalog product list projection PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/catalog-product-global-query/postgres-harness.mjs",
     total: 8,
     line: /^PASS \d+ .+$/gm,
-    completion: /^PASS 8\/8 catalog product global query PostgreSQL 16 rehearsal complete$/m,
+    completion:
+      /^PASS 8\/8 catalog product global query PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/tenant-custom-admin-domains/postgres-harness.mjs",
     total: 12,
     line: /^PASS \d+ .+$/gm,
-    completion: /^PASS 12\/12 tenant custom admin domains PostgreSQL 16 rehearsal complete$/m,
+    completion:
+      /^PASS 12\/12 tenant custom admin domains PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/auto-admin-domain-bundles/postgres-harness.mjs",
     total: 13,
     line: /^PASS \d+ .+$/gm,
-    completion: /^PASS 13\/13 automatic admin domain bundles PostgreSQL 16 rehearsal complete$/m,
+    completion:
+      /^PASS 13\/13 automatic admin domain bundles PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/inventory-locations/postgres-harness.mjs",
@@ -224,19 +236,37 @@ const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/storefront-hosted-payment-security.test.mjs",
 ]);
 
-function runRequiredHarness({ file, total, line, completion, transformTypes = false }) {
-  const result = spawnSync(process.execPath, [...(transformTypes ? ["--experimental-transform-types"] : []), file], {
-    cwd: ROOT,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-  });
+function runRequiredHarness({
+  file,
+  total,
+  line,
+  completion,
+  transformTypes = false,
+}) {
+  const result = spawnSync(
+    process.execPath,
+    [...(transformTypes ? ["--experimental-transform-types"] : []), file],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    },
+  );
   process.stdout.write(result.stdout ?? "");
   process.stderr.write(result.stderr ?? "");
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `${file} exited unsuccessfully`);
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-  assert.equal((output.match(line) ?? []).length, total, `${file} did not report ${total}/${total} exact successful scenarios`);
-  assert.match(output, completion, `${file} did not report its exact completion total`);
+  assert.equal(
+    (output.match(line) ?? []).length,
+    total,
+    `${file} did not report ${total}/${total} exact successful scenarios`,
+  );
+  assert.match(
+    output,
+    completion,
+    `${file} did not report its exact completion total`,
+  );
 }
 
 function discover(directory) {
@@ -251,33 +281,50 @@ function discover(directory) {
 const discovered = discover(PHASE3).sort((left, right) => {
   const leftGroup = left.split("/").at(-2);
   const rightGroup = right.split("/").at(-2);
-  const rankDifference = (gateRank[leftGroup] ?? 2) - (gateRank[rightGroup] ?? 2);
+  const rankDifference =
+    (gateRank[leftGroup] ?? 2) - (gateRank[rightGroup] ?? 2);
   return rankDifference || left.localeCompare(right);
 });
-const unknownHistorical = [...historical].filter((file) => !discovered.includes(file));
+const unknownHistorical = [...historical].filter(
+  (file) => !discovered.includes(file),
+);
 if (unknownHistorical.length) {
-  process.stderr.write(`Current Phase 3 matrix references missing snapshots:\n${unknownHistorical.join("\n")}\n`);
+  process.stderr.write(
+    `Current Phase 3 matrix references missing snapshots:\n${unknownHistorical.join("\n")}\n`,
+  );
   process.exit(1);
 }
 const current = discovered.filter((file) => !historical.has(file));
-const missingRequiredCurrentTests = requiredCurrentTests.filter((file) =>
-  !current.includes(file));
+const missingRequiredCurrentTests = requiredCurrentTests.filter(
+  (file) => !current.includes(file),
+);
 if (missingRequiredCurrentTests.length) {
   process.stderr.write(
     `Required current payment gates are missing:\n${missingRequiredCurrentTests.join("\n")}\n`,
   );
   process.exit(1);
 }
-process.stdout.write(`Running ${current.length} current cumulative Phase 3 test files.\n`);
+process.stdout.write(
+  `Running ${current.length} current cumulative Phase 3 test files.\n`,
+);
 for (const { file, reason } of matrix.historicalSnapshots) {
   process.stdout.write(`HISTORICAL_SCOPE_SNAPSHOT ${file}: ${reason}\n`);
 }
 for (const harness of requiredHarnesses) runRequiredHarness(harness);
-const result = spawnSync(process.execPath, ["--experimental-transform-types", "--test", "--test-concurrency=1", ...current], {
-  cwd: ROOT,
-  encoding: "utf8",
-  maxBuffer: 64 * 1024 * 1024,
-  stdio: "inherit",
-});
+const result = spawnSync(
+  process.execPath,
+  [
+    "--experimental-transform-types",
+    "--test",
+    "--test-concurrency=1",
+    ...current,
+  ],
+  {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: "inherit",
+  },
+);
 if (result.error) throw result.error;
 process.exit(result.status ?? 1);

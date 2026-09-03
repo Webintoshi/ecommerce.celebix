@@ -8,44 +8,80 @@ import type {
 } from "./types.ts";
 
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
-const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const HOSTNAME =
+  /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const DIGEST = /^[a-f0-9]{64}$/u;
 const KEY_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PHONE = /^\+90[1-9][0-9]{9}$/u;
 const ATTRIBUTION_DIMENSION = /^[\p{L}\p{N}][\p{L}\p{N} ._+/-]{0,127}$/u;
-const ATTRIBUTION_HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
+const ATTRIBUTION_HOSTNAME =
+  /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
 const ATTRIBUTION_PATH = /^\/[a-z0-9/_-]{0,127}$/u;
-const ATTRIBUTION_RISK = /@|(?:https?:\/\/|www\.)|(?:\+?\d[\d ()-]{8,}\d)|(?:\d[ -]?){13,19}|(?:token\s*=)/iu;
+const ATTRIBUTION_RISK =
+  /@|(?:https?:\/\/|www\.)|(?:\+?\d[\d ()-]{8,}\d)|(?:\d[ -]?){13,19}|(?:token\s*=)/iu;
 
-export function exactCommerceInput(value: unknown, required: readonly string[], optional: readonly string[] = []): Readonly<Record<string, unknown>> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) invalid();
+export function exactCommerceInput(
+  value: unknown,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    invalid();
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) invalid();
-  const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
+  const descriptors = Object.getOwnPropertyDescriptors(
+    value,
+  ) as unknown as Record<PropertyKey, PropertyDescriptor>;
   const allowed = new Set([...required, ...optional]);
   const keys = Reflect.ownKeys(descriptors);
-  if (keys.some((key) => typeof key !== "string" || !allowed.has(key)) || required.some((key) => !Object.hasOwn(descriptors, key))) invalid();
-  const output: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  if (
+    keys.some((key) => typeof key !== "string" || !allowed.has(key)) ||
+    required.some((key) => !Object.hasOwn(descriptors, key))
+  )
+    invalid();
+  const output: Record<string, unknown> = Object.create(null) as Record<
+    string,
+    unknown
+  >;
   for (const key of keys) {
     if (typeof key !== "string") invalid();
     const descriptor = descriptors[key];
-    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) invalid();
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable)
+      invalid();
     output[key] = descriptor.value;
   }
   return output;
 }
 
-function invalid(): never { throw new TypeError("invalid_input"); }
-function text(value: unknown, minimum: number, maximum: number, pattern?: RegExp): string {
-  if (typeof value !== "string" || value !== value.trim() || CONTROL.test(value)) invalid();
+function invalid(): never {
+  throw new TypeError("invalid_input");
+}
+function text(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+  pattern?: RegExp,
+): string {
+  if (
+    typeof value !== "string" ||
+    value !== value.trim() ||
+    CONTROL.test(value)
+  )
+    invalid();
   const bytes = Buffer.byteLength(value, "utf8");
-  if (bytes < minimum || bytes > maximum || (pattern && !pattern.test(value))) invalid();
+  if (bytes < minimum || bytes > maximum || (pattern && !pattern.test(value)))
+    invalid();
   return value;
 }
-export function commerceUuid(value: unknown): string { return text(value, 36, 36, UUID); }
-export function commerceHostname(value: unknown): string { return text(value, 3, 253, HOSTNAME); }
+export function commerceUuid(value: unknown): string {
+  return text(value, 36, 36, UUID);
+}
+export function commerceHostname(value: unknown): string {
+  return text(value, 3, 253, HOSTNAME);
+}
 export function commerceDate(value: unknown): Date {
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) invalid();
   return new Date(value.getTime());
@@ -55,22 +91,44 @@ export function commerceVersion(value: unknown): number {
   return value as number;
 }
 export function commerceQuantity(value: unknown): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 99) invalid();
+  if (
+    !Number.isSafeInteger(value) ||
+    (value as number) < 1 ||
+    (value as number) > 99
+  )
+    invalid();
   return value as number;
 }
 export function commerceLimit(value: unknown): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 50) invalid();
+  if (
+    !Number.isSafeInteger(value) ||
+    (value as number) < 1 ||
+    (value as number) > 50
+  )
+    invalid();
   return value as number;
 }
-export function commerceCandidates(value: unknown, allowEmpty = false): readonly StorefrontCredentialCandidate[] {
-  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > 16 || (!allowEmpty && value.length < 1)) invalid();
-  const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
+export function commerceCandidates(
+  value: unknown,
+  allowEmpty = false,
+): readonly StorefrontCredentialCandidate[] {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    value.length > 16 ||
+    (!allowEmpty && value.length < 1)
+  )
+    invalid();
+  const descriptors = Object.getOwnPropertyDescriptors(
+    value,
+  ) as unknown as Record<PropertyKey, PropertyDescriptor>;
   if (Reflect.ownKeys(descriptors).length !== value.length + 1) invalid();
   const seen = new Set<string>();
   const output: StorefrontCredentialCandidate[] = [];
   for (let index = 0; index < value.length; index += 1) {
     const descriptor = descriptors[String(index)];
-    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) invalid();
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable)
+      invalid();
     const candidate = exactCommerceInput(descriptor.value, ["keyId", "digest"]);
     const keyId = text(candidate.keyId, 1, 32, KEY_ID);
     const digest = text(candidate.digest, 64, 64, DIGEST);
@@ -81,22 +139,72 @@ export function commerceCandidates(value: unknown, allowEmpty = false): readonly
   }
   return Object.freeze(output);
 }
-function commerceAttributionDimension(value: unknown): string { const selected = text(value, 1, 128, ATTRIBUTION_DIMENSION); if (ATTRIBUTION_RISK.test(selected)) invalid(); return selected; }
-function commerceAttributionTouch(value: unknown) { const row = exactCommerceInput(value, ["source", "medium"], ["campaign"]); return Object.freeze({ source: commerceAttributionDimension(row.source), medium: commerceAttributionDimension(row.medium), ...(Object.hasOwn(row, "campaign") ? { campaign: commerceAttributionDimension(row.campaign) } : {}) }); }
-export function commerceAttribution(value: unknown): StorefrontCommerceAttribution {
-  const row = exactCommerceInput(value, ["firstTouch", "lastTouch", "landingPathGroup", "deviceGroup"], ["referrerHost"]);
+function commerceAttributionDimension(value: unknown): string {
+  const selected = text(value, 1, 128, ATTRIBUTION_DIMENSION);
+  if (ATTRIBUTION_RISK.test(selected)) invalid();
+  return selected;
+}
+function commerceAttributionTouch(value: unknown) {
+  const row = exactCommerceInput(value, ["source", "medium"], ["campaign"]);
+  return Object.freeze({
+    source: commerceAttributionDimension(row.source),
+    medium: commerceAttributionDimension(row.medium),
+    ...(Object.hasOwn(row, "campaign")
+      ? { campaign: commerceAttributionDimension(row.campaign) }
+      : {}),
+  });
+}
+export function commerceAttribution(
+  value: unknown,
+): StorefrontCommerceAttribution {
+  const row = exactCommerceInput(
+    value,
+    ["firstTouch", "lastTouch", "landingPathGroup", "deviceGroup"],
+    ["referrerHost", "anonymousSessionRef"],
+  );
   const landingPathGroup = text(row.landingPathGroup, 1, 128, ATTRIBUTION_PATH);
-  if (!["desktop", "mobile", "tablet", "unknown"].includes(String(row.deviceGroup))) invalid();
-  const referrerHost = Object.hasOwn(row, "referrerHost") ? text(row.referrerHost, 3, 253, ATTRIBUTION_HOSTNAME) : undefined;
+  if (
+    !["desktop", "mobile", "tablet", "unknown"].includes(
+      String(row.deviceGroup),
+    )
+  )
+    invalid();
+  const referrerHost = Object.hasOwn(row, "referrerHost")
+    ? text(row.referrerHost, 3, 253, ATTRIBUTION_HOSTNAME)
+    : undefined;
   if (referrerHost && referrerHost !== referrerHost.toLowerCase()) invalid();
-  const output = Object.freeze({ firstTouch: commerceAttributionTouch(row.firstTouch), lastTouch: commerceAttributionTouch(row.lastTouch), ...(referrerHost ? { referrerHost } : {}), landingPathGroup, deviceGroup: row.deviceGroup as StorefrontCommerceAttribution["deviceGroup"] });
+  const anonymousSessionRef = Object.hasOwn(row, "anonymousSessionRef")
+    ? text(row.anonymousSessionRef, 67, 67, /^h1_[0-9a-f]{64}$/)
+    : undefined;
+  const output = Object.freeze({
+    firstTouch: commerceAttributionTouch(row.firstTouch),
+    lastTouch: commerceAttributionTouch(row.lastTouch),
+    ...(referrerHost ? { referrerHost } : {}),
+    landingPathGroup,
+    deviceGroup:
+      row.deviceGroup as StorefrontCommerceAttribution["deviceGroup"],
+    ...(anonymousSessionRef ? { anonymousSessionRef } : {}),
+  });
   if (Buffer.byteLength(JSON.stringify(output), "utf8") > 1024) invalid();
   return output;
 }
-export function commerceGeneratedCredential(value: unknown, now: Date, maximumDays: number): StorefrontGeneratedCredential {
-  const parsed = exactCommerceInput(value, ["id", "keyId", "digest", "expiresAt"]);
+export function commerceGeneratedCredential(
+  value: unknown,
+  now: Date,
+  maximumDays: number,
+): StorefrontGeneratedCredential {
+  const parsed = exactCommerceInput(value, [
+    "id",
+    "keyId",
+    "digest",
+    "expiresAt",
+  ]);
   const expiresAt = commerceDate(parsed.expiresAt);
-  if (expiresAt <= now || expiresAt.getTime() > now.getTime() + maximumDays * 86_400_000) invalid();
+  if (
+    expiresAt <= now ||
+    expiresAt.getTime() > now.getTime() + maximumDays * 86_400_000
+  )
+    invalid();
   return Object.freeze({
     id: commerceUuid(parsed.id),
     keyId: text(parsed.keyId, 1, 32, KEY_ID),
@@ -104,13 +212,30 @@ export function commerceGeneratedCredential(value: unknown, now: Date, maximumDa
     expiresAt,
   });
 }
-function optionalText(record: Readonly<Record<string, unknown>>, key: string, maximum: number): string | undefined {
+function optionalText(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  maximum: number,
+): string | undefined {
   return Object.hasOwn(record, key) ? text(record[key], 1, maximum) : undefined;
 }
 export function commerceDelivery(value: unknown): StorefrontDelivery {
-  const parsed = exactCommerceInput(value, ["contact", "shippingAddress"], ["note"]);
-  const contact = exactCommerceInput(parsed.contact, ["firstName", "lastName", "email", "phone"]);
-  const address = exactCommerceInput(parsed.shippingAddress, ["line1", "city", "country"], ["line2", "district", "postalCode"]);
+  const parsed = exactCommerceInput(
+    value,
+    ["contact", "shippingAddress"],
+    ["note"],
+  );
+  const contact = exactCommerceInput(parsed.contact, [
+    "firstName",
+    "lastName",
+    "email",
+    "phone",
+  ]);
+  const address = exactCommerceInput(
+    parsed.shippingAddress,
+    ["line1", "city", "country"],
+    ["line2", "district", "postalCode"],
+  );
   if (address.country !== "TR") invalid();
   const firstName = text(contact.firstName, 1, 100);
   const lastName = text(contact.lastName, 1, 100);
@@ -133,10 +258,22 @@ export function commerceDelivery(value: unknown): StorefrontDelivery {
     ...(note ? { note } : {}),
   });
 }
-export function parseReceiptEnvelope(value: unknown, parse: (input: unknown) => PublicCheckoutReceipt) {
-  const selected = exactCommerceInput(value, ["receipt", "credentialPersistence"]);
-  const persistence = exactCommerceInput(selected.credentialPersistence, ["receipt", "customer", "receiptKeyId", "customerKeyId"]);
-  if (persistence.receipt !== true || typeof persistence.customer !== "boolean") invalid();
+export function parseReceiptEnvelope(
+  value: unknown,
+  parse: (input: unknown) => PublicCheckoutReceipt,
+) {
+  const selected = exactCommerceInput(value, [
+    "receipt",
+    "credentialPersistence",
+  ]);
+  const persistence = exactCommerceInput(selected.credentialPersistence, [
+    "receipt",
+    "customer",
+    "receiptKeyId",
+    "customerKeyId",
+  ]);
+  if (persistence.receipt !== true || typeof persistence.customer !== "boolean")
+    invalid();
   return Object.freeze({
     receipt: parse(selected.receipt),
     credentialPersistence: Object.freeze({
@@ -147,10 +284,21 @@ export function parseReceiptEnvelope(value: unknown, parse: (input: unknown) => 
     }),
   });
 }
-export function parseReceiptList(value: unknown, parse: (input: unknown) => PublicCheckoutReceipt): readonly PublicCheckoutReceipt[] {
+export function parseReceiptList(
+  value: unknown,
+  parse: (input: unknown) => PublicCheckoutReceipt,
+): readonly PublicCheckoutReceipt[] {
   const selected = exactCommerceInput(value, ["items"]);
-  if (!Array.isArray(selected.items) || Object.getPrototypeOf(selected.items) !== Array.prototype || selected.items.length > 50) invalid();
-  const descriptors = Object.getOwnPropertyDescriptors(selected.items) as unknown as Record<PropertyKey, PropertyDescriptor>;
-  if (Reflect.ownKeys(descriptors).length !== selected.items.length + 1) invalid();
+  if (
+    !Array.isArray(selected.items) ||
+    Object.getPrototypeOf(selected.items) !== Array.prototype ||
+    selected.items.length > 50
+  )
+    invalid();
+  const descriptors = Object.getOwnPropertyDescriptors(
+    selected.items,
+  ) as unknown as Record<PropertyKey, PropertyDescriptor>;
+  if (Reflect.ownKeys(descriptors).length !== selected.items.length + 1)
+    invalid();
   return Object.freeze(selected.items.map((item) => parse(item)));
 }

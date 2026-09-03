@@ -748,7 +748,7 @@ function parsePublicProductMerchandising(value: unknown): PublicProductMerchandi
 }
 
 export function parsePublicProduct(value: unknown): PublicProduct {
-  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media"], ["description", "compareAtCents", "brand", "categoryPath", "merchandising", "reviews"]);
+  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media"], ["primaryCategoryId", "description", "compareAtCents", "brand", "categoryPath", "merchandising", "reviews"]);
   if (parsed.currency !== "TRY" || parsed.status !== "active" || !Array.isArray(parsed.variants) || !Array.isArray(parsed.media) || parsed.variants.length < 1 || parsed.variants.length > 100 || parsed.media.length > 16) invalid();
   const priceCents = integer(parsed.priceCents, 0);
   const compareAtCents = optionalInteger(parsed, "compareAtCents", priceCents, Number.MAX_SAFE_INTEGER);
@@ -761,5 +761,5 @@ export function parsePublicProduct(value: unknown): PublicProduct {
   const brand = Object.hasOwn(parsed, "brand") ? (() => { const value = exact(parsed.brand, ["name", "slug"]); return Object.freeze({ name: string(value.name, 1, 200), slug: string(value.slug, 1, 100, SLUG) }); })() : undefined;
   const merchandising = Object.hasOwn(parsed, "merchandising") ? parsePublicProductMerchandising(parsed.merchandising) : undefined;
   const reviews = Object.hasOwn(parsed, "reviews") ? Object.freeze(arrayValues(parsed.reviews, 0, 20).map(parsePublicReview)) : undefined;
-  return Object.freeze({ id, slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), ...(brand ? { brand } : {}), ...(categoryPath ? { categoryPath } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media, ...(merchandising ? { merchandising } : {}), ...(reviews ? { reviews } : {}) });
+  return Object.freeze({ id, ...(Object.hasOwn(parsed, "primaryCategoryId") ? { primaryCategoryId: uuid(parsed.primaryCategoryId) } : {}), slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), ...(brand ? { brand } : {}), ...(categoryPath ? { categoryPath } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media, ...(merchandising ? { merchandising } : {}), ...(reviews ? { reviews } : {}) });
 }

@@ -56,7 +56,7 @@ export function createAbandonedCartApiClient(rawOptions: Options = {}) {
   return Object.freeze({
     async issueRecoveryLink(id: string): Promise<Readonly<{ url: string; expiresAt: string }>> {
       const body = await request(`/api/orders/abandoned-carts/${identifier(id)}/recovery-link`, { method: "POST", credentials: "same-origin" });
-      return safe(() => { const row = record(body); if (row === null || Object.keys(row).sort().join(",") !== "expiresAt,url" || typeof row.url !== "string" || typeof row.expiresAt !== "string") throw new TypeError(); const url = new URL(row.url); if (url.protocol !== "https:" || url.username || url.password || url.hash || url.pathname !== "/api/cart/recover" || !/^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get("token") ?? "")) throw new TypeError(); return Object.freeze({ url: row.url, expiresAt: row.expiresAt }); });
+      return safe(() => { const row = record(body); if (row === null || Object.keys(row).sort().join(",") !== "expiresAt,url" || typeof row.url !== "string" || typeof row.expiresAt !== "string") throw new TypeError(); const url = new URL(row.url); if (url.protocol !== "https:" || url.username || url.password || url.search || url.pathname !== "/cart/recover" || !/^#token=[A-Za-z0-9_-]{43}$/.test(url.hash)) throw new TypeError(); return Object.freeze({ url: row.url, expiresAt: row.expiresAt }); });
     },
     async recordRecoveryAttempt(id: string, kind: "contacted" | "note", note?: string): Promise<Readonly<{ cartId: string; kind: "contacted" | "note"; recordedAt: string; replayed: boolean }>> {
       const cartId = identifier(id); const operationId = identifier(randomUUID());

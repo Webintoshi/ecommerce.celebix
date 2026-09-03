@@ -14,9 +14,11 @@ import {
 const PRODUCT_ID = "20000000-0000-4000-8000-000000000001";
 const VARIANT_ID = "30000000-0000-4000-8000-000000000001";
 const MEDIA_ID = "40000000-0000-4000-8000-000000000001";
+const CATEGORY_ID = "50000000-0000-4000-8000-000000000001";
 
 const PRODUCT = Object.freeze({
   id: PRODUCT_ID,
+  primaryCategoryId: CATEGORY_ID,
   slug: "altin-yuzuk",
   title: "Altın Yüzük",
   currency: "TRY" as const,
@@ -51,6 +53,7 @@ const PRODUCT = Object.freeze({
 
 const CART_LINE = Object.freeze({
   productId: PRODUCT_ID,
+  categoryId: CATEGORY_ID,
   variantId: VARIANT_ID,
   slug: "altin-yuzuk",
   title: "Altın Yüzük",
@@ -171,6 +174,7 @@ test("public cart validates server-computed totals and exact line authority", ()
   assert.deepEqual(parsed, CART);
   assert.equal(Object.isFrozen(parsed.items), true);
   assert.equal(Object.isFrozen(parsed.items[0]?.media), true);
+  assert.equal(parsed.items[0]?.categoryId, CATEGORY_ID);
   assert.throws(() => parsePublicCart({ ...CART, totalCents: 1 }));
   assert.throws(() => parsePublicCart({ ...CART, itemCount: 2 }));
   assert.throws(() => parsePublicCart({ ...CART, items: [{ ...CART_LINE, credential: "raw" }] }));

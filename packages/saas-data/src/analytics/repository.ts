@@ -1,33 +1,719 @@
 import { createHash } from "node:crypto";
-import { ANALYTICS_PERIODS, parseAnalyticsDashboard, parseCommerceAnalyticsSettings, parseCommerceAnalyticsSnapshot, type AnalyticsConnectionMutationResult, type AnalyticsConnectionView, type AnalyticsDashboard, type AnalyticsPeriod, type CommerceAnalyticsSnapshot, type TenantContext } from "@celebix/saas-contracts";
-import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
-import { ANALYTICS_ERROR_CODES, AnalyticsRepositoryError, type AnalyticsErrorCode } from "./errors.ts";
-import type { AnalyticsConnectionAuthority, AnalyticsPendingAuthority, AnalyticsRepository, PostgresAnalyticsRepositoryOptions } from "./types.ts";
-import { authority, authorityValues, connectionAuthority, connectionView, date, exact, hostname, mutation, pending, positive, projectConnection, uuid, type AnalyticsAuthority } from "./validation.ts";
+import {
+  ANALYTICS_PERIODS,
+  parseAnalyticsDashboard,
+  parseCommerceAnalyticsSettings,
+  parseCommerceAnalyticsSnapshot,
+  type AnalyticsConnectionMutationResult,
+  type AnalyticsConnectionView,
+  type AnalyticsDashboard,
+  type AnalyticsPeriod,
+  type CommerceAnalyticsSettings,
+  type CommerceAnalyticsSnapshot,
+  type TenantContext,
+} from "@celebix/saas-contracts";
+import {
+  acquirePostgresClient,
+  type PostgresClientLike,
+} from "../postgres/pool.ts";
+import {
+  ANALYTICS_ERROR_CODES,
+  AnalyticsRepositoryError,
+  type AnalyticsErrorCode,
+} from "./errors.ts";
+import type {
+  AnalyticsConnectionAuthority,
+  AnalyticsPendingAuthority,
+  AnalyticsRepository,
+  CommerceAnalyticsPaidSession,
+  CommerceAnalyticsQueryFilters,
+  PostgresAnalyticsRepositoryOptions,
+} from "./types.ts";
+import {
+  authority,
+  authorityValues,
+  connectionAuthority,
+  connectionView,
+  date,
+  exact,
+  hostname,
+  mutation,
+  pending,
+  positive,
+  projectConnection,
+  uuid,
+  type AnalyticsAuthority,
+} from "./validation.ts";
 
-type Spec=Readonly<{text:string;values:unknown[]}>;type Result=Readonly<{outcome:string;payload:unknown}>;
-const CODES=new Set<string>(ANALYTICS_ERROR_CODES);function unavailable(){return new AnalyticsRepositoryError("unavailable")}function timeout(value:number){if(!Number.isSafeInteger(value)||value<1||value>60000)throw unavailable();return`${value}ms`}function release(c:PostgresClientLike,destroy=false){try{c.release(destroy||undefined)}catch{}}
-function row(result:Readonly<{rows:unknown[];rowCount?:number|null}>):Result{if(result.rowCount!==1||result.rows.length!==1)throw unavailable();const p=exact(result.rows[0],["outcome","result_payload"],"unavailable");if(typeof p.outcome!=="string")throw unavailable();return{outcome:p.outcome,payload:p.result_payload}}
-function fingerprint(kind:string,storeId:string,payload:unknown){return createHash("sha256").update(JSON.stringify({kind,storeId,payload})).digest("hex")}
-export class PostgresAnalyticsRepository implements AnalyticsRepository{
-  private options:PostgresAnalyticsRepositoryOptions;
-  constructor(options:PostgresAnalyticsRepositoryOptions){try{if(!options||typeof options!=="object"||Array.isArray(options)||Object.keys(options).sort().join(",")!=="audit,pool,role,timeouts,uuid"||options.role!=="celebix_saas_app"||typeof options.uuid!=="function"||typeof options.audit!=="function"||!options.timeouts||Object.keys(options.timeouts).sort().join(",")!=="idleTransactionMs,lockMs,poolCheckoutMs,statementMs")throw unavailable();for(const value of Object.values(options.timeouts))timeout(value);this.options=Object.freeze({...options,timeouts:Object.freeze({...options.timeouts})})}catch(error){if(error instanceof AnalyticsRepositoryError)throw error;throw unavailable()}}
-  private async acquire(){try{return await acquirePostgresClient(this.options.pool,this.options.timeouts.poolCheckoutMs)}catch{throw unavailable()}}
-  private async configure(c:PostgresClientLike){await c.query("SELECT pg_catalog.set_config('statement_timeout', $1, true)",[timeout(this.options.timeouts.statementMs)]);await c.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)",[timeout(this.options.timeouts.lockMs)]);await c.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)",[timeout(this.options.timeouts.idleTransactionMs)]);await c.query("SET LOCAL ROLE celebix_saas_app")}
-  private error(outcome:string){return CODES.has(outcome)?new AnalyticsRepositoryError(outcome as AnalyticsErrorCode):undefined}
-  private async rollback(c:PostgresClientLike){try{await c.query("ROLLBACK");release(c)}catch{release(c,true)}}
-  private async read(spec:Spec,allowed:readonly string[]):Promise<Result>{const c=await this.acquire();let began=false,terminal=false;try{await c.query("BEGIN READ ONLY");began=true;await this.configure(c);const result=row(await c.query(spec.text,spec.values));const error=this.error(result.outcome);if(error&&!allowed.includes(result.outcome))throw error;if(!allowed.includes(result.outcome))throw unavailable();try{await c.query("COMMIT");terminal=true;release(c)}catch{terminal=true;release(c,true);throw unavailable()}return result}catch(error){if(began&&!terminal)await this.rollback(c);else if(!began&&!terminal)release(c,true);if(error instanceof AnalyticsRepositoryError)throw error;throw unavailable()}}
-  private audit(){try{const result=this.options.audit({type:"analytics_commit_unknown"});if(result)void result.catch(()=>undefined)}catch{}}
-  private recover(a:AnalyticsAuthority,operationId:string,digest:string,parser:(value:unknown,replayed:boolean)=>AnalyticsConnectionMutationResult|AnalyticsPendingAuthority){return this.read({text:"SELECT outcome,result_payload FROM saas.analytics_connection_recover_operation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",values:[...authorityValues(a),operationId,digest]},["operation_recovered"]).then((result)=>parser(result.payload,true))}
-  private async mutate<T extends AnalyticsConnectionMutationResult|AnalyticsPendingAuthority>(a:AnalyticsAuthority,operationId:string,digest:string,expected:readonly string[],spec:Spec,parser:(value:unknown,replayed:boolean,outcome:string)=>T):Promise<T>{const c=await this.acquire();let began=false,terminal=false;try{await c.query("BEGIN ISOLATION LEVEL READ COMMITTED");began=true;await this.configure(c);const result=row(await c.query(spec.text,spec.values));const error=this.error(result.outcome);if(error&&!expected.includes(result.outcome)&&result.outcome!=="operation_replayed")throw error;if(!expected.includes(result.outcome)&&result.outcome!=="operation_replayed")throw unavailable();const parsed=parser(result.payload,result.outcome==="operation_replayed",result.outcome);try{await c.query("COMMIT");terminal=true;release(c);return parsed}catch{terminal=true;release(c,true);this.audit();return await this.recover(a,operationId,digest,(value,replayed)=>parser(value,replayed,"operation_recovered")) as T}}catch(error){if(began&&!terminal)await this.rollback(c);else if(!began&&!terminal)release(c,true);if(error instanceof AnalyticsRepositoryError)throw error;throw unavailable()}}
-  private input(value:unknown,keys:readonly string[]){const p=exact(value,keys);return{p,a:authority(p.tenantContext as TenantContext,p.now as Date)}}
-  private getSpec(a:AnalyticsAuthority):Spec{return{text:"SELECT outcome,result_payload FROM saas.analytics_connection_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",values:authorityValues(a)}}
-  async dashboard(input:Readonly<{tenantContext:TenantContext;now:Date;period:AnalyticsPeriod}>):Promise<Readonly<AnalyticsDashboard>>{const{p,a}=this.input(input,["tenantContext","now","period"]);if(typeof p.period!=="string"||!ANALYTICS_PERIODS.includes(p.period as AnalyticsPeriod))throw new AnalyticsRepositoryError("invalid_input");const period=p.period as AnalyticsPeriod;const result=await this.read({text:"SELECT outcome,result_payload FROM saas.merchant_analytics_dashboard($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text)",values:[...authorityValues(a),period]},["resolved"]);try{const dashboard=parseAnalyticsDashboard(result.payload);if(dashboard.period!==period)throw unavailable();return dashboard}catch(error){if(error instanceof AnalyticsRepositoryError)throw error;throw unavailable()}}
-  async commerceSnapshot(input:Readonly<{tenantContext:TenantContext;now:Date;rangeStart:Date;rangeEnd:Date}>):Promise<Readonly<CommerceAnalyticsSnapshot>>{const{p,a}=this.input(input,["tenantContext","now","rangeStart","rangeEnd"]),rangeStart=date(p.rangeStart),rangeEnd=date(p.rangeEnd);if(rangeStart>=rangeEnd||rangeEnd>a.now||rangeEnd.getTime()-rangeStart.getTime()>400*24*60*60*1000)throw new AnalyticsRepositoryError("invalid_input");const result=await this.read({text:"SELECT outcome,result_payload FROM saas.commerce_analytics_snapshot($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::timestamptz,$9::timestamptz)",values:[...authorityValues(a),rangeStart,rangeEnd]},["resolved"]);try{const snapshot=parseCommerceAnalyticsSnapshot(result.payload);if(snapshot.rangeStart!==rangeStart.toISOString()||snapshot.rangeEnd!==rangeEnd.toISOString())throw unavailable();return snapshot}catch(error){if(error instanceof AnalyticsRepositoryError)throw error;throw unavailable()}}
-  async updateCommerceSettings(input:Readonly<{tenantContext:TenantContext;now:Date;expectedVersion:number;candidateInactivityMinutes:number;abandonedInactivityHours:number;recoveryLinkHours:number;automaticRecoveryEnabled:boolean;maximumMessageAttempts:number;minimumMessageIntervalHours:number;trackingPolicy:"disabled"|"anonymous_commerce"}>):Promise<Readonly<CommerceAnalyticsSnapshot["settings"]>>{const{p,a}=this.input(input,["tenantContext","now","expectedVersion","candidateInactivityMinutes","abandonedInactivityHours","recoveryLinkHours","automaticRecoveryEnabled","maximumMessageAttempts","minimumMessageIntervalHours","trackingPolicy"]);let selected:Readonly<CommerceAnalyticsSnapshot["settings"]>;try{selected=parseCommerceAnalyticsSettings({candidateInactivityMinutes:p.candidateInactivityMinutes,abandonedInactivityHours:p.abandonedInactivityHours,recoveryLinkHours:p.recoveryLinkHours,automaticRecoveryEnabled:p.automaticRecoveryEnabled,maximumMessageAttempts:p.maximumMessageAttempts,minimumMessageIntervalHours:p.minimumMessageIntervalHours,trackingPolicy:p.trackingPolicy,version:p.expectedVersion})}catch{throw new AnalyticsRepositoryError("invalid_input")}const client=await this.acquire();let began=false,terminal=false;try{await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");began=true;await this.configure(client);const result=row(await client.query("SELECT outcome,result_payload FROM saas.commerce_analytics_settings_update($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::bigint,$9::integer,$10::integer,$11::integer,$12::boolean,$13::integer,$14::integer,$15::text)",[...authorityValues(a),selected.version,selected.candidateInactivityMinutes,selected.abandonedInactivityHours,selected.recoveryLinkHours,selected.automaticRecoveryEnabled,selected.maximumMessageAttempts,selected.minimumMessageIntervalHours,selected.trackingPolicy]));if(result.outcome==="version_conflict")throw new AnalyticsRepositoryError("version_conflict");const known=this.error(result.outcome);if(known)throw known;if(result.outcome!=="committed")throw unavailable();const parsed=parseCommerceAnalyticsSettings(result.payload);await client.query("COMMIT");terminal=true;release(client);return parsed}catch(error){if(began&&!terminal)await this.rollback(client);else if(!began&&!terminal)release(client,true);if(error instanceof AnalyticsRepositoryError)throw error;throw unavailable()}}
-  async getConnection(input:Readonly<{tenantContext:TenantContext;now:Date}>):Promise<AnalyticsConnectionView>{const{a}=this.input(input,["tenantContext","now"]);const result=await this.read(this.getSpec(a),["found","not_configured"]);return result.outcome==="not_configured"?connectionView(result.payload):projectConnection(result.payload)}
-  async getConnectionAuthority(input:Readonly<{tenantContext:TenantContext;now:Date}>):Promise<AnalyticsConnectionAuthority>{const{a}=this.input(input,["tenantContext","now"]);return connectionAuthority((await this.read(this.getSpec(a),["found"])).payload)}
-  async beginConnection(input:Readonly<{tenantContext:TenantContext;now:Date;operationId:string;connectionId:string;websiteId:string}>):Promise<AnalyticsPendingAuthority>{const{p,a}=this.input(input,["tenantContext","now","operationId","connectionId","websiteId"]),operationId=uuid(p.operationId),connectionId=uuid(p.connectionId),websiteId=uuid(p.websiteId),digest=fingerprint("begin",a.storeId,{connectionId,websiteId});return this.mutate(a,operationId,digest,["pending","active"],{text:"SELECT outcome,result_payload FROM saas.analytics_connection_begin($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::uuid)",values:[...authorityValues(a),operationId,digest,connectionId,websiteId]},(value,replayed,outcome)=>pending(value,outcome==="active"?"active":"pending",replayed))}
-  async activateConnection(input:Readonly<{tenantContext:TenantContext;now:Date;operationId:string;connectionId:string;websiteId:string;verifiedHostname:string}>):Promise<AnalyticsConnectionMutationResult>{const{p,a}=this.input(input,["tenantContext","now","operationId","connectionId","websiteId","verifiedHostname"]),operationId=uuid(p.operationId),connectionId=uuid(p.connectionId),websiteId=uuid(p.websiteId),verifiedHostname=hostname(p.verifiedHostname),digest=fingerprint("activate",a.storeId,{connectionId,websiteId,verifiedHostname});return this.mutate(a,operationId,digest,["active"],{text:"SELECT outcome,result_payload FROM saas.analytics_connection_activate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::uuid,$12::text)",values:[...authorityValues(a),operationId,digest,connectionId,websiteId,verifiedHostname]},(value,replayed)=>mutation(value,replayed))}
-  async disableConnection(input:Readonly<{tenantContext:TenantContext;now:Date;operationId:string;expectedVersion:number}>):Promise<AnalyticsConnectionMutationResult>{const{p,a}=this.input(input,["tenantContext","now","operationId","expectedVersion"]),operationId=uuid(p.operationId),expectedVersion=positive(p.expectedVersion),current=await this.getConnectionAuthority({tenantContext:p.tenantContext as TenantContext,now:date(p.now)}),digest=fingerprint("disable",a.storeId,{connectionId:current.connectionId,expectedVersion});return this.mutate(a,operationId,digest,["disabled"],{text:"SELECT outcome,result_payload FROM saas.analytics_connection_disable($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",values:[...authorityValues(a),operationId,digest,current.connectionId,expectedVersion]},(value,replayed)=>mutation(value,replayed))}
+type Spec = Readonly<{ text: string; values: unknown[] }>;
+type Result = Readonly<{ outcome: string; payload: unknown }>;
+const CODES = new Set<string>(ANALYTICS_ERROR_CODES);
+function unavailable() {
+  return new AnalyticsRepositoryError("unavailable");
+}
+function timeout(value: number) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 60000)
+    throw unavailable();
+  return `${value}ms`;
+}
+function release(c: PostgresClientLike, destroy = false) {
+  try {
+    c.release(destroy || undefined);
+  } catch {}
+}
+function row(
+  result: Readonly<{ rows: unknown[]; rowCount?: number | null }>,
+): Result {
+  if (result.rowCount !== 1 || result.rows.length !== 1) throw unavailable();
+  const p = exact(result.rows[0], ["outcome", "result_payload"], "unavailable");
+  if (typeof p.outcome !== "string") throw unavailable();
+  return { outcome: p.outcome, payload: p.result_payload };
+}
+function fingerprint(kind: string, storeId: string, payload: unknown) {
+  return createHash("sha256")
+    .update(JSON.stringify({ kind, storeId, payload }))
+    .digest("hex");
+}
+const COMMERCE_FILTER_KEYS = new Set([
+  "view",
+  "device",
+  "source",
+  "campaign",
+  "productId",
+  "categoryId",
+  "currency",
+  "touch",
+  "search",
+  "lifecycle",
+  "contact",
+  "brandId",
+  "minimumValueMinor",
+  "maximumValueMinor",
+  "productPage",
+  "cartPage",
+  "timezone",
+]);
+function commerceFilters(value: unknown): CommerceAnalyticsQueryFilters {
+  if (value === undefined) return Object.freeze({});
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new AnalyticsRepositoryError("invalid_input");
+  const selected = value as Record<string, unknown>;
+  if (Object.keys(selected).some((key) => !COMMERCE_FILTER_KEYS.has(key)))
+    throw new AnalyticsRepositoryError("invalid_input");
+  for (const [key, entry] of Object.entries(selected)) {
+    if (
+      key === "minimumValueMinor" ||
+      key === "maximumValueMinor" ||
+      key === "productPage" ||
+      key === "cartPage"
+    ) {
+      if (
+        !Number.isSafeInteger(entry) ||
+        Number(entry) < (key === "productPage" || key === "cartPage" ? 1 : 0) ||
+        ((key === "productPage" || key === "cartPage") &&
+          Number(entry) > 100000)
+      )
+        throw new AnalyticsRepositoryError("invalid_input");
+    } else if (
+      typeof entry !== "string" ||
+      entry.length < 1 ||
+      entry.length > 128 ||
+      entry !== entry.trim() ||
+      /[\u0000-\u001f\u007f]/.test(entry)
+    )
+      throw new AnalyticsRepositoryError("invalid_input");
+  }
+  if (
+    selected.view !== undefined &&
+    ![
+      "overview",
+      "funnel",
+      "abandoned-carts",
+      "acquisition",
+      "products",
+      "status",
+    ].includes(String(selected.view))
+  )
+    throw new AnalyticsRepositoryError("invalid_input");
+  return Object.freeze({ ...selected }) as CommerceAnalyticsQueryFilters;
+}
+export class PostgresAnalyticsRepository implements AnalyticsRepository {
+  private options: PostgresAnalyticsRepositoryOptions;
+  constructor(options: PostgresAnalyticsRepositoryOptions) {
+    try {
+      if (
+        !options ||
+        typeof options !== "object" ||
+        Array.isArray(options) ||
+        Object.keys(options).sort().join(",") !==
+          "audit,pool,role,timeouts,uuid" ||
+        options.role !== "celebix_saas_app" ||
+        typeof options.uuid !== "function" ||
+        typeof options.audit !== "function" ||
+        !options.timeouts ||
+        Object.keys(options.timeouts).sort().join(",") !==
+          "idleTransactionMs,lockMs,poolCheckoutMs,statementMs"
+      )
+        throw unavailable();
+      for (const value of Object.values(options.timeouts)) timeout(value);
+      this.options = Object.freeze({
+        ...options,
+        timeouts: Object.freeze({ ...options.timeouts }),
+      });
+    } catch (error) {
+      if (error instanceof AnalyticsRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+  private async acquire() {
+    try {
+      return await acquirePostgresClient(
+        this.options.pool,
+        this.options.timeouts.poolCheckoutMs,
+      );
+    } catch {
+      throw unavailable();
+    }
+  }
+  private async configure(c: PostgresClientLike) {
+    await c.query(
+      "SELECT pg_catalog.set_config('statement_timeout', $1, true)",
+      [timeout(this.options.timeouts.statementMs)],
+    );
+    await c.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [
+      timeout(this.options.timeouts.lockMs),
+    ]);
+    await c.query(
+      "SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)",
+      [timeout(this.options.timeouts.idleTransactionMs)],
+    );
+    await c.query("SET LOCAL ROLE celebix_saas_app");
+  }
+  private error(outcome: string) {
+    return CODES.has(outcome)
+      ? new AnalyticsRepositoryError(outcome as AnalyticsErrorCode)
+      : undefined;
+  }
+  private async rollback(c: PostgresClientLike) {
+    try {
+      await c.query("ROLLBACK");
+      release(c);
+    } catch {
+      release(c, true);
+    }
+  }
+  private async read(spec: Spec, allowed: readonly string[]): Promise<Result> {
+    const c = await this.acquire();
+    let began = false,
+      terminal = false;
+    try {
+      await c.query("BEGIN READ ONLY");
+      began = true;
+      await this.configure(c);
+      const result = row(await c.query(spec.text, spec.values));
+      const error = this.error(result.outcome);
+      if (error && !allowed.includes(result.outcome)) throw error;
+      if (!allowed.includes(result.outcome)) throw unavailable();
+      try {
+        await c.query("COMMIT");
+        terminal = true;
+        release(c);
+      } catch {
+        terminal = true;
+        release(c, true);
+        throw unavailable();
+      }
+      return result;
+    } catch (error) {
+      if (began && !terminal) await this.rollback(c);
+      else if (!began && !terminal) release(c, true);
+      if (error instanceof AnalyticsRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+  private audit() {
+    try {
+      const result = this.options.audit({ type: "analytics_commit_unknown" });
+      if (result) void result.catch(() => undefined);
+    } catch {}
+  }
+  private recover(
+    a: AnalyticsAuthority,
+    operationId: string,
+    digest: string,
+    parser: (
+      value: unknown,
+      replayed: boolean,
+    ) => AnalyticsConnectionMutationResult | AnalyticsPendingAuthority,
+  ) {
+    return this.read(
+      {
+        text: "SELECT outcome,result_payload FROM saas.analytics_connection_recover_operation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",
+        values: [...authorityValues(a), operationId, digest],
+      },
+      ["operation_recovered"],
+    ).then((result) => parser(result.payload, true));
+  }
+  private async mutate<
+    T extends AnalyticsConnectionMutationResult | AnalyticsPendingAuthority,
+  >(
+    a: AnalyticsAuthority,
+    operationId: string,
+    digest: string,
+    expected: readonly string[],
+    spec: Spec,
+    parser: (value: unknown, replayed: boolean, outcome: string) => T,
+  ): Promise<T> {
+    const c = await this.acquire();
+    let began = false,
+      terminal = false;
+    try {
+      await c.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      began = true;
+      await this.configure(c);
+      const result = row(await c.query(spec.text, spec.values));
+      const error = this.error(result.outcome);
+      if (
+        error &&
+        !expected.includes(result.outcome) &&
+        result.outcome !== "operation_replayed"
+      )
+        throw error;
+      if (
+        !expected.includes(result.outcome) &&
+        result.outcome !== "operation_replayed"
+      )
+        throw unavailable();
+      const parsed = parser(
+        result.payload,
+        result.outcome === "operation_replayed",
+        result.outcome,
+      );
+      try {
+        await c.query("COMMIT");
+        terminal = true;
+        release(c);
+        return parsed;
+      } catch {
+        terminal = true;
+        release(c, true);
+        this.audit();
+        return (await this.recover(a, operationId, digest, (value, replayed) =>
+          parser(value, replayed, "operation_recovered"),
+        )) as T;
+      }
+    } catch (error) {
+      if (began && !terminal) await this.rollback(c);
+      else if (!began && !terminal) release(c, true);
+      if (error instanceof AnalyticsRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+  private input(value: unknown, keys: readonly string[]) {
+    const p = exact(value, keys);
+    return { p, a: authority(p.tenantContext as TenantContext, p.now as Date) };
+  }
+  private getSpec(a: AnalyticsAuthority): Spec {
+    return {
+      text: "SELECT outcome,result_payload FROM saas.analytics_connection_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
+      values: authorityValues(a),
+    };
+  }
+  async dashboard(
+    input: Readonly<{
+      tenantContext: TenantContext;
+      now: Date;
+      period: AnalyticsPeriod;
+    }>,
+  ): Promise<Readonly<AnalyticsDashboard>> {
+    const { p, a } = this.input(input, ["tenantContext", "now", "period"]);
+    if (
+      typeof p.period !== "string" ||
+      !ANALYTICS_PERIODS.includes(p.period as AnalyticsPeriod)
+    )
+      throw new AnalyticsRepositoryError("invalid_input");
+    const period = p.period as AnalyticsPeriod;
+    const result = await this.read(
+      {
+        text: "SELECT outcome,result_payload FROM saas.merchant_analytics_dashboard($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text)",
+        values: [...authorityValues(a), period],
+      },
+      ["resolved"],
+    );
+    try {
+      const dashboard = parseAnalyticsDashboard(result.payload);
+      if (dashboard.period !== period) throw unavailable();
+      return dashboard;
+    } catch (error) {
+      if (error instanceof AnalyticsRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+  async commerceTimezone(
+    input: Readonly<{ tenantContext: TenantContext; now: Date }>,
+  ): Promise<string> {
+    const { a } = this.input(input, ["tenantContext", "now"]),
+      result = await this.read(
+        {
+          text: "SELECT outcome,result_payload FROM saas.commerce_analytics_timezone($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
+          values: authorityValues(a),
+        },
+        ["resolved"],
+      );
+    if (
+      typeof result.payload !== "string" ||
+      result.payload.length < 1 ||
+      result.payload.length > 64
+    )
+      throw unavailable();
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: result.payload });
+    } catch {
+      throw unavailable();
+    }
+    return result.payload;
+  }
+  async commerceSnapshot(
+    input: Readonly<{
+      tenantContext: TenantContext;
+      now: Date;
+      rangeStart: Date;
+      rangeEnd: Date;
+      filters?: CommerceAnalyticsQueryFilters;
+    }>,
+  ): Promise<Readonly<CommerceAnalyticsSnapshot>> {
+    const inputKeys = Object.prototype.hasOwnProperty.call(input, "filters")
+      ? ["tenantContext", "now", "rangeStart", "rangeEnd", "filters"]
+      : ["tenantContext", "now", "rangeStart", "rangeEnd"];
+    const { p, a } = this.input(input, inputKeys),
+      rangeStart = date(p.rangeStart),
+      rangeEnd = date(p.rangeEnd),
+      filters = commerceFilters(p.filters);
+    if (
+      rangeStart >= rangeEnd ||
+      rangeEnd > a.now ||
+      rangeEnd.getTime() - rangeStart.getTime() > 400 * 24 * 60 * 60 * 1000
+    )
+      throw new AnalyticsRepositoryError("invalid_input");
+    const result = await this.read(
+      {
+        text: "SELECT outcome,result_payload FROM saas.commerce_analytics_snapshot($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::timestamptz,$9::timestamptz,$10::jsonb)",
+        values: [
+          ...authorityValues(a),
+          rangeStart,
+          rangeEnd,
+          JSON.stringify(filters),
+        ],
+      },
+      ["resolved"],
+    );
+    try {
+      const snapshot = parseCommerceAnalyticsSnapshot(result.payload);
+      if (
+        snapshot.rangeStart !== rangeStart.toISOString() ||
+        snapshot.rangeEnd !== rangeEnd.toISOString()
+      )
+        throw unavailable();
+      return snapshot;
+    } catch (error) {
+      if (error instanceof AnalyticsRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+  async commerceSettings(
+    input: Readonly<{ tenantContext: TenantContext; now: Date }>,
+  ): Promise<Readonly<CommerceAnalyticsSettings>> {
+    const { a } = this.input(input, ["tenantContext", "now"]),
+      result = await this.read(
+        {
+          text: "SELECT outcome,result_payload FROM saas.commerce_analytics_settings_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
+          values: authorityValues(a),
+        },
+        ["resolved"],
+      );
+    try {
+      return parseCommerceAnalyticsSettings(result.payload);
+    } catch (error) {
+      if (error instanceof AnalyticsRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+  async paidFunnelSessions(
+    input: Readonly<{
+      tenantContext: TenantContext;
+      now: Date;
+      rangeStart: Date;
+      rangeEnd: Date;
+      filters?: CommerceAnalyticsQueryFilters;
+    }>,
+  ): Promise<readonly CommerceAnalyticsPaidSession[]> {
+    const inputKeys = Object.prototype.hasOwnProperty.call(input, "filters")
+      ? ["tenantContext", "now", "rangeStart", "rangeEnd", "filters"]
+      : ["tenantContext", "now", "rangeStart", "rangeEnd"];
+    const { p, a } = this.input(input, inputKeys),
+      rangeStart = date(p.rangeStart),
+      rangeEnd = date(p.rangeEnd),
+      filters = commerceFilters(p.filters);
+    if (
+      rangeStart >= rangeEnd ||
+      rangeEnd > a.now ||
+      rangeEnd.getTime() - rangeStart.getTime() > 400 * 24 * 60 * 60 * 1000
+    )
+      throw new AnalyticsRepositoryError("invalid_input");
+    const result = await this.read(
+      {
+        text: "SELECT outcome,result_payload FROM saas.commerce_analytics_paid_funnel_sessions($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::timestamptz,$9::timestamptz,$10::jsonb)",
+        values: [
+          ...authorityValues(a),
+          rangeStart,
+          rangeEnd,
+          JSON.stringify(filters),
+        ],
+      },
+      ["resolved"],
+    );
+    if (!Array.isArray(result.payload) || result.payload.length > 10_000)
+      throw unavailable();
+    return Object.freeze(
+      result.payload.map((entry): CommerceAnalyticsPaidSession => {
+        const value = exact(entry, ["anonymousSessionRef", "occurredAt"]),
+          anonymousSessionRef = String(value.anonymousSessionRef),
+          occurredAt = String(value.occurredAt);
+        if (
+          !/^h1_[0-9a-f]{64}$/.test(anonymousSessionRef) ||
+          !Number.isFinite(Date.parse(occurredAt))
+        )
+          throw unavailable();
+        return Object.freeze({ anonymousSessionRef, occurredAt });
+      }),
+    );
+  }
+  async updateCommerceSettings(
+    input: Readonly<{
+      tenantContext: TenantContext;
+      now: Date;
+      expectedVersion: number;
+      candidateInactivityMinutes: number;
+      abandonedInactivityHours: number;
+      recoveryLinkHours: number;
+      automaticRecoveryEnabled: boolean;
+      maximumMessageAttempts: number;
+      minimumMessageIntervalHours: number;
+      trackingPolicy: "disabled" | "anonymous_commerce";
+    }>,
+  ): Promise<Readonly<CommerceAnalyticsSettings>> {
+    const { p, a } = this.input(input, [
+      "tenantContext",
+      "now",
+      "expectedVersion",
+      "candidateInactivityMinutes",
+      "abandonedInactivityHours",
+      "recoveryLinkHours",
+      "automaticRecoveryEnabled",
+      "maximumMessageAttempts",
+      "minimumMessageIntervalHours",
+      "trackingPolicy",
+    ]);
+    let selected: Readonly<CommerceAnalyticsSettings>;
+    try {
+      selected = parseCommerceAnalyticsSettings({
+        candidateInactivityMinutes: p.candidateInactivityMinutes,
+        abandonedInactivityHours: p.abandonedInactivityHours,
+        recoveryLinkHours: p.recoveryLinkHours,
+        automaticRecoveryEnabled: p.automaticRecoveryEnabled,
+        maximumMessageAttempts: p.maximumMessageAttempts,
+        minimumMessageIntervalHours: p.minimumMessageIntervalHours,
+        trackingPolicy: p.trackingPolicy,
+        version: p.expectedVersion,
+      });
+    } catch {
+      throw new AnalyticsRepositoryError("invalid_input");
+    }
+    const client = await this.acquire();
+    let began = false,
+      terminal = false;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      began = true;
+      await this.configure(client);
+      const result = row(
+        await client.query(
+          "SELECT outcome,result_payload FROM saas.commerce_analytics_settings_update($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::bigint,$9::integer,$10::integer,$11::integer,$12::boolean,$13::integer,$14::integer,$15::text)",
+          [
+            ...authorityValues(a),
+            selected.version,
+            selected.candidateInactivityMinutes,
+            selected.abandonedInactivityHours,
+            selected.recoveryLinkHours,
+            selected.automaticRecoveryEnabled,
+            selected.maximumMessageAttempts,
+            selected.minimumMessageIntervalHours,
+            selected.trackingPolicy,
+          ],
+        ),
+      );
+      if (result.outcome === "version_conflict")
+        throw new AnalyticsRepositoryError("version_conflict");
+      const known = this.error(result.outcome);
+      if (known) throw known;
+      if (result.outcome !== "committed") throw unavailable();
+      const parsed = parseCommerceAnalyticsSettings(result.payload);
+      await client.query("COMMIT");
+      terminal = true;
+      release(client);
+      return parsed;
+    } catch (error) {
+      if (began && !terminal) await this.rollback(client);
+      else if (!began && !terminal) release(client, true);
+      if (error instanceof AnalyticsRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+  async getConnection(
+    input: Readonly<{ tenantContext: TenantContext; now: Date }>,
+  ): Promise<AnalyticsConnectionView> {
+    const { a } = this.input(input, ["tenantContext", "now"]);
+    const result = await this.read(this.getSpec(a), [
+      "found",
+      "not_configured",
+    ]);
+    return result.outcome === "not_configured"
+      ? connectionView(result.payload)
+      : projectConnection(result.payload);
+  }
+  async getConnectionAuthority(
+    input: Readonly<{ tenantContext: TenantContext; now: Date }>,
+  ): Promise<AnalyticsConnectionAuthority> {
+    const { a } = this.input(input, ["tenantContext", "now"]);
+    return connectionAuthority(
+      (await this.read(this.getSpec(a), ["found"])).payload,
+    );
+  }
+  async beginConnection(
+    input: Readonly<{
+      tenantContext: TenantContext;
+      now: Date;
+      operationId: string;
+      connectionId: string;
+      websiteId: string;
+    }>,
+  ): Promise<AnalyticsPendingAuthority> {
+    const { p, a } = this.input(input, [
+        "tenantContext",
+        "now",
+        "operationId",
+        "connectionId",
+        "websiteId",
+      ]),
+      operationId = uuid(p.operationId),
+      connectionId = uuid(p.connectionId),
+      websiteId = uuid(p.websiteId),
+      digest = fingerprint("begin", a.storeId, { connectionId, websiteId });
+    return this.mutate(
+      a,
+      operationId,
+      digest,
+      ["pending", "active"],
+      {
+        text: "SELECT outcome,result_payload FROM saas.analytics_connection_begin($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::uuid)",
+        values: [
+          ...authorityValues(a),
+          operationId,
+          digest,
+          connectionId,
+          websiteId,
+        ],
+      },
+      (value, replayed, outcome) =>
+        pending(value, outcome === "active" ? "active" : "pending", replayed),
+    );
+  }
+  async activateConnection(
+    input: Readonly<{
+      tenantContext: TenantContext;
+      now: Date;
+      operationId: string;
+      connectionId: string;
+      websiteId: string;
+      verifiedHostname: string;
+    }>,
+  ): Promise<AnalyticsConnectionMutationResult> {
+    const { p, a } = this.input(input, [
+        "tenantContext",
+        "now",
+        "operationId",
+        "connectionId",
+        "websiteId",
+        "verifiedHostname",
+      ]),
+      operationId = uuid(p.operationId),
+      connectionId = uuid(p.connectionId),
+      websiteId = uuid(p.websiteId),
+      verifiedHostname = hostname(p.verifiedHostname),
+      digest = fingerprint("activate", a.storeId, {
+        connectionId,
+        websiteId,
+        verifiedHostname,
+      });
+    return this.mutate(
+      a,
+      operationId,
+      digest,
+      ["active"],
+      {
+        text: "SELECT outcome,result_payload FROM saas.analytics_connection_activate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::uuid,$12::text)",
+        values: [
+          ...authorityValues(a),
+          operationId,
+          digest,
+          connectionId,
+          websiteId,
+          verifiedHostname,
+        ],
+      },
+      (value, replayed) => mutation(value, replayed),
+    );
+  }
+  async disableConnection(
+    input: Readonly<{
+      tenantContext: TenantContext;
+      now: Date;
+      operationId: string;
+      expectedVersion: number;
+    }>,
+  ): Promise<AnalyticsConnectionMutationResult> {
+    const { p, a } = this.input(input, [
+        "tenantContext",
+        "now",
+        "operationId",
+        "expectedVersion",
+      ]),
+      operationId = uuid(p.operationId),
+      expectedVersion = positive(p.expectedVersion),
+      current = await this.getConnectionAuthority({
+        tenantContext: p.tenantContext as TenantContext,
+        now: date(p.now),
+      }),
+      digest = fingerprint("disable", a.storeId, {
+        connectionId: current.connectionId,
+        expectedVersion,
+      });
+    return this.mutate(
+      a,
+      operationId,
+      digest,
+      ["disabled"],
+      {
+        text: "SELECT outcome,result_payload FROM saas.analytics_connection_disable($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
+        values: [
+          ...authorityValues(a),
+          operationId,
+          digest,
+          current.connectionId,
+          expectedVersion,
+        ],
+      },
+      (value, replayed) => mutation(value, replayed),
+    );
+  }
 }

@@ -15,11 +15,12 @@ export default async function CartPage({ searchParams }: Readonly<{ searchParams
   const query = await searchParams;
   const recovered = query.recovered === "1";
   const omitted = typeof query.omitted === "string" && /^\d{1,3}$/.test(query.omitted) ? Number(query.omitted) : 0;
+  const adjusted = typeof query.adjusted === "string" && /^\d{1,3}$/.test(query.adjusted) ? Number(query.adjusted) : 0;
   return (
     <StorefrontFrame storefront={storefront} design={design}>
       <section className="store-section store-container">
         <h1 className="sr-only">Sepet</h1>
-        <CartPageClient locale={storefront.locale} recovered={recovered} omittedItems={omitted} />
+        <CartPageClient locale={storefront.locale} recovered={recovered} omittedItems={omitted} adjustedItems={adjusted} />
       </section>
     </StorefrontFrame>
   );

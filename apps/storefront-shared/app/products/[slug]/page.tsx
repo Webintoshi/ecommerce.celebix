@@ -160,7 +160,7 @@ export async function renderProductPage({
     <StorefrontFrame storefront={storefront} design={selected.design}>
       <StorefrontAnalyticsEvent
         tracker={selected.tracker}
-        event={productViewEvent(item.id, item.variants.find(({ available }) => available)?.id)}
+        event={productViewEvent(item.id, item.variants.find(({ available }) => available)?.id, item.primaryCategoryId, item.currency, item.priceCents)}
         trigger="mount"
       />
       <ProductDetailExperience product={item}

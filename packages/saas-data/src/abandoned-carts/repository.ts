@@ -248,14 +248,25 @@ export class PostgresAbandonedCartRepository implements AbandonedCartRepository 
     const note = exact.note;
     if ((exact.kind === "contacted" && note !== undefined)
       || (exact.kind === "note" && (typeof note !== "string" || note !== note.trim() || note.length < 1 || note.length > 1000 || /[\u0000-\u001f\u007f]/.test(note)))) throw new AbandonedCartRepositoryError("invalid_input");
-    return this.read({ text: `SELECT outcome,result_payload FROM saas.commerce_cart_recovery_attempt_record(
+    const client = await this.acquire(); let began = false; let terminal = false;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED"); began = true; await this.configure(client);
+      const spec = { text: `SELECT outcome,result_payload FROM saas.commerce_cart_recovery_attempt_record(
       $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::text,$11::text
-    )`, values: [...authorityValues(authority), cartId, operationId, exact.kind, note ?? null] }, "committed", (value) => {
-      const result = payload(value, ["cartId", "kind", "recordedAt", "replayed"]);
+    )`, values: [...authorityValues(authority), cartId, operationId, exact.kind, note ?? null] };
+      const selected = single(await client.query(spec.text, spec.values));
+      const expected = this.expectedError(selected.outcome); if (expected) throw expected;
+      if (selected.outcome !== "committed" && selected.outcome !== "operation_replayed") throw unavailable();
+      const result = payload(selected.resultPayload, ["cartId", "kind", "recordedAt", "replayed"]);
+      const replayed = selected.outcome === "operation_replayed";
       if (result.cartId !== cartId || result.kind !== exact.kind || typeof result.recordedAt !== "string"
-        || !Number.isFinite(new Date(result.recordedAt).getTime()) || result.replayed !== false) throw unavailable();
-      return Object.freeze({ cartId, kind: exact.kind as "contacted" | "note", recordedAt: result.recordedAt, replayed: false });
-    }, true);
+        || !Number.isFinite(new Date(result.recordedAt).getTime()) || result.replayed !== replayed) throw unavailable();
+      await client.query("COMMIT"); terminal = true; safeRelease(client);
+      return Object.freeze({ cartId, kind: exact.kind as "contacted" | "note", recordedAt: result.recordedAt, replayed });
+    } catch (error) {
+      if (began && !terminal) await this.rollback(client); else if (!began && !terminal) safeRelease(client, true);
+      if (error instanceof AbandonedCartRepositoryError) throw error; throw unavailable();
+    }
   }
 
   private mutation(input: MutateAbandonedCartInput, kind: "mark_recovered" | "archive", functionName: "abandoned_carts_mark_recovered" | "abandoned_carts_archive", expectedStatus: "recovered" | "archived") {

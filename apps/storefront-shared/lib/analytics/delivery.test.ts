@@ -129,4 +129,6 @@ test("worker source is secret-free and settlement outbox identity is replay-safe
   assert.doesNotMatch(`${delivery}\n${cli}`, /console[.]|providerBody|response[.]text|CELEBIX_UMAMI_(?:USERNAME|PASSWORD)|TenantContext|distinctId/);
   assert.match(migration, /UNIQUE \(store_id,order_id,event_kind\)/);
   assert.match(migration, /ON CONFLICT \(store_id,order_id,event_kind\) DO NOTHING/);
+  assert.ok(cli.indexOf("commerce_analytics_evaluate_carts") < cli.indexOf("const collector = await parseUmamiPublicCollectorConfig"));
+  assert.match(cli, /analytics_delivery_degraded/);
 });

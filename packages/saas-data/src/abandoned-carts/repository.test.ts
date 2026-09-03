@@ -181,6 +181,14 @@ test("manual recovery attempts persist only bounded contacted or merchant-note f
   assert.deepEqual(call.values.slice(7), [CART_ID, OPERATION_ID, "note", "Müşteri mağazayı aradı."]);
 });
 
+test("manual recovery attempt replay returns the original durable result", async () => {
+  const client = new FakeClient((text) => text.includes("saas.commerce_cart_recovery_attempt_record")
+    ? [{ outcome: "operation_replayed", result_payload: { cartId: CART_ID, kind: "contacted", recordedAt: NOW.toISOString(), replayed: true } }]
+    : []);
+  const result = await repository(new FakePool([client])).recordRecoveryAttempt({ tenantContext: tenantContext(), now: NOW, cartId: CART_ID, operationId: OPERATION_ID, kind: "contacted" });
+  assert.deepEqual(result, { cartId: CART_ID, kind: "contacted", recordedAt: NOW.toISOString(), replayed: true });
+});
+
 test("invalid context and browser-like authority fields fail before pool checkout", async () => {
   const pool = new FakePool([]);
   await assert.rejects(

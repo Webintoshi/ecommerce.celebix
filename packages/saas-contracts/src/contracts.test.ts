@@ -517,6 +517,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseAnalyticsConnectionView",
     "parseAnalyticsDashboard",
     "parseAnalyticsMetricResult",
+    "parseAnalyticsSafeDimension",
     "parseAnalyticsSummary",
     "parseBarcodeInternalCreateIntent",
     "parseBarcodeInternalCreateResult",

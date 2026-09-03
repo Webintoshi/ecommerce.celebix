@@ -13,8 +13,6 @@ const failed = Object.freeze({ outcome: "analytics_delivery_failed", claimed: 0,
 async function main() {
   if (process.argv.length !== 2 || "window" in globalThis) return failed;
   const database = parseCheckoutRuntimeConfig(process.env).database;
-  const collector = await parseUmamiPublicCollectorConfig(process.env);
-  if (collector === null) return failed;
   const pool = new Pool({ connectionString: database.url, max: 5, connectionTimeoutMillis: TIMEOUTS.poolCheckoutMs, idleTimeoutMillis: 10_000, statement_timeout: TIMEOUTS.statementMs, lock_timeout: TIMEOUTS.lockMs, idle_in_transaction_session_timeout: TIMEOUTS.idleTransactionMs, application_name: "celebix-analytics-delivery-staging" });
   pool.on("error", () => undefined);
   try {
@@ -26,6 +24,8 @@ async function main() {
     if (reconciled.rowCount !== 1 || reconciled.rows[0]?.outcome !== "reconciled") return failed;
     const evaluated = await queryAsWorkflow(pool, "SELECT outcome,result_payload FROM saas.commerce_analytics_evaluate_carts($1::timestamptz,$2::integer)", [now, 250]);
     if (evaluated.rowCount !== 1 || evaluated.rows[0]?.outcome !== "evaluated") return failed;
+    const collector = await parseUmamiPublicCollectorConfig(process.env).catch(() => null);
+    if (collector === null) return Object.freeze({ outcome: "analytics_delivery_degraded", claimed: 0, delivered: 0, retried: 0, terminal: 0, evaluator: "complete", reason: "collector_unavailable" });
     const repository = new PostgresAnalyticsOutboxRepository({ pool, role: "celebix_saas_workflow", timeouts: TIMEOUTS });
     const result = await deliverAnalyticsOutbox(repository, collector, { now: () => new Date(), fetch: globalThis.fetch, userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) CelebixEvents/1.0 Safari/537.36", timeoutMs: 5_000 });
     return Object.freeze({ outcome: "analytics_delivery_complete", ...result });

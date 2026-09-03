@@ -315,6 +315,7 @@ export type PublicProductMerchandising = Readonly<{
 
 export type PublicProduct = Readonly<{
   id: string;
+  primaryCategoryId?: string;
   slug: string;
   title: string;
   description?: string;

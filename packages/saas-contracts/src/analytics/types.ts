@@ -1,10 +1,22 @@
 export const ANALYTICS_RANGES = Object.freeze(["7d", "30d", "90d"] as const);
-export const ANALYTICS_METRIC_TYPES = Object.freeze(["path", "referrer", "device", "country", "event"] as const);
-export const ANALYTICS_CONNECTION_STATUSES = Object.freeze(["pending", "active", "disabled", "failed"] as const);
+export const ANALYTICS_METRIC_TYPES = Object.freeze([
+  "path",
+  "referrer",
+  "device",
+  "country",
+  "event",
+] as const);
+export const ANALYTICS_CONNECTION_STATUSES = Object.freeze([
+  "pending",
+  "active",
+  "disabled",
+  "failed",
+] as const);
 
 export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 export type AnalyticsMetricType = (typeof ANALYTICS_METRIC_TYPES)[number];
-export type AnalyticsConnectionStatus = (typeof ANALYTICS_CONNECTION_STATUSES)[number];
+export type AnalyticsConnectionStatus =
+  (typeof ANALYTICS_CONNECTION_STATUSES)[number];
 
 export type AnalyticsConnectionView = Readonly<{
   schemaVersion: 1;
@@ -30,7 +42,12 @@ export type AnalyticsSummary = Readonly<{
   activeVisitors: number;
   bounceRateBasisPoints: number;
   averageVisitSeconds: number;
-  comparison: Readonly<{ pageviews: number; visitors: number; visits: number; bounces: number }> | null;
+  comparison: Readonly<{
+    pageviews: number;
+    visitors: number;
+    visits: number;
+    bounces: number;
+  }> | null;
   pageviewsSeries: readonly AnalyticsPoint[];
   visitsSeries: readonly AnalyticsPoint[];
 }>;
@@ -52,7 +69,12 @@ export type AnalyticsConnectionMutationResult = Readonly<{
   replayed: boolean;
 }>;
 
-export const ANALYTICS_PERIODS = Object.freeze(["today", "week", "month", "year"] as const);
+export const ANALYTICS_PERIODS = Object.freeze([
+  "today",
+  "week",
+  "month",
+  "year",
+] as const);
 export type AnalyticsPeriod = (typeof ANALYTICS_PERIODS)[number];
 
 export interface AnalyticsSeriesPoint {
@@ -75,30 +97,58 @@ export interface AnalyticsDashboard {
   readonly generatedAt: string;
   readonly currency: string;
   readonly revenueCents: number;
-  readonly orders: Readonly<{ total: number; paid: number; cancelled: number; refunded: number }>;
+  readonly orders: Readonly<{
+    total: number;
+    paid: number;
+    cancelled: number;
+    refunded: number;
+  }>;
   readonly customers: Readonly<{ total: number; newInPeriod: number }>;
-  readonly catalog: Readonly<{ activeProducts: number; lowStockVariants: number }>;
+  readonly catalog: Readonly<{
+    activeProducts: number;
+    lowStockVariants: number;
+  }>;
   readonly series: readonly AnalyticsSeriesPoint[];
   readonly topProducts: readonly AnalyticsTopProduct[];
 }
 
 export const BROWSER_COMMERCE_EVENT_NAMES = Object.freeze([
-  "storefront_view", "product_view", "category_view", "search",
-  "add_to_cart", "remove_from_cart", "view_cart", "begin_checkout",
-  "checkout_address_completed", "shipping_method_selected",
-  "payment_method_selected", "checkout_validation_error", "coupon_applied",
-  "whatsapp_click", "phone_click",
+  "storefront_view",
+  "product_view",
+  "category_view",
+  "search",
+  "add_to_cart",
+  "remove_from_cart",
+  "view_cart",
+  "begin_checkout",
+  "checkout_address_completed",
+  "shipping_method_selected",
+  "payment_method_selected",
+  "checkout_validation_error",
+  "coupon_applied",
+  "whatsapp_click",
+  "phone_click",
 ] as const);
 
 export const SERVER_COMMERCE_EVENT_NAMES = Object.freeze([
-  "purchase", "payment_failed", "refund", "order_cancelled",
-  "cart_abandoned", "cart_resumed", "cart_recovered",
-  "recovery_message_queued", "recovery_message_sent", "recovery_message_failed",
+  "purchase",
+  "payment_failed",
+  "refund",
+  "order_cancelled",
+  "cart_abandoned",
+  "cart_resumed",
+  "cart_recovered",
+  "recovery_message_queued",
+  "recovery_message_sent",
+  "recovery_message_failed",
 ] as const);
 
-export type BrowserCommerceEventName = (typeof BROWSER_COMMERCE_EVENT_NAMES)[number];
-export type ServerCommerceEventName = (typeof SERVER_COMMERCE_EVENT_NAMES)[number];
-export type CommerceEventName = BrowserCommerceEventName | ServerCommerceEventName;
+export type BrowserCommerceEventName =
+  (typeof BROWSER_COMMERCE_EVENT_NAMES)[number];
+export type ServerCommerceEventName =
+  (typeof SERVER_COMMERCE_EVENT_NAMES)[number];
+export type CommerceEventName =
+  BrowserCommerceEventName | ServerCommerceEventName;
 
 export interface CommerceAnalyticsEvent {
   readonly schemaVersion: 1;
@@ -133,6 +183,7 @@ export interface CommerceAnalyticsCurrencyBucket {
   readonly candidateCarts: number;
   readonly eligibleCarts: number;
   readonly checkoutStarts: number;
+  readonly eligibleCheckoutStarts: number;
   readonly checkoutAbandoned: number;
   readonly paymentFailures: number;
   readonly paidOrders: number;
@@ -147,6 +198,7 @@ export interface CommerceAnalyticsCurrencyBucket {
 }
 
 export interface CommerceAnalyticsAttributionBucket {
+  readonly touch: "first" | "last";
   readonly source: string;
   readonly medium: string;
   readonly campaign: string | null;
@@ -155,6 +207,71 @@ export interface CommerceAnalyticsAttributionBucket {
   readonly grossRevenueMinor: number;
   readonly abandonedCarts: number;
   readonly recoveredRevenueMinor: number;
+}
+
+export interface CommerceAnalyticsProductBucket {
+  readonly productId: string;
+  readonly title: string;
+  readonly currency: string;
+  readonly categoryId: string | null;
+  readonly categoryName: string | null;
+  readonly brandId: string | null;
+  readonly brandName: string | null;
+  readonly checkoutStarts: number;
+  readonly paidOrders: number;
+  readonly quantity: number;
+  readonly revenueMinor: number;
+  readonly abandonedAppearances: number;
+  readonly recoveredRevenueMinor: number;
+}
+
+export interface CommerceAnalyticsProductPage {
+  readonly page: number;
+  readonly pageSize: 100;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+export interface CommerceAnalyticsCartPage {
+  readonly page: number;
+  readonly pageSize: 100;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+export interface CommerceAnalyticsSeriesPoint {
+  readonly startsAt: string;
+  readonly currency: string;
+  readonly paidOrders: number;
+  readonly grossRevenueMinor: number;
+  readonly abandonedCarts: number;
+  readonly recoveredCarts: number;
+}
+
+export interface CommerceAnalyticsCartRow {
+  readonly id: string;
+  readonly customerLabel: string;
+  readonly productSummary: string;
+  readonly subtotalMinor: number;
+  readonly discountMinor: number;
+  readonly shippingMinor: number;
+  readonly totalMinor: number;
+  readonly currency: string;
+  readonly lastActivityAt: string;
+  readonly abandonedAt: string | null;
+  readonly source: string;
+  readonly campaign: string | null;
+  readonly device: "desktop" | "mobile" | "tablet" | "unknown";
+  readonly lifecycle:
+    | "active"
+    | "candidate"
+    | "abandoned"
+    | "resumed"
+    | "converted_pending_payment"
+    | "recovered"
+    | "expired";
+  readonly contactable: boolean;
+  readonly contacted: boolean;
 }
 
 export interface CommerceAnalyticsWorkerStatus {
@@ -184,6 +301,10 @@ export interface CommerceAnalyticsSnapshot {
   readonly rangeEnd: string;
   readonly currencies: readonly CommerceAnalyticsCurrencyBucket[];
   readonly attribution: readonly CommerceAnalyticsAttributionBucket[];
+  readonly products: readonly CommerceAnalyticsProductBucket[];
+  readonly productPage: CommerceAnalyticsProductPage;
+  readonly series: readonly CommerceAnalyticsSeriesPoint[];
+  readonly carts: readonly CommerceAnalyticsCartRow[];
+  readonly cartPage: CommerceAnalyticsCartPage;
   readonly worker: CommerceAnalyticsWorkerStatus;
-  readonly settings: CommerceAnalyticsSettings;
 }

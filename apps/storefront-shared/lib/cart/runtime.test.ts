@@ -28,7 +28,7 @@ const keyring = parseStorefrontCommerceCredentialKeyring(keyringSource("current_
 function fake(overrides: Partial<StorefrontCommerceRepository> = {}): StorefrontCommerceRepository {
   return {
     recordCartAttribution: async () => undefined,
-    restoreCart: async () => ({ cart: CART, restoredItems: 1, omittedItems: 0 }),
+    restoreCart: async () => ({ cart: CART, restoredItems: 1, omittedItems: 0, adjustedItems: 0 }),
     resolveCart: async () => CART,
     mutateCart: async () => ({ credentialCreated: false, cart: CART }),
     createBuyNow: async () => undefined,
@@ -43,9 +43,9 @@ function fake(overrides: Partial<StorefrontCommerceRepository> = {}): Storefront
 test("recovery token is hashed before storage access and returns a fresh HttpOnly cart credential", async () => {
   let observed: Parameters<StorefrontCommerceRepository["restoreCart"]>[0] | undefined;
   const token = Buffer.alloc(32, 0x42).toString("base64url");
-  const result = await runtime(fake({ restoreCart: async (input) => { observed = input; return { cart: CART, restoredItems: 1, omittedItems: 2 }; } })).restoreCart(HOST, token);
+  const result = await runtime(fake({ restoreCart: async (input) => { observed = input; return { cart: CART, restoredItems: 1, omittedItems: 2, adjustedItems: 1 }; } })).restoreCart(HOST, token);
   assert.deepEqual(result.cart, CART);
-  assert.deepEqual({ restoredItems: result.restoredItems, omittedItems: result.omittedItems }, { restoredItems: 1, omittedItems: 2 });
+  assert.deepEqual({ restoredItems: result.restoredItems, omittedItems: result.omittedItems, adjustedItems: result.adjustedItems }, { restoredItems: 1, omittedItems: 2, adjustedItems: 1 });
   assert.match(result.setCookie, /^__Host-celebix_cart=c1[.]current_01[.]/u);
   assert.match(observed?.tokenDigest ?? "", /^[a-f0-9]{64}$/u);
   assert.equal(JSON.stringify(observed).includes(token), false);
