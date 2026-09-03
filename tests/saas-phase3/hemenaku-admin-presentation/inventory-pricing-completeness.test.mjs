@@ -409,8 +409,8 @@ test("registers exact inventory and pricing repositories behind server panel acc
   for (const proof of [
     /new PostgresInventoryRepository\(/,
     /new PostgresPricingRepository\(/,
-    /registerServerInventoryRepository\(access, inventoryRepository\)/,
-    /registerServerPricingRepository\(access, pricingRepository\)/,
+    /registerServerInventoryRepository\(access, createPostCommitInvalidatingRepository\(inventoryRepository, \{[\s\S]*?savePurchaseOrder: \["catalog"\][\s\S]*?receiveTransfer: \["catalog"\][\s\S]*?\}\)\)/,
+    /registerServerPricingRepository\(access, createPostCommitInvalidatingRepository\(pricingRepository, \{[\s\S]*?save: \["catalog"\][\s\S]*?activate: \["catalog"\][\s\S]*?archive: \["catalog"\][\s\S]*?\}\)\)/,
     /row[.]inventory_relations !== true \|\| row[.]inventory_default_location_lifecycle !== true \|\|\s*row[.]inventory_repository !== true/,
     /row[.]pricing_relations !== true \|\| row[.]pricing_repository !== true \|\| row[.]pricing_resolver !== true/,
     /saas[.]resolve_effective_variant_price\(uuid,uuid,text,timestamp with time zone,text\)/,

@@ -34,7 +34,7 @@ test("panel runtime preflights migration 045 and registers pricing only after du
     "resolve_effective_variant_price(uuid,uuid,text,timestamp with time zone,text)",
   ]) assert.equal(source.includes(`to_regprocedure('saas.${signature}') IS NOT NULL`), true, signature);
   assert.match(source, /new PostgresPricingRepository\(/);
-  assert.match(source, /registerServerPricingRepository\(access, pricingRepository\)/);
+  assert.match(source, /registerServerPricingRepository\(access, createPostCommitInvalidatingRepository\(pricingRepository, \{[\s\S]*?save: \["catalog"\][\s\S]*?activate: \["catalog"\][\s\S]*?archive: \["catalog"\][\s\S]*?\}\)\)/);
   assert.ok(source.indexOf("await preflight") < source.indexOf("new PostgresPricingRepository"));
   assert.ok(source.indexOf("const access = createApprovedStagingServerPanelAccessRuntime") < source.lastIndexOf("registerServerPricingRepository"));
   for (const browserFile of ["../pricing-http/handler.ts", "../pricing-ui/client.ts"]) {
