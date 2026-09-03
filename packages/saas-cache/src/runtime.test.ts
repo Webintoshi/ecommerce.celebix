@@ -47,7 +47,8 @@ test("dependency snapshot exposes only bounded counters and health", async () =>
   const backend = new HealthBackend();
   const runtime = createCacheRuntime({ source, createBackend: () => backend });
   const snapshot = await cacheDependencySnapshot(runtime);
-  assert.equal(snapshot.status, "healthy");
-  assert.deepEqual(snapshot.metrics, { hit: 0, miss: 0, negativeHit: 0, bypass: 0, error: 0, write: 0, invalidation: 0, singleflightJoin: 0 });
+  assert.equal(snapshot.status, "ready");
+  assert.equal(snapshot.required, false);
+  assert.deepEqual(snapshot.metrics, { redis_cache_hit_total: 0, redis_cache_miss_total: 0, redis_cache_set_total: 0, redis_cache_error_total: 0, redis_cache_timeout_total: 0, redis_cache_invalidations_total: 0, redis_cache_bypass_total: 0, redis_cache_payload_rejected_total: 0, redis_cache_negative_hit_total: 0, redis_cache_singleflight_join_total: 0, scopes: {} });
   assert.equal(JSON.stringify(snapshot).includes("redis://"), false);
 });

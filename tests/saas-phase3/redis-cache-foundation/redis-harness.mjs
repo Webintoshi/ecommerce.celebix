@@ -62,7 +62,7 @@ try {
     "--memory", "768m", "--memory-reservation", "512m", "--memory-swap", "768m",
     IMAGE, "redis-server",
     "--requirepass", password,
-    "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lfu",
+    "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lfu",
     "--appendonly", "no", "--save", "", "--protected-mode", "yes",
     "--tcp-keepalive", "60", "--timeout", "0",
   ]);
@@ -91,27 +91,34 @@ try {
   const config = Object.freeze({
     enabled: true, required: false, url: `redis://default:${password}@127.0.0.1:${port}`,
     namespace: "celebix:harness", connectTimeoutMs: 500, commandTimeoutMs: 200,
-    ttl: Object.freeze({ defaultSeconds: 3, catalogSeconds: 3, settingsSeconds: 3, negativeSeconds: 1 }), maxPayloadBytes: 262_144,
+    ttl: Object.freeze({ defaultSeconds: 30, catalogSeconds: 30, settingsSeconds: 30, negativeSeconds: 5 }), maxPayloadBytes: 262_144,
   });
   const backend = createNodeRedisBackend(config);
   let namespaceOrdinal = 0;
-  cache = createCache({ backend, namespace: config.namespace, defaultTtlSeconds: 3, negativeTtlSeconds: 1, maxPayloadBytes: config.maxPayloadBytes, random: () => 0.5, randomToken: () => `namespace-${++namespaceOrdinal}` });
+  cache = createCache({ backend, namespace: config.namespace, defaultTtlSeconds: 30, negativeTtlSeconds: 5, maxPayloadBytes: config.maxPayloadBytes, random: () => 0.5, randomToken: () => `namespace-${++namespaceOrdinal}` });
   await waitUntil(() => backend.ping());
-  pass("authenticated client ping succeeds");
+  const admin = createClient({ url: config.url, socket: { connectTimeout: 500, reconnectStrategy: false }, disableOfflineQueue: true });
+  admin.on("error", () => undefined);
+  await admin.connect();
+  await admin.set("celebix:harness:ttl-proof", "value", { EX: 3 });
+  assert.equal(await admin.get("celebix:harness:ttl-proof"), "value");
+  assert.ok((await admin.ttl("celebix:harness:ttl-proof")) > 0);
+  pass("authenticated PING and SET GET EX TTL succeed");
 
   const STORE_A = "11111111-1111-4111-8111-111111111111";
   const STORE_B = "22222222-2222-4222-8222-222222222222";
   let loads = 0;
   const read = (storeId, slug, load = async () => ({ value: ++loads })) => cache.readThrough({ storeId, dataClass: "catalog", schemaVersion: "v1", scope: "product", input: { slug }, parser: (value) => value, load });
   const cold = await read(STORE_A, "ring");
+  assert.ok((await admin.dbSize()) >= 3, `cold cache write missing: ${JSON.stringify(cache.metrics())}`);
   const warm = await read(STORE_A, "ring");
-  assert.deepEqual(warm, cold);
+  assert.deepEqual(warm, cold, `warm cache read missing: ${JSON.stringify(cache.metrics())}`);
   assert.equal(loads, 1);
   pass("positive read-through produces a warm hit");
 
   await read(STORE_B, "ring");
   assert.equal(loads, 2);
-  assert.equal(cache.metrics().hit, 1);
+  assert.equal(cache.metrics().redis_cache_hit_total, 1);
   pass("tenant-scoped keys isolate identical queries");
 
   let negativeLoads = 0;
@@ -119,7 +126,7 @@ try {
   await cache.readThrough(negativeInput);
   await cache.readThrough(negativeInput);
   assert.equal(negativeLoads, 1);
-  assert.equal(cache.metrics().negativeHit, 1);
+  assert.equal(cache.metrics().redis_cache_negative_hit_total, 1);
   pass("negative result uses the bounded negative cache");
 
   await cache.rotateNamespace(STORE_A, "catalog");
@@ -129,21 +136,36 @@ try {
 
   const containerInspection = JSON.parse(docker(["inspect", name]));
   const configuration = JSON.stringify({ command: containerInspection[0]?.Config?.Cmd, limits: containerInspection[0]?.HostConfig }).toLowerCase();
-  for (const expected of ["allkeys-lfu", "appendonly", "protected-mode", "536870912", "805306368"]) assert.match(configuration, new RegExp(expected));
-  pass("cache-only memory and persistence-off controls are active");
+  for (const expected of ["allkeys-lfu", "appendonly", "64mb", "protected-mode", "536870912", "805306368"]) assert.match(configuration, new RegExp(expected));
+  const evictionPayload = randomBytes(64 * 1024).toString("base64");
+  for (let offset = 0; offset < 900; offset += 100) {
+    const batch = admin.multi();
+    for (let index = offset; index < offset + 100; index += 1) batch.set(`celebix:harness:eviction:${index}`, evictionPayload);
+    await batch.exec();
+  }
+  const evicted = Number((await admin.info("stats")).match(/evicted_keys:(\d+)/)?.[1] ?? "0");
+  assert.ok(evicted > 0);
+  await admin.set("celebix:harness:cold-proof", "must-not-survive");
+  await admin.destroy();
+  pass("allkeys-lfu eviction and persistence-off controls are active");
 
   docker(["stop", "--time", "1", name]);
   let fallbackLoads = 0;
   const fallback = await waitUntil(() => cache.readThrough({ storeId: STORE_A, dataClass: "catalog", schemaVersion: "v1", scope: "outage", input: {}, parser: (value) => value, load: async () => ({ source: `postgres-${++fallbackLoads}` }) }), 5_000);
   assert.equal(fallback.source, "postgres-1");
-  assert.equal(cache.metrics().error > 0, true);
+  assert.equal(cache.metrics().redis_cache_error_total > 0, true);
   pass("Redis outage fails open to the authoritative loader");
 
   docker(["start", name]);
   await waitUntil(async () => { assert.equal(await cache.ping(), "healthy"); }, 20_000);
+  const recoveredAdmin = createClient({ url: config.url, socket: { connectTimeout: 500, reconnectStrategy: false }, disableOfflineQueue: true });
+  recoveredAdmin.on("error", () => undefined);
+  await recoveredAdmin.connect();
+  assert.equal(await recoveredAdmin.get("celebix:harness:cold-proof"), null);
+  await recoveredAdmin.destroy();
   const recovered = await read(STORE_A, "reconnected");
   assert.equal(typeof recovered.value, "number");
-  pass("client reconnects after Redis restart without recreation");
+  pass("restart is cold and client reconnects without recreation");
 
   assert.equal(completed, 10);
   process.stdout.write("PASS 10/10 Redis cache foundation rehearsal complete\n");

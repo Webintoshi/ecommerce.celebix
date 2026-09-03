@@ -10,7 +10,7 @@ export async function GET(request: Request): Promise<Response> {
   }
   const redisCache = await cacheDependencySnapshot(resolveDefaultCacheRuntime());
   return Response.json(
-    { status: redisCache.status === "degraded" ? "degraded" : "ok", dependencies: { redisCache } },
+    { status: redisCache.status === "unavailable" ? "degraded" : "ok", dependencies: { redisCache } },
     { status: 200, headers: { "cache-control": "no-store" } },
   );
 }

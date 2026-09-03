@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRedisCacheBackend, type RedisClientLike } from "./redis-client.ts";
+import { createNodeRedisClientOptions, createRedisCacheBackend, type RedisClientLike } from "./redis-client.ts";
+import type { EnabledCacheConfig } from "./config.ts";
 
 class FakeRedisClient implements RedisClientLike {
   isOpen = false;
@@ -45,4 +46,11 @@ test("a failed initial connection can be retried without recreating the backend"
   client.fail = false;
   await backend.ping();
   assert.equal(client.connectCalls, 2);
+});
+
+test("production client disables the offline queue and bounds reconnect backoff", () => {
+  const options = createNodeRedisClientOptions({ enabled: true, required: false, url: "redis://default:secret@redis.internal:6379", namespace: "celebix:staging", connectTimeoutMs: 250, commandTimeoutMs: 150, ttl: { defaultSeconds: 60, catalogSeconds: 45, settingsSeconds: 120, negativeSeconds: 5 }, maxPayloadBytes: 262_144 } satisfies EnabledCacheConfig);
+  assert.equal(options.disableOfflineQueue, true);
+  assert.equal(options.socket.connectTimeout, 250);
+  assert.equal(options.socket.reconnectStrategy(20), 1_000);
 });

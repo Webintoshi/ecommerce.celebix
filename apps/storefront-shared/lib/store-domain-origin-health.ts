@@ -44,7 +44,7 @@ export function createStoreDomainOriginHealthRoute(dependencies: Dependencies) {
     if (repository === null) return response(503, "storefront_unavailable");
     try {
       const marker = await repository.get({ hostname: authority.hostname, now: dependencies.now() });
-      const redisCache = await dependencies.resolveCacheDependency?.().catch(() => ({ status: "degraded" as const, metrics: null })) ?? { status: "disabled" as const, metrics: null };
+      const redisCache = await dependencies.resolveCacheDependency?.().catch(() => ({ required: false, status: "unavailable" as const, metrics: null })) ?? { required: false, status: "disabled" as const, metrics: null };
       return Response.json({ ...marker, dependencies: { redisCache } }, { status: 200, headers: SECURITY_HEADERS });
     } catch (error) {
       if (error instanceof StoreDomainRepositoryError && error.code === "not_found") {

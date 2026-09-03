@@ -14,8 +14,9 @@ export interface RedisClientLike {
   quit(): Promise<unknown>;
 }
 
-function opaqueFailure(): Error {
-  return new Error("redis_cache_command_failed");
+class RedisCacheCommandFailure extends Error {
+  readonly code: "timeout" | "unavailable";
+  constructor(code: "timeout" | "unavailable") { super("redis_cache_command_failed"); this.code = code; }
 }
 
 export function createRedisCacheBackend(options: Readonly<{
@@ -27,7 +28,7 @@ export function createRedisCacheBackend(options: Readonly<{
     if (options.client.isOpen) return;
     connection ??= Promise.resolve(options.client.connect()).then(() => undefined).catch(() => {
       connection = undefined;
-      throw opaqueFailure();
+      throw new RedisCacheCommandFailure("unavailable");
     });
     await connection;
   };
@@ -38,13 +39,14 @@ export function createRedisCacheBackend(options: Readonly<{
       try {
         return await Promise.race([
           operation(),
-          new Promise<never>((_, reject) => { timer = setTimeout(() => reject(opaqueFailure()), options.commandTimeoutMs); }),
+          new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new RedisCacheCommandFailure("timeout")), options.commandTimeoutMs); }),
         ]);
       } finally {
         if (timer) clearTimeout(timer);
       }
-    } catch {
-      throw opaqueFailure();
+    } catch (error) {
+      if (error instanceof RedisCacheCommandFailure) throw error;
+      throw new RedisCacheCommandFailure("unavailable");
     }
   };
   options.client.on("error", () => undefined);
@@ -63,14 +65,19 @@ export function createRedisCacheBackend(options: Readonly<{
 }
 
 export function createNodeRedisBackend(config: EnabledCacheConfig): CacheBackend {
-  const client = createClient({
+  const client = createClient(createNodeRedisClientOptions(config)) as unknown as RedisClientLike;
+  return createRedisCacheBackend({ client, commandTimeoutMs: config.commandTimeoutMs });
+}
+
+export function createNodeRedisClientOptions(config: EnabledCacheConfig) {
+  return {
     url: config.url,
+    disableOfflineQueue: true,
     socket: {
       connectTimeout: config.connectTimeoutMs,
       keepAlive: true,
       keepAliveInitialDelay: 60_000,
-      reconnectStrategy: (retries) => Math.min(50 * 2 ** Math.min(retries, 5), 1_000),
+      reconnectStrategy: (retries: number) => Math.min(50 * 2 ** Math.min(retries, 5), 1_000),
     },
-  }) as unknown as RedisClientLike;
-  return createRedisCacheBackend({ client, commandTimeoutMs: config.commandTimeoutMs });
+  };
 }

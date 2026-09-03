@@ -24,8 +24,8 @@ test("read-through caches parsed envelopes and reports hits without sharing tena
   assert.deepEqual(await cache.readThrough({ ...input, parser, load: async () => ({ name: `Ring ${++loads}` }) }), { name: "Ring 1" });
   assert.deepEqual(await cache.readThrough({ ...input, parser, load: async () => ({ name: `Ring ${++loads}` }) }), { name: "Ring 1" });
   assert.equal(loads, 1);
-  assert.equal(cache.metrics().hit, 1);
-  assert.equal(cache.metrics().miss, 1);
+  assert.equal(cache.metrics().redis_cache_hit_total, 1);
+  assert.equal(cache.metrics().redis_cache_miss_total, 1);
 });
 
 test("malformed and oversized entries are discarded and cache errors fail open", async () => {
@@ -34,7 +34,26 @@ test("malformed and oversized entries are discarded and cache errors fail open",
   backend.values.set("celebix:staging:store:11111111-1111-4111-8111-111111111111:catalog:namespace", "token");
   backend.fail = true;
   assert.deepEqual(await cache.readThrough({ ...input, parser: (value) => value as { ok: boolean }, load: async () => ({ ok: true }) }), { ok: true });
-  assert.equal(cache.metrics().error > 0, true);
+  assert.equal(cache.metrics().redis_cache_error_total > 0, true);
+});
+
+test("oversized payloads are bypassed and counted without poisoning later reads", async () => {
+  const backend = new MemoryBackend();
+  const cache = createCache({ backend, ...options, random: () => 0.5, randomToken: () => "token" });
+  let loads = 0;
+  const selected = { ...input, scope: "oversized", parser: (value: unknown) => value as { text: string }, load: async () => { loads += 1; return { text: "x".repeat(1_000) }; } };
+  await cache.readThrough(selected);
+  await cache.readThrough(selected);
+  assert.equal(loads, 2);
+  assert.equal(cache.metrics().redis_cache_payload_rejected_total, 2);
+});
+
+test("backend command timeouts fail open and are counted separately", async () => {
+  const timeout = Object.assign(new Error("opaque"), { code: "timeout" });
+  const cache = createCache({ backend: { async get() { throw timeout; }, async set() { throw timeout; }, async delete() {}, async ping() { throw timeout; } }, ...options });
+  assert.deepEqual(await cache.readThrough({ ...input, parser: (value) => value as { ok: boolean }, load: async () => ({ ok: true }) }), { ok: true });
+  assert.equal(cache.metrics().redis_cache_timeout_total, 1);
+  assert.equal(cache.metrics().redis_cache_bypass_total, 1);
 });
 
 test("negative entries use the short TTL and namespace rotation makes prior entries unreachable", async () => {
@@ -73,7 +92,7 @@ test("concurrent cold reads are process-local singleflight", async () => {
   const [a, b] = await Promise.all([cache.readThrough({ ...input, parser, load }), cache.readThrough({ ...input, parser, load })]);
   assert.deepEqual(a, b);
   assert.equal(loads, 1);
-  assert.equal(cache.metrics().singleflightJoin, 1);
+  assert.equal(cache.metrics().redis_cache_singleflight_join_total, 1);
 });
 
 test("TTL jitter stays within plus or minus ten percent", async () => {

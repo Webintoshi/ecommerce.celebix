@@ -790,7 +790,11 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       IYZICO_GENERATED_BUILD_METADATA,
     );
     registerServerAnalyticsRepository(access, analyticsRepository);
-    registerServerInventoryRepository(access, inventoryRepository);
+    registerServerInventoryRepository(access, createPostCommitInvalidatingRepository(inventoryRepository, {
+      savePurchaseOrder: ["catalog"], transitionPurchaseOrder: ["catalog"], receivePurchaseOrder: ["catalog"],
+      saveCount: ["catalog"], startCount: ["catalog"], commitCount: ["catalog"], cancelCount: ["catalog"],
+      saveTransfer: ["catalog"], dispatchTransfer: ["catalog"], receiveTransfer: ["catalog"], cancelTransfer: ["catalog"],
+    }));
     registerServerPricingRepository(access, createPostCommitInvalidatingRepository(pricingRepository, {
       save: ["catalog"], activate: ["catalog"], archive: ["catalog"],
     }));

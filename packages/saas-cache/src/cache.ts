@@ -45,10 +45,22 @@ export function createCache(options: Readonly<{
   randomToken?: () => string;
 }>): Cache {
   const metrics = createCacheMetrics();
+  const scopes = new Map<string, { hit: number; miss: number; set: number; error: number; bypass: number }>();
   const singleflight = new Map<string, Promise<unknown>>();
   const random = options.random ?? Math.random;
   const randomToken = options.randomToken ?? randomUUID;
   const namespaceTtl = 31 * 24 * 60 * 60;
+  const bump = (field: keyof typeof metrics, scope?: string) => {
+    metrics[field] += 1;
+    if (scope === undefined || !["hit", "miss", "set", "error", "bypass"].includes(field)) return;
+    let selected = scopes.get(scope);
+    if (!selected && scopes.size < 32) { selected = { hit: 0, miss: 0, set: 0, error: 0, bypass: 0 }; scopes.set(scope, selected); }
+    if (selected) selected[field as "hit" | "miss" | "set" | "error" | "bypass"] += 1;
+  };
+  const backendError = (error: unknown, scope?: string) => {
+    bump("error", scope);
+    if (typeof error === "object" && error !== null && (error as { code?: unknown }).code === "timeout") bump("timeout");
+  };
 
   const ensureNamespaceToken = async (storeId: string, dataClass: CacheDataClass): Promise<string> => {
     const key = buildNamespaceKey(options.namespace, storeId, dataClass);
@@ -79,25 +91,25 @@ export function createCache(options: Readonly<{
             const envelope = JSON.parse(raw) as Partial<Envelope>;
             if (envelope.schema !== "celebix-cache-v1" || typeof envelope.negative !== "boolean") throw new Error("cache_envelope_invalid");
             const parsed = input.parser(envelope.value);
-            if (envelope.negative) metrics.negativeHit += 1;
-            else metrics.hit += 1;
+            if (envelope.negative) bump("negativeHit");
+            else bump("hit", input.scope);
             return parsed;
           } catch {
             await options.backend.delete(key).catch(() => undefined);
-            metrics.error += 1;
+            bump("error", input.scope);
           }
         }
       }
-      metrics.miss += 1;
-    } catch {
-      metrics.error += 1;
-      metrics.bypass += 1;
+      bump("miss", input.scope);
+    } catch (error) {
+      backendError(error, input.scope);
+      bump("bypass", input.scope);
       return input.load();
     }
 
     const active = singleflight.get(key) as Promise<T> | undefined;
     if (active) {
-      metrics.singleflightJoin += 1;
+      bump("singleflightJoin");
       return active;
     }
     const operation = (async () => {
@@ -111,9 +123,9 @@ export function createCache(options: Readonly<{
         const ttl = Math.max(1, Math.round(baseTtl * (0.9 + 0.2 * Math.min(1, Math.max(0, random())))));
         try {
           await options.backend.set(key, serialized, ttl);
-          metrics.write += 1;
-        } catch { metrics.error += 1; }
-      } else metrics.bypass += 1;
+          bump("set", input.scope);
+        } catch (error) { backendError(error, input.scope); }
+      } else { bump("payloadRejected"); bump("bypass", input.scope); }
       return value;
     })();
     singleflight.set(key, operation);
@@ -126,14 +138,14 @@ export function createCache(options: Readonly<{
     async rotateNamespace(storeId: string, dataClass: CacheDataClass) {
       try {
         await options.backend.set(buildNamespaceKey(options.namespace, storeId, dataClass), randomToken(), namespaceTtl);
-        metrics.invalidation += 1;
-      } catch { metrics.error += 1; }
+        bump("invalidation");
+      } catch (error) { backendError(error, dataClass); }
     },
     async ping() {
       try { await options.backend.ping(); return "healthy"; }
-      catch { metrics.error += 1; return "degraded"; }
+      catch (error) { backendError(error, "health"); return "degraded"; }
     },
     async close() { await options.backend.close?.().catch(() => undefined); },
-    metrics: () => snapshotCacheMetrics(metrics),
+    metrics: () => snapshotCacheMetrics(metrics, Object.freeze(Object.fromEntries([...scopes].map(([scope, value]) => [scope, Object.freeze({ ...value })])))),
   });
 }

@@ -5,7 +5,7 @@ test("Owner public health is cache-safe and reports the disabled optional depend
   const route = await import("./route.ts");
   const response = await route.GET(new Request("https://owner.celebix.site/api/health"));
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { status: "ok", dependencies: { redisCache: { status: "disabled", metrics: null } } });
+  assert.deepEqual(await response.json(), { status: "ok", dependencies: { redisCache: { required: false, status: "disabled", metrics: null } } });
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
 
