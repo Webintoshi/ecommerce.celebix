@@ -671,8 +671,10 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   assert.match(publicRuntime, /abandoned_carts_projection/);
   assert.match(publicRuntime, /firstProductName/);
   assert.match(publicRuntime, /customerId/);
-  assert.match(publicRuntime, /AS migration_073/);
-  assert.match(publicRuntime, /row[.]migration_073 !== true/);
+  assert.match(publicRuntime, /AS migration_073_direct/);
+  assert.match(publicRuntime, /AS migration_073_wrapped/);
+  assert.match(publicRuntime, /storefront_cart_projection_without_commerce_analytics/);
+  assert.match(publicRuntime, /isStorefrontCheckoutReadinessMigrationCompatible/);
   assert.match(publicRuntime, /storefront_hosted_checkout_settlement_preflight/);
   assert.match(publicRuntime, /hostedMigration[.]rows\[0\][?][.]migration_092 === true/);
   assert.match(publicRuntime, /async function queryAsWorkflowRole/);
