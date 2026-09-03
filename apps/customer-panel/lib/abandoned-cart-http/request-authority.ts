@@ -1,7 +1,7 @@
 import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
-const PATH = new RegExp(`^(?:/api/orders/abandoned-carts|/api/orders/abandoned-carts/summary|/api/orders/abandoned-carts/${UUID}|/api/orders/abandoned-carts/${UUID}/(?:recovered|archive))$`);
+const PATH = new RegExp(`^(?:/api/orders/abandoned-carts|/api/orders/abandoned-carts/summary|/api/orders/abandoned-carts/${UUID}|/api/orders/abandoned-carts/${UUID}/(?:recovered|archive|recovery-link|mark-contacted|note))$`);
 
 export type AbandonedCartRequestAuthorityDecision = "approved" | "method_not_allowed" | "origin_denied" | "request_invalid";
 export type AbandonedCartRequestExpectation = Readonly<{ method: "GET" | "POST"; pathname: string; query: "allowed" | "forbidden" }>;

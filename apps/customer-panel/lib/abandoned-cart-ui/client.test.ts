@@ -27,6 +27,26 @@ test("mutations send only expectedVersion with one idempotency identity", async 
   for (const [, init] of calls) { assert.equal(init?.method, "POST"); assert.deepEqual(init?.headers, { "content-type": "application/json", "idempotency-key": OPERATION }); assert.equal(init?.body, '{"expectedVersion":3}'); }
 });
 
+test("recovery-link request is bodyless and accepts only a canonical opaque storefront URL", async () => {
+  const token = Buffer.alloc(32, 0x42).toString("base64url");
+  let observed: RequestInit | undefined;
+  const client = createAbandonedCartApiClient({ fetch: async (_input, init) => { observed = init; return Response.json({ url: `https://shop.example.test/api/cart/recover?token=${token}`, expiresAt: NOW }); } });
+  const result = await client.issueRecoveryLink(ID);
+  assert.match(result.url, /shop[.]example[.]test/u);
+  assert.equal(observed?.method, "POST"); assert.equal(observed?.body, undefined); assert.equal(observed?.headers, undefined);
+});
+
+test("manual recovery records use finite same-origin endpoints and bounded bodies", async () => {
+  const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
+  const client = createAbandonedCartApiClient({ randomUUID: () => OPERATION, fetch: async (input, init) => { calls.push([input, init]); const kind = String(input).endsWith("/note") ? "note" : "contacted"; return Response.json({ cartId: ID, kind, recordedAt: NOW, replayed: false }); } });
+  await client.recordRecoveryAttempt(ID, "contacted");
+  await client.recordRecoveryAttempt(ID, "note", "Müşteri mağazayı aradı.");
+  assert.deepEqual(calls.map(([path]) => String(path)), [`/api/orders/abandoned-carts/${ID}/mark-contacted`, `/api/orders/abandoned-carts/${ID}/note`]);
+  assert.equal(calls[0]?.[1]?.body, "{}");
+  assert.equal(calls[1]?.[1]?.body, '{"note":"Müşteri mağazayı aradı."}');
+  await assert.rejects(() => client.recordRecoveryAttempt(ID, "note", " "), /abandoned_cart_client_invalid/);
+});
+
 test("hostile responses and private browser authority fail closed", async () => {
   const client = createAbandonedCartApiClient({ fetch: async () => Response.json({ storeId: ID, items: [] }), randomUUID: () => OPERATION });
   await assert.rejects(() => client.list(), (error) => error instanceof AbandonedCartApiError && error.code === "unavailable");

@@ -52,6 +52,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.abandoned_carts_mark_recovered(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.abandoned_carts_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.abandoned_carts_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.commerce_cart_recovery_link_issue(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,text,integer)') IS NOT NULL
+        AND to_regprocedure('saas.commerce_cart_recovery_attempt_record(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,text,text)') IS NOT NULL
         AND to_regprocedure('saas.public_cart_mutate_without_customer_identity_v103(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)') IS NOT NULL
         AND to_regprocedure('saas.abandoned_carts_projection(uuid,uuid)') IS NOT NULL
         AND EXISTS (
@@ -76,7 +78,9 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND has_function_privilege('celebix_saas_app', 'saas.abandoned_carts_get(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid)', 'EXECUTE')
         AND has_function_privilege('celebix_saas_app', 'saas.abandoned_carts_mark_recovered(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint)', 'EXECUTE')
         AND has_function_privilege('celebix_saas_app', 'saas.abandoned_carts_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint)', 'EXECUTE')
-        AND has_function_privilege('celebix_saas_app', 'saas.abandoned_carts_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text)', 'EXECUTE') AS abandoned_cart_repository`);
+        AND has_function_privilege('celebix_saas_app', 'saas.abandoned_carts_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text)', 'EXECUTE')
+        AND has_function_privilege('celebix_saas_app', 'saas.commerce_cart_recovery_link_issue(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,text,integer)', 'EXECUTE')
+        AND has_function_privilege('celebix_saas_app', 'saas.commerce_cart_recovery_attempt_record(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,text,text)', 'EXECUTE') AS abandoned_cart_repository`);
     const row = result.rows[0];
     if (
       result.rowCount !== 1 || !row ||

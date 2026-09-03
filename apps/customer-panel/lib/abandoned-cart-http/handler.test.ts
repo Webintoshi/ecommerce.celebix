@@ -17,21 +17,21 @@ const REQUEST_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const NOW = new Date("2026-07-22T16:00:00.000Z");
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64url")}`;
 
-function tenantContext(): TenantContext {
-  return { schemaVersion: 1, requestId: REQUEST_ID, principal: { id: "11111111-1111-4111-8111-111111111111", issuer: "https://id.example/oidc", subject: "merchant" }, store: { id: "22222222-2222-4222-8222-222222222222", slug: "merchant", status: "active" }, membership: { id: "33333333-3333-4333-8333-333333333333", role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: "44444444-4444-4444-8444-444444444444", planCode: "free_starter", version: 1, status: "active", features: ["orders"], limits: { products: 100, staff: 1, storageBytes: 1024, monthlyOrders: 100 }, validFrom: "2026-01-01T00:00:00.000Z", validUntil: "2027-01-01T00:00:00.000Z" }, locale: "tr-TR" } as TenantContext;
+function tenantContext(role: "store_owner" | "analyst" = "store_owner"): TenantContext {
+  return { schemaVersion: 1, requestId: REQUEST_ID, principal: { id: "11111111-1111-4111-8111-111111111111", issuer: "https://id.example/oidc", subject: "merchant" }, store: { id: "22222222-2222-4222-8222-222222222222", slug: "merchant", status: "active" }, membership: { id: "33333333-3333-4333-8333-333333333333", role, status: "active" }, entitlements: { schemaVersion: 1, planId: "44444444-4444-4444-8444-444444444444", planCode: "free_starter", version: 1, status: "active", features: ["orders"], limits: { products: 100, staff: 1, storageBytes: 1024, monthlyOrders: 100 }, validFrom: "2026-01-01T00:00:00.000Z", validUntil: "2027-01-01T00:00:00.000Z" }, locale: "tr-TR" } as TenantContext;
 }
 
 function cart(status: "abandoned" | "recovered" = "abandoned") {
-  return { id: ID, status, customerId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", customerName: "Ada", customerEmail: "ada@example.test", currency: "TRY", subtotalCents: 10000, discountCents: 0, totalCents: 10000, itemCount: 1, firstProductName: "Ürün", checkoutStartedAt: NOW.toISOString(), lastActivityAt: NOW.toISOString(), ...(status === "abandoned" ? { abandonedAt: NOW.toISOString() } : { abandonedAt: NOW.toISOString(), recoveredAt: NOW.toISOString() }), version: 3, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() } as const;
+  return { id: ID, status, customerId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", customerName: "Ada", customerEmail: "ada@example.test", customerPhone: "+905551112233", currency: "TRY", subtotalCents: 10000, discountCents: 0, totalCents: 10000, itemCount: 1, firstProductName: "Ürün", checkoutStartedAt: NOW.toISOString(), lastActivityAt: NOW.toISOString(), ...(status === "abandoned" ? { abandonedAt: NOW.toISOString() } : { abandonedAt: NOW.toISOString(), recoveredAt: NOW.toISOString() }), version: 3, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() } as const;
 }
 
 function repository(overrides: Partial<AbandonedCartRepository> = {}): AbandonedCartRepository {
   const reject = async () => { throw new Error("unexpected"); };
-  return { getSummary: reject, list: reject, get: reject, markRecovered: reject, archive: reject, ...overrides } as AbandonedCartRepository;
+  return { getSummary: reject, list: reject, get: reject, issueRecoveryLink: reject, recordRecoveryAttempt: reject, markRecovered: reject, archive: reject, ...overrides } as AbandonedCartRepository;
 }
 
-function runtime(carts: AbandonedCartRepository, accessKind: "authenticated" | "unauthenticated" = "authenticated"): ServerAbandonedCartRuntime {
-  return { abandonedCarts: carts, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return accessKind === "authenticated" ? { kind: "authenticated", session: {}, tenantContext: tenantContext() } as never : { kind: "unauthenticated" }; }, async rotateCredential() { return { kind: "unavailable" }; }, async revokeCredential() { return { kind: "unavailable" }; } } } as ServerAbandonedCartRuntime;
+function runtime(carts: AbandonedCartRepository, accessKind: "authenticated" | "unauthenticated" = "authenticated", role: "store_owner" | "analyst" = "store_owner"): ServerAbandonedCartRuntime {
+  return { abandonedCarts: carts, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return accessKind === "authenticated" ? { kind: "authenticated", session: {}, tenantContext: tenantContext(role) } as never : { kind: "unauthenticated" }; }, async rotateCredential() { return { kind: "unavailable" }; }, async revokeCredential() { return { kind: "unavailable" }; } } } as ServerAbandonedCartRuntime;
 }
 
 function request(path: string, options: { method?: string; origin?: string | null; body?: unknown; cookie?: string | null; headers?: HeadersInit } = {}) {
@@ -41,8 +41,8 @@ function request(path: string, options: { method?: string; origin?: string | nul
   return new Request(`http://internal:3400${path}`, { method, headers, body: method === "GET" ? undefined : JSON.stringify(options.body ?? { expectedVersion: 3 }) });
 }
 
-function handlers(carts: AbandonedCartRepository, accessKind: "authenticated" | "unauthenticated" = "authenticated") {
-  return createAbandonedCartHttpHandlers({ async resolveRuntime() { return runtime(carts, accessKind); }, now: () => new Date(NOW), requestId: () => REQUEST_ID });
+function handlers(carts: AbandonedCartRepository, accessKind: "authenticated" | "unauthenticated" = "authenticated", role: "store_owner" | "analyst" = "store_owner") {
+  return createAbandonedCartHttpHandlers({ async resolveRuntime() { return runtime(carts, accessKind, role); }, now: () => new Date(NOW), requestId: () => REQUEST_ID });
 }
 
 test("authenticated summary, list and detail receive only server TenantContext", async () => {
@@ -60,6 +60,28 @@ test("authenticated summary, list and detail receive only server TenantContext",
   assert.equal(JSON.stringify(calls).includes("__Host-celebix_panel"), false);
 });
 
+test("list always masks customer identity while analyst detail also masks contact PII", async () => {
+  const item = cart();
+  const detail = { ...item, items: [{ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", position: 0, productName: "Ürün", unitPriceCents: 10000, quantity: 1, discountCents: 0, lineTotalCents: 10000 }] };
+  const carts = repository({ async list() { return { items: [item] }; }, async get() { return detail; } });
+  const ownerList = await handlers(carts).list(request(`${BASE}?sort=newest`));
+  const ownerListPayload = await ownerList.json() as { items: Record<string, unknown>[] };
+  assert.deepEqual(ownerListPayload.items[0]?.customerName, "Maskeli müşteri");
+  assert.equal(JSON.stringify(ownerListPayload).includes("ada@example.test"), false);
+  assert.equal(JSON.stringify(ownerListPayload).includes("+905551112233"), false);
+  assert.equal(JSON.stringify(ownerListPayload).includes("eeeeeeee-eeee"), false);
+
+  const ownerDetail = await handlers(carts).get(request(`${BASE}/${ID}`), ID);
+  assert.match(JSON.stringify(await ownerDetail.json()), /ada@example\.test/u);
+
+  const analystDetail = await handlers(carts, "authenticated", "analyst").get(request(`${BASE}/${ID}`), ID);
+  const analystPayload = await analystDetail.json() as Record<string, unknown>;
+  assert.equal(analystPayload.customerName, "Maskeli müşteri");
+  assert.equal(JSON.stringify(analystPayload).includes("ada@example.test"), false);
+  assert.equal(JSON.stringify(analystPayload).includes("+905551112233"), false);
+  assert.equal(JSON.stringify(analystPayload).includes("eeeeeeee-eeee"), false);
+});
+
 test("recovered and archive mutations require exact Origin and idempotency authority", async () => {
   const calls: unknown[] = [];
   const api = handlers(repository({
@@ -70,6 +92,33 @@ test("recovered and archive mutations require exact Origin and idempotency autho
   assert.equal((await api.archive(request(`${BASE}/${ID}/archive`, { method: "POST" }), ID)).status, 200);
   assert.deepEqual(calls[0], { tenantContext: tenantContext(), now: NOW, cartId: ID, operationId: OPERATION, expectedVersion: 3 });
   assert.equal((await api.archive(request(`${BASE}/${ID}/archive`, { method: "POST", origin: null }), ID)).status, 403);
+});
+
+test("store owner can issue an opaque reopenable recovery URL while analyst and body-bearing requests fail closed", async () => {
+  const calls: unknown[] = [];
+  const api = handlers(repository({ async issueRecoveryLink(input) { calls.push(input); return { cartId: ID, hostname: "shop.example.test", expiresAt: "2026-07-25T16:00:00.000Z" }; } }));
+  const linkRequest = new Request(`http://internal:3400${BASE}/${ID}/recovery-link`, { method: "POST", headers: { origin: ORIGIN, cookie: `__Host-celebix_panel=${CREDENTIAL}` } });
+  const response = await api.issueRecoveryLink(linkRequest, ID);
+  assert.equal(response.status, 200);
+  const payload = await response.json() as { url: string; expiresAt: string };
+  assert.match(payload.url, /^https:\/\/shop[.]example[.]test\/api\/cart\/recover[?]token=[A-Za-z0-9_-]{43}$/u);
+  assert.equal(JSON.stringify(calls).includes(payload.url.split("token=")[1]!), false);
+  const analyst = handlers(repository({ async issueRecoveryLink() { throw new Error("must not run"); } }), "authenticated", "analyst");
+  assert.equal((await analyst.issueRecoveryLink(linkRequest, ID)).status, 403);
+  assert.equal((await api.issueRecoveryLink(request(`${BASE}/${ID}/recovery-link`, { method: "POST" }), ID)).status, 403);
+});
+
+test("manual contacted and note records are idempotent, bounded, and owner-only", async () => {
+  const calls: unknown[] = [];
+  const api = handlers(repository({ async recordRecoveryAttempt(input) { calls.push(input); return { cartId: ID, kind: input.kind, recordedAt: NOW.toISOString(), replayed: false }; } }));
+  assert.equal((await api.recordRecoveryAttempt(request(`${BASE}/${ID}/mark-contacted`, { method: "POST", body: {} }), ID, "contacted")).status, 200);
+  assert.equal((await api.recordRecoveryAttempt(request(`${BASE}/${ID}/note`, { method: "POST", body: { note: "Müşteri mağazayı aradı." } }), ID, "note")).status, 200);
+  assert.equal(calls.length, 2);
+  assert.equal((calls[0] as Record<string, unknown>).operationId, OPERATION);
+  assert.equal((calls[1] as Record<string, unknown>).note, "Müşteri mağazayı aradı.");
+  const analyst = handlers(repository({ async recordRecoveryAttempt() { throw new Error("must not run"); } }), "authenticated", "analyst");
+  assert.equal((await analyst.recordRecoveryAttempt(request(`${BASE}/${ID}/mark-contacted`, { method: "POST", body: {} }), ID, "contacted")).status, 403);
+  assert.equal((await api.recordRecoveryAttempt(request(`${BASE}/${ID}/note`, { method: "POST", body: { note: " " } }), ID, "note")).status, 400);
 });
 
 test("abandoned cart mutations survive tenant admin proxy delivery and stay store-bound", async () => {

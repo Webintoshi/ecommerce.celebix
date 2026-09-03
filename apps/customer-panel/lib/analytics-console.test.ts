@@ -14,6 +14,39 @@ import {
 const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
 
+test("commerce analytics workspace exposes URL-stable tabs, honest formulas, degraded traffic and worker health", async () => {
+  const [component, page] = await Promise.all([source("components/analytics/CommerceAnalyticsWorkspace.tsx"), source("app/analytics/page.tsx")]);
+  for (const label of ["Genel Bakış", "Dönüşüm Hunisi", "Sepet ve Checkout", "Trafik Kaynakları", "Ürün Performansı", "Bugün", "Son 7 gün", "Son 30 gün", "Son 90 gün", "Özel aralığı uygula", "Önceki dönemle karşılaştır", "Para birimi", "Trafik verileri geçici olarak alınamıyor", "Sipariş ve sepet verileri günceldir", "Dead-letter", "Hesaplanamadı"]) assert.match(component, new RegExp(label));
+  for (const tab of ["overview", "funnel", "carts", "acquisition", "products"]) assert.match(component, new RegExp(`\\[?\"${tab}\"`));
+  for (const route of ["overview", "funnel", "abandoned-carts", "acquisition", "products"]) assert.match(component, new RegExp(`/api/analytics/${route}`));
+  assert.match(component, /paidOrders\s*\/\s*visitors/);
+  assert.match(component, /recoveredCarts\s*\/\s*abandonedCarts/);
+  for (const event of ["product_view", "add_to_cart", "view_cart", "begin_checkout", "payment_method_selected"]) assert.match(component, new RegExp(event));
+  assert.match(component, /Önceki adıma göre/);
+  assert.match(component, /İlk adıma göre/);
+  assert.match(component, /Kayıp/);
+  assert.match(component, /AbortController/);
+  assert.doesNotMatch(component, /websiteId|connectionId|customerEmail|customerPhone|console[.](log|error)/);
+  assert.match(page, /searchParams/);
+  assert.match(page, /CommerceAnalyticsWorkspace/);
+});
+
+test("analytics settings show durable thresholds without exposing provider authority and keep automation fail-closed", async () => {
+  const [component, page] = await Promise.all([source("components/analytics/AnalyticsSettingsConsole.tsx"), source("app/settings/analytics/page.tsx")]);
+  for (const label of ["Analitik ayarları", "Terk adayı süresi", "Terk edilmiş süresi", "Recovery link geçerliliği", "Otomatik recovery", "Mesaj limiti", "Tracking policy", "Session replay kapalı", "Kaydet"]) assert.match(component, new RegExp(label));
+  assert.match(component, /\/api\/analytics\/settings/);
+  assert.match(component, /automaticRecoveryEnabled/);
+  assert.match(component, /disabled/);
+  assert.doesNotMatch(component, /websiteId|apiToken|password|secret|console[.](log|error)/i);
+  assert.match(page, /configuration[.]manage/);
+});
+
+test("abandoned cart recovery surface supports reopening and explicit copy", async () => {
+  const component = await source("components/orders/AbandonedCartConsole.tsx");
+  for (const proof of ["Bağlantıyı kopyala", "Dönüşüm tamamlanana kadar", "navigator.clipboard.writeText", "İletişim kuruldu", "Merchant notu", "recordRecoveryAttempt"]) assert.match(component, new RegExp(proof));
+  assert.doesNotMatch(component, /Tek kullanımlık|yalnız bir kez kullanılabilir/);
+});
+
 function createHookRuntime() {
   const slots: unknown[] = [];
   let cursor = 0;

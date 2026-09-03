@@ -35,6 +35,7 @@ function emptyMetrics(): Readonly<Record<AnalyticsMetricType, null>> {
     referrer: null,
     device: null,
     country: null,
+    event: null,
   });
 }
 

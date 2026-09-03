@@ -13,7 +13,7 @@ export type ServerAbandonedCartRuntime = Readonly<{
 }>;
 
 const repositories = new WeakMap<ServerPanelAccessRuntime, AbandonedCartRepository>();
-const METHODS = Object.freeze(["getSummary", "list", "get", "markRecovered", "archive"] as const);
+const METHODS = Object.freeze(["getSummary", "list", "get", "issueRecoveryLink", "recordRecoveryAttempt", "markRecovered", "archive"] as const);
 
 function invalid(): never { throw new Error("server_abandoned_cart_runtime_invalid"); }
 
