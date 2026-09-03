@@ -13,6 +13,7 @@ import type {
   StorefrontCommerceRepository,
 } from "./types.ts";
 import {
+  commerceAttribution,
   commerceCandidates,
   commerceDate,
   commerceDelivery,
@@ -143,6 +144,38 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
   }
   private emitUnknown(): void {
     try { const pending = this.options.audit(Object.freeze({ type: "storefront_checkout_commit_unknown" })); if (pending) void pending.catch(() => undefined); } catch {}
+  }
+
+  async recordCartAttribution(input: Parameters<StorefrontCommerceRepository["recordCartAttribution"]>[0]): Promise<void> {
+    try {
+      const parsed = exactCommerceInput(input, ["hostname", "now", "candidates", "attribution"]);
+      await this.write(
+        "SELECT outcome,result_payload FROM saas.public_cart_attribution_record($1::text,$2::timestamptz,$3::jsonb,$4::jsonb)",
+        [commerceHostname(parsed.hostname), commerceDate(parsed.now), JSON.stringify(commerceCandidates(parsed.candidates)), JSON.stringify(commerceAttribution(parsed.attribution))],
+        ["recorded"],
+        (value) => { exactResult(value, []); },
+      );
+    } catch (error) { if (error instanceof StorefrontCommerceRepositoryError) throw error; throw failure("invalid_input"); }
+  }
+
+  async restoreCart(input: Parameters<StorefrontCommerceRepository["restoreCart"]>[0]) {
+    try {
+      const parsed = exactCommerceInput(input, ["hostname", "now", "tokenDigest", "cart"]);
+      const now = commerceDate(parsed.now);
+      const cart = commerceGeneratedCredential(parsed.cart, now, 31);
+      if (typeof parsed.tokenDigest !== "string" || !/^[0-9a-f]{64}$/.test(parsed.tokenDigest)) throw failure("invalid_input");
+      return await this.write(
+        "SELECT outcome,result_payload FROM saas.public_cart_recovery_restore($1::text,$2::timestamptz,$3::text,$4::uuid,$5::text,$6::text,$7::timestamptz)",
+        [commerceHostname(parsed.hostname), now, parsed.tokenDigest, cart.id, cart.keyId, cart.digest, cart.expiresAt],
+        ["restored"],
+        (value) => {
+          const selected = exactResult(value, ["cart", "restoredItems", "omittedItems"]);
+          if (!Number.isSafeInteger(selected.restoredItems) || (selected.restoredItems as number) < 1
+            || !Number.isSafeInteger(selected.omittedItems) || (selected.omittedItems as number) < 0) throw failure();
+          return Object.freeze({ cart: parsePublicCart(selected.cart), restoredItems: selected.restoredItems as number, omittedItems: selected.omittedItems as number });
+        },
+      );
+    } catch (error) { if (error instanceof StorefrontCommerceRepositoryError) throw error; throw failure("invalid_input"); }
   }
 
   async resolveCart(input: Parameters<StorefrontCommerceRepository["resolveCart"]>[0]): Promise<PublicCart> {

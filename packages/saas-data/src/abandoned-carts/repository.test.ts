@@ -159,6 +159,28 @@ test("list and get parse only exact bounded safe projections", async () => {
   assert.equal(getClient.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
 });
 
+test("recovery link authority stores only token digest metadata under tenant authority", async () => {
+  const digest = "d".repeat(64);
+  const client = new FakeClient((text) => text.includes("saas.commerce_cart_recovery_link_issue")
+    ? [{ outcome: "committed", result_payload: { cartId: CART_ID, hostname: "shop.example.test", expiresAt: "2026-07-25T14:00:00.000Z" } }]
+    : []);
+  const result = await repository(new FakePool([client])).issueRecoveryLink({ tenantContext: tenantContext(), now: NOW, cartId: CART_ID, tokenId: OPERATION_ID, tokenDigest: digest, keyVersion: 1 });
+  assert.equal(result.hostname, "shop.example.test");
+  const call = functionCall(client, "commerce_cart_recovery_link_issue");
+  assert.deepEqual(call.values.slice(7), [CART_ID, OPERATION_ID, digest, 1]);
+  assert.equal(JSON.stringify(call.values).includes("token="), false);
+});
+
+test("manual recovery attempts persist only bounded contacted or merchant-note facts", async () => {
+  const client = new FakeClient((text) => text.includes("saas.commerce_cart_recovery_attempt_record")
+    ? [{ outcome: "committed", result_payload: { cartId: CART_ID, kind: "note", recordedAt: NOW.toISOString(), replayed: false } }]
+    : []);
+  const result = await repository(new FakePool([client])).recordRecoveryAttempt({ tenantContext: tenantContext(), now: NOW, cartId: CART_ID, operationId: OPERATION_ID, kind: "note", note: "Müşteri mağazayı aradı." });
+  assert.equal(result.kind, "note");
+  const call = functionCall(client, "commerce_cart_recovery_attempt_record");
+  assert.deepEqual(call.values.slice(7), [CART_ID, OPERATION_ID, "note", "Müşteri mağazayı aradı."]);
+});
+
 test("invalid context and browser-like authority fields fail before pool checkout", async () => {
   const pool = new FakePool([]);
   await assert.rejects(

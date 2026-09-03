@@ -4,6 +4,7 @@ import type {
   StorefrontCredentialCandidate,
   StorefrontDelivery,
   StorefrontGeneratedCredential,
+  StorefrontCommerceAttribution,
 } from "./types.ts";
 
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
@@ -13,6 +14,10 @@ const DIGEST = /^[a-f0-9]{64}$/u;
 const KEY_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PHONE = /^\+90[1-9][0-9]{9}$/u;
+const ATTRIBUTION_DIMENSION = /^[\p{L}\p{N}][\p{L}\p{N} ._+/-]{0,127}$/u;
+const ATTRIBUTION_HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
+const ATTRIBUTION_PATH = /^\/[a-z0-9/_-]{0,127}$/u;
+const ATTRIBUTION_RISK = /@|(?:https?:\/\/|www\.)|(?:\+?\d[\d ()-]{8,}\d)|(?:\d[ -]?){13,19}|(?:token\s*=)/iu;
 
 export function exactCommerceInput(value: unknown, required: readonly string[], optional: readonly string[] = []): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) invalid();
@@ -75,6 +80,18 @@ export function commerceCandidates(value: unknown, allowEmpty = false): readonly
     output.push(Object.freeze({ keyId, digest }));
   }
   return Object.freeze(output);
+}
+function commerceAttributionDimension(value: unknown): string { const selected = text(value, 1, 128, ATTRIBUTION_DIMENSION); if (ATTRIBUTION_RISK.test(selected)) invalid(); return selected; }
+function commerceAttributionTouch(value: unknown) { const row = exactCommerceInput(value, ["source", "medium"], ["campaign"]); return Object.freeze({ source: commerceAttributionDimension(row.source), medium: commerceAttributionDimension(row.medium), ...(Object.hasOwn(row, "campaign") ? { campaign: commerceAttributionDimension(row.campaign) } : {}) }); }
+export function commerceAttribution(value: unknown): StorefrontCommerceAttribution {
+  const row = exactCommerceInput(value, ["firstTouch", "lastTouch", "landingPathGroup", "deviceGroup"], ["referrerHost"]);
+  const landingPathGroup = text(row.landingPathGroup, 1, 128, ATTRIBUTION_PATH);
+  if (!["desktop", "mobile", "tablet", "unknown"].includes(String(row.deviceGroup))) invalid();
+  const referrerHost = Object.hasOwn(row, "referrerHost") ? text(row.referrerHost, 3, 253, ATTRIBUTION_HOSTNAME) : undefined;
+  if (referrerHost && referrerHost !== referrerHost.toLowerCase()) invalid();
+  const output = Object.freeze({ firstTouch: commerceAttributionTouch(row.firstTouch), lastTouch: commerceAttributionTouch(row.lastTouch), ...(referrerHost ? { referrerHost } : {}), landingPathGroup, deviceGroup: row.deviceGroup as StorefrontCommerceAttribution["deviceGroup"] });
+  if (Buffer.byteLength(JSON.stringify(output), "utf8") > 1024) invalid();
+  return output;
 }
 export function commerceGeneratedCredential(value: unknown, now: Date, maximumDays: number): StorefrontGeneratedCredential {
   const parsed = exactCommerceInput(value, ["id", "keyId", "digest", "expiresAt"]);

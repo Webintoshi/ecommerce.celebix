@@ -50,6 +50,24 @@ test("cart resolve uses one read-only hostname/digest workflow and releases afte
   assert.deepEqual(client.releases, [undefined]);
 });
 
+test("recovery restore passes only digest and fresh cart credential metadata", async () => {
+  const client = new Client(responder("restored", { cart: CART, restoredItems: 1, omittedItems: 2 }));
+  const generated = { id: "60000000-0000-4000-8000-000000000081", keyId: "current_01", digest: "b".repeat(64), expiresAt: new Date("2026-08-30T12:00:00.000Z") };
+  const result = await repository(new Pool([client])).restoreCart({ hostname: HOST, now: NOW, tokenDigest: DIGEST, cart: generated });
+  assert.deepEqual(result, { cart: CART, restoredItems: 1, omittedItems: 2 });
+  const selected = client.calls.find(({ text }) => text.includes("public_cart_recovery_restore"));
+  assert.deepEqual(selected?.values, [HOST, NOW, DIGEST, generated.id, generated.keyId, generated.digest, generated.expiresAt]);
+});
+
+test("cart attribution persistence is strict, store-resolved, and PII-free", async () => {
+  const client = new Client(responder("recorded", {}));
+  const attribution = { firstTouch: { source: "atlas-qa", medium: "test", campaign: "cart-recovery" }, lastTouch: { source: "atlas-qa", medium: "test", campaign: "cart-recovery" }, referrerHost: "search.example", landingPathGroup: "/products/ring", deviceGroup: "mobile" as const };
+  await repository(new Pool([client])).recordCartAttribution({ hostname: HOST, now: NOW, candidates: CANDIDATES, attribution });
+  const selected = client.calls.find(({ text }) => text.includes("public_cart_attribution_record"));
+  assert.deepEqual(selected?.values, [HOST, NOW, JSON.stringify(CANDIDATES), JSON.stringify(attribution)]);
+  assert.doesNotMatch(JSON.stringify(selected?.values), /storeId|email|phone|https:/u);
+});
+
 test("new cart mutation sends only generated digest metadata and canonical product authority", async () => {
   const client = new Client(responder("committed", { credentialCreated: true, cart: CART }));
   const result = await repository(new Pool([client])).mutateCart({ hostname: HOST, now: NOW, candidates: [], customerCandidates: CANDIDATES, cart: { id: "60000000-0000-4000-8000-000000000081", keyId: "current_01", digest: DIGEST, expiresAt: new Date("2026-08-30T12:00:00.000Z") }, operationId: OPERATION, action: "add", expectedVersion: 0, productId: PRODUCT, variantId: VARIANT, quantity: 1 });

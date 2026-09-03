@@ -19,6 +19,8 @@ import type {
   GetAbandonedCartInput,
   ListAbandonedCartsInput,
   ListAbandonedCartsResult,
+  IssueAbandonedCartRecoveryLinkInput,
+  RecordAbandonedCartRecoveryAttemptInput,
   MutateAbandonedCartInput,
   PostgresAbandonedCartRepositoryOptions,
 } from "./types.ts";
@@ -217,6 +219,42 @@ export class PostgresAbandonedCartRepository implements AbandonedCartRepository 
       $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
     )`, values: [...authorityValues(authority), cartId] }, "found", (value) => {
       try { const result = parseAbandonedCartDetail(value); if (result.id !== cartId) throw unavailable(); return result; } catch (error) { if (error instanceof AbandonedCartRepositoryError) throw error; throw unavailable(); }
+    }, true);
+  }
+
+  async issueRecoveryLink(input: IssueAbandonedCartRecoveryLinkInput) {
+    const exact = exactAbandonedCartInput(input, ["tenantContext", "now", "cartId", "tokenId", "tokenDigest", "keyVersion"]);
+    const authority = abandonedCartAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const cartId = abandonedCartUuid(exact.cartId);
+    const tokenId = abandonedCartUuid(exact.tokenId);
+    if (typeof exact.tokenDigest !== "string" || !/^[0-9a-f]{64}$/.test(exact.tokenDigest)
+      || !Number.isSafeInteger(exact.keyVersion) || (exact.keyVersion as number) < 1 || (exact.keyVersion as number) > 1000) throw new AbandonedCartRepositoryError("invalid_input");
+    return this.read({ text: `SELECT outcome,result_payload FROM saas.commerce_cart_recovery_link_issue(
+      $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::text,$11::integer
+    )`, values: [...authorityValues(authority), cartId, tokenId, exact.tokenDigest, exact.keyVersion] }, "committed", (value) => {
+      const result = payload(value, ["cartId", "hostname", "expiresAt"]);
+      if (result.cartId !== cartId || typeof result.hostname !== "string" || !/^[a-z0-9.-]{3,253}$/.test(result.hostname)
+        || typeof result.expiresAt !== "string" || !Number.isFinite(new Date(result.expiresAt).getTime())) throw unavailable();
+      return Object.freeze({ cartId, hostname: result.hostname, expiresAt: result.expiresAt });
+    }, true);
+  }
+
+  async recordRecoveryAttempt(input: RecordAbandonedCartRecoveryAttemptInput) {
+    const exact = exactAbandonedCartInput(input, ["tenantContext", "now", "cartId", "operationId", "kind"], ["note"]);
+    const authority = abandonedCartAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const cartId = abandonedCartUuid(exact.cartId);
+    const operationId = abandonedCartUuid(exact.operationId);
+    if (exact.kind !== "contacted" && exact.kind !== "note") throw new AbandonedCartRepositoryError("invalid_input");
+    const note = exact.note;
+    if ((exact.kind === "contacted" && note !== undefined)
+      || (exact.kind === "note" && (typeof note !== "string" || note !== note.trim() || note.length < 1 || note.length > 1000 || /[\u0000-\u001f\u007f]/.test(note)))) throw new AbandonedCartRepositoryError("invalid_input");
+    return this.read({ text: `SELECT outcome,result_payload FROM saas.commerce_cart_recovery_attempt_record(
+      $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::text,$11::text
+    )`, values: [...authorityValues(authority), cartId, operationId, exact.kind, note ?? null] }, "committed", (value) => {
+      const result = payload(value, ["cartId", "kind", "recordedAt", "replayed"]);
+      if (result.cartId !== cartId || result.kind !== exact.kind || typeof result.recordedAt !== "string"
+        || !Number.isFinite(new Date(result.recordedAt).getTime()) || result.replayed !== false) throw unavailable();
+      return Object.freeze({ cartId, kind: exact.kind as "contacted" | "note", recordedAt: result.recordedAt, replayed: false });
     }, true);
   }
 

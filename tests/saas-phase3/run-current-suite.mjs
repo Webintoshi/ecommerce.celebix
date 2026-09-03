@@ -10,6 +10,12 @@ const matrix = JSON.parse(readFileSync(path.join(PHASE3, "current-test-matrix.js
 const historical = new Set(matrix.historicalSnapshots.map(({ file }) => file));
 const requiredHarnesses = Object.freeze([
   Object.freeze({
+    file: "tests/saas-phase3/commerce-analytics-cart-recovery/postgres-harness.mjs",
+    total: 19,
+    line: /^PASS \d+\/19 (?!commerce analytics cart recovery PostgreSQL 16 rehearsal complete$).+$/gm,
+    completion: /^PASS 19\/19 commerce analytics cart recovery PostgreSQL 16 rehearsal complete$/m,
+  }),
+  Object.freeze({
     file: "tests/saas-phase3/redis-cache-foundation/redis-harness.mjs",
     total: 10,
     line: /^PASS \d+\/10 (?!Redis cache foundation rehearsal complete$).+$/gm,

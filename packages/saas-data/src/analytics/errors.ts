@@ -3,6 +3,7 @@ export const ANALYTICS_ERROR_CODES = Object.freeze([
   "feature_not_enabled","hostname_not_found","not_configured","already_configured","website_id_conflict",
   "operation_mismatch","connection_not_found","website_id_mismatch","hostname_mismatch","stale_operation",
   "stale_version","not_committed","lease_lost","unavailable",
+  "version_conflict",
 ] as const);
 
 export type AnalyticsErrorCode = (typeof ANALYTICS_ERROR_CODES)[number];

@@ -20,6 +20,14 @@ export type StorefrontCheckoutCredentialPersistence = Readonly<{
   customerKeyId: string;
 }>;
 
+export type StorefrontCommerceAttribution = Readonly<{
+  firstTouch: Readonly<{ source: string; medium: string; campaign?: string }>;
+  lastTouch: Readonly<{ source: string; medium: string; campaign?: string }>;
+  referrerHost?: string;
+  landingPathGroup: string;
+  deviceGroup: "desktop" | "mobile" | "tablet" | "unknown";
+}>;
+
 export type StorefrontDelivery = Readonly<{
   contact: Readonly<{ firstName: string; lastName: string; email: string; phone: string }>;
   shippingAddress: Readonly<{
@@ -34,6 +42,8 @@ export type StorefrontDelivery = Readonly<{
 }>;
 
 export interface StorefrontCommerceRepository {
+  recordCartAttribution(input: Readonly<{ hostname: string; now: Date; candidates: readonly StorefrontCredentialCandidate[]; attribution: StorefrontCommerceAttribution }>): Promise<void>;
+  restoreCart(input: Readonly<{ hostname: string; now: Date; tokenDigest: string; cart: StorefrontGeneratedCredential }>): Promise<Readonly<{ cart: PublicCart; restoredItems: number; omittedItems: number }>>;
   resolveCart(input: Readonly<{ hostname: string; now: Date; candidates: readonly StorefrontCredentialCandidate[] }>): Promise<PublicCart>;
   mutateCart(input: Readonly<{
     hostname: string;
