@@ -39,6 +39,7 @@ const METRIC_LABELS: Readonly<Record<AnalyticsMetricType, string>> =
     referrer: "Yönlendirenler",
     device: "Cihazlar",
     country: "Ülkeler",
+    event: "Ticaret olayları",
   });
 
 export type PanelAnalyticsViewProps = Readonly<{

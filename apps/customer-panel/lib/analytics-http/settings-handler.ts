@@ -1,0 +1,211 @@
+import {
+  isMerchantActionAllowed,
+  parseCommerceAnalyticsSettings,
+  type TenantContext,
+} from "@celebix/saas-contracts";
+import {
+  ANALYTICS_ERROR_CODES,
+  AnalyticsRepositoryError,
+} from "@celebix/saas-data";
+import type { ServerAnalyticsRuntime } from "../server-analytics/runtime.ts";
+import { authorizeAnalyticsRequest } from "./request-authority.ts";
+
+type Dependencies = Readonly<{
+  resolveRuntime(): Promise<ServerAnalyticsRuntime | null>;
+  now(): Date;
+  requestId(): string;
+}>;
+function json(value: unknown, status = 200, headers?: HeadersInit) {
+  const output = new Headers(headers);
+  output.set("cache-control", "no-store");
+  output.set("x-content-type-options", "nosniff");
+  return Response.json(value, { status, headers: output });
+}
+function error(code: string, status: number, headers?: HeadersInit) {
+  return json({ code }, status, headers);
+}
+function repositoryError(value: unknown) {
+  if (
+    !(value instanceof AnalyticsRepositoryError) ||
+    !ANALYTICS_ERROR_CODES.includes(value.code)
+  )
+    return error("unavailable", 503);
+  return error(
+    value.code,
+    value.code === "invalid_input"
+      ? 400
+      : value.code === "unauthenticated"
+        ? 401
+        : [
+              "membership_denied",
+              "store_inactive",
+              "feature_not_enabled",
+            ].includes(value.code)
+          ? 403
+          : ["durable_authority_invalid", "version_conflict"].includes(
+                value.code,
+              )
+            ? 409
+            : 503,
+  );
+}
+function exactRequest(request: Request) {
+  try {
+    const url = new URL(request.url);
+    return (
+      url.pathname === "/api/analytics/settings" &&
+      url.search === "" &&
+      !url.hash &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+async function body(request: Request) {
+  if (request.headers.get("content-type") !== "application/json") return null;
+  let text: string;
+  try {
+    text = await request.text();
+  } catch {
+    return null;
+  }
+  if (text.length < 2 || text.length > 4096) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>,
+    keys = [
+      "expectedVersion",
+      "candidateInactivityMinutes",
+      "abandonedInactivityHours",
+      "recoveryLinkHours",
+      "automaticRecoveryEnabled",
+      "maximumMessageAttempts",
+      "minimumMessageIntervalHours",
+      "trackingPolicy",
+    ];
+  if (Object.keys(input).sort().join(",") !== [...keys].sort().join(","))
+    return null;
+  const { expectedVersion, ...settings } = input;
+  try {
+    return parseCommerceAnalyticsSettings({
+      ...settings,
+      version: expectedVersion,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function createCommerceAnalyticsSettingsHandler(
+  dependencies: Dependencies,
+) {
+  if (
+    !dependencies ||
+    typeof dependencies.resolveRuntime !== "function" ||
+    typeof dependencies.now !== "function" ||
+    typeof dependencies.requestId !== "function"
+  )
+    throw Error("commerce_analytics_settings_handler_invalid");
+  return async function handle(request: Request) {
+    if (request.method !== "GET" && request.method !== "POST")
+      return error("method_not_allowed", 405, { allow: "GET, POST" });
+    if (!exactRequest(request)) return error("invalid_input", 400);
+    let runtime: ServerAnalyticsRuntime | null;
+    try {
+      runtime = await dependencies.resolveRuntime();
+    } catch {
+      return error("unavailable", 503);
+    }
+    if (!runtime) return error("unavailable", 503);
+    let now: Date, requestId: string;
+    try {
+      now = dependencies.now();
+      requestId = dependencies.requestId();
+    } catch {
+      return error("unavailable", 503);
+    }
+    const access = await authorizeAnalyticsRequest(
+      runtime,
+      request,
+      requestId,
+      now,
+      request.method === "POST",
+    );
+    if (access.kind === "response") {
+      let value: unknown;
+      try {
+        value = await access.response.json();
+      } catch {
+        value = { code: "unavailable" };
+      }
+      return json(value, access.response.status);
+    }
+    const tenantContext = access.tenantContext as TenantContext;
+    if (
+      !isMerchantActionAllowed(
+        tenantContext.membership.role,
+        "configuration.manage",
+      )
+    )
+      return error("membership_denied", 403);
+    try {
+      if (request.method === "POST") {
+        const selected = await body(request);
+        if (!selected) return error("invalid_input", 400);
+        return json({
+          settings: await runtime.analytics.updateCommerceSettings({
+            tenantContext,
+            now,
+            expectedVersion: selected.version,
+            candidateInactivityMinutes: selected.candidateInactivityMinutes,
+            abandonedInactivityHours: selected.abandonedInactivityHours,
+            recoveryLinkHours: selected.recoveryLinkHours,
+            automaticRecoveryEnabled: selected.automaticRecoveryEnabled,
+            maximumMessageAttempts: selected.maximumMessageAttempts,
+            minimumMessageIntervalHours: selected.minimumMessageIntervalHours,
+            trackingPolicy: selected.trackingPolicy,
+          }),
+        });
+      }
+      const [settings, connection] = await Promise.all([
+        runtime.analytics.commerceSettings({ tenantContext, now }),
+        runtime.analytics.getConnection({ tenantContext, now }),
+      ]);
+      let live = false;
+      if (
+        runtime.providerConfigured &&
+        connection.configured &&
+        connection.status === "active"
+      ) {
+        try {
+          const authority = await runtime.analytics.getConnectionAuthority({
+            tenantContext,
+            now,
+          });
+          const website = await runtime.umami.getWebsite(authority.websiteId);
+          live = website?.id === authority.websiteId;
+        } catch {
+          live = false;
+        }
+      }
+      return json({
+        settings,
+        connection: {
+          provider: "umami",
+          status: connection.status,
+          configured: connection.configured,
+          live,
+        },
+      });
+    } catch (caught) {
+      return repositoryError(caught);
+    }
+  };
+}

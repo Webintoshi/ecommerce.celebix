@@ -9,7 +9,7 @@ import type {
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
-import { PRODUCT_VIEW_EVENT } from "@/lib/analytics/events.ts";
+import { productViewEvent } from "@/lib/analytics/events.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { buildPublicPolicyPage } from "@/lib/policy-page.ts";
@@ -160,7 +160,7 @@ export async function renderProductPage({
     <StorefrontFrame storefront={storefront} design={selected.design}>
       <StorefrontAnalyticsEvent
         tracker={selected.tracker}
-        event={PRODUCT_VIEW_EVENT}
+        event={productViewEvent(item.id, item.variants.find(({ available }) => available)?.id, item.primaryCategoryId, item.currency, item.priceCents)}
         trigger="mount"
       />
       <ProductDetailExperience product={item}

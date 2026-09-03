@@ -55,6 +55,7 @@ function metric(
     referrer: "https://search.example",
     device: "desktop",
     country: "TR",
+    event: "product_view",
   } as const;
   return Object.freeze({
     schemaVersion: 1,
@@ -112,6 +113,7 @@ test("loaded presentation preserves exact summary and all metric tabs", async ()
     "referrer",
     "device",
     "country",
+    "event",
   ]);
   assert.equal(
     Object.values(model.metrics).every((value) => value?.items[0]?.value === 4),
@@ -163,9 +165,9 @@ test("each selectable range is forwarded exactly to summary and metrics", async 
       new AbortController().signal,
     );
   }
-  assert.equal(seen.length, 15);
+  assert.equal(seen.length, 18);
   for (const range of ["7d", "30d", "90d"])
-    assert.equal(seen.filter((value) => value.endsWith(`:${range}`)).length, 5);
+    assert.equal(seen.filter((value) => value.endsWith(`:${range}`)).length, 6);
 });
 
 test("one AbortSignal reaches connection summary and every metric request", async () => {
@@ -189,7 +191,7 @@ test("one AbortSignal reaches connection summary and every metric request", asyn
     "30d",
     controller.signal,
   );
-  assert.equal(signals.length, 6);
+  assert.equal(signals.length, 7);
   assert.equal(
     signals.every((signal) => signal === controller.signal),
     true,

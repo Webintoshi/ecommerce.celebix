@@ -1,0 +1,5 @@
+"use client";
+import { useEffect } from "react";
+import { STOREFRONT_COMMERCE_EVENT, trackCommerceEvent, type PublicCommerceEvent } from "../lib/analytics/events.ts";
+import { createSafeUmamiTracker } from "../lib/analytics/tracker-client.ts";
+export function StorefrontAnalyticsBridge({websiteId,hostname}:Readonly<{websiteId:string;hostname:string}>){useEffect(()=>{const tracker=createSafeUmamiTracker({websiteId,hostname}),pending:PublicCommerceEvent[]=[];const deliver=(event:PublicCommerceEvent)=>{if((window as typeof window&{umami?:unknown}).umami)trackCommerceEvent(tracker,event);else if(pending.length<50)pending.push(event)};const commerce=(event:Event)=>{if(event instanceof CustomEvent)deliver(event.detail as PublicCommerceEvent)};const ready=()=>{while(pending.length)trackCommerceEvent(tracker,pending.shift()!)};window.addEventListener(STOREFRONT_COMMERCE_EVENT,commerce);window.addEventListener("celebix:analytics-ready",ready);return()=>{pending.length=0;window.removeEventListener(STOREFRONT_COMMERCE_EVENT,commerce);window.removeEventListener("celebix:analytics-ready",ready)}},[hostname,websiteId]);return null}

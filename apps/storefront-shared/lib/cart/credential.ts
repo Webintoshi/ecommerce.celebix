@@ -83,6 +83,13 @@ export function createStorefrontCredential(purpose: StorefrontCredentialPurpose,
   return createStorefrontCredentialForKey(purpose, keyring, keyring.activeKeyId, random);
 }
 
+export function createStorefrontRecoveryCartCredential(token: string, keyring: StorefrontCommerceCredentialKeyring): Readonly<{ value: string; keyId: string; digest: string }> {
+  if (!canonicalToken(token)) unavailable();
+  const bytes = Buffer.from(token, "base64url");
+  try { return createStorefrontCredentialForKey("cart", keyring, keyring.activeKeyId, () => new Uint8Array(bytes)); }
+  finally { bytes.fill(0); }
+}
+
 export function createStorefrontOperationCredential(purpose: "customer" | "receipt" | "hosted_checkout", operationId: string, keyring: StorefrontCommerceCredentialKeyring, persistedKeyId = keyring.activeKeyId): Readonly<{ value: string; keyId: string; digest: string }> {
   const selected = KEY_ID.test(persistedKeyId) ? keyring.keys.find(({ keyId }) => keyId === persistedKeyId) : undefined;
   if (!selected || !UUID.test(operationId)) unavailable();

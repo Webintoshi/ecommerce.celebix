@@ -18,7 +18,7 @@ function access(mode: "approved_staging" | "disabled" = "approved_staging"): Ser
 
 function repository(): AbandonedCartRepository {
   const reject = async () => { throw new Error("unused"); };
-  return { getSummary: reject, list: reject, get: reject, markRecovered: reject, archive: reject } as AbandonedCartRepository;
+  return { getSummary: reject, list: reject, get: reject, issueRecoveryLink: reject, recordRecoveryAttempt: reject, markRecovered: reject, archive: reject } as AbandonedCartRepository;
 }
 
 test("approved staging access resolves only a frozen abandoned-cart facade", () => {
@@ -27,7 +27,7 @@ test("approved staging access resolves only a frozen abandoned-cart facade", () 
   const runtime = resolveServerAbandonedCartRuntime(approved);
   assert.ok(runtime);
   assert.equal(Object.isFrozen(runtime), true);
-  assert.deepEqual(Object.keys(runtime.abandonedCarts).sort(), ["archive", "get", "getSummary", "list", "markRecovered"]);
+  assert.deepEqual(Object.keys(runtime.abandonedCarts).sort(), ["archive", "get", "getSummary", "issueRecoveryLink", "list", "markRecovered", "recordRecoveryAttempt"]);
   for (const forbidden of ["pool", "database", "connectionString", "options"]) assert.equal(forbidden in runtime.abandonedCarts, false);
 });
 
@@ -52,6 +52,8 @@ test("approved staging composition shares one pool and preflights the complete a
     "abandoned_carts_mark_recovered",
     "abandoned_carts_archive",
     "abandoned_carts_recover_operation",
+    "commerce_cart_recovery_link_issue",
+    "commerce_cart_recovery_attempt_record",
     "public_cart_mutate_without_customer_identity_v103",
     "abandoned_carts_projection",
     "customer_id",

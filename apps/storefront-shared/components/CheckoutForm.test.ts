@@ -59,7 +59,10 @@ test("checkout maps finite quote failures without inventing a payment option", (
 
 test("hosted checkout start maps safe backend failures to customer-facing checkout guidance", () => {
   assert.match(form, /catch \(error: unknown\)/u);
-  assert.match(form, /error instanceof StorefrontCartClientError \? checkoutFailureMessage\(error[.]code\)/u);
+  assert.match(
+    form,
+    /error instanceof StorefrontCartClientError\s*[?]\s*checkoutFailureMessage\(error[.]code\)/u,
+  );
   assert.doesNotMatch(form, /catch\s*\{\s*setStatus\("Sipariş tamamlanamadı/u);
 });
 
@@ -91,5 +94,8 @@ test("checkout keeps its server summary snapshot stable until its client boundar
   assert.match(form, /useHydrated/u);
   assert.match(form, /const visibleCart = hydrated \? cart : null/u);
   assert.match(form, /const visibleCartLoading = !hydrated \|\| cartLoading/u);
-  assert.match(form, /resolveCheckoutSummaryState\(intentKind, quote, visibleCart,/u);
+  assert.match(
+    form,
+    /resolveCheckoutSummaryState\(\s*intentKind,\s*quote,\s*visibleCart,/u,
+  );
 });

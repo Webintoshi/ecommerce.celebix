@@ -45,8 +45,8 @@ test("analytics and legacy appearance redirects are server-authorized routes", a
   const analytics = await readFile(new URL("../app/analytics/page.tsx", import.meta.url), "utf8");
   assert.match(analytics, /requireServerPanelAccess\(\)/);
   assert.match(analytics, /analytics[.]read/);
-  assert.match(analytics, /<AnalyticsDashboard/);
-  assert.match(analytics, /<PanelAnalyticsView/);
+  assert.match(analytics, /<CommerceAnalyticsWorkspace/);
+  assert.doesNotMatch(analytics, /<AnalyticsDashboard|<PanelAnalyticsView/);
   const notification = await readFile(new URL("../app/settings/notifications/page.tsx", import.meta.url), "utf8");
   assert.match(notification, /requireServerPanelAccess\(\)/);
   assert.match(notification, /notification_setting/);

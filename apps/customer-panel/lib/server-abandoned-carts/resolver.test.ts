@@ -49,6 +49,8 @@ function runtime(): ServerAbandonedCartRuntime {
     getSummary: unused,
     list: unused,
     get: unused,
+    issueRecoveryLink: unused,
+    recordRecoveryAttempt: unused,
     markRecovered: unused,
     archive: unused,
   });

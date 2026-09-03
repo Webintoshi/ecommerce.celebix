@@ -287,7 +287,7 @@ test("starter storefront consumes the public presentation and exposes no inert c
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/categories/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/categories/[slug]/render-category-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/CategoryShowcase.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/Header.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/Footer.tsx", import.meta.url), "utf8"),
@@ -377,7 +377,7 @@ test("secondary storefront pages omit oversized listing headers without losing a
     Promise.all([
       readFile(new URL("../app/favorites/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
-      readFile(new URL("../app/categories/[slug]/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/categories/[slug]/render-category-page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/cart/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),

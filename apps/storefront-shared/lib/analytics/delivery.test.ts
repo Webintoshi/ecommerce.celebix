@@ -15,12 +15,17 @@ function purchaseClaim(index = 1, attemptCount = 1): AnalyticsOutboxClaim {
   return Object.freeze({ eventId: `90000000-0000-4000-8000-${String(index).padStart(12, "0")}`, leaseToken: String(index).repeat(64).slice(0, 64), websiteId: WEBSITE, hostname: HOSTNAME, attemptCount, payload: Object.freeze({ name: "purchase", valueCents: 12_900, currency: "TRY", source: "quick_link" as const }) });
 }
 
+function lifecycleClaim(): AnalyticsOutboxClaim {
+  return Object.freeze({ eventId: "90000000-0000-4000-8000-000000000099", leaseToken: "f".repeat(64), websiteId: WEBSITE, hostname: HOSTNAME, attemptCount: 1, payload: Object.freeze({ name: "cart_abandoned", schemaVersion: 1, currency: "TRY", valueMinor: 12_900 }) });
+}
+
 function repository(claims: readonly AnalyticsOutboxClaim[]) {
-  const calls = { claim: [] as unknown[], delivered: [] as unknown[], failed: [] as unknown[] };
+  const calls = { claim: [] as unknown[], delivered: [] as unknown[], failed: [] as unknown[], requeue: [] as unknown[] };
   const value: AnalyticsOutboxRepository = {
     async claim(input) { calls.claim.push(input); return claims; },
     async delivered(input) { calls.delivered.push(input); },
     async failed(input) { calls.failed.push(input); },
+    async requeue(input) { calls.requeue.push(input); },
   };
   return { calls, value };
 }
@@ -49,6 +54,14 @@ test("settled purchase delivery contains only approved aggregate data", async ()
   assert.deepEqual(JSON.parse(String(sent[0]?.init?.body)), { type: "event", payload: { website: WEBSITE, hostname: HOSTNAME, url: "/checkout/complete", name: "purchase", data: { value: 129, currency: "TRY", source: "quick_link" } } });
   assert.deepEqual(repo.calls.delivered, [{ eventId: purchaseClaim().eventId, leaseToken: purchaseClaim().leaseToken, now: NOW }]);
   assert.deepEqual(result, { claimed: 1, delivered: 1, retried: 0, terminal: 0 });
+});
+
+test("cart lifecycle delivery preserves minor units and exposes no cart identity", async () => {
+  const repo = repository([lifecycleClaim()]);
+  const sent: RequestInit[] = [];
+  await deliverAnalyticsOutbox(repo.value, COLLECTOR, dependencies(async (_url, init) => { sent.push(init ?? {}); return acceptedResponse(); }));
+  assert.deepEqual(JSON.parse(String(sent[0]?.body)), { type: "event", payload: { website: WEBSITE, hostname: HOSTNAME, url: "/cart", name: "cart_abandoned", data: { schema_version: 1, value_minor: 12_900, currency: "TRY" } } });
+  assert.doesNotMatch(String(sent[0]?.body), /cartId|orderId|customer|email|phone|token/);
 });
 
 test("delivery concurrency never exceeds four", async () => {
@@ -116,4 +129,6 @@ test("worker source is secret-free and settlement outbox identity is replay-safe
   assert.doesNotMatch(`${delivery}\n${cli}`, /console[.]|providerBody|response[.]text|CELEBIX_UMAMI_(?:USERNAME|PASSWORD)|TenantContext|distinctId/);
   assert.match(migration, /UNIQUE \(store_id,order_id,event_kind\)/);
   assert.match(migration, /ON CONFLICT \(store_id,order_id,event_kind\) DO NOTHING/);
+  assert.ok(cli.indexOf("commerce_analytics_evaluate_carts") < cli.indexOf("const collector = await parseUmamiPublicCollectorConfig"));
+  assert.match(cli, /analytics_delivery_degraded/);
 });

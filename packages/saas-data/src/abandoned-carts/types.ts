@@ -32,6 +32,31 @@ export interface MutateAbandonedCartInput extends GetAbandonedCartInput {
   readonly expectedVersion: number;
 }
 
+export interface IssueAbandonedCartRecoveryLinkInput extends GetAbandonedCartInput {
+  readonly tokenId: string;
+  readonly tokenDigest: string;
+  readonly keyVersion: number;
+}
+
+export interface RecordAbandonedCartRecoveryAttemptInput extends GetAbandonedCartInput {
+  readonly operationId: string;
+  readonly kind: "contacted" | "note";
+  readonly note?: string;
+}
+
+export interface AbandonedCartRecoveryAttemptResult {
+  readonly cartId: string;
+  readonly kind: "contacted" | "note";
+  readonly recordedAt: string;
+  readonly replayed: boolean;
+}
+
+export interface AbandonedCartRecoveryLinkAuthority {
+  readonly cartId: string;
+  readonly hostname: string;
+  readonly expiresAt: string;
+}
+
 export interface ListAbandonedCartsResult {
   readonly items: readonly AbandonedCartListItem[];
   readonly nextCursor?: string;
@@ -41,6 +66,8 @@ export interface AbandonedCartRepository {
   getSummary(input: AbandonedCartAuthorityInput): Promise<AbandonedCartSummary>;
   list(input: ListAbandonedCartsInput): Promise<ListAbandonedCartsResult>;
   get(input: GetAbandonedCartInput): Promise<AbandonedCartDetail>;
+  issueRecoveryLink(input: IssueAbandonedCartRecoveryLinkInput): Promise<AbandonedCartRecoveryLinkAuthority>;
+  recordRecoveryAttempt(input: RecordAbandonedCartRecoveryAttemptInput): Promise<AbandonedCartRecoveryAttemptResult>;
   markRecovered(input: MutateAbandonedCartInput): Promise<AbandonedCartMutationResult>;
   archive(input: MutateAbandonedCartInput): Promise<AbandonedCartMutationResult>;
 }

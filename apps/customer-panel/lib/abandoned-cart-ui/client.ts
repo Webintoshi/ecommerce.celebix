@@ -54,6 +54,20 @@ export function createAbandonedCartApiClient(rawOptions: Options = {}) {
     return safe(() => parseAbandonedCartMutationResult(body));
   }
   return Object.freeze({
+    async issueRecoveryLink(id: string): Promise<Readonly<{ url: string; expiresAt: string }>> {
+      const body = await request(`/api/orders/abandoned-carts/${identifier(id)}/recovery-link`, { method: "POST", credentials: "same-origin" });
+      return safe(() => { const row = record(body); if (row === null || Object.keys(row).sort().join(",") !== "expiresAt,url" || typeof row.url !== "string" || typeof row.expiresAt !== "string") throw new TypeError(); const url = new URL(row.url); if (url.protocol !== "https:" || url.username || url.password || url.search || url.pathname !== "/cart/recover" || !/^#token=[A-Za-z0-9_-]{43}$/.test(url.hash)) throw new TypeError(); return Object.freeze({ url: row.url, expiresAt: row.expiresAt }); });
+    },
+    async recordRecoveryAttempt(id: string, kind: "contacted" | "note", note?: string): Promise<Readonly<{ cartId: string; kind: "contacted" | "note"; recordedAt: string; replayed: boolean }>> {
+      const cartId = identifier(id); const operationId = identifier(randomUUID());
+      if ((kind === "contacted" && note !== undefined) || (kind === "note" && (typeof note !== "string" || note !== note.trim() || note.length < 1 || note.length > 1000 || CONTROL.test(note)))) invalid();
+      const leaf = kind === "contacted" ? "mark-contacted" : "note";
+      const body = await request(`/api/orders/abandoned-carts/${cartId}/${leaf}`, { method: "POST", credentials: "same-origin",
+        headers: { "content-type": "application/json", "idempotency-key": operationId }, body: JSON.stringify(kind === "contacted" ? {} : { note }) });
+      return safe(() => { const row = record(body); if (row === null || Object.keys(row).sort().join(",") !== "cartId,kind,recordedAt,replayed"
+        || row.cartId !== cartId || row.kind !== kind || typeof row.recordedAt !== "string" || !Number.isFinite(new Date(row.recordedAt).getTime()) || typeof row.replayed !== "boolean") throw new TypeError();
+      return Object.freeze({ cartId, kind, recordedAt: row.recordedAt, replayed: row.replayed }); });
+    },
     async getSummary(): Promise<Readonly<AbandonedCartSummary>> { const body = await request("/api/orders/abandoned-carts/summary", { method: "GET", credentials: "same-origin", cache: "no-store" }); return safe(() => parseAbandonedCartSummary(body)); },
     async list(input: Readonly<{ pageSize?: number; cursor?: string; status?: AbandonedCartStatus; search?: string; sort?: AbandonedCartSort }> = {}): Promise<AbandonedCartListResult> {
       const parsed = record(input); if (parsed === null || Object.keys(parsed).some((key) => !["pageSize", "cursor", "status", "search", "sort"].includes(key))) invalid();
