@@ -8,6 +8,7 @@ class FakeRedisClient implements RedisClientLike {
   isOpen = false;
   connectCalls = 0;
   quitCalls = 0;
+  destroyCalls = 0;
   fail = false;
   readonly values = new Map<string, string>();
   on() { return this; }
@@ -17,6 +18,7 @@ class FakeRedisClient implements RedisClientLike {
   async del(key: string) { this.values.delete(key); return 1; }
   async ping() { if (this.fail) throw new Error("down"); return "PONG"; }
   async quit() { this.quitCalls += 1; this.isOpen = false; return "OK"; }
+  destroy() { this.destroyCalls += 1; this.isOpen = false; }
 }
 
 test("backend connects lazily once, supports NX, and closes gracefully", async () => {
@@ -46,6 +48,20 @@ test("a failed initial connection can be retried without recreating the backend"
   client.fail = false;
   await backend.ping();
   assert.equal(client.connectCalls, 2);
+});
+
+test("a pending initial connection and shutdown are bounded", async () => {
+  const client = new FakeRedisClient();
+  client.connect = async () => {
+    client.connectCalls += 1;
+    client.isOpen = true;
+    return new Promise(() => undefined);
+  };
+  client.quit = async () => new Promise(() => undefined);
+  const backend = createRedisCacheBackend({ client, connectTimeoutMs: 10, commandTimeoutMs: 10 });
+  await assert.rejects(() => backend.get("key"), /redis_cache_command_failed/);
+  await backend.close!();
+  assert.equal(client.destroyCalls, 1);
 });
 
 test("production client disables the offline queue and bounds reconnect backoff", () => {
