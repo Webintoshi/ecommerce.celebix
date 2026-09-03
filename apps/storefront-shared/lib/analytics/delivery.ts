@@ -66,14 +66,17 @@ function retryAt(now: Date, attemptCount: number): Date {
 }
 
 function body(claim: AnalyticsOutboxClaim): string {
+  const purchase = claim.payload.name === "purchase";
   return JSON.stringify({
     type: "event",
     payload: {
       website: claim.websiteId,
       hostname: claim.hostname,
-      url: "/checkout/complete",
-      name: "purchase",
-      data: { value: claim.payload.valueCents / 100, currency: claim.payload.currency, source: claim.payload.source },
+      url: purchase ? "/checkout/complete" : claim.payload.name.startsWith("cart_") ? "/cart" : "/checkout",
+      name: claim.payload.name,
+      data: purchase
+        ? { value: claim.payload.valueCents / 100, currency: claim.payload.currency, source: claim.payload.source }
+        : { schema_version: 1, value_minor: claim.payload.valueMinor, currency: claim.payload.currency },
     },
   });
 }

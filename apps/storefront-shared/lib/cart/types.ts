@@ -1,11 +1,12 @@
 import type { PublicCart, PublicCheckoutQuote } from "@celebix/saas-contracts";
+import type { CommerceAttribution } from "../analytics/attribution.ts";
 
 export type StorefrontCredentialPurpose = "cart" | "intent" | "customer" | "receipt" | "hosted_checkout";
 
 export type CartCommand =
-  | Readonly<{ kind: "add"; operationId: string; productId: string; variantId: string; quantity: number; expectedVersion?: number }>
-  | Readonly<{ kind: "set_quantity"; operationId: string; variantId: string; quantity: number; expectedVersion: number }>
-  | Readonly<{ kind: "remove"; operationId: string; variantId: string; expectedVersion: number }>
+  | Readonly<{ kind: "add"; operationId: string; productId: string; variantId: string; quantity: number; expectedVersion?: number; attribution?: CommerceAttribution }>
+  | Readonly<{ kind: "set_quantity"; operationId: string; variantId: string; quantity: number; expectedVersion: number; attribution?: CommerceAttribution }>
+  | Readonly<{ kind: "remove"; operationId: string; variantId: string; expectedVersion: number; attribution?: CommerceAttribution }>
   | Readonly<{ kind: "buy_now"; operationId: string; productId: string; variantId: string; quantity: number }>;
 
 export type CheckoutIntentKind = "cart" | "buy_now";

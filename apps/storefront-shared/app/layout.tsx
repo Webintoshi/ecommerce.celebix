@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { StorefrontAnalyticsTracker } from "../components/StorefrontAnalyticsTracker.tsx";
+import { StorefrontAnalyticsBridge } from "../components/StorefrontAnalyticsBridge.tsx";
 import { resolveStorefrontPage } from "../lib/page-context.ts";
 import "./globals.css";
 
@@ -22,7 +23,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={locale}>
       <body>
         {children}
-        {tracker && nonce ? <StorefrontAnalyticsTracker {...tracker} nonce={nonce} /> : null}
+        {tracker && nonce ? <><StorefrontAnalyticsBridge websiteId={tracker.websiteId} hostname={tracker.hostname} /><StorefrontAnalyticsTracker {...tracker} nonce={nonce} /></> : null}
       </body>
     </html>
   );

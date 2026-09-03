@@ -1,30 +1,18 @@
+import { parseBrowserCommerceEvent, type BrowserCommerceEventName } from "@celebix/saas-contracts";
 import type { SafeUmamiTracker } from "./tracker-client.ts";
 
-export type PublicCommerceEvent =
-  | Readonly<{ name: "product_view"; data: Readonly<{ product: "catalog_item" }> }>
-  | Readonly<{ name: "checkout_started"; data: Readonly<{ source: "quick_order" }> }>;
+type Data=Readonly<{productId?:string;variantId?:string;categoryId?:string;quantity?:number;currency?:string;valueMinor?:number;paymentMethod?:string;shippingMethod?:string;campaign?:string;source?:string;medium?:string;safeErrorCode?:string}>;
+export type PublicCommerceEvent=Readonly<{name:BrowserCommerceEventName;data:Data}>;
+type EventBrowser=Readonly<{location:Readonly<{protocol:string;hostname:string;pathname:string}>;now?:()=>Date;dispatchEvent?:(event:Event)=>boolean}>;
+export const STOREFRONT_COMMERCE_EVENT="celebix:commerce-event";
+export const PRODUCT_VIEW_EVENT:PublicCommerceEvent=Object.freeze({name:"product_view",data:Object.freeze({})});
+export const CHECKOUT_STARTED_EVENT:PublicCommerceEvent=Object.freeze({name:"begin_checkout",data:Object.freeze({source:"quick_order"})});
+export function productViewEvent(productId:string,variantId?:string):PublicCommerceEvent{return Object.freeze({name:"product_view",data:Object.freeze({productId,...(variantId?{variantId}:{})})})}
 
-type EventBrowser = Readonly<{ location: Readonly<{ protocol: string; hostname: string; pathname: string }> }>;
+function parseEvent(value:PublicCommerceEvent,occurredAt:string):PublicCommerceEvent{try{if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).sort().join(",")!=="data,name"||!value.data||typeof value.data!=="object"||Array.isArray(value.data))throw Error();const parsed=parseBrowserCommerceEvent({schemaVersion:1,eventName:value.name,occurredAt,...value.data});const{schemaVersion:_schema,eventName,...rest}=parsed;const{occurredAt:_occurred,...data}=rest;return Object.freeze({name:eventName,data:Object.freeze(data)})}catch{throw new Error("storefront_analytics_event_invalid")}}
+function now(browser:EventBrowser){try{const selected=browser.now?.()??new Date();if(!(selected instanceof Date)||!Number.isFinite(selected.getTime()))throw Error();return selected.toISOString()}catch{throw new Error("storefront_analytics_event_invalid")}}
+function providerData(event:PublicCommerceEvent,occurredAt:string){const output:Record<string,unknown>={schema_version:1,occurred_at:occurredAt};const mapping={productId:"product_id",variantId:"variant_id",categoryId:"category_id",quantity:"quantity",currency:"currency",valueMinor:"value_minor",paymentMethod:"payment_method",shippingMethod:"shipping_method",campaign:"campaign",source:"source",medium:"medium",safeErrorCode:"safe_error_code"} as const;for(const[key,target]of Object.entries(mapping)as Array<[keyof Data,string]>)if(event.data[key]!==undefined)output[target]=event.data[key];return Object.freeze(output)}
 
-export const PRODUCT_VIEW_EVENT: PublicCommerceEvent = Object.freeze({ name: "product_view", data: Object.freeze({ product: "catalog_item" }) });
-export const CHECKOUT_STARTED_EVENT: PublicCommerceEvent = Object.freeze({ name: "checkout_started", data: Object.freeze({ source: "quick_order" }) });
+export function trackCommerceEvent(tracker:SafeUmamiTracker,event:PublicCommerceEvent,selectedBrowser?:EventBrowser):void{const browser=selectedBrowser??(globalThis.window as unknown as EventBrowser),occurredAt=now(browser),parsed=parseEvent(event,occurredAt);try{if(!browser||browser.location.protocol!=="https:"||browser.location.hostname!==tracker.hostname)return;const selected=new URL(browser.location.pathname,`https://${tracker.hostname}`);if(selected.hostname!==tracker.hostname||selected.protocol!=="https:")return;tracker.track(Object.freeze({website:tracker.websiteId,hostname:tracker.hostname,url:selected.pathname,name:parsed.name,data:providerData(parsed,occurredAt)}))}catch{}}
 
-function parseEvent(value: PublicCommerceEvent): PublicCommerceEvent {
-  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).sort().join(",") !== "data,name" || !value.data || typeof value.data !== "object" || Array.isArray(value.data)) {
-    throw new Error("storefront_analytics_event_invalid");
-  }
-  if (value.name === "product_view" && Object.keys(value.data).join(",") === "product" && value.data.product === "catalog_item") return PRODUCT_VIEW_EVENT;
-  if (value.name === "checkout_started" && Object.keys(value.data).join(",") === "source" && value.data.source === "quick_order") return CHECKOUT_STARTED_EVENT;
-  throw new Error("storefront_analytics_event_invalid");
-}
-
-export function trackCommerceEvent(tracker: SafeUmamiTracker, event: PublicCommerceEvent, selectedBrowser?: EventBrowser): void {
-  const parsed = parseEvent(event);
-  try {
-    const browser = selectedBrowser ?? (globalThis.window as unknown as EventBrowser);
-    if (!browser || browser.location.protocol !== "https:" || browser.location.hostname !== tracker.hostname) return;
-    const selected = new URL(browser.location.pathname, `https://${tracker.hostname}`);
-    if (selected.hostname !== tracker.hostname || selected.protocol !== "https:") return;
-    tracker.track(Object.freeze({ website: tracker.websiteId, hostname: tracker.hostname, url: selected.pathname, name: parsed.name, data: parsed.data }));
-  } catch {}
-}
+export function emitStorefrontCommerceEvent(event:PublicCommerceEvent,selectedBrowser?:Pick<EventBrowser,"dispatchEvent">):void{try{const browser=selectedBrowser??(globalThis.window as unknown as EventBrowser),parsed=parseEvent(event,new Date().toISOString());browser.dispatchEvent?.(new CustomEvent(STOREFRONT_COMMERCE_EVENT,{detail:parsed}))}catch{}}

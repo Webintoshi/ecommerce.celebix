@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
 
 import { ProductGrid } from "@/components/ProductGrid";
+import { CommercePageEvent } from "@/components/CommercePageEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
@@ -75,6 +76,7 @@ export async function renderCategoryPage({
   const { presentation } = selected.storefront;
   return (
     <StorefrontFrame storefront={selected.storefront} design={selected.design}>
+      <CommercePageEvent event={{ name: "category_view", data: { categoryId: selected.category.id } }} />
       <nav
         className="product-breadcrumb store-container"
         aria-label="İçerik yolu"

@@ -42,7 +42,7 @@ test("cart client sends exact same-origin commands and never serializes price or
   const client = createStorefrontCartClient(async (input, init) => { calls.push({ input: String(input), init }); return new Response(JSON.stringify({ cart }), { status: 200, headers: { "content-type": "application/json" } }); }, () => OPERATION);
   await client.add({ productId: PRODUCT, variantId: VARIANT, quantity: 2 });
   assert.equal(calls[0]?.input, "/api/cart/add");
-  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), { operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 2 });
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), { operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 2, attribution: { firstTouch: { source: "unknown", medium: "unknown" }, lastTouch: { source: "unknown", medium: "unknown" }, landingPathGroup: "/unknown", deviceGroup: "unknown" } });
   assert.doesNotMatch(String(calls[0]?.init?.body), /price|credential|storeId|tenantId/u);
   assert.equal(calls[0]?.init?.credentials, "same-origin");
   assert.equal(calls[0]?.init?.cache, "no-store");

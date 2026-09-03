@@ -2,6 +2,7 @@
 
 import { parsePublicCart, parsePublicCheckoutQuote, type PublicCart, type PublicCheckoutQuote } from "@celebix/saas-contracts";
 import type { StorefrontCartClient } from "./types.ts";
+import { readCommerceAttribution } from "../analytics/attribution.ts";
 
 const MAXIMUM = 524_288;
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -23,7 +24,7 @@ async function payload(response: Response): Promise<unknown> {
 
 export function createStorefrontCartClient(fetcher: Fetcher = fetch, uuid: () => string = crypto.randomUUID.bind(crypto)): StorefrontCartClient {
   async function call(path: string, body?: unknown, method = "POST") { try { const response = await fetcher(path, { method, credentials: "same-origin", cache: "no-store", ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) }); const value = await payload(response); if (!response.ok) throw new StorefrontCartClientError(publicFailure(value) ?? "request_failed"); return value; } catch (error) { if (error instanceof StorefrontCartClientError) throw error; throw new StorefrontCartClientError("request_failed"); } }
-  const mutation = async (path: string, body: Record<string, unknown>) => { const root = exact(await call(path, body), ["cart"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return cart(root.cart); };
+  const mutation = async (path: string, body: Record<string, unknown>) => { const root = exact(await call(path, { ...body, attribution: readCommerceAttribution() }), ["cart"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return cart(root.cart); };
   return Object.freeze({
     async resolve() { const root = exact(await call("/api/cart", undefined, "GET"), ["cart"]); if (!root) throw new StorefrontCartClientError("invalid_response"); return cart(root.cart); },
     async add(input) { return mutation("/api/cart/add", { operationId: uuid(), ...input }); },

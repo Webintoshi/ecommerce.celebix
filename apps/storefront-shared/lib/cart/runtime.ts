@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type {
   PublicCart,
   PublicCheckoutQuote,
@@ -9,6 +11,7 @@ import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
 
 import {
   createStorefrontCredential,
+  createStorefrontRecoveryCartCredential,
   createStorefrontOperationCredential,
   credentialDigestCandidates,
   readStorefrontCredentialCookie,
@@ -36,6 +39,7 @@ export class StorefrontCommerceRuntimeError extends Error {
 }
 
 export type StorefrontCommerceRuntime = Readonly<{
+  restoreCart(hostname: string, token: string): Promise<Readonly<{ cart: PublicCart; restoredItems: number; omittedItems: number; setCookie: string }>>;
   resolveCart(hostname: string, cookieHeader: string | null): Promise<Readonly<{ cart: PublicCart; setCookie?: string }>>;
   mutateCart(hostname: string, cookieHeader: string | null, command: CartCommand): Promise<Readonly<{ cart?: PublicCart; destination?: "/checkout?intent=buy-now"; setCookie?: string }>>;
   quote(hostname: string, cookieHeader: string | null, intentKind: CheckoutIntentKind): Promise<PublicCheckoutQuote>;
@@ -108,6 +112,19 @@ function delivery(request: Extract<CheckoutRequest, { kind: "complete" }>) {
 
 export function createStorefrontCommerceRuntime(dependencies: Dependencies): StorefrontCommerceRuntime {
   return Object.freeze({
+    async restoreCart(hostname, token) {
+      if (typeof token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(token)) throw new StorefrontCommerceRuntimeError("invalid_input");
+      const now = date(dependencies);
+      const credential = createStorefrontRecoveryCartCredential(token, dependencies.keyring);
+      const digest = createHash("sha256").update(`celebix\0cart-recovery-id\0${token}`, "utf8").digest();
+      digest[6] = (digest[6]! & 0x0f) | 0x40; digest[8] = (digest[8]! & 0x3f) | 0x80;
+      const hex = digest.subarray(0, 16).toString("hex");
+      const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      digest.fill(0);
+      const tokenDigest = createHash("sha256").update(token, "utf8").digest("hex");
+      const result = await dependencies.repository.restoreCart({ hostname, now, tokenDigest, cart: { id, keyId: credential.keyId, digest: credential.digest, expiresAt: new Date(now.getTime() + 30 * 86_400_000) } });
+      return Object.freeze({ ...result, setCookie: serializeStorefrontCredentialCookie("cart", credential.value) });
+    },
     async resolveCart(hostname, cookieHeader) {
       const cookie = readStorefrontCredentialCookie("cart", cookieHeader);
       if (cookie.kind === "missing") return Object.freeze({ cart: EMPTY_CART });
@@ -166,6 +183,13 @@ export function createStorefrontCommerceRuntime(dependencies: Dependencies): Sto
         ...(command.kind === "remove" ? {} : { quantity: command.quantity }),
       });
       if (Boolean(cartCredential) !== result.credentialCreated) throw new StorefrontCommerceRuntimeError("unavailable");
+      if (command.attribution && typeof dependencies.repository.recordCartAttribution === "function") {
+        const attributionCandidates = cartCredential
+          ? Object.freeze([Object.freeze({ keyId: cartCredential.persisted.keyId, digest: cartCredential.persisted.digest })])
+          : selectedCandidates;
+        try { await dependencies.repository.recordCartAttribution({ hostname, now, candidates: attributionCandidates, attribution: command.attribution }); }
+        catch { /* analytics enrichment must never fail the cart mutation */ }
+      }
       return Object.freeze({ cart: result.cart, ...(cartCredential ? { setCookie: serializeStorefrontCredentialCookie("cart", cartCredential.raw) } : {}) });
     },
     async quote(hostname, cookieHeader, intentKind) {

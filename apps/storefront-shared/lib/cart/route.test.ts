@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 import { StandardHostedCheckoutRuntimeError } from "../checkout/standard-hosted-payment.ts";
-import { createCartActionRoute, createCartGetRoute, createCheckoutCompleteRoute, createHostedCheckoutStartRoute } from "./route.ts";
+import { createCartActionRoute, createCartGetRoute, createCartRecoveryRoute, createCheckoutCompleteRoute, createHostedCheckoutStartRoute } from "./route.ts";
 
 const HOST = "shop.example.test";
 const OPERATION = "30000000-0000-4000-8000-000000000001";
@@ -30,6 +30,19 @@ test("cart GET forwards only the exact local credential deletion cookie", async 
   const response = await createCartGetRoute({ selectAuthority: trusted, resolveRuntime: async () => ({ ...baseRuntime, resolveCart: async () => ({ cart: CART, setCookie: "__Host-celebix_cart=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax" }) }) })(new Request("http://internal:3400/api/cart"));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("set-cookie"), "__Host-celebix_cart=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
+});
+
+test("recovery GET accepts only one opaque token and redirects with the fresh cart cookie", async () => {
+  const token = Buffer.alloc(32, 0x42).toString("base64url");
+  const handler = createCartRecoveryRoute({ selectAuthority: trusted, resolveRuntime: async () => ({ restoreCart: async (_hostname, raw) => {
+    assert.equal(raw, token);
+    return { cart: CART, restoredItems: 1, omittedItems: 2, setCookie: "__Host-celebix_cart=safe; Path=/; Secure; HttpOnly; SameSite=Lax" };
+  } }) });
+  const response = await handler(new Request(`http://internal:3400/api/cart/recover?token=${token}`));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/cart?recovered=1&omitted=2");
+  assert.match(response.headers.get("set-cookie") ?? "", /^__Host-celebix_cart=/u);
+  assert.equal((await handler(new Request("http://internal:3400/api/cart/recover?token=bad"))).status, 400);
 });
 
 test("cart mutation requires exact same-origin authority and sets credential only after success", async () => {

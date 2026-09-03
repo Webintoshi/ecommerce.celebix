@@ -9,6 +9,10 @@ type Dependencies = Readonly<{
   selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
   resolveRuntime(): Promise<Pick<StorefrontCommerceRuntime, "resolveCart" | "mutateCart" | "quote" | "complete"> | null>;
 }>;
+type RecoveryDependencies = Readonly<{
+  selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
+  resolveRuntime(): Promise<Pick<StorefrontCommerceRuntime, "restoreCart"> | null>;
+}>;
 type HostedDependencies = Readonly<{
   selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
   resolveRuntime(): Promise<Pick<StandardHostedCheckoutRuntime, "start"> | null>;
@@ -64,6 +68,21 @@ export function createCartGetRoute(dependencies: Dependencies) {
     if (request.method !== "GET" || !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/api/cart" || url.search || url.hash) return json({ code: "invalid_input" }, 400);
     const selectedRuntime = await runtime(dependencies); if (!selectedRuntime) return json({ code: "unavailable" }, 503);
     try { const result=await selectedRuntime.resolveCart(selected.hostname, request.headers.get("cookie")); return json({ cart: result.cart }, 200, result.setCookie ? { "set-cookie": result.setCookie } : undefined); } catch (error) { return failure(error); }
+  };
+}
+
+export function createCartRecoveryRoute(dependencies: RecoveryDependencies) {
+  return async function GET(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request); if (!selected) return json({ code: "unavailable" }, 503);
+    let url: URL; try { url = new URL(request.url); } catch { return json({ code: "invalid_input" }, 400); }
+    const entries = [...url.searchParams.entries()];
+    if (request.method !== "GET" || url.pathname !== "/api/cart/recover" || url.hash || entries.length !== 1 || entries[0]?.[0] !== "token" || !/^[A-Za-z0-9_-]{43}$/.test(entries[0]?.[1] ?? "")) return json({ code: "invalid_input" }, 400);
+    const selectedRuntime = await runtime(dependencies); if (!selectedRuntime) return json({ code: "unavailable" }, 503);
+    try {
+      const result = await selectedRuntime.restoreCart(selected.hostname, entries[0]![1]);
+      const location = `/cart?recovered=1&omitted=${result.omittedItems}`;
+      return new Response(null, { status: 303, headers: { "cache-control": "no-store", location, "set-cookie": result.setCookie, "x-content-type-options": "nosniff" } });
+    } catch (caught) { return failure(caught); }
   };
 }
 

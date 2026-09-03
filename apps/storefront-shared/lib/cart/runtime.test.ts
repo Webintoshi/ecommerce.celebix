@@ -27,6 +27,8 @@ const keyring = parseStorefrontCommerceCredentialKeyring(keyringSource("current_
 
 function fake(overrides: Partial<StorefrontCommerceRepository> = {}): StorefrontCommerceRepository {
   return {
+    recordCartAttribution: async () => undefined,
+    restoreCart: async () => ({ cart: CART, restoredItems: 1, omittedItems: 0 }),
     resolveCart: async () => CART,
     mutateCart: async () => ({ credentialCreated: false, cart: CART }),
     createBuyNow: async () => undefined,
@@ -37,6 +39,17 @@ function fake(overrides: Partial<StorefrontCommerceRepository> = {}): Storefront
     ...overrides,
   };
 }
+
+test("recovery token is hashed before storage access and returns a fresh HttpOnly cart credential", async () => {
+  let observed: Parameters<StorefrontCommerceRepository["restoreCart"]>[0] | undefined;
+  const token = Buffer.alloc(32, 0x42).toString("base64url");
+  const result = await runtime(fake({ restoreCart: async (input) => { observed = input; return { cart: CART, restoredItems: 1, omittedItems: 2 }; } })).restoreCart(HOST, token);
+  assert.deepEqual(result.cart, CART);
+  assert.deepEqual({ restoredItems: result.restoredItems, omittedItems: result.omittedItems }, { restoredItems: 1, omittedItems: 2 });
+  assert.match(result.setCookie, /^__Host-celebix_cart=c1[.]current_01[.]/u);
+  assert.match(observed?.tokenDigest ?? "", /^[a-f0-9]{64}$/u);
+  assert.equal(JSON.stringify(observed).includes(token), false);
+});
 function runtime(repository: StorefrontCommerceRepository, selectedKeyring = keyring, hostedPaymentAvailable?: () => Promise<boolean>) {
   let uuidIndex = 0;
   const uuids = ["40000000-0000-4000-8000-000000000001", "40000000-0000-4000-8000-000000000002", "40000000-0000-4000-8000-000000000003", "40000000-0000-4000-8000-000000000004", "40000000-0000-4000-8000-000000000005", "40000000-0000-4000-8000-000000000006", "40000000-0000-4000-8000-000000000007"];
@@ -77,6 +90,21 @@ test("first add persists only a digest and exposes raw credential only as a prov
   assert.equal(JSON.stringify(observed).includes("c1.current_01"), false);
   assert.equal(observed?.cart?.digest.length, 64);
   assert.deepEqual(observed?.customerCandidates, []);
+});
+
+test("cart attribution is recorded with digest authority and failure remains cart fail-open", async () => {
+  const observed: unknown[] = [];
+  const attribution = { firstTouch: { source: "atlas-qa", medium: "test", campaign: "cart-recovery" }, lastTouch: { source: "atlas-qa", medium: "test", campaign: "cart-recovery" }, landingPathGroup: "/products/ring", deviceGroup: "mobile" as const };
+  const selected = runtime(fake({
+    mutateCart: async () => ({ credentialCreated: true, cart: CART }),
+    recordCartAttribution: async (input) => { observed.push(input); throw new Error("analytics unavailable"); },
+  }));
+  const result = await selected.mutateCart(HOST, null, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1, attribution });
+  assert.deepEqual(result.cart, CART);
+  assert.equal(observed.length, 1);
+  assert.deepEqual((observed[0] as { attribution: unknown }).attribution, attribution);
+  assert.match(String((observed[0] as { candidates: Array<{ digest: string }> }).candidates[0]?.digest), /^[a-f0-9]{64}$/u);
+  assert.doesNotMatch(JSON.stringify(observed), /c1[.]current_01/);
 });
 
 test("cart mutation forwards only verified customer cookie digest candidates", async () => {

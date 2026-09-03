@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ProductGrid } from "@/components/ProductGrid";
+import { CommercePageEvent } from "@/components/CommercePageEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
@@ -61,6 +62,7 @@ export default async function SearchPage({
         : "Aramanızla eşleşen ürün bulunamadı.";
   return (
     <StorefrontFrame storefront={storefront} design={design}>
+      {selected && !cursor ? <CommercePageEvent event={{ name: "search", data: {} }} /> : null}
       <section className="store-section store-container">
         <h1 className="sr-only">Arama</h1>
         <form action="/search" className="store-search-form" method="get">

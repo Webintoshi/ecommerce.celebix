@@ -7,6 +7,7 @@ import { StorefrontCartClientError, storefrontCartClient } from "@/lib/cart/clie
 import type { CheckoutIntentKind } from "@/lib/cart/types.ts";
 import { type CheckoutFormDraft, validateCheckoutFormDraft } from "@/lib/checkout-form.ts";
 import { formatTry } from "@/lib/format.ts";
+import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { CheckoutSummary } from "./CheckoutSummary";
 import { checkoutBlockerMessage, checkoutFailureMessage, resolveCheckoutSummaryState } from "./checkout-readiness";
@@ -40,6 +41,7 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
     void storefrontCartClient.quote(intentKind).then((selected) => {
       if (!active) return;
       setQuote(selected);
+      emitStorefrontCommerceEvent({name:"begin_checkout",data:{currency:"TRY",valueMinor:selected.cart.totalCents}});
       setQuoteSettled(true);
       setPaymentKind(selected.paymentMethods[0]?.kind ?? "");
       setStatus(selected.cart.checkoutReady ? "Sipariş özeti güncel." : checkoutBlockerMessage(selected.cart.checkoutBlocker) ?? "Sepet ödeme için hazır değil.");
@@ -71,6 +73,7 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
     if (pending) return;
     setAttemptedDelivery(true);
     if (!validation.ok) {
+      emitStorefrontCommerceEvent({name:"checkout_validation_error",data:{safeErrorCode:"delivery_invalid"}});
       setStatus("Lütfen teslimat bilgilerini kontrol edin.");
       focusFirstInvalidField(validation.errors);
       return;
@@ -87,6 +90,9 @@ export function CheckoutForm({ intentKind, initialDraft }: Readonly<{ intentKind
       return;
     }
     const delivery = validation.value;
+    emitStorefrontCommerceEvent({name:"checkout_address_completed",data:{}});
+    emitStorefrontCommerceEvent({name:"shipping_method_selected",data:{shippingMethod:"standard"}});
+    emitStorefrontCommerceEvent({name:"payment_method_selected",data:{paymentMethod:selectedMethod.kind}});
     setPending(true); setStatus(selectedMethod.kind === "hosted_card" ? "Güvenli ödeme ekranı hazırlanıyor." : "Siparişiniz güvenle oluşturuluyor.");
     try {
       if (selectedMethod.kind === "hosted_card") {

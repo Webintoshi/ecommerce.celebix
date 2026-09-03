@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { addCartLineAndOpenDrawer, storefrontCartClient } from "@/lib/cart/client.ts";
+import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
 import { useCartStatus } from "./CartStatusProvider";
 
 export function ProductCardCartButton({ productId, variantId, productTitle, available, label = "Sepete ekle" }: Readonly<{ productId: string; variantId: string; productTitle: string; available: boolean; label?: string }>) {
@@ -12,7 +13,7 @@ export function ProductCardCartButton({ productId, variantId, productTitle, avai
   const add = async (trigger: HTMLButtonElement) => {
     if (!available || pending) return;
     setPending(true); setStatus("");
-    try { await addCartLineAndOpenDrawer({ productId, variantId, quantity: 1 }, trigger, { add: storefrontCartClient.add, openDrawer, replaceCart }); setStatus(`${productTitle} sepete eklendi.`); }
+    try { await addCartLineAndOpenDrawer({ productId, variantId, quantity: 1 }, trigger, { add: storefrontCartClient.add, openDrawer, replaceCart }); emitStorefrontCommerceEvent({name:"add_to_cart",data:{productId,variantId,quantity:1}}); setStatus(`${productTitle} sepete eklendi.`); }
     catch { setStatus("Ürün sepete eklenemedi."); }
     finally { setPending(false); }
   };

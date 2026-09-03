@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { PublicProduct } from "@celebix/saas-contracts";
 import { addCartLineAndOpenDrawer, storefrontCartClient } from "@/lib/cart/client.ts";
 import { formatTry } from "@/lib/format.ts";
+import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { decrementPurchaseQuantity, incrementPurchaseQuantity } from "./product-purchase-quantity.ts";
 
@@ -27,9 +28,12 @@ export function ProductPurchasePanel({ product, mobileSticky = false, available,
     try {
       if (kind === "add") {
         await addCartLineAndOpenDrawer({ productId: product.id, variantId: variant.id, quantity }, trigger, { add: storefrontCartClient.add, openDrawer, replaceCart });
+        emitStorefrontCommerceEvent({name:"add_to_cart",data:{productId:product.id,variantId:variant.id,quantity,currency:"TRY",valueMinor:variant.priceCents*quantity}});
         setStatus("Ürün sepete eklendi.");
       } else {
         replaceCart(await storefrontCartClient.add({ productId: product.id, variantId: variant.id, quantity }));
+        emitStorefrontCommerceEvent({name:"add_to_cart",data:{productId:product.id,variantId:variant.id,quantity,currency:"TRY",valueMinor:variant.priceCents*quantity}});
+        emitStorefrontCommerceEvent({name:"begin_checkout",data:{currency:"TRY",valueMinor:variant.priceCents*quantity}});
         router.push("/checkout");
       }
     } catch { setStatus("İşlem tamamlanamadı. Lütfen yeniden deneyin."); }

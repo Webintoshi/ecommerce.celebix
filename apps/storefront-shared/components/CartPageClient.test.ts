@@ -18,6 +18,10 @@ test("cart renders persisted lines totals quantity removal and checkout readines
   assert.doesNotMatch(cart, /storeId|tenantId|credential/u);
 });
 
+test("recovered cart explains current price and stock revalidation", () => {
+  for (const proof of ["recovered", "omittedItems", "Sepetiniz geri yüklendi", "fiyatı veya stok durumu güncellenmiş olabilir"]) assert.match(cart, new RegExp(proof, "u"));
+});
+
 test("cart explains the exact checkout blocker without a false stock warning", () => {
   for (const proof of [
     "Sepetinizde stok veya fiyatı değişen bir ürün var.",
