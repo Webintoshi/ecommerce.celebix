@@ -90,7 +90,7 @@ test("approved staging checks all eleven relations and twenty-three exact proced
     "inventory_locations_recover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
   ]) assert.equal(source.includes(`to_regprocedure('saas.${signature}') IS NOT NULL`), true, signature);
   assert.match(source, /new PostgresInventoryRepository\(\{[\s\S]*?pool,[\s\S]*?role: "celebix_saas_app"[\s\S]*?timeouts: TIMEOUTS,[\s\S]*?uuid: randomUUID,[\s\S]*?audit:/);
-  assert.match(source, /registerServerInventoryRepository\(access, inventoryRepository\)/);
+  assert.match(source, /registerServerInventoryRepository\(access, createPostCommitInvalidatingRepository\(inventoryRepository, \{[\s\S]*?savePurchaseOrder: \["catalog"\][\s\S]*?receiveTransfer: \["catalog"\][\s\S]*?\}\)\)/);
   assert.ok(source.indexOf("await preflight(pool, config.database.name)") < source.indexOf("new PostgresInventoryRepository"));
-  assert.ok(source.indexOf("new PostgresInventoryRepository") < source.indexOf("registerServerInventoryRepository(access, inventoryRepository)"));
+  assert.ok(source.indexOf("new PostgresInventoryRepository") < source.indexOf("registerServerInventoryRepository(access, createPostCommitInvalidatingRepository"));
 });

@@ -10,6 +10,13 @@ const matrix = JSON.parse(readFileSync(path.join(PHASE3, "current-test-matrix.js
 const historical = new Set(matrix.historicalSnapshots.map(({ file }) => file));
 const requiredHarnesses = Object.freeze([
   Object.freeze({
+    file: "tests/saas-phase3/redis-cache-foundation/redis-harness.mjs",
+    total: 10,
+    line: /^PASS \d+\/10 (?!Redis cache foundation rehearsal complete$).+$/gm,
+    completion: /^PASS 10\/10 Redis cache foundation rehearsal complete$/m,
+    transformTypes: true,
+  }),
+  Object.freeze({
     file: "tests/saas-phase3/barcode-label-studio/postgres-harness.mjs",
     total: 21,
     line: /^PASS \d+\/21 (?!barcode label studio PostgreSQL 16 rehearsal complete$).+$/gm,
@@ -211,8 +218,8 @@ const requiredCurrentTests = Object.freeze([
   "tests/saas-phase3/storefront-hosted-payment-security.test.mjs",
 ]);
 
-function runRequiredHarness({ file, total, line, completion }) {
-  const result = spawnSync(process.execPath, [file], {
+function runRequiredHarness({ file, total, line, completion, transformTypes = false }) {
+  const result = spawnSync(process.execPath, [...(transformTypes ? ["--experimental-transform-types"] : []), file], {
     cwd: ROOT,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,

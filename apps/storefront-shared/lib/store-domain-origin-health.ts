@@ -1,5 +1,6 @@
 import type { StoreDomainOriginHealthRepository } from "@celebix/saas-data";
 import { StoreDomainRepositoryError } from "@celebix/saas-data";
+import { cacheDependencySnapshot, resolveDefaultCacheRuntime, type CacheDependencySnapshot } from "@celebix/saas-cache";
 
 import { resolveDefaultPublicStorefrontRuntime } from "./default-runtime.ts";
 import { selectTrustedStorefrontHostAuthority, type TrustedStorefrontHostAuthority } from "./trusted-host-authority.ts";
@@ -16,6 +17,7 @@ const SECURITY_HEADERS = Object.freeze({
 type Dependencies = Readonly<{
   selectAuthority: (headers: Headers) => TrustedStorefrontHostAuthority;
   resolveRepository: () => Promise<StoreDomainOriginHealthRepository | null>;
+  resolveCacheDependency?: () => Promise<CacheDependencySnapshot>;
   now: () => Date;
 }>;
 
@@ -26,6 +28,7 @@ function response(status: 404 | 503, code: "storefront_not_found" | "storefront_
 const DEFAULT_DEPENDENCIES: Dependencies = Object.freeze({
   selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers),
   resolveRepository: async () => (await resolveDefaultPublicStorefrontRuntime())?.domainHealth ?? null,
+  resolveCacheDependency: () => cacheDependencySnapshot(resolveDefaultCacheRuntime()),
   now: () => new Date(),
 });
 
@@ -41,7 +44,8 @@ export function createStoreDomainOriginHealthRoute(dependencies: Dependencies) {
     if (repository === null) return response(503, "storefront_unavailable");
     try {
       const marker = await repository.get({ hostname: authority.hostname, now: dependencies.now() });
-      return Response.json(marker, { status: 200, headers: SECURITY_HEADERS });
+      const redisCache = await dependencies.resolveCacheDependency?.().catch(() => ({ required: false, status: "unavailable" as const, metrics: null })) ?? { required: false, status: "disabled" as const, metrics: null };
+      return Response.json({ ...marker, dependencies: { redisCache } }, { status: 200, headers: SECURITY_HEADERS });
     } catch (error) {
       if (error instanceof StoreDomainRepositoryError && error.code === "not_found") {
         return response(404, "storefront_not_found");

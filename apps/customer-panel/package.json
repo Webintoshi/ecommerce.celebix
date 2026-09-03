@@ -14,6 +14,7 @@
     "@bwip-js/browser": "^4.11.4",
     "@bwip-js/node": "^4.11.4",
     "@celebix/payment-adapters": "0.1.0",
+    "@celebix/saas-cache": "0.1.0",
     "@celebix/saas-contracts": "0.1.0",
     "@celebix/saas-data": "0.1.0",
     "@celebix/saas-domain-core": "0.1.0",

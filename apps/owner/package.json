@@ -15,6 +15,7 @@
     "@aws-sdk/client-s3": "^3.985.0",
     "@celebix/payment-adapters": "0.1.0",
     "@celebix/platform-config": "0.1.0",
+    "@celebix/saas-cache": "0.1.0",
     "@celebix/saas-contracts": "0.1.0",
     "@celebix/saas-data": "0.1.0",
     "@celebix/saas-domain-core": "0.1.0",
