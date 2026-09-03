@@ -1,0 +1,44 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createCacheRuntime } from "./runtime.ts";
+import type { CacheBackend } from "./cache.ts";
+
+class HealthBackend implements CacheBackend {
+  down = false;
+  async get() { if (this.down) throw new Error("down"); return null; }
+  async set() { if (this.down) throw new Error("down"); }
+  async delete() {}
+  async ping() { if (this.down) throw new Error("down"); }
+}
+
+const source = Object.freeze({
+  REDIS_CACHE_ENABLED: "true",
+  REDIS_CACHE_REQUIRED: "false",
+  REDIS_CACHE_URL: "redis://default:secret@redis.internal:6379",
+  REDIS_CACHE_NAMESPACE: "celebix:staging",
+});
+
+test("disabled runtime is explicit and never creates a backend", () => {
+  let called = false;
+  const runtime = createCacheRuntime({ source: { REDIS_CACHE_ENABLED: "false" }, createBackend: () => { called = true; throw new Error("unexpected"); } });
+  assert.equal(runtime.enabled, false);
+  assert.equal(called, false);
+});
+
+test("optional cache health degrades and recovers while remaining enabled", async () => {
+  const backend = new HealthBackend();
+  const runtime = createCacheRuntime({ source, createBackend: () => backend });
+  assert.equal(runtime.enabled, true);
+  assert.equal(await runtime.health(), "healthy");
+  backend.down = true;
+  assert.equal(await runtime.health(), "degraded");
+  backend.down = false;
+  assert.equal(await runtime.health(), "healthy");
+});
+
+test("malformed optional configuration becomes a degraded disabled runtime without leaking secrets", () => {
+  const runtime = createCacheRuntime({ source: { ...source, REDIS_CACHE_URL: "redis://default:do-not-leak@" }, createBackend: () => new HealthBackend() });
+  assert.equal(runtime.enabled, false);
+  assert.equal(runtime.configurationError, true);
+});
