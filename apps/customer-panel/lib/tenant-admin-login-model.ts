@@ -27,13 +27,22 @@ function hostname(value: unknown): string | null {
   try { return normalizeAdminRequestHostname(value); } catch { return null; }
 }
 
+function centralLoginHref(value: string, panelOrigin: string): string | null {
+  if (!PANEL_ORIGINS.some((approved) => approved === panelOrigin)) return null;
+  try {
+    const loginUrl = new URL("/auth/login", panelOrigin);
+    loginUrl.searchParams.set("destination", value);
+    return loginUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
 function centralLoginHrefForAdminHostname(value: string): string | null {
   for (const panelOrigin of PANEL_ORIGINS) {
     try {
       const canonicalAdmin = parseCanonicalAdminOriginFromPanelOrigin(`https://${value}`, panelOrigin);
-      const loginUrl = new URL("/auth/login", panelOrigin);
-      loginUrl.searchParams.set("destination", canonicalAdmin.hostname);
-      return loginUrl.toString();
+      return centralLoginHref(canonicalAdmin.hostname, panelOrigin);
     } catch {
       // Try the next approved panel environment.
     }
@@ -41,10 +50,10 @@ function centralLoginHrefForAdminHostname(value: string): string | null {
   return null;
 }
 
-function genericForHostname(value: string): TenantAdminLoginModel {
+function genericForHostname(value: string, panelOrigin?: string): TenantAdminLoginModel {
   return Object.freeze({
     ...GENERIC,
-    loginHref: centralLoginHrefForAdminHostname(value) ?? GENERIC.loginHref,
+    loginHref: (panelOrigin ? centralLoginHref(value, panelOrigin) : null) ?? centralLoginHrefForAdminHostname(value) ?? GENERIC.loginHref,
   });
 }
 
@@ -62,7 +71,10 @@ export async function resolveTenantAdminLoginModel(options: Readonly<{
     const panelOrigin = runtime.access?.panelOrigin;
     if (typeof panelOrigin !== "string") return genericForHostname(requestedHostname);
     const result = await runtime.adminDomains.resolvePublicBrand({ hostname: requestedHostname, now });
-    if (result?.kind !== "resolved" || typeof result.brand?.canonicalAdminOrigin !== "string") return genericForHostname(requestedHostname);
+    if (result?.kind !== "resolved" || typeof result.brand?.canonicalAdminOrigin !== "string") {
+      const temporaryCustomDomainFailure = result?.kind === "unavailable" && requestedHostname.startsWith("admin.");
+      return genericForHostname(requestedHostname, temporaryCustomDomainFailure ? panelOrigin : undefined);
+    }
     let canonicalAdmin: ReturnType<typeof parseExactAdminHttpsOrigin>;
     try {
       canonicalAdmin = parseExactAdminHttpsOrigin(result.brand.canonicalAdminOrigin);
