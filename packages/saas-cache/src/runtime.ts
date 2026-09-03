@@ -2,8 +2,10 @@ import type { Cache, CacheBackend } from "./cache.ts";
 import { createCache } from "./cache.ts";
 import { parseCacheConfig, type EnabledCacheConfig } from "./config.ts";
 import { createNodeRedisBackend } from "./redis-client.ts";
+import type { CacheMetrics } from "./metrics.ts";
 
 export type CacheHealth = "disabled" | "healthy" | "degraded";
+export type CacheDependencySnapshot = Readonly<{ status: CacheHealth; metrics: CacheMetrics | null }>;
 
 export type CacheRuntime = Readonly<{
   enabled: boolean;
@@ -65,4 +67,9 @@ export async function closeDefaultCacheRuntime(): Promise<void> {
   const shared = globalThis as RuntimeGlobal;
   await shared[runtimeSymbol]?.cache?.close();
   delete shared[runtimeSymbol];
+}
+
+export async function cacheDependencySnapshot(runtime: CacheRuntime = resolveDefaultCacheRuntime()): Promise<CacheDependencySnapshot> {
+  const status = await runtime.health().catch(() => "degraded" as const);
+  return Object.freeze({ status, metrics: runtime.cache?.metrics() ?? null });
 }

@@ -51,6 +51,19 @@ test("negative entries use the short TTL and namespace rotation makes prior entr
   assert.equal(loads, 1);
 });
 
+test("typed not-found envelopes can opt into the negative TTL", async () => {
+  const backend = new MemoryBackend();
+  const cache = createCache({ backend, ...options, random: () => 0.5, randomToken: () => "token" });
+  await cache.readThrough({
+    ...input,
+    scope: "typed-missing",
+    parser: (value) => value as { kind: "not_found" },
+    load: async () => ({ kind: "not_found" as const }),
+    isNegative: (value) => value.kind === "not_found",
+  });
+  assert.equal(backend.expiries.at(-1), 5);
+});
+
 test("concurrent cold reads are process-local singleflight", async () => {
   const backend = new MemoryBackend();
   const cache = createCache({ backend, ...options, random: () => 0.5, randomToken: () => "token" });

@@ -17,12 +17,13 @@ test("origin health returns only the exact database-bound hostname marker", asyn
   const route = createStoreDomainOriginHealthRoute({
     selectAuthority: () => ({ kind: "trusted", hostname: HOST }),
     resolveRepository: async () => ({ get: async () => ({ schemaVersion: 1, status: "ok", storeId: STORE, hostname: HOST }) }),
+    resolveCacheDependency: async () => ({ status: "degraded", metrics: null }),
     now: () => NOW,
   });
 
   const response = await route(request());
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { schemaVersion: 1, status: "ok", storeId: STORE, hostname: HOST });
+  assert.deepEqual(await response.json(), { schemaVersion: 1, status: "ok", storeId: STORE, hostname: HOST, dependencies: { redisCache: { status: "degraded", metrics: null } } });
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCacheRuntime } from "./runtime.ts";
+import { cacheDependencySnapshot, createCacheRuntime } from "./runtime.ts";
 import type { CacheBackend } from "./cache.ts";
 
 class HealthBackend implements CacheBackend {
@@ -41,4 +41,13 @@ test("malformed optional configuration becomes a degraded disabled runtime witho
   const runtime = createCacheRuntime({ source: { ...source, REDIS_CACHE_URL: "redis://default:do-not-leak@" }, createBackend: () => new HealthBackend() });
   assert.equal(runtime.enabled, false);
   assert.equal(runtime.configurationError, true);
+});
+
+test("dependency snapshot exposes only bounded counters and health", async () => {
+  const backend = new HealthBackend();
+  const runtime = createCacheRuntime({ source, createBackend: () => backend });
+  const snapshot = await cacheDependencySnapshot(runtime);
+  assert.equal(snapshot.status, "healthy");
+  assert.deepEqual(snapshot.metrics, { hit: 0, miss: 0, negativeHit: 0, bypass: 0, error: 0, write: 0, invalidation: 0, singleflightJoin: 0 });
+  assert.equal(JSON.stringify(snapshot).includes("redis://"), false);
 });

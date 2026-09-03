@@ -24,6 +24,7 @@ export type ReadThroughInput<T> = Readonly<{
   load: () => Promise<T>;
   ttlSeconds?: number;
   cacheNull?: boolean;
+  isNegative?: (value: T) => boolean;
 }>;
 
 export type Cache = Readonly<{
@@ -101,11 +102,12 @@ export function createCache(options: Readonly<{
     }
     const operation = (async () => {
       const value = await input.load();
+      const negative = value === null || input.isNegative?.(value) === true;
       if (value === null && input.cacheNull !== true) return value;
-      const envelope: Envelope = Object.freeze({ schema: "celebix-cache-v1", value, negative: value === null });
+      const envelope: Envelope = Object.freeze({ schema: "celebix-cache-v1", value, negative });
       const serialized = JSON.stringify(envelope);
       if (Buffer.byteLength(serialized, "utf8") <= options.maxPayloadBytes) {
-        const baseTtl = value === null ? options.negativeTtlSeconds : (input.ttlSeconds ?? options.defaultTtlSeconds);
+        const baseTtl = negative ? options.negativeTtlSeconds : (input.ttlSeconds ?? options.defaultTtlSeconds);
         const ttl = Math.max(1, Math.round(baseTtl * (0.9 + 0.2 * Math.min(1, Math.max(0, random())))));
         try {
           await options.backend.set(key, serialized, ttl);

@@ -63,6 +63,7 @@ import { registerServerToshiProviderRuntime } from "../server-toshi-providers/ru
 import { createDefaultShippingAdapter } from "../server-shipping/default.ts";
 import { registerServerShippingRuntime } from "../server-shipping/runtime.ts";
 import { createToshiProviderAdapterRegistry } from "../toshi-provider-adapters/registry.ts";
+import { createPostCommitInvalidatingRepository } from "../server-cache/invalidation.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
   parseQuickLinkServerConfig,
@@ -742,14 +743,24 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
         stateKey: new Uint8Array(config.keys.handoff),
       },
     });
-    registerServerCatalogRepository(access, catalogRepository);
+    registerServerCatalogRepository(access, createPostCommitInvalidatingRepository(catalogRepository, {
+      createProduct: ["catalog"], updateProduct: ["catalog"], archiveProduct: ["catalog"], restoreProduct: ["catalog"],
+      removeProduct: ["catalog"], bulkMutateProducts: ["catalog"], createVariant: ["catalog"], updateVariant: ["catalog"], archiveVariant: ["catalog"],
+    }));
     registerServerBarcodeLabelRepository(access, barcodeLabelRepository);
-    registerServerCatalogOnboardingRepository(access, catalogOnboardingRepository);
+    registerServerCatalogOnboardingRepository(access, createPostCommitInvalidatingRepository(catalogOnboardingRepository, {
+      createProduct: ["catalog"], updateMerchandising: ["catalog"], publishAfterMedia: ["catalog"],
+      createCategory: ["catalog"], updateCategory: ["catalog"], archiveCategory: ["catalog"],
+    }));
     registerServerOrderRepository(access, orderRepository);
     registerServerAbandonedCartRepository(access, abandonedCartRepository);
     registerServerCustomerRepository(access, customerRepository);
-    registerServerCatalogAdminRepository(access, catalogAdminRepository);
-    registerServerMerchantAdminRepository(access, merchantAdminRepository);
+    registerServerCatalogAdminRepository(access, createPostCommitInvalidatingRepository(catalogAdminRepository, {
+      saveResource: ["catalog"], archiveResource: ["catalog"], moderateReview: ["catalog"], importProducts: ["catalog"], importProductsV2: ["catalog"], commitImportPreview: ["catalog"],
+    }));
+    registerServerMerchantAdminRepository(access, createPostCommitInvalidatingRepository(merchantAdminRepository, {
+      save: ["catalog", "settings"], archive: ["catalog", "settings"],
+    }));
     registerServerStorePolicyRepository(access, storePolicyRepository);
     registerServerPaymentMethodRepository(access, paymentMethodRepository);
     registerServerProviderExecutionRuntime(
@@ -780,7 +791,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     );
     registerServerAnalyticsRepository(access, analyticsRepository);
     registerServerInventoryRepository(access, inventoryRepository);
-    registerServerPricingRepository(access, pricingRepository);
+    registerServerPricingRepository(access, createPostCommitInvalidatingRepository(pricingRepository, {
+      save: ["catalog"], activate: ["catalog"], archive: ["catalog"],
+    }));
     registerServerQuickLinksRuntime(access, {
       links: quickLinkRepository,
       privateLinks: quickLinkPrivateRepository,

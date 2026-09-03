@@ -16,6 +16,7 @@
   "dependencies": {
     "@celebix/payment-adapters": "0.1.0",
     "@celebix/platform-config": "0.1.0",
+    "@celebix/saas-cache": "0.1.0",
     "@celebix/saas-data": "0.1.0",
     "@celebix/saas-storefront-runtime": "0.1.0",
     "@celebix/storefront-design-ui": "0.1.0",
