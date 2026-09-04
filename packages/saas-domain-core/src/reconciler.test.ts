@@ -52,6 +52,30 @@ test("marks one hostname ready only when provider DNS and exact-host health all 
   });
 });
 
+test("accepts exact-host health when dependency telemetry extends the response", async () => {
+  let completed: Parameters<StoreDomainWorkflowPersistence["complete"]>[0] | undefined;
+  const reconciler = createStoreDomainReconciler({
+    workflow: workflow({ async complete(input) { completed = input; } }),
+    provider: activeProvider(),
+    resolveCname: async () => ["shops.celebix.site"],
+    fetch: async () => new Response(JSON.stringify({
+      schemaVersion: 1,
+      status: "ok",
+      storeId: CLAIM.storeId,
+      hostname: CLAIM.hostname,
+      dependencies: { redisCache: { required: false, status: "ready", metrics: {} } },
+    }), { status: 200, headers: { "content-type": "application/json" } }),
+    workerId: "domain-worker-1",
+    cnameTarget: "shops.celebix.site",
+    now: () => NOW,
+  });
+
+  assert.equal(await reconciler.runOnce(), "updated");
+  assert.equal(completed?.dnsStatus, "ready");
+  assert.equal(completed?.originStatus, "ready");
+  assert.equal(completed?.safeProviderErrorCode, null);
+});
+
 test("marks an apex hostname ready when Cloudflare flattening hides the CNAME but provider TLS and exact tenant health agree", async () => {
   const apex = Object.freeze({ ...CLAIM, hostname: "example.com" });
   let completed: Parameters<StoreDomainWorkflowPersistence["complete"]>[0] | undefined;

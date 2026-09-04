@@ -52,7 +52,6 @@ async function originStatus(fetchImpl: FetchLike, claim: StoreDomainWorkflowClai
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || Object.getPrototypeOf(parsed) !== Object.prototype) return "failed";
     const value = parsed as Record<string, unknown>;
-    if (Object.keys(value).sort().join(",") !== "hostname,schemaVersion,status,storeId") return "failed";
     return value.schemaVersion === 1 && value.status === "ok" && value.storeId === claim.storeId && value.hostname === claim.hostname ? "ready" : "failed";
   } catch { return "failed"; }
 }
