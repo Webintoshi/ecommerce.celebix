@@ -51,6 +51,37 @@ test("custom admin login without a destination transfers to the central login au
   assert.equal(fixture.calls(), 0);
 });
 
+test("proxy-delivered custom admin login derives the destination from the authoritative Host header", async () => {
+  const fixture = handler();
+  const response = await fixture.value(new Request("http://customer-panel:3400/auth/login", {
+    headers: {
+      host: "admin.guzidekuyumcu.com.tr",
+      forwarded: "host=attacker.example;proto=https",
+      "x-forwarded-host": "attacker.example",
+    },
+  }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), `${PANEL}/auth/login?destination=admin.guzidekuyumcu.com.tr`);
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(fixture.calls(), 0);
+});
+
+test("proxy-delivered login never derives a destination from forwarded authority headers", async () => {
+  const fixture = handler();
+  const response = await fixture.value(new Request("http://customer-panel:3400/auth/login", {
+    headers: {
+      host: "customer-panel:3400",
+      forwarded: "host=admin.guzidekuyumcu.com.tr;proto=https",
+      "x-forwarded-host": "admin.guzidekuyumcu.com.tr",
+      "x-forwarded-proto": "https",
+    },
+  }));
+  assert.equal(response.status, 400);
+  assert.equal(response.headers.has("location"), false);
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(fixture.calls(), 0);
+});
+
 test("proxy-safe login accepts only GET and the exact public path without trusting forwarded headers", async () => {
   for (const url of [
     `http://customer-panel:3400/auth/login?destination=${DESTINATION}`,
