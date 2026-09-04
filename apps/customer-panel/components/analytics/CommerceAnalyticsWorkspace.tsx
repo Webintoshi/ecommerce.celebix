@@ -21,6 +21,7 @@ import {
   PanelPageShell,
 } from "@/components/panel/PanelPageShell";
 import {
+  analyticsProductMetricCount,
   analyticsTrafficMetric,
   analyticsTrafficSources,
 } from "@/lib/analytics-ui/traffic";
@@ -1825,9 +1826,7 @@ function Products({
   data: Payload;
   href: (patch: Record<string, string | null>) => string;
 }>) {
-  const views = items(data.traffic, "views"),
-    adds = items(data.traffic, "adds"),
-    page = data.commerce.productPage;
+  const page = data.commerce.productPage;
   return (
     <section className={styles.tablePanel}>
       <h2>Ürün performansı</h2>
@@ -1848,12 +1847,16 @@ function Products({
           </thead>
           <tbody>
             {data.commerce.products.map((row) => {
-              const viewed =
-                  views.find((item) => item.label === row.productId)?.value ??
-                  null,
-                added =
-                  adds.find((item) => item.label === row.productId)?.value ??
-                  null;
+              const viewed = analyticsProductMetricCount(
+                  data.traffic,
+                  "views",
+                  row.productId,
+                ),
+                added = analyticsProductMetricCount(
+                  data.traffic,
+                  "adds",
+                  row.productId,
+                );
               return (
                 <tr key={`${row.productId}:${row.currency}`}>
                   <td>
