@@ -89,16 +89,15 @@ export async function resolveTenantAdminLoginModel(options: Readonly<{
     }
     const accentColor = result.brand.accentColor ?? "#ff6500";
     if (!/^#[0-9a-fA-F]{6}$/.test(accentColor)) return GENERIC;
-    const loginUrl = new URL("/auth/login", panelOrigin);
-    if (loginUrl.origin !== panelOrigin || loginUrl.pathname !== "/auth/login") return GENERIC;
-    loginUrl.searchParams.set("destination", requestedHostname);
+    const loginHref = centralLoginHref(requestedHostname, panelOrigin);
+    if (!loginHref) return GENERIC;
     return Object.freeze({
       kind: "tenant" as const,
       displayName: String(result.brand.displayName),
       logoUrl: result.brand.logoUrl === null ? null : String(result.brand.logoUrl),
       accentColor,
       canonicalAdminOrigin: canonicalAdmin.origin,
-      loginHref: loginUrl.toString(),
+      loginHref,
     });
   } catch { return genericForHostname(requestedHostname); }
 }

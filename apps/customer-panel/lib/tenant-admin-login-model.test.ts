@@ -54,6 +54,23 @@ test("starts central login for an exact resolved custom admin hostname", async (
   assert.equal(model.loginHref, `${PANEL}/auth/login?destination=${hostname}`);
 });
 
+test("resolved custom admin branding never promotes an unapproved panel origin", async () => {
+  const hostname = "admin.guzidekuyumcu.com.tr";
+  const model = await resolveTenantAdminLoginModel({
+    hostHeader: hostname,
+    clock: () => new Date("2026-09-04T10:00:00.000Z"),
+    async resolveRuntime() { return {
+      access: { panelOrigin: "https://panel.evil.example" },
+      adminDomains: { async resolvePublicBrand() { return { kind: "resolved", brand: {
+        storeSlug: "guzide-kuyumcu-4", displayName: "Güzide Kuyumcu", logoUrl: null,
+        accentColor: null, canonicalAdminOrigin: `https://${hostname}`,
+      } }; } },
+    }; },
+  });
+  assert.equal(model.kind, "generic");
+  assert.equal(model.loginHref, "/auth/login");
+});
+
 test("unknown, spoofed, or mismatched hosts use the generic safe model", async () => {
   for (const hostHeader of ["evil.example", `${HOSTNAME}:not-a-port`, HOSTNAME.toUpperCase()]) {
     const model = await resolveTenantAdminLoginModel({
