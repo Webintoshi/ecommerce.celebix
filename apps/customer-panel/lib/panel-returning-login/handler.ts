@@ -1,4 +1,4 @@
-import { normalizeAdminRequestHostname } from "@celebix/saas-data";
+import { normalizeAdminRequestHostname, parseCanonicalAdminOriginFromPanelOrigin } from "@celebix/saas-data";
 
 import type { createPanelBrowserBindingCredentialGenerator } from "../panel-browser-binding/credential-codec.ts";
 import { serializePanelBrowserBindingCookie } from "../panel-browser-binding/cookie.ts";
@@ -27,6 +27,20 @@ function controlled(code: string, status: 400 | 405 | 503): Response {
   });
 }
 
+function transfer(publicLoginAuthority: string, destinationHostname: string): Response {
+  const location = new URL(publicLoginAuthority);
+  location.searchParams.set("destination", destinationHostname);
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: location.toString(),
+      "cache-control": "no-store",
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
 function exactPublicLoginAuthority(value: unknown): string {
   if (typeof value !== "string") invalid();
   let parsed: URL;
@@ -39,14 +53,38 @@ function exactPublicLoginAuthority(value: unknown): string {
   return value;
 }
 
-function requestDecision(request: Request, panelOrigin: string): { kind: "approved"; destinationHostname: string } | { kind: "method_not_allowed" | "denied" } {
+function approvedDestination(value: string, panelOrigin: string): boolean {
+  if (value.startsWith("admin.")) return true;
+  try {
+    parseCanonicalAdminOriginFromPanelOrigin(`https://${value}`, panelOrigin);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function requestDecision(request: Request, panelOrigin: string):
+  | { kind: "approved" | "transfer"; destinationHostname: string }
+  | { kind: "method_not_allowed" | "denied" } {
   if (request.method !== "GET") return { kind: "method_not_allowed" };
   let url: URL;
   try { url = new URL(request.url); } catch { return { kind: "denied" }; }
   if (
     (url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password ||
-    url.pathname !== "/auth/login" || url.hash || [...url.searchParams.keys()].join(",") !== "destination"
+    url.pathname !== "/auth/login" || url.hash
   ) return { kind: "denied" };
+
+  if (!url.search) {
+    if (url.protocol !== "https:" || url.port || url.origin === panelOrigin) return { kind: "denied" };
+    let destinationHostname: string;
+    try { destinationHostname = normalizeAdminRequestHostname(url.hostname); }
+    catch { return { kind: "denied" }; }
+    return destinationHostname === url.hostname && approvedDestination(destinationHostname, panelOrigin)
+      ? { kind: "transfer", destinationHostname }
+      : { kind: "denied" };
+  }
+
+  if ([...url.searchParams.keys()].join(",") !== "destination") return { kind: "denied" };
   const values = url.searchParams.getAll("destination");
   const destinationHostname = values[0];
   if (values.length !== 1 || !destinationHostname) return { kind: "denied" };
@@ -55,7 +93,9 @@ function requestDecision(request: Request, panelOrigin: string): { kind: "approv
   } catch {
     return { kind: "denied" };
   }
-  return { kind: "approved", destinationHostname };
+  return approvedDestination(destinationHostname, panelOrigin)
+    ? { kind: "approved", destinationHostname }
+    : { kind: "denied" };
 }
 
 function providerUrl(value: unknown): string {
@@ -92,6 +132,7 @@ export function createPanelReturningLoginHandler(options: {
   return async function panelReturningLoginHandler(request: Request): Promise<Response> {
     const decision = requestDecision(request, panelOrigin);
     if (decision.kind === "method_not_allowed") return controlled("panel_login_method_not_allowed", 405);
+    if (decision.kind === "transfer") return transfer(publicLoginAuthority, decision.destinationHostname);
     if (decision.kind !== "approved") return controlled("panel_login_request_invalid", 400);
 
     let credential: string;
