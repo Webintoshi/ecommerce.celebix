@@ -28,4 +28,4 @@
 
 ## Commit
 
-Pending at report creation; populated after the checkpoint commit.
+`0d7d3d198ce293f45ad283163de94559904621c1` (`feat(promotions): add tenant-safe promotion persistence`).
