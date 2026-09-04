@@ -655,10 +655,19 @@ test("provider traffic filters reject PII before a request is sent", async () =>
 test("product event values use bounded server aggregation and preserve safe filters", async () => {
   const f = fixture([
     login(),
-    response(200, [
-      { value: WEBSITE, total: 3 },
-      { value: "50000000-0000-4000-8000-000000000003", total: 8000 },
-    ]),
+    response(200, {
+      data: [
+        ...Array.from({ length: 3 }, (_, index) => ({
+          sessionId: `50000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+          eventName: "product_view",
+          propertyKeys: ["product_id"],
+          propertyValues: [WEBSITE],
+        })),
+      ],
+      count: 3,
+      page: 1,
+      pageSize: 1000,
+    }),
   ]);
   const result = await f.client.eventPropertyValues({
     websiteId: WEBSITE,
@@ -676,10 +685,11 @@ test("product event values use bounded server aggregation and preserve safe filt
   });
   assert.deepEqual(result.items, [{ label: WEBSITE, value: 3 }]);
   const url = new URL(f.requests[1]!.url);
-  assert.equal(url.pathname, `/api/websites/${WEBSITE}/event-data/values`);
-  assert.equal(url.searchParams.get("event"), "product_view");
+  assert.equal(url.pathname, `/api/websites/${WEBSITE}/event-data-pivot`);
   assert.equal(url.searchParams.get("eventName"), "product_view");
-  assert.equal(url.searchParams.get("propertyName"), "product_id");
+  assert.equal(url.searchParams.get("page"), "1");
+  assert.equal(url.searchParams.get("pageSize"), "1000");
+  assert.equal(url.searchParams.get("maxResults"), "10000");
   assert.equal(url.searchParams.get("utmSource"), "direct");
   assert.equal(url.searchParams.get("device"), "desktop");
   assert.equal(
@@ -688,9 +698,8 @@ test("product event values use bounded server aggregation and preserve safe filt
   );
   assert.equal(url.searchParams.get("pf_currency"), "1.eq.TRY");
   assert.equal(url.searchParams.get("pf_product_id"), `1.re.^(${WEBSITE})$`);
-  assert.equal(url.searchParams.get("epf1"), `1.re.product_id.^(${WEBSITE})$`);
 });
-test("product event values batch a full product page into four server-side filters", async () => {
+test("product event values batch a full product page into four bounded pivot filters", async () => {
   const productIds = Array.from(
       { length: 100 },
       (_, index) =>
@@ -699,7 +708,17 @@ test("product event values batch a full product page into four server-side filte
     f = fixture([
       login(),
       ...[0, 25, 50, 75].map((index) =>
-        response(200, [{ value: productIds[index], total: index + 1 }]),
+        response(200, {
+          data: Array.from({ length: index + 1 }, (_, offset) => ({
+            sessionId: `60000000-0000-4000-8000-${String(index * 100 + offset + 1).padStart(12, "0")}`,
+            eventName: "product_view",
+            propertyKeys: ["product_id"],
+            propertyValues: [productIds[index]],
+          })),
+          count: index + 1,
+          page: 1,
+          pageSize: 1000,
+        }),
       ),
     ]);
   const result = await f.client.eventPropertyValues({
@@ -716,11 +735,124 @@ test("product event values batch a full product page into four server-side filte
     [productIds[75], productIds[50], productIds[25], productIds[0]],
   );
   for (const request of f.requests.slice(1)) {
-    const filter = new URL(request.url).searchParams.get("epf1") ?? "";
-    assert.match(filter, /^1[.]re[.]product_id[.]\^[(]/);
+    const filter = new URL(request.url).searchParams.get("pf_product_id") ?? "";
+    assert.match(filter, /^1[.]re[.]\^[(]/);
     assert.doesNotMatch(filter, /[(][?][:]/);
     assert.equal((filter.match(/50000000-/g) ?? []).length, 25);
   }
+});
+test("product event values fail closed when the provider caps or leaks a filtered pivot", async () => {
+  const input = {
+    websiteId: WEBSITE,
+    start: new Date("2026-07-01T00:00:00.000Z"),
+    end: NOW,
+    eventName: "product_view" as const,
+    propertyName: "product_id" as const,
+    productIds: [WEBSITE],
+  };
+  await assert.rejects(
+    () =>
+      fixture([
+        login(),
+        response(200, {
+          data: [],
+          count: 10_000,
+          page: 1,
+          pageSize: 1000,
+          isCapped: true,
+        }),
+      ]).client.eventPropertyValues(input),
+    /umami_provider_response_too_large/,
+  );
+  await assert.rejects(
+    () =>
+      fixture([
+        login(),
+        response(200, {
+          data: [
+            {
+              sessionId: "50000000-0000-4000-8000-000000000099",
+              eventName: "product_view",
+              propertyKeys: ["product_id"],
+              propertyValues: ["50000000-0000-4000-8000-000000000003"],
+            },
+          ],
+          count: 1,
+          page: 1,
+          pageSize: 1000,
+        }),
+      ]).client.eventPropertyValues(input),
+    /umami_provider_response_invalid/,
+  );
+});
+test("product event values aggregate every bounded pivot page exactly", async () => {
+  const row = {
+      sessionId: "50000000-0000-4000-8000-000000000099",
+      eventName: "product_view",
+      propertyKeys: ["product_id"],
+      propertyValues: [WEBSITE],
+    },
+    f = fixture([
+      login(),
+      response(200, {
+        data: Array.from({ length: 1000 }, () => row),
+        count: 1001,
+        page: 1,
+        pageSize: 1000,
+      }),
+      response(200, {
+        data: [row],
+        count: 1001,
+        page: 2,
+        pageSize: 1000,
+      }),
+    ]);
+  const result = await f.client.eventPropertyValues({
+    websiteId: WEBSITE,
+    start: new Date("2026-07-01T00:00:00.000Z"),
+    end: NOW,
+    eventName: "product_view",
+    propertyName: "product_id",
+    productIds: [WEBSITE],
+  });
+  assert.deepEqual(result.items, [{ label: WEBSITE, value: 1001 }]);
+  assert.equal(new URL(f.requests[1]!.url).searchParams.get("page"), "1");
+  assert.equal(new URL(f.requests[2]!.url).searchParams.get("page"), "2");
+});
+test("product event values reject before an eleventh pivot request", async () => {
+  const productIds = Array.from(
+      { length: 26 },
+      (_, index) =>
+        `50000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    ),
+    pages = Array.from({ length: 10 }, (_, index) => {
+      const productId = index < 6 ? productIds[0]! : productIds[25]!;
+      return response(200, {
+        data: Array.from({ length: 1000 }, () => ({
+          sessionId: "60000000-0000-4000-8000-000000000099",
+          eventName: "product_view",
+          propertyKeys: ["product_id"],
+          propertyValues: [productId],
+        })),
+        count: 6000,
+        page: index < 6 ? index + 1 : index - 5,
+        pageSize: 1000,
+      });
+    }),
+    f = fixture([login(), ...pages]);
+  await assert.rejects(
+    () =>
+      f.client.eventPropertyValues({
+        websiteId: WEBSITE,
+        start: new Date("2026-07-01T00:00:00.000Z"),
+        end: NOW,
+        eventName: "product_view",
+        propertyName: "product_id",
+        productIds,
+      }),
+    /umami_provider_response_too_large/,
+  );
+  assert.equal(f.requests.length, 11);
 });
 test("acquisition breakdown keeps per-source visitor and event-session counts distinct", async () => {
   const row = {
@@ -783,10 +915,25 @@ test("non-monotonic funnel and oversized event pivots fail closed", async () => 
     () =>
       fixtureWith(config, [
         login(),
-        response(200, [
-          { value: WEBSITE, total: 1 },
-          { value: "50000000-0000-4000-8000-000000000003", total: 1 },
-        ]),
+        response(200, {
+          data: [
+            {
+              sessionId: "60000000-0000-4000-8000-000000000001",
+              eventName: "product_view",
+              propertyKeys: ["product_id"],
+              propertyValues: [WEBSITE],
+            },
+            {
+              sessionId: "60000000-0000-4000-8000-000000000002",
+              eventName: "product_view",
+              propertyKeys: ["product_id"],
+              propertyValues: ["50000000-0000-4000-8000-000000000003"],
+            },
+          ],
+          count: 2,
+          page: 1,
+          pageSize: 1000,
+        }),
       ]).client.eventPropertyValues({
         websiteId: WEBSITE,
         start: new Date("2026-07-01T00:00:00.000Z"),

@@ -180,6 +180,9 @@ const MAX_FUNNEL_EVENTS_PER_STEP = 10_000;
 const MAX_FUNNEL_PAGES_PER_STEP = 10;
 const MAX_FUNNEL_PIVOT_QUERIES = 10;
 const MIN_FUNNEL_PARTITION_MILLISECONDS = 60 * 60 * 1000;
+const PRODUCT_PIVOT_PAGE_SIZE = 1000;
+const MAX_PRODUCT_PIVOT_RESULTS = 10_000;
+const MAX_PRODUCT_PIVOT_QUERIES = 10;
 function funnelPivotPage(value: unknown, expectedPage: number) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new UmamiProviderError("umami_provider_response_invalid");
@@ -368,23 +371,69 @@ function independentSessions(value: unknown) {
     throw new UmamiProviderError("umami_provider_response_invalid");
   return visits;
 }
-function eventValueRows(value: unknown, maximum: number) {
-  if (!Array.isArray(value) || value.length > maximum)
+function productPivotPage(
+  value: unknown,
+  expectedPage: number,
+  eventName: "product_view" | "add_to_cart",
+  propertyName: "product_id",
+  selectedProducts: ReadonlySet<string>,
+) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new UmamiProviderError("umami_provider_response_invalid");
+  const response = value as Record<string, unknown>,
+    count = Number(response.count),
+    page = Number(response.page),
+    pageSize = Number(response.pageSize);
+  if (
+    !Array.isArray(response.data) ||
+    !Number.isSafeInteger(count) ||
+    count < 0 ||
+    page !== expectedPage ||
+    !Number.isSafeInteger(pageSize) ||
+    pageSize < 1 ||
+    pageSize > PRODUCT_PIVOT_PAGE_SIZE
+  )
+    throw new UmamiProviderError("umami_provider_response_invalid");
+  if (count > MAX_PRODUCT_PIVOT_RESULTS || response.isCapped === true)
     throw new UmamiProviderError("umami_provider_response_too_large");
-  const seen = new Set<string>();
-  return Object.freeze(
-    value.map((entry) => {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry))
-        throw new UmamiProviderError("umami_provider_response_invalid");
-      const row = entry as Record<string, unknown>,
-        label = inputUuid(row.value),
-        total = Number(row.total);
-      if (!Number.isSafeInteger(total) || total < 0 || seen.has(label))
-        throw new UmamiProviderError("umami_provider_response_invalid");
-      seen.add(label);
-      return Object.freeze({ label, value: total });
-    }),
-  );
+  if (
+    response.data.length !==
+    Math.min(pageSize, Math.max(0, count - (page - 1) * pageSize))
+  )
+    throw new UmamiProviderError("umami_provider_response_invalid");
+  const counts = new Map<string, number>();
+  for (const entry of response.data) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry))
+      throw new UmamiProviderError("umami_provider_response_invalid");
+    const row = entry as Record<string, unknown>,
+      keys = row.propertyKeys,
+      values = row.propertyValues;
+    inputUuid(row.sessionId);
+    if (
+      row.eventName !== eventName ||
+      !Array.isArray(keys) ||
+      !Array.isArray(values) ||
+      keys.length !== values.length ||
+      keys.length > 100 ||
+      keys.some((key) => typeof key !== "string") ||
+      values.some(
+        (item) =>
+          typeof item !== "string" &&
+          typeof item !== "number" &&
+          typeof item !== "boolean" &&
+          item !== null,
+      )
+    )
+      throw new UmamiProviderError("umami_provider_response_invalid");
+    const propertyIndex = keys.indexOf(propertyName);
+    if (propertyIndex < 0 || typeof values[propertyIndex] !== "string")
+      throw new UmamiProviderError("umami_provider_response_invalid");
+    const productId = inputUuid(values[propertyIndex]);
+    if (!selectedProducts.has(productId))
+      throw new UmamiProviderError("umami_provider_response_invalid");
+    counts.set(productId, (counts.get(productId) ?? 0) + 1);
+  }
+  return Object.freeze({ counts, count, pageSize });
 }
 type BreakdownRow = Readonly<{
   source: string;
@@ -1117,49 +1166,54 @@ export function createUmamiClient(
         const batches: string[][] = [];
         for (let index = 0; index < productIds.length; index += 25)
           batches.push(productIds.slice(index, index + 25));
-        const rows = (
-          await Promise.all(
-            batches.map(async (batch) => {
-              const query = new URLSearchParams({
-                  startAt: String(start.getTime()),
-                  endAt: String(end.getTime()),
-                  event: input.eventName,
-                  eventName: input.eventName,
-                  propertyName: input.propertyName,
-                }),
-                productExpression = `^(${batch.join("|")})$`;
-              for (const [key, value] of Object.entries(globalFilters))
-                query.set(key, value);
-              // Supply both legacy and current Umami property-filter encodings.
-              // Each expresses the same AND condition; no per-product request or
-              // top-100 whole-store truncation can hide a current-page product.
-              query.set("pf_product_id", `1.re.${productExpression}`);
-              query.set("epf1", `1.re.product_id.${productExpression}`);
-              for (const [offset, filter] of stepFilters.entries()) {
-                query.set(
-                  `pf_${filter.property}`,
-                  `1.${filter.operator}.${filter.value}`,
-                );
-                query.set(
-                  `epf${offset + 2}`,
-                  `1.${filter.operator}.${filter.property}.${filter.value}`,
-                );
-              }
-              return eventValueRows(
-                await request(
-                  "GET",
-                  `/api/websites/${id}/event-data/values?${query.toString()}`,
-                  undefined,
-                  true,
-                  false,
-                  deadlineAt,
-                ),
-                100,
+        const totals = new Map<string, number>();
+        let pivotQueries = 0;
+        for (const batch of batches) {
+          const batchProducts = new Set(batch),
+            productExpression = `^(${batch.join("|")})$`;
+          let page = 1;
+          for (;;) {
+            pivotQueries += 1;
+            if (pivotQueries > MAX_PRODUCT_PIVOT_QUERIES)
+              throw new UmamiProviderError("umami_provider_response_too_large");
+            const query = new URLSearchParams({
+              startAt: String(start.getTime()),
+              endAt: String(end.getTime()),
+              eventName: input.eventName,
+              page: String(page),
+              pageSize: String(PRODUCT_PIVOT_PAGE_SIZE),
+              maxResults: String(MAX_PRODUCT_PIVOT_RESULTS),
+            });
+            for (const [key, value] of Object.entries(globalFilters))
+              query.set(key, value);
+            query.set("pf_product_id", `1.re.${productExpression}`);
+            for (const filter of stepFilters)
+              query.set(
+                `pf_${filter.property}`,
+                `1.${filter.operator}.${filter.value}`,
               );
-            }),
-          )
-        ).flat();
-        const items = rows
+            const parsed = productPivotPage(
+              await request(
+                "GET",
+                `/api/websites/${id}/event-data-pivot?${query.toString()}`,
+                undefined,
+                true,
+                false,
+                deadlineAt,
+              ),
+              page,
+              input.eventName,
+              input.propertyName,
+              batchProducts,
+            );
+            for (const [productId, value] of parsed.counts)
+              totals.set(productId, (totals.get(productId) ?? 0) + value);
+            if (page * parsed.pageSize >= parsed.count) break;
+            page += 1;
+          }
+        }
+        const items = [...totals]
+          .map(([label, value]) => Object.freeze({ label, value }))
           .filter((row) => selectedProducts.has(row.label))
           .sort(
             (left, right) =>
