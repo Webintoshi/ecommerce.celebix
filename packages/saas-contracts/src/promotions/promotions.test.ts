@@ -163,6 +163,7 @@ test("evaluator request and result are bounded, immutable server truth", () => {
   assert.throws(() => parsePromotionEvaluatorResult({ ...result, grandTotalMinor: 1851 }));
   assert.throws(() => parsePromotionEvaluatorResult({ ...result, shippingEffects: [{ promotionId: SECOND_ID, discountMinor: 50 }] }));
   assert.throws(() => parsePromotionEvaluatorResult({ ...result, gifts: [{ promotionId: ID, variantId: SECOND_ID, quantity: 1, paidMinor: 1 }] }));
+  assert.throws(() => parsePromotionEvaluatorResult({ ...result, gifts: [{ promotionId: ID, variantId: SECOND_ID, quantity: 1, paidMinor: 0 }, { promotionId: ID, variantId: SECOND_ID, quantity: 2, paidMinor: 0 }] }));
 });
 
 test("list, detail, simulator, code batch, csv analytics and legacy projections reject authority leaks", () => {
