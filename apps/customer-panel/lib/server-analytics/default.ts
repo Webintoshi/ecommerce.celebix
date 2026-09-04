@@ -1,5 +1,6 @@
 import "server-only";
 import process from "node:process";
+import { resolveDefaultCacheRuntime } from "@celebix/saas-cache";
 import { resolveDefaultServerPanelAccessRuntime } from "../server-panel-access/default.ts";
 import { createUmamiClient } from "../umami-provider/client.ts";
 import { parseUmamiPrivateApiConfig, UMAMI_PRIVATE_ENVIRONMENT_FIELDS } from "../umami-provider/config.ts";
@@ -16,7 +17,11 @@ export async function resolveDefaultServerAnalyticsRuntime() {
           fetch: (request) => fetch(request),
         });
     } catch {}
-    return resolveServerAnalyticsRuntime(access, umami);
+    return resolveServerAnalyticsRuntime(
+      access,
+      umami,
+      resolveDefaultCacheRuntime().cache,
+    );
   } catch {
     return null;
   }

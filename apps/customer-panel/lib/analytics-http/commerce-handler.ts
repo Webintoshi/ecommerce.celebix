@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
 import {
+  parseAnalyticsMetricResult,
   parseAnalyticsSafeDimension,
+  parseAnalyticsSummary,
   type AnalyticsRange,
   type TenantContext,
 } from "@celebix/saas-contracts";
@@ -9,6 +12,7 @@ import {
 } from "@celebix/saas-data";
 
 import type { ServerAnalyticsRuntime } from "../server-analytics/runtime.ts";
+import { readAnalyticsProviderCache } from "../server-analytics/provider-cache.ts";
 import { authorizeAnalyticsRequest } from "./request-authority.ts";
 
 const VIEWS = [
@@ -65,6 +69,127 @@ type Range = Readonly<{
   filters: Filters;
 }>;
 const DAY = 86_400_000;
+
+type CountRows = Readonly<{
+  items: readonly Readonly<{ label: string; value: number }>[];
+}>;
+function cacheRecord(value: unknown, keys: readonly string[]) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw Error("analytics_cache_invalid");
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null)
+    throw Error("analytics_cache_invalid");
+  const descriptors = Object.getOwnPropertyDescriptors(value),
+    names = Object.keys(descriptors);
+  if (
+    names.sort().join("\n") !== [...keys].sort().join("\n") ||
+    names.some((key) => !("value" in descriptors[key]!))
+  )
+    throw Error("analytics_cache_invalid");
+  return Object.fromEntries(
+    names.map((key) => [key, descriptors[key]!.value]),
+  ) as Record<string, unknown>;
+}
+function parseCountRows(
+  value: unknown,
+  allowedLabels?: ReadonlySet<string>,
+): CountRows {
+  const root = cacheRecord(value, ["items"]);
+  if (!Array.isArray(root.items) || root.items.length > 10_000)
+    throw Error("analytics_cache_invalid");
+  const seen = new Set<string>();
+  const items = root.items.map((entry) => {
+    const row = cacheRecord(entry, ["label", "value"]);
+    if (
+      typeof row.label !== "string" ||
+      row.label.length < 1 ||
+      row.label.length > 128 ||
+      (allowedLabels && !allowedLabels.has(row.label)) ||
+      seen.has(row.label) ||
+      !Number.isSafeInteger(row.value) ||
+      Number(row.value) < 0
+    )
+      throw Error("analytics_cache_invalid");
+    seen.add(row.label);
+    return Object.freeze({ label: row.label, value: Number(row.value) });
+  });
+  return Object.freeze({ items: Object.freeze(items) });
+}
+function parseAcquisitionRows(value: unknown) {
+  const root = cacheRecord(value, ["items"]);
+  if (!Array.isArray(root.items) || root.items.length > 1_000)
+    throw Error("analytics_cache_invalid");
+  return Object.freeze({
+    items: Object.freeze(
+      root.items.map((entry) => {
+        const row = cacheRecord(entry, [
+          "source",
+          "medium",
+          "campaign",
+          "visitors",
+          "pageviews",
+          "productViews",
+          "addsToCart",
+          "checkouts",
+        ]);
+        const source = parseAnalyticsSafeDimension(row.source),
+          medium = parseAnalyticsSafeDimension(row.medium),
+          campaign =
+            row.campaign === null
+              ? null
+              : parseAnalyticsSafeDimension(row.campaign);
+        for (const key of [
+          "visitors",
+          "pageviews",
+          "productViews",
+          "addsToCart",
+          "checkouts",
+        ])
+          if (!Number.isSafeInteger(row[key]) || Number(row[key]) < 0)
+            throw Error("analytics_cache_invalid");
+        return Object.freeze({
+          source,
+          medium,
+          campaign,
+          visitors: Number(row.visitors),
+          pageviews: Number(row.pageviews),
+          productViews: Number(row.productViews),
+          addsToCart: Number(row.addsToCart),
+          checkouts: Number(row.checkouts),
+        });
+      }),
+    ),
+  });
+}
+
+function cachedProvider<T>(
+  context: Readonly<{
+    runtime: ServerAnalyticsRuntime;
+    tenantContext: TenantContext;
+    range: Range;
+  }>,
+  websiteId: string,
+  scope: string,
+  ttlSeconds: 30 | 60,
+  filters: Readonly<Record<string, unknown>>,
+  parser: (value: unknown) => T,
+  load: () => Promise<T>,
+) {
+  return readAnalyticsProviderCache({
+    cache: context.runtime.sharedCache ?? null,
+    storeId: context.tenantContext.store.id,
+    websiteId,
+    scope,
+    ttlSeconds,
+    start: context.range.start,
+    end: context.range.end,
+    timezone: context.range.timezone,
+    currency: context.range.filters.currency ?? null,
+    filters,
+    parser,
+    load,
+  });
+}
 
 function localDate(now: Date, timezone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -604,53 +729,118 @@ export function createCommerceAnalyticsHttpHandlers(
                   tenantContext: context.tenantContext,
                   now: context.now,
                 });
-              const [summary, events, sources] = await Promise.all([
-                context.runtime.umami.summary({
-                  websiteId: authority.websiteId,
-                  range: context.range.umamiRange ?? "7d",
-                  timezone: context.range.timezone,
-                  now: context.now,
-                  start: context.range.start,
-                  end: context.range.end,
-                }),
-                context.runtime.umami.independentEventSessions({
-                  websiteId: authority.websiteId,
-                  start: context.range.start,
-                  end: context.range.end,
-                  eventNames: OVERVIEW_EVENTS,
-                  filters: umamiFilters,
-                }),
-                context.runtime.umami.metrics({
-                  websiteId: authority.websiteId,
-                  range: context.range.umamiRange ?? "7d",
-                  timezone: context.range.timezone,
-                  type: "referrer",
-                  now: context.now,
-                  start: context.range.start,
-                  end: context.range.end,
-                }),
-              ]);
-              traffic = Object.freeze({ summary, events, sources });
+              const [summary, events, path, referrer, device, country] =
+                await Promise.all([
+                  cachedProvider(
+                    context,
+                    authority.websiteId,
+                    "overview-summary",
+                    30,
+                    umamiFilters,
+                    parseAnalyticsSummary,
+                    () =>
+                      context.runtime.umami.summary({
+                        websiteId: authority.websiteId,
+                        range: context.range.umamiRange ?? "7d",
+                        timezone: context.range.timezone,
+                        now: context.now,
+                        start: context.range.start,
+                        end: context.range.end,
+                      }),
+                  ),
+                  cachedProvider(
+                    context,
+                    authority.websiteId,
+                    "overview-events",
+                    30,
+                    umamiFilters,
+                    (value) => parseCountRows(value, new Set(OVERVIEW_EVENTS)),
+                    () =>
+                      context.runtime.umami.independentEventSessions({
+                        websiteId: authority.websiteId,
+                        start: context.range.start,
+                        end: context.range.end,
+                        eventNames: OVERVIEW_EVENTS,
+                        filters: umamiFilters,
+                      }),
+                  ),
+                  ...(["path", "referrer", "device", "country"] as const).map(
+                    (type) =>
+                      cachedProvider(
+                        context,
+                        authority.websiteId,
+                        `overview-${type}`,
+                        30,
+                        umamiFilters,
+                        parseAnalyticsMetricResult,
+                        () =>
+                          context.runtime.umami.metrics({
+                            websiteId: authority.websiteId,
+                            range: context.range.umamiRange ?? "7d",
+                            timezone: context.range.timezone,
+                            type,
+                            now: context.now,
+                            start: context.range.start,
+                            end: context.range.end,
+                          }),
+                      ),
+                  ),
+                ]);
+              traffic = Object.freeze({
+                summary,
+                events,
+                sources: referrer,
+                metrics: Object.freeze({ path, referrer, device, country }),
+              });
               if (context.range.compare) {
                 const previousEnd = new Date(context.range.start),
                   previousStart = new Date(
                     context.range.start.getTime() - duration,
                   );
                 const [previousSummary, previousEvents] = await Promise.all([
-                  context.runtime.umami.summary({
+                  readAnalyticsProviderCache({
+                    cache: context.runtime.sharedCache ?? null,
+                    storeId: context.tenantContext.store.id,
                     websiteId: authority.websiteId,
-                    range: context.range.umamiRange ?? "7d",
+                    scope: "overview-summary",
+                    ttlSeconds: 30,
+                    start: previousStart,
+                    end: previousEnd,
                     timezone: context.range.timezone,
-                    now: context.now,
-                    start: previousStart,
-                    end: previousEnd,
-                  }),
-                  context.runtime.umami.independentEventSessions({
-                    websiteId: authority.websiteId,
-                    start: previousStart,
-                    end: previousEnd,
-                    eventNames: OVERVIEW_EVENTS,
+                    currency: context.range.filters.currency ?? null,
                     filters: umamiFilters,
+                    parser: parseAnalyticsSummary,
+                    load: () =>
+                      context.runtime.umami.summary({
+                        websiteId: authority.websiteId,
+                        range: context.range.umamiRange ?? "7d",
+                        timezone: context.range.timezone,
+                        now: context.now,
+                        start: previousStart,
+                        end: previousEnd,
+                      }),
+                  }),
+                  readAnalyticsProviderCache({
+                    cache: context.runtime.sharedCache ?? null,
+                    storeId: context.tenantContext.store.id,
+                    websiteId: authority.websiteId,
+                    scope: "overview-events",
+                    ttlSeconds: 30,
+                    start: previousStart,
+                    end: previousEnd,
+                    timezone: context.range.timezone,
+                    currency: context.range.filters.currency ?? null,
+                    filters: umamiFilters,
+                    parser: (value) =>
+                      parseCountRows(value, new Set(OVERVIEW_EVENTS)),
+                    load: () =>
+                      context.runtime.umami.independentEventSessions({
+                        websiteId: authority.websiteId,
+                        start: previousStart,
+                        end: previousEnd,
+                        eventNames: OVERVIEW_EVENTS,
+                        filters: umamiFilters,
+                      }),
                   }),
                 ]);
                 comparisonTraffic = Object.freeze({
@@ -680,14 +870,26 @@ export function createCommerceAnalyticsHttpHandlers(
                   rangeEnd: context.range.end,
                   filters: context.range.filters,
                 });
-              const events = await context.runtime.umami.eventSessions({
-                websiteId: authority.websiteId,
-                start: context.range.start,
-                end: context.range.end,
-                eventNames: FUNNEL_EVENTS,
-                verifiedPurchases,
-                filters: umamiFilters,
-              });
+              const evidenceDigest = createHash("sha256")
+                .update(JSON.stringify(verifiedPurchases))
+                .digest("hex");
+              const events = await cachedProvider(
+                context,
+                authority.websiteId,
+                "funnel-events",
+                30,
+                Object.freeze({ ...umamiFilters, evidenceDigest }),
+                (value) => parseCountRows(value, new Set(FUNNEL_EVENTS)),
+                () =>
+                  context.runtime.umami.eventSessions({
+                    websiteId: authority.websiteId,
+                    start: context.range.start,
+                    end: context.range.end,
+                    eventNames: FUNNEL_EVENTS,
+                    verifiedPurchases,
+                    filters: umamiFilters,
+                  }),
+              );
               traffic = Object.freeze({ events });
               providerAvailable = true;
             } catch {
@@ -709,30 +911,48 @@ export function createCommerceAnalyticsHttpHandlers(
                   now: context.now,
                 });
               const [summary, breakdown] = await Promise.all([
-                context.runtime.umami.summary({
-                  websiteId: authority.websiteId,
-                  range: context.range.umamiRange ?? "7d",
-                  timezone: context.range.timezone,
-                  now: context.now,
-                  start: context.range.start,
-                  end: context.range.end,
-                }),
-                context.runtime.umami.acquisitionBreakdown({
-                  websiteId: authority.websiteId,
-                  start: context.range.start,
-                  end: context.range.end,
-                  filters: Object.freeze({
-                    ...(context.range.filters.device
-                      ? { device: context.range.filters.device }
-                      : {}),
-                    ...(context.range.filters.source
-                      ? { source: context.range.filters.source }
-                      : {}),
-                    ...(context.range.filters.campaign
-                      ? { campaign: context.range.filters.campaign }
-                      : {}),
-                  }),
-                }),
+                cachedProvider(
+                  context,
+                  authority.websiteId,
+                  "acquisition-summary",
+                  60,
+                  umamiFilters,
+                  parseAnalyticsSummary,
+                  () =>
+                    context.runtime.umami.summary({
+                      websiteId: authority.websiteId,
+                      range: context.range.umamiRange ?? "7d",
+                      timezone: context.range.timezone,
+                      now: context.now,
+                      start: context.range.start,
+                      end: context.range.end,
+                    }),
+                ),
+                cachedProvider(
+                  context,
+                  authority.websiteId,
+                  "acquisition-breakdown",
+                  60,
+                  umamiFilters,
+                  parseAcquisitionRows,
+                  () =>
+                    context.runtime.umami.acquisitionBreakdown({
+                      websiteId: authority.websiteId,
+                      start: context.range.start,
+                      end: context.range.end,
+                      filters: Object.freeze({
+                        ...(context.range.filters.device
+                          ? { device: context.range.filters.device }
+                          : {}),
+                        ...(context.range.filters.source
+                          ? { source: context.range.filters.source }
+                          : {}),
+                        ...(context.range.filters.campaign
+                          ? { campaign: context.range.filters.campaign }
+                          : {}),
+                      }),
+                    }),
+                ),
               ]);
               traffic = Object.freeze({ summary, breakdown });
               providerAvailable = true;
@@ -767,28 +987,33 @@ export function createCommerceAnalyticsHttpHandlers(
                   : {}),
               });
               const [views, adds] = await Promise.all([
-                context.runtime.umami.eventPropertyValues({
-                  websiteId: authority.websiteId,
-                  start: context.range.start,
-                  end: context.range.end,
-                  eventName: "product_view",
-                  propertyName: "product_id",
-                  productIds: projectedCommerce.products.map(
-                    (product) => product.productId,
+                ...(["product_view", "add_to_cart"] as const).map((eventName) =>
+                  cachedProvider(
+                    context,
+                    authority.websiteId,
+                    `products-${eventName.replaceAll("_", "-")}`,
+                    30,
+                    Object.freeze({
+                      ...productFilters,
+                      productIds: projectedCommerce.products.map(
+                        (product) => product.productId,
+                      ),
+                    }),
+                    (value) => parseCountRows(value),
+                    () =>
+                      context.runtime.umami.eventPropertyValues({
+                        websiteId: authority.websiteId,
+                        start: context.range.start,
+                        end: context.range.end,
+                        eventName,
+                        propertyName: "product_id",
+                        productIds: projectedCommerce.products.map(
+                          (product) => product.productId,
+                        ),
+                        filters: productFilters,
+                      }),
                   ),
-                  filters: productFilters,
-                }),
-                context.runtime.umami.eventPropertyValues({
-                  websiteId: authority.websiteId,
-                  start: context.range.start,
-                  end: context.range.end,
-                  eventName: "add_to_cart",
-                  propertyName: "product_id",
-                  productIds: projectedCommerce.products.map(
-                    (product) => product.productId,
-                  ),
-                  filters: productFilters,
-                }),
+                ),
               ]);
               traffic = Object.freeze({ views, adds });
               providerAvailable = true;

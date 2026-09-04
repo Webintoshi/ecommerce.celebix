@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   PanelPageHeader,
   PanelPageShell,
@@ -23,6 +23,7 @@ type Settings = Readonly<{
 }>;
 type Result = Readonly<{ settings: Settings; connection: Connection }>;
 const ENDPOINT = "/api/analytics/settings";
+const CONNECTION_ENDPOINT = "/api/analytics/connection";
 function readSettings(value: unknown): Result {
   if (!value || typeof value !== "object") throw Error("invalid_response");
   const envelope = value as Record<string, unknown>,
@@ -79,7 +80,9 @@ export function AnalyticsSettingsConsole() {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading"),
     [settings, setSettings] = useState<Settings>(),
     [connection, setConnection] = useState<Connection>(),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState(""),
+    [activating, setActivating] = useState(false),
+    activationOperation = useRef<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     void fetch(ENDPOINT, {
@@ -140,6 +143,40 @@ export function AnalyticsSettingsConsole() {
       setMessage("Ayarlar kaydedilemedi. Güncel değerleri yeniden yükleyin.");
     }
   }
+  async function enableAnalytics() {
+    if (activating) return;
+    const operationId = activationOperation.current ?? crypto.randomUUID();
+    activationOperation.current = operationId;
+    setActivating(true);
+    setMessage("Analitik bağlantısı etkinleştiriliyor…");
+    try {
+      const response = await fetch(CONNECTION_ENDPOINT, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": operationId,
+        },
+        body: JSON.stringify({ intent: "enable" }),
+      });
+      if (!response.ok) throw Error("request_failed");
+      const refreshed = await fetch(ENDPOINT, {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!refreshed.ok) throw Error("request_failed");
+      const value = readSettings(await refreshed.json());
+      setSettings(value.settings);
+      setConnection(value.connection);
+      activationOperation.current = null;
+      setMessage("Analitik bağlantısı etkinleştirildi.");
+    } catch {
+      setMessage("Analitik bağlantısı etkinleştirilemedi. Yeniden deneyin.");
+    } finally {
+      setActivating(false);
+    }
+  }
   const connectionText =
     connection?.configured && connection.status === "active" && connection.live
       ? "Analizler etkin · Veri toplanıyor"
@@ -181,6 +218,16 @@ export function AnalyticsSettingsConsole() {
                 Provider: self-hosted Umami · internal website ID ve erişim
                 anahtarları gizlidir.
               </p>
+              {!connection?.configured || connection.status !== "active" ? (
+                <button
+                  className={styles.primary}
+                  type="button"
+                  disabled={activating}
+                  onClick={() => void enableAnalytics()}
+                >
+                  {activating ? "Etkinleştiriliyor…" : "Analitiği etkinleştir"}
+                </button>
+              ) : null}
             </section>
             <form className={styles.panel} onSubmit={submit}>
               <div className={styles.settingsGrid}>

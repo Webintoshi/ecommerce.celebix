@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export type CacheDataClass = "catalog" | "settings";
+export type CacheDataClass = "analytics" | "catalog" | "settings";
 
 function normalized(value: unknown): unknown {
   if (value === null || typeof value === "string" || typeof value === "boolean") return value;

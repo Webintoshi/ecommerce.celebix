@@ -1,6 +1,7 @@
 import {
   ANALYTICS_PERIODS,
   parseAnalyticsDashboard,
+  parseAnalyticsActiveVisitors,
   parseAnalyticsConnectionMutationResult,
   parseAnalyticsConnectionView,
   parseAnalyticsMetricResult,
@@ -31,6 +32,7 @@ export function createAnalyticsBrowserApi(fetcher: Fetch = fetch) {
   }
   return Object.freeze({
     connection(signal?: AbortSignal) { return call("/api/analytics/connection", { method: "GET", signal }, parseAnalyticsConnectionView); },
+    active(signal?: AbortSignal) { return call("/api/analytics/active", { method: "GET", signal }, parseAnalyticsActiveVisitors); },
     enable(input: { idempotencyKey: string }, signal?: AbortSignal) { return call("/api/analytics/connection", { method: "POST", signal, headers: { "content-type": "application/json", "idempotency-key": key(input.idempotencyKey) }, body: JSON.stringify({ intent: "enable" }) }, parseAnalyticsConnectionMutationResult); },
     disable(input: { idempotencyKey: string; expectedVersion: number }, signal?: AbortSignal) {
       if (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1) throw new Error("analytics_api_input_invalid");

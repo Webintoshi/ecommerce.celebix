@@ -252,6 +252,21 @@ test("summary merges official Umami 3.1 stats sessions and active visitors", asy
   ]);
   assert.equal(Object.isFrozen(result), true);
 });
+test("active visitors uses only the bounded realtime endpoint", async () => {
+  const f = fixture([login(), response(200, { visitors: 3 })]);
+  const result = await f.client.active({ websiteId: WEBSITE, now: NOW });
+  assert.deepEqual(result, {
+    schemaVersion: 1,
+    status: "ready",
+    activeVisitors: 3,
+    asOf: NOW.toISOString(),
+  });
+  assert.equal(f.requests.length, 2);
+  assert.equal(
+    new URL(f.requests[1]!.url).pathname,
+    `/api/websites/${WEBSITE}/active`,
+  );
+});
 test("summary exact range sends the same merchant period to Umami", async () => {
   const stats = {
       pageviews: 0,
@@ -541,6 +556,39 @@ test("paid funnel partitions high-volume ranges and merges opaque sessions exact
     return `${url.searchParams.get("startAt")}:${url.searchParams.get("endAt")}`;
   });
   assert.equal(new Set(ranges).size, 3);
+});
+test("paid funnel fails closed before exceeding ten provider pivot calls", async () => {
+  const pages = [
+    ...Array.from({ length: 5 }, () =>
+      response(200, { data: [], count: 3000, page: 1, pageSize: 1000 }),
+    ),
+    ...Array.from({ length: 5 }, () =>
+      response(200, { data: [], count: 3000, page: 2, pageSize: 1000 }),
+    ),
+    ...Array.from({ length: 5 }, () =>
+      response(200, { data: [], count: 3000, page: 3, pageSize: 1000 }),
+    ),
+  ];
+  const f = fixture([login(), ...pages]);
+  await assert.rejects(
+    () =>
+      f.client.eventSessions({
+        websiteId: WEBSITE,
+        start: new Date("2026-07-01T00:00:00.000Z"),
+        end: NOW,
+        eventNames: [
+          "product_view",
+          "add_to_cart",
+          "view_cart",
+          "begin_checkout",
+          "payment_method_selected",
+          "purchase",
+        ],
+        verifiedPurchases: [],
+      }),
+    /umami_provider_response_too_large/,
+  );
+  assert.ok(f.requests.slice(1).length <= 10);
 });
 test("provider traffic filters reject PII before a request is sent", async () => {
   const f = fixture([]);

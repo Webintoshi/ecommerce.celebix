@@ -9,6 +9,7 @@ import {
   parseAnalyticsConnectionMutationResult,
   parseAnalyticsConnectionView,
   parseAnalyticsMetricResult,
+  parseAnalyticsActiveVisitors,
   parseAnalyticsSummary,
   parseCommerceAnalyticsSnapshot,
 } from "./index.ts";
@@ -73,6 +74,40 @@ test("parses and deeply freezes one internally consistent analytics summary", ()
   assert.equal(Object.isFrozen(parsed.pageviewsSeries), true);
   assert.equal(parsed.pageviewsSeries.every(Object.isFrozen), true);
   assert.equal(Object.isFrozen(parsed.visitsSeries), true);
+});
+
+test("parses exact active visitor ready and unavailable states without inventing zero", () => {
+  assert.deepEqual(
+    parseAnalyticsActiveVisitors({
+      schemaVersion: 1,
+      status: "ready",
+      activeVisitors: 0,
+      asOf: NOW,
+    }),
+    { schemaVersion: 1, status: "ready", activeVisitors: 0, asOf: NOW },
+  );
+  assert.deepEqual(
+    parseAnalyticsActiveVisitors({
+      schemaVersion: 1,
+      status: "unavailable",
+      activeVisitors: null,
+      asOf: NOW,
+    }),
+    {
+      schemaVersion: 1,
+      status: "unavailable",
+      activeVisitors: null,
+      asOf: NOW,
+    },
+  );
+  assert.throws(() =>
+    parseAnalyticsActiveVisitors({
+      schemaVersion: 1,
+      status: "unavailable",
+      activeVisitors: 0,
+      asOf: NOW,
+    }),
+  );
 });
 
 test("parses exact metric and replay-aware mutation projections", () => {

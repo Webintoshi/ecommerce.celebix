@@ -142,11 +142,13 @@ function fixture(
     deadLetter: 0,
     oldestPendingSeconds: 10,
   },
+  sharedCache: unknown = null,
 ) {
   const calls: string[] = [];
   const runtime = {
     mode: "approved_staging",
     providerConfigured: true,
+    sharedCache,
     access: {
       readiness: { mode: "approved_staging" },
       panelOrigin: PANEL,
@@ -342,6 +344,58 @@ test("overview remains HTTP 200 with current PostgreSQL commerce truth when Umam
     JSON.stringify(body),
     /credential|websiteId|connectionId/,
   );
+});
+test("overview exposes sessions and bounded traffic dimensions from Umami", async () => {
+  const value = fixture();
+  const response = await value.handlers.overview(
+    request("/api/analytics/overview?range=30d"),
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.traffic.summary.visits, 12);
+  assert.deepEqual(Object.keys(body.traffic.metrics).sort(), [
+    "country",
+    "device",
+    "path",
+    "referrer",
+  ]);
+  for (const type of ["path", "referrer", "device", "country"])
+    assert.equal(
+      value.calls.filter((entry) => entry === `metrics:${type}`).length,
+      1,
+    );
+});
+test("overview routes provider reads through the shared analytics cache with exact TTL", async () => {
+  const cacheCalls: Array<Readonly<Record<string, unknown>>> = [];
+  const sharedCache = {
+    async readThrough(input: Readonly<Record<string, unknown>>) {
+      cacheCalls.push(input);
+      return (input.load as () => Promise<unknown>)();
+    },
+  };
+  const value = fixture(
+    false,
+    {
+      pending: 1,
+      claimed: 0,
+      retry: 0,
+      deadLetter: 0,
+      oldestPendingSeconds: 10,
+    },
+    sharedCache,
+  );
+  assert.equal(
+    (
+      await value.handlers.overview(
+        request("/api/analytics/overview?range=30d"),
+      )
+    ).status,
+    200,
+  );
+  assert.equal(cacheCalls.length, 6);
+  assert.ok(cacheCalls.every((entry) => entry.dataClass === "analytics"));
+  assert.ok(cacheCalls.every((entry) => entry.ttlSeconds === 30));
+  assert.ok(cacheCalls.every((entry) => entry.storeId === STORE));
 });
 test("all commerce views are authenticated tenant reads with exact stable routes", async () => {
   const value = fixture();
@@ -565,7 +619,13 @@ test("today uses merchant-local midnight and never substitutes a seven-day Umami
     "summary",
     "summaryRange:2026-07-25T21:00:00.000Z:2026-07-26T12:00:00.000Z",
     "independentEventSessions:product_view,add_to_cart,begin_checkout",
+    "metrics:path",
+    "metricsRange:2026-07-25T21:00:00.000Z:2026-07-26T12:00:00.000Z",
     "metrics:referrer",
+    "metricsRange:2026-07-25T21:00:00.000Z:2026-07-26T12:00:00.000Z",
+    "metrics:device",
+    "metricsRange:2026-07-25T21:00:00.000Z:2026-07-26T12:00:00.000Z",
+    "metrics:country",
     "metricsRange:2026-07-25T21:00:00.000Z:2026-07-26T12:00:00.000Z",
   ]);
 });

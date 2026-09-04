@@ -1,4 +1,5 @@
 import type { AnalyticsRepository } from "@celebix/saas-data";
+import type { Cache } from "@celebix/saas-cache";
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 import type { UmamiClient } from "../umami-provider/client.ts";
 import { createAnalyticsReadCache, type AnalyticsReadCache } from "./cache.ts";
@@ -14,6 +15,7 @@ export type ServerAnalyticsRuntime = Readonly<{
   umami: UmamiClient;
   providerConfigured: boolean;
   cache: AnalyticsReadCache;
+  sharedCache: Cache | null;
 }>;
 const repositories = new WeakMap<
     ServerPanelAccessRuntime,
@@ -41,6 +43,9 @@ const unavailableUmami = Object.freeze({
     throw Error("umami_unavailable");
   },
   async getWebsite(): Promise<never> {
+    throw Error("umami_unavailable");
+  },
+  async active(): Promise<never> {
     throw Error("umami_unavailable");
   },
   async summary(): Promise<never> {
@@ -94,6 +99,7 @@ export function registerServerAnalyticsRepository(
 export function resolveServerAnalyticsRuntime(
   access: ServerPanelAccessRuntime,
   umami: UmamiClient | null,
+  sharedCache: Cache | null = null,
 ): ServerAnalyticsRuntime | null {
   try {
     if (
@@ -116,6 +122,7 @@ export function resolveServerAnalyticsRuntime(
       umami: umami ?? unavailableUmami,
       providerConfigured: umami !== null,
       cache,
+      sharedCache,
     });
   } catch {
     return null;
