@@ -58,10 +58,10 @@ const requiredHarnesses = Object.freeze([
   }),
   Object.freeze({
     file: "tests/saas-phase3/tenant-custom-admin-domains/postgres-harness.mjs",
-    total: 12,
+    total: 13,
     line: /^PASS \d+ .+$/gm,
     completion:
-      /^PASS 12\/12 tenant custom admin domains PostgreSQL 16 rehearsal complete$/m,
+      /^PASS 13\/13 tenant custom admin domains PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/auto-admin-domain-bundles/postgres-harness.mjs",
