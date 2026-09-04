@@ -828,7 +828,30 @@ export function createUmamiClient(
         )
           throw new UmamiProviderError("umami_provider_input_invalid");
         const filters = providerFilters(input.filters),
-          stepFilters = providerStepFilters(input.filters);
+          stepFilters = providerStepFilters(input.filters),
+          nativeFunnel = async (eventNames: readonly string[]) => {
+            const value = await request(
+              "POST",
+              "/api/reports/funnel",
+              {
+                websiteId: id,
+                type: "funnel",
+                filters,
+                parameters: {
+                  startDate: start.toISOString(),
+                  endDate: end.toISOString(),
+                  steps: eventNames.map((value) => ({
+                    type: "event",
+                    value,
+                    ...(stepFilters.length ? { filters: stepFilters } : {}),
+                  })),
+                  window: 60,
+                },
+              },
+              true,
+            );
+            return funnelRows(value, eventNames);
+          };
         if (input.eventNames.includes("purchase")) {
           if (
             input.eventNames.at(-1) !== "purchase" ||
@@ -836,6 +859,19 @@ export function createUmamiClient(
             input.verifiedPurchases.length > 10_000
           )
             throw new UmamiProviderError("umami_provider_input_invalid");
+          if (
+            input.verifiedPurchases.length === 0 &&
+            input.eventNames.length > 2
+          ) {
+            const browserEvents = input.eventNames.slice(0, -1),
+              items = await nativeFunnel(browserEvents);
+            return Object.freeze({
+              items: Object.freeze([
+                ...items,
+                Object.freeze({ label: "purchase", value: 0 }),
+              ]),
+            });
+          }
           let pivotQueries = 0;
           const load = async (eventName: string) => {
             const moments = new Map<string, number[]>();
@@ -959,27 +995,7 @@ export function createUmamiClient(
           }
           return Object.freeze({ items: Object.freeze(items) });
         }
-        const value = await request(
-          "POST",
-          "/api/reports/funnel",
-          {
-            websiteId: id,
-            type: "funnel",
-            filters,
-            parameters: {
-              startDate: start.toISOString(),
-              endDate: end.toISOString(),
-              steps: input.eventNames.map((value) => ({
-                type: "event",
-                value,
-                ...(stepFilters.length ? { filters: stepFilters } : {}),
-              })),
-              window: 60,
-            },
-          },
-          true,
-        );
-        const items = funnelRows(value, input.eventNames);
+        const items = await nativeFunnel(input.eventNames);
         return Object.freeze({ items: Object.freeze(items) });
       } catch (error) {
         throw provider(error);
@@ -1111,7 +1127,7 @@ export function createUmamiClient(
                   eventName: input.eventName,
                   propertyName: input.propertyName,
                 }),
-                productExpression = `^(?:${batch.join("|")})$`;
+                productExpression = `^(${batch.join("|")})$`;
               for (const [key, value] of Object.entries(globalFilters))
                 query.set(key, value);
               // Supply both legacy and current Umami property-filter encodings.
