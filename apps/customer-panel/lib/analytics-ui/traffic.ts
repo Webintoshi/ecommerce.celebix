@@ -43,3 +43,14 @@ export function analyticsTrafficSources(
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return analyticsTrafficRows((value as Record<string, unknown>).sources);
 }
+
+export function analyticsProductMetricCount(
+  value: unknown,
+  type: "views" | "adds",
+  productId: string,
+): number | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const rows = analyticsTrafficRows((value as Record<string, unknown>)[type]);
+  if (rows === null) return null;
+  return rows.find((row) => row.label === productId)?.value ?? 0;
+}
