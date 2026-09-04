@@ -64,6 +64,7 @@ export type {
 export * from "./storefront-assets/index.ts";
 export * from "./shipping/index.ts";
 export * from "./barcode-labels/index.ts";
+export * from "./promotions/index.ts";
 
 export { SAAS_ERROR_CODES } from "./errors.ts";
 export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";

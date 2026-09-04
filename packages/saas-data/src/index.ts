@@ -77,6 +77,7 @@ export * from "./payment-methods/index.ts";
 export * from "./payment-attempts/index.ts";
 export * from "./shipping/index.ts";
 export * from "./barcode-labels/index.ts";
+export * from "./promotions/index.ts";
 export {
   CHECKOUT_PAYMENT_ERROR_CODES,
   CheckoutPaymentRepositoryError,
