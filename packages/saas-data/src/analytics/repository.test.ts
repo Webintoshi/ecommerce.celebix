@@ -99,41 +99,11 @@ function call(client: Client, name: string) {
   assert.ok(found);
   return found;
 }
-
-test("connection read uses the exact seven-field authority and freezes its projection", async () => {
-  const client = new Client((text) =>
-    text.includes("analytics_connection_get")
-      ? [{ outcome: "found", result_payload: authority() }]
-      : [],
-  );
-  const result = await repo(new Pool([client])).getConnection({
-    tenantContext: tenant(),
-    now: NOW,
-  });
-  assert.deepEqual(call(client, "analytics_connection_get").values, [
-    STORE,
-    PRINCIPAL,
-    MEMBERSHIP,
-    PLAN,
-    "growth",
-    2,
-    NOW,
-  ]);
-  assert.deepEqual(result, {
-    schemaVersion: 1,
-    provider: "umami",
-    status: "active",
-    configured: true,
-    hostname: "store.example.test",
-    version: 2,
-    lastVerifiedAt: NOW.toISOString(),
-  });
-  assert.equal(Object.isFrozen(result), true);
-  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
-});
-test("commerce snapshot uses tenant authority and preserves currency-separated PostgreSQL truth", async () => {
-  const start = new Date("2026-07-01T00:00:00.000Z"),
-    end = new Date("2026-07-26T00:00:00.000Z");
+function commercePayload(
+  start: Date,
+  end: Date,
+  overrides: Record<string, unknown> = {},
+) {
   const bucket = (currency: string) => ({
     currency,
     activeCarts: 2,
@@ -153,7 +123,7 @@ test("commerce snapshot uses tenant authority and preserves currency-separated P
     recoveredRefundedMinor: 0,
     recoveredNetMinor: 0,
   });
-  const payload = {
+  return {
     schemaVersion: 1,
     rangeStart: start.toISOString(),
     rangeEnd: end.toISOString(),
@@ -213,7 +183,45 @@ test("commerce snapshot uses tenant authority and preserves currency-separated P
       lastSuccessfulDelivery: "2026-07-25T23:59:00.000Z",
       deliveryLatencyMilliseconds: 275,
     },
+    ...overrides,
   };
+}
+
+test("connection read uses the exact seven-field authority and freezes its projection", async () => {
+  const client = new Client((text) =>
+    text.includes("analytics_connection_get")
+      ? [{ outcome: "found", result_payload: authority() }]
+      : [],
+  );
+  const result = await repo(new Pool([client])).getConnection({
+    tenantContext: tenant(),
+    now: NOW,
+  });
+  assert.deepEqual(call(client, "analytics_connection_get").values, [
+    STORE,
+    PRINCIPAL,
+    MEMBERSHIP,
+    PLAN,
+    "growth",
+    2,
+    NOW,
+  ]);
+  assert.deepEqual(result, {
+    schemaVersion: 1,
+    provider: "umami",
+    status: "active",
+    configured: true,
+    hostname: "store.example.test",
+    version: 2,
+    lastVerifiedAt: NOW.toISOString(),
+  });
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+});
+test("commerce snapshot uses tenant authority and preserves currency-separated PostgreSQL truth", async () => {
+  const start = new Date("2026-07-01T00:00:00.000Z"),
+    end = new Date("2026-07-26T00:00:00.000Z");
+  const payload = commercePayload(start, end);
   const client = new Client((text) =>
     text.includes("commerce_analytics_snapshot")
       ? [{ outcome: "resolved", result_payload: payload }]
@@ -240,6 +248,63 @@ test("commerce snapshot uses tenant authority and preserves currency-separated P
   assert.deepEqual(result, payload);
   assert.equal(Object.isFrozen(result), true);
   assert.equal(Object.isFrozen(result.currencies), true);
+});
+async function cartSnapshot(cart: Record<string, unknown>) {
+  const start = new Date("2026-07-01T00:00:00.000Z"),
+    end = new Date("2026-07-26T00:00:00.000Z"),
+    payload = commercePayload(start, end, {
+      carts: [cart],
+      cartPage: { page: 1, pageSize: 100, totalItems: 1, totalPages: 1 },
+    }),
+    client = new Client((text) =>
+      text.includes("commerce_analytics_snapshot")
+        ? [{ outcome: "resolved", result_payload: payload }]
+        : [],
+    );
+
+  return repo(new Pool([client])).commerceSnapshot({
+    tenantContext: tenant(),
+    now: NOW,
+    rangeStart: start,
+    rangeEnd: end,
+    filters: { view: "abandoned-carts" },
+  });
+}
+const CART = Object.freeze({
+  id: "70000000-0000-4000-8000-000000000001",
+  customerLabel: "Anonim ziyaretçi",
+  productSummary: "Ürün",
+  subtotalMinor: 1200,
+  discountMinor: 0,
+  shippingMinor: 0,
+  totalMinor: 1200,
+  currency: "TRY",
+  lastActivityAt: "2026-07-25T23:00:00.000Z",
+  source: "unknown",
+  device: "unknown",
+  lifecycle: "active",
+  contactable: false,
+  contacted: false,
+});
+test("commerce snapshot preserves a nullable abandonedAt key", async () => {
+  const result = await cartSnapshot({ ...CART, campaign: null });
+
+  assert.deepEqual(result.carts[0], {
+    ...CART,
+    abandonedAt: null,
+    campaign: null,
+  });
+  assert.equal(Object.isFrozen(result.carts[0]), true);
+});
+test("commerce snapshot preserves a nullable campaign key", async () => {
+  const result = await cartSnapshot({ ...CART, abandonedAt: null });
+
+  assert.deepEqual(result.carts[0], {
+    ...CART,
+    abandonedAt: null,
+    campaign: null,
+  });
+  assert.equal(Object.isFrozen(result.carts[0]), true);
 });
 test("commerce snapshot rejects an inverted or over-thirteen-month range before SQL", async () => {
   const repository = repo(new Pool([]));
