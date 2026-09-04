@@ -20,6 +20,10 @@ import {
   PanelPageHeader,
   PanelPageShell,
 } from "@/components/panel/PanelPageShell";
+import {
+  analyticsTrafficMetric,
+  analyticsTrafficSources,
+} from "@/lib/analytics-ui/traffic";
 import styles from "./commerce-analytics-workspace.module.css";
 import { ActiveVisitorsCard } from "./ActiveVisitorsCard";
 
@@ -474,15 +478,6 @@ function trafficSummary(value: unknown) {
     averageVisitSeconds,
     series,
   };
-}
-function trafficMetric(
-  value: unknown,
-  type: "path" | "referrer" | "device" | "country",
-) {
-  if (!value || typeof value !== "object") return [];
-  const metrics = (value as Record<string, unknown>).metrics;
-  if (!metrics || typeof metrics !== "object") return [];
-  return items((metrics as Record<string, unknown>)[type]);
 }
 type AcquisitionTraffic = Readonly<{
   source: string;
@@ -1366,10 +1361,11 @@ function Overview({
   events: Readonly<Record<string, number>>;
   timezone: string;
 }>) {
-  const pages = trafficMetric(data.traffic, "path"),
-    referrers = trafficMetric(data.traffic, "referrer"),
-    devices = trafficMetric(data.traffic, "device"),
-    countries = trafficMetric(data.traffic, "country");
+  const sources = analyticsTrafficSources(data.traffic),
+    pages = analyticsTrafficMetric(data.traffic, "path"),
+    referrers = analyticsTrafficMetric(data.traffic, "referrer"),
+    devices = analyticsTrafficMetric(data.traffic, "device"),
+    countries = analyticsTrafficMetric(data.traffic, "country");
   return (
     <>
       {
@@ -1504,15 +1500,15 @@ function Overview({
             },
           ])}
         />
-        {data.traffic !== null ? (
+        {sources !== null ? (
           <Bars
             title="Trafik kaynağı dağılımı"
-            rows={items(data.traffic, "sources").slice(0, 10)}
+            rows={sources.slice(0, 10)}
           />
         ) : (
           <UnavailableChart title="Trafik kaynağı dağılımı" />
         )}
-        {data.traffic !== null ? (
+        {pages !== null ? (
           <Bars
             title="En çok görüntülenen sayfalar"
             rows={pages.slice(0, 10)}
@@ -1520,17 +1516,17 @@ function Overview({
         ) : (
           <UnavailableChart title="En çok görüntülenen sayfalar" />
         )}
-        {data.traffic !== null ? (
+        {referrers !== null ? (
           <Bars title="Yönlendiren kaynaklar" rows={referrers.slice(0, 10)} />
         ) : (
           <UnavailableChart title="Yönlendiren kaynaklar" />
         )}
-        {data.traffic !== null ? (
+        {devices !== null ? (
           <Bars title="Cihaz dağılımı" rows={devices.slice(0, 10)} />
         ) : (
           <UnavailableChart title="Cihaz dağılımı" />
         )}
-        {data.traffic !== null ? (
+        {countries !== null ? (
           <Bars title="Ülke dağılımı" rows={countries.slice(0, 10)} />
         ) : (
           <UnavailableChart title="Ülke dağılımı" />

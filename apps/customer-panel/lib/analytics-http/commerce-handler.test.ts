@@ -134,7 +134,7 @@ function request(path: string, cookie = true) {
   return new Request(`http://internal:3400${path}`, { headers });
 }
 function fixture(
-  providerFails = false,
+  providerFails: boolean | "metrics:country" = false,
   worker = {
     pending: 1,
     claimed: 0,
@@ -145,6 +145,8 @@ function fixture(
   sharedCache: unknown = null,
 ) {
   const calls: string[] = [];
+  const fails = (operation: string) =>
+    providerFails === true || providerFails === operation;
   const runtime = {
     mode: "approved_staging",
     providerConfigured: true,
@@ -204,7 +206,7 @@ function fixture(
           calls.push(
             `summaryRange:${input.start.toISOString()}:${input.end.toISOString()}`,
           );
-        if (providerFails) throw new Error("private provider credential");
+        if (fails("summary")) throw new Error("private provider credential");
         return {
           schemaVersion: 1,
           range: "30d",
@@ -228,7 +230,8 @@ function fixture(
           calls.push(
             `metricsRange:${input.start.toISOString()}:${input.end.toISOString()}`,
           );
-        if (providerFails) throw new Error("private provider credential");
+        if (fails(`metrics:${input.type}`))
+          throw new Error("private provider credential");
         return {
           schemaVersion: 1,
           range: "30d",
@@ -244,7 +247,8 @@ function fixture(
         calls.push(`eventSessions:${input.eventNames.join(",")}`);
         if (input.filters && Object.keys(input.filters).length)
           calls.push(`eventFilters:${JSON.stringify(input.filters)}`);
-        if (providerFails) throw new Error("private provider credential");
+        if (fails("eventSessions"))
+          throw new Error("private provider credential");
         return {
           items: input.eventNames.map((label) => ({
             label,
@@ -261,7 +265,8 @@ function fixture(
           calls.push(
             `independentEventFilters:${JSON.stringify(input.filters)}`,
           );
-        if (providerFails) throw new Error("private provider credential");
+        if (fails("independentEventSessions"))
+          throw new Error("private provider credential");
         return {
           items: input.eventNames.map((label) => ({
             label,
@@ -275,7 +280,8 @@ function fixture(
         calls.push("acquisitionBreakdown");
         if (input.filters && Object.keys(input.filters).length)
           calls.push(`acquisitionFilters:${JSON.stringify(input.filters)}`);
-        if (providerFails) throw new Error("private provider credential");
+        if (fails("acquisitionBreakdown"))
+          throw new Error("private provider credential");
         return {
           items: [
             {
@@ -297,12 +303,14 @@ function fixture(
         calls.push("eventPropertyValues");
         if (input.filters && Object.keys(input.filters).length)
           calls.push(`propertyFilters:${JSON.stringify(input.filters)}`);
-        if (providerFails) throw new Error("private provider credential");
+        if (fails("eventPropertyValues"))
+          throw new Error("private provider credential");
         return { items: [] };
       },
       async getWebsite() {
         calls.push("getWebsite");
-        if (providerFails) throw new Error("private provider credential");
+        if (fails("getWebsite"))
+          throw new Error("private provider credential");
         return {
           id: "50000000-0000-4000-8000-000000000001",
           name: "Store",
@@ -364,6 +372,21 @@ test("overview exposes sessions and bounded traffic dimensions from Umami", asyn
       value.calls.filter((entry) => entry === `metrics:${type}`).length,
       1,
     );
+});
+test("overview preserves real visitor totals when one optional traffic dimension is unavailable", async () => {
+  const value = fixture("metrics:country");
+  const response = await value.handlers.overview(
+    request("/api/analytics/overview?range=30d"),
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.status, "degraded");
+  assert.equal(body.providerAvailable, true);
+  assert.equal(body.traffic.summary.visitors, 10);
+  assert.equal(body.traffic.summary.pageviews, 20);
+  assert.equal(body.traffic.metrics.country, null);
+  assert.deepEqual(body.traffic.unavailable, ["country"]);
+  assert.match(body.message, /Bazı trafik kırılımları/);
 });
 test("overview routes provider reads through the shared analytics cache with exact TTL", async () => {
   const cacheCalls: Array<Readonly<Record<string, unknown>>> = [];

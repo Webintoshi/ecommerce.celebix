@@ -690,6 +690,7 @@ export function createCommerceAnalyticsHttpHandlers(
         let traffic: unknown = null,
           comparisonTraffic: unknown = null,
           providerAvailable: boolean | null = null,
+          partialProvider = false,
           degraded = false;
         const workerDegraded =
           commerce.worker.deadLetter > 0 ||
@@ -729,8 +730,14 @@ export function createCommerceAnalyticsHttpHandlers(
                   tenantContext: context.tenantContext,
                   now: context.now,
                 });
-              const [summary, events, path, referrer, device, country] =
-                await Promise.all([
+              const [
+                summaryResult,
+                eventsResult,
+                pathResult,
+                referrerResult,
+                deviceResult,
+                countryResult,
+              ] = await Promise.allSettled([
                   cachedProvider(
                     context,
                     authority.websiteId,
@@ -786,11 +793,48 @@ export function createCommerceAnalyticsHttpHandlers(
                       ),
                   ),
                 ]);
+              if (summaryResult.status === "rejected")
+                throw summaryResult.reason;
+              const unavailable = Object.freeze(
+                [
+                  { name: "events", result: eventsResult },
+                  { name: "path", result: pathResult },
+                  { name: "referrer", result: referrerResult },
+                  { name: "device", result: deviceResult },
+                  { name: "country", result: countryResult },
+                ].flatMap(({ name, result }) =>
+                  result.status === "rejected" ? [name] : [],
+                ),
+              );
+              partialProvider = unavailable.length > 0;
+              if (partialProvider) degraded = true;
               traffic = Object.freeze({
-                summary,
-                events,
-                sources: referrer,
-                metrics: Object.freeze({ path, referrer, device, country }),
+                summary: summaryResult.value,
+                events:
+                  eventsResult.status === "fulfilled"
+                    ? eventsResult.value
+                    : null,
+                sources:
+                  referrerResult.status === "fulfilled"
+                    ? referrerResult.value
+                    : null,
+                metrics: Object.freeze({
+                  path:
+                    pathResult.status === "fulfilled" ? pathResult.value : null,
+                  referrer:
+                    referrerResult.status === "fulfilled"
+                      ? referrerResult.value
+                      : null,
+                  device:
+                    deviceResult.status === "fulfilled"
+                      ? deviceResult.value
+                      : null,
+                  country:
+                    countryResult.status === "fulfilled"
+                      ? countryResult.value
+                      : null,
+                }),
+                unavailable,
               });
               if (context.range.compare) {
                 const previousEnd = new Date(context.range.start),
@@ -1048,6 +1092,8 @@ export function createCommerceAnalyticsHttpHandlers(
         const message =
           providerAvailable === false
             ? "Trafik verileri geçici olarak alınamıyor. Sipariş ve sepet verileri günceldir."
+            : partialProvider
+              ? "Bazı trafik kırılımları geçici olarak alınamıyor. Ziyaretçi, sipariş ve sepet verileri günceldir."
             : workerDegraded
               ? "Analytics event teslimatında gecikme var. Trafik, sipariş ve sepet verileri kullanılabilir."
               : null;
