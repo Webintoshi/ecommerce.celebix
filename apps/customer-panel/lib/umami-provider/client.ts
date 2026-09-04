@@ -1171,7 +1171,6 @@ export function createUmamiClient(
         const batchTotals = await Promise.all(
           batches.map(async (batch) => {
             const batchProducts = new Set(batch),
-              productExpression = `^(${batch.join("|")})$`,
               result = new Map<string, number>();
             let page = 1;
             for (;;) {
@@ -1190,7 +1189,7 @@ export function createUmamiClient(
               });
               for (const [key, value] of Object.entries(globalFilters))
                 query.set(key, value);
-              query.set("pf_product_id", `1.re.${productExpression}`);
+              query.set("pf_product_id", `1.eq.${batch.join(",")}`);
               for (const filter of stepFilters)
                 query.set(
                   `pf_${filter.property}`,

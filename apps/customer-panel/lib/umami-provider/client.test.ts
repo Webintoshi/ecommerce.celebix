@@ -697,7 +697,7 @@ test("product event values use bounded server aggregation and preserve safe filt
     "1.eq.50000000-0000-4000-8000-000000000002",
   );
   assert.equal(url.searchParams.get("pf_currency"), "1.eq.TRY");
-  assert.equal(url.searchParams.get("pf_product_id"), `1.re.^(${WEBSITE})$`);
+  assert.equal(url.searchParams.get("pf_product_id"), `1.eq.${WEBSITE}`);
 });
 test("product event values batch a full product page into four bounded pivot filters", async () => {
   let active = 0,
@@ -743,8 +743,8 @@ test("product event values batch a full product page into four bounded pivot fil
   );
   for (const request of f.requests.slice(1)) {
     const filter = new URL(request.url).searchParams.get("pf_product_id") ?? "";
-    assert.match(filter, /^1[.]re[.]\^[(]/);
-    assert.doesNotMatch(filter, /[(][?][:]/);
+    assert.match(filter, /^1[.]eq[.]/);
+    assert.deepEqual(filter.slice("1.eq.".length).split(",").length, 25);
     assert.equal((filter.match(/50000000-/g) ?? []).length, 25);
   }
 });
