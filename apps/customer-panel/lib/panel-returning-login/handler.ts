@@ -75,13 +75,19 @@ function requestDecision(request: Request, panelOrigin: string):
   ) return { kind: "denied" };
 
   if (!url.search) {
-    if (url.protocol !== "https:" || url.port || url.origin === panelOrigin) return { kind: "denied" };
-    let destinationHostname: string;
-    try { destinationHostname = normalizeAdminRequestHostname(url.hostname); }
-    catch { return { kind: "denied" }; }
-    return destinationHostname === url.hostname && approvedDestination(destinationHostname, panelOrigin)
-      ? { kind: "transfer", destinationHostname }
-      : { kind: "denied" };
+    const candidates = url.protocol === "https:" && !url.port && url.origin !== panelOrigin
+      ? [url.hostname, request.headers.get("host")]
+      : [request.headers.get("host")];
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      let destinationHostname: string;
+      try { destinationHostname = normalizeAdminRequestHostname(candidate); }
+      catch { continue; }
+      if (destinationHostname === candidate && approvedDestination(destinationHostname, panelOrigin)) {
+        return { kind: "transfer", destinationHostname };
+      }
+    }
+    return { kind: "denied" };
   }
 
   if ([...url.searchParams.keys()].join(",") !== "destination") return { kind: "denied" };
