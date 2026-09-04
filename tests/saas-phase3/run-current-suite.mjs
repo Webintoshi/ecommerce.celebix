@@ -15,6 +15,12 @@ const matrix = JSON.parse(
 const historical = new Set(matrix.historicalSnapshots.map(({ file }) => file));
 const requiredHarnesses = Object.freeze([
   Object.freeze({
+    file: "tests/saas-phase3/promotions-studio/postgres-harness.mjs",
+    total: 20,
+    line: /^PASS \d+\/20 .+$/gm,
+    completion: /^PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 20\/20$/m,
+  }),
+  Object.freeze({
     file: "tests/saas-phase3/commerce-analytics-cart-recovery/postgres-harness.mjs",
     total: 33,
     line: /^PASS \d+\/33 (?!commerce analytics cart recovery PostgreSQL 16 rehearsal complete$).+$/gm,
