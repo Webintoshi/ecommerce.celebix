@@ -34,6 +34,13 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
     "Dead-letter",
     "Hesaplanamadı",
     "yanlış kohort eşleştirmemek adına kullanılamıyor",
+    "Oturumlar",
+    "Hemen çıkma oranı",
+    "Ortalama oturum süresi",
+    "En çok görüntülenen sayfalar",
+    "Yönlendiren kaynaklar",
+    "Cihaz dağılımı",
+    "Ülke dağılımı",
   ])
     assert.match(component, new RegExp(label));
   assert.match(component, /\[\s*"today",\s*"7d",\s*"30d",\s*"90d",?\s*\]/);
@@ -76,6 +83,22 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
   assert.match(page, /CommerceAnalyticsWorkspace/);
 });
 
+test("overview mounts an isolated honest active visitor card", async () => {
+  const [workspace, component, poller] = await Promise.all([
+    source("components/analytics/CommerceAnalyticsWorkspace.tsx"),
+    source("components/analytics/ActiveVisitorsCard.tsx"),
+    source("lib/analytics-ui/active-visitors.ts"),
+  ]);
+  assert.match(workspace, /<ActiveVisitorsCard/);
+  assert.match(component, /Şu anda sitenizde/);
+  assert.match(component, /Veri alınamıyor/);
+  assert.match(component, /Analytics kuruluyor/);
+  assert.match(component, /visibilitychange/);
+  assert.match(component, /api[.]active/);
+  assert.match(poller, /30_000/);
+  assert.doesNotMatch(component, /websiteId|connectionId|console[.](log|error)/);
+});
+
 test("analytics settings show durable thresholds without exposing provider authority and keep automation fail-closed", async () => {
   const [component, page] = await Promise.all([
     source("components/analytics/AnalyticsSettingsConsole.tsx"),
@@ -90,10 +113,13 @@ test("analytics settings show durable thresholds without exposing provider autho
     "Mesaj limiti",
     "Tracking policy",
     "Session replay kapalı",
+    "Analitiği etkinleştir",
     "Kaydet",
   ])
     assert.match(component, new RegExp(label));
   assert.match(component, /\/api\/analytics\/settings/);
+  assert.match(component, /\/api\/analytics\/connection/);
+  assert.match(component, /idempotency-key/);
   assert.match(component, /automaticRecoveryEnabled/);
   assert.match(component, /disabled/);
   assert.doesNotMatch(

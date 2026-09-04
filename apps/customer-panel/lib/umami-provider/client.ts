@@ -4,6 +4,7 @@ import {
   type AnalyticsMetricType,
   type AnalyticsRange,
   type AnalyticsSummary,
+  type AnalyticsActiveVisitors,
 } from "@celebix/saas-contracts";
 import type { UmamiPrivateApiConfig } from "./config.ts";
 import {
@@ -11,6 +12,7 @@ import {
   inputName,
   inputUuid,
   parseLogin,
+  parseActiveVisitors,
   parseMetrics,
   parseSummaryParts,
   parseWebsite,
@@ -36,6 +38,9 @@ export interface UmamiClient {
     input: Readonly<{ websiteId: string; name: string; domain: string }>,
   ): Promise<UmamiWebsite>;
   getWebsite(websiteId: string): Promise<UmamiWebsite | null>;
+  active(
+    input: Readonly<{ websiteId: string; now: Date }>,
+  ): Promise<AnalyticsActiveVisitors>;
   summary(
     input: Readonly<{
       websiteId: string;
@@ -173,7 +178,7 @@ const FUNNEL_EVENTS = new Set([
 ]);
 const MAX_FUNNEL_EVENTS_PER_STEP = 10_000;
 const MAX_FUNNEL_PAGES_PER_STEP = 10;
-const MAX_FUNNEL_PIVOT_QUERIES = 64;
+const MAX_FUNNEL_PIVOT_QUERIES = 10;
 const MIN_FUNNEL_PARTITION_MILLISECONDS = 60 * 60 * 1000;
 function funnelPivotPage(value: unknown, expectedPage: number) {
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -706,6 +711,18 @@ export function createUmamiClient(
           timezone: zone,
           now,
         });
+      } catch (error) {
+        throw provider(error);
+      }
+    },
+    async active(input) {
+      try {
+        const id = inputUuid(input?.websiteId),
+          now = stableDate(input?.now);
+        return parseActiveVisitors(
+          await request("GET", `/api/websites/${id}/active`, undefined, true),
+          now,
+        );
       } catch (error) {
         throw provider(error);
       }

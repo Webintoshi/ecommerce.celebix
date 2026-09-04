@@ -513,6 +513,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseAbandonedCartListItem",
     "parseAbandonedCartMutationResult",
     "parseAbandonedCartSummary",
+    "parseAnalyticsActiveVisitors",
     "parseAnalyticsConnectionMutationResult",
     "parseAnalyticsConnectionView",
     "parseAnalyticsDashboard",

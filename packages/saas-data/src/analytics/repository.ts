@@ -74,6 +74,34 @@ function fingerprint(kind: string, storeId: string, payload: unknown) {
     .update(JSON.stringify({ kind, storeId, payload }))
     .digest("hex");
 }
+function preserveNullableCommerceCartKeys(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const root = Object.getOwnPropertyDescriptors(value),
+    carts = root.carts;
+  if (!carts || !("value" in carts) || !Array.isArray(carts.value)) return value;
+  const normalized = carts.value.map((entry: unknown) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry))
+      return entry;
+    const descriptors = Object.getOwnPropertyDescriptors(entry);
+    if (!descriptors.abandonedAt)
+      descriptors.abandonedAt = {
+        value: null,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      };
+    if (!descriptors.campaign)
+      descriptors.campaign = {
+        value: null,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      };
+    return Object.defineProperties({}, descriptors);
+  });
+  root.carts = { ...carts, value: normalized };
+  return Object.defineProperties({}, root);
+}
 const COMMERCE_FILTER_KEYS = new Set([
   "view",
   "device",
@@ -408,7 +436,9 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
       ["resolved"],
     );
     try {
-      const snapshot = parseCommerceAnalyticsSnapshot(result.payload);
+      const snapshot = parseCommerceAnalyticsSnapshot(
+        preserveNullableCommerceCartKeys(result.payload),
+      );
       if (
         snapshot.rangeStart !== rangeStart.toISOString() ||
         snapshot.rangeEnd !== rangeEnd.toISOString()

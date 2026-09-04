@@ -14,6 +14,7 @@ import {
   type AnalyticsPoint,
   type AnalyticsRange,
   type AnalyticsSummary,
+  type AnalyticsActiveVisitors,
   type AnalyticsDashboard,
   type AnalyticsPeriod,
   type AnalyticsSeriesPoint,
@@ -355,6 +356,35 @@ export function parseAnalyticsSummary(value: unknown): AnalyticsSummary {
     comparison: comparison(parsed.comparison),
     pageviewsSeries: points(parsed.pageviewsSeries),
     visitsSeries: points(parsed.visitsSeries),
+  });
+}
+
+export function parseAnalyticsActiveVisitors(
+  value: unknown,
+): AnalyticsActiveVisitors {
+  const parsed = exact(value, [
+    "schemaVersion",
+    "status",
+    "activeVisitors",
+    "asOf",
+  ]);
+  if (
+    parsed.schemaVersion !== 1 ||
+    (parsed.status !== "ready" && parsed.status !== "unavailable")
+  )
+    invalid();
+  const activeVisitors =
+    parsed.activeVisitors === null ? null : count(parsed.activeVisitors);
+  if (
+    (parsed.status === "ready" && activeVisitors === null) ||
+    (parsed.status === "unavailable" && activeVisitors !== null)
+  )
+    invalid();
+  return Object.freeze({
+    schemaVersion: 1,
+    status: parsed.status,
+    activeVisitors,
+    asOf: timestamp(parsed.asOf),
   });
 }
 

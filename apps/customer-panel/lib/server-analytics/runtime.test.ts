@@ -99,6 +99,13 @@ test("approved PostgreSQL runtime remains available without Umami configuration"
   assert.equal(value?.mode, "approved_staging");
   assert.ok(value?.umami);
 });
+test("approved runtime carries the shared Redis cache without making it required", () => {
+  const a = access();
+  const sharedCache = { readThrough() {}, rotateNamespace() {}, ping() {}, close() {}, metrics() {} };
+  registerServerAnalyticsRepository(a as never, repository);
+  const value = resolveServerAnalyticsRuntime(a as never, umami, sharedCache as never);
+  assert.equal(value?.sharedCache, sharedCache);
+});
 test("cache isolates connection and Website ID", () => {
   const cache = createAnalyticsReadCache({
     ttlMs: 30000,

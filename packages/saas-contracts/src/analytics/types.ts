@@ -52,6 +52,13 @@ export type AnalyticsSummary = Readonly<{
   visitsSeries: readonly AnalyticsPoint[];
 }>;
 
+export type AnalyticsActiveVisitors = Readonly<{
+  schemaVersion: 1;
+  status: "ready" | "unavailable";
+  activeVisitors: number | null;
+  asOf: string;
+}>;
+
 export type AnalyticsMetricRow = Readonly<{ label: string; value: number }>;
 
 export type AnalyticsMetricResult = Readonly<{

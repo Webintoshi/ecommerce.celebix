@@ -20,3 +20,31 @@ test("unsupported values cannot be normalized into a key", () => {
   assert.throws(() => hashNormalizedInput({ unsafe: undefined }), /cache_key_input_invalid/);
   assert.throws(() => hashNormalizedInput({ unsafe: Number.NaN }), /cache_key_input_invalid/);
 });
+
+test("analytics keys isolate tenant, date, currency and hide raw filters", () => {
+  const base = {
+    namespace: "celebix:staging",
+    storeId: "11111111-1111-4111-8111-111111111111",
+    dataClass: "analytics" as const,
+    schemaVersion: "v1",
+    namespaceToken: "analytics-a",
+    scope: "overview",
+    input: {
+      start: "2026-08-01T00:00:00.000Z",
+      end: "2026-09-01T00:00:00.000Z",
+      timezone: "Europe/Istanbul",
+      currency: "TRY",
+      filters: { campaign: "atlas-qa" },
+    },
+  };
+  const key = buildCacheEntryKey(base);
+  assert.match(key, /:analytics:v1:analytics-a:overview:/);
+  assert.doesNotMatch(key, /TRY|Istanbul|atlas-qa/);
+  assert.notEqual(
+    key,
+    buildCacheEntryKey({
+      ...base,
+      input: { ...base.input, currency: "EUR" },
+    }),
+  );
+});

@@ -21,6 +21,7 @@ import {
   PanelPageShell,
 } from "@/components/panel/PanelPageShell";
 import styles from "./commerce-analytics-workspace.module.css";
+import { ActiveVisitorsCard } from "./ActiveVisitorsCard";
 
 const TABS = [
   ["overview", "Genel Bakış"],
@@ -444,8 +445,19 @@ function trafficSummary(value: unknown) {
       root.summary && typeof root.summary === "object" ? root.summary : root
     ) as Record<string, unknown>,
     visitors = integer(raw.visitors),
-    pageviews = integer(raw.pageviews);
-  if (visitors < 0 || pageviews < 0) return null;
+    pageviews = integer(raw.pageviews),
+    visits = integer(raw.visits),
+    bounceRateBasisPoints = integer(raw.bounceRateBasisPoints),
+    averageVisitSeconds = integer(raw.averageVisitSeconds);
+  if (
+    visitors < 0 ||
+    pageviews < 0 ||
+    visits < 0 ||
+    bounceRateBasisPoints < 0 ||
+    bounceRateBasisPoints > 10_000 ||
+    averageVisitSeconds < 0
+  )
+    return null;
   const series = (
     Array.isArray(raw.visitsSeries) ? raw.visitsSeries : []
   ).flatMap((entry) => {
@@ -454,7 +466,23 @@ function trafficSummary(value: unknown) {
       ? [{ at: String(row.at), value: integer(row.value) }]
       : [];
   });
-  return { visitors, pageviews, series };
+  return {
+    visitors,
+    pageviews,
+    visits,
+    bounceRateBasisPoints,
+    averageVisitSeconds,
+    series,
+  };
+}
+function trafficMetric(
+  value: unknown,
+  type: "path" | "referrer" | "device" | "country",
+) {
+  if (!value || typeof value !== "object") return [];
+  const metrics = (value as Record<string, unknown>).metrics;
+  if (!metrics || typeof metrics !== "object") return [];
+  return items((metrics as Record<string, unknown>)[type]);
 }
 type AcquisitionTraffic = Readonly<{
   source: string;
@@ -1338,10 +1366,15 @@ function Overview({
   events: Readonly<Record<string, number>>;
   timezone: string;
 }>) {
+  const pages = trafficMetric(data.traffic, "path"),
+    referrers = trafficMetric(data.traffic, "referrer"),
+    devices = trafficMetric(data.traffic, "device"),
+    countries = trafficMetric(data.traffic, "country");
   return (
     <>
       {
         <section className={styles.metrics}>
+          <ActiveVisitorsCard />
           <PanelMetricCard
             label="Ziyaretçiler"
             value={
@@ -1355,6 +1388,30 @@ function Overview({
             value={
               traffic
                 ? traffic.pageviews.toLocaleString("tr-TR")
+                : "Kullanılamıyor"
+            }
+          />
+          <PanelMetricCard
+            label="Oturumlar"
+            value={
+              traffic
+                ? traffic.visits.toLocaleString("tr-TR")
+                : "Kullanılamıyor"
+            }
+          />
+          <PanelMetricCard
+            label="Hemen çıkma oranı"
+            value={
+              traffic
+                ? percent(traffic.bounceRateBasisPoints / 10_000)
+                : "Kullanılamıyor"
+            }
+          />
+          <PanelMetricCard
+            label="Ortalama oturum süresi"
+            value={
+              traffic
+                ? `${traffic.averageVisitSeconds.toLocaleString("tr-TR")} sn`
                 : "Kullanılamıyor"
             }
           />
@@ -1454,6 +1511,29 @@ function Overview({
           />
         ) : (
           <UnavailableChart title="Trafik kaynağı dağılımı" />
+        )}
+        {data.traffic !== null ? (
+          <Bars
+            title="En çok görüntülenen sayfalar"
+            rows={pages.slice(0, 10)}
+          />
+        ) : (
+          <UnavailableChart title="En çok görüntülenen sayfalar" />
+        )}
+        {data.traffic !== null ? (
+          <Bars title="Yönlendiren kaynaklar" rows={referrers.slice(0, 10)} />
+        ) : (
+          <UnavailableChart title="Yönlendiren kaynaklar" />
+        )}
+        {data.traffic !== null ? (
+          <Bars title="Cihaz dağılımı" rows={devices.slice(0, 10)} />
+        ) : (
+          <UnavailableChart title="Cihaz dağılımı" />
+        )}
+        {data.traffic !== null ? (
+          <Bars title="Ülke dağılımı" rows={countries.slice(0, 10)} />
+        ) : (
+          <UnavailableChart title="Ülke dağılımı" />
         )}
       </div>
     </>
