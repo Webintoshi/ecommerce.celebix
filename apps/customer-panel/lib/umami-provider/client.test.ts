@@ -48,6 +48,10 @@ function officialWebsite() {
     shareId: null,
   };
 }
+function officialWebsite32() {
+  const { replayEnabled: _legacyReplayEnabled, ...website } = officialWebsite();
+  return { ...website, recorderEnabled: false };
+}
 function fixture(
   values: Array<
     Response | ((request: Request) => Response | Promise<Response>)
@@ -97,12 +101,42 @@ test("official Umami 3.1 website metadata projects only the trusted identity fie
   ]).client.getWebsite(WEBSITE);
   assert.deepEqual(value, site());
 });
+test("official Umami 3.2 website metadata projects only the trusted identity fields", async () => {
+  const value = await fixture([
+    login(),
+    response(200, officialWebsite32()),
+  ]).client.getWebsite(WEBSITE);
+  assert.deepEqual(value, site());
+});
 test("website metadata fails closed when Umami session replay is enabled", async () => {
   await assert.rejects(
     () =>
       fixture([
         login(),
         response(200, { ...officialWebsite(), replayEnabled: true }),
+      ]).client.getWebsite(WEBSITE),
+    /umami_provider_response_invalid/,
+  );
+});
+test("Umami 3.2 recorder-enabled metadata fails closed", async () => {
+  await assert.rejects(
+    () =>
+      fixture([
+        login(),
+        response(200, { ...officialWebsite32(), recorderEnabled: true }),
+      ]).client.getWebsite(WEBSITE),
+    /umami_provider_response_invalid/,
+  );
+});
+test("Umami website metadata with recorder configuration fails closed", async () => {
+  await assert.rejects(
+    () =>
+      fixture([
+        login(),
+        response(200, {
+          ...officialWebsite32(),
+          replayConfig: { replayEnabled: false },
+        }),
       ]).client.getWebsite(WEBSITE),
     /umami_provider_response_invalid/,
   );
