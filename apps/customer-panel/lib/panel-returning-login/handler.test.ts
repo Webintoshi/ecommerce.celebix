@@ -40,6 +40,17 @@ test("approved staging login creates a first-party browser binding and redirects
   assert.equal(fixture.calls(), 1);
 });
 
+test("custom admin login without a destination transfers to the central login authority before browser binding", async () => {
+  const fixture = handler();
+  const response = await fixture.value(new Request("https://admin.guzidekuyumcu.com.tr/auth/login"));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), `${PANEL}/auth/login?destination=admin.guzidekuyumcu.com.tr`);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(fixture.calls(), 0);
+});
+
 test("proxy-safe login accepts only GET and the exact public path without trusting forwarded headers", async () => {
   for (const url of [
     `http://customer-panel:3400/auth/login?destination=${DESTINATION}`,
