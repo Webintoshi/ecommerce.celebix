@@ -4,6 +4,11 @@ const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SEGMENT = /^[a-z][a-z0-9-]{0,79}$/;
 
+function cacheWindow(value: Date, ttlSeconds: 30 | 60) {
+  const width = ttlSeconds * 1_000;
+  return new Date(Math.floor(value.getTime() / width) * width).toISOString();
+}
+
 export function readAnalyticsProviderCache<T>(
   input: Readonly<{
     cache: Cache | null;
@@ -42,8 +47,8 @@ export function readAnalyticsProviderCache<T>(
     scope: input.scope,
     input: Object.freeze({
       websiteId: input.websiteId,
-      start: input.start.toISOString(),
-      end: input.end.toISOString(),
+      start: cacheWindow(input.start, input.ttlSeconds),
+      end: cacheWindow(input.end, input.ttlSeconds),
       timezone: input.timezone,
       currency: input.currency,
       filters: input.filters,

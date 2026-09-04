@@ -97,6 +97,16 @@ test("official Umami 3.1 website metadata projects only the trusted identity fie
   ]).client.getWebsite(WEBSITE);
   assert.deepEqual(value, site());
 });
+test("website metadata fails closed when Umami session replay is enabled", async () => {
+  await assert.rejects(
+    () =>
+      fixture([
+        login(),
+        response(200, { ...officialWebsite(), replayEnabled: true }),
+      ]).client.getWebsite(WEBSITE),
+    /umami_provider_response_invalid/,
+  );
+});
 test("unknown Umami website metadata remains fail closed", async () => {
   await assert.rejects(
     () =>

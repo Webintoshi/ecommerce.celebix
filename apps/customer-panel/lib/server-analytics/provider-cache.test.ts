@@ -66,6 +66,39 @@ test("analytics provider cache coalesces one tenant/date/currency-safe key", asy
   assert.deepEqual(right, { value: 7 });
 });
 
+test("analytics provider cache coalesces adjacent request clocks inside one TTL window", async () => {
+  const shared = cache();
+  let calls = 0;
+  const load = async () => {
+    calls += 1;
+    await new Promise((resolve) => setImmediate(resolve));
+    return Object.freeze({ value: 8 });
+  };
+  const left = {
+      ...BASE,
+      cache: shared,
+      start: new Date("2026-08-01T00:00:00.001Z"),
+      end: new Date("2026-09-01T00:00:00.001Z"),
+      load,
+    },
+    right = {
+      ...BASE,
+      cache: shared,
+      start: new Date("2026-08-01T00:00:00.002Z"),
+      end: new Date("2026-09-01T00:00:00.002Z"),
+      load,
+    };
+
+  assert.deepEqual(
+    await Promise.all([
+      readAnalyticsProviderCache(left),
+      readAnalyticsProviderCache(right),
+    ]),
+    [{ value: 8 }, { value: 8 }],
+  );
+  assert.equal(calls, 1);
+});
+
 test("provider failure is not cached as an analytics zero", async () => {
   const shared = cache();
   let calls = 0;
