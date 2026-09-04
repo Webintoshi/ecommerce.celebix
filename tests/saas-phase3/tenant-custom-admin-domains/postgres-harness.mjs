@@ -259,6 +259,29 @@ function main() {
           "active:ready:active",
         ),
     );
+    scenario(
+      "migration 125 redeems a handoff on the exact active custom admin alias",
+      () => {
+        const sourceSession = psql(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_identity;SELECT outcome FROM saas.issue_returning_panel_session_for_admin_host('https://id.test/oidc','owner','admin.guzidekuyumcu.com.tr','91000000-0000-4000-8000-000000000120','91000000-0000-4000-8000-000000000121','91000000-0000-4000-8000-000000000122','session.v1','${"c".repeat(64)}',transaction_timestamp(),transaction_timestamp()+interval '8 hours');COMMIT;`,
+        );
+        assert.equal(sourceSession, "issued");
+        const issued = psql(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_identity;SELECT outcome FROM saas.issue_cross_host_panel_handoff('session.v1','${"c".repeat(64)}','92000000-0000-4000-8000-000000000120','92000000-0000-4000-8000-000000000121','handoff.v1','${"d".repeat(64)}','${STORE}','admin.guzidekuyumcu.com.tr',transaction_timestamp(),transaction_timestamp()+interval '2 minutes');COMMIT;`,
+        );
+        assert.equal(issued, "handoff_issued");
+        const redeem = () => psql(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_identity;SELECT outcome FROM saas.redeem_cross_host_panel_handoff('handoff.v1','${"d".repeat(64)}','admin.guzidekuyumcu.com.tr','93000000-0000-4000-8000-000000000120','93000000-0000-4000-8000-000000000121','93000000-0000-4000-8000-000000000122','session.v1','${"e".repeat(64)}',transaction_timestamp(),transaction_timestamp()+interval '8 hours');COMMIT;`,
+        );
+        assert.equal(redeem(), "membership_denied");
+        apply(box, "202609040125_custom_admin_handoff_redemption.up.sql");
+        apply(box, "202609040125_custom_admin_handoff_redemption_assertions.sql", true);
+        assert.equal(redeem(), "redeemed");
+      },
+    );
     psql(
       box,
       `BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT outcome FROM saas.merchant_admin_domain_make_primary(${authority()},'${CUSTOM}',4);COMMIT;`,
@@ -428,7 +451,7 @@ function main() {
         ),
     );
     process.stdout.write(
-      "PASS 12/12 tenant custom admin domains PostgreSQL 16 rehearsal complete\n",
+      "PASS 13/13 tenant custom admin domains PostgreSQL 16 rehearsal complete\n",
     );
   } finally {
     stop(box);
