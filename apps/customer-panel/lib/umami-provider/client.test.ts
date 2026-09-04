@@ -416,6 +416,39 @@ test("funnel report preserves true ordered unique visitor progression", async ()
   assert.equal(new URL(f.requests[1]!.url).pathname, "/api/reports/funnel");
   assert.equal(f.requests[1]?.method, "POST");
 });
+test("empty verified purchases use the native funnel for the browser-only prefix", async () => {
+  const browserEvents = [
+      "product_view",
+      "add_to_cart",
+      "view_cart",
+      "begin_checkout",
+      "payment_method_selected",
+    ] as const,
+    f = fixture([
+      login(),
+      response(
+        200,
+        browserEvents.map((value, index) => ({
+          type: "event",
+          value,
+          visitors: 5 - index,
+        })),
+      ),
+    ]);
+  const result = await f.client.eventSessions({
+    websiteId: WEBSITE,
+    start: new Date("2026-07-01T00:00:00.000Z"),
+    end: NOW,
+    eventNames: [...browserEvents, "purchase"],
+    verifiedPurchases: [],
+  });
+  assert.deepEqual(result.items, [
+    ...browserEvents.map((label, index) => ({ label, value: 5 - index })),
+    { label: "purchase", value: 0 },
+  ]);
+  assert.equal(f.requests.length, 2);
+  assert.equal(new URL(f.requests[1]!.url).pathname, "/api/reports/funnel");
+});
 test("overview event rates use independent unique sessions rather than an ordered funnel cohort", async () => {
   const f = fixture([
     login(),
@@ -594,7 +627,12 @@ test("paid funnel fails closed before exceeding ten provider pivot calls", async
           "payment_method_selected",
           "purchase",
         ],
-        verifiedPurchases: [],
+        verifiedPurchases: [
+          {
+            anonymousSessionRef: `h1_${"d".repeat(64)}`,
+            occurredAt: "2026-07-20T11:00:00.000Z",
+          },
+        ],
       }),
     /umami_provider_response_too_large/,
   );
@@ -649,11 +687,8 @@ test("product event values use bounded server aggregation and preserve safe filt
     "1.eq.50000000-0000-4000-8000-000000000002",
   );
   assert.equal(url.searchParams.get("pf_currency"), "1.eq.TRY");
-  assert.equal(url.searchParams.get("pf_product_id"), `1.re.^(?:${WEBSITE})$`);
-  assert.equal(
-    url.searchParams.get("epf1"),
-    `1.re.product_id.^(?:${WEBSITE})$`,
-  );
+  assert.equal(url.searchParams.get("pf_product_id"), `1.re.^(${WEBSITE})$`);
+  assert.equal(url.searchParams.get("epf1"), `1.re.product_id.^(${WEBSITE})$`);
 });
 test("product event values batch a full product page into four server-side filters", async () => {
   const productIds = Array.from(
@@ -682,7 +717,8 @@ test("product event values batch a full product page into four server-side filte
   );
   for (const request of f.requests.slice(1)) {
     const filter = new URL(request.url).searchParams.get("epf1") ?? "";
-    assert.match(filter, /^1[.]re[.]product_id[.]\^[(][?][:]/);
+    assert.match(filter, /^1[.]re[.]product_id[.]\^[(]/);
+    assert.doesNotMatch(filter, /[(][?][:]/);
     assert.equal((filter.match(/50000000-/g) ?? []).length, 25);
   }
 });
