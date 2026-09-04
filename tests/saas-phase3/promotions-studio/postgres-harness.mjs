@@ -8,7 +8,7 @@ import { REQUIRED_NATIVE_TOOLS, assertSafeEnvironment } from "../../saas-phase2/
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const DB = "promotions_studio_126";
-const TOTAL = 20;
+const TOTAL = 25;
 let completed = 0;
 const STORE = "10000000-0000-4000-8000-000000000126";
 const PERCENT = "40000000-0000-4000-8000-000000000126";
@@ -54,8 +54,11 @@ try {
   scenario("evaluator is installed", () => assert.equal(scalar(box, "SELECT pg_catalog.to_regprocedure('saas.promotion_evaluate_v1(uuid,jsonb,timestamp with time zone)') IS NOT NULL"), "t"));
   scenario("tenant policies are forced", () => assert.equal(scalar(box, "SELECT count(*) FROM pg_class WHERE relnamespace='saas'::regnamespace AND relname LIKE 'promotion%' AND relrowsecurity AND relforcerowsecurity"), "9"));
   scenario("app has narrow RPC execution and no direct promotion table writes", () => { assert.equal(scalar(box,"SELECT pg_catalog.has_function_privilege('celebix_saas_app','saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],integer)'::regprocedure,'EXECUTE')"),"t"); assert.equal(scalar(box,"SELECT pg_catalog.has_table_privilege('celebix_saas_app','saas.promotions','INSERT,UPDATE,DELETE')"),"f"); assert.equal(scalar(box,"SELECT pg_catalog.has_function_privilege('celebix_saas_identity','saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],integer)'::regprocedure,'EXECUTE')"),"f"); });
+  scenario("every promotion helper and RPC revokes PUBLIC execute", () => assert.equal(scalar(box, "SELECT count(*) FROM pg_catalog.pg_proc p WHERE p.pronamespace='saas'::regnamespace AND p.proname LIKE 'promotion_%' AND pg_catalog.has_function_privilege('public',p.oid,'EXECUTE')"), "0"));
   scenario("rule validation rejects malformed documents", () => assert.equal(scalar(box, "SELECT saas.promotion_rule_document_valid('{}'::jsonb)"), "f"));
   scenario("code normalization rejects whitespace and canonically folds Turkish letters", () => { assert.equal(scalar(box, "SELECT COALESCE(saas.promotion_normalize_code(' indirim-20 '),'')"),""); assert.equal(scalar(box, "SELECT saas.promotion_normalize_code('İndirim-20')"),"INDIRIM-20"); });
+  scenario("code normalization rejects non-ASCII lookalikes", () => { assert.equal(scalar(box, "SELECT COALESCE(saas.promotion_normalize_code('KODß'),'')"), ""); assert.equal(scalar(box, "SELECT COALESCE(saas.promotion_normalize_code('KODΣ'),'')"), ""); });
+  scenario("strict rule validation rejects bad nested values before evaluator casts", () => { const bad = rule({kind:"percentage",percentageBps:1000}).replace('"percentageBps":1000', '"percentageBps":"bad"'); assert.equal(scalar(box, `SELECT saas.promotion_rule_document_valid('${bad}'::jsonb)`), "f"); assert.equal(scalar(box, `SELECT saas.promotion_evaluate_v1('${STORE}','{"currency":"TRY","cartLines":[],"shippingBeforeDiscountMinor":0}'::jsonb,'2026-09-05T00:00:00Z')->>'discountTotalMinor'`), "0"); });
   scenario("operations use a SHA-256 fingerprint", () => assert.equal(scalar(box, "SELECT saas.promotion_operation_fingerprint('create','{}'::jsonb)"), "71e89af0bd175d9da125da99ba0742ecb9c2c259f88b03f362ce0108fcc253cc"));
   scenario("draft rules never apply", () => assert.equal(scalar(box, "SELECT saas.promotion_evaluate_v1('00000000-0000-4000-8000-000000000001','{\"currency\":\"TRY\",\"cartLines\":[],\"shippingBeforeDiscountMinor\":0}'::jsonb,'2026-09-05T00:00:00Z')->>'discountTotalMinor'"), "0"));
   scenario("percentage promotion uses integer minor units", () => { activate(box,PERCENT); assert.equal(discount(box),"30"); });
@@ -65,7 +68,9 @@ try {
   scenario("bundle price calculates a bounded saving", () => { activate(box,BUNDLE); assert.equal(discount(box),"100"); });
   scenario("buy X get Y discounts the deterministic cheapest unit", () => { activate(box,BUY); assert.equal(discount(box),"100"); });
   scenario("gift produces zero-paid immutable gift effect", () => { activate(box,GIFT); assert.equal(scalar(box, `SELECT saas.promotion_evaluate_v1('${STORE}','{"currency":"TRY","cartLines":[],"shippingBeforeDiscountMinor":0}'::jsonb,'2026-09-05T00:00:00Z')->'gifts'->0->>'paidMinor'`),"0"); });
+  scenario("evaluator output has separated shipping and reconciled line effects", () => { activate(box,SHIPPING); const output=scalar(box, `SELECT saas.promotion_evaluate_v1('${STORE}','{"currency":"TRY","cartLines":[{"lineId":"50000000-0000-4000-8000-000000000126","position":0,"productId":"50000000-0000-4000-8000-000000000126","variantId":"50000000-0000-4000-8000-000000000126","quantity":1,"unitPriceMinor":100}],"shippingBeforeDiscountMinor":40,"submittedCodes":[]}'::jsonb,'2026-09-05T00:00:00Z')`); const value=JSON.parse(output); assert.equal(value.shippingDiscountTotalMinor,40); assert.equal(value.lineDiscountTotalMinor,0); assert.equal(value.discountTotalMinor,40); assert.equal(value.grandTotalMinor,100); assert.equal(value.eligiblePromotionIds.length,1); assert.equal(value.shippingEffects.length,1); });
   scenario("down migration refuses without emergency setting", () => assert.notEqual(psql(box, readFileSync(path.join(SQL, "202609050126_promotions_studio.down.sql"), "utf8"), DB, true).status, 0));
+  scenario("allowed-empty emergency down removes functions before relations", () => { psql(box, `DELETE FROM saas.promotions WHERE store_id='${STORE}'`); const down = readFileSync(path.join(SQL, "202609050126_promotions_studio.down.sql"), "utf8").replace("BEGIN;", "BEGIN; SET LOCAL saas.promotions_studio_emergency_drop = 'approved-pre-restore';"); const result=psql(box, down, DB, true); if (result.status!==0) throw new Error(result.stderr); apply(box, "202609050126_promotions_studio.up.sql"); });
   scenario("migration is replay-safe", () => apply(box, "202609050126_promotions_studio.up.sql"));
   scenario("assertions replay safely", () => apply(box, "202609050126_promotions_studio_assertions.sql"));
   scenario("harness used no external connection", () => assert.equal(process.env.DATABASE_URL, undefined));

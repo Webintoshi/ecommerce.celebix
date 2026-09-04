@@ -38,9 +38,12 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
   assert.match(up, /pg_advisory_xact_lock/);
   assert.match(up, /REVOKE ALL ON TABLE saas[.]%I FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity/);
   assert.match(up, /TO celebix_saas_app/);
+  assert.match(up, /REVOKE ALL ON FUNCTION saas[.]promotion_evaluate_v1/);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION[\s\S]*promotion_codes_csv_v1[\s\S]*TO celebix_saas_app/);
   assert.doesNotMatch(up, /GRANT EXECUTE[\s\S]*TO celebix_saas_identity/);
   assert.match(down, /promotions_studio_emergency_drop/);
   assert.doesNotMatch(down, /CASCADE/i);
+  assert.ok(down.indexOf("DROP FUNCTION") < down.indexOf("DROP TABLE"), "down drops dependent functions before relations");
   assert.match(assertions, /PROMOTIONS_STUDIO/);
 });
 

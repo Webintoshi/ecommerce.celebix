@@ -29,3 +29,24 @@
 ## Commit
 
 `0d7d3d198ce293f45ad283163de94559904621c1` (`feat(promotions): add tenant-safe promotion persistence`).
+
+## Review fixes
+
+### RED
+
+- Added static and disposable PostgreSQL 16 regressions for complete PUBLIC function revocation, non-ASCII code rejection, strict nested rules, evaluator reconciliation, and an allowed-empty emergency down. These failed against the checkpoint migration.
+
+### GREEN
+
+- `node --test tests/saas-phase3/promotions-studio/migration-static.test.mjs` — 2 passing tests.
+- `node tests/saas-phase3/promotions-studio/postgres-harness.mjs` — exact `25/25` scenarios and `PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 25/25`.
+- `git diff --check` — clean.
+
+### Hardened scope
+
+- Every promotion helper/RPC now revokes `PUBLIC` and non-app roles; the app role receives only authority-gated merchant entry points.
+- Rule validation is exact and bounded through nested benefit, target, audience, trigger, timestamp/timezone, limits, condition, combination, margin, and progress-policy checks before evaluator casts.
+- Evaluator outputs reconciled eligible/applied IDs with attributed line/shipping/gift effects; shipping totals remain separate.
+- Promotion history and order references are immutable/store-scoped; reservations are transition-only. The down migration removes dependencies/functions before tables and has a disposable allowed-empty proof.
+- Operation fingerprints/replay include update, lifecycle, and code batches; generated batch codes use cryptographic entropy with bounded collision retry.
+- Legacy adoption accepts only complete safe mappings, inserts its initial version and valid code in the same transaction, and remains idempotent.
