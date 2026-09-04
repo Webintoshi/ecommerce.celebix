@@ -1168,50 +1168,59 @@ export function createUmamiClient(
           batches.push(productIds.slice(index, index + 25));
         const totals = new Map<string, number>();
         let pivotQueries = 0;
-        for (const batch of batches) {
-          const batchProducts = new Set(batch),
-            productExpression = `^(${batch.join("|")})$`;
-          let page = 1;
-          for (;;) {
-            pivotQueries += 1;
-            if (pivotQueries > MAX_PRODUCT_PIVOT_QUERIES)
-              throw new UmamiProviderError("umami_provider_response_too_large");
-            const query = new URLSearchParams({
-              startAt: String(start.getTime()),
-              endAt: String(end.getTime()),
-              eventName: input.eventName,
-              page: String(page),
-              pageSize: String(PRODUCT_PIVOT_PAGE_SIZE),
-              maxResults: String(MAX_PRODUCT_PIVOT_RESULTS),
-            });
-            for (const [key, value] of Object.entries(globalFilters))
-              query.set(key, value);
-            query.set("pf_product_id", `1.re.${productExpression}`);
-            for (const filter of stepFilters)
-              query.set(
-                `pf_${filter.property}`,
-                `1.${filter.operator}.${filter.value}`,
+        const batchTotals = await Promise.all(
+          batches.map(async (batch) => {
+            const batchProducts = new Set(batch),
+              productExpression = `^(${batch.join("|")})$`,
+              result = new Map<string, number>();
+            let page = 1;
+            for (;;) {
+              pivotQueries += 1;
+              if (pivotQueries > MAX_PRODUCT_PIVOT_QUERIES)
+                throw new UmamiProviderError(
+                  "umami_provider_response_too_large",
+                );
+              const query = new URLSearchParams({
+                startAt: String(start.getTime()),
+                endAt: String(end.getTime()),
+                eventName: input.eventName,
+                page: String(page),
+                pageSize: String(PRODUCT_PIVOT_PAGE_SIZE),
+                maxResults: String(MAX_PRODUCT_PIVOT_RESULTS),
+              });
+              for (const [key, value] of Object.entries(globalFilters))
+                query.set(key, value);
+              query.set("pf_product_id", `1.re.${productExpression}`);
+              for (const filter of stepFilters)
+                query.set(
+                  `pf_${filter.property}`,
+                  `1.${filter.operator}.${filter.value}`,
+                );
+              const parsed = productPivotPage(
+                await request(
+                  "GET",
+                  `/api/websites/${id}/event-data-pivot?${query.toString()}`,
+                  undefined,
+                  true,
+                  false,
+                  deadlineAt,
+                ),
+                page,
+                input.eventName,
+                input.propertyName,
+                batchProducts,
               );
-            const parsed = productPivotPage(
-              await request(
-                "GET",
-                `/api/websites/${id}/event-data-pivot?${query.toString()}`,
-                undefined,
-                true,
-                false,
-                deadlineAt,
-              ),
-              page,
-              input.eventName,
-              input.propertyName,
-              batchProducts,
-            );
-            for (const [productId, value] of parsed.counts)
-              totals.set(productId, (totals.get(productId) ?? 0) + value);
-            if (page * parsed.pageSize >= parsed.count) break;
-            page += 1;
-          }
-        }
+              for (const [productId, value] of parsed.counts)
+                result.set(productId, (result.get(productId) ?? 0) + value);
+              if (page * parsed.pageSize >= parsed.count) break;
+              page += 1;
+            }
+            return result;
+          }),
+        );
+        for (const result of batchTotals)
+          for (const [productId, value] of result)
+            totals.set(productId, (totals.get(productId) ?? 0) + value);
         const items = [...totals]
           .map(([label, value]) => Object.freeze({ label, value }))
           .filter((row) => selectedProducts.has(row.label))

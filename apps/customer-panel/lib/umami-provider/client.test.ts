@@ -700,6 +700,8 @@ test("product event values use bounded server aggregation and preserve safe filt
   assert.equal(url.searchParams.get("pf_product_id"), `1.re.^(${WEBSITE})$`);
 });
 test("product event values batch a full product page into four bounded pivot filters", async () => {
+  let active = 0,
+    maximum = 0;
   const productIds = Array.from(
       { length: 100 },
       (_, index) =>
@@ -707,8 +709,12 @@ test("product event values batch a full product page into four bounded pivot fil
     ),
     f = fixture([
       login(),
-      ...[0, 25, 50, 75].map((index) =>
-        response(200, {
+      ...[0, 25, 50, 75].map((index) => async () => {
+        active += 1;
+        maximum = Math.max(maximum, active);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        active -= 1;
+        return response(200, {
           data: Array.from({ length: index + 1 }, (_, offset) => ({
             sessionId: `60000000-0000-4000-8000-${String(index * 100 + offset + 1).padStart(12, "0")}`,
             eventName: "product_view",
@@ -718,8 +724,8 @@ test("product event values batch a full product page into four bounded pivot fil
           count: index + 1,
           page: 1,
           pageSize: 1000,
-        }),
-      ),
+        });
+      }),
     ]);
   const result = await f.client.eventPropertyValues({
     websiteId: WEBSITE,
@@ -730,6 +736,7 @@ test("product event values batch a full product page into four bounded pivot fil
     productIds,
   });
   assert.equal(f.requests.length, 5);
+  assert.equal(maximum, 4);
   assert.deepEqual(
     result.items.map((row) => row.label),
     [productIds[75], productIds[50], productIds[25], productIds[0]],
@@ -821,28 +828,40 @@ test("product event values aggregate every bounded pivot page exactly", async ()
 });
 test("product event values reject before an eleventh pivot request", async () => {
   const productIds = Array.from(
-      { length: 26 },
-      (_, index) =>
-        `50000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
-    ),
-    pages = Array.from({ length: 10 }, (_, index) => {
-      const productId = index < 6 ? productIds[0]! : productIds[25]!;
-      return response(200, {
-        data: Array.from({ length: 1000 }, () => ({
-          sessionId: "60000000-0000-4000-8000-000000000099",
-          eventName: "product_view",
-          propertyKeys: ["product_id"],
-          propertyValues: [productId],
-        })),
-        count: 6000,
-        page: index < 6 ? index + 1 : index - 5,
-        pageSize: 1000,
-      });
-    }),
-    f = fixture([login(), ...pages]);
+    { length: 26 },
+    (_, index) =>
+      `50000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+  );
+  let dataRequests = 0;
+  const requests: Request[] = [],
+    client = createUmamiClient(CONFIG, {
+      fetch: async (request) => {
+        requests.push(request.clone());
+        if (request.url.endsWith("/api/auth/login")) return login();
+        dataRequests += 1;
+        if (dataRequests > 10) throw Error("eleventh_fetch");
+        const url = new URL(request.url),
+          page = Number(url.searchParams.get("page")),
+          filter = url.searchParams.get("pf_product_id") ?? "",
+          productId = filter.includes(productIds[25]!)
+            ? productIds[25]!
+            : productIds[0]!;
+        return response(200, {
+          data: Array.from({ length: 1000 }, () => ({
+            sessionId: "60000000-0000-4000-8000-000000000099",
+            eventName: "product_view",
+            propertyKeys: ["product_id"],
+            propertyValues: [productId],
+          })),
+          count: 6000,
+          page,
+          pageSize: 1000,
+        });
+      },
+    });
   await assert.rejects(
     () =>
-      f.client.eventPropertyValues({
+      client.eventPropertyValues({
         websiteId: WEBSITE,
         start: new Date("2026-07-01T00:00:00.000Z"),
         end: NOW,
@@ -852,7 +871,8 @@ test("product event values reject before an eleventh pivot request", async () =>
       }),
     /umami_provider_response_too_large/,
   );
-  assert.equal(f.requests.length, 11);
+  assert.equal(dataRequests, 10);
+  assert.equal(requests.length, 11);
 });
 test("acquisition breakdown keeps per-source visitor and event-session counts distinct", async () => {
   const row = {
