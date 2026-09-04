@@ -50,3 +50,18 @@
 - Promotion history and order references are immutable/store-scoped; reservations are transition-only. The down migration removes dependencies/functions before tables and has a disposable allowed-empty proof.
 - Operation fingerprints/replay include update, lifecycle, and code batches; generated batch codes use cryptographic entropy with bounded collision retry.
 - Legacy adoption accepts only complete safe mappings, inserts its initial version and valid code in the same transaction, and remains idempotent.
+
+## Canonical-rule and legacy-code review fixes
+
+### RED
+
+- Added PostgreSQL 16 regressions for duplicate target, audience, code, payment, shipping, sales-channel, and combination arrays; malformed sales-channel content; unordered quantity tiers; and collision-tolerant legacy adoption. The canonical-rule scenario failed against the prior migration.
+
+### GREEN
+
+- `node tests/saas-phase3/promotions-studio/postgres-harness.mjs` — exact `27/27` scenarios and `PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 27/27`.
+
+### Hardened scope
+
+- Nested rule arrays now have canonical uniqueness checks. Tiers are strictly ascending and every sales channel is bounded trimmed, non-control text.
+- Legacy migration detects both existing-code and same-run legacy-code collisions before inserting, leaves colliding rows unmodified/read-only with `code_conflict`, and continues with independent safe rows. A second adoption run remains a no-op.

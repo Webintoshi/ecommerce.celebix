@@ -45,6 +45,7 @@ DROP FUNCTION saas.promotion_audit_append_only();
 DROP FUNCTION saas.promotion_operation_fingerprint(text,jsonb);
 DROP FUNCTION saas.promotion_normalize_code(text);
 DROP FUNCTION saas.promotion_rule_document_valid(jsonb);
+DROP FUNCTION saas.promotion_json_array_unique(jsonb);
 DROP FUNCTION saas.promotion_json_uuid(jsonb);
 DROP FUNCTION saas.promotion_json_integer(jsonb,bigint,bigint);
 DROP FUNCTION saas.promotion_json_keys(jsonb,text[],text[]);
