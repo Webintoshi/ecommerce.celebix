@@ -189,7 +189,7 @@ SET LOCAL check_function_bodies = off;
 -- this as an inlineable SQL function makes its plan observable in the PG16
 -- harness and prevents a hidden per-product repository/query fan-out.
 CREATE OR REPLACE FUNCTION saas.promotion_evaluator_candidate_facts(p_store_id uuid,p_context jsonb,p_now timestamptz)
-RETURNS TABLE(id uuid,name text,version bigint,rule_document jsonb,created_at timestamptz,used bigint,budget bigint,customer_used bigint,eligible_value bigint)
+RETURNS TABLE(id uuid,name text,version bigint,rule_document jsonb,created_at timestamptz,used bigint,budget bigint,customer_used bigint,eligible_value bigint,gift_variant_valid boolean)
 LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
   WITH lines AS MATERIALIZED (SELECT value line FROM pg_catalog.jsonb_array_elements(p_context->'cartLines')),
   usage AS MATERIALIZED (
@@ -199,11 +199,20 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
   ), customer_usage AS MATERIALIZED (
     SELECT r.promotion_id,count(*) FILTER (WHERE r.status='committed' OR (r.status='reserved' AND r.expires_at>p_now))::bigint used
     FROM saas.promotion_usage_reservations r WHERE r.store_id=p_store_id AND r.customer_id IS NOT DISTINCT FROM CASE WHEN p_context->'customerId'='null'::jsonb THEN NULL ELSE (p_context->>'customerId')::uuid END GROUP BY r.promotion_id
+  ), gift_variants AS MATERIALIZED (
+    SELECT DISTINCT (p.rule_document->'benefit'->>'giftVariantId')::uuid variant_id
+    FROM saas.promotions p
+    WHERE p.store_id=p_store_id AND p.status='active' AND saas.promotion_rule_document_valid(p.rule_document) AND p.rule_document->'benefit'->>'kind'='gift'
+  ), valid_gift_variants AS MATERIALIZED (
+    SELECT gift.variant_id FROM gift_variants gift
+    JOIN saas.product_variants variant ON variant.store_id=p_store_id AND variant.id=gift.variant_id AND variant.status='active'
+    JOIN saas.products product ON product.store_id=variant.store_id AND product.id=variant.product_id AND product.status='active'
   ), aggregated AS MATERIALIZED (
     SELECT p.id,p.name,p.version,p.rule_document,p.created_at,COALESCE(u.used,0)::bigint used,COALESCE(u.budget,0)::bigint budget,COALESCE(cu.used,0)::bigint customer_used,
       COALESCE(sum((l.line->>'unitPriceMinor')::bigint*(l.line->>'quantity')::bigint) FILTER (WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,p_context->>'currency',p.rule_document->'targets',l.line)),0)::bigint eligible_value,
       COALESCE(sum((l.line->>'quantity')::bigint) FILTER (WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,p_context->>'currency',p.rule_document->'targets',l.line)),0)::bigint eligible_quantity,
-      COALESCE(sum(GREATEST(0,(l.line->>'unitPriceMinor')::bigint*(l.line->>'quantity')::bigint-COALESCE((l.line->>'unitCostMinor')::bigint,0)*(l.line->>'quantity')::bigint)) FILTER (WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,p_context->>'currency',p.rule_document->'targets',l.line)),0)::bigint eligible_margin
+      COALESCE(sum(GREATEST(0,(l.line->>'unitPriceMinor')::bigint*(l.line->>'quantity')::bigint-COALESCE((l.line->>'unitCostMinor')::bigint,0)*(l.line->>'quantity')::bigint)) FILTER (WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,p_context->>'currency',p.rule_document->'targets',l.line)),0)::bigint eligible_margin,
+      CASE WHEN p.rule_document->'benefit'->>'kind'<>'gift' THEN true ELSE EXISTS(SELECT 1 FROM valid_gift_variants gift WHERE gift.variant_id=(p.rule_document->'benefit'->>'giftVariantId')::uuid) END gift_variant_valid
     FROM saas.promotions p LEFT JOIN lines l ON true LEFT JOIN usage u ON u.promotion_id=p.id LEFT JOIN customer_usage cu ON cu.promotion_id=p.id
     WHERE p.store_id=p_store_id AND p.status='active' AND saas.promotion_rule_document_valid(p.rule_document)
       AND (p.rule_document->'schedule'->>'startsAt' IS NULL OR (p.rule_document->'schedule'->>'startsAt')::timestamptz<=p_now)
@@ -243,7 +252,7 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
       SELECT COALESCE(sum(price*LEAST(quantity,GREATEST(0,reward_count-prior_quantity))*(a.rule_document->'benefit'->>'discountPercentageBps')::bigint/10000),0)::bigint saving FROM reward_lines CROSS JOIN groups
     ) xy ON a.rule_document->'benefit'->>'kind'='buy_x_get_y'
   )
-  SELECT id,name,version,rule_document,created_at,used,budget,customer_used,eligible_value FROM ranked
+  SELECT id,name,version,rule_document,created_at,used,budget,customer_used,eligible_value,gift_variant_valid FROM ranked
   ORDER BY CASE rule_document->'benefit'->>'kind' WHEN 'percentage' THEN 1 WHEN 'fixed_amount' THEN 1 WHEN 'bundle_price' THEN 2 WHEN 'quantity_tiers' THEN 2 WHEN 'buy_x_get_y' THEN 2 WHEN 'free_shipping' THEN 3 ELSE 4 END,
     saving DESC,(rule_document->>'priority')::integer DESC,created_at,id
 $fn$;
@@ -260,12 +269,31 @@ RETURNS jsonb LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS $
     FROM input_lines
     JOIN saas.products product ON product.store_id=p_store_id AND product.id=(input_lines.line->>'productId')::uuid AND product.status='active' AND product.currency=p_currency
     JOIN saas.product_variants variant ON variant.store_id=product.store_id AND variant.product_id=product.id AND variant.id=(input_lines.line->>'variantId')::uuid AND variant.status='active'
+  ), catalog_products AS MATERIALIZED (
+    SELECT DISTINCT product_id FROM catalog_lines
+  ), category_facts AS MATERIALIZED (
+    SELECT category.product_id,pg_catalog.jsonb_agg(category.category_id::text ORDER BY category.category_id) category_ids
+    FROM saas.catalog_product_categories category
+    JOIN catalog_products product ON product.product_id=category.product_id
+    WHERE category.store_id=p_store_id
+    GROUP BY category.product_id
+  ), resource_facts AS MATERIALIZED (
+    SELECT resource_product.product_id,
+      COALESCE(pg_catalog.jsonb_agg(resource_product.resource_id::text ORDER BY resource_product.resource_id) FILTER (WHERE resource.resource_kind='collection'),'[]'::jsonb) collection_ids,
+      COALESCE(pg_catalog.jsonb_agg(resource_product.resource_id::text ORDER BY resource_product.resource_id) FILTER (WHERE resource.resource_kind='brand'),'[]'::jsonb) brand_ids
+    FROM saas.catalog_admin_resource_products resource_product
+    JOIN catalog_products product ON product.product_id=resource_product.product_id
+    JOIN saas.catalog_admin_resources resource ON resource.store_id=resource_product.store_id AND resource.id=resource_product.resource_id AND resource.status='active' AND resource.resource_kind IN ('collection','brand')
+    WHERE resource_product.store_id=p_store_id
+    GROUP BY resource_product.product_id
   ), enriched AS (
     SELECT catalog_lines.line,
-      COALESCE((SELECT pg_catalog.jsonb_agg(category_id::text ORDER BY category_id) FROM saas.catalog_product_categories WHERE store_id=p_store_id AND product_id=catalog_lines.product_id),'[]'::jsonb) category_ids,
-      COALESCE((SELECT pg_catalog.jsonb_agg(resource_id::text ORDER BY resource_id) FROM saas.catalog_admin_resource_products rp JOIN saas.catalog_admin_resources resource ON resource.store_id=rp.store_id AND resource.id=rp.resource_id AND resource.status='active' AND resource.resource_kind='collection' WHERE rp.store_id=p_store_id AND rp.product_id=catalog_lines.product_id),'[]'::jsonb) collection_ids,
-      COALESCE((SELECT pg_catalog.jsonb_agg(resource_id::text ORDER BY resource_id) FROM saas.catalog_admin_resource_products rp JOIN saas.catalog_admin_resources resource ON resource.store_id=rp.store_id AND resource.id=rp.resource_id AND resource.status='active' AND resource.resource_kind='brand' WHERE rp.store_id=p_store_id AND rp.product_id=catalog_lines.product_id),'[]'::jsonb) brand_ids
+      COALESCE(category_facts.category_ids,'[]'::jsonb) category_ids,
+      COALESCE(resource_facts.collection_ids,'[]'::jsonb) collection_ids,
+      COALESCE(resource_facts.brand_ids,'[]'::jsonb) brand_ids
     FROM catalog_lines
+    LEFT JOIN category_facts ON category_facts.product_id=catalog_lines.product_id
+    LEFT JOIN resource_facts ON resource_facts.product_id=catalog_lines.product_id
   )
   SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_set(pg_catalog.jsonb_set(pg_catalog.jsonb_set(pg_catalog.jsonb_set(line,'{categoryIds}',category_ids),'{collectionIds}',collection_ids),'{brandIds}',brand_ids),'{brandId}',COALESCE(brand_ids->0,'null'::jsonb)) ORDER BY (line->>'position')::integer,line->>'lineId'),'[]'::jsonb) FROM enriched
 $fn$;
@@ -329,7 +357,7 @@ BEGIN
           AND (v_benefit->'reward'->>'strategy'<>'selected_products_cheapest' OR EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(v_benefit->'reward'->'productIds') id WHERE id=line->>'productId'))
       ), groups AS (SELECT (v_eligible_quantity/((v_benefit->>'buyQuantity')::integer+(v_benefit->>'receiveQuantity')::integer))*(v_benefit->>'receiveQuantity')::bigint reward_count)
       SELECT COALESCE(sum(price*LEAST(quantity,GREATEST(0,reward_count-prior_quantity))*(v_benefit->>'discountPercentageBps')::bigint/10000),0),COALESCE(max(reward_count),0) INTO v_saving,v_reward_count FROM reward_lines CROSS JOIN groups;
-    ELSIF v_kind='gift' AND saas.promotion_evaluator_gift_variant_valid(p_store_id,(v_benefit->>'giftVariantId')::uuid) THEN v_saving:=0; ELSE CONTINUE; END IF;
+    ELSIF v_kind='gift' AND v_candidate.gift_variant_valid THEN v_saving:=0; ELSE CONTINUE; END IF;
     IF v_kind<>'gift' THEN v_saving:=LEAST(v_saving,COALESCE((v_rule->'limits'->>'orderMaximumMinor')::bigint,v_saving)); IF (v_rule->'limits'->>'budgetMinor') IS NOT NULL THEN v_saving:=LEAST(v_saving,GREATEST(0,(v_rule->'limits'->>'budgetMinor')::bigint-v_candidate.budget)); END IF; IF v_rule->'marginPolicy'->>'kind'='floor_at_cost' THEN SELECT COALESCE(sum(GREATEST(0,(line->>'unitPriceMinor')::bigint*(line->>'quantity')::bigint-COALESCE((line->>'unitCostMinor')::bigint,0)*(line->>'quantity')::bigint)),0) INTO v_cap FROM pg_catalog.jsonb_array_elements(v_lines) line WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,v_currency,v_rule->'targets',line); v_saving:=LEAST(v_saving,v_cap); ELSIF v_rule->'marginPolicy'->>'kind'='maximum_percentage' THEN v_saving:=LEAST(v_saving,v_eligible_value*(v_rule->'marginPolicy'->>'maximumPercentageBps')::integer/10000); END IF; END IF;
     IF v_kind='buy_x_get_y' THEN
       WITH reward_lines AS MATERIALIZED (
