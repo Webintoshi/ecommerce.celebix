@@ -10,6 +10,8 @@ test("promotion migration preserves migration-first checkout compatibility", () 
   assert.match(source, /promotion_evaluate_v1/);
   assert.match(source, /promotion_evaluator_context_valid/);
   assert.match(source, /promotion_evaluator_line_matches/);
+  assert.match(source, /promotion_evaluator_abandoned_cart_valid/);
+  assert.match(source, /promotion_combination_compatible/);
   assert.doesNotMatch(source, /CREATE OR REPLACE FUNCTION saas[.](?:public_checkout_quote|complete_order|hosted_checkout)/);
   assert.match(source, /SET LOCAL lock_timeout = '5s'/);
   assert.match(source, /SET LOCAL statement_timeout = '120s'/);
