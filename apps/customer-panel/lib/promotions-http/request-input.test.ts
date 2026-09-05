@@ -71,13 +71,15 @@ const ROUTES = {
   code_batch_status: { kind: "code_batch_status", method: "POST", pathname: `/api/promotions/code-batches/${BATCH_ID}/status`, batchId: BATCH_ID },
   code_batch_csv: { kind: "code_batch_csv", method: "GET", pathname: `/api/promotions/code-batches/${BATCH_ID}/csv`, batchId: BATCH_ID },
   analytics: { kind: "analytics", method: "GET", pathname: `/api/promotions/${PROMOTION_ID}/analytics`, promotionId: PROMOTION_ID },
+  overview: { kind: "overview", method: "GET", pathname: "/api/promotions/overview" },
   legacy: { kind: "legacy", method: "GET", pathname: "/api/promotions/legacy" },
+  legacy_resolve: { kind: "legacy_resolve", method: "GET", pathname: `/api/promotions/legacy/${PROMOTION_ID}`, legacyRecordId: PROMOTION_ID },
 } as const;
 
 type MutationRoute = (typeof ROUTES)[Exclude<keyof typeof ROUTES,
-  "list" | "detail" | "target_list" | "code_batch_list" | "code_batch_csv" | "analytics" | "legacy"
+  "list" | "detail" | "target_list" | "code_batch_list" | "code_batch_csv" | "analytics" | "overview" | "legacy" | "legacy_resolve"
 >];
-type GetRoute = (typeof ROUTES)["list" | "detail" | "target_list" | "code_batch_list" | "code_batch_csv" | "analytics" | "legacy"];
+type GetRoute = (typeof ROUTES)["list" | "detail" | "target_list" | "code_batch_list" | "code_batch_csv" | "analytics" | "overview" | "legacy" | "legacy_resolve"];
 
 const DURABLE_MUTATIONS = new Set([
   "create", "update", "publish", "pause", "resume", "duplicate", "archive", "code_batch_create", "code_batch_status",
@@ -316,8 +318,10 @@ test("GET routes are bodyless and reject every entity-body header", () => {
     [ROUTES.target_list, "?kind=product&limit=20", { kind: "valid", value: { kind: "product", limit: 20 } }],
     [ROUTES.code_batch_list, "?limit=20", { kind: "valid", value: { limit: 20 } }],
     [ROUTES.code_batch_csv, "", { kind: "valid" }],
-    [ROUTES.analytics, "", { kind: "valid" }],
+    [ROUTES.analytics, "?days=30", { kind: "valid", value: { days: 30 } }],
+    [ROUTES.overview, "?days=7", { kind: "valid", value: { days: 7 } }],
     [ROUTES.legacy, "?limit=20", { kind: "valid", value: { limit: 20 } }],
+    [ROUTES.legacy_resolve, "", { kind: "valid" }],
   ] as const) {
     assert.deepEqual(input.readPromotionGetInput?.(get(route, query), route), expected, route.kind);
     const entityHeaders: readonly HeadersInit[] = [
@@ -337,10 +341,10 @@ test("GET routes are bodyless and reject every entity-body header", () => {
 test("GET routes reject idempotency headers instead of silently ignoring mutation authority", () => {
   for (const route of [
     ROUTES.list, ROUTES.detail, ROUTES.target_list, ROUTES.code_batch_list,
-    ROUTES.code_batch_csv, ROUTES.analytics, ROUTES.legacy,
+    ROUTES.code_batch_csv, ROUTES.analytics, ROUTES.overview, ROUTES.legacy, ROUTES.legacy_resolve,
   ]) {
     assert.deepEqual(input.readPromotionGetInput?.(
-      get(route, route.kind === "target_list" ? "?kind=product" : "", { "idempotency-key": OPERATION_ID }),
+      get(route, route.kind === "target_list" ? "?kind=product" : route.kind === "analytics" || route.kind === "overview" ? "?days=30" : "", { "idempotency-key": OPERATION_ID }),
       route,
     ), { kind: "invalid" }, route.kind);
   }
@@ -480,8 +484,13 @@ test("GET query syntax rejects duplicates, unknown authority, encoded keys, and 
     "?unknown=value",
   ]) assert.deepEqual(input.readPromotionGetInput?.(get(ROUTES.list, query), ROUTES.list), { kind: "invalid" }, query);
 
-  for (const route of [ROUTES.detail, ROUTES.code_batch_csv, ROUTES.analytics]) {
+  for (const route of [ROUTES.detail, ROUTES.code_batch_csv, ROUTES.legacy_resolve]) {
     assert.deepEqual(input.readPromotionGetInput?.(get(route, "?limit=20"), route), { kind: "invalid" }, route.kind);
+  }
+  for (const route of [ROUTES.analytics, ROUTES.overview]) {
+    for (const query of ["", "?days=14", "?days=30&limit=20", "?days=030"]) {
+      assert.deepEqual(input.readPromotionGetInput?.(get(route, query), route), { kind: "invalid" }, `${route.kind}:${query}`);
+    }
   }
   assert.deepEqual(input.readPromotionGetInput?.(get(ROUTES.target_list), ROUTES.target_list), { kind: "invalid" });
 });

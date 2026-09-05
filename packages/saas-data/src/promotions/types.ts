@@ -1,5 +1,7 @@
 import type {
   PromotionAnalytics,
+  PromotionAnalyticsDetailResult,
+  PromotionAnalyticsPeriodDays,
   PromotionAudienceMode,
   PromotionBenefitKind,
   PromotionCodeBatch,
@@ -7,6 +9,7 @@ import type {
   PromotionDetail,
   PromotionEvaluatorContext,
   PromotionLegacyProjection,
+  PromotionOverviewResult,
   PromotionRuleDocument,
   PromotionSimulatorResponse,
   TenantContext,
@@ -115,7 +118,7 @@ export interface CheckPromotionInput extends PromotionAuthorityInput {
 
 export const PROMOTION_PICKER_KINDS = Object.freeze([
   "product", "variant", "category", "brand", "collection",
-  "customer_segment", "customer_tag", "masked_customer", "payment_method", "shipping_method",
+  "customer_segment", "customer_tag", "masked_customer", "abandoned_cart", "payment_method", "shipping_method",
 ] as const);
 export type PromotionPickerKind = (typeof PROMOTION_PICKER_KINDS)[number];
 export interface PromotionPickerItem {
@@ -182,11 +185,16 @@ export interface PromotionCodeBatchPage { readonly items: readonly PromotionCode
 export interface ExportPromotionCodesInput extends PromotionAuthorityInput { readonly batchId: string }
 export interface PromotionCodeCsvExport { readonly rows: readonly Readonly<{ code: string; status: "active" | "paused" | "revoked" }>[] }
 export interface PromotionAnalyticsResult { readonly items: readonly PromotionAnalytics[] }
+export interface GetPromotionAnalyticsInput extends GetPromotionInput { readonly days: PromotionAnalyticsPeriodDays }
+export interface GetPromotionOverviewInput extends PromotionAuthorityInput { readonly days: PromotionAnalyticsPeriodDays }
 
 export interface ListPromotionLegacyInput extends PromotionAuthorityInput { readonly pageSize: number; readonly cursor?: string }
 export interface PromotionLegacyPage { readonly items: readonly PromotionLegacyProjection[]; readonly nextCursor: string | null }
+export interface ResolvePromotionLegacyInput extends PromotionAuthorityInput { readonly legacyRecordId: string }
 
 export interface PromotionRepository {
+  timezone(input: PromotionAuthorityInput): Promise<string>;
+  storefrontOrigin(input: PromotionAuthorityInput): Promise<string | null>;
   list(input: ListPromotionsInput): Promise<PromotionListResult>;
   detail(input: GetPromotionInput): Promise<PromotionDetail>;
   create(input: CreatePromotionInput): Promise<PromotionMutationResult>;
@@ -206,7 +214,10 @@ export interface PromotionRepository {
   listCodeBatches(input: ListPromotionCodeBatchesInput): Promise<PromotionCodeBatchPage>;
   exportCodes(input: ExportPromotionCodesInput): Promise<PromotionCodeCsvExport>;
   analytics(input: GetPromotionInput): Promise<PromotionAnalyticsResult>;
+  analyticsDetail(input: GetPromotionAnalyticsInput): Promise<PromotionAnalyticsDetailResult>;
+  overview(input: GetPromotionOverviewInput): Promise<PromotionOverviewResult>;
   listLegacy(input: ListPromotionLegacyInput): Promise<PromotionLegacyPage>;
+  resolveLegacy(input: ResolvePromotionLegacyInput): Promise<PromotionLegacyProjection>;
 }
 
 export type PromotionAuditEvent = Readonly<{ type: "promotion_commit_unknown" }>;

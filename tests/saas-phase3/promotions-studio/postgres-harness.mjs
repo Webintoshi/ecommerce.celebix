@@ -5,6 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { REQUIRED_NATIVE_TOOLS, assertSafeEnvironment } from "../../saas-phase2/postgres/disposable-harness.mjs";
+import { assertPromotionPerformanceBudget, percentile95 } from "./performance.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
@@ -562,6 +563,13 @@ function antiFanoutProof() {
   assert.deepEqual(value.lineEffects,lines.map((line)=>({promotionId:first,lineId:line.lineId,discountMinor:10,giftQuantity:0})));
   assert.deepEqual({subtotal:value.subtotalBeforeDiscountMinor,line:value.lineDiscountTotalMinor,shipping:value.shippingBeforeDiscountMinor,shippingDiscount:value.shippingDiscountTotalMinor,discount:value.discountTotalMinor,grand:value.grandTotalMinor},{subtotal:2000,line:200,shipping:40,shippingDiscount:0,discount:200,grand:1840});
   assert.equal(value.grandTotalMinor,value.subtotalBeforeDiscountMinor-value.lineDiscountTotalMinor+value.shippingBeforeDiscountMinor-value.shippingDiscountTotalMinor);
+  const benchmarkContext={...proof,submittedCodes:["ATLAS1","ATLAS2","ATLAS3","ATLAS4","ATLAS5"]};
+  const encodedBenchmark=JSON.stringify(context(benchmarkContext)).replaceAll("'","''");
+  const warmSamplesMs=JSON.parse(scalar(box,`CREATE TEMP TABLE promotion_benchmark_timings(ordinal integer PRIMARY KEY,elapsed_ms double precision); DO $benchmark$ DECLARE sample integer; started_at timestamptz; BEGIN FOR sample IN 1..5 LOOP started_at:=pg_catalog.clock_timestamp(); PERFORM saas.promotion_evaluate_v1('${STORE}','${encodedBenchmark}'::jsonb,'2026-09-05T00:00:00Z'); INSERT INTO promotion_benchmark_timings VALUES(sample,extract(epoch FROM pg_catalog.clock_timestamp()-started_at)*1000); END LOOP; END $benchmark$; SELECT pg_catalog.jsonb_agg(elapsed_ms ORDER BY ordinal) FROM promotion_benchmark_timings`));
+  const coldSamplesMs=Array.from({length:5},()=>{ const startedAt=performance.now(); const cold=psql(box,`DISCARD PLANS; SELECT saas.promotion_evaluate_v1('${STORE}','${encodedBenchmark}'::jsonb,'2026-09-05T00:00:00Z')`); assert.equal(cold.status,0); return performance.now()-startedAt; });
+  process.stdout.write(`PROMOTIONS_PERFORMANCE_RAW ${JSON.stringify({warmP95Ms:Number(percentile95(warmSamplesMs).toFixed(3)),coldP95Ms:Number(percentile95(coldSamplesMs).toFixed(3)),warmSamplesMs:warmSamplesMs.map((value)=>Number(value.toFixed(3))),coldSamplesMs:coldSamplesMs.map((value)=>Number(value.toFixed(3)))})}\n`);
+  const timing=assertPromotionPerformanceBudget({warmSamplesMs,coldSamplesMs});
+  process.stdout.write(`PROMOTIONS_PERFORMANCE_METRICS ${JSON.stringify({...timing,activePromotions:100,cartLines:20,couponCodes:5,targetFacts:["product","category","segment"]})}\n`);
   parseContract(value);
   const selectedDocument=validRuleDocument();
   const selectedAtLimit=JSON.parse(simulateSelected(box,"analyst",{id:"70000000-0000-4000-8000-000000000499",expectedVersion:null,name:"Selected candidate above cap",ruleDocument:selectedDocument},proof));
@@ -1483,7 +1491,15 @@ try {
     assert.equal(scalar(box, "SELECT pg_catalog.has_function_privilege('celebix_saas_app','saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)'::regprocedure,'EXECUTE')"), "t");
     assert.equal(scalar(box, "SELECT pg_catalog.has_function_privilege('celebix_saas_workflow','saas.promotion_expire_due_reservations_v1(timestamp with time zone,integer)'::regprocedure,'EXECUTE')"), "t");
     assert.equal(scalar(box, "SELECT count(*) FROM pg_catalog.pg_proc proc WHERE proc.pronamespace='saas'::regnamespace AND proc.proname LIKE 'promotion_%' AND pg_catalog.has_function_privilege('celebix_saas_workflow',proc.oid,'EXECUTE')"), "1");
-    assert.equal(scalar(box, "SELECT pg_catalog.string_agg(DISTINCT proc.proname,',' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.pronamespace='saas'::regnamespace AND proc.proname LIKE 'promotion_%' AND pg_catalog.has_function_privilege('celebix_saas_app',proc.oid,'EXECUTE')"), "promotion_analytics_v1,promotion_code_batch_list_v1,promotion_code_batch_status_v1,promotion_codes_csv_v1,promotion_conflicts_v1,promotion_create_code_batch_v1,promotion_create_v1,promotion_detail_v1,promotion_duplicate_v1,promotion_legacy_list_v1,promotion_lifecycle_v1,promotion_list_v1,promotion_margin_check_v1,promotion_picker_list_v1,promotion_picker_resolve_v1,promotion_recover_operation_v1,promotion_simulate_v1,promotion_update_v1");
+    assert.equal(scalar(box, "SELECT pg_catalog.string_agg(DISTINCT proc.proname,',' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.pronamespace='saas'::regnamespace AND proc.proname LIKE 'promotion_%' AND pg_catalog.has_function_privilege('celebix_saas_app',proc.oid,'EXECUTE')"), "promotion_analytics_v1,promotion_analytics_v2,promotion_code_batch_list_v1,promotion_code_batch_status_v1,promotion_codes_csv_v1,promotion_conflicts_v1,promotion_create_code_batch_v1,promotion_create_v1,promotion_detail_v1,promotion_duplicate_v1,promotion_legacy_list_v1,promotion_legacy_resolve_v1,promotion_lifecycle_v1,promotion_list_v1,promotion_margin_check_v1,promotion_overview_v1,promotion_picker_list_v1,promotion_picker_resolve_v1,promotion_recover_operation_v1,promotion_simulate_v1,promotion_store_timezone_v1,promotion_storefront_origin_v1,promotion_update_v1");
+    assert.equal(appScalar(box, `SELECT outcome||':'||(result_payload->>'timezone') FROM saas.promotion_store_timezone_v1(${authorityArguments("analyst")})`), "listed:Europe/Istanbul");
+    assert.equal(appScalar(box, `SELECT outcome||':'||(result_payload->>'origin') FROM saas.promotion_storefront_origin_v1(${authorityArguments("analyst")})`), `listed:https://${STOREFRONT_HOST}`);
+    assert.equal(scalar(box,"SELECT pg_catalog.has_function_privilege('celebix_saas_host_resolver','saas.public_promotion_compiled_read_v1(text,timestamp with time zone,text,text)'::regprocedure,'EXECUTE')"),"t");
+    assert.equal(scalar(box,"SELECT pg_catalog.has_function_privilege('celebix_saas_app','saas.public_promotion_compiled_read_v1(text,timestamp with time zone,text,text)'::regprocedure,'EXECUTE')"),"f");
+    const compiled=JSON.parse(scalar(box,`SET ROLE celebix_saas_host_resolver; SELECT result_payload FROM saas.public_promotion_compiled_read_v1('${STOREFRONT_HOST}','2026-09-05T00:00:00.000Z','TRY','storefront'); RESET ROLE`));
+    assert.equal(compiled.schemaVersion,1); assert.equal(compiled.storeId,STORE); assert.equal(compiled.currency,"TRY"); assert.equal(compiled.salesChannel,"storefront"); assert.equal(compiled.definitions.length<=100,true); assert.deepEqual([...compiled.definitions].sort((left,right)=>left.id.localeCompare(right)),compiled.definitions);
+    for (const definition of compiled.definitions) { assert.equal(validates(box,definition.ruleDocument),"t"); assert.equal(scalar(box,`SELECT status FROM saas.promotions WHERE store_id='${STORE}' AND id='${definition.id}'`),"active"); }
+    assert.equal(scalar(box, "SELECT pg_catalog.has_function_privilege('public','saas.promotion_store_timezone_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)'::regprocedure,'EXECUTE')"), "f");
     assert.equal(scalar(box,"SELECT pg_catalog.has_function_privilege('celebix_saas_app','saas.promotion_picker_source_v1(uuid,text)'::regprocedure,'EXECUTE')"),"f");
     for (const role of ["celebix_saas_identity","celebix_saas_host_resolver"]) assert.equal(scalar(box, `SELECT count(*) FROM pg_catalog.pg_proc proc WHERE proc.pronamespace='saas'::regnamespace AND proc.proname LIKE 'promotion_%' AND pg_catalog.has_function_privilege('${role}',proc.oid,'EXECUTE')`), "0", role);
     const settlementSignatures = ["promotion_reserve_v1(uuid,uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,timestamp with time zone)","promotion_release_reservation_v1(uuid,uuid,uuid,timestamp with time zone)","promotion_commit_reservation_v1(uuid,uuid,uuid,uuid,uuid,bigint,text,timestamp with time zone)","promotion_expire_due_reservations_v1(timestamp with time zone,integer)"];
@@ -1543,7 +1559,7 @@ try {
     const pickerAuthorities = [
       ["product",LINE,"Promotion line"],["variant",LINE,"Promotion line • Promotion variant"],["category",CATEGORY,"Promotion category"],
       ["brand",BRAND,"Promotion brand"],["collection",COLLECTION,"Promotion collection"],["customer_segment",LINE,"Promotion segment"],
-      ["customer_tag",LINE,"Promotion tag"],["masked_customer",LINE,"Maskeli müşteri ••••0126"],["payment_method",PAYMENT_METHOD,"Promotion payment"],
+      ["customer_tag",LINE,"Promotion tag"],["masked_customer",LINE,"Maskeli müşteri ••••0126"],["abandoned_cart","80000000-0000-4000-8000-000000000181","Terk edilmiş sepet ••••0181"],["payment_method",PAYMENT_METHOD,"Promotion payment"],
       ["shipping_method",LINE,"Standart kargo"],
     ];
     for (const [kind,id,label] of pickerAuthorities) {
@@ -1565,12 +1581,18 @@ try {
     for (const ids of [[],[LINE,LINE],[pickerHidden,LINE],Array.from({length:501},(_,index)=>`f1000000-0000-4000-8000-${String(index).padStart(12,"0")}`)]) assert.equal(pickerResolve(box,"analyst","product",ids).outcome,"invalid_input");
     assert.equal(pickerList(box,"revoked","product",null,50).outcome,"membership_denied"); assert.equal(pickerList(box,"analyst","product",null,51).outcome,"invalid_input");
   });
-  scenario("editor and analyst receive semantic mutation and export denial", () => {
+  scenario("editor manages drafts while publish export and every analyst mutation remain denied", () => {
+    const promotion="90000000-0000-4000-8000-000000000828", document=validRuleDocument();
+    assert.equal(appScalar(box,createCall(box,"editor",promotion,"91000000-0000-4000-8000-000000000828","Editor draft")),`created:${promotion}`);
+    assert.equal(appScalar(box,updateCall(box,"editor",promotion,"91000000-0000-4000-8000-000000000829",1,"Editor updated draft",document)),`updated:${promotion}`);
+    assert.equal(appScalar(box,lifecycleCall(box,"editor",promotion,"91000000-0000-4000-8000-000000000830",2,"active")),"membership_denied:");
+    assert.equal(appScalar(box,lifecycleCall(box,"store_owner",promotion,"91000000-0000-4000-8000-000000000831",2,"active")),`updated:${promotion}`);
+    assert.equal(appScalar(box,updateCall(box,"editor",promotion,"91000000-0000-4000-8000-000000000832",3,"Editor cannot edit live",document)),"membership_denied:");
     for (const role of ["editor","analyst"]) {
-      const offset = role === "editor" ? "128" : "129";
-      assert.equal(appScalar(box,createCall(box,role,`90000000-0000-4000-8000-000000000${offset}`,`91000000-0000-4000-8000-000000000${offset}`,`${role} denied`)),"membership_denied:");
+      const offset = role === "editor" ? "833" : "834";
+      if (role === "analyst") assert.equal(appScalar(box,createCall(box,role,`90000000-0000-4000-8000-000000000${offset}`,`91000000-0000-4000-8000-000000000${offset}`,`${role} denied`)),"membership_denied:");
       assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_codes_csv_v1(${authorityArguments(role)},'90000000-0000-4000-8000-000000000999')`),"membership_denied");
-      assert.equal(createBatch(box,{role,operationId:`91000000-0000-4000-8000-000000000${offset}`,batchId:`92000000-0000-4000-8000-000000000${offset}`,promotionId:`90000000-0000-4000-8000-000000000${offset}`,count:1,prefix:"ROLE",codeLength:20,perCustomerUsage:1}).outcome,"membership_denied");
+      assert.equal(createBatch(box,{role,operationId:`91000000-0000-4000-8000-000000000${offset}`,batchId:`92000000-0000-4000-8000-000000000${offset}`,promotionId:promotion,count:1,prefix:"ROLE",codeLength:20,perCustomerUsage:1}).outcome,"membership_denied");
       assert.equal(statusBatch(box,{role,operationId:`93000000-0000-4000-8000-000000000${offset}`,batchId:`92000000-0000-4000-8000-000000000${offset}`,expectedVersion:1,nextStatus:"paused"}).outcome,"membership_denied");
     }
   });
@@ -1675,7 +1697,7 @@ try {
     assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_recover_operation_v1(${authorityArguments("store_owner")},'91000000-0000-4000-8000-000000000199','create','${fingerprint}')`),"not_found");
     assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_recover_operation_v1(${authorityArguments("store_owner")},'${operation}','create',repeat('f',64))`),"operation_mismatch");
     assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_recover_operation_v1(${authorityArguments("store_owner")},'${operation}','reserve','${fingerprint}')`),"invalid_input");
-    assert.equal(scalar(box,`SELECT pg_catalog.concat_ws(',',saas.promotion_operation_recovery_action('create'),saas.promotion_operation_recovery_action('update'),saas.promotion_operation_recovery_action('lifecycle'),saas.promotion_operation_recovery_action('archive'),saas.promotion_operation_recovery_action('duplicate'),saas.promotion_operation_recovery_action('code_batch'),saas.promotion_operation_recovery_action('code_batch_status'),COALESCE(saas.promotion_operation_recovery_action('reserve'),'denied'))`),"promotions.manage,promotions.manage,promotions.manage,promotions.archive,promotions.manage,promotions.manage,promotions.manage,denied");
+    assert.equal(scalar(box,`SELECT pg_catalog.concat_ws(',',saas.promotion_operation_recovery_action('create'),saas.promotion_operation_recovery_action('update'),saas.promotion_operation_recovery_action('lifecycle'),saas.promotion_operation_recovery_action('archive'),saas.promotion_operation_recovery_action('duplicate'),saas.promotion_operation_recovery_action('code_batch'),saas.promotion_operation_recovery_action('code_batch_status'),COALESCE(saas.promotion_operation_recovery_action('reserve'),'denied'))`),"promotions.manage_draft,promotions.manage_draft,promotions.publish,promotions.archive,promotions.manage_draft,promotions.publish,promotions.publish,denied");
     assert.notEqual(psql(box,`INSERT INTO saas.promotion_operations(id,store_id,operation_id,operation_kind,fingerprint,result_entity_kind,result_entity_id,result_payload,created_at) VALUES('91000000-0000-4000-8000-000000000197','${STORE}','91000000-0000-4000-8000-000000000197','create',repeat('d',64),'promotion','90000000-0000-4000-8000-000000000127',saas.promotion_projection('${STORE}','90000000-0000-4000-8000-000000000126'),'2026-09-05')`,DB,true).status,0);
     psql(box,`INSERT INTO saas.promotion_operations(id,store_id,operation_id,operation_kind,fingerprint,result_entity_kind,result_entity_id,result_payload,created_at) VALUES('91000000-0000-4000-8000-000000000196','${STORE}','91000000-0000-4000-8000-000000000196','create',repeat('c',64),'promotion','90000000-0000-4000-8000-000000000130',saas.promotion_projection('${OTHER_STORE}','90000000-0000-4000-8000-000000000130'),'2026-09-05')`);
     assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_recover_operation_v1(${authorityArguments("store_owner")},'91000000-0000-4000-8000-000000000196','create',repeat('c',64))`),"operation_result_invalid");
@@ -1688,8 +1710,9 @@ try {
     assert.equal(corrupt("000000000191",`saas.promotion_projection('${STORE}','90000000-0000-4000-8000-000000000126')||'{"createdAt":"2026-09-06T00:00:00.000Z","updatedAt":"2026-09-05T00:00:00.000Z"}'::jsonb`),"operation_result_invalid");
     assert.equal(corrupt("000000000190",`saas.promotion_projection('${STORE}','90000000-0000-4000-8000-000000000126')||'{"version":9007199254740992}'::jsonb`),"operation_result_invalid");
   });
-  scenario("operation recovery rechecks mutation authority for read-only roles", () => {
-    assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_recover_operation_v1(${authorityArguments("editor")},'91000000-0000-4000-8000-000000000131','create','${semanticCreateFingerprint(box,"Semantic replay")}')`),"membership_denied");
+  scenario("operation recovery permits draft editors and rejects read-only analysts", () => {
+    assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_recover_operation_v1(${authorityArguments("editor")},'91000000-0000-4000-8000-000000000131','create','${semanticCreateFingerprint(box,"Semantic replay")}')`),"operation_replayed");
+    assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_recover_operation_v1(${authorityArguments("analyst")},'91000000-0000-4000-8000-000000000131','create','${semanticCreateFingerprint(box,"Semantic replay")}')`),"membership_denied");
   });
   scenario("CRUD materializes exact current targets direct codes and authoritative shipping references", () => {
     const promotion = "a1000000-0000-4000-8000-000000000001", operation = "a2000000-0000-4000-8000-000000000001";
@@ -2497,7 +2520,7 @@ try {
     assert.equal(scalar(box,`SELECT count(*) FROM saas.promotions WHERE store_id='${STORE}' AND legacy_record_id='f1000000-0000-4000-8000-000000000126'`),"1");
     psql(box,`UPDATE saas.merchant_admin_records SET status='archived',archived_at='2026-09-05T00:00:40.000Z',updated_at='2026-09-05T00:00:40.000Z' WHERE store_id='${STORE}' AND id='f1000000-0000-4000-8000-000000000126'`);
     const expectedReasons={
-      "f1000000-0000-4000-8000-000000000126":"invalid_legacy_record",
+      "f1000000-0000-4000-8000-000000000126":"adopted",
       "f1000000-0000-4000-8000-000000000127":"unsupported_discount_type",
       "f1000000-0000-4000-8000-000000000128":"invalid_value",
       "f1000000-0000-4000-8000-000000000129":"invalid_minimum_order",
@@ -2532,9 +2555,14 @@ try {
     const selected=all.filter((item)=>item.legacyRecordId in expectedReasons);
     assert.equal(selected.length,Object.keys(expectedReasons).length); assert.equal(new Set(selected.map((item)=>item.legacyRecordId)).size,Object.keys(expectedReasons).length);
     for (const item of selected) { assert.deepEqual(Object.keys(item).sort(),["legacyRecordId","promotionId","reason"].sort()); assert.equal(item.reason,expectedReasons[item.legacyRecordId]); assert.equal(item.reason==="adopted",item.promotionId!==null); }
+    const adoptedResolution=JSON.parse(appScalar(box,`SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM saas.promotion_legacy_resolve_v1(${authorityArguments("analyst",STORE,PLAN,"2026-09-05T00:00:40.000Z")},'f1000000-0000-4000-8000-000000000134')`));
+    assert.equal(adoptedResolution.outcome,"resolved"); assert.equal(adoptedResolution.result.legacyRecordId,"f1000000-0000-4000-8000-000000000134"); assert.equal(adoptedResolution.result.reason,"adopted"); assert.notEqual(adoptedResolution.result.promotionId,null);
+    assert.deepEqual(JSON.parse(appScalar(box,`SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM saas.promotion_legacy_resolve_v1(${authorityArguments("analyst",STORE,PLAN,"2026-09-05T00:00:40.000Z")},'f1000000-0000-4000-8000-000000000131')`)),{outcome:"resolved",result:{legacyRecordId:"f1000000-0000-4000-8000-000000000131",promotionId:null,reason:"invalid_code"}});
+    assert.equal(appScalar(box,`SELECT outcome FROM saas.promotion_legacy_resolve_v1(${authorityArguments("analyst",STORE,PLAN,"2026-09-05T00:00:40.000Z")},'${LEGACY_INVALID}')`),"not_found");
     const old=JSON.parse(appScalar(box,`SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM saas.promotion_legacy_list_v1(${authorityArguments("analyst",STORE,PLAN,"2026-09-05T00:00:40.000Z")})`));
     assert.equal(old.outcome,"listed"); assert.deepEqual(Object.keys(old.result),["items"]); assert.equal(old.result.items.every((item)=>item.reason in {adopted:1,unsupported_discount_type:1,invalid_value:1,invalid_minimum_order:1,invalid_usage_limit:1,invalid_code:1,code_conflict:1,invalid_legacy_record:1}),true);
-    assert.deepEqual(old.result.items.find((item)=>item.legacyRecordId==="f1000000-0000-4000-8000-000000000126"),{legacyRecordId:"f1000000-0000-4000-8000-000000000126",promotionId:null,reason:"invalid_legacy_record"});
+    const archivedAdopted=old.result.items.find((item)=>item.legacyRecordId==="f1000000-0000-4000-8000-000000000126");
+    assert.equal(archivedAdopted.reason,"adopted"); assert.notEqual(archivedAdopted.promotionId,null);
     assert.deepEqual(old.result.items.find((item)=>item.legacyRecordId==="f1000000-0000-4000-8000-000000000141"),{legacyRecordId:"f1000000-0000-4000-8000-000000000141",promotionId:null,reason:"invalid_legacy_record"});
     const currentLegacyCount=Number(scalar(box,`SELECT count(*) FROM saas.merchant_admin_records WHERE store_id='${STORE}' AND record_kind='discount'`)), fillCount=100-currentLegacyCount; assert.equal(fillCount>=0,true);
     if (fillCount>0) psql(box,`INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,status,version,created_at,updated_at) SELECT ('f2000000-0000-4000-8000-'||pg_catalog.lpad(series::text,12,'0'))::uuid,'${STORE}','discount','Legacy bounded '||series,'{"discountType":"percent"}'::jsonb,'active',1,'2026-09-04T12:00:02.000Z','2026-09-04T12:00:02.000Z' FROM pg_catalog.generate_series(1,${fillCount}) series`);

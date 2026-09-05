@@ -29,7 +29,7 @@ export const PROMOTION_ADMIN_EFFECTIVE_STATUSES = Object.freeze([
 ] as const);
 export const PROMOTION_PICKER_KINDS = Object.freeze([
   "product", "variant", "category", "brand", "collection", "customer_segment", "customer_tag",
-  "masked_customer", "payment_method", "shipping_method",
+  "masked_customer", "abandoned_cart", "payment_method", "shipping_method",
 ] as const);
 export type PromotionAdminEffectiveStatus = (typeof PROMOTION_ADMIN_EFFECTIVE_STATUSES)[number];
 export type PromotionPickerKind = (typeof PROMOTION_PICKER_KINDS)[number];
@@ -98,6 +98,20 @@ export interface PromotionPickerList { readonly items: readonly PromotionPickerI
 export interface PromotionCsvExport { readonly rows: readonly Readonly<{ code: string; status: "active" | "paused" | "revoked" }>[] }
 export interface PromotionAdminAnalyticsItem { readonly currency: string; readonly redemptions: number; readonly discountMinor: number; readonly revenueMinor: number; readonly conversionBps: number }
 export interface PromotionAdminAnalyticsResult { readonly items: readonly PromotionAdminAnalyticsItem[] }
+export type PromotionAnalyticsPeriodDays = 7 | 30 | 90;
+export interface PromotionAnalyticsQuery { readonly days: PromotionAnalyticsPeriodDays }
+export interface PromotionOverviewResult {
+  readonly periodDays: PromotionAnalyticsPeriodDays;
+  readonly activePromotions: number;
+  readonly currencies: readonly Readonly<{ currency: string; affectedOrders: number; discountMinor: number; revenueMinor: number; recoveredOrders: number; recoveredRevenueMinor: number }>[];
+}
+export interface PromotionAnalyticsDetailResult {
+  readonly periodDays: PromotionAnalyticsPeriodDays;
+  readonly currencies: readonly Readonly<{ currency: string; usageCount: number; affectedOrders: number; discountMinor: number; grossRevenueMinor: number; netRevenueMinor: number; averageOrderMinor: number; newCustomerOrders: number; recoveredOrders: number; recoveredRevenueMinor: number }>[];
+  readonly attribution: readonly Readonly<{ source: string; medium: string; campaign: string | null; currency: string; orders: number; revenueMinor: number }>[];
+  readonly topProducts: readonly Readonly<{ productId: string | null; label: string; currency: string; quantity: number; revenueMinor: number }>[];
+  readonly topCategories: readonly Readonly<{ categoryId: string | null; label: string; currency: string; quantity: number; revenueMinor: number }>[];
+}
 export interface PromotionLegacyPage { readonly items: readonly PromotionLegacyProjection[]; readonly hasMore: boolean; readonly snapshotAt: string; readonly cursorAnchor: Readonly<{ createdAt: string; id: string }> | null }
 
 type Input = Readonly<Record<string, unknown>>;
@@ -419,6 +433,40 @@ export function parsePromotionAdminAnalyticsResult(value: unknown): PromotionAdm
     });
     for (let index = 1; index < items.length; index += 1) if (byteCompare(items[index - 1]!.currency, items[index]!.currency) >= 0) invalid();
     return Object.freeze({ items });
+  });
+}
+function analyticsPeriod(value: unknown): PromotionAnalyticsPeriodDays {
+  const parsed = integer(value, 7, 90);
+  if (parsed !== 7 && parsed !== 30 && parsed !== 90) invalid();
+  return parsed;
+}
+function nullableUuid(value: unknown): string | null { return value === null ? null : uuid(value); }
+function nullableLabel(value: unknown): string | null { return value === null ? null : text(value, 1, 100, 400); }
+export function parsePromotionAnalyticsQuery(value: unknown): PromotionAnalyticsQuery {
+  return guarded(() => { const input = exact(value, ["days"]); return Object.freeze({ days: analyticsPeriod(input.days) }); });
+}
+export function parsePromotionOverviewResult(value: unknown): PromotionOverviewResult {
+  return guarded(() => {
+    const input = exact(value, ["periodDays", "activePromotions", "currencies"]);
+    const currencies = array(input.currencies, 0, 256, (entry) => {
+      const row = exact(entry, ["currency", "affectedOrders", "discountMinor", "revenueMinor", "recoveredOrders", "recoveredRevenueMinor"]);
+      return Object.freeze({ currency: currency(row.currency), affectedOrders: integer(row.affectedOrders, 0, Number.MAX_SAFE_INTEGER), discountMinor: integer(row.discountMinor, 0, Number.MAX_SAFE_INTEGER), revenueMinor: integer(row.revenueMinor, 0, Number.MAX_SAFE_INTEGER), recoveredOrders: integer(row.recoveredOrders, 0, Number.MAX_SAFE_INTEGER), recoveredRevenueMinor: integer(row.recoveredRevenueMinor, 0, Number.MAX_SAFE_INTEGER) });
+    });
+    for (let index = 1; index < currencies.length; index += 1) if (byteCompare(currencies[index - 1]!.currency, currencies[index]!.currency) >= 0) invalid();
+    return Object.freeze({ periodDays: analyticsPeriod(input.periodDays), activePromotions: integer(input.activePromotions, 0, Number.MAX_SAFE_INTEGER), currencies });
+  });
+}
+export function parsePromotionAnalyticsDetailResult(value: unknown): PromotionAnalyticsDetailResult {
+  return guarded(() => {
+    const input = exact(value, ["periodDays", "currencies", "attribution", "topProducts", "topCategories"]);
+    const currencies = array(input.currencies, 0, 256, (entry) => {
+      const row = exact(entry, ["currency", "usageCount", "affectedOrders", "discountMinor", "grossRevenueMinor", "netRevenueMinor", "averageOrderMinor", "newCustomerOrders", "recoveredOrders", "recoveredRevenueMinor"]);
+      return Object.freeze({ currency: currency(row.currency), usageCount: integer(row.usageCount, 0, Number.MAX_SAFE_INTEGER), affectedOrders: integer(row.affectedOrders, 0, Number.MAX_SAFE_INTEGER), discountMinor: integer(row.discountMinor, 0, Number.MAX_SAFE_INTEGER), grossRevenueMinor: integer(row.grossRevenueMinor, 0, Number.MAX_SAFE_INTEGER), netRevenueMinor: integer(row.netRevenueMinor, 0, Number.MAX_SAFE_INTEGER), averageOrderMinor: integer(row.averageOrderMinor, 0, Number.MAX_SAFE_INTEGER), newCustomerOrders: integer(row.newCustomerOrders, 0, Number.MAX_SAFE_INTEGER), recoveredOrders: integer(row.recoveredOrders, 0, Number.MAX_SAFE_INTEGER), recoveredRevenueMinor: integer(row.recoveredRevenueMinor, 0, Number.MAX_SAFE_INTEGER) });
+    });
+    const attribution = array(input.attribution, 0, 100, (entry) => { const row = exact(entry, ["source", "medium", "campaign", "currency", "orders", "revenueMinor"]); return Object.freeze({ source: text(row.source, 1, 100, 400), medium: text(row.medium, 1, 100, 400), campaign: nullableLabel(row.campaign), currency: currency(row.currency), orders: integer(row.orders, 0, Number.MAX_SAFE_INTEGER), revenueMinor: integer(row.revenueMinor, 0, Number.MAX_SAFE_INTEGER) }); });
+    const topProducts = array(input.topProducts, 0, 20, (entry) => { const row = exact(entry, ["productId", "label", "currency", "quantity", "revenueMinor"]); return Object.freeze({ productId: nullableUuid(row.productId), label: text(row.label, 1, 500, 2_000), currency: currency(row.currency), quantity: integer(row.quantity, 0, Number.MAX_SAFE_INTEGER), revenueMinor: integer(row.revenueMinor, 0, Number.MAX_SAFE_INTEGER) }); });
+    const topCategories = array(input.topCategories, 0, 20, (entry) => { const row = exact(entry, ["categoryId", "label", "currency", "quantity", "revenueMinor"]); return Object.freeze({ categoryId: nullableUuid(row.categoryId), label: text(row.label, 1, 500, 2_000), currency: currency(row.currency), quantity: integer(row.quantity, 0, Number.MAX_SAFE_INTEGER), revenueMinor: integer(row.revenueMinor, 0, Number.MAX_SAFE_INTEGER) }); });
+    return Object.freeze({ periodDays: analyticsPeriod(input.periodDays), currencies, attribution, topProducts, topCategories });
   });
 }
 export function parsePromotionLegacyPage(value: unknown, limit = 100): PromotionLegacyPage {

@@ -1,5 +1,6 @@
 import {
   parsePromotionAdminListQuery,
+  parsePromotionAnalyticsQuery,
   parsePromotionBatchCreateRequest,
   parsePromotionBatchStatusRequest,
   parsePromotionCheckRequest,
@@ -13,6 +14,7 @@ import {
   parsePromotionUpdateRequest,
   parsePromotionVersionRequest,
   type PromotionAdminListQuery,
+  type PromotionAnalyticsQuery,
   type PromotionBatchCreateRequest,
   type PromotionBatchStatusRequest,
   type PromotionCheckRequest,
@@ -66,7 +68,7 @@ export type PromotionMutationInput = Readonly<{
 
 export type PromotionGetInput = Readonly<{
   kind: "valid";
-  value?: PromotionAdminListQuery | PromotionTargetListQuery | PromotionPageQuery;
+  value?: PromotionAdminListQuery | PromotionTargetListQuery | PromotionPageQuery | PromotionAnalyticsQuery;
 }>;
 
 const DURABLE_MUTATIONS = new Set<MutationKind>([
@@ -230,6 +232,14 @@ function pageQuery(parameters: Map<string, string>): PromotionPageQuery | null {
   catch { return null; }
 }
 
+function analyticsQuery(parameters: Map<string, string>): PromotionAnalyticsQuery | null {
+  if (parameters.size !== 1 || !parameters.has("days")) return null;
+  const days = parameters.get("days");
+  if (!/^(7|30|90)$/.test(days ?? "")) return null;
+  try { return parsePromotionAnalyticsQuery({ days: Number(days) }); }
+  catch { return null; }
+}
+
 export function readPromotionGetInput(request: Request, route: PromotionRoute): Invalid | PromotionGetInput {
   try {
     if (
@@ -240,10 +250,11 @@ export function readPromotionGetInput(request: Request, route: PromotionRoute): 
     const entries = rawQuery(request);
     if (entries === null) return INVALID;
     const parameters = new Map(entries);
-    let value: PromotionAdminListQuery | PromotionTargetListQuery | PromotionPageQuery | null | undefined;
+    let value: PromotionAdminListQuery | PromotionTargetListQuery | PromotionPageQuery | PromotionAnalyticsQuery | null | undefined;
     if (route.kind === "list") value = listQuery(parameters);
     else if (route.kind === "target_list") value = pickerQuery(parameters);
     else if (route.kind === "code_batch_list" || route.kind === "legacy") value = pageQuery(parameters);
+    else if (route.kind === "analytics" || route.kind === "overview") value = analyticsQuery(parameters);
     else value = entries.length === 0 ? undefined : null;
     if (value === null) return INVALID;
     return Object.freeze({ kind: "valid" as const, ...(value === undefined ? {} : { value }) });

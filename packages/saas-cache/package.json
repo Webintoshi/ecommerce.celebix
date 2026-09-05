@@ -13,6 +13,7 @@
     "test": "node --experimental-strip-types --test src/*.test.ts"
   },
   "dependencies": {
+    "@celebix/saas-contracts": "0.1.0",
     "redis": "6.2.1"
   },
   "devDependencies": {

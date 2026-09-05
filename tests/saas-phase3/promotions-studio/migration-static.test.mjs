@@ -40,6 +40,9 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
   assert.match(up, /TO celebix_saas_app/);
   assert.match(up, /REVOKE ALL ON FUNCTION saas[.]promotion_evaluate_v1/);
   assert.match(up, /GRANT EXECUTE ON FUNCTION[\s\S]*promotion_codes_csv_v1[\s\S]*TO celebix_saas_app/);
+  assert.match(up, /promotion_storefront_origin_v1\(uuid,uuid,uuid,uuid,text,bigint,timestamptz\) TO celebix_saas_app/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]public_promotion_compiled_read_v1\(p_hostname text,p_now timestamptz,p_currency text,p_sales_channel text\)/);
+  assert.match(up, /public_promotion_compiled_read_v1\(text,timestamptz,text,text\) TO celebix_saas_host_resolver/);
   assert.doesNotMatch(up, /GRANT EXECUTE[\s\S]*TO celebix_saas_identity/);
   assert.match(up, /promotion_version bigint NOT NULL/);
   assert.match(up, /normalized_code text NULL/);
@@ -107,10 +110,23 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
   assert.match(up, /CREATE INDEX IF NOT EXISTS promotions_published_cap_idx ON saas[.]promotions\(store_id,status,id\) WHERE status IN \('active','scheduled'\)/);
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_evaluator_materialize_lines\(p_store_id uuid,p_currency text,p_context jsonb,p_now timestamptz\)/);
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_evaluator_line_capacity\(p_rule jsonb,p_line jsonb,p_prior_discount bigint\)/);
+  const targetMatcher = up.match(/CREATE OR REPLACE FUNCTION saas[.]promotion_evaluator_line_matches\(p_targets jsonb,p_line jsonb\)[\s\S]*?\$fn\$;/)?.[0] ?? "";
+  assert.match(targetMatcher, /LANGUAGE plpgsql IMMUTABLE STRICT/);
+  assert.doesNotMatch(targetMatcher, /WITH refs AS/);
+  const candidateFacts = up.match(/CREATE OR REPLACE FUNCTION saas[.]promotion_evaluator_candidate_facts\(p_store_id uuid,p_context jsonb,p_now timestamptz,p_selected jsonb\)[\s\S]*?\$fn\$;/)?.[0] ?? "";
+  assert.match(candidateFacts, /candidate_lines AS MATERIALIZED/);
+  assert.match(candidateFacts, /eligible_quantity/);
+  assert.doesNotMatch(candidateFacts, /WHERE saas[.]promotion_rule_document_valid\(p[.]rule_document\)/);
+  const evaluator = up.match(/CREATE OR REPLACE FUNCTION saas[.]promotion_evaluate_internal_v1\(p_store_id uuid,p_context jsonb,p_now timestamptz,p_selected jsonb,p_materialized_lines jsonb\)[\s\S]*?\$fn\$;/)?.[0] ?? "";
+  assert.ok(evaluator.indexOf("promotion_combination_compatible") < evaluator.indexOf("IF v_kind='percentage'"), "combination rejection must precede redundant benefit math");
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_duplicate_v1/);
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_definition_dimensions_overlap_v1\(p_store_id uuid,p_left jsonb,p_right jsonb\)/);
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_picker_list_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_kind text,p_search text,p_limit integer,p_after_sort_key text,p_after_id uuid\)/);
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_picker_resolve_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_kind text,p_ids uuid\[\]\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_storefront_origin_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz\)/);
+  assert.match(up, /p_action='promotions[.]manage_draft'[\s\S]*'store_owner','admin','editor'/);
+  assert.match(up, /p_action IN \('promotions[.]publish','promotions[.]export_codes'\)[\s\S]*'store_owner','admin'/);
+  assert.match(up, /v_observed[.]status<>'draft'[\s\S]*'promotions[.]publish'/);
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_conflicts_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_promotion_id uuid,p_expected_version bigint,p_rule_document jsonb\)/);
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_margin_check_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_promotion_id uuid,p_expected_version bigint,p_rule_document jsonb\)/);
   assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_list_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_search text,p_effective_statuses text\[\],p_trigger_kinds text\[\],p_benefit_kinds text\[\],p_audience_modes text\[\],p_schedule_from timestamptz,p_schedule_to timestamptz,p_limit integer,p_snapshot_at timestamptz,p_after_created_at timestamptz,p_after_id uuid\)/);
@@ -192,12 +208,17 @@ test("Slice C freezes code-batch, bundle, gift, archive and legacy contracts", (
   assert.match(up, /'items'[\s\S]*'bundle_price'[\s\S]*'autoAdd'/);
   assert.match(up, /UPDATE saas[.]promotion_code_batches[\s\S]*status='revoked'[\s\S]*UPDATE saas[.]promotion_codes[\s\S]*status='revoked'/);
   assert.match(up, /promotion_legacy_list_v1\(p_store_id uuid[\s\S]*p_limit integer,p_snapshot_at timestamptz,p_after_created_at timestamptz,p_after_id uuid\)/);
+  assert.match(up, /promotion_legacy_resolve_v1\(p_store_id uuid[\s\S]*p_legacy_record_id uuid\)[\s\S]*record[.]store_id=p_store_id AND record[.]id=p_legacy_record_id AND record[.]record_kind='discount'/);
+  assert.match(up, /promotion_store_timezone_v1\(p_store_id uuid[\s\S]*'promotions[.]read'/);
   assert.match(up, /promotion_adopt_legacy_discounts_v1\(legacy_store[.]store_id/);
   assert.equal((up.match(/hashtextextended\('promotion-create:'/g) ?? []).length, 3);
   assert.match(up, /record[.]record_kind='discount' AND record[.]status='active'/);
   assert.match(up, /v_cross_version_match/);
   assert.match(down, /DROP FUNCTION saas[.]promotion_code_batch_list_v1/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_storefront_origin_v1/);
+  assert.match(down, /DROP FUNCTION saas[.]public_promotion_compiled_read_v1/);
   assert.match(assertions, /PROMOTIONS_STUDIO_CODE_BATCH_SLICE_C_INVALID/);
+  assert.match(assertions, /PROMOTIONS_STUDIO_COMPILED_CACHE_RPC_INVALID/);
 });
 
 test("Slice D installs only additive internal group settlement authority", () => {

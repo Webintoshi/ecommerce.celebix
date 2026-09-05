@@ -1,1 +1,3 @@
-import{isMerchantActionAllowed}from"@celebix/saas-contracts";import{MerchantModuleConsole}from"@/components/merchant-admin/MerchantModuleConsole";import{requireServerPanelAccess}from"@/lib/server-access";export default async function DiscountsNewPageTsx(){const{tenantContext}=await requireServerPanelAccess();return<MerchantModuleConsole kind="discount" canManage={isMerchantActionAllowed(tenantContext.membership.role,"promotions.manage")} createFirst/>}
+import { PromotionStudio } from "@/components/promotions/PromotionStudio";
+import { requirePromotionPageContext } from "@/lib/server-promotion-page";
+export default async function NewDiscountPage() { const context = await requirePromotionPageContext(); return <PromotionStudio mode="create" {...context} />; }

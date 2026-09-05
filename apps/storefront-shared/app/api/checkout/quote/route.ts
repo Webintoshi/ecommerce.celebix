@@ -4,5 +4,6 @@ import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authori
 
 export const POST = createCheckoutQuoteRoute({
   selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers),
+  warmPromotions: async (hostname) => { await (await resolveDefaultPublicStorefrontRuntime())?.warmPromotions(hostname); },
   resolveRuntime: async () => (await resolveDefaultPublicStorefrontRuntime())?.cart ?? null,
 });

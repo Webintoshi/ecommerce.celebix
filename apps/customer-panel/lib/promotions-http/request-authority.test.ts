@@ -43,7 +43,9 @@ test("classifies the exact promotions REST matrix with static routes before dyna
     ["POST", `/api/promotions/code-batches/${BATCH_ID}/status`, { kind: "code_batch_status", method: "POST", pathname: `/api/promotions/code-batches/${BATCH_ID}/status`, batchId: BATCH_ID }],
     ["GET", `/api/promotions/code-batches/${BATCH_ID}/csv`, { kind: "code_batch_csv", method: "GET", pathname: `/api/promotions/code-batches/${BATCH_ID}/csv`, batchId: BATCH_ID }],
     ["GET", `/api/promotions/${PROMOTION_ID}/analytics`, { kind: "analytics", method: "GET", pathname: `/api/promotions/${PROMOTION_ID}/analytics`, promotionId: PROMOTION_ID }],
+    ["GET", "/api/promotions/overview", { kind: "overview", method: "GET", pathname: "/api/promotions/overview" }],
     ["GET", "/api/promotions/legacy", { kind: "legacy", method: "GET", pathname: "/api/promotions/legacy" }],
+    ["GET", `/api/promotions/legacy/${PROMOTION_ID}`, { kind: "legacy_resolve", method: "GET", pathname: `/api/promotions/legacy/${PROMOTION_ID}`, legacyRecordId: PROMOTION_ID }],
   ] as const;
 
   for (const [method, pathname, route] of cases) {
@@ -73,7 +75,9 @@ test("returns exact finite Allow values for every known route family", () => {
     [`/api/promotions/code-batches/${BATCH_ID}/status`, "POST"],
     [`/api/promotions/code-batches/${BATCH_ID}/csv`, "GET"],
     [`/api/promotions/${PROMOTION_ID}/analytics`, "GET"],
+    ["/api/promotions/overview", "GET"],
     ["/api/promotions/legacy", "GET"],
+    [`/api/promotions/legacy/${PROMOTION_ID}`, "GET"],
   ] as const;
 
   for (const [pathname, allow] of cases) {
@@ -95,6 +99,8 @@ test("static promotion routes cannot be captured as promotion identifiers", () =
     ["POST", `/api/promotions/code-batches/${BATCH_ID}/status`, "code_batch_status"],
     ["GET", `/api/promotions/code-batches/${BATCH_ID}/csv`, "code_batch_csv"],
     ["GET", "/api/promotions/legacy", "legacy"],
+    ["GET", "/api/promotions/overview", "overview"],
+    ["GET", `/api/promotions/legacy/${PROMOTION_ID}`, "legacy_resolve"],
   ] as const) {
     const decision = authority.classifyPromotionRequest?.(request(pathname, method));
     assert.equal(decision?.kind, "approved", pathname);

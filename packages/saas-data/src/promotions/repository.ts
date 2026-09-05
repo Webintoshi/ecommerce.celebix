@@ -1,17 +1,21 @@
 import {
   parsePromotionAdminAnalyticsResult,
+  parsePromotionAnalyticsDetailResult,
   parsePromotionAdminListPage,
   parsePromotionCodeBatch,
   parsePromotionCodeBatchList,
   parsePromotionConflictCheck,
   parsePromotionCsvExport,
   parsePromotionDetail,
+  parsePromotionLegacyProjection,
   parsePromotionLegacyPage,
   parsePromotionMarginCheck,
   parsePromotionPickerList,
   parsePromotionPickerResolve,
+  parsePromotionOverviewResult,
   parsePromotionSimulatorResponse,
   type PromotionDetail,
+  type PromotionLegacyProjection,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
@@ -78,6 +82,8 @@ import {
 } from "./validation.ts";
 
 const SQL = Object.freeze({
+  timezone: "SELECT outcome,result_payload FROM saas.promotion_store_timezone_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
+  storefrontOrigin: "SELECT outcome,result_payload FROM saas.promotion_storefront_origin_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
   list: "SELECT outcome,result_payload FROM saas.promotion_list_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text,$9::text[],$10::text[],$11::text[],$12::text[],$13::timestamptz,$14::timestamptz,$15::integer,$16::timestamptz,$17::timestamptz,$18::uuid)",
   detail: "SELECT outcome,result_payload FROM saas.promotion_detail_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   create: "SELECT outcome,result_payload FROM saas.promotion_create_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::text,$12::jsonb)",
@@ -94,7 +100,10 @@ const SQL = Object.freeze({
   batchList: "SELECT outcome,result_payload FROM saas.promotion_code_batch_list_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::integer,$10::timestamptz,$11::timestamptz,$12::uuid)",
   csv: "SELECT outcome,result_payload FROM saas.promotion_codes_csv_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   analytics: "SELECT outcome,result_payload FROM saas.promotion_analytics_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+  analyticsDetail: "SELECT outcome,result_payload FROM saas.promotion_analytics_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::integer)",
+  overview: "SELECT outcome,result_payload FROM saas.promotion_overview_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::integer)",
   legacy: "SELECT outcome,result_payload FROM saas.promotion_legacy_list_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::integer,$9::timestamptz,$10::timestamptz,$11::uuid)",
+  legacyResolve: "SELECT outcome,result_payload FROM saas.promotion_legacy_resolve_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   recover: "SELECT outcome,result_payload FROM saas.promotion_recover_operation_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::text)",
 });
 
@@ -239,6 +248,26 @@ export class PostgresPromotionRepository implements PromotionRepository {
   private async acquire(): Promise<PostgresClientLike> {
     try { return await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs); } catch { throw unavailable(); }
   }
+  async timezone(input: Parameters<PromotionRepository["timezone"]>[0]): Promise<string> {
+    const { authority } = this.validated(input, ["tenantContext", "now"]);
+    return this.read(SQL.timezone, authorityValues(authority), "listed", (value) => {
+      const projection = exactObject(value, ["timezone"]), timezone = projection.timezone;
+      if (typeof timezone !== "string" || timezone.length < 1 || timezone.length > 64) throw unavailable();
+      try { new Intl.DateTimeFormat("en-US", { timeZone: timezone }); } catch { throw unavailable(); }
+      return timezone;
+    }, AUTHORITY_FAILURES);
+  }
+  async storefrontOrigin(input: Parameters<PromotionRepository["storefrontOrigin"]>[0]): Promise<string | null> {
+    const { authority } = this.validated(input, ["tenantContext", "now"]);
+    return this.read(SQL.storefrontOrigin, authorityValues(authority), "listed", (value) => {
+      const projection = exactObject(value, ["origin"]), origin = projection.origin;
+      if (origin === null) return null;
+      if (typeof origin !== "string" || origin.length > 261) throw unavailable();
+      try { const parsed = new URL(origin); if (parsed.protocol !== "https:" || parsed.origin !== origin || parsed.username || parsed.password || parsed.port || !/^[a-z0-9.-]{3,253}$/.test(parsed.hostname)) throw unavailable(); }
+      catch { throw unavailable(); }
+      return origin;
+    }, AUTHORITY_FAILURES);
+  }
   private async query(client: PostgresClientLike, query: string, values?: unknown[]) {
     try { return await client.query(query, values); } catch { throw unavailable(); }
   }
@@ -373,7 +402,7 @@ export class PostgresPromotionRepository implements PromotionRepository {
   }
 
   async create(input: CreatePromotionInput): Promise<PromotionMutationResult> {
-    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "name", "ruleDocument"], [], "manage");
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "name", "ruleDocument"], [], "manage_draft");
     const operationId = promotionUuid(raw.operationId), name = promotionName(raw.name), ruleDocument = promotionRule(raw.ruleDocument), id = this.generatedId();
     const fingerprint = promotionFingerprint("create", authority.storeId, { name, ruleDocument });
     const mutated = await this.mutate(authority, operationId, "create", fingerprint, SQL.create, [...authorityValues(authority), operationId, fingerprint, id, name, JSON.stringify(ruleDocument)], "created", (value, replayed) => {
@@ -385,7 +414,7 @@ export class PostgresPromotionRepository implements PromotionRepository {
   }
 
   async update(input: UpdatePromotionInput): Promise<PromotionMutationResult> {
-    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "expectedVersion", "name", "ruleDocument"], [], "manage");
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "expectedVersion", "name", "ruleDocument"], [], "manage_draft");
     const operationId = promotionUuid(raw.operationId), id = promotionUuid(raw.promotionId), expectedVersion = promotionVersion(raw.expectedVersion), name = promotionName(raw.name), ruleDocument = promotionRule(raw.ruleDocument);
     const fingerprint = promotionFingerprint("update", authority.storeId, { id, expectedVersion, name, ruleDocument });
     const mutated = await this.mutate(authority, operationId, "update", fingerprint, SQL.update, [...authorityValues(authority), operationId, fingerprint, id, expectedVersion, name, JSON.stringify(ruleDocument)], "updated", (value) => {
@@ -397,7 +426,7 @@ export class PostgresPromotionRepository implements PromotionRepository {
   }
 
   private async lifecycle(input: PublishPromotionInput | PausePromotionInput | ResumePromotionInput | ArchivePromotionInput, forcedStatus: "paused" | "archived" | null): Promise<PromotionMutationResult> {
-    const action: PromotionAuthorityAction = forcedStatus === "archived" ? "archive" : "manage";
+    const action: PromotionAuthorityAction = forcedStatus === "archived" ? "archive" : "publish";
     const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "expectedVersion"], forcedStatus === null ? ["nextStatus"] : [], action);
     const operationId = promotionUuid(raw.operationId), id = promotionUuid(raw.promotionId), expectedVersion = promotionVersion(raw.expectedVersion);
     const nextStatus = forcedStatus ?? raw.nextStatus;
@@ -420,7 +449,7 @@ export class PostgresPromotionRepository implements PromotionRepository {
   archive(input: ArchivePromotionInput): Promise<PromotionMutationResult> { return this.lifecycle(input, "archived"); }
 
   async duplicate(input: DuplicatePromotionInput): Promise<PromotionMutationResult> {
-    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "expectedVersion", "name", "codes"], [], "manage");
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "expectedVersion", "name", "codes"], [], "manage_draft");
     const operationId = promotionUuid(raw.operationId), sourcePromotionId = promotionUuid(raw.promotionId), expectedVersion = promotionVersion(raw.expectedVersion);
     const name = promotionName(raw.name), codes = promotionCodes(raw.codes, 10_000), destinationId = this.generatedId();
     const fingerprint = promotionFingerprint("duplicate", authority.storeId, { sourcePromotionId, expectedVersion, name, codes });
@@ -489,7 +518,7 @@ export class PostgresPromotionRepository implements PromotionRepository {
   }
 
   async createCodeBatch(input: CreatePromotionCodeBatchInput): Promise<PromotionCodeBatchMutationResult> {
-    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "count", "prefix", "codeLength", "perCustomerUsage", "expiresAt"], [], "manage");
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "count", "prefix", "codeLength", "perCustomerUsage", "expiresAt"], [], "publish");
     const operationId = promotionUuid(raw.operationId), promotionId = promotionUuid(raw.promotionId), count = promotionInteger(raw.count, 1, 10_000);
     const prefix = promotionBatchPrefix(raw.prefix), codeLength = promotionInteger(raw.codeLength, 16, 64), perCustomerUsage = promotionInteger(raw.perCustomerUsage, 1, 1_000_000);
     if (codeLength - prefix.length < 16) throw promotionFailure("invalid_input");
@@ -505,7 +534,7 @@ export class PostgresPromotionRepository implements PromotionRepository {
     return Object.freeze({ batch: mutated.value, replayed: mutated.replayed });
   }
   async updateCodeBatchStatus(input: UpdatePromotionCodeBatchStatusInput): Promise<PromotionCodeBatchMutationResult> {
-    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "batchId", "expectedVersion", "nextStatus"], [], "manage");
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "batchId", "expectedVersion", "nextStatus"], [], "publish");
     const operationId = promotionUuid(raw.operationId), batchId = promotionUuid(raw.batchId), expectedVersion = promotionVersion(raw.expectedVersion), nextStatus = promotionBatchStatus(raw.nextStatus);
     const fingerprint = promotionFingerprint("code_batch_status", authority.storeId, { batchId, expectedVersion, nextStatus });
     const mutated = await this.mutate(authority, operationId, "code_batch_status", fingerprint, SQL.batchStatus,
@@ -541,7 +570,7 @@ export class PostgresPromotionRepository implements PromotionRepository {
     }, acceptedFailures("not_found", "projection_unavailable"));
   }
   async exportCodes(input: ExportPromotionCodesInput): Promise<PromotionCodeCsvExport> {
-    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "batchId"], [], "manage");
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "batchId"], [], "export_codes");
     const batchId = promotionUuid(raw.batchId);
     return this.read(SQL.csv, [...authorityValues(authority), batchId], "exported", (value) => {
       try { return parsePromotionCsvExport(value); } catch { throw unavailable(); }
@@ -552,6 +581,24 @@ export class PostgresPromotionRepository implements PromotionRepository {
     return this.read(SQL.analytics, [...authorityValues(authority), promotionId], "listed", (value) => {
       try { return parsePromotionAdminAnalyticsResult(value); } catch { throw unavailable(); }
     }, acceptedFailures("not_found"));
+  }
+  async analyticsDetail(input: Parameters<PromotionRepository["analyticsDetail"]>[0]) {
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "promotionId", "days"]);
+    const promotionId = promotionUuid(raw.promotionId), days = promotionInteger(raw.days, 7, 90);
+    if (days !== 7 && days !== 30 && days !== 90) throw unavailable();
+    return this.read(SQL.analyticsDetail, [...authorityValues(authority), promotionId, days], "listed", (value) => {
+      try { const result = parsePromotionAnalyticsDetailResult(value); if (result.periodDays !== days) throw unavailable(); return result; }
+      catch { throw unavailable(); }
+    }, acceptedFailures("not_found", "projection_unavailable"));
+  }
+  async overview(input: Parameters<PromotionRepository["overview"]>[0]) {
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "days"]);
+    const days = promotionInteger(raw.days, 7, 90);
+    if (days !== 7 && days !== 30 && days !== 90) throw unavailable();
+    return this.read(SQL.overview, [...authorityValues(authority), days], "listed", (value) => {
+      try { const result = parsePromotionOverviewResult(value); if (result.periodDays !== days) throw unavailable(); return result; }
+      catch { throw unavailable(); }
+    }, acceptedFailures("projection_unavailable"));
   }
   async listLegacy(input: ListPromotionLegacyInput): Promise<PromotionLegacyPage> {
     const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "pageSize"], ["cursor"]), pageSize = promotionPageSize(raw.pageSize);
@@ -567,5 +614,18 @@ export class PostgresPromotionRepository implements PromotionRepository {
       if (!page.hasMore) return Object.freeze({ items: page.items, nextCursor: null });
       return Object.freeze({ items: page.items, nextCursor: encodeCursor(authority.storeId, "promotion_legacy", query, { snapshotAt: databaseSnapshot, createdAt: page.cursorAnchor!.createdAt, id: page.cursorAnchor!.id }) });
     }, acceptedFailures("projection_unavailable"));
+  }
+  async resolveLegacy(input: Parameters<PromotionRepository["resolveLegacy"]>[0]): Promise<PromotionLegacyProjection> {
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "legacyRecordId"]);
+    const legacyRecordId = promotionUuid(raw.legacyRecordId);
+    return this.read(SQL.legacyResolve, [...authorityValues(authority), legacyRecordId], "resolved", (value) => {
+      try {
+        const projection = parsePromotionLegacyProjection(value);
+        if (projection.legacyRecordId !== legacyRecordId) throw unavailable();
+        return projection;
+      } catch {
+        throw unavailable();
+      }
+    }, acceptedFailures("not_found"));
   }
 }

@@ -72,6 +72,17 @@ BEGIN
      OR pg_catalog.has_function_privilege('celebix_saas_identity',v_proc,'EXECUTE')
      OR pg_catalog.has_function_privilege('celebix_saas_workflow',v_proc,'EXECUTE')
   THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_PUBLIC_CHECKOUT_QUOTE_V2_INVALID'; END IF;
+  v_proc:=pg_catalog.to_regprocedure('saas.public_promotion_compiled_read_v1(text,timestamp with time zone,text,text)');
+  IF v_proc IS NULL
+     OR (SELECT owner.rolname FROM pg_catalog.pg_proc proc JOIN pg_catalog.pg_roles owner ON owner.oid=proc.proowner WHERE proc.oid=v_proc)<>'celebix_saas_owner'
+     OR (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid=v_proc) IS DISTINCT FROM true
+     OR NOT (SELECT COALESCE(proc.proconfig,'{}'::text[]) @> ARRAY['search_path=pg_catalog, saas'] FROM pg_catalog.pg_proc proc WHERE proc.oid=v_proc)
+     OR NOT pg_catalog.has_function_privilege('celebix_saas_host_resolver',v_proc,'EXECUTE')
+     OR pg_catalog.has_function_privilege('public',v_proc,'EXECUTE')
+     OR pg_catalog.has_function_privilege('celebix_saas_app',v_proc,'EXECUTE')
+     OR pg_catalog.has_function_privilege('celebix_saas_identity',v_proc,'EXECUTE')
+     OR pg_catalog.has_function_privilege('celebix_saas_workflow',v_proc,'EXECUTE')
+  THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_COMPILED_CACHE_RPC_INVALID'; END IF;
   v_proc:=pg_catalog.to_regprocedure('saas.public_checkout_complete_v2(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone,text[])');
   IF v_proc IS NULL
      OR (SELECT owner.rolname FROM pg_catalog.pg_proc proc JOIN pg_catalog.pg_roles owner ON owner.oid=proc.proowner WHERE proc.oid=v_proc)<>'celebix_saas_owner'
@@ -269,7 +280,9 @@ BEGIN
      )
   THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_OPERATION_GROUP_BINDING_INVALID'; END IF;
   IF NOT saas.promotion_rule_document_valid(pg_catalog.jsonb_build_object('schemaVersion',1,'benefit',pg_catalog.jsonb_build_object('kind','free_shipping'),'targets',pg_catalog.jsonb_build_object('mode','all','include','[]'::jsonb,'exclude','[]'::jsonb),'audience',pg_catalog.jsonb_build_object('mode','everyone'),'trigger',pg_catalog.jsonb_build_object('kind','automatic'),'schedule',pg_catalog.jsonb_build_object('timezone','Europe/Istanbul'),'limits',pg_catalog.jsonb_build_object('totalUsage',NULL,'perCustomerUsage',NULL,'budgetMinor',NULL,'orderMaximumMinor',NULL),'conditions',pg_catalog.jsonb_build_object('minimumBasketMinor',0,'minimumQuantity',0,'minimumProductQuantity',0),'combinationPolicy',pg_catalog.jsonb_build_object('kind','none'),'priority',0,'marginPolicy',pg_catalog.jsonb_build_object('kind','warn'),'progressMessagePolicy',pg_catalog.jsonb_build_object('enabled',false))) THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_RULE_VALIDATOR_INVALID'; END IF;
-  IF pg_catalog.to_regprocedure('saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NULL
+  IF pg_catalog.to_regprocedure('saas.promotion_store_timezone_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_storefront_origin_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,integer,text)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,integer,text,integer,integer,timestamp with time zone)') IS NULL
@@ -279,7 +292,10 @@ BEGIN
      OR pg_catalog.to_regprocedure('saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_legacy_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_analytics_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_overview_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_commit_reservation_v1(uuid,uuid,uuid,uuid,uuid,bigint,text,timestamp with time zone)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_release_reservation_v1(uuid,uuid,uuid,timestamp with time zone)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)') IS NULL
@@ -290,6 +306,8 @@ BEGIN
      OR pg_catalog.to_regprocedure('saas.promotion_captured_unit_refund_minor_v1(uuid,uuid,uuid,jsonb,jsonb,bigint,bigint)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_expire_due_reservations_v1(timestamp with time zone,integer)') IS NULL THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_RPC_SURFACE_INVALID'; END IF;
   FOREACH v_table IN ARRAY ARRAY[
+    'saas.promotion_store_timezone_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)',
+    'saas.promotion_storefront_origin_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)',
     'saas.promotion_duplicate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text[])',
     'saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],integer)',
     'saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],text[],text[],text[],timestamp with time zone,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)',
@@ -306,8 +324,11 @@ BEGIN
     'saas.promotion_code_batch_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer,timestamp with time zone,timestamp with time zone,uuid)',
     'saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
     'saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+    'saas.promotion_analytics_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer)',
+    'saas.promotion_overview_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer)',
     'saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)',
     'saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)',
+    'saas.promotion_legacy_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
     'saas.promotion_picker_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,integer,text,uuid)',
     'saas.promotion_picker_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])'
   ] LOOP

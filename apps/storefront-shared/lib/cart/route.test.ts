@@ -242,8 +242,10 @@ test("cart mutation requires exact same-origin authority and sets credential onl
 
 test("quote route forwards only canonical promotion codes and exposes no authority digest", async () => {
   let observed: readonly unknown[] | undefined;
+  let warmed = "";
   const handler = createCheckoutQuoteRoute({
     selectAuthority: trusted,
+    warmPromotions: async (hostname) => { warmed = hostname; throw new Error("redis and advisory loader unavailable"); },
     resolveRuntime: async () => ({
       ...baseRuntime,
       quote: async (...input: readonly unknown[]) => {
@@ -259,6 +261,7 @@ test("quote route forwards only canonical promotion codes and exposes no authori
   }));
 
   assert.equal(response.status, 200);
+  assert.equal(warmed, HOST);
   assert.deepEqual(observed, [HOST, null, "cart", undefined, ["VIP", "YUZDE10"]]);
   assert.deepEqual(await response.json(), { quote: QUOTE_V2 });
   assert.equal(response.headers.get("cache-control"), "no-store");

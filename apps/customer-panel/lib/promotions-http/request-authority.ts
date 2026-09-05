@@ -17,11 +17,13 @@ export type PromotionRoute =
   | Readonly<{ kind: "publish" | "pause" | "resume" | "duplicate" | "archive"; method: "POST"; pathname: string; promotionId: string }>
   | Readonly<{ kind: "simulate" | "conflicts" | "margin" | "target_resolve"; method: "POST"; pathname: string }>
   | Readonly<{ kind: "target_list" | "legacy"; method: "GET"; pathname: string }>
+  | Readonly<{ kind: "legacy_resolve"; method: "GET"; pathname: string; legacyRecordId: string }>
   | Readonly<{ kind: "code_batch_list"; method: "GET"; pathname: string; promotionId: string }>
   | Readonly<{ kind: "code_batch_create"; method: "POST"; pathname: string; promotionId: string }>
   | Readonly<{ kind: "code_batch_status"; method: "POST"; pathname: string; batchId: string }>
   | Readonly<{ kind: "code_batch_csv"; method: "GET"; pathname: string; batchId: string }>
-  | Readonly<{ kind: "analytics"; method: "GET"; pathname: string; promotionId: string }>;
+  | Readonly<{ kind: "analytics"; method: "GET"; pathname: string; promotionId: string }>
+  | Readonly<{ kind: "overview"; method: "GET"; pathname: "/api/promotions/overview" }>;
 
 export type PromotionRouteDecision =
   | Readonly<{ kind: "approved"; route: PromotionRoute }>
@@ -74,14 +76,19 @@ function selectRoute(pathname: string, method: string): PromotionRouteDecision {
     allow = "POST"; selected = { kind: "target_resolve", method: "POST", pathname };
   } else if (pathname === "/api/promotions/legacy") {
     allow = "GET"; selected = { kind: "legacy", method: "GET", pathname };
+  } else if (pathname === "/api/promotions/overview") {
+    allow = "GET"; selected = { kind: "overview", method: "GET", pathname };
   } else {
     const batchStatus = new RegExp(`^/api/promotions/code-batches/(${UUID})/status$`).exec(pathname);
     const batchCsv = new RegExp(`^/api/promotions/code-batches/(${UUID})/csv$`).exec(pathname);
     const batchCollection = new RegExp(`^/api/promotions/(${UUID})/code-batches$`).exec(pathname);
+    const legacyResolve = new RegExp(`^/api/promotions/legacy/(${UUID})$`).exec(pathname);
     const action = new RegExp(`^/api/promotions/(${UUID})/(publish|pause|resume|duplicate|archive)$`).exec(pathname);
     const analytics = new RegExp(`^/api/promotions/(${UUID})/analytics$`).exec(pathname);
     const detail = new RegExp(`^/api/promotions/(${UUID})$`).exec(pathname);
-    if (batchStatus) {
+    if (legacyResolve) {
+      allow = "GET"; selected = { kind: "legacy_resolve", method: "GET", pathname, legacyRecordId: legacyResolve[1]! };
+    } else if (batchStatus) {
       allow = "POST"; selected = { kind: "code_batch_status", method: "POST", pathname, batchId: batchStatus[1]! };
     } else if (batchCsv) {
       allow = "GET"; selected = { kind: "code_batch_csv", method: "GET", pathname, batchId: batchCsv[1]! };

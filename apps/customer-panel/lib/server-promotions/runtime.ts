@@ -15,9 +15,9 @@ export type ServerPromotionsRuntime = Readonly<{
 }>;
 
 const METHODS = Object.freeze([
-  "list", "detail", "create", "update", "publish", "pause", "resume", "duplicate", "archive",
+  "timezone", "storefrontOrigin", "list", "detail", "create", "update", "publish", "pause", "resume", "duplicate", "archive",
   "simulate", "conflicts", "margin", "listTargets", "resolveTargets", "createCodeBatch",
-  "updateCodeBatchStatus", "listCodeBatches", "exportCodes", "analytics", "listLegacy",
+  "updateCodeBatchStatus", "listCodeBatches", "exportCodes", "analytics", "analyticsDetail", "overview", "listLegacy", "resolveLegacy",
 ] as const);
 const repositories = new WeakMap<ServerPanelAccessRuntime, PromotionRepository>();
 

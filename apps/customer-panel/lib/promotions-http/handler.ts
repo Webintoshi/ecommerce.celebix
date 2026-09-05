@@ -1,6 +1,6 @@
 import {
   isMerchantActionAllowed,
-  parsePromotionAdminAnalyticsResult,
+  parsePromotionAnalyticsDetailResult,
   parsePromotionAdminListItem,
   parsePromotionCodeBatch,
   parsePromotionCodeBatchListItem,
@@ -10,10 +10,12 @@ import {
   parsePromotionDetail,
   parsePromotionMarginCheck,
   parsePromotionMutationEnvelope,
+  parsePromotionOverviewResult,
   parsePromotionLegacyProjection,
   parsePromotionPickerResolve,
   parsePromotionSimulatorResponse,
   type PromotionAdminListQuery,
+  type PromotionAnalyticsQuery,
   type PromotionBatchCreateRequest,
   type PromotionBatchStatusRequest,
   type PromotionCheckRequest,
@@ -26,6 +28,7 @@ import {
   type PromotionTargetResolveRequest,
   type PromotionUpdateRequest,
   type PromotionVersionRequest,
+  type MerchantAction,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import { promotionRepositoryError } from "@celebix/saas-data";
@@ -82,21 +85,23 @@ function accessFailure(result: Exclude<ServerPanelAccessResult, { kind: "authent
   return unavailable();
 }
 
-function requiredAction(route: PromotionRoute): "read" | "manage" | "archive" {
-  if (route.kind === "archive") return "archive";
+function requiredAction(route: PromotionRoute): MerchantAction {
+  if (route.kind === "archive") return "promotions.archive";
   switch (route.kind) {
     case "create":
     case "update":
+    case "duplicate":
+      return "promotions.manage_draft";
     case "publish":
     case "pause":
     case "resume":
-    case "duplicate":
     case "code_batch_create":
     case "code_batch_status":
+      return "promotions.publish";
     case "code_batch_csv":
-      return "manage";
+      return "promotions.export_codes";
     default:
-      return "read";
+      return "promotions.read";
   }
 }
 
@@ -145,7 +150,7 @@ async function authorize(
     if (tenant.entitlements.status !== "active" || !tenant.entitlements.features.some((feature) => feature === "promotions")) {
       return error("feature_not_enabled", 403);
     }
-    if (!isMerchantActionAllowed(tenant.membership.role, `promotions.${requiredAction(route)}`)) {
+    if (!isMerchantActionAllowed(tenant.membership.role, requiredAction(route))) {
       return error("membership_denied", 403);
     }
     return Object.freeze({ runtime, tenantContext: tenant, now: new Date(Date.prototype.getTime.call(now)) });
@@ -255,10 +260,33 @@ function targetId(route: PromotionRoute, input: ParsedInput): string | undefined
   return undefined;
 }
 
+const DURABLE_ROUTES = new Set(["create", "update", "publish", "pause", "resume", "duplicate", "archive", "code_batch_create", "code_batch_status"]);
+const FAILURE_ROUTES: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
+  resource_not_found: new Set(["detail", "update", "publish", "pause", "resume", "duplicate", "archive", "simulate", "conflicts", "margin", "code_batch_list", "code_batch_create", "code_batch_status", "code_batch_csv", "analytics", "legacy_resolve"]),
+  invalid_reference: new Set(["create", "update", "publish", "resume", "duplicate", "simulate"]),
+  code_conflict: new Set(["create", "update", "duplicate", "code_batch_create"]),
+  active_code_batches: new Set(["update"]),
+  invalid_transition: new Set(["update", "publish", "pause", "resume", "archive", "code_batch_status"]),
+  promotion_limit_reached: new Set(["publish", "resume"]),
+  conflict: new Set(["create", "duplicate"]),
+  version_conflict: new Set(["update", "publish", "pause", "resume", "duplicate", "archive", "simulate", "conflicts", "margin", "code_batch_status"]),
+  publish_blocked: new Set(["update", "publish", "resume"]),
+});
+function failureAllowed(route: PromotionRoute, code: string): boolean {
+  if (["invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled"].includes(code)) return true;
+  if (code === "idempotency_mismatch") return DURABLE_ROUTES.has(route.kind);
+  return FAILURE_ROUTES[code]?.has(route.kind) === true;
+}
+function expectedConflictVersion(input: ParsedInput): number | null {
+  const value = "value" in input ? input.value as { expectedVersion?: unknown } : undefined;
+  return typeof value?.expectedVersion === "number" ? value.expectedVersion : null;
+}
+
 function repositoryFailure(caught: unknown, route: PromotionRoute, input: ParsedInput): Response {
   try {
     const failure = promotionRepositoryError(caught);
     if (failure === undefined) return unavailable();
+    if (!failureAllowed(route, failure.code)) return unavailable();
     switch (failure.code) {
       case "invalid_input": return error("invalid_input", 400);
       case "unauthenticated": return error("unauthenticated", 401);
@@ -278,14 +306,16 @@ function repositoryFailure(caught: unknown, route: PromotionRoute, input: Parsed
         if (expectedId === undefined) return unavailable();
         if (route.kind === "code_batch_status") {
           const current = parsePromotionCodeBatch(failure.current);
-          return current.id === expectedId ? json({ code: "version_conflict", current }, 409) : unavailable();
+          const expectedVersion = expectedConflictVersion(input);
+          return current.id === expectedId && expectedVersion !== null && current.version > expectedVersion ? json({ code: "version_conflict", current }, 409) : unavailable();
         }
         const current = parsePromotionDetail(failure.current);
-        return current.id === expectedId ? json({ code: "version_conflict", current }, 409) : unavailable();
+        const expectedVersion = expectedConflictVersion(input);
+        return current.id === expectedId && expectedVersion !== null && current.version > expectedVersion ? json({ code: "version_conflict", current }, 409) : unavailable();
       }
       case "publish_blocked": {
         const readiness = parsePromotionConflictCheck(failure.readiness);
-        return json({ code: "publish_blocked", readiness }, 409);
+        return readiness.blocking ? json({ code: "publish_blocked", readiness }, 409) : unavailable();
       }
       default:
         return unavailable();
@@ -343,7 +373,7 @@ function batchMutation(
   return parsed;
 }
 
-function getValue(input: ParsedInput): PromotionAdminListQuery | PromotionTargetListQuery | PromotionPageQuery | undefined {
+function getValue(input: ParsedInput): PromotionAdminListQuery | PromotionTargetListQuery | PromotionPageQuery | PromotionAnalyticsQuery | undefined {
   return (input as PromotionGetInput).value;
 }
 
@@ -439,12 +469,20 @@ async function dispatch(route: PromotionRoute, input: ParsedInput, authorized: A
     }
     case "code_batch_csv":
       return execute(route, input, () => repository.exportCodes({ ...authority, batchId: route.batchId }), csv);
-    case "analytics":
-      return execute(route, input, () => repository.analytics({ ...authority, promotionId: route.promotionId }), (result) => json(parsePromotionAdminAnalyticsResult(result)));
+    case "analytics": {
+      const query = getValue(input) as PromotionAnalyticsQuery;
+      return execute(route, input, () => repository.analyticsDetail({ ...authority, promotionId: route.promotionId, ...query }), (result) => json(parsePromotionAnalyticsDetailResult(result)));
+    }
+    case "overview": {
+      const query = getValue(input) as PromotionAnalyticsQuery;
+      return execute(route, input, () => repository.overview({ ...authority, ...query }), (result) => json(parsePromotionOverviewResult(result)));
+    }
     case "legacy": {
       const { limit, ...query } = getValue(input) as PromotionPageQuery;
       return execute(route, input, () => repository.listLegacy({ ...authority, ...query, pageSize: limit }), (result) => json(publicLegacyList(result, limit)));
     }
+    case "legacy_resolve":
+      return execute(route, input, () => repository.resolveLegacy({ ...authority, legacyRecordId: route.legacyRecordId }), (result) => json(parsePromotionLegacyProjection(result)));
   }
 }
 

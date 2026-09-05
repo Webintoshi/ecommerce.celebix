@@ -5,6 +5,7 @@ import {
   parsePromotionEvaluatorContext,
   parsePromotionRuleDocument,
   type PromotionEvaluatorContext,
+  isMerchantActionAllowed,
   type PromotionRuleDocument,
   type StoreMembershipRole,
   type TenantContext,
@@ -89,7 +90,7 @@ function promotionFailureCode(value: unknown): boolean { return promotionReposit
 export interface ValidatedPromotionAuthority extends ValidatedOrderAuthority {
   readonly role: StoreMembershipRole;
 }
-export type PromotionAuthorityAction = "read" | "manage" | "archive";
+export type PromotionAuthorityAction = "read" | "manage" | "manage_draft" | "publish" | "export_codes" | "archive";
 
 export function promotionAuthority(context: TenantContext, now: Date, action: PromotionAuthorityAction = "read"): ValidatedPromotionAuthority {
   try {
@@ -99,7 +100,7 @@ export function promotionAuthority(context: TenantContext, now: Date, action: Pr
     if (!Number.isFinite(milliseconds)) fail("durable_authority_invalid");
     const authority = merchantAuthority(safeContext, new Date(milliseconds), "promotions");
     const role = safeContext.membership.role;
-    if (action !== "read" && role !== "store_owner" && role !== "admin") fail("membership_denied");
+    if (!isMerchantActionAllowed(role, `promotions.${action}`)) fail("membership_denied");
     return Object.freeze({ ...authority, role });
   } catch (error) {
     if (promotionFailureCode(error)) throw error;

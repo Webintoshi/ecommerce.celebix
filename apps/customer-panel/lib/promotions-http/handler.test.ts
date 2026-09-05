@@ -76,11 +76,13 @@ const simulation = () => ({
 const clearConflict = () => ({ blocking: false as const, findings: [] });
 const clearMargin = () => ({ blocking: false as const, status: "clear" as const, summary: { evaluatedVariantCount: 0, knownCostVariantCount: 0, unknownCostVariantCount: 0, atRiskVariantCount: 0 }, findings: [] });
 const picker = () => ({ kind: "product" as const, id: PROMOTION, label: "Atlas", status: "active" as const });
+const overview = () => ({ periodDays: 30 as const, activePromotions: 0, currencies: [] });
+const analyticsDetail = () => ({ periodDays: 30 as const, currencies: [], attribution: [], topProducts: [], topCategories: [] });
 
 const METHODS = [
   "list", "detail", "create", "update", "publish", "pause", "resume", "duplicate", "archive",
   "simulate", "conflicts", "margin", "listTargets", "resolveTargets", "listCodeBatches",
-  "createCodeBatch", "updateCodeBatchStatus", "exportCodes", "analytics", "listLegacy",
+  "createCodeBatch", "updateCodeBatchStatus", "exportCodes", "analyticsDetail", "overview", "listLegacy", "resolveLegacy",
 ] as const;
 
 function repository(overrides: Partial<PromotionRepository> = {}): PromotionRepository {
@@ -108,8 +110,10 @@ function successfulRepository(called: (method: string) => void = () => undefined
     async updateCodeBatchStatus() { called("updateCodeBatchStatus"); return { batch: { ...batch(), version: 2, status: "paused" }, replayed: false }; },
     async listCodeBatches() { called("listCodeBatches"); return { items: [], nextCursor: null }; },
     async exportCodes() { called("exportCodes"); return { rows: [{ code: "VIP_ABC", status: "active" }] }; },
-    async analytics() { called("analytics"); return { items: [] }; },
+    async analyticsDetail() { called("analyticsDetail"); return analyticsDetail(); },
+    async overview() { called("overview"); return overview(); },
     async listLegacy() { called("listLegacy"); return { items: [], nextCursor: null }; },
+    async resolveLegacy() { called("resolveLegacy"); return { legacyRecordId: PROMOTION, promotionId: null, reason: "invalid_code" }; },
   });
 }
 
@@ -182,8 +186,10 @@ test("the finite REST matrix calls every repository method with only server-deri
     async updateCodeBatchStatus(input) { capture("updateCodeBatchStatus", input); return { batch: { ...batch(), version: 2, status: "paused" }, replayed: false }; },
     async listCodeBatches(input) { capture("listCodeBatches", input); return { items: [], nextCursor: null }; },
     async exportCodes(input) { capture("exportCodes", input); return { rows: [{ code: "VIP_ABC", status: "active" }] }; },
-    async analytics(input) { capture("analytics", input); return { items: [] }; },
+    async analyticsDetail(input) { capture("analyticsDetail", input); return analyticsDetail(); },
+    async overview(input) { capture("overview", input); return overview(); },
     async listLegacy(input) { capture("listLegacy", input); return { items: [], nextCursor: null }; },
+    async resolveLegacy(input) { capture("resolveLegacy", input); return { legacyRecordId: PROMOTION, promotionId: null, reason: "invalid_code" }; },
   });
   const handle = handler(promotions);
   const cases: readonly (readonly [string, string, unknown, number])[] = [
@@ -205,8 +211,10 @@ test("the finite REST matrix calls every repository method with only server-deri
     ["POST", `/api/promotions/${PROMOTION}/code-batches`, { count: 1, prefix: "VIP_", codeLength: 24, perCustomerUsage: 1, expiresAt: null }, 201],
     ["POST", `/api/promotions/code-batches/${BATCH}/status`, { expectedVersion: 1, nextStatus: "paused" }, 200],
     ["GET", `/api/promotions/code-batches/${BATCH}/csv`, undefined, 200],
-    ["GET", `/api/promotions/${PROMOTION}/analytics`, undefined, 200],
+    ["GET", `/api/promotions/${PROMOTION}/analytics?days=30`, undefined, 200],
+    ["GET", "/api/promotions/overview?days=30", undefined, 200],
     ["GET", "/api/promotions/legacy?limit=20&cursor=abc", undefined, 200],
+    ["GET", `/api/promotions/legacy/${PROMOTION}`, undefined, 200],
   ];
   for (const [method, path, body, status] of cases) {
     const response = await handle(request(path, { method, body }));
@@ -259,8 +267,10 @@ test("the finite REST matrix calls every repository method with only server-deri
     createCodeBatch: { operationId: OPERATION, promotionId: PROMOTION, count: 1, prefix: "VIP_", codeLength: 24, perCustomerUsage: 1, expiresAt: null },
     updateCodeBatchStatus: { operationId: OPERATION, batchId: BATCH, expectedVersion: 1, nextStatus: "paused" },
     exportCodes: { batchId: BATCH },
-    analytics: { promotionId: PROMOTION },
+    analyticsDetail: { promotionId: PROMOTION, days: 30 },
+    overview: { days: 30 },
     listLegacy: { pageSize: 20, cursor: "abc" },
+    resolveLegacy: { legacyRecordId: PROMOTION },
   });
 });
 
@@ -308,8 +318,10 @@ test("read and check responses expose only their exact public envelopes", async 
     [request("/api/promotions/targets?kind=product"), { items: [], nextCursor: null }],
     [request("/api/promotions/targets/resolve", { method: "POST", body: { kind: "product", ids: [PROMOTION] } }), { items: [] }],
     [request(`/api/promotions/${PROMOTION}/code-batches`), { items: [], nextCursor: null }],
-    [request(`/api/promotions/${PROMOTION}/analytics`), { items: [] }],
+    [request(`/api/promotions/${PROMOTION}/analytics?days=30`), analyticsDetail()],
+    [request("/api/promotions/overview?days=30"), overview()],
     [request("/api/promotions/legacy"), { items: [], nextCursor: null }],
+    [request(`/api/promotions/legacy/${PROMOTION}`), { legacyRecordId: PROMOTION, promotionId: null, reason: "invalid_code" }],
   ] as const) {
     const response = await handle(candidate);
     assert.equal(response.status, 200);
@@ -327,8 +339,10 @@ test("malformed or extra repository success projections fail closed before seria
     [request("/api/promotions/targets?kind=product"), { async listTargets() { return { items: [{ ...picker(), status: "unavailable" }], nextCursor: null } as never; } }],
     [request("/api/promotions/targets/resolve", { method: "POST", body: { kind: "product", ids: [PROMOTION] } }), { async resolveTargets() { return [{ ...picker(), kind: "variant" }] as never; } }],
     [request(`/api/promotions/${PROMOTION}/code-batches`), { async listCodeBatches() { return { items: [], nextCursor: null, private: STORE } as never; } }],
-    [request(`/api/promotions/${PROMOTION}/analytics`), { async analytics() { return { items: [], private: STORE } as never; } }],
+    [request(`/api/promotions/${PROMOTION}/analytics?days=30`), { async analyticsDetail() { return { ...analyticsDetail(), private: STORE } as never; } }],
+    [request("/api/promotions/overview?days=30"), { async overview() { return { ...overview(), private: STORE } as never; } }],
     [request("/api/promotions/legacy"), { async listLegacy() { return { items: [], nextCursor: null, private: STORE } as never; } }],
+    [request(`/api/promotions/legacy/${PROMOTION}`), { async resolveLegacy() { return { legacyRecordId: PROMOTION, promotionId: null, reason: "invalid_code", private: STORE } as never; } }],
   ];
   for (const [candidate, override] of cases) {
     const response = await handler(repository(override))(candidate);
@@ -367,9 +381,9 @@ test("promotion role and feature gates reject before repository access", async (
     }), { role });
     assert.equal((await handle(request("/api/promotions"))).status, 200, `${role}:read`);
     assert.equal((await handle(request("/api/promotions/simulate", { method: "POST", body: { promotionId: PROMOTION, expectedVersion: null, name: "Taslak", ruleDocument: RULE, context: PUBLIC_CONTEXT } }))).status, 200, `${role}:simulate`);
-    assert.equal((await handle(request("/api/promotions", { method: "POST", body: { name: "Atlas", ruleDocument: RULE } }))).status, 403, `${role}:manage`);
+    assert.equal((await handle(request("/api/promotions", { method: "POST", body: { name: "Atlas", ruleDocument: RULE } }))).status, role === "editor" ? 201 : 403, `${role}:draft`);
     assert.equal((await handle(request(`/api/promotions/${PROMOTION}/archive`, { method: "POST", body: { expectedVersion: 1 } }))).status, 403, `${role}:archive`);
-    assert.equal(calls, 2);
+    assert.equal(calls, role === "editor" ? 3 : 2);
   }
   let featureCalls = 0;
   const noFeature = handler(repository({ async list() { featureCalls += 1; return { items: [], nextCursor: null }; } }), { feature: false });
@@ -398,16 +412,20 @@ test("editor and analyst route permissions cover every read family and deny ever
     request("/api/promotions/targets?kind=product"),
     request("/api/promotions/targets/resolve", { method: "POST", body: { kind: "product", ids: [PROMOTION] } }),
     request(`/api/promotions/${PROMOTION}/code-batches`),
-    request(`/api/promotions/${PROMOTION}/analytics`),
+    request(`/api/promotions/${PROMOTION}/analytics?days=30`),
+    request("/api/promotions/overview?days=30"),
     request("/api/promotions/legacy"),
+    request(`/api/promotions/legacy/${PROMOTION}`),
   ];
-  const manageCases = [
+  const draftCases = [
     request("/api/promotions", { method: "POST", body: { name: "Atlas", ruleDocument: RULE } }),
     request(`/api/promotions/${PROMOTION}`, { method: "PATCH", body: { expectedVersion: 1, name: "Atlas", ruleDocument: RULE } }),
+    request(`/api/promotions/${PROMOTION}/duplicate`, { method: "POST", body: { expectedVersion: 1, name: "Kopya", codes: [] } }),
+  ];
+  const privilegedCases = [
     request(`/api/promotions/${PROMOTION}/publish`, { method: "POST", body: { expectedVersion: 1, nextStatus: "active" } }),
     request(`/api/promotions/${PROMOTION}/pause`, { method: "POST", body: { expectedVersion: 1 } }),
     request(`/api/promotions/${PROMOTION}/resume`, { method: "POST", body: { expectedVersion: 1, nextStatus: "scheduled" } }),
-    request(`/api/promotions/${PROMOTION}/duplicate`, { method: "POST", body: { expectedVersion: 1, name: "Kopya", codes: [] } }),
     request(`/api/promotions/${PROMOTION}/archive`, { method: "POST", body: { expectedVersion: 1 } }),
     request(`/api/promotions/${PROMOTION}/code-batches`, { method: "POST", body: { count: 1, prefix: "VIP_", codeLength: 24, perCustomerUsage: 1, expiresAt: null } }),
     request(`/api/promotions/code-batches/${BATCH}/status`, { method: "POST", body: { expectedVersion: 1, nextStatus: "paused" } }),
@@ -418,16 +436,17 @@ test("editor and analyst route permissions cover every read family and deny ever
     const handle = handler(successfulRepository(() => { calls += 1; }), { role });
     for (const candidate of readCases) assert.equal((await handle(candidate.clone())).status, 200, `${role}:${candidate.url}`);
     assert.equal(calls, readCases.length);
-    for (const candidate of manageCases) assert.equal((await handle(candidate.clone())).status, 403, `${role}:${candidate.url}`);
-    assert.equal(calls, readCases.length);
+    for (const candidate of draftCases) assert.equal((await handle(candidate.clone())).status, role === "editor" ? (candidate.method === "POST" ? 201 : 200) : 403, `${role}:${candidate.url}`);
+    for (const candidate of privilegedCases) assert.equal((await handle(candidate.clone())).status, 403, `${role}:${candidate.url}`);
+    assert.equal(calls, readCases.length + (role === "editor" ? draftCases.length : 0));
   }
   for (const role of ["store_owner", "admin"] as const) {
     let calls = 0;
     const handle = handler(successfulRepository(() => { calls += 1; }), { role });
-    for (const candidate of [...readCases, ...manageCases]) {
+    for (const candidate of [...readCases, ...draftCases, ...privilegedCases]) {
       assert.ok([200, 201].includes((await handle(candidate.clone())).status), `${role}:${candidate.url}`);
     }
-    assert.equal(calls, readCases.length + manageCases.length);
+    assert.equal(calls, readCases.length + draftCases.length + privilegedCases.length);
   }
 });
 
@@ -518,29 +537,40 @@ test("access resolution receives only the exact Host, cookie credential, request
 
 test("typed repository failures map to exact safe HTTP envelopes", async () => {
   const readiness = { blocking: true as const, findings: [{ code: "schedule_ended" as const, severity: "blocking" as const, relatedPromotionId: null, relatedPromotionName: null }] };
-  for (const [caught, expectedStatus, expected] of [
-    [promotionFailure("invalid_input"), 400, { code: "invalid_input" }],
-    [promotionFailure("unauthenticated"), 401, { code: "unauthenticated" }],
-    [promotionFailure("membership_denied"), 403, { code: "membership_denied" }],
-    [promotionFailure("store_inactive"), 403, { code: "store_inactive" }],
-    [promotionFailure("feature_not_enabled"), 403, { code: "feature_not_enabled" }],
-    [promotionFailure("resource_not_found"), 404, { code: "not_found" }],
-    [promotionFailure("idempotency_mismatch"), 409, { code: "operation_mismatch" }],
-    [promotionFailure("conflict"), 409, { code: "conflict" }],
-    [promotionFailure("invalid_reference"), 409, { code: "invalid_reference" }],
-    [promotionFailure("code_conflict"), 409, { code: "code_conflict" }],
-    [promotionFailure("active_code_batches"), 409, { code: "active_code_batches" }],
-    [promotionFailure("invalid_transition"), 409, { code: "invalid_transition" }],
-    [promotionFailure("promotion_limit_reached"), 409, { code: "promotion_limit_reached" }],
-    [promotionFailure("version_conflict", { current: detail() }), 409, { code: "version_conflict", current: detail() }],
-    [promotionFailure("publish_blocked", { readiness }), 409, { code: "publish_blocked", readiness }],
-    [promotionFailure("unavailable"), 503, { code: "promotion_unavailable" }],
-    [promotionFailure("durable_authority_invalid"), 503, { code: "promotion_unavailable" }],
-    [promotionFailure("projection_unavailable"), 503, { code: "promotion_unavailable" }],
-    [promotionFailure("operation_result_invalid"), 503, { code: "promotion_unavailable" }],
-    [new Error(`SELECT private FROM ${STORE}`), 503, { code: "promotion_unavailable" }],
-  ] as const) {
-    const response = await handler(repository({ async detail() { throw caught; } }))(request(`/api/promotions/${PROMOTION}`));
+  const updateRequest = () => request(`/api/promotions/${PROMOTION}`, { method: "PATCH", body: { expectedVersion: 1, name: "Atlas", ruleDocument: RULE } });
+  const createRequest = () => request("/api/promotions", { method: "POST", body: { name: "Atlas", ruleDocument: RULE } });
+  const publishRequest = () => request(`/api/promotions/${PROMOTION}/publish`, { method: "POST", body: { expectedVersion: 1, nextStatus: "active" } });
+  const current = { ...detail(), version: 2 };
+  const cases: readonly Readonly<{
+    caught: unknown;
+    expectedStatus: number;
+    expected: unknown;
+    candidate: Request;
+    overrides: Partial<PromotionRepository>;
+  }>[] = [
+    { caught: promotionFailure("invalid_input"), expectedStatus: 400, expected: { code: "invalid_input" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("unauthenticated"), expectedStatus: 401, expected: { code: "unauthenticated" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("membership_denied"), expectedStatus: 403, expected: { code: "membership_denied" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("store_inactive"), expectedStatus: 403, expected: { code: "store_inactive" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("feature_not_enabled"), expectedStatus: 403, expected: { code: "feature_not_enabled" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("resource_not_found"), expectedStatus: 404, expected: { code: "not_found" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("idempotency_mismatch"), expectedStatus: 409, expected: { code: "operation_mismatch" }, candidate: createRequest(), overrides: { async create() { throw promotionFailure("idempotency_mismatch"); } } },
+    { caught: promotionFailure("conflict"), expectedStatus: 409, expected: { code: "conflict" }, candidate: createRequest(), overrides: { async create() { throw promotionFailure("conflict"); } } },
+    { caught: promotionFailure("invalid_reference"), expectedStatus: 409, expected: { code: "invalid_reference" }, candidate: createRequest(), overrides: { async create() { throw promotionFailure("invalid_reference"); } } },
+    { caught: promotionFailure("code_conflict"), expectedStatus: 409, expected: { code: "code_conflict" }, candidate: createRequest(), overrides: { async create() { throw promotionFailure("code_conflict"); } } },
+    { caught: promotionFailure("active_code_batches"), expectedStatus: 409, expected: { code: "active_code_batches" }, candidate: updateRequest(), overrides: { async update() { throw promotionFailure("active_code_batches"); } } },
+    { caught: promotionFailure("invalid_transition"), expectedStatus: 409, expected: { code: "invalid_transition" }, candidate: updateRequest(), overrides: { async update() { throw promotionFailure("invalid_transition"); } } },
+    { caught: promotionFailure("promotion_limit_reached"), expectedStatus: 409, expected: { code: "promotion_limit_reached" }, candidate: publishRequest(), overrides: { async publish() { throw promotionFailure("promotion_limit_reached"); } } },
+    { caught: promotionFailure("version_conflict", { current }), expectedStatus: 409, expected: { code: "version_conflict", current }, candidate: updateRequest(), overrides: { async update() { throw promotionFailure("version_conflict", { current }); } } },
+    { caught: promotionFailure("publish_blocked", { readiness }), expectedStatus: 409, expected: { code: "publish_blocked", readiness }, candidate: publishRequest(), overrides: { async publish() { throw promotionFailure("publish_blocked", { readiness }); } } },
+    { caught: promotionFailure("unavailable"), expectedStatus: 503, expected: { code: "promotion_unavailable" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("durable_authority_invalid"), expectedStatus: 503, expected: { code: "promotion_unavailable" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("projection_unavailable"), expectedStatus: 503, expected: { code: "promotion_unavailable" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: promotionFailure("operation_result_invalid"), expectedStatus: 503, expected: { code: "promotion_unavailable" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+    { caught: new Error(`SELECT private FROM ${STORE}`), expectedStatus: 503, expected: { code: "promotion_unavailable" }, candidate: request(`/api/promotions/${PROMOTION}`), overrides: {} },
+  ];
+  for (const { caught, expectedStatus, expected, candidate, overrides } of cases) {
+    const response = await handler(repository(Object.keys(overrides).length === 0 ? { async detail() { throw caught; } } : overrides))(candidate);
     assert.equal(response.status, expectedStatus);
     const value = await response.json();
     assert.deepEqual(value, expected);
@@ -561,9 +591,10 @@ test("malformed trusted conflict payloads fail closed and cross-tenant misses st
 });
 
 test("version conflicts preserve a batch current projection without exposing technical detail", async () => {
-  const response = await handler(repository({ async updateCodeBatchStatus() { throw promotionFailure("version_conflict", { current: batch() }); } }))(request(`/api/promotions/code-batches/${BATCH}/status`, { method: "POST", body: { expectedVersion: 1, nextStatus: "paused" } }));
+  const current = { ...batch(), version: 2 };
+  const response = await handler(repository({ async updateCodeBatchStatus() { throw promotionFailure("version_conflict", { current }); } }))(request(`/api/promotions/code-batches/${BATCH}/status`, { method: "POST", body: { expectedVersion: 1, nextStatus: "paused" } }));
   assert.equal(response.status, 409);
-  assert.deepEqual(await response.json(), { code: "version_conflict", current: batch() });
+  assert.deepEqual(await response.json(), { code: "version_conflict", current });
 });
 
 test("version conflict details reject the wrong resource family and valid cross-resource identities", async () => {

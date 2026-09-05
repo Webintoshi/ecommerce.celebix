@@ -666,6 +666,9 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   assert.match(publicRuntime, /row[.]migration_071 !== true/);
   assert.match(publicRuntime, /AS migration_103/);
   assert.match(publicRuntime, /row[.]migration_103 !== true/);
+  assert.match(publicRuntime, /public_promotion_compiled_read_v1\(text,timestamp with time zone,text,text\)/);
+  assert.match(publicRuntime, /AS migration_126/);
+  assert.match(publicRuntime, /row[.]migration_126 !== true/);
   assert.match(publicRuntime, /public_cart_mutate\(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb\)/);
   assert.match(publicRuntime, /public_cart_mutate_without_customer_identity_v103/);
   assert.match(publicRuntime, /abandoned_carts_projection/);

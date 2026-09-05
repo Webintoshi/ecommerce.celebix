@@ -24,6 +24,7 @@ import {
 
 type Dependencies = Readonly<{
   selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
+  warmPromotions?(hostname: string): Promise<void>;
   resolveRuntime(): Promise<Pick<
     StorefrontCommerceRuntime,
     "resolveCart" | "mutateCart" | "quote" | "complete"
@@ -273,6 +274,7 @@ export function createCheckoutQuoteRoute(dependencies: Dependencies) {
     const selectedRuntime = await runtime(dependencies);
     if (!selectedRuntime) return json({ code: "unavailable" }, 503);
     try {
+      await dependencies.warmPromotions?.(selected.hostname).catch(() => undefined);
       const explicitlySelected = Object.hasOwn(input, "normalizedCodes");
       const selectedCodes = explicitlySelected
         ? input.normalizedCodes!

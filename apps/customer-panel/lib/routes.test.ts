@@ -442,7 +442,6 @@ test("completed index and configuration routes have literal navigation destinati
 
 test("merchant record route-depth pages expose only fixed server-authorized editor kinds", async () => {
   const cases = [
-    ["../app/discounts/[recordId]/edit/page.tsx", "discount"],
     ["../app/content/blog/new/page.tsx", "blog_post"],
     ["../app/content/blog/[recordId]/edit/page.tsx", "blog_post"],
     ["../app/content/pages/new/page.tsx", "page"],
@@ -453,6 +452,12 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
     assert.match(page, /requireServerPanelAccess\(\)/);
     assert.match(page, new RegExp(`kind=["']${kind}["']`));
     assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+  for (const path of ["../app/discounts/page.tsx", "../app/discounts/new/page.tsx", "../app/discounts/[promotionId]/page.tsx", "../app/discounts/[promotionId]/edit/page.tsx"]) {
+    const page = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(page, /requirePromotionPageContext/);
+    assert.match(page, /PromotionStudio/);
+    assert.doesNotMatch(page, /MerchantModuleConsole|MerchantRecordEditor|searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
   }
   const policyNew = await readFile(new URL("../app/content/policies/new/page.tsx", import.meta.url), "utf8");
   const policyEdit = await readFile(new URL("../app/content/policies/[policyKey]/edit/page.tsx", import.meta.url), "utf8");

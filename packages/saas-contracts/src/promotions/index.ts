@@ -3,7 +3,7 @@ export type { PromotionAnalytics, PromotionAudience, PromotionAudienceMode, Prom
 export { derivePromotionLifecycle, normalizePromotionCode, parsePromotionAnalytics, parsePromotionCodeBatch, parsePromotionCodeBatchList, parsePromotionCodeBatchListItem, parsePromotionCsvRow, parsePromotionDetail, parsePromotionEvaluatorContext, parsePromotionEvaluatorResult, parsePromotionLegacyProjection, parsePromotionListQuery, parsePromotionOrderSnapshot, parsePromotionRuleDocument, parsePromotionSimulatorResponse, safePromotionError } from "./validation.ts";
 export {
   PROMOTION_ADMIN_EFFECTIVE_STATUSES, PROMOTION_PICKER_KINDS,
-  parsePromotionAdminAnalyticsResult, parsePromotionAdminListItem, parsePromotionAdminListPage, parsePromotionAdminListQuery,
+  parsePromotionAdminAnalyticsResult, parsePromotionAdminListItem, parsePromotionAdminListPage, parsePromotionAdminListQuery, parsePromotionAnalyticsDetailResult, parsePromotionAnalyticsQuery, parsePromotionOverviewResult,
   parsePromotionBatchCreateRequest, parsePromotionBatchStatusRequest, parsePromotionConflictCheck,
   parsePromotionCheckRequest, parsePromotionCodeBatchMutationEnvelope, parsePromotionCreateRequest,
   parsePromotionCsvExport, parsePromotionDuplicateRequest, parsePromotionLegacyPage,
@@ -12,7 +12,7 @@ export {
   parsePromotionTargetResolveRequest, parsePromotionUpdateRequest, parsePromotionVersionRequest,
 } from "./admin.ts";
 export type {
-  PromotionAdminAnalyticsItem, PromotionAdminAnalyticsResult, PromotionAdminEffectiveStatus,
+  PromotionAdminAnalyticsItem, PromotionAdminAnalyticsResult, PromotionAdminEffectiveStatus, PromotionAnalyticsDetailResult, PromotionAnalyticsPeriodDays, PromotionAnalyticsQuery, PromotionOverviewResult,
   PromotionAdminEvaluatorContext, PromotionAdminListItem, PromotionAdminListPage, PromotionAdminListQuery,
   PromotionBatchCreateRequest, PromotionBatchStatusRequest, PromotionCheckRequest, PromotionCodeBatchMutationEnvelope,
   PromotionConflictCheck, PromotionConflictCode, PromotionConflictFinding, PromotionCreateRequest, PromotionCsvExport,

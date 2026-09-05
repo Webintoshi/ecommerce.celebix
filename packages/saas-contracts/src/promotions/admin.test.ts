@@ -14,12 +14,15 @@ import {
   parsePromotionCodeBatchMutationEnvelope,
   parsePromotionAdminListPage,
   parsePromotionAdminAnalyticsResult,
+  parsePromotionAnalyticsDetailResult,
+  parsePromotionAnalyticsQuery,
   parsePromotionConflictCheck,
   parsePromotionCsvExport,
   parsePromotionLegacyPage,
   parsePromotionMarginCheck,
   parsePromotionPickerList,
   parsePromotionPickerResolve,
+  parsePromotionOverviewResult,
   parsePromotionSimulationRequest,
   parsePromotionTargetResolveRequest,
   type PromotionCodeBatch,
@@ -160,4 +163,14 @@ test("admin SQL result parsers bound CSV, analytics and legacy envelopes", () =>
   const legacy = { legacyRecordId: PROMOTION, promotionId: null, reason: "invalid_code" };
   assert.deepEqual(parsePromotionLegacyPage({ items: [legacy], hasMore: true, snapshotAt: NOW, cursorAnchor: { createdAt: NOW, id: PROMOTION } }, 1).items, [legacy]);
   assert.throws(() => parsePromotionLegacyPage({ items: [legacy, legacy], hasMore: false, snapshotAt: NOW, cursorAnchor: null }, 2));
+});
+
+test("promotion overview and detailed analytics remain period-bound and financial-source exact", () => {
+  const overview = { periodDays: 30, activePromotions: 2, currencies: [{ currency: "TRY", affectedOrders: 3, discountMinor: 1_000, revenueMinor: 9_000, recoveredOrders: 1, recoveredRevenueMinor: 3_000 }] };
+  assert.deepEqual(parsePromotionAnalyticsQuery({ days: 30 }), { days: 30 });
+  for (const days of [0, 8, 365]) assert.throws(() => parsePromotionAnalyticsQuery({ days }));
+  assert.deepEqual(parsePromotionOverviewResult(overview), overview);
+  const detail = { periodDays: 30, currencies: [{ currency: "TRY", usageCount: 4, affectedOrders: 3, discountMinor: 1_000, grossRevenueMinor: 10_000, netRevenueMinor: 9_000, averageOrderMinor: 3_000, newCustomerOrders: 1, recoveredOrders: 1, recoveredRevenueMinor: 3_000 }], attribution: [{ source: "atlas", medium: "qa", campaign: null, currency: "TRY", orders: 3, revenueMinor: 9_000 }], topProducts: [{ productId: PROMOTION, label: "Ürün", currency: "TRY", quantity: 2, revenueMinor: 5_000 }], topCategories: [{ categoryId: null, label: "Kategorisiz", currency: "TRY", quantity: 2, revenueMinor: 5_000 }] };
+  assert.deepEqual(parsePromotionAnalyticsDetailResult(detail), detail);
+  assert.throws(() => parsePromotionAnalyticsDetailResult({ ...detail, currencies: [{ ...detail.currencies[0], privateRevenue: 1 }] }));
 });

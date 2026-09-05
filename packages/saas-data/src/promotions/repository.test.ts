@@ -172,6 +172,23 @@ function operationQuery(client: Client, begin: string, terminal: string): QueryL
 }
 
 test("promotion repository uses exact authority-bound read and mutation SQL", async () => {
+  const timezoneClient = new Client((text) => text.includes("promotion_store_timezone_v1") ? {
+    outcome: "listed", result_payload: { timezone: "Europe/Istanbul" },
+  } : undefined);
+  assert.equal(await repository(new Pool([timezoneClient])).timezone(authority()), "Europe/Istanbul");
+  assert.equal(operationQuery(timezoneClient, "BEGIN READ ONLY", "COMMIT").text, "SELECT outcome,result_payload FROM saas.promotion_store_timezone_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)");
+
+  const originClient = new Client((text) => text.includes("promotion_storefront_origin_v1") ? {
+    outcome: "listed", result_payload: { origin: "https://shop.example.test" },
+  } : undefined);
+  assert.equal(await repository(new Pool([originClient])).storefrontOrigin(authority()), "https://shop.example.test");
+  assert.equal(operationQuery(originClient, "BEGIN READ ONLY", "COMMIT").text, "SELECT outcome,result_payload FROM saas.promotion_storefront_origin_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)");
+
+  const noOriginClient = new Client((text) => text.includes("promotion_storefront_origin_v1") ? {
+    outcome: "listed", result_payload: { origin: null },
+  } : undefined);
+  assert.equal(await repository(new Pool([noOriginClient])).storefrontOrigin(authority()), null);
+
   const listClient = new Client((text) => text.includes("promotion_list_v1") ? {
     outcome: "listed",
     result_payload: { items: [], hasMore: false, snapshotAt: "2026-09-05T12:00:00.000000Z", cursorAnchor: null },
@@ -212,7 +229,7 @@ test("promotion repository retains the validated role and denies mutation classe
   assert.equal(read.id, PROMOTION);
 
   for (const [role, method] of [
-    ["editor", "create"],
+    ["analyst", "create"],
     ["analyst", "archive"],
   ] as const) {
     const empty = new Pool([]);
@@ -460,6 +477,10 @@ test("promotion repository calls exact picker, batch, CSV, analytics and legacy 
   const legacyClient = new Client((text) => text.includes("promotion_legacy_list_v1") ? { outcome: "listed", result_payload: { items: [{ legacyRecordId: TARGET, promotionId: null, reason: "invalid_code" }], hasMore: false, snapshotAt: NOW.toISOString(), cursorAnchor: null } } : undefined);
   assert.deepEqual(await repository(new Pool([legacyClient])).listLegacy({ ...authority(), pageSize: 10 }), { items: [{ legacyRecordId: TARGET, promotionId: null, reason: "invalid_code" }], nextCursor: null });
   assert.equal(operationQuery(legacyClient, "BEGIN READ ONLY", "COMMIT").text, "SELECT outcome,result_payload FROM saas.promotion_legacy_list_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::integer,$9::timestamptz,$10::timestamptz,$11::uuid)");
+
+  const legacyResolveClient = new Client((text) => text.includes("promotion_legacy_resolve_v1") ? { outcome: "resolved", result_payload: { legacyRecordId: TARGET, promotionId: PROMOTION, reason: "adopted" } } : undefined);
+  assert.deepEqual(await repository(new Pool([legacyResolveClient])).resolveLegacy({ ...authority(), legacyRecordId: TARGET }), { legacyRecordId: TARGET, promotionId: PROMOTION, reason: "adopted" });
+  assert.deepEqual(operationQuery(legacyResolveClient, "BEGIN READ ONLY", "COMMIT").values?.slice(7), [TARGET]);
 });
 
 test("promotion list cursors bind the exact query and strict database snapshot", async () => {

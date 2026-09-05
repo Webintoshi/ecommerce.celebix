@@ -83,6 +83,7 @@ const EVIDENCE = Object.freeze({
   provider: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states",
   seo: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states",
   ai: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states",
+  promotions: "apps/customer-panel/lib/merchant-admin-console.test.ts#dedicated promotions pages use one server-owned context and never mount the generic discount console",
 });
 
 const ACTIONS = Object.freeze({
@@ -159,10 +160,10 @@ export const HEMENAKU_DONOR_PARITY = Object.freeze([
   entry("/cms/sayfalar", "/content/pages", "complete", "merchant_admin", ACTIONS.crud, EVIDENCE.merchant),
   entry("/cms/sayfalar/[id]", "/content/pages/[recordId]/edit", "complete", "merchant_admin", ACTIONS.editNoArchive, EVIDENCE.merchantRecord),
   entry("/cms/sayfalar/yeni", "/content/pages/new", "complete", "merchant_admin", ACTIONS.create, EVIDENCE.merchantRecord),
-  entry("/indirimler", "/discounts", "complete", "merchant_admin", ACTIONS.crud, EVIDENCE.merchant),
-  entry("/indirimler/[id]/duzenle", "/discounts/[recordId]/edit", "complete", "merchant_admin", ACTIONS.editNoArchive, EVIDENCE.merchantRecord),
+  entry("/indirimler", "/discounts", "complete", "merchant_admin", ACTIONS.crud, EVIDENCE.promotions),
+  entry("/indirimler/[id]/duzenle", "/discounts/[promotionId]/edit", "complete", "merchant_admin", ACTIONS.editNoArchive, EVIDENCE.promotions),
   entry("/indirimler/sans-carki", "/discounts/lucky-wheel", "complete", "merchant_admin", ACTIONS.crud, EVIDENCE.merchant),
-  entry("/indirimler/yeni", "/discounts/new", "complete", "merchant_admin", ACTIONS.create, EVIDENCE.merchantRecord),
+  entry("/indirimler/yeni", "/discounts/new", "complete", "merchant_admin", ACTIONS.create, EVIDENCE.promotions),
   entry("/login", "/login", "complete", "merchant_admin", ACTIONS.disabledAuth, EVIDENCE.login),
   entry("/markets", "/marketplaces", "provider_gated", "merchant_admin", ACTIONS.provider, EVIDENCE.provider),
   entry("/muhasabe", "/accounting", "legacy_rejected", "merchant_admin", ACTIONS.legacy, EVIDENCE.legacy),

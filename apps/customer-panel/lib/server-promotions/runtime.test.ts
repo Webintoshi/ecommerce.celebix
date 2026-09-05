@@ -8,12 +8,14 @@ import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts
 import { registerServerPromotionsRepository, resolveServerPromotionsRuntime } from "./runtime.ts";
 
 const METHODS = [
-  "list", "detail", "create", "update", "publish", "pause", "resume", "duplicate", "archive",
+  "timezone", "storefrontOrigin", "list", "detail", "create", "update", "publish", "pause", "resume", "duplicate", "archive",
   "simulate", "conflicts", "margin", "listTargets", "resolveTargets", "createCodeBatch",
-  "updateCodeBatchStatus", "listCodeBatches", "exportCodes", "analytics", "listLegacy",
+  "updateCodeBatchStatus", "listCodeBatches", "exportCodes", "analytics", "analyticsDetail", "overview", "listLegacy", "resolveLegacy",
 ] as const;
 
 const REQUIRED_PROCEDURES = [
+  "saas.promotion_store_timezone_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+  "saas.promotion_storefront_origin_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
   "saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],text[],text[],text[],timestamp with time zone,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)",
   "saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
   "saas.promotion_create_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb)",
@@ -30,7 +32,10 @@ const REQUIRED_PROCEDURES = [
   "saas.promotion_code_batch_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer,timestamp with time zone,timestamp with time zone,uuid)",
   "saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
   "saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+  "saas.promotion_analytics_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer)",
+  "saas.promotion_overview_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer)",
   "saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)",
+  "saas.promotion_legacy_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
   "saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)",
 ] as const;
 
@@ -88,7 +93,7 @@ test("approved staging preflights migration 126 and registers one narrow reposit
     assert.equal(source.includes(`has_function_privilege(\n          'celebix_saas_app',\n          '${procedure}',\n          'EXECUTE'\n        )`), true, `${procedure} executable`);
   }
   assert.match(source, /new PostgresPromotionRepository\(\{[\s\S]*?pool,[\s\S]*?role: "celebix_saas_app"[\s\S]*?timeouts: TIMEOUTS,[\s\S]*?uuid: randomUUID,[\s\S]*?audit:/u);
-  assert.match(source, /registerServerPromotionsRepository\(access, promotionRepository\)/u);
+  assert.match(source, /registerServerPromotionsRepository\(access, createPostCommitInvalidatingRepository\(promotionRepository, \{[\s\S]*?create: \["promotions"\],[\s\S]*?update: \["promotions"\],[\s\S]*?publish: \["promotions"\],[\s\S]*?pause: \["promotions"\],[\s\S]*?resume: \["promotions"\],[\s\S]*?duplicate: \["promotions"\],[\s\S]*?archive: \["promotions"\],[\s\S]*?\}\)\)/u);
   assert.ok(source.indexOf("await preflight(pool, config.database.name)") < source.indexOf("new PostgresPromotionRepository"));
-  assert.ok(source.indexOf("new PostgresPromotionRepository") < source.indexOf("registerServerPromotionsRepository(access, promotionRepository)"));
+  assert.ok(source.indexOf("new PostgresPromotionRepository") < source.indexOf("registerServerPromotionsRepository(access, createPostCommitInvalidatingRepository(promotionRepository"));
 });
