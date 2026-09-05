@@ -5,7 +5,12 @@ export const PROMOTION_STATUSES = Object.freeze(["draft", "scheduled", "active",
 export const PROMOTION_EFFECTIVE_STATUSES = Object.freeze(["draft", "scheduled", "active", "paused", "archived", "ended", "exhausted"] as const);
 export const PROMOTION_TARGET_KINDS = Object.freeze(["product", "variant", "category", "brand", "collection"] as const);
 export const PROMOTION_AUDIENCE_MODES = Object.freeze(["everyone", "first_paid_order", "customer_segments", "customer_tags", "masked_customers", "abandoned_cart"] as const);
-export const PROMOTION_ERROR_CODES = Object.freeze(["operation_mismatch", "promotion_unavailable", "not_found", "version_conflict", "not_eligible", "invalid_code"] as const);
+export const PROMOTION_ERROR_CODES = Object.freeze([
+  "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "origin_denied",
+  "not_found", "method_not_allowed", "version_conflict", "operation_mismatch", "invalid_reference", "code_conflict",
+  "active_code_batches", "invalid_transition", "promotion_limit_reached", "publish_blocked", "conflict",
+  "promotion_unavailable", "not_eligible", "invalid_code",
+] as const);
 export const PROMOTION_REJECTION_REASONS = Object.freeze(["customer_identity_required", "margin_unknown_cost", "conditions_not_met", "not_combinable", "not_eligible"] as const);
 
 export type PromotionBenefitKind = (typeof PROMOTION_BENEFIT_KINDS)[number];
