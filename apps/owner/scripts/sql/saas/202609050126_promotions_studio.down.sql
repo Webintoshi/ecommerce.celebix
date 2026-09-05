@@ -6,8 +6,123 @@ SET LOCAL statement_timeout = '120s';
 DO $fn$
 BEGIN
   IF pg_catalog.current_setting('saas.promotions_studio_emergency_drop',true) IS DISTINCT FROM 'approved-pre-restore' THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_EMERGENCY_SETTING_REQUIRED'; END IF;
-  IF EXISTS (SELECT 1 FROM saas.promotions) OR EXISTS (SELECT 1 FROM saas.promotion_operations) OR EXISTS (SELECT 1 FROM saas.promotion_audit_events) OR EXISTS (SELECT 1 FROM saas.promotion_usage_reservations) OR EXISTS (SELECT 1 FROM saas.promotion_redemptions) OR EXISTS (SELECT 1 FROM saas.order_promotion_snapshots) OR EXISTS (SELECT 1 FROM saas.order_discount_allocations) THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_DATA_BEARING_DOWN_REFUSED'; END IF;
+  IF EXISTS (SELECT 1 FROM saas.promotions) OR EXISTS (SELECT 1 FROM saas.promotion_operations) OR EXISTS (SELECT 1 FROM saas.promotion_audit_events) OR EXISTS (SELECT 1 FROM saas.promotion_usage_reservations) OR EXISTS (SELECT 1 FROM saas.promotion_redemptions) OR EXISTS (SELECT 1 FROM saas.order_promotion_snapshots) OR EXISTS (SELECT 1 FROM saas.order_discount_allocations) OR EXISTS (
+    SELECT 1
+    FROM saas.storefront_hosted_checkout_sessions
+    WHERE evaluator_authority_digest IS NOT NULL
+      OR promotion_evaluator_context IS NOT NULL
+      OR promotion_evaluation IS NOT NULL
+      OR promotion_normalized_codes IS NOT NULL
+      OR promotion_reservation_group_id IS NOT NULL
+      OR promotion_reservation_expires_at IS NOT NULL
+  ) OR EXISTS (
+    SELECT 1
+    FROM saas.storefront_checkout_operations
+    WHERE (result_payload->'receipt' ? 'promotionStatus') IS TRUE
+  ) THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_DATA_BEARING_DOWN_REFUSED'; END IF;
 END $fn$;
+DROP TRIGGER IF EXISTS aa_storefront_hosted_checkout_promotion_terminal_v2 ON saas.payment_attempts;
+DROP TRIGGER IF EXISTS zz_storefront_hosted_checkout_promotion_terminal_v2 ON saas.payment_attempts;
+DROP FUNCTION IF EXISTS saas.storefront_hosted_checkout_promotion_terminal_v2();
+DROP FUNCTION IF EXISTS saas.storefront_hosted_checkout_promotion_release_v2(uuid,uuid,uuid,timestamptz);
+DROP FUNCTION IF EXISTS saas.public_storefront_hosted_checkout_begin_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text);
+DROP FUNCTION IF EXISTS saas.public_storefront_hosted_checkout_authority_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid);
+DROP FUNCTION IF EXISTS saas.storefront_hosted_checkout_authority_v2_projection(text,timestamptz,text,jsonb,bigint,jsonb,uuid,uuid,jsonb,uuid);
+DROP FUNCTION IF EXISTS saas.storefront_hosted_checkout_customer_prepare_v2(uuid,timestamptz,jsonb,jsonb,uuid,boolean);
+DROP FUNCTION IF EXISTS saas.storefront_hosted_checkout_promotion_codes_valid_v2(jsonb);
+ALTER TABLE saas.storefront_hosted_checkout_sessions
+  DROP CONSTRAINT IF EXISTS storefront_hosted_checkout_sessions_v2_facts_check,
+  DROP COLUMN IF EXISTS promotion_reservation_expires_at,
+  DROP COLUMN IF EXISTS promotion_reservation_group_id,
+  DROP COLUMN IF EXISTS promotion_normalized_codes,
+  DROP COLUMN IF EXISTS promotion_evaluation,
+  DROP COLUMN IF EXISTS promotion_evaluator_context,
+  DROP COLUMN IF EXISTS evaluator_authority_digest;
+ALTER TABLE saas.storefront_hosted_checkout_operations
+  DROP CONSTRAINT storefront_hosted_checkout_operations_result_payload_check,
+  ADD CONSTRAINT storefront_hosted_checkout_operations_result_payload_check CHECK (
+    pg_catalog.jsonb_typeof(result_payload)='object'
+    AND pg_catalog.pg_column_size(result_payload)<=32768
+  );
+DROP FUNCTION IF EXISTS saas.public_checkout_complete_v2(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[]);
+DROP FUNCTION IF EXISTS saas.public_checkout_quote_v2(text,timestamptz,text,jsonb,jsonb,text[],jsonb);
+DROP FUNCTION IF EXISTS saas.public_checkout_recover_v2(text,timestamptz,uuid,text);
+DROP FUNCTION IF EXISTS saas.public_receipt_get_v2(text,timestamptz,jsonb,jsonb);
+DROP FUNCTION IF EXISTS saas.public_account_orders_v2(text,timestamptz,jsonb,integer);
+
+CREATE OR REPLACE FUNCTION saas.public_checkout_recover(
+  p_hostname text,p_now timestamptz,p_operation_id uuid,p_fingerprint text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE selected_store uuid; selected_operation saas.storefront_checkout_operations%ROWTYPE;
+BEGIN
+  IF p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT * INTO selected_operation FROM saas.storefront_checkout_operations WHERE operation_id=p_operation_id AND store_id=selected_store;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb;
+  ELSIF selected_operation.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+  ELSE RETURN QUERY SELECT 'operation_replayed',selected_operation.result_payload; END IF;
+END
+$f$;
+
+CREATE OR REPLACE FUNCTION saas.public_receipt_get(
+  p_hostname text,p_now timestamptz,p_receipt_credentials jsonb,p_customer_credentials jsonb
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE selected_store uuid; selected_receipt saas.storefront_order_receipts%ROWTYPE; result jsonb;
+BEGIN
+  IF NOT saas.storefront_credential_candidates_valid(p_receipt_credentials,false)
+    OR NOT saas.storefront_credential_candidates_valid(p_customer_credentials,false)
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT receipt.* INTO selected_receipt FROM saas.storefront_order_receipts receipt
+  JOIN pg_catalog.jsonb_array_elements(p_receipt_credentials) receipt_candidate
+    ON receipt_candidate->>'keyId'=receipt.key_id AND receipt_candidate->>'digest'=receipt.credential_digest
+  JOIN saas.storefront_customer_credentials customer_credential
+    ON customer_credential.store_id=receipt.store_id AND customer_credential.id=receipt.customer_credential_id
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) customer_candidate
+    ON customer_candidate->>'keyId'=customer_credential.key_id AND customer_candidate->>'digest'=customer_credential.credential_digest
+  WHERE receipt.store_id=selected_store AND receipt.expires_at>p_now AND customer_credential.expires_at>p_now
+  ORDER BY receipt.created_at DESC,receipt.id LIMIT 1;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT operation.result_payload->'receipt' INTO result FROM saas.storefront_checkout_operations operation
+  WHERE operation.store_id=selected_store AND operation.order_id=selected_receipt.order_id;
+  RETURN QUERY SELECT CASE WHEN result IS NULL THEN 'not_found' ELSE 'found' END,result;
+END
+$f$;
+
+CREATE OR REPLACE FUNCTION saas.public_account_orders(
+  p_hostname text,p_now timestamptz,p_credentials jsonb,p_limit integer
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE selected_store uuid; selected_credential saas.storefront_customer_credentials%ROWTYPE; items jsonb;
+BEGIN
+  IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 50 OR NOT saas.storefront_credential_candidates_valid(p_credentials,false) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT credential.* INTO selected_credential FROM saas.storefront_customer_credentials credential
+  JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+  WHERE credential.store_id=selected_store AND credential.expires_at>p_now ORDER BY credential.created_at DESC,credential.id LIMIT 1 FOR UPDATE OF credential;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  UPDATE saas.storefront_customer_credentials SET last_seen_at=GREATEST(last_seen_at,p_now)
+    WHERE store_id=selected_store AND id=selected_credential.id;
+  SELECT COALESCE(pg_catalog.jsonb_agg(entry.receipt ORDER BY entry.created_at DESC,entry.order_id DESC),'[]'::jsonb) INTO items FROM (
+    SELECT operation.result_payload->'receipt' receipt,orders.created_at,orders.id order_id
+    FROM saas.storefront_order_receipts receipt
+    JOIN saas.orders orders ON orders.store_id=receipt.store_id AND orders.id=receipt.order_id
+    JOIN saas.storefront_checkout_operations operation ON operation.store_id=orders.store_id AND operation.order_id=orders.id
+    WHERE receipt.store_id=selected_store AND receipt.customer_credential_id=selected_credential.id
+    ORDER BY receipt.created_at DESC,receipt.order_id DESC LIMIT p_limit
+  ) entry;
+  RETURN QUERY SELECT 'found',pg_catalog.jsonb_build_object('items',items);
+END
+$f$;
+DROP FUNCTION IF EXISTS saas.promotion_checkout_codes_valid_v1(text[]);
 DROP TRIGGER promotion_audit_events_immutable ON saas.promotion_audit_events;
 DROP TRIGGER promotions_created_at_immutable ON saas.promotions;
 DROP TRIGGER promotion_versions_immutable ON saas.promotion_versions;
@@ -35,6 +150,7 @@ DROP FUNCTION saas.promotion_recover_settlement_operation_v1(uuid,timestamptz,uu
 DROP FUNCTION saas.promotion_commit_reservation_group_v1(uuid,uuid,text,uuid,uuid,timestamptz);
 DROP FUNCTION saas.promotion_captured_unit_refund_minor_v1(uuid,uuid,uuid,jsonb,jsonb,bigint,bigint);
 DROP FUNCTION saas.promotion_commit_integrity_valid_v1(uuid,uuid);
+DROP FUNCTION saas.promotion_auto_gift_order_lines_valid_v1(uuid,uuid,uuid);
 DROP FUNCTION saas.promotion_order_allocation_insert_binding_v1();
 DROP FUNCTION saas.promotion_order_snapshot_insert_binding_v1();
 DROP FUNCTION saas.promotion_reservation_source_order_valid_v1(uuid,text,text,uuid);

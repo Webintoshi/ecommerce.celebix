@@ -3,9 +3,12 @@ import { createHash } from "node:crypto";
 import type {
   PublicCart,
   PublicCheckoutQuote,
+  PublicCheckoutQuoteV2,
   PublicCheckoutReceipt,
+  PublicCheckoutReceiptV2,
   PublicPaymentMethod,
 } from "@celebix/saas-contracts";
+import { normalizePromotionCode } from "@celebix/saas-contracts";
 import type { StorefrontCommerceRepository } from "@celebix/saas-data";
 import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
 
@@ -80,23 +83,27 @@ export type StorefrontCommerceRuntime = Readonly<{
     cookieHeader: string | null,
     intentKind: CheckoutIntentKind,
     attribution?: Extract<CheckoutRequest, { kind: "quote" }>["attribution"],
-  ): Promise<PublicCheckoutQuote>;
+    normalizedCodes?: readonly string[],
+  ): Promise<PublicCheckoutQuote | PublicCheckoutQuoteV2>;
   complete(
     hostname: string,
     cookieHeader: string | null,
     request: Extract<CheckoutRequest, { kind: "complete" }>,
   ): Promise<
-    Readonly<{ receipt: PublicCheckoutReceipt; setCookies: readonly string[] }>
+    Readonly<{
+      receipt: PublicCheckoutReceipt | PublicCheckoutReceiptV2;
+      setCookies: readonly string[];
+    }>
   >;
   getReceipt(
     hostname: string,
     cookieHeader: string | null,
-  ): Promise<PublicCheckoutReceipt>;
+  ): Promise<PublicCheckoutReceipt | PublicCheckoutReceiptV2>;
   listAccountOrders(
     hostname: string,
     cookieHeader: string | null,
     limit: number,
-  ): Promise<readonly PublicCheckoutReceipt[]>;
+  ): Promise<readonly (PublicCheckoutReceipt | PublicCheckoutReceiptV2)[]>;
 }>;
 
 type Dependencies = Readonly<{
@@ -178,6 +185,93 @@ function operationGenerated(
       expiresAt: new Date(now.getTime() + lifetimeMs),
     }),
   });
+}
+function derivedV2Uuid(
+  selectedPurpose:
+    | "order"
+    | "customer"
+    | "address"
+    | "event"
+    | "receipt"
+    | "customer-credential",
+  hostname: string,
+  operationId: string,
+): string {
+  const digest = createHash("sha256")
+    .update(
+      JSON.stringify([
+        "celebix-storefront-checkout",
+        2,
+        selectedPurpose,
+        hostname,
+        operationId,
+      ]),
+      "utf8",
+    )
+    .digest();
+  try {
+    digest[6] = (digest[6]! & 0x0f) | 0x40;
+    digest[8] = (digest[8]! & 0x3f) | 0x80;
+    const hex = digest.subarray(0, 16).toString("hex");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  } finally {
+    digest.fill(0);
+  }
+}
+function operationGeneratedV2(
+  dependencies: Dependencies,
+  selectedPurpose: "receipt" | "customer",
+  idPurpose: "receipt" | "customer-credential",
+  hostname: string,
+  operationId: string,
+  now: Date,
+  lifetimeMs: number,
+) {
+  const credential = createStorefrontOperationCredential(
+    selectedPurpose,
+    operationId,
+    dependencies.keyring,
+  );
+  return Object.freeze({
+    raw: credential.value,
+    persisted: Object.freeze({
+      id: derivedV2Uuid(idPurpose, hostname, operationId),
+      keyId: credential.keyId,
+      digest: credential.digest,
+      expiresAt: new Date(now.getTime() + lifetimeMs),
+    }),
+  });
+}
+function promotionCodes(value: unknown): readonly string[] {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    value.length > 5
+  )
+    throw new StorefrontCommerceRuntimeError("invalid_input");
+  const descriptors = Object.getOwnPropertyDescriptors(
+    value,
+  ) as unknown as Record<PropertyKey, PropertyDescriptor>;
+  if (Reflect.ownKeys(descriptors).length !== value.length + 1)
+    throw new StorefrontCommerceRuntimeError("invalid_input");
+  const output: string[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable)
+      throw new StorefrontCommerceRuntimeError("invalid_input");
+    let normalized: string;
+    try {
+      normalized = normalizePromotionCode(descriptor.value);
+    } catch {
+      throw new StorefrontCommerceRuntimeError("invalid_input");
+    }
+    if (normalized !== descriptor.value || seen.has(normalized))
+      throw new StorefrontCommerceRuntimeError("invalid_input");
+    seen.add(normalized);
+    output.push(normalized);
+  }
+  return Object.freeze(output);
 }
 function optionalCandidates(
   selectedPurpose: "customer",
@@ -441,7 +535,65 @@ export function createStorefrontCommerceRuntime(
           : {}),
       });
     },
-    async quote(hostname, cookieHeader, intentKind, attribution) {
+    async quote(
+      hostname,
+      cookieHeader,
+      intentKind,
+      attribution,
+      normalizedCodes,
+    ) {
+      if (normalizedCodes !== undefined) {
+        const selectedCodes = promotionCodes(normalizedCodes);
+        const quoted = (
+          await dependencies.repository.quoteV2({
+            hostname,
+            now: date(dependencies),
+            intentKind,
+            candidates: candidates(
+              purpose(intentKind),
+              cookieHeader,
+              dependencies.keyring,
+            ),
+            customerCandidates: optionalCandidates(
+              "customer",
+              cookieHeader,
+              dependencies.keyring,
+            ),
+            normalizedCodes: selectedCodes,
+            ...(attribution ? { attribution } : {}),
+          })
+        ).quote;
+        const methods = [] as PublicPaymentMethod[];
+        for (const method of quoted.paymentMethods) {
+          if (method.kind !== "hosted_card") {
+            methods.push(method);
+            continue;
+          }
+          let available = false;
+          try {
+            available =
+              (await dependencies.hostedPaymentAvailable?.(method)) === true;
+          } catch {
+            available = false;
+          }
+          if (available) methods.push(method);
+        }
+        if (methods.length === quoted.paymentMethods.length) return quoted;
+        const paymentUnavailable =
+          methods.length === 0 && quoted.cart.checkoutBlocker === null;
+        const cart = paymentUnavailable
+          ? Object.freeze({
+              ...quoted.cart,
+              checkoutReady: false,
+              checkoutBlocker: "payment_unavailable" as const,
+            })
+          : quoted.cart;
+        return Object.freeze({
+          ...quoted,
+          cart,
+          paymentMethods: Object.freeze(methods),
+        });
+      }
       const quoted = await dependencies.repository.quote({
         hostname,
         now: date(dependencies),
@@ -487,32 +639,55 @@ export function createStorefrontCommerceRuntime(
       });
     },
     async complete(hostname, cookieHeader, request) {
+      const selectedCodes = Object.hasOwn(request, "normalizedCodes")
+        ? promotionCodes(request.normalizedCodes)
+        : null;
       const now = date(dependencies);
       const intentCandidates = candidates(
         purpose(request.intentKind),
         cookieHeader,
         dependencies.keyring,
       );
-      const receipt = operationGenerated(
-        dependencies,
-        "receipt",
-        request.operationId,
-        now,
-        15 * 60_000,
-      );
-      const customer = operationGenerated(
-        dependencies,
-        "customer",
-        request.operationId,
-        now,
-        30 * 86_400_000,
-      );
+      const receipt = selectedCodes === null
+        ? operationGenerated(
+            dependencies,
+            "receipt",
+            request.operationId,
+            now,
+            15 * 60_000,
+          )
+        : operationGeneratedV2(
+            dependencies,
+            "receipt",
+            "receipt",
+            hostname,
+            request.operationId,
+            now,
+            15 * 60_000,
+          );
+      const customer = selectedCodes === null
+        ? operationGenerated(
+            dependencies,
+            "customer",
+            request.operationId,
+            now,
+            30 * 86_400_000,
+          )
+        : operationGeneratedV2(
+            dependencies,
+            "customer",
+            "customer-credential",
+            hostname,
+            request.operationId,
+            now,
+            30 * 86_400_000,
+          );
       const customerCandidates = optionalCandidates(
         "customer",
         cookieHeader,
         dependencies.keyring,
       );
-      const result = await dependencies.repository.complete({
+      const common = Object.freeze({
         hostname,
         now,
         intentKind: request.intentKind,
@@ -522,15 +697,39 @@ export function createStorefrontCommerceRuntime(
         cartVersion: request.cartVersion,
         delivery: delivery(request),
         paymentKind: request.paymentKind,
-        generated: Object.freeze({
-          orderId: dependencies.randomUuid(),
-          customerId: dependencies.randomUuid(),
-          addressId: dependencies.randomUuid(),
-          eventId: dependencies.randomUuid(),
-          receipt: receipt.persisted,
-          customer: customer.persisted,
-        }),
       });
+      const result = selectedCodes === null
+        ? await dependencies.repository.complete({
+            ...common,
+            generated: Object.freeze({
+              orderId: dependencies.randomUuid(),
+              customerId: dependencies.randomUuid(),
+              addressId: dependencies.randomUuid(),
+              eventId: dependencies.randomUuid(),
+              receipt: receipt.persisted,
+              customer: customer.persisted,
+            }),
+          })
+        : await dependencies.repository.completeV2({
+            ...common,
+            generated: Object.freeze({
+              orderId: derivedV2Uuid("order", hostname, request.operationId),
+              customerId: derivedV2Uuid(
+                "customer",
+                hostname,
+                request.operationId,
+              ),
+              addressId: derivedV2Uuid(
+                "address",
+                hostname,
+                request.operationId,
+              ),
+              eventId: derivedV2Uuid("event", hostname, request.operationId),
+              receipt: receipt.persisted,
+              customer: customer.persisted,
+            }),
+            normalizedCodes: selectedCodes,
+          });
       const persistedReceipt = createStorefrontOperationCredential(
         "receipt",
         request.operationId,

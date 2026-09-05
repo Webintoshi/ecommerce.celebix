@@ -64,12 +64,25 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
   assert.match(up, /promotion_operation_result_valid\(p_kind,p_result\) IS NOT TRUE/);
   assert.match(up, /pg_column_size\(result_payload\).*327680/);
   assert.match(up, /pg_column_size\(p_document\)>262144/);
-  assert.match(up, /pg_column_size\(p_payload\)>327680/);
+  assert.match(up, /pg_column_size\(p_payload\)>786432/);
   assert.match(up, /pg_column_size\(payload\).*32768/);
+  for (const name of ["public_checkout_recover_v2", "public_receipt_get_v2", "public_account_orders_v2"]) {
+    assert.match(up, new RegExp(`CREATE OR REPLACE FUNCTION saas[.]${name}\\b`));
+    assert.match(down, new RegExp(`DROP FUNCTION IF EXISTS saas[.]${name}\\b`));
+  }
+  for (const name of ["public_checkout_recover", "public_receipt_get", "public_account_orders"]) {
+    assert.match(up, new RegExp(`CREATE OR REPLACE FUNCTION saas[.]${name}\\b[\\s\\S]*promotionStatus`));
+    assert.match(down, new RegExp(`CREATE OR REPLACE FUNCTION saas[.]${name}\\b`));
+  }
+  assert.match(down, /storefront_checkout_operations[\s\S]*result_payload->'receipt' \? 'promotionStatus'[\s\S]*PROMOTIONS_STUDIO_DATA_BEARING_DOWN_REFUSED/);
+  assert.match(assertions, /PROMOTIONS_STUDIO_RECEIPT_VERSION_RPC_INVALID/);
+  assert.match(assertions, /PROMOTIONS_STUDIO_LEGACY_RECEIPT_FENCE_INVALID/);
   assert.match(up, /promotion_recover_operation_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_kind text,p_fingerprint text\)/);
   assert.match(up, /GRANT EXECUTE ON FUNCTION[\s\S]*promotion_recover_operation_v1[\s\S]*TO celebix_saas_app/);
   assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]promotion_expire_due_reservations_v1\(timestamptz,integer\) TO celebix_saas_workflow/);
-  assert.doesNotMatch(up, /GRANT EXECUTE ON FUNCTION[\s\S]*promotion_(?:reserve|release_reservation|commit_reservation)_v1[\s\S]*TO celebix_saas_app/);
+  const directInternalSettlementAppGrant=/GRANT EXECUTE ON FUNCTION[^;]*promotion_(?:reserve|release_reservation|commit_reservation)_v1[^;]*TO celebix_saas_app\s*;/;
+  assert.doesNotMatch(up,directInternalSettlementAppGrant);
+  assert.match(`${up}\nGRANT EXECUTE ON FUNCTION saas.promotion_reserve_v1(uuid) TO celebix_saas_app;`,directInternalSettlementAppGrant);
   assert.doesNotMatch(up, /promotion_operation_fingerprint\('create',pg_catalog[.]jsonb_build_object\('id',p_promotion_id/);
   assert.doesNotMatch(up, /promotion_operation_fingerprint\('code_batch',pg_catalog[.]jsonb_build_object\('id',p_batch_id/);
   assert.doesNotMatch(up, /EXCEPTION WHEN unique_violation THEN RETURN QUERY/);
@@ -132,6 +145,7 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
     "promotion_evaluator_abandoned_cart_valid", "promotion_combination_compatible",
     "promotion_operation_fingerprint_v2", "promotion_fingerprint_canonical_json",
     "promotion_reservation_matches_operation", "promotion_redemption_matches_reservation",
+    "promotion_auto_gift_order_lines_valid_v1",
     "promotion_operation_group_complete",
     "promotion_definition_references_valid", "promotion_materialize_targets",
     "promotion_sync_direct_codes", "promotion_lifecycle_transition_valid",
@@ -152,7 +166,9 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
 test("promotion rehearsal is registered and admin remains outside the task", () => {
   const runner = readFileSync(path.join(ROOT, "tests/saas-phase3/run-current-suite.mjs"), "utf8");
   assert.match(runner, /promotions-studio\/postgres-harness[.]mjs/);
-  assert.match(runner, /PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 129\\\/129/);
+  assert.match(runner, /total: 157/);
+  assert.match(runner, /line: \/\^PASS \\d\+\\\/157/);
+  assert.match(runner, /PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 157\\\/157/);
   assert.equal(existsSync(path.join(ROOT, "tests/saas-phase3/promotions-studio/postgres-harness.mjs")), true);
   assert.equal(existsSync(path.join(ROOT, "apps/admin")), true);
 });

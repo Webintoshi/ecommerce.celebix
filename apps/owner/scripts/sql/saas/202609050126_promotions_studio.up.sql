@@ -1,4 +1,4 @@
--- Promotions Studio v1 is additive. Checkout/order entry points deliberately remain untouched.
+-- Promotions Studio v1 is additive. Legacy checkout ABIs remain exact while V2 entry points are additive.
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL lock_timeout = '5s';
@@ -579,7 +579,7 @@ RETURNS text LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog, saas AS $f
 DECLARE v_canonical text;
 BEGIN
   IF p_kind IS NULL OR p_kind NOT IN ('create','update','lifecycle','archive','duplicate','code_batch','code_batch_status','reserve','release','commit','expire')
-     OR p_store_id IS NULL OR p_payload IS NULL OR pg_catalog.jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR pg_catalog.pg_column_size(p_payload)>327680
+     OR p_store_id IS NULL OR p_payload IS NULL OR pg_catalog.jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR pg_catalog.pg_column_size(p_payload)>786432
   THEN RETURN NULL; END IF;
   v_canonical:=saas.promotion_fingerprint_canonical_json(pg_catalog.jsonb_build_object('kind',p_kind,'storeId',p_store_id,'payload',p_payload),NULL);
   IF v_canonical IS NULL THEN RETURN NULL; END IF;
@@ -833,7 +833,7 @@ $fn$;
 -- this as an inlineable SQL function makes its plan observable in the PG16
 -- harness and prevents a hidden per-product repository/query fan-out.
 CREATE OR REPLACE FUNCTION saas.promotion_evaluator_candidate_facts(p_store_id uuid,p_context jsonb,p_now timestamptz,p_selected jsonb)
-RETURNS TABLE(id uuid,name text,version bigint,rule_document jsonb,created_at timestamptz,used bigint,budget bigint,customer_used bigint,eligible_value bigint,gift_variant_valid boolean,selected_override boolean)
+RETURNS TABLE(id uuid,name text,version bigint,rule_document jsonb,created_at timestamptz,used bigint,budget bigint,customer_used bigint,eligible_value bigint,gift_variant_valid boolean,gift_stock_tracking boolean,gift_available_quantity bigint,selected_override boolean)
 LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
   WITH lines AS MATERIALIZED (SELECT value line FROM pg_catalog.jsonb_array_elements(p_context->'cartLines')),
   candidates AS MATERIALIZED (
@@ -931,13 +931,18 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
       COALESCE(sum((l.line->>'unitPriceMinor')::bigint*(l.line->>'quantity')::bigint) FILTER (WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,p_context->>'currency',p.rule_document->'targets',l.line)),0)::bigint eligible_value,
       COALESCE(sum((l.line->>'quantity')::bigint) FILTER (WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,p_context->>'currency',p.rule_document->'targets',l.line)),0)::bigint eligible_quantity,
       COALESCE(sum(saas.promotion_evaluator_line_capacity(p.rule_document,l.line,0)) FILTER (WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,p_context->>'currency',p.rule_document->'targets',l.line)),0)::bigint eligible_margin,
-      CASE WHEN p.rule_document->'benefit'->>'kind'<>'gift' THEN true ELSE EXISTS(SELECT 1 FROM valid_gift_variants gift WHERE gift.promotion_id=p.id AND gift.variant_id=(p.rule_document->'benefit'->>'giftVariantId')::uuid) END gift_variant_valid
+      CASE WHEN p.rule_document->'benefit'->>'kind'<>'gift' THEN true ELSE EXISTS(SELECT 1 FROM valid_gift_variants gift WHERE gift.promotion_id=p.id AND gift.variant_id=(p.rule_document->'benefit'->>'giftVariantId')::uuid) END gift_variant_valid,
+      COALESCE(gift_authority.stock_tracking,false) gift_stock_tracking,
+      COALESCE(gift_authority.available_quantity,0)::bigint gift_available_quantity
     FROM candidates p LEFT JOIN lines l ON true LEFT JOIN usage u ON u.promotion_id=p.id LEFT JOIN customer_usage cu ON cu.promotion_id=p.id
+    LEFT JOIN gift_variant_authority gift_authority
+      ON p.rule_document->'benefit'->>'kind'='gift'
+      AND gift_authority.variant_id=(p.rule_document->'benefit'->>'giftVariantId')::uuid
     WHERE saas.promotion_rule_document_valid(p.rule_document)
       AND NOT EXISTS(SELECT 1 FROM invalid_references invalid WHERE invalid.promotion_id=p.id)
       AND (p.rule_document->'schedule'->>'startsAt' IS NULL OR (p.rule_document->'schedule'->>'startsAt')::timestamptz<=p_now)
       AND (p.rule_document->'schedule'->>'endsAt' IS NULL OR p_now<(p.rule_document->'schedule'->>'endsAt')::timestamptz)
-    GROUP BY p.id,p.name,p.version,p.rule_document,p.created_at,p.selected_override,u.used,u.budget,cu.used
+    GROUP BY p.id,p.name,p.version,p.rule_document,p.created_at,p.selected_override,u.used,u.budget,cu.used,gift_authority.stock_tracking,gift_authority.available_quantity
   ), ranked AS (
     SELECT a.*,LEAST(
       CASE a.rule_document->'benefit'->>'kind'
@@ -996,7 +1001,7 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
       LIMIT 1
     ) gift ON a.rule_document->'benefit'->>'kind'='gift' AND a.rule_document->'benefit'->>'autoAdd'='false'
   )
-  SELECT id,name,version,rule_document,created_at,used,budget,customer_used,eligible_value,gift_variant_valid,selected_override FROM ranked
+  SELECT id,name,version,rule_document,created_at,used,budget,customer_used,eligible_value,gift_variant_valid,gift_stock_tracking,gift_available_quantity,selected_override FROM ranked
   ORDER BY CASE rule_document->'benefit'->>'kind' WHEN 'percentage' THEN 1 WHEN 'fixed_amount' THEN 1 WHEN 'bundle_price' THEN 2 WHEN 'quantity_tiers' THEN 2 WHEN 'buy_x_get_y' THEN 2 WHEN 'free_shipping' THEN 3 ELSE 4 END,
     saving DESC,(rule_document->>'priority')::integer DESC,created_at,id
 $fn$;
@@ -1175,7 +1180,7 @@ $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_evaluate_internal_v1(p_store_id uuid,p_context jsonb,p_now timestamptz,p_selected jsonb,p_materialized_lines jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_currency text:=p_context->>'currency'; v_lines jsonb:=COALESCE(p_materialized_lines,'[]'::jsonb); v_fact_context jsonb; v_subtotal bigint:=0; v_shipping bigint:=0; v_line_discount bigint:=0; v_shipping_discount bigint:=0; v_paid jsonb:='{}'::jsonb; v_candidate record; v_rule jsonb; v_benefit jsonb; v_saving bigint; v_eligible_value bigint; v_eligible_quantity bigint; v_available bigint; v_remaining_available bigint; v_cap bigint; v_bps integer; v_line jsonb; v_allocation_line record; v_reward_line record; v_bundle_line record; v_line_id text; v_line_value bigint; v_allocation bigint; v_remaining bigint; v_count integer; v_candidate_count bigint; v_index integer; v_normalized_code text; v_eligible jsonb:='[]'::jsonb; v_applied jsonb:='[]'::jsonb; v_applied_rules jsonb:='[]'::jsonb; v_rejected jsonb:='[]'::jsonb; v_effects jsonb:='[]'::jsonb; v_shipping_effects jsonb:='[]'::jsonb; v_gifts jsonb:='[]'::jsonb; v_used_non_shipping boolean:=false; v_bundle_unknown boolean:=false; v_kind text; v_line_quantity bigint; v_take bigint; v_bundle_quantity bigint; v_complete_quantity bigint;
+DECLARE v_currency text:=p_context->>'currency'; v_lines jsonb:=COALESCE(p_materialized_lines,'[]'::jsonb); v_fact_context jsonb; v_subtotal bigint:=0; v_shipping bigint:=0; v_line_discount bigint:=0; v_shipping_discount bigint:=0; v_paid jsonb:='{}'::jsonb; v_candidate record; v_rule jsonb; v_benefit jsonb; v_saving bigint; v_eligible_value bigint; v_eligible_quantity bigint; v_available bigint; v_remaining_available bigint; v_cap bigint; v_bps integer; v_line jsonb; v_allocation_line record; v_reward_line record; v_bundle_line record; v_line_id text; v_line_value bigint; v_allocation bigint; v_remaining bigint; v_count integer; v_candidate_count bigint; v_index integer; v_normalized_code text; v_eligible jsonb:='[]'::jsonb; v_applied jsonb:='[]'::jsonb; v_applied_rules jsonb:='[]'::jsonb; v_rejected jsonb:='[]'::jsonb; v_effects jsonb:='[]'::jsonb; v_shipping_effects jsonb:='[]'::jsonb; v_gifts jsonb:='[]'::jsonb; v_used_non_shipping boolean:=false; v_bundle_unknown boolean:=false; v_kind text; v_line_quantity bigint; v_take bigint; v_bundle_quantity bigint; v_complete_quantity bigint; v_cart_variant_quantities jsonb:='{}'::jsonb; v_cart_variant_quantity bigint; v_auto_gift_quantities jsonb:='{}'::jsonb; v_auto_gift_prior_quantity bigint; v_auto_gift_next_quantity bigint; v_auto_gift_prior_chunks integer; v_auto_gift_next_chunks integer; v_order_line_count integer;
 BEGIN
   IF p_now IS NULL OR pg_catalog.isfinite(p_now) IS NOT TRUE OR saas.promotion_evaluator_context_valid(p_store_id,p_context) IS NOT TRUE
      OR pg_catalog.jsonb_typeof(p_materialized_lines) IS DISTINCT FROM 'array'
@@ -1186,6 +1191,14 @@ BEGIN
   v_candidate_count:=v_candidate_count+CASE WHEN p_selected IS NULL THEN 0 ELSE 1 END;
   IF v_candidate_count>100 THEN RETURN saas.promotion_evaluator_empty_result(v_currency,'promotion_configuration_limit_exceeded'); END IF;
   IF pg_catalog.jsonb_array_length(v_lines)<>pg_catalog.jsonb_array_length(p_context->'cartLines') THEN RETURN saas.promotion_evaluator_empty_result(v_currency,'promotion_context_unavailable'); END IF;
+  v_order_line_count:=pg_catalog.jsonb_array_length(v_lines);
+  SELECT COALESCE(pg_catalog.jsonb_object_agg(variant_quantity.variant_id,variant_quantity.quantity),'{}'::jsonb)
+  INTO v_cart_variant_quantities
+  FROM (
+    SELECT line->>'variantId' variant_id,sum((line->>'quantity')::bigint)::bigint quantity
+    FROM pg_catalog.jsonb_array_elements(v_lines) line
+    GROUP BY line->>'variantId'
+  ) variant_quantity;
   SELECT COALESCE(sum((line->>'unitPriceMinor')::numeric*(line->>'quantity')::numeric),0) INTO v_subtotal FROM pg_catalog.jsonb_array_elements(v_lines) line;
   v_shipping:=(p_context->>'shippingBeforeDiscountMinor')::bigint;
   IF v_subtotal::numeric+v_shipping::numeric>8000000000 THEN RETURN saas.promotion_evaluator_empty_result(v_currency,'promotion_context_unavailable'); END IF;
@@ -1344,6 +1357,25 @@ BEGIN
     END IF;
     IF EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(v_applied_rules) prior WHERE NOT saas.promotion_combination_compatible(prior,v_rule)) THEN v_rejected:=v_rejected||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('promotionId',v_candidate.id,'reason','not_combinable')); CONTINUE; END IF;
     IF v_saving=0 AND (v_kind<>'gift' OR v_benefit->>'autoAdd'='false') THEN v_rejected:=v_rejected||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('promotionId',v_candidate.id,'reason',CASE WHEN v_kind='gift' THEN 'conditions_not_met' ELSE 'not_eligible' END)); CONTINUE; END IF;
+    IF v_kind='gift' AND v_benefit->>'autoAdd'='true' THEN
+      v_auto_gift_prior_quantity:=COALESCE((v_auto_gift_quantities->>(v_benefit->>'giftVariantId'))::bigint,0);
+      v_auto_gift_next_quantity:=v_auto_gift_prior_quantity+(v_benefit->>'quantity')::bigint;
+      v_cart_variant_quantity:=COALESCE((v_cart_variant_quantities->>(v_benefit->>'giftVariantId'))::bigint,0);
+      IF v_candidate.gift_stock_tracking IS TRUE
+         AND v_cart_variant_quantity+v_auto_gift_next_quantity>v_candidate.gift_available_quantity
+      THEN
+        v_rejected:=v_rejected||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('promotionId',v_candidate.id,'reason','conditions_not_met'));
+        CONTINUE;
+      END IF;
+      v_auto_gift_prior_chunks:=CASE WHEN v_auto_gift_prior_quantity=0 THEN 0 ELSE ((v_auto_gift_prior_quantity+9998)/9999)::integer END;
+      v_auto_gift_next_chunks:=((v_auto_gift_next_quantity+9998)/9999)::integer;
+      IF v_order_line_count+v_auto_gift_next_chunks-v_auto_gift_prior_chunks>100 THEN
+        v_rejected:=v_rejected||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('promotionId',v_candidate.id,'reason','order_line_limit'));
+        CONTINUE;
+      END IF;
+      v_order_line_count:=v_order_line_count+v_auto_gift_next_chunks-v_auto_gift_prior_chunks;
+      v_auto_gift_quantities:=pg_catalog.jsonb_set(v_auto_gift_quantities,ARRAY[v_benefit->>'giftVariantId'],pg_catalog.to_jsonb(v_auto_gift_next_quantity),true);
+    END IF;
     IF v_kind='free_shipping' THEN v_shipping_discount:=v_shipping_discount+v_saving; v_shipping_effects:=v_shipping_effects||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('promotionId',v_candidate.id,'discountMinor',v_saving));
     ELSIF v_kind='gift' THEN
       IF v_benefit->>'autoAdd'='true' THEN
@@ -1515,6 +1547,1358 @@ RETURNS boolean LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS
       AND c.abandoned_at<=p_now AND c.abandoned_at>p_now-interval '30 days'
   )
 $fn$;
+
+-- Storefront callers send a canonical, bounded semantic code set.  Keeping the
+-- bytewise order in the database makes quote authority stable across locales
+-- and prevents a direct RPC caller from bypassing the repository normalizer.
+CREATE OR REPLACE FUNCTION saas.promotion_checkout_codes_valid_v1(p_codes text[])
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog, saas AS $fn$
+  SELECT p_codes IS NOT NULL
+    AND pg_catalog.cardinality(p_codes) BETWEEN 0 AND 5
+    AND (pg_catalog.cardinality(p_codes)=0 OR pg_catalog.array_ndims(p_codes)=1)
+    AND COALESCE(pg_catalog.array_lower(p_codes,1),1)=1
+    AND NOT EXISTS(
+      SELECT 1
+      FROM pg_catalog.unnest(p_codes) submitted(code)
+      WHERE submitted.code IS NULL
+        OR saas.promotion_normalize_code(submitted.code) IS DISTINCT FROM submitted.code
+    )
+    AND pg_catalog.cardinality(p_codes)=(
+      SELECT pg_catalog.count(DISTINCT submitted.code)
+      FROM pg_catalog.unnest(p_codes) submitted(code)
+    )
+    AND p_codes IS NOT DISTINCT FROM COALESCE((
+      SELECT pg_catalog.array_agg(submitted.code ORDER BY pg_catalog.convert_to(submitted.code,'UTF8'))
+      FROM pg_catalog.unnest(p_codes) submitted(code)
+    ),ARRAY[]::text[])
+$fn$;
+
+-- Promotion-aware checkout quotation is deliberately read-only.  It mirrors
+-- the canonical checkout readiness decisions without calling the legacy quote
+-- wrappers, because those wrappers lock source rows and persist analytics.
+-- Completion re-derives these facts before spending any promotion authority.
+CREATE OR REPLACE FUNCTION saas.public_checkout_quote_v2(
+  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,
+  p_customer_credentials jsonb,p_normalized_codes text[],p_attribution jsonb
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+DECLARE
+  v_store_id uuid;
+  v_cart saas.storefront_carts%ROWTYPE;
+  v_intent saas.storefront_checkout_intents%ROWTYPE;
+  v_source_id uuid;
+  v_source_version bigint;
+  v_customer_id uuid;
+  v_bound_customer_id uuid;
+  v_shipping_method_id uuid;
+  v_cart_payload jsonb;
+  v_shipping jsonb;
+  v_payments jsonb;
+  v_context jsonb;
+  v_materialized_lines jsonb;
+  v_evaluation jsonb;
+  v_code_facts jsonb:='{}'::jsonb;
+  v_public_items jsonb:='[]'::jsonb;
+  v_public_applied jsonb:='[]'::jsonb;
+  v_public_rejected jsonb:='[]'::jsonb;
+  v_public_gifts jsonb:='[]'::jsonb;
+  v_public_cart jsonb;
+  v_public_quote jsonb;
+  v_authority jsonb;
+  v_authority_digest text;
+  v_customer_segments jsonb:='[]'::jsonb;
+  v_customer_tags jsonb:='[]'::jsonb;
+  v_abandoned_cart jsonb:='null'::jsonb;
+  v_feature_enabled boolean:=false;
+  v_price_drift boolean:=false;
+  v_line_count integer;
+  v_paid_order_count bigint:=0;
+  v_line_discount bigint:=0;
+  v_shipping_discount bigint:=0;
+  v_discount_total bigint:=0;
+  v_grand_total bigint:=0;
+  v_projected_line_discount numeric:=0;
+  v_projected_applied_discount numeric:=0;
+  v_line_effect numeric;
+  v_line_total bigint;
+  v_line_id text;
+  v_evaluation_mode text:='evaluated';
+  v_payment_selection_required boolean:=false;
+  v_item jsonb;
+  v_public_item jsonb;
+  v_applied jsonb;
+  v_gift record;
+  v_gift_product record;
+  v_gift_remaining bigint;
+  v_gift_chunk integer;
+  v_code text;
+  v_code_applied boolean;
+  v_code_recognized boolean;
+  v_code_deferred boolean;
+  v_ordinality bigint;
+BEGIN
+  IF p_kind IS NULL OR p_kind NOT IN ('cart','buy_now')
+     OR p_now IS NULL OR pg_catalog.isfinite(p_now) IS NOT TRUE
+     OR pg_catalog.date_trunc('milliseconds',p_now)<>p_now
+     OR saas.storefront_credential_candidates_valid(p_credentials,false) IS NOT TRUE
+     OR saas.storefront_credential_candidates_valid(p_customer_credentials,true) IS NOT TRUE
+     OR saas.promotion_checkout_codes_valid_v1(p_normalized_codes) IS NOT TRUE
+     OR saas.commerce_attribution_valid(p_attribution) IS NOT TRUE
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
+  v_store_id:=saas.storefront_public_store(p_hostname,p_now);
+  IF v_store_id IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  v_shipping:=saas.storefront_shipping_projection(v_store_id);
+  IF v_shipping IS NULL THEN RETURN QUERY SELECT 'shipping_unavailable',NULL::jsonb; RETURN; END IF;
+  v_payments:=saas.storefront_payment_methods_projection(v_store_id);
+  IF pg_catalog.jsonb_typeof(v_payments) IS DISTINCT FROM 'array'
+     OR pg_catalog.jsonb_array_length(v_payments)=0
+  THEN RETURN QUERY SELECT 'payment_unavailable',NULL::jsonb; RETURN; END IF;
+
+  SELECT shipping.id INTO v_shipping_method_id
+  FROM saas.merchant_admin_records shipping
+  WHERE shipping.store_id=v_store_id AND shipping.record_kind='shipping_setting'
+    AND shipping.status='active' AND shipping.archived_at IS NULL
+    AND saas.merchant_admin_config_valid('shipping_setting',shipping.config)
+  ORDER BY shipping.updated_at DESC,shipping.id DESC LIMIT 1;
+
+  IF p_kind='cart' THEN
+    SELECT cart.* INTO v_cart
+    FROM saas.storefront_carts cart
+    JOIN saas.storefront_cart_credentials credential
+      ON credential.store_id=cart.store_id AND credential.cart_id=cart.id
+    JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate
+      ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+    WHERE cart.store_id=v_store_id AND credential.expires_at>p_now
+    ORDER BY cart.created_at DESC,cart.id LIMIT 1;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+    IF v_cart.status<>'active' OR v_cart.expires_at<=p_now THEN RETURN QUERY SELECT 'cart_expired',NULL::jsonb; RETURN; END IF;
+    IF NOT EXISTS(SELECT 1 FROM saas.storefront_cart_items item WHERE item.store_id=v_store_id AND item.cart_id=v_cart.id)
+    THEN RETURN QUERY SELECT 'cart_empty',NULL::jsonb; RETURN; END IF;
+    SELECT EXISTS(
+      SELECT 1
+      FROM saas.storefront_cart_items item
+      CROSS JOIN LATERAL saas.resolve_effective_variant_price(item.store_id,item.variant_id,'storefront',p_now,NULL) resolved
+      WHERE item.store_id=v_store_id AND item.cart_id=v_cart.id
+        AND (resolved.outcome<>'found' OR resolved.price_cents<>item.unit_price_cents)
+    ) INTO v_price_drift;
+    IF v_price_drift THEN
+      RETURN QUERY SELECT 'price_changed',saas.storefront_cart_projection(v_store_id,v_cart.id,p_now); RETURN;
+    END IF;
+    v_source_id:=v_cart.id; v_source_version:=v_cart.version;
+    v_cart_payload:=saas.storefront_cart_projection(v_store_id,v_cart.id,p_now);
+  ELSE
+    SELECT intent.* INTO v_intent
+    FROM saas.storefront_checkout_intents intent
+    JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate
+      ON candidate->>'keyId'=intent.key_id AND candidate->>'digest'=intent.credential_digest
+    WHERE intent.store_id=v_store_id
+    ORDER BY intent.created_at DESC,intent.id LIMIT 1;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+    IF v_intent.status<>'active' OR v_intent.expires_at<=p_now THEN RETURN QUERY SELECT 'cart_expired',NULL::jsonb; RETURN; END IF;
+    SELECT resolved.outcome<>'found' OR resolved.price_cents<>v_intent.unit_price_cents INTO v_price_drift
+    FROM saas.resolve_effective_variant_price(v_store_id,v_intent.variant_id,'storefront',p_now,NULL) resolved;
+    IF v_price_drift THEN
+      RETURN QUERY SELECT 'price_changed',saas.storefront_intent_projection(v_store_id,v_intent.id,p_now); RETURN;
+    END IF;
+    v_source_id:=v_intent.id; v_source_version:=1;
+    v_cart_payload:=saas.storefront_intent_projection(v_store_id,v_intent.id,p_now);
+  END IF;
+  IF v_cart_payload IS NULL OR pg_catalog.jsonb_typeof(v_cart_payload) IS DISTINCT FROM 'object'
+     OR pg_catalog.jsonb_typeof(v_cart_payload->'items') IS DISTINCT FROM 'array'
+  THEN RETURN QUERY SELECT 'stock_unavailable',v_cart_payload; RETURN; END IF;
+  IF COALESCE((v_cart_payload->>'checkoutReady')::boolean,false) IS DISTINCT FROM true
+  THEN RETURN QUERY SELECT 'stock_unavailable',v_cart_payload; RETURN; END IF;
+  v_line_count:=pg_catalog.jsonb_array_length(v_cart_payload->'items');
+  IF v_line_count NOT BETWEEN 1 AND 100 THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+
+  SELECT credential.customer_id INTO v_customer_id
+  FROM saas.storefront_customer_credentials credential
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) candidate
+    ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+  JOIN saas.customers customer
+    ON customer.store_id=credential.store_id AND customer.id=credential.customer_id
+      AND customer.status='active' AND customer.archived_at IS NULL
+  WHERE credential.store_id=v_store_id AND credential.expires_at>p_now
+  ORDER BY credential.created_at DESC,credential.id LIMIT 1;
+  IF p_kind='cart' AND v_customer_id IS NOT NULL THEN
+    SELECT abandoned.customer_id INTO v_bound_customer_id
+    FROM saas.abandoned_carts abandoned
+    WHERE abandoned.store_id=v_store_id AND abandoned.source_cart_id=v_source_id
+    ORDER BY abandoned.last_activity_at DESC,abandoned.id DESC LIMIT 1;
+    IF FOUND AND v_bound_customer_id IS NOT NULL AND v_bound_customer_id<>v_customer_id
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  END IF;
+
+  IF v_customer_id IS NOT NULL THEN
+    SELECT count(*) INTO v_paid_order_count
+    FROM saas.orders order_row
+    WHERE order_row.store_id=v_store_id AND order_row.customer_id=v_customer_id
+      AND (order_row.paid_at IS NOT NULL OR order_row.payment_status IN ('completed','refunded'));
+    SELECT COALESCE(pg_catalog.jsonb_agg(fact.id::text ORDER BY fact.id),'[]'::jsonb) INTO v_customer_segments
+    FROM (
+      SELECT DISTINCT membership.segment_id id
+      FROM saas.customer_segment_memberships membership
+      JOIN saas.customer_segments segment ON segment.store_id=membership.store_id AND segment.id=membership.segment_id AND segment.archived_at IS NULL
+      WHERE membership.store_id=v_store_id AND membership.customer_id=v_customer_id
+    ) fact;
+    SELECT COALESCE(pg_catalog.jsonb_agg(fact.id::text ORDER BY fact.id),'[]'::jsonb) INTO v_customer_tags
+    FROM (
+      SELECT DISTINCT membership.tag_id id
+      FROM saas.customer_tag_assignments membership
+      JOIN saas.customer_tags tag ON tag.store_id=membership.store_id AND tag.id=membership.tag_id AND tag.archived_at IS NULL
+      WHERE membership.store_id=v_store_id AND membership.customer_id=v_customer_id
+    ) fact;
+  END IF;
+  IF v_paid_order_count>1000000000
+     OR pg_catalog.jsonb_array_length(v_customer_segments)>100
+     OR pg_catalog.jsonb_array_length(v_customer_tags)>100
+  THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+  IF p_kind='cart' THEN
+    SELECT pg_catalog.jsonb_build_object('id',abandoned.id) INTO v_abandoned_cart
+    FROM saas.abandoned_carts abandoned
+    WHERE abandoned.store_id=v_store_id AND abandoned.source_cart_id=v_source_id
+      AND abandoned.status='abandoned' AND abandoned.abandoned_at IS NOT NULL
+      AND abandoned.abandoned_at<=p_now AND abandoned.abandoned_at>p_now-pg_catalog.interval '30 days'
+    ORDER BY abandoned.abandoned_at DESC,abandoned.id DESC LIMIT 1;
+    v_abandoned_cart:=COALESCE(v_abandoned_cart,'null'::jsonb);
+  END IF;
+
+  -- More than twenty lines is an explicit advisory boundary.  No prefix is
+  -- evaluated, so the customer sees the exact gross cart rather than a partial
+  -- discount that completion could never honor.
+  IF v_line_count>20 THEN
+    v_evaluation_mode:='cart_line_limit';
+  ELSE
+    SELECT EXISTS(
+      SELECT 1
+      FROM saas.subscriptions subscription
+      JOIN saas.plans plan ON plan.id=subscription.plan_id
+        AND plan.plan_code=subscription.plan_code AND plan.version=subscription.plan_version
+        AND plan.status='active' AND plan.valid_from<=p_now
+        AND (plan.valid_until IS NULL OR p_now<plan.valid_until)
+      JOIN saas.plan_features feature ON feature.plan_id=plan.id
+        AND feature.feature_key='promotions' AND feature.enabled
+      WHERE subscription.store_id=v_store_id AND subscription.status='active'
+        AND subscription.valid_from<=p_now
+        AND (subscription.valid_until IS NULL OR p_now<subscription.valid_until)
+    ) INTO v_feature_enabled;
+    IF v_feature_enabled THEN
+      SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'lineId',saas.storefront_commerce_uuid(
+          'promotion-quote-v1:'||v_store_id::text||':'||p_kind||':'||v_source_id::text||':'||v_source_version::text||':'||(source.ordinality-1)::text||':'||(source.item->>'variantId')
+        ),
+        'position',(source.ordinality-1)::integer,
+        'productId',source.item->>'productId','variantId',source.item->>'variantId',
+        'quantity',(source.item->>'quantity')::bigint,'unitPriceMinor',(source.item->>'unitPriceCents')::bigint,
+        'unitCostMinor',NULL,'currency',v_cart_payload->>'currency','categoryIds','[]'::jsonb,
+        'brandId',NULL,'collectionIds','[]'::jsonb
+      ) ORDER BY source.ordinality),'[]'::jsonb) INTO v_materialized_lines
+      FROM pg_catalog.jsonb_array_elements(v_cart_payload->'items') WITH ORDINALITY source(item,ordinality);
+      v_context:=pg_catalog.jsonb_build_object(
+        'storeId',v_store_id,'customerId',v_customer_id,'paidOrderCount',v_paid_order_count,
+        'customerSegmentIds',v_customer_segments,'customerTagIds',v_customer_tags,
+        'cartLines',v_materialized_lines,'shippingMethodId',v_shipping_method_id,'paymentMethodId',NULL,
+        'shippingBeforeDiscountMinor',(v_cart_payload->>'shippingCents')::bigint,
+        'currency',v_cart_payload->>'currency','storeLocalTime',saas.storefront_commerce_timestamp(p_now),
+        'salesChannel','storefront','submittedCodes',pg_catalog.to_jsonb(p_normalized_codes),
+        'abandonedCart',v_abandoned_cart
+      );
+      IF saas.promotion_evaluator_context_valid(v_store_id,v_context) IS NOT TRUE
+      THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+      v_materialized_lines:=saas.promotion_evaluator_materialize_lines(v_store_id,v_cart_payload->>'currency',v_context,p_now);
+      IF pg_catalog.jsonb_typeof(v_materialized_lines) IS DISTINCT FROM 'array'
+         OR pg_catalog.jsonb_array_length(v_materialized_lines)<>v_line_count
+      THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+      v_evaluation:=saas.promotion_evaluate_internal_v1(v_store_id,v_context,p_now,NULL,v_materialized_lines);
+      IF v_evaluation->>'merchantExplanation'<>'evaluated'
+         OR v_evaluation->>'currency' IS DISTINCT FROM v_cart_payload->>'currency'
+         OR (v_evaluation->>'subtotalBeforeDiscountMinor')::bigint IS DISTINCT FROM (v_cart_payload->>'subtotalCents')::bigint
+         OR (v_evaluation->>'shippingBeforeDiscountMinor')::bigint IS DISTINCT FROM (v_cart_payload->>'shippingCents')::bigint
+      THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+      v_code_facts:=saas.promotion_evaluator_code_facts(v_store_id,v_context,p_now);
+      v_line_discount:=(v_evaluation->>'lineDiscountTotalMinor')::bigint;
+      v_shipping_discount:=(v_evaluation->>'shippingDiscountTotalMinor')::bigint;
+      v_discount_total:=(v_evaluation->>'discountTotalMinor')::bigint;
+      v_grand_total:=(v_evaluation->>'grandTotalMinor')::bigint;
+      IF v_line_discount<0 OR v_shipping_discount<0 OR v_discount_total<>v_line_discount+v_shipping_discount
+         OR v_shipping_discount>(v_cart_payload->>'shippingCents')::bigint
+         OR v_grand_total<>(v_cart_payload->>'subtotalCents')::bigint+(v_cart_payload->>'shippingCents')::bigint-v_discount_total
+         OR v_grand_total<0
+         OR EXISTS(
+           SELECT 1 FROM pg_catalog.jsonb_array_elements(v_evaluation->'lineEffects') effect
+           WHERE NOT EXISTS(
+             SELECT 1 FROM pg_catalog.jsonb_array_elements(v_context->'cartLines') line
+             WHERE line->>'lineId'=effect->>'lineId'
+           )
+         )
+      THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+
+      FOR v_applied IN SELECT applied.value FROM pg_catalog.jsonb_array_elements(v_evaluation->'appliedPromotions') WITH ORDINALITY applied(value,ordinality) ORDER BY applied.ordinality LOOP
+        v_public_applied:=v_public_applied||pg_catalog.jsonb_build_array(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+          'name',v_applied->>'name','benefitKind',v_applied->>'benefitKind',
+          'normalizedCode',CASE WHEN v_applied ? 'normalizedCode' THEN v_applied->>'normalizedCode' END,
+          'lineDiscountCents',(v_applied->>'lineDiscountMinor')::bigint,
+          'shippingDiscountCents',(v_applied->>'shippingDiscountMinor')::bigint,
+          'discountCents',(v_applied->>'discountTotalMinor')::bigint
+        )));
+        v_projected_applied_discount:=v_projected_applied_discount+(v_applied->>'discountTotalMinor')::numeric;
+      END LOOP;
+      IF v_projected_applied_discount<>v_discount_total
+      THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+
+      FOR v_code IN SELECT submitted.code FROM pg_catalog.unnest(p_normalized_codes) submitted(code) LOOP
+        SELECT EXISTS(
+          SELECT 1 FROM pg_catalog.jsonb_array_elements(v_evaluation->'appliedPromotions') applied
+          WHERE applied->>'normalizedCode'=v_code
+        ) INTO v_code_applied;
+        IF v_code_applied THEN CONTINUE; END IF;
+        WITH matched AS MATERIALIZED (
+          SELECT promotion.id,promotion.rule_document
+          FROM saas.promotions promotion
+          WHERE promotion.store_id=v_store_id AND promotion.status IN ('active','scheduled')
+            AND (
+              EXISTS(
+                SELECT 1 FROM pg_catalog.jsonb_each(v_code_facts) fact
+                WHERE fact.key=promotion.id::text AND fact.value->>'code'=v_code
+              )
+              OR (
+                NOT EXISTS(SELECT 1 FROM saas.promotion_codes persisted WHERE persisted.store_id=v_store_id AND persisted.code=v_code)
+                AND EXISTS(
+                  SELECT 1 FROM pg_catalog.jsonb_array_elements_text(COALESCE(promotion.rule_document->'trigger'->'codes','[]'::jsonb)) direct(code)
+                  WHERE direct.code=v_code
+                )
+              )
+            )
+        )
+        SELECT EXISTS(SELECT 1 FROM matched),EXISTS(
+          SELECT 1 FROM matched
+          WHERE matched.rule_document->'conditions' ? 'paymentMethodIds'
+            AND pg_catalog.jsonb_array_length(matched.rule_document->'conditions'->'paymentMethodIds')>0
+        ) INTO v_code_recognized,v_code_deferred;
+        IF v_code_deferred THEN v_payment_selection_required:=true; CONTINUE; END IF;
+        v_public_rejected:=v_public_rejected||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+          'normalizedCode',v_code,'reason',CASE WHEN v_code_recognized THEN 'not_eligible' ELSE 'invalid_code' END
+        ));
+      END LOOP;
+
+      IF EXISTS(
+        SELECT 1 FROM (
+          SELECT gift->>'variantId' variant_id,(gift->>'autoAdd')::boolean auto_add,
+            pg_catalog.sum((gift->>'quantity')::numeric) quantity
+          FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+          GROUP BY gift->>'variantId',(gift->>'autoAdd')::boolean
+        ) grouped WHERE grouped.quantity NOT BETWEEN 1 AND 1000000
+      ) THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+      SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'variantId',grouped.variant_id,'quantity',grouped.quantity::bigint,'autoAdd',grouped.auto_add
+      ) ORDER BY grouped.variant_id::uuid,grouped.auto_add),'[]'::jsonb) INTO v_public_gifts
+      FROM (
+        SELECT gift->>'variantId' variant_id,(gift->>'autoAdd')::boolean auto_add,
+          pg_catalog.sum((gift->>'quantity')::numeric) quantity
+        FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+        GROUP BY gift->>'variantId',(gift->>'autoAdd')::boolean
+      ) grouped;
+
+    END IF;
+  END IF;
+
+  FOR v_item,v_ordinality IN
+    SELECT source.item,source.ordinality
+    FROM pg_catalog.jsonb_array_elements(v_cart_payload->'items') WITH ORDINALITY source(item,ordinality)
+    ORDER BY source.ordinality
+  LOOP
+    v_line_total:=(v_item->>'lineTotalCents')::bigint;
+    v_line_effect:=0;
+    IF v_feature_enabled AND v_evaluation_mode='evaluated' THEN
+      SELECT line->>'lineId' INTO v_line_id
+      FROM pg_catalog.jsonb_array_elements(v_context->'cartLines') line
+      WHERE (line->>'position')::integer=(v_ordinality-1)::integer;
+      SELECT COALESCE(pg_catalog.sum((effect->>'discountMinor')::numeric),0) INTO v_line_effect
+      FROM pg_catalog.jsonb_array_elements(v_evaluation->'lineEffects') effect
+      WHERE effect->>'lineId'=v_line_id;
+    END IF;
+    IF v_line_effect<0 OR v_line_effect>v_line_total OR pg_catalog.trunc(v_line_effect)<>v_line_effect
+    THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+    v_projected_line_discount:=v_projected_line_discount+v_line_effect;
+    v_public_item:=pg_catalog.jsonb_build_object(
+      'productId',v_item->>'productId','variantId',v_item->>'variantId','slug',v_item->>'slug',
+      'title',v_item->>'title','variantTitle',v_item->>'variantTitle',
+      'quantity',(v_item->>'quantity')::bigint,'unitPriceCents',(v_item->>'unitPriceCents')::bigint,
+      'lineTotalCents',v_line_total,'discountCents',v_line_effect::bigint,
+      'payableCents',v_line_total-v_line_effect::bigint,'available',(v_item->>'available')::boolean
+    );
+    IF v_item ? 'categoryId' THEN v_public_item:=v_public_item||pg_catalog.jsonb_build_object('categoryId',v_item->>'categoryId'); END IF;
+    IF v_item ? 'media' THEN v_public_item:=v_public_item||pg_catalog.jsonb_build_object('media',v_item->'media'); END IF;
+    v_public_items:=v_public_items||pg_catalog.jsonb_build_array(v_public_item);
+  END LOOP;
+  IF v_feature_enabled AND v_evaluation_mode='evaluated' AND v_projected_line_discount<>v_line_discount
+  THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+  IF NOT v_feature_enabled OR v_evaluation_mode='cart_line_limit' THEN
+    v_line_discount:=0; v_shipping_discount:=0; v_discount_total:=0;
+    v_grand_total:=(v_cart_payload->>'totalCents')::bigint;
+    v_public_applied:='[]'::jsonb; v_public_rejected:='[]'::jsonb; v_public_gifts:='[]'::jsonb;
+  ELSE
+    FOR v_gift IN
+      SELECT (gift->>'variantId')::uuid variant_id,(gift->>'quantity')::bigint quantity
+      FROM pg_catalog.jsonb_array_elements(v_public_gifts) gift
+      WHERE (gift->>'autoAdd')::boolean
+      ORDER BY (gift->>'variantId')::uuid
+    LOOP
+      SELECT product.id product_id,product.slug product_slug,product.title product_title,
+        variant.id variant_id,variant.title variant_title
+      INTO v_gift_product
+      FROM saas.product_variants variant
+      JOIN saas.products product ON product.store_id=variant.store_id AND product.id=variant.product_id
+      WHERE variant.store_id=v_store_id AND variant.id=v_gift.variant_id
+        AND variant.status='active' AND variant.archived_at IS NULL
+        AND product.status='active' AND product.archived_at IS NULL;
+      IF NOT FOUND THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+      v_gift_remaining:=v_gift.quantity;
+      WHILE v_gift_remaining>0 LOOP
+        v_gift_chunk:=LEAST(v_gift_remaining,9999)::integer;
+        v_public_items:=v_public_items||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+          'productId',v_gift_product.product_id,'variantId',v_gift_product.variant_id,
+          'slug',v_gift_product.product_slug,'title',v_gift_product.product_title,
+          'variantTitle',v_gift_product.variant_title,'quantity',v_gift_chunk,
+          'unitPriceCents',0,'lineTotalCents',0,'discountCents',0,'payableCents',0,'available',true
+        ));
+        v_gift_remaining:=v_gift_remaining-v_gift_chunk;
+      END LOOP;
+    END LOOP;
+    IF pg_catalog.jsonb_array_length(v_public_items)>100
+    THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+  END IF;
+  v_public_cart:=pg_catalog.jsonb_build_object(
+    'version',(v_cart_payload->>'version')::bigint,'currency',v_cart_payload->>'currency',
+    'itemCount',(v_cart_payload->>'itemCount')::bigint,'subtotalCents',(v_cart_payload->>'subtotalCents')::bigint,
+    'shippingCents',(v_cart_payload->>'shippingCents')::bigint,
+    'lineDiscountCents',v_line_discount,'shippingDiscountCents',v_shipping_discount,
+    'discountCents',v_discount_total,'totalCents',v_grand_total,
+    'checkoutReady',(v_cart_payload->>'checkoutReady')::boolean,'checkoutBlocker',COALESCE(v_cart_payload->'checkoutBlocker','null'::jsonb),
+    'items',v_public_items
+  );
+  v_public_quote:=pg_catalog.jsonb_build_object(
+    'cart',v_public_cart,'paymentMethods',v_payments,
+    'promotionStatus',CASE WHEN v_evaluation_mode='cart_line_limit'
+      THEN pg_catalog.jsonb_build_object('kind','not_evaluated','reason','cart_line_limit')
+      ELSE pg_catalog.jsonb_build_object('kind','evaluated') END,
+    'appliedPromotions',v_public_applied,'rejectedPromotions',v_public_rejected,'gifts',v_public_gifts,
+    'progressMessages',CASE WHEN v_evaluation_mode='cart_line_limit'
+      THEN pg_catalog.jsonb_build_array('Sepetinizde çok fazla ürün satırı olduğu için promosyon uygulanamadı.')
+      WHEN v_feature_enabled THEN COALESCE(v_evaluation->'progressMessages','[]'::jsonb)
+      ELSE '[]'::jsonb END
+  );
+  -- jsonb_strip_nulls is recursive and would remove the public cart contract's
+  -- required checkoutBlocker:null.  Add only the genuinely optional shipping
+  -- estimate instead of stripping the completed quote tree.
+  IF v_shipping ? 'estimatedDays' AND v_shipping->'estimatedDays'<>'null'::jsonb THEN
+    v_public_quote:=v_public_quote||pg_catalog.jsonb_build_object('estimatedDays',v_shipping->'estimatedDays');
+  END IF;
+  v_authority:=pg_catalog.jsonb_build_object(
+    'schemaVersion',1,'storeId',v_store_id,'sourceKind',p_kind,'sourceId',v_source_id,
+    'sourceVersion',v_source_version,'customerId',v_customer_id,'normalizedCodes',pg_catalog.to_jsonb(p_normalized_codes),
+    'evaluationMode',v_evaluation_mode,'featureEnabled',v_feature_enabled,
+    'paymentSelectionRequired',v_payment_selection_required,'quote',v_public_quote,
+    'evaluatorContext',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_context ELSE NULL END,
+    'materializedLines',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_materialized_lines ELSE NULL END,
+    'evaluation',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_evaluation ELSE NULL END
+  );
+  IF pg_catalog.pg_column_size(v_authority)>786432 THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+  v_authority_digest:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_authority::text,'UTF8')),'hex');
+  RETURN QUERY SELECT 'quoted',pg_catalog.jsonb_build_object('quote',v_public_quote,'authorityDigest',v_authority_digest);
+EXCEPTION WHEN OTHERS THEN
+  RETURN QUERY SELECT 'unavailable',NULL::jsonb;
+END $fn$;
+
+-- Offline checkout V2 owns its operation row from the outset.  The V1 checkout
+-- ledger is immutable, so wrapping V1 and rewriting its gross receipt would be
+-- both unsafe and impossible.  This additive path preserves the V1 definition,
+-- resolves the customer first, then derives and settles promotion authority in
+-- the same exception-backed subtransaction as the order and inventory writes.
+SET LOCAL check_function_bodies = off;
+CREATE OR REPLACE FUNCTION saas.public_checkout_complete_v2(
+  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,p_customer_credentials jsonb,
+  p_operation_id uuid,p_fingerprint text,p_expected_version bigint,
+  p_delivery jsonb,p_payment_kind text,
+  p_order_id uuid,p_customer_id uuid,p_address_id uuid,p_event_id uuid,
+  p_receipt_id uuid,p_receipt_key_id text,p_receipt_digest text,p_receipt_expires_at timestamptz,
+  p_customer_credential_id uuid,p_customer_key_id text,p_customer_digest text,p_customer_expires_at timestamptz,
+  p_normalized_codes text[]
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+DECLARE
+  v_store_id uuid;
+  v_currency text;
+  v_cart saas.storefront_carts%ROWTYPE;
+  v_intent saas.storefront_checkout_intents%ROWTYPE;
+  v_existing_operation saas.storefront_checkout_operations%ROWTYPE;
+  v_payment saas.payment_methods%ROWTYPE;
+  v_customer saas.customers%ROWTYPE;
+  v_address saas.customer_addresses%ROWTYPE;
+  v_customer_credential saas.storefront_customer_credentials%ROWTYPE;
+  v_line record;
+  v_resolved record;
+  v_gift_variant record;
+  v_source_cart_id uuid;
+  v_source_intent_id uuid;
+  v_shipping_method_id uuid;
+  v_bound_customer_id uuid;
+  v_cart_payload jsonb;
+  v_shipping_projection jsonb;
+  v_context jsonb;
+  v_materialized_lines jsonb;
+  v_evaluation jsonb;
+  v_public_items jsonb:='[]'::jsonb;
+  v_public_applied jsonb:='[]'::jsonb;
+  v_public_gifts jsonb:='[]'::jsonb;
+  v_receipt jsonb;
+  v_result jsonb;
+  v_reserve_result jsonb;
+  v_commit_result jsonb;
+  v_customer_segments jsonb:='[]'::jsonb;
+  v_customer_tags jsonb:='[]'::jsonb;
+  v_abandoned_cart jsonb:='null'::jsonb;
+  v_subtotal bigint:=0;
+  v_shipping bigint:=0;
+  v_line_discount bigint:=0;
+  v_shipping_discount bigint:=0;
+  v_discount_total bigint:=0;
+  v_grand_total bigint:=0;
+  v_paid_order_count bigint:=0;
+  v_line_count integer;
+  v_matching_customer_count integer:=0;
+  v_position integer:=0;
+  v_line_effect numeric;
+  v_projected_line_discount numeric:=0;
+  v_projected_applied_discount numeric:=0;
+  v_line_id uuid;
+  v_feature_enabled boolean:=false;
+  v_customer_credential_created boolean:=false;
+  v_evaluation_mode text:='evaluated';
+  v_order_number text;
+  v_reserve_operation_id uuid;
+  v_commit_operation_id uuid;
+  v_reservation_group_id uuid;
+  v_reserve_fingerprint text;
+  v_commit_fingerprint text;
+  v_checkout_outcome text;
+  v_rollback_outcome text;
+  v_item jsonb;
+  v_public_item jsonb;
+  v_applied jsonb;
+  v_gift jsonb;
+  v_ordinality bigint;
+  v_gift_quantity bigint;
+  v_gift_remaining bigint;
+  v_gift_chunk integer;
+BEGIN
+  IF p_now IS NULL OR pg_catalog.isfinite(p_now) IS NOT TRUE
+     OR pg_catalog.date_trunc('milliseconds',p_now)<>p_now
+     OR p_kind IS NULL OR p_kind NOT IN ('cart','buy_now')
+     OR saas.storefront_credential_candidates_valid(p_credentials,false) IS NOT TRUE
+     OR saas.storefront_credential_candidates_valid(p_customer_credentials,true) IS NOT TRUE
+     OR saas.promotion_checkout_codes_valid_v1(p_normalized_codes) IS NOT TRUE
+     OR p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+     OR p_expected_version IS NULL OR p_expected_version<1
+     OR saas.storefront_delivery_valid(p_delivery) IS NOT TRUE
+     OR p_payment_kind IS NULL OR p_payment_kind NOT IN ('bank_transfer','cash_on_delivery')
+     OR p_order_id IS NULL OR p_customer_id IS NULL OR p_address_id IS NULL OR p_event_id IS NULL
+     OR p_receipt_id IS NULL OR p_customer_credential_id IS NULL
+     OR p_receipt_key_id IS NULL OR p_receipt_key_id!~'^[a-z0-9][a-z0-9_-]{0,31}$'
+     OR p_receipt_digest IS NULL OR p_receipt_digest!~'^[a-f0-9]{64}$'
+     OR p_receipt_expires_at IS NULL OR pg_catalog.isfinite(p_receipt_expires_at) IS NOT TRUE
+     OR pg_catalog.date_trunc('milliseconds',p_receipt_expires_at)<>p_receipt_expires_at
+     OR p_receipt_expires_at<=p_now OR p_receipt_expires_at>p_now+pg_catalog.interval '1 day'
+     OR p_customer_key_id IS NULL OR p_customer_key_id!~'^[a-z0-9][a-z0-9_-]{0,31}$'
+     OR p_customer_digest IS NULL OR p_customer_digest!~'^[a-f0-9]{64}$'
+     OR p_customer_expires_at IS NULL OR pg_catalog.isfinite(p_customer_expires_at) IS NOT TRUE
+     OR pg_catalog.date_trunc('milliseconds',p_customer_expires_at)<>p_customer_expires_at
+     OR p_customer_expires_at<=p_now OR p_customer_expires_at>p_now+pg_catalog.interval '31 days'
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
+  v_store_id:=saas.storefront_public_store(p_hostname,p_now);
+  IF v_store_id IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.storefront.checkout.operation:'||p_operation_id::text,0));
+  SELECT operation_row.* INTO v_existing_operation
+  FROM saas.storefront_checkout_operations operation_row
+  WHERE operation_row.operation_id=p_operation_id
+  FOR SHARE;
+  IF FOUND THEN
+    IF v_existing_operation.store_id<>v_store_id OR v_existing_operation.payload_fingerprint<>p_fingerprint THEN
+      RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSIF pg_catalog.jsonb_typeof(v_existing_operation.result_payload->'receipt') IS DISTINCT FROM 'object'
+       OR NOT (v_existing_operation.result_payload->'receipt' ?& ARRAY[
+         'lineDiscountCents','shippingDiscountCents','discountCents','promotionStatus','appliedPromotions','gifts'
+       ]) THEN
+      RETURN QUERY SELECT 'unavailable',NULL::jsonb;
+    ELSE
+      RETURN QUERY SELECT 'operation_replayed',v_existing_operation.result_payload;
+    END IF;
+    RETURN;
+  END IF;
+
+  SELECT store.currency INTO v_currency
+  FROM saas.stores store
+  WHERE store.id=v_store_id
+  FOR SHARE;
+  IF NOT FOUND OR v_currency IS DISTINCT FROM 'TRY'
+  THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+
+  PERFORM credential.id
+  FROM saas.storefront_customer_credentials credential
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) candidate
+    ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+  WHERE credential.store_id=v_store_id AND credential.expires_at>p_now
+  ORDER BY credential.id
+  FOR UPDATE OF credential;
+  SELECT pg_catalog.count(DISTINCT credential.customer_id) INTO v_matching_customer_count
+  FROM saas.storefront_customer_credentials credential
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) candidate
+    ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+  WHERE credential.store_id=v_store_id AND credential.expires_at>p_now;
+  IF v_matching_customer_count>1
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+
+  SELECT credential.* INTO v_customer_credential
+  FROM saas.storefront_customer_credentials credential
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) candidate
+    ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+  WHERE credential.store_id=v_store_id AND credential.expires_at>p_now
+  ORDER BY credential.created_at DESC,credential.id
+  LIMIT 1 FOR UPDATE OF credential;
+
+  IF p_kind='cart' THEN
+    SELECT cart.* INTO v_cart
+    FROM saas.storefront_carts cart
+    JOIN saas.storefront_cart_credentials credential
+      ON credential.store_id=cart.store_id AND credential.cart_id=cart.id
+    JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate
+      ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+    WHERE cart.store_id=v_store_id AND credential.expires_at>p_now
+    ORDER BY cart.created_at DESC,cart.id LIMIT 1 FOR UPDATE OF cart;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+    v_source_cart_id:=v_cart.id;
+    IF v_cart.status<>'active' OR v_cart.expires_at<=p_now THEN RETURN QUERY SELECT 'cart_expired',NULL::jsonb; RETURN; END IF;
+    IF v_cart.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict',saas.storefront_cart_projection(v_store_id,v_cart.id,p_now); RETURN; END IF;
+    IF NOT EXISTS(SELECT 1 FROM saas.storefront_cart_items item WHERE item.store_id=v_store_id AND item.cart_id=v_cart.id)
+    THEN RETURN QUERY SELECT 'cart_empty',NULL::jsonb; RETURN; END IF;
+    v_cart_payload:=saas.storefront_cart_projection(v_store_id,v_cart.id,p_now);
+  ELSE
+    SELECT intent.* INTO v_intent
+    FROM saas.storefront_checkout_intents intent
+    JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate
+      ON candidate->>'keyId'=intent.key_id AND candidate->>'digest'=intent.credential_digest
+    WHERE intent.store_id=v_store_id
+    ORDER BY intent.created_at DESC,intent.id LIMIT 1 FOR UPDATE OF intent;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+    v_source_intent_id:=v_intent.id;
+    IF v_intent.status<>'active' OR v_intent.expires_at<=p_now THEN RETURN QUERY SELECT 'cart_expired',NULL::jsonb; RETURN; END IF;
+    IF p_expected_version<>1 THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
+    v_cart_payload:=saas.storefront_intent_projection(v_store_id,v_intent.id,p_now);
+  END IF;
+  IF v_cart_payload IS NULL OR pg_catalog.jsonb_typeof(v_cart_payload) IS DISTINCT FROM 'object'
+     OR pg_catalog.jsonb_typeof(v_cart_payload->'items') IS DISTINCT FROM 'array'
+  THEN RETURN QUERY SELECT 'stock_unavailable',v_cart_payload; RETURN; END IF;
+  IF v_cart_payload->>'currency' IS DISTINCT FROM v_currency
+  THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+  IF COALESCE((v_cart_payload->>'checkoutReady')::boolean,false) IS DISTINCT FROM true
+  THEN RETURN QUERY SELECT 'stock_unavailable',v_cart_payload; RETURN; END IF;
+  v_line_count:=pg_catalog.jsonb_array_length(v_cart_payload->'items');
+  IF v_line_count NOT BETWEEN 1 AND 100 THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN; END IF;
+
+  v_shipping_projection:=saas.storefront_shipping_projection(v_store_id);
+  IF v_shipping_projection IS NULL THEN RETURN QUERY SELECT 'shipping_unavailable',NULL::jsonb; RETURN; END IF;
+  v_shipping:=(v_shipping_projection->>'shippingCents')::bigint;
+  SELECT shipping.id INTO v_shipping_method_id
+  FROM saas.merchant_admin_records shipping
+  WHERE shipping.store_id=v_store_id AND shipping.record_kind='shipping_setting'
+    AND shipping.status='active' AND shipping.archived_at IS NULL
+    AND saas.merchant_admin_config_valid('shipping_setting',shipping.config)
+  ORDER BY shipping.updated_at DESC,shipping.id DESC LIMIT 1 FOR KEY SHARE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'shipping_unavailable',NULL::jsonb; RETURN; END IF;
+  SELECT method.* INTO v_payment
+  FROM saas.payment_methods method
+  WHERE method.store_id=v_store_id AND method.kind=p_payment_kind AND method.state='active'
+    AND saas.built_in_payment_method_config_valid(method.kind,method.config)
+  ORDER BY method.position,method.id LIMIT 1 FOR KEY SHARE;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'payment_unavailable',NULL::jsonb; RETURN; END IF;
+
+  IF p_kind='cart' THEN
+    FOR v_line IN
+      SELECT item.*,variant.stock_tracking,variant.title variant_title,variant.sku,
+        variant.status variant_status,product.title product_title,product.status product_status
+      FROM saas.storefront_cart_items item
+      JOIN saas.product_variants variant ON variant.store_id=item.store_id AND variant.id=item.variant_id AND variant.product_id=item.product_id
+      JOIN saas.products product ON product.store_id=item.store_id AND product.id=item.product_id
+      WHERE item.store_id=v_store_id AND item.cart_id=v_source_cart_id
+      ORDER BY item.position,item.variant_id FOR UPDATE OF variant
+    LOOP
+      IF v_line.product_status<>'active' OR v_line.variant_status<>'active'
+      THEN RETURN QUERY SELECT 'stock_unavailable',v_cart_payload; RETURN; END IF;
+      SELECT * INTO v_resolved FROM saas.resolve_effective_variant_price(v_store_id,v_line.variant_id,'storefront',p_now,NULL);
+      IF v_resolved.outcome<>'found' OR v_resolved.price_cents<>v_line.unit_price_cents
+      THEN RETURN QUERY SELECT 'price_changed',v_cart_payload; RETURN; END IF;
+      IF v_line.stock_tracking AND saas.storefront_available_stock(v_store_id,v_line.variant_id,p_now,NULL)<v_line.quantity
+      THEN RETURN QUERY SELECT 'stock_unavailable',v_cart_payload; RETURN; END IF;
+      v_subtotal:=v_subtotal+v_resolved.price_cents*v_line.quantity;
+    END LOOP;
+  ELSE
+    SELECT variant.stock_tracking,variant.title variant_title,variant.sku,variant.status variant_status,
+      product.title product_title,product.status product_status,v_intent.product_id,v_intent.variant_id,
+      v_intent.quantity,v_intent.unit_price_cents,0 position
+    INTO v_line
+    FROM saas.product_variants variant
+    JOIN saas.products product ON product.store_id=variant.store_id AND product.id=variant.product_id
+    WHERE variant.store_id=v_store_id AND variant.id=v_intent.variant_id AND product.id=v_intent.product_id
+    FOR UPDATE OF variant;
+    IF NOT FOUND OR v_line.product_status<>'active' OR v_line.variant_status<>'active'
+    THEN RETURN QUERY SELECT 'stock_unavailable',v_cart_payload; RETURN; END IF;
+    SELECT * INTO v_resolved FROM saas.resolve_effective_variant_price(v_store_id,v_line.variant_id,'storefront',p_now,NULL);
+    IF v_resolved.outcome<>'found' OR v_resolved.price_cents<>v_line.unit_price_cents
+    THEN RETURN QUERY SELECT 'price_changed',v_cart_payload; RETURN; END IF;
+    IF v_line.stock_tracking AND saas.storefront_available_stock(v_store_id,v_line.variant_id,p_now,NULL)<v_line.quantity
+    THEN RETURN QUERY SELECT 'stock_unavailable',v_cart_payload; RETURN; END IF;
+    v_subtotal:=v_resolved.price_cents*v_line.quantity;
+  END IF;
+  IF v_subtotal IS DISTINCT FROM (v_cart_payload->>'subtotalCents')::bigint
+     OR v_shipping IS DISTINCT FROM (v_cart_payload->>'shippingCents')::bigint
+  THEN RAISE EXCEPTION 'checkout v2 gross projection changed'; END IF;
+
+  IF v_customer_credential.id IS NOT NULL THEN
+    SELECT customer.* INTO v_customer FROM saas.customers customer
+    WHERE customer.store_id=v_store_id AND customer.id=v_customer_credential.customer_id
+    FOR UPDATE;
+    IF NOT FOUND OR v_customer.status<>'active' OR v_customer.archived_at IS NOT NULL
+       OR v_customer.email<>p_delivery->'contact'->>'email'
+       OR v_customer.phone IS DISTINCT FROM p_delivery->'contact'->>'phone'
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+    UPDATE saas.customers
+    SET first_name=p_delivery->'contact'->>'firstName',last_name=p_delivery->'contact'->>'lastName',
+      version=version+1,updated_at=p_now
+    WHERE store_id=v_store_id AND id=v_customer.id RETURNING * INTO v_customer;
+    UPDATE saas.storefront_customer_credentials SET last_seen_at=GREATEST(last_seen_at,p_now)
+    WHERE store_id=v_store_id AND id=v_customer_credential.id;
+  ELSE
+    PERFORM customer.id FROM saas.customers customer
+    WHERE customer.store_id=v_store_id
+      AND (customer.email=p_delivery->'contact'->>'email' OR customer.phone=p_delivery->'contact'->>'phone')
+    ORDER BY customer.id FOR UPDATE;
+    SELECT customer.* INTO v_customer FROM saas.customers customer
+    WHERE customer.store_id=v_store_id
+      AND (customer.email=p_delivery->'contact'->>'email' OR customer.phone=p_delivery->'contact'->>'phone')
+    ORDER BY customer.id LIMIT 1;
+    IF FOUND THEN
+      IF v_customer.email<>p_delivery->'contact'->>'email'
+         OR v_customer.phone IS DISTINCT FROM p_delivery->'contact'->>'phone'
+         OR v_customer.status<>'active' OR v_customer.archived_at IS NOT NULL
+         OR EXISTS(
+           SELECT 1 FROM saas.customers customer
+           WHERE customer.store_id=v_store_id AND customer.id<>v_customer.id
+             AND (customer.email=p_delivery->'contact'->>'email' OR customer.phone=p_delivery->'contact'->>'phone')
+         )
+      THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+      UPDATE saas.customers
+      SET first_name=p_delivery->'contact'->>'firstName',last_name=p_delivery->'contact'->>'lastName',
+        phone=p_delivery->'contact'->>'phone',version=version+1,updated_at=p_now
+      WHERE store_id=v_store_id AND id=v_customer.id RETURNING * INTO v_customer;
+    ELSE
+      INSERT INTO saas.customers(id,store_id,status,first_name,last_name,email,phone,version,created_at,updated_at)
+      VALUES(p_customer_id,v_store_id,'active',p_delivery->'contact'->>'firstName',p_delivery->'contact'->>'lastName',
+        p_delivery->'contact'->>'email',p_delivery->'contact'->>'phone',1,p_now,p_now)
+      RETURNING * INTO v_customer;
+    END IF;
+  END IF;
+
+  IF p_kind='cart' THEN
+    SELECT abandoned.customer_id INTO v_bound_customer_id
+    FROM saas.abandoned_carts abandoned
+    WHERE abandoned.store_id=v_store_id AND abandoned.source_cart_id=v_source_cart_id
+    ORDER BY abandoned.last_activity_at DESC,abandoned.id DESC LIMIT 1;
+    IF FOUND AND v_bound_customer_id IS NOT NULL AND v_bound_customer_id<>v_customer.id THEN
+      v_rollback_outcome:='invalid_input';
+      RAISE EXCEPTION 'checkout v2 customer binding changed';
+    END IF;
+  END IF;
+
+  SELECT address.* INTO v_address FROM saas.customer_addresses address
+  WHERE address.store_id=v_store_id AND address.customer_id=v_customer.id AND address.is_default FOR UPDATE;
+  IF FOUND THEN
+    UPDATE saas.customer_addresses
+    SET recipient_name=v_customer.first_name||' '||v_customer.last_name,
+      line1=p_delivery->'shippingAddress'->>'line1',line2=p_delivery->'shippingAddress'->>'line2',
+      city=p_delivery->'shippingAddress'->>'city',district=p_delivery->'shippingAddress'->>'district',
+      postal_code=p_delivery->'shippingAddress'->>'postalCode',country=p_delivery->'shippingAddress'->>'country',
+      version=version+1,updated_at=p_now
+    WHERE store_id=v_store_id AND id=v_address.id RETURNING * INTO v_address;
+  ELSE
+    INSERT INTO saas.customer_addresses(id,store_id,customer_id,label,recipient_name,line1,line2,city,district,postal_code,country,is_default,version,created_at,updated_at)
+    VALUES(p_address_id,v_store_id,v_customer.id,'Teslimat',v_customer.first_name||' '||v_customer.last_name,
+      p_delivery->'shippingAddress'->>'line1',p_delivery->'shippingAddress'->>'line2',p_delivery->'shippingAddress'->>'city',
+      p_delivery->'shippingAddress'->>'district',p_delivery->'shippingAddress'->>'postalCode',p_delivery->'shippingAddress'->>'country',true,1,p_now,p_now)
+    RETURNING * INTO v_address;
+  END IF;
+
+  -- Audience authority is intentionally loaded only after customer resolution.
+  SELECT count(*) INTO v_paid_order_count FROM saas.orders order_row
+  WHERE order_row.store_id=v_store_id AND order_row.customer_id=v_customer.id
+    AND (order_row.paid_at IS NOT NULL OR order_row.payment_status IN ('completed','refunded'));
+  SELECT COALESCE(pg_catalog.jsonb_agg(fact.id::text ORDER BY fact.id),'[]'::jsonb) INTO v_customer_segments
+  FROM (
+    SELECT DISTINCT membership.segment_id id
+    FROM saas.customer_segment_memberships membership
+    JOIN saas.customer_segments segment ON segment.store_id=membership.store_id AND segment.id=membership.segment_id AND segment.archived_at IS NULL
+    WHERE membership.store_id=v_store_id AND membership.customer_id=v_customer.id
+  ) fact;
+  SELECT COALESCE(pg_catalog.jsonb_agg(fact.id::text ORDER BY fact.id),'[]'::jsonb) INTO v_customer_tags
+  FROM (
+    SELECT DISTINCT membership.tag_id id
+    FROM saas.customer_tag_assignments membership
+    JOIN saas.customer_tags tag ON tag.store_id=membership.store_id AND tag.id=membership.tag_id AND tag.archived_at IS NULL
+    WHERE membership.store_id=v_store_id AND membership.customer_id=v_customer.id
+  ) fact;
+  IF v_paid_order_count>1000000000 OR pg_catalog.jsonb_array_length(v_customer_segments)>100
+     OR pg_catalog.jsonb_array_length(v_customer_tags)>100
+  THEN RAISE EXCEPTION 'checkout v2 audience authority unavailable'; END IF;
+  IF p_kind='cart' THEN
+    SELECT pg_catalog.jsonb_build_object('id',abandoned.id) INTO v_abandoned_cart
+    FROM saas.abandoned_carts abandoned
+    WHERE abandoned.store_id=v_store_id AND abandoned.source_cart_id=v_source_cart_id
+      AND abandoned.status='abandoned' AND abandoned.abandoned_at IS NOT NULL
+      AND abandoned.abandoned_at<=p_now AND abandoned.abandoned_at>p_now-pg_catalog.interval '30 days'
+    ORDER BY abandoned.abandoned_at DESC,abandoned.id DESC LIMIT 1;
+    v_abandoned_cart:=COALESCE(v_abandoned_cart,'null'::jsonb);
+  END IF;
+
+  IF v_line_count>20 THEN
+    v_evaluation_mode:='cart_line_limit';
+  ELSE
+    SELECT EXISTS(
+      SELECT 1
+      FROM saas.subscriptions subscription
+      JOIN saas.plans plan ON plan.id=subscription.plan_id
+        AND plan.plan_code=subscription.plan_code AND plan.version=subscription.plan_version
+        AND plan.status='active' AND plan.valid_from<=p_now
+        AND (plan.valid_until IS NULL OR p_now<plan.valid_until)
+      JOIN saas.plan_features feature ON feature.plan_id=plan.id
+        AND feature.feature_key='promotions' AND feature.enabled
+      WHERE subscription.store_id=v_store_id AND subscription.status='active'
+        AND subscription.valid_from<=p_now
+        AND (subscription.valid_until IS NULL OR p_now<subscription.valid_until)
+    ) INTO v_feature_enabled;
+    IF v_feature_enabled THEN
+      SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'lineId',saas.storefront_commerce_uuid(p_order_id::text||':item:'||(source.ordinality-1)::text),
+        'position',(source.ordinality-1)::integer,
+        'productId',source.item->>'productId','variantId',source.item->>'variantId',
+        'quantity',(source.item->>'quantity')::bigint,'unitPriceMinor',(source.item->>'unitPriceCents')::bigint,
+        'unitCostMinor',NULL,'currency',v_cart_payload->>'currency','categoryIds','[]'::jsonb,
+        'brandId',NULL,'collectionIds','[]'::jsonb
+      ) ORDER BY source.ordinality),'[]'::jsonb) INTO v_context
+      FROM pg_catalog.jsonb_array_elements(v_cart_payload->'items') WITH ORDINALITY source(item,ordinality);
+      v_context:=pg_catalog.jsonb_build_object(
+        'storeId',v_store_id,'customerId',v_customer.id,'paidOrderCount',v_paid_order_count,
+        'customerSegmentIds',v_customer_segments,'customerTagIds',v_customer_tags,
+        'cartLines',v_context,'shippingMethodId',v_shipping_method_id,'paymentMethodId',v_payment.id,
+        'shippingBeforeDiscountMinor',v_shipping,'currency',v_cart_payload->>'currency',
+        'storeLocalTime',saas.storefront_commerce_timestamp(p_now),'salesChannel','storefront',
+        'submittedCodes',pg_catalog.to_jsonb(p_normalized_codes),'abandonedCart',v_abandoned_cart
+      );
+      IF saas.promotion_evaluator_context_valid(v_store_id,v_context) IS NOT TRUE
+      THEN RAISE EXCEPTION 'checkout v2 evaluator context unavailable'; END IF;
+      v_materialized_lines:=saas.promotion_evaluator_materialize_lines(v_store_id,v_cart_payload->>'currency',v_context,p_now);
+      IF pg_catalog.jsonb_typeof(v_materialized_lines) IS DISTINCT FROM 'array'
+         OR pg_catalog.jsonb_array_length(v_materialized_lines)<>v_line_count
+      THEN RAISE EXCEPTION 'checkout v2 materialization unavailable'; END IF;
+      v_evaluation:=saas.promotion_evaluate_internal_v1(v_store_id,v_context,p_now,NULL,v_materialized_lines);
+      IF pg_catalog.jsonb_typeof(v_evaluation) IS DISTINCT FROM 'object'
+         OR v_evaluation->>'merchantExplanation' IS DISTINCT FROM 'evaluated'
+         OR v_evaluation->>'currency' IS DISTINCT FROM v_cart_payload->>'currency'
+         OR (v_evaluation->>'subtotalBeforeDiscountMinor')::bigint IS DISTINCT FROM v_subtotal
+         OR (v_evaluation->>'shippingBeforeDiscountMinor')::bigint IS DISTINCT FROM v_shipping
+      THEN RAISE EXCEPTION 'checkout v2 evaluation unavailable'; END IF;
+      v_line_discount:=(v_evaluation->>'lineDiscountTotalMinor')::bigint;
+      v_shipping_discount:=(v_evaluation->>'shippingDiscountTotalMinor')::bigint;
+      v_discount_total:=(v_evaluation->>'discountTotalMinor')::bigint;
+      v_grand_total:=(v_evaluation->>'grandTotalMinor')::bigint;
+      IF v_line_discount<0 OR v_shipping_discount<0 OR v_discount_total<>v_line_discount+v_shipping_discount
+         OR v_shipping_discount>v_shipping OR v_grand_total<>v_subtotal+v_shipping-v_discount_total
+         OR v_grand_total<0 OR EXISTS(
+           SELECT 1 FROM pg_catalog.jsonb_array_elements(v_evaluation->'lineEffects') effect
+           WHERE NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(v_context->'cartLines') context_line WHERE context_line->>'lineId'=effect->>'lineId')
+         )
+      THEN RAISE EXCEPTION 'checkout v2 financial projection unavailable'; END IF;
+
+      FOR v_applied IN
+        SELECT applied.value FROM pg_catalog.jsonb_array_elements(v_evaluation->'appliedPromotions') WITH ORDINALITY applied(value,ordinality)
+        ORDER BY applied.ordinality
+      LOOP
+        v_public_applied:=v_public_applied||pg_catalog.jsonb_build_array(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+          'name',v_applied->>'name','benefitKind',v_applied->>'benefitKind',
+          'normalizedCode',CASE WHEN v_applied ? 'normalizedCode' THEN v_applied->>'normalizedCode' END,
+          'lineDiscountCents',(v_applied->>'lineDiscountMinor')::bigint,
+          'shippingDiscountCents',(v_applied->>'shippingDiscountMinor')::bigint,
+          'discountCents',(v_applied->>'discountTotalMinor')::bigint
+        )));
+        v_projected_applied_discount:=v_projected_applied_discount+(v_applied->>'discountTotalMinor')::numeric;
+      END LOOP;
+      IF v_projected_applied_discount<>v_discount_total
+      THEN RAISE EXCEPTION 'checkout v2 applied projection unavailable'; END IF;
+      IF EXISTS(
+        SELECT 1 FROM (
+          SELECT gift->>'variantId' variant_id,(gift->>'autoAdd')::boolean auto_add,
+            pg_catalog.sum((gift->>'quantity')::numeric) quantity
+          FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+          GROUP BY gift->>'variantId',(gift->>'autoAdd')::boolean
+        ) grouped WHERE grouped.quantity NOT BETWEEN 1 AND 1000000
+      ) THEN RAISE EXCEPTION 'checkout v2 gift projection unavailable'; END IF;
+      SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'variantId',grouped.variant_id,'quantity',grouped.quantity::bigint,'autoAdd',grouped.auto_add
+      ) ORDER BY grouped.variant_id::uuid,grouped.auto_add),'[]'::jsonb) INTO v_public_gifts
+      FROM (
+        SELECT gift->>'variantId' variant_id,(gift->>'autoAdd')::boolean auto_add,
+          pg_catalog.sum((gift->>'quantity')::numeric) quantity
+        FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+        GROUP BY gift->>'variantId',(gift->>'autoAdd')::boolean
+      ) grouped;
+
+      -- A sale line and an auto-added gift may consume the same variant. Lock
+      -- every required variant first, then validate the aggregate requirement;
+      -- independent sale/gift checks would otherwise admit oversubscription.
+      PERFORM variant.id
+      FROM saas.product_variants variant
+      WHERE variant.store_id=v_store_id AND variant.id IN (
+        SELECT (item->>'variantId')::uuid
+        FROM pg_catalog.jsonb_array_elements(v_cart_payload->'items') item
+        UNION
+        SELECT (gift->>'variantId')::uuid
+        FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+        WHERE (gift->>'autoAdd')::boolean
+      )
+      ORDER BY variant.id
+      FOR UPDATE OF variant;
+      IF EXISTS(
+        SELECT 1
+        FROM (
+          SELECT required_line.variant_id,pg_catalog.sum(required_line.quantity)::bigint required_quantity
+          FROM (
+            SELECT (item->>'variantId')::uuid variant_id,(item->>'quantity')::bigint quantity
+            FROM pg_catalog.jsonb_array_elements(v_cart_payload->'items') item
+            UNION ALL
+            SELECT (gift->>'variantId')::uuid,(gift->>'quantity')::bigint
+            FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+            WHERE (gift->>'autoAdd')::boolean
+          ) required_line
+          GROUP BY required_line.variant_id
+        ) required
+        LEFT JOIN saas.product_variants variant
+          ON variant.store_id=v_store_id AND variant.id=required.variant_id
+        WHERE variant.id IS NULL
+           OR (variant.stock_tracking AND
+             saas.storefront_available_stock(v_store_id,required.variant_id,p_now,NULL)<required.required_quantity)
+      ) THEN RAISE EXCEPTION 'checkout v2 aggregate stock unavailable'; END IF;
+    END IF;
+  END IF;
+
+  FOR v_item,v_ordinality IN
+    SELECT source.item,source.ordinality
+    FROM pg_catalog.jsonb_array_elements(v_cart_payload->'items') WITH ORDINALITY source(item,ordinality)
+    ORDER BY source.ordinality
+  LOOP
+    v_line_id:=saas.storefront_commerce_uuid(p_order_id::text||':item:'||(v_ordinality-1)::text);
+    v_line_effect:=0;
+    IF v_feature_enabled AND v_evaluation_mode='evaluated' THEN
+      SELECT COALESCE(pg_catalog.sum((effect->>'discountMinor')::numeric),0) INTO v_line_effect
+      FROM pg_catalog.jsonb_array_elements(v_evaluation->'lineEffects') effect
+      WHERE effect->>'lineId'=v_line_id::text;
+    END IF;
+    IF v_line_effect<0 OR v_line_effect>(v_item->>'lineTotalCents')::bigint
+       OR pg_catalog.trunc(v_line_effect)<>v_line_effect
+    THEN RAISE EXCEPTION 'checkout v2 line projection unavailable'; END IF;
+    v_projected_line_discount:=v_projected_line_discount+v_line_effect;
+    v_public_item:=pg_catalog.jsonb_build_object(
+      'productId',v_item->>'productId','variantId',v_item->>'variantId','slug',v_item->>'slug',
+      'title',v_item->>'title','variantTitle',v_item->>'variantTitle',
+      'quantity',(v_item->>'quantity')::bigint,'unitPriceCents',(v_item->>'unitPriceCents')::bigint,
+      'lineTotalCents',(v_item->>'lineTotalCents')::bigint,'discountCents',v_line_effect::bigint,
+      'payableCents',(v_item->>'lineTotalCents')::bigint-v_line_effect::bigint,
+      'available',(v_item->>'available')::boolean
+    );
+    IF v_item ? 'categoryId' THEN v_public_item:=v_public_item||pg_catalog.jsonb_build_object('categoryId',v_item->>'categoryId'); END IF;
+    IF v_item ? 'media' THEN v_public_item:=v_public_item||pg_catalog.jsonb_build_object('media',v_item->'media'); END IF;
+    v_public_items:=v_public_items||pg_catalog.jsonb_build_array(v_public_item);
+  END LOOP;
+  IF v_feature_enabled AND v_evaluation_mode='evaluated' AND v_projected_line_discount<>v_line_discount
+  THEN RAISE EXCEPTION 'checkout v2 line reconciliation unavailable'; END IF;
+  IF NOT v_feature_enabled OR v_evaluation_mode='cart_line_limit' THEN
+    v_line_discount:=0; v_shipping_discount:=0; v_discount_total:=0;
+    v_grand_total:=v_subtotal+v_shipping;
+    v_public_applied:='[]'::jsonb; v_public_gifts:='[]'::jsonb;
+  END IF;
+
+  IF v_feature_enabled AND v_evaluation_mode='evaluated'
+     AND pg_catalog.jsonb_array_length(v_evaluation->'appliedPromotions')>0 THEN
+    v_reserve_operation_id:=saas.storefront_commerce_uuid('promotion-checkout-v2:'||p_operation_id::text||':reserve');
+    v_reserve_fingerprint:=saas.promotion_operation_fingerprint_v2('reserve',v_store_id,pg_catalog.jsonb_build_object(
+      'sourceKind','offline_checkout','sourceReference',p_order_id::text,'evaluatorContext',v_context
+    ));
+    IF v_reserve_fingerprint IS NULL THEN RAISE EXCEPTION 'checkout v2 reserve fingerprint unavailable'; END IF;
+    SELECT reserve.outcome,reserve.result_payload INTO v_checkout_outcome,v_reserve_result
+    FROM saas.promotion_reserve_group_v1(v_store_id,v_reserve_operation_id,v_reserve_fingerprint,
+      'offline_checkout',p_order_id::text,v_context,p_now) reserve;
+    IF v_checkout_outcome<>'reserved' OR pg_catalog.jsonb_typeof(v_reserve_result) IS DISTINCT FROM 'object'
+    THEN RAISE EXCEPTION 'checkout v2 reserve failed'; END IF;
+    v_reservation_group_id:=(v_reserve_result->>'reservationGroupId')::uuid;
+  END IF;
+
+  v_order_number:='SF-'||pg_catalog.upper(pg_catalog.replace(p_order_id::text,'-',''));
+  INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,customer_phone,currency,
+    subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,tracking,
+    version,created_at,updated_at,customer_id)
+  VALUES(p_order_id,v_store_id,v_order_number,'storefront',v_customer.first_name||' '||v_customer.last_name,
+    v_customer.email,v_customer.phone,v_currency,v_subtotal,v_shipping,v_discount_total,v_grand_total,'pending','pending',
+    p_delivery->'shippingAddress',NULL,1,p_now,p_now,v_customer.id);
+
+  PERFORM pg_catalog.set_config('saas.inventory.source_marker','checkout_sale',true);
+  PERFORM pg_catalog.set_config('saas.inventory.source_id',p_order_id::text,true);
+  PERFORM pg_catalog.set_config('saas.inventory.source_time',p_now::text,true);
+  IF p_kind='cart' THEN
+    v_position:=0;
+    FOR v_line IN
+      SELECT item.*,variant.stock_tracking,variant.title variant_title,variant.sku,product.title product_title
+      FROM saas.storefront_cart_items item
+      JOIN saas.product_variants variant ON variant.store_id=item.store_id AND variant.id=item.variant_id
+      JOIN saas.products product ON product.store_id=item.store_id AND product.id=item.product_id
+      WHERE item.store_id=v_store_id AND item.cart_id=v_source_cart_id ORDER BY item.position,item.variant_id
+    LOOP
+      v_line_id:=saas.storefront_commerce_uuid(p_order_id::text||':item:'||v_position::text);
+      v_line_effect:=0;
+      IF v_feature_enabled AND v_evaluation_mode='evaluated' THEN
+        SELECT COALESCE(pg_catalog.sum((effect->>'discountMinor')::numeric),0) INTO v_line_effect
+        FROM pg_catalog.jsonb_array_elements(v_evaluation->'lineEffects') effect WHERE effect->>'lineId'=v_line_id::text;
+      END IF;
+      INSERT INTO saas.order_items(id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,unit_price_cents,quantity,discount_cents,line_total_cents,created_at)
+      VALUES(v_line_id,v_store_id,p_order_id,v_line.product_id,v_line.variant_id,v_position,v_line.product_title,v_line.variant_title,v_line.sku,
+        v_line.unit_price_cents,v_line.quantity,v_line_effect::bigint,v_line.unit_price_cents*v_line.quantity-v_line_effect::bigint,p_now);
+      v_position:=v_position+1;
+    END LOOP;
+  ELSE
+    v_line_id:=saas.storefront_commerce_uuid(p_order_id::text||':item:0');
+    v_line_effect:=0;
+    IF v_feature_enabled AND v_evaluation_mode='evaluated' THEN
+      SELECT COALESCE(pg_catalog.sum((effect->>'discountMinor')::numeric),0) INTO v_line_effect
+      FROM pg_catalog.jsonb_array_elements(v_evaluation->'lineEffects') effect WHERE effect->>'lineId'=v_line_id::text;
+    END IF;
+    INSERT INTO saas.order_items(id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,unit_price_cents,quantity,discount_cents,line_total_cents,created_at)
+    VALUES(v_line_id,v_store_id,p_order_id,v_line.product_id,v_line.variant_id,0,v_line.product_title,v_line.variant_title,v_line.sku,
+      v_line.unit_price_cents,v_line.quantity,v_line_effect::bigint,v_line.unit_price_cents*v_line.quantity-v_line_effect::bigint,p_now);
+    v_position:=1;
+  END IF;
+
+  IF v_feature_enabled AND v_evaluation_mode='evaluated' THEN
+    FOR v_gift IN
+      SELECT pg_catalog.jsonb_build_object('variantId',gift->>'variantId','quantity',pg_catalog.sum((gift->>'quantity')::numeric)::bigint)
+      FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+      WHERE (gift->>'autoAdd')::boolean
+      GROUP BY gift->>'variantId'
+      ORDER BY (gift->>'variantId')::uuid
+    LOOP
+      v_gift_quantity:=(v_gift->>'quantity')::bigint;
+      SELECT variant.id variant_id,variant.product_id,variant.title variant_title,variant.sku,variant.stock_tracking,
+        variant.status variant_status,product.slug product_slug,product.title product_title,product.status product_status
+      INTO v_gift_variant
+      FROM saas.product_variants variant
+      JOIN saas.products product ON product.store_id=variant.store_id AND product.id=variant.product_id
+      WHERE variant.store_id=v_store_id AND variant.id=(v_gift->>'variantId')::uuid
+      FOR UPDATE OF variant;
+      IF NOT FOUND OR v_gift_variant.variant_status<>'active' OR v_gift_variant.product_status<>'active'
+         OR (v_gift_variant.stock_tracking AND saas.storefront_available_stock(v_store_id,v_gift_variant.variant_id,p_now,NULL)<v_gift_quantity)
+      THEN RAISE EXCEPTION 'checkout v2 gift stock unavailable'; END IF;
+      v_gift_remaining:=v_gift_quantity;
+      WHILE v_gift_remaining>0 LOOP
+        IF v_position>99 THEN RAISE EXCEPTION 'checkout v2 gift line limit unavailable'; END IF;
+        v_gift_chunk:=LEAST(v_gift_remaining,9999)::integer;
+        INSERT INTO saas.order_items(id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,unit_price_cents,quantity,discount_cents,line_total_cents,created_at)
+        VALUES(saas.storefront_commerce_uuid(p_order_id::text||':item:'||v_position::text),v_store_id,p_order_id,
+          v_gift_variant.product_id,v_gift_variant.variant_id,v_position,v_gift_variant.product_title,v_gift_variant.variant_title,
+          v_gift_variant.sku,0,v_gift_chunk,0,0,p_now);
+        v_public_items:=v_public_items||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+          'productId',v_gift_variant.product_id,'variantId',v_gift_variant.variant_id,
+          'slug',v_gift_variant.product_slug,'title',v_gift_variant.product_title,
+          'variantTitle',v_gift_variant.variant_title,'quantity',v_gift_chunk,
+          'unitPriceCents',0,'lineTotalCents',0,'discountCents',0,'payableCents',0,'available',true
+        ));
+        v_position:=v_position+1;
+        v_gift_remaining:=v_gift_remaining-v_gift_chunk;
+      END LOOP;
+    END LOOP;
+  END IF;
+
+  -- One inventory mutation per variant is required by the immutable movement
+  -- identity (order/source + variant + location + direction). It also makes the
+  -- checked aggregate exactly equal to the quantity ultimately consumed.
+  FOR v_line IN
+    SELECT item.variant_id,pg_catalog.sum(item.quantity)::bigint required_quantity
+    FROM saas.order_items item
+    JOIN saas.product_variants variant
+      ON variant.store_id=item.store_id AND variant.id=item.variant_id
+    WHERE item.store_id=v_store_id AND item.order_id=p_order_id AND variant.stock_tracking
+    GROUP BY item.variant_id
+    ORDER BY item.variant_id
+  LOOP
+    UPDATE saas.product_variants variant
+    SET stock_quantity=variant.stock_quantity-v_line.required_quantity,
+      version=variant.version+1,updated_at=p_now
+    WHERE variant.store_id=v_store_id AND variant.id=v_line.variant_id
+      AND variant.stock_quantity>=v_line.required_quantity;
+    IF NOT FOUND THEN RAISE EXCEPTION 'checkout v2 aggregate stock changed'; END IF;
+  END LOOP;
+  PERFORM pg_catalog.set_config('saas.inventory.source_marker','',true);
+  PERFORM pg_catalog.set_config('saas.inventory.source_id','',true);
+  PERFORM pg_catalog.set_config('saas.inventory.source_time','',true);
+
+  INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at)
+  VALUES(p_event_id,v_store_id,p_order_id,NULL,'order_created',NULL,'pending','Storefront siparişi oluşturuldu.',
+    pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object('paymentKind',p_payment_kind,'note',p_delivery->'note')),p_now);
+  IF v_customer_credential.id IS NULL THEN
+    INSERT INTO saas.storefront_customer_credentials(id,store_id,customer_id,key_id,credential_digest,expires_at,created_at,last_seen_at)
+    VALUES(p_customer_credential_id,v_store_id,v_customer.id,p_customer_key_id,p_customer_digest,p_customer_expires_at,p_now,p_now)
+    RETURNING * INTO v_customer_credential;
+    v_customer_credential_created:=true;
+  END IF;
+  INSERT INTO saas.storefront_order_receipts(id,store_id,order_id,customer_credential_id,key_id,credential_digest,expires_at,created_at)
+  VALUES(p_receipt_id,v_store_id,p_order_id,v_customer_credential.id,p_receipt_key_id,p_receipt_digest,p_receipt_expires_at,p_now);
+
+  IF v_reservation_group_id IS NOT NULL THEN
+    v_commit_operation_id:=saas.storefront_commerce_uuid('promotion-checkout-v2:'||p_operation_id::text||':commit');
+    v_commit_fingerprint:=saas.promotion_operation_fingerprint_v2('commit',v_store_id,pg_catalog.jsonb_build_object(
+      'reservationGroupId',v_reservation_group_id,'orderId',p_order_id
+    ));
+    IF v_commit_fingerprint IS NULL THEN RAISE EXCEPTION 'checkout v2 commit fingerprint unavailable'; END IF;
+    SELECT committed.outcome,committed.result_payload INTO v_checkout_outcome,v_commit_result
+    FROM saas.promotion_commit_reservation_group_v1(v_store_id,v_commit_operation_id,v_commit_fingerprint,
+      v_reservation_group_id,p_order_id,p_now) committed;
+    IF v_checkout_outcome<>'committed' OR pg_catalog.jsonb_typeof(v_commit_result) IS DISTINCT FROM 'object'
+    THEN RAISE EXCEPTION 'checkout v2 commit failed'; END IF;
+  END IF;
+
+  v_receipt:=pg_catalog.jsonb_build_object(
+    'orderReference',v_order_number,'currency',v_currency,'subtotalCents',v_subtotal,'shippingCents',v_shipping,
+    'lineDiscountCents',v_line_discount,'shippingDiscountCents',v_shipping_discount,
+    'discountCents',v_discount_total,'totalCents',v_grand_total,'paymentStatus','pending',
+    'paymentMethod',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+      'kind',v_payment.kind,'label',v_payment.label,'instructions',v_payment.config->>'instructions',
+      'bankName',CASE WHEN v_payment.kind='bank_transfer' THEN v_payment.config->>'bankName' END,
+      'accountHolder',CASE WHEN v_payment.kind='bank_transfer' THEN v_payment.config->>'accountHolder' END,
+      'iban',CASE WHEN v_payment.kind='bank_transfer' THEN v_payment.config->>'iban' END
+    )),
+    'delivery',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+      'recipientName',v_customer.first_name||' '||v_customer.last_name,
+      'addressLine1',p_delivery->'shippingAddress'->>'line1','addressLine2',p_delivery->'shippingAddress'->>'line2',
+      'city',p_delivery->'shippingAddress'->>'city','district',p_delivery->'shippingAddress'->>'district',
+      'postalCode',p_delivery->'shippingAddress'->>'postalCode','country','TR'
+    )),
+    'items',v_public_items,
+    'promotionStatus',CASE WHEN v_evaluation_mode='cart_line_limit'
+      THEN pg_catalog.jsonb_build_object('kind','not_evaluated','reason','cart_line_limit')
+      ELSE pg_catalog.jsonb_build_object('kind','evaluated') END,
+    'appliedPromotions',v_public_applied,'gifts',v_public_gifts,
+    'createdAt',saas.storefront_commerce_timestamp(p_now)
+  );
+  v_result:=pg_catalog.jsonb_build_object(
+    'receipt',v_receipt,
+    'credentialPersistence',pg_catalog.jsonb_build_object(
+      'receipt',true,'customer',v_customer_credential_created,
+      'receiptKeyId',p_receipt_key_id,'customerKeyId',v_customer_credential.key_id
+    )
+  );
+  IF pg_catalog.pg_column_size(v_result)>262144 THEN RAISE EXCEPTION 'checkout v2 receipt unavailable'; END IF;
+  INSERT INTO saas.storefront_checkout_operations(operation_id,store_id,cart_id,intent_id,order_id,payload_fingerprint,result_payload,committed_at)
+  VALUES(p_operation_id,v_store_id,v_source_cart_id,v_source_intent_id,p_order_id,p_fingerprint,v_result,p_now);
+  IF p_kind='cart' THEN
+    UPDATE saas.storefront_carts SET status='converted',version=version+1,updated_at=p_now
+    WHERE store_id=v_store_id AND id=v_source_cart_id;
+  ELSE
+    UPDATE saas.storefront_checkout_intents SET status='converted'
+    WHERE store_id=v_store_id AND id=v_source_intent_id;
+  END IF;
+  RETURN QUERY SELECT 'committed',v_result;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN QUERY SELECT COALESCE(v_rollback_outcome,'unavailable'),NULL::jsonb;
+END $fn$;
+SET LOCAL check_function_bodies = on;
+
+ALTER FUNCTION saas.public_checkout_complete_v2(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[]) OWNER TO celebix_saas_owner;
+REVOKE ALL ON FUNCTION saas.public_checkout_complete_v2(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[])
+FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+GRANT EXECUTE ON FUNCTION saas.public_checkout_complete_v2(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[])
+TO celebix_saas_host_resolver;
+
+-- Code-only rollback keeps the legacy receipt ABI exact. Legacy readers hide
+-- V2 receipts rather than fabricating an inaccurate gross-only V1 projection;
+-- additive readers return the immutable stored V1 or V2 projection verbatim.
+CREATE OR REPLACE FUNCTION saas.public_checkout_recover(
+  p_hostname text,p_now timestamptz,p_operation_id uuid,p_fingerprint text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE selected_store uuid; selected_operation saas.storefront_checkout_operations%ROWTYPE;
+BEGIN
+  IF p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT * INTO selected_operation FROM saas.storefront_checkout_operations WHERE operation_id=p_operation_id AND store_id=selected_store;
+  IF NOT FOUND OR (selected_operation.result_payload->'receipt' ? 'promotionStatus') IS TRUE THEN RETURN QUERY SELECT 'not_found',NULL::jsonb;
+  ELSIF selected_operation.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+  ELSE RETURN QUERY SELECT 'operation_replayed',selected_operation.result_payload; END IF;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.public_receipt_get(
+  p_hostname text,p_now timestamptz,p_receipt_credentials jsonb,p_customer_credentials jsonb
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE selected_store uuid; selected_receipt saas.storefront_order_receipts%ROWTYPE; result jsonb;
+BEGIN
+  IF NOT saas.storefront_credential_candidates_valid(p_receipt_credentials,false)
+    OR NOT saas.storefront_credential_candidates_valid(p_customer_credentials,false)
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT receipt.* INTO selected_receipt FROM saas.storefront_order_receipts receipt
+  JOIN pg_catalog.jsonb_array_elements(p_receipt_credentials) receipt_candidate
+    ON receipt_candidate->>'keyId'=receipt.key_id AND receipt_candidate->>'digest'=receipt.credential_digest
+  JOIN saas.storefront_customer_credentials customer_credential
+    ON customer_credential.store_id=receipt.store_id AND customer_credential.id=receipt.customer_credential_id
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) customer_candidate
+    ON customer_candidate->>'keyId'=customer_credential.key_id AND customer_candidate->>'digest'=customer_credential.credential_digest
+  WHERE receipt.store_id=selected_store AND receipt.expires_at>p_now AND customer_credential.expires_at>p_now
+  ORDER BY receipt.created_at DESC,receipt.id LIMIT 1;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT operation.result_payload->'receipt' INTO result FROM saas.storefront_checkout_operations operation
+  WHERE operation.store_id=selected_store AND operation.order_id=selected_receipt.order_id
+    AND (operation.result_payload->'receipt' ? 'promotionStatus') IS NOT TRUE;
+  RETURN QUERY SELECT CASE WHEN result IS NULL THEN 'not_found' ELSE 'found' END,result;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.public_account_orders(
+  p_hostname text,p_now timestamptz,p_credentials jsonb,p_limit integer
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE selected_store uuid; selected_credential saas.storefront_customer_credentials%ROWTYPE; items jsonb;
+BEGIN
+  IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 50 OR NOT saas.storefront_credential_candidates_valid(p_credentials,false) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT credential.* INTO selected_credential FROM saas.storefront_customer_credentials credential
+  JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+  WHERE credential.store_id=selected_store AND credential.expires_at>p_now ORDER BY credential.created_at DESC,credential.id LIMIT 1 FOR UPDATE OF credential;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  UPDATE saas.storefront_customer_credentials SET last_seen_at=GREATEST(last_seen_at,p_now)
+    WHERE store_id=selected_store AND id=selected_credential.id;
+  SELECT COALESCE(pg_catalog.jsonb_agg(entry.receipt ORDER BY entry.created_at DESC,entry.order_id DESC),'[]'::jsonb) INTO items FROM (
+    SELECT operation.result_payload->'receipt' receipt,orders.created_at,orders.id order_id
+    FROM saas.storefront_order_receipts receipt
+    JOIN saas.orders orders ON orders.store_id=receipt.store_id AND orders.id=receipt.order_id
+    JOIN saas.storefront_checkout_operations operation ON operation.store_id=orders.store_id AND operation.order_id=orders.id
+    WHERE receipt.store_id=selected_store AND receipt.customer_credential_id=selected_credential.id
+      AND (operation.result_payload->'receipt' ? 'promotionStatus') IS NOT TRUE
+    ORDER BY receipt.created_at DESC,receipt.order_id DESC LIMIT p_limit
+  ) entry;
+  RETURN QUERY SELECT 'found',pg_catalog.jsonb_build_object('items',items);
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.public_checkout_recover_v2(
+  p_hostname text,p_now timestamptz,p_operation_id uuid,p_fingerprint text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE selected_store uuid; selected_operation saas.storefront_checkout_operations%ROWTYPE;
+BEGIN
+  IF p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT * INTO selected_operation FROM saas.storefront_checkout_operations WHERE operation_id=p_operation_id AND store_id=selected_store;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb;
+  ELSIF selected_operation.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+  ELSE RETURN QUERY SELECT 'operation_replayed',selected_operation.result_payload; END IF;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.public_receipt_get_v2(
+  p_hostname text,p_now timestamptz,p_receipt_credentials jsonb,p_customer_credentials jsonb
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE selected_store uuid; selected_receipt saas.storefront_order_receipts%ROWTYPE; result jsonb;
+BEGIN
+  IF NOT saas.storefront_credential_candidates_valid(p_receipt_credentials,false)
+    OR NOT saas.storefront_credential_candidates_valid(p_customer_credentials,false)
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT receipt.* INTO selected_receipt FROM saas.storefront_order_receipts receipt
+  JOIN pg_catalog.jsonb_array_elements(p_receipt_credentials) receipt_candidate
+    ON receipt_candidate->>'keyId'=receipt.key_id AND receipt_candidate->>'digest'=receipt.credential_digest
+  JOIN saas.storefront_customer_credentials customer_credential
+    ON customer_credential.store_id=receipt.store_id AND customer_credential.id=receipt.customer_credential_id
+  JOIN pg_catalog.jsonb_array_elements(p_customer_credentials) customer_candidate
+    ON customer_candidate->>'keyId'=customer_credential.key_id AND customer_candidate->>'digest'=customer_credential.credential_digest
+  WHERE receipt.store_id=selected_store AND receipt.expires_at>p_now AND customer_credential.expires_at>p_now
+  ORDER BY receipt.created_at DESC,receipt.id LIMIT 1;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT operation.result_payload->'receipt' INTO result FROM saas.storefront_checkout_operations operation
+  WHERE operation.store_id=selected_store AND operation.order_id=selected_receipt.order_id;
+  RETURN QUERY SELECT CASE WHEN result IS NULL THEN 'not_found' ELSE 'found' END,result;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.public_account_orders_v2(
+  p_hostname text,p_now timestamptz,p_credentials jsonb,p_limit integer
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE selected_store uuid; selected_credential saas.storefront_customer_credentials%ROWTYPE; items jsonb;
+BEGIN
+  IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 50 OR NOT saas.storefront_credential_candidates_valid(p_credentials,false) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  selected_store:=saas.storefront_public_store(p_hostname,p_now);
+  IF selected_store IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  SELECT credential.* INTO selected_credential FROM saas.storefront_customer_credentials credential
+  JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+  WHERE credential.store_id=selected_store AND credential.expires_at>p_now ORDER BY credential.created_at DESC,credential.id LIMIT 1 FOR UPDATE OF credential;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+  UPDATE saas.storefront_customer_credentials SET last_seen_at=GREATEST(last_seen_at,p_now)
+    WHERE store_id=selected_store AND id=selected_credential.id;
+  SELECT COALESCE(pg_catalog.jsonb_agg(entry.receipt ORDER BY entry.created_at DESC,entry.order_id DESC),'[]'::jsonb) INTO items FROM (
+    SELECT operation.result_payload->'receipt' receipt,orders.created_at,orders.id order_id
+    FROM saas.storefront_order_receipts receipt
+    JOIN saas.orders orders ON orders.store_id=receipt.store_id AND orders.id=receipt.order_id
+    JOIN saas.storefront_checkout_operations operation ON operation.store_id=orders.store_id AND operation.order_id=orders.id
+    WHERE receipt.store_id=selected_store AND receipt.customer_credential_id=selected_credential.id
+    ORDER BY receipt.created_at DESC,receipt.order_id DESC LIMIT p_limit
+  ) entry;
+  RETURN QUERY SELECT 'found',pg_catalog.jsonb_build_object('items',items);
+END
+$fn$;
+
+ALTER FUNCTION saas.public_checkout_recover(text,timestamptz,uuid,text) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.public_receipt_get(text,timestamptz,jsonb,jsonb) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.public_account_orders(text,timestamptz,jsonb,integer) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.public_checkout_recover_v2(text,timestamptz,uuid,text) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.public_receipt_get_v2(text,timestamptz,jsonb,jsonb) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.public_account_orders_v2(text,timestamptz,jsonb,integer) OWNER TO celebix_saas_owner;
+REVOKE ALL ON FUNCTION saas.public_checkout_recover(text,timestamptz,uuid,text),saas.public_receipt_get(text,timestamptz,jsonb,jsonb),saas.public_account_orders(text,timestamptz,jsonb,integer),saas.public_checkout_recover_v2(text,timestamptz,uuid,text),saas.public_receipt_get_v2(text,timestamptz,jsonb,jsonb),saas.public_account_orders_v2(text,timestamptz,jsonb,integer)
+FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+GRANT EXECUTE ON FUNCTION saas.public_checkout_recover(text,timestamptz,uuid,text),saas.public_receipt_get(text,timestamptz,jsonb,jsonb),saas.public_account_orders(text,timestamptz,jsonb,integer),saas.public_checkout_recover_v2(text,timestamptz,uuid,text),saas.public_receipt_get_v2(text,timestamptz,jsonb,jsonb),saas.public_account_orders_v2(text,timestamptz,jsonb,integer)
+TO celebix_saas_host_resolver;
 
 CREATE OR REPLACE FUNCTION saas.promotion_authority_error(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_action text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
@@ -2901,6 +4285,54 @@ BEGIN
 EXCEPTION WHEN others THEN RETURN NULL;
 END $fn$;
 
+-- Hosted V2 reserves promotions to the receipt horizon while legacy hosted
+-- sessions continue to inherit their original fifteen-minute hold horizon.
+-- These nullable facts are immutable under the existing session row guard.
+ALTER TABLE saas.storefront_hosted_checkout_sessions
+  ADD COLUMN IF NOT EXISTS evaluator_authority_digest char(64),
+  ADD COLUMN IF NOT EXISTS promotion_evaluator_context jsonb,
+  ADD COLUMN IF NOT EXISTS promotion_evaluation jsonb,
+  ADD COLUMN IF NOT EXISTS promotion_normalized_codes jsonb,
+  ADD COLUMN IF NOT EXISTS promotion_reservation_group_id uuid,
+  ADD COLUMN IF NOT EXISTS promotion_reservation_expires_at timestamptz,
+  DROP CONSTRAINT IF EXISTS storefront_hosted_checkout_sessions_v2_facts_check,
+  ADD CONSTRAINT storefront_hosted_checkout_sessions_v2_facts_check CHECK (
+    (
+      evaluator_authority_digest IS NULL
+      AND promotion_evaluator_context IS NULL
+      AND promotion_evaluation IS NULL
+      AND promotion_normalized_codes IS NULL
+      AND promotion_reservation_group_id IS NULL
+      AND promotion_reservation_expires_at IS NULL
+    )
+    OR
+    (
+      evaluator_authority_digest~'^[a-f0-9]{64}$'
+      AND pg_catalog.jsonb_typeof(promotion_evaluator_context)='object'
+      AND pg_catalog.jsonb_typeof(promotion_evaluation)='object'
+      AND pg_catalog.jsonb_typeof(promotion_normalized_codes)='array'
+      AND pg_catalog.jsonb_array_length(promotion_normalized_codes) BETWEEN 0 AND 5
+      AND pg_catalog.pg_column_size(promotion_evaluator_context)<=131072
+      AND pg_catalog.pg_column_size(promotion_evaluation)<=131072
+      AND pg_catalog.pg_column_size(promotion_normalized_codes)<=2048
+      AND (promotion_reservation_group_id IS NULL)=(promotion_reservation_expires_at IS NULL)
+      AND (
+        promotion_reservation_expires_at IS NULL
+        OR (
+          pg_catalog.isfinite(promotion_reservation_expires_at)
+          AND promotion_reservation_expires_at=receipt_expires_at
+        )
+      )
+    )
+  );
+
+ALTER TABLE saas.storefront_hosted_checkout_operations
+  DROP CONSTRAINT storefront_hosted_checkout_operations_result_payload_check,
+  ADD CONSTRAINT storefront_hosted_checkout_operations_result_payload_check CHECK (
+    pg_catalog.jsonb_typeof(result_payload)='object'
+    AND pg_catalog.pg_column_size(result_payload)<=786432
+  );
+
 SET LOCAL check_function_bodies = off;
 CREATE OR REPLACE FUNCTION saas.promotion_reservation_source_valid_v1(p_store_id uuid,p_source_kind text,p_source_reference text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
@@ -2948,10 +4380,12 @@ BEGIN
              FROM saas.storefront_hosted_checkout_sessions hosted
              WHERE hosted.store_id=reservation_row.store_id
                AND hosted.id=reservation_row.source_reference::uuid
-               AND hosted.hold_expires_at=reservation_row.expires_at
+               AND COALESCE(hosted.promotion_reservation_expires_at,hosted.hold_expires_at)=reservation_row.expires_at
                AND hosted.customer_id IS NOT DISTINCT FROM reservation_row.customer_id
                AND hosted.currency IS NOT DISTINCT FROM reservation_row.currency
-               AND reservation_row.created_at<hosted.hold_expires_at))
+               AND (hosted.evaluator_authority_digest IS NULL
+                 OR hosted.promotion_reservation_group_id=reservation_row.reservation_group_id)
+               AND reservation_row.created_at<COALESCE(hosted.promotion_reservation_expires_at,hosted.hold_expires_at)))
            OR pg_catalog.isfinite(reservation_row.created_at) IS NOT TRUE OR pg_catalog.isfinite(reservation_row.updated_at) IS NOT TRUE
            OR pg_catalog.date_trunc('milliseconds',reservation_row.created_at)<>reservation_row.created_at
            OR pg_catalog.date_trunc('milliseconds',reservation_row.updated_at)<>reservation_row.updated_at
@@ -3031,8 +4465,8 @@ DECLARE
   v_expected_fingerprint text; v_evaluation jsonb; v_recheck jsonb; v_materialized_lines jsonb; v_snapshot_context jsonb;
   v_evaluator_fingerprint text; v_result jsonb; v_members jsonb:='[]'::jsonb; v_rows jsonb:='[]'::jsonb;
   v_applied jsonb; v_row jsonb; v_snapshot jsonb; v_code_id uuid; v_code_batch_id uuid; v_reservation_id uuid;
-  v_reservation_group_id uuid:=pg_catalog.gen_random_uuid(); p_expires_at timestamptz; v_plan_id uuid; v_customer_id uuid;
-  v_applied_count integer; v_locked_count integer; v_source_id uuid; v_hosted_expires_at timestamptz; v_hosted_customer_id uuid; v_hosted_currency text;
+  v_reservation_group_id uuid:=saas.storefront_commerce_uuid('promotion-reservation-group-v1:'||p_store_id::text||':'||p_operation_id::text); p_expires_at timestamptz; v_plan_id uuid; v_customer_id uuid;
+  v_applied_count integer; v_locked_count integer; v_source_id uuid; v_hosted_expires_at timestamptz; v_hosted_customer_id uuid; v_hosted_currency text; v_hosted_reservation_group_id uuid;
 BEGIN
   IF p_store_id IS NULL OR p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
      OR p_source_kind IS NULL OR p_source_kind NOT IN ('hosted_checkout','offline_checkout') OR p_source_reference IS NULL OR p_source_reference<>pg_catalog.btrim(p_source_reference)
@@ -3073,8 +4507,8 @@ BEGIN
   IF p_source_reference<>v_source_id::text THEN RETURN QUERY SELECT 'promotion_context_unavailable',NULL::jsonb; RETURN; END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('promotion-source:'||p_store_id::text||':'||p_source_kind||':'||p_source_reference,0));
   IF p_source_kind='hosted_checkout' THEN
-    SELECT hosted.hold_expires_at,hosted.customer_id,hosted.currency
-    INTO v_hosted_expires_at,v_hosted_customer_id,v_hosted_currency
+    SELECT COALESCE(hosted.promotion_reservation_expires_at,hosted.hold_expires_at),hosted.customer_id,hosted.currency,hosted.promotion_reservation_group_id
+    INTO v_hosted_expires_at,v_hosted_customer_id,v_hosted_currency,v_hosted_reservation_group_id
     FROM saas.storefront_hosted_checkout_sessions hosted
     WHERE hosted.store_id=p_store_id AND hosted.id=v_source_id
       AND hosted.status IN ('active','provider_ready','processing')
@@ -3084,6 +4518,8 @@ BEGIN
        OR pg_catalog.date_trunc('milliseconds',v_hosted_expires_at)<>v_hosted_expires_at
        OR (CASE WHEN p_evaluator_context->'customerId'='null'::jsonb THEN NULL ELSE (p_evaluator_context->>'customerId')::uuid END) IS DISTINCT FROM v_hosted_customer_id
        OR p_evaluator_context->>'currency' IS DISTINCT FROM v_hosted_currency
+       OR (v_hosted_reservation_group_id IS NOT NULL
+         AND v_hosted_reservation_group_id IS DISTINCT FROM v_reservation_group_id)
     THEN RETURN QUERY SELECT 'promotion_context_unavailable',NULL::jsonb; RETURN; END IF;
   END IF;
   IF EXISTS(SELECT 1 FROM saas.promotion_usage_reservations reservation_row WHERE reservation_row.store_id=p_store_id AND reservation_row.source_kind=p_source_kind AND reservation_row.source_reference=p_source_reference) THEN RETURN QUERY SELECT 'source_conflict',NULL::jsonb; RETURN; END IF;
@@ -3375,6 +4811,56 @@ BEGIN
   RETURN NEW;
 END $fn$;
 
+CREATE OR REPLACE FUNCTION saas.promotion_auto_gift_order_lines_valid_v1(
+  p_store_id uuid,p_order_id uuid,p_reservation_group_id uuid
+)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+DECLARE v_required_lines bigint; v_total_lines bigint; v_min_position integer; v_max_position integer;
+BEGIN
+  IF p_store_id IS NULL OR p_order_id IS NULL OR p_reservation_group_id IS NULL THEN RETURN false; END IF;
+  WITH required_gifts AS (
+    SELECT (gift->>'variantId')::uuid variant_id,pg_catalog.sum((gift->>'quantity')::bigint)::bigint required_quantity
+    FROM saas.promotion_usage_reservations reservation_row
+    CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(reservation_row.evaluator_snapshot->'giftLines') gift
+    WHERE reservation_row.store_id=p_store_id AND reservation_row.reservation_group_id=p_reservation_group_id
+      AND (gift->>'autoAdd')::boolean
+    GROUP BY (gift->>'variantId')::uuid
+  )
+  SELECT COALESCE(pg_catalog.sum((required_quantity+9998)/9999),0)::bigint INTO v_required_lines FROM required_gifts;
+  IF v_required_lines=0 THEN RETURN true; END IF;
+  SELECT count(*)::bigint,min(position),max(position) INTO v_total_lines,v_min_position,v_max_position
+  FROM saas.order_items WHERE store_id=p_store_id AND order_id=p_order_id;
+  IF v_total_lines<v_required_lines OR v_min_position<>0 OR v_max_position::bigint<>v_total_lines-1 THEN RETURN false; END IF;
+  RETURN NOT EXISTS(
+    WITH required_gifts AS (
+      SELECT (gift->>'variantId')::uuid variant_id,pg_catalog.sum((gift->>'quantity')::bigint)::bigint required_quantity
+      FROM saas.promotion_usage_reservations reservation_row
+      CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(reservation_row.evaluator_snapshot->'giftLines') gift
+      WHERE reservation_row.store_id=p_store_id AND reservation_row.reservation_group_id=p_reservation_group_id
+        AND (gift->>'autoAdd')::boolean
+      GROUP BY (gift->>'variantId')::uuid
+    ), expected_chunks AS (
+      SELECT required.variant_id,chunk.ordinality,
+        LEAST(9999,required.required_quantity-chunk.ordinality*9999)::integer expected_quantity,
+        pg_catalog.row_number() OVER(ORDER BY required.variant_id,chunk.ordinality)-1 gift_offset
+      FROM required_gifts required
+      CROSS JOIN LATERAL pg_catalog.generate_series(0::bigint,(required.required_quantity+9998)/9999-1) chunk(ordinality)
+    ), expected_lines AS (
+      SELECT expected.variant_id,expected.expected_quantity,
+        (v_total_lines-v_required_lines+expected.gift_offset)::integer expected_position
+      FROM expected_chunks expected
+    )
+    SELECT 1 FROM expected_lines expected
+    LEFT JOIN saas.order_items item
+      ON item.store_id=p_store_id AND item.order_id=p_order_id AND item.position=expected.expected_position
+    WHERE item.id IS NULL
+      OR item.variant_id IS DISTINCT FROM expected.variant_id
+      OR item.quantity IS DISTINCT FROM expected.expected_quantity
+      OR item.unit_price_cents<>0 OR item.discount_cents<>0 OR item.line_total_cents<>0
+  );
+EXCEPTION WHEN others THEN RETURN false;
+END $fn$;
+
 CREATE OR REPLACE FUNCTION saas.promotion_commit_integrity_valid_v1(p_store_id uuid,p_redemption_group_id uuid)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
 DECLARE v_operation saas.promotion_operations%ROWTYPE; v_result jsonb; v_order saas.orders%ROWTYPE; v_group_id uuid; v_count integer;
@@ -3461,26 +4947,7 @@ BEGIN
          AND (gift->>'autoAdd')::boolean IS FALSE
          AND (gift_line.id IS NULL OR gift_line.variant_id IS DISTINCT FROM (gift->>'variantId')::uuid)
      )
-     OR EXISTS(
-       WITH required_gifts AS (
-         SELECT gift->>'variantId' AS variant_id,sum((gift->>'quantity')::bigint) AS required_quantity
-         FROM saas.order_promotion_snapshots snapshot
-         CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(snapshot.snapshot->'giftLines') gift
-         WHERE snapshot.store_id=p_store_id
-           AND snapshot.redemption_id IN (SELECT id FROM saas.promotion_redemptions WHERE store_id=p_store_id AND redemption_group_id=p_redemption_group_id)
-           AND (gift->>'autoAdd')::boolean
-         GROUP BY gift->>'variantId'
-       ), available_gifts AS (
-         SELECT item.variant_id::text AS variant_id,sum(item.quantity)::bigint AS available_quantity
-         FROM saas.order_items item
-         WHERE item.store_id=p_store_id AND item.order_id=v_order.id
-           AND item.variant_id IS NOT NULL AND item.unit_price_cents=0 AND item.discount_cents=0 AND item.line_total_cents=0
-         GROUP BY item.variant_id
-       )
-       SELECT 1 FROM required_gifts required
-       LEFT JOIN available_gifts available USING(variant_id)
-       WHERE COALESCE(available.available_quantity,0)<>required.required_quantity
-     )
+     OR saas.promotion_auto_gift_order_lines_valid_v1(p_store_id,v_order.id,v_group_id) IS NOT TRUE
   THEN RETURN false; END IF;
   RETURN true;
 EXCEPTION WHEN others THEN RETURN false;
@@ -3630,25 +5097,7 @@ BEGIN
         AND reservation_row.reservation_group_id=p_reservation_group_id
         AND (gift->>'autoAdd')::boolean IS FALSE
         AND (gift_line.id IS NULL OR gift_line.variant_id IS DISTINCT FROM (gift->>'variantId')::uuid))
-    OR EXISTS(
-      WITH required_gifts AS (
-        SELECT gift->>'variantId' AS variant_id,sum((gift->>'quantity')::bigint) AS required_quantity
-        FROM saas.promotion_usage_reservations reservation_row
-        CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(reservation_row.evaluator_snapshot->'giftLines') gift
-        WHERE reservation_row.store_id=p_store_id AND reservation_row.reservation_group_id=p_reservation_group_id
-          AND (gift->>'autoAdd')::boolean
-        GROUP BY gift->>'variantId'
-      ), available_gifts AS (
-        SELECT item.variant_id::text AS variant_id,sum(item.quantity)::bigint AS available_quantity
-        FROM saas.order_items item
-        WHERE item.store_id=p_store_id AND item.order_id=p_order_id
-          AND item.variant_id IS NOT NULL AND item.unit_price_cents=0 AND item.discount_cents=0 AND item.line_total_cents=0
-        GROUP BY item.variant_id
-      )
-      SELECT 1 FROM required_gifts required
-      LEFT JOIN available_gifts available USING(variant_id)
-      WHERE COALESCE(available.available_quantity,0)<>required.required_quantity
-    )
+    OR saas.promotion_auto_gift_order_lines_valid_v1(p_store_id,p_order_id,p_reservation_group_id) IS NOT TRUE
   THEN RETURN QUERY SELECT 'order_mismatch',NULL::jsonb; RETURN; END IF;
 
   FOR v_reservation IN SELECT * FROM saas.promotion_usage_reservations WHERE store_id=p_store_id AND reservation_group_id=p_reservation_group_id ORDER BY promotion_id,id LOOP
@@ -3880,15 +5329,20 @@ END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_reservation_group_transition_complete()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_min_status text; v_max_status text; v_count integer; v_expected_kind text;
+DECLARE v_min_status text; v_max_status text; v_count integer; v_check_id uuid; v_expected_kind text;
 BEGIN
   IF NEW.status=OLD.status THEN RETURN NEW; END IF;
-  SELECT count(*),min(status),max(status) INTO v_count,v_min_status,v_max_status
+  SELECT count(*),min(status),max(status),min(id::text)::uuid INTO v_count,v_min_status,v_max_status,v_check_id
   FROM saas.promotion_usage_reservations reservation_row
   WHERE reservation_row.store_id=NEW.store_id AND reservation_row.reservation_group_id=NEW.reservation_group_id;
   IF v_count NOT BETWEEN 1 AND 100 OR v_min_status IS DISTINCT FROM v_max_status OR v_min_status<>NEW.status THEN
     RAISE EXCEPTION 'promotion reservation group transition incomplete';
   END IF;
+  -- This constraint trigger fires once for every member at commit time.  Every
+  -- invocation proves the cheap all-or-nothing status invariant above, while a
+  -- single deterministic member performs the bounded ledger/graph scan below.
+  -- A partial transition still sees mixed statuses and fails before this gate.
+  IF NEW.id<>v_check_id THEN RETURN NEW; END IF;
   IF NEW.status='committed' THEN
     IF NOT EXISTS(
       SELECT 1 FROM saas.promotion_operations operation_row
@@ -3972,10 +5426,10 @@ BEGIN
        FROM saas.storefront_hosted_checkout_sessions hosted
        WHERE hosted.store_id=NEW.store_id
          AND hosted.id=NEW.source_reference::uuid
-         AND hosted.hold_expires_at=NEW.expires_at
+         AND COALESCE(hosted.promotion_reservation_expires_at,hosted.hold_expires_at)=NEW.expires_at
          AND hosted.customer_id IS NOT DISTINCT FROM NEW.customer_id
          AND hosted.currency IS NOT DISTINCT FROM NEW.currency
-         AND NEW.created_at<hosted.hold_expires_at))
+         AND NEW.created_at<COALESCE(hosted.promotion_reservation_expires_at,hosted.hold_expires_at)))
   THEN RAISE EXCEPTION 'promotion reservation operation binding invalid'; END IF;
 
   SELECT member.value INTO v_member
@@ -4190,6 +5644,1349 @@ BEGIN
   END LOOP;
 END $fn$;
 
+-- Task 4 hosted checkout V2. Keep the callable surface isolated from the V1
+-- hosted checkout routines and from the migration-wide ownership/ACL tail.
+
+CREATE OR REPLACE FUNCTION saas.storefront_hosted_checkout_promotion_codes_valid_v2(p_codes jsonb)
+RETURNS boolean
+LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,saas
+AS $fn$
+  SELECT p_codes IS NOT NULL
+    AND pg_catalog.jsonb_typeof(p_codes)='array'
+    AND pg_catalog.jsonb_array_length(p_codes) BETWEEN 0 AND 5
+    AND pg_catalog.pg_column_size(p_codes)<=2048
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_catalog.jsonb_array_elements(p_codes) WITH ORDINALITY code(value,ordinality)
+      WHERE pg_catalog.jsonb_typeof(code.value)<>'string'
+        OR code.value#>>'{}' !~ '^[A-Z0-9][A-Z0-9_-]{0,63}$'
+        OR EXISTS (
+          SELECT 1
+          FROM pg_catalog.jsonb_array_elements(p_codes) WITH ORDINALITY duplicate(value,ordinality)
+          WHERE duplicate.ordinality<code.ordinality AND duplicate.value=code.value
+        )
+    )
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.storefront_hosted_checkout_customer_prepare_v2(
+  p_store_id uuid,p_now timestamptz,p_customer_candidates jsonb,p_delivery jsonb,
+  p_prospective_customer_id uuid,p_allow_create boolean
+)
+RETURNS TABLE(outcome text,customer_id uuid)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $fn$
+DECLARE
+  v_email text;
+  v_phone text;
+  v_authenticated uuid[];
+  v_matching uuid[];
+  v_customer_id uuid;
+BEGIN
+  IF p_store_id IS NULL OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
+    OR pg_catalog.date_trunc('milliseconds',p_now)<>p_now
+    OR saas.storefront_credential_candidates_valid(p_customer_candidates,true) IS DISTINCT FROM TRUE
+    OR saas.storefront_delivery_valid(p_delivery) IS DISTINCT FROM TRUE
+    OR p_prospective_customer_id IS NULL OR p_allow_create IS NULL
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::uuid; RETURN; END IF;
+  v_email:=p_delivery->'contact'->>'email';
+  v_phone:=p_delivery->'contact'->>'phone';
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'saas.storefront.hosted.customer.prepare.v2:'||p_store_id::text||':'||v_email||':'||v_phone,0));
+
+  SELECT COALESCE(pg_catalog.array_agg(resolved.id ORDER BY resolved.id),'{}'::uuid[])
+  INTO v_authenticated
+  FROM (
+    SELECT DISTINCT customer.id
+    FROM saas.storefront_customer_credentials credential
+    JOIN pg_catalog.jsonb_array_elements(p_customer_candidates) candidate
+      ON candidate->>'keyId'=credential.key_id
+      AND candidate->>'digest'=credential.credential_digest
+    JOIN saas.customers customer
+      ON customer.store_id=credential.store_id AND customer.id=credential.customer_id
+    WHERE credential.store_id=p_store_id AND credential.expires_at>p_now
+      AND customer.status='active' AND customer.archived_at IS NULL
+  ) resolved;
+  IF pg_catalog.cardinality(v_authenticated)>1
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::uuid; RETURN; END IF;
+
+  PERFORM customer.id
+  FROM saas.customers customer
+  WHERE customer.store_id=p_store_id AND (customer.email=v_email OR customer.phone=v_phone)
+  ORDER BY customer.id FOR UPDATE OF customer;
+  SELECT COALESCE(pg_catalog.array_agg(customer.id ORDER BY customer.id),'{}'::uuid[])
+  INTO v_matching
+  FROM saas.customers customer
+  WHERE customer.store_id=p_store_id AND (customer.email=v_email OR customer.phone=v_phone);
+
+  IF pg_catalog.cardinality(v_authenticated)=1 THEN
+    v_customer_id:=v_authenticated[1];
+    IF pg_catalog.cardinality(v_matching)<>1 OR v_matching[1]<>v_customer_id
+      OR NOT EXISTS(
+        SELECT 1 FROM saas.customers customer
+        WHERE customer.store_id=p_store_id AND customer.id=v_customer_id
+          AND customer.status='active' AND customer.archived_at IS NULL
+          AND customer.email IS NOT DISTINCT FROM v_email
+          AND customer.phone IS NOT DISTINCT FROM v_phone
+      )
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::uuid; RETURN; END IF;
+    RETURN QUERY SELECT 'found',v_customer_id; RETURN;
+  END IF;
+
+  IF pg_catalog.cardinality(v_matching)>0 THEN
+    IF pg_catalog.cardinality(v_matching)<>1 OR NOT EXISTS(
+      SELECT 1 FROM saas.customers customer
+      WHERE customer.store_id=p_store_id AND customer.id=v_matching[1]
+        AND customer.status='active' AND customer.archived_at IS NULL
+        AND customer.email IS NOT DISTINCT FROM v_email
+        AND customer.phone IS NOT DISTINCT FROM v_phone
+    )
+    THEN RETURN QUERY SELECT 'invalid_input',NULL::uuid; RETURN; END IF;
+    RETURN QUERY SELECT 'found',v_matching[1]; RETURN;
+  END IF;
+
+  IF NOT p_allow_create THEN RETURN QUERY SELECT 'not_found',NULL::uuid; RETURN; END IF;
+  IF EXISTS(SELECT 1 FROM saas.customers customer WHERE customer.id=p_prospective_customer_id)
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::uuid; RETURN; END IF;
+  INSERT INTO saas.customers(
+    id,store_id,status,first_name,last_name,email,phone,version,created_at,updated_at
+  ) VALUES(
+    p_prospective_customer_id,p_store_id,'active',p_delivery->'contact'->>'firstName',
+    p_delivery->'contact'->>'lastName',v_email,v_phone,1,p_now,p_now
+  );
+  RETURN QUERY SELECT 'found',p_prospective_customer_id;
+EXCEPTION WHEN unique_violation OR check_violation OR foreign_key_violation
+  OR numeric_value_out_of_range OR datetime_field_overflow THEN
+  RETURN QUERY SELECT 'invalid_input',NULL::uuid;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.storefront_hosted_checkout_authority_v2_projection(
+  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,
+  p_expected_version bigint,p_delivery jsonb,p_payment_method_id uuid,
+  p_customer_id uuid,p_normalized_codes jsonb,p_order_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $fn$
+DECLARE
+  v_base jsonb;
+  v_store_id uuid;
+  v_source_id uuid;
+  v_source_version bigint;
+  v_line_count integer;
+  v_shipping_method_id uuid;
+  v_paid_order_count bigint:=0;
+  v_customer_segments jsonb:='[]'::jsonb;
+  v_customer_tags jsonb:='[]'::jsonb;
+  v_abandoned_cart jsonb:='null'::jsonb;
+  v_feature_enabled boolean:=false;
+  v_evaluation_mode text:='evaluated';
+  v_context jsonb:='{}'::jsonb;
+  v_materialized_lines jsonb:='[]'::jsonb;
+  v_evaluation jsonb:='{}'::jsonb;
+  v_public_items jsonb:='[]'::jsonb;
+  v_public_applied jsonb:='[]'::jsonb;
+  v_public_gifts jsonb:='[]'::jsonb;
+  v_basket jsonb:='[]'::jsonb;
+  v_item jsonb;
+  v_public_item jsonb;
+  v_applied jsonb;
+  v_gift record;
+  v_product saas.products%ROWTYPE;
+  v_variant saas.product_variants%ROWTYPE;
+  v_ordinality bigint;
+  v_line_id text;
+  v_line_total bigint;
+  v_line_effect numeric;
+  v_projected_line_discount numeric:=0;
+  v_projected_applied_discount numeric:=0;
+  v_line_discount bigint:=0;
+  v_shipping_discount bigint:=0;
+  v_discount_total bigint:=0;
+  v_grand_total bigint;
+  v_shipping_payable bigint;
+  v_evaluator_facts jsonb;
+  v_evaluator_digest text;
+  v_authority_facts jsonb;
+  v_authority_digest text;
+  v_result jsonb;
+  v_basket_count integer;
+  v_basket_total numeric;
+  v_gift_remaining bigint;
+  v_gift_chunk integer;
+BEGIN
+  IF p_hostname IS NULL OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
+    OR pg_catalog.date_trunc('milliseconds',p_now)<>p_now
+    OR p_kind IS NULL OR p_kind NOT IN('cart','buy_now')
+    OR saas.storefront_credential_candidates_valid(p_credentials,false) IS DISTINCT FROM TRUE
+    OR saas.storefront_delivery_valid(p_delivery) IS DISTINCT FROM TRUE
+    OR p_expected_version IS NULL OR p_expected_version NOT BETWEEN 1 AND 9007199254740991
+    OR p_payment_method_id IS NULL OR p_customer_id IS NULL OR p_order_id IS NULL
+    OR saas.storefront_hosted_checkout_promotion_codes_valid_v2(p_normalized_codes) IS DISTINCT FROM TRUE
+  THEN RETURN NULL; END IF;
+  v_base:=saas.storefront_hosted_checkout_authority_projection(
+    p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id);
+  IF v_base IS NULL THEN RETURN NULL; END IF;
+  v_store_id:=(v_base->>'storeId')::uuid;
+  v_source_id:=(v_base->>'sourceId')::uuid;
+  v_source_version:=(v_base->>'sourceVersion')::bigint;
+  v_line_count:=pg_catalog.jsonb_array_length(v_base->'items');
+  v_grand_total:=(v_base->>'totalMinor')::bigint;
+
+  SELECT shipping.id INTO v_shipping_method_id
+  FROM saas.merchant_admin_records shipping
+  WHERE shipping.store_id=v_store_id AND shipping.record_kind='shipping_setting'
+    AND shipping.status='active' AND shipping.archived_at IS NULL
+    AND saas.merchant_admin_config_valid('shipping_setting',shipping.config)
+  ORDER BY shipping.updated_at DESC,shipping.id DESC LIMIT 1;
+  SELECT count(*) INTO v_paid_order_count
+  FROM saas.orders order_row
+  WHERE order_row.store_id=v_store_id AND order_row.customer_id=p_customer_id
+    AND (order_row.paid_at IS NOT NULL OR order_row.payment_status IN('completed','refunded'));
+  SELECT COALESCE(pg_catalog.jsonb_agg(fact.id::text ORDER BY fact.id),'[]'::jsonb) INTO v_customer_segments
+  FROM (
+    SELECT DISTINCT membership.segment_id id
+    FROM saas.customer_segment_memberships membership
+    JOIN saas.customer_segments segment
+      ON segment.store_id=membership.store_id AND segment.id=membership.segment_id
+      AND segment.archived_at IS NULL
+    WHERE membership.store_id=v_store_id AND membership.customer_id=p_customer_id
+  ) fact;
+  SELECT COALESCE(pg_catalog.jsonb_agg(fact.id::text ORDER BY fact.id),'[]'::jsonb) INTO v_customer_tags
+  FROM (
+    SELECT DISTINCT membership.tag_id id
+    FROM saas.customer_tag_assignments membership
+    JOIN saas.customer_tags tag
+      ON tag.store_id=membership.store_id AND tag.id=membership.tag_id AND tag.archived_at IS NULL
+    WHERE membership.store_id=v_store_id AND membership.customer_id=p_customer_id
+  ) fact;
+  IF v_paid_order_count>1000000000 OR pg_catalog.jsonb_array_length(v_customer_segments)>100
+    OR pg_catalog.jsonb_array_length(v_customer_tags)>100
+  THEN RETURN NULL; END IF;
+  IF p_kind='cart' THEN
+    SELECT pg_catalog.jsonb_build_object('id',abandoned.id) INTO v_abandoned_cart
+    FROM saas.abandoned_carts abandoned
+    WHERE abandoned.store_id=v_store_id AND abandoned.source_cart_id=v_source_id
+      AND abandoned.status='abandoned' AND abandoned.abandoned_at IS NOT NULL
+      AND abandoned.abandoned_at<=p_now AND abandoned.abandoned_at>p_now-pg_catalog.interval '30 days'
+    ORDER BY abandoned.abandoned_at DESC,abandoned.id DESC LIMIT 1;
+    v_abandoned_cart:=COALESCE(v_abandoned_cart,'null'::jsonb);
+  END IF;
+
+  IF v_line_count>20 THEN
+    v_evaluation_mode:='cart_line_limit';
+  ELSE
+    SELECT EXISTS(
+      SELECT 1
+      FROM saas.subscriptions subscription
+      JOIN saas.plans plan ON plan.id=subscription.plan_id
+        AND plan.plan_code=subscription.plan_code AND plan.version=subscription.plan_version
+        AND plan.status='active' AND plan.valid_from<=p_now
+        AND (plan.valid_until IS NULL OR p_now<plan.valid_until)
+      JOIN saas.plan_features feature ON feature.plan_id=plan.id
+        AND feature.feature_key='promotions' AND feature.enabled
+      WHERE subscription.store_id=v_store_id AND subscription.status='active'
+        AND subscription.valid_from<=p_now
+        AND (subscription.valid_until IS NULL OR p_now<subscription.valid_until)
+    ) INTO v_feature_enabled;
+    IF v_feature_enabled THEN
+      SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'lineId',saas.storefront_commerce_uuid(p_order_id::text||':item:'||(source.ordinality-1)::text),
+        'position',(source.ordinality-1)::integer,
+        'productId',source.item->>'productId','variantId',source.item->>'variantId',
+        'quantity',(source.item->>'quantity')::bigint,
+        'unitPriceMinor',(source.item->>'unitPriceCents')::bigint,
+        'unitCostMinor',NULL,'currency',v_base->>'currency','categoryIds','[]'::jsonb,
+        'brandId',NULL,'collectionIds','[]'::jsonb
+      ) ORDER BY source.ordinality),'[]'::jsonb) INTO v_materialized_lines
+      FROM pg_catalog.jsonb_array_elements(v_base->'items') WITH ORDINALITY source(item,ordinality);
+      v_context:=pg_catalog.jsonb_build_object(
+        'storeId',v_store_id,'customerId',p_customer_id,'paidOrderCount',v_paid_order_count,
+        'customerSegmentIds',v_customer_segments,'customerTagIds',v_customer_tags,
+        'cartLines',v_materialized_lines,'shippingMethodId',v_shipping_method_id,
+        'paymentMethodId',p_payment_method_id,
+        'shippingBeforeDiscountMinor',(v_base->>'shippingMinor')::bigint,
+        'currency',v_base->>'currency','storeLocalTime',saas.storefront_commerce_timestamp(p_now),
+        'salesChannel','storefront','submittedCodes',p_normalized_codes,'abandonedCart',v_abandoned_cart
+      );
+      IF saas.promotion_evaluator_context_valid(v_store_id,v_context) IS NOT TRUE THEN RETURN NULL; END IF;
+      v_materialized_lines:=saas.promotion_evaluator_materialize_lines(v_store_id,v_base->>'currency',v_context,p_now);
+      IF pg_catalog.jsonb_typeof(v_materialized_lines) IS DISTINCT FROM 'array'
+        OR pg_catalog.jsonb_array_length(v_materialized_lines)<>v_line_count
+      THEN RETURN NULL; END IF;
+      v_evaluation:=saas.promotion_evaluate_internal_v1(v_store_id,v_context,p_now,NULL,v_materialized_lines);
+      IF v_evaluation->>'merchantExplanation'<>'evaluated'
+        OR v_evaluation->>'currency' IS DISTINCT FROM v_base->>'currency'
+        OR (v_evaluation->>'subtotalBeforeDiscountMinor')::bigint IS DISTINCT FROM (v_base->>'subtotalMinor')::bigint
+        OR (v_evaluation->>'shippingBeforeDiscountMinor')::bigint IS DISTINCT FROM (v_base->>'shippingMinor')::bigint
+      THEN RETURN NULL; END IF;
+      v_line_discount:=(v_evaluation->>'lineDiscountTotalMinor')::bigint;
+      v_shipping_discount:=(v_evaluation->>'shippingDiscountTotalMinor')::bigint;
+      v_discount_total:=(v_evaluation->>'discountTotalMinor')::bigint;
+      v_grand_total:=(v_evaluation->>'grandTotalMinor')::bigint;
+      IF v_line_discount<0 OR v_shipping_discount<0
+        OR v_discount_total<>v_line_discount+v_shipping_discount
+        OR v_shipping_discount>(v_base->>'shippingMinor')::bigint
+        OR v_grand_total<>(v_base->>'subtotalMinor')::bigint+(v_base->>'shippingMinor')::bigint-v_discount_total
+        OR v_grand_total<0
+      THEN RETURN NULL; END IF;
+      FOR v_applied IN
+        SELECT applied.value FROM pg_catalog.jsonb_array_elements(v_evaluation->'appliedPromotions') WITH ORDINALITY applied(value,ordinality)
+        ORDER BY applied.ordinality
+      LOOP
+        v_public_applied:=v_public_applied||pg_catalog.jsonb_build_array(pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+          'name',v_applied->>'name','benefitKind',v_applied->>'benefitKind',
+          'normalizedCode',CASE WHEN v_applied ? 'normalizedCode' THEN v_applied->>'normalizedCode' END,
+          'lineDiscountCents',(v_applied->>'lineDiscountMinor')::bigint,
+          'shippingDiscountCents',(v_applied->>'shippingDiscountMinor')::bigint,
+          'discountCents',(v_applied->>'discountTotalMinor')::bigint
+        )));
+        v_projected_applied_discount:=v_projected_applied_discount+(v_applied->>'discountTotalMinor')::numeric;
+      END LOOP;
+      IF v_projected_applied_discount<>v_discount_total THEN RETURN NULL; END IF;
+      IF EXISTS(
+        SELECT 1 FROM (
+          SELECT gift->>'variantId' variant_id,(gift->>'autoAdd')::boolean auto_add,
+            pg_catalog.sum((gift->>'quantity')::numeric) quantity
+          FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+          GROUP BY gift->>'variantId',(gift->>'autoAdd')::boolean
+        ) grouped WHERE grouped.quantity NOT BETWEEN 1 AND 1000000
+      ) THEN RETURN NULL; END IF;
+      SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'variantId',grouped.variant_id,'quantity',grouped.quantity::bigint,'autoAdd',grouped.auto_add
+      ) ORDER BY grouped.variant_id::uuid,grouped.auto_add),'[]'::jsonb) INTO v_public_gifts
+      FROM (
+        SELECT gift->>'variantId' variant_id,(gift->>'autoAdd')::boolean auto_add,
+          pg_catalog.sum((gift->>'quantity')::numeric) quantity
+        FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+        GROUP BY gift->>'variantId',(gift->>'autoAdd')::boolean
+      ) grouped;
+    END IF;
+  END IF;
+
+  FOR v_item,v_ordinality IN
+    SELECT source.item,source.ordinality
+    FROM pg_catalog.jsonb_array_elements(v_base->'items') WITH ORDINALITY source(item,ordinality)
+    ORDER BY source.ordinality
+  LOOP
+    v_line_total:=(v_item->>'lineTotalCents')::bigint;
+    v_line_effect:=0;
+    IF v_feature_enabled AND v_evaluation_mode='evaluated' THEN
+      v_line_id:=saas.storefront_commerce_uuid(p_order_id::text||':item:'||(v_ordinality-1)::text)::text;
+      SELECT COALESCE(pg_catalog.sum((effect->>'discountMinor')::numeric),0) INTO v_line_effect
+      FROM pg_catalog.jsonb_array_elements(v_evaluation->'lineEffects') effect
+      WHERE effect->>'lineId'=v_line_id;
+    END IF;
+    IF v_line_effect<0 OR v_line_effect>v_line_total OR pg_catalog.trunc(v_line_effect)<>v_line_effect
+    THEN RETURN NULL; END IF;
+    v_projected_line_discount:=v_projected_line_discount+v_line_effect;
+    v_public_item:=pg_catalog.jsonb_build_object(
+      'productId',v_item->>'productId','variantId',v_item->>'variantId','slug',v_item->>'slug',
+      'title',v_item->>'title','variantTitle',v_item->>'variantTitle',
+      'quantity',(v_item->>'quantity')::bigint,'unitPriceCents',(v_item->>'unitPriceCents')::bigint,
+      'lineTotalCents',v_line_total,'discountCents',v_line_effect::bigint,
+      'payableCents',v_line_total-v_line_effect::bigint,'available',(v_item->>'available')::boolean
+    );
+    IF v_item ? 'categoryId' THEN v_public_item:=v_public_item||pg_catalog.jsonb_build_object('categoryId',v_item->>'categoryId'); END IF;
+    IF v_item ? 'media' THEN v_public_item:=v_public_item||pg_catalog.jsonb_build_object('media',v_item->'media'); END IF;
+    v_public_items:=v_public_items||pg_catalog.jsonb_build_array(v_public_item);
+  END LOOP;
+  IF v_feature_enabled AND v_evaluation_mode='evaluated' AND v_projected_line_discount<>v_line_discount
+  THEN RETURN NULL; END IF;
+  IF NOT v_feature_enabled OR v_evaluation_mode='cart_line_limit' THEN
+    v_line_discount:=0; v_shipping_discount:=0; v_discount_total:=0;
+    v_grand_total:=(v_base->>'totalMinor')::bigint;
+    v_public_applied:='[]'::jsonb; v_public_gifts:='[]'::jsonb;
+  END IF;
+
+  IF v_feature_enabled AND v_evaluation_mode='evaluated' THEN
+    FOR v_gift IN
+      SELECT (gift->>'variantId')::uuid variant_id,pg_catalog.sum((gift->>'quantity')::bigint)::bigint quantity
+      FROM pg_catalog.jsonb_array_elements(v_evaluation->'gifts') gift
+      WHERE (gift->>'autoAdd')::boolean
+      GROUP BY (gift->>'variantId')::uuid ORDER BY (gift->>'variantId')::uuid
+    LOOP
+      SELECT variant.* INTO v_variant
+      FROM saas.product_variants variant
+      WHERE variant.store_id=v_store_id AND variant.id=v_gift.variant_id
+        AND variant.status='active' AND variant.archived_at IS NULL;
+      IF NOT FOUND THEN RETURN NULL; END IF;
+      SELECT product.* INTO v_product
+      FROM saas.products product
+      WHERE product.store_id=v_store_id AND product.id=v_variant.product_id
+        AND product.status='active' AND product.archived_at IS NULL;
+      IF NOT FOUND THEN RETURN NULL; END IF;
+      v_gift_remaining:=v_gift.quantity;
+      WHILE v_gift_remaining>0 LOOP
+        v_gift_chunk:=LEAST(v_gift_remaining,9999)::integer;
+        v_public_items:=v_public_items||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+          'productId',v_product.id,'variantId',v_variant.id,'slug',v_product.slug,'title',v_product.title,
+          'variantTitle',v_variant.title,'quantity',v_gift_chunk,'unitPriceCents',0,
+          'lineTotalCents',0,'discountCents',0,'payableCents',0,'available',true
+        ));
+        v_gift_remaining:=v_gift_remaining-v_gift_chunk;
+      END LOOP;
+    END LOOP;
+  END IF;
+
+  IF EXISTS(
+    SELECT 1
+    FROM (
+      SELECT (item->>'variantId')::uuid variant_id,
+        pg_catalog.sum((item->>'quantity')::numeric) quantity
+      FROM pg_catalog.jsonb_array_elements(v_public_items) item
+      GROUP BY (item->>'variantId')::uuid
+    ) required
+    WHERE required.quantity NOT BETWEEN 1 AND 1000000
+      OR saas.storefront_available_stock(v_store_id,required.variant_id,p_now,NULL)<required.quantity
+  ) THEN RETURN NULL; END IF;
+
+  SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+    'reference',source.item->>'variantId','name',source.item->>'title','quantity',1,
+    'unitAmountMinor',(source.item->>'payableCents')::bigint,'itemType','PHYSICAL'
+  ) ORDER BY source.ordinality),'[]'::jsonb) INTO v_basket
+  FROM pg_catalog.jsonb_array_elements(v_public_items) WITH ORDINALITY source(item,ordinality)
+  WHERE (source.item->>'payableCents')::bigint>0;
+  v_shipping_payable:=(v_base->>'shippingMinor')::bigint-v_shipping_discount;
+  IF v_shipping_payable>0 THEN
+    v_basket:=v_basket||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+      'reference','shipping:standard','name','Kargo','quantity',1,
+      'unitAmountMinor',v_shipping_payable,'itemType','VIRTUAL'));
+  END IF;
+  v_basket_count:=pg_catalog.jsonb_array_length(v_basket);
+  SELECT COALESCE(pg_catalog.sum((entry->>'unitAmountMinor')::numeric),0) INTO v_basket_total
+  FROM pg_catalog.jsonb_array_elements(v_basket) entry;
+  IF v_grand_total<1 OR v_basket_count NOT BETWEEN 1 AND 100 OR v_basket_total<>v_grand_total
+  THEN RETURN NULL; END IF;
+
+  v_evaluator_facts:=pg_catalog.jsonb_build_object(
+    'schemaVersion',1,'storeId',v_store_id,'sourceKind',p_kind,'sourceId',v_source_id,
+    'sourceVersion',v_source_version,'orderId',p_order_id,'customerId',p_customer_id,
+    'paymentMethodId',p_payment_method_id,'normalizedCodes',p_normalized_codes,
+    'evaluationMode',v_evaluation_mode,'featureEnabled',v_feature_enabled,
+    'evaluatorContext',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_context ELSE NULL END,
+    'materializedLines',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_materialized_lines ELSE NULL END,
+    'evaluation',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_evaluation ELSE NULL END
+  );
+  IF pg_catalog.pg_column_size(v_evaluator_facts)>786432 THEN RETURN NULL; END IF;
+  v_evaluator_digest:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_evaluator_facts::text,'UTF8')),'hex');
+  v_authority_facts:=(v_base-ARRAY['authorityDigest','subtotalMinor','shippingMinor','discountMinor','totalMinor','items','basket'])
+    ||pg_catalog.jsonb_build_object(
+      'orderId',p_order_id,'customerId',p_customer_id,'evaluatorAuthorityDigest',v_evaluator_digest,
+      'subtotalMinor',(v_base->>'subtotalMinor')::bigint,'shippingMinor',(v_base->>'shippingMinor')::bigint,
+      'lineDiscountMinor',v_line_discount,'shippingDiscountMinor',v_shipping_discount,
+      'discountMinor',v_discount_total,'totalMinor',v_grand_total,
+      'promotionStatus',CASE WHEN v_evaluation_mode='cart_line_limit'
+        THEN pg_catalog.jsonb_build_object('kind','not_evaluated','reason','cart_line_limit')
+        ELSE pg_catalog.jsonb_build_object('kind','evaluated') END,
+      'appliedPromotions',v_public_applied,'gifts',v_public_gifts,'items',v_public_items,'basket',v_basket
+    );
+  v_authority_digest:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_authority_facts::text,'UTF8')),'hex');
+  v_result:=v_authority_facts||pg_catalog.jsonb_build_object(
+    'authorityDigest',v_authority_digest,
+    '_evaluatorContext',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_context ELSE '{}'::jsonb END,
+    '_materializedLines',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_materialized_lines ELSE '[]'::jsonb END,
+    '_evaluation',CASE WHEN v_feature_enabled AND v_evaluation_mode='evaluated' THEN v_evaluation ELSE '{}'::jsonb END
+  );
+  RETURN v_result;
+EXCEPTION WHEN OTHERS THEN
+  RETURN NULL;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.public_storefront_hosted_checkout_authority_v2(
+  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,
+  p_expected_version bigint,p_delivery jsonb,p_payment_method_id uuid,
+  p_customer_candidates jsonb,p_normalized_codes jsonb,p_order_id uuid,
+  p_prospective_customer_id uuid,p_operation_id uuid
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $fn$
+DECLARE
+  v_store_id uuid;
+  v_source_ids uuid[];
+  v_customer_outcome text;
+  v_customer_id uuid;
+  v_operation saas.storefront_hosted_checkout_operations%ROWTYPE;
+  v_session saas.storefront_hosted_checkout_sessions%ROWTYPE;
+  v_public_authority jsonb;
+  v_result jsonb;
+BEGIN
+  IF p_hostname IS NULL OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
+    OR pg_catalog.date_trunc('milliseconds',p_now)<>p_now
+    OR p_kind IS NULL OR p_kind NOT IN('cart','buy_now')
+    OR saas.storefront_credential_candidates_valid(p_credentials,false) IS DISTINCT FROM TRUE
+    OR saas.storefront_credential_candidates_valid(p_customer_candidates,true) IS DISTINCT FROM TRUE
+    OR saas.storefront_delivery_valid(p_delivery) IS DISTINCT FROM TRUE
+    OR p_expected_version IS NULL OR p_expected_version NOT BETWEEN 1 AND 9007199254740991
+    OR p_payment_method_id IS NULL
+    OR saas.storefront_hosted_checkout_promotion_codes_valid_v2(p_normalized_codes) IS DISTINCT FROM TRUE
+    OR p_order_id IS NULL OR p_prospective_customer_id IS NULL OR p_operation_id IS NULL
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  v_store_id:=saas.storefront_public_store(p_hostname,p_now);
+  IF v_store_id IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'saas.storefront.hosted.checkout.operation:'||p_operation_id::text,0));
+  SELECT hosted_operation.* INTO v_operation
+  FROM saas.storefront_hosted_checkout_operations hosted_operation
+  WHERE hosted_operation.operation_id=p_operation_id;
+  IF FOUND THEN
+    IF v_operation.store_id IS DISTINCT FROM v_store_id
+    THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
+    IF v_operation.operation_kind IS DISTINCT FROM 'start'
+    THEN RETURN QUERY SELECT 'authority_unavailable',NULL::jsonb; RETURN; END IF;
+    SELECT session.* INTO v_session
+    FROM saas.storefront_hosted_checkout_sessions session
+    WHERE session.store_id=v_store_id AND session.id=v_operation.session_id
+      AND session.payment_attempt_id=p_operation_id;
+    IF NOT FOUND OR v_session.evaluator_authority_digest IS NULL
+      OR v_session.status NOT IN('active','provider_ready','processing')
+      OR v_session.terminal_at IS NOT NULL OR p_now>=v_session.payment_session_expires_at
+    THEN RETURN QUERY SELECT 'authority_unavailable',NULL::jsonb; RETURN; END IF;
+
+    IF p_kind='cart' THEN
+      SELECT COALESCE(pg_catalog.array_agg(resolved.id ORDER BY resolved.id),'{}'::uuid[])
+      INTO v_source_ids
+      FROM (
+        SELECT DISTINCT cart.id
+        FROM saas.storefront_carts cart
+        JOIN saas.storefront_cart_credentials credential
+          ON credential.store_id=cart.store_id AND credential.cart_id=cart.id
+        JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate
+          ON candidate->>'keyId'=credential.key_id
+          AND candidate->>'digest'=credential.credential_digest
+        WHERE cart.store_id=v_store_id AND cart.status='active' AND cart.expires_at>p_now
+          AND credential.expires_at>p_now AND cart.version=p_expected_version
+      ) resolved;
+    ELSE
+      SELECT COALESCE(pg_catalog.array_agg(resolved.id ORDER BY resolved.id),'{}'::uuid[])
+      INTO v_source_ids
+      FROM (
+        SELECT DISTINCT intent.id
+        FROM saas.storefront_checkout_intents intent
+        JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate
+          ON candidate->>'keyId'=intent.key_id
+          AND candidate->>'digest'=intent.credential_digest
+        WHERE intent.store_id=v_store_id AND intent.status='active' AND intent.expires_at>p_now
+          AND intent.version=p_expected_version
+      ) resolved;
+    END IF;
+    SELECT prepared.outcome,prepared.customer_id INTO v_customer_outcome,v_customer_id
+    FROM saas.storefront_hosted_checkout_customer_prepare_v2(
+      v_store_id,p_now,p_customer_candidates,p_delivery,p_prospective_customer_id,false) prepared;
+    IF pg_catalog.cardinality(v_source_ids)<>1
+      OR (p_kind='cart' AND (v_session.cart_id IS NULL OR v_source_ids[1] IS DISTINCT FROM v_session.cart_id))
+      OR (p_kind='buy_now' AND (v_session.intent_id IS NULL OR v_source_ids[1] IS DISTINCT FROM v_session.intent_id))
+      OR v_session.source_version IS DISTINCT FROM p_expected_version
+      OR v_session.delivery_snapshot IS DISTINCT FROM p_delivery
+      OR v_session.payment_method_id IS DISTINCT FROM p_payment_method_id
+      OR v_session.promotion_normalized_codes IS DISTINCT FROM p_normalized_codes
+      OR v_session.order_id IS DISTINCT FROM p_order_id
+      OR v_customer_outcome IS DISTINCT FROM 'found'
+      OR v_customer_id IS DISTINCT FROM v_session.customer_id
+    THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
+
+    v_public_authority:=v_operation.result_payload->'authority';
+    IF pg_catalog.jsonb_typeof(v_operation.result_payload) IS DISTINCT FROM 'object'
+      OR pg_catalog.jsonb_typeof(v_public_authority) IS DISTINCT FROM 'object'
+      OR v_operation.committed_at IS DISTINCT FROM v_session.created_at
+      OR v_operation.result_payload->>'attemptId' IS DISTINCT FROM p_operation_id::text
+      OR v_operation.result_payload->>'storeId' IS DISTINCT FROM v_store_id::text
+      OR v_operation.result_payload->>'paymentMethodId' IS DISTINCT FROM v_session.payment_method_id::text
+      OR v_operation.result_payload->>'profileId' IS DISTINCT FROM v_session.profile_id::text
+      OR v_operation.result_payload->>'providerCode' IS DISTINCT FROM v_session.provider_code
+      OR v_operation.result_payload->>'environment' IS DISTINCT FROM v_session.environment
+      OR (v_operation.result_payload->>'credentialVersion')::bigint IS DISTINCT FROM v_session.credential_version
+      OR (v_operation.result_payload->>'executionAdapterVersion')::integer IS DISTINCT FROM v_session.execution_adapter_version
+      OR v_operation.result_payload->>'executionEvidenceDigest' IS DISTINCT FROM v_session.execution_evidence_digest
+      OR (v_operation.result_payload->>'amountMinor')::bigint IS DISTINCT FROM v_session.total_minor
+      OR v_operation.result_payload->>'currency' IS DISTINCT FROM v_session.currency
+      OR v_operation.result_payload->>'sessionId' IS DISTINCT FROM v_session.id::text
+      OR v_operation.result_payload->>'sessionStatus' IS DISTINCT FROM 'active'
+      OR (v_operation.result_payload->>'sessionVersion')::bigint IS DISTINCT FROM 1
+      OR (v_operation.result_payload->>'receiptExpiresAt')::timestamptz IS DISTINCT FROM v_session.receipt_expires_at
+      OR v_public_authority ?| ARRAY['_evaluatorContext','_materializedLines','_evaluation']
+      OR v_public_authority->>'storeId' IS DISTINCT FROM v_store_id::text
+      OR v_public_authority->>'sourceKind' IS DISTINCT FROM p_kind
+      OR v_public_authority->>'sourceId' IS DISTINCT FROM v_source_ids[1]::text
+      OR (v_public_authority->>'sourceVersion')::bigint IS DISTINCT FROM v_session.source_version
+      OR v_public_authority->>'paymentMethodId' IS DISTINCT FROM v_session.payment_method_id::text
+      OR v_public_authority->>'profileId' IS DISTINCT FROM v_session.profile_id::text
+      OR v_public_authority->>'providerCode' IS DISTINCT FROM v_session.provider_code
+      OR v_public_authority->>'environment' IS DISTINCT FROM v_session.environment
+      OR v_public_authority->>'orderId' IS DISTINCT FROM v_session.order_id::text
+      OR v_public_authority->>'customerId' IS DISTINCT FROM v_session.customer_id::text
+      OR v_public_authority->>'authorityDigest' IS DISTINCT FROM v_session.commerce_authority_digest
+      OR v_public_authority->>'evaluatorAuthorityDigest' IS DISTINCT FROM v_session.evaluator_authority_digest
+      OR (v_public_authority->>'subtotalMinor')::bigint IS DISTINCT FROM v_session.subtotal_minor
+      OR (v_public_authority->>'shippingMinor')::bigint IS DISTINCT FROM v_session.shipping_minor
+      OR (v_public_authority->>'discountMinor')::bigint IS DISTINCT FROM v_session.discount_minor
+      OR (v_public_authority->>'totalMinor')::bigint IS DISTINCT FROM v_session.total_minor
+      OR v_public_authority->>'currency' IS DISTINCT FROM v_session.currency
+      OR v_public_authority->'items' IS DISTINCT FROM v_session.item_snapshot
+      OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+        (v_public_authority-'authorityDigest')::text,'UTF8')),'hex')
+        IS DISTINCT FROM v_session.commerce_authority_digest
+      OR (v_session.promotion_reservation_group_id IS NULL AND
+        v_operation.result_payload->'promotionReservation' IS DISTINCT FROM 'null'::jsonb)
+      OR (v_session.promotion_reservation_group_id IS NOT NULL AND (
+        pg_catalog.jsonb_typeof(v_operation.result_payload->'promotionReservation') IS DISTINCT FROM 'object'
+        OR v_operation.result_payload->'promotionReservation'->>'reservationGroupId'
+          IS DISTINCT FROM v_session.promotion_reservation_group_id::text
+        OR v_operation.result_payload->'promotionReservation'->>'status' IS DISTINCT FROM 'reserved'
+        OR (v_operation.result_payload->'promotionReservation'->>'expiresAt')::timestamptz
+          IS DISTINCT FROM v_session.promotion_reservation_expires_at
+      ))
+    THEN RETURN QUERY SELECT 'authority_unavailable',NULL::jsonb; RETURN; END IF;
+    RETURN QUERY SELECT 'found',v_public_authority; RETURN;
+  END IF;
+
+  SELECT prepared.outcome,prepared.customer_id INTO v_customer_outcome,v_customer_id
+  FROM saas.storefront_hosted_checkout_customer_prepare_v2(
+    v_store_id,p_now,p_customer_candidates,p_delivery,p_prospective_customer_id,true) prepared;
+  IF v_customer_outcome<>'found' THEN RETURN QUERY SELECT v_customer_outcome,NULL::jsonb; RETURN; END IF;
+  v_result:=saas.storefront_hosted_checkout_authority_v2_projection(
+    p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,
+    v_customer_id,p_normalized_codes,p_order_id);
+  IF v_result IS NULL THEN RETURN QUERY SELECT 'authority_unavailable',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'found',v_result-ARRAY['_evaluatorContext','_materializedLines','_evaluation'];
+EXCEPTION WHEN OTHERS THEN
+  RETURN QUERY SELECT 'authority_unavailable',NULL::jsonb;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.public_storefront_hosted_checkout_begin_v2(
+  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,
+  p_expected_version bigint,p_delivery jsonb,p_payment_method_id uuid,
+  p_expected_authority_digest text,p_operation_id uuid,p_fingerprint text,
+  p_session_id uuid,p_callback_binding_digest text,
+  p_order_id uuid,p_customer_id uuid,p_address_id uuid,p_event_id uuid,
+  p_receipt_id uuid,p_customer_credential_id uuid,
+  p_payment_session_key_id text,p_payment_session_digest text,
+  p_receipt_key_id text,p_receipt_digest text,
+  p_customer_key_id text,p_customer_digest text,
+  p_customer_candidates jsonb,p_normalized_codes jsonb,
+  p_expected_evaluator_authority_digest text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $fn$
+DECLARE
+  v_store_id uuid;
+  v_source_id uuid;
+  v_customer_outcome text;
+  v_resolved_customer_id uuid;
+  v_authority jsonb;
+  v_public_authority jsonb;
+  v_operation saas.storefront_hosted_checkout_operations%ROWTYPE;
+  v_begin_outcome text;
+  v_begin_result jsonb;
+  v_entry jsonb;
+  v_available_quantity bigint;
+  v_result jsonb;
+  v_requires_promotion boolean;
+  v_reserve_operation_id uuid;
+  v_reservation_group_id uuid;
+  v_reserve_fingerprint text;
+  v_reserve_outcome text;
+  v_reserve_result jsonb;
+  v_expected_evaluator_fingerprint text;
+  v_promotion_reservation jsonb:='null'::jsonb;
+BEGIN
+  IF p_hostname IS NULL OR p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
+    OR pg_catalog.date_trunc('milliseconds',p_now)<>p_now
+    OR p_kind IS NULL OR p_kind NOT IN('cart','buy_now')
+    OR saas.storefront_credential_candidates_valid(p_credentials,false) IS DISTINCT FROM TRUE
+    OR saas.storefront_credential_candidates_valid(p_customer_candidates,true) IS DISTINCT FROM TRUE
+    OR saas.storefront_delivery_valid(p_delivery) IS DISTINCT FROM TRUE
+    OR p_expected_version IS NULL OR p_expected_version NOT BETWEEN 1 AND 9007199254740991
+    OR p_payment_method_id IS NULL
+    OR p_expected_authority_digest IS NULL OR p_expected_authority_digest!~'^[a-f0-9]{64}$'
+    OR p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+    OR p_session_id IS NULL OR p_callback_binding_digest IS NULL OR p_callback_binding_digest!~'^[a-f0-9]{64}$'
+    OR p_order_id IS NULL OR p_customer_id IS NULL OR p_address_id IS NULL OR p_event_id IS NULL
+    OR p_receipt_id IS NULL OR p_customer_credential_id IS NULL
+    OR p_payment_session_key_id IS NULL OR p_payment_session_key_id!~'^[a-z0-9][a-z0-9_-]{0,31}$'
+    OR p_payment_session_digest IS NULL OR p_payment_session_digest!~'^[a-f0-9]{64}$'
+    OR p_receipt_key_id IS NULL OR p_receipt_key_id!~'^[a-z0-9][a-z0-9_-]{0,31}$'
+    OR p_receipt_digest IS NULL OR p_receipt_digest!~'^[a-f0-9]{64}$'
+    OR p_customer_key_id IS NULL OR p_customer_key_id!~'^[a-z0-9][a-z0-9_-]{0,31}$'
+    OR p_customer_digest IS NULL OR p_customer_digest!~'^[a-f0-9]{64}$'
+    OR p_expected_evaluator_authority_digest IS NULL OR p_expected_evaluator_authority_digest!~'^[a-f0-9]{64}$'
+    OR saas.storefront_hosted_checkout_promotion_codes_valid_v2(p_normalized_codes) IS DISTINCT FROM TRUE
+  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  v_store_id:=saas.storefront_public_store(p_hostname,p_now);
+  IF v_store_id IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'saas.storefront.hosted.checkout.operation:'||p_operation_id::text,0));
+  SELECT hosted_operation.* INTO v_operation
+  FROM saas.storefront_hosted_checkout_operations hosted_operation
+  WHERE hosted_operation.operation_id=p_operation_id;
+  IF FOUND THEN
+    IF v_operation.store_id<>v_store_id OR v_operation.operation_kind<>'start'
+      OR v_operation.payload_fingerprint<>p_fingerprint
+    THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload;
+    END IF;
+    RETURN;
+  END IF;
+
+  SELECT prepared.outcome,prepared.customer_id INTO v_customer_outcome,v_resolved_customer_id
+  FROM saas.storefront_hosted_checkout_customer_prepare_v2(
+    v_store_id,p_now,p_customer_candidates,p_delivery,p_customer_id,false) prepared;
+  IF v_customer_outcome<>'found' OR v_resolved_customer_id IS DISTINCT FROM p_customer_id
+  THEN RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN; END IF;
+
+  IF p_kind='cart' THEN
+    SELECT cart.id INTO v_source_id
+    FROM saas.storefront_carts cart
+    JOIN saas.storefront_cart_credentials credential
+      ON credential.store_id=cart.store_id AND credential.cart_id=cart.id
+    JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate
+      ON candidate->>'keyId'=credential.key_id AND candidate->>'digest'=credential.credential_digest
+    WHERE cart.store_id=v_store_id ORDER BY cart.created_at DESC,cart.id LIMIT 1;
+  ELSE
+    SELECT intent.id INTO v_source_id
+    FROM saas.storefront_checkout_intents intent
+    JOIN pg_catalog.jsonb_array_elements(p_credentials) candidate
+      ON candidate->>'keyId'=intent.key_id AND candidate->>'digest'=intent.credential_digest
+    WHERE intent.store_id=v_store_id ORDER BY intent.created_at DESC,intent.id LIMIT 1;
+  END IF;
+  IF v_source_id IS NOT NULL AND EXISTS(
+    SELECT 1 FROM saas.storefront_hosted_checkout_sessions session
+    WHERE session.store_id=v_store_id
+      AND ((p_kind='cart' AND session.cart_id=v_source_id) OR (p_kind='buy_now' AND session.intent_id=v_source_id))
+      AND session.status IN('active','provider_ready','processing')
+  ) THEN RETURN QUERY SELECT 'attempt_in_progress',NULL::jsonb; RETURN; END IF;
+
+  v_authority:=saas.storefront_hosted_checkout_authority_v2_projection(
+    p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,
+    p_customer_id,p_normalized_codes,p_order_id);
+  IF v_authority IS NULL
+    OR v_authority->>'authorityDigest' IS DISTINCT FROM p_expected_authority_digest
+    OR v_authority->>'evaluatorAuthorityDigest' IS DISTINCT FROM p_expected_evaluator_authority_digest
+    OR (v_authority->>'orderId')::uuid IS DISTINCT FROM p_order_id
+    OR (v_authority->>'customerId')::uuid IS DISTINCT FROM p_customer_id
+  THEN RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN; END IF;
+  v_source_id:=(v_authority->>'sourceId')::uuid;
+  IF p_kind='cart' THEN
+    PERFORM cart.id FROM saas.storefront_carts cart
+    WHERE cart.store_id=v_store_id AND cart.id=v_source_id FOR UPDATE OF cart;
+  ELSE
+    PERFORM intent.id FROM saas.storefront_checkout_intents intent
+    WHERE intent.store_id=v_store_id AND intent.id=v_source_id FOR UPDATE OF intent;
+  END IF;
+  PERFORM variant.id FROM saas.product_variants variant
+  WHERE variant.store_id=v_store_id AND EXISTS(
+    SELECT 1 FROM pg_catalog.jsonb_array_elements(v_authority->'items') item
+    WHERE (item->>'variantId')::uuid=variant.id
+  ) ORDER BY variant.id FOR UPDATE OF variant;
+  v_authority:=saas.storefront_hosted_checkout_authority_v2_projection(
+    p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,
+    p_customer_id,p_normalized_codes,p_order_id);
+  IF v_authority IS NULL
+    OR v_authority->>'authorityDigest' IS DISTINCT FROM p_expected_authority_digest
+    OR v_authority->>'evaluatorAuthorityDigest' IS DISTINCT FROM p_expected_evaluator_authority_digest
+  THEN RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN; END IF;
+  IF EXISTS(
+    SELECT 1 FROM saas.storefront_hosted_checkout_sessions session
+    WHERE session.store_id=v_store_id
+      AND ((p_kind='cart' AND session.cart_id=v_source_id) OR (p_kind='buy_now' AND session.intent_id=v_source_id))
+      AND session.status IN('active','provider_ready','processing')
+  ) THEN RETURN QUERY SELECT 'attempt_in_progress',NULL::jsonb; RETURN; END IF;
+  FOR v_entry IN
+    SELECT pg_catalog.jsonb_build_object(
+      'variantId',item->>'variantId','quantity',pg_catalog.sum((item->>'quantity')::numeric))
+    FROM pg_catalog.jsonb_array_elements(v_authority->'items') item
+    GROUP BY item->>'variantId'
+  LOOP
+    v_available_quantity:=saas.storefront_available_stock(
+      v_store_id,(v_entry->>'variantId')::uuid,p_now,NULL);
+    IF (v_entry->>'quantity')::numeric NOT BETWEEN 1 AND 1000000
+      OR pg_catalog.trunc((v_entry->>'quantity')::numeric)<>(v_entry->>'quantity')::numeric
+      OR v_available_quantity IS NULL OR v_available_quantity<(v_entry->>'quantity')::bigint
+    THEN RETURN QUERY SELECT 'stock_unavailable',NULL::jsonb; RETURN; END IF;
+  END LOOP;
+
+  v_requires_promotion:=pg_catalog.jsonb_array_length(v_authority->'appliedPromotions')>0
+    OR pg_catalog.jsonb_array_length(v_authority->'gifts')>0;
+  IF NOT v_requires_promotion AND (
+    (v_authority->>'discountMinor')::bigint<>0
+    OR pg_catalog.jsonb_array_length(v_authority->'appliedPromotions')<>0
+    OR pg_catalog.jsonb_array_length(v_authority->'gifts')<>0
+  ) THEN RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN; END IF;
+  IF v_requires_promotion AND pg_catalog.jsonb_typeof(v_authority->'_evaluatorContext') IS DISTINCT FROM 'object'
+  THEN RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN; END IF;
+  IF v_requires_promotion THEN
+    v_reserve_operation_id:=saas.storefront_commerce_uuid('hosted-promotion-reserve-v2:'||p_session_id::text);
+    v_reservation_group_id:=saas.storefront_commerce_uuid(
+      'promotion-reservation-group-v1:'||v_store_id::text||':'||v_reserve_operation_id::text);
+  END IF;
+  v_public_authority:=v_authority-ARRAY['_evaluatorContext','_materializedLines','_evaluation'];
+
+  BEGIN
+    SELECT begun.outcome,begun.result_payload INTO v_begin_outcome,v_begin_result
+    FROM saas.payment_attempt_begin(
+      v_store_id,p_now,p_operation_id,p_fingerprint,p_payment_method_id,
+      v_authority->>'orderReference',(v_authority->>'totalMinor')::bigint,
+      v_authority->>'currency',p_callback_binding_digest
+    ) begun;
+    IF v_begin_outcome NOT IN('created','operation_replayed')
+    THEN RETURN QUERY SELECT v_begin_outcome,v_begin_result; RETURN; END IF;
+    IF v_begin_outcome='operation_replayed'
+    THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
+
+    INSERT INTO saas.storefront_hosted_checkout_sessions(
+      id,store_id,cart_id,intent_id,payment_attempt_id,payment_method_id,profile_id,
+      provider_code,environment,credential_version,execution_adapter_version,
+      execution_evidence_digest,order_reference,order_id,customer_id,address_id,event_id,
+      receipt_id,customer_credential_id,source_version,commerce_authority_digest,currency,
+      subtotal_minor,shipping_minor,discount_minor,total_minor,delivery_snapshot,item_snapshot,
+      status,safe_code,hold_expires_at,terminal_at,version,payment_session_key_id,
+      payment_session_credential_digest,payment_session_expires_at,receipt_key_id,
+      receipt_credential_digest,receipt_expires_at,customer_key_id,customer_credential_digest,
+      customer_expires_at,created_at,updated_at,evaluator_authority_digest,
+      promotion_evaluator_context,promotion_evaluation,promotion_normalized_codes,
+      promotion_reservation_group_id,promotion_reservation_expires_at
+    ) VALUES(
+      p_session_id,v_store_id,CASE WHEN p_kind='cart' THEN v_source_id END,
+      CASE WHEN p_kind='buy_now' THEN v_source_id END,p_operation_id,p_payment_method_id,
+      (v_authority->>'profileId')::uuid,v_authority->>'providerCode',v_authority->>'environment',
+      (v_authority->>'credentialVersion')::bigint,(v_authority->>'executionAdapterVersion')::integer,
+      v_authority->>'executionEvidenceDigest',v_authority->>'orderReference',p_order_id,p_customer_id,
+      p_address_id,p_event_id,p_receipt_id,p_customer_credential_id,p_expected_version,
+      p_expected_authority_digest,v_authority->>'currency',(v_authority->>'subtotalMinor')::bigint,
+      (v_authority->>'shippingMinor')::bigint,(v_authority->>'discountMinor')::bigint,
+      (v_authority->>'totalMinor')::bigint,p_delivery,v_authority->'items','active','payment_started',
+      p_now+pg_catalog.interval '15 minutes',NULL,1,p_payment_session_key_id,p_payment_session_digest,
+      p_now+pg_catalog.interval '15 minutes',p_receipt_key_id,p_receipt_digest,p_now+pg_catalog.interval '1 day',
+      p_customer_key_id,p_customer_digest,p_now+pg_catalog.interval '30 days',p_now,p_now,
+      p_expected_evaluator_authority_digest,v_authority->'_evaluatorContext',v_authority->'_evaluation',
+      p_normalized_codes,v_reservation_group_id,
+      CASE WHEN v_requires_promotion THEN p_now+pg_catalog.interval '1 day' END
+    );
+    IF v_requires_promotion THEN
+      v_reserve_fingerprint:=saas.promotion_operation_fingerprint_v2(
+        'reserve',v_store_id,pg_catalog.jsonb_build_object(
+          'sourceKind','hosted_checkout','sourceReference',p_session_id::text,
+          'evaluatorContext',v_authority->'_evaluatorContext'));
+      SELECT reserved.outcome,reserved.result_payload INTO v_reserve_outcome,v_reserve_result
+      FROM saas.promotion_reserve_group_v1(
+        v_store_id,v_reserve_operation_id,v_reserve_fingerprint,'hosted_checkout',p_session_id::text,
+        v_authority->'_evaluatorContext',p_now) reserved;
+      v_expected_evaluator_fingerprint:=saas.promotion_operation_fingerprint_v2(
+        'reserve',v_store_id,pg_catalog.jsonb_build_object(
+          'sourceKind','hosted_checkout','sourceReference',p_session_id::text,
+          'evaluatorContext',v_authority->'_evaluatorContext',
+          'materializedLines',v_authority->'_materializedLines',
+          'evaluation',v_authority->'_evaluation'));
+      IF v_reserve_outcome<>'reserved'
+        OR (v_reserve_result->>'reservationGroupId')::uuid IS DISTINCT FROM v_reservation_group_id
+        OR v_reserve_result->>'status' IS DISTINCT FROM 'reserved'
+        OR (v_reserve_result->>'expiresAt')::timestamptz IS DISTINCT FROM p_now+pg_catalog.interval '1 day'
+        OR v_reserve_result->>'evaluatorFingerprint' IS DISTINCT FROM v_expected_evaluator_fingerprint
+        OR (v_reserve_result->>'discountTotalMinor')::bigint IS DISTINCT FROM (v_authority->>'discountMinor')::bigint
+      THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_RESERVATION_INVALID'; END IF;
+      v_promotion_reservation:=pg_catalog.jsonb_build_object(
+        'reservationGroupId',v_reservation_group_id,'status','reserved',
+        'expiresAt',v_reserve_result->>'expiresAt',
+        'evaluatorFingerprint',v_reserve_result->>'evaluatorFingerprint');
+    END IF;
+
+    -- The reserve function re-evaluates gift availability while the source and
+    -- variant rows are locked above.  Insert this session's own inventory hold
+    -- only after that recheck, otherwise a tracked exact-stock gift would count
+    -- its future hold twice.  Both graphs remain in this same subtransaction.
+    INSERT INTO saas.checkout_inventory_reservations(
+      id,store_id,attempt_id,payment_attempt_id,quick_order_link_id,storefront_hosted_session_id,
+      product_id,variant_id,quantity,stock_tracked,status,held_at,version,updated_at
+    )
+    SELECT
+      saas.storefront_commerce_uuid('hosted-reservation:'||p_session_id::text||':'||required.variant_id::text),
+      v_store_id,NULL,p_operation_id,NULL,p_session_id,required.product_id,required.variant_id,
+      required.quantity::bigint,variant.stock_tracking,'held',p_now,1,p_now
+    FROM (
+      SELECT (item->>'productId')::uuid product_id,(item->>'variantId')::uuid variant_id,
+        pg_catalog.sum((item->>'quantity')::numeric) quantity
+      FROM pg_catalog.jsonb_array_elements(v_authority->'items') item
+      GROUP BY (item->>'productId')::uuid,(item->>'variantId')::uuid
+    ) required
+    JOIN saas.product_variants variant
+      ON variant.store_id=v_store_id AND variant.id=required.variant_id
+      AND variant.product_id=required.product_id
+    ORDER BY required.variant_id;
+
+    v_result:=v_begin_result||pg_catalog.jsonb_build_object(
+      'sessionId',p_session_id,'sessionStatus','active','sessionVersion',1,
+      'paymentSessionKeyId',p_payment_session_key_id,'receiptKeyId',p_receipt_key_id,
+      'customerKeyId',p_customer_key_id,
+      'paymentSessionExpiresAt',saas.storefront_commerce_timestamp(p_now+pg_catalog.interval '15 minutes'),
+      'receiptExpiresAt',saas.storefront_commerce_timestamp(p_now+pg_catalog.interval '1 day'),
+      'customerExpiresAt',saas.storefront_commerce_timestamp(p_now+pg_catalog.interval '30 days'),
+      'authority',v_public_authority,'promotionReservation',v_promotion_reservation
+    );
+    IF pg_catalog.pg_column_size(v_result)>786432
+    THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_RESULT_TOO_LARGE'; END IF;
+    INSERT INTO saas.storefront_hosted_checkout_operations(
+      operation_id,store_id,session_id,operation_kind,payload_fingerprint,result_payload,committed_at
+    ) VALUES(p_operation_id,v_store_id,p_session_id,'start',p_fingerprint,v_result,p_now);
+  EXCEPTION WHEN unique_violation OR check_violation OR foreign_key_violation
+    OR numeric_value_out_of_range OR datetime_field_overflow OR raise_exception THEN
+    RETURN QUERY SELECT 'durable_authority_invalid',NULL::jsonb; RETURN;
+  END;
+  RETURN QUERY SELECT 'created',v_result;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.storefront_hosted_checkout_promotion_release_v2(
+  p_store_id uuid,p_session_id uuid,p_reservation_group_id uuid,p_now timestamptz
+)
+RETURNS boolean
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $fn$
+DECLARE
+  v_operation_id uuid;
+  v_fingerprint text;
+  v_outcome text;
+BEGIN
+  IF p_store_id IS NULL OR p_session_id IS NULL OR p_now IS NULL
+    OR NOT pg_catalog.isfinite(p_now) OR pg_catalog.date_trunc('milliseconds',p_now)<>p_now
+  THEN RETURN false; END IF;
+  IF p_reservation_group_id IS NULL THEN RETURN true; END IF;
+  v_operation_id:=saas.storefront_commerce_uuid('hosted-promotion-release-v2:'||p_session_id::text);
+  v_fingerprint:=saas.promotion_operation_fingerprint_v2(
+    'release',p_store_id,pg_catalog.jsonb_build_object('reservationGroupId',p_reservation_group_id));
+  SELECT released.outcome INTO v_outcome
+  FROM saas.promotion_release_reservation_group_v1(
+    p_store_id,v_operation_id,v_fingerprint,p_reservation_group_id,p_now) released;
+  IF v_outcome IN('released','operation_replayed') THEN RETURN true; END IF;
+  RETURN v_outcome='invalid_transition' AND EXISTS(
+    SELECT 1 FROM saas.promotion_usage_reservations reservation
+    WHERE reservation.store_id=p_store_id AND reservation.reservation_group_id=p_reservation_group_id
+    HAVING count(*) BETWEEN 1 AND 100
+      AND bool_and(reservation.status IN('released','expired'))
+  );
+EXCEPTION WHEN OTHERS THEN
+  RETURN false;
+END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.storefront_hosted_checkout_promotion_terminal_v2()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $fn$
+DECLARE
+  v_session saas.storefront_hosted_checkout_sessions%ROWTYPE;
+  v_customer saas.customers%ROWTYPE;
+  v_address saas.customer_addresses%ROWTYPE;
+  v_authority jsonb;
+  v_line jsonb;
+  v_receipt jsonb;
+  v_operation_result jsonb;
+  v_order_number text;
+  v_position integer:=0;
+  v_held_count bigint;
+  v_tracked_count bigint;
+  v_updated_count bigint;
+  v_settlement_conflict boolean:=false;
+  v_commit_operation_id uuid;
+  v_commit_fingerprint text;
+  v_commit_outcome text;
+  v_commit_result jsonb;
+BEGIN
+  IF NEW.status IS NOT DISTINCT FROM OLD.status THEN RETURN NEW; END IF;
+  SELECT session.* INTO v_session
+  FROM saas.storefront_hosted_checkout_sessions session
+  WHERE session.store_id=NEW.store_id AND session.payment_attempt_id=NEW.id
+  FOR UPDATE;
+  IF NOT FOUND OR v_session.evaluator_authority_digest IS NULL
+    OR v_session.status IN('captured','failed','cancelled','expired','stock_conflict')
+  THEN RETURN NEW; END IF;
+  SELECT hosted_operation.result_payload->'authority' INTO v_authority
+  FROM saas.storefront_hosted_checkout_operations hosted_operation
+  WHERE hosted_operation.store_id=v_session.store_id
+    AND hosted_operation.operation_id=v_session.payment_attempt_id
+    AND hosted_operation.session_id=v_session.id
+    AND hosted_operation.operation_kind='start';
+  IF pg_catalog.jsonb_typeof(v_authority) IS DISTINCT FROM 'object'
+    OR v_authority->>'authorityDigest' IS DISTINCT FROM v_session.commerce_authority_digest
+    OR v_authority->>'evaluatorAuthorityDigest' IS DISTINCT FROM v_session.evaluator_authority_digest
+    OR (v_authority->>'orderId')::uuid IS DISTINCT FROM v_session.order_id
+    OR (v_authority->>'customerId')::uuid IS DISTINCT FROM v_session.customer_id
+    OR (v_authority->>'totalMinor')::bigint IS DISTINCT FROM v_session.total_minor
+    OR v_authority->'items' IS DISTINCT FROM v_session.item_snapshot
+  THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_FROZEN_AUTHORITY_INVALID'; END IF;
+
+  IF NEW.status IN('provider_outcome_unknown','reconciliation_required') THEN
+    IF v_session.status IN('active','provider_ready') THEN
+      UPDATE saas.storefront_hosted_checkout_sessions SET
+        status='processing',safe_code=NEW.safe_code,version=version+1,updated_at=NEW.updated_at
+      WHERE store_id=v_session.store_id AND id=v_session.id;
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF NEW.status NOT IN('captured','failed','cancelled','expired') THEN RETURN NEW; END IF;
+
+  IF v_session.cart_id IS NOT NULL THEN
+    PERFORM cart.id FROM saas.storefront_carts cart
+    WHERE cart.store_id=v_session.store_id AND cart.id=v_session.cart_id FOR UPDATE OF cart;
+  ELSE
+    PERFORM intent.id FROM saas.storefront_checkout_intents intent
+    WHERE intent.store_id=v_session.store_id AND intent.id=v_session.intent_id FOR UPDATE OF intent;
+  END IF;
+  PERFORM variant.id FROM saas.product_variants variant
+  WHERE variant.store_id=v_session.store_id AND EXISTS(
+    SELECT 1 FROM saas.checkout_inventory_reservations reservation
+    WHERE reservation.store_id=v_session.store_id
+      AND reservation.storefront_hosted_session_id=v_session.id
+      AND reservation.variant_id=variant.id
+  ) ORDER BY variant.id FOR UPDATE OF variant;
+  PERFORM reservation.id FROM saas.checkout_inventory_reservations reservation
+  WHERE reservation.store_id=v_session.store_id
+    AND reservation.storefront_hosted_session_id=v_session.id
+  ORDER BY reservation.variant_id,reservation.id FOR UPDATE;
+
+  IF NEW.status IN('failed','cancelled','expired') THEN
+    IF saas.storefront_hosted_checkout_promotion_release_v2(
+      v_session.store_id,v_session.id,v_session.promotion_reservation_group_id,NEW.updated_at) IS NOT TRUE
+    THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_PROMOTION_RELEASE_FAILED'; END IF;
+    UPDATE saas.checkout_inventory_reservations SET
+      status=CASE WHEN NEW.status='expired' THEN 'expired' ELSE 'released' END,
+      expired_at=CASE WHEN NEW.status='expired' THEN NEW.updated_at ELSE NULL END,
+      released_at=CASE WHEN NEW.status='expired' THEN NULL ELSE NEW.updated_at END,
+      version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=v_session.store_id
+      AND storefront_hosted_session_id=v_session.id AND status='held';
+    UPDATE saas.storefront_hosted_checkout_sessions SET
+      status=NEW.status,safe_code=NEW.safe_code,terminal_at=NEW.updated_at,
+      version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=v_session.store_id AND id=v_session.id;
+    RETURN NEW;
+  END IF;
+
+  IF v_session.promotion_reservation_group_id IS NOT NULL
+    AND (v_session.promotion_reservation_expires_at IS NULL
+      OR NEW.updated_at>=v_session.promotion_reservation_expires_at)
+  THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_PROMOTION_EXPIRED'; END IF;
+  SELECT pg_catalog.count(*) INTO v_held_count
+  FROM saas.checkout_inventory_reservations reservation
+  WHERE reservation.store_id=v_session.store_id
+    AND reservation.storefront_hosted_session_id=v_session.id;
+  v_settlement_conflict:=v_held_count<>(
+      SELECT pg_catalog.count(*)
+      FROM (
+        SELECT item->>'productId',item->>'variantId'
+        FROM pg_catalog.jsonb_array_elements(v_session.item_snapshot) item
+        GROUP BY item->>'productId',item->>'variantId'
+      ) grouped
+    )
+    OR EXISTS(
+      SELECT 1 FROM saas.checkout_inventory_reservations reservation
+      WHERE reservation.store_id=v_session.store_id
+        AND reservation.storefront_hosted_session_id=v_session.id
+        AND reservation.status<>'held'
+    ) OR EXISTS(
+      SELECT 1
+      FROM saas.checkout_inventory_reservations reservation
+      JOIN saas.product_variants variant
+        ON variant.store_id=reservation.store_id AND variant.id=reservation.variant_id
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(pg_catalog.sum(other_hold.quantity),0)::bigint quantity
+        FROM saas.checkout_inventory_reservations other_hold
+        WHERE other_hold.store_id=reservation.store_id
+          AND other_hold.variant_id=reservation.variant_id
+          AND other_hold.stock_tracked AND other_hold.status='held'
+          AND other_hold.storefront_hosted_session_id IS DISTINCT FROM v_session.id
+          AND (
+            (other_hold.attempt_id IS NOT NULL AND EXISTS(
+              SELECT 1 FROM saas.checkout_payment_attempts legacy_attempt
+              WHERE legacy_attempt.store_id=other_hold.store_id
+                AND legacy_attempt.id=other_hold.attempt_id
+                AND legacy_attempt.status IN('reserved','provider_ready','initiation_unknown')
+                AND legacy_attempt.hold_expires_at>NEW.updated_at
+            )) OR (other_hold.payment_attempt_id IS NOT NULL
+              AND other_hold.quick_order_link_id IS NOT NULL AND EXISTS(
+                SELECT 1 FROM saas.quick_order_hosted_payment_bridges bridge
+                WHERE bridge.store_id=other_hold.store_id
+                  AND bridge.attempt_id=other_hold.payment_attempt_id
+                  AND bridge.quick_order_link_id=other_hold.quick_order_link_id
+                  AND bridge.status='active' AND bridge.hold_expires_at>NEW.updated_at
+            )) OR (other_hold.storefront_hosted_session_id IS NOT NULL AND EXISTS(
+              SELECT 1 FROM saas.storefront_hosted_checkout_sessions other_session
+              WHERE other_session.store_id=other_hold.store_id
+                AND other_session.id=other_hold.storefront_hosted_session_id
+                AND other_session.payment_attempt_id=other_hold.payment_attempt_id
+                AND other_session.status IN('active','provider_ready','processing')
+                AND other_session.hold_expires_at>NEW.updated_at
+            ))
+          )
+      ) live_holds ON true
+      WHERE reservation.store_id=v_session.store_id
+        AND reservation.storefront_hosted_session_id=v_session.id
+        AND reservation.stock_tracked
+        AND variant.stock_quantity-live_holds.quantity<reservation.quantity
+    ) OR (v_session.cart_id IS NOT NULL AND NOT EXISTS(
+      SELECT 1 FROM saas.storefront_carts cart
+      WHERE cart.store_id=v_session.store_id AND cart.id=v_session.cart_id AND cart.status='active'
+    )) OR (v_session.intent_id IS NOT NULL AND NOT EXISTS(
+      SELECT 1 FROM saas.storefront_checkout_intents intent
+      WHERE intent.store_id=v_session.store_id AND intent.id=v_session.intent_id AND intent.status='active'
+    ));
+  IF v_settlement_conflict THEN
+    IF saas.storefront_hosted_checkout_promotion_release_v2(
+      v_session.store_id,v_session.id,v_session.promotion_reservation_group_id,NEW.updated_at) IS NOT TRUE
+    THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_PROMOTION_RELEASE_FAILED'; END IF;
+    UPDATE saas.checkout_inventory_reservations SET status='released',released_at=NEW.updated_at,
+      version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=v_session.store_id
+      AND storefront_hosted_session_id=v_session.id AND status='held';
+    UPDATE saas.storefront_hosted_checkout_sessions SET
+      status='stock_conflict',safe_code='captured_stock_conflict',terminal_at=NEW.updated_at,
+      version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=v_session.store_id AND id=v_session.id;
+    RETURN NEW;
+  END IF;
+
+  SELECT customer.* INTO v_customer
+  FROM saas.customers customer
+  WHERE customer.store_id=v_session.store_id AND customer.id=v_session.customer_id
+  FOR UPDATE OF customer;
+  IF NOT FOUND OR v_customer.status<>'active' OR v_customer.archived_at IS NOT NULL
+    OR v_customer.email IS DISTINCT FROM v_session.delivery_snapshot->'contact'->>'email'
+    OR v_customer.phone IS DISTINCT FROM v_session.delivery_snapshot->'contact'->>'phone'
+    OR EXISTS(
+      SELECT 1 FROM saas.customers customer
+      WHERE customer.store_id=v_session.store_id AND customer.id<>v_session.customer_id
+        AND (customer.email=v_session.delivery_snapshot->'contact'->>'email'
+          OR customer.phone=v_session.delivery_snapshot->'contact'->>'phone')
+    )
+  THEN
+    IF saas.storefront_hosted_checkout_promotion_release_v2(
+      v_session.store_id,v_session.id,v_session.promotion_reservation_group_id,NEW.updated_at) IS NOT TRUE
+    THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_PROMOTION_RELEASE_FAILED'; END IF;
+    UPDATE saas.checkout_inventory_reservations SET status='released',released_at=NEW.updated_at,
+      version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=v_session.store_id
+      AND storefront_hosted_session_id=v_session.id AND status='held';
+    UPDATE saas.storefront_hosted_checkout_sessions SET
+      status='stock_conflict',safe_code='customer_authority_conflict',terminal_at=NEW.updated_at,
+      version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=v_session.store_id AND id=v_session.id;
+    RETURN NEW;
+  END IF;
+
+  UPDATE saas.customers SET
+    first_name=v_session.delivery_snapshot->'contact'->>'firstName',
+    last_name=v_session.delivery_snapshot->'contact'->>'lastName',
+    version=version+1,updated_at=NEW.updated_at
+  WHERE store_id=v_session.store_id AND id=v_session.customer_id
+  RETURNING * INTO v_customer;
+
+  SELECT address.* INTO v_address
+  FROM saas.customer_addresses address
+  WHERE address.store_id=v_session.store_id AND address.customer_id=v_customer.id AND address.is_default
+  FOR UPDATE OF address;
+  IF FOUND THEN
+    UPDATE saas.customer_addresses SET
+      recipient_name=v_customer.first_name||' '||v_customer.last_name,
+      line1=v_session.delivery_snapshot->'shippingAddress'->>'line1',
+      line2=v_session.delivery_snapshot->'shippingAddress'->>'line2',
+      city=v_session.delivery_snapshot->'shippingAddress'->>'city',
+      district=v_session.delivery_snapshot->'shippingAddress'->>'district',
+      postal_code=v_session.delivery_snapshot->'shippingAddress'->>'postalCode',
+      country=v_session.delivery_snapshot->'shippingAddress'->>'country',
+      version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=v_session.store_id AND id=v_address.id RETURNING * INTO v_address;
+  ELSE
+    INSERT INTO saas.customer_addresses(
+      id,store_id,customer_id,label,recipient_name,line1,line2,city,district,
+      postal_code,country,is_default,version,created_at,updated_at
+    ) VALUES(
+      v_session.address_id,v_session.store_id,v_customer.id,'Teslimat',
+      v_customer.first_name||' '||v_customer.last_name,
+      v_session.delivery_snapshot->'shippingAddress'->>'line1',
+      v_session.delivery_snapshot->'shippingAddress'->>'line2',
+      v_session.delivery_snapshot->'shippingAddress'->>'city',
+      v_session.delivery_snapshot->'shippingAddress'->>'district',
+      v_session.delivery_snapshot->'shippingAddress'->>'postalCode',
+      v_session.delivery_snapshot->'shippingAddress'->>'country',true,1,NEW.updated_at,NEW.updated_at
+    ) RETURNING * INTO v_address;
+  END IF;
+
+  v_order_number:='SF-'||pg_catalog.upper(pg_catalog.replace(v_session.order_id::text,'-',''));
+  INSERT INTO saas.orders(
+    id,store_id,order_number,source,customer_name,customer_email,customer_phone,currency,
+    subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,
+    shipping_address,tracking,version,created_at,updated_at,customer_id
+  ) VALUES(
+    v_session.order_id,v_session.store_id,v_order_number,'storefront',
+    v_customer.first_name||' '||v_customer.last_name,v_customer.email,v_customer.phone,
+    v_session.currency,v_session.subtotal_minor,v_session.shipping_minor,
+    v_session.discount_minor,v_session.total_minor,'confirmed','completed',
+    pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+      'recipientName',v_customer.first_name||' '||v_customer.last_name,
+      'line1',v_session.delivery_snapshot->'shippingAddress'->>'line1',
+      'line2',v_session.delivery_snapshot->'shippingAddress'->>'line2',
+      'district',v_session.delivery_snapshot->'shippingAddress'->>'district',
+      'city',v_session.delivery_snapshot->'shippingAddress'->>'city',
+      'postalCode',v_session.delivery_snapshot->'shippingAddress'->>'postalCode',
+      'country',v_session.delivery_snapshot->'shippingAddress'->>'country'
+    )),NULL,1,NEW.updated_at,NEW.updated_at,v_customer.id
+  );
+  FOR v_line IN SELECT value FROM pg_catalog.jsonb_array_elements(v_session.item_snapshot) LOOP
+    INSERT INTO saas.order_items(
+      id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,
+      unit_price_cents,quantity,discount_cents,line_total_cents,created_at
+    ) VALUES(
+      saas.storefront_commerce_uuid(v_session.order_id::text||':item:'||v_position::text),
+      v_session.store_id,v_session.order_id,(v_line->>'productId')::uuid,
+      (v_line->>'variantId')::uuid,v_position,v_line->>'title',v_line->>'variantTitle',v_line->>'sku',
+      (v_line->>'unitPriceCents')::bigint,(v_line->>'quantity')::integer,
+      (v_line->>'discountCents')::bigint,(v_line->>'payableCents')::bigint,NEW.updated_at
+    );
+    v_position:=v_position+1;
+  END LOOP;
+
+  IF v_session.promotion_reservation_group_id IS NOT NULL THEN
+    v_commit_operation_id:=saas.storefront_commerce_uuid('hosted-promotion-commit-v2:'||v_session.id::text);
+    v_commit_fingerprint:=saas.promotion_operation_fingerprint_v2(
+      'commit',v_session.store_id,pg_catalog.jsonb_build_object(
+        'reservationGroupId',v_session.promotion_reservation_group_id,'orderId',v_session.order_id));
+    SELECT committed.outcome,committed.result_payload INTO v_commit_outcome,v_commit_result
+    FROM saas.promotion_commit_reservation_group_v1(
+      v_session.store_id,v_commit_operation_id,v_commit_fingerprint,
+      v_session.promotion_reservation_group_id,v_session.order_id,NEW.updated_at) committed;
+    IF v_commit_outcome NOT IN('committed','operation_replayed')
+      OR pg_catalog.jsonb_typeof(v_commit_result) IS DISTINCT FROM 'object'
+    THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_PROMOTION_COMMIT_FAILED:%',v_commit_outcome; END IF;
+  END IF;
+
+  INSERT INTO saas.order_events(
+    id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at
+  ) VALUES(
+    v_session.event_id,v_session.store_id,v_session.order_id,NULL,'order_created',NULL,'confirmed',
+    'Storefront kart ödemesi doğrulandı.',
+    pg_catalog.jsonb_build_object('paymentKind','hosted_card','providerCode',v_session.provider_code),
+    NEW.updated_at
+  );
+  INSERT INTO saas.storefront_customer_credentials(
+    id,store_id,customer_id,key_id,credential_digest,expires_at,created_at,last_seen_at
+  ) VALUES(
+    v_session.customer_credential_id,v_session.store_id,v_customer.id,v_session.customer_key_id,
+    v_session.customer_credential_digest,v_session.customer_expires_at,NEW.updated_at,NEW.updated_at
+  );
+  INSERT INTO saas.storefront_order_receipts(
+    id,store_id,order_id,customer_credential_id,key_id,credential_digest,expires_at,created_at
+  ) VALUES(
+    v_session.receipt_id,v_session.store_id,v_session.order_id,v_session.customer_credential_id,
+    v_session.receipt_key_id,v_session.receipt_credential_digest,v_session.receipt_expires_at,NEW.updated_at
+  );
+  v_receipt:=pg_catalog.jsonb_build_object(
+    'orderReference',v_order_number,'currency',v_session.currency,
+    'subtotalCents',v_session.subtotal_minor,'shippingCents',v_session.shipping_minor,
+    'lineDiscountCents',(v_authority->>'lineDiscountMinor')::bigint,
+    'shippingDiscountCents',(v_authority->>'shippingDiscountMinor')::bigint,
+    'discountCents',v_session.discount_minor,'totalCents',v_session.total_minor,
+    'paymentStatus','completed','paymentMethod',pg_catalog.jsonb_build_object(
+      'kind','hosted_card','id',v_session.payment_method_id,
+      'label',(SELECT method.label FROM saas.payment_methods method
+        WHERE method.store_id=v_session.store_id AND method.id=v_session.payment_method_id),
+      'instructions','Güvenli sağlayıcı ekranında tamamlandı.','providerCode',v_session.provider_code,
+      'presentation',CASE v_session.provider_code WHEN 'paytr_iframe' THEN 'iframe' ELSE 'redirect' END,
+      'requiredCustomerFields',CASE v_session.provider_code WHEN 'iyzico_iframe'
+        THEN pg_catalog.jsonb_build_array('identity_number') ELSE '[]'::jsonb END
+    ),
+    'delivery',pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
+      'recipientName',v_customer.first_name||' '||v_customer.last_name,
+      'addressLine1',v_session.delivery_snapshot->'shippingAddress'->>'line1',
+      'addressLine2',v_session.delivery_snapshot->'shippingAddress'->>'line2',
+      'city',v_session.delivery_snapshot->'shippingAddress'->>'city',
+      'district',v_session.delivery_snapshot->'shippingAddress'->>'district',
+      'postalCode',v_session.delivery_snapshot->'shippingAddress'->>'postalCode','country','TR'
+    )),
+    'items',v_session.item_snapshot,'promotionStatus',v_authority->'promotionStatus',
+    'appliedPromotions',v_authority->'appliedPromotions','gifts',v_authority->'gifts',
+    'createdAt',saas.storefront_commerce_timestamp(NEW.updated_at)
+  );
+  v_operation_result:=pg_catalog.jsonb_build_object(
+    'receipt',v_receipt,'credentialPersistence',pg_catalog.jsonb_build_object(
+      'receipt',true,'customer',true,'receiptKeyId',v_session.receipt_key_id,
+      'customerKeyId',v_session.customer_key_id
+    )
+  );
+  IF pg_catalog.pg_column_size(v_operation_result)>262144
+  THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_RECEIPT_TOO_LARGE'; END IF;
+  INSERT INTO saas.storefront_checkout_operations(
+    operation_id,store_id,cart_id,intent_id,order_id,payload_fingerprint,result_payload,committed_at
+  ) VALUES(
+    v_session.payment_attempt_id,v_session.store_id,v_session.cart_id,v_session.intent_id,
+    v_session.order_id,v_session.commerce_authority_digest,v_operation_result,NEW.updated_at
+  );
+
+  UPDATE saas.checkout_inventory_reservations SET status='consumed',consumed_at=NEW.updated_at,
+    version=version+1,updated_at=NEW.updated_at
+  WHERE store_id=v_session.store_id AND storefront_hosted_session_id=v_session.id AND status='held';
+  SELECT pg_catalog.count(*) INTO v_tracked_count
+  FROM saas.checkout_inventory_reservations reservation
+  WHERE reservation.store_id=v_session.store_id
+    AND reservation.storefront_hosted_session_id=v_session.id AND reservation.stock_tracked;
+  PERFORM pg_catalog.set_config('saas.inventory.source_marker','checkout_sale',true);
+  PERFORM pg_catalog.set_config('saas.inventory.source_id',v_session.order_id::text,true);
+  PERFORM pg_catalog.set_config('saas.inventory.source_time',NEW.updated_at::text,true);
+  UPDATE saas.product_variants variant SET
+    stock_quantity=variant.stock_quantity-reservation.quantity,
+    version=variant.version+1,updated_at=NEW.updated_at
+  FROM saas.checkout_inventory_reservations reservation
+  WHERE reservation.store_id=v_session.store_id
+    AND reservation.storefront_hosted_session_id=v_session.id
+    AND reservation.stock_tracked AND variant.store_id=reservation.store_id
+    AND variant.id=reservation.variant_id
+    AND variant.stock_quantity>=reservation.quantity;
+  GET DIAGNOSTICS v_updated_count=ROW_COUNT;
+  PERFORM pg_catalog.set_config('saas.inventory.source_marker','',true);
+  PERFORM pg_catalog.set_config('saas.inventory.source_id','',true);
+  PERFORM pg_catalog.set_config('saas.inventory.source_time','',true);
+  IF v_updated_count<>v_tracked_count
+  THEN RAISE EXCEPTION 'STOREFRONT_HOSTED_CHECKOUT_V2_STOCK_WRITE_CONFLICT'; END IF;
+  IF v_session.cart_id IS NOT NULL THEN
+    UPDATE saas.storefront_carts SET status='converted',version=version+1,updated_at=NEW.updated_at
+    WHERE store_id=v_session.store_id AND id=v_session.cart_id
+      AND status='active' AND version=v_session.source_version;
+  ELSE
+    UPDATE saas.storefront_checkout_intents SET status='converted'
+    WHERE store_id=v_session.store_id AND id=v_session.intent_id AND status='active';
+  END IF;
+  UPDATE saas.storefront_hosted_checkout_sessions SET
+    status='captured',safe_code=NEW.safe_code,terminal_at=NEW.updated_at,
+    version=version+1,updated_at=NEW.updated_at
+  WHERE store_id=v_session.store_id AND id=v_session.id;
+  RETURN NEW;
+END
+$fn$;
+
+DROP TRIGGER IF EXISTS aa_storefront_hosted_checkout_promotion_terminal_v2 ON saas.payment_attempts;
+DROP TRIGGER IF EXISTS zz_storefront_hosted_checkout_promotion_terminal_v2 ON saas.payment_attempts;
+CREATE TRIGGER aa_storefront_hosted_checkout_promotion_terminal_v2
+AFTER UPDATE OF status ON saas.payment_attempts
+FOR EACH ROW EXECUTE FUNCTION saas.storefront_hosted_checkout_promotion_terminal_v2();
+
+ALTER FUNCTION saas.storefront_hosted_checkout_promotion_codes_valid_v2(jsonb) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.storefront_hosted_checkout_customer_prepare_v2(uuid,timestamptz,jsonb,jsonb,uuid,boolean) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.storefront_hosted_checkout_authority_v2_projection(text,timestamptz,text,jsonb,bigint,jsonb,uuid,uuid,jsonb,uuid) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.public_storefront_hosted_checkout_authority_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.public_storefront_hosted_checkout_begin_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.storefront_hosted_checkout_promotion_release_v2(uuid,uuid,uuid,timestamptz) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.storefront_hosted_checkout_promotion_terminal_v2() OWNER TO celebix_saas_owner;
+REVOKE ALL ON FUNCTION saas.storefront_hosted_checkout_promotion_codes_valid_v2(jsonb),saas.storefront_hosted_checkout_customer_prepare_v2(uuid,timestamptz,jsonb,jsonb,uuid,boolean),saas.storefront_hosted_checkout_authority_v2_projection(text,timestamptz,text,jsonb,bigint,jsonb,uuid,uuid,jsonb,uuid),saas.storefront_hosted_checkout_promotion_release_v2(uuid,uuid,uuid,timestamptz),saas.storefront_hosted_checkout_promotion_terminal_v2()
+FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+REVOKE ALL ON FUNCTION saas.public_storefront_hosted_checkout_authority_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid),saas.public_storefront_hosted_checkout_begin_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text)
+FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+GRANT EXECUTE ON FUNCTION saas.public_storefront_hosted_checkout_authority_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid),saas.public_storefront_hosted_checkout_begin_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text)
+TO celebix_saas_host_resolver;
+
 DO $fn$ DECLARE v_table text; BEGIN
   FOREACH v_table IN ARRAY ARRAY['promotions','promotion_versions','promotion_targets','promotion_codes','promotion_code_batches','promotion_usage_reservations','promotion_redemptions','promotion_audit_events','promotion_operations','order_promotion_snapshots','order_discount_allocations'] LOOP
     EXECUTE pg_catalog.format('ALTER TABLE saas.%I ENABLE ROW LEVEL SECURITY',v_table); EXECUTE pg_catalog.format('ALTER TABLE saas.%I FORCE ROW LEVEL SECURITY',v_table);
@@ -4212,6 +7009,11 @@ BEGIN
     EXECUTE pg_catalog.format('REVOKE ALL ON FUNCTION saas.%I(%s) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity',p.proname,p.args);
   END LOOP;
 END $fn$;
+ALTER FUNCTION saas.public_checkout_quote_v2(text,timestamptz,text,jsonb,jsonb,text[],jsonb) OWNER TO celebix_saas_owner;
+REVOKE ALL ON FUNCTION saas.public_checkout_quote_v2(text,timestamptz,text,jsonb,jsonb,text[],jsonb)
+FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+GRANT EXECUTE ON FUNCTION saas.public_checkout_quote_v2(text,timestamptz,text,jsonb,jsonb,text[],jsonb)
+TO celebix_saas_host_resolver;
 GRANT EXECUTE ON FUNCTION saas.promotion_create_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,text,jsonb),saas.promotion_update_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,jsonb),saas.promotion_lifecycle_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text),saas.promotion_duplicate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,bigint,text,text[]),saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text[],integer),saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text[],text[],text[],text[],timestamptz,timestamptz,integer,timestamptz,timestamptz,uuid),saas.promotion_picker_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text,integer,text,uuid),saas.promotion_picker_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid[]),saas.promotion_simulate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,jsonb),saas.promotion_simulate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,jsonb,jsonb),saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,jsonb),saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,bigint,jsonb),saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,jsonb),saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,bigint,jsonb),saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,integer,text),saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,integer,text,integer,integer,timestamptz),saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text),saas.promotion_code_batch_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,integer,timestamptz,timestamptz,uuid),saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz),saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,integer,timestamptz,timestamptz,uuid) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,text) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.promotion_expire_due_reservations_v1(timestamptz,integer) TO celebix_saas_workflow;

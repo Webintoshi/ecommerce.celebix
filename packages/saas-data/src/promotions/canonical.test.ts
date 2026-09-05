@@ -32,6 +32,19 @@ test("promotion fingerprints match the PostgreSQL v2 golden vectors", () => {
     promotionFingerprint("update", STORE, { codes: ["A", "A", "B"] }),
     promotionFingerprint("update", STORE, { codes: ["A", "B"] }),
   );
+  const maximumDuplicateCodes = Array.from(
+    { length: 10_000 },
+    (_, index) => `C${String(index + 1).padStart(5, "0")}${"A".repeat(58)}`,
+  );
+  assert.equal(
+    promotionFingerprint("duplicate", STORE, {
+      sourcePromotionId: "90000000-0000-4000-8000-000000000139",
+      expectedVersion: 1,
+      name: "Maximum duplicate fingerprint",
+      codes: maximumDuplicateCodes,
+    }),
+    "fc3666b889d56fb945ce66f982f8f3d7bc4097df402bb712a52283a0a5079129",
+  );
 });
 
 test("fingerprints reject unsafe numbers and accessor-backed objects", () => {

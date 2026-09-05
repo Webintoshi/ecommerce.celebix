@@ -3,9 +3,13 @@ import test from "node:test";
 
 import {
   FIXED_STOREFRONT_POLICIES,
+  PROMOTION_CART_LINE_LIMIT_MESSAGE,
   parsePublicCart,
+  parsePublicCartV2,
   parsePublicCheckoutQuote,
+  parsePublicCheckoutQuoteV2,
   parsePublicCheckoutReceipt,
+  parsePublicCheckoutReceiptV2,
   parsePublicPolicyIndex,
   parsePublicPolicyPage,
   parsePublicProductSearch,
@@ -115,6 +119,53 @@ const RECEIPT = Object.freeze({
   createdAt: "2026-07-31T12:00:00.000Z",
 });
 
+const PROMOTION_ID = "60000000-0000-4000-8000-000000000001";
+const DISCOUNTED_LINE = Object.freeze({
+  ...CART_LINE,
+  discountCents: 112_710,
+  payableCents: 1_014_390,
+});
+const AUTO_GIFT_LINE = Object.freeze({
+  ...CART_LINE,
+  quantity: 1,
+  unitPriceCents: 0,
+  lineTotalCents: 0,
+  discountCents: 0,
+  payableCents: 0,
+});
+const DISCOUNTED_CART = Object.freeze({
+  ...CART,
+  lineDiscountCents: 112_710,
+  shippingDiscountCents: 0,
+  discountCents: 112_710,
+  totalCents: 1_014_390,
+  items: Object.freeze([DISCOUNTED_LINE]),
+});
+const APPLIED_PROMOTION = Object.freeze({
+  name: "Sepette %10",
+  benefitKind: "percentage" as const,
+  normalizedCode: "YUZDE10",
+  lineDiscountCents: 112_710,
+  shippingDiscountCents: 0,
+  discountCents: 112_710,
+});
+const DISCOUNTED_QUOTE = Object.freeze({
+  cart: Object.freeze({
+    ...DISCOUNTED_CART,
+    items: Object.freeze([...DISCOUNTED_CART.items, AUTO_GIFT_LINE]),
+  }),
+  paymentMethods: Object.freeze([BANK_TRANSFER]),
+  promotionStatus: Object.freeze({ kind: "evaluated" as const }),
+  appliedPromotions: Object.freeze([APPLIED_PROMOTION]),
+  rejectedPromotions: Object.freeze([
+    Object.freeze({ normalizedCode: "ESKI", reason: "invalid_code" as const }),
+  ]),
+  gifts: Object.freeze([
+    Object.freeze({ variantId: VARIANT_ID, quantity: 1, autoAdd: true }),
+  ]),
+  progressMessages: Object.freeze(["Ücretsiz kargo için 500 TL daha ekleyin."]),
+});
+
 test("fixed policy definitions expose seven immutable public routes", () => {
   assert.deepEqual(
     FIXED_STOREFRONT_POLICIES.map(({ key, route, label }) => ({ key, route, label })),
@@ -212,6 +263,126 @@ test("checkout quote accepts one exact hosted card without private authority", (
   assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [HOSTED_CARD, HOSTED_CARD] }));
 });
 
+test("V2 checkout quote adds only reconciled public promotion facts while V1 stays exact", () => {
+  const parsed = parsePublicCheckoutQuoteV2(DISCOUNTED_QUOTE);
+  assert.deepEqual(parsed, DISCOUNTED_QUOTE);
+  assert.deepEqual(parsePublicCartV2(DISCOUNTED_CART), DISCOUNTED_CART);
+  assert.throws(() => parsePublicCartV2(DISCOUNTED_QUOTE.cart));
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.equal(Object.isFrozen(parsed.cart.items), true);
+  assert.equal(Object.isFrozen(parsed.appliedPromotions[0]), true);
+  assert.equal(Object.isFrozen(parsed.rejectedPromotions[0]), true);
+  assert.equal(Object.isFrozen(parsed.gifts[0]), true);
+
+  assert.throws(() => parsePublicCheckoutQuote(DISCOUNTED_QUOTE));
+  assert.throws(() => parsePublicCart(DISCOUNTED_CART));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    evaluatorAuthorityDigest: "a".repeat(64),
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    appliedPromotions: [{ ...APPLIED_PROMOTION, promotionId: PROMOTION_ID }],
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    gifts: [{ ...DISCOUNTED_QUOTE.gifts[0], promotionId: PROMOTION_ID }],
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    cart: DISCOUNTED_CART,
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    cart: { ...DISCOUNTED_QUOTE.cart, items: [AUTO_GIFT_LINE, DISCOUNTED_LINE] },
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    cart: {
+      ...DISCOUNTED_QUOTE.cart,
+      items: [DISCOUNTED_LINE, { ...AUTO_GIFT_LINE, quantity: 2 }],
+    },
+  }));
+});
+
+test("V2 cart and public summaries reject inconsistent money, unsafe codes and enumerating rejections", () => {
+  assert.throws(() => parsePublicCartV2({ ...DISCOUNTED_CART, discountCents: 1 }));
+  assert.throws(() => parsePublicCartV2({ ...DISCOUNTED_CART, lineDiscountCents: 1 }));
+  assert.throws(() => parsePublicCartV2({ ...DISCOUNTED_CART, totalCents: 1 }));
+  assert.throws(() => parsePublicCartV2({
+    ...DISCOUNTED_CART,
+    items: [{ ...DISCOUNTED_LINE, payableCents: 1 }],
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    appliedPromotions: [{ ...APPLIED_PROMOTION, discountCents: 1 }],
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    rejectedPromotions: [{ normalizedCode: " eski ", reason: "invalid_code" }],
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    rejectedPromotions: [{ normalizedCode: "ESKI", reason: "conditions_not_met", promotionId: PROMOTION_ID }],
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    progressMessages: ["one", "two", "three"],
+  }));
+});
+
+test("V2 never evaluates a prefix of carts beyond the frozen twenty-line promotion bound", () => {
+  const lines = Array.from({ length: 21 }, (_, index) => {
+    const suffix = String(index + 1).padStart(12, "0");
+    return {
+      ...DISCOUNTED_LINE,
+      productId: `20000000-0000-4000-8000-${suffix}`,
+      variantId: `30000000-0000-4000-8000-${suffix}`,
+      categoryId: undefined,
+      media: undefined,
+      unitPriceCents: 100,
+      lineTotalCents: 100,
+      discountCents: 0,
+      payableCents: 100,
+    };
+  }).map(({ categoryId: _categoryId, media: _media, ...line }) => line);
+  const grossCart = {
+    ...DISCOUNTED_CART,
+    itemCount: 21,
+    subtotalCents: 2_100,
+    lineDiscountCents: 0,
+    shippingDiscountCents: 0,
+    discountCents: 0,
+    totalCents: 2_100,
+    items: lines,
+  };
+  const limited = {
+    cart: grossCart,
+    paymentMethods: [BANK_TRANSFER],
+    promotionStatus: { kind: "not_evaluated", reason: "cart_line_limit" },
+    appliedPromotions: [],
+    rejectedPromotions: [],
+    gifts: [],
+    progressMessages: [PROMOTION_CART_LINE_LIMIT_MESSAGE],
+  };
+  assert.deepEqual(parsePublicCheckoutQuoteV2(limited), limited);
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...limited,
+    promotionStatus: { kind: "evaluated" },
+    progressMessages: [],
+  }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({
+    ...DISCOUNTED_QUOTE,
+    promotionStatus: { kind: "not_evaluated", reason: "cart_line_limit" },
+    appliedPromotions: [],
+    rejectedPromotions: [],
+    gifts: [],
+    progressMessages: [PROMOTION_CART_LINE_LIMIT_MESSAGE],
+    cart: { ...DISCOUNTED_CART, lineDiscountCents: 0, discountCents: 0, totalCents: CART.totalCents,
+      items: [{ ...DISCOUNTED_LINE, discountCents: 0, payableCents: DISCOUNTED_LINE.lineTotalCents }] },
+  }));
+});
+
 test("checkout receipt stays pending and rejects durable private identifiers", () => {
   const receipt = parsePublicCheckoutReceipt(RECEIPT);
   assert.equal(receipt.paymentStatus, "pending");
@@ -232,6 +403,126 @@ test("only hosted receipts may be completed", () => {
   assert.deepEqual(completed.paymentMethod, HOSTED_CARD);
   assert.throws(() => parsePublicCheckoutReceipt({ ...RECEIPT, paymentMethod: BANK_TRANSFER, paymentStatus: "completed" }));
   assert.throws(() => parsePublicCheckoutReceipt({ ...RECEIPT, paymentMethod: HOSTED_CARD, paymentStatus: "captured" }));
+});
+
+test("V2 receipt preserves frozen public discounted facts without weakening V1", () => {
+  const receipt = {
+    ...RECEIPT,
+    lineDiscountCents: DISCOUNTED_CART.lineDiscountCents,
+    shippingDiscountCents: DISCOUNTED_CART.shippingDiscountCents,
+    discountCents: DISCOUNTED_CART.discountCents,
+    totalCents: DISCOUNTED_CART.totalCents,
+    items: DISCOUNTED_QUOTE.cart.items,
+    promotionStatus: DISCOUNTED_QUOTE.promotionStatus,
+    appliedPromotions: DISCOUNTED_QUOTE.appliedPromotions,
+    gifts: DISCOUNTED_QUOTE.gifts,
+  };
+  assert.deepEqual(parsePublicCheckoutReceiptV2(receipt), receipt);
+  assert.throws(() => parsePublicCheckoutReceipt(receipt));
+  assert.throws(() => parsePublicCheckoutReceiptV2({ ...receipt, totalCents: 1 }));
+  assert.throws(() => parsePublicCheckoutReceiptV2({
+    ...receipt,
+    appliedPromotions: [{ ...APPLIED_PROMOTION, version: 1 }],
+  }));
+});
+
+test("V2 receipt accepts twenty evaluated merchandise lines plus a same-variant frozen auto-added gift line", () => {
+  const merchandise = Array.from({ length: 20 }, (_, index) => {
+    const suffix = String(index + 1).padStart(12, "0");
+    return {
+      productId: `20000000-0000-4000-8000-${suffix}`,
+      variantId: `30000000-0000-4000-8000-${suffix}`,
+      slug: `evaluated-line-${index + 1}`,
+      title: `Evaluated line ${index + 1}`,
+      variantTitle: "Default",
+      quantity: 1,
+      unitPriceCents: 100,
+      lineTotalCents: 100,
+      discountCents: 5,
+      payableCents: 95,
+      available: true,
+    };
+  });
+  const giftVariantId = merchandise[0]!.variantId;
+  const giftLine = {
+    productId: merchandise[0]!.productId,
+    variantId: giftVariantId,
+    slug: "frozen-auto-added-gift",
+    title: "Frozen auto-added gift",
+    variantTitle: "Default",
+    quantity: 1,
+    unitPriceCents: 0,
+    lineTotalCents: 0,
+    discountCents: 0,
+    payableCents: 0,
+    available: true,
+  };
+  const receipt = {
+    ...RECEIPT,
+    paymentStatus: "completed",
+    paymentMethod: HOSTED_CARD,
+    subtotalCents: 2_000,
+    lineDiscountCents: 100,
+    shippingDiscountCents: 0,
+    discountCents: 100,
+    totalCents: 1_900,
+    items: [...merchandise, giftLine],
+    promotionStatus: { kind: "evaluated" },
+    appliedPromotions: [{
+      name: "Twenty-line promotion",
+      benefitKind: "percentage",
+      lineDiscountCents: 100,
+      shippingDiscountCents: 0,
+      discountCents: 100,
+    }],
+    gifts: [{ variantId: giftVariantId, quantity: 1, autoAdd: true }],
+  };
+  assert.deepEqual(parsePublicCheckoutReceiptV2(receipt), receipt);
+});
+
+test("V2 receipt accepts exact 9,999-unit chunks for a 10,000-unit same-variant auto-added gift", () => {
+  const paidLine = {
+    ...CART_LINE,
+    discountCents: 0,
+    payableCents: CART_LINE.lineTotalCents,
+  };
+  const giftLine = {
+    ...paidLine,
+    slug: "chunked-auto-added-gift",
+    title: "Chunked auto-added gift",
+    variantTitle: "Gift",
+    quantity: 9_999,
+    unitPriceCents: 0,
+    lineTotalCents: 0,
+    payableCents: 0,
+  };
+  const receipt = {
+    ...RECEIPT,
+    paymentStatus: "completed" as const,
+    paymentMethod: HOSTED_CARD,
+    lineDiscountCents: 0,
+    shippingDiscountCents: 0,
+    discountCents: 0,
+    items: [paidLine, giftLine, { ...giftLine, quantity: 1 }],
+    promotionStatus: { kind: "evaluated" as const },
+    appliedPromotions: [{
+      name: "Chunked gift",
+      benefitKind: "gift" as const,
+      lineDiscountCents: 0,
+      shippingDiscountCents: 0,
+      discountCents: 0,
+    }],
+    gifts: [{ variantId: VARIANT_ID, quantity: 10_000, autoAdd: true }],
+  };
+  assert.deepEqual(parsePublicCheckoutReceiptV2(receipt), receipt);
+  assert.throws(() => parsePublicCheckoutReceiptV2({
+    ...receipt,
+    items: [paidLine, giftLine, { ...giftLine, quantity: 2 }],
+  }));
+  assert.throws(() => parsePublicCheckoutReceiptV2({
+    ...receipt,
+    items: [paidLine, { ...giftLine, quantity: 1 }, giftLine],
+  }));
 });
 
 test("commerce contracts reject getters without invoking them", () => {

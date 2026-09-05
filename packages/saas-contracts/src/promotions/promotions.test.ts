@@ -283,6 +283,7 @@ test("evaluator request and result are bounded, immutable server truth", () => {
   assert.equal(Object.isFrozen(result.appliedPromotions[0]), true);
   assert.equal(parsePromotionEvaluatorResult({ ...result, appliedPromotions: [{ ...result.appliedPromotions[0], version: Number.MAX_SAFE_INTEGER }] }).appliedPromotions[0]?.version, Number.MAX_SAFE_INTEGER);
   assert.throws(() => parsePromotionEvaluatorResult({ ...result, appliedPromotions: [{ ...result.appliedPromotions[0], version: Number.MAX_SAFE_INTEGER + 1 }] }));
+  assert.equal(parsePromotionEvaluatorResult({ ...result, rejectedPromotions: [{ promotionId: SECOND_ID, reason: "order_line_limit" }] }).rejectedPromotions[0]?.reason, "order_line_limit");
   for (const reason of PROMOTION_REJECTION_REASONS) assert.equal(parsePromotionEvaluatorResult({ ...result, rejectedPromotions: [{ promotionId: SECOND_ID, reason }] }).rejectedPromotions[0]?.reason, reason);
   assert.throws(() => parsePromotionEvaluatorResult({ ...result, rejectedPromotions: [{ promotionId: SECOND_ID, reason: "internal_sql_error" }] }));
   assert.throws(() => parsePromotionEvaluatorResult({ ...result, grandTotalMinor: 1851 }));

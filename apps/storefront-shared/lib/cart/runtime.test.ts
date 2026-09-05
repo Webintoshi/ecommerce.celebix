@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 
-import type { PublicCart, PublicCheckoutReceipt } from "@celebix/saas-contracts";
+import {
+  PROMOTION_CART_LINE_LIMIT_MESSAGE,
+  parsePublicCheckoutQuoteV2,
+  parsePublicCheckoutReceiptV2,
+  type PublicCart,
+  type PublicCheckoutReceipt,
+} from "@celebix/saas-contracts";
 import { StorefrontCommerceRepositoryError, type StorefrontCommerceRepository } from "@celebix/saas-data";
 
 import { createStorefrontCredential, createStorefrontOperationCredential, parseStorefrontCommerceCredentialKeyring, readStorefrontCredentialCookie } from "./credential.ts";
@@ -18,6 +24,78 @@ const CART: PublicCart = Object.freeze({ version: 1, currency: "TRY", itemCount:
 const HOSTED = Object.freeze({ kind: "hosted_card" as const, id: "40000000-0000-4000-8000-000000000001", label: "Kartla ödeme", instructions: "Güvenli ödeme ekranında tamamlayın.", providerCode: "iyzico_iframe" as const, presentation: "iframe" as const, requiredCustomerFields: Object.freeze(["identity_number" as const]) });
 const BANK = Object.freeze({ kind: "bank_transfer" as const, label: "Banka havalesi", instructions: "Sipariş numaranızı açıklamaya yazın.", bankName: "Celebix Bank", accountHolder: "Güzide", iban: "TR330006100519786457841326" });
 const RECEIPT: PublicCheckoutReceipt = Object.freeze({ orderReference: "CBX-2026-000001", currency: "TRY", subtotalCents: 100, shippingCents: 0, totalCents: 100, paymentStatus: "pending", paymentMethod: Object.freeze({ kind: "bank_transfer", label: "Banka havalesi", instructions: "Sipariş numaranızı açıklamaya yazın.", bankName: "Celebix Bank", accountHolder: "Güzide", iban: "TR330006100519786457841326" }), delivery: Object.freeze({ recipientName: "Güzide Elif", addressLine1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", country: "TR" }), items: CART.items, createdAt: NOW.toISOString() });
+const CART_V2 = Object.freeze({
+  ...CART,
+  lineDiscountCents: 0,
+  shippingDiscountCents: 0,
+  discountCents: 0,
+  items: Object.freeze(CART.items.map((item) => Object.freeze({
+    ...item,
+    discountCents: 0,
+    payableCents: item.lineTotalCents,
+  }))),
+});
+const FEATURE_OFF_QUOTE_V2 = parsePublicCheckoutQuoteV2({
+  cart: CART_V2,
+  paymentMethods: [BANK],
+  promotionStatus: { kind: "evaluated" },
+  appliedPromotions: [],
+  rejectedPromotions: [],
+  gifts: [],
+  progressMessages: [],
+});
+const LIMITED_LINES = Object.freeze(Array.from({ length: 21 }, (_, index) => {
+  const suffix = String(index + 1).padStart(12, "0");
+  return Object.freeze({
+    ...CART_V2.items[0]!,
+    productId: `10000000-0000-4000-8000-${suffix}`,
+    variantId: `20000000-0000-4000-8000-${suffix}`,
+    slug: `urun-${index + 1}`,
+  });
+}));
+const LIMITED_QUOTE_V2 = parsePublicCheckoutQuoteV2({
+  cart: {
+    ...CART_V2,
+    itemCount: 21,
+    subtotalCents: 2_100,
+    totalCents: 2_100,
+    items: LIMITED_LINES,
+  },
+  paymentMethods: [BANK],
+  promotionStatus: { kind: "not_evaluated", reason: "cart_line_limit" },
+  appliedPromotions: [],
+  rejectedPromotions: [],
+  gifts: [],
+  progressMessages: [PROMOTION_CART_LINE_LIMIT_MESSAGE],
+});
+const RECEIPT_V2 = parsePublicCheckoutReceiptV2({
+  ...RECEIPT,
+  lineDiscountCents: 0,
+  shippingDiscountCents: 0,
+  discountCents: 0,
+  items: CART_V2.items,
+  promotionStatus: { kind: "evaluated" },
+  appliedPromotions: [],
+  gifts: [],
+});
+const COMPLETE_REQUEST = Object.freeze({
+  kind: "complete" as const,
+  operationId: OPERATION,
+  cartVersion: 1,
+  intentKind: "cart" as const,
+  contact: Object.freeze({
+    name: "Güzide Elif",
+    email: "info@example.com",
+    phone: "+905551112233",
+  }),
+  shippingAddress: Object.freeze({
+    addressLine1: "Bağdat Caddesi 10",
+    city: "İstanbul",
+    district: "Kadıköy",
+  }),
+  shippingMethod: "standard" as const,
+  paymentKind: "bank_transfer" as const,
+});
 const PERSISTED_CREATED = Object.freeze({ receipt: true as const, customer: true, receiptKeyId: "current_01", customerKeyId: "current_01" });
 const PERSISTED_REUSED = Object.freeze({ receipt: true as const, customer: false, receiptKeyId: "current_01", customerKeyId: "current_01" });
 const KEY_A = Buffer.alloc(32, 7).toString("base64url");
@@ -33,7 +111,9 @@ function fake(overrides: Partial<StorefrontCommerceRepository> = {}): Storefront
     mutateCart: async () => ({ credentialCreated: false, cart: CART }),
     createBuyNow: async () => undefined,
     quote: async () => ({ cart: CART, paymentMethods: [] }),
+    quoteV2: async () => { throw new Error("unused"); },
     complete: async () => { throw new Error("unused"); },
+    completeV2: async () => { throw new Error("unused"); },
     getReceipt: async () => { throw new Error("unused"); },
     listAccountOrders: async () => [],
     ...overrides,
@@ -65,6 +145,96 @@ test("quote exposes hosted card only while approved execution is available", asy
   assert.equal(unavailable.cart.checkoutBlocker, "payment_unavailable");
   const offlineFallback = await runtime(fake({ quote: async () => ({ cart: CART, paymentMethods: [HOSTED, BANK] }) }), keyring, async () => false).quote(HOST, `__Host-celebix_cart=${createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4)).value}`, "cart");
   assert.deepEqual(offlineFallback, { cart: CART, paymentMethods: [BANK] });
+});
+
+test("an absent promotion code field keeps the exact V1 quote repository method and shape", async () => {
+  const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
+  const attribution = Object.freeze({
+    firstTouch: Object.freeze({ source: "atlas-qa", medium: "test" }),
+    lastTouch: Object.freeze({ source: "atlas-qa", medium: "test" }),
+    landingPathGroup: "/cart",
+    deviceGroup: "desktop" as const,
+  });
+  let observed: Parameters<StorefrontCommerceRepository["quote"]>[0] | undefined;
+  let v2Calls = 0;
+  const selected = runtime(fake({
+    quote: async (input) => { observed = input; return { cart: CART, paymentMethods: [BANK] }; },
+    quoteV2: async () => { v2Calls += 1; throw new Error("unexpected_v2"); },
+  }));
+
+  assert.deepEqual(
+    await selected.quote(HOST, `__Host-celebix_cart=${cartCredential.value}`, "cart", attribution),
+    { cart: CART, paymentMethods: [BANK] },
+  );
+  assert.deepEqual(observed, {
+    hostname: HOST,
+    now: NOW,
+    intentKind: "cart",
+    candidates: [{ keyId: cartCredential.keyId, digest: cartCredential.digest }],
+    attribution,
+  });
+  assert.equal(v2Calls, 0);
+  assert.equal(Object.hasOwn(observed ?? {}, "customerCandidates"), false);
+  assert.equal(Object.hasOwn(observed ?? {}, "normalizedCodes"), false);
+});
+
+test("an explicitly present code set uses quoteV2 and keeps strict feature-off and line-limit projections public", async () => {
+  const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
+  const customerCredential = createStorefrontCredential("customer", keyring, (size) => new Uint8Array(size).fill(5));
+  const cookie = `__Host-celebix_cart=${cartCredential.value}; __Host-celebix_customer=${customerCredential.value}`;
+  const observed: Parameters<StorefrontCommerceRepository["quoteV2"]>[0][] = [];
+  let v1Calls = 0;
+  const projections = [FEATURE_OFF_QUOTE_V2, LIMITED_QUOTE_V2];
+  const selected = runtime(fake({
+    quote: async () => { v1Calls += 1; throw new Error("unexpected_v1"); },
+    quoteV2: async (input) => ({
+      quote: projections[observed.push(input) - 1]!,
+      authorityDigest: "a".repeat(64),
+    }),
+  }));
+
+  const featureOff = await selected.quote(HOST, cookie, "cart", undefined, ["VIP", "YUZDE10"]);
+  const limited = await selected.quote(HOST, cookie, "cart", undefined, []);
+
+  assert.deepEqual(featureOff, FEATURE_OFF_QUOTE_V2);
+  assert.deepEqual(limited, LIMITED_QUOTE_V2);
+  assert.equal(limited.promotionStatus.kind, "not_evaluated");
+  assert.equal(Object.hasOwn(featureOff, "authorityDigest"), false);
+  assert.equal(v1Calls, 0);
+  assert.deepEqual(observed, [
+    {
+      hostname: HOST,
+      now: NOW,
+      intentKind: "cart",
+      candidates: [{ keyId: cartCredential.keyId, digest: cartCredential.digest }],
+      customerCandidates: [{ keyId: customerCredential.keyId, digest: customerCredential.digest }],
+      normalizedCodes: ["VIP", "YUZDE10"],
+    },
+    {
+      hostname: HOST,
+      now: NOW,
+      intentKind: "cart",
+      candidates: [{ keyId: cartCredential.keyId, digest: cartCredential.digest }],
+      customerCandidates: [{ keyId: customerCredential.keyId, digest: customerCredential.digest }],
+      normalizedCodes: [],
+    },
+  ]);
+});
+
+test("runtime rejects malformed V2 code sets before either quote repository method", async () => {
+  const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
+  let calls = 0;
+  const selected = runtime(fake({
+    quote: async () => { calls += 1; throw new Error("unexpected_v1"); },
+    quoteV2: async () => { calls += 1; throw new Error("unexpected_v2"); },
+  }));
+  for (const codes of [["VIP", "VIP"], ["vip"], ["BIR", "IKI", "UC", "DORT", "BES", "ALTI"]]) {
+    await assert.rejects(
+      selected.quote(HOST, `__Host-celebix_cart=${cartCredential.value}`, "cart", undefined, codes),
+      (error: unknown) => error instanceof Error && error.message === "invalid_input",
+    );
+  }
+  assert.equal(calls, 0);
 });
 
 test("missing cart resolves canonical empty without database access", async () => {
@@ -134,19 +304,147 @@ test("buy now persists a purpose-isolated intent and returns only the fixed dest
   assert.equal(readStorefrontCredentialCookie("cart", result.setCookie ?? "").kind, "missing");
 });
 
-test("receipt and account reads require their isolated HttpOnly credentials and persist only digests", async () => {
+test("an absent promotion code field keeps the exact V1 complete repository method and generated shape", async () => {
+  const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
+  let observed: Parameters<StorefrontCommerceRepository["complete"]>[0] | undefined;
+  let v2Calls = 0;
+  const selected = runtime(fake({
+    complete: async (input) => { observed = input; return { receipt: RECEIPT, credentialPersistence: PERSISTED_CREATED }; },
+    completeV2: async () => { v2Calls += 1; throw new Error("unexpected_v2"); },
+  }));
+
+  await selected.complete(HOST, `__Host-celebix_cart=${cartCredential.value}`, COMPLETE_REQUEST);
+
+  assert.equal(v2Calls, 0);
+  assert.deepEqual(Object.keys(observed ?? {}), [
+    "hostname", "now", "intentKind", "candidates", "customerCandidates",
+    "operationId", "cartVersion", "delivery", "paymentKind", "generated",
+  ]);
+  assert.deepEqual(observed?.generated, {
+    orderId: "40000000-0000-4000-8000-000000000003",
+    customerId: "40000000-0000-4000-8000-000000000004",
+    addressId: "40000000-0000-4000-8000-000000000005",
+    eventId: "40000000-0000-4000-8000-000000000006",
+    receipt: {
+      id: "40000000-0000-4000-8000-000000000001",
+      keyId: "current_01",
+      digest: createStorefrontOperationCredential("receipt", OPERATION, keyring).digest,
+      expiresAt: new Date("2026-07-31T12:15:00.000Z"),
+    },
+    customer: {
+      id: "40000000-0000-4000-8000-000000000002",
+      keyId: "current_01",
+      digest: createStorefrontOperationCredential("customer", OPERATION, keyring).digest,
+      expiresAt: new Date("2026-08-30T12:00:00.000Z"),
+    },
+  });
+  assert.equal(Object.hasOwn(observed ?? {}, "normalizedCodes"), false);
+});
+
+test("present promotion codes select one atomic completeV2 call with deterministic identities", async () => {
+  const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
+  const customerCredential = createStorefrontCredential("customer", keyring, (size) => new Uint8Array(size).fill(5));
+  const cookie = `__Host-celebix_cart=${cartCredential.value}; __Host-celebix_customer=${customerCredential.value}`;
+  const observed: Parameters<StorefrontCommerceRepository["completeV2"]>[0][] = [];
+  let v1Calls = 0;
+  let randomUuidCalls = 0;
+  const selected = createStorefrontCommerceRuntime({
+    repository: fake({
+      complete: async () => { v1Calls += 1; throw new Error("unexpected_v1"); },
+      completeV2: async (input) => {
+        observed.push(input);
+        return { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_CREATED };
+      },
+    }),
+    keyring,
+    now: () => new Date(NOW),
+    randomBytes: (size) => new Uint8Array(size).fill(9),
+    randomUuid: () => {
+      randomUuidCalls += 1;
+      return randomUUID();
+    },
+  });
+  const request = Object.freeze({
+    ...COMPLETE_REQUEST,
+    normalizedCodes: Object.freeze(["VIP", "YUZDE10"]),
+  });
+
+  const first = await selected.complete(HOST, cookie, request);
+  const replay = await selected.complete(HOST, cookie, request);
+
+  assert.deepEqual(first.receipt, RECEIPT_V2);
+  assert.deepEqual(replay, first);
+  assert.equal(first.setCookies.length, 2);
+  assert.equal(v1Calls, 0);
+  assert.equal(randomUuidCalls, 0);
+  assert.equal(observed.length, 2);
+  assert.deepEqual(observed[0], observed[1]);
+  assert.deepEqual(observed[0], {
+    hostname: HOST,
+    now: NOW,
+    intentKind: "cart",
+    candidates: [{ keyId: cartCredential.keyId, digest: cartCredential.digest }],
+    customerCandidates: [{ keyId: customerCredential.keyId, digest: customerCredential.digest }],
+    operationId: OPERATION,
+    cartVersion: 1,
+    delivery: {
+      contact: { firstName: "Güzide", lastName: "Elif", email: "info@example.com", phone: "+905551112233" },
+      shippingAddress: { line1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", country: "TR" },
+    },
+    paymentKind: "bank_transfer",
+    generated: {
+      orderId: "3dd0b454-8d13-4250-af49-a6eb8f0e0d29",
+      customerId: "d7b031de-5b37-4b7c-93cd-3cf8c5c9a540",
+      addressId: "6bc211eb-16b1-4ec2-bf4f-1be4e24701a3",
+      eventId: "37e53065-3726-40a9-8daa-9a455f3925ef",
+      receipt: {
+        id: "3602853c-7f09-484c-96c2-45dbf8742c09",
+        keyId: "current_01",
+        digest: createStorefrontOperationCredential("receipt", OPERATION, keyring).digest,
+        expiresAt: new Date("2026-07-31T12:15:00.000Z"),
+      },
+      customer: {
+        id: "65d64116-9ebe-4370-9e4a-88dfc28bff6d",
+        keyId: "current_01",
+        digest: createStorefrontOperationCredential("customer", OPERATION, keyring).digest,
+        expiresAt: new Date("2026-08-30T12:00:00.000Z"),
+      },
+    },
+    normalizedCodes: ["VIP", "YUZDE10"],
+  });
+  assert.doesNotMatch(JSON.stringify(observed), /authorityDigest|subtotalCents|totalCents|storeId/u);
+});
+
+test("runtime rejects malformed completeV2 code sets before either completion method", async () => {
+  const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
+  let calls = 0;
+  const selected = runtime(fake({
+    complete: async () => { calls += 1; throw new Error("unexpected_v1"); },
+    completeV2: async () => { calls += 1; throw new Error("unexpected_v2"); },
+  }));
+  await assert.rejects(
+    selected.complete(HOST, `__Host-celebix_cart=${cartCredential.value}`, {
+      ...COMPLETE_REQUEST,
+      normalizedCodes: ["VIP", "VIP"],
+    }),
+    (error: unknown) => error instanceof Error && error.message === "invalid_input",
+  );
+  assert.equal(calls, 0);
+});
+
+test("receipt and mixed-version account reads require their isolated HttpOnly credentials and persist only digests", async () => {
   const observations: unknown[] = [];
   const selected = runtime(fake({
     mutateCart: async () => ({ credentialCreated: true, cart: CART }),
     complete: async () => ({ receipt: RECEIPT, credentialPersistence: PERSISTED_CREATED }),
-    getReceipt: async (input) => { observations.push(input); return RECEIPT; },
-    listAccountOrders: async (input) => { observations.push(input); return [RECEIPT]; },
+    getReceipt: async (input) => { observations.push(input); return RECEIPT_V2; },
+    listAccountOrders: async (input) => { observations.push(input); return [RECEIPT, RECEIPT_V2]; },
   }));
   const cart = await selected.mutateCart(HOST, null, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
   const completed = await selected.complete(HOST, cart.setCookie ?? null, { kind: "complete", operationId: OPERATION, cartVersion: 1, intentKind: "cart", contact: { name: "Güzide Elif", email: "info@example.com", phone: "+905551112233" }, shippingAddress: { addressLine1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", postalCode: "34710" }, shippingMethod: "standard", paymentKind: "bank_transfer" });
   const header = completed.setCookies.join("; ");
-  assert.deepEqual(await selected.getReceipt(HOST, header), RECEIPT);
-  assert.deepEqual(await selected.listAccountOrders(HOST, header, 20), [RECEIPT]);
+  assert.deepEqual(await selected.getReceipt(HOST, header), RECEIPT_V2);
+  assert.deepEqual(await selected.listAccountOrders(HOST, header, 20), [RECEIPT, RECEIPT_V2]);
   assert.equal(JSON.stringify(observations).includes("r1.current_01"), false);
   assert.equal(JSON.stringify(observations).includes("u1.current_01"), false);
   assert.equal(JSON.stringify(observations).match(/[a-f0-9]{64}/gu)?.length, 3);

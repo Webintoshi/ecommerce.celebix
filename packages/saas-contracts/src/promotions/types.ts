@@ -11,7 +11,7 @@ export const PROMOTION_ERROR_CODES = Object.freeze([
   "active_code_batches", "invalid_transition", "promotion_limit_reached", "publish_blocked", "conflict",
   "promotion_unavailable", "not_eligible", "invalid_code",
 ] as const);
-export const PROMOTION_REJECTION_REASONS = Object.freeze(["customer_identity_required", "margin_unknown_cost", "conditions_not_met", "not_combinable", "not_eligible"] as const);
+export const PROMOTION_REJECTION_REASONS = Object.freeze(["customer_identity_required", "margin_unknown_cost", "conditions_not_met", "not_combinable", "not_eligible", "order_line_limit"] as const);
 
 export type PromotionBenefitKind = (typeof PROMOTION_BENEFIT_KINDS)[number];
 export type PromotionStatus = (typeof PROMOTION_STATUSES)[number];

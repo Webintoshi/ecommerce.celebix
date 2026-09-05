@@ -1,4 +1,7 @@
-import type { PublicCart, PublicCheckoutQuote } from "@celebix/saas-contracts";
+import type {
+  PublicCart,
+  PublicCheckoutQuote,
+} from "@celebix/saas-contracts";
 import type { CommerceAttribution } from "../analytics/attribution.ts";
 
 export type StorefrontCredentialPurpose =
@@ -55,6 +58,7 @@ export type CheckoutRequest =
   | Readonly<{
       kind: "quote";
       intentKind: CheckoutIntentKind;
+      normalizedCodes?: readonly string[];
       attribution?: CommerceAttribution;
     }>
   | Readonly<{
@@ -66,6 +70,7 @@ export type CheckoutRequest =
       shippingAddress: CheckoutShippingAddress;
       shippingMethod: "standard";
       paymentKind: "bank_transfer" | "cash_on_delivery";
+      normalizedCodes?: readonly string[];
       note?: string;
     }>
   | HostedCheckoutStartRequest;
@@ -79,6 +84,7 @@ export type HostedCheckoutStartRequest = Readonly<{
   shippingAddress: CheckoutShippingAddress;
   shippingMethod: "standard";
   paymentMethodId: string;
+  normalizedCodes?: readonly string[];
   identityNumber?: string;
   note?: string;
 }>;

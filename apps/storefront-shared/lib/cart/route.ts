@@ -272,6 +272,7 @@ export function createCheckoutQuoteRoute(dependencies: Dependencies) {
             request.headers.get("cookie"),
             input.intentKind,
             input.attribution,
+            input.normalizedCodes,
           ),
         },
         200,

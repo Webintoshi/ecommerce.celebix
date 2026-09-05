@@ -66,6 +66,75 @@ test("checkout parser accepts quote and bounded complete payload without browser
   ]) await assert.rejects(readCheckoutRequest(request("/api/checkout/complete", injected), ORIGIN), /storefront_checkout_request_invalid/u);
 });
 
+test("checkout parser preserves an explicitly present canonical promotion code set", async () => {
+  const quote = await readCheckoutRequest(request("/api/checkout/quote", {
+    intentKind: "cart",
+    normalizedCodes: ["VIP", "YUZDE10"],
+  }), ORIGIN);
+  const complete = await readCheckoutRequest(request("/api/checkout/complete", {
+    ...COMPLETE,
+    normalizedCodes: [],
+  }), ORIGIN);
+
+  assert.deepEqual(quote, {
+    kind: "quote",
+    intentKind: "cart",
+    normalizedCodes: ["VIP", "YUZDE10"],
+  });
+  assert.deepEqual(complete, {
+    kind: "complete",
+    ...COMPLETE,
+    normalizedCodes: [],
+  });
+  assert.equal(Object.isFrozen(quote.normalizedCodes), true);
+  assert.equal(Object.isFrozen(complete.normalizedCodes), true);
+});
+
+test("checkout parser rejects malformed duplicate and non-canonical promotion codes", async () => {
+  for (const normalizedCodes of [
+    ["VIP", "VIP"],
+    ["vip"],
+    ["ŞİFRE"],
+    ["BAD CODE"],
+    ["BIR", "IKI", "UC", "DORT", "BES", "ALTI"],
+    null,
+    "VIP",
+  ]) {
+    await assert.rejects(
+      readCheckoutRequest(request("/api/checkout/quote", {
+        intentKind: "cart",
+        normalizedCodes,
+      }), ORIGIN),
+      /storefront_checkout_request_invalid/u,
+    );
+    await assert.rejects(
+      readCheckoutRequest(request("/api/checkout/complete", {
+        ...COMPLETE,
+        normalizedCodes,
+      }), ORIGIN),
+      /storefront_checkout_request_invalid/u,
+    );
+  }
+});
+
+test("checkout quote rejects browser totals store and evaluator authority", async () => {
+  for (const injected of [
+    { intentKind: "cart", totalCents: 1 },
+    { intentKind: "cart", storeId: PRODUCT },
+    { intentKind: "cart", authorityDigest: "a".repeat(64) },
+  ]) await assert.rejects(
+    readCheckoutRequest(request("/api/checkout/quote", injected), ORIGIN),
+    /storefront_checkout_request_invalid/u,
+  );
+  await assert.rejects(
+    readCheckoutRequest(request("/api/checkout/complete", {
+      ...COMPLETE,
+      authorityDigest: "a".repeat(64),
+    }), ORIGIN),
+    /storefront_checkout_request_invalid/u,
+  );
+});
+
 const HOSTED_START = Object.freeze({
   operationId: OPERATION,
   cartVersion: 4,
@@ -94,6 +163,51 @@ test("hosted start accepts only the exact server-priced checkout command", async
     { ...HOSTED_START, paymentMethodId: "not-a-uuid" },
     { ...HOSTED_START, shippingMethod: "express" },
   ]) await assert.rejects(readCheckoutRequest(request("/api/checkout/payment/start", injected), ORIGIN), /storefront_checkout_request_invalid/u);
+});
+
+test("hosted start preserves only an explicitly present canonical promotion code set", async () => {
+  const absent = await readCheckoutRequest(
+    request("/api/checkout/payment/start", HOSTED_START),
+    ORIGIN,
+  );
+  const empty = await readCheckoutRequest(
+    request("/api/checkout/payment/start", { ...HOSTED_START, normalizedCodes: [] }),
+    ORIGIN,
+  );
+  const selected = await readCheckoutRequest(
+    request("/api/checkout/payment/start", {
+      ...HOSTED_START,
+      normalizedCodes: ["VIP", "YUZDE10"],
+    }),
+    ORIGIN,
+  );
+
+  assert.equal(Object.hasOwn(absent, "normalizedCodes"), false);
+  assert.deepEqual(empty, { kind: "hosted_start", ...HOSTED_START, normalizedCodes: [] });
+  assert.deepEqual(selected, {
+    kind: "hosted_start",
+    ...HOSTED_START,
+    normalizedCodes: ["VIP", "YUZDE10"],
+  });
+  assert.equal(Object.isFrozen(empty.normalizedCodes), true);
+  assert.equal(Object.isFrozen(selected.normalizedCodes), true);
+
+  for (const normalizedCodes of [
+    ["VIP", "VIP"],
+    ["vip"],
+    ["BAD CODE"],
+    ["BIR", "IKI", "UC", "DORT", "BES", "ALTI"],
+    null,
+    "VIP",
+  ]) {
+    await assert.rejects(
+      readCheckoutRequest(
+        request("/api/checkout/payment/start", { ...HOSTED_START, normalizedCodes }),
+        ORIGIN,
+      ),
+      /storefront_checkout_request_invalid/u,
+    );
+  }
 });
 
 test("hosted identity authority rejects fake repeated controlled and non-eleven-digit values", async () => {

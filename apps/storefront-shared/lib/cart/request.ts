@@ -4,6 +4,7 @@ import type {
   CheckoutRequest,
   CheckoutShippingAddress,
 } from "./types.ts";
+import { normalizePromotionCode } from "@celebix/saas-contracts";
 import { parseCommerceAttribution } from "../analytics/attribution.ts";
 
 const UUID =
@@ -356,6 +357,38 @@ function identityNumber(value: unknown): string {
   return selected;
 }
 
+function promotionCodes(value: unknown): readonly string[] {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    value.length > 5
+  )
+    checkoutInvalid();
+  const descriptors = Object.getOwnPropertyDescriptors(
+    value,
+  ) as unknown as Record<PropertyKey, PropertyDescriptor>;
+  if (Reflect.ownKeys(descriptors).length !== value.length + 1)
+    checkoutInvalid();
+  const output: string[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable)
+      checkoutInvalid();
+    let normalized: string;
+    try {
+      normalized = normalizePromotionCode(descriptor.value);
+    } catch {
+      checkoutInvalid();
+    }
+    if (normalized !== descriptor.value || seen.has(normalized))
+      checkoutInvalid();
+    seen.add(normalized);
+    output.push(normalized);
+  }
+  return Object.freeze(output);
+}
+
 export async function readCheckoutRequest(
   request: Request,
   publicOrigin: string,
@@ -379,7 +412,7 @@ export async function readCheckoutRequest(
     const row = exact(
       selected.body,
       ["intentKind"],
-      ["attribution"],
+      ["attribution", "normalizedCodes"],
       checkoutInvalid,
     );
     if (row.intentKind !== "cart" && row.intentKind !== "buy_now")
@@ -387,6 +420,9 @@ export async function readCheckoutRequest(
     return Object.freeze({
       kind: "quote",
       intentKind: row.intentKind,
+      ...(Object.hasOwn(row, "normalizedCodes")
+        ? { normalizedCodes: promotionCodes(row.normalizedCodes) }
+        : {}),
       ...(Object.hasOwn(row, "attribution")
         ? { attribution: parseCommerceAttribution(row.attribution) }
         : {}),
@@ -404,7 +440,7 @@ export async function readCheckoutRequest(
         "shippingMethod",
         "paymentMethodId",
       ],
-      ["identityNumber", "note"],
+      ["identityNumber", "note", "normalizedCodes"],
       checkoutInvalid,
     );
     if (
@@ -426,6 +462,9 @@ export async function readCheckoutRequest(
       shippingAddress: address(row.shippingAddress),
       shippingMethod: "standard",
       paymentMethodId: uuid(row.paymentMethodId, checkoutInvalid),
+      ...(Object.hasOwn(row, "normalizedCodes")
+        ? { normalizedCodes: promotionCodes(row.normalizedCodes) }
+        : {}),
       ...(Object.hasOwn(row, "identityNumber")
         ? { identityNumber: identityNumber(row.identityNumber) }
         : {}),
@@ -445,7 +484,7 @@ export async function readCheckoutRequest(
       "shippingMethod",
       "paymentKind",
     ],
-    ["note"],
+    ["note", "normalizedCodes"],
     checkoutInvalid,
   );
   if (
@@ -469,6 +508,9 @@ export async function readCheckoutRequest(
     shippingAddress: address(row.shippingAddress),
     shippingMethod: "standard",
     paymentKind: row.paymentKind,
+    ...(Object.hasOwn(row, "normalizedCodes")
+      ? { normalizedCodes: promotionCodes(row.normalizedCodes) }
+      : {}),
     ...(Object.hasOwn(row, "note")
       ? { note: text(row.note, 1, 500, checkoutInvalid) }
       : {}),
