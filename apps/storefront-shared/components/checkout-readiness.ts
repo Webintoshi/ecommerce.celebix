@@ -1,4 +1,4 @@
-import type { PublicCart, PublicCheckoutQuote } from "@celebix/saas-contracts";
+import type { PublicCart, PublicCartV2, PublicCheckoutQuote, PublicCheckoutQuoteV2 } from "@celebix/saas-contracts";
 
 import type { CheckoutIntentKind } from "@/lib/cart/types.ts";
 
@@ -25,12 +25,12 @@ export function checkoutFailureMessage(code: unknown): string {
 
 export type CheckoutSummaryState =
   | Readonly<{ kind: "loading" }>
-  | Readonly<{ kind: "summary"; cart: PublicCart }>
+  | Readonly<{ kind: "summary"; cart: PublicCart | PublicCartV2 }>
   | Readonly<{ kind: "unavailable" }>;
 
 export function resolveCheckoutSummaryState(
   intentKind: CheckoutIntentKind,
-  quote: PublicCheckoutQuote | null,
+  quote: PublicCheckoutQuote | PublicCheckoutQuoteV2 | null,
   cart: PublicCart | null,
   settled: boolean,
 ): CheckoutSummaryState {

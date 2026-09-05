@@ -74,6 +74,12 @@ test("checkout summary receipt and account render truthful public projections on
   assert.doesNotMatch(`${success}\n${account}`, /orderId|customerId|storeId|tenantId|credential/u);
 });
 
+test("checkout summary does not infer that zero-priced merchandise is a promotion gift", () => {
+  assert.doesNotMatch(summary, /lineTotalCents\s*===\s*0\s*[?]\s*["']Hediye["']/u);
+  assert.match(summary, /formatTry\(item[.]lineTotalCents\)/u);
+  assert.match(summary, /<PromotionDetails quote=\{promotionQuote\}/u);
+});
+
 test("authenticated customers receive a server-authorized checkout prefill while guest checkout remains optional", () => {
   assert.match(checkout, /runtime[.]identity/u);
   assert.match(checkout, /initialDraft/u);

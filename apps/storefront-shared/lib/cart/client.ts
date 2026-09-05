@@ -3,8 +3,10 @@
 import {
   parsePublicCart,
   parsePublicCheckoutQuote,
+  parsePublicCheckoutQuoteV2,
   type PublicCart,
   type PublicCheckoutQuote,
+  type PublicCheckoutQuoteV2,
 } from "@celebix/saas-contracts";
 import type { StorefrontCartClient } from "./types.ts";
 import { readCommerceAttribution } from "../analytics/attribution.ts";
@@ -63,6 +65,13 @@ function cart(value: unknown): PublicCart {
 function quote(value: unknown): PublicCheckoutQuote {
   try {
     return parsePublicCheckoutQuote(value);
+  } catch {
+    throw new StorefrontCartClientError("invalid_response");
+  }
+}
+function promotionQuote(value: unknown): PublicCheckoutQuoteV2 {
+  try {
+    return parsePublicCheckoutQuoteV2(value);
   } catch {
     throw new StorefrontCartClientError("invalid_response");
   }
@@ -202,6 +211,18 @@ export function createStorefrontCartClient(
       );
       if (!root) throw new StorefrontCartClientError("invalid_response");
       return quote(root.quote);
+    },
+    async quotePromotions(intentKind, normalizedCodes) {
+      const root = exact(
+        await call("/api/checkout/quote", {
+          intentKind,
+          normalizedCodes,
+          attribution: readCommerceAttribution(),
+        }),
+        ["quote"],
+      );
+      if (!root) throw new StorefrontCartClientError("invalid_response");
+      return promotionQuote(root.quote);
     },
     async startHosted(input) {
       const root = exact(

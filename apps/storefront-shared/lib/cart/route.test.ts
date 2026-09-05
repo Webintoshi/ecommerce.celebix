@@ -81,6 +81,13 @@ const QUOTE_V2 = Object.freeze({
   gifts: Object.freeze([]),
   progressMessages: Object.freeze([]),
 });
+const CODE_QUOTE_V2 = Object.freeze({
+  ...QUOTE_V2,
+  appliedPromotions: Object.freeze([
+    Object.freeze({ name: "VIP", benefitKind: "gift" as const, normalizedCode: "VIP", lineDiscountCents: 0, shippingDiscountCents: 0, discountCents: 0 }),
+    Object.freeze({ name: "Yüzde on", benefitKind: "gift" as const, normalizedCode: "YUZDE10", lineDiscountCents: 0, shippingDiscountCents: 0, discountCents: 0 }),
+  ]),
+});
 const trusted = (): TrustedStorefrontHostAuthority => ({
   kind: "trusted",
   hostname: HOST,
@@ -277,6 +284,90 @@ test("quote route rejects duplicate promotion codes before resolving a repositor
   assert.equal(resolutions, 0);
 });
 
+test("quote route persists server-validated stacked candidates and removal preserves the remaining code", async () => {
+  const observed: Array<readonly string[]> = [];
+  const handler = createCheckoutQuoteRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({
+      ...baseRuntime,
+      quote: async (_host, _cookie, _intent, _attribution, codes) => {
+        observed.push([...(codes ?? [])]);
+        return codes?.length ? CODE_QUOTE_V2 : QUOTE_V2;
+      },
+    }),
+  });
+  const apply = await handler(new Request("http://internal:3400/api/checkout/quote", {
+    method: "POST",
+    headers: { origin: `https://${HOST}`, "content-type": "application/json" },
+    body: JSON.stringify({ intentKind: "cart", normalizedCodes: ["VIP", "YUZDE10"] }),
+  }));
+  const removeOne = await handler(new Request("http://internal:3400/api/checkout/quote", {
+    method: "POST",
+    headers: { origin: `https://${HOST}`, "content-type": "application/json", cookie: "__Host-celebix_coupon=VIP.YUZDE10" },
+    body: JSON.stringify({ intentKind: "cart", normalizedCodes: ["YUZDE10"] }),
+  }));
+
+  assert.deepEqual(observed, [["VIP", "YUZDE10"], ["YUZDE10"]]);
+  assert.equal(apply.headers.get("set-cookie"), "__Host-celebix_coupon=VIP.YUZDE10; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax");
+  assert.equal(removeOne.headers.get("set-cookie"), "__Host-celebix_coupon=YUZDE10; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax");
+});
+
+test("payment-deferred candidate survives re-quote while rejected candidates are removed", async () => {
+  const handler = createCheckoutQuoteRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({
+      ...baseRuntime,
+      quote: async (_host, _cookie, _intent, _attribution, codes) => ({
+        ...QUOTE_V2,
+        progressMessages: Object.freeze(["Ödeme yöntemi seçildiğinde tekrar değerlendirilecek."]),
+        rejectedPromotions: Object.freeze((codes ?? [])
+          .filter((normalizedCode) => normalizedCode !== "ODEMEDE")
+          .map((normalizedCode) => Object.freeze({
+            normalizedCode,
+            reason: normalizedCode === "BEKLE" ? "not_eligible" as const : "invalid_code" as const,
+          }))),
+      }),
+    }),
+  });
+  const response = await handler(new Request("http://internal:3400/api/checkout/quote", {
+    method: "POST",
+    headers: { origin: `https://${HOST}`, "content-type": "application/json" },
+    body: JSON.stringify({ intentKind: "cart", normalizedCodes: ["ODEMEDE", "BEKLE", "GECERSIZ"] }),
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("set-cookie"), "__Host-celebix_coupon=ODEMEDE; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax");
+});
+
+test("an absent code property remains exact V1 despite an ambient coupon cookie", async () => {
+  const observed: Array<readonly unknown[]> = [];
+  const handler = createCheckoutQuoteRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({
+      ...baseRuntime,
+      quote: async (...input: readonly unknown[]) => {
+        observed.push(input);
+        return input[4] === undefined ? { cart: CART, paymentMethods: [] } : CODE_QUOTE_V2;
+      },
+    }),
+  });
+  const stored = await handler(new Request("http://internal:3400/api/checkout/quote", {
+    method: "POST",
+    headers: { origin: `https://${HOST}`, "content-type": "application/json", cookie: "__Host-celebix_coupon=VIP.YUZDE10" },
+    body: JSON.stringify({ intentKind: "cart" }),
+  }));
+  const absent = await handler(new Request("http://internal:3400/api/checkout/quote", {
+    method: "POST",
+    headers: { origin: `https://${HOST}`, "content-type": "application/json" },
+    body: JSON.stringify({ intentKind: "cart" }),
+  }));
+
+  assert.deepEqual(observed.map((input) => input[4]), [undefined, undefined]);
+  assert.deepEqual(await stored.json(), { quote: { cart: CART, paymentMethods: [] } });
+  assert.deepEqual(await absent.json(), { quote: { cart: CART, paymentMethods: [] } });
+  assert.equal(stored.headers.has("set-cookie"), false);
+  assert.equal(absent.headers.has("set-cookie"), false);
+});
+
 test("checkout failure has neither Location nor Set-Cookie and success redirects only to fixed route", async () => {
   const body = {
     operationId: OPERATION,
@@ -391,6 +482,43 @@ test("complete route forwards canonical promotion codes without accepting client
       body: JSON.stringify({ ...body, ...injection }),
     }));
     assert.equal(rejected.status, 400);
+  }
+});
+
+test("complete route keeps absent code property exact V1 despite an ambient coupon cookie", async () => {
+  const observed: unknown[] = [];
+  const handler = createCheckoutCompleteRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({
+      ...baseRuntime,
+      complete: async (_hostname, _cookie, input) => {
+        observed.push(input);
+        return { receipt: RECEIPT, setCookies: [] };
+      },
+    }),
+  });
+  const body = {
+    operationId: OPERATION,
+    cartVersion: 1,
+    intentKind: "cart",
+    contact: { name: "Güzide Elif", email: "guzide@example.test", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard",
+    paymentKind: "bank_transfer",
+  };
+  const responses: Response[] = [];
+  for (const cookie of ["__Host-celebix_coupon=VIP.YUZDE10", undefined]) {
+    const headers: Record<string, string> = { origin: `https://${HOST}`, "content-type": "application/json" };
+    if (cookie) headers.cookie = cookie;
+    responses.push(await handler(new Request("http://internal:3400/api/checkout/complete", { method: "POST", headers, body: JSON.stringify(body) })));
+  }
+  assert.deepEqual(observed, [
+    { kind: "complete", ...body },
+    { kind: "complete", ...body },
+  ]);
+  for (const [index, input] of observed.entries()) {
+    assert.equal(Object.hasOwn(input as object, "normalizedCodes"), false);
+    assert.equal(responses[index]!.headers.has("set-cookie"), false);
   }
 });
 
@@ -514,6 +642,42 @@ test("hosted checkout route forwards canonical promotion codes and rejects dupli
   assert.equal(rejected.status, 400);
   assert.deepEqual(await rejected.json(), { code: "invalid_input" });
   assert.equal(resolutions, 1);
+});
+
+test("hosted start keeps absent code property exact V1 despite an ambient coupon cookie", async () => {
+  const observed: unknown[] = [];
+  const body = {
+    operationId: OPERATION,
+    cartVersion: 1,
+    intentKind: "cart",
+    contact: { name: "Güzide Elif", email: "guzide@example.test", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard",
+    paymentMethodId: "40000000-0000-4000-8000-000000000001",
+  };
+  const handler = createHostedCheckoutStartRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({
+      start: async (input) => {
+        observed.push(input.request);
+        return { destination: "/checkout/payment" as const, state: "ready" as const, setCookies: [] };
+      },
+    }),
+  });
+  const responses: Response[] = [];
+  for (const cookie of ["__Host-celebix_coupon=VIP.YUZDE10", undefined]) {
+    const headers: Record<string, string> = { origin: `https://${HOST}`, "content-type": "application/json" };
+    if (cookie) headers.cookie = cookie;
+    responses.push(await handler(new Request("http://internal:3400/api/checkout/payment/start", { method: "POST", headers, body: JSON.stringify(body) })));
+  }
+  assert.deepEqual(observed, [
+    { kind: "hosted_start", ...body },
+    { kind: "hosted_start", ...body },
+  ]);
+  for (const [index, input] of observed.entries()) {
+    assert.equal(Object.hasOwn(input as object, "normalizedCodes"), false);
+    assert.equal(responses[index]!.headers.has("set-cookie"), false);
+  }
 });
 
 test("hosted checkout start fails closed without leaking cookies or redirect authority", async () => {

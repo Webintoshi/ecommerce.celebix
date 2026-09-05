@@ -10,6 +10,7 @@ import {
   productViewEvent,
   trackCommerceEvent,
 } from "./events.ts";
+import * as commerceEvents from "./events.ts";
 
 const WEBSITE = "50000000-0000-4000-8000-000000000001";
 
@@ -316,4 +317,24 @@ test("real product cart and native checkout boundaries emit fail-open canonical 
     `${purchase}\n${cartPage}\n${checkoutForm}`,
     /currency:\s*"TRY"/,
   );
+});
+
+test("coupon behavior analytics emits only after a validated applied quote and carries no PII or financial authority", () => {
+  const candidate = (commerceEvents as unknown as Record<string, unknown>).couponAppliedEvent;
+  assert.equal(typeof candidate, "function");
+  const couponAppliedEvent = candidate as (quote: unknown, normalizedCode: string) => unknown;
+  const applied = {
+    cart: {
+      version: 1, currency: "TRY", itemCount: 1, subtotalCents: 1_000, shippingCents: 0,
+      lineDiscountCents: 100, shippingDiscountCents: 0, discountCents: 100, totalCents: 900,
+      checkoutReady: true, checkoutBlocker: null,
+      items: [{ productId: "10000000-0000-4000-8000-000000000001", variantId: "20000000-0000-4000-8000-000000000001", slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 1_000, lineTotalCents: 1_000, discountCents: 100, payableCents: 900, available: true }],
+    },
+    paymentMethods: [], promotionStatus: { kind: "evaluated" },
+    appliedPromotions: [{ name: "Özel müşteri kampanyası", benefitKind: "percentage", normalizedCode: "KISIYE_OZEL", lineDiscountCents: 100, shippingDiscountCents: 0, discountCents: 100 }],
+    rejectedPromotions: [], gifts: [], progressMessages: [],
+  };
+  assert.deepEqual(couponAppliedEvent(applied, "KISIYE_OZEL"), { name: "coupon_applied", data: {} });
+  assert.equal(couponAppliedEvent({ ...applied, appliedPromotions: [], rejectedPromotions: [{ normalizedCode: "KISIYE_OZEL", reason: "not_eligible" }] }, "KISIYE_OZEL"), null);
+  assert.doesNotMatch(JSON.stringify(couponAppliedEvent(applied, "KISIYE_OZEL")), /KISIYE|Özel|100|discount|value|customer/iu);
 });

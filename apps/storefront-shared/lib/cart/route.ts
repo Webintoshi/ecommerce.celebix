@@ -2,6 +2,10 @@ import {
   StorefrontCommerceRepositoryError,
   StorefrontHostedCheckoutRepositoryError,
 } from "@celebix/saas-data";
+import {
+  parsePublicCheckoutQuote,
+  parsePublicCheckoutQuoteV2,
+} from "@celebix/saas-contracts";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 import {
@@ -13,6 +17,10 @@ import {
   StorefrontCommerceRuntimeError,
   type StorefrontCommerceRuntime,
 } from "./runtime.ts";
+import {
+  clearCouponCandidateCookie,
+  serializeCouponCandidateCookie,
+} from "../promotions/cookie.ts";
 
 type Dependencies = Readonly<{
   selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
@@ -265,18 +273,28 @@ export function createCheckoutQuoteRoute(dependencies: Dependencies) {
     const selectedRuntime = await runtime(dependencies);
     if (!selectedRuntime) return json({ code: "unavailable" }, 503);
     try {
-      return json(
-        {
-          quote: await selectedRuntime.quote(
-            selected.hostname,
-            request.headers.get("cookie"),
-            input.intentKind,
-            input.attribution,
-            input.normalizedCodes,
-          ),
-        },
-        200,
+      const explicitlySelected = Object.hasOwn(input, "normalizedCodes");
+      const selectedCodes = explicitlySelected
+        ? input.normalizedCodes!
+        : undefined;
+      const projected = await selectedRuntime.quote(
+        selected.hostname,
+        request.headers.get("cookie"),
+        input.intentKind,
+        input.attribution,
+        selectedCodes,
       );
+      if (selectedCodes === undefined)
+        return json({ quote: parsePublicCheckoutQuote(projected) }, 200);
+      const quote = parsePublicCheckoutQuoteV2(projected);
+      const rejected = new Set(
+        quote.rejectedPromotions.map((promotion) => promotion.normalizedCode),
+      );
+      const retained = selectedCodes.filter((code) => !rejected.has(code));
+      const persist = retained.length > 0
+        ? serializeCouponCandidateCookie(retained)
+        : clearCouponCandidateCookie();
+      return json({ quote }, 200, { "set-cookie": persist });
     } catch (error) {
       return failure(error);
     }
