@@ -3,6 +3,43 @@ DECLARE v_table text; v_count integer; v_proc regprocedure; v_role text; v_privi
 BEGIN
   SELECT count(*) INTO v_count FROM pg_catalog.pg_class WHERE relnamespace='saas'::regnamespace AND relname IN ('promotions','promotion_versions','promotion_targets','promotion_codes','promotion_code_batches','promotion_usage_reservations','promotion_redemptions','promotion_audit_events','promotion_operations','order_promotion_snapshots','order_discount_allocations');
   IF v_count<>11 THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_RELATION_COUNT_INVALID'; END IF;
+  IF (SELECT count(*) FROM pg_catalog.pg_attribute WHERE attrelid='saas.promotion_code_batches'::regclass AND attnum>0 AND NOT attisdropped)<>13
+     OR EXISTS(
+       WITH expected(name,type_name,required,default_expression) AS (VALUES
+         ('id','uuid',true,NULL::text),('store_id','uuid',true,NULL),('promotion_id','uuid',true,NULL),
+         ('status','text',true,'''active''::text'),('requested_count','integer',true,NULL),('operation_id','uuid',true,NULL),
+         ('created_at','timestamp with time zone',true,'date_trunc(''milliseconds''::text, clock_timestamp())'),
+         ('version','bigint',true,'1'),('prefix','text',true,NULL),('code_length','integer',true,NULL),
+         ('per_customer_usage','integer',true,NULL),('expires_at','timestamp with time zone',false,NULL),
+         ('updated_at','timestamp with time zone',true,'date_trunc(''milliseconds''::text, clock_timestamp())')
+       )
+       SELECT 1 FROM expected
+       LEFT JOIN pg_catalog.pg_attribute attribute ON attribute.attrelid='saas.promotion_code_batches'::regclass AND attribute.attname=expected.name AND attribute.attnum>0 AND NOT attribute.attisdropped
+       LEFT JOIN pg_catalog.pg_attrdef default_row ON default_row.adrelid=attribute.attrelid AND default_row.adnum=attribute.attnum
+       WHERE attribute.attname IS NULL OR pg_catalog.format_type(attribute.atttypid,attribute.atttypmod)<>expected.type_name
+         OR attribute.attnotnull IS DISTINCT FROM expected.required
+         OR pg_catalog.pg_get_expr(default_row.adbin,default_row.adrelid) IS DISTINCT FROM expected.default_expression
+     )
+     OR EXISTS(
+       WITH expected(name,needles) AS (VALUES
+         ('promotion_code_batches_status_check',ARRAY['active','paused','revoked']),
+         ('promotion_code_batches_requested_count_check',ARRAY['requested_count >= 1','requested_count <= 10000']),
+         ('promotion_code_batches_version_check',ARRAY['version >= 1','version <=','9007199254740991']),
+         ('promotion_code_batches_prefix_check',ARRAY['prefix ~','{0,19}']),
+         ('promotion_code_batches_check',ARRAY['code_length >= 16','code_length <= 64','char_length(prefix)','>= 16']),
+         ('promotion_code_batches_per_customer_usage_check',ARRAY['per_customer_usage >= 1','per_customer_usage <= 1000000']),
+         ('promotion_code_batches_time_check',ARRAY['isfinite(created_at)','isfinite(updated_at)','updated_at >= created_at','date_trunc(''milliseconds''::text, created_at)','date_trunc(''milliseconds''::text, updated_at)','isfinite(expires_at)','date_trunc(''milliseconds''::text, expires_at)','expires_at > created_at'])
+       )
+       SELECT 1 FROM expected
+       LEFT JOIN pg_catalog.pg_constraint constraint_row ON constraint_row.conrelid='saas.promotion_code_batches'::regclass AND constraint_row.conname=expected.name AND constraint_row.contype='c' AND constraint_row.convalidated
+       WHERE constraint_row.oid IS NULL OR EXISTS(SELECT 1 FROM pg_catalog.unnest(expected.needles) needle WHERE pg_catalog.strpos(pg_catalog.pg_get_constraintdef(constraint_row.oid),needle)=0)
+     )
+     OR (SELECT pg_catalog.pg_get_indexdef(index_row.indexrelid) FROM pg_catalog.pg_index index_row WHERE index_row.indexrelid=pg_catalog.to_regclass('saas.promotion_code_batches_list_idx')) IS DISTINCT FROM 'CREATE INDEX promotion_code_batches_list_idx ON saas.promotion_code_batches USING btree (store_id, promotion_id, created_at DESC, id DESC)'
+  THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_CODE_BATCH_SLICE_C_INVALID:columns=%:checks=%:index=%',
+    (SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('name',attribute.attname,'type',pg_catalog.format_type(attribute.atttypid,attribute.atttypmod),'required',attribute.attnotnull,'default',pg_catalog.pg_get_expr(default_row.adbin,default_row.adrelid)) ORDER BY attribute.attnum) FROM pg_catalog.pg_attribute attribute LEFT JOIN pg_catalog.pg_attrdef default_row ON default_row.adrelid=attribute.attrelid AND default_row.adnum=attribute.attnum WHERE attribute.attrelid='saas.promotion_code_batches'::regclass AND attribute.attnum>0 AND NOT attribute.attisdropped),
+    (SELECT pg_catalog.jsonb_object_agg(constraint_row.conname,pg_catalog.pg_get_constraintdef(constraint_row.oid) ORDER BY constraint_row.conname) FROM pg_catalog.pg_constraint constraint_row WHERE constraint_row.conrelid='saas.promotion_code_batches'::regclass AND constraint_row.contype='c'),
+    (SELECT pg_catalog.pg_get_indexdef(index_row.indexrelid) FROM pg_catalog.pg_index index_row WHERE index_row.indexrelid=pg_catalog.to_regclass('saas.promotion_code_batches_list_idx'));
+  END IF;
   FOREACH v_table IN ARRAY ARRAY['promotions','promotion_versions','promotion_targets','promotion_codes','promotion_code_batches','promotion_usage_reservations','promotion_redemptions','promotion_audit_events','promotion_operations','order_promotion_snapshots','order_discount_allocations'] LOOP
     IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class WHERE oid=('saas.'||v_table)::regclass AND relrowsecurity AND relforcerowsecurity) THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_RLS_INVALID:%',v_table; END IF;
     FOREACH v_role IN ARRAY ARRAY['celebix_saas_app','celebix_saas_workflow','celebix_saas_host_resolver','celebix_saas_identity'] LOOP
@@ -36,7 +73,14 @@ BEGIN
      OR pg_catalog.to_regprocedure('saas.promotion_reservation_matches_operation()') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_redemption_matches_reservation()') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_operation_group_complete()') IS NULL
-     OR pg_catalog.to_regprocedure('saas.promotion_operation_recovery_action(text)') IS NULL THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_EVALUATOR_HELPERS_INVALID'; END IF;
+     OR pg_catalog.to_regprocedure('saas.promotion_operation_recovery_action(text)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_bundle_facts_v1(jsonb,jsonb)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_evaluator_consumed_line_capacity(jsonb,jsonb,bigint,bigint)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_evaluator_code_facts(uuid,jsonb,timestamp with time zone)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_code_batch_projection_v1(uuid,uuid)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_code_batch_integrity_valid_v1(uuid,uuid)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_code_batch_result_matches_v1(uuid,uuid,text,jsonb)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_legacy_review_reason_v1(uuid,uuid,text,jsonb)') IS NULL THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_EVALUATOR_HELPERS_INVALID'; END IF;
   IF pg_catalog.to_regprocedure('saas.promotion_definition_dimensions_overlap_v1(uuid,jsonb,jsonb)') IS NULL THEN
     RAISE EXCEPTION 'PROMOTIONS_STUDIO_CONFLICT_DIMENSIONS_INVALID';
   END IF;
@@ -61,7 +105,13 @@ BEGIN
   IF pg_catalog.to_regprocedure('saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,integer,text)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,integer,text,integer,integer,timestamp with time zone)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_code_batch_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer,timestamp with time zone,timestamp with time zone,uuid)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NULL
+     OR pg_catalog.to_regprocedure('saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_commit_reservation_v1(uuid,uuid,uuid,uuid,uuid,bigint,text,timestamp with time zone)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_release_reservation_v1(uuid,uuid,uuid,timestamp with time zone)') IS NULL
@@ -77,6 +127,15 @@ BEGIN
     'saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb)',
     'saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb)',
     'saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb)',
+    'saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,integer,text)',
+    'saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,integer,text,integer,integer,timestamp with time zone)',
+    'saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)',
+    'saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)',
+    'saas.promotion_code_batch_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer,timestamp with time zone,timestamp with time zone,uuid)',
+    'saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+    'saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+    'saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)',
+    'saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)',
     'saas.promotion_picker_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,integer,text,uuid)',
     'saas.promotion_picker_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])'
   ] LOOP
@@ -96,7 +155,14 @@ BEGIN
     'saas.promotion_definition_dimensions_overlap_v1(uuid,jsonb,jsonb)',
     'saas.promotion_conflict_projection_v1(uuid,timestamp with time zone,jsonb,uuid)',
     'saas.promotion_margin_projection_v1(uuid,timestamp with time zone,jsonb)',
-    'saas.promotion_evaluate_internal_v1(uuid,jsonb,timestamp with time zone,jsonb)'
+    'saas.promotion_evaluate_internal_v1(uuid,jsonb,timestamp with time zone,jsonb)',
+    'saas.promotion_bundle_facts_v1(jsonb,jsonb)',
+    'saas.promotion_evaluator_consumed_line_capacity(jsonb,jsonb,bigint,bigint)',
+    'saas.promotion_evaluator_code_facts(uuid,jsonb,timestamp with time zone)',
+    'saas.promotion_code_batch_projection_v1(uuid,uuid)',
+    'saas.promotion_code_batch_integrity_valid_v1(uuid,uuid)',
+    'saas.promotion_code_batch_result_matches_v1(uuid,uuid,text,jsonb)',
+    'saas.promotion_legacy_review_reason_v1(uuid,uuid,text,jsonb)'
   ] LOOP
     v_proc:=pg_catalog.to_regprocedure(v_table);
     IF v_proc IS NULL

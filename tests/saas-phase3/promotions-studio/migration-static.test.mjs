@@ -151,7 +151,34 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
 test("promotion rehearsal is registered and admin remains outside the task", () => {
   const runner = readFileSync(path.join(ROOT, "tests/saas-phase3/run-current-suite.mjs"), "utf8");
   assert.match(runner, /promotions-studio\/postgres-harness[.]mjs/);
-  assert.match(runner, /PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 100\\\/100/);
+  assert.match(runner, /PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 112\\\/112/);
   assert.equal(existsSync(path.join(ROOT, "tests/saas-phase3/promotions-studio/postgres-harness.mjs")), true);
   assert.equal(existsSync(path.join(ROOT, "apps/admin")), true);
+});
+
+test("Slice C freezes code-batch, bundle, gift, archive and legacy contracts", () => {
+  const up = readFileSync(files.up, "utf8");
+  const down = readFileSync(files.down, "utf8");
+  const assertions = readFileSync(files.assertions, "utf8");
+  for (const column of ["version bigint", "prefix text", "code_length integer", "per_customer_usage integer", "expires_at timestamptz", "updated_at timestamptz"]) {
+    assert.match(up, new RegExp(column));
+  }
+  assert.match(up, /code_length[\s\S]*BETWEEN 16 AND 64[\s\S]*code_length-pg_catalog[.]char_length\(prefix\)>=16/);
+  assert.match(up, /promotion_create_code_batch_v1\(p_store_id uuid[\s\S]*p_code_length integer,p_per_customer_usage integer,p_expires_at timestamptz\)/);
+  assert.match(up, /promotion_code_batch_status_v1\(p_store_id uuid[\s\S]*p_operation_id uuid,p_fingerprint text,p_batch_id uuid,p_expected_version bigint,p_next_status text\)/);
+  assert.match(up, /promotion_code_batch_list_v1\(p_store_id uuid[\s\S]*p_promotion_id uuid,p_limit integer,p_snapshot_at timestamptz,p_after_created_at timestamptz,p_after_id uuid\)/);
+  assert.match(up, /batch[.]updated_at>=[(]p_result->>'updatedAt'[)]::timestamptz/);
+  assert.match(up, /pg_catalog[.]sha256\(pg_catalog[.]convert_to\([\s\S]*pg_catalog[.]gen_random_uuid\(\)::text[\s\S]*pg_catalog[.]gen_random_uuid\(\)::text[\s\S]*pg_catalog[.]gen_random_uuid\(\)::text/);
+  assert.match(up, /'codeLength',p_code_length[\s\S]*'perCustomerUsage',p_per_customer_usage[\s\S]*'expiresAt'/);
+  assert.match(up, /'used'[\s\S]*'held'[\s\S]*'remaining'/);
+  assert.match(up, /ORDER BY pg_catalog[.]convert_to\(c[.]code,'UTF8'\),c[.]id/);
+  assert.match(up, /'items'[\s\S]*'bundle_price'[\s\S]*'autoAdd'/);
+  assert.match(up, /UPDATE saas[.]promotion_code_batches[\s\S]*status='revoked'[\s\S]*UPDATE saas[.]promotion_codes[\s\S]*status='revoked'/);
+  assert.match(up, /promotion_legacy_list_v1\(p_store_id uuid[\s\S]*p_limit integer,p_snapshot_at timestamptz,p_after_created_at timestamptz,p_after_id uuid\)/);
+  assert.match(up, /promotion_adopt_legacy_discounts_v1\(legacy_store[.]store_id/);
+  assert.equal((up.match(/hashtextextended\('promotion-create:'/g) ?? []).length, 3);
+  assert.match(up, /record[.]record_kind='discount' AND record[.]status='active'/);
+  assert.match(up, /v_cross_version_match/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_code_batch_list_v1/);
+  assert.match(assertions, /PROMOTIONS_STUDIO_CODE_BATCH_SLICE_C_INVALID/);
 });

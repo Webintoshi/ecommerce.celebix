@@ -16,9 +16,9 @@ const historical = new Set(matrix.historicalSnapshots.map(({ file }) => file));
 const requiredHarnesses = Object.freeze([
   Object.freeze({
     file: "tests/saas-phase3/promotions-studio/postgres-harness.mjs",
-    total: 100,
-    line: /^PASS \d+\/100 .+$/gm,
-    completion: /^PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 100\/100$/m,
+    total: 112,
+    line: /^PASS \d+\/112 .+$/gm,
+    completion: /^PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 112\/112$/m,
   }),
   Object.freeze({
     file: "tests/saas-phase3/commerce-analytics-cart-recovery/postgres-harness.mjs",
