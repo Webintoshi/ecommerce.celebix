@@ -166,6 +166,20 @@ test("evaluator request and result are bounded, immutable server truth", () => {
   assert.throws(() => parsePromotionEvaluatorResult({ ...result, gifts: [{ promotionId: ID, variantId: SECOND_ID, quantity: 1, paidMinor: 0 }, { promotionId: ID, variantId: SECOND_ID, quantity: 2, paidMinor: 0 }] }));
 });
 
+test("evaluator context keeps Task 1's dense bounded taxonomy and canonical timestamp rules", () => {
+  const context = {
+    storeId: ID, customerId: null, paidOrderCount: 0, customerSegmentIds: [], customerTagIds: [],
+    cartLines: [{ lineId: ID, position: 0, productId: ID, variantId: SECOND_ID, quantity: 1, unitPriceMinor: 1, unitCostMinor: null, currency: "TRY", categoryIds: [], brandId: null, collectionIds: [] }],
+    shippingMethodId: null, paymentMethodId: null, shippingBeforeDiscountMinor: 0, currency: "TRY", storeLocalTime: NOW, salesChannel: "storefront", submittedCodes: [], abandonedCart: null,
+  };
+  const ids = Array.from({ length: 101 }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`);
+  assert.throws(() => parsePromotionEvaluatorContext({ ...context, customerSegmentIds: ids }));
+  assert.throws(() => parsePromotionEvaluatorContext({ ...context, customerTagIds: ids }));
+  assert.throws(() => parsePromotionEvaluatorContext({ ...context, cartLines: [{ ...context.cartLines[0], categoryIds: ids }] }));
+  assert.throws(() => parsePromotionEvaluatorContext({ ...context, cartLines: [{ ...context.cartLines[0], collectionIds: ids }] }));
+  assert.throws(() => parsePromotionEvaluatorContext({ ...context, storeLocalTime: "2026-02-30T10:00:00.000Z" }));
+});
+
 test("list, detail, simulator, code batch, csv analytics and legacy projections reject authority leaks", () => {
   const list = parsePromotionListQuery({ cursor: null, limit: 25, search: "September", statuses: ["active"] });
   assert.equal(list.limit, 25);
